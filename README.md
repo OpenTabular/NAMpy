@@ -1,10 +1,8 @@
 # NAMGCV: Interpretable (Additive) Tabular Deep Learning
 
-<hr style="border: 1px solid red;">
-
-📚 The paper_list.md includes interesting papers on Additive Models and their 1-2 sentence summaries. If you know any further interesting papers on the topic, please include them in this list. 📝
-
-<hr style="border: 1px solid red;">
+```diff
+- 📚 The paper_list.md includes interesting papers on Additive Models and their 1-2 sentence summaries. If you know any further interesting papers on the topic, please include them in this list. 📝
+```
 
 &nbsp;
 
