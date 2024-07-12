@@ -1,11 +1,12 @@
 # NAMGCV: Interpretable (Additive) Tabular Deep Learning
 
-```diff
-- 📚 The paper_list.md includes interesting papers on Additive Models and their 1-2 sentence summaries. If you know any further interesting papers on the topic, please include them in this list. 📝
-```
+$$\color{red}{\rule{\linewidth}{2pt}}$$
+
+📚 The paper_list.md includes interesting papers on Additive Models and their 1-2 sentence summaries. If you know any further interesting papers on the topic, please include them in this list. 📝
+
+$$\color{red}{\rule{\linewidth}{2pt}}$$
 
 &nbsp;
-
 
 NAMGCV is a Python package that brings the power of advanced deep learning architectures to tabular data, offering a suite of models for regression, classification, and distributional regression tasks. Designed with ease of use in mind, NAMGCV models adhere to scikit-learn's `BaseEstimator` interface, making them highly compatible with the familiar scikit-learn ecosystem. This means you can fit, predict, and evaluate using NAMGCV models just as you would with any traditional scikit-learn model, but with the added performance and flexibility of deep learning.
 
