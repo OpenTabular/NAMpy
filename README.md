@@ -1,10 +1,14 @@
 # NAMGCV: Interpretable (Additive) Tabular Deep Learning
 
-$$\color{red}{\rule{\linewidth}{2pt}}$$
+$$
+\textcolor{red}{\rule{\linewidth}{0.5mm}}
+$$
 
 📚 The paper_list.md includes interesting papers on Additive Models and their 1-2 sentence summaries. If you know any further interesting papers on the topic, please include them in this list. 📝
 
-$$\color{red}{\rule{\linewidth}{2pt}}$$
+$$
+\textcolor{red}{\rule{\linewidth}{0.5mm}}
+$$
 
 &nbsp;
 
