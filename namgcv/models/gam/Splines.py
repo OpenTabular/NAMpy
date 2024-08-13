@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 class CubicSplines:
     def __init__(self, x, k):
 
-        X, S, knots, F = cr_spl(x, n_knots=k)
+        X, S, knots, F = self._cr_spl(x, n_knots=k)
 
         # rescale penalty. Contributes to getting pretty much identical penalty matrix as in mgcv
         S = scale_penalty(X, S)
@@ -88,7 +88,7 @@ class CubicSplines:
         basis = basis @ q[:, 1:]
         return basis, penalty, q[:, 1:]
 
-    def cr_spl(x, n_knots):
+    def _cr_spl(x, n_knots):
         """
 
         :param x: x values to be evalutated
@@ -186,3 +186,53 @@ class CubicSplines:
                 base[i, j - 1] += a_jm
                 base[i, j] += a_jp
         return base
+
+def main():
+    import numpy as np
+    import pandas as pd
+    from scipy.spatial import distance_matrix
+    from scipy.sparse.linalg import eigsh
+    import bisect
+    import matplotlib as mpl
+    import ctypes
+    import scipy
+    import matplotlib.pyplot as plt
+
+    n = 1000
+    x1 = np.random.uniform(-1, 1, n)
+    x2 = np.random.uniform(-5, 5, n)
+    y = x1**2 + np.sin(x2) + np.random.normal(0, 0.01, n)
+
+    x =  np.vstack([x1, x2]).T
+
+    splines = [CubicSplines(x[:,i], k=12) for i in range(x.shape[1])]
+    X = np.hstack([spline.basis for spline in splines])
+
+    smoothing_params = [0.0, 0.0]
+    penalties = [smoothing_params[i] * splines[i].penalty for i in range(x.shape[1])]
+    S = scipy.linalg.block_diag(*penalties)
+
+    analytical_gammas = np.linalg.inv(X.T @ X + S) @X.T @ y
+    for i in range(len(splines)):
+        lower = splines[i].dim_basis * i
+        upper = splines[i].dim_basis * (i+1)
+        splines[i].analytical_gammas = analytical_gammas[lower: upper]
+        splines[i].gammas = analytical_gammas[lower: upper]
+        splines[i].uncenter()
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+
+    # Plot the first spline
+    splines[0].plot(ax=axes[0], intercept=0, plot_analytical=True, col='b', alpha=1, col_analytical='r')
+    axes[0].set_title("Spline for x1")
+
+    # Plot the second spline
+    splines[1].plot(ax=axes[1], intercept=0, plot_analytical=True, col='g', alpha=1, col_analytical='r')
+    axes[1].set_title("Spline for x2")
+
+    # Show the plots
+    plt.tight_layout()
+    plt.show()
+
+if __name__ == '__main__':
+    main()
