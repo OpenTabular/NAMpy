@@ -9,14 +9,12 @@ class GAM:
     def rk(x, z):
         return ((z - 0.5) ** 2 - 1 / 12) * ((x - 0.5) ** 2 - 1 / 12) / 4 - \
             ((np.abs(x - z) - 0.5) ** 4 - (np.abs(x - z) - 0.5) ** 2 / 2 + 7 / 240) / 24
-    
 
 def _mat_sqrt(S):
     """A simple matrix square root"""
     eigenvalues, eigenvectors = eigh(S)
     sqrt_eigenvalues = np.diag(np.sqrt(eigenvalues))
     return eigenvectors @ sqrt_eigenvalues @ eigenvectors.T
-
 
 def _spl_X(x, xk):
     """Set up model matrix for cubic penalized regression spline"""
@@ -28,7 +26,6 @@ def _spl_X(x, xk):
         X[:, i] = rk(x, xk[i-2])  # and remaining columns to R(x, xk)
     return X
 
-
 def _spl_S(xk):
     """Set up the penalized regression spline penalty matrix, given knot sequence xk"""
     q = len(xk) + 2
@@ -37,7 +34,6 @@ def _spl_S(xk):
         for j in range(2, q):
             S[i, j] = rk(xk[i-2], xk[j-2])  # fill in non-zero part
     return S
-
 
 def _setup(x, z, q=10):
     """Get X, S_1 and S_2 for a simple 2 term AM"""
@@ -57,7 +53,6 @@ def _setup(x, z, q=10):
     X[:, q:(2 * q - 1)] = spl_X(z, zk)[:, 1:]  # 2nd smooth
 
     return {"X": X, "S": S}
-
 
 def fit(y, X, S, sp):
     """Function to fit simple 2 term generalized additive model
@@ -85,7 +80,6 @@ def fit(y, X, S, sp):
         norm = np.sum((z[:n] - X1[:n] @ b) ** 2)  # RSS of working model
 
     return {"model": b, "gcv": norm * n / (n - trA) ** 2, "sp": sp}
-
 
 def apply_gcv(y, am_setup_output):
     """Function to apply GCV over a grid of smoothing parameters and find the best one."""
