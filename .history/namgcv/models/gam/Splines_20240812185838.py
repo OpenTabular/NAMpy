@@ -28,7 +28,7 @@ class CubicSplines:
         self.dim_basis = X_centered.shape[1]
         self.F = F
 
-    def uncenter(self):
+    def _uncenter(self):
         self.uncentered_gammas = self.center_mat @ self.gammas
 
 
@@ -38,7 +38,7 @@ class CubicSplines:
         return basis
 
 
-    def plot(self, ax=None, intercept=0, plot_analytical=False, col='b', alpha=1, col_analytical='r'):
+    def _plot(self, ax=None, intercept=0, plot_analytical=False, col='b', alpha=1, col_analytical='r'):
 
         # evaluate x_plot
         basis = self._cr_spl_predict(self.x_plot, knots=self.knots, F=self.F)
@@ -60,7 +60,7 @@ class CubicSplines:
             ax.plot(self.x_plot, y_fitted, col, alpha=alpha)
 
     
-    def _scale_penalty(self, basis, penalty):
+    def _scale_penalty(basis, penalty):
         """
         rescale the penalty matrix based on the design matrix of the smoother
         from mgcv to get penalties that react comparably to smoothing parameters
@@ -74,7 +74,7 @@ class CubicSplines:
         return penalty
 
 
-    def _identconst(self, basis, penalty):
+    def _identconst(basis, penalty):
         """
         create constraint matrix and absorb identifiability constraint into model matrices:
         returns centered model matrices as well orthogonal factor Z to map centered matrices
@@ -114,7 +114,7 @@ class CubicSplines:
         S = D.T @ np.linalg.inv(B) @ D
         return F, S
 
-    def _cr_spl(self, x, n_knots):
+    def _cr_spl(x, n_knots):
         """
 
         :param x: x values to be evalutated
@@ -145,7 +145,7 @@ class CubicSplines:
 
     
 
-    def _cr_spl_predict(self, x, knots, F):
+    def _cr_spl_predict(x, knots, F):
         """
         pretty much the same as cr_spl, this time evaluating it for already given knots and F
         (could probably just be integrated into cr_spl)
@@ -188,56 +188,3 @@ class CubicSplines:
                 base[i, j - 1] += a_jm
                 base[i, j] += a_jp
         return base
-
-def main():
-    # prompt: simulate some data with two variables and a y target variable which is the sum of the two feature effects
-
-    import numpy as np
-    import numpy as np
-    import pandas as pd
-    from scipy.spatial import distance_matrix
-    from scipy.sparse.linalg import eigsh
-    import bisect
-    import matplotlib as mpl
-    import ctypes
-    import scipy
-    import matplotlib.pyplot as plt
-    n = 1000
-    x1 = np.random.uniform(-1, 1, n)
-    x2 = np.random.uniform(-5, 5, n)
-    y = x1**2 + np.sin(x2) + np.random.normal(0, 0.01, n)
-
-    x =  np.vstack([x1, x2]).T
-    splines = [CubicSplines(x[:,i], k=12) for i in range(x.shape[1])]
-    X = np.hstack([spline.basis for spline in splines])
-    smoothing_params = [0.0, 0.0]
-    penalties = [smoothing_params[i] * splines[i].penalty for i in range(x.shape[1])]
-    S = scipy.linalg.block_diag(*penalties)
-    analytical_gammas = np.linalg.inv(X.T @ X + S) @X.T @ y
-    for i in range(len(splines)):
-        lower = splines[i].dim_basis * i
-        upper = splines[i].dim_basis * (i+1)
-        splines[i].analytical_gammas = analytical_gammas[lower: upper]
-        splines[i].gammas = analytical_gammas[lower: upper]
-        splines[i].uncenter()
-
-
-
-    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-
-    # Plot the first spline
-    splines[0].plot(ax=axes[0], intercept=0, plot_analytical=True, col='b', alpha=1, col_analytical='r')
-    axes[0].set_title("Spline for x1")
-
-    # Plot the second spline
-    splines[1].plot(ax=axes[1], intercept=0, plot_analytical=True, col='g', alpha=1, col_analytical='r')
-    axes[1].set_title("Spline for x2")
-
-    # Show the plots
-    plt.tight_layout()
-    plt.show()
-
-# Using the special variable 
-# __name__
-if __name__=="__main__":
-    main()

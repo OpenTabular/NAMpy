@@ -38,7 +38,7 @@ class CubicSplines:
         return basis
 
 
-    def plot(self, ax=None, intercept=0, plot_analytical=False, col='b', alpha=1, col_analytical='r'):
+    def _plot(self, ax=None, intercept=0, plot_analytical=False, col='b', alpha=1, col_analytical='r'):
 
         # evaluate x_plot
         basis = self._cr_spl_predict(self.x_plot, knots=self.knots, F=self.F)

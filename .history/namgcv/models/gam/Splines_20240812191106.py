@@ -28,7 +28,7 @@ class CubicSplines:
         self.dim_basis = X_centered.shape[1]
         self.F = F
 
-    def uncenter(self):
+    def _uncenter(self):
         self.uncentered_gammas = self.center_mat @ self.gammas
 
 
@@ -38,7 +38,7 @@ class CubicSplines:
         return basis
 
 
-    def plot(self, ax=None, intercept=0, plot_analytical=False, col='b', alpha=1, col_analytical='r'):
+    def _plot(self, ax=None, intercept=0, plot_analytical=False, col='b', alpha=1, col_analytical='r'):
 
         # evaluate x_plot
         basis = self._cr_spl_predict(self.x_plot, knots=self.knots, F=self.F)
@@ -193,15 +193,6 @@ def main():
     # prompt: simulate some data with two variables and a y target variable which is the sum of the two feature effects
 
     import numpy as np
-    import numpy as np
-    import pandas as pd
-    from scipy.spatial import distance_matrix
-    from scipy.sparse.linalg import eigsh
-    import bisect
-    import matplotlib as mpl
-    import ctypes
-    import scipy
-    import matplotlib.pyplot as plt
     n = 1000
     x1 = np.random.uniform(-1, 1, n)
     x2 = np.random.uniform(-5, 5, n)
@@ -220,7 +211,15 @@ def main():
         splines[i].analytical_gammas = analytical_gammas[lower: upper]
         splines[i].gammas = analytical_gammas[lower: upper]
         splines[i].uncenter()
-
+    import numpy as np
+    import pandas as pd
+    from scipy.spatial import distance_matrix
+    from scipy.sparse.linalg import eigsh
+    import bisect
+    import matplotlib as mpl
+    import ctypes
+    import scipy
+    import matplotlib.pyplot as plt
 
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
