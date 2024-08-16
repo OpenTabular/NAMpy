@@ -3,8 +3,60 @@ from scipy.linalg import sqrtm, eigh
 from scipy.stats import mstats
 
 class GAM:
-    def __init__(self):
-        pass
+    def __init__(self, 
+                formula=None, 
+                family='gaussian', 
+                data=pd.DataFrame(), 
+                weights=None, 
+                subset=None, 
+                na_action='drop', 
+                offset=None, 
+                method="GCV.Cp", 
+                optimizer=("outer", "newton"), 
+                control=None, 
+                scale=0, 
+                select=False, 
+                knots=None, 
+                sp=None, 
+                min_sp=None, 
+                H=None, 
+                gamma=1.0, 
+                fit=True, 
+                paraPen=None, 
+                G=None, 
+                in_out=None, 
+                drop_unused_levels=True, 
+                drop_intercept=None, 
+                nei=None, 
+                discrete=False, 
+                **kwargs):
+        
+    self.formula = formula
+    self.family = family
+    self.data = data
+    self.weights = weights
+    self.subset = subset
+    self.na_action = na_action
+    self.offset = offset
+    self.method = method
+    self.optimizer = optimizer
+    self.control = control if control is not None else {}
+    self.scale = scale
+    self.select = select
+    self.knots = knots
+    self.sp = sp
+    self.min_sp = min_sp
+    self.H = H
+    self.gamma = gamma
+    self.fit = fit
+    self.paraPen = paraPen
+    self.G = G
+    self.in_out = in_out
+    self.drop_unused_levels = drop_unused_levels
+    self.drop_intercept = drop_intercept
+    self.nei = nei
+    self.discrete = discrete
+    self.additional_args = kwargs
 
 def rk(x, z):
     return ((z - 0.5) ** 2 - 1 / 12) * ((x - 0.5) ** 2 - 1 / 12) / 4 - \
