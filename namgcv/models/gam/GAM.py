@@ -2,6 +2,8 @@ import numpy as np
 from scipy.linalg import sqrtm, eigh
 import pandas as pd
 from Splines import CubicSplines
+import itertools
+
 
 class GAM:
     def __init__(self, 
@@ -49,7 +51,7 @@ class GAM:
         self.min_sp = min_sp
         self.H = H
         self.gamma = gamma
-        self.fit = fit
+        #self.fit = fit
         self.paraPen = paraPen
         self.G = G
         self.in_out = in_out
@@ -62,18 +64,41 @@ class GAM:
         self.data = data
         self.X = self.data.iloc[:, 1:]
         self.y = self.data.iloc[:, 0]
+    
+    
         
-
     def fit(self):
-        """Function to fit simple 2 term generalized additive model with Gamma errors and log link"""
-        # Assuming sp, S are defined
-        sp = self.sp
-        S = [self._spl_S(self.X.iloc[:, i]) for i in range(self.X.shape[1])]
         
-        rS = self._mat_sqrt(sp[0] * S[0] + sp[1] * S[1])
-        q = self.X.shape[1]  # number of params
-        n = self.X.shape[0]  # number of data points
-        X1 = np.vstack([self.X, rS])  # augmented model matrix
+        # Initialize smoothing parameter (s.p.) array with a specified size
+
+        sp_size = self.X.shape[1]  # for example, sp can have 3 elements
+        sp = [0] * sp_size
+        best = None
+        S = [CubicSplines(self.X.iloc[:,i], k=12).S for i in range(self.X.shape[1])]
+
+        # Generate the range for the grid search
+        sp_ranges = [range(1, 31)] * sp_size
+
+        # Loop over s.p. grid
+        for indices in itertools.product(*sp_ranges):
+            for k in range(sp_size):
+                sp[k] = 1e-5 * 2**(indices[k]-1)  # update each element of sp
+            b = self.fit_GAM(self.y, self.X, S, sp)  # fit using s.p.s
+            if best is None or b['gcv'] < best['gcv']:
+                best = b  # store best model
+        print(b)
+
+
+    def fit_GAM(self, y, X, S, sp):
+        """Function to fit generalized additive model with Gamma errors and log link, allowing for variable number of smoothing terms."""
+
+        # Initialize rS as a weighted sum of the smoothing matrices in S
+        rS = sum(sp[i] * S[i] for i in range(len(S)))
+
+        rS = self._mat_sqrt(rS)
+        q = X.shape[1]  # number of parameters
+        n = X.shape[0]  # number of data points
+        X1 = np.vstack([X, rS])  # augmented model matrix
 
         b = np.zeros(q)
         b[0] = 1  # initialize parameters
@@ -83,7 +108,7 @@ class GAM:
         while np.abs(norm - old_norm) > 1e-4 * norm:  # repeat until converged
             eta = X1 @ b  # linear predictor
             mu = np.exp(eta[:n])  # fitted values
-            z = (self.y - mu) / mu + eta[:n]  # pseudodata
+            z = (y - mu) / mu + eta[:n]  # pseudodata
             z = np.hstack([z, np.zeros(q)])  # augmented pseudodata
             b = np.linalg.lstsq(X1, z, rcond=None)[0]  # fit penalized working model
             hat_matrix_diag = np.linalg.lstsq(X1.T @ X1, X1.T, rcond=None)[0].diagonal()[:n]
@@ -92,6 +117,7 @@ class GAM:
             norm = np.sum((z[:n] - X1[:n] @ b) ** 2)  # RSS of working model
 
         return {"model": b, "gcv": norm * n / (n - trA) ** 2, "sp": sp}
+
 
     def rk(self, x, z):
         return ((z - 0.5) ** 2 - 1 / 12) * ((x - 0.5) ** 2 - 1 / 12) / 4 - \
@@ -122,18 +148,3 @@ class GAM:
                 S[i, j] = self.rk(xk[i-2], xk[j-2])  # fill in non-zero part
         return S
 
-    def apply_gcv(self, y, am_setup_output):
-        """Function to apply GCV over a grid of smoothing parameters and find the best one."""
-        best = None
-        best_sp = [0, 0]  # initialize smoothing parameters
-        
-        for i in range(1, 31):  # loop over s.p. grid
-            for j in range(1, 31):
-                sp = [1e-5 * 2 ** (i - 1), 1e-5 * 2 ** (j - 1)]
-                b = self.fit_gamG(y, am_setup_output["X"], am_setup_output["S"], sp)  # fit using s.p.s
-                
-                if best is None or b["gcv"] < best["gcv"]:
-                    best = b  # store best model
-                    best_sp = sp  # store best smoothing parameters
-
-        return best_sp, best  # return the best smoothing parameters and the model

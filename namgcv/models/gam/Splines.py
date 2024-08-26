@@ -145,6 +145,9 @@ class CubicSplines:
 
         X, S, knots, F = cr_spl(x, n_knots=k)
 
+        self.S = S
+        self.X = X
+
         # rescale penalty. Contributes to getting pretty much identical penalty matrix as in mgcv
         S = scale_penalty(X, S)
         # center
@@ -159,7 +162,7 @@ class CubicSplines:
         self.x_plot = np.linspace(x.min(), x.max(), 1000).reshape(1000, 1)
         self.dim_basis = X_centered.shape[1]
         self.F = F
-
+    
 
     def uncenter(self):
         self.uncentered_gammas = self.center_mat @ self.gammas
