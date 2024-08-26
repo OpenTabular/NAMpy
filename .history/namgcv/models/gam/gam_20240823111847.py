@@ -2,8 +2,6 @@ import numpy as np
 from scipy.linalg import sqrtm, eigh
 from scipy.stats import mstats
 import pandas as pd
-from scipy.linalg import sqrtm
-from sklearn.linear_model import LinearRegression
 
 class GAM:
     def __init__(
@@ -162,52 +160,3 @@ class GAM:
                     best_sp = sp  # store best smoothing parameters
 
         return best_sp, best  # return the best smoothing parameters and the model
-
-    def fit_gamG(y, X, S, sp):
-        """
-        Fit a simple 2-term generalized additive model with Gamma errors and log link.
-        
-        Parameters:
-        y -- response variable
-        X -- model matrix
-        S -- list of penalty matrices
-        sp -- list of smoothing parameters
-        
-        Returns:
-        A dictionary with the fitted model, GCV value, and smoothing parameters.
-        """
-        # Compute the square root of the combined penalty matrix
-        rS = mat_sqrt(sp[0] * S[0] + sp[1] * S[1])
-        q = X.shape[1]  # number of parameters
-        n = X.shape[0]  # number of data points
-        X1 = np.vstack([X, rS])  # augmented model matrix
-        
-        # Initialize parameters
-        b = np.zeros(q)
-        b[0] = 1
-        norm = 0
-        old_norm = 1  # initialize convergence control
-        
-        # Iteratively fit the model until convergence
-        while np.abs(norm - old_norm) > 1e-4 * norm:
-            eta = X1 @ b  # linear predictor
-            mu = np.exp(eta[:n])  # fitted values
-            z = (y - mu) / mu + eta[:n]  # pseudodata
-            z = np.hstack([z, np.zeros(q)])  # augmented pseudodata
-            
-            # Fit the penalized working model
-            model = LinearRegression(fit_intercept=False).fit(X1, z)
-            b = model.coef_  # update parameter estimates
-            
-            # Compute trace of the hat matrix (tr(A))
-            hat_matrix_diag = np.linalg.lstsq(X1.T @ X1, X1.T, rcond=None)[0].diagonal()[:n]
-            trA = np.sum(hat_matrix_diag)
-            
-            # Update the norms for convergence check
-            old_norm = norm
-            norm = np.sum((z[:n] - X1[:n] @ b) ** 2)  # RSS of working model
-        
-        # Compute GCV
-        gcv = norm * n / (n - trA) ** 2
-        
-        return {"model": model, "gcv": gcv, "sp": sp}

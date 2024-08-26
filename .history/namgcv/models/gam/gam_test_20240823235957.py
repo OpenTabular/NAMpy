@@ -10,4 +10,4 @@ x = np.random.normal(size=100)
 z = np.random.normal(size=100)
 
 g = GAM()
-g._setup(x, z, q=10)
+g.fit(x, z, q=10)
