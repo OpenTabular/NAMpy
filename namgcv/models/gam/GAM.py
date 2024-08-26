@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.linalg import sqrtm, eigh
 from scipy.stats import mstats
+import pandas as pd
 
 class GAM:
     def __init__(self, 
@@ -31,32 +32,42 @@ class GAM:
                 discrete=False, 
                 **kwargs):
         
-    self.formula = formula
-    self.family = family
-    self.data = data
-    self.weights = weights
-    self.subset = subset
-    self.na_action = na_action
-    self.offset = offset
-    self.method = method
-    self.optimizer = optimizer
-    self.control = control if control is not None else {}
-    self.scale = scale
-    self.select = select
-    self.knots = knots
-    self.sp = sp
-    self.min_sp = min_sp
-    self.H = H
-    self.gamma = gamma
-    self.fit = fit
-    self.paraPen = paraPen
-    self.G = G
-    self.in_out = in_out
-    self.drop_unused_levels = drop_unused_levels
-    self.drop_intercept = drop_intercept
-    self.nei = nei
-    self.discrete = discrete
-    self.additional_args = kwargs
+        self.formula = formula
+        self.family = family
+        self.data = data
+        self.weights = weights
+        self.subset = subset
+        self.na_action = na_action
+        self.offset = offset
+        self.method = method
+        self.optimizer = optimizer
+        self.control = control if control is not None else {}
+        self.scale = scale
+        self.select = select
+        self.knots = knots
+        self.sp = sp
+        self.min_sp = min_sp
+        self.H = H
+        self.gamma = gamma
+        self.fit = fit
+        self.paraPen = paraPen
+        self.G = G
+        self.in_out = in_out
+        self.drop_unused_levels = drop_unused_levels
+        self.drop_intercept = drop_intercept
+        self.nei = nei
+        self.discrete = discrete
+        self.additional_args = kwargs
+
+        self.data = data
+        self.X = self.data.iloc[:, 1:]
+        self.y = self.data.ilc[:, 1]
+
+        #helper functions
+
+        self._setup()
+
+
 
 def rk(x, z):
     return ((z - 0.5) ** 2 - 1 / 12) * ((x - 0.5) ** 2 - 1 / 12) / 4 - \
@@ -91,9 +102,16 @@ def _spl_S(xk):
     return S
 
 
-def _setup(x, z, q=10):
+def _setup(self):
+    # x, z, q=10
     """Get X, S_1 and S_2 for a simple 2 term AM"""
     # choose knots
+
+    q= 10
+
+    xk = self.data[:,1]
+    zk = self.data[:,2]
+
     xk = mstats.mquantiles(np.unique(x), prob=np.linspace(1 / (q - 1), 1 - 1 / (q - 1), q - 2))
     zk = mstats.mquantiles(np.unique(z), prob=np.linspace(1 / (q - 1), 1 - 1 / (q - 1), q - 2))
 
@@ -111,10 +129,14 @@ def _setup(x, z, q=10):
     return {"X": X, "S": S}
 
 
-def fit(y, X, S, sp):
+def fit():
     """Function to fit simple 2 term generalized additive model
        with Gamma errors and log link"""
     # get sqrt of combined penalty matrix
+
+    y, X, S, sp
+
+
     rS = mat_sqrt(sp[0] * S[0] + sp[1] * S[1])
     q = X.shape[1]  # number of params
     n = X.shape[0]  # number of data points
