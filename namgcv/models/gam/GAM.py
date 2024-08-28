@@ -117,11 +117,6 @@ class GAM:
             norm = np.sum((z[:n] - X1[:n] @ b) ** 2)  # RSS of working model
 
         return {"model": b, "gcv": norm * n / (n - trA) ** 2, "sp": sp}
-
-
-    def rk(self, x, z):
-        return ((z - 0.5) ** 2 - 1 / 12) * ((x - 0.5) ** 2 - 1 / 12) / 4 - \
-            ((np.abs(x - z) - 0.5) ** 4 - (np.abs(x - z) - 0.5) ** 2 / 2 + 7 / 240) / 24
     
     def _mat_sqrt(self, S):
         """A simple matrix square root"""
