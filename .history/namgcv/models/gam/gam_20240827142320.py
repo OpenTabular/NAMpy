@@ -74,8 +74,7 @@ class GAM:
         sp_size = self.X.shape[1]  # for example, sp can have 3 elements
         sp = [0] * sp_size
         best = None
-        Ss = [CubicSplines(self.X.iloc[:, i], k=12).get_S() for i in range(self.X.shape[1])]
-        bases = [CubicSplines(self.X.iloc[:, i], k=12).get_Base() for i in range(self.X.shape[1])]
+        bases, Ss = [CubicSplines(self.X.iloc[:,i], k=12).S for i in range(self.X.shape[1])]
 
         # Generate the range for the grid search
         sp_ranges = [range(1, 31)] * sp_size
@@ -84,7 +83,7 @@ class GAM:
         for indices in itertools.product(*sp_ranges):
             for k in range(sp_size):
                 sp[k] = 1e-5 * 2**(indices[k]-1)  # update each element of sp
-            b = self.fit_GAM(self.y, bases, Ss, sp)  # fit using s.p.s
+            b = self.fit_GAM(self.y, bases[k], Ss[k], sp)  # fit using s.p.s
             if best is None or b['gcv'] < best['gcv']:
                 best = b  # store best model
         print(b)
@@ -118,6 +117,11 @@ class GAM:
             norm = np.sum((z[:n] - X1[:n] @ b) ** 2)  # RSS of working model
 
         return {"model": b, "gcv": norm * n / (n - trA) ** 2, "sp": sp}
+
+
+    def rk(self, x, z):
+        return ((z - 0.5) ** 2 - 1 / 12) * ((x - 0.5) ** 2 - 1 / 12) / 4 - \
+            ((np.abs(x - z) - 0.5) ** 4 - (np.abs(x - z) - 0.5) ** 2 / 2 + 7 / 240) / 24
     
     def _mat_sqrt(self, S):
         """A simple matrix square root"""
