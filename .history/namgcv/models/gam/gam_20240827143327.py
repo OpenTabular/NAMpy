@@ -74,8 +74,8 @@ class GAM:
         sp_size = self.X.shape[1]  # for example, sp can have 3 elements
         sp = [0] * sp_size
         best = None
-        Ss = [CubicSplines(self.X.iloc[:, i], k=12).get_S() for i in range(self.X.shape[1])]
-        bases = [CubicSplines(self.X.iloc[:, i], k=12).get_Base() for i in range(self.X.shape[1])]
+        Ss = [CubicSplines(self.X.iloc[:, i], k=12).S for i in range(self.X.shape[1])]
+        bases = [CubicSplines(self.X.iloc[:, i], k=12).S for i in range(self.X.shape[1])]
 
         # Generate the range for the grid search
         sp_ranges = [range(1, 31)] * sp_size

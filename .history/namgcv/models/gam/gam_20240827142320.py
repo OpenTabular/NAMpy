@@ -74,8 +74,7 @@ class GAM:
         sp_size = self.X.shape[1]  # for example, sp can have 3 elements
         sp = [0] * sp_size
         best = None
-        Ss = [CubicSplines(self.X.iloc[:, i], k=12).get_S() for i in range(self.X.shape[1])]
-        bases = [CubicSplines(self.X.iloc[:, i], k=12).get_Base() for i in range(self.X.shape[1])]
+        bases, Ss = [CubicSplines(self.X.iloc[:,i], k=12).S for i in range(self.X.shape[1])]
 
         # Generate the range for the grid search
         sp_ranges = [range(1, 31)] * sp_size
@@ -84,7 +83,7 @@ class GAM:
         for indices in itertools.product(*sp_ranges):
             for k in range(sp_size):
                 sp[k] = 1e-5 * 2**(indices[k]-1)  # update each element of sp
-            b = self.fit_GAM(self.y, bases, Ss, sp)  # fit using s.p.s
+            b = self.fit_GAM(self.y, bases[k], Ss[k], sp)  # fit using s.p.s
             if best is None or b['gcv'] < best['gcv']:
                 best = b  # store best model
         print(b)
