@@ -30,6 +30,7 @@ from ..utils.distributions import (
     NormalDistribution,
     PoissonDistribution,
     StudentTDistribution,
+    Quantile,
 )
 
 
@@ -217,6 +218,7 @@ class SklearnBaseLSS(BaseEstimator):
             "negativebinom": NegativeBinomialDistribution,
             "inversegamma": InverseGammaDistribution,
             "categorical": CategoricalDistribution,
+            "quantile": Quantile,
         }
 
         if distributional_kwargs is None:
@@ -295,6 +297,19 @@ class SklearnBaseLSS(BaseEstimator):
         return self
 
     def predict(self, X, raw=False):
+        predictions = self._predict(X)["output"]
+
+        if not raw:
+            return self.model.family(predictions).cpu().numpy()
+
+        # Convert predictions to NumPy array and return
+        else:
+            return predictions.cpu().numpy()
+
+    def predict_feature_vals(self, X):
+        return self._predict(X)
+
+    def _predict(self, X):
         """
         Predicts target values for the given input samples.
 
@@ -302,7 +317,6 @@ class SklearnBaseLSS(BaseEstimator):
         ----------
         X : DataFrame or array-like, shape (n_samples, n_features)
             The input samples for which to predict target values.
-
 
         Returns
         -------
@@ -332,13 +346,9 @@ class SklearnBaseLSS(BaseEstimator):
         with torch.no_grad():
             predictions = self.model(
                 num_features=num_tensor_dict, cat_features=cat_tensor_dict
-            )["output"]
-        if not raw:
-            return self.model.family(predictions).cpu().numpy()
+            )
 
-        # Convert predictions to NumPy array and return
-        else:
-            return predictions.cpu().numpy()
+        return predictions
 
     def evaluate(self, X, y_true, metrics=None, distribution_family=None):
         """
