@@ -11,6 +11,7 @@ from ..arch_utils.normalization_layers import (
     GroupNorm,
 )
 import matplotlib.pyplot as plt
+from itertools import combinations
 
 
 class NAM(BaseModel):
@@ -46,6 +47,21 @@ class NAM(BaseModel):
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
         self.num_classes = num_classes
+        self.interaction_degree = self.hparams.get(
+            "interaction_degree", config.interaction_degree
+        )
+        if self.hparams.get("intercept", config.intercept):
+            self.intercept = nn.Parameter(
+                torch.zeros(
+                    num_classes,
+                )
+            )
+        else:
+            self.intercept = None
+
+        self.feature_dropout = nn.Dropout(
+            self.hparams.get("feature_dropout", config.feature_dropout)
+        )
 
         # Initialize sub-networks for each feature
         self.num_feature_networks = nn.ModuleDict()
@@ -59,6 +75,33 @@ class NAM(BaseModel):
             self.cat_feature_networks[feature_name] = self._create_subnetwork(
                 1, config
             )  # Categorical features are typically encoded as single values
+
+        if self.interaction_degree is not None and self.interaction_degree >= 2:
+            self.interaction_networks = nn.ModuleDict()
+            all_feature_names = list(num_feature_info.keys()) + list(
+                cat_feature_info.keys()
+            )
+
+            # Add pairwise and higher interactions up to the specified degree
+            for degree in range(2, self.interaction_degree + 1):
+                for interaction in combinations(all_feature_names, degree):
+                    interaction_name = ":".join(
+                        interaction
+                    )  # e.g., "feature1_feature2"
+                    input_dim = 0
+
+                    # Calculate input dimension for the interaction
+                    for feature in interaction:
+                        if feature in num_feature_info:
+                            input_dim += num_feature_info[feature]  # Numerical features
+                        elif feature in cat_feature_info:
+                            input_dim += cat_feature_info[
+                                feature
+                            ]  # Categorical features (assumed 1 if encoded)
+
+                    self.interaction_networks[interaction_name] = (
+                        self._create_subnetwork(input_dim, config)
+                    )
 
     def _create_subnetwork(self, input_dim, config):
         """
@@ -160,13 +203,43 @@ class NAM(BaseModel):
             feature_output = feature_network(cat_features[feature_name])
             cat_outputs[feature_name] = feature_output
 
-        # Sum all feature outputs
-        all_outputs = list(num_outputs.values()) + list(cat_outputs.values())
-        x = torch.stack(all_outputs, dim=1).sum(dim=1)
+        # Handle interaction networks
+        interaction_outputs = {}
+        if self.interaction_degree is not None and self.interaction_degree >= 2:
+            all_features = {
+                **num_features,
+                **cat_features,
+            }  # Combine numerical and categorical features
+            for (
+                interaction_name,
+                interaction_network,
+            ) in self.interaction_networks.items():
+                feature_names = interaction_name.split(":")
+                input_features = torch.cat(
+                    [all_features[fn] for fn in feature_names], dim=-1
+                )
+                interaction_output = interaction_network(input_features)
+                interaction_outputs[interaction_name] = interaction_output
+
+        # Sum all feature outputs (main effects) and interaction outputs
+        all_outputs = (
+            list(num_outputs.values())
+            + list(cat_outputs.values())
+            + list(interaction_outputs.values())
+        )
+        # feature dropout and sum
+        x = self.feature_dropout(torch.cat(all_outputs, dim=1)).sum(dim=1)
+
+        # intercept
+        if self.intercept is not None:
+            x += self.intercept
 
         # Combine the output tensor with the original feature values
         result = {"output": x}
         result.update(num_outputs)
         result.update(cat_outputs)
+        result.update(interaction_outputs)
+        if self.intercept is not None:
+            result["intercept"] = self.intercept
 
         return result
