@@ -19,7 +19,7 @@ Hence, they are available as e.g. `NAMRegressor`, `NAMClassifier` or `NAMLSS`.
 5. NAMformer
 6. QNAM
 7. Linear Regression (Neural)
-8. GAM (Base architectire)
+8. GAM (Base architecture)
 
 
 ## Fit a Model
