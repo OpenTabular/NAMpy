@@ -10,7 +10,16 @@ NAMGCV is a Python package that brings the power of advanced deep learning archi
 All models are available for `regression`, `classification` and distributional regression, denoted by `LSS`.
 Hence, they are available as e.g. `NAMRegressor`, `NAMClassifier` or `NAMLSS`.
 
-So far there are implemented `NAM` and `LinReg` BaseModels.
+## Integrated Models:
+
+1. NAM
+2. GPNAM
+3. NBM
+4. NATT
+5. NAMformer
+6. QNAM
+7. Linear Regression (Neural)
+8. GAM (Base architectire)
 
 
 ## Fit a Model
