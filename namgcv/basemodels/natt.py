@@ -67,9 +67,9 @@ class NATT(BaseModel):
 
         # Initialize sub-networks for each feature
         self.num_feature_networks = nn.ModuleDict()
-        for feature_name, input_shape in num_feature_info.items():
+        for feature_name, info in num_feature_info.items():
             self.num_feature_networks[feature_name] = self._create_subnetwork(
-                input_shape, config
+                info["dimension"], config
             )
 
         self.embedding_layer = EmbeddingLayer(
@@ -84,7 +84,6 @@ class NATT(BaseModel):
             ),
             use_cls=True,
             cls_position=0,
-            cat_encoding=self.hparams.get("cat_encoding", config.cat_encoding),
         )
 
         self.tabular_head = MLP(
@@ -127,31 +126,87 @@ class NATT(BaseModel):
         )
 
         if self.interaction_degree is not None and self.interaction_degree >= 2:
-            self.interaction_networks = nn.ModuleDict()
-            all_feature_names = list(num_feature_info.keys()) + list(
-                cat_feature_info.keys()
+            self._create_interaction_networks(
+                num_feature_info=num_feature_info,
+                cat_feature_info=cat_feature_info,
+                config=config,
             )
 
-            # Add pairwise and higher interactions up to the specified degree
-            for degree in range(2, self.interaction_degree + 1):
-                for interaction in combinations(all_feature_names, degree):
-                    interaction_name = ":".join(
-                        interaction
-                    )  # e.g., "feature1_feature2"
-                    input_dim = 0
+    def _create_interaction_networks(self, num_feature_info, cat_feature_info, config):
+        """
+        Creates networks for modeling feature interactions.
 
-                    # Calculate input dimension for the interaction
-                    for feature in interaction:
-                        if feature in num_feature_info:
-                            input_dim += num_feature_info[feature]  # Numerical features
-                        elif feature in cat_feature_info:
-                            input_dim += cat_feature_info[
-                                feature
-                            ]  # Categorical features (assumed 1 if encoded)
+        Parameters
+        ----------
+        num_feature_info : dict
+            Information about numerical features.
+        cat_feature_info : dict
+            Information about categorical features.
+        config : DefaultNAMConfig
+            Configuration dataclass containing model hyperparameters.
+        """
 
-                    self.interaction_networks[interaction_name] = (
-                        self._create_subnetwork(input_dim, config)
-                    )
+        self.interaction_networks = nn.ModuleDict()
+        all_feature_names = list(num_feature_info.keys()) + list(
+            cat_feature_info.keys()
+        )
+
+        # Add pairwise and higher interactions up to the specified degree
+        for degree in range(2, self.interaction_degree + 1):
+            for interaction in combinations(all_feature_names, degree):
+                interaction_name = ":".join(interaction)  # e.g., "feature1_feature2"
+                input_dim = 0
+
+                # Calculate input dimension for the interaction
+                for feature in interaction:
+                    if feature in num_feature_info:
+                        input_dim += num_feature_info[feature][
+                            "dimension"
+                        ]  # Numerical features
+                    elif feature in cat_feature_info:
+                        input_dim += cat_feature_info[feature]["dimension"]
+
+                self.interaction_networks[interaction_name] = self._create_subnetwork(
+                    input_dim, config
+                )
+
+    def _interaction_forward(self, num_features: dict, cat_features: dict):
+        """
+        Forward pass for the interaction networks.
+
+        Parameters
+        ----------
+        num_features : dict
+            Dictionary of numerical features with feature names as keys.
+        cat_features : dict
+            Dictionary of categorical features with feature names as keys.
+
+        Returns
+        -------
+        dict
+            Outputs from the interaction networks, keyed by interaction names.
+        """
+        # Handle interaction networks
+        interaction_outputs = {}
+        if self.interaction_degree is not None and self.interaction_degree >= 2:
+            all_features = {
+                **num_features,
+                **cat_features,
+            }  # Combine numerical and categorical features
+            for (
+                interaction_name,
+                interaction_network,
+            ) in self.interaction_networks.items():
+                feature_names = interaction_name.split(":")
+                input_features = torch.cat(
+                    [all_features[fn] for fn in feature_names], dim=-1
+                )
+                interaction_output = interaction_network(
+                    torch.tensor(input_features, dtype=torch.float32)
+                )
+                interaction_outputs[interaction_name] = interaction_output
+
+        return interaction_outputs
 
     def _create_subnetwork(self, input_dim, config):
         """
@@ -255,23 +310,9 @@ class NATT(BaseModel):
         cat_vals = self.tabular_head(cat_vals)
         cat_outputs = {"cat_output": cat_vals}
 
-        # Handle interaction networks
-        interaction_outputs = {}
-        if self.interaction_degree is not None and self.interaction_degree >= 2:
-            all_features = {
-                **num_features,
-                **cat_features,
-            }  # Combine numerical and categorical features
-            for (
-                interaction_name,
-                interaction_network,
-            ) in self.interaction_networks.items():
-                feature_names = interaction_name.split(":")
-                input_features = torch.cat(
-                    [all_features[fn] for fn in feature_names], dim=-1
-                )
-                interaction_output = interaction_network(input_features)
-                interaction_outputs[interaction_name] = interaction_output
+        interaction_outputs = self._interaction_forward(
+            num_features=num_features, cat_features=cat_features
+        )
 
         # Sum all feature outputs (main effects) and interaction outputs
         all_outputs = (

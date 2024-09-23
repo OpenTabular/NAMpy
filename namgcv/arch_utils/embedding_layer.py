@@ -12,7 +12,6 @@ class EmbeddingLayer(nn.Module):
         layer_norm_after_embedding=False,
         use_cls=False,
         cls_position=0,
-        cat_encoding="int",
     ):
         """
         Embedding layer that handles numerical and categorical embeddings.
@@ -50,27 +49,26 @@ class EmbeddingLayer(nn.Module):
         self.num_embeddings = nn.ModuleList(
             [
                 nn.Sequential(
-                    nn.Linear(input_shape, d_model, bias=False),
+                    nn.Linear(info["dimension"], d_model, bias=False),
                     self.embedding_activation,
                 )
-                for feature_name, input_shape in num_feature_info.items()
+                for feature_name, info in num_feature_info.items()
             ]
         )
 
         self.cat_embeddings = nn.ModuleList()
-        for feature_name, num_categories in cat_feature_info.items():
-            if cat_encoding == "int":
+        for feature_name, info in cat_feature_info.items():
+            if info["encoding"] == "ordinal":
                 self.cat_embeddings.append(
                     nn.Sequential(
-                        nn.Embedding(num_categories + 1, d_model),
+                        nn.Embedding(info["dimension"], d_model),
                         self.embedding_activation,
                     )
                 )
-            elif cat_encoding == "one-hot":
+            elif info["encoding"] == "one-hot":
                 self.cat_embeddings.append(
                     nn.Sequential(
-                        OneHotEncoding(num_categories),
-                        nn.Linear(num_categories, d_model, bias=False),
+                        nn.Linear(info["dimension"], d_model, bias=False),
                         self.embedding_activation,
                     )
                 )

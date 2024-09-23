@@ -77,10 +77,12 @@ class GPNAM(BaseModel):
         int
             Total input dimension.
         """
-        num_dim = sum(num_feature_info.values())  # Sum dimensions of numerical features
-        cat_dim = sum(
-            cat_feature_info.values()
-        )  # Sum dimensions of categorical features
+        num_dim = 0
+        for feature, info in num_feature_info.items():
+            num_dim += info["dimension"]
+        cat_dim = 0
+        for feature, info in cat_feature_info.items():
+            cat_dim += info["dimension"]
         return num_dim + cat_dim
 
     def forward(
@@ -141,10 +143,6 @@ class GPNAM(BaseModel):
 
         # Linear GP layer
         pred = rff_mapping @ self.w
-
-        # Squeeze if necessary
-        if pred.dim() == 2 and pred.shape[1] == 1:
-            pred = torch.squeeze(pred, 1)
 
         # Return dictionary with the output
         result = {"output": pred}

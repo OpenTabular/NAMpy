@@ -108,8 +108,12 @@ class NBM(BaseModel):
         int
             Total input dimension.
         """
-        num_dim = sum(num_feature_info.values())
-        cat_dim = sum(cat_feature_info.values())
+        num_dim = 0
+        for feature, info in num_feature_info.items():
+            num_dim += info["dimension"]
+        cat_dim = 0
+        for feature, info in cat_feature_info.items():
+            cat_dim += info["dimension"]
         return num_dim + cat_dim
 
     def get_key(self, order, subnet):

@@ -17,6 +17,7 @@ class SklearnBaseRegressor(BaseEstimator):
         preprocessor_arg_names = [
             "n_bins",
             "numerical_preprocessing",
+            "categorical_preprocessing",
             "use_decision_tree_bins",
             "binning_strategy",
             "task",
