@@ -85,7 +85,6 @@ class NAMformer(BaseModel):
             ),
             use_cls=True,
             cls_position=0,
-            cat_encoding=self.hparams.get("cat_encoding", config.cat_encoding),
         )
 
         self.tabular_head = MLP(
