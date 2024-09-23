@@ -31,6 +31,7 @@ from ..utils.distributions import (
     PoissonDistribution,
     StudentTDistribution,
     Quantile,
+    RobustNormalDistribution,
 )
 
 
@@ -219,6 +220,7 @@ class SklearnBaseLSS(BaseEstimator):
             "inversegamma": InverseGammaDistribution,
             "categorical": CategoricalDistribution,
             "quantile": Quantile,
+            "robustnormal": RobustNormalDistribution,
         }
 
         if distributional_kwargs is None:
