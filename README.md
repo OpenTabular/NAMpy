@@ -21,6 +21,17 @@ Hence, they are available as e.g. `NAMRegressor`, `NAMClassifier` or `NAMLSS`.
 7. Linear Regression (Neural)
 8. GAM (Base architecture)
 
+## Installation 
+Either clone the repository and install the requirements, or clone the repository and install via running
+```sh
+pip install -e .
+```
+
+Alternatively, get the Github token/tag and install via
+
+```sh
+pip install git+https://<TOKEN>/github.com/AnFreTh/NAMgcv.git@branch-or-tag
+```
 
 ## Fit a Model
 Fitting a model in NAMGCV is as simple as it gets. All models in NAMGCV are sklearn BaseEstimators. Thus the `.fit` method is implemented for all of them. Additionally, this allows for using all other sklearn inherent methods such as their built in hyperparameter optimization tools.
@@ -156,14 +167,14 @@ class MyCustomModel(BaseModel):
     def forward(self, num_features: dict, cat_features: dict) -> dict:
         """
         Forward pass of the NAM model.
-    
+
         Parameters
         ----------
         num_features : dict
             Dictionary of numerical features with feature names as keys.
         cat_features : dict
             Dictionary of categorical features with feature names as keys.
-    
+
         Returns
         -------
         dict
@@ -171,16 +182,16 @@ class MyCustomModel(BaseModel):
         """
         # Concatenate all numerical features into a single tensor
         num_features_tensor = torch.cat([num_features[key] for key in num_features.keys()], dim=1)
-        
+
         # Concatenate all categorical features into a single tensor
         cat_features_tensor = torch.cat([cat_features[key] for key in cat_features.keys()], dim=1)
-        
+
         # Concatenate all features into a single input tensor
         input_tensor = torch.cat([num_features_tensor, cat_features_tensor], dim=1)
-        
+
         # Pass the concatenated tensor through the MLP
         output = self.mlp(input_tensor)
-        
+
         # return a dictionary, with the key "output" for the final predictions
         # This is used, for when the model (e.g. for plotting) also returns feature predictions
         return {"output": output}
