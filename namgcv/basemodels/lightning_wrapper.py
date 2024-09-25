@@ -169,16 +169,6 @@ class TaskModel(pl.LightningModule):
                     prog_bar=True,
                     logger=True,
                 )
-            elif isinstance(self.loss_fct, nn.MSELoss):
-                rmse = torch.sqrt(loss)
-                self.log(
-                    "train_rmse",
-                    rmse,
-                    on_step=True,
-                    on_epoch=True,
-                    prog_bar=True,
-                    logger=True,
-                )
 
         return loss
 
@@ -219,16 +209,6 @@ class TaskModel(pl.LightningModule):
                 self.log(
                     "val_acc",
                     acc,
-                    on_step=True,
-                    on_epoch=True,
-                    prog_bar=True,
-                    logger=True,
-                )
-            elif isinstance(self.loss_fct, nn.MSELoss):
-                rmse = torch.sqrt(val_loss)
-                self.log(
-                    "val_rmse",
-                    rmse,
                     on_step=True,
                     on_epoch=True,
                     prog_bar=True,

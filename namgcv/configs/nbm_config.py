@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 @dataclass
-class DefaultNAMConfig:
+class DefaultNBMConfig:
     """
     Configuration class for the default NAM with predefined hyperparameters.
 
@@ -41,15 +41,15 @@ class DefaultNAMConfig:
     lr_patience: int = 10
     weight_decay: float = 1e-06
     lr_factor: float = 0.1
-    layer_sizes: list = (128, 128, 32)
+    hidden_dims: list = (256, 128, 32)
     activation: callable = nn.ReLU()
-    skip_layers: bool = False
     dropout: float = 0.1
+    bases_dropout: float = 0.1
     norm: str = None
-    use_glu: bool = False
-    skip_connections: bool = False
-    batch_norm: bool = False
+    num_subnets: int = 1
+    batch_norm: bool = True
     layer_norm: bool = False
     interaction_degree: int = None
-    intercept: bool = True
-    feature_dropout: float = 0.0
+    num_bases: int = 100
+    nary: dict = None
+    order: int = 1
