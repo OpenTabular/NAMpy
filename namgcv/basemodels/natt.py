@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from ..configs.nam_config import DefaultNAMConfig
+from ..configs.natt_config import DefaultNATTConfig
 from .basemodel import BaseModel
 from ..arch_utils.normalization_layers import (
     RMSNorm,
@@ -10,39 +10,19 @@ from ..arch_utils.normalization_layers import (
     InstanceNorm,
     GroupNorm,
 )
-import matplotlib.pyplot as plt
+from ..arch_utils.embedding_layer import EmbeddingLayer
+from ..arch_utils.mlp_utils import MLP
+from ..arch_utils.transformer_utils import CustomTransformerEncoderLayer
 from itertools import combinations
 
 
-class NAM(BaseModel):
-    """
-    Neural Additive Model (NAM) class.
-
-    This class implements a Neural Additive Model (NAM) with support for numerical and
-    categorical features, interaction terms, and various normalization layers.
-
-    Attributes
-    ----------
-    num_feature_networks : nn.ModuleDict
-        Sub-networks for each numerical feature.
-    cat_feature_networks : nn.ModuleDict
-        Sub-networks for each categorical feature.
-    interaction_networks : nn.ModuleDict
-        Networks for modeling feature interactions (if applicable).
-    interaction_degree : int, optional
-        Degree of interactions to be modeled.
-    intercept : torch.nn.Parameter
-        Learnable intercept term, if enabled.
-    feature_dropout : nn.Dropout
-        Dropout layer for regularizing feature contributions.
-    """
-
+class NATT(BaseModel):
     def __init__(
         self,
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: DefaultNAMConfig = DefaultNAMConfig(),
+        config: DefaultNATTConfig = DefaultNATTConfig(),
         **kwargs,
     ):
         """
@@ -50,16 +30,14 @@ class NAM(BaseModel):
 
         Parameters
         ----------
-        cat_feature_info : dict
-            Dictionary providing information about categorical features (e.g., input dimensions).
-        num_feature_info : dict
-            Dictionary providing information about numerical features (e.g., input dimensions).
+        cat_feature_info : Any
+            Information about categorical features.
+        num_feature_info : Any
+            Information about numerical features.
         num_classes : int, optional
-            Number of output classes for classification tasks, by default 1.
+            Number of output classes, by default 1.
         config : DefaultNAMConfig, optional
-            Configuration dataclass containing hyperparameters for the model, by default DefaultNAMConfig.
-        kwargs : dict
-            Additional keyword arguments.
+            Configuration dataclass containing hyperparameters, by default DefaultNAMConfig().
         """
         super().__init__(**kwargs)
         self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
@@ -94,11 +72,58 @@ class NAM(BaseModel):
                 info["dimension"], config
             )
 
-        self.cat_feature_networks = nn.ModuleDict()
-        for feature_name, info in cat_feature_info.items():
-            self.cat_feature_networks[feature_name] = self._create_subnetwork(
-                info["dimension"], config
-            )  # Categorical features are typically encoded as single values
+        self.embedding_layer = EmbeddingLayer(
+            num_feature_info=num_feature_info,
+            cat_feature_info=cat_feature_info,
+            d_model=self.hparams.get("d_model", config.d_model),
+            embedding_activation=self.hparams.get(
+                "embedding_activation", config.embedding_activation
+            ),
+            layer_norm_after_embedding=self.hparams.get(
+                "layer_norm_after_embedding", config.layer_norm_after_embedding
+            ),
+            use_cls=True,
+            cls_position=0,
+        )
+
+        self.tabular_head = MLP(
+            self.hparams.get("d_model", config.d_model),
+            hidden_units_list=self.hparams.get(
+                "head_layer_sizes", config.head_layer_sizes
+            ),
+            dropout_rate=self.hparams.get("head_dropout", config.head_dropout),
+            use_skip_layers=self.hparams.get(
+                "head_skip_layers", config.head_skip_layers
+            ),
+            activation_fn=self.hparams.get("head_activation", config.head_activation),
+            use_batch_norm=self.hparams.get(
+                "head_use_batch_norm", config.head_use_batch_norm
+            ),
+            n_output_units=num_classes,
+        )
+
+        encoder_layer = CustomTransformerEncoderLayer(
+            d_model=self.hparams.get("d_model", config.d_model),
+            nhead=self.hparams.get("n_heads", config.n_heads),
+            batch_first=True,
+            dim_feedforward=self.hparams.get(
+                "transformer_dim_feedforward", config.transformer_dim_feedforward
+            ),
+            dropout=self.hparams.get("attn_dropout", config.attn_dropout),
+            activation=self.hparams.get(
+                "transformer_activation", config.transformer_activation
+            ),
+            layer_norm_eps=self.hparams.get("layer_norm_eps", config.layer_norm_eps),
+            norm_first=self.hparams.get("norm_first", config.norm_first),
+            bias=self.hparams.get("bias", config.bias),
+        )
+
+        self.norm_embedding = LayerNorm(self.hparams.get("d_model", config.d_model))
+        self.encoder = nn.TransformerEncoder(
+            encoder_layer,
+            num_layers=self.hparams.get("n_layers", config.n_layers),
+            norm=self.norm_embedding,
+        )
 
         if self.interaction_degree is not None and self.interaction_degree >= 2:
             self._create_interaction_networks(
@@ -106,80 +131,6 @@ class NAM(BaseModel):
                 cat_feature_info=cat_feature_info,
                 config=config,
             )
-
-    def _create_subnetwork(self, input_dim, config):
-        """
-        Creates a subnetwork for a single feature.
-
-        Parameters
-        ----------
-        input_dim : int
-            Dimension of the input feature.
-        config : DefaultNAMConfig
-            Configuration dataclass containing model hyperparameters.
-
-        Returns
-        -------
-        nn.Sequential
-            A subnetwork composed of linear layers, normalization layers, and activation functions.
-        """
-        layers = nn.Sequential()
-        layers.add_module("input", nn.Linear(input_dim, config.layer_sizes[0]))
-
-        if config.batch_norm:
-            layers.add_module("batch_norm", nn.BatchNorm1d(config.layer_sizes[0]))
-
-        norm_layer = self.hparams.get("norm", config.norm)
-        if norm_layer == "RMSNorm":
-            layers.add_module("norm", RMSNorm(config.layer_sizes[0]))
-        elif norm_layer == "LayerNorm":
-            layers.add_module("norm", LayerNorm(config.layer_sizes[0]))
-        elif norm_layer == "BatchNorm":
-            layers.add_module("norm", BatchNorm(config.layer_sizes[0]))
-        elif norm_layer == "InstanceNorm":
-            layers.add_module("norm", InstanceNorm(config.layer_sizes[0]))
-        elif norm_layer == "GroupNorm":
-            layers.add_module("norm", GroupNorm(1, config.layer_sizes[0]))
-        elif norm_layer == "LearnableLayerScaling":
-            layers.add_module("norm", LearnableLayerScaling(config.layer_sizes[0]))
-
-        if config.use_glu:
-            layers.add_module("glu", nn.GLU())
-        else:
-            layers.add_module(
-                "activation", self.hparams.get("activation", config.activation)
-            )
-
-        if config.dropout > 0.0:
-            layers.add_module("dropout", nn.Dropout(config.dropout))
-
-        for i in range(1, len(config.layer_sizes)):
-            layers.add_module(
-                f"linear_{i}",
-                nn.Linear(config.layer_sizes[i - 1], config.layer_sizes[i]),
-            )
-            if config.batch_norm:
-                layers.add_module(
-                    f"batch_norm_{i}", nn.BatchNorm1d(config.layer_sizes[i])
-                )
-            if config.layer_norm:
-                layers.add_module(
-                    f"layer_norm_{i}", nn.LayerNorm(config.layer_sizes[i])
-                )
-            if config.use_glu:
-                layers.add_module(f"glu_{i}", nn.GLU())
-            else:
-                layers.add_module(
-                    f"activation_{i}", self.hparams.get("activation", config.activation)
-                )
-            if config.dropout > 0.0:
-                layers.add_module(f"dropout_{i}", nn.Dropout(config.dropout))
-
-        layers.add_module(
-            f"linear_{i+1}",
-            nn.Linear(config.layer_sizes[i], self.num_classes),
-        )
-        return layers
 
     def _create_interaction_networks(self, num_feature_info, cat_feature_info, config):
         """
@@ -257,6 +208,80 @@ class NAM(BaseModel):
 
         return interaction_outputs
 
+    def _create_subnetwork(self, input_dim, config):
+        """
+        Creates a subnetwork for a single feature.
+
+        Parameters
+        ----------
+        input_dim : int
+            Dimension of the input feature.
+        config : DefaultNAMConfig
+            Configuration dataclass containing hyperparameters.
+
+        Returns
+        -------
+        nn.Sequential
+            Subnetwork for the feature.
+        """
+        layers = nn.Sequential()
+        layers.add_module("input", nn.Linear(input_dim, config.layer_sizes[0]))
+
+        if config.batch_norm:
+            layers.add_module("batch_norm", nn.BatchNorm1d(config.layer_sizes[0]))
+
+        norm_layer = self.hparams.get("norm", config.norm)
+        if norm_layer == "RMSNorm":
+            layers.add_module("norm", RMSNorm(config.layer_sizes[0]))
+        elif norm_layer == "LayerNorm":
+            layers.add_module("norm", LayerNorm(config.layer_sizes[0]))
+        elif norm_layer == "BatchNorm":
+            layers.add_module("norm", BatchNorm(config.layer_sizes[0]))
+        elif norm_layer == "InstanceNorm":
+            layers.add_module("norm", InstanceNorm(config.layer_sizes[0]))
+        elif norm_layer == "GroupNorm":
+            layers.add_module("norm", GroupNorm(1, config.layer_sizes[0]))
+        elif norm_layer == "LearnableLayerScaling":
+            layers.add_module("norm", LearnableLayerScaling(config.layer_sizes[0]))
+
+        if config.use_glu:
+            layers.add_module("glu", nn.GLU())
+        else:
+            layers.add_module(
+                "activation", self.hparams.get("activation", config.activation)
+            )
+
+        if config.dropout > 0.0:
+            layers.add_module("dropout", nn.Dropout(config.dropout))
+
+        for i in range(1, len(config.layer_sizes)):
+            layers.add_module(
+                f"linear_{i}",
+                nn.Linear(config.layer_sizes[i - 1], config.layer_sizes[i]),
+            )
+            if config.batch_norm:
+                layers.add_module(
+                    f"batch_norm_{i}", nn.BatchNorm1d(config.layer_sizes[i])
+                )
+            if config.layer_norm:
+                layers.add_module(
+                    f"layer_norm_{i}", nn.LayerNorm(config.layer_sizes[i])
+                )
+            if config.use_glu:
+                layers.add_module(f"glu_{i}", nn.GLU())
+            else:
+                layers.add_module(
+                    f"activation_{i}", self.hparams.get("activation", config.activation)
+                )
+            if config.dropout > 0.0:
+                layers.add_module(f"dropout_{i}", nn.Dropout(config.dropout))
+
+        layers.add_module(
+            f"linear_{i+1}",
+            nn.Linear(config.layer_sizes[i], self.num_classes),
+        )
+        return layers
+
     def forward(self, num_features: dict, cat_features: dict) -> dict:
         """
         Forward pass of the NAM model.
@@ -278,10 +303,12 @@ class NAM(BaseModel):
             feature_output = feature_network(num_features[feature_name])
             num_outputs[feature_name] = feature_output
 
-        cat_outputs = {}
-        for feature_name, feature_network in self.cat_feature_networks.items():
-            feature_output = feature_network(cat_features[feature_name].float())
-            cat_outputs[feature_name] = feature_output
+        cat_embeddings = self.embedding_layer(
+            None, [vals for key, vals in cat_features.items()]
+        )
+        cat_vals = self.encoder(cat_embeddings)
+        cat_vals = self.tabular_head(cat_vals)
+        cat_outputs = {"cat_output": cat_vals}
 
         interaction_outputs = self._interaction_forward(
             num_features=num_features, cat_features=cat_features
@@ -293,8 +320,15 @@ class NAM(BaseModel):
             + list(cat_outputs.values())
             + list(interaction_outputs.values())
         )
-        # feature dropout and sum
-        x = self.feature_dropout(torch.cat(all_outputs, dim=1)).sum(dim=1).unsqueeze(-1)
+
+        # Make sure all tensors have the same number of dimensions
+        all_outputs = [
+            output.unsqueeze(-1) if output.dim() == 2 else output
+            for output in all_outputs
+        ]
+
+        # Now concatenate the tensors along the second dimension
+        x = self.feature_dropout(torch.cat(all_outputs, dim=1)).sum(dim=1)
 
         # intercept
         if self.intercept is not None:
