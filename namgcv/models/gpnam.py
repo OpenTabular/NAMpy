@@ -1,11 +1,11 @@
 from .sklearn_regressor import SklearnBaseRegressor
 from .sklearn_classifier import SklearnBaseClassifier
 from .sklearn_lss import SklearnBaseLSS
-from ..basemodels.nam import NAM
+from ..basemodels.gpnam import GPNAM
 from ..configs.nam_config import DefaultNAMConfig
 
 
-class NAMRegressor(SklearnBaseRegressor):
+class GPNAMRegressor(SklearnBaseRegressor):
     """
     Multi-Layer Perceptron regressor. This class extends the SklearnBaseRegressor class and uses the NAM model
     with the default NAM configuration.
@@ -85,10 +85,10 @@ class NAMRegressor(SklearnBaseRegressor):
     """
 
     def __init__(self, **kwargs):
-        super().__init__(model=NAM, config=DefaultNAMConfig, **kwargs)
+        super().__init__(model=GPNAM, config=DefaultNAMConfig, **kwargs)
 
 
-class NAMClassifier(SklearnBaseClassifier):
+class GPNAMClassifier(SklearnBaseClassifier):
     """
     Multi-Layer Perceptron classifier. This class extends the SklearnBaseClassifier class and uses the NAM model
     with the default NAM configuration.
@@ -168,10 +168,10 @@ class NAMClassifier(SklearnBaseClassifier):
     """
 
     def __init__(self, **kwargs):
-        super().__init__(model=NAM, config=DefaultNAMConfig, **kwargs)
+        super().__init__(model=GPNAM, config=DefaultNAMConfig, **kwargs)
 
 
-class NAMLSS(SklearnBaseLSS):
+class GPNAMLSS(SklearnBaseLSS):
     """
     Multi-Layer Perceptron for distributional regression. This class extends the SklearnBaseLSS class and uses the NAM model
     with the default NAM configuration.
@@ -254,4 +254,4 @@ class NAMLSS(SklearnBaseLSS):
     """
 
     def __init__(self, **kwargs):
-        super().__init__(model=NAM, config=DefaultNAMConfig, **kwargs)
+        super().__init__(model=GPNAM, config=DefaultNAMConfig, **kwargs)

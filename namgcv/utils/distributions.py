@@ -36,9 +36,8 @@ class BaseDistribution(torch.nn.Module):
             "exp": torch.exp,
             "sqrt": torch.sqrt,
             "probabilities": lambda x: torch.softmax(x, dim=-1),
-            "log": lambda x: torch.log(
-                x + 1e-6
-            ),  # Adding a small constant for numerical stability
+            "log": lambda x: torch.log(x + 1e-6),
+            "sort": lambda x: torch.cumsum(torch.nn.functional.softplus(x), dim=-1),
         }
 
     @property
@@ -504,3 +503,122 @@ class CategoricalDistribution(BaseDistribution):
         # Compute the negative log-likelihood
         nll = -cat_dist.log_prob(y_true).mean()
         return nll
+
+
+class Quantile(BaseDistribution):
+    """
+    Quantile Regression Loss class.
+
+    This class computes the quantile loss (also known as pinball loss) for a set of quantiles.
+    It is used to handle quantile regression tasks where we aim to predict a given quantile of the target distribution.
+
+    Parameters
+    ----------
+    name : str, optional
+        The name of the distribution, by default "Quantile".
+    quantiles : list of float, optional
+        A list of quantiles to be used for computing the loss, by default [0.25, 0.5, 0.75].
+
+    Attributes
+    ----------
+    quantiles : list of float
+        List of quantiles for which the pinball loss is computed.
+
+    Methods
+    -------
+    compute_loss(predictions, y_true)
+        Computes the quantile regression loss between the predictions and true values.
+    """
+
+    def __init__(self, name="Quantile", quantiles=[0.25, 0.5, 0.75]):
+        param_names = [
+            f"q_{q}" for q in quantiles
+        ]  # Use string representations of quantiles
+        super().__init__(name, param_names)
+        self.quantiles = quantiles
+
+    def compute_loss(self, predictions, y_true):
+
+        assert not y_true.requires_grad  # Ensure y_true does not require gradients
+        assert predictions.size(0) == y_true.size(0)
+
+        losses = []
+        for i, q in enumerate(self.quantiles):
+            errors = y_true - predictions[:, i]  # Calculate errors for each quantile
+            # Compute the pinball loss
+            quantile_loss = torch.max((q - 1) * errors, q * errors)
+            losses.append(quantile_loss)
+
+        # Sum losses across quantiles and compute mean
+        loss = torch.mean(torch.stack(losses, dim=1).sum(dim=1))
+        return loss
+
+
+class RobustNormalDistribution(BaseDistribution):
+    """
+    Represents a Normal (Gaussian) distribution with parameters for mean and variance, including functionality
+    for transforming these parameters and computing the loss.
+
+    Inherits from BaseDistribution.
+
+    Parameters:
+        name (str): The name of the distribution. Defaults to "Normal".
+        mean_transform (str or callable): The transformation for the mean parameter. Defaults to "none".
+        var_transform (str or callable): The transformation for the variance parameter. Defaults to "positive".
+    """
+
+    def __init__(
+        self, name="Normal", mean_transform="none", var_transform="positive", rob=0.1
+    ):
+        param_names = [
+            "mean",
+            "variance",
+        ]
+        super().__init__(name, param_names)
+
+        self.mean_transform = self.get_transform(mean_transform)
+        self.variance_transform = self.get_transform(var_transform)
+        self.rob = rob
+
+    def compute_loss(self, predictions, y_true):
+        mean = self.mean_transform(predictions[:, self.param_names.index("mean")])
+        variance = self.variance_transform(
+            predictions[:, self.param_names.index("variance")]
+        )
+
+        normal_dist = dist.Normal(mean, variance)
+        log_likelihood = normal_dist.log_prob(y_true)
+
+        if self.rob != None:
+            log_likelihood = torch.log(
+                (1 + torch.exp(log_likelihood + self.rob)) / (1 + torch.exp(self.rob))
+            )
+
+        nll = -torch.mean(log_likelihood)
+        return nll
+
+    def evaluate_nll(self, y_true, y_pred):
+        metrics = super().evaluate_nll(y_true, y_pred)
+
+        # Convert numpy arrays to torch tensors
+        y_true_tensor = torch.tensor(y_true, dtype=torch.float32)
+        y_pred_tensor = torch.tensor(y_pred, dtype=torch.float32)
+
+        mse_loss = torch.nn.functional.mse_loss(
+            y_true_tensor, y_pred_tensor[:, self.param_names.index("mean")]
+        )
+        rmse = np.sqrt(mse_loss.detach().numpy())
+        mae = (
+            torch.nn.functional.l1_loss(
+                y_true_tensor, y_pred_tensor[:, self.param_names.index("mean")]
+            )
+            .detach()
+            .numpy()
+        )
+
+        metrics["mse"] = mse_loss.detach().numpy()
+        metrics["mae"] = mae
+        metrics["rmse"] = rmse
+
+        # Convert the NLL loss tensor back to a numpy array and return
+        return metrics
