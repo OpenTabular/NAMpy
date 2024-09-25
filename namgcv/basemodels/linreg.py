@@ -38,17 +38,23 @@ class LinReg(BaseModel):
         self.num_feature_info = num_feature_info
         self.num_classes = num_classes
 
+        self.intercept = nn.Parameter(
+            torch.zeros(
+                num_classes,
+            )
+        )
+
         # Initialize sub-networks for each feature
         self.num_feature_networks = nn.ModuleDict()
-        for feature_name, input_shape in num_feature_info.items():
+        for feature_name, info in num_feature_info.items():
             self.num_feature_networks[feature_name] = self._create_subnetwork(
-                input_shape, config
+                info["dimension"], config
             )
 
         self.cat_feature_networks = nn.ModuleDict()
-        for feature_name, input_shape in cat_feature_info.items():
+        for feature_name, info in cat_feature_info.items():
             self.cat_feature_networks[feature_name] = self._create_subnetwork(
-                1, config
+                info["dimension"], config
             )  # Categorical features are typically encoded as single values
 
     def _create_subnetwork(self, input_dim, config):
@@ -98,7 +104,7 @@ class LinReg(BaseModel):
 
         # Sum all feature outputs
         all_outputs = list(num_outputs.values()) + list(cat_outputs.values())
-        x = torch.stack(all_outputs, dim=1).sum(dim=1)
+        x = self.intercept + torch.stack(all_outputs, dim=1).sum(dim=1)
 
         # Combine the output tensor with the original feature values
         result = {"output": x}
