@@ -9,6 +9,7 @@ from ..basemodels.lightning_wrapper import TaskModel
 from ..data_utils.datamodule import NAMGCVDataModule
 from ..preprocessing import Preprocessor
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 class SklearnBaseClassifier(BaseEstimator):
@@ -16,6 +17,7 @@ class SklearnBaseClassifier(BaseEstimator):
         preprocessor_arg_names = [
             "n_bins",
             "numerical_preprocessing",
+            "categorical_preprocessing",
             "use_decision_tree_bins",
             "binning_strategy",
             "task",
@@ -128,7 +130,7 @@ class SklearnBaseClassifier(BaseEstimator):
         weight_decay: float = 1e-06,
         checkpoint_path="model_checkpoints",
         dataloader_kwargs={},
-        **trainer_kwargs
+        **trainer_kwargs,
     ):
         """
         Trains the regression model using the provided training data. Optionally, a separate validation set can be used.
@@ -198,7 +200,7 @@ class SklearnBaseClassifier(BaseEstimator):
             val_size=val_size,
             random_state=random_state,
             regression=False,
-            **dataloader_kwargs
+            **dataloader_kwargs,
         )
 
         self.data_module.preprocess_data(
@@ -235,7 +237,7 @@ class SklearnBaseClassifier(BaseEstimator):
         trainer = pl.Trainer(
             max_epochs=max_epochs,
             callbacks=[early_stop_callback, checkpoint_callback],
-            **trainer_kwargs
+            **trainer_kwargs,
         )
         trainer.fit(self.model, self.data_module)
 
@@ -464,3 +466,106 @@ class SklearnBaseClassifier(BaseEstimator):
                 scores[metric_name] = metric_func(y_true, predictions)
 
         return scores
+
+    def _plot_single_feature_effects(self, x_plot, predictions, y_true, num_bins=30):
+        """
+        Internal function to plot the effect of a single feature for classification or LSS regression,
+        plotting separate lines for each class or distributional parameter.
+
+        Parameters
+        ----------
+        x_plot : np.ndarray
+            The simulated feature values for plotting.
+        predictions : np.ndarray
+            The predicted values for the feature from the model (shape (n, k) for multi-class or LSS regression).
+        y_true : np.ndarray
+            The true values for the target variable (for scatter plot).
+        num_bins : int, optional
+            The number of bins to use for density shading, by default 30.
+        """
+        # Check if the predictions have multiple columns (for multi-class or distributional parameters)
+        n_classes_or_params = predictions.shape[1] if predictions.ndim > 1 else 1
+
+        # Create density-based shading
+        counts, bin_edges = np.histogram(x_plot, bins=num_bins)
+        norm_counts = counts / counts.max()  # Normalize to range [0, 1]
+
+        plt.figure(figsize=(8, 6))
+        for i in range(num_bins):
+            plt.bar(
+                bin_edges[i],
+                (y_true.min() - 1, y_true.max() + 1),
+                width=bin_edges[i + 1] - bin_edges[i],
+                color=plt.cm.Reds(norm_counts[i]),
+                alpha=0.6,
+            )
+
+        # Plot shape functions (predicted contributions) for each class or distributional parameter
+        for i in range(n_classes_or_params):
+            contribs = predictions[:, i]
+            plt.plot(
+                x_plot,
+                contribs,
+                label=f"Class/Param {i + 1}",
+            )
+
+        # Add scatter plot of the true values
+        y_true_plot = y_true - np.mean(y_true)
+        plt.scatter(
+            x_plot, y_true_plot, color="gray", alpha=0.3, s=2, label="True Values"
+        )
+
+        plt.title(f"Shape Function for {x_plot}")
+        plt.xlabel("Feature")
+        plt.ylabel("Contribution")
+        plt.legend()
+        plt.show()
+
+    def plot(self, X, y_true, plot_interactions=False):
+        """
+        Main function to plot feature effects for classification or LSS regression, where predictions
+        have shape (n, k). Calls single feature effect plotting and, if requested, interaction effect plotting.
+
+        Parameters
+        ----------
+        X : pd.DataFrame or np.ndarray
+            Input data for generating predictions.
+        y_true : np.ndarray
+            True target values for comparison in the scatter plot.
+        plot_interactions : bool, optional
+            Whether to also plot pairwise feature interactions, by default False.
+        """
+        # Simulate the data
+        X_simulated = pd.DataFrame(X)
+
+        # Sort each column in ascending order (only for numerical columns)
+        for feature_name in X_simulated.columns:
+            if pd.api.types.is_numeric_dtype(X_simulated[feature_name]):
+                X_simulated[feature_name] = (
+                    X_simulated[feature_name].sort_values().values
+                )
+
+        # Generate predictions using the model
+        predictions = self._predict(X_simulated)
+
+        # Plot single feature effects for numerical features only
+        for feature_name in X_simulated.columns:
+            if feature_name in predictions and pd.api.types.is_numeric_dtype(
+                X_simulated[feature_name]
+            ):
+                x_plot = X_simulated[feature_name].values  # Use simulated data directly
+                self._plot_single_feature_effects(
+                    x_plot, predictions[feature_name], y_true, num_bins=30
+                )
+
+        # Plot pairwise interaction effects (if requested)
+        if plot_interactions:
+            for interaction_name in predictions.keys():
+                if ":" in interaction_name:  # Pairwise interaction check
+                    feature1, feature2 = interaction_name.split(":")
+                    self._plot_interaction_effects(
+                        interaction_name,
+                        predictions[feature1],
+                        predictions[feature2],
+                        X_train_scaled=X_simulated,
+                    )

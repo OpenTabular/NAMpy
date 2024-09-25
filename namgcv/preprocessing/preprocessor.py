@@ -71,6 +71,7 @@ class Preprocessor:
         self,
         n_bins=50,
         numerical_preprocessing="ple",
+        categorical_preprocessing="int",
         use_decision_tree_bins=False,
         binning_strategy="uniform",
         task="regression",
@@ -93,6 +94,12 @@ class Preprocessor:
         ]:
             raise ValueError(
                 "Invalid numerical_preprocessing value. Supported values are 'ple', 'binning', 'one_hot', 'standardization', 'quantile', 'polynomial', 'splines' and 'normalization'."
+            )
+
+        self.categorical_preprocessing = categorical_preprocessing.lower()
+        if self.categorical_preprocessing not in ["int", "one_hot", "one-hot"]:
+            raise ValueError(
+                "Invalid categorical_preprocessing value. Supported values are 'int' and 'one_hot'."
             )
 
         self.use_decision_tree_bins = use_decision_tree_bins
@@ -280,15 +287,33 @@ class Preprocessor:
         if categorical_features:
             for feature in categorical_features:
                 # Create a pipeline for each categorical feature
-                categorical_transformer = Pipeline(
-                    [
-                        ("imputer", SimpleImputer(strategy="most_frequent")),
-                        (
-                            "continuous_ordinal",
-                            ContinuousOrdinalEncoder(),
-                        ),
-                    ]
-                )
+                if self.categorical_preprocessing == "int":
+                    categorical_transformer = Pipeline(
+                        [
+                            ("imputer", SimpleImputer(strategy="most_frequent")),
+                            (
+                                "continuous_ordinal",
+                                ContinuousOrdinalEncoder(),
+                            ),
+                        ]
+                    )
+                elif self.categorical_preprocessing in ["one_hot", "one-hot"]:
+                    categorical_transformer = Pipeline(
+                        [
+                            (
+                                "imputer",
+                                SimpleImputer(
+                                    strategy="constant", fill_value="missing"
+                                ),
+                            ),
+                            ("continuous_ordinal", ContinuousOrdinalEncoder()),
+                            ("one_hot", OneHotFromOrdinal()),
+                        ]
+                    )
+                else:
+                    raise ValueError(
+                        "categorical_preprocessing should be either 'int' or 'one_hot'."
+                    )
                 # Append the transformer for the current categorical feature
                 transformers.append(
                     (f"cat_{feature}", categorical_transformer, [feature])
@@ -427,24 +452,22 @@ class Preprocessor:
         This method should only be called after the preprocessor has been fitted, as it relies on the structure and
         configuration of the `column_transformer` attribute.
 
-
         Raises
         ------
-            RuntimeError: If the `column_transformer` is not yet fitted, indicating that the preprocessor must be
+        RuntimeError
+            If the `column_transformer` is not yet fitted, indicating that the preprocessor must be
             fitted before invoking this method.
-
 
         Returns
         -------
-            tuple of (dict, dict):
-                - The first dictionary maps feature names to their respective number of bins or categories if they are
-                  processed using discretization or ordinal encoding.
-                - The second dictionary includes feature names with other encoding details, such as the dimension of
-                  features after encoding transformations (e.g., one-hot encoding dimensions).
-
+        tuple of (dict, dict)
+            - num_feature_info: A dictionary where each key corresponds to a numerical feature, and its value is another dictionary
+              containing encoding type, dimensionality, and unique values.
+            - cat_feature_info: A dictionary where each key corresponds to a categorical feature, and its value is another dictionary
+              containing encoding type, dimensionality, and unique values.
         """
-        binned_or_ordinal_info = {}
-        other_encoding_info = {}
+        num_feature_info = {}
+        cat_feature_info = {}
 
         if not self.column_transformer:
             raise RuntimeError("The preprocessor has not been fitted yet.")
@@ -457,50 +480,66 @@ class Preprocessor:
             steps = [step[0] for step in transformer_pipeline.steps]
 
             for feature_name in columns:
+                feature_details = {}
+
                 # Handle features processed with discretization
                 if "discretizer" in steps:
                     step = transformer_pipeline.named_steps["discretizer"]
                     n_bins = step.n_bins_[0] if hasattr(step, "n_bins_") else None
+                    feature_details["encoding"] = "discretization"
+                    feature_details["dimension"] = n_bins
+                    feature_details["unique_vals"] = n_bins
 
                     # Check if discretization is followed by one-hot encoding
                     if "onehot_from_ordinal" in steps:
-                        # Classify as other encoding due to the expanded feature dimensions from one-hot encoding
-                        other_encoding_info[feature_name] = (
-                            n_bins  # Number of bins before one-hot encoding
+                        feature_details["encoding"] = "discretization + one-hot"
+                        feature_details["dimension"] = (
+                            n_bins  # Number of bins before one-hot
                         )
-                        print(
-                            f"Numerical Feature (Discretized & One-Hot Encoded): {feature_name}, Number of bins before one-hot encoding: {n_bins}"
-                        )
+                        feature_details["unique_vals"] = n_bins
+                        cat_feature_info[feature_name] = feature_details
                     else:
-                        # Only discretization without subsequent one-hot encoding
-                        binned_or_ordinal_info[feature_name] = n_bins
-                        print(
-                            f"Numerical Feature (Binned): {feature_name}, Number of bins: {n_bins}"
-                        )
+                        num_feature_info[feature_name] = feature_details
 
-                # Handle features processed with continuous ordinal encoding
+                # Handle one-hot encoding after continuous ordinal encoding
                 elif "continuous_ordinal" in steps:
                     step = transformer_pipeline.named_steps["continuous_ordinal"]
                     n_categories = len(step.mapping_[columns.index(feature_name)])
-                    binned_or_ordinal_info[feature_name] = n_categories
-                    print(
-                        f"Categorical Feature (Ordinal Encoded): {feature_name}, Number of unique categories: {n_categories}"
-                    )
+                    feature_details["encoding"] = "ordinal"
+                    feature_details["dimension"] = 1
+                    feature_details["unique_vals"] = n_categories
+
+                    # Now check if it also went through one-hot encoding
+                    if "one_hot" in steps:
+                        step = transformer_pipeline.named_steps["one_hot"]
+                        transformed_feature = step.transform(
+                            np.zeros((1, len(columns)))
+                        )
+                        feature_details["encoding"] = "one-hot"
+                        feature_details["dimension"] = transformed_feature.shape[
+                            1
+                        ]  # Dimension after one-hot encoding
+                        feature_details["unique_vals"] = transformed_feature.shape[
+                            1
+                        ]  # Unique categories correspond to one-hot encoding dimension
+
+                    cat_feature_info[feature_name] = feature_details
 
                 # Handle other numerical feature encodings
                 else:
                     last_step = transformer_pipeline.steps[-1][1]
                     step_names = [step[0] for step in transformer_pipeline.steps]
                     step_descriptions = " -> ".join(step_names)
+                    feature_details["encoding"] = step_descriptions
+
                     if hasattr(last_step, "transform"):
                         transformed_feature = last_step.transform(
                             np.zeros((1, len(columns)))
                         )
-                        other_encoding_info[feature_name] = transformed_feature.shape[1]
-                        print(
-                            f"Feature: {feature_name} ({step_descriptions}), Encoded feature dimension: {transformed_feature.shape[1]}"
+                        feature_details["dimension"] = transformed_feature.shape[1]
+                        feature_details["unique_vals"] = (
+                            None  # Numerical features don't have unique categories
                         )
+                        num_feature_info[feature_name] = feature_details
 
-                print("-" * 50)
-
-        return binned_or_ordinal_info, other_encoding_info
+        return cat_feature_info, num_feature_info

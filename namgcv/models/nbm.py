@@ -1,16 +1,16 @@
 from .sklearn_regressor import SklearnBaseRegressor
 from .sklearn_classifier import SklearnBaseClassifier
 from .sklearn_lss import SklearnBaseLSS
-from ..basemodels.nam import NAM
-from ..configs.nam_config import DefaultNAMConfig
+from ..basemodels.nbm import NBM
+from ..configs.nbm_config import DefaultNBMConfig
 
 
-class NAMRegressor(SklearnBaseRegressor):
+class NBMRegressor(SklearnBaseRegressor):
     """
-    Multi-Layer Perceptron regressor. This class extends the SklearnBaseRegressor class and uses the NAM model
-    with the default NAM configuration.
+    Multi-Layer Perceptron regressor. This class extends the SklearnBaseRegressor class and uses the NBM model
+    with the default NBM configuration.
 
-    The accepted arguments to the NAMRegressor class include both the attributes in the DefaultNAMConfig dataclass
+    The accepted arguments to the NBMRegressor class include both the attributes in the DefaultNBMConfig dataclass
     and the parameters for the Preprocessor class.
 
     Parameters
@@ -24,23 +24,23 @@ class NAMRegressor(SklearnBaseRegressor):
     lr_factor : float, default=0.1
         Factor by which the learning rate will be reduced.
     layer_sizes : list, default=(128, 128, 32)
-        Sizes of the layers in the NAM.
+        Sizes of the layers in the NBM.
     activation : callable, default=nn.SELU()
-        Activation function for the NAM layers.
+        Activation function for the NBM layers.
     skip_layers : bool, default=False
-        Whether to skip layers in the NAM.
+        Whether to skip layers in the NBM.
     dropout : float, default=0.5
         Dropout rate for regularization.
     norm : str, default=None
         Normalization method to be used, if any.
     use_glu : bool, default=False
-        Whether to use Gated Linear Units (GLU) in the NAM.
+        Whether to use Gated Linear Units (GLU) in the NBM.
     skip_connections : bool, default=False
-        Whether to use skip connections in the NAM.
+        Whether to use skip connections in the NBM.
     batch_norm : bool, default=False
-        Whether to use batch normalization in the NAM layers.
+        Whether to use batch normalization in the NBM layers.
     layer_norm : bool, default=False
-        Whether to use layer normalization in the NAM layers.
+        Whether to use layer normalization in the NBM layers.
     n_bins : int, default=50
         The number of bins to use for numerical feature binning. This parameter is relevant
         only if `numerical_preprocessing` is set to 'binning' or 'one_hot'.
@@ -68,32 +68,32 @@ class NAMRegressor(SklearnBaseRegressor):
 
     Notes
     -----
-    - The accepted arguments to the NAMRegressor class are the same as the attributes in the DefaultNAMConfig dataclass.
-    - NAMRegressor uses SklearnBaseRegressor as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - The accepted arguments to the NBMRegressor class are the same as the attributes in the DefaultNBMConfig dataclass.
+    - NBMRegressor uses SklearnBaseRegressor as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    mambular.models.SklearnBaseRegressor : The parent class for NAMRegressor.
+    mambular.models.SklearnBaseRegressor : The parent class for NBMRegressor.
 
     Examples
     --------
-    >>> from mambular.models import NAMRegressor
-    >>> model = NAMRegressor(layer_sizes=[128, 128, 64], activation=nn.ReLU())
+    >>> from mambular.models import NBMRegressor
+    >>> model = NBMRegressor(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
     >>> model.evaluate(X_test, y_test)
     """
 
     def __init__(self, **kwargs):
-        super().__init__(model=NAM, config=DefaultNAMConfig, **kwargs)
+        super().__init__(model=NBM, config=DefaultNBMConfig, **kwargs)
 
 
-class NAMClassifier(SklearnBaseClassifier):
+class NBMClassifier(SklearnBaseClassifier):
     """
-    Multi-Layer Perceptron classifier. This class extends the SklearnBaseClassifier class and uses the NAM model
-    with the default NAM configuration.
+    Multi-Layer Perceptron classifier. This class extends the SklearnBaseClassifier class and uses the NBM model
+    with the default NBM configuration.
 
-    The accepted arguments to the NAMClassifier class include both the attributes in the DefaultNAMConfig dataclass
+    The accepted arguments to the NBMClassifier class include both the attributes in the DefaultNBMConfig dataclass
     and the parameters for the Preprocessor class.
 
     Parameters
@@ -107,23 +107,23 @@ class NAMClassifier(SklearnBaseClassifier):
     lr_factor : float, default=0.1
         Factor by which the learning rate will be reduced.
     layer_sizes : list, default=(128, 128, 32)
-        Sizes of the layers in the NAM.
+        Sizes of the layers in the NBM.
     activation : callable, default=nn.SELU()
-        Activation function for the NAM layers.
+        Activation function for the NBM layers.
     skip_layers : bool, default=False
-        Whether to skip layers in the NAM.
+        Whether to skip layers in the NBM.
     dropout : float, default=0.5
         Dropout rate for regularization.
     norm : str, default=None
         Normalization method to be used, if any.
     use_glu : bool, default=False
-        Whether to use Gated Linear Units (GLU) in the NAM.
+        Whether to use Gated Linear Units (GLU) in the NBM.
     skip_connections : bool, default=False
-        Whether to use skip connections in the NAM.
+        Whether to use skip connections in the NBM.
     batch_norm : bool, default=False
-        Whether to use batch normalization in the NAM layers.
+        Whether to use batch normalization in the NBM layers.
     layer_norm : bool, default=False
-        Whether to use layer normalization in the NAM layers.
+        Whether to use layer normalization in the NBM layers.
     n_bins : int, default=50
         The number of bins to use for numerical feature binning. This parameter is relevant
         only if `numerical_preprocessing` is set to 'binning' or 'one_hot'.
@@ -151,32 +151,32 @@ class NAMClassifier(SklearnBaseClassifier):
 
     Notes
     -----
-    - The accepted arguments to the NAMClassifier class are the same as the attributes in the DefaultNAMConfig dataclass.
-    - NAMClassifier uses SklearnBaseClassifieras the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - The accepted arguments to the NBMClassifier class are the same as the attributes in the DefaultNBMConfig dataclass.
+    - NBMClassifier uses SklearnBaseClassifieras the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    mambular.models.SklearnBaseRegressor : The parent class for NAMClassifier.
+    mambular.models.SklearnBaseRegressor : The parent class for NBMClassifier.
 
     Examples
     --------
-    >>> from mambular.models import NAMClassifier
-    >>> model = NAMClassifier(layer_sizes=[128, 128, 64], activation=nn.ReLU())
+    >>> from mambular.models import NBMClassifier
+    >>> model = NBMClassifier(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
     >>> model.evaluate(X_test, y_test)
     """
 
     def __init__(self, **kwargs):
-        super().__init__(model=NAM, config=DefaultNAMConfig, **kwargs)
+        super().__init__(model=NBM, config=DefaultNBMConfig, **kwargs)
 
 
-class NAMLSS(SklearnBaseLSS):
+class NBMLSS(SklearnBaseLSS):
     """
-    Multi-Layer Perceptron for distributional regression. This class extends the SklearnBaseLSS class and uses the NAM model
-    with the default NAM configuration.
+    Multi-Layer Perceptron for distributional regression. This class extends the SklearnBaseLSS class and uses the NBM model
+    with the default NBM configuration.
 
-    The accepted arguments to the NAMLSS class include both the attributes in the DefaultNAMConfig dataclass
+    The accepted arguments to the NBMLSS class include both the attributes in the DefaultNBMConfig dataclass
     and the parameters for the Preprocessor class.
 
     Parameters
@@ -237,21 +237,21 @@ class NAMLSS(SklearnBaseLSS):
 
     Notes
     -----
-    - The accepted arguments to the NAMLSS class are the same as the attributes in the DefaultNAMConfig dataclass.
-    - NAMLSS uses SklearnBaseLSS as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - The accepted arguments to the NBMLSS class are the same as the attributes in the DefaultNBMConfig dataclass.
+    - NBMLSS uses SklearnBaseLSS as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    mambular.models.SklearnBaseLSS : The parent class for NAMLSS.
+    mambular.models.SklearnBaseLSS : The parent class for NBMLSS.
 
     Examples
     --------
-    >>> from mambular.models import NAMLSS
-    >>> model = NAMLSS(layer_sizes=[128, 128, 64], activation=nn.ReLU())
+    >>> from mambular.models import NBMLSS
+    >>> model = NBMLSS(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
     >>> model.evaluate(X_test, y_test)
     """
 
     def __init__(self, **kwargs):
-        super().__init__(model=NAM, config=DefaultNAMConfig, **kwargs)
+        super().__init__(model=NBM, config=DefaultNBMConfig, **kwargs)
