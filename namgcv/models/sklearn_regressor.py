@@ -414,15 +414,21 @@ class SklearnBaseRegressor(BaseEstimator):
         # Simulate the data
         X_simulated = pd.DataFrame(X)
 
-        # Sort each column in ascending order
-        X_simulated = X_simulated.apply(lambda col: col.sort_values().values)
+        # Sort each column in ascending order (only for numerical columns)
+        for feature_name in X_simulated.columns:
+            if pd.api.types.is_numeric_dtype(X_simulated[feature_name]):
+                X_simulated[feature_name] = (
+                    X_simulated[feature_name].sort_values().values
+                )
 
         # Generate predictions using the model
         predictions = self._predict(X_simulated)
 
-        # Plot single feature effects
+        # Plot single feature effects for numerical features only
         for feature_name in X_simulated.columns:
-            if feature_name in predictions:
+            if feature_name in predictions and pd.api.types.is_numeric_dtype(
+                X_simulated[feature_name]
+            ):
                 x_plot = X_simulated[feature_name].values  # Use simulated data directly
                 self._plot_single_feature_effects(
                     x_plot, predictions[feature_name], y_true, num_bins=30
