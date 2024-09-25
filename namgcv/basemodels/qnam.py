@@ -66,15 +66,15 @@ class QNAMBase(BaseModel):
 
         # Initialize sub-networks for each feature
         self.num_feature_networks = nn.ModuleDict()
-        for feature_name, input_shape in num_feature_info.items():
+        for feature_name, info in num_feature_info.items():
             self.num_feature_networks[feature_name] = self._create_subnetwork(
-                input_shape, config
+                info["dimension"], config
             )
 
         self.cat_feature_networks = nn.ModuleDict()
-        for feature_name, input_shape in cat_feature_info.items():
+        for feature_name, info in cat_feature_info.items():
             self.cat_feature_networks[feature_name] = self._create_subnetwork(
-                1, config
+                info["dimension"], config
             )  # Categorical features are typically encoded as single values
 
         if self.interaction_degree is not None and self.interaction_degree >= 2:
