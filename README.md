@@ -20,6 +20,8 @@ Hence, they are available as e.g. `NAMRegressor`, `NAMClassifier` or `NAMLSS`.
 6. QNAM
 7. Linear Regression (Neural)
 8. GAM (Base architecture)
+9. TreeNAM (Base-arch Regressor)
+10. SNAM (Base-arch Regressor)
 
 ## Installation 
 Either clone the repository and install the requirements, or clone the repository and install via running
