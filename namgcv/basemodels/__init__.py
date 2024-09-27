@@ -7,6 +7,8 @@ from .gpnam import GPNAM
 from .nbm import NBM
 from .natt import NATT
 from .namformer import NAMformer
+from .treenam import BoostedNAM
+from .snam import SNAM
 
 
 __all__ = [
@@ -19,4 +21,6 @@ __all__ = [
     "NBM",
     "NATT",
     "NAMformer",
+    "BoostedNAM",
+    "SNAM",
 ]
