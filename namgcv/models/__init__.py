@@ -9,6 +9,7 @@ from .nbm import NBMRegressor, NBMClassifier, NBMLSS
 from .natt import NATTRegressor, NATTClassifier, NATTLSS
 from .namformer import NAMformerClassifier, NAMformerLSS, NAMformerRegressor
 from .treenam import TreeNAMRegressor
+from .snam import SNAMRegressor
 
 __all__ = [
     "NAMClassifier",
@@ -34,4 +35,5 @@ __all__ = [
     "NAMformerLSS",
     "NAMformerRegressor",
     "TreeNAMRegressor",
+    "SNAMRegressor",
 ]
