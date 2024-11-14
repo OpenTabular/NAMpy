@@ -1,9 +1,19 @@
+# Data manipulation
 numpy<=1.26.4
 pandas
+
+# Deep learning
 lightning
 scikit_learn
 torch
 torchmetrics
+
 setuptools
 properscoring
+
+# Plotting
 matplotlib
+seaborn
+
+# Bayesian
+pyro-ppl
