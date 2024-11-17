@@ -11,9 +11,10 @@ torchmetrics
 setuptools
 properscoring
 
-# Plotting
+# Visualization
 matplotlib
 seaborn
+tqdm
 
 # Bayesian
 pyro-ppl
