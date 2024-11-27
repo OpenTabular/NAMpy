@@ -1,3 +1,5 @@
+from typing import Tuple, Any
+
 import numpy as np
 import torch
 
@@ -312,7 +314,12 @@ class BayesianNN(PyroModule):
     def predict(
             self,
             x_test: torch.Tensor
-    ) -> np.ndarray:
+    ) -> tuple[np.ndarray:, np.ndarray:] | np.ndarray:
         predictions = self.predictive(x_test)
-        return predictions[
-            f"{self.model_name}_obs"].detach().numpy()  # Shape: [num_samples, batch_size]
+        if self._independent_network_flag:
+            return (
+                predictions[f"{self.model_name}_obs"].detach().numpy().mean(axis=0),
+                predictions[f"{self.model_name}_obs"].detach().numpy().std(axis=0)
+            )
+        else:
+            return predictions[f"{self.model_name}_obs"].detach().numpy()  # Shape: [num_samples, batch_size]

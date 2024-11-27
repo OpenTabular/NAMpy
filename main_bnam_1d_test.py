@@ -117,6 +117,7 @@ if __name__ == "__main__":
         +
         noise
     )
+
     x_true = np.linspace(-0.5, 1.5, 1000)
     y_true = (
         x_true + 0.5 * np.sin(2 * np.pi * x_true)
@@ -137,7 +138,8 @@ if __name__ == "__main__":
     model = BayesianNN(
         in_dim=1,
         out_dim=1,
-        config=DefaultBayesianNNConfig()
+        config=DefaultBayesianNNConfig(),
+        independent_network_flag=True
     )
 
     x_train = torch.from_numpy(x_obs).float()
@@ -145,13 +147,14 @@ if __name__ == "__main__":
     x_test = torch.linspace(xlims[0], xlims[1], 3000)
 
     inference_method = 'mcmc'
-    y_pred, y_std = model.infer(
+    model.train_model(
         x_train=x_train,
         y_train=y_train,
-        x_test=x_test,
         num_samples=50,
-        inference_method=inference_method
+        inference_method=inference_method,
     )
+
+    y_pred, y_std = model.predict(x_test=x_test)
 
     plot_data(
         x_true=x_true, y_true=y_true,
@@ -159,4 +162,3 @@ if __name__ == "__main__":
         x_test=x_test, y_pred=y_pred, y_std=y_std,
         xlims=xlims, ylims=ylims
     )
-    pass
