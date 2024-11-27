@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 @dataclass
-class DefaultBayesianNNConfig:
+class DefaultBayesianNAMConfig:
     """
     Configuration class for the default NAM with predefined hyperparameters.
 
@@ -17,24 +17,6 @@ class DefaultBayesianNNConfig:
         Weight decay (L2 penalty) for the optimizer.
     lr_factor : float, default=0.1
         Factor by which the learning rate will be reduced.
-    hidden_layer_sizes : list, default=(128, 128, 32)
-        Sizes of the hidden layers in the MLP.
-    activation : callable, default=nn.SELU()
-        Activation function for the MLP layers.
-    skip_layers : bool, default=False
-        Whether to skip layers in the MLP.
-    dropout : float, default=0.5
-        Dropout rate for regularization.
-    norm : str, default=None
-        Normalization method to be used, if any.
-    use_glu : bool, default=False
-        Whether to use Gated Linear Units (GLU) in the MLP.
-    skip_connections : bool, default=False
-        Whether to use skip connections in the MLP.
-    batch_norm : bool, default=False
-        Whether to use batch normalization in the MLP layers.
-    layer_norm : bool, default=False
-        Whether to use layer normalization in the MLP layers.
     num_epochs : int, default=5000
         Number of epochs for which to train the model.
     gamma_prior_shape : float, default=0.5
@@ -48,17 +30,11 @@ class DefaultBayesianNNConfig:
     """
 
     # Model definition parameters.
-    hidden_layer_sizes: list = (16, 16, 4) # (10, 10, 10, 10, 10)
-    activation: callable = nn.SELU()
+    interaction_degree: int = 2
+    intercept: bool = True
+    feature_dropout: float = 0.0
 
-    # skip_layers: bool = False
-    dropout: float = 0.0
-    # norm: str = None
-    use_glu: bool = False
-    # skip_connections: bool = False
-    batch_norm: bool = False
-    layer_norm: bool = False
-
+    # Note: The prior parameters are only used in the joint optimization procedure.
     gamma_prior_shape: float = 0.5
     gamma_prior_scale: float = 1.0
 
@@ -66,12 +42,11 @@ class DefaultBayesianNNConfig:
     gaussian_prior_scale: float = 5.0
 
     # Optimization parameters.
-    num_epochs: int = 250  # 25000
+    num_epochs: int = 5000
 
     lr: float = 1e-4
     lr_patience: int = 10
     weight_decay: float = 1e-06
     lr_factor: float = 0.1
 
-    mcmc_step_size: float = 2.0
-
+    mcmc_step_size: float = 5.0
