@@ -42,7 +42,7 @@ class DefaultBayesianNAMConfig:
     gaussian_prior_scale: float = 5.0
 
     # Optimization parameters.
-    num_epochs: int = 5000
+    num_epochs: int = 250
 
     lr: float = 1e-4
     lr_patience: int = 10
@@ -50,3 +50,4 @@ class DefaultBayesianNAMConfig:
     lr_factor: float = 0.1
 
     mcmc_step_size: float = 5.0
+    num_samples = 50

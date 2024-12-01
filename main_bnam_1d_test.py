@@ -5,6 +5,7 @@ from namgcv.configs.bayesian_nn_config import DefaultBayesianNNConfig
 
 import torch
 import numpy as np
+import jax.numpy as jnp
 
 from pyro.infer import MCMC, NUTS, Predictive, SVI, Trace_ELBO
 from pyro.infer.autoguide import AutoDiagonalNormal
@@ -142,15 +143,15 @@ if __name__ == "__main__":
         independent_network_flag=True
     )
 
-    x_train = torch.from_numpy(x_obs).float()
-    y_train = torch.from_numpy(y_obs).float()
-    x_test = torch.linspace(xlims[0], xlims[1], 3000)
+    x_train = jnp.array(x_obs)  # torch.from_numpy(x_obs).float()
+    y_train = jnp.array(y_obs)  # torch.from_numpy(y_obs).float()
+    x_test = jnp.linspace(xlims[0], xlims[1], 3000)  # torch.linspace(xlims[0], xlims[1], 3000)
 
     inference_method = 'mcmc'
     model.train_model(
         x_train=x_train,
         y_train=y_train,
-        num_samples=50,
+        num_samples=500,
         inference_method=inference_method,
     )
 

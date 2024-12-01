@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 import torch.nn as nn
+import jax.numpy as jnp
+import jax.nn as jnn
 
 
 @dataclass
@@ -49,7 +51,8 @@ class DefaultBayesianNNConfig:
 
     # Model definition parameters.
     hidden_layer_sizes: list = (16, 16, 4) # (10, 10, 10, 10, 10)
-    activation: callable = nn.SELU()
+    # activation: callable = nn.SELU()
+    activation: str = "selu"
 
     # skip_layers: bool = False
     dropout: float = 0.0
@@ -57,7 +60,7 @@ class DefaultBayesianNNConfig:
     use_glu: bool = False
     # skip_connections: bool = False
     batch_norm: bool = False
-    layer_norm: bool = False
+    layer_norm: bool = True
 
     gamma_prior_shape: float = 0.5
     gamma_prior_scale: float = 1.0

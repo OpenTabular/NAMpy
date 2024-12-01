@@ -18,3 +18,6 @@ tqdm
 
 # Bayesian
 pyro-ppl
+numpyro
+jax
+flax

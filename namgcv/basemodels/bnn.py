@@ -1,41 +1,45 @@
+from __future__ import annotations
+
 from typing import Tuple, Any
 
 import numpy as np
-import torch
+import jax
+import jax.numpy as jnp
+import jax.random as random
+from jax import Array
 
 from namgcv.configs.bayesian_nn_config import DefaultBayesianNNConfig
 
-import pyro
-from pyro.nn import PyroModule, PyroSample
-import pyro.distributions as dist
-from pyro.infer import MCMC, NUTS, Predictive, SVI, Trace_ELBO
-from pyro.infer.autoguide import AutoDiagonalNormal
+import numpyro
+import numpyro.distributions as dist
+from numpyro.infer import MCMC, NUTS, Predictive, SVI, Trace_ELBO
+from numpyro.infer.autoguide import AutoDiagonalNormal
+from numpyro.optim import Adam
 
 from tqdm.auto import trange
 
-import torch.nn as nn
-
 import logging
+
 logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', level=logging.INFO)
 nl = "\n"
 
 
-class BayesianNN(PyroModule):
+class BayesianNN:
     """
-    Bayesian Neural Network (BNN) model class.
+    Bayesian Neural Network (BNN) model class using NumPyro.
 
-    This class implements a Bayesian Neural Network (BNN) model using Pyro.
+    This class implements a Bayesian Neural Network (BNN) model using NumPyro.
     The BNN comprises a series of linear layers with optional activation functions,
     and various normalization layers.
     """
 
     def __init__(
-            self,
-            in_dim: int = 1,
-            out_dim: int = 1,
-            config: DefaultBayesianNNConfig = DefaultBayesianNNConfig(),
-            model_name: str = "bayesian_nn",
-            independent_network_flag: bool = False
+        self,
+        in_dim: int = 1,
+        out_dim: int = 1,
+        config: DefaultBayesianNNConfig = DefaultBayesianNNConfig(),
+        model_name: str = "bayesian_nn",
+        independent_network_flag: bool = False,
     ):
         """
         Initializes the Bayesian Neural Network model using the specified configuration.
@@ -54,12 +58,9 @@ class BayesianNN(PyroModule):
 
         self._logger = logging.getLogger(__name__)
 
-        super().__init__()
-
         self.model_name = model_name
         self._independent_network_flag = independent_network_flag
         self._config = config
-        self._activation = self._config.activation
 
         assert len(self._config.hidden_layer_sizes) > 0, (
             "Please ensure that there is at least one hidden layer size defined in the "
@@ -72,135 +73,216 @@ class BayesianNN(PyroModule):
                 "have size > 0."
             )
 
-        # noinspection PyTypeChecker
-        self._layers = PyroModule[torch.nn.ModuleList](
-            [
-                module
-                for i in range(1, len(self._layer_sizes))
-                for module in (
-                  [PyroModule[nn.Linear](self._layer_sizes[i - 1], self._layer_sizes[i])]
-                  +
-                  (
-                      [PyroModule[nn.BatchNorm1d](self._layer_sizes[i])]
-                      if self._config.batch_norm else []
-                  )
-                  +
-                  (
-                      [PyroModule[nn.LayerNorm](self._layer_sizes[i])]
-                      if self._config.layer_norm else []
-                  )
-                  +
-                  (
-                      [getattr(nn, self._config.activation)()]  # Handle activation as a callable
-                      if isinstance(self._config.activation, str)
-                      else [self._config.activation]
-                  # Directly add the activation if pre-instantiated
-                  ) if not self._config.use_glu else [PyroModule[nn.GLU]()])
-                +
-                (
-                  [PyroModule[nn.Dropout](self._config.dropout)]
-                  if self._config.dropout > 0.0 else []
-                )
-            ]
+        activation_functions = {
+            'relu': jax.nn.relu,
+            'tanh': jnp.tanh,
+            'sigmoid': jax.nn.sigmoid,
+            'softplus': jax.nn.softplus,
+            'leaky_relu': jax.nn.leaky_relu,
+            'elu': jax.nn.elu,
+            'glu': self._glu_activation,
+            'selu': jax.nn.selu,
+        }
+        assert self._config.activation.lower() in activation_functions, (
+            f"Please ensure that the activation function specified in the model configuration "
+            f"file is one of: {list(activation_functions.keys())}"
         )
 
-        # Note: In contrast to pytorch tensors, which have a single .shape attribute,
-        # pyro distributions have two additive shape attributes,
-        # with .shape = .batch_shape + .event_shape.
-        # The dimensions corresponding to batch_shape denote independent RVs,
-        # whereas those corresponding to event_shape denote dependent RVs.
-        # By calling .to_event(n), the n right-most dimensions of a tensor are declared dependent.
-        layer_idx = 0
-        for layer in self._layers:
-            if isinstance(layer, nn.Linear):
-                layer.weight = PyroSample(
-                    dist.Normal(
-                        loc=self._config.gaussian_prior_location,
-                        scale=self._config.gaussian_prior_scale * np.sqrt(
-                            2 / self._layer_sizes[layer_idx]
-                        )  # He initialization to control for vanishing/exploding gradients.
-                    ).expand([
-                        self._layer_sizes[layer_idx + 1],
-                        self._layer_sizes[layer_idx]
-                    ]).to_event(2)
-                )
+        if isinstance(self._config.activation, str):
+            self._activation_fn = activation_functions[self._config.activation.lower()]
+        else:  # Treat as callable.
+            self._activation_fn = self._config.activation
 
-                layer.bias = PyroSample(
-                    dist.Normal(
-                        loc=self._config.gaussian_prior_location,
-                        scale=self._config.gaussian_prior_scale
-                    ).expand([
-                        self._layer_sizes[layer_idx + 1]
-                    ]).to_event(1))
+        self.predictive = None
+        self._logger.info("Bayesian NN successfully initialized.")
 
-                layer_idx += 1
-
-        # Initialize layer parameters as samples (random variables ~ prior).
-        # Note:
-        # Sampling weights from the Gaussian prior yields a tensor of shape (hidden_dim, in_dim).
-        # This tensor is a single random event from a Multivariate Gaussian.
-        if self._independent_network_flag:
-            self._generate_predictive_distribution = {
-                "svi": self._get_svi_predictive_distribution,
-                "mcmc": self._get_mcmc_predictive_distribution
-            }
-
-        self._logger.info(f"Bayesian NN successfully initialized.")
-
-    def forward(
-            self,
-            x: torch.Tensor,
-            y: torch.Tensor = None
-    ) -> torch.Tensor:
+    @staticmethod
+    def _glu_activation(x):
         """
-        Forward pass of the Bayesian Neural Network model.
+        Gated Linear Unit (GLU) activation function.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input features tensor.
-        y : torch.Tensor
-            True response tensor (optional). This is only required during training.
+        x : jnp.ndarray
+            Input tensor.
 
         Returns
         -------
-        mu : torch.Tensor
+        z : jnp.ndarray
+            Output tensor.
+        """
+
+        a, b = jnp.split(x, 2, axis=-1)
+        return a * jax.nn.sigmoid(b)
+
+    def batch_norm(
+            self,
+            name: str,
+            x: jnp.ndarray,
+            is_training: bool=True,
+            eps: float=1e-5
+    ):
+        """
+        Implements Batch Normalization.
+
+        Parameters
+        ----------
+        name : str
+            Unique name for the batch normalization layer.
+        x : jnp.ndarray
+            Input tensor.
+        is_training : bool
+            Flag indicating whether the model is in training mode.
+        eps : float
+            Small epsilon value to avoid division by zero.
+
+        Returns
+        -------
+        normalized_x : jnp.ndarray
+            Batch-normalized tensor.
+        """
+
+        axis = 0  # Normalize over the batch dimension
+        mean = jnp.mean(x, axis=axis, keepdims=True)
+        var = jnp.var(x, axis=axis, keepdims=True)
+
+        gamma = numpyro.param(f"{name}_gamma", jnp.ones(x.shape[1]))
+        beta = numpyro.param(f"{name}_beta", jnp.zeros(x.shape[1]))
+
+        normalized_x = gamma * (x - mean) / jnp.sqrt(var + eps) + beta
+        return normalized_x
+
+    def layer_norm(
+            self,
+            name: str,
+            x: jnp.ndarray,
+            eps: float=1e-5
+    ):
+        """
+        Implements Layer Normalization.
+
+        Parameters
+        ----------
+        name : str
+            Unique name for the layer normalization layer.
+        x : jnp.ndarray
+            Input tensor.
+        eps : float
+            Small epsilon value to avoid division by zero.
+
+        Returns
+        -------
+        normalized_x : jnp.ndarray
+            Layer-normalized tensor.
+        """
+
+        axis = -1  # Normalize over the last dimension
+        mean = jnp.mean(x, axis=axis, keepdims=True)
+        var = jnp.var(x, axis=axis, keepdims=True)
+
+        gamma = numpyro.param(f"{name}_gamma", jnp.ones(x.shape[-1]))
+        beta = numpyro.param(f"{name}_beta", jnp.zeros(x.shape[-1]))
+
+        normalized_x = gamma * (x - mean) / jnp.sqrt(var + eps) + beta
+        return normalized_x
+
+    def model(
+            self,
+            x: jnp.ndarray,
+            y: jnp.ndarray=None,
+            is_training: bool=True
+    ):
+        """
+        Define the probabilistic model of the Bayesian Neural Network.
+
+        Parameters
+        ----------
+        x : jnp.ndarray
+            Input features tensor.
+        y : jnp.ndarray
+            True response tensor (optional). This is only required during training.
+        is_training : bool
+            Flag indicating whether the model is in training mode.
+
+        Returns
+        -------
+        mu : jnp.ndarray
             Output of the network.
         """
 
-        if x.dim() == 1:  # This will not be true for interaction networks.
-            x = x.reshape(-1, 1)
+        x = x.reshape(-1, 1) if x.ndim == 1 else x
+        num_layers = len(self._layer_sizes) - 1
 
-        for i in range(len(self._layers) - 1):  # Exclude final layer.
-            x = self._layers[i](x)
-        mu = self._layers[-1](x).squeeze()
+        z = x
+        for i in range(num_layers):
+            w = numpyro.sample(
+                f"{self.model_name}_w{i}",
+                dist.Normal(
+                    loc=self._config.gaussian_prior_location,
+                    scale=self._config.gaussian_prior_scale * np.sqrt(2 / self._layer_sizes[i]),
+                ).expand(
+                    [self._layer_sizes[i], self._layer_sizes[i + 1]]
+                ).to_event(2),
+            )
+            b = numpyro.sample(
+                f"{self.model_name}_b{i}",
+                dist.Normal(
+                    loc=self._config.gaussian_prior_location,
+                    scale=self._config.gaussian_prior_scale,
+                ).expand(
+                    [self._layer_sizes[i + 1]]
+                ).to_event(1),
+            )
+
+            z = jnp.dot(z, w) + b
+
+            # Apply BatchNorm or LayerNorm if specified.
+            if i < num_layers - 1:
+                if self._config.batch_norm:
+                    z = self.batch_norm(f"batch_norm_{i}", z, is_training=is_training)
+                if self._config.layer_norm:
+                    z = self.layer_norm(f"layer_norm_{i}", z)
+
+                z = self._activation_fn(z)
+
+                # Dropout (implemented as a stochastic mask during training)
+                if self._config.dropout > 0.0 and is_training:
+                    dropout_rate = self._config.dropout
+                    rng_key = numpyro.sample(f"dropout_key_{i}", dist.PRNGIdentity())
+                    dropout_mask = random.bernoulli(rng_key, p=1 - dropout_rate, shape=z.shape)
+                    z = z * dropout_mask / (1 - dropout_rate)
+
+            else:
+                pass
+
+        mu = z.squeeze()
 
         if self._independent_network_flag:
-            sigma = pyro.sample(
+            sigma = numpyro.sample(
                 name=f"{self.model_name}_sigma",
                 fn=dist.Gamma(
                     self._config.gamma_prior_shape,
                     self._config.gamma_prior_scale
-                )
-            )  # Sample the response variable noise from the specified prior.
+                ),
+            )
 
-            # Sample from Gaussian with mean estimated by NN and variance sampled from variance prior.
-            # i.e., the likelihood function is:
-            # P(y_i|x_i;\theta) = N(NN_{\theta}(x_i); sigma)) with \sigma ~ Gamma(loc;scale)
-            with pyro.plate(name=f"{self.model_name}_data", size=x.shape[0]):
-                pyro.sample(
+            with numpyro.plate(f"{self.model_name}_data", x.shape[0]):
+                numpyro.sample(
                     name=f"{self.model_name}_obs",
-                    fn=dist.Normal(loc=mu, scale=sigma * sigma),
-                    obs=y  # True response observation.
-                )  # .expand(x.shape[0]) is automatically executed.
+                    fn=dist.Normal(
+                        loc=mu,
+                        scale=sigma
+                    ).to_event(0),
+                    obs=y,
+                )
 
         return mu
 
     def _get_svi_predictive_distribution(
-            self,
-            x_train: torch.Tensor,
-            y_train: torch.Tensor,
-            num_samples: int
+        self,
+        x_train: jnp.ndarray,
+        y_train: jnp.ndarray,
+        num_samples: int
     ):
         """
         Optimize the model using Stochastic Variational Inference (SVI) and store the
@@ -208,46 +290,44 @@ class BayesianNN(PyroModule):
 
         Parameters
         ----------
-        x_train : torch.Tensor
+        x_train : jnp.ndarray
             Input features tensor.
-        y_train : torch.Tensor
+        y_train : jnp.ndarray
             True response tensor.
         num_samples : int
             Number of samples to draw from the posterior distribution.
         """
 
-        pyro.clear_param_store()
-        self._mean_field_guide = AutoDiagonalNormal(self)
-
-        self._svi = SVI(
-            self,  # Pass the BNN model.
-            self._mean_field_guide,
-            optim=pyro.optim.Adam(
-                {
-                    "lr": self._config.lr,
-                    "weight_decay": self._config.weight_decay
-                }
-            ),
-            loss=Trace_ELBO()
+        rng_key = random.PRNGKey(0)
+        optimizer = Adam(
+            {
+                "step_size": self._config.lr,
+                "weight_decay": self._config.weight_decay,
+            }
         )
-        pyro.clear_param_store()
+
+        guide = AutoDiagonalNormal(self.model)
+
+        svi = SVI(self.model, guide, optimizer, loss=Trace_ELBO())
+        svi_state = svi.init(rng_key, x_train, y_train)
 
         progress_bar = trange(self._config.num_epochs)
         for epoch in progress_bar:
-            loss = self._svi.step(x_train, y_train)
+            svi_state, loss = svi.update(svi_state, x_train, y_train)
             progress_bar.set_postfix(loss=f"{loss / x_train.shape[0]:.3f}")
 
-        self.predictive = Predictive(
-            self,
-            guide=self._mean_field_guide,
-            num_samples=num_samples
+        params = svi.get_params(svi_state)
+        predictive = Predictive(
+            self.model, guide=guide, params=params, num_samples=num_samples
         )
+        self.predictive = predictive
 
     def _get_mcmc_predictive_distribution(
-            self,
-            x_train: torch.Tensor,
-            y_train: torch.Tensor,
-            num_samples: int
+        self,
+        x_train: jnp.ndarray,
+        y_train: jnp.ndarray,
+        num_samples: int,
+        kernel: str = "NUTS"
     ):
         """
         Optimize the model using Markov Chain Monte Carlo (MCMC) sampling
@@ -255,47 +335,56 @@ class BayesianNN(PyroModule):
 
         Parameters
         ----------
-        x_train : torch.Tensor
+        x_train : jnp.ndarray
             Input features tensor.
-        y_train : torch.Tensor
+        y_train : jnp.ndarray
             True response tensor.
         num_samples : int
             Number of samples to draw from the posterior distribution.
         """
 
+        rng_key = random.PRNGKey(0)
+        assert kernel.lower() in ["nuts", "sgld"], (
+            "Please ensure that the specified kernel is one of ('nuts', 'sgld')."
+        )
+
         nuts_kernel = NUTS(
-            model=self,
+            model=self.model,
             step_size=self._config.mcmc_step_size,
             adapt_step_size=True,
             adapt_mass_matrix=True,
-            jit_compile=False
+            dense_mass=False,
+            target_accept_prob=0.8,
         )
-        self._mcmc = MCMC(
-            kernel=nuts_kernel,
-            num_samples=num_samples
+        mcmc = MCMC(
+            nuts_kernel,
+            num_samples=num_samples,
+            num_warmup=num_samples//2
         )
-        self._mcmc.run(x_train, y_train)
+        mcmc.run(rng_key, x_train, y_train)
+        mcmc.print_summary()
+        self.posterior_samples = mcmc.get_samples()
 
         self.predictive = Predictive(
-            model=self,
-            posterior_samples=self._mcmc.get_samples()
+            self.model,
+            posterior_samples=self.posterior_samples
         )
 
     def train_model(
-            self,
-            x_train: torch.Tensor,
-            y_train: torch.Tensor,
-            num_samples: int,
-            inference_method: str
+        self,
+        x_train: jnp.ndarray,
+        y_train: jnp.ndarray,
+        num_samples: int,
+        inference_method: str,
     ):
         """
         Train the Bayesian Neural Network model using the specified inference method.
 
         Parameters
         ----------
-        x_train : torch.Tensor
+        x_train : jnp.ndarray
             Input features tensor.
-        y_train: torch.Tensor
+        y_train: jnp.ndarray
             True response tensor.
         num_samples : int
             Number of samples to draw from the posterior distribution.
@@ -303,23 +392,44 @@ class BayesianNN(PyroModule):
             Inference method to use for training the model. Must be one of 'svi' or 'mcmc'.
         """
 
-        assert inference_method.lower() in self._generate_predictive_distribution.keys(), (
-            "Please ensure the specified inference method to one of ('mcmc', 'svi'). "
-            "Note: The inference method is NOT case-insensitive."
-        )
-        self._generate_predictive_distribution[inference_method](
-            x_train, y_train, num_samples
-        )
+        inference_methods = {
+            "svi": self._get_svi_predictive_distribution,
+            "mcmc": self._get_mcmc_predictive_distribution,
+        }
+
+        if inference_method.lower() not in inference_methods:
+            raise ValueError(
+                "Please ensure the specified inference method is one of ('mcmc', 'svi'). "
+                "Note: The inference method is case-insensitive."
+            )
+
+        inference_methods[inference_method.lower()](x_train, y_train, num_samples)
 
     def predict(
             self,
-            x_test: torch.Tensor
-    ) -> tuple[np.ndarray:, np.ndarray:] | np.ndarray:
-        predictions = self.predictive(x_test)
+            x_test: jnp.ndarray
+    ) -> tuple[Array, Array] | Array:
+        """
+        Make predictions using the trained Bayesian Neural Network.
+
+        Parameters
+        ----------
+        x_test : jnp.ndarray
+            Input features tensor for testing.
+
+        Returns
+        -------
+        mean_pred : np.ndarray
+            Mean predictions.
+        std_pred : np.ndarray
+            Standard deviation of predictions.
+        """
+
+        rng_key = random.PRNGKey(1)
+        predictions = self.predictive(rng_key, x_test)
+
         if self._independent_network_flag:
-            return (
-                predictions[f"{self.model_name}_obs"].detach().numpy().mean(axis=0),
-                predictions[f"{self.model_name}_obs"].detach().numpy().std(axis=0)
-            )
+            preds = predictions[f"{self.model_name}_obs"]
+            return jnp.mean(preds, axis=0), jnp.std(preds, axis=0)
         else:
-            return predictions[f"{self.model_name}_obs"].detach().numpy()  # Shape: [num_samples, batch_size]
+            return predictions[f"{self.model_name}_obs"]  # Shape: [num_samples, batch_size]
