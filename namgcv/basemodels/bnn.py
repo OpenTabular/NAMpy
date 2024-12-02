@@ -186,6 +186,97 @@ class BayesianNN:
         normalized_x = gamma * (x - mean) / jnp.sqrt(var + eps) + beta
         return normalized_x
 
+    def prior(
+            self,
+            layer_index: int,
+            input_dim: int,
+            output_dim: int
+    ) -> Tuple[Array, Array]:
+        """
+        Define the prior distributions for weights and biases of a given layer.
+
+        Parameters
+        ----------
+        layer_index : int
+            Index of the current layer.
+        input_dim : int
+            Input dimension of the layer.
+        output_dim : int
+            Output dimension of the layer.
+
+        Returns
+        -------
+        w : numpyro.sample
+            Sampled weights from the prior distribution.
+        b : numpyro.sample
+            Sampled biases from the prior distribution.
+        """
+
+        w = numpyro.sample(
+            f"{self.model_name}_w{layer_index}",
+            dist.Normal(
+                loc=self._config.gaussian_prior_location,
+                scale=self._config.gaussian_prior_scale * np.sqrt(2 / input_dim),
+            ).expand(
+                [input_dim, output_dim]
+            ).to_event(2),
+        )
+        b = numpyro.sample(
+            f"{self.model_name}_b{layer_index}",
+            dist.Normal(
+                loc=self._config.gaussian_prior_location,
+                scale=self._config.gaussian_prior_scale,
+            ).expand(
+                [output_dim]
+            ).to_event(1),
+        )
+        return w, b
+
+    def likelihood(
+            self,
+            mu: jnp.ndarray,
+            y: jnp.ndarray,
+            x_shape: Tuple[int],
+            is_training: bool=True
+    ):
+        """
+        Define the likelihood function.
+
+        Parameters
+        ----------
+        mu : jnp.ndarray
+            Mean predictions from the model.
+        y : jnp.ndarray
+            Observed data.
+        x_shape : tuple
+            Shape of the input data x.
+        is_training : bool
+            Flag indicating whether the model is in training mode.
+
+        Returns
+        -------
+        None
+        """
+
+        if self._independent_network_flag:
+            sigma = numpyro.sample(
+                name=f"{self.model_name}_sigma",
+                fn=dist.Gamma(
+                    self._config.gamma_prior_shape,
+                    self._config.gamma_prior_scale
+                ),
+            )
+
+            with numpyro.plate(f"{self.model_name}_data", x_shape[0]):
+                numpyro.sample(
+                    name=f"{self.model_name}_obs",
+                    fn=dist.Normal(
+                        loc=mu,
+                        scale=sigma
+                    ).to_event(0),
+                    obs=y,
+                )
+
     def model(
             self,
             x: jnp.ndarray,
@@ -215,23 +306,10 @@ class BayesianNN:
 
         z = x
         for i in range(num_layers):
-            w = numpyro.sample(
-                f"{self.model_name}_w{i}",
-                dist.Normal(
-                    loc=self._config.gaussian_prior_location,
-                    scale=self._config.gaussian_prior_scale * np.sqrt(2 / self._layer_sizes[i]),
-                ).expand(
-                    [self._layer_sizes[i], self._layer_sizes[i + 1]]
-                ).to_event(2),
-            )
-            b = numpyro.sample(
-                f"{self.model_name}_b{i}",
-                dist.Normal(
-                    loc=self._config.gaussian_prior_location,
-                    scale=self._config.gaussian_prior_scale,
-                ).expand(
-                    [self._layer_sizes[i + 1]]
-                ).to_event(1),
+            w, b = self.prior(
+                layer_index=i,
+                input_dim=self._layer_sizes[i],
+                output_dim=self._layer_sizes[i + 1]
             )
 
             z = jnp.dot(z, w) + b
@@ -245,10 +323,10 @@ class BayesianNN:
 
                 z = self._activation_fn(z)
 
-                # Dropout (implemented as a stochastic mask during training)
+                # Dropout (implemented as a stochastic mask during training).
                 if self._config.dropout > 0.0 and is_training:
                     dropout_rate = self._config.dropout
-                    rng_key = numpyro.sample(f"dropout_key_{i}", dist.PRNGIdentity())
+                    rng_key = numpyro.prng_key()
                     dropout_mask = random.bernoulli(rng_key, p=1 - dropout_rate, shape=z.shape)
                     z = z * dropout_mask / (1 - dropout_rate)
 
@@ -257,24 +335,7 @@ class BayesianNN:
 
         mu = z.squeeze()
 
-        if self._independent_network_flag:
-            sigma = numpyro.sample(
-                name=f"{self.model_name}_sigma",
-                fn=dist.Gamma(
-                    self._config.gamma_prior_shape,
-                    self._config.gamma_prior_scale
-                ),
-            )
-
-            with numpyro.plate(f"{self.model_name}_data", x.shape[0]):
-                numpyro.sample(
-                    name=f"{self.model_name}_obs",
-                    fn=dist.Normal(
-                        loc=mu,
-                        scale=sigma
-                    ).to_event(0),
-                    obs=y,
-                )
+        self.likelihood(mu=mu, y=y, x_shape=x.shape, is_training=is_training)
 
         return mu
 
@@ -327,7 +388,7 @@ class BayesianNN:
         x_train: jnp.ndarray,
         y_train: jnp.ndarray,
         num_samples: int,
-        kernel: str = "NUTS"
+        kernel: str = "SGLD"
     ):
         """
         Optimize the model using Markov Chain Monte Carlo (MCMC) sampling
@@ -348,22 +409,57 @@ class BayesianNN:
             "Please ensure that the specified kernel is one of ('nuts', 'sgld')."
         )
 
-        nuts_kernel = NUTS(
-            model=self.model,
-            step_size=self._config.mcmc_step_size,
-            adapt_step_size=True,
-            adapt_mass_matrix=True,
-            dense_mass=False,
-            target_accept_prob=0.8,
-        )
-        mcmc = MCMC(
-            nuts_kernel,
-            num_samples=num_samples,
-            num_warmup=num_samples//2
-        )
-        mcmc.run(rng_key, x_train, y_train)
-        mcmc.print_summary()
-        self.posterior_samples = mcmc.get_samples()
+        if kernel.lower() == "nuts":
+            nuts_kernel = NUTS(
+                model=self.model,
+                step_size=self._config.mcmc_step_size,
+                adapt_step_size=True,
+                adapt_mass_matrix=True,
+                dense_mass=False,
+                target_accept_prob=0.8,
+            )
+            mcmc = MCMC(
+                nuts_kernel,
+                num_samples=num_samples,
+                num_warmup=num_samples//2
+            )
+            mcmc.run(rng_key, x_train, y_train)
+            mcmc.print_summary()
+            self.posterior_samples = mcmc.get_samples()
+        else:
+            pass
+
+            from jax_sgmc import potential
+            from jax_sgmc.data.numpy_loader import NumpyDataLoader
+            from jax_sgmc import alias
+
+            data_loader = NumpyDataLoader(x=x_train, y=y_train)
+
+            potential_fn = potential.minibatch_potential(
+                prior=self.prior,
+                likelihood=self.likelihood,
+                strategy="vmap"
+            )
+            sghmc = alias.sghmc(potential_fn,
+                                data_loader,
+                                cache_size=512,
+                                batch_size=2,
+                                burn_in=5000,
+                                accepted_samples=1000,
+                                integration_steps=5,
+                                adapt_noise_model=False,
+                                friction=0.9,
+                                first_step_size=0.01,
+                                last_step_size=0.00015,
+                                diagonal_noise=False)
+            iterations = 3000
+            init_sample = {"w": jnp.zeros((N, 1)), "log_sigma": jnp.array(2.5)}
+            # Run the solver
+            results = sghmc(init_sample, iterations=iterations)
+            # Access the obtained samples from the first Markov chain
+            results = results[0]["samples"]["variables"]
+
+
 
         self.predictive = Predictive(
             self.model,

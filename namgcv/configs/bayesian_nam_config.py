@@ -32,7 +32,7 @@ class DefaultBayesianNAMConfig:
     # Model definition parameters.
     interaction_degree: int = 2
     intercept: bool = True
-    feature_dropout: float = 0.0
+    feature_dropout: float = 0.2
 
     # Note: The prior parameters are only used in the joint optimization procedure.
     gamma_prior_shape: float = 0.5

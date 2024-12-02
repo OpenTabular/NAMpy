@@ -136,8 +136,6 @@ class BayesianNAM:
 
         assert self._model_initialized, "Model has not yet been initialized."
 
-
-
         for network_type, network_dict in zip(
                 ["numerical", "categorical", "interaction"],
                 [self._num_feature_networks, self._cat_feature_networks,
@@ -213,6 +211,7 @@ class BayesianNAM:
             num_features: Dict[str, jnp.ndarray],
             cat_features: Dict[str, jnp.ndarray],
             target: jnp.ndarray = None,
+            is_training: bool = True
     ):
         """
         Method to define the Bayesian Neural Additive Model (BNAM) model in NumPyro.
@@ -225,6 +224,8 @@ class BayesianNAM:
             Dictionary of categorical features with feature names as keys.
         target :
             True response tensor. (Default value = None)
+        is_training : bool
+            Flag to indicate whether the model is in training mode. (Default value = True)
         """
 
         contributions = []
@@ -241,7 +242,10 @@ class BayesianNAM:
             x = cat_features[feature_name]
             with handlers.scope(prefix=feature_name):
                 mu_i = feature_network.model(x)
-            numpyro.deterministic(f"contrib_{feature_name}", mu_i)
+            numpyro.deterministic(
+                name=f"contrib_{feature_name}",
+                value=mu_i
+            )
             contributions.append(mu_i)
 
         if self._interaction_degree is not None and self._interaction_degree >= 2:
@@ -254,10 +258,25 @@ class BayesianNAM:
                 )
                 with handlers.scope(prefix=interaction_name):
                     mu_i = interaction_network.model(x)
-                numpyro.deterministic(f"contrib_{interaction_name}", mu_i)
+                numpyro.deterministic(
+                    name=f"contrib_{interaction_name}",
+                    value=mu_i
+                )
                 contributions.append(mu_i)
 
-        mu = sum(contributions)
+        # Feature dropout (implemented as a stochastic mask during training).
+        contributions = jnp.stack(contributions, axis=-1)
+        if self._config.feature_dropout > 0.0 and is_training:
+            rng_key = numpyro.prng_key()
+            dropout_mask = random.bernoulli(
+                rng_key,
+                p=1 - self._config.feature_dropout,
+                shape=contributions.shape
+            )
+            # Dropout scaling ensures the scale remains the same during training and inference.
+            contributions = contributions * dropout_mask / (1 - self._config.feature_dropout)
+
+        mu = jnp.sum(contributions, axis=-1)
 
         if self._intercept:
             intercept = numpyro.sample(
@@ -279,8 +298,8 @@ class BayesianNAM:
 
         with numpyro.plate("data", size=mu.shape[0]):
             numpyro.sample(
-                "obs",
-                dist.Normal(mu, sigma),
+                name="obs",
+                fn=dist.Normal(loc=mu, scale=sigma),
                 obs=target,
             )
 
@@ -335,7 +354,6 @@ class BayesianNAM:
         num_features: Dict[str, jnp.ndarray],
         cat_features: Dict[str, jnp.ndarray],
         target: jnp.ndarray,
-        num_samples: int,
     ):
         """
         Optimize the model using Markov Chain Monte Carlo (MCMC) sampling
@@ -364,8 +382,8 @@ class BayesianNAM:
         )
         mcmc = MCMC(
             nuts_kernel,
-            num_samples=num_samples,
-            num_warmup=num_samples//2,
+            num_samples=self._config.num_samples,
+            num_warmup=self._config.num_samples//2,
         )
         mcmc.run(rng_key, num_features, cat_features, target)
         self.posterior_samples = mcmc.get_samples()
