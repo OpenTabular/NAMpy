@@ -203,7 +203,7 @@ if __name__ == "__main__":
     # ---------------
     # Model training.
     # ---------------
-    inference_method = 'svi'
+    inference_method = 'mcmc'
     model = BayesianNAM(
         cat_feature_info={},
         num_feature_info={

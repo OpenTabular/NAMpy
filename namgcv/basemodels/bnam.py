@@ -6,6 +6,7 @@ import jax
 import jax.numpy as jnp
 import jax.random as random
 from jax import vmap
+from jax_tqdm import scan_tqdm
 from numpyro import handlers
 
 from namgcv.basemodels.bnn import BayesianNN
@@ -280,8 +281,8 @@ class BayesianNAM:
 
         if self._intercept:
             intercept = numpyro.sample(
-                "intercept",
-                dist.Normal(
+                name="intercept",
+                fn=dist.Normal(
                     loc=0.0,
                     scale=1.0
                 )
@@ -289,8 +290,8 @@ class BayesianNAM:
             mu = mu + intercept
 
         sigma = numpyro.sample(
-            "sigma",
-            dist.Gamma(
+            name="sigma",
+            fn=dist.Gamma(
                 self._gamma_prior_shape,
                 self._gamma_prior_scale
             )
@@ -370,7 +371,6 @@ class BayesianNAM:
         num_samples : int
             Number of samples to draw from the posterior distribution.
         """
-
         rng_key = random.PRNGKey(0)
         nuts_kernel = NUTS(
             model=self.model,

@@ -14,10 +14,14 @@ properscoring
 # Visualization
 matplotlib
 seaborn
+arviz
 tqdm
+jax-tqdm
 
 # Bayesian
 pyro-ppl
 numpyro
 jax
 flax
+
+blackjax

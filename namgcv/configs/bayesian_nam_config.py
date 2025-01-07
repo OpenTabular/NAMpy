@@ -50,4 +50,4 @@ class DefaultBayesianNAMConfig:
     lr_factor: float = 0.1
 
     mcmc_step_size: float = 5.0
-    num_samples = 50
+    num_samples = 200
