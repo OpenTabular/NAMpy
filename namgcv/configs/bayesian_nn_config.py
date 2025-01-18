@@ -1,7 +1,4 @@
 from dataclasses import dataclass
-import torch.nn as nn
-import jax.numpy as jnp
-import jax.nn as jnn
 
 
 @dataclass
@@ -39,9 +36,9 @@ class DefaultBayesianNNConfig:
         Whether to use layer normalization in the MLP layers.
     num_epochs : int, default=5000
         Number of epochs for which to train the model.
-    gamma_prior_shape : float, default=0.5
+    inv_gamma_prior_shape : float, default=0.5
         Shape parameter for the Gamma prior.
-    gamma_prior_scale : float, default=1.0
+    inv_gamma_prior_scale : float, default=1.0
         Scale parameter for the Gamma prior.
     gaussian_prior_location : float, default=0.0
         Location parameter for the Gaussian prior.
@@ -50,9 +47,9 @@ class DefaultBayesianNNConfig:
     """
 
     # Model definition parameters.
-    hidden_layer_sizes: list = (128, 128, 64) # (10, 10, 10, 10, 10)
+    hidden_layer_sizes: list = (4, 4,) # (10, 10, 10, 10, 10)
     # activation: callable = nn.SELU()
-    activation: str = "selu"
+    activation: str = "relu"
 
     # skip_layers: bool = False
     dropout: float = 0.0
@@ -62,19 +59,27 @@ class DefaultBayesianNNConfig:
     batch_norm: bool = False
     layer_norm: bool = True
 
-    gamma_prior_shape: float = 0.5
-    gamma_prior_scale: float = 1.0
+    # Prior parameters - covariance matrix for non-isotropic Gaussian prior.
+    use_correlated_biases: bool = False
+    use_correlated_weights: bool = False
+    lkj_concentration: float = 1.0
 
+    # Weight prior parameters (Isotropic Gaussian).
     gaussian_prior_location: float = 0.0
-    gaussian_prior_scale: float = 5.0
+    gaussian_prior_scale: float = 1.0
 
-    # Optimization parameters.
+    # Weight prior scale parameter hyperprior (Half-Normal).
+    w_layer_scale_half_normal_hyperscale: float = 1.0
+    b_layer_scale_half_normal_hyperscale: float = 1.0
+
+    # Optimization parameters (MCMC).
+    mcmc_step_size: float = 1.0
+
+    # Optimization parameters (SVI).
     num_epochs: int = 250  # 25000
-
-    lr: float = 1e-4
+    lr: float = 1e-2
     lr_patience: int = 10
     weight_decay: float = 1e-06
     lr_factor: float = 0.1
 
-    mcmc_step_size: float = 2.0
 

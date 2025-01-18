@@ -20,6 +20,7 @@ from tqdm.auto import trange
 
 import logging
 
+
 logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s', level=logging.INFO)
 nl = "\n"
 
@@ -39,7 +40,6 @@ class BayesianNN:
         out_dim: int = 1,
         config: DefaultBayesianNNConfig = DefaultBayesianNNConfig(),
         model_name: str = "bayesian_nn",
-        independent_network_flag: bool = False,
     ):
         """
         Initializes the Bayesian Neural Network model using the specified configuration.
@@ -59,7 +59,6 @@ class BayesianNN:
         self._logger = logging.getLogger(__name__)
 
         self.model_name = model_name
-        self._independent_network_flag = independent_network_flag
         self._config = config
 
         assert len(self._config.hidden_layer_sizes) > 0, (
@@ -82,6 +81,7 @@ class BayesianNN:
             'elu': jax.nn.elu,
             'glu': self._glu_activation,
             'selu': jax.nn.selu,
+            'gelu': jax.nn.gelu,
         }
         assert self._config.activation.lower() in activation_functions, (
             f"Please ensure that the activation function specified in the model configuration "
@@ -119,7 +119,6 @@ class BayesianNN:
             self,
             name: str,
             x: jnp.ndarray,
-            is_training: bool=True,
             eps: float=1e-5
     ):
         """
@@ -131,8 +130,6 @@ class BayesianNN:
             Unique name for the batch normalization layer.
         x : jnp.ndarray
             Input tensor.
-        is_training : bool
-            Flag indicating whether the model is in training mode.
         eps : float
             Small epsilon value to avoid division by zero.
 
@@ -142,12 +139,12 @@ class BayesianNN:
             Batch-normalized tensor.
         """
 
-        axis = 0  # Normalize over the batch dimension
+        axis = 0  # Normalize over the batch dimension.
         mean = jnp.mean(x, axis=axis, keepdims=True)
         var = jnp.var(x, axis=axis, keepdims=True)
 
-        gamma = numpyro.param(f"{name}_gamma", jnp.ones(x.shape[1]))
-        beta = numpyro.param(f"{name}_beta", jnp.zeros(x.shape[1]))
+        gamma = numpyro.param(f"{name}_batch_norm_gamma", jnp.ones(x.shape[1]))
+        beta = numpyro.param(f"{name}_batch_norm_beta", jnp.zeros(x.shape[1]))
 
         normalized_x = gamma * (x - mean) / jnp.sqrt(var + eps) + beta
         return normalized_x
@@ -176,12 +173,12 @@ class BayesianNN:
             Layer-normalized tensor.
         """
 
-        axis = -1  # Normalize over the last dimension
+        axis = -1  # Normalize over the layer dimension.
         mean = jnp.mean(x, axis=axis, keepdims=True)
         var = jnp.var(x, axis=axis, keepdims=True)
 
-        gamma = numpyro.param(f"{name}_gamma", jnp.ones(x.shape[-1]))
-        beta = numpyro.param(f"{name}_beta", jnp.zeros(x.shape[-1]))
+        gamma = numpyro.param(f"{name}_layer_norm_gamma", jnp.ones(x.shape[-1]))
+        beta = numpyro.param(f"{name}_layer_norm_beta", jnp.zeros(x.shape[-1]))
 
         normalized_x = gamma * (x - mean) / jnp.sqrt(var + eps) + beta
         return normalized_x
@@ -190,10 +187,12 @@ class BayesianNN:
             self,
             layer_index: int,
             input_dim: int,
-            output_dim: int
-    ) -> Tuple[Array, Array]:
+            output_dim: int,
+    ) -> Tuple[jnp.ndarray, jnp.ndarray]:
         """
-        Define the prior distributions for weights and biases of a given layer.
+        Define the prior distributions for weights and biases of a given layer,
+        allowing the user to choose (via flags) whether weights/biases use
+        an isotropic Gaussian prior or a correlated multivariate Gaussian prior.
 
         Parameters
         ----------
@@ -206,76 +205,109 @@ class BayesianNN:
 
         Returns
         -------
-        w : numpyro.sample
-            Sampled weights from the prior distribution.
-        b : numpyro.sample
-            Sampled biases from the prior distribution.
+        w : jnp.ndarray
+            Sampled weights from either an isotropic or correlated Gaussian prior.
+        b : jnp.ndarray
+            Sampled biases from either an isotropic or correlated Gaussian prior.
         """
 
-        w = numpyro.sample(
-            f"{self.model_name}_w{layer_index}",
-            dist.Normal(
-                loc=self._config.gaussian_prior_location,
-                scale=self._config.gaussian_prior_scale * np.sqrt(2 / input_dim),
-            ).expand(
-                [input_dim, output_dim]
-            ).to_event(2),
-        )
-        b = numpyro.sample(
-            f"{self.model_name}_b{layer_index}",
-            dist.Normal(
-                loc=self._config.gaussian_prior_location,
-                scale=self._config.gaussian_prior_scale,
-            ).expand(
-                [output_dim]
-            ).to_event(1),
-        )
-        return w, b
+        # Weights Prior.
+        if self._config.use_correlated_weights:
+            weight_dim = input_dim * output_dim
 
-    def likelihood(
-            self,
-            mu: jnp.ndarray,
-            y: jnp.ndarray,
-            x_shape: Tuple[int],
-            is_training: bool=True
-    ):
-        """
-        Define the likelihood function.
-
-        Parameters
-        ----------
-        mu : jnp.ndarray
-            Mean predictions from the model.
-        y : jnp.ndarray
-            Observed data.
-        x_shape : tuple
-            Shape of the input data x.
-        is_training : bool
-            Flag indicating whether the model is in training mode.
-
-        Returns
-        -------
-        None
-        """
-
-        if self._independent_network_flag:
-            sigma = numpyro.sample(
-                name=f"{self.model_name}_sigma",
-                fn=dist.Gamma(
-                    self._config.gamma_prior_shape,
-                    self._config.gamma_prior_scale
-                ),
+            # 1) Sample a Cholesky factor of the correlation matrix using LKJ.
+            chol_corr_w = numpyro.sample(
+                name=f"{self.model_name}_w{layer_index}_chol_corr",
+                fn=dist.LKJCholesky(
+                    dimension=weight_dim,
+                    concentration=self._config.lkj_concentration
+                )
             )
 
-            with numpyro.plate(f"{self.model_name}_data", x_shape[0]):
-                numpyro.sample(
-                    name=f"{self.model_name}_obs",
-                    fn=dist.Normal(
-                        loc=mu,
-                        scale=sigma
-                    ).to_event(0),
-                    obs=y,
+            # 2) Sample per-dimension std dev for the weight vector.
+            w_std = numpyro.sample(
+                name=f"{self.model_name}_w{layer_index}_std",
+                fn=dist.HalfNormal(
+                    self._config.w_layer_scale_half_normal_hyperscale
+                ).expand([weight_dim])
+            )
+
+            # 3) Build the covariance via the Cholesky factor:
+            # scale_tril_w = diag(w_std) @ chol_corr_w
+            scale_tril_w = jnp.matmul(jnp.diag(w_std), chol_corr_w)
+
+            # 4) Sample from MultivariateNormal and reshape to (input_dim, output_dim).
+            w_loc = self._config.gaussian_prior_location * jnp.ones(weight_dim)
+            w_vector = numpyro.sample(
+                name=f"{self.model_name}_w{layer_index}",
+                fn=dist.MultivariateNormal(loc=w_loc, scale_tril=scale_tril_w)
+            )
+            w = w_vector.reshape((input_dim, output_dim))
+
+        else: # Isotropic Weights.
+            # (Original style: Normal(µ, σ^2 I) with dimension [input_dim, output_dim])
+            # Optionally: sample a layer-specific scale, or just fix it.
+            w_layer_scale = numpyro.sample(
+                name=f"{self.model_name}_w{layer_index}_scale",
+                fn=dist.HalfNormal(
+                    scale=self._config.w_layer_scale_half_normal_hyperscale
                 )
+            )
+            w = numpyro.sample(
+                name=f"{self.model_name}_w{layer_index}",
+                fn=dist.Normal(
+                    loc=self._config.gaussian_prior_location,
+                    scale=w_layer_scale * jnp.sqrt(2.0 / input_dim)
+                ).expand([input_dim, output_dim]).to_event(2)
+            )
+
+        # Biases Prior.
+        if self._config.use_correlated_biases:
+            b_dim = output_dim
+
+            # 1) Cholesky factor of correlation for the bias vector.
+            chol_corr_b = numpyro.sample(
+                name=f"{self.model_name}_b{layer_index}_chol_corr",
+                fn=dist.LKJCholesky(
+                    dimension=b_dim,
+                    concentration=self._config.lkj_concentration
+                )
+            )
+
+            # 2) Per-dimension std dev for the bias vector.
+            b_std = numpyro.sample(
+                name=f"{self.model_name}_b{layer_index}_std",
+                fn=dist.HalfNormal(
+                    self._config.b_layer_scale_half_normal_hyperscale
+                ).expand([b_dim])
+            )
+
+            # 3) Full Cholesky factor of covariance: scale_tril_b.
+            scale_tril_b = jnp.matmul(jnp.diag(b_std), chol_corr_b)
+
+            # 4) Sample from MultivariateNormal.
+            b_loc = self._config.gaussian_prior_location * jnp.ones(b_dim)
+            b = numpyro.sample(
+                name=f"{self.model_name}_b{layer_index}",
+                fn=dist.MultivariateNormal(loc=b_loc, scale_tril=scale_tril_b)
+            )
+
+        else:  # Isotropic Biases.
+            b_layer_scale = numpyro.sample(
+                name=f"{self.model_name}_b{layer_index}_scale",
+                fn=dist.HalfNormal(
+                    scale=self._config.b_layer_scale_half_normal_hyperscale
+                )
+            )
+            b = numpyro.sample(
+                name=f"{self.model_name}_b{layer_index}",
+                fn=dist.Normal(
+                    loc=self._config.gaussian_prior_location,
+                    scale=b_layer_scale
+                ).expand([output_dim]).to_event(1)
+            )
+
+        return w, b
 
     def model(
             self,
@@ -297,7 +329,7 @@ class BayesianNN:
 
         Returns
         -------
-        mu : jnp.ndarray
+        output : jnp.ndarray
             Output of the network.
         """
 
@@ -317,9 +349,9 @@ class BayesianNN:
             # Apply BatchNorm or LayerNorm if specified.
             if i < num_layers - 1:
                 if self._config.batch_norm:
-                    z = self.batch_norm(f"batch_norm_{i}", z, is_training=is_training)
+                    z = self.batch_norm(name=f"batch_norm_{i}", x=z)
                 if self._config.layer_norm:
-                    z = self.layer_norm(f"layer_norm_{i}", z)
+                    z = self.layer_norm(name=f"layer_norm_{i}", x=z)
 
                 z = self._activation_fn(z)
 
@@ -330,14 +362,20 @@ class BayesianNN:
                     dropout_mask = random.bernoulli(rng_key, p=1 - dropout_rate, shape=z.shape)
                     z = z * dropout_mask / (1 - dropout_rate)
 
-            else:
-                pass
+            else: # Output layer.
+                z = self._activation_fn(z)
 
-        mu = z.squeeze()
+        output = z.squeeze()
 
-        self.likelihood(mu=mu, y=y, x_shape=x.shape, is_training=is_training)
+        # sigma = numpyro.sample(
+        #     name=f"{self.model_name}_sigma",
+        #     fn=dist.InverseGamma(
+        #         self._config.inv_gamma_prior_shape,
+        #         self._config.inv_gamma_prior_scale
+        #     ),
+        # )
 
-        return mu
+        return output
 
     def _get_svi_predictive_distribution(
         self,
@@ -388,7 +426,7 @@ class BayesianNN:
         x_train: jnp.ndarray,
         y_train: jnp.ndarray,
         num_samples: int,
-        kernel: str = "SGLD"
+        kernel: str = "NUTS"
     ):
         """
         Optimize the model using Markov Chain Monte Carlo (MCMC) sampling
@@ -428,38 +466,36 @@ class BayesianNN:
             self.posterior_samples = mcmc.get_samples()
         else:
             pass
-
-            from jax_sgmc import potential
-            from jax_sgmc.data.numpy_loader import NumpyDataLoader
-            from jax_sgmc import alias
-
-            data_loader = NumpyDataLoader(x=x_train, y=y_train)
-
-            potential_fn = potential.minibatch_potential(
-                prior=self.prior,
-                likelihood=self.likelihood,
-                strategy="vmap"
-            )
-            sghmc = alias.sghmc(potential_fn,
-                                data_loader,
-                                cache_size=512,
-                                batch_size=2,
-                                burn_in=5000,
-                                accepted_samples=1000,
-                                integration_steps=5,
-                                adapt_noise_model=False,
-                                friction=0.9,
-                                first_step_size=0.01,
-                                last_step_size=0.00015,
-                                diagonal_noise=False)
-            iterations = 3000
-            init_sample = {"w": jnp.zeros((N, 1)), "log_sigma": jnp.array(2.5)}
-            # Run the solver
-            results = sghmc(init_sample, iterations=iterations)
-            # Access the obtained samples from the first Markov chain
-            results = results[0]["samples"]["variables"]
-
-
+            #
+            # from jax_sgmc import potential
+            # from jax_sgmc.data.numpy_loader import NumpyDataLoader
+            # from jax_sgmc import alias
+            #
+            # data_loader = NumpyDataLoader(x=x_train, y=y_train)
+            #
+            # potential_fn = potential.minibatch_potential(
+            #     prior=self.prior,
+            #     likelihood=self.likelihood,
+            #     strategy="vmap"
+            # )
+            # sghmc = alias.sghmc(potential_fn,
+            #                     data_loader,
+            #                     cache_size=512,
+            #                     batch_size=2,
+            #                     burn_in=5000,
+            #                     accepted_samples=1000,
+            #                     integration_steps=5,
+            #                     adapt_noise_model=False,
+            #                     friction=0.9,
+            #                     first_step_size=0.01,
+            #                     last_step_size=0.00015,
+            #                     diagonal_noise=False)
+            # iterations = 3000
+            # init_sample = {"w": jnp.zeros((N, 1)), "log_sigma": jnp.array(2.5)}
+            # # Run the solver
+            # results = sghmc(init_sample, iterations=iterations)
+            # # Access the obtained samples from the first Markov chain
+            # results = results[0]["samples"]["variables"]
 
         self.predictive = Predictive(
             self.model,
@@ -524,8 +560,4 @@ class BayesianNN:
         rng_key = random.PRNGKey(1)
         predictions = self.predictive(rng_key, x_test)
 
-        if self._independent_network_flag:
-            preds = predictions[f"{self.model_name}_obs"]
-            return jnp.mean(preds, axis=0), jnp.std(preds, axis=0)
-        else:
-            return predictions[f"{self.model_name}_obs"]  # Shape: [num_samples, batch_size]
+        return predictions[f"{self.model_name}_obs"]  # Shape: [num_samples, batch_size]

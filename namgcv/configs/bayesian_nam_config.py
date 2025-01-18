@@ -19,9 +19,9 @@ class DefaultBayesianNAMConfig:
         Factor by which the learning rate will be reduced.
     num_epochs : int, default=5000
         Number of epochs for which to train the model.
-    gamma_prior_shape : float, default=0.5
+    inv_gamma_prior_shape : float, default=0.5
         Shape parameter for the Gamma prior.
-    gamma_prior_scale : float, default=1.0
+    inv_gamma_prior_scale : float, default=1.0
         Scale parameter for the Gamma prior.
     gaussian_prior_location : float, default=0.0
         Location parameter for the Gaussian prior.
@@ -30,16 +30,19 @@ class DefaultBayesianNAMConfig:
     """
 
     # Model definition parameters.
-    interaction_degree: int = 2
+    interaction_degree: int = 1
     intercept: bool = True
-    feature_dropout: float = 0.2
+    feature_dropout: float = 0.0
+
+    intercept_prior_shape: float = 0.0
+    intercept_prior_scale: float = 1.0
 
     # Note: The prior parameters are only used in the joint optimization procedure.
-    gamma_prior_shape: float = 0.5
-    gamma_prior_scale: float = 1.0
+    # inv_gamma_prior_shape: float = 2.0
+    # inv_gamma_prior_scale: float = 0.75
 
     gaussian_prior_location: float = 0.0
-    gaussian_prior_scale: float = 5.0
+    gaussian_prior_scale: float = 1.0
 
     # Optimization parameters.
     num_epochs: int = 250
@@ -49,5 +52,6 @@ class DefaultBayesianNAMConfig:
     weight_decay: float = 1e-06
     lr_factor: float = 0.1
 
-    mcmc_step_size: float = 5.0
-    num_samples = 200
+    mcmc_step_size: float = 1.0
+    num_chains: int = 1
+    num_samples = 1000
