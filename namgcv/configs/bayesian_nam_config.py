@@ -9,20 +9,16 @@ class DefaultBayesianNAMConfig:
 
     Parameters
     ----------
-    lr : float, default=1e-04
-        Learning rate for the optimizer.
-    lr_patience : int, default=10
-        Number of epochs with no improvement after which learning rate will be reduced.
-    weight_decay : float, default=1e-06
-        Weight decay (L2 penalty) for the optimizer.
-    lr_factor : float, default=0.1
-        Factor by which the learning rate will be reduced.
-    num_epochs : int, default=5000
-        Number of epochs for which to train the model.
-    inv_gamma_prior_shape : float, default=0.5
-        Shape parameter for the Gamma prior.
-    inv_gamma_prior_scale : float, default=1.0
-        Scale parameter for the Gamma prior.
+    interaction_degree : int, default=1
+        Degree of the interaction terms.
+    intercept : bool, default=True
+        Whether to include a global intercept term.
+    feature_dropout : float, default=0.0
+        Dropout rate for the input features.
+    intercept_prior_shape : float, default=0.0
+        Shape parameter for the prior on the intercept.
+    intercept_prior_scale : float, default=1.0
+        Scale parameter for the prior on the intercept.
     gaussian_prior_location : float, default=0.0
         Location parameter for the Gaussian prior.
     gaussian_prior_scale : float, default=5.0
@@ -37,21 +33,11 @@ class DefaultBayesianNAMConfig:
     intercept_prior_shape: float = 0.0
     intercept_prior_scale: float = 1.0
 
-    # Note: The prior parameters are only used in the joint optimization procedure.
-    # inv_gamma_prior_shape: float = 2.0
-    # inv_gamma_prior_scale: float = 0.75
-
     gaussian_prior_location: float = 0.0
     gaussian_prior_scale: float = 1.0
 
     # Optimization parameters.
-    num_epochs: int = 250
-
-    lr: float = 1e-4
-    lr_patience: int = 10
-    weight_decay: float = 1e-06
-    lr_factor: float = 0.1
-
     mcmc_step_size: float = 1.0
     num_chains: int = 1
     num_samples = 1000
+    target_accept_prob: float = 0.8

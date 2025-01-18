@@ -76,19 +76,9 @@ class BayesianNAM:
         self._logger = logging.getLogger(__name__)
 
         self._config = config
-        self._num_epochs = self._config.num_epochs
-        self._lr = self._config.lr
-        self._weight_decay = self._config.weight_decay
-
-        self._intercept_prior_shape = self._config.intercept_prior_shape
-        self._intercept_prior_scale = self._config.intercept_prior_scale
 
         self._cat_feature_info = cat_feature_info
         self._num_feature_info = num_feature_info
-        self._num_classes = num_classes
-        self._interaction_degree = self._config.interaction_degree
-
-        self._intercept = self._config.intercept
 
         self._subnetwork_config = subnetwork_config
 
@@ -108,17 +98,22 @@ class BayesianNAM:
                 out_dim=feature_info["output_dim"],
                 config=self._subnetwork_config,
                 model_name=f"{feature_name}_cat_subnetwork",
-                independent_network_flag=False,
             )
 
         self._interaction_networks = {}
-        if self._interaction_degree is not None and self._interaction_degree >= 2:
+        if (
+                self._config.interaction_degree is not None
+                and
+                self._config.interaction_degree >= 2
+        ):
             self._create_interaction_subnetworks(
                 num_feature_info=num_feature_info,
                 cat_feature_info=cat_feature_info,
             )
 
         self.predictive = None
+        self.posterior_samples = None
+        self._mcmc = None
 
         self._model_initialized = True
         self._logger.info(
@@ -195,7 +190,7 @@ class BayesianNAM:
 
         all_feature_names = list(num_feature_info.keys()) + list(cat_feature_info.keys())
 
-        for degree in range(2, self._interaction_degree + 1):
+        for degree in range(2, self._config.interaction_degree + 1):
             for interaction in combinations(all_feature_names, degree):
                 input_dim = 0
                 for feature in interaction:
@@ -210,7 +205,6 @@ class BayesianNAM:
                     out_dim=1,
                     config=self._subnetwork_config,
                     model_name=f"{interaction_name}_int_subnetwork",
-                    independent_network_flag=False,
                 )
 
     def likelihood(
@@ -273,7 +267,7 @@ class BayesianNAM:
         ):
             for feature_name, feature_network in sub_network_group.items():
                 x = feature_group[feature_name]
-                # Use numpyro.handlers.scope to isolate parameter names.
+                # We use numpyro.handlers.scope to isolate parameter names.
                 with handlers.scope(prefix=feature_name):
                     subnet_out_i = feature_network.model(x, y=target, is_training=is_training)
 
@@ -281,7 +275,7 @@ class BayesianNAM:
                 numpyro.deterministic(name=f"contrib_{feature_name}", value=subnet_out_i_centered)
                 subnet_out_contributions.append(subnet_out_i_centered)
 
-        if self._interaction_degree is not None and self._interaction_degree >= 2:
+        if self._config.interaction_degree is not None and self._config.interaction_degree >= 2:
             all_features = {**num_features, **cat_features}
             for interaction_name, interaction_network in self._interaction_networks.items():
                 feature_names = interaction_name.split(":")
@@ -313,20 +307,19 @@ class BayesianNAM:
         # After sum shape: [batch_size, sub_network_out_dim].
         output_sum_over_subnetworks = jnp.sum(subnet_out_contributions, axis=-1)
 
-        if self._intercept:  # Global intercept term.
+        if self._config.intercept:  # Global intercept term.
             intercept = numpyro.sample(
                 name=f"intercept",
                 fn=dist.Normal(
-                    loc=self._intercept_prior_shape,
-                    scale=self._intercept_prior_scale
+                    loc=self._config.intercept_prior_shape,
+                    scale=self._config.intercept_prior_scale
                 ).expand(
                     [output_sum_over_subnetworks.shape[1]]
                 ).to_event(1)  # K-dimensional.
             )
             output_sum_over_subnetworks += intercept
 
-        # TODO: Place the link function in the submodel class?
-        #  OR, equivalently, apply it before storing the contributions.
+        # TODO: Cleanup link function implementation.
         # --------------------------------------
         # Link functions per dimension
         # e.g. dimension 0 => identity, dimension 1 => exp, dimension 2 => identity
@@ -343,7 +336,7 @@ class BayesianNAM:
 
         link_fns = [link_0, link_1]
 
-        # Apply link dimensionwise
+        # Apply link dimension-wise
         # shape => [batch_size, K]
         # But we do it dimension by dimension:
         def apply_links(params):
@@ -361,54 +354,7 @@ class BayesianNAM:
             y=target
         )
 
-
-    def _get_svi_predictive_distribution(
-        self,
-        num_features: Dict[str, jnp.ndarray],
-        cat_features: Dict[str, jnp.ndarray],
-        target: jnp.ndarray,
-    ):
-        """
-        Optimize the model using Stochastic Variational Inference (SVI) and store the
-        predictive distribution.
-
-        Parameters
-        ----------
-        num_features : dict
-            Dictionary of numerical features with feature names as keys.
-        cat_features : dict
-            Dictionary of categorical features with feature names as keys.
-        target : jnp.ndarray
-            True response tensor.
-        """
-
-        rng_key = random.PRNGKey(0)
-        optimizer = Adam(step_size=self._lr)
-
-        # Note: The guide is the variational distribution that we use to approximate the posterior.
-        guide = AutoDiagonalNormal(self.model)
-
-        svi = SVI(self.model, guide, optimizer, loss=Trace_ELBO())
-        svi_state = svi.init(rng_key, num_features, cat_features, target)
-
-        progress_bar = trange(self._num_epochs)
-        for epoch in progress_bar:
-            svi_state, loss = svi.update(
-                svi_state,
-                num_features, cat_features, target
-            )
-            progress_bar.set_postfix(loss=f"{loss / target.shape[0]:.3f}")
-
-        self.params = svi.get_params(svi_state)
-        predictive = Predictive(
-            self.model,
-            guide=guide,
-            params=self.params,
-            num_samples=self._config.num_samples
-        )
-        self.predictive = predictive
-
-    def _get_mcmc_predictive_distribution(
+    def train_model(
         self,
         num_features: Dict[str, jnp.ndarray],
         cat_features: Dict[str, jnp.ndarray],
@@ -426,14 +372,13 @@ class BayesianNAM:
             Dictionary of categorical features with feature names as keys.
         target : jnp.ndarray
             True response tensor.
-        num_samples : int
-            Number of samples to draw from the posterior distribution.
         """
+
         rng_key = random.PRNGKey(0)
         nuts_kernel = NUTS(
             model=self.model,
-            # step_size=self._config.mcmc_step_size,
-            # target_accept_prob=0.3,
+            step_size=self._config.mcmc_step_size,
+            target_accept_prob=self._config.target_accept_prob
         )
         self._mcmc = MCMC(
             nuts_kernel,
@@ -488,7 +433,7 @@ class BayesianNAM:
         intercept_params = {
             param_name: param_vals for param_name, param_vals in posterior_samples.items()
             if "intercept" in param_name
-        } if self._intercept else None
+        } if self._config.intercept else None
 
         return {
             "noise": noise_params,
@@ -534,50 +479,11 @@ class BayesianNAM:
             plt.tight_layout()
             plt.show()
 
-    def train_model(
-        self,
-        num_features: Dict[str, jnp.ndarray],
-        cat_features: Dict[str, jnp.ndarray],
-        target: jnp.ndarray,
-        inference_method: str = "mcmc",
-    ):
-        """
-        Train the Bayesian Neural Additive Model (BNAM) using the specified inference method.
-
-        Parameters
-        ----------
-        num_features : dict
-            Dictionary of numerical features with feature names as keys.
-        cat_features : dict
-            Dictionary of categorical features with feature names as keys.
-        target : jnp.ndarray
-            True response tensor.
-        inference_method : str
-            Inference method to use for training the model. Must be one of 'svi' or 'mcmc'.
-            Default is 'svi'.
-        """
-
-        inference_method = inference_method.lower()
-        if inference_method == "svi":
-            self._get_svi_predictive_distribution(
-                num_features=num_features,
-                cat_features=cat_features,
-                target=target
-            )
-        elif inference_method == "mcmc":
-            self._get_mcmc_predictive_distribution(
-                num_features=num_features,
-                cat_features=cat_features,
-                target=target
-            )
-        else:
-            raise ValueError("Inference method must be either 'svi' or 'mcmc'.")
-
     def predict(
             self,
             num_features: Dict[str, jnp.ndarray],
             cat_features: Dict[str, jnp.ndarray],
-    ) -> tuple[ndarray[Any, dtype[Any]], dict[str, ndarray[Any, dtype[Any]]]]:
+    ) -> tuple[Any, Any, dict[str, ndarray[Any, dtype[Any]]]]:
         """
         Obtain predictions from the Bayesian Neural Additive Model (BNAM).
 
@@ -603,11 +509,11 @@ class BayesianNAM:
         )
 
         pred_samples = predictions["obs"]  # Shape: [num_mcmc_samples, batch_size]
-        final_params = predictions["final_params"]
+        final_params = predictions["final_params"]  # Shape: [num_mcmc_samples, batch_size, K]
 
         submodel_output_contributions = {}
         for feature_type, submodel_dict in zip(
-                ["numerical", "categorical", "intercation"],
+                ["numerical", "categorical", "interaction"],
                 [self._num_feature_networks, self._cat_feature_networks, self._interaction_networks]
         ):
             if not submodel_dict:
@@ -619,94 +525,3 @@ class BayesianNAM:
                 submodel_output_contributions[feature_name] = np.array(contrib_samples)
 
         return pred_samples, final_params, submodel_output_contributions
-
-    def save_model(
-            self,
-            filepath: str
-    ):
-        """
-        Save the trained model parameters or posterior samples to disk.
-
-        Parameters
-        ----------
-        filepath : str
-            The file path where the model will be saved.
-        """
-
-        data = {
-            'config': self._config,
-            'subnetwork_config': self._subnetwork_config,
-            'cat_feature_info': self._cat_feature_info,
-            'num_feature_info': self._num_feature_info,
-            'interaction_degree': self._interaction_degree,
-            'intercept': self._intercept,
-        }
-
-        if hasattr(self, 'posterior_samples'):
-            data['posterior_samples'] = self.posterior_samples
-            data["mcmc"] = self._mcmc
-            data['inference_method'] = 'mcmc'
-        elif hasattr(self, 'params'):
-            data['params'] = self.params
-            data['inference_method'] = 'svi'
-        else:
-            raise ValueError("No trained model found. Please train the model before saving.")
-
-        with open(filepath, 'wb') as handle:
-            pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        self._logger.info(f"Model saved to {filepath}.")
-
-    def load_model(
-            self,
-            filepath: str
-    ):
-        """
-        Load the trained model parameters or posterior samples from disk.
-
-        Parameters
-        ----------
-        filepath : str
-            The file path from where the model will be loaded.
-        """
-
-        with open(filepath, 'rb') as f:
-            data = pickle.load(f)
-
-        # Restore model configurations and parameters
-        self._config = data['config']
-        self._subnetwork_config = data['subnetwork_config']
-        self._cat_feature_info = data['cat_feature_info']
-        self._num_feature_info = data['num_feature_info']
-        self._interaction_degree = data['interaction_degree']
-        self._intercept = data['intercept']
-
-        inference_method = data['inference_method']
-
-        self.__init__(
-            cat_feature_info=self._cat_feature_info,
-            num_feature_info=self._num_feature_info,
-            config=self._config,
-            subnetwork_config=self._subnetwork_config,
-        )  # Re-initialize subnetworks.
-
-        if inference_method == 'mcmc':
-            self.posterior_samples = data['posterior_samples']
-            self.predictive = Predictive(
-                self.model,
-                posterior_samples=self.posterior_samples
-            )
-            self._mcmc = data["mcmc"]
-        elif inference_method == 'svi':
-            # TODO: Fix saving and loading of SVI model.
-            #  It currently raises an error during prediction time.
-            self.params = data['params']
-            self.predictive = Predictive(
-                self.model,
-                guide=AutoDiagonalNormal(self.model),
-                params=self.params,
-                num_samples=self._config.num_samples
-            )
-        else:
-            raise ValueError("Invalid inference method found in saved data.")
-
-        self._logger.info(f"Model loaded from {filepath}")
