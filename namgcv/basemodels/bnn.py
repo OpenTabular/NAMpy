@@ -305,67 +305,218 @@ class BayesianNN:
     def model(
             self,
             x: jnp.ndarray,
-            y: jnp.ndarray=None,
-            is_training: bool=True
+            y: jnp.ndarray = None,
+            is_training: bool = True,
+            permute_params: bool = False,
     ):
-        """
-        Define the probabilistic model of the Bayesian Neural Network.
-
-        Parameters
-        ----------
-        x : jnp.ndarray
-            Input features tensor.
-        y : jnp.ndarray
-            True response tensor (optional). This is only required during training.
-        is_training : bool
-            Flag indicating whether the model is in training mode.
-
-        Returns
-        -------
-        output : jnp.ndarray
-            Output of the network.
-        """
-
         x = x.reshape(-1, 1) if x.ndim == 1 else x
         num_layers = len(self._layer_sizes) - 1
 
-        z = x
+        # --------------------
+        # 1) Sample all layer weights/biases up front
+        # --------------------
+        Ws = []
+        Bs = []
         for i in range(num_layers):
             w, b = self.prior(
                 layer_index=i,
                 input_dim=self._layer_sizes[i],
-                output_dim=self._layer_sizes[i + 1]
+                output_dim=self._layer_sizes[i + 1],
             )
+            Ws.append(w)
+            Bs.append(b)
 
+        # If you are using BN or LN, also read in the gamma/beta parameters here,
+        # for example by "mock-running" the batch_norm/layer_norm once with dummy inputs,
+        # or by directly calling numpyro.param(...). This ensures we can swap them below.
+        # For brevity, we skip that here.
+
+        # --------------------
+        # 2) Perform the complete swap if requested (only at inference)
+        # --------------------
+        if permute_params:
+            if is_training:
+                raise ValueError(
+                    "Permutation of parameters is only allowed during inference."
+                )
+
+            # For a 'complete swap', we have to do two things for each hidden layer i,
+            # except the output layer has no next layer to swap rows in.
+            #  - Swap columns j1, j2 in Ws[i] (and biases in Bs[i])
+            #  - Swap rows j1, j2 in Ws[i+1] (the next layer's input weights)
+            # Also swap relevant BN/LN parameters if indexing those same hidden units.
+
+            for i in range(num_layers - 1):  # only swap up to second-to-last layer
+                w_i = Ws[i]  # shape = [input_dim, output_dim]
+                b_i = Bs[i]  # shape = [output_dim]
+                w_ip1 = Ws[i + 1]  # shape = [output_dim, next_output_dim]
+
+                # Randomly pick two hidden units to swap
+                key = numpyro.prng_key()
+                j1, j2 = random.choice(key, a=w_i.shape[1], shape=(2,), replace=False)
+
+                # ----------- Swap columns in Ws[i] -----------
+                # These columns correspond to hidden units j1, j2
+                w_col_j1 = w_i[:, j1]
+                w_col_j2 = w_i[:, j2]
+                w_i = w_i.at[:, j1].set(w_col_j2)
+                w_i = w_i.at[:, j2].set(w_col_j1)
+
+                # ----------- Swap the biases in Bs[i] -----------
+                b_j1 = b_i[j1]
+                b_j2 = b_i[j2]
+                b_i = b_i.at[j1].set(b_j2)
+                b_i = b_i.at[j2].set(b_j1)
+
+                # ----------- Swap rows in Ws[i+1] -----------
+                # Because these same hidden units become the 'input dimension'
+                # of the next layer, we must swap rows j1, j2 in w_ip1.
+                w_row_j1 = w_ip1[j1, :]
+                w_row_j2 = w_ip1[j2, :]
+                w_ip1 = w_ip1.at[j1, :].set(w_row_j2)
+                w_ip1 = w_ip1.at[j2, :].set(w_row_j1)
+
+                # If using BN or LN on the output of layer i, you also must swap
+                # gamma_i, beta_i, etc. at indices j1, j2. For example:
+                #
+                # gamma_i = gamma_i.at[j1].set(tmp_gamma_j2)
+                # gamma_i = gamma_i.at[j2].set(tmp_gamma_j1)
+                # beta_i  = ...
+                #
+                # so that the batch/layer normalization parameters also line up
+                # with the swapped units.
+
+                # Store updated arrays back
+                Ws[i] = w_i
+                Bs[i] = b_i
+                Ws[i + 1] = w_ip1
+
+        # --------------------
+        # 3) Forward pass with final (possibly swapped) parameters
+        # --------------------
+        z = x
+        for i in range(num_layers):
+            w = Ws[i]
+            b = Bs[i]
+
+            # Linear transform
             z = jnp.dot(z, w) + b
 
-            # Apply BatchNorm or LayerNorm if specified.
+            # If not the final layer:
             if i < num_layers - 1:
+                # Optional BN or LN
                 if self._config.batch_norm:
                     z = self.batch_norm(name=f"batch_norm_{i}", x=z)
                 if self._config.layer_norm:
                     z = self.layer_norm(name=f"layer_norm_{i}", x=z)
 
+                # Activation
                 z = self._activation_fn(z)
 
-                # Dropout (implemented as a stochastic mask during training).
+                # Dropout during training
                 if self._config.dropout > 0.0 and is_training:
                     dropout_rate = self._config.dropout
                     rng_key = numpyro.prng_key()
-                    dropout_mask = random.bernoulli(rng_key, p=1 - dropout_rate, shape=z.shape)
-                    z = z * dropout_mask / (1 - dropout_rate)
-
-            else: # Output layer.
+                    mask = random.bernoulli(rng_key, p=1 - dropout_rate, shape=z.shape)
+                    z = z * mask / (1 - dropout_rate)
+            else:
+                # Output layer activation (if your design uses it)
                 z = self._activation_fn(z)
 
-        output = z.squeeze()
+        return z.squeeze()
 
-        # sigma = numpyro.sample(
-        #     name=f"{self.model_name}_sigma",
-        #     fn=dist.InverseGamma(
-        #         self._config.inv_gamma_prior_shape,
-        #         self._config.inv_gamma_prior_scale
-        #     ),
-        # )
+    # def model(
+    #         self,
+    #         x: jnp.ndarray,
+    #         y: jnp.ndarray=None,
+    #         is_training: bool=True,
+    #         permute_params: bool=False
+    # ):
+    #     """
+    #     Define the probabilistic model of the Bayesian Neural Network.
+    #
+    #     Parameters
+    #     ----------
+    #     x : jnp.ndarray
+    #         Input features tensor.
+    #     y : jnp.ndarray
+    #         True response tensor (optional). This is only required during training.
+    #     is_training : bool
+    #         Flag indicating whether the model is in training mode.
+    #
+    #     Returns
+    #     -------
+    #     output : jnp.ndarray
+    #         Output of the network.
+    #     """
+    #
+    #     x = x.reshape(-1, 1) if x.ndim == 1 else x
+    #     num_layers = len(self._layer_sizes) - 1
+    #
+    #     z = x
+    #     for i in range(num_layers):
+    #         w, b = self.prior(
+    #             layer_index=i,
+    #             input_dim=self._layer_sizes[i],
+    #             output_dim=self._layer_sizes[i + 1]
+    #         )
+    #
+    #         if permute_params:
+    #             if is_training:
+    #                 raise ValueError("Permutation of parameters is only allowed during inference.")
+    #
+    #             if i == 1:
+    #                 # Randomly choose two hidden units to swap
+    #                 key = numpyro.prng_key()
+    #                 # 'output_dim' is w.shape[1], i.e. number of hidden units in this layer
+    #                 j1, j2 = random.choice(key, a=w.shape[1], shape=(2,), replace=False)
+    #
+    #                 # --------------------------
+    #                 #  1) Swap columns (j1, j2) in w
+    #                 # --------------------------
+    #                 w_col_j1 = w[:, j1]
+    #                 w_col_j2 = w[:, j2]
+    #                 w = w.at[:, j1].set(w_col_j2)
+    #                 w = w.at[:, j2].set(w_col_j1)
+    #
+    #                 # --------------------------
+    #                 #  2) Swap bias terms (j1, j2)
+    #                 # --------------------------
+    #                 b_j1 = b[j1]
+    #                 b_j2 = b[j2]
+    #                 b = b.at[j1].set(b_j2)
+    #                 b = b.at[j2].set(b_j1)
+    #
+    #         z = jnp.dot(z, w) + b
+    #
+    #         # Apply BatchNorm or LayerNorm if specified.
+    #         if i < num_layers - 1:
+    #             if self._config.batch_norm:
+    #                 z = self.batch_norm(name=f"batch_norm_{i}", x=z)
+    #             if self._config.layer_norm:
+    #                 z = self.layer_norm(name=f"layer_norm_{i}", x=z)
+    #
+    #             z = self._activation_fn(z)
+    #
+    #             # Dropout (implemented as a stochastic mask during training).
+    #             if self._config.dropout > 0.0 and is_training:
+    #                 dropout_rate = self._config.dropout
+    #                 rng_key = numpyro.prng_key()
+    #                 dropout_mask = random.bernoulli(rng_key, p=1 - dropout_rate, shape=z.shape)
+    #                 z = z * dropout_mask / (1 - dropout_rate)
+    #
+    #         else: # Output layer.
+    #             z = self._activation_fn(z)
+    #
+    #     output = z.squeeze()
+    #
+    #     # sigma = numpyro.sample(
+    #     #     name=f"{self.model_name}_sigma",
+    #     #     fn=dist.InverseGamma(
+    #     #         self._config.inv_gamma_prior_shape,
+    #     #         self._config.inv_gamma_prior_scale
+    #     #     ),
+    #     # )
+    #
+    #     return output
 
-        return output

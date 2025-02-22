@@ -25,8 +25,10 @@ class DefaultBayesianNAMConfig:
         Scale parameter for the Gaussian prior.
     """
 
+    train_val_split_ratio: float = 0.8
+
     # Model definition parameters.
-    interaction_degree: int = 1
+    interaction_degree: int = 2
     intercept: bool = True
     feature_dropout: float = 0.0
 
@@ -38,6 +40,12 @@ class DefaultBayesianNAMConfig:
 
     # Optimization parameters.
     mcmc_step_size: float = 1.0
-    num_chains: int = 1
+    num_chains: int = 10
     num_samples = 1000
     target_accept_prob: float = 0.8
+
+    # Deep ensemble parameters.
+    use_deep_ensemble: bool = True
+    de_num_epochs: int = 10
+    de_lr: float = 1e-3
+    warm_start_early_stop_patience: int = 10

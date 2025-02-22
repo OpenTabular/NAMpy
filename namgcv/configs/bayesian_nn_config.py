@@ -33,12 +33,12 @@ class DefaultBayesianNNConfig:
     """
 
     # Model definition parameters.
-    hidden_layer_sizes: list = (4, 4,) # (10, 10, 10, 10, 10)
+    hidden_layer_sizes: list = (8, 8, 8, 8,) # (10, 10, 10, 10, 10)
     # activation: callable = nn.SELU()
-    activation: str = "relu"
+    activation: str = "tanh"
 
     # skip_layers: bool = False
-    dropout: float = 0.0
+    dropout: float = 0.1
     # norm: str = None
     use_glu: bool = False
     # skip_connections: bool = False
@@ -52,7 +52,7 @@ class DefaultBayesianNNConfig:
 
     # Weight prior parameters (Isotropic Gaussian).
     gaussian_prior_location: float = 0.0
-    gaussian_prior_scale: float = 1.0
+    gaussian_prior_scale: float = 10.0
 
     # Weight prior scale parameter hyperprior (Half-Normal).
     w_layer_scale_half_normal_hyperscale: float = 1.0

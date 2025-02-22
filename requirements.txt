@@ -1,3 +1,12 @@
+# Custom MCMC kernels
+git+https://github.com/AleksLyubenov/MILE.git@main
+
+# Misc mile dependencies
+tokenizers>=0.19.1
+datasets>=2.19.0
+tiktoken>=0.6.0
+mistune
+
 # Data manipulation
 numpy<=1.26.4
 pandas
