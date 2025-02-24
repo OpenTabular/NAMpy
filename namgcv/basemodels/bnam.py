@@ -230,8 +230,11 @@ class BayesianNAM:
 
         for network_type, network_dict in zip(
                 ["numerical", "categorical", "interaction"],
-                [self._num_feature_networks, self._cat_feature_networks,
-                 self._interaction_networks],
+                [
+                    self._num_feature_networks,
+                    self._cat_feature_networks,
+                    self._interaction_networks
+                ],
         ):
             for sub_network_name, sub_network in network_dict.items():
                 num_layers = len(sub_network.layer_sizes) - 1
@@ -244,17 +247,17 @@ class BayesianNAM:
                         f"{sub_network.layer_sizes[i + 1]}) {nl}"
                     )
                     if i < num_layers - 1:  # Not the last layer
-                        architecture_info += \
-                            f"{tab}Activation: {sub_network._config.activation} {nl}"
-                        if sub_network._config.batch_norm:
+                        if sub_network.config.batch_norm:
                             architecture_info += \
                                 f"{tab}BatchNorm {nl}"
-                        if sub_network._config.layer_norm:
+                        if sub_network.config.layer_norm:
                             architecture_info += \
                                 f"{tab}LayerNorm {nl}"
-                        if sub_network._config.dropout > 0.0:
+                        architecture_info += \
+                            f"{tab}Activation: {sub_network.config.activation} {nl}"
+                        if sub_network.config.dropout > 0.0:
                             architecture_info += \
-                                f"{tab}Dropout(p={sub_network._config.dropout}) {nl}"
+                                f"{tab}Dropout(p={sub_network.config.dropout}) {nl}"
 
                 self._logger.info(
                     f"{network_type.capitalize()} feature network: {sub_network_name}{nl}"
@@ -663,12 +666,8 @@ class BayesianNAM:
             state, metrics = self._train_ensemble_member(
                 training_state=training_state,
                 num_parallel=num_parallel,
-                # num_features=num_features,
-                # cat_features=cat_features,
-                # target=target,
                 data_loader=data_loader,
                 batch_size=train_batch_size,
-                chain_idx=idx
             )
             self._logger.info(
                 f"Finished warm-start training for chain {idx + 1} of {self.config.num_chains}."
@@ -709,12 +708,8 @@ class BayesianNAM:
             self,
             training_state: TrainState,
             num_parallel: int,
-            # num_features: Dict[str, Dict[str, jnp.ndarray]],
-            # cat_features: Dict[str, Dict[str, jnp.ndarray]],
-            # target: Dict[str, jnp.ndarray],
             data_loader: TabularAdditiveModelDataLoader,
             batch_size: int,
-            chain_idx: int
     ) -> tuple[TrainState | Any, MetricsStore]:
         """
         Train a single deep ensemble member (i.e. a single deterministic NAM instance)
@@ -726,20 +721,11 @@ class BayesianNAM:
             The initial training state.
         num_parallel : int
             The number of devices to use for parallel training.
-        num_features: dict
-            Nested dictionary of numerical features, containing train, validation, and test sets.
-            e.g. {"train": {"feature1": jnp.ndarray, "feature2": jnp.ndarray, ...}, ...}
-        cat_features: dict
-            Nested dictionary of categorical features, containing train, validation, and test sets.
-            e.g. {"train": {"feature1": jnp.ndarray, "feature2": jnp.ndarray, ...}, ...}
-        target: dict
-            Nested dictionary of target variables, containing train, validation, and test sets.
-            e.g. {"train": jnp.ndarray, "val": jnp.ndarray, "test": jnp.ndarray}
+        data_loader : TabularAdditiveModelDataLoader
+            The data loader for the training data.
         batch_size: int
             The batch size for training. Note: currently, only full-batch training is supported.
             This argument is a placeholder for future implementation of mini-batch training.
-        chain_idx: int
-            The index of the chain being initialized with by the current ensemble member.
         """
 
         _model_train_step_func = jax.pmap(single_train_step_wrapper) \
@@ -788,7 +774,7 @@ class BayesianNAM:
                 training_state, metrics = _model_train_step_func(
                     state=training_state,
                     batch=batch,
-                    rng=self.keys if num_parallel > 1 else self.keys[chain_idx],
+                    rng=self.keys,
                     early_stop=_stop_n if num_parallel > 1 else _stop_n[0]
                 )
                 metrics_train.append(metrics)
@@ -913,7 +899,6 @@ class BayesianNAM:
             raise NotImplementedError("Classification metrics not yet implemented.")
 
         return training_state, complete_metrics
-        
 
     def _get_flax_module(self):
         """
