@@ -1,9 +1,135 @@
+from pathlib import Path
+from typing import Dict
+
 import jax
-from flax.linen import Module
 import jax.numpy as jnp
+
+import optax
+
 from flax.training.train_state import TrainState
-from jax import Array
+from flax.linen import Module
+
 from mile.inference.metrics import RegressionMetrics
+
+
+def get_single_input(
+        num_features: Dict[str, jnp.ndarray] = None,
+        cat_features: Dict[str, jnp.ndarray] = None,
+        batch_size: int = 1
+):
+    """
+    Helper function which returns a random input data of shape (batch_size, ...).
+    Note: the generator is discarded after the first call, so this method cannot be used as a
+    dataset iterator.
+
+    Parameters
+    ----------
+    num_features : dict
+        Dictionary of numerical features with feature names as keys.
+    cat_features:
+        Dictionary of categorical features with feature names as keys.
+    batch_size : int
+        The desired batch size for the input data.
+
+    Returns
+    -------
+    jnp.ndarray
+        A random input data of shape (batch_size, ...).
+    """
+
+    def index_generator(
+            feature_dict: Dict[str, jnp.ndarray],
+            batch_size: int = 1
+    ):
+        """
+        Generator function that yields batches of indices 0, 1, ..., n-1,
+        where n is the length of the first array in the feature dictionary.
+
+        Parameters
+        ----------
+        feature_dict:
+            The feature dictionary.
+        batch_size:
+            The batch size.
+
+        Returns
+        -------
+        Generator
+            A generator yielding the indices.
+        """
+
+        first_array = next(iter(feature_dict.values()))
+        n = len(first_array)
+        for i in range(0, n, batch_size):
+            yield list(range(i, min(i + batch_size, n)))
+
+    return {
+        "num_features": {
+            k: jnp.concatenate(
+                arrays=[
+                    v[gen_idx].reshape(-1, 1)
+                    for gen_idx in next(index_generator(num_features, batch_size))
+                ], axis=0
+            ) for k, v in num_features.items()
+        } if num_features is not None else {},
+        "cat_features": {
+            k: jnp.concatenate(
+                arrays=[
+                    v[gen_idx].reshape(-1, 1)
+                    for gen_idx in next(index_generator(cat_features, batch_size))
+                ], axis=0
+            ) for k, v in cat_features.items()
+        } if cat_features is not None else {}
+    }
+
+
+def get_initial_state(
+        rng: jnp.ndarray,
+        x: jnp.ndarray,
+        module: Module,
+        optimizer: optax.GradientTransformation,
+) -> TrainState:
+    """
+    Get the initial flax modeule training state.
+
+    Parameters
+    ----------
+    rng : jnp.ndarray
+        Random number generator key.
+    x : jnp.ndarray
+        Input data.
+    module : nn.Module
+        Flax module.
+    optimizer : optax.GradientTransformation
+        Optimizer.
+
+    Returns
+    -------
+    TrainState:
+        The initial training state.
+    """
+
+    rng, dropout_rng = jax.random.split(rng)
+    rng, batch_norm_rng = jax.random.split(rng)
+    rng, layer_norm_rng = jax.random.split(rng)
+    rng, params_rng = jax.random.split(rng)
+    params = module.init(
+        rngs={
+            "params": params_rng,
+            "dropout": dropout_rng,
+            "batch_norm": batch_norm_rng,
+            "layer_norm": layer_norm_rng
+        },
+        num_features=x["num_features"],
+        cat_features=x["cat_features"],
+        train=True
+    )["params"]
+
+    return TrainState.create(
+        apply_fn=module.apply,
+        params=params,
+        tx=optimizer
+    )
 
 
 def gaussian_nll_loss(
@@ -56,7 +182,7 @@ def single_train_step_wrapper(
 
     """
 
-    def loss_fn(params: dict) -> tuple[Array, RegressionMetrics]:
+    def loss_fn(params: dict) -> tuple[jax.Array, RegressionMetrics]:
         """
         Compute the loss function for the model.
 
@@ -67,14 +193,14 @@ def single_train_step_wrapper(
 
         Returns
         -------
-        tuple[Array, RegressionMetrics]:
+        tuple[jax.Array, RegressionMetrics]:
             The computed loss and the metrics object.
         """
         train = True
         logits = state.apply_fn(
             {'params': params},
-            num_features=batch["num_features"],
-            cat_features=batch["cat_features"],
+            num_features=batch["feature"]["numerical"],
+            cat_features=batch["feature"]["categorical"],
             train=train,
             rng=dropout_rng
         )
@@ -149,9 +275,6 @@ def single_train_step_wrapper(
     )
 
 
-# ----------
-# Prediction
-# ----------
 def compute_regression_metrics(
         logits: jnp.ndarray,
         y: jnp.ndarray,
@@ -162,14 +285,19 @@ def compute_regression_metrics(
 
     Parameters
     ----------
-        logits (jnp.ndarray): Logits array.
-        y (jnp.ndarray): Target array.
-        step (jnp.ndarray): Step array, used for tracking steps in the pipeline.
+        logits: jnp.ndarray
+            Logits array.
+        y: jnp.ndarray
+            Target array.
+        step: jnp.ndarray
+            Step array, used for tracking steps in the pipeline.
 
     Returns
     -------
-        (RegressionMetrics): Metrics object containing recorded metrics.
+        RegressionMetrics:
+            Metrics object containing recorded metrics.
     """
+
     loss = gaussian_nll_loss(
         x=y,
         mu=logits[..., 0],
@@ -191,14 +319,19 @@ def single_prediction_wrapper(
     early_stop: bool = False,
     train: bool = True
 ) -> RegressionMetrics:
-    """Predict the model for regression Task.
+    """
+    Predict the model for a regression task.
 
     Parameters
     ----------
-        state (TrainState): Training State.
-        x (jnp.ndarray): Input data of shape (B, ...).
-        y (jnp.ndarray): Target data of shape (B,).
-        early_stop (bool): Early stopping condition used in pipeline.
+        state: TrainState
+            Training State.
+        x: jnp.ndarray
+            Input data of shape (B, ...).
+        y: jnp.ndarray
+            Target data of shape (B,).
+        early_stop: bool
+            Early stopping condition used in pipeline.
 
     Returns
     -------
@@ -212,8 +345,8 @@ def single_prediction_wrapper(
     ):
         logits = state.apply_fn(
             {'params': state.params},
-            num_features=x["num_features"],
-            cat_features=x["cat_features"],
+            num_features=x["numerical"],
+            cat_features=x["categorical"],
             train=train
         )
         return compute_regression_metrics(logits, y, step=state.step)
@@ -225,7 +358,7 @@ def single_prediction_wrapper(
     return jax.lax.cond(early_stop, _fallback, _pred, state, x, y)
 
 
-def _early_stop_check(
+def early_stop_check(
         losses: jnp.ndarray,
         patience: int
 ):
@@ -234,16 +367,22 @@ def _early_stop_check(
 
     Parameters
     ----------
-        losses (jnp.ndarray): Losses array.
-        patience (int): Number of Patience steps for early stopping.
+        losses: jnp.ndarray
+            Losses array.
+        patience: int
+            Number of Patience steps for early stopping.
 
     Returns
     -------
-        (jnp.ndarray): Boolean array of shape (n_devices,) where True indicates to stop.
+        jnp.ndarray:
+            Boolean array of shape (n_devices,) where True indicates to stop.
     """
+
     if losses.shape[-1] < patience:
         return jnp.repeat(False, len(losses))
+
     reference_loss = losses[:, -(patience + 1)]
     reference_loss = jnp.expand_dims(reference_loss, axis=-1)
     recent_losses = losses[:, -(patience):]
+
     return jnp.all(recent_losses >= reference_loss, axis=1)

@@ -10,6 +10,7 @@ mistune
 # Data manipulation
 numpy<=1.26.4
 pandas
+frozendict
 
 # Deep learning
 lightning

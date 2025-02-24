@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import torch.nn as nn
 
 
-@dataclass
+@dataclass(frozen=True)
 class DefaultBayesianNAMConfig:
     """
     Configuration class for the default NAM with predefined hyperparameters.
@@ -46,6 +46,6 @@ class DefaultBayesianNAMConfig:
 
     # Deep ensemble parameters.
     use_deep_ensemble: bool = True
-    de_num_epochs: int = 10
+    de_num_epochs: int = 10000
     de_lr: float = 1e-3
     warm_start_early_stop_patience: int = 10

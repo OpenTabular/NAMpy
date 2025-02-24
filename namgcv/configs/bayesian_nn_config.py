@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(frozen=True)
 class DefaultBayesianNNConfig:
     """
     Configuration class for the default NAM with predefined hyperparameters.
