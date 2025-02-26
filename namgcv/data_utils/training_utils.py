@@ -1,8 +1,11 @@
+import copy
+import pickle
 from pathlib import Path
 from typing import Dict
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 
 import optax
 
@@ -10,6 +13,7 @@ from flax.training.train_state import TrainState
 from flax.linen import Module
 
 from mile.inference.metrics import RegressionMetrics
+from mile.types import ParamTree
 
 
 def get_single_input(
@@ -386,3 +390,116 @@ def early_stop_check(
     recent_losses = losses[:, -(patience):]
 
     return jnp.all(recent_losses >= reference_loss, axis=1)
+
+
+def save_tree(dir: str | Path, tree: ParamTree):
+    """Save tree in .pkl format."""
+    with open(dir / 'tree', 'wb') as f:
+        pickle.dump(tree, f)
+
+
+def load_tree(dir: str | Path) -> ParamTree:
+    """Load tree in .pkl format."""
+    with open(dir / 'tree', 'rb') as f:
+        return pickle.load(f)
+
+
+def get_flattened_keys(d: dict, sep='.') -> list[str]:
+    """Recursively get `sep` delimited path to the leaves of a tree.
+
+    Parameters:
+    -----------
+    d: dict
+        Parameter Tree to get the names of the leaves from.
+    sep: str
+        Separator for the tree path.
+
+    Returns:
+    --------
+        list of names of the leaves in the tree.
+    """
+    keys = []
+    for k, v in d.items():
+        if isinstance(v, dict):
+            keys.extend([f'{k}{sep}{kk}' for kk in get_flattened_keys(v)])
+        else:
+            keys.append(k)
+    return keys
+
+
+def save_params(
+        dir: str | Path,
+        params: ParamTree,
+        idx: int | None = None
+):
+    """
+    Save model parameters to disk.
+
+    Args:
+        dir: str | Path - directory to save the parameters to
+        params: dict - parameters to save
+        idx: int | None - index to append to the file name (default: None)
+    """
+    if not isinstance(dir, Path):
+        dir = Path(dir)
+
+    if not dir.exists():
+        dir.mkdir(parents=True)
+
+    leaves, tree = jax.tree.flatten(params)
+    if not (dir.parent / 'tree').exists():
+        save_tree(dir.parent, tree)
+
+    param_names = get_flattened_keys(params)
+    name = f'params_{idx}.npz' if idx is not None else 'params.npz'
+
+    np.savez_compressed(dir / name, **dict(zip(param_names, leaves)))
+
+
+def map_flax_param_name_numpyro(
+        flax_params: dict
+):
+    """
+    Map the names of parameters in the model's flax module to their corresponding NumPyro
+    parameter names.
+
+    Parameters
+    ----------
+    flax_params: dict
+        Dictionary of flax parameters.
+
+    Returns
+    -------
+    list:
+        List of NumPyro parameter names.
+    """
+
+    numpyro_params_dict = {}
+    for top_level_container_name, top_level_container_params in flax_params.items():
+        # Top-level containers are:
+        # global bias numerical, categorical, and interaction subnetworks.
+        if "subnetwork" in top_level_container_name:
+            prefixes = top_level_container_name.split("_")[:2]
+            feature_name = copy.deepcopy(top_level_container_name)
+            for prefix in prefixes:
+                feature_name = feature_name.replace(f"{prefix}_", "")
+
+            # Layers can be Dense, LayerNorm, BatchNorm, etc.
+            for layer_name, layer_params in top_level_container_params.items():
+                # Convert the layer_name from CamelCase to snake_case.
+                layer_name = ''.join(
+                    ['_' + i.lower() if i.isupper() else i for i in layer_name]
+                ).lstrip('_')
+                for param_name, param in layer_params.items():
+                    numpyro_params_dict[
+                        (
+                            f"{feature_name}/"
+                            f"{layer_name}_{param_name}"
+                        )
+                    ] = param
+        else:  # intercept.
+            numpyro_params_dict[
+                top_level_container_name
+            ] = top_level_container_params
+
+    return numpyro_params_dict

@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import logging
 import os
+import copy
+
 from dataclasses import dataclass
+from functools import partial
 from itertools import combinations
+from pathlib import Path
 from typing import Tuple, Any, Dict, List, Callable, Sequence
 
 import numpy as np
@@ -11,7 +15,8 @@ from flax import struct
 from flax.struct import field
 from frozendict import frozendict
 from mile.config.data import DataConfig, Source, DatasetType, Task
-from mile.training.utils import save_params
+from mile.training.utils import save_params, load_params_batch
+from mile.training.warmup import custom_window_adaptation
 from numpy import ndarray, dtype
 
 import jax
@@ -39,7 +44,9 @@ from namgcv.data_utils.training_utils import (
     single_train_step_wrapper,
     single_prediction_wrapper,
     early_stop_check,
-    get_initial_state, get_single_input
+    get_initial_state,
+    get_single_input,
+    map_flax_param_name_numpyro
 )
 from namgcv.data_utils.jax_dataset import TabularAdditiveModelDataLoader
 
@@ -126,6 +133,7 @@ class BayesianNAM:
         link_location: Any = link_location,
         link_scale: Any = link_scale,
         link_shape: Any = link_shape,
+        rng_key: jnp.ndarray = jax.random.PRNGKey(42),
         **kwargs,
     ):
         """
@@ -190,14 +198,15 @@ class BayesianNAM:
                 cat_feature_info=cat_feature_info,
             )
 
-        self._lnk_fns = (link_location, link_scale, link_shape)
+        self.lnk_fns = (link_location, link_scale, link_shape)
 
         self.predictive = None
         self.posterior_samples = None
         self._mcmc = None
 
-        self.keys = jax.random.split(
-            jax.random.PRNGKey(42),
+        self._single_rng_key = rng_key
+        self._chains_rng_keys = jax.random.split(
+            self._single_rng_key,
             num=self.config.num_chains
         ) if self.config.num_chains > 1 else jax.random.PRNGKey(42)
 
@@ -302,6 +311,88 @@ class BayesianNAM:
                     model_name=f"{interaction_name}_int_subnetwork",
                 )
 
+    def log_prior(self, num_features, cat_features, params):
+        """
+        Compute the log prior of the Bayesian NAM model.
+
+        Parameters
+        ----------
+        num_features : Dict[str, jnp.ndarray]
+            Dictionary of numerical features with feature names as keys.
+        cat_features : Dict[str, jnp.ndarray]
+            Dictionary of categorical features with feature names as keys.
+        params : dict
+            Dictionary of sampled parameters.
+
+        Returns
+        -------
+        float
+            Log prior probability of the parameters.
+        """
+        model_trace = handlers.trace(handlers.seed(self.model, rng_seed=0)).get_trace(
+            num_features=num_features, cat_features=cat_features, is_training=True
+        )
+        log_priors = sum(
+            site["fn"].log_prob(site["value"]).sum()
+            for site in model_trace.values()
+            if site["type"] == "sample" and site["name"] != "obs"
+        )
+        return log_priors
+
+    def log_likelihood(self, num_features, cat_features, y, params):
+        """
+        Compute the log likelihood of the observed data given the model.
+
+        Parameters
+        ----------
+        num_features : Dict[str, jnp.ndarray]
+            Dictionary of numerical features with feature names as keys.
+        cat_features : Dict[str, jnp.ndarray]
+            Dictionary of categorical features with feature names as keys.
+        y : jnp.ndarray
+            Observed target values.
+        params : dict
+            Dictionary of sampled parameters.
+
+        Returns
+        -------
+        float
+            Log likelihood of the observed data.
+        """
+        model_trace = handlers.trace(handlers.condition(self.model, params)).get_trace(
+            num_features=num_features, cat_features=cat_features, target=y, is_training=False
+        )
+        log_likelihoods = sum(
+            site["fn"].log_prob(site["value"]).sum()
+            for site in model_trace.values()
+            if site["type"] == "sample" and site["name"] == "obs"
+        )
+        return log_likelihoods
+
+    def log_unnormalized_posterior(self, num_features, cat_features, y, params):
+        """
+        Compute the log unnormalized posterior.
+
+        Parameters
+        ----------
+        num_features : Dict[str, jnp.ndarray]
+            Dictionary of numerical features with feature names as keys.
+        cat_features : Dict[str, jnp.ndarray]
+            Dictionary of categorical features with feature names as keys.
+        y : jnp.ndarray
+            Observed target values.
+        params : dict
+            Dictionary of sampled parameters.
+
+        Returns
+        -------
+        float
+            Log unnormalized posterior (log prior + log likelihood).
+        """
+        log_prior_val = self.log_prior(num_features, cat_features, params)
+        log_likelihood_val = self.log_likelihood(num_features, cat_features, y, params)
+        return log_prior_val + log_likelihood_val
+
     def likelihood(
             self,
             output_sum_over_subnetworks: jnp.ndarray,
@@ -396,7 +487,7 @@ class BayesianNAM:
                 subnet_out_contributions.append(subnet_out_i)
 
         # Feature dropout (implemented as a stochastic mask during training).
-        # After stacking shape: [batch_size, sub_network_out_dim, num_sub_networks].
+        # After stacking shape: [batch_size, sub_network_out_dim, num_subnetworks].
         subnet_out_contributions = jnp.stack(subnet_out_contributions, axis=-1)
         if self.config.feature_dropout > 0.0 and is_training:
             rng_key = numpyro.prng_key()
@@ -439,14 +530,6 @@ class BayesianNAM:
                     scale=self.config.intercept_prior_scale
                 ).expand((output_sum_over_subnetworks.shape[1],)).to_event(1)
             )
-            # Broadcast the intercept to match the current batch (test or training)
-            intercept = jnp.broadcast_to(
-                intercept,
-                shape=(
-                    output_sum_over_subnetworks.shape[0],
-                    output_sum_over_subnetworks.shape[1]
-                )
-            )
             # Add back num_networks * global_offset to the intercept.
             intercept = intercept + global_offset * subnet_out_contributions.shape[-1]
             output_sum_over_subnetworks += intercept
@@ -481,8 +564,8 @@ class BayesianNAM:
         """
 
         results = []
-        for k in range(params.shape[1]):
-            results.append(self._lnk_fns[k](params[:, k]))
+        for k in range(params.shape[-1]):
+            results.append(self.lnk_fns[k](params[:, k]))
         return jnp.stack(results, axis=-1)
 
     def train_model(
@@ -505,75 +588,7 @@ class BayesianNAM:
             True response tensor.
         """
 
-        if getattr(self.config, "use_deep_ensemble", False):
-            self._logger.info(
-                "Deep ensemble initialization enabled. Training deep ensemble..."
-            )
-
-            ensemble_params = self.train_deep_ensemble(
-                num_features=num_features,
-                cat_features=cat_features,
-                target=target,
-                key=self.keys,
-            )
-            init_strategy = init_to_value(ensemble_params)
-        else:
-            init_strategy = None
-
-        nuts_kernel = NUTS(
-            model=self.model,
-            init_strategy=init_strategy if init_strategy is not None else init_to_uniform,
-            step_size=self.config.mcmc_step_size,
-            target_accept_prob=self.config.target_accept_prob
-        )
-
-        self._mcmc = MCMC(
-            nuts_kernel,
-            num_samples=self.config.num_samples,
-            num_warmup=self.config.num_samples,
-            num_chains=self.config.num_chains
-        )
-        self._mcmc.run(self.keys, num_features, cat_features, target)
-        self.posterior_samples = self._mcmc.get_samples()
-
-        self.predictive = Predictive(
-            self.model,
-            posterior_samples=self.posterior_samples
-        )
-
-    def train_deep_ensemble(
-        self,
-        num_features: Dict[str, jnp.ndarray],
-        cat_features: Dict[str, jnp.ndarray],
-        target: jnp.ndarray,
-        key: jnp.ndarray = jax.random.PRNGKey(42),
-        train_batch_size: int = None,
-    ):
-        """
-        Method to train an ensemble of deterministic NAMs for the purpose of warm-starting the
-        MCMC sampler for the Bayesian NAM.
-
-        Parameters
-        ----------
-        num_features: dict
-            Dictionary of numerical features with feature names as keys.
-        cat_features: dict
-            Dictionary of categorical features with feature names as keys.
-        target: jnp.ndarray
-            True response tensor.
-        key: jnp.ndarray
-            Random key for initializing the ensemble.
-        train_batch_size:
-            The batch size for training.
-            Note: currently, only full-batch (equivalent to None) training is supported.
-
-        Returns
-        -------
-        TrainState:
-            The final training state for the ensemble.
-        """
-
-        data_loader = TabularAdditiveModelDataLoader(
+        self.data_loader = TabularAdditiveModelDataLoader(
             config=DataConfig(
                 path="synthetic",
                 source=Source.LOCAL,
@@ -595,34 +610,142 @@ class BayesianNAM:
             },
             target_key="target"
         )
-        self._logger.info(f"Data loader initialized: {nl} {data_loader}")
+        self._logger.info(f"Data loader initialized: {nl} {self.data_loader}")
+
+        if getattr(self.config, "use_deep_ensemble", False):
+            self._logger.info(
+                "Deep ensemble initialization enabled. Training deep ensemble..."
+            )
+            warmstart_save_dir = os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "bnam_de_warmstart_checkpoints",
+                "warmstart"
+            )
+            self.train_deep_ensemble(
+                num_features=num_features,
+                cat_features=cat_features,
+                target=target,
+                warmstart_checkpoint_save_dir=warmstart_save_dir
+            )
+            chains = [
+                os.path.join(
+                    warmstart_save_dir, i
+                ) for i in os.listdir(warmstart_save_dir) if i.startswith('params')
+            ]
+        else:
+            chains = []
+            self._logger.warning(
+                "No warmstart path found. "
+                "Sampling will be initialized with random parameters."
+            )
+
+        for idx, step in enumerate(
+                jnp.array_split(
+                    jnp.arange(self.config.num_chains),
+                    self.config.num_chains / jax.device_count()
+                )
+        ):
+            self._logger.info(f"Starting sampling process for chain(s) {step}...")
+
+            if chains:
+                params = load_params_batch(
+                    params_path=[chains[i] for i in step],
+                    tree_path=os.path.join(
+                        warmstart_save_dir,
+                        "..",
+                        "tree"
+                    )
+                )
+            else:
+                raise NotImplementedError(
+                    "TODO: Cold-start sampling is not yet supported."
+                )
+        else:
+            init_strategy = None
+
+        nuts_kernel = NUTS(
+            model=self.model,
+            step_size=self.config.mcmc_step_size,
+            target_accept_prob=self.config.target_accept_prob,
+        )
+
+        self._mcmc = MCMC(
+            nuts_kernel,
+            num_samples=self.config.num_samples,
+            num_warmup=self.config.num_warmup_samples,
+            num_chains=self.config.num_chains,
+        )
+        init_values = map_flax_param_name_numpyro(flax_params=params)
+        self._mcmc.run(
+            jax.random.PRNGKey(42),
+            num_features,
+            cat_features,
+            target,
+            is_training=True,
+            init_params=init_values
+        )
+        self.posterior_samples = self._mcmc.get_samples()
+
+        self.predictive = Predictive(
+            self.model,
+            posterior_samples=self.posterior_samples
+        )
+
+    def train_deep_ensemble(
+        self,
+        num_features: Dict[str, jnp.ndarray],
+        cat_features: Dict[str, jnp.ndarray],
+        target: jnp.ndarray,
+        warmstart_checkpoint_save_dir: str | Path,
+        train_batch_size: int = None,
+    ):
+        """
+        Method to train an ensemble of deterministic NAMs for the purpose of warm-starting the
+        MCMC sampler for the Bayesian NAM.
+
+        Parameters
+        ----------
+        num_features: dict
+            Dictionary of numerical features with feature names as keys.
+        cat_features: dict
+            Dictionary of categorical features with feature names as keys.
+        target: jnp.ndarray
+            True response tensor.
+        key: jnp.ndarray
+            Random key for initializing the ensemble.
+        train_batch_size:
+            The batch size for training.
+            Note: currently, only full-batch (equivalent to None) training is supported.
+        warmstart_checkpoint_save_dir: str | Path
+            The directory where the warm-start checkpoints will be saved.
+
+        Returns
+        -------
+        TrainState:
+            The final training state for the ensemble.
+        """
 
         self._flax_module = self._get_flax_module()
         self._optimizer = optax.adamw(
             learning_rate=getattr(self.config, "de_lr", 1e-3)
         )
 
-        warmstart_checkpoint_save_dir = os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "bnam_de_warmstart_checkpoints"
-        )
         if not os.path.exists(warmstart_checkpoint_save_dir):
             os.makedirs(warmstart_checkpoint_save_dir)
 
         warmstart_metrics_list: list[MetricsStore] = []
-        num_devices = jax.device_count()
-        if self.config.num_chains % num_devices:
+        if self.config.num_chains % jax.device_count() != 0:
             raise ValueError(
                 'num_chains must be divisible by the number of devices.'
-                f'{self.config.num_chains} % {num_devices} != 0.'
+                f'{self.config.num_chains} % {jax.device_count()} != 0.'
             )
 
         for idx, step in enumerate(
-                jnp.array_split(
-                    jnp.arange(self.config.num_chains),
-                    self.config.num_chains/num_devices
-                )
+            jnp.array_split(
+                jnp.arange(self.config.num_chains),
+                self.config.num_chains/jax.device_count()
+            )
         ):
             num_parallel = len(step)
             if num_parallel > 1:  # Replicate the input for multiple devices.
@@ -636,7 +759,7 @@ class BayesianNAM:
                     get_initial_state,
                     static_broadcasted_argnums=(2, 3)
                 )(
-                    jax.random.split(self.keys[idx], num_parallel),
+                    jax.random.split(self._chains_rng_keys[idx], num_parallel),
                     jax.tree_util.tree_map(
                         replicate_leaf,
                         get_single_input(
@@ -650,7 +773,7 @@ class BayesianNAM:
                 )
             else:
                 training_state = get_initial_state(
-                    rng=self.keys[idx],
+                    rng=self._chains_rng_keys[idx],
                     x=get_single_input(
                         num_features=num_features,
                         cat_features=cat_features,
@@ -661,12 +784,11 @@ class BayesianNAM:
                 )
 
             self._logger.info(
-                f"Starting warm-start training for chain {idx + 1} of {self.config.num_chains}."
+                f"Starting warm-start training for chain(s) {step}..."
             )
             state, metrics = self._train_ensemble_member(
                 training_state=training_state,
                 num_parallel=num_parallel,
-                data_loader=data_loader,
                 batch_size=train_batch_size,
             )
             self._logger.info(
@@ -708,7 +830,6 @@ class BayesianNAM:
             self,
             training_state: TrainState,
             num_parallel: int,
-            data_loader: TabularAdditiveModelDataLoader,
             batch_size: int,
     ) -> tuple[TrainState | Any, MetricsStore]:
         """
@@ -721,8 +842,6 @@ class BayesianNAM:
             The initial training state.
         num_parallel : int
             The number of devices to use for parallel training.
-        data_loader : TabularAdditiveModelDataLoader
-            The data loader for the training data.
         batch_size: int
             The batch size for training. Note: currently, only full-batch training is supported.
             This argument is a placeholder for future implementation of mini-batch training.
@@ -750,8 +869,8 @@ class BayesianNAM:
                 break  # Early stopping condition.
 
             # --- Train ---
-            data_loader.shuffle(split="train")
-            for batch in data_loader.iter(
+            self.data_loader.shuffle(split="train")
+            for batch in self.data_loader.iter(
                     split="train",
                     batch_size=batch_size,
                     n_devices=num_parallel,
@@ -774,14 +893,14 @@ class BayesianNAM:
                 training_state, metrics = _model_train_step_func(
                     state=training_state,
                     batch=batch,
-                    rng=self.keys,
+                    rng=self._chains_rng_keys,
                     early_stop=_stop_n if num_parallel > 1 else _stop_n[0]
                 )
                 metrics_train.append(metrics)
 
             # --- Validation ---
             val_metric_over_batches = []
-            for batch in data_loader.iter(
+            for batch in self.data_loader.iter(
                     split="valid",
                     batch_size=None,  # Enforce full-batch validation.
                     n_devices=num_parallel
@@ -848,7 +967,7 @@ class BayesianNAM:
 
         # --- Test ---
         test_metrics_over_batches = []
-        for batch in data_loader.iter(
+        for batch in self.data_loader.iter(
                 split="test",
                 batch_size=None,  # Enforce full-batch testing.
                 n_devices=num_parallel
@@ -913,16 +1032,27 @@ class BayesianNAM:
 
         # Build deterministic subnetworks from the instantiated BayesianNN objects.
         # We assume that each BayesianNN has attributes _layer_sizes and _config.
-        num_networks = {}
-        cat_networks = {}
-        interaction_networks = {}
-
-        for source, target in zip(
-            (self._num_feature_networks, self._cat_feature_networks, self._interaction_networks),
-            (num_networks, cat_networks, interaction_networks)
+        num_subnetworks = {}
+        cat_subnetworks = {}
+        int_subnetworks = {}
+        # Calculate how many networks we need.
+        num_networks = (
+            len(self._num_feature_networks) + \
+            len(self._cat_feature_networks) + \
+            len(self._interaction_networks)
+        )
+        rng_keys = jax.random.split(self._single_rng_key, num=num_networks)
+        for idx, (network_type, source_bayesian_nn, target_deterministic_nn) in enumerate(
+                zip(
+                    ("num", "cat", "int"),
+                    (self._num_feature_networks, self._cat_feature_networks, self._interaction_networks),
+                    (num_subnetworks, cat_subnetworks, int_subnetworks),
+                )
         ):
-            for feature_name, bayes_nn in source.items():
-                target[feature_name] = DeterministicNN(
+            for feature_name, bayes_nn in source_bayesian_nn.items():
+                target_deterministic_nn[feature_name] = DeterministicNN(
+                    rng_key=rng_keys[idx],
+                    model_name=f"{feature_name}_{network_type}_subnetwork",
                     layer_sizes=tuple(bayes_nn.layer_sizes),
                     activation=bayes_nn.config.activation,
                     dropout=bayes_nn.config.dropout,
@@ -935,11 +1065,11 @@ class BayesianNAM:
         # frozendict is used to ensure the flax module is hashable when using pmap for
         # parallelized training.
         module = DeterministicNAM(
-            num_networks=frozendict(num_networks),
-            cat_networks=frozendict(cat_networks),
-            interaction_networks=frozendict(interaction_networks),
+            num_subnetworks=frozendict(num_subnetworks),
+            cat_subnetworks=frozendict(cat_subnetworks),
+            int_subnetworks=frozendict(int_subnetworks),
             config=self.config,
-            lnk_fns=self._lnk_fns,
+            lnk_fns=self.lnk_fns,
         )
 
         self._logger.info("Created non-Bayesian NAM Flax module successfully.")
@@ -962,7 +1092,7 @@ class BayesianNAM:
 
         self._logger.info(
             f"All parameter names in the posterior: {nl}"
-            f"{list(posterior_samples.keys())}"
+            f"{list(posterior_samples._chains_rng_keys())}"
         )
 
         scale_params = {
@@ -1084,9 +1214,9 @@ class BayesianNAM:
 
 
 class DeterministicNAM(nn.Module):
-    num_networks: frozendict[str, DeterministicNN]
-    cat_networks: frozendict[str, DeterministicNN]
-    interaction_networks: frozendict[str, DeterministicNN]
+    num_subnetworks: frozendict[str, DeterministicNN]
+    cat_subnetworks: frozendict[str, DeterministicNN]
+    int_subnetworks: frozendict[str, DeterministicNN]
     config: Any
     lnk_fns: Tuple[Callable, ...]
 
@@ -1122,7 +1252,7 @@ class DeterministicNAM(nn.Module):
         subnet_means = {}  # To compute the (global) offset.
 
         for networks, features in zip(
-                (self.num_networks, self.cat_networks),
+                (self.num_subnetworks, self.cat_subnetworks),
                 (num_features, cat_features)
         ):
             for feature_name, network in networks.items():
@@ -1133,9 +1263,9 @@ class DeterministicNAM(nn.Module):
                 subnet_means[feature_name] = jnp.mean(out, axis=0)  # shape: [out_dim]
                 contributions.append(out)
 
-        if self.interaction_networks:
+        if self.int_subnetworks:
             all_features = {**num_features, **cat_features}
-            for interaction_name, network in self.interaction_networks.items():
+            for interaction_name, network in self.int_subnetworks.items():
                 feature_names = interaction_name.split(":")
                 x_list = [
                     jnp.expand_dims(all_features[name], axis=-1)

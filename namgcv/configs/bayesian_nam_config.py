@@ -42,6 +42,7 @@ class DefaultBayesianNAMConfig:
     mcmc_step_size: float = 1.0
     num_chains: int = 10
     num_samples = 1000
+    num_warmup_samples = 1000
     target_accept_prob: float = 0.8
 
     # Deep ensemble parameters.

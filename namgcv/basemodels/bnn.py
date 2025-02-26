@@ -34,6 +34,7 @@ class BayesianNN:
         in_dim: int = 1,
         out_dim: int = 1,
         config: DefaultBayesianNNConfig = DefaultBayesianNNConfig(),
+        rng_key: jax.random.PRNGKey = jax.random.PRNGKey(42),
         model_name: str = "bayesian_nn",
     ):
         """
@@ -55,6 +56,7 @@ class BayesianNN:
 
         self.model_name = model_name
         self.config = config
+        self._rng_key = rng_key
 
         assert len(self.config.hidden_layer_sizes) > 0, (
             "Please ensure that there is at least one hidden layer size defined in the "
@@ -138,8 +140,8 @@ class BayesianNN:
         mean = jnp.mean(x, axis=axis, keepdims=True)
         var = jnp.var(x, axis=axis, keepdims=True)
 
-        gamma = numpyro.param(f"{name}_batch_norm_gamma", jnp.ones(x.shape[1]))
-        beta = numpyro.param(f"{name}_batch_norm_beta", jnp.zeros(x.shape[1]))
+        gamma = numpyro.param(f"{name}_scale", jnp.ones(x.shape[1]))
+        beta = numpyro.param(f"{name}_bias", jnp.zeros(x.shape[1]))
 
         normalized_x = gamma * (x - mean) / jnp.sqrt(var + eps) + beta
         return normalized_x
@@ -172,8 +174,8 @@ class BayesianNN:
         mean = jnp.mean(x, axis=axis, keepdims=True)
         var = jnp.var(x, axis=axis, keepdims=True)
 
-        gamma = numpyro.param(f"{name}_layer_norm_gamma", jnp.ones(x.shape[-1]))
-        beta = numpyro.param(f"{name}_layer_norm_beta", jnp.zeros(x.shape[-1]))
+        gamma = numpyro.param(f"{name}_scale", jnp.ones(x.shape[-1]))
+        beta = numpyro.param(f"{name}_bias", jnp.zeros(x.shape[-1]))
 
         normalized_x = gamma * (x - mean) / jnp.sqrt(var + eps) + beta
         return normalized_x
@@ -212,7 +214,8 @@ class BayesianNN:
 
             # 1) Sample a Cholesky factor of the correlation matrix using LKJ.
             chol_corr_w = numpyro.sample(
-                name=f"{self.model_name}_w{layer_index}_chol_corr",
+                rng_key=self._rng_key,
+                name=f"dense_{layer_index}_kernel_chol_corr",
                 fn=dist.LKJCholesky(
                     dimension=weight_dim,
                     concentration=self.config.lkj_concentration
@@ -221,7 +224,8 @@ class BayesianNN:
 
             # 2) Sample per-dimension std dev for the weight vector.
             w_std = numpyro.sample(
-                name=f"{self.model_name}_w{layer_index}_std",
+                rng_key=self._rng_key,
+                name=f"dense_{layer_index}_kernel_std",
                 fn=dist.HalfNormal(
                     self.config.w_layer_scale_half_normal_hyperscale
                 ).expand([weight_dim])
@@ -234,7 +238,8 @@ class BayesianNN:
             # 4) Sample from MultivariateNormal and reshape to (input_dim, output_dim).
             w_loc = self.config.gaussian_prior_location * jnp.ones(weight_dim)
             w_vector = numpyro.sample(
-                name=f"{self.model_name}_w{layer_index}",
+                rng_key=self._rng_key,
+                name=f"dense_{layer_index}_kernel",
                 fn=dist.MultivariateNormal(loc=w_loc, scale_tril=scale_tril_w)
             )
             w = w_vector.reshape((input_dim, output_dim))
@@ -243,13 +248,15 @@ class BayesianNN:
             # (Original style: Normal(µ, σ^2 I) with dimension [input_dim, output_dim])
             # Optionally: sample a layer-specific scale, or just fix it.
             w_layer_scale = numpyro.sample(
-                name=f"{self.model_name}_w{layer_index}_scale",
+                rng_key=self._rng_key,
+                name=f"dense_{layer_index}_kernel_scale",
                 fn=dist.HalfNormal(
                     scale=self.config.w_layer_scale_half_normal_hyperscale
                 )
             )
             w = numpyro.sample(
-                name=f"{self.model_name}_w{layer_index}",
+                rng_key=self._rng_key,
+                name=f"dense_{layer_index}_kernel",
                 fn=dist.Normal(
                     loc=self.config.gaussian_prior_location,
                     scale=w_layer_scale * jnp.sqrt(2.0 / input_dim)
@@ -262,7 +269,8 @@ class BayesianNN:
 
             # 1) Cholesky factor of correlation for the bias vector.
             chol_corr_b = numpyro.sample(
-                name=f"{self.model_name}_b{layer_index}_chol_corr",
+                rng_key=self._rng_key,
+                name=f"dense_{layer_index}_bias_chol_corr",
                 fn=dist.LKJCholesky(
                     dimension=b_dim,
                     concentration=self.config.lkj_concentration
@@ -271,7 +279,8 @@ class BayesianNN:
 
             # 2) Per-dimension std dev for the bias vector.
             b_std = numpyro.sample(
-                name=f"{self.model_name}_b{layer_index}_std",
+                rng_key=self._rng_key,
+                name=f"dense_{layer_index}_bias_std",
                 fn=dist.HalfNormal(
                     self.config.b_layer_scale_half_normal_hyperscale
                 ).expand([b_dim])
@@ -283,19 +292,22 @@ class BayesianNN:
             # 4) Sample from MultivariateNormal.
             b_loc = self.config.gaussian_prior_location * jnp.ones(b_dim)
             b = numpyro.sample(
-                name=f"{self.model_name}_b{layer_index}",
+                rng_key=self._rng_key,
+                name=f"dense_{layer_index}_bias",
                 fn=dist.MultivariateNormal(loc=b_loc, scale_tril=scale_tril_b)
             )
 
         else:  # Isotropic Biases.
             b_layer_scale = numpyro.sample(
-                name=f"{self.model_name}_b{layer_index}_scale",
+                rng_key=self._rng_key,
+                name=f"dense_{layer_index}_bias_scale",
                 fn=dist.HalfNormal(
                     scale=self.config.b_layer_scale_half_normal_hyperscale
                 )
             )
             b = numpyro.sample(
-                name=f"{self.model_name}_b{layer_index}",
+                rng_key=self._rng_key,
+                name=f"dense_{layer_index}_bias",
                 fn=dist.Normal(
                     loc=self.config.gaussian_prior_location,
                     scale=b_layer_scale
@@ -336,62 +348,66 @@ class BayesianNN:
         # --------------------
         # 2) Perform the complete swap if requested (only at inference)
         # --------------------
-        if permute_params:
-            if is_training:
-                raise ValueError(
-                    "Permutation of parameters is only allowed during inference."
-                )
-
-            # For a 'complete swap', we have to do two things for each hidden layer i,
-            # except the output layer has no next layer to swap rows in.
-            #  - Swap columns j1, j2 in Ws[i] (and biases in Bs[i])
-            #  - Swap rows j1, j2 in Ws[i+1] (the next layer's input weights)
-            # Also swap relevant BN/LN parameters if indexing those same hidden units.
-
-            for i in range(num_layers - 1):  # only swap up to second-to-last layer
-                w_i = Ws[i]  # shape = [input_dim, output_dim]
-                b_i = Bs[i]  # shape = [output_dim]
-                w_ip1 = Ws[i + 1]  # shape = [output_dim, next_output_dim]
-
-                # Randomly pick two hidden units to swap
-                key = numpyro.prng_key()
-                j1, j2 = random.choice(key, a=w_i.shape[1], shape=(2,), replace=False)
-
-                # ----------- Swap columns in Ws[i] -----------
-                # These columns correspond to hidden units j1, j2
-                w_col_j1 = w_i[:, j1]
-                w_col_j2 = w_i[:, j2]
-                w_i = w_i.at[:, j1].set(w_col_j2)
-                w_i = w_i.at[:, j2].set(w_col_j1)
-
-                # ----------- Swap the biases in Bs[i] -----------
-                b_j1 = b_i[j1]
-                b_j2 = b_i[j2]
-                b_i = b_i.at[j1].set(b_j2)
-                b_i = b_i.at[j2].set(b_j1)
-
-                # ----------- Swap rows in Ws[i+1] -----------
-                # Because these same hidden units become the 'input dimension'
-                # of the next layer, we must swap rows j1, j2 in w_ip1.
-                w_row_j1 = w_ip1[j1, :]
-                w_row_j2 = w_ip1[j2, :]
-                w_ip1 = w_ip1.at[j1, :].set(w_row_j2)
-                w_ip1 = w_ip1.at[j2, :].set(w_row_j1)
-
-                # If using BN or LN on the output of layer i, you also must swap
-                # gamma_i, beta_i, etc. at indices j1, j2. For example:
-                #
-                # gamma_i = gamma_i.at[j1].set(tmp_gamma_j2)
-                # gamma_i = gamma_i.at[j2].set(tmp_gamma_j1)
-                # beta_i  = ...
-                #
-                # so that the batch/layer normalization parameters also line up
-                # with the swapped units.
-
-                # Store updated arrays back
-                Ws[i] = w_i
-                Bs[i] = b_i
-                Ws[i + 1] = w_ip1
+        # if permute_params:
+        #     if is_training:
+        #         raise ValueError(
+        #             "Permutation of parameters is only allowed during inference."
+        #         )
+        #
+        #     # For a 'complete swap', we have to do two things for each hidden layer i,
+        #     # except the output layer has no next layer to swap rows in.
+        #     #  - Swap columns j1, j2 in Ws[i] (and biases in Bs[i])
+        #     #  - Swap rows j1, j2 in Ws[i+1] (the next layer's input weights)
+        #     # Also swap relevant BN/LN parameters if indexing those same hidden units.
+        #
+        #     for i in range(num_layers - 1):  # only swap up to second-to-last layer
+        #         w_i = Ws[i]  # shape = [input_dim, output_dim]
+        #         b_i = Bs[i]  # shape = [output_dim]
+        #         w_ip1 = Ws[i + 1]  # shape = [output_dim, next_output_dim]
+        #
+        #         # Randomly pick two hidden units to swap
+        #         j1, j2 = random.choice(
+        #             self._rng_key,
+        #             a=w_i.shape[1],
+        #             shape=(2,),
+        #             replace=False
+        #         )
+        #
+        #         # ----------- Swap columns in Ws[i] -----------
+        #         # These columns correspond to hidden units j1, j2
+        #         w_col_j1 = w_i[:, j1]
+        #         w_col_j2 = w_i[:, j2]
+        #         w_i = w_i.at[:, j1].set(w_col_j2)
+        #         w_i = w_i.at[:, j2].set(w_col_j1)
+        #
+        #         # ----------- Swap the biases in Bs[i] -----------
+        #         b_j1 = b_i[j1]
+        #         b_j2 = b_i[j2]
+        #         b_i = b_i.at[j1].set(b_j2)
+        #         b_i = b_i.at[j2].set(b_j1)
+        #
+        #         # ----------- Swap rows in Ws[i+1] -----------
+        #         # Because these same hidden units become the 'input dimension'
+        #         # of the next layer, we must swap rows j1, j2 in w_ip1.
+        #         w_row_j1 = w_ip1[j1, :]
+        #         w_row_j2 = w_ip1[j2, :]
+        #         w_ip1 = w_ip1.at[j1, :].set(w_row_j2)
+        #         w_ip1 = w_ip1.at[j2, :].set(w_row_j1)
+        #
+        #         # If using BN or LN on the output of layer i, you also must swap
+        #         # gamma_i, beta_i, etc. at indices j1, j2. For example:
+        #         #
+        #         # gamma_i = gamma_i.at[j1].set(tmp_gamma_j2)
+        #         # gamma_i = gamma_i.at[j2].set(tmp_gamma_j1)
+        #         # beta_i  = ...
+        #         #
+        #         # so that the batch/layer normalization parameters also line up
+        #         # with the swapped units.
+        #
+        #         # Store updated arrays back
+        #         Ws[i] = w_i
+        #         Bs[i] = b_i
+        #         Ws[i + 1] = w_ip1
 
         # --------------------
         # 3) Forward pass with final (possibly swapped) parameters
@@ -418,8 +434,11 @@ class BayesianNN:
                 # Dropout during training
                 if self.config.dropout > 0.0 and is_training:
                     dropout_rate = self.config.dropout
-                    rng_key = numpyro.prng_key()
-                    mask = random.bernoulli(rng_key, p=1 - dropout_rate, shape=z.shape)
+                    mask = random.bernoulli(
+                        self._rng_key,
+                        p=1 - dropout_rate,
+                        shape=z.shape
+                    )
                     z = z * mask / (1 - dropout_rate)
             else:
                 # Output layer activation (if your design uses it)
@@ -529,6 +548,7 @@ class DeterministicNN(nn.Module):
     dropout: float
     use_batch_norm: bool
     use_layer_norm: bool
+    model_name: str
 
     def _glu_activation(self, x):
         a, b = jnp.split(x, 2, axis=-1)
