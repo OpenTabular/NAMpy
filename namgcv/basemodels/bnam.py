@@ -540,7 +540,6 @@ class BayesianNAM:
             self.train_deep_ensemble(
                 num_features=num_features,
                 cat_features=cat_features,
-                target=target,
                 warmstart_checkpoint_save_dir=warmstart_save_dir
             )
             chains = [
@@ -602,7 +601,6 @@ class BayesianNAM:
         self,
         num_features: Dict[str, jnp.ndarray],
         cat_features: Dict[str, jnp.ndarray],
-        target: jnp.ndarray,
         warmstart_checkpoint_save_dir: str | Path,
         train_batch_size: int = None,
     ):
@@ -616,8 +614,6 @@ class BayesianNAM:
             Dictionary of numerical features with feature names as keys.
         cat_features: dict
             Dictionary of categorical features with feature names as keys.
-        target: jnp.ndarray
-            True response tensor.
         key: jnp.ndarray
             Random key for initializing the ensemble.
         train_batch_size:
@@ -739,7 +735,7 @@ class BayesianNAM:
             batch_size: int,
     ) -> tuple[TrainState | Any, MetricsStore]:
         """
-        Train a single deep ensemble member (i.e. a single deterministic NAM instance)
+        Train a single deep ensemble member (i.e. a deterministic NAM instance)
         using a warm-start procedure.
 
         Parameters
@@ -927,13 +923,8 @@ class BayesianNAM:
 
     def _get_flax_module(self):
         """
-        Method to create a Flax module for a deterministic equivalent of the
+        Method to create and store a Flax module for a deterministic equivalent of the
         Bayesian Neural Additive Model, replicating the model's architecture.
-
-        Returns
-        -------
-        nn.Module:
-            The Flax module for the deterministic NAM.
         """
 
         # Build deterministic subnetworks from the instantiated BayesianNN objects.
@@ -1074,9 +1065,11 @@ class BayesianNAM:
 
         Parameters
         ----------
-        num_features : dict
+        is_training: bool
+            Boolean flag, indicating whether the model is in training mode.
+        num_features: dict
             Dictionary of numerical features with feature names as keys.
-        cat_features : dict
+        cat_features: dict
             Dictionary of categorical features with feature names as keys.
 
         Returns
