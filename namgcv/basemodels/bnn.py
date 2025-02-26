@@ -321,7 +321,6 @@ class BayesianNN:
             x: jnp.ndarray,
             y: jnp.ndarray = None,
             is_training: bool = True,
-            permute_params: bool = False,
     ):
         x = x.reshape(-1, 1) if x.ndim == 1 else x
         num_layers = len(self.layer_sizes) - 1

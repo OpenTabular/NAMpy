@@ -475,9 +475,12 @@ def map_flax_param_name_numpyro(
     """
 
     numpyro_params_dict = {}
-    for top_level_container_name, top_level_container_params in flax_params.items():
+    for (
+            top_level_container_name,
+            top_level_container_params
+    ) in flax_params.items():
         # Top-level containers are:
-        # global bias numerical, categorical, and interaction subnetworks.
+        # global bias, numerical, categorical, and interaction subnetworks.
         if "subnetwork" in top_level_container_name:
             prefixes = top_level_container_name.split("_")[:2]
             feature_name = copy.deepcopy(top_level_container_name)
@@ -490,6 +493,7 @@ def map_flax_param_name_numpyro(
                 layer_name = ''.join(
                     ['_' + i.lower() if i.isupper() else i for i in layer_name]
                 ).lstrip('_')
+
                 for param_name, param in layer_params.items():
                     numpyro_params_dict[
                         (
@@ -497,6 +501,7 @@ def map_flax_param_name_numpyro(
                             f"{layer_name}_{param_name}"
                         )
                     ] = param
+
         else:  # intercept.
             numpyro_params_dict[
                 top_level_container_name

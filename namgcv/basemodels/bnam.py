@@ -1,39 +1,40 @@
 from __future__ import annotations
 
 import logging
-import os
-import copy
 
-from dataclasses import dataclass
-from functools import partial
 from itertools import combinations
 from pathlib import Path
-from typing import Tuple, Any, Dict, List, Callable, Sequence
+import os
 
-import numpy as np
-from flax import struct
-from flax.struct import field
+from typing import (
+    Tuple,
+    Any,
+    Dict,
+    Callable
+)
+
 from frozendict import frozendict
 from mile.config.data import DataConfig, Source, DatasetType, Task
 from mile.training.utils import save_params, load_params_batch
-from mile.training.warmup import custom_window_adaptation
-from numpy import ndarray, dtype
+
+import numpy as np
 
 import jax
-from jax import Array
 import jax.numpy as jnp
 import jax.random as random
 
 import flax.linen as nn
-from flax.core.nn import dropout
-from flax.linen import Module
 from flax.training.train_state import TrainState
 import optax
 
 import numpyro
 import numpyro.distributions as dist
 from numpyro import handlers
-from numpyro.infer import MCMC, NUTS, Predictive, init_to_value, init_to_uniform
+from numpyro.infer import (
+    MCMC,
+    NUTS,
+    Predictive
+)
 
 from tqdm import tqdm, trange
 
@@ -50,10 +51,14 @@ from namgcv.data_utils.training_utils import (
 )
 from namgcv.data_utils.jax_dataset import TabularAdditiveModelDataLoader
 
-from mile.inference.metrics import RegressionMetrics, MetricsStore
+from mile.inference.metrics import (
+    RegressionMetrics,
+    MetricsStore
+)
 
 import seaborn as sns
 import matplotlib.pyplot as plt
+
 
 logging.basicConfig(
     format='%(asctime)s %(levelname)s:%(message)s',
@@ -61,6 +66,7 @@ logging.basicConfig(
 )
 nl = "\n"
 tab = "\t"
+
 
 def link_location(x: jnp.ndarray):
     """
@@ -127,12 +133,11 @@ class BayesianNAM:
         self,
         cat_feature_info: Dict[str, dict],
         num_feature_info: Dict[str, dict],
-        num_classes: int = 1,
         config: DefaultBayesianNAMConfig = DefaultBayesianNAMConfig(),
         subnetwork_config: DefaultBayesianNNConfig = DefaultBayesianNNConfig(),
-        link_location: Any = link_location,
-        link_scale: Any = link_scale,
-        link_shape: Any = link_shape,
+        link_location_arg: Any = link_location,
+        link_scale_arg: Any = link_scale,
+        link_shape_arg: Any = link_shape,
         rng_key: jnp.ndarray = jax.random.PRNGKey(42),
         **kwargs,
     ):
@@ -170,22 +175,18 @@ class BayesianNAM:
         self._subnetwork_config = subnetwork_config
 
         self._num_feature_networks = {}
-        for feature_name, feature_info in num_feature_info.items():
-            self._num_feature_networks[feature_name] = BayesianNN(
-                in_dim=feature_info["input_dim"],
-                out_dim=feature_info["output_dim"],
-                config=self._subnetwork_config,
-                model_name=f"{feature_name}_num_subnetwork",
-            )
-
         self._cat_feature_networks = {}
-        for feature_name, feature_info in cat_feature_info.items():
-            self._cat_feature_networks[feature_name] = BayesianNN(
-                in_dim=feature_info["input_dim"],
-                out_dim=feature_info["output_dim"],
-                config=self._subnetwork_config,
-                model_name=f"{feature_name}_cat_subnetwork",
-            )
+        for feature_type, feature_info_dict, networks in (
+                ("num", num_feature_info, self._num_feature_networks),
+                ("cat", cat_feature_info, self._cat_feature_networks),
+        ):
+            for feature_name, feature_info in feature_info_dict.items():
+                networks[feature_name] = BayesianNN(
+                    in_dim=feature_info["input_dim"],
+                    out_dim=feature_info["output_dim"],
+                    config=self._subnetwork_config,
+                    model_name=f"{feature_name}_{feature_type}_subnetwork",
+                )
 
         self._interaction_networks = {}
         if (
@@ -214,7 +215,6 @@ class BayesianNAM:
         self._flax_module = None
 
         self._model_initialized = True
-
         self._logger.info(
             f"{nl}"
             f"+---------------------------------------+{nl}"
@@ -255,7 +255,7 @@ class BayesianNAM:
                         f"-> "
                         f"{sub_network.layer_sizes[i + 1]}) {nl}"
                     )
-                    if i < num_layers - 1:  # Not the last layer
+                    if i < num_layers - 1:  # Not the last layer.
                         if sub_network.config.batch_norm:
                             architecture_info += \
                                 f"{tab}BatchNorm {nl}"
@@ -311,90 +311,8 @@ class BayesianNAM:
                     model_name=f"{interaction_name}_int_subnetwork",
                 )
 
-    def log_prior(self, num_features, cat_features, params):
-        """
-        Compute the log prior of the Bayesian NAM model.
-
-        Parameters
-        ----------
-        num_features : Dict[str, jnp.ndarray]
-            Dictionary of numerical features with feature names as keys.
-        cat_features : Dict[str, jnp.ndarray]
-            Dictionary of categorical features with feature names as keys.
-        params : dict
-            Dictionary of sampled parameters.
-
-        Returns
-        -------
-        float
-            Log prior probability of the parameters.
-        """
-        model_trace = handlers.trace(handlers.seed(self.model, rng_seed=0)).get_trace(
-            num_features=num_features, cat_features=cat_features, is_training=True
-        )
-        log_priors = sum(
-            site["fn"].log_prob(site["value"]).sum()
-            for site in model_trace.values()
-            if site["type"] == "sample" and site["name"] != "obs"
-        )
-        return log_priors
-
-    def log_likelihood(self, num_features, cat_features, y, params):
-        """
-        Compute the log likelihood of the observed data given the model.
-
-        Parameters
-        ----------
-        num_features : Dict[str, jnp.ndarray]
-            Dictionary of numerical features with feature names as keys.
-        cat_features : Dict[str, jnp.ndarray]
-            Dictionary of categorical features with feature names as keys.
-        y : jnp.ndarray
-            Observed target values.
-        params : dict
-            Dictionary of sampled parameters.
-
-        Returns
-        -------
-        float
-            Log likelihood of the observed data.
-        """
-        model_trace = handlers.trace(handlers.condition(self.model, params)).get_trace(
-            num_features=num_features, cat_features=cat_features, target=y, is_training=False
-        )
-        log_likelihoods = sum(
-            site["fn"].log_prob(site["value"]).sum()
-            for site in model_trace.values()
-            if site["type"] == "sample" and site["name"] == "obs"
-        )
-        return log_likelihoods
-
-    def log_unnormalized_posterior(self, num_features, cat_features, y, params):
-        """
-        Compute the log unnormalized posterior.
-
-        Parameters
-        ----------
-        num_features : Dict[str, jnp.ndarray]
-            Dictionary of numerical features with feature names as keys.
-        cat_features : Dict[str, jnp.ndarray]
-            Dictionary of categorical features with feature names as keys.
-        y : jnp.ndarray
-            Observed target values.
-        params : dict
-            Dictionary of sampled parameters.
-
-        Returns
-        -------
-        float
-            Log unnormalized posterior (log prior + log likelihood).
-        """
-        log_prior_val = self.log_prior(num_features, cat_features, params)
-        log_likelihood_val = self.log_likelihood(num_features, cat_features, y, params)
-        return log_prior_val + log_likelihood_val
-
+    @staticmethod
     def likelihood(
-            self,
             output_sum_over_subnetworks: jnp.ndarray,
             y: jnp.ndarray,
     ):
@@ -429,7 +347,6 @@ class BayesianNAM:
             cat_features: Dict[str, jnp.ndarray],
             target: jnp.ndarray = None,
             is_training: bool = True,
-            permute_params: bool = False,
     ):
         """
         Method to define the Bayesian Neural Additive Model (BNAM) model in NumPyro.
@@ -440,7 +357,7 @@ class BayesianNAM:
             Dictionary of numerical features with feature names as keys.
         cat_features : dict
             Dictionary of categorical features with feature names as keys.
-        target :
+        target : jnp.ndarray
             True response tensor. (Default value = None)
         is_training : bool
             Flag to indicate whether the model is in training mode. (Default value = True)
@@ -461,7 +378,6 @@ class BayesianNAM:
                         x,
                         y=target,
                         is_training=is_training,
-                        permute_params=permute_params
                     )
 
                 subnet_out_means[feature_name] = jnp.mean(subnet_out_i, axis=0)
@@ -480,7 +396,6 @@ class BayesianNAM:
                         x,
                         y=target,
                         is_training=is_training,
-                        permute_params=permute_params
                     )
 
                 subnet_out_means[interaction_name] = jnp.mean(subnet_out_i, axis=0)
@@ -602,7 +517,7 @@ class BayesianNAM:
                 valid_split=0.2,
                 test_split=0.1,
             ),
-            rng=jax.random.PRNGKey(42),
+            rng=self._single_rng_key,
             data_dict={
                 "numerical": num_features,
                 "categorical": cat_features,
@@ -633,22 +548,13 @@ class BayesianNAM:
                     warmstart_save_dir, i
                 ) for i in os.listdir(warmstart_save_dir) if i.startswith('params')
             ]
-        else:
-            chains = []
-            self._logger.warning(
-                "No warmstart path found. "
-                "Sampling will be initialized with random parameters."
-            )
-
-        for idx, step in enumerate(
-                jnp.array_split(
-                    jnp.arange(self.config.num_chains),
-                    self.config.num_chains / jax.device_count()
-                )
-        ):
-            self._logger.info(f"Starting sampling process for chain(s) {step}...")
-
-            if chains:
+            for idx, step in enumerate(
+                    jnp.array_split(
+                        jnp.arange(self.config.num_chains),
+                        self.config.num_chains / jax.device_count()
+                    )
+            ):
+                self._logger.info(f"Starting sampling process for chain(s) {step}...")
                 params = load_params_batch(
                     params_path=[chains[i] for i in step],
                     tree_path=os.path.join(
@@ -657,33 +563,33 @@ class BayesianNAM:
                         "tree"
                     )
                 )
-            else:
-                raise NotImplementedError(
-                    "TODO: Cold-start sampling is not yet supported."
-                )
         else:
-            init_strategy = None
+            params = None
+            self._logger.warning(
+                "No warm-start path found. "
+                "Sampling will be initialized with random parameters."
+            )
 
         nuts_kernel = NUTS(
             model=self.model,
             step_size=self.config.mcmc_step_size,
             target_accept_prob=self.config.target_accept_prob,
         )
-
         self._mcmc = MCMC(
             nuts_kernel,
             num_samples=self.config.num_samples,
             num_warmup=self.config.num_warmup_samples,
             num_chains=self.config.num_chains,
         )
-        init_values = map_flax_param_name_numpyro(flax_params=params)
         self._mcmc.run(
             jax.random.PRNGKey(42),
             num_features,
             cat_features,
             target,
             is_training=True,
-            init_params=init_values
+            init_params=map_flax_param_name_numpyro(
+                flax_params=params
+            ) if params is not None else None
         )
         self.posterior_samples = self._mcmc.get_samples()
 
@@ -1035,13 +941,6 @@ class BayesianNAM:
         num_subnetworks = {}
         cat_subnetworks = {}
         int_subnetworks = {}
-        # Calculate how many networks we need.
-        num_networks = (
-            len(self._num_feature_networks) + \
-            len(self._cat_feature_networks) + \
-            len(self._interaction_networks)
-        )
-        rng_keys = jax.random.split(self._single_rng_key, num=num_networks)
         for idx, (network_type, source_bayesian_nn, target_deterministic_nn) in enumerate(
                 zip(
                     ("num", "cat", "int"),
@@ -1051,7 +950,6 @@ class BayesianNAM:
         ):
             for feature_name, bayes_nn in source_bayesian_nn.items():
                 target_deterministic_nn[feature_name] = DeterministicNN(
-                    rng_key=rng_keys[idx],
                     model_name=f"{feature_name}_{network_type}_subnetwork",
                     layer_sizes=tuple(bayes_nn.layer_sizes),
                     activation=bayes_nn.config.activation,
@@ -1071,8 +969,12 @@ class BayesianNAM:
             config=self.config,
             lnk_fns=self.lnk_fns,
         )
-
-        self._logger.info("Created non-Bayesian NAM Flax module successfully.")
+        self._logger.info(
+            f"{nl}"
+            f"+--------------------------------------------+{nl}"
+            f"| Deterministic NAM successfully initialized.|{nl}"
+            f"+--------------------------------------------+{nl}"
+        )
 
         return module
 
@@ -1165,9 +1067,8 @@ class BayesianNAM:
             self,
             num_features: Dict[str, jnp.ndarray],
             cat_features: Dict[str, jnp.ndarray],
-            permute_params: bool = False,
             is_training: bool = False
-    ) -> tuple[Any, Any, dict[str, ndarray[Any, dtype[Any]]]]:
+    ) -> tuple[Any, Any, dict[str, np.ndarray[Any, np.dtype[Any]]]]:
         """
         Obtain predictions from the Bayesian Neural Additive Model (BNAM).
 
@@ -1190,7 +1091,6 @@ class BayesianNAM:
             num_features,
             cat_features,
             target=None,
-            permute_params=permute_params,
             is_training=is_training
         )
 
