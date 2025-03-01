@@ -1085,7 +1085,10 @@ class BayesianNAM:
             key for key in self._mcmc.get_samples().keys() if "contrib" in key
         ] + ["final_params"]
         for deterministic_site_key in deterministic_site_keys:
-            self.posterior_samples.pop(deterministic_site_key)
+            try:
+                self.posterior_samples.pop(deterministic_site_key)
+            except KeyError:
+                continue  # Site has already been removed or never existed.
 
         predictive = Predictive(
             self.model,
