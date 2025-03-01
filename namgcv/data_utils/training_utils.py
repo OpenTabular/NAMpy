@@ -161,6 +161,7 @@ def gaussian_nll_loss(
     sigma = jnp.clip(sigma, 1e-5)  # Ensure stability in calculations
     return 0.5 * jnp.log(2 * jnp.pi * sigma ** 2) + ((x - mu) ** 2) / (2 * sigma ** 2)
 
+
 def single_train_step_wrapper(
         state: TrainState,
         batch: dict[str, jnp.ndarray],
@@ -392,19 +393,27 @@ def early_stop_check(
     return jnp.all(recent_losses >= reference_loss, axis=1)
 
 
-def save_tree(dir: str | Path, tree: ParamTree):
+def save_tree(
+        dir: str | Path,
+        tree: ParamTree
+):
     """Save tree in .pkl format."""
     with open(dir / 'tree', 'wb') as f:
         pickle.dump(tree, f)
 
 
-def load_tree(dir: str | Path) -> ParamTree:
+def load_tree(
+        dir: str | Path
+) -> ParamTree:
     """Load tree in .pkl format."""
     with open(dir / 'tree', 'rb') as f:
         return pickle.load(f)
 
 
-def get_flattened_keys(d: dict, sep='.') -> list[str]:
+def get_flattened_keys(
+        d: dict,
+        sep='.'
+) -> list[str]:
     """Recursively get `sep` delimited path to the leaves of a tree.
 
     Parameters:

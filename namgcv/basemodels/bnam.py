@@ -29,6 +29,7 @@ import optax
 
 import numpyro
 import numpyro.distributions as dist
+from numpy import ndarray, dtype
 from numpyro import handlers
 from numpyro.infer import (
     MCMC,
@@ -628,7 +629,7 @@ class BayesianNAM:
             The final training state for the ensemble.
         """
 
-        self._flax_module = self._get_flax_module()
+        self._initialize_module()
         self._optimizer = optax.adamw(
             learning_rate=getattr(self.config, "de_lr", 1e-3)
         )
@@ -921,7 +922,7 @@ class BayesianNAM:
 
         return training_state, complete_metrics
 
-    def _get_flax_module(self):
+    def _initialize_module(self):
         """
         Method to create and store a Flax module for a deterministic equivalent of the
         Bayesian Neural Additive Model, replicating the model's architecture.
@@ -953,7 +954,7 @@ class BayesianNAM:
         # Note:
         # frozendict is used to ensure the flax module is hashable when using pmap for
         # parallelized training.
-        module = DeterministicNAM(
+        self._flax_module = DeterministicNAM(
             num_subnetworks=frozendict(num_subnetworks),
             cat_subnetworks=frozendict(cat_subnetworks),
             int_subnetworks=frozendict(int_subnetworks),
@@ -966,8 +967,6 @@ class BayesianNAM:
             f"| Deterministic NAM successfully initialized.|{nl}"
             f"+--------------------------------------------+{nl}"
         )
-
-        return module
 
     def _get_posterior_param_samples(self) -> dict[str, dict[str, np.ndarray] | None]:
         """
@@ -1056,17 +1055,17 @@ class BayesianNAM:
 
     def predict(
             self,
-            num_features: Dict[str, jnp.ndarray],
-            cat_features: Dict[str, jnp.ndarray],
-            is_training: bool = False
-    ) -> tuple[Any, Any, dict[str, np.ndarray[Any, np.dtype[Any]]]]:
+            num_features: dict,
+            cat_features: dict
+    ) -> tuple[
+        Any,
+        dict[Any, ndarray[Any, dtype[Any]]]
+    ]:
         """
-        Obtain predictions from the Bayesian Neural Additive Model (BNAM).
+        Generate predictions from the trained Bayesian NAM model.
 
         Parameters
         ----------
-        is_training: bool
-            Boolean flag, indicating whether the model is in training mode.
         num_features: dict
             Dictionary of numerical features with feature names as keys.
         cat_features: dict
@@ -1074,21 +1073,38 @@ class BayesianNAM:
 
         Returns
         -------
-        Tuple[np.ndarray, Dict[str, np.ndarray]]
-            A tuple containing the predictions and submodel contributions.
+        dict | Any:
+            The final distributional parameters predicted by the model.
+        dict | ndarray:
+            The contributions of each submodel to the final prediction.
         """
 
-        rng_key = random.PRNGKey(1)
-        predictions = self.predictive(
-            rng_key,
-            num_features,
-            cat_features,
-            target=None,
-            is_training=is_training
+        # We need to remove the deterministic sites to force the model to recompute these values.
+        # Get all site names that have "contrib" in them.
+        deterministic_site_keys = [
+            key for key in self._mcmc.get_samples().keys() if "contrib" in key
+        ] + ["final_params"]
+        for deterministic_site_key in deterministic_site_keys:
+            self.posterior_samples.pop(deterministic_site_key)
+
+        predictive = Predictive(
+            self.model,
+            posterior_samples=self.posterior_samples,
+        )
+        preds = predictive(
+            self._single_rng_key,
+            num_features=num_features,
+            cat_features=cat_features
         )
 
-        pred_samples = predictions["obs"]  # Shape: [num_mcmc_samples, batch_size]
-        final_params = predictions["final_params"]  # Shape: [num_mcmc_samples, batch_size, K]
+        # if preds["final_params"].shape[-1] >= 1:
+        #     loc_mean = jnp.mean(preds["final_params"][..., 0], axis=0)
+        #
+        # if preds["final_params"].shape[-1] >= 2:
+        #     scale_mean = jnp.mean(preds["final_params"][..., 1], axis=0)
+        #
+        # if preds["final_params"].shape[-1] >= 3:
+        #     shape_mean = jnp.mean(preds["final_params"][..., 2], axis=0)
 
         submodel_output_contributions = {}
         for feature_type, submodel_dict in zip(
@@ -1100,10 +1116,10 @@ class BayesianNAM:
 
             for feature_name, submodel in submodel_dict.items():
                 # Shape: [num_mcmc_samples, batch_size, sub_network_out_dim].
-                contrib_samples = predictions[f"contrib_{feature_name}"]
+                contrib_samples = preds[f"contrib_{feature_name}"]
                 submodel_output_contributions[feature_name] = np.array(contrib_samples)
 
-        return pred_samples, final_params, submodel_output_contributions
+        return preds["final_params"], submodel_output_contributions
 
 
 class DeterministicNAM(nn.Module):
