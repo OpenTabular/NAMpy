@@ -48,7 +48,7 @@ from namgcv.data_utils.training_utils import (
     early_stop_check,
     get_initial_state,
     get_single_input,
-    map_flax_param_name_numpyro
+    map_flax_to_numpyro
 )
 from namgcv.data_utils.jax_dataset import TabularAdditiveModelDataLoader
 
@@ -548,12 +548,13 @@ class BayesianNAM:
                     warmstart_save_dir, i
                 ) for i in os.listdir(warmstart_save_dir) if i.startswith('params')
             ]
-            for idx, step in enumerate(
-                    jnp.array_split(
-                        jnp.arange(self.config.num_chains),
-                        self.config.num_chains / jax.device_count()
-                    )
-            ):
+
+            steps_to_run = jnp.array_split(
+                jnp.arange(self.config.num_chains),
+                self.config.num_chains / jax.device_count()
+            )
+            params_list = []
+            for idx, step in enumerate(steps_to_run):
                 self._logger.info(f"Starting sampling process for chain(s) {step}...")
                 params = load_params_batch(
                     params_path=[chains[i] for i in step],
@@ -563,8 +564,9 @@ class BayesianNAM:
                         "tree"
                     )
                 )
+                params_list.append(params)
         else:
-            params = None
+            params_list = None
             self._logger.warning(
                 "No warm-start path found. "
                 "Sampling will be initialized with random parameters."
@@ -581,15 +583,17 @@ class BayesianNAM:
             num_warmup=self.config.num_warmup_samples,
             num_chains=self.config.num_chains,
         )
+        init_params = map_flax_to_numpyro(
+            flax_params_list=params_list,
+            expected_chains=self.config.num_chains,
+        ) if params_list is not None else None
         self._mcmc.run(
             jax.random.PRNGKey(42),
             num_features,
             cat_features,
             target,
             is_training=True,
-            init_params=map_flax_param_name_numpyro(
-                flax_params=params
-            ) if params is not None else None
+            init_params=init_params
         )
         self.posterior_samples = self._mcmc.get_samples()
 

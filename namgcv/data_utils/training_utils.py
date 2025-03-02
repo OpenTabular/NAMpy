@@ -465,55 +465,142 @@ def save_params(
     np.savez_compressed(dir / name, **dict(zip(param_names, leaves)))
 
 
-def map_flax_param_name_numpyro(
-        flax_params: dict
-):
+import copy
+import numpy as np
+
+
+def _flatten_flax_dict(flax_params_dict):
     """
-    Map the names of parameters in the model's flax module to their corresponding NumPyro
-    parameter names.
+    Helper to flatten one "Flax-style" dict into a NumPyro-style dict.
 
-    Parameters
-    ----------
-    flax_params: dict
-        Dictionary of flax parameters.
-
-    Returns
-    -------
-    list:
-        List of NumPyro parameter names.
+    For example, a nested structure like:
+        {
+          "subnetwork_categorical_x": {
+            "Dense": {
+              "kernel": ...,
+              "bias": ...
+            }
+          },
+          "bias": ...
+        }
+    becomes something like:
+        {
+          "categorical_x/dense_kernel": ...,
+          "categorical_x/dense_bias": ...,
+          "bias": ...
+        }
     """
-
-    numpyro_params_dict = {}
-    for (
-            top_level_container_name,
-            top_level_container_params
-    ) in flax_params.items():
-        # Top-level containers are:
-        # global bias, numerical, categorical, and interaction subnetworks.
-        if "subnetwork" in top_level_container_name:
-            prefixes = top_level_container_name.split("_")[:2]
-            feature_name = copy.deepcopy(top_level_container_name)
+    flat_params = {}
+    for top_name, top_params in flax_params_dict.items():
+        if "subnetwork" in top_name:
+            # e.g. top_name = "subnetwork_categorical_x"
+            # Identify the feature_name portion by stripping out the first two underscores
+            prefixes = top_name.split("_")[:2]  # ["subnetwork", "categorical"]
+            feature_name = copy.deepcopy(top_name)
             for prefix in prefixes:
                 feature_name = feature_name.replace(f"{prefix}_", "")
 
-            # Layers can be Dense, LayerNorm, BatchNorm, etc.
-            for layer_name, layer_params in top_level_container_params.items():
-                # Convert the layer_name from CamelCase to snake_case.
-                layer_name = ''.join(
-                    ['_' + i.lower() if i.isupper() else i for i in layer_name]
-                ).lstrip('_')
+            for layer_name, layer_dict in top_params.items():
+                # Convert CamelCase to snake_case
+                snake_layer_name = "".join(
+                    ("_" + c.lower() if c.isupper() else c) for c in layer_name
+                ).lstrip("_")
 
-                for param_name, param in layer_params.items():
-                    numpyro_params_dict[
-                        (
-                            f"{feature_name}/"
-                            f"{layer_name}_{param_name}"
-                        )
-                    ] = param
+                for param_name, param_value in layer_dict.items():
+                    new_key = f"{feature_name}/{snake_layer_name}_{param_name}"
+                    flat_params[new_key] = param_value
+        else:
+            # e.g. a global "bias" or "intercept"
+            flat_params[top_name] = top_params
+    return flat_params
 
-        else:  # intercept.
-            numpyro_params_dict[
-                top_level_container_name
-            ] = top_level_container_params
 
-    return numpyro_params_dict
+def map_flax_to_numpyro(flax_params_list: list[dict], expected_chains: int):
+    """
+    Convert a list of Flax parameter dicts (in certain patterns) into
+    a NumPyro-style dict with leading dimension = `expected_chains`.
+
+    Cases:
+      1) A list of length k (>1) with k single-chain dicts:
+         - Flatten each dict
+         - Stack to shape (k, ...)
+         - Must have k == expected_chains
+
+      2) A list of length 1 with exactly one dict:
+         - If expected_chains == 1,
+            interpret as single-chain; flatten and add leading dim.
+         - If expected_chains > 1,
+            interpret that the single dict already has a leading dimension k == expected_chains;
+            flatten and return as is (after shape check).
+
+    All other inputs raise ValueError.
+    """
+    # Must be a list
+    if not isinstance(flax_params_list, list):
+        raise ValueError("Expected a list of dict(s). Got type: {}".format(type(flax_params_list)))
+
+    # Case (1): multiple dicts, each single-chain => stack
+    if len(flax_params_list) > 1:
+        k = len(flax_params_list)
+        if k != expected_chains:
+            raise ValueError(
+                f"Received {k} dicts in the list but `expected_chains={expected_chains}`."
+            )
+
+        # Flatten each dict
+        flat_dicts = []
+        for i, d in enumerate(flax_params_list):
+            if not isinstance(d, dict):
+                raise ValueError(f"Element at index {i} is not a dict.")
+            flat_dicts.append(_flatten_flax_dict(d))
+
+        # Check that all flattened dicts have identical keys
+        param_names_per_chain = [set(d.keys()) for d in flat_dicts]
+        common_keys = set.intersection(*param_names_per_chain)
+        if any(names != common_keys for names in param_names_per_chain):
+            raise ValueError(
+                "All chain dicts must have identical parameter names to be stackable."
+            )
+
+        # Stack each parameter along axis=0 to shape (k, ...).
+        stacked_params = {}
+        for key in sorted(common_keys):
+            arrays = [fd[key] for fd in flat_dicts]
+            stacked_params[key] = np.stack(arrays, axis=0)
+
+        return stacked_params
+
+    # Case (2): list of length 1 => either single chain or multi-chain.
+    elif len(flax_params_list) == 1:
+        single_item = flax_params_list[0]
+        if not isinstance(single_item, dict):
+            raise ValueError("The single list element must be a dict.")
+
+        # Flatten it
+        flat_dict = _flatten_flax_dict(single_item)
+
+        if expected_chains == 1:
+            # Single-chain scenario.
+            # Add a leading dimension of size 1 to each parameter.
+            return {key: np.expand_dims(arr, axis=0) for key, arr in flat_dict.items()}
+        else:
+            # Multi-chain scenario =>
+            # assume all parameters have leading dimension = expected_chains.
+            for key, arr in flat_dict.items():
+                if len(arr.shape) == 0:
+                    raise ValueError(
+                        f"Parameter '{key}' has scalar shape {arr.shape}; "
+                        f"cannot interpret as {expected_chains} chains."
+                    )
+                if arr.shape[0] != expected_chains:
+                    raise ValueError(
+                        f"Parameter '{key}' has leading dimension {arr.shape[0]}, "
+                        f"but expected {expected_chains}."
+                    )
+            return flat_dict  # Return as-is.
+
+    else: # e.g. empty list
+        raise ValueError(
+            "Expected a list of length >= 1. "
+            "Either multiple dicts or a single dict in the list."
+        )
