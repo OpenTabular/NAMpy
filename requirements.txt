@@ -1,5 +1,5 @@
 # Custom MCMC kernels
-git+https://github.com/AleksLyubenov/MILE.git@main
+# git+https://github.com/AleksLyubenov/MILE.git@main
 
 # Misc mile dependencies
 tokenizers>=0.19.1
@@ -32,6 +32,7 @@ jax-tqdm
 pyro-ppl
 numpyro
 jax
+jaxlib==0.4.28
 flax
 
 blackjax
