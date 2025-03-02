@@ -33,9 +33,9 @@ class DefaultBayesianNNConfig:
     """
 
     # Model definition parameters.
-    hidden_layer_sizes: list = (64,64,) # (10, 10, 10, 10, 10)
+    hidden_layer_sizes: list = (256, 256, 128) # (10, 10, 10, 10, 10)
     # activation: callable = nn.SELU()
-    activation: str = "tanh"
+    activation: str = "relu"
 
     # skip_layers: bool = False
     dropout: float = 0.1
@@ -57,5 +57,3 @@ class DefaultBayesianNNConfig:
     # Weight prior scale parameter hyperprior (Half-Normal).
     w_layer_scale_half_normal_hyperscale: float = 1.0
     b_layer_scale_half_normal_hyperscale: float = 1.0
-
-

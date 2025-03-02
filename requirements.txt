@@ -5,34 +5,33 @@
 tokenizers>=0.19.1
 datasets>=2.19.0
 tiktoken>=0.6.0
-mistune
+mistune==2.0.4
 
 # Data manipulation
 numpy<=1.26.4
-pandas
-frozendict
+pandas==2.1.1
+frozendict==2.4.6
 
 # Deep learning
 lightning
-scikit_learn
-torch
-torchmetrics
-
-setuptools
-properscoring
-
-# Visualization
-matplotlib
-seaborn
-arviz
-tqdm
-jax-tqdm
+scikit_learn==1.6.1
+torch==2.6.0
+torchmetrics==1.6.1
 
 # Bayesian
-pyro-ppl
-numpyro
-jax
+pyro-ppl==1.9.1
+numpyro==0.14.0
+blackjax==1.2.2
+jax[cuda12]==0.4.28
 jaxlib==0.4.28
-flax
+flax==0.8.5
 
-blackjax
+setuptools==75.8.0
+properscoring==0.1
+
+# Visualization
+matplotlib==3.10.0
+seaborn==0.13.2
+arviz==0.20.0
+tqdm==4.67.1
+jax-tqdm==0.3.1

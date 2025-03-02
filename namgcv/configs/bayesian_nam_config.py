@@ -28,7 +28,7 @@ class DefaultBayesianNAMConfig:
     train_val_split_ratio: float = 0.8
 
     # Model definition parameters.
-    interaction_degree: int = 2
+    interaction_degree: int = 1
     intercept: bool = True
     feature_dropout: float = 0.0
 
@@ -47,6 +47,6 @@ class DefaultBayesianNAMConfig:
 
     # Deep ensemble parameters.
     use_deep_ensemble: bool = True
-    de_num_epochs: int = 1000
-    de_lr: float = 1e-3
-    warm_start_early_stop_patience: int = 10
+    de_num_epochs: int = 100
+    de_lr: float = 1e-4
+    warm_start_early_stop_patience: int = 3

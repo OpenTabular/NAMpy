@@ -796,7 +796,7 @@ class BayesianNAM:
                 training_state, metrics = _model_train_step_func(
                     state=training_state,
                     batch=batch,
-                    rng=self._chains_rng_keys,
+                    rng=self._chains_rng_keys if num_parallel > 1 else self._single_rng_key,
                     early_stop=_stop_n if num_parallel > 1 else _stop_n[0]
                 )
                 metrics_train.append(metrics)
