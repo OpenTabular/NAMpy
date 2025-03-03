@@ -364,7 +364,10 @@ class BayesianNAM:
         """
 
         # Note: Currently, only full-batch training is supported (batch_size=None).
-        batch_iter = data_loader.iter(split="train", batch_size=None)
+        batch_iter = data_loader.iter(
+            split="train" if is_training else "test",
+            batch_size=None
+        )
         data_dict = next(batch_iter)  # First and only batch.
         # data_dict format:
         # {
@@ -611,11 +614,6 @@ class BayesianNAM:
             init_params=init_params
         )
         self.posterior_samples = self._mcmc.get_samples()
-
-        self.predictive = Predictive(
-            self.model,
-            posterior_samples=self.posterior_samples
-        )
 
     def train_deep_ensemble(
         self,
@@ -1115,8 +1113,8 @@ class BayesianNAM:
         )
         preds = predictive(
             self._single_rng_key,
-            num_features=num_features,
-            cat_features=cat_features
+            data_loader=self.data_loader,
+            is_training=False
         )
 
         # if preds["final_params"].shape[-1] >= 1:
