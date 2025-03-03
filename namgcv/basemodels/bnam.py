@@ -344,25 +344,39 @@ class BayesianNAM:
 
     def model(
             self,
-            num_features: Dict[str, jnp.ndarray],
-            cat_features: Dict[str, jnp.ndarray],
-            target: jnp.ndarray = None,
+            data_loader: TabularAdditiveModelDataLoader,
             is_training: bool = True,
     ):
         """
         Method to define the Bayesian Neural Additive Model (BNAM) model in NumPyro.
+        Note: the data loader is passed as a function argument to keep the method "pure", and
+        conforming with the NumPyro functional programming paradigm.
 
         Parameters
         ----------
-        num_features : dict
-            Dictionary of numerical features with feature names as keys.
-        cat_features : dict
-            Dictionary of categorical features with feature names as keys.
-        target : jnp.ndarray
-            True response tensor. (Default value = None)
+        data_loader: TabularAdditiveModelDataLoader
+            The data loader object, containing:
+            - num_features: Dict[str, jnp.ndarray],
+            - cat_features: Dict[str, jnp.ndarray],
+            - target: jnp.ndarray,
         is_training : bool
             Flag to indicate whether the model is in training mode. (Default value = True)
         """
+
+        # Note: Currently, only full-batch training is supported (batch_size=None).
+        batch_iter = data_loader.iter(split="train", batch_size=None)
+        data_dict = next(batch_iter)  # First and only batch.
+        # data_dict format:
+        # {
+        #   "feature": {
+        #       "numerical": { ... feature_name: jnp.ndarray, ... },
+        #       "categorical": { ... feature_name: jnp.ndarray, ... }
+        #   },
+        #   "target": jnp.ndarray
+        # }
+        num_features = data_dict["feature"]["numerical"]
+        cat_features = data_dict["feature"]["categorical"]
+        target = data_dict["target"]
 
         subnet_out_means = {}
         subnet_out_contributions = []
@@ -489,6 +503,7 @@ class BayesianNAM:
         num_features: Dict[str, jnp.ndarray],
         cat_features: Dict[str, jnp.ndarray],
         target: jnp.ndarray,
+        dataset_name: str="default"
     ):
         """
         Optimize the model using Markov Chain Monte Carlo (MCMC) sampling
@@ -502,6 +517,8 @@ class BayesianNAM:
             Dictionary of categorical features with feature names as keys.
         target : jnp.ndarray
             True response tensor.
+        dataset_name: str
+            String specifying the dataset name.
         """
 
         self.data_loader = TabularAdditiveModelDataLoader(
@@ -589,9 +606,7 @@ class BayesianNAM:
         ) if params_list is not None else None
         self._mcmc.run(
             jax.random.PRNGKey(42),
-            num_features,
-            cat_features,
-            target,
+            data_loader=self.data_loader,
             is_training=True,
             init_params=init_params
         )
