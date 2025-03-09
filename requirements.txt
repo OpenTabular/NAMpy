@@ -15,7 +15,7 @@ frozendict==2.4.6
 # Deep learning
 lightning
 scikit_learn==1.6.1
-torch==2.6.0
+# torch==2.6.0
 torchmetrics==1.6.1
 
 # Bayesian
