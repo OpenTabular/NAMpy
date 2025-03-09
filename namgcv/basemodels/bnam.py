@@ -14,6 +14,7 @@ from typing import (
 )
 
 from frozendict import frozendict
+from jax import Array
 from mile.config.data import DataConfig, Source, DatasetType, Task
 from mile.training.utils import save_params, load_params_batch
 
@@ -184,7 +185,10 @@ class BayesianNAM:
             for feature_name, feature_info in feature_info_dict.items():
                 networks[feature_name] = BayesianNN(
                     in_dim=feature_info["input_dim"],
-                    out_dim=feature_info["output_dim"],
+                    out_dim=(
+                            feature_info["output_dim"] *
+                            self.config.num_mixture_components
+                    ) + self.config.num_mixture_components,
                     config=self._subnetwork_config,
                     model_name=f"{feature_name}_{feature_type}_subnetwork",
                 )
@@ -307,14 +311,18 @@ class BayesianNAM:
                 interaction_name = ":".join(interaction)
                 self._interaction_networks[interaction_name] = BayesianNN(
                     in_dim=input_dim,
-                    out_dim=interaction_output_dim,
+                    out_dim=(
+                        interaction_output_dim *
+                        self.config.num_mixture_components
+                    ) + self.config.num_mixture_components,
                     config=self._subnetwork_config,
                     model_name=f"{interaction_name}_int_subnetwork",
                 )
 
-    @staticmethod
     def likelihood(
+            self,
             output_sum_over_subnetworks: jnp.ndarray,
+            mixture_coefficients: jnp.ndarray,
             y: jnp.ndarray,
     ):
         """
@@ -322,9 +330,11 @@ class BayesianNAM:
 
         Parameters
         ----------
-        output_sum_over_subnetworks : jnp.ndarray
+        output_sum_over_subnetworks:jnp.ndarray
             Predictions from the sub models.
-        y : jnp.ndarray
+        mixture_coefficients: jnp.ndarray
+            Mixture coefficients for the mixture model.
+        y:jnp.ndarray
             Observed data.
 
         Returns
@@ -333,12 +343,25 @@ class BayesianNAM:
 
         # TODO: Enable other kinds of distributions in the likelihood.
         with numpyro.plate(name="data", size=output_sum_over_subnetworks.shape[0]):
+            sampling_dist = dist.MixtureSameFamily(
+                mixing_distribution=dist.Categorical(
+                    probs=mixture_coefficients
+                ),
+                component_distribution=dist.Normal(
+                    loc=output_sum_over_subnetworks[
+                        :, :int(output_sum_over_subnetworks.shape[1]/2)
+                    ],
+                    scale=output_sum_over_subnetworks[
+                        :, int(output_sum_over_subnetworks.shape[1]/2):
+                    ]
+                ),
+            ) if self.config.num_mixture_components is not None else dist.Normal(
+                loc=output_sum_over_subnetworks[..., 0],
+                scale=output_sum_over_subnetworks[..., 1]
+            )
             numpyro.sample(
                 name="obs",
-                fn=dist.Normal(
-                    loc=output_sum_over_subnetworks[..., 0],
-                    scale=output_sum_over_subnetworks[..., 1]
-                ),
+                fn=sampling_dist,
                 obs=y,
             )
 
@@ -383,45 +406,64 @@ class BayesianNAM:
 
         subnet_out_means = {}
         subnet_out_contributions = []
-        for subnetwork_type, sub_network_group, feature_group in zip(
-                ["numerical", "categorical"],
-                [self._num_feature_networks, self._cat_feature_networks],
-                [num_features, cat_features]
-        ):
-            for feature_name, feature_network in sub_network_group.items():
-                x = feature_group[feature_name]
-                # We use numpyro.handlers.scope to isolate parameter names.
-                with handlers.scope(prefix=feature_name):
-                    subnet_out_i = feature_network.model(
-                        x,
-                        y=target,
-                        is_training=is_training,
-                    )
+        subnet_out_mixture_coefficients = []
 
-                subnet_out_means[feature_name] = jnp.mean(subnet_out_i, axis=0)
-                subnet_out_contributions.append(subnet_out_i)
+        # Build a list of tasks, each containing (key, network, input data)
+        networks_to_run = []
+        for feature_group, network_group in zip(
+                [num_features, cat_features],
+                [self._num_feature_networks, self._cat_feature_networks]
+        ):
+            for feature_name, network in network_group.items():
+                x = feature_group[feature_name]
+                networks_to_run.append((feature_name, network, x))
 
         if self.config.interaction_degree is not None and self.config.interaction_degree >= 2:
             all_features = {**num_features, **cat_features}
-            for interaction_name, interaction_network in self._interaction_networks.items():
+            for interaction_name, network in self._interaction_networks.items():
                 feature_names = interaction_name.split(":")
                 x = jnp.concatenate(
                     [jnp.expand_dims(all_features[name], axis=-1) for name in feature_names],
                     axis=-1
                 )
-                with handlers.scope(prefix=interaction_name):
-                    subnet_out_i = interaction_network.model(
-                        x,
-                        y=target,
-                        is_training=is_training,
-                    )
+                networks_to_run.append((interaction_name, network, x))
 
-                subnet_out_means[interaction_name] = jnp.mean(subnet_out_i, axis=0)
+        for key, network, x in networks_to_run:
+            # Use a scoped handler to isolate parameter names.
+            with handlers.scope(prefix=key):
+                subnet_out_i = network.model(
+                    x,
+                    y=target,
+                    is_training=is_training,
+                )
+            if self.config.num_mixture_components > 1:
+                # The output of each subnetwork will be of the form:
+                # [mu1, ..., muk, sigma1, ..., sigmak, alpha1, ..., alphak]
+                subnet_out_mixture_coefficients.append(
+                    subnet_out_i[..., -self.config.num_mixture_components:]
+                )
+                subnet_out_means[key] = jnp.mean(
+                    subnet_out_i[..., :-self.config.num_mixture_components],
+                    axis=0
+                )
+                subnet_out_contributions.append(
+                    subnet_out_i[..., :-self.config.num_mixture_components]
+                )
+            else:
+                subnet_out_means[key] = jnp.mean(subnet_out_i, axis=0)
                 subnet_out_contributions.append(subnet_out_i)
 
-        # Feature dropout (implemented as a stochastic mask during training).
         # After stacking shape: [batch_size, sub_network_out_dim, num_subnetworks].
-        subnet_out_contributions = jnp.stack(subnet_out_contributions, axis=-1)
+        subnet_out_contributions = jnp.stack(
+            subnet_out_contributions,
+            axis=-1
+        )
+        subnet_out_mixture_coefficients = jnp.stack(
+            subnet_out_mixture_coefficients,
+            axis=-1
+        ) if self.config.num_mixture_components > 1 else None
+
+        # Feature dropout (implemented as a stochastic mask during training).
         if self.config.feature_dropout > 0.0 and is_training:
             rng_key = numpyro.prng_key()
             dropout_mask = random.bernoulli(
@@ -431,7 +473,7 @@ class BayesianNAM:
             )
             # Dropout scaling ensures the scale remains the same during training and inference.
             subnet_out_contributions = (
-                    subnet_out_contributions * dropout_mask / (1 - self.config.feature_dropout)
+                subnet_out_contributions * dropout_mask / (1 - self.config.feature_dropout)
             )
 
         # Address global unidentifiability by subtracting the global offset from each subnet.
@@ -449,8 +491,14 @@ class BayesianNAM:
             )
 
         # After sum shape: [batch_size, sub_network_out_dim].
-        output_sum_over_subnetworks = jnp.sum(subnet_out_contributions, axis=-1)
-
+        output_sum_over_subnetworks = jnp.sum(
+            subnet_out_contributions,
+            axis=-1
+        )
+        output_sum_over_subnetworks_mixture_coefficients = jnp.sum(
+            subnet_out_mixture_coefficients,
+            axis=-1
+        ) if self.config.num_mixture_components > 1 else None
         # Since we subtracted a global offset from each subnetwork,
         # we must add it back via an intercept. Because there are K outputs,
         # we now sample K intercepts (e.g. one for location and one for scale).
@@ -468,20 +516,30 @@ class BayesianNAM:
             output_sum_over_subnetworks += intercept
 
         # Apply the k desired link function(s) dimension-wise.
-        final_params = self._apply_links(
-            params=output_sum_over_subnetworks
+        final_params, final_mixture_coefficients = self._apply_links(
+            params=output_sum_over_subnetworks,
+            mixture_coefficients=output_sum_over_subnetworks_mixture_coefficients
         )  # shape [batch_size, K]
-        numpyro.deterministic(name=f"final_params", value=final_params)
+        numpyro.deterministic(
+            name=f"final_params",
+            value=final_params
+        )
+        numpyro.deterministic(
+            name=f"final_mixture_coefficients",
+            value=final_mixture_coefficients
+        )
 
         self.likelihood(
             output_sum_over_subnetworks=final_params,
+            mixture_coefficients=final_mixture_coefficients,
             y=target
         )
 
     def _apply_links(
             self,
-            params: jnp.ndarray
-    ):
+            params: jnp.ndarray,
+            mixture_coefficients: jnp.ndarray
+    ) -> tuple[Array, Array]:
         """
         Apply the link functions to the parameters.
 
@@ -489,17 +547,30 @@ class BayesianNAM:
         ----------
         params: jnp.ndarray
             The parameters to which the link functions will be applied, of shape [batch_size, K].
+        mixture_coefficients: jnp.ndarray
+            The mixture coefficients for the mixture model.
 
         Returns
         -------
-        jnp.ndarray:
-            The transformed parameters.
+        tuple[Array, Array]:
+            The transformed parameters and the mixture coefficients, if applicable.
         """
 
         results = []
-        for k in range(params.shape[-1]):
-            results.append(self.lnk_fns[k](params[:, k]))
-        return jnp.stack(results, axis=-1)
+        if self.config.num_mixture_components > 1:
+            for a in range(self.config.num_mixture_components):
+                for k in range(int(params.shape[-1] / self.config.num_mixture_components)):
+                    results.append(
+                        self.lnk_fns[k](
+                            params[:, k + self.config.num_mixture_components * a]
+                        )
+                    )
+            mixture_coefficients = jax.nn.softmax(mixture_coefficients, axis=-1)
+        else:
+            for k in range(params.shape[-1]):
+                results.append(self.lnk_fns[k](params[:, k]))
+
+        return jnp.stack(results, axis=-1), mixture_coefficients
 
     def train_model(
         self,
@@ -526,7 +597,7 @@ class BayesianNAM:
 
         self.data_loader = TabularAdditiveModelDataLoader(
             config=DataConfig(
-                path="synthetic",
+                path=dataset_name,
                 source=Source.LOCAL,
                 data_type=DatasetType.TABULAR,
                 task=Task.REGRESSION,
@@ -592,28 +663,36 @@ class BayesianNAM:
                 "Sampling will be initialized with random parameters."
             )
 
-        nuts_kernel = NUTS(
-            model=self.model,
-            step_size=self.config.mcmc_step_size,
-            target_accept_prob=self.config.target_accept_prob,
-        )
-        self._mcmc = MCMC(
-            nuts_kernel,
-            num_samples=self.config.num_samples,
-            num_warmup=self.config.num_warmup_samples,
-            num_chains=self.config.num_chains,
-        )
-        init_params = map_flax_to_numpyro(
-            flax_params_list=params_list,
-            expected_chains=self.config.num_chains,
-        ) if params_list is not None else None
-        self._mcmc.run(
-            jax.random.PRNGKey(42),
-            data_loader=self.data_loader,
-            is_training=True,
-            init_params=init_params
-        )
-        self.posterior_samples = self._mcmc.get_samples()
+        self.begin_sampling(params_list=params_list)
+
+    def begin_sampling(self, params_list, kernel=NUTS):
+        if kernel == NUTS:
+            nuts_kernel = kernel(
+                model=self.model,
+                step_size=self.config.mcmc_step_size,
+                target_accept_prob=self.config.target_accept_prob,
+            )
+            self._mcmc = MCMC(
+                nuts_kernel,
+                num_samples=self.config.num_samples,
+                num_warmup=self.config.num_warmup_samples,
+                num_chains=self.config.num_chains,
+            )
+            init_params = map_flax_to_numpyro(
+                flax_params_list=params_list,
+                expected_chains=self.config.num_chains,
+            ) if params_list is not None else None
+            self._mcmc.run(
+                jax.random.PRNGKey(42),
+                data_loader=self.data_loader,
+                is_training=True,
+                init_params=init_params
+            )
+            self.posterior_samples = self._mcmc.get_samples()
+        else:
+            raise NotImplementedError(
+                f"Currently, only NUTS sampling is supported."
+            )
 
     def train_deep_ensemble(
         self,
@@ -999,22 +1078,17 @@ class BayesianNAM:
             raise ValueError("MCMC samples not found. Please train the model using MCMC first.")
         posterior_samples = self._mcmc.get_samples()
 
-        self._logger.info(
-            f"All parameter names in the posterior: {nl}"
-            f"{list(posterior_samples._chains_rng_keys())}"
-        )
-
         scale_params = {
             param_name: param_vals for param_name, param_vals in posterior_samples.items()
             if "scale" in param_name
         }
         weight_params = {
             param_name: param_vals for param_name, param_vals in posterior_samples.items()
-            if "_w" in param_name and "scale" not in param_name
+            if "_kernel" in param_name and "scale" not in param_name
         }
         bias_params = {
             param_name: param_vals for param_name, param_vals in posterior_samples.items()
-            if "_b" in param_name and "scale" not in param_name
+            if "_bias" in param_name and "scale" not in param_name
         }
         noise_params = {
             param_name: param_vals for param_name, param_vals in posterior_samples.items()
@@ -1072,8 +1146,6 @@ class BayesianNAM:
 
     def predict(
             self,
-            num_features: dict,
-            cat_features: dict
     ) -> tuple[
         Any,
         dict[Any, ndarray[Any, dtype[Any]]]
@@ -1099,8 +1171,9 @@ class BayesianNAM:
         # We need to remove the deterministic sites to force the model to recompute these values.
         # Get all site names that have "contrib" in them.
         deterministic_site_keys = [
-            key for key in self._mcmc.get_samples().keys() if "contrib" in key
-        ] + ["final_params"]
+            key for key in self._mcmc.get_samples().keys()
+            if "contrib" in key or "final" in key
+        ]
         for deterministic_site_key in deterministic_site_keys:
             try:
                 self.posterior_samples.pop(deterministic_site_key)
@@ -1139,7 +1212,32 @@ class BayesianNAM:
                 contrib_samples = preds[f"contrib_{feature_name}"]
                 submodel_output_contributions[feature_name] = np.array(contrib_samples)
 
-        return preds["final_params"], submodel_output_contributions
+        return (
+            preds["final_params"],
+            preds["final_mixture_coefficients"],
+            submodel_output_contributions
+        )
+
+    # PLOT TRACES WITH ARVIZ
+    def plot_traces(self):
+        """
+        Diagnostic method to visualize the traces of the MCMC samples.
+        """
+
+        if not hasattr(self, '_mcmc'):
+            raise ValueError("MCMC samples not found. Please train the model using MCMC first.")
+        import arviz as az
+
+        az_trace = az.from_numpyro(
+            mcmc=self._mcmc,
+            prior=self._mcmc.prior_predictive,
+            posterior_predictive=self._mcmc.predictive,
+            model=self.model,
+            data_loader=self.data_loader,
+        )
+
+        az.plot_trace(az_trace)
+        plt.show()
 
 
 class DeterministicNAM(nn.Module):
@@ -1179,7 +1277,7 @@ class DeterministicNAM(nn.Module):
 
         contributions = []  # To hold outputs from each subnetwork.
         subnet_means = {}  # To compute the (global) offset.
-
+        mixture_components = []
         for networks, features in zip(
                 (self.num_subnetworks, self.cat_subnetworks),
                 (num_features, cat_features)
@@ -1189,6 +1287,9 @@ class DeterministicNAM(nn.Module):
                 if x.ndim == 1:  # Ensure input is of shape [batch, input_dim].
                     x = x.reshape(-1, 1)
                 out = network(x, train=train, rng=rng)  # shape: [batch, out_dim]
+                if self.config.num_mixture_components > 1:
+                    mixture_components.append(out[..., -1])
+                    out = out[..., :-1]
                 subnet_means[feature_name] = jnp.mean(out, axis=0)  # shape: [out_dim]
                 contributions.append(out)
 
