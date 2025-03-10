@@ -294,6 +294,7 @@ class BayesianNAM:
         cat_feature_info : dict
             Information about categorical features.
         """
+        # TODO: Implement GAMI-Net style interaction selection.
         interaction_output_dim = num_feature_info[
             list(num_feature_info.keys())[0]
         ]["output_dim"]  # Same output dimension as the numerical features.
@@ -355,7 +356,7 @@ class BayesianNAM:
                         :, int(output_sum_over_subnetworks.shape[1]/2):
                     ]
                 ),
-            ) if self.config.num_mixture_components is not None else dist.Normal(
+            ) if self.config.num_mixture_components > 1 else dist.Normal(
                 loc=output_sum_over_subnetworks[..., 0],
                 scale=output_sum_over_subnetworks[..., 1]
             )
@@ -524,10 +525,11 @@ class BayesianNAM:
             name=f"final_params",
             value=final_params
         )
-        numpyro.deterministic(
-            name=f"final_mixture_coefficients",
-            value=final_mixture_coefficients
-        )
+        if self.config.num_mixture_components > 1:
+            numpyro.deterministic(
+                name=f"final_mixture_coefficients",
+                value=final_mixture_coefficients
+            )
 
         self.likelihood(
             output_sum_over_subnetworks=final_params,
@@ -665,9 +667,9 @@ class BayesianNAM:
 
         self.begin_sampling(params_list=params_list)
 
-    def begin_sampling(self, params_list, kernel=NUTS):
-        if kernel == NUTS:
-            nuts_kernel = kernel(
+    def begin_sampling(self, params_list, kernel="NUTS"):
+        if kernel.lower() == "nuts":
+            nuts_kernel = NUTS(
                 model=self.model,
                 step_size=self.config.mcmc_step_size,
                 target_accept_prob=self.config.target_accept_prob,
@@ -772,7 +774,7 @@ class BayesianNAM:
                 )
             else:
                 training_state = get_initial_state(
-                    rng=self._chains_rng_keys[idx],
+                    rng=self._single_rng_key,
                     x=get_single_input(
                         num_features=num_features,
                         cat_features=cat_features,
