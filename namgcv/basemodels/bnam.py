@@ -774,7 +774,9 @@ class BayesianNAM:
                 )
             else:
                 training_state = get_initial_state(
-                    rng=self._single_rng_key,
+                    rng=self._chains_rng_keys[idx]
+                        if self.config.num_chains > 1
+                        else self._single_rng_key,
                     x=get_single_input(
                         num_features=num_features,
                         cat_features=cat_features,
