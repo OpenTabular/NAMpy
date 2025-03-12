@@ -1,23 +1,15 @@
 from typing import Tuple, Dict, Any
 
-import jax.nn
 import pandas as pd
 import numpy as np
-from numpy import ndarray, dtype, floating, float_
-from numpy._typing import _64Bit
-from pandas import DataFrame
+from numpy import ndarray
+from scipy.stats import norm
 
 from sklearn.datasets import fetch_california_housing
 from sklearn.model_selection import train_test_split
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import OneHotEncoder
-
-import jax.numpy as jnp
-import jax.random as random
-from sympy import banded
-
-from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -138,7 +130,7 @@ def plot_feature_contributions(
         num_plots = len(num_features)
         fig, ax = plt.subplots(
             nrows=num_plots, ncols=2,
-            figsize=(12*2, 6 * num_plots),
+            figsize=(12, 6 * num_plots),
             squeeze=False
         )
         for i, (feature_name, feature_array) in enumerate(num_features.items()):
@@ -162,29 +154,18 @@ def plot_feature_contributions(
 
                 mean_param_contribution_sorted = mean_param_contribution[sorted_idx]
 
-                if j == 0:
-                    if feature_name == "numerical_1":
-                        true_effect = 8 * (feature_values_sorted - 0.5) ** 2
-                    elif feature_name == "numerical_2":
-                        true_effect = 1 / 10 * np.exp(-8 * feature_values_sorted + 4)
-                    elif feature_name == "numerical_3":
-                        true_effect = 5 * np.exp(-2 * (2 * feature_values_sorted - 1) ** 2)
-                    elif feature_name == "numerical_4":
-                        true_effect = np.zeros_like(feature_values_sorted)
-                else:
-                    if feature_name == "numerical_1":
-                        true_effect = feature_values_sorted
-                    elif feature_name == "numerical_2":
-                        true_effect = feature_values_sorted
-                    elif feature_name == "numerical_3":
-                        true_effect = feature_values_sorted
-                    elif feature_name == "numerical_4":
-                        true_effect = feature_values_sorted
-
-                    mean_param_contribution_sorted = (
-                        jax.nn.softplus(mean_param_contribution_sorted)
-                    )
-
+                # if j == 0:
+                #     if feature_name == "numerical_1":
+                #         true_effect = (feature_values_sorted) ** 2
+                #     elif feature_name == "numerical_2":
+                #         true_effect =np.exp(feature_values_sorted**3)
+                #     elif feature_name == "numerical_3":
+                #         true_effect = np.exp((feature_values_sorted) ** 2)
+                #     elif feature_name == "numerical_4":
+                #         true_effect = np.zeros_like(feature_values_sorted)
+                # else:
+                #     true_effect = (feature_values_sorted)**2
+                #
                 # Plot the centered partial contributions.
                 sns.lineplot(
                     x=feature_values_sorted,
@@ -193,22 +174,22 @@ def plot_feature_contributions(
                     label="Mean Output Parameter Contribution",
                     ax=ax[i, j]
                 )
-
-                # Proper min–max scaling of the true effect onto [lower, upper]
-                lower_sorted, upper_sorted = (mean_param_contribution_sorted.min(),
-                                              mean_param_contribution_sorted.max())
-                te_min, te_max = true_effect.min(), true_effect.max()
-                true_effect_norm = (true_effect - te_min) / (te_max - te_min)  # now in [0,1]
-                true_effect = true_effect_norm * (upper_sorted - lower_sorted) + lower_sorted
-
-                sns.lineplot(
-                    x=feature_values_sorted,
-                    y=true_effect,
-                    color="black",
-                    linestyle='dashed',
-                    label="True effect",
-                    ax=ax[i,j],
-                )
+                #
+                # # Proper min–max scaling of the true effect onto [lower, upper]
+                # lower_sorted, upper_sorted = (mean_param_contribution_sorted.min(),
+                #                               mean_param_contribution_sorted.max())
+                # te_min, te_max = true_effect.min(), true_effect.max()
+                # true_effect_norm = (true_effect - te_min) / (te_max - te_min)  # now in [0,1]
+                # true_effect = true_effect_norm * (upper_sorted - lower_sorted) + lower_sorted
+                #
+                # sns.lineplot(
+                #     x=feature_values_sorted,
+                #     y=true_effect,
+                #     color="black",
+                #     linestyle='dashed',
+                #     label="True effect",
+                #     ax=ax[i,j],
+                # )
 
                 uncertainty = np.std(submodel_contributions[feature_name][:, :, j], axis=0)[sorted_idx]
                 ax[i,j].fill_between(
@@ -244,90 +225,10 @@ def plot_feature_contributions(
         plt.savefig('num_feature_contributions.png')
         plt.show()
 
-    if interaction_features:
-        num_interactions = len(interaction_features)
-        # For each interaction, we create a row with two plots:
-        # Left: Mean contribution contourf with black dashed contour lines.
-        # Right: Uncertainty (upper - lower) as a heatmap.
-        ncols = 2
-        nrows = num_interactions
-        fig, axes = plt.subplots(
-            nrows=nrows, ncols=ncols,
-            figsize=(12 * ncols, 6 * nrows),
-            squeeze=False
-        )
-
-        for idx, (interaction_name, feature_arrays) in enumerate(interaction_features.items()):
-            feature_names = interaction_name.split(":")
-            if len(feature_names) != 2:
-                print(
-                    f"Skipping interaction {interaction_name}: only supports pairwise interactions.")
-                continue
-
-            feature1_name, feature2_name = feature_names
-            feature1_values = np.array(feature_arrays[:, 0])
-            feature2_values = np.array(feature_arrays[:, 1])
-
-            contributions = submodel_contributions[interaction_name]  # [num_samples, batch_size]
-            mean_contrib = contributions.mean(axis=0)  # [batch_size]
-            lower = np.percentile(contributions, 5.0, axis=0)
-            upper = np.percentile(contributions, 95.0, axis=0)
-            uncertainty = upper - lower  # Width of the credible interval
-
-            # Create a grid for contour plot
-            num_points = 100
-            x = np.linspace(feature1_values.min(), feature1_values.max(), num_points)
-            y = np.linspace(feature2_values.min(), feature2_values.max(), num_points)
-            xx, yy = np.meshgrid(x, y)
-
-            from scipy.interpolate import griddata
-            points = np.stack((feature1_values, feature2_values), axis=-1)
-            grid_z_mean = griddata(points, mean_contrib, (xx, yy), method='linear')
-            grid_z_unc = griddata(points, uncertainty, (xx, yy), method='linear')
-
-            # --------------------
-            # Plot posterior mean.
-            # --------------------
-            ax_mean = axes[idx, 0]
-            cp = ax_mean.contourf(xx, yy, grid_z_mean, levels=20, cmap='Greens', alpha=0.8)
-            fig.colorbar(cp, ax=ax_mean, label='Mean Contribution')
-
-            cl = ax_mean.contour(
-                xx, yy, grid_z_mean,
-                levels=10,
-                colors='black',
-                linestyles='dashed'
-            )  # Add black dashed contour lines on top.
-            ax_mean.clabel(cl, inline=True, fontsize=10)
-            ax_mean.set_xlabel(feature1_name, fontsize=12)
-            ax_mean.set_ylabel(feature2_name, fontsize=12)
-            ax_mean.set_title(f'Mean Interaction: {feature1_name} & {feature2_name}', fontsize=14)
-            ax_mean.grid(True)
-
-            # ------------------------------
-            # Plot uncertainty as a heatmap.
-            # ------------------------------
-            ax_unc = axes[idx, 1]
-            img = ax_unc.imshow(
-                grid_z_unc,
-                origin='lower',
-                aspect='auto',
-                extent=[x.min(), x.max(), y.min(), y.max()],
-                cmap='RdPu'
-            )
-            fig.colorbar(img, ax=ax_unc, label='Uncertainty (Width of Credible Interval)')
-            ax_unc.set_xlabel(feature1_name, fontsize=12)
-            ax_unc.set_ylabel(feature2_name, fontsize=12)
-            ax_unc.set_title(f'Uncertainty: {feature1_name} & {feature2_name}', fontsize=14)
-            ax_unc.grid(False)  # No grid for heatmaps.
-
-        plt.tight_layout()
-        plt.savefig('interaction_feature_contributions_uncertainty.png')
-        plt.show()
-
 
 def plot_synthetic_data(
         true_effects: dict,
+        response: jnp.ndarray,
 ):
     """
     Function to plot the synthetic data generated for testing the BayesianNAM model.
@@ -335,9 +236,35 @@ def plot_synthetic_data(
     Parameters
     ----------
     true_effects: dict containing the true effects of the features.
+    response: jnp.ndarray containing the response variable.
     """
 
     sns.set_style("whitegrid", {"axes.facecolor": ".9"})
+
+    # Target variable distribution.
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 6))
+    sns.distplot(
+        response,
+        hist=True,
+        kde=True,
+        bins=30,
+        color=GREEN_RGB_COLORS[0],
+        label="Target Variable",
+        ax=ax
+    )
+    ax.legend()
+    ax.set_title(
+        label=f"Distribution of the Target Variable | "
+              f"Mean: {response.mean():.2f}, "
+              f"Std: {response.std():.2f}",
+        fontsize=14
+    )
+    ax.set_xlabel("Response", fontsize=12)
+    ax.set_ylabel("Density", fontsize=12)
+    ax.grid(True)
+    plt.tight_layout()
+    plt.show()
+
 
     single_true_effects = {
         feature_name: feature_value for feature_name, feature_value in true_effects.items()
@@ -394,7 +321,8 @@ def plot_synthetic_data(
             # Plot points.
             sns.scatterplot(
                 x=single_true_effects[feature_name]["feature"][sort_idx],
-                y=single_true_effects[feature_name]["noisy_response"][sort_idx],
+                y=single_true_effects[feature_name]["response"][sort_idx]
+                    + single_true_effects[feature_name]["noise"][sort_idx],
                 color=GREEN_RGB_COLORS[5],
                 label="Noisy Response",
                 ax=axes[i,0]
@@ -458,63 +386,6 @@ def plot_synthetic_data(
         plt.tight_layout()
         plt.show()
 
-    # --- Plot interaction: e.g. numerical_1:numerical_2 ---
-    interaction_true_effects = {
-        feature_name: feature_value for feature_name, feature_value in true_effects.items()
-        if ":" in feature_name
-    }
-    if interaction_true_effects:
-        fig, axes = plt.subplots(
-            nrows=len(interaction_true_effects),
-            ncols=2,
-            figsize=(12, 6*len(interaction_true_effects))
-        )
-        for i, feature_name in enumerate(interaction_true_effects.keys()):
-            x1_vals = interaction_true_effects[feature_name]["feature"][:, 0]
-            x2_vals = interaction_true_effects[feature_name]["feature"][:, 1]
-
-            x1_i = np.linspace(x1_vals.min(), x1_vals.max(), 200)
-            x2_i = np.linspace(x2_vals.min(), x2_vals.max(), 200)
-            X1_i, X2_i = np.meshgrid(x1_i, x2_i)
-            Y_i = X1_i * X2_i  # True interaction function.
-
-            Y_i_lower = Y_i - ci_multiplier * true_effects[feature_name]["noise_parameters"]["scale"]
-            Y_i_upper = Y_i + ci_multiplier * true_effects[feature_name]["noise_parameters"]["scale"]
-            Y_i_uncertainty = Y_i_upper - Y_i_lower
-
-            # --------------------
-            # Plot posterior mean.
-            # --------------------
-            ax_mean = axes[i, 0] if len(interaction_true_effects) > 1 else axes[0]
-            cp = ax_mean.contourf(X1_i, X2_i, Y_i, levels=20, cmap='Greens', alpha=0.8)
-            fig.colorbar(cp, ax=ax_mean, label='Mean Interaction Effect')
-            cl = ax_mean.contour(X1_i, X2_i, Y_i, levels=10, colors='black', linestyles='dashed')
-            ax_mean.clabel(cl, inline=True, fontsize=10)
-            ax_mean.set_title("Interaction Mean Effect", fontsize=14)
-            ax_mean.set_xlabel("numerical_1", fontsize=12)
-            ax_mean.set_ylabel("numerical_2", fontsize=12)
-            ax_mean.grid(True)
-
-            # ------------------------------
-            # Plot uncertainty as a heatmap.
-            # ------------------------------
-            ax_unc = axes[i, 1] if len(interaction_true_effects) > 1 else axes[1]
-            img = ax_unc.imshow(
-                Y_i_uncertainty,
-                origin='lower',
-                aspect='auto',
-                # extent=[x1_i.min(), x1_i.max(), x2_i.min(), x2_i.max()],
-                cmap='RdPu'
-            )
-            fig.colorbar(img, ax=ax_unc, label='Uncertainty (Width of 95% CI)', orientation='vertical')
-            ax_unc.set_title("Interaction Uncertainty", fontsize=14)
-            ax_unc.set_xlabel("numerical_1", fontsize=12)
-            ax_unc.set_ylabel("numerical_2", fontsize=12)
-            ax_unc.grid(False)
-
-        plt.tight_layout()
-        plt.show()
-
 
 def get_synthetic_data(n_samples: int=500):
     """
@@ -552,10 +423,10 @@ def get_synthetic_data(n_samples: int=500):
 
     # Make the noise parameters dependent on the true effects.
     noise_parameters = {
-        "numerical_1": {"loc": 0, "scale": np.abs(numerical_1), "size": n_samples},
-        "numerical_2": {"loc": 0, "scale": np.abs(numerical_2), "size": n_samples},
-        "numerical_3": {"loc": 0, "scale": np.abs(numerical_3), "size": n_samples},
-        "numerical_4": {"loc": 0, "scale": np.abs(numerical_4), "size": n_samples},
+        "numerical_1": {"loc": 0, "scale": (numerical_1)**2, "size": n_samples},
+        "numerical_2": {"loc": 0, "scale": (numerical_2)**2, "size": n_samples},
+        "numerical_3": {"loc": 0, "scale": (numerical_3)**2, "size": n_samples},
+        "numerical_4": {"loc": 0, "scale": (numerical_4)**2, "size": n_samples},
     }
 
     noise = {
@@ -570,19 +441,19 @@ def get_synthetic_data(n_samples: int=500):
 
     true_effects = {
         "numerical_1": {
-            "response": 8*(numerical_1 - 0.5)**2,
+            "response": (numerical_1)**2,
             "feature": numerical_1,
             'noise_parameters': noise_parameters["numerical_1"],
             'noise': noise["numerical_1"]
         },
         "numerical_2": {
-            "response": 1/10*np.exp(-8*numerical_2 + 4),
+            "response": np.exp(numerical_2**3),
             "feature": numerical_2,
             'noise_parameters': noise_parameters["numerical_2"],
             'noise': noise["numerical_2"]
         },
         "numerical_3": {
-            "response": 5*np.exp(-2*(2*numerical_3 -1)**2),
+            "response": np.exp(numerical_3**2),
             "feature": numerical_3,
             'noise_parameters': noise_parameters["numerical_3"],
             'noise': noise["numerical_3"]
@@ -631,39 +502,23 @@ def get_synthetic_data(n_samples: int=500):
     #         ),
     #         "size": n_samples
     #     }
-    true_effects["numerical_1"]["noisy_response"] = (
-            true_effects["numerical_1"]["response"] +
-            true_effects["numerical_1"]["noise"]
-    )
-    true_effects["numerical_2"]["noisy_response"] = (
-            true_effects["numerical_2"]["response"] +
-            true_effects["numerical_2"]["noise"]
-    )
-    true_effects["numerical_3"]["noisy_response"] = (
-            true_effects["numerical_3"]["response"] +
-            true_effects["numerical_3"]["noise"]
-    )
-    true_effects["numerical_4"]["noisy_response"] = (
-            true_effects["numerical_4"]["response"] +
-            true_effects["numerical_4"]["noise"]
-    )
-    # true_effects["numerical_1:numerical_2"]["noisy_response"] = (
-    #         true_effects["numerical_1:numerical_2"]["response"] +
-    #         noise["numerical_1:numerical_2"]
-    # )
-
     response = (
-            true_effects["numerical_1"]["response"] +
-            true_effects["numerical_2"]["response"] +
-            true_effects["numerical_3"]["response"] +
-            true_effects["numerical_4"]["response"] # +
+            true_effects["numerical_1"]["response"]
+                + true_effects["numerical_1"]["noise"] +
+            true_effects["numerical_2"]["response"]
+                + true_effects["numerical_2"]["noise"] # +
+            # true_effects["numerical_3"]["response"]
+            #     + true_effects["numerical_3"]["noise"] +
+            # true_effects["numerical_4"]["response"]
+            #     + true_effects["numerical_4"]["noise"]  # +
             # true_effects["numerical_1:numerical_2"]["response"]
+            #   + true_effects["numerical_1:numerical_2"]["noise"]
     )
 
     # --------------
     # Plot the data.
     # --------------
-    plot_synthetic_data(true_effects=true_effects)
+    plot_synthetic_data(true_effects=true_effects, response=response)
 
     # -------
     # Return.
@@ -674,8 +529,8 @@ def get_synthetic_data(n_samples: int=500):
                 data={
                     'numerical_1': numerical_1,
                     'numerical_2': numerical_2,
-                    'numerical_3': numerical_3,
-                    'numerical_4': numerical_4,
+                    # 'numerical_3': numerical_3,
+                    # 'numerical_4': numerical_4,
                 }
             ),
             # cat_1_encoded,
@@ -684,25 +539,64 @@ def get_synthetic_data(n_samples: int=500):
         ], axis=1
     ), true_effects
 
-def crps(y_true, y_pred):
-    """
-    Compute the Continuous Ranked Probability Score (CRPS) for the given true and predicted values.
-    The CRPS is a generalization of the Mean Absolute Error (MAE) and the Mean Squared Error (MSE).
 
-    Args:
-        y_true (ndarray): True values.
-        y_pred (ndarray): Predicted values.
+def identifiability_experiment(model, num_features, cat_features, interaction_features):
+    posterior_samples = model._get_posterior_param_samples()
 
-    Returns:
-        float: The CRPS value.
-    """
+    subnetwork_params = {
+        "numerical": {}, "categorical": {}, "interaction": {}
+    }
+    for feature_type, feature_dict in zip(
+            ["numerical", "categorical", "interaction"],
+            [num_features, cat_features, interaction_features]
+    ):
+        for feature_name in feature_dict._chains_rng_keys():
+            subnetwork_params[feature_type][feature_name] = {}
+            subnetwork_params[feature_type][feature_name]["w"] = {
+                layer_num: posterior_samples["weights"][
+                        f"{feature_name}/{feature_name}_num_subnetwork_w{layer_num}"
+                ] for layer_num in  range(len(
+                    [key for key in posterior_samples["weights"]._chains_rng_keys() if feature_name in key]
+                ))
+            }
+            subnetwork_params["numerical"][feature_name]["b"] = {
+                layer_num: posterior_samples["biases"][
+                        f"{feature_name}/{feature_name}_num_subnetwork_b{layer_num}"
+                ] for layer_num in  range(len(
+                    [key for key in posterior_samples["biases"]._chains_rng_keys() if feature_name in key]
+                ))
+            }
+            sns.set_style("whitegrid", {"axes.facecolor": ".9"})
+            fig, ax = plt.subplots(
+                nrows=len(subnetwork_params[feature_type][feature_name]["w"]),
+                ncols=1,
+                figsize=(12, 6 * len(subnetwork_params[feature_type][feature_name]["w"]))
+            )
+            for layer_num, weight_samples in (
+                    subnetwork_params["numerical"][feature_name]["w"].items()
+            ):
+                for i in range(weight_samples.shape[1]):
+                    sns.distplot(
+                        weight_samples[:, i],
+                        color=GREEN_RGB_COLORS[0],
+                        ax=ax[layer_num],
+                        label=f"Weight {i}"
+                    )
+                ax[layer_num].set_title(
+                    f"Numerical Feature {feature_name} - Layer {layer_num}",
+                    fontsize=12
+                )
+                ax[layer_num].set_xlabel("Weight", fontsize=12)
+                ax[layer_num].set_ylabel("Density", fontsize=12)
+                ax[layer_num].grid(True)
 
-    n = len(y_true)
-    crps = 0
-    for i in range(n):
-        crps += np.abs(y_pred[i] - y_true[i]) - (1/2) * np.abs(y_pred[i] - y_true[i])**2
-    crps /= n
-    return crps
+            plt.tight_layout()
+            plt.show()
+
+
+    return subnetwork_params
+
+
 
 if __name__ == "__main__":
     # -----------------
@@ -730,7 +624,6 @@ if __name__ == "__main__":
     # ---------------
     # Model training.
     # ---------------
-    inference_method = 'mcmc'
     model = BayesianNAM(
         cat_feature_info={},
         num_feature_info={
@@ -743,7 +636,6 @@ if __name__ == "__main__":
         config=DefaultBayesianNAMConfig(),
         subnetwork_config=DefaultBayesianNNConfig()
     )
-    model_dir = f"bnam_numpyro_{inference_method}.pkl"
 
     model.train_model(
         num_features={
@@ -761,121 +653,155 @@ if __name__ == "__main__":
         ) for col_idx, feature_name in enumerate(X_test.columns)
     }
     cat_features = {}
-    predictions, final_params, submodel_contributions = model.predict(
-        num_features=num_features,
-        cat_features=cat_features,
-    )
-    y_pred = predictions.mean(axis=0)
 
-    final_loc = final_params[:, :, 0]
-    final_scale = final_params[:, :, 1]
-    sns.set_style("whitegrid", {"axes.facecolor": ".9"})
-    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(12, 6 * 2))
-    for i, (final_param_name, final_param_pred) in enumerate(
-            zip(
-                ["loc", "scale"],
-                [final_loc, final_scale]
+    for permute_params_flag in [False, True]:
+        predictions, final_params, submodel_contributions = model.predict(
+            num_features=num_features,
+            cat_features=cat_features,
+            permute_params=permute_params_flag
+        )
+        y_pred = predictions.mean(axis=0)
+
+        final_loc = final_params[:, :, 0]
+        final_scale = final_params[:, :, 1]
+        sns.set_style("whitegrid", {"axes.facecolor": ".9"})
+        fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(12, 6 * 2))
+        for i, (final_param_name, final_param_pred) in enumerate(
+                zip(
+                    ["loc", "scale"],
+                    [final_loc, final_scale]
+                )
+        ):
+            sns.distplot(
+                final_param_pred.flatten(),
+                color=GREEN_RGB_COLORS[0],
+                ax=ax[i]
             )
-    ):
+            # Mark the mean with a vertical line.
+            ax[i].axvline(
+                x=final_param_pred.mean(),
+                color='black',
+                linestyle='dashed',
+                linewidth=2,
+                label="Mean"
+            )
+            ax[i].set_title(f"Final Parameter Predictions - {final_param_name.title()}", fontsize=12)
+            ax[i].grid(True)
+        plt.tight_layout()
+        plt.show()
+
+        # -----------------
+        # Results analysis.
+        # -----------------
+        interaction_feature_information = {}
+        all_features = {**num_features, **cat_features}
+        for interaction_name in submodel_contributions.keys():
+            if ":" not in interaction_name:
+                continue
+
+            feature_names = interaction_name.split(":")
+            interaction_feature_information[interaction_name] = jnp.concatenate(
+                [jnp.expand_dims(all_features[name], axis=-1) for name in feature_names],
+                axis=-1
+            )
+
+        plot_feature_contributions(
+            num_features=num_features,
+            cat_features=cat_features,
+            interaction_features=interaction_feature_information,
+            submodel_contributions=submodel_contributions
+        )
+
+        sns.set_style("whitegrid", {"axes.facecolor": ".9"})
+        fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(12*2, 6))
+        x = np.linspace(-3, 3, 1000)
+        ax[0].plot(
+            x,
+            norm.pdf(
+                x,
+                loc=final_loc.mean(),
+                scale=final_scale.mean()
+            ),
+            label=f"Estimated | "
+                  f"Mean: {final_loc.mean():.4f}, "
+                  f"Std: {final_scale.mean():.4f}",
+        )
+        # Plot the distribution of y_test.
         sns.distplot(
-            final_param_pred.flatten(),
+            y_test_scaled,
             color=GREEN_RGB_COLORS[0],
-            ax=ax[i]
+            label=f"True | "
+                  f"Mean: {y_test_scaled.mean():.4f}, "
+                  f"Std: {y_test_scaled.std():.4f}",
+            ax=ax[0],
+            hist=True
         )
-        # Mark the mean with a vertical line.
-        ax[i].axvline(
-            x=final_param_pred.mean(),
-            color='black',
-            linestyle='dashed',
-            linewidth=2,
-            label="Mean"
+        ax[0].set_title("Estimated vs Actual Gaussian Distribution", fontsize=12)
+        ax[0].set_xlabel("Y", fontsize=12)
+        ax[0].set_ylabel("Density", fontsize=12)
+        ax[0].legend(loc='best', fontsize=12, frameon=False)
+        ax[0].grid(True)
+
+        # Plot the predictions vs. actuals.
+        sns.scatterplot(
+            x=y_test_scaled,
+            y=y_pred,
+            color=GREEN_RGB_COLORS[0],
+            label="Predictions",
+            ax=ax[1]
         )
-        ax[i].set_title(f"Final Parameter Predictions - {final_param_name.title()}", fontsize=12)
-        ax[i].grid(True)
-    plt.tight_layout()
-    plt.show()
+        ax[1].set_xlabel("Actuals", fontsize=12)
+        ax[1].set_ylabel("Predictions", fontsize=12)
+        ax[1].set_title(
+            f"Predictions vs. Actuals | "
+            f"MSE: {np.mean((y_test_scaled - y_pred) ** 2):.4f}",
+            fontsize=12
+        )
+        ax[1].legend(loc='best', fontsize=12, frameon=False)
+        ax[1].grid(True)
 
-    # -----------------
-    # Results analysis.
-    # -----------------
-    interaction_feature_information = {}
-    all_features = {**num_features, **cat_features}
-    for interaction_name in submodel_contributions.keys():
-        if ":" not in interaction_name:
-            continue
+        plt.tight_layout()
+        plt.show()
 
-        feature_names = interaction_name.split(":")
-        interaction_feature_information[interaction_name] = jnp.concatenate(
-            [jnp.expand_dims(all_features[name], axis=-1) for name in feature_names],
-            axis=-1
+        model.plot_posterior_samples()
+
+        # # Trace plots.
+        # import arviz as az
+        # idata = az.from_numpyro(model._mcmc)
+        # param_names = list(idata.posterior.data_vars)
+        # num_subnetwork_weight_params = [
+        #     param for param in param_names if "num_subnetwork_w" in param
+        # ]
+        # num_subnetwork_bias_params = [
+        #     param for param in param_names if "num_subnetwork_b" in param
+        # ]
+        # cat_subnetwork_weight_params = [
+        #     param for param in param_names if "cat_subnetwork_w" in param
+        # ]
+        # cat_subnetwork_bias_params = [
+        #     param for param in param_names if "cat_subnetwork_b" in param
+        # ]
+        # interaction_subnetwork_weight_params = [
+        #     param for param in param_names if "int_subnetwork_w" in param
+        # ]
+        # interaction_subnetwork_bias_params = [
+        #     param for param in param_names if "int_subnetwork_b" in param
+        # ]
+        # sigma_params = [param for param in param_names if "sigma" in param]
+        #
+        # az.plot_trace(idata, var_names=num_subnetwork_weight_params)
+
+        # weight_params = identifiability_experiment(
+        #     model=model,
+        #     num_features=num_features,
+        #     cat_features=cat_features, interaction_features={}
+        # )
+
+        # Check the zero-centering.
+        center_stats = check_subnetwork_zero_centering(
+            bnam=model,
+            num_features=num_features,
+            cat_features=cat_features
         )
 
-    # posterior_samples = model._get_posterior_param_samples()
-    # global_intercept = posterior_samples["intercept"]["intercept"]
-    posterior_samples = model._get_posterior_param_samples()
-    plot_feature_contributions(
-        num_features=num_features,
-        cat_features=cat_features,
-        interaction_features=interaction_feature_information,
-        submodel_contributions=submodel_contributions
-    )
-
-    model.plot_posterior_samples()
-
-    sns.set_style("whitegrid", {"axes.facecolor": ".9"})
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12,6))
-    sns.scatterplot(
-        x=y_test_scaled,
-        y=y_pred,
-        color=GREEN_RGB_COLORS[0],
-        label="Predictions",
-        ax=ax
-    )
-    ax.set_xlabel("Actuals", fontsize=12)
-    ax.set_ylabel("Predictions", fontsize=12)
-    ax.set_title(
-        f"Predictions vs. Actuals | "
-        f"MSE: {np.mean((y_test_scaled - y_pred) ** 2):.4f}",
-        fontsize=12
-    )
-    ax.legend(loc='best', fontsize=12, frameon=False)
-    ax.grid(True)
-    plt.tight_layout()
-    plt.show()
-
-
-    # Trace plots.
-    import arviz as az
-    idata = az.from_numpyro(model._mcmc)
-    param_names = list(idata.posterior.data_vars)
-    num_subnetwork_weight_params = [
-        param for param in param_names if "num_subnetwork_w" in param
-    ]
-    num_subnetwork_bias_params = [
-        param for param in param_names if "num_subnetwork_b" in param
-    ]
-    cat_subnetwork_weight_params = [
-        param for param in param_names if "cat_subnetwork_w" in param
-    ]
-    cat_subnetwork_bias_params = [
-        param for param in param_names if "cat_subnetwork_b" in param
-    ]
-    interaction_subnetwork_weight_params = [
-        param for param in param_names if "int_subnetwork_w" in param
-    ]
-    interaction_subnetwork_bias_params = [
-        param for param in param_names if "int_subnetwork_b" in param
-    ]
-    sigma_params = [param for param in param_names if "sigma" in param]
-
-    az.plot_trace(idata, var_names=num_subnetwork_weight_params)
-
-
-    # Check the zero-centering.
-    center_stats = check_subnetwork_zero_centering(
-        bnam=model,
-        num_features=num_features,
-        cat_features=cat_features
-    )
-
-    pass
+        pass

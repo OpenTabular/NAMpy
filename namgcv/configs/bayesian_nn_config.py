@@ -33,7 +33,7 @@ class DefaultBayesianNNConfig:
     """
 
     # Model definition parameters.
-    hidden_layer_sizes: list = (64, 64, 32,)
+    hidden_layer_sizes: list = (64, 64, 32)
     # activation: callable = nn.SELU()
     activation: str = "tanh"
 

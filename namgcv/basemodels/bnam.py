@@ -183,12 +183,15 @@ class BayesianNAM:
                 ("cat", cat_feature_info, self._cat_feature_networks),
         ):
             for feature_name, feature_info in feature_info_dict.items():
+                out_dim = (
+                    feature_info["output_dim"] *
+                    self.config.num_mixture_components
+                )
+                if self.config.num_mixture_components > 1:
+                    out_dim += self.config.num_mixture_components
                 networks[feature_name] = BayesianNN(
                     in_dim=feature_info["input_dim"],
-                    out_dim=(
-                            feature_info["output_dim"] *
-                            self.config.num_mixture_components
-                    ) + self.config.num_mixture_components,
+                    out_dim=out_dim,
                     config=self._subnetwork_config,
                     model_name=f"{feature_name}_{feature_type}_subnetwork",
                 )
@@ -310,12 +313,15 @@ class BayesianNAM:
                         input_dim += cat_feature_info[feature]["input_dim"]
 
                 interaction_name = ":".join(interaction)
+                out_dim = (
+                    interaction_output_dim *
+                    self.config.num_mixture_components
+                )
+                if self.config.num_mixture_components > 1:
+                    out_dim += self.config.num_mixture_components
                 self._interaction_networks[interaction_name] = BayesianNN(
                     in_dim=input_dim,
-                    out_dim=(
-                        interaction_output_dim *
-                        self.config.num_mixture_components
-                    ) + self.config.num_mixture_components,
+                    out_dim=out_dim,
                     config=self._subnetwork_config,
                     model_name=f"{interaction_name}_int_subnetwork",
                 )
@@ -344,22 +350,36 @@ class BayesianNAM:
 
         # TODO: Enable other kinds of distributions in the likelihood.
         with numpyro.plate(name="data", size=output_sum_over_subnetworks.shape[0]):
-            sampling_dist = dist.MixtureSameFamily(
-                mixing_distribution=dist.Categorical(
-                    probs=mixture_coefficients
-                ),
-                component_distribution=dist.Normal(
-                    loc=output_sum_over_subnetworks[
-                        :, :int(output_sum_over_subnetworks.shape[1]/2)
-                    ],
-                    scale=output_sum_over_subnetworks[
-                        :, int(output_sum_over_subnetworks.shape[1]/2):
-                    ]
-                ),
-            ) if self.config.num_mixture_components > 1 else dist.Normal(
-                loc=output_sum_over_subnetworks[..., 0],
-                scale=output_sum_over_subnetworks[..., 1]
-            )
+            if self.config.num_mixture_components > 1:
+                try:
+                    sampling_dist = dist.MixtureSameFamily(
+                        mixing_distribution=dist.Categorical(
+                            probs=mixture_coefficients
+                        ),
+                        component_distribution=dist.Normal(
+                            loc=output_sum_over_subnetworks[
+                                :, :int(output_sum_over_subnetworks.shape[1]/2)
+                            ],
+                            scale=output_sum_over_subnetworks[
+                                :, int(output_sum_over_subnetworks.shape[1]/2):
+                            ]
+                        ),
+                    )
+                except ValueError:  # Raised when we are only doing mean regression.
+                    raise NotImplementedError(
+                        "Currently, mixture models are only supported for LSS Regression."
+                    )
+            else:
+                sampling_dist = dist.Normal(
+                    loc=output_sum_over_subnetworks[..., 0],
+                    scale=output_sum_over_subnetworks[..., 1]
+                        if output_sum_over_subnetworks.shape[1] > 1 else numpyro.sample(
+                            name="sigma",
+                            fn=dist.HalfNormal(
+                                scale=self.config.sigma_prior_scale
+                            )
+                    )
+                )
             numpyro.sample(
                 name="obs",
                 fn=sampling_dist,
@@ -500,6 +520,14 @@ class BayesianNAM:
             subnet_out_mixture_coefficients,
             axis=-1
         ) if self.config.num_mixture_components > 1 else None
+        if output_sum_over_subnetworks.ndim == 1:
+            # Convert to DataFrame.
+            output_sum_over_subnetworks = output_sum_over_subnetworks.reshape(-1, 1)
+        if output_sum_over_subnetworks_mixture_coefficients is not None:
+            if output_sum_over_subnetworks_mixture_coefficients.ndim == 1:
+                output_sum_over_subnetworks_mixture_coefficients = \
+                    output_sum_over_subnetworks_mixture_coefficients.reshape(-1,1)
+
         # Since we subtracted a global offset from each subnetwork,
         # we must add it back via an intercept. Because there are K outputs,
         # we now sample K intercepts (e.g. one for location and one for scale).
@@ -1148,12 +1176,7 @@ class BayesianNAM:
             plt.tight_layout()
             plt.show()
 
-    def predict(
-            self,
-    ) -> tuple[
-        Any,
-        dict[Any, ndarray[Any, dtype[Any]]]
-    ]:
+    def predict(self) -> tuple[Any, Any, dict[Any, ndarray[Any, dtype[Any]]]]:
         """
         Generate predictions from the trained Bayesian NAM model.
 
@@ -1218,7 +1241,7 @@ class BayesianNAM:
 
         return (
             preds["final_params"],
-            preds["final_mixture_coefficients"],
+            preds.get("final_mixture_coefficients", None),
             submodel_output_contributions
         )
 

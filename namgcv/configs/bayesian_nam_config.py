@@ -30,7 +30,7 @@ class DefaultBayesianNAMConfig:
     # Model definition parameters.
     interaction_degree: int = 1
     intercept: bool = True
-    num_mixture_components: int = 2
+    num_mixture_components: int = 1
     feature_dropout: float = 0.0
 
     intercept_prior_shape: float = 0.0
@@ -38,6 +38,8 @@ class DefaultBayesianNAMConfig:
 
     gaussian_prior_location: float = 0.0
     gaussian_prior_scale: float = 1.0
+
+    sigma_prior_scale: float = 100.0
 
     # Optimization parameters.
     mcmc_step_size: float = 1.0
