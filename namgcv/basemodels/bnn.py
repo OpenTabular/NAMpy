@@ -245,13 +245,17 @@ class BayesianNN:
             w = w_vector.reshape((input_dim, output_dim))
 
         else: # Isotropic Weights.
-            w_layer_scale = numpyro.sample(
-                rng_key=self._rng_key,
-                name=f"dense_{layer_index}_kernel_scale",
-                fn=dist.HalfNormal(
-                    scale=self.config.w_layer_scale_half_normal_hyperscale
+            if self.config.use_hierarchical_priors:
+                w_layer_scale = numpyro.sample(
+                    rng_key=self._rng_key,
+                    name=f"dense_{layer_index}_kernel_scale",
+                    fn=dist.HalfNormal(
+                        scale=self.config.w_layer_scale_half_normal_hyperscale
+                    )
                 )
-            )
+            else:
+                w_layer_scale = self.config.gaussian_prior_scale
+
             w = numpyro.sample(
                 rng_key=self._rng_key,
                 name=f"dense_{layer_index}_kernel",
@@ -295,13 +299,17 @@ class BayesianNN:
             )
 
         else:  # Isotropic Biases.
-            b_layer_scale = numpyro.sample(
-                rng_key=self._rng_key,
-                name=f"dense_{layer_index}_bias_scale",
-                fn=dist.HalfNormal(
-                    scale=self.config.b_layer_scale_half_normal_hyperscale
+            if self.config.use_hierarchical_priors:
+                b_layer_scale = numpyro.sample(
+                    rng_key=self._rng_key,
+                    name=f"dense_{layer_index}_bias_scale",
+                    fn=dist.HalfNormal(
+                        scale=self.config.b_layer_scale_half_normal_hyperscale
+                    )
                 )
-            )
+            else:
+                b_layer_scale = self.config.gaussian_prior_scale
+
             b = numpyro.sample(
                 rng_key=self._rng_key,
                 name=f"dense_{layer_index}_bias",
