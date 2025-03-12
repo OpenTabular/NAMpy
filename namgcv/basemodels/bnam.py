@@ -137,9 +137,10 @@ class BayesianNAM:
         num_feature_info: Dict[str, dict],
         config: DefaultBayesianNAMConfig = DefaultBayesianNAMConfig(),
         subnetwork_config: DefaultBayesianNNConfig = DefaultBayesianNNConfig(),
-        link_location_arg: Callable = link_location,
-        link_scale_arg: Callable = link_scale,
-        link_shape_arg: Callable = link_shape,
+        link_1: Callable = link_location,
+        link_2: Callable = link_scale,
+        link_3: Callable = link_shape,
+        link_4: Callable = link_shape,
         rng_key: jnp.ndarray = jax.random.PRNGKey(42),
         **kwargs,
     ):
@@ -207,7 +208,7 @@ class BayesianNAM:
                 cat_feature_info=cat_feature_info,
             )
 
-        self.lnk_fns = (link_location_arg, link_scale_arg, link_shape_arg)
+        self.lnk_fns = (link_1, link_2, link_3, link_4)
 
         self.predictive = None
         self.posterior_samples = None
