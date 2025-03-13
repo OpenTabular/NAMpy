@@ -1,18 +1,12 @@
 from __future__ import annotations
 
-import os
-from typing import Literal, Tuple, Dict, Any
+from typing import Literal, Tuple, Dict, Any, Optional
 
 from mile.dataset.base import BaseLoader
 from mile.config.data import DataConfig, Source, DatasetType, Task
 
-import pandas as pd
-import numpy as np
 import jax.numpy as jnp
 import jax
-
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 
 class TabularAdditiveModelDataLoader(BaseLoader):
@@ -39,6 +33,9 @@ class TabularAdditiveModelDataLoader(BaseLoader):
         rng: jnp.ndarray,
         data_dict: dict,
         target_key: str = "target",
+        train_idx: Optional[jnp.ndarray] = None,
+        valid_idx: Optional[jnp.ndarray] = None,
+        test_idx: Optional[jnp.ndarray] = None,
     ):
         """
         Initializer for dataset class.
@@ -53,7 +50,13 @@ class TabularAdditiveModelDataLoader(BaseLoader):
             Dictionary-of-dictionaries containing numerical/categorical
             features (and optionally the target).
         target_key: str
-              The key under which the target/target is stored in `data_dict`.
+              The key under which the target is stored in `data_dict`.
+        train_idx: jnp.ndarray, optional
+            Array of indices to select training data.
+        valid_idx: jnp.ndarray, optional
+            Array of indices to select validation data.
+        test_idx: jnp.ndarray, optional
+            Array of indices to select test data.
         """
 
         super().__init__(config)
@@ -72,13 +75,25 @@ class TabularAdditiveModelDataLoader(BaseLoader):
         if self.config.datapoint_limit:
             self._apply_datapoint_limit()
 
-        N = self._num_datapoints(self.data)
-        train_idx = int(N * self.config.train_split)
-        valid_idx = int(N * (self.config.train_split + self.config.valid_split))
+        # Ensure either all or none of the indices are provided.
+        if any(x is not None for x in [train_idx, valid_idx, test_idx]) and not all(
+            x is not None for x in [train_idx, valid_idx, test_idx]
+        ):
+            raise ValueError("Either all of train_idx, valid_idx, and test_idx must be provided, or none.")
 
-        self.data_train = self._slice_data(self.data, 0, train_idx)
-        self.data_valid = self._slice_data(self.data, train_idx, valid_idx)
-        self.data_test  = self._slice_data(self.data, valid_idx, N)
+        if train_idx is not None:
+            # Use provided indices (convert to jnp.array if not already)
+            self.data_train = self._gather_indices(self.data, jnp.array(train_idx))
+            self.data_valid = self._gather_indices(self.data, jnp.array(valid_idx))
+            self.data_test  = self._gather_indices(self.data, jnp.array(test_idx))
+        else:
+            # Default slicing behavior using the configured splits
+            N = self._num_datapoints(self.data)
+            train_split_idx = int(N * self.config.train_split)
+            valid_split_idx = int(N * (self.config.train_split + self.config.valid_split))
+            self.data_train = self._slice_data(self.data, 0, train_split_idx)
+            self.data_valid = self._slice_data(self.data, train_split_idx, valid_split_idx)
+            self.data_test  = self._slice_data(self.data, valid_split_idx, N)
 
     def __str__(self):
         """Return an informative string representation of the dataloader."""

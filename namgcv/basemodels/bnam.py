@@ -37,6 +37,7 @@ from numpyro.infer import (
     NUTS,
     Predictive
 )
+from sklearn.model_selection import KFold
 
 from tqdm import tqdm, trange
 
@@ -628,9 +629,10 @@ class BayesianNAM:
 
     def train_model(
         self,
-        num_features: Dict[str, jnp.ndarray],
-        cat_features: Dict[str, jnp.ndarray],
-        target: jnp.ndarray,
+        num_features: Dict[str, jnp.ndarray] = None,
+        cat_features: Dict[str, jnp.ndarray] = None,
+        target: jnp.ndarray = None,
+        data_loader: TabularAdditiveModelDataLoader = None,
         dataset_name: str="default"
     ):
         """
@@ -649,29 +651,48 @@ class BayesianNAM:
             String specifying the dataset name.
         """
 
-        self.data_loader = TabularAdditiveModelDataLoader(
-            config=DataConfig(
-                path=dataset_name,
-                source=Source.LOCAL,
-                data_type=DatasetType.TABULAR,
-                task=Task.REGRESSION,
-                target_column="Response",
-                target_len=target.shape[0],
-                datapoint_limit=None,
-                normalize=True,
-                train_split=0.7,
-                valid_split=0.2,
-                test_split=0.1,
-            ),
-            rng=self._single_rng_key,
-            data_dict={
-                "numerical": num_features,
-                "categorical": cat_features,
-                "target": target
-            },
-            target_key="target"
-        )
-        self._logger.info(f"Data loader initialized: {nl} {self.data_loader}")
+        if data_loader is None:
+            if num_features is None or cat_features is None or target is None:
+                raise ValueError(
+                    "Please provide either an instance of TabularAdditiveModelDataLoader, "
+                    "or a combination of num_features, cat_features and target as input."
+                )
+            data_loader = TabularAdditiveModelDataLoader(
+                config=DataConfig(
+                    path=dataset_name,
+                    source=Source.LOCAL,
+                    data_type=DatasetType.TABULAR,
+                    task=Task.REGRESSION,
+                    target_column="Response",
+                    target_len=target.shape[0],
+                    datapoint_limit=None,
+                    normalize=True,
+                    train_split=0.7,
+                    valid_split=0.2,
+                    test_split=0.1,
+                ),
+                rng=self._single_rng_key,
+                data_dict={
+                    "numerical": num_features,
+                    "categorical": cat_features,
+                    "target": target
+                },
+                target_key="target"
+            )
+            self._logger.info(f"Data loader initialized: {nl} {data_loader}")
+        else:
+            if num_features is not None or cat_features is not None or target is not None:
+                raise ValueError(
+                    "Please provide either an instance of TabularAdditiveModelDataLoader, "
+                    "or a combination of num_features, cat_features and target as input. "
+                    "Not both."
+                )
+            if not isinstance(data_loader, TabularAdditiveModelDataLoader):
+                raise ValueError(
+                    f"Expected an instance of TabularAdditiveModelDataLoader. "
+                    f"Received: {type(data_loader)}"
+                )
+            self._logger.info(f"Data loader provided: {nl} {data_loader}")
 
         if getattr(self.config, "use_deep_ensemble", False):
             self._logger.info(
@@ -684,9 +705,8 @@ class BayesianNAM:
                 "warmstart"
             )
             self.train_deep_ensemble(
-                num_features=num_features,
-                cat_features=cat_features,
-                warmstart_checkpoint_save_dir=warmstart_save_dir
+                warmstart_checkpoint_save_dir=warmstart_save_dir,
+                data_loader=data_loader
             )
             chains = [
                 os.path.join(
@@ -717,9 +737,17 @@ class BayesianNAM:
                 "Sampling will be initialized with random parameters."
             )
 
-        self.begin_sampling(params_list=params_list)
+        self.begin_sampling(
+            params_list=params_list,
+            data_loader=data_loader
+        )
 
-    def begin_sampling(self, params_list, kernel="NUTS"):
+    def begin_sampling(
+            self,
+            data_loader: TabularAdditiveModelDataLoader,
+            params_list: list[dict],
+            kernel: str ="NUTS"
+    ):
         if kernel.lower() == "nuts":
             nuts_kernel = NUTS(
                 model=self.model,
@@ -738,7 +766,7 @@ class BayesianNAM:
             ) if params_list is not None else None
             self._mcmc.run(
                 jax.random.PRNGKey(42),
-                data_loader=self.data_loader,
+                data_loader=data_loader,
                 is_training=True,
                 init_params=init_params
             )
@@ -750,8 +778,7 @@ class BayesianNAM:
 
     def train_deep_ensemble(
         self,
-        num_features: Dict[str, jnp.ndarray],
-        cat_features: Dict[str, jnp.ndarray],
+        data_loader: TabularAdditiveModelDataLoader,
         warmstart_checkpoint_save_dir: str | Path,
         train_batch_size: int = None,
     ):
@@ -761,10 +788,11 @@ class BayesianNAM:
 
         Parameters
         ----------
-        num_features: dict
-            Dictionary of numerical features with feature names as keys.
-        cat_features: dict
-            Dictionary of categorical features with feature names as keys.
+        data_loader : TabularAdditiveModelDataLoader
+            The data loader object, containing:
+            - num_features: Dict[str, jnp.ndarray],
+            - cat_features: Dict[str, jnp.ndarray],
+            - target: jnp.ndarray,
         key: jnp.ndarray
             Random key for initializing the ensemble.
         train_batch_size:
@@ -821,8 +849,8 @@ class BayesianNAM:
                     jax.tree_util.tree_map(
                         replicate_leaf,
                         get_single_input(
-                            num_features=num_features,
-                            cat_features=cat_features,
+                            num_features=data_loader.data_train["numerical"],
+                            cat_features=data_loader.data_train["categorical"],
                             batch_size=1
                         )
                     ),
@@ -835,8 +863,8 @@ class BayesianNAM:
                         if self.config.num_chains > 1
                         else self._single_rng_key,
                     x=get_single_input(
-                        num_features=num_features,
-                        cat_features=cat_features,
+                        num_features=data_loader.data_train["numerical"],
+                        cat_features=data_loader.data_train["categorical"],
                         batch_size=1
                     ),
                     module=self._flax_module,
@@ -850,6 +878,7 @@ class BayesianNAM:
                 training_state=training_state,
                 num_parallel=num_parallel,
                 batch_size=train_batch_size,
+                data_loader=data_loader
             )
             self._logger.info(
                 f"Finished warm-start training for chain {idx + 1} of {self.config.num_chains}."
@@ -891,6 +920,7 @@ class BayesianNAM:
             training_state: TrainState,
             num_parallel: int,
             batch_size: int,
+            data_loader: TabularAdditiveModelDataLoader,
     ) -> tuple[TrainState | Any, MetricsStore]:
         """
         Train a single deep ensemble member (i.e. a deterministic NAM instance)
@@ -905,6 +935,11 @@ class BayesianNAM:
         batch_size: int
             The batch size for training. Note: currently, only full-batch training is supported.
             This argument is a placeholder for future implementation of mini-batch training.
+        data_loader : TabularAdditiveModelDataLoader
+            The data loader object, containing:
+            - num_features: Dict[str, jnp.ndarray],
+            - cat_features: Dict[str, jnp.ndarray],
+            - target: jnp.ndarray,
         """
 
         _model_train_step_func = jax.pmap(single_train_step_wrapper) \
@@ -929,8 +964,8 @@ class BayesianNAM:
                 break  # Early stopping condition.
 
             # --- Train ---
-            self.data_loader.shuffle(split="train")
-            for batch in self.data_loader.iter(
+            data_loader.shuffle(split="train")
+            for batch in data_loader.iter(
                     split="train",
                     batch_size=batch_size,
                     n_devices=num_parallel,
@@ -960,7 +995,7 @@ class BayesianNAM:
 
             # --- Validation ---
             val_metric_over_batches = []
-            for batch in self.data_loader.iter(
+            for batch in data_loader.iter(
                     split="valid",
                     batch_size=None,  # Enforce full-batch validation.
                     n_devices=num_parallel
@@ -1027,7 +1062,7 @@ class BayesianNAM:
 
         # --- Test ---
         test_metrics_over_batches = []
-        for batch in self.data_loader.iter(
+        for batch in data_loader.iter(
                 split="test",
                 batch_size=None,  # Enforce full-batch testing.
                 n_devices=num_parallel
@@ -1205,8 +1240,113 @@ class BayesianNAM:
             plt.tight_layout()
             plt.show()
 
+    def cross_validation(
+            self,
+            num_features: dict[str, jnp.ndarray],
+            cat_features: dict[str, jnp.ndarray],
+            target: jnp.ndarray,
+    ) -> list[
+        dict[
+            str, TabularAdditiveModelDataLoader |
+            dict[Any, ndarray[Any, dtype[Any]]] |
+            Any
+        ]
+    ]:
+        """
+        Method to perform cross-validation on the model.
 
-    def predict(self) -> tuple[Any, Any, dict[Any, ndarray[Any, dtype[Any]]]]:
+        Parameters
+        ----------
+        num_features: dict
+            Dictionary of numerical features with feature names as keys.
+        cat_features: dict
+            Dictionary of categorical features with feature names as keys.
+        target: jnp.ndarray
+            True response tensor.
+
+        Returns
+        -------
+        list[dict]:
+            List of dictionaries containing the cross-validation results.
+
+        """
+
+        num_outer_splits = getattr(self.config, "outer_cv_num_splits", 4)
+        num_inner_splits = getattr(self.config, "inner_cv_num_splits", 4)
+
+        if num_features is not None:
+            outer_features_to_split = num_features
+        elif cat_features is not None:
+            outer_features_to_split = cat_features
+        else:
+            raise ValueError(
+                "Please provide at least one of "
+                "num_features or cat_features for cross-validation."
+            )
+
+        cv_results = []
+        kf_outer = KFold(n_splits=num_outer_splits, shuffle=True, random_state=42)
+        for k_outer, (outer_train_index, outer_test_index) in enumerate(
+                kf_outer.split(
+                    list(outer_features_to_split.values())[0]
+                )
+        ):
+            kf_inner = KFold(n_splits=num_inner_splits, shuffle=True, random_state=42)
+            for k_inner, (inner_train_index, inner_val_index) in enumerate(
+                    kf_inner.split(outer_train_index)
+            ):
+                cv_data_loader = TabularAdditiveModelDataLoader(
+                    config=DataConfig(
+                        path=f"cv_{k_outer}_outer_{k_inner}_inner_data_loader",
+                        source=Source.LOCAL,
+                        data_type=DatasetType.TABULAR,
+                        task=Task.REGRESSION,
+                        target_column="Response",
+                        target_len=target.shape[0],
+                        datapoint_limit=None,
+                        normalize=True,
+                        train_split=0.7,  # Not used due to CV.
+                        valid_split=0.2,  # Not used due to CV.
+                        test_split=0.1,   # Not used due to CV.
+                    ),
+                    rng=self._single_rng_key,
+                    data_dict={
+                        "numerical": num_features,
+                        "categorical": cat_features,
+                        "target": target
+                    },
+                    target_key="target",
+                    train_idx=inner_train_index,
+                    valid_idx=inner_val_index,
+                    test_idx=outer_test_index,
+                )
+                self.train_model(
+                    data_loader=cv_data_loader
+                )
+
+                params, mixture_coefficients, submodel_contributions = self.predict(
+                    data_loader=cv_data_loader
+                )
+                cv_results.append({
+                    "params": params,
+                    "mixture_coefficients": mixture_coefficients,
+                    "submodel_contributions": submodel_contributions,
+                    "data_loader": cv_data_loader,
+                })
+                break
+
+        return cv_results
+
+
+
+
+
+
+
+    def predict(
+            self,
+            data_loader: TabularAdditiveModelDataLoader,
+    ) -> tuple[Any, Any, dict[Any, ndarray[Any, dtype[Any]]]]:
         """
         Generate predictions from the trained Bayesian NAM model.
 
@@ -1244,7 +1384,7 @@ class BayesianNAM:
         )
         preds = predictive(
             self._single_rng_key,
-            data_loader=self.data_loader,
+            data_loader=data_loader,
             is_training=False
         )
 
@@ -1275,27 +1415,6 @@ class BayesianNAM:
             preds.get("final_mixture_coefficients", None),
             submodel_output_contributions
         )
-
-    # PLOT TRACES WITH ARVIZ
-    def plot_traces(self):
-        """
-        Diagnostic method to visualize the traces of the MCMC samples.
-        """
-
-        if not hasattr(self, '_mcmc'):
-            raise ValueError("MCMC samples not found. Please train the model using MCMC first.")
-        import arviz as az
-
-        az_trace = az.from_numpyro(
-            mcmc=self._mcmc,
-            prior=self._mcmc.prior_predictive,
-            posterior_predictive=self._mcmc.predictive,
-            model=self.model,
-            data_loader=self.data_loader,
-        )
-
-        az.plot_trace(az_trace)
-        plt.show()
 
 
 class DeterministicNAM(nn.Module):
