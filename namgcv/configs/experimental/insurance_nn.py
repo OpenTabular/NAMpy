@@ -46,6 +46,7 @@ class DefaultBayesianNNConfig:
     layer_norm: bool = True
 
     # Prior parameters - covariance matrix for non-isotropic Gaussian prior.
+    use_hierarchical_priors: bool = False
     use_correlated_biases: bool = False
     use_correlated_weights: bool = False
     lkj_concentration: float = 1.0
