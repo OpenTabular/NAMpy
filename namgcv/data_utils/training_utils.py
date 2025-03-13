@@ -71,7 +71,7 @@ def get_single_input(
         "num_features": {
             k: jnp.concatenate(
                 arrays=[
-                    v[gen_idx].reshape(-1, 1)
+                    v[gen_idx].reshape(-1, 1).T
                     for gen_idx in next(index_generator(num_features, batch_size))
                 ], axis=0
             ) for k, v in num_features.items()
@@ -79,7 +79,7 @@ def get_single_input(
         "cat_features": {
             k: jnp.concatenate(
                 arrays=[
-                    v[gen_idx].reshape(-1, 1)
+                    v[gen_idx].reshape(-1, 1).T
                     for gen_idx in next(index_generator(cat_features, batch_size))
                 ], axis=0
             ) for k, v in cat_features.items()
