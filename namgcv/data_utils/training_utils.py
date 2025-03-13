@@ -604,3 +604,32 @@ def map_flax_to_numpyro(flax_params_list: list[dict], expected_chains: int):
             "Expected a list of length >= 1. "
             "Either multiple dicts or a single dict in the list."
         )
+
+
+def merge_data_dicts(dict_list):
+    """
+    Recursively merge a list of dictionaries into a single dictionary.
+    At the lowest level, the arrays are concatenated row-wise (axis=0).
+
+    Parameters
+    ----------
+    dict_list : list[dict]
+        List of dictionaries with identical nested keys.
+
+    Returns
+    -------
+    dict
+        A single dictionary with the same nested structure as the inputs, where
+        the arrays at the deepest level have been concatenated.
+    """
+    if not dict_list:
+        return {}
+
+    merged = {}
+    for key in dict_list[0]:
+        values = [d[key] for d in dict_list]
+        if isinstance(values[0], dict):
+            merged[key] = merge_data_dicts(values)
+        else:
+            merged[key] = jnp.concatenate(values, axis=0)
+    return merged

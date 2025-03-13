@@ -49,7 +49,8 @@ from namgcv.data_utils.training_utils import (
     early_stop_check,
     get_initial_state,
     get_single_input,
-    map_flax_to_numpyro
+    map_flax_to_numpyro,
+    merge_data_dicts
 )
 from namgcv.data_utils.jax_dataset import TabularAdditiveModelDataLoader
 
@@ -350,41 +351,48 @@ class BayesianNAM:
         """
 
         # TODO: Enable other kinds of distributions in the likelihood.
-        with numpyro.plate(name="data", size=output_sum_over_subnetworks.shape[0]):
-            if self.config.num_mixture_components > 1:
-                try:
-                    sampling_dist = dist.MixtureSameFamily(
-                        mixing_distribution=dist.Categorical(
-                            probs=mixture_coefficients
-                        ),
-                        component_distribution=dist.Normal(
-                            loc=output_sum_over_subnetworks[
-                                :, :int(output_sum_over_subnetworks.shape[1]/2)
-                            ],
-                            scale=output_sum_over_subnetworks[
-                                :, int(output_sum_over_subnetworks.shape[1]/2):
-                            ]
-                        ),
-                    )
-                except ValueError:  # Raised when we are only doing mean regression.
-                    raise NotImplementedError(
-                        "Currently, mixture models are only supported for LSS Regression."
-                    )
-            else:
-                sampling_dist = dist.Normal(
-                    loc=output_sum_over_subnetworks[..., 0],
-                    scale=output_sum_over_subnetworks[..., 1]
-                        if output_sum_over_subnetworks.shape[1] > 1 else numpyro.sample(
-                            name="sigma",
-                            fn=dist.HalfNormal(
-                                scale=self.config.sigma_prior_scale
-                            )
-                    )
+        if self.config.num_mixture_components > 1:
+            try:
+                sampling_dist = dist.MixtureSameFamily(
+                    mixing_distribution=dist.Categorical(
+                        probs=mixture_coefficients
+                    ),
+                    component_distribution=dist.Normal(
+                        loc=output_sum_over_subnetworks[
+                            :, :int(output_sum_over_subnetworks.shape[1]/2)
+                        ],
+                        scale=output_sum_over_subnetworks[
+                            :, int(output_sum_over_subnetworks.shape[1]/2):
+                        ]
+                    ),
                 )
+            except ValueError:  # Raised when we are only doing mean regression.
+                raise NotImplementedError(
+                    "Currently, mixture models are only supported for LSS Regression."
+                )
+        else:
+            mu = output_sum_over_subnetworks[..., 0]
+            if output_sum_over_subnetworks.shape[1] > 1:
+                sigma = output_sum_over_subnetworks[..., 1]
+            else:  # If we are only doing mean regression, we need to sample sigma.
+                sigma = numpyro.sample(
+                    name="sigma",
+                    fn=dist.HalfNormal(
+                        scale=self.config.sigma_prior_scale
+                    ),
+                    rng_key=self._single_rng_key
+                )
+            sampling_dist = dist.Normal(
+                loc=mu,
+                scale=sigma
+            ).to_event(1)
+
+        with numpyro.plate(name="data", size=output_sum_over_subnetworks.shape[0]):
             numpyro.sample(
-                name="obs",
+                name="y",
                 fn=sampling_dist,
                 obs=y,
+                rng_key=self._single_rng_key
             )
 
     def model(
@@ -409,11 +417,25 @@ class BayesianNAM:
         """
 
         # Note: Currently, only full-batch training is supported (batch_size=None).
-        batch_iter = data_loader.iter(
-            split="train" if is_training else "test",
-            batch_size=None
-        )
-        data_dict = next(batch_iter)  # First and only batch.
+        if is_training:
+            batch_iter_train = data_loader.iter(
+                split="train",
+                batch_size=None
+            )
+            batch_iter_val = data_loader.iter(
+                split="valid",
+                batch_size=None
+            )
+            batch_iter = zip(batch_iter_train, batch_iter_val)
+            data_dicts = next(batch_iter)
+            data_dict = merge_data_dicts(data_dicts)
+        else:
+            batch_iter = data_loader.iter(
+                split="test",
+                batch_size=None
+            )
+            data_dict = next(batch_iter)
+
         # data_dict format:
         # {
         #   "feature": {
@@ -539,7 +561,8 @@ class BayesianNAM:
                 fn=dist.Normal(
                     loc=self.config.intercept_prior_shape,
                     scale=self.config.intercept_prior_scale
-                ).expand((output_sum_over_subnetworks.shape[1],)).to_event(1)
+                ).expand((output_sum_over_subnetworks.shape[1],)).to_event(1),
+                rng_key=self._single_rng_key
             )
             # Add back num_networks * global_offset to the intercept.
             intercept = intercept + global_offset * subnet_out_contributions.shape[-1]
@@ -758,7 +781,12 @@ class BayesianNAM:
 
         self._initialize_module()
         self._optimizer = optax.adamw(
-            learning_rate=getattr(self.config, "de_lr", 1e-3)
+            learning_rate=optax.exponential_decay(
+                init_value=getattr(self.config, "de_lr", 1e-3),
+                transition_steps=getattr(self.config, "de_lr_transition_steps", 100),
+                decay_rate=getattr(self.config, "de_lr_decay", 0.9),
+                staircase=getattr(self.config, "de_lr_staircase", True)
+            )
         )
 
         if not os.path.exists(warmstart_checkpoint_save_dir):
@@ -1177,6 +1205,7 @@ class BayesianNAM:
             plt.tight_layout()
             plt.show()
 
+
     def predict(self) -> tuple[Any, Any, dict[Any, ndarray[Any, dtype[Any]]]]:
         """
         Generate predictions from the trained Bayesian NAM model.
@@ -1202,6 +1231,7 @@ class BayesianNAM:
             key for key in self._mcmc.get_samples().keys()
             if "contrib" in key or "final" in key
         ]
+
         for deterministic_site_key in deterministic_site_keys:
             try:
                 self.posterior_samples.pop(deterministic_site_key)

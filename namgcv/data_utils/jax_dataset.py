@@ -196,7 +196,7 @@ class TabularAdditiveModelDataLoader(BaseLoader):
 
         if normalize:
             for num_k, arr in data["numerical"].items():
-                # If there's a chance 'arr' is the target, skip it. Adjust logic as needed.
+                arr = jnp.where(jnp.isnan(arr), jnp.nanmean(arr), arr)
                 arr_mean = arr.mean()
                 arr_std  = arr.std()
                 # Avoid division by zero
