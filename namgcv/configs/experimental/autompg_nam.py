@@ -50,9 +50,9 @@ class DefaultBayesianNAMConfig:
 
     # Deep ensemble parameters.
     use_deep_ensemble: bool = True
-    de_num_epochs: int = 500
-    de_lr: float = 1e-6
-    de_lr_transition_steps: int = 100
-    de_lr_decay: float = 0.8
+    de_num_epochs: int = 1050
+    de_lr: float = 1e-3
+    de_lr_transition_steps: int = 150
+    de_lr_decay: float = 0.9
     de_lr_staircase: bool = True
     warm_start_early_stop_patience: int = 10

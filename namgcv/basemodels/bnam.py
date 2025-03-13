@@ -1324,11 +1324,12 @@ class BayesianNAM:
                     data_loader=cv_data_loader
                 )
 
-                params, mixture_coefficients, submodel_contributions = self.predict(
+                params, y, mixture_coefficients, submodel_contributions = self.predict(
                     data_loader=cv_data_loader
                 )
                 cv_results.append({
                     "params": params,
+                    "y": y,
                     "mixture_coefficients": mixture_coefficients,
                     "submodel_contributions": submodel_contributions,
                     "data_loader": cv_data_loader,
@@ -1337,16 +1338,10 @@ class BayesianNAM:
 
         return cv_results
 
-
-
-
-
-
-
     def predict(
             self,
             data_loader: TabularAdditiveModelDataLoader,
-    ) -> tuple[Any, Any, dict[Any, ndarray[Any, dtype[Any]]]]:
+    ) -> tuple[Any, Any, Any, dict[Any, ndarray[Any, dtype[Any]]]]:
         """
         Generate predictions from the trained Bayesian NAM model.
 
@@ -1412,10 +1407,10 @@ class BayesianNAM:
 
         return (
             preds["final_params"],
+            preds["y"],
             preds.get("final_mixture_coefficients", None),
             submodel_output_contributions
         )
-
 
 class DeterministicNAM(nn.Module):
     num_subnetworks: frozendict[str, DeterministicNN]
