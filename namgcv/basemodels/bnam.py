@@ -634,7 +634,7 @@ class BayesianNAM:
         target: jnp.ndarray = None,
         data_loader: TabularAdditiveModelDataLoader = None,
         dataset_name: str="default"
-    ):
+    ) -> TabularAdditiveModelDataLoader:
         """
         Optimize the model using Markov Chain Monte Carlo (MCMC) sampling
         via the No U-Turn Sampler (NUTS) and store the predictive distribution.
@@ -741,6 +741,8 @@ class BayesianNAM:
             params_list=params_list,
             data_loader=data_loader
         )
+
+        return data_loader
 
     def begin_sampling(
             self,
