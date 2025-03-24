@@ -51,7 +51,7 @@ from namgcv.data_utils.training_utils import (
     get_initial_state,
     get_single_input,
     map_flax_to_numpyro,
-    merge_data_dicts
+    merge_data_dicts,
 )
 from namgcv.data_utils.jax_dataset import TabularAdditiveModelDataLoader
 
@@ -101,9 +101,11 @@ def link_scale(x: jnp.ndarray):
     Returns
     -------
     jnp.ndarray:
-        The softplus transformation of the input.
+        The transformation of the input.
     """
-    return jax.nn.softplus(x)
+    return jnp.exp(
+        jnp.clip(x, -5, 5)
+    )
 
 
 def link_shape(x: jnp.ndarray):
@@ -626,6 +628,7 @@ class BayesianNAM:
                 results.append(self.lnk_fns[k](params[:, k]))
 
         return jnp.stack(results, axis=-1), mixture_coefficients
+
 
     def train_model(
         self,
@@ -1414,6 +1417,7 @@ class BayesianNAM:
             submodel_output_contributions
         )
 
+
 class DeterministicNAM(nn.Module):
     num_subnetworks: frozendict[str, DeterministicNN]
     cat_subnetworks: frozendict[str, DeterministicNN]
@@ -1514,3 +1518,4 @@ class DeterministicNAM(nn.Module):
         final_params = jnp.stack(outputs, axis=-1)
 
         return final_params
+

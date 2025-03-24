@@ -226,7 +226,7 @@ class BayesianNN:
             w_std = numpyro.sample(
                 rng_key=self._rng_key,
                 name=f"dense_{layer_index}_kernel_std",
-                fn=dist.HalfNormal(
+                fn=dist.HalfCauchy(
                     self.config.w_layer_scale_half_normal_hyperscale
                 ).expand([weight_dim])
             )
@@ -249,7 +249,7 @@ class BayesianNN:
                 w_layer_scale = numpyro.sample(
                     rng_key=self._rng_key,
                     name=f"dense_{layer_index}_kernel_scale",
-                    fn=dist.HalfNormal(
+                    fn=dist.HalfCauchy(
                         scale=self.config.w_layer_scale_half_normal_hyperscale
                     )
                 )
@@ -282,7 +282,7 @@ class BayesianNN:
             b_std = numpyro.sample(
                 rng_key=self._rng_key,
                 name=f"dense_{layer_index}_bias_std",
-                fn=dist.HalfNormal(
+                fn=dist.HalfCauchy(
                     self.config.b_layer_scale_half_normal_hyperscale
                 ).expand([b_dim])
             )
@@ -303,7 +303,7 @@ class BayesianNN:
                 b_layer_scale = numpyro.sample(
                     rng_key=self._rng_key,
                     name=f"dense_{layer_index}_bias_scale",
-                    fn=dist.HalfNormal(
+                    fn=dist.HalfCauchy(
                         scale=self.config.b_layer_scale_half_normal_hyperscale
                     )
                 )
