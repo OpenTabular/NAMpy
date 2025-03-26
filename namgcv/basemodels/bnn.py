@@ -237,13 +237,28 @@ class BayesianNN:
 
             # Sample from MultivariateNormal and reshape to (input_dim, output_dim).
             w_loc = self.config.gaussian_prior_location * jnp.ones(weight_dim)
-            w_vector = numpyro.sample(
+            # w_vector = numpyro.sample(
+            #     rng_key=self._rng_key,
+            #     name=f"dense_{layer_index}_kernel",
+            #     fn=dist.MultivariateNormal(loc=w_loc, scale_tril=scale_tril_w)
+            # )
+            # w = w_vector.reshape((input_dim, output_dim))
+
+            from numpyro.distributions import TransformedDistribution, transforms
+            # Define a transformation that reshapes a (flat_dim,) sample into (input_dim, output_dim).
+            reshape_transform = transforms.ReshapeTransform(
+                forward_shape=(input_dim, output_dim),
+                inverse_shape=(weight_dim,)
+            )
+            w_matrix_dist = TransformedDistribution(
+                dist.MultivariateNormal(loc=w_loc, scale_tril=scale_tril_w),
+                transforms=[reshape_transform]
+            )
+            w = numpyro.sample(
                 rng_key=self._rng_key,
                 name=f"dense_{layer_index}_kernel",
-                fn=dist.MultivariateNormal(loc=w_loc, scale_tril=scale_tril_w)
+                fn=w_matrix_dist
             )
-            w = w_vector.reshape((input_dim, output_dim))
-
         else: # Isotropic Weights.
             if self.config.use_hierarchical_priors:
                 w_layer_scale = numpyro.sample(
