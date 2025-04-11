@@ -1,10 +1,8 @@
-# NAMGCV: Interpretable (Additive) Tabular Deep Learning
+# NAMpy: Interpretable (Additive) Tabular Deep Learning
 
-:exclamation:
-📚 The paper_list.md includes interesting papers on Additive Models and their 1-2 sentence summaries. If you know any further interesting papers on the topic, please include them in this list. 📝 
-:exclamation:
 
-NAMGCV is a Python package that brings the power of advanced deep learning architectures to tabular data, offering a suite of models for regression, classification, and distributional regression tasks. Designed with ease of use in mind, NAMGCV models adhere to scikit-learn's `BaseEstimator` interface, making them highly compatible with the familiar scikit-learn ecosystem. This means you can fit, predict, and evaluate using NAMGCV models just as you would with any traditional scikit-learn model, but with the added performance and flexibility of deep learning.
+
+NAMpy is a Python package that brings the power of advanced deep learning architectures to tabular data, offering a suite of models for regression, classification, and distributional regression tasks. Designed with ease of use in mind, NAMpy models adhere to scikit-learn's `BaseEstimator` interface, making them highly compatible with the familiar scikit-learn ecosystem. This means you can fit, predict, and evaluate using NAMpy models just as you would with any traditional scikit-learn model, but with the added performance and flexibility of deep learning.
 
 
 All models are available for `regression`, `classification` and distributional regression, denoted by `LSS`.
@@ -32,11 +30,11 @@ pip install -e .
 Alternatively, get the Github token/tag and install via
 
 ```sh
-pip install git+https://<TOKEN>/github.com/AnFreTh/NAMgcv.git@branch-or-tag
+pip install git+https://<TOKEN>/github.com/OpenTabular/NAMpy.git@branch-or-tag
 ```
 
 ## Fit a Model
-Fitting a model in NAMGCV is as simple as it gets. All models in NAMGCV are sklearn BaseEstimators. Thus the `.fit` method is implemented for all of them. Additionally, this allows for using all other sklearn inherent methods such as their built in hyperparameter optimization tools.
+Fitting a model in NAMpy is as simple as it gets. All models in NAMpy are sklearn BaseEstimators. Thus the `.fit` method is implemented for all of them. Additionally, this allows for using all other sklearn inherent methods such as their built in hyperparameter optimization tools.
 
 ```python
 from NAMGCV.models import NAMClassifier
@@ -62,7 +60,7 @@ preds = model.predict_proba(X)
 
 ## Distributional Regression with NAMLSS
 
-NAMGCV introduces an approach to distributional regression through its `NAMLSS` module, allowing users to model the full distribution of a response variable, not just its mean. This method is particularly valuable in scenarios where understanding the variability, skewness, or kurtosis of the response distribution is as crucial as predicting its central tendency. All available moedls in NAMGCV are also available as distributional models.
+NAMpy introduces an approach to distributional regression through its `NAMLSS` module, allowing users to model the full distribution of a response variable, not just its mean. This method is particularly valuable in scenarios where understanding the variability, skewness, or kurtosis of the response distribution is as crucial as predicting its central tendency. All available moedls in NAMpy are also available as distributional models.
 
 ### Key Features of NAMLSS:
 
@@ -90,14 +88,14 @@ NAMGCV introduces an approach to distributional regression through its `NAMLSS` 
 These distribution classes allow `NAMLSS` to flexibly model a wide variety of data types and distributions, providing users with the tools needed to capture the full complexity of their data.
 
 
-### Getting Started with NAMGCVLSS:
+### Getting Started with NAMpyLSS:
 
-To integrate distributional regression into your workflow with `NAMLSS`, start by initializing the model with your desired configuration, similar to other NAMGCV models:
+To integrate distributional regression into your workflow with `NAMLSS`, start by initializing the model with your desired configuration, similar to other NAMpy models:
 
 ```python
 from NAMGCV.models import NAMLSS
 
-# Initialize the NAMGCVLSS model
+# Initialize the NAMpyLSS model
 model = NAMLSS()
 
 # Fit the model to your data
@@ -115,11 +113,11 @@ model.fit(
 
 ### Implement Your Own Model
 
-NAMGCV allows users to easily integrate their custom models into the existing logic. This process is designed to be straightforward, making it simple to create a PyTorch model and define its forward pass. Instead of inheriting from `nn.Module`, you inherit from NAMGCV's `BaseModel`. Each NAMGCV model takes three main arguments: the number of classes (e.g., 1 for regression or 2 for binary classification), `cat_feature_info`, and `num_feature_info` for categorical and numerical feature information, respectively. These are passed as dictionaries, with variable names as the keys. Additionally, you can provide a config argument, which can either be a custom configuration or one of the provided default configs.
+NAMpy allows users to easily integrate their custom models into the existing logic. This process is designed to be straightforward, making it simple to create a PyTorch model and define its forward pass. Instead of inheriting from `nn.Module`, you inherit from NAMpy's `BaseModel`. Each NAMpy model takes three main arguments: the number of classes (e.g., 1 for regression or 2 for binary classification), `cat_feature_info`, and `num_feature_info` for categorical and numerical feature information, respectively. These are passed as dictionaries, with variable names as the keys. Additionally, you can provide a config argument, which can either be a custom configuration or one of the provided default configs.
 
-One of the key advantages of using NAMGCV is that the inputs to the forward passes are dictionaries of tensors. While this might be unconventional, it is highly beneficial for models that treat different data types differently and directly maps feature/variable predictions to input features in additive models. 
+One of the key advantages of using NAMpy is that the inputs to the forward passes are dictionaries of tensors. While this might be unconventional, it is highly beneficial for models that treat different data types differently and directly maps feature/variable predictions to input features in additive models. 
 
-Here's how you can implement a custom model with NAMGCV:
+Here's how you can implement a custom model with NAMpy:
 
 
 1. First, define your config:
@@ -201,8 +199,8 @@ class MyCustomModel(BaseModel):
 
 ```
 
-3. Leverage the NAMGCV API:
-You can build a regression, classification or distributional regression model that can leverage all of NAMGCVs built-in methods, by using the following:
+3. Leverage the NAMpy API:
+You can build a regression, classification or distributional regression model that can leverage all of NAMpys built-in methods, by using the following:
 
 ```python
 from NAMGCV.models import SklearnBaseRegressor
@@ -213,7 +211,7 @@ class MyRegressor(SklearnBaseRegressor):
 ```
 
 4. Train and evaluate your model:
-You can now fit, evaluate, and predict with your custom model just like with any other NAMGCV model. For classification or distributional regression, inherit from `SklearnBaseClassifier` or `SklearnBaseLSS` respectively.
+You can now fit, evaluate, and predict with your custom model just like with any other NAMpy model. For classification or distributional regression, inherit from `SklearnBaseClassifier` or `SklearnBaseLSS` respectively.
 
 ```python
 regressor = MyRegressor(numerical_preprocessing="ple")
