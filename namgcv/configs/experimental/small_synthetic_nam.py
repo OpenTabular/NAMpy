@@ -29,31 +29,28 @@ class DefaultBayesianNAMConfig:
 
     # Model definition parameters.
     interaction_degree: int = 1
-    intercept: bool = True
+    intercept: bool = False
     num_mixture_components: int = 1
     feature_dropout: float = 0.0
 
     intercept_prior_shape: float = 0.0
-    intercept_prior_scale: float = 1.5
-
-    gaussian_prior_location: float = 0.0
-    gaussian_prior_scale: float = 1.5
+    intercept_prior_scale: float = 2.0
 
     # Sigma is only sampled if we are doing mean regression.
     sigma_prior_scale: float = 100.0
 
     # Optimization parameters.
     mcmc_step_size: float = 1.0
-    num_chains: int = 10
-    num_samples = 2000
-    num_warmup_samples = 1500
+    num_chains: int = 1000
+    num_samples = 1000
+    num_warmup_samples = 100
     target_accept_prob: float = 0.8
 
     # Deep ensemble parameters.
     use_deep_ensemble: bool = True
     de_num_epochs: int = 2000
     de_lr: float = 1e-4
-    de_lr_transition_steps: int = 100
+    de_lr_transition_steps: int = 200
     de_lr_decay: float = 0.9
     de_lr_staircase: bool = True
     warm_start_early_stop_patience: int = 10
