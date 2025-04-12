@@ -3,7 +3,7 @@ import torch
 from torch.utils.data import Dataset
 
 
-class NAMGCVDataset(Dataset):
+class NAMpyDataset(Dataset):
     """
     Custom dataset for handling structured data with separate categorical and numerical features, tailored for
     both regression and classification tasks.

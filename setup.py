@@ -6,7 +6,7 @@ from pathlib import Path
 from setuptools import find_packages, setup
 
 # Package meta-data.
-NAME = "NAMgcv"
+NAME = "NAMpy"
 DESCRIPTION = "A python package for neural additive modelling"
 HOMEPAGE = "tbd"
 DOCS = "tbd"
@@ -16,7 +16,7 @@ REQUIRES_PYTHON = ">=3.6, <=3.12.3"
 
 # Load the package's verison file and its content.
 ROOT_DIR = Path(__file__).resolve().parent
-PACKAGE_DIR = ROOT_DIR / "namgcv"
+PACKAGE_DIR = ROOT_DIR / "nampy"
 
 with open(PACKAGE_DIR / "__version__.py") as f:
     VERSION = f.readlines()[-1].split()[-1].strip("\"'")
