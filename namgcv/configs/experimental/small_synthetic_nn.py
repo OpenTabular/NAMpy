@@ -33,12 +33,12 @@ class DefaultBayesianNNConfig:
     """
 
     # Model definition parameters.
-    hidden_layer_sizes: list = (1000, 500, 100, 50, 25)
+    hidden_layer_sizes: list = (256, 128,)
     # activation: callable = nn.SELU()
-    activation: str = "selu"
+    activation: str = "relu"
 
     # skip_layers: bool = False
-    dropout: float = 0.2
+    dropout: float = 0.0
     # norm: str = None
     use_glu: bool = False
     # skip_connections: bool = False

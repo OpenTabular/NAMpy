@@ -56,8 +56,10 @@ def get_independent_synthetic_data(n_samples: int=3000,  seed=42):
     # Compute the synthetic distributional parameters:
     # θ(1) = (30/13) * x1 * (((3*x2 + 1.5)^(-2) * sin(x3^2))^(-1)) + (113/115)*x4 + 0.1*x5
     # Note: (((3*x2 + 1.5)^(-2) * sin(x3^2))^(-1)) is equivalent to (3*x2 + 1.5)**2 / sin(x3**2)
-    theta1 = (30 / 13) * x1 * (((3 * x2 + 1.5) ** (-2) * (np.sin(x3 ** 2) + eps)) ** (-1)) \
+    theta1 = (
+            (30 / 13) * x1 * (((3 * x2 + 1.5) ** (-2) * (np.sin(x3 ** 2) + eps)) ** (-1))
              + (113 / 115) * x4 + 0.1 * x5
+    )
 
     # θ(2) = exp(-0.0035*x1 + (x2 - 0.23)**2 - 1.42*x3) + 0.0001*x4
     theta2 = np.exp(-0.0035 * x1 + (x2 - 0.23) ** 2 - 1.42 * x3) + 0.0001 * x4
@@ -560,13 +562,13 @@ if __name__ == "__main__":
             axis=-1
         )
 
-    plot_feature_contributions(
-        num_features=num_features,
-        cat_features=cat_features,
-        interaction_features=interaction_feature_information,
-        submodel_contributions=submodel_contributions,
-        num_outputs=num_outputs
-    )
+    # plot_feature_contributions(
+    #     num_features=num_features,
+    #     cat_features=cat_features,
+    #     interaction_features=interaction_feature_information,
+    #     submodel_contributions=submodel_contributions,
+    #     num_outputs=num_outputs
+    # )
 
     # plot_predictions(
     #     num_features=num_features,
