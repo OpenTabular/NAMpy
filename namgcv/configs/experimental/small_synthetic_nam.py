@@ -41,13 +41,13 @@ class DefaultBayesianNAMConfig:
 
     # Optimization parameters.
     mcmc_step_size: float = 1.0
-    num_chains: int = 1000
+    num_chains: int = 10
     num_samples = 1000
     num_warmup_samples = 100
     target_accept_prob: float = 0.8
 
     # Deep ensemble parameters.
-    use_deep_ensemble: bool = True
+    use_deep_ensemble: bool = False
     de_num_epochs: int = 2000
     de_lr: float = 1e-4
     de_lr_transition_steps: int = 200
