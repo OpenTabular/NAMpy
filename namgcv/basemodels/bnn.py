@@ -7,6 +7,7 @@ import jax.numpy as jnp
 import jax.random as random
 
 import flax.linen as nn
+import pandas as pd
 
 from namgcv.configs.bayesian_nn_config import DefaultBayesianNNConfig
 
@@ -214,7 +215,7 @@ class BayesianNN:
 
             # Sample a Cholesky factor of the correlation matrix using LKJ.
             chol_corr_w = numpyro.sample(
-                rng_key=self._rng_key,
+                rng_key=random.split(self._rng_key)[1],
                 name=f"dense_{layer_index}_kernel_chol_corr",
                 fn=dist.LKJCholesky(
                     dimension=weight_dim,
@@ -224,7 +225,7 @@ class BayesianNN:
 
             # Sample per-dimension std dev for the weight vector.
             w_std = numpyro.sample(
-                rng_key=self._rng_key,
+                rng_key=random.split(self._rng_key)[1],
                 name=f"dense_{layer_index}_kernel_std",
                 fn=dist.HalfCauchy(
                     self.config.w_layer_scale_half_normal_hyperscale
@@ -237,42 +238,44 @@ class BayesianNN:
 
             # Sample from MultivariateNormal and reshape to (input_dim, output_dim).
             w_loc = self.config.gaussian_prior_location * jnp.ones(weight_dim)
-            # w_vector = numpyro.sample(
-            #     rng_key=self._rng_key,
-            #     name=f"dense_{layer_index}_kernel",
-            #     fn=dist.MultivariateNormal(loc=w_loc, scale_tril=scale_tril_w)
-            # )
-            # w = w_vector.reshape((input_dim, output_dim))
-
-            from numpyro.distributions import TransformedDistribution, transforms
-            # Define a transformation that reshapes a (flat_dim,) sample into (input_dim, output_dim).
-            reshape_transform = transforms.ReshapeTransform(
-                forward_shape=(input_dim, output_dim),
-                inverse_shape=(weight_dim,)
-            )
-            w_matrix_dist = TransformedDistribution(
-                dist.MultivariateNormal(loc=w_loc, scale_tril=scale_tril_w),
-                transforms=[reshape_transform]
-            )
-            w = numpyro.sample(
-                rng_key=self._rng_key,
+            w_vector = numpyro.sample(
+                rng_key=random.split(self._rng_key)[1],
                 name=f"dense_{layer_index}_kernel",
-                fn=w_matrix_dist
+                fn=dist.MultivariateNormal(loc=w_loc, scale_tril=scale_tril_w)
             )
+            w = w_vector.reshape((input_dim, output_dim))
+
+            # from numpyro.distributions import TransformedDistribution, transforms
+            # # Define a transformation that reshapes a (flat_dim,) sample into (input_dim, output_dim).
+            # reshape_transform = transforms.ReshapeTransform(
+            #     forward_shape=(input_dim, output_dim),
+            #     inverse_shape=(weight_dim,)
+            # )
+            # w_matrix_dist = TransformedDistribution(
+            #     dist.MultivariateNormal(loc=w_loc, scale_tril=scale_tril_w),
+            #     transforms=[reshape_transform]
+            # )
+            # w = numpyro.sample(
+            #     rng_key=random.split(self._rng_key)[1],
+            #     name=f"dense_{layer_index}_kernel",
+            #     fn=w_matrix_dist
+            # )
         else: # Isotropic Weights.
             if self.config.use_hierarchical_priors:
-                w_layer_scale = numpyro.sample(
-                    rng_key=self._rng_key,
-                    name=f"dense_{layer_index}_kernel_scale",
-                    fn=dist.HalfCauchy(
-                        scale=self.config.w_layer_scale_half_normal_hyperscale
+                w_layer_scale = jnp.squeeze(
+                    numpyro.sample(
+                        rng_key=random.split(self._rng_key)[1],
+                        name=f"dense_{layer_index}_kernel_scale",
+                        fn=dist.HalfCauchy(
+                            scale=self.config.w_layer_scale_half_normal_hyperscale
+                        ).to_event(0)
                     )
                 )
             else:
                 w_layer_scale = self.config.gaussian_prior_scale
 
             w = numpyro.sample(
-                rng_key=self._rng_key,
+                rng_key=random.split(self._rng_key)[1],
                 name=f"dense_{layer_index}_kernel",
                 fn=dist.Normal(
                     loc=self.config.gaussian_prior_location,
@@ -286,7 +289,7 @@ class BayesianNN:
 
             # Cholesky factor of correlation for the bias vector.
             chol_corr_b = numpyro.sample(
-                rng_key=self._rng_key,
+                rng_key=random.split(self._rng_key)[1],
                 name=f"dense_{layer_index}_bias_chol_corr",
                 fn=dist.LKJCholesky(
                     dimension=b_dim,
@@ -295,7 +298,7 @@ class BayesianNN:
             )
             # Per-dimension std dev for the bias vector.
             b_std = numpyro.sample(
-                rng_key=self._rng_key,
+                rng_key=random.split(self._rng_key)[1],
                 name=f"dense_{layer_index}_bias_std",
                 fn=dist.HalfCauchy(
                     self.config.b_layer_scale_half_normal_hyperscale
@@ -304,29 +307,29 @@ class BayesianNN:
 
             # Full Cholesky factor of covariance: scale_tril_b.
             scale_tril_b = jnp.matmul(jnp.diag(b_std), chol_corr_b)
-
-            # Sample from MultivariateNormal.
             b_loc = self.config.gaussian_prior_location * jnp.ones(b_dim)
             b = numpyro.sample(
-                rng_key=self._rng_key,
+                rng_key=random.split(self._rng_key)[1],
                 name=f"dense_{layer_index}_bias",
                 fn=dist.MultivariateNormal(loc=b_loc, scale_tril=scale_tril_b)
             )
 
         else:  # Isotropic Biases.
             if self.config.use_hierarchical_priors:
-                b_layer_scale = numpyro.sample(
-                    rng_key=self._rng_key,
-                    name=f"dense_{layer_index}_bias_scale",
-                    fn=dist.HalfCauchy(
-                        scale=self.config.b_layer_scale_half_normal_hyperscale
+                b_layer_scale = jnp.squeeze(
+                    numpyro.sample(
+                        rng_key=random.split(self._rng_key)[1],
+                        name=f"dense_{layer_index}_bias_scale",
+                        fn=dist.HalfCauchy(
+                            scale=self.config.b_layer_scale_half_normal_hyperscale
+                        ).to_event(0)
                     )
                 )
             else:
                 b_layer_scale = self.config.gaussian_prior_scale
 
             b = numpyro.sample(
-                rng_key=self._rng_key,
+                rng_key=random.split(self._rng_key)[1],
                 name=f"dense_{layer_index}_bias",
                 fn=dist.Normal(
                     loc=self.config.gaussian_prior_location,
@@ -335,6 +338,42 @@ class BayesianNN:
             )
 
         return w, b
+
+    def likelihood(
+        self,
+        output: jnp.ndarray,
+        y: jnp.ndarray,
+    ):
+        """
+        Define the likelihood function.
+
+        Parameters
+        ----------
+        output:jnp.ndarray
+            Predictions from the model.
+        y:jnp.ndarray
+            Observed data.
+
+        Returns
+        -------
+        """
+
+        # sampling_dist = NaturalNormal(
+        #     eta1=output[..., 0],
+        #     eta2=output[..., 1]
+        # )
+        sampling_dist = dist.Normal(
+            loc=output[..., 0],
+            scale=output[..., 1]
+        )
+
+        with numpyro.plate(name="data", size=output.shape[0]):
+            numpyro.sample(
+                name="y",
+                fn=sampling_dist,
+                obs=y,
+                rng_key=random.split(self._rng_key)[1]
+            )
 
     def model(
             self,
@@ -345,9 +384,7 @@ class BayesianNN:
         x = x.reshape(-1, 1) if x.ndim == 1 else x
         num_layers = len(self.layer_sizes) - 1
 
-        # --------------------
-        # 1) Sample all layer weights/biases up front
-        # --------------------
+        # Sample all layer weights/biases up front.
         Ws = []
         Bs = []
         for i in range(num_layers):
@@ -359,12 +396,14 @@ class BayesianNN:
             Ws.append(w)
             Bs.append(b)
 
-        z = x
+        z = jnp.array(x, dtype=jnp.float32) \
+            if isinstance(x, pd.DataFrame) or isinstance(x, pd.Series) \
+            else x
         for i in range(num_layers):
             w = Ws[i]
             b = Bs[i]
 
-            z = jnp.dot(z, w) + b
+            z = jnp.matmul(z, w) + b
 
             if i < num_layers - 1:
                 if self.config.batch_norm:
@@ -377,112 +416,30 @@ class BayesianNN:
                 if self.config.dropout > 0.0 and is_training:
                     dropout_rate = self.config.dropout
                     mask = random.bernoulli(
-                        self._rng_key,
-                        p=1 - dropout_rate,
+                        key=random.split(self._rng_key)[1],
+                        p=1-dropout_rate,
                         shape=z.shape
                     )
-                    z = z * mask / (1 - dropout_rate)
-            else:
-                # Output layer activation (if your design uses it)
-                z = self.activation_fn(z)
+                    z = z * mask
+            else:  # Output layer activation.
+                # z = z.at[..., 1].set(
+                #     # -0.5 * jnp.exp(jnp.clip(z[..., 1], -5, 5))  # natural parametrization.
+                #     # jax.nn.softplus(jnp.clip(z[..., 1], -5, 5))
+                #     jnp.exp(jnp.clip(z[..., 1], -5, 5))
+                # )  # Use this if only one NN is being fitted.
 
+                pass  # We leave the output layer unconstrained.
+
+        # numpyro.deterministic(name=f"{self.model_name}_out1", value=z[..., 0])
+        # numpyro.deterministic(name=f"{self.model_name}_out2", value=z[..., 1])
+
+        # self.likelihood(
+        #     output=z,
+        #     y=jnp.array(y, dtype=jnp.float32)
+        #         if isinstance(y, pd.DataFrame) or isinstance(y, pd.Series)
+        #         else y
+        # )
         return z.squeeze()
-
-    # def model(
-    #         self,
-    #         x: jnp.ndarray,
-    #         y: jnp.ndarray=None,
-    #         is_training: bool=True,
-    #         permute_params: bool=False
-    # ):
-    #     """
-    #     Define the probabilistic model of the Bayesian Neural Network.
-    #
-    #     Parameters
-    #     ----------
-    #     x : jnp.ndarray
-    #         Input features tensor.
-    #     y : jnp.ndarray
-    #         True response tensor (optional). This is only required during training.
-    #     is_training : bool
-    #         Flag indicating whether the model is in training mode.
-    #
-    #     Returns
-    #     -------
-    #     output : jnp.ndarray
-    #         Output of the network.
-    #     """
-    #
-    #     x = x.reshape(-1, 1) if x.ndim == 1 else x
-    #     num_layers = len(self._layer_sizes) - 1
-    #
-    #     z = x
-    #     for i in range(num_layers):
-    #         w, b = self.prior(
-    #             layer_index=i,
-    #             input_dim=self._layer_sizes[i],
-    #             output_dim=self._layer_sizes[i + 1]
-    #         )
-    #
-    #         if permute_params:
-    #             if is_training:
-    #                 raise ValueError("Permutation of parameters is only allowed during inference.")
-    #
-    #             if i == 1:
-    #                 # Randomly choose two hidden units to swap
-    #                 key = numpyro.prng_key()
-    #                 # 'output_dim' is w.shape[1], i.e. number of hidden units in this layer
-    #                 j1, j2 = random.choice(key, a=w.shape[1], shape=(2,), replace=False)
-    #
-    #                 # --------------------------
-    #                 #  1) Swap columns (j1, j2) in w
-    #                 # --------------------------
-    #                 w_col_j1 = w[:, j1]
-    #                 w_col_j2 = w[:, j2]
-    #                 w = w.at[:, j1].set(w_col_j2)
-    #                 w = w.at[:, j2].set(w_col_j1)
-    #
-    #                 # --------------------------
-    #                 #  2) Swap bias terms (j1, j2)
-    #                 # --------------------------
-    #                 b_j1 = b[j1]
-    #                 b_j2 = b[j2]
-    #                 b = b.at[j1].set(b_j2)
-    #                 b = b.at[j2].set(b_j1)
-    #
-    #         z = jnp.dot(z, w) + b
-    #
-    #         # Apply BatchNorm or LayerNorm if specified.
-    #         if i < num_layers - 1:
-    #             if self.config.batch_norm:
-    #                 z = self.batch_norm(name=f"batch_norm_{i}", x=z)
-    #             if self.config.layer_norm:
-    #                 z = self.layer_norm(name=f"layer_norm_{i}", x=z)
-    #
-    #             z = self._activation_fn(z)
-    #
-    #             # Dropout (implemented as a stochastic mask during training).
-    #             if self.config.dropout > 0.0 and is_training:
-    #                 dropout_rate = self.config.dropout
-    #                 rng_key = numpyro.prng_key()
-    #                 dropout_mask = random.bernoulli(rng_key, p=1 - dropout_rate, shape=z.shape)
-    #                 z = z * dropout_mask / (1 - dropout_rate)
-    #
-    #         else: # Output layer.
-    #             z = self._activation_fn(z)
-    #
-    #     output = z.squeeze()
-    #
-    #     # sigma = numpyro.sample(
-    #     #     name=f"{self.model_name}_sigma",
-    #     #     fn=dist.InverseGamma(
-    #     #         self.config.inv_gamma_prior_shape,
-    #     #         self.config.inv_gamma_prior_scale
-    #     #     ),
-    #     # )
-    #
-    #     return output
-
 
 class DeterministicNN(nn.Module):
     layer_sizes: Tuple[int, ...]
