@@ -6,7 +6,7 @@ from sklearn.base import BaseEstimator
 from sklearn.metrics import mean_squared_error
 import warnings
 from ..basemodels.lightning_wrapper import TaskModel
-from ..data_utils.datamodule import NAMGCVDataModule
+from ..data_utils.datamodule import NAMpyDataModule
 from ..preprocessing import Preprocessor
 import matplotlib.pyplot as plt
 import numpy as np
@@ -191,7 +191,7 @@ class SklearnBaseRegressor(BaseEstimator):
             if isinstance(y_val, pd.Series):
                 y_val = y_val.values
 
-        self.data_module = NAMGCVDataModule(
+        self.data_module = NAMpyDataModule(
             preprocessor=self.preprocessor,
             batch_size=batch_size,
             shuffle=shuffle,
@@ -316,7 +316,7 @@ class SklearnBaseRegressor(BaseEstimator):
         --------
         >>> from sklearn.metrics import mean_squared_error, r2_score
         >>> from sklearn.model_selection import train_test_split
-        >>> from NAMGCV.models import NAMGCVRegressor
+        >>> from NAMpy.models import NAMpyRegressor
         >>> metrics = {
         ...     'Mean Squared Error': mean_squared_error,
         ...     'R2 Score': r2_score

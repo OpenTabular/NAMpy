@@ -6,7 +6,7 @@ from sklearn.base import BaseEstimator
 from sklearn.metrics import accuracy_score
 import warnings
 from ..basemodels.lightning_wrapper import TaskModel
-from ..data_utils.datamodule import NAMGCVDataModule
+from ..data_utils.datamodule import NAMpyDataModule
 from ..preprocessing import Preprocessor
 import numpy as np
 import matplotlib.pyplot as plt
@@ -191,7 +191,7 @@ class SklearnBaseClassifier(BaseEstimator):
             if isinstance(y_val, pd.Series):
                 y_val = y_val.values
 
-        self.data_module = NAMGCVDataModule(
+        self.data_module = NAMpyDataModule(
             preprocessor=self.preprocessor,
             batch_size=batch_size,
             shuffle=shuffle,

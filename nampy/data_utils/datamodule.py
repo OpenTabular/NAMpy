@@ -4,10 +4,10 @@ import numpy as np
 import lightning as pl
 from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
-from .dataset import NAMGCVDataset
+from .dataset import NAMpyDataset
 
 
-class NAMGCVDataModule(pl.LightningDataModule):
+class NAMpyDataModule(pl.LightningDataModule):
     """
     A PyTorch Lightning data module for managing training and validation data loaders in a structured way.
 
@@ -212,7 +212,7 @@ class NAMGCVDataModule(pl.LightningDataModule):
             )
 
             # Create datasets
-            self.train_dataset = NAMGCVDataset(
+            self.train_dataset = NAMpyDataset(
                 train_cat_tensors,
                 train_num_tensors,
                 train_labels,
@@ -220,7 +220,7 @@ class NAMGCVDataModule(pl.LightningDataModule):
                 cat_keys=cat_keys,
                 num_keys=num_keys,
             )
-            self.val_dataset = NAMGCVDataset(
+            self.val_dataset = NAMpyDataset(
                 val_cat_tensors,
                 val_num_tensors,
                 val_labels,
@@ -234,7 +234,7 @@ class NAMGCVDataModule(pl.LightningDataModule):
                     "The preprocessor has not been fitted. Please fit the preprocessor before transforming the test data."
                 )
 
-            self.test_dataset = NAMGCVDataset(
+            self.test_dataset = NAMpyDataset(
                 self.test_cat_tensors,
                 self.test_num_tensors,
                 train_labels,

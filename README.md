@@ -37,7 +37,7 @@ pip install git+https://<TOKEN>/github.com/OpenTabular/NAMpy.git@branch-or-tag
 Fitting a model in NAMpy is as simple as it gets. All models in NAMpy are sklearn BaseEstimators. Thus the `.fit` method is implemented for all of them. Additionally, this allows for using all other sklearn inherent methods such as their built in hyperparameter optimization tools.
 
 ```python
-from NAMGCV.models import NAMClassifier
+from NAMpy.models import NAMClassifier
 # Initialize and fit your model
 model = NAMClassifier(
     numerical_preprocessing="ple",
@@ -93,7 +93,7 @@ These distribution classes allow `NAMLSS` to flexibly model a wide variety of da
 To integrate distributional regression into your workflow with `NAMLSS`, start by initializing the model with your desired configuration, similar to other NAMpy models:
 
 ```python
-from NAMGCV.models import NAMLSS
+from NAMpy.models import NAMLSS
 
 # Initialize the NAMpyLSS model
 model = NAMLSS()
@@ -138,7 +138,7 @@ class MyConfig:
 Define your custom model just as you would for an `nn.Module`. The main difference is that you will inherit from `BaseModel` and use the provided feature information to construct your layers. To integrate your model into the existing API, you only need to define the architecture and the forward pass. Note, that the forward pass must return a dictionary with the key "outpu" for the final model prediction. This can be multi-dimensinoal, e.g. for classification or distributional regression. Beyond that, the dictionary can contain anything but commonly includes single feature/variable predictions for e.g. further processing/plotting.
 
 ```python
-from NAMGCV.base_models import BaseModel
+from NAMpy.base_models import BaseModel
 import torch
 import torch.nn
 
@@ -203,7 +203,7 @@ class MyCustomModel(BaseModel):
 You can build a regression, classification or distributional regression model that can leverage all of NAMpys built-in methods, by using the following:
 
 ```python
-from NAMGCV.models import SklearnBaseRegressor
+from NAMpy.models import SklearnBaseRegressor
 
 class MyRegressor(SklearnBaseRegressor):
     def __init__(self, **kwargs):
