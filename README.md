@@ -60,7 +60,7 @@ preds = model.predict_proba(X)
 
 ## Distributional Regression with NAMLSS
 
-NAMpy introduces an approach to distributional regression through its `NAMLSS` module, allowing users to model the full distribution of a response variable, not just its mean. This method is particularly valuable in scenarios where understanding the variability, skewness, or kurtosis of the response distribution is as crucial as predicting its central tendency. All available moedls in NAMpy are also available as distributional models.
+NAMpy introduces an approach to distributional regression through its `NAMLSS` module, allowing users to model the full distribution of a response variable, not just its mean. This method is particularly valuable in scenarios where understanding the variability, skewness, or kurtosis of the response distribution is as crucial as predicting its central tendency. All available models in NAMpy are also available as distributional models.
 
 ### Key Features of NAMLSS:
 
