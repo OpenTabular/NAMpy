@@ -42,117 +42,127 @@ def get_independent_synthetic_data(n_samples: int=3000,  seed=42):
         pd.DataFrame: DataFrame containing the synthetic data.
     """
 
-    lower_bound, upper_bound = -1, 1
-    n_features = 3
+    lower_bound, upper_bound = 0, 3
+    n_features = 2
     X = np.random.uniform(lower_bound, upper_bound, (n_samples, n_features))
-    x1, x2, x3 = (
+    x1, x2 = (
         X[:, 0],
-        X[:, 1],
-        X[:, 2],
-        # X[:, 3],
-        # X[:, 4]
+        X[:, 1]
     )
 
-    def theta1_func(x1, x2, x3):
-        a = 1.5
-        b = 0.25
+    def theta1_func(x1, x2):
         return (
-                x1**2 + 5
-                +
-                np.sin(4 * x2)
-                # -
-                # np.log(x3 + 1e-6) * np.tan(x3)
+                # 2
+                # +
+                # np.sin(x1)
+                # +
+                # 0.5 * x2
+
+                np.log1p(np.exp(
+                    # np.sin(2.5*x1)
+                    # + 0.3 * (x2 - 1.5) ** 2
+                    # + 8
+
+                    np.tanh(1.5 * x1 - 2)
+                    + 0.4 * np.sqrt(x2 + 0.1)
+                ))
         )
 
-    def theta2_func(x1, x2, x3):
-        a = 5
-        b = 0.25
+    def theta2_func(x1, x2):
         return (
-                np.maximum(np.ones(x1.shape)*2, 4*x1)
-                +
-                x2**2
+                # 1
                 # +
-                # np.exp(a * x3)
+                # np.cos(x2)
+                # +
+                # 0.3 * x1**2
+                np.log1p(np.exp(
+                    # np.cos(1.5*x2)
+                    # + 0.5 * np.log(1 + x1 ** 2)
+                    # - 0.5
+
+                    -0.3 * (x1 - 1.5) ** 2
+                    + np.exp(-0.5 * x2)
+                    + 0.5
+                ))
         )
 
     theta_functions = [
         theta1_func,
         theta2_func,
-        # theta3_func,
-        # theta4_func
     ]
 
-    theta1 = theta_functions[0](x1, x2, x3)
-    theta2 = theta_functions[1](x1, x2, x3)
-    # theta3 = theta_functions[2](x1, x2, x3, x4, x5)
-    # theta4 = theta_functions[3](x1, x2, x3, x4, x5)
-
-    # Labels for theta functions
-    theta_labels = ["theta1", "theta2"]
-    feature_labels = [f'x{i + 1}' for i in range(n_features)]
-
-    sns.set_style(style="white")
-    sns.set_palette("Reds")
-    fig, axes = plt.subplots(
-        nrows=n_features,
-        ncols=len(theta_functions),
-        figsize=(6 * len(theta_functions), 6 * n_features),
-        sharex='col'
-    )
-    x_grid = np.linspace(lower_bound, upper_bound, 100)
-    for i in range(n_features):  # for each feature
-        for j, theta_func in enumerate(theta_functions):  # for each theta
-            pdp_vals = []
-            for val in x_grid:
-                X_temp = X.copy()
-                X_temp[:, i] = val  # Fix the i-th feature
-                y_vals = theta_func(
-                    X_temp[:, 0], X_temp[:, 1], X_temp[:, 2]
-                )
-                pdp_vals.append(np.mean(y_vals))
-
-            ax = axes[i, j]
-            ax.plot(x_grid, pdp_vals, color="red")
-            # sns.lineplot(pdp_vals, ax=ax, color="red")
-            if i == 0:
-                ax.set_title(f'{theta_labels[j]}', fontsize=12)
-            if j == 0:
-                ax.set_ylabel(f'{feature_labels[i]}', fontsize=12)
-            ax.grid(True)
-
-    # Set shared labels
-    fig.text(0.5, 0.04, 'Feature Value', ha='center', fontsize=14)
-    fig.text(0.04, 0.5, 'Partial Dependence', va='center', rotation='vertical', fontsize=14)
-    plt.tight_layout(rect=[0.05, 0.05, 1, 1])
-    plt.show()
-
-    from jax import random
-    from numpyro import distributions as dist
-    from numpyro import handlers
+    theta1 = theta_functions[0](x1, x2)
+    theta2 = theta_functions[1](x1, x2)
 
     def model():
         with numpyro.plate(name="data", size=theta1.shape[0]):
             y = numpyro.sample(
                 name="y",
-                fn=dist.Gamma(theta1, theta2),
+                fn=dist.InverseGamma(theta1, theta2),
                 rng_key=random.PRNGKey(42)
             )
 
     model_trace = handlers.trace(model).get_trace()
     y = model_trace["y"]["value"]
-    fig, ax = plt.subplots(figsize=(6, 6))
-    sns.histplot(y, bins=30, kde=True, color="red", ax=ax)
-    ax.set_title("Synthetic Data Distribution", fontsize=12)
-    ax.set_xlabel("y", fontsize=12)
-    ax.set_ylabel("Density", fontsize=12)
-    ax.grid(True)
+
+    fig, axs = plt.subplots(1, 3, figsize=(18, 5))
+    sns.histplot(theta1, bins=50, kde=True, ax=axs[0], color='skyblue')
+    axs[0].set_title('θ₁')
+    axs[0].set_xlabel('θ₁')
+    axs[0].grid(True)
+    sns.histplot(theta2, bins=50, kde=True, ax=axs[1], color='salmon')
+    axs[1].set_title('θ₂')
+    axs[1].set_xlabel('θ₂')
+    axs[1].grid(True)
+    sns.histplot(y, bins=50, kde=True, ax=axs[2], color='limegreen')
+    axs[2].set_title('Y ~ InvGamma(θ₁, θ₂)')
+    axs[2].set_xlabel('Y')
+    axs[2].grid(True)
+    plt.tight_layout()
+    plt.show()
+
+    # Visualize marginal feature effects.
+    x_grid = np.linspace(lower_bound, upper_bound, 100)
+    theta_labels = ["θ₁", "θ₂"]
+    feature_labels = ["x₁", "x₂"]
+
+    sns.set_style("white", {"axes.grid": True})
+    sns.set_palette("Reds")
+    fig, axes = plt.subplots(
+        n_features,
+        len(theta_functions),
+        figsize=(6*len(theta_functions), 6*n_features)
+    )
+    for i in range(n_features):  # for each feature (x1, x2)
+        for j, theta_func in enumerate(theta_functions):  # for each theta (θ₁, θ₂)
+            pdp_vals = []
+            for val in x_grid:
+                X_temp = X.copy()
+                X_temp[:, i] = val  # Fix the i-th feature.
+                y_vals = theta_func(X_temp[:, 0], X_temp[:, 1])
+                pdp_vals.append(np.mean(y_vals))
+
+            feature_data = X[:, i]
+            theta_data = theta_func(X[:, 0], X[:, 1])
+
+            ax = axes[i, j]
+            sns.scatterplot(x=feature_data, y=theta_data, alpha=0.5, ax=ax)
+            ax.plot(x_grid, pdp_vals, color="black", linewidth=2)
+
+            if i == 0:
+                ax.set_title(f'{theta_labels[j]}', fontsize=12)
+            if j == 0:
+                ax.set_ylabel(f'{feature_labels[i]}', fontsize=12)
+            ax.set_xlabel(feature_labels[i])
+            ax.grid(True)
+
+    plt.tight_layout()
     plt.show()
 
     return pd.DataFrame(
         data={
             'x1': x1,
             'x2': x2,
-            # 'x3': x3,
             'theta1': theta1,
             'theta2': theta2,
             'response': y,
@@ -287,7 +297,7 @@ if __name__ == "__main__":
     print(f"Numeric features: {num_features.columns.tolist()}")
 
     # --- Model Setup ---
-    num_outputs = 2
+    num_outputs = 1
     cat_feature_info, cat_feature_inputs = {}, {}
     for cat_col in [col for col in X.columns if X[col].dtype == "category"]:
         all_cols_for_feature = [
@@ -321,11 +331,11 @@ if __name__ == "__main__":
         num_feature_info=num_feature_info,
         config=DefaultBayesianNAMConfig(),
         subnetwork_config=DefaultBayesianNNConfig(),
-        link_1 = lambda x: jnp.exp(
-            jnp.clip(x, -5, 5)
+        link_1 = lambda x: jax.nn.softplus(
+            jnp.clip(x, -10, 10)
         ),
-        link_2 = lambda x: jnp.exp(
-            jnp.clip(x, -5, 5)
+        link_2 = lambda x: jax.nn.softplus(
+            jnp.clip(x, -10, 10)
         )
     )
 
@@ -414,9 +424,7 @@ if __name__ == "__main__":
         final_params[..., 0].mean(axis=0),
         final_params[..., 1].mean(axis=0)
     ).log_prob(target)  # shape: (num_samples, num_data)
-    nll = -jnp.mean(
-        jnp.sum(log_probs, axis=-1)
-    )
+    nll = -jnp.mean(log_probs, axis=-1)
     print("Negative Log-Likelihood:", nll)
     
     posterior_param_samples_dict = model._get_posterior_param_samples()
