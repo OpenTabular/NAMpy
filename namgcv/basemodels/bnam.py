@@ -146,6 +146,7 @@ class BayesianNAM:
         link_3: Callable = link_shape,
         link_4: Callable = link_shape,
         rng_key: jnp.ndarray = jax.random.PRNGKey(42),
+        bayesian_sampling_flag: bool=True,
         **kwargs,
     ):
         """
@@ -173,6 +174,7 @@ class BayesianNAM:
             Additional keyword arguments specifying the hyperparameters of the parent model.
         """
 
+        self._bayesian_sampling = bayesian_sampling_flag
         self._logger = logging.getLogger(__name__)
         self.config = config
 
@@ -341,23 +343,33 @@ class BayesianNAM:
         """
 
         # TODO: Enable other kinds of distributions in the likelihood.
-        mu = output_sum_over_subnetworks[..., 0]
-        if output_sum_over_subnetworks.shape[1] > 1:
-            sigma = output_sum_over_subnetworks[..., 1]
-        else:  # If we are only doing mean regression, we need to sample sigma.
-            sigma = numpyro.sample(
-                name="sigma",
-                fn=dist.HalfNormal(
-                    scale=self.config.sigma_prior_scale
-                ),
-                rng_key=random.split(self._single_rng_key)[1]
-            )
-
+        # mu = output_sum_over_subnetworks[..., 0]
+        # if output_sum_over_subnetworks.shape[1] > 1:
+        #     sigma = output_sum_over_subnetworks[..., 1]
+        # else:  # If we are only doing mean regression, we need to sample sigma.
+        #     sigma = numpyro.sample(
+        #         name="sigma",
+        #         fn=dist.HalfNormal(
+        #             scale=self.config.sigma_prior_scale
+        #         ),
+        #         rng_key=random.split(self._single_rng_key)[1]
+        #     )
+        #
+        # sampling_dist = dist.Exponential(
+        #     output_sum_over_subnetworks[..., 0]
+        # )
+        # sampling_dist = dist.Beta(
+        #     output_sum_over_subnetworks[..., 0],
+        #     output_sum_over_subnetworks[..., 1]
+        # )
         sampling_dist = dist.Normal(
-            loc=mu,
-            scale=sigma
+            loc=output_sum_over_subnetworks[..., 0],
+            scale=output_sum_over_subnetworks[..., 1],
         )
-
+        # sampling_dist = dist.InverseGamma(
+        #     concentration=output_sum_over_subnetworks[..., 0],
+        #     rate=output_sum_over_subnetworks[..., 1],
+        # )
         # sampling_dist = NaturalNormal(
         #     eta1=output_sum_over_subnetworks[..., 0],
         #     eta2=output_sum_over_subnetworks[..., 1]
@@ -365,7 +377,7 @@ class BayesianNAM:
 
         with numpyro.plate(
                 name="data",
-                size=output_sum_over_subnetworks.shape[0]
+                size=output_sum_over_subnetworks.shape[0]  # N
         ):
             numpyro.sample(
                 name="y",
@@ -662,6 +674,8 @@ class BayesianNAM:
                     )
                 )
                 params_list.append(params)
+
+            self._flax_module_params = params_list
         else:
             params_list = None
             self._logger.warning(
@@ -669,12 +683,12 @@ class BayesianNAM:
                 "Sampling will be initialized with random parameters."
             )
 
-        self.begin_sampling(
-            params_list=params_list,
-            data_loader=data_loader
-        )
-
-        self._mcmc.print_summary()
+        if self._bayesian_sampling:
+            self.begin_sampling(
+                params_list=params_list,
+                data_loader=data_loader
+            )
+            self._mcmc.print_summary()
 
         return data_loader
 
@@ -1297,53 +1311,97 @@ class BayesianNAM:
 
         # We need to remove the deterministic sites to force the model to recompute these values.
         # Get all site names that have "contrib" in them.
-        deterministic_site_keys = [
-            key for key in self._mcmc.get_samples().keys()
-            if "contrib" in key or "final" in key
-        ]
+        if self._bayesian_sampling:
+            deterministic_site_keys = [
+                key for key in self._mcmc.get_samples().keys()
+                if "contrib" in key or "final" in key
+            ]
 
-        for deterministic_site_key in deterministic_site_keys:
-            try:
-                self.posterior_samples.pop(deterministic_site_key)
-            except KeyError:
-                continue  # Site has already been removed or never existed.
+            for deterministic_site_key in deterministic_site_keys:
+                try:
+                    self.posterior_samples.pop(deterministic_site_key)
+                except KeyError:
+                    continue  # Site has already been removed or never existed.
 
-        predictive = Predictive(
-            self.model,
-            posterior_samples=self.posterior_samples,
-        )
-        preds = predictive(
-            random.split(self._single_rng_key)[1],
-            data_loader=data_loader,
-            is_training=training
-        )
+            predictive = Predictive(
+                self.model,
+                posterior_samples=self.posterior_samples,
+            )
+            preds = predictive(
+                random.split(self._single_rng_key)[1],
+                data_loader=data_loader,
+                is_training=training
+            )
 
-        # if preds["final_params"].shape[-1] >= 1:
-        #     loc_mean = jnp.mean(preds["final_params"][..., 0], axis=0)
-        #
-        # if preds["final_params"].shape[-1] >= 2:
-        #     scale_mean = jnp.mean(preds["final_params"][..., 1], axis=0)
-        #
-        # if preds["final_params"].shape[-1] >= 3:
-        #     shape_mean = jnp.mean(preds["final_params"][..., 2], axis=0)
+            submodel_output_contributions = {}
+            for feature_type, submodel_dict in zip(
+                    ["numerical", "categorical", "interaction"],
+                    [self._num_feature_networks, self._cat_feature_networks, self._interaction_networks]
+            ):
+                if not submodel_dict:
+                    continue # Interaction networks may be empty if interaction_degree < 2.
 
-        submodel_output_contributions = {}
-        for feature_type, submodel_dict in zip(
-                ["numerical", "categorical", "interaction"],
-                [self._num_feature_networks, self._cat_feature_networks, self._interaction_networks]
-        ):
-            if not submodel_dict:
-                continue # Interaction networks may be empty if interaction_degree < 2.
+                for feature_name, submodel in submodel_dict.items():
+                    # Shape: [num_mcmc_samples, batch_size, sub_network_out_dim].
+                    contrib_samples = preds[f"contrib_{feature_name}"]
+                    submodel_output_contributions[feature_name] = np.array(contrib_samples)
 
-            for feature_name, submodel in submodel_dict.items():
-                # Shape: [num_mcmc_samples, batch_size, sub_network_out_dim].
-                contrib_samples = preds[f"contrib_{feature_name}"]
-                submodel_output_contributions[feature_name] = np.array(contrib_samples)
+            preds_return = preds["final_params"]
+            submodel_output_contributions_return = submodel_output_contributions
+        else:
+            # Make the predictions using the deterministic NAM.
+            # For each entry in the dict (recursively), check if it is a jnp.ndarray.
+            # If so, take the ith element of its leading dimension.
 
+            def get_single_nam_parameters(idx: int):
+                def index_array(val):
+                    return val[idx, ...] \
+                        if isinstance(val, jnp.ndarray) and val.ndim > 0 \
+                        else val
+                def recursive_index(param_dict):
+                    if isinstance(param_dict, dict):
+                        return {k: recursive_index(v) for k, v in param_dict.items()}
+                    else:
+                        return index_array(param_dict)
+                return recursive_index(self._flax_module_params[0])
+
+            det_submodel_output_contributions = [{} for _ in range(self.config.num_chains)]
+            det_preds_list = []
+            for i in range(self.config.num_chains):
+                params_i = get_single_nam_parameters(i)
+                preds_i, contributions_stack_i = self._flax_module.apply(
+                    {"params": params_i},
+                    data_loader.data_test["numerical"],
+                    data_loader.data_test["categorical"],
+                    train=False,
+                    rng=random.split(self._single_rng_key)[1],
+                    return_contributions=True
+                )
+                det_preds_list.append(preds_i)
+                for feature_type, submodel_dict in zip(
+                        ["numerical", "categorical", "interaction"],
+                        [self._flax_module.num_subnetworks,
+                         self._flax_module.cat_subnetworks,
+                         self._flax_module.int_subnetworks]
+                ):
+                    if not submodel_dict:
+                        continue  # Interaction networks may be empty if interaction_degree < 2.
+                    # Shape of contributions_stack: [batch, out_dim, num_subnetworks].
+                    for submodel_idx, (feature_name, submodel) in enumerate(submodel_dict.items()):
+                        contrib_samples = contributions_stack_i[:, :, submodel_idx]
+                        det_submodel_output_contributions[i][feature_name] = np.array(contrib_samples)
+
+            submodel_output_contributions_return = {
+                feature_name: jnp.stack(
+                    [det_submodel_output_contributions[i][feature_name] for i in range(self.config.num_chains)],
+                    axis=0
+                ) for feature_name in det_submodel_output_contributions[0].keys()
+            }
+            preds_return = jnp.stack(det_preds_list, axis=0)
 
         return (
-            preds["final_params"],
-            submodel_output_contributions
+            preds_return,
+            submodel_output_contributions_return
         )
 
 
@@ -1360,7 +1418,8 @@ class DeterministicNAM(nn.Module):
             num_features: dict[str, jnp.ndarray],
             cat_features: dict[str, jnp.ndarray],
             train: bool = True,
-            rng = None
+            rng = None,
+            return_contributions: bool = False
     ):
         """
         Forward pass of the NAM.
@@ -1394,7 +1453,7 @@ class DeterministicNAM(nn.Module):
                     x = x.reshape(-1, 1)
                 out = network(x, train=train, rng=rng)  # shape: [batch, out_dim]
                 subnet_means[feature_name] = jnp.mean(out, axis=0)  # shape: [out_dim]
-                contributions.append(out)
+                contributions.append(out - subnet_means[feature_name])
 
         if self.int_subnetworks:
             all_features = {**num_features, **cat_features}
@@ -1409,7 +1468,7 @@ class DeterministicNAM(nn.Module):
                 if out.shape[1] == 1:  # Remove the redundant axis only for batch size 1.
                     out = jnp.squeeze(out, axis=1)
                 subnet_means[interaction_name] = jnp.mean(out, axis=0)
-                contributions.append(out)
+                contributions.append(out - subnet_means[interaction_name])
 
         # Stack all subnetwork contributions.
         # Shape: [batch, out_dim, num_subnetworks]
@@ -1423,17 +1482,11 @@ class DeterministicNAM(nn.Module):
                 deterministic=not train
             )
 
-        global_offset = jnp.mean(
-            jnp.stack(list(subnet_means.values()), axis=-1), axis=-1
-        )  # shape: [out_dim]
-        contributions_centered = contributions_stack - global_offset[None, :, None]
-        output_sum = jnp.sum(contributions_centered, axis=-1)  # shape: [batch, out_dim]
-
+        output_sum = jnp.sum(contributions_stack, axis=-1)
         if self.config.intercept:
             out_dim = output_sum.shape[-1]
-            # Define a global intercept parameter (of shape [out_dim]).
+            # Define a global intercept parameter of shape [out_dim].
             intercept = self.param("intercept", nn.initializers.normal(), (out_dim,))
-            intercept = intercept + global_offset * contributions_stack.shape[-1]
             output_sum = output_sum + intercept
 
         # Apply the k desired link function(s) dimension-wise.
@@ -1442,5 +1495,7 @@ class DeterministicNAM(nn.Module):
             outputs.append(fn(output_sum[..., i]))
         final_params = jnp.stack(outputs, axis=-1)
 
-        return final_params
-
+        if return_contributions:
+            return final_params, contributions_stack
+        else:
+            return final_params
