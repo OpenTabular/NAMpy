@@ -279,9 +279,9 @@ class BayesianNN:
                 name=f"dense_{layer_index}_kernel",
                 fn=dist.Normal(
                     loc=self.config.gaussian_prior_location,
-                    scale=w_layer_scale * jnp.sqrt(2.0 / input_dim)
+                    scale=1 * jnp.sqrt(2.0 / input_dim)
                 ).expand([input_dim, output_dim]).to_event(2)
-            )
+            ) * w_layer_scale
 
         # Biases Prior.
         if self.config.use_correlated_biases:
@@ -333,9 +333,9 @@ class BayesianNN:
                 name=f"dense_{layer_index}_bias",
                 fn=dist.Normal(
                     loc=self.config.gaussian_prior_location,
-                    scale=b_layer_scale
+                    scale=1
                 ).expand([output_dim]).to_event(1)
-            )
+            ) * b_layer_scale
 
         return w, b
 
