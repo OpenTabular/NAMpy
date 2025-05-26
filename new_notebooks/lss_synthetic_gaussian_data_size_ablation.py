@@ -526,6 +526,7 @@ def plot_feature_contributions(
                 ax_to_plot.grid(True)
 
         plt.tight_layout()
+        plt.savefig("contribution.png")
         plt.show()
 
 
@@ -619,7 +620,6 @@ if __name__ == "__main__":
                     },
                     target=jnp.array(y),
                 )
-
             posterior_param_samples_dict = model._get_posterior_param_samples()
             sns.set_style(style="white")
             for posterior_params_name, posterior_param_samples in (
@@ -640,7 +640,7 @@ if __name__ == "__main__":
                         if feature_name in key
                     ]  # Parameters for this feature.
                     for i, param_name in enumerate(param_names):
-                        if "dense_2" not in param_name:
+                        if "dense_1" not in param_name:
                             continue  # Let's only look at the last layer.
                         if "scale" in param_name:
                             continue  # Not interested in the hierarchical prior.
@@ -654,7 +654,7 @@ if __name__ == "__main__":
                             num_layer_weights * num_outputs
                         )
                         column_names = [
-                            f"Dense Layer 2 - Neuron {i} (Output {j})"
+                            f"Dense Layer 1 - Neuron {i} (Output {j})"
                             for j in range(num_outputs)
                             for i in range(num_layer_weights)
                         ]
@@ -664,8 +664,8 @@ if __name__ == "__main__":
                         for j in range(num_outputs):
                             for i in range(num_layer_weights - 1):
                                 sns.jointplot(
-                                    x=f"Dense Layer 2 - Neuron {i} (Output {j})",
-                                    y=f"Dense Layer 2 - Neuron {i + 1} (Output {j})",
+                                    x=f"Dense Layer 1 - Neuron {i} (Output {j})",
+                                    y=f"Dense Layer 1 - Neuron {i + 1} (Output {j})",
                                     data=samples_df,
                                     kind="kde",
                                     alpha=0.5,
@@ -675,6 +675,14 @@ if __name__ == "__main__":
                         plt.tight_layout()
                         plt.show()
 
+            # plot_predictions(
+            #     num_features=num_features,
+            #     cat_features=cat_features,
+            #     interaction_features=interaction_feature_information,
+            #     submodel_contributions=submodel_contributions,
+            #     num_outputs=num_outputs,
+            #     target=target
+            # )
             results[
                 f"experiment_{n_samples}N"
             ] = {
@@ -771,18 +779,18 @@ if __name__ == "__main__":
     plt.show()
 
 
-        # import cloudpickle
-        # import lzma
-        #
-        # model_name = "small_synthetic_nam_100warmup_1000sample_8chains_16x16_relu_nonhierarchical_isotropic_0mean_5scale"
-        # with lzma.open(
-        #     filename=f"{model_name}.pkl.xz",
-        #     mode="wb"
-        # ) as f:
-        #     cloudpickle.dump(model, f)
-        #
-        # with lzma.open(
-        #     filename=f"{model_name}.pkl.xz",
-        #     mode="rb"
-        # ) as f:
-        #     loaded_model = cloudpickle.load(f)
+    import cloudpickle
+    import lzma
+
+    model_name = "small_synthetic_nam_100warmup_500sample_1000chains_4x4_selu_nonhierarchical_isotropic_0mean_5scale"
+    with lzma.open(
+        filename=f"{model_name}.pkl.xz",
+        mode="wb"
+    ) as f:
+        cloudpickle.dump(model, f)
+
+    with lzma.open(
+        filename=f"{model_name}.pkl.xz",
+        mode="rb"
+    ) as f:
+        loaded_model = cloudpickle.load(f)

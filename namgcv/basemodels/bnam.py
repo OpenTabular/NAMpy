@@ -7,10 +7,7 @@ from pathlib import Path
 import os
 
 from typing import (
-    Tuple,
-    Any,
-    Dict,
-    Callable
+    Tuple, Any, Dict, Callable, Optional
 )
 
 from frozendict import frozendict
@@ -104,8 +101,12 @@ def link_scale(x: jnp.ndarray):
     jnp.ndarray:
         The transformation of the input.
     """
-    return jnp.exp(
-        jnp.clip(x, -5, 5)
+    return jax.nn.softplus(
+        jnp.clip(
+            x,
+            a_min=-8,
+            a_max=8
+        )
     )
 
 def link_shape(x: jnp.ndarray):
@@ -144,7 +145,6 @@ class BayesianNAM:
         link_1: Callable = link_location,
         link_2: Callable = link_scale,
         link_3: Callable = link_shape,
-        link_4: Callable = link_shape,
         rng_key: jnp.ndarray = jax.random.PRNGKey(42),
         bayesian_sampling_flag: bool=True,
         **kwargs,
@@ -209,7 +209,7 @@ class BayesianNAM:
                 cat_feature_info=cat_feature_info,
             )
 
-        self.lnk_fns = (link_1, link_2, link_3, link_4)
+        self.lnk_fns = (link_1, link_2, link_3)
 
         self.predictive = None
         self.posterior_samples = None
@@ -342,38 +342,22 @@ class BayesianNAM:
         -------
         """
 
-        # TODO: Enable other kinds of distributions in the likelihood.
-        # mu = output_sum_over_subnetworks[..., 0]
-        # if output_sum_over_subnetworks.shape[1] > 1:
-        #     sigma = output_sum_over_subnetworks[..., 1]
-        # else:  # If we are only doing mean regression, we need to sample sigma.
-        #     sigma = numpyro.sample(
-        #         name="sigma",
-        #         fn=dist.HalfNormal(
-        #             scale=self.config.sigma_prior_scale
-        #         ),
-        #         rng_key=random.split(self._single_rng_key)[1]
-        #     )
-        #
-        # sampling_dist = dist.Exponential(
-        #     output_sum_over_subnetworks[..., 0]
-        # )
-        # sampling_dist = dist.Beta(
-        #     output_sum_over_subnetworks[..., 0],
-        #     output_sum_over_subnetworks[..., 1]
-        # )
+        theta1 = output_sum_over_subnetworks[..., 0]
+        if output_sum_over_subnetworks.shape[1] > 1:
+            theta2 = output_sum_over_subnetworks[..., 1]
+        else:  # If we are only doing mean regression, we need to sample sigma.
+            theta2 = numpyro.sample(
+                name="sigma",
+                fn=dist.HalfNormal(
+                    scale=self.config.sigma_prior_scale
+                ),
+                rng_key=random.split(self._single_rng_key)[1]
+            )
+
         sampling_dist = dist.Normal(
             loc=output_sum_over_subnetworks[..., 0],
             scale=output_sum_over_subnetworks[..., 1],
         )
-        # sampling_dist = dist.InverseGamma(
-        #     concentration=output_sum_over_subnetworks[..., 0],
-        #     rate=output_sum_over_subnetworks[..., 1],
-        # )
-        # sampling_dist = NaturalNormal(
-        #     eta1=output_sum_over_subnetworks[..., 0],
-        #     eta2=output_sum_over_subnetworks[..., 1]
-        # )
 
         with numpyro.plate(
                 name="data",
@@ -701,7 +685,10 @@ class BayesianNAM:
         if kernel.lower() == "nuts":
             nuts_kernel = NUTS(
                 model=self.model,
+                adapt_mass_matrix=True,
+                adapt_step_size=True,
                 step_size=self.config.mcmc_step_size,
+                find_heuristic_step_size=True,
                 target_accept_prob=self.config.target_accept_prob,
             )
             self._mcmc = MCMC(
@@ -1110,41 +1097,75 @@ class BayesianNAM:
             f"+--------------------------------------------+{nl}"
         )
 
-    def _get_posterior_param_samples(self) -> dict[str, dict[str, np.ndarray] | None]:
+    from typing import Dict, Optional
+    import numpy as np
+
+    def _get_posterior_param_samples(
+            self,
+            group_by_chain: bool = False
+    ) -> Dict[str, Optional[Dict[str, np.ndarray]]]:
         """
-        Method to extract the posterior samples for the scale, weight, bias, intercept and
-        noise parameters.
+        Extract the posterior samples for the scale, weight, bias, intercept and noise parameters.
+
+        Parameters
+        ----------
+        group_by_chain : bool, optional
+            If True, return each array with shape (n_chains, n_draws, ...).
+            If False, flatten across chains to shape (n_draws, ...).
+            Default is False.
 
         Returns
         -------
-        dict[str, dict[str, np.ndarray] | None]: A dictionary containing the posterior samples.
+        Dict[str, Optional[Dict[str, np.ndarray]]]
+            A dictionary with keys:
+              - 'noise'     : dict of sigma parameters
+              - 'scale'     : dict of kernel scale parameters
+              - 'weights'   : dict of kernel weight parameters
+              - 'biases'    : dict of kernel bias parameters
+              - 'intercept' : dict of intercept parameters, or None if intercepts are not used.
+
+            Each inner dict maps the parameter name to its posterior samples
+            as a NumPy array with the shape determined by `group_by_chain`.
         """
-
         if not hasattr(self, '_mcmc'):
-            raise ValueError("MCMC samples not found. Please train the model using MCMC first.")
-        posterior_samples = self._mcmc.get_samples()
+            raise ValueError(
+                "MCMC samples not found. Please train the model using MCMC first."
+            )
 
+        # grab raw samples, optionally grouped by chain
+        posterior_samples = self._mcmc.get_samples(group_by_chain=group_by_chain)
+
+        # filter out the different parameter types
         scale_params = {
-            param_name: param_vals for param_name, param_vals in posterior_samples.items()
-            if "scale" in param_name
+            name: vals
+            for name, vals in posterior_samples.items()
+            if "scale" in name
         }
         weight_params = {
-            param_name: param_vals for param_name, param_vals in posterior_samples.items()
-            if "_kernel" in param_name and "scale" not in param_name
+            name: vals
+            for name, vals in posterior_samples.items()
+            if "_kernel" in name and "scale" not in name
         }
         bias_params = {
-            param_name: param_vals for param_name, param_vals in posterior_samples.items()
-            if "_bias" in param_name and "scale" not in param_name
+            name: vals
+            for name, vals in posterior_samples.items()
+            if "_bias" in name and "scale" not in name
         }
         noise_params = {
-            param_name: param_vals for param_name, param_vals in posterior_samples.items()
-            if "sigma" in param_name
+            name: vals
+            for name, vals in posterior_samples.items()
+            if "sigma" in name
         }
 
-        intercept_params = {
-            param_name: param_vals for param_name, param_vals in posterior_samples.items()
-            if "intercept" in param_name
-        } if self.config.intercept else None
+        intercept_params: Optional[Dict[str, np.ndarray]]
+        if self.config.intercept:
+            intercept_params = {
+                name: vals
+                for name, vals in posterior_samples.items()
+                if "intercept" in name
+            }
+        else:
+            intercept_params = None
 
         return {
             "noise": noise_params,
@@ -1290,6 +1311,7 @@ class BayesianNAM:
             self,
             data_loader: TabularAdditiveModelDataLoader,
             training: bool = False,
+            bayesian_sampling: bool = None
     ):
         """
         Generate predictions from the trained Bayesian NAM model.
@@ -1309,9 +1331,12 @@ class BayesianNAM:
             The contributions of each submodel to the final prediction.
         """
 
-        # We need to remove the deterministic sites to force the model to recompute these values.
-        # Get all site names that have "contrib" in them.
-        if self._bayesian_sampling:
+        if bayesian_sampling is None:
+            bayesian_sampling = self._bayesian_sampling
+
+        if bayesian_sampling:
+            # We need to remove the deterministic sites to force the model to recompute these values.
+            # Get all site names that have "contrib" in them.
             deterministic_site_keys = [
                 key for key in self._mcmc.get_samples().keys()
                 if "contrib" in key or "final" in key

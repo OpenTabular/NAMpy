@@ -161,6 +161,154 @@ def gaussian_nll_loss(
     sigma = jnp.clip(sigma, 1e-5)  # Ensure stability in calculations
     return 0.5 * jnp.log(2 * jnp.pi * sigma ** 2) + ((x - mu) ** 2) / (2 * sigma ** 2)
 
+def inv_gamma_nll_loss(
+        x: jnp.ndarray,
+        alpha: jnp.ndarray,
+        beta: jnp.ndarray
+) -> jnp.ndarray:
+    """
+    Compute the Inverse Gamma negative log-likelihood loss.
+
+    Parameters:
+    ----------
+    x : jnp.array
+        The target values of shape (n_obs).
+    alpha : jnp.array
+        The predicted alpha values of shape (..., n_obs).
+    beta : jnp.array
+        The predicted beta values of shape (..., n_obs).
+
+    Returns:
+    ----------
+    jnp.array:
+        The computed loss.
+    """
+    # Ensure stability in calculations
+    alpha = jnp.clip(alpha, 1e-5)
+    beta = jnp.clip(beta, 1e-5)
+
+    from numpyro.distributions import InverseGamma
+    log_prob = InverseGamma(alpha, beta).log_prob(x)
+    return -1*log_prob
+
+def weibull_nll_loss(
+        x: jnp.ndarray,
+        lambda_param: jnp.ndarray,
+        k: jnp.ndarray
+) -> jnp.ndarray:
+    """
+    Compute the Weibull negative log-likelihood loss.
+
+    Parameters:
+    ----------
+    x : jnp.array
+        The target values of shape (n_obs).
+    lambda_param : jnp.array
+        The predicted scale parameter values of shape (..., n_obs).
+    k : jnp.array
+        The predicted shape parameter values of shape (..., n_obs).
+
+    Returns:
+    ----------
+    jnp.array:
+        The computed loss.
+    """
+    # Ensure stability in calculations
+    lambda_param = jnp.clip(lambda_param, 1e-5)
+    k = jnp.clip(k, 1e-5)
+
+    from numpyro.distributions import Weibull
+    log_prob = Weibull(lambda_param, k).log_prob(x)
+    return -1*log_prob
+
+def poisson_nll_loss(
+        x: jnp.ndarray,
+        mu: jnp.ndarray
+) -> jnp.ndarray:
+    """
+    Compute the Poisson negative log-likelihood loss.
+
+    Parameters:
+    ----------
+    x : jnp.array
+        The target values of shape (n_obs).
+    mu : jnp.array
+        The predicted mean values of shape (..., n_obs).
+
+    Returns:
+    ----------
+    jnp.array:
+        The computed loss.
+    """
+    # Ensure stability in calculations
+    mu = jnp.clip(mu, 1e-5)
+
+    from numpyro.distributions import Poisson
+    log_prob = Poisson(mu).log_prob(x)
+    return -1*log_prob
+
+
+def exponential_nll_loss(
+        x: jnp.ndarray,
+        mu: jnp.ndarray
+) -> jnp.ndarray:
+    """
+    Compute the Poisson negative log-likelihood loss.
+
+    Parameters:
+    ----------
+    x : jnp.array
+        The target values of shape (n_obs).
+    mu : jnp.array
+        The predicted mean values of shape (..., n_obs).
+
+    Returns:
+    ----------
+    jnp.array:
+        The computed loss.
+    """
+    # Ensure stability in calculations
+    mu = jnp.clip(mu, 1e-5)
+
+    from numpyro.distributions import Exponential
+    log_prob = Exponential(mu).log_prob(x)
+    return -1*log_prob
+
+
+def beta_nll_loss(
+        x: jnp.ndarray,
+        alpha: jnp.ndarray,
+        beta: jnp.ndarray
+):
+    """
+    Compute the Beta negative log-likelihood loss.
+
+    Parameters:
+    ----------
+    x : jnp.array
+        The target values of shape (n_obs).
+    alpha : jnp.array
+        The predicted alpha values of shape (..., n_obs).
+    beta : jnp.array
+        The predicted beta values of shape (..., n_obs).
+
+    Returns:
+    ----------
+    jnp.array:
+        The computed loss.
+    """
+
+    from numpyro.distributions import Beta
+
+    # Ensure stability in calculations
+    alpha = jnp.clip(alpha, 1e-5)
+    beta = jnp.clip(beta, 1e-5)
+    # Compute the log probability of x under the Beta distribution
+    log_prob = Beta(alpha, beta).log_prob(x)
+    # Compute the negative log-likelihood
+    return -1 * log_prob
+
+
 
 def single_train_step_wrapper(
         state: TrainState,
@@ -210,9 +358,9 @@ def single_train_step_wrapper(
             rng=dropout_rng
         )
         loss = gaussian_nll_loss(
-            x=batch["target"],
-            mu=logits[..., 0],
-            sigma=logits[..., 1].clip(min=1e-6, max=1e6),
+            batch["target"],
+            logits[..., 0],
+            logits[..., 1],
         )
 
         metrics = compute_regression_metrics(
@@ -304,9 +452,9 @@ def compute_regression_metrics(
     """
 
     loss = gaussian_nll_loss(
-        x=y,
-        mu=logits[..., 0],
-        sigma=jnp.exp(logits[..., 1]).clip(min=1e-6, max=1e6),
+        y,
+        logits[..., 0],
+        logits[..., 1]
     )
     se = (y - logits[..., 0]) ** 2
     metrics = RegressionMetrics(
