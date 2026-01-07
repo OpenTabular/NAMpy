@@ -6,6 +6,7 @@ from sklearn.base import BaseEstimator
 from sklearn.metrics import accuracy_score
 import warnings
 from ..basemodels.lightning_wrapper import TaskModel
+from ..basemodels.multi_model import MultiModelWrapper
 from ..data_utils.datamodule import NAMpyDataModule
 from ..preprocessing import Preprocessor
 import numpy as np
@@ -38,10 +39,15 @@ import matplotlib.pyplot as plt
 
 class SklearnBaseLSS(BaseEstimator):
     def __init__(self, model, config, **kwargs):
+        self.optimizer_name = kwargs.pop("optimizer_name", "adam")
+        self.optimizer_kwargs = kwargs.pop("optimizer_kwargs", {})
+        self.multi_model = kwargs.pop("multi_model", False)
+        self.multi_model_kwargs = kwargs.pop("multi_model_kwargs", {}) or {}
         preprocessor_arg_names = [
             "n_bins",
             "numerical_preprocessing",
             "categorical_preprocessing",
+            "global_transform",
             "use_decision_tree_bins",
             "binning_strategy",
             "task",
@@ -49,6 +55,10 @@ class SklearnBaseLSS(BaseEstimator):
             "treat_all_integers_as_numerical",
             "knots",
             "degree",
+            "quantile_preprocessing",
+            "quantile_noise",
+            "quantile_output_distribution",
+            "quantile_n_quantiles",
         ]
 
         self.config_kwargs = {
@@ -70,7 +80,8 @@ class SklearnBaseLSS(BaseEstimator):
                 UserWarning,
             )
 
-        self.base_model = model
+        self.base_model_class = model
+        self.base_model = MultiModelWrapper if self.multi_model else model
 
     def get_params(self, deep=True):
         """
@@ -153,6 +164,10 @@ class SklearnBaseLSS(BaseEstimator):
         lr_patience: int = 10,
         factor: float = 0.1,
         weight_decay: float = 1e-06,
+        lr_warmup_steps: int = 0,
+        lr_decay_steps: int = 0,
+        lr_decay_factor: float = None,
+        lr_min: float = 0.0,
         checkpoint_path="model_checkpoints",
         distributional_kwargs=None,
         dataloader_kwargs={},
@@ -237,7 +252,7 @@ class SklearnBaseLSS(BaseEstimator):
             X = pd.DataFrame(X)
         if isinstance(y, pd.Series):
             y = y.values
-        if X_val:
+        if X_val is not None:
             if not isinstance(X_val, pd.DataFrame):
                 X_val = pd.DataFrame(X_val)
             if isinstance(y_val, pd.Series):
@@ -270,7 +285,23 @@ class SklearnBaseLSS(BaseEstimator):
             lr_patience=lr_patience,
             lr_factor=factor,
             weight_decay=weight_decay,
+            lr_warmup_steps=lr_warmup_steps,
+            lr_decay_steps=lr_decay_steps,
+            lr_decay_factor=lr_decay_factor,
+            lr_min=lr_min,
             lss=True,
+            optimizer_name=self.optimizer_name,
+            optimizer_kwargs=self.optimizer_kwargs,
+            **(
+                {
+                    "base_model_class": self.base_model_class,
+                    "num_models": self.family.param_count,
+                    "per_model_num_classes": 1,
+                    **self.multi_model_kwargs,
+                }
+                if self.multi_model
+                else {}
+            ),
         )
 
         early_stop_callback = EarlyStopping(
@@ -295,7 +326,7 @@ class SklearnBaseLSS(BaseEstimator):
 
         best_model_path = checkpoint_callback.best_model_path
         if best_model_path:
-            checkpoint = torch.load(best_model_path)
+            checkpoint = torch.load(best_model_path, weights_only=False)
             self.model.load_state_dict(checkpoint["state_dict"])
 
         return self
@@ -324,15 +355,17 @@ class SklearnBaseLSS(BaseEstimator):
 
         Returns
         -------
-        predictions : ndarray, shape (n_samples,) or (n_samples, n_outputs)
-            The predicted target values.
+        predictions : dict[str, torch.Tensor]
+            The predicted target values and feature contributions.
         """
         # Ensure model and data module are initialized
         if self.model is None or self.data_module is None:
             raise ValueError("The model or data module has not been fitted yet.")
 
         # Preprocess the data using the data module
-        cat_tensor_dict, num_tensor_dict = self.data_module.preprocess_test_data(X)
+        cat_tensors, num_tensors = self.data_module.preprocess_test_data(X)
+        cat_tensor_dict = dict(zip(self.data_module.cat_keys, cat_tensors))
+        num_tensor_dict = dict(zip(self.data_module.num_keys, num_tensors))
 
         # Move tensors to appropriate device
         device = next(self.model.parameters()).device
