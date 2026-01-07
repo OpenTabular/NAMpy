@@ -16,6 +16,7 @@ from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
 from .ple_encoding import PLE
 from .prepro_utils import ContinuousOrdinalEncoder, CustomBinner, OneHotFromOrdinal
+from .quantile_preprocessing import QuantilePreprocessor
 
 
 class Preprocessor:
@@ -35,7 +36,14 @@ class Preprocessor:
         only if `numerical_preprocessing` is set to 'binning' or 'one_hot'.
     numerical_preprocessing : str, default="ple"
         The preprocessing strategy for numerical features. Valid options are
-        'binning', 'one_hot', 'standardization', and 'normalization'.
+        'binning', 'one_hot', 'standardization', 'normalization', 'quantile',
+        'polynomial', 'splines', and 'none'.
+    categorical_preprocessing : str, default="int"
+        The preprocessing strategy for categorical features. Valid options are
+        'int', 'one_hot', and 'leave_one_out'.
+    global_transform : str, default="none"
+        Optional global transform applied after categorical encoding and before
+        per-feature transforms. Valid options are 'none' and 'quantile'.
     use_decision_tree_bins : bool, default=False
         If True, uses decision tree regression/classification to determine
         optimal bin edges for numerical feature binning. This parameter is
@@ -72,6 +80,7 @@ class Preprocessor:
         n_bins=50,
         numerical_preprocessing="ple",
         categorical_preprocessing="int",
+        global_transform="none",
         use_decision_tree_bins=False,
         binning_strategy="uniform",
         task="regression",
@@ -79,6 +88,10 @@ class Preprocessor:
         treat_all_integers_as_numerical=False,
         degree=3,
         knots=12,
+        quantile_preprocessing="feature",
+        quantile_noise=0.0,
+        quantile_output_distribution="normal",
+        quantile_n_quantiles=2000,
     ):
         self.n_bins = n_bins
         self.numerical_preprocessing = numerical_preprocessing.lower()
@@ -91,15 +104,27 @@ class Preprocessor:
             "quantile",
             "polynomial",
             "splines",
+            "none",
         ]:
             raise ValueError(
-                "Invalid numerical_preprocessing value. Supported values are 'ple', 'binning', 'one_hot', 'standardization', 'quantile', 'polynomial', 'splines' and 'normalization'."
+                "Invalid numerical_preprocessing value. Supported values are 'ple', 'binning', 'one_hot', 'standardization', 'quantile', 'polynomial', 'splines', 'none' and 'normalization'."
             )
 
         self.categorical_preprocessing = categorical_preprocessing.lower()
-        if self.categorical_preprocessing not in ["int", "one_hot", "one-hot"]:
+        if self.categorical_preprocessing not in [
+            "int",
+            "one_hot",
+            "one-hot",
+            "leave_one_out",
+        ]:
             raise ValueError(
-                "Invalid categorical_preprocessing value. Supported values are 'int' and 'one_hot'."
+                "Invalid categorical_preprocessing value. Supported values are 'int', 'one_hot', and 'leave_one_out'."
+            )
+
+        self.global_transform = global_transform.lower()
+        if self.global_transform not in ["none", "quantile"]:
+            raise ValueError(
+                "Invalid global_transform. Supported values are 'none' and 'quantile'."
             )
 
         self.use_decision_tree_bins = use_decision_tree_bins
@@ -111,11 +136,49 @@ class Preprocessor:
         self.treat_all_integers_as_numerical = treat_all_integers_as_numerical
         self.degree = degree
         self.n_knots = knots
+        self.quantile_preprocessing = quantile_preprocessing
+        self.quantile_noise = quantile_noise
+        self.quantile_output_distribution = quantile_output_distribution
+        self.quantile_n_quantiles = quantile_n_quantiles
+        self.quantile_preprocessor = None
+        self.global_transformer = None
+        self.categorical_encoder = None
+        self.quantile_numerical_features = []
+        if self.quantile_preprocessing not in ["feature", "global"]:
+            raise ValueError(
+                "Invalid quantile_preprocessing. Supported values are 'feature' and 'global'."
+            )
+        if self.quantile_output_distribution not in ["normal", "uniform"]:
+            raise ValueError(
+                "Invalid quantile_output_distribution. Supported values are 'normal' and 'uniform'."
+            )
 
     def set_params(self, **params):
         for key, value in params.items():
+            if key == "knots":
+                self.n_knots = value
+                continue
             setattr(self, key, value)
         return self
+
+    def get_params(self, deep=True):
+        return {
+            "n_bins": self.n_bins,
+            "numerical_preprocessing": self.numerical_preprocessing,
+            "categorical_preprocessing": self.categorical_preprocessing,
+            "global_transform": self.global_transform,
+            "use_decision_tree_bins": self.use_decision_tree_bins,
+            "binning_strategy": self.binning_strategy,
+            "task": self.task,
+            "cat_cutoff": self.cat_cutoff,
+            "treat_all_integers_as_numerical": self.treat_all_integers_as_numerical,
+            "degree": self.degree,
+            "knots": self.n_knots,
+            "quantile_preprocessing": self.quantile_preprocessing,
+            "quantile_noise": self.quantile_noise,
+            "quantile_output_distribution": self.quantile_output_distribution,
+            "quantile_n_quantiles": self.quantile_n_quantiles,
+        }
 
     def _detect_column_types(self, X):
         """
@@ -164,6 +227,55 @@ class Preprocessor:
 
         return numerical_features, categorical_features
 
+    def _fit_categorical_encoder(self, X, y, categorical_features):
+        if not categorical_features:
+            return X, categorical_features, []
+        if self.categorical_preprocessing != "leave_one_out":
+            return X, categorical_features, []
+        if y is None:
+            raise ValueError(
+                "categorical_preprocessing='leave_one_out' requires y during fit."
+            )
+        try:
+            from category_encoders import LeaveOneOutEncoder
+        except ModuleNotFoundError as exc:
+            raise ModuleNotFoundError(
+                "category_encoders is required for leave_one_out encoding. "
+                "Install it via `pip install category_encoders`."
+            ) from exc
+
+        self.categorical_encoder = LeaveOneOutEncoder(cols=categorical_features)
+        self.categorical_encoder.fit(X, y)
+        X_encoded = self.categorical_encoder.transform(X)
+        new_numerical = list(categorical_features)
+        return X_encoded, [], new_numerical
+
+    def _apply_categorical_encoder(self, X):
+        if self.categorical_encoder is None:
+            return X
+        return self.categorical_encoder.transform(X)
+
+    def _fit_global_transformer(self, X):
+        if self.global_transform != "quantile":
+            return X
+        self.global_transformer = QuantilePreprocessor(
+            output_distribution=self.quantile_output_distribution,
+            quantile_noise=self.quantile_noise,
+            n_quantiles=self.quantile_n_quantiles,
+            random_state=101,
+        )
+        X_values = X.values if isinstance(X, pd.DataFrame) else X
+        self.global_transformer.fit(X_values)
+        transformed = self.global_transformer.transform(X_values)
+        return pd.DataFrame(transformed, columns=X.columns)
+
+    def _apply_global_transformer(self, X):
+        if self.global_transformer is None:
+            return X
+        X_values = X.values if isinstance(X, pd.DataFrame) else X
+        transformed = self.global_transformer.transform(X_values)
+        return pd.DataFrame(transformed, columns=X.columns)
+
     def fit(self, X, y=None):
         """
         Fits the preprocessor to the data by identifying feature types and configuring the appropriate transformations for each feature.
@@ -183,7 +295,37 @@ class Preprocessor:
             X = pd.DataFrame(X)
 
         numerical_features, categorical_features = self._detect_column_types(X)
+        if (
+            self.global_transform == "quantile"
+            and categorical_features
+            and self.categorical_preprocessing != "leave_one_out"
+        ):
+            raise ValueError(
+                "global_transform='quantile' requires categorical_preprocessing='leave_one_out' "
+                "or no categorical features."
+            )
+        X, categorical_features, encoded_numerical = self._fit_categorical_encoder(
+            X, y, categorical_features
+        )
+        numerical_features = list(numerical_features) + list(encoded_numerical)
         transformers = []
+
+        if self.global_transform == "quantile":
+            X = self._fit_global_transformer(X)
+
+        if (
+            self.numerical_preprocessing == "quantile"
+            and self.quantile_preprocessing == "global"
+            and numerical_features
+        ):
+            self.quantile_preprocessor = QuantilePreprocessor(
+                output_distribution=self.quantile_output_distribution,
+                quantile_noise=self.quantile_noise,
+                n_quantiles=self.quantile_n_quantiles,
+                random_state=101,
+            )
+            self.quantile_preprocessor.fit(X[numerical_features])
+            self.quantile_numerical_features = list(numerical_features)
 
         if numerical_features:
             for feature in numerical_features:
@@ -239,14 +381,17 @@ class Preprocessor:
                     numeric_transformer_steps.append(("normalizer", MinMaxScaler()))
 
                 elif self.numerical_preprocessing == "quantile":
-                    numeric_transformer_steps.append(
-                        (
-                            "quantile",
-                            QuantileTransformer(
-                                n_quantiles=self.n_bins, random_state=101
-                            ),
+                    if self.quantile_preprocessing != "global":
+                        numeric_transformer_steps.append(
+                            (
+                                "quantile",
+                                QuantileTransformer(
+                                    n_quantiles=self.quantile_n_quantiles,
+                                    random_state=101,
+                                    output_distribution=self.quantile_output_distribution,
+                                ),
+                            )
                         )
-                    )
 
                 elif self.numerical_preprocessing == "polynomial":
                     numeric_transformer_steps.append(
@@ -273,12 +418,8 @@ class Preprocessor:
                     numeric_transformer_steps.append(
                         ("ple", PLE(n_bins=self.n_bins, task=self.task))
                     )
-
-                elif self.numerical_preprocessing == "ple":
-                    numeric_transformer_steps.append(("normalizer", MinMaxScaler()))
-                    numeric_transformer_steps.append(
-                        ("ple", PLE(n_bins=self.n_bins, task=self.task))
-                    )
+                elif self.numerical_preprocessing == "none":
+                    pass
 
                 numeric_transformer = Pipeline(numeric_transformer_steps)
 
@@ -322,7 +463,13 @@ class Preprocessor:
         self.column_transformer = ColumnTransformer(
             transformers=transformers, remainder="passthrough"
         )
-        self.column_transformer.fit(X, y)
+        X_fit = X
+        if self.quantile_preprocessor is not None and self.quantile_numerical_features:
+            X_fit = X.copy()
+            X_fit[self.quantile_numerical_features] = self.quantile_preprocessor.transform(
+                X_fit[self.quantile_numerical_features]
+            )
+        self.column_transformer.fit(X_fit, y)
 
         self.fitted = True
 
@@ -384,6 +531,16 @@ class Preprocessor:
         if not self.fitted:
             raise NotFittedError(
                 "The preprocessor must be fitted before transforming new data. Use .fit or .fit_transform"
+            )
+        if isinstance(X, dict):
+            X = pd.DataFrame(X)
+        X = self._apply_categorical_encoder(X)
+        if self.global_transformer is not None:
+            X = self._apply_global_transformer(X)
+        if self.quantile_preprocessor is not None and self.quantile_numerical_features:
+            X = X.copy()
+            X[self.quantile_numerical_features] = self.quantile_preprocessor.transform(
+                X[self.quantile_numerical_features]
             )
         transformed_X = self.column_transformer.transform(X)
 
