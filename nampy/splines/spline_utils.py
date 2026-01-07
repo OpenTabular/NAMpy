@@ -141,6 +141,8 @@ def cr_spl(x, n_knots):
         # find interval in which x[i] lies
         # and evaluate basis function from p.201 in Wood (2017)
         j = bisect.bisect_left(xk, x[i])
+        if j == 0:
+            j = 1
         x_j = xk[j - 1]
         x_j1 = xk[j]
         h = x_j1 - x_j
@@ -180,12 +182,14 @@ def cr_spl_predict(x, knots, F):
             xik = x[i] - knots[j]
             c_jm = xik * h / 6
             c_jp = xik * h / 3
-            base[i, :] = c_jm * F[j - 1, :] + c_jp * F[j, 1]
+            base[i, :] = c_jm * F[j - 1, :] + c_jp * F[j, :]
             base[i, j - 1] += -xik / h
             base[i, j] += 1 + xik / h
         # find interval in which x[i] lies and evaluate accordingly just like in cr_spl
         else:
             j = bisect.bisect_left(knots, x[i])
+            if j == 0:
+                j = 1
             x_j = knots[j - 1]
             x_j1 = knots[j]
             h = x_j1 - x_j
