@@ -7,3 +7,6 @@ torchmetrics
 setuptools
 properscoring
 matplotlib
+tensorboardX
+qhoptim
+category_encoders
