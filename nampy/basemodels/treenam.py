@@ -103,9 +103,7 @@ class BoostedNAM(BaseModel):
         # Boosting for categorical features
         for feature_name, feature_models in self.cat_feature_models.items():
             # Convert categorical feature to float and initialize prediction as zeros
-            cat_feature_data = torch.tensor(
-                cat_features[feature_name], dtype=torch.float32
-            )
+            cat_feature_data = cat_features[feature_name].float()
             cat_pred = torch.zeros_like(cat_feature_data, dtype=torch.float32)
 
             # Boosting: sum over all trees for each categorical feature
