@@ -1,6 +1,5 @@
 from ..splines.cubic import CubicSplines
 import numpy as np
-import numpy as np
 from scipy.linalg import block_diag
 from scipy.optimize import minimize
 from scipy.stats import chi2
@@ -23,6 +22,8 @@ class GAM:
         The number of basis functions for each cubic spline, by default 10.
     s : np.ndarray, optional
         Initial smoothing parameters for each feature, by default None. If None, all smoothing parameters are initialized to 1.
+    include_intercept : bool, optional
+        Whether to include an unpenalized intercept term, by default True.
 
     Attributes
     ----------
@@ -59,7 +60,7 @@ class GAM:
         Fit the GAM model and optimize the smoothing parameters.
     """
 
-    def __init__(self, X, k=10, s=None):
+    def __init__(self, X, k=10, s=None, include_intercept=True):
         """
         Initialize the GAM model.
 
@@ -71,14 +72,22 @@ class GAM:
             The number of basis functions for each cubic spline, by default 10.
         s : np.ndarray, optional
             Initial smoothing parameters for each feature, by default None.
+        include_intercept : bool, optional
+            Whether to include an unpenalized intercept term, by default True.
         """
         self.X = X
         self.splines = [CubicSplines(X[:, i], k) for i in range(X.shape[1])]
-        self.Z = np.column_stack([s.basis for s in self.splines])
+        self.include_intercept = include_intercept
+        spline_bases = np.column_stack([s.basis for s in self.splines])
+        if self.include_intercept:
+            self.Z = np.column_stack([np.ones(X.shape[0]), spline_bases])
+        else:
+            self.Z = spline_bases
         assert self.Z.shape[0] == X.shape[0]
 
         # Initialize penalty matrices and smoothing parameters
         self.penalties = [s.penalty for s in self.splines]
+        self._basis_sizes = [s.basis.shape[1] for s in self.splines]
         if s is not None:
             self.smoothing_params = s
         else:
@@ -96,6 +105,8 @@ class GAM:
         penalties = [
             self.smoothing_params[i] * self.penalties[i] for i in range(self.X.shape[1])
         ]
+        if self.include_intercept:
+            penalties = [np.zeros((1, 1))] + penalties
         penalties_block = block_diag(*penalties)
 
         # Compute beta using penalized least squares
@@ -103,10 +114,13 @@ class GAM:
         full_beta = np.linalg.solve(ZTZ_plus_penalties, self.Z.T @ y)
 
         # Split beta into the coefficients for each spline
-        start = 0
+        start = 1 if self.include_intercept else 0
         self.beta = []
-        for spline in self.splines:
-            num_basis = spline.basis.shape[1]
+        if self.include_intercept:
+            self.intercept_ = full_beta[0]
+        else:
+            self.intercept_ = None
+        for num_basis in self._basis_sizes:
             self.beta.append(full_beta[start : start + num_basis])
             start += num_basis
 
@@ -138,6 +152,8 @@ class GAM:
         penalties = [
             self.smoothing_params[i] * self.penalties[i] for i in range(self.X.shape[1])
         ]
+        if self.include_intercept:
+            penalties = [np.zeros((1, 1))] + penalties
         penalties_block = block_diag(*penalties)
 
         # Hat matrix and fitted values
@@ -181,7 +197,11 @@ class GAM:
         confidence_intervals = []
 
         # Ensure we create confidence intervals for each coefficient
-        for beta, se in zip(np.concatenate(self.beta), std_errors):
+        if self.include_intercept:
+            all_beta = np.concatenate(([self.intercept_], *self.beta))
+        else:
+            all_beta = np.concatenate(self.beta)
+        for beta, se in zip(all_beta, std_errors[: len(all_beta)]):
             lower = beta - critical_value * se
             upper = beta + critical_value * se
             confidence_intervals.append(
@@ -209,10 +229,13 @@ class GAM:
         """
         # Extract coefficients and covariance matrix for the given spline
         num_basis = self.splines[spline_index].basis.shape[1]
-        start_idx = sum([self.splines[i].basis.shape[1] for i in range(spline_index)])
-        spline_coefficients = np.concatenate(self.beta)[
-            start_idx : start_idx + num_basis
-        ]
+        start_idx = sum(self._basis_sizes[:spline_index])
+        if self.include_intercept:
+            start_idx += 1
+            full_beta = np.concatenate(([self.intercept_], *self.beta))
+        else:
+            full_beta = np.concatenate(self.beta)
+        spline_coefficients = full_beta[start_idx : start_idx + num_basis]
         spline_cov_matrix = self.cov_matrix[
             start_idx : start_idx + num_basis, start_idx : start_idx + num_basis
         ]
@@ -242,38 +265,47 @@ class GAM:
         print("=" * 40)
 
         # Residuals and GCV score
-        residuals = y - self.Z @ np.concatenate(self.beta)
+        if self.include_intercept:
+            full_beta = np.concatenate(([self.intercept_], *self.beta))
+        else:
+            full_beta = np.concatenate(self.beta)
+        residuals = y - self.Z @ full_beta
         rss = np.sum(residuals**2)
         gcv_score = self.gcv_score(y, np.log(self.smoothing_params))
 
         # Effective degrees of freedom and other global stats
         n = len(y)
-        r_squared_adj = 1 - (rss / np.sum((y - np.mean(y)) ** 2)) * (n - 1) / (
-            n - self.Z.shape[1]
-        )
-        deviance_explained = 1 - rss / np.sum((y - np.mean(y)) ** 2)
+        tss = np.sum((y - np.mean(y)) ** 2)
 
-        # Compute edf and F-stat for each smooth term
+        # Compute edf and chi-square for each smooth term
         print("Approximate significance of smooth terms:")
-        print("                 edf Ref.df       F p-value    ")
+        print("                 edf Ref.df   ChiSq p-value    ")
 
-        for i, spline in enumerate(self.splines):
-            num_basis = spline.basis.shape[1]
+        penalties = [
+            self.smoothing_params[i] * self.penalties[i]
+            for i in range(self.X.shape[1])
+        ]
+        if self.include_intercept:
+            penalties = [np.zeros((1, 1))] + penalties
+        penalties_block = block_diag(*penalties)
+        ZTZ_plus_penalties = self.Z.T @ self.Z + penalties_block
+        hat_matrix = self.Z @ np.linalg.solve(ZTZ_plus_penalties, self.Z.T)
+        edf_total = np.trace(hat_matrix)
+        r_squared_adj = 1 - (rss / (n - edf_total)) / (tss / (n - 1))
+        deviance_explained = 1 - rss / tss
+        Q = np.linalg.solve(ZTZ_plus_penalties, self.Z.T)
 
-            # Calculate edf (effective degrees of freedom)
-            edf = np.trace(
-                self.Z
-                @ np.linalg.solve(
-                    self.Z.T @ self.Z
-                    + np.diag(self.smoothing_params[i] * self.penalties[i]),
-                    self.Z.T,
-                )
-            )
+        start_idx = 1 if self.include_intercept else 0
+        for i, num_basis in enumerate(self._basis_sizes):
+            end_idx = start_idx + num_basis
+
+            # Calculate edf (effective degrees of freedom) for this spline
+            Z_i = self.Z[:, start_idx:end_idx]
+            Q_i = Q[start_idx:end_idx, :]
+            edf = np.trace(Z_i @ Q_i)
             ref_df = num_basis  # Ref.df (reference degrees of freedom)
 
-            # Compute F-statistic (mock calculation for illustration)
-            f_stat = (rss / ref_df) / (rss / (n - ref_df))
-            p_value = 1 - f.cdf(f_stat, ref_df, n - ref_df)
+            wald_stat, p_value = self.wald_test_spline(i)
 
             # Format the p-value and significance
             p_value_str = f"{p_value:.4e}"
@@ -289,9 +321,14 @@ class GAM:
                 sig = " "
 
             # Print row for each smooth term
+            if hasattr(self.X, "columns"):
+                feature_name = self.X.columns[i]
+            else:
+                feature_name = f"x{i}"
             print(
-                f"s({self.X.columns[i]})   {edf:.3f} {ref_df:.3f} {f_stat:.3f} {p_value_str} {sig}"
+                f"s({feature_name})   {edf:.3f} {ref_df:.3f} {wald_stat:.3f} {p_value_str} {sig}"
             )
+            start_idx = end_idx
 
         # Print the final global model statistics
         print("---")
@@ -326,3 +363,51 @@ class GAM:
         self.fit_without_optimization(y)
 
         return self
+
+    def predict(self, X=None):
+        """
+        Predict target values for the given input matrix.
+
+        Parameters
+        ----------
+        X : np.ndarray, optional
+            Input matrix of shape (n_samples, n_features). If None, uses the
+            training data.
+
+        Returns
+        -------
+        np.ndarray
+            Predicted values of shape (n_samples,).
+        """
+        if X is None:
+            Z = self.Z
+        else:
+            if hasattr(X, "to_numpy"):
+                X = X.to_numpy()
+            X = np.asarray(X)
+            if X.ndim == 1:
+                X = X.reshape(-1, 1)
+            if X.shape[1] != len(self.splines):
+                raise ValueError(
+                    f"Expected X with {len(self.splines)} feature(s), got {X.shape[1]}"
+                )
+            # Build design matrix for new data
+            # transform_new returns raw basis, apply center_mat to match training
+            centered_bases = []
+            for i in range(X.shape[1]):
+                raw_basis = self.splines[i].transform_new(X[:, i].reshape(-1, 1))
+                centered_basis = raw_basis @ self.splines[i].center_mat
+                centered_bases.append(centered_basis)
+            spline_bases = np.column_stack(centered_bases)
+            if self.include_intercept:
+                Z = np.column_stack([np.ones(X.shape[0]), spline_bases])
+            else:
+                Z = spline_bases
+
+        # Reconstruct full beta including intercept
+        if self.include_intercept:
+            full_beta = np.concatenate(([self.intercept_], *self.beta))
+        else:
+            full_beta = np.concatenate(self.beta)
+
+        return Z @ full_beta
