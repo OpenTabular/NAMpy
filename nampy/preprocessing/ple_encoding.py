@@ -74,19 +74,18 @@ def tree_to_code(tree, feature_names):
 
 class PLE(BaseEstimator, TransformerMixin):
     def __init__(
-        self, n_bins=20, tree_params={}, task="regression", conditions=None, **kwargs
+        self, n_bins=20, tree_params={}, task="regression", **kwargs
     ):
         super(PLE, self).__init__(**kwargs)
 
         self.task = task
         self.tree_params = tree_params
         self.n_bins = n_bins
-        self.conditions = conditions
         self.pattern = (
             r"-?\d+\.?\d*[eE]?[+-]?\d*"  # This pattern matches integers and floats
         )
 
-    def fit(self, feature, target):
+    def fit(self, feature, target=None):
         if self.task == "regression":
             dt = DecisionTreeRegressor(max_leaf_nodes=self.n_bins)
         elif self.task == "classification":
@@ -96,7 +95,8 @@ class PLE(BaseEstimator, TransformerMixin):
 
         dt.fit(feature, target)
 
-        self.conditions = tree_to_code(dt, ["feature"])
+        # Use underscore suffix for fitted attributes (sklearn convention)
+        self.conditions_ = tree_to_code(dt, ["feature"])
         return self
 
     def transform(self, feature):
@@ -105,7 +105,7 @@ class PLE(BaseEstimator, TransformerMixin):
         else:
             feature = feature
         result_list = []
-        for idx, cond in enumerate(self.conditions):
+        for idx, cond in enumerate(self.conditions_):
             result_list.append(eval(cond) * (idx + 1))
 
         encoded_feature = np.expand_dims(np.sum(np.stack(result_list).T, axis=1), 1)
@@ -115,7 +115,7 @@ class PLE(BaseEstimator, TransformerMixin):
         # Initialize an empty list to store the extracted numbers
         locations = []
         # Iterate through the strings and extract numbers
-        for string in self.conditions:
+        for string in self.conditions_:
             matches = re.findall(self.pattern, string)
             locations.extend(matches)
 
