@@ -52,6 +52,7 @@ class NodeGAM(BaseModel):
         self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
         self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
         self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
+        self.l2_lambda = self.hparams.get("l2_lambda", config.l2_lambda)
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
         self.num_classes = num_classes
@@ -128,11 +129,19 @@ class NodeGAM(BaseModel):
         # Apply feature dropout
         x = self.feature_dropout(x)
         
-        # Get prediction from the model
-        output = self.model(x)
+        # Get prediction (and optional regularization penalty) from the model
+        penalty = None
+        if self.l2_lambda and self.l2_lambda > 0:
+            output = self.model(x, return_outputs_penalty=True)
+            if isinstance(output, tuple):
+                output, penalty = output
+        else:
+            output = self.model(x)
 
         # Create result dictionary
         result = {"output": output}
+        if penalty is not None:
+            result["penalty"] = penalty
         
         # Add individual feature outputs for interpretability
         for i, feature_name in enumerate(feature_names):
