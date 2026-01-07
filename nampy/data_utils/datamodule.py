@@ -2,9 +2,39 @@ import torch
 import pandas as pd
 import numpy as np
 import lightning as pl
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from sklearn.model_selection import train_test_split
 from .dataset import NAMpyDataset
+
+
+class NAMpyPredictDataset(Dataset):
+    """
+    Dataset for inference-only pipelines that do not have labels.
+    """
+
+    def __init__(self, cat_features_list, num_features_list, cat_keys=None, num_keys=None):
+        self.cat_features_list = cat_features_list
+        self.num_features_list = num_features_list
+        self.cat_keys = cat_keys or []
+        self.num_keys = num_keys or []
+
+    def __len__(self):
+        if self.cat_features_list:
+            return len(self.cat_features_list[0])
+        if self.num_features_list:
+            return len(self.num_features_list[0])
+        return 0
+
+    def __getitem__(self, idx):
+        cat_features = {
+            key: feature_tensor[idx]
+            for key, feature_tensor in zip(self.cat_keys, self.cat_features_list)
+        }
+        num_features = {
+            key: torch.as_tensor(feature_tensor[idx]).clone().detach().to(torch.float32)
+            for key, feature_tensor in zip(self.num_keys, self.num_features_list)
+        }
+        return cat_features, num_features
 
 
 class NAMpyDataModule(pl.LightningDataModule):
@@ -80,6 +110,13 @@ class NAMpyDataModule(pl.LightningDataModule):
         self.y_train = None
         self.test_preprocessor_fitted = False
         self.dataloader_kwargs = dataloader_kwargs
+        self.cat_keys = None
+        self.num_keys = None
+        self.test_cat_tensors = None
+        self.test_num_tensors = None
+        self.test_labels = None
+        self.predict_cat_tensors = None
+        self.predict_num_tensors = None
 
     def preprocess_data(
         self,
@@ -123,14 +160,8 @@ class NAMpyDataModule(pl.LightningDataModule):
             self.X_val = X_val
             self.y_val = y_val
 
-        # Fit the preprocessor on the combined training and validation data
-        combined_X = pd.concat([self.X_train, self.X_val], axis=0).reset_index(
-            drop=True
-        )
-        combined_y = np.concatenate((self.y_train, self.y_val), axis=0)
-
-        # Fit the preprocessor
-        self.preprocessor.fit(combined_X, combined_y)
+        # Fit the preprocessor on training data only to avoid validation leakage
+        self.preprocessor.fit(self.X_train, self.y_train)
 
         # Update feature info based on the actual processed data
         (
@@ -176,7 +207,7 @@ class NAMpyDataModule(pl.LightningDataModule):
                             train_preprocessed_data[binned_key], dtype=torch.long
                         )
                     )
-                    num_keys.append(key)
+                    cat_keys.append(key)
 
                 if binned_key in val_preprocessed_data:
                     val_cat_tensors.append(
@@ -228,52 +259,169 @@ class NAMpyDataModule(pl.LightningDataModule):
                 cat_keys=cat_keys,
                 num_keys=num_keys,
             )
+            self.cat_keys = cat_keys
+            self.num_keys = num_keys
         elif stage == "test":
             if not self.test_preprocessor_fitted:
                 raise ValueError(
                     "The preprocessor has not been fitted. Please fit the preprocessor before transforming the test data."
                 )
+            if self.test_labels is None:
+                raise ValueError(
+                    "Test labels are missing. Pass y to preprocess_test_data before calling setup('test')."
+                )
+            if self.cat_keys is None or self.num_keys is None:
+                raise ValueError(
+                    "Feature keys are missing. Call setup('fit') before setup('test')."
+                )
 
             self.test_dataset = NAMpyDataset(
                 self.test_cat_tensors,
                 self.test_num_tensors,
-                train_labels,
+                self.test_labels,
                 regression=self.regression,
-                cat_keys=cat_keys,
-                num_keys=num_keys,
+                cat_keys=self.cat_keys,
+                num_keys=self.num_keys,
+            )
+        elif stage == "predict":
+            if self.predict_cat_tensors is None or self.predict_num_tensors is None:
+                raise ValueError(
+                    "Predict tensors are missing. Call preprocess_predict_data before setup('predict')."
+                )
+            if self.cat_keys is None or self.num_keys is None:
+                raise ValueError(
+                    "Feature keys are missing. Call setup('fit') before setup('predict')."
+                )
+
+            self.predict_dataset = NAMpyPredictDataset(
+                self.predict_cat_tensors,
+                self.predict_num_tensors,
+                cat_keys=self.cat_keys,
+                num_keys=self.num_keys,
             )
 
-    def preprocess_test_data(self, X):
+    def preprocess_test_data(self, X, y=None):
+        if self.cat_keys is None or self.num_keys is None:
+            raise ValueError("Call setup('fit') before preprocess_test_data.")
+        X = self._ensure_dataframe_for_predict(X)
         test_preprocessed_data = self.preprocessor.transform(X)
 
-        # Initialize dictionaries for categorical and numerical tensors
-        test_cat_tensors = {}
-        test_num_tensors = {}
+        # Initialize lists for categorical and numerical tensors
+        test_cat_tensors = []
+        test_num_tensors = []
 
-        # Populate tensors for categorical features, if present in processed data
-        for key in self.cat_feature_info:
-            cat_key = "cat_" + key  # Assuming categorical keys are prefixed with 'cat_'
+        # Populate tensors for categorical features, including binned numeric features.
+        for key in self.cat_keys:
+            cat_key = "cat_" + key
+            binned_key = "num_" + key
             if cat_key in test_preprocessed_data:
-                test_cat_tensors[key] = torch.tensor(
-                    test_preprocessed_data[cat_key], dtype=torch.long
+                test_cat_tensors.append(
+                    torch.tensor(test_preprocessed_data[cat_key], dtype=torch.long)
                 )
-
-            binned_key = "num_" + key  # for binned features
-            if binned_key in test_preprocessed_data:
-                test_cat_tensors[key] = torch.tensor(
-                    test_preprocessed_data[binned_key], dtype=torch.long
+            elif binned_key in test_preprocessed_data:
+                test_cat_tensors.append(
+                    torch.tensor(test_preprocessed_data[binned_key], dtype=torch.long)
                 )
+            else:
+                raise KeyError(f"Missing categorical feature '{key}' in test data.")
 
-        # Populate tensors for numerical features, if present in processed data
-        for key in self.num_feature_info:
-            num_key = "num_" + key  # Assuming numerical keys are prefixed with 'num_'
+        # Populate tensors for numerical features, if present in processed data.
+        for key in self.num_keys:
+            num_key = "num_" + key
             if num_key in test_preprocessed_data:
-                test_num_tensors[key] = torch.tensor(
-                    test_preprocessed_data[num_key], dtype=torch.float32
+                test_num_tensors.append(
+                    torch.tensor(test_preprocessed_data[num_key], dtype=torch.float32)
                 )
+            else:
+                raise KeyError(f"Missing numerical feature '{key}' in test data.")
 
+        if y is not None:
+            self.test_labels = torch.tensor(y, dtype=self.labels_dtype).unsqueeze(dim=1)
+
+        self.test_cat_tensors = test_cat_tensors
+        self.test_num_tensors = test_num_tensors
         self.test_preprocessor_fitted = True
         return test_cat_tensors, test_num_tensors
+
+    def preprocess_predict_data(self, X):
+        if self.cat_keys is None or self.num_keys is None:
+            raise ValueError("Call setup('fit') before preprocess_predict_data.")
+        X = self._ensure_dataframe_for_predict(X)
+        predict_preprocessed_data = self.preprocessor.transform(X)
+
+        predict_cat_tensors = []
+        predict_num_tensors = []
+
+        for key in self.cat_keys:
+            cat_key = "cat_" + key
+            binned_key = "num_" + key
+            if cat_key in predict_preprocessed_data:
+                predict_cat_tensors.append(
+                    torch.tensor(predict_preprocessed_data[cat_key], dtype=torch.long)
+                )
+            elif binned_key in predict_preprocessed_data:
+                predict_cat_tensors.append(
+                    torch.tensor(predict_preprocessed_data[binned_key], dtype=torch.long)
+                )
+            else:
+                raise KeyError(f"Missing categorical feature '{key}' in predict data.")
+
+        for key in self.num_keys:
+            num_key = "num_" + key
+            if num_key in predict_preprocessed_data:
+                predict_num_tensors.append(
+                    torch.tensor(predict_preprocessed_data[num_key], dtype=torch.float32)
+                )
+            else:
+                raise KeyError(f"Missing numerical feature '{key}' in predict data.")
+
+        self.predict_cat_tensors = predict_cat_tensors
+        self.predict_num_tensors = predict_num_tensors
+        return predict_cat_tensors, predict_num_tensors
+
+    def _expected_feature_names(self):
+        if self.cat_keys is None or self.num_keys is None:
+            raise ValueError("Call setup('fit') before preprocessing prediction data.")
+        return list(self.cat_keys) + list(self.num_keys)
+
+    def _ensure_dataframe_for_predict(self, X):
+        if isinstance(X, pd.DataFrame):
+            return X
+        if isinstance(X, dict):
+            expected = self._expected_feature_names()
+            if set(X.keys()) != set(expected):
+                raise ValueError(
+                    f"Expected X with feature keys {expected}, got {list(X.keys())}."
+                )
+            return pd.DataFrame(X, columns=expected)
+
+        if isinstance(X, pd.Series):
+            expected = self._expected_feature_names()
+            if len(expected) != 1:
+                raise ValueError(
+                    f"Expected X with {len(expected)} feature(s), got a Series."
+                )
+            return X.to_frame(name=expected[0])
+
+        X_array = np.asarray(X)
+        if X_array.ndim == 1:
+            expected = self._expected_feature_names()
+            if len(expected) != 1:
+                raise ValueError(
+                    f"Expected X with {len(expected)} feature(s), got 1D input."
+                )
+            X_array = X_array.reshape(-1, 1)
+
+        if X_array.ndim != 2:
+            raise ValueError("X must be 2D array-like for prediction.")
+
+        expected = self._expected_feature_names()
+        if X_array.shape[1] != len(expected):
+            raise ValueError(
+                f"Expected X with {len(expected)} feature(s), got {X_array.shape[1]}"
+            )
+
+        return pd.DataFrame(X_array, columns=expected)
 
     def train_dataloader(self):
         """
@@ -310,4 +458,15 @@ class NAMpyDataModule(pl.LightningDataModule):
         """
         return DataLoader(
             self.test_dataset, batch_size=self.batch_size, **self.dataloader_kwargs
+        )
+
+    def predict_dataloader(self):
+        """
+        Returns the predict dataloader.
+
+        Returns:
+            DataLoader: DataLoader instance for the predict dataset.
+        """
+        return DataLoader(
+            self.predict_dataset, batch_size=self.batch_size, **self.dataloader_kwargs
         )
