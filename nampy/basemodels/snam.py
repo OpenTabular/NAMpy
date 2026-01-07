@@ -141,7 +141,7 @@ class SNAM(BaseModel):
                         input_dim += cat_feature_info[feature]["dimension"]
 
                 self.interaction_networks[interaction_name] = CubicSplineLayer(
-                    n_bases=config.n_bases,
+                    n_bases=config.n_knots,
                     min_val=0,
                     max_val=input_dim,
                     learn_knots=config.learn_knots,
