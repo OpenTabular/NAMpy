@@ -131,11 +131,13 @@ class CubicSplineLayer(nn.Module):
                 xik = x[i] - knots[j]
                 c_jm = xik * h / 6
                 c_jp = xik * h / 3
-                base[i, :] += c_jm * F[j - 1, :] + c_jp * F[j, 1]
+                base[i, :] += c_jm * F[j - 1, :] + c_jp * F[j, :]
                 base[i, j - 1] += -xik / h
                 base[i, j] += 1 + xik / h
             else:
-                j = torch.searchsorted(knots, x[i])
+                j = int(torch.searchsorted(knots, x[i]))
+                if j == 0:
+                    j = 1
                 x_j = knots[j - 1]
                 x_j1 = knots[j]
                 h = x_j1 - x_j
