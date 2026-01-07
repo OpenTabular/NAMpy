@@ -67,3 +67,7 @@ class DefaultNodeGAMConfig:
     # Model parameters
     interaction_degree: int = 2
     feature_dropout: float = 0.0
+    quantile_preprocessing: str = "feature"
+    quantile_noise: float = 0.0
+    quantile_output_distribution: str = "normal"
+    quantile_n_quantiles: int = 2000

@@ -100,10 +100,7 @@ class ODST(ModuleWithInit):
         # data-aware initializer
         assert len(input.shape) == 2
         if input.shape[0] < 1000:
-            warn("Data-aware initialization is performed on less than 1000 data points. This may "
-                 "cause instability. To avoid potential problems, run this model on a data batch "
-                 "with at least 1000 data samples. You can do so manually before training. Use with"
-                 " torch.no_grad() for memory efficiency.")
+            warn("Data-aware initialization is performed on less than 1000 data points. This may cause instability. To avoid potential problems, run this model on a data batch with at least 1000 data samples. You can do so manually before training. Use with torch.no_grad() for memory efficiency.")
 
         with torch.no_grad():
             feature_values = self.get_feature_selection_values(input)
@@ -569,11 +566,11 @@ class ODSTBlock(nn.Sequential):
                 last_w = F.dropout(last_w, self.last_dropout)
             result = torch.einsum(
                 "bd,dc->bc", outputs.reshape(outputs.shape[0], -1), last_w
-            ).squeeze_(-1)
+            )
         else:
             outputs = outputs[..., : self.num_classes]
             # ^--[batch_size, num_trees, num_classes]
-            result = outputs.mean(dim=-2).squeeze_(-1)
+            result = outputs.mean(dim=-2)
 
         result += self.bias
 

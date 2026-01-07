@@ -10,6 +10,7 @@ from .namformer import NAMformer
 from .treenam import BoostedNAM
 from .snam import SNAM
 from .nodegam import NodeGAM
+from .multi_model import MultiModelWrapper
 
 __all__ = [
     "TaskModel",
@@ -24,4 +25,5 @@ __all__ = [
     "BoostedNAM",
     "SNAM",
     "NodeGAM",
+    "MultiModelWrapper",
 ]
