@@ -3,6 +3,10 @@ import torch
 import torch.nn as nn
 import torchmetrics
 from typing import Type
+try:
+    from qhoptim.pyt import QHAdam
+except ModuleNotFoundError:  # optional dependency
+    QHAdam = None
 
 
 class TaskModel(pl.LightningModule):
@@ -37,6 +41,12 @@ class TaskModel(pl.LightningModule):
         lss=False,
         family=None,
         loss_fct: callable = None,
+        optimizer_name: str = "adam",
+        optimizer_kwargs: dict = None,
+        lr_warmup_steps: int = 0,
+        lr_decay_steps: int = 0,
+        lr_decay_factor: float = None,
+        lr_min: float = 0.0,
         **kwargs
     ):
         super().__init__()
@@ -44,6 +54,12 @@ class TaskModel(pl.LightningModule):
         self.lss = lss
         self.family = family
         self.loss_fct = loss_fct
+        self.optimizer_name = optimizer_name
+        self.optimizer_kwargs = optimizer_kwargs or {}
+        self.lr_warmup_steps = lr_warmup_steps or 0
+        self.lr_decay_steps = lr_decay_steps or 0
+        self.lr_decay_factor = lr_decay_factor
+        self.lr_min = lr_min
 
         if lss:
             pass
@@ -70,7 +86,7 @@ class TaskModel(pl.LightningModule):
             else:
                 self.loss_fct = nn.MSELoss()
 
-        self.save_hyperparameters(ignore=["model_class", "loss_fn"])
+        self.save_hyperparameters(ignore=["model_class", "loss_fn", "family"])
 
         self.lr = self.hparams.get("lr", config.lr)
         self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
@@ -89,6 +105,11 @@ class TaskModel(pl.LightningModule):
             num_classes=output_dim,
             **kwargs,
         )
+        self._temp_modules = [
+            module
+            for module in self.model.modules()
+            if hasattr(module, "temp_step_callback")
+        ]
 
     def forward(self, num_features, cat_features):
         """
@@ -150,8 +171,12 @@ class TaskModel(pl.LightningModule):
         """
 
         cat_features, num_features, labels = batch
-        preds = self(num_features=num_features, cat_features=cat_features)["output"]
+        result = self(num_features=num_features, cat_features=cat_features)
+        preds = result["output"]
         loss = self.compute_loss(preds, labels)
+        penalty = result.get("penalty")
+        if penalty is not None:
+            loss = loss + penalty
 
         self.log(
             "train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
@@ -159,7 +184,7 @@ class TaskModel(pl.LightningModule):
 
         # Log additional metrics
         if not self.lss:
-            if self.num_classes > 1:
+            if hasattr(self, "acc"):
                 acc = self.acc(preds, labels)
                 self.log(
                     "train_acc",
@@ -190,8 +215,12 @@ class TaskModel(pl.LightningModule):
         """
 
         cat_features, num_features, labels = batch
-        preds = self(num_features=num_features, cat_features=cat_features)["output"]
+        result = self(num_features=num_features, cat_features=cat_features)
+        preds = result["output"]
         val_loss = self.compute_loss(preds, labels)
+        penalty = result.get("penalty")
+        if penalty is not None:
+            val_loss = val_loss + penalty
 
         self.log(
             "val_loss",
@@ -204,7 +233,7 @@ class TaskModel(pl.LightningModule):
 
         # Log additional metrics
         if not self.lss:
-            if self.num_classes > 1:
+            if hasattr(self, "acc"):
                 acc = self.acc(preds, labels)
                 self.log(
                     "val_acc",
@@ -234,8 +263,12 @@ class TaskModel(pl.LightningModule):
             Test loss.
         """
         cat_features, num_features, labels = batch
-        preds = self(num_features=num_features, cat_features=cat_features)["output"]
+        result = self(num_features=num_features, cat_features=cat_features)
+        preds = result["output"]
         test_loss = self.compute_loss(preds, labels)
+        penalty = result.get("penalty")
+        if penalty is not None:
+            test_loss = test_loss + penalty
 
         self.log(
             "test_loss",
@@ -248,7 +281,7 @@ class TaskModel(pl.LightningModule):
 
         # Log additional metrics
         if not self.lss:
-            if self.num_classes > 1:
+            if hasattr(self, "acc"):
                 acc = self.acc(preds, labels)
                 self.log(
                     "test_acc",
@@ -280,17 +313,32 @@ class TaskModel(pl.LightningModule):
         dict
             A dictionary containing the optimizer and lr_scheduler configurations.
         """
-        optimizer = torch.optim.Adam(
-            self.parameters(),
-            lr=self.lr,
-            weight_decay=self.weight_decay,
-        )
+        optimizer = self._build_optimizer()
+        if self.lr_decay_steps and self.lr_decay_steps > 0:
+            decay_factor = (
+                self.lr_decay_factor if self.lr_decay_factor is not None else self.lr_factor
+            )
+            scheduler = {
+                "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    optimizer,
+                    mode="min",
+                    factor=decay_factor,
+                    patience=self.lr_decay_steps,
+                    min_lr=self.lr_min,
+                ),
+                "monitor": "val_loss",
+                "interval": "step",
+                "frequency": 1,
+            }
+            return {"optimizer": optimizer, "lr_scheduler": scheduler}
+
         scheduler = {
             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
                 optimizer,
                 mode="min",
                 factor=self.lr_factor,
                 patience=self.lr_patience,
+                min_lr=self.lr_min,
             ),
             "monitor": "val_loss",
             "interval": "epoch",
@@ -298,3 +346,33 @@ class TaskModel(pl.LightningModule):
         }
 
         return {"optimizer": optimizer, "lr_scheduler": scheduler}
+
+    def optimizer_step(self, epoch, batch_idx, optimizer, optimizer_closure=None, **kwargs):
+        for module in self._temp_modules:
+            module.temp_step_callback(self.global_step)
+        if self.lr_warmup_steps and self.global_step < self.lr_warmup_steps:
+            warmup_scale = float(self.global_step + 1) / float(self.lr_warmup_steps)
+            for group in optimizer.param_groups:
+                group["lr"] = self.lr * warmup_scale
+
+        optimizer.step(closure=optimizer_closure)
+
+    def _build_optimizer(self):
+        name = (self.optimizer_name or "adam").lower()
+        params = {
+            "lr": self.lr,
+            "weight_decay": self.weight_decay,
+        }
+        params.update(self.optimizer_kwargs)
+
+        if name in ["adam", "torch.optim.adam"]:
+            return torch.optim.Adam(self.parameters(), **params)
+        if name in ["qhadam", "qhoptim.qhadam"]:
+            if QHAdam is None:
+                raise ImportError(
+                    "QHAdam requested but qhoptim is not installed. "
+                    "Install it via `pip install qhoptim`."
+                )
+            return QHAdam(self.parameters(), **params)
+
+        raise ValueError(f"Unsupported optimizer_name: {self.optimizer_name}")
