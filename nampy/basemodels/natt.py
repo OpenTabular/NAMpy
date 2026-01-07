@@ -201,9 +201,7 @@ class NATT(BaseModel):
                 input_features = torch.cat(
                     [all_features[fn] for fn in feature_names], dim=-1
                 )
-                interaction_output = interaction_network(
-                    torch.tensor(input_features, dtype=torch.float32)
-                )
+                interaction_output = interaction_network(input_features.float())
                 interaction_outputs[interaction_name] = interaction_output
 
         return interaction_outputs
