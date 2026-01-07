@@ -237,7 +237,11 @@ class NAM(BaseModel):
         """
         # Handle interaction networks
         interaction_outputs = {}
-        if self.interaction_degree is not None and self.interaction_degree >= 2:
+        if (
+            self.interaction_degree is not None 
+            and self.interaction_degree >= 2 
+            and hasattr(self, 'interaction_networks')
+        ):
             all_features = {
                 **num_features,
                 **cat_features,
@@ -250,8 +254,9 @@ class NAM(BaseModel):
                 input_features = torch.cat(
                     [all_features[fn] for fn in feature_names], dim=-1
                 )
-                interaction_output = interaction_network(
-                    torch.tensor(input_features, dtype=torch.float32)
+                interaction_output = interaction_network(input_features.float())
+                interaction_output = interaction_output.reshape(
+                    interaction_output.shape[0], -1
                 )
                 interaction_outputs[interaction_name] = interaction_output
 
@@ -276,11 +281,13 @@ class NAM(BaseModel):
         num_outputs = {}
         for feature_name, feature_network in self.num_feature_networks.items():
             feature_output = feature_network(num_features[feature_name])
+            feature_output = feature_output.reshape(feature_output.shape[0], -1)
             num_outputs[feature_name] = feature_output
 
         cat_outputs = {}
         for feature_name, feature_network in self.cat_feature_networks.items():
             feature_output = feature_network(cat_features[feature_name].float())
+            feature_output = feature_output.reshape(feature_output.shape[0], -1)
             cat_outputs[feature_name] = feature_output
 
         interaction_outputs = self._interaction_forward(
@@ -294,7 +301,12 @@ class NAM(BaseModel):
             + list(interaction_outputs.values())
         )
         # feature dropout and sum
-        x = self.feature_dropout(torch.cat(all_outputs, dim=1)).sum(dim=1).unsqueeze(-1)
+        # Stack outputs: [num_features, batch_size, num_classes]
+        stacked = torch.stack(all_outputs, dim=0)
+        # Apply dropout
+        stacked = self.feature_dropout(stacked)
+        # Sum along feature dimension: [batch_size, num_classes]
+        x = stacked.sum(dim=0)
 
         # intercept
         if self.intercept is not None:
