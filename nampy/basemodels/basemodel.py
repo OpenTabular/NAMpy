@@ -53,7 +53,7 @@ class BaseModel(nn.Module):
         device : str, optional
             Device to map the model parameters, by default 'cpu'.
         """
-        self.load_state_dict(torch.load(path, map_location=device))
+        self.load_state_dict(torch.load(path, map_location=device, weights_only=False))
         self.to(device)
         print(f"Model parameters loaded from {path}")
 
