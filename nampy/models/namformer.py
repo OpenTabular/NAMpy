@@ -73,11 +73,11 @@ class NAMformerRegressor(SklearnBaseRegressor):
 
     See Also
     --------
-    mambular.models.SklearnBaseRegressor : The parent class for NAMformerRegressor.
+    nampy.models.SklearnBaseRegressor : The parent class for NAMformerRegressor.
 
     Examples
     --------
-    >>> from mambular.models import NAMformerRegressor
+    >>> from nampy.models import NAMformerRegressor
     >>> model = NAMformerRegressor(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
@@ -156,11 +156,11 @@ class NAMformerClassifier(SklearnBaseClassifier):
 
     See Also
     --------
-    mambular.models.SklearnBaseRegressor : The parent class for NAMformerClassifier.
+    nampy.models.SklearnBaseRegressor : The parent class for NAMformerClassifier.
 
     Examples
     --------
-    >>> from mambular.models import NAMformerClassifier
+    >>> from nampy.models import NAMformerClassifier
     >>> model = NAMformerClassifier(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
@@ -242,11 +242,11 @@ class NAMformerLSS(SklearnBaseLSS):
 
     See Also
     --------
-    mambular.models.SklearnBaseLSS : The parent class for NAMformerLSS.
+    nampy.models.SklearnBaseLSS : The parent class for NAMformerLSS.
 
     Examples
     --------
-    >>> from mambular.models import NAMformerLSS
+    >>> from nampy.models import NAMformerLSS
     >>> model = NAMformerLSS(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)

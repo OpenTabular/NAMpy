@@ -15,10 +15,8 @@ class TaskModel(pl.LightningModule):
         The model class to be instantiated and trained.
     config : dataclass
         Configuration dataclass containing model hyperparameters.
-    loss_fn : callable
+    loss_fct : callable
         Loss function to be used during training and evaluation.
-    lr : float, optional
-        Learning rate for the optimizer (default is 1e-3).
     num_classes : int, optional
         Number of classes for classification tasks (default is 1).
     lss : bool, optional
@@ -100,15 +98,15 @@ class TaskModel(pl.LightningModule):
 
         Parameters
         ----------
-        *args : tuple
-            Positional arguments passed to the model's forward method.
-        **kwargs : dict
-            Keyword arguments passed to the model's forward method.
+        num_features : dict
+            Dictionary of numerical features with feature names as keys.
+        cat_features : dict
+            Dictionary of categorical features with feature names as keys.
 
         Returns
         -------
-        Tensor
-            Model output.
+        dict
+            Model outputs, including the main prediction under the "output" key.
         """
 
         return self.model.forward(num_features, cat_features)

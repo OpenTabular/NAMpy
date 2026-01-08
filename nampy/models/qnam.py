@@ -74,11 +74,11 @@ class QNAM(SklearnBaseLSS):
 
     See Also
     --------
-    mambular.models.SklearnBaseLSS : The parent class for NAMLSS.
+    nampy.models.SklearnBaseLSS : The parent class for NAMLSS.
 
     Examples
     --------
-    >>> from mambular.models import NAMLSS
+    >>> from nampy.models import NAMLSS
     >>> model = NAMLSS(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)

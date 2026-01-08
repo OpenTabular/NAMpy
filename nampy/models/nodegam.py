@@ -72,11 +72,11 @@ class NodeGAMRegressor(SklearnBaseRegressor):
 
     See Also
     --------
-    mambular.models.SklearnBaseRegressor : The parent class for NAMRegressor.
+    nampy.models.SklearnBaseRegressor : The parent class for NAMRegressor.
 
     Examples
     --------
-    >>> from mambular.models import NAMRegressor
+    >>> from nampy.models import NAMRegressor
     >>> model = NAMRegressor(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
@@ -155,11 +155,11 @@ class NodeGAMClassifier(SklearnBaseClassifier):
 
     See Also
     --------
-    mambular.models.SklearnBaseRegressor : The parent class for NAMClassifier.
+    nampy.models.SklearnBaseRegressor : The parent class for NAMClassifier.
 
     Examples
     --------
-    >>> from mambular.models import NAMClassifier
+    >>> from nampy.models import NAMClassifier
     >>> model = NAMClassifier(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
@@ -241,11 +241,11 @@ class NodeGAMLSS(SklearnBaseLSS):
 
     See Also
     --------
-    mambular.models.SklearnBaseLSS : The parent class for NodeGAMLSS.
+    nampy.models.SklearnBaseLSS : The parent class for NodeGAMLSS.
 
     Examples
     --------
-    >>> from mambular.models import NodeGAMLSS
+    >>> from nampy.models import NodeGAMLSS
     >>> model = NodeGAMLSS(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
