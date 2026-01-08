@@ -151,23 +151,23 @@ class SklearnBaseRegressor(BaseEstimator):
             Maximum number of epochs for training.
         random_state : int, default=101
             Controls the shuffling applied to the data before applying the split.
-        batch_size : int, default=64
+        batch_size : int, default=128
             Number of samples per gradient update.
         shuffle : bool, default=True
             Whether to shuffle the training data before each epoch.
-        patience : int, default=10
+        patience : int, default=15
             Number of epochs with no improvement on the validation loss to wait before early stopping.
         monitor : str, default="val_loss"
             The metric to monitor for early stopping.
         mode : str, default="min"
             Whether the monitored metric should be minimized (`min`) or maximized (`max`).
-        lr : float, default=1e-3
+        lr : float, default=1e-4
             Learning rate for the optimizer.
         lr_patience : int, default=10
             Number of epochs with no improvement on the validation loss to wait before reducing the learning rate.
         factor : float, default=0.1
             Factor by which the learning rate will be reduced.
-        weight_decay : float, default=0.025
+        weight_decay : float, default=1e-06
             Weight decay (L2 penalty) coefficient.
         checkpoint_path : str, default="model_checkpoints"
             Path where the checkpoints are being saved.
@@ -346,7 +346,7 @@ class SklearnBaseRegressor(BaseEstimator):
 
         return scores
 
-    def _plot_single_feature_effects(self, x_plot, predictions, y_true, num_bins=30):
+    def _plot_single_feature_effects(self, x_plot, predictions, y_true, feature_name=None, num_bins=30):
         """
         Internal function to plot the effect of a single feature, including shading based on data density and a scatter plot of true values.
 
@@ -358,6 +358,8 @@ class SklearnBaseRegressor(BaseEstimator):
             The predicted values for the feature from the model.
         y_true : np.ndarray
             The true values for the target variable (for scatter plot).
+        feature_name : str, optional
+            The name of the feature to display in the plot title and xlabel.
         num_bins : int, optional
             The number of bins to use for density shading, by default 30.
         """
@@ -367,7 +369,8 @@ class SklearnBaseRegressor(BaseEstimator):
 
         # Create density-based shading
         counts, bin_edges = np.histogram(x_plot, bins=num_bins)
-        norm_counts = counts / counts.max()  # Normalize to range [0, 1]
+        max_count = counts.max() if counts.size else 0
+        norm_counts = counts / max_count if max_count else np.zeros_like(counts, dtype=float)
 
         plt.figure(figsize=(8, 6))
         for i in range(num_bins):
@@ -392,13 +395,18 @@ class SklearnBaseRegressor(BaseEstimator):
             x_plot, y_true_plot, color="gray", alpha=0.3, s=2, label="True Values"
         )
 
-        plt.title(f"Shape Function for {x_plot}")
-        plt.xlabel("Feature")
+        # Set title and labels with feature name if provided
+        if feature_name:
+            plt.title(f"Shape Function: {feature_name}")
+            plt.xlabel(feature_name)
+        else:
+            plt.title("Shape Function")
+            plt.xlabel("Feature")
         plt.ylabel("Contribution")
         plt.legend()
         plt.show()
 
-    def plot(self, X, y_true, plot_interactions=False):
+    def plot(self, X, y_true, feature_name=None, plot_interactions=False):
         """
         Main function to plot feature effects. Calls single feature effect plotting and, if requested, interaction effect plotting.
 
@@ -408,30 +416,55 @@ class SklearnBaseRegressor(BaseEstimator):
             Input data for generating predictions.
         y_true : np.ndarray
             True target values for comparison in the scatter plot.
+        feature_name : str, optional
+            Name of a specific feature to plot. If None, plots all numerical features.
         plot_interactions : bool, optional
             Whether to also plot pairwise feature interactions, by default False.
         """
-        # Simulate the data
+        # Get the stored feature names from training
+        num_feature_names = list(self.data_module.num_feature_info.keys())
+        cat_feature_names = list(self.data_module.cat_feature_info.keys())
+        all_feature_names = num_feature_names + cat_feature_names
+
+        # Validate feature_name if provided
+        if feature_name is not None and feature_name not in num_feature_names:
+            raise ValueError(
+                f"Feature '{feature_name}' not found in numerical features. "
+                f"Available numerical features: {num_feature_names}"
+            )
+
+        # Convert to DataFrame and ensure correct column names
         X_simulated = pd.DataFrame(X)
+        
+        # If X doesn't have the correct column names (e.g., numpy array with integer indices),
+        # assign the stored feature names
+        if not all(col in all_feature_names for col in X_simulated.columns):
+            if len(X_simulated.columns) == len(all_feature_names):
+                X_simulated.columns = all_feature_names
+            else:
+                raise ValueError(
+                    f"Input X has {len(X_simulated.columns)} columns but model expects {len(all_feature_names)} features."
+                )
+
+        # Determine which features to plot
+        features_to_plot = [feature_name] if feature_name else num_feature_names
 
         # Sort each column in ascending order (only for numerical columns)
-        for feature_name in X_simulated.columns:
-            if pd.api.types.is_numeric_dtype(X_simulated[feature_name]):
-                X_simulated[feature_name] = (
-                    X_simulated[feature_name].sort_values().values
+        for fname in num_feature_names:
+            if fname in X_simulated.columns:
+                X_simulated[fname] = (
+                    X_simulated[fname].sort_values().values
                 )
 
         # Generate predictions using the model
         predictions = self._predict(X_simulated)
 
-        # Plot single feature effects for numerical features only
-        for feature_name in X_simulated.columns:
-            if feature_name in predictions and pd.api.types.is_numeric_dtype(
-                X_simulated[feature_name]
-            ):
-                x_plot = X_simulated[feature_name].values  # Use simulated data directly
+        # Plot single feature effects for the specified feature(s)
+        for fname in features_to_plot:
+            if fname in predictions:
+                x_plot = X_simulated[fname].values  # Use simulated data directly
                 self._plot_single_feature_effects(
-                    x_plot, predictions[feature_name], y_true, num_bins=30
+                    x_plot, predictions[fname], y_true, feature_name=fname, num_bins=30
                 )
 
         # Plot pairwise interaction effects (if requested)
