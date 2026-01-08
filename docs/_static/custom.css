@@ -1,0 +1,63 @@
+/* Custom CSS for NAMpy documentation */
+
+/* Improve code block styling */
+.highlight {
+    background: #f8f8f8;
+    border-radius: 4px;
+    padding: 10px;
+    margin: 15px 0;
+}
+
+/* Better table styling */
+table.docutils {
+    border: none;
+    border-collapse: collapse;
+}
+
+table.docutils td, table.docutils th {
+    border: 1px solid #e1e4e5;
+    padding: 8px;
+}
+
+/* Improve admonition styling */
+.admonition {
+    margin: 20px 0;
+    padding: 15px;
+    border-left: 5px solid #2980b9;
+}
+
+.admonition.note {
+    border-left-color: #2980b9;
+    background-color: #e7f2fa;
+}
+
+.admonition.warning {
+    border-left-color: #e67e22;
+    background-color: #ffedcc;
+}
+
+.admonition.tip {
+    border-left-color: #27ae60;
+    background-color: #dbf6e9;
+}
+
+/* Better spacing for parameter lists */
+.field-list dt {
+    font-weight: bold;
+    padding-top: 10px;
+}
+
+/* Improve method/function signatures */
+.sig-name {
+    color: #2980b9;
+    font-weight: bold;
+}
+
+/* Code in prose */
+code.literal {
+    background-color: #f8f8f8;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 90%;
+}
+

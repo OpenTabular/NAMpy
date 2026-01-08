@@ -1,0 +1,66 @@
+﻿nampy.models.SklearnBaseClassifier
+==================================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: SklearnBaseClassifier
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~SklearnBaseClassifier.__delattr__
+      ~SklearnBaseClassifier.__dir__
+      ~SklearnBaseClassifier.__eq__
+      ~SklearnBaseClassifier.__format__
+      ~SklearnBaseClassifier.__ge__
+      ~SklearnBaseClassifier.__getattribute__
+      ~SklearnBaseClassifier.__getstate__
+      ~SklearnBaseClassifier.__gt__
+      ~SklearnBaseClassifier.__hash__
+      ~SklearnBaseClassifier.__init_subclass__
+      ~SklearnBaseClassifier.__le__
+      ~SklearnBaseClassifier.__lt__
+      ~SklearnBaseClassifier.__ne__
+      ~SklearnBaseClassifier.__new__
+      ~SklearnBaseClassifier.__reduce__
+      ~SklearnBaseClassifier.__reduce_ex__
+      ~SklearnBaseClassifier.__repr__
+      ~SklearnBaseClassifier.__setattr__
+      ~SklearnBaseClassifier.__setstate__
+      ~SklearnBaseClassifier.__sizeof__
+      ~SklearnBaseClassifier.__sklearn_clone__
+      ~SklearnBaseClassifier.__sklearn_tags__
+      ~SklearnBaseClassifier.__str__
+      ~SklearnBaseClassifier.__subclasshook__
+      ~SklearnBaseClassifier._get_class_level_metadata_request_values
+      ~SklearnBaseClassifier._get_doc_link
+      ~SklearnBaseClassifier._get_metadata_request
+      ~SklearnBaseClassifier._get_param_names
+      ~SklearnBaseClassifier._get_params_html
+      ~SklearnBaseClassifier._html_repr
+      ~SklearnBaseClassifier._plot_single_feature_effects
+      ~SklearnBaseClassifier._repr_html_inner
+      ~SklearnBaseClassifier._repr_mimebundle_
+      ~SklearnBaseClassifier._validate_params
+      ~SklearnBaseClassifier.evaluate
+      ~SklearnBaseClassifier.fit
+      ~SklearnBaseClassifier.get_metadata_routing
+      ~SklearnBaseClassifier.get_params
+      ~SklearnBaseClassifier.plot
+      ~SklearnBaseClassifier.predict
+      ~SklearnBaseClassifier.predict_feature_vals
+      ~SklearnBaseClassifier.predict_proba
+      ~SklearnBaseClassifier.set_fit_request
+      ~SklearnBaseClassifier.set_params
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~SklearnBaseClassifier.__annotations__
+      ~SklearnBaseClassifier.__dict__
+      ~SklearnBaseClassifier.__doc__
+      ~SklearnBaseClassifier.__module__
+      ~SklearnBaseClassifier.__weakref__
+      ~SklearnBaseClassifier._doc_link_module
+      ~SklearnBaseClassifier._doc_link_template
+      ~SklearnBaseClassifier._doc_link_url_param_generator
+      ~SklearnBaseClassifier._repr_html_
+   

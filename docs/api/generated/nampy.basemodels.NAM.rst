@@ -1,0 +1,142 @@
+﻿nampy.basemodels.NAM
+====================
+
+.. currentmodule:: nampy.basemodels
+
+.. autoclass:: NAM
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~NAM.__call__
+      ~NAM.__delattr__
+      ~NAM.__dir__
+      ~NAM.__eq__
+      ~NAM.__format__
+      ~NAM.__ge__
+      ~NAM.__getattr__
+      ~NAM.__getattribute__
+      ~NAM.__getstate__
+      ~NAM.__gt__
+      ~NAM.__hash__
+      ~NAM.__init_subclass__
+      ~NAM.__le__
+      ~NAM.__lt__
+      ~NAM.__ne__
+      ~NAM.__new__
+      ~NAM.__reduce__
+      ~NAM.__reduce_ex__
+      ~NAM.__repr__
+      ~NAM.__setattr__
+      ~NAM.__setstate__
+      ~NAM.__sizeof__
+      ~NAM.__str__
+      ~NAM.__subclasshook__
+      ~NAM._apply
+      ~NAM._call_impl
+      ~NAM._create_interaction_networks
+      ~NAM._create_subnetwork
+      ~NAM._get_backward_hooks
+      ~NAM._get_backward_pre_hooks
+      ~NAM._get_name
+      ~NAM._interaction_forward
+      ~NAM._load_from_state_dict
+      ~NAM._maybe_warn_non_full_backward_hook
+      ~NAM._named_members
+      ~NAM._register_load_state_dict_pre_hook
+      ~NAM._register_state_dict_hook
+      ~NAM._replicate_for_data_parallel
+      ~NAM._save_to_state_dict
+      ~NAM._slow_forward
+      ~NAM._wrapped_call_impl
+      ~NAM.add_module
+      ~NAM.apply
+      ~NAM.bfloat16
+      ~NAM.buffers
+      ~NAM.children
+      ~NAM.compile
+      ~NAM.count_parameters
+      ~NAM.cpu
+      ~NAM.cuda
+      ~NAM.double
+      ~NAM.eval
+      ~NAM.extra_repr
+      ~NAM.float
+      ~NAM.forward
+      ~NAM.freeze_parameters
+      ~NAM.get_buffer
+      ~NAM.get_device
+      ~NAM.get_extra_state
+      ~NAM.get_parameter
+      ~NAM.get_submodule
+      ~NAM.half
+      ~NAM.ipu
+      ~NAM.load_model
+      ~NAM.load_state_dict
+      ~NAM.log_parameters
+      ~NAM.modules
+      ~NAM.mtia
+      ~NAM.named_buffers
+      ~NAM.named_children
+      ~NAM.named_modules
+      ~NAM.named_parameters
+      ~NAM.parameter_count
+      ~NAM.parameters
+      ~NAM.print_summary
+      ~NAM.register_backward_hook
+      ~NAM.register_buffer
+      ~NAM.register_forward_hook
+      ~NAM.register_forward_pre_hook
+      ~NAM.register_full_backward_hook
+      ~NAM.register_full_backward_pre_hook
+      ~NAM.register_load_state_dict_post_hook
+      ~NAM.register_load_state_dict_pre_hook
+      ~NAM.register_module
+      ~NAM.register_parameter
+      ~NAM.register_state_dict_post_hook
+      ~NAM.register_state_dict_pre_hook
+      ~NAM.requires_grad_
+      ~NAM.save_hyperparameters
+      ~NAM.save_model
+      ~NAM.set_extra_state
+      ~NAM.set_submodule
+      ~NAM.share_memory
+      ~NAM.state_dict
+      ~NAM.to
+      ~NAM.to_device
+      ~NAM.to_empty
+      ~NAM.train
+      ~NAM.type
+      ~NAM.unfreeze_parameters
+      ~NAM.xpu
+      ~NAM.zero_grad
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~NAM.T_destination
+      ~NAM.__annotations__
+      ~NAM.__dict__
+      ~NAM.__doc__
+      ~NAM.__module__
+      ~NAM.__weakref__
+      ~NAM._compiled_call_impl
+      ~NAM._version
+      ~NAM.call_super_init
+      ~NAM.dump_patches
+      ~NAM.training
+      ~NAM._parameters
+      ~NAM._buffers
+      ~NAM._non_persistent_buffers_set
+      ~NAM._backward_pre_hooks
+      ~NAM._backward_hooks
+      ~NAM._is_full_backward_hook
+      ~NAM._forward_hooks
+      ~NAM._forward_hooks_with_kwargs
+      ~NAM._forward_hooks_always_called
+      ~NAM._forward_pre_hooks
+      ~NAM._forward_pre_hooks_with_kwargs
+      ~NAM._state_dict_hooks
+      ~NAM._load_state_dict_pre_hooks
+      ~NAM._state_dict_pre_hooks
+      ~NAM._load_state_dict_post_hooks
+      ~NAM._modules
+   
