@@ -1,12 +1,22 @@
 # NAMpy: Interpretable (Additive) Tabular Deep Learning
 
+[![Python 3.6+](https://img.shields.io/badge/python-3.6+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
+NAMpy provides interpretable additive neural models for tabular data, with support for **regression**, **classification**, and **distributional regression** tasks. Models implement scikit-learn's `BaseEstimator` interface, so they integrate with standard scikit-learn workflows for fitting, prediction, and evaluation.
 
-NAMpy is a Python package that brings the power of advanced deep learning architectures to tabular data, offering a suite of models for regression, classification, and distributional regression tasks. Designed with ease of use in mind, NAMpy models adhere to scikit-learn's `BaseEstimator` interface, making them highly compatible with the familiar scikit-learn ecosystem. This means you can fit, predict, and evaluate using NAMpy models just as you would with any traditional scikit-learn model, but with the added performance and flexibility of deep learning.
+## Key Features
 
+- **Scikit-learn Compatible**: Consistent API with sklearn estimators
+- **10+ Model Architectures**: NAM, GPNAM, NBM, NATT, NAMformer, and more
+- **Three Task Types**: Regression, classification, and distributional regression (LSS)
+- **Interpretable**: Additive structure supports feature-level interpretation
+- **PyTorch Backend**: Built on modern deep learning tooling
+- **Extensible**: Interfaces for custom model implementations
 
-All models are available for `regression`, `classification` and distributional regression, denoted by `LSS`.
-Hence, they are available as e.g. `NAMRegressor`, `NAMClassifier` or `NAMLSS`.
+Most models are available for `regression`, `classification` and distributional regression, denoted by `LSS`.
+Some models are specialized: `QNAM` is distributional-only, while `TreeNAM` and `SNAM` are currently regression-only.
 
 ## Integrated Models:
 
@@ -17,63 +27,113 @@ Hence, they are available as e.g. `NAMRegressor`, `NAMClassifier` or `NAMLSS`.
 5. NAMformer
 6. QNAM
 7. Linear Regression (Neural)
-8. GAM (Base architecture)
-9. TreeNAM (Base-arch Regressor)
-10. SNAM (Base-arch Regressor)
+8. NodeGAM
+9. TreeNAM (Regressor)
+10. SNAM (Regressor)
 
-## Installation 
-Either clone the repository and install the requirements, or clone the repository and install via running
-```sh
+## Installation
+
+### From PyPI (recommended)
+
+```bash
+pip install nampy
+```
+
+### From Source
+
+Clone the repository and install in development mode:
+
+```bash
+git clone https://github.com/OpenTabular/NAMpy.git
+cd NAMpy
 pip install -e .
 ```
 
-Alternatively, get the Github token/tag and install via
+### From GitHub
 
-```sh
-pip install git+https://<TOKEN>/github.com/OpenTabular/NAMpy.git@branch-or-tag
+Install directly from a specific branch or tag:
+
+```bash
+pip install git+https://github.com/OpenTabular/NAMpy.git@main
 ```
 
-## Fit a Model
-Fitting a model in NAMpy is as simple as it gets. All models in NAMpy are sklearn BaseEstimators. Thus the `.fit` method is implemented for all of them. Additionally, this allows for using all other sklearn inherent methods such as their built in hyperparameter optimization tools.
+### Requirements
+
+- Python >= 3.6
+- PyTorch
+- Lightning
+- scikit-learn
+- pandas
+- numpy
+
+## Quick Start
+
+### Fit a Model
+
+All NAMpy models implement sklearn `BaseEstimator` methods, including `.fit`. This enables standard tooling such as scikit-learn model selection and evaluation utilities.
 
 ```python
-from NAMpy.models import NAMClassifier
+from nampy.models import NAMClassifier
+
 # Initialize and fit your model
 model = NAMClassifier(
     numerical_preprocessing="ple",
     n_bins=50
 )
 
-# X can be a dataframe or something that can be easily transformed into a pd.DataFrame as a np.array
+# X can be a DataFrame or any array-like that can be converted to a DataFrame.
 model.fit(X, y, max_epochs=150, lr=1e-04)
 ```
 
-Predictions are also easily obtained:
+### Make Predictions
+
+Use the standard prediction methods:
+
 ```python
-# simple predictions
+# Simple predictions
 preds = model.predict(X)
 
-# Predict probabilities
+# Predict probabilities (for classification)
 preds = model.predict_proba(X)
 ```
 
+### Regression Example
+
+```python
+from nampy.models import NAMRegressor
+from sklearn.datasets import make_regression
+from sklearn.model_selection import train_test_split
+
+# Generate sample data
+X, y = make_regression(n_samples=1000, n_features=10, noise=0.1)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+# Train model
+model = NAMRegressor(numerical_preprocessing="standardization")
+model.fit(X_train, y_train, max_epochs=100, lr=1e-3)
+
+# Evaluate
+score = model.score(X_test, y_test)
+print(f"R² Score: {score:.4f}")
+
+```
 
 ## Distributional Regression with NAMLSS
 
-NAMpy introduces an approach to distributional regression through its `NAMLSS` module, allowing users to model the full distribution of a response variable, not just its mean. This method is particularly valuable in scenarios where understanding the variability, skewness, or kurtosis of the response distribution is as crucial as predicting its central tendency. All available moedls in NAMpy are also available as distributional models.
+NAMpy provides distributional regression through the `NAMLSS` module, which models the full response distribution rather than only the mean. This is useful when variability, skewness, or kurtosis are as important as the central tendency. Most models in NAMpy are also available as distributional models.
 
 ### Key Features of NAMLSS:
 
-- **Full Distribution Modeling**: Unlike traditional regression models that predict a single value (e.g., the mean), `NAMLSS` models the entire distribution of the response variable. This allows for more informative predictions, including quantiles, variance, and higher moments.
-- **Customizable Distribution Types**: `NAMLSS` supports a variety of distribution families (e.g., Gaussian, Poisson, Binomial), making it adaptable to different types of response variables, from continuous to count data.
-- **Location, Scale, Shape Parameters**: The model predicts parameters corresponding to the location, scale, and shape of the distribution, offering a nuanced understanding of the data's underlying distributional characteristics.
-- **Enhanced Predictive Uncertainty**: By modeling the full distribution, `NAMLSS` provides richer information on predictive uncertainty, enabling more robust decision-making processes in uncertain environments.
+- **Full Distribution Modeling**: Unlike traditional regression models that predict a single value (e.g., the mean), `NAMLSS` models the entire distribution of the response variable. This supports predictions of quantiles, variance, and higher moments.
+- **Customizable Distribution Types**: `NAMLSS` supports a variety of distribution families (e.g., Normal, Poisson, Gamma, Beta), making it suitable for response variables ranging from continuous to count data.
+- **Location, Scale, Shape Parameters**: The model predicts parameters corresponding to the location, scale, and shape of the distribution, providing direct access to distributional characteristics.
+- **Enhanced Predictive Uncertainty**: By modeling the full distribution, `NAMLSS` provides explicit predictive uncertainty estimates for downstream decisions.
 
 
 
 ### Available Distribution Classes:
 
-`NAMLSS` offers a wide range of distribution classes to cater to various statistical modeling needs. The available distribution classes include:
+`NAMLSS` includes a range of distribution classes for statistical modeling needs. The available distribution classes include:
 
 - `normal`: Normal Distribution for modeling continuous data with a symmetric distribution around the mean.
 - `poisson`: Poisson Distribution for modeling count data that for instance represent the number of events occurring within a fixed interval.
@@ -84,18 +144,20 @@ NAMpy introduces an approach to distributional regression through its `NAMLSS` m
 - `negativebinom`: Negative Binomial Distribution for modeling count data with over-dispersion relative to the Poisson distribution.
 - `inversegamma`: Inverse Gamma Distribution, often used as a prior distribution in Bayesian inference for scale parameters.
 - `categorical`: Categorical Distribution for modeling categorical data with more than two categories.
+- `quantile`: Quantile regression for estimating conditional quantiles.
+- `robustnormal`: Robust Normal Distribution for heavy-tailed targets.
 
-These distribution classes allow `NAMLSS` to flexibly model a wide variety of data types and distributions, providing users with the tools needed to capture the full complexity of their data.
+These distribution classes allow `NAMLSS` to model a wide variety of data types and distributions.
 
 
-### Getting Started with NAMpyLSS:
+### Getting Started with NAMLSS:
 
-To integrate distributional regression into your workflow with `NAMLSS`, start by initializing the model with your desired configuration, similar to other NAMpy models:
+To integrate distributional regression into your workflow with `NAMLSS`, initialize the model with the desired configuration, similar to other NAMpy models:
 
 ```python
-from NAMpy.models import NAMLSS
+from nampy.models import NAMLSS
 
-# Initialize the NAMpyLSS model
+# Initialize the NAMLSS model
 model = NAMLSS()
 
 # Fit the model to your data
@@ -105,23 +167,25 @@ model.fit(
     max_epochs=150, 
     lr=1e-04, 
     patience=10,     
-    family="normal" # define your distribution
-    )
+    family="normal"  # define your distribution
+)
 
+# Predict distribution parameters
+dist_params = model.predict(X_test)
 ```
 
 
-### Implement Your Own Model
+## Implement Your Own Model
 
-NAMpy allows users to easily integrate their custom models into the existing logic. This process is designed to be straightforward, making it simple to create a PyTorch model and define its forward pass. Instead of inheriting from `nn.Module`, you inherit from NAMpy's `BaseModel`. Each NAMpy model takes three main arguments: the number of classes (e.g., 1 for regression or 2 for binary classification), `cat_feature_info`, and `num_feature_info` for categorical and numerical feature information, respectively. These are passed as dictionaries, with variable names as the keys. Additionally, you can provide a config argument, which can either be a custom configuration or one of the provided default configs.
+NAMpy supports integration of custom models into the existing logic. Implement a PyTorch model and define its forward pass, but inherit from NAMpy's `BaseModel` rather than `nn.Module`. Each NAMpy model takes three main arguments: the number of classes (e.g., 1 for regression or 2 for binary classification), `cat_feature_info`, and `num_feature_info` for categorical and numerical feature information, respectively. These are passed as dictionaries, with variable names as the keys. Additionally, you can provide a config argument, which can either be a custom configuration or one of the provided default configs.
 
-One of the key advantages of using NAMpy is that the inputs to the forward passes are dictionaries of tensors. While this might be unconventional, it is highly beneficial for models that treat different data types differently and directly maps feature/variable predictions to input features in additive models. 
+A key aspect of NAMpy is that the inputs to the forward passes are dictionaries of tensors. This supports models that treat different data types differently and directly maps feature/variable predictions to input features in additive models. 
 
-Here's how you can implement a custom model with NAMpy:
+Example workflow for a custom model:
 
 
 1. First, define your config:
-The configuration class allows you to specify hyperparameters and other settings for your model. This can be done using a simple dataclass.
+Use a dataclass to specify hyperparameters and other settings for your model.
 
 ```python
 from dataclasses import dataclass
@@ -135,12 +199,12 @@ class MyConfig:
 ```
 
 2. Second, define your model:
-Define your custom model just as you would for an `nn.Module`. The main difference is that you will inherit from `BaseModel` and use the provided feature information to construct your layers. To integrate your model into the existing API, you only need to define the architecture and the forward pass. Note, that the forward pass must return a dictionary with the key "outpu" for the final model prediction. This can be multi-dimensinoal, e.g. for classification or distributional regression. Beyond that, the dictionary can contain anything but commonly includes single feature/variable predictions for e.g. further processing/plotting.
+Define your custom model as you would for an `nn.Module`. The main difference is that you will inherit from `BaseModel` and use the provided feature information to construct your layers. To integrate your model into the existing API, define the architecture and the forward pass. Note that the forward pass must return a dictionary with the key "output" for the final model prediction. This can be multi-dimensional, for example for classification or distributional regression. Beyond that, the dictionary can contain anything but often includes single feature/variable predictions for further processing or plotting.
 
 ```python
-from NAMpy.base_models import BaseModel
+from nampy.basemodels import BaseModel
 import torch
-import torch.nn
+import torch.nn as nn
 
 class MyCustomModel(BaseModel):
     def __init__(
@@ -200,10 +264,10 @@ class MyCustomModel(BaseModel):
 ```
 
 3. Leverage the NAMpy API:
-You can build a regression, classification or distributional regression model that can leverage all of NAMpys built-in methods, by using the following:
+You can build a regression, classification or distributional regression model that can leverage all of NAMpy's built-in methods, by using the following:
 
 ```python
-from NAMpy.models import SklearnBaseRegressor
+from nampy.models import SklearnBaseRegressor
 
 class MyRegressor(SklearnBaseRegressor):
     def __init__(self, **kwargs):
@@ -211,10 +275,63 @@ class MyRegressor(SklearnBaseRegressor):
 ```
 
 4. Train and evaluate your model:
-You can now fit, evaluate, and predict with your custom model just like with any other NAMpy model. For classification or distributional regression, inherit from `SklearnBaseClassifier` or `SklearnBaseLSS` respectively.
+You can now fit, evaluate, and predict with your custom model using the same APIs as other NAMpy models. For classification or distributional regression, inherit from `SklearnBaseClassifier` or `SklearnBaseLSS` respectively.
 
 ```python
 regressor = MyRegressor(numerical_preprocessing="ple")
 regressor.fit(X_train, y_train, max_epochs=50)
+predictions = regressor.predict(X_test)
 ```
 
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on how to get started.
+
+## Citation
+
+If you use NAMpy in your research, please cite:
+
+```bibtex
+@software{nampy2024,
+  title={NAMpy: Interpretable Tabular Deep Learning},
+  author={Thielmann, Anton},
+  year={2024},
+  url={https://github.com/OpenTabular/NAMpy}
+}
+```
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Documentation
+
+Comprehensive documentation is available:
+
+- **Build Locally**: `make docs` (then open `docs/_build/html/index.html`)
+- **Read the Docs**: https://nampy.readthedocs.io (coming soon)
+- **GitHub Pages**: https://opentabular.github.io/NAMpy (coming soon)
+
+Documentation includes:
+- Installation guide
+- Quick start tutorial
+- Comprehensive user guide
+- API reference (auto-generated)
+- Model comparison guide
+- Examples and tutorials
+- FAQ
+
+## Links
+
+- **Documentation**: See `docs/` directory or build with `make docs`
+- **Source Code**: https://github.com/OpenTabular/NAMpy
+- **Issue Tracker**: https://github.com/OpenTabular/NAMpy/issues
+- **PyPI**: https://pypi.org/project/nampy/
+
+## Acknowledgments
+
+NAMpy builds upon research in neural additive models and interpretable machine learning. Special thanks to the open-source community and contributors.
+
+---
+
+Made with ❤️ by the OpenTabular team
