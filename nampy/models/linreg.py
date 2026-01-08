@@ -55,11 +55,11 @@ class LinRegRegressor(SklearnBaseRegressor):
 
     See Also
     --------
-    mambular.models.SklearnBaseRegressor : The parent class for LinRegRegressor.
+    nampy.models.SklearnBaseRegressor : The parent class for LinRegRegressor.
 
     Examples
     --------
-    >>> from mambular.models import LinRegRegressor
+    >>> from nampy.models import LinRegRegressor
     >>> model = LinRegRegressor(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
@@ -120,11 +120,11 @@ class LinRegClassifier(SklearnBaseClassifier):
 
     See Also
     --------
-    mambular.models.SklearnBaseRegressor : The parent class for LinRegClassifier.
+    nampy.models.SklearnBaseRegressor : The parent class for LinRegClassifier.
 
     Examples
     --------
-    >>> from mambular.models import LinRegClassifier
+    >>> from nampy.models import LinRegClassifier
     >>> model = LinRegClassifier(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
@@ -190,11 +190,11 @@ class LinRegLSS(SklearnBaseLSS):
 
     See Also
     --------
-    mambular.models.SklearnBaseLSS : The parent class for LinRegLSS.
+    nampy.models.SklearnBaseLSS : The parent class for LinRegLSS.
 
     Examples
     --------
-    >>> from mambular.models import LinRegLSS
+    >>> from nampy.models import LinRegLSS
     >>> model = LinRegLSS(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)

@@ -73,11 +73,11 @@ class TreeNAMRegressor(SklearnBaseRegressor):
 
     See Also
     --------
-    mambular.models.SklearnBaseRegressor : The parent class for NAMRegressor.
+    nampy.models.SklearnBaseRegressor : The parent class for NAMRegressor.
 
     Examples
     --------
-    >>> from mambular.models import NAMRegressor
+    >>> from nampy.models import NAMRegressor
     >>> model = NAMRegressor(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)

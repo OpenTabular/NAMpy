@@ -73,11 +73,11 @@ class NBMRegressor(SklearnBaseRegressor):
 
     See Also
     --------
-    mambular.models.SklearnBaseRegressor : The parent class for NBMRegressor.
+    nampy.models.SklearnBaseRegressor : The parent class for NBMRegressor.
 
     Examples
     --------
-    >>> from mambular.models import NBMRegressor
+    >>> from nampy.models import NBMRegressor
     >>> model = NBMRegressor(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
@@ -156,11 +156,11 @@ class NBMClassifier(SklearnBaseClassifier):
 
     See Also
     --------
-    mambular.models.SklearnBaseRegressor : The parent class for NBMClassifier.
+    nampy.models.SklearnBaseRegressor : The parent class for NBMClassifier.
 
     Examples
     --------
-    >>> from mambular.models import NBMClassifier
+    >>> from nampy.models import NBMClassifier
     >>> model = NBMClassifier(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
@@ -242,11 +242,11 @@ class NBMLSS(SklearnBaseLSS):
 
     See Also
     --------
-    mambular.models.SklearnBaseLSS : The parent class for NBMLSS.
+    nampy.models.SklearnBaseLSS : The parent class for NBMLSS.
 
     Examples
     --------
-    >>> from mambular.models import NBMLSS
+    >>> from nampy.models import NBMLSS
     >>> model = NBMLSS(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)

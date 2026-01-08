@@ -73,11 +73,11 @@ class NATTRegressor(SklearnBaseRegressor):
 
     See Also
     --------
-    mambular.models.SklearnBaseRegressor : The parent class for NATTRegressor.
+    nampy.models.SklearnBaseRegressor : The parent class for NATTRegressor.
 
     Examples
     --------
-    >>> from mambular.models import NATTRegressor
+    >>> from nampy.models import NATTRegressor
     >>> model = NATTRegressor(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
@@ -156,11 +156,11 @@ class NATTClassifier(SklearnBaseClassifier):
 
     See Also
     --------
-    mambular.models.SklearnBaseRegressor : The parent class for NATTClassifier.
+    nampy.models.SklearnBaseRegressor : The parent class for NATTClassifier.
 
     Examples
     --------
-    >>> from mambular.models import NATTClassifier
+    >>> from nampy.models import NATTClassifier
     >>> model = NATTClassifier(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
@@ -242,11 +242,11 @@ class NATTLSS(SklearnBaseLSS):
 
     See Also
     --------
-    mambular.models.SklearnBaseLSS : The parent class for NATTLSS.
+    nampy.models.SklearnBaseLSS : The parent class for NATTLSS.
 
     Examples
     --------
-    >>> from mambular.models import NATTLSS
+    >>> from nampy.models import NATTLSS
     >>> model = NATTLSS(layer_sizes=[128, 128, 64], activation=nn.ReLU())
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
