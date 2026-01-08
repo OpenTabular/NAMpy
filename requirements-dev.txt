@@ -1,2 +1,6 @@
 pytest
 pytest-cov
+black
+ruff
+mypy
+isort

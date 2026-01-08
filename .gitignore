@@ -173,3 +173,12 @@ docs/_build/doctrees/*
 docs/_build/html/*
 
 *lightning_logs
+
+# Model checkpoints
+model_checkpoints/
+
+# Pre-commit
+.pre-commit-cache/
+
+# Ruff
+.ruff_cache/
