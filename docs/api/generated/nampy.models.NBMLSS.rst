@@ -1,0 +1,68 @@
+﻿nampy.models.NBMLSS
+===================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: NBMLSS
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~NBMLSS.__delattr__
+      ~NBMLSS.__dir__
+      ~NBMLSS.__eq__
+      ~NBMLSS.__format__
+      ~NBMLSS.__ge__
+      ~NBMLSS.__getattribute__
+      ~NBMLSS.__getstate__
+      ~NBMLSS.__gt__
+      ~NBMLSS.__hash__
+      ~NBMLSS.__init_subclass__
+      ~NBMLSS.__le__
+      ~NBMLSS.__lt__
+      ~NBMLSS.__ne__
+      ~NBMLSS.__new__
+      ~NBMLSS.__reduce__
+      ~NBMLSS.__reduce_ex__
+      ~NBMLSS.__repr__
+      ~NBMLSS.__setattr__
+      ~NBMLSS.__setstate__
+      ~NBMLSS.__sizeof__
+      ~NBMLSS.__sklearn_clone__
+      ~NBMLSS.__sklearn_tags__
+      ~NBMLSS.__str__
+      ~NBMLSS.__subclasshook__
+      ~NBMLSS._get_class_level_metadata_request_values
+      ~NBMLSS._get_doc_link
+      ~NBMLSS._get_metadata_request
+      ~NBMLSS._get_param_names
+      ~NBMLSS._get_params_html
+      ~NBMLSS._html_repr
+      ~NBMLSS._plot_single_feature_effects
+      ~NBMLSS._predict
+      ~NBMLSS._repr_html_inner
+      ~NBMLSS._repr_mimebundle_
+      ~NBMLSS._validate_params
+      ~NBMLSS.evaluate
+      ~NBMLSS.fit
+      ~NBMLSS.get_default_metrics
+      ~NBMLSS.get_metadata_routing
+      ~NBMLSS.get_params
+      ~NBMLSS.plot
+      ~NBMLSS.predict
+      ~NBMLSS.predict_feature_vals
+      ~NBMLSS.set_fit_request
+      ~NBMLSS.set_params
+      ~NBMLSS.set_predict_request
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~NBMLSS.__annotations__
+      ~NBMLSS.__dict__
+      ~NBMLSS.__doc__
+      ~NBMLSS.__module__
+      ~NBMLSS.__weakref__
+      ~NBMLSS._doc_link_module
+      ~NBMLSS._doc_link_template
+      ~NBMLSS._doc_link_url_param_generator
+      ~NBMLSS._repr_html_
+   

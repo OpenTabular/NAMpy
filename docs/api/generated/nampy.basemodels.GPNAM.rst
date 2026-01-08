@@ -1,0 +1,140 @@
+﻿nampy.basemodels.GPNAM
+======================
+
+.. currentmodule:: nampy.basemodels
+
+.. autoclass:: GPNAM
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~GPNAM.__call__
+      ~GPNAM.__delattr__
+      ~GPNAM.__dir__
+      ~GPNAM.__eq__
+      ~GPNAM.__format__
+      ~GPNAM.__ge__
+      ~GPNAM.__getattr__
+      ~GPNAM.__getattribute__
+      ~GPNAM.__getstate__
+      ~GPNAM.__gt__
+      ~GPNAM.__hash__
+      ~GPNAM.__init_subclass__
+      ~GPNAM.__le__
+      ~GPNAM.__lt__
+      ~GPNAM.__ne__
+      ~GPNAM.__new__
+      ~GPNAM.__reduce__
+      ~GPNAM.__reduce_ex__
+      ~GPNAM.__repr__
+      ~GPNAM.__setattr__
+      ~GPNAM.__setstate__
+      ~GPNAM.__sizeof__
+      ~GPNAM.__str__
+      ~GPNAM.__subclasshook__
+      ~GPNAM._apply
+      ~GPNAM._call_impl
+      ~GPNAM._get_backward_hooks
+      ~GPNAM._get_backward_pre_hooks
+      ~GPNAM._get_name
+      ~GPNAM._load_from_state_dict
+      ~GPNAM._maybe_warn_non_full_backward_hook
+      ~GPNAM._named_members
+      ~GPNAM._register_load_state_dict_pre_hook
+      ~GPNAM._register_state_dict_hook
+      ~GPNAM._replicate_for_data_parallel
+      ~GPNAM._save_to_state_dict
+      ~GPNAM._slow_forward
+      ~GPNAM._wrapped_call_impl
+      ~GPNAM.add_module
+      ~GPNAM.apply
+      ~GPNAM.bfloat16
+      ~GPNAM.buffers
+      ~GPNAM.children
+      ~GPNAM.compile
+      ~GPNAM.count_parameters
+      ~GPNAM.cpu
+      ~GPNAM.cuda
+      ~GPNAM.double
+      ~GPNAM.eval
+      ~GPNAM.extra_repr
+      ~GPNAM.float
+      ~GPNAM.forward
+      ~GPNAM.freeze_parameters
+      ~GPNAM.get_buffer
+      ~GPNAM.get_device
+      ~GPNAM.get_extra_state
+      ~GPNAM.get_parameter
+      ~GPNAM.get_submodule
+      ~GPNAM.half
+      ~GPNAM.infer_input_dim
+      ~GPNAM.ipu
+      ~GPNAM.load_model
+      ~GPNAM.load_state_dict
+      ~GPNAM.log_parameters
+      ~GPNAM.modules
+      ~GPNAM.mtia
+      ~GPNAM.named_buffers
+      ~GPNAM.named_children
+      ~GPNAM.named_modules
+      ~GPNAM.named_parameters
+      ~GPNAM.parameter_count
+      ~GPNAM.parameters
+      ~GPNAM.print_summary
+      ~GPNAM.register_backward_hook
+      ~GPNAM.register_buffer
+      ~GPNAM.register_forward_hook
+      ~GPNAM.register_forward_pre_hook
+      ~GPNAM.register_full_backward_hook
+      ~GPNAM.register_full_backward_pre_hook
+      ~GPNAM.register_load_state_dict_post_hook
+      ~GPNAM.register_load_state_dict_pre_hook
+      ~GPNAM.register_module
+      ~GPNAM.register_parameter
+      ~GPNAM.register_state_dict_post_hook
+      ~GPNAM.register_state_dict_pre_hook
+      ~GPNAM.requires_grad_
+      ~GPNAM.save_hyperparameters
+      ~GPNAM.save_model
+      ~GPNAM.set_extra_state
+      ~GPNAM.set_submodule
+      ~GPNAM.share_memory
+      ~GPNAM.state_dict
+      ~GPNAM.to
+      ~GPNAM.to_device
+      ~GPNAM.to_empty
+      ~GPNAM.train
+      ~GPNAM.type
+      ~GPNAM.unfreeze_parameters
+      ~GPNAM.xpu
+      ~GPNAM.zero_grad
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~GPNAM.T_destination
+      ~GPNAM.__annotations__
+      ~GPNAM.__dict__
+      ~GPNAM.__doc__
+      ~GPNAM.__module__
+      ~GPNAM.__weakref__
+      ~GPNAM._compiled_call_impl
+      ~GPNAM._version
+      ~GPNAM.call_super_init
+      ~GPNAM.dump_patches
+      ~GPNAM.training
+      ~GPNAM._parameters
+      ~GPNAM._buffers
+      ~GPNAM._non_persistent_buffers_set
+      ~GPNAM._backward_pre_hooks
+      ~GPNAM._backward_hooks
+      ~GPNAM._is_full_backward_hook
+      ~GPNAM._forward_hooks
+      ~GPNAM._forward_hooks_with_kwargs
+      ~GPNAM._forward_hooks_always_called
+      ~GPNAM._forward_pre_hooks
+      ~GPNAM._forward_pre_hooks_with_kwargs
+      ~GPNAM._state_dict_hooks
+      ~GPNAM._load_state_dict_pre_hooks
+      ~GPNAM._state_dict_pre_hooks
+      ~GPNAM._load_state_dict_post_hooks
+      ~GPNAM._modules
+   

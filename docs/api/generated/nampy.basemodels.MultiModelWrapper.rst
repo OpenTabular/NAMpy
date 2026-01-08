@@ -1,0 +1,128 @@
+﻿nampy.basemodels.MultiModelWrapper
+==================================
+
+.. currentmodule:: nampy.basemodels
+
+.. autoclass:: MultiModelWrapper
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~MultiModelWrapper.__call__
+      ~MultiModelWrapper.__delattr__
+      ~MultiModelWrapper.__dir__
+      ~MultiModelWrapper.__eq__
+      ~MultiModelWrapper.__format__
+      ~MultiModelWrapper.__ge__
+      ~MultiModelWrapper.__getattr__
+      ~MultiModelWrapper.__getattribute__
+      ~MultiModelWrapper.__getstate__
+      ~MultiModelWrapper.__gt__
+      ~MultiModelWrapper.__hash__
+      ~MultiModelWrapper.__init_subclass__
+      ~MultiModelWrapper.__le__
+      ~MultiModelWrapper.__lt__
+      ~MultiModelWrapper.__ne__
+      ~MultiModelWrapper.__new__
+      ~MultiModelWrapper.__reduce__
+      ~MultiModelWrapper.__reduce_ex__
+      ~MultiModelWrapper.__repr__
+      ~MultiModelWrapper.__setattr__
+      ~MultiModelWrapper.__setstate__
+      ~MultiModelWrapper.__sizeof__
+      ~MultiModelWrapper.__str__
+      ~MultiModelWrapper.__subclasshook__
+      ~MultiModelWrapper._apply
+      ~MultiModelWrapper._call_impl
+      ~MultiModelWrapper._get_backward_hooks
+      ~MultiModelWrapper._get_backward_pre_hooks
+      ~MultiModelWrapper._get_name
+      ~MultiModelWrapper._load_from_state_dict
+      ~MultiModelWrapper._maybe_warn_non_full_backward_hook
+      ~MultiModelWrapper._named_members
+      ~MultiModelWrapper._register_load_state_dict_pre_hook
+      ~MultiModelWrapper._register_state_dict_hook
+      ~MultiModelWrapper._replicate_for_data_parallel
+      ~MultiModelWrapper._save_to_state_dict
+      ~MultiModelWrapper._slow_forward
+      ~MultiModelWrapper._wrapped_call_impl
+      ~MultiModelWrapper.add_module
+      ~MultiModelWrapper.apply
+      ~MultiModelWrapper.bfloat16
+      ~MultiModelWrapper.buffers
+      ~MultiModelWrapper.children
+      ~MultiModelWrapper.compile
+      ~MultiModelWrapper.cpu
+      ~MultiModelWrapper.cuda
+      ~MultiModelWrapper.double
+      ~MultiModelWrapper.eval
+      ~MultiModelWrapper.extra_repr
+      ~MultiModelWrapper.float
+      ~MultiModelWrapper.forward
+      ~MultiModelWrapper.get_buffer
+      ~MultiModelWrapper.get_extra_state
+      ~MultiModelWrapper.get_parameter
+      ~MultiModelWrapper.get_submodule
+      ~MultiModelWrapper.half
+      ~MultiModelWrapper.ipu
+      ~MultiModelWrapper.load_state_dict
+      ~MultiModelWrapper.modules
+      ~MultiModelWrapper.mtia
+      ~MultiModelWrapper.named_buffers
+      ~MultiModelWrapper.named_children
+      ~MultiModelWrapper.named_modules
+      ~MultiModelWrapper.named_parameters
+      ~MultiModelWrapper.parameters
+      ~MultiModelWrapper.register_backward_hook
+      ~MultiModelWrapper.register_buffer
+      ~MultiModelWrapper.register_forward_hook
+      ~MultiModelWrapper.register_forward_pre_hook
+      ~MultiModelWrapper.register_full_backward_hook
+      ~MultiModelWrapper.register_full_backward_pre_hook
+      ~MultiModelWrapper.register_load_state_dict_post_hook
+      ~MultiModelWrapper.register_load_state_dict_pre_hook
+      ~MultiModelWrapper.register_module
+      ~MultiModelWrapper.register_parameter
+      ~MultiModelWrapper.register_state_dict_post_hook
+      ~MultiModelWrapper.register_state_dict_pre_hook
+      ~MultiModelWrapper.requires_grad_
+      ~MultiModelWrapper.set_extra_state
+      ~MultiModelWrapper.set_submodule
+      ~MultiModelWrapper.share_memory
+      ~MultiModelWrapper.state_dict
+      ~MultiModelWrapper.to
+      ~MultiModelWrapper.to_empty
+      ~MultiModelWrapper.train
+      ~MultiModelWrapper.type
+      ~MultiModelWrapper.xpu
+      ~MultiModelWrapper.zero_grad
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~MultiModelWrapper.T_destination
+      ~MultiModelWrapper.__annotations__
+      ~MultiModelWrapper.__dict__
+      ~MultiModelWrapper.__doc__
+      ~MultiModelWrapper.__module__
+      ~MultiModelWrapper.__weakref__
+      ~MultiModelWrapper._compiled_call_impl
+      ~MultiModelWrapper._version
+      ~MultiModelWrapper.call_super_init
+      ~MultiModelWrapper.dump_patches
+      ~MultiModelWrapper.training
+      ~MultiModelWrapper._parameters
+      ~MultiModelWrapper._buffers
+      ~MultiModelWrapper._non_persistent_buffers_set
+      ~MultiModelWrapper._backward_pre_hooks
+      ~MultiModelWrapper._backward_hooks
+      ~MultiModelWrapper._is_full_backward_hook
+      ~MultiModelWrapper._forward_hooks
+      ~MultiModelWrapper._forward_hooks_with_kwargs
+      ~MultiModelWrapper._forward_hooks_always_called
+      ~MultiModelWrapper._forward_pre_hooks
+      ~MultiModelWrapper._forward_pre_hooks_with_kwargs
+      ~MultiModelWrapper._state_dict_hooks
+      ~MultiModelWrapper._load_state_dict_pre_hooks
+      ~MultiModelWrapper._state_dict_pre_hooks
+      ~MultiModelWrapper._load_state_dict_post_hooks
+      ~MultiModelWrapper._modules
+   
