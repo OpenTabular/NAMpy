@@ -12,7 +12,7 @@ HOMEPAGE = "tbd"
 DOCS = "tbd"
 EMAIL = "anton.thielmann@tu-clausthal.de"
 AUTHOR = "Anton Thielmann"
-REQUIRES_PYTHON = ">=3.6, <=3.12.3"
+REQUIRES_PYTHON = ">=3.6"
 
 # Load the package's verison file and its content.
 ROOT_DIR = Path(__file__).resolve().parent
@@ -21,7 +21,14 @@ PACKAGE_DIR = ROOT_DIR / "nampy"
 with open(PACKAGE_DIR / "__version__.py") as f:
     VERSION = f.readlines()[-1].split()[-1].strip("\"'")
 
-# ger install_reqs from requirements file, used for setup function later
+# Read the README file for long description
+try:
+    with open(ROOT_DIR / "README.md", encoding="utf-8") as f:
+        long_description = f.read()
+except FileNotFoundError:
+    long_description = DESCRIPTION
+
+# Get install_reqs from requirements file, used for setup function later
 with open(os.path.join(ROOT_DIR, "requirements.txt")) as f:
     # next(f)
     install_reqs = [
@@ -35,6 +42,7 @@ setup(
     name=NAME,
     version=VERSION,
     description=DESCRIPTION,
+    long_description=long_description,
     long_description_content_type="text/markdown",
     author=AUTHOR,
     author_email=EMAIL,
@@ -45,7 +53,7 @@ setup(
     packages=find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License",
+        "License :: Proprietary License",
         "Operating System :: OS Independent",
     ],
     include_package_data=True,
