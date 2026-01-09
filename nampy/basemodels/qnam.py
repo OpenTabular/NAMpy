@@ -1,17 +1,19 @@
+from itertools import combinations
+
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
-from ..configs.nam_config import DefaultNAMConfig
-from .basemodel import BaseModel
+
 from ..arch_utils.normalization_layers import (
-    RMSNorm,
+    BatchNorm,
+    GroupNorm,
+    InstanceNorm,
     LayerNorm,
     LearnableLayerScaling,
-    BatchNorm,
-    InstanceNorm,
-    GroupNorm,
+    RMSNorm,
 )
-import matplotlib.pyplot as plt
-from itertools import combinations
+from ..configs.nam_config import DefaultNAMConfig
+from .basemodel import BaseModel
 
 
 class QNAMBase(BaseModel):

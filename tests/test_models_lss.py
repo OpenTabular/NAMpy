@@ -2,15 +2,14 @@ import pytest
 
 from nampy.models import (
     GPNAMLSS,
-    LinRegLSS,
     NAMLSS,
-    NAMformerLSS,
     NATTLSS,
     NBMLSS,
-    NodeGAMLSS,
     QNAM,
+    LinRegLSS,
+    NAMformerLSS,
+    NodeGAMLSS,
 )
-
 
 LSS_MODELS = [
     (NAMLSS, {"layer_sizes": (4,), "dropout": 0.0}),

@@ -5,13 +5,13 @@ from sklearn.exceptions import NotFittedError
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (
+    FunctionTransformer,
     KBinsDiscretizer,
     MinMaxScaler,
-    StandardScaler,
-    QuantileTransformer,
     PolynomialFeatures,
+    QuantileTransformer,
     SplineTransformer,
-    FunctionTransformer,
+    StandardScaler,
 )
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 

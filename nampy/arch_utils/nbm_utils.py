@@ -1,5 +1,6 @@
 import torch.nn as nn
 from torch.nn.modules.activation import ReLU
+
 from ..configs.nbm_config import DefaultNBMConfig
 
 

@@ -1,8 +1,9 @@
+from typing import Type
+
 import lightning as pl
 import torch
 import torch.nn as nn
 import torchmetrics
-from typing import Type
 
 
 class TaskModel(pl.LightningModule):

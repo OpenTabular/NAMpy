@@ -1,7 +1,9 @@
+import math
+
 import torch
 import torch.nn as nn
-import math
 from scipy.stats import norm
+
 from ..configs.nam_config import DefaultNAMConfig
 from .basemodel import BaseModel
 

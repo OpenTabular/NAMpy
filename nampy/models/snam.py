@@ -1,6 +1,6 @@
-from .sklearn_regressor import SklearnBaseRegressor
 from ..basemodels.snam import SNAM
 from ..configs.snam_config import DefaultSNAMConfig
+from .sklearn_regressor import SklearnBaseRegressor
 
 
 class SNAMRegressor(SklearnBaseRegressor):

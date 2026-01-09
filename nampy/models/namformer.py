@@ -1,8 +1,8 @@
-from .sklearn_regressor import SklearnBaseRegressor
-from .sklearn_classifier import SklearnBaseClassifier
-from .sklearn_lss import SklearnBaseLSS
 from ..basemodels.namformer import NAMformer
 from ..configs.namformer_config import DefaultNAMformerConfig
+from .sklearn_classifier import SklearnBaseClassifier
+from .sklearn_lss import SklearnBaseLSS
+from .sklearn_regressor import SklearnBaseRegressor
 
 
 class NAMformerRegressor(SklearnBaseRegressor):

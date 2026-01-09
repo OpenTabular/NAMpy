@@ -1,8 +1,8 @@
-from .sklearn_regressor import SklearnBaseRegressor
-from .sklearn_classifier import SklearnBaseClassifier
-from .sklearn_lss import SklearnBaseLSS
 from ..basemodels.nam import NAM
 from ..configs.nam_config import DefaultNAMConfig
+from .sklearn_classifier import SklearnBaseClassifier
+from .sklearn_lss import SklearnBaseLSS
+from .sklearn_regressor import SklearnBaseRegressor
 
 
 class NAMRegressor(SklearnBaseRegressor):

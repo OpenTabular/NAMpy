@@ -1,8 +1,8 @@
-from .sklearn_regressor import SklearnBaseRegressor
-from .sklearn_classifier import SklearnBaseClassifier
-from .sklearn_lss import SklearnBaseLSS
 from ..basemodels.gpnam import GPNAM
 from ..configs.nam_config import DefaultNAMConfig
+from .sklearn_classifier import SklearnBaseClassifier
+from .sklearn_lss import SklearnBaseLSS
+from .sklearn_regressor import SklearnBaseRegressor
 
 
 class GPNAMRegressor(SklearnBaseRegressor):

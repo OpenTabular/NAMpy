@@ -1,10 +1,9 @@
-from ..splines.cubic import CubicSplines
-import numpy as np
 import numpy as np
 from scipy.linalg import block_diag
 from scipy.optimize import minimize
-from scipy.stats import chi2
-from scipy.stats import norm
+from scipy.stats import chi2, norm
+
+from ..splines.cubic import CubicSplines
 
 
 class GAM:

@@ -1,19 +1,21 @@
+from itertools import combinations
+
 import torch
 import torch.nn as nn
-from ..configs.namformer_config import DefaultNAMformerConfig
-from .basemodel import BaseModel
-from ..arch_utils.normalization_layers import (
-    RMSNorm,
-    LayerNorm,
-    LearnableLayerScaling,
-    BatchNorm,
-    InstanceNorm,
-    GroupNorm,
-)
+
 from ..arch_utils.embedding_layer import EmbeddingLayer
 from ..arch_utils.mlp_utils import MLP
+from ..arch_utils.normalization_layers import (
+    BatchNorm,
+    GroupNorm,
+    InstanceNorm,
+    LayerNorm,
+    LearnableLayerScaling,
+    RMSNorm,
+)
 from ..arch_utils.transformer_utils import CustomTransformerEncoderLayer
-from itertools import combinations
+from ..configs.namformer_config import DefaultNAMformerConfig
+from .basemodel import BaseModel
 
 
 class NAMformer(BaseModel):

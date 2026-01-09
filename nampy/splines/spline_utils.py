@@ -1,9 +1,10 @@
+import bisect
+
+import matplotlib as mpl
 import numpy as np
 import pandas as pd
-from scipy.spatial import distance_matrix
 from scipy.sparse.linalg import eigsh
-import bisect
-import matplotlib as mpl
+from scipy.spatial import distance_matrix
 
 
 def eta(E, m, d):

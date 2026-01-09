@@ -6,36 +6,35 @@ with a scikit-learn compatible interface.
 """
 
 from . import basemodels, configs, data_utils, models, preprocessing, utils
+from .__version__ import __version__
 
 # Import key classes for convenience
 from .models import (
-    NAMRegressor,
-    NAMClassifier,
-    NAMLSS,
-    GPNAMRegressor,
-    GPNAMClassifier,
     GPNAMLSS,
-    NBMRegressor,
-    NBMClassifier,
-    NBMLSS,
-    NATTRegressor,
-    NATTClassifier,
+    NAMLSS,
     NATTLSS,
-    NAMformerRegressor,
-    NAMformerClassifier,
-    NAMformerLSS,
-    LinRegRegressor,
+    NBMLSS,
+    QNAM,
+    GPNAMClassifier,
+    GPNAMRegressor,
     LinRegClassifier,
     LinRegLSS,
-    TreeNAMRegressor,
-    SNAMRegressor,
-    NodeGAMRegressor,
+    LinRegRegressor,
+    NAMClassifier,
+    NAMformerClassifier,
+    NAMformerLSS,
+    NAMformerRegressor,
+    NAMRegressor,
+    NATTClassifier,
+    NATTRegressor,
+    NBMClassifier,
+    NBMRegressor,
     NodeGAMClassifier,
     NodeGAMLSS,
-    QNAM,
+    NodeGAMRegressor,
+    SNAMRegressor,
+    TreeNAMRegressor,
 )
-
-from .__version__ import __version__
 
 __all__ = [
     # Submodules

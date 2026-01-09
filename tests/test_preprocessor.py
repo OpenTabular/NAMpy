@@ -3,7 +3,6 @@ import pytest
 
 from nampy.preprocessing import Preprocessor
 
-
 NUMERICAL_MODES = [
     "ple",
     "binning",
