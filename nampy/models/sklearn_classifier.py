@@ -8,6 +8,7 @@ import warnings
 from ..basemodels.lightning_wrapper import TaskModel
 from ..data_utils.datamodule import NAMpyDataModule
 from ..preprocessing import Preprocessor
+from ..utils.plotting import create_subplot_grid, prepare_plot_data, plot_density_shading
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -467,138 +468,98 @@ class SklearnBaseClassifier(BaseEstimator):
 
         return scores
 
-    def _plot_single_feature_effects(self, x_plot, predictions, y_true, feature_name=None, num_bins=30):
+    def _plot_single_feature_effects(self, x_plot, predictions, y_true, ax, feature_name=None, num_bins=30):
         """
-        Internal function to plot the effect of a single feature for classification or LSS regression,
-        plotting separate lines for each class or distributional parameter.
+        Plot the effect of a single feature for classification, with separate lines for each class.
 
         Parameters
         ----------
         x_plot : np.ndarray
-            The simulated feature values for plotting.
+            The feature values for plotting.
         predictions : np.ndarray
-            The predicted values for the feature from the model (shape (n, k) for multi-class or LSS regression).
+            The predicted values (shape (n, k) for multi-class).
         y_true : np.ndarray
-            The true values for the target variable (for scatter plot).
+            The true target values (for scatter plot).
+        ax : matplotlib.axes.Axes
+            The axes on which to plot.
         feature_name : str, optional
-            The name of the feature to display in the plot title and xlabel.
+            The name of the feature for labels.
         num_bins : int, optional
-            The number of bins to use for density shading, by default 30.
+            Number of bins for density shading, by default 30.
         """
-        # Check if the predictions have multiple columns (for multi-class or distributional parameters)
-        n_classes_or_params = predictions.shape[1] if predictions.ndim > 1 else 1
+        n_classes = predictions.shape[1] if predictions.ndim > 1 else 1
+        y_range = (y_true.min() - 1, y_true.max() + 1)
 
-        # Create density-based shading
-        counts, bin_edges = np.histogram(x_plot, bins=num_bins)
-        max_count = counts.max() if counts.size else 0
-        norm_counts = counts / max_count if max_count else np.zeros_like(counts, dtype=float)
+        plot_density_shading(ax, x_plot, y_range, num_bins)
 
-        plt.figure(figsize=(8, 6))
-        for i in range(num_bins):
-            plt.bar(
-                bin_edges[i],
-                (y_true.min() - 1, y_true.max() + 1),
-                width=bin_edges[i + 1] - bin_edges[i],
-                color=plt.cm.Reds(norm_counts[i]),
-                alpha=0.6,
-            )
+        # Plot shape functions for each class
+        for i in range(n_classes):
+            contribs = predictions[:, i] if predictions.ndim > 1 else predictions
+            ax.plot(x_plot, contribs, label=f"Class {i + 1}")
 
-        # Plot shape functions (predicted contributions) for each class or distributional parameter
-        for i in range(n_classes_or_params):
-            contribs = predictions[:, i]
-            plt.plot(
-                x_plot,
-                contribs,
-                label=f"Class/Param {i + 1}",
-            )
+        y_true_centered = y_true - np.mean(y_true)
+        ax.scatter(x_plot, y_true_centered, color="gray", alpha=0.3, s=2, label="True Values")
 
-        # Add scatter plot of the true values
-        y_true_plot = y_true - np.mean(y_true)
-        plt.scatter(
-            x_plot, y_true_plot, color="gray", alpha=0.3, s=2, label="True Values"
-        )
-
-        # Set title and labels with feature name if provided
-        if feature_name:
-            plt.title(f"Shape Function: {feature_name}")
-            plt.xlabel(feature_name)
-        else:
-            plt.title("Shape Function")
-            plt.xlabel("Feature")
-        plt.ylabel("Contribution")
-        plt.legend()
-        plt.show()
+        ax.set_title(f"Shape Function: {feature_name}" if feature_name else "Shape Function")
+        ax.set_xlabel(feature_name or "Feature")
+        ax.set_ylabel("Contribution")
+        ax.legend()
 
     def plot(self, X, y_true, feature_name=None, plot_interactions=False):
         """
-        Main function to plot feature effects for classification or LSS regression, where predictions
-        have shape (n, k). Calls single feature effect plotting and, if requested, interaction effect plotting.
+        Plot feature effects in a unified grid layout.
 
         Parameters
         ----------
         X : pd.DataFrame or np.ndarray
             Input data for generating predictions.
         y_true : np.ndarray
-            True target values for comparison in the scatter plot.
+            True target values for comparison.
         feature_name : str, optional
-            Name of a specific feature to plot. If None, plots all numerical features.
+            Specific feature to plot. If None, plots all numerical features.
         plot_interactions : bool, optional
             Whether to also plot pairwise feature interactions, by default False.
         """
-        # Get the stored feature names from training
-        num_feature_names = list(self.data_module.num_feature_info.keys())
-        cat_feature_names = list(self.data_module.cat_feature_info.keys())
-        all_feature_names = num_feature_names + cat_feature_names
+        X_prepared, num_feature_names = prepare_plot_data(
+            X, self.data_module.num_feature_info, self.data_module.cat_feature_info
+        )
 
-        # Validate feature_name if provided
         if feature_name is not None and feature_name not in num_feature_names:
             raise ValueError(
-                f"Feature '{feature_name}' not found in numerical features. "
-                f"Available numerical features: {num_feature_names}"
+                f"Feature '{feature_name}' not found. Available: {num_feature_names}"
             )
 
-        # Convert to DataFrame and ensure correct column names
-        X_simulated = pd.DataFrame(X)
-        
-        # If X doesn't have the correct column names (e.g., numpy array with integer indices),
-        # assign the stored feature names
-        if not all(col in all_feature_names for col in X_simulated.columns):
-            if len(X_simulated.columns) == len(all_feature_names):
-                X_simulated.columns = all_feature_names
-            else:
-                raise ValueError(
-                    f"Input X has {len(X_simulated.columns)} columns but model expects {len(all_feature_names)} features."
-                )
-
-        # Determine which features to plot
         features_to_plot = [feature_name] if feature_name else num_feature_names
+        predictions = self._predict(X_prepared)
 
-        # Sort each column in ascending order (only for numerical columns)
-        for fname in num_feature_names:
-            if fname in X_simulated.columns:
-                X_simulated[fname] = (
-                    X_simulated[fname].sort_values().values
-                )
+        # Filter to features with predictions
+        features_to_plot = [f for f in features_to_plot if f in predictions]
+        if not features_to_plot:
+            raise ValueError("No features found with predictions to plot.")
 
-        # Generate predictions using the model
-        predictions = self._predict(X_simulated)
+        # Create grid and plot
+        fig, axes = create_subplot_grid(len(features_to_plot))
 
-        # Plot single feature effects for the specified feature(s)
-        for fname in features_to_plot:
-            if fname in predictions:
-                x_plot = X_simulated[fname].values  # Use simulated data directly
-                self._plot_single_feature_effects(
-                    x_plot, predictions[fname], y_true, feature_name=fname, num_bins=30
-                )
+        for ax, fname in zip(axes, features_to_plot):
+            self._plot_single_feature_effects(
+                X_prepared[fname].values, predictions[fname], y_true, ax, feature_name=fname
+            )
 
-        # Plot pairwise interaction effects (if requested)
+        # Hide unused subplots
+        for ax in axes[len(features_to_plot):]:
+            ax.set_visible(False)
+
+        plt.tight_layout()
+        plt.show()
+
+        # Plot interactions if requested
         if plot_interactions:
             for interaction_name in predictions.keys():
-                if ":" in interaction_name:  # Pairwise interaction check
+                if ":" in interaction_name:
                     feature1, feature2 = interaction_name.split(":")
                     self._plot_interaction_effects(
                         interaction_name,
                         predictions[feature1],
                         predictions[feature2],
-                        X_train_scaled=X_simulated,
+                        X_train_scaled=X_prepared,
                     )
