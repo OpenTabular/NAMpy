@@ -19,8 +19,10 @@ def regression_data():
             "f2": rng.uniform(-1, 1, size=40),
         }
     )
-    y = 0.5 * X["f1"].to_numpy() - 0.2 * X["f2"].to_numpy() + rng.normal(
-        scale=0.1, size=40
+    y = (
+        0.5 * X["f1"].to_numpy()
+        - 0.2 * X["f2"].to_numpy()
+        + rng.normal(scale=0.1, size=40)
     )
     return X, y
 

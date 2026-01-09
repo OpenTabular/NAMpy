@@ -6,6 +6,7 @@ from ..arch_utils.nodegam_utils import GAMBlock, GAMAttBlock, EM15Temp
 
 from nampy.arch_utils.nn_utils import entmoid15
 
+
 class NodeGAM(BaseModel):
     """
     Neural Additive Model (NodeGAM) class using GAMBlock/GAMAttBlock architecture.
@@ -61,7 +62,9 @@ class NodeGAM(BaseModel):
         )
 
         # Calculate total input dimension
-        total_input_dim = sum(info["dimension"] for info in num_feature_info.values()) + sum(info["dimension"] for info in cat_feature_info.values())
+        total_input_dim = sum(
+            info["dimension"] for info in num_feature_info.values()
+        ) + sum(info["dimension"] for info in cat_feature_info.values())
 
         # Initialize choice function with temperature annealing
         choice_fn = EM15Temp(max_temp=1.0, min_temp=0.01, steps=config.anneal_steps)
@@ -112,23 +115,23 @@ class NodeGAM(BaseModel):
         # Combine all features into a single tensor
         all_features = []
         feature_names = []
-        
+
         # Add numerical features
         for feature_name, feature_tensor in num_features.items():
             all_features.append(feature_tensor)
             feature_names.append(feature_name)
-            
+
         # Add categorical features
         for feature_name, feature_tensor in cat_features.items():
             all_features.append(feature_tensor.float())
             feature_names.append(feature_name)
-            
+
         # Concatenate all features
         x = torch.cat(all_features, dim=1)
-        
+
         # Apply feature dropout
         x = self.feature_dropout(x)
-        
+
         # Get prediction (and optional regularization penalty) from the model
         penalty = None
         if self.l2_lambda and self.l2_lambda > 0:
@@ -142,7 +145,7 @@ class NodeGAM(BaseModel):
         result = {"output": output}
         if penalty is not None:
             result["penalty"] = penalty
-        
+
         # Add individual feature outputs for interpretability
         for i, feature_name in enumerate(feature_names):
             result[feature_name] = all_features[i]

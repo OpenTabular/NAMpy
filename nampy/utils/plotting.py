@@ -48,9 +48,10 @@ def create_subplot_grid(n_plots, max_cols=4, subplot_size=(5, 4)):
     """
     nrows, ncols = compute_grid_layout(n_plots, max_cols)
     fig, axes = plt.subplots(
-        nrows, ncols,
+        nrows,
+        ncols,
         figsize=(subplot_size[0] * ncols, subplot_size[1] * nrows),
-        squeeze=False  # Always return 2D array for consistent handling
+        squeeze=False,  # Always return 2D array for consistent handling
     )
     return fig, axes.flatten()
 

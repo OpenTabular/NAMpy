@@ -230,7 +230,7 @@ class NAMformer(BaseModel):
         concatenated = torch.cat(all_outputs, dim=-1)
         # Apply feature dropout
         concatenated = self.feature_dropout(concatenated)
-        
+
         # Sum across features, keeping the num_classes dimension
         num_features_total = len(all_outputs)
         if self.num_classes > 1:

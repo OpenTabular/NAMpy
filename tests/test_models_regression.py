@@ -75,7 +75,9 @@ REGRESSION_MODELS = [
 
 
 @pytest.mark.parametrize("model_cls, model_kwargs", REGRESSION_MODELS)
-def test_regression_models_fit_predict(model_cls, model_kwargs, regression_data, tmp_path):
+def test_regression_models_fit_predict(
+    model_cls, model_kwargs, regression_data, tmp_path
+):
     X, y = regression_data
     model = model_cls(
         numerical_preprocessing="standardization",

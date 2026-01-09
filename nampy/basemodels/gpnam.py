@@ -62,7 +62,8 @@ class GPNAM(BaseModel):
 
         # Weight parameter for Gaussian Process (GP) component
         self.w = nn.Parameter(
-            torch.zeros(self.input_dim * rff_num_feat + 1, num_classes), requires_grad=True
+            torch.zeros(self.input_dim * rff_num_feat + 1, num_classes),
+            requires_grad=True,
         )
 
     def infer_input_dim(self, cat_feature_info, num_feature_info):

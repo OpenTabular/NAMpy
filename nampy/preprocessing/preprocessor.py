@@ -285,7 +285,7 @@ class Preprocessor:
                                 QuantileTransformer(
                                     n_quantiles=self.quantile_n_quantiles,
                                     output_distribution=self.quantile_output_distribution,
-                                    random_state=101
+                                    random_state=101,
                                 ),
                             )
                         )
@@ -337,9 +337,12 @@ class Preprocessor:
                     categorical_transformer = Pipeline(
                         [
                             # Convert to string first to handle mixed types and allow string fill_value
-                            ("to_string", FunctionTransformer(
-                                lambda x: x.astype(str), validate=False
-                            )),
+                            (
+                                "to_string",
+                                FunctionTransformer(
+                                    lambda x: x.astype(str), validate=False
+                                ),
+                            ),
                             (
                                 "imputer",
                                 SimpleImputer(
@@ -377,7 +380,7 @@ class Preprocessor:
             self.quantile_preprocessor = QuantileTransformer(
                 n_quantiles=self.quantile_n_quantiles,
                 output_distribution=self.quantile_output_distribution,
-                random_state=101
+                random_state=101,
             )
             self.quantile_preprocessor.fit(num_data_imputed)
             self._numerical_features = numerical_features

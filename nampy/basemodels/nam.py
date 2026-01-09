@@ -300,7 +300,7 @@ class NAM(BaseModel):
         concatenated = torch.cat(all_outputs, dim=1)
         # Apply feature dropout
         concatenated = self.feature_dropout(concatenated)
-        
+
         # Reshape to [batch_size, num_features, num_classes] and sum across features
         num_features_total = len(all_outputs)
         if self.num_classes > 1:
