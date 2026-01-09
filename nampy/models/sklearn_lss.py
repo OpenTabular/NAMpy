@@ -33,7 +33,11 @@ from ..utils.distributions import (
     Quantile,
     RobustNormalDistribution,
 )
-from ..utils.plotting import create_subplot_grid, prepare_plot_data, plot_density_shading
+from ..utils.plotting import (
+    create_subplot_grid,
+    prepare_plot_data,
+    plot_density_shading,
+)
 import matplotlib.pyplot as plt
 
 
@@ -400,6 +404,7 @@ class SklearnBaseLSS(BaseEstimator):
         # Compute NLL using the distribution family's compute_loss method
         if self.family is not None:
             import torch
+
             pred_tensor = torch.tensor(predictions, dtype=torch.float32)
             y_tensor = torch.tensor(y_true, dtype=torch.float32)
             nll = self.family.compute_loss(pred_tensor, y_tensor)
@@ -450,7 +455,9 @@ class SklearnBaseLSS(BaseEstimator):
         }
         return default_metrics.get(distribution_family, {})
 
-    def _plot_single_feature_effects(self, x_plot, predictions, y_true, ax, feature_name=None, num_bins=30):
+    def _plot_single_feature_effects(
+        self, x_plot, predictions, y_true, ax, feature_name=None, num_bins=30
+    ):
         """
         Plot the effect of a single feature for LSS regression, with separate lines for each parameter.
 
@@ -477,13 +484,21 @@ class SklearnBaseLSS(BaseEstimator):
         # Plot shape functions for each distributional parameter
         for i in range(n_params):
             contribs = predictions[:, i] if predictions.ndim > 1 else predictions
-            label = self.family.param_names[i] if hasattr(self, 'family') else f"Param {i + 1}"
+            label = (
+                self.family.param_names[i]
+                if hasattr(self, "family")
+                else f"Param {i + 1}"
+            )
             ax.plot(x_plot, contribs, label=label)
 
         y_true_centered = y_true - np.mean(y_true)
-        ax.scatter(x_plot, y_true_centered, color="gray", alpha=0.3, s=2, label="True Values")
+        ax.scatter(
+            x_plot, y_true_centered, color="gray", alpha=0.3, s=2, label="True Values"
+        )
 
-        ax.set_title(f"Shape Function: {feature_name}" if feature_name else "Shape Function")
+        ax.set_title(
+            f"Shape Function: {feature_name}" if feature_name else "Shape Function"
+        )
         ax.set_xlabel(feature_name or "Feature")
         ax.set_ylabel("Contribution")
         ax.legend()
@@ -525,11 +540,15 @@ class SklearnBaseLSS(BaseEstimator):
 
         for ax, fname in zip(axes, features_to_plot):
             self._plot_single_feature_effects(
-                X_prepared[fname].values, predictions[fname], y_true, ax, feature_name=fname
+                X_prepared[fname].values,
+                predictions[fname],
+                y_true,
+                ax,
+                feature_name=fname,
             )
 
         # Hide unused subplots
-        for ax in axes[len(features_to_plot):]:
+        for ax in axes[len(features_to_plot) :]:
             ax.set_visible(False)
 
         plt.tight_layout()

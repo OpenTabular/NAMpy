@@ -590,9 +590,12 @@ class RobustNormalDistribution(BaseDistribution):
         log_likelihood = normal_dist.log_prob(y_true)
 
         if self.rob != None:
-            rob_tensor = torch.tensor(self.rob, device=log_likelihood.device, dtype=log_likelihood.dtype)
+            rob_tensor = torch.tensor(
+                self.rob, device=log_likelihood.device, dtype=log_likelihood.dtype
+            )
             log_likelihood = torch.log(
-                (1 + torch.exp(log_likelihood + rob_tensor)) / (1 + torch.exp(rob_tensor))
+                (1 + torch.exp(log_likelihood + rob_tensor))
+                / (1 + torch.exp(rob_tensor))
             )
 
         nll = -torch.mean(log_likelihood)

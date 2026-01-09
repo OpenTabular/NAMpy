@@ -35,7 +35,7 @@ class TaskModel(pl.LightningModule):
         lss=False,
         family=None,
         loss_fct: callable = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__()
         self.num_classes = num_classes

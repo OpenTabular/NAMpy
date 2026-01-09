@@ -4,6 +4,7 @@ from .sklearn_lss import SklearnBaseLSS
 from ..basemodels.nodegam import NodeGAM
 from ..configs.nodegam_config import DefaultNodeGAMConfig
 
+
 class NodeGAMRegressor(SklearnBaseRegressor):
     """
     Multi-Layer Perceptron regressor. This class extends the SklearnBaseRegressor class and uses the NodeGAM model

@@ -73,9 +73,7 @@ def tree_to_code(tree, feature_names):
 
 
 class PLE(BaseEstimator, TransformerMixin):
-    def __init__(
-        self, n_bins=20, tree_params=None, task="regression", **kwargs
-    ):
+    def __init__(self, n_bins=20, tree_params=None, task="regression", **kwargs):
         self.task = task
         self.tree_params = tree_params if tree_params is not None else {}
         self.n_bins = n_bins
