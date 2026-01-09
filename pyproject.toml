@@ -112,7 +112,7 @@ ensure_newline_before_comments = true
 
 [tool.ruff]
 line-length = 88
-target-version = "py36"
+target-version = "py37"
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
