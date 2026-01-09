@@ -10,7 +10,6 @@ from nampy.models import (
     NodeGAMClassifier,
 )
 
-
 CLASSIFICATION_MODELS = [
     (NAMClassifier, {"layer_sizes": (4,), "dropout": 0.0}),
     (GPNAMClassifier, {"layer_sizes": (4,), "dropout": 0.0}),

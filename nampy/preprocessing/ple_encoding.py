@@ -1,14 +1,11 @@
-import numpy as np
-from tqdm import tqdm
-import pandas as pd
 import bisect
 import re
-from sklearn.tree import _tree
-from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-import pandas as pd
+
 import numpy as np
-from sklearn.base import TransformerMixin, BaseEstimator
-from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
+import pandas as pd
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor, _tree
+from tqdm import tqdm
 
 
 def tree_to_code(tree, feature_names):

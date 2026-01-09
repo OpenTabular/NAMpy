@@ -1,10 +1,8 @@
-import torch
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Function
-
 from torch.jit import script
 
 """Neural Network related utils like Entmax and Modules."""

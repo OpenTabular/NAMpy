@@ -3,15 +3,14 @@ import pytest
 from nampy.models import (
     GPNAMRegressor,
     LinRegRegressor,
-    NAMRegressor,
     NAMformerRegressor,
+    NAMRegressor,
     NATTRegressor,
     NBMRegressor,
     NodeGAMRegressor,
     SNAMRegressor,
     TreeNAMRegressor,
 )
-
 
 REGRESSION_MODELS = [
     (NAMRegressor, {"layer_sizes": (4,), "dropout": 0.0}),

@@ -1,6 +1,6 @@
-import pandas as pd
 import numpy as np
-from sklearn.base import TransformerMixin, BaseEstimator
+import pandas as pd
+from sklearn.base import BaseEstimator, TransformerMixin
 
 
 class CustomBinner(BaseEstimator, TransformerMixin):

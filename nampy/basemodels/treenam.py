@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+
 from ..arch_utils.neural_tree import NeuralDecisionTree
 from ..configs.boostednam_config import DefaultBoostedNAMConfig
 from .basemodel import BaseModel

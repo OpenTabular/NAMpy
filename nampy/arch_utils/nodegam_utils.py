@@ -9,12 +9,12 @@ import torch.nn.functional as F
 from tqdm import tqdm
 
 from nampy.arch_utils.nn_utils import (
+    EM15Temp,
+    ModuleWithInit,
+    check_numpy,
     entmax15,
     entmoid15,
-    check_numpy,
-    ModuleWithInit,
     process_in_chunks,
-    EM15Temp,
 )
 
 # Set the min logits to -20

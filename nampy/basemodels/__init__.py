@@ -1,16 +1,16 @@
 from .basemodel import BaseModel
-from .lightning_wrapper import TaskModel
-from .nam import NAM
-from .linreg import LinReg
-from .qnam import QNAMBase
 from .gpnam import GPNAM
-from .nbm import NBM
-from .natt import NATT
-from .namformer import NAMformer
-from .treenam import BoostedNAM
-from .snam import SNAM
-from .nodegam import NodeGAM
+from .lightning_wrapper import TaskModel
+from .linreg import LinReg
 from .multi_model import MultiModelWrapper
+from .nam import NAM
+from .namformer import NAMformer
+from .natt import NATT
+from .nbm import NBM
+from .nodegam import NodeGAM
+from .qnam import QNAMBase
+from .snam import SNAM
+from .treenam import BoostedNAM
 
 __all__ = [
     "TaskModel",

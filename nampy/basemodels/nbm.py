@@ -1,9 +1,11 @@
+from itertools import combinations
+
 import torch
 import torch.nn as nn
-from itertools import combinations
+
+from ..arch_utils.nbm_utils import ConceptNNBasesNary
 from ..configs.nbm_config import DefaultNBMConfig
 from .basemodel import BaseModel
-from ..arch_utils.nbm_utils import ConceptNNBasesNary
 
 
 class NBM(BaseModel):

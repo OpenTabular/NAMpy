@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+
 from ..configs.linreg_config import DefaultLinRegConfig
 from .basemodel import BaseModel
 

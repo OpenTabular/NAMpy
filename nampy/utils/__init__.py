@@ -3,8 +3,8 @@ from .distributions import *
 from .plotting import (
     compute_grid_layout,
     create_subplot_grid,
-    prepare_plot_data,
     plot_density_shading,
+    prepare_plot_data,
 )
 
 __all__ = ["distributional_metrics", "distributions", "plotting"]

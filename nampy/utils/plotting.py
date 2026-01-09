@@ -1,8 +1,8 @@
 """Shared plotting utilities for NAMpy models."""
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
 
 def compute_grid_layout(n_plots, max_cols=4):

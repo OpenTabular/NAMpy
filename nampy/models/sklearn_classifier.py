@@ -1,20 +1,22 @@
+import warnings
+
 import lightning as pl
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import torch
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from sklearn.base import BaseEstimator
 from sklearn.metrics import accuracy_score
-import warnings
+
 from ..basemodels.lightning_wrapper import TaskModel
 from ..data_utils.datamodule import NAMpyDataModule
 from ..preprocessing import Preprocessor
 from ..utils.plotting import (
     create_subplot_grid,
-    prepare_plot_data,
     plot_density_shading,
+    prepare_plot_data,
 )
-import numpy as np
-import matplotlib.pyplot as plt
 
 
 class SklearnBaseClassifier(BaseEstimator):

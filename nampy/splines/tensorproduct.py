@@ -1,9 +1,10 @@
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial import distance_matrix
-import matplotlib.pyplot as plt
+
 from .spline_utils import (
-    scale_penalty,
     identconst,
+    scale_penalty,
 )
 
 

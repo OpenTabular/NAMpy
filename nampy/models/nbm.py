@@ -1,8 +1,8 @@
-from .sklearn_regressor import SklearnBaseRegressor
-from .sklearn_classifier import SklearnBaseClassifier
-from .sklearn_lss import SklearnBaseLSS
 from ..basemodels.nbm import NBM
 from ..configs.nbm_config import DefaultNBMConfig
+from .sklearn_classifier import SklearnBaseClassifier
+from .sklearn_lss import SklearnBaseLSS
+from .sklearn_regressor import SklearnBaseRegressor
 
 
 class NBMRegressor(SklearnBaseRegressor):

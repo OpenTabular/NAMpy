@@ -1,6 +1,6 @@
+import numpy as np
 import torch
 import torch.distributions as dist
-import numpy as np
 
 
 class BaseDistribution(torch.nn.Module):

@@ -1,6 +1,6 @@
-from .sklearn_lss import SklearnBaseLSS
 from ..basemodels.qnam import QNAMBase
 from ..configs.nam_config import DefaultNAMConfig
+from .sklearn_lss import SklearnBaseLSS
 
 
 class QNAM(SklearnBaseLSS):

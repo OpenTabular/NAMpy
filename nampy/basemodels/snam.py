@@ -1,10 +1,11 @@
+from itertools import combinations
+
 import torch
 import torch.nn as nn
-from ..configs.snam_config import DefaultSNAMConfig
-from .basemodel import BaseModel
 
+from ..configs.snam_config import DefaultSNAMConfig
 from ..splines.neural_splines import CubicSplineLayer
-from itertools import combinations
+from .basemodel import BaseModel
 
 
 class SNAM(BaseModel):

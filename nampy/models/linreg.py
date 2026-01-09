@@ -1,8 +1,8 @@
-from .sklearn_regressor import SklearnBaseRegressor
-from .sklearn_classifier import SklearnBaseClassifier
-from .sklearn_lss import SklearnBaseLSS
 from ..basemodels.linreg import LinReg
 from ..configs.linreg_config import DefaultLinRegConfig
+from .sklearn_classifier import SklearnBaseClassifier
+from .sklearn_lss import SklearnBaseLSS
+from .sklearn_regressor import SklearnBaseRegressor
 
 
 class LinRegRegressor(SklearnBaseRegressor):

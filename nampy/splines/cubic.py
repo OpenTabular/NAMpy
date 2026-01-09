@@ -1,15 +1,16 @@
-import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import numpy as np
+
 from .spline_utils import (
-    scale_penalty,
-    identconst,
+    color_bounds,
+    color_fader,
     cr_spl,
     cr_spl_predict,
+    identconst,
     mrf_design,
     pol2nb,
-    color_fader,
-    color_bounds,
+    scale_penalty,
 )
 
 
