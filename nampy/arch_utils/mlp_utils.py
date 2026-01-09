@@ -183,13 +183,15 @@ class MLP(nn.Module):
     def __init__(
         self,
         n_input_units,
-        hidden_units_list=[64, 32, 32],
+        hidden_units_list=None,
         n_output_units: int = 1,
         dropout_rate: float = 0.1,
         use_skip_layers: bool = False,
         activation_fn=nn.LeakyReLU(),
         use_batch_norm: bool = False,
     ):
+        if hidden_units_list is None:
+            hidden_units_list = [64, 32, 32]
         super(MLP, self).__init__()
         self.n_input_units = n_input_units
         self.hidden_units_list = hidden_units_list

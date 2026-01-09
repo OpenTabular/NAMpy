@@ -534,7 +534,7 @@ class Preprocessor:
             raise RuntimeError("The preprocessor has not been fitted yet.")
 
         for (
-            name,
+            _name,
             transformer_pipeline,
             columns,
         ) in self.column_transformer.transformers_:

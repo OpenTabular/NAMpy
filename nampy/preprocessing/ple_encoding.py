@@ -1,11 +1,8 @@
-import bisect
 import re
 
 import numpy as np
-import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor, _tree
-from tqdm import tqdm
 
 
 def tree_to_code(tree, feature_names):
@@ -32,7 +29,7 @@ def tree_to_code(tree, feature_names):
         for i in tree_.feature
     ]
 
-    pathto = dict()
+    pathto = {}
     my_list = []
 
     global k
@@ -40,13 +37,12 @@ def tree_to_code(tree, feature_names):
 
     def recurse(node, depth, parent):
         global k
-        indent = "  " * depth
 
         if tree_.feature[node] != _tree.TREE_UNDEFINED:
             # name = df_name + "[" + "'" + feature_name[node]+ "'" + "]"
             name = feature_name[node]
             threshold = tree_.threshold[node]
-            s = "{} <= {} ".format(name, threshold, node)
+            s = "{} <= {} ".format(name, threshold)
             if node == 0:
                 pathto[node] = "(" + s + ")"
             else:

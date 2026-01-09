@@ -103,7 +103,7 @@ class MRFSmooth:
             full_gammas = (full_gammas - min(full_gammas)) / (
                 max(full_gammas) - min(full_gammas)
             )
-            mix_dict = {k: v for k, v in zip(pols, full_gammas)}
+            mix_dict = dict(zip(pols, full_gammas))
 
             # for colorbar
             # values from 0 to 1

@@ -57,7 +57,7 @@ class EmbeddingLayer(nn.Module):
         )
 
         self.cat_embeddings = nn.ModuleList()
-        for feature_name, info in cat_feature_info.items():
+        for _feature_name, info in cat_feature_info.items():
             if info["encoding"] == "ordinal":
                 self.cat_embeddings.append(
                     nn.Sequential(

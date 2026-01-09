@@ -530,7 +530,9 @@ class Quantile(BaseDistribution):
         Computes the quantile regression loss between the predictions and true values.
     """
 
-    def __init__(self, name="Quantile", quantiles=[0.25, 0.5, 0.75]):
+    def __init__(self, name="Quantile", quantiles=None):
+        if quantiles is None:
+            quantiles = [0.25, 0.5, 0.75]
         param_names = [
             f"q_{q}" for q in quantiles
         ]  # Use string representations of quantiles
@@ -589,7 +591,7 @@ class RobustNormalDistribution(BaseDistribution):
         normal_dist = dist.Normal(mean, variance)
         log_likelihood = normal_dist.log_prob(y_true)
 
-        if self.rob != None:
+        if self.rob is not None:
             rob_tensor = torch.tensor(
                 self.rob, device=log_likelihood.device, dtype=log_likelihood.dtype
             )

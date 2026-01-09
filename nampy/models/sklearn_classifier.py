@@ -51,6 +51,7 @@ class SklearnBaseClassifier(BaseEstimator):
             warnings.warn(
                 "The task is set to 'regression'. The Classifier is designed for classification tasks.",
                 UserWarning,
+                stacklevel=2,
             )
 
         self.base_model = model
@@ -136,7 +137,7 @@ class SklearnBaseClassifier(BaseEstimator):
         factor: float = 0.1,
         weight_decay: float = 1e-06,
         checkpoint_path="model_checkpoints",
-        dataloader_kwargs={},
+        dataloader_kwargs=None,
         **trainer_kwargs,
     ):
         """
@@ -188,6 +189,9 @@ class SklearnBaseClassifier(BaseEstimator):
         self : object
             The fitted classifier.
         """
+        if dataloader_kwargs is None:
+            dataloader_kwargs = {}
+
         if not isinstance(X, pd.DataFrame):
             X = pd.DataFrame(X)
         if isinstance(y, pd.Series):
@@ -291,9 +295,7 @@ class SklearnBaseClassifier(BaseEstimator):
 
         # Perform inference
         with torch.no_grad():
-            logits = self.model(
-                num_features=num_tensor_dict, cat_features=cat_tensor_dict
-            )
+            self.model(num_features=num_tensor_dict, cat_features=cat_tensor_dict)
 
     def predict(self, X):
         """

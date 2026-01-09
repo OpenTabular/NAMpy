@@ -85,10 +85,10 @@ class GPNAM(BaseModel):
             Total input dimension.
         """
         num_dim = 0
-        for feature, info in num_feature_info.items():
+        for _feature, info in num_feature_info.items():
             num_dim += info["dimension"]
         cat_dim = 0
-        for feature, info in cat_feature_info.items():
+        for _feature, info in cat_feature_info.items():
             cat_dim += info["dimension"]
         return num_dim + cat_dim
 

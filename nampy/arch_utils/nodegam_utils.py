@@ -3,6 +3,7 @@
 from warnings import warn
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -135,7 +136,8 @@ class ODST(ModuleWithInit):
         assert len(input.shape) == 2
         if input.shape[0] < 1000:
             warn(
-                "Data-aware initialization is performed on less than 1000 data points. This may cause instability. To avoid potential problems, run this model on a data batch with at least 1000 data samples. You can do so manually before training. Use with torch.no_grad() for memory efficiency."
+                "Data-aware initialization is performed on less than 1000 data points. This may cause instability. To avoid potential problems, run this model on a data batch with at least 1000 data samples. You can do so manually before training. Use with torch.no_grad() for memory efficiency.",
+                stacklevel=2,
             )
 
         with torch.no_grad():
@@ -330,7 +332,7 @@ class GAM_ODST(ODST):
         eps=1e-6,
     ):
         self.prev_feature_selectors = prev_feature_selectors
-        response = super().initialize(input, eps=eps)
+        super().initialize(input, eps=eps)
         self.feature_selectors = None
 
     def get_feature_selection_values(self, input, return_fss=False):
@@ -624,7 +626,7 @@ class ODSTBlock(nn.Sequential):
             kwargs: The kwargs for initializing odst trees.
         """
         layers = []
-        for i in range(num_layers):
+        for _i in range(num_layers):
             oddt = ODST(in_features, num_trees, tree_dim=tree_dim, **kwargs)
             in_features = in_features + num_trees * tree_dim
             layers.append(oddt)
@@ -650,7 +652,7 @@ class ODSTBlock(nn.Sequential):
         if feature_masks is not None:
             assert not self[0].ga2m, "Not supported for ga2m for now!"
             with torch.no_grad():
-                tmp = torch.cat([l.get_feature_selectors() for l in self], dim=1)
+                tmp = torch.cat([layer.get_feature_selectors() for layer in self], dim=1)
                 # ^-- [in_features, layers * num_trees, 1]
                 op_masks = torch.einsum("bi,ied->bed", feature_masks, tmp)
             outputs = outputs * (1.0 - op_masks)
@@ -727,7 +729,7 @@ class ODSTBlock(nn.Sequential):
         if type(self) is ODSTBlock:
             return None
 
-        num_trees = [l.get_num_trees_assigned_to_each_feature() for l in self]
+        num_trees = [layer.get_num_trees_assigned_to_each_feature() for layer in self]
         counts = torch.stack(num_trees)
         return counts
 
@@ -1066,7 +1068,7 @@ class GAMAdditiveMixin(object):
             tuple_terms (list): A list of integer or tuple that represents all the additive terms it
                 learns. E.g. [2, 4, (2, 3), (1, 4)].
         """
-        fs = torch.cat([l.get_feature_selectors() for l in self], dim=1).sum(dim=-1)
+        fs = torch.cat([layer.get_feature_selectors() for layer in self], dim=1).sum(dim=-1)
         fs[fs > 0.0] = 1.0
         # ^-- [in_features, layers*num_trees] binary features
 
@@ -1182,7 +1184,7 @@ class GAMBlock(GAMAdditiveMixin, ODSTBlock):
             kwargs (dict): The arguments for underlying GAM ODST trees.
         """
         layers = []
-        for i in range(num_layers):
+        for _i in range(num_layers):
             # Last layer only has num_classes dim
             oddt = GAM_ODST(in_features, num_trees, tree_dim=tree_dim, **kwargs)
             layers.append(oddt)
@@ -1280,7 +1282,7 @@ class GAMAttBlock(GAMBlock):
         """
         layers = []
         prev_in_features = 0
-        for i in range(num_layers):
+        for _i in range(num_layers):
             # Last layer only has the dimension equal to num_classes
             oddt = GAMAttODST(
                 in_features,

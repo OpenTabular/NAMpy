@@ -74,6 +74,7 @@ class SklearnBaseLSS(BaseEstimator):
             warnings.warn(
                 "The task is set to 'classification'. Be aware of your preferred distribution, that this might lead to unsatisfactory results.",
                 UserWarning,
+                stacklevel=2,
             )
 
         self.base_model = model
@@ -161,7 +162,7 @@ class SklearnBaseLSS(BaseEstimator):
         weight_decay: float = 1e-06,
         checkpoint_path="model_checkpoints",
         distributional_kwargs=None,
-        dataloader_kwargs={},
+        dataloader_kwargs=None,
         **trainer_kwargs,
     ):
         """
@@ -233,6 +234,9 @@ class SklearnBaseLSS(BaseEstimator):
 
         if distributional_kwargs is None:
             distributional_kwargs = {}
+
+        if dataloader_kwargs is None:
+            dataloader_kwargs = {}
 
         if family in distribution_classes:
             self.family = distribution_classes[family](**distributional_kwargs)

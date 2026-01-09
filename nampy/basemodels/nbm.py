@@ -55,8 +55,6 @@ class NBM(BaseModel):
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
         self.num_classes = num_classes
-        dropout = self.hparams.get("dropout", config.dropout)
-        batchnorm = self.hparams.get("batch_norm", config.batch_norm)
 
         self.num_bases = self.hparams.get("num_bases", config.num_bases)
         self.num_subnets = self.hparams.get("num_subnets", config.num_subnets)
@@ -111,10 +109,10 @@ class NBM(BaseModel):
             Total input dimension.
         """
         num_dim = 0
-        for feature, info in num_feature_info.items():
+        for _feature, info in num_feature_info.items():
             num_dim += info["dimension"]
         cat_dim = 0
-        for feature, info in cat_feature_info.items():
+        for _feature, info in cat_feature_info.items():
             cat_dim += info["dimension"]
         return num_dim + cat_dim
 
@@ -186,7 +184,7 @@ class NBM(BaseModel):
         out_feats = self.featurizer(bases.reshape(input_order.shape[0], -1, 1)).squeeze(
             -1
         )
-        for i, feature_idx in enumerate(self.nary[order]):
+        for _i, feature_idx in enumerate(self.nary[order]):
             feature_name = all_feature_keys[feature_idx[0]]
             if feature_name not in feature_contributions:
                 feature_contributions[feature_name] = out_feats[:, feature_idx[0]]

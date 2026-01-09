@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.linalg import block_diag
 from scipy.optimize import minimize
-from scipy.stats import chi2, norm
+from scipy.stats import chi2, f, norm
 
 from ..splines.cubic import CubicSplines
 
