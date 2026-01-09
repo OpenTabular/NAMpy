@@ -51,6 +51,7 @@ class SklearnBaseRegressor(BaseEstimator):
             warnings.warn(
                 "The task is set to 'classification'. The Regressor is designed for regression tasks.",
                 UserWarning,
+                stacklevel=2,
             )
 
         self.base_model = model
@@ -136,7 +137,7 @@ class SklearnBaseRegressor(BaseEstimator):
         factor: float = 0.1,
         weight_decay: float = 1e-06,
         checkpoint_path="model_checkpoints",
-        dataloader_kwargs={},
+        dataloader_kwargs=None,
         **trainer_kwargs,
     ):
         """
@@ -188,6 +189,9 @@ class SklearnBaseRegressor(BaseEstimator):
         self : object
             The fitted regressor.
         """
+        if dataloader_kwargs is None:
+            dataloader_kwargs = {}
+
         if not isinstance(X, pd.DataFrame):
             X = pd.DataFrame(X)
         if isinstance(y, pd.Series):

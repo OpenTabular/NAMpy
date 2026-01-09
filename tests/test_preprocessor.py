@@ -1,4 +1,3 @@
-import numpy as np
 import pytest
 
 from nampy.preprocessing import Preprocessor

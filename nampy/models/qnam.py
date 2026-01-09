@@ -92,9 +92,9 @@ class QNAM(SklearnBaseLSS):
             **kwargs,
         )
 
-    def fit(
-        self, X, y, distributional_kwargs={"quantiles": [0.25, 0.5, 0.75]}, **kwargs
-    ):
+    def fit(self, X, y, distributional_kwargs=None, **kwargs):
+        if distributional_kwargs is None:
+            distributional_kwargs = {"quantiles": [0.25, 0.5, 0.75]}
 
         super().fit(
             X,

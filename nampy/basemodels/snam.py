@@ -83,7 +83,7 @@ class SNAM(BaseModel):
 
         # Initialize spline layers for each numerical feature
         self.num_feature_networks = nn.ModuleDict()
-        for feature_name, info in num_feature_info.items():
+        for feature_name, _info in num_feature_info.items():
             self.num_feature_networks[feature_name] = CubicSplineLayer(
                 n_bases=config.n_knots,
                 min_val=0,

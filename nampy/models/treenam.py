@@ -1,7 +1,5 @@
 from ..basemodels.treenam import BoostedNAM
 from ..configs.boostednam_config import DefaultBoostedNAMConfig
-from .sklearn_classifier import SklearnBaseClassifier
-from .sklearn_lss import SklearnBaseLSS
 from .sklearn_regressor import SklearnBaseRegressor
 
 

@@ -1,5 +1,4 @@
 import logging
-import os
 
 import torch
 import torch.nn as nn
@@ -18,7 +17,9 @@ class BaseModel(nn.Module):
         super(BaseModel, self).__init__()
         self.hparams = kwargs
 
-    def save_hyperparameters(self, ignore=[]):
+    def save_hyperparameters(self, ignore=None):
+        if ignore is None:
+            ignore = []
         """
         Saves the hyperparameters while ignoring specified keys.
 

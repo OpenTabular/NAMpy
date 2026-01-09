@@ -3,8 +3,11 @@ import numpy as np
 from scipy.spatial import distance_matrix
 
 from .spline_utils import (
+    eta,
     identconst,
     scale_penalty,
+    tp_spline,
+    tp_T,
 )
 
 
@@ -108,7 +111,6 @@ class TPSplines:
         M = self.M
         x_plot = self.x_plot
         x_un = np.unique(self.x, axis=0)
-        n = x_plot.shape[0]
         d = x_un.shape[1]
         if self.uncentered_gammas is None:
             self.uncenter()
