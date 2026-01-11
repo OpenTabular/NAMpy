@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
@@ -40,7 +41,7 @@ class DefaultBoostedNAMConfig:
     lr_patience: int = 10
     weight_decay: float = 1e-6
     lr_factor: float = 0.1
-    interaction_degree: int = None
+    interaction_degree: Optional[int] = None
     intercept: bool = True
     n_estimators: int = 64
     tree_depth: int = 8

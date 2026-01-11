@@ -1,4 +1,4 @@
-from typing import Type
+from typing import Any, Type
 
 import lightning as pl
 import torch
@@ -35,7 +35,7 @@ class TaskModel(pl.LightningModule):
         num_classes=1,
         lss=False,
         family=None,
-        loss_fct: callable = None,
+        loss_fct: Any = None,
         **kwargs,
     ):
         super().__init__()
