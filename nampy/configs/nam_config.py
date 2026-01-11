@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any, Optional
 
 import torch.nn as nn
 
@@ -42,15 +43,15 @@ class DefaultNAMConfig:
     lr_patience: int = 10
     weight_decay: float = 1e-06
     lr_factor: float = 0.1
-    layer_sizes: list = (128, 128, 32)
-    activation: callable = nn.ReLU()
+    layer_sizes: tuple = (128, 128, 32)
+    activation: Any = nn.ReLU()
     skip_layers: bool = False
     dropout: float = 0.1
-    norm: str = None
+    norm: Optional[str] = None
     use_glu: bool = False
     skip_connections: bool = False
     batch_norm: bool = False
     layer_norm: bool = False
-    interaction_degree: int = None
+    interaction_degree: Optional[int] = None
     intercept: bool = True
     feature_dropout: float = 0.0
