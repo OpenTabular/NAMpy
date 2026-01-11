@@ -652,7 +652,9 @@ class ODSTBlock(nn.Sequential):
         if feature_masks is not None:
             assert not self[0].ga2m, "Not supported for ga2m for now!"
             with torch.no_grad():
-                tmp = torch.cat([layer.get_feature_selectors() for layer in self], dim=1)
+                tmp = torch.cat(
+                    [layer.get_feature_selectors() for layer in self], dim=1
+                )
                 # ^-- [in_features, layers * num_trees, 1]
                 op_masks = torch.einsum("bi,ied->bed", feature_masks, tmp)
             outputs = outputs * (1.0 - op_masks)
@@ -1068,7 +1070,9 @@ class GAMAdditiveMixin(object):
             tuple_terms (list): A list of integer or tuple that represents all the additive terms it
                 learns. E.g. [2, 4, (2, 3), (1, 4)].
         """
-        fs = torch.cat([layer.get_feature_selectors() for layer in self], dim=1).sum(dim=-1)
+        fs = torch.cat([layer.get_feature_selectors() for layer in self], dim=1).sum(
+            dim=-1
+        )
         fs[fs > 0.0] = 1.0
         # ^-- [in_features, layers*num_trees] binary features
 
