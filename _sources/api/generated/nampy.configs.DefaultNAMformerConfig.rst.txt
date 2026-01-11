@@ -1,0 +1,75 @@
+﻿nampy.configs.DefaultNAMformerConfig
+====================================
+
+.. currentmodule:: nampy.configs
+
+.. autoclass:: DefaultNAMformerConfig
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~DefaultNAMformerConfig.__delattr__
+      ~DefaultNAMformerConfig.__dir__
+      ~DefaultNAMformerConfig.__eq__
+      ~DefaultNAMformerConfig.__format__
+      ~DefaultNAMformerConfig.__ge__
+      ~DefaultNAMformerConfig.__getattribute__
+      ~DefaultNAMformerConfig.__gt__
+      ~DefaultNAMformerConfig.__init_subclass__
+      ~DefaultNAMformerConfig.__le__
+      ~DefaultNAMformerConfig.__lt__
+      ~DefaultNAMformerConfig.__ne__
+      ~DefaultNAMformerConfig.__new__
+      ~DefaultNAMformerConfig.__reduce__
+      ~DefaultNAMformerConfig.__reduce_ex__
+      ~DefaultNAMformerConfig.__repr__
+      ~DefaultNAMformerConfig.__setattr__
+      ~DefaultNAMformerConfig.__sizeof__
+      ~DefaultNAMformerConfig.__str__
+      ~DefaultNAMformerConfig.__subclasshook__
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~DefaultNAMformerConfig.__annotations__
+      ~DefaultNAMformerConfig.__dataclass_fields__
+      ~DefaultNAMformerConfig.__dataclass_params__
+      ~DefaultNAMformerConfig.__dict__
+      ~DefaultNAMformerConfig.__doc__
+      ~DefaultNAMformerConfig.__hash__
+      ~DefaultNAMformerConfig.__match_args__
+      ~DefaultNAMformerConfig.__module__
+      ~DefaultNAMformerConfig.__weakref__
+      ~DefaultNAMformerConfig.activation
+      ~DefaultNAMformerConfig.attn_dropout
+      ~DefaultNAMformerConfig.batch_norm
+      ~DefaultNAMformerConfig.bias
+      ~DefaultNAMformerConfig.cat_encoding
+      ~DefaultNAMformerConfig.d_model
+      ~DefaultNAMformerConfig.dropout
+      ~DefaultNAMformerConfig.embedding_activation
+      ~DefaultNAMformerConfig.feature_dropout
+      ~DefaultNAMformerConfig.ff_dropout
+      ~DefaultNAMformerConfig.head_activation
+      ~DefaultNAMformerConfig.head_dropout
+      ~DefaultNAMformerConfig.head_layer_sizes
+      ~DefaultNAMformerConfig.head_skip_layers
+      ~DefaultNAMformerConfig.head_use_batch_norm
+      ~DefaultNAMformerConfig.interaction_degree
+      ~DefaultNAMformerConfig.intercept
+      ~DefaultNAMformerConfig.layer_norm
+      ~DefaultNAMformerConfig.layer_norm_after_embedding
+      ~DefaultNAMformerConfig.layer_norm_eps
+      ~DefaultNAMformerConfig.lr
+      ~DefaultNAMformerConfig.lr_factor
+      ~DefaultNAMformerConfig.lr_patience
+      ~DefaultNAMformerConfig.n_heads
+      ~DefaultNAMformerConfig.n_layers
+      ~DefaultNAMformerConfig.norm
+      ~DefaultNAMformerConfig.norm_first
+      ~DefaultNAMformerConfig.pooling_method
+      ~DefaultNAMformerConfig.skip_connections
+      ~DefaultNAMformerConfig.transformer_activation
+      ~DefaultNAMformerConfig.transformer_dim_feedforward
+      ~DefaultNAMformerConfig.use_cls
+      ~DefaultNAMformerConfig.use_glu
+      ~DefaultNAMformerConfig.weight_decay
+   

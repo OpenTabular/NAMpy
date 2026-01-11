@@ -1,0 +1,139 @@
+﻿nampy.basemodels.BaseModel
+==========================
+
+.. currentmodule:: nampy.basemodels
+
+.. autoclass:: BaseModel
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~BaseModel.__call__
+      ~BaseModel.__delattr__
+      ~BaseModel.__dir__
+      ~BaseModel.__eq__
+      ~BaseModel.__format__
+      ~BaseModel.__ge__
+      ~BaseModel.__getattr__
+      ~BaseModel.__getattribute__
+      ~BaseModel.__getstate__
+      ~BaseModel.__gt__
+      ~BaseModel.__hash__
+      ~BaseModel.__init_subclass__
+      ~BaseModel.__le__
+      ~BaseModel.__lt__
+      ~BaseModel.__ne__
+      ~BaseModel.__new__
+      ~BaseModel.__reduce__
+      ~BaseModel.__reduce_ex__
+      ~BaseModel.__repr__
+      ~BaseModel.__setattr__
+      ~BaseModel.__setstate__
+      ~BaseModel.__sizeof__
+      ~BaseModel.__str__
+      ~BaseModel.__subclasshook__
+      ~BaseModel._apply
+      ~BaseModel._call_impl
+      ~BaseModel._get_backward_hooks
+      ~BaseModel._get_backward_pre_hooks
+      ~BaseModel._get_name
+      ~BaseModel._load_from_state_dict
+      ~BaseModel._maybe_warn_non_full_backward_hook
+      ~BaseModel._named_members
+      ~BaseModel._register_load_state_dict_pre_hook
+      ~BaseModel._register_state_dict_hook
+      ~BaseModel._replicate_for_data_parallel
+      ~BaseModel._save_to_state_dict
+      ~BaseModel._slow_forward
+      ~BaseModel._wrapped_call_impl
+      ~BaseModel.add_module
+      ~BaseModel.apply
+      ~BaseModel.bfloat16
+      ~BaseModel.buffers
+      ~BaseModel.children
+      ~BaseModel.compile
+      ~BaseModel.count_parameters
+      ~BaseModel.cpu
+      ~BaseModel.cuda
+      ~BaseModel.double
+      ~BaseModel.eval
+      ~BaseModel.extra_repr
+      ~BaseModel.float
+      ~BaseModel.forward
+      ~BaseModel.freeze_parameters
+      ~BaseModel.get_buffer
+      ~BaseModel.get_device
+      ~BaseModel.get_extra_state
+      ~BaseModel.get_parameter
+      ~BaseModel.get_submodule
+      ~BaseModel.half
+      ~BaseModel.ipu
+      ~BaseModel.load_model
+      ~BaseModel.load_state_dict
+      ~BaseModel.log_parameters
+      ~BaseModel.modules
+      ~BaseModel.mtia
+      ~BaseModel.named_buffers
+      ~BaseModel.named_children
+      ~BaseModel.named_modules
+      ~BaseModel.named_parameters
+      ~BaseModel.parameter_count
+      ~BaseModel.parameters
+      ~BaseModel.print_summary
+      ~BaseModel.register_backward_hook
+      ~BaseModel.register_buffer
+      ~BaseModel.register_forward_hook
+      ~BaseModel.register_forward_pre_hook
+      ~BaseModel.register_full_backward_hook
+      ~BaseModel.register_full_backward_pre_hook
+      ~BaseModel.register_load_state_dict_post_hook
+      ~BaseModel.register_load_state_dict_pre_hook
+      ~BaseModel.register_module
+      ~BaseModel.register_parameter
+      ~BaseModel.register_state_dict_post_hook
+      ~BaseModel.register_state_dict_pre_hook
+      ~BaseModel.requires_grad_
+      ~BaseModel.save_hyperparameters
+      ~BaseModel.save_model
+      ~BaseModel.set_extra_state
+      ~BaseModel.set_submodule
+      ~BaseModel.share_memory
+      ~BaseModel.state_dict
+      ~BaseModel.to
+      ~BaseModel.to_device
+      ~BaseModel.to_empty
+      ~BaseModel.train
+      ~BaseModel.type
+      ~BaseModel.unfreeze_parameters
+      ~BaseModel.xpu
+      ~BaseModel.zero_grad
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~BaseModel.T_destination
+      ~BaseModel.__annotations__
+      ~BaseModel.__dict__
+      ~BaseModel.__doc__
+      ~BaseModel.__module__
+      ~BaseModel.__weakref__
+      ~BaseModel._compiled_call_impl
+      ~BaseModel._version
+      ~BaseModel.call_super_init
+      ~BaseModel.dump_patches
+      ~BaseModel.training
+      ~BaseModel._parameters
+      ~BaseModel._buffers
+      ~BaseModel._non_persistent_buffers_set
+      ~BaseModel._backward_pre_hooks
+      ~BaseModel._backward_hooks
+      ~BaseModel._is_full_backward_hook
+      ~BaseModel._forward_hooks
+      ~BaseModel._forward_hooks_with_kwargs
+      ~BaseModel._forward_hooks_always_called
+      ~BaseModel._forward_pre_hooks
+      ~BaseModel._forward_pre_hooks_with_kwargs
+      ~BaseModel._state_dict_hooks
+      ~BaseModel._load_state_dict_pre_hooks
+      ~BaseModel._state_dict_pre_hooks
+      ~BaseModel._load_state_dict_post_hooks
+      ~BaseModel._modules
+   

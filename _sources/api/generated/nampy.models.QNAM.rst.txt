@@ -1,0 +1,69 @@
+﻿nampy.models.QNAM
+=================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: QNAM
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~QNAM.__delattr__
+      ~QNAM.__dir__
+      ~QNAM.__eq__
+      ~QNAM.__format__
+      ~QNAM.__ge__
+      ~QNAM.__getattribute__
+      ~QNAM.__getstate__
+      ~QNAM.__gt__
+      ~QNAM.__hash__
+      ~QNAM.__init_subclass__
+      ~QNAM.__le__
+      ~QNAM.__lt__
+      ~QNAM.__ne__
+      ~QNAM.__new__
+      ~QNAM.__reduce__
+      ~QNAM.__reduce_ex__
+      ~QNAM.__repr__
+      ~QNAM.__setattr__
+      ~QNAM.__setstate__
+      ~QNAM.__sizeof__
+      ~QNAM.__sklearn_clone__
+      ~QNAM.__sklearn_tags__
+      ~QNAM.__str__
+      ~QNAM.__subclasshook__
+      ~QNAM._build_request_for_signature
+      ~QNAM._get_default_requests
+      ~QNAM._get_doc_link
+      ~QNAM._get_metadata_request
+      ~QNAM._get_param_names
+      ~QNAM._get_params_html
+      ~QNAM._html_repr
+      ~QNAM._plot_single_feature_effects
+      ~QNAM._predict
+      ~QNAM._repr_html_inner
+      ~QNAM._repr_mimebundle_
+      ~QNAM._validate_params
+      ~QNAM.evaluate
+      ~QNAM.fit
+      ~QNAM.get_default_metrics
+      ~QNAM.get_metadata_routing
+      ~QNAM.get_params
+      ~QNAM.plot
+      ~QNAM.predict
+      ~QNAM.predict_feature_vals
+      ~QNAM.set_fit_request
+      ~QNAM.set_params
+      ~QNAM.set_predict_request
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~QNAM.__annotations__
+      ~QNAM.__dict__
+      ~QNAM.__doc__
+      ~QNAM.__module__
+      ~QNAM.__weakref__
+      ~QNAM._doc_link_module
+      ~QNAM._doc_link_template
+      ~QNAM._doc_link_url_param_generator
+      ~QNAM._repr_html_
+   

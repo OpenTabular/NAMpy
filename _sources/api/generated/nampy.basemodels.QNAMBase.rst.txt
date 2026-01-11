@@ -1,0 +1,140 @@
+﻿nampy.basemodels.QNAMBase
+=========================
+
+.. currentmodule:: nampy.basemodels
+
+.. autoclass:: QNAMBase
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~QNAMBase.__call__
+      ~QNAMBase.__delattr__
+      ~QNAMBase.__dir__
+      ~QNAMBase.__eq__
+      ~QNAMBase.__format__
+      ~QNAMBase.__ge__
+      ~QNAMBase.__getattr__
+      ~QNAMBase.__getattribute__
+      ~QNAMBase.__getstate__
+      ~QNAMBase.__gt__
+      ~QNAMBase.__hash__
+      ~QNAMBase.__init_subclass__
+      ~QNAMBase.__le__
+      ~QNAMBase.__lt__
+      ~QNAMBase.__ne__
+      ~QNAMBase.__new__
+      ~QNAMBase.__reduce__
+      ~QNAMBase.__reduce_ex__
+      ~QNAMBase.__repr__
+      ~QNAMBase.__setattr__
+      ~QNAMBase.__setstate__
+      ~QNAMBase.__sizeof__
+      ~QNAMBase.__str__
+      ~QNAMBase.__subclasshook__
+      ~QNAMBase._apply
+      ~QNAMBase._call_impl
+      ~QNAMBase._create_subnetwork
+      ~QNAMBase._get_backward_hooks
+      ~QNAMBase._get_backward_pre_hooks
+      ~QNAMBase._get_name
+      ~QNAMBase._load_from_state_dict
+      ~QNAMBase._maybe_warn_non_full_backward_hook
+      ~QNAMBase._named_members
+      ~QNAMBase._register_load_state_dict_pre_hook
+      ~QNAMBase._register_state_dict_hook
+      ~QNAMBase._replicate_for_data_parallel
+      ~QNAMBase._save_to_state_dict
+      ~QNAMBase._slow_forward
+      ~QNAMBase._wrapped_call_impl
+      ~QNAMBase.add_module
+      ~QNAMBase.apply
+      ~QNAMBase.bfloat16
+      ~QNAMBase.buffers
+      ~QNAMBase.children
+      ~QNAMBase.compile
+      ~QNAMBase.count_parameters
+      ~QNAMBase.cpu
+      ~QNAMBase.cuda
+      ~QNAMBase.double
+      ~QNAMBase.eval
+      ~QNAMBase.extra_repr
+      ~QNAMBase.float
+      ~QNAMBase.forward
+      ~QNAMBase.freeze_parameters
+      ~QNAMBase.get_buffer
+      ~QNAMBase.get_device
+      ~QNAMBase.get_extra_state
+      ~QNAMBase.get_parameter
+      ~QNAMBase.get_submodule
+      ~QNAMBase.half
+      ~QNAMBase.ipu
+      ~QNAMBase.load_model
+      ~QNAMBase.load_state_dict
+      ~QNAMBase.log_parameters
+      ~QNAMBase.modules
+      ~QNAMBase.mtia
+      ~QNAMBase.named_buffers
+      ~QNAMBase.named_children
+      ~QNAMBase.named_modules
+      ~QNAMBase.named_parameters
+      ~QNAMBase.parameter_count
+      ~QNAMBase.parameters
+      ~QNAMBase.print_summary
+      ~QNAMBase.register_backward_hook
+      ~QNAMBase.register_buffer
+      ~QNAMBase.register_forward_hook
+      ~QNAMBase.register_forward_pre_hook
+      ~QNAMBase.register_full_backward_hook
+      ~QNAMBase.register_full_backward_pre_hook
+      ~QNAMBase.register_load_state_dict_post_hook
+      ~QNAMBase.register_load_state_dict_pre_hook
+      ~QNAMBase.register_module
+      ~QNAMBase.register_parameter
+      ~QNAMBase.register_state_dict_post_hook
+      ~QNAMBase.register_state_dict_pre_hook
+      ~QNAMBase.requires_grad_
+      ~QNAMBase.save_hyperparameters
+      ~QNAMBase.save_model
+      ~QNAMBase.set_extra_state
+      ~QNAMBase.set_submodule
+      ~QNAMBase.share_memory
+      ~QNAMBase.state_dict
+      ~QNAMBase.to
+      ~QNAMBase.to_device
+      ~QNAMBase.to_empty
+      ~QNAMBase.train
+      ~QNAMBase.type
+      ~QNAMBase.unfreeze_parameters
+      ~QNAMBase.xpu
+      ~QNAMBase.zero_grad
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~QNAMBase.T_destination
+      ~QNAMBase.__annotations__
+      ~QNAMBase.__dict__
+      ~QNAMBase.__doc__
+      ~QNAMBase.__module__
+      ~QNAMBase.__weakref__
+      ~QNAMBase._compiled_call_impl
+      ~QNAMBase._version
+      ~QNAMBase.call_super_init
+      ~QNAMBase.dump_patches
+      ~QNAMBase.training
+      ~QNAMBase._parameters
+      ~QNAMBase._buffers
+      ~QNAMBase._non_persistent_buffers_set
+      ~QNAMBase._backward_pre_hooks
+      ~QNAMBase._backward_hooks
+      ~QNAMBase._is_full_backward_hook
+      ~QNAMBase._forward_hooks
+      ~QNAMBase._forward_hooks_with_kwargs
+      ~QNAMBase._forward_hooks_always_called
+      ~QNAMBase._forward_pre_hooks
+      ~QNAMBase._forward_pre_hooks_with_kwargs
+      ~QNAMBase._state_dict_hooks
+      ~QNAMBase._load_state_dict_pre_hooks
+      ~QNAMBase._state_dict_pre_hooks
+      ~QNAMBase._load_state_dict_post_hooks
+      ~QNAMBase._modules
+   

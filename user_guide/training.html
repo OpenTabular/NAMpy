@@ -1,0 +1,857 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Training Models &mdash; nampy 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=ea57e989" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Custom Models" href="custom_models.html" />
+    <link rel="prev" title="Preprocessing" href="preprocessing.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            nampy
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#installation-methods">Installation Methods</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#from-pypi-recommended">From PyPI (Recommended)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#from-source">From Source</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#from-github">From GitHub</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../installation.html#development-installation">Development Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#verifying-installation">Verifying Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#gpu-support">GPU Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation.html#getting-help">Getting Help</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quick Start Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#basic-workflow">Basic Workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#regression-example">Regression Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#classification-example">Classification Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#distributional-regression-lss">Distributional Regression (LSS)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#working-with-dataframes">Working with DataFrames</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#preprocessing-options">Preprocessing Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#model-configurations">Model Configurations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#integration-with-scikit-learn">Integration with scikit-learn</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#saving-and-loading-models">Saving and Loading Models</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="../user_guide.html">User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="preprocessing.html">Preprocessing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="preprocessing.html#numerical-feature-preprocessing">Numerical Feature Preprocessing</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="preprocessing.html#standardization">Standardization</a></li>
+<li class="toctree-l4"><a class="reference internal" href="preprocessing.html#normalization">Normalization</a></li>
+<li class="toctree-l4"><a class="reference internal" href="preprocessing.html#piecewise-linear-encoding-ple">Piecewise Linear Encoding (PLE)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="preprocessing.html#binning">Binning</a></li>
+<li class="toctree-l4"><a class="reference internal" href="preprocessing.html#one-hot-encoding">One-Hot Encoding</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="preprocessing.html#categorical-feature-handling">Categorical Feature Handling</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="preprocessing.html#automatic-detection">Automatic Detection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="preprocessing.html#manual-control">Manual Control</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="preprocessing.html#decision-tree-based-binning">Decision Tree-Based Binning</a></li>
+<li class="toctree-l3"><a class="reference internal" href="preprocessing.html#custom-preprocessing">Custom Preprocessing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="preprocessing.html#best-practices">Best Practices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="preprocessing.html#preprocessing-pipeline">Preprocessing Pipeline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="preprocessing.html#accessing-the-preprocessor">Accessing the Preprocessor</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Training Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#basic-training">Basic Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#training-parameters">Training Parameters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#common-training-parameters">Common Training Parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#complete-example">Complete Example</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#early-stopping">Early Stopping</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#learning-rate-scheduling">Learning Rate Scheduling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#monitoring-training">Monitoring Training</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#training-progress">Training Progress</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#custom-monitoring">Custom Monitoring</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#gpu-training">GPU Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#batch-size">Batch Size</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#regularization">Regularization</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#weight-decay-l2">Weight Decay (L2)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dropout">Dropout</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#hyperparameter-tuning">Hyperparameter Tuning</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#manual-search">Manual Search</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#using-scikit-learn">Using scikit-learn</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#training-tips">Training Tips</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#common-issues">Common Issues</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#model-not-converging">Model Not Converging</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#overfitting">Overfitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#underfitting">Underfitting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#slow-training">Slow Training</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="custom_models.html">Custom Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="custom_models.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="custom_models.html#step-by-step-guide">Step-by-Step Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="custom_models.html#define-configuration">1. Define Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="custom_models.html#implement-the-model">2. Implement the Model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="custom_models.html#create-wrapper-classes">3. Create Wrapper Classes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="custom_models.html#use-your-custom-model">4. Use Your Custom Model</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="custom_models.html#complete-example">Complete Example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="custom_models.html#important-notes">Important Notes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="custom_models.html#forward-pass-requirements">Forward Pass Requirements</a></li>
+<li class="toctree-l4"><a class="reference internal" href="custom_models.html#for-interpretable-models">For Interpretable Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="custom_models.html#configuration-best-practices">Configuration Best Practices</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="custom_models.html#testing-your-model">Testing Your Model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="custom_models.html#contributing-your-model">Contributing Your Model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="custom_models.html#resources">Resources</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="interpretability.html">Interpretability</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="interpretability.html#understanding-additive-models">Understanding Additive Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="interpretability.html#feature-level-predictions">Feature-Level Predictions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="interpretability.html#model-comparison">Model Comparison</a></li>
+<li class="toctree-l3"><a class="reference internal" href="interpretability.html#visualization-future">Visualization (Future)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="interpretability.html#contributing">Contributing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="interpretability.html#for-more-information">For More Information</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide.html#model-selection">Model Selection</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#standard-models">Standard Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#advanced-models">Advanced Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#specialized-models">Specialized Models</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide.html#task-types">Task Types</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#regression">Regression</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#classification">Classification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#distributional-regression-lss">Distributional Regression (LSS)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide.html#hyperparameter-configuration">Hyperparameter Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#common-hyperparameters">Common Hyperparameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#training-parameters">Training Parameters</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide.html#model-evaluation">Model Evaluation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#standard-metrics">Standard Metrics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#custom-metrics">Custom Metrics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#cross-validation">Cross-Validation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide.html#best-practices">Best Practices</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#data-preparation">Data Preparation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#training">Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#id1">Model Selection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide.html#performance-optimization">Performance Optimization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/models.html">Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#regression-models">Regression Models</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMRegressor.html">nampy.models.NAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GPNAMRegressor.html">nampy.models.GPNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMRegressor.html">nampy.models.NBMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NATTRegressor.html">nampy.models.NATTRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerRegressor.html">nampy.models.NAMformerRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegRegressor.html">nampy.models.LinRegRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.TreeNAMRegressor.html">nampy.models.TreeNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SNAMRegressor.html">nampy.models.SNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMRegressor.html">nampy.models.NodeGAMRegressor</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#classification-models">Classification Models</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMClassifier.html">nampy.models.NAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GPNAMClassifier.html">nampy.models.GPNAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMClassifier.html">nampy.models.NBMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NATTClassifier.html">nampy.models.NATTClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerClassifier.html">nampy.models.NAMformerClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegClassifier.html">nampy.models.LinRegClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMClassifier.html">nampy.models.NodeGAMClassifier</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#distributional-regression-models-lss">Distributional Regression Models (LSS)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMLSS.html">nampy.models.NAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.GPNAMLSS.html">nampy.models.GPNAMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NBMLSS.html">nampy.models.NBMLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NATTLSS.html">nampy.models.NATTLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerLSS.html">nampy.models.NAMformerLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegLSS.html">nampy.models.LinRegLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMLSS.html">nampy.models.NodeGAMLSS</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#other-models">Other Models</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.QNAM.html">nampy.models.QNAM</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/models.html#base-classes">Base Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SklearnBaseRegressor.html">nampy.models.SklearnBaseRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SklearnBaseClassifier.html">nampy.models.SklearnBaseClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SklearnBaseLSS.html">nampy.models.SklearnBaseLSS</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/basemodels.html">Base Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/basemodels.html#base-classes">Base Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.BaseModel.html">nampy.basemodels.BaseModel</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.TaskModel.html">nampy.basemodels.TaskModel</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/basemodels.html#model-implementations">Model Implementations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NAM.html">nampy.basemodels.NAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.GPNAM.html">nampy.basemodels.GPNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NBM.html">nampy.basemodels.NBM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NATT.html">nampy.basemodels.NATT</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NAMformer.html">nampy.basemodels.NAMformer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.LinReg.html">nampy.basemodels.LinReg</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.QNAMBase.html">nampy.basemodels.QNAMBase</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.BoostedNAM.html">nampy.basemodels.BoostedNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.SNAM.html">nampy.basemodels.SNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NodeGAM.html">nampy.basemodels.NodeGAM</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/basemodels.html#utilities">Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.MultiModelWrapper.html">nampy.basemodels.MultiModelWrapper</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/preprocessing.html">Preprocessing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.preprocessing.Preprocessor.html">nampy.preprocessing.Preprocessor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/preprocessing.html#overview">Overview</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/configs.html">Configurations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNAMConfig.html">nampy.configs.DefaultNAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNBMConfig.html">nampy.configs.DefaultNBMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNATTConfig.html">nampy.configs.DefaultNATTConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNAMformerConfig.html">nampy.configs.DefaultNAMformerConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultLinRegConfig.html">nampy.configs.DefaultLinRegConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultBoostedNAMConfig.html">nampy.configs.DefaultBoostedNAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultSNAMConfig.html">nampy.configs.DefaultSNAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNodeGAMConfig.html">nampy.configs.DefaultNodeGAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/configs.html#using-configurations">Using Configurations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/configs.html#note">Note</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/utils.html">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/utils.html#modules">Modules</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.distributional_metrics.html">nampy.utils.distributional_metrics</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.distributions.html">nampy.utils.distributions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../api/utils.html#available-distributions">Available Distributions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/utils.html#example-usage">Example Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#package-overview">Package Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#quick-api-reference">Quick API Reference</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/index.html#models">Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/index.html#base-models">Base Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/index.html#preprocessing">Preprocessing</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/index.html#version-information">Version Information</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/index.html#nampy.__version__"><code class="docutils literal notranslate"><span class="pre">__version__</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../models/index.html">Models</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../models/index.html#model-overview">Model Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/index.html#model-families">Model Families</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../models/index.html#additive-models-interpretable">Additive Models (Interpretable)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../models/index.html#basis-function-models">Basis Function Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../models/index.html#attention-based-models">Attention-Based Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../models/index.html#specialized-models">Specialized Models</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../models/index.html#task-variants">Task Variants</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../models/index.html#regression">Regression</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../models/index.html#classification">Classification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../models/index.html#distributional-regression-lss">Distributional Regression (LSS)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../models/index.html#model-reference">Model Reference</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../models/reference.html">Model Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#shared-fit-time-parameters">Shared Fit-Time Parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#neural-additive-models">Neural Additive Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#basis-function-models">Basis Function Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#attention-based-models">Attention-Based Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#specialized-models">Specialized Models</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../models/index.html#complete-api-reference">Complete API Reference</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../models/reference.html">Model Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../models/reference.html#shared-fit-time-parameters">Shared Fit-Time Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../models/reference.html#neural-additive-models">Neural Additive Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#nam">NAM</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#regressor">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#classifier">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#distributional-regression-lss">Distributional Regression (LSS)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#gpnam">GPNAM</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id1">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id2">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id3">Distributional Regression (LSS)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#treenam">TreeNAM</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id4">Regressor</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#snam">SNAM</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id5">Regressor</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#nodegam">NodeGAM</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id6">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id7">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id8">Distributional Regression (LSS)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../models/reference.html#basis-function-models">Basis Function Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#nbm">NBM</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id9">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id10">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id11">Distributional Regression (LSS)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../models/reference.html#attention-based-models">Attention-Based Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#natt">NATT</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id12">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id13">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id14">Distributional Regression (LSS)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#namformer">NAMformer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id15">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id16">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id17">Distributional Regression (LSS)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../models/reference.html#specialized-models">Specialized Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#qnam-quantile-nam">QNAM (Quantile NAM)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id18">Distributional Regression (LSS)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#linreg-neural-linear-regression">LinReg (Neural Linear Regression)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id19">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id20">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id21">Distributional Regression (LSS)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/index.html">Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../examples/basic_regression.html">Basic Regression Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/basic_classification.html">Basic Classification Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/distributional_regression.html">Distributional Regression Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/custom_model.html">Custom Model Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/index.html#jupyter-notebook-examples">Jupyter Notebook Examples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../notebooks/02_classification.html">Classification with NAMpy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/02_classification.html#Setup">Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/02_classification.html#1.-Binary-Classification">1. Binary Classification</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/02_classification.html#2.-Feature-Importance-via-Shape-Functions">2. Feature Importance via Shape Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/02_classification.html#3.-Multi-class-Classification">3. Multi-class Classification</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/02_classification.html#4.-Synthetic-Multi-class-Example">4. Synthetic Multi-class Example</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/02_classification.html#Summary">Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../notebooks/03_distributional_regression.html">Distributional Regression with NAMpy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/03_distributional_regression.html#Setup">Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/03_distributional_regression.html#1.-Understanding-Distributional-Regression">1. Understanding Distributional Regression</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/03_distributional_regression.html#2.-Training-a-NAMLSS-Model">2. Training a NAMLSS Model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/03_distributional_regression.html#3.-Visualizing-Prediction-Intervals">3. Visualizing Prediction Intervals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/03_distributional_regression.html#4.-Comparing-Predicted-vs-True-Variance">4. Comparing Predicted vs True Variance</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/03_distributional_regression.html#5.-Different-Distribution-Families">5. Different Distribution Families</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/03_distributional_regression.html#6.-Probabilistic-Metrics">6. Probabilistic Metrics</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/03_distributional_regression.html#7.-Shape-Functions-for-Distribution-Parameters">7. Shape Functions for Distribution Parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/03_distributional_regression.html#Summary">Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../notebooks/04_model_comparison.html">Model Comparison in NAMpy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/04_model_comparison.html#Available-Models">Available Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/04_model_comparison.html#Setup">Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/04_model_comparison.html#1.-Prepare-Data">1. Prepare Data</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/04_model_comparison.html#2.-Define-Models">2. Define Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/04_model_comparison.html#3.-Train-and-Evaluate-Models">3. Train and Evaluate Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/04_model_comparison.html#4.-Visualize-Results">4. Visualize Results</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/04_model_comparison.html#5.-Compare-Shape-Functions">5. Compare Shape Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/04_model_comparison.html#6.-Model-Selection-Guide">6. Model Selection Guide</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/04_model_comparison.html#Summary">Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../notebooks/05_interpretability.html">Interpretability in NAMpy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/05_interpretability.html#1.-Understanding-Shape-Functions">1. Understanding Shape Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/05_interpretability.html#2.-Feature-Importance">2. Feature Importance</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/05_interpretability.html#3.-Local-Interpretations">3. Local Interpretations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/05_interpretability.html#4.-Classification-Interpretability">4. Classification Interpretability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/05_interpretability.html#5.-Model-Comparison:-Interpretability-across-Different-Architectures">5. Model Comparison: Interpretability across Different Architectures</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/05_interpretability.html#6.-Best-Practices-for-Interpretability">6. Best Practices for Interpretability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../notebooks/05_interpretability.html#Conclusion">Conclusion</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/index.html#quick-examples">Quick Examples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../examples/index.html#basic-regression">Basic Regression</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../examples/index.html#basic-classification">Basic Classification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../examples/index.html#distributional-regression">Distributional Regression</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../examples/index.html#real-world-example-house-price-prediction">Real-World Example: House Price Prediction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../examples/index.html#model-comparison">Model Comparison</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../examples/index.html#hyperparameter-tuning">Hyperparameter Tuning</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../examples/index.html#custom-model-implementation">Custom Model Implementation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/index.html#more-examples">More Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/index.html#running-notebooks-locally">Running Notebooks Locally</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../contributing.html#quick-links">Quick Links</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributing.html#ways-to-contribute">Ways to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributing.html#getting-started">Getting Started</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributing.html#development-setup">Development Setup</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#latest-release">Latest Release</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../changelog.html#version-0-1-0-2024-01-07">Version 0.1.0 (2024-01-07)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#version-history">Version History</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../changelog.html#for-more-details">For More Details</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Additional Information:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">License</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../license.html#mit-license">MIT License</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../license.html#summary">Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../faq.html#general-questions">General Questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#what-is-nampy">What is NAMpy?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#why-use-nampy-over-traditional-methods">Why use NAMpy over traditional methods?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#is-nampy-production-ready">Is NAMpy production-ready?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../faq.html#installation-setup">Installation &amp; Setup</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#how-do-i-install-nampy">How do I install NAMpy?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#what-are-the-requirements">What are the requirements?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#do-i-need-a-gpu">Do I need a GPU?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../faq.html#usage-questions">Usage Questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#how-do-i-choose-which-model-to-use">How do I choose which model to use?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#can-i-use-nampy-with-pandas-dataframes">Can I use NAMpy with pandas DataFrames?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#how-do-i-handle-categorical-features">How do I handle categorical features?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#can-i-use-nampy-with-scikit-learn-pipelines">Can I use NAMpy with scikit-learn pipelines?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../faq.html#performance-questions">Performance Questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#why-is-training-slow">Why is training slow?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#how-do-i-speed-up-predictions">How do I speed up predictions?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#my-model-is-overfitting-what-should-i-do">My model is overfitting, what should I do?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#my-model-is-underfitting-what-should-i-do">My model is underfitting, what should I do?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../faq.html#technical-questions">Technical Questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#how-do-i-save-and-load-models">How do I save and load models?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#can-i-implement-custom-models">Can I implement custom models?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#how-do-i-extract-feature-importances">How do I extract feature importances?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#does-nampy-support-multi-output-regression">Does NAMpy support multi-output regression?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../faq.html#integration-questions">Integration Questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#can-i-use-nampy-with-other-frameworks">Can I use NAMpy with other frameworks?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#does-nampy-work-with-jupyter-notebooks">Does NAMpy work with Jupyter notebooks?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#can-i-deploy-nampy-models-in-production">Can I deploy NAMpy models in production?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../faq.html#contributing-questions">Contributing Questions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#how-can-i-contribute">How can I contribute?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#how-do-i-report-a-bug">How do I report a bug?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../faq.html#how-do-i-request-a-feature">How do I request a feature?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../faq.html#still-have-questions">Still Have Questions?</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">nampy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../user_guide.html">User Guide</a></li>
+      <li class="breadcrumb-item active">Training Models</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/user_guide/training.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="training-models">
+<h1>Training Models<a class="headerlink" href="#training-models" title="Link to this heading"></a></h1>
+<p>This guide covers how to train nampy models effectively.</p>
+<section id="basic-training">
+<h2>Basic Training<a class="headerlink" href="#basic-training" title="Link to this heading"></a></h2>
+<p>All nampy models follow the same training interface:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NAMRegressor</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">max_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="training-parameters">
+<h2>Training Parameters<a class="headerlink" href="#training-parameters" title="Link to this heading"></a></h2>
+<section id="common-training-parameters">
+<h3>Common Training Parameters<a class="headerlink" href="#common-training-parameters" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 50.0%" />
+<col style="width: 15.0%" />
+<col style="width: 15.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Typical Range</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_epochs</span></code></p></td>
+<td><p>Maximum number of training epochs</p></td>
+<td><p>100</p></td>
+<td><p>50-300</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lr</span></code></p></td>
+<td><p>Learning rate</p></td>
+<td><p>1e-4</p></td>
+<td><p>1e-5 to 1e-2</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">patience</span></code></p></td>
+<td><p>Early stopping patience (epochs)</p></td>
+<td><p>15</p></td>
+<td><p>5-30</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">val_size</span></code></p></td>
+<td><p>Fraction of data for validation</p></td>
+<td><p>0.2</p></td>
+<td><p>0.1-0.3</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="complete-example">
+<h3>Complete Example<a class="headerlink" href="#complete-example" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+    <span class="n">X_train</span><span class="p">,</span>
+    <span class="n">y_train</span><span class="p">,</span>
+    <span class="n">max_epochs</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span>           <span class="c1"># Train for up to 150 epochs</span>
+    <span class="n">lr</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span>                  <span class="c1"># Learning rate</span>
+    <span class="n">patience</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>              <span class="c1"># Stop if no improvement for 10 epochs</span>
+    <span class="n">val_size</span><span class="o">=</span><span class="mf">0.2</span>              <span class="c1"># Use 20% for validation</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="early-stopping">
+<h2>Early Stopping<a class="headerlink" href="#early-stopping" title="Link to this heading"></a></h2>
+<p>Early stopping prevents overfitting by monitoring validation performance:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+    <span class="n">X_train</span><span class="p">,</span>
+    <span class="n">y_train</span><span class="p">,</span>
+    <span class="n">max_epochs</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
+    <span class="n">patience</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>              <span class="c1"># Stop if val loss doesn&#39;t improve for 15 epochs</span>
+    <span class="n">val_size</span><span class="o">=</span><span class="mf">0.2</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Benefits:
+* Prevents overfitting
+* Saves training time
+* Finds optimal stopping point automatically</p>
+</section>
+<section id="learning-rate-scheduling">
+<h2>Learning Rate Scheduling<a class="headerlink" href="#learning-rate-scheduling" title="Link to this heading"></a></h2>
+<p>nampy automatically adjusts the learning rate during training:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span>
+    <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span>                  <span class="c1"># Initial learning rate</span>
+    <span class="n">lr_patience</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>           <span class="c1"># Reduce LR after 10 epochs w/o improvement</span>
+    <span class="n">lr_factor</span><span class="o">=</span><span class="mf">0.1</span>             <span class="c1"># Multiply LR by 0.1 when reducing</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The learning rate is reduced when validation loss plateaus.</p>
+</section>
+<section id="monitoring-training">
+<h2>Monitoring Training<a class="headerlink" href="#monitoring-training" title="Link to this heading"></a></h2>
+<section id="training-progress">
+<h3>Training Progress<a class="headerlink" href="#training-progress" title="Link to this heading"></a></h3>
+<p>nampy uses PyTorch Lightning for training, which provides progress bars
+and logging out of the box.</p>
+</section>
+<section id="custom-monitoring">
+<h3>Custom Monitoring<a class="headerlink" href="#custom-monitoring" title="Link to this heading"></a></h3>
+<p>For more control, pass Lightning trainer callbacks and loggers via
+<code class="docutils literal notranslate"><span class="pre">**trainer_kwargs</span></code> in <code class="docutils literal notranslate"><span class="pre">fit()</span></code>.</p>
+</section>
+</section>
+<section id="gpu-training">
+<h2>GPU Training<a class="headerlink" href="#gpu-training" title="Link to this heading"></a></h2>
+<p>nampy automatically uses GPU if available:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="c1"># Check GPU availability</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CUDA available: </span><span class="si">{</span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Train on GPU (automatic)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">max_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For CPU-only training, set:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;CUDA_VISIBLE_DEVICES&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+</pre></div>
+</div>
+</section>
+<section id="batch-size">
+<h2>Batch Size<a class="headerlink" href="#batch-size" title="Link to this heading"></a></h2>
+<p>Batching is controlled via the <code class="docutils literal notranslate"><span class="pre">batch_size</span></code> argument in <code class="docutils literal notranslate"><span class="pre">fit()</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">max_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">128</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="regularization">
+<h2>Regularization<a class="headerlink" href="#regularization" title="Link to this heading"></a></h2>
+<section id="weight-decay-l2">
+<h3>Weight Decay (L2)<a class="headerlink" href="#weight-decay-l2" title="Link to this heading"></a></h3>
+<p>Add L2 regularization:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span>
+    <span class="n">weight_decay</span><span class="o">=</span><span class="mf">1e-5</span>         <span class="c1"># L2 penalty</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="dropout">
+<h3>Dropout<a class="headerlink" href="#dropout" title="Link to this heading"></a></h3>
+<p>Add dropout for regularization:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span>
+    <span class="n">dropout</span><span class="o">=</span><span class="mf">0.3</span>               <span class="c1"># Drop 30% of activations</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="hyperparameter-tuning">
+<h2>Hyperparameter Tuning<a class="headerlink" href="#hyperparameter-tuning" title="Link to this heading"></a></h2>
+<section id="manual-search">
+<h3>Manual Search<a class="headerlink" href="#manual-search" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">best_score</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">best_params</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="k">for</span> <span class="n">lr</span> <span class="ow">in</span> <span class="p">[</span><span class="mf">1e-5</span><span class="p">,</span> <span class="mf">1e-4</span><span class="p">,</span> <span class="mf">1e-3</span><span class="p">]:</span>
+    <span class="k">for</span> <span class="n">dropout</span> <span class="ow">in</span> <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">]:</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span><span class="n">dropout</span><span class="o">=</span><span class="n">dropout</span><span class="p">)</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">max_epochs</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="n">lr</span><span class="p">)</span>
+        <span class="n">score</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">X_val</span><span class="p">,</span> <span class="n">y_val</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">score</span> <span class="o">&gt;</span> <span class="n">best_score</span><span class="p">:</span>
+            <span class="n">best_score</span> <span class="o">=</span> <span class="n">score</span>
+            <span class="n">best_params</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;lr&#39;</span><span class="p">:</span> <span class="n">lr</span><span class="p">,</span> <span class="s1">&#39;dropout&#39;</span><span class="p">:</span> <span class="n">dropout</span><span class="p">}</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Best params: </span><span class="si">{</span><span class="n">best_params</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="using-scikit-learn">
+<h3>Using scikit-learn<a class="headerlink" href="#using-scikit-learn" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">cross_val_score</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">()</span>
+<span class="n">scores</span> <span class="o">=</span> <span class="n">cross_val_score</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="n">fit_params</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;max_epochs&#39;</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span> <span class="s1">&#39;lr&#39;</span><span class="p">:</span> <span class="mf">1e-3</span><span class="p">}</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CV Score: </span><span class="si">{</span><span class="n">scores</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> (+/- </span><span class="si">{</span><span class="n">scores</span><span class="o">.</span><span class="n">std</span><span class="p">()</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="training-tips">
+<h2>Training Tips<a class="headerlink" href="#training-tips" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p><strong>Start with defaults</strong> - nampy’s defaults work well for most cases</p></li>
+<li><p><strong>Use early stopping</strong> - Set <cite>patience</cite> to avoid overfitting</p></li>
+<li><p><strong>Monitor validation loss</strong> - Ensure the model is learning</p></li>
+<li><p><strong>Try different learning rates</strong> - Start with 1e-4, adjust as needed</p></li>
+<li><p><strong>Use GPU</strong> - Significantly speeds up training</p></li>
+<li><p><strong>Validate on held-out data</strong> - Don’t overfit to training set</p></li>
+</ol>
+</section>
+<section id="common-issues">
+<h2>Common Issues<a class="headerlink" href="#common-issues" title="Link to this heading"></a></h2>
+<section id="model-not-converging">
+<h3>Model Not Converging<a class="headerlink" href="#model-not-converging" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Reduce learning rate</strong>: Try 1e-5 instead of 1e-4</p></li>
+<li><p><strong>Increase max_epochs</strong>: Give the model more time</p></li>
+<li><p><strong>Check data</strong>: Ensure features and target are properly scaled</p></li>
+</ul>
+</section>
+<section id="overfitting">
+<h3>Overfitting<a class="headerlink" href="#overfitting" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Increase dropout</strong>: Try 0.5 instead of 0.3</p></li>
+<li><p><strong>Add weight_decay</strong>: Try 1e-5 or 1e-4</p></li>
+<li><p><strong>Use early stopping</strong>: Set patience=10</p></li>
+<li><p><strong>Get more data</strong>: If possible</p></li>
+</ul>
+</section>
+<section id="underfitting">
+<h3>Underfitting<a class="headerlink" href="#underfitting" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Increase model capacity</strong>: Larger <cite>layer_sizes</cite></p></li>
+<li><p><strong>Train longer</strong>: More <cite>max_epochs</cite></p></li>
+<li><p><strong>Reduce regularization</strong>: Lower dropout, weight_decay</p></li>
+<li><p><strong>Try different preprocessing</strong>: PLE often works well</p></li>
+</ul>
+</section>
+<section id="slow-training">
+<h3>Slow Training<a class="headerlink" href="#slow-training" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Use GPU</strong>: Check <cite>torch.cuda.is_available()</cite></p></li>
+<li><p><strong>Reduce max_epochs</strong>: Start with 50 for experimentation</p></li>
+<li><p><strong>Use smaller model</strong>: Reduce <cite>layer_sizes</cite></p></li>
+<li><p><strong>Reduce n_bins</strong>: Fewer bins = faster training</p></li>
+</ul>
+</section>
+</section>
+<section id="next-steps">
+<h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Learn about <a class="reference internal" href="preprocessing.html"><span class="doc">Preprocessing</span></a></p></li>
+<li><p>Implement <a class="reference internal" href="custom_models.html"><span class="doc">Custom Models</span></a></p></li>
+<li><p>Check <a class="reference internal" href="interpretability.html"><span class="doc">Interpretability</span></a></p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="preprocessing.html" class="btn btn-neutral float-left" title="Preprocessing" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="custom_models.html" class="btn btn-neutral float-right" title="Custom Models" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Anton Thielmann and OpenTabular Contributors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,67 @@
+﻿nampy.models.NBMRegressor
+=========================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: NBMRegressor
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~NBMRegressor.__delattr__
+      ~NBMRegressor.__dir__
+      ~NBMRegressor.__eq__
+      ~NBMRegressor.__format__
+      ~NBMRegressor.__ge__
+      ~NBMRegressor.__getattribute__
+      ~NBMRegressor.__getstate__
+      ~NBMRegressor.__gt__
+      ~NBMRegressor.__hash__
+      ~NBMRegressor.__init_subclass__
+      ~NBMRegressor.__le__
+      ~NBMRegressor.__lt__
+      ~NBMRegressor.__ne__
+      ~NBMRegressor.__new__
+      ~NBMRegressor.__reduce__
+      ~NBMRegressor.__reduce_ex__
+      ~NBMRegressor.__repr__
+      ~NBMRegressor.__setattr__
+      ~NBMRegressor.__setstate__
+      ~NBMRegressor.__sizeof__
+      ~NBMRegressor.__sklearn_clone__
+      ~NBMRegressor.__sklearn_tags__
+      ~NBMRegressor.__str__
+      ~NBMRegressor.__subclasshook__
+      ~NBMRegressor._build_request_for_signature
+      ~NBMRegressor._get_default_requests
+      ~NBMRegressor._get_doc_link
+      ~NBMRegressor._get_metadata_request
+      ~NBMRegressor._get_param_names
+      ~NBMRegressor._get_params_html
+      ~NBMRegressor._html_repr
+      ~NBMRegressor._plot_single_feature_effects
+      ~NBMRegressor._predict
+      ~NBMRegressor._repr_html_inner
+      ~NBMRegressor._repr_mimebundle_
+      ~NBMRegressor._validate_params
+      ~NBMRegressor.evaluate
+      ~NBMRegressor.fit
+      ~NBMRegressor.get_metadata_routing
+      ~NBMRegressor.get_params
+      ~NBMRegressor.plot
+      ~NBMRegressor.predict
+      ~NBMRegressor.predict_feature_vals
+      ~NBMRegressor.set_fit_request
+      ~NBMRegressor.set_params
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~NBMRegressor.__annotations__
+      ~NBMRegressor.__dict__
+      ~NBMRegressor.__doc__
+      ~NBMRegressor.__module__
+      ~NBMRegressor.__weakref__
+      ~NBMRegressor._doc_link_module
+      ~NBMRegressor._doc_link_template
+      ~NBMRegressor._doc_link_url_param_generator
+      ~NBMRegressor._repr_html_
+   

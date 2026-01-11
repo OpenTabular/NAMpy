@@ -1,0 +1,69 @@
+﻿nampy.models.NATTLSS
+====================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: NATTLSS
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~NATTLSS.__delattr__
+      ~NATTLSS.__dir__
+      ~NATTLSS.__eq__
+      ~NATTLSS.__format__
+      ~NATTLSS.__ge__
+      ~NATTLSS.__getattribute__
+      ~NATTLSS.__getstate__
+      ~NATTLSS.__gt__
+      ~NATTLSS.__hash__
+      ~NATTLSS.__init_subclass__
+      ~NATTLSS.__le__
+      ~NATTLSS.__lt__
+      ~NATTLSS.__ne__
+      ~NATTLSS.__new__
+      ~NATTLSS.__reduce__
+      ~NATTLSS.__reduce_ex__
+      ~NATTLSS.__repr__
+      ~NATTLSS.__setattr__
+      ~NATTLSS.__setstate__
+      ~NATTLSS.__sizeof__
+      ~NATTLSS.__sklearn_clone__
+      ~NATTLSS.__sklearn_tags__
+      ~NATTLSS.__str__
+      ~NATTLSS.__subclasshook__
+      ~NATTLSS._build_request_for_signature
+      ~NATTLSS._get_default_requests
+      ~NATTLSS._get_doc_link
+      ~NATTLSS._get_metadata_request
+      ~NATTLSS._get_param_names
+      ~NATTLSS._get_params_html
+      ~NATTLSS._html_repr
+      ~NATTLSS._plot_single_feature_effects
+      ~NATTLSS._predict
+      ~NATTLSS._repr_html_inner
+      ~NATTLSS._repr_mimebundle_
+      ~NATTLSS._validate_params
+      ~NATTLSS.evaluate
+      ~NATTLSS.fit
+      ~NATTLSS.get_default_metrics
+      ~NATTLSS.get_metadata_routing
+      ~NATTLSS.get_params
+      ~NATTLSS.plot
+      ~NATTLSS.predict
+      ~NATTLSS.predict_feature_vals
+      ~NATTLSS.set_fit_request
+      ~NATTLSS.set_params
+      ~NATTLSS.set_predict_request
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~NATTLSS.__annotations__
+      ~NATTLSS.__dict__
+      ~NATTLSS.__doc__
+      ~NATTLSS.__module__
+      ~NATTLSS.__weakref__
+      ~NATTLSS._doc_link_module
+      ~NATTLSS._doc_link_template
+      ~NATTLSS._doc_link_url_param_generator
+      ~NATTLSS._repr_html_
+   

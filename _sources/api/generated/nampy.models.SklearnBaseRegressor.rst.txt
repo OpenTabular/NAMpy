@@ -1,0 +1,67 @@
+﻿nampy.models.SklearnBaseRegressor
+=================================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: SklearnBaseRegressor
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~SklearnBaseRegressor.__delattr__
+      ~SklearnBaseRegressor.__dir__
+      ~SklearnBaseRegressor.__eq__
+      ~SklearnBaseRegressor.__format__
+      ~SklearnBaseRegressor.__ge__
+      ~SklearnBaseRegressor.__getattribute__
+      ~SklearnBaseRegressor.__getstate__
+      ~SklearnBaseRegressor.__gt__
+      ~SklearnBaseRegressor.__hash__
+      ~SklearnBaseRegressor.__init_subclass__
+      ~SklearnBaseRegressor.__le__
+      ~SklearnBaseRegressor.__lt__
+      ~SklearnBaseRegressor.__ne__
+      ~SklearnBaseRegressor.__new__
+      ~SklearnBaseRegressor.__reduce__
+      ~SklearnBaseRegressor.__reduce_ex__
+      ~SklearnBaseRegressor.__repr__
+      ~SklearnBaseRegressor.__setattr__
+      ~SklearnBaseRegressor.__setstate__
+      ~SklearnBaseRegressor.__sizeof__
+      ~SklearnBaseRegressor.__sklearn_clone__
+      ~SklearnBaseRegressor.__sklearn_tags__
+      ~SklearnBaseRegressor.__str__
+      ~SklearnBaseRegressor.__subclasshook__
+      ~SklearnBaseRegressor._build_request_for_signature
+      ~SklearnBaseRegressor._get_default_requests
+      ~SklearnBaseRegressor._get_doc_link
+      ~SklearnBaseRegressor._get_metadata_request
+      ~SklearnBaseRegressor._get_param_names
+      ~SklearnBaseRegressor._get_params_html
+      ~SklearnBaseRegressor._html_repr
+      ~SklearnBaseRegressor._plot_single_feature_effects
+      ~SklearnBaseRegressor._predict
+      ~SklearnBaseRegressor._repr_html_inner
+      ~SklearnBaseRegressor._repr_mimebundle_
+      ~SklearnBaseRegressor._validate_params
+      ~SklearnBaseRegressor.evaluate
+      ~SklearnBaseRegressor.fit
+      ~SklearnBaseRegressor.get_metadata_routing
+      ~SklearnBaseRegressor.get_params
+      ~SklearnBaseRegressor.plot
+      ~SklearnBaseRegressor.predict
+      ~SklearnBaseRegressor.predict_feature_vals
+      ~SklearnBaseRegressor.set_fit_request
+      ~SklearnBaseRegressor.set_params
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~SklearnBaseRegressor.__annotations__
+      ~SklearnBaseRegressor.__dict__
+      ~SklearnBaseRegressor.__doc__
+      ~SklearnBaseRegressor.__module__
+      ~SklearnBaseRegressor.__weakref__
+      ~SklearnBaseRegressor._doc_link_module
+      ~SklearnBaseRegressor._doc_link_template
+      ~SklearnBaseRegressor._doc_link_url_param_generator
+      ~SklearnBaseRegressor._repr_html_
+   
