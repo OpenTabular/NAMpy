@@ -10,6 +10,7 @@ from .natt import NATTRegressor, NATTClassifier, NATTLSS
 from .namformer import NAMformerClassifier, NAMformerLSS, NAMformerRegressor
 from .treenam import TreeNAMRegressor
 from .snam import SNAMRegressor
+from .nodegam import NodeGAMRegressor, NodeGAMClassifier, NodeGAMLSS
 
 __all__ = [
     "NAMClassifier",
@@ -36,4 +37,7 @@ __all__ = [
     "NAMformerRegressor",
     "TreeNAMRegressor",
     "SNAMRegressor",
+    "NodeGAMRegressor",
+    "NodeGAMClassifier",
+    "NodeGAMLSS",
 ]
