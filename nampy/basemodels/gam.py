@@ -1085,8 +1085,8 @@ class GAM:
         intercept_sigma2 : float or None
             Scale estimate used for the intercept variance.  ``None`` →
             ``self.scale_`` (the fitted residual-df scale).  Pass the same
-            ``sigma2`` used to build the information matrix so that
-            :math:`\tau = \mathrm{tr}(\hat I\, V)` is internally consistent.
+            ``sigma2`` used to build the information matrix so the
+            trace(I_hat @ V) term is internally consistent.
 
         Returns
         -------
@@ -1312,12 +1312,11 @@ class GAM:
     ):
         """Wood-style corrected conditional AIC.
 
-        .. math::
+        Corrected AIC is computed as:
 
-            \mathrm{AIC}_{\mathrm{corr}} = -2\,\ell(\hat\beta)
-                + 2\,\mathrm{tr}\!\bigl(\hat I\,\bar V_\beta\bigr)
+            AIC_corr = -2 * loglik(beta_hat) + 2 * trace(I_hat @ Vbar_beta)
 
-        where :math:`\bar V_\beta` is the covariance corrected for
+        where ``Vbar_beta`` is the covariance corrected for
         smoothing-parameter uncertainty (Kass–Steffey or full Wood),
         computed via :meth:`compute_unconditional_covariance` if not
         already available.
@@ -1326,7 +1325,7 @@ class GAM:
 
             The Wood (2016) corrected AIC is theoretically grounded on the
             Hessian of the **negative marginal likelihood** (REML / LAML)
-            w.r.t. :math:`\rho = \log\lambda`.  When the model was fitted
+            with respect to log smoothing parameters. When the model was fitted
             with ``method='GCV'`` the smoothing-parameter uncertainty
             (V_rho) is estimated from the GCV Hessian, which does not have
             the same theoretical justification.  The result is still a

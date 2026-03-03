@@ -1,4 +1,5 @@
 import pytest
+from sklearn.model_selection import train_test_split
 
 from nampy.models import (
     GPNAMLSS,
@@ -128,3 +129,80 @@ def test_qnam_fit_predict(regression_data, tmp_path):
     preds = model.predict(X)
     assert preds.shape[0] == len(X)
     assert preds.shape[1] == 3
+
+
+def test_lss_fit_with_explicit_validation_dataframe(regression_data, tmp_path):
+    X, y = regression_data
+    X_train, X_val, y_train, y_val = train_test_split(
+        X, y, test_size=0.2, random_state=123
+    )
+
+    model = LinRegLSS(
+        numerical_preprocessing="standardization",
+        categorical_preprocessing="int",
+        cat_cutoff=0.1,
+        lr=1e-3,
+    )
+    model.fit(
+        X_train,
+        y_train,
+        X_val=X_val,
+        y_val=y_val,
+        family="normal",
+        max_epochs=1,
+        batch_size=8,
+        checkpoint_path=tmp_path,
+        limit_train_batches=1,
+        limit_val_batches=1,
+        logger=False,
+        enable_model_summary=False,
+        enable_progress_bar=False,
+    )
+
+    preds = model.predict(X_val)
+    assert preds.shape[0] == len(X_val)
+
+
+def test_lss_get_params_deep_does_not_mutate_config_state():
+    model = LinRegLSS(
+        numerical_preprocessing="standardization",
+        categorical_preprocessing="int",
+        cat_cutoff=0.1,
+        lr=1e-3,
+    )
+    original_keys = set(model.config_kwargs.keys())
+
+    params_first = model.get_params(deep=True)
+    params_second = model.get_params(deep=True)
+
+    assert set(model.config_kwargs.keys()) == original_keys
+    assert not any(k.startswith("preprocessor__") for k in model.config_kwargs.keys())
+    assert params_first == params_second
+
+
+def test_lss_fit_raises_if_only_one_validation_input(regression_data, tmp_path):
+    X, y = regression_data
+    X_train, X_val, y_train, _ = train_test_split(X, y, test_size=0.2, random_state=123)
+
+    model = LinRegLSS(
+        numerical_preprocessing="standardization",
+        categorical_preprocessing="int",
+        cat_cutoff=0.1,
+        lr=1e-3,
+    )
+    with pytest.raises(ValueError, match="X_val and y_val must be provided together"):
+        model.fit(
+            X_train,
+            y_train,
+            X_val=X_val,
+            y_val=None,
+            family="normal",
+            max_epochs=1,
+            batch_size=8,
+            checkpoint_path=tmp_path,
+            limit_train_batches=1,
+            limit_val_batches=1,
+            logger=False,
+            enable_model_summary=False,
+            enable_progress_bar=False,
+        )
