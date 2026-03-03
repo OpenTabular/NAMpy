@@ -82,7 +82,7 @@ class SklearnBaseRegressor(BaseEstimator):
         params : dict
             Parameter names mapped to their values.
         """
-        params = self.config_kwargs  # Parameters used to initialize DefaultConfig
+        params = dict(self.config_kwargs)  # copy to avoid mutating estimator state
 
         # If deep=True, include parameters from nested components like preprocessor
         if deep:
@@ -209,7 +209,7 @@ class SklearnBaseRegressor(BaseEstimator):
             X = pd.DataFrame(X)
         if isinstance(y, pd.Series):
             y = y.values
-        if X_val:
+        if X_val is not None:
             if not isinstance(X_val, pd.DataFrame):
                 X_val = pd.DataFrame(X_val)
             if isinstance(y_val, pd.Series):

@@ -114,7 +114,12 @@ class NAMpyDataModule(pl.LightningDataModule):
         None
         """
 
-        if X_val is None or y_val is None:
+        if (X_val is None) ^ (y_val is None):
+            raise ValueError(
+                "X_val and y_val must be provided together; got only one."
+            )
+
+        if X_val is None and y_val is None:
             self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
                 X_train, y_train, test_size=val_size, random_state=random_state
             )
