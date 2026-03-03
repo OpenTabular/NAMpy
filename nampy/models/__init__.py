@@ -1,3 +1,4 @@
+from .gam import GAMRegressor
 from .gpnam import GPNAMLSS, GPNAMClassifier, GPNAMRegressor
 from .linreg import LinRegClassifier, LinRegLSS, LinRegRegressor
 from .nam import NAMLSS, NAMClassifier, NAMRegressor
@@ -13,6 +14,7 @@ from .snam import SNAMRegressor
 from .treenam import TreeNAMRegressor
 
 __all__ = [
+    "GAMRegressor",
     "NAMClassifier",
     "NAMLSS",
     "NAMRegressor",

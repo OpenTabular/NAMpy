@@ -53,6 +53,7 @@ dependencies = [
     "setuptools",
     "properscoring",
     "matplotlib",
+    "pretab",
 ]
 
 [project.optional-dependencies]

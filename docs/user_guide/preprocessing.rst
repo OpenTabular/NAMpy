@@ -1,174 +1,63 @@
-Preprocessing
-=============
+Preprocessing (PreTab)
+======================
 
-NAMpy provides flexible preprocessing options for tabular data.
+NAMpy does not implement its own tabular preprocessing. All preprocessing is done by the **PreTab** library. You pass a PreTab preprocessor instance into the data module or into the sklearn-style models (e.g. :class:`nampy.models.nam.NAMRegressor`).
 
-Numerical Feature Preprocessing
---------------------------------
-
-NAMpy supports several strategies for numerical features:
-
-Standardization
-~~~~~~~~~~~~~~~
-
-Scale features to have mean=0 and std=1:
-
-.. code-block:: python
-
-   from nampy.models import NAMRegressor
-   
-   model = NAMRegressor(numerical_preprocessing="standardization")
-
-Best for: Most cases, especially when features have different scales.
-
-Normalization
-~~~~~~~~~~~~~
-
-Scale features to [0, 1]:
-
-.. code-block:: python
-
-   model = NAMRegressor(numerical_preprocessing="normalization")
-
-Best for: When you want bounded features.
-
-Piecewise Linear Encoding (PLE)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Encodes continuous features using piecewise linear functions:
-
-.. code-block:: python
-
-   model = NAMRegressor(
-       numerical_preprocessing="ple",
-       n_bins=50
-   )
-
-Best for: Capturing non-linear relationships with interpretable models.
-
-Binning
-~~~~~~~
-
-Discretize continuous features into bins:
-
-.. code-block:: python
-
-   model = NAMRegressor(
-       numerical_preprocessing="binning",
-       n_bins=50,
-       binning_strategy="quantile"  # or "uniform"
-   )
-
-Best for: Reducing feature complexity, handling outliers.
-
-One-Hot Encoding
-~~~~~~~~~~~~~~~~
-
-Bin and then one-hot encode:
-
-.. code-block:: python
-
-   model = NAMRegressor(
-       numerical_preprocessing="one_hot",
-       n_bins=50
-   )
-
-Best for: When you want categorical-like treatment of continuous features.
-
-Categorical Feature Handling
------------------------------
-
-Automatic Detection
-~~~~~~~~~~~~~~~~~~~
-
-NAMpy automatically detects categorical features:
-
-.. code-block:: python
-
-   model = NAMRegressor(
-       cat_cutoff=0.03  # Treat as categorical if <3% unique values
-   )
-
-Manual Control
-~~~~~~~~~~~~~~
-
-Force all integers to be numerical:
-
-.. code-block:: python
-
-   model = NAMRegressor(
-       treat_all_integers_as_numerical=True
-   )
-
-Decision Tree-Based Binning
-----------------------------
-
-Use decision trees to determine optimal bin edges:
-
-.. code-block:: python
-
-   model = NAMRegressor(
-       use_decision_tree_bins=True,
-       numerical_preprocessing="binning"
-   )
-
-This uses the target variable to find informative bin boundaries.
-
-Custom Preprocessing
---------------------
-
-You can also preprocess data manually before passing to NAMpy:
-
-.. code-block:: python
-
-   from sklearn.preprocessing import StandardScaler
-   from nampy.models import NAMRegressor
-   
-   scaler = StandardScaler()
-   X_scaled = scaler.fit_transform(X_train)
-   
-   model = NAMRegressor()
-   model.fit(X_scaled, y_train, max_epochs=100)
-
-Best Practices
---------------
-
-1. **Try PLE first** for interpretable models (NAM, GPNAM)
-2. **Use standardization** for deep models (NATT, NAMformer)
-3. **Adjust n_bins** based on dataset size (25-100 typically)
-4. **Use quantile binning** for skewed distributions
-5. **Validate** preprocessing choices on a validation set
-
-Preprocessing Pipeline
+Using PreTab with NAMpy
 ----------------------
 
-The preprocessing happens automatically in the `.fit()` method:
+1. Create a PreTab preprocessor with the options you need (task, n_bins, numerical/categorical strategies, etc.). See the `PreTab documentation <https://pypi.org/project/pretab/>`_ for full options.
+
+2. Use it either:
+
+   * **With the high-level sklearn-style API** — pass preprocessor-related keyword arguments when constructing the model; NAMpy will build a PreTab preprocessor internally and use it in ``fit``:
+
+   .. code-block:: python
+
+      from nampy.models import NAMRegressor
+
+      model = NAMRegressor(
+          task="regression",
+          n_bins=50,
+          numerical_preprocessing="ple",  # or other PreTab options
+      )
+      model.fit(X_train, y_train, max_epochs=100)
+      predictions = model.predict(X_test)
+
+   * **With the data module directly** — build a PreTab preprocessor yourself and pass it to :class:`nampy.data_utils.datamodule.NAMpyDataModule`:
+
+   .. code-block:: python
+
+      from pretab.preprocessor import Preprocessor
+      from nampy.data_utils.datamodule import NAMpyDataModule
+
+      preprocessor = Preprocessor(task="regression", n_bins=50)
+      data_module = NAMpyDataModule(
+          preprocessor=preprocessor,
+          batch_size=128,
+          shuffle=True,
+          regression=True,
+      )
+      data_module.setup_data(X_train, y_train, val_size=0.2)
+      # Use data_module with Lightning Trainer and NAMpy base models
+
+Preprocessor contract
+---------------------
+
+Any preprocessor used with NAMpy (including PreTab’s) must:
+
+* Implement ``fit(X, y)`` and ``transform(X)``.
+* Expose ``get_feature_info(verbose=False)`` returning a tuple ``(num_feature_info, cat_feature_info, emb_feature_info)`` — three dicts of feature names to metadata (e.g. ``preprocessing``, ``dimension``) so that NAMpy can build the right input tensors.
+
+Accessing the preprocessor
+--------------------------
+
+After fitting a sklearn-style model, the preprocessor is available as ``model.preprocessor`` (the PreTab instance). You can use it to transform new data or inspect feature info:
 
 .. code-block:: python
 
-   model = NAMRegressor(numerical_preprocessing="ple", n_bins=50)
-   
-   # Preprocessing is applied internally
-   model.fit(X_train, y_train, max_epochs=100)
-   
-   # Same preprocessing is applied at prediction time
-   predictions = model.predict(X_test)
-
-The preprocessor state is saved with the model, ensuring consistent
-transformations at prediction time.
-
-Accessing the Preprocessor
----------------------------
-
-Advanced users can access the underlying preprocessor:
-
-.. code-block:: python
-
-   # After fitting
    preprocessor = model.preprocessor
-   
-   # Transform new data
    X_transformed = preprocessor.transform(X_new)
+   num_info, cat_info, emb_info = preprocessor.get_feature_info(verbose=False)
 
-For more details, see :class:`nampy.preprocessing.Preprocessor`.
-
+For full PreTab options and API, see the `PreTab project <https://pypi.org/project/pretab/>`_.

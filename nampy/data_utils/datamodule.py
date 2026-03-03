@@ -82,7 +82,7 @@ class NAMpyDataModule(pl.LightningDataModule):
         self.test_preprocessor_fitted = False
         self.dataloader_kwargs = dataloader_kwargs
 
-    def preprocess_data(
+    def setup_data(
         self,
         X_train,
         y_train,
@@ -92,7 +92,7 @@ class NAMpyDataModule(pl.LightningDataModule):
         random_state=101,
     ):
         """
-        Preprocesses the training and validation data.
+        Sets up the training and validation data: splits, fits the preprocessor, and stores feature info.
 
         Parameters
         ----------
@@ -124,20 +124,42 @@ class NAMpyDataModule(pl.LightningDataModule):
             self.X_val = X_val
             self.y_val = y_val
 
-        # Fit the preprocessor on the combined training and validation data
         combined_X = pd.concat([self.X_train, self.X_val], axis=0).reset_index(
             drop=True
         )
         combined_y = np.concatenate((self.y_train, self.y_val), axis=0)
 
-        # Fit the preprocessor
+        # Delegate to an external preprocessor (e.g. pretab) that
+        # exposes get_feature_info(verbose=...) and returns
+        # (num_feature_info, cat_feature_info, emb_feature_info).
         self.preprocessor.fit(combined_X, combined_y)
+        num_info, cat_info, _ = self.preprocessor.get_feature_info(verbose=False)
+        self.num_feature_info = num_info
+        self.cat_feature_info = cat_info
 
-        # Update feature info based on the actual processed data
-        (
-            self.cat_feature_info,
-            self.num_feature_info,
-        ) = self.preprocessor.get_feature_info()
+    def preprocess_data(
+        self,
+        X_train,
+        y_train,
+        X_val=None,
+        y_val=None,
+        val_size=0.2,
+        random_state=101,
+    ):
+        """
+        Backwards-compatible wrapper for the former preprocess_data API.
+
+        This now simply delegates to setup_data, which expects a pretab-style
+        preprocessor interface.
+        """
+        self.setup_data(
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
+            val_size=val_size,
+            random_state=random_state,
+        )
 
     def setup(self, stage: str):
         """
@@ -155,42 +177,29 @@ class NAMpyDataModule(pl.LightningDataModule):
             num_keys = []
             cat_keys = []
 
-            # Populate tensors for categorical features, if present in processed data
+            # Populate tensors for categorical features (PreTab: cat_<name>)
             for key in self.cat_feature_info:
-                cat_key = (
-                    "cat_" + key
-                )  # Assuming categorical keys are prefixed with 'cat_'
+                cat_key = "cat_" + key
+                info = self.cat_feature_info[key]
+                is_onehot = "onehot" in info.get("preprocessing", "").lower() or (
+                    info.get("dimension", 1) > 1
+                )
+                cat_dtype = torch.float32 if is_onehot else torch.long
                 if cat_key in train_preprocessed_data:
-                    train_cat_tensors.append(
-                        torch.tensor(train_preprocessed_data[cat_key], dtype=torch.long)
-                    )
+                    arr = train_preprocessed_data[cat_key]
+                    if not is_onehot and arr.dtype.kind == "f":
+                        arr = arr.astype("int64")
+                    train_cat_tensors.append(torch.tensor(arr, dtype=cat_dtype))
                     cat_keys.append(key)
                 if cat_key in val_preprocessed_data:
-                    val_cat_tensors.append(
-                        torch.tensor(val_preprocessed_data[cat_key], dtype=torch.long)
-                    )
-
-                binned_key = "num_" + key  # for binned features
-                if binned_key in train_preprocessed_data:
-                    train_cat_tensors.append(
-                        torch.tensor(
-                            train_preprocessed_data[binned_key], dtype=torch.long
-                        )
-                    )
-                    num_keys.append(key)
-
-                if binned_key in val_preprocessed_data:
-                    val_cat_tensors.append(
-                        torch.tensor(
-                            val_preprocessed_data[binned_key], dtype=torch.long
-                        )
-                    )
+                    arr = val_preprocessed_data[cat_key]
+                    if not is_onehot and arr.dtype.kind == "f":
+                        arr = arr.astype("int64")
+                    val_cat_tensors.append(torch.tensor(arr, dtype=cat_dtype))
 
             # Populate tensors for numerical features, if present in processed data
             for key in self.num_feature_info:
-                num_key = (
-                    "num_" + key
-                )  # Assuming numerical keys are prefixed with 'num_'
+                num_key = "num_" + key
                 if num_key in train_preprocessed_data:
                     train_num_tensors.append(
                         torch.tensor(
@@ -238,10 +247,10 @@ class NAMpyDataModule(pl.LightningDataModule):
             self.test_dataset = NAMpyDataset(
                 self.test_cat_tensors,
                 self.test_num_tensors,
-                train_labels,
+                self.test_labels,
                 regression=self.regression,
-                cat_keys=cat_keys,
-                num_keys=num_keys,
+                cat_keys=self.cat_keys,
+                num_keys=self.num_keys,
             )
 
     def preprocess_test_data(self, X):
@@ -251,28 +260,30 @@ class NAMpyDataModule(pl.LightningDataModule):
         test_cat_tensors = {}
         test_num_tensors = {}
 
-        # Populate tensors for categorical features, if present in processed data
+        # Populate tensors for categorical features
         for key in self.cat_feature_info:
-            cat_key = "cat_" + key  # Assuming categorical keys are prefixed with 'cat_'
+            cat_key = "cat_" + key
+            info = self.cat_feature_info[key]
+            is_onehot = "onehot" in info.get("preprocessing", "").lower() or (
+                info.get("dimension", 1) > 1
+            )
+            cat_dtype = torch.float32 if is_onehot else torch.long
             if cat_key in test_preprocessed_data:
-                test_cat_tensors[key] = torch.tensor(
-                    test_preprocessed_data[cat_key], dtype=torch.long
-                )
-
-            binned_key = "num_" + key  # for binned features
-            if binned_key in test_preprocessed_data:
-                test_cat_tensors[key] = torch.tensor(
-                    test_preprocessed_data[binned_key], dtype=torch.long
-                )
+                arr = test_preprocessed_data[cat_key]
+                if not is_onehot and arr.dtype.kind == "f":
+                    arr = arr.astype("int64")
+                test_cat_tensors[key] = torch.tensor(arr, dtype=cat_dtype)
 
         # Populate tensors for numerical features, if present in processed data
         for key in self.num_feature_info:
-            num_key = "num_" + key  # Assuming numerical keys are prefixed with 'num_'
+            num_key = "num_" + key
             if num_key in test_preprocessed_data:
                 test_num_tensors[key] = torch.tensor(
                     test_preprocessed_data[num_key], dtype=torch.float32
                 )
 
+        n = len(next(iter(test_preprocessed_data.values())))
+        self.test_labels = torch.zeros(n, dtype=torch.float32).unsqueeze(1)
         self.test_preprocessor_fitted = True
         return test_cat_tensors, test_num_tensors
 

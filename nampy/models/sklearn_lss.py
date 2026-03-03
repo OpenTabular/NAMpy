@@ -10,9 +10,10 @@ from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from sklearn.base import BaseEstimator
 from sklearn.metrics import accuracy_score, mean_squared_error
 
+from pretab.preprocessor import Preprocessor
+
 from ..basemodels.lightning_wrapper import TaskModel
 from ..data_utils.datamodule import NAMpyDataModule
-from ..preprocessing import Preprocessor
 from ..utils.distributional_metrics import (
     beta_brier_score,
     dirichlet_error,
@@ -53,8 +54,10 @@ class SklearnBaseLSS(BaseEstimator):
             "task",
             "cat_cutoff",
             "treat_all_integers_as_numerical",
-            "knots",
             "degree",
+            "n_knots",
+            "scaling_strategy",
+            "feature_preprocessing",
         ]
 
         self.config_kwargs = {
@@ -65,6 +68,15 @@ class SklearnBaseLSS(BaseEstimator):
         preprocessor_kwargs = {
             k: v for k, v in kwargs.items() if k in preprocessor_arg_names
         }
+        if "knots" in kwargs and "n_knots" not in preprocessor_kwargs:
+            preprocessor_kwargs["n_knots"] = kwargs["knots"]
+        if preprocessor_kwargs.get("categorical_preprocessing") in (
+            "one_hot",
+            "one-hot",
+        ):
+            preprocessor_kwargs["categorical_preprocessing"] = "one-hot"
+        if preprocessor_kwargs.get("numerical_preprocessing") == "normalization":
+            preprocessor_kwargs["numerical_preprocessing"] = "minmax"
 
         self.preprocessor = Preprocessor(**preprocessor_kwargs)
         self.model = None
@@ -135,8 +147,9 @@ class SklearnBaseLSS(BaseEstimator):
             for k, v in parameters.items()
             if k.startswith("preprocessor__")
         }
+        if "knots" in preprocessor_params and "n_knots" not in preprocessor_params:
+            preprocessor_params["n_knots"] = preprocessor_params.pop("knots")
         if preprocessor_params:
-            # Assuming Preprocessor has a set_params method
             self.preprocessor.set_params(**preprocessor_params)
 
         return self
@@ -265,8 +278,8 @@ class SklearnBaseLSS(BaseEstimator):
             **dataloader_kwargs,
         )
 
-        self.data_module.preprocess_data(
-            X, y, X_val, y_val, val_size=val_size, random_state=random_state
+        self.data_module.setup_data(
+            X, y, X_val=X_val, y_val=y_val, val_size=val_size, random_state=random_state
         )
 
         self.model = TaskModel(
