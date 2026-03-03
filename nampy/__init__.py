@@ -15,6 +15,7 @@ from .models import (
     NATTLSS,
     NBMLSS,
     QNAM,
+    GAMRegressor,
     GPNAMClassifier,
     GPNAMRegressor,
     LinRegClassifier,
@@ -45,6 +46,7 @@ __all__ = [
     "utils",
     "configs",
     # Main model classes
+    "GAMRegressor",
     "NAMRegressor",
     "NAMClassifier",
     "NAMLSS",

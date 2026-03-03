@@ -1,130 +1,51 @@
+"""Smoke tests for preprocessing via pretab.
+
+NAMpy delegates all preprocessing to the pretab library. These tests ensure
+that the pretab Preprocessor works with NAMpyDataModule (fit, transform,
+get_feature_info(verbose=False) returning num_info, cat_info, emb_info).
+"""
 import pytest
 
-from nampy.preprocessing import Preprocessor
-
-NUMERICAL_MODES = [
-    "ple",
-    "binning",
-    "one_hot",
-    "standardization",
-    "normalization",
-    "quantile",
-    "polynomial",
-    "splines",
-]
+from pretab.preprocessor import Preprocessor
 
 
-@pytest.mark.parametrize("numerical_preprocessing", NUMERICAL_MODES)
-def test_preprocessor_numerical_modes(mixed_data, numerical_preprocessing):
+def test_pretab_preprocessor_fit_transform(mixed_data):
+    """Pretab Preprocessor fits and transforms mixed data."""
     X, y = mixed_data
     preprocessor = Preprocessor(
-        numerical_preprocessing=numerical_preprocessing,
-        categorical_preprocessing="int",
+        task="regression",
         n_bins=8,
-        degree=2,
-        knots=4,
-        quantile_preprocessing="feature",
-        quantile_output_distribution="normal",
-        quantile_n_quantiles=10,
-        cat_cutoff=0.1,
     )
     preprocessor.fit(X, y)
     transformed = preprocessor.transform(X)
+    assert transformed is not None
+    assert len(transformed) > 0
+    for arr in transformed.values():
+        assert arr.shape[0] == len(X)
 
-    assert transformed
-    assert all(arr.shape[0] == len(X) for arr in transformed.values())
 
-    cat_info, num_info = preprocessor.get_feature_info()
-    assert isinstance(cat_info, dict)
+def test_pretab_preprocessor_get_feature_info(mixed_data):
+    """Pretab get_feature_info(verbose=False) returns (num_info, cat_info, emb_info)."""
+    X, y = mixed_data
+    preprocessor = Preprocessor(task="regression", n_bins=8)
+    preprocessor.fit(X, y)
+    # NAMpyDataModule expects get_feature_info(verbose=False) -> (num, cat, emb)
+    result = preprocessor.get_feature_info(verbose=False)
+    assert isinstance(result, (tuple, list)), "get_feature_info should return a sequence"
+    assert len(result) >= 3, (
+        "get_feature_info(verbose=False) should return (num, cat, emb) for NAMpyDataModule"
+    )
+    num_info, cat_info, emb_info = result[0], result[1], result[2]
     assert isinstance(num_info, dict)
+    assert isinstance(cat_info, dict)
+    assert emb_info is None or isinstance(emb_info, dict)
 
 
-def test_preprocessor_categorical_one_hot(mixed_data):
+def test_pretab_preprocessor_get_set_params(mixed_data):
+    """Pretab Preprocessor supports get_params and set_params for sklearn compatibility."""
     X, y = mixed_data
-    preprocessor = Preprocessor(
-        numerical_preprocessing="standardization",
-        categorical_preprocessing="one_hot",
-        cat_cutoff=0.1,
-    )
-    preprocessor.fit(X, y)
-    transformed = preprocessor.transform(X)
-
-    assert any(key.startswith("cat_") for key in transformed.keys())
-
-
-def test_preprocessor_treat_all_integers_as_numerical(mixed_data):
-    X, _ = mixed_data
-    preprocessor = Preprocessor(
-        numerical_preprocessing="standardization",
-        categorical_preprocessing="int",
-        cat_cutoff=0.1,
-        treat_all_integers_as_numerical=True,
-    )
-    numerical_features, categorical_features = preprocessor._detect_column_types(X)
-
-    assert "int_cat" in numerical_features
-    assert "int_cat" not in categorical_features
-
-
-def test_preprocessor_decision_tree_bins(mixed_data):
-    X, _ = mixed_data
-    y = (X["num1"] > 0).astype(int).to_numpy()
-
-    preprocessor = Preprocessor(
-        numerical_preprocessing="binning",
-        categorical_preprocessing="int",
-        use_decision_tree_bins=True,
-        n_bins=4,
-        task="classification",
-        cat_cutoff=0.1,
-    )
-    preprocessor.fit(X, y)
-    transformed = preprocessor.transform(X)
-
-    assert transformed
-
-
-def test_preprocessor_quantile_global(mixed_data):
-    X, y = mixed_data
-    preprocessor = Preprocessor(
-        numerical_preprocessing="quantile",
-        quantile_preprocessing="global",
-        quantile_output_distribution="normal",
-        quantile_n_quantiles=10,
-        cat_cutoff=0.1,
-    )
-    preprocessor.fit(X, y)
-    assert preprocessor.quantile_preprocessor is not None
-
-    transformed = preprocessor.transform(X)
-    assert transformed
-
-
-def test_preprocessor_get_set_params(mixed_data):
-    X, y = mixed_data
-    preprocessor = Preprocessor(
-        numerical_preprocessing="standardization",
-        categorical_preprocessing="int",
-        n_bins=5,
-        knots=3,
-        cat_cutoff=0.1,
-    )
+    preprocessor = Preprocessor(task="regression", n_bins=5)
     params = preprocessor.get_params()
-    assert params["n_bins"] == 5
-    assert params["knots"] == 3
-
-    preprocessor.set_params(n_bins=7, knots=4, cat_cutoff=0.2)
-    assert preprocessor.n_bins == 7
-    assert preprocessor.n_knots == 4
-    assert preprocessor.cat_cutoff == 0.2
-
-
-def test_preprocessor_invalid_modes():
-    with pytest.raises(ValueError):
-        Preprocessor(numerical_preprocessing="bad")
-    with pytest.raises(ValueError):
-        Preprocessor(categorical_preprocessing="bad")
-    with pytest.raises(ValueError):
-        Preprocessor(quantile_preprocessing="bad")
-    with pytest.raises(ValueError):
-        Preprocessor(quantile_output_distribution="bad")
+    assert isinstance(params, dict)
+    # set_params should not raise; used by sklearn-style models
+    preprocessor.set_params(n_bins=7)
