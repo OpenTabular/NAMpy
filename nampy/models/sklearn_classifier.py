@@ -272,29 +272,37 @@ class SklearnBaseClassifier(BaseEstimator):
 
         return self
 
+    def predict(self, X):
+        output = self._predict(X)["output"]
+        if output.shape[1] == 1:
+            probabilities = torch.sigmoid(output)
+            return (probabilities > 0.5).long().squeeze().cpu().numpy()
+        probabilities = torch.softmax(output, dim=1)
+        return torch.argmax(probabilities, dim=1).cpu().numpy()
+
     def predict_feature_vals(self, X):
+        return self._predict(X)
+
+    def _predict(self, X):
         """
-        Predicts target values for the given input samples.
+        Run inference and return the raw model output dictionary.
 
         Parameters
         ----------
         X : DataFrame or array-like, shape (n_samples, n_features)
-            The input samples for which to predict target values.
-
+            The input samples for which to run inference.
 
         Returns
         -------
-        predictions : ndarray, shape (n_samples,) or (n_samples, n_outputs)
-            The predicted target values.
+        predictions : dict
+            Dictionary containing model outputs keyed by feature name and an
+            ``"output"`` key with the raw logits tensor.
         """
-        # Ensure model and data module are initialized
         if self.model is None or self.data_module is None:
             raise ValueError("The model or data module has not been fitted yet.")
 
-        # Preprocess the data using the data module
         cat_tensor_dict, num_tensor_dict = self.data_module.preprocess_test_data(X)
 
-        # Move tensors to appropriate device
         device = next(self.model.parameters()).device
         cat_tensor_dict = {
             key: tensor.to(device) for key, tensor in cat_tensor_dict.items()
@@ -303,65 +311,10 @@ class SklearnBaseClassifier(BaseEstimator):
             key: tensor.to(device) for key, tensor in num_tensor_dict.items()
         }
 
-        # Set model to evaluation mode
         self.model.eval()
 
-        # Perform inference and return raw feature/value dictionary
         with torch.no_grad():
             return self.model(num_features=num_tensor_dict, cat_features=cat_tensor_dict)
-
-    def predict(self, X):
-        """
-        Predicts target values for the given input samples.
-
-        Parameters
-        ----------
-        X : DataFrame or array-like, shape (n_samples, n_features)
-            The input samples for which to predict target values.
-
-
-        Returns
-        -------
-        predictions : ndarray, shape (n_samples,) or (n_samples, n_outputs)
-            The predicted target values.
-        """
-        # Ensure model and data module are initialized
-        if self.model is None or self.data_module is None:
-            raise ValueError("The model or data module has not been fitted yet.")
-
-        # Preprocess the data using the data module
-        cat_tensor_dict, num_tensor_dict = self.data_module.preprocess_test_data(X)
-
-        # Move tensors to appropriate device
-        device = next(self.model.parameters()).device
-        cat_tensor_dict = {
-            key: tensor.to(device) for key, tensor in cat_tensor_dict.items()
-        }
-        num_tensor_dict = {
-            key: tensor.to(device) for key, tensor in num_tensor_dict.items()
-        }
-
-        # Set model to evaluation mode
-        self.model.eval()
-
-        # Perform inference
-        with torch.no_grad():
-            logits = self.model(
-                num_features=num_tensor_dict, cat_features=cat_tensor_dict
-            )
-
-            # Check the shape of the logits to determine binary or multi-class classification
-            if logits["output"].shape[1] == 1:
-                # Binary classification
-                probabilities = torch.sigmoid(logits["output"])
-                predictions = (probabilities > 0.5).long().squeeze()
-            else:
-                # Multi-class classification
-                probabilities = torch.softmax(logits["output"], dim=1)
-                predictions = torch.argmax(probabilities, dim=1)
-
-        # Convert predictions to NumPy array and return
-        return predictions.cpu().numpy()
 
     def predict_proba(self, X):
         """
@@ -402,40 +355,12 @@ class SklearnBaseClassifier(BaseEstimator):
             Predicted class probabilities for each input sample.
 
         """
-        if self.model is None or self.data_module is None:
-            raise ValueError("The model or data module has not been fitted yet.")
-
-        # Preprocess the data using the data module
-        cat_tensor_dict, num_tensor_dict = self.data_module.preprocess_test_data(X)
-
-        # Move tensors to appropriate device
-        device = next(self.model.parameters()).device
-        cat_tensor_dict = {
-            key: tensor.to(device) for key, tensor in cat_tensor_dict.items()
-        }
-        num_tensor_dict = {
-            key: tensor.to(device) for key, tensor in num_tensor_dict.items()
-        }
-
-        # Set model to evaluation mode
-        self.model.eval()
-
-        # Perform inference
-        with torch.no_grad():
-            logits = self.model(
-                num_features=num_tensor_dict, cat_features=cat_tensor_dict
-            )
-
-            # Check the shape of the logits to determine binary or multi-class classification
-            if logits["output"].shape[1] == 1:
-                # Binary classification: sklearn-style (n_samples, 2)
-                p1 = torch.sigmoid(logits["output"])
-                probabilities = torch.cat([1.0 - p1, p1], dim=1)
-            else:
-                # Multi-class classification
-                probabilities = torch.softmax(logits["output"], dim=1)
-
-        # Convert predictions to NumPy array and return
+        output = self._predict(X)["output"]
+        if output.shape[1] == 1:
+            p1 = torch.sigmoid(output)
+            probabilities = torch.cat([1.0 - p1, p1], dim=1)
+        else:
+            probabilities = torch.softmax(output, dim=1)
         return probabilities.cpu().numpy()
 
     def evaluate(self, X, y_true, metrics=None):
@@ -540,6 +465,86 @@ class SklearnBaseClassifier(BaseEstimator):
         ax.set_ylabel("Contribution")
         ax.legend()
 
+    def _plot_interaction_effects(
+        self,
+        interaction_name,
+        interaction_preds,
+        X_train_scaled=None,
+        num_bins=30,
+    ):
+        """
+        Plot the interaction effect between two features as a heatmap.
+
+        Parameters
+        ----------
+        interaction_name : str
+            The name of the interaction in "feature1:feature2" format.
+        interaction_preds : np.ndarray or torch.Tensor
+            Predicted interaction contributions from the model, shape (n_samples,) or
+            (n_samples, n_classes).
+        X_train_scaled : pd.DataFrame, optional
+            Input data used to extract raw feature values for axis labels.
+        num_bins : int, optional
+            Number of bins for the heatmap grid, by default 30.
+        """
+        feature1, feature2 = interaction_name.split(":")
+
+        if hasattr(interaction_preds, "detach"):
+            interaction_preds = interaction_preds.detach().cpu().numpy()
+        else:
+            interaction_preds = np.asarray(interaction_preds)
+        if interaction_preds.ndim == 1:
+            interaction_preds = interaction_preds[:, np.newaxis]
+        n_classes = interaction_preds.shape[1]
+
+        x1_vals = (
+            X_train_scaled[feature1].values
+            if X_train_scaled is not None
+            else np.arange(len(interaction_preds))
+        )
+        x2_vals = (
+            X_train_scaled[feature2].values
+            if X_train_scaled is not None
+            else np.arange(len(interaction_preds))
+        )
+
+        fig, axes = create_subplot_grid(n_classes)
+
+        x1_bins = np.linspace(x1_vals.min(), x1_vals.max(), num_bins)
+        x2_bins = np.linspace(x2_vals.min(), x2_vals.max(), num_bins)
+        x1_bin_idx = np.clip(np.digitize(x1_vals, x1_bins) - 1, 0, num_bins - 2)
+        x2_bin_idx = np.clip(np.digitize(x2_vals, x2_bins) - 1, 0, num_bins - 2)
+
+        for class_idx, ax in enumerate(axes[:n_classes]):
+            contribs = interaction_preds[:, class_idx]
+
+            grid_sum = np.zeros((num_bins - 1, num_bins - 1))
+            grid_count = np.zeros((num_bins - 1, num_bins - 1), dtype=int)
+            np.add.at(grid_sum, (x1_bin_idx, x2_bin_idx), contribs)
+            np.add.at(grid_count, (x1_bin_idx, x2_bin_idx), 1)
+            grid = np.where(grid_count > 0, grid_sum / np.maximum(grid_count, 1), np.nan)
+
+            im = ax.imshow(
+                grid.T,
+                origin="lower",
+                aspect="auto",
+                extent=[x1_bins[0], x1_bins[-1], x2_bins[0], x2_bins[-1]],
+                cmap="RdBu_r",
+            )
+            plt.colorbar(im, ax=ax, label="Contribution")
+            title = f"Interaction: {feature1} × {feature2}"
+            if n_classes > 1:
+                title += f" (Class {class_idx + 1})"
+            ax.set_title(title)
+            ax.set_xlabel(feature1)
+            ax.set_ylabel(feature2)
+
+        for ax in axes[n_classes:]:
+            ax.set_visible(False)
+
+        plt.tight_layout()
+        plt.show()
+
     def plot(self, X, y_true, feature_name=None, plot_interactions=False):
         """
         Plot feature effects in a unified grid layout.
@@ -595,10 +600,8 @@ class SklearnBaseClassifier(BaseEstimator):
         if plot_interactions:
             for interaction_name in predictions.keys():
                 if ":" in interaction_name:
-                    feature1, feature2 = interaction_name.split(":")
                     self._plot_interaction_effects(
                         interaction_name,
-                        predictions[feature1],
-                        predictions[feature2],
+                        predictions[interaction_name],
                         X_train_scaled=X_prepared,
                     )

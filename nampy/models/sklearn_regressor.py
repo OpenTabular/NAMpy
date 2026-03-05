@@ -270,7 +270,7 @@ class SklearnBaseRegressor(BaseEstimator):
         return self
 
     def predict(self, X):
-        return self._predict(X)["output"].cpu().numpy()
+        return self._predict(X)["output"].squeeze(-1).cpu().numpy()
 
     def predict_feature_vals(self, X):
         return self._predict(X)
@@ -408,6 +408,86 @@ class SklearnBaseRegressor(BaseEstimator):
         ax.set_ylabel("Contribution")
         ax.legend()
 
+    def _plot_interaction_effects(
+        self,
+        interaction_name,
+        interaction_preds,
+        X_train_scaled=None,
+        num_bins=30,
+    ):
+        """
+        Plot the interaction effect between two features as a heatmap.
+
+        Parameters
+        ----------
+        interaction_name : str
+            The name of the interaction in "feature1:feature2" format.
+        interaction_preds : np.ndarray or torch.Tensor
+            Predicted interaction contributions from the model, shape (n_samples,) or
+            (n_samples, n_outputs).
+        X_train_scaled : pd.DataFrame, optional
+            Input data used to extract raw feature values for axis labels.
+        num_bins : int, optional
+            Number of bins for the heatmap grid, by default 30.
+        """
+        feature1, feature2 = interaction_name.split(":")
+
+        if hasattr(interaction_preds, "detach"):
+            interaction_preds = interaction_preds.detach().cpu().numpy()
+        else:
+            interaction_preds = np.asarray(interaction_preds)
+        if interaction_preds.ndim == 1:
+            interaction_preds = interaction_preds[:, np.newaxis]
+        n_outputs = interaction_preds.shape[1]
+
+        x1_vals = (
+            X_train_scaled[feature1].values
+            if X_train_scaled is not None
+            else np.arange(len(interaction_preds))
+        )
+        x2_vals = (
+            X_train_scaled[feature2].values
+            if X_train_scaled is not None
+            else np.arange(len(interaction_preds))
+        )
+
+        fig, axes = create_subplot_grid(n_outputs)
+
+        x1_bins = np.linspace(x1_vals.min(), x1_vals.max(), num_bins)
+        x2_bins = np.linspace(x2_vals.min(), x2_vals.max(), num_bins)
+        x1_bin_idx = np.clip(np.digitize(x1_vals, x1_bins) - 1, 0, num_bins - 2)
+        x2_bin_idx = np.clip(np.digitize(x2_vals, x2_bins) - 1, 0, num_bins - 2)
+
+        for out_idx, ax in enumerate(axes[:n_outputs]):
+            contribs = interaction_preds[:, out_idx]
+
+            grid_sum = np.zeros((num_bins - 1, num_bins - 1))
+            grid_count = np.zeros((num_bins - 1, num_bins - 1), dtype=int)
+            np.add.at(grid_sum, (x1_bin_idx, x2_bin_idx), contribs)
+            np.add.at(grid_count, (x1_bin_idx, x2_bin_idx), 1)
+            grid = np.where(grid_count > 0, grid_sum / np.maximum(grid_count, 1), np.nan)
+
+            im = ax.imshow(
+                grid.T,
+                origin="lower",
+                aspect="auto",
+                extent=[x1_bins[0], x1_bins[-1], x2_bins[0], x2_bins[-1]],
+                cmap="RdBu_r",
+            )
+            plt.colorbar(im, ax=ax, label="Contribution")
+            title = f"Interaction: {feature1} × {feature2}"
+            if n_outputs > 1:
+                title += f" (Output {out_idx + 1})"
+            ax.set_title(title)
+            ax.set_xlabel(feature1)
+            ax.set_ylabel(feature2)
+
+        for ax in axes[n_outputs:]:
+            ax.set_visible(False)
+
+        plt.tight_layout()
+        plt.show()
+
     def plot(self, X, y_true, feature_name=None, plot_interactions=False):
         """
         Plot feature effects in a unified grid layout.
@@ -463,10 +543,8 @@ class SklearnBaseRegressor(BaseEstimator):
         if plot_interactions:
             for interaction_name in predictions.keys():
                 if ":" in interaction_name:
-                    feature1, feature2 = interaction_name.split(":")
                     self._plot_interaction_effects(
                         interaction_name,
-                        predictions[feature1],
-                        predictions[feature2],
+                        predictions[interaction_name],
                         X_train_scaled=X_prepared,
                     )
