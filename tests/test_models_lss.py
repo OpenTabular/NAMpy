@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 from sklearn.model_selection import train_test_split
 
@@ -206,3 +207,64 @@ def test_lss_fit_raises_if_only_one_validation_input(regression_data, tmp_path):
             enable_model_summary=False,
             enable_progress_bar=False,
         )
+
+
+def test_lss_dirichlet_infers_n_dim(regression_data, tmp_path):
+    X, y = regression_data
+    rng = np.random.RandomState(0)
+    K = 3
+    y_dir = rng.dirichlet(alpha=np.ones(K), size=len(y))
+
+    model = LinRegLSS(
+        numerical_preprocessing="standardization",
+        categorical_preprocessing="int",
+        cat_cutoff=0.1,
+        lr=1e-3,
+    )
+
+    model.fit(
+        X,
+        y_dir,
+        family="dirichlet",
+        max_epochs=1,
+        batch_size=8,
+        val_size=0.2,
+        checkpoint_path=tmp_path,
+        limit_train_batches=1,
+        limit_val_batches=1,
+        logger=False,
+        enable_model_summary=False,
+        enable_progress_bar=False,
+    )
+
+    assert getattr(model.family, "n_dim", None) == K
+
+
+def test_lss_categorical_infers_num_classes_from_labels(regression_data, tmp_path):
+    X, y = regression_data
+    # Create a simple binary classification target from regression labels
+    y_cat = (y > np.median(y)).astype(int)
+
+    model = LinRegLSS(
+        numerical_preprocessing="standardization",
+        categorical_preprocessing="int",
+        cat_cutoff=0.1,
+        lr=1e-3,
+    )
+
+    model.fit(
+        X,
+        y_cat,
+        family="categorical",
+        max_epochs=1,
+        batch_size=8,
+        val_size=0.2,
+        checkpoint_path=tmp_path,
+        limit_train_batches=1,
+        limit_val_batches=1,
+        logger=False,
+        enable_model_summary=False,
+        enable_progress_bar=False,
+    )
+
+    assert getattr(model.family, "num_classes", None) == 2

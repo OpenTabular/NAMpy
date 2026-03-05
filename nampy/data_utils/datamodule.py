@@ -82,6 +82,17 @@ class NAMpyDataModule(pl.LightningDataModule):
         self.test_preprocessor_fitted = False
         self.dataloader_kwargs = dataloader_kwargs
 
+    def _to_label_tensor(self, y):
+        y_arr = np.asarray(y)
+        t = torch.tensor(y_arr, dtype=self.labels_dtype)
+
+        # For 1D targets, keep existing convention [N, 1]
+        if t.ndim == 1:
+            t = t.unsqueeze(1)
+
+        # For 2D targets (e.g. Dirichlet, multivariate LSS), keep [N, K]
+        return t
+
     def setup_data(
         self,
         X_train,
@@ -219,12 +230,8 @@ class NAMpyDataModule(pl.LightningDataModule):
                         )
                     )
 
-            train_labels = torch.tensor(
-                self.y_train, dtype=self.labels_dtype
-            ).unsqueeze(dim=1)
-            val_labels = torch.tensor(self.y_val, dtype=self.labels_dtype).unsqueeze(
-                dim=1
-            )
+            train_labels = self._to_label_tensor(self.y_train)
+            val_labels = self._to_label_tensor(self.y_val)
 
             # Create datasets
             self.train_dataset = NAMpyDataset(
@@ -261,36 +268,52 @@ class NAMpyDataModule(pl.LightningDataModule):
     def preprocess_test_data(self, X):
         test_preprocessed_data = self.preprocessor.transform(X)
 
-        # Initialize dictionaries for categorical and numerical tensors
-        test_cat_tensors = {}
-        test_num_tensors = {}
+        test_cat_tensors_list = []
+        test_num_tensors_list = []
+        test_cat_tensors_dict = {}
+        test_num_tensors_dict = {}
 
-        # Populate tensors for categorical features
+        cat_keys = []
+        num_keys = []
+
+        # categorical
         for key in self.cat_feature_info:
             cat_key = "cat_" + key
             info = self.cat_feature_info[key]
-            is_onehot = "onehot" in info.get("preprocessing", "").lower() or (
-                info.get("dimension", 1) > 1
-            )
+            is_onehot = "onehot" in info.get("preprocessing", "").lower() or (info.get("dimension", 1) > 1)
             cat_dtype = torch.float32 if is_onehot else torch.long
+
             if cat_key in test_preprocessed_data:
                 arr = test_preprocessed_data[cat_key]
                 if not is_onehot and arr.dtype.kind == "f":
                     arr = arr.astype("int64")
-                test_cat_tensors[key] = torch.tensor(arr, dtype=cat_dtype)
+                t = torch.tensor(arr, dtype=cat_dtype)
 
-        # Populate tensors for numerical features, if present in processed data
+                test_cat_tensors_list.append(t)
+                test_cat_tensors_dict[key] = t
+                cat_keys.append(key)
+
+        # numerical
         for key in self.num_feature_info:
             num_key = "num_" + key
             if num_key in test_preprocessed_data:
-                test_num_tensors[key] = torch.tensor(
-                    test_preprocessed_data[num_key], dtype=torch.float32
-                )
+                t = torch.tensor(test_preprocessed_data[num_key], dtype=torch.float32)
+
+                test_num_tensors_list.append(t)
+                test_num_tensors_dict[key] = t
+                num_keys.append(key)
 
         n = len(next(iter(test_preprocessed_data.values())))
-        self.test_labels = torch.zeros(n, dtype=torch.float32).unsqueeze(1)
+        self.test_labels = torch.zeros(n, dtype=self.labels_dtype).unsqueeze(1)
+
+        # store for Lightning test_dataloader path
+        self.test_cat_tensors = test_cat_tensors_list
+        self.test_num_tensors = test_num_tensors_list
+        self.cat_keys = cat_keys
+        self.num_keys = num_keys
+
         self.test_preprocessor_fitted = True
-        return test_cat_tensors, test_num_tensors
+        return test_cat_tensors_dict, test_num_tensors_dict
 
     def train_dataloader(self):
         """

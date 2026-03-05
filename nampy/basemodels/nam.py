@@ -146,10 +146,13 @@ class NAM(BaseModel):
 
         if config.use_glu:
             layers.add_module("glu", nn.GLU())
+            # GLU halves the last dimension; track actual output size
+            current_size = config.layer_sizes[0] // 2
         else:
             layers.add_module(
                 "activation", self.hparams.get("activation", config.activation)
             )
+            current_size = config.layer_sizes[0]
 
         if config.dropout > 0.0:
             layers.add_module("dropout", nn.Dropout(config.dropout))
@@ -157,7 +160,7 @@ class NAM(BaseModel):
         for i in range(1, len(config.layer_sizes)):
             layers.add_module(
                 f"linear_{i}",
-                nn.Linear(config.layer_sizes[i - 1], config.layer_sizes[i]),
+                nn.Linear(current_size, config.layer_sizes[i]),
             )
             if config.batch_norm:
                 layers.add_module(
@@ -169,19 +172,19 @@ class NAM(BaseModel):
                 )
             if config.use_glu:
                 layers.add_module(f"glu_{i}", nn.GLU())
+                current_size = config.layer_sizes[i] // 2
             else:
                 layers.add_module(
                     f"activation_{i}", self.hparams.get("activation", config.activation)
                 )
+                current_size = config.layer_sizes[i]
             if config.dropout > 0.0:
                 layers.add_module(f"dropout_{i}", nn.Dropout(config.dropout))
 
-        # Get the last layer size (handles case when layer_sizes has only 1 element)
-        last_layer_size = config.layer_sizes[-1]
         last_layer_idx = len(config.layer_sizes)
         layers.add_module(
             f"linear_{last_layer_idx}",
-            nn.Linear(last_layer_size, self.num_classes),
+            nn.Linear(current_size, self.num_classes),
         )
         return layers
 

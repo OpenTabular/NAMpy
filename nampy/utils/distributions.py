@@ -1,630 +1,800 @@
+import math
+from typing import Any, Callable, Optional, Sequence, Union
+
 import numpy as np
 import torch
 import torch.distributions as dist
+import torch.nn.functional as F
+
+
+TensorLike = Union[torch.Tensor, np.ndarray]
 
 
 class BaseDistribution(torch.nn.Module):
     """
-    The base class for various statistical distributions, providing a common interface and utilities.
+    Base class for distributional regression families.
 
-    This class defines the basic structure and methods that are inherited by specific distribution
-    classes, allowing for the implementation of custom distributions with specific parameter transformations
-    and loss computations.
+    Subclasses should implement:
+      - compute_loss(predictions, y_true)
+    and may override:
+      - forward(predictions)                -> transformed parameters
+      - predict_point(predictions, transformed=False)
+      - evaluate_nll(y_true, y_pred)
 
-    Attributes:
-        _name (str): The name of the distribution.
-        param_names (list of str): A list of names for the parameters of the distribution.
-        param_count (int): The number of parameters for the distribution.
-        predefined_transforms (dict): A dictionary of predefined transformation functions for parameters.
-
-    Parameters:
-        name (str): The name of the distribution.
-        param_names (list of str): A list of names for the parameters of the distribution.
+    Notes
+    -----
+    * `predictions` in `compute_loss` are assumed to be raw network outputs.
+    * `forward(predictions)` returns transformed parameters (e.g. positive scales).
+    * `param_count` is the required network output dimension for fixed-dimension families.
+      For some families (Dirichlet/Categorical), this may depend on user-provided kwargs.
     """
 
-    def __init__(self, name, param_names):
-        super(BaseDistribution, self).__init__()
+    target_dtype = torch.float32
 
+    def __init__(self, name: str, param_names: Sequence[str], eps: float = 1e-6):
+        super().__init__()
         self._name = name
-        self.param_names = param_names
-        self.param_count = len(param_names)
-        # Predefined transformation functions accessible to all subclasses
+        self.param_names = list(param_names)
+        self.param_count = len(self.param_names)
+        self.eps = float(eps)
+
         self.predefined_transforms = {
-            "positive": torch.nn.functional.softplus,
+            "positive": lambda x: F.softplus(x) + self.eps,
+            "strictly_positive": lambda x: F.softplus(x) + self.eps,
             "none": lambda x: x,
-            "square": lambda x: x**2,
-            "exp": torch.exp,
-            "sqrt": torch.sqrt,
+            "identity": lambda x: x,
+            "square": lambda x: x.square() + self.eps,
+            "exp": lambda x: torch.exp(torch.clamp(x, min=-40.0, max=40.0)) + self.eps,
+            "sqrt": lambda x: torch.sqrt(torch.clamp(x, min=self.eps)),
             "probabilities": lambda x: torch.softmax(x, dim=-1),
-            "log": lambda x: torch.log(x + 1e-6),
-            "sort": lambda x: torch.cumsum(torch.nn.functional.softplus(x), dim=-1),
+            "log": lambda x: torch.log(torch.clamp(x, min=self.eps)),
+            # Monotone transform for quantiles / cutpoints:
+            "sort": lambda x: torch.cumsum(F.softplus(x), dim=-1),
         }
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._name
 
     @property
-    def parameter_count(self):
+    def parameter_count(self) -> int:
         return self.param_count
 
-    def get_transform(self, transform_name):
-        """
-        Retrieve a transformation function by name, or return the function if it's custom.
-        """
+    def get_transform(self, transform_name: Union[str, Callable]) -> Callable:
+        """Return a transform callable by name or pass through custom callables."""
         if callable(transform_name):
-            # Custom transformation function provided
             return transform_name
-        return self.predefined_transforms.get(
-            transform_name, lambda x: x
-        )  # Default to 'none'
-
-    def compute_loss(self, predictions, y_true):
-        """
-        Computes the loss (e.g., negative log likelihood) for the distribution given predictions and true values.
-
-        This method must be implemented by subclasses.
-
-        Parameters:
-            predictions (torch.Tensor): The predicted parameters of the distribution.
-            y_true (torch.Tensor): The true values.
-
-        Raises:
-            NotImplementedError: If the subclass does not implement this method.
-        """
-        raise NotImplementedError("Subclasses must implement this method.")
-
-    def evaluate_nll(self, y_true, y_pred):
-        """
-        Evaluates the negative log likelihood (NLL) for given true values and predictions.
-
-        Parameters:
-            y_true (array-like): The true values.
-            y_pred (array-like): The predicted values.
-
-        Returns:
-            dict: A dictionary containing the NLL value.
-        """
-
-        # Convert numpy arrays to torch tensors
-        y_true_tensor = torch.tensor(y_true, dtype=torch.float32)
-        y_pred_tensor = torch.tensor(y_pred, dtype=torch.float32)
-
-        # Compute NLL using the provided loss function
-        nll_loss_tensor = self.compute_loss(y_pred_tensor, y_true_tensor)
-
-        # Convert the NLL loss tensor back to a numpy array and return
-        return {
-            "NLL": nll_loss_tensor.detach().numpy(),
-        }
-
-    def forward(self, predictions):
-        """
-        Apply the appropriate transformations to the predicted parameters.
-
-        Parameters:
-            predictions (torch.Tensor): The predicted parameters of the distribution.
-
-        Returns:
-            torch.Tensor: A tensor with transformed parameters.
-        """
-        transformed_params = []
-        for idx, param_name in enumerate(self.param_names):
-            transform_func = self.get_transform(
-                getattr(self, f"{param_name}_transform", "none")
+        if transform_name not in self.predefined_transforms:
+            raise ValueError(
+                f"Unknown transform {transform_name!r}. "
+                f"Available: {sorted(self.predefined_transforms.keys())}"
             )
-            transformed_params.append(transform_func(predictions[:, idx]).unsqueeze(1))
-        return torch.cat(transformed_params, dim=1)
+        return self.predefined_transforms[transform_name]
+
+    # ------------------------------------------------------------------
+    # Shape / dtype helpers
+    # ------------------------------------------------------------------
+
+    def _ensure_2d_predictions(self, predictions: TensorLike) -> torch.Tensor:
+        if not torch.is_tensor(predictions):
+            predictions = torch.as_tensor(predictions, dtype=torch.float32)
+        else:
+            predictions = predictions.float()
+
+        if predictions.ndim == 1:
+            predictions = predictions.unsqueeze(-1)
+        if predictions.ndim != 2:
+            raise ValueError(
+                f"predictions must be 1D or 2D; got shape {tuple(predictions.shape)}"
+            )
+        return predictions
+
+    def _squeeze_target_last_singleton(self, y_true: TensorLike) -> torch.Tensor:
+        if not torch.is_tensor(y_true):
+            y_true = torch.as_tensor(y_true, dtype=self.target_dtype)
+        else:
+            y_true = y_true.to(dtype=self.target_dtype)
+
+        # Accept [N, 1] and squeeze to [N]
+        if y_true.ndim == 2 and y_true.shape[1] == 1:
+            y_true = y_true[:, 0]
+        return y_true
+
+    def _validate_batch_match(self, predictions: torch.Tensor, y_true: torch.Tensor):
+        if predictions.shape[0] != y_true.shape[0]:
+            raise ValueError(
+                f"Batch size mismatch: predictions has {predictions.shape[0]} rows, "
+                f"y_true has {y_true.shape[0]} rows."
+            )
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def compute_loss(self, predictions: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError("Subclasses must implement compute_loss().")
+
+    def evaluate_nll(self, y_true: TensorLike, y_pred: TensorLike):
+        """
+        Evaluate negative log-likelihood from transformed or raw predictions.
+
+        Notes
+        -----
+        This method assumes `y_pred` is in the same format used by `compute_loss`.
+        In your codebase, `SklearnBaseLSS.evaluate()` already computes NLL directly
+        via `compute_loss` on raw predictions, so this method is mostly a utility.
+        """
+        y_true_tensor = torch.as_tensor(y_true, dtype=self.target_dtype)
+        y_pred_tensor = torch.as_tensor(y_pred, dtype=torch.float32)
+        nll_loss_tensor = self.compute_loss(y_pred_tensor, y_true_tensor)
+        return {"NLL": float(nll_loss_tensor.detach().cpu().item())}
+
+    def forward(self, predictions: TensorLike) -> torch.Tensor:
+        """
+        Transform raw network outputs into valid distribution parameters.
+
+        Default implementation applies one transform per parameter column using
+        attributes named `<param_name>_transform`.
+        """
+        predictions = self._ensure_2d_predictions(predictions)
+
+        if predictions.shape[1] != self.param_count:
+            raise ValueError(
+                f"{self.__class__.__name__} expects {self.param_count} raw parameters, "
+                f"got predictions with shape {tuple(predictions.shape)}."
+            )
+
+        cols = []
+        for idx, param_name in enumerate(self.param_names):
+            transform_spec = getattr(self, f"{param_name}_transform", "none")
+            transform_fn = self.get_transform(transform_spec)
+            cols.append(transform_fn(predictions[:, idx]).unsqueeze(1))
+        return torch.cat(cols, dim=1)
+
+    def predict_point(self, predictions: TensorLike, transformed: bool = False) -> torch.Tensor:
+        """
+        Optional point prediction (default = first transformed parameter).
+        Subclasses can override for family-specific meanings.
+        """
+        params = predictions if transformed else self.forward(predictions)
+        if not torch.is_tensor(params):
+            params = torch.as_tensor(params, dtype=torch.float32)
+        params = self._ensure_2d_predictions(params)
+        return params[:, 0]
 
 
 class NormalDistribution(BaseDistribution):
     """
-    Represents a Normal (Gaussian) distribution with parameters for mean and variance, including functionality
-    for transforming these parameters and computing the loss.
+    Gaussian with parameters [mean, scale].
 
-    Inherits from BaseDistribution.
-
-    Parameters:
-        name (str): The name of the distribution. Defaults to "Normal".
-        mean_transform (str or callable): The transformation for the mean parameter. Defaults to "none".
-        var_transform (str or callable): The transformation for the variance parameter. Defaults to "positive".
+    Notes
+    -----
+    `scale` is the standard deviation (NOT the variance).
     """
 
-    def __init__(self, name="Normal", mean_transform="none", var_transform="positive"):
-        param_names = [
-            "mean",
-            "variance",
-        ]
-        super().__init__(name, param_names)
-
-        self.mean_transform = self.get_transform(mean_transform)
-        self.variance_transform = self.get_transform(var_transform)
+    def __init__(
+        self,
+        name: str = "Normal",
+        mean_transform: Union[str, Callable] = "none",
+        scale_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-6,
+    ):
+        super().__init__(name=name, param_names=["mean", "scale"], eps=eps)
+        self.mean_transform = mean_transform
+        self.scale_transform = scale_transform
 
     def compute_loss(self, predictions, y_true):
-        mean = self.mean_transform(predictions[:, self.param_names.index("mean")])
-        variance = self.variance_transform(
-            predictions[:, self.param_names.index("variance")]
-        )
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
 
-        normal_dist = dist.Normal(mean, variance)
-
-        nll = -normal_dist.log_prob(y_true).mean()
-        return nll
+        mean = self.get_transform(self.mean_transform)(predictions[:, 0])
+        scale = self.get_transform(self.scale_transform)(predictions[:, 1])
+        return -dist.Normal(loc=mean, scale=scale).log_prob(y).mean()
 
     def evaluate_nll(self, y_true, y_pred):
         metrics = super().evaluate_nll(y_true, y_pred)
-
-        # Convert numpy arrays to torch tensors
-        y_true_tensor = torch.tensor(y_true, dtype=torch.float32)
-        y_pred_tensor = torch.tensor(y_pred, dtype=torch.float32)
-
-        mse_loss = torch.nn.functional.mse_loss(
-            y_true_tensor, y_pred_tensor[:, self.param_names.index("mean")]
+        y = np.asarray(y_true).reshape(-1)
+        pred = np.asarray(y_pred)
+        mu = pred[:, 0]
+        err = y - mu
+        metrics.update(
+            {
+                "mse": float(np.mean(err**2)),
+                "mae": float(np.mean(np.abs(err))),
+                "rmse": float(np.sqrt(np.mean(err**2))),
+            }
         )
-        rmse = np.sqrt(mse_loss.detach().numpy())
-        mae = (
-            torch.nn.functional.l1_loss(
-                y_true_tensor, y_pred_tensor[:, self.param_names.index("mean")]
-            )
-            .detach()
-            .numpy()
-        )
-
-        metrics["mse"] = mse_loss.detach().numpy()
-        metrics["mae"] = mae
-        metrics["rmse"] = rmse
-
-        # Convert the NLL loss tensor back to a numpy array and return
         return metrics
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        return params[:, 0]
 
 
 class PoissonDistribution(BaseDistribution):
-    """
-    Represents a Poisson distribution, typically used for modeling count data or the number of events
-    occurring within a fixed interval of time or space. This class extends the BaseDistribution and
-    includes parameter transformation and loss computation specific to the Poisson distribution.
+    """Poisson with parameter [rate]."""
 
-    Parameters:
-        name (str): The name of the distribution, defaulted to "Poisson".
-        rate_transform (str or callable): Transformation to apply to the rate parameter to ensure it remains positive.
-    """
-
-    def __init__(self, name="Poisson", rate_transform="positive"):
-        param_names = ["rate"]  # Specify parameter name for Poisson distribution
-        super().__init__(name, param_names)
-        # Retrieve transformation function for rate
-        self.rate_transform = self.get_transform(rate_transform)
+    def __init__(
+        self,
+        name: str = "Poisson",
+        rate_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["rate"], eps=eps)
+        self.rate_transform = rate_transform
 
     def compute_loss(self, predictions, y_true):
-        rate = self.rate_transform(predictions[:, self.param_names.index("rate")])
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
 
-        # Define the Poisson distribution with the transformed parameter
-        poisson_dist = dist.Poisson(rate)
+        if torch.any(y < 0):
+            raise ValueError("PoissonDistribution requires non-negative targets.")
 
-        # Compute the negative log-likelihood
-        nll = -poisson_dist.log_prob(y_true).mean()
-        return nll
+        rate = self.get_transform(self.rate_transform)(predictions[:, 0])
+        return -dist.Poisson(rate=rate).log_prob(y).mean()
 
     def evaluate_nll(self, y_true, y_pred):
         metrics = super().evaluate_nll(y_true, y_pred)
+        y = np.asarray(y_true).reshape(-1)
+        pred = np.asarray(y_pred)
+        rate = np.clip(pred[:, 0], 1e-9, None)
+        err = y - rate
 
-        # Convert numpy arrays to torch tensors
-        y_true_tensor = torch.tensor(y_true, dtype=torch.float32)
-        y_pred_tensor = torch.tensor(y_pred, dtype=torch.float32)
-        rate = self.rate_transform(y_pred_tensor[:, self.param_names.index("rate")])
+        # Safe Poisson deviance
+        term = np.where(y > 0, y * np.log(np.clip(y, 1e-12, None) / rate), 0.0)
+        poisson_dev = 2.0 * np.sum(term - (y - rate))
 
-        mse_loss = torch.nn.functional.mse_loss(y_true_tensor, rate)
-        rmse = np.sqrt(mse_loss.detach().numpy())
-        mae = torch.nn.functional.l1_loss(y_true_tensor, rate).detach().numpy()
-        poisson_deviance = 2 * torch.sum(
-            y_true_tensor * torch.log(y_true_tensor / rate) - (y_true_tensor - rate)
+        metrics.update(
+            {
+                "mse": float(np.mean(err**2)),
+                "mae": float(np.mean(np.abs(err))),
+                "rmse": float(np.sqrt(np.mean(err**2))),
+                "poisson_deviance": float(poisson_dev),
+            }
         )
-
-        metrics["mse"] = mse_loss.detach().numpy()
-        metrics["mae"] = mae
-        metrics["rmse"] = rmse
-        metrics["poisson_deviance"] = poisson_deviance.detach().numpy()
-
-        # Convert the NLL loss tensor back to a numpy array and return
         return metrics
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        return params[:, 0]
 
 
 class InverseGammaDistribution(BaseDistribution):
-    """
-    Represents an Inverse Gamma distribution, often used as a prior distribution in Bayesian statistics,
-    especially for scale parameters in other distributions. This class extends BaseDistribution and includes
-    parameter transformation and loss computation specific to the Inverse Gamma distribution.
-
-    Parameters:
-        name (str): The name of the distribution, defaulted to "InverseGamma".
-        shape_transform (str or callable): Transformation for the shape parameter to ensure it remains positive.
-        scale_transform (str or callable): Transformation for the scale parameter to ensure it remains positive.
-    """
+    """Inverse-Gamma with parameters [shape, rate]."""
 
     def __init__(
         self,
-        name="InverseGamma",
-        shape_transform="positive",
-        scale_transform="positive",
+        name: str = "InverseGamma",
+        shape_transform: Union[str, Callable] = "positive",
+        rate_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
     ):
-        param_names = [
-            "shape",
-            "scale",
-        ]
-        super().__init__(name, param_names)
-
-        self.shape_transform = self.get_transform(shape_transform)
-        self.scale_transform = self.get_transform(scale_transform)
+        super().__init__(name=name, param_names=["shape", "rate"], eps=eps)
+        self.shape_transform = shape_transform
+        self.rate_transform = rate_transform
 
     def compute_loss(self, predictions, y_true):
-        shape = self.shape_transform(predictions[:, self.param_names.index("shape")])
-        scale = self.scale_transform(predictions[:, self.param_names.index("scale")])
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
 
-        inverse_gamma_dist = dist.InverseGamma(shape, scale)
-        # Compute the negative log-likelihood
-        nll = -inverse_gamma_dist.log_prob(y_true).mean()
-        return nll
+        if torch.any(y <= 0):
+            raise ValueError("InverseGammaDistribution requires strictly positive targets.")
+
+        shape = self.get_transform(self.shape_transform)(predictions[:, 0])
+        rate = self.get_transform(self.rate_transform)(predictions[:, 1])
+        return -dist.InverseGamma(concentration=shape, rate=rate).log_prob(y).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        """
+        Mean exists for shape > 1 and equals rate / (shape - 1).
+        Returns a numerically safe approximation.
+        """
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        shape = params[:, 0]
+        rate = params[:, 1]
+        return rate / torch.clamp(shape - 1.0, min=self.eps)
 
 
 class BetaDistribution(BaseDistribution):
-    """
-    Represents a Beta distribution, a continuous distribution defined on the interval [0, 1], commonly used
-    in Bayesian statistics for modeling probabilities. This class extends BaseDistribution and includes parameter
-    transformation and loss computation specific to the Beta distribution.
-
-    Parameters:
-        name (str): The name of the distribution, defaulted to "Beta".
-        shape_transform (str or callable): Transformation for the alpha (shape) parameter to ensure it remains positive.
-        scale_transform (str or callable): Transformation for the beta (scale) parameter to ensure it remains positive.
-    """
+    """Beta with parameters [alpha, beta]. Targets must lie in (0, 1)."""
 
     def __init__(
         self,
-        name="Beta",
-        shape_transform="positive",
-        scale_transform="positive",
+        name: str = "Beta",
+        shape_transform: Union[str, Callable] = "positive",
+        scale_transform: Union[str, Callable] = "positive",
+        target_eps: float = 1e-6,
+        eps: float = 1e-8,
     ):
-        param_names = [
-            "alpha",
-            "beta",
-        ]
-        super().__init__(name, param_names)
-
-        self.alpha_transform = self.get_transform(shape_transform)
-        self.beta_transform = self.get_transform(scale_transform)
+        super().__init__(name=name, param_names=["alpha", "beta"], eps=eps)
+        self.alpha_transform = shape_transform
+        self.beta_transform = scale_transform
+        self.target_eps = float(target_eps)
 
     def compute_loss(self, predictions, y_true):
-        alpha = self.alpha_transform(predictions[:, self.param_names.index("alpha")])
-        beta = self.beta_transform(predictions[:, self.param_names.index("beta")])
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
 
-        beta_dist = dist.Beta(alpha, beta)
-        # Compute the negative log-likelihood
-        nll = -beta_dist.log_prob(y_true).mean()
-        return nll
+        y = torch.clamp(y, min=self.target_eps, max=1.0 - self.target_eps)
+        alpha = self.get_transform(self.alpha_transform)(predictions[:, 0])
+        beta = self.get_transform(self.beta_transform)(predictions[:, 1])
+        return -dist.Beta(concentration1=alpha, concentration0=beta).log_prob(y).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        """Beta mean = alpha / (alpha + beta)."""
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        alpha = params[:, 0]
+        beta = params[:, 1]
+        return alpha / torch.clamp(alpha + beta, min=self.eps)
 
 
 class DirichletDistribution(BaseDistribution):
     """
-    Represents a Dirichlet distribution, a multivariate generalization of the Beta distribution. It is commonly
-    used in Bayesian statistics for modeling multinomial distribution probabilities. This class extends
-    BaseDistribution and includes parameter transformation and loss computation specific to the Dirichlet distribution.
+    Dirichlet with K concentration parameters.
 
-    Parameters:
-        name (str): The name of the distribution, defaulted to "Dirichlet".
-        concentration_transform (str or callable): Transformation to apply to concentration parameters to ensure they remain positive.
-    """
-
-    def __init__(self, name="Dirichlet", concentration_transform="positive"):
-        # For Dirichlet, param_names could be dynamically set based on the dimensionality of alpha
-        # For simplicity, we're not specifying individual names for each concentration parameter
-        param_names = ["concentration"]  # This is a simplification
-        super().__init__(name, param_names)
-        # Retrieve transformation function for concentration parameters
-        self.concentration_transform = self.get_transform(concentration_transform)
-
-    def compute_loss(self, predictions, y_true):
-        # Apply the transformation to ensure all concentration parameters are positive
-        # Assuming predictions is a 2D tensor where each row is a set of concentration parameters for a Dirichlet distribution
-        concentration = self.concentration_transform(predictions)
-
-        dirichlet_dist = dist.Dirichlet(concentration)
-
-        nll = -dirichlet_dist.log_prob(y_true).mean()
-        return nll
-
-
-class GammaDistribution(BaseDistribution):
-    """
-    Represents a Gamma distribution, a two-parameter family of continuous probability distributions. It's
-    widely used in various fields of science for modeling a wide range of phenomena. This class extends
-    BaseDistribution and includes parameter transformation and loss computation specific to the Gamma distribution.
-
-    Parameters:
-        name (str): The name of the distribution, defaulted to "Gamma".
-        shape_transform (str or callable): Transformation for the shape parameter to ensure it remains positive.
-        rate_transform (str or callable): Transformation for the rate parameter to ensure it remains positive.
-    """
-
-    def __init__(
-        self, name="Gamma", shape_transform="positive", rate_transform="positive"
-    ):
-        param_names = ["shape", "rate"]
-        super().__init__(name, param_names)
-
-        self.shape_transform = self.get_transform(shape_transform)
-        self.rate_transform = self.get_transform(rate_transform)
-
-    def compute_loss(self, predictions, y_true):
-        shape = self.shape_transform(predictions[:, self.param_names.index("shape")])
-        rate = self.rate_transform(predictions[:, self.param_names.index("rate")])
-
-        # Define the Gamma distribution with the transformed parameters
-        gamma_dist = dist.Gamma(shape, rate)
-
-        # Compute the negative log-likelihood
-        nll = -gamma_dist.log_prob(y_true).mean()
-        return nll
-
-
-class StudentTDistribution(BaseDistribution):
-    """
-    Represents a Student's t-distribution, a family of continuous probability distributions that arise when
-    estimating the mean of a normally distributed population in situations where the sample size is small.
-    This class extends BaseDistribution and includes parameter transformation and loss computation specific
-    to the Student's t-distribution.
-
-    Parameters:
-        name (str): The name of the distribution, defaulted to "StudentT".
-        df_transform (str or callable): Transformation for the degrees of freedom parameter to ensure it remains positive.
-        loc_transform (str or callable): Transformation for the location parameter.
-        scale_transform (str or callable): Transformation for the scale parameter to ensure it remains positive.
+    IMPORTANT
+    ---------
+    This family needs a known output dimension K. Pass e.g.
+        DirichletDistribution(n_dim=y.shape[1])
+    so `param_count` matches the model output width.
     """
 
     def __init__(
         self,
-        name="StudentT",
-        df_transform="positive",
-        loc_transform="none",
-        scale_transform="positive",
+        n_dim: Optional[int] = None,
+        dim: Optional[int] = None,  # alias
+        name: str = "Dirichlet",
+        concentration_transform: Union[str, Callable] = "positive",
+        target_eps: float = 1e-8,
+        eps: float = 1e-8,
     ):
-        param_names = ["df", "loc", "scale"]
-        super().__init__(name, param_names)
+        k = n_dim if n_dim is not None else dim
+        if k is None:
+            # Keep constructor callable, but fail clearly for training-time usage.
+            param_names = ["concentration"]
+            self._n_dim = None
+        else:
+            k = int(k)
+            if k < 2:
+                raise ValueError("DirichletDistribution requires n_dim >= 2.")
+            param_names = [f"alpha_{i}" for i in range(k)]
+            self._n_dim = k
 
-        self.df_transform = self.get_transform(df_transform)
-        self.loc_transform = self.get_transform(loc_transform)
-        self.scale_transform = self.get_transform(scale_transform)
+        super().__init__(name=name, param_names=param_names, eps=eps)
+        self.concentration_transform = concentration_transform
+        self.target_eps = float(target_eps)
+
+    @property
+    def n_dim(self) -> Optional[int]:
+        return self._n_dim
+
+    def _check_dim(self, predictions: torch.Tensor):
+        if self._n_dim is None:
+            raise ValueError(
+                "DirichletDistribution requires `n_dim` (or `dim`) at construction "
+                "so `param_count` matches the model output dimension. "
+                "Example: DirichletDistribution(n_dim=y.shape[1])."
+            )
+        if predictions.shape[1] != self._n_dim:
+            raise ValueError(
+                f"DirichletDistribution expected {self._n_dim} parameters, got "
+                f"predictions with shape {tuple(predictions.shape)}."
+            )
+
+    def forward(self, predictions):
+        predictions = self._ensure_2d_predictions(predictions)
+        self._check_dim(predictions)
+        tfm = self.get_transform(self.concentration_transform)
+        return tfm(predictions)
 
     def compute_loss(self, predictions, y_true):
-        df = self.df_transform(predictions[:, self.param_names.index("df")])
-        loc = self.loc_transform(predictions[:, self.param_names.index("loc")])
-        scale = self.scale_transform(predictions[:, self.param_names.index("scale")])
+        predictions = self._ensure_2d_predictions(predictions)
+        self._check_dim(predictions)
 
-        student_t_dist = dist.StudentT(df, loc, scale)
+        if not torch.is_tensor(y_true):
+            y = torch.as_tensor(y_true, dtype=torch.float32)
+        else:
+            y = y_true.float()
 
-        nll = -student_t_dist.log_prob(y_true).mean()
-        return nll
+        # Accept [N, K], [N, 1, K]
+        if y.ndim == 3 and y.shape[1] == 1:
+            y = y[:, 0, :]
+        if y.ndim != 2:
+            raise ValueError(
+                f"Dirichlet targets must have shape [N, K] (or [N,1,K]); got {tuple(y.shape)}"
+            )
+        self._validate_batch_match(predictions, y)
+        if y.shape[1] != predictions.shape[1]:
+            raise ValueError(
+                f"Dirichlet target dimension {y.shape[1]} != prediction dimension {predictions.shape[1]}"
+            )
+
+        # Clamp and renormalize to simplex
+        y = torch.clamp(y, min=self.target_eps)
+        y = y / torch.clamp(y.sum(dim=1, keepdim=True), min=self.target_eps)
+
+        concentration = self.forward(predictions)
+        return -dist.Dirichlet(concentration=concentration).log_prob(y).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        """Dirichlet mean = alpha / sum(alpha)."""
+        alpha = predictions if transformed else self.forward(predictions)
+        alpha = self._ensure_2d_predictions(alpha)
+        return alpha / torch.clamp(alpha.sum(dim=1, keepdim=True), min=self.eps)
+
+
+class GammaDistribution(BaseDistribution):
+    """Gamma with parameters [shape, rate]. Targets must be > 0."""
+
+    def __init__(
+        self,
+        name: str = "Gamma",
+        shape_transform: Union[str, Callable] = "positive",
+        rate_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["shape", "rate"], eps=eps)
+        self.shape_transform = shape_transform
+        self.rate_transform = rate_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y <= 0):
+            raise ValueError("GammaDistribution requires strictly positive targets.")
+
+        shape = self.get_transform(self.shape_transform)(predictions[:, 0])
+        rate = self.get_transform(self.rate_transform)(predictions[:, 1])
+        return -dist.Gamma(concentration=shape, rate=rate).log_prob(y).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        """Gamma mean = shape / rate."""
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        return params[:, 0] / torch.clamp(params[:, 1], min=self.eps)
+
+
+class StudentTDistribution(BaseDistribution):
+    """Student-t with parameters [df, loc, scale]."""
+
+    def __init__(
+        self,
+        name: str = "StudentT",
+        df_transform: Union[str, Callable] = "positive",
+        loc_transform: Union[str, Callable] = "none",
+        scale_transform: Union[str, Callable] = "positive",
+        min_df: float = 1e-3,
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["df", "loc", "scale"], eps=eps)
+        self.df_transform = df_transform
+        self.loc_transform = loc_transform
+        self.scale_transform = scale_transform
+        self.min_df = float(min_df)
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        df = self.get_transform(self.df_transform)(predictions[:, 0]) + self.min_df
+        loc = self.get_transform(self.loc_transform)(predictions[:, 1])
+        scale = self.get_transform(self.scale_transform)(predictions[:, 2])
+        return -dist.StudentT(df=df, loc=loc, scale=scale).log_prob(y).mean()
 
     def evaluate_nll(self, y_true, y_pred):
         metrics = super().evaluate_nll(y_true, y_pred)
-
-        # Convert numpy arrays to torch tensors
-        y_true_tensor = torch.tensor(y_true, dtype=torch.float32)
-        y_pred_tensor = torch.tensor(y_pred, dtype=torch.float32)
-
-        mse_loss = torch.nn.functional.mse_loss(
-            y_true_tensor, y_pred_tensor[:, self.param_names.index("loc")]
+        y = np.asarray(y_true).reshape(-1)
+        pred = np.asarray(y_pred)
+        loc = pred[:, 1]
+        err = y - loc
+        metrics.update(
+            {
+                "mse": float(np.mean(err**2)),
+                "mae": float(np.mean(np.abs(err))),
+                "rmse": float(np.sqrt(np.mean(err**2))),
+            }
         )
-        rmse = np.sqrt(mse_loss.detach().numpy())
-        mae = (
-            torch.nn.functional.l1_loss(
-                y_true_tensor, y_pred_tensor[:, self.param_names.index("loc")]
-            )
-            .detach()
-            .numpy()
-        )
-
-        metrics["mse"] = mse_loss.detach().numpy()
-        metrics["mae"] = mae
-        metrics["rmse"] = rmse
-
-        # Convert the NLL loss tensor back to a numpy array and return
         return metrics
+
+    def predict_point(self, predictions, transformed: bool = False):
+        """Student-t location parameter."""
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        return params[:, 1]
 
 
 class NegativeBinomialDistribution(BaseDistribution):
     """
-    Represents a Negative Binomial distribution, often used for count data and modeling the number of failures
-    before a specified number of successes occurs in a series of Bernoulli trials. This class extends
-    BaseDistribution and includes parameter transformation and loss computation specific to the Negative Binomial distribution.
+    Negative Binomial with parameters [mean, dispersion].
 
-    Parameters:
-        name (str): The name of the distribution, defaulted to "NegativeBinomial".
-        mean_transform (str or callable): Transformation for the mean parameter to ensure it remains positive.
-        dispersion_transform (str or callable): Transformation for the dispersion parameter to ensure it remains positive.
+    Parameterization
+    ----------------
+    We use `dispersion = alpha > 0` such that:
+        Var(Y) = mean + alpha * mean^2
+
+    PyTorch `NegativeBinomial` expects `(total_count=r, probs=p)` with mean:
+        mean = r * p / (1 - p)
+    Therefore:
+        r = 1 / alpha
+        p = mean / (mean + r)
     """
 
     def __init__(
         self,
-        name="NegativeBinomial",
-        mean_transform="positive",
-        dispersion_transform="positive",
+        name: str = "NegativeBinomial",
+        mean_transform: Union[str, Callable] = "positive",
+        dispersion_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
     ):
-        param_names = ["mean", "dispersion"]
-        super().__init__(name, param_names)
-
-        self.mean_transform = self.get_transform(mean_transform)
-        self.dispersion_transform = self.get_transform(dispersion_transform)
+        super().__init__(name=name, param_names=["mean", "dispersion"], eps=eps)
+        self.mean_transform = mean_transform
+        self.dispersion_transform = dispersion_transform
 
     def compute_loss(self, predictions, y_true):
-        # Apply transformations to ensure mean and dispersion parameters are positive
-        mean = self.mean_transform(predictions[:, self.param_names.index("mean")])
-        dispersion = self.dispersion_transform(
-            predictions[:, self.param_names.index("dispersion")]
-        )
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
 
-        # Calculate the probability (p) and number of successes (r) from mean and dispersion
-        # These calculations follow from the mean and variance of the negative binomial distribution
-        # where variance = mean + mean^2 / dispersion
-        r = 1 / dispersion
-        p = r / (r + mean)
+        if torch.any(y < 0):
+            raise ValueError("NegativeBinomialDistribution requires non-negative targets.")
 
-        # Define the Negative Binomial distribution with the transformed parameters
-        negative_binomial_dist = dist.NegativeBinomial(total_count=r, probs=p)
+        mean = self.get_transform(self.mean_transform)(predictions[:, 0])
+        alpha = self.get_transform(self.dispersion_transform)(predictions[:, 1])
 
-        # Compute the negative log-likelihood
-        nll = -negative_binomial_dist.log_prob(y_true).mean()
-        return nll
+        total_count = 1.0 / torch.clamp(alpha, min=self.eps)  # r
+        probs = mean / torch.clamp(mean + total_count, min=self.eps)
+        probs = torch.clamp(probs, min=self.eps, max=1.0 - self.eps)
+
+        nb = dist.NegativeBinomial(total_count=total_count, probs=probs)
+        return -nb.log_prob(y).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        """NB mean parameter."""
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        return params[:, 0]
 
 
 class CategoricalDistribution(BaseDistribution):
     """
-    Represents a Categorical distribution, a discrete distribution that describes the possible results of a
-    random variable that can take on one of K possible categories, with the probability of each category
-    separately specified. This class extends BaseDistribution and includes parameter transformation and loss
-    computation specific to the Categorical distribution.
+    Categorical over K classes (returns probabilities in `forward`).
 
-    Parameters:
-        name (str): The name of the distribution, defaulted to "Categorical".
-        prob_transform (str or callable): Transformation for the probabilities to ensure they remain valid (i.e., non-negative and sum to 1).
+    IMPORTANT
+    ---------
+    For correct model output width, pass:
+        CategoricalDistribution(num_classes=K)
+    so `param_count == K`.
     """
 
-    def __init__(self, name="Categorical", prob_transform="probabilities"):
-        param_names = ["probs"]  # Specify parameter name for Poisson distribution
-        super().__init__(name, param_names)
-        # Retrieve transformation function for rate
-        self.probs_transform = self.get_transform(prob_transform)
+    target_dtype = torch.long
+
+    def __init__(
+        self,
+        num_classes: Optional[int] = None,
+        name: str = "Categorical",
+        prob_transform: Union[str, Callable] = "probabilities",
+        eps: float = 1e-8,
+    ):
+        if num_classes is None:
+            # Backwards-compatible constructor, but not sufficient for model width.
+            self._num_classes = None
+            param_names = ["probs"]
+        else:
+            k = int(num_classes)
+            if k < 2:
+                raise ValueError("CategoricalDistribution requires num_classes >= 2.")
+            self._num_classes = k
+            param_names = [f"class_{i}" for i in range(k)]
+
+        super().__init__(name=name, param_names=param_names, eps=eps)
+        self.probs_transform = prob_transform
+
+    @property
+    def num_classes(self) -> Optional[int]:
+        return self._num_classes
+
+    def _check_dim(self, predictions: torch.Tensor):
+        if self._num_classes is None:
+            raise ValueError(
+                "CategoricalDistribution requires `num_classes` at construction so "
+                "`param_count` matches the model output dimension. "
+                "Example: CategoricalDistribution(num_classes=K)."
+            )
+        if predictions.shape[1] != self._num_classes:
+            raise ValueError(
+                f"CategoricalDistribution expected {self._num_classes} logits, got "
+                f"predictions with shape {tuple(predictions.shape)}."
+            )
+
+    def forward(self, predictions):
+        predictions = self._ensure_2d_predictions(predictions)
+        self._check_dim(predictions)
+        tfm = self.get_transform(self.probs_transform)
+        probs = tfm(predictions)
+        return torch.clamp(probs, min=self.eps, max=1.0 - self.eps)
 
     def compute_loss(self, predictions, y_true):
-        probs = self.probs_transform(predictions)
+        predictions = self._ensure_2d_predictions(predictions)
+        self._check_dim(predictions)
 
-        # Define the Poisson distribution with the transformed parameter
-        cat_dist = dist.Categorical(probs=probs)
+        if not torch.is_tensor(y_true):
+            y = torch.as_tensor(y_true)
+        else:
+            y = y_true
 
-        # Compute the negative log-likelihood
-        nll = -cat_dist.log_prob(y_true).mean()
-        return nll
+        # Accept labels [N], [N,1], one-hot/probabilities [N,K], [N,1,K]
+        if y.ndim == 3 and y.shape[1] == 1:
+            y = y[:, 0, :]
+        if y.ndim == 2 and y.shape[1] == 1:
+            y = y[:, 0]
+        elif y.ndim == 2 and y.shape[1] == predictions.shape[1]:
+            y = torch.argmax(y, dim=1)
+        elif y.ndim != 1:
+            raise ValueError(
+                f"Categorical targets must be [N], [N,1], or [N,K]; got {tuple(y.shape)}"
+            )
+
+        y = y.long()
+        self._validate_batch_match(predictions, y)
+        probs = self.forward(predictions)
+        return -dist.Categorical(probs=probs).log_prob(y).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        probs = predictions if transformed else self.forward(predictions)
+        probs = self._ensure_2d_predictions(probs)
+        return torch.argmax(probs, dim=1)
 
 
 class Quantile(BaseDistribution):
     """
-    Quantile Regression Loss class.
-
-    This class computes the quantile loss (also known as pinball loss) for a set of quantiles.
-    It is used to handle quantile regression tasks where we aim to predict a given quantile of the target distribution.
+    Quantile regression (pinball loss).
 
     Parameters
     ----------
-    name : str, optional
-        The name of the distribution, by default "Quantile".
-    quantiles : list of float, optional
-        A list of quantiles to be used for computing the loss, by default [0.25, 0.5, 0.75].
-
-    Attributes
-    ----------
-    quantiles : list of float
-        List of quantiles for which the pinball loss is computed.
-
-    Methods
-    -------
-    compute_loss(predictions, y_true)
-        Computes the quantile regression loss between the predictions and true values.
+    quantiles : sequence of float
+        Quantiles in (0,1). Example: [0.1, 0.5, 0.9]
+    enforce_monotonic : bool, default=False
+        If True, `forward()` maps raw predictions to monotone quantiles via:
+            q0 = raw0
+            increments = softplus(raw[1:])
+            q = q0 + cumsum(increments)
+        This changes the meaning of the raw parameterization, so default is False
+        to preserve backwards compatibility.
     """
 
-    def __init__(self, name="Quantile", quantiles=None):
+    def __init__(
+        self,
+        name: str = "Quantile",
+        quantiles: Optional[Sequence[float]] = None,
+        enforce_monotonic: bool = False,
+        eps: float = 1e-8,
+    ):
         if quantiles is None:
             quantiles = [0.25, 0.5, 0.75]
-        param_names = [
-            f"q_{q}" for q in quantiles
-        ]  # Use string representations of quantiles
-        super().__init__(name, param_names)
-        self.quantiles = quantiles
+
+        q = np.asarray(quantiles, dtype=float)
+        if q.ndim != 1 or q.size == 0:
+            raise ValueError("quantiles must be a non-empty 1D sequence.")
+        if np.any(q <= 0.0) or np.any(q >= 1.0):
+            raise ValueError("All quantiles must lie strictly between 0 and 1.")
+        if len(np.unique(q)) != len(q):
+            raise ValueError("quantiles must be unique.")
+        if np.any(np.diff(q) < 0):
+            raise ValueError("quantiles must be sorted ascending.")
+
+        self.quantiles = [float(v) for v in q]
+        self.enforce_monotonic = bool(enforce_monotonic)
+        param_names = [f"q_{v:g}" for v in self.quantiles]
+        super().__init__(name=name, param_names=param_names, eps=eps)
+
+    def forward(self, predictions):
+        predictions = self._ensure_2d_predictions(predictions)
+        if predictions.shape[1] != self.param_count:
+            raise ValueError(
+                f"Quantile expects {self.param_count} outputs, got {tuple(predictions.shape)}"
+            )
+
+        if not self.enforce_monotonic:
+            return predictions
+
+        q0 = predictions[:, :1]
+        if predictions.shape[1] == 1:
+            return q0
+        inc = F.softplus(predictions[:, 1:])
+        q_rest = q0 + torch.cumsum(inc, dim=1)
+        return torch.cat([q0, q_rest], dim=1)
 
     def compute_loss(self, predictions, y_true):
+        preds = self.forward(predictions)  # supports optional monotonic transform
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(preds, y)
 
-        assert not y_true.requires_grad  # Ensure y_true does not require gradients
-        assert predictions.size(0) == y_true.size(0)
+        # Broadcast y to [N, Q]
+        y = y.unsqueeze(1)
+        q = torch.tensor(self.quantiles, dtype=preds.dtype, device=preds.device).view(1, -1)
+        errors = y - preds
+        loss = torch.maximum((q - 1.0) * errors, q * errors)
+        return loss.sum(dim=1).mean()
 
-        losses = []
-        for i, q in enumerate(self.quantiles):
-            errors = y_true - predictions[:, i]  # Calculate errors for each quantile
-            # Compute the pinball loss
-            quantile_loss = torch.max((q - 1) * errors, q * errors)
-            losses.append(quantile_loss)
-
-        # Sum losses across quantiles and compute mean
-        loss = torch.mean(torch.stack(losses, dim=1).sum(dim=1))
-        return loss
+    def predict_point(self, predictions, transformed: bool = False):
+        preds = predictions if transformed else self.forward(predictions)
+        preds = self._ensure_2d_predictions(preds)
+        if 0.5 in self.quantiles:
+            idx = self.quantiles.index(0.5)
+            return preds[:, idx]
+        return preds.mean(dim=1)
 
 
 class RobustNormalDistribution(BaseDistribution):
     """
-    Represents a Normal (Gaussian) distribution with parameters for mean and variance, including functionality
-    for transforming these parameters and computing the loss.
+    Robustified Gaussian likelihood with parameters [mean, scale].
 
-    Inherits from BaseDistribution.
-
-    Parameters:
-        name (str): The name of the distribution. Defaults to "Normal".
-        mean_transform (str or callable): The transformation for the mean parameter. Defaults to "none".
-        var_transform (str or callable): The transformation for the variance parameter. Defaults to "positive".
+    The robustness transformation is:
+        loglik_rob = log((1 + exp(loglik + rob)) / (1 + exp(rob)))
+    This downweights very unlikely observations while remaining smooth.
     """
 
     def __init__(
-        self, name="Normal", mean_transform="none", var_transform="positive", rob=0.1
+        self,
+        name: str = "RobustNormal",
+        mean_transform: Union[str, Callable] = "none",
+        scale_transform: Union[str, Callable] = "positive",
+        rob: Optional[float] = 0.1,
+        eps: float = 1e-6,
     ):
-        param_names = [
-            "mean",
-            "variance",
-        ]
-        super().__init__(name, param_names)
-
-        self.mean_transform = self.get_transform(mean_transform)
-        self.variance_transform = self.get_transform(var_transform)
-        self.rob = rob
+        super().__init__(name=name, param_names=["mean", "scale"], eps=eps)
+        self.mean_transform = mean_transform
+        self.scale_transform = scale_transform
+        self.rob = None if rob is None else float(rob)
 
     def compute_loss(self, predictions, y_true):
-        mean = self.mean_transform(predictions[:, self.param_names.index("mean")])
-        variance = self.variance_transform(
-            predictions[:, self.param_names.index("variance")]
-        )
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
 
-        normal_dist = dist.Normal(mean, variance)
-        log_likelihood = normal_dist.log_prob(y_true)
+        mean = self.get_transform(self.mean_transform)(predictions[:, 0])
+        scale = self.get_transform(self.scale_transform)(predictions[:, 1])
+
+        normal_dist = dist.Normal(loc=mean, scale=scale)
+        log_likelihood = normal_dist.log_prob(y)
 
         if self.rob is not None:
-            rob_tensor = torch.tensor(
-                self.rob, device=log_likelihood.device, dtype=log_likelihood.dtype
-            )
-            log_likelihood = torch.log(
-                (1 + torch.exp(log_likelihood + rob_tensor))
-                / (1 + torch.exp(rob_tensor))
-            )
+            # numerically stable implementation using logaddexp:
+            # log(1 + exp(a)) = logaddexp(0, a)
+            rob_t = torch.tensor(self.rob, device=log_likelihood.device, dtype=log_likelihood.dtype)
+            log_num = torch.logaddexp(torch.zeros_like(log_likelihood), log_likelihood + rob_t)
+            log_den = torch.logaddexp(torch.tensor(0.0, device=rob_t.device, dtype=rob_t.dtype), rob_t)
+            log_likelihood = log_num - log_den
 
-        nll = -torch.mean(log_likelihood)
-        return nll
+        return -log_likelihood.mean()
 
     def evaluate_nll(self, y_true, y_pred):
         metrics = super().evaluate_nll(y_true, y_pred)
-
-        # Convert numpy arrays to torch tensors
-        y_true_tensor = torch.tensor(y_true, dtype=torch.float32)
-        y_pred_tensor = torch.tensor(y_pred, dtype=torch.float32)
-
-        mse_loss = torch.nn.functional.mse_loss(
-            y_true_tensor, y_pred_tensor[:, self.param_names.index("mean")]
+        y = np.asarray(y_true).reshape(-1)
+        pred = np.asarray(y_pred)
+        mu = pred[:, 0]
+        err = y - mu
+        metrics.update(
+            {
+                "mse": float(np.mean(err**2)),
+                "mae": float(np.mean(np.abs(err))),
+                "rmse": float(np.sqrt(np.mean(err**2))),
+            }
         )
-        rmse = np.sqrt(mse_loss.detach().numpy())
-        mae = (
-            torch.nn.functional.l1_loss(
-                y_true_tensor, y_pred_tensor[:, self.param_names.index("mean")]
-            )
-            .detach()
-            .numpy()
-        )
-
-        metrics["mse"] = mse_loss.detach().numpy()
-        metrics["mae"] = mae
-        metrics["rmse"] = rmse
-
-        # Convert the NLL loss tensor back to a numpy array and return
         return metrics
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        return params[:, 0]

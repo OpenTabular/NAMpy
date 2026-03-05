@@ -7,72 +7,56 @@ import torchmetrics
 
 
 class TaskModel(pl.LightningModule):
-    """
-    PyTorch Lightning Module for training and evaluating a model.
-
-    Parameters
-    ----------
-    model_class : Type[nn.Module]
-        The model class to be instantiated and trained.
-    config : dataclass
-        Configuration dataclass containing model hyperparameters.
-    loss_fct : callable
-        Loss function to be used during training and evaluation.
-    num_classes : int, optional
-        Number of classes for classification tasks (default is 1).
-    lss : bool, optional
-        Custom flag for additional loss configuration (default is False).
-    **kwargs : dict
-        Additional keyword arguments.
-    """
-
     def __init__(
         self,
         model_class: Type[nn.Module],
         config,
         cat_feature_info,
         num_feature_info,
-        num_classes=1,
+        num_classes=1,           # semantic class count for classification, output dim for regression/LSS
         lss=False,
         family=None,
         loss_fct: Any = None,
         **kwargs,
     ):
         super().__init__()
-        self.num_classes = num_classes
-        self.lss = lss
+
+        self.lss = bool(lss)
         self.family = family
         self.loss_fct = loss_fct
 
-        if lss:
-            pass
+        # Keep task semantics separate from model output width
+        self.n_classes = int(num_classes)
+
+        if self.lss:
+            self.task_kind = "lss"
+            self.output_dim = int(num_classes)  # usually family.param_count
         else:
-            if num_classes == 2:
-                if not self.loss_fct:
+            if self.n_classes == 1:
+                self.task_kind = "regression"
+                self.output_dim = 1
+                if self.loss_fct is None:
+                    self.loss_fct = nn.MSELoss()
+            elif self.n_classes == 2:
+                self.task_kind = "binary"
+                self.output_dim = 1  # BCE-with-logits style
+                if self.loss_fct is None:
                     self.loss_fct = nn.BCEWithLogitsLoss()
                 self.acc = torchmetrics.Accuracy(task="binary")
+                # Optional: keep AUROC/precision, but log on_epoch only (see below)
                 self.auroc = torchmetrics.AUROC(task="binary")
                 self.precision = torchmetrics.Precision(task="binary")
-                self.num_classes = 1
-            elif num_classes > 2:
-                if not self.loss_fct:
-                    self.loss_fct = nn.CrossEntropyLoss()
-                self.acc = torchmetrics.Accuracy(
-                    task="multiclass", num_classes=num_classes
-                )
-                self.auroc = torchmetrics.AUROC(
-                    task="multiclass", num_classes=num_classes
-                )
-                self.precision = torchmetrics.Precision(
-                    task="multiclass", num_classes=num_classes
-                )
             else:
-                self.loss_fct = nn.MSELoss()
+                self.task_kind = "multiclass"
+                self.output_dim = self.n_classes
+                if self.loss_fct is None:
+                    self.loss_fct = nn.CrossEntropyLoss()
+                self.acc = torchmetrics.Accuracy(task="multiclass", num_classes=self.n_classes)
+                self.auroc = torchmetrics.AUROC(task="multiclass", num_classes=self.n_classes)
+                self.precision = torchmetrics.Precision(task="multiclass", num_classes=self.n_classes)
 
-        # Ignore 'family' for LSS models since it's an nn.Module that can't be pickled
-        ignore_list = ["model_class", "loss_fn"]
-        if lss:
-            ignore_list.append("family")
+        # Avoid checkpoint bloat / pickle issues
+        ignore_list = ["model_class", "loss_fct", "family", "cat_feature_info", "num_feature_info"]
         self.save_hyperparameters(ignore=ignore_list)
 
         self.lr = self.hparams.get("lr", config.lr)
@@ -80,209 +64,114 @@ class TaskModel(pl.LightningModule):
         self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
         self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
 
-        if family is None and num_classes == 2:
-            output_dim = 1
-        else:
-            output_dim = num_classes
-
         self.model = model_class(
             config=config,
             num_feature_info=num_feature_info,
             cat_feature_info=cat_feature_info,
-            num_classes=output_dim,
+            num_classes=self.output_dim,
             **kwargs,
         )
 
     def forward(self, num_features, cat_features):
-        """
-        Forward pass through the model.
+        return self.model(num_features=num_features, cat_features=cat_features)
 
-        Parameters
-        ----------
-        num_features : dict
-            Dictionary of numerical features with feature names as keys.
-        cat_features : dict
-            Dictionary of categorical features with feature names as keys.
+    def _prepare_supervised_targets(self, preds: torch.Tensor, y_true: torch.Tensor):
+        """Normalize target shapes/dtypes for regression/binary/multiclass."""
+        if self.task_kind == "regression":
+            y = y_true.to(dtype=preds.dtype)
+            if y.ndim == 1:
+                y = y.unsqueeze(-1)
+            return preds, y
 
-        Returns
-        -------
-        dict
-            Model outputs, including the main prediction under the "output" key.
-        """
+        if self.task_kind == "binary":
+            # BCEWithLogitsLoss expects same shape/dtype as preds
+            y = y_true.to(dtype=preds.dtype)
+            if y.ndim == 1:
+                y = y.unsqueeze(-1)
+            if y.shape != preds.shape:
+                y = y.view_as(preds)
+            return preds, y
 
-        return self.model.forward(num_features, cat_features)
+        if self.task_kind == "multiclass":
+            # CrossEntropyLoss expects logits [N, C], targets [N] long
+            y = y_true.long().view(-1)
+            return preds, y
+
+        raise RuntimeError(f"Unexpected task_kind={self.task_kind!r}")
+
+    def _prepare_lss_targets(self, y_true: torch.Tensor):
+        # Keep multi-parameter / multivariate targets intact.
+        # Only squeeze the dummy second dim when labels are shape [N, 1].
+        y = y_true
+        if y.ndim == 2 and y.shape[1] == 1:
+            y = y[:, 0]
+
+        # Let family opt into integer targets (e.g. categorical)
+        target_dtype = getattr(self.family, "target_dtype", None)
+        if target_dtype is not None:
+            y = y.to(dtype=target_dtype)
+        return y
 
     def compute_loss(self, predictions, y_true):
-        """
-        Compute the loss for the given predictions and true labels.
-
-        Parameters
-        ----------
-        predictions : Tensor
-            Model predictions.
-        y_true : Tensor
-            True labels.
-
-        Returns
-        -------
-        Tensor
-            Computed loss.
-        """
         if self.lss:
-            loss = self.family.compute_loss(predictions, y_true.squeeze(-1))
-            return loss
-        else:
-            loss = self.loss_fct(predictions, y_true)
-            return loss
+            y = self._prepare_lss_targets(y_true)
+            return self.family.compute_loss(predictions, y)
 
-    def training_step(self, batch, batch_idx):
-        """
-        Training step for a single batch.
+        preds, y = self._prepare_supervised_targets(predictions, y_true)
+        return self.loss_fct(preds, y)
 
-        Parameters
-        ----------
-        batch : tuple
-            Batch of data containing numerical features, categorical features, and labels.
-        batch_idx : int
-            Index of the batch.
+    def _log_task_metrics(self, prefix: str, preds: torch.Tensor, labels: torch.Tensor):
+        if self.lss:
+            return
 
-        Returns
-        -------
-        Tensor
-            Training loss.
-        """
+        if self.task_kind == "binary":
+            # For torchmetrics binary classification, logits are accepted in many versions,
+            # but using probs explicitly avoids version-specific behavior.
+            probs = torch.sigmoid(preds).view(-1)
+            y = labels.view(-1).long()
+            self.log(f"{prefix}_acc", self.acc(probs, y), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log(f"{prefix}_auroc", self.auroc(probs, y), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+            self.log(f"{prefix}_precision", self.precision(probs, y), on_step=False, on_epoch=True, prog_bar=False, logger=True)
 
+        elif self.task_kind == "multiclass":
+            logits = preds
+            y = labels.view(-1).long()
+            self.log(f"{prefix}_acc", self.acc(logits, y), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            probs = torch.softmax(logits, dim=1)
+            self.log(f"{prefix}_auroc", self.auroc(probs, y), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+            self.log(f"{prefix}_precision", self.precision(logits, y), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+
+    def _shared_step(self, batch, batch_idx, stage: str):
         cat_features, num_features, labels = batch
         preds = self(num_features=num_features, cat_features=cat_features)["output"]
         loss = self.compute_loss(preds, labels)
 
         self.log(
-            "train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
+            f"{stage}_loss",
+            loss,
+            on_step=(stage == "train"),
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
         )
 
-        # Log additional metrics
-        if not self.lss:
-            if self.num_classes > 1:
-                acc = self.acc(preds, labels)
-                self.log(
-                    "train_acc",
-                    acc,
-                    on_step=True,
-                    on_epoch=True,
-                    prog_bar=True,
-                    logger=True,
-                )
+        self._log_task_metrics(stage, preds, labels)
+
+        if stage == "test" and (not self.lss) and self.task_kind == "regression":
+            self.log("test_rmse", torch.sqrt(loss), on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         return loss
 
+    def training_step(self, batch, batch_idx):
+        return self._shared_step(batch, batch_idx, "train")
+
     def validation_step(self, batch, batch_idx):
-        """
-        Validation step for a single batch.
-
-        Parameters
-        ----------
-        batch : tuple
-            Batch of data containing numerical features, categorical features, and labels.
-        batch_idx : int
-            Index of the batch.
-
-        Returns
-        -------
-        Tensor
-            Validation loss.
-        """
-
-        cat_features, num_features, labels = batch
-        preds = self(num_features=num_features, cat_features=cat_features)["output"]
-        val_loss = self.compute_loss(preds, labels)
-
-        self.log(
-            "val_loss",
-            val_loss,
-            on_step=True,
-            on_epoch=True,
-            prog_bar=True,
-            logger=True,
-        )
-
-        # Log additional metrics
-        if not self.lss:
-            if self.num_classes > 1:
-                acc = self.acc(preds, labels)
-                self.log(
-                    "val_acc",
-                    acc,
-                    on_step=True,
-                    on_epoch=True,
-                    prog_bar=True,
-                    logger=True,
-                )
-
-        return val_loss
+        return self._shared_step(batch, batch_idx, "val")
 
     def test_step(self, batch, batch_idx):
-        """
-        Test step for a single batch.
-
-        Parameters
-        ----------
-        batch : tuple
-            Batch of data containing numerical features, categorical features, and labels.
-        batch_idx : int
-            Index of the batch.
-
-        Returns
-        -------
-        Tensor
-            Test loss.
-        """
-        cat_features, num_features, labels = batch
-        preds = self(num_features=num_features, cat_features=cat_features)["output"]
-        test_loss = self.compute_loss(preds, labels)
-
-        self.log(
-            "test_loss",
-            test_loss,
-            on_step=True,
-            on_epoch=True,
-            prog_bar=True,
-            logger=True,
-        )
-
-        # Log additional metrics
-        if not self.lss:
-            if self.num_classes > 1:
-                acc = self.acc(preds, labels)
-                self.log(
-                    "test_acc",
-                    acc,
-                    on_step=True,
-                    on_epoch=True,
-                    prog_bar=True,
-                    logger=True,
-                )
-            elif isinstance(self.loss_fct, nn.MSELoss):
-                rmse = torch.sqrt(test_loss)
-                self.log(
-                    "test_rmse",
-                    rmse,
-                    on_step=True,
-                    on_epoch=True,
-                    prog_bar=True,
-                    logger=True,
-                )
-
-        return test_loss
+        return self._shared_step(batch, batch_idx, "test")
 
     def configure_optimizers(self):
-        """
-        Sets up the model's optimizer and learning rate scheduler based on the configurations provided.
-
-        Returns
-        -------
-        dict
-            A dictionary containing the optimizer and lr_scheduler configurations.
-        """
         optimizer = torch.optim.Adam(
             self.parameters(),
             lr=self.lr,
@@ -299,5 +188,4 @@ class TaskModel(pl.LightningModule):
             "interval": "epoch",
             "frequency": 1,
         }
-
         return {"optimizer": optimizer, "lr_scheduler": scheduler}
