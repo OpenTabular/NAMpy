@@ -1,5 +1,6 @@
-from dataclasses import dataclass
-from typing import Any, Optional
+#nam_config.py
+from dataclasses import dataclass, field
+from typing import List, Optional
 
 import torch.nn as nn
 
@@ -19,13 +20,11 @@ class DefaultNAMConfig:
         Weight decay (L2 penalty) for the optimizer.
     lr_factor : float, default=0.1
         Factor by which the learning rate will be reduced.
-    layer_sizes : list, default=(128, 128, 32)
+    layer_sizes : list of int, default=[128, 128, 32]
         Sizes of the layers in the MLP.
-    activation : callable, default=nn.SELU()
-        Activation function for the MLP layers.
-    skip_layers : bool, default=False
-        Whether to skip layers in the MLP.
-    dropout : float, default=0.5
+    activation : type, default=nn.ReLU
+        Activation class for the MLP layers (e.g. nn.ReLU); a new instance is used per layer.
+    dropout : float, default=0.1
         Dropout rate for regularization.
     norm : str, default=None
         Normalization method to be used, if any.
@@ -43,9 +42,8 @@ class DefaultNAMConfig:
     lr_patience: int = 10
     weight_decay: float = 1e-06
     lr_factor: float = 0.1
-    layer_sizes: tuple = (128, 128, 32)
-    activation: Any = nn.ReLU()
-    skip_layers: bool = False
+    layer_sizes: List[int] = field(default_factory=lambda: [128, 128, 32])
+    activation: type = nn.ReLU
     dropout: float = 0.1
     norm: Optional[str] = None
     use_glu: bool = False

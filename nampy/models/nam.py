@@ -1,3 +1,4 @@
+#models/nam.py
 from ..basemodels.nam import NAM
 from ..configs.nam_config import DefaultNAMConfig
 from .sklearn_classifier import SklearnBaseClassifier
@@ -7,7 +8,7 @@ from .sklearn_regressor import SklearnBaseRegressor
 
 class NAMRegressor(SklearnBaseRegressor):
     """
-    Multi-Layer Perceptron regressor. This class extends the SklearnBaseRegressor class and uses the NAM model
+    Neural Additive Model regressor. This class extends the SklearnBaseRegressor class and uses the NAM model
     with the default NAM configuration.
 
     The accepted arguments to the NAMRegressor class include both the attributes in the DefaultNAMConfig dataclass
@@ -25,11 +26,11 @@ class NAMRegressor(SklearnBaseRegressor):
         Factor by which the learning rate will be reduced.
     layer_sizes : list, default=(128, 128, 32)
         Sizes of the layers in the NAM.
-    activation : callable, default=nn.SELU()
+    activation : callable, default=nn.ReLU
         Activation function for the NAM layers.
     skip_layers : bool, default=False
         Whether to skip layers in the NAM.
-    dropout : float, default=0.5
+    dropout : float, default=0.1
         Dropout rate for regularization.
     norm : str, default=None
         Normalization method to be used, if any.
@@ -90,7 +91,7 @@ class NAMRegressor(SklearnBaseRegressor):
 
 class NAMClassifier(SklearnBaseClassifier):
     """
-    Multi-Layer Perceptron classifier. This class extends the SklearnBaseClassifier class and uses the NAM model
+    Neural Additive Model classifier. This class extends the SklearnBaseClassifier class and uses the NAM model
     with the default NAM configuration.
 
     The accepted arguments to the NAMClassifier class include both the attributes in the DefaultNAMConfig dataclass
@@ -108,11 +109,11 @@ class NAMClassifier(SklearnBaseClassifier):
         Factor by which the learning rate will be reduced.
     layer_sizes : list, default=(128, 128, 32)
         Sizes of the layers in the NAM.
-    activation : callable, default=nn.SELU()
+    activation : callable, default=nn.ReLU
         Activation function for the NAM layers.
     skip_layers : bool, default=False
         Whether to skip layers in the NAM.
-    dropout : float, default=0.5
+    dropout : float, default=0.1
         Dropout rate for regularization.
     norm : str, default=None
         Normalization method to be used, if any.
@@ -173,7 +174,7 @@ class NAMClassifier(SklearnBaseClassifier):
 
 class NAMLSS(SklearnBaseLSS):
     """
-    Multi-Layer Perceptron for distributional regression. This class extends the SklearnBaseLSS class and uses the NAM model
+    Neural Additive Model for distributional regression. This class extends the SklearnBaseLSS class and uses the NAM model
     with the default NAM configuration.
 
     The accepted arguments to the NAMLSS class include both the attributes in the DefaultNAMConfig dataclass
@@ -191,11 +192,11 @@ class NAMLSS(SklearnBaseLSS):
         Factor by which the learning rate will be reduced.
     layer_sizes : list, default=(128, 128, 32)
         Sizes of the layers in the MLP.
-    activation : callable, default=nn.SELU()
+    activation : callable, default=nn.ReLU
         Activation function for the MLP layers.
     skip_layers : bool, default=False
         Whether to skip layers in the MLP.
-    dropout : float, default=0.5
+    dropout : float, default=0.1
         Dropout rate for regularization.
     norm : str, default=None
         Normalization method to be used, if any.

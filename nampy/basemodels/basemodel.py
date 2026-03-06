@@ -1,3 +1,4 @@
+#basemodel.py
 import logging
 
 import torch
@@ -18,8 +19,6 @@ class BaseModel(nn.Module):
         self.hparams = kwargs
 
     def save_hyperparameters(self, ignore=None):
-        if ignore is None:
-            ignore = []
         """
         Saves the hyperparameters while ignoring specified keys.
 
@@ -28,6 +27,8 @@ class BaseModel(nn.Module):
         ignore : list, optional
             List of keys to ignore while saving hyperparameters, by default [].
         """
+        if ignore is None:
+            ignore = []
         self.hparams = {k: v for k, v in self.hparams.items() if k not in ignore}
         for key, value in self.hparams.items():
             setattr(self, key, value)
@@ -59,9 +60,9 @@ class BaseModel(nn.Module):
         self.to(device)
         print(f"Model parameters loaded from {path}")
 
-    def count_parameters(self):
+    def total_parameters(self):
         """
-        Count the number of trainable parameters in the model.
+        Count the total number of trainable parameters in the model.
 
         Returns
         -------
@@ -100,9 +101,9 @@ class BaseModel(nn.Module):
         logger.info("Hyperparameters:")
         for key, value in self.hparams.items():
             logger.info(f"  {key}: {value}")
-        logger.info(f"Total number of trainable parameters: {self.count_parameters()}")
+        logger.info(f"Total number of trainable parameters: {self.total_parameters()}")
 
-    def parameter_count(self):
+    def parameter_count_by_layer(self):
         """
         Get a dictionary of parameter counts for each layer in the model.
 
@@ -144,7 +145,7 @@ class BaseModel(nn.Module):
         Print a summary of the model, including the architecture and parameter counts.
         """
         print(self)
-        print(f"\nTotal number of trainable parameters: {self.count_parameters()}")
+        print(f"\nTotal number of trainable parameters: {self.total_parameters()}")
         print("\nParameter counts by layer:")
-        for name, count in self.parameter_count().items():
+        for name, count in self.parameter_count_by_layer().items():
             print(f"  {name}: {count}")
