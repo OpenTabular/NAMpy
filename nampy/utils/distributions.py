@@ -1,3 +1,4 @@
+#distributions.py
 import math
 from typing import Any, Callable, Optional, Sequence, Union
 
@@ -358,31 +359,26 @@ class DirichletDistribution(BaseDistribution):
     ):
         k = n_dim if n_dim is not None else dim
         if k is None:
-            # Keep constructor callable, but fail clearly for training-time usage.
-            param_names = ["concentration"]
-            self._n_dim = None
-        else:
-            k = int(k)
-            if k < 2:
-                raise ValueError("DirichletDistribution requires n_dim >= 2.")
-            param_names = [f"alpha_{i}" for i in range(k)]
-            self._n_dim = k
+            raise ValueError(
+                "DirichletDistribution requires `n_dim` (or `dim`) at construction "
+                "so `param_count` matches the model output dimension. "
+                "Example: DirichletDistribution(n_dim=y.shape[1])."
+            )
+        k = int(k)
+        if k < 2:
+            raise ValueError("DirichletDistribution requires n_dim >= 2.")
+        param_names = [f"alpha_{i}" for i in range(k)]
+        self._n_dim = k
 
         super().__init__(name=name, param_names=param_names, eps=eps)
         self.concentration_transform = concentration_transform
         self.target_eps = float(target_eps)
 
     @property
-    def n_dim(self) -> Optional[int]:
+    def n_dim(self) -> int:
         return self._n_dim
 
     def _check_dim(self, predictions: torch.Tensor):
-        if self._n_dim is None:
-            raise ValueError(
-                "DirichletDistribution requires `n_dim` (or `dim`) at construction "
-                "so `param_count` matches the model output dimension. "
-                "Example: DirichletDistribution(n_dim=y.shape[1])."
-            )
         if predictions.shape[1] != self._n_dim:
             raise ValueError(
                 f"DirichletDistribution expected {self._n_dim} parameters, got "
@@ -587,30 +583,25 @@ class CategoricalDistribution(BaseDistribution):
         eps: float = 1e-8,
     ):
         if num_classes is None:
-            # Backwards-compatible constructor, but not sufficient for model width.
-            self._num_classes = None
-            param_names = ["probs"]
-        else:
-            k = int(num_classes)
-            if k < 2:
-                raise ValueError("CategoricalDistribution requires num_classes >= 2.")
-            self._num_classes = k
-            param_names = [f"class_{i}" for i in range(k)]
-
-        super().__init__(name=name, param_names=param_names, eps=eps)
-        self.probs_transform = prob_transform
-
-    @property
-    def num_classes(self) -> Optional[int]:
-        return self._num_classes
-
-    def _check_dim(self, predictions: torch.Tensor):
-        if self._num_classes is None:
             raise ValueError(
                 "CategoricalDistribution requires `num_classes` at construction so "
                 "`param_count` matches the model output dimension. "
                 "Example: CategoricalDistribution(num_classes=K)."
             )
+        k = int(num_classes)
+        if k < 2:
+            raise ValueError("CategoricalDistribution requires num_classes >= 2.")
+        self._num_classes = k
+        param_names = [f"class_{i}" for i in range(k)]
+
+        super().__init__(name=name, param_names=param_names, eps=eps)
+        self.probs_transform = prob_transform
+
+    @property
+    def num_classes(self) -> int:
+        return self._num_classes
+
+    def _check_dim(self, predictions: torch.Tensor):
         if predictions.shape[1] != self._num_classes:
             raise ValueError(
                 f"CategoricalDistribution expected {self._num_classes} logits, got "
@@ -664,20 +655,20 @@ class Quantile(BaseDistribution):
     ----------
     quantiles : sequence of float
         Quantiles in (0,1). Example: [0.1, 0.5, 0.9]
-    enforce_monotonic : bool, default=False
+    enforce_monotonic : bool, default=True
         If True, `forward()` maps raw predictions to monotone quantiles via:
             q0 = raw0
             increments = softplus(raw[1:])
             q = q0 + cumsum(increments)
-        This changes the meaning of the raw parameterization, so default is False
-        to preserve backwards compatibility.
+        This changes the meaning of the raw parameterization but avoids
+        quantile crossing, which is typically desired in practice.
     """
 
     def __init__(
         self,
         name: str = "Quantile",
         quantiles: Optional[Sequence[float]] = None,
-        enforce_monotonic: bool = False,
+        enforce_monotonic: bool = True,
         eps: float = 1e-8,
     ):
         if quantiles is None:

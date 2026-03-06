@@ -1,3 +1,4 @@
+#sklearn_classifier.py
 import warnings
 
 import lightning as pl
@@ -45,8 +46,6 @@ class SklearnBaseClassifier(BaseEstimator):
         preprocessor_kwargs = {
             k: v for k, v in kwargs.items() if k in preprocessor_arg_names
         }
-        if "knots" in kwargs and "n_knots" not in preprocessor_kwargs:
-            preprocessor_kwargs["n_knots"] = kwargs["knots"]
         if preprocessor_kwargs.get("categorical_preprocessing") in (
             "one_hot",
             "one-hot",
@@ -109,23 +108,24 @@ class SklearnBaseClassifier(BaseEstimator):
         self : object
             The instance with updated parameters.
         """
-        # Update config_kwargs with provided parameters
-        valid_config_keys = self.config_kwargs.keys()
-        config_updates = {k: v for k, v in parameters.items() if k in valid_config_keys}
-        self.config_kwargs.update(config_updates)
+        config_updates = {}
+        preprocessor_params = {}
 
-        # Update the config object
+        for key, value in parameters.items():
+            if key.startswith("preprocessor__"):
+                preprocessor_params[key.split("__", 1)[1]] = value
+            elif key in self.config_kwargs:
+                config_updates[key] = value
+            else:
+                raise ValueError(
+                    f"Invalid parameter '{key}' for {self.__class__.__name__}. "
+                    f"Valid parameters: {sorted(self.config_kwargs.keys())}."
+                )
+
+        self.config_kwargs.update(config_updates)
         for key, value in config_updates.items():
             setattr(self.config, key, value)
 
-        # Handle preprocessor parameters (prefixed with 'preprocessor__')
-        preprocessor_params = {
-            k.split("__")[1]: v
-            for k, v in parameters.items()
-            if k.startswith("preprocessor__")
-        }
-        if "knots" in preprocessor_params and "n_knots" not in preprocessor_params:
-            preprocessor_params["n_knots"] = preprocessor_params.pop("knots")
         if preprocessor_params:
             self.preprocessor.set_params(**preprocessor_params)
 

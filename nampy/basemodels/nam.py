@@ -1,16 +1,10 @@
+# nam.py
 from itertools import combinations
 
 import torch
 import torch.nn as nn
 
-from ..arch_utils.normalization_layers import (
-    BatchNorm,
-    GroupNorm,
-    InstanceNorm,
-    LayerNorm,
-    LearnableLayerScaling,
-    RMSNorm,
-)
+from ..arch_utils.mlp_utils import MLP
 from ..configs.nam_config import DefaultNAMConfig
 from .basemodel import BaseModel
 
@@ -34,8 +28,8 @@ class NAM(BaseModel):
         Degree of interactions to be modeled.
     intercept : torch.nn.Parameter
         Learnable intercept term, if enabled.
-    feature_dropout : nn.Dropout
-        Dropout layer for regularizing feature contributions.
+    feature_dropout_p : float
+        Probability for feature-level dropout (drops whole feature outputs).
     """
 
     def __init__(
@@ -84,111 +78,65 @@ class NAM(BaseModel):
         else:
             self.intercept = None
 
-        self.feature_dropout = nn.Dropout(
-            self.hparams.get("feature_dropout", config.feature_dropout)
+        self.feature_dropout_p = self.hparams.get(
+            "feature_dropout", config.feature_dropout
         )
+
+        # Resolve architecture hyperparameters once, with kwargs overriding config
+        self.layer_sizes = self.hparams.get("layer_sizes", config.layer_sizes)
+        self.activation = self.hparams.get("activation", config.activation)
+        self.norm = self.hparams.get("norm", config.norm)
+        self.use_glu = self.hparams.get("use_glu", config.use_glu)
+        self.skip_connections = self.hparams.get(
+            "skip_connections", config.skip_connections
+        )
+        self.batch_norm = self.hparams.get("batch_norm", config.batch_norm)
+        self.layer_norm = self.hparams.get("layer_norm", config.layer_norm)
+        self.dropout = self.hparams.get("dropout", config.dropout)
 
         # Initialize sub-networks for each feature
         self.num_feature_networks = nn.ModuleDict()
         for feature_name, info in num_feature_info.items():
             self.num_feature_networks[feature_name] = self._create_subnetwork(
-                info["dimension"], config
+                info["dimension"]
             )
 
         self.cat_feature_networks = nn.ModuleDict()
         for feature_name, info in cat_feature_info.items():
             self.cat_feature_networks[feature_name] = self._create_subnetwork(
-                info["dimension"], config
+                info["dimension"]
             )  # Categorical features are typically encoded as single values
 
+        reserved = {"output", "intercept"}
+        all_feature_names = set(num_feature_info) | set(cat_feature_info)
+        if reserved & all_feature_names:
+            raise ValueError(
+                f"Feature names {sorted(reserved.intersection(all_feature_names))} are reserved."
+            )
+
+        self.interaction_networks = nn.ModuleDict()
         if self.interaction_degree is not None and self.interaction_degree >= 2:
             self._create_interaction_networks(
                 num_feature_info=num_feature_info,
                 cat_feature_info=cat_feature_info,
-                config=config,
             )
 
-    def _create_subnetwork(self, input_dim, config):
-        """
-        Creates a subnetwork for a single feature.
-
-        Parameters
-        ----------
-        input_dim : int
-            Dimension of the input feature.
-        config : DefaultNAMConfig
-            Configuration dataclass containing model hyperparameters.
-
-        Returns
-        -------
-        nn.Sequential
-            A subnetwork composed of linear layers, normalization layers, and activation functions.
-        """
-        layers = nn.Sequential()
-        layers.add_module("input", nn.Linear(input_dim, config.layer_sizes[0]))
-
-        if config.batch_norm:
-            layers.add_module("batch_norm", nn.BatchNorm1d(config.layer_sizes[0]))
-
-        norm_layer = self.hparams.get("norm", config.norm)
-        if norm_layer == "RMSNorm":
-            layers.add_module("norm", RMSNorm(config.layer_sizes[0]))
-        elif norm_layer == "LayerNorm":
-            layers.add_module("norm", LayerNorm(config.layer_sizes[0]))
-        elif norm_layer == "BatchNorm":
-            layers.add_module("norm", BatchNorm(config.layer_sizes[0]))
-        elif norm_layer == "InstanceNorm":
-            layers.add_module("norm", InstanceNorm(config.layer_sizes[0]))
-        elif norm_layer == "GroupNorm":
-            layers.add_module("norm", GroupNorm(1, config.layer_sizes[0]))
-        elif norm_layer == "LearnableLayerScaling":
-            layers.add_module("norm", LearnableLayerScaling(config.layer_sizes[0]))
-
-        if config.use_glu:
-            layers.add_module("glu", nn.GLU())
-            # GLU halves the last dimension; track actual output size
-            current_size = config.layer_sizes[0] // 2
-        else:
-            layers.add_module(
-                "activation", self.hparams.get("activation", config.activation)
-            )
-            current_size = config.layer_sizes[0]
-
-        if config.dropout > 0.0:
-            layers.add_module("dropout", nn.Dropout(config.dropout))
-
-        for i in range(1, len(config.layer_sizes)):
-            layers.add_module(
-                f"linear_{i}",
-                nn.Linear(current_size, config.layer_sizes[i]),
-            )
-            if config.batch_norm:
-                layers.add_module(
-                    f"batch_norm_{i}", nn.BatchNorm1d(config.layer_sizes[i])
-                )
-            if config.layer_norm:
-                layers.add_module(
-                    f"layer_norm_{i}", nn.LayerNorm(config.layer_sizes[i])
-                )
-            if config.use_glu:
-                layers.add_module(f"glu_{i}", nn.GLU())
-                current_size = config.layer_sizes[i] // 2
-            else:
-                layers.add_module(
-                    f"activation_{i}", self.hparams.get("activation", config.activation)
-                )
-                current_size = config.layer_sizes[i]
-            if config.dropout > 0.0:
-                layers.add_module(f"dropout_{i}", nn.Dropout(config.dropout))
-
-        last_layer_idx = len(config.layer_sizes)
-        layers.add_module(
-            f"linear_{last_layer_idx}",
-            nn.Linear(current_size, self.num_classes),
+    def _create_subnetwork(self, input_dim: int) -> MLP:
+        """Create a subnetwork for a single feature using MLP from mlp_utils."""
+        return MLP(
+            n_input_units=input_dim,
+            hidden_units_list=self.layer_sizes,
+            n_output_units=self.num_classes,
+            dropout_rate=self.dropout,
+            use_skip_layers=self.skip_connections,
+            activation_fn=self.activation,
+            use_batch_norm=self.batch_norm,
+            use_layer_norm=self.layer_norm,
+            norm=self.norm,
+            use_glu=self.use_glu,
         )
-        return layers
 
-    def _create_interaction_networks(self, num_feature_info, cat_feature_info, config):
+    def _create_interaction_networks(self, num_feature_info, cat_feature_info):
         """
         Creates networks for modeling feature interactions.
 
@@ -198,11 +146,7 @@ class NAM(BaseModel):
             Information about numerical features.
         cat_feature_info : dict
             Information about categorical features.
-        config : DefaultNAMConfig
-            Configuration dataclass containing model hyperparameters.
         """
-
-        self.interaction_networks = nn.ModuleDict()
         all_feature_names = list(num_feature_info.keys()) + list(
             cat_feature_info.keys()
         )
@@ -223,7 +167,7 @@ class NAM(BaseModel):
                         input_dim += cat_feature_info[feature]["dimension"]
 
                 self.interaction_networks[interaction_name] = self._create_subnetwork(
-                    input_dim, config
+                    input_dim
                 )
 
     def _interaction_forward(self, num_features: dict, cat_features: dict):
@@ -257,9 +201,7 @@ class NAM(BaseModel):
                 input_features = torch.cat(
                     [all_features[fn] for fn in feature_names], dim=-1
                 )
-                interaction_output = interaction_network(
-                    torch.tensor(input_features, dtype=torch.float32)
-                )
+                interaction_output = interaction_network(input_features.float())
                 interaction_outputs[interaction_name] = interaction_output
 
         return interaction_outputs
@@ -282,7 +224,7 @@ class NAM(BaseModel):
         """
         num_outputs = {}
         for feature_name, feature_network in self.num_feature_networks.items():
-            feature_output = feature_network(num_features[feature_name])
+            feature_output = feature_network(num_features[feature_name].float())
             num_outputs[feature_name] = feature_output
 
         cat_outputs = {}
@@ -294,25 +236,28 @@ class NAM(BaseModel):
             num_features=num_features, cat_features=cat_features
         )
 
-        # Sum all feature outputs (main effects) and interaction outputs
         all_outputs = (
             list(num_outputs.values())
             + list(cat_outputs.values())
             + list(interaction_outputs.values())
         )
-        # Concatenate all feature outputs: [batch_size, num_features * num_classes]
         concatenated = torch.cat(all_outputs, dim=1)
-        # Apply feature dropout
-        concatenated = self.feature_dropout(concatenated)
-
-        # Reshape to [batch_size, num_features, num_classes] and sum across features
         num_features_total = len(all_outputs)
-        if self.num_classes > 1:
-            # Reshape to [batch_size, num_features, num_classes] and sum
-            x = concatenated.view(-1, num_features_total, self.num_classes).sum(dim=1)
+
+        if self.feature_dropout_p > 0.0 and self.training:
+            shaped = concatenated.view(-1, num_features_total, self.num_classes)
+            mask = torch.ones(
+                shaped.shape[0], num_features_total, 1,
+                device=shaped.device, dtype=shaped.dtype,
+            )
+            mask = nn.functional.dropout(
+                mask, p=self.feature_dropout_p, training=True
+            )
+            shaped = shaped * mask
         else:
-            # For single output, sum and keep dimension
-            x = concatenated.sum(dim=1).unsqueeze(-1)
+            shaped = concatenated.view(-1, num_features_total, self.num_classes)
+
+        x = shaped.sum(dim=1)  # [batch, num_classes]
 
         # intercept
         if self.intercept is not None:

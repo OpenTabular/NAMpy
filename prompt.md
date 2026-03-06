@@ -1,3 +1,87 @@
+nampy/
+├── __init__.py
+├── __version__.py
+│
+├── arch_utils/              # Shared NN building blocks
+│   ├── __init__.py
+│   ├── embedding_layer.py
+│   ├── mlp_utils.py
+│   ├── nbm_utils.py
+│   ├── neural_tree.py
+│   ├── nn_utils.py
+│   ├── nodegam_utils.py
+│   ├── normalization_layers.py
+│   └── transformer_utils.py
+│
+├── basemodels/              # Core model implementations (PyTorch/Lightning)
+│   ├── __init__.py
+│   ├── basemodel.py
+│   ├── gam.py
+│   ├── gpnam.py
+│   ├── lightning_wrapper.py
+│   ├── linreg.py
+│   ├── multi_model.py
+│   ├── nam.py
+│   ├── namformer.py
+│   ├── natt.py
+│   ├── nbm.py
+│   ├── nodegam.py
+│   ├── qnam.py
+│   ├── snam.py
+│   └── treenam.py
+│
+├── configs/                 # Model config dataclasses
+│   ├── __init__.py
+│   ├── boostednam_config.py
+│   ├── gpnam_config.py
+│   ├── linreg_config.py
+│   ├── nam_config.py
+│   ├── namformer_config.py
+│   ├── natt_config.py
+│   ├── nbm_config.py
+│   ├── nodegam_config.py
+│   ├── qnam_config.py
+│   ├── snam_config.py
+│   └── nam_config.py (etc.)
+│
+├── data_utils/              # Data loading and preprocessing for training
+│   ├── __init__.py
+│   ├── datamodule.py
+│   └── dataset.py
+│
+├── models/                  # Sklearn-style wrappers and model entry points
+│   ├── __init__.py
+│   ├── gam.py
+│   ├── gpnam.py
+│   ├── linreg.py
+│   ├── nam.py
+│   ├── namformer.py
+│   ├── natt.py
+│   ├── nbm.py
+│   ├── nodegam.py
+│   ├── qnam.py
+│   ├── sklearn_classifier.py
+│   ├── sklearn_lss.py
+│   ├── sklearn_regressor.py
+│   ├── snam.py
+│   └── treenam.py
+│
+├── preprocessing/
+│   └── __init__.py
+│
+├── splines/                 # Spline utilities for GAM/NAM
+│   ├── __init__.py
+│   ├── cubic.py
+│   ├── neural_splines.py
+│   ├── spline_utils.py
+│   └── tensorproduct.py
+│
+└── utils/                   # Distributions, metrics, plotting
+    ├── __init__.py
+    ├── distributional_metrics.py
+    ├── distributions.py
+    └── plotting.py
+
 I am working on a research software package that implements a general framework in Python for:
 
 - **Neural Additive Models (NAMs)**
