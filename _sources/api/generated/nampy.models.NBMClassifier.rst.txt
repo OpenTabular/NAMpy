@@ -38,7 +38,9 @@
       ~NBMClassifier._get_param_names
       ~NBMClassifier._get_params_html
       ~NBMClassifier._html_repr
+      ~NBMClassifier._plot_interaction_effects
       ~NBMClassifier._plot_single_feature_effects
+      ~NBMClassifier._predict
       ~NBMClassifier._repr_html_inner
       ~NBMClassifier._repr_mimebundle_
       ~NBMClassifier._validate_params

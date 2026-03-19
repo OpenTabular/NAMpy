@@ -13,6 +13,7 @@
       ~DefaultBoostedNAMConfig.__format__
       ~DefaultBoostedNAMConfig.__ge__
       ~DefaultBoostedNAMConfig.__getattribute__
+      ~DefaultBoostedNAMConfig.__getstate__
       ~DefaultBoostedNAMConfig.__gt__
       ~DefaultBoostedNAMConfig.__init_subclass__
       ~DefaultBoostedNAMConfig.__le__

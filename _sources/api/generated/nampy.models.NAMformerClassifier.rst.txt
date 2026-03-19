@@ -38,7 +38,9 @@
       ~NAMformerClassifier._get_param_names
       ~NAMformerClassifier._get_params_html
       ~NAMformerClassifier._html_repr
+      ~NAMformerClassifier._plot_interaction_effects
       ~NAMformerClassifier._plot_single_feature_effects
+      ~NAMformerClassifier._predict
       ~NAMformerClassifier._repr_html_inner
       ~NAMformerClassifier._repr_mimebundle_
       ~NAMformerClassifier._validate_params

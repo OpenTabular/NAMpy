@@ -38,6 +38,7 @@
       ~NAMformerRegressor._get_param_names
       ~NAMformerRegressor._get_params_html
       ~NAMformerRegressor._html_repr
+      ~NAMformerRegressor._plot_interaction_effects
       ~NAMformerRegressor._plot_single_feature_effects
       ~NAMformerRegressor._predict
       ~NAMformerRegressor._repr_html_inner

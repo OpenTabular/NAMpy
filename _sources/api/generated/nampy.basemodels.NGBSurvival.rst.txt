@@ -1,0 +1,43 @@
+﻿nampy.basemodels.NGBSurvival
+============================
+
+.. currentmodule:: nampy.basemodels
+
+.. autoclass:: NGBSurvival
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~NGBSurvival.__delattr__
+      ~NGBSurvival.__dir__
+      ~NGBSurvival.__eq__
+      ~NGBSurvival.__format__
+      ~NGBSurvival.__ge__
+      ~NGBSurvival.__getattribute__
+      ~NGBSurvival.__gt__
+      ~NGBSurvival.__hash__
+      ~NGBSurvival.__init_subclass__
+      ~NGBSurvival.__le__
+      ~NGBSurvival.__lt__
+      ~NGBSurvival.__ne__
+      ~NGBSurvival.__new__
+      ~NGBSurvival.__reduce__
+      ~NGBSurvival.__reduce_ex__
+      ~NGBSurvival.__repr__
+      ~NGBSurvival.__setattr__
+      ~NGBSurvival.__sizeof__
+      ~NGBSurvival.__str__
+      ~NGBSurvival.__subclasshook__
+      ~NGBSurvival.fit
+      ~NGBSurvival.pred_dist
+      ~NGBSurvival.predict
+      ~NGBSurvival.raw_params
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~NGBSurvival.__annotations__
+      ~NGBSurvival.__dict__
+      ~NGBSurvival.__doc__
+      ~NGBSurvival.__module__
+      ~NGBSurvival.__weakref__
+      ~NGBSurvival.feature_importances_
+   

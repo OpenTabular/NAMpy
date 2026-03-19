@@ -6,9 +6,9 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>nampy.preprocessing.Preprocessor &mdash; nampy 0.1.0 documentation</title>
+  <title>nampy.preprocessing (PreTab) &mdash; nampy 0.1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=ea57e989" />
 
   
@@ -20,9 +20,7 @@
       <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
-    <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Configurations" href="../configs.html" />
-    <link rel="prev" title="Preprocessing" href="../preprocessing.html" /> 
+    <link rel="search" title="Search" href="../../search.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -45,7 +43,7 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul class="current">
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../installation.html#requirements">Requirements</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../installation.html#installation-methods">Installation Methods</a><ul>
@@ -73,25 +71,10 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../user_guide.html">User Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../user_guide/preprocessing.html">Preprocessing</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../user_guide/preprocessing.html#numerical-feature-preprocessing">Numerical Feature Preprocessing</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../user_guide/preprocessing.html#standardization">Standardization</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../user_guide/preprocessing.html#normalization">Normalization</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../user_guide/preprocessing.html#piecewise-linear-encoding-ple">Piecewise Linear Encoding (PLE)</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../user_guide/preprocessing.html#binning">Binning</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../user_guide/preprocessing.html#one-hot-encoding">One-Hot Encoding</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../user_guide/preprocessing.html#categorical-feature-handling">Categorical Feature Handling</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../user_guide/preprocessing.html#automatic-detection">Automatic Detection</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../user_guide/preprocessing.html#manual-control">Manual Control</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../user_guide/preprocessing.html#decision-tree-based-binning">Decision Tree-Based Binning</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../user_guide/preprocessing.html#custom-preprocessing">Custom Preprocessing</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../user_guide/preprocessing.html#best-practices">Best Practices</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../user_guide/preprocessing.html#preprocessing-pipeline">Preprocessing Pipeline</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../user_guide/preprocessing.html#accessing-the-preprocessor">Accessing the Preprocessor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../user_guide/preprocessing.html">Preprocessing (PreTab)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../user_guide/preprocessing.html#using-pretab-with-nampy">Using PreTab with NAMpy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../user_guide/preprocessing.html#preprocessor-contract">Preprocessor contract</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../user_guide/preprocessing.html#accessing-the-preprocessor">Accessing the preprocessor</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../user_guide/training.html">Training Models</a><ul>
@@ -194,7 +177,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../user_guide.html#next-steps">Next Steps</a></li>
 </ul>
 </li>
-<li class="toctree-l1 current"><a class="reference internal" href="../index.html">API Reference</a><ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../index.html">API Reference</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../models.html">Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../models.html#regression-models">Regression Models</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.NAMRegressor.html">nampy.models.NAMRegressor</a></li>
@@ -204,8 +187,8 @@
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.NAMformerRegressor.html">nampy.models.NAMformerRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.LinRegRegressor.html">nampy.models.LinRegRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.TreeNAMRegressor.html">nampy.models.TreeNAMRegressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="nampy.models.SNAMRegressor.html">nampy.models.SNAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.NodeGAMRegressor.html">nampy.models.NodeGAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="nampy.models.NGBoostRegressor.html">nampy.models.NGBoostRegressor</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../models.html#classification-models">Classification Models</a><ul>
@@ -216,6 +199,7 @@
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.NAMformerClassifier.html">nampy.models.NAMformerClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.LinRegClassifier.html">nampy.models.LinRegClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.NodeGAMClassifier.html">nampy.models.NodeGAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="nampy.models.NGBoostClassifier.html">nampy.models.NGBoostClassifier</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../models.html#distributional-regression-models-lss">Distributional Regression Models (LSS)</a><ul>
@@ -230,6 +214,7 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../models.html#other-models">Other Models</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.QNAM.html">nampy.models.QNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="nampy.models.NGBSurvival.html">nampy.models.NGBSurvival</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../models.html#base-classes">Base Classes</a><ul>
@@ -253,9 +238,9 @@
 <li class="toctree-l4"><a class="reference internal" href="nampy.basemodels.NATT.html">nampy.basemodels.NATT</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.basemodels.NAMformer.html">nampy.basemodels.NAMformer</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.basemodels.LinReg.html">nampy.basemodels.LinReg</a></li>
+<li class="toctree-l4"><a class="reference internal" href="nampy.basemodels.NGBoost.html">nampy.basemodels.NGBoost</a></li>
+<li class="toctree-l4"><a class="reference internal" href="nampy.basemodels.NGBSurvival.html">nampy.basemodels.NGBSurvival</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.basemodels.QNAMBase.html">nampy.basemodels.QNAMBase</a></li>
-<li class="toctree-l4"><a class="reference internal" href="nampy.basemodels.BoostedNAM.html">nampy.basemodels.BoostedNAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="nampy.basemodels.SNAM.html">nampy.basemodels.SNAM</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.basemodels.NodeGAM.html">nampy.basemodels.NodeGAM</a></li>
 </ul>
 </li>
@@ -265,20 +250,15 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2 current"><a class="reference internal" href="../preprocessing.html">Preprocessing</a><ul class="current">
-<li class="toctree-l3 current"><a class="current reference internal" href="#">nampy.preprocessing.Preprocessor</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../preprocessing.html#overview">Overview</a></li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="../preprocessing.html">Preprocessing (PreTab)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../configs.html">Configurations</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="nampy.configs.DefaultNAMConfig.html">nampy.configs.DefaultNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="nampy.configs.DefaultNBMConfig.html">nampy.configs.DefaultNBMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="nampy.configs.DefaultNATTConfig.html">nampy.configs.DefaultNATTConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="nampy.configs.DefaultNAMformerConfig.html">nampy.configs.DefaultNAMformerConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="nampy.configs.DefaultLinRegConfig.html">nampy.configs.DefaultLinRegConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="nampy.configs.DefaultBoostedNAMConfig.html">nampy.configs.DefaultBoostedNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="nampy.configs.DefaultSNAMConfig.html">nampy.configs.DefaultSNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="nampy.configs.DefaultNodeGAMConfig.html">nampy.configs.DefaultNodeGAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="nampy.configs.DefaultNGBoostConfig.html">nampy.configs.DefaultNGBoostConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../configs.html#using-configurations">Using Configurations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../configs.html#note">Note</a></li>
 </ul>
@@ -297,7 +277,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../index.html#quick-api-reference">Quick API Reference</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../index.html#models">Models</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../index.html#base-models">Base Models</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../index.html#preprocessing">Preprocessing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#preprocessing-pretab">Preprocessing (PreTab)</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../index.html#version-information">Version Information</a><ul>
@@ -373,32 +353,38 @@
 <li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id11">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="../../models/reference.html#ngboost">NGBoost</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id12">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id13">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#survival">Survival</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../models/reference.html#attention-based-models">Attention-Based Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../models/reference.html#natt">NATT</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id12">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id13">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id14">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id14">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id15">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id16">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../models/reference.html#namformer">NAMformer</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id15">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id16">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id17">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id17">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id18">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id19">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../models/reference.html#specialized-models">Specialized Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../models/reference.html#qnam-quantile-nam">QNAM (Quantile NAM)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id18">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id20">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../models/reference.html#linreg-neural-linear-regression">LinReg (Neural Linear Regression)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id19">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id20">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id21">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id21">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id22">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../models/reference.html#id23">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 </ul>
@@ -559,9 +545,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
-          <li class="breadcrumb-item"><a href="../index.html">API Reference</a></li>
-          <li class="breadcrumb-item"><a href="../preprocessing.html">Preprocessing</a></li>
-      <li class="breadcrumb-item active">nampy.preprocessing.Preprocessor</li>
+      <li class="breadcrumb-item active">nampy.preprocessing (PreTab)</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../../_sources/api/generated/nampy.preprocessing.Preprocessor.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -571,17 +555,19 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="nampy-preprocessing-preprocessor">
-<h1>nampy.preprocessing.Preprocessor<a class="headerlink" href="#nampy-preprocessing-preprocessor" title="Link to this heading"></a></h1>
+  <section id="nampy-preprocessing-pretab">
+<h1>nampy.preprocessing (PreTab)<a class="headerlink" href="#nampy-preprocessing-pretab" title="Link to this heading"></a></h1>
+<p>NAMpy no longer ships a preprocessor class. Use PreTab’s preprocessor instead:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pretab.preprocessor</span><span class="w"> </span><span class="kn">import</span> <span class="n">Preprocessor</span>
+</pre></div>
+</div>
+<p>See <a class="reference internal" href="../preprocessing.html"><span class="doc">Preprocessing (PreTab)</span></a> and the <a class="reference external" href="https://pypi.org/project/pretab/">PreTab documentation</a>.</p>
 </section>
 
 
            </div>
           </div>
-          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="../preprocessing.html" class="btn btn-neutral float-left" title="Preprocessing" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="../configs.html" class="btn btn-neutral float-right" title="Configurations" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
-    </div>
+          <footer>
 
   <hr/>
 

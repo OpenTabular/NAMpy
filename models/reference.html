@@ -8,7 +8,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Model Reference &mdash; nampy 0.1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=ea57e989" />
 
   
@@ -73,25 +73,10 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../user_guide.html">User Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../user_guide/preprocessing.html">Preprocessing</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../user_guide/preprocessing.html#numerical-feature-preprocessing">Numerical Feature Preprocessing</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../user_guide/preprocessing.html#standardization">Standardization</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../user_guide/preprocessing.html#normalization">Normalization</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../user_guide/preprocessing.html#piecewise-linear-encoding-ple">Piecewise Linear Encoding (PLE)</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../user_guide/preprocessing.html#binning">Binning</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../user_guide/preprocessing.html#one-hot-encoding">One-Hot Encoding</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../user_guide/preprocessing.html#categorical-feature-handling">Categorical Feature Handling</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../user_guide/preprocessing.html#automatic-detection">Automatic Detection</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../user_guide/preprocessing.html#manual-control">Manual Control</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../user_guide/preprocessing.html#decision-tree-based-binning">Decision Tree-Based Binning</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../user_guide/preprocessing.html#custom-preprocessing">Custom Preprocessing</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../user_guide/preprocessing.html#best-practices">Best Practices</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../user_guide/preprocessing.html#preprocessing-pipeline">Preprocessing Pipeline</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../user_guide/preprocessing.html#accessing-the-preprocessor">Accessing the Preprocessor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user_guide/preprocessing.html">Preprocessing (PreTab)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/preprocessing.html#using-pretab-with-nampy">Using PreTab with NAMpy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/preprocessing.html#preprocessor-contract">Preprocessor contract</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/preprocessing.html#accessing-the-preprocessor">Accessing the preprocessor</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../user_guide/training.html">Training Models</a><ul>
@@ -204,8 +189,8 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerRegressor.html">nampy.models.NAMformerRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegRegressor.html">nampy.models.LinRegRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.TreeNAMRegressor.html">nampy.models.TreeNAMRegressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SNAMRegressor.html">nampy.models.SNAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMRegressor.html">nampy.models.NodeGAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NGBoostRegressor.html">nampy.models.NGBoostRegressor</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#classification-models">Classification Models</a><ul>
@@ -216,6 +201,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerClassifier.html">nampy.models.NAMformerClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegClassifier.html">nampy.models.LinRegClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMClassifier.html">nampy.models.NodeGAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NGBoostClassifier.html">nampy.models.NGBoostClassifier</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#distributional-regression-models-lss">Distributional Regression Models (LSS)</a><ul>
@@ -230,6 +216,7 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#other-models">Other Models</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.QNAM.html">nampy.models.QNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NGBSurvival.html">nampy.models.NGBSurvival</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#base-classes">Base Classes</a><ul>
@@ -253,9 +240,9 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NATT.html">nampy.basemodels.NATT</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NAMformer.html">nampy.basemodels.NAMformer</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.LinReg.html">nampy.basemodels.LinReg</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NGBoost.html">nampy.basemodels.NGBoost</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NGBSurvival.html">nampy.basemodels.NGBSurvival</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.QNAMBase.html">nampy.basemodels.QNAMBase</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.BoostedNAM.html">nampy.basemodels.BoostedNAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.SNAM.html">nampy.basemodels.SNAM</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NodeGAM.html">nampy.basemodels.NodeGAM</a></li>
 </ul>
 </li>
@@ -265,20 +252,15 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../api/preprocessing.html">Preprocessing</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.preprocessing.Preprocessor.html">nampy.preprocessing.Preprocessor</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/preprocessing.html#overview">Overview</a></li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/preprocessing.html">Preprocessing (PreTab)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/configs.html">Configurations</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNAMConfig.html">nampy.configs.DefaultNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNBMConfig.html">nampy.configs.DefaultNBMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNATTConfig.html">nampy.configs.DefaultNATTConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNAMformerConfig.html">nampy.configs.DefaultNAMformerConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultLinRegConfig.html">nampy.configs.DefaultLinRegConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultBoostedNAMConfig.html">nampy.configs.DefaultBoostedNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultSNAMConfig.html">nampy.configs.DefaultSNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNodeGAMConfig.html">nampy.configs.DefaultNodeGAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNGBoostConfig.html">nampy.configs.DefaultNGBoostConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/configs.html#using-configurations">Using Configurations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/configs.html#note">Note</a></li>
 </ul>
@@ -297,7 +279,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../api/index.html#quick-api-reference">Quick API Reference</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/index.html#models">Models</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/index.html#base-models">Base Models</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/index.html#preprocessing">Preprocessing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/index.html#preprocessing-pretab">Preprocessing (PreTab)</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../api/index.html#version-information">Version Information</a><ul>
@@ -373,32 +355,38 @@
 <li class="toctree-l4"><a class="reference internal" href="#id11">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#ngboost">NGBoost</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id12">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id13">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#survival">Survival</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#attention-based-models">Attention-Based Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#natt">NATT</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#id12">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id13">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id14">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id14">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id15">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id16">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#namformer">NAMformer</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#id15">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id16">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id17">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id17">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id18">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id19">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#specialized-models">Specialized Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#qnam-quantile-nam">QNAM (Quantile NAM)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#id18">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id20">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#linreg-neural-linear-regression">LinReg (Neural Linear Regression)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#id19">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id20">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id21">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id21">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id22">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id23">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 </ul>
@@ -595,7 +583,7 @@ of training-time keyword arguments (for example <code class="docutils literal no
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NAMRegressor">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NAMRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/nam.html#NAMRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NAMRegressor" title="Link to this definition"></a></dt>
-<dd><p>Multi-Layer Perceptron regressor. This class extends the SklearnBaseRegressor class and uses the NAM model
+<dd><p>Neural Additive Model regressor. This class extends the SklearnBaseRegressor class and uses the NAM model
 with the default NAM configuration.</p>
 <p>The accepted arguments to the NAMRegressor class include both the attributes in the DefaultNAMConfig dataclass
 and the parameters for the Preprocessor class.</p>
@@ -607,9 +595,9 @@ and the parameters for the Preprocessor class.</p>
 <li><p><strong>weight_decay</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">1e-06</span></code>) – Weight decay (L2 penalty) for the optimizer.</p></li>
 <li><p><strong>lr_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Factor by which the learning rate will be reduced.</p></li>
 <li><p><strong>layer_sizes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">(128</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">32)</span></code>) – Sizes of the layers in the NAM.</p></li>
-<li><p><strong>activation</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">callable</span></code>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.SELU()</span></code>) – Activation function for the NAM layers.</p></li>
+<li><p><strong>activation</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">callable</span></code>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.ReLU</span></code>) – Activation function for the NAM layers.</p></li>
 <li><p><strong>skip_layers</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to skip layers in the NAM.</p></li>
-<li><p><strong>dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.5</span></code>) – Dropout rate for regularization.</p></li>
+<li><p><strong>dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Dropout rate for regularization.</p></li>
 <li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Normalization method to be used, if any.</p></li>
 <li><p><strong>use_glu</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use Gated Linear Units (GLU) in the NAM.</p></li>
 <li><p><strong>skip_connections</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use skip connections in the NAM.</p></li>
@@ -671,7 +659,7 @@ of their unique value count or proportion.</p></li>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NAMClassifier">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NAMClassifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/nam.html#NAMClassifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NAMClassifier" title="Link to this definition"></a></dt>
-<dd><p>Multi-Layer Perceptron classifier. This class extends the SklearnBaseClassifier class and uses the NAM model
+<dd><p>Neural Additive Model classifier. This class extends the SklearnBaseClassifier class and uses the NAM model
 with the default NAM configuration.</p>
 <p>The accepted arguments to the NAMClassifier class include both the attributes in the DefaultNAMConfig dataclass
 and the parameters for the Preprocessor class.</p>
@@ -683,9 +671,9 @@ and the parameters for the Preprocessor class.</p>
 <li><p><strong>weight_decay</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">1e-06</span></code>) – Weight decay (L2 penalty) for the optimizer.</p></li>
 <li><p><strong>lr_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Factor by which the learning rate will be reduced.</p></li>
 <li><p><strong>layer_sizes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">(128</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">32)</span></code>) – Sizes of the layers in the NAM.</p></li>
-<li><p><strong>activation</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">callable</span></code>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.SELU()</span></code>) – Activation function for the NAM layers.</p></li>
+<li><p><strong>activation</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">callable</span></code>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.ReLU</span></code>) – Activation function for the NAM layers.</p></li>
 <li><p><strong>skip_layers</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to skip layers in the NAM.</p></li>
-<li><p><strong>dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.5</span></code>) – Dropout rate for regularization.</p></li>
+<li><p><strong>dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Dropout rate for regularization.</p></li>
 <li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Normalization method to be used, if any.</p></li>
 <li><p><strong>use_glu</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use Gated Linear Units (GLU) in the NAM.</p></li>
 <li><p><strong>skip_connections</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use skip connections in the NAM.</p></li>
@@ -747,7 +735,7 @@ of their unique value count or proportion.</p></li>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NAMLSS">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NAMLSS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/nam.html#NAMLSS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NAMLSS" title="Link to this definition"></a></dt>
-<dd><p>Multi-Layer Perceptron for distributional regression. This class extends the SklearnBaseLSS class and uses the NAM model
+<dd><p>Neural Additive Model for distributional regression. This class extends the SklearnBaseLSS class and uses the NAM model
 with the default NAM configuration.</p>
 <p>The accepted arguments to the NAMLSS class include both the attributes in the DefaultNAMConfig dataclass
 and the parameters for the Preprocessor class.</p>
@@ -759,9 +747,9 @@ and the parameters for the Preprocessor class.</p>
 <li><p><strong>weight_decay</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">1e-06</span></code>) – Weight decay (L2 penalty) for the optimizer.</p></li>
 <li><p><strong>lr_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Factor by which the learning rate will be reduced.</p></li>
 <li><p><strong>layer_sizes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">(128</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">32)</span></code>) – Sizes of the layers in the MLP.</p></li>
-<li><p><strong>activation</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">callable</span></code>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.SELU()</span></code>) – Activation function for the MLP layers.</p></li>
+<li><p><strong>activation</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">callable</span></code>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.ReLU</span></code>) – Activation function for the MLP layers.</p></li>
 <li><p><strong>skip_layers</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to skip layers in the MLP.</p></li>
-<li><p><strong>dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.5</span></code>) – Dropout rate for regularization.</p></li>
+<li><p><strong>dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Dropout rate for regularization.</p></li>
 <li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Normalization method to be used, if any.</p></li>
 <li><p><strong>use_glu</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use Gated Linear Units (GLU) in the MLP.</p></li>
 <li><p><strong>skip_connections</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use skip connections in the MLP.</p></li>
@@ -828,69 +816,7 @@ of their unique value count or proportion.</p></li>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.GPNAMRegressor">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">GPNAMRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/gpnam.html#GPNAMRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.GPNAMRegressor" title="Link to this definition"></a></dt>
-<dd><p>Multi-Layer Perceptron regressor. This class extends the SklearnBaseRegressor class and uses the NAM model
-with the default NAM configuration.</p>
-<p>The accepted arguments to the NAMRegressor class include both the attributes in the DefaultNAMConfig dataclass
-and the parameters for the Preprocessor class.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>lr</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">1e-04</span></code>) – Learning rate for the optimizer.</p></li>
-<li><p><strong>lr_patience</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">10</span></code>) – Number of epochs with no improvement after which learning rate will be reduced.</p></li>
-<li><p><strong>weight_decay</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">1e-06</span></code>) – Weight decay (L2 penalty) for the optimizer.</p></li>
-<li><p><strong>lr_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Factor by which the learning rate will be reduced.</p></li>
-<li><p><strong>layer_sizes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">(128</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">32)</span></code>) – Sizes of the layers in the NAM.</p></li>
-<li><p><strong>activation</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">callable</span></code>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.SELU()</span></code>) – Activation function for the NAM layers.</p></li>
-<li><p><strong>skip_layers</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to skip layers in the NAM.</p></li>
-<li><p><strong>dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.5</span></code>) – Dropout rate for regularization.</p></li>
-<li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Normalization method to be used, if any.</p></li>
-<li><p><strong>use_glu</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use Gated Linear Units (GLU) in the NAM.</p></li>
-<li><p><strong>skip_connections</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use skip connections in the NAM.</p></li>
-<li><p><strong>batch_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use batch normalization in the NAM layers.</p></li>
-<li><p><strong>layer_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use layer normalization in the NAM layers.</p></li>
-<li><p><strong>n_bins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">50</span></code>) – The number of bins to use for numerical feature binning. This parameter is relevant
-only if <cite>numerical_preprocessing</cite> is set to ‘binning’ or ‘one_hot’.</p></li>
-<li><p><strong>numerical_preprocessing</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">&quot;ple&quot;</span></code>) – The preprocessing strategy for numerical features. Valid options are
-‘binning’, ‘one_hot’, ‘standardization’, and ‘normalization’.</p></li>
-<li><p><strong>use_decision_tree_bins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – If True, uses decision tree regression/classification to determine
-optimal bin edges for numerical feature binning. This parameter is
-relevant only if <cite>numerical_preprocessing</cite> is set to ‘binning’ or ‘one_hot’.</p></li>
-<li><p><strong>binning_strategy</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">&quot;uniform&quot;</span></code>) – Defines the strategy for binning numerical features. Options include ‘uniform’,
-‘quantile’, or other sklearn-compatible strategies.</p></li>
-<li><p><strong>cat_cutoff</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a> or <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.03</span></code>) – Indicates the cutoff after which integer values are treated as categorical.
-If float, it’s treated as a percentage. If int, it’s the maximum number of
-unique values for a column to be considered categorical.</p></li>
-<li><p><strong>treat_all_integers_as_numerical</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – If True, all integer columns will be treated as numerical, regardless
-of their unique value count or proportion.</p></li>
-<li><p><strong>degree</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">3</span></code>) – The degree of the polynomial features to be used in preprocessing.</p></li>
-<li><p><strong>knots</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">12</span></code>) – The number of knots to be used in spline transformations.</p></li>
-</ul>
-</dd>
-</dl>
-<div class="admonition-notes admonition">
-<p class="admonition-title">Notes</p>
-<ul class="simple">
-<li><p>The accepted arguments to the NAMRegressor class are the same as the attributes in the DefaultNAMConfig dataclass.</p></li>
-<li><p>NAMRegressor uses SklearnBaseRegressor as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.</p></li>
-</ul>
-</div>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<dl class="simple">
-<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">nampy.models.SklearnBaseRegressor</span></code></dt><dd><p>The parent class for NAMRegressor.</p>
-</dd>
-</dl>
-</div>
-<div class="admonition-examples admonition">
-<p class="admonition-title">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NAMRegressor</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span><span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span> <span class="n">activation</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">())</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
-</pre></div>
-</div>
-</div>
+<dd><p>Gaussian Process Neural Additive Model regressor.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="nampy.models.GPNAMRegressor.__init__">
 <span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/gpnam.html#GPNAMRegressor.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.GPNAMRegressor.__init__" title="Link to this definition"></a></dt>
@@ -904,69 +830,7 @@ of their unique value count or proportion.</p></li>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.GPNAMClassifier">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">GPNAMClassifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/gpnam.html#GPNAMClassifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.GPNAMClassifier" title="Link to this definition"></a></dt>
-<dd><p>Multi-Layer Perceptron classifier. This class extends the SklearnBaseClassifier class and uses the NAM model
-with the default NAM configuration.</p>
-<p>The accepted arguments to the NAMClassifier class include both the attributes in the DefaultNAMConfig dataclass
-and the parameters for the Preprocessor class.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>lr</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">1e-04</span></code>) – Learning rate for the optimizer.</p></li>
-<li><p><strong>lr_patience</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">10</span></code>) – Number of epochs with no improvement after which learning rate will be reduced.</p></li>
-<li><p><strong>weight_decay</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">1e-06</span></code>) – Weight decay (L2 penalty) for the optimizer.</p></li>
-<li><p><strong>lr_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Factor by which the learning rate will be reduced.</p></li>
-<li><p><strong>layer_sizes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">(128</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">32)</span></code>) – Sizes of the layers in the NAM.</p></li>
-<li><p><strong>activation</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">callable</span></code>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.SELU()</span></code>) – Activation function for the NAM layers.</p></li>
-<li><p><strong>skip_layers</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to skip layers in the NAM.</p></li>
-<li><p><strong>dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.5</span></code>) – Dropout rate for regularization.</p></li>
-<li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Normalization method to be used, if any.</p></li>
-<li><p><strong>use_glu</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use Gated Linear Units (GLU) in the NAM.</p></li>
-<li><p><strong>skip_connections</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use skip connections in the NAM.</p></li>
-<li><p><strong>batch_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use batch normalization in the NAM layers.</p></li>
-<li><p><strong>layer_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use layer normalization in the NAM layers.</p></li>
-<li><p><strong>n_bins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">50</span></code>) – The number of bins to use for numerical feature binning. This parameter is relevant
-only if <cite>numerical_preprocessing</cite> is set to ‘binning’ or ‘one_hot’.</p></li>
-<li><p><strong>numerical_preprocessing</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">&quot;ple&quot;</span></code>) – The preprocessing strategy for numerical features. Valid options are
-‘binning’, ‘one_hot’, ‘standardization’, and ‘normalization’.</p></li>
-<li><p><strong>use_decision_tree_bins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – If True, uses decision tree regression/classification to determine
-optimal bin edges for numerical feature binning. This parameter is
-relevant only if <cite>numerical_preprocessing</cite> is set to ‘binning’ or ‘one_hot’.</p></li>
-<li><p><strong>binning_strategy</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">&quot;uniform&quot;</span></code>) – Defines the strategy for binning numerical features. Options include ‘uniform’,
-‘quantile’, or other sklearn-compatible strategies.</p></li>
-<li><p><strong>cat_cutoff</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a> or <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.03</span></code>) – Indicates the cutoff after which integer values are treated as categorical.
-If float, it’s treated as a percentage. If int, it’s the maximum number of
-unique values for a column to be considered categorical.</p></li>
-<li><p><strong>treat_all_integers_as_numerical</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – If True, all integer columns will be treated as numerical, regardless
-of their unique value count or proportion.</p></li>
-<li><p><strong>degree</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">3</span></code>) – The degree of the polynomial features to be used in preprocessing.</p></li>
-<li><p><strong>knots</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">12</span></code>) – The number of knots to be used in spline transformations.</p></li>
-</ul>
-</dd>
-</dl>
-<div class="admonition-notes admonition">
-<p class="admonition-title">Notes</p>
-<ul class="simple">
-<li><p>The accepted arguments to the NAMClassifier class are the same as the attributes in the DefaultNAMConfig dataclass.</p></li>
-<li><p>NAMClassifier uses SklearnBaseClassifieras the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.</p></li>
-</ul>
-</div>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<dl class="simple">
-<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">nampy.models.SklearnBaseRegressor</span></code></dt><dd><p>The parent class for NAMClassifier.</p>
-</dd>
-</dl>
-</div>
-<div class="admonition-examples admonition">
-<p class="admonition-title">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NAMClassifier</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">NAMClassifier</span><span class="p">(</span><span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span> <span class="n">activation</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">())</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
-</pre></div>
-</div>
-</div>
+<dd><p>Gaussian Process Neural Additive Model classifier.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="nampy.models.GPNAMClassifier.__init__">
 <span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/gpnam.html#GPNAMClassifier.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.GPNAMClassifier.__init__" title="Link to this definition"></a></dt>
@@ -980,71 +844,9 @@ of their unique value count or proportion.</p></li>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.GPNAMLSS">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">GPNAMLSS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/gpnam.html#GPNAMLSS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.GPNAMLSS" title="Link to this definition"></a></dt>
-<dd><p>Multi-Layer Perceptron for distributional regression. This class extends the SklearnBaseLSS class and uses the NAM model
-with the default NAM configuration.</p>
-<p>The accepted arguments to the NAMLSS class include both the attributes in the DefaultNAMConfig dataclass
-and the parameters for the Preprocessor class.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>lr</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">1e-04</span></code>) – Learning rate for the optimizer.</p></li>
-<li><p><strong>lr_patience</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">10</span></code>) – Number of epochs with no improvement after which learning rate will be reduced.</p></li>
-<li><p><strong>weight_decay</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">1e-06</span></code>) – Weight decay (L2 penalty) for the optimizer.</p></li>
-<li><p><strong>lr_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Factor by which the learning rate will be reduced.</p></li>
-<li><p><strong>layer_sizes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">(128</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">32)</span></code>) – Sizes of the layers in the MLP.</p></li>
-<li><p><strong>activation</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">callable</span></code>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.SELU()</span></code>) – Activation function for the MLP layers.</p></li>
-<li><p><strong>skip_layers</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to skip layers in the MLP.</p></li>
-<li><p><strong>dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.5</span></code>) – Dropout rate for regularization.</p></li>
-<li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Normalization method to be used, if any.</p></li>
-<li><p><strong>use_glu</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use Gated Linear Units (GLU) in the MLP.</p></li>
-<li><p><strong>skip_connections</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use skip connections in the MLP.</p></li>
-<li><p><strong>batch_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use batch normalization in the MLP layers.</p></li>
-<li><p><strong>layer_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use layer normalization in the MLP layers.</p></li>
-<li><p><strong>n_bins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">50</span></code>) – The number of bins to use for numerical feature binning. This parameter is relevant
-only if <cite>numerical_preprocessing</cite> is set to ‘binning’ or ‘one_hot’.</p></li>
-<li><p><strong>numerical_preprocessing</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">&quot;ple&quot;</span></code>) – The preprocessing strategy for numerical features. Valid options are
-‘binning’, ‘one_hot’, ‘standardization’, and ‘normalization’.</p></li>
-<li><p><strong>use_decision_tree_bins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – If True, uses decision tree regression/classification to determine
-optimal bin edges for numerical feature binning. This parameter is
-relevant only if <cite>numerical_preprocessing</cite> is set to ‘binning’ or ‘one_hot’.</p></li>
-<li><p><strong>binning_strategy</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">&quot;uniform&quot;</span></code>) – Defines the strategy for binning numerical features. Options include ‘uniform’,
-‘quantile’, or other sklearn-compatible strategies.</p></li>
-<li><p><strong>task</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">&quot;regression&quot;</span></code>) – Indicates the type of machine learning task (‘regression’ or ‘classification’). This can
-influence certain preprocessing behaviors, especially when using decision tree-based binning as ple.</p></li>
-<li><p><strong>cat_cutoff</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a> or <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.03</span></code>) – Indicates the cutoff after which integer values are treated as categorical.
-If float, it’s treated as a percentage. If int, it’s the maximum number of
-unique values for a column to be considered categorical.</p></li>
-<li><p><strong>treat_all_integers_as_numerical</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – If True, all integer columns will be treated as numerical, regardless
-of their unique value count or proportion.</p></li>
-<li><p><strong>degree</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">3</span></code>) – The degree of the polynomial features to be used in preprocessing.</p></li>
-<li><p><strong>knots</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">12</span></code>) – The number of knots to be used in spline transformations.</p></li>
-</ul>
-</dd>
-</dl>
-<div class="admonition-notes admonition">
-<p class="admonition-title">Notes</p>
-<ul class="simple">
-<li><p>The accepted arguments to the NAMLSS class are the same as the attributes in the DefaultNAMConfig dataclass.</p></li>
-<li><p>NAMLSS uses SklearnBaseLSS as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.</p></li>
-</ul>
-</div>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<dl class="simple">
-<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">nampy.models.SklearnBaseLSS</span></code></dt><dd><p>The parent class for NAMLSS.</p>
-</dd>
-</dl>
-</div>
-<div class="admonition-examples admonition">
-<p class="admonition-title">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NAMLSS</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">NAMLSS</span><span class="p">(</span><span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span> <span class="n">activation</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">())</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
-</pre></div>
-</div>
-</div>
+<dd><p>GP-NAM wrapped for LSS-style output heads.</p>
+<p>This is a package extension beyond the paper’s main regression/binary
+classification focus.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="nampy.models.GPNAMLSS.__init__">
 <span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/gpnam.html#GPNAMLSS.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.GPNAMLSS.__init__" title="Link to this definition"></a></dt>
@@ -1061,69 +863,7 @@ of their unique value count or proportion.</p></li>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.TreeNAMRegressor">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">TreeNAMRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/treenam.html#TreeNAMRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.TreeNAMRegressor" title="Link to this definition"></a></dt>
-<dd><p>Multi-Layer Perceptron regressor. This class extends the SklearnBaseRegressor class and uses the NAM model
-with the default NAM configuration.</p>
-<p>The accepted arguments to the NAMRegressor class include both the attributes in the DefaultNAMConfig dataclass
-and the parameters for the Preprocessor class.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>lr</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">1e-04</span></code>) – Learning rate for the optimizer.</p></li>
-<li><p><strong>lr_patience</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">10</span></code>) – Number of epochs with no improvement after which learning rate will be reduced.</p></li>
-<li><p><strong>weight_decay</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">1e-06</span></code>) – Weight decay (L2 penalty) for the optimizer.</p></li>
-<li><p><strong>lr_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Factor by which the learning rate will be reduced.</p></li>
-<li><p><strong>layer_sizes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">(128</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">32)</span></code>) – Sizes of the layers in the NAM.</p></li>
-<li><p><strong>activation</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">callable</span></code>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.SELU()</span></code>) – Activation function for the NAM layers.</p></li>
-<li><p><strong>skip_layers</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to skip layers in the NAM.</p></li>
-<li><p><strong>dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.5</span></code>) – Dropout rate for regularization.</p></li>
-<li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Normalization method to be used, if any.</p></li>
-<li><p><strong>use_glu</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use Gated Linear Units (GLU) in the NAM.</p></li>
-<li><p><strong>skip_connections</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use skip connections in the NAM.</p></li>
-<li><p><strong>batch_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use batch normalization in the NAM layers.</p></li>
-<li><p><strong>layer_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use layer normalization in the NAM layers.</p></li>
-<li><p><strong>n_bins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">50</span></code>) – The number of bins to use for numerical feature binning. This parameter is relevant
-only if <cite>numerical_preprocessing</cite> is set to ‘binning’ or ‘one_hot’.</p></li>
-<li><p><strong>numerical_preprocessing</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">&quot;ple&quot;</span></code>) – The preprocessing strategy for numerical features. Valid options are
-‘binning’, ‘one_hot’, ‘standardization’, and ‘normalization’.</p></li>
-<li><p><strong>use_decision_tree_bins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – If True, uses decision tree regression/classification to determine
-optimal bin edges for numerical feature binning. This parameter is
-relevant only if <cite>numerical_preprocessing</cite> is set to ‘binning’ or ‘one_hot’.</p></li>
-<li><p><strong>binning_strategy</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">&quot;uniform&quot;</span></code>) – Defines the strategy for binning numerical features. Options include ‘uniform’,
-‘quantile’, or other sklearn-compatible strategies.</p></li>
-<li><p><strong>cat_cutoff</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a> or <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.03</span></code>) – Indicates the cutoff after which integer values are treated as categorical.
-If float, it’s treated as a percentage. If int, it’s the maximum number of
-unique values for a column to be considered categorical.</p></li>
-<li><p><strong>treat_all_integers_as_numerical</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – If True, all integer columns will be treated as numerical, regardless
-of their unique value count or proportion.</p></li>
-<li><p><strong>degree</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">3</span></code>) – The degree of the polynomial features to be used in preprocessing.</p></li>
-<li><p><strong>knots</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">12</span></code>) – The number of knots to be used in spline transformations.</p></li>
-</ul>
-</dd>
-</dl>
-<div class="admonition-notes admonition">
-<p class="admonition-title">Notes</p>
-<ul class="simple">
-<li><p>The accepted arguments to the NAMRegressor class are the same as the attributes in the DefaultNAMConfig dataclass.</p></li>
-<li><p>NAMRegressor uses SklearnBaseRegressor as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.</p></li>
-</ul>
-</div>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<dl class="simple">
-<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">nampy.models.SklearnBaseRegressor</span></code></dt><dd><p>The parent class for NAMRegressor.</p>
-</dd>
-</dl>
-</div>
-<div class="admonition-examples admonition">
-<p class="admonition-title">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NAMRegressor</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span><span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span> <span class="n">activation</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">())</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
-</pre></div>
-</div>
-</div>
+<dd><p>TreeNAM regressor.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="nampy.models.TreeNAMRegressor.__init__">
 <span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/treenam.html#TreeNAMRegressor.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.TreeNAMRegressor.__init__" title="Link to this definition"></a></dt>
@@ -1137,79 +877,6 @@ of their unique value count or proportion.</p></li>
 <h3>SNAM<a class="headerlink" href="#snam" title="Link to this heading"></a></h3>
 <section id="id5">
 <h4>Regressor<a class="headerlink" href="#id5" title="Link to this heading"></a></h4>
-<dl class="py class">
-<dt class="sig sig-object py" id="nampy.models.SNAMRegressor">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">SNAMRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/snam.html#SNAMRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.SNAMRegressor" title="Link to this definition"></a></dt>
-<dd><p>Multi-Layer Perceptron regressor. This class extends the SklearnBaseRegressor class and uses the NAM model
-with the default NAM configuration.</p>
-<p>The accepted arguments to the NAMRegressor class include both the attributes in the DefaultNAMConfig dataclass
-and the parameters for the Preprocessor class.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>lr</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">1e-04</span></code>) – Learning rate for the optimizer.</p></li>
-<li><p><strong>lr_patience</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">10</span></code>) – Number of epochs with no improvement after which learning rate will be reduced.</p></li>
-<li><p><strong>weight_decay</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">1e-06</span></code>) – Weight decay (L2 penalty) for the optimizer.</p></li>
-<li><p><strong>lr_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Factor by which the learning rate will be reduced.</p></li>
-<li><p><strong>layer_sizes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">(128</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">32)</span></code>) – Sizes of the layers in the NAM.</p></li>
-<li><p><strong>activation</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">callable</span></code>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.SELU()</span></code>) – Activation function for the NAM layers.</p></li>
-<li><p><strong>skip_layers</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to skip layers in the NAM.</p></li>
-<li><p><strong>dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.5</span></code>) – Dropout rate for regularization.</p></li>
-<li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Normalization method to be used, if any.</p></li>
-<li><p><strong>use_glu</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use Gated Linear Units (GLU) in the NAM.</p></li>
-<li><p><strong>skip_connections</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use skip connections in the NAM.</p></li>
-<li><p><strong>batch_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use batch normalization in the NAM layers.</p></li>
-<li><p><strong>layer_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use layer normalization in the NAM layers.</p></li>
-<li><p><strong>n_bins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">50</span></code>) – The number of bins to use for numerical feature binning. This parameter is relevant
-only if <cite>numerical_preprocessing</cite> is set to ‘binning’ or ‘one_hot’.</p></li>
-<li><p><strong>numerical_preprocessing</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">&quot;ple&quot;</span></code>) – The preprocessing strategy for numerical features. Valid options are
-‘binning’, ‘one_hot’, ‘standardization’, and ‘normalization’.</p></li>
-<li><p><strong>use_decision_tree_bins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – If True, uses decision tree regression/classification to determine
-optimal bin edges for numerical feature binning. This parameter is
-relevant only if <cite>numerical_preprocessing</cite> is set to ‘binning’ or ‘one_hot’.</p></li>
-<li><p><strong>binning_strategy</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">&quot;uniform&quot;</span></code>) – Defines the strategy for binning numerical features. Options include ‘uniform’,
-‘quantile’, or other sklearn-compatible strategies.</p></li>
-<li><p><strong>cat_cutoff</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a> or <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.03</span></code>) – Indicates the cutoff after which integer values are treated as categorical.
-If float, it’s treated as a percentage. If int, it’s the maximum number of
-unique values for a column to be considered categorical.</p></li>
-<li><p><strong>treat_all_integers_as_numerical</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – If True, all integer columns will be treated as numerical, regardless
-of their unique value count or proportion.</p></li>
-<li><p><strong>degree</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">3</span></code>) – The degree of the polynomial features to be used in preprocessing.</p></li>
-<li><p><strong>knots</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">12</span></code>) – The number of knots to be used in spline transformations.</p></li>
-</ul>
-</dd>
-</dl>
-<div class="admonition-notes admonition">
-<p class="admonition-title">Notes</p>
-<ul class="simple">
-<li><p>The accepted arguments to the NAMRegressor class are the same as the attributes in the DefaultNAMConfig dataclass.</p></li>
-<li><p>NAMRegressor uses SklearnBaseRegressor as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.</p></li>
-</ul>
-</div>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<dl class="simple">
-<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">nampy.models.SklearnBaseRegressor</span></code></dt><dd><p>The parent class for NAMRegressor.</p>
-</dd>
-</dl>
-</div>
-<div class="admonition-examples admonition">
-<p class="admonition-title">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NAMRegressor</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span><span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span> <span class="n">activation</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">())</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
-</pre></div>
-</div>
-</div>
-<dl class="py method">
-<dt class="sig sig-object py" id="nampy.models.SNAMRegressor.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/snam.html#SNAMRegressor.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.SNAMRegressor.__init__" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
 </section>
 </section>
 <section id="nodegam">
@@ -1466,15 +1133,16 @@ and the parameters for the Preprocessor class.</p>
 <li><p><strong>lr_patience</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">10</span></code>) – Number of epochs with no improvement after which learning rate will be reduced.</p></li>
 <li><p><strong>weight_decay</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">1e-06</span></code>) – Weight decay (L2 penalty) for the optimizer.</p></li>
 <li><p><strong>lr_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Factor by which the learning rate will be reduced.</p></li>
-<li><p><strong>layer_sizes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">(128</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">32)</span></code>) – Sizes of the layers in the NBM.</p></li>
-<li><p><strong>activation</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">callable</span></code>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.SELU()</span></code>) – Activation function for the NBM layers.</p></li>
-<li><p><strong>skip_layers</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to skip layers in the NBM.</p></li>
-<li><p><strong>dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.5</span></code>) – Dropout rate for regularization.</p></li>
-<li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Normalization method to be used, if any.</p></li>
+<li><p><strong>layer_sizes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">[256</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">32]</span></code>) – Sizes of the layers in the NBM basis MLP.</p></li>
+<li><p><strong>activation_fn</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">type</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.ReLU</span></code>) – Activation class for the NBM layers.</p></li>
+<li><p><strong>dropout_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Dropout rate for regularization.</p></li>
+<li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Normalization method to be used (e.g. BatchNorm, LayerNorm, RMSNorm, GroupNorm).</p></li>
 <li><p><strong>use_glu</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use Gated Linear Units (GLU) in the NBM.</p></li>
 <li><p><strong>skip_connections</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use skip connections in the NBM.</p></li>
 <li><p><strong>batch_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use batch normalization in the NBM layers.</p></li>
 <li><p><strong>layer_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use layer normalization in the NBM layers.</p></li>
+<li><p><strong>intercept</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>) – Whether to use a learnable intercept parameter.</p></li>
+<li><p><strong>feature_dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.0</span></code>) – Probability for feature-level dropout.</p></li>
 <li><p><strong>n_bins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">50</span></code>) – The number of bins to use for numerical feature binning. This parameter is relevant
 only if <cite>numerical_preprocessing</cite> is set to ‘binning’ or ‘one_hot’.</p></li>
 <li><p><strong>numerical_preprocessing</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">&quot;ple&quot;</span></code>) – The preprocessing strategy for numerical features. Valid options are
@@ -1511,7 +1179,7 @@ of their unique value count or proportion.</p></li>
 <div class="admonition-examples admonition">
 <p class="admonition-title">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NBMRegressor</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">NBMRegressor</span><span class="p">(</span><span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span> <span class="n">activation</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">())</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">NBMRegressor</span><span class="p">(</span><span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span> <span class="n">activation_fn</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
@@ -1542,15 +1210,16 @@ and the parameters for the Preprocessor class.</p>
 <li><p><strong>lr_patience</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">10</span></code>) – Number of epochs with no improvement after which learning rate will be reduced.</p></li>
 <li><p><strong>weight_decay</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">1e-06</span></code>) – Weight decay (L2 penalty) for the optimizer.</p></li>
 <li><p><strong>lr_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Factor by which the learning rate will be reduced.</p></li>
-<li><p><strong>layer_sizes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">(128</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">32)</span></code>) – Sizes of the layers in the NBM.</p></li>
-<li><p><strong>activation</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">callable</span></code>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.SELU()</span></code>) – Activation function for the NBM layers.</p></li>
-<li><p><strong>skip_layers</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to skip layers in the NBM.</p></li>
-<li><p><strong>dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.5</span></code>) – Dropout rate for regularization.</p></li>
-<li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Normalization method to be used, if any.</p></li>
+<li><p><strong>layer_sizes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">[256</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">32]</span></code>) – Sizes of the layers in the NBM basis MLP.</p></li>
+<li><p><strong>activation_fn</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">type</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.ReLU</span></code>) – Activation class for the NBM layers.</p></li>
+<li><p><strong>dropout_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Dropout rate for regularization.</p></li>
+<li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Normalization method to be used (e.g. BatchNorm, LayerNorm, RMSNorm, GroupNorm).</p></li>
 <li><p><strong>use_glu</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use Gated Linear Units (GLU) in the NBM.</p></li>
 <li><p><strong>skip_connections</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use skip connections in the NBM.</p></li>
 <li><p><strong>batch_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use batch normalization in the NBM layers.</p></li>
 <li><p><strong>layer_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use layer normalization in the NBM layers.</p></li>
+<li><p><strong>intercept</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>) – Whether to use a learnable intercept parameter.</p></li>
+<li><p><strong>feature_dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.0</span></code>) – Probability for feature-level dropout.</p></li>
 <li><p><strong>n_bins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">50</span></code>) – The number of bins to use for numerical feature binning. This parameter is relevant
 only if <cite>numerical_preprocessing</cite> is set to ‘binning’ or ‘one_hot’.</p></li>
 <li><p><strong>numerical_preprocessing</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">&quot;ple&quot;</span></code>) – The preprocessing strategy for numerical features. Valid options are
@@ -1587,7 +1256,7 @@ of their unique value count or proportion.</p></li>
 <div class="admonition-examples admonition">
 <p class="admonition-title">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NBMClassifier</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">NBMClassifier</span><span class="p">(</span><span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span> <span class="n">activation</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">())</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">NBMClassifier</span><span class="p">(</span><span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span> <span class="n">activation_fn</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
@@ -1618,15 +1287,16 @@ and the parameters for the Preprocessor class.</p>
 <li><p><strong>lr_patience</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">10</span></code>) – Number of epochs with no improvement after which learning rate will be reduced.</p></li>
 <li><p><strong>weight_decay</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">1e-06</span></code>) – Weight decay (L2 penalty) for the optimizer.</p></li>
 <li><p><strong>lr_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Factor by which the learning rate will be reduced.</p></li>
-<li><p><strong>layer_sizes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">(128</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">32)</span></code>) – Sizes of the layers in the MLP.</p></li>
-<li><p><strong>activation</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">callable</span></code>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.SELU()</span></code>) – Activation function for the MLP layers.</p></li>
-<li><p><strong>skip_layers</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to skip layers in the MLP.</p></li>
-<li><p><strong>dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.5</span></code>) – Dropout rate for regularization.</p></li>
-<li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Normalization method to be used, if any.</p></li>
-<li><p><strong>use_glu</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use Gated Linear Units (GLU) in the MLP.</p></li>
-<li><p><strong>skip_connections</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use skip connections in the MLP.</p></li>
-<li><p><strong>batch_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use batch normalization in the MLP layers.</p></li>
-<li><p><strong>layer_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use layer normalization in the MLP layers.</p></li>
+<li><p><strong>layer_sizes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">[256</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">32]</span></code>) – Sizes of the layers in the NBM basis MLP.</p></li>
+<li><p><strong>activation_fn</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">type</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.ReLU</span></code>) – Activation class for the NBM layers.</p></li>
+<li><p><strong>dropout_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Dropout rate for regularization.</p></li>
+<li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Normalization method to be used (e.g. BatchNorm, LayerNorm, RMSNorm, GroupNorm).</p></li>
+<li><p><strong>use_glu</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use Gated Linear Units (GLU) in the NBM.</p></li>
+<li><p><strong>skip_connections</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use skip connections in the NBM.</p></li>
+<li><p><strong>batch_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use batch normalization in the NBM layers.</p></li>
+<li><p><strong>layer_norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use layer normalization in the NBM layers.</p></li>
+<li><p><strong>intercept</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#True" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">True</span></code></a>) – Whether to use a learnable intercept parameter.</p></li>
+<li><p><strong>feature_dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.0</span></code>) – Probability for feature-level dropout.</p></li>
 <li><p><strong>n_bins</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">50</span></code>) – The number of bins to use for numerical feature binning. This parameter is relevant
 only if <cite>numerical_preprocessing</cite> is set to ‘binning’ or ‘one_hot’.</p></li>
 <li><p><strong>numerical_preprocessing</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">&quot;ple&quot;</span></code>) – The preprocessing strategy for numerical features. Valid options are
@@ -1665,7 +1335,7 @@ of their unique value count or proportion.</p></li>
 <div class="admonition-examples admonition">
 <p class="admonition-title">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NBMLSS</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">NBMLSS</span><span class="p">(</span><span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span> <span class="n">activation</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">())</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">NBMLSS</span><span class="p">(</span><span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span> <span class="n">activation_fn</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
@@ -1681,13 +1351,120 @@ of their unique value count or proportion.</p></li>
 
 </section>
 </section>
+<section id="ngboost">
+<h3>NGBoost<a class="headerlink" href="#ngboost" title="Link to this heading"></a></h3>
+<section id="id12">
+<h4>Regressor<a class="headerlink" href="#id12" title="Link to this heading"></a></h4>
+<dl class="py class">
+<dt class="sig sig-object py" id="nampy.models.NGBoostRegressor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NGBoostRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostRegressor" title="Link to this definition"></a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.NGBoostRegressor.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostRegressor.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostRegressor.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.NGBoostRegressor.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">101</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_sample_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostRegressor.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostRegressor.fit" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.NGBoostRegressor.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostRegressor.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostRegressor.predict" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.NGBoostRegressor.evaluate">
+<span class="sig-name descname"><span class="pre">evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_true</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostRegressor.evaluate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostRegressor.evaluate" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="id13">
+<h4>Classifier<a class="headerlink" href="#id13" title="Link to this heading"></a></h4>
+<dl class="py class">
+<dt class="sig sig-object py" id="nampy.models.NGBoostClassifier">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NGBoostClassifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostClassifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostClassifier" title="Link to this definition"></a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.NGBoostClassifier.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostClassifier.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostClassifier.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.NGBoostClassifier.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">101</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_sample_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostClassifier.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostClassifier.fit" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.NGBoostClassifier.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostClassifier.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostClassifier.predict" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.NGBoostClassifier.predict_proba">
+<span class="sig-name descname"><span class="pre">predict_proba</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostClassifier.predict_proba"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostClassifier.predict_proba" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.NGBoostClassifier.evaluate">
+<span class="sig-name descname"><span class="pre">evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_true</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostClassifier.evaluate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostClassifier.evaluate" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="survival">
+<h4>Survival<a class="headerlink" href="#survival" title="Link to this heading"></a></h4>
+<dl class="py class">
+<dt class="sig sig-object py" id="nampy.models.NGBSurvival">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NGBSurvival</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBSurvival"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBSurvival" title="Link to this definition"></a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.NGBSurvival.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBSurvival.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBSurvival.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.NGBSurvival.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">T</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">E</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">T_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">E_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">101</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBSurvival.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBSurvival.fit" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.NGBSurvival.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBSurvival.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBSurvival.predict" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.NGBSurvival.pred_dist">
+<span class="sig-name descname"><span class="pre">pred_dist</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBSurvival.pred_dist"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBSurvival.pred_dist" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.NGBSurvival.predict_survival_function">
+<span class="sig-name descname"><span class="pre">predict_survival_function</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBSurvival.predict_survival_function"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBSurvival.predict_survival_function" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.NGBSurvival.evaluate">
+<span class="sig-name descname"><span class="pre">evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">T</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">E</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBSurvival.evaluate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBSurvival.evaluate" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="nampy.models.NGBSurvival.feature_importances_">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">feature_importances_</span></span><a class="headerlink" href="#nampy.models.NGBSurvival.feature_importances_" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
 </section>
 <section id="attention-based-models">
 <h2>Attention-Based Models<a class="headerlink" href="#attention-based-models" title="Link to this heading"></a></h2>
 <section id="natt">
 <h3>NATT<a class="headerlink" href="#natt" title="Link to this heading"></a></h3>
-<section id="id12">
-<h4>Regressor<a class="headerlink" href="#id12" title="Link to this heading"></a></h4>
+<section id="id14">
+<h4>Regressor<a class="headerlink" href="#id14" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NATTRegressor">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NATTRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/natt.html#NATTRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NATTRegressor" title="Link to this definition"></a></dt>
@@ -1762,8 +1539,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id13">
-<h4>Classifier<a class="headerlink" href="#id13" title="Link to this heading"></a></h4>
+<section id="id15">
+<h4>Classifier<a class="headerlink" href="#id15" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NATTClassifier">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NATTClassifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/natt.html#NATTClassifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NATTClassifier" title="Link to this definition"></a></dt>
@@ -1838,8 +1615,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id14">
-<h4>Distributional Regression (LSS)<a class="headerlink" href="#id14" title="Link to this heading"></a></h4>
+<section id="id16">
+<h4>Distributional Regression (LSS)<a class="headerlink" href="#id16" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NATTLSS">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NATTLSS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/natt.html#NATTLSS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NATTLSS" title="Link to this definition"></a></dt>
@@ -1919,8 +1696,8 @@ of their unique value count or proportion.</p></li>
 </section>
 <section id="namformer">
 <h3>NAMformer<a class="headerlink" href="#namformer" title="Link to this heading"></a></h3>
-<section id="id15">
-<h4>Regressor<a class="headerlink" href="#id15" title="Link to this heading"></a></h4>
+<section id="id17">
+<h4>Regressor<a class="headerlink" href="#id17" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NAMformerRegressor">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NAMformerRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/namformer.html#NAMformerRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NAMformerRegressor" title="Link to this definition"></a></dt>
@@ -1995,8 +1772,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id16">
-<h4>Classifier<a class="headerlink" href="#id16" title="Link to this heading"></a></h4>
+<section id="id18">
+<h4>Classifier<a class="headerlink" href="#id18" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NAMformerClassifier">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NAMformerClassifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/namformer.html#NAMformerClassifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NAMformerClassifier" title="Link to this definition"></a></dt>
@@ -2071,8 +1848,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id17">
-<h4>Distributional Regression (LSS)<a class="headerlink" href="#id17" title="Link to this heading"></a></h4>
+<section id="id19">
+<h4>Distributional Regression (LSS)<a class="headerlink" href="#id19" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NAMformerLSS">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NAMformerLSS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/namformer.html#NAMformerLSS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NAMformerLSS" title="Link to this definition"></a></dt>
@@ -2155,14 +1932,14 @@ of their unique value count or proportion.</p></li>
 <h2>Specialized Models<a class="headerlink" href="#specialized-models" title="Link to this heading"></a></h2>
 <section id="qnam-quantile-nam">
 <h3>QNAM (Quantile NAM)<a class="headerlink" href="#qnam-quantile-nam" title="Link to this heading"></a></h3>
-<section id="id18">
-<h4>Distributional Regression (LSS)<a class="headerlink" href="#id18" title="Link to this heading"></a></h4>
+<section id="id20">
+<h4>Distributional Regression (LSS)<a class="headerlink" href="#id20" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.QNAM">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">QNAM</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/qnam.html#QNAM"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.QNAM" title="Link to this definition"></a></dt>
 <dd><p>Multi-Layer Perceptron for distributional regression. This class extends the SklearnBaseLSS class and uses the NAM model
-with the default NAM configuration.</p>
-<p>The accepted arguments to the NAMLSS class include both the attributes in the DefaultNAMConfig dataclass
+with the default QNAM configuration.</p>
+<p>The accepted arguments to the QNAM class include both the attributes in the DefaultQNAMConfig dataclass
 and the parameters for the Preprocessor class.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -2241,8 +2018,8 @@ of their unique value count or proportion.</p></li>
 </section>
 <section id="linreg-neural-linear-regression">
 <h3>LinReg (Neural Linear Regression)<a class="headerlink" href="#linreg-neural-linear-regression" title="Link to this heading"></a></h3>
-<section id="id19">
-<h4>Regressor<a class="headerlink" href="#id19" title="Link to this heading"></a></h4>
+<section id="id21">
+<h4>Regressor<a class="headerlink" href="#id21" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.LinRegRegressor">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">LinRegRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/linreg.html#LinRegRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.LinRegRegressor" title="Link to this definition"></a></dt>
@@ -2308,8 +2085,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id20">
-<h4>Classifier<a class="headerlink" href="#id20" title="Link to this heading"></a></h4>
+<section id="id22">
+<h4>Classifier<a class="headerlink" href="#id22" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.LinRegClassifier">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">LinRegClassifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/linreg.html#LinRegClassifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.LinRegClassifier" title="Link to this definition"></a></dt>
@@ -2375,8 +2152,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id21">
-<h4>Distributional Regression (LSS)<a class="headerlink" href="#id21" title="Link to this heading"></a></h4>
+<section id="id23">
+<h4>Distributional Regression (LSS)<a class="headerlink" href="#id23" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.LinRegLSS">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">LinRegLSS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/linreg.html#LinRegLSS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.LinRegLSS" title="Link to this definition"></a></dt>

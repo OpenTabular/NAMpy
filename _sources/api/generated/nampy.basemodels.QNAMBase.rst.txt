@@ -33,12 +33,16 @@
       ~QNAMBase.__subclasshook__
       ~QNAMBase._apply
       ~QNAMBase._call_impl
+      ~QNAMBase._create_interaction_networks
       ~QNAMBase._create_subnetwork
       ~QNAMBase._get_backward_hooks
       ~QNAMBase._get_backward_pre_hooks
+      ~QNAMBase._get_intercept
       ~QNAMBase._get_name
+      ~QNAMBase._interaction_forward
       ~QNAMBase._load_from_state_dict
       ~QNAMBase._maybe_warn_non_full_backward_hook
+      ~QNAMBase._monotone_transform
       ~QNAMBase._named_members
       ~QNAMBase._register_load_state_dict_pre_hook
       ~QNAMBase._register_state_dict_hook
@@ -52,7 +56,6 @@
       ~QNAMBase.buffers
       ~QNAMBase.children
       ~QNAMBase.compile
-      ~QNAMBase.count_parameters
       ~QNAMBase.cpu
       ~QNAMBase.cuda
       ~QNAMBase.double
@@ -77,7 +80,7 @@
       ~QNAMBase.named_children
       ~QNAMBase.named_modules
       ~QNAMBase.named_parameters
-      ~QNAMBase.parameter_count
+      ~QNAMBase.parameter_count_by_layer
       ~QNAMBase.parameters
       ~QNAMBase.print_summary
       ~QNAMBase.register_backward_hook
@@ -102,6 +105,7 @@
       ~QNAMBase.to
       ~QNAMBase.to_device
       ~QNAMBase.to_empty
+      ~QNAMBase.total_parameters
       ~QNAMBase.train
       ~QNAMBase.type
       ~QNAMBase.unfreeze_parameters

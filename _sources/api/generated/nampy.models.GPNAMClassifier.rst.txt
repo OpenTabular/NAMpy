@@ -38,7 +38,9 @@
       ~GPNAMClassifier._get_param_names
       ~GPNAMClassifier._get_params_html
       ~GPNAMClassifier._html_repr
+      ~GPNAMClassifier._plot_interaction_effects
       ~GPNAMClassifier._plot_single_feature_effects
+      ~GPNAMClassifier._predict
       ~GPNAMClassifier._repr_html_inner
       ~GPNAMClassifier._repr_mimebundle_
       ~GPNAMClassifier._validate_params

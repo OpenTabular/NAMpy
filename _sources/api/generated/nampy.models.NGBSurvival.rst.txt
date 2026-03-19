@@ -1,0 +1,70 @@
+﻿nampy.models.NGBSurvival
+========================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: NGBSurvival
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~NGBSurvival.__delattr__
+      ~NGBSurvival.__dir__
+      ~NGBSurvival.__eq__
+      ~NGBSurvival.__format__
+      ~NGBSurvival.__ge__
+      ~NGBSurvival.__getattribute__
+      ~NGBSurvival.__getstate__
+      ~NGBSurvival.__gt__
+      ~NGBSurvival.__hash__
+      ~NGBSurvival.__init_subclass__
+      ~NGBSurvival.__le__
+      ~NGBSurvival.__lt__
+      ~NGBSurvival.__ne__
+      ~NGBSurvival.__new__
+      ~NGBSurvival.__reduce__
+      ~NGBSurvival.__reduce_ex__
+      ~NGBSurvival.__repr__
+      ~NGBSurvival.__setattr__
+      ~NGBSurvival.__setstate__
+      ~NGBSurvival.__sizeof__
+      ~NGBSurvival.__sklearn_clone__
+      ~NGBSurvival.__sklearn_tags__
+      ~NGBSurvival.__str__
+      ~NGBSurvival.__subclasshook__
+      ~NGBSurvival._build_request_for_signature
+      ~NGBSurvival._check_fitted
+      ~NGBSurvival._ensure_dataframe
+      ~NGBSurvival._fit_preprocessor
+      ~NGBSurvival._get_default_requests
+      ~NGBSurvival._get_doc_link
+      ~NGBSurvival._get_metadata_request
+      ~NGBSurvival._get_param_names
+      ~NGBSurvival._get_params_html
+      ~NGBSurvival._html_repr
+      ~NGBSurvival._repr_html_inner
+      ~NGBSurvival._repr_mimebundle_
+      ~NGBSurvival._transform_matrix
+      ~NGBSurvival._validate_params
+      ~NGBSurvival.evaluate
+      ~NGBSurvival.fit
+      ~NGBSurvival.get_metadata_routing
+      ~NGBSurvival.get_params
+      ~NGBSurvival.pred_dist
+      ~NGBSurvival.predict
+      ~NGBSurvival.predict_survival_function
+      ~NGBSurvival.set_fit_request
+      ~NGBSurvival.set_params
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~NGBSurvival.__annotations__
+      ~NGBSurvival.__dict__
+      ~NGBSurvival.__doc__
+      ~NGBSurvival.__module__
+      ~NGBSurvival.__weakref__
+      ~NGBSurvival._doc_link_module
+      ~NGBSurvival._doc_link_template
+      ~NGBSurvival._doc_link_url_param_generator
+      ~NGBSurvival._repr_html_
+      ~NGBSurvival.feature_importances_
+   

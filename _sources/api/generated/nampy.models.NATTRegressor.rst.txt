@@ -38,6 +38,7 @@
       ~NATTRegressor._get_param_names
       ~NATTRegressor._get_params_html
       ~NATTRegressor._html_repr
+      ~NATTRegressor._plot_interaction_effects
       ~NATTRegressor._plot_single_feature_effects
       ~NATTRegressor._predict
       ~NATTRegressor._repr_html_inner

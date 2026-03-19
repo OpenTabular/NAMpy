@@ -38,7 +38,9 @@
       ~NodeGAMClassifier._get_param_names
       ~NodeGAMClassifier._get_params_html
       ~NodeGAMClassifier._html_repr
+      ~NodeGAMClassifier._plot_interaction_effects
       ~NodeGAMClassifier._plot_single_feature_effects
+      ~NodeGAMClassifier._predict
       ~NodeGAMClassifier._repr_html_inner
       ~NodeGAMClassifier._repr_mimebundle_
       ~NodeGAMClassifier._validate_params

@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>nampy.models.treenam &mdash; nampy 0.1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=ea57e989" />
 
   
@@ -70,25 +70,10 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../../user_guide.html">User Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/preprocessing.html">Preprocessing</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/preprocessing.html#numerical-feature-preprocessing">Numerical Feature Preprocessing</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../user_guide/preprocessing.html#standardization">Standardization</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../user_guide/preprocessing.html#normalization">Normalization</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../user_guide/preprocessing.html#piecewise-linear-encoding-ple">Piecewise Linear Encoding (PLE)</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../user_guide/preprocessing.html#binning">Binning</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../user_guide/preprocessing.html#one-hot-encoding">One-Hot Encoding</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/preprocessing.html#categorical-feature-handling">Categorical Feature Handling</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../user_guide/preprocessing.html#automatic-detection">Automatic Detection</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../user_guide/preprocessing.html#manual-control">Manual Control</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/preprocessing.html#decision-tree-based-binning">Decision Tree-Based Binning</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/preprocessing.html#custom-preprocessing">Custom Preprocessing</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/preprocessing.html#best-practices">Best Practices</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/preprocessing.html#preprocessing-pipeline">Preprocessing Pipeline</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/preprocessing.html#accessing-the-preprocessor">Accessing the Preprocessor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../user_guide/preprocessing.html">Preprocessing (PreTab)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/preprocessing.html#using-pretab-with-nampy">Using PreTab with NAMpy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/preprocessing.html#preprocessor-contract">Preprocessor contract</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../user_guide/preprocessing.html#accessing-the-preprocessor">Accessing the preprocessor</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../user_guide/training.html">Training Models</a><ul>
@@ -201,8 +186,8 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.NAMformerRegressor.html">nampy.models.NAMformerRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.LinRegRegressor.html">nampy.models.LinRegRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.TreeNAMRegressor.html">nampy.models.TreeNAMRegressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.SNAMRegressor.html">nampy.models.SNAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.NodeGAMRegressor.html">nampy.models.NodeGAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.NGBoostRegressor.html">nampy.models.NGBoostRegressor</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#classification-models">Classification Models</a><ul>
@@ -213,6 +198,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.NAMformerClassifier.html">nampy.models.NAMformerClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.LinRegClassifier.html">nampy.models.LinRegClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.NodeGAMClassifier.html">nampy.models.NodeGAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.NGBoostClassifier.html">nampy.models.NGBoostClassifier</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#distributional-regression-models-lss">Distributional Regression Models (LSS)</a><ul>
@@ -227,6 +213,7 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#other-models">Other Models</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.QNAM.html">nampy.models.QNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.NGBSurvival.html">nampy.models.NGBSurvival</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#base-classes">Base Classes</a><ul>
@@ -250,9 +237,9 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.basemodels.NATT.html">nampy.basemodels.NATT</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.basemodels.NAMformer.html">nampy.basemodels.NAMformer</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.basemodels.LinReg.html">nampy.basemodels.LinReg</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.basemodels.NGBoost.html">nampy.basemodels.NGBoost</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.basemodels.NGBSurvival.html">nampy.basemodels.NGBSurvival</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.basemodels.QNAMBase.html">nampy.basemodels.QNAMBase</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.basemodels.BoostedNAM.html">nampy.basemodels.BoostedNAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.basemodels.SNAM.html">nampy.basemodels.SNAM</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.basemodels.NodeGAM.html">nampy.basemodels.NodeGAM</a></li>
 </ul>
 </li>
@@ -262,20 +249,15 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../api/preprocessing.html">Preprocessing</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.preprocessing.Preprocessor.html">nampy.preprocessing.Preprocessor</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/preprocessing.html#overview">Overview</a></li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/preprocessing.html">Preprocessing (PreTab)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/configs.html">Configurations</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultNAMConfig.html">nampy.configs.DefaultNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultNBMConfig.html">nampy.configs.DefaultNBMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultNATTConfig.html">nampy.configs.DefaultNATTConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultNAMformerConfig.html">nampy.configs.DefaultNAMformerConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultLinRegConfig.html">nampy.configs.DefaultLinRegConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultBoostedNAMConfig.html">nampy.configs.DefaultBoostedNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultSNAMConfig.html">nampy.configs.DefaultSNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultNodeGAMConfig.html">nampy.configs.DefaultNodeGAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultNGBoostConfig.html">nampy.configs.DefaultNGBoostConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/configs.html#using-configurations">Using Configurations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/configs.html#note">Note</a></li>
 </ul>
@@ -294,7 +276,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#quick-api-reference">Quick API Reference</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/index.html#models">Models</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/index.html#base-models">Base Models</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/index.html#preprocessing">Preprocessing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/index.html#preprocessing-pretab">Preprocessing (PreTab)</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/index.html#version-information">Version Information</a><ul>
@@ -370,32 +352,38 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id11">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="../../../models/reference.html#ngboost">NGBoost</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id12">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id13">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#survival">Survival</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../models/reference.html#attention-based-models">Attention-Based Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../models/reference.html#natt">NATT</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id12">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id13">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id14">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id14">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id15">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id16">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../models/reference.html#namformer">NAMformer</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id15">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id16">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id17">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id17">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id18">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id19">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../models/reference.html#specialized-models">Specialized Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../models/reference.html#qnam-quantile-nam">QNAM (Quantile NAM)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id18">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id20">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../models/reference.html#linreg-neural-linear-regression">LinReg (Neural Linear Regression)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id19">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id20">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id21">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id21">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id22">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id23">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 </ul>
@@ -567,98 +555,38 @@
            <div itemprop="articleBody">
              
   <h1>Source code for nampy.models.treenam</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">..basemodels.treenam</span><span class="w"> </span><span class="kn">import</span> <span class="n">BoostedNAM</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">..configs.boostednam_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">DefaultBoostedNAMConfig</span>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">..basemodels.treenam</span><span class="w"> </span><span class="kn">import</span> <span class="n">TreeNAM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..configs.treenam_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">DefaultTreeNAMConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.sklearn_classifier</span><span class="w"> </span><span class="kn">import</span> <span class="n">SklearnBaseClassifier</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.sklearn_lss</span><span class="w"> </span><span class="kn">import</span> <span class="n">SklearnBaseLSS</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.sklearn_regressor</span><span class="w"> </span><span class="kn">import</span> <span class="n">SklearnBaseRegressor</span>
 
 
 <div class="viewcode-block" id="TreeNAMRegressor">
 <a class="viewcode-back" href="../../../models/reference.html#nampy.models.TreeNAMRegressor">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">TreeNAMRegressor</span><span class="p">(</span><span class="n">SklearnBaseRegressor</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Multi-Layer Perceptron regressor. This class extends the SklearnBaseRegressor class and uses the NAM model</span>
-<span class="sd">    with the default NAM configuration.</span>
-
-<span class="sd">    The accepted arguments to the NAMRegressor class include both the attributes in the DefaultNAMConfig dataclass</span>
-<span class="sd">    and the parameters for the Preprocessor class.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    lr : float, default=1e-04</span>
-<span class="sd">        Learning rate for the optimizer.</span>
-<span class="sd">    lr_patience : int, default=10</span>
-<span class="sd">        Number of epochs with no improvement after which learning rate will be reduced.</span>
-<span class="sd">    weight_decay : float, default=1e-06</span>
-<span class="sd">        Weight decay (L2 penalty) for the optimizer.</span>
-<span class="sd">    lr_factor : float, default=0.1</span>
-<span class="sd">        Factor by which the learning rate will be reduced.</span>
-<span class="sd">    layer_sizes : list, default=(128, 128, 32)</span>
-<span class="sd">        Sizes of the layers in the NAM.</span>
-<span class="sd">    activation : callable, default=nn.SELU()</span>
-<span class="sd">        Activation function for the NAM layers.</span>
-<span class="sd">    skip_layers : bool, default=False</span>
-<span class="sd">        Whether to skip layers in the NAM.</span>
-<span class="sd">    dropout : float, default=0.5</span>
-<span class="sd">        Dropout rate for regularization.</span>
-<span class="sd">    norm : str, default=None</span>
-<span class="sd">        Normalization method to be used, if any.</span>
-<span class="sd">    use_glu : bool, default=False</span>
-<span class="sd">        Whether to use Gated Linear Units (GLU) in the NAM.</span>
-<span class="sd">    skip_connections : bool, default=False</span>
-<span class="sd">        Whether to use skip connections in the NAM.</span>
-<span class="sd">    batch_norm : bool, default=False</span>
-<span class="sd">        Whether to use batch normalization in the NAM layers.</span>
-<span class="sd">    layer_norm : bool, default=False</span>
-<span class="sd">        Whether to use layer normalization in the NAM layers.</span>
-<span class="sd">    n_bins : int, default=50</span>
-<span class="sd">        The number of bins to use for numerical feature binning. This parameter is relevant</span>
-<span class="sd">        only if `numerical_preprocessing` is set to &#39;binning&#39; or &#39;one_hot&#39;.</span>
-<span class="sd">    numerical_preprocessing : str, default=&quot;ple&quot;</span>
-<span class="sd">        The preprocessing strategy for numerical features. Valid options are</span>
-<span class="sd">        &#39;binning&#39;, &#39;one_hot&#39;, &#39;standardization&#39;, and &#39;normalization&#39;.</span>
-<span class="sd">    use_decision_tree_bins : bool, default=False</span>
-<span class="sd">        If True, uses decision tree regression/classification to determine</span>
-<span class="sd">        optimal bin edges for numerical feature binning. This parameter is</span>
-<span class="sd">        relevant only if `numerical_preprocessing` is set to &#39;binning&#39; or &#39;one_hot&#39;.</span>
-<span class="sd">    binning_strategy : str, default=&quot;uniform&quot;</span>
-<span class="sd">        Defines the strategy for binning numerical features. Options include &#39;uniform&#39;,</span>
-<span class="sd">        &#39;quantile&#39;, or other sklearn-compatible strategies.</span>
-<span class="sd">    cat_cutoff : float or int, default=0.03</span>
-<span class="sd">        Indicates the cutoff after which integer values are treated as categorical.</span>
-<span class="sd">        If float, it&#39;s treated as a percentage. If int, it&#39;s the maximum number of</span>
-<span class="sd">        unique values for a column to be considered categorical.</span>
-<span class="sd">    treat_all_integers_as_numerical : bool, default=False</span>
-<span class="sd">        If True, all integer columns will be treated as numerical, regardless</span>
-<span class="sd">        of their unique value count or proportion.</span>
-<span class="sd">    degree : int, default=3</span>
-<span class="sd">        The degree of the polynomial features to be used in preprocessing.</span>
-<span class="sd">    knots : int, default=12</span>
-<span class="sd">        The number of knots to be used in spline transformations.</span>
-
-<span class="sd">    Notes</span>
-<span class="sd">    -----</span>
-<span class="sd">    - The accepted arguments to the NAMRegressor class are the same as the attributes in the DefaultNAMConfig dataclass.</span>
-<span class="sd">    - NAMRegressor uses SklearnBaseRegressor as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.</span>
-
-<span class="sd">    See Also</span>
-<span class="sd">    --------</span>
-<span class="sd">    nampy.models.SklearnBaseRegressor : The parent class for NAMRegressor.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; from nampy.models import NAMRegressor</span>
-<span class="sd">    &gt;&gt;&gt; model = NAMRegressor(layer_sizes=[128, 128, 64], activation=nn.ReLU())</span>
-<span class="sd">    &gt;&gt;&gt; model.fit(X_train, y_train)</span>
-<span class="sd">    &gt;&gt;&gt; preds = model.predict(X_test)</span>
-<span class="sd">    &gt;&gt;&gt; model.evaluate(X_test, y_test)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;TreeNAM regressor.&quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="TreeNAMRegressor.__init__">
 <a class="viewcode-back" href="../../../models/reference.html#nampy.models.TreeNAMRegressor.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">BoostedNAM</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">DefaultBoostedNAMConfig</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">TreeNAM</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">DefaultTreeNAMConfig</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 </div>
 
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">TreeNAMClassifier</span><span class="p">(</span><span class="n">SklearnBaseClassifier</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;TreeNAM classifier.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">TreeNAM</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">DefaultTreeNAMConfig</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">TreeNAMLSS</span><span class="p">(</span><span class="n">SklearnBaseLSS</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;TreeNAM for distributional regression.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">TreeNAM</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">DefaultTreeNAMConfig</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </pre></div>
 
            </div>

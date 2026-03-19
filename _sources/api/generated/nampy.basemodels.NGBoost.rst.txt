@@ -1,0 +1,44 @@
+﻿nampy.basemodels.NGBoost
+========================
+
+.. currentmodule:: nampy.basemodels
+
+.. autoclass:: NGBoost
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~NGBoost.__delattr__
+      ~NGBoost.__dir__
+      ~NGBoost.__eq__
+      ~NGBoost.__format__
+      ~NGBoost.__ge__
+      ~NGBoost.__getattribute__
+      ~NGBoost.__gt__
+      ~NGBoost.__hash__
+      ~NGBoost.__init_subclass__
+      ~NGBoost.__le__
+      ~NGBoost.__lt__
+      ~NGBoost.__ne__
+      ~NGBoost.__new__
+      ~NGBoost.__reduce__
+      ~NGBoost.__reduce_ex__
+      ~NGBoost.__repr__
+      ~NGBoost.__setattr__
+      ~NGBoost.__sizeof__
+      ~NGBoost.__str__
+      ~NGBoost.__subclasshook__
+      ~NGBoost.fit
+      ~NGBoost.pred_dist
+      ~NGBoost.predict
+      ~NGBoost.predict_proba
+      ~NGBoost.raw_params
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~NGBoost.__annotations__
+      ~NGBoost.__dict__
+      ~NGBoost.__doc__
+      ~NGBoost.__module__
+      ~NGBoost.__weakref__
+      ~NGBoost.feature_importances_
+   

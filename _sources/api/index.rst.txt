@@ -19,7 +19,7 @@ The NAMpy package is organized into several main modules:
 
 * :mod:`nampy.models` - High-level model classes (scikit-learn compatible)
 * :mod:`nampy.basemodels` - Low-level PyTorch model implementations
-* :mod:`nampy.preprocessing` - Data preprocessing utilities
+* :mod:`nampy.preprocessing` - Preprocessing is delegated to PreTab (see :doc:`preprocessing`)
 * :mod:`nampy.configs` - Configuration classes for models
 * :mod:`nampy.utils` - Utility functions and distributions
 
@@ -65,17 +65,17 @@ For advanced users who want direct access to PyTorch models:
        config=config
    )
 
-Preprocessing
-~~~~~~~~~~~~~
+Preprocessing (PreTab)
+~~~~~~~~~~~~~~~~~~~~~
+
+NAMpy uses the PreTab library for preprocessing. Pass a PreTab preprocessor into the data module or sklearn-style models:
 
 .. code-block:: python
 
-   from nampy.preprocessing import Preprocessor
+   from pretab.preprocessor import Preprocessor
    
-   preprocessor = Preprocessor(
-       numerical_preprocessing="ple",
-       n_bins=50
-   )
+   preprocessor = Preprocessor(task="regression", n_bins=50)
+   # Use with NAMpyDataModule or model.fit(X, y, ...)
    
    X_processed = preprocessor.fit_transform(X, y)
 

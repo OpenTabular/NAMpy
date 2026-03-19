@@ -38,7 +38,9 @@
       ~LinRegClassifier._get_param_names
       ~LinRegClassifier._get_params_html
       ~LinRegClassifier._html_repr
+      ~LinRegClassifier._plot_interaction_effects
       ~LinRegClassifier._plot_single_feature_effects
+      ~LinRegClassifier._predict
       ~LinRegClassifier._repr_html_inner
       ~LinRegClassifier._repr_mimebundle_
       ~LinRegClassifier._validate_params

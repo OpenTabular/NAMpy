@@ -32,7 +32,11 @@
       ~GPNAM.__str__
       ~GPNAM.__subclasshook__
       ~GPNAM._apply
+      ~GPNAM._build_atomic_feature_names
+      ~GPNAM._build_shared_rff_parameters
       ~GPNAM._call_impl
+      ~GPNAM._compute_rff_map
+      ~GPNAM._concat_all_features
       ~GPNAM._get_backward_hooks
       ~GPNAM._get_backward_pre_hooks
       ~GPNAM._get_name
@@ -51,7 +55,6 @@
       ~GPNAM.buffers
       ~GPNAM.children
       ~GPNAM.compile
-      ~GPNAM.count_parameters
       ~GPNAM.cpu
       ~GPNAM.cuda
       ~GPNAM.double
@@ -66,7 +69,6 @@
       ~GPNAM.get_parameter
       ~GPNAM.get_submodule
       ~GPNAM.half
-      ~GPNAM.infer_input_dim
       ~GPNAM.ipu
       ~GPNAM.load_model
       ~GPNAM.load_state_dict
@@ -77,7 +79,7 @@
       ~GPNAM.named_children
       ~GPNAM.named_modules
       ~GPNAM.named_parameters
-      ~GPNAM.parameter_count
+      ~GPNAM.parameter_count_by_layer
       ~GPNAM.parameters
       ~GPNAM.print_summary
       ~GPNAM.register_backward_hook
@@ -102,6 +104,7 @@
       ~GPNAM.to
       ~GPNAM.to_device
       ~GPNAM.to_empty
+      ~GPNAM.total_parameters
       ~GPNAM.train
       ~GPNAM.type
       ~GPNAM.unfreeze_parameters

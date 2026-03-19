@@ -38,20 +38,18 @@
       ~DefaultNAMConfig.__match_args__
       ~DefaultNAMConfig.__module__
       ~DefaultNAMConfig.__weakref__
-      ~DefaultNAMConfig.activation
       ~DefaultNAMConfig.batch_norm
-      ~DefaultNAMConfig.dropout
+      ~DefaultNAMConfig.dropout_rate
       ~DefaultNAMConfig.feature_dropout
       ~DefaultNAMConfig.interaction_degree
       ~DefaultNAMConfig.intercept
       ~DefaultNAMConfig.layer_norm
-      ~DefaultNAMConfig.layer_sizes
       ~DefaultNAMConfig.lr
       ~DefaultNAMConfig.lr_factor
       ~DefaultNAMConfig.lr_patience
       ~DefaultNAMConfig.norm
       ~DefaultNAMConfig.skip_connections
-      ~DefaultNAMConfig.skip_layers
       ~DefaultNAMConfig.use_glu
       ~DefaultNAMConfig.weight_decay
+      ~DefaultNAMConfig.layer_sizes
    

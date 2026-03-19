@@ -38,6 +38,7 @@
       ~SklearnBaseRegressor._get_param_names
       ~SklearnBaseRegressor._get_params_html
       ~SklearnBaseRegressor._html_repr
+      ~SklearnBaseRegressor._plot_interaction_effects
       ~SklearnBaseRegressor._plot_single_feature_effects
       ~SklearnBaseRegressor._predict
       ~SklearnBaseRegressor._repr_html_inner

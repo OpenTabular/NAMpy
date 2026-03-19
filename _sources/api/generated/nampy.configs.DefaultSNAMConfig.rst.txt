@@ -13,6 +13,7 @@
       ~DefaultSNAMConfig.__format__
       ~DefaultSNAMConfig.__ge__
       ~DefaultSNAMConfig.__getattribute__
+      ~DefaultSNAMConfig.__getstate__
       ~DefaultSNAMConfig.__gt__
       ~DefaultSNAMConfig.__init_subclass__
       ~DefaultSNAMConfig.__le__

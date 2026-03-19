@@ -38,6 +38,7 @@
       ~NodeGAMRegressor._get_param_names
       ~NodeGAMRegressor._get_params_html
       ~NodeGAMRegressor._html_repr
+      ~NodeGAMRegressor._plot_interaction_effects
       ~NodeGAMRegressor._plot_single_feature_effects
       ~NodeGAMRegressor._predict
       ~NodeGAMRegressor._repr_html_inner

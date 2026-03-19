@@ -38,6 +38,7 @@
       ~NATTLSS._get_param_names
       ~NATTLSS._get_params_html
       ~NATTLSS._html_repr
+      ~NATTLSS._plot_interaction_effects
       ~NATTLSS._plot_single_feature_effects
       ~NATTLSS._predict
       ~NATTLSS._repr_html_inner

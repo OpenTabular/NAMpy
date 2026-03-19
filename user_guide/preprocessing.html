@@ -6,9 +6,9 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Preprocessing &mdash; nampy 0.1.0 documentation</title>
+  <title>Preprocessing (PreTab) &mdash; nampy 0.1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=ea57e989" />
 
   
@@ -73,25 +73,10 @@
 </ul>
 </li>
 <li class="toctree-l1 current"><a class="reference internal" href="../user_guide.html">User Guide</a><ul class="current">
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Preprocessing</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#numerical-feature-preprocessing">Numerical Feature Preprocessing</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#standardization">Standardization</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#normalization">Normalization</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#piecewise-linear-encoding-ple">Piecewise Linear Encoding (PLE)</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#binning">Binning</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#one-hot-encoding">One-Hot Encoding</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#categorical-feature-handling">Categorical Feature Handling</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#automatic-detection">Automatic Detection</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#manual-control">Manual Control</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#decision-tree-based-binning">Decision Tree-Based Binning</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#custom-preprocessing">Custom Preprocessing</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#best-practices">Best Practices</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#preprocessing-pipeline">Preprocessing Pipeline</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#accessing-the-preprocessor">Accessing the Preprocessor</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Preprocessing (PreTab)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#using-pretab-with-nampy">Using PreTab with NAMpy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#preprocessor-contract">Preprocessor contract</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#accessing-the-preprocessor">Accessing the preprocessor</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="training.html">Training Models</a><ul>
@@ -204,8 +189,8 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerRegressor.html">nampy.models.NAMformerRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegRegressor.html">nampy.models.LinRegRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.TreeNAMRegressor.html">nampy.models.TreeNAMRegressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SNAMRegressor.html">nampy.models.SNAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMRegressor.html">nampy.models.NodeGAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NGBoostRegressor.html">nampy.models.NGBoostRegressor</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#classification-models">Classification Models</a><ul>
@@ -216,6 +201,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerClassifier.html">nampy.models.NAMformerClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegClassifier.html">nampy.models.LinRegClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMClassifier.html">nampy.models.NodeGAMClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NGBoostClassifier.html">nampy.models.NGBoostClassifier</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#distributional-regression-models-lss">Distributional Regression Models (LSS)</a><ul>
@@ -230,6 +216,7 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#other-models">Other Models</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.QNAM.html">nampy.models.QNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NGBSurvival.html">nampy.models.NGBSurvival</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#base-classes">Base Classes</a><ul>
@@ -253,9 +240,9 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NATT.html">nampy.basemodels.NATT</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NAMformer.html">nampy.basemodels.NAMformer</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.LinReg.html">nampy.basemodels.LinReg</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NGBoost.html">nampy.basemodels.NGBoost</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NGBSurvival.html">nampy.basemodels.NGBSurvival</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.QNAMBase.html">nampy.basemodels.QNAMBase</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.BoostedNAM.html">nampy.basemodels.BoostedNAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.SNAM.html">nampy.basemodels.SNAM</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NodeGAM.html">nampy.basemodels.NodeGAM</a></li>
 </ul>
 </li>
@@ -265,20 +252,15 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../api/preprocessing.html">Preprocessing</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.preprocessing.Preprocessor.html">nampy.preprocessing.Preprocessor</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/preprocessing.html#overview">Overview</a></li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/preprocessing.html">Preprocessing (PreTab)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/configs.html">Configurations</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNAMConfig.html">nampy.configs.DefaultNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNBMConfig.html">nampy.configs.DefaultNBMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNATTConfig.html">nampy.configs.DefaultNATTConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNAMformerConfig.html">nampy.configs.DefaultNAMformerConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultLinRegConfig.html">nampy.configs.DefaultLinRegConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultBoostedNAMConfig.html">nampy.configs.DefaultBoostedNAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultSNAMConfig.html">nampy.configs.DefaultSNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNodeGAMConfig.html">nampy.configs.DefaultNodeGAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNGBoostConfig.html">nampy.configs.DefaultNGBoostConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/configs.html#using-configurations">Using Configurations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/configs.html#note">Note</a></li>
 </ul>
@@ -297,7 +279,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../api/index.html#quick-api-reference">Quick API Reference</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/index.html#models">Models</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/index.html#base-models">Base Models</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/index.html#preprocessing">Preprocessing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/index.html#preprocessing-pretab">Preprocessing (PreTab)</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../api/index.html#version-information">Version Information</a><ul>
@@ -373,32 +355,38 @@
 <li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id11">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="../models/reference.html#ngboost">NGBoost</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id12">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id13">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#survival">Survival</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../models/reference.html#attention-based-models">Attention-Based Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../models/reference.html#natt">NATT</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id12">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id13">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id14">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id14">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id15">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id16">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../models/reference.html#namformer">NAMformer</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id15">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id16">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id17">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id17">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id18">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id19">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../models/reference.html#specialized-models">Specialized Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../models/reference.html#qnam-quantile-nam">QNAM (Quantile NAM)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id18">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id20">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../models/reference.html#linreg-neural-linear-regression">LinReg (Neural Linear Regression)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id19">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id20">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id21">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id21">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id22">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/reference.html#id23">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 </ul>
@@ -560,7 +548,7 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../user_guide.html">User Guide</a></li>
-      <li class="breadcrumb-item active">Preprocessing</li>
+      <li class="breadcrumb-item active">Preprocessing (PreTab)</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/user_guide/preprocessing.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -570,147 +558,65 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="preprocessing">
-<h1>Preprocessing<a class="headerlink" href="#preprocessing" title="Link to this heading"></a></h1>
-<p>NAMpy provides flexible preprocessing options for tabular data.</p>
-<section id="numerical-feature-preprocessing">
-<h2>Numerical Feature Preprocessing<a class="headerlink" href="#numerical-feature-preprocessing" title="Link to this heading"></a></h2>
-<p>NAMpy supports several strategies for numerical features:</p>
-<section id="standardization">
-<h3>Standardization<a class="headerlink" href="#standardization" title="Link to this heading"></a></h3>
-<p>Scale features to have mean=0 and std=1:</p>
+  <section id="preprocessing-pretab">
+<h1>Preprocessing (PreTab)<a class="headerlink" href="#preprocessing-pretab" title="Link to this heading"></a></h1>
+<p>NAMpy does not implement its own tabular preprocessing. All preprocessing is done by the <strong>PreTab</strong> library. You pass a PreTab preprocessor instance into the data module or into the sklearn-style models (e.g. <a class="reference internal" href="../models/reference.html#nampy.models.NAMRegressor" title="nampy.models.nam.NAMRegressor"><code class="xref py py-class docutils literal notranslate"><span class="pre">nampy.models.nam.NAMRegressor</span></code></a>).</p>
+<section id="using-pretab-with-nampy">
+<h2>Using PreTab with NAMpy<a class="headerlink" href="#using-pretab-with-nampy" title="Link to this heading"></a></h2>
+<ol class="arabic">
+<li><p>Create a PreTab preprocessor with the options you need (task, n_bins, numerical/categorical strategies, etc.). See the <a class="reference external" href="https://pypi.org/project/pretab/">PreTab documentation</a> for full options.</p></li>
+<li><p>Use it either:</p>
+<ul class="simple">
+<li><p><strong>With the high-level sklearn-style API</strong> — pass preprocessor-related keyword arguments when constructing the model; NAMpy will build a PreTab preprocessor internally and use it in <code class="docutils literal notranslate"><span class="pre">fit</span></code>:</p></li>
+</ul>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NAMRegressor</span>
 
-<span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span><span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">&quot;standardization&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>Best for: Most cases, especially when features have different scales.</p>
-</section>
-<section id="normalization">
-<h3>Normalization<a class="headerlink" href="#normalization" title="Link to this heading"></a></h3>
-<p>Scale features to [0, 1]:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span><span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">&quot;normalization&quot;</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>Best for: When you want bounded features.</p>
-</section>
-<section id="piecewise-linear-encoding-ple">
-<h3>Piecewise Linear Encoding (PLE)<a class="headerlink" href="#piecewise-linear-encoding-ple" title="Link to this heading"></a></h3>
-<p>Encodes continuous features using piecewise linear functions:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span>
-    <span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">&quot;ple&quot;</span><span class="p">,</span>
-    <span class="n">n_bins</span><span class="o">=</span><span class="mi">50</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p>Best for: Capturing non-linear relationships with interpretable models.</p>
-</section>
-<section id="binning">
-<h3>Binning<a class="headerlink" href="#binning" title="Link to this heading"></a></h3>
-<p>Discretize continuous features into bins:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span>
-    <span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">&quot;binning&quot;</span><span class="p">,</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span>
+    <span class="n">task</span><span class="o">=</span><span class="s2">&quot;regression&quot;</span><span class="p">,</span>
     <span class="n">n_bins</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
-    <span class="n">binning_strategy</span><span class="o">=</span><span class="s2">&quot;quantile&quot;</span>  <span class="c1"># or &quot;uniform&quot;</span>
+    <span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">&quot;ple&quot;</span><span class="p">,</span>  <span class="c1"># or other PreTab options</span>
 <span class="p">)</span>
-</pre></div>
-</div>
-<p>Best for: Reducing feature complexity, handling outliers.</p>
-</section>
-<section id="one-hot-encoding">
-<h3>One-Hot Encoding<a class="headerlink" href="#one-hot-encoding" title="Link to this heading"></a></h3>
-<p>Bin and then one-hot encode:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span>
-    <span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">&quot;one_hot&quot;</span><span class="p">,</span>
-    <span class="n">n_bins</span><span class="o">=</span><span class="mi">50</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p>Best for: When you want categorical-like treatment of continuous features.</p>
-</section>
-</section>
-<section id="categorical-feature-handling">
-<h2>Categorical Feature Handling<a class="headerlink" href="#categorical-feature-handling" title="Link to this heading"></a></h2>
-<section id="automatic-detection">
-<h3>Automatic Detection<a class="headerlink" href="#automatic-detection" title="Link to this heading"></a></h3>
-<p>NAMpy automatically detects categorical features:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span>
-    <span class="n">cat_cutoff</span><span class="o">=</span><span class="mf">0.03</span>  <span class="c1"># Treat as categorical if &lt;3% unique values</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="manual-control">
-<h3>Manual Control<a class="headerlink" href="#manual-control" title="Link to this heading"></a></h3>
-<p>Force all integers to be numerical:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span>
-    <span class="n">treat_all_integers_as_numerical</span><span class="o">=</span><span class="kc">True</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-</section>
-</section>
-<section id="decision-tree-based-binning">
-<h2>Decision Tree-Based Binning<a class="headerlink" href="#decision-tree-based-binning" title="Link to this heading"></a></h2>
-<p>Use decision trees to determine optimal bin edges:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span>
-    <span class="n">use_decision_tree_bins</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">&quot;binning&quot;</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p>This uses the target variable to find informative bin boundaries.</p>
-</section>
-<section id="custom-preprocessing">
-<h2>Custom Preprocessing<a class="headerlink" href="#custom-preprocessing" title="Link to this heading"></a></h2>
-<p>You can also preprocess data manually before passing to NAMpy:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">StandardScaler</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NAMRegressor</span>
-
-<span class="n">scaler</span> <span class="o">=</span> <span class="n">StandardScaler</span><span class="p">()</span>
-<span class="n">X_scaled</span> <span class="o">=</span> <span class="n">scaler</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span>
-
-<span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">()</span>
-<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_scaled</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">max_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="best-practices">
-<h2>Best Practices<a class="headerlink" href="#best-practices" title="Link to this heading"></a></h2>
-<ol class="arabic simple">
-<li><p><strong>Try PLE first</strong> for interpretable models (NAM, GPNAM)</p></li>
-<li><p><strong>Use standardization</strong> for deep models (NATT, NAMformer)</p></li>
-<li><p><strong>Adjust n_bins</strong> based on dataset size (25-100 typically)</p></li>
-<li><p><strong>Use quantile binning</strong> for skewed distributions</p></li>
-<li><p><strong>Validate</strong> preprocessing choices on a validation set</p></li>
-</ol>
-</section>
-<section id="preprocessing-pipeline">
-<h2>Preprocessing Pipeline<a class="headerlink" href="#preprocessing-pipeline" title="Link to this heading"></a></h2>
-<p>The preprocessing happens automatically in the <cite>.fit()</cite> method:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span><span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">&quot;ple&quot;</span><span class="p">,</span> <span class="n">n_bins</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
-
-<span class="c1"># Preprocessing is applied internally</span>
 <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">max_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
-
-<span class="c1"># Same preprocessing is applied at prediction time</span>
 <span class="n">predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>The preprocessor state is saved with the model, ensuring consistent
-transformations at prediction time.</p>
-</section>
-<section id="accessing-the-preprocessor">
-<h2>Accessing the Preprocessor<a class="headerlink" href="#accessing-the-preprocessor" title="Link to this heading"></a></h2>
-<p>Advanced users can access the underlying preprocessor:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># After fitting</span>
-<span class="n">preprocessor</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">preprocessor</span>
+<ul class="simple">
+<li><p><strong>With the data module directly</strong> — build a PreTab preprocessor yourself and pass it to <code class="xref py py-class docutils literal notranslate"><span class="pre">nampy.data_utils.datamodule.NAMpyDataModule</span></code>:</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pretab.preprocessor</span><span class="w"> </span><span class="kn">import</span> <span class="n">Preprocessor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">nampy.data_utils.datamodule</span><span class="w"> </span><span class="kn">import</span> <span class="n">NAMpyDataModule</span>
 
-<span class="c1"># Transform new data</span>
-<span class="n">X_transformed</span> <span class="o">=</span> <span class="n">preprocessor</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">X_new</span><span class="p">)</span>
+<span class="n">preprocessor</span> <span class="o">=</span> <span class="n">Preprocessor</span><span class="p">(</span><span class="n">task</span><span class="o">=</span><span class="s2">&quot;regression&quot;</span><span class="p">,</span> <span class="n">n_bins</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+<span class="n">data_module</span> <span class="o">=</span> <span class="n">NAMpyDataModule</span><span class="p">(</span>
+    <span class="n">preprocessor</span><span class="o">=</span><span class="n">preprocessor</span><span class="p">,</span>
+    <span class="n">batch_size</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+    <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">regression</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">data_module</span><span class="o">.</span><span class="n">setup_data</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">val_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
+<span class="c1"># Use data_module with Lightning Trainer and NAMpy base models</span>
 </pre></div>
 </div>
-<p>For more details, see <code class="xref py py-class docutils literal notranslate"><span class="pre">nampy.preprocessing.Preprocessor</span></code>.</p>
+</li>
+</ol>
+</section>
+<section id="preprocessor-contract">
+<h2>Preprocessor contract<a class="headerlink" href="#preprocessor-contract" title="Link to this heading"></a></h2>
+<p>Any preprocessor used with NAMpy (including PreTab’s) must:</p>
+<ul class="simple">
+<li><p>Implement <code class="docutils literal notranslate"><span class="pre">fit(X,</span> <span class="pre">y)</span></code> and <code class="docutils literal notranslate"><span class="pre">transform(X)</span></code>.</p></li>
+<li><p>Expose <code class="docutils literal notranslate"><span class="pre">get_feature_info(verbose=False)</span></code> returning a tuple <code class="docutils literal notranslate"><span class="pre">(num_feature_info,</span> <span class="pre">cat_feature_info,</span> <span class="pre">emb_feature_info)</span></code> — three dicts of feature names to metadata (e.g. <code class="docutils literal notranslate"><span class="pre">preprocessing</span></code>, <code class="docutils literal notranslate"><span class="pre">dimension</span></code>) so that NAMpy can build the right input tensors.</p></li>
+</ul>
+</section>
+<section id="accessing-the-preprocessor">
+<h2>Accessing the preprocessor<a class="headerlink" href="#accessing-the-preprocessor" title="Link to this heading"></a></h2>
+<p>After fitting a sklearn-style model, the preprocessor is available as <code class="docutils literal notranslate"><span class="pre">model.preprocessor</span></code> (the PreTab instance). You can use it to transform new data or inspect feature info:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">preprocessor</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">preprocessor</span>
+<span class="n">X_transformed</span> <span class="o">=</span> <span class="n">preprocessor</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">X_new</span><span class="p">)</span>
+<span class="n">num_info</span><span class="p">,</span> <span class="n">cat_info</span><span class="p">,</span> <span class="n">emb_info</span> <span class="o">=</span> <span class="n">preprocessor</span><span class="o">.</span><span class="n">get_feature_info</span><span class="p">(</span><span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For full PreTab options and API, see the <a class="reference external" href="https://pypi.org/project/pretab/">PreTab project</a>.</p>
 </section>
 </section>
 

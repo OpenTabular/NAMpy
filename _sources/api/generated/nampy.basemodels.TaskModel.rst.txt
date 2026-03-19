@@ -40,14 +40,18 @@
       ~TaskModel._get_name
       ~TaskModel._load_from_state_dict
       ~TaskModel._log_dict_through_fabric
+      ~TaskModel._log_task_metrics
       ~TaskModel._maybe_warn_non_full_backward_hook
       ~TaskModel._named_members
       ~TaskModel._on_before_batch_transfer
+      ~TaskModel._prepare_lss_targets
+      ~TaskModel._prepare_supervised_targets
       ~TaskModel._register_load_state_dict_pre_hook
       ~TaskModel._register_state_dict_hook
       ~TaskModel._replicate_for_data_parallel
       ~TaskModel._save_to_state_dict
       ~TaskModel._set_hparams
+      ~TaskModel._shared_step
       ~TaskModel._slow_forward
       ~TaskModel._to_hparams_dict
       ~TaskModel._verify_is_manual_optimization
@@ -154,6 +158,7 @@
       ~TaskModel.register_parameter
       ~TaskModel.register_state_dict_post_hook
       ~TaskModel.register_state_dict_pre_hook
+      ~TaskModel.remove_ignored_hparams
       ~TaskModel.requires_grad_
       ~TaskModel.save_hyperparameters
       ~TaskModel.set_extra_state

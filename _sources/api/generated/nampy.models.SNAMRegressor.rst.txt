@@ -31,8 +31,7 @@
       ~SNAMRegressor.__sklearn_tags__
       ~SNAMRegressor.__str__
       ~SNAMRegressor.__subclasshook__
-      ~SNAMRegressor._build_request_for_signature
-      ~SNAMRegressor._get_default_requests
+      ~SNAMRegressor._get_class_level_metadata_request_values
       ~SNAMRegressor._get_doc_link
       ~SNAMRegressor._get_metadata_request
       ~SNAMRegressor._get_param_names

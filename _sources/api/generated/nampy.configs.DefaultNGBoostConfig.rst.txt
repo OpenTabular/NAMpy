@@ -1,0 +1,56 @@
+﻿nampy.configs.DefaultNGBoostConfig
+==================================
+
+.. currentmodule:: nampy.configs
+
+.. autoclass:: DefaultNGBoostConfig
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~DefaultNGBoostConfig.__delattr__
+      ~DefaultNGBoostConfig.__dir__
+      ~DefaultNGBoostConfig.__eq__
+      ~DefaultNGBoostConfig.__format__
+      ~DefaultNGBoostConfig.__ge__
+      ~DefaultNGBoostConfig.__getattribute__
+      ~DefaultNGBoostConfig.__gt__
+      ~DefaultNGBoostConfig.__init_subclass__
+      ~DefaultNGBoostConfig.__le__
+      ~DefaultNGBoostConfig.__lt__
+      ~DefaultNGBoostConfig.__ne__
+      ~DefaultNGBoostConfig.__new__
+      ~DefaultNGBoostConfig.__reduce__
+      ~DefaultNGBoostConfig.__reduce_ex__
+      ~DefaultNGBoostConfig.__repr__
+      ~DefaultNGBoostConfig.__setattr__
+      ~DefaultNGBoostConfig.__sizeof__
+      ~DefaultNGBoostConfig.__str__
+      ~DefaultNGBoostConfig.__subclasshook__
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~DefaultNGBoostConfig.__annotations__
+      ~DefaultNGBoostConfig.__dataclass_fields__
+      ~DefaultNGBoostConfig.__dataclass_params__
+      ~DefaultNGBoostConfig.__dict__
+      ~DefaultNGBoostConfig.__doc__
+      ~DefaultNGBoostConfig.__hash__
+      ~DefaultNGBoostConfig.__match_args__
+      ~DefaultNGBoostConfig.__module__
+      ~DefaultNGBoostConfig.__weakref__
+      ~DefaultNGBoostConfig.base_learner
+      ~DefaultNGBoostConfig.col_sample
+      ~DefaultNGBoostConfig.distribution
+      ~DefaultNGBoostConfig.early_stopping_rounds
+      ~DefaultNGBoostConfig.learning_rate
+      ~DefaultNGBoostConfig.minibatch_frac
+      ~DefaultNGBoostConfig.n_estimators
+      ~DefaultNGBoostConfig.natural_gradient
+      ~DefaultNGBoostConfig.random_state
+      ~DefaultNGBoostConfig.score
+      ~DefaultNGBoostConfig.tol
+      ~DefaultNGBoostConfig.validation_fraction
+      ~DefaultNGBoostConfig.verbose
+      ~DefaultNGBoostConfig.verbose_eval
+      ~DefaultNGBoostConfig.base_learner_kwargs
+   

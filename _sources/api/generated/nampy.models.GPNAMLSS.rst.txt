@@ -38,6 +38,7 @@
       ~GPNAMLSS._get_param_names
       ~GPNAMLSS._get_params_html
       ~GPNAMLSS._html_repr
+      ~GPNAMLSS._plot_interaction_effects
       ~GPNAMLSS._plot_single_feature_effects
       ~GPNAMLSS._predict
       ~GPNAMLSS._repr_html_inner
