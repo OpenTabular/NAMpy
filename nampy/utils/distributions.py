@@ -1,4 +1,4 @@
-#distributions.py
+#utils/distributions.py
 import math
 from typing import Any, Callable, Optional, Sequence, Union
 

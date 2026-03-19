@@ -11,9 +11,12 @@ from .__version__ import __version__
 # Import key classes for convenience
 from .models import (
     GPNAMLSS,
+    NGBSurvival,
     NAMLSS,
     NATTLSS,
     NBMLSS,
+    NGBoostClassifier,
+    NGBoostRegressor,
     QNAM,
     GAMRegressor,
     GPNAMClassifier,
@@ -33,7 +36,7 @@ from .models import (
     NodeGAMClassifier,
     NodeGAMLSS,
     NodeGAMRegressor,
-    SNAMRegressor,
+    SplineNAMRegressor,
     TreeNAMRegressor,
 )
 
@@ -56,6 +59,9 @@ __all__ = [
     "NBMRegressor",
     "NBMClassifier",
     "NBMLSS",
+    "NGBoostRegressor",
+    "NGBoostClassifier",
+    "NGBSurvival",
     "NATTRegressor",
     "NATTClassifier",
     "NATTLSS",
@@ -66,7 +72,7 @@ __all__ = [
     "LinRegClassifier",
     "LinRegLSS",
     "TreeNAMRegressor",
-    "SNAMRegressor",
+    "SplineNAMRegressor",
     "NodeGAMRegressor",
     "NodeGAMClassifier",
     "NodeGAMLSS",

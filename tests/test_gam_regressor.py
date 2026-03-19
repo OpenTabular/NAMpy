@@ -28,8 +28,13 @@ Diagnostics
 import numpy as np
 import pandas as pd
 import pytest
+from scipy.linalg import cho_factor, cho_solve
 
 from nampy.basemodels.gam import GAM
+from nampy.gam.smoothness.criteria import (
+    criterion_gradient_numerical,
+    criterion_hessian_numerical,
+)
 from nampy.models.gam import GAMRegressor
 
 
@@ -231,8 +236,10 @@ class TestPhaseB:
     def test_ml_and_reml_criteria_differ_at_same_sp(self, additive_data):
         """At the same smoothing params, ML and REML criteria must differ."""
         X, y = additive_data
-        gam = GAM(X, k=10)
-        log_sp = np.zeros(X.shape[1])
+        gam = GAM(k=10)
+        gam.fit(X=X, y=y)
+        assert gam._can_use_exact_gaussian_ml_reml()
+        log_sp = np.zeros(gam.n_smoothing_params_, dtype=np.float64)
 
         val_ml = gam._criterion(y, log_sp, method="ML")
         val_reml = gam._criterion(y, log_sp, method="REML")
@@ -241,6 +248,99 @@ class TestPhaseB:
         assert val_ml != val_reml, (
             f"ML and REML criteria should differ; ML={val_ml:.6f}, REML={val_reml:.6f}"
         )
+
+    def test_ml_criterion_includes_covariance_logdet(self, additive_data):
+        """The exact Gaussian ML score must include the marginal covariance determinant."""
+        X, y = additive_data
+        gam = GAM(k=10)
+        gam.fit(X=X, y=y)
+        assert gam._can_use_exact_gaussian_ml_reml()
+
+        log_sp = np.array([0.25, -0.15], dtype=np.float64)
+        val_ml = gam._criterion(y, log_sp, method="ML")
+
+        y_eff = y if gam.offset_train_ is None else (y - gam.offset_train_)
+        Xf = gam.X_fix_
+        Zr = gam.Z_rand_
+        n = Xf.shape[0]
+        p = gam.rank_X_fix_
+        q = gam.n_rand_
+
+        if q == 0:
+            if p == 0:
+                rss_v = max(float(y_eff @ y_eff), 1e-14)
+            else:
+                XtX = Xf.T @ Xf
+                cXtX, lo = cho_factor(XtX, check_finite=False)
+                b_hat = cho_solve((cXtX, lo), Xf.T @ y_eff, check_finite=False)
+                resid = y_eff - Xf @ b_hat
+                rss_v = max(float(resid @ resid), 1e-14)
+            expected = n * np.log(rss_v / n)
+        else:
+            sp = gam._expand_smoothing_params_from_log(log_sp)
+            lam_parts = [
+                np.full(block["n_pen"], sp[block["smoothing_index"]], dtype=np.float64)
+                for block in gam._reparam_rand_blocks_
+                if block["n_pen"] > 0
+            ]
+            lam_vec = np.concatenate(lam_parts) if lam_parts else np.empty((0,), dtype=np.float64)
+
+            M = gam.ZtZ_rand_ + np.diag(lam_vec)
+            cM, loM = cho_factor(M, check_finite=False)
+
+            ZTy = Zr.T @ y_eff
+            Minv_ZTy = cho_solve((cM, loM), ZTy, check_finite=False)
+            Ky = y_eff - Zr @ Minv_ZTy
+
+            if p > 0:
+                ZTX = Zr.T @ Xf
+                Minv_ZTX = cho_solve((cM, loM), ZTX, check_finite=False)
+                KX = Xf - Zr @ Minv_ZTX
+                XtKX = Xf.T @ KX
+                cXKX, loXKX = cho_factor(XtKX, check_finite=False)
+                XtKy = Xf.T @ Ky
+                b_hat = cho_solve((cXKX, loXKX), XtKy, check_finite=False)
+                rss_v = max(float(y_eff @ Ky - XtKy @ b_hat), 1e-14)
+            else:
+                rss_v = max(float(y_eff @ Ky), 1e-14)
+
+            logdet_M = 2.0 * float(np.sum(np.log(np.diag(cM))))
+            logdet_Lam = float(np.sum(np.log(lam_vec)))
+            expected = n * np.log(rss_v / n) + (logdet_M - logdet_Lam)
+
+        np.testing.assert_allclose(val_ml, expected, atol=1e-10, rtol=1e-10)
+
+    def test_select_is_propagated_for_auto_built_main_effects(self, additive_data):
+        """Global select=True should add null-space penalties in the compiled design."""
+        X, y = additive_data
+        gam = GAM(k=10, select=True, smoothing_method="fixed")
+        gam.fit(X=X, y=y)
+
+        assert any(pb.is_null_space_penalty for pb in gam.penalty_blocks_), (
+            "select=True should add null-space selection penalties to the compiled design."
+        )
+
+    def test_select_reml_fit_is_supported(self, additive_data):
+        """Exact Gaussian REML should support select=True shrinkage penalties."""
+        X, y = additive_data
+        gam = GAM(k=10, select=True, smoothing_method="REML", optimize_smoothing=True)
+        gam.fit(X=X, y=y)
+
+        assert gam._optim_method == "reml"
+        assert np.all(np.isfinite(gam.smoothing_params))
+        assert np.all(gam.smoothing_params > 0.0)
+        assert any(pb.is_null_space_penalty for pb in gam.penalty_blocks_)
+        assert gam._reparam_rand_blocks_ is not None
+        assert any(block["is_null_space_penalty"] for block in gam._reparam_rand_blocks_)
+
+    def test_tensor_select_raises_explicitly(self, additive_data):
+        """Tensor select should fail explicitly until tensor selection penalties are implemented."""
+        X, y = additive_data
+        X_named = pd.DataFrame(X, columns=["x0", "x1"])
+        gam = GAM(k=8, tensor_terms=[("x0", "x1")], select=True, smoothing_method="fixed")
+
+        with pytest.raises(NotImplementedError, match=r"select=True .* te\(\)/ti\(\)/t2\(\)"):
+            gam.fit(X=X_named, y=y)
 
     def test_ml_reml_converge_at_large_n(self):
         """With large n, ML and REML smoothing params should be closer."""
@@ -371,6 +471,369 @@ class TestDiagnostics:
 
 
 # ======================================================================
+# Non-Gaussian Laplace ML/REML
+# ======================================================================
+
+
+class TestNonGaussianLaplaceMLREML:
+    def test_backend_resolution_prefers_exact_gaussian_but_keeps_pirls_available(self):
+        gaussian = GAM(k=8, family="gaussian")
+        binomial = GAM(k=8, family="binomial")
+        rng = np.random.default_rng(11)
+        X = rng.normal(size=(80, 2))
+        y = np.sin(X[:, 0]) + 0.3 * X[:, 1] + rng.normal(scale=0.1, size=80)
+
+        assert gaussian._available_fit_backends() == ("gaussian_exact", "pirls")
+        assert gaussian._resolve_fit_backend() == "gaussian_exact"
+        gaussian.fit(X=X, y=y)
+        assert gaussian._resolve_ml_reml_scoring_backend("reml") == "gaussian_exact"
+
+        assert binomial._available_fit_backends() == ("pirls",)
+        assert binomial._resolve_fit_backend() == "pirls"
+
+    def test_binomial_reml_fit_populates_shared_fit_state(self):
+        rng = np.random.default_rng(123)
+        X = rng.normal(size=(180, 2))
+        eta = 1.2 * np.sin(X[:, 0]) - 0.7 * X[:, 1]
+        p = 1.0 / (1.0 + np.exp(-eta))
+        y = rng.binomial(1, p)
+
+        gam = GAM(
+            k=8,
+            family="binomial",
+            optimize_smoothing=True,
+            smoothing_method="REML",
+        )
+        gam.fit(X=X, y=y)
+
+        assert gam._optim_method == "reml"
+        assert gam.fit_state_ is not None
+        assert gam.fit_state_.X is not None
+        assert gam.fit_state_.XtWX is not None
+        assert gam.fit_state_.penalty_matrix is not None
+        assert gam.fit_state_.working_weights is not None
+        assert gam.fit_state_.penalty_quadratic is not None
+        assert gam.fit_state_.loglik is not None
+        assert np.all(np.isfinite(gam.smoothing_params))
+        assert np.all(gam.smoothing_params > 0.0)
+
+    def test_binomial_ml_and_reml_criteria_differ_at_same_sp(self):
+        rng = np.random.default_rng(321)
+        X = rng.normal(size=(160, 2))
+        eta = 0.9 * np.sin(X[:, 0]) + 0.5 * X[:, 1]
+        p = 1.0 / (1.0 + np.exp(-eta))
+        y = rng.binomial(1, p)
+
+        gam = GAM(k=8, family="binomial")
+        gam.fit(X=X, y=y)
+
+        assert gam._uses_pirls_solver()
+        assert gam._can_use_simple_ml_reml_structure()
+
+        log_sp = np.array([0.1, -0.2], dtype=np.float64)
+        val_ml = gam._criterion(y, log_sp, method="ML")
+        val_reml = gam._criterion(y, log_sp, method="REML")
+
+        assert np.isfinite(val_ml) and np.isfinite(val_reml)
+        assert val_ml != val_reml
+
+    def test_poisson_reml_fit_optimizes_smoothing(self):
+        rng = np.random.default_rng(456)
+        X = rng.normal(size=(220, 2))
+        mu = np.exp(0.3 + 0.8 * np.sin(X[:, 0]) + 0.2 * X[:, 1])
+        y = rng.poisson(mu)
+
+        gam = GAM(
+            k=8,
+            family="poisson",
+            optimize_smoothing=True,
+            smoothing_method="REML",
+        )
+        gam.fit(X=X, y=y)
+
+        assert gam._optim_method == "reml"
+        assert np.all(np.isfinite(gam.smoothing_params))
+        assert np.all(gam.smoothing_params > 0.0)
+        assert gam.deviance_ >= 0.0
+
+    def test_poisson_ml_and_reml_criteria_differ_at_same_sp(self):
+        rng = np.random.default_rng(654)
+        X = rng.normal(size=(180, 2))
+        mu = np.exp(0.2 + 0.7 * np.sin(X[:, 0]) - 0.3 * X[:, 1])
+        y = rng.poisson(mu)
+
+        gam = GAM(k=8, family="poisson")
+        gam.fit(X=X, y=y)
+
+        assert gam._uses_pirls_solver()
+        assert gam._can_use_simple_ml_reml_structure()
+
+        log_sp = np.array([-0.05, 0.15], dtype=np.float64)
+        val_ml = gam._criterion(y, log_sp, method="ML")
+        val_reml = gam._criterion(y, log_sp, method="REML")
+
+        assert np.isfinite(val_ml) and np.isfinite(val_reml)
+        assert val_ml != val_reml
+
+    def test_binomial_select_reml_fit_optimizes_smoothing(self):
+        rng = np.random.default_rng(987)
+        X = rng.normal(size=(180, 2))
+        eta = 0.8 * np.sin(X[:, 0]) - 0.3 * X[:, 1]
+        p = 1.0 / (1.0 + np.exp(-eta))
+        y = rng.binomial(1, p)
+
+        gam = GAM(
+            k=8,
+            family="binomial",
+            select=True,
+            optimize_smoothing=True,
+            smoothing_method="REML",
+        )
+        gam.fit(X=X, y=y)
+
+        assert gam._optim_method == "reml"
+        assert np.all(np.isfinite(gam.smoothing_params))
+        assert np.all(gam.smoothing_params > 0.0)
+        assert any(pb.is_null_space_penalty for pb in gam.penalty_blocks_)
+
+    def test_binomial_reml_optimizer_uses_gradient(self):
+        rng = np.random.default_rng(222)
+        X = rng.normal(size=(150, 2))
+        eta = 1.1 * np.sin(X[:, 0]) - 0.4 * X[:, 1]
+        p = 1.0 / (1.0 + np.exp(-eta))
+        y = rng.binomial(1, p)
+
+        gam = GAM(
+            k=8,
+            family="binomial",
+            optimize_smoothing=True,
+            smoothing_method="REML",
+        )
+        gam.fit(X=X, y=y)
+
+        assert gam._optim_used_gradient is True
+        assert gam._optim_result is not None
+        assert hasattr(gam._optim_result, "jac")
+        assert np.all(np.isfinite(np.asarray(gam._optim_result.jac)))
+
+    def test_poisson_ml_optimizer_uses_gradient(self):
+        rng = np.random.default_rng(333)
+        X = rng.normal(size=(150, 2))
+        mu = np.exp(0.1 + 0.6 * np.sin(X[:, 0]) + 0.25 * X[:, 1])
+        y = rng.poisson(mu)
+
+        gam = GAM(
+            k=8,
+            family="poisson",
+            optimize_smoothing=True,
+            smoothing_method="ML",
+        )
+        gam.fit(X=X, y=y)
+
+        assert gam._optim_used_gradient is True
+        assert gam._optim_result is not None
+        assert hasattr(gam._optim_result, "jac")
+        assert np.all(np.isfinite(np.asarray(gam._optim_result.jac)))
+
+
+class TestDerivativeAwareOptimization:
+    def test_exact_binomial_reml_gradient_matches_centered_difference(self):
+        rng = np.random.default_rng(555)
+        X = rng.normal(size=(160, 2))
+        eta = 1.1 * np.sin(X[:, 0]) - 0.4 * X[:, 1]
+        p = 1.0 / (1.0 + np.exp(-eta))
+        y = rng.binomial(1, p)
+
+        gam = GAM(k=8, family="binomial")
+        gam.fit(X=X, y=y)
+
+        log_sp = np.array([0.1, -0.15], dtype=np.float64)
+        grad_exact = gam._criterion_gradient(y, log_sp, method="REML")
+        grad_num = criterion_gradient_numerical(gam, y, log_sp, method="REML")
+
+        np.testing.assert_allclose(grad_exact, grad_num, rtol=1e-5, atol=1e-6)
+
+    def test_exact_poisson_ml_gradient_matches_centered_difference(self):
+        rng = np.random.default_rng(556)
+        X = rng.normal(size=(160, 2))
+        mu = np.exp(0.2 + 0.7 * np.sin(X[:, 0]) + 0.15 * X[:, 1])
+        y = rng.poisson(mu)
+
+        gam = GAM(k=8, family="poisson")
+        gam.fit(X=X, y=y)
+
+        log_sp = np.array([-0.08, 0.12], dtype=np.float64)
+        grad_exact = gam._criterion_gradient(y, log_sp, method="ML")
+        grad_num = criterion_gradient_numerical(gam, y, log_sp, method="ML")
+
+        np.testing.assert_allclose(grad_exact, grad_num, rtol=1e-4, atol=2e-4)
+
+    def test_exact_binomial_reml_hessian_matches_numerical(self):
+        rng = np.random.default_rng(557)
+        X = rng.normal(size=(120, 2))
+        eta = 0.9 * np.sin(X[:, 0]) - 0.3 * X[:, 1]
+        p = 1.0 / (1.0 + np.exp(-eta))
+        y = rng.binomial(1, p)
+
+        gam = GAM(k=8, family="binomial")
+        gam.fit(X=X, y=y)
+
+        log_sp = np.array([0.05, -0.12], dtype=np.float64)
+        hess_exact = gam._criterion_hessian(y, log_sp, method="REML")
+        hess_num = criterion_hessian_numerical(gam, y, log_sp, method="REML")
+
+        np.testing.assert_allclose(hess_exact, hess_num, rtol=1e-5, atol=1e-6)
+
+    def test_exact_poisson_ml_hessian_matches_numerical(self):
+        rng = np.random.default_rng(558)
+        X = rng.normal(size=(120, 2))
+        mu = np.exp(0.2 + 0.6 * np.sin(X[:, 0]) + 0.2 * X[:, 1])
+        y = rng.poisson(mu)
+
+        gam = GAM(k=8, family="poisson")
+        gam.fit(X=X, y=y)
+
+        log_sp = np.array([-0.06, 0.11], dtype=np.float64)
+        hess_exact = gam._criterion_hessian(y, log_sp, method="ML")
+        hess_num = criterion_hessian_numerical(gam, y, log_sp, method="ML")
+
+        np.testing.assert_allclose(hess_exact, hess_num, rtol=1e-5, atol=1e-6)
+
+    def test_exact_negbin_ml_gradient_matches_centered_difference(self):
+        rng = np.random.default_rng(559)
+        X = rng.normal(size=(140, 2))
+        mu = np.exp(0.2 + 0.5 * np.sin(X[:, 0]) - 0.1 * X[:, 1])
+        theta = 2.5
+        p = theta / (theta + mu)
+        y = rng.negative_binomial(theta, p)
+
+        gam = GAM(k=8, family="negbin", theta=theta)
+        gam.fit(X=X, y=y)
+
+        log_sp = np.array([-0.04, 0.11], dtype=np.float64)
+        grad_exact = gam._criterion_gradient(y, log_sp, method="ML")
+        grad_num = criterion_gradient_numerical(gam, y, log_sp, method="ML")
+
+        np.testing.assert_allclose(grad_exact, grad_num, rtol=3e-3, atol=7e-3)
+
+    def test_exact_negbin_ml_hessian_matches_numerical(self):
+        rng = np.random.default_rng(560)
+        X = rng.normal(size=(140, 2))
+        mu = np.exp(0.2 + 0.5 * np.sin(X[:, 0]) - 0.1 * X[:, 1])
+        theta = 2.5
+        p = theta / (theta + mu)
+        y = rng.negative_binomial(theta, p)
+
+        gam = GAM(k=8, family="negbin", theta=theta)
+        gam.fit(X=X, y=y)
+
+        log_sp = np.array([-0.04, 0.11], dtype=np.float64)
+        hess_exact = gam._criterion_hessian(y, log_sp, method="ML")
+        hess_num = criterion_hessian_numerical(gam, y, log_sp, method="ML")
+
+        np.testing.assert_allclose(hess_exact, hess_num, rtol=2e-2, atol=5e-3)
+
+    def test_exact_gaussian_reml_gradient_matches_centered_difference(self, additive_data):
+        X, y = additive_data
+        gam = GAM(k=8)
+        gam.fit(X=X, y=y)
+
+        assert gam._resolve_ml_reml_scoring_backend("reml") == "gaussian_exact"
+
+        log_sp = np.array([0.15, -0.1], dtype=np.float64)
+        grad_exact = gam._criterion_gradient(y, log_sp, method="REML")
+        grad_num = criterion_gradient_numerical(gam, y, log_sp, method="REML")
+
+        np.testing.assert_allclose(grad_exact, grad_num, rtol=1e-5, atol=1e-6)
+
+    def test_exact_gaussian_ml_gradient_matches_centered_difference(self, additive_data):
+        X, y = additive_data
+        gam = GAM(k=8)
+        gam.fit(X=X, y=y)
+
+        assert gam._resolve_ml_reml_scoring_backend("ml") == "gaussian_exact"
+
+        log_sp = np.array([-0.05, 0.18], dtype=np.float64)
+        grad_exact = gam._criterion_gradient(y, log_sp, method="ML")
+        grad_num = criterion_gradient_numerical(gam, y, log_sp, method="ML")
+
+        np.testing.assert_allclose(grad_exact, grad_num, rtol=1e-5, atol=1e-6)
+
+    def test_gaussian_reml_gradient_is_finite(self, additive_data):
+        X, y = additive_data
+        gam = GAM(k=8)
+        gam.fit(X=X, y=y)
+
+        log_sp = np.array([0.15, -0.1], dtype=np.float64)
+        grad = gam._criterion_gradient(y, log_sp, method="REML")
+
+        assert grad.shape == log_sp.shape
+        assert np.all(np.isfinite(grad))
+
+    def test_gaussian_reml_hessian_is_finite_and_symmetric(self, additive_data):
+        X, y = additive_data
+        gam = GAM(k=8)
+        gam.fit(X=X, y=y)
+
+        log_sp = np.array([0.12, -0.08], dtype=np.float64)
+        hess = gam._criterion_hessian(y, log_sp, method="REML")
+
+        assert hess.shape == (2, 2)
+        assert np.all(np.isfinite(hess))
+        np.testing.assert_allclose(hess, hess.T, atol=1e-8)
+
+    def test_gaussian_reml_optimizer_uses_gradient(self, additive_data):
+        X, y = additive_data
+        gam = GAM(k=8, optimize_smoothing=True, smoothing_method="REML")
+        gam.fit(X=X, y=y)
+
+        assert gam._optim_used_gradient is True
+        assert gam._optim_result is not None
+        assert hasattr(gam._optim_result, "jac")
+        assert np.all(np.isfinite(np.asarray(gam._optim_result.jac)))
+
+    def test_gaussian_outer_newton_uses_hessian(self, additive_data):
+        X, y = additive_data
+        gam = GAM(
+            k=8,
+            optimize_smoothing=True,
+            smoothing_method="REML",
+            smoothing_optimizer="outer_newton",
+        )
+        gam.fit(X=X, y=y)
+
+        assert gam._optim_used_gradient is True
+        assert gam._optim_used_hessian is True
+        assert gam._optim_result is not None
+        assert gam._optim_result.success
+        assert hasattr(gam._optim_result, "hess")
+        assert np.all(np.isfinite(np.asarray(gam._optim_result.hess)))
+
+    def test_binomial_outer_newton_uses_hessian(self):
+        rng = np.random.default_rng(444)
+        X = rng.normal(size=(160, 2))
+        eta = 0.9 * np.sin(X[:, 0]) - 0.5 * X[:, 1]
+        p = 1.0 / (1.0 + np.exp(-eta))
+        y = rng.binomial(1, p)
+
+        gam = GAM(
+            k=8,
+            family="binomial",
+            optimize_smoothing=True,
+            smoothing_method="REML",
+            smoothing_optimizer="outer_newton",
+        )
+        gam.fit(X=X, y=y)
+
+        assert gam._optim_used_gradient is True
+        assert gam._optim_used_hessian is True
+        assert gam._optim_result is not None
+        assert gam._optim_result.success
+        assert hasattr(gam._optim_result, "hess")
+        assert np.all(np.isfinite(np.asarray(gam._optim_result.hess)))
+
+
+# ======================================================================
 # Core GAM edge cases
 # ======================================================================
 
@@ -381,20 +844,22 @@ class TestReparameterization:
     def test_reparam_dimensions(self, additive_data):
         """X_fix_ and Z_rand_ dimensions should be consistent."""
         X, y = additive_data
-        gam = GAM(X, k=10)
+        gam = GAM(k=10)
+        gam.fit(X=X, y=y)
 
         n, m = X.shape
         assert gam.X_fix_.shape[0] == n
         assert gam.Z_rand_.shape[0] == n
         assert gam.rank_X_fix_ == gam.X_fix_.shape[1]
 
-        total_pen = sum(gam.rand_dims_per_term_)
+        total_pen = sum(block["n_pen"] for block in gam._reparam_rand_blocks_)
         assert gam.Z_rand_.shape[1] == total_pen
 
     def test_reparam_spans_same_column_space(self, additive_data):
         """Reparameterized matrices should span the same column space as [1|Z]."""
         X, y = additive_data
-        gam = GAM(X, k=8)
+        gam = GAM(k=8)
+        gam.fit(X=X, y=y)
 
         original = np.column_stack([np.ones(X.shape[0]), gam.Z])
         reparam = np.column_stack([gam.X_fix_, gam.Z_rand_])
@@ -417,24 +882,23 @@ class TestReparameterization:
     def test_whitened_penalty_is_identity(self, additive_data):
         """After whitening, the penalty on each Z_r block should be λI."""
         X, y = additive_data
-        gam = GAM(X, k=8)
+        gam = GAM(k=8)
+        gam.fit(X=X, y=y)
         start = 0
         for i, meta in enumerate(gam._reparam_meta):
-            n_pen = meta["n_pen"]
-            if n_pen == 0:
+            if meta is None:
                 continue
-            Zr_block = gam.Z_rand_[:, start:start + n_pen]
-            # The effective penalty on whitened coords is λ * I
-            # Verify by checking that B1 / sqrt(d) was applied correctly:
-            # Zr = B @ U1 / sqrt(d), so Zr' Zr gives the "data-side" Gram
-            # but the penalty is simply I (times λ)
-            U1 = meta["U1"]
-            d_pos = meta["d_pos"]
-            B_orig = gam.Z[:, gam.slices[i]]
-            B1 = B_orig @ U1
-            Zr_expected = B1 / np.sqrt(d_pos)[np.newaxis, :]
-            np.testing.assert_allclose(Zr_block, Zr_expected, atol=1e-10)
-            start += n_pen
+            primary = meta["primary"]
+            n_pen = primary["n_pen"]
+            if n_pen > 0:
+                Zr_block = gam.Z_rand_[:, start:start + n_pen]
+                U1 = primary["U1"]
+                d_pos = primary["d_pos"]
+                B_orig = gam.term_blocks_[i].basis_train
+                B1 = B_orig @ U1
+                Zr_expected = B1 / np.sqrt(d_pos)[np.newaxis, :]
+                np.testing.assert_allclose(Zr_block, Zr_expected, atol=1e-10)
+                start += n_pen
 
 
 class TestCoreGAM:

@@ -143,8 +143,12 @@ class TaskModel(pl.LightningModule):
 
     def _shared_step(self, batch, batch_idx, stage: str):
         cat_features, num_features, labels = batch
-        preds = self(num_features=num_features, cat_features=cat_features)["output"]
+        result = self(num_features=num_features, cat_features=cat_features)
+        preds = result["output"]
         loss = self.compute_loss(preds, labels)
+        for key, value in result.items():
+            if key.endswith("_penalty") or key.endswith("_regularizer"):
+                loss = loss + value
 
         self.log(
             f"{stage}_loss",

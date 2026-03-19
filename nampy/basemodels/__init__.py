@@ -7,10 +7,11 @@ from .nam import NAM
 from .namformer import NAMformer
 from .natt import NATT
 from .nbm import NBM
+from .ngboost import NGBSurvival, NGBoost
 from .nodegam import NodeGAM
 from .qnam import QNAMBase
-from .snam import SNAM
-from .treenam import BoostedNAM
+from .spline_nam import SplineNAM
+from .treenam import TreeNAM
 
 __all__ = [
     "TaskModel",
@@ -20,10 +21,12 @@ __all__ = [
     "QNAMBase",
     "GPNAM",
     "NBM",
+    "NGBoost",
+    "NGBSurvival",
     "NATT",
     "NAMformer",
-    "BoostedNAM",
-    "SNAM",
+    "TreeNAM",
+    "SplineNAM",
     "NodeGAM",
     "MultiModelWrapper",
 ]

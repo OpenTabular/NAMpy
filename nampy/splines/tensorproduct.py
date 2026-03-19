@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import math
 import numpy as np
 from scipy.spatial import distance_matrix
 
@@ -26,7 +27,7 @@ class TPSplines:
         if len(x.shape) == 1:
             x = x.values.reshape(n, 1)
         d = x.shape[1]
-        M = np.math.comb(pen_order + d - 1, d)
+        M = math.comb(pen_order + d - 1, d)
 
         # model matrices
         X, S, UZ, map_idx = tp_spline(x, k, pen_order, n, d, M)

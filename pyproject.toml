@@ -48,6 +48,7 @@ dependencies = [
     "pandas",
     "lightning",
     "scikit-learn",
+    "scipy",
     "torch",
     "torchmetrics",
     "setuptools",
@@ -193,4 +194,3 @@ exclude_lines = [
     "class .*\\bProtocol\\):",
     "@(abc\\.)?abstractmethod",
 ]
-

@@ -31,8 +31,9 @@ Model Implementations
    NATT
    NAMformer
    LinReg
+   NGBoost
+   NGBSurvival
    QNAMBase
-   BoostedNAM
    SNAM
    NodeGAM
 
