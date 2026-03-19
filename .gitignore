@@ -181,4 +181,6 @@ model_checkpoints/
 .pre-commit-cache/
 
 # Ruff
-.ruff_cache/
+.ruff_cache/XGBoostLSS/
+mgcv/
+ngboost/

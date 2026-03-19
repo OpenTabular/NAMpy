@@ -1,14 +1,14 @@
 from ..basemodels.qnam import QNAMBase
-from ..configs.nam_config import DefaultNAMConfig
+from ..configs.qnam_config import DefaultQNAMConfig
 from .sklearn_lss import SklearnBaseLSS
 
 
 class QNAM(SklearnBaseLSS):
     """
     Multi-Layer Perceptron for distributional regression. This class extends the SklearnBaseLSS class and uses the NAM model
-    with the default NAM configuration.
+    with the default QNAM configuration.
 
-    The accepted arguments to the NAMLSS class include both the attributes in the DefaultNAMConfig dataclass
+    The accepted arguments to the QNAM class include both the attributes in the DefaultQNAMConfig dataclass
     and the parameters for the Preprocessor class.
 
     Parameters
@@ -88,7 +88,7 @@ class QNAM(SklearnBaseLSS):
     def __init__(self, **kwargs):
         super().__init__(
             model=QNAMBase,
-            config=DefaultNAMConfig,
+            config=DefaultQNAMConfig,
             **kwargs,
         )
 

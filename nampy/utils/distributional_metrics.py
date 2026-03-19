@@ -1,4 +1,4 @@
-#distributional_metrics.py
+#utils/distributional_metrics.py
 import math
 from typing import Optional
 
@@ -7,11 +7,6 @@ from scipy.special import gammaln
 
 
 _EPS = 1e-9
-
-
-def _asarray(x):
-    return np.asarray(x)
-
 
 def _as_1d(x):
     x = np.asarray(x)
@@ -104,7 +99,7 @@ def poisson_deviance(y_true, y_pred):
 
     # 0 * log(0 / mu) := 0
     term = np.where(y > 0, y * np.log(np.clip(y, _EPS, None) / mu), 0.0)
-    return float(2.0 * np.sum(term - (y - mu)))
+    return float(2.0 * np.sum(term - (y - mu)))/y.shape[0]
 
 
 def gamma_deviance(y_true, y_pred):

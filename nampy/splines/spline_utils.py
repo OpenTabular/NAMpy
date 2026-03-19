@@ -1,4 +1,6 @@
+# splines/spline_utils.py
 import bisect
+import math
 
 import matplotlib as mpl
 import numpy as np
@@ -9,36 +11,51 @@ from scipy.spatial import distance_matrix
 
 def eta(E, m, d):
     """
-    Calculate the eta function given a matrix of Euclidean distances, penalty order and dimensionality
-    of the data
-    :param E: Matrix of euclidean distances between points
-    :param m: penalty order
-    :param d: dimensionality of data
-    :return: eta-fct of the supplied Euclidean distances
-    """
-    if d % 2 == 0:
-        const = ((-1) ** (m + 1 + d / 2)) / (
-            2 ** (2 * m - 1)
-            * np.pi ** (d / 2)
-            * np.math.factorial(m - 1)
-            * np.math.factorial(m - d / 2)
-        )
-        E = const * E ** (2 * m - d) * np.log(E)
+    Calculate the eta function given a matrix of Euclidean distances, penalty order,
+    and dimensionality of the data.
 
+    Parameters
+    ----------
+    E : array-like
+        Matrix of Euclidean distances.
+    m : int
+        Penalty order.
+    d : int
+        Dimensionality of the data.
+
+    Returns
+    -------
+    np.ndarray
+        Eta(E).
+    """
+    E = np.asarray(E, dtype=np.float64)
+
+    if d % 2 == 0:
+        d_half = d // 2
+        const = ((-1) ** (m + 1 + d_half)) / (
+            2 ** (2 * m - 1)
+            * np.pi ** d_half
+            * math.factorial(m - 1)
+            * math.factorial(m - d_half)
+        )
+
+        out = np.zeros_like(E, dtype=np.float64)
+        mask = E > 0
+        out[mask] = const * (E[mask] ** (2 * m - d)) * np.log(E[mask])
+        E = out
     else:
         E = (
-            np.math.gamma(d / 2 - m)
-            / (2 ** (2 * m) * np.pi ** (d / 2) * np.math.factorial(m - 1))
+            math.gamma(d / 2 - m)
+            / (2 ** (2 * m) * np.pi ** (d / 2) * math.factorial(m - 1))
             * E ** (2 * m - d)
         )
-    np.nan_to_num(E, 0)
-    return E
+
+    return np.nan_to_num(E, nan=0.0, posinf=0.0, neginf=0.0)
 
 
 def tp_spline(x, k, pen_order, n, d, M):
-
-    # subtract mean from data (try to recreate model matrix in mgcv, did not work. Doesn't change the model, so can be
-    # ignored
+    # subtract mean from data (try to recreate model matrix in mgcv, did not work.
+    # Doesn't change the model, so can be ignored)
     if d == 1:
         x = x - x.mean()
 
@@ -68,15 +85,16 @@ def tp_spline(x, k, pen_order, n, d, M):
     T = tp_T(x_un, M, pen_order, d)
 
     # absorb constraint T * delta = 0
-
     q, r = np.linalg.qr(np.dot(U_k.T, T), mode="complete")
     Z_k = q[:, M:]
 
     UZ = U_k @ Z_k
+
     # create penalty matrix S (padded by zeros for unpenalized alpha-part)
     S = Z_k.T @ D_k @ Z_k
     S_full = np.zeros((k, k))
     S_full[: k - M, : k - M] = S
+
     # finalize design matrix
     X = U_k @ D_k @ Z_k
     X = np.column_stack([X, T])
@@ -103,123 +121,202 @@ def tp_spline(x, k, pen_order, n, d, M):
 def get_FS(xk):
     """
     Create matrix F required to build the spline base and the penalizing matrix S,
-    based on a set of knots xk (ascending order). Pretty much directly from p.201 in Wood (2017)
-    :param xk: knots (for now always np.linspace(x.min(), x.max(), n_knots)
+    based on a set of knots xk (ascending order). Pretty much directly from p.201
+    in Wood (2017).
+
+    Parameters
+    ----------
+    xk : array-like
+        Knots in strictly increasing order.
+
+    Returns
+    -------
+    F : np.ndarray
+    S : np.ndarray
     """
+    xk = np.asarray(xk, dtype=np.float64).ravel()
+    if xk.ndim != 1:
+        raise ValueError("xk must be one-dimensional.")
+    if xk.size < 3:
+        raise ValueError("Need at least 3 knots.")
+    if np.any(~np.isfinite(xk)):
+        raise ValueError("Knots contain NaN or Inf.")
+    if np.any(np.diff(xk) <= 0):
+        raise ValueError("Knots must be strictly increasing.")
+
     k = len(xk)
     h = np.diff(xk)
-    h_shift_up = h.copy()[1:]
+    h_shift_up = h[1:]
 
-    D = np.zeros((k - 2, k))
-    np.fill_diagonal(D, 1 / h[: k - 2])
-    np.fill_diagonal(D[:, 1:], (-1 / h[: k - 2] - 1 / h_shift_up))
-    np.fill_diagonal(D[:, 2:], 1 / h_shift_up)
+    D = np.zeros((k - 2, k), dtype=np.float64)
+    np.fill_diagonal(D, 1.0 / h[: k - 2])
+    np.fill_diagonal(D[:, 1:], (-1.0 / h[: k - 2] - 1.0 / h_shift_up))
+    np.fill_diagonal(D[:, 2:], 1.0 / h_shift_up)
 
-    B = np.zeros((k - 2, k - 2))
-    np.fill_diagonal(B, (h[: k - 2] + h_shift_up) / 3)
-    np.fill_diagonal(B[:, 1:], h_shift_up[k - 3] / 6)
-    np.fill_diagonal(B[1:, :], h_shift_up[k - 3] / 6)
-    F_minus = np.linalg.inv(B) @ D
-    F = np.vstack([np.zeros(k), F_minus, np.zeros(k)])
-    S = D.T @ np.linalg.inv(B) @ D
+    B = np.zeros((k - 2, k - 2), dtype=np.float64)
+    np.fill_diagonal(B, (h[: k - 2] + h_shift_up) / 3.0)
+
+    # Correct off-diagonals for irregular knot spacing.
+    # The old version incorrectly used one scalar everywhere.
+    np.fill_diagonal(B[:, 1:], h_shift_up / 6.0)
+    np.fill_diagonal(B[1:, :], h_shift_up / 6.0)
+
+    F_minus = np.linalg.solve(B, D)
+    F = np.vstack([np.zeros(k, dtype=np.float64), F_minus, np.zeros(k, dtype=np.float64)])
+    S = D.T @ F_minus
     return F, S
 
 
-def cr_spl(x, n_knots):
+def cr_spl(x, n_knots, knots=None):
     """
+    Build a cubic regression spline basis.
 
-    :param x: x values to be evalutated
-    :param n_knots: number of knots
-    :return:
+    Parameters
+    ----------
+    x : array-like
+        Covariate values.
+    n_knots : int
+        Number of knots to generate if `knots` is None.
+    knots : array-like or None
+        Optional explicit knot locations. If supplied, these are used directly
+        and `n_knots` is ignored.
     """
+    x = np.asarray(x, dtype=np.float64).ravel()
+    if x.ndim != 1:
+        raise ValueError("x must be one-dimensional.")
 
-    xk = np.linspace(x.min(), x.max(), n_knots)
+    if knots is None:
+        n_knots = int(n_knots)
+        if n_knots < 3:
+            raise ValueError("At least 3 knots are required for cubic regression splines.")
+        xu = np.unique(x)
+        if xu.size < n_knots:
+            raise ValueError(
+                "Insufficient unique values to support the requested number of knots."
+            )
+        probs = np.linspace(0.0, 1.0, n_knots, dtype=np.float64)
+        xk = np.quantile(xu, probs)
+    else:
+        xk = np.asarray(knots, dtype=np.float64).ravel()
+        if xk.ndim != 1:
+            raise ValueError("knots must be one-dimensional.")
+        if xk.size < 3:
+            raise ValueError("At least 3 knots are required for cubic regression splines.")
+        if not np.all(np.isfinite(xk)):
+            raise ValueError("knots contain NaN or Inf.")
+        xk = np.unique(xk)
+        if xk.size < 3:
+            raise ValueError("Need at least 3 unique knots for cubic regression splines.")
+        if np.any(np.diff(xk) <= 0):
+            raise ValueError("knots must be strictly increasing.")
+
     n = len(x)
     k = len(xk)
     F, S = get_FS(xk)
-    base = np.zeros((n, k))
-    for i in range(0, len(x)):
-        # find interval in which x[i] lies
-        # and evaluate basis function from p.201 in Wood (2017)
+    base = np.zeros((n, k), dtype=np.float64)
+
+    for i in range(n):
         j = bisect.bisect_left(xk, x[i])
+        if j == 0:
+            j = 1
+        if j >= len(xk):
+            j = len(xk) - 1
+
         x_j = xk[j - 1]
         x_j1 = xk[j]
         h = x_j1 - x_j
         a_jm = (x_j1 - x[i]) / h
         a_jp = (x[i] - x_j) / h
-        c_jm = ((x_j1 - x[i]) ** 3 / h - h * (x_j1 - x[i])) / 6
-        c_jp = ((x[i] - x_j) ** 3 / h - h * (x[i] - x_j)) / 6
+        c_jm = ((x_j1 - x[i]) ** 3 / h - h * (x_j1 - x[i])) / 6.0
+        c_jp = ((x[i] - x_j) ** 3 / h - h * (x[i] - x_j)) / 6.0
+
         base[i, :] = c_jm * F[j - 1, :] + c_jp * F[j, :]
         base[i, j - 1] += a_jm
         base[i, j] += a_jp
+
     return base, S, xk, F
 
 
 def cr_spl_predict(x, knots, F):
     """
-    pretty much the same as cr_spl, this time evaluating it for already given knots and F
-    (could probably just be integrated into cr_spl)
+    Evaluate an existing cubic regression spline basis at new points.
     """
+    x = np.asarray(x, dtype=np.float64).ravel()
+    knots = np.asarray(knots, dtype=np.float64).ravel()
+    F = np.asarray(F, dtype=np.float64)
 
     n = len(x)
     k = len(knots)
-    base = np.zeros((n, k))
-    for i in range(0, len(x)):
-        # in case x[i] is lies outside the range of the knots, extrapolate (see mgcv/src/mgcv.c (crspl) on github)
-        if x[i] < min(knots):
-            j = 0
+    base = np.zeros((n, k), dtype=np.float64)
+
+    for i in range(n):
+        # Extrapolate outside knot range, following the original intended logic.
+        if x[i] <= knots[0]:
             h = knots[1] - knots[0]
             xik = x[i] - knots[0]
-            c_jm = -xik * h / 3
-            c_jp = -xik * h / 6
+            c_jm = -xik * h / 3.0
+            c_jp = -xik * h / 6.0
             base[i, :] = c_jm * F[0, :] + c_jp * F[1, :]
-            base[i, 0] += 1 - xik / h
+            base[i, 0] += 1.0 - xik / h
             base[i, 1] += xik / h
-        elif x[i] > max(knots):
+
+        elif x[i] >= knots[-1]:
             j = len(knots) - 1
             h = knots[j] - knots[j - 1]
             xik = x[i] - knots[j]
-            c_jm = xik * h / 6
-            c_jp = xik * h / 3
-            base[i, :] = c_jm * F[j - 1, :] + c_jp * F[j, 1]
+            c_jm = xik * h / 6.0
+            c_jp = xik * h / 3.0
+            base[i, :] = c_jm * F[j - 1, :] + c_jp * F[j, :]
             base[i, j - 1] += -xik / h
-            base[i, j] += 1 + xik / h
-        # find interval in which x[i] lies and evaluate accordingly just like in cr_spl
+            base[i, j] += 1.0 + xik / h
+
         else:
             j = bisect.bisect_left(knots, x[i])
+            if j == 0:
+                j = 1
+
             x_j = knots[j - 1]
             x_j1 = knots[j]
             h = x_j1 - x_j
             a_jm = (x_j1 - x[i]) / h
             a_jp = (x[i] - x_j) / h
-            c_jm = ((x_j1 - x[i]) ** 3 / h - h * (x_j1 - x[i])) / 6
-            c_jp = ((x[i] - x_j) ** 3 / h - h * (x[i] - x_j)) / 6
+            c_jm = ((x_j1 - x[i]) ** 3 / h - h * (x_j1 - x[i])) / 6.0
+            c_jp = ((x[i] - x_j) ** 3 / h - h * (x[i] - x_j)) / 6.0
+
             base[i, :] = c_jm * F[j - 1, :] + c_jp * F[j, :]
             base[i, j - 1] += a_jm
             base[i, j] += a_jp
+
     return base
 
 
 def scale_penalty(basis, penalty):
     """
-    rescale the penalty matrix based on the design matrix of the smoother
-    from mgcv to get penalties that react comparably to smoothing parameters
-    (works for CubicSplines and MRFSmooth, not for TPSpline since the model
-    matrices are completely different)
+    Rescale the penalty matrix based on the design matrix of the smoother
+    from mgcv to get penalties that react comparably to smoothing parameters.
     """
-    X_inf_norm = max(np.sum(abs(basis), axis=1)) ** 2
+    basis = np.asarray(basis, dtype=np.float64)
+    penalty = np.asarray(penalty, dtype=np.float64)
+
+    X_inf_norm = max(np.sum(np.abs(basis), axis=1)) ** 2
     S_norm = np.linalg.norm(penalty, ord=1)
+
+    if X_inf_norm <= 0 or S_norm <= 0:
+        return penalty.copy()
+
     norm = S_norm / X_inf_norm
-    penalty = penalty / norm
-    return penalty
+    return penalty / norm
 
 
 def identconst(basis, penalty):
     """
-    create constraint matrix and absorb identifiability constraint into model matrices:
-    returns centered model matrices as well orthogonal factor Z to map centered matrices
-    back to unconstrained column space
+    Create constraint matrix and absorb identifiability constraint into model matrices:
+    returns centered model matrices as well as orthogonal factor Z to map centered matrices
+    back to unconstrained column space.
     """
+    basis = np.asarray(basis, dtype=np.float64)
+    penalty = np.asarray(penalty, dtype=np.float64)
+
     constraint_matrix = basis.mean(axis=0).reshape(-1, 1)
     q, r = np.linalg.qr(constraint_matrix, mode="complete")
     penalty = np.double(
@@ -231,18 +328,15 @@ def identconst(basis, penalty):
 
 def pol2nb(pc):
     """
-    Takes a dict of polygons and finds the neighbourhood-structure. (Works by finding possible neighbour candidates
-    -> if points are shared, the polygons are neighbours. Function adapted from mgcv pol2nb). The neighbourhood-structure
-    functions as the penalty matrix for MRFSmooth.
-    :param pc: dict of polygons
-    :return: neighbourhood-structure as pd.DataFrame (so I could have named cols and rows)
+    Takes a dict of polygons and finds the neighbourhood-structure.
+    Adapted from mgcv pol2nb.
     """
-
     num_poly = len(pc)
     lo1 = dict.fromkeys(pc.keys())
     hi1 = dict.fromkeys(pc.keys())
     lo2 = dict.fromkeys(pc.keys())
     hi2 = dict.fromkeys(pc.keys())
+
     for i in pc.keys():
         lo1[i] = min(pc[i][:, 0])
         lo2[i] = min(pc[i][:, 1])
@@ -284,6 +378,7 @@ def pol2nb(pc):
         ind = np.where(ol)[0]
         cok = pc[k]
         nb[k] = []
+
         if len(ind) > 0:
             for j in range(len(ind)):
                 co = np.vstack([pc[ind[j]], cok])
@@ -304,9 +399,6 @@ def pol2nb(pc):
 def mrf_design(regions, pc):
     """
     Function to create the design matrix for MRFSmooths. Simple indicator matrix.
-    :param regions: x
-    :param pc: dict of polygons
-    :return: design matrix with columns in order in which they are in the dictionary of polygons
     """
     regions = regions.astype("int")
     ids = pc.keys()
@@ -320,12 +412,7 @@ def mrf_design(regions, pc):
 
 def color_fader(c_1, c_2, mix=0):
     """
-    Function that takes to colors as inputs and mixes them as defined by mix [0, 1]. If the input is an array, function
-    returns a list of color codes, else just a single color code. (Necessary for MRFSmooth plot method)
-    :param c_1: color 1
-    :param c_2: color 2
-    :param mix: value between 0 and 1
-    :return:
+    Mix two colors as defined by mix in [0, 1].
     """
     c_1 = np.array(mpl.colors.to_rgb(c_1))
     c_2 = np.array(mpl.colors.to_rgb(c_2))
@@ -334,17 +421,13 @@ def color_fader(c_1, c_2, mix=0):
         for i in range(len(mix)):
             cols.append(mpl.colors.to_hex((1 - mix[i]) * c_1 + mix[i] * c_2))
         return cols
-
     else:
         return mpl.colors.to_hex((1 - mix) * c_1 + mix * c_2)
 
 
 def color_bounds(values):
     """
-    Also function for plotting MRFSmooths: Finds max and min of provided values and creates and maps the interval
-    between the two on the interval 0 to 1. Allows me to create a colorbar with the correct ticks.
-    :param values: estimated parameters of MRFSmooth
-    :return: m
+    Helper for plotting MRFSmooths.
     """
     interval = np.linspace(0, 1, 100)
     min_v = min(values)[0]
@@ -355,22 +438,12 @@ def color_bounds(values):
 
 def tp_T(data, M, m, d):
     """
-    function to get the polynomials of the features for which the penalty is null.
-    Currently calls a c-function from mgcv which returns the polynomial powers of
-    the M functions. The returned values are than used to transform the data
-    :param data: data
-    :param M: size of nullspace
-    :param m: penalty order
-    :param d: dimensions of data
-    :return:
+    Get the polynomials of the features for which the penalty is null.
     """
-
-    # call poly_powers to get the polynomial powers with which to evaluate x
     powers = poly_powers(m, d, M)
     n = data.shape[0]
     T = np.zeros((n, M))
 
-    # loop through row of powers
     for i in range(M):
         T[:, i] = np.prod(data ** powers[i, :], axis=1)
 
@@ -379,39 +452,32 @@ def tp_T(data, M, m, d):
 
 def poly_powers(m, d, M):
     """
-    one to one translation from a function in mgcv that creates an M x d matrix
-    with the polynomial powers needed for model matrix T
-    Parameters
-    ----------
-    m: penalty order
-    d: dimensions
-    M: nullspace dim
-
-    Returns matrix of polynomial powers at which to evaluate data.
-    One to one from mgcv (https://github.com/cran/mgcv/blob/master/src/tprs.c: gen_tps_poly_powers)
-    -------
-
+    Create an M x d matrix with the polynomial powers needed for model matrix T.
+    One-to-one from mgcv/src/tprs.c: gen_tps_poly_powers
     """
-
     powers = np.zeros((M, d))
     index = np.zeros(d)
+
     for i in range(M):
         for j in range(d):
             powers[i, j] = index[j]
-        sum = 0
+
+        s = 0
         for j in range(d):
-            sum += index[j]
-        if sum < (m - 1):
+            s += index[j]
+
+        if s < (m - 1):
             index[0] += 1
         else:
-            sum -= index[0]
+            s -= index[0]
             index[0] = 0
             for j in range(1, d):
                 index[j] += 1
-                sum += 1
-                if sum == m:
-                    sum -= index[j]
+                s += 1
+                if s == m:
+                    s -= index[j]
                     index[j] = 0
                 else:
                     break
+
     return powers

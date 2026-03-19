@@ -1,3 +1,4 @@
+# models/nbm.py
 from ..basemodels.nbm import NBM
 from ..configs.nbm_config import DefaultNBMConfig
 from .sklearn_classifier import SklearnBaseClassifier
@@ -23,16 +24,14 @@ class NBMRegressor(SklearnBaseRegressor):
         Weight decay (L2 penalty) for the optimizer.
     lr_factor : float, default=0.1
         Factor by which the learning rate will be reduced.
-    layer_sizes : list, default=(128, 128, 32)
-        Sizes of the layers in the NBM.
-    activation : callable, default=nn.SELU()
-        Activation function for the NBM layers.
-    skip_layers : bool, default=False
-        Whether to skip layers in the NBM.
-    dropout : float, default=0.5
+    layer_sizes : list, default=[256, 128, 32]
+        Sizes of the layers in the NBM basis MLP.
+    activation_fn : type, default=nn.ReLU
+        Activation class for the NBM layers.
+    dropout_rate : float, default=0.1
         Dropout rate for regularization.
     norm : str, default=None
-        Normalization method to be used, if any.
+        Normalization method to be used (e.g. BatchNorm, LayerNorm, RMSNorm, GroupNorm).
     use_glu : bool, default=False
         Whether to use Gated Linear Units (GLU) in the NBM.
     skip_connections : bool, default=False
@@ -41,6 +40,10 @@ class NBMRegressor(SklearnBaseRegressor):
         Whether to use batch normalization in the NBM layers.
     layer_norm : bool, default=False
         Whether to use layer normalization in the NBM layers.
+    intercept : bool, default=True
+        Whether to use a learnable intercept parameter.
+    feature_dropout : float, default=0.0
+        Probability for feature-level dropout.
     n_bins : int, default=50
         The number of bins to use for numerical feature binning. This parameter is relevant
         only if `numerical_preprocessing` is set to 'binning' or 'one_hot'.
@@ -78,7 +81,7 @@ class NBMRegressor(SklearnBaseRegressor):
     Examples
     --------
     >>> from nampy.models import NBMRegressor
-    >>> model = NBMRegressor(layer_sizes=[128, 128, 64], activation=nn.ReLU())
+    >>> model = NBMRegressor(layer_sizes=[128, 128, 64], activation_fn=nn.ReLU)
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
     >>> model.evaluate(X_test, y_test)
@@ -106,16 +109,14 @@ class NBMClassifier(SklearnBaseClassifier):
         Weight decay (L2 penalty) for the optimizer.
     lr_factor : float, default=0.1
         Factor by which the learning rate will be reduced.
-    layer_sizes : list, default=(128, 128, 32)
-        Sizes of the layers in the NBM.
-    activation : callable, default=nn.SELU()
-        Activation function for the NBM layers.
-    skip_layers : bool, default=False
-        Whether to skip layers in the NBM.
-    dropout : float, default=0.5
+    layer_sizes : list, default=[256, 128, 32]
+        Sizes of the layers in the NBM basis MLP.
+    activation_fn : type, default=nn.ReLU
+        Activation class for the NBM layers.
+    dropout_rate : float, default=0.1
         Dropout rate for regularization.
     norm : str, default=None
-        Normalization method to be used, if any.
+        Normalization method to be used (e.g. BatchNorm, LayerNorm, RMSNorm, GroupNorm).
     use_glu : bool, default=False
         Whether to use Gated Linear Units (GLU) in the NBM.
     skip_connections : bool, default=False
@@ -124,6 +125,10 @@ class NBMClassifier(SklearnBaseClassifier):
         Whether to use batch normalization in the NBM layers.
     layer_norm : bool, default=False
         Whether to use layer normalization in the NBM layers.
+    intercept : bool, default=True
+        Whether to use a learnable intercept parameter.
+    feature_dropout : float, default=0.0
+        Probability for feature-level dropout.
     n_bins : int, default=50
         The number of bins to use for numerical feature binning. This parameter is relevant
         only if `numerical_preprocessing` is set to 'binning' or 'one_hot'.
@@ -161,7 +166,7 @@ class NBMClassifier(SklearnBaseClassifier):
     Examples
     --------
     >>> from nampy.models import NBMClassifier
-    >>> model = NBMClassifier(layer_sizes=[128, 128, 64], activation=nn.ReLU())
+    >>> model = NBMClassifier(layer_sizes=[128, 128, 64], activation_fn=nn.ReLU)
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
     >>> model.evaluate(X_test, y_test)
@@ -189,24 +194,26 @@ class NBMLSS(SklearnBaseLSS):
         Weight decay (L2 penalty) for the optimizer.
     lr_factor : float, default=0.1
         Factor by which the learning rate will be reduced.
-    layer_sizes : list, default=(128, 128, 32)
-        Sizes of the layers in the MLP.
-    activation : callable, default=nn.SELU()
-        Activation function for the MLP layers.
-    skip_layers : bool, default=False
-        Whether to skip layers in the MLP.
-    dropout : float, default=0.5
+    layer_sizes : list, default=[256, 128, 32]
+        Sizes of the layers in the NBM basis MLP.
+    activation_fn : type, default=nn.ReLU
+        Activation class for the NBM layers.
+    dropout_rate : float, default=0.1
         Dropout rate for regularization.
     norm : str, default=None
-        Normalization method to be used, if any.
+        Normalization method to be used (e.g. BatchNorm, LayerNorm, RMSNorm, GroupNorm).
     use_glu : bool, default=False
-        Whether to use Gated Linear Units (GLU) in the MLP.
+        Whether to use Gated Linear Units (GLU) in the NBM.
     skip_connections : bool, default=False
-        Whether to use skip connections in the MLP.
+        Whether to use skip connections in the NBM.
     batch_norm : bool, default=False
-        Whether to use batch normalization in the MLP layers.
+        Whether to use batch normalization in the NBM layers.
     layer_norm : bool, default=False
-        Whether to use layer normalization in the MLP layers.
+        Whether to use layer normalization in the NBM layers.
+    intercept : bool, default=True
+        Whether to use a learnable intercept parameter.
+    feature_dropout : float, default=0.0
+        Probability for feature-level dropout.
     n_bins : int, default=50
         The number of bins to use for numerical feature binning. This parameter is relevant
         only if `numerical_preprocessing` is set to 'binning' or 'one_hot'.
@@ -247,7 +254,7 @@ class NBMLSS(SklearnBaseLSS):
     Examples
     --------
     >>> from nampy.models import NBMLSS
-    >>> model = NBMLSS(layer_sizes=[128, 128, 64], activation=nn.ReLU())
+    >>> model = NBMLSS(layer_sizes=[128, 128, 64], activation_fn=nn.ReLU)
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
     >>> model.evaluate(X_test, y_test)

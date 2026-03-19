@@ -84,7 +84,7 @@ class NAM(BaseModel):
 
         # Resolve architecture hyperparameters once, with kwargs overriding config
         self.layer_sizes = self.hparams.get("layer_sizes", config.layer_sizes)
-        self.activation = self.hparams.get("activation", config.activation)
+        self.activation_fn = self.hparams.get("activation_fn", config.activation_fn)
         self.norm = self.hparams.get("norm", config.norm)
         self.use_glu = self.hparams.get("use_glu", config.use_glu)
         self.skip_connections = self.hparams.get(
@@ -92,7 +92,7 @@ class NAM(BaseModel):
         )
         self.batch_norm = self.hparams.get("batch_norm", config.batch_norm)
         self.layer_norm = self.hparams.get("layer_norm", config.layer_norm)
-        self.dropout = self.hparams.get("dropout", config.dropout)
+        self.dropout_rate = self.hparams.get("dropout_rate", config.dropout_rate)
 
         # Initialize sub-networks for each feature
         self.num_feature_networks = nn.ModuleDict()
@@ -127,9 +127,9 @@ class NAM(BaseModel):
             n_input_units=input_dim,
             hidden_units_list=self.layer_sizes,
             n_output_units=self.num_classes,
-            dropout_rate=self.dropout,
+            dropout_rate=self.dropout_rate,
             use_skip_layers=self.skip_connections,
-            activation_fn=self.activation,
+            activation_fn=self.activation_fn,
             use_batch_norm=self.batch_norm,
             use_layer_norm=self.layer_norm,
             norm=self.norm,

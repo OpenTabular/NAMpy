@@ -3,105 +3,169 @@ import torch.nn as nn
 
 
 class NeuralDecisionTree(nn.Module):
-    def __init__(self, input_dim, depth, output_dim=1, lamda=1e-3):
-        """
-        Initialize the neural decision tree with a neural network at each leaf.
+    """
+    Differentiable soft decision tree.
 
-        Parameters:
-        -----------
-        input_dim: int
-            The number of input features.
-        depth: int
-            The depth of the tree. The number of leaves will be 2^depth.
-        output_dim: int
-            The number of output classes (default is 1 for regression tasks).
-        lamda: float
-            Regularization parameter.
-        """
-        super(NeuralDecisionTree, self).__init__()
+    Parameters
+    ----------
+    input_dim : int
+        Number of input features for this tree.
+    depth : int
+        Tree depth. Number of leaves is 2 ** depth.
+    output_dim : int, default=1
+        Number of outputs per sample.
+    lamda : float, default=1e-3
+        Strength of the tree balance penalty.
+    temperature : float, default=1.0
+        Temperature for sigmoid routing. Lower = sharper splits.
+    use_hard_routing_in_eval : bool, default=False
+        If True, uses hard routing at evaluation time only.
+    """
+
+    def __init__(
+        self,
+        input_dim: int,
+        depth: int,
+        output_dim: int = 1,
+        lamda: float = 1e-3,
+        temperature: float = 1.0,
+        use_hard_routing_in_eval: bool = False,
+    ):
+        super().__init__()
+
+        if depth < 1:
+            raise ValueError("depth must be >= 1")
+        if input_dim < 1:
+            raise ValueError("input_dim must be >= 1")
+        if output_dim < 1:
+            raise ValueError("output_dim must be >= 1")
+        if temperature <= 0:
+            raise ValueError("temperature must be > 0")
+
+        self.input_dim = input_dim
+        self.depth = depth
+        self.output_dim = output_dim
+        self.lamda = float(lamda)
+        self.temperature = float(temperature)
+        self.use_hard_routing_in_eval = bool(use_hard_routing_in_eval)
+
         self.internal_node_num_ = 2**depth - 1
         self.leaf_node_num_ = 2**depth
-        self.lamda = lamda
-        self.depth = depth
 
-        # Different penalty coefficients for nodes in different layers
-        self.penalty_list = [self.lamda * (2 ** (-d)) for d in range(0, depth)]
+        # Internal-node split logits
+        self.inner_nodes = nn.Linear(input_dim, self.internal_node_num_, bias=True)
 
-        # Initialize internal nodes with linear layers followed by hard thresholds
-        self.inner_nodes = nn.Sequential(
-            nn.Linear(input_dim + 1, self.internal_node_num_, bias=False),
+        # Leaf values / responses
+        self.leaf_values = nn.Parameter(
+            torch.empty(self.leaf_node_num_, output_dim)
         )
+        nn.init.xavier_uniform_(self.leaf_values)
 
-        self.leaf_nodes = nn.Linear(self.leaf_node_num_, output_dim, bias=False)
+        # Layer-wise penalty coefficients
+        self.penalty_list = [self.lamda * (2.0 ** (-d)) for d in range(depth)]
 
-    def forward(self, X, training=False):
-        _mu = self._forward(X)
-        y_pred = self.leaf_nodes(_mu)
+    def _cal_penalty(self, layer_idx: int, mu_parent: torch.Tensor, gate_soft: torch.Tensor):
+        """
+        Tree-balance penalty for one layer.
 
-        # Return predictions and penalty if in training mode
-        # if training:
-        #    return y_pred, _penalty
-        # else:
-        return y_pred
+        Parameters
+        ----------
+        layer_idx : int
+            Layer index.
+        mu_parent : Tensor of shape [B, n_nodes_layer]
+            Probability of reaching each parent node in this layer.
+        gate_soft : Tensor of shape [B, n_nodes_layer]
+            Soft routing probability for one branch at each node.
 
-    def _forward(self, X):
-        """Implementation of the forward pass with hard decision boundaries."""
-        batch_size = X.size()[0]
-        X = self._data_augment(X)
+        Returns
+        -------
+        Tensor
+            Scalar penalty.
+        """
+        coeff = self.penalty_list[layer_idx]
+        if coeff <= 0.0:
+            return mu_parent.new_zeros(())
 
-        # Get the decision boundaries for the internal nodes
-        decision_boundaries = self.inner_nodes(X)
+        eps = 1e-6
+        denom = mu_parent.sum(dim=0) + eps
+        alpha = (mu_parent * gate_soft).sum(dim=0) / denom
+        alpha = alpha.clamp(min=eps, max=1.0 - eps)
 
-        # Apply hard thresholding to simulate binary decisions
-        path_prob = (decision_boundaries > 0).float()
+        penalty = -0.5 * coeff * (torch.log(alpha) + torch.log(1.0 - alpha)).sum()
+        return penalty
 
-        # Prepare for routing at the internal nodes
-        path_prob = torch.unsqueeze(path_prob, dim=2)
-        path_prob = torch.cat((path_prob, 1 - path_prob), dim=2)
+    def _forward(self, X: torch.Tensor):
+        """
+        Compute leaf probabilities and regularization penalty.
 
-        _mu = X.data.new(batch_size, 1, 1).fill_(1.0)
+        Returns
+        -------
+        mu : Tensor of shape [B, n_leaves]
+            Leaf probabilities / routing weights.
+        penalty : Tensor
+            Scalar tree penalty.
+        """
+        batch_size = X.shape[0]
 
-        # Routing samples through the tree with hard decisions
+        logits = self.inner_nodes(X) / self.temperature
+        gate_soft = torch.sigmoid(logits)
+
+        if self.use_hard_routing_in_eval and not self.training:
+            gate_route = (logits > 0).to(gate_soft.dtype)
+        else:
+            gate_route = gate_soft
+
+        mu = X.new_ones(batch_size, 1)
+        penalty = X.new_zeros(())
+
         begin_idx = 0
         end_idx = 1
 
-        for layer_idx in range(0, self.depth):
-            _path_prob = path_prob[:, begin_idx:end_idx, :]
-            _mu = _mu.view(batch_size, -1, 1).repeat(1, 1, 2)
-            _mu = _mu * _path_prob  # Update path probabilities
+        for layer_idx in range(self.depth):
+            gate_soft_layer = gate_soft[:, begin_idx:end_idx]   # [B, n_nodes_layer]
+            gate_route_layer = gate_route[:, begin_idx:end_idx] # [B, n_nodes_layer]
+
+            penalty = penalty + self._cal_penalty(layer_idx, mu, gate_soft_layer)
+
+            # Left/right child routing weights
+            # Shape: [B, n_nodes_layer, 2]
+            child_prob = torch.stack(
+                [gate_route_layer, 1.0 - gate_route_layer],
+                dim=-1,
+            )
+
+            # Broadcast current node mass to its two children
+            mu = mu.unsqueeze(-1) * child_prob
+            mu = mu.reshape(batch_size, -1)
 
             begin_idx = end_idx
             end_idx = begin_idx + 2 ** (layer_idx + 1)
 
-        mu = _mu.view(batch_size, self.leaf_node_num_)
+        return mu, penalty
 
-        return mu
-
-    def _cal_penalty(self, layer_idx, _mu, _path_prob):
+    def forward(self, X: torch.Tensor, return_penalty: bool = False):
         """
-        Compute the regularization term for internal nodes in different layers.
+        Forward pass.
+
+        Parameters
+        ----------
+        X : Tensor
+            Input of shape [B, input_dim] or [B].
+        return_penalty : bool, default=False
+            Whether to also return the tree penalty.
+
+        Returns
+        -------
+        Tensor or tuple(Tensor, Tensor)
+            Prediction tensor of shape [B, output_dim], and optionally the penalty.
         """
-        penalty = torch.tensor(0.0)
-        batch_size = _mu.size()[0]
-        _mu = _mu.view(batch_size, 2**layer_idx)
-        _path_prob = _path_prob.view(batch_size, 2 ** (layer_idx + 1))
+        if X.ndim == 1:
+            X = X.unsqueeze(-1)
+        X = X.reshape(X.shape[0], -1).float()
 
-        for node in range(0, 2 ** (layer_idx + 1)):
-            alpha = torch.sum(
-                _path_prob[:, node] * _mu[:, node // 2], dim=0
-            ) / torch.sum(_mu[:, node // 2], dim=0)
+        mu, penalty = self._forward(X)
+        y_pred = mu @ self.leaf_values
 
-            coeff = self.penalty_list[layer_idx]
-
-            penalty -= 0.5 * coeff * (torch.log(alpha) + torch.log(1 - alpha))
-
-        return penalty
-
-    def _data_augment(self, X):
-        """Add a constant input `1` onto the front of each sample."""
-        batch_size = X.size()[0]
-        X = X.view(batch_size, -1)
-        bias = torch.ones(batch_size, 1)
-        X = torch.cat((bias, X), 1)
-
-        return X
+        if return_penalty:
+            return y_pred, penalty
+        return y_pred

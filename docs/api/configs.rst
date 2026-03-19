@@ -14,9 +14,9 @@ Configuration classes for nampy models.
    DefaultNATTConfig
    DefaultNAMformerConfig
    DefaultLinRegConfig
-   DefaultBoostedNAMConfig
    DefaultSNAMConfig
    DefaultNodeGAMConfig
+   DefaultNGBoostConfig
 
 Using Configurations
 --------------------
