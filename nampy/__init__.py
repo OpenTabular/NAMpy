@@ -11,12 +11,9 @@ from .__version__ import __version__
 # Import key classes for convenience
 from .models import (
     GPNAMLSS,
-    NGBSurvival,
     NAMLSS,
     NATTLSS,
     NBMLSS,
-    NGBoostClassifier,
-    NGBoostRegressor,
     QNAM,
     GAMRegressor,
     GPNAMClassifier,
@@ -59,9 +56,6 @@ __all__ = [
     "NBMRegressor",
     "NBMClassifier",
     "NBMLSS",
-    "NGBoostRegressor",
-    "NGBoostClassifier",
-    "NGBSurvival",
     "NATTRegressor",
     "NATTClassifier",
     "NATTLSS",

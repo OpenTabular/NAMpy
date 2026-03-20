@@ -22,9 +22,9 @@ class DefaultNAMConfig:
         Factor by which the learning rate will be reduced.
     layer_sizes : list of int, default=[128, 128, 32]
         Sizes of the layers in the MLP.
-    activation_fn : type, default=nn.ReLU
+    activation : type, default=nn.ReLU
         Activation class for the MLP layers (e.g. nn.ReLU); a new instance is used per layer.
-    dropout_rate : float, default=0.1
+    dropout : float, default=0.1
         Dropout rate for regularization.
     norm : str, default=None
         Normalization method to be used, if any.
@@ -43,8 +43,8 @@ class DefaultNAMConfig:
     weight_decay: float = 1e-06
     lr_factor: float = 0.1
     layer_sizes: List[int] = field(default_factory=lambda: [128, 128, 32])
-    activation_fn: type = nn.ReLU
-    dropout_rate: float = 0.1
+    activation: type = nn.ReLU
+    dropout: float = 0.1
     norm: Optional[str] = None
     use_glu: bool = False
     skip_connections: bool = False

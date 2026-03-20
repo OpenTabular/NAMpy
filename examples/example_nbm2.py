@@ -78,7 +78,7 @@ def main():
         layer_sizes=(128, 64),
         num_bases=64,
         num_subnets=1,
-        dropout_rate=0.05,
+        dropout=0.05,
         bases_dropout=0.05,
         output_penalty=1e-4,
         nary=[1],

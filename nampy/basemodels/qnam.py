@@ -52,7 +52,7 @@ class QNAMBase(BaseModel):
 
         # Architecture hyperparameters (same pattern as corrected NAM)
         self.layer_sizes = self.hparams.get("layer_sizes", config.layer_sizes)
-        self.activation_fn = self.hparams.get("activation_fn", config.activation_fn)
+        self.activation = self.hparams.get("activation", config.activation)
         self.norm = self.hparams.get("norm", config.norm)
         self.use_glu = self.hparams.get("use_glu", config.use_glu)
         self.skip_connections = self.hparams.get(
@@ -60,7 +60,7 @@ class QNAMBase(BaseModel):
         )
         self.batch_norm = self.hparams.get("batch_norm", config.batch_norm)
         self.layer_norm = self.hparams.get("layer_norm", config.layer_norm)
-        self.dropout_rate = self.hparams.get("dropout_rate", config.dropout_rate)
+        self.dropout = self.hparams.get("dropout", config.dropout)
 
         self.feature_dropout_p = self.hparams.get(
             "feature_dropout", config.feature_dropout
@@ -115,9 +115,9 @@ class QNAMBase(BaseModel):
             n_input_units=input_dim,
             hidden_units_list=self.layer_sizes,
             n_output_units=self.num_classes,
-            dropout_rate=self.dropout_rate,
+            dropout=self.dropout,
             use_skip_layers=self.skip_connections,
-            activation_fn=self.activation_fn,
+            activation=self.activation,
             use_batch_norm=self.batch_norm,
             use_layer_norm=self.layer_norm,
             norm=self.norm,

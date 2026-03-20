@@ -43,7 +43,7 @@
       ~DefaultNBMConfig.bases_dropout
       ~DefaultNBMConfig.batch_norm
       ~DefaultNBMConfig.dropout
-      ~DefaultNBMConfig.hidden_dims
+      ~DefaultNBMConfig.layer_sizes
       ~DefaultNBMConfig.interaction_degree
       ~DefaultNBMConfig.layer_norm
       ~DefaultNBMConfig.lr

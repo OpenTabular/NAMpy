@@ -112,24 +112,6 @@ Distributional Regression (LSS)
 
 .. autoclass:: NBMLSS
 
-NGBoost
-~~~~~~~
-
-Regressor
-^^^^^^^^^
-
-.. autoclass:: NGBoostRegressor
-
-Classifier
-^^^^^^^^^^
-
-.. autoclass:: NGBoostClassifier
-
-Survival
-^^^^^^^^
-
-.. autoclass:: NGBSurvival
-
 Attention-Based Models
 ----------------------
 

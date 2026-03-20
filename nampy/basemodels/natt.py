@@ -93,11 +93,11 @@ class NATT(BaseModel):
             hidden_units_list=self.hparams.get(
                 "head_layer_sizes", config.head_layer_sizes
             ),
-            dropout_rate=self.hparams.get("head_dropout", config.head_dropout),
+            dropout=self.hparams.get("head_dropout", config.head_dropout),
             use_skip_layers=self.hparams.get(
                 "head_skip_layers", config.head_skip_layers
             ),
-            activation_fn=self.hparams.get("head_activation", config.head_activation),
+            activation=self.hparams.get("head_activation", config.head_activation),
             use_batch_norm=self.hparams.get(
                 "head_use_batch_norm", config.head_use_batch_norm
             ),

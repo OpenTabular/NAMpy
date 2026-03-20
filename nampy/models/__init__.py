@@ -5,13 +5,13 @@ from .nam import NAMLSS, NAMClassifier, NAMRegressor
 from .namformer import NAMformerClassifier, NAMformerLSS, NAMformerRegressor
 from .natt import NATTLSS, NATTClassifier, NATTRegressor
 from .nbm import NBMLSS, NBMClassifier, NBMRegressor
-from .ngboost import NGBSurvival, NGBoostClassifier, NGBoostRegressor
 from .nodegam import NodeGAMClassifier, NodeGAMLSS, NodeGAMRegressor
 from .qnam import QNAM
 from .sklearn_classifier import SklearnBaseClassifier
 from .sklearn_lss import SklearnBaseLSS
 from .sklearn_regressor import SklearnBaseRegressor
 from .spline_nam import SplineNAMRegressor
+from .snam import SNAMRegressor
 from .treenam import TreeNAMRegressor
 from .ensemble_treenam import EnsembleTreeNAMRegressor
 
@@ -34,9 +34,6 @@ __all__ = [
     "NBMRegressor",
     "NBMClassifier",
     "NBMLSS",
-    "NGBoostRegressor",
-    "NGBoostClassifier",
-    "NGBSurvival",
     "NATTRegressor",
     "NATTClassifier",
     "NATTLSS",
@@ -46,6 +43,7 @@ __all__ = [
     "TreeNAMRegressor",
     "EnsembleTreeNAMRegressor",
     "SplineNAMRegressor",
+    "SNAMRegressor",
     "NodeGAMRegressor",
     "NodeGAMClassifier",
     "NodeGAMLSS",

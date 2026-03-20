@@ -11,12 +11,12 @@ from .normalization_layers import (
 )
 
 
-def _make_activation(activation_fn) -> nn.Module:
+def _make_activation(activation) -> nn.Module:
     """Instantiate an activation from a class or deep-copy an instance."""
     return (
-        activation_fn()
-        if isinstance(activation_fn, type)
-        else copy.deepcopy(activation_fn)
+        activation()
+        if isinstance(activation, type)
+        else copy.deepcopy(activation)
     )
 
 
@@ -86,9 +86,9 @@ class _ResidualBlock(nn.Module):
         self,
         n_input: int,
         n_output: int,
-        dropout_rate: float,
+        dropout: float,
         *,
-        activation_fn=nn.LeakyReLU,
+        activation=nn.LeakyReLU,
         norm_name: Optional[str] = None,
         use_glu: bool = False,
         use_skip: bool = False,
@@ -105,11 +105,11 @@ class _ResidualBlock(nn.Module):
             modules.append(nn.GLU())
             effective_out = n_output // 2
         else:
-            modules.append(_make_activation(activation_fn))
+            modules.append(_make_activation(activation))
             effective_out = n_output
 
-        if dropout_rate > 0.0:
-            modules.append(nn.Dropout(dropout_rate))
+        if dropout > 0.0:
+            modules.append(nn.Dropout(dropout))
 
         self.block = nn.Sequential(*modules)
         self.use_skip = bool(use_skip and n_input == effective_out)
@@ -132,9 +132,9 @@ class Linear_skip_block(nn.Module):
         Number of input features.
     n_output : int
         Number of output features.
-    dropout_rate : float
+    dropout : float
         Dropout rate.
-    activation_fn : type or nn.Module, optional
+    activation : type or nn.Module, optional
         Activation class or instance.
     use_batch_norm : bool, optional
         Whether to apply batch normalization.
@@ -144,8 +144,8 @@ class Linear_skip_block(nn.Module):
         self,
         n_input,
         n_output,
-        dropout_rate,
-        activation_fn=nn.LeakyReLU,
+        dropout,
+        activation=nn.LeakyReLU,
         use_batch_norm=False,
     ):
         super().__init__()
@@ -155,8 +155,8 @@ class Linear_skip_block(nn.Module):
         self.block = _ResidualBlock(
             n_input=n_input,
             n_output=n_output,
-            dropout_rate=dropout_rate,
-            activation_fn=activation_fn,
+            dropout=dropout,
+            activation=activation,
             norm_name=norm_name,
             use_glu=False,
             use_skip=True,
@@ -176,9 +176,9 @@ class Linear_block(nn.Module):
         Number of input features.
     n_output : int
         Number of output features.
-    dropout_rate : float
+    dropout : float
         Dropout rate.
-    activation_fn : type or nn.Module, optional
+    activation : type or nn.Module, optional
         Activation class or instance.
     batch_norm : bool, optional
         Whether to apply batch normalization.
@@ -188,8 +188,8 @@ class Linear_block(nn.Module):
         self,
         n_input,
         n_output,
-        dropout_rate,
-        activation_fn=nn.LeakyReLU,
+        dropout,
+        activation=nn.LeakyReLU,
         batch_norm=False,
     ):
         super().__init__()
@@ -199,8 +199,8 @@ class Linear_block(nn.Module):
         self.block = _ResidualBlock(
             n_input=n_input,
             n_output=n_output,
-            dropout_rate=dropout_rate,
-            activation_fn=activation_fn,
+            dropout=dropout,
+            activation=activation,
             norm_name=norm_name,
             use_glu=False,
             use_skip=False,
@@ -223,11 +223,11 @@ class MLP(nn.Module):
         Hidden layer sizes.
     n_output_units : int, default=1
         Number of output units.
-    dropout_rate : float, default=0.1
+    dropout : float, default=0.1
         Dropout rate.
     use_skip_layers : bool, default=False
         Whether to use residual connections when dimensions match.
-    activation_fn : type or nn.Module, default=nn.LeakyReLU
+    activation : type or nn.Module, default=nn.LeakyReLU
         Activation class or instance.
     use_batch_norm : bool, default=False
         Whether to use batch normalization.
@@ -246,9 +246,9 @@ class MLP(nn.Module):
         n_input_units: int,
         hidden_units_list: Optional[List[int]] = None,
         n_output_units: int = 1,
-        dropout_rate: float = 0.1,
+        dropout: float = 0.1,
         use_skip_layers: bool = False,
-        activation_fn=nn.LeakyReLU,
+        activation=nn.LeakyReLU,
         use_batch_norm: bool = False,
         use_layer_norm: bool = False,
         norm: Optional[str] = None,
@@ -274,7 +274,7 @@ class MLP(nn.Module):
 
         self.n_input_units = n_input_units
         self.hidden_units_list = list(hidden_units_list)
-        self.dropout_rate = dropout_rate
+        self.dropout = dropout
         self.n_output_units = n_output_units
         self.use_skip_layers = use_skip_layers
         self.use_glu = use_glu
@@ -288,8 +288,8 @@ class MLP(nn.Module):
                 _ResidualBlock(
                     n_input=input_units,
                     n_output=n_hidden,
-                    dropout_rate=dropout_rate,
-                    activation_fn=activation_fn,
+                    dropout=dropout,
+                    activation=activation,
                     norm_name=norm_name,
                     use_glu=use_glu,
                     use_skip=use_skip_layers,

@@ -9,7 +9,6 @@ from .nam_config import DefaultNAMConfig
 from .namformer_config import DefaultNAMformerConfig
 from .natt_config import DefaultNATTConfig
 from .nbm_config import DefaultNBMConfig
-from .ngboost_config import DefaultNGBoostConfig
 from .nodegam_config import DefaultNodeGAMConfig
 from .spline_nam_config import DefaultSplineNAMConfig
 
@@ -19,7 +18,6 @@ from .spline_nam_config import DefaultSplineNAMConfig
 __all__ = [
     "DefaultNAMConfig",
     "DefaultNBMConfig",
-    "DefaultNGBoostConfig",
     "DefaultNATTConfig",
     "DefaultNAMformerConfig",
     "DefaultLinRegConfig",
