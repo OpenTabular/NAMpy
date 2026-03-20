@@ -39,7 +39,7 @@
       ~DefaultNAMConfig.__module__
       ~DefaultNAMConfig.__weakref__
       ~DefaultNAMConfig.batch_norm
-      ~DefaultNAMConfig.dropout_rate
+      ~DefaultNAMConfig.dropout
       ~DefaultNAMConfig.feature_dropout
       ~DefaultNAMConfig.interaction_degree
       ~DefaultNAMConfig.intercept

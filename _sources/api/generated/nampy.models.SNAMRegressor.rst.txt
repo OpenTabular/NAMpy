@@ -31,12 +31,14 @@
       ~SNAMRegressor.__sklearn_tags__
       ~SNAMRegressor.__str__
       ~SNAMRegressor.__subclasshook__
-      ~SNAMRegressor._get_class_level_metadata_request_values
+      ~SNAMRegressor._build_request_for_signature
+      ~SNAMRegressor._get_default_requests
       ~SNAMRegressor._get_doc_link
       ~SNAMRegressor._get_metadata_request
       ~SNAMRegressor._get_param_names
       ~SNAMRegressor._get_params_html
       ~SNAMRegressor._html_repr
+      ~SNAMRegressor._plot_interaction_effects
       ~SNAMRegressor._plot_single_feature_effects
       ~SNAMRegressor._predict
       ~SNAMRegressor._repr_html_inner

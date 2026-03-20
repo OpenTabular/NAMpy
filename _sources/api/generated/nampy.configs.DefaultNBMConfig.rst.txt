@@ -40,7 +40,7 @@
       ~DefaultNBMConfig.__weakref__
       ~DefaultNBMConfig.bases_dropout
       ~DefaultNBMConfig.batch_norm
-      ~DefaultNBMConfig.dropout_rate
+      ~DefaultNBMConfig.dropout
       ~DefaultNBMConfig.feature_dropout
       ~DefaultNBMConfig.interaction_degree
       ~DefaultNBMConfig.intercept

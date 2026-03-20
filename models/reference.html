@@ -189,8 +189,8 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerRegressor.html">nampy.models.NAMformerRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegRegressor.html">nampy.models.LinRegRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.TreeNAMRegressor.html">nampy.models.TreeNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SNAMRegressor.html">nampy.models.SNAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMRegressor.html">nampy.models.NodeGAMRegressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NGBoostRegressor.html">nampy.models.NGBoostRegressor</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#classification-models">Classification Models</a><ul>
@@ -201,7 +201,6 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerClassifier.html">nampy.models.NAMformerClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegClassifier.html">nampy.models.LinRegClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMClassifier.html">nampy.models.NodeGAMClassifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NGBoostClassifier.html">nampy.models.NGBoostClassifier</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#distributional-regression-models-lss">Distributional Regression Models (LSS)</a><ul>
@@ -216,7 +215,6 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#other-models">Other Models</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.QNAM.html">nampy.models.QNAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NGBSurvival.html">nampy.models.NGBSurvival</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/models.html#base-classes">Base Classes</a><ul>
@@ -240,8 +238,6 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NATT.html">nampy.basemodels.NATT</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NAMformer.html">nampy.basemodels.NAMformer</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.LinReg.html">nampy.basemodels.LinReg</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NGBoost.html">nampy.basemodels.NGBoost</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NGBSurvival.html">nampy.basemodels.NGBSurvival</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.QNAMBase.html">nampy.basemodels.QNAMBase</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NodeGAM.html">nampy.basemodels.NodeGAM</a></li>
 </ul>
@@ -260,7 +256,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNAMformerConfig.html">nampy.configs.DefaultNAMformerConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultLinRegConfig.html">nampy.configs.DefaultLinRegConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNodeGAMConfig.html">nampy.configs.DefaultNodeGAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNGBoostConfig.html">nampy.configs.DefaultNGBoostConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/configs.html#using-configurations">Using Configurations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/configs.html#note">Note</a></li>
 </ul>
@@ -355,38 +350,32 @@
 <li class="toctree-l4"><a class="reference internal" href="#id11">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#ngboost">NGBoost</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#id12">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id13">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#survival">Survival</a></li>
-</ul>
-</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#attention-based-models">Attention-Based Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#natt">NATT</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#id14">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id15">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id16">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id12">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id13">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id14">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#namformer">NAMformer</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#id17">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id18">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id19">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id15">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id16">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id17">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#specialized-models">Specialized Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#qnam-quantile-nam">QNAM (Quantile NAM)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#id20">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id18">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#linreg-neural-linear-regression">LinReg (Neural Linear Regression)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#id21">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id22">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id23">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id19">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id20">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id21">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 </ul>
@@ -877,6 +866,16 @@ classification focus.</p>
 <h3>SNAM<a class="headerlink" href="#snam" title="Link to this heading"></a></h3>
 <section id="id5">
 <h4>Regressor<a class="headerlink" href="#id5" title="Link to this heading"></a></h4>
+<dl class="py class">
+<dt class="sig sig-object py" id="nampy.models.SNAMRegressor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">SNAMRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/snam.html#SNAMRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.SNAMRegressor" title="Link to this definition"></a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.SNAMRegressor.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/snam.html#SNAMRegressor.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.SNAMRegressor.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </section>
 </section>
 <section id="nodegam">
@@ -1134,8 +1133,8 @@ and the parameters for the Preprocessor class.</p>
 <li><p><strong>weight_decay</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">1e-06</span></code>) – Weight decay (L2 penalty) for the optimizer.</p></li>
 <li><p><strong>lr_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Factor by which the learning rate will be reduced.</p></li>
 <li><p><strong>layer_sizes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">[256</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">32]</span></code>) – Sizes of the layers in the NBM basis MLP.</p></li>
-<li><p><strong>activation_fn</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">type</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.ReLU</span></code>) – Activation class for the NBM layers.</p></li>
-<li><p><strong>dropout_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Dropout rate for regularization.</p></li>
+<li><p><strong>activation</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">type</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.ReLU</span></code>) – Activation class for the NBM layers.</p></li>
+<li><p><strong>dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Dropout rate for regularization.</p></li>
 <li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Normalization method to be used (e.g. BatchNorm, LayerNorm, RMSNorm, GroupNorm).</p></li>
 <li><p><strong>use_glu</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use Gated Linear Units (GLU) in the NBM.</p></li>
 <li><p><strong>skip_connections</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use skip connections in the NBM.</p></li>
@@ -1179,7 +1178,7 @@ of their unique value count or proportion.</p></li>
 <div class="admonition-examples admonition">
 <p class="admonition-title">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NBMRegressor</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">NBMRegressor</span><span class="p">(</span><span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span> <span class="n">activation_fn</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">NBMRegressor</span><span class="p">(</span><span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span> <span class="n">activation</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
@@ -1211,8 +1210,8 @@ and the parameters for the Preprocessor class.</p>
 <li><p><strong>weight_decay</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">1e-06</span></code>) – Weight decay (L2 penalty) for the optimizer.</p></li>
 <li><p><strong>lr_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Factor by which the learning rate will be reduced.</p></li>
 <li><p><strong>layer_sizes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">[256</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">32]</span></code>) – Sizes of the layers in the NBM basis MLP.</p></li>
-<li><p><strong>activation_fn</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">type</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.ReLU</span></code>) – Activation class for the NBM layers.</p></li>
-<li><p><strong>dropout_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Dropout rate for regularization.</p></li>
+<li><p><strong>activation</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">type</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.ReLU</span></code>) – Activation class for the NBM layers.</p></li>
+<li><p><strong>dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Dropout rate for regularization.</p></li>
 <li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Normalization method to be used (e.g. BatchNorm, LayerNorm, RMSNorm, GroupNorm).</p></li>
 <li><p><strong>use_glu</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use Gated Linear Units (GLU) in the NBM.</p></li>
 <li><p><strong>skip_connections</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use skip connections in the NBM.</p></li>
@@ -1256,7 +1255,7 @@ of their unique value count or proportion.</p></li>
 <div class="admonition-examples admonition">
 <p class="admonition-title">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NBMClassifier</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">NBMClassifier</span><span class="p">(</span><span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span> <span class="n">activation_fn</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">NBMClassifier</span><span class="p">(</span><span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span> <span class="n">activation</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
@@ -1288,8 +1287,8 @@ and the parameters for the Preprocessor class.</p>
 <li><p><strong>weight_decay</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">1e-06</span></code>) – Weight decay (L2 penalty) for the optimizer.</p></li>
 <li><p><strong>lr_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Factor by which the learning rate will be reduced.</p></li>
 <li><p><strong>layer_sizes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">[256</span></code>, <code class="docutils literal notranslate"><span class="pre">128</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">32]</span></code>) – Sizes of the layers in the NBM basis MLP.</p></li>
-<li><p><strong>activation_fn</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">type</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.ReLU</span></code>) – Activation class for the NBM layers.</p></li>
-<li><p><strong>dropout_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Dropout rate for regularization.</p></li>
+<li><p><strong>activation</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">type</span></code></a>, <em>default</em> <code class="xref py py-class docutils literal notranslate"><span class="pre">nn.ReLU</span></code>) – Activation class for the NBM layers.</p></li>
+<li><p><strong>dropout</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>default</em> <code class="docutils literal notranslate"><span class="pre">0.1</span></code>) – Dropout rate for regularization.</p></li>
 <li><p><strong>norm</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></a>) – Normalization method to be used (e.g. BatchNorm, LayerNorm, RMSNorm, GroupNorm).</p></li>
 <li><p><strong>use_glu</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use Gated Linear Units (GLU) in the NBM.</p></li>
 <li><p><strong>skip_connections</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>default</em> <a class="reference external" href="https://docs.python.org/3/library/constants.html#False" title="(in Python v3.14)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">False</span></code></a>) – Whether to use skip connections in the NBM.</p></li>
@@ -1335,7 +1334,7 @@ of their unique value count or proportion.</p></li>
 <div class="admonition-examples admonition">
 <p class="admonition-title">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NBMLSS</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">NBMLSS</span><span class="p">(</span><span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span> <span class="n">activation_fn</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">NBMLSS</span><span class="p">(</span><span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span> <span class="n">activation</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
@@ -1351,120 +1350,13 @@ of their unique value count or proportion.</p></li>
 
 </section>
 </section>
-<section id="ngboost">
-<h3>NGBoost<a class="headerlink" href="#ngboost" title="Link to this heading"></a></h3>
-<section id="id12">
-<h4>Regressor<a class="headerlink" href="#id12" title="Link to this heading"></a></h4>
-<dl class="py class">
-<dt class="sig sig-object py" id="nampy.models.NGBoostRegressor">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NGBoostRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostRegressor" title="Link to this definition"></a></dt>
-<dd><dl class="py method">
-<dt class="sig sig-object py" id="nampy.models.NGBoostRegressor.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostRegressor.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostRegressor.__init__" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="nampy.models.NGBoostRegressor.fit">
-<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">101</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_sample_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostRegressor.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostRegressor.fit" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="nampy.models.NGBoostRegressor.predict">
-<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostRegressor.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostRegressor.predict" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="nampy.models.NGBoostRegressor.evaluate">
-<span class="sig-name descname"><span class="pre">evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_true</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostRegressor.evaluate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostRegressor.evaluate" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-</section>
-<section id="id13">
-<h4>Classifier<a class="headerlink" href="#id13" title="Link to this heading"></a></h4>
-<dl class="py class">
-<dt class="sig sig-object py" id="nampy.models.NGBoostClassifier">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NGBoostClassifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostClassifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostClassifier" title="Link to this definition"></a></dt>
-<dd><dl class="py method">
-<dt class="sig sig-object py" id="nampy.models.NGBoostClassifier.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostClassifier.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostClassifier.__init__" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="nampy.models.NGBoostClassifier.fit">
-<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">101</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_sample_weight</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostClassifier.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostClassifier.fit" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="nampy.models.NGBoostClassifier.predict">
-<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostClassifier.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostClassifier.predict" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="nampy.models.NGBoostClassifier.predict_proba">
-<span class="sig-name descname"><span class="pre">predict_proba</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostClassifier.predict_proba"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostClassifier.predict_proba" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="nampy.models.NGBoostClassifier.evaluate">
-<span class="sig-name descname"><span class="pre">evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_true</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBoostClassifier.evaluate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBoostClassifier.evaluate" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-</section>
-<section id="survival">
-<h4>Survival<a class="headerlink" href="#survival" title="Link to this heading"></a></h4>
-<dl class="py class">
-<dt class="sig sig-object py" id="nampy.models.NGBSurvival">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NGBSurvival</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBSurvival"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBSurvival" title="Link to this definition"></a></dt>
-<dd><dl class="py method">
-<dt class="sig sig-object py" id="nampy.models.NGBSurvival.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBSurvival.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBSurvival.__init__" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="nampy.models.NGBSurvival.fit">
-<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">T</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">E</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">T_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">E_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">101</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBSurvival.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBSurvival.fit" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="nampy.models.NGBSurvival.predict">
-<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBSurvival.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBSurvival.predict" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="nampy.models.NGBSurvival.pred_dist">
-<span class="sig-name descname"><span class="pre">pred_dist</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBSurvival.pred_dist"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBSurvival.pred_dist" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="nampy.models.NGBSurvival.predict_survival_function">
-<span class="sig-name descname"><span class="pre">predict_survival_function</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">times</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBSurvival.predict_survival_function"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBSurvival.predict_survival_function" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="nampy.models.NGBSurvival.evaluate">
-<span class="sig-name descname"><span class="pre">evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">T</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">E</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/ngboost.html#NGBSurvival.evaluate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NGBSurvival.evaluate" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="nampy.models.NGBSurvival.feature_importances_">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">feature_importances_</span></span><a class="headerlink" href="#nampy.models.NGBSurvival.feature_importances_" title="Link to this definition"></a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-</section>
-</section>
 </section>
 <section id="attention-based-models">
 <h2>Attention-Based Models<a class="headerlink" href="#attention-based-models" title="Link to this heading"></a></h2>
 <section id="natt">
 <h3>NATT<a class="headerlink" href="#natt" title="Link to this heading"></a></h3>
-<section id="id14">
-<h4>Regressor<a class="headerlink" href="#id14" title="Link to this heading"></a></h4>
+<section id="id12">
+<h4>Regressor<a class="headerlink" href="#id12" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NATTRegressor">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NATTRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/natt.html#NATTRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NATTRegressor" title="Link to this definition"></a></dt>
@@ -1539,8 +1431,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id15">
-<h4>Classifier<a class="headerlink" href="#id15" title="Link to this heading"></a></h4>
+<section id="id13">
+<h4>Classifier<a class="headerlink" href="#id13" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NATTClassifier">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NATTClassifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/natt.html#NATTClassifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NATTClassifier" title="Link to this definition"></a></dt>
@@ -1615,8 +1507,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id16">
-<h4>Distributional Regression (LSS)<a class="headerlink" href="#id16" title="Link to this heading"></a></h4>
+<section id="id14">
+<h4>Distributional Regression (LSS)<a class="headerlink" href="#id14" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NATTLSS">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NATTLSS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/natt.html#NATTLSS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NATTLSS" title="Link to this definition"></a></dt>
@@ -1696,8 +1588,8 @@ of their unique value count or proportion.</p></li>
 </section>
 <section id="namformer">
 <h3>NAMformer<a class="headerlink" href="#namformer" title="Link to this heading"></a></h3>
-<section id="id17">
-<h4>Regressor<a class="headerlink" href="#id17" title="Link to this heading"></a></h4>
+<section id="id15">
+<h4>Regressor<a class="headerlink" href="#id15" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NAMformerRegressor">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NAMformerRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/namformer.html#NAMformerRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NAMformerRegressor" title="Link to this definition"></a></dt>
@@ -1772,8 +1664,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id18">
-<h4>Classifier<a class="headerlink" href="#id18" title="Link to this heading"></a></h4>
+<section id="id16">
+<h4>Classifier<a class="headerlink" href="#id16" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NAMformerClassifier">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NAMformerClassifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/namformer.html#NAMformerClassifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NAMformerClassifier" title="Link to this definition"></a></dt>
@@ -1848,8 +1740,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id19">
-<h4>Distributional Regression (LSS)<a class="headerlink" href="#id19" title="Link to this heading"></a></h4>
+<section id="id17">
+<h4>Distributional Regression (LSS)<a class="headerlink" href="#id17" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NAMformerLSS">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NAMformerLSS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/namformer.html#NAMformerLSS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NAMformerLSS" title="Link to this definition"></a></dt>
@@ -1932,8 +1824,8 @@ of their unique value count or proportion.</p></li>
 <h2>Specialized Models<a class="headerlink" href="#specialized-models" title="Link to this heading"></a></h2>
 <section id="qnam-quantile-nam">
 <h3>QNAM (Quantile NAM)<a class="headerlink" href="#qnam-quantile-nam" title="Link to this heading"></a></h3>
-<section id="id20">
-<h4>Distributional Regression (LSS)<a class="headerlink" href="#id20" title="Link to this heading"></a></h4>
+<section id="id18">
+<h4>Distributional Regression (LSS)<a class="headerlink" href="#id18" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.QNAM">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">QNAM</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/qnam.html#QNAM"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.QNAM" title="Link to this definition"></a></dt>
@@ -2018,8 +1910,8 @@ of their unique value count or proportion.</p></li>
 </section>
 <section id="linreg-neural-linear-regression">
 <h3>LinReg (Neural Linear Regression)<a class="headerlink" href="#linreg-neural-linear-regression" title="Link to this heading"></a></h3>
-<section id="id21">
-<h4>Regressor<a class="headerlink" href="#id21" title="Link to this heading"></a></h4>
+<section id="id19">
+<h4>Regressor<a class="headerlink" href="#id19" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.LinRegRegressor">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">LinRegRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/linreg.html#LinRegRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.LinRegRegressor" title="Link to this definition"></a></dt>
@@ -2085,8 +1977,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id22">
-<h4>Classifier<a class="headerlink" href="#id22" title="Link to this heading"></a></h4>
+<section id="id20">
+<h4>Classifier<a class="headerlink" href="#id20" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.LinRegClassifier">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">LinRegClassifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/linreg.html#LinRegClassifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.LinRegClassifier" title="Link to this definition"></a></dt>
@@ -2152,8 +2044,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id23">
-<h4>Distributional Regression (LSS)<a class="headerlink" href="#id23" title="Link to this heading"></a></h4>
+<section id="id21">
+<h4>Distributional Regression (LSS)<a class="headerlink" href="#id21" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.LinRegLSS">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">LinRegLSS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/linreg.html#LinRegLSS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.LinRegLSS" title="Link to this definition"></a></dt>

@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>nampy.models.ngboost &mdash; nampy 0.1.0 documentation</title>
+  <title>nampy.models.snam &mdash; nampy 0.1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
       <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=ea57e989" />
@@ -186,8 +186,8 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.NAMformerRegressor.html">nampy.models.NAMformerRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.LinRegRegressor.html">nampy.models.LinRegRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.TreeNAMRegressor.html">nampy.models.TreeNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.SNAMRegressor.html">nampy.models.SNAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.NodeGAMRegressor.html">nampy.models.NodeGAMRegressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.NGBoostRegressor.html">nampy.models.NGBoostRegressor</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#classification-models">Classification Models</a><ul>
@@ -198,7 +198,6 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.NAMformerClassifier.html">nampy.models.NAMformerClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.LinRegClassifier.html">nampy.models.LinRegClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.NodeGAMClassifier.html">nampy.models.NodeGAMClassifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.NGBoostClassifier.html">nampy.models.NGBoostClassifier</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#distributional-regression-models-lss">Distributional Regression Models (LSS)</a><ul>
@@ -213,7 +212,6 @@
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#other-models">Other Models</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.QNAM.html">nampy.models.QNAM</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.models.NGBSurvival.html">nampy.models.NGBSurvival</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/models.html#base-classes">Base Classes</a><ul>
@@ -237,8 +235,6 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.basemodels.NATT.html">nampy.basemodels.NATT</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.basemodels.NAMformer.html">nampy.basemodels.NAMformer</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.basemodels.LinReg.html">nampy.basemodels.LinReg</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.basemodels.NGBoost.html">nampy.basemodels.NGBoost</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.basemodels.NGBSurvival.html">nampy.basemodels.NGBSurvival</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.basemodels.QNAMBase.html">nampy.basemodels.QNAMBase</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/nampy.basemodels.NodeGAM.html">nampy.basemodels.NodeGAM</a></li>
 </ul>
@@ -257,7 +253,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultNAMformerConfig.html">nampy.configs.DefaultNAMformerConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultLinRegConfig.html">nampy.configs.DefaultLinRegConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultNodeGAMConfig.html">nampy.configs.DefaultNodeGAMConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultNGBoostConfig.html">nampy.configs.DefaultNGBoostConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/configs.html#using-configurations">Using Configurations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/configs.html#note">Note</a></li>
 </ul>
@@ -352,38 +347,32 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id11">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../../../models/reference.html#ngboost">NGBoost</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id12">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id13">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#survival">Survival</a></li>
-</ul>
-</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../models/reference.html#attention-based-models">Attention-Based Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../models/reference.html#natt">NATT</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id14">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id15">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id16">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id12">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id13">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id14">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../models/reference.html#namformer">NAMformer</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id17">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id18">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id19">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id15">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id16">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id17">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../models/reference.html#specialized-models">Specialized Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../models/reference.html#qnam-quantile-nam">QNAM (Quantile NAM)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id20">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id18">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../../../models/reference.html#linreg-neural-linear-regression">LinReg (Neural Linear Regression)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id21">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id22">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id23">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id19">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id20">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../models/reference.html#id21">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 </ul>
@@ -545,7 +534,7 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
-      <li class="breadcrumb-item active">nampy.models.ngboost</li>
+      <li class="breadcrumb-item active">nampy.models.snam</li>
       <li class="wy-breadcrumbs-aside">
       </li>
   </ul>
@@ -554,276 +543,33 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <h1>Source code for nampy.models.ngboost</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">accuracy_score</span><span class="p">,</span> <span class="n">mean_squared_error</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_test_split</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">..arch_utils.ngboost_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">y_from_censored</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">..basemodels.ngboost</span><span class="w"> </span><span class="kn">import</span> <span class="n">NGBSurvival</span> <span class="k">as</span> <span class="n">NGBSurvivalBase</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">..basemodels.ngboost</span><span class="w"> </span><span class="kn">import</span> <span class="n">NGBoost</span> <span class="k">as</span> <span class="n">NGBoostBase</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">.boosting_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseBoostingEstimator</span><span class="p">,</span> <span class="n">BaseBoostingRegressorClassifier</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">..configs.ngboost_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">DefaultNGBoostConfig</span>
+  <h1>Source code for nampy.models.snam</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">..basemodels.snam</span><span class="w"> </span><span class="kn">import</span> <span class="n">SNAM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..configs.snam_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">DefaultSNAMConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.sklearn_classifier</span><span class="w"> </span><span class="kn">import</span> <span class="n">SklearnBaseClassifier</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.sklearn_lss</span><span class="w"> </span><span class="kn">import</span> <span class="n">SklearnBaseLSS</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.sklearn_regressor</span><span class="w"> </span><span class="kn">import</span> <span class="n">SklearnBaseRegressor</span>
 
 
-<span class="k">class</span><span class="w"> </span><span class="nc">_BaseNGBoostEstimator</span><span class="p">(</span><span class="n">BaseBoostingRegressorClassifier</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span> <span class="n">config_cls</span><span class="o">=</span><span class="n">DefaultNGBoostConfig</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">pred_dist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
-        <span class="n">matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform_matrix</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">pred_dist</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="n">max_iter</span><span class="p">)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">predict_feature_vals</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
-        <span class="n">matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform_matrix</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;output&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">matrix</span><span class="p">),</span>
-            <span class="s2">&quot;raw_params&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">pred_param</span><span class="p">(</span><span class="n">matrix</span><span class="p">),</span>
-        <span class="p">}</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_check_fitted</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">feature_importances_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
-        <span class="n">importances</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">feature_importances_</span>
-        <span class="k">if</span> <span class="n">importances</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">None</span>
-        <span class="k">return</span> <span class="n">importances</span>
-
-
-<div class="viewcode-block" id="NGBoostRegressor">
-<a class="viewcode-back" href="../../../models/reference.html#nampy.models.NGBoostRegressor">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">NGBoostRegressor</span><span class="p">(</span><span class="n">_BaseNGBoostEstimator</span><span class="p">):</span>
-<div class="viewcode-block" id="NGBoostRegressor.__init__">
-<a class="viewcode-back" href="../../../models/reference.html#nampy.models.NGBoostRegressor.__init__">[docs]</a>
+<div class="viewcode-block" id="SNAMRegressor">
+<a class="viewcode-back" href="../../../models/reference.html#nampy.models.SNAMRegressor">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SNAMRegressor</span><span class="p">(</span><span class="n">SklearnBaseRegressor</span><span class="p">):</span>
+<div class="viewcode-block" id="SNAMRegressor.__init__">
+<a class="viewcode-back" href="../../../models/reference.html#nampy.models.SNAMRegressor.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">task</span><span class="o">=</span><span class="s2">&quot;regression&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="NGBoostRegressor.fit">
-<a class="viewcode-back" href="../../../models/reference.html#nampy.models.NGBoostRegressor.fit">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">X</span><span class="p">,</span>
-        <span class="n">y</span><span class="p">,</span>
-        <span class="n">val_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
-        <span class="n">X_val</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">y_val</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">random_state</span><span class="o">=</span><span class="mi">101</span><span class="p">,</span>
-        <span class="n">sample_weight</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">val_sample_weight</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="p">):</span>
-        <span class="n">X_train</span><span class="p">,</span> <span class="n">X_val_df</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">y_val_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_validation</span><span class="p">(</span>
-            <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">X_val</span><span class="o">=</span><span class="n">X_val</span><span class="p">,</span> <span class="n">y_val</span><span class="o">=</span><span class="n">y_val</span><span class="p">,</span> <span class="n">val_size</span><span class="o">=</span><span class="n">val_size</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="n">random_state</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_fit_preprocessor</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">X_val_df</span><span class="p">,</span> <span class="n">y_val_arr</span><span class="p">)</span>
-
-        <span class="n">train_matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform_matrix</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span>
-        <span class="n">val_matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform_matrix</span><span class="p">(</span><span class="n">X_val_df</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">NGBoostBase</span><span class="p">(</span><span class="n">task</span><span class="o">=</span><span class="s2">&quot;regression&quot;</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">config_kwargs</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
-            <span class="n">train_matrix</span><span class="p">,</span>
-            <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_train</span><span class="p">),</span>
-            <span class="n">X_val</span><span class="o">=</span><span class="n">val_matrix</span><span class="p">,</span>
-            <span class="n">y_val</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_val_arr</span><span class="p">),</span>
-            <span class="n">sample_weight</span><span class="o">=</span><span class="n">sample_weight</span><span class="p">,</span>
-            <span class="n">val_sample_weight</span><span class="o">=</span><span class="n">val_sample_weight</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span></div>
-
-
-<div class="viewcode-block" id="NGBoostRegressor.predict">
-<a class="viewcode-back" href="../../../models/reference.html#nampy.models.NGBoostRegressor.predict">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_transform_matrix</span><span class="p">(</span><span class="n">X</span><span class="p">))</span></div>
-
-
-<div class="viewcode-block" id="NGBoostRegressor.evaluate">
-<a class="viewcode-back" href="../../../models/reference.html#nampy.models.NGBoostRegressor.evaluate">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y_true</span><span class="p">):</span>
-        <span class="n">preds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;Mean Squared Error&quot;</span><span class="p">:</span> <span class="n">mean_squared_error</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">preds</span><span class="p">)}</span></div>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">SNAM</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">DefaultSNAMConfig</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 </div>
 
 
 
-<div class="viewcode-block" id="NGBoostClassifier">
-<a class="viewcode-back" href="../../../models/reference.html#nampy.models.NGBoostClassifier">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">NGBoostClassifier</span><span class="p">(</span><span class="n">_BaseNGBoostEstimator</span><span class="p">):</span>
-<div class="viewcode-block" id="NGBoostClassifier.__init__">
-<a class="viewcode-back" href="../../../models/reference.html#nampy.models.NGBoostClassifier.__init__">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SNAMClassifier</span><span class="p">(</span><span class="n">SklearnBaseClassifier</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">task</span><span class="o">=</span><span class="s2">&quot;classification&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">SNAM</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">DefaultSNAMConfig</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="NGBoostClassifier.fit">
-<a class="viewcode-back" href="../../../models/reference.html#nampy.models.NGBoostClassifier.fit">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">X</span><span class="p">,</span>
-        <span class="n">y</span><span class="p">,</span>
-        <span class="n">val_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
-        <span class="n">X_val</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">y_val</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">random_state</span><span class="o">=</span><span class="mi">101</span><span class="p">,</span>
-        <span class="n">sample_weight</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">val_sample_weight</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="p">):</span>
-        <span class="n">X_train</span><span class="p">,</span> <span class="n">X_val_df</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">y_val_arr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_validation</span><span class="p">(</span>
-            <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">X_val</span><span class="o">=</span><span class="n">X_val</span><span class="p">,</span> <span class="n">y_val</span><span class="o">=</span><span class="n">y_val</span><span class="p">,</span> <span class="n">val_size</span><span class="o">=</span><span class="n">val_size</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="n">random_state</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_fit_preprocessor</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">X_val_df</span><span class="p">,</span> <span class="n">y_val_arr</span><span class="p">)</span>
-
-        <span class="n">train_matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform_matrix</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span>
-        <span class="n">val_matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform_matrix</span><span class="p">(</span><span class="n">X_val_df</span><span class="p">)</span>
-        <span class="n">num_classes</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_train</span><span class="p">)))</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">NGBoostBase</span><span class="p">(</span>
-            <span class="n">task</span><span class="o">=</span><span class="s2">&quot;classification&quot;</span><span class="p">,</span>
-            <span class="n">num_classes</span><span class="o">=</span><span class="n">num_classes</span><span class="p">,</span>
-            <span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
-            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">config_kwargs</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
-            <span class="n">train_matrix</span><span class="p">,</span>
-            <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_train</span><span class="p">),</span>
-            <span class="n">X_val</span><span class="o">=</span><span class="n">val_matrix</span><span class="p">,</span>
-            <span class="n">y_val</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_val_arr</span><span class="p">),</span>
-            <span class="n">sample_weight</span><span class="o">=</span><span class="n">sample_weight</span><span class="p">,</span>
-            <span class="n">val_sample_weight</span><span class="o">=</span><span class="n">val_sample_weight</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span></div>
-
-
-<div class="viewcode-block" id="NGBoostClassifier.predict">
-<a class="viewcode-back" href="../../../models/reference.html#nampy.models.NGBoostClassifier.predict">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_transform_matrix</span><span class="p">(</span><span class="n">X</span><span class="p">))</span></div>
-
-
-<div class="viewcode-block" id="NGBoostClassifier.predict_proba">
-<a class="viewcode-back" href="../../../models/reference.html#nampy.models.NGBoostClassifier.predict_proba">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">predict_proba</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_transform_matrix</span><span class="p">(</span><span class="n">X</span><span class="p">))</span></div>
-
-
-<div class="viewcode-block" id="NGBoostClassifier.evaluate">
-<a class="viewcode-back" href="../../../models/reference.html#nampy.models.NGBoostClassifier.evaluate">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y_true</span><span class="p">):</span>
-        <span class="n">preds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;Accuracy&quot;</span><span class="p">:</span> <span class="n">accuracy_score</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">preds</span><span class="p">)}</span></div>
-</div>
-
-
-
-<div class="viewcode-block" id="NGBSurvival">
-<a class="viewcode-back" href="../../../models/reference.html#nampy.models.NGBSurvival">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">NGBSurvival</span><span class="p">(</span><span class="n">BaseBoostingEstimator</span><span class="p">):</span>
-<div class="viewcode-block" id="NGBSurvival.__init__">
-<a class="viewcode-back" href="../../../models/reference.html#nampy.models.NGBSurvival.__init__">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SNAMLSS</span><span class="p">(</span><span class="n">SklearnBaseLSS</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">config_cls</span><span class="o">=</span><span class="n">DefaultNGBoostConfig</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="NGBSurvival.fit">
-<a class="viewcode-back" href="../../../models/reference.html#nampy.models.NGBSurvival.fit">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">X</span><span class="p">,</span>
-        <span class="n">T</span><span class="p">,</span>
-        <span class="n">E</span><span class="p">,</span>
-        <span class="n">val_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
-        <span class="n">X_val</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">T_val</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">E_val</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">random_state</span><span class="o">=</span><span class="mi">101</span><span class="p">,</span>
-    <span class="p">):</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">X_val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="o">^</span> <span class="p">(</span><span class="n">T_val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">X_val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="o">^</span> <span class="p">(</span><span class="n">E_val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;X_val, T_val, and E_val must be provided together.&quot;</span><span class="p">)</span>
-
-        <span class="n">X_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_dataframe</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-        <span class="n">T</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>
-        <span class="n">E</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">E</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">X_val</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X_df</span><span class="p">))</span>
-            <span class="n">train_idx</span><span class="p">,</span> <span class="n">val_idx</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span>
-                <span class="n">indices</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="n">val_size</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="n">random_state</span>
-            <span class="p">)</span>
-            <span class="n">X_train</span> <span class="o">=</span> <span class="n">X_df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">train_idx</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">X_val_df</span> <span class="o">=</span> <span class="n">X_df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">val_idx</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">T_train</span><span class="p">,</span> <span class="n">T_val_arr</span> <span class="o">=</span> <span class="n">T</span><span class="p">[</span><span class="n">train_idx</span><span class="p">],</span> <span class="n">T</span><span class="p">[</span><span class="n">val_idx</span><span class="p">]</span>
-            <span class="n">E_train</span><span class="p">,</span> <span class="n">E_val_arr</span> <span class="o">=</span> <span class="n">E</span><span class="p">[</span><span class="n">train_idx</span><span class="p">],</span> <span class="n">E</span><span class="p">[</span><span class="n">val_idx</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">X_train</span> <span class="o">=</span> <span class="n">X_df</span>
-            <span class="n">X_val_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_dataframe</span><span class="p">(</span><span class="n">X_val</span><span class="p">)</span>
-            <span class="n">T_train</span><span class="p">,</span> <span class="n">T_val_arr</span> <span class="o">=</span> <span class="n">T</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">T_val</span><span class="p">)</span>
-            <span class="n">E_train</span><span class="p">,</span> <span class="n">E_val_arr</span> <span class="o">=</span> <span class="n">E</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">E_val</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_fit_preprocessor</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">T_train</span><span class="p">,</span> <span class="n">X_val_df</span><span class="p">,</span> <span class="n">T_val_arr</span><span class="p">)</span>
-        <span class="n">train_matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform_matrix</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span>
-        <span class="n">val_matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform_matrix</span><span class="p">(</span><span class="n">X_val_df</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">NGBSurvivalBase</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">config_kwargs</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
-            <span class="n">train_matrix</span><span class="p">,</span>
-            <span class="n">T_train</span><span class="p">,</span>
-            <span class="n">E_train</span><span class="p">,</span>
-            <span class="n">X_val</span><span class="o">=</span><span class="n">val_matrix</span><span class="p">,</span>
-            <span class="n">T_val</span><span class="o">=</span><span class="n">T_val_arr</span><span class="p">,</span>
-            <span class="n">E_val</span><span class="o">=</span><span class="n">E_val_arr</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span></div>
-
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_check_fitted</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
-
-<div class="viewcode-block" id="NGBSurvival.predict">
-<a class="viewcode-back" href="../../../models/reference.html#nampy.models.NGBSurvival.predict">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_transform_matrix</span><span class="p">(</span><span class="n">X</span><span class="p">))</span></div>
-
-
-<div class="viewcode-block" id="NGBSurvival.pred_dist">
-<a class="viewcode-back" href="../../../models/reference.html#nampy.models.NGBSurvival.pred_dist">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">pred_dist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">pred_dist</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_transform_matrix</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">max_iter</span><span class="o">=</span><span class="n">max_iter</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="NGBSurvival.predict_survival_function">
-<a class="viewcode-back" href="../../../models/reference.html#nampy.models.NGBSurvival.predict_survival_function">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">predict_survival_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">times</span><span class="p">):</span>
-        <span class="n">dist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pred_dist</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-        <span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">dist</span><span class="o">.</span><span class="n">sf</span><span class="p">(</span><span class="n">times_i</span><span class="p">)</span> <span class="k">for</span> <span class="n">times_i</span> <span class="ow">in</span> <span class="n">times</span><span class="p">])</span><span class="o">.</span><span class="n">T</span></div>
-
-
-<div class="viewcode-block" id="NGBSurvival.evaluate">
-<a class="viewcode-back" href="../../../models/reference.html#nampy.models.NGBSurvival.evaluate">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">E</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
-        <span class="n">matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform_matrix</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-        <span class="n">params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">pred_param</span><span class="p">(</span><span class="n">matrix</span><span class="p">)</span>
-        <span class="n">manifold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">estimator</span><span class="o">.</span><span class="n">Manifold</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
-        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;NLL&quot;</span><span class="p">:</span> <span class="n">manifold</span><span class="o">.</span><span class="n">total_score</span><span class="p">(</span><span class="n">y_from_censored</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">T</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">E</span><span class="p">)))}</span></div>
-
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">feature_importances_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_check_fitted</span><span class="p">()</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">feature_importances_</span></div>
-
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">SNAM</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">DefaultSNAMConfig</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </pre></div>
 
            </div>
