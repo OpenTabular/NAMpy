@@ -26,9 +26,9 @@ class NBMRegressor(SklearnBaseRegressor):
         Factor by which the learning rate will be reduced.
     layer_sizes : list, default=[256, 128, 32]
         Sizes of the layers in the NBM basis MLP.
-    activation_fn : type, default=nn.ReLU
+    activation : type, default=nn.ReLU
         Activation class for the NBM layers.
-    dropout_rate : float, default=0.1
+    dropout : float, default=0.1
         Dropout rate for regularization.
     norm : str, default=None
         Normalization method to be used (e.g. BatchNorm, LayerNorm, RMSNorm, GroupNorm).
@@ -81,7 +81,7 @@ class NBMRegressor(SklearnBaseRegressor):
     Examples
     --------
     >>> from nampy.models import NBMRegressor
-    >>> model = NBMRegressor(layer_sizes=[128, 128, 64], activation_fn=nn.ReLU)
+    >>> model = NBMRegressor(layer_sizes=[128, 128, 64], activation=nn.ReLU)
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
     >>> model.evaluate(X_test, y_test)
@@ -111,9 +111,9 @@ class NBMClassifier(SklearnBaseClassifier):
         Factor by which the learning rate will be reduced.
     layer_sizes : list, default=[256, 128, 32]
         Sizes of the layers in the NBM basis MLP.
-    activation_fn : type, default=nn.ReLU
+    activation : type, default=nn.ReLU
         Activation class for the NBM layers.
-    dropout_rate : float, default=0.1
+    dropout : float, default=0.1
         Dropout rate for regularization.
     norm : str, default=None
         Normalization method to be used (e.g. BatchNorm, LayerNorm, RMSNorm, GroupNorm).
@@ -166,7 +166,7 @@ class NBMClassifier(SklearnBaseClassifier):
     Examples
     --------
     >>> from nampy.models import NBMClassifier
-    >>> model = NBMClassifier(layer_sizes=[128, 128, 64], activation_fn=nn.ReLU)
+    >>> model = NBMClassifier(layer_sizes=[128, 128, 64], activation=nn.ReLU)
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
     >>> model.evaluate(X_test, y_test)
@@ -196,9 +196,9 @@ class NBMLSS(SklearnBaseLSS):
         Factor by which the learning rate will be reduced.
     layer_sizes : list, default=[256, 128, 32]
         Sizes of the layers in the NBM basis MLP.
-    activation_fn : type, default=nn.ReLU
+    activation : type, default=nn.ReLU
         Activation class for the NBM layers.
-    dropout_rate : float, default=0.1
+    dropout : float, default=0.1
         Dropout rate for regularization.
     norm : str, default=None
         Normalization method to be used (e.g. BatchNorm, LayerNorm, RMSNorm, GroupNorm).
@@ -254,7 +254,7 @@ class NBMLSS(SklearnBaseLSS):
     Examples
     --------
     >>> from nampy.models import NBMLSS
-    >>> model = NBMLSS(layer_sizes=[128, 128, 64], activation_fn=nn.ReLU)
+    >>> model = NBMLSS(layer_sizes=[128, 128, 64], activation=nn.ReLU)
     >>> model.fit(X_train, y_train)
     >>> preds = model.predict(X_test)
     >>> model.evaluate(X_test, y_test)

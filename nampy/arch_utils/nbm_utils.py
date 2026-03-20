@@ -17,9 +17,9 @@ class _ResidualBlockNary(nn.Module):
         self,
         n_input: int,
         n_output: int,
-        dropout_rate: float,
+        dropout: float,
         *,
-        activation_fn: Union[type, nn.Module],
+        activation: Union[type, nn.Module],
         norm_name: Optional[str] = None,
         use_glu: bool = False,
         use_skip: bool = False,
@@ -36,11 +36,11 @@ class _ResidualBlockNary(nn.Module):
             modules.append(nn.GLU())
             effective_out = n_output // 2
         else:
-            modules.append(_make_activation(activation_fn))
+            modules.append(_make_activation(activation))
             effective_out = n_output
 
-        if dropout_rate > 0.0:
-            modules.append(nn.Dropout(dropout_rate))
+        if dropout > 0.0:
+            modules.append(nn.Dropout(dropout))
 
         self.block = nn.Sequential(*modules)
         self.use_skip = bool(use_skip and n_input == effective_out)
@@ -64,9 +64,9 @@ class ConceptNNBasesNary(nn.Module):
         Number of basis functions (output dimension).
     layer_sizes : list of int
         Number of units in each hidden layer.
-    activation_fn : type or nn.Module
+    activation : type or nn.Module
         Activation class (e.g. nn.ReLU) or instance.
-    dropout_rate : float
+    dropout : float
         Dropout rate for hidden layers.
     use_batch_norm : bool
         Whether to use batch normalization.
@@ -85,8 +85,8 @@ class ConceptNNBasesNary(nn.Module):
         order: int,
         num_bases: int,
         layer_sizes: List[int],
-        activation_fn: Union[type, nn.Module],
-        dropout_rate: float = 0.1,
+        activation: Union[type, nn.Module],
+        dropout: float = 0.1,
         use_batch_norm: bool = False,
         use_layer_norm: bool = False,
         norm: Optional[str] = None,
@@ -118,8 +118,8 @@ class ConceptNNBasesNary(nn.Module):
                 _ResidualBlockNary(
                     n_input=input_dim,
                     n_output=n_hidden,
-                    dropout_rate=dropout_rate,
-                    activation_fn=activation_fn,
+                    dropout=dropout,
+                    activation=activation,
                     norm_name=norm_name,
                     use_glu=use_glu,
                     use_skip=skip_connections,
@@ -132,7 +132,7 @@ class ConceptNNBasesNary(nn.Module):
 
         # Keep final normalization consistent with hidden blocks
         self.norm_final = _make_norm(norm_name, num_bases)
-        self.act_final = _make_activation(activation_fn)
+        self.act_final = _make_activation(activation)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.hidden_layers(x)

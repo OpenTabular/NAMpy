@@ -21,7 +21,6 @@ Regression Models
    TreeNAMRegressor
    SNAMRegressor
    NodeGAMRegressor
-   NGBoostRegressor
 
 Classification Models
 ---------------------
@@ -37,7 +36,6 @@ Classification Models
    NAMformerClassifier
    LinRegClassifier
    NodeGAMClassifier
-   NGBoostClassifier
 
 Distributional Regression Models (LSS)
 ---------------------------------------
@@ -62,7 +60,6 @@ Other Models
    :nosignatures:
 
    QNAM
-   NGBSurvival
 
 Base Classes
 ------------

@@ -43,7 +43,7 @@ def main():
 
     model = NAMRegressor(
         layer_sizes=(64, 32),
-        dropout_rate=0.05,
+        dropout=0.05,
         numerical_preprocessing="ple",
         n_bins=50,
         categorical_preprocessing="one_hot",

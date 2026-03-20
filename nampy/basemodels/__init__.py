@@ -7,7 +7,6 @@ from .nam import NAM
 from .namformer import NAMformer
 from .natt import NATT
 from .nbm import NBM
-from .ngboost import NGBSurvival, NGBoost
 from .nodegam import NodeGAM
 from .qnam import QNAMBase
 from .spline_nam import SplineNAM
@@ -21,8 +20,6 @@ __all__ = [
     "QNAMBase",
     "GPNAM",
     "NBM",
-    "NGBoost",
-    "NGBSurvival",
     "NATT",
     "NAMformer",
     "TreeNAM",

@@ -67,8 +67,8 @@ class NBM(BaseModel):
 
         # Architecture hyperparameters
         self.layer_sizes = self.hparams.get("layer_sizes", config.layer_sizes)
-        self.activation_fn = self.hparams.get("activation_fn", config.activation_fn)
-        self.dropout_rate = self.hparams.get("dropout_rate", config.dropout_rate)
+        self.activation = self.hparams.get("activation", config.activation)
+        self.dropout = self.hparams.get("dropout", config.dropout)
         self.norm = self.hparams.get("norm", config.norm)
         self.use_glu = self.hparams.get("use_glu", config.use_glu)
         self.skip_connections = self.hparams.get(
@@ -169,8 +169,8 @@ class NBM(BaseModel):
                         order=order_size,
                         num_bases=self.num_bases,
                         layer_sizes=self.layer_sizes,
-                        activation_fn=self.activation_fn,
-                        dropout_rate=self.dropout_rate,
+                        activation=self.activation,
+                        dropout=self.dropout,
                         use_batch_norm=self.batch_norm,
                         use_layer_norm=self.layer_norm,
                         norm=self.norm,

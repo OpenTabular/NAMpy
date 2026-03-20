@@ -119,7 +119,7 @@ def main():
     # ------------------------------------------------------------------
     model = QNAM(
         layer_sizes=(128, 64),
-        dropout_rate=0.05,
+        dropout=0.05,
         feature_dropout=0.0,
         numerical_preprocessing="standardization",
         categorical_preprocessing="one_hot",
