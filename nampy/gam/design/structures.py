@@ -225,17 +225,17 @@ class CompiledPredictor:
 
     @property
     def matrix_train(self) -> np.ndarray:
-        """Alias for ``design_matrix`` (used by the GAM core and parity tests)."""
+        """Alias for ``design_matrix``; used by the base GAM model."""
         return self.design_matrix
 
     @property
     def penalty_blocks(self) -> tuple:
-        """Alias for ``compiled_penalties``."""
+        """Alias for ``compiled_penalties``; used by the smoothness and fit subsystems."""
         return self.compiled_penalties
 
     @property
     def term_blocks(self) -> tuple:
-        """Alias for ``compiled_terms``."""
+        """Alias for ``compiled_terms``; used by the smoothness and fit subsystems."""
         return self.compiled_terms
 
     def build_new_matrix(self, X_new):
@@ -257,11 +257,7 @@ class CompiledPredictor:
                 B = B @ C
             blocks.append(B)
 
-        return (
-            np.column_stack(blocks)
-            if blocks
-            else np.empty((len(X_new), 0), dtype=np.float64)
-        )
+        return np.column_stack(blocks)
 
 
 __all__ = ["PenaltySpec", "CompiledPenalty", "CompiledTerm", "CompiledPredictor"]

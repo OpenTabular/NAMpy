@@ -90,42 +90,97 @@ def marginal_range_null_decomposition(raw_basis, raw_penalty, tol=1e-10):
 
 
 def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=None):
+    """
+    Reparameterize a marginal smooth for use in t2 tensor products.
+
+    Implements mgcv's ``nat.param(type=3, unit.fnorm=TRUE)``:
+
+    1. Eigendecompose S (descending eigenvalue order).
+    2. Scale by sqrt(eigenvalues) for the penalized part; for the null space
+       scale so that the Frobenius-normalised column norms match the penalized average.
+    3. Rotate the null space columns so that a near-constant vector is last (type=3).
+    4. Rescale both penalised and null blocks to unit Frobenius norm (unit.fnorm).
+
+    Returns dict with keys ``B_range``, ``B_null``, ``T_range``, ``T_null``,
+    ``range_dim``, ``null_dim``, ``rank``, ``null_space_dim``, ``tol_eff``.
+    """
     X = np.asarray(raw_basis, dtype=np.float64)
     S = np.asarray(raw_penalty, dtype=np.float64)
+    p = X.shape[1]
+
+    # Step 1: eigendecompose S in descending order (matches R's eigen())
     evals, U = np.linalg.eigh(0.5 * (S + S.T))
     idx = np.argsort(evals)[::-1]
     evals, U = evals[idx], U[:, idx]
-    tol_eff = tol * max(1.0, float(np.max(evals)) if evals.size else 1.0)
+
+    tol_eff = float(np.finfo(np.float64).eps) ** 0.8 * max(1.0, float(np.max(evals)) if evals.size else 1.0)
     rank = int(np.sum(evals > tol_eff))
-    p = X.shape[1]
     null_exists = rank < p
-    if null_exists and knots is not None and (p - rank) == 2:
-        U = np.column_stack([U[:, :rank], cr_exact_null_basis_from_knots(knots)])
+
+    # Step 2: build E vector, apply eigenvectors, compute column norms
     E = np.ones(p, dtype=np.float64)
     if rank > 0:
-        E[:rank] = np.sqrt(evals[:rank])
+        E[:rank] = np.sqrt(np.maximum(evals[:rank], 0.0))
+
     Xp = X @ U
-    col_norm = np.sum(Xp**2, axis=0) / (E**2)
+    col_norm = np.sum(Xp ** 2, axis=0) / (E ** 2)
     av_norm = float(np.mean(col_norm[:rank])) if rank > 0 else 1.0
+
     if null_exists:
         for i in range(rank, p):
             if av_norm > 0.0 and col_norm[i] > 0.0:
                 E[i] = np.sqrt(col_norm[i] / av_norm)
+
+    # P = U / E  (divide column j by E[j]; matches R's t(t(er$vectors)/E))
     P = U / E[np.newaxis, :]
     Xp = Xp / E[np.newaxis, :]
+
+    # Step 3: type=3 null-space rotation — put near-constant column last
+    # Matches R: if (null.exists && type==3 && rank < ncol(X)-1)
+    if null_exists and rank < p - 1:
+        ind = list(range(rank, p))           # forward  (R: (rank+1):k 1-indexed)
+        rind = list(range(p - 1, rank - 1, -1))  # reversed (R: k:(rank+1) 1-indexed)
+        Xn = Xp[:, ind].copy()
+        n = Xn.shape[0]
+        one = np.ones(n, dtype=np.float64)
+        # centre columns of Xn
+        Xn -= (one[:, None] * (one[None, :] @ Xn)) / n
+        # eigendecompose gram matrix (R: eigen gives descending order)
+        um_evals, um_vecs = np.linalg.eigh(Xn.T @ Xn)
+        desc = np.argsort(um_evals)[::-1]
+        um_vecs = um_vecs[:, desc]
+        Xp[:, rind] = Xp[:, ind] @ um_vecs
+        P[:, rind] = P[:, ind] @ um_vecs
+
+    # Step 4: unit Frobenius norm  (unit.fnorm=TRUE)
+    # Penalised block: scale columns of Xp, scale ROWS of P (matches R's P[ind,] *= scale)
+    if rank > 0:
+        pen_idx = list(range(rank))
+        scale = 1.0 / np.sqrt(float(np.mean(Xp[:, pen_idx] ** 2)))
+        Xp[:, pen_idx] *= scale
+        P[pen_idx, :] *= scale   # rows of P
+    else:
+        scale = 1.0
+
+    if null_exists:
+        null_idx = list(range(rank, p))
+        scale_f = 1.0 / np.sqrt(float(np.mean(Xp[:, null_idx] ** 2)))
+        Xp[:, null_idx] *= scale_f
+        P[null_idx, :] *= scale_f   # rows of P
+
     B_r = Xp[:, :rank] if rank > 0 else np.empty((X.shape[0], 0), dtype=np.float64)
-    B_n = Xp[:, rank:] if rank < X.shape[1] else np.empty((X.shape[0], 0), dtype=np.float64)
-    T_r = P[:, :rank] if rank > 0 else np.empty((S.shape[0], 0), dtype=np.float64)
-    T_n = P[:, rank:] if rank < X.shape[1] else np.empty((S.shape[0], 0), dtype=np.float64)
+    B_n = Xp[:, rank:] if null_exists else np.empty((X.shape[0], 0), dtype=np.float64)
+    T_r = P[:, :rank] if rank > 0 else np.empty((p, 0), dtype=np.float64)
+    T_n = P[:, rank:] if null_exists else np.empty((p, 0), dtype=np.float64)
     return {
         "B_range": B_r,
         "B_null": B_n,
         "T_range": T_r,
         "T_null": T_n,
-        "range_dim": B_r.shape[1],
-        "null_dim": B_n.shape[1],
+        "range_dim": int(B_r.shape[1]),
+        "null_dim": int(B_n.shape[1]),
         "rank": rank,
-        "null_space_dim": int(X.shape[1] - rank),
+        "null_space_dim": int(p - rank),
         "tol_eff": tol_eff,
     }
 

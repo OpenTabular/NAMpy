@@ -93,8 +93,6 @@ class GPSmoothTerm(BaseSmoothTerm):
         self._basis_train = None
         self._penalties = None
 
-        self._constraint_kind = None
-        self._constraint_transform = None
         self._setup = None
 
     def fit(self, X, feature_names):
@@ -136,34 +134,14 @@ class GPSmoothTerm(BaseSmoothTerm):
             fixed=self.fixed,
             auto_constrain_when=auto_constrain,
         )
-        self._basis_train = result["basis_train"]
-        self._penalties = result["penalties"]
-        self._constraint_kind = result["constraint_kind"]
-        self._constraint_transform = result["constraint_transform"]
+        self._basis_train = result.basis_train
+        self._penalties = result.penalties
         self._record_constraint_result(
-            result["constraint_kind"],
-            result["constraint_transform"],
-            absorbed_by=("runtime" if result["constraint_transform"] is not None else None),
+            result.constraint_kind,
+            result.constraint_transform,
+            absorbed_by=("runtime" if result.constraint_transform is not None else None),
         )
         return self
-
-    @property
-    def basis_train(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return self._basis_train
-
-    @property
-    def penalties(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return self._penalties
-
-    @property
-    def n_coef(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return int(self._basis_train.shape[1])
 
     def get_penalty_definitions(self):
         if self._basis_train is None:
@@ -204,10 +182,10 @@ class GPSmoothTerm(BaseSmoothTerm):
                     "feature": list(self.feature),
                     "label": self.label,
                     "by": self.by,
-                    "by_name": self._by_name,
-                    "by_is_constant": bool(self._by_is_constant),
+                    "by_name": self._by_state.feature_name,
+                    "by_is_constant": bool(self._by_state.is_constant),
                     "constraint_mode": self.constraint_mode,
-                    "constraint_kind": self._constraint_kind,
+                    "constraint_kind": self.constraint_kind,
                     "pc": self.pc,
                     "knots": self.knots,
                     "xt": self.xt,

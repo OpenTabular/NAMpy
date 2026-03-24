@@ -78,9 +78,6 @@ class ByState:
         return self.feature_name
 
 
-ByVariableState = ByState
-
-
 @dataclass
 class FeatureMatrixState:
     indices: list[int]
@@ -107,15 +104,11 @@ def resolve_feature_matrix_state(features, X, feature_names):
     return FeatureMatrixState(indices=indices, names=names, matrix=Xf)
 
 
-def sync_by_state_attributes(term, by_state: ByVariableState):
+def sync_by_state_attributes(term, by_state: ByState):
     term._by_state = by_state
-    term._by_index = by_state.feature_index
-    term._by_name = by_state.feature_name
-    term._by_values = by_state.values
-    term._by_is_constant = bool(by_state.is_constant)
 
 
-def by_values_from_new_data(X_new, by_state: ByVariableState):
+def by_values_from_new_data(X_new, by_state: ByState):
     if by_state is None or not by_state.is_present:
         return None
     return column_as_float(X_new, by_state.feature_index)
@@ -166,14 +159,15 @@ def _sp_mode_value(sp_j):
 
 
 def term_penalty_metadata(term, extra=None, *, is_selection_penalty=False):
+    _by_state = getattr(term, "_by_state", None)
     meta = {
         "term_type": term.term_type,
         "basis_name": term.basis_name,
         "feature": term.feature,
         "label": term.label,
         "by": term.by,
-        "by_name": getattr(term, "_by_name", None),
-        "by_is_constant": bool(getattr(term, "_by_is_constant", True)),
+        "by_name": _by_state.feature_name if _by_state is not None else None,
+        "by_is_constant": bool(_by_state.is_constant) if _by_state is not None else True,
         "is_selection_penalty": bool(is_selection_penalty),
     }
     if extra:
@@ -272,8 +266,7 @@ RUNTIME_TERM_INTERFACE_CHECKLIST = (
     "term_type",
     "feature",
     "constraints_absorbed",
-    "fit_constraint_matrix",
-    "predict_constraint_matrix",
+    "constraint_transform",
     "prediction_offset",
     "metadata",
 )
@@ -300,8 +293,7 @@ class BaseSmoothTerm(abc.ABC):
         get_penalty_definitions  list of PenaltySpec via penalty subsystem
         label, basis_name, term_type, feature
         constraints_absorbed     True if this term already absorbed its constraints
-        fit_constraint_matrix    explicit constraint matrix, or None
-        predict_constraint_matrix
+        constraint_transform     coefficient transform T from raw → constrained space, or None
         prediction_offset
 
     Contract
@@ -335,8 +327,6 @@ class BaseSmoothTerm(abc.ABC):
         self.constraint_kind = None
         self.constraint_transform = None
         self.constraints_absorbed_by = None
-        self.fit_constraint_matrix = None
-        self.predict_constraint_matrix = None
         self.prediction_offset = None
         self.basis_train_base = None
         self.knots = None
@@ -350,8 +340,6 @@ class BaseSmoothTerm(abc.ABC):
     def _record_constraint_result(self, kind, transform, *, absorbed_by):
         self.constraint_kind = kind
         self.constraint_transform = transform
-        self.fit_constraint_matrix = transform
-        self.predict_constraint_matrix = transform
         self.constraints_absorbed_by = absorbed_by
         self.constraints_absorbed = bool(transform is not None)
         if transform is None:
@@ -367,8 +355,8 @@ class BaseSmoothTerm(abc.ABC):
         the by-variable is applied before the QR constraint), then apply T.
         Standard order: apply T first, then scale by z.
         """
-        T = getattr(self, "_constraint_transform", None)
-        if getattr(self, "_constraint_kind", None) == "factor_by":
+        T = self.constraint_transform
+        if self.constraint_kind == "factor_by":
             z = by_values_from_new_data(X_new, self._by_state)
             if z is not None:
                 B = B * z[:, None]

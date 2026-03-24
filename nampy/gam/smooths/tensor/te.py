@@ -23,7 +23,12 @@ from ..base import (
 from ...constraints.absorption import full_term_sum_to_zero_constraint
 from ..registry import register_smooth
 from ..univariate.cubic_regression import SplineTerm1D
-from ...basis.tensor import rowwise_kronecker, tensor_product_penalties
+from ...basis.tensor import (
+    rowwise_kronecker,
+    tensor_product_penalties,
+    normalize_tensor_marginal_penalty,
+    rescale_tensor_penalties_for_fit,
+)
 
 
 @register_smooth("te")
@@ -91,7 +96,6 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         self._basis_train = None
         self._penalties = None
         self._basis_dims = None
-        self._constraint_transform = None
 
         self._by_state = None
 
@@ -120,12 +124,32 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         self._by_state = resolve_by_state(self.by, X, feature_names)
         sync_by_state_attributes(self, self._by_state)
 
-        raw_marginal_bases = [m._spline.raw_basis for m in marginals]
-        raw_marginal_penalties = [m._spline.raw_penalty for m in marginals]
-        basis_dims = [B.shape[1] for B in raw_marginal_bases]
+        # Build marginal bases and penalties matching mgcv's te construction:
+        # 1. Use unscaled raw penalty (no scale_penalty yet).
+        # 2. Apply np=TRUE conditioning transform (SVD-based orthogonalisation).
+        # 3. Eigenvalue-normalize each marginal penalty.
+        # 4. Build tensor product.
+        # 5. Apply outer scale_penalty to the full tensor basis and penalties.
+        marginal_bases = []
+        marginal_penalties = []
+        for m in marginals:
+            X_j = np.asarray(m._spline.raw_basis, dtype=np.float64)
+            S_j = np.asarray(m._spline.raw_penalty_unscaled, dtype=np.float64)
+            XP = m._spline._np_transform
+            if XP is not None:
+                X_j = X_j @ XP
+                S_j = XP.T @ S_j @ XP
+            S_j = normalize_tensor_marginal_penalty(S_j)
+            marginal_bases.append(X_j)
+            marginal_penalties.append(S_j)
 
-        B_raw = rowwise_kronecker(raw_marginal_bases)
-        S_raw = tensor_product_penalties(raw_marginal_penalties, basis_dims=basis_dims)
+        basis_dims = [B.shape[1] for B in marginal_bases]
+
+        B_raw = rowwise_kronecker(marginal_bases)
+        S_raw = tensor_product_penalties(marginal_penalties, basis_dims=basis_dims)
+
+        # Outer scale_penalty on the full tensor product (matches smoothCon outer step).
+        S_raw = rescale_tensor_penalties_for_fit(B_raw, S_raw)
 
         if self._by_state.is_constant:
             B_te, S_te, C_te = full_term_sum_to_zero_constraint(B_raw, S_raw)
@@ -142,7 +166,6 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         self._basis_dims = basis_dims
         self._basis_train = np.asarray(B_te, dtype=np.float64)
         self._penalties = [] if self.fixed else [np.asarray(S, dtype=np.float64) for S in S_te]
-        self._constraint_transform = C_te
         self._record_constraint_result(
             "sum_to_zero" if C_te is not None else None,
             C_te,
@@ -152,31 +175,16 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         self.basis_name = "te(" + ",".join(self.basis) + ")"
         return self
 
-    @property
-    def basis_train(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return self._basis_train
-
-    @property
-    def penalties(self):
-        if self._penalties is None:
-            raise RuntimeError("Term is not fitted.")
-        return self._penalties
-
-    @property
-    def n_coef(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return int(self._basis_train.shape[1])
-
     def transform_new(self, X_new):
         if self._marginals is None:
             raise RuntimeError("Term is not fitted.")
 
-        raw_marginal_new = [
-            m._spline.transform_new_raw(column_as_float(X_new, m._feature_index))
-            for m in self._marginals
-        ]
-        B_new_raw = rowwise_kronecker(raw_marginal_new)
+        marginal_new = []
+        for m in self._marginals:
+            B_j = m._spline.transform_new_raw(column_as_float(X_new, m._feature_index))
+            XP = m._spline._np_transform
+            if XP is not None:
+                B_j = B_j @ XP
+            marginal_new.append(B_j)
+        B_new_raw = rowwise_kronecker(marginal_new)
         return self._apply_constraint_transform_and_by(B_new_raw, X_new)
