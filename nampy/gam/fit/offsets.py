@@ -1,3 +1,14 @@
+"""
+Offset utilities for the fitting pipeline.
+
+Offsets are additive constants on the link scale included in the linear predictor:
+``eta = offset + X beta``.  This module provides:
+
+- :func:`coerce_offset_array`: validate and coerce an offset to a 1-D float64 array.
+- :func:`resolve_prediction_offset`: determine which offset to use at prediction time
+  (explicit argument > model default > none).
+"""
+
 import numpy as np
 
 
@@ -14,7 +25,7 @@ def coerce_offset_array(offset, n_rows, *, name="offset"):
 
 def resolve_prediction_offset(model, X, offset):
     """
-    mgcv-like offset semantics
+    Offset semantics: additive on the linear predictor scale
     --------------------------
     - Offsets used only via a separate fit-time `offset=` argument are not
       automatically reused for prediction.

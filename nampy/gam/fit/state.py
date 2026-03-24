@@ -1,3 +1,14 @@
+"""
+Fit solution container shared by all fitting backends.
+
+:class:`FitCoreSolution` is the common return type of :func:`solve_gaussian_fit`
+and :func:`solve_pirls_fit`.  Downstream code (orchestrator, criterion functions,
+result builder) always receives this type, regardless of which backend produced it.
+
+:func:`compute_edf_by_term` and :func:`assign_fit_solution` are helpers called by
+the model after fitting to populate the model's public attributes.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -34,6 +45,7 @@ class FitCoreSolution:
     penalty_quadratic: float | None = None
     loglik: float | None = None
     offset: np.ndarray | None = None
+    log_det_XtWX_plus_penalty: float | None = None
 
     converged: bool | None = None
     iter: int | None = None
@@ -94,6 +106,11 @@ class FitCoreSolution:
             ),
             loglik=(None if data.get("loglik", None) is None else float(data["loglik"])),
             offset=None if data.get("offset", None) is None else np.asarray(data["offset"], dtype=np.float64),
+            log_det_XtWX_plus_penalty=(
+                None
+                if data.get("log_det_XtWX_plus_penalty", None) is None
+                else float(data["log_det_XtWX_plus_penalty"])
+            ),
             converged=data.get("converged", None),
             iter=data.get("iter", None),
             failed_step=data.get("failed_step", None),

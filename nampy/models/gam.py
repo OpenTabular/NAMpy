@@ -11,7 +11,7 @@ from ..gam.parity import (
     load_parity_snapshot,
     save_parity_snapshot,
 )
-from ..gsm.formula import parse_gam_formula
+from ..gam.formula import parse_gam_formula
 
 
 class GAMRegressor:

@@ -1,3 +1,11 @@
+"""
+Exponential-family GLM implementations.
+
+Each class implements the :class:`~nampy.gam.families.base.GLMFamily` interface
+for a specific distribution and canonical or common link function.  The classes
+are used directly as ``family`` arguments to GAM model constructors.
+"""
+
 import numpy as np
 from scipy.special import gammaln
 
@@ -41,7 +49,23 @@ class GaussianIdentityFamily(GLMFamily):
         mu = np.asarray(mu, dtype=np.float64)
         return np.zeros_like(mu)
 
+    def d2var(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+    def d3var(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
     def d2link(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+    def d3link(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+    def d4link(self, mu):
         mu = np.asarray(mu, dtype=np.float64)
         return np.zeros_like(mu)
 
@@ -132,10 +156,28 @@ class BinomialLogitFamily(GLMFamily):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
         return 1.0 - 2.0 * mu
 
+    def d2var(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return -2.0 * np.ones_like(mu)
+
+    def d3var(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return np.zeros_like(mu)
+
     def d2link(self, mu):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
         denom = np.clip((mu ** 2) * ((1.0 - mu) ** 2), self.eps, None)
         return (2.0 * mu - 1.0) / denom
+
+    def d3link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        denom = np.clip((mu**3) * ((1.0 - mu) ** 3), self.eps, None)
+        return 2.0 * (3.0 * mu**2 - 3.0 * mu + 1.0) / denom
+
+    def d4link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        denom = np.clip((mu**4) * ((1.0 - mu) ** 4), self.eps, None)
+        return 6.0 * (4.0 * mu**3 - 6.0 * mu**2 + 4.0 * mu - 1.0) / denom
 
     def deviance(self, y, mu):
         y = np.asarray(y, dtype=np.float64)
@@ -169,12 +211,12 @@ class BinomialLogitFamily(GLMFamily):
         term[mask2] += (1.0 - y[mask2]) * np.log(1.0 - y[mask2])
         return float(np.sum(weights * term))
 
-    def working_weight_derivative_eta(self, eta):
+    def working_weight_derivative_eta(self, eta, y=None):
         mu = self.inverse_link(eta)
         W = np.clip(mu * (1.0 - mu), self.eps, None)
         return (1.0 - 2.0 * mu) * W
 
-    def working_weight_second_derivative_eta(self, eta):
+    def working_weight_second_derivative_eta(self, eta, y=None):
         mu = self.inverse_link(eta)
         W = np.clip(mu * (1.0 - mu), self.eps, None)
         return W * ((1.0 - 2.0 * mu) ** 2 - 2.0 * W)
@@ -229,9 +271,25 @@ class PoissonLogFamily(GLMFamily):
         mu = np.asarray(mu, dtype=np.float64)
         return np.ones_like(mu)
 
+    def d2var(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+    def d3var(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
     def d2link(self, mu):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
         return -1.0 / np.clip(mu ** 2, self.eps, None)
+
+    def d3link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 2.0 / np.clip(mu**3, self.eps, None)
+
+    def d4link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return -6.0 / np.clip(mu**4, self.eps, None)
 
     def deviance(self, y, mu):
         y = np.asarray(y, dtype=np.float64)
@@ -258,10 +316,10 @@ class PoissonLogFamily(GLMFamily):
         sat = np.where(y > 0.0, y * np.log(y_safe) - y, -y) - gammaln(y + 1.0)
         return float(np.sum(weights * sat))
 
-    def working_weight_derivative_eta(self, eta):
+    def working_weight_derivative_eta(self, eta, y=None):
         return self.inverse_link(eta)
 
-    def working_weight_second_derivative_eta(self, eta):
+    def working_weight_second_derivative_eta(self, eta, y=None):
         return self.inverse_link(eta)
 
 
@@ -278,6 +336,8 @@ class GammaLogFamily(GLMFamily):
     supports_ml = True
     supports_reml = True
     supports_laml = False
+    # Exact PIRLS derivatives for Gamma now rely on analytic working-weight
+    # expressions that depend on the observations.
     supports_exact_pirls_first_derivatives = True
     supports_exact_pirls_second_derivatives = True
 
@@ -314,9 +374,25 @@ class GammaLogFamily(GLMFamily):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
         return 2.0 * mu
 
+    def d2var(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 2.0 * np.ones_like(mu)
+
+    def d3var(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return np.zeros_like(mu)
+
     def d2link(self, mu):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
         return -1.0 / np.clip(mu ** 2, self.eps, None)
+
+    def d3link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 2.0 / np.clip(mu**3, self.eps, None)
+
+    def d4link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return -6.0 / np.clip(mu**4, self.eps, None)
 
     def deviance(self, y, mu):
         y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
@@ -355,13 +431,19 @@ class GammaLogFamily(GLMFamily):
         sat = -np.log(y) - shape - gammaln(shape) + shape * np.log(shape)
         return float(np.sum(weights * sat))
 
-    def working_weight_derivative_eta(self, eta):
-        eta = np.asarray(eta, dtype=np.float64)
-        return np.zeros_like(eta)
+    def working_weight_derivative_eta(self, eta, y=None):
+        if y is None:
+            raise ValueError("GammaLogFamily requires targets to evaluate working-weight derivatives.")
+        mu = np.clip(self.inverse_link(eta), self.eps, None)
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        return -np.asarray(y / mu, dtype=np.float64)
 
-    def working_weight_second_derivative_eta(self, eta):
-        eta = np.asarray(eta, dtype=np.float64)
-        return np.zeros_like(eta)
+    def working_weight_second_derivative_eta(self, eta, y=None):
+        if y is None:
+            raise ValueError("GammaLogFamily requires targets to evaluate working-weight derivatives.")
+        mu = np.clip(self.inverse_link(eta), self.eps, None)
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        return np.asarray(y / mu, dtype=np.float64)
 
 
 class NegativeBinomialLogFamily(GLMFamily):
@@ -399,7 +481,8 @@ class NegativeBinomialLogFamily(GLMFamily):
 
     def initialize_mu(self, y):
         y = np.asarray(y, dtype=np.float64)
-        return np.clip(y + 0.1, self.eps, None)
+        # Match common negative-binomial initialization (MASS-style).
+        return np.clip(y + (y == 0.0).astype(np.float64) / 6.0, self.eps, None)
 
     def link(self, mu):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
@@ -421,9 +504,25 @@ class NegativeBinomialLogFamily(GLMFamily):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
         return 1.0 + 2.0 * mu / self.theta
 
+    def d2var(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return (2.0 / self.theta) * np.ones_like(mu)
+
+    def d3var(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return np.zeros_like(mu)
+
     def d2link(self, mu):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
         return -1.0 / np.clip(mu ** 2, self.eps, None)
+
+    def d3link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 2.0 / np.clip(mu**3, self.eps, None)
+
+    def d4link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return -6.0 / np.clip(mu**4, self.eps, None)
 
     def deviance(self, y, mu):
         y = np.asarray(y, dtype=np.float64)
@@ -456,25 +555,40 @@ class NegativeBinomialLogFamily(GLMFamily):
         else:
             weights = np.asarray(weights, dtype=np.float64)
         th = float(self.theta)
-        y_safe = np.clip(y, self.eps, None)
+        # Saturated NB log-likelihood at y (count density at mean y):
+        # keep y==0 exact (contributes 0) instead of epsilon-shifting.
         term = (
             gammaln(y + th)
             - gammaln(th)
             - gammaln(y + 1.0)
-            + th * np.log(th / (th + y_safe))
+            + th * np.log(th / (th + y))
         )
         mask = y > 0.0
-        term[mask] += y[mask] * np.log(y_safe[mask] / (th + y_safe[mask]))
+        term[mask] += y[mask] * np.log(y[mask] / (th + y[mask]))
         return float(np.sum(weights * term))
 
-    def working_weight_derivative_eta(self, eta):
-        mu = self.inverse_link(eta)
+    def working_weight_derivative_eta(self, eta, y=None):
+        mu = np.clip(self.inverse_link(eta), self.eps, None)
         th = float(self.theta)
-        denom = th + mu
-        return (th ** 2) * mu / np.clip(denom ** 2, self.eps, None)
+        denom = np.clip(th + mu, self.eps, None)
+        if y is None:
+            # Fisher-weight derivative fallback: d/deta [th*mu/(th+mu)].
+            return (th**2) * mu / np.clip(denom**2, self.eps, None)
+        y = np.asarray(y, dtype=np.float64)
+        # Exact derivative of P-IRLS Newton working weights w.r.t. eta:
+        # w = wf * alpha, with wf = th*mu/(th+mu),
+        # alpha = 1 + (y-mu)/(th+mu).
+        num = mu * th * (th + y) * (th - mu)
+        return num / np.clip(denom**3, self.eps, None)
 
-    def working_weight_second_derivative_eta(self, eta):
-        mu = self.inverse_link(eta)
+    def working_weight_second_derivative_eta(self, eta, y=None):
+        mu = np.clip(self.inverse_link(eta), self.eps, None)
         th = float(self.theta)
-        denom = th + mu
-        return (th ** 2) * mu * (th - mu) / np.clip(denom ** 3, self.eps, None)
+        denom = np.clip(th + mu, self.eps, None)
+        if y is None:
+            # Fisher-weight second derivative fallback.
+            return (th**2) * mu * (th - mu) / np.clip(denom**3, self.eps, None)
+        y = np.asarray(y, dtype=np.float64)
+        # Exact second derivative of P-IRLS Newton working weights w.r.t. eta.
+        num = mu * th * (th + y) * (mu**2 - 4.0 * mu * th + th**2)
+        return num / np.clip(denom**4, self.eps, None)

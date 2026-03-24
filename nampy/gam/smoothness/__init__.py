@@ -1,3 +1,13 @@
+"""
+Smoothing-parameter criteria and outer optimization.
+
+Layout
+------
+``criteria/`` — REML/GCV/PIRLS scores and derivatives (see ``criteria.__doc__``).
+``optimize/`` — L-BFGS-B / Newton / P-IRLS outer Newton (see ``optimize.__doc__``).
+``reparam.py`` — basis/penalty reparameterization for ML/REML structure.
+"""
+
 from .criteria import (
     gcv_score_gaussian,
     criterion_gcv_gaussian,

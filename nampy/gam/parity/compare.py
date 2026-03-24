@@ -1,8 +1,16 @@
+"""
+Numerical comparison of parity snapshots against reference outputs.
+
+:func:`compare_parity_snapshots` compares a newly captured snapshot to a
+saved reference (typically produced by the R mgcv package) and returns a
+structured report of which quantities agree within tolerance.
+"""
+
 import json
 
 import numpy as np
 
-from .snapshot import _coerce_snapshot_arrays
+from .snapshots import _coerce_snapshot_arrays
 
 
 def _as_float_array(x):

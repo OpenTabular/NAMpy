@@ -1,3 +1,15 @@
+"""
+Penalized system assembly and numerically stable solvers.
+
+Provides three utilities used across all fitting backends:
+
+- :func:`stabilized_cholesky_solve`: Cholesky solve with automatic jitter
+  schedule for near-singular systems.
+- :func:`build_full_design`: Prepend intercept column to term design matrix.
+- :func:`build_full_penalty_from_blocks`: Assemble the total penalty matrix
+  ``sum_k lambda_k * S_k`` from per-term penalty blocks.
+"""
+
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 

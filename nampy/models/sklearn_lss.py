@@ -29,13 +29,23 @@ from ..utils.distributions import (
     CategoricalDistribution,
     DirichletDistribution,
     GammaDistribution,
+    HurdleNegativeBinomialDistribution,
+    HurdlePoissonDistribution,
     InverseGammaDistribution,
+    LogLogisticDistribution,
+    LogNormalDistribution,
+    MultivariateNormalDiagDistribution,
     NegativeBinomialDistribution,
     NormalDistribution,
+    OrdinalCumulativeLogitDistribution,
     PoissonDistribution,
     Quantile,
     RobustNormalDistribution,
     StudentTDistribution,
+    TweedieDistribution,
+    WeibullDistribution,
+    ZeroInflatedNegativeBinomialDistribution,
+    ZeroInflatedPoissonDistribution,
 )
 from ..utils.plotting import (
     create_subplot_grid,
@@ -243,6 +253,16 @@ class SklearnBaseLSS(BaseEstimator):
             "categorical": CategoricalDistribution,
             "quantile": Quantile,
             "robustnormal": RobustNormalDistribution,
+            "lognormal": LogNormalDistribution,
+            "weibull": WeibullDistribution,
+            "loglogistic": LogLogisticDistribution,
+            "zip": ZeroInflatedPoissonDistribution,
+            "zinb": ZeroInflatedNegativeBinomialDistribution,
+            "hurdlepoisson": HurdlePoissonDistribution,
+            "hurdlenegativebinom": HurdleNegativeBinomialDistribution,
+            "tweedie": TweedieDistribution,
+            "ordinal": OrdinalCumulativeLogitDistribution,
+            "mvnormdiag": MultivariateNormalDiagDistribution,
         }
 
         if distributional_kwargs is None:
@@ -253,7 +273,7 @@ class SklearnBaseLSS(BaseEstimator):
 
         if fam == "dirichlet":
             y_arr = np.asarray(y)
-            if "n_dim" not in distributional_kwargs and "dim" not in distributional_kwargs:
+            if "n_dim" not in distributional_kwargs:
                 if y_arr.ndim != 2 or y_arr.shape[1] < 2:
                     raise ValueError(
                         "Dirichlet family requires y with shape (n_samples, K), K>=2."
@@ -494,6 +514,89 @@ class SklearnBaseLSS(BaseEstimator):
             scores[metric_name] = float(metric_func(y_true, predictions_transformed))
 
         return scores
+
+    def _infer_distributional_kwargs(self, family, y, distributional_kwargs=None):
+        """
+        Infer required constructor kwargs for families whose output dimension depends
+        on the target shape / label support.
+
+        Supported:
+        - dirichlet -> n_dim
+        - categorical -> num_classes
+        - ordinal -> num_classes
+        - mvnormdiag -> n_dim
+        """
+        kwargs = dict(distributional_kwargs or {})
+        fam = self._normalize_family_name(family)
+        y_arr = np.asarray(y)
+
+        if fam == "dirichlet":
+            if "n_dim" not in kwargs:
+                if y_arr.ndim != 2 or y_arr.shape[1] < 2:
+                    raise ValueError(
+                        "Dirichlet family requires y with shape (n_samples, K), K>=2."
+                    )
+                kwargs["n_dim"] = int(y_arr.shape[1])
+
+        elif fam == "categorical":
+            if "num_classes" not in kwargs:
+                if y_arr.ndim == 2 and y_arr.shape[1] > 1:
+                    # one-hot / class-probability targets
+                    kwargs["num_classes"] = int(y_arr.shape[1])
+                else:
+                    y_flat = y_arr.reshape(-1)
+                    if not np.allclose(y_flat, np.round(y_flat)):
+                        raise ValueError(
+                            "Categorical family requires integer class labels or "
+                            "one-hot encoded targets."
+                        )
+                    unique = np.unique(y_flat.astype(int))
+                    if unique.size < 2:
+                        raise ValueError(
+                            "Categorical family requires at least 2 classes."
+                        )
+                    if not np.array_equal(unique, np.arange(unique.size)):
+                        raise ValueError(
+                            "Categorical family with label targets requires zero-based, "
+                            "contiguous labels {0, ..., K-1}. "
+                            f"Got labels {unique.tolist()}."
+                        )
+                    kwargs["num_classes"] = int(unique.size)
+
+        elif fam == "ordinal":
+            if "num_classes" not in kwargs:
+                if y_arr.ndim == 2 and y_arr.shape[1] > 1:
+                    # one-hot ordinal targets
+                    kwargs["num_classes"] = int(y_arr.shape[1])
+                else:
+                    y_flat = y_arr.reshape(-1)
+                    if not np.allclose(y_flat, np.round(y_flat)):
+                        raise ValueError(
+                            "Ordinal family requires integer ordered labels or "
+                            "one-hot encoded targets."
+                        )
+                    unique = np.unique(y_flat.astype(int))
+                    if unique.size < 2:
+                        raise ValueError(
+                            "Ordinal family requires at least 2 ordered classes."
+                        )
+                    if not np.array_equal(unique, np.arange(unique.size)):
+                        raise ValueError(
+                            "Ordinal family with label targets requires zero-based, "
+                            "contiguous labels {0, ..., K-1}. "
+                            f"Got labels {unique.tolist()}."
+                        )
+                    kwargs["num_classes"] = int(unique.size)
+
+        elif fam == "mvnormdiag":
+            if "n_dim" not in kwargs and "dim" not in kwargs:
+                if y_arr.ndim != 2 or y_arr.shape[1] < 2:
+                    raise ValueError(
+                        "mvnormdiag family requires y with shape (n_samples, K), K>=2."
+                    )
+                kwargs["n_dim"] = int(y_arr.shape[1])
+
+        return kwargs
 
     def get_default_metrics(self, distribution_family):
         """

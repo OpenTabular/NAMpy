@@ -1,5 +1,15 @@
-from .gaussian import solve_gaussian_fit
-from .pirls import solve_pirls_fit
+"""
+Fitting backend selection for GAMs.
+
+The fitting backend is determined by the family:
+- ``"gaussian_exact"``: closed-form penalized least-squares for Gaussian families.
+- ``"pirls"``: penalized IRLS for non-Gaussian families.
+
+:func:`solve_fit` is the single entry point used by the model fitting orchestrator.
+"""
+
+from .solvers.gaussian_exact import solve_gaussian_fit
+from .solvers.pirls import solve_pirls_fit
 
 
 def available_fit_backends(model):
