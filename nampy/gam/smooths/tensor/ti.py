@@ -21,7 +21,12 @@ from ..base import (
 )
 from ..registry import register_smooth
 from ..univariate.cubic_regression import SplineTerm1D
-from ...basis.tensor import rowwise_kronecker, tensor_product_penalties
+from ...basis.tensor import (
+    rowwise_kronecker,
+    tensor_product_penalties,
+    normalize_tensor_marginal_penalty,
+    rescale_tensor_penalties_for_fit,
+)
 
 
 @register_smooth("ti")
@@ -136,21 +141,41 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         else:
             use_centered = list(self._mc)
 
+        # Build marginal bases and penalties matching mgcv's ti construction:
+        # - mc=TRUE marginals: smoothCon basis (scale_penalty + constraint absorbed),
+        #   np conditioning via the centered prediction, eigenvalue normalize.
+        # - mc=FALSE marginals: raw (unscaled) basis, np conditioning via raw prediction,
+        #   eigenvalue normalize.
+        # After the tensor product, apply outer scale_penalty (smoothCon outer step).
         for m, center_this_margin in zip(marginals, use_centered):
             if center_this_margin:
-                B = m.basis_train
-                S = m.penalties[0]
+                B = np.asarray(m.basis_train, dtype=np.float64)
+                S = np.asarray(m.penalties[0], dtype=np.float64)
+                XP = m._spline._np_transform_centered
             else:
-                B = m._spline.raw_basis
-                S = m._spline.raw_penalty
+                B = np.asarray(m._spline.raw_basis, dtype=np.float64)
+                S = np.asarray(m._spline.raw_penalty_unscaled, dtype=np.float64)
+                XP = m._spline._np_transform
 
-            marginal_bases.append(np.asarray(B, dtype=np.float64))
-            marginal_penalties.append(np.asarray(S, dtype=np.float64))
+            if XP is not None:
+                B = B @ XP
+                S = XP.T @ S @ XP
+
+            S = normalize_tensor_marginal_penalty(S)
+            marginal_bases.append(B)
+            marginal_penalties.append(S)
             basis_dims.append(B.shape[1])
 
-        B_ti = rowwise_kronecker(marginal_bases)
+        B_ti_raw = rowwise_kronecker(marginal_bases)
+        S_ti = tensor_product_penalties(marginal_penalties, basis_dims=basis_dims)
+
+        # Outer scale_penalty on the tensor product (matches smoothCon outer step).
+        S_ti = rescale_tensor_penalties_for_fit(B_ti_raw, S_ti)
+
         if self._by_state.is_present:
-            B_ti = B_ti * self._by_state.values[:, None]
+            B_ti = B_ti_raw * self._by_state.values[:, None]
+        else:
+            B_ti = B_ti_raw
 
         self._marginals = marginals
         self._feature_indices = feature_indices
@@ -159,9 +184,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         self._basis_dims = basis_dims
         self._marginal_is_centered = list(use_centered)
         self._basis_train = np.asarray(B_ti, dtype=np.float64)
-        self._penalties = [] if self.fixed else tensor_product_penalties(
-            marginal_penalties, basis_dims=basis_dims
-        )
+        self._penalties = [] if self.fixed else S_ti
         self._record_constraint_result(None, None, absorbed_by=None)
 
         self.basis_name = "ti(" + ",".join(self.basis) + ")"
@@ -194,8 +217,12 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
             xj = column_as_float(X_new, m._feature_index)
             if center_this_margin:
                 Bj = m._spline.transform_new_centered(xj)
+                XP = m._spline._np_transform_centered
             else:
                 Bj = m._spline.transform_new_raw(xj)
+                XP = m._spline._np_transform
+            if XP is not None:
+                Bj = Bj @ XP
             marginal_new.append(Bj)
 
         B = rowwise_kronecker(marginal_new)
