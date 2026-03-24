@@ -1,0 +1,4317 @@
+You are a senior computational statistician, numerical software architect, and Python package maintainer with deep expertise in generalized additive models, penalized regression splines, and Simon Wood's mgcv framework.
+I am building a Python reimplementation of the mgcv ecosystem as a submodule of my package nampy.
+You are reviewing Phase 1 - Foundations and public interfaces.
+This is part 1/4. Keep continuity with prior parts when available, and produce structured feedback for correctness, redundancy elimination, and architecture cleanup.
+
+Directory structure (full collected scope):
+nampy/
+├─ basemodels/
+│  └─ gam.py
+├─ configs/
+│  └─ gam_config.py
+├─ gam/
+│  ├─ basis/
+│  │  └─ tensor.py
+│  ├─ constraints/
+│  │  ├─ absorption.py
+│  │  ├─ identifiability.py
+│  │  └─ transforms.py
+│  ├─ design/
+│  │  ├─ compiler.py
+│  │  ├─ constructed.py
+│  │  ├─ constructors.py
+│  │  ├─ linked_basis.py
+│  │  ├─ side_conditions.py
+│  │  └─ structures.py
+│  ├─ diagnostics/
+│  │  ├─ plots.py
+│  │  └─ summary.py
+│  ├─ families/
+│  │  ├─ base.py
+│  │  ├─ exponential.py
+│  │  └─ registry.py
+│  ├─ fit/
+│  │  ├─ linalg/
+│  │  │  ├─ matrix_reindexing.py
+│  │  │  └─ stacked_qr.py
+│  │  ├─ penalized_qr/
+│  │  │  └─ nonnegative.py
+│  │  ├─ postprocess/
+│  │  │  └─ gaussian_smoothness_postprocess.py
+│  │  ├─ solvers/
+│  │  │  ├─ gaussian_exact.py
+│  │  │  ├─ penalized_irls.py
+│  │  │  ├─ pirls.py
+│  │  │  └─ pirls_core.py
+│  │  ├─ backends.py
+│  │  ├─ covariance.py
+│  │  ├─ offsets.py
+│  │  ├─ orchestrator.py
+│  │  ├─ penalized_system.py
+│  │  ├─ results.py
+│  │  └─ state.py
+│  ├─ formula/
+│  │  ├─ compiler.py
+│  │  ├─ extract.py
+│  │  ├─ parser.py
+│  │  └─ preprocess.py
+│  ├─ parity/
+│  │  ├─ compare.py
+│  │  ├─ snapshots.py
+│  │  └─ trace.py
+│  ├─ penalties/
+│  │  ├─ algebra.py
+│  │  └─ subsystem.py
+│  ├─ predict/
+│  │  ├─ contributions.py
+│  │  ├─ linear_predictor_matrix.py
+│  │  └─ predictions.py
+│  ├─ runtime/
+│  │  └─ factory.py
+│  ├─ smoothness/
+│  │  ├─ criteria/
+│  │  │  ├─ dispatch.py
+│  │  │  ├─ gaussian.py
+│  │  │  ├─ gaussian_dyn.py
+│  │  │  ├─ gaussian_grad.py
+│  │  │  ├─ gaussian_reml_algebra.py
+│  │  │  ├─ laplace.py
+│  │  │  ├─ ml_reml.py
+│  │  │  ├─ penalty.py
+│  │  │  ├─ pirls.py
+│  │  │  ├─ pirls_deriv.py
+│  │  │  └─ pirls_reml_derivative_blocks.py
+│  │  ├─ optimize/
+│  │  │  ├─ basics.py
+│  │  │  ├─ driver.py
+│  │  │  ├─ objectives.py
+│  │  │  ├─ outer.py
+│  │  │  └─ postprocess.py
+│  │  └─ reparam.py
+│  ├─ smooths/
+│  │  ├─ categorical/
+│  │  │  ├─ categorical_utils.py
+│  │  │  ├─ factor_smooth.py
+│  │  │  ├─ mrf.py
+│  │  │  └─ random_effect.py
+│  │  ├─ tensor/
+│  │  │  ├─ t2.py
+│  │  │  ├─ te.py
+│  │  │  └─ ti.py
+│  │  ├─ univariate/
+│  │  │  ├─ cubic_regression.py
+│  │  │  ├─ gp.py
+│  │  │  ├─ pspline.py
+│  │  │  └─ thin_plate.py
+│  │  ├─ base.py
+│  │  └─ registry.py
+│  ├─ specs/
+│  │  ├─ base.py
+│  │  └─ predictors.py
+│  └─ terms/
+│     ├─ categorical.py
+│     ├─ linear.py
+│     ├─ tensor.py
+│     └─ univariate.py
+├─ models/
+│  └─ gam.py
+├─ splines/
+│  ├─ constraints.py
+│  ├─ cubic.py
+│  ├─ cubic_basis.py
+│  ├─ gaussian_process.py
+│  ├─ mrf.py
+│  ├─ neural_splines.py
+│  ├─ penalty_scaling.py
+│  ├─ pspline.py
+│  ├─ thin_plate.py
+│  ├─ thin_plate_basis.py
+│  └─ univariate_bases.py
+└─ utils/
+   ├─ colors.py
+   ├─ distributional_metrics.py
+   ├─ distributions.py
+   └─ plotting.py
+
+Included files in this phase: 15
+
+# --- Start of nampy/gam/families/base.py ---
+"""
+Family base classes for GAM smooth models.
+
+Three family tiers are defined here:
+
+:class:`BaseFamily`
+    Abstract root class.  Declares capability flags (``supports_gcv``,
+    ``supports_reml``, …) and response validation.
+
+:class:`GLMFamily`
+    Standard single-linear-predictor GLM family.  Provides link / inverse-link /
+    variance / deviance / log-likelihood interface.  Fit via exact Gaussian solver
+    (when ``supports_closed_form_solve = True``) or penalized IRLS.
+
+:class:`ExtendedFamily`
+    Non-standard single-predictor likelihoods requiring a bespoke solver.
+    Not yet implemented in the fitting backends.
+
+:class:`GeneralFamily`
+    Multi-linear-predictor families (e.g. GAMLSS-style location-scale models).
+    Not yet implemented.
+"""
+
+import abc
+import numpy as np
+
+_EPS = 1e-9
+
+
+class BaseFamily(abc.ABC):
+    """
+    Abstract root class for all GAM families.
+
+    Declares capability flags used by the fitting orchestrator and smoothness
+    selection backends to choose the right solver and scoring method.
+    """
+
+    name = "base"
+    link_name = "identity"
+    family_class = "base"
+
+    supports_closed_form_solve = False
+    supports_pirls = False
+
+    supports_gcv = False
+    supports_ubre = False
+    supports_ml = False
+    supports_reml = False
+    supports_laml = False
+    supports_ncv = False
+    supports_qncv = False
+    supports_exact_pirls_first_derivatives = False
+    supports_exact_pirls_second_derivatives = False
+
+    n_linear_predictors = 1
+    known_scale = None  # None -> unknown; numeric -> fixed/known scale
+    max_derivative_order = 0
+
+    def __init__(self, eps: float = _EPS):
+        self.eps = float(eps)
+
+    def validate_y(self, y):
+        y = np.asarray(y, dtype=np.float64).ravel()
+        if not np.isfinite(y).all():
+            raise ValueError("y contains NaN or Inf")
+        return y
+
+    def validate_predictor_count(self, n_predictors: int):
+        if int(n_predictors) != int(self.n_linear_predictors):
+            raise ValueError(
+                f"Family {self.name!r} expects {self.n_linear_predictors} linear predictor(s), "
+                f"got {n_predictors}."
+            )
+
+    def supports_method(self, method: str) -> bool:
+        method = str(method).lower()
+        attr_map = {
+            "fixed": None,
+            "gcv": "supports_gcv",
+            "ubre": "supports_ubre",
+            "aic": "supports_ubre",
+            "ubreaic": "supports_ubre",
+            "ml": "supports_ml",
+            "reml": "supports_reml",
+            "laml": "supports_laml",
+            "ncv": "supports_ncv",
+            "qncv": "supports_qncv",
+        }
+        if method not in attr_map:
+            raise ValueError(
+                "method must be one of "
+                "{'fixed', 'gcv', 'ubre', 'aic', 'ubreaic', 'ml', 'reml', 'laml', 'ncv', 'qncv'}"
+            )
+        attr = attr_map[method]
+        if attr is None:
+            return True
+        return bool(getattr(self, attr, False))
+
+    # ------------------------------------------------------------------
+    # Future derivative contracts
+    # ------------------------------------------------------------------
+    def inverse_link_derivatives(self, eta, order=1):
+        """
+        Derivatives of inverse link mu(eta) w.r.t. eta.
+
+        Phase 1 only guarantees order=1 for GLM-style families via mu_eta().
+        Higher orders are intentionally deferred to later phases where they will
+        be hardcoded and tested carefully.
+        """
+        if int(order) != 1:
+            raise NotImplementedError(
+                f"{self.__class__.__name__} does not yet implement inverse-link "
+                f"derivatives of order {order}."
+            )
+        return self.mu_eta(eta)
+
+    def deviance_derivatives_mu(self, y, mu, order=1):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not yet implement deviance derivatives."
+        )
+
+    def working_weight_derivative_eta(self, eta, y=None):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not yet implement working-weight derivatives."
+        )
+
+    def working_weight_second_derivative_eta(self, eta, y=None):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not yet implement second working-weight derivatives."
+        )
+
+    def initialize_linear_predictors(self, y):
+        """
+        Default single-predictor initialization for GLM-style families.
+        """
+        mu0 = self.initialize_mu(y)
+        return [self.link(mu0)]
+
+
+class GLMFamily(BaseFamily):
+    """
+    One-linear-predictor family contract for exact Gaussian / PIRLS GAM fitting.
+    """
+
+    family_class = "glm"
+    n_linear_predictors = 1
+    canonical_link = False
+
+    @abc.abstractmethod
+    def initialize_mu(self, y):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def link(self, mu):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def inverse_link(self, eta):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def mu_eta(self, eta):
+        """d mu / d eta"""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def variance(self, mu):
+        raise NotImplementedError
+
+    def dvar(self, mu):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not yet implement dvar(mu)."
+        )
+
+    def d2link(self, mu):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not yet implement d2link(mu)."
+        )
+
+    @abc.abstractmethod
+    def deviance(self, y, mu):
+        raise NotImplementedError
+
+    def estimate_dispersion(self, y, mu, edf=None):
+        if self.known_scale is not None:
+            return float(self.known_scale)
+        return 1.0
+
+    def loglik_obs(self, y, mu, scale=1.0):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not yet implement per-observation log-likelihoods."
+        )
+
+    def loglik(self, y, mu, scale=1.0):
+        return float(np.sum(self.loglik_obs(y, mu, scale=scale)))
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not yet implement the saturated log-likelihood "
+            "term required for Laplace ML/REML criteria."
+        )
+
+
+class ExtendedFamily(BaseFamily):
+    """
+    Contract for extended exponential-family models:
+    - one linear predictor
+    - richer likelihood structure than ordinary GLM families
+    - will later supply higher-order derivatives for outer REML/LAML machinery
+    """
+
+    family_class = "extended"
+    n_linear_predictors = 1
+
+    def initialize_linear_predictors(self, y):
+        raise NotImplementedError
+
+    def loglik_obs(self, y, eta):
+        raise NotImplementedError
+
+    def score_eta(self, y, eta):
+        raise NotImplementedError
+
+    def hessian_eta(self, y, eta):
+        raise NotImplementedError
+
+
+class GeneralFamily(BaseFamily):
+    """
+    Contract for general (non-exponential) family models:
+    - potentially multiple linear predictors
+    - classical LSS / distributional models belong here, not in the neural path
+    """
+
+    family_class = "general"
+
+    def initialize_linear_predictors(self, y):
+        raise NotImplementedError
+
+    def loglik_obs(self, y, eta_list):
+        raise NotImplementedError
+
+    def score_eta(self, y, eta_list):
+        raise NotImplementedError
+
+    def hessian_eta(self, y, eta_list):
+        raise NotImplementedError
+
+# --- End of nampy/gam/families/base.py ---
+
+# --- Start of nampy/gam/families/exponential.py ---
+"""
+Exponential-family GLM implementations.
+
+Each class implements the :class:`~nampy.gam.families.base.GLMFamily` interface
+for a specific distribution and canonical or common link function.  The classes
+are used directly as ``family`` arguments to GAM model constructors.
+"""
+
+import numpy as np
+from scipy.special import gammaln
+
+from .base import GLMFamily, _EPS
+
+
+class GaussianIdentityFamily(GLMFamily):
+    name = "gaussian"
+    link_name = "identity"
+    canonical_link = True
+
+    supports_closed_form_solve = True
+    supports_pirls = True
+
+    supports_gcv = True
+    supports_ubre = False
+    supports_ml = True
+    supports_reml = True
+    supports_laml = True
+    known_scale = None
+    max_derivative_order = 1
+
+    def initialize_mu(self, y):
+        return np.asarray(y, dtype=np.float64).copy()
+
+    def link(self, mu):
+        return np.asarray(mu, dtype=np.float64)
+
+    def inverse_link(self, eta):
+        return np.asarray(eta, dtype=np.float64)
+
+    def mu_eta(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        return np.ones_like(eta)
+
+    def variance(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.ones_like(mu)
+
+    def dvar(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+    def d2var(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+    def d3var(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+    def d2link(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+    def d3link(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+    def d4link(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+    def deviance(self, y, mu):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.asarray(mu, dtype=np.float64)
+        return float(np.sum((y - mu) ** 2))
+
+    def estimate_dispersion(self, y, mu, edf=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.asarray(mu, dtype=np.float64)
+        rss = float(np.sum((y - mu) ** 2))
+        if edf is None:
+            return rss / max(len(y), 1.0)
+        return rss / max(len(y) - float(edf), 1.0)
+
+    def loglik_obs(self, y, mu, scale=1.0):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.asarray(mu, dtype=np.float64)
+        scale = float(max(scale, self.eps))
+        return (
+            -0.5 * np.log(2.0 * np.pi * scale)
+            - 0.5 * ((y - mu) ** 2) / scale
+        )
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        y = np.asarray(y, dtype=np.float64)
+        if weights is None:
+            weights = np.ones_like(y, dtype=np.float64)
+        else:
+            weights = np.asarray(weights, dtype=np.float64)
+        scale = float(max(scale, self.eps))
+        mask = weights > 0
+        nobs = int(np.sum(mask))
+        return float(
+            -0.5 * nobs * np.log(2.0 * np.pi * scale)
+            + 0.5 * np.sum(np.log(weights[mask]))
+        )
+
+
+
+class BinomialLogitFamily(GLMFamily):
+    name = "binomial"
+    link_name = "logit"
+    canonical_link = True
+
+    supports_closed_form_solve = False
+    supports_pirls = True
+
+    supports_gcv = False
+    supports_ubre = True
+    supports_ml = True
+    supports_reml = True
+    supports_laml = False
+    supports_exact_pirls_first_derivatives = True
+    supports_exact_pirls_second_derivatives = True
+
+    known_scale = 1.0
+    max_derivative_order = 1
+
+    def validate_y(self, y):
+        y = super().validate_y(y)
+        if np.any((y < 0.0) | (y > 1.0)):
+            raise ValueError("BinomialLogitFamily requires targets in [0, 1].")
+        return y
+
+    def initialize_mu(self, y):
+        y = np.asarray(y, dtype=np.float64)
+        return np.clip((y + 0.5) / 2.0, self.eps, 1.0 - self.eps)
+
+    def link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return np.log(mu / (1.0 - mu))
+
+    def inverse_link(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        return 1.0 / (1.0 + np.exp(-np.clip(eta, -30.0, 30.0)))
+
+    def mu_eta(self, eta):
+        mu = self.inverse_link(eta)
+        return np.clip(mu * (1.0 - mu), self.eps, None)
+
+    def variance(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return np.clip(mu * (1.0 - mu), self.eps, None)
+
+    def dvar(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return 1.0 - 2.0 * mu
+
+    def d2var(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return -2.0 * np.ones_like(mu)
+
+    def d3var(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return np.zeros_like(mu)
+
+    def d2link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        denom = np.clip((mu ** 2) * ((1.0 - mu) ** 2), self.eps, None)
+        return (2.0 * mu - 1.0) / denom
+
+    def d3link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        denom = np.clip((mu**3) * ((1.0 - mu) ** 3), self.eps, None)
+        return 2.0 * (3.0 * mu**2 - 3.0 * mu + 1.0) / denom
+
+    def d4link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        denom = np.clip((mu**4) * ((1.0 - mu) ** 4), self.eps, None)
+        return 6.0 * (4.0 * mu**3 - 6.0 * mu**2 + 4.0 * mu - 1.0) / denom
+
+    def deviance(self, y, mu):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        term1 = np.zeros_like(y, dtype=np.float64)
+        mask1 = y > 0
+        term1[mask1] = y[mask1] * np.log(y[mask1] / mu[mask1])
+        term2 = np.zeros_like(y, dtype=np.float64)
+        mask2 = y < 1
+        term2[mask2] = (1.0 - y[mask2]) * np.log((1.0 - y[mask2]) / (1.0 - mu[mask2]))
+        return float(2.0 * np.sum(term1 + term2))
+
+    def loglik_obs(self, y, mu, scale=1.0):
+        del scale
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return y * np.log(mu) + (1.0 - y) * np.log(1.0 - mu)
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        del scale, n
+        y = np.asarray(y, dtype=np.float64)
+        if weights is None:
+            weights = np.ones_like(y, dtype=np.float64)
+        else:
+            weights = np.asarray(weights, dtype=np.float64)
+
+        term = np.zeros_like(y, dtype=np.float64)
+        mask1 = y > 0.0
+        term[mask1] += y[mask1] * np.log(y[mask1])
+        mask2 = y < 1.0
+        term[mask2] += (1.0 - y[mask2]) * np.log(1.0 - y[mask2])
+        return float(np.sum(weights * term))
+
+    def working_weight_derivative_eta(self, eta, y=None):
+        mu = self.inverse_link(eta)
+        W = np.clip(mu * (1.0 - mu), self.eps, None)
+        return (1.0 - 2.0 * mu) * W
+
+    def working_weight_second_derivative_eta(self, eta, y=None):
+        mu = self.inverse_link(eta)
+        W = np.clip(mu * (1.0 - mu), self.eps, None)
+        return W * ((1.0 - 2.0 * mu) ** 2 - 2.0 * W)
+
+
+class PoissonLogFamily(GLMFamily):
+    name = "poisson"
+    link_name = "log"
+    canonical_link = True
+
+    supports_closed_form_solve = False
+    supports_pirls = True
+
+    supports_gcv = False
+    supports_ubre = True
+    supports_ml = True
+    supports_reml = True
+    supports_laml = False
+    supports_exact_pirls_first_derivatives = True
+    supports_exact_pirls_second_derivatives = True
+
+    known_scale = 1.0
+    max_derivative_order = 1
+
+    def validate_y(self, y):
+        y = super().validate_y(y)
+        if np.any(y < 0.0):
+            raise ValueError("PoissonLogFamily requires non-negative targets.")
+        return y
+
+    def initialize_mu(self, y):
+        y = np.asarray(y, dtype=np.float64)
+        return np.clip(y + 0.1, self.eps, None)
+
+    def link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return np.log(mu)
+
+    def inverse_link(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        return np.exp(np.clip(eta, -30.0, 30.0))
+
+    def mu_eta(self, eta):
+        mu = self.inverse_link(eta)
+        return np.clip(mu, self.eps, None)
+
+    def variance(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.clip(mu, self.eps, None)
+
+    def dvar(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.ones_like(mu)
+
+    def d2var(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+    def d3var(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+    def d2link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return -1.0 / np.clip(mu ** 2, self.eps, None)
+
+    def d3link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 2.0 / np.clip(mu**3, self.eps, None)
+
+    def d4link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return -6.0 / np.clip(mu**4, self.eps, None)
+
+    def deviance(self, y, mu):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        term = np.zeros_like(y, dtype=np.float64)
+        mask = y > 0
+        term[mask] = y[mask] * np.log(np.clip(y[mask], self.eps, None) / mu[mask])
+        return float(2.0 * np.sum(term - (y - mu)))
+
+    def loglik_obs(self, y, mu, scale=1.0):
+        del scale
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return y * np.log(mu) - mu - gammaln(y + 1.0)
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        del scale, n
+        y = np.asarray(y, dtype=np.float64)
+        if weights is None:
+            weights = np.ones_like(y, dtype=np.float64)
+        else:
+            weights = np.asarray(weights, dtype=np.float64)
+        y_safe = np.clip(y, self.eps, None)
+        sat = np.where(y > 0.0, y * np.log(y_safe) - y, -y) - gammaln(y + 1.0)
+        return float(np.sum(weights * sat))
+
+    def working_weight_derivative_eta(self, eta, y=None):
+        return self.inverse_link(eta)
+
+    def working_weight_second_derivative_eta(self, eta, y=None):
+        return self.inverse_link(eta)
+
+
+class GammaLogFamily(GLMFamily):
+    name = "gamma"
+    link_name = "log"
+    canonical_link = False
+
+    supports_closed_form_solve = False
+    supports_pirls = True
+
+    supports_gcv = True
+    supports_ubre = False
+    supports_ml = True
+    supports_reml = True
+    supports_laml = False
+    # Exact PIRLS derivatives for Gamma now rely on analytic working-weight
+    # expressions that depend on the observations.
+    supports_exact_pirls_first_derivatives = True
+    supports_exact_pirls_second_derivatives = True
+
+    known_scale = None
+    max_derivative_order = 1
+
+    def validate_y(self, y):
+        y = super().validate_y(y)
+        if np.any(y <= 0.0):
+            raise ValueError("GammaLogFamily requires strictly positive targets.")
+        return y
+
+    def initialize_mu(self, y):
+        y = np.asarray(y, dtype=np.float64)
+        return np.clip(y, self.eps, None)
+
+    def link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return np.log(mu)
+
+    def inverse_link(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        return np.exp(np.clip(eta, -30.0, 30.0))
+
+    def mu_eta(self, eta):
+        mu = self.inverse_link(eta)
+        return np.clip(mu, self.eps, None)
+
+    def variance(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return np.clip(mu**2, self.eps, None)
+
+    def dvar(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 2.0 * mu
+
+    def d2var(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 2.0 * np.ones_like(mu)
+
+    def d3var(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return np.zeros_like(mu)
+
+    def d2link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return -1.0 / np.clip(mu ** 2, self.eps, None)
+
+    def d3link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 2.0 / np.clip(mu**3, self.eps, None)
+
+    def d4link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return -6.0 / np.clip(mu**4, self.eps, None)
+
+    def deviance(self, y, mu):
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return float(2.0 * np.sum((y - mu) / mu - np.log(y / mu)))
+
+    def estimate_dispersion(self, y, mu, edf=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        pearson = float(np.sum((y - mu) ** 2 / self.variance(mu)))
+        if edf is None:
+            return pearson / max(len(y), 1.0)
+        return pearson / max(len(y) - float(edf), 1.0)
+
+    def loglik_obs(self, y, mu, scale=1.0):
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        scale = float(max(scale, self.eps))
+        shape = 1.0 / scale
+        return (
+            (shape - 1.0) * np.log(y)
+            - y * shape / mu
+            - gammaln(shape)
+            - shape * np.log(mu / shape)
+        )
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        del n
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        if weights is None:
+            weights = np.ones_like(y, dtype=np.float64)
+        else:
+            weights = np.asarray(weights, dtype=np.float64)
+        scale = float(max(scale, self.eps))
+        shape = 1.0 / scale
+        sat = -np.log(y) - shape - gammaln(shape) + shape * np.log(shape)
+        return float(np.sum(weights * sat))
+
+    def working_weight_derivative_eta(self, eta, y=None):
+        if y is None:
+            raise ValueError("GammaLogFamily requires targets to evaluate working-weight derivatives.")
+        mu = np.clip(self.inverse_link(eta), self.eps, None)
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        return -np.asarray(y / mu, dtype=np.float64)
+
+    def working_weight_second_derivative_eta(self, eta, y=None):
+        if y is None:
+            raise ValueError("GammaLogFamily requires targets to evaluate working-weight derivatives.")
+        mu = np.clip(self.inverse_link(eta), self.eps, None)
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        return np.asarray(y / mu, dtype=np.float64)
+
+
+class NegativeBinomialLogFamily(GLMFamily):
+    """Fixed-theta NB2 family: Var(Y) = mu + mu^2 / theta"""
+
+    name = "negbin"
+    link_name = "log"
+    canonical_link = False
+
+    supports_closed_form_solve = False
+    supports_pirls = True
+
+    supports_gcv = False
+    supports_ubre = True
+    supports_ml = True
+    supports_reml = True
+    supports_laml = False
+    supports_exact_pirls_first_derivatives = True
+    supports_exact_pirls_second_derivatives = True
+
+    known_scale = 1.0
+    max_derivative_order = 1
+
+    def __init__(self, theta=1.0, eps: float = _EPS):
+        super().__init__(eps=eps)
+        self.theta = float(theta)
+        if self.theta <= 0:
+            raise ValueError("NegativeBinomialLogFamily requires theta > 0.")
+
+    def validate_y(self, y):
+        y = super().validate_y(y)
+        if np.any(y < 0.0):
+            raise ValueError("NegativeBinomialLogFamily requires non-negative targets.")
+        return y
+
+    def initialize_mu(self, y):
+        y = np.asarray(y, dtype=np.float64)
+        # Match common negative-binomial initialization (MASS-style).
+        return np.clip(y + (y == 0.0).astype(np.float64) / 6.0, self.eps, None)
+
+    def link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return np.log(mu)
+
+    def inverse_link(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        return np.exp(np.clip(eta, -30.0, 30.0))
+
+    def mu_eta(self, eta):
+        mu = self.inverse_link(eta)
+        return np.clip(mu, self.eps, None)
+
+    def variance(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return np.clip(mu + (mu**2) / self.theta, self.eps, None)
+
+    def dvar(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 1.0 + 2.0 * mu / self.theta
+
+    def d2var(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return (2.0 / self.theta) * np.ones_like(mu)
+
+    def d3var(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return np.zeros_like(mu)
+
+    def d2link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return -1.0 / np.clip(mu ** 2, self.eps, None)
+
+    def d3link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 2.0 / np.clip(mu**3, self.eps, None)
+
+    def d4link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return -6.0 / np.clip(mu**4, self.eps, None)
+
+    def deviance(self, y, mu):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        th = self.theta
+        term1 = np.zeros_like(y, dtype=np.float64)
+        mask = y > 0
+        term1[mask] = y[mask] * np.log(y[mask] / mu[mask])
+        term2 = (y + th) * np.log((y + th) / (mu + th))
+        return float(2.0 * np.sum(term1 - term2))
+
+    def loglik_obs(self, y, mu, scale=1.0):
+        del scale
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        th = float(self.theta)
+        return (
+            gammaln(y + th)
+            - gammaln(th)
+            - gammaln(y + 1.0)
+            + th * np.log(th / (th + mu))
+            + y * np.log(mu / (th + mu))
+        )
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        del scale, n
+        y = np.asarray(y, dtype=np.float64)
+        if weights is None:
+            weights = np.ones_like(y, dtype=np.float64)
+        else:
+            weights = np.asarray(weights, dtype=np.float64)
+        th = float(self.theta)
+        # Saturated NB log-likelihood at y (count density at mean y):
+        # keep y==0 exact (contributes 0) instead of epsilon-shifting.
+        term = (
+            gammaln(y + th)
+            - gammaln(th)
+            - gammaln(y + 1.0)
+            + th * np.log(th / (th + y))
+        )
+        mask = y > 0.0
+        term[mask] += y[mask] * np.log(y[mask] / (th + y[mask]))
+        return float(np.sum(weights * term))
+
+    def working_weight_derivative_eta(self, eta, y=None):
+        mu = np.clip(self.inverse_link(eta), self.eps, None)
+        th = float(self.theta)
+        denom = np.clip(th + mu, self.eps, None)
+        if y is None:
+            # Fisher-weight derivative fallback: d/deta [th*mu/(th+mu)].
+            return (th**2) * mu / np.clip(denom**2, self.eps, None)
+        y = np.asarray(y, dtype=np.float64)
+        # Exact derivative of P-IRLS Newton working weights w.r.t. eta:
+        # w = wf * alpha, with wf = th*mu/(th+mu),
+        # alpha = 1 + (y-mu)/(th+mu).
+        num = mu * th * (th + y) * (th - mu)
+        return num / np.clip(denom**3, self.eps, None)
+
+    def working_weight_second_derivative_eta(self, eta, y=None):
+        mu = np.clip(self.inverse_link(eta), self.eps, None)
+        th = float(self.theta)
+        denom = np.clip(th + mu, self.eps, None)
+        if y is None:
+            # Fisher-weight second derivative fallback.
+            return (th**2) * mu * (th - mu) / np.clip(denom**3, self.eps, None)
+        y = np.asarray(y, dtype=np.float64)
+        # Exact second derivative of P-IRLS Newton working weights w.r.t. eta.
+        num = mu * th * (th + y) * (mu**2 - 4.0 * mu * th + th**2)
+        return num / np.clip(denom**4, self.eps, None)
+
+# --- End of nampy/gam/families/exponential.py ---
+
+# --- Start of nampy/gam/families/registry.py ---
+from .base import BaseFamily
+from .exponential import (
+    GaussianIdentityFamily,
+    BinomialLogitFamily,
+    PoissonLogFamily,
+    GammaLogFamily,
+    NegativeBinomialLogFamily,
+)
+
+
+def make_gam_family(family):
+    if isinstance(family, BaseFamily):
+        return family
+
+    if family is None:
+        return GaussianIdentityFamily()
+
+    if isinstance(family, dict):
+        name = str(family.get("name", "")).lower()
+        if name in {"negbin", "negativebinomial", "negative_binomial"}:
+            return NegativeBinomialLogFamily(theta=family.get("theta", 1.0))
+        family = name
+
+    if isinstance(family, tuple) and len(family) == 2:
+        key = str(family[0]).lower()
+        spec = family[1]
+        if key in {"negbin", "negativebinomial", "negative_binomial"}:
+            if isinstance(spec, dict):
+                return NegativeBinomialLogFamily(theta=spec.get("theta", 1.0))
+            return NegativeBinomialLogFamily(theta=spec)
+        family = key
+
+    key = str(family).lower()
+    if key in {"gaussian", "normal"}:
+        return GaussianIdentityFamily()
+    if key in {"binomial", "bernoulli", "logistic"}:
+        return BinomialLogitFamily()
+    if key in {"poisson"}:
+        return PoissonLogFamily()
+    if key in {"gamma"}:
+        return GammaLogFamily()
+    if key in {"negbin", "negativebinomial", "negative_binomial"}:
+        return NegativeBinomialLogFamily(theta=1.0)
+
+    raise ValueError(
+        f"Unknown GAM family {family!r}. "
+        "Valid options: gaussian, binomial, poisson, gamma, negbin."
+    )
+# --- End of nampy/gam/families/registry.py ---
+
+# --- Start of nampy/gam/formula/compiler.py ---
+"""
+Formula compiler: converts parsed formulas into declarative term specs.
+
+Takes a :class:`~nampy.gam.formula.parser.ParsedGAMFormula` and builds the
+:class:`~nampy.gam.specs.LinearPredictorSpec` objects consumed by the runtime
+term materialisation layer (Stage 2 of the pipeline).
+
+Each smooth term in the parsed formula is translated into a :class:`~nampy.gam.specs.TermSpec`
+carrying the smooth family name, feature list, and keyword arguments.  Parametric
+terms become ``"parametric"`` TermSpecs.
+"""
+
+from dataclasses import replace
+
+import numpy as np
+
+from ..specs import LinearPredictorSpec, TermSpec
+from .parser import ParsedGAMFormula, ParsedParametricTerm, ParsedSmoothTerm
+
+
+def apply_drop_intercept(parsed: ParsedGAMFormula, drop_intercept=None):
+    if drop_intercept is None:
+        return parsed
+
+    n_pred = len(parsed.predictors)
+    if np.isscalar(drop_intercept):
+        flags = [bool(drop_intercept)] * n_pred
+    else:
+        flags = [bool(v) for v in drop_intercept]
+        if len(flags) != n_pred:
+            raise ValueError(
+                f"drop_intercept must have length {n_pred} for a list-of-formula model, "
+                f"got {len(flags)}."
+            )
+
+    predictors = []
+    for pf, flag in zip(parsed.predictors, flags):
+        predictors.append(
+            replace(
+                pf,
+                intercept=(False if flag else pf.intercept),
+            )
+        )
+
+    return ParsedGAMFormula(
+        response_name=parsed.response_name,
+        predictors=predictors,
+        raw=parsed.raw,
+    )
+
+
+def _coerce_fx(fx):
+    if isinstance(fx, (list, tuple)):
+        raise NotImplementedError(
+            "Vector-valued fx is not yet supported by the current formula compiler."
+        )
+    return bool(fx)
+
+
+def _default_k_for_basis(basis, default_k):
+    basis_key = str(basis).lower()
+    if basis_key == "mrf":
+        return -1
+    return default_k
+
+
+def _knots_for_features(knots, features):
+    if knots is None:
+        return None
+    if isinstance(knots, dict):
+        vals = [knots.get(str(f), None) for f in features]
+        return None if all(v is None for v in vals) else vals[0] if len(features) == 1 else vals
+    return knots
+
+
+def compile_predictor_specs_from_formula(
+    parsed: ParsedGAMFormula,
+    *,
+    default_k=10,
+    default_basis="cr",
+    default_select=False,
+    knots=None,
+):
+    predictor_specs = []
+
+    for i, pf in enumerate(parsed.predictors):
+        terms = []
+
+        for term in pf.terms:
+            if isinstance(term, ParsedParametricTerm):
+                terms.append(
+                    TermSpec(
+                        kind="parametric",
+                        features=(term.raw_label,),
+                        by_variable=None,
+                        basis_options={},
+                        smoothing_id=None,
+                        label=term.raw_label,
+                        metadata={
+                            "formula_term": term.raw_label,
+                            "source_variables": list(term.variables),
+                            "parametric_interaction": len(term.variables) > 1,
+                        },
+                    )
+                )
+                continue
+
+            if not isinstance(term, ParsedSmoothTerm):
+                raise TypeError(f"Unknown parsed term type: {type(term)}")
+
+            kind = term.kind
+            features = list(term.features)
+            kw = dict(term.kwargs)
+
+            basis = kw.pop("bs", kw.pop("basis", default_basis))
+            if "k" in kw:
+                k = kw.pop("k")
+            else:
+                k = _default_k_for_basis(basis, default_k)
+            by = kw.pop("by", None)
+            smoothing_id = kw.pop("id", kw.pop("smoothing_id", None))
+            fixed = _coerce_fx(kw.pop("fx", False))
+            select = bool(kw.pop("select", default_select))
+
+            m = kw.pop("m", None)
+            xt = kw.pop("xt", None)
+            sp = kw.pop("sp", None)
+            pc = kw.pop("pc", None)
+
+            mc = kw.pop("mc", None)
+            full = kw.pop("full", False)
+            ord_ = kw.pop("ord", None)
+
+            if kw:
+                raise NotImplementedError(
+                    f"Unsupported smooth arguments in {term.raw_label!r}: {sorted(kw)}"
+                )
+
+            term_knots = _knots_for_features(knots, features)
+            basis_options = {
+                "special": kind,
+                "bs": basis,
+                "k": k,
+                "fx": fixed,
+                "select": select,
+                "m": m,
+                "xt": xt,
+                "sp": sp,
+                "pc": pc,
+                "knots": term_knots,
+                "constraint_mode": "auto",
+                "shared_basis_setup": None,
+                "mc": mc,
+                "full": full,
+                "ord": ord_,
+            }
+
+            terms.append(
+                TermSpec(
+                    kind="smooth",
+                    features=tuple(str(f) for f in features),
+                    by_variable=by,
+                    basis_options=basis_options,
+                    smoothing_id=(None if smoothing_id is None else str(smoothing_id)),
+                    label=term.raw_label,
+                    metadata={"formula_term": term.raw_label},
+                )
+            )
+
+        predictor_specs.append(
+            LinearPredictorSpec(
+                name=f"eta{i+1}",
+                terms=terms,
+                has_intercept=bool(pf.intercept),
+                offset_name=pf.offset_name,
+                metadata={
+                    "raw_formula": pf.raw_formula,
+                    "offset_name": pf.offset_name,
+                    "response_name": pf.response_name,
+                    "intercept": bool(pf.intercept),
+                },
+            )
+        )
+
+    return predictor_specs
+
+
+__all__ = ["apply_drop_intercept", "compile_predictor_specs_from_formula"]
+
+# --- End of nampy/gam/formula/compiler.py ---
+
+# --- Start of nampy/gam/formula/parser.py ---
+"""
+Formula parser for GAM model specifications (Stage 1 of the pipeline).
+
+Parses string formulas of the form::
+
+    "y ~ x1 + s(x2) + s(x3, x4, bs='te') + offset(z)"
+
+into structured :class:`ParsedGAMFormula` objects used by the formula compiler
+to produce :class:`~nampy.gam.specs.LinearPredictorSpec` instances.
+
+Supported term types
+--------------------
+- Intercept ``1`` / no-intercept ``-1`` or ``0``.
+- Parametric terms: bare variable names or ``x1 + x2 + ...``.
+- Smooth terms: ``s(vars, bs=..., k=..., by=..., ...)``.
+- Offset: ``offset(varname)``.
+- Multi-predictor (GAMLSS-style) lists of formulas.
+"""
+
+import ast
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass
+class ParsedParametricTerm:
+    variables: tuple[str, ...]
+    raw_label: str
+
+
+@dataclass
+class ParsedSmoothTerm:
+    kind: str
+    features: list[str]
+    kwargs: dict[str, Any] = field(default_factory=dict)
+    raw_label: str = ""
+
+
+@dataclass
+class ParsedPredictorFormula:
+    response_name: str | None
+    intercept: bool
+    terms: list[Any]
+    offset_name: str | None = None
+    raw_formula: str = ""
+
+
+@dataclass
+class ParsedGAMFormula:
+    response_name: str | None
+    predictors: list[ParsedPredictorFormula]
+    raw: Any = None
+
+
+def _contains_standalone_dot(rhs: str) -> bool:
+    import re
+    return re.search(r"(^|[~+\-(),\s])\.([~+\-(),\s]|$)", rhs) is not None
+
+
+def _call_name(node):
+    if isinstance(node, ast.Name):
+        return node.id
+    return None
+
+
+def _source_segment(src: str, node, default: str):
+    try:
+        out = ast.get_source_segment(src, node)
+        return out if out is not None else default
+    except Exception:
+        return default
+
+
+def _ast_to_value(node):
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Constant):
+        return node.value
+    if isinstance(node, ast.Tuple):
+        return tuple(_ast_to_value(elt) for elt in node.elts)
+    if isinstance(node, ast.List):
+        return [_ast_to_value(elt) for elt in node.elts]
+    if isinstance(node, ast.Dict):
+        return {
+            _ast_to_value(k): _ast_to_value(v)
+            for k, v in zip(node.keys, node.values)
+        }
+    if isinstance(node, ast.Call):
+        func_name = _call_name(node.func)
+        if func_name == "list":
+            if len(node.args) != 0:
+                raise NotImplementedError(
+                    "positional arguments to list(...) are not supported in formulas."
+                )
+            return {
+                kw.arg: _ast_to_value(kw.value)
+                for kw in node.keywords
+            }
+        if func_name == "c":
+            if node.keywords:
+                raise NotImplementedError("keyword arguments to c(...) are not supported.")
+            return [_ast_to_value(arg) for arg in node.args]
+        raise NotImplementedError(
+            f"Unsupported formula value expression: {ast.dump(node, include_attributes=False)}"
+        )
+    if isinstance(node, ast.Set):
+        out = {}
+        for elt in node.elts:
+            if not (isinstance(elt, ast.BinOp) and isinstance(elt.op, ast.MatMult)):
+                raise NotImplementedError(
+                    "Unsupported set-shaped dictionary literal in formula."
+                )
+            key = _ast_to_value(elt.left)
+            value = _ast_to_value(elt.right)
+            out[key] = value
+        return out
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+        val = _ast_to_value(node.operand)
+        if isinstance(val, (int, float)):
+            return -val
+    raise NotImplementedError(
+        f"Unsupported formula value expression: {ast.dump(node, include_attributes=False)}"
+    )
+
+
+def _ast_to_feature_name(node):
+    val = _ast_to_value(node)
+    if isinstance(val, str):
+        return val
+    raise NotImplementedError(
+        "Smooth covariates must currently be bare variable names."
+    )
+
+
+def _flatten_additive_terms(node, sign=1):
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        return _flatten_additive_terms(node.left, sign=sign) + _flatten_additive_terms(
+            node.right, sign=sign
+        )
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Sub):
+        return _flatten_additive_terms(node.left, sign=sign) + _flatten_additive_terms(
+            node.right, sign=-sign
+        )
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+        return _flatten_additive_terms(node.operand, sign=-sign)
+    return [(sign, node)]
+
+
+def _parse_smooth_call(node, rhs_src: str):
+    kind = _call_name(node.func)
+    if kind not in {"s", "te", "ti", "t2"}:
+        raise ValueError(f"Unknown smooth special {kind!r}.")
+
+    features = [_ast_to_feature_name(arg) for arg in node.args]
+    kwargs = {}
+    for kw in node.keywords:
+        if kw.arg is None:
+            raise NotImplementedError("**kwargs style smooth specification is not supported.")
+        kwargs[kw.arg] = _ast_to_value(kw.value)
+
+    raw_label = _source_segment(rhs_src, node, f"{kind}({', '.join(features)})")
+    return ParsedSmoothTerm(
+        kind=kind,
+        features=features,
+        kwargs=kwargs,
+        raw_label=raw_label,
+    )
+
+
+def _parse_offset_call(node):
+    if _call_name(node.func) != "offset":
+        raise ValueError("Expected an offset(...) call.")
+    if len(node.args) != 1 or len(node.keywords) != 0:
+        raise NotImplementedError("offset(...) currently supports exactly one bare variable name.")
+    return _ast_to_feature_name(node.args[0])
+
+
+def _ordered_union(a, b):
+    out = []
+    for v in list(a) + list(b):
+        if v not in out:
+            out.append(v)
+    return tuple(out)
+
+
+def _parametric_termsets(node):
+    if isinstance(node, ast.Name):
+        return {(node.id,)}
+
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
+        left = _parametric_termsets(node.left)
+        right = _parametric_termsets(node.right)
+        out = set(left) | set(right)
+        for l in left:
+            for r in right:
+                out.add(_ordered_union(l, r))
+        return out
+
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.MatMult):
+        left = _parametric_termsets(node.left)
+        right = _parametric_termsets(node.right)
+        out = set()
+        for l in left:
+            for r in right:
+                out.add(_ordered_union(l, r))
+        return out
+
+    raise NotImplementedError(
+        f"Unsupported parametric formula term: {ast.dump(node, include_attributes=False)}"
+    )
+
+
+def _parse_single_formula(formula: str) -> ParsedPredictorFormula:
+    if "~" not in formula:
+        response_name = None
+        rhs = formula.strip()
+    else:
+        lhs, rhs = formula.split("~", 1)
+        lhs = lhs.strip()
+        rhs = rhs.strip()
+        response_name = lhs if lhs != "" else None
+
+    if rhs == "":
+        rhs = "1"
+
+    if _contains_standalone_dot(rhs):
+        raise NotImplementedError("'.' is not supported in GAM formulas.")
+
+    rhs_ast = rhs.replace(":", "@")
+    expr = ast.parse(rhs_ast, mode="eval")
+    items = _flatten_additive_terms(expr.body)
+
+    intercept = True
+    offset_name = None
+    parsed_terms = []
+    seen_parametric = set()
+
+    for sign, node in items:
+        if isinstance(node, ast.Constant) and node.value in {0, 1}:
+            if node.value == 0:
+                intercept = False
+            elif node.value == 1 and sign < 0:
+                intercept = False
+            continue
+
+        if isinstance(node, ast.Call):
+            fname = _call_name(node.func)
+            if fname in {"s", "te", "ti", "t2"}:
+                if sign < 0:
+                    raise NotImplementedError(
+                        f"Removing smooth terms via '-' is not yet supported: {fname}(...)"
+                    )
+                parsed_terms.append(_parse_smooth_call(node, rhs))
+                continue
+
+            if fname == "offset":
+                if sign < 0:
+                    raise NotImplementedError("Negative offset terms are not supported.")
+                off = _parse_offset_call(node)
+                if offset_name is not None and offset_name != off:
+                    raise NotImplementedError(
+                        "Only one offset(...) term is currently supported per predictor."
+                    )
+                offset_name = off
+                continue
+
+            raise NotImplementedError(
+                f"Unsupported call in formula RHS: {fname}(...)"
+            )
+
+        try:
+            termsets = _parametric_termsets(node)
+        except NotImplementedError:
+            raise NotImplementedError(
+                f"Unsupported formula term: {ast.dump(node, include_attributes=False)}"
+            )
+
+        if sign < 0:
+            raise NotImplementedError(
+                "Removing parametric terms via '-' is not yet supported."
+            )
+
+        for vars_ in sorted(termsets, key=lambda z: (len(z), z)):
+            if vars_ in seen_parametric:
+                continue
+            seen_parametric.add(vars_)
+            parsed_terms.append(
+                ParsedParametricTerm(
+                    variables=tuple(str(v) for v in vars_),
+                    raw_label=":".join(vars_),
+                )
+            )
+
+    return ParsedPredictorFormula(
+        response_name=response_name,
+        intercept=bool(intercept),
+        terms=parsed_terms,
+        offset_name=offset_name,
+        raw_formula=formula,
+    )
+
+
+def parse_gam_formula(formula) -> ParsedGAMFormula:
+    if isinstance(formula, str):
+        parsed = [_parse_single_formula(formula)]
+        response_name = parsed[0].response_name
+        return ParsedGAMFormula(
+            response_name=response_name,
+            predictors=parsed,
+            raw=formula,
+        )
+
+    if isinstance(formula, (list, tuple)):
+        if len(formula) == 0:
+            raise ValueError("Formula list must not be empty.")
+
+        parsed = [_parse_single_formula(f) for f in formula]
+
+        response_name = None
+        for pf in parsed:
+            if pf.response_name is not None:
+                if response_name is None:
+                    response_name = pf.response_name
+                elif pf.response_name != response_name:
+                    raise ValueError(
+                        f"All formulae must refer to the same response. "
+                        f"Got {response_name!r} and {pf.response_name!r}."
+                    )
+
+        return ParsedGAMFormula(
+            response_name=response_name,
+            predictors=parsed,
+            raw=formula,
+        )
+
+    raise TypeError("formula must be a string or a list/tuple of strings.")
+
+
+__all__ = [
+    "ParsedParametricTerm",
+    "ParsedSmoothTerm",
+    "ParsedPredictorFormula",
+    "ParsedGAMFormula",
+    "parse_gam_formula",
+]
+
+# --- End of nampy/gam/formula/parser.py ---
+
+# --- Start of nampy/gam/smooths/base.py ---
+"""
+Runtime smooth term base class and shared helpers (Stage 2 of the pipeline).
+
+:class:`BaseSmoothTerm`
+    Abstract base for all runtime smooth terms.  Each concrete subclass
+    implements the fit/transform/predict interface and provides penalty
+    specifications via :meth:`get_penalty_definitions`.
+
+    Key properties (must be valid after :meth:`fit`):
+        - ``basis_train``: design matrix built from training data.
+        - ``penalties``: list of penalty matrices.
+        - ``n_coef``: number of coefficient columns.
+
+    Optional delegation (by-variable and constraint handling may be
+    delegated to the Stage-3 wrapper in constructors.py):
+        - ``constraint_mode``: ``"auto"``, ``"always"``, ``"never"``, ``"factor_by"``.
+        - ``delegate_constraint``: if True, the term returns the raw unconstrained
+          basis and lets the wrapper apply sum-to-zero or factor-by absorption.
+
+Supporting helpers:
+    :func:`_resolve_feature`, :class:`ByState`, :class:`FeatureMatrixState`
+    provide feature-index resolution and by-variable state.
+"""
+
+import abc
+from dataclasses import dataclass
+
+import numpy as np
+
+from ..penalties import (
+    build_null_space_selection_spec,
+    make_penalty_spec,
+    normalize_penalty_spec,
+)
+
+
+def _resolve_feature(feature, feature_names):
+    if isinstance(feature, int):
+        idx = int(feature)
+        if idx < 0 or idx >= len(feature_names):
+            raise IndexError(
+                f"Feature index {idx} out of range for {len(feature_names)} features."
+            )
+        return idx, feature_names[idx]
+
+    feature_name = str(feature)
+    if feature_name not in feature_names:
+        raise KeyError(
+            f"Feature {feature_name!r} not found in feature_names={feature_names}."
+        )
+    return feature_names.index(feature_name), feature_name
+
+
+def _resolve_numeric_by(by, X, feature_names):
+    if by is None:
+        return None, None, None
+    idx, name = _resolve_feature(by, feature_names)
+    z = np.asarray(X[:, idx], dtype=np.float64).ravel()
+    if z.ndim != 1:
+        raise ValueError("Numeric `by` variables must resolve to a 1D column.")
+    return idx, name, z
+
+
+@dataclass
+class ByState:
+    feature_index: int | None
+    feature_name: str | None
+    values: np.ndarray | None
+    is_present: bool
+    is_constant: bool
+
+    @property
+    def index(self):
+        return self.feature_index
+
+    @property
+    def name(self):
+        return self.feature_name
+
+
+ByVariableState = ByState
+
+
+@dataclass
+class FeatureMatrixState:
+    indices: list[int]
+    names: list[str]
+    matrix: np.ndarray
+
+
+def resolve_by_state(by, X, feature_names):
+    if by is None:
+        return ByState(None, None, None, False, True)
+    idx, name, z = _resolve_numeric_by(by, X, feature_names)
+    return ByState(idx, name, z, True, _is_effectively_constant(z))
+
+
+def resolve_feature_matrix_state(features, X, feature_names):
+    feats = list(features) if not isinstance(features, (str, int)) else [features]
+    indices, names = [], []
+    for feat in feats:
+        idx, fname = _resolve_feature(feat, feature_names)
+        indices.append(idx)
+        names.append(fname)
+    X_arr = np.asarray(X)
+    Xf = np.column_stack([np.asarray(X_arr[:, idx], dtype=np.float64) for idx in indices])
+    return FeatureMatrixState(indices=indices, names=names, matrix=Xf)
+
+
+def sync_by_state_attributes(term, by_state: ByVariableState):
+    term._by_state = by_state
+    term._by_index = by_state.feature_index
+    term._by_name = by_state.feature_name
+    term._by_values = by_state.values
+    term._by_is_constant = bool(by_state.is_constant)
+
+
+def by_values_from_new_data(X_new, by_state: ByVariableState):
+    if by_state is None or not by_state.is_present:
+        return None
+    return column_as_float(X_new, by_state.feature_index)
+
+
+def _column_from_matrix(X, index):
+    idx = int(index)
+    if hasattr(X, "iloc"):
+        return X.iloc[:, idx].to_numpy()
+    return X[:, idx]
+
+
+def column_as_float(X, index):
+    return np.asarray(_column_from_matrix(X, index), dtype=np.float64).ravel()
+
+
+def column_as_object(X, index):
+    return np.asarray(_column_from_matrix(X, index), dtype=object).ravel()
+
+
+def columns_as_float_matrix(X, indices):
+    return np.column_stack([column_as_float(X, idx) for idx in list(indices)])
+
+
+def apply_numeric_by(B, z, allow_missing=False):
+    B = np.asarray(B, dtype=np.float64)
+    if z is None:
+        return B
+    z = np.asarray(z, dtype=np.float64).ravel()
+    if B.shape[0] != z.shape[0]:
+        raise ValueError(
+            f"Numeric by vector length {z.shape[0]} does not match basis rows {B.shape[0]}."
+        )
+    if not allow_missing:
+        return B * z[:, None]
+    out = np.zeros_like(B)
+    ok = np.isfinite(z)
+    out[ok, :] = B[ok, :] * z[ok][:, None]
+    return out
+
+
+def _sp_mode_value(sp_j):
+    if sp_j is None:
+        return None, None
+    if sp_j >= 0:
+        return "fixed", float(sp_j)
+    return "estimate", None
+
+
+def term_penalty_metadata(term, extra=None, *, is_selection_penalty=False):
+    meta = {
+        "term_type": term.term_type,
+        "basis_name": term.basis_name,
+        "feature": term.feature,
+        "label": term.label,
+        "by": term.by,
+        "by_name": getattr(term, "_by_name", None),
+        "by_is_constant": bool(getattr(term, "_by_is_constant", True)),
+        "is_selection_penalty": bool(is_selection_penalty),
+    }
+    if extra:
+        meta.update(dict(extra))
+    return meta
+
+
+def build_penalty_definition(term, matrix, *, kind="smooth", smoothing_id=None, sp_value_in=None, rank=None, null_space_dim=None, is_null_space_penalty=False, metadata_extra=None):
+    sp_mode, sp_value = _sp_mode_value(sp_value_in)
+    return make_penalty_spec(
+        matrix=np.asarray(matrix, dtype=np.float64),
+        smoothing_id=smoothing_id,
+        kind=kind,
+        sp_mode=sp_mode,
+        sp_value=sp_value,
+        is_null_space_penalty=bool(is_null_space_penalty),
+        metadata=term_penalty_metadata(
+            term, extra=metadata_extra, is_selection_penalty=False
+        ),
+    )
+
+
+def build_selection_penalty_definition(term, matrix, *, rank, null_space_dim, smoothing_id, metadata_extra=None):
+    return make_penalty_spec(
+        matrix=np.asarray(matrix, dtype=np.float64),
+        smoothing_id=smoothing_id,
+        kind="null_space",
+        is_null_space_penalty=True,
+        sp_mode=None,
+        sp_value=None,
+        metadata=term_penalty_metadata(
+            term, extra=metadata_extra, is_selection_penalty=True
+        ),
+    )
+
+
+def _normalize_knots(knots, features):
+    if knots is None:
+        return [None] * len(features)
+    if isinstance(knots, dict):
+        return [knots.get(str(f), None) for f in features]
+    if isinstance(knots, (list, tuple)):
+        if len(knots) == len(features):
+            return list(knots)
+        if len(features) == 1:
+            return [knots]
+        raise ValueError(f"knots must have length {len(features)} for features={features}, got {len(knots)}.")
+    if len(features) == 1:
+        return [knots]
+    raise TypeError("knots must be None, dict, or list/tuple aligned with features.")
+
+
+def _is_effectively_constant(z, tol=1e-12):
+    z = np.asarray(z, dtype=np.float64).ravel()
+    if z.size == 0:
+        return True
+    return bool(np.max(np.abs(z - z[0])) <= tol)
+
+
+def _normalize_mc(mc, n_marginals):
+    if mc is None:
+        return [True] * n_marginals
+    if np.isscalar(mc):
+        return [bool(mc)] * n_marginals
+    mc_list = [bool(v) for v in mc]
+    if len(mc_list) != n_marginals:
+        raise ValueError(f"mc must have length {n_marginals}, got {mc_list}.")
+    return mc_list
+
+
+def _normalize_point_constraint(pc, feature_name):
+    if pc is None:
+        return None
+    if np.isscalar(pc):
+        return float(pc)
+    if isinstance(pc, dict):
+        if feature_name in pc:
+            return float(pc[feature_name])
+        if len(pc) == 1:
+            return float(next(iter(pc.values())))
+        raise NotImplementedError("1D point constraint dict incompatible.")
+    if isinstance(pc, (list, tuple, np.ndarray)):
+        vals = np.asarray(pc, dtype=np.float64).ravel()
+        if vals.size != 1:
+            raise NotImplementedError("Only 1D point constraints supported.")
+        return float(vals[0])
+    raise NotImplementedError(f"Unsupported pc type {type(pc)}.")
+
+
+RUNTIME_TERM_INTERFACE_CHECKLIST = (
+    "basis_train",
+    "transform_new",
+    "get_penalty_definitions",
+    "label",
+    "basis_name",
+    "term_type",
+    "feature",
+    "constraints_absorbed",
+    "fit_constraint_matrix",
+    "predict_constraint_matrix",
+    "prediction_offset",
+    "metadata",
+)
+
+
+class BaseSmoothTerm(abc.ABC):
+    """
+    Abstract base class for all GAM runtime smooth terms.
+
+    A runtime term is the canonical owner of basis semantics for its smooth
+    family (architecture section 3.1).  Subclasses must implement:
+
+        fit(X, feature_names)  ->  self
+            Fit the basis and penalties to training data.  Sets ``_basis_train``
+            and ``_penalties`` on ``self``.
+
+        transform_new(X_new)   ->  np.ndarray, shape (n_new, n_coef)
+            Evaluate the basis at new observations using the same coefficient
+            parameterisation as ``basis_train``.
+
+    After fitting, the following properties must be available:
+
+        basis_train              final training design block
+        get_penalty_definitions  list of PenaltySpec via penalty subsystem
+        label, basis_name, term_type, feature
+        constraints_absorbed     True if this term already absorbed its constraints
+        fit_constraint_matrix    explicit constraint matrix, or None
+        predict_constraint_matrix
+        prediction_offset
+
+    Contract
+    --------
+    - ``basis_train.shape[1] == S.shape[0] == S.shape[1]`` for every penalty S.
+    - If a coefficient transform T was applied during fit, penalties satisfy
+      ``S_fitted = T.T @ S_raw @ T``.
+    - By-variable handling is done either by the runtime term OR delegated to
+      the stage-3 construction wrapper via ``by_done = False`` — never both.
+    - Constraint absorption is done either by the runtime term OR delegated to
+      the stage-3 wrapper via ``constraints_absorbed = False`` — never both.
+    """
+
+    term_type = "smooth"
+    basis_name = "unknown"
+    supports_tensor_marginal = False
+
+    def __init__(self, feature, label=None, smoothing_id=None, by=None, sp=None, metadata=None):
+        self.feature = feature
+        self.label = label or str(feature)
+        self.smoothing_id = smoothing_id
+        self.by = by
+        self.sp = sp
+        self.metadata = dict(metadata or {})
+        self.resolved_feature_names = None
+        self.by_done = True
+        self.constraints_absorbed = True
+        self.n_constraints_absorbed = 0
+        self.constraint_kind = None
+        self.constraint_transform = None
+        self.constraints_absorbed_by = None
+        self.fit_constraint_matrix = None
+        self.predict_constraint_matrix = None
+        self.prediction_offset = None
+        self.basis_train_base = None
+        self.knots = None
+
+    def _set_resolved_features(self, resolved_feature_names):
+        if resolved_feature_names is None:
+            self.resolved_feature_names = None
+        else:
+            self.resolved_feature_names = list(resolved_feature_names)
+
+    def _record_constraint_result(self, kind, transform, *, absorbed_by):
+        self.constraint_kind = kind
+        self.constraint_transform = transform
+        self.fit_constraint_matrix = transform
+        self.predict_constraint_matrix = transform
+        self.constraints_absorbed_by = absorbed_by
+        self.constraints_absorbed = bool(transform is not None)
+        if transform is None:
+            self.n_constraints_absorbed = 0
+        else:
+            self.n_constraints_absorbed = int(max(0, transform.shape[0] - transform.shape[1]))
+
+    @abc.abstractmethod
+    def fit(self, X, feature_names):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def transform_new(self, X_new):
+        raise NotImplementedError
+
+    def _require_fitted(self):
+        if getattr(self, "_basis_train", None) is None:
+            raise RuntimeError("Term is not fitted.")
+
+    @property
+    def basis_train(self):
+        self._require_fitted()
+        return self._basis_train
+
+    @property
+    def penalties(self):
+        self._require_fitted()
+        return self._penalties
+
+    @property
+    def n_coef(self):
+        self._require_fitted()
+        return int(self._basis_train.shape[1])
+
+    def transform_new_base(self, X_new):
+        return self.transform_new(X_new)
+
+    def _normalized_term_sp(self, n_penalties):
+        if n_penalties <= 0:
+            return []
+        if self.sp is None:
+            return [None] * n_penalties
+        if np.isscalar(self.sp):
+            if n_penalties != 1:
+                raise NotImplementedError("Multi-penalty term-level sp must supply one value per penalty.")
+            vals = [float(self.sp)]
+        else:
+            vals = np.asarray(self.sp, dtype=np.float64).ravel()
+            if vals.size != n_penalties:
+                raise ValueError(f"term-level sp must have length {n_penalties}, got {vals.size}.")
+            vals = [float(v) for v in vals]
+        return vals
+
+    def get_penalty_definitions(self):
+        raw = list(self.penalties)
+        n_raw = len(raw)
+        sp_vals = self._normalized_term_sp(n_raw)
+        defs = []
+        for j, P in enumerate(raw):
+            if self.smoothing_id is None:
+                sid = None
+            elif n_raw <= 1:
+                sid = str(self.smoothing_id)
+            else:
+                sid = f"{self.smoothing_id}::{j}"
+            sp_j = sp_vals[j] if j < len(sp_vals) else None
+            if sp_j is None:
+                sp_mode, sp_value = None, None
+            elif sp_j >= 0:
+                sp_mode, sp_value = "fixed", float(sp_j)
+            else:
+                sp_mode, sp_value = "estimate", None
+            defs.append(
+                make_penalty_spec(
+                    matrix=np.asarray(P, dtype=np.float64),
+                    smoothing_id=sid,
+                    kind="smooth",
+                    sp_mode=sp_mode,
+                    sp_value=sp_value,
+                    metadata={
+                        "term_type": self.term_type,
+                        "basis_name": self.basis_name,
+                        "feature": self.feature,
+                        "label": self.label,
+                        "by": self.by,
+                        "term_sp": sp_j,
+                    },
+                )
+            )
+        return defs
+
+# --- End of nampy/gam/smooths/base.py ---
+
+# --- Start of nampy/gam/smooths/registry.py ---
+import numpy as np
+
+_SMOOTH_REGISTRY = {}
+
+
+def register_smooth(name: str):
+    name = str(name).lower()
+
+    def decorator(cls):
+        _SMOOTH_REGISTRY[name] = cls
+        return cls
+
+    return decorator
+
+
+def available_smooths():
+    return dict(_SMOOTH_REGISTRY)
+
+
+def make_smooth_term(kind: str, *args, **kwargs):
+    key = str(kind).lower()
+    if key not in _SMOOTH_REGISTRY:
+        raise ValueError(
+            f"Unknown smooth kind {kind!r}. "
+            f"Available smooths: {sorted(_SMOOTH_REGISTRY)}"
+        )
+    return _SMOOTH_REGISTRY[key](*args, **kwargs)
+
+# --- End of nampy/gam/smooths/registry.py ---
+
+# --- Start of nampy/gam/specs/base.py ---
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass(frozen=True)
+class TermSpec:
+    """
+    Canonical declarative term contract used across compilation.
+    """
+
+    kind: str
+    features: tuple[str, ...] = ()
+    by_variable: str | None = None
+    basis_options: dict[str, Any] = field(default_factory=dict)
+    smoothing_id: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    label: str | None = None
+
+# --- End of nampy/gam/specs/base.py ---
+
+# --- Start of nampy/gam/specs/predictors.py ---
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass
+class LinearPredictorSpec:
+    name: str = "eta"
+    terms: list = field(default_factory=list)
+    has_intercept: bool = False
+    parameter_name: str | None = None
+    offset_name: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+# --- End of nampy/gam/specs/predictors.py ---
+
+# --- Start of nampy/splines/constraints.py ---
+import numpy as np
+
+
+def identconst(basis, penalty):
+    """
+    Absorb identifiability (sum-to-zero) constraint into basis/penalty.
+    """
+    basis = np.asarray(basis, dtype=np.float64)
+    penalty = np.asarray(penalty, dtype=np.float64)
+
+    constraint_matrix = basis.mean(axis=0).reshape(-1, 1)
+    q, _ = np.linalg.qr(constraint_matrix, mode="complete")
+    penalty = np.double(np.linalg.multi_dot([np.transpose(q[:, 1:]), penalty, q[:, 1:]]))
+    basis = basis @ q[:, 1:]
+    return basis, penalty, q[:, 1:]
+
+# --- End of nampy/splines/constraints.py ---
+
+# --- Start of nampy/splines/penalty_scaling.py ---
+import numpy as np
+
+
+def scale_penalty(basis, penalty):
+    """
+    Rescale the penalty matrix based on the smoother design matrix.
+    """
+    basis = np.asarray(basis, dtype=np.float64)
+    penalty = np.asarray(penalty, dtype=np.float64)
+
+    X_inf_norm = max(np.sum(np.abs(basis), axis=1)) ** 2
+    S_norm = np.linalg.norm(penalty, ord=1)
+
+    if X_inf_norm <= 0 or S_norm <= 0:
+        return penalty.copy()
+
+    norm = S_norm / X_inf_norm
+    return penalty / norm
+
+# --- End of nampy/splines/penalty_scaling.py ---
+
+# --- Start of nampy/splines/univariate_bases.py ---
+# splines/univariate_bases.py
+import numpy as np
+from scipy.interpolate import BSpline
+
+
+def place_knots_through_values(x, nk):
+    """
+    mgcv::place.knots analogue for 1D cyclic cubic setup.
+
+    Places nk knots evenly through the ordered unique covariate values,
+    with the first and last knots at the data extremes.
+    """
+    x = np.sort(np.unique(np.asarray(x, dtype=np.float64).ravel()))
+    n = len(x)
+
+    if nk > n:
+        raise ValueError("more knots than unique data values is not allowed")
+    if nk < 2:
+        raise ValueError("too few knots")
+    if nk == 2:
+        return np.array([x[0], x[-1]], dtype=np.float64)
+
+    delta = (n - 1) / float(nk - 1)
+    idx = np.arange(1, nk - 1, dtype=np.float64)
+    lbi = np.floor(delta * idx + 1).astype(int)
+    frac = delta * idx + 1 - lbi
+
+    x_shift = x[1:]
+    knot = np.zeros(nk, dtype=np.float64)
+    knot[0] = x[0]
+    knot[-1] = x[-1]
+    knot[1:-1] = x[lbi - 1] * (1.0 - frac) + x_shift[lbi - 1] * frac
+    return knot
+
+
+def add_full_rank_shrinkage(S, shrink=0.1, tol=1e-12):
+    """
+    Make a symmetric penalty full rank by shrinking its null space.
+
+    This mirrors mgcv's cs/ts construction idea: null-space eigenvalues are
+    replaced by small positive multiples of the smallest positive eigenvalue.
+    """
+    S = np.asarray(S, dtype=np.float64)
+    S = 0.5 * (S + S.T)
+
+    evals, U = np.linalg.eigh(S)
+    tol_eff = tol * max(1.0, np.max(np.abs(evals)) if evals.size else 1.0)
+
+    pos = evals[evals > tol_eff]
+    if pos.size == 0:
+        return S.copy()
+
+    out = evals.copy()
+    null_idx = np.where(evals <= tol_eff)[0]
+
+    if null_idx.size:
+        base = float(np.min(pos))
+        # keep the null-space penalties ordered and smaller than the range-space penalties
+        for j, idx in enumerate(null_idx):
+            out[idx] = base * (shrink ** (null_idx.size - j))
+
+    return (U * out) @ U.T
+
+
+def cyclic_wrap(x0, x1, x):
+    """
+    Wrap x onto [x0, x1] for periodic prediction.
+    """
+    x = np.asarray(x, dtype=np.float64).copy()
+    h = float(x1 - x0)
+    if h <= 0:
+        raise ValueError("cyclic interval must have positive width.")
+
+    if np.max(x) > x1:
+        ind = x > x1
+        x[ind] = x0 + np.mod(x[ind] - x1, h)
+
+    if np.min(x) < x0:
+        ind = x < x0
+        x[ind] = x1 - np.mod(x0 - x[ind], h)
+
+    return x
+
+
+def cyclic_cubic_bd(knots):
+    """
+    Build the BD matrix used by mgcv's cyclic cubic basis.
+
+    If p are spline values at the knots (excluding the repeated endpoint),
+    and m are the second derivatives at those knots, then:
+        m = BD @ p
+    """
+    knots = np.asarray(knots, dtype=np.float64).ravel()
+
+    if knots.ndim != 1 or knots.size < 4:
+        raise ValueError("cyclic cubic splines require at least 4 knots.")
+    if np.any(np.diff(knots) <= 0):
+        raise ValueError("knots must be strictly increasing.")
+
+    h = knots[1:] - knots[:-1]
+    n = knots.size - 1
+
+    B = np.zeros((n, n), dtype=np.float64)
+    D = np.zeros((n, n), dtype=np.float64)
+
+    B[0, 0] = (h[n - 1] + h[0]) / 3.0
+    B[0, 1] = h[0] / 6.0
+    B[0, n - 1] = h[n - 1] / 6.0
+    D[0, 0] = -(1.0 / h[0] + 1.0 / h[n - 1])
+    D[0, 1] = 1.0 / h[0]
+    D[0, n - 1] = 1.0 / h[n - 1]
+
+    for i in range(1, n - 1):
+        B[i, i - 1] = h[i - 1] / 6.0
+        B[i, i] = (h[i - 1] + h[i]) / 3.0
+        B[i, i + 1] = h[i] / 6.0
+
+        D[i, i - 1] = 1.0 / h[i - 1]
+        D[i, i] = -(1.0 / h[i - 1] + 1.0 / h[i])
+        D[i, i + 1] = 1.0 / h[i]
+
+    B[n - 1, n - 2] = h[n - 2] / 6.0
+    B[n - 1, n - 1] = (h[n - 2] + h[n - 1]) / 3.0
+    B[n - 1, 0] = h[n - 1] / 6.0
+    D[n - 1, n - 2] = 1.0 / h[n - 2]
+    D[n - 1, n - 1] = -(1.0 / h[n - 2] + 1.0 / h[n - 1])
+    D[n - 1, 0] = 1.0 / h[n - 1]
+
+    BD = np.linalg.solve(B, D)
+    return BD, B, D
+
+
+def cyclic_cubic_predict_matrix(x, knots, BD):
+    """
+    mgcv::Predict.matrix.cyclic.smooth analogue in pure Python.
+
+    knots has length nk; basis width is nk - 1 because the endpoint is repeated
+    cyclically.
+    """
+    x = np.asarray(x, dtype=np.float64).ravel().copy()
+    knots = np.asarray(knots, dtype=np.float64).ravel()
+
+    n = knots.size
+    if n < 4:
+        raise ValueError("cyclic cubic splines require at least 4 knots.")
+
+    h = knots[1:] - knots[:-1]
+
+    if np.max(x) > np.max(knots) or np.min(x) < np.min(knots):
+        x = cyclic_wrap(np.min(knots), np.max(knots), x)
+
+    j = x.copy()
+    for i in range(n, 1, -1):
+        j[x <= knots[i - 1]] = i
+    j = j.astype(int)
+
+    j1 = j - 1
+    hj = j - 1
+    j = j.copy()
+    j[j == n] = 1
+
+    I = np.eye(n - 1, dtype=np.float64)
+
+    X = (
+        BD[j1 - 1, :] * ((knots[j1] - x)[:, None] ** 3) / (6.0 * h[hj - 1])[:, None]
+        + BD[j - 1, :] * ((x - knots[j1 - 1])[:, None] ** 3) / (6.0 * h[hj - 1])[:, None]
+        - BD[j1 - 1, :] * (h[hj - 1] * (knots[j1] - x) / 6.0)[:, None]
+        - BD[j - 1, :] * (h[hj - 1] * (x - knots[j1 - 1]) / 6.0)[:, None]
+        + I[j1 - 1, :] * ((knots[j1] - x) / h[hj - 1])[:, None]
+        + I[j - 1, :] * ((x - knots[j1 - 1]) / h[hj - 1])[:, None]
+    )
+    return np.asarray(X, dtype=np.float64)
+
+
+def bspline_design_matrix(x, knots, degree, deriv=0, extrapolate=True):
+    """
+    Dense B-spline design matrix using scipy.interpolate.BSpline.
+    """
+    x = np.asarray(x, dtype=np.float64).ravel()
+    knots = np.asarray(knots, dtype=np.float64).ravel()
+
+    degree = int(degree)
+    deriv = int(deriv)
+
+    n_basis = knots.size - degree - 1
+    if n_basis <= 0:
+        raise ValueError("Invalid knot vector / degree combination.")
+
+    if deriv > degree:
+        return np.zeros((x.size, n_basis), dtype=np.float64)
+
+    X = np.empty((x.size, n_basis), dtype=np.float64)
+    for i in range(n_basis):
+        c = np.zeros(n_basis, dtype=np.float64)
+        c[i] = 1.0
+        spl = BSpline(knots, c, degree, extrapolate=extrapolate)
+        if deriv > 0:
+            spl = spl.derivative(deriv)
+        X[:, i] = spl(x)
+    return X
+
+
+def pspline_knots(x, bs_dim, basis_order, supplied_knots=None):
+    """
+    mgcv::smooth.construct.ps.smooth.spec-style knot setup.
+
+    basis_order = m[0], penalty order handled separately.
+    """
+    x = np.asarray(x, dtype=np.float64).ravel()
+    m1 = int(basis_order)
+
+    nk = int(bs_dim) - m1
+    if nk <= 0:
+        raise ValueError("basis dimension too small for b-spline order")
+    if supplied_knots is None and nk < 2:
+        raise ValueError(
+            "Automatic P-spline knot construction requires bs.dim > basis_order + 1."
+        )
+
+    if supplied_knots is None:
+        xl = float(np.min(x))
+        xu = float(np.max(x))
+        xr = xu - xl
+        xl = xl - xr * 0.001
+        xu = xu + xr * 0.001
+        dx = (xu - xl) / float(nk - 1)
+        return np.linspace(
+            xl - dx * (m1 + 1),
+            xu + dx * (m1 + 1),
+            nk + 2 * m1 + 2,
+        )
+
+    k = np.asarray(supplied_knots, dtype=np.float64).ravel()
+    if k.size == 2:
+        xl = float(np.min(k))
+        xu = float(np.max(k))
+        if xl > np.min(x) or xu < np.max(x):
+            raise ValueError("knot range does not include data")
+        xr = xu - xl
+        xl = xl - xr * 0.001
+        xu = xu + xr * 0.001
+        if nk < 2:
+            raise ValueError(
+                "Automatic P-spline knot construction requires bs.dim > basis_order + 1."
+            )
+        dx = (xu - xl) / float(nk - 1)
+        return np.linspace(
+            xl - dx * (m1 + 1),
+            xu + dx * (m1 + 1),
+            nk + 2 * m1 + 2,
+        )
+
+    expected = nk + 2 * m1 + 2
+    if k.size != expected:
+        raise ValueError(f"there should be {expected} supplied knots")
+    return k
+
+
+def pspline_difference_penalty(n_coef, diff_order):
+    """
+    Difference penalty for a P-spline basis.
+    """
+    n_coef = int(n_coef)
+    diff_order = int(diff_order)
+
+    if diff_order < 0:
+        raise ValueError("diff_order must be >= 0")
+    if diff_order > n_coef - 1:
+        raise ValueError("penalty order too high for basis dimension")
+
+    D = np.eye(n_coef, dtype=np.float64)
+    if diff_order > 0:
+        D = np.diff(D, n=diff_order, axis=0)
+    return D.T @ D
+
+
+def pspline_predict_matrix(x, knots, basis_order, deriv=0):
+    """
+    mgcv::Predict.matrix.pspline.smooth analogue.
+
+    Uses ordinary B-spline evaluation inside the inner knot range and
+    linear extrapolation of the smooth outside that range.
+    """
+    x = np.asarray(x, dtype=np.float64).ravel()
+    knots = np.asarray(knots, dtype=np.float64).ravel()
+    deriv = int(deriv)
+
+    degree = int(basis_order) + 1
+    n_basis = knots.size - degree - 1
+
+    if deriv > degree:
+        return np.zeros((x.size, n_basis), dtype=np.float64)
+
+    ll = knots[int(basis_order) + 1]
+    ul = knots[len(knots) - int(basis_order) - 2]
+
+    X = np.zeros((x.size, n_basis), dtype=np.float64)
+    inside = (x >= ll) & (x <= ul)
+
+    if np.any(inside):
+        X[inside, :] = bspline_design_matrix(
+            x[inside],
+            knots,
+            degree=degree,
+            deriv=deriv,
+            extrapolate=True,
+        )
+
+    if np.all(inside):
+        return X
+
+    if deriv >= 2:
+        return X
+
+    B_ll = bspline_design_matrix(
+        np.array([ll], dtype=np.float64),
+        knots,
+        degree=degree,
+        deriv=0,
+        extrapolate=True,
+    )[0]
+    dB_ll = bspline_design_matrix(
+        np.array([ll], dtype=np.float64),
+        knots,
+        degree=degree,
+        deriv=1,
+        extrapolate=True,
+    )[0]
+    B_ul = bspline_design_matrix(
+        np.array([ul], dtype=np.float64),
+        knots,
+        degree=degree,
+        deriv=0,
+        extrapolate=True,
+    )[0]
+    dB_ul = bspline_design_matrix(
+        np.array([ul], dtype=np.float64),
+        knots,
+        degree=degree,
+        deriv=1,
+        extrapolate=True,
+    )[0]
+
+    left = x < ll
+    if np.any(left):
+        if deriv == 0:
+            X[left, :] = B_ll[None, :] + (x[left] - ll)[:, None] * dB_ll[None, :]
+        else:
+            X[left, :] = np.broadcast_to(dB_ll, (np.sum(left), n_basis))
+
+    right = x > ul
+    if np.any(right):
+        if deriv == 0:
+            X[right, :] = B_ul[None, :] + (x[right] - ul)[:, None] * dB_ul[None, :]
+        else:
+            X[right, :] = np.broadcast_to(dB_ul, (np.sum(right), n_basis))
+
+    return X
+# --- End of nampy/splines/univariate_bases.py ---
+
+# --- Start of nampy/basemodels/gam.py ---
+#basemodels/gam.py
+import pickle
+import warnings
+
+import numpy as np
+import pandas as pd
+import torch
+
+from ..configs.gam_config import DefaultGAMConfig
+from ..gam.families import make_gam_family
+from ..gam.parity import build_parity_snapshot
+from ..gam.formula import (
+    apply_drop_intercept,
+    compile_predictor_specs_from_formula,
+    extract_formula_data,
+    parse_gam_formula,
+)
+from ..gam.formula.preprocess import (
+    apply_formula_preprocess_to_new_data,
+    preprocess_formula_predictor_specs,
+)
+from ..gam.specs import LinearPredictorSpec, TermSpec
+from .basemodel import BaseModel
+
+
+class GAM(BaseModel):
+    """
+    User-facing classical GAM backend built on the general smooth-model core.
+    """
+
+    def __init__(
+        self,
+        cat_feature_info=None,
+        num_feature_info=None,
+        num_classes: int = 1,
+        config: DefaultGAMConfig = DefaultGAMConfig(),
+        family=None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
+
+        self.k = int(self.hparams.get("k", getattr(config, "k", 10)))
+        self.basis = self.hparams.get("basis", getattr(config, "basis", "cr"))
+        self.fit_intercept = bool(
+            self.hparams.get("fit_intercept", getattr(config, "fit_intercept", True))
+        )
+        self.max_irls_iter = int(
+            self.hparams.get("max_irls_iter", getattr(config, "max_irls_iter", 100))
+        )
+        self.irls_tol = float(
+            self.hparams.get("irls_tol", getattr(config, "irls_tol", 1e-8))
+        )
+        self.max_step_halving = int(
+            self.hparams.get(
+                "max_step_halving", getattr(config, "max_step_halving", 25)
+            )
+        )
+        self.smoothing_params = self.hparams.get(
+            "smoothing_params", getattr(config, "smoothing_params", None)
+        )
+        self.optimize_smoothing = bool(
+            self.hparams.get(
+                "optimize_smoothing",
+                getattr(config, "optimize_smoothing", False),
+            )
+        )
+        self.smoothing_method = str(
+            self.hparams.get(
+                "smoothing_method",
+                getattr(config, "smoothing_method", "fixed"),
+            )
+        ).lower()
+        self.smoothing_optimizer = str(
+            self.hparams.get(
+                "smoothing_optimizer",
+                getattr(config, "smoothing_optimizer", "lbfgsb"),
+            )
+        ).lower()
+        self.sp_log_bounds = tuple(
+            self.hparams.get("sp_log_bounds", config.sp_log_bounds)
+        )
+        self.score_gamma = float(
+            self.hparams.get("score_gamma", getattr(config, "score_gamma", 1.0))
+        )
+        self.covariance = str(
+            self.hparams.get("covariance", getattr(config, "covariance", "bayes"))
+        ).lower()
+
+        self.select = bool(
+            self.hparams.get("select", getattr(config, "select", False))
+        )
+
+        self.main_effects = bool(
+            self.hparams.get("main_effects", getattr(config, "main_effects", True))
+        )
+        self.tensor_terms = self.hparams.get(
+            "tensor_terms", getattr(config, "tensor_terms", None)
+        )
+
+        self.knots = self.hparams.get("knots", getattr(config, "knots", None))
+        self.min_sp = self.hparams.get("min_sp", getattr(config, "min_sp", None))
+        self.drop_intercept = self.hparams.get(
+            "drop_intercept", getattr(config, "drop_intercept", None)
+        )
+
+        self.family = make_gam_family(family)
+
+        self.register_buffer("_device_ref", torch.tensor(0.0), persistent=False)
+
+        self.formula = self.hparams.get("formula", getattr(config, "formula", None))
+
+        self.formula_ = None
+        self.formula_mode_ = False
+        self.formula_response_name_ = None
+        self.formula_used_columns_ = None
+        self.formula_preprocess_state_ = None
+        self.formula_offset_name_ = None
+
+        # mirrored fitted attributes
+        self.feature_names = None
+        self.X_ = None
+        self.y_ = None
+        self.prior_weights_ = None
+        self.offset_train_ = None
+        self.offset_predict_default_ = None
+        self.predictor_designs = None
+        self.n_samples_ = None
+        self.design_ = None
+        self.Z = None
+        self.ZTZ = None
+        self.n_coef_ = None
+        self.term_blocks_ = None
+        self.penalty_blocks_ = None
+        self.n_smoothing_params_ = None
+        self.smoothing_fixed_mask_ = None
+        self.smoothing_override_values_ = None
+        self.smoothing_override_modes_ = None
+        self._primary_reparam_sp_index_per_term_ = None
+        self.min_sp_ = None
+        self._reparam_meta = None
+        self._reparam_rand_blocks_ = None
+        self._reparam_sp_groups_ = None
+        self._penalty_ranks = None
+        self._penalty_logdet_plus_fixed = None
+        self.X_fix_ = None
+        self.rank_X_fix_ = None
+        self._fix_pivot_keep = None
+        self.Z_rand_ = None
+        self.n_rand_ = None
+        self.ZtZ_rand_ = None
+        self.rand_dims_per_term_ = None
+        self.intercept_ = None
+        self.coef_ = None
+        self.coef_full_ = None
+        self.beta = None
+        self.edf_ = None
+        self.trace_H_ = None
+        self.scale_ = None
+        self.rss_ = None
+        self.deviance_ = None
+        self.edf_by_term_ = None
+        self.Vp_ = None
+        self.Vf_ = None
+        self._fitted = False
+        self._optim_method = None
+        self._optim_result = None
+        self._optim_trace = None
+        self._optim_used_gradient = None
+        self._optim_used_hessian = None
+        self.smoothing_score_ = None
+        self.result_ = None
+        self.side_condition_reports_ = None
+
+    # ------------------------------------------------------------------
+    # Persistence
+    # ------------------------------------------------------------------
+
+    def save_model(self, path):
+        with open(path, "wb") as f:
+            pickle.dump(self, f)
+
+    def load_model(self, path, device="cpu"):
+        with open(path, "rb") as f:
+            other = pickle.load(f)
+        self.__dict__.update(other.__dict__)
+        self.to(device)
+        return self
+
+    def get_device(self):
+        return self._device_ref.device
+
+    # ------------------------------------------------------------------
+    # Data handling
+    # ------------------------------------------------------------------
+
+    def _coerce_X(self, X):
+        if isinstance(X, pd.DataFrame):
+            feature_names = list(X.columns)
+            X_np = self._dataframe_to_feature_matrix(X)
+        else:
+            X_np = np.asarray(X)
+            if X_np.ndim == 1:
+                X_np = X_np.reshape(-1, 1)
+            if X_np.ndim != 2:
+                raise ValueError("X must be a 2D array or DataFrame.")
+
+            feature_names = [f"x{i}" for i in range(X_np.shape[1])]
+
+            # Preserve mixed/object arrays if the caller supplied them.
+            if X_np.dtype != object:
+                X_num = np.asarray(X_np, dtype=np.float64)
+                if not np.isfinite(X_num).all():
+                    raise ValueError("X contains NaN or Inf")
+                X_np = X_num
+
+        return X_np, feature_names
+
+    def _coerce_optional_offset(self, offset, n_rows, *, name="offset"):
+        if offset is None:
+            return None
+        out = np.asarray(offset, dtype=np.float64).ravel()
+        if out.shape != (int(n_rows),):
+            raise ValueError(
+                f"{name} must have shape ({int(n_rows)},), got {out.shape}."
+            )
+        if not np.isfinite(out).all():
+            raise ValueError(f"{name} contains NaN or Inf")
+        return out
+
+    def _combine_offsets(self, *offsets):
+        arrs = [np.asarray(o, dtype=np.float64) for o in offsets if o is not None]
+        if not arrs:
+            return None
+        out = np.zeros_like(arrs[0], dtype=np.float64)
+        for arr in arrs:
+            if arr.shape != out.shape:
+                raise ValueError(
+                    f"Offset arrays must all have the same shape, got {out.shape} and {arr.shape}."
+                )
+            out = out + arr
+        return out
+
+    def _knots_for_feature(self, feature_name, *, knots=None):
+        knots = self.knots if knots is None else knots
+        if knots is None:
+            return None
+        if isinstance(knots, dict):
+            return knots.get(str(feature_name), None)
+        return knots
+
+    def _knots_for_features(self, feature_names, *, knots=None):
+        knots = self.knots if knots is None else knots
+        if knots is None:
+            return None
+        if isinstance(knots, dict):
+            vals = [knots.get(str(f), None) for f in feature_names]
+            return None if all(v is None for v in vals) else vals
+        return knots
+
+    def _dataframe_to_feature_matrix(self, X_df: pd.DataFrame, *, allow_missing_non_numeric=False):
+        non_numeric = [
+            c for c in X_df.columns if not pd.api.types.is_numeric_dtype(X_df[c])
+        ]
+
+        if len(non_numeric) == 0:
+            X_np = X_df.to_numpy(dtype=np.float64)
+            if not np.isfinite(X_np).all():
+                raise ValueError("X contains NaN or Inf")
+            return X_np
+
+        for c in X_df.columns:
+            s = X_df[c]
+            if pd.api.types.is_numeric_dtype(s):
+                vals = np.asarray(s, dtype=np.float64)
+                if not np.isfinite(vals).all():
+                    raise ValueError(f"Numeric column {c!r} contains NaN or Inf.")
+            else:
+                if s.isna().any() and not bool(allow_missing_non_numeric):
+                    raise ValueError(
+                        f"Non-numeric column {c!r} contains missing values, "
+                        "which are not currently supported in fitting."
+                    )
+
+        return X_df.to_numpy(dtype=object)
+
+    def _make_tensor_term(self, spec, *, knots=None):
+        if hasattr(spec, "fit") and callable(spec.fit):
+            return spec
+
+        if isinstance(spec, (tuple, list)) and len(spec) >= 2 and not isinstance(spec, dict):
+            features = list(spec)
+            return TermSpec(
+                kind="smooth",
+                features=tuple(str(f) for f in features),
+                by_variable=None,
+                basis_options={
+                    "special": "te",
+                    "bs": self.basis,
+                    "k": self.k,
+                    "knots": self._knots_for_features(features, knots=knots),
+                    "select": bool(self.select),
+                },
+                smoothing_id=None,
+                label=f"te({', '.join(map(str, features))})",
+                metadata={},
+            )
+
+        if not isinstance(spec, dict):
+            raise TypeError(
+                "Each tensor term specification must be either a term object, "
+                "a tuple/list of features, or a dict."
+            )
+
+        features = spec.get("features", None)
+        if features is None:
+            raise ValueError(
+                "Tensor term dicts must contain a 'features' entry, "
+                "e.g. {'features': ('x1', 'x2')}"
+            )
+
+        kind = str(spec.get("kind", "te")).lower()
+        k = spec.get("k", self.k)
+        basis = spec.get("basis", self.basis)
+        label = spec.get("label", f"{kind}({', '.join(map(str, features))})")
+        smoothing_id = spec.get("smoothing_id", None)
+        metadata = spec.get("metadata", None)
+        by = spec.get("by", None)
+        mc = spec.get("mc", None)
+        full = bool(spec.get("full", False))
+        ord_ = spec.get("ord", None)
+        fixed = bool(spec.get("fixed", spec.get("fx", False)))
+        select = bool(spec.get("select", self.select))
+        sp = spec.get("sp", None)
+        term_knots = spec.get("knots", self._knots_for_features(features, knots=knots))
+
+        if kind == "ti" and mc is not None:
+            mc_vals = [bool(v) for v in ([mc] if np.isscalar(mc) else mc)]
+            if len(mc_vals) == 0:
+                raise ValueError("mc must not be empty.")
+            if not any(mc_vals):
+                warnings.warn(
+                    f"{label}: all ti() marginal constraints are turned off (mc={mc_vals}). "
+                    "This leaves the term without identifiability constraints unless the rest "
+                    "of the model provides them."
+                )
+
+        if kind == "t2":
+            return TermSpec(
+                kind="smooth",
+                features=tuple(str(f) for f in features),
+                by_variable=by,
+                basis_options={
+                    "special": kind,
+                    "bs": basis,
+                    "k": k,
+                    "full": full,
+                    "ord": ord_,
+                    "fx": fixed,
+                    "select": select,
+                    "sp": sp,
+                    "knots": term_knots,
+                },
+                smoothing_id=(None if smoothing_id is None else str(smoothing_id)),
+                label=label,
+                metadata=dict(metadata or {}),
+            )
+
+        return TermSpec(
+            kind="smooth",
+            features=tuple(str(f) for f in features),
+            by_variable=by,
+            basis_options={
+                "special": kind,
+                "bs": basis,
+                "k": k,
+                "mc": mc,
+                "fx": fixed,
+                "select": select,
+                "sp": sp,
+                "knots": term_knots,
+            },
+            smoothing_id=(None if smoothing_id is None else str(smoothing_id)),
+            label=label,
+            metadata=dict(metadata or {}),
+        )
+
+    def _make_predictor_specs(self, feature_names, *, knots=None):
+        terms = []
+
+        if self.main_effects:
+            basis = str(self.basis).lower()
+            main_terms = []
+
+            for name in feature_names:
+                term_knots = self._knots_for_feature(name, knots=knots)
+
+                if basis in {"cr", "cs", "cc"}:
+                    main_terms.append(
+                        TermSpec(
+                            kind="smooth",
+                            features=(str(name),),
+                            by_variable=None,
+                            basis_options={
+                                "special": "s",
+                                "bs": basis,
+                                "k": self.k,
+                                "sp": None,
+                                "fx": False,
+                                "select": bool(self.select),
+                                "knots": term_knots,
+                            },
+                            smoothing_id=None,
+                            label=name,
+                            metadata={},
+                        )
+                    )
+                elif basis == "ps":
+                    main_terms.append(
+                        TermSpec(
+                            kind="smooth",
+                            features=(str(name),),
+                            by_variable=None,
+                            basis_options={
+                                "special": "s",
+                                "bs": "ps",
+                                "k": self.k,
+                                "m": None,
+                                "sp": None,
+                                "fx": False,
+                                "select": bool(self.select),
+                                "knots": term_knots,
+                            },
+                            smoothing_id=None,
+                            label=name,
+                            metadata={},
+                        )
+                    )
+                elif basis in {"tp", "ts"}:
+                    main_terms.append(
+                        TermSpec(
+                            kind="smooth",
+                            features=(str(name),),
+                            by_variable=None,
+                            basis_options={
+                                "special": "s",
+                                "bs": basis,
+                                "k": self.k,
+                                "m": None,
+                                "sp": None,
+                                "fx": False,
+                                "select": bool(self.select),
+                                "knots": term_knots,
+                                "xt": None,
+                            },
+                            smoothing_id=None,
+                            label=name,
+                            metadata={},
+                        )
+                    )
+                elif basis == "gp":
+                    main_terms.append(
+                        TermSpec(
+                            kind="smooth",
+                            features=(str(name),),
+                            by_variable=None,
+                            basis_options={
+                                "special": "s",
+                                "bs": "gp",
+                                "k": self.k,
+                                "m": None,
+                                "sp": None,
+                                "fx": False,
+                                "select": bool(self.select),
+                                "pc": None,
+                                "knots": term_knots,
+                                "xt": None,
+                            },
+                            smoothing_id=None,
+                            label=name,
+                            metadata={},
+                        ),
+                    )
+                elif basis == "re":
+                    main_terms.append(
+                        TermSpec(
+                            kind="smooth",
+                            features=(str(name),),
+                            by_variable=None,
+                            basis_options={
+                                "special": "s",
+                                "bs": "re",
+                                "sp": None,
+                                "xt": None,
+                            },
+                            smoothing_id=None,
+                            label=name,
+                            metadata={},
+                        ),
+                    )
+                else:
+                    raise NotImplementedError(
+                        f"Automatic main-effect construction currently supports "
+                        f"basis in {{'cr','cs','cc','ps','tp','ts','gp','re'}}, got {self.basis!r}."
+                    )
+
+            terms.extend(main_terms)
+
+        has_full_te = False
+        has_t2 = False
+        if self.tensor_terms is not None:
+            for spec in self.tensor_terms:
+                term = self._make_tensor_term(spec, knots=knots)
+                if getattr(term, "term_type", None) == "tensor_smooth":
+                    has_full_te = True
+                if getattr(term, "term_type", None) == "tensor_anova":
+                    has_t2 = True
+                terms.append(term)
+
+        if self.main_effects and has_full_te:
+            warnings.warn(
+                "Model contains both main-effect smooths and full te() tensor-product terms. "
+                "This is identifiable via side conditions, but is typically less stable and less "
+                "interpretable than a ti() ANOVA-style decomposition."
+            )
+
+        if self.main_effects and has_t2:
+            warnings.warn(
+                "Model contains both separate main-effect smooths and t2() terms. "
+                "t2() already contains ANOVA-style lower-order components, so this combination "
+                "can create strong overlap in the current framework."
+            )
+
+        return [LinearPredictorSpec(name="eta", terms=terms)]
+
+    def _prepare_formula_inputs(self, data, formula, y=None, knots=None, drop_intercept=None):
+        parsed = parse_gam_formula(formula)
+        parsed = apply_drop_intercept(parsed, drop_intercept=drop_intercept)
+
+        predictor_specs = compile_predictor_specs_from_formula(
+            parsed,
+            default_k=self.k,
+            default_basis=self.basis,
+            default_select=self.select,
+            knots=knots,
+        )
+
+        predictor_specs, data_work, preprocess_state = preprocess_formula_predictor_specs(
+            parsed=parsed,
+            predictor_specs=predictor_specs,
+            data=data,
+        )
+
+        X_np, feature_names, y_out, used_cols, offset_out = extract_formula_data(
+            data=data_work,
+            parsed=parsed,
+            predictor_specs=predictor_specs,
+            y=y,
+        )
+        return (
+            parsed,
+            predictor_specs,
+            X_np,
+            feature_names,
+            y_out,
+            used_cols,
+            offset_out,
+            preprocess_state,
+        )
+
+    def _coerce_formula_predict_inputs(self, X):
+        if not self.formula_mode_:
+            X_np, feature_names = self._coerce_X(X)
+            return X_np, feature_names, None
+
+        if not isinstance(X, pd.DataFrame):
+            raise TypeError(
+                "Prediction for formula-based GAMs currently requires a pandas DataFrame."
+            )
+
+        X_work = apply_formula_preprocess_to_new_data(
+            X, self.formula_preprocess_state_
+        )
+
+        missing = [c for c in self.formula_used_columns_ if c not in X_work.columns]
+        if missing:
+            raise KeyError(
+                f"Prediction data is missing formula columns: {missing}"
+            )
+
+        X_df = X_work[self.formula_used_columns_]
+        X_np = self._dataframe_to_feature_matrix(X_df, allow_missing_non_numeric=True)
+
+        offset = None
+        if self.formula_offset_name_ is not None:
+            if self.formula_offset_name_ not in X_work.columns:
+                raise KeyError(
+                    f"Prediction data is missing formula offset column: {self.formula_offset_name_!r}"
+                )
+            if not pd.api.types.is_numeric_dtype(X_work[self.formula_offset_name_]):
+                raise NotImplementedError(
+                    "Current formula-based prediction supports numeric offsets only. "
+                    f"Offset column {self.formula_offset_name_!r} is non-numeric."
+                )
+            offset = X_work[self.formula_offset_name_].to_numpy(dtype=np.float64)
+
+        return X_np, list(X_df.columns), offset
+
+    def _coerce_feature_matrix(self, X):
+        X = np.asarray(X)
+        if X.ndim == 1:
+            X = X.reshape(-1, 1)
+        if X.ndim != 2:
+            raise ValueError("X must be a 2D feature matrix.")
+        return X
+
+    def _coerce_offset(self, offset, n_rows):
+        from ..gam.fit.offsets import coerce_offset_array
+
+        return coerce_offset_array(offset, n_rows)
+
+    def _prediction_offset(self, X, offset):
+        from ..gam.fit.offsets import resolve_prediction_offset
+
+        return resolve_prediction_offset(self, X, offset)
+
+    def _uses_closed_form_solver(self):
+        return bool(getattr(self.family, "supports_closed_form_solve", False))
+
+    def _uses_pirls_solver(self):
+        return bool(getattr(self.family, "supports_pirls", False))
+
+    def _available_fit_backends(self):
+        from ..gam.fit.backends import available_fit_backends
+
+        return available_fit_backends(self)
+
+    def _resolve_fit_backend(self):
+        from ..gam.fit.backends import resolve_fit_backend
+
+        return resolve_fit_backend(self)
+
+    def _supports_smoothing_method(self, method):
+        from ..gam.smoothness.optimize import supports_smoothing_method
+
+        return supports_smoothing_method(self, method)
+
+    def _resolve_smoothing_method(self, method):
+        from ..gam.smoothness.optimize import resolve_smoothing_method
+
+        return resolve_smoothing_method(self, method)
+
+    def _needs_exact_gaussian_reparameterization(self):
+        return (
+            self._uses_closed_form_solver()
+            and self._can_use_exact_gaussian_ml_reml()
+            and any(
+                bool(getattr(self.family, attr, False))
+                for attr in ("supports_ml", "supports_reml", "supports_laml")
+            )
+        )
+
+    def _can_use_exact_gaussian_ml_reml(self):
+        from ..gam.smoothness.reparam import can_use_exact_gaussian_ml_reml
+
+        return can_use_exact_gaussian_ml_reml(self)
+
+    def _can_use_simple_ml_reml_structure(self):
+        from ..gam.smoothness.reparam import can_use_simple_ml_reml_structure
+
+        return can_use_simple_ml_reml_structure(self)
+
+    def _resolve_ml_reml_scoring_backend(self, method="reml"):
+        from ..gam.smoothness.criteria import resolve_ml_reml_scoring_backend
+
+        return resolve_ml_reml_scoring_backend(self, method=method)
+
+    def _raise_ml_reml_backend_error(self, method):
+        method = str(method).lower()
+        backend = self._resolve_ml_reml_scoring_backend(method=method)
+        if backend is not None:
+            return
+
+        if not bool(getattr(self.family, f"supports_{method}", False)):
+            raise NotImplementedError(
+                f"Automatic smoothing selection with method={method!r} is not "
+                f"supported for family={self.family.name!r}."
+            )
+
+        if not self._can_use_simple_ml_reml_structure():
+            raise NotImplementedError(
+                f"Automatic smoothing selection with method={method!r} is not "
+                "currently available for this model configuration. "
+                "The current ML/REML backend requires each penalized term to "
+                "contribute exactly one primary smooth penalty, plus at most "
+                "one null-space penalty on the same term. General overlapping "
+                "multi-penalty structures must currently use 'fixed', 'gcv', "
+                "or 'ubre' where available."
+            )
+
+        raise NotImplementedError(
+            f"Automatic smoothing selection with method={method!r} is not "
+            f"supported for family={self.family.name!r}."
+        )
+
+    def _has_tensor_terms(self):
+        if self.term_blocks_ is None:
+            return False
+        return any(
+            tb.term_type in {
+                "tensor_smooth",
+                "tensor_interaction",
+                "tensor_anova",
+            }
+            for tb in self.term_blocks_
+        )
+
+    def _resolve_min_sp(self, min_sp):
+        if self.n_smoothing_params_ is None:
+            raise RuntimeError("Design has not been compiled yet.")
+
+        if min_sp is None:
+            return np.zeros(self.n_smoothing_params_, dtype=np.float64)
+
+        arr = np.asarray(min_sp, dtype=np.float64).ravel()
+        if arr.size == 0 and self.n_smoothing_params_ == 0:
+            return np.empty((0,), dtype=np.float64)
+        if np.any(~np.isfinite(arr)) or np.any(arr < 0):
+            raise ValueError("min_sp values must be finite and >= 0.")
+
+        if arr.shape == (self.n_smoothing_params_,):
+            return arr.copy()
+
+        if arr.shape == (len(self.penalty_blocks_),):
+            out = np.zeros(self.n_smoothing_params_, dtype=np.float64)
+            for val, pb in zip(arr, self.penalty_blocks_):
+                out[pb.smoothing_index] = max(out[pb.smoothing_index], float(val))
+            return out
+
+        raise ValueError(
+            f"min_sp must have shape ({self.n_smoothing_params_},) for underlying smoothing "
+            f"parameters or ({len(self.penalty_blocks_)},) for total penalties, got {arr.shape}."
+        )
+
+    def _resolve_smoothing_params(self, n_smoothing_params):
+        sp = self.smoothing_params
+        if sp is None:
+            sp = np.ones(n_smoothing_params, dtype=np.float64)
+        else:
+            sp = np.asarray(sp, dtype=np.float64)
+            if sp.ndim == 0:
+                sp = np.full(n_smoothing_params, float(sp), dtype=np.float64)
+            if sp.shape != (n_smoothing_params,):
+                raise ValueError(
+                    f"smoothing_params must have shape ({n_smoothing_params},), got {sp.shape}"
+                )
+            sp = sp.copy()
+
+        fixed_mask = np.zeros(n_smoothing_params, dtype=bool)
+
+        override_modes = getattr(self.design_, "smoothing_override_modes", None)
+        override_values = getattr(self.design_, "smoothing_override_values", None)
+
+        if override_modes is not None:
+            if len(override_modes) != n_smoothing_params:
+                raise ValueError(
+                    "CompiledPredictor smoothing_override_modes has incompatible length."
+                )
+            if override_values is None:
+                override_values = np.full(n_smoothing_params, np.nan, dtype=np.float64)
+            override_values = np.asarray(override_values, dtype=np.float64)
+            if override_values.shape != (n_smoothing_params,):
+                raise ValueError(
+                    "CompiledPredictor smoothing_override_values has incompatible shape."
+                )
+
+            for i, mode in enumerate(override_modes):
+                if mode is None:
+                    continue
+
+                if mode == "fixed":
+                    val = float(override_values[i])
+                    if not np.isfinite(val) or val < 0:
+                        raise ValueError(
+                            f"Fixed smoothing parameter override at index {i} "
+                            f"must be finite and >= 0, got {val}."
+                        )
+                    sp[i] = val
+                    fixed_mask[i] = True
+                elif mode == "estimate":
+                    fixed_mask[i] = False
+                    if (not np.isfinite(sp[i])) or (sp[i] <= 0):
+                        sp[i] = 1.0
+                else:
+                    raise ValueError(
+                        f"Unknown smoothing override mode {mode!r} at index {i}."
+                    )
+
+        min_sp = (
+            np.zeros(n_smoothing_params, dtype=np.float64)
+            if self.min_sp_ is None
+            else np.asarray(self.min_sp_, dtype=np.float64)
+        )
+
+        if min_sp.shape != (n_smoothing_params,):
+            raise ValueError(
+                f"min_sp must have shape ({n_smoothing_params},), got {min_sp.shape}"
+            )
+
+        if np.any(fixed_mask & (sp < min_sp)):
+            raise ValueError(
+                "Fixed smoothing parameters must satisfy the configured min_sp lower bounds."
+            )
+
+        sp = np.maximum(sp, min_sp)
+        free_mask = ~fixed_mask
+
+        if np.any(~np.isfinite(sp[free_mask])) or np.any(sp[free_mask] <= 0):
+            raise ValueError("All free smoothing parameters must be finite and > 0.")
+
+        if np.any(~np.isfinite(sp[fixed_mask])) or np.any(sp[fixed_mask] < 0):
+            raise ValueError("All fixed smoothing parameters must be finite and >= 0.")
+
+        self.smoothing_fixed_mask_ = fixed_mask
+        self.smoothing_override_modes_ = (
+            None if override_modes is None else list(override_modes)
+        )
+        return sp
+
+    def _n_free_smoothing_params(self):
+        from ..gam.smoothness.optimize import n_free_smoothing_params
+
+        return n_free_smoothing_params(self)
+
+    def _expand_smoothing_params_from_log(self, log_free_sp):
+        from ..gam.smoothness.optimize import expand_smoothing_params_from_log
+
+        return expand_smoothing_params_from_log(self, log_free_sp)
+
+    def _compile_designs(self, X, feature_names):
+        from ..gam.design.compiler import compile_predictor_designs
+        from ..gam.constraints.identifiability import apply_global_side_conditions
+
+        compiled = compile_predictor_designs(
+            X=X, feature_names=feature_names, predictor_specs=self.predictor_specs,
+        )
+
+        if bool(self.hparams.get("apply_side_conditions", True)):
+            adjusted = []
+            reports = []
+            for d in compiled:
+                d_adj, rep = apply_global_side_conditions(
+                    d,
+                    fit_intercept=self.fit_intercept,
+                    tol=float(self.hparams.get("side_condition_tol", 1e-10)),
+                    warn=True,
+                )
+                adjusted.append(d_adj)
+                reports.append(rep)
+            self.predictor_designs = adjusted
+            self.side_condition_reports_ = reports
+        else:
+            self.predictor_designs = compiled
+            self.side_condition_reports_ = None
+
+        self.family.validate_predictor_count(len(self.predictor_designs))
+
+        if len(self.predictor_designs) != 1:
+            raise NotImplementedError(
+                "Current core supports one active linear predictor in fitting. "
+                "The predictor architecture is in place for later extension "
+                "to multiple distribution parameters."
+            )
+
+        self.design_ = self.predictor_designs[0]
+        self.Z = self.design_.matrix_train
+        self.ZTZ = self.Z.T @ self.Z
+        self.n_coef_ = self.design_.n_coef
+        self.term_blocks_ = self.design_.compiled_terms
+        self.penalty_blocks_ = self.design_.compiled_penalties
+        self.n_smoothing_params_ = self.design_.n_smoothing_params
+        self.min_sp_ = self._resolve_min_sp(self.min_sp)
+        self.smoothing_params = self._resolve_smoothing_params(self.n_smoothing_params_)
+
+        if self._needs_exact_gaussian_reparameterization():
+            self._build_gaussian_reparameterized_system()
+        else:
+            self._reparam_meta = None
+            self._reparam_rand_blocks_ = None
+            self._reparam_sp_groups_ = None
+            self._penalty_ranks = None
+            self._penalty_logdet_plus_fixed = None
+            self.X_fix_ = None
+            self.rank_X_fix_ = None
+            self._fix_pivot_keep = None
+            self.Z_rand_ = None
+            self.n_rand_ = None
+            self.ZtZ_rand_ = None
+            self.rand_dims_per_term_ = None
+            self._primary_reparam_sp_index_per_term_ = None
+
+    def _one_penalty_per_term_matrices(self):
+        penalties = []
+        for tb in self.term_blocks_:
+            matches = [pb for pb in self.penalty_blocks_ if pb.coef_slice == tb.coef_slice]
+            if len(matches) != 1:
+                raise NotImplementedError(
+                    "Current PIRLS path assumes one penalty per term. "
+                    "Multi-penalty terms are planned for later phases."
+                )
+            penalties.append(matches[0].matrix)
+        return penalties
+
+    def _assemble_penalty_matrix(self, smoothing_params):
+        smoothing_params = np.asarray(smoothing_params, dtype=np.float64)
+        if smoothing_params.shape != (self.n_smoothing_params_,):
+            raise ValueError(
+                f"Expected {self.n_smoothing_params_} smoothing parameters, "
+                f"got shape {smoothing_params.shape}."
+            )
+
+        P = np.zeros((self.n_coef_, self.n_coef_), dtype=np.float64)
+        for pb in self.penalty_blocks_:
+            sl = pb.coef_slice
+            lam = float(smoothing_params[pb.smoothing_index])
+            P[sl, sl] += lam * pb.matrix
+        return P
+
+    def _solve_gaussian_given_smoothing(self, y, smoothing_params):
+        from ..gam.fit.solvers.gaussian_exact import solve_gaussian_fit
+
+        return solve_gaussian_fit(self, y, smoothing_params)
+
+    def gcv_score(self, y, log_smoothing_params):
+        from ..gam.smoothness.criteria import gcv_score_gaussian
+
+        return gcv_score_gaussian(self, y, log_smoothing_params)
+
+    def _criterion_gcv_gaussian(self, y, log_sp):
+        from ..gam.smoothness.criteria import criterion_gcv_gaussian
+
+        return criterion_gcv_gaussian(self, y, log_sp)
+
+    def _build_gaussian_reparameterized_system(self):
+        from ..gam.smoothness.reparam import build_gaussian_reparameterized_system
+
+        return build_gaussian_reparameterized_system(self)
+
+    def _build_penalty_reparameterized_system(self):
+        from ..gam.smoothness.reparam import build_penalty_reparameterized_system
+
+        return build_penalty_reparameterized_system(self)
+
+    def _criterion_ml_reml_exact(self, y, log_sp, method):
+        from ..gam.smoothness.criteria import criterion_ml_reml_exact
+
+        return criterion_ml_reml_exact(self, y, log_sp, method)
+
+    def _criterion_ml_reml(self, y, log_sp, method):
+        from ..gam.smoothness.criteria import criterion_ml_reml
+
+        return criterion_ml_reml(self, y, log_sp, method)
+
+    def _solve_pirls_given_smoothing(self, y, smoothing_params):
+        from ..gam.fit.solvers.pirls import solve_pirls_fit
+
+        return solve_pirls_fit(self, y, smoothing_params)
+
+    def _criterion_gcv_pirls(self, y, log_sp):
+        from ..gam.smoothness.criteria import criterion_gcv_pirls
+
+        return criterion_gcv_pirls(self, y, log_sp)
+
+    def _criterion_ubre_pirls(self, y, log_sp):
+        from ..gam.smoothness.criteria import criterion_ubre_pirls
+
+        return criterion_ubre_pirls(self, y, log_sp)
+
+    def _criterion(self, y, log_sp, method="gcv"):
+        from ..gam.smoothness.criteria import criterion_value
+
+        return criterion_value(self, y, log_sp, method=method)
+
+    def _criterion_gradient(self, y, log_sp, method="gcv"):
+        from ..gam.smoothness.criteria import criterion_gradient
+
+        return criterion_gradient(self, y, log_sp, method=method)
+
+    def _criterion_hessian(self, y, log_sp, method="gcv"):
+        from ..gam.smoothness.criteria import criterion_hessian
+
+        return criterion_hessian(self, y, log_sp, method=method)
+
+    def optimize_smoothing_params(
+        self, y, initial_smoothing_params=None, method="gcv", optimizer="lbfgsb",
+    ):
+        from ..gam.smoothness.optimize import optimize_smoothing_params
+
+        return optimize_smoothing_params(
+            self,
+            y=y,
+            initial_smoothing_params=initial_smoothing_params,
+            method=method,
+            optimizer=optimizer,
+        )
+
+    def _build_fit_result(self):
+        from ..gam.fit.results import GAMFitResult, TermFitResult
+
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+
+        term_results = []
+        for i, tb in enumerate(self.term_blocks_):
+            sp_vals = [float(self.smoothing_params[j]) for j in tb.smoothing_indices]
+
+            deleted = []
+            if tb.deleted_columns is not None:
+                deleted = [int(v) for v in np.asarray(tb.deleted_columns, dtype=int).tolist()]
+
+            kept = []
+            if tb.kept_columns is not None:
+                kept = [int(v) for v in np.asarray(tb.kept_columns, dtype=int).tolist()]
+
+            term_results.append(
+                TermFitResult(
+                    label=tb.label,
+                    term_type=tb.term_type,
+                    basis_name=tb.basis_name,
+                    coef_slice=(int(tb.coef_slice.start), int(tb.coef_slice.stop)),
+                    n_coef=int(tb.coef_slice.stop - tb.coef_slice.start),
+                    edf=float(self.edf_by_term_[i]) if self.edf_by_term_ is not None else None,
+                    smoothing_indices=[int(v) for v in tb.smoothing_indices],
+                    smoothing_ids=list(tb.smoothing_ids),
+                    smoothing_values=sp_vals,
+                    deleted_columns=deleted,
+                    kept_columns=kept,
+                    metadata=dict(tb.metadata),
+                )
+            )
+
+        return GAMFitResult(
+            family_name=self.family.name,
+            link_name=self.family.link_name,
+            criterion_name=self._optim_method,
+            criterion_value=self.smoothing_score_,
+            coef_full=np.asarray(self.coef_full_, dtype=np.float64).copy(),
+            intercept=float(self.intercept_),
+            smoothing_params=np.asarray(self.smoothing_params, dtype=np.float64).copy(),
+            edf_total=float(self.edf_),
+            edf_by_term=np.asarray(self.edf_by_term_, dtype=np.float64).copy(),
+            trace_H=float(self.trace_H_),
+            scale=float(self.scale_),
+            rss=None if self.rss_ is None else float(self.rss_),
+            deviance=float(self.deviance_),
+            cov_bayes=None if self.Vp_ is None else np.asarray(self.Vp_, dtype=np.float64).copy(),
+            cov_freq=None if self.Vf_ is None else np.asarray(self.Vf_, dtype=np.float64).copy(),
+            side_condition_reports=None if self.side_condition_reports_ is None else list(self.side_condition_reports_),
+            term_results=term_results,
+            metadata={
+                "n_samples": int(self.n_samples_),
+                "n_coef": int(self.n_coef_),
+                "fit_intercept": bool(self.fit_intercept),
+                "covariance_default": str(self.covariance),
+                "score_gamma": float(self.score_gamma),
+                "has_offset": bool(self.offset_train_ is not None),
+            },
+        )
+
+    # ------------------------------------------------------------------
+    # Fit / predict
+    # ------------------------------------------------------------------
+
+    def fit(
+        self,
+        X=None,
+        y=None,
+        optimize_smoothing=None,
+        smoothing_method=None,
+        data=None,
+        formula=None,
+        offset=None,
+        sample_weight=None,
+        min_sp=None,
+        knots=None,
+        drop_intercept=None,
+    ):
+        formula = self.formula if formula is None else formula
+        knots = self.knots if knots is None else knots
+        min_sp = self.min_sp if min_sp is None else min_sp
+        drop_intercept = self.drop_intercept if drop_intercept is None else drop_intercept
+
+        if formula is not None:
+            if data is None:
+                if isinstance(X, pd.DataFrame):
+                    data = X
+                    X = None
+                else:
+                    raise ValueError(
+                        "Formula-based fitting requires `data` as a pandas DataFrame "
+                        "(or pass the DataFrame as `X`)."
+                    )
+
+            (
+                parsed,
+                predictor_specs,
+                X_np,
+                feature_names,
+                y_out,
+                used_cols,
+                offset_formula,
+                preprocess_state,
+            ) = self._prepare_formula_inputs(
+                data=data,
+                formula=formula,
+                y=y,
+                knots=knots,
+                drop_intercept=drop_intercept,
+            )
+
+            self.formula_ = parsed
+            self.formula_mode_ = True
+            self.formula_response_name_ = parsed.response_name
+            self.formula_used_columns_ = list(used_cols)
+            self.formula_offset_name_ = parsed.predictors[0].offset_name
+            self.formula_preprocess_state_ = preprocess_state
+
+            fit_intercept = bool(parsed.predictors[0].intercept)
+            self.fit_intercept = fit_intercept
+            y_use = y_out
+
+            offset_arg = self._coerce_optional_offset(offset, len(X_np))
+            offset_use = self._combine_offsets(offset_formula, offset_arg)
+
+            # mgcv-like prediction semantics:
+            # remember only formula offsets for default prediction.
+            predict_offset_default = (
+                None
+                if offset_formula is None
+                else np.asarray(offset_formula, dtype=np.float64).copy()
+            )
+        else:
+            X_np, feature_names = self._coerce_X(X)
+            predictor_specs = self._make_predictor_specs(feature_names, knots=knots)
+            fit_intercept = self.fit_intercept
+            y_use = y
+
+            self.formula_ = None
+            self.formula_mode_ = False
+            self.formula_response_name_ = None
+            self.formula_used_columns_ = None
+            self.formula_offset_name_ = None
+            self.formula_preprocess_state_ = None
+
+            # Separate fit-time offset is used in fitting, but not remembered by default
+            # for prediction, matching mgcv's documented behaviour.
+            offset_use = self._coerce_optional_offset(offset, len(X_np))
+            predict_offset_default = None
+
+        if y_use is None:
+            raise ValueError(
+                "y must be supplied, or a formula with a response column must be provided."
+            )
+
+        sw_use = None
+        if sample_weight is not None:
+            if isinstance(sample_weight, str):
+                if formula is None or data is None:
+                    raise ValueError(
+                        "sample_weight as a column name requires formula fitting with `data`."
+                    )
+                if sample_weight not in data.columns:
+                    raise ValueError(
+                        f"sample_weight column {sample_weight!r} not found in data."
+                    )
+                sw_use = np.asarray(data[sample_weight].to_numpy(), dtype=np.float64).ravel()
+            else:
+                sw_use = np.asarray(sample_weight, dtype=np.float64).ravel()
+            if sw_use.shape[0] != len(y_use):
+                raise ValueError(
+                    "sample_weight must have the same length as y "
+                    f"({len(y_use)}), got {sw_use.shape[0]}."
+                )
+
+        self.predictor_specs = predictor_specs
+        self.fit_intercept = fit_intercept
+        self.min_sp = min_sp
+        self.result_ = None
+        self.side_condition_reports_ = None
+
+        from ..gam.fit.orchestrator import fit_model_core
+
+        fit_model_core(
+            X=X_np,
+            feature_names=feature_names,
+            y=y_use,
+            offset=offset_use,
+            optimize_smoothing=optimize_smoothing,
+            smoothing_method=smoothing_method,
+            model=self,
+            sample_weight=sw_use,
+        )
+
+        # Default prediction offset follows mgcv semantics:
+        # formula offset(...) is remembered; separate fit-time offset is not.
+        self.offset_predict_default_ = (
+            None
+            if predict_offset_default is None
+            else np.asarray(predict_offset_default, dtype=np.float64).copy()
+        )
+        return self
+
+    def fit_result(self, include_covariances=True):
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+        if self.result_ is None:
+            self.result_ = self._build_fit_result()
+        return self.result_ if include_covariances else self.result_.without_covariances()
+
+    def _select_cov(self, cov):
+        from ..gam.fit.covariance import select_covariance_matrix
+
+        return select_covariance_matrix(self, cov=cov)
+
+    def parity_snapshot(self, X=None, include_covariances=False):
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+        return build_parity_snapshot(self, X=X, include_covariances=include_covariances)
+
+    def predict(self, X=None, return_se=False, cov=None, type="response", offset=None):
+        from ..gam.predict import predict_values
+
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+
+        if X is None:
+            offset_use = None
+            if offset is not None:
+                offset_use = self._coerce_optional_offset(offset, self.X_.shape[0])
+            return predict_values(
+                X=None,
+                return_se=return_se,
+                cov=cov,
+                type=type,
+                offset=offset_use,
+                model=self,
+            )
+
+        if self.formula_mode_:
+            X_np, _, offset_formula = self._coerce_formula_predict_inputs(X)
+            offset_use = self._combine_offsets(
+                offset_formula,
+                self._coerce_optional_offset(offset, X_np.shape[0]),
+            )
+        else:
+            X_np, _ = self._coerce_X(X)
+            offset_use = self._coerce_optional_offset(offset, X_np.shape[0])
+
+        return predict_values(
+            X=X_np,
+            return_se=return_se,
+            cov=cov,
+            type=type,
+            offset=offset_use,
+            model=self,
+        )
+
+    def predict_feature_vals(self, X=None, offset=None):
+        from ..gam.predict import predict_term_contributions
+
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+        if X is None:
+            offset_use = None
+            if offset is not None:
+                offset_use = self._coerce_optional_offset(offset, self.X_.shape[0])
+            return predict_term_contributions(self, X=None, offset=offset_use)
+
+        if self.formula_mode_:
+            X_np, _, offset_formula = self._coerce_formula_predict_inputs(X)
+            offset_use = self._combine_offsets(
+                offset_formula,
+                self._coerce_optional_offset(offset, X_np.shape[0]),
+            )
+        else:
+            X_np, _ = self._coerce_X(X)
+            offset_use = self._coerce_optional_offset(offset, X_np.shape[0])
+
+        return predict_term_contributions(self, X=X_np, offset=offset_use)
+
+    def lpmatrix(self, X):
+        from ..gam.predict import build_lpmatrix
+
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+
+        if self.formula_mode_:
+            X_np, _, _ = self._coerce_formula_predict_inputs(X)
+        else:
+            X_np, _ = self._coerce_X(X)
+
+        return build_lpmatrix(self, X_new=X_np)
+
+    def plot(self, X=None, y=None, n_cols=2, figsize=None):
+        from ..gam.diagnostics import plot_gam_terms
+
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+        if X is None:
+            return plot_gam_terms(self, X=None, n_cols=n_cols, figsize=figsize)
+
+        if self.formula_mode_:
+            X_np, _, _ = self._coerce_formula_predict_inputs(X)
+        else:
+            X_np, _ = self._coerce_X(X)
+
+        return plot_gam_terms(self, X=X_np, n_cols=n_cols, figsize=figsize)
+
+    def summary(self):
+        from ..gam.diagnostics import print_summary
+
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+        return print_summary(self)
+
+# --- End of nampy/basemodels/gam.py ---
+
+# --- Start of nampy/configs/gam_config.py ---
+#configs/gam_config.py
+from dataclasses import dataclass, field
+from typing import Optional, Sequence, Union
+
+from ..gam.specs import TermSpec
+
+
+@dataclass
+class DefaultGAMConfig:
+    # spline construction
+    k: int = 10
+    basis: str = "cr"   # currently supported for main effects: cr, cs, cc, ps, tp, ts
+    select: bool = False
+    main_effects: bool = True
+    tensor_terms: Optional[Sequence[TermSpec]] = None
+    knots: Optional[Union[dict, list, tuple]] = None
+    min_sp: Optional[float] = None
+    drop_intercept: Optional[bool] = None
+
+    # smoothing
+    smoothing_params: Optional[Union[float, Sequence[float]]] = None
+    optimize_smoothing: bool = False
+    smoothing_method: str = "fixed"   # fixed, gcv, ml, reml, laml
+    smoothing_optimizer: str = "lbfgsb"  # lbfgsb, outer_newton
+    sp_log_bounds: tuple[float, float] = (-80.0, 20.0)
+    score_gamma: float = 1.0
+
+    # model structure
+    fit_intercept: bool = True
+
+    # PIRLS controls
+    max_irls_iter: int = 100
+    irls_tol: float = 1e-7
+    max_step_halving: int = 25
+
+    # inference / covariance
+    covariance: str = "bayes"   # bayes, freq, kass_steffey, wood
+    compute_edf: bool = True
+
+    # diagnostics
+    enable_k_check: bool = False
+    enable_concurvity: bool = False
+
+# --- End of nampy/configs/gam_config.py ---
+
+# --- Start of nampy/models/gam.py ---
+#models/gam.py
+import numpy as np
+
+from ..basemodels.gam import GAM
+from ..configs.gam_config import DefaultGAMConfig
+from ..gam.families import make_gam_family
+from ..gam.parity import (
+    assert_parity_snapshot_close,
+    build_parity_snapshot,
+    compare_parity_snapshots,
+    load_parity_snapshot,
+    save_parity_snapshot,
+)
+from ..gam.formula import parse_gam_formula
+
+
+class GAMRegressor:
+    """
+    User-facing wrapper for classical GAM regression.
+    """
+
+    def __init__(self, family="gaussian", **kwargs):
+        self.family = make_gam_family(family)
+        self.model = GAM(
+            config=DefaultGAMConfig(),
+            family=self.family,
+            **kwargs,
+        )
+
+    def fit(
+        self,
+        X=None,
+        y=None,
+        data=None,
+        formula=None,
+        optimize_smoothing=None,
+        smoothing_method=None,
+        offset=None,
+        knots=None,
+        min_sp=None,
+        drop_intercept=None,
+        **kwargs,
+    ):
+        self.model.fit(
+            X=X,
+            y=y,
+            data=data,
+            formula=formula,
+            offset=offset,
+            knots=knots,
+            min_sp=min_sp,
+            drop_intercept=drop_intercept,
+            optimize_smoothing=optimize_smoothing,
+            smoothing_method=smoothing_method,
+        )
+        return self
+
+    def fit_result(self, include_covariances=True):
+        return self.model.fit_result(include_covariances=include_covariances)
+
+    def parity_snapshot(self, X=None, include_covariances=False):
+        return build_parity_snapshot(
+            self.model,
+            X=X,
+            include_covariances=include_covariances,
+        )
+
+    def save_parity_snapshot(self, path, X=None, include_covariances=False):
+        snap = self.parity_snapshot(X=X, include_covariances=include_covariances)
+        save_parity_snapshot(snap, path)
+
+    def compare_to_parity_snapshot(
+        self,
+        path_or_snapshot,
+        X=None,
+        include_covariances=False,
+        atol=1e-6,
+        rtol=1e-6,
+    ):
+        actual = self.parity_snapshot(X=X, include_covariances=include_covariances)
+        expected = (
+            load_parity_snapshot(path_or_snapshot)
+            if isinstance(path_or_snapshot, str)
+            else path_or_snapshot
+        )
+        return compare_parity_snapshots(actual, expected, atol=atol, rtol=rtol)
+
+    def assert_parity_snapshot_close(
+        self,
+        path_or_snapshot,
+        X=None,
+        include_covariances=False,
+        atol=1e-6,
+        rtol=1e-6,
+    ):
+        actual = self.parity_snapshot(X=X, include_covariances=include_covariances)
+        expected = (
+            load_parity_snapshot(path_or_snapshot)
+            if isinstance(path_or_snapshot, str)
+            else path_or_snapshot
+        )
+        return assert_parity_snapshot_close(actual, expected, atol=atol, rtol=rtol)
+
+    def predict(self, X, return_se=False, cov=None, type="response", offset=None):
+        return self.model.predict(
+            X,
+            return_se=return_se,
+            cov=cov,
+            type=type,
+            offset=offset,
+        )
+
+    def predict_feature_vals(self, X, offset=None):
+        return self.model.predict_feature_vals(X, offset=offset)
+
+    def lpmatrix(self, X):
+        return self.model.lpmatrix(X)
+
+    def summary(self):
+        return self.model.summary()
+
+    def plot(self, X=None, y=None, n_cols=2, figsize=None):
+        return self.model.plot(X=X, y=y, n_cols=n_cols, figsize=figsize)
+
+    def evaluate(self, X, y, metrics=None, offset=None):
+        y = np.asarray(y, dtype=np.float64).ravel()
+        preds = np.asarray(self.predict(X, offset=offset), dtype=np.float64).ravel()
+
+        if preds.shape[0] != y.shape[0]:
+            raise ValueError("Prediction length does not match y length.")
+
+        default_metrics = {
+            "MSE": lambda yt, yp: float(np.mean((yt - yp) ** 2)),
+            "MAE": lambda yt, yp: float(np.mean(np.abs(yt - yp))),
+            "RMSE": lambda yt, yp: float(np.sqrt(np.mean((yt - yp) ** 2))),
+            "R2": lambda yt, yp: float(
+                1.0 - np.sum((yt - yp) ** 2) / max(np.sum((yt - yt.mean()) ** 2), 1e-15)
+            ),
+        }
+
+        if metrics is None:
+            metrics = default_metrics
+
+        out = {}
+        for name, fn in metrics.items():
+            out[name] = fn(y, preds)
+        return out
+
+    def save_model(self, path):
+        self.model.save_model(path)
+
+    def load_model(self, path, device="cpu"):
+        self.model.load_model(path, device=device)
+        self.family = self.model.family
+        return self
+
+
+class GAMClassifier:
+    """
+    Binary GAM classifier using a binomial-logit family.
+
+    Notes
+    -----
+    - Supports binary classification only.
+    - Arbitrary two-class labels are internally encoded to {0, 1}.
+    - `predict_proba()` returns probabilities for [class_0, class_1].
+    - `decision_function()` returns the additive predictor (log-odds / logit).
+    """
+
+    def __init__(self, family="binomial", threshold=0.5, **kwargs):
+        fam = make_gam_family(family)
+        if fam.name != "binomial":
+            raise ValueError(
+                "GAMClassifier currently supports only family='binomial'."
+            )
+
+        self.family = fam
+        self.threshold = float(threshold)
+
+        self.model = GAM(
+            config=DefaultGAMConfig(),
+            family=self.family,
+            **kwargs,
+        )
+
+        self.classes_ = None
+        self.class_to_index_ = None
+
+    # ------------------------------------------------------------------
+    # Label encoding
+    # ------------------------------------------------------------------
+
+    def _encode_labels(self, y):
+        y = np.asarray(y).ravel()
+        if y.ndim != 1:
+            raise ValueError("y must be one-dimensional for classification.")
+
+        classes = np.unique(y)
+        if classes.shape[0] != 2:
+            raise ValueError(
+                f"GAMClassifier currently supports binary classification only; "
+                f"got {classes.shape[0]} unique classes."
+            )
+
+        self.classes_ = classes
+        self.class_to_index_ = {
+            classes[0]: 0.0,
+            classes[1]: 1.0,
+        }
+
+        y_enc = np.array([self.class_to_index_[v] for v in y], dtype=np.float64)
+        return y_enc
+
+    def _check_is_fitted(self):
+        if self.classes_ is None:
+            raise RuntimeError("Classifier is not fitted.")
+
+    # ------------------------------------------------------------------
+    # Fitting / prediction
+    # ------------------------------------------------------------------
+
+    def fit(
+        self,
+        X=None,
+        y=None,
+        data=None,
+        formula=None,
+        optimize_smoothing=None,
+        smoothing_method=None,
+        offset=None,
+        knots=None,
+        min_sp=None,
+        drop_intercept=None,
+        **kwargs,
+    ):
+        if formula is not None and y is None:
+            data_obj = data if data is not None else X
+            parsed = parse_gam_formula(formula)
+
+            if parsed.response_name is None:
+                raise ValueError(
+                    "Formula-based classification requires a response in the formula "
+                    "if `y` is not supplied explicitly."
+                )
+            if data_obj is None or not hasattr(data_obj, "__getitem__"):
+                raise ValueError(
+                    "Formula-based classification requires `data` as a DataFrame "
+                    "(or pass the DataFrame as `X`)."
+                )
+            if parsed.response_name not in data_obj.columns:
+                raise KeyError(
+                    f"Response column {parsed.response_name!r} not found in data."
+                )
+
+            y_raw = np.asarray(data_obj[parsed.response_name]).ravel()
+        else:
+            y_raw = y
+
+        y_enc = self._encode_labels(y_raw)
+        self.model.fit(
+            X=X,
+            y=y_enc,
+            data=data,
+            formula=formula,
+            offset=offset,
+            knots=knots,
+            min_sp=min_sp,
+            drop_intercept=drop_intercept,
+            optimize_smoothing=optimize_smoothing,
+            smoothing_method=smoothing_method,
+        )
+        return self
+
+    def fit_result(self, include_covariances=True):
+        return self.model.fit_result(include_covariances=include_covariances)
+
+    def parity_snapshot(self, X=None, include_covariances=False):
+        return build_parity_snapshot(
+            self.model,
+            X=X,
+            include_covariances=include_covariances,
+        )
+
+    def save_parity_snapshot(self, path, X=None, include_covariances=False):
+        snap = self.parity_snapshot(X=X, include_covariances=include_covariances)
+        save_parity_snapshot(snap, path)
+
+    def compare_to_parity_snapshot(
+        self,
+        path_or_snapshot,
+        X=None,
+        include_covariances=False,
+        atol=1e-6,
+        rtol=1e-6,
+    ):
+        actual = self.parity_snapshot(X=X, include_covariances=include_covariances)
+        expected = (
+            load_parity_snapshot(path_or_snapshot)
+            if isinstance(path_or_snapshot, str)
+            else path_or_snapshot
+        )
+        return compare_parity_snapshots(actual, expected, atol=atol, rtol=rtol)
+
+    def assert_parity_snapshot_close(
+        self,
+        path_or_snapshot,
+        X=None,
+        include_covariances=False,
+        atol=1e-6,
+        rtol=1e-6,
+    ):
+        actual = self.parity_snapshot(X=X, include_covariances=include_covariances)
+        expected = (
+            load_parity_snapshot(path_or_snapshot)
+            if isinstance(path_or_snapshot, str)
+            else path_or_snapshot
+        )
+        return assert_parity_snapshot_close(actual, expected, atol=atol, rtol=rtol)
+
+    def decision_function(self, X, return_se=False, cov=None, offset=None):
+        self._check_is_fitted()
+        return self.model.predict(
+            X,
+            return_se=return_se,
+            cov=cov,
+            type="link",
+            offset=offset,
+        )
+
+    def predict_proba(self, X, return_se=False, cov=None, offset=None):
+        self._check_is_fitted()
+
+        if not return_se:
+            p1 = np.asarray(
+                self.model.predict(
+                    X,
+                    return_se=False,
+                    cov=cov,
+                    type="response",
+                    offset=offset,
+                ),
+                dtype=np.float64,
+            ).ravel()
+            p1 = np.clip(p1, 1e-9, 1.0 - 1e-9)
+            return np.column_stack([1.0 - p1, p1])
+
+        p1, se = self.model.predict(
+            X,
+            return_se=True,
+            cov=cov,
+            type="response",
+            offset=offset,
+        )
+        p1 = np.asarray(p1, dtype=np.float64).ravel()
+        se = np.asarray(se, dtype=np.float64).ravel()
+        p1 = np.clip(p1, 1e-9, 1.0 - 1e-9)
+        return np.column_stack([1.0 - p1, p1]), se
+
+    def predict(self, X, offset=None):
+        self._check_is_fitted()
+        p1 = self.predict_proba(X, offset=offset)[:, 1]
+        pred01 = (p1 >= self.threshold).astype(int)
+        return self.classes_[pred01]
+
+    def predict_feature_vals(self, X, offset=None):
+        self._check_is_fitted()
+        return self.model.predict_feature_vals(X, offset=offset)
+
+    def lpmatrix(self, X):
+        self._check_is_fitted()
+        return self.model.lpmatrix(X)
+
+    def summary(self):
+        self._check_is_fitted()
+        return self.model.summary()
+
+    def plot(self, X=None, y=None, n_cols=2, figsize=None):
+        self._check_is_fitted()
+        return self.model.plot(X=X, y=y, n_cols=n_cols, figsize=figsize)
+
+    # ------------------------------------------------------------------
+    # Evaluation
+    # ------------------------------------------------------------------
+
+    def evaluate(self, X, y, metrics=None, offset=None):
+        self._check_is_fitted()
+
+        y = np.asarray(y).ravel()
+        if np.any(~np.isin(y, self.classes_)):
+            raise ValueError("y contains labels not seen during fit().")
+
+        y01 = np.array([self.class_to_index_[v] for v in y], dtype=np.float64)
+        proba = self.predict_proba(X, offset=offset)[:, 1]
+        preds = (proba >= self.threshold).astype(float)
+
+        def logloss(yt, p):
+            p = np.clip(np.asarray(p, dtype=np.float64), 1e-9, 1.0 - 1e-9)
+            yt = np.asarray(yt, dtype=np.float64)
+            return float(-np.mean(yt * np.log(p) + (1.0 - yt) * np.log(1.0 - p)))
+
+        default_metrics = {
+            "accuracy": lambda yt, yp: float(np.mean(yt == yp)),
+            "brier": lambda yt, p: float(np.mean((p - yt) ** 2)),
+            "logloss": logloss,
+        }
+
+        if metrics is None:
+            metrics = default_metrics
+
+        out = {}
+        for name, fn in metrics.items():
+            lname = str(name).lower()
+            if lname in {"accuracy", "acc"}:
+                out[name] = fn(y01, preds)
+            else:
+                out[name] = fn(y01, proba)
+        return out
+
+    # ------------------------------------------------------------------
+    # Persistence
+    # ------------------------------------------------------------------
+
+    def save_model(self, path):
+        payload = {
+            "model": self.model,
+            "classes_": self.classes_,
+            "threshold": self.threshold,
+        }
+        import pickle
+        with open(path, "wb") as f:
+            pickle.dump(payload, f)
+
+    def load_model(self, path, device="cpu"):
+        import pickle
+        with open(path, "rb") as f:
+            payload = pickle.load(f)
+
+        self.model = payload["model"]
+        self.family = self.model.family
+        self.classes_ = payload["classes_"]
+        self.threshold = float(payload.get("threshold", 0.5))
+        self.class_to_index_ = {
+            self.classes_[0]: 0.0,
+            self.classes_[1]: 1.0,
+        }
+        return self
+# --- End of nampy/models/gam.py ---
+

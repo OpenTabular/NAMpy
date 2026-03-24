@@ -1,0 +1,413 @@
+"""
+Stage 5 of the GAM fit pipeline: predictor-wide identifiability side conditions.
+
+Pipeline overview
+-----------------
+Stage 1  formula / spec layer           gam/formula/
+Stage 2  runtime term materialization   gam/runtime/factory.py + gam/smooths/*
+Stage 3  term construction wrapper      gam/design/constructors.py
+Stage 4  predictor compilation          gam/design/compiler.py
+Stage 5  predictor-wide side conds      gam/constraints/identifiability.py  <- here
+Stage 6  model fitting                  gam/fit/
+Stage 7  prediction / parity            gam/predict/ + gam/parity/
+"""
+
+from __future__ import annotations
+
+import warnings
+
+import numpy as np
+
+from ..design.structures import CompiledPenalty, CompiledPredictor, CompiledTerm
+from .transforms import independent_column_indices, null_space_basis_from_constraint_matrix
+
+
+def apply_global_side_conditions(
+    design: CompiledPredictor,
+    *,
+    fit_intercept: bool = True,
+    tol: float = 1e-10,
+    warn: bool = True,
+):
+    """
+    Apply predictor-wide identifiability side conditions to a CompiledPredictor.
+
+    This is stage 5 of the fit pipeline.  It walks each compiled term in order
+    and performs three operations:
+
+    1. **Exempt terms** (random effects, factor smooths):
+       Preserve their basis and penalties unchanged.  Still add their columns to
+       the span accumulator so that later terms correctly detect linear dependence
+       on their subspace (architecture invariant 6.6: exempt terms still span
+       predictor space).
+
+    2. **Non-exempt terms** — two sub-steps:
+
+       a. *Centering*: if the model has an intercept and the runtime term did not
+          already absorb a sum-to-zero constraint, absorb one now via the
+          null-space of the column-sum vector.  The centering transform T is
+          applied simultaneously to the basis, the accumulated coefficient
+          transform, and every associated penalty matrix (invariant 6.3):
+              B  <- B @ T
+              C  <- C @ T
+              S  <- T.T @ S @ T   for each penalty S
+
+       b. *Column selection*: drop any columns of the (possibly re-parameterised)
+          basis that are linearly dependent on the current span accumulator.
+
+       After both steps, ``CompiledTerm.basis_transform`` holds the full mapping
+       from the runtime term's native coefficient space to the final fitted
+       coefficient space.  Prediction uses
+       ``runtime.transform_new(X_new) @ basis_transform`` and nothing else
+       (invariant 6.2: ``basis_transform`` is canonical).
+
+    3. **Drop zero-width terms**: terms whose every column was removed are
+       excluded from the final compiled predictor.  Keeping zero-width terms
+       complicates prediction, summaries, and parity (invariant 6.7).
+
+    Parameters
+    ----------
+    design : CompiledPredictor
+        Output of stage 4 (``compile_predictor_designs``).
+    fit_intercept : bool
+        Whether the model has an intercept.  Controls whether the constant
+        column is seeded into the span accumulator and whether sum-to-zero
+        centering is applied to eligible terms.
+    tol : float
+        Numerical rank tolerance passed to ``independent_column_indices`` and
+        ``null_space_basis_from_constraint_matrix``.
+    warn : bool
+        If True, emit ``warnings.warn`` when columns are deleted or terms are
+        dropped.
+
+    Returns
+    -------
+    new_design : CompiledPredictor
+        Updated predictor.  Every ``CompiledTerm.basis_transform`` is the
+        complete, canonical fit-to-predict coefficient map for that term.
+    report : dict
+        Diagnostic report with per-term deletion counts, centering flags,
+        and the total number of dropped zero-width terms.
+    """
+    if not isinstance(design, CompiledPredictor):
+        raise TypeError("design must be a CompiledPredictor instance.")
+
+    n_obs = design.design_matrix.shape[0]
+
+    # Span accumulator.  Seeded with a constant column when fit_intercept=True
+    # so that sum-to-zero centering removes the intercept-collinear component.
+    acc = (
+        np.ones((n_obs, 1), dtype=np.float64)
+        if fit_intercept
+        else np.empty((n_obs, 0), dtype=np.float64)
+    )
+
+    new_term_blocks: list[CompiledTerm] = []
+    new_penalty_blocks: list[CompiledPenalty] = []
+    design_blocks: list[np.ndarray] = []
+    deleted_total = 0
+    term_reports = []
+    start = 0
+
+    for term_idx, tb in enumerate(design.compiled_terms):
+        B = np.asarray(tb.basis_train, dtype=np.float64)
+        d = B.shape[1]
+
+        # Collect this term's penalties up-front so the centering transform can
+        # be applied to their matrices before column selection.
+        term_penalty_objs = [pb for pb in design.compiled_penalties if pb.term_index == term_idx]
+        pen_matrices = [np.asarray(pb.matrix, dtype=np.float64) for pb in term_penalty_objs]
+
+        # ── Exempt terms ──────────────────────────────────────────────────────
+        exempt = tb.term_type in {"random_effect", "factor_smooth_fs", "factor_smooth_sz"}
+        if exempt:
+            sl_new = slice(start, start + d)
+            new_idx = len(new_term_blocks)
+            new_term_blocks.append(
+                CompiledTerm(
+                    label=tb.label,
+                    coef_slice=sl_new,
+                    smooth=tb.smooth,
+                    basis_train=B,
+                    basis_transform=tb.basis_transform,
+                    original_n_coef=tb.original_n_coef,
+                    kept_columns=(
+                        np.asarray(tb.kept_columns, dtype=int).copy()
+                        if tb.kept_columns is not None
+                        else np.arange(d, dtype=int)
+                    ),
+                    deleted_columns=(
+                        np.asarray(tb.deleted_columns, dtype=int).copy()
+                        if tb.deleted_columns is not None
+                        else np.array([], dtype=int)
+                    ),
+                    smoothing_indices=list(tb.smoothing_indices),
+                    smoothing_ids=list(tb.smoothing_ids),
+                    n_penalties=tb.n_penalties,
+                    term_type=tb.term_type,
+                    basis_name=tb.basis_name,
+                    by_variable=tb.by_variable,
+                    term_id=tb.term_id,
+                    smoothing_group_id=tb.smoothing_group_id,
+                    metadata=dict(tb.metadata),
+                )
+            )
+            for pb, P in zip(term_penalty_objs, pen_matrices):
+                new_penalty_blocks.append(
+                    CompiledPenalty(
+                        label=pb.label,
+                        coef_slice=sl_new,
+                        matrix=P.copy(),
+                        smoothing_index=pb.smoothing_index,
+                        term_index=new_idx,
+                        smoothing_id=pb.smoothing_id,
+                        kind=pb.kind,
+                        rank=pb.rank,
+                        null_space_dim=pb.null_space_dim,
+                        is_null_space_penalty=pb.is_null_space_penalty,
+                        sp_mode=pb.sp_mode,
+                        sp_value=pb.sp_value,
+                        metadata=dict(pb.metadata),
+                    )
+                )
+            if d > 0:
+                design_blocks.append(B)
+                # Exempt terms still span the predictor space (invariant 6.6).
+                acc = np.column_stack([acc, B])
+            term_reports.append({
+                "label": tb.label,
+                "exempt": True,
+                "deleted_columns": [],
+                "kept_columns": (
+                    list(np.asarray(tb.kept_columns, dtype=int))
+                    if tb.kept_columns is not None
+                    else list(range(d))
+                ),
+                "n_deleted": 0,
+                "absorbed_centering": False,
+            })
+            start += d
+            continue
+
+        # ── Non-exempt: centering + column selection ──────────────────────────
+        #
+        # C accumulates the coefficient transform from the runtime's native
+        # coefficient space to the current (pre-side-condition) space.
+        # Initialise from whatever the compiler recorded; fall back to identity.
+        C = (
+            np.asarray(tb.basis_transform, dtype=np.float64)
+            if tb.basis_transform is not None
+            else np.eye(d, dtype=np.float64)
+        )
+
+        constructor_meta = dict(tb.metadata.get("constructor_metadata", {}) or {})
+        runtime_absorbed = bool(constructor_meta.get("constraints_absorbed_by_runtime", False))
+        absorbed_centering = False
+
+        # Step (a): optionally absorb a sum-to-zero centering constraint.
+        if (
+            fit_intercept
+            and not runtime_absorbed
+            and tb.term_type not in {"tensor_interaction", "tensor_anova"}
+        ):
+            centering = np.sum(B, axis=0, keepdims=True)
+            if np.linalg.norm(centering) > tol:
+                T_con, _ = null_space_basis_from_constraint_matrix(centering, tol=tol)
+                if 0 < T_con.shape[1] < d:
+                    # Invariant 6.3: the same transform must be applied to the
+                    # basis, the coefficient map, and every penalty matrix.
+                    pen_matrices = [T_con.T @ S @ T_con for S in pen_matrices]
+                    B = B @ T_con
+                    C = C @ T_con
+                    d = B.shape[1]
+                    absorbed_centering = True
+
+        # Step (b): drop columns linearly dependent on the accumulator.
+        keep = np.asarray(independent_column_indices(B, A=acc, tol=tol), dtype=int)
+        deleted_local = np.setdiff1d(np.arange(d, dtype=int), keep)
+
+        # C_final is the canonical fit-to-predict coefficient map (invariant 6.2).
+        # It maps from the runtime's native coefficient vector to the final fitted
+        # coefficient slice: fitted_coef = runtime_coef @ C_final.
+        C_final = (
+            C[:, keep]
+            if keep.size > 0
+            else np.empty((C.shape[0], 0), dtype=np.float64)
+        )
+        B_final = (
+            B[:, keep]
+            if keep.size > 0
+            else np.empty((B.shape[0], 0), dtype=np.float64)
+        )
+        d_final = B_final.shape[1]
+
+        # Subset penalty matrices to the surviving columns.
+        # pen_matrices are already in the post-T_con coefficient space, so a
+        # plain row/column selection is valid here (no further transform needed).
+        pen_matrices_final = [
+            S[np.ix_(keep, keep)]
+            if keep.size > 0
+            else np.empty((0, 0), dtype=np.float64)
+            for S in pen_matrices
+        ]
+
+        # Track surviving original coefficient indices for diagnostics / parity.
+        # When centering was absorbed the mapping through T_con is non-trivial;
+        # set to None to signal that exact original indices are unavailable.
+        if absorbed_centering:
+            kept_orig = None
+            deleted_orig = None
+        else:
+            old_kept = (
+                np.asarray(tb.kept_columns, dtype=int)
+                if tb.kept_columns is not None
+                else np.arange(d, dtype=int)
+            )
+            kept_orig = old_kept[keep] if keep.size > 0 else np.array([], dtype=int)
+            deleted_orig = (
+                old_kept[deleted_local]
+                if deleted_local.size > 0
+                else np.array([], dtype=int)
+            )
+
+        tb_meta = dict(tb.metadata)
+        if deleted_orig is not None and deleted_orig.size > 0:
+            tb_meta["del_index"] = deleted_orig.tolist()
+        if absorbed_centering:
+            tb_meta["absorbed_sum_to_zero_constraint"] = True
+
+        sl_new = slice(start, start + d_final)
+        new_idx = len(new_term_blocks)
+
+        new_term_blocks.append(
+            CompiledTerm(
+                label=tb.label,
+                coef_slice=sl_new,
+                smooth=tb.smooth,
+                basis_train=B_final,
+                basis_transform=C_final,
+                original_n_coef=tb.original_n_coef if tb.original_n_coef is not None else d,
+                kept_columns=kept_orig,
+                deleted_columns=deleted_orig,
+                smoothing_indices=list(tb.smoothing_indices),
+                smoothing_ids=list(tb.smoothing_ids),
+                n_penalties=tb.n_penalties,
+                term_type=tb.term_type,
+                basis_name=tb.basis_name,
+                by_variable=tb.by_variable,
+                term_id=tb.term_id,
+                smoothing_group_id=tb.smoothing_group_id,
+                metadata=tb_meta,
+            )
+        )
+
+        for pb, P_new in zip(term_penalty_objs, pen_matrices_final):
+            new_penalty_blocks.append(
+                CompiledPenalty(
+                    label=pb.label,
+                    coef_slice=sl_new,
+                    matrix=P_new,
+                    smoothing_index=pb.smoothing_index,
+                    term_index=new_idx,
+                    smoothing_id=pb.smoothing_id,
+                    kind=pb.kind,
+                    rank=pb.rank,
+                    null_space_dim=pb.null_space_dim,
+                    is_null_space_penalty=pb.is_null_space_penalty,
+                    sp_mode=pb.sp_mode,
+                    sp_value=pb.sp_value,
+                    metadata=dict(pb.metadata),
+                )
+            )
+
+        n_deleted = int(d - d_final)
+        deleted_total += n_deleted
+
+        if d_final > 0:
+            design_blocks.append(B_final)
+            acc = np.column_stack([acc, B_final])
+
+        term_reports.append({
+            "label": tb.label,
+            "exempt": False,
+            "deleted_columns": [] if deleted_orig is None else deleted_orig.tolist(),
+            "kept_columns": [] if kept_orig is None else kept_orig.tolist(),
+            "n_deleted": n_deleted,
+            "absorbed_centering": absorbed_centering,
+        })
+
+        if warn and n_deleted > 0:
+            col_info = (
+                f" (original indices {deleted_orig.tolist()})"
+                if deleted_orig is not None and deleted_orig.size > 0
+                else ""
+            )
+            warnings.warn(
+                f"Applied side conditions to term {tb.label!r}: "
+                f"deleted {n_deleted} redundant column(s){col_info}."
+            )
+
+        start += d_final
+
+    # ── Drop zero-width terms (invariant 6.7) ─────────────────────────────────
+    # Build a mapping: old position in new_term_blocks -> final position (-1 = dropped).
+    old_to_final: dict[int, int] = {}
+    final_term_blocks: list[CompiledTerm] = []
+    for old_i, tb in enumerate(new_term_blocks):
+        if tb.basis_train.shape[1] > 0:
+            old_to_final[old_i] = len(final_term_blocks)
+            final_term_blocks.append(tb)
+        else:
+            old_to_final[old_i] = -1
+            if warn:
+                warnings.warn(
+                    f"Term {tb.label!r} was reduced to zero columns by side "
+                    f"conditions and has been dropped from the compiled predictor."
+                )
+
+    # Keep only penalties whose owning term survived; re-stamp term_index.
+    final_penalty_blocks: list[CompiledPenalty] = []
+    for pb in new_penalty_blocks:
+        new_ti = old_to_final.get(pb.term_index, -1)
+        if new_ti >= 0:
+            pb.term_index = new_ti
+            final_penalty_blocks.append(pb)
+
+    # ── Assemble final CompiledPredictor ──────────────────────────────────────
+    matrix_train = (
+        np.column_stack(design_blocks)
+        if design_blocks
+        else np.empty((n_obs, 0), dtype=np.float64)
+    )
+    term_index_map = {tb.term_id: i for i, tb in enumerate(final_term_blocks)}
+
+    new_design = CompiledPredictor(
+        name=design.name,
+        design_matrix=matrix_train,
+        compiled_terms=tuple(final_term_blocks),
+        compiled_penalties=tuple(final_penalty_blocks),
+        smoothing_parameter_map=dict(design.smoothing_parameter_map),
+        has_intercept=bool(fit_intercept),
+        term_index_map=term_index_map,
+        n_coef=start,
+        n_smoothing_params=design.n_smoothing_params,
+        smoothing_override_modes=list(design.smoothing_override_modes),
+        smoothing_override_values=(
+            None
+            if design.smoothing_override_values is None
+            else np.asarray(design.smoothing_override_values, dtype=np.float64).copy()
+        ),
+        metadata=dict(design.metadata),
+    )
+    report = {
+        "predictor": design.name,
+        "n_deleted_total": deleted_total,
+        "n_terms_dropped": len(new_term_blocks) - len(final_term_blocks),
+        "term_reports": term_reports,
+    }
+    return new_design, report
+
+
+__all__ = [
+    "apply_global_side_conditions",
+]
