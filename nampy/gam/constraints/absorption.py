@@ -18,11 +18,35 @@ They must not know about compiled predictors, term specs, or fitted results.
 from __future__ import annotations
 
 import copy
+from dataclasses import dataclass
 
 import numpy as np
 
 from ..penalties import normalize_penalty_spec
 from .transforms import apply_coefficient_transform, null_space_basis_from_constraint_matrix
+
+
+@dataclass
+class ConstraintFitResult:
+    """
+    Return value of :func:`fit_single_penalty_with_constraint_policy`.
+
+    Attributes
+    ----------
+    basis_train : np.ndarray
+        Possibly constrained and by-scaled training basis.
+    penalties : list of np.ndarray
+        Penalties transformed to match ``basis_train`` coefficient space.
+    constraint_kind : str or None
+        ``"sum_to_zero"``, ``"factor_by"``, or ``None`` if no constraint absorbed.
+    constraint_transform : np.ndarray or None
+        Coefficient transform T such that ``basis_train == raw_base @ T``.
+        None when no constraint was absorbed.
+    """
+    basis_train: np.ndarray
+    penalties: list
+    constraint_kind: str | None
+    constraint_transform: np.ndarray | None
 
 
 def apply_linear_constraint(B, penalties, constraint_row, tol: float = 1e-12):
@@ -105,7 +129,12 @@ def fit_single_penalty_with_constraint_policy(base, penalty, by_state, *, constr
         penalties_in = [] if bool(fixed) else [penalty]
         mean_row = base_fb.mean(axis=0)
         Bc, Sc, C = apply_linear_constraint(base_fb, penalties_in, mean_row)
-        return {"basis_train": np.asarray(Bc, dtype=np.float64), "penalties": Sc, "constraint_kind": "factor_by", "constraint_transform": C}
+        return ConstraintFitResult(
+            basis_train=np.asarray(Bc, dtype=np.float64),
+            penalties=Sc,
+            constraint_kind="factor_by",
+            constraint_transform=C,
+        )
 
     should_constrain = should_apply_identifiability_constraint(by_state, constraint_mode, default_when_auto=bool(auto_constrain_when))
     constraint_kind = None
@@ -122,10 +151,16 @@ def fit_single_penalty_with_constraint_policy(base, penalty, by_state, *, constr
         base_out = base
         penalties_out = [] if bool(fixed) else [penalty]
     base_out = apply_numeric_by_fn(base_out, by_state.values)
-    return {"basis_train": np.asarray(base_out, dtype=np.float64), "penalties": penalties_out, "constraint_kind": constraint_kind, "constraint_transform": constraint_transform}
+    return ConstraintFitResult(
+        basis_train=np.asarray(base_out, dtype=np.float64),
+        penalties=penalties_out,
+        constraint_kind=constraint_kind,
+        constraint_transform=constraint_transform,
+    )
 
 
 __all__ = [
+    "ConstraintFitResult",
     "apply_linear_constraint",
     "full_term_sum_to_zero_constraint",
     "absorb_explicit_constraints",

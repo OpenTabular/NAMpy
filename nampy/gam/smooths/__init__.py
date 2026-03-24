@@ -2,7 +2,6 @@ from .registry import register_smooth, available_smooths, make_smooth_term
 from .base import (
     BaseSmoothTerm,
     ByState,
-    ByVariableState,
     RUNTIME_TERM_INTERFACE_CHECKLIST,
     _resolve_feature,
     _resolve_numeric_by,
@@ -39,7 +38,6 @@ __all__ = [
     "make_smooth_term",
     "BaseSmoothTerm",
     "ByState",
-    "ByVariableState",
     "RUNTIME_TERM_INTERFACE_CHECKLIST",
     "_resolve_feature",
     "_resolve_numeric_by",

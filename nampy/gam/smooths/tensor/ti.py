@@ -129,7 +129,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         if self.by is not None and not self._by_state.is_constant:
             if self.mc is not None:
                 warnings.warn(
-                    f"{self.label}: ignoring mc={self.mc} because numeric by={self._by_name!r} "
+                    f"{self.label}: ignoring mc={self.mc} because numeric by={self._by_state.feature_name!r} "
                     "is non-constant, so automatic identifiability constraints are not applied."
                 )
             use_centered = [False] * len(marginals)

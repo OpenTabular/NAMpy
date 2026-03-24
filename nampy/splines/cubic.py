@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import numpy as np
 
 from .constraints import identconst
@@ -52,6 +51,7 @@ class CubicSplines:
         alpha=1,
         col_analytical="r",
     ):
+        import matplotlib.pyplot as plt
         basis = self.transform_new_raw(self.x_plot)
         y_fitted = intercept + basis @ self.uncentered_gammas
 

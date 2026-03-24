@@ -272,8 +272,6 @@ class _FactorSmoothBase(BaseSmoothTerm):
         self._ranks = None
 
         self.constraints_absorbed = True
-        self.fit_constraint_matrix = None
-        self.predict_constraint_matrix = None
 
     @property
     def basis_train(self):

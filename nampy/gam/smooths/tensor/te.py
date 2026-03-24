@@ -91,7 +91,6 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         self._basis_train = None
         self._penalties = None
         self._basis_dims = None
-        self._constraint_transform = None
 
         self._by_state = None
 
@@ -142,7 +141,6 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         self._basis_dims = basis_dims
         self._basis_train = np.asarray(B_te, dtype=np.float64)
         self._penalties = [] if self.fixed else [np.asarray(S, dtype=np.float64) for S in S_te]
-        self._constraint_transform = C_te
         self._record_constraint_result(
             "sum_to_zero" if C_te is not None else None,
             C_te,
@@ -151,24 +149,6 @@ class TensorProductSplineTerm(BaseSmoothTerm):
 
         self.basis_name = "te(" + ",".join(self.basis) + ")"
         return self
-
-    @property
-    def basis_train(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return self._basis_train
-
-    @property
-    def penalties(self):
-        if self._penalties is None:
-            raise RuntimeError("Term is not fitted.")
-        return self._penalties
-
-    @property
-    def n_coef(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return int(self._basis_train.shape[1])
 
     def transform_new(self, X_new):
         if self._marginals is None:

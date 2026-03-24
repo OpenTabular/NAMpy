@@ -91,8 +91,6 @@ class SplineTerm1D(BaseSmoothTerm):
         self._penalties = None
         self._use_centered_basis = True
 
-        self._constraint_kind = None
-        self._constraint_transform = None
         self._pc_value = None
 
         self._cc_knots = None
@@ -146,8 +144,6 @@ class SplineTerm1D(BaseSmoothTerm):
         self._by_state = resolve_by_state(self.by, X, feature_names)
         sync_by_state_attributes(self, self._by_state)
 
-        self._constraint_kind = None
-        self._constraint_transform = None
         self._pc_value = None
 
         if self.basis_name in {"cr", "cs"}:
@@ -201,8 +197,6 @@ class SplineTerm1D(BaseSmoothTerm):
 
                 self._basis_train = np.asarray(Bc, dtype=np.float64)
                 self._penalties = Sc
-                self._constraint_kind = "pc"
-                self._constraint_transform = C
                 self._record_constraint_result("pc", C, absorbed_by="runtime")
                 self._use_centered_basis = False
                 return self
@@ -231,8 +225,6 @@ class SplineTerm1D(BaseSmoothTerm):
 
                 self._basis_train = np.asarray(Bc, dtype=np.float64)
                 self._penalties = Sc
-                self._constraint_kind = "factor_by"
-                self._constraint_transform = C
                 self._record_constraint_result("factor_by", C, absorbed_by="runtime")
                 self._use_centered_basis = False
                 return self
@@ -308,24 +300,6 @@ class SplineTerm1D(BaseSmoothTerm):
         self._record_constraint_result(None, None, absorbed_by=None)
         return self
 
-    @property
-    def basis_train(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return self._basis_train
-
-    @property
-    def penalties(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return self._penalties
-
-    @property
-    def n_coef(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return int(self._basis_train.shape[1])
-
     def get_penalty_definitions(self):
         if self._basis_train is None:
             raise RuntimeError("Term is not fitted.")
@@ -358,10 +332,10 @@ class SplineTerm1D(BaseSmoothTerm):
             "feature": self.feature,
             "label": self.label,
             "by": self.by,
-            "by_name": self._by_name,
-            "by_is_constant": bool(self._by_is_constant),
+            "by_name": self._by_state.feature_name,
+            "by_is_constant": bool(self._by_state.is_constant),
             "constraint_mode": self.constraint_mode,
-            "constraint_kind": self._constraint_kind,
+            "constraint_kind": self.constraint_kind,
             "pc": self._pc_value,
             "knots": self.knots,
             "has_shared_basis_setup": self.shared_basis_setup is not None,

@@ -262,7 +262,7 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
                     "feature": list(self.feature),
                     "label": self.label,
                     "by": self.by,
-                    "by_name": self._by_name,
+                    "by_name": self._by_state.feature_name,
                     "area_names": list(self._area_names) if self._area_names is not None else None,
                     "has_polys": self._plot_polys is not None,
                     "has_nb": self._nb is not None,

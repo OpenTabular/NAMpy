@@ -141,8 +141,6 @@ class RandomEffectTerm(BaseSmoothTerm):
 
         # random effects are full-rank penalized: no side conditions needed
         self.constraints_absorbed = True
-        self.fit_constraint_matrix = None
-        self.predict_constraint_matrix = None
 
     def fit(self, X, feature_names):
         X = np.asarray(X, dtype=object)
@@ -262,7 +260,7 @@ class RandomEffectTerm(BaseSmoothTerm):
                         "feature": list(self.feature),
                         "label": self.label,
                         "by": self.by,
-                        "by_name": self._by_name,
+                        "by_name": self._by_state.feature_name,
                         "xt": self.xt,
                         "component_specs": [
                             {"kind": s.kind, "levels": None if s.levels is None else list(s.levels)}

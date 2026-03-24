@@ -78,17 +78,23 @@ def construct_terms(
     fit_constraint = getattr(runtime, "fit_constraint_matrix", None)
     predict_constraint = getattr(runtime, "predict_constraint_matrix", None)
     prediction_offset = getattr(runtime, "prediction_offset", None)
+    _by_state = getattr(runtime, "_by_state", None)
 
     constructor_metadata = {
         "by_done": by_done,
         "constraints_absorbed_by_runtime": constraints_absorbed,
-        "runtime_constraint_kind": getattr(runtime, "_constraint_kind", None),
-        "runtime_by_name": getattr(runtime, "_by_name", None),
-        "runtime_by_is_constant": getattr(runtime, "_by_is_constant", None),
+        "runtime_constraint_kind": getattr(runtime, "constraint_kind", None),
+        "runtime_by_name": _by_state.feature_name if _by_state is not None else None,
+        "runtime_by_is_constant": _by_state.is_constant if _by_state is not None else None,
     }
 
+    # Build predict_fn in two parts:
+    #   1. base_producer(X_new) -> np.ndarray  — produces the raw wrapper-input matrix
+    #   2. matrix_transforms: list of (np.ndarray -> np.ndarray) applied left-to-right
+    # When both parts are empty, predict_fn stays None and ConstructedTerm falls back to
+    # calling runtime.transform_new directly.
     X0 = None
-    predict_fn = None
+    matrix_transforms: list = []
     by_variable = getattr(runtime, "by", None)
     if by_variable is not None and apply_by and not by_done:
         idx, _by_name = _resolve_feature(by_variable, feature_names)
@@ -98,20 +104,16 @@ def construct_terms(
         else:
             raise NotImplementedError("Runtime term requested wrapper-level by handling without basis_train_base.")
         B = X0 * z_train[:, None]
-        if hasattr(runtime, "transform_new_base") and callable(runtime.transform_new_base):
-            base_predict_fn = runtime.transform_new_base
-        else:
+        if not (hasattr(runtime, "transform_new_base") and callable(runtime.transform_new_base)):
             raise NotImplementedError("Runtime term requested wrapper-level by handling without transform_new_base().")
 
-        def predict_fn(X_new, *, _base=base_predict_fn, _idx=idx):
-            X_new = np.asarray(X_new, dtype=np.float64)
-            z_new = np.asarray(X_new[:, _idx], dtype=np.float64).ravel()
-            B0_new = np.asarray(_base(X_new), dtype=np.float64)
-            return B0_new * z_new[:, None]
-
         constructor_metadata["by_handling"] = "wrapper"
+        _wrapper_base_fn = runtime.transform_new_base
+        _by_idx = idx
     else:
         constructor_metadata["by_handling"] = "runtime" if by_variable is not None else "none"
+        _wrapper_base_fn = None
+        _by_idx = None
 
     if absorb_cons and (not constraints_absorbed) and fit_constraint is not None:
         B, penalty_defs, T_fit, n_cons = absorb_explicit_constraints(
@@ -119,17 +121,32 @@ def construct_terms(
             _copy_penalty_defs(penalty_defs),
             fit_constraint,
         )
-        base_predict_fn = runtime.transform_new if predict_fn is None else predict_fn
-
-        def predict_fn(X_new, *, _base=base_predict_fn, _T=T_fit):
-            return np.asarray(_base(X_new), dtype=np.float64) @ _T
-
+        matrix_transforms.append(T_fit)
         constraints_absorbed = True
         constructor_metadata["constraint_absorption"] = "wrapper"
         constructor_metadata["n_constraints_absorbed"] = int(n_cons)
     else:
+        T_fit = None
         constructor_metadata["constraint_absorption"] = "runtime" if constraints_absorbed else "none"
         constructor_metadata["n_constraints_absorbed"] = None
+
+    # Compose predict_fn from the accumulated parts.
+    if _wrapper_base_fn is not None or matrix_transforms:
+        _base_fn = _wrapper_base_fn if _wrapper_base_fn is not None else runtime.transform_new
+        _apply_by = _wrapper_base_fn is not None
+        _by_col = _by_idx
+        _transforms = list(matrix_transforms)
+
+        def predict_fn(X_new, *, _base=_base_fn, _do_by=_apply_by, _col=_by_col, _Ts=_transforms):
+            B_out = np.asarray(_base(X_new), dtype=np.float64)
+            if _do_by:
+                z_new = np.asarray(np.asarray(X_new)[:, _col], dtype=np.float64).ravel()
+                B_out = B_out * z_new[:, None]
+            for T in _Ts:
+                B_out = B_out @ T
+            return B_out
+    else:
+        predict_fn = None
 
     if null_space_penalty:
         raise NotImplementedError(
