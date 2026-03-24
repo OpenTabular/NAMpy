@@ -21,9 +21,11 @@ class SplineNAM(BaseModel):
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: DefaultSplineNAMConfig = DefaultSplineNAMConfig(),
+        config: DefaultSplineNAMConfig | None = None,
         **kwargs,
     ):
+        if config is None:
+            config = DefaultSplineNAMConfig()
         super().__init__(**kwargs)
         self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
 

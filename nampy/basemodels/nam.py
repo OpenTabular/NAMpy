@@ -37,7 +37,7 @@ class NAM(BaseModel):
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: DefaultNAMConfig = DefaultNAMConfig(),
+        config: DefaultNAMConfig | None = None,
         **kwargs,
     ):
         """
@@ -52,10 +52,12 @@ class NAM(BaseModel):
         num_classes : int, optional
             Number of output classes for classification tasks, by default 1.
         config : DefaultNAMConfig, optional
-            Configuration dataclass containing hyperparameters for the model, by default DefaultNAMConfig.
+            Configuration dataclass containing hyperparameters for the model, by default DefaultNAMConfig().
         kwargs : dict
             Additional keyword arguments.
         """
+        if config is None:
+            config = DefaultNAMConfig()
         super().__init__(**kwargs)
         self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
 

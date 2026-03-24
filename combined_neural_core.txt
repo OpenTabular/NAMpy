@@ -1,0 +1,4984 @@
+You are a senior computational statistician, numerical software architect, and Python package maintainer with deep expertise in neural additive models and Python package design.
+I am building a python packagw which offers a variety of neural models like NAM, NBM, GPNAM, NODE-GAM, MonotonicNAM etc as a single package.
+Review this core neural bundle, I have only included the example of NAM here. I wish to incorporate the ideas of the neurips paper into this as it can be done for any neural model like NAM or NBM.
+
+Directory structure (core neural scope):
+nampy/
+├─ basemodels/
+│  ├─ basemodel.py
+│  ├─ lightning_wrapper.py
+│  └─ nam.py
+├─ configs/
+│  └─ nam_config.py
+├─ models/
+│  ├─ nam.py
+│  ├─ sklearn_classifier.py
+│  ├─ sklearn_lss.py
+│  └─ sklearn_regressor.py
+└─ utils/
+   ├─ distributional_metrics.py
+   └─ distributions.py
+
+Included files: 10
+
+# --- Start of nampy/basemodels/basemodel.py ---
+#basemodels/basemodel.py
+import logging
+
+import torch
+import torch.nn as nn
+
+
+class BaseModel(nn.Module):
+    def __init__(self, **kwargs):
+        """
+        Initializes the BaseModel with given hyperparameters.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Hyperparameters to be saved and used in the model.
+        """
+        super(BaseModel, self).__init__()
+        self.hparams = kwargs
+
+    def save_hyperparameters(self, ignore=None):
+        """
+        Saves the hyperparameters while ignoring specified keys.
+
+        Parameters
+        ----------
+        ignore : list, optional
+            List of keys to ignore while saving hyperparameters, by default [].
+        """
+        if ignore is None:
+            ignore = []
+        self.hparams = {k: v for k, v in self.hparams.items() if k not in ignore}
+        for key, value in self.hparams.items():
+            setattr(self, key, value)
+
+    def save_model(self, path):
+        """
+        Save the model parameters to the given path.
+
+        Parameters
+        ----------
+        path : str
+            Path to save the model parameters.
+        """
+        torch.save(self.state_dict(), path)
+        print(f"Model parameters saved to {path}")
+
+    def load_model(self, path, device="cpu"):
+        """
+        Load the model parameters from the given path.
+
+        Parameters
+        ----------
+        path : str
+            Path to load the model parameters from.
+        device : str, optional
+            Device to map the model parameters, by default 'cpu'.
+        """
+        self.load_state_dict(torch.load(path, map_location=device, weights_only=False))
+        self.to(device)
+        print(f"Model parameters loaded from {path}")
+
+    def total_parameters(self):
+        """
+        Count the total number of trainable parameters in the model.
+
+        Returns
+        -------
+        int
+            Total number of trainable parameters.
+        """
+        return sum(p.numel() for p in self.parameters() if p.requires_grad)
+
+    def freeze_parameters(self):
+        """
+        Freeze the model parameters by setting `requires_grad` to False.
+        """
+        for param in self.parameters():
+            param.requires_grad = False
+        print("All model parameters have been frozen.")
+
+    def unfreeze_parameters(self):
+        """
+        Unfreeze the model parameters by setting `requires_grad` to True.
+        """
+        for param in self.parameters():
+            param.requires_grad = True
+        print("All model parameters have been unfrozen.")
+
+    def log_parameters(self, logger=None):
+        """
+        Log the hyperparameters and model parameters.
+
+        Parameters
+        ----------
+        logger : logging.Logger, optional
+            Logger instance to log the parameters, by default None.
+        """
+        if logger is None:
+            logger = logging.getLogger(__name__)
+        logger.info("Hyperparameters:")
+        for key, value in self.hparams.items():
+            logger.info(f"  {key}: {value}")
+        logger.info(f"Total number of trainable parameters: {self.total_parameters()}")
+
+    def parameter_count_by_layer(self):
+        """
+        Get a dictionary of parameter counts for each layer in the model.
+
+        Returns
+        -------
+        dict
+            Dictionary where keys are layer names and values are parameter counts.
+        """
+        param_count = {}
+        for name, param in self.named_parameters():
+            param_count[name] = param.numel()
+        return param_count
+
+    def get_device(self):
+        """
+        Get the device on which the model is located.
+
+        Returns
+        -------
+        torch.device
+            Device on which the model is located.
+        """
+        return next(self.parameters()).device
+
+    def to_device(self, device):
+        """
+        Move the model to the specified device.
+
+        Parameters
+        ----------
+        device : torch.device or str
+            Device to move the model to.
+        """
+        self.to(device)
+        print(f"Model moved to {device}")
+
+    def print_summary(self):
+        """
+        Print a summary of the model, including the architecture and parameter counts.
+        """
+        print(self)
+        print(f"\nTotal number of trainable parameters: {self.total_parameters()}")
+        print("\nParameter counts by layer:")
+        for name, count in self.parameter_count_by_layer().items():
+            print(f"  {name}: {count}")
+
+# --- End of nampy/basemodels/basemodel.py ---
+
+# --- Start of nampy/basemodels/lightning_wrapper.py ---
+from typing import Any, Type
+
+import lightning as pl
+import torch
+import torch.nn as nn
+import torchmetrics
+
+
+class TaskModel(pl.LightningModule):
+    def __init__(
+        self,
+        model_class: Type[nn.Module],
+        config,
+        cat_feature_info,
+        num_feature_info,
+        num_classes=1,           # semantic class count for classification, output dim for regression/LSS
+        lss=False,
+        family=None,
+        loss_fct: Any = None,
+        **kwargs,
+    ):
+        super().__init__()
+
+        self.lss = bool(lss)
+        self.family = family
+        self.loss_fct = loss_fct
+
+        # Keep task semantics separate from model output width
+        self.n_classes = int(num_classes)
+
+        if self.lss:
+            self.task_kind = "lss"
+            self.output_dim = int(num_classes)  # usually family.param_count
+        else:
+            if self.n_classes == 1:
+                self.task_kind = "regression"
+                self.output_dim = 1
+                if self.loss_fct is None:
+                    self.loss_fct = nn.MSELoss()
+            elif self.n_classes == 2:
+                self.task_kind = "binary"
+                self.output_dim = 1  # BCE-with-logits style
+                if self.loss_fct is None:
+                    self.loss_fct = nn.BCEWithLogitsLoss()
+                self.acc = torchmetrics.Accuracy(task="binary")
+                # Optional: keep AUROC/precision, but log on_epoch only (see below)
+                self.auroc = torchmetrics.AUROC(task="binary")
+                self.precision = torchmetrics.Precision(task="binary")
+            else:
+                self.task_kind = "multiclass"
+                self.output_dim = self.n_classes
+                if self.loss_fct is None:
+                    self.loss_fct = nn.CrossEntropyLoss()
+                self.acc = torchmetrics.Accuracy(task="multiclass", num_classes=self.n_classes)
+                self.auroc = torchmetrics.AUROC(task="multiclass", num_classes=self.n_classes)
+                self.precision = torchmetrics.Precision(task="multiclass", num_classes=self.n_classes)
+
+        # Avoid checkpoint bloat / pickle issues
+        ignore_list = ["model_class", "loss_fct", "family", "cat_feature_info", "num_feature_info"]
+        self.save_hyperparameters(ignore=ignore_list)
+
+        self.lr = self.hparams.get("lr", config.lr)
+        self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
+        self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
+        self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
+
+        self.model = model_class(
+            config=config,
+            num_feature_info=num_feature_info,
+            cat_feature_info=cat_feature_info,
+            num_classes=self.output_dim,
+            **kwargs,
+        )
+
+    def forward(self, num_features, cat_features):
+        return self.model(num_features=num_features, cat_features=cat_features)
+
+    def _prepare_supervised_targets(self, preds: torch.Tensor, y_true: torch.Tensor):
+        """Normalize target shapes/dtypes for regression/binary/multiclass."""
+        if self.task_kind == "regression":
+            y = y_true.to(dtype=preds.dtype)
+            if y.ndim == 1:
+                y = y.unsqueeze(-1)
+            return preds, y
+
+        if self.task_kind == "binary":
+            # BCEWithLogitsLoss expects same shape/dtype as preds
+            y = y_true.to(dtype=preds.dtype)
+            if y.ndim == 1:
+                y = y.unsqueeze(-1)
+            if y.shape != preds.shape:
+                y = y.view_as(preds)
+            return preds, y
+
+        if self.task_kind == "multiclass":
+            # CrossEntropyLoss expects logits [N, C], targets [N] long
+            y = y_true.long().view(-1)
+            return preds, y
+
+        raise RuntimeError(f"Unexpected task_kind={self.task_kind!r}")
+
+    def _prepare_lss_targets(self, y_true: torch.Tensor):
+        # Keep multi-parameter / multivariate targets intact.
+        # Only squeeze the dummy second dim when labels are shape [N, 1].
+        y = y_true
+        if y.ndim == 2 and y.shape[1] == 1:
+            y = y[:, 0]
+
+        # Let family opt into integer targets (e.g. categorical)
+        target_dtype = getattr(self.family, "target_dtype", None)
+        if target_dtype is not None:
+            y = y.to(dtype=target_dtype)
+        return y
+
+    def compute_loss(self, predictions, y_true):
+        if self.lss:
+            y = self._prepare_lss_targets(y_true)
+            return self.family.compute_loss(predictions, y)
+
+        preds, y = self._prepare_supervised_targets(predictions, y_true)
+        return self.loss_fct(preds, y)
+
+    def _log_task_metrics(self, prefix: str, preds: torch.Tensor, labels: torch.Tensor):
+        if self.lss:
+            return
+
+        if self.task_kind == "binary":
+            # For torchmetrics binary classification, logits are accepted in many versions,
+            # but using probs explicitly avoids version-specific behavior.
+            probs = torch.sigmoid(preds).view(-1)
+            y = labels.view(-1).long()
+            self.log(f"{prefix}_acc", self.acc(probs, y), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log(f"{prefix}_auroc", self.auroc(probs, y), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+            self.log(f"{prefix}_precision", self.precision(probs, y), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+
+        elif self.task_kind == "multiclass":
+            logits = preds
+            y = labels.view(-1).long()
+            self.log(f"{prefix}_acc", self.acc(logits, y), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            probs = torch.softmax(logits, dim=1)
+            self.log(f"{prefix}_auroc", self.auroc(probs, y), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+            self.log(f"{prefix}_precision", self.precision(logits, y), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+
+    def _shared_step(self, batch, batch_idx, stage: str):
+        cat_features, num_features, labels = batch
+        result = self(num_features=num_features, cat_features=cat_features)
+        preds = result["output"]
+        loss = self.compute_loss(preds, labels)
+        for key, value in result.items():
+            if key.endswith("_penalty") or key.endswith("_regularizer"):
+                loss = loss + value
+
+        self.log(
+            f"{stage}_loss",
+            loss,
+            on_step=(stage == "train"),
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+        )
+
+        self._log_task_metrics(stage, preds, labels)
+
+        if stage == "test" and (not self.lss) and self.task_kind == "regression":
+            self.log("test_rmse", torch.sqrt(loss), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
+        return loss
+
+    def training_step(self, batch, batch_idx):
+        return self._shared_step(batch, batch_idx, "train")
+
+    def validation_step(self, batch, batch_idx):
+        return self._shared_step(batch, batch_idx, "val")
+
+    def test_step(self, batch, batch_idx):
+        return self._shared_step(batch, batch_idx, "test")
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(
+            self.parameters(),
+            lr=self.lr,
+            weight_decay=self.weight_decay,
+        )
+        scheduler = {
+            "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer,
+                mode="min",
+                factor=self.lr_factor,
+                patience=self.lr_patience,
+            ),
+            "monitor": "val_loss",
+            "interval": "epoch",
+            "frequency": 1,
+        }
+        return {"optimizer": optimizer, "lr_scheduler": scheduler}
+# --- End of nampy/basemodels/lightning_wrapper.py ---
+
+# --- Start of nampy/basemodels/nam.py ---
+# basemodels/nam.py
+from itertools import combinations
+
+import torch
+import torch.nn as nn
+
+from ..arch_utils.mlp_utils import MLP
+from ..configs.nam_config import DefaultNAMConfig
+from .basemodel import BaseModel
+
+
+class NAM(BaseModel):
+    """
+    Neural Additive Model (NAM) class.
+
+    This class implements a Neural Additive Model (NAM) with support for numerical and
+    categorical features, interaction terms, and various normalization layers.
+
+    Attributes
+    ----------
+    num_feature_networks : nn.ModuleDict
+        Sub-networks for each numerical feature.
+    cat_feature_networks : nn.ModuleDict
+        Sub-networks for each categorical feature.
+    interaction_networks : nn.ModuleDict
+        Networks for modeling feature interactions (if applicable).
+    interaction_degree : int, optional
+        Degree of interactions to be modeled.
+    intercept : torch.nn.Parameter
+        Learnable intercept term, if enabled.
+    feature_dropout_p : float
+        Probability for feature-level dropout (drops whole feature outputs).
+    """
+
+    def __init__(
+        self,
+        cat_feature_info,
+        num_feature_info,
+        num_classes: int = 1,
+        config: DefaultNAMConfig = DefaultNAMConfig(),
+        **kwargs,
+    ):
+        """
+        Initializes the Neural Additive Model (NAM) with the given configuration.
+
+        Parameters
+        ----------
+        cat_feature_info : dict
+            Dictionary providing information about categorical features (e.g., input dimensions).
+        num_feature_info : dict
+            Dictionary providing information about numerical features (e.g., input dimensions).
+        num_classes : int, optional
+            Number of output classes for classification tasks, by default 1.
+        config : DefaultNAMConfig, optional
+            Configuration dataclass containing hyperparameters for the model, by default DefaultNAMConfig.
+        kwargs : dict
+            Additional keyword arguments.
+        """
+        super().__init__(**kwargs)
+        self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
+
+        self.lr = self.hparams.get("lr", config.lr)
+        self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
+        self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
+        self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
+        self.cat_feature_info = cat_feature_info
+        self.num_feature_info = num_feature_info
+        self.num_classes = num_classes
+        self.interaction_degree = self.hparams.get(
+            "interaction_degree", config.interaction_degree
+        )
+        if self.hparams.get("intercept", config.intercept):
+            self.intercept = nn.Parameter(
+                torch.zeros(
+                    num_classes,
+                )
+            )
+        else:
+            self.intercept = None
+
+        self.feature_dropout_p = self.hparams.get(
+            "feature_dropout", config.feature_dropout
+        )
+
+        # Resolve architecture hyperparameters once, with kwargs overriding config
+        self.layer_sizes = self.hparams.get("layer_sizes", config.layer_sizes)
+        self.activation = self.hparams.get("activation", config.activation)
+        self.norm = self.hparams.get("norm", config.norm)
+        self.use_glu = self.hparams.get("use_glu", config.use_glu)
+        self.skip_connections = self.hparams.get(
+            "skip_connections", config.skip_connections
+        )
+        self.batch_norm = self.hparams.get("batch_norm", config.batch_norm)
+        self.layer_norm = self.hparams.get("layer_norm", config.layer_norm)
+        self.dropout = self.hparams.get("dropout", config.dropout)
+
+        # Initialize sub-networks for each feature
+        self.num_feature_networks = nn.ModuleDict()
+        for feature_name, info in num_feature_info.items():
+            self.num_feature_networks[feature_name] = self._create_subnetwork(
+                info["dimension"]
+            )
+
+        self.cat_feature_networks = nn.ModuleDict()
+        for feature_name, info in cat_feature_info.items():
+            self.cat_feature_networks[feature_name] = self._create_subnetwork(
+                info["dimension"]
+            )  # Categorical features are typically encoded as single values
+
+        reserved = {"output", "intercept"}
+        all_feature_names = set(num_feature_info) | set(cat_feature_info)
+        if reserved & all_feature_names:
+            raise ValueError(
+                f"Feature names {sorted(reserved.intersection(all_feature_names))} are reserved."
+            )
+
+        self.interaction_networks = nn.ModuleDict()
+        if self.interaction_degree is not None and self.interaction_degree >= 2:
+            self._create_interaction_networks(
+                num_feature_info=num_feature_info,
+                cat_feature_info=cat_feature_info,
+            )
+
+    def _create_subnetwork(self, input_dim: int) -> MLP:
+        """Create a subnetwork for a single feature using MLP from mlp_utils."""
+        return MLP(
+            n_input_units=input_dim,
+            hidden_units_list=self.layer_sizes,
+            n_output_units=self.num_classes,
+            dropout=self.dropout,
+            use_skip_layers=self.skip_connections,
+            activation=self.activation,
+            use_batch_norm=self.batch_norm,
+            use_layer_norm=self.layer_norm,
+            norm=self.norm,
+            use_glu=self.use_glu,
+        )
+
+    def _create_interaction_networks(self, num_feature_info, cat_feature_info):
+        """
+        Creates networks for modeling feature interactions.
+
+        Parameters
+        ----------
+        num_feature_info : dict
+            Information about numerical features.
+        cat_feature_info : dict
+            Information about categorical features.
+        """
+        all_feature_names = list(num_feature_info.keys()) + list(
+            cat_feature_info.keys()
+        )
+
+        # Add pairwise and higher interactions up to the specified degree
+        for degree in range(2, self.interaction_degree + 1):
+            for interaction in combinations(all_feature_names, degree):
+                interaction_name = ":".join(interaction)  # e.g., "feature1_feature2"
+                input_dim = 0
+
+                # Calculate input dimension for the interaction
+                for feature in interaction:
+                    if feature in num_feature_info:
+                        input_dim += num_feature_info[feature][
+                            "dimension"
+                        ]  # Numerical features
+                    elif feature in cat_feature_info:
+                        input_dim += cat_feature_info[feature]["dimension"]
+
+                self.interaction_networks[interaction_name] = self._create_subnetwork(
+                    input_dim
+                )
+
+    def _interaction_forward(self, num_features: dict, cat_features: dict):
+        """
+        Forward pass for the interaction networks.
+
+        Parameters
+        ----------
+        num_features : dict
+            Dictionary of numerical features with feature names as keys.
+        cat_features : dict
+            Dictionary of categorical features with feature names as keys.
+
+        Returns
+        -------
+        dict
+            Outputs from the interaction networks, keyed by interaction names.
+        """
+        # Handle interaction networks
+        interaction_outputs = {}
+        if self.interaction_degree is not None and self.interaction_degree >= 2:
+            all_features = {
+                **num_features,
+                **cat_features,
+            }  # Combine numerical and categorical features
+            for (
+                interaction_name,
+                interaction_network,
+            ) in self.interaction_networks.items():
+                feature_names = interaction_name.split(":")
+                input_features = torch.cat(
+                    [all_features[fn] for fn in feature_names], dim=-1
+                )
+                interaction_output = interaction_network(input_features.float())
+                interaction_outputs[interaction_name] = interaction_output
+
+        return interaction_outputs
+
+    def forward(self, num_features: dict, cat_features: dict) -> dict:
+        """
+        Forward pass of the NAM model.
+
+        Parameters
+        ----------
+        num_features : dict
+            Dictionary of numerical features with feature names as keys.
+        cat_features : dict
+            Dictionary of categorical features with feature names as keys.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the output tensor and the original feature values.
+        """
+        num_outputs = {}
+        for feature_name, feature_network in self.num_feature_networks.items():
+            feature_output = feature_network(num_features[feature_name].float())
+            num_outputs[feature_name] = feature_output
+
+        cat_outputs = {}
+        for feature_name, feature_network in self.cat_feature_networks.items():
+            feature_output = feature_network(cat_features[feature_name].float())
+            cat_outputs[feature_name] = feature_output
+
+        interaction_outputs = self._interaction_forward(
+            num_features=num_features, cat_features=cat_features
+        )
+
+        all_outputs = (
+            list(num_outputs.values())
+            + list(cat_outputs.values())
+            + list(interaction_outputs.values())
+        )
+        concatenated = torch.cat(all_outputs, dim=1)
+        num_features_total = len(all_outputs)
+
+        if self.feature_dropout_p > 0.0 and self.training:
+            shaped = concatenated.view(-1, num_features_total, self.num_classes)
+            mask = torch.ones(
+                shaped.shape[0], num_features_total, 1,
+                device=shaped.device, dtype=shaped.dtype,
+            )
+            mask = nn.functional.dropout(
+                mask, p=self.feature_dropout_p, training=True
+            )
+            shaped = shaped * mask
+        else:
+            shaped = concatenated.view(-1, num_features_total, self.num_classes)
+
+        x = shaped.sum(dim=1)  # [batch, num_classes]
+
+        # intercept
+        if self.intercept is not None:
+            x += self.intercept
+
+        # Combine the output tensor with the original feature values
+        result = {"output": x}
+        result.update(num_outputs)
+        result.update(cat_outputs)
+        result.update(interaction_outputs)
+        if self.intercept is not None:
+            result["intercept"] = self.intercept
+
+        return result
+
+# --- End of nampy/basemodels/nam.py ---
+
+# --- Start of nampy/models/nam.py ---
+#models/nam.py
+from ..basemodels.nam import NAM
+from ..configs.nam_config import DefaultNAMConfig
+from .sklearn_classifier import SklearnBaseClassifier
+from .sklearn_lss import SklearnBaseLSS
+from .sklearn_regressor import SklearnBaseRegressor
+
+
+class NAMRegressor(SklearnBaseRegressor):
+    """
+    Neural Additive Model regressor. This class extends the SklearnBaseRegressor class and uses the NAM model
+    with the default NAM configuration.
+
+    The accepted arguments to the NAMRegressor class include both the attributes in the DefaultNAMConfig dataclass
+    and the parameters for the Preprocessor class.
+
+    Parameters
+    ----------
+    lr : float, default=1e-04
+        Learning rate for the optimizer.
+    lr_patience : int, default=10
+        Number of epochs with no improvement after which learning rate will be reduced.
+    weight_decay : float, default=1e-06
+        Weight decay (L2 penalty) for the optimizer.
+    lr_factor : float, default=0.1
+        Factor by which the learning rate will be reduced.
+    layer_sizes : list, default=(128, 128, 32)
+        Sizes of the layers in the NAM.
+    activation : callable, default=nn.ReLU
+        Activation function for the NAM layers.
+    skip_layers : bool, default=False
+        Whether to skip layers in the NAM.
+    dropout : float, default=0.1
+        Dropout rate for regularization.
+    norm : str, default=None
+        Normalization method to be used, if any.
+    use_glu : bool, default=False
+        Whether to use Gated Linear Units (GLU) in the NAM.
+    skip_connections : bool, default=False
+        Whether to use skip connections in the NAM.
+    batch_norm : bool, default=False
+        Whether to use batch normalization in the NAM layers.
+    layer_norm : bool, default=False
+        Whether to use layer normalization in the NAM layers.
+    n_bins : int, default=50
+        The number of bins to use for numerical feature binning. This parameter is relevant
+        only if `numerical_preprocessing` is set to 'binning' or 'one_hot'.
+    numerical_preprocessing : str, default="ple"
+        The preprocessing strategy for numerical features. Valid options are
+        'binning', 'one_hot', 'standardization', and 'normalization'.
+    use_decision_tree_bins : bool, default=False
+        If True, uses decision tree regression/classification to determine
+        optimal bin edges for numerical feature binning. This parameter is
+        relevant only if `numerical_preprocessing` is set to 'binning' or 'one_hot'.
+    binning_strategy : str, default="uniform"
+        Defines the strategy for binning numerical features. Options include 'uniform',
+        'quantile', or other sklearn-compatible strategies.
+    cat_cutoff : float or int, default=0.03
+        Indicates the cutoff after which integer values are treated as categorical.
+        If float, it's treated as a percentage. If int, it's the maximum number of
+        unique values for a column to be considered categorical.
+    treat_all_integers_as_numerical : bool, default=False
+        If True, all integer columns will be treated as numerical, regardless
+        of their unique value count or proportion.
+    degree : int, default=3
+        The degree of the polynomial features to be used in preprocessing.
+    knots : int, default=12
+        The number of knots to be used in spline transformations.
+
+    Notes
+    -----
+    - The accepted arguments to the NAMRegressor class are the same as the attributes in the DefaultNAMConfig dataclass.
+    - NAMRegressor uses SklearnBaseRegressor as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+
+    See Also
+    --------
+    nampy.models.SklearnBaseRegressor : The parent class for NAMRegressor.
+
+    Examples
+    --------
+    >>> from nampy.models import NAMRegressor
+    >>> model = NAMRegressor(layer_sizes=[128, 128, 64], activation=nn.ReLU())
+    >>> model.fit(X_train, y_train)
+    >>> preds = model.predict(X_test)
+    >>> model.evaluate(X_test, y_test)
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(model=NAM, config=DefaultNAMConfig, **kwargs)
+
+
+class NAMClassifier(SklearnBaseClassifier):
+    """
+    Neural Additive Model classifier. This class extends the SklearnBaseClassifier class and uses the NAM model
+    with the default NAM configuration.
+
+    The accepted arguments to the NAMClassifier class include both the attributes in the DefaultNAMConfig dataclass
+    and the parameters for the Preprocessor class.
+
+    Parameters
+    ----------
+    lr : float, default=1e-04
+        Learning rate for the optimizer.
+    lr_patience : int, default=10
+        Number of epochs with no improvement after which learning rate will be reduced.
+    weight_decay : float, default=1e-06
+        Weight decay (L2 penalty) for the optimizer.
+    lr_factor : float, default=0.1
+        Factor by which the learning rate will be reduced.
+    layer_sizes : list, default=(128, 128, 32)
+        Sizes of the layers in the NAM.
+    activation : callable, default=nn.ReLU
+        Activation function for the NAM layers.
+    skip_layers : bool, default=False
+        Whether to skip layers in the NAM.
+    dropout : float, default=0.1
+        Dropout rate for regularization.
+    norm : str, default=None
+        Normalization method to be used, if any.
+    use_glu : bool, default=False
+        Whether to use Gated Linear Units (GLU) in the NAM.
+    skip_connections : bool, default=False
+        Whether to use skip connections in the NAM.
+    batch_norm : bool, default=False
+        Whether to use batch normalization in the NAM layers.
+    layer_norm : bool, default=False
+        Whether to use layer normalization in the NAM layers.
+    n_bins : int, default=50
+        The number of bins to use for numerical feature binning. This parameter is relevant
+        only if `numerical_preprocessing` is set to 'binning' or 'one_hot'.
+    numerical_preprocessing : str, default="ple"
+        The preprocessing strategy for numerical features. Valid options are
+        'binning', 'one_hot', 'standardization', and 'normalization'.
+    use_decision_tree_bins : bool, default=False
+        If True, uses decision tree regression/classification to determine
+        optimal bin edges for numerical feature binning. This parameter is
+        relevant only if `numerical_preprocessing` is set to 'binning' or 'one_hot'.
+    binning_strategy : str, default="uniform"
+        Defines the strategy for binning numerical features. Options include 'uniform',
+        'quantile', or other sklearn-compatible strategies.
+    cat_cutoff : float or int, default=0.03
+        Indicates the cutoff after which integer values are treated as categorical.
+        If float, it's treated as a percentage. If int, it's the maximum number of
+        unique values for a column to be considered categorical.
+    treat_all_integers_as_numerical : bool, default=False
+        If True, all integer columns will be treated as numerical, regardless
+        of their unique value count or proportion.
+    degree : int, default=3
+        The degree of the polynomial features to be used in preprocessing.
+    knots : int, default=12
+        The number of knots to be used in spline transformations.
+
+    Notes
+    -----
+    - The accepted arguments to the NAMClassifier class are the same as the attributes in the DefaultNAMConfig dataclass.
+    - NAMClassifier uses SklearnBaseClassifieras the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+
+    See Also
+    --------
+    nampy.models.SklearnBaseRegressor : The parent class for NAMClassifier.
+
+    Examples
+    --------
+    >>> from nampy.models import NAMClassifier
+    >>> model = NAMClassifier(layer_sizes=[128, 128, 64], activation=nn.ReLU())
+    >>> model.fit(X_train, y_train)
+    >>> preds = model.predict(X_test)
+    >>> model.evaluate(X_test, y_test)
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(model=NAM, config=DefaultNAMConfig, **kwargs)
+
+
+class NAMLSS(SklearnBaseLSS):
+    """
+    Neural Additive Model for distributional regression. This class extends the SklearnBaseLSS class and uses the NAM model
+    with the default NAM configuration.
+
+    The accepted arguments to the NAMLSS class include both the attributes in the DefaultNAMConfig dataclass
+    and the parameters for the Preprocessor class.
+
+    Parameters
+    ----------
+    lr : float, default=1e-04
+        Learning rate for the optimizer.
+    lr_patience : int, default=10
+        Number of epochs with no improvement after which learning rate will be reduced.
+    weight_decay : float, default=1e-06
+        Weight decay (L2 penalty) for the optimizer.
+    lr_factor : float, default=0.1
+        Factor by which the learning rate will be reduced.
+    layer_sizes : list, default=(128, 128, 32)
+        Sizes of the layers in the MLP.
+    activation : callable, default=nn.ReLU
+        Activation function for the MLP layers.
+    skip_layers : bool, default=False
+        Whether to skip layers in the MLP.
+    dropout : float, default=0.1
+        Dropout rate for regularization.
+    norm : str, default=None
+        Normalization method to be used, if any.
+    use_glu : bool, default=False
+        Whether to use Gated Linear Units (GLU) in the MLP.
+    skip_connections : bool, default=False
+        Whether to use skip connections in the MLP.
+    batch_norm : bool, default=False
+        Whether to use batch normalization in the MLP layers.
+    layer_norm : bool, default=False
+        Whether to use layer normalization in the MLP layers.
+    n_bins : int, default=50
+        The number of bins to use for numerical feature binning. This parameter is relevant
+        only if `numerical_preprocessing` is set to 'binning' or 'one_hot'.
+    numerical_preprocessing : str, default="ple"
+        The preprocessing strategy for numerical features. Valid options are
+        'binning', 'one_hot', 'standardization', and 'normalization'.
+    use_decision_tree_bins : bool, default=False
+        If True, uses decision tree regression/classification to determine
+        optimal bin edges for numerical feature binning. This parameter is
+        relevant only if `numerical_preprocessing` is set to 'binning' or 'one_hot'.
+    binning_strategy : str, default="uniform"
+        Defines the strategy for binning numerical features. Options include 'uniform',
+        'quantile', or other sklearn-compatible strategies.
+    task : str, default="regression"
+        Indicates the type of machine learning task ('regression' or 'classification'). This can
+        influence certain preprocessing behaviors, especially when using decision tree-based binning as ple.
+    cat_cutoff : float or int, default=0.03
+        Indicates the cutoff after which integer values are treated as categorical.
+        If float, it's treated as a percentage. If int, it's the maximum number of
+        unique values for a column to be considered categorical.
+    treat_all_integers_as_numerical : bool, default=False
+        If True, all integer columns will be treated as numerical, regardless
+        of their unique value count or proportion.
+    degree : int, default=3
+        The degree of the polynomial features to be used in preprocessing.
+    knots : int, default=12
+        The number of knots to be used in spline transformations.
+
+    Notes
+    -----
+    - The accepted arguments to the NAMLSS class are the same as the attributes in the DefaultNAMConfig dataclass.
+    - NAMLSS uses SklearnBaseLSS as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+
+    See Also
+    --------
+    nampy.models.SklearnBaseLSS : The parent class for NAMLSS.
+
+    Examples
+    --------
+    >>> from nampy.models import NAMLSS
+    >>> model = NAMLSS(layer_sizes=[128, 128, 64], activation=nn.ReLU())
+    >>> model.fit(X_train, y_train)
+    >>> preds = model.predict(X_test)
+    >>> model.evaluate(X_test, y_test)
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(model=NAM, config=DefaultNAMConfig, **kwargs)
+
+# --- End of nampy/models/nam.py ---
+
+# --- Start of nampy/models/sklearn_classifier.py ---
+#sklearn_classifier.py
+import warnings
+
+import lightning as pl
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import torch
+from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
+from sklearn.base import BaseEstimator
+from sklearn.metrics import accuracy_score
+
+from pretab.preprocessor import Preprocessor
+
+from ..basemodels.lightning_wrapper import TaskModel
+from ..data_utils.datamodule import NAMpyDataModule
+from ..utils.plotting import (
+    create_subplot_grid,
+    plot_density_shading,
+    prepare_plot_data,
+)
+
+
+class SklearnBaseClassifier(BaseEstimator):
+    def __init__(self, model, config, **kwargs):
+        preprocessor_arg_names = [
+            "n_bins",
+            "numerical_preprocessing",
+            "categorical_preprocessing",
+            "use_decision_tree_bins",
+            "binning_strategy",
+            "task",
+            "cat_cutoff",
+            "treat_all_integers_as_numerical",
+            "degree",
+            "n_knots",
+            "scaling_strategy",
+            "feature_preprocessing",
+        ]
+
+        self.config_kwargs = {
+            k: v for k, v in kwargs.items() if k not in preprocessor_arg_names
+        }
+        self.config = config(**self.config_kwargs)
+
+        preprocessor_kwargs = {
+            k: v for k, v in kwargs.items() if k in preprocessor_arg_names
+        }
+        if preprocessor_kwargs.get("categorical_preprocessing") in (
+            "one_hot",
+            "one-hot",
+        ):
+            preprocessor_kwargs["categorical_preprocessing"] = "one-hot"
+        if preprocessor_kwargs.get("numerical_preprocessing") == "normalization":
+            preprocessor_kwargs["numerical_preprocessing"] = "minmax"
+
+        self.preprocessor = Preprocessor(**preprocessor_kwargs)
+        self.model = None
+
+        # Raise a warning if task is set to 'classification'
+        if preprocessor_kwargs.get("task") == "regression":
+            warnings.warn(
+                "The task is set to 'regression'. The Classifier is designed for classification tasks.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+        self.base_model = model
+
+    def get_params(self, deep=True):
+        """
+        Get parameters for this estimator. Overrides the BaseEstimator method.
+
+        Parameters
+        ----------
+        deep : bool, default=True
+            If True, returns the parameters for this estimator and contained sub-objects that are estimators.
+
+        Returns
+        -------
+        params : dict
+            Parameter names mapped to their values.
+        """
+        params = dict(self.config_kwargs)  # copy to avoid mutating estimator state
+
+        # If deep=True, include parameters from nested components like preprocessor
+        if deep:
+            # Assuming Preprocessor has a get_params method
+            preprocessor_params = {
+                "preprocessor__" + key: value
+                for key, value in self.preprocessor.get_params().items()
+            }
+            params.update(preprocessor_params)
+
+        return params
+
+    def set_params(self, **parameters):
+        """
+        Set the parameters of this estimator. Overrides the BaseEstimator method.
+
+        Parameters
+        ----------
+        **parameters : dict
+            Estimator parameters to be set.
+
+        Returns
+        -------
+        self : object
+            The instance with updated parameters.
+        """
+        config_updates = {}
+        preprocessor_params = {}
+
+        for key, value in parameters.items():
+            if key.startswith("preprocessor__"):
+                preprocessor_params[key.split("__", 1)[1]] = value
+            elif key in self.config_kwargs:
+                config_updates[key] = value
+            else:
+                raise ValueError(
+                    f"Invalid parameter '{key}' for {self.__class__.__name__}. "
+                    f"Valid parameters: {sorted(self.config_kwargs.keys())}."
+                )
+
+        self.config_kwargs.update(config_updates)
+        for key, value in config_updates.items():
+            setattr(self.config, key, value)
+
+        if preprocessor_params:
+            self.preprocessor.set_params(**preprocessor_params)
+
+        return self
+
+    def fit(
+        self,
+        X,
+        y,
+        val_size: float = 0.2,
+        X_val=None,
+        y_val=None,
+        max_epochs: int = 100,
+        random_state: int = 101,
+        batch_size: int = 128,
+        shuffle: bool = True,
+        patience: int = 15,
+        monitor: str = "val_loss",
+        mode: str = "min",
+        lr: float = 1e-4,
+        lr_patience: int = 10,
+        factor: float = 0.1,
+        weight_decay: float = 1e-06,
+        checkpoint_path="model_checkpoints",
+        dataloader_kwargs=None,
+        **trainer_kwargs,
+    ):
+        """
+        Trains the classification model using the provided training data. Optionally, a separate validation set can be used.
+
+        Parameters
+        ----------
+        X : DataFrame or array-like, shape (n_samples, n_features)
+            The training input samples.
+        y : array-like, shape (n_samples,) or (n_samples, n_targets)
+            The target values (class labels).
+        val_size : float, default=0.2
+            The proportion of the dataset to include in the validation split if `X_val` is None. Ignored if `X_val` is provided.
+        X_val : DataFrame or array-like, shape (n_samples, n_features), optional
+            The validation input samples. If provided, `X` and `y` are not split and this data is used for validation.
+        y_val : array-like, shape (n_samples,) or (n_samples, n_targets), optional
+            The validation target values. Required if `X_val` is provided.
+        max_epochs : int, default=100
+            Maximum number of epochs for training.
+        random_state : int, default=101
+            Controls the shuffling applied to the data before applying the split.
+        batch_size : int, default=128
+            Number of samples per gradient update.
+        shuffle : bool, default=True
+            Whether to shuffle the training data before each epoch.
+        patience : int, default=15
+            Number of epochs with no improvement on the validation loss to wait before early stopping.
+        monitor : str, default="val_loss"
+            The metric to monitor for early stopping.
+        mode : str, default="min"
+            Whether the monitored metric should be minimized (`min`) or maximized (`max`).
+        lr : float, default=1e-4
+            Learning rate for the optimizer.
+        lr_patience : int, default=10
+            Number of epochs with no improvement on the validation loss to wait before reducing the learning rate.
+        factor : float, default=0.1
+            Factor by which the learning rate will be reduced.
+        weight_decay : float, default=1e-06
+            Weight decay (L2 penalty) coefficient.
+        checkpoint_path : str, default="model_checkpoints"
+            Path where the checkpoints are being saved.
+        dataloader_kwargs: dict, default={}
+            The kwargs for the pytorch dataloader class.
+        **trainer_kwargs : Additional keyword arguments for PyTorch Lightning's Trainer class.
+
+
+        Returns
+        -------
+        self : object
+            The fitted classifier.
+        """
+        if dataloader_kwargs is None:
+            dataloader_kwargs = {}
+
+        if not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(X)
+        if isinstance(y, pd.Series):
+            y = y.values
+        if X_val is not None:
+            if not isinstance(X_val, pd.DataFrame):
+                X_val = pd.DataFrame(X_val)
+            if isinstance(y_val, pd.Series):
+                y_val = y_val.values
+
+        self.data_module = NAMpyDataModule(
+            preprocessor=self.preprocessor,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            X_val=X_val,
+            y_val=y_val,
+            val_size=val_size,
+            random_state=random_state,
+            regression=False,
+            **dataloader_kwargs,
+        )
+
+        self.data_module.setup_data(
+            X, y, X_val=X_val, y_val=y_val, val_size=val_size, random_state=random_state
+        )
+
+        num_classes = len(np.unique(y))
+
+        self.model = TaskModel(
+            model_class=self.base_model,
+            num_classes=num_classes,
+            config=self.config,
+            cat_feature_info=self.data_module.cat_feature_info,
+            num_feature_info=self.data_module.num_feature_info,
+            lr=lr,
+            lr_patience=lr_patience,
+            lr_factor=factor,
+            weight_decay=weight_decay,
+        )
+
+        early_stop_callback = EarlyStopping(
+            monitor=monitor, min_delta=0.00, patience=patience, verbose=False, mode=mode
+        )
+
+        checkpoint_callback = ModelCheckpoint(
+            monitor="val_loss",  # Adjust according to your validation metric
+            mode="min",
+            save_top_k=1,
+            dirpath=checkpoint_path,  # Specify the directory to save checkpoints
+            filename="best_model",
+        )
+
+        # Initialize the trainer and train the model
+        trainer = pl.Trainer(
+            max_epochs=max_epochs,
+            callbacks=[early_stop_callback, checkpoint_callback],
+            **trainer_kwargs,
+        )
+        trainer.fit(self.model, self.data_module)
+
+        best_model_path = checkpoint_callback.best_model_path
+        if best_model_path:
+            checkpoint = torch.load(best_model_path, weights_only=False)
+            self.model.load_state_dict(checkpoint["state_dict"])
+
+        return self
+
+    def predict(self, X):
+        output = self._predict(X)["output"]
+        if output.shape[1] == 1:
+            probabilities = torch.sigmoid(output)
+            return (probabilities > 0.5).long().squeeze().cpu().numpy()
+        probabilities = torch.softmax(output, dim=1)
+        return torch.argmax(probabilities, dim=1).cpu().numpy()
+
+    def predict_feature_vals(self, X):
+        return self._predict(X)
+
+    def _predict(self, X):
+        """
+        Run inference and return the raw model output dictionary.
+
+        Parameters
+        ----------
+        X : DataFrame or array-like, shape (n_samples, n_features)
+            The input samples for which to run inference.
+
+        Returns
+        -------
+        predictions : dict
+            Dictionary containing model outputs keyed by feature name and an
+            ``"output"`` key with the raw logits tensor.
+        """
+        if self.model is None or self.data_module is None:
+            raise ValueError("The model or data module has not been fitted yet.")
+
+        cat_tensor_dict, num_tensor_dict = self.data_module.preprocess_test_data(X)
+
+        device = next(self.model.parameters()).device
+        cat_tensor_dict = {
+            key: tensor.to(device) for key, tensor in cat_tensor_dict.items()
+        }
+        num_tensor_dict = {
+            key: tensor.to(device) for key, tensor in num_tensor_dict.items()
+        }
+
+        self.model.eval()
+
+        with torch.no_grad():
+            return self.model(num_features=num_tensor_dict, cat_features=cat_tensor_dict)
+
+    def predict_proba(self, X):
+        """
+        Predict class probabilities for the given input samples.
+
+        Parameters
+        ----------
+        X : array-like or pd.DataFrame of shape (n_samples, n_features)
+            The input samples for which to predict class probabilities.
+
+
+        Notes
+        -----
+        The method preprocesses the input data using the same preprocessor used during training,
+        sets the model to evaluation mode, and then performs inference to predict the class probabilities.
+        Softmax is applied to the logits to obtain probabilities, which are then converted from a PyTorch tensor
+        to a NumPy array before being returned.
+
+
+        Examples
+        --------
+        >>> from sklearn.metrics import accuracy_score, precision_score, f1_score, roc_auc_score
+        >>> # Define the metrics you want to evaluate
+        >>> metrics = {
+        ...     'Accuracy': (accuracy_score, False),
+        ...     'Precision': (precision_score, False),
+        ...     'F1 Score': (f1_score, False),
+        ...     'AUC Score': (roc_auc_score, True)
+        ... }
+        >>> # Assuming 'X_test' and 'y_test' are your test dataset and labels
+        >>> # Evaluate using the specified metrics
+        >>> results = classifier.evaluate(X_test, y_test, metrics=metrics)
+
+
+        Returns
+        -------
+        probabilities : ndarray of shape (n_samples, n_classes)
+            Predicted class probabilities for each input sample.
+
+        """
+        output = self._predict(X)["output"]
+        if output.shape[1] == 1:
+            p1 = torch.sigmoid(output)
+            probabilities = torch.cat([1.0 - p1, p1], dim=1)
+        else:
+            probabilities = torch.softmax(output, dim=1)
+        return probabilities.cpu().numpy()
+
+    def evaluate(self, X, y_true, metrics=None):
+        """
+        Evaluate the model on the given data using specified metrics.
+
+        Parameters
+        ----------
+        X : array-like or pd.DataFrame of shape (n_samples, n_features)
+            The input samples to predict.
+        y_true : array-like of shape (n_samples,)
+            The true class labels against which to evaluate the predictions.
+        metrics : dict
+            A dictionary where keys are metric names and values are tuples containing the metric function
+            and a boolean indicating whether the metric requires probability scores (True) or class labels (False).
+
+
+        Returns
+        -------
+        scores : dict
+            A dictionary with metric names as keys and their corresponding scores as values.
+
+
+        Notes
+        -----
+        This method uses either the `predict` or `predict_proba` method depending on the metric requirements.
+        """
+        # Ensure input is in the correct format
+        if metrics is None:
+            metrics = {"Accuracy": (accuracy_score, False)}
+
+        if not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(X)
+
+        # Initialize dictionary to store results
+        scores = {}
+
+        # Generate class probabilities if any metric requires them
+        if any(use_proba for _, use_proba in metrics.values()):
+            probabilities = self.predict_proba(X)
+
+        # Generate class labels if any metric requires them
+        if any(not use_proba for _, use_proba in metrics.values()):
+            predictions = self.predict(X)
+
+        # Compute each metric
+        for metric_name, (metric_func, use_proba) in metrics.items():
+            if use_proba:
+                try:
+                    scores[metric_name] = metric_func(y_true, probabilities)
+                except ValueError:
+                    # Some binary metrics (e.g. roc_auc_score) expect p(class=1)
+                    if probabilities.ndim == 2 and probabilities.shape[1] == 2:
+                        scores[metric_name] = metric_func(y_true, probabilities[:, 1])
+                    else:
+                        raise
+            else:
+                scores[metric_name] = metric_func(y_true, predictions)
+
+        return scores
+
+    def _plot_single_feature_effects(
+        self, x_plot, predictions, y_true, ax, feature_name=None, num_bins=30
+    ):
+        """
+        Plot the effect of a single feature for classification, with separate lines for each class.
+
+        Parameters
+        ----------
+        x_plot : np.ndarray
+            The feature values for plotting.
+        predictions : np.ndarray
+            The predicted values (shape (n, k) for multi-class).
+        y_true : np.ndarray
+            The true target values (for scatter plot).
+        ax : matplotlib.axes.Axes
+            The axes on which to plot.
+        feature_name : str, optional
+            The name of the feature for labels.
+        num_bins : int, optional
+            Number of bins for density shading, by default 30.
+        """
+        n_classes = predictions.shape[1] if predictions.ndim > 1 else 1
+        y_range = (y_true.min() - 1, y_true.max() + 1)
+
+        plot_density_shading(ax, x_plot, y_range, num_bins)
+
+        # Plot shape functions for each class
+        for i in range(n_classes):
+            contribs = predictions[:, i] if predictions.ndim > 1 else predictions
+            ax.plot(x_plot, contribs, label=f"Class {i + 1}")
+
+        y_true_centered = y_true - np.mean(y_true)
+        ax.scatter(
+            x_plot, y_true_centered, color="gray", alpha=0.3, s=2, label="True Values"
+        )
+
+        ax.set_title(
+            f"Shape Function: {feature_name}" if feature_name else "Shape Function"
+        )
+        ax.set_xlabel(feature_name or "Feature")
+        ax.set_ylabel("Contribution")
+        ax.legend()
+
+    def _plot_interaction_effects(
+        self,
+        interaction_name,
+        interaction_preds,
+        X_train_scaled=None,
+        num_bins=30,
+    ):
+        """
+        Plot the interaction effect between two features as a heatmap.
+
+        Parameters
+        ----------
+        interaction_name : str
+            The name of the interaction in "feature1:feature2" format.
+        interaction_preds : np.ndarray or torch.Tensor
+            Predicted interaction contributions from the model, shape (n_samples,) or
+            (n_samples, n_classes).
+        X_train_scaled : pd.DataFrame, optional
+            Input data used to extract raw feature values for axis labels.
+        num_bins : int, optional
+            Number of bins for the heatmap grid, by default 30.
+        """
+        feature1, feature2 = interaction_name.split(":")
+
+        if hasattr(interaction_preds, "detach"):
+            interaction_preds = interaction_preds.detach().cpu().numpy()
+        else:
+            interaction_preds = np.asarray(interaction_preds)
+        if interaction_preds.ndim == 1:
+            interaction_preds = interaction_preds[:, np.newaxis]
+        n_classes = interaction_preds.shape[1]
+
+        x1_vals = (
+            X_train_scaled[feature1].values
+            if X_train_scaled is not None
+            else np.arange(len(interaction_preds))
+        )
+        x2_vals = (
+            X_train_scaled[feature2].values
+            if X_train_scaled is not None
+            else np.arange(len(interaction_preds))
+        )
+
+        fig, axes = create_subplot_grid(n_classes)
+
+        x1_bins = np.linspace(x1_vals.min(), x1_vals.max(), num_bins)
+        x2_bins = np.linspace(x2_vals.min(), x2_vals.max(), num_bins)
+        x1_bin_idx = np.clip(np.digitize(x1_vals, x1_bins) - 1, 0, num_bins - 2)
+        x2_bin_idx = np.clip(np.digitize(x2_vals, x2_bins) - 1, 0, num_bins - 2)
+
+        for class_idx, ax in enumerate(axes[:n_classes]):
+            contribs = interaction_preds[:, class_idx]
+
+            grid_sum = np.zeros((num_bins - 1, num_bins - 1))
+            grid_count = np.zeros((num_bins - 1, num_bins - 1), dtype=int)
+            np.add.at(grid_sum, (x1_bin_idx, x2_bin_idx), contribs)
+            np.add.at(grid_count, (x1_bin_idx, x2_bin_idx), 1)
+            grid = np.where(grid_count > 0, grid_sum / np.maximum(grid_count, 1), np.nan)
+
+            im = ax.imshow(
+                grid.T,
+                origin="lower",
+                aspect="auto",
+                extent=[x1_bins[0], x1_bins[-1], x2_bins[0], x2_bins[-1]],
+                cmap="RdBu_r",
+            )
+            plt.colorbar(im, ax=ax, label="Contribution")
+            title = f"Interaction: {feature1} × {feature2}"
+            if n_classes > 1:
+                title += f" (Class {class_idx + 1})"
+            ax.set_title(title)
+            ax.set_xlabel(feature1)
+            ax.set_ylabel(feature2)
+
+        for ax in axes[n_classes:]:
+            ax.set_visible(False)
+
+        plt.tight_layout()
+        plt.show()
+
+    def plot(self, X, y_true, feature_name=None, plot_interactions=False):
+        """
+        Plot feature effects in a unified grid layout.
+
+        Parameters
+        ----------
+        X : pd.DataFrame or np.ndarray
+            Input data for generating predictions.
+        y_true : np.ndarray
+            True target values for comparison.
+        feature_name : str, optional
+            Specific feature to plot. If None, plots all numerical features.
+        plot_interactions : bool, optional
+            Whether to also plot pairwise feature interactions, by default False.
+        """
+        X_prepared, num_feature_names = prepare_plot_data(
+            X, self.data_module.num_feature_info, self.data_module.cat_feature_info
+        )
+
+        if feature_name is not None and feature_name not in num_feature_names:
+            raise ValueError(
+                f"Feature '{feature_name}' not found. Available: {num_feature_names}"
+            )
+
+        features_to_plot = [feature_name] if feature_name else num_feature_names
+        predictions = self._predict(X_prepared)
+
+        # Filter to features with predictions
+        features_to_plot = [f for f in features_to_plot if f in predictions]
+        if not features_to_plot:
+            raise ValueError("No features found with predictions to plot.")
+
+        # Create grid and plot
+        fig, axes = create_subplot_grid(len(features_to_plot))
+
+        for ax, fname in zip(axes, features_to_plot):
+            self._plot_single_feature_effects(
+                X_prepared[fname].values,
+                predictions[fname],
+                y_true,
+                ax,
+                feature_name=fname,
+            )
+
+        # Hide unused subplots
+        for ax in axes[len(features_to_plot) :]:
+            ax.set_visible(False)
+
+        plt.tight_layout()
+        plt.show()
+
+        # Plot interactions if requested
+        if plot_interactions:
+            for interaction_name in predictions.keys():
+                if ":" in interaction_name:
+                    self._plot_interaction_effects(
+                        interaction_name,
+                        predictions[interaction_name],
+                        X_train_scaled=X_prepared,
+                    )
+
+# --- End of nampy/models/sklearn_classifier.py ---
+
+# --- Start of nampy/models/sklearn_lss.py ---
+#sklearn_lss.py
+import warnings
+
+import lightning as pl
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import properscoring as ps
+import torch
+from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
+from sklearn.base import BaseEstimator
+from sklearn.metrics import accuracy_score, mean_squared_error
+
+from pretab.preprocessor import Preprocessor
+
+from ..basemodels.lightning_wrapper import TaskModel
+from ..data_utils.datamodule import NAMpyDataModule
+from ..utils.distributional_metrics import (
+    beta_brier_score,
+    dirichlet_error,
+    gamma_deviance,
+    inverse_gamma_loss,
+    negative_binomial_deviance,
+    poisson_deviance,
+    student_t_loss,
+)
+from ..utils.distributions import (
+    BetaDistribution,
+    CategoricalDistribution,
+    DirichletDistribution,
+    GammaDistribution,
+    HurdleNegativeBinomialDistribution,
+    HurdlePoissonDistribution,
+    InverseGammaDistribution,
+    LogLogisticDistribution,
+    LogNormalDistribution,
+    MultivariateNormalDiagDistribution,
+    NegativeBinomialDistribution,
+    NormalDistribution,
+    OrdinalCumulativeLogitDistribution,
+    PoissonDistribution,
+    Quantile,
+    RobustNormalDistribution,
+    StudentTDistribution,
+    TweedieDistribution,
+    WeibullDistribution,
+    ZeroInflatedNegativeBinomialDistribution,
+    ZeroInflatedPoissonDistribution,
+)
+from ..utils.plotting import (
+    create_subplot_grid,
+    plot_density_shading,
+    prepare_plot_data,
+)
+
+
+class SklearnBaseLSS(BaseEstimator):
+    def __init__(self, model, config, **kwargs):
+        preprocessor_arg_names = [
+            "n_bins",
+            "numerical_preprocessing",
+            "categorical_preprocessing",
+            "use_decision_tree_bins",
+            "binning_strategy",
+            "task",
+            "cat_cutoff",
+            "treat_all_integers_as_numerical",
+            "degree",
+            "n_knots",
+            "scaling_strategy",
+            "feature_preprocessing",
+        ]
+
+        self.config_kwargs = {
+            k: v for k, v in kwargs.items() if k not in preprocessor_arg_names
+        }
+        self.config = config(**self.config_kwargs)
+
+        preprocessor_kwargs = {
+            k: v for k, v in kwargs.items() if k in preprocessor_arg_names
+        }
+        if preprocessor_kwargs.get("categorical_preprocessing") in (
+            "one_hot",
+            "one-hot",
+        ):
+            preprocessor_kwargs["categorical_preprocessing"] = "one-hot"
+        if preprocessor_kwargs.get("numerical_preprocessing") == "normalization":
+            preprocessor_kwargs["numerical_preprocessing"] = "minmax"
+
+        self.preprocessor = Preprocessor(**preprocessor_kwargs)
+        self.model = None
+
+        # Raise a warning if task is set to 'classification'
+        if preprocessor_kwargs.get("task") == "classification":
+            warnings.warn(
+                "The task is set to 'classification'. Be aware of your preferred distribution, that this might lead to unsatisfactory results.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+        self.base_model = model
+
+    def get_params(self, deep=True):
+        """
+        Get parameters for this estimator. Overrides the BaseEstimator method.
+
+        Parameters
+        ----------
+        deep : bool, default=True
+            If True, returns the parameters for this estimator and contained sub-objects that are estimators.
+
+        Returns
+        -------
+        params : dict
+            Parameter names mapped to their values.
+        """
+        params = dict(self.config_kwargs)  # copy to avoid mutating estimator state
+
+        # If deep=True, include parameters from nested components like preprocessor
+        if deep:
+            # Assuming Preprocessor has a get_params method
+            preprocessor_params = {
+                "preprocessor__" + key: value
+                for key, value in self.preprocessor.get_params().items()
+            }
+            params.update(preprocessor_params)
+
+        return params
+
+    def set_params(self, **parameters):
+        """
+        Set the parameters of this estimator. Overrides the BaseEstimator method.
+
+        Parameters
+        ----------
+        **parameters : dict
+            Estimator parameters to be set.
+
+        Returns
+        -------
+        self : object
+            The instance with updated parameters.
+        """
+        config_updates = {}
+        preprocessor_params = {}
+
+        for key, value in parameters.items():
+            if key.startswith("preprocessor__"):
+                preprocessor_params[key.split("__", 1)[1]] = value
+            elif key in self.config_kwargs:
+                config_updates[key] = value
+            else:
+                raise ValueError(
+                    f"Invalid parameter '{key}' for {self.__class__.__name__}. "
+                    f"Valid parameters: {sorted(self.config_kwargs.keys())}."
+                )
+
+        self.config_kwargs.update(config_updates)
+        for key, value in config_updates.items():
+            setattr(self.config, key, value)
+
+        if preprocessor_params:
+            self.preprocessor.set_params(**preprocessor_params)
+
+        return self
+
+    def fit(
+        self,
+        X,
+        y,
+        family,
+        val_size: float = 0.2,
+        X_val=None,
+        y_val=None,
+        max_epochs: int = 100,
+        random_state: int = 101,
+        batch_size: int = 128,
+        shuffle: bool = True,
+        patience: int = 15,
+        monitor: str = "val_loss",
+        mode: str = "min",
+        lr: float = 1e-4,
+        lr_patience: int = 10,
+        factor: float = 0.1,
+        weight_decay: float = 1e-06,
+        checkpoint_path="model_checkpoints",
+        distributional_kwargs=None,
+        dataloader_kwargs=None,
+        **trainer_kwargs,
+    ):
+        """
+        Trains the distributional regression model using the provided training data. Optionally, a separate validation set can be used.
+
+        Parameters
+        ----------
+        X : DataFrame or array-like, shape (n_samples, n_features)
+            The training input samples.
+        y : array-like, shape (n_samples,) or (n_samples, n_targets)
+            The target values (real numbers).
+        family : str
+            The name of the distribution family to use for the loss function. Examples include 'normal' for regression tasks.
+        val_size : float, default=0.2
+            The proportion of the dataset to include in the validation split if `X_val` is None. Ignored if `X_val` is provided.
+        X_val : DataFrame or array-like, shape (n_samples, n_features), optional
+            The validation input samples. If provided, `X` and `y` are not split and this data is used for validation.
+        y_val : array-like, shape (n_samples,) or (n_samples, n_targets), optional
+            The validation target values. Required if `X_val` is provided.
+        max_epochs : int, default=100
+            Maximum number of epochs for training.
+        random_state : int, default=101
+            Controls the shuffling applied to the data before applying the split.
+        batch_size : int, default=128
+            Number of samples per gradient update.
+        shuffle : bool, default=True
+            Whether to shuffle the training data before each epoch.
+        patience : int, default=15
+            Number of epochs with no improvement on the validation loss to wait before early stopping.
+        monitor : str, default="val_loss"
+            The metric to monitor for early stopping.
+        mode : str, default="min"
+            Whether the monitored metric should be minimized (`min`) or maximized (`max`).
+        lr : float, default=1e-4
+            Learning rate for the optimizer.
+        lr_patience : int, default=10
+            Number of epochs with no improvement on the validation loss to wait before reducing the learning rate.
+        factor : float, default=0.1
+            Factor by which the learning rate will be reduced.
+        weight_decay : float, default=1e-06
+            Weight decay (L2 penalty) coefficient.
+        distributional_kwargs : dict, default=None
+            Any arguments that are specific for a certain distribution.
+        checkpoint_path : str, default="model_checkpoints"
+            Path where the checkpoints are being saved.
+        dataloader_kwargs: dict, default={}
+            The kwargs for the pytorch dataloader class.
+        **trainer_kwargs : Additional keyword arguments for PyTorch Lightning's Trainer class.
+
+
+        Returns
+        -------
+        self : object
+            The fitted model.
+        """
+        distribution_classes = {
+            "normal": NormalDistribution,
+            "poisson": PoissonDistribution,
+            "gamma": GammaDistribution,
+            "beta": BetaDistribution,
+            "dirichlet": DirichletDistribution,
+            "studentt": StudentTDistribution,
+            "negativebinom": NegativeBinomialDistribution,
+            "inversegamma": InverseGammaDistribution,
+            "categorical": CategoricalDistribution,
+            "quantile": Quantile,
+            "robustnormal": RobustNormalDistribution,
+            "lognormal": LogNormalDistribution,
+            "weibull": WeibullDistribution,
+            "loglogistic": LogLogisticDistribution,
+            "zip": ZeroInflatedPoissonDistribution,
+            "zinb": ZeroInflatedNegativeBinomialDistribution,
+            "hurdlepoisson": HurdlePoissonDistribution,
+            "hurdlenegativebinom": HurdleNegativeBinomialDistribution,
+            "tweedie": TweedieDistribution,
+            "ordinal": OrdinalCumulativeLogitDistribution,
+            "mvnormdiag": MultivariateNormalDiagDistribution,
+        }
+
+        if distributional_kwargs is None:
+            distributional_kwargs = {}
+
+        # Infer distributional dimensions for families that require it, when not provided.
+        fam = str(family).lower()
+
+        if fam == "dirichlet":
+            y_arr = np.asarray(y)
+            if "n_dim" not in distributional_kwargs:
+                if y_arr.ndim != 2 or y_arr.shape[1] < 2:
+                    raise ValueError(
+                        "Dirichlet family requires y with shape (n_samples, K), K>=2."
+                    )
+                distributional_kwargs["n_dim"] = int(y_arr.shape[1])
+
+        if fam == "categorical":
+            y_arr = np.asarray(y)
+            if "num_classes" not in distributional_kwargs:
+                if y_arr.ndim == 2 and y_arr.shape[1] > 1:
+                    distributional_kwargs["num_classes"] = int(y_arr.shape[1])
+                else:
+                    distributional_kwargs["num_classes"] = int(
+                        len(np.unique(y_arr.reshape(-1)))
+                    )
+
+        if dataloader_kwargs is None:
+            dataloader_kwargs = {}
+
+        if fam in distribution_classes:
+            self.family = distribution_classes[fam](**distributional_kwargs)
+        else:
+            raise ValueError("Unsupported family: {}".format(family))
+
+        if not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(X)
+        if isinstance(y, pd.Series):
+            y = y.values
+        if X_val is not None:
+            if not isinstance(X_val, pd.DataFrame):
+                X_val = pd.DataFrame(X_val)
+            if isinstance(y_val, pd.Series):
+                y_val = y_val.values
+
+        self.data_module = NAMpyDataModule(
+            preprocessor=self.preprocessor,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            X_val=X_val,
+            y_val=y_val,
+            val_size=val_size,
+            random_state=random_state,
+            regression=True,
+            **dataloader_kwargs,
+        )
+
+        self.data_module.setup_data(
+            X, y, X_val=X_val, y_val=y_val, val_size=val_size, random_state=random_state
+        )
+
+        self.model = TaskModel(
+            model_class=self.base_model,
+            num_classes=self.family.param_count,
+            family=self.family,
+            config=self.config,
+            cat_feature_info=self.data_module.cat_feature_info,
+            num_feature_info=self.data_module.num_feature_info,
+            lr=lr,
+            lr_patience=lr_patience,
+            lr_factor=factor,
+            weight_decay=weight_decay,
+            lss=True,
+        )
+
+        early_stop_callback = EarlyStopping(
+            monitor=monitor, min_delta=0.00, patience=patience, verbose=False, mode=mode
+        )
+
+        checkpoint_callback = ModelCheckpoint(
+            monitor="val_loss",  # Adjust according to your validation metric
+            mode="min",
+            save_top_k=1,
+            dirpath=checkpoint_path,  # Specify the directory to save checkpoints
+            filename="best_model",
+        )
+
+        # Initialize the trainer and train the model
+        trainer = pl.Trainer(
+            max_epochs=max_epochs,
+            callbacks=[early_stop_callback, checkpoint_callback],
+            **trainer_kwargs,
+        )
+        trainer.fit(self.model, self.data_module)
+
+        best_model_path = checkpoint_callback.best_model_path
+        if best_model_path:
+            checkpoint = torch.load(best_model_path, weights_only=False)
+            self.model.load_state_dict(checkpoint["state_dict"])
+
+        return self
+
+    def predict(self, X, raw=False):
+        predictions = self._predict(X)["output"]
+
+        if not raw:
+            return self.model.family(predictions).cpu().numpy()
+
+        # Convert predictions to NumPy array and return
+        else:
+            return predictions.cpu().numpy()
+
+    def predict_feature_vals(self, X):
+        return self._predict(X)
+
+    def _predict(self, X):
+        """
+        Predicts target values for the given input samples.
+
+        Parameters
+        ----------
+        X : DataFrame or array-like, shape (n_samples, n_features)
+            The input samples for which to predict target values.
+
+        Returns
+        -------
+        predictions : ndarray, shape (n_samples,) or (n_samples, n_outputs)
+            The predicted target values.
+        """
+        # Ensure model and data module are initialized
+        if self.model is None or self.data_module is None:
+            raise ValueError("The model or data module has not been fitted yet.")
+
+        # Preprocess the data using the data module
+        cat_tensor_dict, num_tensor_dict = self.data_module.preprocess_test_data(X)
+
+        # Move tensors to appropriate device
+        device = next(self.model.parameters()).device
+        cat_tensor_dict = {
+            key: tensor.to(device) for key, tensor in cat_tensor_dict.items()
+        }
+        num_tensor_dict = {
+            key: tensor.to(device) for key, tensor in num_tensor_dict.items()
+        }
+
+        # Set model to evaluation mode
+        self.model.eval()
+
+        # Perform inference
+        with torch.no_grad():
+            predictions = self.model(
+                num_features=num_tensor_dict, cat_features=cat_tensor_dict
+            )
+
+        return predictions
+
+    def evaluate(self, X, y_true, metrics=None, distribution_family=None):
+        """
+        Evaluate the fitted distributional model.
+
+        This implementation is consistent with the production-ready distribution
+        classes and metrics:
+        - NLL is computed from RAW network outputs via family.compute_loss(...)
+        - all other metrics are computed from TRANSFORMED distribution parameters
+            via family(raw_predictions)
+
+        Parameters
+        ----------
+        X : array-like or pd.DataFrame of shape (n_samples, n_features)
+            Input samples.
+        y_true : array-like
+            True targets. Can be shape (n,), (n,1), or (n,K) for multivariate families
+            (e.g. Dirichlet).
+        metrics : dict, optional
+            Mapping metric_name -> callable(y_true, transformed_predictions).
+            If None, uses `get_default_metrics(...)`.
+        distribution_family : str, optional
+            Family name override. If None, inferred from `self.family`.
+
+        Returns
+        -------
+        scores : dict
+            Metric values, including "NLL" when a family is available.
+        """
+        # Basic fitted check
+        if self.model is None or self.data_module is None:
+            raise ValueError("The model or data module has not been fitted yet.")
+        if getattr(self, "family", None) is None:
+            raise ValueError("No distribution family found. Fit the model with a valid family first.")
+
+        # Infer family name if not provided
+        if distribution_family is None:
+            fam_obj = self.family
+            cls_name = fam_obj.__class__.__name__.lower()
+            # Normalize class names to your public family keys
+            family_map = {
+                "normaldistribution": "normal",
+                "poissondistribution": "poisson",
+                "gammadistribution": "gamma",
+                "betadistribution": "beta",
+                "dirichletdistribution": "dirichlet",
+                "studenttdistribution": "studentt",
+                "negativebinomialdistribution": "negativebinom",
+                "inversegammadistribution": "inversegamma",
+                "categoricaldistribution": "categorical",
+                "quantile": "quantile",
+                "robustnormaldistribution": "robustnormal",
+            }
+            distribution_family = family_map.get(cls_name, cls_name.replace("distribution", ""))
+
+        distribution_family = str(distribution_family).lower()
+
+        # Default metrics if none provided
+        if metrics is None:
+            metrics = self.get_default_metrics(distribution_family)
+
+        # ------------------------------------------------------------------
+        # Single forward pass for raw predictions, then transform once
+        # ------------------------------------------------------------------
+        pred_dict = self._predict(X)  # returns dict of torch tensors
+        raw_pred = pred_dict["output"]  # torch.Tensor on model device
+
+        # Compute NLL from raw outputs
+        scores = {}
+        fam_for_loss = self.model.family if hasattr(self.model, "family") and self.model.family is not None else self.family
+
+        with torch.no_grad():
+            target_dtype = getattr(fam_for_loss, "target_dtype", torch.float32)
+            y_tensor = torch.as_tensor(y_true, dtype=target_dtype, device=raw_pred.device)
+
+            # Keep multi-output LSS targets intact; only squeeze [N,1] -> [N]
+            if y_tensor.ndim == 2 and y_tensor.shape[1] == 1:
+                y_for_loss = y_tensor[:, 0]
+            else:
+                y_for_loss = y_tensor
+
+            nll = fam_for_loss.compute_loss(raw_pred, y_for_loss)
+            scores["NLL"] = float(nll.detach().cpu().item())
+
+            # Transformed predictions for all other metrics
+            transformed_pred = fam_for_loss(raw_pred)
+
+        predictions_transformed = transformed_pred.detach().cpu().numpy()
+
+        # ------------------------------------------------------------------
+        # Compute user/default metrics on transformed predictions
+        # ------------------------------------------------------------------
+        for metric_name, metric_func in metrics.items():
+            scores[metric_name] = float(metric_func(y_true, predictions_transformed))
+
+        return scores
+
+    def _infer_distributional_kwargs(self, family, y, distributional_kwargs=None):
+        """
+        Infer required constructor kwargs for families whose output dimension depends
+        on the target shape / label support.
+
+        Supported:
+        - dirichlet -> n_dim
+        - categorical -> num_classes
+        - ordinal -> num_classes
+        - mvnormdiag -> n_dim
+        """
+        kwargs = dict(distributional_kwargs or {})
+        fam = self._normalize_family_name(family)
+        y_arr = np.asarray(y)
+
+        if fam == "dirichlet":
+            if "n_dim" not in kwargs:
+                if y_arr.ndim != 2 or y_arr.shape[1] < 2:
+                    raise ValueError(
+                        "Dirichlet family requires y with shape (n_samples, K), K>=2."
+                    )
+                kwargs["n_dim"] = int(y_arr.shape[1])
+
+        elif fam == "categorical":
+            if "num_classes" not in kwargs:
+                if y_arr.ndim == 2 and y_arr.shape[1] > 1:
+                    # one-hot / class-probability targets
+                    kwargs["num_classes"] = int(y_arr.shape[1])
+                else:
+                    y_flat = y_arr.reshape(-1)
+                    if not np.allclose(y_flat, np.round(y_flat)):
+                        raise ValueError(
+                            "Categorical family requires integer class labels or "
+                            "one-hot encoded targets."
+                        )
+                    unique = np.unique(y_flat.astype(int))
+                    if unique.size < 2:
+                        raise ValueError(
+                            "Categorical family requires at least 2 classes."
+                        )
+                    if not np.array_equal(unique, np.arange(unique.size)):
+                        raise ValueError(
+                            "Categorical family with label targets requires zero-based, "
+                            "contiguous labels {0, ..., K-1}. "
+                            f"Got labels {unique.tolist()}."
+                        )
+                    kwargs["num_classes"] = int(unique.size)
+
+        elif fam == "ordinal":
+            if "num_classes" not in kwargs:
+                if y_arr.ndim == 2 and y_arr.shape[1] > 1:
+                    # one-hot ordinal targets
+                    kwargs["num_classes"] = int(y_arr.shape[1])
+                else:
+                    y_flat = y_arr.reshape(-1)
+                    if not np.allclose(y_flat, np.round(y_flat)):
+                        raise ValueError(
+                            "Ordinal family requires integer ordered labels or "
+                            "one-hot encoded targets."
+                        )
+                    unique = np.unique(y_flat.astype(int))
+                    if unique.size < 2:
+                        raise ValueError(
+                            "Ordinal family requires at least 2 ordered classes."
+                        )
+                    if not np.array_equal(unique, np.arange(unique.size)):
+                        raise ValueError(
+                            "Ordinal family with label targets requires zero-based, "
+                            "contiguous labels {0, ..., K-1}. "
+                            f"Got labels {unique.tolist()}."
+                        )
+                    kwargs["num_classes"] = int(unique.size)
+
+        elif fam == "mvnormdiag":
+            if "n_dim" not in kwargs and "dim" not in kwargs:
+                if y_arr.ndim != 2 or y_arr.shape[1] < 2:
+                    raise ValueError(
+                        "mvnormdiag family requires y with shape (n_samples, K), K>=2."
+                    )
+                kwargs["n_dim"] = int(y_arr.shape[1])
+
+        return kwargs
+
+    def get_default_metrics(self, distribution_family):
+        """
+        Provide sensible default metrics for each supported distribution family.
+
+        Metrics are computed from TRANSFORMED distribution parameters returned by:
+            self.family(raw_predictions)
+
+        Expected transformed outputs by family
+        -------------------------------------
+        normal        -> [mean, scale]
+        robustnormal  -> [mean, scale]
+        poisson       -> [rate]
+        gamma         -> [shape, rate]
+        beta          -> [alpha, beta]
+        dirichlet     -> simplex mean/probabilities OR concentrations (metric handles both)
+        studentt      -> [df, loc, scale]
+        negativebinom -> [mean, dispersion]
+        inversegamma  -> [shape, scale]
+        categorical   -> class probabilities
+        quantile      -> quantile predictions (shape [n, Q])
+
+        Parameters
+        ----------
+        distribution_family : str
+            Family identifier.
+
+        Returns
+        -------
+        metrics : dict
+            Mapping of metric_name -> callable(y_true, transformed_predictions)
+        """
+        family = str(distribution_family).lower()
+
+        def _y_1d(y):
+            y = np.asarray(y)
+            if y.ndim == 2 and y.shape[1] == 1:
+                y = y[:, 0]
+            return y.reshape(-1) if y.ndim == 1 else y
+
+        def _categorical_labels(y):
+            y = np.asarray(y)
+            # Accept labels [N], [N,1], or one-hot/probs [N,K]
+            if y.ndim == 2 and y.shape[1] == 1:
+                return y[:, 0].astype(int)
+            if y.ndim == 2:
+                return np.argmax(y, axis=1).astype(int)
+            return y.reshape(-1).astype(int)
+
+        def _normal_crps(y, pred):
+            # pred = [mean, scale]
+            y = _y_1d(y).astype(float)
+            pred = np.asarray(pred, dtype=float)
+            mu = pred[:, 0]
+            scale = np.clip(pred[:, 1], 1e-9, None)  # std, not variance
+            return float(
+                np.mean(
+                    [ps.crps_gaussian(y[i], mu=mu[i], sig=scale[i]) for i in range(len(y))]
+                )
+            )
+
+        def _normal_mse(y, pred):
+            y = _y_1d(y).astype(float)
+            pred = np.asarray(pred, dtype=float)
+            return float(mean_squared_error(y, pred[:, 0]))
+
+        def _normal_mae(y, pred):
+            y = _y_1d(y).astype(float)
+            pred = np.asarray(pred, dtype=float)
+            return float(np.mean(np.abs(y - pred[:, 0])))
+
+        def _quantile_pinball(y, pred):
+            # pred shape [N, Q], uses family.quantiles if available
+            y = _y_1d(y).astype(float)
+            pred = np.asarray(pred, dtype=float)
+            if pred.ndim != 2:
+                raise ValueError("Quantile predictions must be 2D (n_samples, n_quantiles).")
+
+            quantiles = getattr(self.family, "quantiles", None)
+            if quantiles is None:
+                raise ValueError(
+                    "Quantile default metric requires `self.family.quantiles`."
+                )
+            q = np.asarray(quantiles, dtype=float)
+            if pred.shape[1] != len(q):
+                raise ValueError(
+                    f"Predictions have {pred.shape[1]} quantiles but family.quantiles has {len(q)} entries."
+                )
+
+            y2 = y[:, None]
+            e = y2 - pred
+            loss = np.maximum((q[None, :] - 1.0) * e, q[None, :] * e)
+            return float(np.mean(np.sum(loss, axis=1)))
+
+        def _quantile_median_mae(y, pred):
+            y = _y_1d(y).astype(float)
+            pred = np.asarray(pred, dtype=float)
+            quantiles = getattr(self.family, "quantiles", None)
+            if quantiles is None:
+                # fallback: use center column
+                median_pred = pred[:, pred.shape[1] // 2]
+                return float(np.mean(np.abs(y - median_pred)))
+
+            q = list(map(float, quantiles))
+            if 0.5 in q:
+                idx = q.index(0.5)
+            else:
+                idx = int(np.argmin(np.abs(np.asarray(q) - 0.5)))
+            return float(np.mean(np.abs(y - pred[:, idx])))
+
+        default_metrics = {
+            "normal": {
+                "MSE": _normal_mse,
+                "MAE": _normal_mae,
+                "CRPS": _normal_crps,
+            },
+            "robustnormal": {
+                "MSE": _normal_mse,
+                "MAE": _normal_mae,
+                "CRPS": _normal_crps,
+            },
+            "poisson": {
+                # poisson_deviance accepts [rate] or 1D mean/rate
+                "Poisson Deviance": poisson_deviance,
+            },
+            "gamma": {
+                # gamma_deviance accepts transformed [shape, rate] directly
+                "Gamma Deviance": gamma_deviance,
+            },
+            "beta": {
+                # beta_brier_score (compat name) now computes MSE on Beta mean if [alpha,beta]
+                "Beta Mean MSE": beta_brier_score,
+            },
+            "dirichlet": {
+                "Dirichlet Error": dirichlet_error,
+            },
+            "studentt": {
+                # student_t_loss expects transformed [df, loc, scale]
+                "Student-T NLL": student_t_loss,
+            },
+            "negativebinom": {
+                # negative_binomial_deviance accepts transformed [mean,dispersion] directly
+                "Negative Binomial Deviance": negative_binomial_deviance,
+            },
+            "inversegamma": {
+                # inverse_gamma_loss expects transformed [shape, rate]
+                "Inverse Gamma NLL": inverse_gamma_loss,
+            },
+            "categorical": {
+                "Accuracy": lambda y, p: float(
+                    accuracy_score(_categorical_labels(y), np.argmax(np.asarray(p), axis=1))
+                ),
+            },
+            "quantile": {
+                "Pinball Loss": _quantile_pinball,
+                "Median MAE": _quantile_median_mae,
+            },
+        }
+
+        return default_metrics.get(family, {})
+
+    def _plot_single_feature_effects(
+        self, x_plot, predictions, y_true, ax, feature_name=None, num_bins=30
+    ):
+        """
+        Plot the effect of a single feature for LSS regression, with separate lines for each parameter.
+
+        Parameters
+        ----------
+        x_plot : np.ndarray
+            The feature values for plotting.
+        predictions : np.ndarray
+            The predicted values (shape (n, k) for distributional parameters).
+        y_true : np.ndarray
+            The true target values (for scatter plot).
+        ax : matplotlib.axes.Axes
+            The axes on which to plot.
+        feature_name : str, optional
+            The name of the feature for labels.
+        num_bins : int, optional
+            Number of bins for density shading, by default 30.
+        """
+        n_params = predictions.shape[1] if predictions.ndim > 1 else 1
+
+        # Reduce multi-output targets (e.g. Dirichlet simplex) to a 1D signal for display
+        y_1d = y_true.mean(axis=1) if np.asarray(y_true).ndim > 1 else np.asarray(y_true)
+        y_range = (y_1d.min() - 1, y_1d.max() + 1)
+
+        plot_density_shading(ax, x_plot, y_range, num_bins)
+
+        # Plot shape functions for each distributional parameter
+        for i in range(n_params):
+            contribs = predictions[:, i] if predictions.ndim > 1 else predictions
+            label = (
+                self.family.param_names[i]
+                if hasattr(self, "family")
+                else f"Param {i + 1}"
+            )
+            ax.plot(x_plot, contribs, label=label)
+
+        y_true_centered = y_1d - np.mean(y_1d)
+        ax.scatter(
+            x_plot, y_true_centered, color="gray", alpha=0.3, s=2, label="True Values"
+        )
+
+        ax.set_title(
+            f"Shape Function: {feature_name}" if feature_name else "Shape Function"
+        )
+        ax.set_xlabel(feature_name or "Feature")
+        ax.set_ylabel("Contribution")
+        ax.legend()
+
+    def _plot_interaction_effects(
+        self,
+        interaction_name,
+        interaction_preds,
+        X_train_scaled=None,
+        num_bins=30,
+    ):
+        """
+        Plot the interaction effect between two features as a heatmap.
+
+        Parameters
+        ----------
+        interaction_name : str
+            The name of the interaction in "feature1:feature2" format.
+        interaction_preds : np.ndarray or torch.Tensor
+            Predicted interaction contributions from the model, shape (n_samples,) or
+            (n_samples, n_params).
+        X_train_scaled : pd.DataFrame, optional
+            Input data used to extract raw feature values for axis labels.
+        num_bins : int, optional
+            Number of bins for the heatmap grid, by default 30.
+        """
+        feature1, feature2 = interaction_name.split(":")
+
+        if hasattr(interaction_preds, "detach"):
+            interaction_preds = interaction_preds.detach().cpu().numpy()
+        else:
+            interaction_preds = np.asarray(interaction_preds)
+        if interaction_preds.ndim == 1:
+            interaction_preds = interaction_preds[:, np.newaxis]
+        n_params = interaction_preds.shape[1]
+
+        x1_vals = (
+            X_train_scaled[feature1].values
+            if X_train_scaled is not None
+            else np.arange(len(interaction_preds))
+        )
+        x2_vals = (
+            X_train_scaled[feature2].values
+            if X_train_scaled is not None
+            else np.arange(len(interaction_preds))
+        )
+
+        fig, axes = create_subplot_grid(n_params)
+
+        x1_bins = np.linspace(x1_vals.min(), x1_vals.max(), num_bins)
+        x2_bins = np.linspace(x2_vals.min(), x2_vals.max(), num_bins)
+        x1_bin_idx = np.clip(np.digitize(x1_vals, x1_bins) - 1, 0, num_bins - 2)
+        x2_bin_idx = np.clip(np.digitize(x2_vals, x2_bins) - 1, 0, num_bins - 2)
+
+        for param_idx, ax in enumerate(axes[:n_params]):
+            contribs = interaction_preds[:, param_idx]
+
+            grid_sum = np.zeros((num_bins - 1, num_bins - 1))
+            grid_count = np.zeros((num_bins - 1, num_bins - 1), dtype=int)
+            np.add.at(grid_sum, (x1_bin_idx, x2_bin_idx), contribs)
+            np.add.at(grid_count, (x1_bin_idx, x2_bin_idx), 1)
+            grid = np.where(grid_count > 0, grid_sum / np.maximum(grid_count, 1), np.nan)
+
+            im = ax.imshow(
+                grid.T,
+                origin="lower",
+                aspect="auto",
+                extent=[x1_bins[0], x1_bins[-1], x2_bins[0], x2_bins[-1]],
+                cmap="RdBu_r",
+            )
+            plt.colorbar(im, ax=ax, label="Contribution")
+            title = f"Interaction: {feature1} × {feature2}"
+            if n_params > 1:
+                param_label = (
+                    self.family.param_names[param_idx]
+                    if hasattr(self, "family") and hasattr(self.family, "param_names")
+                    else f"Param {param_idx + 1}"
+                )
+                title += f" ({param_label})"
+            ax.set_title(title)
+            ax.set_xlabel(feature1)
+            ax.set_ylabel(feature2)
+
+        for ax in axes[n_params:]:
+            ax.set_visible(False)
+
+        plt.tight_layout()
+        plt.show()
+
+    def plot(self, X, y_true, feature_name=None, plot_interactions=False):
+        """
+        Plot feature effects in a unified grid layout.
+
+        Parameters
+        ----------
+        X : pd.DataFrame or np.ndarray
+            Input data for generating predictions.
+        y_true : np.ndarray
+            True target values for comparison.
+        feature_name : str, optional
+            Specific feature to plot. If None, plots all numerical features.
+        plot_interactions : bool, optional
+            Whether to also plot pairwise feature interactions, by default False.
+        """
+        X_prepared, num_feature_names = prepare_plot_data(
+            X, self.data_module.num_feature_info, self.data_module.cat_feature_info
+        )
+
+        if feature_name is not None and feature_name not in num_feature_names:
+            raise ValueError(
+                f"Feature '{feature_name}' not found. Available: {num_feature_names}"
+            )
+
+        features_to_plot = [feature_name] if feature_name else num_feature_names
+        predictions = self._predict(X_prepared)
+
+        # Filter to features with predictions
+        features_to_plot = [f for f in features_to_plot if f in predictions]
+        if not features_to_plot:
+            raise ValueError("No features found with predictions to plot.")
+
+        # Create grid and plot
+        fig, axes = create_subplot_grid(len(features_to_plot))
+
+        for ax, fname in zip(axes, features_to_plot):
+            self._plot_single_feature_effects(
+                X_prepared[fname].values,
+                predictions[fname],
+                y_true,
+                ax,
+                feature_name=fname,
+            )
+
+        # Hide unused subplots
+        for ax in axes[len(features_to_plot) :]:
+            ax.set_visible(False)
+
+        plt.tight_layout()
+        plt.show()
+
+        # Plot interactions if requested
+        if plot_interactions:
+            for interaction_name in predictions.keys():
+                if ":" in interaction_name:
+                    self._plot_interaction_effects(
+                        interaction_name,
+                        predictions[interaction_name],
+                        X_train_scaled=X_prepared,
+                    )
+
+# --- End of nampy/models/sklearn_lss.py ---
+
+# --- Start of nampy/models/sklearn_regressor.py ---
+#sklearn_regressor.py
+import warnings
+
+import lightning as pl
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import torch
+from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
+from sklearn.base import BaseEstimator
+from sklearn.metrics import mean_squared_error
+
+from pretab.preprocessor import Preprocessor
+
+from ..basemodels.lightning_wrapper import TaskModel
+from ..data_utils.datamodule import NAMpyDataModule
+from ..utils.plotting import (
+    create_subplot_grid,
+    plot_density_shading,
+    prepare_plot_data,
+)
+
+
+class SklearnBaseRegressor(BaseEstimator):
+    def __init__(self, model, config, **kwargs):
+        preprocessor_arg_names = [
+            "n_bins",
+            "numerical_preprocessing",
+            "categorical_preprocessing",
+            "use_decision_tree_bins",
+            "binning_strategy",
+            "task",
+            "cat_cutoff",
+            "treat_all_integers_as_numerical",
+            "degree",
+            "n_knots",
+            "scaling_strategy",
+            "feature_preprocessing",
+        ]
+
+        self.config_kwargs = {
+            k: v for k, v in kwargs.items() if k not in preprocessor_arg_names
+        }
+        self.config = config(**self.config_kwargs)
+
+        preprocessor_kwargs = {
+            k: v for k, v in kwargs.items() if k in preprocessor_arg_names
+        }
+        if preprocessor_kwargs.get("categorical_preprocessing") in (
+            "one_hot",
+            "one-hot",
+        ):
+            preprocessor_kwargs["categorical_preprocessing"] = "one-hot"
+        if preprocessor_kwargs.get("numerical_preprocessing") == "normalization":
+            preprocessor_kwargs["numerical_preprocessing"] = "minmax"
+
+        self.preprocessor = Preprocessor(**preprocessor_kwargs)
+        self.model = None
+
+        # Raise a warning if task is set to 'classification'
+        if preprocessor_kwargs.get("task") == "classification":
+            warnings.warn(
+                "The task is set to 'classification'. The Regressor is designed for regression tasks.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+        self.base_model = model
+
+    def get_params(self, deep=True):
+        """
+        Get parameters for this estimator. Overrides the BaseEstimator method.
+
+        Parameters
+        ----------
+        deep : bool, default=True
+            If True, returns the parameters for this estimator and contained sub-objects that are estimators.
+
+        Returns
+        -------
+        params : dict
+            Parameter names mapped to their values.
+        """
+        params = dict(self.config_kwargs)  # copy to avoid mutating estimator state
+
+        # If deep=True, include parameters from nested components like preprocessor
+        if deep:
+            # Assuming Preprocessor has a get_params method
+            preprocessor_params = {
+                "preprocessor__" + key: value
+                for key, value in self.preprocessor.get_params().items()
+            }
+            params.update(preprocessor_params)
+
+        return params
+
+    def set_params(self, **parameters):
+        """
+        Set the parameters of this estimator. Overrides the BaseEstimator method.
+
+        Parameters
+        ----------
+        **parameters : dict
+            Estimator parameters to be set.
+
+        Returns
+        -------
+        self : object
+            The instance with updated parameters.
+        """
+        config_updates = {}
+        preprocessor_params = {}
+
+        for key, value in parameters.items():
+            if key.startswith("preprocessor__"):
+                preprocessor_params[key.split("__", 1)[1]] = value
+            elif key in self.config_kwargs:
+                config_updates[key] = value
+            else:
+                raise ValueError(
+                    f"Invalid parameter '{key}' for {self.__class__.__name__}. "
+                    f"Valid parameters: {sorted(self.config_kwargs.keys())}."
+                )
+
+        self.config_kwargs.update(config_updates)
+        for key, value in config_updates.items():
+            setattr(self.config, key, value)
+
+        if preprocessor_params:
+            self.preprocessor.set_params(**preprocessor_params)
+
+        return self
+
+    def fit(
+        self,
+        X,
+        y,
+        val_size: float = 0.2,
+        X_val=None,
+        y_val=None,
+        max_epochs: int = 100,
+        random_state: int = 101,
+        batch_size: int = 128,
+        shuffle: bool = True,
+        patience: int = 15,
+        monitor: str = "val_loss",
+        mode: str = "min",
+        lr: float = 1e-4,
+        lr_patience: int = 10,
+        factor: float = 0.1,
+        weight_decay: float = 1e-06,
+        checkpoint_path="model_checkpoints",
+        dataloader_kwargs=None,
+        **trainer_kwargs,
+    ):
+        """
+        Trains the regression model using the provided training data. Optionally, a separate validation set can be used.
+
+        Parameters
+        ----------
+        X : DataFrame or array-like, shape (n_samples, n_features)
+            The training input samples.
+        y : array-like, shape (n_samples,) or (n_samples, n_targets)
+            The target values (real numbers).
+        val_size : float, default=0.2
+            The proportion of the dataset to include in the validation split if `X_val` is None. Ignored if `X_val` is provided.
+        X_val : DataFrame or array-like, shape (n_samples, n_features), optional
+            The validation input samples. If provided, `X` and `y` are not split and this data is used for validation.
+        y_val : array-like, shape (n_samples,) or (n_samples, n_targets), optional
+            The validation target values. Required if `X_val` is provided.
+        max_epochs : int, default=100
+            Maximum number of epochs for training.
+        random_state : int, default=101
+            Controls the shuffling applied to the data before applying the split.
+        batch_size : int, default=128
+            Number of samples per gradient update.
+        shuffle : bool, default=True
+            Whether to shuffle the training data before each epoch.
+        patience : int, default=15
+            Number of epochs with no improvement on the validation loss to wait before early stopping.
+        monitor : str, default="val_loss"
+            The metric to monitor for early stopping.
+        mode : str, default="min"
+            Whether the monitored metric should be minimized (`min`) or maximized (`max`).
+        lr : float, default=1e-4
+            Learning rate for the optimizer.
+        lr_patience : int, default=10
+            Number of epochs with no improvement on the validation loss to wait before reducing the learning rate.
+        factor : float, default=0.1
+            Factor by which the learning rate will be reduced.
+        weight_decay : float, default=1e-06
+            Weight decay (L2 penalty) coefficient.
+        checkpoint_path : str, default="model_checkpoints"
+            Path where the checkpoints are being saved.
+        dataloader_kwargs: dict, default={}
+            The kwargs for the pytorch dataloader class.
+        **trainer_kwargs : Additional keyword arguments for PyTorch Lightning's Trainer class.
+
+
+        Returns
+        -------
+        self : object
+            The fitted regressor.
+        """
+        if dataloader_kwargs is None:
+            dataloader_kwargs = {}
+
+        if not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(X)
+        if isinstance(y, pd.Series):
+            y = y.values
+        if X_val is not None:
+            if not isinstance(X_val, pd.DataFrame):
+                X_val = pd.DataFrame(X_val)
+            if isinstance(y_val, pd.Series):
+                y_val = y_val.values
+
+        self.data_module = NAMpyDataModule(
+            preprocessor=self.preprocessor,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            X_val=X_val,
+            y_val=y_val,
+            val_size=val_size,
+            random_state=random_state,
+            regression=True,
+            **dataloader_kwargs,
+        )
+
+        self.data_module.setup_data(
+            X, y, X_val=X_val, y_val=y_val, val_size=val_size, random_state=random_state
+        )
+
+        self.model = TaskModel(
+            model_class=self.base_model,
+            config=self.config,
+            cat_feature_info=self.data_module.cat_feature_info,
+            num_feature_info=self.data_module.num_feature_info,
+            lr=lr,
+            lr_patience=lr_patience,
+            lr_factor=factor,
+            weight_decay=weight_decay,
+        )
+
+        early_stop_callback = EarlyStopping(
+            monitor=monitor, min_delta=0.00, patience=patience, verbose=False, mode=mode
+        )
+
+        checkpoint_callback = ModelCheckpoint(
+            monitor="val_loss",  # Adjust according to your validation metric
+            mode="min",
+            save_top_k=1,
+            dirpath=checkpoint_path,  # Specify the directory to save checkpoints
+            filename="best_model",
+        )
+
+        # Initialize the trainer and train the model
+        trainer = pl.Trainer(
+            max_epochs=max_epochs,
+            callbacks=[early_stop_callback, checkpoint_callback],
+            **trainer_kwargs,
+        )
+        trainer.fit(self.model, self.data_module)
+
+        best_model_path = checkpoint_callback.best_model_path
+        if best_model_path:
+            checkpoint = torch.load(best_model_path, weights_only=False)
+            self.model.load_state_dict(checkpoint["state_dict"])
+
+        return self
+
+    def predict(self, X):
+        return self._predict(X)["output"].squeeze(-1).cpu().numpy()
+
+    def predict_feature_vals(self, X):
+        return self._predict(X)
+
+    def _predict(self, X):
+        """
+        Predicts target values for the given input samples.
+
+        Parameters
+        ----------
+        X : DataFrame or array-like, shape (n_samples, n_features)
+            The input samples for which to predict target values.
+
+        Returns
+        -------
+        predictions : ndarray, shape (n_samples,) or (n_samples, n_outputs)
+            The predicted target values.
+        """
+        # Ensure model and data module are initialized
+        if self.model is None or self.data_module is None:
+            raise ValueError("The model or data module has not been fitted yet.")
+
+        # Preprocess the data using the data module
+        cat_tensor_dict, num_tensor_dict = self.data_module.preprocess_test_data(X)
+
+        # Move tensors to appropriate device
+        device = next(self.model.parameters()).device
+        cat_tensor_dict = {
+            key: tensor.to(device) for key, tensor in cat_tensor_dict.items()
+        }
+        num_tensor_dict = {
+            key: tensor.to(device) for key, tensor in num_tensor_dict.items()
+        }
+
+        # Set model to evaluation mode
+        self.model.eval()
+
+        # Perform inference
+        with torch.no_grad():
+            predictions = self.model(
+                num_features=num_tensor_dict, cat_features=cat_tensor_dict
+            )
+
+        # Convert predictions to NumPy array and return
+        return predictions
+
+    def evaluate(self, X, y_true, metrics=None):
+        """
+        Evaluate the model on the given data using specified metrics.
+
+        Parameters
+        ----------
+        X : array-like or pd.DataFrame of shape (n_samples, n_features)
+            The input samples to predict.
+        y_true : array-like of shape (n_samples,) or (n_samples, n_outputs)
+            The true target values against which to evaluate the predictions.
+        metrics : dict
+            A dictionary where keys are metric names and values are the metric functions.
+
+
+        Notes
+        -----
+        This method uses the `predict` method to generate predictions and computes each metric.
+
+
+        Examples
+        --------
+        >>> from sklearn.metrics import mean_squared_error, r2_score
+        >>> from sklearn.model_selection import train_test_split
+        >>> from NAMpy.models import NAMpyRegressor
+        >>> metrics = {
+        ...     'Mean Squared Error': mean_squared_error,
+        ...     'R2 Score': r2_score
+        ... }
+        >>> # Assuming 'X_test' and 'y_test' are your test dataset and labels
+        >>> # Evaluate using the specified metrics
+        >>> results = regressor.evaluate(X_test, y_test, metrics=metrics)
+
+
+        Returns
+        -------
+        scores : dict
+            A dictionary with metric names as keys and their corresponding scores as values.
+        """
+        if metrics is None:
+            metrics = {"Mean Squared Error": mean_squared_error}
+
+        # Generate predictions using the trained model
+        predictions = self.predict(X)
+
+        # Initialize dictionary to store results
+        scores = {}
+
+        # Compute each metric
+        for metric_name, metric_func in metrics.items():
+            scores[metric_name] = metric_func(y_true, predictions)
+
+        return scores
+
+    def _plot_single_feature_effects(
+        self, x_plot, predictions, y_true, ax, feature_name=None, num_bins=30
+    ):
+        """
+        Plot the effect of a single feature on a given axes.
+
+        Parameters
+        ----------
+        x_plot : np.ndarray
+            The feature values for plotting.
+        predictions : np.ndarray
+            The predicted contributions from the model.
+        y_true : np.ndarray
+            The true target values (for scatter plot).
+        ax : matplotlib.axes.Axes
+            The axes on which to plot.
+        feature_name : str, optional
+            The name of the feature for labels.
+        num_bins : int, optional
+            Number of bins for density shading, by default 30.
+        """
+        contribs = predictions.flatten()
+        y_true_centered = y_true - np.mean(y_true)
+        y_range = (y_true_centered.min() - 1, y_true_centered.max() + 1)
+
+        plot_density_shading(ax, x_plot, y_range, num_bins)
+        ax.plot(x_plot, contribs, color="black", label="Shape Function")
+        ax.scatter(
+            x_plot, y_true_centered, color="gray", alpha=0.3, s=2, label="True Values"
+        )
+
+        ax.set_title(
+            f"Shape Function: {feature_name}" if feature_name else "Shape Function"
+        )
+        ax.set_xlabel(feature_name or "Feature")
+        ax.set_ylabel("Contribution")
+        ax.legend()
+
+    def _plot_interaction_effects(
+        self,
+        interaction_name,
+        interaction_preds,
+        X_train_scaled=None,
+        num_bins=30,
+    ):
+        """
+        Plot the interaction effect between two features as a heatmap.
+
+        Parameters
+        ----------
+        interaction_name : str
+            The name of the interaction in "feature1:feature2" format.
+        interaction_preds : np.ndarray or torch.Tensor
+            Predicted interaction contributions from the model, shape (n_samples,) or
+            (n_samples, n_outputs).
+        X_train_scaled : pd.DataFrame, optional
+            Input data used to extract raw feature values for axis labels.
+        num_bins : int, optional
+            Number of bins for the heatmap grid, by default 30.
+        """
+        feature1, feature2 = interaction_name.split(":")
+
+        if hasattr(interaction_preds, "detach"):
+            interaction_preds = interaction_preds.detach().cpu().numpy()
+        else:
+            interaction_preds = np.asarray(interaction_preds)
+        if interaction_preds.ndim == 1:
+            interaction_preds = interaction_preds[:, np.newaxis]
+        n_outputs = interaction_preds.shape[1]
+
+        x1_vals = (
+            X_train_scaled[feature1].values
+            if X_train_scaled is not None
+            else np.arange(len(interaction_preds))
+        )
+        x2_vals = (
+            X_train_scaled[feature2].values
+            if X_train_scaled is not None
+            else np.arange(len(interaction_preds))
+        )
+
+        fig, axes = create_subplot_grid(n_outputs)
+
+        x1_bins = np.linspace(x1_vals.min(), x1_vals.max(), num_bins)
+        x2_bins = np.linspace(x2_vals.min(), x2_vals.max(), num_bins)
+        x1_bin_idx = np.clip(np.digitize(x1_vals, x1_bins) - 1, 0, num_bins - 2)
+        x2_bin_idx = np.clip(np.digitize(x2_vals, x2_bins) - 1, 0, num_bins - 2)
+
+        for out_idx, ax in enumerate(axes[:n_outputs]):
+            contribs = interaction_preds[:, out_idx]
+
+            grid_sum = np.zeros((num_bins - 1, num_bins - 1))
+            grid_count = np.zeros((num_bins - 1, num_bins - 1), dtype=int)
+            np.add.at(grid_sum, (x1_bin_idx, x2_bin_idx), contribs)
+            np.add.at(grid_count, (x1_bin_idx, x2_bin_idx), 1)
+            grid = np.where(grid_count > 0, grid_sum / np.maximum(grid_count, 1), np.nan)
+
+            im = ax.imshow(
+                grid.T,
+                origin="lower",
+                aspect="auto",
+                extent=[x1_bins[0], x1_bins[-1], x2_bins[0], x2_bins[-1]],
+                cmap="RdBu_r",
+            )
+            plt.colorbar(im, ax=ax, label="Contribution")
+            title = f"Interaction: {feature1} × {feature2}"
+            if n_outputs > 1:
+                title += f" (Output {out_idx + 1})"
+            ax.set_title(title)
+            ax.set_xlabel(feature1)
+            ax.set_ylabel(feature2)
+
+        for ax in axes[n_outputs:]:
+            ax.set_visible(False)
+
+        plt.tight_layout()
+        plt.show()
+
+    def plot(self, X, y_true, feature_name=None, plot_interactions=False):
+        """
+        Plot feature effects in a unified grid layout.
+
+        Parameters
+        ----------
+        X : pd.DataFrame or np.ndarray
+            Input data for generating predictions.
+        y_true : np.ndarray
+            True target values for comparison.
+        feature_name : str, optional
+            Specific feature to plot. If None, plots all numerical features.
+        plot_interactions : bool, optional
+            Whether to also plot pairwise feature interactions, by default False.
+        """
+        X_prepared, num_feature_names = prepare_plot_data(
+            X, self.data_module.num_feature_info, self.data_module.cat_feature_info
+        )
+
+        if feature_name is not None and feature_name not in num_feature_names:
+            raise ValueError(
+                f"Feature '{feature_name}' not found. Available: {num_feature_names}"
+            )
+
+        features_to_plot = [feature_name] if feature_name else num_feature_names
+        predictions = self._predict(X_prepared)
+
+        # Filter to features with predictions
+        features_to_plot = [f for f in features_to_plot if f in predictions]
+        if not features_to_plot:
+            raise ValueError("No features found with predictions to plot.")
+
+        # Create grid and plot
+        fig, axes = create_subplot_grid(len(features_to_plot))
+
+        for ax, fname in zip(axes, features_to_plot):
+            self._plot_single_feature_effects(
+                X_prepared[fname].values,
+                predictions[fname],
+                y_true,
+                ax,
+                feature_name=fname,
+            )
+
+        # Hide unused subplots
+        for ax in axes[len(features_to_plot) :]:
+            ax.set_visible(False)
+
+        plt.tight_layout()
+        plt.show()
+
+        # Plot interactions if requested
+        if plot_interactions:
+            for interaction_name in predictions.keys():
+                if ":" in interaction_name:
+                    self._plot_interaction_effects(
+                        interaction_name,
+                        predictions[interaction_name],
+                        X_train_scaled=X_prepared,
+                    )
+
+# --- End of nampy/models/sklearn_regressor.py ---
+
+# --- Start of nampy/configs/nam_config.py ---
+#nam_config.py
+from dataclasses import dataclass, field
+from typing import List, Optional
+
+import torch.nn as nn
+
+
+@dataclass
+class DefaultNAMConfig:
+    """
+    Configuration class for the default NAM with predefined hyperparameters.
+
+    Parameters
+    ----------
+    lr : float, default=1e-04
+        Learning rate for the optimizer.
+    lr_patience : int, default=10
+        Number of epochs with no improvement after which learning rate will be reduced.
+    weight_decay : float, default=1e-06
+        Weight decay (L2 penalty) for the optimizer.
+    lr_factor : float, default=0.1
+        Factor by which the learning rate will be reduced.
+    layer_sizes : list of int, default=[128, 128, 32]
+        Sizes of the layers in the MLP.
+    activation : type, default=nn.ReLU
+        Activation class for the MLP layers (e.g. nn.ReLU); a new instance is used per layer.
+    dropout : float, default=0.1
+        Dropout rate for regularization.
+    norm : str, default=None
+        Normalization method to be used, if any.
+    use_glu : bool, default=False
+        Whether to use Gated Linear Units (GLU) in the MLP.
+    skip_connections : bool, default=False
+        Whether to use skip connections in the MLP.
+    batch_norm : bool, default=False
+        Whether to use batch normalization in the MLP layers.
+    layer_norm : bool, default=False
+        Whether to use layer normalization in the MLP layers.
+    """
+
+    lr: float = 1e-04
+    lr_patience: int = 10
+    weight_decay: float = 1e-06
+    lr_factor: float = 0.1
+    layer_sizes: List[int] = field(default_factory=lambda: [128, 128, 32])
+    activation: type = nn.ReLU
+    dropout: float = 0.1
+    norm: Optional[str] = None
+    use_glu: bool = False
+    skip_connections: bool = False
+    batch_norm: bool = False
+    layer_norm: bool = False
+    interaction_degree: Optional[int] = None
+    intercept: bool = True
+    feature_dropout: float = 0.0
+
+# --- End of nampy/configs/nam_config.py ---
+
+# --- Start of nampy/utils/distributional_metrics.py ---
+#utils/distributional_metrics.py
+import math
+from typing import Optional
+
+import numpy as np
+from scipy.special import gammaln
+
+
+_EPS = 1e-9
+
+def _as_1d(x):
+    x = np.asarray(x)
+    if x.ndim == 0:
+        return x.reshape(1)
+    if x.ndim == 2 and x.shape[1] == 1:
+        return x[:, 0]
+    if x.ndim == 1:
+        return x
+    raise ValueError(f"Expected 1D array or shape (n,1); got shape {x.shape}")
+
+
+def _safe_positive(x, eps=_EPS):
+    return np.clip(np.asarray(x, dtype=float), eps, None)
+
+
+def _beta_mean_from_params(y_pred):
+    y_pred = np.asarray(y_pred, dtype=float)
+    if y_pred.ndim != 2 or y_pred.shape[1] < 2:
+        raise ValueError(
+            "Expected Beta transformed params with shape (n, 2): [alpha, beta]."
+        )
+    alpha = _safe_positive(y_pred[:, 0])
+    beta = _safe_positive(y_pred[:, 1])
+    return alpha / (alpha + beta)
+
+
+def _gamma_mean_from_params(y_pred):
+    y_pred = np.asarray(y_pred, dtype=float)
+    if y_pred.ndim != 2 or y_pred.shape[1] < 2:
+        raise ValueError(
+            "Expected Gamma transformed params with shape (n, 2): [shape, rate]."
+        )
+    shape = _safe_positive(y_pred[:, 0])
+    rate = _safe_positive(y_pred[:, 1])
+    return shape / rate
+
+
+def _student_t_params(y_pred, df=None):
+    """
+    Accept either:
+      - y_pred shape (n,3): [df, loc, scale]
+      - y_pred shape (n,2): [loc, scale], with scalar df provided
+    """
+    y_pred = np.asarray(y_pred, dtype=float)
+    if y_pred.ndim != 2:
+        raise ValueError(f"Expected 2D array for Student-t params; got {y_pred.shape}")
+
+    if y_pred.shape[1] >= 3:
+        nu = _safe_positive(y_pred[:, 0])
+        loc = y_pred[:, 1]
+        scale = _safe_positive(y_pred[:, 2])
+        return nu, loc, scale
+
+    if y_pred.shape[1] == 2 and df is not None:
+        nu = np.full(y_pred.shape[0], float(df), dtype=float)
+        loc = y_pred[:, 0]
+        scale = _safe_positive(y_pred[:, 1])
+        return nu, loc, scale
+
+    raise ValueError(
+        "Student-t metrics expect transformed params [df, loc, scale] "
+        "or [loc, scale] with `df=` provided."
+    )
+
+
+def poisson_deviance(y_true, y_pred):
+    """
+    Poisson deviance.
+
+    Parameters
+    ----------
+    y_true : array-like, shape (n,)
+    y_pred : array-like
+        Either:
+          - shape (n,) / (n,1): predicted mean/rate
+          - shape (n, k): if k>=1, column 0 is interpreted as rate
+    """
+    y = _as_1d(y_true).astype(float)
+    pred = np.asarray(y_pred, dtype=float)
+
+    if pred.ndim == 2:
+        mu = pred[:, 0]
+    else:
+        mu = _as_1d(pred)
+
+    mu = _safe_positive(mu)
+    if y.shape[0] != mu.shape[0]:
+        raise ValueError("y_true and y_pred lengths do not match.")
+
+    # 0 * log(0 / mu) := 0
+    term = np.where(y > 0, y * np.log(np.clip(y, _EPS, None) / mu), 0.0)
+    return float(2.0 * np.mean(term - (y - mu)))
+
+
+def gamma_deviance(y_true, y_pred):
+    """
+    Mean Gamma deviance.
+
+    Parameters
+    ----------
+    y_true : array-like, positive
+    y_pred : array-like
+        Either:
+          - predicted mean mu (shape (n,) or (n,1))
+          - transformed Gamma params [shape, rate] (shape (n,2))
+    """
+    y = _safe_positive(_as_1d(y_true))
+    pred = np.asarray(y_pred, dtype=float)
+
+    if pred.ndim == 2 and pred.shape[1] >= 2:
+        mu = _gamma_mean_from_params(pred)
+    else:
+        mu = _safe_positive(_as_1d(pred))
+
+    if y.shape[0] != mu.shape[0]:
+        raise ValueError("y_true and y_pred lengths do not match.")
+
+    # Standard Gamma deviance for mean predictions, normalized by sample count.
+    return float(2.0 * np.mean((y - mu) / mu - np.log(y / mu)))
+
+
+def beta_brier_score(y_true, y_pred):
+    """
+    Compatibility function retained from original code.
+
+    For Beta LSS models, `y_pred` is usually transformed params [alpha, beta].
+    We therefore compute MSE on the Beta mean:
+        E[Y] = alpha / (alpha + beta)
+
+    If y_pred is already a 1D mean prediction, computes ordinary MSE.
+    """
+    y = np.clip(_as_1d(y_true).astype(float), _EPS, 1.0 - _EPS)
+    pred = np.asarray(y_pred, dtype=float)
+
+    if pred.ndim == 2 and pred.shape[1] >= 2:
+        mu = _beta_mean_from_params(pred)
+    else:
+        mu = _as_1d(pred).astype(float)
+
+    if y.shape[0] != mu.shape[0]:
+        raise ValueError("y_true and y_pred lengths do not match.")
+
+    return float(np.mean((mu - y) ** 2))
+
+
+def dirichlet_error(y_true, y_pred):
+    """
+    Mean squared error on simplex-valued predictions.
+
+    Parameters
+    ----------
+    y_true : array-like, shape (n, K)
+    y_pred : array-like, shape (n, K)
+        Can be probabilities/simplex points OR positive concentrations.
+        If rows do not sum to ~1 but are positive, we normalize row-wise.
+    """
+    y = np.asarray(y_true, dtype=float)
+    p = np.asarray(y_pred, dtype=float)
+
+    if y.ndim == 3 and y.shape[1] == 1:
+        y = y[:, 0, :]
+    if p.ndim == 3 and p.shape[1] == 1:
+        p = p[:, 0, :]
+
+    if y.ndim != 2 or p.ndim != 2 or y.shape != p.shape:
+        raise ValueError(
+            f"dirichlet_error expects matching 2D arrays; got {y.shape=} and {p.shape=}"
+        )
+
+    # Ensure y on simplex
+    y = np.clip(y, _EPS, None)
+    y = y / np.clip(y.sum(axis=1, keepdims=True), _EPS, None)
+
+    # If predictions do not sum to 1, treat them as concentrations and convert to mean
+    row_sums = p.sum(axis=1, keepdims=True)
+    if not np.allclose(row_sums, 1.0, atol=1e-4):
+        p = np.clip(p, _EPS, None)
+        p = p / np.clip(p.sum(axis=1, keepdims=True), _EPS, None)
+
+    return float(np.mean(np.sum((p - y) ** 2, axis=1)))
+
+
+def student_t_loss(y_true, y_pred, df=None):
+    """
+    Student-t negative log-likelihood (up to exact constants when df is provided per sample, exact here).
+
+    Parameters
+    ----------
+    y_true : array-like, shape (n,)
+    y_pred : array-like
+        Either transformed params [df, loc, scale] or [loc, scale] with `df=...`.
+    df : float, optional
+        Used only when y_pred has shape (n,2).
+    """
+    y = _as_1d(y_true).astype(float)
+    nu, loc, scale = _student_t_params(y_pred, df=df)
+
+    if not (y.shape[0] == nu.shape[0] == loc.shape[0] == scale.shape[0]):
+        raise ValueError("y_true and y_pred lengths do not match.")
+
+    z = (y - loc) / scale
+    # Exact Student-t NLL
+    nll = (
+        gammaln((nu + 1.0) / 2.0)
+        - gammaln(nu / 2.0)
+        - 0.5 * np.log(nu * np.pi)
+        - np.log(scale)
+        - ((nu + 1.0) / 2.0) * np.log1p((z**2) / nu)
+    )
+    return float(-np.mean(nll))
+
+
+def negative_binomial_deviance(y_true, y_pred, alpha: Optional[float] = None):
+    """
+    Mean Negative Binomial deviance under mean/dispersion parameterization.
+
+    Supported inputs
+    ----------------
+    y_pred can be:
+      - shape (n,) / (n,1): mean mu (requires scalar `alpha`)
+      - shape (n,2): transformed params [mean, dispersion], where dispersion=alpha > 0
+    """
+    y = _as_1d(y_true).astype(float)
+    pred = np.asarray(y_pred, dtype=float)
+
+    if pred.ndim == 2 and pred.shape[1] >= 2:
+        mu = _safe_positive(pred[:, 0])
+        alpha_arr = _safe_positive(pred[:, 1])
+    else:
+        if alpha is None:
+            raise ValueError(
+                "negative_binomial_deviance requires `alpha` when y_pred is only a mean prediction."
+            )
+        mu = _safe_positive(_as_1d(pred))
+        alpha_arr = np.full_like(mu, float(alpha), dtype=float)
+        alpha_arr = _safe_positive(alpha_arr)
+
+    if y.shape[0] != mu.shape[0]:
+        raise ValueError("y_true and y_pred lengths do not match.")
+
+    # NB2 variance: Var = mu + alpha * mu^2
+    # Deviance contribution (alpha -> 0 recovers Poisson limit)
+    term1 = np.where(y > 0, y * np.log(np.clip(y, _EPS, None) / mu), 0.0)
+    term2 = (y + 1.0 / alpha_arr) * np.log(
+        (1.0 + alpha_arr * y) / np.clip(1.0 + alpha_arr * mu, _EPS, None)
+    )
+    dev = 2.0 * np.mean(term1 - term2)
+    return float(dev)
+
+
+def inverse_gamma_loss(y_true, y_pred):
+    """
+    Inverse-Gamma negative log-likelihood from transformed params [shape, rate].
+
+    Parameters
+    ----------
+    y_true : array-like, shape (n,), positive
+    y_pred : array-like, shape (n,2)
+        Transformed params [shape, rate]
+    """
+    y = _safe_positive(_as_1d(y_true))
+    pred = np.asarray(y_pred, dtype=float)
+
+    if pred.ndim != 2 or pred.shape[1] < 2:
+        raise ValueError(
+            "inverse_gamma_loss expects transformed params with shape (n,2): [shape, rate]."
+        )
+
+    shape = _safe_positive(pred[:, 0])
+    rate = _safe_positive(pred[:, 1])
+
+    if y.shape[0] != shape.shape[0]:
+        raise ValueError("y_true and y_pred lengths do not match.")
+
+    # InverseGamma(shape=a, rate=b) logpdf:
+    #   a log b - gammaln(a) - (a+1) log y - b / y
+    logpdf = shape * np.log(rate) - gammaln(shape) - (shape + 1.0) * np.log(y) - rate / y
+    return float(-np.mean(logpdf))
+# --- End of nampy/utils/distributional_metrics.py ---
+
+# --- Start of nampy/utils/distributions.py ---
+#utils/distributions.py
+import math
+from typing import Any, Callable, Optional, Sequence, Union
+
+import numpy as np
+import torch
+import torch.distributions as dist
+import torch.nn.functional as F
+
+
+TensorLike = Union[torch.Tensor, np.ndarray]
+
+
+class BaseDistribution(torch.nn.Module):
+    """
+    Base class for distributional regression families.
+
+    Subclasses should implement:
+      - compute_loss(predictions, y_true)
+    and may override:
+      - forward(predictions)                -> transformed parameters
+      - predict_point(predictions, transformed=False)
+      - evaluate_nll(y_true, y_pred)
+
+    Notes
+    -----
+    * `predictions` in `compute_loss` are assumed to be raw network outputs.
+    * `forward(predictions)` returns transformed parameters (e.g. positive scales).
+    * `param_count` is the required network output dimension for fixed-dimension families.
+      For some families (Dirichlet/Categorical), this may depend on user-provided kwargs.
+    """
+
+    target_dtype = torch.float32
+
+    def __init__(self, name: str, param_names: Sequence[str], eps: float = 1e-6):
+        super().__init__()
+        self._name = name
+        self.param_names = list(param_names)
+        self.param_count = len(self.param_names)
+        self.eps = float(eps)
+
+        self.predefined_transforms = {
+            "positive": lambda x: F.softplus(x) + self.eps,
+            "strictly_positive": lambda x: F.softplus(x) + self.eps,
+            "none": lambda x: x,
+            "identity": lambda x: x,
+            "square": lambda x: x.square() + self.eps,
+            "exp": lambda x: torch.exp(torch.clamp(x, min=-40.0, max=40.0)) + self.eps,
+            "sqrt": lambda x: torch.sqrt(torch.clamp(x, min=self.eps)),
+            "probabilities": lambda x: torch.softmax(x, dim=-1),
+            "log": lambda x: torch.log(torch.clamp(x, min=self.eps)),
+            # Monotone transform for quantiles / cutpoints:
+            "sort": lambda x: torch.cumsum(F.softplus(x), dim=-1),
+        }
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def parameter_count(self) -> int:
+        return self.param_count
+
+    def get_transform(self, transform_name: Union[str, Callable]) -> Callable:
+        """Return a transform callable by name or pass through custom callables."""
+        if callable(transform_name):
+            return transform_name
+        if transform_name not in self.predefined_transforms:
+            raise ValueError(
+                f"Unknown transform {transform_name!r}. "
+                f"Available: {sorted(self.predefined_transforms.keys())}"
+            )
+        return self.predefined_transforms[transform_name]
+
+    # ------------------------------------------------------------------
+    # Shape / dtype helpers
+    # ------------------------------------------------------------------
+
+    def _ensure_2d_predictions(self, predictions: TensorLike) -> torch.Tensor:
+        if not torch.is_tensor(predictions):
+            predictions = torch.as_tensor(predictions, dtype=torch.float32)
+        else:
+            predictions = predictions.float()
+
+        if predictions.ndim == 1:
+            predictions = predictions.unsqueeze(-1)
+        if predictions.ndim != 2:
+            raise ValueError(
+                f"predictions must be 1D or 2D; got shape {tuple(predictions.shape)}"
+            )
+        return predictions
+
+    def _squeeze_target_last_singleton(self, y_true: TensorLike) -> torch.Tensor:
+        if not torch.is_tensor(y_true):
+            y_true = torch.as_tensor(y_true, dtype=self.target_dtype)
+        else:
+            y_true = y_true.to(dtype=self.target_dtype)
+
+        # Accept [N, 1] and squeeze to [N]
+        if y_true.ndim == 2 and y_true.shape[1] == 1:
+            y_true = y_true[:, 0]
+        return y_true
+
+    def _validate_batch_match(self, predictions: torch.Tensor, y_true: torch.Tensor):
+        if predictions.shape[0] != y_true.shape[0]:
+            raise ValueError(
+                f"Batch size mismatch: predictions has {predictions.shape[0]} rows, "
+                f"y_true has {y_true.shape[0]} rows."
+            )
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def compute_loss(self, predictions: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError("Subclasses must implement compute_loss().")
+
+    def evaluate_nll(self, y_true: TensorLike, y_pred: TensorLike):
+        """
+        Evaluate negative log-likelihood from transformed or raw predictions.
+
+        Notes
+        -----
+        This method assumes `y_pred` is in the same format used by `compute_loss`.
+        In your codebase, `SklearnBaseLSS.evaluate()` already computes NLL directly
+        via `compute_loss` on raw predictions, so this method is mostly a utility.
+        """
+        y_true_tensor = torch.as_tensor(y_true, dtype=self.target_dtype)
+        y_pred_tensor = torch.as_tensor(y_pred, dtype=torch.float32)
+        nll_loss_tensor = self.compute_loss(y_pred_tensor, y_true_tensor)
+        return {"NLL": float(nll_loss_tensor.detach().cpu().item())}
+
+    def forward(self, predictions: TensorLike) -> torch.Tensor:
+        """
+        Transform raw network outputs into valid distribution parameters.
+
+        Default implementation applies one transform per parameter column using
+        attributes named `<param_name>_transform`.
+        """
+        predictions = self._ensure_2d_predictions(predictions)
+
+        if predictions.shape[1] != self.param_count:
+            raise ValueError(
+                f"{self.__class__.__name__} expects {self.param_count} raw parameters, "
+                f"got predictions with shape {tuple(predictions.shape)}."
+            )
+
+        cols = []
+        for idx, param_name in enumerate(self.param_names):
+            transform_spec = getattr(self, f"{param_name}_transform", "none")
+            transform_fn = self.get_transform(transform_spec)
+            cols.append(transform_fn(predictions[:, idx]).unsqueeze(1))
+        return torch.cat(cols, dim=1)
+
+    def predict_point(self, predictions: TensorLike, transformed: bool = False) -> torch.Tensor:
+        """
+        Optional point prediction (default = first transformed parameter).
+        Subclasses can override for family-specific meanings.
+        """
+        params = predictions if transformed else self.forward(predictions)
+        if not torch.is_tensor(params):
+            params = torch.as_tensor(params, dtype=torch.float32)
+        params = self._ensure_2d_predictions(params)
+        return params[:, 0]
+
+
+class NormalDistribution(BaseDistribution):
+    """
+    Gaussian with parameters [mean, scale].
+
+    Notes
+    -----
+    `scale` is the standard deviation (NOT the variance).
+    """
+
+    def __init__(
+        self,
+        name: str = "Normal",
+        mean_transform: Union[str, Callable] = "none",
+        scale_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-6,
+    ):
+        super().__init__(name=name, param_names=["mean", "scale"], eps=eps)
+        self.mean_transform = mean_transform
+        self.scale_transform = scale_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        mean = self.get_transform(self.mean_transform)(predictions[:, 0])
+        scale = self.get_transform(self.scale_transform)(predictions[:, 1])
+        return -dist.Normal(loc=mean, scale=scale).log_prob(y).mean()
+
+    def evaluate_nll(self, y_true, y_pred):
+        metrics = super().evaluate_nll(y_true, y_pred)
+        y = np.asarray(y_true).reshape(-1)
+        pred = np.asarray(y_pred)
+        mu = pred[:, 0]
+        err = y - mu
+        metrics.update(
+            {
+                "mse": float(np.mean(err**2)),
+                "mae": float(np.mean(np.abs(err))),
+                "rmse": float(np.sqrt(np.mean(err**2))),
+            }
+        )
+        return metrics
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        return params[:, 0]
+
+
+class PoissonDistribution(BaseDistribution):
+    """Poisson with parameter [rate]."""
+
+    def __init__(
+        self,
+        name: str = "Poisson",
+        rate_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["rate"], eps=eps)
+        self.rate_transform = rate_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y < 0):
+            raise ValueError("PoissonDistribution requires non-negative targets.")
+
+        rate = self.get_transform(self.rate_transform)(predictions[:, 0])
+        return -dist.Poisson(rate=rate).log_prob(y).mean()
+
+    def evaluate_nll(self, y_true, y_pred):
+        metrics = super().evaluate_nll(y_true, y_pred)
+        y = np.asarray(y_true).reshape(-1)
+        pred = np.asarray(y_pred)
+        rate = np.clip(pred[:, 0], 1e-9, None)
+        err = y - rate
+
+        # Safe Poisson deviance
+        term = np.where(y > 0, y * np.log(np.clip(y, 1e-12, None) / rate), 0.0)
+        poisson_dev = 2.0 * np.sum(term - (y - rate))
+
+        metrics.update(
+            {
+                "mse": float(np.mean(err**2)),
+                "mae": float(np.mean(np.abs(err))),
+                "rmse": float(np.sqrt(np.mean(err**2))),
+                "poisson_deviance": float(poisson_dev),
+            }
+        )
+        return metrics
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        return params[:, 0]
+
+
+class InverseGammaDistribution(BaseDistribution):
+    """Inverse-Gamma with parameters [shape, rate]."""
+
+    def __init__(
+        self,
+        name: str = "InverseGamma",
+        shape_transform: Union[str, Callable] = "positive",
+        rate_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["shape", "rate"], eps=eps)
+        self.shape_transform = shape_transform
+        self.rate_transform = rate_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y <= 0):
+            raise ValueError("InverseGammaDistribution requires strictly positive targets.")
+
+        shape = self.get_transform(self.shape_transform)(predictions[:, 0])
+        rate = self.get_transform(self.rate_transform)(predictions[:, 1])
+        return -dist.InverseGamma(concentration=shape, rate=rate).log_prob(y).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        """
+        Mean exists for shape > 1 and equals rate / (shape - 1).
+        Returns a numerically safe approximation.
+        """
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        shape = params[:, 0]
+        rate = params[:, 1]
+        return rate / torch.clamp(shape - 1.0, min=self.eps)
+
+
+class BetaDistribution(BaseDistribution):
+    """Beta with parameters [alpha, beta]. Targets must lie in (0, 1)."""
+
+    def __init__(
+        self,
+        name: str = "Beta",
+        shape_transform: Union[str, Callable] = "positive",
+        scale_transform: Union[str, Callable] = "positive",
+        target_eps: float = 1e-6,
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["alpha", "beta"], eps=eps)
+        self.alpha_transform = shape_transform
+        self.beta_transform = scale_transform
+        self.target_eps = float(target_eps)
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        y = torch.clamp(y, min=self.target_eps, max=1.0 - self.target_eps)
+        alpha = self.get_transform(self.alpha_transform)(predictions[:, 0])
+        beta = self.get_transform(self.beta_transform)(predictions[:, 1])
+        return -dist.Beta(concentration1=alpha, concentration0=beta).log_prob(y).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        """Beta mean = alpha / (alpha + beta)."""
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        alpha = params[:, 0]
+        beta = params[:, 1]
+        return alpha / torch.clamp(alpha + beta, min=self.eps)
+
+
+class DirichletDistribution(BaseDistribution):
+    """
+    Dirichlet with K concentration parameters.
+
+    IMPORTANT
+    ---------
+    This family needs a known output dimension K. Pass e.g.
+        DirichletDistribution(n_dim=y.shape[1])
+    so `param_count` matches the model output width.
+    """
+
+    def __init__(
+        self,
+        n_dim: Optional[int] = None,
+        name: str = "Dirichlet",
+        concentration_transform: Union[str, Callable] = "positive",
+        target_eps: float = 1e-8,
+        eps: float = 1e-8,
+    ):
+        k = n_dim
+        if k is None:
+            raise ValueError(
+                "DirichletDistribution requires `n_dim` at construction "
+                "so `param_count` matches the model output dimension. "
+                "Example: DirichletDistribution(n_dim=y.shape[1])."
+            )
+        k = int(k)
+        if k < 2:
+            raise ValueError("DirichletDistribution requires n_dim >= 2.")
+        param_names = [f"alpha_{i}" for i in range(k)]
+        self._n_dim = k
+
+        super().__init__(name=name, param_names=param_names, eps=eps)
+        self.concentration_transform = concentration_transform
+        self.target_eps = float(target_eps)
+
+    @property
+    def n_dim(self) -> int:
+        return self._n_dim
+
+    def _check_dim(self, predictions: torch.Tensor):
+        if predictions.shape[1] != self._n_dim:
+            raise ValueError(
+                f"DirichletDistribution expected {self._n_dim} parameters, got "
+                f"predictions with shape {tuple(predictions.shape)}."
+            )
+
+    def forward(self, predictions):
+        predictions = self._ensure_2d_predictions(predictions)
+        self._check_dim(predictions)
+        tfm = self.get_transform(self.concentration_transform)
+        return tfm(predictions)
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        self._check_dim(predictions)
+
+        if not torch.is_tensor(y_true):
+            y = torch.as_tensor(y_true, dtype=torch.float32)
+        else:
+            y = y_true.float()
+
+        # Accept [N, K], [N, 1, K]
+        if y.ndim == 3 and y.shape[1] == 1:
+            y = y[:, 0, :]
+        if y.ndim != 2:
+            raise ValueError(
+                f"Dirichlet targets must have shape [N, K] (or [N,1,K]); got {tuple(y.shape)}"
+            )
+        self._validate_batch_match(predictions, y)
+        if y.shape[1] != predictions.shape[1]:
+            raise ValueError(
+                f"Dirichlet target dimension {y.shape[1]} != prediction dimension {predictions.shape[1]}"
+            )
+
+        # Clamp and renormalize to simplex
+        y = torch.clamp(y, min=self.target_eps)
+        y = y / torch.clamp(y.sum(dim=1, keepdim=True), min=self.target_eps)
+
+        concentration = self.forward(predictions)
+        return -dist.Dirichlet(concentration=concentration).log_prob(y).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        """Dirichlet mean = alpha / sum(alpha)."""
+        alpha = predictions if transformed else self.forward(predictions)
+        alpha = self._ensure_2d_predictions(alpha)
+        return alpha / torch.clamp(alpha.sum(dim=1, keepdim=True), min=self.eps)
+
+
+class GammaDistribution(BaseDistribution):
+    """Gamma with parameters [shape, rate]. Targets must be > 0."""
+
+    def __init__(
+        self,
+        name: str = "Gamma",
+        shape_transform: Union[str, Callable] = "positive",
+        rate_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["shape", "rate"], eps=eps)
+        self.shape_transform = shape_transform
+        self.rate_transform = rate_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y <= 0):
+            raise ValueError("GammaDistribution requires strictly positive targets.")
+
+        shape = self.get_transform(self.shape_transform)(predictions[:, 0])
+        rate = self.get_transform(self.rate_transform)(predictions[:, 1])
+        return -dist.Gamma(concentration=shape, rate=rate).log_prob(y).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        """Gamma mean = shape / rate."""
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        return params[:, 0] / torch.clamp(params[:, 1], min=self.eps)
+
+
+class StudentTDistribution(BaseDistribution):
+    """Student-t with parameters [df, loc, scale]."""
+
+    def __init__(
+        self,
+        name: str = "StudentT",
+        df_transform: Union[str, Callable] = "positive",
+        loc_transform: Union[str, Callable] = "none",
+        scale_transform: Union[str, Callable] = "positive",
+        min_df: float = 1e-3,
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["df", "loc", "scale"], eps=eps)
+        self.df_transform = df_transform
+        self.loc_transform = loc_transform
+        self.scale_transform = scale_transform
+        self.min_df = float(min_df)
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        df = self.get_transform(self.df_transform)(predictions[:, 0]) + self.min_df
+        loc = self.get_transform(self.loc_transform)(predictions[:, 1])
+        scale = self.get_transform(self.scale_transform)(predictions[:, 2])
+        return -dist.StudentT(df=df, loc=loc, scale=scale).log_prob(y).mean()
+
+    def evaluate_nll(self, y_true, y_pred):
+        metrics = super().evaluate_nll(y_true, y_pred)
+        y = np.asarray(y_true).reshape(-1)
+        pred = np.asarray(y_pred)
+        loc = pred[:, 1]
+        err = y - loc
+        metrics.update(
+            {
+                "mse": float(np.mean(err**2)),
+                "mae": float(np.mean(np.abs(err))),
+                "rmse": float(np.sqrt(np.mean(err**2))),
+            }
+        )
+        return metrics
+
+    def predict_point(self, predictions, transformed: bool = False):
+        """Student-t location parameter."""
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        return params[:, 1]
+
+
+class NegativeBinomialDistribution(BaseDistribution):
+    """
+    Negative Binomial with parameters [mean, dispersion].
+
+    Parameterization
+    ----------------
+    We use `dispersion = alpha > 0` such that:
+        Var(Y) = mean + alpha * mean^2
+
+    PyTorch `NegativeBinomial` expects `(total_count=r, probs=p)` with mean:
+        mean = r * p / (1 - p)
+    Therefore:
+        r = 1 / alpha
+        p = mean / (mean + r)
+    """
+
+    def __init__(
+        self,
+        name: str = "NegativeBinomial",
+        mean_transform: Union[str, Callable] = "positive",
+        dispersion_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["mean", "dispersion"], eps=eps)
+        self.mean_transform = mean_transform
+        self.dispersion_transform = dispersion_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y < 0):
+            raise ValueError("NegativeBinomialDistribution requires non-negative targets.")
+
+        mean = self.get_transform(self.mean_transform)(predictions[:, 0])
+        alpha = self.get_transform(self.dispersion_transform)(predictions[:, 1])
+
+        total_count = 1.0 / torch.clamp(alpha, min=self.eps)  # r
+        probs = mean / torch.clamp(mean + total_count, min=self.eps)
+        probs = torch.clamp(probs, min=self.eps, max=1.0 - self.eps)
+
+        nb = dist.NegativeBinomial(total_count=total_count, probs=probs)
+        return -nb.log_prob(y).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        """NB mean parameter."""
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        return params[:, 0]
+
+
+class CategoricalDistribution(BaseDistribution):
+    """
+    Categorical over K classes (returns probabilities in `forward`).
+
+    IMPORTANT
+    ---------
+    For correct model output width, pass:
+        CategoricalDistribution(num_classes=K)
+    so `param_count == K`.
+    """
+
+    target_dtype = torch.long
+
+    def __init__(
+        self,
+        num_classes: Optional[int] = None,
+        name: str = "Categorical",
+        prob_transform: Union[str, Callable] = "probabilities",
+        eps: float = 1e-8,
+    ):
+        if num_classes is None:
+            raise ValueError(
+                "CategoricalDistribution requires `num_classes` at construction so "
+                "`param_count` matches the model output dimension. "
+                "Example: CategoricalDistribution(num_classes=K)."
+            )
+        k = int(num_classes)
+        if k < 2:
+            raise ValueError("CategoricalDistribution requires num_classes >= 2.")
+        self._num_classes = k
+        param_names = [f"class_{i}" for i in range(k)]
+
+        super().__init__(name=name, param_names=param_names, eps=eps)
+        self.probs_transform = prob_transform
+
+    @property
+    def num_classes(self) -> int:
+        return self._num_classes
+
+    def _check_dim(self, predictions: torch.Tensor):
+        if predictions.shape[1] != self._num_classes:
+            raise ValueError(
+                f"CategoricalDistribution expected {self._num_classes} logits, got "
+                f"predictions with shape {tuple(predictions.shape)}."
+            )
+
+    def forward(self, predictions):
+        predictions = self._ensure_2d_predictions(predictions)
+        self._check_dim(predictions)
+        tfm = self.get_transform(self.probs_transform)
+        probs = tfm(predictions)
+        return torch.clamp(probs, min=self.eps, max=1.0 - self.eps)
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        self._check_dim(predictions)
+
+        if not torch.is_tensor(y_true):
+            y = torch.as_tensor(y_true)
+        else:
+            y = y_true
+
+        # Accept labels [N], [N,1], one-hot/probabilities [N,K], [N,1,K]
+        if y.ndim == 3 and y.shape[1] == 1:
+            y = y[:, 0, :]
+        if y.ndim == 2 and y.shape[1] == 1:
+            y = y[:, 0]
+        elif y.ndim == 2 and y.shape[1] == predictions.shape[1]:
+            y = torch.argmax(y, dim=1)
+        elif y.ndim != 1:
+            raise ValueError(
+                f"Categorical targets must be [N], [N,1], or [N,K]; got {tuple(y.shape)}"
+            )
+
+        y = y.long()
+        self._validate_batch_match(predictions, y)
+        probs = self.forward(predictions)
+        return -dist.Categorical(probs=probs).log_prob(y).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        probs = predictions if transformed else self.forward(predictions)
+        probs = self._ensure_2d_predictions(probs)
+        return torch.argmax(probs, dim=1)
+
+
+class Quantile(BaseDistribution):
+    """
+    Quantile regression (pinball loss).
+
+    Parameters
+    ----------
+    quantiles : sequence of float
+        Quantiles in (0,1). Example: [0.1, 0.5, 0.9]
+    enforce_monotonic : bool, default=True
+        If True, `forward()` maps raw predictions to monotone quantiles via:
+            q0 = raw0
+            increments = softplus(raw[1:])
+            q = q0 + cumsum(increments)
+        This changes the meaning of the raw parameterization but avoids
+        quantile crossing, which is typically desired in practice.
+    """
+
+    def __init__(
+        self,
+        name: str = "Quantile",
+        quantiles: Optional[Sequence[float]] = None,
+        enforce_monotonic: bool = True,
+        eps: float = 1e-8,
+    ):
+        if quantiles is None:
+            quantiles = [0.25, 0.5, 0.75]
+
+        q = np.asarray(quantiles, dtype=float)
+        if q.ndim != 1 or q.size == 0:
+            raise ValueError("quantiles must be a non-empty 1D sequence.")
+        if np.any(q <= 0.0) or np.any(q >= 1.0):
+            raise ValueError("All quantiles must lie strictly between 0 and 1.")
+        if len(np.unique(q)) != len(q):
+            raise ValueError("quantiles must be unique.")
+        if np.any(np.diff(q) < 0):
+            raise ValueError("quantiles must be sorted ascending.")
+
+        self.quantiles = [float(v) for v in q]
+        self.enforce_monotonic = bool(enforce_monotonic)
+        param_names = [f"q_{v:g}" for v in self.quantiles]
+        super().__init__(name=name, param_names=param_names, eps=eps)
+
+    def forward(self, predictions):
+        predictions = self._ensure_2d_predictions(predictions)
+        if predictions.shape[1] != self.param_count:
+            raise ValueError(
+                f"Quantile expects {self.param_count} outputs, got {tuple(predictions.shape)}"
+            )
+
+        if not self.enforce_monotonic:
+            return predictions
+
+        q0 = predictions[:, :1]
+        if predictions.shape[1] == 1:
+            return q0
+        inc = F.softplus(predictions[:, 1:])
+        q_rest = q0 + torch.cumsum(inc, dim=1)
+        return torch.cat([q0, q_rest], dim=1)
+
+    def compute_loss(self, predictions, y_true):
+        preds = self.forward(predictions)  # supports optional monotonic transform
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(preds, y)
+
+        # Broadcast y to [N, Q]
+        y = y.unsqueeze(1)
+        q = torch.tensor(self.quantiles, dtype=preds.dtype, device=preds.device).view(1, -1)
+        errors = y - preds
+        loss = torch.maximum((q - 1.0) * errors, q * errors)
+        return loss.sum(dim=1).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        preds = predictions if transformed else self.forward(predictions)
+        preds = self._ensure_2d_predictions(preds)
+        if 0.5 in self.quantiles:
+            idx = self.quantiles.index(0.5)
+            return preds[:, idx]
+        return preds.mean(dim=1)
+
+
+class RobustNormalDistribution(BaseDistribution):
+    """
+    Robustified Gaussian likelihood with parameters [mean, scale].
+
+    The robustness transformation is:
+        loglik_rob = log((1 + exp(loglik + rob)) / (1 + exp(rob)))
+    This downweights very unlikely observations while remaining smooth.
+    """
+
+    def __init__(
+        self,
+        name: str = "RobustNormal",
+        mean_transform: Union[str, Callable] = "none",
+        scale_transform: Union[str, Callable] = "positive",
+        rob: Optional[float] = 0.1,
+        eps: float = 1e-6,
+    ):
+        super().__init__(name=name, param_names=["mean", "scale"], eps=eps)
+        self.mean_transform = mean_transform
+        self.scale_transform = scale_transform
+        self.rob = None if rob is None else float(rob)
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        mean = self.get_transform(self.mean_transform)(predictions[:, 0])
+        scale = self.get_transform(self.scale_transform)(predictions[:, 1])
+
+        normal_dist = dist.Normal(loc=mean, scale=scale)
+        log_likelihood = normal_dist.log_prob(y)
+
+        if self.rob is not None:
+            # numerically stable implementation using logaddexp:
+            # log(1 + exp(a)) = logaddexp(0, a)
+            rob_t = torch.tensor(self.rob, device=log_likelihood.device, dtype=log_likelihood.dtype)
+            log_num = torch.logaddexp(torch.zeros_like(log_likelihood), log_likelihood + rob_t)
+            log_den = torch.logaddexp(torch.tensor(0.0, device=rob_t.device, dtype=rob_t.dtype), rob_t)
+            log_likelihood = log_num - log_den
+
+        return -log_likelihood.mean()
+
+    def evaluate_nll(self, y_true, y_pred):
+        metrics = super().evaluate_nll(y_true, y_pred)
+        y = np.asarray(y_true).reshape(-1)
+        pred = np.asarray(y_pred)
+        mu = pred[:, 0]
+        err = y - mu
+        metrics.update(
+            {
+                "mse": float(np.mean(err**2)),
+                "mae": float(np.mean(np.abs(err))),
+                "rmse": float(np.sqrt(np.mean(err**2))),
+            }
+        )
+        return metrics
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        return params[:, 0]
+
+# ----------------------------------------------------------------------
+# Additional drop-in families for nampy/utils/distributions.py
+# ----------------------------------------------------------------------
+
+def _unit_interval_transform(x: torch.Tensor) -> torch.Tensor:
+    """Numerically safe sigmoid transform to (0, 1)."""
+    return torch.sigmoid(torch.clamp(x, min=-40.0, max=40.0))
+
+
+def _mean_dispersion_to_nb(mean: torch.Tensor, alpha: torch.Tensor, eps: float):
+    """
+    Convert NB2 mean/dispersion parameterization to PyTorch's
+    NegativeBinomial(total_count=r, probs=p) parameterization.
+
+    NB2:
+        Var(Y) = mean + alpha * mean^2
+        r = 1 / alpha
+        p = mean / (mean + r)
+    """
+    total_count = 1.0 / torch.clamp(alpha, min=eps)
+    probs = mean / torch.clamp(mean + total_count, min=eps)
+    probs = torch.clamp(probs, min=eps, max=1.0 - eps)
+    return total_count, probs
+
+
+class LogNormalDistribution(BaseDistribution):
+    """
+    Log-Normal with parameters [loc, scale].
+
+    Here `loc` and `scale` are the parameters of log(Y):
+        log(Y) ~ Normal(loc, scale)
+
+    Notes
+    -----
+    * Targets must be strictly positive.
+    * `predict_point()` returns the conditional mean:
+          E[Y] = exp(loc + 0.5 * scale^2)
+    """
+
+    def __init__(
+        self,
+        name: str = "LogNormal",
+        loc_transform: Union[str, Callable] = "none",
+        scale_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["loc", "scale"], eps=eps)
+        self.loc_transform = loc_transform
+        self.scale_transform = scale_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y <= 0):
+            raise ValueError("LogNormalDistribution requires strictly positive targets.")
+
+        loc = self.get_transform(self.loc_transform)(predictions[:, 0])
+        scale = self.get_transform(self.scale_transform)(predictions[:, 1])
+
+        return -dist.LogNormal(loc=loc, scale=scale).log_prob(y).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        loc = params[:, 0]
+        scale = params[:, 1]
+        return torch.exp(loc + 0.5 * scale.square())
+
+
+class WeibullDistribution(BaseDistribution):
+    """
+    Weibull with parameters [scale, shape].
+
+    PyTorch parameterization:
+        Weibull(scale=scale, concentration=shape)
+
+    Notes
+    -----
+    * Targets must be strictly positive.
+    * `predict_point()` returns the conditional mean:
+          E[Y] = scale * Gamma(1 + 1/shape)
+    """
+
+    def __init__(
+        self,
+        name: str = "Weibull",
+        scale_transform: Union[str, Callable] = "positive",
+        shape_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["scale", "shape"], eps=eps)
+        self.scale_transform = scale_transform
+        self.shape_transform = shape_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y <= 0):
+            raise ValueError("WeibullDistribution requires strictly positive targets.")
+
+        scale = self.get_transform(self.scale_transform)(predictions[:, 0])
+        shape = self.get_transform(self.shape_transform)(predictions[:, 1])
+
+        return -dist.Weibull(scale=scale, concentration=shape).log_prob(y).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        scale = params[:, 0]
+        shape = params[:, 1]
+        return scale * torch.exp(torch.lgamma(1.0 + 1.0 / torch.clamp(shape, min=self.eps)))
+
+
+class LogLogisticDistribution(BaseDistribution):
+    """
+    Log-Logistic with parameters [scale, shape].
+
+    Density:
+        f(y) = (shape / scale) * (y / scale)^(shape - 1) / (1 + (y / scale)^shape)^2
+    for y > 0.
+
+    Notes
+    -----
+    * Targets must be strictly positive.
+    * `predict_point()` returns the median, which equals `scale`.
+      (The mean exists only for shape > 1.)
+    """
+
+    def __init__(
+        self,
+        name: str = "LogLogistic",
+        scale_transform: Union[str, Callable] = "positive",
+        shape_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["scale", "shape"], eps=eps)
+        self.scale_transform = scale_transform
+        self.shape_transform = shape_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y <= 0):
+            raise ValueError("LogLogisticDistribution requires strictly positive targets.")
+
+        scale = self.get_transform(self.scale_transform)(predictions[:, 0])
+        shape = self.get_transform(self.shape_transform)(predictions[:, 1])
+
+        log_y = torch.log(torch.clamp(y, min=self.eps))
+        log_scale = torch.log(torch.clamp(scale, min=self.eps))
+        z = log_y - log_scale
+        bz = shape * z
+
+        log_pdf = (
+            torch.log(torch.clamp(shape, min=self.eps))
+            - log_scale
+            + (shape - 1.0) * z
+            - 2.0 * F.softplus(bz)
+        )
+
+        return -log_pdf.mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        # Median of the log-logistic is exactly scale.
+        return params[:, 0]
+
+
+class ZeroInflatedPoissonDistribution(BaseDistribution):
+    """
+    Zero-Inflated Poisson with parameters [zero_prob, rate].
+
+    Interpretation
+    --------------
+    P(Y = 0) = zero_prob + (1 - zero_prob) * Pois(rate).pmf(0)
+    P(Y = y>0) = (1 - zero_prob) * Pois(rate).pmf(y)
+
+    Notes
+    -----
+    * Targets must be non-negative.
+    * `predict_point()` returns the mean:
+          E[Y] = (1 - zero_prob) * rate
+    """
+
+    def __init__(
+        self,
+        name: str = "ZeroInflatedPoisson",
+        zero_prob_transform: Union[str, Callable] = _unit_interval_transform,
+        rate_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["zero_prob", "rate"], eps=eps)
+        self.zero_prob_transform = zero_prob_transform
+        self.rate_transform = rate_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y < 0):
+            raise ValueError("ZeroInflatedPoissonDistribution requires non-negative targets.")
+
+        zero_prob = self.get_transform(self.zero_prob_transform)(predictions[:, 0])
+        zero_prob = torch.clamp(zero_prob, min=self.eps, max=1.0 - self.eps)
+        rate = self.get_transform(self.rate_transform)(predictions[:, 1])
+
+        pois = dist.Poisson(rate=rate)
+        log_pois = pois.log_prob(y)
+        log_pois0 = pois.log_prob(torch.zeros_like(y))
+
+        log_prob_zero = torch.logaddexp(torch.log(zero_prob), torch.log1p(-zero_prob) + log_pois0)
+        log_prob_pos = torch.log1p(-zero_prob) + log_pois
+
+        log_prob = torch.where(y == 0, log_prob_zero, log_prob_pos)
+        return -log_prob.mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        zero_prob = params[:, 0]
+        rate = params[:, 1]
+        return (1.0 - zero_prob) * rate
+
+
+class ZeroInflatedNegativeBinomialDistribution(BaseDistribution):
+    """
+    Zero-Inflated Negative Binomial (NB2) with parameters [zero_prob, mean, dispersion].
+
+    NB2 parameterization:
+        Var(Y) = mean + dispersion * mean^2
+
+    Notes
+    -----
+    * Targets must be non-negative.
+    * `predict_point()` returns the mean:
+          E[Y] = (1 - zero_prob) * mean
+    """
+
+    def __init__(
+        self,
+        name: str = "ZeroInflatedNegativeBinomial",
+        zero_prob_transform: Union[str, Callable] = _unit_interval_transform,
+        mean_transform: Union[str, Callable] = "positive",
+        dispersion_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["zero_prob", "mean", "dispersion"], eps=eps)
+        self.zero_prob_transform = zero_prob_transform
+        self.mean_transform = mean_transform
+        self.dispersion_transform = dispersion_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y < 0):
+            raise ValueError(
+                "ZeroInflatedNegativeBinomialDistribution requires non-negative targets."
+            )
+
+        zero_prob = self.get_transform(self.zero_prob_transform)(predictions[:, 0])
+        zero_prob = torch.clamp(zero_prob, min=self.eps, max=1.0 - self.eps)
+        mean = self.get_transform(self.mean_transform)(predictions[:, 1])
+        dispersion = self.get_transform(self.dispersion_transform)(predictions[:, 2])
+
+        total_count, probs = _mean_dispersion_to_nb(mean, dispersion, self.eps)
+        nb = dist.NegativeBinomial(total_count=total_count, probs=probs)
+
+        log_nb = nb.log_prob(y)
+        log_nb0 = nb.log_prob(torch.zeros_like(y))
+
+        log_prob_zero = torch.logaddexp(torch.log(zero_prob), torch.log1p(-zero_prob) + log_nb0)
+        log_prob_pos = torch.log1p(-zero_prob) + log_nb
+
+        log_prob = torch.where(y == 0, log_prob_zero, log_prob_pos)
+        return -log_prob.mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        zero_prob = params[:, 0]
+        mean = params[:, 1]
+        return (1.0 - zero_prob) * mean
+
+
+class HurdlePoissonDistribution(BaseDistribution):
+    """
+    Hurdle Poisson with parameters [zero_prob, rate].
+
+    Interpretation
+    --------------
+    P(Y = 0) = zero_prob
+    P(Y = y>0) = (1 - zero_prob) * Pois(rate).pmf(y) / (1 - Pois(rate).pmf(0))
+
+    Notes
+    -----
+    * Targets must be non-negative.
+    * `predict_point()` returns the mean:
+          E[Y] = (1 - zero_prob) * E[Poisson(rate) | Y > 0]
+               = (1 - zero_prob) * rate / (1 - exp(-rate))
+    """
+
+    def __init__(
+        self,
+        name: str = "HurdlePoisson",
+        zero_prob_transform: Union[str, Callable] = _unit_interval_transform,
+        rate_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["zero_prob", "rate"], eps=eps)
+        self.zero_prob_transform = zero_prob_transform
+        self.rate_transform = rate_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y < 0):
+            raise ValueError("HurdlePoissonDistribution requires non-negative targets.")
+
+        zero_prob = self.get_transform(self.zero_prob_transform)(predictions[:, 0])
+        zero_prob = torch.clamp(zero_prob, min=self.eps, max=1.0 - self.eps)
+        rate = self.get_transform(self.rate_transform)(predictions[:, 1])
+
+        pois = dist.Poisson(rate=rate)
+        log_pois = pois.log_prob(y)
+        log_pois0 = pois.log_prob(torch.zeros_like(y))
+
+        log_trunc_norm = torch.log(torch.clamp(1.0 - torch.exp(log_pois0), min=self.eps))
+        log_prob_zero = torch.log(zero_prob)
+        log_prob_pos = torch.log1p(-zero_prob) + log_pois - log_trunc_norm
+
+        log_prob = torch.where(y == 0, log_prob_zero, log_prob_pos)
+        return -log_prob.mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        zero_prob = params[:, 0]
+        rate = params[:, 1]
+        trunc_mean = rate / torch.clamp(1.0 - torch.exp(-rate), min=self.eps)
+        return (1.0 - zero_prob) * trunc_mean
+
+
+class HurdleNegativeBinomialDistribution(BaseDistribution):
+    """
+    Hurdle Negative Binomial (NB2) with parameters [zero_prob, mean, dispersion].
+
+    Interpretation
+    --------------
+    P(Y = 0) = zero_prob
+    P(Y = y>0) = (1 - zero_prob) * NB(mean, dispersion).pmf(y) / (1 - NB(...).pmf(0))
+
+    Notes
+    -----
+    * Targets must be non-negative.
+    * `predict_point()` returns the mean:
+          E[Y] = (1 - zero_prob) * E[NB(mean, dispersion) | Y > 0]
+               = (1 - zero_prob) * mean / (1 - P_NB(Y=0))
+    """
+
+    def __init__(
+        self,
+        name: str = "HurdleNegativeBinomial",
+        zero_prob_transform: Union[str, Callable] = _unit_interval_transform,
+        mean_transform: Union[str, Callable] = "positive",
+        dispersion_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["zero_prob", "mean", "dispersion"], eps=eps)
+        self.zero_prob_transform = zero_prob_transform
+        self.mean_transform = mean_transform
+        self.dispersion_transform = dispersion_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y < 0):
+            raise ValueError(
+                "HurdleNegativeBinomialDistribution requires non-negative targets."
+            )
+
+        zero_prob = self.get_transform(self.zero_prob_transform)(predictions[:, 0])
+        zero_prob = torch.clamp(zero_prob, min=self.eps, max=1.0 - self.eps)
+        mean = self.get_transform(self.mean_transform)(predictions[:, 1])
+        dispersion = self.get_transform(self.dispersion_transform)(predictions[:, 2])
+
+        total_count, probs = _mean_dispersion_to_nb(mean, dispersion, self.eps)
+        nb = dist.NegativeBinomial(total_count=total_count, probs=probs)
+
+        log_nb = nb.log_prob(y)
+        log_nb0 = nb.log_prob(torch.zeros_like(y))
+
+        log_trunc_norm = torch.log(torch.clamp(1.0 - torch.exp(log_nb0), min=self.eps))
+        log_prob_zero = torch.log(zero_prob)
+        log_prob_pos = torch.log1p(-zero_prob) + log_nb - log_trunc_norm
+
+        log_prob = torch.where(y == 0, log_prob_zero, log_prob_pos)
+        return -log_prob.mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+
+        zero_prob = params[:, 0]
+        mean = params[:, 1]
+        dispersion = params[:, 2]
+
+        total_count, probs = _mean_dispersion_to_nb(mean, dispersion, self.eps)
+        nb = dist.NegativeBinomial(total_count=total_count, probs=probs)
+        p0 = torch.exp(nb.log_prob(torch.zeros_like(mean)))
+
+        trunc_mean = mean / torch.clamp(1.0 - p0, min=self.eps)
+        return (1.0 - zero_prob) * trunc_mean
+
+# ----------------------------------------------------------------------
+# Additional advanced families for nampy/utils/distributions.py
+# ----------------------------------------------------------------------
+
+def _inverse_softplus(x: torch.Tensor) -> torch.Tensor:
+    """Numerically stable inverse softplus for x > 0."""
+    x = torch.as_tensor(x, dtype=torch.float32)
+    return x + torch.log(-torch.expm1(-x))
+
+
+class TweedieDistribution(BaseDistribution):
+    """
+    Proper Tweedie likelihood for the compound Poisson-Gamma case: 1 < p < 2.
+
+    Parameterization
+    ----------------
+    We use:
+        E[Y] = mean = mu > 0
+        Var(Y) = dispersion * mu^p,   with 1 < p < 2
+
+    The model predicts raw outputs for [mean, dispersion], and `variance_power`
+    (often called `p`) is fixed at construction time.
+
+    Notes
+    -----
+    * Supports y >= 0 with exact point mass at zero.
+    * For y > 0, the density is evaluated via the infinite series representation
+      of the compound Poisson-Gamma distribution, truncated at `series_max_terms`.
+    * `predict_point()` returns the mean parameter.
+    """
+
+    def __init__(
+        self,
+        variance_power: float = 1.5,
+        name: str = "Tweedie",
+        mean_transform: Union[str, Callable] = "positive",
+        dispersion_transform: Union[str, Callable] = "positive",
+        series_max_terms: int = 200,
+        eps: float = 1e-8,
+    ):
+        p = float(variance_power)
+        if not (1.0 < p < 2.0):
+            raise ValueError(
+                "TweedieDistribution currently supports only 1 < variance_power < 2 "
+                "(compound Poisson-Gamma case)."
+            )
+        if int(series_max_terms) < 1:
+            raise ValueError("series_max_terms must be >= 1.")
+
+        super().__init__(name=name, param_names=["mean", "dispersion"], eps=eps)
+        self.variance_power = p
+        self.mean_transform = mean_transform
+        self.dispersion_transform = dispersion_transform
+        self.series_max_terms = int(series_max_terms)
+
+    def _compound_params(self, mean: torch.Tensor, dispersion: torch.Tensor):
+        """
+        Compound Poisson-Gamma representation for 1 < p < 2.
+
+        If Y = sum_{i=1}^N X_i where:
+          N ~ Poisson(lambda)
+          X_i ~ Gamma(shape=a, scale=b)
+        then:
+          lambda = mean^(2-p) / (dispersion * (2-p))
+          a      = (2-p) / (p-1)
+          b      = dispersion * (p-1) * mean^(p-1)
+        """
+        p = self.variance_power
+        lam = mean.pow(2.0 - p) / torch.clamp(dispersion * (2.0 - p), min=self.eps)
+        a = (2.0 - p) / (p - 1.0)
+        b = dispersion * (p - 1.0) * mean.pow(p - 1.0)
+        b = torch.clamp(b, min=self.eps)
+        lam = torch.clamp(lam, min=self.eps)
+        return lam, a, b
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y < 0):
+            raise ValueError("TweedieDistribution requires non-negative targets.")
+
+        mean = self.get_transform(self.mean_transform)(predictions[:, 0])
+        dispersion = self.get_transform(self.dispersion_transform)(predictions[:, 1])
+
+        lam, a, b = self._compound_params(mean, dispersion)
+
+        log_prob = torch.empty_like(y)
+
+        # Exact mass at zero
+        zero_mask = y == 0
+        if zero_mask.any():
+            log_prob[zero_mask] = -lam[zero_mask]
+
+        # Continuous density for y > 0 via series expansion
+        pos_mask = ~zero_mask
+        if pos_mask.any():
+            y_pos = torch.clamp(y[pos_mask], min=self.eps)
+            lam_pos = lam[pos_mask]
+            b_pos = b[pos_mask]
+
+            n = torch.arange(
+                1,
+                self.series_max_terms + 1,
+                device=y_pos.device,
+                dtype=y_pos.dtype,
+            ).view(1, -1)
+
+            log_lambda = torch.log(lam_pos).unsqueeze(1)
+            log_y = torch.log(y_pos).unsqueeze(1)
+            log_b = torch.log(b_pos).unsqueeze(1)
+
+            # Gamma shape for the sum of n jumps
+            an = a * n
+
+            # log term_n:
+            #   n log(lambda) - lgamma(n+1) - lgamma(a n)
+            #   + a n (log y - log b)
+            log_terms = (
+                n * log_lambda
+                - torch.lgamma(n + 1.0)
+                - torch.lgamma(an)
+                + an * (log_y - log_b)
+            )
+
+            log_sum = torch.logsumexp(log_terms, dim=1)
+
+            # f(y) = exp(-lambda - y/b) * (1/y) * sum_n term_n
+            log_prob[pos_mask] = -lam_pos - y_pos / b_pos - torch.log(y_pos) + log_sum
+
+        return -log_prob.mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        return params[:, 0]
+
+
+class OrdinalCumulativeLogitDistribution(BaseDistribution):
+    """
+    Proportional-odds ordinal regression with global ordered cutpoints.
+
+    Model
+    -----
+    The network predicts a single latent location per sample:
+        eta(x) in R
+
+    The family holds global ordered cutpoints:
+        c_1 < c_2 < ... < c_{K-1}
+
+    Then:
+        P(Y <= k | x) = sigmoid(c_k - eta(x))
+
+    This is often the cleanest ordinal head for tabular models because the network
+    only needs to output one score per sample, while the thresholds remain global.
+
+    Parameters
+    ----------
+    num_classes : int
+        Number of ordered classes K >= 2.
+
+    Notes
+    -----
+    * `param_count == 1`, so the backbone only needs one output dimension.
+    * `forward()` returns class probabilities of shape [N, K].
+    * `predict_point()` returns the most likely class index.
+    """
+
+    target_dtype = torch.long
+
+    def __init__(
+        self,
+        num_classes: Optional[int] = None,
+        name: str = "OrdinalCumulativeLogit",
+        eps: float = 1e-8,
+    ):
+        if num_classes is None:
+            raise ValueError(
+                "OrdinalCumulativeLogitDistribution requires `num_classes` at construction."
+            )
+        k = int(num_classes)
+        if k < 2:
+            raise ValueError("OrdinalCumulativeLogitDistribution requires num_classes >= 2.")
+
+        super().__init__(name=name, param_names=["eta"], eps=eps)
+        self._num_classes = k
+
+        # Initialize ordered cutpoints roughly centered around 0.
+        init_cuts = torch.linspace(-(k - 2) / 2.0, (k - 2) / 2.0, k - 1)
+        self.first_cutpoint = torch.nn.Parameter(init_cuts[:1].clone())
+
+        if k > 2:
+            init_diffs = init_cuts[1:] - init_cuts[:-1]
+            self.raw_cutpoint_increments = torch.nn.Parameter(
+                _inverse_softplus(init_diffs).clone()
+            )
+        else:
+            self.raw_cutpoint_increments = None
+
+    @property
+    def num_classes(self) -> int:
+        return self._num_classes
+
+    def _ordered_cutpoints(self) -> torch.Tensor:
+        if self.raw_cutpoint_increments is None:
+            return self.first_cutpoint
+        inc = F.softplus(self.raw_cutpoint_increments)
+        rest = self.first_cutpoint + torch.cumsum(inc, dim=0)
+        return torch.cat([self.first_cutpoint, rest], dim=0)
+
+    def get_cutpoints(self) -> torch.Tensor:
+        """Return current ordered cutpoints as a detached tensor."""
+        return self._ordered_cutpoints().detach()
+
+    def forward(self, predictions):
+        predictions = self._ensure_2d_predictions(predictions)
+        if predictions.shape[1] != 1:
+            raise ValueError(
+                f"OrdinalCumulativeLogitDistribution expects raw predictions with shape (N, 1), "
+                f"got {tuple(predictions.shape)}."
+            )
+
+        eta = predictions[:, 0:1]  # [N,1]
+        cutpoints = self._ordered_cutpoints().to(device=eta.device, dtype=eta.dtype)  # [K-1]
+
+        cum_probs = torch.sigmoid(cutpoints.unsqueeze(0) - eta)  # [N, K-1]
+
+        probs = []
+        probs.append(cum_probs[:, 0:1])  # P(Y=0)
+        for j in range(1, self.num_classes - 1):
+            probs.append(cum_probs[:, j:j+1] - cum_probs[:, j-1:j])
+        probs.append(1.0 - cum_probs[:, -1:])  # P(Y=K-1)
+
+        probs = torch.cat(probs, dim=1)
+        probs = torch.clamp(probs, min=self.eps, max=1.0 - self.eps)
+        probs = probs / torch.clamp(probs.sum(dim=1, keepdim=True), min=self.eps)
+        return probs
+
+    def compute_loss(self, predictions, y_true):
+        probs = self.forward(predictions)
+
+        if not torch.is_tensor(y_true):
+            y = torch.as_tensor(y_true)
+        else:
+            y = y_true
+
+        # Accept [N], [N,1], [N,K], [N,1,K]
+        if y.ndim == 3 and y.shape[1] == 1:
+            y = y[:, 0, :]
+        if y.ndim == 2 and y.shape[1] == 1:
+            y = y[:, 0]
+        elif y.ndim == 2 and y.shape[1] == self.num_classes:
+            y = torch.argmax(y, dim=1)
+        elif y.ndim != 1:
+            raise ValueError(
+                f"Ordinal targets must be [N], [N,1], or [N,K]; got {tuple(y.shape)}"
+            )
+
+        y = y.long().to(device=probs.device)
+        self._validate_batch_match(probs, y)
+
+        if torch.any((y < 0) | (y >= self.num_classes)):
+            raise ValueError(
+                f"Ordinal targets must lie in [0, {self.num_classes - 1}]."
+            )
+
+        gathered = probs.gather(1, y.unsqueeze(1)).squeeze(1)
+        return -torch.log(torch.clamp(gathered, min=self.eps)).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        probs = predictions if transformed else self.forward(predictions)
+        probs = self._ensure_2d_predictions(probs)
+        return torch.argmax(probs, dim=1)
+
+
+class MultivariateNormalDiagDistribution(BaseDistribution):
+    """
+    Multivariate Normal with diagonal covariance for K-dimensional targets.
+
+    Raw network output layout
+    -------------------------
+    [loc_0, ..., loc_{K-1}, scale_0, ..., scale_{K-1}]
+
+    Notes
+    -----
+    * Requires `n_dim` (or `dim`) at construction.
+    * Assumes conditional independence across target dimensions given x.
+    * `predict_point()` returns the mean vector of shape [N, K].
+    """
+
+    def __init__(
+        self,
+        n_dim: Optional[int] = None,
+        dim: Optional[int] = None,
+        name: str = "MultivariateNormalDiag",
+        loc_transform: Union[str, Callable] = "none",
+        scale_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        k = n_dim if n_dim is not None else dim
+        if k is None:
+            raise ValueError(
+                "MultivariateNormalDiagDistribution requires `n_dim` (or `dim`) "
+                "at construction."
+            )
+        k = int(k)
+        if k < 2:
+            raise ValueError("MultivariateNormalDiagDistribution requires n_dim >= 2.")
+
+        param_names = [f"loc_{i}" for i in range(k)] + [f"scale_{i}" for i in range(k)]
+        super().__init__(name=name, param_names=param_names, eps=eps)
+
+        self._n_dim = k
+        self.loc_transform = loc_transform
+        self.scale_transform = scale_transform
+
+    @property
+    def n_dim(self) -> int:
+        return self._n_dim
+
+    def _check_dim(self, predictions: torch.Tensor):
+        if predictions.shape[1] != 2 * self._n_dim:
+            raise ValueError(
+                f"MultivariateNormalDiagDistribution expected {2 * self._n_dim} raw parameters, "
+                f"got {tuple(predictions.shape)}."
+            )
+
+    def forward(self, predictions):
+        predictions = self._ensure_2d_predictions(predictions)
+        self._check_dim(predictions)
+
+        loc_raw = predictions[:, : self._n_dim]
+        scale_raw = predictions[:, self._n_dim :]
+
+        loc = self.get_transform(self.loc_transform)(loc_raw)
+        scale = self.get_transform(self.scale_transform)(scale_raw)
+
+        return torch.cat([loc, scale], dim=1)
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        self._check_dim(predictions)
+
+        if not torch.is_tensor(y_true):
+            y = torch.as_tensor(y_true, dtype=torch.float32)
+        else:
+            y = y_true.float()
+
+        # Accept [N, K], [N,1,K]
+        if y.ndim == 3 and y.shape[1] == 1:
+            y = y[:, 0, :]
+        if y.ndim != 2:
+            raise ValueError(
+                f"MultivariateNormalDiag targets must have shape [N, K] (or [N,1,K]); got {tuple(y.shape)}"
+            )
+        self._validate_batch_match(predictions, y)
+        if y.shape[1] != self._n_dim:
+            raise ValueError(
+                f"MultivariateNormalDiag target dimension {y.shape[1]} != expected {self._n_dim}."
+            )
+
+        loc = self.get_transform(self.loc_transform)(predictions[:, : self._n_dim])
+        scale = self.get_transform(self.scale_transform)(predictions[:, self._n_dim :])
+
+        mvn = dist.Independent(dist.Normal(loc=loc, scale=scale), 1)
+        return -mvn.log_prob(y).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        return params[:, : self._n_dim]
+# --- End of nampy/utils/distributions.py ---
+

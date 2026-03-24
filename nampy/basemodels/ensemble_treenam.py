@@ -22,9 +22,11 @@ class EnsembleTreeNAM(BaseModel):
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: DefaultEnsembleTreeNAMConfig = DefaultEnsembleTreeNAMConfig(),
+        config: DefaultEnsembleTreeNAMConfig | None = None,
         **kwargs,
     ):
+        if config is None:
+            config = DefaultEnsembleTreeNAMConfig()
         super().__init__(**kwargs)
         self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
 
