@@ -562,20 +562,38 @@
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">CategoricalDistribution</span></code>([num_classes, name, ...])</p></td>
 <td><p>Categorical over K classes (returns probabilities in <cite>forward</cite>).</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">DirichletDistribution</span></code>([n_dim, dim, name, ...])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">DirichletDistribution</span></code>([n_dim, name, ...])</p></td>
 <td><p>Dirichlet with K concentration parameters.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">GammaDistribution</span></code>([name, shape_transform, ...])</p></td>
 <td><p>Gamma with parameters [shape, rate].</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">HurdleNegativeBinomialDistribution</span></code>([name, ...])</p></td>
+<td><p>Hurdle Negative Binomial (NB2) with parameters [zero_prob, mean, dispersion].</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">HurdlePoissonDistribution</span></code>([name, ...])</p></td>
+<td><p>Hurdle Poisson with parameters [zero_prob, rate].</p></td>
+</tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">InverseGammaDistribution</span></code>([name, ...])</p></td>
 <td><p>Inverse-Gamma with parameters [shape, rate].</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">NegativeBinomialDistribution</span></code>([name, ...])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">LogLogisticDistribution</span></code>([name, ...])</p></td>
+<td><p>Log-Logistic with parameters [scale, shape].</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">LogNormalDistribution</span></code>([name, loc_transform, ...])</p></td>
+<td><p>Log-Normal with parameters [loc, scale].</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">MultivariateNormalDiagDistribution</span></code>([n_dim, ...])</p></td>
+<td><p>Multivariate Normal with diagonal covariance for K-dimensional targets.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">NegativeBinomialDistribution</span></code>([name, ...])</p></td>
 <td><p>Negative Binomial with parameters [mean, dispersion].</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">NormalDistribution</span></code>([name, mean_transform, ...])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">NormalDistribution</span></code>([name, mean_transform, ...])</p></td>
 <td><p>Gaussian with parameters [mean, scale].</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">OrdinalCumulativeLogitDistribution</span></code>([...])</p></td>
+<td><p>Proportional-odds ordinal regression with global ordered cutpoints.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">PoissonDistribution</span></code>([name, rate_transform, eps])</p></td>
 <td><p>Poisson with parameter [rate].</p></td>
@@ -588,6 +606,18 @@
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">StudentTDistribution</span></code>([name, df_transform, ...])</p></td>
 <td><p>Student-t with parameters [df, loc, scale].</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">TweedieDistribution</span></code>([variance_power, name, ...])</p></td>
+<td><p>Proper Tweedie likelihood for the compound Poisson-Gamma case: 1 &lt; p &lt; 2.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">WeibullDistribution</span></code>([name, scale_transform, ...])</p></td>
+<td><p>Weibull with parameters [scale, shape].</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">ZeroInflatedNegativeBinomialDistribution</span></code>([...])</p></td>
+<td><p>Zero-Inflated Negative Binomial (NB2) with parameters [zero_prob, mean, dispersion].</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">ZeroInflatedPoissonDistribution</span></code>([name, ...])</p></td>
+<td><p>Zero-Inflated Poisson with parameters [zero_prob, rate].</p></td>
 </tr>
 </tbody>
 </table>
