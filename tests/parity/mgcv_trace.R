@@ -1,11 +1,26 @@
+# Usage:
+#   Rscript mgcv_trace.R <csv_path> <output_json> <formula> <family> <method> <select>
+#
+# Fits mgcv::gam and writes trace of optimization for parity with
+# nampy.gam.fit.gam_trace.
+
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 6) {
   stop("Usage: Rscript mgcv_trace.R <csv_path> <output_json> <formula> <family> <method> <select>")
 }
 
+normalize_formula_text <- function(x) {
+  x <- gsub("\\[", "c(", x)
+  x <- gsub("\\]", ")", x)
+  x <- gsub("\\bTrue\\b", "TRUE", x)
+  x <- gsub("\\bFalse\\b", "FALSE", x)
+  x <- gsub("\\bNone\\b", "NULL", x)
+  x
+}
+
 csv_path <- args[[1]]
 output_json <- args[[2]]
-formula_text <- args[[3]]
+formula_text <- normalize_formula_text(args[[3]])
 family_name <- tolower(args[[4]])
 method_name <- args[[5]]
 select_flag <- tolower(args[[6]]) %in% c("true", "1", "yes")
@@ -14,6 +29,9 @@ suppressPackageStartupMessages(library(mgcv))
 suppressPackageStartupMessages(library(jsonlite))
 
 data <- read.csv(csv_path, stringsAsFactors = FALSE)
+for (nm in names(data)) {
+  if (is.character(data[[nm]])) data[[nm]] <- factor(data[[nm]])
+}
 family_obj <- switch(
   family_name,
   gaussian = gaussian(),

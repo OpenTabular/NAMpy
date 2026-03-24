@@ -1,3 +1,20 @@
+"""
+Penalty reparameterisation utilities.
+
+Eigendecomposition-based reparameterisation splits a smooth term's basis into
+a null-space component (penalty eigenvalue ≈ 0) and a penalised component
+(positive eigenvalue).  This is used to convert the penalised regression
+problem into a mixed model form ``y = X_fix beta + Z_rand u + epsilon``,
+which simplifies REML score computation.
+
+:func:`reparameterize_smooth`
+    Split a single smooth basis ``B`` with penalty ``P`` into fixed and random
+    design sub-matrices.
+
+:func:`_matrix_sqrt_psd`
+    Symmetric square root of a PSD matrix (used for penalty scaling).
+"""
+
 import numpy as np
 from scipy.linalg import qr as scipy_qr
 
@@ -26,6 +43,17 @@ def reparameterize_smooth(B, P, tol=1e-10):
     }
 
 
+def _matrix_sqrt_psd(M, tol=1e-12):
+    M = np.asarray(M, dtype=np.float64)
+    if M.size == 0:
+        return np.empty((0, 0), dtype=np.float64)
+    M = 0.5 * (M + M.T)
+    evals, vecs = np.linalg.eigh(M)
+    evals = np.clip(evals, 0.0, None)
+    sqrt_evals = np.sqrt(evals)
+    return vecs @ np.diag(sqrt_evals)
+
+
 def _penalty_support_mask(P, tol=1e-12):
     P = np.asarray(P, dtype=np.float64)
     if P.size == 0:
@@ -39,37 +67,63 @@ def _term_penalty_components(primary, null_space):
     if len(primary) == 0:
         return True, [], {}
 
-    supports = []
-    for pb in primary:
-        mask = _penalty_support_mask(pb.matrix)
-        supports.append((pb, mask))
-
-    for i in range(len(supports)):
-        for j in range(i + 1, len(supports)):
-            if np.any(supports[i][1] & supports[j][1]):
-                return False, [], {}
-
-    null_map = {}
-    if len(null_space) > 0:
-        pb0 = null_space[0]
-        null_mask = _penalty_support_mask(pb0.matrix)
-        hits = []
-        for pb, mask in supports:
-            if np.any(mask & null_mask):
-                hits.append(pb)
-        if len(hits) != 1:
-            return False, [], {}
-        null_map[id(hits[0])] = pb0
+    supports = [
+        {
+            "pb": pb,
+            "mask": _penalty_support_mask(pb.matrix),
+        }
+        for pb in primary
+    ]
 
     components = []
-    for pb, mask in supports:
+    assigned = set()
+    null_assigned = set()
+
+    for idx in range(len(supports)):
+        if idx in assigned:
+            continue
+        queue = [idx]
+        assigned.add(idx)
+        group = [supports[idx]["pb"]]
+        union_mask = supports[idx]["mask"].copy()
+
+        while queue:
+            current = queue.pop()
+            current_mask = supports[current]["mask"]
+            for j in range(len(supports)):
+                if j in assigned:
+                    continue
+                if np.any(current_mask & supports[j]["mask"]):
+                    assigned.add(j)
+                    queue.append(j)
+                    group.append(supports[j]["pb"])
+                    union_mask |= supports[j]["mask"]
+
+        comp_null = None
+        for j, pb0 in enumerate(null_space):
+            if j in null_assigned:
+                continue
+            null_mask = _penalty_support_mask(pb0.matrix)
+            if np.any(union_mask & null_mask):
+                comp_null = pb0
+                null_assigned.add(j)
+                break
+
         components.append(
             {
-                "primary": pb,
-                "support_mask": mask,
-                "null": null_map.get(id(pb)),
+                "primary": group,
+                "support_mask": union_mask,
+                "null": comp_null,
             }
         )
+
+    if len(null_space) - len(null_assigned) > 0:
+        return False, [], {}
+
+    null_map = {}
+    for comp in components:
+        if comp["null"] is not None and len(comp["primary"]) == 1:
+            null_map[id(comp["primary"][0])] = comp["null"]
     return True, components, null_map
 
 
@@ -79,7 +133,7 @@ def can_use_simple_ml_reml_structure(model):
 
     It is enabled only when every penalized smooth term contributes exactly one
     primary smooth penalty, plus at most one null-space penalty acting on the
-    same term. This covers the mgcv-style shrinkage/select case while still
+    same term. This covers shrinkage / ``select``-style terms while still
     excluding genuinely overlapping multi-penalty structures.
     """
     if model.design_ is None:
@@ -87,7 +141,11 @@ def can_use_simple_ml_reml_structure(model):
 
     for tb in model.term_blocks_:
         matches = [pb for pb in model.penalty_blocks_ if pb.coef_slice == tb.coef_slice]
-        primary_ids = {id(pb) for pb in matches if pb.kind == "smooth" and not pb.is_null_space_penalty}
+        primary_ids = {
+            id(pb)
+            for pb in matches
+            if pb.kind in {"smooth", "random_effect"} and not pb.is_null_space_penalty
+        }
         null_ids = {id(pb) for pb in matches if pb.is_null_space_penalty}
 
         if len(matches) == 0:
@@ -95,7 +153,7 @@ def can_use_simple_ml_reml_structure(model):
 
         primary = [
             pb for pb in matches
-            if pb.kind == "smooth" and not pb.is_null_space_penalty
+            if pb.kind in {"smooth", "random_effect"} and not pb.is_null_space_penalty
         ]
         null_space = [pb for pb in matches if pb.is_null_space_penalty]
         extras = [
@@ -119,7 +177,27 @@ def can_use_simple_ml_reml_structure(model):
 def can_use_exact_gaussian_ml_reml(model):
     if not model._uses_closed_form_solver():
         return False
-    return can_use_simple_ml_reml_structure(model)
+    if model.design_ is None:
+        return False
+
+    for tb in model.term_blocks_:
+        matches = [pb for pb in model.penalty_blocks_ if pb.coef_slice == tb.coef_slice]
+        if not matches:
+            continue
+
+        primary = [
+            pb
+            for pb in matches
+            if pb.kind in {"smooth", "random_effect"} and not pb.is_null_space_penalty
+        ]
+        null_space = [pb for pb in matches if pb.is_null_space_penalty]
+        ok, components, _ = _term_penalty_components(primary, null_space)
+        if not ok:
+            return False
+        if any(len(comp["primary"]) != 1 for comp in components):
+            return False
+
+    return True
 
 
 def build_penalty_reparameterized_system(model):
@@ -143,7 +221,11 @@ def build_penalty_reparameterized_system(model):
     for i, tb in enumerate(model.term_blocks_):
         matches = [pb for pb in model.penalty_blocks_ if pb.coef_slice == tb.coef_slice]
         B = tb.basis_train
-        primary_ids = {id(pb) for pb in matches if pb.kind == "smooth" and not pb.is_null_space_penalty}
+        primary_ids = {
+            id(pb)
+            for pb in matches
+            if pb.kind in {"smooth", "random_effect"} and not pb.is_null_space_penalty
+        }
         null_ids = {id(pb) for pb in matches if pb.is_null_space_penalty}
 
         if len(matches) == 0:
@@ -159,7 +241,7 @@ def build_penalty_reparameterized_system(model):
 
         primary = [
             pb for pb in matches
-            if pb.kind == "smooth" and not pb.is_null_space_penalty
+            if pb.kind in {"smooth", "random_effect"} and not pb.is_null_space_penalty
         ]
         null_space = [pb for pb in matches if pb.is_null_space_penalty]
         extras = [
@@ -190,12 +272,10 @@ def build_penalty_reparameterized_system(model):
 
         covered_mask = np.zeros(B.shape[1], dtype=bool)
         for comp in components:
-            pb = comp["primary"]
+            primaries = list(comp["primary"])
             pb0 = comp["null"]
             support_mask = np.asarray(comp["support_mask"], dtype=bool)
             if len(components) == 1:
-                # Preserve previous mgcv-like singleton behavior: use full term block
-                # and let eigen decomposition split null/penalized spaces.
                 local_idx = np.arange(B.shape[1], dtype=np.int64)
             else:
                 local_idx = np.flatnonzero(support_mask)
@@ -204,32 +284,77 @@ def build_penalty_reparameterized_system(model):
                 continue
 
             B_local = B[:, local_idx]
-            P_local = np.asarray(pb.matrix, dtype=np.float64)[np.ix_(local_idx, local_idx)]
-
-            evals = np.linalg.eigvalsh(0.5 * (P_local + P_local.T))
+            P_sum = np.zeros((local_idx.size, local_idx.size), dtype=np.float64)
+            P_loc_list = []
+            for pb in primaries:
+                P_loc = np.asarray(pb.matrix, dtype=np.float64)[np.ix_(local_idx, local_idx)]
+                P_sum += P_loc
+                P_loc_list.append(P_loc)
+            evals = np.linalg.eigvalsh(0.5 * (P_sum + P_sum.T))
             tol = 1e-10 * max(1.0, np.max(np.abs(evals)))
             pos = evals[evals > tol]
-
-            B0_main, Zr_main, meta = reparameterize_smooth(B_local, P_local)
+            B0_main, Zr_main, meta = reparameterize_smooth(B_local, P_sum)
             extra_meta = None
             B0_use = B0_main
             comp_rank = int(meta["n_pen"])
             comp_logdet = float(np.sum(np.log(pos)) if len(pos) > 0 else 0.0)
 
             if Zr_main.shape[1] > 0:
-                rand_blocks.append(Zr_main)
-                rand_blocks_term.append(
-                    {
-                        "term_index": i,
-                        "kind": "smooth",
-                        "smoothing_index": int(pb.smoothing_index),
-                        "slice": slice(rand_start, rand_start + Zr_main.shape[1]),
-                        "n_pen": int(Zr_main.shape[1]),
-                        "is_null_space_penalty": False,
-                    }
-                )
-                rand_start += Zr_main.shape[1]
+                if len(primaries) == 1:
+                    pb = primaries[0]
+                    Z_block = np.asarray(Zr_main, dtype=np.float64)
+                    n_pen = Z_block.shape[1]
+                    rand_blocks.append(Z_block)
+                    block_slice = slice(rand_start, rand_start + n_pen)
+                    rand_blocks_term.append(
+                        {
+                            "term_index": i,
+                            "kind": str(pb.kind),
+                            "smoothing_index": int(pb.smoothing_index),
+                            "slice": block_slice,
+                            "n_pen": int(n_pen),
+                            "is_null_space_penalty": False,
+                        }
+                    )
+                    rand_start += n_pen
+                else:
+                    U_range = np.asarray(meta["U1"], dtype=np.float64)
+                    if U_range.shape[1] > 0:
+                        for idx_pb, pb in enumerate(primaries):
+                            P_proj = U_range.T @ (P_loc_list[idx_pb] @ U_range)
+                            P_proj = 0.5 * (P_proj + P_proj.T)
+                            norm_val = float(np.linalg.norm(P_proj, ord=2))
+                            if norm_val <= 0:
+                                norm_val = 1.0
+                            P_norm = P_proj / norm_val
+                            R = _matrix_sqrt_psd(P_norm)
+                            if R.size == 0:
+                                continue
+                            col_norm = np.linalg.norm(R, axis=0)
+                            keep = col_norm > 1e-14
+                            if not np.any(keep):
+                                continue
+                            R = R[:, keep]
+                            Z_block = np.asarray(Zr_main @ R, dtype=np.float64)
+                            n_pen = Z_block.shape[1]
+                            if n_pen == 0:
+                                continue
+                            rand_blocks.append(Z_block)
+                            block_slice = slice(rand_start, rand_start + n_pen)
+                            rand_blocks_term.append(
+                                {
+                                    "term_index": i,
+                                    "kind": "smooth",
+                                    "smoothing_index": int(pb.smoothing_index),
+                                    "slice": block_slice,
+                                    "n_pen": int(n_pen),
+                                    "is_null_space_penalty": False,
+                                    "lambda_scaling": norm_val,
+                                }
+                            )
+                            rand_start += n_pen
 
+            Zr_extra = np.empty((0, 0), dtype=np.float64)
             if pb0 is not None and meta["n_null"] > 0:
                 U0 = meta["U0"]
                 P0_local = np.asarray(pb0.matrix, dtype=np.float64)[np.ix_(local_idx, local_idx)]
@@ -241,19 +366,21 @@ def build_penalty_reparameterized_system(model):
                 comp_logdet += float(
                     np.sum(np.log(extra_meta["d_pos"])) if extra_meta["d_pos"].size > 0 else 0.0
                 )
-                if Zr_extra.shape[1] > 0:
-                    rand_blocks.append(Zr_extra)
-                    rand_blocks_term.append(
-                        {
-                            "term_index": i,
-                            "kind": str(pb0.kind),
-                            "smoothing_index": int(pb0.smoothing_index),
-                            "slice": slice(rand_start, rand_start + Zr_extra.shape[1]),
-                            "n_pen": int(Zr_extra.shape[1]),
-                            "is_null_space_penalty": True,
-                        }
-                    )
-                    rand_start += Zr_extra.shape[1]
+            if Zr_extra.shape[1] > 0:
+                Z_null = np.asarray(Zr_extra, dtype=np.float64)
+                rand_blocks.append(Z_null)
+                block_slice = slice(rand_start, rand_start + Z_null.shape[1])
+                rand_blocks_term.append(
+                    {
+                        "term_index": i,
+                        "kind": str(pb0.kind),
+                        "smoothing_index": int(pb0.smoothing_index),
+                        "slice": block_slice,
+                        "n_pen": int(Z_null.shape[1]),
+                        "is_null_space_penalty": True,
+                    }
+                )
+                rand_start += Z_null.shape[1]
 
             if B0_use.shape[1] > 0:
                 fix_blocks.append(B0_use)
@@ -263,11 +390,11 @@ def build_penalty_reparameterized_system(model):
                     "primary": meta,
                     "null_space": extra_meta,
                     "support_index": local_idx,
-                    "primary_smoothing_index": int(pb.smoothing_index),
+                    "primary_smoothing_indices": [int(pb.smoothing_index) for pb in primaries],
                     "null_smoothing_index": None if pb0 is None else int(pb0.smoothing_index),
                 }
             )
-            primary_sp_indices.append(int(pb.smoothing_index))
+            primary_sp_indices.extend(int(pb.smoothing_index) for pb in primaries)
             total_rank += comp_rank
             total_logdet += comp_logdet
 

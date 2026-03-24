@@ -351,16 +351,15 @@ class DirichletDistribution(BaseDistribution):
     def __init__(
         self,
         n_dim: Optional[int] = None,
-        dim: Optional[int] = None,  # alias
         name: str = "Dirichlet",
         concentration_transform: Union[str, Callable] = "positive",
         target_eps: float = 1e-8,
         eps: float = 1e-8,
     ):
-        k = n_dim if n_dim is not None else dim
+        k = n_dim
         if k is None:
             raise ValueError(
-                "DirichletDistribution requires `n_dim` (or `dim`) at construction "
+                "DirichletDistribution requires `n_dim` at construction "
                 "so `param_count` matches the model output dimension. "
                 "Example: DirichletDistribution(n_dim=y.shape[1])."
             )
@@ -789,3 +788,803 @@ class RobustNormalDistribution(BaseDistribution):
         params = predictions if transformed else self.forward(predictions)
         params = self._ensure_2d_predictions(params)
         return params[:, 0]
+
+# ----------------------------------------------------------------------
+# Additional drop-in families for nampy/utils/distributions.py
+# ----------------------------------------------------------------------
+
+def _unit_interval_transform(x: torch.Tensor) -> torch.Tensor:
+    """Numerically safe sigmoid transform to (0, 1)."""
+    return torch.sigmoid(torch.clamp(x, min=-40.0, max=40.0))
+
+
+def _mean_dispersion_to_nb(mean: torch.Tensor, alpha: torch.Tensor, eps: float):
+    """
+    Convert NB2 mean/dispersion parameterization to PyTorch's
+    NegativeBinomial(total_count=r, probs=p) parameterization.
+
+    NB2:
+        Var(Y) = mean + alpha * mean^2
+        r = 1 / alpha
+        p = mean / (mean + r)
+    """
+    total_count = 1.0 / torch.clamp(alpha, min=eps)
+    probs = mean / torch.clamp(mean + total_count, min=eps)
+    probs = torch.clamp(probs, min=eps, max=1.0 - eps)
+    return total_count, probs
+
+
+class LogNormalDistribution(BaseDistribution):
+    """
+    Log-Normal with parameters [loc, scale].
+
+    Here `loc` and `scale` are the parameters of log(Y):
+        log(Y) ~ Normal(loc, scale)
+
+    Notes
+    -----
+    * Targets must be strictly positive.
+    * `predict_point()` returns the conditional mean:
+          E[Y] = exp(loc + 0.5 * scale^2)
+    """
+
+    def __init__(
+        self,
+        name: str = "LogNormal",
+        loc_transform: Union[str, Callable] = "none",
+        scale_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["loc", "scale"], eps=eps)
+        self.loc_transform = loc_transform
+        self.scale_transform = scale_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y <= 0):
+            raise ValueError("LogNormalDistribution requires strictly positive targets.")
+
+        loc = self.get_transform(self.loc_transform)(predictions[:, 0])
+        scale = self.get_transform(self.scale_transform)(predictions[:, 1])
+
+        return -dist.LogNormal(loc=loc, scale=scale).log_prob(y).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        loc = params[:, 0]
+        scale = params[:, 1]
+        return torch.exp(loc + 0.5 * scale.square())
+
+
+class WeibullDistribution(BaseDistribution):
+    """
+    Weibull with parameters [scale, shape].
+
+    PyTorch parameterization:
+        Weibull(scale=scale, concentration=shape)
+
+    Notes
+    -----
+    * Targets must be strictly positive.
+    * `predict_point()` returns the conditional mean:
+          E[Y] = scale * Gamma(1 + 1/shape)
+    """
+
+    def __init__(
+        self,
+        name: str = "Weibull",
+        scale_transform: Union[str, Callable] = "positive",
+        shape_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["scale", "shape"], eps=eps)
+        self.scale_transform = scale_transform
+        self.shape_transform = shape_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y <= 0):
+            raise ValueError("WeibullDistribution requires strictly positive targets.")
+
+        scale = self.get_transform(self.scale_transform)(predictions[:, 0])
+        shape = self.get_transform(self.shape_transform)(predictions[:, 1])
+
+        return -dist.Weibull(scale=scale, concentration=shape).log_prob(y).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        scale = params[:, 0]
+        shape = params[:, 1]
+        return scale * torch.exp(torch.lgamma(1.0 + 1.0 / torch.clamp(shape, min=self.eps)))
+
+
+class LogLogisticDistribution(BaseDistribution):
+    """
+    Log-Logistic with parameters [scale, shape].
+
+    Density:
+        f(y) = (shape / scale) * (y / scale)^(shape - 1) / (1 + (y / scale)^shape)^2
+    for y > 0.
+
+    Notes
+    -----
+    * Targets must be strictly positive.
+    * `predict_point()` returns the median, which equals `scale`.
+      (The mean exists only for shape > 1.)
+    """
+
+    def __init__(
+        self,
+        name: str = "LogLogistic",
+        scale_transform: Union[str, Callable] = "positive",
+        shape_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["scale", "shape"], eps=eps)
+        self.scale_transform = scale_transform
+        self.shape_transform = shape_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y <= 0):
+            raise ValueError("LogLogisticDistribution requires strictly positive targets.")
+
+        scale = self.get_transform(self.scale_transform)(predictions[:, 0])
+        shape = self.get_transform(self.shape_transform)(predictions[:, 1])
+
+        log_y = torch.log(torch.clamp(y, min=self.eps))
+        log_scale = torch.log(torch.clamp(scale, min=self.eps))
+        z = log_y - log_scale
+        bz = shape * z
+
+        log_pdf = (
+            torch.log(torch.clamp(shape, min=self.eps))
+            - log_scale
+            + (shape - 1.0) * z
+            - 2.0 * F.softplus(bz)
+        )
+
+        return -log_pdf.mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        # Median of the log-logistic is exactly scale.
+        return params[:, 0]
+
+
+class ZeroInflatedPoissonDistribution(BaseDistribution):
+    """
+    Zero-Inflated Poisson with parameters [zero_prob, rate].
+
+    Interpretation
+    --------------
+    P(Y = 0) = zero_prob + (1 - zero_prob) * Pois(rate).pmf(0)
+    P(Y = y>0) = (1 - zero_prob) * Pois(rate).pmf(y)
+
+    Notes
+    -----
+    * Targets must be non-negative.
+    * `predict_point()` returns the mean:
+          E[Y] = (1 - zero_prob) * rate
+    """
+
+    def __init__(
+        self,
+        name: str = "ZeroInflatedPoisson",
+        zero_prob_transform: Union[str, Callable] = _unit_interval_transform,
+        rate_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["zero_prob", "rate"], eps=eps)
+        self.zero_prob_transform = zero_prob_transform
+        self.rate_transform = rate_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y < 0):
+            raise ValueError("ZeroInflatedPoissonDistribution requires non-negative targets.")
+
+        zero_prob = self.get_transform(self.zero_prob_transform)(predictions[:, 0])
+        zero_prob = torch.clamp(zero_prob, min=self.eps, max=1.0 - self.eps)
+        rate = self.get_transform(self.rate_transform)(predictions[:, 1])
+
+        pois = dist.Poisson(rate=rate)
+        log_pois = pois.log_prob(y)
+        log_pois0 = pois.log_prob(torch.zeros_like(y))
+
+        log_prob_zero = torch.logaddexp(torch.log(zero_prob), torch.log1p(-zero_prob) + log_pois0)
+        log_prob_pos = torch.log1p(-zero_prob) + log_pois
+
+        log_prob = torch.where(y == 0, log_prob_zero, log_prob_pos)
+        return -log_prob.mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        zero_prob = params[:, 0]
+        rate = params[:, 1]
+        return (1.0 - zero_prob) * rate
+
+
+class ZeroInflatedNegativeBinomialDistribution(BaseDistribution):
+    """
+    Zero-Inflated Negative Binomial (NB2) with parameters [zero_prob, mean, dispersion].
+
+    NB2 parameterization:
+        Var(Y) = mean + dispersion * mean^2
+
+    Notes
+    -----
+    * Targets must be non-negative.
+    * `predict_point()` returns the mean:
+          E[Y] = (1 - zero_prob) * mean
+    """
+
+    def __init__(
+        self,
+        name: str = "ZeroInflatedNegativeBinomial",
+        zero_prob_transform: Union[str, Callable] = _unit_interval_transform,
+        mean_transform: Union[str, Callable] = "positive",
+        dispersion_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["zero_prob", "mean", "dispersion"], eps=eps)
+        self.zero_prob_transform = zero_prob_transform
+        self.mean_transform = mean_transform
+        self.dispersion_transform = dispersion_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y < 0):
+            raise ValueError(
+                "ZeroInflatedNegativeBinomialDistribution requires non-negative targets."
+            )
+
+        zero_prob = self.get_transform(self.zero_prob_transform)(predictions[:, 0])
+        zero_prob = torch.clamp(zero_prob, min=self.eps, max=1.0 - self.eps)
+        mean = self.get_transform(self.mean_transform)(predictions[:, 1])
+        dispersion = self.get_transform(self.dispersion_transform)(predictions[:, 2])
+
+        total_count, probs = _mean_dispersion_to_nb(mean, dispersion, self.eps)
+        nb = dist.NegativeBinomial(total_count=total_count, probs=probs)
+
+        log_nb = nb.log_prob(y)
+        log_nb0 = nb.log_prob(torch.zeros_like(y))
+
+        log_prob_zero = torch.logaddexp(torch.log(zero_prob), torch.log1p(-zero_prob) + log_nb0)
+        log_prob_pos = torch.log1p(-zero_prob) + log_nb
+
+        log_prob = torch.where(y == 0, log_prob_zero, log_prob_pos)
+        return -log_prob.mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        zero_prob = params[:, 0]
+        mean = params[:, 1]
+        return (1.0 - zero_prob) * mean
+
+
+class HurdlePoissonDistribution(BaseDistribution):
+    """
+    Hurdle Poisson with parameters [zero_prob, rate].
+
+    Interpretation
+    --------------
+    P(Y = 0) = zero_prob
+    P(Y = y>0) = (1 - zero_prob) * Pois(rate).pmf(y) / (1 - Pois(rate).pmf(0))
+
+    Notes
+    -----
+    * Targets must be non-negative.
+    * `predict_point()` returns the mean:
+          E[Y] = (1 - zero_prob) * E[Poisson(rate) | Y > 0]
+               = (1 - zero_prob) * rate / (1 - exp(-rate))
+    """
+
+    def __init__(
+        self,
+        name: str = "HurdlePoisson",
+        zero_prob_transform: Union[str, Callable] = _unit_interval_transform,
+        rate_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["zero_prob", "rate"], eps=eps)
+        self.zero_prob_transform = zero_prob_transform
+        self.rate_transform = rate_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y < 0):
+            raise ValueError("HurdlePoissonDistribution requires non-negative targets.")
+
+        zero_prob = self.get_transform(self.zero_prob_transform)(predictions[:, 0])
+        zero_prob = torch.clamp(zero_prob, min=self.eps, max=1.0 - self.eps)
+        rate = self.get_transform(self.rate_transform)(predictions[:, 1])
+
+        pois = dist.Poisson(rate=rate)
+        log_pois = pois.log_prob(y)
+        log_pois0 = pois.log_prob(torch.zeros_like(y))
+
+        log_trunc_norm = torch.log(torch.clamp(1.0 - torch.exp(log_pois0), min=self.eps))
+        log_prob_zero = torch.log(zero_prob)
+        log_prob_pos = torch.log1p(-zero_prob) + log_pois - log_trunc_norm
+
+        log_prob = torch.where(y == 0, log_prob_zero, log_prob_pos)
+        return -log_prob.mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        zero_prob = params[:, 0]
+        rate = params[:, 1]
+        trunc_mean = rate / torch.clamp(1.0 - torch.exp(-rate), min=self.eps)
+        return (1.0 - zero_prob) * trunc_mean
+
+
+class HurdleNegativeBinomialDistribution(BaseDistribution):
+    """
+    Hurdle Negative Binomial (NB2) with parameters [zero_prob, mean, dispersion].
+
+    Interpretation
+    --------------
+    P(Y = 0) = zero_prob
+    P(Y = y>0) = (1 - zero_prob) * NB(mean, dispersion).pmf(y) / (1 - NB(...).pmf(0))
+
+    Notes
+    -----
+    * Targets must be non-negative.
+    * `predict_point()` returns the mean:
+          E[Y] = (1 - zero_prob) * E[NB(mean, dispersion) | Y > 0]
+               = (1 - zero_prob) * mean / (1 - P_NB(Y=0))
+    """
+
+    def __init__(
+        self,
+        name: str = "HurdleNegativeBinomial",
+        zero_prob_transform: Union[str, Callable] = _unit_interval_transform,
+        mean_transform: Union[str, Callable] = "positive",
+        dispersion_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        super().__init__(name=name, param_names=["zero_prob", "mean", "dispersion"], eps=eps)
+        self.zero_prob_transform = zero_prob_transform
+        self.mean_transform = mean_transform
+        self.dispersion_transform = dispersion_transform
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y < 0):
+            raise ValueError(
+                "HurdleNegativeBinomialDistribution requires non-negative targets."
+            )
+
+        zero_prob = self.get_transform(self.zero_prob_transform)(predictions[:, 0])
+        zero_prob = torch.clamp(zero_prob, min=self.eps, max=1.0 - self.eps)
+        mean = self.get_transform(self.mean_transform)(predictions[:, 1])
+        dispersion = self.get_transform(self.dispersion_transform)(predictions[:, 2])
+
+        total_count, probs = _mean_dispersion_to_nb(mean, dispersion, self.eps)
+        nb = dist.NegativeBinomial(total_count=total_count, probs=probs)
+
+        log_nb = nb.log_prob(y)
+        log_nb0 = nb.log_prob(torch.zeros_like(y))
+
+        log_trunc_norm = torch.log(torch.clamp(1.0 - torch.exp(log_nb0), min=self.eps))
+        log_prob_zero = torch.log(zero_prob)
+        log_prob_pos = torch.log1p(-zero_prob) + log_nb - log_trunc_norm
+
+        log_prob = torch.where(y == 0, log_prob_zero, log_prob_pos)
+        return -log_prob.mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+
+        zero_prob = params[:, 0]
+        mean = params[:, 1]
+        dispersion = params[:, 2]
+
+        total_count, probs = _mean_dispersion_to_nb(mean, dispersion, self.eps)
+        nb = dist.NegativeBinomial(total_count=total_count, probs=probs)
+        p0 = torch.exp(nb.log_prob(torch.zeros_like(mean)))
+
+        trunc_mean = mean / torch.clamp(1.0 - p0, min=self.eps)
+        return (1.0 - zero_prob) * trunc_mean
+
+# ----------------------------------------------------------------------
+# Additional advanced families for nampy/utils/distributions.py
+# ----------------------------------------------------------------------
+
+def _inverse_softplus(x: torch.Tensor) -> torch.Tensor:
+    """Numerically stable inverse softplus for x > 0."""
+    x = torch.as_tensor(x, dtype=torch.float32)
+    return x + torch.log(-torch.expm1(-x))
+
+
+class TweedieDistribution(BaseDistribution):
+    """
+    Proper Tweedie likelihood for the compound Poisson-Gamma case: 1 < p < 2.
+
+    Parameterization
+    ----------------
+    We use:
+        E[Y] = mean = mu > 0
+        Var(Y) = dispersion * mu^p,   with 1 < p < 2
+
+    The model predicts raw outputs for [mean, dispersion], and `variance_power`
+    (often called `p`) is fixed at construction time.
+
+    Notes
+    -----
+    * Supports y >= 0 with exact point mass at zero.
+    * For y > 0, the density is evaluated via the infinite series representation
+      of the compound Poisson-Gamma distribution, truncated at `series_max_terms`.
+    * `predict_point()` returns the mean parameter.
+    """
+
+    def __init__(
+        self,
+        variance_power: float = 1.5,
+        name: str = "Tweedie",
+        mean_transform: Union[str, Callable] = "positive",
+        dispersion_transform: Union[str, Callable] = "positive",
+        series_max_terms: int = 200,
+        eps: float = 1e-8,
+    ):
+        p = float(variance_power)
+        if not (1.0 < p < 2.0):
+            raise ValueError(
+                "TweedieDistribution currently supports only 1 < variance_power < 2 "
+                "(compound Poisson-Gamma case)."
+            )
+        if int(series_max_terms) < 1:
+            raise ValueError("series_max_terms must be >= 1.")
+
+        super().__init__(name=name, param_names=["mean", "dispersion"], eps=eps)
+        self.variance_power = p
+        self.mean_transform = mean_transform
+        self.dispersion_transform = dispersion_transform
+        self.series_max_terms = int(series_max_terms)
+
+    def _compound_params(self, mean: torch.Tensor, dispersion: torch.Tensor):
+        """
+        Compound Poisson-Gamma representation for 1 < p < 2.
+
+        If Y = sum_{i=1}^N X_i where:
+          N ~ Poisson(lambda)
+          X_i ~ Gamma(shape=a, scale=b)
+        then:
+          lambda = mean^(2-p) / (dispersion * (2-p))
+          a      = (2-p) / (p-1)
+          b      = dispersion * (p-1) * mean^(p-1)
+        """
+        p = self.variance_power
+        lam = mean.pow(2.0 - p) / torch.clamp(dispersion * (2.0 - p), min=self.eps)
+        a = (2.0 - p) / (p - 1.0)
+        b = dispersion * (p - 1.0) * mean.pow(p - 1.0)
+        b = torch.clamp(b, min=self.eps)
+        lam = torch.clamp(lam, min=self.eps)
+        return lam, a, b
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        y = self._squeeze_target_last_singleton(y_true).float()
+        self._validate_batch_match(predictions, y)
+
+        if torch.any(y < 0):
+            raise ValueError("TweedieDistribution requires non-negative targets.")
+
+        mean = self.get_transform(self.mean_transform)(predictions[:, 0])
+        dispersion = self.get_transform(self.dispersion_transform)(predictions[:, 1])
+
+        lam, a, b = self._compound_params(mean, dispersion)
+
+        log_prob = torch.empty_like(y)
+
+        # Exact mass at zero
+        zero_mask = y == 0
+        if zero_mask.any():
+            log_prob[zero_mask] = -lam[zero_mask]
+
+        # Continuous density for y > 0 via series expansion
+        pos_mask = ~zero_mask
+        if pos_mask.any():
+            y_pos = torch.clamp(y[pos_mask], min=self.eps)
+            lam_pos = lam[pos_mask]
+            b_pos = b[pos_mask]
+
+            n = torch.arange(
+                1,
+                self.series_max_terms + 1,
+                device=y_pos.device,
+                dtype=y_pos.dtype,
+            ).view(1, -1)
+
+            log_lambda = torch.log(lam_pos).unsqueeze(1)
+            log_y = torch.log(y_pos).unsqueeze(1)
+            log_b = torch.log(b_pos).unsqueeze(1)
+
+            # Gamma shape for the sum of n jumps
+            an = a * n
+
+            # log term_n:
+            #   n log(lambda) - lgamma(n+1) - lgamma(a n)
+            #   + a n (log y - log b)
+            log_terms = (
+                n * log_lambda
+                - torch.lgamma(n + 1.0)
+                - torch.lgamma(an)
+                + an * (log_y - log_b)
+            )
+
+            log_sum = torch.logsumexp(log_terms, dim=1)
+
+            # f(y) = exp(-lambda - y/b) * (1/y) * sum_n term_n
+            log_prob[pos_mask] = -lam_pos - y_pos / b_pos - torch.log(y_pos) + log_sum
+
+        return -log_prob.mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        return params[:, 0]
+
+
+class OrdinalCumulativeLogitDistribution(BaseDistribution):
+    """
+    Proportional-odds ordinal regression with global ordered cutpoints.
+
+    Model
+    -----
+    The network predicts a single latent location per sample:
+        eta(x) in R
+
+    The family holds global ordered cutpoints:
+        c_1 < c_2 < ... < c_{K-1}
+
+    Then:
+        P(Y <= k | x) = sigmoid(c_k - eta(x))
+
+    This is often the cleanest ordinal head for tabular models because the network
+    only needs to output one score per sample, while the thresholds remain global.
+
+    Parameters
+    ----------
+    num_classes : int
+        Number of ordered classes K >= 2.
+
+    Notes
+    -----
+    * `param_count == 1`, so the backbone only needs one output dimension.
+    * `forward()` returns class probabilities of shape [N, K].
+    * `predict_point()` returns the most likely class index.
+    """
+
+    target_dtype = torch.long
+
+    def __init__(
+        self,
+        num_classes: Optional[int] = None,
+        name: str = "OrdinalCumulativeLogit",
+        eps: float = 1e-8,
+    ):
+        if num_classes is None:
+            raise ValueError(
+                "OrdinalCumulativeLogitDistribution requires `num_classes` at construction."
+            )
+        k = int(num_classes)
+        if k < 2:
+            raise ValueError("OrdinalCumulativeLogitDistribution requires num_classes >= 2.")
+
+        super().__init__(name=name, param_names=["eta"], eps=eps)
+        self._num_classes = k
+
+        # Initialize ordered cutpoints roughly centered around 0.
+        init_cuts = torch.linspace(-(k - 2) / 2.0, (k - 2) / 2.0, k - 1)
+        self.first_cutpoint = torch.nn.Parameter(init_cuts[:1].clone())
+
+        if k > 2:
+            init_diffs = init_cuts[1:] - init_cuts[:-1]
+            self.raw_cutpoint_increments = torch.nn.Parameter(
+                _inverse_softplus(init_diffs).clone()
+            )
+        else:
+            self.raw_cutpoint_increments = None
+
+    @property
+    def num_classes(self) -> int:
+        return self._num_classes
+
+    def _ordered_cutpoints(self) -> torch.Tensor:
+        if self.raw_cutpoint_increments is None:
+            return self.first_cutpoint
+        inc = F.softplus(self.raw_cutpoint_increments)
+        rest = self.first_cutpoint + torch.cumsum(inc, dim=0)
+        return torch.cat([self.first_cutpoint, rest], dim=0)
+
+    def get_cutpoints(self) -> torch.Tensor:
+        """Return current ordered cutpoints as a detached tensor."""
+        return self._ordered_cutpoints().detach()
+
+    def forward(self, predictions):
+        predictions = self._ensure_2d_predictions(predictions)
+        if predictions.shape[1] != 1:
+            raise ValueError(
+                f"OrdinalCumulativeLogitDistribution expects raw predictions with shape (N, 1), "
+                f"got {tuple(predictions.shape)}."
+            )
+
+        eta = predictions[:, 0:1]  # [N,1]
+        cutpoints = self._ordered_cutpoints().to(device=eta.device, dtype=eta.dtype)  # [K-1]
+
+        cum_probs = torch.sigmoid(cutpoints.unsqueeze(0) - eta)  # [N, K-1]
+
+        probs = []
+        probs.append(cum_probs[:, 0:1])  # P(Y=0)
+        for j in range(1, self.num_classes - 1):
+            probs.append(cum_probs[:, j:j+1] - cum_probs[:, j-1:j])
+        probs.append(1.0 - cum_probs[:, -1:])  # P(Y=K-1)
+
+        probs = torch.cat(probs, dim=1)
+        probs = torch.clamp(probs, min=self.eps, max=1.0 - self.eps)
+        probs = probs / torch.clamp(probs.sum(dim=1, keepdim=True), min=self.eps)
+        return probs
+
+    def compute_loss(self, predictions, y_true):
+        probs = self.forward(predictions)
+
+        if not torch.is_tensor(y_true):
+            y = torch.as_tensor(y_true)
+        else:
+            y = y_true
+
+        # Accept [N], [N,1], [N,K], [N,1,K]
+        if y.ndim == 3 and y.shape[1] == 1:
+            y = y[:, 0, :]
+        if y.ndim == 2 and y.shape[1] == 1:
+            y = y[:, 0]
+        elif y.ndim == 2 and y.shape[1] == self.num_classes:
+            y = torch.argmax(y, dim=1)
+        elif y.ndim != 1:
+            raise ValueError(
+                f"Ordinal targets must be [N], [N,1], or [N,K]; got {tuple(y.shape)}"
+            )
+
+        y = y.long().to(device=probs.device)
+        self._validate_batch_match(probs, y)
+
+        if torch.any((y < 0) | (y >= self.num_classes)):
+            raise ValueError(
+                f"Ordinal targets must lie in [0, {self.num_classes - 1}]."
+            )
+
+        gathered = probs.gather(1, y.unsqueeze(1)).squeeze(1)
+        return -torch.log(torch.clamp(gathered, min=self.eps)).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        probs = predictions if transformed else self.forward(predictions)
+        probs = self._ensure_2d_predictions(probs)
+        return torch.argmax(probs, dim=1)
+
+
+class MultivariateNormalDiagDistribution(BaseDistribution):
+    """
+    Multivariate Normal with diagonal covariance for K-dimensional targets.
+
+    Raw network output layout
+    -------------------------
+    [loc_0, ..., loc_{K-1}, scale_0, ..., scale_{K-1}]
+
+    Notes
+    -----
+    * Requires `n_dim` (or `dim`) at construction.
+    * Assumes conditional independence across target dimensions given x.
+    * `predict_point()` returns the mean vector of shape [N, K].
+    """
+
+    def __init__(
+        self,
+        n_dim: Optional[int] = None,
+        dim: Optional[int] = None,
+        name: str = "MultivariateNormalDiag",
+        loc_transform: Union[str, Callable] = "none",
+        scale_transform: Union[str, Callable] = "positive",
+        eps: float = 1e-8,
+    ):
+        k = n_dim if n_dim is not None else dim
+        if k is None:
+            raise ValueError(
+                "MultivariateNormalDiagDistribution requires `n_dim` (or `dim`) "
+                "at construction."
+            )
+        k = int(k)
+        if k < 2:
+            raise ValueError("MultivariateNormalDiagDistribution requires n_dim >= 2.")
+
+        param_names = [f"loc_{i}" for i in range(k)] + [f"scale_{i}" for i in range(k)]
+        super().__init__(name=name, param_names=param_names, eps=eps)
+
+        self._n_dim = k
+        self.loc_transform = loc_transform
+        self.scale_transform = scale_transform
+
+    @property
+    def n_dim(self) -> int:
+        return self._n_dim
+
+    def _check_dim(self, predictions: torch.Tensor):
+        if predictions.shape[1] != 2 * self._n_dim:
+            raise ValueError(
+                f"MultivariateNormalDiagDistribution expected {2 * self._n_dim} raw parameters, "
+                f"got {tuple(predictions.shape)}."
+            )
+
+    def forward(self, predictions):
+        predictions = self._ensure_2d_predictions(predictions)
+        self._check_dim(predictions)
+
+        loc_raw = predictions[:, : self._n_dim]
+        scale_raw = predictions[:, self._n_dim :]
+
+        loc = self.get_transform(self.loc_transform)(loc_raw)
+        scale = self.get_transform(self.scale_transform)(scale_raw)
+
+        return torch.cat([loc, scale], dim=1)
+
+    def compute_loss(self, predictions, y_true):
+        predictions = self._ensure_2d_predictions(predictions)
+        self._check_dim(predictions)
+
+        if not torch.is_tensor(y_true):
+            y = torch.as_tensor(y_true, dtype=torch.float32)
+        else:
+            y = y_true.float()
+
+        # Accept [N, K], [N,1,K]
+        if y.ndim == 3 and y.shape[1] == 1:
+            y = y[:, 0, :]
+        if y.ndim != 2:
+            raise ValueError(
+                f"MultivariateNormalDiag targets must have shape [N, K] (or [N,1,K]); got {tuple(y.shape)}"
+            )
+        self._validate_batch_match(predictions, y)
+        if y.shape[1] != self._n_dim:
+            raise ValueError(
+                f"MultivariateNormalDiag target dimension {y.shape[1]} != expected {self._n_dim}."
+            )
+
+        loc = self.get_transform(self.loc_transform)(predictions[:, : self._n_dim])
+        scale = self.get_transform(self.scale_transform)(predictions[:, self._n_dim :])
+
+        mvn = dist.Independent(dist.Normal(loc=loc, scale=scale), 1)
+        return -mvn.log_prob(y).mean()
+
+    def predict_point(self, predictions, transformed: bool = False):
+        params = predictions if transformed else self.forward(predictions)
+        params = self._ensure_2d_predictions(params)
+        return params[:, : self._n_dim]

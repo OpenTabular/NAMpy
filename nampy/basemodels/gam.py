@@ -9,17 +9,17 @@ import torch
 from ..configs.gam_config import DefaultGAMConfig
 from ..gam.families import make_gam_family
 from ..gam.parity import build_parity_snapshot
-from ..gsm.formula import (
+from ..gam.formula import (
     apply_drop_intercept,
     compile_predictor_specs_from_formula,
     extract_formula_data,
     parse_gam_formula,
 )
-from ..gsm.formula.preprocess import (
+from ..gam.formula.preprocess import (
     apply_formula_preprocess_to_new_data,
     preprocess_formula_predictor_specs,
 )
-from ..gsm.specs import LinearPredictorSpec, SmoothTermSpec
+from ..gam.specs import LinearPredictorSpec, TermSpec
 from .basemodel import BaseModel
 
 
@@ -77,12 +77,6 @@ class GAM(BaseModel):
                 getattr(config, "smoothing_optimizer", "lbfgsb"),
             )
         ).lower()
-        self.exact_mgcv_mode = bool(
-            self.hparams.get(
-                "exact_mgcv_mode",
-                getattr(config, "exact_mgcv_mode", False),
-            )
-        )
         self.sp_log_bounds = tuple(
             self.hparams.get("sp_log_bounds", config.sp_log_bounds)
         )
@@ -127,6 +121,7 @@ class GAM(BaseModel):
         self.feature_names = None
         self.X_ = None
         self.y_ = None
+        self.prior_weights_ = None
         self.offset_train_ = None
         self.offset_predict_default_ = None
         self.predictor_designs = None
@@ -263,7 +258,7 @@ class GAM(BaseModel):
             return None if all(v is None for v in vals) else vals
         return knots
 
-    def _dataframe_to_feature_matrix(self, X_df: pd.DataFrame):
+    def _dataframe_to_feature_matrix(self, X_df: pd.DataFrame, *, allow_missing_non_numeric=False):
         non_numeric = [
             c for c in X_df.columns if not pd.api.types.is_numeric_dtype(X_df[c])
         ]
@@ -281,7 +276,7 @@ class GAM(BaseModel):
                 if not np.isfinite(vals).all():
                     raise ValueError(f"Numeric column {c!r} contains NaN or Inf.")
             else:
-                if s.isna().any():
+                if s.isna().any() and not bool(allow_missing_non_numeric):
                     raise ValueError(
                         f"Non-numeric column {c!r} contains missing values, "
                         "which are not currently supported in fitting."
@@ -295,14 +290,20 @@ class GAM(BaseModel):
 
         if isinstance(spec, (tuple, list)) and len(spec) >= 2 and not isinstance(spec, dict):
             features = list(spec)
-            return SmoothTermSpec(
-                special="te",
-                features=features,
-                k=self.k,
-                bs=self.basis,
+            return TermSpec(
+                kind="smooth",
+                features=tuple(str(f) for f in features),
+                by_variable=None,
+                basis_options={
+                    "special": "te",
+                    "bs": self.basis,
+                    "k": self.k,
+                    "knots": self._knots_for_features(features, knots=knots),
+                    "select": bool(self.select),
+                },
+                smoothing_id=None,
                 label=f"te({', '.join(map(str, features))})",
-                knots=self._knots_for_features(features, knots=knots),
-                select=self.select,
+                metadata={},
             )
 
         if not isinstance(spec, dict):
@@ -345,37 +346,43 @@ class GAM(BaseModel):
                 )
 
         if kind == "t2":
-            return SmoothTermSpec(
-                special=kind,
-                features=list(features),
-                k=k,
-                bs=basis,
+            return TermSpec(
+                kind="smooth",
+                features=tuple(str(f) for f in features),
+                by_variable=by,
+                basis_options={
+                    "special": kind,
+                    "bs": basis,
+                    "k": k,
+                    "full": full,
+                    "ord": ord_,
+                    "fx": fixed,
+                    "select": select,
+                    "sp": sp,
+                    "knots": term_knots,
+                },
+                smoothing_id=(None if smoothing_id is None else str(smoothing_id)),
                 label=label,
-                id=smoothing_id,
-                by=by,
-                metadata=metadata,
-                full=full,
-                ord=ord_,
-                fx=fixed,
-                select=select,
-                sp=sp,
-                knots=term_knots,
+                metadata=dict(metadata or {}),
             )
 
-        return SmoothTermSpec(
-            special=kind,
-            features=list(features),
-            k=k,
-            bs=basis,
+        return TermSpec(
+            kind="smooth",
+            features=tuple(str(f) for f in features),
+            by_variable=by,
+            basis_options={
+                "special": kind,
+                "bs": basis,
+                "k": k,
+                "mc": mc,
+                "fx": fixed,
+                "select": select,
+                "sp": sp,
+                "knots": term_knots,
+            },
+            smoothing_id=(None if smoothing_id is None else str(smoothing_id)),
             label=label,
-            id=smoothing_id,
-            by=by,
-            metadata=metadata,
-            mc=mc,
-            fx=fixed,
-            select=select,
-            sp=sp,
-            knots=term_knots,
+            metadata=dict(metadata or {}),
         )
 
     def _make_predictor_specs(self, feature_names, *, knots=None):
@@ -390,80 +397,105 @@ class GAM(BaseModel):
 
                 if basis in {"cr", "cs", "cc"}:
                     main_terms.append(
-                        SmoothTermSpec(
-                            special="s",
-                            bs=basis,
-                            features=[name],
-                            k=self.k,
+                        TermSpec(
+                            kind="smooth",
+                            features=(str(name),),
+                            by_variable=None,
+                            basis_options={
+                                "special": "s",
+                                "bs": basis,
+                                "k": self.k,
+                                "sp": None,
+                                "fx": False,
+                                "select": bool(self.select),
+                                "knots": term_knots,
+                            },
+                            smoothing_id=None,
                             label=name,
-                            by=None,
-                            sp=None,
-                            fx=False,
-                            select=self.select,
-                            knots=term_knots,
+                            metadata={},
                         )
                     )
                 elif basis == "ps":
                     main_terms.append(
-                        SmoothTermSpec(
-                            special="s",
-                            bs="ps",
-                            features=[name],
-                            k=self.k,
-                            m=None,
+                        TermSpec(
+                            kind="smooth",
+                            features=(str(name),),
+                            by_variable=None,
+                            basis_options={
+                                "special": "s",
+                                "bs": "ps",
+                                "k": self.k,
+                                "m": None,
+                                "sp": None,
+                                "fx": False,
+                                "select": bool(self.select),
+                                "knots": term_knots,
+                            },
+                            smoothing_id=None,
                             label=name,
-                            by=None,
-                            sp=None,
-                            fx=False,
-                            select=self.select,
-                            knots=term_knots,
+                            metadata={},
                         )
                     )
                 elif basis in {"tp", "ts"}:
                     main_terms.append(
-                        SmoothTermSpec(
-                            special="s",
-                            bs=basis,
-                            features=[name],
-                            k=self.k,
-                            m=None,
+                        TermSpec(
+                            kind="smooth",
+                            features=(str(name),),
+                            by_variable=None,
+                            basis_options={
+                                "special": "s",
+                                "bs": basis,
+                                "k": self.k,
+                                "m": None,
+                                "sp": None,
+                                "fx": False,
+                                "select": bool(self.select),
+                                "knots": term_knots,
+                                "xt": None,
+                            },
+                            smoothing_id=None,
                             label=name,
-                            by=None,
-                            sp=None,
-                            fx=False,
-                            select=self.select,
-                            knots=term_knots,
-                            xt=None,
+                            metadata={},
                         )
                     )
                 elif basis == "gp":
                     main_terms.append(
-                        SmoothTermSpec(
-                            special="s",
-                            bs="gp",
-                            features=[name],
-                            k=self.k,
-                            m=None,
+                        TermSpec(
+                            kind="smooth",
+                            features=(str(name),),
+                            by_variable=None,
+                            basis_options={
+                                "special": "s",
+                                "bs": "gp",
+                                "k": self.k,
+                                "m": None,
+                                "sp": None,
+                                "fx": False,
+                                "select": bool(self.select),
+                                "pc": None,
+                                "knots": term_knots,
+                                "xt": None,
+                            },
+                            smoothing_id=None,
                             label=name,
-                            by=None,
-                            sp=None,
-                            fx=False,
-                            select=self.select,
-                            pc=None,
-                            knots=term_knots,
-                            xt=None,
+                            metadata={},
                         ),
                     )
                 elif basis == "re":
                     main_terms.append(
-                        SmoothTermSpec(
-                            special="s",
-                            bs="re",
-                            features=[name],
+                        TermSpec(
+                            kind="smooth",
+                            features=(str(name),),
+                            by_variable=None,
+                            basis_options={
+                                "special": "s",
+                                "bs": "re",
+                                "sp": None,
+                                "xt": None,
+                            },
+                            smoothing_id=None,
                             label=name,
-                            by=None,
-                            sp=None,
-                            xt=None,
+                            metadata={},
                         ),
                     )
                 else:
@@ -557,7 +589,7 @@ class GAM(BaseModel):
             )
 
         X_df = X_work[self.formula_used_columns_]
-        X_np = self._dataframe_to_feature_matrix(X_df)
+        X_np = self._dataframe_to_feature_matrix(X_df, allow_missing_non_numeric=True)
 
         offset = None
         if self.formula_offset_name_ is not None:
@@ -732,14 +764,14 @@ class GAM(BaseModel):
         if override_modes is not None:
             if len(override_modes) != n_smoothing_params:
                 raise ValueError(
-                    "PredictorDesign smoothing_override_modes has incompatible length."
+                    "CompiledPredictor smoothing_override_modes has incompatible length."
                 )
             if override_values is None:
                 override_values = np.full(n_smoothing_params, np.nan, dtype=np.float64)
             override_values = np.asarray(override_values, dtype=np.float64)
             if override_values.shape != (n_smoothing_params,):
                 raise ValueError(
-                    "PredictorDesign smoothing_override_values has incompatible shape."
+                    "CompiledPredictor smoothing_override_values has incompatible shape."
                 )
 
             for i, mode in enumerate(override_modes):
@@ -806,8 +838,8 @@ class GAM(BaseModel):
         return expand_smoothing_params_from_log(self, log_free_sp)
 
     def _compile_designs(self, X, feature_names):
-        from ..gsm.design.compiler import compile_predictor_designs
-        from ..gsm.design.side_conditions import apply_global_side_conditions
+        from ..gam.design.compiler import compile_predictor_designs
+        from ..gam.constraints.identifiability import apply_global_side_conditions
 
         compiled = compile_predictor_designs(
             X=X, feature_names=feature_names, predictor_specs=self.predictor_specs,
@@ -844,8 +876,8 @@ class GAM(BaseModel):
         self.Z = self.design_.matrix_train
         self.ZTZ = self.Z.T @ self.Z
         self.n_coef_ = self.design_.n_coef
-        self.term_blocks_ = self.design_.term_blocks
-        self.penalty_blocks_ = self.design_.penalty_blocks
+        self.term_blocks_ = self.design_.compiled_terms
+        self.penalty_blocks_ = self.design_.compiled_penalties
         self.n_smoothing_params_ = self.design_.n_smoothing_params
         self.min_sp_ = self._resolve_min_sp(self.min_sp)
         self.smoothing_params = self._resolve_smoothing_params(self.n_smoothing_params_)
@@ -895,7 +927,7 @@ class GAM(BaseModel):
         return P
 
     def _solve_gaussian_given_smoothing(self, y, smoothing_params):
-        from ..gam.fit.gaussian import solve_gaussian_fit
+        from ..gam.fit.solvers.gaussian_exact import solve_gaussian_fit
 
         return solve_gaussian_fit(self, y, smoothing_params)
 
@@ -930,7 +962,7 @@ class GAM(BaseModel):
         return criterion_ml_reml(self, y, log_sp, method)
 
     def _solve_pirls_given_smoothing(self, y, smoothing_params):
-        from ..gam.fit.pirls import solve_pirls_fit
+        from ..gam.fit.solvers.pirls import solve_pirls_fit
 
         return solve_pirls_fit(self, y, smoothing_params)
 
@@ -973,7 +1005,7 @@ class GAM(BaseModel):
         )
 
     def _build_fit_result(self):
-        from ..gsm.results import GAMFitResult, TermFitResult
+        from ..gam.fit.results import GAMFitResult, TermFitResult
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
@@ -1048,6 +1080,7 @@ class GAM(BaseModel):
         data=None,
         formula=None,
         offset=None,
+        sample_weight=None,
         min_sp=None,
         knots=None,
         drop_intercept=None,
@@ -1129,13 +1162,33 @@ class GAM(BaseModel):
                 "y must be supplied, or a formula with a response column must be provided."
             )
 
+        sw_use = None
+        if sample_weight is not None:
+            if isinstance(sample_weight, str):
+                if formula is None or data is None:
+                    raise ValueError(
+                        "sample_weight as a column name requires formula fitting with `data`."
+                    )
+                if sample_weight not in data.columns:
+                    raise ValueError(
+                        f"sample_weight column {sample_weight!r} not found in data."
+                    )
+                sw_use = np.asarray(data[sample_weight].to_numpy(), dtype=np.float64).ravel()
+            else:
+                sw_use = np.asarray(sample_weight, dtype=np.float64).ravel()
+            if sw_use.shape[0] != len(y_use):
+                raise ValueError(
+                    "sample_weight must have the same length as y "
+                    f"({len(y_use)}), got {sw_use.shape[0]}."
+                )
+
         self.predictor_specs = predictor_specs
         self.fit_intercept = fit_intercept
         self.min_sp = min_sp
         self.result_ = None
         self.side_condition_reports_ = None
 
-        from ..gam.fit.core import fit_model_core
+        from ..gam.fit.orchestrator import fit_model_core
 
         fit_model_core(
             X=X_np,
@@ -1145,6 +1198,7 @@ class GAM(BaseModel):
             optimize_smoothing=optimize_smoothing,
             smoothing_method=smoothing_method,
             model=self,
+            sample_weight=sw_use,
         )
 
         # Default prediction offset follows mgcv semantics:
@@ -1174,7 +1228,7 @@ class GAM(BaseModel):
         return build_parity_snapshot(self, X=X, include_covariances=include_covariances)
 
     def predict(self, X=None, return_se=False, cov=None, type="response", offset=None):
-        from ..gsm.predict import predict_values
+        from ..gam.predict import predict_values
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
@@ -1212,7 +1266,7 @@ class GAM(BaseModel):
         )
 
     def predict_feature_vals(self, X=None, offset=None):
-        from ..gsm.predict import predict_term_contributions
+        from ..gam.predict import predict_term_contributions
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
@@ -1235,7 +1289,7 @@ class GAM(BaseModel):
         return predict_term_contributions(self, X=X_np, offset=offset_use)
 
     def lpmatrix(self, X):
-        from ..gsm.predict import build_lpmatrix
+        from ..gam.predict import build_lpmatrix
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
@@ -1248,7 +1302,7 @@ class GAM(BaseModel):
         return build_lpmatrix(self, X_new=X_np)
 
     def plot(self, X=None, y=None, n_cols=2, figsize=None):
-        from ..gsm.results import plot_gam_terms
+        from ..gam.diagnostics import plot_gam_terms
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
@@ -1263,7 +1317,7 @@ class GAM(BaseModel):
         return plot_gam_terms(self, X=X_np, n_cols=n_cols, figsize=figsize)
 
     def summary(self):
-        from ..gsm.results import print_summary
+        from ..gam.diagnostics import print_summary
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")

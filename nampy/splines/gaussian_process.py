@@ -96,9 +96,9 @@ def parse_gp_m(m):
     return gp_type, stationary, rho, power
 
 
-def gp_polynomial_basis(x_shifted, gp_defn):
+def gp_polynomial_tail_basis(x_shifted, gp_defn):
     """
-    gpT analogue from mgcv source.
+    Polynomial tail basis for GP smooths.
     """
     x_shifted = np.asarray(x_shifted, dtype=np.float64)
     if x_shifted.ndim == 1:
@@ -112,9 +112,9 @@ def gp_polynomial_basis(x_shifted, gp_defn):
     return np.column_stack([np.ones(n, dtype=np.float64), x_shifted])
 
 
-def gp_correlation_matrix(x, xk, gp_defn):
+def gp_kernel_matrix(x, xk, gp_defn):
     """
-    gpE analogue from mgcv source.
+    GP kernel matrix between locations.
     """
     x = np.asarray(x, dtype=np.float64)
     xk = np.asarray(xk, dtype=np.float64)
@@ -280,7 +280,7 @@ def gp_setup_from_data(
             "Reduce k or provide more setup knots."
         )
 
-    E, resolved = gp_correlation_matrix(
+    E, resolved = gp_kernel_matrix(
         knt,
         knt,
         {"type": gp_type, "stationary": stationary, "rho": rho, "power": power},
@@ -315,7 +315,7 @@ def gp_setup_from_data(
 def gp_predict_matrix(x_shifted, *, knt, UZ, gp_defn):
     """
     mgcv-like GP prediction matrix:
-        cbind(gpE(x, knt, gp.defn) %*% UZ, gpT(x, gp.defn))
+        cbind(kernel(x, knt, gp.defn) %*% UZ, polynomial_tail(x, gp.defn))
     """
     x_shifted = np.asarray(x_shifted, dtype=np.float64)
     if x_shifted.ndim == 1:
@@ -324,8 +324,8 @@ def gp_predict_matrix(x_shifted, *, knt, UZ, gp_defn):
     knt = np.asarray(knt, dtype=np.float64)
     UZ = np.asarray(UZ, dtype=np.float64)
 
-    E, _ = gp_correlation_matrix(x_shifted, knt, gp_defn)
-    T = gp_polynomial_basis(x_shifted, gp_defn)
+    E, _ = gp_kernel_matrix(x_shifted, knt, gp_defn)
+    T = gp_polynomial_tail_basis(x_shifted, gp_defn)
     return np.column_stack([E @ UZ, T])
 
 from dataclasses import dataclass

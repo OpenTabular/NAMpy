@@ -3,9 +3,10 @@ from scipy.optimize import OptimizeResult
 
 from nampy.basemodels.gam import GAM
 from nampy.gam.families.exponential import GaussianIdentityFamily
-from nampy.gam.fit.pirls_core import fit_pirls_core
+from nampy.gam.fit.solvers.pirls_core import fit_pirls_core
 from nampy.gam.smoothness import optimize as optimize_mod
 from nampy.gam.smoothness.optimize import _rollback_working_infinite_smoothing_params
+from nampy.gam.smoothness.criteria import dispatch as criteria_dispatch
 from nampy.gam.smoothness.reparam import (
     build_penalty_reparameterized_system,
     can_use_simple_ml_reml_structure,
@@ -88,7 +89,7 @@ def test_optimizer_rollback_sets_stable_metadata(monkeypatch):
         del _model, _y, x, method
         return np.zeros(2, dtype=np.float64), np.zeros(2, dtype=np.float64)
 
-    monkeypatch.setattr(optimize_mod, "criterion_infinite_sp_signal", _signal)
+    monkeypatch.setattr(criteria_dispatch, "criterion_infinite_sp_signal", _signal)
 
     result = OptimizeResult(
         x=np.array([8.0, -8.0], dtype=np.float64),

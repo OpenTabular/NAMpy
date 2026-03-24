@@ -99,12 +99,12 @@ def poisson_deviance(y_true, y_pred):
 
     # 0 * log(0 / mu) := 0
     term = np.where(y > 0, y * np.log(np.clip(y, _EPS, None) / mu), 0.0)
-    return float(2.0 * np.sum(term - (y - mu)))/y.shape[0]
+    return float(2.0 * np.mean(term - (y - mu)))
 
 
 def gamma_deviance(y_true, y_pred):
     """
-    Gamma deviance.
+    Mean Gamma deviance.
 
     Parameters
     ----------
@@ -125,8 +125,8 @@ def gamma_deviance(y_true, y_pred):
     if y.shape[0] != mu.shape[0]:
         raise ValueError("y_true and y_pred lengths do not match.")
 
-    # Standard Gamma deviance for mean predictions
-    return float(2.0 * np.sum((y - mu) / mu - np.log(y / mu)))
+    # Standard Gamma deviance for mean predictions, normalized by sample count.
+    return float(2.0 * np.mean((y - mu) / mu - np.log(y / mu)))
 
 
 def beta_brier_score(y_true, y_pred):
@@ -222,7 +222,7 @@ def student_t_loss(y_true, y_pred, df=None):
 
 def negative_binomial_deviance(y_true, y_pred, alpha: Optional[float] = None):
     """
-    Negative Binomial deviance under mean/dispersion parameterization.
+    Mean Negative Binomial deviance under mean/dispersion parameterization.
 
     Supported inputs
     ----------------
@@ -254,7 +254,7 @@ def negative_binomial_deviance(y_true, y_pred, alpha: Optional[float] = None):
     term2 = (y + 1.0 / alpha_arr) * np.log(
         (1.0 + alpha_arr * y) / np.clip(1.0 + alpha_arr * mu, _EPS, None)
     )
-    dev = 2.0 * np.sum(term1 - term2)
+    dev = 2.0 * np.mean(term1 - term2)
     return float(dev)
 
 

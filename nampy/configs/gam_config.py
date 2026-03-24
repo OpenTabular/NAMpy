@@ -2,7 +2,7 @@
 from dataclasses import dataclass, field
 from typing import Optional, Sequence, Union
 
-from ..gsm.specs import SmoothTermSpec
+from ..gam.specs import TermSpec
 
 
 @dataclass
@@ -12,7 +12,7 @@ class DefaultGAMConfig:
     basis: str = "cr"   # currently supported for main effects: cr, cs, cc, ps, tp, ts
     select: bool = False
     main_effects: bool = True
-    tensor_terms: Optional[Sequence[SmoothTermSpec]] = None
+    tensor_terms: Optional[Sequence[TermSpec]] = None
     knots: Optional[Union[dict, list, tuple]] = None
     min_sp: Optional[float] = None
     drop_intercept: Optional[bool] = None
@@ -22,8 +22,7 @@ class DefaultGAMConfig:
     optimize_smoothing: bool = False
     smoothing_method: str = "fixed"   # fixed, gcv, ml, reml, laml
     smoothing_optimizer: str = "lbfgsb"  # lbfgsb, outer_newton
-    exact_mgcv_mode: bool = False
-    sp_log_bounds: tuple[float, float] = (-20.0, 20.0)
+    sp_log_bounds: tuple[float, float] = (-80.0, 20.0)
     score_gamma: float = 1.0
 
     # model structure
@@ -31,7 +30,7 @@ class DefaultGAMConfig:
 
     # PIRLS controls
     max_irls_iter: int = 100
-    irls_tol: float = 1e-8
+    irls_tol: float = 1e-7
     max_step_halving: int = 25
 
     # inference / covariance

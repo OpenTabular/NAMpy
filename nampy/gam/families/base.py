@@ -1,3 +1,26 @@
+"""
+Family base classes for GAM smooth models.
+
+Three family tiers are defined here:
+
+:class:`BaseFamily`
+    Abstract root class.  Declares capability flags (``supports_gcv``,
+    ``supports_reml``, …) and response validation.
+
+:class:`GLMFamily`
+    Standard single-linear-predictor GLM family.  Provides link / inverse-link /
+    variance / deviance / log-likelihood interface.  Fit via exact Gaussian solver
+    (when ``supports_closed_form_solve = True``) or penalized IRLS.
+
+:class:`ExtendedFamily`
+    Non-standard single-predictor likelihoods requiring a bespoke solver.
+    Not yet implemented in the fitting backends.
+
+:class:`GeneralFamily`
+    Multi-linear-predictor families (e.g. GAMLSS-style location-scale models).
+    Not yet implemented.
+"""
+
 import abc
 import numpy as np
 
@@ -6,12 +29,10 @@ _EPS = 1e-9
 
 class BaseFamily(abc.ABC):
     """
-    Base contract for all classical smooth-model families.
+    Abstract root class for all GAM families.
 
-    Three family classes are supported conceptually:
-    - GLMFamily: standard one-linear-predictor families fit by exact Gaussian or PIRLS paths
-    - ExtendedFamily: one-linear-predictor non-standard likelihoods
-    - GeneralFamily: multi-linear-predictor families (e.g. classical LSS / GAMLSS-style)
+    Declares capability flags used by the fitting orchestrator and smoothness
+    selection backends to choose the right solver and scoring method.
     """
 
     name = "base"
@@ -98,12 +119,12 @@ class BaseFamily(abc.ABC):
             f"{self.__class__.__name__} does not yet implement deviance derivatives."
         )
 
-    def working_weight_derivative_eta(self, eta):
+    def working_weight_derivative_eta(self, eta, y=None):
         raise NotImplementedError(
             f"{self.__class__.__name__} does not yet implement working-weight derivatives."
         )
 
-    def working_weight_second_derivative_eta(self, eta):
+    def working_weight_second_derivative_eta(self, eta, y=None):
         raise NotImplementedError(
             f"{self.__class__.__name__} does not yet implement second working-weight derivatives."
         )
@@ -176,13 +197,13 @@ class GLMFamily(BaseFamily):
     def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
         raise NotImplementedError(
             f"{self.__class__.__name__} does not yet implement the saturated log-likelihood "
-            "term required for mgcv-style ML/REML criteria."
+            "term required for Laplace ML/REML criteria."
         )
 
 
 class ExtendedFamily(BaseFamily):
     """
-    Contract for mgcv-style extended-family models:
+    Contract for extended exponential-family models:
     - one linear predictor
     - richer likelihood structure than ordinary GLM families
     - will later supply higher-order derivatives for outer REML/LAML machinery
@@ -206,7 +227,7 @@ class ExtendedFamily(BaseFamily):
 
 class GeneralFamily(BaseFamily):
     """
-    Contract for mgcv-style general-family models:
+    Contract for general (non-exponential) family models:
     - potentially multiple linear predictors
     - classical LSS / distributional models belong here, not in the neural path
     """

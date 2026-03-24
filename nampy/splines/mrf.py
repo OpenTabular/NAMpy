@@ -6,7 +6,52 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 from scipy.linalg import qr as scipy_qr
+from scipy.linalg import eigh as scipy_eigh
 from scipy.linalg import solve_triangular
+
+
+def _forwardsolve_lower(L, B):
+    """
+    Dense lower-triangular solve mirroring R's forwardsolve semantics.
+    """
+    L = np.asarray(L, dtype=np.float64)
+    B = np.asarray(B, dtype=np.float64)
+    if L.ndim != 2 or L.shape[0] != L.shape[1]:
+        raise ValueError("L must be a square 2D matrix.")
+    if B.ndim != 2 or B.shape[0] != L.shape[0]:
+        raise ValueError("B must be a 2D matrix with compatible rows.")
+
+    n = L.shape[0]
+    X = np.zeros_like(B, dtype=np.float64)
+    for j in range(B.shape[1]):
+        for i in range(n):
+            s = B[i, j]
+            if i > 0:
+                s -= float(np.dot(L[i, :i], X[:i, j]))
+            X[i, j] = s / L[i, i]
+    return X
+
+
+def _backsolve_upper(U, B):
+    """
+    Dense upper-triangular solve mirroring R's backsolve semantics.
+    """
+    U = np.asarray(U, dtype=np.float64)
+    B = np.asarray(B, dtype=np.float64)
+    if U.ndim != 2 or U.shape[0] != U.shape[1]:
+        raise ValueError("U must be a square 2D matrix.")
+    if B.ndim != 2 or B.shape[0] != U.shape[0]:
+        raise ValueError("B must be a 2D matrix with compatible rows.")
+
+    n = U.shape[0]
+    X = np.zeros_like(B, dtype=np.float64)
+    for j in range(B.shape[1]):
+        for i in range(n - 1, -1, -1):
+            s = B[i, j]
+            if i < n - 1:
+                s -= float(np.dot(U[i, i + 1 :], X[i + 1 :, j]))
+            X[i, j] = s / U[i, i]
+    return X
 
 
 def combine_duplicate_polys(polys):
@@ -241,7 +286,7 @@ def nat_param_type0(X, S, rank=None, tol=None, unit_fnorm=True):
     RSR = invR.T @ S @ invR
     RSR = 0.5 * (RSR + RSR.T)
 
-    evals, U = np.linalg.eigh(RSR)
+    evals, U = scipy_eigh(RSR, driver="evd")
     idx = np.argsort(evals)[::-1]
     evals = evals[idx]
     U = U[:, idx]
@@ -266,6 +311,70 @@ def nat_param_type0(X, S, rank=None, tol=None, unit_fnorm=True):
             scalef = 1.0 / np.sqrt(np.mean(Xn[:, ind] ** 2))
             Xn[:, ind] *= scalef
             P[:, ind] *= scalef
+
+    return {
+        "X": Xn,
+        "D": D,
+        "P": P,
+        "rank": int(rank),
+    }
+
+
+def nat_param_type1(X, S, rank=None, tol=None, unit_fnorm=True):
+    """
+    Python implementation of mgcv::nat.param(X, S, type=1).
+
+    This reparameterizes so that the penalty in the penalized columns is the
+    identity. Returns the same dictionary structure as :func:`nat_param_type0`.
+    """
+    X = np.asarray(X, dtype=np.float64)
+    S = np.asarray(S, dtype=np.float64)
+    tol = np.finfo(float).eps ** 0.8 if tol is None else float(tol)
+
+    Q, R = scipy_qr(X, mode="economic", pivoting=False)
+    if np.linalg.matrix_rank(R) < R.shape[1]:
+        raise ValueError("Model matrix is not full rank in natural-parameter construction.")
+
+    # Use explicit forward/back substitution to replicate R's tie-breaking
+    # behavior inside zero-eigenvalue blocks (critical for fs/sz parity).
+    tmp = _forwardsolve_lower(R.T, S.T)
+    RSR = _forwardsolve_lower(R.T, tmp.T)
+    RSR = 0.5 * (RSR + RSR.T)
+
+    evals, U = scipy_eigh(RSR, driver="evr")
+    idx = np.argsort(evals)[::-1]
+    evals = evals[idx]
+    U = U[:, idx]
+
+    if rank is None or rank < 1 or rank > S.shape[0]:
+        max_eval = np.max(evals) if evals.size else 0.0
+        thresh = max_eval * tol
+        rank = int(np.sum(evals > thresh))
+    rank = max(0, min(rank, S.shape[0]))
+
+    D = evals[:rank].copy()
+    Xn = Q @ U
+    P = _backsolve_upper(R, U)
+
+    total_cols = Xn.shape[1]
+    E = np.ones(total_cols, dtype=np.float64)
+    if rank > 0:
+        E[:rank] = np.sqrt(D)
+    Xn = Xn / E[np.newaxis, :]
+    P = P / E[np.newaxis, :]
+    D = np.ones(rank, dtype=np.float64)
+
+    if unit_fnorm:
+        if rank > 0:
+            scale = 1.0 / np.sqrt(np.mean(Xn[:, :rank] ** 2))
+            Xn[:, :rank] *= scale
+            P[:, :rank] *= scale
+            D *= scale**2
+
+        if rank < Xn.shape[1]:
+            scalef = 1.0 / np.sqrt(np.mean(Xn[:, rank:] ** 2))
+            Xn[:, rank:] *= scalef
+            P[:, rank:] *= scalef
 
     return {
         "X": Xn,

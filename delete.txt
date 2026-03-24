@@ -1,1 +1,0 @@
-delete design.py formula.py

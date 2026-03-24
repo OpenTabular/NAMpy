@@ -1,4 +1,4 @@
-# nam.py
+# basemodels/nam.py
 from itertools import combinations
 
 import torch
