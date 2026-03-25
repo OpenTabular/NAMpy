@@ -17,6 +17,7 @@ from ...basis.tensor import (
     build_t2_basis_and_penalties,
     marginal_range_null_decomposition,
     materialize_t2_newdata,
+    rescale_tensor_penalties_for_fit,
 )
 
 
@@ -131,6 +132,15 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             ord=self.ord,
             remove_constant_from_null_block=True,
         )
+        B_t2 = np.asarray(t2_obj["basis"], dtype=np.float64)
+        if not self.fixed:
+            pens_t2 = rescale_tensor_penalties_for_fit(
+                B_t2,
+                [np.asarray(S, dtype=np.float64) for S in t2_obj["penalties"]],
+            )
+            t2_obj = {**t2_obj, "basis": B_t2, "penalties": pens_t2}
+        else:
+            t2_obj = {**t2_obj, "basis": B_t2}
 
         self._marginals = marginals
         self._feature_indices = feature_indices

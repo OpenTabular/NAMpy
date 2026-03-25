@@ -147,6 +147,7 @@ class SplineTerm1D(BaseSmoothTerm):
         self._pc_value = None
 
         if self.basis_name in {"cr", "cs"}:
+            self._pooled_linked_raw_marginal = False
             if self.shared_basis_setup is not None:
                 mode = self.shared_basis_setup.get("mode", None)
                 if mode != "pooled_cr_1d":
@@ -237,12 +238,19 @@ class SplineTerm1D(BaseSmoothTerm):
                 self._use_centered_basis = bool(self._by_state.is_constant)
 
             if self._use_centered_basis:
-                base = (
-                    self._spline.transform_new_centered(xj)
-                    if pooled_setup
-                    else self._spline.basis
-                )
-                pen = self._main_penalty(raw=False)
+                if pooled_setup:
+                    # Knots / identconst for linked `id=` smooths are built from pooled
+                    # covariates; centered columns from transform_new_centered(xj) need
+                    # not sum to zero on each term's row subset, so stage 5 would apply a
+                    # second sum-to-zero and drop an extra column vs mgcv. Use raw subset
+                    # basis and let apply_global_side_conditions perform the single
+                    # centering (same pattern as the non-centered branch).
+                    base = self._spline.transform_new_raw(xj)
+                    pen = self._main_penalty(raw=True)
+                    self._pooled_linked_raw_marginal = True
+                else:
+                    base = self._spline.basis
+                    pen = self._main_penalty(raw=False)
             else:
                 base = (
                     self._spline.transform_new_raw(xj)
@@ -386,7 +394,9 @@ class SplineTerm1D(BaseSmoothTerm):
         if self._spline is None:
             raise RuntimeError("Term is not fitted.")
 
-        if self._use_centered_basis:
+        if self._use_centered_basis and not getattr(
+            self, "_pooled_linked_raw_marginal", False
+        ):
             B = self._spline.transform_new_centered(xj)
         else:
             B = self._spline.transform_new_raw(xj)

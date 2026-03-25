@@ -518,12 +518,15 @@ class TestParitySnapshotAPI:
 
         term = SplineTerm1D(feature="x", k=5, basis="cr")
         term.fit(data[["x"]].to_numpy(dtype=np.float64), ["x"])
+        expected = _run_mgcv_natparam_cr(data, k=5)
+        # Compare nat.param on the *same* (X, S) as R's smoothCon: knot placement /
+        # quantiles can differ slightly between implementations, which would change
+        # the null-space rotation even when the algorithm matches mgcv exactly.
         actual = t2_marginal_reparameterization(
-            term._spline.raw_basis,
-            term._spline.raw_penalty,
+            np.asarray(expected["rawX"], dtype=np.float64),
+            np.asarray(expected["rawS"], dtype=np.float64),
             knots=term._spline.knots,
         )
-        expected = _run_mgcv_natparam_cr(data, k=5)
 
         got_X = np.column_stack([actual["B_range"], actual["B_null"]])
         got_P = np.column_stack([actual["T_range"], actual["T_null"]])
