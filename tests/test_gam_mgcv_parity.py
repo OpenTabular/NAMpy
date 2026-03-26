@@ -14,8 +14,8 @@ from scipy.linalg import cho_factor
 
 from nampy.basemodels.gam import GAM
 from nampy.gam.fit.solvers.gaussian_exact import solve_gaussian_fit
-from nampy.gam.smoothness.criteria import criterion_value
-from nampy.gam.smoothness.criteria.gaussian import criterion_ml_reml_exact
+from nampy.gam.smoothing_selection.criteria import criterion_value
+from nampy.gam.smoothing_selection.criteria.gaussian import criterion_ml_reml_exact
 from nampy.gam.fit.linalg.stacked_qr import (
     penalty_sqrt_rows_prefer_diagonal,
     project_coef_onto_row_space,
@@ -24,16 +24,16 @@ from nampy.gam.fit.linalg.stacked_qr import (
 )
 from nampy.gam.fit.penalized_system import build_full_design, build_full_penalty_from_blocks
 from nampy.gam.parity.snapshots import _get_core
-from nampy.gam.smoothness.criteria.gaussian_dyn import (
+from nampy.gam.smoothing_selection.criteria.gaussian_dyn import (
     criterion_ml_reml_gaussian_dynamic_joint,
 )
-from nampy.gam.smoothness.criteria.gaussian_reml_algebra import (
+from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
     deviance_method_scale_estimate,
     gaussian_reml_laplace_score,
     gaussian_weighted_residual_sum_squares,
     quadratic_form_penalty,
 )
-from nampy.gam.smoothness.criteria.penalty import (
+from nampy.gam.smoothing_selection.criteria.penalty import (
     _static_penalty_null_dim,
     _stable_penalty_logdet,
 )

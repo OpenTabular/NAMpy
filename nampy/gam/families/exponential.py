@@ -7,7 +7,7 @@ are used directly as ``family`` arguments to GAM model constructors.
 """
 
 import numpy as np
-from scipy.special import gammaln
+from scipy.special import digamma, gammaln, polygamma
 
 from .base import GLMFamily, _EPS
 
@@ -467,9 +467,10 @@ class NegativeBinomialLogFamily(GLMFamily):
     known_scale = 1.0
     max_derivative_order = 1
 
-    def __init__(self, theta=1.0, eps: float = _EPS):
+    def __init__(self, theta=1.0, estimate_theta=False, eps: float = _EPS):
         super().__init__(eps=eps)
         self.theta = float(theta)
+        self.estimate_theta = bool(estimate_theta)
         if self.theta <= 0:
             raise ValueError("NegativeBinomialLogFamily requires theta > 0.")
 
@@ -592,3 +593,65 @@ class NegativeBinomialLogFamily(GLMFamily):
         # Exact second derivative of P-IRLS Newton working weights w.r.t. eta.
         num = mu * th * (th + y) * (mu**2 - 4.0 * mu * th + th**2)
         return num / np.clip(denom**4, self.eps, None)
+
+    def estimate_theta_mle(self, y, mu, weights=None, max_iter=50, tol=1e-7):
+        """
+        MLE of the NB dispersion parameter theta given current mu.
+
+        Optimises the NB log-likelihood over theta using Newton-Raphson on
+        the log(theta) scale to keep theta > 0.  The gradient and Hessian
+        w.r.t. log(theta) = phi are:
+
+          g(phi) = theta * d ell / d theta
+          H(phi) = theta^2 * d^2 ell / d theta^2 + theta * d ell / d theta
+        """
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        w = (
+            np.ones_like(y, dtype=np.float64)
+            if weights is None
+            else np.asarray(weights, dtype=np.float64)
+        )
+
+        theta = max(float(self.theta), self.eps)
+        for _ in range(max_iter):
+            # first derivative of ell w.r.t. theta
+            score = float(np.sum(
+                w * (
+                    digamma(y + theta)
+                    - digamma(theta)
+                    + np.log(theta / (theta + mu))
+                    + 1.0
+                    - (y + theta) / (mu + theta)
+                )
+            ))
+            # second derivative of ell w.r.t. theta
+            hess = float(np.sum(
+                w * (
+                    polygamma(1, y + theta)
+                    - polygamma(1, theta)
+                    + mu / (theta * (theta + mu))
+                    + (y - mu) / (theta + mu) ** 2
+                )
+            ))
+
+            if not np.isfinite(score) or not np.isfinite(hess):
+                break
+
+            # Newton on log(theta) = phi: phi_new = phi - g/H where
+            # g = theta * score, H = theta^2 * hess + theta * score
+            g_phi = theta * score
+            h_phi = theta ** 2 * hess + theta * score
+            if h_phi == 0.0 or not np.isfinite(h_phi):
+                break
+
+            phi = np.log(max(theta, self.eps))
+            phi_new = phi - g_phi / h_phi
+            theta_new = np.exp(np.clip(phi_new, -20.0, 10.0))
+
+            if abs(theta_new - theta) < tol * (1.0 + abs(theta)):
+                theta = theta_new
+                break
+            theta = theta_new
+
+        return max(theta, self.eps)

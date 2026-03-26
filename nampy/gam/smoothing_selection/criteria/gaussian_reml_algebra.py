@@ -72,7 +72,7 @@ def gaussian_weighted_residual_sum_squares(
 
 def quadratic_form_penalty(beta: np.ndarray, penalty_matrix: np.ndarray) -> float:
     """
-    Scalar smoothness penalty ``β' S β``.
+    Scalar smoothing_selection penalty ``β' S β``.
 
     ``penalty_matrix`` is the total penalty ``S`` at the current smoothing
     parameters (same as ``solve_gaussian_fit`` ``P_full``).

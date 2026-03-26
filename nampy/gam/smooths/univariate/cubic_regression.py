@@ -271,8 +271,6 @@ class SplineTerm1D(BaseSmoothTerm):
             raise NotImplementedError(
                 "shared_basis_setup is not yet implemented for bs='cc'."
             )
-        if self.pc is not None:
-            raise NotImplementedError("pc=... is not yet implemented for bs='cc'.")
         if self.constraint_mode == "factor_by":
             raise NotImplementedError(
                 "factor-by replicated cyclic cubic smooths are not yet implemented."
@@ -291,11 +289,29 @@ class SplineTerm1D(BaseSmoothTerm):
         BD, _, D = cyclic_cubic_bd(k)
         base = cyclic_cubic_predict_matrix(xj, k, BD)
 
+        self._cc_knots = np.asarray(k, dtype=np.float64)
+        self._cc_bd = np.asarray(BD, dtype=np.float64)
+
+        if self.pc is not None:
+            pc_value = _normalize_point_constraint(self.pc, self._feature_name)
+            pc_basis = cyclic_cubic_predict_matrix(
+                np.asarray([pc_value], dtype=np.float64), k, BD
+            )[0]
+            S_raw = D.T @ BD
+            main_penalty = 0.5 * (S_raw + S_raw.T)
+            penalties_in = [] if self.fixed else [main_penalty]
+            Bc, Sc, C = apply_linear_constraint(base, penalties_in, pc_basis)
+            if self._by_state.is_present:
+                Bc = Bc * self._by_state.values[:, None]
+            self._basis_train = np.asarray(Bc, dtype=np.float64)
+            self._penalties = Sc
+            self._use_centered_basis = False
+            self._record_constraint_result("pc", C, absorbed_by="runtime")
+            return self
+
         if self._by_state.is_present:
             base = base * self._by_state.values[:, None]
 
-        self._cc_knots = np.asarray(k, dtype=np.float64)
-        self._cc_bd = np.asarray(BD, dtype=np.float64)
         self._basis_train = np.asarray(base, dtype=np.float64)
 
         if self.fixed:
@@ -386,10 +402,7 @@ class SplineTerm1D(BaseSmoothTerm):
             if self._cc_knots is None or self._cc_bd is None:
                 raise RuntimeError("Term is not fitted.")
             B = cyclic_cubic_predict_matrix(xj, self._cc_knots, self._cc_bd)
-            z = by_values_from_new_data(X_new, self._by_state)
-            if z is not None:
-                B = B * z[:, None]
-            return B
+            return self._apply_constraint_transform_and_by(B, X_new)
 
         if self._spline is None:
             raise RuntimeError("Term is not fitted.")

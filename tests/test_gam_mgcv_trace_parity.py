@@ -16,7 +16,7 @@ from nampy.gam.parity import (
     load_optimizer_trace,
     save_optimizer_trace,
 )
-from nampy.gam.smoothness.criteria import criterion_gradient, criterion_hessian
+from nampy.gam.smoothing_selection.criteria import criterion_gradient, criterion_hessian
 
 
 R_SCRIPT = shutil.which("Rscript")

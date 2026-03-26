@@ -36,20 +36,20 @@ from typing import Any
 import numpy as np
 from scipy.linalg import cho_factor
 
-from nampy.gam.smoothness.criteria.gaussian_reml_algebra import (
+from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
     gaussian_reml_laplace_score,
     gaussian_weighted_residual_sum_squares,
     prior_weights_diagonal_from_fit,
     profiled_gaussian_reml_variance,
     quadratic_form_penalty,
 )
-from nampy.gam.smoothness.criteria.laplace import _penalty_derivative_matrices
-from nampy.gam.smoothness.criteria.penalty import (
+from nampy.gam.smoothing_selection.criteria.laplace import _penalty_derivative_matrices
+from nampy.gam.smoothing_selection.criteria.penalty import (
     _static_penalty_null_dim,
     _stable_penalty_logdet,
     _stable_penalty_logdet_derivatives,
 )
-from nampy.gam.smoothness.criteria.pirls_reml_derivative_blocks import (
+from nampy.gam.smoothing_selection.criteria.pirls_reml_derivative_blocks import (
     _deviance_chained_to_smoothing,
     _deviance_coefficient_derivatives,
     _hat_matrix_trace_and_sp_derivatives,

@@ -8,14 +8,14 @@ from nampy.basemodels.gam import GAM
 from nampy.gam.fit.postprocess.gaussian_smoothness_postprocess import (
     gaussian_smoothness_postprocess,
 )
-from nampy.gam.smoothness.criteria.gaussian import criterion_ml_reml_exact_dynamic
-from nampy.gam.smoothness.criteria.gaussian_reml_algebra import (
+from nampy.gam.smoothing_selection.criteria.gaussian import criterion_ml_reml_exact_dynamic
+from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
     gaussian_reml_laplace_score,
     gaussian_weighted_residual_sum_squares,
     prior_weights_diagonal_from_fit,
     quadratic_form_penalty,
 )
-from nampy.gam.smoothness.criteria.penalty import (
+from nampy.gam.smoothing_selection.criteria.penalty import (
     _static_penalty_null_dim,
     _stable_penalty_logdet,
 )

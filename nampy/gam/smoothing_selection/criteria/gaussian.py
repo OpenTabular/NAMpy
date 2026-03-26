@@ -1,5 +1,5 @@
 """
-GCV and Gaussian ML/REML/LAML smoothness-selection criteria.
+GCV and Gaussian ML/REML/LAML smoothing_selection-selection criteria.
 
 Provides two code paths:
 
@@ -53,7 +53,7 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
     ``Xf' K Xf`` singular here, so this Laplace path returns ``inf`` at many
     ``(y, sp)``. Those models are scored for ML/REML **outer selection** via
     ``criterion_ml_reml_exact_dynamic`` (Wood ``X'WX+S`` / ``\\log|A|-\\log|S|``)
-    instead; see ``nampy.gam.smoothness.criteria.ml_reml``.
+    instead; see ``nampy.gam.smoothing_selection.criteria.ml_reml``.
     """
     if abs(model.score_gamma - 1.0) > 1e-12:
         raise NotImplementedError(

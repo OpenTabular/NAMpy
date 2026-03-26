@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from nampy.basemodels.gam import GAM
-from nampy.gam.smoothness.criteria import _penalty_derivative_matrices
+from nampy.gam.smoothing_selection.criteria import _penalty_derivative_matrices
 
 
 def _build_te_data(n=80, seed=0):

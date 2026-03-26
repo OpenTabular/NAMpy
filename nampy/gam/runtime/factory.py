@@ -256,10 +256,6 @@ def instantiate_term(term_like: TermSpec | Any):
         )
 
     if special in {"te", "ti", "t2"}:
-        if select:
-            raise NotImplementedError(
-                "select=True is not yet implemented for te()/ti()/t2() tensor smooths."
-            )
         raw_bs = opts.get("bs", "cr")
         basis = _as_list_or_repeat(raw_bs, len(features))
         basis = [str(b).lower() for b in basis]
@@ -277,6 +273,7 @@ def instantiate_term(term_like: TermSpec | Any):
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,
+            select=select,
             fixed=fx,
             knots=knots,
             metadata=metadata,

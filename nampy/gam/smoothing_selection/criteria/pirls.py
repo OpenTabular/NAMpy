@@ -1,8 +1,8 @@
 """
-Penalized IRLS smoothness-selection criteria: GCV, UBRE, and Laplace ML/REML.
+Penalized IRLS smoothing_selection-selection criteria: GCV, UBRE, and Laplace ML/REML.
 
 Functions here solve the penalized system via P-IRLS at each criterion evaluation
-and compute the corresponding smoothness-selection score.
+and compute the corresponding smoothing_selection-selection score.
 """
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve

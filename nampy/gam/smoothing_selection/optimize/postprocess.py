@@ -10,7 +10,7 @@ def _criterion_infinite_sp_signal(model, y, log_sp, *, method="reml"):
     """
     Compute gradient-signal and dvkk for the infinite-smoothing rollback path.
 
-    This avoids importing the `nampy.gam.smoothness.optimize` facade at call time
+    This avoids importing the `nampy.gam.smoothing_selection.optimize` facade at call time
     (prevents optimizer/criteria import cycles), while still allowing tests to
     monkeypatch the underlying criterion implementation.
     """

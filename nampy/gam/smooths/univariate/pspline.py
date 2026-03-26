@@ -12,6 +12,7 @@ import numpy as np
 
 from ..base import (
     BaseSmoothTerm,
+    _normalize_point_constraint,
     _resolve_feature,
     by_values_from_new_data,
     column_as_float,
@@ -19,6 +20,7 @@ from ..base import (
     sync_by_state_attributes,
 )
 from ..registry import register_smooth
+from ...constraints.absorption import apply_linear_constraint
 from ...design.structures import PenaltySpec
 from ...penalties.algebra import null_space_penalty_from_penalty
 from ....splines.univariate_bases import (
@@ -117,8 +119,6 @@ class PSplineTerm1D(BaseSmoothTerm):
             raise NotImplementedError(
                 "factor-by replicated P-splines are not yet implemented."
             )
-        if self.pc is not None:
-            raise NotImplementedError("pc=... is not yet implemented for bs='ps'.")
 
         basis_order, penalty_order = self.m
         if basis_order < 0 or penalty_order < 0:
@@ -141,6 +141,25 @@ class PSplineTerm1D(BaseSmoothTerm):
             deriv=0,
             extrapolate=True,
         )
+
+        if self.pc is not None:
+            pc_value = _normalize_point_constraint(self.pc, self._feature_name)
+            pc_basis = pspline_predict_matrix(
+                np.asarray([pc_value], dtype=np.float64),
+                self._ps_knots,
+                basis_order=basis_order,
+                deriv=0,
+            )[0]
+            S = pspline_difference_penalty(base.shape[1], penalty_order)
+            main_penalty = 0.5 * (S + S.T)
+            penalties_in = [] if self.fixed else [main_penalty]
+            Bc, Sc, C = apply_linear_constraint(base, penalties_in, pc_basis)
+            if self._by_state.is_present:
+                Bc = Bc * self._by_state.values[:, None]
+            self._basis_train = np.asarray(Bc, dtype=np.float64)
+            self._penalties = Sc
+            self._record_constraint_result("pc", C, absorbed_by="runtime")
+            return self
 
         if self._by_state.is_present:
             base = base * self._by_state.values[:, None]
@@ -279,8 +298,4 @@ class PSplineTerm1D(BaseSmoothTerm):
             deriv=0,
         )
 
-        z = by_values_from_new_data(X_new, self._by_state)
-        if z is not None:
-            B = B * z[:, None]
-
-        return B
+        return self._apply_constraint_transform_and_by(B, X_new)

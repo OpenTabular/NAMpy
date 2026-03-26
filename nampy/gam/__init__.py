@@ -38,7 +38,7 @@ Architectural invariants (see gam/ARCHITECTURE.md for full details)
 6.7  Zero-width terms are dropped from the final compiled design.
 """
 
-from . import families, fit, parity, smoothness
+from . import families, fit, parity, smoothing_selection
 
 # Stable user-facing entry points only.  Internal fit-subsystem symbols are
 # accessible via `nampy.gam.fit.*` and are not re-exported here.
@@ -52,7 +52,7 @@ __all__ = [
     "families",
     "fit",
     "parity",
-    "smoothness",
+    "smoothing_selection",
     "fit_model_core",
     "solve_fit",
     "FitCoreSolution",

@@ -55,32 +55,41 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
 
         first_term = eligible_items[0][2]
         first_opts = dict(first_term.basis_options or {})
-        first_k = int(first_opts.get("k", 10))
         first_fx = bool(first_opts.get("fx", False))
-        incompatible = []
-        pooled_columns = []
 
+        # fx mismatch: mixing fixed and penalized terms is semantically incompatible
+        # because fixed terms have no smoothing parameter to share.
+        fx_incompatible = []
         for pi, ti, term in eligible_items:
             opts = dict(term.basis_options or {})
-            if int(opts.get("k", 10)) != first_k:
-                incompatible.append(
-                    f"{term.label!r} has k={opts.get('k')}, expected k={first_k}"
-                )
-                continue
             if bool(opts.get("fx", False)) != first_fx:
-                incompatible.append(
+                fx_incompatible.append(
                     f"{term.label!r} has fx={opts.get('fx')}, expected fx={first_fx}"
                 )
-                continue
+        if fx_incompatible:
+            raise NotImplementedError(
+                f"Linked id={id_key!r}: all terms must have the same fx value. "
+                f"Problems: {fx_incompatible}"
+            )
 
+        # k harmonisation: mgcv resolves k mismatches by using the first term's k
+        # for the shared basis, matching the representative-term convention in mgcv.
+        all_k = [
+            int(dict(term.basis_options or {}).get("k", 10))
+            for _, _, term in eligible_items
+        ]
+        canonical_k = all_k[0]
+        if len(set(all_k)) > 1:
+            warnings.warn(
+                f"Linked id={id_key!r}: terms have differing k values "
+                f"{sorted(set(all_k))}; harmonizing all to k={canonical_k} "
+                f"(first term's k), matching mgcv behaviour."
+            )
+
+        pooled_columns = []
+        for pi, ti, term in eligible_items:
             x_col = _resolve_feature_column(X, feature_names, term.features[0])
             pooled_columns.append(x_col)
-
-        if incompatible:
-            raise NotImplementedError(
-                f"Linked id={id_key!r} currently supports only common-k/common-fx "
-                f"1D cr smooths. Problems: {incompatible}"
-            )
 
         if len(pooled_columns) < 2:
             continue
@@ -102,7 +111,7 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
         shared_setup = {
             "mode": "pooled_cr_1d",
             "id": id_key,
-            "k": first_k,
+            "k": canonical_k,
             "fx": first_fx,
             "n_linked_terms": len(eligible_items),
             "features": [term.features[0] for _, _, term in eligible_items],
@@ -111,6 +120,7 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
 
         for pi, ti, term in eligible_items:
             opts = dict(term.basis_options or {})
+            opts["k"] = canonical_k  # harmonize all terms to the first term's k
             opts["shared_basis_setup"] = shared_setup
             replacements[(pi, ti)] = replace(term, basis_options=opts)
 

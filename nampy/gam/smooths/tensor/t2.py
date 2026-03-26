@@ -10,7 +10,13 @@ different axes are very different in magnitude.
 
 import numpy as np
 
-from ..base import BaseSmoothTerm, _normalize_knots, column_as_float
+from ..base import (
+    BaseSmoothTerm,
+    _normalize_knots,
+    build_penalty_definition,
+    build_selection_penalty_definition,
+    column_as_float,
+)
 from ..registry import register_smooth
 from ..univariate.cubic_regression import SplineTerm1D
 from ...basis.tensor import (
@@ -19,6 +25,7 @@ from ...basis.tensor import (
     materialize_t2_newdata,
     rescale_tensor_penalties_for_fit,
 )
+from ...penalties.algebra import null_space_penalty_from_penalty
 
 
 @register_smooth("t2")
@@ -36,9 +43,11 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         smoothing_id=None,
         by=None,
         sp=None,
+        select=False,
         full=False,
         ord=None,
         fixed=False,
+        null_penalty_tol=1e-10,
         knots=None,
         metadata=None,
     ):
@@ -83,9 +92,11 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
                 "TensorANOVASplineTerm currently supports only basis='cr' marginals."
             )
 
+        self.select = bool(select)
         self.full = bool(full)
         self.ord = ord
         self.fixed = bool(fixed)
+        self.null_penalty_tol = float(null_penalty_tol)
         self.knots = _normalize_knots(knots, features)
 
         self._feature_indices = None
@@ -158,6 +169,55 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         suffix = "full" if self.full else "pars"
         self.basis_name = f"t2({','.join(self.basis)};{suffix})"
         return self
+
+    def get_penalty_definitions(self):
+        if self._basis_train is None:
+            raise RuntimeError("Term is not fitted.")
+        raw = list(self.penalties)
+        if len(raw) == 0:
+            return []
+
+        n_raw = len(raw)
+        sp_vals = self._normalized_term_sp(n_raw)
+        defs = []
+        for j, P in enumerate(raw):
+            sid = (
+                None
+                if self.smoothing_id is None
+                else (str(self.smoothing_id) if n_raw <= 1 else f"{self.smoothing_id}::{j}")
+            )
+            sp_j = sp_vals[j] if j < len(sp_vals) else None
+            defs.append(
+                build_penalty_definition(
+                    self,
+                    P,
+                    kind="smooth",
+                    smoothing_id=sid,
+                    sp_value_in=sp_j,
+                    metadata_extra={"term_sp": sp_j, "is_selection_penalty": False},
+                )
+            )
+
+        if self.select:
+            combined = sum(np.asarray(P, dtype=np.float64) for P in raw)
+            S0, meta = null_space_penalty_from_penalty(combined, tol=self.null_penalty_tol)
+            if meta["rank"] > 0:
+                select_sid = (
+                    None
+                    if self.smoothing_id is None
+                    else f"{self.smoothing_id}::select"
+                )
+                defs.append(
+                    build_selection_penalty_definition(
+                        self,
+                        S0,
+                        rank=meta["rank"],
+                        null_space_dim=meta["null_space_dim"],
+                        smoothing_id=select_sid,
+                    )
+                )
+
+        return defs
 
     @property
     def basis_train(self):

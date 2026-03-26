@@ -14,13 +14,17 @@ import numpy as np
 
 from ..base import (
     BaseSmoothTerm,
+    _normalize_point_constraint,
     _resolve_feature,
     columns_as_float_matrix,
     resolve_by_state,
     sync_by_state_attributes,
 )
 from ..registry import register_smooth
-from ...constraints.absorption import fit_single_penalty_with_constraint_policy
+from ...constraints.absorption import (
+    apply_linear_constraint,
+    fit_single_penalty_with_constraint_policy,
+)
 from ...design.structures import PenaltySpec
 from ...penalties.algebra import null_space_penalty_from_penalty
 from ....splines.gaussian_process import build_gp_term_setup, predict_gp_term
@@ -109,9 +113,6 @@ class GPSmoothTerm(BaseSmoothTerm):
         self._by_state = resolve_by_state(self.by, X, feature_names)
         sync_by_state_attributes(self, self._by_state)
 
-        if self.pc is not None:
-            raise NotImplementedError("pc=... is not yet implemented for bs='gp'.")
-
         self._feature_indices = feature_indices
         self._feature_names = feature_names_resolved
         self._set_resolved_features(feature_names_resolved)
@@ -126,6 +127,23 @@ class GPSmoothTerm(BaseSmoothTerm):
 
         base = np.asarray(self._setup.basis_train, dtype=np.float64)
         pen = np.asarray(self._setup.penalty, dtype=np.float64)
+
+        if self.pc is not None:
+            if len(self._feature_indices) > 1:
+                raise NotImplementedError(
+                    "pc= for multivariate gp smooths is not yet implemented."
+                )
+            pc_value = _normalize_point_constraint(self.pc, self._feature_names[0])
+            pc_point = np.asarray([[pc_value]], dtype=np.float64)
+            pc_basis = predict_gp_term(pc_point, self._setup)[0]
+            penalties_in = [] if self.fixed else [pen]
+            Bc, Sc, C = apply_linear_constraint(base, penalties_in, pc_basis)
+            if self._by_state.is_present:
+                Bc = Bc * self._by_state.values[:, None]
+            self._basis_train = np.asarray(Bc, dtype=np.float64)
+            self._penalties = Sc
+            self._record_constraint_result("pc", C, absorbed_by="runtime")
+            return self
 
         auto_constrain = bool(self._by_state.is_constant) and (self._setup.null_space_dim > 0)
         result = fit_single_penalty_with_constraint_policy(
