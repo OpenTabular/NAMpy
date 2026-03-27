@@ -19,9 +19,11 @@ class LinReg(BaseModel):
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: DefaultLinRegConfig = DefaultLinRegConfig(),
+        config: DefaultLinRegConfig | None = None,
         **kwargs,
     ):
+        if config is None:
+            config = DefaultLinRegConfig()
         super().__init__(**kwargs)
         self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
 

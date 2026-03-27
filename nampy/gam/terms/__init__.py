@@ -1,13 +1,17 @@
-# Order matters: linear before categorical/tensor importers that touch smooths.univariate.
 from .linear import LinearTerm
-from .univariate import GPSmoothTerm, PSplineTerm1D, SplineTerm1D, ThinPlateSplineTerm
-from .tensor import InteractionTensorProductSplineTerm, TensorANOVASplineTerm, TensorProductSplineTerm
-from .categorical import (
+from ..smooths.univariate.cubic_regression import SplineTerm1D
+from ..smooths.univariate.gp import GPSmoothTerm
+from ..smooths.univariate.pspline import PSplineTerm1D
+from ..smooths.univariate.thin_plate import ThinPlateSplineTerm
+from ..smooths.tensor.t2 import TensorANOVASplineTerm
+from ..smooths.tensor.te import TensorProductSplineTerm
+from ..smooths.tensor.ti import InteractionTensorProductSplineTerm
+from ..smooths.categorical.factor_smooth import (
     FSmoothInteractionTerm,
-    MarkovRandomFieldTerm,
-    RandomEffectTerm,
     SZSmoothInteractionTerm,
 )
+from ..smooths.categorical.mrf import MarkovRandomFieldTerm
+from ..smooths.categorical.random_effect import RandomEffectTerm
 
 __all__ = [
     "LinearTerm",

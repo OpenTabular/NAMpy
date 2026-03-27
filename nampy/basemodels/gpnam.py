@@ -35,9 +35,11 @@ class GPNAM(BaseModel):
         num_classes: int = 1,
         kernel_width: float = 0.2,
         rff_num_feat: int = 100,
-        config: DefaultGPNAMConfig = DefaultGPNAMConfig(),
+        config: DefaultGPNAMConfig | None = None,
         **kwargs,
     ):
+        if config is None:
+            config = DefaultGPNAMConfig()
         super().__init__(**kwargs)
         self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
 

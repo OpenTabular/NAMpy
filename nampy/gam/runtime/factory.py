@@ -59,6 +59,7 @@ def instantiate_term(term_like: TermSpec | Any):
         return LinearTerm(
             feature=term_like.features[0],
             label=term_like.label,
+            term_id=term_like.term_id,
             metadata=dict(term_like.metadata or {}),
         )
     if term_like.kind != "smooth":
@@ -106,6 +107,7 @@ def instantiate_term(term_like: TermSpec | Any):
                 k=k,
                 basis=bs,
                 label=label,
+                term_id=term_like.term_id,
                 smoothing_id=smoothing_id,
                 by=by,
                 sp=sp,
@@ -130,6 +132,7 @@ def instantiate_term(term_like: TermSpec | Any):
                 basis=bs,
                 m=m,
                 label=label,
+                term_id=term_like.term_id,
                 smoothing_id=smoothing_id,
                 by=by,
                 sp=sp,
@@ -149,6 +152,7 @@ def instantiate_term(term_like: TermSpec | Any):
                 basis=bs,
                 m=m,
                 label=label,
+                term_id=term_like.term_id,
                 smoothing_id=smoothing_id,
                 by=by,
                 sp=sp,
@@ -168,6 +172,7 @@ def instantiate_term(term_like: TermSpec | Any):
                 basis=bs,
                 m=m,
                 label=label,
+                term_id=term_like.term_id,
                 smoothing_id=smoothing_id,
                 by=by,
                 sp=sp,
@@ -190,6 +195,7 @@ def instantiate_term(term_like: TermSpec | Any):
                 k=k,
                 basis=bs,
                 label=label,
+                term_id=term_like.term_id,
                 smoothing_id=smoothing_id,
                 by=by,
                 sp=sp,
@@ -206,6 +212,7 @@ def instantiate_term(term_like: TermSpec | Any):
             return RandomEffectTerm(
                 feature=features,
                 label=label,
+                term_id=term_like.term_id,
                 smoothing_id=smoothing_id,
                 by=by,
                 sp=sp,
@@ -222,6 +229,7 @@ def instantiate_term(term_like: TermSpec | Any):
                 feature=features,
                 k=k,
                 label=label,
+                term_id=term_like.term_id,
                 smoothing_id=smoothing_id,
                 by=by,
                 sp=sp,
@@ -240,6 +248,7 @@ def instantiate_term(term_like: TermSpec | Any):
                 feature=features,
                 k=k,
                 label=label,
+                term_id=term_like.term_id,
                 smoothing_id=smoothing_id,
                 by=by,
                 sp=sp,
@@ -256,10 +265,6 @@ def instantiate_term(term_like: TermSpec | Any):
         )
 
     if special in {"te", "ti", "t2"}:
-        if select:
-            raise NotImplementedError(
-                "select=True is not yet implemented for te()/ti()/t2() tensor smooths."
-            )
         raw_bs = opts.get("bs", "cr")
         basis = _as_list_or_repeat(raw_bs, len(features))
         basis = [str(b).lower() for b in basis]
@@ -274,9 +279,11 @@ def instantiate_term(term_like: TermSpec | Any):
             k=k,
             basis=basis,
             label=label,
+            term_id=term_like.term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,
+            select=select,
             fixed=fx,
             knots=knots,
             metadata=metadata,

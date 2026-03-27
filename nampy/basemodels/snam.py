@@ -25,9 +25,11 @@ class SNAM(NAM):
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: DefaultSNAMConfig = DefaultSNAMConfig(),
+        config: DefaultSNAMConfig | None = None,
         **kwargs,
     ):
+        if config is None:
+            config = DefaultSNAMConfig()
         super().__init__(
             cat_feature_info=cat_feature_info,
             num_feature_info=num_feature_info,

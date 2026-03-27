@@ -4,6 +4,7 @@ import numpy as np
 
 from .categorical_utils import factor_indicator_matrix, stable_unique_levels, as_object_1d
 from ...design.structures import PenaltySpec
+from ...basis.tensor import rescale_tensor_penalties_for_fit
 from ..base import (
     BaseSmoothTerm,
     _resolve_feature,
@@ -48,6 +49,7 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         k=-1,
         basis="mrf",
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
@@ -62,6 +64,7 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         super().__init__(
             feature=features,
             label=label or f"mrf({features[0]})",
+            term_id=term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,
@@ -196,9 +199,27 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
             tol = np.finfo(float).eps ** 0.8 * max(np.max(ev), 1.0)
             rank = int(np.sum(ev > tol))
 
-            self._basis_train = np.asarray(X_full, dtype=np.float64)
-            self._penalties = [np.asarray(self._full_penalty, dtype=np.float64)]
-            self._P = None
+            # Absorb the centering constraint, matching mgcv's smoothCon behaviour
+            # when absorb.cons=TRUE: C = colMeans(X), remove one null-space column
+            # via QR so the basis shrinks from n_areas to n_areas-1 columns.
+            C = np.mean(X_full, axis=0, keepdims=True)  # (1, n_areas)
+            Q, _ = np.linalg.qr(C.T, mode="complete")   # (n_areas, n_areas)
+            Z = Q[:, 1:]                                  # (n_areas, n_areas-1)
+            X_absorbed = X_full @ Z
+            S_absorbed = Z.T @ self._full_penalty @ Z
+            S_absorbed = 0.5 * (S_absorbed + S_absorbed.T)
+
+            # Apply mgcv smoothCon scale_penalty step: normalise using the
+            # pre-absorption X and S (R scales before absorb.cons, so the same
+            # factor is inherited by the absorbed penalty).
+            maXX = float(np.max(np.sum(np.abs(X_full), axis=1)) ** 2)
+            maS = float(np.max(np.sum(np.abs(self._full_penalty), axis=0)))
+            if maS > 1e-12 and maXX > 1e-12:
+                S_absorbed = S_absorbed / (maS / maXX)
+
+            self._basis_train = np.asarray(X_absorbed, dtype=np.float64)
+            self._penalties = [np.asarray(S_absorbed, dtype=np.float64)]
+            self._P = np.asarray(Z, dtype=np.float64)
             self._rank = rank
 
         if self._by_state.is_present:

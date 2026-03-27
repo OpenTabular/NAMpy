@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from nampy.gam.smoothness.criteria.gaussian_reml_algebra import (
+from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
     deviance_method_scale_estimate,
     gaussian_reml_laplace_score,
     gaussian_reml_saturation_terms_wrt_variance,

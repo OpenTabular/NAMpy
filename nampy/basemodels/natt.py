@@ -24,7 +24,7 @@ class NATT(BaseModel):
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: DefaultNATTConfig = DefaultNATTConfig(),
+        config: DefaultNATTConfig | None = None,
         **kwargs,
     ):
         """
@@ -38,9 +38,11 @@ class NATT(BaseModel):
             Information about numerical features.
         num_classes : int, optional
             Number of output classes, by default 1.
-        config : DefaultNAMConfig, optional
-            Configuration dataclass containing hyperparameters, by default DefaultNAMConfig().
+        config : DefaultNATTConfig, optional
+            Configuration dataclass containing hyperparameters, by default DefaultNATTConfig().
         """
+        if config is None:
+            config = DefaultNATTConfig()
         super().__init__(**kwargs)
         self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
 

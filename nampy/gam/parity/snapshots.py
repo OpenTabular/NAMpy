@@ -12,7 +12,7 @@ from pathlib import Path
 
 import numpy as np
 
-from ..smoothness.criteria import (
+from ..smoothing_selection.criteria import (
     criterion_ml_reml,
     criterion_ml_reml_gaussian_dynamic_joint,
     criterion_ml_reml_pirls,

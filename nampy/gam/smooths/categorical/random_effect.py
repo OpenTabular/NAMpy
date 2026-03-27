@@ -107,6 +107,7 @@ class RandomEffectTerm(BaseSmoothTerm):
         self,
         feature,
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
@@ -121,6 +122,7 @@ class RandomEffectTerm(BaseSmoothTerm):
         super().__init__(
             feature=features,
             label=label or f"re({', '.join(map(str, features))})",
+            term_id=term_id,
             smoothing_id=None,
             by=by,
             sp=sp,

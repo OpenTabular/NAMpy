@@ -4,10 +4,10 @@ from scipy.optimize import OptimizeResult
 from nampy.basemodels.gam import GAM
 from nampy.gam.families.exponential import GaussianIdentityFamily
 from nampy.gam.fit.solvers.pirls_core import fit_pirls_core
-from nampy.gam.smoothness import optimize as optimize_mod
-from nampy.gam.smoothness.optimize import _rollback_working_infinite_smoothing_params
-from nampy.gam.smoothness.criteria import dispatch as criteria_dispatch
-from nampy.gam.smoothness.reparam import (
+from nampy.gam.smoothing_selection import optimize as optimize_mod
+from nampy.gam.smoothing_selection.optimize import _rollback_working_infinite_smoothing_params
+from nampy.gam.smoothing_selection.criteria import dispatch as criteria_dispatch
+from nampy.gam.smoothing_selection.reparam import (
     build_penalty_reparameterized_system,
     can_use_simple_ml_reml_structure,
 )

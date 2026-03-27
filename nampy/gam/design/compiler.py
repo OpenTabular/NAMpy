@@ -7,7 +7,7 @@ penalty specs, and records the initial (identity) basis_transform on every term.
 
 The output of this stage is handed to stage 5 (apply_global_side_conditions)
 which applies predictor-wide identifiability constraints and updates basis_transform
-on each term to reflect the final fit-to-predict coefficient map.
+on each term to reflect the final constructed-space-to-fitted coefficient map.
 """
 
 from __future__ import annotations
@@ -36,9 +36,10 @@ def compile_predictor_designs(
       - Stage 4: assemble ConstructedTerms into a CompiledPredictor, assign
         coefficient slices, smoothing-parameter ids, and initial basis_transforms
 
-    The returned CompiledPredictors have ``basis_transform = I`` on every term.
+    The returned CompiledPredictors have ``basis_transform = I`` on every term,
+    where that identity acts on the stage-3 constructed-term coefficient space.
     Stage 5 (``apply_global_side_conditions``) must be called to produce the
-    final predictor with canonical coefficient transforms.
+    final predictor with canonical constructed-space coefficient transforms.
     """
     predictor_specs = attach_shared_basis_metadata(
         predictor_specs, X=X, feature_names=feature_names
@@ -122,7 +123,11 @@ def compile_predictor_designs(
                         smooth=smooth,
                         basis_train=B,
                         basis_transform=np.eye(d, dtype=np.float64),
-                        original_n_coef=d,
+                        original_n_coef=(
+                            smooth.original_n_coef
+                            if smooth.original_n_coef is not None
+                            else d
+                        ),
                         kept_columns=np.arange(d, dtype=int),
                         deleted_columns=np.array([], dtype=int),
                         smoothing_indices=term_smoothing_indices,

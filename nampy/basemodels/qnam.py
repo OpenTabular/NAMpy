@@ -30,9 +30,11 @@ class QNAMBase(BaseModel):
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: DefaultNAMConfig = DefaultNAMConfig(),
+        config: DefaultNAMConfig | None = None,
         **kwargs,
     ):
+        if config is None:
+            config = DefaultNAMConfig()
         super().__init__(**kwargs)
         self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
 

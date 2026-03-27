@@ -115,7 +115,7 @@ class CompiledTerm:
 
     The central invariant is::
 
-        runtime.transform_new(X_new) @ basis_transform
+        smooth.predict_matrix(X_new) @ basis_transform
 
     produces the correct prediction columns for this term.  ``basis_transform``
     is the *only* coefficient-space mapping used at prediction time; no other
@@ -133,12 +133,15 @@ class CompiledTerm:
     basis_train : np.ndarray
         Final training design block for this term, shape (n_obs, n_coef).
     basis_transform : np.ndarray or None
-        Full coefficient transform from the runtime term's native coefficient
-        space to the final fitted coefficient space.
-        Shape: (runtime_n_coef, n_coef).
+        Full coefficient transform from the term's stage-4 constructed
+        coefficient space to the final fitted coefficient space.
+        Prediction always starts from ``smooth.predict_matrix(X_new)``, which is
+        already in the constructed-term space.
+        Shape: (constructed_n_coef, n_coef).
         None is interpreted as the identity (no transform applied).
     original_n_coef : int or None
-        Width of the basis before any side-condition column deletion.
+        Width of the constructed-term basis before any stage-5 side-condition
+        column deletion.
     kept_columns : np.ndarray or None
         Indices (in the pre-side-condition space) of surviving columns.
         None when centering was absorbed (original indices non-trivially remapped).
@@ -204,7 +207,7 @@ class CompiledPredictor:
     ``build_new_matrix(X_new)`` is the canonical predictor-level design builder
     for new data.  For each term it calls::
 
-        runtime.transform_new(X_new) @ basis_transform
+        smooth.predict_matrix(X_new) @ basis_transform
 
     and concatenates the results.  No fit-time transform is re-derived at
     prediction time.
@@ -223,28 +226,15 @@ class CompiledPredictor:
     smoothing_override_values: np.ndarray | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    @property
-    def matrix_train(self) -> np.ndarray:
-        """Alias for ``design_matrix``; used by the base GAM model."""
-        return self.design_matrix
-
-    @property
-    def penalty_blocks(self) -> tuple:
-        """Alias for ``compiled_penalties``; used by the smoothness and fit subsystems."""
-        return self.compiled_penalties
-
-    @property
-    def term_blocks(self) -> tuple:
-        """Alias for ``compiled_terms``; used by the smoothness and fit subsystems."""
-        return self.compiled_terms
-
     def build_new_matrix(self, X_new):
         """
         Build the predictor design matrix for new observations.
 
-        For each compiled term, evaluates the runtime basis at ``X_new`` and
-        applies ``basis_transform`` — the canonical fit-to-predict coefficient
-        map stored on that term.  No fit-time transforms are re-derived.
+        For each compiled term, evaluates the stage-3 constructed-term basis at
+        ``X_new`` via ``smooth.predict_matrix(X_new)`` and applies
+        ``basis_transform`` — the canonical mapping from constructed-term
+        coordinates to final fitted coordinates. No fit-time transforms are
+        re-derived.
         """
         if len(self.compiled_terms) == 0:
             return np.empty((len(X_new), 0), dtype=np.float64)

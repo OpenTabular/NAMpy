@@ -10,10 +10,11 @@ class LinearTerm(BaseSmoothTerm):
     basis_name = "linear"
     supports_tensor_marginal = False
 
-    def __init__(self, feature, label=None, metadata=None):
+    def __init__(self, feature, label=None, term_id=None, metadata=None):
         super().__init__(
             feature=feature,
             label=label,
+            term_id=term_id,
             smoothing_id=None,
             by=None,
             metadata=metadata,

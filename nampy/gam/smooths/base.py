@@ -311,12 +311,11 @@ class BaseSmoothTerm(abc.ABC):
     basis_name = "unknown"
     supports_tensor_marginal = False
 
-    def __init__(self, feature, label=None, smoothing_id=None, by=None, sp=None, metadata=None):
-        from uuid import uuid4
+    def __init__(self, feature, label=None, term_id=None, smoothing_id=None, by=None, sp=None, metadata=None):
         self.feature = feature
         self.label = label or str(feature)
         self.smoothing_id = smoothing_id
-        self.term_id = uuid4().hex[:12]
+        self.term_id = None if term_id is None else str(term_id)
         self.by = by
         self.sp = sp
         self.metadata = dict(metadata or {})

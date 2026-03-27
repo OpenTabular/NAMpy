@@ -17,7 +17,7 @@ class NAMformer(BaseModel):
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: DefaultNAMformerConfig = DefaultNAMformerConfig(),
+        config: DefaultNAMformerConfig | None = None,
         **kwargs,
     ):
         """
@@ -31,9 +31,11 @@ class NAMformer(BaseModel):
             Information about numerical features.
         num_classes : int, optional
             Number of output classes, by default 1.
-        config : DefaultNAMConfig, optional
-            Configuration dataclass containing hyperparameters, by default DefaultNAMConfig().
+        config : DefaultNAMformerConfig, optional
+            Configuration dataclass containing hyperparameters, by default DefaultNAMformerConfig().
         """
+        if config is None:
+            config = DefaultNAMformerConfig()
         super().__init__(**kwargs)
         self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
 

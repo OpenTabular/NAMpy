@@ -641,12 +641,12 @@ class GAM(BaseModel):
         return resolve_fit_backend(self)
 
     def _supports_smoothing_method(self, method):
-        from ..gam.smoothness.optimize import supports_smoothing_method
+        from ..gam.smoothing_selection.optimize import supports_smoothing_method
 
         return supports_smoothing_method(self, method)
 
     def _resolve_smoothing_method(self, method):
-        from ..gam.smoothness.optimize import resolve_smoothing_method
+        from ..gam.smoothing_selection.optimize import resolve_smoothing_method
 
         return resolve_smoothing_method(self, method)
 
@@ -661,17 +661,17 @@ class GAM(BaseModel):
         )
 
     def _can_use_exact_gaussian_ml_reml(self):
-        from ..gam.smoothness.reparam import can_use_exact_gaussian_ml_reml
+        from ..gam.smoothing_selection.reparam import can_use_exact_gaussian_ml_reml
 
         return can_use_exact_gaussian_ml_reml(self)
 
     def _can_use_simple_ml_reml_structure(self):
-        from ..gam.smoothness.reparam import can_use_simple_ml_reml_structure
+        from ..gam.smoothing_selection.reparam import can_use_simple_ml_reml_structure
 
         return can_use_simple_ml_reml_structure(self)
 
     def _resolve_ml_reml_scoring_backend(self, method="reml"):
-        from ..gam.smoothness.criteria import resolve_ml_reml_scoring_backend
+        from ..gam.smoothing_selection.criteria import resolve_ml_reml_scoring_backend
 
         return resolve_ml_reml_scoring_backend(self, method=method)
 
@@ -828,12 +828,12 @@ class GAM(BaseModel):
         return sp
 
     def _n_free_smoothing_params(self):
-        from ..gam.smoothness.optimize import n_free_smoothing_params
+        from ..gam.smoothing_selection.optimize import n_free_smoothing_params
 
         return n_free_smoothing_params(self)
 
     def _expand_smoothing_params_from_log(self, log_free_sp):
-        from ..gam.smoothness.optimize import expand_smoothing_params_from_log
+        from ..gam.smoothing_selection.optimize import expand_smoothing_params_from_log
 
         return expand_smoothing_params_from_log(self, log_free_sp)
 
@@ -873,7 +873,7 @@ class GAM(BaseModel):
             )
 
         self.design_ = self.predictor_designs[0]
-        self.Z = self.design_.matrix_train
+        self.Z = self.design_.design_matrix
         self.ZTZ = self.Z.T @ self.Z
         self.n_coef_ = self.design_.n_coef
         self.term_blocks_ = self.design_.compiled_terms
@@ -932,32 +932,32 @@ class GAM(BaseModel):
         return solve_gaussian_fit(self, y, smoothing_params)
 
     def gcv_score(self, y, log_smoothing_params):
-        from ..gam.smoothness.criteria import gcv_score_gaussian
+        from ..gam.smoothing_selection.criteria import gcv_score_gaussian
 
         return gcv_score_gaussian(self, y, log_smoothing_params)
 
     def _criterion_gcv_gaussian(self, y, log_sp):
-        from ..gam.smoothness.criteria import criterion_gcv_gaussian
+        from ..gam.smoothing_selection.criteria import criterion_gcv_gaussian
 
         return criterion_gcv_gaussian(self, y, log_sp)
 
     def _build_gaussian_reparameterized_system(self):
-        from ..gam.smoothness.reparam import build_gaussian_reparameterized_system
+        from ..gam.smoothing_selection.reparam import build_gaussian_reparameterized_system
 
         return build_gaussian_reparameterized_system(self)
 
     def _build_penalty_reparameterized_system(self):
-        from ..gam.smoothness.reparam import build_penalty_reparameterized_system
+        from ..gam.smoothing_selection.reparam import build_penalty_reparameterized_system
 
         return build_penalty_reparameterized_system(self)
 
     def _criterion_ml_reml_exact(self, y, log_sp, method):
-        from ..gam.smoothness.criteria import criterion_ml_reml_exact
+        from ..gam.smoothing_selection.criteria import criterion_ml_reml_exact
 
         return criterion_ml_reml_exact(self, y, log_sp, method)
 
     def _criterion_ml_reml(self, y, log_sp, method):
-        from ..gam.smoothness.criteria import criterion_ml_reml
+        from ..gam.smoothing_selection.criteria import criterion_ml_reml
 
         return criterion_ml_reml(self, y, log_sp, method)
 
@@ -967,34 +967,34 @@ class GAM(BaseModel):
         return solve_pirls_fit(self, y, smoothing_params)
 
     def _criterion_gcv_pirls(self, y, log_sp):
-        from ..gam.smoothness.criteria import criterion_gcv_pirls
+        from ..gam.smoothing_selection.criteria import criterion_gcv_pirls
 
         return criterion_gcv_pirls(self, y, log_sp)
 
     def _criterion_ubre_pirls(self, y, log_sp):
-        from ..gam.smoothness.criteria import criterion_ubre_pirls
+        from ..gam.smoothing_selection.criteria import criterion_ubre_pirls
 
         return criterion_ubre_pirls(self, y, log_sp)
 
     def _criterion(self, y, log_sp, method="gcv"):
-        from ..gam.smoothness.criteria import criterion_value
+        from ..gam.smoothing_selection.criteria import criterion_value
 
         return criterion_value(self, y, log_sp, method=method)
 
     def _criterion_gradient(self, y, log_sp, method="gcv"):
-        from ..gam.smoothness.criteria import criterion_gradient
+        from ..gam.smoothing_selection.criteria import criterion_gradient
 
         return criterion_gradient(self, y, log_sp, method=method)
 
     def _criterion_hessian(self, y, log_sp, method="gcv"):
-        from ..gam.smoothness.criteria import criterion_hessian
+        from ..gam.smoothing_selection.criteria import criterion_hessian
 
         return criterion_hessian(self, y, log_sp, method=method)
 
     def optimize_smoothing_params(
         self, y, initial_smoothing_params=None, method="gcv", optimizer="lbfgsb",
     ):
-        from ..gam.smoothness.optimize import optimize_smoothing_params
+        from ..gam.smoothing_selection.optimize import optimize_smoothing_params
 
         return optimize_smoothing_params(
             self,

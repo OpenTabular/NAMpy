@@ -86,3 +86,19 @@ def test_penalized_qr_state_ldet_matches_log_det_from_upper_R(seed: int) -> None
     d = np.abs(np.diag(state.Rh))
     expect = float(2.0 * np.sum(np.log(np.maximum(d, np.finfo(np.float64).tiny))))
     np.testing.assert_allclose(state.ldet_XWX_plus_S, expect, rtol=0, atol=1e-10)
+
+
+def test_pls_fit1_alias_is_rejected_for_coef_method() -> None:
+    X, z, w, E, Es = _random_pls_instance(40, 6, seed=11)
+    wy = w * z
+
+    with pytest.raises(ValueError, match="Unknown coef_method"):
+        pls_fit1_nonneg_w(
+            X,
+            z,
+            w,
+            wy,
+            penalty_sqrt_E=E,
+            penalty_rank_Es=Es,
+            coef_method="pls_fit1",
+        )

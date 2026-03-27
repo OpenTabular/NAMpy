@@ -28,7 +28,7 @@ class NodeGAM(BaseModel):
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: DefaultNodeGAMConfig = DefaultNodeGAMConfig(),
+        config: DefaultNodeGAMConfig | None = None,
         **kwargs,
     ):
         """
@@ -43,10 +43,12 @@ class NodeGAM(BaseModel):
         num_classes : int, optional
             Number of output classes for classification tasks, by default 1.
         config : DefaultNodeGAMConfig, optional
-            Configuration dataclass containing hyperparameters for the model, by default DefaultNodeGAMConfig.
+            Configuration dataclass containing hyperparameters for the model, by default DefaultNodeGAMConfig().
         kwargs : dict
             Additional keyword arguments.
         """
+        if config is None:
+            config = DefaultNodeGAMConfig()
         super().__init__(**kwargs)
         self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
 

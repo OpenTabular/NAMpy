@@ -319,7 +319,7 @@ def fit_pirls_core(
     penalty_quadratic = float(beta @ (P_full @ beta))
     loglik = float(family.loglik(y, mu, scale=scale))
 
-    Vp, Vf, H_coef = (scale, A_inv, XtWX)
+    Vp, Vf, H_coef = build_bayes_and_freq_covariances(scale, A_inv, XtWX)
 
     if fit_intercept:
         intercept = float(beta[0])

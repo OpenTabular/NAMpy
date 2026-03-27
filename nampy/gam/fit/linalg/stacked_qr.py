@@ -167,7 +167,7 @@ def _stacked_penalized_ls_nonneg_solution(
     )
 
     cm = str(coef_method).lower().strip()
-    if cm in ("householder", "pls_fit1"):
+    if cm == "householder":
         kept_arr = np.asarray(kept_original_indices, dtype=np.int64)
         coef_full = _solve_coef_householder_chain_nonneg_weights(
             y=z,
@@ -208,7 +208,7 @@ def _stacked_penalized_ls_nonneg_solution(
             coef_full = _gauge_minimize_penalty_on_null_X(coef_full, X, P_dense)
     else:
         raise ValueError(
-            f"Unknown coef_method {coef_method!r}; use 'householder', 'pls_fit1', or 'lstsq'."
+            f"Unknown coef_method {coef_method!r}; use 'householder' or 'lstsq'."
         )
 
     pen_vec = penalty_sqrt @ coef_full
@@ -822,7 +822,6 @@ def solve_gaussian_penalized_ls_stacked_qr(
     coef_method
         ``"householder"`` (default): triangular back-substitution after stacked QRs.
         ``"lstsq"``: augmented least-squares with penalty-minimisation gauge.
-        ``"pls_fit1"`` is accepted as an alias for ``"householder"``.
     rank_tol
         Condition threshold for the rank-reveal step; default is
         :data:`STACKED_QR_RANK_TOLERANCE`.

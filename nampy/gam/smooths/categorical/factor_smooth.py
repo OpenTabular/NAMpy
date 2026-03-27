@@ -12,10 +12,10 @@ from .categorical_utils import (
     factor_indicator_matrix,
 )
 from ...design.structures import PenaltySpec
-from ...penalties.algebra import penalty_eigendecomposition
+from ....splines.mrf import nat_param_type1
 from ..base import BaseSmoothTerm, column_as_object
 from ..registry import make_smooth_term
-from ...basis.tensor import rowwise_kronecker
+from ...basis.tensor import rowwise_kronecker, rescale_tensor_penalties_for_fit
 from ..univariate.cubic_regression import SplineTerm1D
 from ..univariate.pspline import PSplineTerm1D
 from .random_effect import RandomEffectTerm
@@ -30,8 +30,11 @@ def _as_object_2d(X):
 
 def _sum_to_zero_contrast(n_levels: int):
     """
-    Orthonormal basis for the null space of 1^T, i.e. sum-to-zero contrasts.
+    Last-level-as-reference contrast matrix matching mgcv's XZKr().
     Shape: (n_levels, n_levels - 1)
+
+    Each column subtracts the last level from one of the first (n_levels-1)
+    levels, i.e. C = vstack([I_{m-1}, -ones^T]).
     """
     n_levels = int(n_levels)
     if n_levels < 1:
@@ -39,9 +42,11 @@ def _sum_to_zero_contrast(n_levels: int):
     if n_levels == 1:
         return np.empty((1, 0), dtype=np.float64)
 
-    c = np.ones((n_levels, 1), dtype=np.float64)
-    q, _ = np.linalg.qr(c, mode="complete")
-    return q[:, 1:]
+    C = np.vstack([
+        np.eye(n_levels - 1, dtype=np.float64),
+        -np.ones((1, n_levels - 1), dtype=np.float64),
+    ])
+    return C
 
 
 @dataclass
@@ -104,9 +109,9 @@ def _build_base_smooth_term(
             f"for bs in {{'tp','ts','gp'}}, got base bs={base_bs!r}."
         )
 
-    if xt_rest is not None and base_bs not in {"tp", "ts", "gp"}:
+    if xt_rest is not None and base_bs not in {"tp", "ts", "gp", "ps"}:
         raise NotImplementedError(
-            f"Extra xt options are currently only supported for tp/ts/gp base smooths, "
+            f"Extra xt options are currently only supported for tp/ts/gp/ps base smooths, "
             f"got xt={xt_rest!r} with base bs={base_bs!r}."
         )
 
@@ -121,7 +126,7 @@ def _build_base_smooth_term(
             sp=None,
             select=False,
             fixed=bool(fixed),
-            constraint_mode=("never" if mode == "fs" else "auto"),
+            constraint_mode="never",
             shared_basis_setup=None,
             pc=None,
             knots=knots,
@@ -129,18 +134,20 @@ def _build_base_smooth_term(
         )
 
     if base_bs == "ps":
+        ps_m = None if xt_rest is None else xt_rest.get("m", None)
+        ps_k = k  # xt$k is ignored by mgcv; only the outer k governs basis dimension
         return PSplineTerm1D(
             feature=metric_features[0],
-            k=k,
+            k=ps_k,
             basis="ps",
-            m=None,
+            m=ps_m,
             label=label,
             smoothing_id=None,
             by=None,
             sp=None,
             select=False,
             fixed=bool(fixed),
-            constraint_mode=("never" if mode == "fs" else "auto"),
+            constraint_mode="never",
             pc=None,
             knots=knots,
             metadata=metadata,
@@ -159,7 +166,7 @@ def _build_base_smooth_term(
             sp=None,
             select=False,
             fixed=bool(fixed),
-            constraint_mode=("never" if mode == "fs" else "auto"),
+            constraint_mode="never",
             pc=None,
             knots=knots,
             xt=xt_rest,
@@ -179,7 +186,7 @@ def _build_base_smooth_term(
             sp=None,
             select=False,
             fixed=bool(fixed),
-            constraint_mode=("never" if mode == "fs" else "auto"),
+            constraint_mode="never",
             pc=None,
             knots=knots,
             xt=xt_rest,
@@ -228,6 +235,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
         term_type,
         k=10,
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
@@ -241,6 +249,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
         super().__init__(
             feature=features,
             label=label or f"{basis_name}({', '.join(map(str, features))})",
+            term_id=term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,
@@ -428,6 +437,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         feature,
         k=10,
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
@@ -447,6 +457,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             term_type="factor_smooth_fs",
             k=k,
             label=label,
+            term_id=term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,
@@ -512,45 +523,52 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             return self
 
         S0 = np.asarray(base_term.penalties[0], dtype=np.float64)
-        dec = penalty_eigendecomposition(S0, tol=1e-10)
 
-        U1 = dec["U1"]
-        U0 = dec["U0"]
-        d_pos = dec["d_pos"]
+        # mgcv uses nat.param(X, S, rank, type=1): eigendecompose R^{-T} S R^{-1}
+        # (R from QR of X) and normalise the range space to an identity penalty.
+        rp = nat_param_type1(B0, S0, rank=None, unit_fnorm=True)
+        X_reparam = rp["X"]       # (n, p0) reparameterised basis
+        P_coef    = rp["P"]       # (p0, p0) transform: B0 @ P_coef = X_reparam
+        r         = rp["rank"]    # penalty rank
+        D         = rp["D"]       # scale^2 * ones(r) after type=1 + unit_fnorm
+        null_d    = B0.shape[1] - r
 
-        r = U1.shape[1]
-        q = U0.shape[1]
+        self._base_transform = P_coef
         self._range_rank = r
-        self._null_dim = q
+        self._null_dim = null_d
 
-        T = np.column_stack([U1, U0]) if q > 0 else U1
-        self._base_transform = T
+        # Build full design matrix: replicate reparameterised basis per factor level
+        n   = B0.shape[0]
+        p0  = X_reparam.shape[1]
+        X_full = np.zeros((n, p0 * n_levels), dtype=np.float64)
+        for i, lev in enumerate(levels):
+            mask = (fac == lev).astype(np.float64)
+            X_full[:, i * p0 : (i + 1) * p0] = X_reparam * mask[:, None]
 
-        B_sep = B0 @ T
-        X_full = rowwise_kronecker([Ifac, B_sep])
-
-        p_sep = B_sep.shape[1]
-        S_range = np.zeros((p_sep, p_sep), dtype=np.float64)
-        if r > 0:
-            S_range[:r, :r] = np.diag(d_pos)
+        # Build penalties matching mgcv's construction:
+        #   S[[1]] = diag(rep(c(D, 0...0), nf))          (range space)
+        #   S[[j+1]] = diag(rep(e_{r+j}, nf))  j=0..q-1  (null-space)
+        d_vec  = np.concatenate([D, np.zeros(null_d, dtype=np.float64)])
+        P_range = np.diag(np.tile(d_vec, n_levels))
 
         penalties = []
         smoothing_ids = []
         ranks = []
 
-        P_range = np.kron(np.eye(n_levels, dtype=np.float64), S_range)
         penalties.append(0.5 * (P_range + P_range.T))
         smoothing_ids.append(f"__fs__:{self.label}:range")
         ranks.append(int(n_levels * r))
 
-        for i in range(q):
-            v = np.zeros((p_sep,), dtype=np.float64)
-            v[r + i] = 1.0
-            S_null_i = np.outer(v, v)
-            P_null_i = np.kron(np.eye(n_levels, dtype=np.float64), S_null_i)
+        for i in range(null_d):
+            um = np.zeros(p0, dtype=np.float64)
+            um[r + i] = 1.0
+            P_null_i = np.diag(np.tile(um, n_levels))
             penalties.append(0.5 * (P_null_i + P_null_i.T))
             smoothing_ids.append(f"__fs__:{self.label}:null:{i}")
             ranks.append(int(n_levels))
+
+        # Apply mgcv smoothCon scale_penalty step: normalise S relative to X.
+        penalties = rescale_tensor_penalties_for_fit(X_full, penalties)
 
         self._basis_train = np.asarray(X_full, dtype=np.float64)
         self._penalties = penalties
@@ -642,6 +660,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         feature,
         k=10,
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
@@ -656,6 +675,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             term_type="factor_smooth_sz",
             k=k,
             label=label,
+            term_id=term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,
@@ -763,6 +783,17 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             penalties.append(P_con)
             smoothing_ids.append(str(self.smoothing_id))
             ranks.append(int(np.linalg.matrix_rank(P_con)))
+
+        # Apply mgcv smoothCon scale_penalty step: normalise S relative to X.
+        # R applies this BEFORE the XZKr contrast, using the pre-contrast X_raw
+        # and the pre-contrast block penalty S_raw (which has norm_1 = norm_1(S0)).
+        # The scale factor is the same for all penalties (norm_1(S_raw[i]) = norm_1(S0)).
+        if len(penalties) > 0:
+            maXX = float(np.max(np.sum(np.abs(X_raw), axis=1)) ** 2)
+            maS0 = float(np.max(np.sum(np.abs(S0), axis=0)))
+            if maS0 > 1e-12 and maXX > 1e-12:
+                scale = maXX / maS0
+                penalties = [P * scale for P in penalties]
 
         self._basis_train = np.asarray(X_con, dtype=np.float64)
         self._penalties = penalties

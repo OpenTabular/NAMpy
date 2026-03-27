@@ -33,14 +33,6 @@ def test_te_non_cr_marginal_raises():
         )
 
 
-def test_runtime_tensor_select_true_raises():
-    """Isolate select=True on te(); avoid list-valued bs in the formula string."""
-    data = _df()
-    with pytest.raises(NotImplementedError, match="select=True"):
-        GAM(family="gaussian", formula="y ~ te(x0, x1, k=[5, 5])", select=True).fit(
-            data=data
-        )
-
 
 def test_runtime_mrf_select_true_raises():
     d = pd.DataFrame({"y": [0.0, 1.0, 0.2], "r": ["A", "B", "C"]})
@@ -86,19 +78,63 @@ def test_re_linked_id_raises_at_runtime():
         GAM(family="gaussian", formula='y ~ s(g, bs="re", id="z")').fit(data=d)
 
 
-def test_ps_pc_not_implemented():
-    data = _df()
-    with pytest.raises(NotImplementedError, match="pc"):
-        GAM(family="gaussian", formula='y ~ s(x0, bs="ps", pc=0.0)').fit(data=data)
 
-
-def test_linked_id_incompatible_k_raises():
+def test_linked_id_incompatible_k_harmonizes():
+    """mgcv auto-resolves k mismatches by using max k; we should warn and succeed."""
     data = _df()
-    with pytest.raises(NotImplementedError, match="Linked id"):
-        GAM(
+    import warnings as _warnings
+    with _warnings.catch_warnings(record=True) as w:
+        _warnings.simplefilter("always")
+        gam = GAM(
             family="gaussian",
             formula='y ~ s(x0, bs="cr", k=6, id="g") + s(x1, bs="cr", k=8, id="g")',
-        ).fit(data=data)
+        )
+        gam.fit(data=data)
+    assert any(
+        "k" in str(warning.message).lower() for warning in w
+    ), "Expected a warning about k harmonisation"
+    pred = gam.predict(data)
+    assert np.all(np.isfinite(pred))
+
+
+def test_linked_id_compatible_k_fits():
+    """Linked 1D cr smooths with matching k share a basis and fit without error."""
+    data = _df()
+    gam = GAM(
+        family="gaussian",
+        formula='y ~ s(x0, bs="cr", k=6, id="g") + s(x1, bs="cr", k=6, id="g")',
+    )
+    gam.fit(data=data)
+    pred = gam.predict(data)
+    assert np.all(np.isfinite(pred))
+
+
+def test_linked_id_shares_smoothing_parameter():
+    """Two linked terms share one smoothing parameter; unlinked terms have two."""
+    data = _df()
+    gam_linked = GAM(
+        family="gaussian",
+        formula='y ~ s(x0, bs="cr", k=6, id="g") + s(x1, bs="cr", k=6, id="g")',
+    )
+    gam_unlinked = GAM(
+        family="gaussian",
+        formula='y ~ s(x0, bs="cr", k=6) + s(x1, bs="cr", k=6)',
+    )
+    gam_linked.fit(data=data)
+    gam_unlinked.fit(data=data)
+    assert gam_linked.n_smoothing_params_ < gam_unlinked.n_smoothing_params_
+
+
+def test_linked_id_noncrcs_supported():
+    """Non-cr/cs bases with id= link smoothing parameters without error."""
+    data = _df()
+    gam = GAM(
+        family="gaussian",
+        formula='y ~ s(x0, bs="ps", k=6, id="g") + s(x1, bs="ps", k=6, id="g")',
+    )
+    gam.fit(data=data)
+    pred = gam.predict(data)
+    assert np.all(np.isfinite(pred))
 
 
 def test_te_ps_marginal_raises_via_make_smooth_term():

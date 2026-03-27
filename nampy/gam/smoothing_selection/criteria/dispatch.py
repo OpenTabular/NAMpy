@@ -1,5 +1,5 @@
 """
-Top-level dispatch for smoothness-selection criterion value, gradient, and Hessian.
+Top-level dispatch for smoothing_selection-selection criterion value, gradient, and Hessian.
 
 :func:`criterion_value` — scalar criterion at a given log-smoothing-parameter vector.
 :func:`criterion_gradient` — gradient w.r.t. log-smoothing parameters (exact when

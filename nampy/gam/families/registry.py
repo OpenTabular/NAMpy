@@ -18,7 +18,10 @@ def make_gam_family(family):
     if isinstance(family, dict):
         name = str(family.get("name", "")).lower()
         if name in {"negbin", "negativebinomial", "negative_binomial"}:
-            return NegativeBinomialLogFamily(theta=family.get("theta", 1.0))
+            return NegativeBinomialLogFamily(
+                theta=family.get("theta", 1.0),
+                estimate_theta=bool(family.get("estimate_theta", False)),
+            )
         family = name
 
     if isinstance(family, tuple) and len(family) == 2:
@@ -26,7 +29,10 @@ def make_gam_family(family):
         spec = family[1]
         if key in {"negbin", "negativebinomial", "negative_binomial"}:
             if isinstance(spec, dict):
-                return NegativeBinomialLogFamily(theta=spec.get("theta", 1.0))
+                return NegativeBinomialLogFamily(
+                    theta=spec.get("theta", 1.0),
+                    estimate_theta=bool(spec.get("estimate_theta", False)),
+                )
             return NegativeBinomialLogFamily(theta=spec)
         family = key
 

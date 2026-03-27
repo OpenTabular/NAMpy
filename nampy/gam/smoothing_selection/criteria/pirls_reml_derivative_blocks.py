@@ -1,6 +1,6 @@
 """
 Algebra building blocks for exact first- and second-order derivatives of REML/ML
-smoothness-selection criteria with respect to log-smoothing parameters.
+smoothing_selection-selection criteria with respect to log-smoothing parameters.
 
 These functions compute the implicit-function derivatives of the fitted coefficient
 vector and working system matrices through the penalized IRLS fixed point, then
