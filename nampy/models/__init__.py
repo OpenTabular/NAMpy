@@ -14,6 +14,10 @@ from .spline_nam import SplineNAMRegressor
 from .snam import SNAMRegressor
 from .treenam import TreeNAMRegressor
 from .ensemble_treenam import EnsembleTreeNAMRegressor
+from .spam_regressor import SPAMRegressor
+from .spam_classifier import SPAMClassifier
+from .spam_lss import SPAMLSS
+ 
 
 __all__ = [
     "GAMRegressor",
@@ -47,4 +51,7 @@ __all__ = [
     "NodeGAMRegressor",
     "NodeGAMClassifier",
     "NodeGAMLSS",
+    "SPAMRegressor",
+    "SPAMClassifier",
+    "SPAMLSS",
 ]
