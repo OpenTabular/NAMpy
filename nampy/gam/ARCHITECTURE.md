@@ -892,9 +892,9 @@ This prevents accidental drift into inconsistent partial implementations.
 
 Users may import via public convenience modules such as:
 
-- `nampy.gam.terms.univariate`
-- `nampy.gam.terms.tensor`
-- `nampy.gam.terms.categorical`
+- canonical smooth modules under `nampy.gam.smooths.univariate/*`
+- canonical smooth modules under `nampy.gam.smooths.tensor/*`
+- canonical smooth modules under `nampy.gam.smooths.categorical/*`
 
 Internally, however, these should only re-export canonical runtime implementations.
 

@@ -49,6 +49,7 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         k=-1,
         basis="mrf",
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
@@ -63,6 +64,7 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         super().__init__(
             feature=features,
             label=label or f"mrf({features[0]})",
+            term_id=term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,

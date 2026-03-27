@@ -44,6 +44,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         k=10,
         basis="cr",
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
@@ -61,6 +62,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         super().__init__(
             feature=features,
             label=label or f"ti({', '.join(map(str, features))})",
+            term_id=term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,

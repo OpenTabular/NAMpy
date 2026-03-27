@@ -873,7 +873,7 @@ class GAM(BaseModel):
             )
 
         self.design_ = self.predictor_designs[0]
-        self.Z = self.design_.matrix_train
+        self.Z = self.design_.design_matrix
         self.ZTZ = self.Z.T @ self.Z
         self.n_coef_ = self.design_.n_coef
         self.term_blocks_ = self.design_.compiled_terms

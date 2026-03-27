@@ -43,6 +43,7 @@ class PSplineTerm1D(BaseSmoothTerm):
         basis="ps",
         m=None,
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
@@ -57,6 +58,7 @@ class PSplineTerm1D(BaseSmoothTerm):
         super().__init__(
             feature=feature,
             label=label,
+            term_id=term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,

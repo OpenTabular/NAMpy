@@ -62,7 +62,6 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
     p = int(model.rank_X_fix_)
     q = int(model.n_rand_)
     grad_full = np.zeros(int(model.n_smoothing_params_), dtype=np.float64)
-    grad_legacy = np.zeros_like(grad_full)
     dA_store = [None] * int(model.n_smoothing_params_)
 
     dbeta_store = [np.zeros_like(beta, dtype=np.float64) for _ in range(int(model.n_smoothing_params_ or 0))]
@@ -71,7 +70,6 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
         for j, Pj in enumerate(P_derivs):
             if np.any(Pj):
                 grad_full[j] = 0.5 * float(beta @ (Pj @ beta))
-                grad_legacy[j] = grad_full[j]
                 dA_store[j] = Pj.copy()
                 dbeta_store[j] = -(A_inv @ (Pj @ beta))
 
@@ -87,7 +85,6 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
                 dW_j = dW_deta * (X @ dbeta_j)
                 dXtWX_j = Xf.T @ (dW_j[:, None] * Xf)
                 grad_full[j] += 0.5 * float(np.sum(C_inv * dXtWX_j))
-                grad_legacy[j] = grad_full[j]
                 dA_store[j] = X.T @ (dW_j[:, None] * X) + Pj
 
         return grad_full[free_mask]
@@ -141,7 +138,6 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
             )
             grad_j += 0.5 * float(np.sum(C_inv * dC_j))
 
-        grad_legacy[j] = grad_j
         grad_full[j] = grad_j
         dA_store[j] = dXtWX_j + Pj
 
@@ -264,7 +260,6 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
             dM[j] = np.empty((0, 0), dtype=np.float64)
 
     H_full = np.zeros((n_sp, n_sp), dtype=np.float64)
-    H_legacy = np.zeros_like(H_full)
 
     for j in range(n_sp):
         Pj = P_derivs[j]
@@ -339,8 +334,6 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
 
             H_full[j, k] = hij
             H_full[k, j] = hij
-            H_legacy[j, k] = hij
-            H_legacy[k, j] = hij
 
     detXWXS1 = detXWXS2 = detS1 = detS2 = D1 = D2 = None
 

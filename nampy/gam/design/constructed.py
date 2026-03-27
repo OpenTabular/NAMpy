@@ -24,8 +24,10 @@ class ConstructedTerm:
         predict_matrix(X_new)
 
     which internally calls either the runtime's ``transform_new`` directly, or a
-    ``_predict_fn`` closure that applies any wrapper-level transforms (by-scaling,
-    explicit constraint absorption) on top of it.
+    ``_predict_fn`` closure that applies any wrapper-level non-coefficient-space
+    logic (for example by-scaling) on top of it. Any linear map from the raw
+    prediction basis into the fitted coefficient coordinates is carried
+    explicitly by ``predict_coefficient_map``.
 
     After stage 5 (``apply_global_side_conditions``), the caller must apply
     ``CompiledTerm.basis_transform`` on top of the result of ``predict_matrix``.
@@ -41,8 +43,9 @@ class ConstructedTerm:
     by_variable: str | None = None
     smoothing_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    fit_constraint: np.ndarray | None = None
-    predict_constraint: np.ndarray | None = None
+    fit_constraint_operator: np.ndarray | None = None
+    fit_coefficient_map: np.ndarray | None = None
+    predict_coefficient_map: np.ndarray | None = None
     constraints_absorbed: bool = True
     prediction_offset: np.ndarray | None = None
     original_design_matrix: np.ndarray | None = None
@@ -68,6 +71,10 @@ class ConstructedTerm:
             M = np.asarray(self.runtime.transform_new(X_new), dtype=np.float64)
         else:
             M = np.asarray(self._predict_fn(X_new), dtype=np.float64)
+
+        C_pred = self.predict_coefficient_map
+        if C_pred is not None:
+            M = M @ np.asarray(C_pred, dtype=np.float64)
 
         if M.ndim != 2:
             raise ValueError(

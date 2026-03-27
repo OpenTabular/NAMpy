@@ -40,7 +40,7 @@ from nampy.gam.smoothing_selection.criteria.penalty import (
 from nampy.gam.design.compiler import compile_predictor_designs
 from nampy.gam.formula import compile_predictor_specs_from_formula, parse_gam_formula
 from nampy.gam.basis.tensor import t2_marginal_reparameterization
-from nampy.gam.terms.univariate import SplineTerm1D
+from nampy.gam.smooths.univariate.cubic_regression import SplineTerm1D
 
 
 from mgcv_parity_utils import (
@@ -137,7 +137,7 @@ class TestParitySnapshotAPI:
         expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
 
         _assert_allclose_up_to_column_sign(
-            np.asarray(design.matrix_train, dtype=np.float64),
+            np.asarray(design.design_matrix, dtype=np.float64),
             np.asarray(expected["X"], dtype=np.float64),
             atol=1e-10,
             rtol=1e-10,
@@ -164,7 +164,7 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(block.matrix, dtype=np.float64) for block in design.penalty_blocks]
+        actual = [np.asarray(block.matrix, dtype=np.float64) for block in design.compiled_penalties]
         target = [np.asarray(S, dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target) == 2
@@ -187,7 +187,7 @@ class TestParitySnapshotAPI:
         expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
 
         _assert_allclose_up_to_column_sign(
-            np.asarray(design.matrix_train, dtype=np.float64),
+            np.asarray(design.design_matrix, dtype=np.float64),
             np.asarray(expected["X"], dtype=np.float64),
             atol=1e-10,
             rtol=1e-10,
@@ -212,7 +212,7 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.penalty_blocks]
+        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target)
@@ -235,7 +235,7 @@ class TestParitySnapshotAPI:
         expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
 
         _assert_allclose_up_to_column_sign(
-            np.asarray(design.matrix_train, dtype=np.float64),
+            np.asarray(design.design_matrix, dtype=np.float64),
             np.asarray(expected["X"], dtype=np.float64),
             atol=1e-10,
             rtol=1e-10,
@@ -260,7 +260,7 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.penalty_blocks]
+        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target)
@@ -283,7 +283,7 @@ class TestParitySnapshotAPI:
         expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
 
         np.testing.assert_allclose(
-            np.asarray(design.matrix_train, dtype=np.float64),
+            np.asarray(design.design_matrix, dtype=np.float64),
             np.asarray(expected["X"], dtype=np.float64),
             atol=1e-10,
             rtol=1e-10,
@@ -308,7 +308,7 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.penalty_blocks]
+        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target)
@@ -334,7 +334,7 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.penalty_blocks]
+        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target) == 1
@@ -358,7 +358,7 @@ class TestParitySnapshotAPI:
         expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
 
         np.testing.assert_allclose(
-            np.asarray(design.matrix_train, dtype=np.float64),
+            np.asarray(design.design_matrix, dtype=np.float64),
             np.asarray(expected["X"], dtype=np.float64),
             atol=1e-10,
             rtol=1e-10,
@@ -385,7 +385,7 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.penalty_blocks]
+        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target)
@@ -408,7 +408,7 @@ class TestParitySnapshotAPI:
         expected = _run_mgcv_smoothcon_matrix_unscaled(data[["f"]], smooth_expr_r)
 
         np.testing.assert_allclose(
-            np.asarray(design.matrix_train, dtype=np.float64),
+            np.asarray(design.design_matrix, dtype=np.float64),
             np.asarray(expected["X"], dtype=np.float64),
             atol=1e-12,
             rtol=1e-12,
@@ -430,7 +430,7 @@ class TestParitySnapshotAPI:
         expected = _run_mgcv_smoothcon_matrix_unscaled(data, smooth_expr_r)
 
         np.testing.assert_allclose(
-            np.asarray(design.matrix_train, dtype=np.float64),
+            np.asarray(design.design_matrix, dtype=np.float64),
             np.asarray(expected["X"], dtype=np.float64),
             atol=1e-12,
             rtol=1e-12,
@@ -454,7 +454,7 @@ class TestParitySnapshotAPI:
         expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
 
         np.testing.assert_allclose(
-            np.asarray(design.matrix_train, dtype=np.float64),
+            np.asarray(design.design_matrix, dtype=np.float64),
             np.asarray(expected["X"], dtype=np.float64),
             atol=1e-10,
             rtol=1e-10,
@@ -481,7 +481,7 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(block.matrix, dtype=np.float64) for block in design.penalty_blocks]
+        actual = [np.asarray(block.matrix, dtype=np.float64) for block in design.compiled_penalties]
         target = [np.asarray(S, dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target) == 2
@@ -573,7 +573,7 @@ class TestParitySnapshotAPI:
             scale_penalty=True,
         )
 
-        actual = [np.asarray(block.matrix, dtype=np.float64) for block in design.penalty_blocks]
+        actual = [np.asarray(block.matrix, dtype=np.float64) for block in design.compiled_penalties]
         target = [np.asarray(S, dtype=np.float64) for _, S in expected["S"].items()]
 
         assert len(actual) == len(target) == 3
@@ -605,7 +605,7 @@ class TestParitySnapshotAPI:
             ["x0", "x1"],
             specs,
         )[0]
-        term = design.term_blocks[0].smooth.runtime
+        term = design.compiled_terms[0].smooth.runtime
 
         np.testing.assert_allclose(
             np.asarray(term.basis_train, dtype=np.float64),
@@ -1134,7 +1134,7 @@ class TestMgcvParity:
 
         term_dims = [
             int(np.asarray(tb.basis_train, dtype=np.float64).shape[1])
-            for tb in gam.predictor_designs[0].term_blocks
+            for tb in gam.predictor_designs[0].compiled_terms
         ]
         assert term_dims == [5, 5]
 

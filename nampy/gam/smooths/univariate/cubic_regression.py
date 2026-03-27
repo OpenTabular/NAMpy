@@ -51,6 +51,7 @@ class SplineTerm1D(BaseSmoothTerm):
         k=10,
         basis="cr",
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
@@ -66,6 +67,7 @@ class SplineTerm1D(BaseSmoothTerm):
         super().__init__(
             feature=feature,
             label=label,
+            term_id=term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,

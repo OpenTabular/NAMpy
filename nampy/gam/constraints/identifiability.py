@@ -18,7 +18,8 @@ import warnings
 
 import numpy as np
 
-from ..design.structures import CompiledPenalty, CompiledPredictor, CompiledTerm
+from ..penalties import normalize_penalty_spec
+from ..design.structures import CompiledPenalty, CompiledPredictor, CompiledTerm, PenaltySpec
 from .transforms import independent_column_indices, null_space_basis_from_constraint_matrix
 
 
@@ -56,9 +57,9 @@ def apply_global_side_conditions(
           basis that are linearly dependent on the current span accumulator.
 
        After both steps, ``CompiledTerm.basis_transform`` holds the full mapping
-       from the runtime term's native coefficient space to the final fitted
-       coefficient space.  Prediction uses
-       ``runtime.transform_new(X_new) @ basis_transform`` and nothing else
+       from the stage-4 constructed-term coefficient space to the final fitted
+       coefficient space. Prediction uses
+       ``smooth.predict_matrix(X_new) @ basis_transform`` and nothing else
        (invariant 6.2: ``basis_transform`` is canonical).
 
     3. **Drop zero-width terms**: terms whose every column was removed are
@@ -84,7 +85,8 @@ def apply_global_side_conditions(
     -------
     new_design : CompiledPredictor
         Updated predictor.  Every ``CompiledTerm.basis_transform`` is the
-        complete, canonical fit-to-predict coefficient map for that term.
+        complete, canonical constructed-space-to-fitted coefficient map for
+        that term.
     report : dict
         Diagnostic report with per-term deletion counts, centering flags,
         and the total number of dropped zero-width terms.
@@ -191,7 +193,7 @@ def apply_global_side_conditions(
 
         # ── Non-exempt: centering + column selection ──────────────────────────
         #
-        # C accumulates the coefficient transform from the runtime's native
+        # C accumulates the coefficient transform from the stage-4 constructed
         # coefficient space to the current (pre-side-condition) space.
         # Initialise from whatever the compiler recorded; fall back to identity.
         C = (
@@ -226,9 +228,9 @@ def apply_global_side_conditions(
         keep = np.asarray(independent_column_indices(B, A=acc, tol=tol), dtype=int)
         deleted_local = np.setdiff1d(np.arange(d, dtype=int), keep)
 
-        # C_final is the canonical fit-to-predict coefficient map (invariant 6.2).
-        # It maps from the runtime's native coefficient vector to the final fitted
-        # coefficient slice: fitted_coef = runtime_coef @ C_final.
+        # C_final is the canonical constructed-space-to-fitted basis transform
+        # (invariant 6.2). If basis matrices are right-multiplied by C_final,
+        # coefficient vectors pull back in the opposite direction.
         C_final = (
             C[:, keep]
             if keep.size > 0
@@ -241,15 +243,30 @@ def apply_global_side_conditions(
         )
         d_final = B_final.shape[1]
 
-        # Subset penalty matrices to the surviving columns.
-        # pen_matrices are already in the post-T_con coefficient space, so a
-        # plain row/column selection is valid here (no further transform needed).
-        pen_matrices_final = [
-            S[np.ix_(keep, keep)]
-            if keep.size > 0
-            else np.empty((0, 0), dtype=np.float64)
-            for S in pen_matrices
-        ]
+        # Subset penalty matrices to the surviving columns and recompute their
+        # canonical metadata in the new coefficient space.
+        pen_specs_final = []
+        for pb, S in zip(term_penalty_objs, pen_matrices):
+            P_new = (
+                S[np.ix_(keep, keep)]
+                if keep.size > 0
+                else np.empty((0, 0), dtype=np.float64)
+            )
+            pen_specs_final.append(
+                normalize_penalty_spec(
+                    PenaltySpec(
+                        matrix=P_new,
+                        smoothing_id=pb.smoothing_id,
+                        kind=pb.kind,
+                        rank=None,
+                        null_space_dim=None,
+                        is_null_space_penalty=pb.is_null_space_penalty,
+                        sp_mode=pb.sp_mode,
+                        sp_value=pb.sp_value,
+                        metadata=dict(pb.metadata),
+                    )
+                )
+            )
 
         # Track surviving original coefficient indices for diagnostics / parity.
         # When centering was absorbed the mapping through T_con is non-trivial;
@@ -301,21 +318,21 @@ def apply_global_side_conditions(
             )
         )
 
-        for pb, P_new in zip(term_penalty_objs, pen_matrices_final):
+        for pb, pdef_new in zip(term_penalty_objs, pen_specs_final):
             new_penalty_blocks.append(
                 CompiledPenalty(
                     label=pb.label,
                     coef_slice=sl_new,
-                    matrix=P_new,
+                    matrix=np.asarray(pdef_new.matrix, dtype=np.float64),
                     smoothing_index=pb.smoothing_index,
                     term_index=new_idx,
                     smoothing_id=pb.smoothing_id,
-                    kind=pb.kind,
-                    rank=pb.rank,
-                    null_space_dim=pb.null_space_dim,
-                    is_null_space_penalty=pb.is_null_space_penalty,
-                    sp_mode=pb.sp_mode,
-                    sp_value=pb.sp_value,
+                    kind=str(pdef_new.kind),
+                    rank=pdef_new.rank,
+                    null_space_dim=pdef_new.null_space_dim,
+                    is_null_space_penalty=bool(pdef_new.is_null_space_penalty),
+                    sp_mode=pdef_new.sp_mode,
+                    sp_value=pdef_new.sp_value,
                     metadata=dict(pb.metadata),
                 )
             )
