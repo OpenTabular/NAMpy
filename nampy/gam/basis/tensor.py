@@ -1,9 +1,9 @@
 import itertools
 
 import numpy as np
+from scipy.linalg import eigh
 
 from ..penalties.algebra import penalty_eigendecomposition
-from ...splines.cubic_basis import cr_exact_null_basis_from_knots
 
 
 def rowwise_kronecker(matrices):
@@ -109,7 +109,7 @@ def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=N
     p = X.shape[1]
 
     # Step 1: eigendecompose S in descending order (matches R's eigen())
-    evals, U = np.linalg.eigh(0.5 * (S + S.T))
+    evals, U = eigh(0.5 * (S + S.T), driver="evr")
     idx = np.argsort(evals)[::-1]
     evals, U = evals[idx], U[:, idx]
 
@@ -146,7 +146,7 @@ def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=N
         # centre columns of Xn
         Xn -= (one[:, None] * (one[None, :] @ Xn)) / n
         # eigendecompose gram matrix (R: eigen gives descending order)
-        um_evals, um_vecs = np.linalg.eigh(Xn.T @ Xn)
+        um_evals, um_vecs = eigh(Xn.T @ Xn, driver="evr")
         desc = np.argsort(um_evals)[::-1]
         um_vecs = um_vecs[:, desc]
         Xp[:, rind] = Xp[:, ind] @ um_vecs
@@ -172,6 +172,7 @@ def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=N
     B_n = Xp[:, rank:] if null_exists else np.empty((X.shape[0], 0), dtype=np.float64)
     T_r = P[:, :rank] if rank > 0 else np.empty((p, 0), dtype=np.float64)
     T_n = P[:, rank:] if null_exists else np.empty((p, 0), dtype=np.float64)
+
     return {
         "B_range": B_r,
         "B_null": B_n,
@@ -208,56 +209,195 @@ def _mean_constraint_matrix(B):
 def build_t2_basis_and_penalties(marginal_decompositions, *, full=False, ord=None, remove_constant_from_null_block=True):
     m = len(marginal_decompositions)
     ord_keep = _normalize_ord(ord, m)
-    option_lists = []
-    for dec in marginal_decompositions:
-        opts = []
-        q, r = dec["null_dim"], dec["range_dim"]
-        if q > 0:
-            if full:
-                for j in range(q):
-                    opts.append({"kind": "null", "cols": [j], "label": f"n{j+1}"})
-            else:
-                opts.append({"kind": "null", "cols": list(range(q)), "label": "n"})
-        if r > 0:
-            opts.append({"kind": "range", "cols": None, "label": "r"})
-        option_lists.append(opts)
+    if m == 0:
+        raise ValueError("marginal_decompositions must contain at least one margin.")
 
-    specs = []
-    for combo in itertools.product(*option_lists):
-        order = sum(1 for c in combo if c["kind"] == "range")
-        if ord_keep is not None and order not in ord_keep:
-            continue
-        specs.append({"combo": combo, "order": order, "label": "".join(c["label"] for c in combo)})
-    specs.sort(key=lambda spec: -int(spec["order"]))
-    penalized_specs = [spec for spec in specs if spec["order"] > 0]
-    allnull_specs = [spec for spec in specs if spec["order"] == 0]
+    def _null_labels(n_cols):
+        return [f"n{i+1}" for i in range(n_cols)] if full else ["n"]
 
-    def materialize_component(spec):
-        mats = []
-        for dec, choice in zip(marginal_decompositions, spec["combo"]):
-            mats.append(dec["B_range"] if choice["kind"] == "range" else dec["B_null"][:, choice["cols"]])
-        return rowwise_kronecker(mats)
+    def _rowwise_product(A, B):
+        A = np.asarray(A, dtype=np.float64)
+        B = np.asarray(B, dtype=np.float64)
+        if A.shape[1] == 0 or B.shape[1] == 0:
+            return np.empty((A.shape[0], 0), dtype=np.float64)
+        return rowwise_kronecker([A, B])
 
-    basis_blocks, block_meta = [], []
-    for spec in penalized_specs:
-        B = materialize_component(spec)
-        if B.shape[1] == 0:
-            continue
-        basis_blocks.append(B)
-        block_meta.append({"order": spec["order"], "label": spec["label"], "penalized": True, "n_cols": B.shape[1]})
+    first = marginal_decompositions[0]
+    Z1 = np.asarray(first["B_range"], dtype=np.float64)
+    X2_blocks = []
+    X2_desc = []
+    order_list = []
+    label_list = []
+    pen2 = [] if full else None
+    no_null = False
 
-    B0_raw = np.column_stack([materialize_component(spec) for spec in allnull_specs]) if len(allnull_specs) > 0 else None
-    basis_pre = np.column_stack(basis_blocks + ([B0_raw] if B0_raw is not None and B0_raw.shape[1] > 0 else []))
-    penalties_pre, component_slices_pre = [], []
+    if Z1.shape[1] > 0:
+        X2_blocks.append(Z1)
+        X2_desc.append([{"kind": "range", "cols": None}])
+        order_list.append(1)
+        label_list.append("r")
+        if full:
+            pen2.append(True)
+
+    if first["null_dim"] > 0:
+        X1_null = np.asarray(first["B_null"], dtype=np.float64)
+        if full:
+            # mgcv treats each null-space column separately when full=TRUE
+            for j, lab in enumerate(_null_labels(X1_null.shape[1])):
+                X2_blocks.append(X1_null[:, [j]])
+                X2_desc.append([{"kind": "null", "cols": [j]}])
+                order_list.append(0)
+                label_list.append(lab)
+                pen2.append(False)
+        else:
+            X2_blocks.append(X1_null)
+            X2_desc.append([{"kind": "null", "cols": list(range(X1_null.shape[1]))}])
+            order_list.append(0)
+            label_list.append("n")
+    else:
+        no_null = True
+
+    for margin_idx in range(1, m):
+        dec = marginal_decompositions[margin_idx]
+        Zi = np.asarray(dec["B_range"], dtype=np.float64)
+        null_exists = int(dec["null_dim"]) > 0
+        Xi = np.asarray(dec["B_null"], dtype=np.float64) if null_exists else None
+
+        X1 = X2_blocks
+        D1 = X2_desc
+        lab1 = label_list
+        order1 = order_list
+        pen1 = pen2[:] if full else None
+
+        X2_blocks = []
+        X2_desc = []
+        label_list = []
+        order_list = []
+        if full:
+            pen2 = []
+
+        # Range-space products.
+        if Zi.shape[1] > 0:
+            for ii, block in enumerate(X1):
+                was_pen = True if not full else bool(pen1[ii])
+                if (not full) or was_pen:
+                    A = _rowwise_product(block, Zi)
+                    if A.shape[1] == 0:
+                        continue
+                    X2_blocks.append(A)
+                    X2_desc.append(D1[ii] + [{"kind": "range", "cols": None}])
+                    label_list.append(f"{lab1[ii]}r")
+                    order_list.append(int(order1[ii]) + 1)
+                    if full:
+                        pen2.append(True)
+                else:
+                    for j in range(block.shape[1]):
+                        A = _rowwise_product(block[:, [j]], Zi)
+                        if A.shape[1] == 0:
+                            continue
+                        X2_blocks.append(A)
+                        X2_desc.append(D1[ii] + [{"kind": "range", "cols": None}])
+                        label_list.append(f"{lab1[ii]}r")
+                        order_list.append(int(order1[ii]) + 1)
+                        pen2.append(True)
+
+        # Null-space products.
+        if null_exists and Xi.shape[1] > 0:
+            for ii, block in enumerate(X1):
+                was_pen = True if not full else bool(pen1[ii])
+                if (not full) or (not was_pen):
+                    A = _rowwise_product(block, Xi)
+                    if A.shape[1] == 0:
+                        continue
+                    X2_blocks.append(A)
+                    X2_desc.append(
+                        D1[ii] + [{"kind": "null", "cols": list(range(Xi.shape[1]))}]
+                    )
+                    label_list.append(f"{lab1[ii]}n")
+                    order_list.append(int(order1[ii]))
+                    if full:
+                        pen2.append(False)
+                else:
+                    null_labs = _null_labels(Xi.shape[1])
+                    for j in range(Xi.shape[1]):
+                        A = _rowwise_product(block, Xi[:, [j]])
+                        if A.shape[1] == 0:
+                            continue
+                        X2_blocks.append(A)
+                        X2_desc.append(D1[ii] + [{"kind": "null", "cols": [j]}])
+                        label_list.append(f"{lab1[ii]}{null_labs[j]}")
+                        order_list.append(int(order1[ii]))
+                        pen2.append(True)
+        else:
+            no_null = True
+
+    if ord_keep is not None:
+        keep_mask = [int(o) in ord_keep for o in order_list]
+        X2_blocks = [blk for blk, keep in zip(X2_blocks, keep_mask) if keep]
+        X2_desc = [desc for desc, keep in zip(X2_desc, keep_mask) if keep]
+        label_list = [lab for lab, keep in zip(label_list, keep_mask) if keep]
+        order_list = [o for o, keep in zip(order_list, keep_mask) if keep]
+        if full:
+            pen2 = [p for p, keep in zip(pen2, keep_mask) if keep]
+        if 0 not in ord_keep:
+            no_null = True
+
+    xc_all = [blk.shape[1] for blk in X2_blocks]
+    basis_pre = (
+        np.column_stack(X2_blocks)
+        if len(X2_blocks) > 0
+        else np.empty((marginal_decompositions[0]["B_range"].shape[0], 0), dtype=np.float64)
+    )
+
+    if not no_null and len(xc_all) > 0:
+        pen_col_counts = xc_all[:-1]
+        pen_labels = label_list[:-1]
+        pen_desc = X2_desc[:-1]
+        B0_raw = X2_blocks[-1]
+        B0_desc = X2_desc[-1]
+    else:
+        pen_col_counts = xc_all
+        pen_labels = label_list
+        pen_desc = X2_desc
+        B0_raw = None
+        B0_desc = None
+
+    penalties_pre = []
+    component_slices_pre = []
+    block_meta = []
     start = 0
     total_dim_pre = basis_pre.shape[1]
-    for meta in block_meta:
-        sl = slice(start, start + meta["n_cols"])
+    for lab, order_val, n_cols, desc in zip(
+        pen_labels,
+        order_list[: len(pen_col_counts)],
+        pen_col_counts,
+        pen_desc,
+    ):
+        sl = slice(start, start + n_cols)
         component_slices_pre.append(sl)
         P = np.zeros((total_dim_pre, total_dim_pre), dtype=np.float64)
-        P[sl, sl] = np.eye(meta["n_cols"], dtype=np.float64)
+        P[sl, sl] = np.eye(n_cols, dtype=np.float64)
         penalties_pre.append(P)
-        start += meta["n_cols"]
+        block_meta.append(
+            {
+                "order": int(order_val),
+                "label": str(lab),
+                "penalized": True,
+                "n_cols": int(n_cols),
+                "desc": tuple(desc),
+            }
+        )
+        start += n_cols
+
+    penalized_specs = [
+        {"combo": tuple(meta["desc"]), "order": meta["order"], "label": meta["label"]}
+        for meta in block_meta
+    ]
+    allnull_specs = (
+        [{"combo": tuple(B0_desc), "order": 0, "label": "null"}]
+        if B0_desc is not None
+        else []
+    )
     allnull_transform = None
     basis, penalties, component_slices = basis_pre, penalties_pre, component_slices_pre
     if B0_raw is not None and B0_raw.shape[1] > 0 and remove_constant_from_null_block:

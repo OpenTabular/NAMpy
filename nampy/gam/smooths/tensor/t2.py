@@ -21,9 +21,9 @@ from ..registry import register_smooth
 from ..univariate.cubic_regression import SplineTerm1D
 from ...basis.tensor import (
     build_t2_basis_and_penalties,
-    marginal_range_null_decomposition,
     materialize_t2_newdata,
     rescale_tensor_penalties_for_fit,
+    t2_marginal_reparameterization,
 )
 from ...penalties.algebra import null_space_penalty_from_penalty
 
@@ -109,6 +109,8 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         self._t2_train = None
         self._marginal_decompositions = None
         self._penalized_specs = None
+        self.fit_constraint_matrix = None
+        self.predict_coefficient_map = None
 
     def fit(self, X, feature_names):
         marginals = []
@@ -133,9 +135,9 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             feature_indices.append(term._feature_index)
             feature_names_resolved.append(term._feature_name)
 
-            dec = marginal_range_null_decomposition(
+            dec = t2_marginal_reparameterization(
                 term._spline.raw_basis,
-                term._spline.raw_penalty,
+                term._spline.raw_penalty_unscaled,
             )
             marginal_decompositions.append(dec)
 
@@ -143,7 +145,7 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             marginal_decompositions,
             full=self.full,
             ord=self.ord,
-            remove_constant_from_null_block=True,
+            remove_constant_from_null_block=False,
         )
         B_t2 = np.asarray(t2_obj["basis"], dtype=np.float64)
         if not self.fixed:
@@ -166,6 +168,15 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         self._penalized_specs = [
             spec for spec in t2_obj["component_specs"] if spec["penalized"]
         ]
+        n_pen = int(sum(spec["n_cols"] for spec in self._penalized_specs))
+        n_null = int(B_t2.shape[1] - n_pen)
+        if n_null > 0:
+            C = np.zeros((1, B_t2.shape[1]), dtype=np.float64)
+            C[0, n_pen:] = np.sum(B_t2[:, n_pen:], axis=0)
+            self.fit_constraint_matrix = C if np.linalg.norm(C) > 0.0 else None
+        else:
+            self.fit_constraint_matrix = None
+        self.predict_coefficient_map = None
         self._record_constraint_result(None, None, absorbed_by=None)
 
         suffix = "full" if self.full else "pars"

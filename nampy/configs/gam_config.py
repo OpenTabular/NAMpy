@@ -9,7 +9,7 @@ from ..gam.specs import TermSpec
 class DefaultGAMConfig:
     # spline construction
     k: int = 10
-    basis: str = "cr"   # currently supported for main effects: cr, cs, cc, ps, tp, ts
+    basis: str = "tp"   # mgcv-compatible default for bare s(...); main effects also support cr, cs, cc, ps, ts
     select: bool = False
     main_effects: bool = True
     tensor_terms: Optional[Sequence[TermSpec]] = None

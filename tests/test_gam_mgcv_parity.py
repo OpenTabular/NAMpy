@@ -48,6 +48,7 @@ from mgcv_parity_utils import (
     R_SCRIPT,
     _assert_allclose_up_to_column_sign,
     _assert_basic_mgcv_parity,
+    _assert_exact_mgcv_snapshot_parity,
     _fit_nampy_model,
     _fit_nampy_model_fixed_sp,
     _fit_nampy_snapshot,
@@ -543,13 +544,8 @@ class TestParitySnapshotAPI:
         got_X = got_X * signs[np.newaxis, :]
         got_P = got_P * signs[np.newaxis, :]
 
-        # Penalized-range columns match mgcv to machine precision. The 2D null block
-        # of nat.param(type=3) depends on eigenvectors of S and of the centered
-        # null Gram matrix; different LAPACK conventions (and near-degenerate
-        # eigenvalues of S) rotate that basis within the same span, so we allow
-        # the same 2D Procrustes alignment as other parity helpers.
-        _assert_allclose_up_to_column_sign(got_X, want_X, atol=1e-1, rtol=1e-2)
-        _assert_allclose_up_to_column_sign(got_P, want_P, atol=1e-1, rtol=1e-2)
+        _assert_allclose_up_to_column_sign(got_X, want_X, atol=1e-12, rtol=1e-12)
+        _assert_allclose_up_to_column_sign(got_P, want_P, atol=1e-12, rtol=1e-12)
 
     @pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available")
     def test_t2_runtime_penalties_are_close_to_scaled_mgcv_smoothcon(self):
@@ -1302,6 +1298,56 @@ class TestMgcvParity:
             sp_log_atol=0.45,
         )
 
+    def test_gaussian_reml_default_s_basis_matches_mgcv_tp_default(self):
+        data = _make_gaussian_data(seed=921, n=160)
+        formula = "y ~ x0 + s(x1, k=8)"
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        np.testing.assert_allclose(
+            np.asarray(actual["fit"]["criterion_value"], dtype=np.float64),
+            np.asarray(expected["fit"]["criterion_value"], dtype=np.float64),
+            atol=1e-9,
+            rtol=0.0,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["fit"]["deviance"], dtype=np.float64),
+            np.asarray(expected["fit"]["deviance"], dtype=np.float64),
+            atol=1e-6,
+            rtol=0.0,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["fit"]["edf_total"], dtype=np.float64),
+            np.asarray(expected["fit"]["edf_total"], dtype=np.float64),
+            atol=1e-5,
+            rtol=0.0,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64)[-1],
+            np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
+            atol=1e-5,
+            rtol=0.0,
+        )
+        np.testing.assert_allclose(
+            np.log(np.atleast_1d(np.asarray(actual["fit"]["smoothing_params"], dtype=np.float64))),
+            np.log(np.atleast_1d(np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64))),
+            atol=1e-4,
+            rtol=0.0,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["response"], dtype=np.float64),
+            np.asarray(expected["predictions"]["response"], dtype=np.float64),
+            atol=1e-6,
+            rtol=0.0,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["link"], dtype=np.float64),
+            np.asarray(expected["predictions"]["link"], dtype=np.float64),
+            atol=1e-6,
+            rtol=0.0,
+        )
+
     def test_gaussian_reml_sig2_rss_match_mgcv_two_cr_smooths(self):
         """mgcv reports fit$sig2 and RSS; both should match our Gaussian REML fit (exact solver path)."""
         data = _make_gaussian_data(seed=123)
@@ -1524,6 +1570,78 @@ class TestMgcvParity:
             pred_atol=6e-2,
             pred_rtol=6e-2,
             sp_log_atol=0.65,
+        )
+
+    @pytest.mark.parametrize(
+        (
+            "family",
+            "data_factory",
+            "formula",
+            "sp_atol",
+            "sp_rtol",
+            "log_sp_atol",
+            "edf_atol",
+            "pred_atol",
+        ),
+        [
+            (
+                "poisson",
+                lambda: _make_poisson_data(seed=71, n=220),
+                'y ~ t2(x0, x1, bs=["cr", "cr"], k=[6, 6])',
+                1e-4,
+                5e-8,
+                3e-8,
+                1e-10,
+                1e-10,
+            ),
+            (
+                "binomial",
+                lambda: _make_binomial_data(seed=73, n=220),
+                'y ~ t2(x0, x1, bs=["cr", "cr"], k=[6, 6])',
+                1e-4,
+                5e-8,
+                3e-8,
+                1e-10,
+                1e-10,
+            ),
+            (
+                "gamma",
+                lambda: _make_gamma_data(seed=101, n=220),
+                'y ~ t2(x0, x1, bs=["cr", "cr"], k=[6, 6])',
+                1e-6,
+                5e-4,
+                6e-5,
+                1e-1,
+                1e-5,
+            ),
+        ],
+    )
+    def test_optimized_tensor_t2_snapshot_matches_mgcv(
+        self,
+        family,
+        data_factory,
+        formula,
+        sp_atol,
+        sp_rtol,
+        log_sp_atol,
+        edf_atol,
+        pred_atol,
+    ):
+        data = data_factory()
+        actual = _fit_nampy_snapshot(data, formula, family, "REML")
+        expected = _run_mgcv_snapshot(data, formula, family, "REML")
+
+        _assert_exact_mgcv_snapshot_parity(
+            actual,
+            expected,
+            pred_atol=pred_atol,
+            pred_rtol=pred_atol,
+            edf_atol=edf_atol,
+            criterion_atol=1e-8 if family == "gamma" else 1e-10,
+            criterion_rtol=1e-8 if family == "gamma" else 1e-10,
+            sp_atol=sp_atol,
+            sp_rtol=sp_rtol,
+            log_sp_atol=log_sp_atol,
         )
 
 

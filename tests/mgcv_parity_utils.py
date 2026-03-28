@@ -19,6 +19,7 @@ _TESTS_DIR = Path(__file__).resolve().parent
 
 R_SCRIPT = shutil.which("Rscript")
 MGCV_SNAPSHOT_SCRIPT = _TESTS_DIR / "parity" / "mgcv_snapshot.R"
+MGCV_ANOVA_SCRIPT = _TESTS_DIR / "parity" / "mgcv_anova.R"
 
 
 def _make_gaussian_data(seed=123, n=180):
@@ -175,6 +176,45 @@ def _run_mgcv_snapshot(
             text=True,
         )
 
+        return json.loads(json_path.read_text(encoding="utf-8"))
+
+
+def _run_mgcv_anova(
+    data: pd.DataFrame,
+    formulas: list[str],
+    family,
+    method: str,
+    *,
+    select: bool = False,
+    test: str | None = None,
+):
+    if R_SCRIPT is None:
+        pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
+
+    _family_nampy, family_token = _family_specs(family)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        csv_path = tmpdir_path / "data.csv"
+        json_path = tmpdir_path / "anova.json"
+        data.to_csv(csv_path, index=False)
+        cmd = [
+            R_SCRIPT,
+            str(MGCV_ANOVA_SCRIPT),
+            str(csv_path),
+            str(json_path),
+            json.dumps(list(formulas)),
+            family_token,
+            method,
+            "true" if select else "false",
+            "NULL" if test is None else str(test),
+        ]
+        subprocess.run(
+            cmd,
+            check=True,
+            cwd=_REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
         return json.loads(json_path.read_text(encoding="utf-8"))
 
 
@@ -559,6 +599,68 @@ def _assert_basic_mgcv_parity(
     )
 
 
+def _assert_exact_mgcv_snapshot_parity(
+    actual,
+    expected,
+    *,
+    pred_atol=1e-10,
+    pred_rtol=1e-10,
+    edf_atol=1e-10,
+    criterion_atol=1e-10,
+    criterion_rtol=1e-10,
+    sp_atol=1e-10,
+    sp_rtol=1e-10,
+    log_sp_atol=1e-10,
+):
+    a_fit = actual["fit"]
+    e_fit = expected["fit"]
+    a_pred = actual["predictions"]
+    e_pred = expected["predictions"]
+
+    np.testing.assert_allclose(
+        np.asarray(a_fit["smoothing_params"], dtype=np.float64),
+        np.asarray(e_fit["smoothing_params"], dtype=np.float64),
+        atol=sp_atol,
+        rtol=sp_rtol,
+    )
+    np.testing.assert_allclose(
+        np.asarray(a_fit["log_smoothing_params"], dtype=np.float64),
+        np.asarray(e_fit["log_smoothing_params"], dtype=np.float64),
+        atol=log_sp_atol,
+        rtol=0.0,
+    )
+    np.testing.assert_allclose(
+        np.asarray(a_fit["edf_total"], dtype=np.float64),
+        np.asarray(e_fit["edf_total"], dtype=np.float64),
+        atol=edf_atol,
+        rtol=0.0,
+    )
+    np.testing.assert_allclose(
+        np.asarray(a_fit["edf_by_term"], dtype=np.float64),
+        np.asarray(e_fit["edf_by_term"], dtype=np.float64),
+        atol=edf_atol,
+        rtol=0.0,
+    )
+    np.testing.assert_allclose(
+        np.asarray(a_fit["criterion_value"], dtype=np.float64),
+        np.asarray(e_fit["criterion_value"], dtype=np.float64),
+        atol=criterion_atol,
+        rtol=criterion_rtol,
+    )
+    np.testing.assert_allclose(
+        np.asarray(a_pred["response"], dtype=np.float64),
+        np.asarray(e_pred["response"], dtype=np.float64),
+        atol=pred_atol,
+        rtol=pred_rtol,
+    )
+    np.testing.assert_allclose(
+        np.asarray(a_pred["link"], dtype=np.float64),
+        np.asarray(e_pred["link"], dtype=np.float64),
+        atol=pred_atol,
+        rtol=pred_rtol,
+    )
+
+
 def _assert_allclose_up_to_column_sign(actual, expected, *, atol, rtol):
     """Compare two matrices up to per-column sign flips or 2D subspace rotations.
 
@@ -604,6 +706,7 @@ __all__ = [
     "R_SCRIPT",
     "_assert_allclose_up_to_column_sign",
     "_assert_basic_mgcv_parity",
+    "_assert_exact_mgcv_snapshot_parity",
     "_family_specs",
     "_fit_nampy_model",
     "_fit_nampy_model_fixed_sp",

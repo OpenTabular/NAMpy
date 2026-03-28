@@ -69,3 +69,25 @@ def test_runtime_term_contract_and_prediction_coercion():
         assert isinstance(B, np.ndarray)
         assert B.shape[0] == X_new.shape[0]
 
+
+def test_select_penalty_metadata_uses_canonical_runtime_state():
+    X, feature_names = _build_mixed_data()
+
+    terms = [
+        PSplineTerm1D(feature="x0", k=8, basis="ps", label="ps_sel", select=True),
+        ThinPlateSplineTerm(feature=["x0", "x1"], basis="ts", k=15, label="tp_sel", select=True),
+        GPSmoothTerm(feature=["x0", "x1"], basis="gp", k=15, label="gp_sel", select=True),
+    ]
+
+    found_selection_penalty = False
+    for term in terms:
+        term.fit(X, feature_names)
+        defs = term.get_penalty_definitions()
+        selection_defs = [d for d in defs if bool(d.is_null_space_penalty)]
+        for pdef in selection_defs:
+            found_selection_penalty = True
+            meta = pdef.metadata
+            assert meta["by_name"] == getattr(term._by_state, "feature_name", None)
+            assert meta["by_is_constant"] is bool(getattr(term._by_state, "is_constant", True))
+            assert meta["constraint_kind"] == getattr(term, "constraint_kind", None)
+    assert found_selection_penalty

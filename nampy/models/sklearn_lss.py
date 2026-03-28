@@ -16,7 +16,7 @@ from pretab.preprocessor import Preprocessor
 from ..basemodels.lightning_wrapper import TaskModel
 from ..data_utils.datamodule import NAMpyDataModule
 from ..utils.distributional_metrics import (
-    beta_brier_score,
+    beta_mean_mse,
     dirichlet_error,
     gamma_deviance,
     inverse_gamma_loss,
@@ -727,8 +727,7 @@ class SklearnBaseLSS(BaseEstimator):
                 "Gamma Deviance": gamma_deviance,
             },
             "beta": {
-                # beta_brier_score (compat name) now computes MSE on Beta mean if [alpha,beta]
-                "Beta Mean MSE": beta_brier_score,
+                "Beta Mean MSE": beta_mean_mse,
             },
             "dirichlet": {
                 "Dirichlet Error": dirichlet_error,

@@ -818,7 +818,7 @@ def solve_gaussian_penalized_ls_stacked_qr(
     penalty_blocks, fit_intercept, n_coef
         When ``penalty_blocks`` is provided (along with ``n_coef``), rank detection
         uses :func:`balanced_penalty_template_sqrt_for_rank`.  Omit these to fall back
-        to row-normalised ``sqrt(P)`` (legacy path, less stable for mixed-scale penalties).
+        to row-normalised ``sqrt(P)``, which is less stable for mixed-scale penalties.
     coef_method
         ``"householder"`` (default): triangular back-substitution after stacked QRs.
         ``"lstsq"``: augmented least-squares with penalty-minimisation gauge.

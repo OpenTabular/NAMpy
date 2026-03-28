@@ -583,10 +583,10 @@ def construct_tprs_basis(
     S_full[:, S_full.shape[1] - M :] = 0.0
 
     if bool(scale_columns):
-        # mgcv's smoothCon(..., scale.penalty=TRUE) path rescales X/UZ/S
-        # together so each design column has unit RMS. fs/sz use the raw
-        # constructor scale (scale.penalty=FALSE equivalent), so this can be
-        # disabled by callers.
+        # mgcv's tp constructor first normalizes columns to unit RMS, then
+        # smoothCon(scale.penalty=TRUE) applies the usual global penalty
+        # rescaling against the resulting model matrix. The final smoothing
+        # parameter convention depends on both steps.
         for j in range(X_raw.shape[1]):
             w = float(np.sqrt(np.mean(X_raw[:, j] ** 2)))
             if not np.isfinite(w) or w <= 0.0:
@@ -595,6 +595,7 @@ def construct_tprs_basis(
             UZ_full[:, j] /= w
             S_full[j, :] /= w
             S_full[:, j] /= w
+        S_full = scale_penalty(X_raw, S_full)
 
     S_full = 0.5 * (S_full + S_full.T)
 

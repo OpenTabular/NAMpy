@@ -48,6 +48,8 @@ def resolve_ml_reml_scoring_backend(model, method="reml"):
 def criterion_ml_reml(model, y, log_sp, method):
     backend = resolve_ml_reml_scoring_backend(model, method=method)
     if backend == "gaussian_exact":
+        if str(method).lower() in {"reml", "laml"}:
+            return criterion_ml_reml_exact_dynamic(model, y, log_sp, method.upper())
         if _model_has_random_effect_smooth(model):
             return criterion_ml_reml_exact_dynamic(model, y, log_sp, method.upper())
         return criterion_ml_reml_exact(model, y, log_sp, method.upper())

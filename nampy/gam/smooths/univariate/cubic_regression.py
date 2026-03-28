@@ -335,7 +335,8 @@ class SplineTerm1D(BaseSmoothTerm):
         if self.select and self.sp is not None:
             raise NotImplementedError(
                 "term-level sp is not yet implemented for select=True smooths in the "
-                "current runtime, because select adds an extra null-space penalty."
+                "current runtime, because select=True adds an extra explicit "
+                "null-space penalty in addition to the main penalty."
             )
 
         main_penalty = np.asarray(self.penalties[0], dtype=np.float64)

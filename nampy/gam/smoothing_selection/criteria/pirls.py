@@ -1,14 +1,66 @@
 """
-Penalized IRLS smoothing_selection-selection criteria: GCV, UBRE, and Laplace ML/REML.
+Penalized IRLS smoothing-selection criteria: GCV, UBRE, and Laplace ML/REML.
 
 Functions here solve the penalized system via P-IRLS at each criterion evaluation
-and compute the corresponding smoothing_selection-selection score.
+and compute the corresponding smoothing-selection score.
 """
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
 from .laplace import _ensure_penalty_reparameterization, _laplace_lambda_vector
-from .penalty import _static_fixed_and_random_designs
+from .penalty import (
+    _stable_penalty_logdet,
+    _static_fixed_and_random_designs,
+    _static_penalty_null_dim,
+)
+
+
+def _gamma_profile_objective_curvature(model, y, Dp, phi, mp, *, method):
+    phi = float(phi)
+    if not np.isfinite(phi) or phi <= 0.0:
+        return np.inf, np.nan, np.nan
+    ls = float(
+        model.family.saturated_loglik(
+            y,
+            weights=np.ones_like(y, dtype=np.float64),
+            n=len(y),
+            scale=phi,
+        )
+    )
+    from .pirls_deriv import _gamma_saturated_loglik_scale_derivatives
+
+    ls1, ls2 = _gamma_saturated_loglik_scale_derivatives(y, phi)
+    reml_ind = 1.0 if method == "REML" else 0.0
+    score_lphi = -Dp / (2.0 * phi) - ls1 * phi - 0.5 * mp * reml_ind
+    curv_lphi = Dp / (2.0 * phi) - ls2 * (phi ** 2) - ls1 * phi
+    return ls, score_lphi, curv_lphi
+
+
+def _solve_gamma_profile_scale(model, y, Dp, mp, *, method, init_scale):
+    phi = float(max(init_scale, 1e-12))
+    if not np.isfinite(phi) or phi <= 0.0:
+        phi = max(float(Dp) / max(float(len(y)), 1.0), 1e-6)
+
+    for _ in range(40):
+        _, score_lphi, curv_lphi = _gamma_profile_objective_curvature(
+            model, y, Dp, phi, mp, method=method
+        )
+        if not np.isfinite(score_lphi) or not np.isfinite(curv_lphi):
+            break
+        if abs(score_lphi) <= 1e-12:
+            return phi
+        if abs(curv_lphi) <= 1e-14:
+            break
+        step = score_lphi / curv_lphi
+        if not np.isfinite(step):
+            break
+        if abs(step) <= 1e-12:
+            return phi
+        new_phi = float(np.exp(np.log(phi) - step))
+        if not np.isfinite(new_phi) or new_phi <= 0.0:
+            break
+        phi = new_phi
+    return phi
 
 def criterion_gcv_pirls(model, y, log_sp):
     sp = model._expand_smoothing_params_from_log(log_sp)
@@ -87,6 +139,68 @@ def _penalty_derivative_matrices(model, sp):
     return mats
 
 
+def _pirls_laplace_logdet_term(model, sol, sp, method):
+    Xf = model.X_fix_
+    Zr = model.Z_rand_
+    p = int(model.rank_X_fix_)
+    q = int(model.n_rand_)
+    W = np.asarray(sol["working_weights"], dtype=np.float64)
+
+    if q == 0:
+        if method == "ML" or p == 0:
+            return 0.0
+
+        XtWX_fix = Xf.T @ (W[:, None] * Xf)
+        cFix, _ = cho_factor(XtWX_fix, check_finite=False)
+        logdet_fix = 2.0 * float(np.sum(np.log(np.abs(np.diag(cFix)))))
+        return 0.5 * logdet_fix
+
+    lam_vec = _laplace_lambda_vector(model, sp)
+    if np.any(lam_vec <= 0):
+        return np.inf
+
+    ZtW = Zr.T * W[np.newaxis, :]
+    M = ZtW @ Zr + np.diag(lam_vec)
+    cM, loM = cho_factor(M, check_finite=False)
+
+    logdet_M = 2.0 * float(np.sum(np.log(np.abs(np.diag(cM)))))
+    logdet_Lam = float(np.sum(np.log(lam_vec)))
+    det_term = 0.5 * (logdet_M - logdet_Lam)
+
+    if method == "ML" or p == 0:
+        return det_term
+
+    ZTWX = Zr.T @ (W[:, None] * Xf)
+    Minv_ZTWX = cho_solve((cM, loM), ZTWX, check_finite=False)
+    XtKX = Xf.T @ (W[:, None] * Xf) - ZTWX.T @ Minv_ZTWX
+    cXKX, _ = cho_factor(XtKX, check_finite=False)
+    logdet_XtKX = 2.0 * float(np.sum(np.log(np.abs(np.diag(cXKX)))))
+    return det_term + 0.5 * logdet_XtKX
+
+
+def _pirls_tensor_coefficient_space_logdet_term(model, sol, sp):
+    """Coefficient-space REML/ML determinant term for tensor PIRLS fits.
+
+    `mgcv` evaluates tensor-product REML penalties against the weighted coefficient-space
+    system `X'WX + S`. For non-Gaussian tensor terms, the static mixed-model block
+    decomposition used by the exact PIRLS Laplace path is not equivalent enough
+    numerically, even though the fixed-sp fitted functions agree.
+    """
+    X = np.asarray(sol["X"], dtype=np.float64)
+    W = np.asarray(sol["working_weights"], dtype=np.float64)
+    P = np.asarray(sol["P"], dtype=np.float64)
+    A = X.T @ (W[:, None] * X) + P
+    try:
+        cA, _ = cho_factor(A, check_finite=False)
+    except np.linalg.LinAlgError:
+        return np.inf
+    logdet_A = 2.0 * float(np.sum(np.log(np.abs(np.diag(cA)))))
+    logdet_S = float(_stable_penalty_logdet(model, sp))
+    if not np.isfinite(logdet_S):
+        return np.inf
+    return 0.5 * (logdet_A - logdet_S)
+
+
 def criterion_ml_reml_pirls(model, y, log_sp, method):
     if abs(model.score_gamma - 1.0) > 1e-12:
         raise NotImplementedError(
@@ -110,6 +224,64 @@ def criterion_ml_reml_pirls(model, y, log_sp, method):
         return np.inf
 
     penalty_quad = float(sol["penalty_quadratic"] or 0.0)
+    mp = float(
+        _static_penalty_null_dim(model)
+        + int(bool(getattr(model, "fit_intercept", False)))
+    )
+    n_obs = float(len(y))
+    family_name = str(getattr(model.family, "name", "")).lower()
+
+    if getattr(model.family, "known_scale", None) is None:
+        if family_name == "gamma":
+            Dp = float(sol["deviance"]) + penalty_quad
+            phi = _solve_gamma_profile_scale(
+                model,
+                y,
+                Dp,
+                mp,
+                method=method,
+                init_scale=float(sol["scale"]),
+            )
+            if not np.isfinite(phi) or phi <= 0.0:
+                return np.inf
+            saturated_loglik, _, _ = _gamma_profile_objective_curvature(
+                model, y, Dp, phi, mp, method=method
+            )
+            base_objective = Dp / (2.0 * phi) - saturated_loglik
+        else:
+            var = np.clip(np.asarray(model.family.variance(sol["mu"]), dtype=np.float64), 1e-14, None)
+            pearson = float(np.sum((np.asarray(y, dtype=np.float64) - np.asarray(sol["mu"], dtype=np.float64)) ** 2 / var))
+            denom = n_obs - mp
+            if not np.isfinite(denom) or denom <= 0.0:
+                return np.inf
+            phi = pearson / denom
+            if not np.isfinite(phi) or phi <= 0.0:
+                return np.inf
+
+            saturated_loglik = float(
+                model.family.saturated_loglik(
+                    y,
+                    weights=np.ones_like(y, dtype=np.float64),
+                    n=len(y),
+                    scale=phi,
+                )
+            )
+            base_objective = (float(sol["deviance"]) + penalty_quad) / (2.0 * phi) - saturated_loglik
+        try:
+            det_term = (
+                _pirls_tensor_coefficient_space_logdet_term(model, sol, sp)
+                if model._has_tensor_terms()
+                else _pirls_laplace_logdet_term(model, sol, sp, method)
+            )
+        except np.linalg.LinAlgError:
+            return np.inf
+        if not np.isfinite(det_term):
+            return np.inf
+        objective = base_objective + det_term
+        if method == "REML":
+            objective -= 0.5 * mp * np.log(2.0 * np.pi * phi)
+        return objective
+
     saturated_loglik = float(
         model.family.saturated_loglik(
             y,
@@ -120,12 +292,20 @@ def criterion_ml_reml_pirls(model, y, log_sp, method):
     )
     base_objective = (float(sol["deviance"]) + penalty_quad) / (2.0 * scale) - saturated_loglik
 
+    if model._has_tensor_terms():
+        det_term = _pirls_tensor_coefficient_space_logdet_term(model, sol, sp)
+        if not np.isfinite(det_term):
+            return np.inf
+        objective = base_objective + det_term
+        if method == "REML":
+            objective -= 0.5 * mp * np.log(2.0 * np.pi * scale)
+        return objective
+
     Xf = model.X_fix_
     Zr = model.Z_rand_
     p = int(model.rank_X_fix_)
     q = int(model.n_rand_)
     W = np.asarray(sol["working_weights"], dtype=np.float64)
-
     if q == 0:
         if method == "ML":
             return base_objective
@@ -142,7 +322,7 @@ def criterion_ml_reml_pirls(model, y, log_sp, method):
         logdet_fix = 2.0 * float(np.sum(np.log(np.abs(np.diag(cFix)))))
         objective = base_objective + 0.5 * logdet_fix
         if method == "REML":
-            objective -= 0.5 * p * np.log(2.0 * np.pi * scale)
+            objective -= 0.5 * mp * np.log(2.0 * np.pi * scale)
         return objective
 
     lam_vec = _laplace_lambda_vector(model, sp)
@@ -166,7 +346,7 @@ def criterion_ml_reml_pirls(model, y, log_sp, method):
         return objective
 
     if p > 0:
-        objective -= 0.5 * p * np.log(2.0 * np.pi * scale)
+        objective -= 0.5 * mp * np.log(2.0 * np.pi * scale)
     else:
         return objective
 
@@ -181,6 +361,46 @@ def criterion_ml_reml_pirls(model, y, log_sp, method):
 
     logdet_XtKX = 2.0 * float(np.sum(np.log(np.abs(np.diag(cXKX)))))
     return objective + 0.5 * logdet_XtKX
+
+
+def criterion_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
+    method = str(method).upper()
+    family_name = str(getattr(model.family, "name", "")).lower()
+    if family_name != "gamma":
+        raise NotImplementedError("Joint PIRLS Gamma outer objective is implemented only for family='gamma'.")
+
+    sp = model._expand_smoothing_params_from_log(log_sp)
+    sol = model._solve_pirls_given_smoothing(y, sp)
+
+    phi = float(np.exp(float(log_phi)))
+    if not np.isfinite(phi) or phi <= 0.0:
+        return np.inf
+
+    penalty_quad = float(sol["penalty_quadratic"] or 0.0)
+    mp = float(
+        _static_penalty_null_dim(model)
+        + int(bool(getattr(model, "fit_intercept", False)))
+    )
+    Dp = float(sol["deviance"]) + penalty_quad
+    saturated_loglik, _, _ = _gamma_profile_objective_curvature(
+        model, y, Dp, phi, mp, method=method
+    )
+    base_objective = Dp / (2.0 * phi) - saturated_loglik
+    try:
+        det_term = (
+            _pirls_tensor_coefficient_space_logdet_term(model, sol, sp)
+            if model._has_tensor_terms()
+            else _pirls_laplace_logdet_term(model, sol, sp, method)
+        )
+    except np.linalg.LinAlgError:
+        return np.inf
+    if not np.isfinite(det_term):
+        return np.inf
+
+    objective = base_objective + det_term
+    if method == "REML":
+        objective -= 0.5 * mp * np.log(2.0 * np.pi * phi)
+    return float(objective)
 
 
 def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
@@ -211,7 +431,10 @@ def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
 
     X = np.asarray(sol["X"], dtype=np.float64)
     W = np.asarray(sol["working_weights"], dtype=np.float64)
-
+    mp = float(
+        _static_penalty_null_dim(model)
+        + int(bool(getattr(model, "fit_intercept", False)))
+    )
     Xf, Zr, split = _static_fixed_and_random_designs(model, X, sp)
     p = int(Xf.shape[1])
     q = int(Zr.shape[1])
@@ -231,7 +454,7 @@ def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
         logdet_fix = 2.0 * float(np.sum(np.log(np.abs(np.diag(cFix)))))
         objective = base_objective + 0.5 * logdet_fix
         if method == "REML":
-            objective -= 0.5 * p * np.log(2.0 * np.pi * scale)
+            objective -= 0.5 * mp * np.log(2.0 * np.pi * scale)
         return objective
 
     ZtW = Zr.T * W[np.newaxis, :]
@@ -248,7 +471,7 @@ def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
         return objective
 
     if p > 0:
-        objective -= 0.5 * p * np.log(2.0 * np.pi * scale)
+        objective -= 0.5 * mp * np.log(2.0 * np.pi * scale)
     else:
         return objective
 
@@ -263,4 +486,3 @@ def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
 
     logdet_XtKX = 2.0 * float(np.sum(np.log(np.abs(np.diag(cXKX)))))
     return objective + 0.5 * logdet_XtKX
-

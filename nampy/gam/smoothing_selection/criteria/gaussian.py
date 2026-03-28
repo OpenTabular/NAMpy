@@ -19,10 +19,10 @@ from scipy.linalg import cho_factor, cho_solve
 from .gaussian_dyn import criterion_ml_reml_gaussian_dynamic_joint
 from .laplace import _laplace_lambda_vector
 from .gaussian_reml_algebra import (
+    deviance_method_scale_estimate,
     gaussian_reml_laplace_score,
     gaussian_weighted_residual_sum_squares,
     prior_weights_diagonal_from_fit,
-    profiled_gaussian_reml_variance,
     quadratic_form_penalty,
 )
 from .penalty import (
@@ -218,7 +218,8 @@ def criterion_ml_reml_exact_dynamic(model, y, log_sp, method):
         logdet_S = _stable_penalty_logdet(model, sp)
         if not np.isfinite(logdet_S):
             return np.inf
-        # Deviance = weighted RSS; P = beta' S beta; profiled REML variance (dev+P)/(n-Mp).
+        # mgcv::gam.fit3 REML uses the deviance-based scale estimate from the
+        # converged fit, then adds the penalty only in Dp = dev + beta'Sbeta.
         n_samples = int(model.n_samples_)
         w = prior_weights_diagonal_from_fit(sol, n_samples)
         mu = np.asarray(sol["mu"], dtype=np.float64).ravel()
@@ -228,22 +229,20 @@ def criterion_ml_reml_exact_dynamic(model, y, log_sp, method):
             np.asarray(sol["coef_full"], dtype=np.float64),
             np.asarray(sol["penalty_matrix"], dtype=np.float64),
         )
-        n_true = float(n_samples)
-        scale_prof = profiled_gaussian_reml_variance(dev, P_pen, n_true, Mp)
+        n_true = float(getattr(model, "n_true_", n_samples))
+        tr_a = float(sol["trace_H"])
+        scale_est = deviance_method_scale_estimate(dev, tr_a, n_true)
         if (
-            not np.isfinite(scale_prof)
-            or scale_prof <= 0.0
+            not np.isfinite(scale_est)
+            or scale_est <= 0.0
             or not np.isfinite(dev)
             or not np.isfinite(P_pen)
         ):
             return np.inf
-        scale = scale_prof
-        if not np.isfinite(scale) or scale <= 0.0:
-            return np.inf
         return gaussian_reml_laplace_score(
             dev,
             P_pen,
-            scale,
+            scale_est,
             logdet_A - logdet_S,
             Mp,
             w,

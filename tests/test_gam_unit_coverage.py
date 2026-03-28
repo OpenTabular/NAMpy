@@ -1020,6 +1020,21 @@ class TestCompilePredictorSpecsFromFormula:
         assert len(smooth_specs) == 1
         assert smooth_specs[0].basis_options["bs"] == "cr"
 
+    def test_bare_s_defaults_to_tp_like_mgcv(self):
+        parsed = parse_gam_formula("y ~ s(x0)")
+        specs = compile_predictor_specs_from_formula(parsed)
+        smooth_specs = [t for t in specs[0].terms if t.kind == "smooth"]
+        assert len(smooth_specs) == 1
+        assert smooth_specs[0].basis_options["bs"] == "tp"
+
+    def test_bare_te_keeps_cr_marginals_even_when_s_default_is_tp(self):
+        parsed = parse_gam_formula("y ~ te(x0, x1, k=[6, 6])")
+        specs = compile_predictor_specs_from_formula(parsed, default_basis="tp")
+        smooth_specs = [t for t in specs[0].terms if t.kind == "smooth"]
+        assert len(smooth_specs) == 1
+        assert smooth_specs[0].basis_options["special"] == "te"
+        assert smooth_specs[0].basis_options["bs"] == "cr"
+
     def test_no_intercept_propagated(self):
         parsed = parse_gam_formula("y ~ s(x0) - 1")
         specs = compile_predictor_specs_from_formula(parsed)

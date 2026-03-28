@@ -110,12 +110,15 @@ def _optimize_outer_newton_indefinite_hessian(
     model = objective.model
     score_type = str(getattr(objective, "method", "reml")).upper()
 
-    def _score_scale(score_val, old_score_val):
+    def _score_scale(score_val, old_score_val, scale_est=None):
         score_val = float(score_val)
         old_score_val = float(old_score_val)
         if score_type in {"REML", "P-REML"}:
-            scale_obj = getattr(model, "scale_", 1.0)
-            scale = 1.0 if scale_obj is None else float(scale_obj)
+            if scale_est is None:
+                scale_obj = getattr(model, "scale_", 1.0)
+                scale = 1.0 if scale_obj is None else float(scale_obj)
+            else:
+                scale = float(scale_est)
             score_scale_val = abs(np.log(abs(scale))) + abs(score_val)
         else:
             score_scale_val = abs(score_val)
@@ -158,13 +161,27 @@ def _optimize_outer_newton_indefinite_hessian(
             if commit_start:
                 setattr(model, "_pirls_coef_start_", coef_eval.copy())
         dvkk_diag = np.full(x_eval.shape, np.nan, dtype=np.float64)
+        gamma_state = getattr(model, "_pirls_reml_gamma_state_", None)
+        scale_eval = None
+        if isinstance(gamma_state, dict):
+            scale_obj = gamma_state.get("scale_est", None)
+            if scale_obj is not None and np.isfinite(scale_obj) and float(scale_obj) > 0.0:
+                scale_eval = float(scale_obj)
+        if scale_eval is None and bool(getattr(objective, "uses_joint_log_scale", False)) and x_eval.size > 0:
+            phi = float(np.exp(float(x_eval[-1])))
+            if np.isfinite(phi) and phi > 0.0:
+                scale_eval = phi
+        if scale_eval is None and isinstance(gamma_state, dict):
+            phi = gamma_state.get("phi", None)
+            if phi is not None and np.isfinite(phi) and float(phi) > 0.0:
+                scale_eval = float(phi)
         setattr(model, "_pirls_eval_start_", None)
         setattr(model, "_pirls_lock_start_", False)
-        return score_eval, grad_eval, hess_eval, dvkk_diag, coef_eval
+        return score_eval, grad_eval, hess_eval, dvkk_diag, coef_eval, scale_eval
 
     x = _project_to_bounds(np.asarray(x0, dtype=np.float64), bounds)
     accepted_start = getattr(model, "_pirls_coef_start_", None)
-    score, grad, hess, dvkk, coef0 = _eval_at(
+    score, grad, hess, dvkk, coef0, scale_est = _eval_at(
         x,
         start_coef=accepted_start,
         need_grad=True,
@@ -181,7 +198,7 @@ def _optimize_outer_newton_indefinite_hessian(
         raise ValueError("Hessian shape mismatch.")
 
     old_score = score + 1.0
-    score_scale = _score_scale(score, old_score)
+    score_scale = _score_scale(score, old_score, scale_est=scale_est)
     uconv = np.abs(grad) > score_scale * conv_tol
     if dvkk.shape == grad.shape:
         uconv |= np.abs(dvkk) > score_scale * conv_tol * 0.1
@@ -246,7 +263,7 @@ def _optimize_outer_newton_indefinite_hessian(
         trial_hess = None
         trial_coef = None
         if not np.array_equal(x1, x):
-            score1, trial_grad, trial_hess, trial_dvkk, trial_coef = _eval_at(
+            score1, trial_grad, trial_hess, trial_dvkk, trial_coef, trial_scale = _eval_at(
                 x1,
                 start_coef=accepted_start,
                 need_grad=bool(pdef),
@@ -316,7 +333,7 @@ def _optimize_outer_newton_indefinite_hessian(
                 if np.isfinite(score1) and score_change < 0.0 and qerror < float(qerror_thresh):
                     if pdef or (not sd_unused):
                         x = x1
-                        score, grad, hess, dvkk, coef_acc = _eval_at(
+                        score, grad, hess, dvkk, coef_acc, scale_est = _eval_at(
                             x,
                             start_coef=accepted_start,
                             need_grad=True,
@@ -383,7 +400,7 @@ def _optimize_outer_newton_indefinite_hessian(
 
             if score1 < score and np.isfinite(score1):
                 x = x1
-                score, grad, hess, dvkk, coef_acc = _eval_at(
+                score, grad, hess, dvkk, coef_acc, scale_est = _eval_at(
                     x,
                     start_coef=accepted_start,
                     need_grad=True,
@@ -407,14 +424,10 @@ def _optimize_outer_newton_indefinite_hessian(
             indef_last = indef
             break
 
-        score_scale = _score_scale(score, old_score)
-        grad2 = (
-            np.asarray(dvkk, dtype=np.float64)
-            if np.asarray(dvkk, dtype=np.float64).shape == grad.shape
-            else np.diag(hess)
-        )
+        score_scale = _score_scale(score, old_score, scale_est=scale_est)
+        grad2 = np.diag(hess)
         if grad2.shape != grad.shape or np.any(~np.isfinite(grad2)):
-            grad2 = np.diag(hess)
+            grad2 = np.asarray(grad2, dtype=np.float64).reshape(-1)
         uconv = (np.abs(grad) > score_scale * conv_tol * 0.1) | (
             np.abs(grad2) > score_scale * conv_tol * 0.1
         )
@@ -457,4 +470,3 @@ def _optimize_outer_newton_indefinite_hessian(
         njev=objective.n_jac,
         nhev=objective.n_hess,
     )
-

@@ -94,6 +94,24 @@ def criterion_gradient(
     eps_rel=1e-4,
 ):
     method = str(method).lower()
+    # Gaussian REML/LAML now uses the deviance-based scale convention that matches
+    # mgcv's profiled Wood-style criterion. The older analytic derivative paths in
+    # `gaussian_grad.py` / `gaussian_dyn.py` were derived for the previous scale
+    # profiling and are no longer reliable for outer optimisation. Keep the scalar
+    # criterion exact, but differentiate it numerically until those branches are
+    # rederived under the corrected convention.
+    if (
+        method in {"reml", "laml"}
+        and bool(getattr(model.family, "supports_closed_form_solve", False))
+    ):
+        return criterion_gradient_numerical(
+            model,
+            y,
+            log_sp,
+            method=method,
+            eps_abs=eps_abs,
+            eps_rel=eps_rel,
+        )
     if method in {"ml", "reml", "laml"}:
         backend = resolve_ml_reml_scoring_backend(model, method=method)
         if backend == "gaussian_exact":
@@ -119,8 +137,13 @@ def criterion_gradient(
             out = _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, exact_method)
             if bool(out.get("valid", False)):
                 return np.asarray(out["grad"], dtype=np.float64)
-        if backend == "pirls_laplace" and bool(
-            getattr(model.family, "supports_exact_pirls_first_derivatives", False)
+        if (
+            backend == "pirls_laplace"
+            and (
+                getattr(model.family, "known_scale", None) is not None
+                or str(getattr(model.family, "name", "")).lower() == "gamma"
+            )
+            and bool(getattr(model.family, "supports_exact_pirls_first_derivatives", False))
         ):
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
             return criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, exact_method)
@@ -188,14 +211,28 @@ def criterion_hessian(
     eps_rel=1e-3,
 ):
     method = str(method).lower()
+    if (
+        method in {"reml", "laml"}
+        and bool(getattr(model.family, "supports_closed_form_solve", False))
+    ):
+        return criterion_hessian_numerical(
+            model,
+            y,
+            log_sp,
+            method=method,
+            eps_abs=eps_abs,
+            eps_rel=eps_rel,
+        )
     if method in {"ml", "reml", "laml"}:
         backend = resolve_ml_reml_scoring_backend(model, method=method)
         if (
             backend == "pirls_laplace"
             and method in {"reml", "laml"}
-            and bool(
-            getattr(model.family, "supports_exact_pirls_second_derivatives", False)
+            and (
+                getattr(model.family, "known_scale", None) is not None
+                or str(getattr(model.family, "name", "")).lower() == "gamma"
             )
+            and bool(getattr(model.family, "supports_exact_pirls_second_derivatives", False))
         ):
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
             return criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, exact_method)
@@ -243,6 +280,10 @@ def criterion_infinite_sp_signal(model, y, log_sp, method="reml"):
 
     if (
         backend == "pirls_laplace"
+        and (
+            getattr(model.family, "known_scale", None) is not None
+            or str(getattr(model.family, "name", "")).lower() == "gamma"
+        )
         and bool(getattr(model.family, "supports_exact_pirls_first_derivatives", False))
         and model._can_use_simple_ml_reml_structure()
     ):

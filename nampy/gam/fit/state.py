@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import numpy as np
+from scipy.linalg import qr
 
 
 @dataclass
@@ -155,5 +156,18 @@ def assign_fit_solution(model, sol: FitCoreSolution):
     model._fitted_eta = np.asarray(sol.eta, dtype=np.float64)
     model._fitted_mu = np.asarray(sol.mu, dtype=np.float64)
     model.fit_state_ = sol
+    model._summary_R_ = None
+    if sol.X is not None and sol.working_weights is not None:
+        X = np.asarray(sol.X, dtype=np.float64)
+        w = np.asarray(sol.working_weights, dtype=np.float64).ravel()
+        if X.ndim == 2 and w.shape[0] == X.shape[0]:
+            _, R_piv, pivot = qr(
+                np.sqrt(np.clip(w, 0.0, None))[:, None] * X,
+                mode="economic",
+                pivoting=True,
+            )
+            R_nat = np.zeros_like(R_piv)
+            R_nat[:, np.asarray(pivot, dtype=np.intp)] = R_piv
+            model._summary_R_ = R_nat
 
     model.edf_by_term_ = compute_edf_by_term(model, model._H_coef)

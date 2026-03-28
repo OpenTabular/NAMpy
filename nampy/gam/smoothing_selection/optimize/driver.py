@@ -7,10 +7,12 @@ from scipy.optimize import OptimizeResult, minimize
 from ..criteria import (
     _static_penalty_null_dim,
     criterion_gradient_ml_reml_gaussian_dynamic_joint,
+    criterion_hessian_ml_reml_pirls_exact,
     resolve_ml_reml_scoring_backend,
 )
 from .basics import (
     _initial_smoothing_params_from_design_balance,
+    _initial_smoothing_params_mgcv_style,
     supports_criterion_gradient,
     supports_criterion_hessian,
 )
@@ -19,6 +21,7 @@ from .objectives import (
     _CriterionObjective,
     _design_has_mrf_smooth,
     _JointGaussianRemlObjective,
+    _JointGammaPirlsRemlObjective,
 )
 from .outer import _optimize_outer_newton, _optimize_outer_newton_indefinite_hessian
 from .postprocess import (
@@ -152,6 +155,12 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
         if method in {"ml", "reml", "laml"}
         else None
     )
+    family_name = str(getattr(model.family, "name", "")).lower()
+    use_joint_gamma_reml_scale = (
+        family_name == "gamma"
+        and method in {"reml", "laml"}
+        and ml_reml_backend == "pirls_laplace"
+    )
 
     if n_free == 0:
         model._optim_method = method
@@ -179,7 +188,12 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
             )
         )
         if use_design_balance_init:
-            init = _initial_smoothing_params_from_design_balance(model, y)
+            if use_joint_gamma_reml_scale:
+                init = _initial_smoothing_params_mgcv_style(model, y)
+                if init is None:
+                    init = _initial_smoothing_params_from_design_balance(model, y)
+            else:
+                init = _initial_smoothing_params_from_design_balance(model, y)
             if init is None:
                 init_free = np.asarray(model.smoothing_params[free_mask], dtype=np.float64)
             else:
@@ -421,11 +435,19 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
             ):
                 result = outer_newton_result
     else:
-        result = _optimize_outer_newton(
-            objective=objective,
-            x0=x0,
-            bounds=bounds,
-        )
+        if indefinite_hessian_newton_for_pirls and supports_criterion_hessian(model, method):
+            result = _optimize_outer_newton_indefinite_hessian(
+                objective=objective,
+                x0=x0,
+                bounds=bounds,
+            )
+            result.indefinite_hessian_outer_newton = True
+        else:
+            result = _optimize_outer_newton(
+                objective=objective,
+                x0=x0,
+                bounds=bounds,
+            )
         if not result.success:
             lbfgsb_result = minimize(
                 fun=objective.fun,
@@ -446,10 +468,7 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
         method in {"ml", "reml", "laml"}
         and (
             has_null_space_penalty
-            or (
-                (not exact_gaussian)
-                and (not bool(getattr(result, "indefinite_hessian_outer_newton", False)))
-            )
+            or ((not exact_gaussian) and (not model._has_tensor_terms()))
         )
     )
     if apply_post_heuristics:
@@ -494,6 +513,70 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
         objective=objective,
         result=result,
     )
+
+    if use_joint_gamma_reml_scale:
+        branch_m = "LAML" if method == "laml" else "REML"
+        mu_null = np.repeat(float(np.mean(np.asarray(y, dtype=np.float64).ravel())), model.n_samples_)
+        null_scale = float(model.family.deviance(np.asarray(y, dtype=np.float64).ravel(), mu_null)) / float(model.n_samples_)
+        phi0 = max(null_scale / 10.0, 1e-12)
+        if phi0 is not None and np.isfinite(float(phi0)) and float(phi0) > 0.0:
+            phi0 = float(phi0)
+            y_eff = (
+                np.asarray(y, dtype=np.float64).ravel()
+                if model.offset_train_ is None
+                else (np.asarray(y, dtype=np.float64).ravel() - model.offset_train_)
+            )
+            y_scale = (
+                float(np.var(y_eff))
+                if y_eff.size > 1
+                else float(np.maximum(np.abs(float(y_eff[0])), 1e-300))
+            )
+            hi_phi = max(phi0 * 1e8, y_scale * 1e8, 1e-30)
+            joint_bounds = list(bounds) + [
+                (float(np.log(1e-300)), float(np.log(hi_phi)))
+            ]
+            x_profile = np.asarray(result.x, dtype=np.float64).copy()
+            x_joint0 = np.concatenate(
+                [x_profile.copy(), np.array([np.log(phi0)], dtype=np.float64)]
+            )
+            j_obj = _JointGammaPirlsRemlObjective(model, y, branch_m)
+            result_joint = _optimize_outer_newton_indefinite_hessian(
+                objective=j_obj,
+                x0=x_joint0,
+                bounds=joint_bounds,
+                conv_tol=1e-7,
+            )
+            lbfgsb_retry = minimize(
+                fun=j_obj.fun,
+                x0=np.asarray(result_joint.x, dtype=np.float64),
+                method="L-BFGS-B",
+                jac=j_obj.jac,
+                bounds=joint_bounds,
+                options={"maxfun": 25000, "ftol": 1e-11, "gtol": 1e-10},
+            )
+            if lbfgsb_retry.success or (
+                np.isfinite(getattr(lbfgsb_retry, "fun", np.inf))
+                and float(lbfgsb_retry.fun) <= float(result_joint.fun)
+            ):
+                result_joint = lbfgsb_retry
+
+            if np.isfinite(float(getattr(result_joint, "fun", np.inf))):
+                x_joint = np.asarray(result_joint.x, dtype=np.float64).ravel()
+                x_selected = np.asarray(x_joint[:-1], dtype=np.float64).ravel()
+                _ = criterion_hessian_ml_reml_pirls_exact(model, y, x_selected, branch_m)
+                gamma_state = getattr(model, "_pirls_reml_gamma_state_", None)
+                phi_opt = None
+                if isinstance(gamma_state, dict):
+                    phi_opt = gamma_state.get("phi", None)
+                if phi_opt is not None and np.isfinite(float(phi_opt)) and float(phi_opt) > 0.0:
+                    model._gamma_reml_phi_opt_ = float(phi_opt)
+                result.x = np.asarray(x_selected, dtype=np.float64).copy()
+                result.fun = float(objective.fun(result.x))
+                result.jac = np.asarray(objective.jac(result.x), dtype=np.float64)
+                result.hess = np.asarray(objective.hess(result.x), dtype=np.float64)
+                result.joint_gamma_reml_outer = True
+                result.joint_log_phi = float(x_joint[-1])
+                result.joint_gamma_message = str(getattr(result_joint, "message", ""))
 
     if not result.success:
         warnings.warn(f"Smoothing optimisation did not converge: {result.message}")

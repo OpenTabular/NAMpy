@@ -41,7 +41,7 @@ class GAM(BaseModel):
         self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
 
         self.k = int(self.hparams.get("k", getattr(config, "k", 10)))
-        self.basis = self.hparams.get("basis", getattr(config, "basis", "cr"))
+        self.basis = self.hparams.get("basis", getattr(config, "basis", "tp"))
         self.fit_intercept = bool(
             self.hparams.get("fit_intercept", getattr(config, "fit_intercept", True))
         )
@@ -1322,3 +1322,55 @@ class GAM(BaseModel):
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
         return print_summary(self)
+
+    def residuals(self, type="deviance"):
+        from ..gam.diagnostics import residuals_gam
+
+        return residuals_gam(self, type=type)
+
+    def concurvity(self, full=True):
+        from ..gam.diagnostics import concurvity
+
+        return concurvity(self, full=full)
+
+    def k_check(self, subsample=5000, n_rep=400, seed=None):
+        from ..gam.diagnostics import k_check
+
+        return k_check(self, subsample=subsample, n_rep=n_rep, seed=seed)
+
+    def gam_check(self, *, type="deviance", k_sample=5000, k_rep=200, seed=None):
+        from ..gam.diagnostics import gam_check
+
+        return gam_check(
+            self,
+            type=type,
+            k_sample=k_sample,
+            k_rep=k_rep,
+            seed=seed,
+        )
+
+    def sp_vcov(self, edge_correct=True, reg=1e-3):
+        from ..gam.smoothing_selection import sp_vcov
+
+        return sp_vcov(self, edge_correct=edge_correct, reg=reg)
+
+    def gam_vcomp(self, *, rescale=False, conf_lev=0.95):
+        from ..gam.smoothing_selection import gam_vcomp
+
+        return gam_vcomp(self, rescale=rescale, conf_lev=conf_lev)
+
+    def one_se_rule(self, candidate_indices=None):
+        from ..gam.smoothing_selection import one_se_rule
+
+        return one_se_rule(self, candidate_indices=candidate_indices)
+
+    def anova(self, *models, dispersion=None, test=None, freq=False):
+        from ..gam.inference import anova_gam
+
+        return anova_gam(
+            self,
+            *models,
+            dispersion=dispersion,
+            test=test,
+            freq=freq,
+        )

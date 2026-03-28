@@ -37,10 +37,10 @@ import numpy as np
 from scipy.linalg import cho_factor
 
 from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
+    deviance_method_scale_estimate,
     gaussian_reml_laplace_score,
     gaussian_weighted_residual_sum_squares,
     prior_weights_diagonal_from_fit,
-    profiled_gaussian_reml_variance,
     quadratic_form_penalty,
 )
 from nampy.gam.smoothing_selection.criteria.laplace import _penalty_derivative_matrices
@@ -158,11 +158,7 @@ def gaussian_smoothness_postprocess(
 
     n_true = float(getattr(model, "n_true_", n_s))
     nobs = float(n_s)
-    denom_scale = n_true - tr_a
-    if not np.isfinite(denom_scale) or denom_scale <= 0.0:
-        scale_est = float("nan")
-    else:
-        scale_est = float((dev + pen) / denom_scale)
+    scale_est = deviance_method_scale_estimate(dev, tr_a, n_true)
 
     ldet_a = sol.get("log_det_XtWX_plus_penalty", None)
     if ldet_a is not None and np.isfinite(float(ldet_a)):
@@ -210,12 +206,11 @@ def gaussian_smoothness_postprocess(
                 gamma=gamma_eff,
                 reml=(bucket == "REML"),
             )
-        scale_prof = profiled_gaussian_reml_variance(dev, pen, n_true, Mp)
-        if np.isfinite(scale_prof) and scale_prof > 0.0:
+        if np.isfinite(scale_est) and scale_est > 0.0:
             reml_score_profiled_scale = gaussian_reml_laplace_score(
                 dev,
                 pen,
-                float(scale_prof),
+                float(scale_est),
                 ldiff,
                 Mp,
                 w,

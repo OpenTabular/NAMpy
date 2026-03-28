@@ -153,30 +153,6 @@ class NAMpyDataModule(pl.LightningDataModule):
         self.num_feature_info = num_info
         self.cat_feature_info = cat_info
 
-    def preprocess_data(
-        self,
-        X_train,
-        y_train,
-        X_val=None,
-        y_val=None,
-        val_size=0.2,
-        random_state=101,
-    ):
-        """
-        Backwards-compatible wrapper for the former preprocess_data API.
-
-        This now simply delegates to setup_data, which expects a pretab-style
-        preprocessor interface.
-        """
-        self.setup_data(
-            X_train=X_train,
-            y_train=y_train,
-            X_val=X_val,
-            y_val=y_val,
-            val_size=val_size,
-            random_state=random_state,
-        )
-
     def setup(self, stage: str):
         """
         Transform the data and create DataLoaders.

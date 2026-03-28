@@ -5,8 +5,10 @@ Implements the :class:`BaseSmoothTerm` interface for a rank-reduced thin plate
 spline basis.  Thin plate splines are rotation-invariant and automatically
 extend to multi-variate smooths, making them the default smooth type.
 
-The ``'ts'`` variant adds a null-space selection penalty so the term can
-shrink entirely to zero.
+The ``'ts'`` variant uses a shrinkage version of the main thin-plate penalty,
+making the penalty full-rank so the term can shrink entirely to zero.
+Separately, ``select=True`` adds an explicit null-space selection penalty on
+top of the main penalty.
 """
 
 import numpy as np
@@ -178,7 +180,8 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
         if self.select and self.sp is not None:
             raise NotImplementedError(
                 "term-level sp is not yet implemented for select=True smooths in the "
-                "current runtime, because select adds an extra null-space penalty."
+                "current runtime, because select=True adds an extra explicit "
+                "null-space penalty in addition to the main penalty."
             )
 
         main_penalty = np.asarray(self.penalties[0], dtype=np.float64)
@@ -254,10 +257,10 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
                             "feature": list(self.feature),
                             "label": self.label,
                             "by": self.by,
-                            "by_name": self._by_name,
-                            "by_is_constant": bool(self._by_is_constant),
+                            "by_name": self._by_state.feature_name,
+                            "by_is_constant": bool(self._by_state.is_constant),
                             "constraint_mode": self.constraint_mode,
-                            "constraint_kind": self._constraint_kind,
+                            "constraint_kind": self.constraint_kind,
                             "pc": self.pc,
                             "knots": self.knots,
                             "xt": self.xt,

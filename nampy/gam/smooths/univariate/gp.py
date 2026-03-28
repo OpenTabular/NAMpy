@@ -172,7 +172,8 @@ class GPSmoothTerm(BaseSmoothTerm):
         if self.select and self.sp is not None:
             raise NotImplementedError(
                 "term-level sp is not yet implemented for select=True smooths in the "
-                "current runtime, because select adds an extra null-space penalty."
+                "current runtime, because select=True adds an extra explicit "
+                "null-space penalty in addition to the main penalty."
             )
 
         main_penalty = np.asarray(self.penalties[0], dtype=np.float64)
@@ -247,10 +248,10 @@ class GPSmoothTerm(BaseSmoothTerm):
                             "feature": list(self.feature),
                             "label": self.label,
                             "by": self.by,
-                            "by_name": self._by_name,
-                            "by_is_constant": bool(self._by_is_constant),
+                            "by_name": self._by_state.feature_name,
+                            "by_is_constant": bool(self._by_state.is_constant),
                             "constraint_mode": self.constraint_mode,
-                            "constraint_kind": self._constraint_kind,
+                            "constraint_kind": self.constraint_kind,
                             "pc": self.pc,
                             "knots": self.knots,
                             "xt": self.xt,

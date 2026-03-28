@@ -7,7 +7,6 @@ vector and working system matrices through the penalized IRLS fixed point, then
 combine them into the score derivatives needed by the outer optimiser.
 """
 import numpy as np
-from scipy.linalg import cho_factor, cho_solve, qr
 
 
 def _working_weight_derivatives_wrt_linpred(model, y, eta, mu, w):
@@ -74,7 +73,7 @@ def _penalty_quadratic_and_sp_derivatives(beta, P_total, P_derivs, dbeta_cols, d
                 + 2.0 * (dbk @ Skb[j])
             )
             if j == k:
-                val += bSb1[j]
+                val += float(beta @ Skb[j])
             bSb2[j, k] = val
             bSb2[k, j] = val
     return bSb, bSb1, bSb2
@@ -162,39 +161,16 @@ def _penalty_rank_scaling_derivatives(model):
 
 def _deviance_coefficient_derivatives(model, y, eta, mu, W, X):
     family = model.family
-    g1 = np.clip(np.asarray(family.mu_eta(eta), dtype=np.float64), 1e-14, None)
+    mu1 = np.clip(np.asarray(family.mu_eta(eta), dtype=np.float64), 1e-14, None)
     V = np.clip(np.asarray(family.variance(mu), dtype=np.float64), 1e-14, None)
+    V1 = np.asarray(family.dvar(mu), dtype=np.float64)
+    g2 = np.asarray(family.d2link(mu), dtype=np.float64)
+    mu2 = -g2 * (mu1 ** 3)
     resid = np.asarray(y, dtype=np.float64) - np.asarray(mu, dtype=np.float64)
-    v1 = -2.0 * resid / (V * g1)
+    v1 = -2.0 * resid * mu1 / V
     dev_grad = np.asarray(X, dtype=np.float64).T @ v1
-    X = np.asarray(X, dtype=np.float64)
-    W = np.asarray(W, dtype=np.float64)
-    good = np.isfinite(W) & (W != 0.0)
-    if not np.any(good):
-        dev_hess = np.zeros((X.shape[1], X.shape[1]), dtype=np.float64)
-        return dev_grad, dev_hess
-
-    Xg = X[good, :]
-    wg = W[good]
-    WX = np.sqrt(np.abs(wg))[:, None] * Xg
-
-    Q, R, piv = qr(WX, mode="economic", pivoting=True, check_finite=False)
-    R1 = np.zeros_like(R, dtype=np.float64)
-    for j, pj in enumerate(np.asarray(piv, dtype=np.int64)):
-        R1[:, pj] = R[:, j]
-    dev_hess = R1.T @ R1
-
-    neg_idx = np.flatnonzero(wg < 0.0)
-    if neg_idx.size > 0:
-        IQ = Q[neg_idx, :]
-        if IQ.size > 0:
-            _, s, Vt = np.linalg.svd(IQ, full_matrices=False)
-            V = Vt.T
-            VD2Vt = (V * (s**2)[np.newaxis, :]) @ V.T
-            Kcorr = R1.T @ VD2Vt @ R1
-            dev_hess -= 2.0 * Kcorr
-
-    dev_hess = 2.0 * dev_hess
+    p_eta2 = 2.0 * (mu1 ** 2) / V - 2.0 * resid * mu2 / V + 2.0 * resid * (mu1 ** 2) * V1 / (V ** 2)
+    dev_hess = np.asarray(X, dtype=np.float64).T @ (p_eta2[:, None] * np.asarray(X, dtype=np.float64))
     return dev_grad, dev_hess
 
 
@@ -216,3 +192,35 @@ def _deviance_chained_to_smoothing(dev_grad, dev_hess, dbeta_cols, d2beta_mat):
             D2[j, k] = val
             D2[k, j] = val
     return D1, D2
+
+
+def _pearson_coefficient_derivatives(model, y, eta, mu, X):
+    family = model.family
+    y = np.asarray(y, dtype=np.float64)
+    eta = np.asarray(eta, dtype=np.float64)
+    mu = np.asarray(mu, dtype=np.float64)
+    X = np.asarray(X, dtype=np.float64)
+    weights = np.ones_like(y, dtype=np.float64)
+    g1 = 1.0 / np.clip(np.asarray(family.mu_eta(eta), dtype=np.float64), 1e-14, None)
+    V = np.clip(np.asarray(family.variance(mu), dtype=np.float64), 1e-14, None)
+    V1 = np.asarray(family.dvar(mu), dtype=np.float64) / V
+    V2 = np.asarray(family.d2var(mu), dtype=np.float64) / V
+    g2 = np.asarray(family.d2link(mu), dtype=np.float64) / g1
+
+    resid = y - mu
+    xx = resid * weights / V
+    p_eta1 = -xx * (2.0 + resid * V1) / g1
+    p_eta2 = (
+        -p_eta1 * g2 / g1
+        + (
+            2.0 * weights / V
+            + 2.0 * xx * V1
+            - p_eta1 * V1 * g1
+            - xx * resid * (V2 - V1 * V1)
+        )
+        / (g1 * g1)
+    )
+    grad = X.T @ p_eta1
+    hess = X.T @ (p_eta2[:, None] * X)
+    pearson = float(np.sum(xx * resid))
+    return pearson, grad, hess
