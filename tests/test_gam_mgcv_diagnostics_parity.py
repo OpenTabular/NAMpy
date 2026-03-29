@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import re
+
 import numpy as np
 
 from mgcv_parity_utils import (
     _fit_nampy_model,
     _fit_nampy_snapshot,
     _make_gaussian_data,
+    _make_negbin_data,
     _make_poisson_data,
     _run_mgcv_snapshot,
 )
@@ -13,7 +16,16 @@ from mgcv_parity_utils import (
 
 def _norm_labels(labels):
     vals = [labels] if isinstance(labels, str) else list(labels)
-    return [lab.replace(', bs="cr"', "") for lab in vals]
+    out = []
+    for lab in vals:
+        s = str(lab)
+        s = re.sub(r',\s*bs\s*=\s*(?:\"[^\"]*\"|\[[^\]]*\])', "", s)
+        s = re.sub(r',\s*k\s*=\s*(?:[^,\)]+|\[[^\]]*\])', "", s)
+        s = re.sub(r"\s+", "", s)
+        s = s.replace("])", ")")
+        s = re.sub(r",\d+\)$", ")", s)
+        out.append(s)
+    return out
 
 
 def test_mgcv_concurvity_parity_gaussian_reml():
@@ -159,6 +171,131 @@ def test_mgcv_postfit_diagnostics_parity_poisson_reml():
         np.log(a_one_se),
         np.log(e_one_se),
         atol=1e-6,
+        rtol=0.0,
+    )
+
+
+def test_mgcv_negbin_tensor_te_ti_diagnostics_parity_reml():
+    family = {"name": "negbin", "theta": 1.0}
+    cases = [
+        (_make_negbin_data(seed=61, n=240, theta=1.0), 'y ~ te(x0, x1, bs=["cr", "cr"], k=[6, 6])'),
+        (_make_negbin_data(seed=63, n=240, theta=1.0), 'y ~ ti(x0, x1, bs=["cr", "cr"], k=[6, 6])'),
+    ]
+
+    for data, formula in cases:
+        actual = _fit_nampy_snapshot(data, formula, family, "REML")
+        expected = _run_mgcv_snapshot(data, formula, family, "REML")
+
+        a_diag = actual["parity"]["diagnostics"]
+        e_diag = expected["parity"]["diagnostics"]
+
+        assert _norm_labels(a_diag["concurvity_labels"]) == _norm_labels(
+            e_diag["concurvity_labels"]
+        )
+        np.testing.assert_allclose(
+            np.asarray(a_diag["concurvity_full"], dtype=np.float64),
+            np.asarray(e_diag["concurvity_full"], dtype=np.float64),
+            atol=1e-8,
+            rtol=0.0,
+        )
+
+        a_res = a_diag["residuals"]
+        e_res = e_diag["residuals"]
+        for key, atol in (
+            ("response", 2e-8),
+            ("pearson", 2e-8),
+            ("scaled_pearson", 2e-8),
+            ("deviance", 2e-8),
+        ):
+            np.testing.assert_allclose(
+                np.asarray(a_res[key], dtype=np.float64),
+                np.asarray(e_res[key], dtype=np.float64),
+                atol=atol,
+                rtol=0.0,
+            )
+
+        a_k = np.asarray(a_diag["k_check"]["values"], dtype=np.float64)
+        e_k = np.asarray(e_diag["k_check"]["values"], dtype=np.float64)
+        np.testing.assert_allclose(a_k[:, 0], e_k[:, 0], atol=0.0, rtol=0.0)
+        np.testing.assert_allclose(a_k[:, 1], e_k[:, 1], atol=0.15, rtol=0.0)
+        np.testing.assert_allclose(a_k[:, 2], e_k[:, 2], atol=0.12, rtol=0.0)
+        np.testing.assert_allclose(a_k[:, 3], e_k[:, 3], atol=0.26, rtol=0.0)
+
+        a_sp_vcov = np.asarray(a_diag["sp_vcov"], dtype=np.float64)
+        e_sp_vcov = np.asarray(e_diag["sp_vcov"], dtype=np.float64)
+        np.testing.assert_allclose(a_sp_vcov, e_sp_vcov, atol=3e-2, rtol=1e-6)
+
+        a_vcomp = np.asarray(a_diag["gam_vcomp"], dtype=np.float64)
+        e_vcomp = np.asarray(e_diag["gam_vcomp"], dtype=np.float64)
+        np.testing.assert_allclose(
+            np.log(a_vcomp),
+            np.log(e_vcomp),
+            atol=5e-4,
+            rtol=0.0,
+        )
+
+        a_one_se = np.asarray(a_diag["one_se_rule"], dtype=np.float64)
+        e_one_se = np.asarray(e_diag["one_se_rule"], dtype=np.float64)
+        np.testing.assert_allclose(
+            np.log(a_one_se),
+            np.log(e_one_se),
+            atol=1e-5,
+            rtol=0.0,
+        )
+
+
+def test_mgcv_negbin_tensor_t2_postfit_diagnostics_parity_reml():
+    data = _make_negbin_data(seed=79, n=240, theta=1.0)
+    family = {"name": "negbin", "theta": 1.0}
+    formula = 'y ~ t2(x0, x1, bs=["cr", "cr"], k=[6, 6])'
+
+    actual = _fit_nampy_snapshot(data, formula, family, "REML")
+    expected = _run_mgcv_snapshot(data, formula, family, "REML")
+
+    a_diag = actual["parity"]["diagnostics"]
+    e_diag = expected["parity"]["diagnostics"]
+
+    a_res = a_diag["residuals"]
+    e_res = e_diag["residuals"]
+    for key, atol in (
+        ("response", 1e-10),
+        ("pearson", 1e-10),
+        ("scaled_pearson", 1e-10),
+        ("deviance", 1e-10),
+    ):
+        np.testing.assert_allclose(
+            np.asarray(a_res[key], dtype=np.float64),
+            np.asarray(e_res[key], dtype=np.float64),
+            atol=atol,
+            rtol=0.0,
+        )
+
+    a_k = np.asarray(a_diag["k_check"]["values"], dtype=np.float64)
+    e_k = np.asarray(e_diag["k_check"]["values"], dtype=np.float64)
+    np.testing.assert_allclose(a_k[:, 0], e_k[:, 0], atol=0.0, rtol=0.0)
+    np.testing.assert_allclose(a_k[:, 1], e_k[:, 1], atol=0.13, rtol=0.0)
+    np.testing.assert_allclose(a_k[:, 2], e_k[:, 2], atol=0.12, rtol=0.0)
+    np.testing.assert_allclose(a_k[:, 3], e_k[:, 3], atol=0.0, rtol=0.0)
+
+    a_sp_vcov = np.asarray(a_diag["sp_vcov"], dtype=np.float64)
+    e_sp_vcov = np.asarray(e_diag["sp_vcov"], dtype=np.float64)
+    np.testing.assert_allclose(a_sp_vcov, e_sp_vcov, atol=2e-6, rtol=1e-6)
+
+    a_vcomp = np.asarray(a_diag["gam_vcomp"], dtype=np.float64)
+    e_vcomp = np.asarray(e_diag["gam_vcomp"], dtype=np.float64)
+    np.testing.assert_allclose(
+        np.log(a_vcomp),
+        np.log(e_vcomp),
+        atol=4e-7,
+        rtol=0.0,
+    )
+
+    a_one_se = np.asarray(a_diag["one_se_rule"], dtype=np.float64)
+    e_one_se = np.asarray(e_diag["one_se_rule"], dtype=np.float64)
+    np.testing.assert_allclose(
+        np.log(a_one_se),
+        np.log(e_one_se),
+        atol=2e-8,
         rtol=0.0,
     )
 

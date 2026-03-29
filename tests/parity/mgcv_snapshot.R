@@ -172,6 +172,14 @@ pred_link <- unname(as.numeric(predict(fit, type = "link")))
 pred_terms <- unname(as.matrix(predict(fit, type = "terms")))
 pred_term_names <- colnames(predict(fit, type = "terms"))
 pred_lpmatrix <- unname(as.matrix(predict(fit, type = "lpmatrix")))
+pred_se_response <- tryCatch(
+  unname(as.numeric(predict(fit, type = "response", se.fit = TRUE)$se.fit)),
+  error = function(e) NULL
+)
+pred_se_link <- tryCatch(
+  unname(as.numeric(predict(fit, type = "link", se.fit = TRUE)$se.fit)),
+  error = function(e) NULL
+)
 
 conc_full <- tryCatch(concurvity(fit, full = TRUE), error = function(e) NULL)
 sp_cov <- tryCatch(sp.vcov(fit, edge.correct = FALSE), error = function(e) NULL)
@@ -362,7 +370,9 @@ snapshot <- list(
     response = pred_response,
     link = pred_link,
     terms = pred_terms,
-    lpmatrix = pred_lpmatrix
+    lpmatrix = pred_lpmatrix,
+    se_response = pred_se_response,
+    se_link = pred_se_link
   ),
   parity = list(
     diagnostics = list(

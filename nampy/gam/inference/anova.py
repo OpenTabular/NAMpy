@@ -45,10 +45,16 @@ def _edf1_vector(model) -> np.ndarray:
     return 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
 
 
+def _x_col_offset(model) -> int:
+    """Number of columns prepended to X before the coef_ columns (intercept)."""
+    return 1 if bool(getattr(model, "fit_intercept", False)) else 0
+
+
 def _term_edf1(model, tb) -> float:
     sl = tb.coef_slice
+    offset = _x_col_offset(model)
     edf1 = _edf1_vector(model)
-    return float(np.sum(edf1[sl]))
+    return float(np.sum(edf1[sl.start + offset : sl.stop + offset]))
 
 
 def _residual_df_approx_mgcv(model) -> float:
@@ -174,13 +180,18 @@ def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingl
     param_rows: list[dict[str, object]] = []
     smooth_rows: list[dict[str, object]] = []
 
+    x_offset = _x_col_offset(model)
+
     for i, tb in enumerate(getattr(model, "term_blocks_", ()) or ()):
         sl = tb.coef_slice
+        # sl indexes coef_ (no intercept); Vp_/Vf_ include the intercept column so
+        # we shift by x_offset when extracting covariance submatrices.
+        x_sl = slice(sl.start + x_offset, sl.stop + x_offset)
         beta_i = beta[sl]
         edf_i = float(edf_by_term[i]) if i < edf_by_term.size else float(beta_i.size)
 
         if str(getattr(tb, "term_type", "")) == "parametric":
-            cov_i = None if V_para is None else np.asarray(V_para[sl, sl], dtype=np.float64)
+            cov_i = None if V_para is None else np.asarray(V_para[x_sl, x_sl], dtype=np.float64)
             stat, rank = (np.nan, int(beta_i.size)) if cov_i is None else _stable_wald_stat(beta_i, cov_i)
             ref_df = float(rank)
             test_name, p_value = _wald_p_value(stat, ref_df, resid_df, gaussian=gaussian)
@@ -198,15 +209,17 @@ def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingl
             )
             continue
 
-        cov_i = None if V_smooth is None else np.asarray(V_smooth[sl, sl], dtype=np.float64)
+        cov_i = None if V_smooth is None else np.asarray(V_smooth[x_sl, x_sl], dtype=np.float64)
         if cov_i is None:
             stat, ref_df, p_value = np.nan, max(edf_i, 1.0), np.nan
         else:
+            x_start = int(x_sl.start)
+            x_stop = int(x_sl.stop)
             X_i = np.asarray(
                 (
-                    summary_R[:, int(sl.start) : int(sl.stop)]
+                    summary_R[:, x_start:x_stop]
                     if summary_R is not None
-                    else model.fit_state_.X[:, int(sl.start) : int(sl.stop)]
+                    else model.fit_state_.X[:, x_start:x_stop]
                 ),
                 dtype=np.float64,
             )

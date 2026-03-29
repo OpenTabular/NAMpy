@@ -44,6 +44,8 @@ def fit_pirls_core(
     max_step_halving=25,
     offset=None,
     coef_start=None,
+    etastart=None,
+    mustart=None,
 ):
     """
     Penalized IRLS for one-linear-predictor penalized GLMs.
@@ -104,12 +106,21 @@ def fit_pirls_core(
         # not from a pre-solved penalized normal equation.
         beta = np.zeros(X.shape[1], dtype=np.float64)
 
-    eta = family.link(family.initialize_mu(y)) if coef_start is None else (
-        X @ beta if offset is None else offset + X @ beta
-    )
-    if coef_start is None:
+    if etastart is not None:
+        eta = np.asarray(etastart, dtype=np.float64).ravel()
+        if eta.shape != (X.shape[0],):
+            raise ValueError("etastart must have length nrow(X).")
         mu = family.inverse_link(eta)
+    elif mustart is not None:
+        mu0 = np.asarray(mustart, dtype=np.float64).ravel()
+        if mu0.shape != (X.shape[0],):
+            raise ValueError("mustart must have length nrow(X).")
+        mu = mu0
+        eta = family.link(mu)
     else:
+        eta = family.link(family.initialize_mu(y)) if coef_start is None else (
+            X @ beta if offset is None else offset + X @ beta
+        )
         mu = family.inverse_link(eta)
     null_beta = np.zeros_like(beta)
     null_eta = X @ null_beta if offset is None else offset + X @ null_beta

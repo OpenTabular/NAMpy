@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.linalg import cho_solve
+from numpy.linalg import LinAlgError
 
 from ..penalized_system import (
     build_full_design,
@@ -65,7 +66,7 @@ def solve_gaussian_fit(model, y, smoothing_params):
     Xtwy = X.T @ (w * y_work)
     A = XtWX + P_full
 
-    if gaussian_design_needs_stacked_qr_fit(model):
+    def _solve_with_stacked_qr():
         pls = solve_gaussian_penalized_ls_stacked_qr(
             X,
             y_work,
@@ -128,8 +129,13 @@ def solve_gaussian_fit(model, y, smoothing_params):
             offset=None if model.offset_train_ is None else model.offset_train_.copy(),
             log_det_XtWX_plus_penalty=float(pls["log_det_XtWX_plus_penalty"]),
         )
+    if gaussian_design_needs_stacked_qr_fit(model):
+        return _solve_with_stacked_qr()
 
-    beta_full, cA, loA, _ = stabilized_cholesky_solve(A, Xtwy)
+    try:
+        beta_full, cA, loA, _ = stabilized_cholesky_solve(A, Xtwy)
+    except LinAlgError:
+        return _solve_with_stacked_qr()
     eta = X @ beta_full if model.offset_train_ is None else model.offset_train_ + X @ beta_full
     resid = y - eta
     wrss = float(np.sum(w * resid * resid))

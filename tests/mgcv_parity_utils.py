@@ -691,7 +691,7 @@ def _assert_allclose_up_to_column_sign(actual, expected, *, atol, rtol):
             A2 = actual[:, j : j + 2]
             B2 = expected[:, j : j + 2]
             U_svd, _, Vt = np.linalg.svd(A2.T @ B2)
-            M = Vt.T @ U_svd.T
+            M = U_svd @ Vt
             rotated = A2 @ M
             if np.max(np.abs(rotated - B2)) <= atol:
                 aligned[:, j : j + 2] = rotated
@@ -702,6 +702,7 @@ def _assert_allclose_up_to_column_sign(actual, expected, *, atol, rtol):
 
 
 __all__ = [
+    "MGCV_ANOVA_SCRIPT",
     "MGCV_SNAPSHOT_SCRIPT",
     "R_SCRIPT",
     "_assert_allclose_up_to_column_sign",
@@ -721,6 +722,7 @@ __all__ = [
     "_make_random_effect_data",
     "_make_random_effect_data_noisy",
     "_make_sz_data",
+    "_run_mgcv_anova",
     "_run_mgcv_natparam_cr",
     "_run_mgcv_predict_on_newdata",
     "_run_mgcv_smoothcon_matrix",

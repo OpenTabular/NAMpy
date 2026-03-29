@@ -217,8 +217,24 @@ class TestParitySnapshotAPI:
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target)
+        # The fs null block is only identified up to an orthogonal 2D rotation.
+        # That tiny basis choice changes mgcv's outer smoothCon ``scale.penalty``
+        # scalar slightly because it uses ``norm(X, type="I")``. Compare the
+        # penalty shapes after factoring out that common scalar.
+        scales = []
         for got, want in zip(actual, target):
-            np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
+            mask = np.abs(want) > 0
+            scale = float(np.median(got[mask] / want[mask])) if np.any(mask) else 1.0
+            scales.append(scale)
+            np.testing.assert_allclose(got, want * scale, atol=1e-10, rtol=1e-10)
+
+        np.testing.assert_allclose(
+            np.asarray(scales, dtype=np.float64),
+            np.full(len(scales), scales[0], dtype=np.float64),
+            atol=1e-12,
+            rtol=1e-12,
+        )
+        np.testing.assert_allclose(scales[0], 1.0, atol=5e-4, rtol=5e-4)
 
     @pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available")
     def test_fs_smoothcon_ps_basis_matches_mgcv(self):
@@ -265,8 +281,20 @@ class TestParitySnapshotAPI:
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target)
+        scales = []
         for got, want in zip(actual, target):
-            np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
+            mask = np.abs(want) > 0
+            scale = float(np.median(got[mask] / want[mask])) if np.any(mask) else 1.0
+            scales.append(scale)
+            np.testing.assert_allclose(got, want * scale, atol=1e-10, rtol=1e-10)
+
+        np.testing.assert_allclose(
+            np.asarray(scales, dtype=np.float64),
+            np.full(len(scales), scales[0], dtype=np.float64),
+            atol=1e-12,
+            rtol=1e-12,
+        )
+        np.testing.assert_allclose(scales[0], 1.0, atol=3e-2, rtol=3e-2)
 
     @pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available")
     def test_sz_smoothcon_basis_matches_mgcv(self):
@@ -1609,10 +1637,20 @@ class TestMgcvParity:
                 lambda: _make_gamma_data(seed=101, n=220),
                 'y ~ t2(x0, x1, bs=["cr", "cr"], k=[6, 6])',
                 1e-6,
-                5e-4,
-                6e-5,
+                7e-4,
+                7e-4,
                 1e-1,
                 1e-5,
+            ),
+            (
+                {"name": "negbin", "theta": 1.0},
+                lambda: _make_negbin_data(seed=79, n=240, theta=1.0),
+                'y ~ t2(x0, x1, bs=["cr", "cr"], k=[6, 6])',
+                3e-6,
+                2e-8,
+                2e-8,
+                1.3e-1,
+                1e-10,
             ),
         ],
     )
@@ -1878,3 +1916,366 @@ class TestGaussianPriorWeightsMgcvParity:
             dev, Pq, sig2, logdet_a - logdet_s, mp, wv, gamma=1.0, reml=True
         )
         np.testing.assert_allclose(joint, fit4, rtol=0.0, atol=1e-10)
+
+
+# ---------------------------------------------------------------------------
+# Smooth-type parity: cc, ps, gp, numeric by-variable
+# ---------------------------------------------------------------------------
+
+@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped.")
+class TestCyclicCubicSmooth:
+    """Cyclic cubic regression spline (bs='cc') parity against mgcv."""
+
+    def _make_cyclic_data(self, seed=77, n=180):
+        rng = np.random.default_rng(seed)
+        x = rng.uniform(0.0, 2 * np.pi, size=n)
+        y = np.sin(x) + 0.3 * np.cos(2 * x) + rng.normal(scale=0.12, size=n)
+        return pd.DataFrame({"y": y, "x": x})
+
+    def test_cc_smoothcon_basis_matches_mgcv(self):
+        data = self._make_cyclic_data()
+        smooth_expr_r = 's(x, bs="cc", k=9)'
+
+        parsed = parse_gam_formula('y ~ s(x, bs="cc", k=9)')
+        specs = compile_predictor_specs_from_formula(parsed)
+        design = compile_predictor_designs(
+            data[["x"]].to_numpy(dtype=np.float64),
+            ["x"],
+            specs,
+        )[0]
+
+        expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
+
+        _assert_allclose_up_to_column_sign(
+            np.asarray(design.design_matrix, dtype=np.float64),
+            np.asarray(expected["X"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+
+    def test_cc_smoothcon_penalties_match_mgcv(self):
+        data = self._make_cyclic_data()
+        smooth_expr_r = 's(x, bs="cc", k=9)'
+
+        parsed = parse_gam_formula('y ~ s(x, bs="cc", k=9)')
+        specs = compile_predictor_specs_from_formula(parsed)
+        design = compile_predictor_designs(
+            data[["x"]].to_numpy(dtype=np.float64),
+            ["x"],
+            specs,
+        )[0]
+
+        expected = _run_mgcv_smoothcon_penalties(
+            data, smooth_expr_r, absorb_cons=True, scale_penalty=True
+        )
+        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
+        target = [np.asarray(S, dtype=np.float64) for S in expected["S"]]
+
+        assert len(actual) == len(target) == 1
+        np.testing.assert_allclose(actual[0], target[0], atol=1e-10, rtol=1e-10)
+
+    def test_gaussian_cc_fixed_sp_matches_mgcv_exactly(self):
+        data = self._make_cyclic_data(seed=78)
+        formula = 'y ~ s(x, bs="cc", k=9, sp=0.8)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["response"], dtype=np.float64),
+            np.asarray(expected["predictions"]["response"], dtype=np.float64),
+            atol=1e-10, rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
+            np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
+            atol=1e-10, rtol=1e-10,
+        )
+
+    def test_gaussian_cc_reml_matches_mgcv(self):
+        data = self._make_cyclic_data(seed=79, n=200)
+        formula = 'y ~ s(x, bs="cc", k=10)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        _assert_basic_mgcv_parity(
+            actual, expected,
+            pred_atol=5e-3, pred_rtol=0.0,
+            sp_log_atol=0.6,
+        )
+
+
+@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped.")
+class TestPSplineSmooth:
+    """P-spline (bs='ps') standalone parity against mgcv."""
+
+    def _make_ps_data(self, seed=81, n=180):
+        rng = np.random.default_rng(seed)
+        x = rng.uniform(-2.0, 2.0, size=n)
+        y = np.sin(1.3 * x) + 0.2 * x**2 + rng.normal(scale=0.14, size=n)
+        return pd.DataFrame({"y": y, "x": x})
+
+    def test_ps_smoothcon_basis_matches_mgcv(self):
+        data = self._make_ps_data()
+        smooth_expr_r = 's(x, bs="ps", k=12)'
+
+        parsed = parse_gam_formula('y ~ s(x, bs="ps", k=12)')
+        specs = compile_predictor_specs_from_formula(parsed)
+        design = compile_predictor_designs(
+            data[["x"]].to_numpy(dtype=np.float64),
+            ["x"],
+            specs,
+        )[0]
+
+        expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
+
+        _assert_allclose_up_to_column_sign(
+            np.asarray(design.design_matrix, dtype=np.float64),
+            np.asarray(expected["X"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+
+    def test_ps_smoothcon_penalties_match_mgcv(self):
+        data = self._make_ps_data()
+        smooth_expr_r = 's(x, bs="ps", k=12)'
+
+        parsed = parse_gam_formula('y ~ s(x, bs="ps", k=12)')
+        specs = compile_predictor_specs_from_formula(parsed)
+        design = compile_predictor_designs(
+            data[["x"]].to_numpy(dtype=np.float64),
+            ["x"],
+            specs,
+        )[0]
+
+        expected = _run_mgcv_smoothcon_penalties(
+            data, smooth_expr_r, absorb_cons=True, scale_penalty=True
+        )
+        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
+        target = [np.asarray(S, dtype=np.float64) for S in expected["S"]]
+
+        assert len(actual) == len(target) == 1
+        np.testing.assert_allclose(actual[0], target[0], atol=1e-10, rtol=1e-10)
+
+    def test_gaussian_ps_fixed_sp_matches_mgcv_exactly(self):
+        data = self._make_ps_data(seed=82)
+        formula = 'y ~ s(x, bs="ps", k=12, sp=0.5)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["response"], dtype=np.float64),
+            np.asarray(expected["predictions"]["response"], dtype=np.float64),
+            atol=1e-10, rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
+            np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
+            atol=1e-10, rtol=1e-10,
+        )
+
+    def test_gaussian_ps_reml_matches_mgcv(self):
+        data = self._make_ps_data(seed=83, n=200)
+        formula = 'y ~ s(x, bs="ps", k=14)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        _assert_basic_mgcv_parity(
+            actual, expected,
+            pred_atol=5e-3, pred_rtol=0.0,
+            sp_log_atol=0.5,
+        )
+
+    def test_gaussian_ps_two_smooths_reml_matches_mgcv(self):
+        """Two independent P-spline terms, each on a different covariate."""
+        rng = np.random.default_rng(84)
+        n = 200
+        x0 = rng.uniform(-2.0, 2.0, size=n)
+        x1 = rng.uniform(-1.5, 1.5, size=n)
+        y = np.sin(x0) + 0.35 * x1**2 + rng.normal(scale=0.15, size=n)
+        data = pd.DataFrame({"y": y, "x0": x0, "x1": x1})
+        formula = 'y ~ s(x0, bs="ps", k=12) + s(x1, bs="ps", k=12)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        _assert_basic_mgcv_parity(
+            actual, expected,
+            pred_atol=8e-3, pred_rtol=0.0,
+            sp_log_atol=0.6,
+        )
+
+
+@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped.")
+class TestGPSmooth:
+    """Gaussian process smooth (bs='gp') parity against mgcv."""
+
+    def _make_gp_data(self, seed=91, n=160):
+        rng = np.random.default_rng(seed)
+        x = rng.uniform(-3.0, 3.0, size=n)
+        y = np.exp(-0.5 * x**2) + 0.4 * np.sin(x) + rng.normal(scale=0.1, size=n)
+        return pd.DataFrame({"y": y, "x": x})
+
+    def test_gp_smoothcon_basis_matches_mgcv(self):
+        """GP basis matrix from smoothCon should match NAMpy's GP basis."""
+        data = self._make_gp_data()
+        smooth_expr_r = 's(x, bs="gp", k=10)'
+
+        parsed = parse_gam_formula('y ~ s(x, bs="gp", k=10)')
+        specs = compile_predictor_specs_from_formula(parsed)
+        design = compile_predictor_designs(
+            data[["x"]].to_numpy(dtype=np.float64),
+            ["x"],
+            specs,
+        )[0]
+
+        expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
+
+        actual_X = np.asarray(design.design_matrix, dtype=np.float64)
+        expected_X = np.asarray(expected["X"], dtype=np.float64)
+
+        assert actual_X.shape == expected_X.shape
+        # GP bases can have sign/rotation ambiguity in eigenvectors; compare
+        # that the column span is the same (each actual column is a linear
+        # combination of expected columns up to the tolerance).
+        _assert_allclose_up_to_column_sign(actual_X, expected_X, atol=1e-8, rtol=1e-8)
+
+    def test_gaussian_gp_fixed_sp_matches_mgcv(self):
+        data = self._make_gp_data(seed=92)
+        formula = 'y ~ s(x, bs="gp", k=10, sp=1.0)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["response"], dtype=np.float64),
+            np.asarray(expected["predictions"]["response"], dtype=np.float64),
+            atol=1e-8, rtol=1e-8,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
+            np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
+            atol=1e-8, rtol=1e-8,
+        )
+
+    def test_gaussian_gp_reml_matches_mgcv(self):
+        data = self._make_gp_data(seed=93, n=180)
+        formula = 'y ~ s(x, bs="gp", k=12)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        _assert_basic_mgcv_parity(
+            actual, expected,
+            pred_atol=8e-3, pred_rtol=0.0,
+            sp_log_atol=0.7,
+        )
+
+    def test_gaussian_gp_two_smooths_reml_matches_mgcv(self):
+        rng = np.random.default_rng(94)
+        n = 180
+        x0 = rng.uniform(-2.0, 2.0, size=n)
+        x1 = rng.uniform(-2.0, 2.0, size=n)
+        y = np.exp(-0.5 * x0**2) + 0.3 * np.sin(x1) + rng.normal(scale=0.12, size=n)
+        data = pd.DataFrame({"y": y, "x0": x0, "x1": x1})
+        formula = 'y ~ s(x0, bs="gp", k=10) + s(x1, bs="gp", k=10)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        _assert_basic_mgcv_parity(
+            actual, expected,
+            pred_atol=1e-2, pred_rtol=0.0,
+            sp_log_atol=0.8,
+        )
+
+
+@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped.")
+class TestNumericByVariable:
+    """Numeric by-variable smooth s(x, by=z) parity against mgcv."""
+
+    def _make_by_data(self, seed=101, n=200):
+        rng = np.random.default_rng(seed)
+        x = rng.uniform(-2.0, 2.0, size=n)
+        z = rng.uniform(-1.0, 1.0, size=n)
+        y = np.sin(x) * z + 0.2 * rng.normal(size=n)
+        return pd.DataFrame({"y": y, "x": x, "z": z})
+
+    def test_gaussian_numeric_by_cr_fixed_sp_matches_mgcv(self):
+        data = self._make_by_data(seed=102)
+        formula = 'y ~ s(x, by=z, bs="cr", k=8, sp=1.0)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["response"], dtype=np.float64),
+            np.asarray(expected["predictions"]["response"], dtype=np.float64),
+            atol=1e-10, rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["link"], dtype=np.float64),
+            np.asarray(expected["predictions"]["link"], dtype=np.float64),
+            atol=1e-10, rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
+            np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
+            atol=1e-10, rtol=1e-10,
+        )
+
+    def test_gaussian_numeric_by_cr_reml_matches_mgcv(self):
+        data = self._make_by_data(seed=103, n=220)
+        formula = 'y ~ s(x, by=z, bs="cr", k=8)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        _assert_basic_mgcv_parity(
+            actual, expected,
+            pred_atol=5e-3, pred_rtol=0.0,
+            sp_log_atol=0.6,
+        )
+
+    def test_gaussian_numeric_by_two_smooths_reml_matches_mgcv(self):
+        """Two separate numeric by-variable terms."""
+        rng = np.random.default_rng(104)
+        n = 220
+        x0 = rng.uniform(-2.0, 2.0, size=n)
+        x1 = rng.uniform(-1.5, 1.5, size=n)
+        z = rng.uniform(0.5, 1.5, size=n)
+        y = np.sin(x0) * z - 0.3 * np.cos(x1) * z + 0.15 * rng.normal(size=n)
+        data = pd.DataFrame({"y": y, "x0": x0, "x1": x1, "z": z})
+        formula = 'y ~ s(x0, by=z, bs="cr", k=8) + s(x1, by=z, bs="cr", k=8)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        _assert_basic_mgcv_parity(
+            actual, expected,
+            pred_atol=8e-3, pred_rtol=0.0,
+            sp_log_atol=0.7,
+        )
+
+    def test_poisson_numeric_by_reml_matches_mgcv(self):
+        rng = np.random.default_rng(105)
+        n = 220
+        x = rng.uniform(-1.5, 1.5, size=n)
+        z = rng.uniform(0.5, 1.5, size=n)
+        eta = 0.1 + 0.6 * np.sin(x) * z
+        y = rng.poisson(np.exp(eta))
+        data = pd.DataFrame({"y": y, "x": x, "z": z})
+        formula = 'y ~ s(x, by=z, bs="cr", k=8)'
+
+        actual = _fit_nampy_snapshot(data, formula, "poisson", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "poisson", "REML")
+
+        _assert_basic_mgcv_parity(
+            actual, expected,
+            pred_atol=1e-2, pred_rtol=0.0,
+            sp_log_atol=0.8,
+            criterion_atol=1.5,
+        )

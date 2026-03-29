@@ -23,6 +23,7 @@ from ..registry import register_smooth
 from ...constraints.absorption import apply_linear_constraint
 from ...design.structures import PenaltySpec
 from ...penalties.algebra import null_space_penalty_from_penalty
+from ....splines.penalty_scaling import scale_penalty
 from ....splines.univariate_bases import (
     pspline_knots,
     pspline_difference_penalty,
@@ -163,18 +164,25 @@ class PSplineTerm1D(BaseSmoothTerm):
             self._record_constraint_result("pc", C, absorbed_by="runtime")
             return self
 
+        S_raw = pspline_difference_penalty(base.shape[1], penalty_order)
+        main_penalty = scale_penalty(base, 0.5 * (S_raw + S_raw.T))
+
+        if self.constraint_mode == "never":
+            if self._by_state.is_present:
+                base = base * self._by_state.values[:, None]
+            self._basis_train = np.asarray(base, dtype=np.float64)
+            self._penalties = [] if self.fixed else [np.asarray(main_penalty, dtype=np.float64)]
+            self._record_constraint_result(None, None, absorbed_by=None)
+            return self
+
+        penalties_in = [] if self.fixed else [main_penalty]
+        mean_row = base.mean(axis=0)
+        Bc, Sc, C = apply_linear_constraint(base, penalties_in, mean_row)
         if self._by_state.is_present:
-            base = base * self._by_state.values[:, None]
-
-        self._basis_train = np.asarray(base, dtype=np.float64)
-
-        if self.fixed:
-            self._penalties = []
-        else:
-            S = pspline_difference_penalty(self._basis_train.shape[1], penalty_order)
-            self._penalties = [0.5 * (S + S.T)]
-
-        self._record_constraint_result(None, None, absorbed_by=None)
+            Bc = Bc * self._by_state.values[:, None]
+        self._basis_train = np.asarray(Bc, dtype=np.float64)
+        self._penalties = Sc
+        self._record_constraint_result("centering", C, absorbed_by="runtime")
         return self
 
     @property

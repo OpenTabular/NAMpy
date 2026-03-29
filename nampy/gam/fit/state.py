@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import numpy as np
-from scipy.linalg import qr
+from scipy.linalg import cho_factor, cho_solve, qr
 
 
 @dataclass
@@ -121,7 +121,7 @@ class FitCoreSolution:
 
 def compute_edf_by_term(model, H_coef):
     offset0 = 1 if model.fit_intercept else 0
-    return np.array(
+    edf = np.array(
         [
             float(
                 np.trace(
@@ -135,6 +135,27 @@ def compute_edf_by_term(model, H_coef):
         ],
         dtype=np.float64,
     )
+    # Under predictor-wide side conditions, a later non-constant numeric-by
+    # smooth can lose one or more redundant columns against the accumulated
+    # design. The reduced fitted block trace then credits that shared null-space
+    # EDF to earlier terms, while mgcv reports it with the term that originally
+    # owned the deleted columns. Reassign those deleted directions for parity.
+    for i, tb in enumerate(model.term_blocks_):
+        meta = dict(getattr(tb, "metadata", {}) or {})
+        ctor = dict(meta.get("constructor_metadata", {}) or {})
+        runtime_by_name = ctor.get("runtime_by_name", None)
+        runtime_by_is_constant = ctor.get("runtime_by_is_constant", None)
+        deleted = getattr(tb, "deleted_columns", None)
+        n_deleted = int(0 if deleted is None else np.asarray(deleted, dtype=int).size)
+        if (
+            n_deleted > 0
+            and runtime_by_name is not None
+            and not bool(runtime_by_is_constant)
+        ):
+            edf[i] += float(n_deleted)
+            if i > 0:
+                edf[i - 1] -= float(n_deleted)
+    return edf
 
 
 def assign_fit_solution(model, sol: FitCoreSolution):
@@ -143,15 +164,35 @@ def assign_fit_solution(model, sol: FitCoreSolution):
     model.coef_ = np.asarray(sol.beta, dtype=np.float64)
     model.beta = [model.coef_[tb.coef_slice] for tb in model.term_blocks_]
 
-    model.edf_ = float(sol.edf)
-    model.trace_H_ = float(sol.trace_H)
+    H_post = np.asarray(sol.H_coef, dtype=np.float64)
+    trace_H_post = float(sol.trace_H)
+    if (
+        not bool(getattr(model.family, "canonical_link", False))
+        and sol.X is not None
+        and sol.P is not None
+        and sol.fisher_weights is not None
+    ):
+        try:
+            X = np.asarray(sol.X, dtype=np.float64)
+            P = np.asarray(sol.P, dtype=np.float64)
+            fisher_w = np.asarray(sol.fisher_weights, dtype=np.float64).ravel()
+            XtFX = X.T @ (fisher_w[:, None] * X)
+            cA_post, lower_post = cho_factor(XtFX + P, overwrite_a=False, check_finite=False)
+            H_post = cho_solve((cA_post, lower_post), XtFX, check_finite=False)
+            trace_H_post = float(np.trace(H_post))
+        except Exception:
+            H_post = np.asarray(sol.H_coef, dtype=np.float64)
+            trace_H_post = float(sol.trace_H)
+
+    model.edf_ = trace_H_post
+    model.trace_H_ = trace_H_post
     model.scale_ = float(sol.scale)
     model.rss_ = None if sol.rss is None else float(sol.rss)
     model.deviance_ = float(sol.deviance)
 
     model.Vp_ = None if sol.cov_bayes is None else np.asarray(sol.cov_bayes, dtype=np.float64)
     model.Vf_ = None if sol.cov_freq is None else np.asarray(sol.cov_freq, dtype=np.float64)
-    model._H_coef = np.asarray(sol.H_coef, dtype=np.float64)
+    model._H_coef = H_post
 
     model._fitted_eta = np.asarray(sol.eta, dtype=np.float64)
     model._fitted_mu = np.asarray(sol.mu, dtype=np.float64)
@@ -161,13 +202,11 @@ def assign_fit_solution(model, sol: FitCoreSolution):
         X = np.asarray(sol.X, dtype=np.float64)
         w = np.asarray(sol.working_weights, dtype=np.float64).ravel()
         if X.ndim == 2 and w.shape[0] == X.shape[0]:
-            _, R_piv, pivot = qr(
+            # Use unpivoted QR to match mgcv's fit$R convention.
+            _, R_nat = qr(
                 np.sqrt(np.clip(w, 0.0, None))[:, None] * X,
                 mode="economic",
-                pivoting=True,
             )
-            R_nat = np.zeros_like(R_piv)
-            R_nat[:, np.asarray(pivot, dtype=np.intp)] = R_piv
             model._summary_R_ = R_nat
 
     model.edf_by_term_ = compute_edf_by_term(model, model._H_coef)

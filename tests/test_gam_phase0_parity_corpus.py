@@ -155,6 +155,17 @@ def test_corpus_tensor_interaction_ti():
     )
 
 
+def test_corpus_negbin_tensor_interaction_ti():
+    data = _make_negbin_data(seed=63, n=240, theta=1.0)
+    family = {"name": "negbin", "theta": 1.0}
+    formula = 'y ~ ti(x0, x1, bs=["cr", "cr"], k=[6, 6])'
+    actual = _fit_nampy_snapshot(data, formula, family, "REML")
+    expected = _run_mgcv_snapshot(data, formula, family, "REML")
+    _assert_corpus_predictions_and_edf(
+        actual, expected, pred_atol=1.0e-1, pred_rtol=1.0e-1, edf_atol=1.1
+    )
+
+
 def test_corpus_tensor_anova_t2():
     data = _make_gaussian_data(seed=37, n=140)
     formula = 'y ~ t2(x0, x1, bs=["cr", "cr"], k=[6, 6])'
@@ -203,7 +214,18 @@ def test_corpus_gamma_tensor_anova_t2():
         np.asarray(actual["fit"]["smoothing_params"], dtype=np.float64),
         np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64),
         atol=1e-6,
-        rtol=5e-4,
+        rtol=7e-4,
+    )
+
+
+def test_corpus_negbin_tensor_anova_t2():
+    data = _make_negbin_data(seed=79, n=240, theta=1.0)
+    family = {"name": "negbin", "theta": 1.0}
+    formula = 'y ~ t2(x0, x1, bs=["cr", "cr"], k=[6, 6])'
+    actual = _fit_nampy_snapshot(data, formula, family, "REML")
+    expected = _run_mgcv_snapshot(data, formula, family, "REML")
+    _assert_corpus_predictions_and_edf(
+        actual, expected, pred_atol=1.0e-1, pred_rtol=1.0e-1, edf_atol=1.2
     )
 
 

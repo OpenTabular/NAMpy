@@ -331,17 +331,18 @@ def nat_param_type1(X, S, rank=None, tol=None, unit_fnorm=True):
     S = np.asarray(S, dtype=np.float64)
     tol = np.finfo(float).eps ** 0.8 if tol is None else float(tol)
 
-    Q, R = scipy_qr(X, mode="economic", pivoting=False)
+    # ``mgcv::nat.param(type=1)`` is highly sensitive inside the zero-eigenvalue
+    # null block used by ``bs="fs"``. ``numpy.linalg.qr/eigh`` tracks the R
+    # implementation more closely here than SciPy's alternative LAPACK drivers.
+    Q, R = np.linalg.qr(X, mode="reduced")
     if np.linalg.matrix_rank(R) < R.shape[1]:
         raise ValueError("Model matrix is not full rank in natural-parameter construction.")
 
-    # Use explicit forward/back substitution to replicate R's tie-breaking
-    # behavior inside zero-eigenvalue blocks (critical for fs/sz parity).
-    tmp = _forwardsolve_lower(R.T, S.T)
-    RSR = _forwardsolve_lower(R.T, tmp.T)
+    tmp = solve_triangular(R.T, S.T, lower=True, check_finite=False)
+    RSR = solve_triangular(R.T, tmp.T, lower=True, check_finite=False)
     RSR = 0.5 * (RSR + RSR.T)
 
-    evals, U = scipy_eigh(RSR, driver="evr")
+    evals, U = np.linalg.eigh(RSR)
     idx = np.argsort(evals)[::-1]
     evals = evals[idx]
     U = U[:, idx]
@@ -354,7 +355,7 @@ def nat_param_type1(X, S, rank=None, tol=None, unit_fnorm=True):
 
     D = evals[:rank].copy()
     Xn = Q @ U
-    P = _backsolve_upper(R, U)
+    P = solve_triangular(R, U, lower=False, check_finite=False)
 
     total_cols = Xn.shape[1]
     E = np.ones(total_cols, dtype=np.float64)

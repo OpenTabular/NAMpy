@@ -276,12 +276,18 @@ def apply_global_side_conditions(
 
         constructor_meta = dict(tb.metadata.get("constructor_metadata", {}) or {})
         runtime_absorbed = bool(constructor_meta.get("constraints_absorbed_by_runtime", False))
+        runtime_by_name = constructor_meta.get("runtime_by_name", None)
+        runtime_by_is_constant = constructor_meta.get("runtime_by_is_constant", None)
         absorbed_centering = False
 
         # Step (a): optionally absorb a sum-to-zero centering constraint.
         if (
             fit_intercept
             and not runtime_absorbed
+            and (
+                runtime_by_name is None
+                or bool(runtime_by_is_constant)
+            )
             and tb.term_type not in {"tensor_interaction", "tensor_anova"}
         ):
             centering = np.sum(B, axis=0, keepdims=True)
@@ -297,7 +303,16 @@ def apply_global_side_conditions(
                     absorbed_centering = True
 
         # Step (b): drop columns linearly dependent on the accumulator.
-        if pen_matrices:
+        if runtime_by_name is not None and not bool(runtime_by_is_constant):
+            # Ordinary non-constant numeric by-variable smooths should keep their
+            # raw term basis for the first occurrence, but later terms still need
+            # ordinary cross-term redundancy removal against the accumulated
+            # design to match mgcv's side-condition allocation.
+            if acc.shape[1] <= int(bool(fit_intercept)):
+                keep = np.arange(d, dtype=int)
+            else:
+                keep = np.asarray(independent_column_indices(B, A=acc, tol=tol), dtype=int)
+        elif pen_matrices:
             B_dep = _augment_term_matrix(
                 B,
                 pen_matrices,

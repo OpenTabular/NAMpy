@@ -135,7 +135,9 @@ def _build_base_smooth_term(
 
     if base_bs == "ps":
         ps_m = None if xt_rest is None else xt_rest.get("m", None)
-        ps_k = k  # xt$k is ignored by mgcv; only the outer k governs basis dimension
+        # For fs/sz, mgcv keeps the outer basis dimension and uses xt mainly to
+        # choose the base smoother family / order parameters.
+        ps_k = k
         return PSplineTerm1D(
             feature=metric_features[0],
             k=ps_k,
@@ -523,10 +525,20 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             return self
 
         S0 = np.asarray(base_term.penalties[0], dtype=np.float64)
+        base_rank = int(getattr(base_term, "rank", 0) or 0)
+        if base_rank <= 0:
+            evals = np.linalg.eigvalsh(0.5 * (S0 + S0.T))
+            tol = (np.max(evals) if evals.size else 0.0) * (np.finfo(np.float64).eps ** 0.8)
+            base_rank = int(np.sum(evals > tol))
 
         # mgcv uses nat.param(X, S, rank, type=1): eigendecompose R^{-T} S R^{-1}
         # (R from QR of X) and normalise the range space to an identity penalty.
-        rp = nat_param_type1(B0, S0, rank=None, unit_fnorm=True)
+        rp = nat_param_type1(
+            B0,
+            S0,
+            rank=base_rank,
+            unit_fnorm=True,
+        )
         X_reparam = rp["X"]       # (n, p0) reparameterised basis
         P_coef    = rp["P"]       # (p0, p0) transform: B0 @ P_coef = X_reparam
         r         = rp["rank"]    # penalty rank

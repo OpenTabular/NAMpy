@@ -22,6 +22,11 @@ from ..smoothing_selection.criteria import (
 )
 
 
+def _intercept_offset(model) -> int:
+    """Return 1 if model was fit with an intercept column in X, else 0."""
+    return 1 if bool(getattr(model, "fit_intercept", False)) else 0
+
+
 def _coerce_snapshot_arrays(snapshot):
     out = dict(snapshot)
     fit = dict(out.get("fit", {}))
@@ -42,7 +47,7 @@ def _coerce_snapshot_arrays(snapshot):
         if key in fit and fit[key] is not None:
             fit[key] = np.asarray(fit[key], dtype=np.float64)
 
-    for key in ("response", "link", "terms", "lpmatrix"):
+    for key in ("response", "link", "terms", "lpmatrix", "se_response", "se_link"):
         if key in preds and preds[key] is not None:
             preds[key] = np.asarray(preds[key], dtype=np.float64)
 
@@ -221,10 +226,14 @@ def _build_parity_criterion_view(core, fit_dict):
     branch_method = "REML" if str(criterion_name).lower() in {"reml", "laml"} else "ML"
     backend = resolve_ml_reml_scoring_backend(core, method=str(criterion_name).lower())
     view["criterion_backend"] = backend
+    score_joint = getattr(core, "smoothing_score_", None)
+    if score_joint is not None and np.isfinite(float(score_joint)):
+        view["recomputed_criterion_value"] = float(score_joint)
+        view["recomputed_criterion_source"] = "smoothing_score"
+        return view
 
     joint_s2 = getattr(core, "_gaussian_reml_sigma2_opt_", None)
     if joint_s2 is not None and np.isfinite(float(joint_s2)):
-        score_joint = getattr(core, "smoothing_score_", None)
         candidate = (
             float(score_joint)
             if score_joint is not None and np.isfinite(float(score_joint))
@@ -248,7 +257,7 @@ def _build_parity_criterion_view(core, fit_dict):
             except Exception:
                 candidate = None
                 source = None
-    elif backend in {"gaussian_dynamic", "pirls_laplace_dynamic"}:
+    elif backend in {"gaussian_exact", "gaussian_dynamic", "pirls_laplace_dynamic"}:
         candidate = float(criterion_ml_reml(core, core.y_, log_free, method=branch_method))
         source = "criterion_ml_reml"
     else:
@@ -280,11 +289,15 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
         link = core.predict(X=None, type="link")
         terms = core.predict(X=None, type="terms")
         lpmatrix = core.lpmatrix(core.X_)
+        _, se_response = core.predict(X=None, type="response", return_se=True)
+        _, se_link = core.predict(X=None, type="link", return_se=True)
     else:
         response = predict_api.predict(X=X, type="response")
         link = predict_api.predict(X=X, type="link")
         terms = predict_api.predict(X=X, type="terms")
         lpmatrix = predict_api.lpmatrix(X)
+        _, se_response = predict_api.predict(X=X, type="response", return_se=True)
+        _, se_link = predict_api.predict(X=X, type="link", return_se=True)
 
     diagnostics = {}
 
@@ -299,21 +312,24 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
             edf1_vec = 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
         except Exception:
             edf1_vec = None
+        x_off = _intercept_offset(core)
         for tb in getattr(core, "term_blocks_", ()) or ():
             if str(getattr(tb, "term_type", "")) == "parametric":
                 continue
             sl = tb.coef_slice
+            # sl indexes coef_ (no intercept); Vp_, Vf_, H include the intercept column
+            x_sl = slice(sl.start + x_off, sl.stop + x_off)
             smooth_labels.append(_normalize_mgcv_term_label(tb.label))
             if getattr(core, "Vp_", None) is not None:
                 smooth_cov_bayes.append(
-                    np.asarray(core.Vp_[sl, sl], dtype=np.float64)
+                    np.asarray(core.Vp_[x_sl, x_sl], dtype=np.float64)
                 )
             if getattr(core, "Vf_", None) is not None:
                 smooth_cov_freq.append(
-                    np.asarray(core.Vf_[sl, sl], dtype=np.float64)
+                    np.asarray(core.Vf_[x_sl, x_sl], dtype=np.float64)
                 )
             if edf1_vec is not None:
-                smooth_edf1_vals.append(float(np.sum(edf1_vec[sl])))
+                smooth_edf1_vals.append(float(np.sum(edf1_vec[x_sl])))
 
     diagnostics["smooth_cov_bayes"] = (
         None
@@ -345,9 +361,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
         if R_full is None:
             W_full = np.asarray(core.fit_state_.working_weights, dtype=np.float64)
             weighted_X = np.sqrt(np.clip(W_full, 0.0, None))[:, None] * X_full
-            _, R_piv, pivot = qr(weighted_X, mode="economic", pivoting=True)
-            R_full = np.zeros_like(R_piv)
-            R_full[:, np.asarray(pivot, dtype=np.intp)] = R_piv
+            _, R_full = qr(weighted_X, mode="economic")
         diagnostics["smooth_test_inputs"] = {
             "labels": list(smooth_labels),
             "coef_blocks": [
@@ -359,7 +373,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
                 np.asarray(
                     R_full[
                         :,
-                        int(tb.coef_slice.start) : int(tb.coef_slice.stop),
+                        int(tb.coef_slice.start) + _intercept_offset(core) : int(tb.coef_slice.stop) + _intercept_offset(core),
                     ],
                     dtype=np.float64,
                 ).tolist()
@@ -524,6 +538,8 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
             "link": np.asarray(link, dtype=np.float64).tolist(),
             "terms": np.asarray(terms, dtype=np.float64).tolist(),
             "lpmatrix": np.asarray(lpmatrix, dtype=np.float64).tolist(),
+            "se_response": np.asarray(se_response, dtype=np.float64).tolist(),
+            "se_link": np.asarray(se_link, dtype=np.float64).tolist(),
         },
         "parity": {
             "criterion_view": parity_view,

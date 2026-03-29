@@ -6,6 +6,7 @@ from mgcv_parity_utils import (
     _make_binomial_data,
     _fit_nampy_model_fixed_sp,
     _make_gamma_data,
+    _make_negbin_data,
     _make_poisson_data,
     _run_mgcv_snapshot,
 )
@@ -25,6 +26,8 @@ pytestmark = pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not availab
         ("poisson", lambda: _make_poisson_data(seed=53, n=220), 'y ~ te(x0, x1, bs=["cr", "cr"], k=[6, 6])'),
         ("poisson", lambda: _make_poisson_data(seed=57, n=220), 'y ~ ti(x0, x1, bs=["cr", "cr"], k=[6, 6])'),
         ("binomial", lambda: _make_binomial_data(seed=67, n=220), 'y ~ te(x0, x1, bs=["cr", "cr"], k=[6, 6])'),
+        ({"name": "negbin", "theta": 1.0}, lambda: _make_negbin_data(seed=61, n=240, theta=1.0), 'y ~ te(x0, x1, bs=["cr", "cr"], k=[6, 6])'),
+        ({"name": "negbin", "theta": 1.0}, lambda: _make_negbin_data(seed=63, n=240, theta=1.0), 'y ~ ti(x0, x1, bs=["cr", "cr"], k=[6, 6])'),
     ],
 )
 def test_known_scale_tensor_fixed_sp_reml_derivatives_match_mgcv(family, data_factory, formula):
@@ -66,6 +69,7 @@ def test_known_scale_tensor_fixed_sp_reml_derivatives_match_mgcv(family, data_fa
         ("poisson", _make_poisson_data(seed=71, n=220), 'y ~ t2(x0, x1, bs=["cr", "cr"], k=[6, 6])'),
         ("binomial", _make_binomial_data(seed=73, n=220), 'y ~ t2(x0, x1, bs=["cr", "cr"], k=[6, 6])'),
         ("gamma", _make_gamma_data(seed=101, n=220), 'y ~ t2(x0, x1, bs=["cr", "cr"], k=[6, 6])'),
+        ({"name": "negbin", "theta": 1.0}, _make_negbin_data(seed=79, n=240, theta=1.0), 'y ~ t2(x0, x1, bs=["cr", "cr"], k=[6, 6])'),
     ],
 )
 def test_t2_fixed_sp_reml_derivatives_match_mgcv_exactly(

@@ -28,6 +28,7 @@ from ..registry import register_smooth
 from ...constraints.absorption import apply_linear_constraint
 from ...penalties import build_null_space_selection_spec, make_penalty_spec
 from ....splines.cubic import CubicSplines
+from ....splines.penalty_scaling import scale_penalty
 from ....splines.univariate_bases import (
     add_full_rank_shrinkage,
     cyclic_cubic_bd,
@@ -311,19 +312,17 @@ class SplineTerm1D(BaseSmoothTerm):
             self._record_constraint_result("pc", C, absorbed_by="runtime")
             return self
 
+        S_raw = D.T @ BD
+        main_penalty = scale_penalty(base, 0.5 * (S_raw + S_raw.T))
+        penalties_in = [] if self.fixed else [main_penalty]
+        mean_row = base.mean(axis=0)
+        Bc, Sc, C = apply_linear_constraint(base, penalties_in, mean_row)
         if self._by_state.is_present:
-            base = base * self._by_state.values[:, None]
-
-        self._basis_train = np.asarray(base, dtype=np.float64)
-
-        if self.fixed:
-            self._penalties = []
-        else:
-            S = D.T @ BD
-            self._penalties = [0.5 * (S + S.T)]
-
+            Bc = Bc * self._by_state.values[:, None]
+        self._basis_train = np.asarray(Bc, dtype=np.float64)
+        self._penalties = Sc
         self._use_centered_basis = False
-        self._record_constraint_result(None, None, absorbed_by=None)
+        self._record_constraint_result("centering", C, absorbed_by="runtime")
         return self
 
     def get_penalty_definitions(self):

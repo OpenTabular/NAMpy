@@ -67,6 +67,13 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
     if type == "response":
         return y - mu
     if type == "working":
+        fit_state = getattr(model, "fit_state_", None)
+        z_work = None if fit_state is None else getattr(fit_state, "working_response", None)
+        if z_work is not None:
+            z_work = np.asarray(z_work, dtype=np.float64).ravel()
+            offset = getattr(fit_state, "offset", None)
+            eta_base = eta if offset is None else eta - np.asarray(offset, dtype=np.float64).ravel()
+            return z_work - eta_base
         mu_eta = np.asarray(model.family.mu_eta(eta), dtype=np.float64)
         return (y - mu) / np.clip(mu_eta, 1e-300, None)
     if type == "deviance":

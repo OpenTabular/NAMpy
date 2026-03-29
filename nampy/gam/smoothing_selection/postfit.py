@@ -44,7 +44,7 @@ def sp_vcov(model, edge_correct: bool = True, reg: float = 1e-3):
         raise ValueError("Smoothing Hessian must be square.")
     if H.shape[0] == 0:
         return np.empty((0, 0), dtype=np.float64)
-    return np.linalg.inv(H + float(reg))
+    return np.linalg.solve(H + float(reg), np.eye(H.shape[0], dtype=np.float64))
 
 
 def gam_vcomp(model, *, rescale: bool = False, conf_lev: float = 0.95):

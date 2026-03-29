@@ -340,7 +340,11 @@ class BaseSmoothTerm(abc.ABC):
         self.constraint_kind = kind
         self.constraint_transform = transform
         self.constraints_absorbed_by = absorbed_by
-        self.constraints_absorbed = bool(transform is not None)
+        # Mark as absorbed if an explicit transform was applied OR if absorbed_by
+        # signals that the runtime handled identifiability without a transform
+        # (e.g. numeric by-variable smooths that keep the raw basis but must prevent
+        # stage-5 from applying its own sum-to-zero centering pass).
+        self.constraints_absorbed = bool(transform is not None) or (absorbed_by is not None)
         if transform is None:
             self.n_constraints_absorbed = 0
         else:

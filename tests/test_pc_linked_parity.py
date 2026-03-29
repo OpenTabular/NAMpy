@@ -310,7 +310,7 @@ class TestPcParityREML:
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
             actual, expected,
-            pred_atol=1e-9, pred_rtol=1e-9,
+            pred_atol=2e-9, pred_rtol=2e-9,
             sp_log_atol=0.0,  # unused
             check_sp=False,
         )

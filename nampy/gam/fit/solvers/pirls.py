@@ -24,6 +24,8 @@ def solve_pirls_gam(
     max_step_halving=25,
     offset=None,
     coef_start=None,
+    etastart=None,
+    mustart=None,
 ):
     return fit_pirls_core(
         Z=Z,
@@ -37,6 +39,8 @@ def solve_pirls_gam(
         max_step_halving=max_step_halving,
         offset=offset,
         coef_start=coef_start,
+        etastart=etastart,
+        mustart=mustart,
     )
 
 
@@ -63,6 +67,22 @@ def solve_pirls_fit(model, y, smoothing_params):
         if coef_start.shape != (int(model.Z.shape[1] + (1 if model.fit_intercept else 0)),):
             coef_start = None
 
+    etastart = getattr(model, "_pirls_eval_eta_start_", None)
+    if etastart is None:
+        etastart = getattr(model, "_pirls_eta_start_", None)
+    if etastart is not None:
+        etastart = np.asarray(etastart, dtype=np.float64).ravel()
+        if etastart.shape != (int(model.n_samples_),):
+            etastart = None
+
+    mustart = getattr(model, "_pirls_eval_mu_start_", None)
+    if mustart is None:
+        mustart = getattr(model, "_pirls_mu_start_", None)
+    if mustart is not None:
+        mustart = np.asarray(mustart, dtype=np.float64).ravel()
+        if mustart.shape != (int(model.n_samples_),):
+            mustart = None
+
     family = model.family
     estimate_theta = bool(getattr(family, "estimate_theta", False))
     theta_outer_max = int(getattr(model, "theta_outer_max_iter", 25))
@@ -85,6 +105,8 @@ def solve_pirls_fit(model, y, smoothing_params):
             max_step_halving=int(getattr(model, "max_step_halving", 25)),
             offset=model.offset_train_,
             coef_start=coef_start,
+            etastart=etastart,
+            mustart=mustart,
         )
 
         if not estimate_theta:
@@ -100,6 +122,10 @@ def solve_pirls_fit(model, y, smoothing_params):
 
     coef_out = np.asarray(sol["coef_full"], dtype=np.float64).copy()
     model._pirls_last_coef_ = coef_out
+    model._pirls_last_eta_ = np.asarray(sol["eta"], dtype=np.float64).copy()
+    model._pirls_last_mu_ = np.asarray(sol["mu"], dtype=np.float64).copy()
     if not bool(getattr(model, "_pirls_lock_start_", False)):
         model._pirls_coef_start_ = coef_out.copy()
+        model._pirls_eta_start_ = np.asarray(sol["eta"], dtype=np.float64).copy()
+        model._pirls_mu_start_ = np.asarray(sol["mu"], dtype=np.float64).copy()
     return FitCoreSolution.from_dict(sol)

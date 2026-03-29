@@ -942,4 +942,15 @@ def gaussian_design_needs_stacked_qr_fit(model) -> bool:
     for tb in getattr(model, "term_blocks_", None) or []:
         if str(getattr(tb, "term_type", "")).lower() == "random_effect":
             return True
-    return False
+    Z = getattr(model, "Z", None)
+    if Z is None:
+        return False
+    from ..penalized_system import build_full_design
+
+    X = np.asarray(
+        build_full_design(Z, fit_intercept=bool(getattr(model, "fit_intercept", False))),
+        dtype=np.float64,
+    )
+    if X.ndim != 2 or X.shape[1] == 0:
+        return False
+    return np.linalg.matrix_rank(X) < X.shape[1]

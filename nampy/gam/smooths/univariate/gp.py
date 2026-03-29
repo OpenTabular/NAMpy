@@ -27,6 +27,7 @@ from ...constraints.absorption import (
 )
 from ...design.structures import PenaltySpec
 from ...penalties.algebra import null_space_penalty_from_penalty
+from ....splines.penalty_scaling import scale_penalty
 from ....splines.gaussian_process import build_gp_term_setup, predict_gp_term
 
 
@@ -128,7 +129,10 @@ class GPSmoothTerm(BaseSmoothTerm):
         )
 
         base = np.asarray(self._setup.basis_train, dtype=np.float64)
-        pen = np.asarray(self._setup.penalty, dtype=np.float64)
+        pen = scale_penalty(
+            base,
+            np.asarray(self._setup.penalty, dtype=np.float64),
+        )
 
         if self.pc is not None:
             if len(self._feature_indices) > 1:
