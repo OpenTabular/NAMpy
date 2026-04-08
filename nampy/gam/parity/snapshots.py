@@ -16,10 +16,12 @@ from scipy.linalg import qr
 
 from ..smoothing_selection.criteria import (
     criterion_ml_reml,
+    criterion_ml_reml_gaussian_exact_joint,
     criterion_ml_reml_gaussian_dynamic_joint,
     criterion_ml_reml_pirls,
     resolve_ml_reml_scoring_backend,
 )
+from ..smoothing_selection.postfit import optimizer_endpoint_diagnostics
 
 
 def _intercept_offset(model) -> int:
@@ -57,6 +59,23 @@ def _coerce_snapshot_arrays(snapshot):
         )
     if diagnostics.get("sp_vcov", None) is not None:
         diagnostics["sp_vcov"] = np.asarray(diagnostics["sp_vcov"], dtype=np.float64)
+    endpoint_block = diagnostics.get("optimizer_endpoint", None)
+    if endpoint_block is not None:
+        endpoint_block = dict(endpoint_block)
+        for key in (
+            "log_smoothing_params",
+            "bounds",
+            "gradient",
+            "projected_gradient",
+            "hessian",
+            "hessian_eigenvalues",
+            "at_lower_bound",
+            "at_upper_bound",
+        ):
+            vals = endpoint_block.get(key, None)
+            if vals is not None:
+                endpoint_block[key] = np.asarray(vals, dtype=np.float64)
+        diagnostics["optimizer_endpoint"] = endpoint_block
     if diagnostics.get("one_se_rule", None) is not None:
         diagnostics["one_se_rule"] = np.asarray(
             diagnostics["one_se_rule"], dtype=np.float64
@@ -207,6 +226,9 @@ def _build_parity_criterion_view(core, fit_dict):
         "recomputed_criterion_value": None,
         "recomputed_criterion_source": None,
         "criterion_backend": None,
+        "profiled_criterion_value": None,
+        "joint_criterion_value": None,
+        "joint_log_sigma2": None,
     }
 
     if (
@@ -227,12 +249,47 @@ def _build_parity_criterion_view(core, fit_dict):
     backend = resolve_ml_reml_scoring_backend(core, method=str(criterion_name).lower())
     view["criterion_backend"] = backend
     score_joint = getattr(core, "smoothing_score_", None)
+    joint_s2 = getattr(core, "_gaussian_reml_sigma2_opt_", None)
+    if joint_s2 is not None and np.isfinite(float(joint_s2)):
+        view["joint_log_sigma2"] = float(np.log(max(float(joint_s2), 1e-300)))
+    if backend in {"gaussian_exact", "gaussian_dynamic"} and log_free.size > 0:
+        try:
+            view["profiled_criterion_value"] = float(
+                criterion_ml_reml(core, core.y_, log_free, method=branch_method)
+            )
+        except Exception:
+            view["profiled_criterion_value"] = None
+    if backend == "gaussian_exact" and log_free.size > 0 and joint_s2 is not None:
+        try:
+            view["joint_criterion_value"] = float(
+                criterion_ml_reml_gaussian_exact_joint(
+                    core,
+                    core.y_,
+                    log_free,
+                    float(np.log(max(float(joint_s2), 1e-300))),
+                    method="LAML" if str(criterion_name).lower() == "laml" else branch_method,
+                )
+            )
+        except Exception:
+            view["joint_criterion_value"] = None
+    elif backend == "gaussian_dynamic" and log_free.size > 0 and joint_s2 is not None:
+        try:
+            view["joint_criterion_value"] = float(
+                criterion_ml_reml_gaussian_dynamic_joint(
+                    core,
+                    core.y_,
+                    log_free,
+                    float(np.log(max(float(joint_s2), 1e-300))),
+                    method="LAML" if str(criterion_name).lower() == "laml" else branch_method,
+                )
+            )
+        except Exception:
+            view["joint_criterion_value"] = None
     if score_joint is not None and np.isfinite(float(score_joint)):
         view["recomputed_criterion_value"] = float(score_joint)
         view["recomputed_criterion_source"] = "smoothing_score"
         return view
 
-    joint_s2 = getattr(core, "_gaussian_reml_sigma2_opt_", None)
     if joint_s2 is not None and np.isfinite(float(joint_s2)):
         candidate = (
             float(score_joint)
@@ -450,6 +507,12 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
         )
     except Exception:
         diagnostics["sp_vcov"] = None
+
+    try:
+        endpoint_diag = optimizer_endpoint_diagnostics(core)
+        diagnostics["optimizer_endpoint"] = endpoint_diag
+    except Exception:
+        diagnostics["optimizer_endpoint"] = None
 
     try:
         vc = predict_api.gam_vcomp(rescale=False)

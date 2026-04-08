@@ -331,9 +331,9 @@ def nat_param_type1(X, S, rank=None, tol=None, unit_fnorm=True):
     S = np.asarray(S, dtype=np.float64)
     tol = np.finfo(float).eps ** 0.8 if tol is None else float(tol)
 
-    # ``mgcv::nat.param(type=1)`` is highly sensitive inside the zero-eigenvalue
-    # null block used by ``bs="fs"``. ``numpy.linalg.qr/eigh`` tracks the R
-    # implementation more closely here than SciPy's alternative LAPACK drivers.
+    # ``mgcv::nat.param(type=1)`` is highly sensitive inside the near-degenerate
+    # null block used by ``bs="fs"``.  Matching R's ``eigen()`` ordering/stability
+    # for this block requires SciPy's MRRR driver here.
     Q, R = np.linalg.qr(X, mode="reduced")
     if np.linalg.matrix_rank(R) < R.shape[1]:
         raise ValueError("Model matrix is not full rank in natural-parameter construction.")
@@ -342,7 +342,7 @@ def nat_param_type1(X, S, rank=None, tol=None, unit_fnorm=True):
     RSR = solve_triangular(R.T, tmp.T, lower=True, check_finite=False)
     RSR = 0.5 * (RSR + RSR.T)
 
-    evals, U = np.linalg.eigh(RSR)
+    evals, U = scipy_eigh(RSR, driver="evr")
     idx = np.argsort(evals)[::-1]
     evals = evals[idx]
     U = U[:, idx]

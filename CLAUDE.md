@@ -8,8 +8,8 @@ to activate the appropriate conda environment.
 
 Run a single test file:
 ```bash
-pytest tests/test_gam_mgcv_parity.py -v
-pytest tests/test_gam_mgcv_parity.py::test_name -v
+pytest tests/test_mgcv_snapshot_parity.py -v
+pytest tests/test_mgcv_snapshot_parity.py::test_name -v
 ```
 
 ## Architecture
@@ -56,12 +56,15 @@ A Python reimplementation of R's `mgcv`. **`nampy/gam/ARCHITECTURE.md` is the ca
 
 ## Testing
 
-`tests/` contains both unit and parity tests:
-- `test_gam_mgcv_parity.py` — numeric parity vs. R's mgcv (largest file, ~69 KB)
-- `test_nam_comprehensive.py` — NAM model regression/classification/LSS
-- `test_gam_phase0_characterization.py` — baseline behavior lock-in tests
-- `test_gam_runtime_term_contract.py` — enforces the runtime term interface contract
-- `mgcv_parity_utils.py`, `gam_phase0_utils.py` — shared test helpers
+`tests/` default collection is now mgcv parity-only:
+- `test_mgcv_snapshot_parity.py` — broad numeric parity vs. R's mgcv
+- `test_mgcv_output_parity.py` — predictions and model-comparison outputs
+- `test_mgcv_trace_parity.py` — smoothing optimizer trace parity
+- `test_mgcv_pc_id_parity.py` — `pc=` and linked-`id=` parity
+- `test_mgcv_known_gaps.py` — tracked strict parity mismatches
+- `mgcv_parity_utils.py`, `mgcv_parity_structure_utils.py` — shared test helpers
+
+Legacy characterization / guardrail files remain in `tests/legacy_mgcv_*.py` but are not part of default collection.
 
 Parity snapshots compare against R mgcv output; do not break these without understanding the numerical implications.
 

@@ -30,7 +30,9 @@ class DefaultGAMConfig:
 
     # PIRLS controls
     max_irls_iter: int = 100
-    irls_tol: float = 1e-7
+    # Exact mgcv parity for non-Gaussian fixed-sp and outer-loop evaluations
+    # requires a tighter PIRLS stop than the original loose default.
+    irls_tol: float = 1e-11
     max_step_halving: int = 25
 
     # inference / covariance

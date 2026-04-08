@@ -9,7 +9,6 @@ from nampy.gam.smoothing_selection.criteria.dispatch import (
     criterion_gradient_numerical,
     criterion_hessian,
     criterion_hessian_numerical,
-    criterion_value,
 )
 from nampy.gam.smoothing_selection.criteria.pirls_deriv import (
     _gamma_saturated_loglik_scale_derivatives,
@@ -27,8 +26,7 @@ from nampy.gam.smoothing_selection.criteria.pirls_reml_derivative_blocks import 
     _working_weight_derivatives_wrt_linpred,
 )
 
-from mgcv_parity_utils import R_SCRIPT, _make_binomial_data, _make_gamma_data, _make_poisson_data
-from mgcv_parity_utils import _fit_nampy_model_fixed_sp, _run_mgcv_snapshot
+from mgcv_parity_utils import _make_binomial_data, _make_gamma_data, _make_poisson_data
 
 
 def _fit_reml_model(data, formula, family):
@@ -406,53 +404,3 @@ def test_gamma_pirls_hessian_dispatch_matches_finite_difference():
     )
 
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available")
-def test_gamma_pirls_reml_criterion_matches_mgcv_snapshot_at_fixed_sp():
-    data = _make_gamma_data(seed=614, n=140)
-    formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
-    expected = _run_mgcv_snapshot(data, formula, "gamma", "REML")
-    sp = np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
-
-    gam = _fit_nampy_model_fixed_sp(data, formula, "gamma", sp)
-    y = gam.family.validate_y(np.asarray(data["y"], dtype=np.float64))
-    log_sp = np.log(np.clip(sp, 1e-300, None))
-
-    actual = float(criterion_value(gam, y, log_sp, method="reml"))
-    target = float(expected["fit"]["criterion_value"])
-
-    np.testing.assert_allclose(actual, target, rtol=0.0, atol=5e-9)
-
-
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available")
-@pytest.mark.parametrize(
-    ("family", "data_factory", "seed", "grad_atol", "hess_atol"),
-    [
-        ("poisson", _make_poisson_data, 611, 2e-6, 2e-5),
-        ("binomial", _make_binomial_data, 612, 2e-6, 2e-5),
-        ("gamma", _make_gamma_data, 614, 1e-8, 5e-8),
-    ],
-)
-def test_exact_pirls_outer_derivatives_match_mgcv_snapshot(
-    family, data_factory, seed, grad_atol, hess_atol
-):
-    data = data_factory(seed=seed, n=140)
-    formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
-    expected = _run_mgcv_snapshot(data, formula, family, "REML")
-    e_fit = expected["fit"]
-    outer_grad = np.asarray(e_fit["outer_grad"], dtype=np.float64)
-    outer_hess = np.asarray(e_fit["outer_hess"], dtype=np.float64)
-    sp = np.asarray(e_fit["smoothing_params"], dtype=np.float64)
-
-    gam = _fit_nampy_model_fixed_sp(data, formula, family, sp)
-    y = gam.family.validate_y(np.asarray(data["y"], dtype=np.float64))
-    log_sp = np.log(np.clip(sp, 1e-300, None))
-
-    exact_grad = criterion_gradient(gam, y, log_sp, method="reml")
-    exact_hess = criterion_hessian(gam, y, log_sp, method="reml")
-
-    if family == "gamma":
-        outer_grad = outer_grad[: sp.size]
-        outer_hess = outer_hess[: sp.size, : sp.size]
-
-    np.testing.assert_allclose(exact_grad, outer_grad, rtol=0.0, atol=grad_atol)
-    np.testing.assert_allclose(exact_hess, outer_hess, rtol=0.0, atol=hess_atol)

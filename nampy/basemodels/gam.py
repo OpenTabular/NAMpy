@@ -49,7 +49,7 @@ class GAM(BaseModel):
             self.hparams.get("max_irls_iter", getattr(config, "max_irls_iter", 100))
         )
         self.irls_tol = float(
-            self.hparams.get("irls_tol", getattr(config, "irls_tol", 1e-8))
+            self.hparams.get("irls_tol", getattr(config, "irls_tol", 1e-11))
         )
         self.max_step_halving = int(
             self.hparams.get(

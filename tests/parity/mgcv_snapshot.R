@@ -53,9 +53,15 @@ family_param <- if (length(family_parts) >= 2) family_parts[[2]] else NULL
 family_obj <- switch(
   family_key,
   gaussian = gaussian(),
-  binomial = binomial(link = "logit"),
+  binomial = {
+    link <- if (is.null(family_param) || family_param == "") "logit" else family_param
+    binomial(link = link)
+  },
   poisson = poisson(link = "log"),
-  gamma = Gamma(link = "log"),
+  gamma = {
+    link <- if (is.null(family_param) || family_param == "") "log" else family_param
+    Gamma(link = link)
+  },
   negbin = {
     theta <- if (is.null(family_param)) 1.0 else as.numeric(family_param)
     mgcv::nb(theta = theta, link = "log")

@@ -20,7 +20,7 @@ from nampy.gam.smoothing_selection.criteria.penalty import (
     _stable_penalty_logdet,
 )
 
-from test_gam_mgcv_parity import (
+from _mgcv_snapshot_parity_shared import (
     _fit_nampy_model_fixed_sp,
     _make_gaussian_data,
     _make_random_effect_data_noisy,

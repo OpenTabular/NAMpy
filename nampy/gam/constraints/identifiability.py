@@ -462,7 +462,13 @@ def apply_global_side_conditions(
             "absorbed_centering": absorbed_centering,
         })
 
-        if warn and n_deleted > 0:
+        # Suppress the warning for non-constant numeric by-variable terms: the
+        # cross-term column deletion there is expected orthogonalization (matching
+        # mgcv's side-condition allocation), not a surprising constraint application.
+        numeric_by_redundancy = (
+            runtime_by_name is not None and not bool(runtime_by_is_constant)
+        )
+        if warn and n_deleted > 0 and not numeric_by_redundancy:
             col_info = (
                 f" (original indices {deleted_orig.tolist()})"
                 if deleted_orig is not None and deleted_orig.size > 0

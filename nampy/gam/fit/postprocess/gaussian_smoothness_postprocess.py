@@ -43,6 +43,9 @@ from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
     prior_weights_diagonal_from_fit,
     quadratic_form_penalty,
 )
+from nampy.gam.smoothing_selection.criteria.gaussian_dyn import (
+    criterion_ml_reml_gaussian_dynamic_profiled,
+)
 from nampy.gam.smoothing_selection.criteria.laplace import _penalty_derivative_matrices
 from nampy.gam.smoothing_selection.criteria.penalty import (
     _static_penalty_null_dim,
@@ -207,15 +210,14 @@ def gaussian_smoothness_postprocess(
                 reml=(bucket == "REML"),
             )
         if np.isfinite(scale_est) and scale_est > 0.0:
-            reml_score_profiled_scale = gaussian_reml_laplace_score(
-                dev,
-                pen,
-                float(scale_est),
-                ldiff,
-                Mp,
-                w,
-                gamma=gamma_eff,
-                reml=(bucket == "REML"),
+            log_sp = np.log(np.maximum(sp, np.finfo(np.float64).tiny))
+            reml_score_profiled_scale = float(
+                criterion_ml_reml_gaussian_dynamic_profiled(
+                    model,
+                    y,
+                    log_sp,
+                    method=bucket,
+                )
             )
 
     if bucket in {"GCV", "GACV"}:

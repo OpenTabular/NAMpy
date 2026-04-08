@@ -2,11 +2,13 @@
 import warnings
 
 import numpy as np
-from scipy.optimize import OptimizeResult, minimize
+from scipy.optimize import OptimizeResult, minimize, minimize_scalar
 
 from ..criteria import (
     _static_penalty_null_dim,
+    criterion_ml_reml_gaussian_dynamic_joint,
     criterion_gradient_ml_reml_gaussian_dynamic_joint,
+    criterion_ml_reml_gaussian_exact_joint,
     criterion_hessian_ml_reml_pirls_exact,
     resolve_ml_reml_scoring_backend,
 )
@@ -236,19 +238,14 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
         bounds.append((lo, float(model.sp_log_bounds[1])))
 
     model._gaussian_reml_sigma2_opt_ = None
-    # Gaussian REML/LAML uses a joint (log sp, log sigma^2) outer loop. The dynamic
-    # Gaussian backend always uses that geometry. The exact backend matches reference
-    # software for most smooths when profiling sigma^2; MRF-like cases need the same
-    # joint loop on the exact mixed-model path.
+    # Gaussian REML/LAML uses a joint (log sp, log sigma^2) outer loop in mgcv's
+    # reported objective (`gcv.ubre`). Using that same geometry for both exact and
+    # dynamic Gaussian backends removes the last optimizer-level discrepancy in
+    # machine-precision parity cases such as `tp(..., pc=...)`.
     use_joint_gaussian_reml_scale = (
         exact_gaussian
         and method in {"reml", "laml"}
-        and (
-            ml_reml_backend == "gaussian_dynamic"
-            or (
-                ml_reml_backend == "gaussian_exact" and _design_has_mrf_smooth(model)
-            )
-        )
+        and ml_reml_backend in {"gaussian_exact", "gaussian_dynamic"}
     )
 
     if use_joint_gaussian_reml_scale:
@@ -288,18 +285,117 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
         # `gaussian_exact` uses finite-difference gradients in `jac`; omitting `jac`
         # often matches reference software more closely on ill-scaled (log sp, log sigma^2) steps.
         use_jac = str(ml_reml_backend) != "gaussian_exact"
+        joint_options = (
+            {"maxfun": 50000, "ftol": 1e-14, "gtol": 1e-14}
+            if str(ml_reml_backend) == "gaussian_exact"
+            else {"maxfun": 50000, "ftol": 1e-14, "gtol": 1e-13}
+        )
         result_joint = minimize(
             fun=j_obj.fun,
             x0=x_joint0,
             method="L-BFGS-B",
             jac=j_obj.jac if use_jac else None,
             bounds=joint_bounds,
-            options={
-                "maxfun": 25000,
-                "ftol": 1e-11,
-                "gtol": 1e-10,
-            },
+            options=joint_options,
         )
+        if str(ml_reml_backend) == "gaussian_dynamic" and np.isfinite(
+            float(getattr(result_joint, "fun", np.nan))
+        ):
+            joint_polish = minimize(
+                fun=j_obj.fun,
+                x0=np.asarray(result_joint.x, dtype=np.float64),
+                method="L-BFGS-B",
+                jac=j_obj.jac if use_jac else None,
+                bounds=joint_bounds,
+                options={"maxfun": 50000, "ftol": 1e-15, "gtol": 1e-14},
+            )
+            if joint_polish.success or (
+                np.isfinite(float(getattr(joint_polish, "fun", np.nan)))
+                and float(joint_polish.fun) <= float(result_joint.fun)
+            ):
+                result_joint = joint_polish
+        sigma2_bounds = joint_bounds[-1]
+        has_random_effect_term = any(
+            str(getattr(tb, "term_type", "")).lower() == "random_effect"
+            for tb in (getattr(model, "term_blocks_", None) or ())
+        )
+        if str(ml_reml_backend) == "gaussian_dynamic" and has_random_effect_term:
+            x_joint = np.asarray(result_joint.x, dtype=np.float64).ravel()
+            x_sp_cur = np.asarray(x_joint[:-1], dtype=np.float64).ravel()
+            if x_sp_cur.size > 0 and np.any(x_sp_cur < -20.0):
+                x_sp_snap = x_sp_cur.copy()
+                for j, (lo, _hi) in enumerate(bounds):
+                    if x_sp_snap[j] < -20.0:
+                        x_sp_snap[j] = max(float(lo), -64.0)
+
+                def _sigma2_obj_dynamic(log_sigma2_scalar: float):
+                    return float(
+                        criterion_ml_reml_gaussian_dynamic_joint(
+                            model,
+                            y,
+                            x_sp_snap,
+                            float(log_sigma2_scalar),
+                            method=branch_m,
+                        )
+                    )
+
+                sigma2_res = minimize_scalar(
+                    _sigma2_obj_dynamic,
+                    bounds=sigma2_bounds,
+                    method="bounded",
+                    options={"xatol": 1e-10, "maxiter": 200},
+                )
+                if bool(sigma2_res.success) and np.isfinite(float(sigma2_res.fun)):
+                    result_joint.x = np.concatenate(
+                        [x_sp_snap, np.array([float(sigma2_res.x)], dtype=np.float64)]
+                    )
+                    result_joint.fun = float(sigma2_res.fun)
+                    result_joint.success = True
+                    result_joint.message = (
+                        "Snapped Gaussian random-effect smoothing parameter to the lower boundary."
+                    )
+        if str(ml_reml_backend) == "gaussian_exact" and n_free == 1:
+            def _refine_sigma2_for_log_sp(log_sp_scalar: float):
+                def _sigma2_obj(log_sigma2_scalar: float):
+                    return float(
+                        criterion_ml_reml_gaussian_exact_joint(
+                            model,
+                            y,
+                            np.array([float(log_sp_scalar)], dtype=np.float64),
+                            float(log_sigma2_scalar),
+                            method=branch_m,
+                        )
+                    )
+
+                sigma2_res = minimize_scalar(
+                    _sigma2_obj,
+                    bounds=sigma2_bounds,
+                    method="bounded",
+                    options={"xatol": 1e-10, "maxiter": 200},
+                )
+                return float(sigma2_res.fun), float(sigma2_res.x)
+
+            def _outer_obj(log_sp_scalar: float):
+                return _refine_sigma2_for_log_sp(float(log_sp_scalar))[0]
+
+            scalar_res = minimize_scalar(
+                _outer_obj,
+                bounds=bounds[0],
+                method="bounded",
+                options={"xatol": 1e-10, "maxiter": 200},
+            )
+            if bool(scalar_res.success) and np.isfinite(float(scalar_res.fun)):
+                refined_fun, refined_log_s2 = _refine_sigma2_for_log_sp(float(scalar_res.x))
+                if refined_fun <= float(result_joint.fun) + 1e-12:
+                    result_joint.x = np.array(
+                        [float(scalar_res.x), float(refined_log_s2)],
+                        dtype=np.float64,
+                    )
+                    result_joint.fun = float(refined_fun)
+                    result_joint.success = True
+                    result_joint.message = (
+                        "Refined exact Gaussian REML joint optimum with nested scalar search."
+                    )
         joint_dim = int(n_free + 1)
         if (not bool(result_joint.success)) and np.isfinite(
             float(getattr(result_joint, "fun", np.nan))

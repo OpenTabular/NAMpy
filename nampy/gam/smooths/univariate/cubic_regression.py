@@ -172,11 +172,6 @@ class SplineTerm1D(BaseSmoothTerm):
                 pooled_setup = False
 
             if self.pc is not None:
-                if self.constraint_mode == "factor_by":
-                    raise NotImplementedError(
-                        "pc=... is not yet implemented for factor-by replicated smooths."
-                    )
-
                 self._pc_value = _normalize_point_constraint(self.pc, self._feature_name)
                 raw_base = (
                     self._spline.transform_new_raw(xj)
@@ -216,18 +211,22 @@ class SplineTerm1D(BaseSmoothTerm):
                     if pooled_setup
                     else self._spline.raw_basis
                 )
-                base = raw_base * self._by_state.values[:, None]
                 main_penalty = self._main_penalty(raw=True)
 
+                # mgcv centers the raw basis first (shared sum-to-zero over all
+                # observations), then scales by the level indicator.  Applying the
+                # constraint to the indicator-scaled basis produces a different
+                # constraint direction and breaks parity.
                 penalties_in = [] if self.fixed else [main_penalty]
-                mean_row = base.mean(axis=0)
-                Bc, Sc, C = apply_linear_constraint(
-                    base,
+                mean_row = raw_base.mean(axis=0)
+                Bc_raw, Sc, C = apply_linear_constraint(
+                    raw_base,
                     penalties_in,
                     mean_row,
                 )
+                base = Bc_raw * self._by_state.values[:, None]
 
-                self._basis_train = np.asarray(Bc, dtype=np.float64)
+                self._basis_train = np.asarray(base, dtype=np.float64)
                 self._penalties = Sc
                 self._record_constraint_result("factor_by", C, absorbed_by="runtime")
                 self._use_centered_basis = False

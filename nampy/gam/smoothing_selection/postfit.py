@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.stats import norm
 
+from .criteria.dispatch import criterion_gradient, criterion_hessian, criterion_value
 from .criteria.ml_reml import resolve_ml_reml_scoring_backend
 
 
@@ -148,4 +149,154 @@ def one_se_rule(model, candidate_indices: list[int] | None = None) -> np.ndarray
     return sp
 
 
-__all__ = ["sp_vcov", "gam_vcomp", "one_se_rule"]
+def optimizer_endpoint_diagnostics(model, *, conv_tol: float = 1e-6, fd_step: float = 1e-3):
+    if not getattr(model, "_fitted", False):
+        raise RuntimeError("Model is not fitted.")
+
+    method = str(getattr(model, "_optim_method", "") or "").lower()
+    n_sp = int(getattr(model, "n_smoothing_params_", 0) or 0)
+    result = getattr(model, "_optim_result", None)
+    if method in {"", "fixed"} or n_sp == 0:
+        return None
+
+    free_mask = _free_smoothing_mask(model)
+    x = _free_log_smoothing_params(model)
+    n_free = int(x.size)
+    if n_free == 0:
+        return None
+
+    min_sp = (
+        np.zeros(n_sp, dtype=np.float64)
+        if getattr(model, "min_sp_", None) is None
+        else np.asarray(model.min_sp_, dtype=np.float64)
+    )
+    bounds = []
+    for lower_sp in min_sp[free_mask]:
+        if lower_sp > 0:
+            lo = max(float(model.sp_log_bounds[0]), float(np.log(lower_sp)))
+        else:
+            lo = float(model.sp_log_bounds[0])
+        bounds.append((lo, float(model.sp_log_bounds[1])))
+    bounds = np.asarray(bounds, dtype=np.float64)
+
+    grad = None
+    if result is not None and getattr(result, "jac", None) is not None:
+        grad = np.asarray(result.jac, dtype=np.float64).ravel()
+        if grad.shape != x.shape or not np.all(np.isfinite(grad)):
+            grad = None
+    if grad is None:
+        grad = np.asarray(
+            criterion_gradient(model, model.y_, x, method=method), dtype=np.float64
+        ).ravel()
+
+    hess = None
+    if result is not None and getattr(result, "hess", None) is not None:
+        hess = np.asarray(result.hess, dtype=np.float64)
+        if hess.shape != (n_free, n_free) or not np.all(np.isfinite(hess)):
+            hess = None
+    if hess is None:
+        try:
+            hess = np.asarray(
+                criterion_hessian(model, model.y_, x, method=method), dtype=np.float64
+            )
+            if hess.shape != (n_free, n_free) or not np.all(np.isfinite(hess)):
+                hess = None
+        except Exception:
+            hess = None
+
+    score = getattr(model, "smoothing_score_", None)
+    if score is None or not np.isfinite(float(score)):
+        score = float(criterion_value(model, model.y_, x, method=method))
+    else:
+        score = float(score)
+    score_scale = 1.0 + abs(score)
+    tol = float(conv_tol) * score_scale
+
+    lower = bounds[:, 0]
+    upper = bounds[:, 1]
+    at_lower = x <= (lower + 1e-10)
+    at_upper = x >= (upper - 1e-10)
+
+    projected_grad = grad.copy()
+    projected_grad[at_lower] = np.minimum(projected_grad[at_lower], 0.0)
+    projected_grad[at_upper] = np.maximum(projected_grad[at_upper], 0.0)
+
+    eigvals = None
+    shared_curvature = None
+    min_abs_eig = None
+    if hess is not None:
+        hess_sym = 0.5 * (hess + hess.T)
+        eigvals = np.linalg.eigvalsh(hess_sym)
+        min_abs_eig = float(np.min(np.abs(eigvals))) if eigvals.size else 0.0
+        u = np.full(n_free, 1.0 / np.sqrt(n_free), dtype=np.float64)
+        shared_curvature = float(u @ hess_sym @ u)
+    else:
+        u = np.full(n_free, 1.0 / np.sqrt(n_free), dtype=np.float64)
+
+    shared_slope = float(u @ grad)
+    max_down = float(np.min((x - lower) / u)) if n_free > 0 else 0.0
+    max_up = float(np.min((upper - x) / u)) if n_free > 0 else 0.0
+    shared_step = min(float(fd_step), max(0.0, max_down), max(0.0, max_up))
+    shared_fd_slope = None
+    shared_fd_curvature = None
+    if shared_step > 0.0:
+        f0 = score
+        fp = float(criterion_value(model, model.y_, x + shared_step * u, method=method))
+        fm = float(criterion_value(model, model.y_, x - shared_step * u, method=method))
+        shared_fd_slope = float((fp - fm) / (2.0 * shared_step))
+        shared_fd_curvature = float((fp - 2.0 * f0 + fm) / (shared_step * shared_step))
+
+    hess_scale = (
+        float(np.max(np.abs(eigvals))) if eigvals is not None and eigvals.size > 0 else 0.0
+    )
+    flat_ridge_suspected = bool(
+        np.linalg.norm(projected_grad, ord=np.inf) <= max(tol * 5.0, 1e-8)
+        and hess is not None
+        and (
+            (min_abs_eig is not None and min_abs_eig <= max(1e-8, hess_scale * 1e-6))
+            or (
+                shared_curvature is not None
+                and abs(shared_curvature) <= max(1e-8, hess_scale * 1e-6)
+            )
+        )
+    )
+
+    return {
+        "criterion_name": method,
+        "criterion_backend": resolve_ml_reml_scoring_backend(model, method=method),
+        "optimizer_success": None if result is None else bool(getattr(result, "success", False)),
+        "optimizer_message": None if result is None else str(getattr(result, "message", "")),
+        "joint_gaussian_reml_outer": bool(
+            result is not None and getattr(result, "joint_gaussian_reml_outer", False)
+        ),
+        "n_free_smoothing_params": n_free,
+        "log_smoothing_params": x.tolist(),
+        "bounds": bounds.tolist(),
+        "gradient": grad.tolist(),
+        "projected_gradient": projected_grad.tolist(),
+        "gradient_inf_norm": float(np.linalg.norm(grad, ord=np.inf)),
+        "projected_gradient_inf_norm": float(np.linalg.norm(projected_grad, ord=np.inf)),
+        "stationary_by_raw_gradient": bool(np.linalg.norm(grad, ord=np.inf) <= tol),
+        "stationary_by_projected_gradient": bool(
+            np.linalg.norm(projected_grad, ord=np.inf) <= tol
+        ),
+        "boundary_limited": bool(
+            np.any(at_lower | at_upper)
+            and np.linalg.norm(projected_grad, ord=np.inf) <= tol
+            and np.linalg.norm(grad, ord=np.inf) > tol
+        ),
+        "at_lower_bound": at_lower.tolist(),
+        "at_upper_bound": at_upper.tolist(),
+        "hessian": None if hess is None else hess.tolist(),
+        "hessian_eigenvalues": None if eigvals is None else eigvals.tolist(),
+        "min_abs_hessian_eigenvalue": min_abs_eig,
+        "shared_shift_directional_derivative": shared_slope,
+        "shared_shift_curvature": shared_curvature,
+        "shared_shift_fd_step": (None if shared_step <= 0.0 else float(shared_step)),
+        "shared_shift_fd_slope": shared_fd_slope,
+        "shared_shift_fd_curvature": shared_fd_curvature,
+        "flat_ridge_suspected": flat_ridge_suspected,
+    }
+
+
+__all__ = ["sp_vcov", "gam_vcomp", "one_se_rule", "optimizer_endpoint_diagnostics"]

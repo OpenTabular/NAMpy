@@ -12,6 +12,7 @@ from .categorical_utils import (
     factor_indicator_matrix,
 )
 from ...design.structures import PenaltySpec
+from ...penalties import build_null_space_selection_spec
 from ....splines.mrf import nat_param_type1
 from ..base import BaseSmoothTerm, column_as_object
 from ..registry import make_smooth_term
@@ -89,6 +90,7 @@ def _build_base_smooth_term(
     knots,
     xt_rest,
     mode,  # "fs" or "sz"
+    select,
     metadata,
 ):
     """
@@ -124,7 +126,7 @@ def _build_base_smooth_term(
             smoothing_id=None,
             by=None,
             sp=None,
-            select=False,
+            select=bool(select),
             fixed=bool(fixed),
             constraint_mode="never",
             shared_basis_setup=None,
@@ -147,7 +149,7 @@ def _build_base_smooth_term(
             smoothing_id=None,
             by=None,
             sp=None,
-            select=False,
+            select=bool(select),
             fixed=bool(fixed),
             constraint_mode="never",
             pc=None,
@@ -166,7 +168,7 @@ def _build_base_smooth_term(
             smoothing_id=None,
             by=None,
             sp=None,
-            select=False,
+            select=bool(select),
             fixed=bool(fixed),
             constraint_mode="never",
             pc=None,
@@ -186,7 +188,7 @@ def _build_base_smooth_term(
             smoothing_id=None,
             by=None,
             sp=None,
-            select=False,
+            select=bool(select),
             fixed=bool(fixed),
             constraint_mode="never",
             pc=None,
@@ -241,6 +243,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
         smoothing_id=None,
         by=None,
         sp=None,
+        select=False,
         xt=None,
         fixed=False,
         knots=None,
@@ -261,6 +264,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
         self.basis_name = basis_name
         self.term_type = term_type
         self.k = int(k)
+        self.select = bool(select)
         self.xt = xt
         self.fixed = bool(fixed)
         self.knots = knots
@@ -393,6 +397,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
                 knots=self.knots,
                 xt_rest=base_spec.xt_rest,
                 mode=mode,
+                select=self.select,
                 metadata=dict(self.metadata),
             )
             base_term.fit(X, feature_names)
@@ -413,6 +418,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
                 smoothing_id=self.smoothing_id,
                 by=None,
                 sp=self.sp,
+                select=self.select,
                 xt=self.xt,
                 metadata=dict(self.metadata),
             )
@@ -443,6 +449,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         smoothing_id=None,
         by=None,
         sp=None,
+        select=False,
         xt=None,
         fixed=False,
         knots=None,
@@ -463,6 +470,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,
+            select=select,
             xt=xt,
             fixed=fixed,
             knots=knots,
@@ -493,6 +501,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             knots=self.knots,
             xt_rest=base_spec.xt_rest,
             mode="fs",
+            select=False,
             metadata=dict(self.metadata),
         )
         base_term.fit(X, feature_names)
@@ -676,6 +685,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         smoothing_id=None,
         by=None,
         sp=None,
+        select=False,
         xt=None,
         fixed=False,
         knots=None,
@@ -691,6 +701,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,
+            select=select,
             xt=xt,
             fixed=fixed,
             knots=knots,
@@ -717,6 +728,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             knots=self.knots,
             xt_rest=base_spec.xt_rest,
             mode="sz",
+            select=False,
             metadata=dict(self.metadata),
         )
         base_term.fit(X, feature_names)
@@ -884,5 +896,31 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
                     },
                 )
             )
+
+        if self.select and len(self._penalties) > 0:
+            main_penalty = np.sum(np.asarray(self._penalties, dtype=np.float64), axis=0)
+            select_sid = (
+                f"{self.smoothing_id}::select"
+                if self.smoothing_id is not None
+                else f"__sz__:{self.label}:select"
+            )
+            sel_spec = build_null_space_selection_spec(
+                main_penalty=main_penalty,
+                smoothing_id=select_sid,
+                metadata={
+                    "term_type": self.term_type,
+                    "basis_name": self.basis_name,
+                    "feature": list(self.feature),
+                    "label": self.label,
+                    "factor_names": list(self._factor_feature_names),
+                    "factor_levels": [list(lev) for lev in self._factor_levels],
+                    "base_basis_name": self._base_term.basis_name if self._base_term is not None else None,
+                    "base_metric_features": list(self._metric_feature_names),
+                    "shared_smoothing_id": self.smoothing_id,
+                    "is_selection_penalty": True,
+                },
+            )
+            if sel_spec is not None:
+                defs.append(sel_spec)
 
         return defs

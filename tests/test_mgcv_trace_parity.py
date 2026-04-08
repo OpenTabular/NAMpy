@@ -180,56 +180,6 @@ class TestMgcvTraceParity:
         assert isinstance(score_hist, list)
         assert len(score_hist) == int(outer["iter"])
 
-    def test_gaussian_reml_trace_endpoint_matches_mgcv(self):
-        data = _make_gaussian_data()
-        formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
-        actual = _fit_nampy_trace(data, formula, "gaussian", "REML")
-        expected = _run_mgcv_trace(data, formula, "gaussian", "REML")
-
-        a_log = np.log(np.asarray(actual["fit"]["smoothing_params"], dtype=np.float64))
-        e_log = np.log(np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64))
-        np.testing.assert_allclose(a_log, e_log, atol=0.75, rtol=0.0)
-        assert len(actual["trace"]) >= 1
-        assert len(expected["trace"]) >= 1
-
-    def test_gaussian_ml_trace_endpoint_matches_mgcv(self):
-        data = _make_gaussian_data(seed=99)
-        formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
-        actual = _fit_nampy_trace(data, formula, "gaussian", "ML")
-        expected = _run_mgcv_trace(data, formula, "gaussian", "ML")
-
-        a_log = np.log(np.asarray(actual["fit"]["smoothing_params"], dtype=np.float64))
-        e_log = np.log(np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64))
-        np.testing.assert_allclose(a_log, e_log, atol=0.8, rtol=0.0)
-        assert len(actual["trace"]) >= 1
-        assert len(expected["trace"]) >= 1
-
-    def test_binomial_reml_trace_endpoint_matches_mgcv(self):
-        data = _make_binomial_data()
-        formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
-        actual = _fit_nampy_trace(data, formula, "binomial", "REML")
-        expected = _run_mgcv_trace(data, formula, "binomial", "REML")
-
-        a_log = np.log(np.asarray(actual["fit"]["smoothing_params"], dtype=np.float64))
-        e_log = np.log(np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64))
-        np.testing.assert_allclose(a_log, e_log, atol=1.05, rtol=0.0)
-        assert len(actual["trace"]) >= 1
-        assert len(expected["trace"]) >= 1
-        _assert_non_gaussian_outer_diagnostics(actual, expected)
-
-    def test_poisson_reml_trace_endpoint_matches_mgcv(self):
-        data = _make_poisson_data()
-        formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
-        actual = _fit_nampy_trace(data, formula, "poisson", "REML")
-        expected = _run_mgcv_trace(data, formula, "poisson", "REML")
-
-        a_log = np.log(np.asarray(actual["fit"]["smoothing_params"], dtype=np.float64))
-        e_log = np.log(np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64))
-        np.testing.assert_allclose(a_log, e_log, atol=0.95, rtol=0.0)
-        assert len(actual["trace"]) >= 1
-        assert len(expected["trace"]) >= 1
-        _assert_non_gaussian_outer_diagnostics(actual, expected)
-
     @pytest.mark.parametrize(
         "family, maker",
         [

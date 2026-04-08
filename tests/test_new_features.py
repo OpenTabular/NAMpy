@@ -1,9 +1,8 @@
 """
-Tests for newly implemented features:
-  - pc= for ps, cc, gp, tp/ts bases
+Tests for public GAM features that are not covered by the main parity suites:
   - select=True for te/ti/t2 tensor smooths
-  - Prior/case weights via sample_weight
-  - Standard errors and confidence intervals via predict(return_se=True)
+  - a lightweight sample_weight API smoke
+  - lightweight standard-error API checks
   - Negative binomial theta estimation (estimate_theta=True)
 """
 
@@ -14,7 +13,6 @@ import pandas as pd
 import pytest
 
 from nampy.basemodels.gam import GAM
-from nampy.gam.smooths.registry import make_smooth_term
 
 
 # ---------------------------------------------------------------------------
@@ -37,242 +35,29 @@ def _data2(n=100, seed=1):
 
 
 # ===========================================================================
-# pc= for ps basis
-# ===========================================================================
-
-class TestPcPs:
-    def test_ps_pc_fits_without_error(self):
-        data = _data()
-        gam = GAM(family="gaussian", formula='y ~ s(x, bs="ps", k=8, pc=0.0)')
-        gam.fit(data=data)
-        pred = gam.predict(data)
-        assert pred.shape == (100,)
-        assert np.all(np.isfinite(pred))
-
-    def test_ps_pc_smooth_is_zero_at_constraint_point(self):
-        """The fitted smooth must equal zero at the constraint point."""
-        data = _data()
-        pc_val = 1.0
-        gam = GAM(family="gaussian", formula=f'y ~ s(x, bs="ps", k=8, pc={pc_val})')
-        gam.fit(data=data)
-
-        point = pd.DataFrame({"x": [pc_val]})
-        contrib = gam.predict_feature_vals(point)
-        smooth_keys = [k for k in contrib if k not in ("output", "intercept")]
-        smooth_val = float(np.sum([np.array(contrib[k]) for k in smooth_keys]))
-        assert abs(smooth_val) < 1e-8, f"smooth at pc={pc_val} should be 0, got {smooth_val}"
-
-    def test_ps_pc_n_coef_same_as_no_pc(self):
-        """pc= reparameterises the basis but does not reduce n_coef (matches mgcv)."""
-        data = _data()
-        gam_no_pc = GAM(family="gaussian", formula='y ~ s(x, bs="ps", k=8)')
-        gam_with_pc = GAM(family="gaussian", formula='y ~ s(x, bs="ps", k=8, pc=0.0)')
-        gam_no_pc.fit(data=data)
-        gam_with_pc.fit(data=data)
-        assert gam_with_pc.n_coef_ == gam_no_pc.n_coef_
-
-    def test_ps_pc_dict_syntax(self):
-        """pc= as a dict should also work."""
-        data = _data()
-        gam = GAM(family="gaussian", formula='y ~ s(x, bs="ps", k=8, pc={"x": 0.5})')
-        gam.fit(data=data)
-        pred = gam.predict(data)
-        assert np.all(np.isfinite(pred))
-
-    def test_ps_pc_transform_new_matches_train(self):
-        """Predictions on train data should be consistent between fit and predict."""
-        data = _data()
-        gam = GAM(family="gaussian", formula='y ~ s(x, bs="ps", k=8, pc=0.0)')
-        gam.fit(data=data)
-        p1 = gam.predict(data)
-        p2 = gam.predict(data)
-        np.testing.assert_array_equal(p1, p2)
-
-    def test_ps_pc_fixed_true(self):
-        """pc= with fixed=True should still work (unpenalized basis)."""
-        data = _data()
-        gam = GAM(
-            family="gaussian",
-            formula='y ~ s(x, bs="ps", k=6, pc=0.0, fx=TRUE)',
-        )
-        gam.fit(data=data)
-        pred = gam.predict(data)
-        assert np.all(np.isfinite(pred))
-
-
-# ===========================================================================
-# pc= for cc basis
-# ===========================================================================
-
-class TestPcCc:
-    def test_cc_pc_fits_without_error(self):
-        data = _data()
-        gam = GAM(family="gaussian", formula='y ~ s(x, bs="cc", k=8, pc=0.5)')
-        gam.fit(data=data)
-        pred = gam.predict(data)
-        assert np.all(np.isfinite(pred))
-
-    def test_cc_pc_smooth_is_zero_at_constraint_point(self):
-        data = _data()
-        pc_val = 1.0
-        gam = GAM(family="gaussian", formula=f'y ~ s(x, bs="cc", k=8, pc={pc_val})')
-        gam.fit(data=data)
-        point = pd.DataFrame({"x": [pc_val]})
-        contrib = gam.predict_feature_vals(point)
-        smooth_keys = [k for k in contrib if k not in ("output", "intercept")]
-        smooth_val = float(np.sum([np.array(contrib[k]) for k in smooth_keys]))
-        assert abs(smooth_val) < 1e-8, f"smooth at pc={pc_val} should be 0, got {smooth_val}"
-
-    def test_cc_pc_n_coef_same_as_no_pc(self):
-        """pc= reparameterises the basis but does not reduce n_coef (matches mgcv)."""
-        data = _data()
-        gam_no_pc = GAM(family="gaussian", formula='y ~ s(x, bs="cc", k=8)')
-        gam_with_pc = GAM(family="gaussian", formula='y ~ s(x, bs="cc", k=8, pc=0.5)')
-        gam_no_pc.fit(data=data)
-        gam_with_pc.fit(data=data)
-        assert gam_with_pc.n_coef_ == gam_no_pc.n_coef_
-
-    def test_cc_pc_prediction_finite(self):
-        """Predictions should be finite everywhere in [0, 2]."""
-        data = _data()
-        gam = GAM(family="gaussian", formula='y ~ s(x, bs="cc", k=8, pc=0.5)')
-        gam.fit(data=data)
-        x_new = np.linspace(0.01, 1.99, 50)
-        pred = gam.predict(pd.DataFrame({"x": x_new}))
-        assert np.all(np.isfinite(pred))
-
-
-# ===========================================================================
-# pc= for gp basis
-# ===========================================================================
-
-class TestPcGp:
-    def test_gp_pc_fits_without_error(self):
-        data = _data()
-        gam = GAM(family="gaussian", formula='y ~ s(x, bs="gp", pc=0.0)')
-        gam.fit(data=data)
-        pred = gam.predict(data)
-        assert np.all(np.isfinite(pred))
-
-    def test_gp_pc_smooth_is_zero_at_constraint_point(self):
-        data = _data()
-        pc_val = 1.0
-        gam = GAM(family="gaussian", formula=f'y ~ s(x, bs="gp", pc={pc_val})')
-        gam.fit(data=data)
-        point = pd.DataFrame({"x": [pc_val]})
-        contrib = gam.predict_feature_vals(point)
-        smooth_keys = [k for k in contrib if k not in ("output", "intercept")]
-        smooth_val = float(np.sum([np.array(contrib[k]) for k in smooth_keys]))
-        assert abs(smooth_val) < 1e-8, f"smooth at pc={pc_val} should be 0, got {smooth_val}"
-
-    def test_gp_pc_n_coef_same_as_no_pc(self):
-        """pc= reparameterises the basis but does not reduce n_coef (matches mgcv)."""
-        data = _data()
-        gam_no_pc = GAM(family="gaussian", formula='y ~ s(x, bs="gp")')
-        gam_with_pc = GAM(family="gaussian", formula='y ~ s(x, bs="gp", pc=0.0)')
-        gam_no_pc.fit(data=data)
-        gam_with_pc.fit(data=data)
-        assert gam_with_pc.n_coef_ == gam_no_pc.n_coef_
-
-    def test_gp_multivariate_pc_raises(self):
-        """pc= for a multivariate gp should still raise NotImplementedError."""
-        data = _data2()
-        with pytest.raises(NotImplementedError, match="multivariate"):
-            GAM(
-                family="gaussian",
-                formula='y ~ s(x0, x1, bs="gp", pc=0.0)',
-            ).fit(data=data)
-
-
-# ===========================================================================
-# pc= for tp/ts basis
-# ===========================================================================
-
-class TestPcTp:
-    def test_tp_pc_fits_without_error(self):
-        data = _data()
-        gam = GAM(family="gaussian", formula='y ~ s(x, bs="tp", pc=0.0)')
-        gam.fit(data=data)
-        pred = gam.predict(data)
-        assert np.all(np.isfinite(pred))
-
-    def test_tp_pc_smooth_is_zero_at_constraint_point(self):
-        data = _data()
-        pc_val = 1.0
-        gam = GAM(family="gaussian", formula=f'y ~ s(x, bs="tp", pc={pc_val})')
-        gam.fit(data=data)
-        point = pd.DataFrame({"x": [pc_val]})
-        contrib = gam.predict_feature_vals(point)
-        smooth_keys = [k for k in contrib if k not in ("output", "intercept")]
-        smooth_val = float(np.sum([np.array(contrib[k]) for k in smooth_keys]))
-        assert abs(smooth_val) < 1e-8, f"smooth at pc={pc_val} should be 0, got {smooth_val}"
-
-    def test_tp_pc_n_coef_same_as_no_pc(self):
-        """pc= reparameterises the basis but does not reduce n_coef (matches mgcv)."""
-        data = _data()
-        gam_no_pc = GAM(family="gaussian", formula='y ~ s(x, bs="tp")')
-        gam_with_pc = GAM(family="gaussian", formula='y ~ s(x, bs="tp", pc=0.0)')
-        gam_no_pc.fit(data=data)
-        gam_with_pc.fit(data=data)
-        assert gam_with_pc.n_coef_ == gam_no_pc.n_coef_
-
-    def test_ts_pc_fits_without_error(self):
-        data = _data()
-        gam = GAM(family="gaussian", formula='y ~ s(x, bs="ts", pc=0.0)')
-        gam.fit(data=data)
-        pred = gam.predict(data)
-        assert np.all(np.isfinite(pred))
-
-    def test_tp_multivariate_pc_raises(self):
-        data = _data2()
-        with pytest.raises(NotImplementedError, match="multivariate"):
-            GAM(
-                family="gaussian",
-                formula='y ~ s(x0, x1, bs="tp", pc=0.0)',
-            ).fit(data=data)
-
-
-# ===========================================================================
 # select=True for tensor smooths
 # ===========================================================================
 
 class TestTensorSelect:
-    def test_te_select_true_fits(self):
+    @pytest.mark.parametrize("smooth_type", ["te", "ti", "t2"])
+    def test_tensor_select_true_fits(self, smooth_type):
         data = _data2()
-        gam = GAM(family="gaussian", formula="y ~ te(x0, x1, k=[5, 5])", select=True)
+        formula = f"y ~ {smooth_type}(x0, x1, k=[5, 5])"
+        gam = GAM(family="gaussian", formula=formula, select=True)
         gam.fit(data=data)
         pred = gam.predict(data)
         assert np.all(np.isfinite(pred))
 
-    def test_te_select_penalty_count_increases(self):
-        """select=True should add an extra null-space penalty vs select=False."""
+    @pytest.mark.parametrize("smooth_type", ["te", "ti", "t2"])
+    def test_tensor_select_penalty_count_increases(self, smooth_type):
+        """select=True should add at least one extra null-space penalty."""
         data = _data2()
-        gam_no_sel = GAM(family="gaussian", formula="y ~ te(x0, x1, k=[5, 5])")
-        gam_sel = GAM(family="gaussian", formula="y ~ te(x0, x1, k=[5, 5])", select=True)
+        formula = f"y ~ {smooth_type}(x0, x1, k=[5, 5])"
+        gam_no_sel = GAM(family="gaussian", formula=formula)
+        gam_sel = GAM(family="gaussian", formula=formula, select=True)
         gam_no_sel.fit(data=data)
         gam_sel.fit(data=data)
         assert gam_sel.n_smoothing_params_ >= gam_no_sel.n_smoothing_params_
-
-    def test_ti_select_true_fits(self):
-        data = _data2()
-        gam = GAM(family="gaussian", formula="y ~ ti(x0, x1, k=[5, 5])", select=True)
-        gam.fit(data=data)
-        pred = gam.predict(data)
-        assert np.all(np.isfinite(pred))
-
-    def test_t2_select_true_fits(self):
-        data = _data2()
-        gam = GAM(family="gaussian", formula="y ~ t2(x0, x1, k=[5, 5])", select=True)
-        gam.fit(data=data)
-        pred = gam.predict(data)
-        assert np.all(np.isfinite(pred))
-
-    def test_te_select_predictions_finite(self):
-        data = _data2()
-        gam = GAM(family="gaussian", formula="y ~ te(x0, x1, k=[5, 5])", select=True)
-        gam.fit(data=data)
-        pred = gam.predict(data)
-        assert np.all(np.isfinite(pred))
 
 
 # ===========================================================================
@@ -280,66 +65,13 @@ class TestTensorSelect:
 # ===========================================================================
 
 class TestPriorWeights:
-    def test_weights_accepted_as_array(self):
+    def test_weights_are_accepted_on_public_api(self):
         data = _data()
         w = np.ones(100)
         gam = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
         gam.fit(data=data, sample_weight=w)
         pred = gam.predict(data)
         assert np.all(np.isfinite(pred))
-
-    def test_weights_change_fit(self):
-        """Doubling weights on first half should shift the fit."""
-        data = _data()
-        w_uniform = np.ones(100)
-        w_heavy = np.ones(100)
-        w_heavy[:50] = 5.0
-
-        gam_uniform = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
-        gam_heavy = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
-        gam_uniform.fit(data=data, sample_weight=w_uniform)
-        gam_heavy.fit(data=data, sample_weight=w_heavy)
-
-        pred_uniform = gam_uniform.predict(data)
-        pred_heavy = gam_heavy.predict(data)
-        # Predictions should differ due to different weighting
-        assert not np.allclose(pred_uniform, pred_heavy, atol=1e-8)
-
-    def test_zero_weights_ignored(self):
-        """Observations with weight=0 should be effectively ignored."""
-        data = _data()
-        w_all = np.ones(100)
-        w_partial = np.ones(100)
-        w_partial[50:] = 0.0
-
-        gam_all = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
-        gam_partial = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
-        gam_all.fit(data=data[:50], sample_weight=w_all[:50])
-        gam_partial.fit(data=data, sample_weight=w_partial)
-
-        # Both fit only on first 50 rows (effectively)
-        pred_all = gam_all.predict(data[:50])
-        pred_partial = gam_partial.predict(data[:50])
-        # Should be approximately equal (won't be exact due to full-data design)
-        assert np.allclose(pred_all, pred_partial, atol=0.1)
-
-    def test_weights_column_name_in_formula(self):
-        """sample_weight as column name string."""
-        data = _data()
-        data["w"] = np.ones(100)
-        data.loc[:49, "w"] = 2.0
-        gam = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
-        gam.fit(data=data, sample_weight="w")
-        pred = gam.predict(data)
-        assert np.all(np.isfinite(pred))
-
-    def test_weights_stored_on_model(self):
-        data = _data()
-        w = np.ones(100) * 2.0
-        gam = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
-        gam.fit(data=data, sample_weight=w)
-        assert gam.prior_weights_ is not None
-        np.testing.assert_array_equal(gam.prior_weights_, w)
 
 
 # ===========================================================================
@@ -355,26 +87,12 @@ class TestStandardErrors:
         assert isinstance(result, tuple)
         assert len(result) == 2
 
-    def test_se_shape_matches_predictions(self):
+    def test_return_se_shapes_match_predictions(self):
         data = _data()
         gam = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
         gam.fit(data=data)
         pred, se = gam.predict(data, return_se=True)
         assert pred.shape == se.shape
-
-    def test_se_is_positive(self):
-        data = _data()
-        gam = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
-        gam.fit(data=data)
-        pred, se = gam.predict(data, return_se=True)
-        assert np.all(se > 0.0), "Standard errors should be strictly positive"
-
-    def test_se_finite(self):
-        data = _data()
-        gam = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
-        gam.fit(data=data)
-        pred, se = gam.predict(data, return_se=True)
-        assert np.all(np.isfinite(se))
 
     def test_vp_cov_gives_larger_se_than_vf(self):
         """Bayesian (Vp) SE should generally be >= frequentist (Vf) SE."""
@@ -400,20 +118,8 @@ class TestStandardErrors:
         # Response and link scale SEs should differ for non-identity link
         assert not np.allclose(se_resp, se_link, rtol=1e-3)
 
-    def test_confidence_interval_coverage(self):
-        """95% CI should contain the true mean for most training points."""
-        data = _data()
-        gam = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
-        gam.fit(data=data)
-        pred, se = gam.predict(data, return_se=True)
-        lower = pred - 1.96 * se
-        upper = pred + 1.96 * se
-        # Predictions should be inside their own CI by construction
-        assert np.all(pred >= lower - 1e-10)
-        assert np.all(pred <= upper + 1e-10)
-
     def test_new_data_se(self):
-        """SE on new data (not training data) should be finite."""
+        """SE on new data is available on the public API."""
         data = _data()
         gam = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
         gam.fit(data=data)

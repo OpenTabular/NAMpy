@@ -16,6 +16,7 @@ import numpy as np
 from ..base import (
     BaseSmoothTerm,
     _normalize_point_constraint,
+    _normalize_point_constraint_vector,
     _resolve_feature,
     columns_as_float_matrix,
     resolve_by_state,
@@ -135,12 +136,13 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
         pen = np.asarray(self._setup.penalty, dtype=np.float64)
 
         if self.pc is not None:
-            if len(self._feature_indices) > 1:
-                raise NotImplementedError(
-                    "pc= for multivariate tp/ts smooths is not yet implemented."
-                )
-            pc_value = _normalize_point_constraint(self.pc, self._feature_names[0])
-            pc_point = np.asarray([[pc_value]], dtype=np.float64)
+            if len(self._feature_indices) == 1:
+                pc_value = _normalize_point_constraint(self.pc, self._feature_names[0])
+                pc_point = np.asarray([[pc_value]], dtype=np.float64)
+            else:
+                pc_point = _normalize_point_constraint_vector(
+                    self.pc, self._feature_names
+                )[None, :]
             pc_basis = predict_tprs_term(pc_point, self._setup)[0]
             penalties_in = [] if self.fixed else [pen]
             Bc, Sc, C = apply_linear_constraint(base, penalties_in, pc_basis)

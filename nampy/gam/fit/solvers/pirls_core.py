@@ -43,6 +43,7 @@ def fit_pirls_core(
     tol=1e-8,
     max_step_halving=25,
     offset=None,
+    weights=None,
     coef_start=None,
     etastart=None,
     mustart=None,
@@ -73,6 +74,9 @@ def fit_pirls_core(
         Maximum number of step halvings per iteration.
     offset
         Fixed additive offset on the link scale, shape ``(n,)``.
+    weights
+        Optional prior observation weights, shape ``(n,)``. These scale the
+        PIRLS working weights and therefore the penalized normal equations.
     coef_start
         Optional warm-start coefficient vector.
 
@@ -86,6 +90,14 @@ def fit_pirls_core(
     y = family.validate_y(y)
     Z = np.asarray(Z, dtype=np.float64)
     offset = coerce_fit_offset(offset, Z.shape[0])
+    if weights is None:
+        weights = np.ones(Z.shape[0], dtype=np.float64)
+    else:
+        weights = np.asarray(weights, dtype=np.float64).ravel()
+    if weights.shape != (Z.shape[0],):
+        raise ValueError("weights must have length nrow(Z).")
+    if np.any(~np.isfinite(weights)) or np.any(weights < 0.0):
+        raise ValueError("weights must be finite and non-negative.")
 
     X = build_full_design(Z, fit_intercept=fit_intercept)
     P_full = build_full_penalty_from_blocks(
@@ -152,7 +164,13 @@ def fit_pirls_core(
         mu = family.inverse_link(eta)
         mu_eta = np.asarray(family.mu_eta(eta), dtype=np.float64)
         var = np.asarray(family.variance(mu), dtype=np.float64)
-        good = np.isfinite(mu_eta) & (mu_eta != 0.0) & np.isfinite(var) & (var > 0.0)
+        good = (
+            (weights > 0.0)
+            & np.isfinite(mu_eta)
+            & (mu_eta != 0.0)
+            & np.isfinite(var)
+            & (var > 0.0)
+        )
         if not np.any(good):
             failed_step = True
             failure_reason = "no_informative_observations"
@@ -165,9 +183,10 @@ def fit_pirls_core(
         mu_g = mu[good]
         eta_g = eta[good]
         X_g = X[good, :]
+        weights_g = weights[good]
         off_g = None if offset is None else offset[good]
 
-        fisher_W = (mu_eta_g**2) / var_g
+        fisher_W = weights_g * (mu_eta_g**2) / var_g
         use_fisher = bool(getattr(family, "canonical_link", False))
         if not use_fisher and hasattr(family, "dvar") and hasattr(family, "d2link"):
             try:
@@ -271,7 +290,13 @@ def fit_pirls_core(
     mu = family.inverse_link(eta)
     mu_eta = np.asarray(family.mu_eta(eta), dtype=np.float64)
     var = np.asarray(family.variance(mu), dtype=np.float64)
-    good = np.isfinite(mu_eta) & (mu_eta != 0.0) & np.isfinite(var) & (var > 0.0)
+    good = (
+        (weights > 0.0)
+        & np.isfinite(mu_eta)
+        & (mu_eta != 0.0)
+        & np.isfinite(var)
+        & (var > 0.0)
+    )
     if not np.any(good):
         raise RuntimeError("No informative observations at PIRLS solution.")
     mu_eta_g = mu_eta[good]
@@ -280,9 +305,10 @@ def fit_pirls_core(
     mu_g = mu[good]
     eta_g = eta[good]
     X_g = X[good, :]
+    weights_g = weights[good]
     off_g = None if offset is None else offset[good]
 
-    fisher_W_g = (mu_eta_g**2) / var_g
+    fisher_W_g = weights_g * (mu_eta_g**2) / var_g
     use_fisher = bool(getattr(family, "canonical_link", False))
     if not use_fisher and hasattr(family, "dvar") and hasattr(family, "d2link"):
         try:

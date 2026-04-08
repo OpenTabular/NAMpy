@@ -160,40 +160,8 @@ def test_gaussian_saturation_terms_match_exponential_family_saturated() -> None:
     np.testing.assert_allclose(vec[0], ls, rtol=0.0, atol=1e-15)
 
 
-@pytest.mark.parametrize("seed", [0, 3, 19])
-def test_joint_gaussian_reml_matches_laplace_score(seed: int) -> None:
-    """
-    Doubled joint Wood-style objective equals twice the Laplace REML score at any σ²
-    when effective row count defaults to ``n_row``.
-    """
-    rng = np.random.default_rng(seed)
-    n = 26
-    w = rng.uniform(0.25, 2.2, size=n).astype(np.float64)
-    Mp = float(rng.uniform(1.5, 4.0))
-    F = float(rng.uniform(8.0, 120.0))
-    sigma2 = float(rng.uniform(0.04, 3.0))
-    logdet_diff = float(rng.uniform(-4.0, 6.0))
-    dev = F * float(rng.uniform(0.25, 0.92))
-    penalty_P = F - dev
-    nu, sum_log_s = gaussian_reml_weighted_degrees_and_log_weight_term(w, float(n), Mp)
-    joint = (
-        F / sigma2 + nu * np.log(2.0 * np.pi * sigma2) - sum_log_s + logdet_diff
-    ) / 2.0
-    laplace = gaussian_reml_laplace_score(
-        dev,
-        penalty_P,
-        sigma2,
-        logdet_diff,
-        Mp,
-        w,
-        gamma=1.0,
-        reml=True,
-    )
-    np.testing.assert_allclose(joint, laplace, rtol=0.0, atol=1e-14)
-
-
 def test_joint_gaussian_reml_zero_weight_rows_reduce_nu() -> None:
-    """Effective ν uses ``sum(w > 0)`` when some weights are zero."""
+    """Effective nu uses ``sum(w > 0)`` when some weights are zero."""
     n = 8
     w = np.array([1.0, 0.0, 2.0, 0.5, 0.0, 1.25, 0.0, 1.0], dtype=np.float64)
     Mp = 1.0

@@ -342,6 +342,18 @@ def build_t2_basis_and_penalties(marginal_decompositions, *, full=False, ord=Non
         if 0 not in ord_keep:
             no_null = True
 
+    if full and len(X2_blocks) > 0 and pen2 is not None:
+        null_idx = [i for i, is_pen in enumerate(pen2) if not bool(is_pen)]
+        if len(null_idx) > 1:
+            pen_idx = [i for i, is_pen in enumerate(pen2) if bool(is_pen)]
+            null_blocks = [X2_blocks[i] for i in null_idx]
+            null_desc = [X2_desc[i] for i in null_idx]
+            X2_blocks = [X2_blocks[i] for i in pen_idx] + [np.column_stack(null_blocks)]
+            X2_desc = [X2_desc[i] for i in pen_idx] + [null_desc]
+            label_list = [label_list[i] for i in pen_idx] + ["n"]
+            order_list = [order_list[i] for i in pen_idx] + [0]
+            pen2 = [True] * len(pen_idx) + [False]
+
     xc_all = [blk.shape[1] for blk in X2_blocks]
     basis_pre = (
         np.column_stack(X2_blocks)
@@ -354,13 +366,13 @@ def build_t2_basis_and_penalties(marginal_decompositions, *, full=False, ord=Non
         pen_labels = label_list[:-1]
         pen_desc = X2_desc[:-1]
         B0_raw = X2_blocks[-1]
-        B0_desc = X2_desc[-1]
+        B0_descs = X2_desc[-1] if full else [X2_desc[-1]]
     else:
         pen_col_counts = xc_all
         pen_labels = label_list
         pen_desc = X2_desc
         B0_raw = None
-        B0_desc = None
+        B0_descs = []
 
     penalties_pre = []
     component_slices_pre = []
@@ -394,8 +406,8 @@ def build_t2_basis_and_penalties(marginal_decompositions, *, full=False, ord=Non
         for meta in block_meta
     ]
     allnull_specs = (
-        [{"combo": tuple(B0_desc), "order": 0, "label": "null"}]
-        if B0_desc is not None
+        [{"combo": tuple(desc), "order": 0, "label": "null"} for desc in B0_descs]
+        if len(B0_descs) > 0
         else []
     )
     allnull_transform = None

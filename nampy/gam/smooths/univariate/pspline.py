@@ -118,11 +118,6 @@ class PSplineTerm1D(BaseSmoothTerm):
         self._by_state = resolve_by_state(self.by, X, feature_names)
         sync_by_state_attributes(self, self._by_state)
 
-        if self.constraint_mode == "factor_by":
-            raise NotImplementedError(
-                "factor-by replicated P-splines are not yet implemented."
-            )
-
         basis_order, penalty_order = self.m
         if basis_order < 0 or penalty_order < 0:
             raise ValueError("For bs='ps', m entries must be >= 0.")
@@ -166,6 +161,20 @@ class PSplineTerm1D(BaseSmoothTerm):
 
         S_raw = pspline_difference_penalty(base.shape[1], penalty_order)
         main_penalty = scale_penalty(base, 0.5 * (S_raw + S_raw.T))
+
+        if self.constraint_mode == "factor_by":
+            if not self._by_state.is_present:
+                raise ValueError(
+                    "constraint_mode='factor_by' requires a numeric indicator `by` column."
+                )
+            penalties_in = [] if self.fixed else [main_penalty]
+            mean_row = base.mean(axis=0)
+            Bc_raw, Sc, C = apply_linear_constraint(base, penalties_in, mean_row)
+            Bc = Bc_raw * self._by_state.values[:, None]
+            self._basis_train = np.asarray(Bc, dtype=np.float64)
+            self._penalties = Sc
+            self._record_constraint_result("factor_by", C, absorbed_by="runtime")
+            return self
 
         if self.constraint_mode == "never":
             if self._by_state.is_present:

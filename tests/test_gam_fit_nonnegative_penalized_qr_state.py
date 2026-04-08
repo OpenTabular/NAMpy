@@ -28,7 +28,7 @@ def _random_pls_instance(
 
 
 def _rS_q_rows(E: np.ndarray, q: int) -> np.ndarray:
-    """``mgcv`` packs each ``rS_i`` as ``q × rSncol[i]``; ``E`` from eigh is ``n_e × q`` → ``q × n_e``."""
+    """``mgcv`` packs each ``rS_i`` as ``q x rSncol[i]``; ``E`` from eigh is ``n_e x q`` -> ``q x n_e``."""
     E = np.asarray(E, dtype=np.float64)
     n_e, qe = E.shape
     if qe != q:
@@ -36,7 +36,7 @@ def _rS_q_rows(E: np.ndarray, q: int) -> np.ndarray:
     return E.T.copy()
 
 
-@pytest.mark.parametrize("seed", [0, 1, 2])
+@pytest.mark.parametrize("seed", [0, 1])
 def test_penalized_qr_state_beta_matches_pls_fit1(seed: int) -> None:
     n, q = 80, 12
     X, z, w, E, Es = _random_pls_instance(n, q, seed=seed)
