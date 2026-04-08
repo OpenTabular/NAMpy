@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from nampy.gam.design.constructors import construct_terms
 from nampy.gam.design.structures import PenaltySpec
 
@@ -62,11 +63,5 @@ def test_construct_terms_validates_predict_coefficient_map_shape():
     runtime = _WrapperConstraintRuntime(
         predict_coefficient_map=np.array([[1.0], [0.0], [0.0]], dtype=np.float64)
     )
-
-    try:
+    with pytest.raises(ValueError, match="Predict coefficient map"):
         construct_terms(runtime, X=X, feature_names=["x0", "x1", "x2"])
-        raised = False
-    except ValueError as exc:
-        raised = True
-        assert "Predict coefficient map" in str(exc)
-    assert raised

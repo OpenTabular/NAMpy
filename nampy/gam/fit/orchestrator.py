@@ -91,11 +91,6 @@ def fit_model_core(
 
     model._compile_designs(X, model.feature_names)
 
-    if model._has_tensor_terms() and model.family.name != "gaussian":
-        raise NotImplementedError(
-            "Tensor-product smooths are enabled only for Gaussian families in this phase."
-        )
-
     if optimize_smoothing is None:
         optimize_smoothing = model.optimize_smoothing
     method = model._resolve_smoothing_method(

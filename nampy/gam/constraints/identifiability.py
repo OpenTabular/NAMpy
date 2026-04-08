@@ -17,10 +17,76 @@ from __future__ import annotations
 import warnings
 
 import numpy as np
+from scipy.linalg import eigh
 
 from ..penalties import normalize_penalty_spec
 from ..design.structures import CompiledPenalty, CompiledPredictor, CompiledTerm, PenaltySpec
 from .transforms import independent_column_indices, null_space_basis_from_constraint_matrix
+
+
+def _penalty_root(S: np.ndarray, tol: float) -> np.ndarray:
+    S = 0.5 * (np.asarray(S, dtype=np.float64) + np.asarray(S, dtype=np.float64).T)
+    if S.size == 0:
+        return np.empty((0, 0), dtype=np.float64)
+    evals, evecs = eigh(S)
+    if evals.size == 0:
+        return np.empty_like(S)
+    scale = np.max(np.abs(evals))
+    tol_eff = max(float(tol), float(scale) * max(S.shape) * np.finfo(float).eps)
+    keep = evals > tol_eff
+    if not np.any(keep):
+        return np.zeros_like(S)
+    root = evecs[:, keep] * np.sqrt(evals[keep])[None, :]
+    return root @ evecs[:, keep].T
+
+
+def _augment_term_matrix(
+    B: np.ndarray,
+    penalties: list[np.ndarray],
+    *,
+    coef_slice: slice,
+    total_coef: int,
+    n_constraint_rows: int = 0,
+    tol: float = 1e-10,
+) -> np.ndarray:
+    """
+    Create a penalty-aware dependence-testing matrix similar to mgcv::augment.smX.
+
+    The top block is the observational design matrix. Penalty square-root rows
+    occupy the term's global coefficient slice so that only null-space overlap
+    remains visible when testing dependence against earlier terms.
+    """
+    B = np.asarray(B, dtype=np.float64)
+    n_obs, d = B.shape
+    Xa = np.zeros((n_obs + total_coef + n_constraint_rows, d), dtype=np.float64)
+    Xa[:n_obs, :] = B
+    if d == 0 or not penalties:
+        return Xa
+
+    nz_first = np.any(np.abs(np.asarray(penalties[0], dtype=np.float64)) > tol, axis=0)
+    if np.any(nz_first):
+        sqrma_x = float(np.mean(np.abs(B[:, nz_first])) ** 2)
+    else:
+        sqrma_x = float(np.mean(np.abs(B)) ** 2) if B.size else 1.0
+    if not np.isfinite(sqrma_x) or sqrma_x <= 0.0:
+        sqrma_x = 1.0
+
+    St = np.zeros((d, d), dtype=np.float64)
+    for S in penalties:
+        S = np.asarray(S, dtype=np.float64)
+        active = np.any(np.abs(S) > tol, axis=0)
+        if not np.any(active):
+            continue
+        denom = float(np.mean(np.abs(S[np.ix_(active, active)])))
+        if not np.isfinite(denom) or denom <= 0.0:
+            continue
+        St = St + (sqrma_x / denom) * S
+
+    if np.any(np.abs(St) > tol):
+        rS = _penalty_root(St, tol=tol)
+        row_slice = slice(n_obs + int(coef_slice.start), n_obs + int(coef_slice.start) + d)
+        Xa[row_slice, :] = rS.T
+    return Xa
 
 
 def apply_global_side_conditions(
@@ -103,6 +169,9 @@ def apply_global_side_conditions(
         if fit_intercept
         else np.empty((n_obs, 0), dtype=np.float64)
     )
+    acc_aug = np.zeros((n_obs + design.n_coef, acc.shape[1]), dtype=np.float64)
+    if acc.shape[1] > 0:
+        acc_aug[:n_obs, :] = acc
 
     new_term_blocks: list[CompiledTerm] = []
     new_penalty_blocks: list[CompiledPenalty] = []
@@ -176,6 +245,9 @@ def apply_global_side_conditions(
                 design_blocks.append(B)
                 # Exempt terms still span the predictor space (invariant 6.6).
                 acc = np.column_stack([acc, B])
+                B_aug = np.zeros((n_obs + design.n_coef, d), dtype=np.float64)
+                B_aug[:n_obs, :] = B
+                acc_aug = np.column_stack([acc_aug, B_aug])
             term_reports.append({
                 "label": tb.label,
                 "exempt": True,
@@ -204,12 +276,18 @@ def apply_global_side_conditions(
 
         constructor_meta = dict(tb.metadata.get("constructor_metadata", {}) or {})
         runtime_absorbed = bool(constructor_meta.get("constraints_absorbed_by_runtime", False))
+        runtime_by_name = constructor_meta.get("runtime_by_name", None)
+        runtime_by_is_constant = constructor_meta.get("runtime_by_is_constant", None)
         absorbed_centering = False
 
         # Step (a): optionally absorb a sum-to-zero centering constraint.
         if (
             fit_intercept
             and not runtime_absorbed
+            and (
+                runtime_by_name is None
+                or bool(runtime_by_is_constant)
+            )
             and tb.term_type not in {"tensor_interaction", "tensor_anova"}
         ):
             centering = np.sum(B, axis=0, keepdims=True)
@@ -225,7 +303,26 @@ def apply_global_side_conditions(
                     absorbed_centering = True
 
         # Step (b): drop columns linearly dependent on the accumulator.
-        keep = np.asarray(independent_column_indices(B, A=acc, tol=tol), dtype=int)
+        if runtime_by_name is not None and not bool(runtime_by_is_constant):
+            # Ordinary non-constant numeric by-variable smooths should keep their
+            # raw term basis for the first occurrence, but later terms still need
+            # ordinary cross-term redundancy removal against the accumulated
+            # design to match mgcv's side-condition allocation.
+            if acc.shape[1] <= int(bool(fit_intercept)):
+                keep = np.arange(d, dtype=int)
+            else:
+                keep = np.asarray(independent_column_indices(B, A=acc, tol=tol), dtype=int)
+        elif pen_matrices:
+            B_dep = _augment_term_matrix(
+                B,
+                pen_matrices,
+                coef_slice=tb.coef_slice,
+                total_coef=design.n_coef,
+                tol=tol,
+            )
+            keep = np.asarray(independent_column_indices(B_dep, A=acc_aug, tol=tol), dtype=int)
+        else:
+            keep = np.asarray(independent_column_indices(B, A=acc, tol=tol), dtype=int)
         deleted_local = np.setdiff1d(np.arange(d, dtype=int), keep)
 
         # C_final is the canonical constructed-space-to-fitted basis transform
@@ -343,6 +440,18 @@ def apply_global_side_conditions(
         if d_final > 0:
             design_blocks.append(B_final)
             acc = np.column_stack([acc, B_final])
+            if pen_matrices:
+                B_aug_final = _augment_term_matrix(
+                    B_final,
+                    [np.asarray(p.matrix, dtype=np.float64) for p in pen_specs_final],
+                    coef_slice=tb.coef_slice,
+                    total_coef=design.n_coef,
+                    tol=tol,
+                )
+            else:
+                B_aug_final = np.zeros((n_obs + design.n_coef, d_final), dtype=np.float64)
+                B_aug_final[:n_obs, :] = B_final
+            acc_aug = np.column_stack([acc_aug, B_aug_final])
 
         term_reports.append({
             "label": tb.label,
@@ -353,7 +462,13 @@ def apply_global_side_conditions(
             "absorbed_centering": absorbed_centering,
         })
 
-        if warn and n_deleted > 0:
+        # Suppress the warning for non-constant numeric by-variable terms: the
+        # cross-term column deletion there is expected orthogonalization (matching
+        # mgcv's side-condition allocation), not a surprising constraint application.
+        numeric_by_redundancy = (
+            runtime_by_name is not None and not bool(runtime_by_is_constant)
+        )
+        if warn and n_deleted > 0 and not numeric_by_redundancy:
             col_info = (
                 f" (original indices {deleted_orig.tolist()})"
                 if deleted_orig is not None and deleted_orig.size > 0

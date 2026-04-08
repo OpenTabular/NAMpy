@@ -26,6 +26,7 @@ from .categorical_utils import (
     factor_indicator_matrix,
 )
 from ...design.structures import PenaltySpec
+from ...penalties import build_null_space_selection_spec
 from ..base import (
     BaseSmoothTerm,
     _resolve_feature,
@@ -95,7 +96,7 @@ class RandomEffectTerm(BaseSmoothTerm):
 
     Important mgcv-compatible behavior
     ----------------------------------
-    - no id support
+    - random effects do not work with linked smoothing ids via ``id=``
     - no centering constraints
     - unseen factor levels at prediction -> zero rows
     """
@@ -111,13 +112,14 @@ class RandomEffectTerm(BaseSmoothTerm):
         smoothing_id=None,
         by=None,
         sp=None,
+        select=False,
         xt=None,
         metadata=None,
     ):
         features = list(feature) if not isinstance(feature, (str, int)) else [feature]
 
         if smoothing_id is not None:
-            raise NotImplementedError("mgcv-style bs='re' terms do not support linked ids.")
+            raise NotImplementedError("random effects don't work with ids.")
 
         super().__init__(
             feature=features,
@@ -129,6 +131,7 @@ class RandomEffectTerm(BaseSmoothTerm):
             metadata=metadata,
         )
 
+        self.select = bool(select)
         self.xt = xt
 
         self._feature_indices = None
@@ -271,6 +274,29 @@ class RandomEffectTerm(BaseSmoothTerm):
                     },
                 )
             )
+
+            if self.select:
+                select_sid = None
+                sel_spec = build_null_space_selection_spec(
+                    main_penalty=np.asarray(P, dtype=np.float64),
+                    smoothing_id=select_sid,
+                    metadata={
+                        "term_type": self.term_type,
+                        "basis_name": self.basis_name,
+                        "feature": list(self.feature),
+                        "label": self.label,
+                        "by": self.by,
+                        "by_name": self._by_state.feature_name,
+                        "is_selection_penalty": True,
+                        "xt": self.xt,
+                        "component_specs": [
+                            {"kind": s.kind, "levels": None if s.levels is None else list(s.levels)}
+                            for s in (self._component_specs or [])
+                        ],
+                    },
+                )
+                if sel_spec is not None:
+                    defs.append(sel_spec)
 
         return defs
 

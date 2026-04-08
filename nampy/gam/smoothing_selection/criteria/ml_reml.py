@@ -7,6 +7,7 @@ then evaluates the appropriate criterion value.
 """
 import numpy as np
 
+from ...fit.linalg.stacked_qr import gaussian_design_needs_stacked_qr_fit
 from .gaussian import criterion_ml_reml_exact, criterion_ml_reml_exact_dynamic
 from .pirls import criterion_ml_reml_pirls, criterion_ml_reml_pirls_dynamic
 
@@ -28,6 +29,8 @@ def resolve_ml_reml_scoring_backend(model, method="reml"):
         bool(getattr(model.family, "supports_closed_form_solve", False))
         and model._can_use_exact_gaussian_ml_reml()
     ):
+        if gaussian_design_needs_stacked_qr_fit(model):
+            return "gaussian_dynamic"
         return "gaussian_exact"
 
     if bool(getattr(model.family, "supports_closed_form_solve", False)):
@@ -48,9 +51,10 @@ def resolve_ml_reml_scoring_backend(model, method="reml"):
 def criterion_ml_reml(model, y, log_sp, method):
     backend = resolve_ml_reml_scoring_backend(model, method=method)
     if backend == "gaussian_exact":
-        if _model_has_random_effect_smooth(model):
-            return criterion_ml_reml_exact_dynamic(model, y, log_sp, method.upper())
-        return criterion_ml_reml_exact(model, y, log_sp, method.upper())
+        score_exact = criterion_ml_reml_exact(model, y, log_sp, method.upper())
+        if np.isfinite(float(score_exact)):
+            return float(score_exact)
+        return criterion_ml_reml_exact_dynamic(model, y, log_sp, method.upper())
     if backend == "gaussian_dynamic":
         return criterion_ml_reml_exact_dynamic(model, y, log_sp, method.upper())
     if backend == "pirls_laplace":

@@ -64,6 +64,16 @@ def _default_k_for_basis(basis, default_k):
     return default_k
 
 
+def _default_basis_for_kind(kind, default_basis):
+    kind_key = str(kind).lower()
+    if kind_key == "s":
+        # Match mgcv: bare s(...) defaults to thin-plate regression splines.
+        return "tp" if default_basis is None else default_basis
+    if default_basis is not None and isinstance(default_basis, (list, tuple)):
+        return default_basis
+    return "cr"
+
+
 def _knots_for_features(knots, features):
     if knots is None:
         return None
@@ -77,7 +87,7 @@ def compile_predictor_specs_from_formula(
     parsed: ParsedGAMFormula,
     *,
     default_k=10,
-    default_basis="cr",
+    default_basis=None,
     default_select=False,
     knots=None,
 ):
@@ -112,7 +122,10 @@ def compile_predictor_specs_from_formula(
             features = list(term.features)
             kw = dict(term.kwargs)
 
-            basis = kw.pop("bs", kw.pop("basis", default_basis))
+            basis = kw.pop(
+                "bs",
+                kw.pop("basis", _default_basis_for_kind(kind, default_basis)),
+            )
             if "k" in kw:
                 k = kw.pop("k")
             else:

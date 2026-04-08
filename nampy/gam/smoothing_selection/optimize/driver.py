@@ -2,15 +2,19 @@
 import warnings
 
 import numpy as np
-from scipy.optimize import OptimizeResult, minimize
+from scipy.optimize import OptimizeResult, minimize, minimize_scalar
 
 from ..criteria import (
     _static_penalty_null_dim,
+    criterion_ml_reml_gaussian_dynamic_joint,
     criterion_gradient_ml_reml_gaussian_dynamic_joint,
+    criterion_ml_reml_gaussian_exact_joint,
+    criterion_hessian_ml_reml_pirls_exact,
     resolve_ml_reml_scoring_backend,
 )
 from .basics import (
     _initial_smoothing_params_from_design_balance,
+    _initial_smoothing_params_mgcv_style,
     supports_criterion_gradient,
     supports_criterion_hessian,
 )
@@ -19,6 +23,7 @@ from .objectives import (
     _CriterionObjective,
     _design_has_mrf_smooth,
     _JointGaussianRemlObjective,
+    _JointGammaPirlsRemlObjective,
 )
 from .outer import _optimize_outer_newton, _optimize_outer_newton_indefinite_hessian
 from .postprocess import (
@@ -28,6 +33,7 @@ from .postprocess import (
     _coordinate_refine_smoothing_params,
     _refine_null_space_smoothing_params,
     _rollback_working_infinite_smoothing_params,
+    _snap_gaussian_random_effect_boundary,
     _stabilize_flat_smoothing_params,
 )
 
@@ -152,6 +158,12 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
         if method in {"ml", "reml", "laml"}
         else None
     )
+    family_name = str(getattr(model.family, "name", "")).lower()
+    use_joint_gamma_reml_scale = (
+        family_name == "gamma"
+        and method in {"reml", "laml"}
+        and ml_reml_backend == "pirls_laplace"
+    )
 
     if n_free == 0:
         model._optim_method = method
@@ -179,7 +191,12 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
             )
         )
         if use_design_balance_init:
-            init = _initial_smoothing_params_from_design_balance(model, y)
+            if use_joint_gamma_reml_scale:
+                init = _initial_smoothing_params_mgcv_style(model, y)
+                if init is None:
+                    init = _initial_smoothing_params_from_design_balance(model, y)
+            else:
+                init = _initial_smoothing_params_from_design_balance(model, y)
             if init is None:
                 init_free = np.asarray(model.smoothing_params[free_mask], dtype=np.float64)
             else:
@@ -221,19 +238,14 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
         bounds.append((lo, float(model.sp_log_bounds[1])))
 
     model._gaussian_reml_sigma2_opt_ = None
-    # Gaussian REML/LAML uses a joint (log sp, log sigma^2) outer loop. The dynamic
-    # Gaussian backend always uses that geometry. The exact backend matches reference
-    # software for most smooths when profiling sigma^2; MRF-like cases need the same
-    # joint loop on the exact mixed-model path.
+    # Gaussian REML/LAML uses a joint (log sp, log sigma^2) outer loop in mgcv's
+    # reported objective (`gcv.ubre`). Using that same geometry for both exact and
+    # dynamic Gaussian backends removes the last optimizer-level discrepancy in
+    # machine-precision parity cases such as `tp(..., pc=...)`.
     use_joint_gaussian_reml_scale = (
         exact_gaussian
         and method in {"reml", "laml"}
-        and (
-            ml_reml_backend == "gaussian_dynamic"
-            or (
-                ml_reml_backend == "gaussian_exact" and _design_has_mrf_smooth(model)
-            )
-        )
+        and ml_reml_backend in {"gaussian_exact", "gaussian_dynamic"}
     )
 
     if use_joint_gaussian_reml_scale:
@@ -273,18 +285,117 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
         # `gaussian_exact` uses finite-difference gradients in `jac`; omitting `jac`
         # often matches reference software more closely on ill-scaled (log sp, log sigma^2) steps.
         use_jac = str(ml_reml_backend) != "gaussian_exact"
+        joint_options = (
+            {"maxfun": 50000, "ftol": 1e-14, "gtol": 1e-14}
+            if str(ml_reml_backend) == "gaussian_exact"
+            else {"maxfun": 50000, "ftol": 1e-14, "gtol": 1e-13}
+        )
         result_joint = minimize(
             fun=j_obj.fun,
             x0=x_joint0,
             method="L-BFGS-B",
             jac=j_obj.jac if use_jac else None,
             bounds=joint_bounds,
-            options={
-                "maxfun": 25000,
-                "ftol": 1e-11,
-                "gtol": 1e-10,
-            },
+            options=joint_options,
         )
+        if str(ml_reml_backend) == "gaussian_dynamic" and np.isfinite(
+            float(getattr(result_joint, "fun", np.nan))
+        ):
+            joint_polish = minimize(
+                fun=j_obj.fun,
+                x0=np.asarray(result_joint.x, dtype=np.float64),
+                method="L-BFGS-B",
+                jac=j_obj.jac if use_jac else None,
+                bounds=joint_bounds,
+                options={"maxfun": 50000, "ftol": 1e-15, "gtol": 1e-14},
+            )
+            if joint_polish.success or (
+                np.isfinite(float(getattr(joint_polish, "fun", np.nan)))
+                and float(joint_polish.fun) <= float(result_joint.fun)
+            ):
+                result_joint = joint_polish
+        sigma2_bounds = joint_bounds[-1]
+        has_random_effect_term = any(
+            str(getattr(tb, "term_type", "")).lower() == "random_effect"
+            for tb in (getattr(model, "term_blocks_", None) or ())
+        )
+        if str(ml_reml_backend) == "gaussian_dynamic" and has_random_effect_term:
+            x_joint = np.asarray(result_joint.x, dtype=np.float64).ravel()
+            x_sp_cur = np.asarray(x_joint[:-1], dtype=np.float64).ravel()
+            if x_sp_cur.size > 0 and np.any(x_sp_cur < -20.0):
+                x_sp_snap = x_sp_cur.copy()
+                for j, (lo, _hi) in enumerate(bounds):
+                    if x_sp_snap[j] < -20.0:
+                        x_sp_snap[j] = max(float(lo), -64.0)
+
+                def _sigma2_obj_dynamic(log_sigma2_scalar: float):
+                    return float(
+                        criterion_ml_reml_gaussian_dynamic_joint(
+                            model,
+                            y,
+                            x_sp_snap,
+                            float(log_sigma2_scalar),
+                            method=branch_m,
+                        )
+                    )
+
+                sigma2_res = minimize_scalar(
+                    _sigma2_obj_dynamic,
+                    bounds=sigma2_bounds,
+                    method="bounded",
+                    options={"xatol": 1e-10, "maxiter": 200},
+                )
+                if bool(sigma2_res.success) and np.isfinite(float(sigma2_res.fun)):
+                    result_joint.x = np.concatenate(
+                        [x_sp_snap, np.array([float(sigma2_res.x)], dtype=np.float64)]
+                    )
+                    result_joint.fun = float(sigma2_res.fun)
+                    result_joint.success = True
+                    result_joint.message = (
+                        "Snapped Gaussian random-effect smoothing parameter to the lower boundary."
+                    )
+        if str(ml_reml_backend) == "gaussian_exact" and n_free == 1:
+            def _refine_sigma2_for_log_sp(log_sp_scalar: float):
+                def _sigma2_obj(log_sigma2_scalar: float):
+                    return float(
+                        criterion_ml_reml_gaussian_exact_joint(
+                            model,
+                            y,
+                            np.array([float(log_sp_scalar)], dtype=np.float64),
+                            float(log_sigma2_scalar),
+                            method=branch_m,
+                        )
+                    )
+
+                sigma2_res = minimize_scalar(
+                    _sigma2_obj,
+                    bounds=sigma2_bounds,
+                    method="bounded",
+                    options={"xatol": 1e-10, "maxiter": 200},
+                )
+                return float(sigma2_res.fun), float(sigma2_res.x)
+
+            def _outer_obj(log_sp_scalar: float):
+                return _refine_sigma2_for_log_sp(float(log_sp_scalar))[0]
+
+            scalar_res = minimize_scalar(
+                _outer_obj,
+                bounds=bounds[0],
+                method="bounded",
+                options={"xatol": 1e-10, "maxiter": 200},
+            )
+            if bool(scalar_res.success) and np.isfinite(float(scalar_res.fun)):
+                refined_fun, refined_log_s2 = _refine_sigma2_for_log_sp(float(scalar_res.x))
+                if refined_fun <= float(result_joint.fun) + 1e-12:
+                    result_joint.x = np.array(
+                        [float(scalar_res.x), float(refined_log_s2)],
+                        dtype=np.float64,
+                    )
+                    result_joint.fun = float(refined_fun)
+                    result_joint.success = True
+                    result_joint.message = (
+                        "Refined exact Gaussian REML joint optimum with nested scalar search."
+                    )
         joint_dim = int(n_free + 1)
         if (not bool(result_joint.success)) and np.isfinite(
             float(getattr(result_joint, "fun", np.nan))
@@ -368,6 +479,8 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
     if bool(getattr(model.family, "supports_pirls", False)):
         # Carry P-IRLS coefficient warm-starts between outer criterion evaluations.
         setattr(model, "_pirls_coef_start_", None)
+        setattr(model, "_pirls_eta_start_", None)
+        setattr(model, "_pirls_mu_start_", None)
     indefinite_hessian_newton_for_pirls = (
         method in {"ml", "reml", "laml"}
         and bool(getattr(model.family, "supports_pirls", False))
@@ -389,6 +502,7 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
                     method="L-BFGS-B",
                     jac=objective.jac if use_gradient else None,
                     bounds=bounds,
+                    options={"maxfun": 25000, "ftol": 1e-13, "gtol": 1e-12},
                 )
                 lbfgsb_retry.indefinite_hessian_lbfgsb_fallback = True
                 if lbfgsb_retry.success or (
@@ -403,6 +517,7 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
                 method="L-BFGS-B",
                 jac=objective.jac if use_gradient else None,
                 bounds=bounds,
+                options={"maxfun": 25000, "ftol": 1e-13, "gtol": 1e-12},
             )
         if not result.success and supports_criterion_hessian(model, method):
             outer_newton_result = _optimize_outer_newton(
@@ -421,11 +536,19 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
             ):
                 result = outer_newton_result
     else:
-        result = _optimize_outer_newton(
-            objective=objective,
-            x0=x0,
-            bounds=bounds,
-        )
+        if indefinite_hessian_newton_for_pirls and supports_criterion_hessian(model, method):
+            result = _optimize_outer_newton_indefinite_hessian(
+                objective=objective,
+                x0=x0,
+                bounds=bounds,
+            )
+            result.indefinite_hessian_outer_newton = True
+        else:
+            result = _optimize_outer_newton(
+                objective=objective,
+                x0=x0,
+                bounds=bounds,
+            )
         if not result.success:
             lbfgsb_result = minimize(
                 fun=objective.fun,
@@ -433,6 +556,7 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
                 method="L-BFGS-B",
                 jac=objective.jac if use_gradient else None,
                 bounds=bounds,
+                options={"maxfun": 25000, "ftol": 1e-13, "gtol": 1e-12},
             )
             lbfgsb_result.outer_newton_fallback = True
             lbfgsb_result.outer_newton_message = str(result.message)
@@ -442,17 +566,11 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
         bool(getattr(pb, "is_null_space_penalty", False))
         for pb in (getattr(model, "penalty_blocks_", None) or [])
     )
-    apply_post_heuristics = (
+    apply_generic_pirls_rollback = (
         method in {"ml", "reml", "laml"}
-        and (
-            has_null_space_penalty
-            or (
-                (not exact_gaussian)
-                and (not bool(getattr(result, "indefinite_hessian_outer_newton", False)))
-            )
-        )
+        and ((not exact_gaussian) and (not model._has_tensor_terms()))
     )
-    if apply_post_heuristics:
+    if apply_generic_pirls_rollback:
         result = _rollback_working_infinite_smoothing_params(
             objective=objective,
             result=result,
@@ -460,6 +578,7 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
             bounds=bounds,
             method=method,
         )
+    if has_null_space_penalty:
         result = _stabilize_flat_smoothing_params(
             objective=objective,
             result=result,
@@ -484,6 +603,12 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
             result=result,
             bounds=bounds,
         )
+    result = _snap_gaussian_random_effect_boundary(
+        objective=objective,
+        result=result,
+        bounds=bounds,
+        method=method,
+    )
     if ml_reml_backend == "gaussian_dynamic":
         result = _coordinate_refine_smoothing_params(
             objective=objective,
@@ -494,6 +619,105 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
         objective=objective,
         result=result,
     )
+
+    if use_joint_gamma_reml_scale:
+        branch_m = "LAML" if method == "laml" else "REML"
+        mu_null = np.repeat(float(np.mean(np.asarray(y, dtype=np.float64).ravel())), model.n_samples_)
+        null_scale = float(model.family.deviance(np.asarray(y, dtype=np.float64).ravel(), mu_null)) / float(model.n_samples_)
+        phi0 = max(null_scale / 10.0, 1e-12)
+        if phi0 is not None and np.isfinite(float(phi0)) and float(phi0) > 0.0:
+            phi0 = float(phi0)
+            y_eff = (
+                np.asarray(y, dtype=np.float64).ravel()
+                if model.offset_train_ is None
+                else (np.asarray(y, dtype=np.float64).ravel() - model.offset_train_)
+            )
+            y_scale = (
+                float(np.var(y_eff))
+                if y_eff.size > 1
+                else float(np.maximum(np.abs(float(y_eff[0])), 1e-300))
+            )
+            hi_phi = max(phi0 * 1e8, y_scale * 1e8, 1e-30)
+            joint_bounds = list(bounds) + [
+                (float(np.log(1e-300)), float(np.log(hi_phi)))
+            ]
+            x_joint0 = np.concatenate(
+                [x0.copy(), np.array([np.log(phi0)], dtype=np.float64)]
+            )
+            j_obj = _JointGammaPirlsRemlObjective(model, y, branch_m)
+            result_joint = _optimize_outer_newton_indefinite_hessian(
+                objective=j_obj,
+                x0=x_joint0,
+                bounds=joint_bounds,
+                conv_tol=1e-7,
+            )
+            lbfgsb_retry = minimize(
+                fun=j_obj.fun,
+                x0=np.asarray(result_joint.x, dtype=np.float64),
+                method="L-BFGS-B",
+                jac=j_obj.jac,
+                bounds=joint_bounds,
+                options={"maxfun": 25000, "ftol": 1e-11, "gtol": 1e-10},
+            )
+            if lbfgsb_retry.success or (
+                np.isfinite(getattr(lbfgsb_retry, "fun", np.inf))
+                and float(lbfgsb_retry.fun) <= float(result_joint.fun)
+            ):
+                result_joint = lbfgsb_retry
+
+            if np.isfinite(float(getattr(result_joint, "fun", np.inf))):
+                x_joint = np.asarray(result_joint.x, dtype=np.float64).ravel()
+                x_selected = np.asarray(x_joint[:-1], dtype=np.float64).ravel()
+                grad_joint = np.asarray(
+                    result_joint.jac
+                    if getattr(result_joint, "jac", None) is not None
+                    else j_obj.jac(x_joint),
+                    dtype=np.float64,
+                )
+                hess_joint = np.asarray(
+                    result_joint.hess
+                    if getattr(result_joint, "hess", None) is not None
+                    else j_obj.hess(x_joint),
+                    dtype=np.float64,
+                )
+                if (
+                    grad_joint.ndim == 1
+                    and hess_joint.ndim == 2
+                    and grad_joint.size == x_joint.size
+                    and hess_joint.shape == (x_joint.size, x_joint.size)
+                ):
+                    grad2 = np.diag(hess_joint)
+                    flat = np.where(
+                        np.abs(grad2[:n_free]) < np.abs(grad_joint[:n_free]) * 100.0
+                    )[0]
+                    if flat.size > 0:
+                        target = float(result_joint.fun) + 0.02
+                        x_edge = x_joint.copy()
+                        for j in flat.tolist():
+                            step_j = 1.0 if x0[j] > x_edge[j] else -1.0
+                            x_try = x_edge.copy()
+                            x_try[j] = min(max(x_try[j] + step_j, joint_bounds[j][0]), joint_bounds[j][1])
+                            if abs(x_try[j] - x_edge[j]) <= 1e-12:
+                                continue
+                            score_try = float(j_obj.fun(x_try))
+                            if np.isfinite(score_try) and score_try < target:
+                                x_edge = x_try
+                        x_selected = np.asarray(x_edge[:-1], dtype=np.float64).ravel()
+                        x_joint = x_edge
+                _ = criterion_hessian_ml_reml_pirls_exact(model, y, x_selected, branch_m)
+                gamma_state = getattr(model, "_pirls_reml_gamma_state_", None)
+                phi_opt = None
+                if isinstance(gamma_state, dict):
+                    phi_opt = gamma_state.get("phi", None)
+                if phi_opt is not None and np.isfinite(float(phi_opt)) and float(phi_opt) > 0.0:
+                    model._gamma_reml_phi_opt_ = float(phi_opt)
+                result.x = np.asarray(x_selected, dtype=np.float64).copy()
+                result.fun = float(objective.fun(result.x))
+                result.jac = np.asarray(objective.jac(result.x), dtype=np.float64)
+                result.hess = np.asarray(objective.hess(result.x), dtype=np.float64)
+                result.joint_gamma_reml_outer = True
+                result.joint_log_phi = float(x_joint[-1])
+                result.joint_gamma_message = str(getattr(result_joint, "message", ""))
 
     if not result.success:
         warnings.warn(f"Smoothing optimisation did not converge: {result.message}")

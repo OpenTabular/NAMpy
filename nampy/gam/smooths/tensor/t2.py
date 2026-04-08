@@ -8,6 +8,8 @@ splines and is the recommended choice when the smoothing parameters for
 different axes are very different in magnitude.
 """
 
+import warnings
+
 import numpy as np
 
 from ..base import (
@@ -18,14 +20,21 @@ from ..base import (
     column_as_float,
 )
 from ..registry import register_smooth
-from ..univariate.cubic_regression import SplineTerm1D
 from ...basis.tensor import (
     build_t2_basis_and_penalties,
-    marginal_range_null_decomposition,
     materialize_t2_newdata,
     rescale_tensor_penalties_for_fit,
+    t2_marginal_reparameterization,
 )
 from ...penalties.algebra import null_space_penalty_from_penalty
+from .marginals import (
+    make_tensor_marginal_term,
+    tensor_marginal_feature_index,
+    tensor_marginal_feature_name,
+    tensor_marginal_fit_matrices,
+    tensor_marginal_predict_matrix,
+    validate_tensor_marginal_bases,
+)
 
 
 @register_smooth("t2")
@@ -88,11 +97,7 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             raise ValueError(
                 f"basis must have length {len(features)} for features={features}, got {self.basis}."
             )
-
-        if any(bs != "cr" for bs in self.basis):
-            raise NotImplementedError(
-                "TensorANOVASplineTerm currently supports only basis='cr' marginals."
-            )
+        self.basis = validate_tensor_marginal_bases(self.basis)
 
         self.select = bool(select)
         self.full = bool(full)
@@ -109,6 +114,8 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         self._t2_train = None
         self._marginal_decompositions = None
         self._penalized_specs = None
+        self.fit_constraint_matrix = None
+        self.predict_coefficient_map = None
 
     def fit(self, X, feature_names):
         marginals = []
@@ -117,33 +124,27 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         marginal_decompositions = []
 
         for feat, k_i, bs_i, knots_i in zip(self.feature, self.k, self.basis, self.knots):
-            term = SplineTerm1D(
+            term = make_tensor_marginal_term(
                 feature=feat,
-                k=k_i,
                 basis=bs_i,
-                label=str(feat),
-                smoothing_id=None,
-                by=None,
-                select=False,
-                fixed=False,
+                k=k_i,
                 knots=knots_i,
+                centered=False,
             )
             term.fit(X, feature_names)
             marginals.append(term)
-            feature_indices.append(term._feature_index)
-            feature_names_resolved.append(term._feature_name)
+            feature_indices.append(tensor_marginal_feature_index(term))
+            feature_names_resolved.append(tensor_marginal_feature_name(term))
 
-            dec = marginal_range_null_decomposition(
-                term._spline.raw_basis,
-                term._spline.raw_penalty,
-            )
+            B_i, S_i, _ = tensor_marginal_fit_matrices(term, centered=False)
+            dec = t2_marginal_reparameterization(B_i, S_i)
             marginal_decompositions.append(dec)
 
         t2_obj = build_t2_basis_and_penalties(
             marginal_decompositions,
             full=self.full,
             ord=self.ord,
-            remove_constant_from_null_block=True,
+            remove_constant_from_null_block=False,
         )
         B_t2 = np.asarray(t2_obj["basis"], dtype=np.float64)
         if not self.fixed:
@@ -166,6 +167,15 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         self._penalized_specs = [
             spec for spec in t2_obj["component_specs"] if spec["penalized"]
         ]
+        n_pen = int(sum(spec["n_cols"] for spec in self._penalized_specs))
+        n_null = int(B_t2.shape[1] - n_pen)
+        if n_null > 0:
+            C = np.zeros((1, B_t2.shape[1]), dtype=np.float64)
+            C[0, n_pen:] = np.sum(B_t2[:, n_pen:], axis=0)
+            self.fit_constraint_matrix = C if np.linalg.norm(C) > 0.0 else None
+        else:
+            self.fit_constraint_matrix = None
+        self.predict_coefficient_map = None
         self._record_constraint_result(None, None, absorbed_by=None)
 
         suffix = "full" if self.full else "pars"
@@ -180,7 +190,7 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             return []
 
         n_raw = len(raw)
-        sp_vals = self._normalized_term_sp(n_raw)
+        sp_vals = self._normalized_t2_term_sp(n_raw)
         defs = []
         for j, P in enumerate(raw):
             sid = (
@@ -221,6 +231,20 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
 
         return defs
 
+    def _normalized_t2_term_sp(self, n_penalties):
+        if n_penalties <= 0:
+            return []
+        if self.sp is None:
+            return [None] * n_penalties
+        if np.isscalar(self.sp):
+            vals = np.asarray([float(self.sp)], dtype=np.float64)
+        else:
+            vals = np.asarray(self.sp, dtype=np.float64).ravel()
+        if vals.size != n_penalties:
+            warnings.warn("length of sp incorrect in t2: ignored", stacklevel=2)
+            return [None] * n_penalties
+        return [float(v) for v in vals]
+
     @property
     def basis_train(self):
         if self._basis_train is None:
@@ -245,8 +269,7 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
 
         marginal_new = []
         for m, dec in zip(self._marginals, self._marginal_decompositions):
-            xj = column_as_float(X_new, m._feature_index)
-            B_raw = m._spline.transform_new_raw(xj)
+            B_raw = tensor_marginal_predict_matrix(m, X_new, centered=False)
 
             B_r = (
                 B_raw @ dec["T_range"]

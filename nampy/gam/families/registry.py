@@ -2,10 +2,24 @@ from .base import BaseFamily
 from .exponential import (
     GaussianIdentityFamily,
     BinomialLogitFamily,
+    BinomialProbitFamily,
+    BinomialCloglogFamily,
     PoissonLogFamily,
     GammaLogFamily,
+    GammaInverseFamily,
     NegativeBinomialLogFamily,
 )
+
+_BINOMIAL_LINK_MAP = {
+    "logit": BinomialLogitFamily,
+    "probit": BinomialProbitFamily,
+    "cloglog": BinomialCloglogFamily,
+}
+
+_GAMMA_LINK_MAP = {
+    "log": GammaLogFamily,
+    "inverse": GammaInverseFamily,
+}
 
 
 def make_gam_family(family):
@@ -17,11 +31,18 @@ def make_gam_family(family):
 
     if isinstance(family, dict):
         name = str(family.get("name", "")).lower()
+        link = str(family.get("link", "")).lower() or None
         if name in {"negbin", "negativebinomial", "negative_binomial"}:
             return NegativeBinomialLogFamily(
                 theta=family.get("theta", 1.0),
                 estimate_theta=bool(family.get("estimate_theta", False)),
             )
+        if name in {"binomial", "bernoulli", "logistic"}:
+            cls = _BINOMIAL_LINK_MAP.get(link or "logit", BinomialLogitFamily)
+            return cls()
+        if name in {"gamma"}:
+            cls = _GAMMA_LINK_MAP.get(link or "log", GammaLogFamily)
+            return cls()
         family = name
 
     if isinstance(family, tuple) and len(family) == 2:

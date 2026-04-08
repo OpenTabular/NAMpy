@@ -186,10 +186,6 @@ def instantiate_term(term_like: TermSpec | Any):
             )
 
         if bs == "mrf":
-            if select:
-                raise NotImplementedError(
-                    "select=True is not yet implemented for bs='mrf' smooths."
-                )
             return MarkovRandomFieldTerm(
                 feature=features,
                 k=k,
@@ -199,16 +195,13 @@ def instantiate_term(term_like: TermSpec | Any):
                 smoothing_id=smoothing_id,
                 by=by,
                 sp=sp,
+                select=select,
                 xt=xt,
                 knots=knots,
                 metadata=metadata,
             )
 
         if bs == "re":
-            if select:
-                raise NotImplementedError(
-                    "select=True is not implemented for bs='re' terms."
-                )
             return RandomEffectTerm(
                 feature=features,
                 label=label,
@@ -216,15 +209,12 @@ def instantiate_term(term_like: TermSpec | Any):
                 smoothing_id=smoothing_id,
                 by=by,
                 sp=sp,
+                select=select,
                 xt=xt,
                 metadata=metadata,
             )
 
         if bs == "fs":
-            if select:
-                raise NotImplementedError(
-                    "select=True is not yet implemented for bs='fs' factor smooths."
-                )
             return FSmoothInteractionTerm(
                 feature=features,
                 k=k,
@@ -233,6 +223,7 @@ def instantiate_term(term_like: TermSpec | Any):
                 smoothing_id=smoothing_id,
                 by=by,
                 sp=sp,
+                select=select,
                 xt=xt,
                 fixed=fx,
                 knots=knots,
@@ -240,10 +231,6 @@ def instantiate_term(term_like: TermSpec | Any):
             )
 
         if bs == "sz":
-            if select:
-                raise NotImplementedError(
-                    "select=True is not yet implemented for bs='sz' factor smooths."
-                )
             return SZSmoothInteractionTerm(
                 feature=features,
                 k=k,
@@ -252,6 +239,7 @@ def instantiate_term(term_like: TermSpec | Any):
                 smoothing_id=smoothing_id,
                 by=by,
                 sp=sp,
+                select=select,
                 xt=xt,
                 fixed=fx,
                 knots=knots,
@@ -268,11 +256,6 @@ def instantiate_term(term_like: TermSpec | Any):
         raw_bs = opts.get("bs", "cr")
         basis = _as_list_or_repeat(raw_bs, len(features))
         basis = [str(b).lower() for b in basis]
-        if any(b != "cr" for b in basis):
-            raise NotImplementedError(
-                f"Current runtime only materializes bs='cr' marginals for {special}(...). "
-                f"Received basis={basis!r}."
-            )
 
         kwargs = dict(
             feature=features,

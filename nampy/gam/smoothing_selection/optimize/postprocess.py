@@ -189,12 +189,13 @@ def _stabilize_flat_smoothing_params(
     improved = False
     x_work = x.copy()
     score_ref = score
-    score_tol = max(1e-5, score_scale * float(flat_score_rel_tol))
+    score_tol = max(1e-12, score_scale * float(flat_score_rel_tol))
     step = max(float(log_step), 1e-6)
 
     for j in np.flatnonzero(flat):
         local_x = x_work.copy()
         local_best = local_x[j]
+        local_best_score = score_ref
         lower_bound = float(bounds[j][0])
         for _ in range(256):
             trial = local_x.copy()
@@ -203,9 +204,10 @@ def _stabilize_flat_smoothing_params(
             if trial[j] >= local_x[j] - 1e-12:
                 break
             trial_score = float(objective.fun(trial))
-            if np.isfinite(trial_score) and trial_score <= score_ref + score_tol:
+            if np.isfinite(trial_score) and trial_score <= local_best_score + score_tol:
                 local_x = trial
                 local_best = trial[j]
+                local_best_score = trial_score
                 if local_best <= lower_bound + 1e-12:
                     break
             else:
@@ -351,6 +353,66 @@ def _accept_flat_boundary_result(objective, result, method, *, conv_tol=1e-6):
     result.jac = np.asarray(objective.jac(x), dtype=np.float64)
     result.hess = np.asarray(objective.hess(x), dtype=np.float64)
     result.flat_boundary_accepted = True
+    return result
+
+
+def _snap_gaussian_random_effect_boundary(
+    objective,
+    result,
+    bounds,
+    method,
+    *,
+    snap_log_sp=-64.0,
+):
+    method = str(method).lower()
+    if method not in {"reml", "laml"}:
+        return result
+
+    model = getattr(objective, "model", None)
+    if model is None:
+        return result
+    if str(getattr(getattr(model, "family", None), "name", "")).lower() != "gaussian":
+        return result
+
+    term_blocks = getattr(model, "term_blocks_", None) or ()
+    if not any(str(getattr(tb, "term_type", "")).lower() == "random_effect" for tb in term_blocks):
+        return result
+
+    x = np.asarray(getattr(result, "x", ()), dtype=np.float64).ravel()
+    if x.size == 0:
+        return result
+
+    grad_signal, dvkk = _criterion_infinite_sp_signal(
+        model, objective.y, x, method=method
+    )
+    grad = np.asarray(grad_signal, dtype=np.float64).ravel()
+    dvkk = np.asarray(dvkk, dtype=np.float64).ravel()
+    if grad.shape != x.shape:
+        return result
+    if dvkk.shape != x.shape:
+        dvkk = np.full_like(grad, np.nan)
+
+    score = float(objective.fun(x))
+    score_scale = 1.0 + abs(score)
+    wants_smaller_sp = grad > score_scale * 1e-6
+    near_zero_curvature = np.abs(dvkk) <= score_scale * 1e-9
+    near_boundary_ridge = wants_smaller_sp & near_zero_curvature & (x < -20.0)
+    if not np.any(near_boundary_ridge):
+        return result
+
+    x_snap = x.copy()
+    for j in np.flatnonzero(near_boundary_ridge):
+        lo = float(bounds[j][0])
+        x_snap[j] = max(lo, float(snap_log_sp))
+
+    if np.allclose(x_snap, x, atol=0.0, rtol=0.0):
+        return result
+
+    result.x = x_snap
+    result.fun = float(objective.fun(x_snap))
+    result.jac = np.asarray(objective.jac(x_snap), dtype=np.float64)
+    result.hess = np.asarray(objective.hess(x_snap), dtype=np.float64)
+    result.gaussian_re_boundary_snapped = True
     return result
 
 
@@ -510,8 +572,8 @@ def _coordinate_refine_smoothing_params(
     bounds,
     *,
     max_passes=6,
-    xatol=1e-4,
-    improve_tol=1e-8,
+    xatol=1e-10,
+    improve_tol=1e-12,
 ):
     x = np.asarray(getattr(result, "x", ()), dtype=np.float64).ravel()
     if x.size == 0:

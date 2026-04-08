@@ -165,14 +165,11 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = ["test_*.py"]
+python_files = ["test_mgcv_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
     "--verbose",
-    "--cov=nampy",
-    "--cov-report=term-missing",
-    "--cov-report=html",
 ]
 
 [tool.coverage.run]

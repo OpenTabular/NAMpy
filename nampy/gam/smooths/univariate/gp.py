@@ -15,6 +15,7 @@ import numpy as np
 from ..base import (
     BaseSmoothTerm,
     _normalize_point_constraint,
+    _normalize_point_constraint_vector,
     _resolve_feature,
     columns_as_float_matrix,
     resolve_by_state,
@@ -27,6 +28,7 @@ from ...constraints.absorption import (
 )
 from ...design.structures import PenaltySpec
 from ...penalties.algebra import null_space_penalty_from_penalty
+from ....splines.penalty_scaling import scale_penalty
 from ....splines.gaussian_process import build_gp_term_setup, predict_gp_term
 
 
@@ -128,15 +130,19 @@ class GPSmoothTerm(BaseSmoothTerm):
         )
 
         base = np.asarray(self._setup.basis_train, dtype=np.float64)
-        pen = np.asarray(self._setup.penalty, dtype=np.float64)
+        pen = scale_penalty(
+            base,
+            np.asarray(self._setup.penalty, dtype=np.float64),
+        )
 
         if self.pc is not None:
-            if len(self._feature_indices) > 1:
-                raise NotImplementedError(
-                    "pc= for multivariate gp smooths is not yet implemented."
-                )
-            pc_value = _normalize_point_constraint(self.pc, self._feature_names[0])
-            pc_point = np.asarray([[pc_value]], dtype=np.float64)
+            if len(self._feature_indices) == 1:
+                pc_value = _normalize_point_constraint(self.pc, self._feature_names[0])
+                pc_point = np.asarray([[pc_value]], dtype=np.float64)
+            else:
+                pc_point = _normalize_point_constraint_vector(
+                    self.pc, self._feature_names
+                )[None, :]
             pc_basis = predict_gp_term(pc_point, self._setup)[0]
             penalties_in = [] if self.fixed else [pen]
             Bc, Sc, C = apply_linear_constraint(base, penalties_in, pc_basis)
@@ -172,7 +178,8 @@ class GPSmoothTerm(BaseSmoothTerm):
         if self.select and self.sp is not None:
             raise NotImplementedError(
                 "term-level sp is not yet implemented for select=True smooths in the "
-                "current runtime, because select adds an extra null-space penalty."
+                "current runtime, because select=True adds an extra explicit "
+                "null-space penalty in addition to the main penalty."
             )
 
         main_penalty = np.asarray(self.penalties[0], dtype=np.float64)
@@ -247,10 +254,10 @@ class GPSmoothTerm(BaseSmoothTerm):
                             "feature": list(self.feature),
                             "label": self.label,
                             "by": self.by,
-                            "by_name": self._by_name,
-                            "by_is_constant": bool(self._by_is_constant),
+                            "by_name": self._by_state.feature_name,
+                            "by_is_constant": bool(self._by_state.is_constant),
                             "constraint_mode": self.constraint_mode,
-                            "constraint_kind": self._constraint_kind,
+                            "constraint_kind": self.constraint_kind,
                             "pc": self.pc,
                             "knots": self.knots,
                             "xt": self.xt,

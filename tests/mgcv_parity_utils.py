@@ -1,4 +1,4 @@
-"""Shared mgcv/R snapshot helpers for parity tests (decoupled from ``test_gam_mgcv_parity``)."""
+"""Shared mgcv/R snapshot helpers for parity tests (decoupled from ``test_mgcv_snapshot_parity``)."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -19,6 +20,7 @@ _TESTS_DIR = Path(__file__).resolve().parent
 
 R_SCRIPT = shutil.which("Rscript")
 MGCV_SNAPSHOT_SCRIPT = _TESTS_DIR / "parity" / "mgcv_snapshot.R"
+MGCV_ANOVA_SCRIPT = _TESTS_DIR / "parity" / "mgcv_anova.R"
 
 
 def _make_gaussian_data(seed=123, n=180):
@@ -124,12 +126,118 @@ def _make_mrf_data():
     return pd.DataFrame({"y": y, "region": regions})
 
 
+@dataclass(frozen=True)
+class ParityCaseSpec:
+    case_id: str
+    data_factory: str
+    formula: str
+    family: str | dict
+    method: str
+
+
+PARITY_CASES: dict[str, ParityCaseSpec] = {
+    "gaussian_cr_uni_reml": ParityCaseSpec(
+        case_id="gaussian_cr_uni_reml",
+        data_factory="gaussian",
+        formula='y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)',
+        family="gaussian",
+        method="REML",
+    ),
+    "gaussian_cr_uni_fixed": ParityCaseSpec(
+        case_id="gaussian_cr_uni_fixed",
+        data_factory="gaussian",
+        formula='y ~ s(x0, bs="cr", k=8, sp=0.8) + s(x1, bs="cr", k=8, sp=1.5)',
+        family="gaussian",
+        method="fixed",
+    ),
+    "poisson_cr_uni_reml": ParityCaseSpec(
+        case_id="poisson_cr_uni_reml",
+        data_factory="poisson",
+        formula='y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)',
+        family="poisson",
+        method="REML",
+    ),
+    "gamma_cr_uni_reml": ParityCaseSpec(
+        case_id="gamma_cr_uni_reml",
+        data_factory="gamma",
+        formula='y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)',
+        family="gamma",
+        method="REML",
+    ),
+    "binomial_cr_uni_reml": ParityCaseSpec(
+        case_id="binomial_cr_uni_reml",
+        data_factory="binomial",
+        formula='y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)',
+        family="binomial",
+        method="REML",
+    ),
+    "poisson_te_reml": ParityCaseSpec(
+        case_id="poisson_te_reml",
+        data_factory="poisson",
+        formula='y ~ te(x0, x1, bs=["cr", "cr"], k=[6, 6])',
+        family="poisson",
+        method="REML",
+    ),
+    "negbin_t2_reml": ParityCaseSpec(
+        case_id="negbin_t2_reml",
+        data_factory="negbin_theta_1",
+        formula='y ~ t2(x0, x1, bs=["cr", "cr"], k=[6, 6])',
+        family={"name": "negbin", "theta": 1.0},
+        method="REML",
+    ),
+    "gaussian_re_reml": ParityCaseSpec(
+        case_id="gaussian_re_reml",
+        data_factory="random_effect_noisy",
+        formula='y ~ s(f, bs="re")',
+        family="gaussian",
+        method="REML",
+    ),
+}
+
+
+def parity_case_ids() -> list[str]:
+    return sorted(PARITY_CASES.keys())
+
+
+def get_parity_case(case_id: str) -> ParityCaseSpec:
+    try:
+        return PARITY_CASES[case_id]
+    except KeyError as exc:
+        known = ", ".join(parity_case_ids())
+        raise KeyError(f"Unknown parity case '{case_id}'. Known: {known}") from exc
+
+
+def make_parity_case_data(case_id: str) -> pd.DataFrame:
+    spec = get_parity_case(case_id)
+    if spec.data_factory == "gaussian":
+        return _make_gaussian_data()
+    if spec.data_factory == "binomial":
+        return _make_binomial_data()
+    if spec.data_factory == "poisson":
+        return _make_poisson_data()
+    if spec.data_factory == "gamma":
+        return _make_gamma_data()
+    if spec.data_factory == "negbin_theta_1":
+        return _make_negbin_data(theta=1.0)
+    if spec.data_factory == "random_effect_noisy":
+        return _make_random_effect_data_noisy()
+    if spec.data_factory == "mrf":
+        return _make_mrf_data()
+    if spec.data_factory == "fs":
+        return _make_fs_data()
+    raise ValueError(f"Unsupported data factory '{spec.data_factory}' for case '{case_id}'.")
+
+
 def _family_specs(family):
     if isinstance(family, dict):
         key = str(family.get("name", "")).lower()
         if key in {"negbin", "negativebinomial", "negative_binomial"}:
             theta = float(family.get("theta", 1.0))
             return family, f"negbin:{theta:.12g}"
+        link = str(family.get("link", "")).lower()
+        if link and link not in {"logit", "log"}:
+            # Non-default link: encode as "family:link" token for the R script.
+            return family, f"{key}:{link}"
         return family, key
     key = str(family).lower()
     return family, key
@@ -175,6 +283,45 @@ def _run_mgcv_snapshot(
             text=True,
         )
 
+        return json.loads(json_path.read_text(encoding="utf-8"))
+
+
+def _run_mgcv_anova(
+    data: pd.DataFrame,
+    formulas: list[str],
+    family,
+    method: str,
+    *,
+    select: bool = False,
+    test: str | None = None,
+):
+    if R_SCRIPT is None:
+        pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
+
+    _family_nampy, family_token = _family_specs(family)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        csv_path = tmpdir_path / "data.csv"
+        json_path = tmpdir_path / "anova.json"
+        data.to_csv(csv_path, index=False)
+        cmd = [
+            R_SCRIPT,
+            str(MGCV_ANOVA_SCRIPT),
+            str(csv_path),
+            str(json_path),
+            json.dumps(list(formulas)),
+            family_token,
+            method,
+            "true" if select else "false",
+            "NULL" if test is None else str(test),
+        ]
+        subprocess.run(
+            cmd,
+            check=True,
+            cwd=_REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
         return json.loads(json_path.read_text(encoding="utf-8"))
 
 
@@ -235,7 +382,7 @@ def _fit_nampy_snapshot(
 ):
     return _fit_nampy_model(
         data, formula, family, method, select=select, sample_weight=sample_weight
-    ).parity_snapshot(X=data, include_covariances=False)
+    ).parity_snapshot(X=data, include_covariances=True)
 
 
 def _run_mgcv_smoothcon_matrix(data: pd.DataFrame, smooth_expr: str):
@@ -410,12 +557,14 @@ def _run_mgcv_predict_on_newdata(
     family="gaussian",
     method="REML",
     type="link",
+    return_se=False,
 ):
     if R_SCRIPT is None:
         pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
 
     _family_nampy, family_token = _family_specs(family)
     del _family_nampy
+    fit_method = "REML" if str(method).lower() == "fixed" else method
 
     r_code = """
 suppressPackageStartupMessages(library(mgcv))
@@ -427,6 +576,7 @@ formula_text <- args[[3]]
 family_name <- tolower(args[[4]])
 method_name <- args[[5]]
 pred_type <- args[[6]]
+want_se <- identical(tolower(args[[7]]), "true")
 for (nm in names(train)) if (is.character(train[[nm]])) train[[nm]] <- factor(train[[nm]])
 for (nm in names(newd)) {
   if (is.character(newd[[nm]]) && nm %in% names(train) && is.factor(train[[nm]])) {
@@ -449,9 +599,31 @@ fit <- gam(
   family = family_obj,
   method = method_name
 )
+pred <- predict(fit, newdata = newd, type = pred_type, se.fit = want_se)
+out <- list()
+if (pred_type == "terms") {
+  if (want_se) {
+    out$pred <- unname(as.matrix(pred$fit))
+    out$se <- unname(as.matrix(pred$se.fit))
+    out$term_names <- colnames(pred$fit)
+  } else {
+    out$pred <- unname(as.matrix(pred))
+    out$term_names <- colnames(pred)
+  }
+} else if (pred_type == "lpmatrix") {
+  if (want_se) {
+    stop("se.fit is not supported for type='lpmatrix'")
+  }
+  out$pred <- unname(as.matrix(pred))
+} else if (want_se) {
+  out$pred <- unname(as.numeric(pred$fit))
+  out$se <- unname(as.numeric(pred$se.fit))
+} else {
+  out$pred <- unname(as.numeric(pred))
+}
 write_json(
-  list(pred = unname(as.numeric(predict(fit, newdata = newd, type = pred_type)))),
-  args[[7]],
+  out,
+  args[[8]],
   auto_unbox = TRUE,
   digits = 17
 )
@@ -474,8 +646,132 @@ write_json(
                 str(new_path),
                 formula,
                 family_token,
-                method,
+                fit_method,
                 type,
+                "true" if return_se else "false",
+                str(json_path),
+            ],
+            check=True,
+            cwd=_REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        return json.loads(json_path.read_text(encoding="utf-8"))
+
+
+def _run_mgcv_fixed_sp_score(
+    data: pd.DataFrame,
+    formula: str,
+    family,
+    method: str,
+    smoothing_params,
+    *,
+    select: bool = False,
+):
+    if R_SCRIPT is None:
+        pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
+
+    _family_nampy, family_token = _family_specs(family)
+    del _family_nampy
+
+    r_code = """
+suppressPackageStartupMessages(library(mgcv))
+suppressPackageStartupMessages(library(jsonlite))
+args <- commandArgs(trailingOnly = TRUE)
+d <- read.csv(args[[1]], stringsAsFactors = FALSE)
+for (nm in names(d)) if (is.character(d[[nm]])) d[[nm]] <- factor(d[[nm]])
+formula_text <- args[[2]]
+family_name <- tolower(args[[3]])
+method_name <- args[[4]]
+select_flag <- tolower(args[[5]]) == "true"
+sp <- as.numeric(fromJSON(args[[6]]))
+family_parts <- strsplit(family_name, ":", fixed = TRUE)[[1]]
+family_key <- family_parts[[1]]
+family_param <- if (length(family_parts) >= 2) family_parts[[2]] else NULL
+family_obj <- switch(
+  family_key,
+  gaussian = gaussian(),
+  binomial = {
+    link <- if (is.null(family_param) || family_param == "") "logit" else family_param
+    binomial(link = link)
+  },
+  poisson = poisson(link = "log"),
+  gamma = {
+    link <- if (is.null(family_param) || family_param == "") "log" else family_param
+    Gamma(link = link)
+  },
+  negbin = {
+    theta <- if (is.null(family_param)) 1.0 else as.numeric(family_param)
+    mgcv::nb(theta = theta, link = "log")
+  },
+  stop(sprintf("Unsupported family for fixed-sp score: %s", family_name))
+)
+fit <- gam(
+  formula = as.formula(formula_text),
+  data = d,
+  family = family_obj,
+  method = method_name,
+  select = select_flag,
+  sp = sp
+)
+log_sp_ref <- log(pmax(sp, 1e-300))
+eval_at_log_sp <- function(log_sp) {
+  fixed_fit <- gam(
+    formula = as.formula(formula_text),
+    data = d,
+    family = family_obj,
+    method = method_name,
+    select = select_flag,
+    sp = unname(exp(log_sp))
+  )
+  unname(as.numeric(fixed_fit$gcv.ubre))
+}
+steps <- pmax(1e-6, 1e-5 * (1 + abs(log_sp_ref)))
+g <- rep(NA_real_, length(log_sp_ref))
+for (i in seq_along(log_sp_ref)) {
+  plus1 <- log_sp_ref
+  minus1 <- log_sp_ref
+  plus2 <- log_sp_ref
+  minus2 <- log_sp_ref
+  plus1[i] <- plus1[i] + steps[i]
+  minus1[i] <- minus1[i] - steps[i]
+  plus2[i] <- plus2[i] + 2 * steps[i]
+  minus2[i] <- minus2[i] - 2 * steps[i]
+  g[i] <- (
+    -eval_at_log_sp(plus2) +
+      8 * eval_at_log_sp(plus1) -
+      8 * eval_at_log_sp(minus1) +
+      eval_at_log_sp(minus2)
+  ) / (12 * steps[i])
+}
+write_json(
+  list(
+    criterion_value = unname(as.numeric(fit$gcv.ubre)),
+    gradient = unname(as.numeric(g))
+  ),
+  args[[7]],
+  auto_unbox = TRUE,
+  digits = 17
+)
+"""
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        csv_path = tmpdir_path / "data.csv"
+        json_path = tmpdir_path / "fixed_sp_score.json"
+        script_path = tmpdir_path / "fixed_sp_score.R"
+        data.to_csv(csv_path, index=False)
+        script_path.write_text(r_code, encoding="utf-8")
+        subprocess.run(
+            [
+                R_SCRIPT,
+                str(script_path),
+                str(csv_path),
+                formula,
+                family_token,
+                method,
+                "true" if select else "false",
+                json.dumps(np.asarray(smoothing_params, dtype=np.float64).tolist()),
                 str(json_path),
             ],
             check=True,
@@ -559,6 +855,68 @@ def _assert_basic_mgcv_parity(
     )
 
 
+def _assert_exact_mgcv_snapshot_parity(
+    actual,
+    expected,
+    *,
+    pred_atol=1e-10,
+    pred_rtol=1e-10,
+    edf_atol=1e-10,
+    criterion_atol=1e-10,
+    criterion_rtol=1e-10,
+    sp_atol=1e-10,
+    sp_rtol=1e-10,
+    log_sp_atol=1e-10,
+):
+    a_fit = actual["fit"]
+    e_fit = expected["fit"]
+    a_pred = actual["predictions"]
+    e_pred = expected["predictions"]
+
+    np.testing.assert_allclose(
+        np.asarray(a_fit["smoothing_params"], dtype=np.float64),
+        np.asarray(e_fit["smoothing_params"], dtype=np.float64),
+        atol=sp_atol,
+        rtol=sp_rtol,
+    )
+    np.testing.assert_allclose(
+        np.asarray(a_fit["log_smoothing_params"], dtype=np.float64),
+        np.asarray(e_fit["log_smoothing_params"], dtype=np.float64),
+        atol=log_sp_atol,
+        rtol=0.0,
+    )
+    np.testing.assert_allclose(
+        np.asarray(a_fit["edf_total"], dtype=np.float64),
+        np.asarray(e_fit["edf_total"], dtype=np.float64),
+        atol=edf_atol,
+        rtol=0.0,
+    )
+    np.testing.assert_allclose(
+        np.asarray(a_fit["edf_by_term"], dtype=np.float64),
+        np.asarray(e_fit["edf_by_term"], dtype=np.float64),
+        atol=edf_atol,
+        rtol=0.0,
+    )
+    np.testing.assert_allclose(
+        np.asarray(a_fit["criterion_value"], dtype=np.float64),
+        np.asarray(e_fit["criterion_value"], dtype=np.float64),
+        atol=criterion_atol,
+        rtol=criterion_rtol,
+    )
+    np.testing.assert_allclose(
+        np.asarray(a_pred["response"], dtype=np.float64),
+        np.asarray(e_pred["response"], dtype=np.float64),
+        atol=pred_atol,
+        rtol=pred_rtol,
+    )
+    np.testing.assert_allclose(
+        np.asarray(a_pred["link"], dtype=np.float64),
+        np.asarray(e_pred["link"], dtype=np.float64),
+        atol=pred_atol,
+        rtol=pred_rtol,
+    )
+
+
 def _assert_allclose_up_to_column_sign(actual, expected, *, atol, rtol):
     """Compare two matrices up to per-column sign flips or 2D subspace rotations.
 
@@ -589,7 +947,7 @@ def _assert_allclose_up_to_column_sign(actual, expected, *, atol, rtol):
             A2 = actual[:, j : j + 2]
             B2 = expected[:, j : j + 2]
             U_svd, _, Vt = np.linalg.svd(A2.T @ B2)
-            M = Vt.T @ U_svd.T
+            M = U_svd @ Vt
             rotated = A2 @ M
             if np.max(np.abs(rotated - B2)) <= atol:
                 aligned[:, j : j + 2] = rotated
@@ -600,10 +958,12 @@ def _assert_allclose_up_to_column_sign(actual, expected, *, atol, rtol):
 
 
 __all__ = [
+    "MGCV_ANOVA_SCRIPT",
     "MGCV_SNAPSHOT_SCRIPT",
     "R_SCRIPT",
     "_assert_allclose_up_to_column_sign",
     "_assert_basic_mgcv_parity",
+    "_assert_exact_mgcv_snapshot_parity",
     "_family_specs",
     "_fit_nampy_model",
     "_fit_nampy_model_fixed_sp",
@@ -618,7 +978,9 @@ __all__ = [
     "_make_random_effect_data",
     "_make_random_effect_data_noisy",
     "_make_sz_data",
+    "_run_mgcv_anova",
     "_run_mgcv_natparam_cr",
+    "_run_mgcv_fixed_sp_score",
     "_run_mgcv_predict_on_newdata",
     "_run_mgcv_smoothcon_matrix",
     "_run_mgcv_smoothcon_matrix_unscaled",

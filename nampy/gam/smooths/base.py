@@ -257,6 +257,30 @@ def _normalize_point_constraint(pc, feature_name):
     raise NotImplementedError(f"Unsupported pc type {type(pc)}.")
 
 
+def _normalize_point_constraint_vector(pc, feature_names):
+    if pc is None:
+        return None
+    names = [str(name) for name in feature_names]
+    n = len(names)
+    if n <= 0:
+        raise ValueError("feature_names must be non-empty.")
+    if n == 1:
+        return np.asarray([_normalize_point_constraint(pc, names[0])], dtype=np.float64)
+    if isinstance(pc, dict):
+        missing = [name for name in names if name not in pc]
+        extra = [name for name in pc.keys() if str(name) not in names]
+        if missing or extra:
+            raise ValueError(
+                f"pc dict must provide exactly one value for each feature {names}; "
+                f"missing={missing}, extra={extra}."
+            )
+        return np.asarray([float(pc[name]) for name in names], dtype=np.float64)
+    vals = np.asarray(pc, dtype=np.float64).ravel()
+    if vals.size != n:
+        raise ValueError(f"pc must supply {n} values for features {names}, got {vals.size}.")
+    return vals.astype(np.float64, copy=False)
+
+
 RUNTIME_TERM_INTERFACE_CHECKLIST = (
     "basis_train",
     "transform_new",
@@ -340,7 +364,11 @@ class BaseSmoothTerm(abc.ABC):
         self.constraint_kind = kind
         self.constraint_transform = transform
         self.constraints_absorbed_by = absorbed_by
-        self.constraints_absorbed = bool(transform is not None)
+        # Mark as absorbed if an explicit transform was applied OR if absorbed_by
+        # signals that the runtime handled identifiability without a transform
+        # (e.g. numeric by-variable smooths that keep the raw basis but must prevent
+        # stage-5 from applying its own sum-to-zero centering pass).
+        self.constraints_absorbed = bool(transform is not None) or (absorbed_by is not None)
         if transform is None:
             self.n_constraints_absorbed = 0
         else:
@@ -350,18 +378,12 @@ class BaseSmoothTerm(abc.ABC):
         """
         Apply constraint transform and by-variable scaling to a raw prediction basis.
 
-        Factor-by order: scale by z first (to match the factor-by fit ordering where
-        the by-variable is applied before the QR constraint), then apply T.
-        Standard order: apply T first, then scale by z.
+        For factor-by smooths the constraint (sum-to-zero over all observations)
+        is applied to the raw basis first; the level indicator scales the result.
+        This mirrors the fit path: center(raw) * indicator.
+        All other smooths: apply T first, then scale by z.
         """
         T = self.constraint_transform
-        if self.constraint_kind == "factor_by":
-            z = by_values_from_new_data(X_new, self._by_state)
-            if z is not None:
-                B = B * z[:, None]
-            if T is not None:
-                B = B @ T
-            return B
         if T is not None:
             B = B @ T
         z = by_values_from_new_data(X_new, self._by_state)

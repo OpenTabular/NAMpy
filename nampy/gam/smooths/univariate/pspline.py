@@ -23,6 +23,7 @@ from ..registry import register_smooth
 from ...constraints.absorption import apply_linear_constraint
 from ...design.structures import PenaltySpec
 from ...penalties.algebra import null_space_penalty_from_penalty
+from ....splines.penalty_scaling import scale_penalty
 from ....splines.univariate_bases import (
     pspline_knots,
     pspline_difference_penalty,
@@ -117,11 +118,6 @@ class PSplineTerm1D(BaseSmoothTerm):
         self._by_state = resolve_by_state(self.by, X, feature_names)
         sync_by_state_attributes(self, self._by_state)
 
-        if self.constraint_mode == "factor_by":
-            raise NotImplementedError(
-                "factor-by replicated P-splines are not yet implemented."
-            )
-
         basis_order, penalty_order = self.m
         if basis_order < 0 or penalty_order < 0:
             raise ValueError("For bs='ps', m entries must be >= 0.")
@@ -163,18 +159,39 @@ class PSplineTerm1D(BaseSmoothTerm):
             self._record_constraint_result("pc", C, absorbed_by="runtime")
             return self
 
+        S_raw = pspline_difference_penalty(base.shape[1], penalty_order)
+        main_penalty = scale_penalty(base, 0.5 * (S_raw + S_raw.T))
+
+        if self.constraint_mode == "factor_by":
+            if not self._by_state.is_present:
+                raise ValueError(
+                    "constraint_mode='factor_by' requires a numeric indicator `by` column."
+                )
+            penalties_in = [] if self.fixed else [main_penalty]
+            mean_row = base.mean(axis=0)
+            Bc_raw, Sc, C = apply_linear_constraint(base, penalties_in, mean_row)
+            Bc = Bc_raw * self._by_state.values[:, None]
+            self._basis_train = np.asarray(Bc, dtype=np.float64)
+            self._penalties = Sc
+            self._record_constraint_result("factor_by", C, absorbed_by="runtime")
+            return self
+
+        if self.constraint_mode == "never":
+            if self._by_state.is_present:
+                base = base * self._by_state.values[:, None]
+            self._basis_train = np.asarray(base, dtype=np.float64)
+            self._penalties = [] if self.fixed else [np.asarray(main_penalty, dtype=np.float64)]
+            self._record_constraint_result(None, None, absorbed_by=None)
+            return self
+
+        penalties_in = [] if self.fixed else [main_penalty]
+        mean_row = base.mean(axis=0)
+        Bc, Sc, C = apply_linear_constraint(base, penalties_in, mean_row)
         if self._by_state.is_present:
-            base = base * self._by_state.values[:, None]
-
-        self._basis_train = np.asarray(base, dtype=np.float64)
-
-        if self.fixed:
-            self._penalties = []
-        else:
-            S = pspline_difference_penalty(self._basis_train.shape[1], penalty_order)
-            self._penalties = [0.5 * (S + S.T)]
-
-        self._record_constraint_result(None, None, absorbed_by=None)
+            Bc = Bc * self._by_state.values[:, None]
+        self._basis_train = np.asarray(Bc, dtype=np.float64)
+        self._penalties = Sc
+        self._record_constraint_result("centering", C, absorbed_by="runtime")
         return self
 
     @property
@@ -204,7 +221,8 @@ class PSplineTerm1D(BaseSmoothTerm):
         if self.select and self.sp is not None:
             raise NotImplementedError(
                 "term-level sp is not yet implemented for select=True smooths in the "
-                "current runtime, because select adds an extra null-space penalty."
+                "current runtime, because select=True adds an extra explicit "
+                "null-space penalty in addition to the main penalty."
             )
 
         main_penalty = np.asarray(self.penalties[0], dtype=np.float64)
@@ -273,9 +291,10 @@ class PSplineTerm1D(BaseSmoothTerm):
                             "feature": self.feature,
                             "label": self.label,
                             "by": self.by,
-                            "by_name": self._by_name,
-                            "by_is_constant": bool(self._by_is_constant),
+                            "by_name": self._by_state.feature_name,
+                            "by_is_constant": bool(self._by_state.is_constant),
                             "constraint_mode": self.constraint_mode,
+                            "constraint_kind": self.constraint_kind,
                             "pc": self.pc,
                             "knots": self.knots,
                             "m": self.m,

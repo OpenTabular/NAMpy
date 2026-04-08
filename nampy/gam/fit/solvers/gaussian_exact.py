@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.linalg import cho_solve
+from numpy.linalg import LinAlgError
 
 from ..penalized_system import (
     build_full_design,
@@ -65,7 +66,16 @@ def solve_gaussian_fit(model, y, smoothing_params):
     Xtwy = X.T @ (w * y_work)
     A = XtWX + P_full
 
-    if gaussian_design_needs_stacked_qr_fit(model):
+    def _solve_with_stacked_qr():
+        term_types = {
+            str(getattr(tb, "term_type", "")).lower()
+            for tb in (getattr(model, "term_blocks_", None) or [])
+        }
+        coef_method = (
+            "lstsq"
+            if any(tt.startswith("factor_smooth_") for tt in term_types)
+            else "householder"
+        )
         pls = solve_gaussian_penalized_ls_stacked_qr(
             X,
             y_work,
@@ -74,25 +84,25 @@ def solve_gaussian_fit(model, y, smoothing_params):
             penalty_blocks=model.penalty_blocks_,
             fit_intercept=model.fit_intercept,
             n_coef=model.n_coef_,
+            coef_method=coef_method,
         )
         beta_full = np.asarray(pls["coef_full"], dtype=np.float64).ravel()
         eta = X @ beta_full if model.offset_train_ is None else model.offset_train_ + X @ beta_full
         resid = y - eta
         wrss = float(np.sum(w * resid * resid))
         penalty_quadratic = float(pls["penalty_quadratic"])
-        H_coef = np.asarray(pls["coef_hat_matrix"], dtype=np.float64)
+        A_inv = np.linalg.pinv(A, hermitian=True, rcond=1e-12)
+        if coef_method == "householder":
+            H_coef = np.asarray(pls["coef_hat_matrix"], dtype=np.float64)
+        else:
+            H_coef = A_inv @ XtWX
         trace_H = float(np.trace(H_coef))
         edf = trace_H
-        chol_inv = np.asarray(
-            pls["XtWX_plus_penalty_chol_inverse_embedded"], dtype=np.float64
-        )
         denom = float(model.n_samples_ - edf)
         if not np.isfinite(denom) or denom <= 0.0:
             denom = np.finfo(np.float64).eps
         scale = wrss / denom
-        Vp = scale * (chol_inv @ chol_inv.T)
-        Vf = scale * (H_coef @ (chol_inv @ chol_inv.T))
-        A_inv = np.linalg.pinv(A, hermitian=True, rcond=1e-12)
+        Vp, Vf, _ = build_bayes_and_freq_covariances(scale, A_inv, XtWX)
         return FitCoreSolution(
             coef_full=beta_full.copy(),
             intercept=float(beta_full[0]) if model.fit_intercept else 0.0,
@@ -128,8 +138,13 @@ def solve_gaussian_fit(model, y, smoothing_params):
             offset=None if model.offset_train_ is None else model.offset_train_.copy(),
             log_det_XtWX_plus_penalty=float(pls["log_det_XtWX_plus_penalty"]),
         )
+    if gaussian_design_needs_stacked_qr_fit(model):
+        return _solve_with_stacked_qr()
 
-    beta_full, cA, loA, _ = stabilized_cholesky_solve(A, Xtwy)
+    try:
+        beta_full, cA, loA, _ = stabilized_cholesky_solve(A, Xtwy)
+    except LinAlgError:
+        return _solve_with_stacked_qr()
     eta = X @ beta_full if model.offset_train_ is None else model.offset_train_ + X @ beta_full
     resid = y - eta
     wrss = float(np.sum(w * resid * resid))

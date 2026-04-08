@@ -8,6 +8,7 @@ are used directly as ``family`` arguments to GAM model constructors.
 
 import numpy as np
 from scipy.special import digamma, gammaln, polygamma
+from scipy.stats import norm as _norm
 
 from .base import GLMFamily, _EPS
 
@@ -655,3 +656,358 @@ class NegativeBinomialLogFamily(GLMFamily):
             theta = theta_new
 
         return max(theta, self.eps)
+
+
+class BinomialProbitFamily(GLMFamily):
+    """Binomial family with probit link g(mu) = Phi^{-1}(mu)."""
+
+    name = "binomial"
+    link_name = "probit"
+    canonical_link = False
+
+    supports_closed_form_solve = False
+    supports_pirls = True
+
+    supports_gcv = False
+    supports_ubre = True
+    supports_ml = True
+    supports_reml = True
+    supports_laml = False
+    supports_exact_pirls_first_derivatives = True
+    supports_exact_pirls_second_derivatives = False
+
+    known_scale = 1.0
+    max_derivative_order = 1
+
+    def validate_y(self, y):
+        y = super().validate_y(y)
+        if np.any((y < 0.0) | (y > 1.0)):
+            raise ValueError("BinomialProbitFamily requires targets in [0, 1].")
+        return y
+
+    def initialize_mu(self, y):
+        y = np.asarray(y, dtype=np.float64)
+        return np.clip((y + 0.5) / 2.0, self.eps, 1.0 - self.eps)
+
+    def link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return _norm.ppf(mu)
+
+    def inverse_link(self, eta):
+        return np.clip(_norm.cdf(np.asarray(eta, dtype=np.float64)), self.eps, 1.0 - self.eps)
+
+    def mu_eta(self, eta):
+        return np.clip(_norm.pdf(np.asarray(eta, dtype=np.float64)), self.eps, None)
+
+    def variance(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return np.clip(mu * (1.0 - mu), self.eps, None)
+
+    def dvar(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return 1.0 - 2.0 * mu
+
+    def d2var(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return -2.0 * np.ones_like(mu)
+
+    def d3var(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return np.zeros_like(mu)
+
+    def d2link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        eta = _norm.ppf(mu)
+        phi = np.clip(_norm.pdf(eta), self.eps, None)
+        return eta / np.clip(phi**2, self.eps, None)
+
+    def d3link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        eta = _norm.ppf(mu)
+        phi = np.clip(_norm.pdf(eta), self.eps, None)
+        return (1.0 + 2.0 * eta**2) / np.clip(phi**3, self.eps, None)
+
+    def d4link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        eta = _norm.ppf(mu)
+        phi = np.clip(_norm.pdf(eta), self.eps, None)
+        return eta * (7.0 + 6.0 * eta**2) / np.clip(phi**4, self.eps, None)
+
+    def deviance(self, y, mu):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        term1 = np.zeros_like(y)
+        mask1 = y > 0
+        term1[mask1] = y[mask1] * np.log(y[mask1] / mu[mask1])
+        term2 = np.zeros_like(y)
+        mask2 = y < 1
+        term2[mask2] = (1.0 - y[mask2]) * np.log((1.0 - y[mask2]) / (1.0 - mu[mask2]))
+        return float(2.0 * np.sum(term1 + term2))
+
+    def loglik_obs(self, y, mu, scale=1.0):
+        del scale
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return y * np.log(mu) + (1.0 - y) * np.log(1.0 - mu)
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        del scale, n
+        y = np.asarray(y, dtype=np.float64)
+        if weights is None:
+            weights = np.ones_like(y, dtype=np.float64)
+        else:
+            weights = np.asarray(weights, dtype=np.float64)
+        term = np.zeros_like(y)
+        mask1 = y > 0.0
+        term[mask1] += y[mask1] * np.log(y[mask1])
+        mask2 = y < 1.0
+        term[mask2] += (1.0 - y[mask2]) * np.log(1.0 - y[mask2])
+        return float(np.sum(weights * term))
+
+    def working_weight_derivative_eta(self, eta, y=None):
+        eta = np.asarray(eta, dtype=np.float64)
+        phi = np.clip(_norm.pdf(eta), self.eps, None)
+        mu = np.clip(_norm.cdf(eta), self.eps, 1.0 - self.eps)
+        V = np.clip(mu * (1.0 - mu), self.eps, None)
+        # d/deta [phi^2/V] = phi^2 * [-2*eta*V - phi*(1-2*mu)] / V^2
+        return phi**2 * (-2.0 * eta * V - phi * (1.0 - 2.0 * mu)) / np.clip(V**2, self.eps, None)
+
+
+class BinomialCloglogFamily(GLMFamily):
+    """Binomial family with complementary log-log link g(mu) = log(-log(1-mu))."""
+
+    name = "binomial"
+    link_name = "cloglog"
+    canonical_link = False
+
+    supports_closed_form_solve = False
+    supports_pirls = True
+
+    supports_gcv = False
+    supports_ubre = True
+    supports_ml = True
+    supports_reml = True
+    supports_laml = False
+    supports_exact_pirls_first_derivatives = True
+    supports_exact_pirls_second_derivatives = False
+
+    known_scale = 1.0
+    max_derivative_order = 1
+
+    def validate_y(self, y):
+        y = super().validate_y(y)
+        if np.any((y < 0.0) | (y > 1.0)):
+            raise ValueError("BinomialCloglogFamily requires targets in [0, 1].")
+        return y
+
+    def initialize_mu(self, y):
+        y = np.asarray(y, dtype=np.float64)
+        return np.clip((y + 0.5) / 2.0, self.eps, 1.0 - self.eps)
+
+    def link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return np.log(-np.log(1.0 - mu))
+
+    def inverse_link(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        lam = np.exp(np.clip(eta, -30.0, 30.0))
+        return np.clip(1.0 - np.exp(-lam), self.eps, 1.0 - self.eps)
+
+    def mu_eta(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        lam = np.exp(np.clip(eta, -30.0, 30.0))
+        return np.clip(lam * np.exp(-lam), self.eps, None)
+
+    def variance(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return np.clip(mu * (1.0 - mu), self.eps, None)
+
+    def dvar(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return 1.0 - 2.0 * mu
+
+    def d2var(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return -2.0 * np.ones_like(mu)
+
+    def d3var(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return np.zeros_like(mu)
+
+    def d2link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        lam = np.clip(-np.log(1.0 - mu), self.eps, None)
+        one_m_mu = np.clip(1.0 - mu, self.eps, None)
+        return (lam - 1.0) / np.clip((one_m_mu * lam) ** 2, self.eps, None)
+
+    def d3link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        lam = np.clip(-np.log(1.0 - mu), self.eps, None)
+        one_m_mu = np.clip(1.0 - mu, self.eps, None)
+        return (lam + 2.0 * (lam - 1.0) ** 2) / np.clip((one_m_mu * lam) ** 3, self.eps, None)
+
+    def d4link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        lam = np.clip(-np.log(1.0 - mu), self.eps, None)
+        one_m_mu = np.clip(1.0 - mu, self.eps, None)
+        num = 6.0 * (lam - 1.0)**3 + (3.0 * lam - 1.0) * (lam + 2.0 * (lam - 1.0)**2)
+        return num / np.clip((one_m_mu * lam) ** 4, self.eps, None)
+
+    def deviance(self, y, mu):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        term1 = np.zeros_like(y)
+        mask1 = y > 0
+        term1[mask1] = y[mask1] * np.log(y[mask1] / mu[mask1])
+        term2 = np.zeros_like(y)
+        mask2 = y < 1
+        term2[mask2] = (1.0 - y[mask2]) * np.log((1.0 - y[mask2]) / (1.0 - mu[mask2]))
+        return float(2.0 * np.sum(term1 + term2))
+
+    def loglik_obs(self, y, mu, scale=1.0):
+        del scale
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return y * np.log(mu) + (1.0 - y) * np.log(1.0 - mu)
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        del scale, n
+        y = np.asarray(y, dtype=np.float64)
+        if weights is None:
+            weights = np.ones_like(y, dtype=np.float64)
+        else:
+            weights = np.asarray(weights, dtype=np.float64)
+        term = np.zeros_like(y)
+        mask1 = y > 0.0
+        term[mask1] += y[mask1] * np.log(y[mask1])
+        mask2 = y < 1.0
+        term[mask2] += (1.0 - y[mask2]) * np.log(1.0 - y[mask2])
+        return float(np.sum(weights * term))
+
+    def working_weight_derivative_eta(self, eta, y=None):
+        eta = np.asarray(eta, dtype=np.float64)
+        lam = np.exp(np.clip(eta, -30.0, 30.0))
+        mu = np.clip(1.0 - np.exp(-lam), self.eps, 1.0 - self.eps)
+        M = np.clip(lam * np.exp(-lam), self.eps, None)
+        V = np.clip(mu * (1.0 - mu), self.eps, None)
+        # d/deta [M^2/V] = M^2 * [2*(1-lam)*V - (1-2*mu)*M] / V^2
+        return M**2 * (2.0 * (1.0 - lam) * V - (1.0 - 2.0 * mu) * M) / np.clip(V**2, self.eps, None)
+
+
+class GammaInverseFamily(GLMFamily):
+    """Gamma family with canonical inverse link g(mu) = 1/mu."""
+
+    name = "gamma"
+    link_name = "inverse"
+    canonical_link = True
+
+    supports_closed_form_solve = False
+    supports_pirls = True
+
+    supports_gcv = True
+    supports_ubre = False
+    supports_ml = True
+    supports_reml = True
+    supports_laml = False
+    supports_exact_pirls_first_derivatives = True
+    supports_exact_pirls_second_derivatives = True
+
+    known_scale = None
+    max_derivative_order = 1
+
+    def validate_y(self, y):
+        y = super().validate_y(y)
+        if np.any(y <= 0.0):
+            raise ValueError("GammaInverseFamily requires strictly positive targets.")
+        return y
+
+    def initialize_mu(self, y):
+        y = np.asarray(y, dtype=np.float64)
+        return np.clip(y, self.eps, None)
+
+    def link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 1.0 / mu
+
+    def inverse_link(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        return 1.0 / np.clip(eta, self.eps, None)
+
+    def mu_eta(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        return -1.0 / np.clip(eta**2, self.eps, None)
+
+    def variance(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return np.clip(mu**2, self.eps, None)
+
+    def dvar(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 2.0 * mu
+
+    def d2var(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 2.0 * np.ones_like(mu)
+
+    def d3var(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return np.zeros_like(mu)
+
+    def d2link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 2.0 / np.clip(mu**3, self.eps, None)
+
+    def d3link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return -6.0 / np.clip(mu**4, self.eps, None)
+
+    def d4link(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 24.0 / np.clip(mu**5, self.eps, None)
+
+    def deviance(self, y, mu):
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return float(2.0 * np.sum((y - mu) / mu - np.log(y / mu)))
+
+    def estimate_dispersion(self, y, mu, edf=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        pearson = float(np.sum((y - mu) ** 2 / self.variance(mu)))
+        if edf is None:
+            return pearson / max(len(y), 1.0)
+        return pearson / max(len(y) - float(edf), 1.0)
+
+    def loglik_obs(self, y, mu, scale=1.0):
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        scale = float(max(scale, self.eps))
+        shape = 1.0 / scale
+        return (
+            (shape - 1.0) * np.log(y)
+            - y * shape / mu
+            - gammaln(shape)
+            - shape * np.log(mu / shape)
+        )
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        del n
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        if weights is None:
+            weights = np.ones_like(y, dtype=np.float64)
+        else:
+            weights = np.asarray(weights, dtype=np.float64)
+        scale = float(max(scale, self.eps))
+        shape = 1.0 / scale
+        sat = -np.log(y) - shape - gammaln(shape) + shape * np.log(shape)
+        return float(np.sum(weights * sat))
+
+    def working_weight_derivative_eta(self, eta, y=None):
+        # W = mu^2 (canonical link, W_exact = W_Fisher = mu^2).
+        # dW/deta = 2*mu * dmu/deta = 2/eta * (-1/eta^2) = -2/eta^3
+        mu = np.clip(self.inverse_link(eta), self.eps, None)
+        return -2.0 * mu**3
+
+    def working_weight_second_derivative_eta(self, eta, y=None):
+        mu = np.clip(self.inverse_link(eta), self.eps, None)
+        return 6.0 * mu**4

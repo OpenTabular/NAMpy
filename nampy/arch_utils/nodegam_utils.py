@@ -263,7 +263,7 @@ class GAM_ODST(ODST):
             fs_normalize: If True, we normalize the feature selectors be summed to 1. But False or
                 True do not make too much difference in performance.
             ga2m: If set to 1, use GA2M, else use GAM.
-            kwargs: For other old unused arguments for compatibility reasons.
+            kwargs: Additional unused keyword arguments.
         """
         if ga2m:
             # If specified as GA2M, but the tree depth is set to just 1 that can not model GA2M.
@@ -482,7 +482,7 @@ class GAMAttODST(GAM_ODST):
             ga2m: If set to 1, use GA2M, else use GAM.
             prev_in_features: The number of previous layers' outputs.
             dim_att: The dimension of attention embedding to reduce memory consumption.
-            kwargs: For other old unused arguments for compatibility reasons.
+            kwargs: Additional unused keyword arguments.
         """
         super().__init__(
             in_features=in_features,

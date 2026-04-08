@@ -537,7 +537,8 @@ def _solve_coef_householder_chain_nonneg_weights(
     kept_original_indices = np.asarray(kept_original_indices, dtype=np.int64).ravel()
     raw = np.sqrt(np.maximum(w, 0.0))
     wy = w * y
-    nz = int(max(n_obs, n_augmented_rows))
+    n_qwx_rows = int(qr_weighted_x.shape[0])
+    nz = int(max(n_obs, n_augmented_rows, n_qwx_rows))
     z = np.zeros(nz, dtype=np.float64)
     z[:n_obs] = y * raw
 
@@ -545,9 +546,9 @@ def _solve_coef_householder_chain_nonneg_weights(
     forward_rhs = np.zeros(n_coef, dtype=np.float64)
 
     # Apply Householder chain: Q_wx', Q_aug', Q_aug, Q_wx in sequence.
-    stage1 = np.asfortranarray(z[:n_obs].reshape(n_obs, 1))
+    stage1 = np.asfortranarray(z[:n_qwx_rows].reshape(n_qwx_rows, 1))
     stage1 = _dormqr_apply(b"L", b"T", qr_weighted_x, tau_weighted_x, stage1)
-    z[:n_obs] = stage1[:, 0]
+    z[:n_qwx_rows] = stage1[:, 0]
 
     z[system_rank:nz] = 0.0
 
@@ -568,9 +569,9 @@ def _solve_coef_householder_chain_nonneg_weights(
     for i in range(system_rank, n_obs):
         z[i] = 0.0
 
-    stage4 = np.asfortranarray(z[:n_obs].reshape(n_obs, 1))
+    stage4 = np.asfortranarray(z[:n_qwx_rows].reshape(n_qwx_rows, 1))
     stage4 = _dormqr_apply(b"L", b"N", qr_weighted_x, tau_weighted_x, stage4)
-    z[:n_obs] = stage4[:, 0]
+    z[:n_qwx_rows] = stage4[:, 0]
 
     scratch[:n_coef] = X.T @ wy
     rhs_kept = _drop_rows_vec(scratch[:n_coef], dropped_columns)
@@ -818,7 +819,7 @@ def solve_gaussian_penalized_ls_stacked_qr(
     penalty_blocks, fit_intercept, n_coef
         When ``penalty_blocks`` is provided (along with ``n_coef``), rank detection
         uses :func:`balanced_penalty_template_sqrt_for_rank`.  Omit these to fall back
-        to row-normalised ``sqrt(P)`` (legacy path, less stable for mixed-scale penalties).
+        to row-normalised ``sqrt(P)``, which is less stable for mixed-scale penalties.
     coef_method
         ``"householder"`` (default): triangular back-substitution after stacked QRs.
         ``"lstsq"``: augmented least-squares with penalty-minimisation gauge.
@@ -899,27 +900,32 @@ def solve_gaussian_penalized_ls_stacked_qr(
         np.sum(np.log(np.abs(np.diag(upper_r_final))))
     )
 
-    ridge_eps = _ridge_eps_for_upper_r(upper_r_final)
-    inv_upper_r = solve_triangular(
-        upper_r_final + ridge_eps * np.eye(system_rank),
-        np.eye(system_rank),
-        lower=False,
-    )
-    Q_weighted_x = _dorgqr_economic(qr_wx.copy(), tau_wx, n_wx_econ)
-    Q_augmented = _dorgqr_economic(qr_aug.copy(), tau_aug, system_rank)
-    K_partial = Q_weighted_x @ Q_augmented[:n_wx_econ, :]
-
-    chol_inv_embedded = np.zeros((n_coef_total, n_coef_total), dtype=np.float64)
-    householder_mixing = np.zeros((n_obs, n_coef_total), dtype=np.float64)
-    for i in range(system_rank):
-        ki = kept_original_indices[int(pivot_aug[i])]
-        householder_mixing[:, ki] = K_partial[:, i]
-        for j in range(system_rank):
-            kj = kept_original_indices[int(pivot_aug[j])]
-            chol_inv_embedded[ki, kj] = inv_upper_r[i, j]
-
     sqrt_w_X = sqrt_w[:, None] * X
-    coef_hat_matrix = (chol_inv_embedded @ householder_mixing.T) @ sqrt_w_X
+    if str(coef_method).lower().strip() == "lstsq":
+        chol_inv_embedded = np.linalg.pinv(A, hermitian=True, rcond=1e-12)
+        householder_mixing = np.zeros((n_obs, n_coef_total), dtype=np.float64)
+        coef_hat_matrix = chol_inv_embedded @ XtWX
+    else:
+        ridge_eps = _ridge_eps_for_upper_r(upper_r_final)
+        inv_upper_r = solve_triangular(
+            upper_r_final + ridge_eps * np.eye(system_rank),
+            np.eye(system_rank),
+            lower=False,
+        )
+        Q_weighted_x = _dorgqr_economic(qr_wx.copy(), tau_wx, n_wx_econ)
+        Q_augmented = _dorgqr_economic(qr_aug.copy(), tau_aug, system_rank)
+        K_partial = Q_weighted_x @ Q_augmented[:n_wx_econ, :]
+
+        chol_inv_embedded = np.zeros((n_coef_total, n_coef_total), dtype=np.float64)
+        householder_mixing = np.zeros((n_obs, n_coef_total), dtype=np.float64)
+        for i in range(system_rank):
+            ki = kept_original_indices[int(pivot_aug[i])]
+            householder_mixing[:, ki] = K_partial[:, i]
+            for j in range(system_rank):
+                kj = kept_original_indices[int(pivot_aug[j])]
+                chol_inv_embedded[ki, kj] = inv_upper_r[i, j]
+
+        coef_hat_matrix = (chol_inv_embedded @ householder_mixing.T) @ sqrt_w_X
 
     return {
         "coef_full": coef_full,
@@ -942,4 +948,15 @@ def gaussian_design_needs_stacked_qr_fit(model) -> bool:
     for tb in getattr(model, "term_blocks_", None) or []:
         if str(getattr(tb, "term_type", "")).lower() == "random_effect":
             return True
-    return False
+    Z = getattr(model, "Z", None)
+    if Z is None:
+        return False
+    from ..penalized_system import build_full_design
+
+    X = np.asarray(
+        build_full_design(Z, fit_intercept=bool(getattr(model, "fit_intercept", False))),
+        dtype=np.float64,
+    )
+    if X.ndim != 2 or X.shape[1] == 0:
+        return False
+    return np.linalg.matrix_rank(X) < X.shape[1]

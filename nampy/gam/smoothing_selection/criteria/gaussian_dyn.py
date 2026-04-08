@@ -220,6 +220,59 @@ def criterion_ml_reml_gaussian_dynamic_joint(model, y, log_sp_free, log_sigma2, 
     ) / 2.0
 
 
+def criterion_ml_reml_gaussian_dynamic_profiled(model, y, log_sp_free, method="REML"):
+    """
+    Gaussian REML/LAML criterion profiled over sigma^2 using the same joint
+    objective as `criterion_ml_reml_gaussian_dynamic_joint`.
+
+    This matches mgcv's outer-optimization geometry: the reported profiled score
+    is the joint objective evaluated at the analytic optimum
+    `sigma^2 = (dev + beta'Sbeta) / nu`.
+    """
+    method_u = str(method).upper()
+    if method_u not in {"REML", "LAML"}:
+        raise ValueError("method must be 'REML' or 'LAML' for the profiled Gaussian path.")
+
+    y = model.family.validate_y(y)
+    sp = model._expand_smoothing_params_from_log(
+        np.asarray(log_sp_free, dtype=np.float64).ravel()
+    )
+    sol = model._solve_gaussian_given_smoothing(y, sp)
+
+    nobs = float(model.n_samples_)
+    Mp = float(
+        _static_penalty_null_dim(model)
+        + int(bool(getattr(model, "fit_intercept", False)))
+    )
+    n_eff = getattr(model, "n_true_", None)
+    w1 = prior_weights_diagonal_from_fit(sol, int(nobs))
+    nu, _sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
+        w1, nobs, Mp, n_effective_total=n_eff
+    )
+    if not np.isfinite(nu) or nu <= 0.0:
+        return np.inf
+
+    yv = np.asarray(y, dtype=np.float64).ravel()
+    mu = np.asarray(sol["mu"], dtype=np.float64).ravel()
+    dev = gaussian_weighted_residual_sum_squares(yv, mu, w1)
+    Pq = quadratic_form_penalty(
+        np.asarray(sol["coef_full"], dtype=np.float64),
+        np.asarray(sol["penalty_matrix"], dtype=np.float64),
+    )
+    F = float(dev) + float(Pq)
+    if not np.isfinite(F) or F <= 0.0:
+        return np.inf
+
+    log_sigma2 = float(np.log(max(F / nu, 1e-300)))
+    return criterion_ml_reml_gaussian_dynamic_joint(
+        model,
+        y,
+        log_sp_free,
+        log_sigma2,
+        method=method_u,
+    )
+
+
 def criterion_gradient_ml_reml_gaussian_dynamic_joint(
     model, y, log_sp_free, log_sigma2, method="REML"
 ):
@@ -323,4 +376,3 @@ def _dynamic_fixed_and_random_designs(model, X_full, P_full, *, tol=1e-10):
         else np.empty((X_full.shape[0], 0), dtype=np.float64)
     )
     return Xf, split["Z_rand"], split
-

@@ -23,7 +23,11 @@ from dataclasses import dataclass
 import numpy as np
 
 from ..penalties import normalize_penalty_spec
-from .transforms import apply_coefficient_transform, null_space_basis_from_constraint_matrix
+from .transforms import (
+    apply_coefficient_transform,
+    localized_null_space_basis_from_constraint_matrix,
+    null_space_basis_from_constraint_matrix,
+)
 
 
 @dataclass
@@ -93,7 +97,7 @@ def full_term_sum_to_zero_constraint(B, penalties):
 def absorb_explicit_constraints(B, penalty_specs, C, tol: float = 1e-12):
     B = np.asarray(B, dtype=np.float64)
     d = B.shape[1]
-    T, n_cons = null_space_basis_from_constraint_matrix(C, d=d, tol=tol)
+    T, n_cons = localized_null_space_basis_from_constraint_matrix(C, d=d, tol=tol)
     mats = [np.asarray(p.matrix, dtype=np.float64) for p in penalty_specs]
     B_new, mats_new = apply_coefficient_transform(B, mats, T)
     out_specs = []

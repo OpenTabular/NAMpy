@@ -1,4 +1,4 @@
-"""Shared helpers for Phase 0 characterization / parity tests."""
+"""Shared helpers for structural mgcv parity characterization tests."""
 
 from __future__ import annotations
 

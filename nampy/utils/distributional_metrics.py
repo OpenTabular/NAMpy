@@ -129,10 +129,8 @@ def gamma_deviance(y_true, y_pred):
     return float(2.0 * np.mean((y - mu) / mu - np.log(y / mu)))
 
 
-def beta_brier_score(y_true, y_pred):
+def beta_mean_mse(y_true, y_pred):
     """
-    Compatibility function retained from original code.
-
     For Beta LSS models, `y_pred` is usually transformed params [alpha, beta].
     We therefore compute MSE on the Beta mean:
         E[Y] = alpha / (alpha + beta)

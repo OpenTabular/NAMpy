@@ -4,6 +4,7 @@ import numpy as np
 
 from .categorical_utils import factor_indicator_matrix, stable_unique_levels, as_object_1d
 from ...design.structures import PenaltySpec
+from ...penalties import build_null_space_selection_spec
 from ...basis.tensor import rescale_tensor_penalties_for_fit
 from ..base import (
     BaseSmoothTerm,
@@ -53,6 +54,7 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         smoothing_id=None,
         by=None,
         sp=None,
+        select=False,
         xt=None,
         knots=None,
         metadata=None,
@@ -72,6 +74,7 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         )
 
         self.k = int(k)
+        self.select = bool(select)
         self.basis_name = str(basis).lower()
         self.xt = xt
         self.knots = knots
@@ -267,7 +270,7 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
             sp_mode = "estimate"
             sp_value = None
 
-        return [
+        defs = [
             PenaltySpec(
                 matrix=np.asarray(self.penalties[0], dtype=np.float64),
                 smoothing_id=(None if self.smoothing_id is None else str(self.smoothing_id)),
@@ -293,6 +296,34 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
                 },
             )
         ]
+
+        if self.select:
+            select_sid = (
+                None if self.smoothing_id is None else f"{self.smoothing_id}::select"
+            )
+            sel_spec = build_null_space_selection_spec(
+                main_penalty=np.asarray(self.penalties[0], dtype=np.float64),
+                smoothing_id=select_sid,
+                metadata={
+                    "term_type": self.term_type,
+                    "basis_name": self.basis_name,
+                    "feature": list(self.feature),
+                    "label": self.label,
+                    "by": self.by,
+                    "by_name": self._by_state.feature_name,
+                    "area_names": list(self._area_names) if self._area_names is not None else None,
+                    "has_polys": self._plot_polys is not None,
+                    "has_nb": self._nb is not None,
+                    "has_penalty": self._full_penalty is not None,
+                    "low_rank": self._P is not None,
+                    "k": int(self.k),
+                    "is_selection_penalty": True,
+                },
+            )
+            if sel_spec is not None:
+                defs.append(sel_spec)
+
+        return defs
 
     def transform_new(self, X_new):
         if self._area_names is None:

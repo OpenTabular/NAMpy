@@ -52,6 +52,48 @@ def null_space_basis_from_constraint_matrix(C, d: int | None = None, tol: float 
     return Vt[rank:, :].T.copy(), rank
 
 
+def localized_null_space_basis_from_constraint_matrix(C, d: int | None = None, tol: float = 1e-10):
+    """
+    Compute a null-space basis while preserving coordinates untouched by C.
+
+    When a constraint matrix has support on only a strict subset of coefficient
+    coordinates, a generic SVD null-space basis can arbitrarily rotate the full
+    coefficient space. That is mathematically valid, but it destroys block-local
+    penalty structure such as t2's separate identity penalties. This helper
+    keeps inactive coordinates as explicit identity columns and reparameterizes
+    only the active block.
+    """
+    C = np.asarray(C, dtype=np.float64)
+    if C.ndim == 1:
+        C = C.reshape(1, -1)
+    if C.ndim != 2:
+        raise ValueError("Constraint matrix must be 2D.")
+    if d is not None and C.shape[1] != int(d):
+        raise ValueError(f"Constraint matrix has width {C.shape[1]}, expected {d}.")
+    if C.size == 0:
+        return np.eye(C.shape[1], dtype=np.float64), 0
+
+    active = np.any(np.abs(C) > float(tol), axis=0)
+    if not np.any(active):
+        return np.eye(C.shape[1], dtype=np.float64), 0
+    if np.all(active):
+        return null_space_basis_from_constraint_matrix(C, d=d, tol=tol)
+
+    active_idx = np.flatnonzero(active)
+    inactive_idx = np.flatnonzero(~active)
+    T_active, rank = null_space_basis_from_constraint_matrix(
+        C[:, active_idx],
+        d=int(active_idx.size),
+        tol=tol,
+    )
+
+    out = np.zeros((C.shape[1], inactive_idx.size + T_active.shape[1]), dtype=np.float64)
+    for col, src in enumerate(inactive_idx):
+        out[src, col] = 1.0
+    out[np.ix_(active_idx, np.arange(inactive_idx.size, out.shape[1]))] = T_active
+    return out, rank
+
+
 def apply_coefficient_transform(B, penalties, T):
     B = np.asarray(B, dtype=np.float64)
     T = np.asarray(T, dtype=np.float64)
@@ -68,5 +110,6 @@ __all__ = [
     "orthogonal_residual",
     "independent_column_indices",
     "null_space_basis_from_constraint_matrix",
+    "localized_null_space_basis_from_constraint_matrix",
     "apply_coefficient_transform",
 ]

@@ -27,6 +27,7 @@ from .optimize import (
     expand_smoothing_params_from_log,
     optimize_smoothing_params,
 )
+from .postfit import gam_vcomp, one_se_rule, sp_vcov
 from .reparam import (
     reparameterize_smooth,
     can_use_simple_ml_reml_structure,
@@ -51,6 +52,9 @@ __all__ = [
     "n_free_smoothing_params",
     "expand_smoothing_params_from_log",
     "optimize_smoothing_params",
+    "sp_vcov",
+    "gam_vcomp",
+    "one_se_rule",
     "reparameterize_smooth",
     "can_use_simple_ml_reml_structure",
     "can_use_exact_gaussian_ml_reml",
