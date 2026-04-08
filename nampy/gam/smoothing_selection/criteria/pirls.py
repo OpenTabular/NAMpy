@@ -403,6 +403,28 @@ def criterion_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
     return float(objective)
 
 
+def criterion_ml_reml_pirls_negbin_joint(model, y, log_sp, log_theta, method):
+    """Joint (log_sp, log_theta) NB REML outer objective.
+
+    Sets model.family.theta = exp(log_theta) as the EFS initialization, then
+    evaluates the PIRLS REML criterion.  EFS (Embedded Fisher Scoring) updates
+    theta after each inner IRLS step inside :func:`fit_pirls_core`, mirroring
+    mgcv's ``gam.fit4.r`` extended-family pattern where log(theta) is prepended
+    to ``lsp`` and theta is updated per PIRLS step within the inner loop.
+    """
+    family_name = str(getattr(model.family, "name", "")).lower()
+    if family_name != "negbin":
+        raise NotImplementedError(
+            "Joint PIRLS NegBin outer objective is implemented only for family='negbin'."
+        )
+    theta = float(np.exp(float(log_theta)))
+    if not np.isfinite(theta) or theta <= 0.0:
+        return np.inf
+    # Initialize theta for EFS; the inner loop will update it via estimate_theta_mle.
+    model.family.theta = theta
+    return criterion_ml_reml_pirls(model, y, log_sp, method)
+
+
 def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
     if abs(model.score_gamma - 1.0) > 1e-12:
         raise NotImplementedError(

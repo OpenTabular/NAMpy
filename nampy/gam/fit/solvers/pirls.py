@@ -54,9 +54,9 @@ def solve_pirls_fit(model, y, smoothing_params):
     runs :func:`fit_pirls_core`, and stores the converged coefficient vector
     on the model for use as a warm start in subsequent iterations.
 
-    For NegBin families with ``estimate_theta=True`` an outer loop alternates
-    between solving for ``beta`` (inner PIRLS) and updating ``theta`` via
-    Newton-Raphson MLE steps until both converge.
+    When the family has ``estimate_theta=True``, EFS (Embedded Fisher Scoring)
+    updates theta after each IRLS step inside :func:`fit_pirls_core`, matching
+    mgcv's ``gam.fit4.r`` lines 507-515.
 
     Returns a :class:`~nampy.gam.fit.state.FitCoreSolution` wrapping the
     converged working system.
@@ -85,43 +85,24 @@ def solve_pirls_fit(model, y, smoothing_params):
         if mustart.shape != (int(model.n_samples_),):
             mustart = None
 
-    family = model.family
-    estimate_theta = bool(getattr(family, "estimate_theta", False))
-    theta_outer_max = int(getattr(model, "theta_outer_max_iter", 25))
-    theta_outer_tol = float(getattr(model, "theta_outer_tol", 1e-5))
     weights = getattr(model, "prior_weights_", None)
 
-    sol = None
-    for _outer in range(theta_outer_max if estimate_theta else 1):
-        theta_old = float(getattr(family, "theta", 1.0)) if estimate_theta else None
-
-        sol = solve_pirls_gam(
-            Z=model.Z,
-            y=y,
-            penalty_blocks=model.penalty_blocks_,
-            smoothing_params=smoothing_params,
-            family=family,
-            fit_intercept=model.fit_intercept,
-            max_iter=int(getattr(model, "max_irls_iter", 100)),
-            tol=float(getattr(model, "irls_tol", 1e-8)),
-            max_step_halving=int(getattr(model, "max_step_halving", 25)),
-            offset=model.offset_train_,
-            weights=weights,
-            coef_start=coef_start,
-            etastart=etastart,
-            mustart=mustart,
-        )
-
-        if not estimate_theta:
-            break
-
-        mu_hat = np.asarray(sol["mu"], dtype=np.float64)
-        theta_new = family.estimate_theta_mle(y, mu_hat, weights=weights)
-        family.theta = theta_new
-
-        coef_start = np.asarray(sol["coef_full"], dtype=np.float64).copy()
-        if abs(theta_new - theta_old) < theta_outer_tol * (1.0 + abs(theta_old)):
-            break
+    sol = solve_pirls_gam(
+        Z=model.Z,
+        y=y,
+        penalty_blocks=model.penalty_blocks_,
+        smoothing_params=smoothing_params,
+        family=model.family,
+        fit_intercept=model.fit_intercept,
+        max_iter=int(getattr(model, "max_irls_iter", 100)),
+        tol=float(getattr(model, "irls_tol", 1e-8)),
+        max_step_halving=int(getattr(model, "max_step_halving", 25)),
+        offset=model.offset_train_,
+        weights=weights,
+        coef_start=coef_start,
+        etastart=etastart,
+        mustart=mustart,
+    )
 
     coef_out = np.asarray(sol["coef_full"], dtype=np.float64).copy()
     model._pirls_last_coef_ = coef_out

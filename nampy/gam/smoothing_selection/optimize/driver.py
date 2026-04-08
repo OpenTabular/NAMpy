@@ -21,9 +21,9 @@ from .basics import (
 from .objectives import (
     _approx_derivative,
     _CriterionObjective,
-    _design_has_mrf_smooth,
     _JointGaussianRemlObjective,
     _JointGammaPirlsRemlObjective,
+    _JointNegbinPirlsRemlObjective,
 )
 from .outer import _optimize_outer_newton, _optimize_outer_newton_indefinite_hessian
 from .postprocess import (
@@ -34,6 +34,7 @@ from .postprocess import (
     _refine_null_space_smoothing_params,
     _rollback_working_infinite_smoothing_params,
     _snap_gaussian_random_effect_boundary,
+    _stabilize_factor_smooth_shared_ridge,
     _stabilize_flat_smoothing_params,
 )
 
@@ -164,6 +165,12 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
         and method in {"reml", "laml"}
         and ml_reml_backend == "pirls_laplace"
     )
+    use_joint_negbin_reml_theta = (
+        family_name == "negbin"
+        and method in {"reml", "laml"}
+        and ml_reml_backend == "pirls_laplace"
+        and bool(getattr(model.family, "estimate_theta", False))
+    )
 
     if n_free == 0:
         model._optim_method = method
@@ -183,11 +190,16 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
         else:
             user_sp = None
 
+        has_factor_smooth_fs = any(
+            str(getattr(tb, "term_type", "")).lower() == "factor_smooth_fs"
+            for tb in (getattr(model, "term_blocks_", None) or [])
+        )
         use_design_balance_init = (
             user_sp is None
             and (
                 (not bool(getattr(model.family, "supports_closed_form_solve", False)))
                 or ml_reml_backend == "gaussian_dynamic"
+                or has_factor_smooth_fs
             )
         )
         if use_design_balance_init:
@@ -409,6 +421,109 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
 
         x_sp = np.asarray(result_joint.x[:-1], dtype=np.float64).ravel()
         log_s2_opt = float(result_joint.x[-1])
+
+        factor_smooth_shared_ridge_stabilized = False
+        factor_smooth_shared_ridge_shift = None
+        if ml_reml_backend == "gaussian_exact":
+            full_to_free = {int(full): int(i) for i, full in enumerate(np.flatnonzero(free_mask))}
+            fs_groups = []
+            for tb in (getattr(model, "term_blocks_", None) or ()):
+                if str(getattr(tb, "term_type", "")).lower() != "factor_smooth_fs":
+                    continue
+                group = sorted(
+                    {
+                        int(pb.smoothing_index)
+                        for pb in (getattr(model, "penalty_blocks_", None) or ())
+                        if pb.coef_slice == tb.coef_slice
+                    }
+                )
+                group_free = [full_to_free[g] for g in group if g in full_to_free]
+                if group_free:
+                    fs_groups.append(group_free)
+
+            if fs_groups:
+                def _joint_exact_refine_sigma2(x_sp_vec):
+                    def _sigma2_obj_exact(log_sigma2_scalar: float):
+                        return float(
+                            criterion_ml_reml_gaussian_exact_joint(
+                                model,
+                                y,
+                                np.asarray(x_sp_vec, dtype=np.float64),
+                                float(log_sigma2_scalar),
+                                method=branch_m,
+                            )
+                        )
+
+                    sigma2_res = minimize_scalar(
+                        _sigma2_obj_exact,
+                        bounds=sigma2_bounds,
+                        method="bounded",
+                        options={"xatol": 1e-10, "maxiter": 200},
+                    )
+                    return float(sigma2_res.fun), float(sigma2_res.x), bool(sigma2_res.success)
+
+                score_tol = max(2e-5, (1.0 + abs(float(result_joint.fun))) * 1e-7)
+                x_sp_work = x_sp.copy()
+                log_s2_work = float(log_s2_opt)
+                score_work = float(result_joint.fun)
+                improved_fs_ridge = False
+                fs_shift_by_group = []
+
+                for group in fs_groups:
+                    local = x_sp_work.copy()
+                    local_best = local.copy()
+                    local_best_log_s2 = float(log_s2_work)
+                    local_best_score = float(score_work)
+                    total_shift = 0.0
+                    log_step = 0.25
+                    max_shift = 4.0
+
+                    while total_shift + log_step <= max_shift + 1e-12:
+                        trial = local.copy()
+                        stop = False
+                        for j in group:
+                            hi = float(bounds[j][1])
+                            trial[j] = min(hi, trial[j] + log_step)
+                            if trial[j] <= local[j] + 1e-12:
+                                stop = True
+                        if stop:
+                            break
+
+                        trial_fun, trial_log_s2, trial_ok = _joint_exact_refine_sigma2(trial)
+                        if (not trial_ok) or (not np.isfinite(trial_fun)) or trial_fun > float(result_joint.fun) + score_tol:
+                            break
+
+                        local = trial
+                        local_best = trial.copy()
+                        local_best_log_s2 = float(trial_log_s2)
+                        local_best_score = float(trial_fun)
+                        total_shift += log_step
+
+                    shift_vec = (local_best - x_sp_work)[group]
+                    if np.any(shift_vec > 1e-12):
+                        x_sp_work = local_best
+                        log_s2_work = local_best_log_s2
+                        score_work = local_best_score
+                        improved_fs_ridge = True
+                        fs_shift_by_group.append(
+                            {
+                                "free_indices": [int(j) for j in group],
+                                "log_sp_shift": [float(v) for v in shift_vec],
+                            }
+                        )
+
+                if improved_fs_ridge:
+                    x_sp = x_sp_work
+                    log_s2_opt = float(log_s2_work)
+                    result_joint.x = np.concatenate(
+                        [np.asarray(x_sp, dtype=np.float64), np.array([log_s2_opt], dtype=np.float64)]
+                    )
+                    result_joint.fun = float(score_work)
+                    result_joint.factor_smooth_shared_ridge_stabilized = True
+                    result_joint.factor_smooth_shared_ridge_shift = fs_shift_by_group
+                    factor_smooth_shared_ridge_stabilized = True
+                    factor_smooth_shared_ridge_shift = fs_shift_by_group
+
         model.smoothing_params = np.asarray(model.smoothing_params, dtype=np.float64).copy()
         model.smoothing_params[free_mask] = np.exp(x_sp)
         model.smoothing_params = np.maximum(model.smoothing_params, min_sp)
@@ -446,8 +561,11 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
             njev=int(getattr(result_joint, "njev", j_obj.n_jac)),
             nhev=0,
         )
-        setattr(result, "joint_gaussian_reml_outer", True)
-        setattr(result, "joint_log_sigma2", float(log_s2_opt))
+        result.joint_gaussian_reml_outer = True
+        result.joint_log_sigma2 = float(log_s2_opt)
+        if factor_smooth_shared_ridge_stabilized:
+            result.factor_smooth_shared_ridge_stabilized = True
+            result.factor_smooth_shared_ridge_shift = factor_smooth_shared_ridge_shift
 
         model._optim_method = method
         model._optim_result = result
@@ -462,7 +580,13 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
                 "gradient": trace_grad,
                 "hessian": None,
                 "accepted_step_norm": 0.0,
-                "rank_info": {"joint_gaussian_reml_outer": True},
+                "rank_info": {
+                    "joint_gaussian_reml_outer": True,
+                    "factor_smooth_shared_ridge_stabilized": (
+                        factor_smooth_shared_ridge_stabilized
+                    ),
+                    "factor_smooth_shared_ridge_shift": factor_smooth_shared_ridge_shift,
+                },
             }
         ]
         model._optim_used_gradient = True
@@ -603,6 +727,12 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
             result=result,
             bounds=bounds,
         )
+    result = _stabilize_factor_smooth_shared_ridge(
+        objective=objective,
+        result=result,
+        bounds=bounds,
+        method=method,
+    )
     result = _snap_gaussian_random_effect_boundary(
         objective=objective,
         result=result,
@@ -718,6 +848,40 @@ def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="g
                 result.joint_gamma_reml_outer = True
                 result.joint_log_phi = float(x_joint[-1])
                 result.joint_gamma_message = str(getattr(result_joint, "message", ""))
+
+    if use_joint_negbin_reml_theta:
+        branch_m = "LAML" if method == "laml" else "REML"
+        theta0 = float(max(getattr(model.family, "theta", 1.0), 1e-6))
+        log_theta0 = float(np.log(theta0))
+        joint_bounds_nb = list(bounds) + [(-7.0, 10.0)]
+        # Start from x0 (initial log_sp), not result.x — regular optimization
+        # with estimate_theta=True uses a wrong fixed-theta gradient and may
+        # produce a bad log_sp that would mislead the joint optimizer.
+        x_joint0_nb = np.concatenate(
+            [np.asarray(x0, dtype=np.float64).copy(), np.array([log_theta0], dtype=np.float64)]
+        )
+        j_obj_nb = _JointNegbinPirlsRemlObjective(model, y, branch_m)
+        result_joint_nb = minimize(
+            fun=j_obj_nb.fun,
+            x0=x_joint0_nb,
+            method="L-BFGS-B",
+            jac=j_obj_nb.jac,
+            bounds=joint_bounds_nb,
+            options={"maxfun": 25000, "ftol": 1e-11, "gtol": 1e-10},
+        )
+        if np.isfinite(float(getattr(result_joint_nb, "fun", np.inf))):
+            x_joint_nb = np.asarray(result_joint_nb.x, dtype=np.float64).ravel()
+            x_selected_nb = x_joint_nb[:-1]
+            log_theta_opt = float(x_joint_nb[-1])
+            # Initialize theta from joint optimizer; EFS inside the criterion
+            # evaluation will converge it further.
+            model.family.theta = float(np.exp(log_theta_opt))
+            result.x = np.asarray(x_selected_nb, dtype=np.float64).copy()
+            result.fun = float(objective.fun(result.x))
+            result.jac = np.asarray(objective.jac(result.x), dtype=np.float64)
+            result.joint_negbin_reml_outer = True
+            result.joint_log_theta = log_theta_opt
+            result.joint_negbin_message = str(getattr(result_joint_nb, "message", ""))
 
     if not result.success:
         warnings.warn(f"Smoothing optimisation did not converge: {result.message}")

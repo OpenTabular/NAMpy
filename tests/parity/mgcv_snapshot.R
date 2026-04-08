@@ -66,6 +66,10 @@ family_obj <- switch(
     theta <- if (is.null(family_param)) 1.0 else as.numeric(family_param)
     mgcv::nb(theta = theta, link = "log")
   },
+  negbin_est = {
+    theta <- if (is.null(family_param)) 1.0 else as.numeric(family_param)
+    mgcv::nb(theta = -abs(theta), link = "log")
+  },
   stop(sprintf("Unsupported family for parity snapshot: %s", family_name))
 )
 
@@ -188,6 +192,7 @@ pred_se_link <- tryCatch(
 )
 
 conc_full <- tryCatch(concurvity(fit, full = TRUE), error = function(e) NULL)
+conc_pairwise <- tryCatch(concurvity(fit, full = FALSE), error = function(e) NULL)
 sp_cov <- tryCatch(sp.vcov(fit, edge.correct = FALSE), error = function(e) NULL)
 gam_vc <- tryCatch(gam.vcomp(fit, rescale = FALSE), error = function(e) NULL)
 residuals_block <- list(
@@ -352,6 +357,7 @@ snapshot <- list(
   fit = list(
     family_name = family_name,
     link_name = fit$family$link,
+    family_theta = if (!is.null(fit$family$getTheta)) unname(as.numeric(fit$family$getTheta(TRUE))) else NULL,
     criterion_name = method_name,
     criterion_value = unname(as.numeric(fit$gcv.ubre)),
     coef_full = coef_full,
@@ -384,6 +390,12 @@ snapshot <- list(
     diagnostics = list(
       concurvity_labels = if (is.null(conc_full)) NULL else colnames(conc_full),
       concurvity_full = if (is.null(conc_full)) NULL else unname(conc_full),
+      concurvity_pairwise = if (is.null(conc_pairwise)) NULL else list(
+        labels = colnames(conc_pairwise[[1]]),
+        worst = unname(conc_pairwise$worst),
+        observed = unname(conc_pairwise$observed),
+        estimate = unname(conc_pairwise$estimate)
+      ),
       sp_vcov = if (is.null(sp_cov)) NULL else unname(sp_cov),
       gam_vcomp = if (is.null(gam_vc) || is.null(gam_vc$vc)) NULL else unname(gam_vc$vc),
       gam_vcomp_names = if (is.null(gam_vc) || is.null(gam_vc$vc)) NULL else rownames(gam_vc$vc),

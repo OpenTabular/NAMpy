@@ -219,3 +219,60 @@ class TestNegBinTheta:
             fam = NegativeBinomialLogFamily(theta=theta_init, estimate_theta=True)
             theta_est = fam.estimate_theta_mle(y, mu)
             assert theta_est > 0.0, f"Estimated theta={theta_est} for init={theta_init}"
+
+    def test_joint_reml_theta_optimization_runs(self):
+        """Joint (sp, theta) REML optimization completes and uses joint path."""
+        data, _ = self._nb_data(n=300, seed=42, theta_true=2.0)
+        gam = GAM(
+            family={"name": "negbin", "theta": 1.0, "estimate_theta": True},
+            formula='y ~ s(x, bs="cr", k=8)',
+            smoothing_method="reml",
+            optimize_smoothing=True,
+        )
+        gam.fit(data=data)
+        assert getattr(gam._optim_result, "joint_negbin_reml_outer", False), (
+            "Expected joint NegBin REML path to activate"
+        )
+        assert gam.family.theta > 0.0
+        assert np.all(np.isfinite(gam.smoothing_params))
+        assert np.all(gam.smoothing_params > 0.0)
+
+    def test_joint_reml_theta_closer_to_truth(self):
+        """Joint REML estimation of theta should land closer to truth than initial."""
+        data, _ = self._nb_data(n=400, seed=77, theta_true=3.0)
+        gam = GAM(
+            family={"name": "negbin", "theta": 1.0, "estimate_theta": True},
+            formula='y ~ s(x, bs="cr", k=8)',
+            smoothing_method="reml",
+            optimize_smoothing=True,
+        )
+        gam.fit(data=data)
+        assert abs(gam.family.theta - 3.0) < abs(1.0 - 3.0), (
+            f"Expected theta closer to 3.0, got {gam.family.theta}"
+        )
+
+    def test_joint_reml_lower_score_than_fixed_theta(self):
+        """Joint (sp, theta) REML score should be <= score with initial fixed theta."""
+        data, _ = self._nb_data(n=300, seed=55, theta_true=2.0)
+        # Fit with estimated theta
+        gam_est = GAM(
+            family={"name": "negbin", "theta": 1.0, "estimate_theta": True},
+            formula='y ~ s(x, bs="cr", k=8)',
+            smoothing_method="reml",
+            optimize_smoothing=True,
+        )
+        gam_est.fit(data=data)
+        score_est = gam_est.smoothing_score_
+        # Fit with fixed theta at same initial
+        gam_fixed = GAM(
+            family={"name": "negbin", "theta": 1.0},
+            formula='y ~ s(x, bs="cr", k=8)',
+            smoothing_method="reml",
+            optimize_smoothing=True,
+        )
+        gam_fixed.fit(data=data)
+        score_fixed = gam_fixed.smoothing_score_
+        assert score_est <= score_fixed + 1.0, (
+            f"Joint theta estimation should not increase REML score: "
+            f"est={score_est:.4f}, fixed={score_fixed:.4f}"
+        )

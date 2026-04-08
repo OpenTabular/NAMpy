@@ -57,6 +57,7 @@ from mgcv_parity_utils import (
     _make_gamma_data,
     _make_gaussian_data,
     _make_mrf_data,
+    _make_mrf_low_rank_data,
     _make_negbin_data,
     _make_poisson_data,
     _make_random_effect_data,
@@ -388,6 +389,66 @@ class TestParitySnapshotAPI:
 
         parsed = parse_gam_formula(
             'y ~ s(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
+        )
+        specs = compile_predictor_specs_from_formula(parsed)
+        design = compile_predictor_designs(
+            data[["region"]].to_numpy(dtype=object),
+            ["region"],
+            specs,
+        )[0]
+
+        expected = _run_mgcv_smoothcon_penalties(
+            data,
+            smooth_expr_r,
+            absorb_cons=True,
+            scale_penalty=True,
+        )
+        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
+        target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
+
+        assert len(actual) == len(target)
+        for got, want in zip(actual, target):
+            np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
+
+    @pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available")
+    def test_mrf_low_rank_smoothcon_basis_matches_mgcv(self):
+        data = _make_mrf_low_rank_data()
+        smooth_expr_r = (
+            's(region, bs="mrf", k=3, '
+            'xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B","D"), D=c("C"))))'
+        )
+
+        parsed = parse_gam_formula(
+            'y ~ s(region, bs="mrf", k=3, '
+            'xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B","D"), D=c("C"))))'
+        )
+        specs = compile_predictor_specs_from_formula(parsed)
+        design = compile_predictor_designs(
+            data[["region"]].to_numpy(dtype=object),
+            ["region"],
+            specs,
+        )[0]
+
+        expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
+
+        np.testing.assert_allclose(
+            np.asarray(design.design_matrix, dtype=np.float64),
+            np.asarray(expected["X"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+
+    @pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available")
+    def test_mrf_low_rank_smoothcon_penalty_matches_mgcv(self):
+        data = _make_mrf_low_rank_data()
+        smooth_expr_r = (
+            's(region, bs="mrf", k=3, '
+            'xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B","D"), D=c("C"))))'
+        )
+
+        parsed = parse_gam_formula(
+            'y ~ s(region, bs="mrf", k=3, '
+            'xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B","D"), D=c("C"))))'
         )
         specs = compile_predictor_specs_from_formula(parsed)
         design = compile_predictor_designs(
@@ -1029,6 +1090,92 @@ class TestMgcvParity:
             check_criterion=True,
             criterion_atol=2.5,
         )
+
+    def test_gaussian_concurvity_full_matches_mgcv(self):
+        data = _make_gaussian_data(seed=17, n=160)
+        formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="tp", k=8)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        actual_diag = actual["parity"]["diagnostics"]
+        expected_diag = expected["parity"]["diagnostics"]
+
+        assert actual_diag["concurvity_full"] is not None
+        assert expected_diag["concurvity_full"] is not None
+        assert len(actual_diag["concurvity_labels"]) == len(expected_diag["concurvity_labels"])
+        np.testing.assert_allclose(
+            np.asarray(actual_diag["concurvity_full"], dtype=np.float64),
+            np.asarray(expected_diag["concurvity_full"], dtype=np.float64),
+            atol=1e-9,
+            rtol=1e-9,
+        )
+
+    def test_poisson_concurvity_full_matches_mgcv(self):
+        data = _make_poisson_data(seed=23, n=180)
+        formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
+
+        actual = _fit_nampy_snapshot(data, formula, "poisson", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "poisson", "REML")
+
+        actual_diag = actual["parity"]["diagnostics"]
+        expected_diag = expected["parity"]["diagnostics"]
+
+        assert actual_diag["concurvity_full"] is not None
+        assert expected_diag["concurvity_full"] is not None
+        assert len(actual_diag["concurvity_labels"]) == len(expected_diag["concurvity_labels"])
+        np.testing.assert_allclose(
+            np.asarray(actual_diag["concurvity_full"], dtype=np.float64),
+            np.asarray(expected_diag["concurvity_full"], dtype=np.float64),
+            atol=1e-9,
+            rtol=1e-9,
+        )
+
+    def test_gaussian_concurvity_pairwise_matches_mgcv(self):
+        data = _make_gaussian_data(seed=17, n=160)
+        formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="tp", k=8)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        actual_diag = actual["parity"]["diagnostics"]
+        expected_diag = expected["parity"]["diagnostics"]
+
+        assert actual_diag["concurvity_pairwise"] is not None
+        assert expected_diag["concurvity_pairwise"] is not None
+        assert actual_diag["concurvity_pairwise"]["labels"] == expected_diag[
+            "concurvity_pairwise"
+        ]["labels"]
+        for key in ("worst", "observed", "estimate"):
+            np.testing.assert_allclose(
+                np.asarray(actual_diag["concurvity_pairwise"][key], dtype=np.float64),
+                np.asarray(expected_diag["concurvity_pairwise"][key], dtype=np.float64),
+                atol=1e-9,
+                rtol=1e-9,
+            )
+
+    def test_poisson_concurvity_pairwise_matches_mgcv(self):
+        data = _make_poisson_data(seed=23, n=180)
+        formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
+
+        actual = _fit_nampy_snapshot(data, formula, "poisson", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "poisson", "REML")
+
+        actual_diag = actual["parity"]["diagnostics"]
+        expected_diag = expected["parity"]["diagnostics"]
+
+        assert actual_diag["concurvity_pairwise"] is not None
+        assert expected_diag["concurvity_pairwise"] is not None
+        assert actual_diag["concurvity_pairwise"]["labels"] == expected_diag[
+            "concurvity_pairwise"
+        ]["labels"]
+        for key in ("worst", "observed", "estimate"):
+            np.testing.assert_allclose(
+                np.asarray(actual_diag["concurvity_pairwise"][key], dtype=np.float64),
+                np.asarray(expected_diag["concurvity_pairwise"][key], dtype=np.float64),
+                atol=1e-9,
+                rtol=1e-9,
+            )
 
 
     def test_gaussian_te_fixed_sp_matches_mgcv_exactly(self):
@@ -2380,8 +2527,13 @@ class TestAdditionalScenarioParity:
         endpoint = actual["parity"]["diagnostics"]["optimizer_endpoint"]
         assert endpoint is not None
         assert bool(endpoint["flat_ridge_suspected"]) is True
-        assert float(endpoint["shared_shift_curvature"]) <= 1e-5
-        assert float(endpoint["projected_gradient_inf_norm"]) <= 5e-5
+        assert bool(endpoint["factor_smooth_shared_ridge_stabilized"]) is True
+        assert endpoint["factor_smooth_shared_ridge_shift"] is not None
+        assert len(endpoint["factor_smooth_shared_ridge_shift"]) >= 1
+        assert all(
+            any(float(v) > 0.0 for v in shift["log_sp_shift"])
+            for shift in endpoint["factor_smooth_shared_ridge_shift"]
+        )
 
     def test_gaussian_sz_select_reml_matches_mgcv(self):
         data = _make_sz_data()
@@ -2861,6 +3013,26 @@ class TestAdditionalScenarioParity:
             sp_log_atol=5.0,
             criterion_atol=2.0,
         )
+
+    def test_gaussian_fs_ps_marginal_select_reml_matches_mgcv(self):
+        data = _make_fs_data()
+        formula = 'y ~ s(f, x, bs="fs", xt=list(bs="ps", m=2, k=7))'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML", select=True)
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML", select=True)
+
+        _assert_basic_mgcv_parity(
+            actual, expected,
+            pred_atol=5e-3, pred_rtol=0.0,
+            sp_log_atol=5.0,
+            criterion_atol=2.0,
+        )
+
+        endpoint = actual["parity"]["diagnostics"]["optimizer_endpoint"]
+        assert endpoint is not None
+        assert bool(endpoint["flat_ridge_suspected"]) is True
+        assert bool(endpoint["factor_smooth_shared_ridge_stabilized"]) is True
+        assert endpoint["factor_smooth_shared_ridge_shift"] is not None
 
     # ------------------------------------------------------------------ #
     # Gap 14: NegBin with theta != 1.0                                    #

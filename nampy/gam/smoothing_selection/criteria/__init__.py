@@ -44,6 +44,7 @@ from .penalty import _stable_penalty_logdet_derivatives, _static_penalty_null_di
 from .pirls import (
     criterion_gcv_pirls,
     criterion_ml_reml_pirls_gamma_joint,
+    criterion_ml_reml_pirls_negbin_joint,
     criterion_ml_reml_pirls,
     criterion_ubre_pirls,
 )
@@ -78,6 +79,7 @@ __all__ = [
     "criterion_ml_reml_gaussian_dynamic_joint",
     "criterion_ml_reml_gaussian_exact_joint",
     "criterion_ml_reml_pirls_gamma_joint",
+    "criterion_ml_reml_pirls_negbin_joint",
     "criterion_ml_reml_pirls",
     "criterion_ubre_pirls",
     "criterion_value",

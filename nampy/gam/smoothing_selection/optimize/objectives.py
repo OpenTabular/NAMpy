@@ -10,6 +10,7 @@ from ..criteria import (
     criterion_ml_reml_gaussian_dynamic_joint,
     criterion_ml_reml_gaussian_exact_joint,
     criterion_ml_reml_pirls_gamma_joint,
+    criterion_ml_reml_pirls_negbin_joint,
     criterion_value,
 )
 
@@ -273,3 +274,53 @@ class _JointGammaPirlsRemlObjective:
             ),
             dtype=np.float64,
         )
+
+
+class _JointNegbinPirlsRemlObjective:
+    """Joint (log_sp, log_theta) NegBin PIRLS REML/LAML outer objective.
+
+    Gradient is evaluated via numerical finite differences because analytic
+    theta derivatives of the NB REML criterion are not yet implemented.
+    """
+
+    def __init__(self, model, y, branch_method: str):
+        self.model = model
+        self.y = y
+        self.branch_method = str(branch_method).upper()
+        self.method = self.branch_method
+        self.n_fun = 0
+        self.n_jac = 0
+
+    def _raw_fun(self, x):
+        x = np.asarray(x, dtype=np.float64).ravel()
+        return float(
+            criterion_ml_reml_pirls_negbin_joint(
+                self.model,
+                self.y,
+                x[:-1],
+                float(x[-1]),
+                method=self.branch_method,
+            )
+        )
+
+    def fun(self, x):
+        self.n_fun += 1
+        return self._raw_fun(x)
+
+    def jac(self, x):
+        x = np.asarray(x, dtype=np.float64).ravel()
+        self.n_jac += 1
+        f0 = self._raw_fun(x)
+        if not np.isfinite(f0):
+            return np.full_like(x, np.nan)
+        grad = np.empty_like(x)
+        for i in range(x.size):
+            step = max(1e-5, 1e-4 * (1.0 + abs(float(x[i]))))
+            xp = x.copy()
+            xp[i] += step
+            fp = self._raw_fun(xp)
+            if np.isfinite(fp):
+                grad[i] = (fp - f0) / step
+            else:
+                grad[i] = np.nan
+        return grad

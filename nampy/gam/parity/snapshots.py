@@ -8,16 +8,16 @@ Core fit serialization is intentionally kept semantic-free:
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import re
+from pathlib import Path
 
 import numpy as np
 from scipy.linalg import qr
 
 from ..smoothing_selection.criteria import (
     criterion_ml_reml,
-    criterion_ml_reml_gaussian_exact_joint,
     criterion_ml_reml_gaussian_dynamic_joint,
+    criterion_ml_reml_gaussian_exact_joint,
     criterion_ml_reml_pirls,
     resolve_ml_reml_scoring_backend,
 )
@@ -57,6 +57,14 @@ def _coerce_snapshot_arrays(snapshot):
         diagnostics["concurvity_full"] = np.asarray(
             diagnostics["concurvity_full"], dtype=np.float64
         )
+    pairwise = diagnostics.get("concurvity_pairwise", None)
+    if pairwise is not None:
+        pairwise = dict(pairwise)
+        for key, vals in list(pairwise.items()):
+            if key == "labels" or vals is None:
+                continue
+            pairwise[key] = np.asarray(vals, dtype=np.float64)
+        diagnostics["concurvity_pairwise"] = pairwise
     if diagnostics.get("sp_vcov", None) is not None:
         diagnostics["sp_vcov"] = np.asarray(diagnostics["sp_vcov"], dtype=np.float64)
     endpoint_block = diagnostics.get("optimizer_endpoint", None)
@@ -208,7 +216,10 @@ def _get_core(model):
 def _normalize_mgcv_term_label(label):
     if label is None:
         return None
-    return re.sub(r",\s*k\s*=\s*[^,)]+", "", str(label))
+    text = str(label)
+    text = re.sub(r",\s*bs\s*=\s*(\"[^\"]*\"|'[^']*'|[^,)]+)", "", text)
+    text = re.sub(r",\s*k\s*=\s*[^,)]+", "", text)
+    return text
 
 
 def _residual_df_from_snapshot_state(core) -> float:
@@ -499,6 +510,18 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
     except Exception:
         diagnostics["concurvity_labels"] = None
         diagnostics["concurvity_full"] = None
+
+    try:
+        conc = predict_api.concurvity(full=False)
+        diagnostics["concurvity_pairwise"] = {
+            "labels": [_normalize_mgcv_term_label(v) for v in conc["labels"]],
+            **{
+                name: np.asarray(mat, dtype=np.float64).tolist()
+                for name, mat in conc["values"].items()
+            },
+        }
+    except Exception:
+        diagnostics["concurvity_pairwise"] = None
 
     try:
         V = predict_api.sp_vcov(edge_correct=False)

@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import numpy as np
 from _mgcv_snapshot_parity_shared import (
     TestAdditionalScenarioParity as _SharedTestAdditionalScenarioParity,
 )
 from mgcv_parity_utils import (
     _assert_basic_mgcv_parity,
+    _fit_nampy_model,
     _fit_nampy_snapshot,
     _make_gaussian_data,
+    _make_negbin_data,
     _run_mgcv_snapshot,
 )
 
@@ -40,6 +43,9 @@ class TestAdditionalScenarioParity:
     )
     test_gaussian_fs_ps_marginal_reml_matches_mgcv = (
         _SharedTestAdditionalScenarioParity.test_gaussian_fs_ps_marginal_reml_matches_mgcv
+    )
+    test_gaussian_fs_ps_marginal_select_reml_matches_mgcv = (
+        _SharedTestAdditionalScenarioParity.test_gaussian_fs_ps_marginal_select_reml_matches_mgcv
     )
     test_negbin_theta_0p5_reml_matches_mgcv = (
         _SharedTestAdditionalScenarioParity.test_negbin_theta_0p5_reml_matches_mgcv
@@ -85,4 +91,32 @@ class TestAdditionalScenarioParity:
             pred_atol=1e-7,
             pred_rtol=0.0,
             sp_log_atol=1e-5,
+        )
+
+    def test_negbin_estimated_theta_reml_matches_mgcv(self):
+        data = _make_negbin_data(seed=2024, n=240, theta=1.0)
+        formula = 'y ~ s(x0, bs="cr", k=8)'
+        family = {"name": "negbin", "theta": 2.0, "estimate_theta": True}
+
+        model_obj = _fit_nampy_model(data, formula, family, "REML")
+        model = model_obj.parity_snapshot(X=data, include_covariances=True)
+        expected = _run_mgcv_snapshot(data, formula, family, "REML")
+
+        np.testing.assert_allclose(
+            np.asarray(model["predictions"]["response"], dtype=np.float64),
+            np.asarray(expected["predictions"]["response"], dtype=np.float64),
+            atol=2e-4,
+            rtol=2e-4,
+        )
+        np.testing.assert_allclose(
+            np.asarray(model["fit"]["criterion_value"], dtype=np.float64),
+            np.asarray(expected["fit"]["criterion_value"], dtype=np.float64),
+            atol=1e-2,
+            rtol=0.0,
+        )
+        np.testing.assert_allclose(
+            np.asarray(model_obj.family.theta, dtype=np.float64),
+            np.asarray(expected["fit"]["family_theta"], dtype=np.float64),
+            atol=2e-2,
+            rtol=2e-2,
         )

@@ -275,6 +275,16 @@ def fit_pirls_core(
         eta = eta_new
         mu = mu_new
 
+        # EFS (Embedded Fisher Scoring): update theta once per IRLS step when
+        # the family has a free dispersion parameter.  Mirrors mgcv gam.fit4.r
+        # lines 507-515 (scoreType=="EFS" block).
+        if getattr(family, "estimate_theta", False) and hasattr(family, "estimate_theta_mle"):
+            theta_efs = family.estimate_theta_mle(y, mu, weights=weights)
+            if np.isfinite(theta_efs) and theta_efs > 0.0:
+                family.theta = theta_efs
+                dev_new = float(family.deviance(y, mu))
+                pdev_new = dev_new + float(beta @ (P_full @ beta))
+
         scale_ref = 1.0 if family.known_scale is not None else max(abs(dev_new), 1.0)
         if abs(pdev_new - pdev_old) < tol * (abs(scale_ref) + abs(pdev_new)):
             if np.max(np.abs(grad)) <= tol * (abs(scale_ref) + abs(pdev_new)):

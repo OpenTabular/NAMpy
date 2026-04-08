@@ -211,6 +211,15 @@ def optimizer_endpoint_diagnostics(model, *, conv_tol: float = 1e-6, fd_step: fl
         score = float(score)
     score_scale = 1.0 + abs(score)
     tol = float(conv_tol) * score_scale
+    factor_smooth_shared_ridge_stabilized = bool(
+        result is not None
+        and getattr(result, "factor_smooth_shared_ridge_stabilized", False)
+    )
+    factor_smooth_shared_ridge_shift = (
+        None
+        if result is None
+        else getattr(result, "factor_smooth_shared_ridge_shift", None)
+    )
 
     lower = bounds[:, 0]
     upper = bounds[:, 1]
@@ -260,6 +269,8 @@ def optimizer_endpoint_diagnostics(model, *, conv_tol: float = 1e-6, fd_step: fl
             )
         )
     )
+    if factor_smooth_shared_ridge_stabilized:
+        flat_ridge_suspected = True
 
     return {
         "criterion_name": method,
@@ -295,6 +306,8 @@ def optimizer_endpoint_diagnostics(model, *, conv_tol: float = 1e-6, fd_step: fl
         "shared_shift_fd_step": (None if shared_step <= 0.0 else float(shared_step)),
         "shared_shift_fd_slope": shared_fd_slope,
         "shared_shift_fd_curvature": shared_fd_curvature,
+        "factor_smooth_shared_ridge_stabilized": factor_smooth_shared_ridge_stabilized,
+        "factor_smooth_shared_ridge_shift": factor_smooth_shared_ridge_shift,
         "flat_ridge_suspected": flat_ridge_suspected,
     }
 

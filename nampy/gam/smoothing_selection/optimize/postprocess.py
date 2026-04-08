@@ -566,6 +566,108 @@ def _refine_null_space_smoothing_params(objective, result, bounds, *, xatol=1e-3
     return result
 
 
+def _stabilize_factor_smooth_shared_ridge(
+    objective,
+    result,
+    bounds,
+    method,
+    *,
+    score_tol_abs=2e-5,
+    log_step=0.25,
+    max_shift=4.0,
+):
+    method = str(method).lower()
+    if method not in {"ml", "reml", "laml"}:
+        return result
+
+    model = getattr(objective, "model", None)
+    if model is None:
+        return result
+    if str(getattr(getattr(model, "family", None), "name", "")).lower() != "gaussian":
+        return result
+
+    x = np.asarray(getattr(result, "x", ()), dtype=np.float64).ravel()
+    if x.size == 0:
+        return result
+
+    fixed_mask = getattr(model, "smoothing_fixed_mask_", None)
+    if fixed_mask is None:
+        fixed_mask = np.zeros(int(getattr(model, "n_smoothing_params_", 0) or 0), dtype=bool)
+    else:
+        fixed_mask = np.asarray(fixed_mask, dtype=bool)
+    free_to_full = np.flatnonzero(~fixed_mask)
+    full_to_free = {int(full): int(i) for i, full in enumerate(free_to_full)}
+
+    fs_groups = []
+    for tb in getattr(model, "term_blocks_", None) or ():
+        if str(getattr(tb, "term_type", "")).lower() != "factor_smooth_fs":
+            continue
+        group = sorted(
+            {
+                int(pb.smoothing_index)
+                for pb in (getattr(model, "penalty_blocks_", None) or [])
+                if pb.coef_slice == tb.coef_slice
+            }
+        )
+        group_free = [full_to_free[g] for g in group if g in full_to_free]
+        if group_free:
+            fs_groups.append(group_free)
+
+    if not fs_groups:
+        return result
+
+    base_score = float(objective.fun(x))
+    if not np.isfinite(base_score):
+        return result
+
+    score_tol = max(float(score_tol_abs), (1.0 + abs(base_score)) * 1e-7)
+    improved = False
+    x_work = x.copy()
+    score_work = base_score
+
+    for group in fs_groups:
+        local = x_work.copy()
+        local_best = local.copy()
+        local_best_score = score_work
+        total_shift = 0.0
+
+        while total_shift + log_step <= max_shift + 1e-12:
+            trial = local.copy()
+            stop = False
+            for j in group:
+                hi = float(bounds[j][1])
+                trial[j] = min(hi, trial[j] + float(log_step))
+                if trial[j] <= local[j] + 1e-12:
+                    stop = True
+            if stop:
+                break
+
+            trial = _project_to_bounds(trial, bounds)
+            trial_score = float(objective.fun(trial))
+            if not np.isfinite(trial_score) or trial_score > base_score + score_tol:
+                break
+
+            local = trial
+            local_best = trial.copy()
+            local_best_score = trial_score
+            total_shift += float(log_step)
+
+        if np.any(local_best[group] > x_work[group] + 1e-12):
+            x_work = local_best
+            score_work = local_best_score
+            improved = True
+
+    if not improved:
+        return result
+
+    result.x = x_work
+    result.fun = float(score_work)
+    result.jac = np.asarray(objective.jac(x_work), dtype=np.float64)
+    result.hess = np.asarray(objective.hess(x_work), dtype=np.float64)
+    result.factor_smooth_shared_ridge_stabilized = True
+    return result
+
+
 def _coordinate_refine_smoothing_params(
     objective,
     result,

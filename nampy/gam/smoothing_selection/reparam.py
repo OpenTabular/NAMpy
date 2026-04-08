@@ -99,15 +99,18 @@ def _term_penalty_components(primary, null_space):
                     group.append(supports[j]["pb"])
                     union_mask |= supports[j]["mask"]
 
-        comp_null = None
+        comp_null = []
+        comp_null_masks = []
         for j, pb0 in enumerate(null_space):
             if j in null_assigned:
                 continue
             null_mask = _penalty_support_mask(pb0.matrix)
             if np.any(union_mask & null_mask):
-                comp_null = pb0
+                if any(np.any(null_mask & mask) for mask in comp_null_masks):
+                    return False, [], {}
+                comp_null.append(pb0)
+                comp_null_masks.append(null_mask)
                 null_assigned.add(j)
-                break
 
         components.append(
             {
@@ -118,12 +121,26 @@ def _term_penalty_components(primary, null_space):
         )
 
     if len(null_space) - len(null_assigned) > 0:
+        if len(components) != 1:
+            return False, [], {}
+        residual_masks = []
+        for j, pb0 in enumerate(null_space):
+            if j in null_assigned:
+                continue
+            null_mask = _penalty_support_mask(pb0.matrix)
+            if any(np.any(null_mask & mask) for mask in residual_masks):
+                return False, [], {}
+            residual_masks.append(null_mask)
+            components[0]["null"].append(pb0)
+            null_assigned.add(j)
+
+    if len(null_space) - len(null_assigned) > 0:
         return False, [], {}
 
     null_map = {}
     for comp in components:
-        if comp["null"] is not None and len(comp["primary"]) == 1:
-            null_map[id(comp["primary"][0])] = comp["null"]
+        if len(comp["null"]) == 1 and len(comp["primary"]) == 1:
+            null_map[id(comp["primary"][0])] = comp["null"][0]
     return True, components, null_map
 
 
@@ -162,8 +179,6 @@ def can_use_simple_ml_reml_structure(model):
         ]
 
         if len(primary) < 1:
-            return False
-        if len(null_space) > 1:
             return False
         if len(extras) > 0:
             return False
@@ -249,11 +264,10 @@ def build_penalty_reparameterized_system(model):
             if id(pb) not in primary_ids and id(pb) not in null_ids
         ]
 
-        if len(primary) < 1 or len(null_space) > 1 or len(extras) > 0:
+        if len(primary) < 1 or len(extras) > 0:
             raise NotImplementedError(
                 "Current ML/REML reparameterization is enabled only for terms with "
-                "at least one primary smooth penalty and disjoint primary supports, "
-                "plus at most one null-space penalty per support block. General "
+                "at least one primary smooth penalty and disjoint primary supports. General "
                 "overlapping multi-penalty terms are not yet implemented in this path."
             )
 
@@ -273,7 +287,7 @@ def build_penalty_reparameterized_system(model):
         covered_mask = np.zeros(B.shape[1], dtype=bool)
         for comp in components:
             primaries = list(comp["primary"])
-            pb0 = comp["null"]
+            pb0_list = list(comp["null"])
             support_mask = np.asarray(comp["support_mask"], dtype=bool)
             if len(components) == 1:
                 local_idx = np.arange(B.shape[1], dtype=np.int64)
@@ -354,33 +368,83 @@ def build_penalty_reparameterized_system(model):
                             )
                             rand_start += n_pen
 
-            Zr_extra = np.empty((0, 0), dtype=np.float64)
-            if pb0 is not None and meta["n_null"] > 0:
-                U0 = meta["U0"]
-                P0_local = np.asarray(pb0.matrix, dtype=np.float64)[np.ix_(local_idx, local_idx)]
+            if pb0_list and meta["n_null"] > 0:
+                U0 = np.asarray(meta["U0"], dtype=np.float64)
                 B_null = B_local @ U0
-                P0_null = U0.T @ P0_local @ U0
-                B0_extra, Zr_extra, extra_meta = reparameterize_smooth(B_null, P0_null)
-                B0_use = B0_extra
-                comp_rank += int(extra_meta["n_pen"])
-                comp_logdet += float(
-                    np.sum(np.log(extra_meta["d_pos"])) if extra_meta["d_pos"].size > 0 else 0.0
-                )
-            if Zr_extra.shape[1] > 0:
-                Z_null = np.asarray(Zr_extra, dtype=np.float64)
-                rand_blocks.append(Z_null)
-                block_slice = slice(rand_start, rand_start + Z_null.shape[1])
-                rand_blocks_term.append(
-                    {
-                        "term_index": i,
-                        "kind": str(pb0.kind),
-                        "smoothing_index": int(pb0.smoothing_index),
-                        "slice": block_slice,
-                        "n_pen": int(Z_null.shape[1]),
-                        "is_null_space_penalty": True,
-                    }
-                )
-                rand_start += Z_null.shape[1]
+                if len(pb0_list) == 1:
+                    pb0 = pb0_list[0]
+                    P0_local = np.asarray(pb0.matrix, dtype=np.float64)[np.ix_(local_idx, local_idx)]
+                    P0_null = U0.T @ P0_local @ U0
+                    B0_extra, Zr_extra, extra_meta = reparameterize_smooth(B_null, P0_null)
+                    B0_use = B0_extra
+                    comp_rank += int(extra_meta["n_pen"])
+                    comp_logdet += float(
+                        np.sum(np.log(extra_meta["d_pos"])) if extra_meta["d_pos"].size > 0 else 0.0
+                    )
+                    if Zr_extra.shape[1] > 0:
+                        Z_null = np.asarray(Zr_extra, dtype=np.float64)
+                        rand_blocks.append(Z_null)
+                        block_slice = slice(rand_start, rand_start + Z_null.shape[1])
+                        rand_blocks_term.append(
+                            {
+                                "term_index": i,
+                                "kind": str(pb0.kind),
+                                "smoothing_index": int(pb0.smoothing_index),
+                                "slice": block_slice,
+                                "n_pen": int(Z_null.shape[1]),
+                                "is_null_space_penalty": True,
+                            }
+                        )
+                        rand_start += Z_null.shape[1]
+                else:
+                    covered_null = np.zeros(B_null.shape[1], dtype=bool)
+                    extra_meta = []
+                    B0_null_parts = []
+                    B0_use = np.empty((B_local.shape[0], 0), dtype=np.float64)
+                    for pb0 in pb0_list:
+                        P0_local = np.asarray(pb0.matrix, dtype=np.float64)[np.ix_(local_idx, local_idx)]
+                        P0_null = 0.5 * (U0.T @ P0_local @ U0 + (U0.T @ P0_local @ U0).T)
+                        null_support = _penalty_support_mask(P0_null)
+                        idx0 = np.flatnonzero(null_support)
+                        if idx0.size == 0:
+                            continue
+                        covered_null[idx0] = True
+                        B_null_local = B_null[:, idx0]
+                        P_null_local = P0_null[np.ix_(idx0, idx0)]
+                        B0_part, Zr_part, meta0 = reparameterize_smooth(B_null_local, P_null_local)
+                        extra_meta.append(
+                            {
+                                "smoothing_index": int(pb0.smoothing_index),
+                                "meta": meta0,
+                                "support_index": idx0,
+                            }
+                        )
+                        comp_rank += int(meta0["n_pen"])
+                        comp_logdet += float(
+                            np.sum(np.log(meta0["d_pos"])) if meta0["d_pos"].size > 0 else 0.0
+                        )
+                        if B0_part.shape[1] > 0:
+                            B0_null_parts.append(B0_part)
+                        if Zr_part.shape[1] > 0:
+                            Z_null = np.asarray(Zr_part, dtype=np.float64)
+                            rand_blocks.append(Z_null)
+                            block_slice = slice(rand_start, rand_start + Z_null.shape[1])
+                            rand_blocks_term.append(
+                                {
+                                    "term_index": i,
+                                    "kind": str(pb0.kind),
+                                    "smoothing_index": int(pb0.smoothing_index),
+                                    "slice": block_slice,
+                                    "n_pen": int(Z_null.shape[1]),
+                                    "is_null_space_penalty": True,
+                                }
+                            )
+                            rand_start += Z_null.shape[1]
+                    residual_null = np.flatnonzero(~covered_null)
+                    if residual_null.size > 0:
+                        B0_null_parts.append(B_null[:, residual_null])
+                    if B0_null_parts:
+                        B0_use = np.column_stack(B0_null_parts)
 
             if B0_use.shape[1] > 0:
                 fix_blocks.append(B0_use)
@@ -391,7 +455,7 @@ def build_penalty_reparameterized_system(model):
                     "null_space": extra_meta,
                     "support_index": local_idx,
                     "primary_smoothing_indices": [int(pb.smoothing_index) for pb in primaries],
-                    "null_smoothing_index": None if pb0 is None else int(pb0.smoothing_index),
+                    "null_smoothing_indices": [int(pb.smoothing_index) for pb in pb0_list],
                 }
             )
             primary_sp_indices.extend(int(pb.smoothing_index) for pb in primaries)

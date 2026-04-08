@@ -1,20 +1,45 @@
-# CLAUDE.md
+## Primary objective
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. Before running any command, do 
+For the GAM subsystem, the goal is **behavioral parity with `mgcv`**, not a merely reasonable Python approximation. When working on `nampy/gam/`, treat the vendored upstream **R and C `mgcv` sources in this repository as the primary specification**. Mirror the same logic, ordering, control flow, constraints, and edge-case behavior in Python whenever practical.
 
-```conda activate nampy```
+Do **not**:
+- rederive `mgcv` from papers or memory when the upstream implementation is available,
+- “clean up” numerics by changing algebra/order of operations without evidence,
+- replace an upstream routine with a more idiomatic approach unless parity requires it and tests confirm it.
 
-to activate the appropriate conda environment.
+If behavior differs between an apparent design preference and upstream `mgcv`, prefer upstream parity.
 
-Run a single test file:
+## Test execution policy
+
+Do **not** run the full test suite by default.
+
+Always run the **smallest targeted test slice** that can validate the change:
+1. exact test function,
+2. exact test file,
+3. narrow `-k` selection within one file,
+4. only then a slightly broader local slice if needed.
+
+Preferred examples:
+
 ```bash
-pytest tests/test_mgcv_snapshot_parity.py -v
 pytest tests/test_mgcv_snapshot_parity.py::test_name -v
+pytest tests/test_mgcv_snapshot_parity.py -v
+pytest tests/test_mgcv_output_parity.py -k linked_id -v
 ```
+
+Avoid broad commands such as:
+
+```bash
+pytest
+pytest tests
+python -m pytest
+```
+
+Run broader coverage only when clearly justified by the scope of the change.
 
 ## Architecture
 
-NAMpy is an interpretable tabular ML framework with two distinct subsystems:
+NAMpy has two distinct subsystems:
 
 ### 1. Neural Additive Models (`nampy/basemodels/`, `nampy/models/`)
 
@@ -26,16 +51,18 @@ Each model (NAM, GPNAM, NBM, NATT, NAMformer, NodeGAM, SplineNAM, QNAM, SNAM, Tr
 
 Three task flavors per model: regression, classification, distributional regression (LSS). All expose `.fit(X, y)`, `.predict(X)`, `.score(X, y)`.
 
-### 2. GAM Subsystem (`nampy/gam/`)
+### 2. GAM subsystem (`nampy/gam/`)
 
-A Python reimplementation of R's `mgcv`. **`nampy/gam/ARCHITECTURE.md` is the canonical source of truth** for design decisions. Our goal is that our results should match with the results of mgcv to machine precision. The fit pipeline has 7 stages:
+A Python reimplementation of R's `mgcv`. **`nampy/gam/ARCHITECTURE.md` is the canonical source of truth** for internal design decisions. The objective is that results should match `mgcv` to machine precision whenever feasible.
+
+The fit pipeline has 7 stages:
 
 | Stage | Location | Role |
 |-------|----------|------|
-| 1. Formula/spec | `gam/formula/`, `gam/specs/` | Parse TermSpec objects |
+| 1. Formula/spec | `gam/formula/`, `gam/specs/` | Parse `TermSpec` objects |
 | 2. Runtime terms | `gam/smooths/`, `gam/runtime/` | Fit basis & penalties; own basis semantics |
-| 3. Term wrapper | `gam/design/constructors.py` | ConstructedTerm (constraints, by-variable) |
-| 4. Predictor compilation | `gam/design/compiler.py` | Assemble CompiledPredictor |
+| 3. Term wrapper | `gam/design/constructors.py` | `ConstructedTerm` (constraints, by-variable) |
+| 4. Predictor compilation | `gam/design/compiler.py` | Assemble `CompiledPredictor` |
 | 5. Side conditions | `gam/constraints/identifiability.py` | Column deletion, centering |
 | 6. Model fitting | `gam/fit/orchestrator.py` | Solve coefficients, optimize smoothing |
 | 7. Prediction/diagnostics | `gam/predict/`, `gam/parity/`, `gam/diagnostics/` | Inference, parity checks |
@@ -44,20 +71,37 @@ A Python reimplementation of R's `mgcv`. **`nampy/gam/ARCHITECTURE.md` is the ca
 
 **Low-level basis primitives** live in `nampy/splines/` and are consumed by runtime terms in `gam/smooths/`.
 
-**Key design rules** (enforced by architecture):
-- Runtime terms own all basis semantics — design code must be basis-agnostic
-- One canonical owner per concept (no duplicated logic across files)
-- Fit and predict transforms must be paired (no hidden one-off transforms)
-- Explicit errors for unsupported inputs; no silent approximations
+### Key design rules
 
-### Key Data Flow (GAM)
+- Runtime terms own all basis semantics — design code must be basis-agnostic.
+- One canonical owner per concept — avoid duplicated logic across files.
+- Fit and predict transforms must be paired — no hidden one-off transforms.
+- Explicit errors for unsupported inputs — no silent approximations.
+- Upstream `mgcv` reference code is authoritative for parity-sensitive behavior.
+
+### Key data flow (GAM)
 
 `TermSpec` → `RuntimeTerm` (fitted basis, penalties) → `ConstructedTerm` → `CompiledPredictor` → `fit_model_core()` → `FitCoreSolution` (coefficients, smoothing params, covariance, EDF)
 
+## Working rules for `mgcv` parity changes
+
+When changing `nampy/gam/`:
+- locate the corresponding upstream `mgcv` R and/or C implementation in the vendored reference sources,
+- mirror the upstream routine as directly as possible in Python,
+- preserve operation ordering when numerically relevant,
+- keep shape conventions, constraints, penalty ordering, and side-condition handling aligned with upstream,
+- add comments only where they clarify the mapping from upstream logic.
+
+For any parity-sensitive change, your final summary should name:
+- the upstream file(s) consulted,
+- the upstream function(s) mirrored,
+- the exact targeted test command(s) run,
+- any remaining known gap or uncertainty.
+
 ## Testing
 
-`tests/` default collection is now mgcv parity-only:
-- `test_mgcv_snapshot_parity.py` — broad numeric parity vs. R's mgcv
+`tests/` default collection is mgcv parity-focused:
+- `test_mgcv_snapshot_parity.py` — broad numeric parity vs. R `mgcv`
 - `test_mgcv_output_parity.py` — predictions and model-comparison outputs
 - `test_mgcv_trace_parity.py` — smoothing optimizer trace parity
 - `test_mgcv_pc_id_parity.py` — `pc=` and linked-`id=` parity
@@ -66,11 +110,13 @@ A Python reimplementation of R's `mgcv`. **`nampy/gam/ARCHITECTURE.md` is the ca
 
 Legacy characterization / guardrail files remain in `tests/legacy_mgcv_*.py` but are not part of default collection.
 
-Parity snapshots compare against R mgcv output; do not break these without understanding the numerical implications.
+Parity snapshots compare against R `mgcv` output; do not update or break these casually.
 
-## Code Quality
+## Code quality
 
-- **Line length**: 88 (black)
-- **Linter**: ruff (rules E, W, F, I, C, B; E501 ignored)
-- **Type checker**: mypy (non-strict; major deps have `ignore_missing_imports`)
-- Pre-commit hooks enforce black + isort + ruff before commit
+- **Line length**: 88 (`black`)
+- **Linter**: `ruff` (rules `E`, `W`, `F`, `I`, `C`, `B`; `E501` ignored)
+- **Type checker**: `mypy` (non-strict; major deps have `ignore_missing_imports`)
+- Pre-commit hooks enforce `black` + `isort` + `ruff` before commit
+
+Use focused quality checks for touched files whenever possible rather than sweeping repo-wide rewrites.

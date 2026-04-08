@@ -7,7 +7,6 @@ then evaluates the appropriate criterion value.
 """
 import numpy as np
 
-from ...fit.linalg.stacked_qr import gaussian_design_needs_stacked_qr_fit
 from .gaussian import criterion_ml_reml_exact, criterion_ml_reml_exact_dynamic
 from .pirls import criterion_ml_reml_pirls, criterion_ml_reml_pirls_dynamic
 
@@ -29,8 +28,6 @@ def resolve_ml_reml_scoring_backend(model, method="reml"):
         bool(getattr(model.family, "supports_closed_form_solve", False))
         and model._can_use_exact_gaussian_ml_reml()
     ):
-        if gaussian_design_needs_stacked_qr_fit(model):
-            return "gaussian_dynamic"
         return "gaussian_exact"
 
     if bool(getattr(model.family, "supports_closed_form_solve", False)):

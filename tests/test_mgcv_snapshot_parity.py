@@ -30,6 +30,18 @@ class TestMgcvParity:
     test_gaussian_mrf_reml_matches_mgcv = (
         _SharedTestMgcvParity.test_gaussian_mrf_reml_matches_mgcv
     )
+    test_gaussian_concurvity_full_matches_mgcv = (
+        _SharedTestMgcvParity.test_gaussian_concurvity_full_matches_mgcv
+    )
+    test_poisson_concurvity_full_matches_mgcv = (
+        _SharedTestMgcvParity.test_poisson_concurvity_full_matches_mgcv
+    )
+    test_gaussian_concurvity_pairwise_matches_mgcv = (
+        _SharedTestMgcvParity.test_gaussian_concurvity_pairwise_matches_mgcv
+    )
+    test_poisson_concurvity_pairwise_matches_mgcv = (
+        _SharedTestMgcvParity.test_poisson_concurvity_pairwise_matches_mgcv
+    )
     test_gaussian_te_fixed_sp_matches_mgcv_exactly = (
         _SharedTestMgcvParity.test_gaussian_te_fixed_sp_matches_mgcv_exactly
     )
@@ -87,4 +99,3 @@ class TestMgcvParity:
     test_optimized_tensor_t2_snapshot_matches_mgcv = (
         _SharedTestMgcvParity.test_optimized_tensor_t2_snapshot_matches_mgcv
     )
-
