@@ -1,4 +1,4 @@
-"""Structural tests for :mod:`nampy.gam.fit.solvers.penalized_irls` (mgcv ``gam.fit3`` analogue)."""
+"""Structural tests for :mod:`nampy.gam.fit.solvers.irls_core`."""
 
 from __future__ import annotations
 
@@ -8,13 +8,9 @@ import pytest
 from nampy.gam.families.exponential import GaussianIdentityFamily
 from nampy.gam.fit.linalg.stacked_qr import (
     balanced_penalty_template_sqrt_for_rank,
-    penalty_sqrt_rows,
     solve_gaussian_penalized_ls_stacked_qr,
 )
-from nampy.gam.fit.solvers.penalized_irls import (
-    PenalizedIrlsControl,
-    fit_penalized_irls,
-)
+from nampy.gam.fit.solvers.irls_core import PenalizedIrlsControl, irls_core
 
 
 class _PB:
@@ -33,7 +29,6 @@ def test_gaussian_identity_one_step_matches_direct_pls():
     lam = 0.35
     P = np.zeros((q, q), dtype=np.float64)
     P[1:, 1:] = lam * np.eye(q - 1)
-    Sr, _ = penalty_sqrt_rows(P)
     Eb = balanced_penalty_template_sqrt_for_rank(
         [_PB()], fit_intercept=True, n_coef=q - 1
     )
@@ -47,20 +42,21 @@ def test_gaussian_identity_one_step_matches_direct_pls():
         fit_intercept=True,
         n_coef=q - 1,
     )
-    out = fit_penalized_irls(
+    ctl = PenalizedIrlsControl(maxit=10, epsilon=1e-10)
+    out = irls_core(
         X,
         y,
-        np.log(np.array([lam])),
-        Sr,
-        Eb,
-        P,
         GaussianIdentityFamily(),
+        P,
         weights=w,
         offset=np.zeros(n),
-        control=PenalizedIrlsControl(maxit=10, epsilon=1e-10),
+        fit_intercept=True,
+        max_iter=ctl.maxit,
+        tol=ctl.epsilon,
+        penalty_rank_rows=Eb,
     )
     assert out["converged"]
-    assert out["iterations"] == 1
+    assert out["iter"] == 1
     np.testing.assert_allclose(out["coef"], direct["coef_full"], atol=1e-10, rtol=0.0)
 
 
@@ -74,30 +70,13 @@ def test_extended_family_raises():
     X = np.eye(2)
     y = np.array([1.0, 2.0])
     P = np.eye(2) * 0.1
-    Sr, Es = penalty_sqrt_rows(P)
     with pytest.raises(NotImplementedError, match="Extended and general family"):
-        fit_penalized_irls(
-            X,
-            y,
-            np.array([0.0]),
-            Sr,
-            Es,
-            P,
-            DummyExt(),
-        )
+        irls_core(X, y, DummyExt(), P)
 
 
 def test_empty_columns():
     y = np.array([1.0, 2.0, 3.0])
-    out = fit_penalized_irls(
-        np.zeros((3, 0)),
-        y,
-        np.array([]),
-        np.zeros((0, 0)),
-        np.zeros((0, 0)),
-        np.zeros((0, 0)),
-        GaussianIdentityFamily(),
-    )
+    out = irls_core(np.zeros((3, 0)), y, GaussianIdentityFamily(), np.zeros((0, 0)))
     assert out["coef"].shape == (0,)
     assert out["converged"]
 
@@ -145,15 +124,14 @@ def test_step_halving_recomputes_mu_eta_and_variance():
     y = np.array([2.0], dtype=np.float64)
     P = np.zeros((1, 1), dtype=np.float64)
 
-    out = fit_penalized_irls(
+    ctl = PenalizedIrlsControl(maxit=10, epsilon=1e-12)
+    out = irls_core(
         X,
         y,
-        np.array([], dtype=np.float64),
-        np.ones((1, 1), dtype=np.float64),
-        np.ones((1, 1), dtype=np.float64),
-        P,
         family,
-        control=PenalizedIrlsControl(maxit=10, epsilon=1e-12),
+        P,
+        max_iter=ctl.maxit,
+        tol=ctl.epsilon,
     )
 
     assert family.mu_eta_calls > 1

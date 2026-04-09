@@ -41,7 +41,6 @@ class ConstructedTerm:
     penalty_specs: tuple = field(default_factory=tuple)
     basis_name: str = "unknown"
     term_type: str = "smooth"
-    by_variable: str | None = None
     smoothing_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     fit_constraint_operator: np.ndarray | None = None

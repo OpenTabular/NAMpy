@@ -14,18 +14,12 @@ from nampy.basemodels.gam import GAM
 from nampy.gam.fit.postprocess.gaussian_smoothness_postprocess import (
     gaussian_smoothness_postprocess,
 )
+from nampy.gam.smoothing_selection.criteria.dispatch import (
+    criterion_gradient,
+    criterion_hessian,
+)
 from nampy.gam.smoothing_selection.criteria.gaussian import (
     criterion_ml_reml_exact_dynamic,
-)
-from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
-    gaussian_reml_laplace_score,
-    gaussian_weighted_residual_sum_squares,
-    prior_weights_diagonal_from_fit,
-    quadratic_form_penalty,
-)
-from nampy.gam.smoothing_selection.criteria.penalty import (
-    _stable_penalty_logdet,
-    _static_penalty_null_dim,
 )
 
 
@@ -113,64 +107,36 @@ class TestGaussianSmoothnessPostprocess:
             atol=5e-7,
         )
 
-    def test_reml_gradient_matches_fd_with_frozen_scale(self):
+    def test_reml_derivatives_match_dispatch(self):
         df = _make_gaussian_data(seed=33, n=88)
         gam = GAM(formula='y ~ s(x0, bs="cr", k=8)', smoothing_method="REML")
         gam.fit(df, df["y"])
         sp0 = np.asarray(gam.smoothing_params, dtype=np.float64).ravel()
         y = gam.family.validate_y(np.asarray(df["y"], dtype=np.float64))
-        post = gaussian_smoothness_postprocess(gam, y, sp0, score_type="REML", deriv=1)
-        sigma0 = float(post["scale_est"])
-        Mp = float(_static_penalty_null_dim(gam) + int(gam.fit_intercept))
-        sol0 = gam._solve_gaussian_given_smoothing(y, sp0)
-        w = prior_weights_diagonal_from_fit(sol0, gam.n_samples_)
-
-        def reml_frozen(sp):
-            sol = gam._solve_gaussian_given_smoothing(y, sp)
-            beta = np.asarray(sol["coef_full"], dtype=np.float64).ravel()
-            mu = np.asarray(sol["mu"], dtype=np.float64).ravel()
-            dev = gaussian_weighted_residual_sum_squares(y, mu, w)
-            pen = quadratic_form_penalty(
-                beta, np.asarray(sol["penalty_matrix"], dtype=np.float64)
-            )
-            A = np.asarray(sol["A"], dtype=np.float64)
-            ldet = sol.get("log_det_XtWX_plus_penalty")
-            if ldet is None or not np.isfinite(float(ldet)):
-                from scipy.linalg import cho_factor
-
-                cA, _ = cho_factor(A, check_finite=False)
-                ldet = 2.0 * float(np.sum(np.log(np.abs(np.diag(cA)))))
-            lds = _stable_penalty_logdet(gam, sp)
-            return gaussian_reml_laplace_score(
-                dev,
-                pen,
-                sigma0,
-                float(ldet) - float(lds),
-                Mp,
-                w,
-                gamma=float(gam.score_gamma),
-                reml=True,
-            )
-
-        fdg = _fd_grad(lambda t: reml_frozen(np.exp(t)), np.log(sp0), eps=1e-6)
+        log_sp0 = np.log(sp0)
+        post = gaussian_smoothness_postprocess(gam, y, sp0, score_type="REML", deriv=2)
         np.testing.assert_allclose(
             post["reml_grad_log_sp"].ravel(),
-            fdg,
-            rtol=1e-6,
-            atol=1e-8,
+            criterion_gradient(gam, y, log_sp0, method="reml"),
+            rtol=0.0,
+            atol=1e-12,
+        )
+        np.testing.assert_allclose(
+            post["reml_hess_log_sp"],
+            criterion_hessian(gam, y, log_sp0, method="reml"),
+            rtol=0.0,
+            atol=1e-12,
         )
 
-    def test_fit_penalized_irls_from_model_attaches_smoothness_postprocess(self):
+    def test_fit_irls_from_model_attaches_smoothness_postprocess(self):
         df = _make_gaussian_data(seed=7, n=60)
-        from nampy.gam.fit.solvers.penalized_irls import fit_penalized_irls_from_model
+        from nampy.gam.fit.solvers.irls_core import fit_irls_from_model
 
         gam = GAM(formula='y ~ s(x0, bs="cr", k=8)', smoothing_method="REML")
         gam.fit(df, df["y"])
         sp = np.asarray(gam.smoothing_params, dtype=np.float64).ravel()
         y = gam.family.validate_y(np.asarray(df["y"], dtype=np.float64))
-        out = fit_penalized_irls_from_model(
-            gam, y, sp, attach_smoothness_postprocess=True
-        )
+        out = fit_irls_from_model(gam, y, sp, attach_smoothness_postprocess=True)
         assert out.get("postproc") == "gaussian_smoothness_postprocess"
         assert np.isfinite(float(out["tr_a"]))
         assert np.isfinite(float(out["reml_score_profiled_scale"]))

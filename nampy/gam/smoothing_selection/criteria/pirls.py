@@ -11,6 +11,7 @@ import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
 from ..reparam import ensure_penalty_reparameterization_state
+from .laplace import _laplace_lambda_vector
 from .penalty import (
     _stable_penalty_logdet,
     _static_fixed_and_random_designs,
@@ -197,45 +198,6 @@ def criterion_ubre_pirls(model, y, log_sp):
     n = model.n_samples_
     edf = sol["trace_H"]
     return (sol["deviance"] / n) - scale + (2.0 * model.score_gamma * scale * edf / n)
-
-
-def _laplace_lambda_vector(model, sp):
-    state = ensure_penalty_reparameterization_state(model)
-    from ..reparam import sl_lambda_vector
-
-    return sl_lambda_vector(state, sp)
-
-
-def _lambda_group_indices(model):
-    state = ensure_penalty_reparameterization_state(model)
-    from ..reparam import sl_group_indices
-
-    groups = sl_group_indices(state)
-    if groups is None:
-        return {}
-    return {
-        int(sp_idx): np.asarray(idxs, dtype=np.int64) for sp_idx, idxs in groups.items()
-    }
-
-
-def _penalty_derivative_matrices(model, sp):
-    n_full = int(model.n_coef_ + (1 if model.fit_intercept else 0))
-    offset0 = 1 if model.fit_intercept else 0
-    mats = [
-        np.zeros((n_full, n_full), dtype=np.float64)
-        for _ in range(int(model.n_smoothing_params_ or 0))
-    ]
-    if not mats:
-        return mats
-
-    for pb in model.penalty_blocks_:
-        k = int(pb.smoothing_index)
-        sl = pb.coef_slice
-        full_sl = slice(offset0 + sl.start, offset0 + sl.stop)
-        mats[k][full_sl, full_sl] += float(sp[k]) * np.asarray(
-            pb.matrix, dtype=np.float64
-        )
-    return mats
 
 
 def _pirls_laplace_logdet_term(model, sol, sp, method):
@@ -532,7 +494,7 @@ def criterion_ml_reml_pirls_negbin_joint(model, y, log_sp, log_theta, method):
 
     Sets model.family.theta = exp(log_theta) as the EFS initialization, then
     evaluates the PIRLS REML criterion.  EFS (Embedded Fisher Scoring) updates
-    theta after each inner IRLS step inside :func:`fit_pirls_core`, mirroring
+    theta after each inner IRLS step inside :func:`irls_core`, mirroring
     mgcv's ``gam.fit4.r`` extended-family pattern where log(theta) is prepended
     to ``lsp`` and theta is updated per PIRLS step within the inner loop.
     """

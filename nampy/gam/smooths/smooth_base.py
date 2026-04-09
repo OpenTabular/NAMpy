@@ -344,8 +344,6 @@ class BaseSmoothTerm(abc.ABC):
     - ``basis_train.shape[1] == S.shape[0] == S.shape[1]`` for every penalty S.
     - If a coefficient transform T was applied during fit, penalties satisfy
       ``S_fitted = T.T @ S_raw @ T``.
-    - By-variable handling is done either by the runtime term OR delegated to
-      the stage-3 construction wrapper via ``by_done = False`` — never both.
     - Constraint absorption is done either by the runtime term OR delegated to
       the stage-3 wrapper via ``constraints_absorbed = False`` — never both.
     """
@@ -372,7 +370,6 @@ class BaseSmoothTerm(abc.ABC):
         self.sp = sp
         self.metadata = dict(metadata or {})
         self.resolved_feature_names = None
-        self.by_done = True
         self.constraints_absorbed = True
         self.n_constraints_absorbed = 0
         self.constraint_kind = None

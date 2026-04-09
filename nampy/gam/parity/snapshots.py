@@ -17,7 +17,6 @@ from scipy.linalg import qr
 from ..smoothing_selection.criteria import (
     criterion_ml_reml,
     criterion_ml_reml_gaussian_dynamic_joint,
-    criterion_ml_reml_gaussian_exact_joint,
     criterion_ml_reml_pirls,
     resolve_ml_reml_scoring_backend,
 )
@@ -281,7 +280,7 @@ def _build_parity_criterion_view(core, fit_dict):
     if backend == "gaussian_exact" and log_free.size > 0 and joint_s2 is not None:
         try:
             view["joint_criterion_value"] = float(
-                criterion_ml_reml_gaussian_exact_joint(
+                criterion_ml_reml_gaussian_dynamic_joint(
                     core,
                     core.y_,
                     log_free,

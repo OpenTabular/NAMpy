@@ -13,7 +13,6 @@ import numpy as np
 
 from .gaussian import criterion_gcv_gaussian
 from .gaussian_dyn import _gaussian_dynamic_reml_derivative_terms
-from .gaussian_grad import criterion_gradient_ml_reml_exact
 from .laplace import _penalty_derivative_matrices
 from .ml_reml import (
     _model_has_random_effect_smooth,
@@ -129,12 +128,9 @@ def criterion_gradient(
     eps_rel=1e-4,
 ):
     method = str(method).lower()
-    # Gaussian REML/LAML now uses the deviance-based scale convention that matches
-    # mgcv's profiled Wood-style criterion. The older analytic derivative paths in
-    # `gaussian_grad.py` / `gaussian_dyn.py` were derived for the previous scale
-    # profiling and are no longer reliable for outer optimisation. Keep the scalar
-    # criterion exact, but differentiate it numerically until those branches are
-    # rederived under the corrected convention.
+    # Gaussian REML/LAML stays on finite differences for criterion derivatives.
+    # Exact Gaussian REML outer derivatives in dispatch were derived for an older
+    # scale convention and are intentionally not used here.
     if method in {"reml", "laml"} and bool(
         getattr(model.family, "supports_closed_form_solve", False)
     ):
@@ -149,13 +145,6 @@ def criterion_gradient(
     if method in {"ml", "reml", "laml"}:
         backend = resolve_ml_reml_scoring_backend(model, method=method)
         if backend == "gaussian_exact":
-            exact_method = "REML" if method in {"reml", "laml"} else "ML"
-            if _model_has_random_effect_smooth(model) and method in {"reml", "laml"}:
-                out = _gaussian_dynamic_reml_derivative_terms(
-                    model, y, log_sp, exact_method
-                )
-                if bool(out.get("valid", False)):
-                    return np.asarray(out["grad"], dtype=np.float64)
             if _model_has_random_effect_smooth(model) and method == "ml":
                 return criterion_gradient_numerical(
                     model,
@@ -165,7 +154,6 @@ def criterion_gradient(
                     eps_abs=eps_abs,
                     eps_rel=eps_rel,
                 )
-            return criterion_gradient_ml_reml_exact(model, y, log_sp, exact_method)
         if backend == "gaussian_dynamic" and method in {"reml", "laml"}:
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
             out = _gaussian_dynamic_reml_derivative_terms(
@@ -306,17 +294,6 @@ def criterion_hessian(
         ):
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
             return criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, exact_method)
-        if (
-            backend == "gaussian_exact"
-            and _model_has_random_effect_smooth(model)
-            and method in {"reml", "laml"}
-        ):
-            exact_method = "REML" if method in {"reml", "laml"} else "ML"
-            out = _gaussian_dynamic_reml_derivative_terms(
-                model, y, log_sp, exact_method
-            )
-            if bool(out.get("valid", False)):
-                return np.asarray(out["hess"], dtype=np.float64)
         if backend == "gaussian_dynamic" and method in {"reml", "laml"}:
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
             out = _gaussian_dynamic_reml_derivative_terms(
@@ -368,33 +345,6 @@ def criterion_infinite_sp_signal(model, y, log_sp, method="reml"):
 
         grad = np.asarray(
             criterion_gradient_ml_reml_pirls_exact(model, y, x, exact_method),
-            dtype=np.float64,
-        )
-        dvkk = np.zeros(int(model.n_smoothing_params_ or 0), dtype=np.float64)
-        for j, Pj in enumerate(P_derivs):
-            if not np.any(Pj):
-                continue
-            dbeta_j = -(A_inv @ (Pj @ beta))
-            dvkk[j] = float(dbeta_j @ (A @ dbeta_j))
-
-        free_mask = (
-            np.zeros(model.n_smoothing_params_, dtype=bool)
-            if model.smoothing_fixed_mask_ is None
-            else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
-        )
-        free_mask = ~free_mask
-        return grad, dvkk[free_mask]
-
-    if backend == "gaussian_exact" and model._can_use_exact_gaussian_ml_reml():
-        sp = model._expand_smoothing_params_from_log(x)
-        sol = model._solve_gaussian_given_smoothing(y, sp)
-        beta = np.asarray(sol["coef_full"], dtype=np.float64)
-        A = np.asarray(sol["A"], dtype=np.float64)
-        A_inv = np.asarray(sol["A_inv"], dtype=np.float64)
-        P_derivs = _penalty_derivative_matrices(model, sp)
-
-        grad = np.asarray(
-            criterion_gradient_ml_reml_exact(model, y, x, exact_method),
             dtype=np.float64,
         )
         dvkk = np.zeros(int(model.n_smoothing_params_ or 0), dtype=np.float64)

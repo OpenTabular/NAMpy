@@ -18,10 +18,7 @@ import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
 from ..reparam import ensure_penalty_reparameterization_state
-from .gaussian_dyn import (
-    criterion_ml_reml_gaussian_dynamic_joint,
-    criterion_ml_reml_gaussian_dynamic_profiled,
-)
+from .gaussian_dyn import criterion_ml_reml_gaussian_dynamic_profiled
 from .laplace import _laplace_lambda_vector
 from .penalty import _static_fixed_and_random_designs
 
@@ -141,42 +138,6 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
 
     logdet_XtKX = 0.0 if p == 0 else 2.0 * float(np.sum(np.log(np.abs(np.diag(cXKX)))))
     return (n - p) * np.log(rss_v / (n - p)) + logdet_Vtilde + logdet_XtKX
-
-
-def criterion_ml_reml_gaussian_exact_joint(
-    model, y, log_sp_free, log_sigma2, method="REML"
-):
-    """
-    Joint (log sp, log sigma^2) Gaussian REML/LAML for the `gaussian_exact` backend.
-
-    Delegates to `criterion_ml_reml_gaussian_dynamic_joint`, i.e. the Wood-style
-    penalized likelihood using ``A``, ``log|A| - log|S|``, and ``nu * log(2 pi sigma^2)``
-    with ``rss_bSb / sigma^2``. That matches the standard Gaussian REML outer objective
-    (the same target the dynamic backend minimises jointly with scale).
-
-    A previous Laplace ``Z'Z + lambda`` formulation coincided with the *profiled*
-    ``criterion_ml_reml_exact`` score, but it is not the unconcentrated joint
-    objective and it used ``max(rss, 1e-14)``, which breaks down when optimal
-    ``sigma^2`` is far below that floor (e.g. near-interpolating MRF fits).
-    """
-    if abs(model.score_gamma - 1.0) > 1e-12:
-        raise NotImplementedError(
-            "score_gamma != 1 is not yet implemented for the joint Gaussian exact REML path."
-        )
-
-    if not model._can_use_exact_gaussian_ml_reml():
-        raise NotImplementedError(
-            "Joint exact Gaussian REML is only available when the exact Gaussian ML/REML "
-            "structure applies."
-        )
-
-    method_u = str(method).upper()
-    if method_u not in {"REML", "LAML"}:
-        raise ValueError("method must be 'REML' or 'LAML'.")
-
-    return criterion_ml_reml_gaussian_dynamic_joint(
-        model, y, log_sp_free, log_sigma2, method=method_u
-    )
 
 
 def criterion_ml_reml_exact_dynamic(model, y, log_sp, method):

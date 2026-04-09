@@ -8,7 +8,7 @@ from .residuals import residuals_gam
 
 def _numeric_feature_block(model, tb, row_idx):
     runtime = getattr(tb.smooth, "runtime", None)
-    if runtime is None or getattr(tb, "by_variable", None) is not None:
+    if runtime is None or getattr(runtime, "by", None) is not None:
         return None
 
     if getattr(runtime, "_feature_index", None) is not None:
@@ -34,6 +34,13 @@ def _nearest_indices(X: np.ndarray, n_neighbors: int = 3) -> np.ndarray:
     d2 = np.sum((X[:, None, :] - X[None, :, :]) ** 2, axis=2)
     np.fill_diagonal(d2, np.inf)
     return np.argsort(d2, axis=1)[:, :n_neighbors]
+
+
+def _mgcv_nn_count(n_obs: int) -> int:
+    n_obs = int(n_obs)
+    if n_obs < 5000:
+        return max(1, int(np.floor(np.sqrt(max(n_obs, 1)))))
+    return 3
 
 
 def _stabilized_k_check_edf(model, tb, edf: float) -> float:
@@ -114,7 +121,8 @@ def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = N
                 e_rep = np.diff(rsd[rng.permutation(rsd.shape[0])])
                 ve[rep] = float(np.mean(e_rep**2) / 2.0)
         else:
-            ni = _nearest_indices(X_term, n_neighbors=3)
+            mp = _mgcv_nn_count(rsd.shape[0])
+            ni = _nearest_indices(X_term, n_neighbors=mp)
             e = rsd - rsd[ni[:, 0]]
             for j in range(1, ni.shape[1]):
                 e = np.concatenate([e, rsd - rsd[ni[:, j]]])

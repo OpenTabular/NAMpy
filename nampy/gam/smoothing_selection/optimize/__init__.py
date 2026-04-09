@@ -1,7 +1,7 @@
 """
 Outer optimization of log smoothing parameters (L-BFGS-B, Newton, indefinite-Hessian Newton for P-IRLS).
 
-Submodules: ``basics``, ``objectives``, ``postprocess``, ``outer``, ``driver``.
+Submodules: ``basics``, ``objectives``, ``outer``, ``driver``.
 """
 
 from ..criteria import criterion_infinite_sp_signal
@@ -12,7 +12,7 @@ from .driver import (
     resolve_smoothing_method,
     supports_smoothing_method,
 )
-from .postprocess import _rollback_working_infinite_smoothing_params
+from .heuristics.rollback import _rollback_working_infinite_smoothing_params
 
 __all__ = [
     "criterion_infinite_sp_signal",

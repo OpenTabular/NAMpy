@@ -17,7 +17,6 @@ from .gaussian import (
     criterion_gcv_gaussian,
     criterion_ml_reml_exact,
     criterion_ml_reml_exact_dynamic,
-    criterion_ml_reml_gaussian_exact_joint,
     gcv_score_gaussian,
 )
 from .gaussian_dyn import (
@@ -25,7 +24,6 @@ from .gaussian_dyn import (
     criterion_gradient_ml_reml_gaussian_dynamic_joint,
     criterion_ml_reml_gaussian_dynamic_joint,
 )
-from .gaussian_grad import criterion_gradient_ml_reml_exact
 from .gaussian_reml_algebra import (
     deviance_method_scale_estimate,
     gaussian_reml_laplace_score,
@@ -67,7 +65,6 @@ __all__ = [
     "criterion_gradient",
     "criterion_gradient_ml_reml_gaussian_dynamic_joint",
     "criterion_gradient_ml_reml_pirls_gamma_joint",
-    "criterion_gradient_ml_reml_exact",
     "criterion_gradient_ml_reml_pirls_exact",
     "criterion_gradient_numerical",
     "criterion_hessian",
@@ -79,7 +76,6 @@ __all__ = [
     "criterion_ml_reml_exact",
     "criterion_ml_reml_exact_dynamic",
     "criterion_ml_reml_gaussian_dynamic_joint",
-    "criterion_ml_reml_gaussian_exact_joint",
     "criterion_ml_reml_pirls_gamma_joint",
     "criterion_ml_reml_pirls_negbin_joint",
     "criterion_ml_reml_pirls",

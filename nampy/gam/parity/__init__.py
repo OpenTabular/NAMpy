@@ -27,6 +27,7 @@ from .trace import (
     load_optimizer_trace,
     save_optimizer_trace,
 )
+from .validator import compare
 
 __all__ = [
     "build_parity_snapshot",
@@ -37,4 +38,5 @@ __all__ = [
     "load_optimizer_trace",
     "compare_parity_snapshots",
     "assert_parity_snapshot_close",
+    "compare",
 ]

@@ -13,7 +13,6 @@ from ..criteria import (
     criterion_gradient_ml_reml_pirls_exact,
     criterion_hessian_ml_reml_pirls_exact,
     criterion_ml_reml_gaussian_dynamic_joint,
-    criterion_ml_reml_gaussian_exact_joint,
     resolve_ml_reml_scoring_backend,
 )
 from .basics import (
@@ -21,6 +20,20 @@ from .basics import (
     _initial_smoothing_params_mgcv_style,
     supports_criterion_gradient,
     supports_criterion_hessian,
+)
+from .heuristics.rollback import (
+    _accept_flat_boundary_result,
+    _accept_tiny_step_line_search_result,
+    _rollback_working_infinite_smoothing_params,
+)
+from .heuristics.stabilize import (
+    _collapse_near_zero_smoothing_params,
+    _coordinate_refine_smoothing_params,
+    _refine_null_space_smoothing_params,
+    _snap_gaussian_random_effect_boundary,
+    _stabilize_factor_smooth_shared_ridge,
+    _stabilize_flat_smoothing_params,
+    _stabilize_joint_negbin_flat_ridge,
 )
 from .objectives import (
     _approx_derivative,
@@ -30,18 +43,6 @@ from .objectives import (
     _JointNegbinPirlsRemlObjective,
 )
 from .outer import _optimize_outer_newton, _optimize_outer_newton_indefinite_hessian
-from .postprocess import (
-    _accept_flat_boundary_result,
-    _accept_tiny_step_line_search_result,
-    _collapse_near_zero_smoothing_params,
-    _coordinate_refine_smoothing_params,
-    _refine_null_space_smoothing_params,
-    _rollback_working_infinite_smoothing_params,
-    _snap_gaussian_random_effect_boundary,
-    _stabilize_factor_smooth_shared_ridge,
-    _stabilize_flat_smoothing_params,
-    _stabilize_joint_negbin_flat_ridge,
-)
 
 
 def _joint_negbin_efs_update_terms(model, sol, sp):
@@ -688,7 +689,7 @@ def optimize_smoothing_params(
             def _refine_sigma2_for_log_sp(log_sp_scalar: float):
                 def _sigma2_obj(log_sigma2_scalar: float):
                     return float(
-                        criterion_ml_reml_gaussian_exact_joint(
+                        criterion_ml_reml_gaussian_dynamic_joint(
                             model,
                             y,
                             np.array([float(log_sp_scalar)], dtype=np.float64),
@@ -745,7 +746,7 @@ def optimize_smoothing_params(
             def _joint_exact_refine_sigma2(x_sp_vec):
                 def _sigma2_obj_exact(log_sigma2_scalar: float):
                     return float(
-                        criterion_ml_reml_gaussian_exact_joint(
+                        criterion_ml_reml_gaussian_dynamic_joint(
                             model,
                             y,
                             np.asarray(x_sp_vec, dtype=np.float64),
@@ -835,9 +836,7 @@ def optimize_smoothing_params(
                 )
                 result_joint.fun = float(score_work)
                 result_joint.success = True
-                result_joint.message = (
-                    "Refined exact Gaussian REML joint optimum with profiled coordinate search."
-                )
+                result_joint.message = "Refined exact Gaussian REML joint optimum with profiled coordinate search."
 
             full_to_free = {
                 int(full): int(i) for i, full in enumerate(np.flatnonzero(free_mask))
@@ -954,12 +953,16 @@ def optimize_smoothing_params(
                         trial_grad = np.asarray(
                             profiled_objective.jac(trial_x_sp), dtype=np.float64
                         ).ravel()
-                        current_grad_norm = float(
-                            np.max(np.abs(current_grad))
-                        ) if current_grad.size else 0.0
-                        trial_grad_norm = float(
-                            np.max(np.abs(trial_grad))
-                        ) if trial_grad.size else 0.0
+                        current_grad_norm = (
+                            float(np.max(np.abs(current_grad)))
+                            if current_grad.size
+                            else 0.0
+                        )
+                        trial_grad_norm = (
+                            float(np.max(np.abs(trial_grad)))
+                            if trial_grad.size
+                            else 0.0
+                        )
                         if (
                             trial_fun <= float(result_joint.fun) + 1e-10
                             and trial_grad_norm + 1e-10 < current_grad_norm
@@ -974,9 +977,7 @@ def optimize_smoothing_params(
                             )
                             result_joint.fun = float(trial_fun)
                             result_joint.success = True
-                            result_joint.message = (
-                                "Refined exact Gaussian REML joint optimum with profiled outer Newton."
-                            )
+                            result_joint.message = "Refined exact Gaussian REML joint optimum with profiled outer Newton."
 
         model.smoothing_params = np.asarray(
             model.smoothing_params, dtype=np.float64

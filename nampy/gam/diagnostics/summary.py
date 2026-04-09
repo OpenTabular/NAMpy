@@ -8,6 +8,26 @@ parameters, and goodness-of-fit statistics.
 
 from __future__ import annotations
 
+TERM_COL_WIDTH = 20
+EDF_COL_WIDTH = 8
+K_COL_WIDTH = 5
+SP_COL_WIDTH = 20
+SUMMARY_WIDTH = TERM_COL_WIDTH + EDF_COL_WIDTH + K_COL_WIDTH + SP_COL_WIDTH + 3
+
+
+def _format_term_cell(tb) -> str:
+    prefix = _term_prefix(tb)
+    return f"{prefix}({tb.label})"
+
+
+def _format_summary_row(term: str, edf: float, k: int, sp_txt: str) -> str:
+    return (
+        f"{term:<{TERM_COL_WIDTH}s} "
+        f"{edf:>{EDF_COL_WIDTH}.3f} "
+        f"{k:>{K_COL_WIDTH}d} "
+        f"{sp_txt:>{SP_COL_WIDTH}s}"
+    )
+
 
 def _term_prefix(tb) -> str:
     if tb.basis_name == "mrf":
@@ -33,7 +53,7 @@ def build_summary_lines(model) -> list[str]:
 
     lines = []
     lines.append("General Smooth Model Summary")
-    lines.append("=" * 65)
+    lines.append("=" * SUMMARY_WIDTH)
     lines.append(f"Family : {model.family.name}")
     lines.append(f"Link : {model.family.link_name}")
     lines.append(f"Smoothing method : {model._optim_method}")
@@ -44,23 +64,28 @@ def build_summary_lines(model) -> list[str]:
         lines.append("Offset : yes")
     lines.append("")
 
-    lines.append(f"{'term':<20s} {'edf':>8s} {'k':>5s} {'sp':>20s}")
-    lines.append("-" * 65)
+    lines.append(
+        f"{'term':<{TERM_COL_WIDTH}s} "
+        f"{'edf':>{EDF_COL_WIDTH}s} "
+        f"{'k':>{K_COL_WIDTH}s} "
+        f"{'sp':>{SP_COL_WIDTH}s}"
+    )
+    lines.append("-" * SUMMARY_WIDTH)
 
     for i, tb in enumerate(model.term_blocks_):
         k_i = tb.coef_slice.stop - tb.coef_slice.start
         sp_vals = [model.smoothing_params[j] for j in tb.smoothing_indices]
         sp_txt = _format_sp_values(sp_vals)
-        prefix = _term_prefix(tb)
-
         lines.append(
-            f"{prefix}({tb.label:<16s}) "
-            f"{model.edf_by_term_[i]:8.3f} "
-            f"{k_i:5d} "
-            f"{sp_txt:>20s}"
+            _format_summary_row(
+                _format_term_cell(tb),
+                model.edf_by_term_[i],
+                k_i,
+                sp_txt,
+            )
         )
 
-    lines.append("-" * 65)
+    lines.append("-" * SUMMARY_WIDTH)
     if model.fit_intercept:
         lines.append(f"Intercept : {model.intercept_:.6g}")
     lines.append(f"EDF (total) : {model.edf_:.3f}")

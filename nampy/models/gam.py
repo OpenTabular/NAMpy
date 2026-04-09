@@ -2,7 +2,6 @@
 import numpy as np
 
 from ..basemodels.gam import GAM
-from ..configs.gam_config import DefaultGAMConfig
 from ..gam.families import make_gam_family
 from ..gam.formula import parse_gam_formula
 from ..gam.parity import (
@@ -12,6 +11,7 @@ from ..gam.parity import (
     load_parity_snapshot,
     save_parity_snapshot,
 )
+from ..gam.parity.snapshots import _coerce_snapshot_arrays
 
 
 class GAMRegressor:
@@ -22,7 +22,6 @@ class GAMRegressor:
     def __init__(self, family="gaussian", **kwargs):
         self.family = make_gam_family(family)
         self.model = GAM(
-            config=DefaultGAMConfig(),
             family=self.family,
             **kwargs,
         )
@@ -77,12 +76,15 @@ class GAMRegressor:
         atol=1e-6,
         rtol=1e-6,
     ):
-        actual = self.parity_snapshot(X=X, include_covariances=include_covariances)
+        actual = _coerce_snapshot_arrays(
+            self.parity_snapshot(X=X, include_covariances=include_covariances)
+        )
         expected = (
             load_parity_snapshot(path_or_snapshot)
             if isinstance(path_or_snapshot, str)
             else path_or_snapshot
         )
+        expected = _coerce_snapshot_arrays(expected)
         return compare_parity_snapshots(actual, expected, atol=atol, rtol=rtol)
 
     def assert_parity_snapshot_close(
@@ -93,12 +95,15 @@ class GAMRegressor:
         atol=1e-6,
         rtol=1e-6,
     ):
-        actual = self.parity_snapshot(X=X, include_covariances=include_covariances)
+        actual = _coerce_snapshot_arrays(
+            self.parity_snapshot(X=X, include_covariances=include_covariances)
+        )
         expected = (
             load_parity_snapshot(path_or_snapshot)
             if isinstance(path_or_snapshot, str)
             else path_or_snapshot
         )
+        expected = _coerce_snapshot_arrays(expected)
         return assert_parity_snapshot_close(actual, expected, atol=atol, rtol=rtol)
 
     def predict(self, X, return_se=False, cov=None, type="response", offset=None):
@@ -176,7 +181,6 @@ class GAMClassifier:
         self.threshold = float(threshold)
 
         self.model = GAM(
-            config=DefaultGAMConfig(),
             family=self.family,
             **kwargs,
         )
@@ -291,12 +295,15 @@ class GAMClassifier:
         atol=1e-6,
         rtol=1e-6,
     ):
-        actual = self.parity_snapshot(X=X, include_covariances=include_covariances)
+        actual = _coerce_snapshot_arrays(
+            self.parity_snapshot(X=X, include_covariances=include_covariances)
+        )
         expected = (
             load_parity_snapshot(path_or_snapshot)
             if isinstance(path_or_snapshot, str)
             else path_or_snapshot
         )
+        expected = _coerce_snapshot_arrays(expected)
         return compare_parity_snapshots(actual, expected, atol=atol, rtol=rtol)
 
     def assert_parity_snapshot_close(
@@ -307,12 +314,15 @@ class GAMClassifier:
         atol=1e-6,
         rtol=1e-6,
     ):
-        actual = self.parity_snapshot(X=X, include_covariances=include_covariances)
+        actual = _coerce_snapshot_arrays(
+            self.parity_snapshot(X=X, include_covariances=include_covariances)
+        )
         expected = (
             load_parity_snapshot(path_or_snapshot)
             if isinstance(path_or_snapshot, str)
             else path_or_snapshot
         )
+        expected = _coerce_snapshot_arrays(expected)
         return assert_parity_snapshot_close(actual, expected, atol=atol, rtol=rtol)
 
     def decision_function(self, X, return_se=False, cov=None, offset=None):

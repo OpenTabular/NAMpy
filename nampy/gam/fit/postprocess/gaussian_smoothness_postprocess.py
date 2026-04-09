@@ -16,50 +16,120 @@ here.  Non-Gaussian families require the full penalized IRLS derivative chain.
 
 Derivative computation
 ----------------------
-First derivatives (``deriv >= 1``): gradient of each score w.r.t. all
-log-smoothing parameters.
-
-Second derivatives (``deriv >= 2``): Hessian for GCV/GACV and UBRE.  The REML
-Hessian requires an additional unknown-scale derivative block not yet
-implemented; ``reml_hess_log_sp`` is left as ``None``.
+Gradients / Hessians are delegated to ``nampy.gam.smoothing_selection.criteria``.
 
 Not yet implemented
 -------------------
 - P-REML / Pearson-Laplace and NCV score paths.
-- Unknown-scale ``sigma^2`` derivative in the REML Hessian.
 - Non-Gaussian families (those use the full P-IRLS derivative chain).
 """
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 import numpy as np
 from scipy.linalg import cho_factor
 
+from nampy.gam.smoothing_selection.criteria.dispatch import (
+    criterion_gradient,
+    criterion_hessian,
+)
+from nampy.gam.smoothing_selection.criteria.gaussian import criterion_gcv_gaussian
 from nampy.gam.smoothing_selection.criteria.gaussian_dyn import (
+    criterion_ml_reml_gaussian_dynamic_joint,
     criterion_ml_reml_gaussian_dynamic_profiled,
 )
 from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
-    deviance_method_scale_estimate,
-    gaussian_reml_laplace_score,
     gaussian_weighted_residual_sum_squares,
     prior_weights_diagonal_from_fit,
     quadratic_form_penalty,
 )
-from nampy.gam.smoothing_selection.criteria.laplace import _penalty_derivative_matrices
-from nampy.gam.smoothing_selection.criteria.penalty import (
-    _stable_penalty_logdet,
-    _stable_penalty_logdet_derivatives,
-    _static_penalty_null_dim,
-)
-from nampy.gam.smoothing_selection.criteria.pirls_reml_derivative_blocks import (
-    _deviance_chained_to_smoothing,
-    _deviance_coefficient_derivatives,
-    _hat_matrix_trace_and_sp_derivatives,
-    _logdet_penalized_system_derivatives,
-    _penalty_quadratic_and_sp_derivatives,
-)
+from nampy.gam.smoothing_selection.criteria.ml_reml import criterion_ml_reml
+from nampy.gam.smoothing_selection.criteria.ml_reml import resolve_ml_reml_scoring_backend
+from nampy.gam.smoothing_selection.criteria.penalty import _static_penalty_null_dim
+from nampy.gam.smoothing_selection.criteria.penalty import _stable_penalty_logdet
+from nampy.gam.smoothing_selection.criteria.pirls import criterion_ubre_pirls
+
+
+def refresh_gaussian_ml_reml_score_from_fit_state(model: Any, y: np.ndarray) -> None:
+    """
+    Recompute reported Gaussian ML/REML criterion from fitted state when needed.
+
+    This mirrors mgcv's reported criterion scale for the exact Gaussian backend.
+    """
+    method = str(getattr(model, "_optim_method", "")).lower()
+    if method not in {"ml", "reml"}:
+        return
+    if str(getattr(getattr(model, "family", None), "name", "")).lower() != "gaussian":
+        return
+    if getattr(model, "_gaussian_reml_sigma2_opt_", None) is not None:
+        return
+
+    fit_state = getattr(model, "fit_state_", None)
+    if fit_state is None:
+        return
+
+    try:
+        backend = resolve_ml_reml_scoring_backend(model, method=method)
+        if backend != "gaussian_exact":
+            return
+
+        fixed_mask = (
+            np.zeros(model.n_smoothing_params_, dtype=bool)
+            if model.smoothing_fixed_mask_ is None
+            else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+        )
+        free_vals = np.asarray(model.smoothing_params[~fixed_mask], dtype=np.float64)
+        log_free = (
+            np.log(np.maximum(free_vals, 1e-300))
+            if free_vals.size > 0
+            else np.empty((0,), dtype=np.float64)
+        )
+
+        n_s = int(model.n_samples_)
+        yv = np.asarray(y, dtype=np.float64).ravel()
+        mu_v = np.asarray(fit_state.mu, dtype=np.float64).ravel()
+        w = prior_weights_diagonal_from_fit(fit_state, n_s)
+        dev = gaussian_weighted_residual_sum_squares(yv, mu_v, w)
+        p_pen = (
+            float(fit_state.penalty_quadratic)
+            if fit_state.penalty_quadratic is not None
+            else quadratic_form_penalty(
+                np.asarray(fit_state.coef_full, dtype=np.float64),
+                np.asarray(fit_state.penalty_matrix, dtype=np.float64),
+            )
+        )
+        mp = float(
+            _static_penalty_null_dim(model)
+            + int(bool(getattr(model, "fit_intercept", False)))
+        )
+        nu = float(n_s) - mp
+        if not (np.isfinite(nu) and nu > 0.0):
+            return
+
+        sigma2_prof = (dev + p_pen) / nu
+        if not (np.isfinite(sigma2_prof) and sigma2_prof > 0.0):
+            return
+
+        log_s2 = float(np.log(sigma2_prof))
+        branch_m = "REML" if method == "reml" else "ML"
+        wood = float(
+            criterion_ml_reml_gaussian_dynamic_joint(
+                model, yv, log_free, log_s2, method=branch_m
+            )
+        )
+        if np.isfinite(wood):
+            model.smoothing_score_ = wood
+    except Exception:
+        return
+
+    reml_s2 = getattr(model, "_gaussian_reml_sigma2_opt_", None)
+    if reml_s2 is not None and np.isfinite(reml_s2) and float(reml_s2) > 0.0:
+        model.scale_ = float(reml_s2)
+        if getattr(model, "fit_state_", None) is not None:
+            model.fit_state_ = replace(model.fit_state_, scale=float(reml_s2))
 
 
 def _score_type_bucket(score_type: str) -> str:
@@ -118,10 +188,8 @@ def gaussian_smoothness_postprocess(
     dict
         ``tr_a``, ``pearson_chi2``, ``scale_est``, ``deviance``, ``penalty_quadratic``,
         ``log_det_xtwx_plus_penalty``, ``log_det_penalty_stable``, ``reml_score``,
-        ``gcv_score``, ``ubre_score`` (``None`` if not applicable), optional
-        ``*_grad_log_sp``, ``*_hess_log_sp``, and intermediate derivative tensors
-        ``D1``, ``D2``, ``logdet_a1``, ``logdet_a2``, ``logdet_s1``, ``logdet_s2``,
-        ``tr_a1``, ``tr_a2`` (GCV branch) or REML combinations (layout aligned with mgcv).
+        ``gcv_score``, ``ubre_score`` (``None`` if not applicable), plus optional
+        criterion gradients / Hessians with respect to ``log(sp)``.
     """
     if deriv not in (0, 1, 2):
         raise ValueError("deriv must be 0, 1, or 2.")
@@ -138,7 +206,6 @@ def gaussian_smoothness_postprocess(
 
     X = np.asarray(sol["X"], dtype=np.float64)
     beta = np.asarray(sol["coef_full"], dtype=np.float64).ravel()
-    eta = np.asarray(sol["eta"], dtype=np.float64).ravel()
     mu = np.asarray(sol["mu"], dtype=np.float64).ravel()
     A = np.asarray(sol["A"], dtype=np.float64)
     A_inv = np.asarray(sol["A_inv"], dtype=np.float64)
@@ -160,9 +227,8 @@ def gaussian_smoothness_postprocess(
 
     pearson_chi2 = float(np.sum(w * (yv - mu) ** 2))
 
-    n_true = float(getattr(model, "n_true_", n_s))
     nobs = float(n_s)
-    scale_est = deviance_method_scale_estimate(dev, tr_a, n_true)
+    scale_est = fam.estimate_dispersion(yv, mu, edf=tr_a, weights=w)
 
     ldet_a = sol.get("log_det_XtWX_plus_penalty", None)
     if ldet_a is not None and np.isfinite(float(ldet_a)):
@@ -179,60 +245,45 @@ def gaussian_smoothness_postprocess(
         )
 
     log_det_penalty_stable = float(_stable_penalty_logdet(model, sp))
-    ldiff = log_det_xtwx_plus_penalty - log_det_penalty_stable
-
-    Mp = float(
-        _static_penalty_null_dim(model)
-        + int(bool(getattr(model, "fit_intercept", False)))
-    )
-
     gamma_eff = float(model.score_gamma if gamma is None else gamma)
     if not np.isfinite(gamma_eff) or gamma_eff <= 0.0:
         raise ValueError("gamma must be finite and positive.")
 
     bucket = _score_type_bucket(score_type)
+    log_sp = np.log(np.maximum(sp, np.finfo(np.float64).tiny))
     reml_score = gcv_score = ubre_score = None
     reml_score_profiled_scale = None
     reml_like = bucket in {"REML", "ML"}
     if reml_like:
-        if not np.isfinite(scale_est) or scale_est <= 0.0:
-            reml_score = float("nan")
-        else:
-            reml_score = gaussian_reml_laplace_score(
-                dev,
-                pen,
-                scale_est,
-                ldiff,
-                Mp,
-                w,
-                gamma=gamma_eff,
-                reml=(bucket == "REML"),
+        reml_score = float(criterion_ml_reml(model, y, log_sp, bucket))
+        reml_score_profiled_scale = float(
+            criterion_ml_reml_gaussian_dynamic_profiled(
+                model,
+                y,
+                log_sp,
+                method=bucket,
             )
-        if np.isfinite(scale_est) and scale_est > 0.0:
-            log_sp = np.log(np.maximum(sp, np.finfo(np.float64).tiny))
-            reml_score_profiled_scale = float(
-                criterion_ml_reml_gaussian_dynamic_profiled(
-                    model,
-                    y,
-                    log_sp,
-                    method=bucket,
-                )
-            )
+        )
 
     if bucket in {"GCV", "GACV"}:
-        delta = nobs - gamma_eff * tr_a
-        if np.isfinite(delta) and abs(delta) > 1e-300:
-            gcv_score = float(nobs * dev / (delta**2))
-        else:
-            gcv_score = float("inf")
+        gcv_score = float(criterion_gcv_gaussian(model, y, log_sp))
 
     if bucket == "UBRE":
-        delta = nobs - gamma_eff * tr_a
-        sc = float(known_scale) if known_scale is not None else scale_est
-        if np.isfinite(delta) and np.isfinite(sc):
-            ubre_score = float(dev / nobs - 2.0 * delta * sc / nobs + sc)
+        if known_scale is not None:
+            old_known_scale = getattr(model.family, "known_scale", None)
+            model.family.known_scale = float(known_scale)
+            try:
+                ubre_score = float(criterion_ubre_pirls(model, y, log_sp))
+            finally:
+                model.family.known_scale = old_known_scale
         else:
-            ubre_score = float("nan")
+            delta = nobs - gamma_eff * tr_a
+            if np.isfinite(delta) and np.isfinite(scale_est):
+                ubre_score = float(
+                    dev / nobs - 2.0 * delta * scale_est / nobs + scale_est
+                )
+            else:
+                ubre_score = float("nan")
 
     out: dict[str, Any] = {
         "tr_a": tr_a,
@@ -253,168 +304,50 @@ def gaussian_smoothness_postprocess(
     if deriv == 0:
         return out
 
-    n_sp = int(model.n_smoothing_params_ or 0)
-    P_derivs = _penalty_derivative_matrices(model, sp)
-    dev_grad, dev_hess = _deviance_coefficient_derivatives(model, yv, eta, mu, w, X)
-
-    dbeta: list[np.ndarray] = []
-    dA: list[np.ndarray] = []
-    dXtWX: list[np.ndarray] = []
-    d2beta_mat: list[list[np.ndarray | None]] = [[None] * n_sp for _ in range(n_sp)]
-    d2A_mat: list[list[np.ndarray | None]] = [[None] * n_sp for _ in range(n_sp)]
-    d2XtWX_mat: list[list[np.ndarray | None]] = [[None] * n_sp for _ in range(n_sp)]
-
-    for j in range(n_sp):
-        Pj = P_derivs[j]
-        if not np.any(Pj):
-            z = np.zeros_like(beta, dtype=np.float64)
-            dbeta.append(z)
-            dA.append(np.zeros_like(A, dtype=np.float64))
-            dXtWX.append(np.zeros_like(XtWX, dtype=np.float64))
-            continue
-        dbj = -(A_inv @ (Pj @ beta))
-        dbeta.append(dbj)
-        dA.append(np.asarray(Pj, dtype=np.float64))
-        dXtWX.append(np.zeros_like(XtWX, dtype=np.float64))
-
-    if deriv >= 2:
-        for j in range(n_sp):
-            Pj = P_derivs[j]
-            for k in range(j, n_sp):
-                Pk = P_derivs[k]
-                delta_jk = 1.0 if j == k else 0.0
-                d2beta_jk = -(
-                    A_inv @ (Pk @ dbeta[j] + Pj @ dbeta[k] + delta_jk * (Pj @ beta))
-                )
-                d2beta_mat[j][k] = d2beta_jk
-                d2beta_mat[k][j] = d2beta_jk
-                d2XtWX_jk = np.zeros_like(XtWX, dtype=np.float64)
-                d2XtWX_mat[j][k] = d2XtWX_jk
-                d2XtWX_mat[k][j] = d2XtWX_jk
-                if j == k and np.any(Pj):
-                    d2A_jk = d2XtWX_jk + np.asarray(Pj, dtype=np.float64)
-                else:
-                    d2A_jk = d2XtWX_jk
-                d2A_mat[j][k] = d2A_jk
-                d2A_mat[k][j] = d2A_jk
-    elif deriv == 1:
-        zb = np.zeros_like(beta, dtype=np.float64)
-        zA = np.zeros_like(A, dtype=np.float64)
-        for j in range(n_sp):
-            for k in range(j, n_sp):
-                d2beta_mat[j][k] = zb
-                d2beta_mat[k][j] = zb
-                zxt = np.zeros_like(XtWX, dtype=np.float64)
-                d2XtWX_mat[j][k] = zxt
-                d2XtWX_mat[k][j] = zxt
-                d2A_mat[j][k] = zA
-                d2A_mat[k][j] = zA
-
-    D1_dev, D2_dev = _deviance_chained_to_smoothing(
-        dev_grad, dev_hess, dbeta, d2beta_mat
-    )
-    bSb, bSb1, bSb2 = _penalty_quadratic_and_sp_derivatives(
-        beta=beta,
-        P_total=P_tot,
-        P_derivs=P_derivs,
-        dbeta_cols=dbeta,
-        d2beta_mat=d2beta_mat,
-    )
-    # Penalized deviance D_p = dev + b'Sb — used in the REML score combination.
-    D1_pen = D1_dev + bSb1
-    D2_pen = D2_dev + bSb2 if deriv >= 2 else None
-
-    logdet_a1, logdet_a2 = _logdet_penalized_system_derivatives(A_inv, dA, d2A_mat)
-    tr_hat, tr_a1, tr_a2 = _hat_matrix_trace_and_sp_derivatives(
-        A_inv,
-        XtWX,
-        dA,
-        d2A_mat,
-        dXtWX,
-        d2XtWX_mat,
-    )
-
-    _ldS0, logdet_s1, logdet_s2 = _stable_penalty_logdet_derivatives(
-        model, sp, order=2 if deriv >= 2 else 1
-    )
-
-    out.update(
-        {
-            "D1_deviance": D1_dev.copy(),
-            "D1_penalized_deviance": D1_pen.copy(),
-            "D1": D1_pen.copy(),
-            "penalized_deviance_grad": D1_pen.copy(),
-            "bSb": bSb,
-            "logdet_a1": logdet_a1.copy(),
-            "logdet_s1": logdet_s1.copy(),
-            "tr_a_hat": float(tr_hat),
-            "tr_a1_gcv": tr_a1.copy(),
-        }
-    )
-    if deriv >= 2 and D2_pen is not None:
-        out["D2_deviance"] = D2_dev.copy()
-        out["D2_penalized_deviance"] = D2_pen.copy()
-        out["D2"] = D2_pen.copy()
-        out["logdet_a2"] = logdet_a2.copy()
-        out["logdet_s2"] = logdet_s2.copy()
-        out["tr_a2_gcv"] = tr_a2.copy()
-
-    scale = scale_est
-    if not np.isfinite(scale) or scale <= 0.0:
-        out["reml_grad_log_sp"] = None
-        out["reml_hess_log_sp"] = None
-        out["gcv_grad_log_sp"] = None
-        out["gcv_hess_log_sp"] = None
-        return out
-
     if deriv >= 1:
         if reml_like:
-            reml1 = (
-                D1_pen / (2.0 * scale * gamma_eff) + 0.5 * logdet_a1 - 0.5 * logdet_s1
+            out["reml_grad_log_sp"] = np.asarray(
+                criterion_gradient(model, y, log_sp, method=bucket.lower()),
+                dtype=np.float64,
             )
-            out["reml_grad_log_sp"] = reml1.copy()
         if bucket in {"GCV", "GACV"}:
-            delta = nobs - gamma_eff * tr_a
-            delta2 = delta * delta
-            delta3 = delta * delta2
-            gcv1 = (
-                nobs * D1_dev / delta2 + 2.0 * nobs * dev * tr_a1 * gamma_eff / delta3
+            out["gcv_grad_log_sp"] = np.asarray(
+                criterion_gradient(model, y, log_sp, method="gcv"),
+                dtype=np.float64,
             )
-            out["gcv_grad_log_sp"] = gcv1.copy()
         if bucket == "UBRE":
-            sc = float(known_scale) if known_scale is not None else scale
-            delta = nobs - gamma_eff * tr_a
-            ubre1 = D1_dev / nobs + gamma_eff * tr_a1 * 2.0 * sc / nobs
-            out["ubre_grad_log_sp"] = ubre1.copy()
+            if known_scale is not None:
+                old_known_scale = getattr(model.family, "known_scale", None)
+                model.family.known_scale = float(known_scale)
+                try:
+                    out["ubre_grad_log_sp"] = np.asarray(
+                        criterion_gradient(model, y, log_sp, method="ubre"),
+                        dtype=np.float64,
+                    )
+                finally:
+                    model.family.known_scale = old_known_scale
 
     if deriv >= 2:
-        # The REML Hessian requires an additional unknown-scale branch for estimated
-        # sigma^2 that is not yet implemented; reml_hess_log_sp is left as None.
-        # GCV/GACV second derivatives use only the deviance second derivative D2.
         if reml_like:
-            out["reml_hess_log_sp"] = None
-        if bucket in {"GCV", "GACV"} and D2_pen is not None:
-            delta = nobs - gamma_eff * tr_a
-            delta2 = delta * delta
-            delta3 = delta * delta2
-            outer_td = np.outer(tr_a1, D1_dev)
-            gcv2 = (
-                (outer_td + outer_td.T) * gamma_eff * 2.0 * nobs / delta3
-                + 6.0
-                * nobs
-                * dev
-                * np.outer(tr_a1, tr_a1)
-                * gamma_eff**2
-                / (delta2 * delta2)
-                + nobs * D2_dev / delta2
-                + 2.0 * nobs * dev * gamma_eff * tr_a2 / delta3
+            out["reml_hess_log_sp"] = np.asarray(
+                criterion_hessian(model, y, log_sp, method=bucket.lower()),
+                dtype=np.float64,
             )
-            out["gcv_hess_log_sp"] = gcv2.copy()
-        if bucket == "UBRE" and D2_pen is not None:
-            sc = float(known_scale) if known_scale is not None else scale
-            out["ubre_hess_log_sp"] = (
-                D2_dev / nobs + 2.0 * gamma_eff * tr_a2 * sc / nobs
+        if bucket in {"GCV", "GACV"}:
+            out["gcv_hess_log_sp"] = np.asarray(
+                criterion_hessian(model, y, log_sp, method="gcv"),
+                dtype=np.float64,
             )
+        if bucket == "UBRE" and known_scale is not None:
+            old_known_scale = getattr(model.family, "known_scale", None)
+            model.family.known_scale = float(known_scale)
+            try:
+                out["ubre_hess_log_sp"] = np.asarray(
+                    criterion_hessian(model, y, log_sp, method="ubre"),
+                    dtype=np.float64,
+                )
+            finally:
+                model.family.known_scale = old_known_scale
 
     return out
 

@@ -70,52 +70,39 @@ def rescale_tensor_penalties_for_fit(B, penalties, tol=1e-12):
     return out
 
 
-def marginal_range_null_decomposition(raw_basis, raw_penalty, tol=1e-10):
+def _eigen_split(raw_basis, raw_penalty, tol=1e-10, *, mode="range_null", knots=None):
     X = np.asarray(raw_basis, dtype=np.float64)
     S = np.asarray(raw_penalty, dtype=np.float64)
-    dec = penalty_eigendecomposition(S, tol=tol)
-    U0, U1, d_pos = dec["U0"], dec["U1"], dec["d_pos"]
-    if d_pos.size > 0:
-        T_r = U1 / np.sqrt(d_pos)[np.newaxis, :]
-        B_r = X @ T_r
-    else:
-        T_r = np.empty((S.shape[0], 0), dtype=np.float64)
-        B_r = np.empty((X.shape[0], 0), dtype=np.float64)
-    T_n = U0
-    B_n = X @ T_n if T_n.shape[1] > 0 else np.empty((X.shape[0], 0), dtype=np.float64)
-    return {
-        "B_range": B_r,
-        "B_null": B_n,
-        "T_range": T_r,
-        "T_null": T_n,
-        "range_dim": B_r.shape[1],
-        "null_dim": B_n.shape[1],
-        "rank": dec["rank"],
-        "null_space_dim": dec["null_space_dim"],
-        "tol_eff": dec["tol_eff"],
-    }
 
+    if mode == "range_null":
+        dec = penalty_eigendecomposition(S, tol=tol)
+        U0, U1, d_pos = dec["U0"], dec["U1"], dec["d_pos"]
+        if d_pos.size > 0:
+            T_r = U1 / np.sqrt(d_pos)[np.newaxis, :]
+            B_r = X @ T_r
+        else:
+            T_r = np.empty((S.shape[0], 0), dtype=np.float64)
+            B_r = np.empty((X.shape[0], 0), dtype=np.float64)
+        T_n = U0
+        B_n = (
+            X @ T_n if T_n.shape[1] > 0 else np.empty((X.shape[0], 0), dtype=np.float64)
+        )
+        return {
+            "B_range": B_r,
+            "B_null": B_n,
+            "T_range": T_r,
+            "T_null": T_n,
+            "range_dim": B_r.shape[1],
+            "null_dim": B_n.shape[1],
+            "rank": dec["rank"],
+            "null_space_dim": dec["null_space_dim"],
+            "tol_eff": dec["tol_eff"],
+        }
 
-def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=None):
-    """
-    Reparameterize a marginal smooth for use in t2 tensor products.
+    if mode != "t2":
+        raise ValueError(f"Unknown eigen split mode {mode!r}.")
 
-    Implements mgcv's ``nat.param(type=3, unit.fnorm=TRUE)``:
-
-    1. Eigendecompose S (descending eigenvalue order).
-    2. Scale by sqrt(eigenvalues) for the penalized part; for the null space
-       scale so that the Frobenius-normalised column norms match the penalized average.
-    3. Rotate the null space columns so that a near-constant vector is last (type=3).
-    4. Rescale both penalised and null blocks to unit Frobenius norm (unit.fnorm).
-
-    Returns dict with keys ``B_range``, ``B_null``, ``T_range``, ``T_null``,
-    ``range_dim``, ``null_dim``, ``rank``, ``null_space_dim``, ``tol_eff``.
-    """
-    X = np.asarray(raw_basis, dtype=np.float64)
-    S = np.asarray(raw_penalty, dtype=np.float64)
     p = X.shape[1]
-
-    # Step 1: eigendecompose S in descending order (matches R's eigen())
     evals, U = eigh(0.5 * (S + S.T), driver="evr")
     idx = np.argsort(evals)[::-1]
     evals, U = evals[idx], U[:, idx]
@@ -126,7 +113,6 @@ def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=N
     rank = int(np.sum(evals > tol_eff))
     null_exists = rank < p
 
-    # Step 2: build E vector, apply eigenvectors, compute column norms
     E = np.ones(p, dtype=np.float64)
     if rank > 0:
         E[:rank] = np.sqrt(np.maximum(evals[:rank], 0.0))
@@ -140,42 +126,33 @@ def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=N
             if av_norm > 0.0 and col_norm[i] > 0.0:
                 E[i] = np.sqrt(col_norm[i] / av_norm)
 
-    # P = U / E  (divide column j by E[j]; matches R's t(t(er$vectors)/E))
     P = U / E[np.newaxis, :]
     Xp = Xp / E[np.newaxis, :]
 
-    # Step 3: type=3 null-space rotation — put near-constant column last
-    # Matches R: if (null.exists && type==3 && rank < ncol(X)-1)
     if null_exists and rank < p - 1:
-        ind = list(range(rank, p))  # forward  (R: (rank+1):k 1-indexed)
-        rind = list(range(p - 1, rank - 1, -1))  # reversed (R: k:(rank+1) 1-indexed)
+        ind = list(range(rank, p))
+        rind = list(range(p - 1, rank - 1, -1))
         Xn = Xp[:, ind].copy()
         n = Xn.shape[0]
         one = np.ones(n, dtype=np.float64)
-        # centre columns of Xn
         Xn -= (one[:, None] * (one[None, :] @ Xn)) / n
-        # eigendecompose gram matrix (R: eigen gives descending order)
         um_evals, um_vecs = eigh(Xn.T @ Xn, driver="evr")
         desc = np.argsort(um_evals)[::-1]
         um_vecs = um_vecs[:, desc]
         Xp[:, rind] = Xp[:, ind] @ um_vecs
         P[:, rind] = P[:, ind] @ um_vecs
 
-    # Step 4: unit Frobenius norm  (unit.fnorm=TRUE)
-    # Penalised block: scale columns of Xp, scale ROWS of P (matches R's P[ind,] *= scale)
     if rank > 0:
         pen_idx = list(range(rank))
         scale = 1.0 / np.sqrt(float(np.mean(Xp[:, pen_idx] ** 2)))
         Xp[:, pen_idx] *= scale
-        P[pen_idx, :] *= scale  # rows of P
-    else:
-        scale = 1.0
+        P[pen_idx, :] *= scale
 
     if null_exists:
         null_idx = list(range(rank, p))
         scale_f = 1.0 / np.sqrt(float(np.mean(Xp[:, null_idx] ** 2)))
         Xp[:, null_idx] *= scale_f
-        P[null_idx, :] *= scale_f  # rows of P
+        P[null_idx, :] *= scale_f
 
     B_r = Xp[:, :rank] if rank > 0 else np.empty((X.shape[0], 0), dtype=np.float64)
     B_n = Xp[:, rank:] if null_exists else np.empty((X.shape[0], 0), dtype=np.float64)
@@ -193,6 +170,28 @@ def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=N
         "null_space_dim": int(p - rank),
         "tol_eff": tol_eff,
     }
+
+
+def marginal_range_null_decomposition(raw_basis, raw_penalty, tol=1e-10):
+    return _eigen_split(raw_basis, raw_penalty, tol=tol, mode="range_null")
+
+
+def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=None):
+    """
+    Reparameterize a marginal smooth for use in t2 tensor products.
+
+    Implements mgcv's ``nat.param(type=3, unit.fnorm=TRUE)``:
+
+    1. Eigendecompose S (descending eigenvalue order).
+    2. Scale by sqrt(eigenvalues) for the penalized part; for the null space
+       scale so that the Frobenius-normalised column norms match the penalized average.
+    3. Rotate the null space columns so that a near-constant vector is last (type=3).
+    4. Rescale both penalised and null blocks to unit Frobenius norm (unit.fnorm).
+
+    Returns dict with keys ``B_range``, ``B_null``, ``T_range``, ``T_null``,
+    ``range_dim``, ``null_dim``, ``rank``, ``null_space_dim``, ``tol_eff``.
+    """
+    return _eigen_split(raw_basis, raw_penalty, tol=tol, mode="t2", knots=knots)
 
 
 def _normalize_ord(ord_value, n_marginals):

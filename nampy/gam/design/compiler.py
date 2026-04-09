@@ -95,81 +95,6 @@ def compile_predictor_designs(
                 d = B.shape[1]
                 sl = slice(start, start + d)
                 penalty_defs = [normalize_penalty_spec(p) for p in smooth.penalty_specs]
-                term_smoothing_indices = []
-                term_smoothing_ids = []
-                for j, pdef in enumerate(penalty_defs):
-                    P = np.asarray(pdef.matrix, dtype=np.float64)
-                    sid = pdef.smoothing_id
-                    if sid is None:
-                        sid = default_penalty_id(
-                            pred_name=pred_spec.name,
-                            term=smooth,
-                            term_label=smooth.label,
-                            coef_start=start,
-                            local_penalty_index=j,
-                            n_penalties=len(penalty_defs),
-                        )
-                    sid = str(sid)
-                    if sid not in smoothing_id_map:
-                        smoothing_id_map[sid] = len(smoothing_id_map)
-                    sp_idx = smoothing_id_map[sid]
-                    smoothing_override_by_id[sid] = merge_smoothing_override(
-                        smoothing_override_by_id.get(sid, None),
-                        pdef.sp_mode,
-                        pdef.sp_value,
-                        smoothing_id=sid,
-                        label=smooth.label,
-                    )
-                    penalty_blocks.append(
-                        CompiledPenalty(
-                            label=smooth.label,
-                            coef_slice=sl,
-                            matrix=P,
-                            smoothing_index=sp_idx,
-                            term_index=len(term_blocks),
-                            smoothing_id=sid,
-                            kind=str(pdef.kind),
-                            rank=pdef.rank,
-                            null_space_dim=pdef.null_space_dim,
-                            is_null_space_penalty=bool(pdef.is_null_space_penalty),
-                            sp_mode=pdef.sp_mode,
-                            sp_value=pdef.sp_value,
-                            metadata=dict(pdef.metadata),
-                        )
-                    )
-                    term_smoothing_indices.append(sp_idx)
-                    term_smoothing_ids.append(sid)
-
-                group_id = (
-                    None
-                    if getattr(smooth, "smoothing_id", None) is None
-                    else str(smooth.smoothing_id)
-                )
-                if group_id is not None:
-                    group = penalty_group_specs.get(group_id)
-                    if group is None:
-                        group = PenaltyGroupSpec(smoothing_id=group_id)
-                        penalty_group_specs[group_id] = group
-                    if group.sp_count is None:
-                        group.sp_count = len(term_smoothing_indices)
-                    elif group.sp_count != len(term_smoothing_indices):
-                        raise ValueError(
-                            f"Linked smoothing id {group_id!r} expects {group.sp_count} "
-                            f"smoothing parameters, got {len(term_smoothing_indices)}."
-                        )
-                    if not group.sp_indices:
-                        group.sp_indices = list(term_smoothing_indices)
-                    elif group.sp_indices != list(term_smoothing_indices):
-                        raise ValueError(
-                            f"Linked smoothing id {group_id!r} resolved to inconsistent "
-                            f"smoothing indices {group.sp_indices} and "
-                            f"{term_smoothing_indices}."
-                        )
-                    if smooth.term_id not in group.term_ids:
-                        group.term_ids.append(str(smooth.term_id))
-                    if smooth.label not in group.labels:
-                        group.labels.append(str(smooth.label))
-
                 term_meta = dict(smooth.metadata)
                 term_meta["constructor_metadata"] = dict(smooth.constructor_metadata)
                 term_blocks.append(
@@ -179,26 +104,107 @@ def compile_predictor_designs(
                         smooth=smooth,
                         basis_train=B,
                         basis_transform=np.eye(d, dtype=np.float64),
-                        original_n_coef=(
-                            smooth.original_n_coef
-                            if smooth.original_n_coef is not None
-                            else d
-                        ),
                         kept_columns=np.arange(d, dtype=int),
                         deleted_columns=np.array([], dtype=int),
-                        smoothing_indices=term_smoothing_indices,
-                        smoothing_ids=term_smoothing_ids,
-                        n_penalties=len(penalty_defs),
+                        smoothing_indices=[],
+                        smoothing_ids=[],
+                        n_penalties=0,
                         term_type=str(smooth.term_type),
                         basis_name=str(smooth.basis_name),
-                        by_variable=smooth.by_variable,
                         term_id=smooth.term_id,
                         smoothing_group_id=smooth.smoothing_id,
                         metadata=term_meta,
                     )
                 )
-                design_blocks.append(B)
                 start += d
+
+        # Single pass over compiled terms to collect design and penalties.
+        for term_index, tb in enumerate(term_blocks):
+            B = np.asarray(tb.basis_train, dtype=np.float64)
+            d = B.shape[1]
+            if d > 0:
+                design_blocks.append(B)
+
+            smooth = tb.smooth
+            penalty_defs = [normalize_penalty_spec(p) for p in smooth.penalty_specs]
+            term_smoothing_indices = []
+            term_smoothing_ids = []
+            for j, pdef in enumerate(penalty_defs):
+                P = np.asarray(pdef.matrix, dtype=np.float64)
+                sid = pdef.smoothing_id
+                if sid is None:
+                    sid = default_penalty_id(
+                        pred_name=pred_spec.name,
+                        term=smooth,
+                        term_label=smooth.label,
+                        coef_start=int(tb.coef_slice.start),
+                        local_penalty_index=j,
+                        n_penalties=len(penalty_defs),
+                    )
+                sid = str(sid)
+                if sid not in smoothing_id_map:
+                    smoothing_id_map[sid] = len(smoothing_id_map)
+                sp_idx = smoothing_id_map[sid]
+                smoothing_override_by_id[sid] = merge_smoothing_override(
+                    smoothing_override_by_id.get(sid, None),
+                    pdef.sp_mode,
+                    pdef.sp_value,
+                    smoothing_id=sid,
+                    label=smooth.label,
+                )
+                penalty_blocks.append(
+                    CompiledPenalty(
+                        label=smooth.label,
+                        coef_slice=tb.coef_slice,
+                        matrix=P,
+                        smoothing_index=sp_idx,
+                        term_index=term_index,
+                        smoothing_id=sid,
+                        kind=str(pdef.kind),
+                        rank=pdef.rank,
+                        null_space_dim=pdef.null_space_dim,
+                        is_null_space_penalty=bool(pdef.is_null_space_penalty),
+                        sp_mode=pdef.sp_mode,
+                        sp_value=pdef.sp_value,
+                        metadata=dict(pdef.metadata),
+                    )
+                )
+                term_smoothing_indices.append(sp_idx)
+                term_smoothing_ids.append(sid)
+
+            tb.smoothing_indices = term_smoothing_indices
+            tb.smoothing_ids = term_smoothing_ids
+            tb.n_penalties = len(penalty_defs)
+
+            group_id = (
+                None
+                if getattr(smooth, "smoothing_id", None) is None
+                else str(smooth.smoothing_id)
+            )
+            if group_id is not None:
+                group = penalty_group_specs.get(group_id)
+                if group is None:
+                    group = PenaltyGroupSpec(smoothing_id=group_id)
+                    penalty_group_specs[group_id] = group
+                if group.sp_count is None:
+                    group.sp_count = len(term_smoothing_indices)
+                elif group.sp_count != len(term_smoothing_indices):
+                    raise ValueError(
+                        f"Linked smoothing id {group_id!r} expects {group.sp_count} "
+                        f"smoothing parameters, got {len(term_smoothing_indices)}."
+                    )
+                if not group.sp_indices:
+                    group.sp_indices = list(term_smoothing_indices)
+                elif group.sp_indices != list(term_smoothing_indices):
+                    raise ValueError(
+                        f"Linked smoothing id {group_id!r} resolved to inconsistent "
+                        f"smoothing indices {group.sp_indices} and "
+                        f"{term_smoothing_indices}."
+                    )
+                if smooth.term_id not in group.term_ids:
+                    group.term_ids.append(str(smooth.term_id))
+                if smooth.label not in group.labels:
+                    group.labels.append(str(smooth.label))
 
         matrix_train = (
             np.column_stack(design_blocks)

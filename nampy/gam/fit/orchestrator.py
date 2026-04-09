@@ -13,20 +13,8 @@ It sequences the full fit:
 Everything below this layer is stateless with respect to the model object.
 """
 
-from dataclasses import replace
-
 import numpy as np
 
-from ..smoothing_selection.criteria.gaussian_dyn import (
-    criterion_ml_reml_gaussian_dynamic_joint,
-)
-from ..smoothing_selection.criteria.gaussian_reml_algebra import (
-    gaussian_weighted_residual_sum_squares,
-    prior_weights_diagonal_from_fit,
-    quadratic_form_penalty,
-)
-from ..smoothing_selection.criteria.ml_reml import resolve_ml_reml_scoring_backend
-from ..smoothing_selection.criteria.penalty import _static_penalty_null_dim
 from .backends import solve_fit
 from .offsets import coerce_offset_array
 from .state import assign_fit_solution
@@ -37,7 +25,7 @@ def fit_model_core(
     X,
     feature_names,
     y,
-    offset=None,
+    fit_offset=None,
     optimize_smoothing=None,
     smoothing_method=None,
     sample_weight=None,
@@ -57,8 +45,11 @@ def fit_model_core(
         Ordered list of feature names corresponding to ``X`` columns.
     y
         Response vector, shape ``(n,)``.
-    offset
+    fit_offset
         Optional fixed offset on the link scale, shape ``(n,)``.
+        Used only for this fit call and stored as fit-time state.
+        It is not automatically reused for prediction. To persist offset
+        behavior for prediction, use formula ``offset(...)`` terms.
     optimize_smoothing
         Override ``model.optimize_smoothing``.  If True and ``smoothing_method``
         is not ``"fixed"``, outer smoothing-parameter optimisation runs before
@@ -70,12 +61,12 @@ def fit_model_core(
     """
     X = model._coerce_feature_matrix(X)
     y = model.family.validate_y(y)
-    offset = coerce_offset_array(offset, X.shape[0])
+    fit_offset = coerce_offset_array(fit_offset, X.shape[0], name="fit_offset")
 
     model.X_ = X
     model.feature_names = list(feature_names)
     model.y_ = y
-    model.offset_train_ = offset
+    model.offset_train_ = fit_offset
     model.n_samples_ = X.shape[0]
     model.prior_weights_ = None
     if sample_weight is not None:
@@ -166,71 +157,6 @@ def fit_model_core(
                 }
                 for i, row in enumerate(inner_trace)
             ]
-
-    # For Gaussian REML/LAML with the exact (profiled Laplace) backend, the optimizer
-    # stores the profiled mixed-model criterion value, which differs from mgcv's reported
-    # gcv.ubre by a large constant.  Recompute using the Wood-style joint formula at the
-    # profiled sigma^2 so that criterion_value matches mgcv output.
-    _optim_m = getattr(model, "_optim_method", None)
-    if (
-        _optim_m in {"reml", "laml"}
-        and getattr(model, "_gaussian_reml_sigma2_opt_", None) is None
-        and str(getattr(model.family, "name", "")).lower() == "gaussian"
-    ):
-        try:
-            _backend = resolve_ml_reml_scoring_backend(model, method=_optim_m)
-            if _backend == "gaussian_exact":
-                _fixed_mask = (
-                    np.zeros(model.n_smoothing_params_, dtype=bool)
-                    if model.smoothing_fixed_mask_ is None
-                    else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
-                )
-                _free_vals = np.asarray(
-                    model.smoothing_params[~_fixed_mask], dtype=np.float64
-                )
-                _log_free = (
-                    np.log(np.maximum(_free_vals, 1e-300))
-                    if _free_vals.size > 0
-                    else np.empty((0,), dtype=np.float64)
-                )
-                _n_s = int(model.n_samples_)
-                _w = prior_weights_diagonal_from_fit(sol, _n_s)
-                _yv = np.asarray(y, dtype=np.float64).ravel()
-                _mu_v = np.asarray(sol.mu, dtype=np.float64).ravel()
-                _dev = gaussian_weighted_residual_sum_squares(_yv, _mu_v, _w)
-                _P_pen = (
-                    float(sol.penalty_quadratic)
-                    if sol.penalty_quadratic is not None
-                    else quadratic_form_penalty(
-                        np.asarray(sol.coef_full, dtype=np.float64),
-                        np.asarray(sol.penalty_matrix, dtype=np.float64),
-                    )
-                )
-                _Mp = float(
-                    _static_penalty_null_dim(model)
-                    + int(bool(getattr(model, "fit_intercept", False)))
-                )
-                _nu = float(_n_s) - _Mp
-                if np.isfinite(_nu) and _nu > 0.0:
-                    _sigma2_prof = (_dev + _P_pen) / _nu
-                    if _sigma2_prof > 0.0:
-                        _log_s2 = float(np.log(_sigma2_prof))
-                        _branch_m = "LAML" if _optim_m == "laml" else "REML"
-                        _wood = float(
-                            criterion_ml_reml_gaussian_dynamic_joint(
-                                model, y, _log_free, _log_s2, method=_branch_m
-                            )
-                        )
-                        if np.isfinite(_wood):
-                            model.smoothing_score_ = _wood
-        except Exception:
-            pass
-
-    reml_s2 = getattr(model, "_gaussian_reml_sigma2_opt_", None)
-    if reml_s2 is not None and np.isfinite(reml_s2) and float(reml_s2) > 0.0:
-        model.scale_ = float(reml_s2)
-        if getattr(model, "fit_state_", None) is not None:
-            model.fit_state_ = replace(model.fit_state_, scale=float(reml_s2))
 
     if model.smoothing_score_ is None and model._optim_method not in {None, "fixed"}:
         fixed_mask = (

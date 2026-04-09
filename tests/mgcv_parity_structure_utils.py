@@ -95,14 +95,8 @@ def predict_type_shapes(model: GAM, X) -> dict[str, tuple[int, ...]]:
 
 
 def term_contribution_shapes(model: GAM, X=None) -> dict[str, Any]:
-    from nampy.gam.predict.contributions import predict_term_contributions
-
-    out = predict_term_contributions(model, X=X)
-    shapes = {
-        k: (tuple(np.asarray(v).shape) if np.ndim(v) > 0 else ())
-        for k, v in out.items()
-    }
-    return shapes
+    terms = np.asarray(model.predict(X=X, type="terms"))
+    return {"terms": tuple(terms.shape)}
 
 
 def parity_snapshot_structure(snap: dict) -> dict[str, Any]:

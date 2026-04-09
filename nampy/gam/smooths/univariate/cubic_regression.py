@@ -166,15 +166,31 @@ class SplineTerm1D(BaseSmoothTerm):
                     raise NotImplementedError(
                         f"Unknown shared basis setup mode {mode!r}."
                     )
-                setup_x = np.asarray(
-                    self.shared_basis_setup.get("pooled_x", []),
+                pooled_knots = np.asarray(
+                    self.shared_basis_setup.get("pooled_knots", []),
                     dtype=np.float64,
                 ).ravel()
-                if setup_x.size == 0:
+                if pooled_knots.size == 0:
                     raise ValueError(
-                        "shared_basis_setup for pooled_cr_1d must contain non-empty pooled_x."
+                        "shared_basis_setup for pooled_cr_1d must contain non-empty pooled_knots."
                     )
-                self._spline = CubicSplines(setup_x, self.k, knots=self.knots)
+                self._spline = CubicSplines(xj, self.k, knots=pooled_knots)
+                # Restore pooled-data penalty matrices so smoothing parameter
+                # optimisation uses the same penalty scale as when the shared
+                # basis was built from all linked terms' data combined.
+                pooled_raw_pen = self.shared_basis_setup.get("pooled_raw_penalty")
+                pooled_center = self.shared_basis_setup.get("pooled_center_mat")
+                pooled_pen = self.shared_basis_setup.get("pooled_penalty")
+                if pooled_raw_pen is not None:
+                    self._spline.raw_penalty = np.asarray(
+                        pooled_raw_pen, dtype=np.float64
+                    )
+                if pooled_center is not None:
+                    self._spline.center_mat = np.asarray(
+                        pooled_center, dtype=np.float64
+                    )
+                if pooled_pen is not None:
+                    self._spline.penalty = np.asarray(pooled_pen, dtype=np.float64)
                 pooled_setup = True
             else:
                 self._spline = CubicSplines(xj, self.k, knots=self.knots)

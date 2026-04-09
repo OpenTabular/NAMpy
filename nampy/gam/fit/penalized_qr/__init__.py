@@ -1,4 +1,4 @@
-from .nonnegative import (
+from ..linalg.stacked_qr import (
     NonnegativePenalizedQRState,
     build_penalized_qr_state_nonnegative,
 )

@@ -24,6 +24,7 @@ Three family tiers are defined here:
 import abc
 
 import numpy as np
+from scipy.special import gammaln
 
 _EPS = 1e-9
 _CAPABILITY_FLAGS = (
@@ -240,7 +241,7 @@ class GLMFamily(BaseFamily):
     def deviance(self, y, mu, weights=None):
         raise NotImplementedError
 
-    def estimate_dispersion(self, y, mu, edf=None):
+    def estimate_dispersion(self, y, mu, edf=None, weights=None):
         if self.known_scale is not None:
             return float(self.known_scale)
         return 1.0
@@ -263,6 +264,80 @@ class GLMFamily(BaseFamily):
             f"{self.__class__.__name__} does not yet implement the saturated log-likelihood "
             "term required for Laplace ML/REML criteria."
         )
+
+
+class _BinomialBase(GLMFamily):
+    _variance_key = "binomial"
+
+    def deviance(self, y, mu, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        weights = self._check_weights(y, weights)
+        term1 = np.zeros_like(y, dtype=np.float64)
+        mask1 = y > 0
+        term1[mask1] = y[mask1] * np.log(y[mask1] / mu[mask1])
+        term2 = np.zeros_like(y, dtype=np.float64)
+        mask2 = y < 1
+        term2[mask2] = (1.0 - y[mask2]) * np.log((1.0 - y[mask2]) / (1.0 - mu[mask2]))
+        return float(2.0 * np.sum(weights * (term1 + term2)))
+
+    def loglik_obs(self, y, mu, scale=1.0):
+        del scale
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return y * np.log(mu) + (1.0 - y) * np.log(1.0 - mu)
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        del scale, n
+        y = np.asarray(y, dtype=np.float64)
+        weights = self._check_weights(y, weights)
+        term = np.zeros_like(y, dtype=np.float64)
+        mask1 = y > 0.0
+        term[mask1] += y[mask1] * np.log(y[mask1])
+        mask2 = y < 1.0
+        term[mask2] += (1.0 - y[mask2]) * np.log(1.0 - y[mask2])
+        return float(np.sum(weights * term))
+
+
+class _GammaBase(GLMFamily):
+    _variance_key = "gamma"
+
+    def deviance(self, y, mu, weights=None):
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        weights = self._check_weights(y, weights)
+        return float(2.0 * np.sum(weights * ((y - mu) / mu - np.log(y / mu))))
+
+    def estimate_dispersion(self, y, mu, edf=None, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        w = self._check_weights(y, weights)
+        pearson = float(np.sum(w * (y - mu) ** 2 / self.variance(mu)))
+        w_sum = float(np.sum(w))
+        if edf is None:
+            return pearson / max(w_sum, 1.0)
+        return pearson / max(w_sum - float(edf), 1.0)
+
+    def loglik_obs(self, y, mu, scale=1.0):
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        scale = float(max(scale, self.eps))
+        shape = 1.0 / scale
+        return (
+            (shape - 1.0) * np.log(y)
+            - y * shape / mu
+            - gammaln(shape)
+            - shape * np.log(mu / shape)
+        )
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        del n
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        weights = self._check_weights(y, weights)
+        scale = float(max(scale, self.eps))
+        shape = 1.0 / scale
+        sat = -np.log(y) - shape - gammaln(shape) + shape * np.log(shape)
+        return float(np.sum(weights * sat))
 
 
 class ExtendedFamily(BaseFamily):

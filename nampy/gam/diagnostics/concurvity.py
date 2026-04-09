@@ -29,7 +29,7 @@ def _term_blocks_for_concurvity(model, X):
 
     if len(blocks) == 0:
         raise ValueError("No smooth or parametric components available for concurvity.")
-    return blocks
+    return blocks, para_idx
 
 
 def _full_coef_vector(model) -> np.ndarray:
@@ -64,11 +64,9 @@ def concurvity(model, full: bool = True):
     else:
         X = Z
     X = X[np.sum(np.isnan(X), axis=1) == 0, :]
-    blocks = _term_blocks_for_concurvity(model, X)
+    blocks, para_idx = _term_blocks_for_concurvity(model, X)
     beta_full = _full_coef_vector(model)
-    para_X = None
-    if len(blocks) > 0 and blocks[0][0] == "para":
-        para_X = X[:, blocks[0][1]]
+    para_X = X[:, para_idx] if para_idx.size > 0 else None
 
     block_mats = []
     for lab, idx in blocks:

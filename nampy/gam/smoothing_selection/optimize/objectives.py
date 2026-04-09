@@ -9,7 +9,6 @@ from ..criteria import (
     criterion_hessian,
     criterion_hessian_ml_reml_pirls_gamma_joint,
     criterion_ml_reml_gaussian_dynamic_joint,
-    criterion_ml_reml_gaussian_exact_joint,
     criterion_ml_reml_pirls_gamma_joint,
     criterion_ml_reml_pirls_negbin_joint,
     criterion_value,
@@ -163,16 +162,6 @@ class _JointGaussianRemlObjective:
 
     def _raw_fun(self, x):
         x = np.asarray(x, dtype=np.float64).ravel()
-        if self.backend == "gaussian_exact":
-            return float(
-                criterion_ml_reml_gaussian_exact_joint(
-                    self.model,
-                    self.y,
-                    x[:-1],
-                    float(x[-1]),
-                    method=self.branch_method,
-                )
-            )
         return float(
             criterion_ml_reml_gaussian_dynamic_joint(
                 self.model,
