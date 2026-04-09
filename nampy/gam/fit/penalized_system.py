@@ -13,6 +13,8 @@ Provides three utilities used across all fitting backends:
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
+from .offsets import coerce_offset_array
+
 
 def stabilized_cholesky_solve(A, b, jitter_schedule=None):
     if jitter_schedule is None:
@@ -71,12 +73,4 @@ def build_full_penalty_from_blocks(
     return P_full
 
 
-def coerce_fit_offset(offset, n_rows):
-    if offset is None:
-        return None
-    out = np.asarray(offset, dtype=np.float64).ravel()
-    if out.shape != (int(n_rows),):
-        raise ValueError(f"offset must have shape ({int(n_rows)},), got {out.shape}.")
-    if not np.isfinite(out).all():
-        raise ValueError("offset contains NaN or Inf")
-    return out
+coerce_fit_offset = coerce_offset_array

@@ -10,13 +10,11 @@ import json
 
 import numpy as np
 
-from .snapshots import _coerce_snapshot_arrays
-
 
 def _as_float_array(x):
     if x is None:
         return None
-    return np.asarray(x, dtype=np.float64)
+    return x
 
 
 def _max_abs_diff(a, b):
@@ -46,9 +44,6 @@ def _allclose(a, b, atol, rtol):
 
 
 def compare_parity_snapshots(actual, expected, atol=1e-6, rtol=1e-6):
-    actual = _coerce_snapshot_arrays(actual)
-    expected = _coerce_snapshot_arrays(expected)
-
     a_fit = actual["fit"]
     e_fit = expected["fit"]
     a_pred = actual["predictions"]
@@ -105,8 +100,8 @@ def compare_parity_snapshots(actual, expected, atol=1e-6, rtol=1e-6):
         ok = _allclose(a, e, atol=atol, rtol=rtol)
         report["array_checks"][name] = {
             "ok": bool(ok),
-            "shape_actual": None if a is None else list(np.asarray(a).shape),
-            "shape_expected": None if e is None else list(np.asarray(e).shape),
+            "shape_actual": None if a is None else list(a.shape),
+            "shape_expected": None if e is None else list(e.shape),
             "max_abs_diff": _max_abs_diff(a, e),
         }
         report["passed"] = report["passed"] and bool(ok)

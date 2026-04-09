@@ -17,7 +17,6 @@ from .gaussian import (
     criterion_gcv_gaussian,
     criterion_ml_reml_exact,
     criterion_ml_reml_exact_dynamic,
-    criterion_ml_reml_gaussian_exact_joint,
     gcv_score_gaussian,
 )
 from .gaussian_dyn import (
@@ -77,7 +76,6 @@ __all__ = [
     "criterion_ml_reml_exact",
     "criterion_ml_reml_exact_dynamic",
     "criterion_ml_reml_gaussian_dynamic_joint",
-    "criterion_ml_reml_gaussian_exact_joint",
     "criterion_ml_reml_pirls_gamma_joint",
     "criterion_ml_reml_pirls_negbin_joint",
     "criterion_ml_reml_pirls",

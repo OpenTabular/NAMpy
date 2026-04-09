@@ -25,7 +25,7 @@ def fit_model_core(
     X,
     feature_names,
     y,
-    offset=None,
+    fit_offset=None,
     optimize_smoothing=None,
     smoothing_method=None,
     sample_weight=None,
@@ -45,8 +45,11 @@ def fit_model_core(
         Ordered list of feature names corresponding to ``X`` columns.
     y
         Response vector, shape ``(n,)``.
-    offset
+    fit_offset
         Optional fixed offset on the link scale, shape ``(n,)``.
+        Used only for this fit call and stored as fit-time state.
+        It is not automatically reused for prediction. To persist offset
+        behavior for prediction, use formula ``offset(...)`` terms.
     optimize_smoothing
         Override ``model.optimize_smoothing``.  If True and ``smoothing_method``
         is not ``"fixed"``, outer smoothing-parameter optimisation runs before
@@ -58,12 +61,12 @@ def fit_model_core(
     """
     X = model._coerce_feature_matrix(X)
     y = model.family.validate_y(y)
-    offset = coerce_offset_array(offset, X.shape[0])
+    fit_offset = coerce_offset_array(fit_offset, X.shape[0], name="fit_offset")
 
     model.X_ = X
     model.feature_names = list(feature_names)
     model.y_ = y
-    model.offset_train_ = offset
+    model.offset_train_ = fit_offset
     model.n_samples_ = X.shape[0]
     model.prior_weights_ = None
     if sample_weight is not None:

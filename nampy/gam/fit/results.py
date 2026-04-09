@@ -61,32 +61,6 @@ class GAMFitResult:
     term_results: list[TermFitResult] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    def without_covariances(self):
-        return GAMFitResult(
-            family_name=self.family_name,
-            link_name=self.link_name,
-            criterion_name=self.criterion_name,
-            criterion_value=self.criterion_value,
-            coef_full=self.coef_full.copy(),
-            intercept=float(self.intercept),
-            smoothing_params=self.smoothing_params.copy(),
-            edf_total=float(self.edf_total),
-            edf_by_term=self.edf_by_term.copy(),
-            trace_H=float(self.trace_H),
-            scale=float(self.scale),
-            rss=None if self.rss is None else float(self.rss),
-            deviance=float(self.deviance),
-            cov_bayes=None,
-            cov_freq=None,
-            side_condition_reports=(
-                None
-                if self.side_condition_reports is None
-                else list(self.side_condition_reports)
-            ),
-            term_results=list(self.term_results),
-            metadata=dict(self.metadata),
-        )
-
     def to_dict(self, include_covariances=False):
         out = {
             "family_name": self.family_name,

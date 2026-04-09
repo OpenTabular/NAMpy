@@ -5,7 +5,6 @@ import pickle
 import numpy as np
 import pandas as pd
 
-from ..configs.gam_config import DefaultGAMConfig
 from ..gam.families import make_gam_family
 from ..gam.model import _GAMDataMixin, _GAMSolveMixin, _GAMSpecsMixin
 from ..gam.parity import build_parity_snapshot
@@ -21,7 +20,6 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         cat_feature_info=None,
         num_feature_info=None,
         num_classes: int = 1,
-        config: DefaultGAMConfig = DefaultGAMConfig(),
         family=None,
         **kwargs,
     ):
@@ -31,73 +29,37 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
             if k not in ("cat_feature_info", "num_feature_info")
         }
 
-        self.k = int(self.hparams.get("k", getattr(config, "k", 10)))
-        self.basis = self.hparams.get("basis", getattr(config, "basis", "tp"))
-        self.fit_intercept = bool(
-            self.hparams.get("fit_intercept", getattr(config, "fit_intercept", True))
-        )
-        self.max_irls_iter = int(
-            self.hparams.get("max_irls_iter", getattr(config, "max_irls_iter", 100))
-        )
-        self.irls_tol = float(
-            self.hparams.get("irls_tol", getattr(config, "irls_tol", 1e-11))
-        )
-        self.max_step_halving = int(
-            self.hparams.get(
-                "max_step_halving", getattr(config, "max_step_halving", 25)
-            )
-        )
-        self.smoothing_params = self.hparams.get(
-            "smoothing_params", getattr(config, "smoothing_params", None)
-        )
-        self.optimize_smoothing = bool(
-            self.hparams.get(
-                "optimize_smoothing",
-                getattr(config, "optimize_smoothing", False),
-            )
-        )
+        self.k = int(self.hparams.get("k", 10))
+        self.basis = self.hparams.get("basis", "tp")
+        self.fit_intercept = bool(self.hparams.get("fit_intercept", True))
+        self.max_irls_iter = int(self.hparams.get("max_irls_iter", 100))
+        self.irls_tol = float(self.hparams.get("irls_tol", 1e-11))
+        self.max_step_halving = int(self.hparams.get("max_step_halving", 25))
+        self.smoothing_params = self.hparams.get("smoothing_params", None)
+        self.optimize_smoothing = bool(self.hparams.get("optimize_smoothing", False))
         self.smoothing_method = str(
-            self.hparams.get(
-                "smoothing_method",
-                getattr(config, "smoothing_method", "fixed"),
-            )
+            self.hparams.get("smoothing_method", "fixed")
         ).lower()
         self.smoothing_optimizer = str(
-            self.hparams.get(
-                "smoothing_optimizer",
-                getattr(config, "smoothing_optimizer", "lbfgsb"),
-            )
+            self.hparams.get("smoothing_optimizer", "lbfgsb")
         ).lower()
         self.sp_log_bounds = tuple(
-            self.hparams.get("sp_log_bounds", config.sp_log_bounds)
+            self.hparams.get("sp_log_bounds", (-80.0, 20.0))
         )
-        self.score_gamma = float(
-            self.hparams.get("score_gamma", getattr(config, "score_gamma", 1.0))
-        )
-        self.covariance = str(
-            self.hparams.get("covariance", getattr(config, "covariance", "bayes"))
-        ).lower()
-
-        self.select = bool(self.hparams.get("select", getattr(config, "select", False)))
-
-        self.main_effects = bool(
-            self.hparams.get("main_effects", getattr(config, "main_effects", True))
-        )
-        self.tensor_terms = self.hparams.get(
-            "tensor_terms", getattr(config, "tensor_terms", None)
-        )
-
-        self.knots = self.hparams.get("knots", getattr(config, "knots", None))
-        self.min_sp = self.hparams.get("min_sp", getattr(config, "min_sp", None))
-        self.drop_intercept = self.hparams.get(
-            "drop_intercept", getattr(config, "drop_intercept", None)
-        )
+        self.score_gamma = float(self.hparams.get("score_gamma", 1.0))
+        self.covariance = str(self.hparams.get("covariance", "bayes")).lower()
+        self.select = bool(self.hparams.get("select", False))
+        self.main_effects = bool(self.hparams.get("main_effects", True))
+        self.tensor_terms = self.hparams.get("tensor_terms", None)
+        self.knots = self.hparams.get("knots", None)
+        self.min_sp = self.hparams.get("min_sp", None)
+        self.drop_intercept = self.hparams.get("drop_intercept", None)
 
         self.family = make_gam_family(family)
 
         self._device = "cpu"
 
-        self.formula = self.hparams.get("formula", getattr(config, "formula", None))
+        self.formula = self.hparams.get("formula", None)
 
         self.formula_ = None
         self.formula_mode_ = False
@@ -312,7 +274,7 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
             X=X_np,
             feature_names=feature_names,
             y=y_use,
-            offset=offset_use,
+            fit_offset=offset_use,
             optimize_smoothing=optimize_smoothing,
             smoothing_method=smoothing_method,
             model=self,
@@ -333,9 +295,10 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
             raise RuntimeError("Model is not fitted.")
         if self.result_ is None:
             self.result_ = self._build_fit_result()
-        return (
-            self.result_ if include_covariances else self.result_.without_covariances()
-        )
+        if not include_covariances:
+            self.result_.cov_bayes = None
+            self.result_.cov_freq = None
+        return self.result_
 
     def _select_cov(self, cov):
         from ..gam.fit.covariance import select_covariance_matrix

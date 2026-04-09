@@ -559,7 +559,7 @@ class BinomialCloglogFamily(_BinomialBase):
 
     def working_weight_derivative_eta(self, eta, y=None):
         eta = np.asarray(eta, dtype=np.float64)
-        lam = np.exp(np.clip(eta, -30.0, 30.0))
+        lam = np.exp(np.clip(eta, -700.0, 700.0))
         mu = np.clip(1.0 - np.exp(-lam), self.eps, 1.0 - self.eps)
         M = np.clip(lam * np.exp(-lam), self.eps, None)
         V = np.clip(mu * (1.0 - mu), self.eps, None)

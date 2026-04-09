@@ -11,7 +11,11 @@ from typing import Any
 import pandas as pd
 
 from .compare import compare_parity_snapshots
-from .snapshots import build_parity_snapshot, load_parity_snapshot
+from .snapshots import (
+    _coerce_snapshot_arrays,
+    build_parity_snapshot,
+    load_parity_snapshot,
+)
 
 
 def _coerce_reference_snapshot(mgcv_fit: Any) -> dict[str, Any]:
@@ -43,8 +47,10 @@ def _default_compare_X(model):
 
 def compare(model, mgcv_fit, rtol=1e-6, atol=1e-8):
     """Compare fitted model against mgcv parity snapshot."""
-    actual = build_parity_snapshot(model, X=_default_compare_X(model))
-    expected = _coerce_reference_snapshot(mgcv_fit)
+    actual = _coerce_snapshot_arrays(
+        build_parity_snapshot(model, X=_default_compare_X(model))
+    )
+    expected = _coerce_snapshot_arrays(_coerce_reference_snapshot(mgcv_fit))
     return compare_parity_snapshots(actual, expected, atol=atol, rtol=rtol)
 
 

@@ -41,17 +41,15 @@ def _rel_posix(p: Path) -> str:
 def _sort_key(rel_posix: str) -> tuple:
     """
     Deterministic, "readable" ordering:
-    - package order: gam, splines, then wrappers/configs
+    - package order: gam, splines, then GAM-facing wrappers
     - within a package, `__init__.py` first, then other modules lexicographically
     """
     if rel_posix.startswith("nampy/gam/"):
         group = 0
     elif rel_posix.startswith("nampy/splines/"):
         group = 1
-    elif (
-        rel_posix.startswith("nampy/basemodels/")
-        or rel_posix.startswith("nampy/models/")
-        or rel_posix.startswith("nampy/configs/")
+    elif rel_posix.startswith("nampy/basemodels/") or rel_posix.startswith(
+        "nampy/models/"
     ):
         group = 2
     else:
@@ -65,7 +63,7 @@ def _phase_for_path(rel_posix: str) -> int:
     Assign each file to one of 6 coherent review phases.
 
     Phase 1: Foundational APIs and interfaces
-      - package exports, family definitions, configs, base models
+      - package exports, family definitions, base models
       - formula/spec/runtime interfaces and smooth base/registry
       - low-level splines/utils foundations
 
@@ -74,13 +72,13 @@ def _phase_for_path(rel_posix: str) -> int:
       - GAM-facing spline math used heavily by fit/reparam pathways
 
     Phase 3: GAM design/construction + concrete smooth terms
-      - formula preprocessing, term materialization, design compilation
+      - formula preprocessing, design compilation, and term materialization
       - univariate/tensor/categorical smooth runtime implementations
 
     Phase 4: Smoothing optimization internals
       - outer optimization driver/objective/post-processing machinery
 
-    Phase 5: Prediction, diagnostics, and parity surfaces
+    Phase 5: Prediction, diagnostics, parity, and model-facing surfaces
 
     Phase 6: Uncategorized leftovers
       - anything uncategorized falls here
@@ -90,20 +88,18 @@ def _phase_for_path(rel_posix: str) -> int:
         "nampy/gam/__init__.py",
         "nampy/gam/_mgcv_constants.py",
         "nampy/gam/families/",
-        "nampy/gam/smoothness/__init__.py",
+        "nampy/gam/smoothing_selection/__init__.py",
         "nampy/gam/formula/parser.py",
         "nampy/gam/formula/compiler.py",
         "nampy/gam/specs/",
         "nampy/gam/runtime/__init__.py",
         "nampy/gam/smooths/__init__.py",
-        "nampy/gam/smooths/base.py",
         "nampy/gam/smooths/smooth_base.py",
         "nampy/gam/smooths/registry.py",
         "nampy/splines/__init__.py",
         "nampy/splines/constraints.py",
         "nampy/splines/penalty_scaling.py",
         "nampy/splines/univariate_bases.py",
-        "nampy/configs/gam_config.py",
         "nampy/basemodels/gam.py",
         "nampy/models/gam.py",
     )
@@ -113,9 +109,9 @@ def _phase_for_path(rel_posix: str) -> int:
     # Phase 2: fitting internals + smooth implementations
     phase2_prefixes = (
         "nampy/gam/fit/",
-        "nampy/gam/smoothness/criteria/",
-        "nampy/gam/smoothness/optimize/",
-        "nampy/gam/smoothness/reparam.py",
+        "nampy/gam/smoothing_selection/criteria/",
+        "nampy/gam/smoothing_selection/reparam.py",
+        "nampy/gam/smoothing_selection/postfit.py",
         "nampy/gam/smoothing_selection/",
         "nampy/gam/penalties/",
         "nampy/splines/cubic.py",
@@ -132,11 +128,9 @@ def _phase_for_path(rel_posix: str) -> int:
     # Phase 3: GAM construction/design + concrete smooth implementations
     phase3_prefixes = (
         "nampy/gam/basis/",
-        "nampy/gam/construction/",
         "nampy/gam/constraints/",
         "nampy/gam/design/",
         "nampy/gam/runtime/factory.py",
-        "nampy/gam/runtime/terms/",
         "nampy/gam/terms/",
         "nampy/gam/smooths/univariate/",
         "nampy/gam/smooths/tensor/",
@@ -148,7 +142,6 @@ def _phase_for_path(rel_posix: str) -> int:
         "nampy/splines/thin_plate_basis.py",
         "nampy/splines/gaussian_process.py",
         "nampy/splines/mrf.py",
-        "nampy/splines/neural_splines.py",
     )
     if any(rel_posix == p or rel_posix.startswith(p) for p in phase3_prefixes):
         return 3
@@ -162,6 +155,7 @@ def _phase_for_path(rel_posix: str) -> int:
 
     # Phase 5: diagnostics/parity surfaces
     phase5_prefixes = (
+        "nampy/gam/model/",
         "nampy/gam/predict/",
         "nampy/gam/diagnostics/",
         "nampy/gam/inference/",
@@ -180,10 +174,9 @@ def collect_input_files(root: Path) -> list[str]:
         "nampy/gam/**/*.py",
         "nampy/splines/**/*.py",
         "nampy/utils/**/*.py",
-        # GAM-facing wrappers/configs (keep list explicit so we don't pull unrelated models/configs)
+        # GAM-facing wrappers (keep list explicit so we don't pull unrelated models)
         "nampy/basemodels/gam.py",
         "nampy/models/gam.py",
-        "nampy/configs/gam_config.py",
     ]
 
     files: set[Path] = set()
@@ -192,7 +185,7 @@ def collect_input_files(root: Path) -> list[str]:
         if matches:
             files.update(p for p in matches if p.is_file())
         else:
-            # allow missing optional wrappers/configs during refactors
+            # allow missing optional wrappers during refactors
             candidate = root / pat
             if candidate.is_file():
                 files.add(candidate)
@@ -257,7 +250,7 @@ phase_titles = {
     2: "Phase 2 - GAM fit and smoothness internals",
     3: "Phase 3 - GAM design/construction/smooth runtime internals",
     4: "Phase 4 - Smoothing optimization internals",
-    5: "Phase 5 - Prediction, diagnostics, and parity surfaces",
+    5: "Phase 5 - Prediction, diagnostics, parity, and model surfaces",
     6: "Phase 6 - Validation and uncategorized leftovers",
 }
 

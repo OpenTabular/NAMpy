@@ -13,7 +13,6 @@ from ..criteria import (
     criterion_gradient_ml_reml_pirls_exact,
     criterion_hessian_ml_reml_pirls_exact,
     criterion_ml_reml_gaussian_dynamic_joint,
-    criterion_ml_reml_gaussian_exact_joint,
     resolve_ml_reml_scoring_backend,
 )
 from .basics import (
@@ -690,7 +689,7 @@ def optimize_smoothing_params(
             def _refine_sigma2_for_log_sp(log_sp_scalar: float):
                 def _sigma2_obj(log_sigma2_scalar: float):
                     return float(
-                        criterion_ml_reml_gaussian_exact_joint(
+                        criterion_ml_reml_gaussian_dynamic_joint(
                             model,
                             y,
                             np.array([float(log_sp_scalar)], dtype=np.float64),
@@ -747,7 +746,7 @@ def optimize_smoothing_params(
             def _joint_exact_refine_sigma2(x_sp_vec):
                 def _sigma2_obj_exact(log_sigma2_scalar: float):
                     return float(
-                        criterion_ml_reml_gaussian_exact_joint(
+                        criterion_ml_reml_gaussian_dynamic_joint(
                             model,
                             y,
                             np.asarray(x_sp_vec, dtype=np.float64),

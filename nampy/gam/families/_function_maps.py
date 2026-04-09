@@ -16,8 +16,6 @@ def _safe_pow(x, power, eps):
 
 @dataclass(frozen=True)
 class LinkFunction:
-    eps: float
-
     def __call__(self, mu):
         raise NotImplementedError
 
@@ -39,6 +37,8 @@ class LinkFunction:
 
 @dataclass(frozen=True)
 class IdentityLink(LinkFunction):
+    eps: float
+
     def __call__(self, mu):
         return np.asarray(mu, dtype=np.float64)
 
@@ -64,6 +64,8 @@ class IdentityLink(LinkFunction):
 
 @dataclass(frozen=True)
 class LogLink(LinkFunction):
+    eps: float
+
     def __call__(self, mu):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
         return np.log(mu)
@@ -91,6 +93,8 @@ class LogLink(LinkFunction):
 
 @dataclass(frozen=True)
 class InverseLink(LinkFunction):
+    eps: float
+
     def __call__(self, mu):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
         return 1.0 / mu
@@ -118,13 +122,15 @@ class InverseLink(LinkFunction):
 
 @dataclass(frozen=True)
 class LogitLink(LinkFunction):
+    eps: float
+
     def __call__(self, mu):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
         return np.log(mu / (1.0 - mu))
 
     def inverse(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
-        return 1.0 / (1.0 + np.exp(-np.clip(eta, -30.0, 30.0)))
+        return 1.0 / (1.0 + np.exp(-np.clip(eta, -700.0, 700.0)))
 
     def mu_eta(self, eta):
         mu = self.inverse(eta)
@@ -148,6 +154,8 @@ class LogitLink(LinkFunction):
 
 @dataclass(frozen=True)
 class ProbitLink(LinkFunction):
+    eps: float
+
     def __call__(self, mu):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
         return _norm.ppf(mu)
@@ -181,18 +189,20 @@ class ProbitLink(LinkFunction):
 
 @dataclass(frozen=True)
 class CloglogLink(LinkFunction):
+    eps: float
+
     def __call__(self, mu):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
         return np.log(-np.log(1.0 - mu))
 
     def inverse(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
-        lam = np.exp(np.clip(eta, -30.0, 30.0))
+        lam = np.exp(np.clip(eta, -700.0, 700.0))
         return np.clip(1.0 - np.exp(-lam), self.eps, 1.0 - self.eps)
 
     def mu_eta(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
-        lam = np.exp(np.clip(eta, -30.0, 30.0))
+        lam = np.exp(np.clip(eta, -700.0, 700.0))
         return np.clip(lam * np.exp(-lam), self.eps, None)
 
     def d2(self, mu):

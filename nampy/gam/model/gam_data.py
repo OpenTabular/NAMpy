@@ -5,10 +5,12 @@ import pandas as pd
 
 
 class _GAMDataMixin:
-    def _coerce_X(self, X):
+    def _coerce_X(self, X, *, allow_missing_non_numeric=False):
         if isinstance(X, pd.DataFrame):
             feature_names = list(X.columns)
-            X_np = self._dataframe_to_feature_matrix(X)
+            X_np = self._dataframe_to_feature_matrix(
+                X, allow_missing_non_numeric=allow_missing_non_numeric
+            )
         else:
             X_np = np.asarray(X)
             if X_np.ndim == 1:
@@ -98,12 +100,10 @@ class _GAMDataMixin:
         return X_df.to_numpy(dtype=object)
 
     def _coerce_feature_matrix(self, X):
-        X = np.asarray(X)
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
-        if X.ndim != 2:
+        X_np, _ = self._coerce_X(X)
+        if np.asarray(X_np).ndim != 2:
             raise ValueError("X must be a 2D feature matrix.")
-        return X
+        return X_np
 
     def _coerce_offset(self, offset, n_rows):
         from ..fit.offsets import coerce_offset_array
@@ -134,7 +134,7 @@ class _GAMDataMixin:
             raise KeyError(f"Prediction data is missing formula columns: {missing}")
 
         X_df = X_work[self.formula_used_columns_]
-        X_np = self._dataframe_to_feature_matrix(X_df, allow_missing_non_numeric=True)
+        X_np, _ = self._coerce_X(X_df, allow_missing_non_numeric=True)
 
         offset = None
         if self.formula_offset_name_ is not None:

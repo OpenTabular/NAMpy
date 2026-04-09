@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 from ..configs.spline_nam_config import DefaultSplineNAMConfig
-from ..splines.neural_splines import CubicSplineLayer
+from ..arch_utils.neural_splines import CubicSplineLayer
 from .basemodel import BaseModel
 
 
