@@ -4,13 +4,13 @@ import numpy as np
 import pytest
 
 from nampy.gam.runtime.factory import instantiate_term
-from nampy.gam.smooths.base import RUNTIME_TERM_INTERFACE_CHECKLIST
 from nampy.gam.smooths.categorical.factor_smooth import (
     FSmoothInteractionTerm,
     SZSmoothInteractionTerm,
 )
 from nampy.gam.smooths.categorical.mrf import MarkovRandomFieldTerm
 from nampy.gam.smooths.categorical.random_effect import RandomEffectTerm
+from nampy.gam.smooths.smooth_base import RUNTIME_TERM_INTERFACE_CHECKLIST
 from nampy.gam.smooths.tensor.t2 import TensorANOVASplineTerm
 from nampy.gam.smooths.tensor.te import TensorProductSplineTerm
 from nampy.gam.smooths.tensor.ti import InteractionTensorProductSplineTerm
@@ -18,8 +18,15 @@ from nampy.gam.smooths.univariate.cubic_regression import SplineTerm1D
 from nampy.gam.smooths.univariate.gp import GPSmoothTerm
 from nampy.gam.smooths.univariate.pspline import PSplineTerm1D
 from nampy.gam.smooths.univariate.thin_plate import ThinPlateSplineTerm
-from nampy.gam.specs import TermSpec
+from nampy.gam.specs import (
+    MarkovRandomFieldSmoothSpec,
+    RandomEffectSmoothSpec,
+    TensorANOVASmoothSpec,
+    TermSpec,
+    build_smooth_spec,
+)
 from nampy.gam.terms.linear import LinearTerm
+from nampy.splines.cubic import CubicSplines
 
 
 def _build_mixed_data(n=40):
@@ -88,6 +95,20 @@ def test_runtime_term_contract_and_prediction_coercion():
         assert B.shape[0] == X_new.shape[0]
 
 
+def test_cubic_spline_centering_uses_gam_absorption_policy():
+    x = np.linspace(0.0, 1.0, 12, dtype=np.float64).reshape(-1, 1)
+    spline = CubicSplines(x, k=6)
+
+    np.testing.assert_allclose(spline.basis.mean(axis=0), 0.0, atol=1e-12, rtol=0.0)
+    assert spline.center_mat.shape == (spline.raw_basis.shape[1], spline.basis.shape[1])
+    np.testing.assert_allclose(
+        spline.penalty,
+        spline.center_mat.T @ spline.raw_penalty @ spline.center_mat,
+        atol=1e-12,
+        rtol=0.0,
+    )
+
+
 def test_select_penalty_metadata_uses_canonical_runtime_state():
     X, feature_names = _build_mixed_data()
 
@@ -124,43 +145,35 @@ def test_factory_supports_select_for_categorical_runtime_terms():
         TermSpec(
             kind="smooth",
             features=("area",),
-            basis_options={
-                "special": "s",
-                "bs": "mrf",
-                "k": 4,
-                "select": True,
-                "xt": {"penalty": np.eye(4)},
-            },
+            smooth_spec=build_smooth_spec(
+                special="s",
+                bs="mrf",
+                k=4,
+                select=True,
+                xt={"penalty": np.eye(4)},
+            ),
             label="mrf_sel",
         ),
         TermSpec(
             kind="smooth",
             features=("fac",),
-            basis_options={"special": "s", "bs": "re", "select": True},
+            smooth_spec=build_smooth_spec(special="s", bs="re", select=True),
             label="re_sel",
         ),
         TermSpec(
             kind="smooth",
             features=("x0", "fac"),
-            basis_options={
-                "special": "s",
-                "bs": "fs",
-                "k": 7,
-                "select": True,
-                "xt": "cr",
-            },
+            smooth_spec=build_smooth_spec(
+                special="s", bs="fs", k=7, select=True, xt="cr"
+            ),
             label="fs_sel",
         ),
         TermSpec(
             kind="smooth",
             features=("x0", "fac"),
-            basis_options={
-                "special": "s",
-                "bs": "sz",
-                "k": 7,
-                "select": True,
-                "xt": "cr",
-            },
+            smooth_spec=build_smooth_spec(
+                special="s", bs="sz", k=7, select=True, xt="cr"
+            ),
             label="sz_sel",
         ),
     ]
@@ -194,7 +207,7 @@ def test_random_effect_term_rejects_linked_ids_with_mgcv_message():
     spec = TermSpec(
         kind="smooth",
         features=("fac",),
-        basis_options={"special": "s", "bs": "re"},
+        smooth_spec=build_smooth_spec(special="s", bs="re"),
         smoothing_id="group_re",
         label="re_linked_spec",
     )
@@ -209,12 +222,9 @@ def test_t2_invalid_term_sp_length_warns_and_is_ignored():
     spec = TermSpec(
         kind="smooth",
         features=("x0", "x1"),
-        basis_options={
-            "special": "t2",
-            "bs": ["ps", "ps"],
-            "k": [5, 5],
-            "sp": [0.7, 1.3],
-        },
+        smooth_spec=build_smooth_spec(
+            special="t2", bs=["ps", "ps"], k=[5, 5], sp=[0.7, 1.3]
+        ),
         label="t2_ps_ps_bad_sp",
     )
     term = instantiate_term(spec)
@@ -236,7 +246,9 @@ def test_t2_full_true_matches_mgcv_penalty_count():
     spec = TermSpec(
         kind="smooth",
         features=("x0", "x1"),
-        basis_options={"special": "t2", "bs": ["tp", "cr"], "k": [6, 6], "full": True},
+        smooth_spec=build_smooth_spec(
+            special="t2", bs=["tp", "cr"], k=[6, 6], full=True
+        ),
         label="t2_tp_cr_full",
     )
     term = instantiate_term(spec)
@@ -250,12 +262,9 @@ def test_t2_select_adds_one_null_space_penalty():
     spec = TermSpec(
         kind="smooth",
         features=("x0", "x1"),
-        basis_options={
-            "special": "t2",
-            "bs": ["tp", "cr"],
-            "k": [6, 6],
-            "select": True,
-        },
+        smooth_spec=build_smooth_spec(
+            special="t2", bs=["tp", "cr"], k=[6, 6], select=True
+        ),
         label="t2_select_spec",
     )
     term = instantiate_term(spec)
@@ -263,3 +272,27 @@ def test_t2_select_adds_one_null_space_penalty():
     defs = term.get_penalty_definitions()
     assert len(defs) == 4
     assert sum(bool(d.is_null_space_penalty) for d in defs) == 1
+
+
+def test_termspec_carries_typed_smooth_spec():
+    mrf_spec = TermSpec(
+        kind="smooth",
+        features=("area",),
+        smooth_spec=build_smooth_spec(
+            special="s", bs="mrf", k=4, xt={"penalty": np.eye(4)}
+        ),
+    )
+    re_spec = TermSpec(
+        kind="smooth",
+        features=("fac",),
+        smooth_spec=build_smooth_spec(special="s", bs="re"),
+    )
+    t2_spec = TermSpec(
+        kind="smooth",
+        features=("x0", "x1"),
+        smooth_spec=build_smooth_spec(special="t2", bs=["tp", "cr"], k=[6, 6]),
+    )
+
+    assert isinstance(mrf_spec.smooth_spec, MarkovRandomFieldSmoothSpec)
+    assert isinstance(re_spec.smooth_spec, RandomEffectSmoothSpec)
+    assert isinstance(t2_spec.smooth_spec, TensorANOVASmoothSpec)

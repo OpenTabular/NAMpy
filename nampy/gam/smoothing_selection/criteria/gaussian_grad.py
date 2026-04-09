@@ -3,6 +3,7 @@
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
+from ..reparam import ensure_penalty_reparameterization_state
 from .laplace import _lambda_group_indices, _laplace_lambda_vector
 
 
@@ -31,12 +32,13 @@ def criterion_gradient_ml_reml_exact(model, y, log_sp, method):
     y = model.family.validate_y(y)
     y_eff = y if model.offset_train_ is None else (y - model.offset_train_)
     sp = model._expand_smoothing_params_from_log(log_sp)
+    state = ensure_penalty_reparameterization_state(model)
 
-    Xf = model.X_fix_
-    Zr = model.Z_rand_
+    Xf = state.X_fix
+    Zr = state.Z_rand
     n = Xf.shape[0]
-    p = int(model.rank_X_fix_)
-    q = int(model.n_rand_)
+    p = int(Xf.shape[1])
+    q = int(Zr.shape[1])
 
     grad_full = np.zeros(int(model.n_smoothing_params_), dtype=np.float64)
 
@@ -48,7 +50,7 @@ def criterion_gradient_ml_reml_exact(model, y, log_sp, method):
         return np.full(int(np.sum(free_mask)), np.nan, dtype=np.float64)
 
     groups = _lambda_group_indices(model)
-    M = model.ZtZ_rand_ + np.diag(lam_vec)
+    M = state.ZtZ_rand + np.diag(lam_vec)
     try:
         cM, loM = cho_factor(M, check_finite=False)
     except np.linalg.LinAlgError:

@@ -1,4 +1,3 @@
-from .base import BaseFamily
 from .exponential import (
     BinomialCloglogFamily,
     BinomialLogitFamily,
@@ -9,6 +8,7 @@ from .exponential import (
     NegativeBinomialLogFamily,
     PoissonLogFamily,
 )
+from .family_base import BaseFamily
 
 _BINOMIAL_LINK_MAP = {
     "logit": BinomialLogitFamily,

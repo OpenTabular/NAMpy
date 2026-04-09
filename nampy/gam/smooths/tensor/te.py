@@ -21,7 +21,8 @@ from ...basis.tensor import (
 )
 from ...constraints.absorption import full_term_sum_to_zero_constraint
 from ...penalties.algebra import null_space_penalty_from_penalty
-from ..base import (
+from ..registry import register_smooth
+from ..smooth_base import (
     BaseSmoothTerm,
     _normalize_knots,
     build_penalty_definition,
@@ -30,7 +31,6 @@ from ..base import (
     resolve_by_state,
     sync_by_state_attributes,
 )
-from ..registry import register_smooth
 from .marginals import (
     make_tensor_marginal_term,
     tensor_marginal_feature_index,

@@ -39,7 +39,7 @@ from nampy.basemodels.gam import GAM
 from nampy.gam.basis.tensor import t2_marginal_reparameterization
 from nampy.gam.design.compiler import compile_predictor_designs
 from nampy.gam.fit.linalg.stacked_qr import (
-    penalty_sqrt_rows_prefer_diagonal,
+    penalty_sqrt_rows,
     project_coef_onto_row_space,
     snap_coef_to_reference_null_space,
     solve_gaussian_penalized_ls_stacked_qr,
@@ -1012,7 +1012,7 @@ class TestMgcvParity:
             fit_intercept=gam.fit_intercept,
             n_coef=gam.n_coef_,
         )
-        E, Es = penalty_sqrt_rows_prefer_diagonal(P_full)
+        E, Es = penalty_sqrt_rows(P_full)
         lam = float(sp[0])
         q = int(P_full.shape[0])
         assert E.shape[0] == q - 1
@@ -1935,7 +1935,12 @@ class TestMgcvDeviancePenaltyScaleAssembly:
         gam = _fit_nampy_model_fixed_sp(
             data, formula, "gaussian", r_sp, sample_weight="w"
         )
-        sol = solve_gaussian_fit(gam, gam.y_, gam.smoothing_params)
+        sol = solve_gaussian_fit(
+            gam,
+            gam.y_,
+            gam.smoothing_params,
+            weights=gam.prior_weights_,
+        )
         pen_py = quadratic_form_penalty(sol.coef_full, sol.penalty_matrix)
         np.testing.assert_allclose(
             pen_py,
@@ -1980,7 +1985,12 @@ class TestGaussianPriorWeights:
             smoothing_method="fixed",
         )
         gam.fit(data=d, sample_weight="w")
-        sol = solve_gaussian_fit(gam, gam.y_, gam.smoothing_params)
+        sol = solve_gaussian_fit(
+            gam,
+            gam.y_,
+            gam.smoothing_params,
+            weights=gam.prior_weights_,
+        )
         X = np.asarray(sol.X, dtype=np.float64)
         P = np.asarray(sol.penalty_matrix, dtype=np.float64)
         y_work = np.asarray(gam.y_, dtype=np.float64).ravel()
@@ -2062,7 +2072,7 @@ class TestGaussianPriorWeightsMgcvParity:
             core, core.y_, log_free, np.log(sig2), method="REML"
         )
 
-        sol = solve_gaussian_fit(core, core.y_, sp)
+        sol = solve_gaussian_fit(core, core.y_, sp, weights=core.prior_weights_)
         yv = np.asarray(core.y_, dtype=np.float64).ravel()
         mu = np.asarray(sol.mu, dtype=np.float64).ravel()
         wv = d["w"].to_numpy(dtype=np.float64)

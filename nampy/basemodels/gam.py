@@ -1,6 +1,7 @@
 # basemodels/gam.py
 import pickle
 import warnings
+from collections.abc import Mapping
 
 import numpy as np
 import pandas as pd
@@ -19,7 +20,7 @@ from ..gam.formula.preprocess import (
     preprocess_formula_predictor_specs,
 )
 from ..gam.parity import build_parity_snapshot
-from ..gam.specs import LinearPredictorSpec, TermSpec
+from ..gam.specs import LinearPredictorSpec, TermSpec, build_smooth_spec
 from .basemodel import BaseModel
 
 
@@ -111,9 +112,7 @@ class GAM(BaseModel):
         self.formula_ = None
         self.formula_mode_ = False
         self.formula_response_name_ = None
-        self.formula_used_columns_ = None
         self.formula_preprocess_state_ = None
-        self.formula_offset_name_ = None
 
         # mirrored fitted attributes
         self.feature_names = None
@@ -134,20 +133,9 @@ class GAM(BaseModel):
         self.smoothing_fixed_mask_ = None
         self.smoothing_override_values_ = None
         self.smoothing_override_modes_ = None
-        self._primary_reparam_sp_index_per_term_ = None
         self.min_sp_ = None
-        self._reparam_meta = None
-        self._reparam_rand_blocks_ = None
-        self._reparam_sp_groups_ = None
-        self._penalty_ranks = None
-        self._penalty_logdet_plus_fixed = None
-        self.X_fix_ = None
-        self.rank_X_fix_ = None
-        self._fix_pivot_keep = None
-        self.Z_rand_ = None
-        self.n_rand_ = None
-        self.ZtZ_rand_ = None
-        self.rand_dims_per_term_ = None
+        self.reparam_state_ = None
+        self.sl_blocks_ = None
         self.intercept_ = None
         self.coef_ = None
         self.coef_full_ = None
@@ -187,6 +175,21 @@ class GAM(BaseModel):
 
     def get_device(self):
         return self._device_ref.device
+
+    @property
+    def formula_used_columns_(self):
+        if self.formula_preprocess_state_ is None:
+            return None
+        used_columns = self.formula_preprocess_state_.get("used_columns")
+        if used_columns is None:
+            return None
+        return list(used_columns)
+
+    @property
+    def formula_offset_name_(self):
+        if self.formula_preprocess_state_ is None:
+            return None
+        return self.formula_preprocess_state_.get("offset_name")
 
     # ------------------------------------------------------------------
     # Data handling
@@ -298,13 +301,13 @@ class GAM(BaseModel):
                 kind="smooth",
                 features=tuple(str(f) for f in features),
                 by_variable=None,
-                basis_options={
-                    "special": "te",
-                    "bs": self.basis,
-                    "k": self.k,
-                    "knots": self._knots_for_features(features, knots=knots),
-                    "select": bool(self.select),
-                },
+                smooth_spec=build_smooth_spec(
+                    special="te",
+                    bs=self.basis,
+                    k=self.k,
+                    knots=self._knots_for_features(features, knots=knots),
+                    select=bool(self.select),
+                ),
                 smoothing_id=None,
                 label=f"te({', '.join(map(str, features))})",
                 metadata={},
@@ -355,17 +358,17 @@ class GAM(BaseModel):
                 kind="smooth",
                 features=tuple(str(f) for f in features),
                 by_variable=by,
-                basis_options={
-                    "special": kind,
-                    "bs": basis,
-                    "k": k,
-                    "full": full,
-                    "ord": ord_,
-                    "fx": fixed,
-                    "select": select,
-                    "sp": sp,
-                    "knots": term_knots,
-                },
+                smooth_spec=build_smooth_spec(
+                    special=kind,
+                    bs=basis,
+                    k=k,
+                    full=full,
+                    ord_=ord_,
+                    fx=fixed,
+                    select=select,
+                    sp=sp,
+                    knots=term_knots,
+                ),
                 smoothing_id=(None if smoothing_id is None else str(smoothing_id)),
                 label=label,
                 metadata=dict(metadata or {}),
@@ -375,16 +378,16 @@ class GAM(BaseModel):
             kind="smooth",
             features=tuple(str(f) for f in features),
             by_variable=by,
-            basis_options={
-                "special": kind,
-                "bs": basis,
-                "k": k,
-                "mc": mc,
-                "fx": fixed,
-                "select": select,
-                "sp": sp,
-                "knots": term_knots,
-            },
+            smooth_spec=build_smooth_spec(
+                special=kind,
+                bs=basis,
+                k=k,
+                mc=mc,
+                fx=fixed,
+                select=select,
+                sp=sp,
+                knots=term_knots,
+            ),
             smoothing_id=(None if smoothing_id is None else str(smoothing_id)),
             label=label,
             metadata=dict(metadata or {}),
@@ -406,15 +409,15 @@ class GAM(BaseModel):
                             kind="smooth",
                             features=(str(name),),
                             by_variable=None,
-                            basis_options={
-                                "special": "s",
-                                "bs": basis,
-                                "k": self.k,
-                                "sp": None,
-                                "fx": False,
-                                "select": bool(self.select),
-                                "knots": term_knots,
-                            },
+                            smooth_spec=build_smooth_spec(
+                                special="s",
+                                bs=basis,
+                                k=self.k,
+                                sp=None,
+                                fx=False,
+                                select=bool(self.select),
+                                knots=term_knots,
+                            ),
                             smoothing_id=None,
                             label=name,
                             metadata={},
@@ -426,16 +429,16 @@ class GAM(BaseModel):
                             kind="smooth",
                             features=(str(name),),
                             by_variable=None,
-                            basis_options={
-                                "special": "s",
-                                "bs": "ps",
-                                "k": self.k,
-                                "m": None,
-                                "sp": None,
-                                "fx": False,
-                                "select": bool(self.select),
-                                "knots": term_knots,
-                            },
+                            smooth_spec=build_smooth_spec(
+                                special="s",
+                                bs="ps",
+                                k=self.k,
+                                m=None,
+                                sp=None,
+                                fx=False,
+                                select=bool(self.select),
+                                knots=term_knots,
+                            ),
                             smoothing_id=None,
                             label=name,
                             metadata={},
@@ -447,17 +450,17 @@ class GAM(BaseModel):
                             kind="smooth",
                             features=(str(name),),
                             by_variable=None,
-                            basis_options={
-                                "special": "s",
-                                "bs": basis,
-                                "k": self.k,
-                                "m": None,
-                                "sp": None,
-                                "fx": False,
-                                "select": bool(self.select),
-                                "knots": term_knots,
-                                "xt": None,
-                            },
+                            smooth_spec=build_smooth_spec(
+                                special="s",
+                                bs=basis,
+                                k=self.k,
+                                m=None,
+                                sp=None,
+                                fx=False,
+                                select=bool(self.select),
+                                knots=term_knots,
+                                xt=None,
+                            ),
                             smoothing_id=None,
                             label=name,
                             metadata={},
@@ -469,18 +472,18 @@ class GAM(BaseModel):
                             kind="smooth",
                             features=(str(name),),
                             by_variable=None,
-                            basis_options={
-                                "special": "s",
-                                "bs": "gp",
-                                "k": self.k,
-                                "m": None,
-                                "sp": None,
-                                "fx": False,
-                                "select": bool(self.select),
-                                "pc": None,
-                                "knots": term_knots,
-                                "xt": None,
-                            },
+                            smooth_spec=build_smooth_spec(
+                                special="s",
+                                bs="gp",
+                                k=self.k,
+                                m=None,
+                                sp=None,
+                                fx=False,
+                                select=bool(self.select),
+                                pc=None,
+                                knots=term_knots,
+                                xt=None,
+                            ),
                             smoothing_id=None,
                             label=name,
                             metadata={},
@@ -492,12 +495,12 @@ class GAM(BaseModel):
                             kind="smooth",
                             features=(str(name),),
                             by_variable=None,
-                            basis_options={
-                                "special": "s",
-                                "bs": "re",
-                                "sp": None,
-                                "xt": None,
-                            },
+                            smooth_spec=build_smooth_spec(
+                                special="s",
+                                bs="re",
+                                sp=None,
+                                xt=None,
+                            ),
                             smoothing_id=None,
                             label=name,
                             metadata={},
@@ -552,6 +555,7 @@ class GAM(BaseModel):
             default_basis=self.basis,
             default_select=self.select,
             knots=knots,
+            available_columns=(None if data is None else data.columns),
         )
 
         predictor_specs, data_work, preprocess_state = (
@@ -568,6 +572,9 @@ class GAM(BaseModel):
             predictor_specs=predictor_specs,
             y=y,
         )
+        preprocess_state = dict(preprocess_state)
+        preprocess_state["used_columns"] = list(used_cols)
+        preprocess_state["offset_name"] = parsed.predictors[0].offset_name
         return (
             parsed,
             predictor_specs,
@@ -754,6 +761,37 @@ class GAM(BaseModel):
         sp = self.smoothing_params
         if sp is None:
             sp = np.ones(n_smoothing_params, dtype=np.float64)
+        elif isinstance(sp, Mapping):
+            out = np.ones(n_smoothing_params, dtype=np.float64)
+            group_map = (
+                {}
+                if getattr(self, "design_", None) is None
+                else dict(self.design_.metadata.get("s_id_to_sp_indices", {}) or {})
+            )
+            unknown = sorted(str(key) for key in sp.keys() if str(key) not in group_map)
+            if unknown:
+                raise ValueError(
+                    f"Unknown smoothing id(s) in smoothing_params: {unknown}."
+                )
+
+            for key, value in sp.items():
+                indices = list(group_map[str(key)])
+                vals = np.asarray(value, dtype=np.float64).ravel()
+                if vals.ndim == 0 or vals.size == 1:
+                    if len(indices) != 1:
+                        raise ValueError(
+                            f"smoothing_params[{key!r}] must provide {len(indices)} "
+                            "values for this multi-penalty smoothing id."
+                        )
+                    out[indices[0]] = float(vals.reshape(-1)[0])
+                    continue
+                if vals.shape != (len(indices),):
+                    raise ValueError(
+                        f"smoothing_params[{key!r}] must have shape ({len(indices)},), "
+                        f"got {vals.shape}."
+                    )
+                out[np.asarray(indices, dtype=int)] = vals
+            sp = out
         else:
             sp = np.asarray(sp, dtype=np.float64)
             if sp.ndim == 0:
@@ -894,20 +932,14 @@ class GAM(BaseModel):
 
         if self._needs_exact_gaussian_reparameterization():
             self._build_gaussian_reparameterized_system()
+            self.sl_blocks_ = (
+                None
+                if self.reparam_state_ is None
+                else list(self.reparam_state_.sl_blocks or [])
+            )
         else:
-            self._reparam_meta = None
-            self._reparam_rand_blocks_ = None
-            self._reparam_sp_groups_ = None
-            self._penalty_ranks = None
-            self._penalty_logdet_plus_fixed = None
-            self.X_fix_ = None
-            self.rank_X_fix_ = None
-            self._fix_pivot_keep = None
-            self.Z_rand_ = None
-            self.n_rand_ = None
-            self.ZtZ_rand_ = None
-            self.rand_dims_per_term_ = None
-            self._primary_reparam_sp_index_per_term_ = None
+            self.reparam_state_ = None
+            self.sl_blocks_ = None
 
     def _one_penalty_per_term_matrices(self):
         penalties = []
@@ -941,7 +973,12 @@ class GAM(BaseModel):
     def _solve_gaussian_given_smoothing(self, y, smoothing_params):
         from ..gam.fit.solvers.gaussian_exact import solve_gaussian_fit
 
-        return solve_gaussian_fit(self, y, smoothing_params)
+        return solve_gaussian_fit(
+            self,
+            y,
+            smoothing_params,
+            weights=self.prior_weights_,
+        )
 
     def gcv_score(self, y, log_smoothing_params):
         from ..gam.smoothing_selection.criteria import gcv_score_gaussian
@@ -980,7 +1017,12 @@ class GAM(BaseModel):
     def _solve_pirls_given_smoothing(self, y, smoothing_params):
         from ..gam.fit.solvers.pirls import solve_pirls_fit
 
-        return solve_pirls_fit(self, y, smoothing_params)
+        return solve_pirls_fit(
+            self,
+            y,
+            smoothing_params,
+            weights=self.prior_weights_,
+        )
 
     def _criterion_gcv_pirls(self, y, log_sp):
         from ..gam.smoothing_selection.criteria import criterion_gcv_pirls
@@ -1161,8 +1203,6 @@ class GAM(BaseModel):
             self.formula_ = parsed
             self.formula_mode_ = True
             self.formula_response_name_ = parsed.response_name
-            self.formula_used_columns_ = list(used_cols)
-            self.formula_offset_name_ = parsed.predictors[0].offset_name
             self.formula_preprocess_state_ = preprocess_state
 
             fit_intercept = bool(parsed.predictors[0].intercept)
@@ -1188,8 +1228,6 @@ class GAM(BaseModel):
             self.formula_ = None
             self.formula_mode_ = False
             self.formula_response_name_ = None
-            self.formula_used_columns_ = None
-            self.formula_offset_name_ = None
             self.formula_preprocess_state_ = None
 
             # Separate fit-time offset is used in fitting, but not remembered by default

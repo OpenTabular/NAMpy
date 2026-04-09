@@ -46,7 +46,7 @@ def solve_pirls_gam(
     )
 
 
-def solve_pirls_fit(model, y, smoothing_params):
+def solve_pirls_fit(model, y, smoothing_params, weights=None):
     """
     Model-level entry point for the penalized IRLS solver.
 
@@ -87,7 +87,6 @@ def solve_pirls_fit(model, y, smoothing_params):
         if mustart.shape != (int(model.n_samples_),):
             mustart = None
 
-    weights = getattr(model, "prior_weights_", None)
     disable_theta_efs = bool(getattr(model, "_pirls_disable_theta_efs_", False))
     prev_disable_theta_efs = bool(getattr(model.family, "_disable_theta_efs", False))
     if disable_theta_efs:

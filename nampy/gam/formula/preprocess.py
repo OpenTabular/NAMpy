@@ -7,7 +7,7 @@ from dataclasses import replace
 import numpy as np
 import pandas as pd
 
-from ..specs import LinearPredictorSpec, TermSpec
+from ..specs import LinearPredictorSpec, TermSpec, replace_smooth_spec
 
 
 def is_factor_like_series(s: pd.Series) -> bool:
@@ -193,11 +193,14 @@ def expand_factor_by_term(
     if not is_factor_like_series(by_series):
         return [term], hidden_counter
 
-    opts = dict(term.basis_options or {})
-    if str(opts.get("special", "s")) != "s":
+    smooth_spec = term.smooth_spec
+    if smooth_spec is None:
+        raise ValueError(f"Smooth term {term.label!r} is missing smooth_spec.")
+
+    if str(smooth_spec.special) != "s":
         raise NotImplementedError(
             f"Factor `by` expansion is implemented for s(...) only in this step, "
-            f"not for {opts.get('special')}(...)."
+            f"not for {smooth_spec.special}(...)."
         )
 
     cat, levels, ordered = factor_info(by_series)
@@ -229,7 +232,9 @@ def expand_factor_by_term(
             replace(
                 term,
                 by_variable=hidden_col,
-                basis_options={**opts, "constraint_mode": "factor_by"},
+                smooth_spec=replace_smooth_spec(
+                    smooth_spec, constraint_mode="factor_by"
+                ),
                 label=new_label,
                 metadata=new_meta,
             )

@@ -1,5 +1,5 @@
-from ..smooths.base import BaseSmoothTerm, _resolve_feature, column_as_float
 from ..smooths.registry import register_smooth
+from ..smooths.smooth_base import BaseSmoothTerm, _resolve_feature, column_as_float
 
 
 @register_smooth("linear")

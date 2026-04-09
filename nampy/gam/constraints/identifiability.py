@@ -189,10 +189,12 @@ def apply_global_side_conditions(
     deleted_total = 0
     term_reports = []
     start = 0
+    predictor_Q = np.zeros((design.n_coef, design.n_coef), dtype=np.float64)
 
     for term_idx, tb in enumerate(design.compiled_terms):
         B = np.asarray(tb.basis_train, dtype=np.float64)
         d = B.shape[1]
+        d_in = d
 
         # Collect this term's penalties up-front so the centering transform can
         # be applied to their matrices before column selection.
@@ -212,6 +214,8 @@ def apply_global_side_conditions(
         if exempt:
             sl_new = slice(start, start + d)
             new_idx = len(new_term_blocks)
+            if d > 0:
+                predictor_Q[tb.coef_slice, sl_new] = np.eye(d, dtype=np.float64)
             new_term_blocks.append(
                 CompiledTerm(
                     label=tb.label,
@@ -293,6 +297,7 @@ def apply_global_side_conditions(
             if tb.basis_transform is not None
             else np.eye(d, dtype=np.float64)
         )
+        Q_term = np.eye(d_in, dtype=np.float64)
 
         constructor_meta = dict(tb.metadata.get("constructor_metadata", {}) or {})
         runtime_absorbed = bool(
@@ -318,6 +323,7 @@ def apply_global_side_conditions(
                     pen_matrices = [T_con.T @ S @ T_con for S in pen_matrices]
                     B = B @ T_con
                     C = C @ T_con
+                    Q_term = Q_term @ T_con
                     d = B.shape[1]
                     absorbed_centering = True
 
@@ -353,6 +359,11 @@ def apply_global_side_conditions(
         # coefficient vectors pull back in the opposite direction.
         C_final = (
             C[:, keep] if keep.size > 0 else np.empty((C.shape[0], 0), dtype=np.float64)
+        )
+        Q_term_final = (
+            Q_term[:, keep]
+            if keep.size > 0
+            else np.empty((Q_term.shape[0], 0), dtype=np.float64)
         )
         B_final = (
             B[:, keep] if keep.size > 0 else np.empty((B.shape[0], 0), dtype=np.float64)
@@ -411,6 +422,8 @@ def apply_global_side_conditions(
 
         sl_new = slice(start, start + d_final)
         new_idx = len(new_term_blocks)
+        if d_final > 0:
+            predictor_Q[tb.coef_slice, sl_new] = Q_term_final
 
         new_term_blocks.append(
             CompiledTerm(
@@ -550,6 +563,7 @@ def apply_global_side_conditions(
         smoothing_parameter_map=dict(design.smoothing_parameter_map),
         has_intercept=bool(fit_intercept),
         term_index_map=term_index_map,
+        side_condition_Q=predictor_Q[:, :start].copy(),
         n_coef=start,
         n_smoothing_params=design.n_smoothing_params,
         smoothing_override_modes=list(design.smoothing_override_modes),

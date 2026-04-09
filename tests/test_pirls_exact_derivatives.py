@@ -12,9 +12,6 @@ from nampy.gam.smoothing_selection.criteria.dispatch import (
     criterion_hessian_numerical,
 )
 from nampy.gam.smoothing_selection.criteria.laplace import _penalty_derivative_matrices
-from nampy.gam.smoothing_selection.criteria.pirls import (
-    _ensure_penalty_reparameterization,
-)
 from nampy.gam.smoothing_selection.criteria.pirls_deriv import (
     _pirls_laplace_term_derivatives,
     criterion_gradient_ml_reml_pirls_exact,
@@ -24,6 +21,9 @@ from nampy.gam.smoothing_selection.criteria.pirls_reml_derivative_blocks import 
     _pearson_coefficient_derivatives,
     _penalty_quadratic_and_sp_derivatives,
     _working_weight_derivatives_wrt_linpred,
+)
+from nampy.gam.smoothing_selection.reparam import (
+    ensure_penalty_reparameterization_state,
 )
 
 
@@ -37,7 +37,7 @@ def _fit_reml_model(data, formula, family):
 
 
 def _gamma_pirls_smoothing_derivative_state(gam, y, sp):
-    _ensure_penalty_reparameterization(gam)
+    ensure_penalty_reparameterization_state(gam)
     sol = gam._solve_pirls_given_smoothing(y, sp)
     X = np.asarray(sol["X"], dtype=np.float64)
     beta = np.asarray(sol["coef_full"], dtype=np.float64)
@@ -191,14 +191,11 @@ def test_gamma_pirls_hessian_records_direct_laplace_k2_decomposition():
     from nampy.gam.smoothing_selection.criteria.laplace import (
         _penalty_derivative_matrices,
     )
-    from nampy.gam.smoothing_selection.criteria.pirls import (
-        _ensure_penalty_reparameterization,
-    )
     from nampy.gam.smoothing_selection.criteria.pirls_reml_derivative_blocks import (
         _working_weight_derivatives_wrt_linpred,
     )
 
-    _ensure_penalty_reparameterization(gam)
+    ensure_penalty_reparameterization_state(gam)
     P_derivs = _penalty_derivative_matrices(gam, sp)
     dW_eta, d2W_eta = _working_weight_derivatives_wrt_linpred(gam, y, eta, sol["mu"], W)
     n_sp = len(P_derivs)

@@ -1,4 +1,3 @@
-from .base import BaseFamily, ExtendedFamily, GeneralFamily, GLMFamily
 from .exponential import (
     BinomialCloglogFamily,
     BinomialLogitFamily,
@@ -9,6 +8,7 @@ from .exponential import (
     NegativeBinomialLogFamily,
     PoissonLogFamily,
 )
+from .family_base import BaseFamily, ExtendedFamily, GeneralFamily, GLMFamily
 from .registry import make_gam_family
 
 __all__ = [

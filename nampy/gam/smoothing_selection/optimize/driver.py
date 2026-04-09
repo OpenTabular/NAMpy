@@ -343,31 +343,6 @@ def _optimize_joint_negbin_reml_efs(model, y, x0, bounds, free_mask, method):
     return result
 
 
-def _apply_joint_negbin_result_metadata(target, source, *, log_theta0):
-    """Preserve true EFS outer metadata across generic postprocessing wrappers."""
-    target.joint_negbin_reml_outer = True
-    target.joint_negbin_efs_outer = bool(
-        getattr(source, "joint_negbin_efs_outer", True)
-    )
-    target.joint_negbin_initial_log_theta = float(
-        getattr(source, "joint_negbin_initial_log_theta", log_theta0)
-    )
-    target.joint_log_theta = float(getattr(source, "joint_log_theta", log_theta0))
-    target.joint_negbin_message = str(getattr(source, "message", ""))
-    target.joint_negbin_fun = float(getattr(source, "fun", np.nan))
-    target.joint_negbin_nfev = int(getattr(source, "nfev", 0))
-    target.joint_negbin_njev = int(getattr(source, "njev", 0))
-    target.joint_negbin_selected_x = np.asarray(target.x, dtype=np.float64).copy()
-    target.outer_info = getattr(source, "outer_info", None)
-    target.joint_negbin_state = getattr(source, "joint_negbin_state", None)
-    target.message = str(getattr(source, "message", getattr(target, "message", "")))
-    target.nit = int(getattr(source, "nit", getattr(target, "nit", 0)))
-    target.nfev = int(getattr(source, "nfev", getattr(target, "nfev", 0)))
-    target.njev = int(getattr(source, "njev", getattr(target, "njev", 0)))
-    target.nhev = int(getattr(source, "nhev", getattr(target, "nhev", 0)))
-    return target
-
-
 def supports_smoothing_method(model, method):
     method = str(method).lower()
     attr_map = {
@@ -809,7 +784,7 @@ def optimize_smoothing_params(
                     if not (np.isfinite(lo) and np.isfinite(hi) and hi > lo):
                         continue
 
-                    def _profiled_obj(log_sp_scalar: float, j=j):
+                    def _profiled_obj(log_sp_scalar: float, j=j, x_sp_work=x_sp_work):
                         trial = x_sp_work.copy()
                         trial[j] = float(log_sp_scalar)
                         trial_fun, _trial_log_s2, trial_ok = _joint_exact_refine_sigma2(

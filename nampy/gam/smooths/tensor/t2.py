@@ -19,13 +19,13 @@ from ...basis.tensor import (
     t2_marginal_reparameterization,
 )
 from ...penalties.algebra import null_space_penalty_from_penalty
-from ..base import (
+from ..registry import register_smooth
+from ..smooth_base import (
     BaseSmoothTerm,
     _normalize_knots,
     build_penalty_definition,
     build_selection_penalty_definition,
 )
-from ..registry import register_smooth
 from .marginals import (
     make_tensor_marginal_term,
     tensor_marginal_feature_index,

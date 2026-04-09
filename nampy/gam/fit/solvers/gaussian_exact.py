@@ -15,12 +15,11 @@ from ..penalized_system import (
 from ..state import FitCoreSolution
 
 
-def _prior_weights_vector(model, n: int) -> np.ndarray:
+def _prior_weights_vector(weights, n: int) -> np.ndarray:
     """Prior observation weights diagonal for Gaussian WLS / deviance / REML."""
-    w = getattr(model, "prior_weights_", None)
-    if w is None:
+    if weights is None:
         return np.ones(int(n), dtype=np.float64)
-    w = np.asarray(w, dtype=np.float64).ravel()
+    w = np.asarray(weights, dtype=np.float64).ravel()
     if w.shape != (int(n),):
         raise ValueError(f"prior_weights must have shape ({n},), got {w.shape}.")
     if not np.all(np.isfinite(w)) or np.any(w < 0.0):
@@ -30,7 +29,7 @@ def _prior_weights_vector(model, n: int) -> np.ndarray:
     return w
 
 
-def solve_gaussian_fit(model, y, smoothing_params):
+def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     """
     Exact Gaussian penalized (weighted) least-squares solve on the full design.
 
@@ -48,7 +47,7 @@ def solve_gaussian_fit(model, y, smoothing_params):
     """
     y = model.family.validate_y(y)
     n = int(y.shape[0])
-    w = _prior_weights_vector(model, n)
+    w = _prior_weights_vector(weights, n)
     X = build_full_design(model.Z, fit_intercept=model.fit_intercept)
 
     P_full = build_full_penalty_from_blocks(
@@ -140,6 +139,9 @@ def solve_gaussian_fit(model, y, smoothing_params):
             offset=None if model.offset_train_ is None else model.offset_train_.copy(),
             log_det_XtWX_plus_penalty=float(pls["log_det_XtWX_plus_penalty"]),
         )
+
+    if bool(getattr(model, "_use_stacked_qr", False)):
+        return _solve_with_stacked_qr()
 
     if gaussian_design_needs_stacked_qr_fit(model):
         return _solve_with_stacked_qr()

@@ -15,8 +15,102 @@ which simplifies REML score computation.
     Symmetric square root of a PSD matrix (used for penalty scaling).
 """
 
+from dataclasses import dataclass
+from typing import Dict, List, Optional
+
 import numpy as np
 from scipy.linalg import qr as scipy_qr
+
+
+@dataclass
+class ReparamState:
+    X_fix: Optional[np.ndarray]
+    Z_rand: Optional[np.ndarray]
+    ZtZ_rand: Optional[np.ndarray]
+    sl_blocks: Optional[List["SlBlock"]]
+
+
+@dataclass
+class SlBlock:
+    term_index: int
+    repara: bool
+    smoothing_index: Optional[int]
+    start: int
+    stop: int
+    ncol: int
+    blockSize: int
+    lambda_scaling: float = 1.0
+    kind: str = "smooth"
+    is_null_space_penalty: bool = False
+
+
+def _assign_reparam_state(model, state: Optional[ReparamState]) -> Optional[ReparamState]:
+    model.reparam_state_ = state
+    model.sl_blocks_ = None if state is None else list(state.sl_blocks or [])
+    return state
+
+
+def ensure_penalty_reparameterization_state(model) -> ReparamState:
+    state = getattr(model, "reparam_state_", None)
+    if state is None:
+        state = model._build_penalty_reparameterized_system()
+    if state is None:
+        raise RuntimeError("Penalty reparameterization state is unavailable.")
+    return state
+
+
+def iter_sl_random_blocks(state: ReparamState):
+    for sl_block in list(state.sl_blocks or []):
+        if sl_block.repara:
+            yield sl_block
+
+
+def sl_group_indices(state: ReparamState) -> Dict[int, np.ndarray]:
+    groups: Dict[int, list[int]] = {}
+    for sl_block in iter_sl_random_blocks(state):
+        if sl_block.smoothing_index is None:
+            continue
+        sp_idx = int(sl_block.smoothing_index)
+        groups.setdefault(sp_idx, []).extend(
+            range(int(sl_block.start), int(sl_block.stop))
+        )
+    return {
+        int(sp_idx): np.asarray(sorted(idxs), dtype=np.int64)
+        for sp_idx, idxs in groups.items()
+    }
+
+
+def sl_lambda_vector(state: ReparamState, sp: np.ndarray) -> np.ndarray:
+    if not state.sl_blocks:
+        return np.empty((0,), dtype=np.float64)
+    lam_parts = []
+    for sl_block in iter_sl_random_blocks(state):
+        if sl_block.smoothing_index is None or int(sl_block.blockSize) == 0:
+            continue
+        sp_val = float(sp[int(sl_block.smoothing_index)])
+        lam_parts.append(
+            np.full(
+                int(sl_block.blockSize),
+                sp_val * float(sl_block.lambda_scaling),
+                dtype=np.float64,
+            )
+        )
+    return np.concatenate(lam_parts) if lam_parts else np.empty((0,), dtype=np.float64)
+
+
+def sl_penalty_rank_scaling_derivatives(
+    state: ReparamState, n_smoothing_params: int
+) -> tuple[np.ndarray, np.ndarray]:
+    detS1 = np.zeros(int(n_smoothing_params), dtype=np.float64)
+    detS2 = np.zeros((int(n_smoothing_params), int(n_smoothing_params)), dtype=np.float64)
+    if not state.sl_blocks:
+        return detS1, detS2
+    for sl_block in iter_sl_random_blocks(state):
+        j = -1 if sl_block.smoothing_index is None else int(sl_block.smoothing_index)
+        n_pen = int(sl_block.blockSize)
+        if 0 <= j < int(n_smoothing_params) and n_pen > 0:
+            detS1[j] += float(n_pen)
+    return detS1, detS2
 
 
 def reparameterize_smooth(B, P, tol=1e-10):
@@ -221,27 +315,20 @@ def can_use_exact_gaussian_ml_reml(model):
 
 def build_penalty_reparameterized_system(model):
     if model.design_ is None:
-        return
+        return _assign_reparam_state(model, None)
 
     fix_blocks = []
     if model.fit_intercept:
         fix_blocks.append(np.ones((model.n_samples_, 1), dtype=np.float64))
 
     rand_blocks = []
-    model._reparam_meta = []
-    model._reparam_rand_blocks_ = []
-    model._reparam_sp_groups_ = {}
-    model.rand_dims_per_term_ = []
-    model._primary_reparam_sp_index_per_term_ = []
-    model._penalty_ranks = np.empty(len(model.term_blocks_), dtype=np.int64)
-    model._penalty_logdet_plus_fixed = np.empty(
-        len(model.term_blocks_), dtype=np.float64
-    )
+    sl_blocks: list[SlBlock] = []
     rand_start = 0
 
     for i, tb in enumerate(model.term_blocks_):
         matches = [pb for pb in model.penalty_blocks_ if pb.coef_slice == tb.coef_slice]
         B = tb.basis_train
+        term_rand_start = rand_start
         primary_ids = {
             id(pb)
             for pb in matches
@@ -253,11 +340,17 @@ def build_penalty_reparameterized_system(model):
             if B.shape[1] > 0:
                 fix_blocks.append(B)
 
-            model._reparam_meta.append(None)
-            model.rand_dims_per_term_.append(0)
-            model._primary_reparam_sp_index_per_term_.append(None)
-            model._penalty_ranks[i] = 0
-            model._penalty_logdet_plus_fixed[i] = 0.0
+            sl_blocks.append(
+                SlBlock(
+                    term_index=i,
+                    repara=False,
+                    smoothing_index=None,
+                    start=int(term_rand_start),
+                    stop=int(term_rand_start),
+                    ncol=int(B.shape[1]),
+                    blockSize=0,
+                )
+            )
             continue
 
         primary = [
@@ -285,11 +378,6 @@ def build_penalty_reparameterized_system(model):
             )
 
         rand_blocks_term = []
-        component_meta = []
-        total_rank = 0
-        total_logdet = 0.0
-        primary_sp_indices = []
-
         covered_mask = np.zeros(B.shape[1], dtype=bool)
         for comp in components:
             primaries = list(comp["primary"])
@@ -473,23 +561,6 @@ def build_penalty_reparameterized_system(model):
             if B0_use.shape[1] > 0:
                 fix_blocks.append(B0_use)
 
-            component_meta.append(
-                {
-                    "primary": meta,
-                    "null_space": extra_meta,
-                    "support_index": local_idx,
-                    "primary_smoothing_indices": [
-                        int(pb.smoothing_index) for pb in primaries
-                    ],
-                    "null_smoothing_indices": [
-                        int(pb.smoothing_index) for pb in pb0_list
-                    ],
-                }
-            )
-            primary_sp_indices.extend(int(pb.smoothing_index) for pb in primaries)
-            total_rank += comp_rank
-            total_logdet += comp_logdet
-
         # For multi-primary disjoint decomposition, keep any residual columns
         # (outside all penalty supports) as fixed effects.
         if len(components) > 1:
@@ -499,31 +570,37 @@ def build_penalty_reparameterized_system(model):
                 if B_resid.shape[1] > 0:
                     fix_blocks.append(B_resid)
 
-        for block in rand_blocks_term:
-            model._reparam_rand_blocks_.append(block)
-            model._reparam_sp_groups_.setdefault(block["smoothing_index"], []).extend(
-                range(block["slice"].start, block["slice"].stop)
+        if rand_blocks_term:
+            for block in rand_blocks_term:
+                sl = block["slice"]
+                sl_blocks.append(
+                    SlBlock(
+                        term_index=i,
+                        repara=True,
+                        smoothing_index=int(block["smoothing_index"]),
+                        start=int(sl.start),
+                        stop=int(sl.stop),
+                        ncol=int(B.shape[1]),
+                        blockSize=int(block["n_pen"]),
+                        lambda_scaling=float(block.get("lambda_scaling", 1.0)),
+                        kind=str(block.get("kind", "smooth")),
+                        is_null_space_penalty=bool(
+                            block.get("is_null_space_penalty", False)
+                        ),
+                    )
+                )
+        else:
+            sl_blocks.append(
+                SlBlock(
+                    term_index=i,
+                    repara=False,
+                    smoothing_index=None,
+                    start=int(term_rand_start),
+                    stop=int(term_rand_start),
+                    ncol=int(B.shape[1]),
+                    blockSize=0,
+                )
             )
-
-        model._reparam_meta.append(
-            {
-                "primary": component_meta[0]["primary"] if component_meta else None,
-                "null_space": (
-                    component_meta[0]["null_space"] if component_meta else None
-                ),
-                "components": component_meta,
-                "rand_blocks": rand_blocks_term,
-                "n_pen": int(sum(block["n_pen"] for block in rand_blocks_term)),
-            }
-        )
-        model.rand_dims_per_term_.append(
-            int(sum(block["n_pen"] for block in rand_blocks_term))
-        )
-        model._primary_reparam_sp_index_per_term_.append(
-            primary_sp_indices[0] if primary_sp_indices else None
-        )
-        model._penalty_ranks[i] = total_rank
-        model._penalty_logdet_plus_fixed[i] = total_logdet
     if fix_blocks:
         X_fix_raw = np.column_stack(fix_blocks)
         _Q, R, piv = scipy_qr(X_fix_raw, pivoting=True)
@@ -545,29 +622,27 @@ def build_penalty_reparameterized_system(model):
                 rank = int(np.sum(diag_R > rank_tol))
                 keep_cols = np.sort(piv[:rank])
 
-        model.X_fix_ = (
+        X_fix = (
             X_fix_raw[:, keep_cols]
             if rank > 0
             else np.empty((model.n_samples_, 0), dtype=np.float64)
         )
-        model.rank_X_fix_ = rank
-        model._fix_pivot_keep = keep_cols
     else:
-        model.X_fix_ = np.empty((model.n_samples_, 0), dtype=np.float64)
-        model.rank_X_fix_ = 0
-        model._fix_pivot_keep = np.array([], dtype=int)
+        X_fix = np.empty((model.n_samples_, 0), dtype=np.float64)
 
     if rand_blocks:
-        model.Z_rand_ = np.column_stack(rand_blocks)
+        Z_rand = np.column_stack(rand_blocks)
     else:
-        model.Z_rand_ = np.empty((model.n_samples_, 0), dtype=np.float64)
+        Z_rand = np.empty((model.n_samples_, 0), dtype=np.float64)
 
-    model._reparam_sp_groups_ = {
-        int(sp_idx): np.asarray(idxs, dtype=np.int64)
-        for sp_idx, idxs in model._reparam_sp_groups_.items()
-    }
-    model.n_rand_ = model.Z_rand_.shape[1]
-    model.ZtZ_rand_ = model.Z_rand_.T @ model.Z_rand_
+    ZtZ_rand = Z_rand.T @ Z_rand
+    state = ReparamState(
+        X_fix=X_fix,
+        Z_rand=Z_rand,
+        ZtZ_rand=ZtZ_rand,
+        sl_blocks=sl_blocks,
+    )
+    return _assign_reparam_state(model, state)
 
 
 def build_gaussian_reparameterized_system(model):

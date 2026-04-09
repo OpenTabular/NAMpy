@@ -2,34 +2,21 @@
 
 import numpy as np
 
-
-def _ensure_penalty_reparameterization(model):
-    if (
-        model.X_fix_ is None
-        or model.Z_rand_ is None
-        or getattr(model, "_reparam_sp_groups_", None) is None
-    ):
-        model._build_penalty_reparameterized_system()
+from ..reparam import (
+    ensure_penalty_reparameterization_state,
+    sl_group_indices,
+    sl_lambda_vector,
+)
 
 
 def _laplace_lambda_vector(model, sp):
-    blocks = getattr(model, "_reparam_rand_blocks_", None)
-    if not blocks:
-        return np.empty((0,), dtype=np.float64)
-    lam_parts = []
-    for block in blocks:
-        n_pen = int(block["n_pen"])
-        if n_pen == 0:
-            continue
-        sp_val = float(sp[int(block["smoothing_index"])])
-        scaling = float(block.get("lambda_scaling", 1.0))
-        lam_val = sp_val * scaling
-        lam_parts.append(np.full(n_pen, lam_val, dtype=np.float64))
-    return np.concatenate(lam_parts) if lam_parts else np.empty((0,), dtype=np.float64)
+    state = ensure_penalty_reparameterization_state(model)
+    return sl_lambda_vector(state, sp)
 
 
 def _lambda_group_indices(model):
-    groups = getattr(model, "_reparam_sp_groups_", None)
+    state = ensure_penalty_reparameterization_state(model)
+    groups = sl_group_indices(state)
     if groups is None:
         return {}
     return {

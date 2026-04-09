@@ -10,7 +10,6 @@ is controlled entirely by the penalty order and the smoothing parameter.
 
 import numpy as np
 
-from ....splines.penalty_scaling import scale_penalty
 from ....splines.univariate_bases import (
     pspline_difference_penalty,
     pspline_knots,
@@ -18,8 +17,9 @@ from ....splines.univariate_bases import (
 )
 from ...constraints.absorption import apply_linear_constraint
 from ...design.structures import PenaltySpec
-from ...penalties.algebra import null_space_penalty_from_penalty
-from ..base import (
+from ...penalties.algebra import null_space_penalty_from_penalty, scale_penalty
+from ..registry import register_smooth
+from ..smooth_base import (
     BaseSmoothTerm,
     _normalize_point_constraint,
     _resolve_feature,
@@ -27,7 +27,6 @@ from ..base import (
     resolve_by_state,
     sync_by_state_attributes,
 )
-from ..registry import register_smooth
 
 
 @register_smooth("ps")

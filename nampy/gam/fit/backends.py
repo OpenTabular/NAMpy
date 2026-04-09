@@ -14,6 +14,8 @@ from .solvers.pirls import solve_pirls_fit
 
 def available_fit_backends(model):
     backends = []
+    if bool(getattr(model, "_use_stacked_qr", False)):
+        backends.append("stacked_qr")
     if bool(getattr(model.family, "supports_closed_form_solve", False)):
         backends.append("gaussian_exact")
     if bool(getattr(model.family, "supports_pirls", False)):
@@ -23,6 +25,8 @@ def available_fit_backends(model):
 
 def resolve_fit_backend(model):
     backends = available_fit_backends(model)
+    if "stacked_qr" in backends:
+        return "stacked_qr"
     if "gaussian_exact" in backends:
         return "gaussian_exact"
     if "pirls" in backends:
@@ -32,12 +36,14 @@ def resolve_fit_backend(model):
     )
 
 
-def solve_fit(model, y, smoothing_params, backend=None):
+def solve_fit(model, y, smoothing_params, backend=None, weights=None):
     backend = resolve_fit_backend(model) if backend is None else str(backend).lower()
 
+    if backend == "stacked_qr":
+        return solve_gaussian_fit(model, y, smoothing_params, weights=weights)
     if backend == "gaussian_exact":
-        return solve_gaussian_fit(model, y, smoothing_params)
+        return solve_gaussian_fit(model, y, smoothing_params, weights=weights)
     if backend == "pirls":
-        return solve_pirls_fit(model, y, smoothing_params)
+        return solve_pirls_fit(model, y, smoothing_params, weights=weights)
 
     raise ValueError(f"Unknown fit backend {backend!r}.")

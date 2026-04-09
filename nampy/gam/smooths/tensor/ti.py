@@ -18,7 +18,8 @@ from ...basis.tensor import (
     tensor_product_penalties,
 )
 from ...penalties.algebra import null_space_penalty_from_penalty
-from ..base import (
+from ..registry import register_smooth
+from ..smooth_base import (
     BaseSmoothTerm,
     _normalize_knots,
     _normalize_mc,
@@ -29,7 +30,6 @@ from ..base import (
     resolve_by_state,
     sync_by_state_attributes,
 )
-from ..registry import register_smooth
 from .marginals import (
     make_tensor_marginal_term,
     tensor_marginal_feature_index,

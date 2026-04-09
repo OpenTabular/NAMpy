@@ -1,15 +1,20 @@
 """
 Combine mgcv-replication code into coherent phase files for LLM handoff.
 
-By default this script writes 4 outputs:
+By default this script writes 5 outputs:
 - combined_phase1.txt
 - combined_phase2.txt
 - combined_phase3.txt
 - combined_phase4.txt
+- combined_phase5.txt
 
-Each phase contains:
-- an instruction preface
-- a tree view for files in that phase
+Phase 1 contains:
+- the full instruction preface
+- the full relevant directory tree
+- full concatenated file contents
+
+Phases 2-5 contain:
+- a concise continuation preface
 - full concatenated file contents
 """
 
@@ -23,6 +28,7 @@ phase_output_files = {
     2: "combined_phase2.txt",
     3: "combined_phase3.txt",
     4: "combined_phase4.txt",
+    5: "combined_phase5.txt",
 }
 
 
@@ -54,7 +60,7 @@ def _sort_key(rel_posix: str) -> tuple:
 
 def _phase_for_path(rel_posix: str) -> int:
     """
-    Assign each file to one of 4 coherent review phases.
+    Assign each file to one of 5 coherent review phases.
 
     Phase 1: Foundational APIs and interfaces
       - package exports, family definitions, configs, base models
@@ -69,8 +75,10 @@ def _phase_for_path(rel_posix: str) -> int:
       - formula preprocessing, term materialization, design compilation
       - univariate/tensor/categorical smooth runtime implementations
 
-    Phase 4: Validation/parity/predict/results/integration
-      - parity/snapshot/trace, prediction/results wrappers, leftovers
+    Phase 4: Prediction/integration-facing GAM surfaces
+      - GAM wrappers/public model glue and prediction/diagnostic APIs
+
+    Phase 5: Validation/parity and uncategorized leftovers
       - anything uncategorized falls here
     """
     # Phase 1: core interfaces and foundations
@@ -128,8 +136,18 @@ def _phase_for_path(rel_posix: str) -> int:
     if any(rel_posix == p or rel_posix.startswith(p) for p in phase3_prefixes):
         return 3
 
-    # Phase 4: parity/predict/results/integration and uncategorized files
-    return 4
+    # Phase 4: prediction/integration-facing surfaces
+    phase4_prefixes = (
+        "nampy/gam/predict/",
+        "nampy/gam/diagnostics/",
+        "nampy/gam/parity/",
+        "nampy/models/gam.py",
+    )
+    if any(rel_posix == p or rel_posix.startswith(p) for p in phase4_prefixes):
+        return 4
+
+    # Phase 5: parity/leftovers and uncategorized files
+    return 5
 
 
 def collect_input_files(root: Path) -> list[str]:
@@ -161,7 +179,7 @@ def collect_input_files(root: Path) -> list[str]:
 
 
 def split_into_phases(file_paths: list[str]) -> dict[int, list[str]]:
-    phased: dict[int, list[str]] = {1: [], 2: [], 3: [], 4: []}
+    phased: dict[int, list[str]] = {1: [], 2: [], 3: [], 4: [], 5: []}
     for rel in file_paths:
         phase = _phase_for_path(rel)
         phased[phase].append(rel)
@@ -213,28 +231,33 @@ phase_titles = {
     1: "Phase 1 - Foundations and public interfaces",
     2: "Phase 2 - GAM fit and smoothness internals",
     3: "Phase 3 - GAM design/construction/smooth runtime internals",
-    4: "Phase 4 - Parity, prediction, and integration",
+    4: "Phase 4 - Prediction and integration surfaces",
+    5: "Phase 5 - Parity, validation, and leftovers",
 }
 
-for phase in (1, 2, 3, 4):
+for phase in (1, 2, 3, 4, 5):
     out_name = phase_output_files[phase]
     phase_paths = phased_files[phase]
-    tree_paths = input_files if phase == 1 else phase_paths
     with (repo_root / out_name).open("w", encoding="utf-8") as outfile:
-        outfile.write(
-            f"""You are a senior computational statistician, numerical software architect, and Python package maintainer with deep expertise in generalized additive models, penalized regression splines, and Simon Wood's mgcv framework.
+        if phase == 1:
+            outfile.write(
+                f"""You are a senior computational statistician, numerical software architect, and Python package maintainer with deep expertise in generalized additive models, penalized regression splines, and Simon Wood's mgcv framework.
 I am building a Python reimplementation of the mgcv ecosystem as a submodule of my package nampy.
 You are reviewing {phase_titles[phase]}.
-This is part {phase}/4. Keep continuity with prior parts when available, and produce structured feedback for correctness, redundancy elimination, and architecture cleanup.
+This is part {phase}/5. Keep continuity with prior parts when available, and produce structured feedback for correctness, redundancy elimination, and architecture cleanup.
 
 """
-        )
-        if phase == 1:
+            )
             outfile.write("Directory structure (full collected scope):\n")
+            outfile.write(render_tree(input_files))
+            outfile.write("\n\n")
         else:
-            outfile.write("Directory structure (this phase):\n")
-        outfile.write(render_tree(tree_paths))
-        outfile.write("\n\n")
+            outfile.write(
+                f"""Continuation prompt: {phase_titles[phase]}.
+This is part {phase}/5. Continue from earlier phases; do not restate prior context.
+
+"""
+            )
         outfile.write(f"Included files in this phase: {len(phase_paths)}\n\n")
 
         for rel_path in phase_paths:
@@ -249,6 +272,6 @@ This is part {phase}/4. Keep continuity with prior parts when available, and pro
     print(f"Wrote {out_name} with {len(phase_paths)} files.")
 
 print(
-    "Done. Generated 4 phased bundles: "
-    + ", ".join(phase_output_files[i] for i in (1, 2, 3, 4))
+    "Done. Generated 5 phased bundles: "
+    + ", ".join(phase_output_files[i] for i in (1, 2, 3, 4, 5))
 )

@@ -1,6 +1,7 @@
 # After univariate/tensor smooths load (SplineTerm1D, etc.); registers parametric "linear".
 from ..terms.linear import LinearTerm as _LinearTerm  # noqa: F401
-from .base import (
+from .registry import available_smooths, make_smooth_term, register_smooth
+from .smooth_base import (
     RUNTIME_TERM_INTERFACE_CHECKLIST,
     BaseSmoothTerm,
     ByState,
@@ -21,7 +22,6 @@ from .base import (
     resolve_feature_matrix_state,
     sync_by_state_attributes,
 )
-from .registry import available_smooths, make_smooth_term, register_smooth
 from .tensor.t2 import TensorANOVASplineTerm
 from .tensor.te import TensorProductSplineTerm
 from .tensor.ti import InteractionTensorProductSplineTerm

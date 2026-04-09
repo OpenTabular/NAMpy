@@ -33,7 +33,7 @@ import numpy as np
 from ..constraints.absorption import absorb_explicit_constraints
 from ..penalties import normalize_penalty_spec
 from ..runtime.factory import instantiate_term
-from ..smooths.base import _resolve_feature
+from ..smooths.smooth_base import _resolve_feature
 from ..specs import TermSpec
 from .constructed import ConstructedTerm
 

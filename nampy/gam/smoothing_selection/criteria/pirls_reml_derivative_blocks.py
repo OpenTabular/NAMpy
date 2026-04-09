@@ -158,21 +158,6 @@ def _hat_matrix_trace_and_sp_derivatives(A_inv, XtWX, dA, d2A_mat, dXtWX, d2XtWX
     return trA, trA1, trA2
 
 
-def _penalty_rank_scaling_derivatives(model):
-    M = int(model.n_smoothing_params_ or 0)
-    detS1 = np.zeros(M, dtype=np.float64)
-    detS2 = np.zeros((M, M), dtype=np.float64)
-    blocks = getattr(model, "_reparam_rand_blocks_", None)
-    if not blocks:
-        return detS1, detS2
-    for block in blocks:
-        j = int(block.get("smoothing_index", -1))
-        n_pen = int(block.get("n_pen", 0))
-        if 0 <= j < M and n_pen > 0:
-            detS1[j] += float(n_pen)
-    return detS1, detS2
-
-
 def _deviance_coefficient_derivatives(model, y, eta, mu, W, X):
     family = model.family
     mu1 = np.clip(np.asarray(family.mu_eta(eta), dtype=np.float64), 1e-14, None)

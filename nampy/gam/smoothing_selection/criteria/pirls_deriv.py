@@ -4,8 +4,8 @@ import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 from scipy.special import digamma, polygamma
 
+from ..reparam import ensure_penalty_reparameterization_state
 from .laplace import (
-    _ensure_penalty_reparameterization,
     _lambda_group_indices,
     _laplace_lambda_vector,
     _penalty_derivative_matrices,
@@ -205,12 +205,13 @@ def _pirls_tensor_coefficient_space_term_derivatives(model, sol, sp, dA, d2A_mat
 
 def _pirls_laplace_term_and_gradient(model, sol, sp, dbeta_cols, dW_deta, *, method):
     X = np.asarray(sol["X"], dtype=np.float64)
-    Xf = model.X_fix_
-    Zr = model.Z_rand_
+    state = ensure_penalty_reparameterization_state(model)
+    Xf = state.X_fix
+    Zr = state.Z_rand
     np.asarray(sol["coef_full"], dtype=np.float64)
     W = np.asarray(sol["working_weights"], dtype=np.float64)
-    p = int(model.rank_X_fix_)
-    q = int(model.n_rand_)
+    p = int(Xf.shape[1])
+    q = int(Zr.shape[1])
     n_sp = int(model.n_smoothing_params_ or 0)
 
     K = 0.0
@@ -296,11 +297,12 @@ def _pirls_laplace_term_derivatives(
     method,
 ):
     X = np.asarray(sol["X"], dtype=np.float64)
-    Xf = model.X_fix_
-    Zr = model.Z_rand_
+    state = ensure_penalty_reparameterization_state(model)
+    Xf = state.X_fix
+    Zr = state.Z_rand
     W = np.asarray(sol["working_weights"], dtype=np.float64)
-    p = int(model.rank_X_fix_)
-    q = int(model.n_rand_)
+    p = int(Xf.shape[1])
+    q = int(Zr.shape[1])
     n_sp = int(model.n_smoothing_params_ or 0)
 
     K = 0.0
@@ -488,7 +490,7 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
         if int(np.sum(free_mask)) == 0:
             return np.empty((0,), dtype=np.float64)
 
-        _ensure_penalty_reparameterization(model)
+        ensure_penalty_reparameterization_state(model)
         sp = model._expand_smoothing_params_from_log(log_sp)
         sol = model._solve_pirls_given_smoothing(y, sp)
 
@@ -579,7 +581,7 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
         }
         return Dp1_free / (2.0 * phi) + K1_free
 
-    _ensure_penalty_reparameterization(model)
+    ensure_penalty_reparameterization_state(model)
 
     free_mask = (
         np.zeros(model.n_smoothing_params_, dtype=bool)
@@ -643,10 +645,11 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
         ) + np.asarray(K1, dtype=np.float64)
         return grad_full[free_mask]
 
-    Xf = model.X_fix_
-    Zr = model.Z_rand_
-    p = int(model.rank_X_fix_)
-    q = int(model.n_rand_)
+    state = ensure_penalty_reparameterization_state(model)
+    Xf = state.X_fix
+    Zr = state.Z_rand
+    p = int(Xf.shape[1])
+    q = int(Zr.shape[1])
     grad_full = np.zeros(int(model.n_smoothing_params_), dtype=np.float64)
     dA_store = [None] * int(model.n_smoothing_params_)
 
@@ -761,7 +764,7 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
             "plus Gamma via the profiled scale branch."
         )
 
-    _ensure_penalty_reparameterization(model)
+    ensure_penalty_reparameterization_state(model)
 
     free_mask = (
         np.zeros(model.n_smoothing_params_, dtype=bool)
@@ -787,10 +790,11 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
         model, y, eta, sol["mu"], W
     )
 
-    Xf = model.X_fix_
-    Zr = model.Z_rand_
-    p = int(model.rank_X_fix_)
-    q = int(model.n_rand_)
+    state = ensure_penalty_reparameterization_state(model)
+    Xf = state.X_fix
+    Zr = state.Z_rand
+    p = int(Xf.shape[1])
+    q = int(Zr.shape[1])
 
     n_sp = int(model.n_smoothing_params_ or 0)
     grad_full = np.zeros(n_sp, dtype=np.float64)

@@ -8,7 +8,7 @@ import pytest
 from nampy.gam.families.exponential import GaussianIdentityFamily
 from nampy.gam.fit.linalg.stacked_qr import (
     balanced_penalty_template_sqrt_for_rank,
-    penalty_sqrt_rows_prefer_diagonal,
+    penalty_sqrt_rows,
     solve_gaussian_penalized_ls_stacked_qr,
 )
 from nampy.gam.fit.solvers.penalized_irls import (
@@ -33,7 +33,7 @@ def test_gaussian_identity_one_step_matches_direct_pls():
     lam = 0.35
     P = np.zeros((q, q), dtype=np.float64)
     P[1:, 1:] = lam * np.eye(q - 1)
-    Sr, _ = penalty_sqrt_rows_prefer_diagonal(P)
+    Sr, _ = penalty_sqrt_rows(P)
     Eb = balanced_penalty_template_sqrt_for_rank(
         [_PB()], fit_intercept=True, n_coef=q - 1
     )
@@ -65,7 +65,7 @@ def test_gaussian_identity_one_step_matches_direct_pls():
 
 
 def test_extended_family_raises():
-    from nampy.gam.families.base import ExtendedFamily
+    from nampy.gam.families.family_base import ExtendedFamily
 
     class DummyExt(ExtendedFamily):
         name = "dummy"
@@ -74,7 +74,7 @@ def test_extended_family_raises():
     X = np.eye(2)
     y = np.array([1.0, 2.0])
     P = np.eye(2) * 0.1
-    Sr, Es = penalty_sqrt_rows_prefer_diagonal(P)
+    Sr, Es = penalty_sqrt_rows(P)
     with pytest.raises(NotImplementedError, match="Extended and general family"):
         fit_penalized_irls(
             X,
@@ -100,3 +100,62 @@ def test_empty_columns():
     )
     assert out["coef"].shape == (0,)
     assert out["converged"]
+
+
+def test_step_halving_recomputes_mu_eta_and_variance():
+    class TrackingFamily:
+        name = "tracking"
+        link_name = "identity"
+        canonical_link = True
+
+        def __init__(self):
+            self.mu_eta_calls = 0
+            self.variance_calls = 0
+
+        def validate_y(self, y):
+            return np.asarray(y, dtype=np.float64).ravel()
+
+        def inverse_link(self, eta):
+            return np.asarray(eta, dtype=np.float64)
+
+        def link(self, mu):
+            return np.asarray(mu, dtype=np.float64)
+
+        def initialize_mu(self, y):
+            return np.zeros_like(np.asarray(y, dtype=np.float64))
+
+        def mu_eta(self, eta):
+            self.mu_eta_calls += 1
+            return np.ones_like(np.asarray(eta, dtype=np.float64))
+
+        def variance(self, mu):
+            self.variance_calls += 1
+            return np.ones_like(np.asarray(mu, dtype=np.float64))
+
+        def deviance(self, y, mu):
+            y = np.asarray(y, dtype=np.float64)
+            mu = np.asarray(mu, dtype=np.float64)
+            return float(np.sum((y - mu) ** 2))
+
+        def valid_mu(self, mu):
+            return bool(np.all(np.abs(np.asarray(mu, dtype=np.float64)) < 1.0))
+
+    family = TrackingFamily()
+    X = np.ones((1, 1), dtype=np.float64)
+    y = np.array([2.0], dtype=np.float64)
+    P = np.zeros((1, 1), dtype=np.float64)
+
+    out = fit_penalized_irls(
+        X,
+        y,
+        np.array([], dtype=np.float64),
+        np.ones((1, 1), dtype=np.float64),
+        np.ones((1, 1), dtype=np.float64),
+        P,
+        family,
+        control=PenalizedIrlsControl(maxit=10, epsilon=1e-12),
+    )
+
+    assert family.mu_eta_calls > 1
+    assert family.variance_calls > 1
+    assert out["warnings"]

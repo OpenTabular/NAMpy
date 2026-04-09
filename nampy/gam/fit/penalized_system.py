@@ -64,6 +64,7 @@ def build_full_penalty_from_blocks(
                 f"Penalty block for term {pb.label!r} has shape {P.shape}, "
                 f"but its coefficient slice width is {width}."
             )
+        P = 0.5 * (P + P.T)
 
         P_full[full_sl, full_sl] += lam * P
 

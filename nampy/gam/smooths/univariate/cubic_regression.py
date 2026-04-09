@@ -16,7 +16,6 @@ identifiability in some settings).
 import numpy as np
 
 from ....splines.cubic import CubicSplines
-from ....splines.penalty_scaling import scale_penalty
 from ....splines.univariate_bases import (
     add_full_rank_shrinkage,
     cyclic_cubic_bd,
@@ -25,7 +24,9 @@ from ....splines.univariate_bases import (
 )
 from ...constraints.absorption import apply_linear_constraint
 from ...penalties import build_null_space_selection_spec, make_penalty_spec
-from ..base import (
+from ...penalties.algebra import scale_penalty
+from ..registry import register_smooth
+from ..smooth_base import (
     BaseSmoothTerm,
     _normalize_point_constraint,
     _resolve_feature,
@@ -33,7 +34,6 @@ from ..base import (
     resolve_by_state,
     sync_by_state_attributes,
 )
-from ..registry import register_smooth
 
 
 @register_smooth("spline_1d")

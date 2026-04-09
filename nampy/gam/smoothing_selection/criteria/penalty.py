@@ -183,36 +183,6 @@ def _static_fixed_and_random_designs(model, X_full, sp, *, tol=1e-10):
     )
 
 
-def _static_penalty_summary(model, sp, *, tol=1e-10):
-    sp = np.asarray(sp, dtype=np.float64)
-    cache = _static_penalty_space(model, tol=tol)
-    Y = np.asarray(cache["Y"], dtype=np.float64)
-    Z = np.asarray(cache["Z"], dtype=np.float64)
-    S_groups = cache["S_groups"]
-
-    if Y.shape[1] == 0:
-        return {
-            "rank": 0,
-            "null_dim": int(Z.shape[1]),
-            "logdet_plus": 0.0,
-        }
-
-    S_range = np.zeros((Y.shape[1], Y.shape[1]), dtype=np.float64)
-    for k, Sg in enumerate(S_groups):
-        if Sg.size == 0:
-            continue
-        S_range += float(sp[k]) * np.asarray(Sg, dtype=np.float64)
-
-    evals = np.linalg.eigvalsh(0.5 * (S_range + S_range.T))
-    pos_mask, tol_eff = _eigen_positive_mask(evals, tol=tol)
-    d_pos = np.asarray(evals[pos_mask], dtype=np.float64)
-    return {
-        "rank": int(d_pos.size),
-        "null_dim": int(Z.shape[1] + np.sum(~pos_mask)),
-        "logdet_plus": float(np.sum(np.log(d_pos)) if d_pos.size > 0 else 0.0),
-    }
-
-
 def _stable_penalty_logdet(model, sp, *, tol=1e-10):
     """
     Stable log-determinant of the penalty for multi-penalty REML (Wood-style).

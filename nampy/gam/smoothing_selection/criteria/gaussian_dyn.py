@@ -11,7 +11,6 @@ from .gaussian_reml_algebra import (
 )
 from .laplace import _penalty_derivative_matrices
 from .penalty import (
-    _eigen_positive_mask,
     _stable_penalty_logdet,
     _stable_penalty_logdet_derivatives,
     _static_penalty_null_dim,
@@ -304,83 +303,3 @@ def criterion_gradient_ml_reml_gaussian_dynamic_joint(
     g_sp = prof_g + 0.5 * F1f * (1.0 / sigma2 - nu / F)
     g_tau = 0.5 * (nu - F / sigma2)
     return np.concatenate([g_sp, np.array([g_tau], dtype=np.float64)])
-
-
-def _dynamic_penalty_split(model, X_pen, P_pen, *, tol=1e-10):
-    X_pen = np.asarray(X_pen, dtype=np.float64)
-    P_pen = np.asarray(P_pen, dtype=np.float64)
-
-    if X_pen.ndim != 2 or P_pen.ndim != 2:
-        raise ValueError("X_pen and P_pen must be 2D arrays.")
-    if P_pen.shape[0] != P_pen.shape[1] or P_pen.shape[0] != X_pen.shape[1]:
-        raise ValueError("Penalty split requires matching coefficient dimensions.")
-
-    if P_pen.shape[0] == 0:
-        return {
-            "X_null": np.empty((X_pen.shape[0], 0), dtype=np.float64),
-            "Z_rand": np.empty((X_pen.shape[0], 0), dtype=np.float64),
-            "d_pos": np.empty((0,), dtype=np.float64),
-            "rank": 0,
-            "null_dim": 0,
-            "logdet_plus": 0.0,
-        }
-
-    P_sym = 0.5 * (P_pen + P_pen.T)
-    evals, U = np.linalg.eigh(P_sym)
-    idx = np.argsort(evals)
-    evals = evals[idx]
-    U = U[:, idx]
-
-    pos_mask, tol_eff = _eigen_positive_mask(evals, tol=tol)
-    null_mask = ~pos_mask
-
-    U0 = U[:, null_mask]
-    U1 = U[:, pos_mask]
-    d_pos = np.asarray(evals[pos_mask], dtype=np.float64)
-
-    X_null = (
-        X_pen @ U0
-        if U0.shape[1] > 0
-        else np.empty((X_pen.shape[0], 0), dtype=np.float64)
-    )
-    Z_rand = (
-        X_pen @ (U1 / np.sqrt(d_pos)[np.newaxis, :])
-        if U1.shape[1] > 0
-        else np.empty((X_pen.shape[0], 0), dtype=np.float64)
-    )
-
-    return {
-        "X_null": X_null,
-        "Z_rand": Z_rand,
-        "d_pos": d_pos,
-        "rank": int(d_pos.size),
-        "null_dim": int(U0.shape[1]),
-        "logdet_plus": float(np.sum(np.log(d_pos)) if d_pos.size > 0 else 0.0),
-    }
-
-
-def _dynamic_fixed_and_random_designs(model, X_full, P_full, *, tol=1e-10):
-    X_full = np.asarray(X_full, dtype=np.float64)
-    P_full = np.asarray(P_full, dtype=np.float64)
-
-    if model.fit_intercept:
-        X_intercept = X_full[:, :1]
-        X_pen = X_full[:, 1:]
-        P_pen = P_full[1:, 1:]
-    else:
-        X_intercept = np.empty((X_full.shape[0], 0), dtype=np.float64)
-        X_pen = X_full
-        P_pen = P_full
-
-    split = _dynamic_penalty_split(model, X_pen, P_pen, tol=tol)
-    Xf_parts = []
-    if X_intercept.shape[1] > 0:
-        Xf_parts.append(X_intercept)
-    if split["X_null"].shape[1] > 0:
-        Xf_parts.append(split["X_null"])
-    Xf = (
-        np.column_stack(Xf_parts)
-        if Xf_parts
-        else np.empty((X_full.shape[0], 0), dtype=np.float64)
-    )
-    return Xf, split["Z_rand"], split

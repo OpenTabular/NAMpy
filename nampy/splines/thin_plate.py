@@ -6,7 +6,7 @@ import numpy as np
 import scipy.linalg
 from scipy.spatial import distance_matrix
 
-from .penalty_scaling import scale_penalty
+from ..gam.penalties.algebra import scale_penalty
 from .thin_plate_basis import eta, tp_T
 
 

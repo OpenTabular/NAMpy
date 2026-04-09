@@ -6,10 +6,9 @@ Each runtime term owns all basis-specific mathematics for its smooth family:
 basis construction, penalty definition, term-local constraints, by-variable
 handling, and new-data transforms.
 
-This module dispatches on ``TermSpec.kind``, ``basis_options["special"]``, and
-``basis_options["bs"]`` to select the correct runtime class.  It must not
-implement basis construction itself — it only routes to the canonical classes
-in ``gam/smooths/*``.
+This module dispatches on typed ``TermSpec.smooth_spec`` objects to select the
+correct runtime class. It must not implement basis construction itself — it
+only routes to the canonical classes in ``gam/smooths/*``.
 """
 
 from __future__ import annotations
@@ -26,7 +25,24 @@ from ..smooths.registry import make_smooth_term
 from ..smooths.univariate.cubic_regression import SplineTerm1D
 from ..smooths.univariate.gp import GPSmoothTerm
 from ..smooths.univariate.pspline import PSplineTerm1D
-from ..specs import LinearPredictorSpec, TermSpec
+from ..specs import LinearPredictorSpec, PenaltyGroupSpec, TermSpec
+from ..specs.smooth import (
+    CubicRegressionSmoothSpec,
+    CubicShrinkageSmoothSpec,
+    CyclicCubicRegressionSmoothSpec,
+    FactorSmoothInteractionSpec,
+    GPSmoothSpec,
+    MarkovRandomFieldSmoothSpec,
+    PSplineSmoothSpec,
+    RandomEffectSmoothSpec,
+    SumToZeroFactorSmoothSpec,
+    TensorANOVASmoothSpec,
+    TensorInteractionSmoothSpec,
+    TensorProductSmoothSpec,
+    ThinPlateShrinkageSmoothSpec,
+    ThinPlateSmoothSpec,
+    tensor_basis_list,
+)
 from ..terms.linear import LinearTerm
 
 
@@ -62,222 +78,270 @@ def instantiate_term(term_like: TermSpec | Any):
     if term_like.kind != "smooth":
         raise TypeError(f"Unsupported TermSpec.kind={term_like.kind!r}")
 
-    opts = dict(term_like.basis_options or {})
-    special = str(opts.get("special", "s")).lower()
     features = list(term_like.features)
     metadata = dict(term_like.metadata or {})
+    smooth_spec = term_like.smooth_spec
+    if smooth_spec is None:
+        raise ValueError(f"Smooth TermSpec {term_like.label!r} is missing smooth_spec.")
     metadata["term_spec"] = {
         "kind": term_like.kind,
         "features": list(term_like.features),
         "by_variable": term_like.by_variable,
-        "basis_options": dict(opts),
+        "basis_options": smooth_spec.to_basis_options(),
         "smoothing_id": term_like.smoothing_id,
         "label": term_like.label,
+        "smooth_spec_type": type(smooth_spec).__name__,
     }
-    bs = str(opts.get("bs", "cr")).lower()
-    k = opts.get("k", -1)
-    fx = bool(opts.get("fx", False))
-    select = bool(opts.get("select", False))
-    m = opts.get("m", None)
-    xt = opts.get("xt", None)
-    sp = opts.get("sp", None)
-    pc = opts.get("pc", None)
-    knots = opts.get("knots", None)
-    constraint_mode = str(opts.get("constraint_mode", "auto"))
-    shared_basis_setup = opts.get("shared_basis_setup", None)
-    mc = opts.get("mc", None)
-    full = bool(opts.get("full", False))
-    ord_ = opts.get("ord", None)
     by = term_like.by_variable
     smoothing_id = term_like.smoothing_id
     label = term_like.label
 
-    if special == "s":
-        if bs in {"cr", "cs", "cc"}:
-            if len(features) != 1:
-                raise NotImplementedError(
-                    f"Current runtime only materializes 1D s(..., bs={bs!r}) terms."
-                )
-
-            return SplineTerm1D(
-                feature=features[0],
-                k=k,
-                basis=bs,
-                label=label,
-                term_id=term_like.term_id,
-                smoothing_id=smoothing_id,
-                by=by,
-                sp=sp,
-                select=select,
-                fixed=fx,
-                constraint_mode=constraint_mode,
-                shared_basis_setup=shared_basis_setup,
-                pc=pc,
-                knots=knots,
-                metadata=metadata,
+    if isinstance(
+        smooth_spec,
+        (
+            CubicRegressionSmoothSpec,
+            CubicShrinkageSmoothSpec,
+            CyclicCubicRegressionSmoothSpec,
+        ),
+    ):
+        bs = str(smooth_spec.bs).lower()
+        if len(features) != 1:
+            raise NotImplementedError(
+                f"Current runtime only materializes 1D s(..., bs={bs!r}) terms."
             )
-
-        if bs == "ps":
-            if len(features) != 1:
-                raise NotImplementedError(
-                    "Current runtime only materializes 1D s(..., bs='ps') terms."
-                )
-
-            return PSplineTerm1D(
-                feature=features[0],
-                k=k,
-                basis=bs,
-                m=m,
-                label=label,
-                term_id=term_like.term_id,
-                smoothing_id=smoothing_id,
-                by=by,
-                sp=sp,
-                select=select,
-                fixed=fx,
-                constraint_mode=constraint_mode,
-                pc=pc,
-                knots=knots,
-                metadata=metadata,
-            )
-
-        if bs in {"tp", "ts"}:
-            return make_smooth_term(
-                bs,
-                feature=features,
-                k=k,
-                basis=bs,
-                m=m,
-                label=label,
-                term_id=term_like.term_id,
-                smoothing_id=smoothing_id,
-                by=by,
-                sp=sp,
-                select=select,
-                fixed=fx,
-                constraint_mode=constraint_mode,
-                pc=pc,
-                knots=knots,
-                xt=xt,
-                metadata=metadata,
-            )
-
-        if bs == "gp":
-            return GPSmoothTerm(
-                feature=features,
-                k=k,
-                basis=bs,
-                m=m,
-                label=label,
-                term_id=term_like.term_id,
-                smoothing_id=smoothing_id,
-                by=by,
-                sp=sp,
-                select=select,
-                fixed=fx,
-                constraint_mode=constraint_mode,
-                pc=pc,
-                knots=knots,
-                xt=xt,
-                metadata=metadata,
-            )
-
-        if bs == "mrf":
-            return MarkovRandomFieldTerm(
-                feature=features,
-                k=k,
-                basis=bs,
-                label=label,
-                term_id=term_like.term_id,
-                smoothing_id=smoothing_id,
-                by=by,
-                sp=sp,
-                select=select,
-                xt=xt,
-                knots=knots,
-                metadata=metadata,
-            )
-
-        if bs == "re":
-            return RandomEffectTerm(
-                feature=features,
-                label=label,
-                term_id=term_like.term_id,
-                smoothing_id=smoothing_id,
-                by=by,
-                sp=sp,
-                select=select,
-                xt=xt,
-                metadata=metadata,
-            )
-
-        if bs == "fs":
-            return FSmoothInteractionTerm(
-                feature=features,
-                k=k,
-                label=label,
-                term_id=term_like.term_id,
-                smoothing_id=smoothing_id,
-                by=by,
-                sp=sp,
-                select=select,
-                xt=xt,
-                fixed=fx,
-                knots=knots,
-                metadata=metadata,
-            )
-
-        if bs == "sz":
-            return SZSmoothInteractionTerm(
-                feature=features,
-                k=k,
-                label=label,
-                term_id=term_like.term_id,
-                smoothing_id=smoothing_id,
-                by=by,
-                sp=sp,
-                select=select,
-                xt=xt,
-                fixed=fx,
-                knots=knots,
-                metadata=metadata,
-            )
-
-        raise NotImplementedError(
-            f"Current runtime materializes bs in "
-            f"{{'cr','cs','cc','ps','tp','ts','gp','mrf','re','fs','sz'}} for s(...). "
-            f"Received bs={bs!r}."
+        return SplineTerm1D(
+            feature=features[0],
+            k=smooth_spec.k,
+            basis=bs,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            fixed=smooth_spec.fx,
+            constraint_mode=smooth_spec.constraint_mode,
+            shared_basis_setup=smooth_spec.shared_basis_setup,
+            pc=smooth_spec.pc,
+            knots=smooth_spec.knots,
+            metadata=metadata,
         )
 
-    if special in {"te", "ti", "t2"}:
-        raw_bs = opts.get("bs", "cr")
-        basis = _as_list_or_repeat(raw_bs, len(features))
-        basis = [str(b).lower() for b in basis]
+    if isinstance(smooth_spec, PSplineSmoothSpec):
+        if len(features) != 1:
+            raise NotImplementedError(
+                "Current runtime only materializes 1D s(..., bs='ps') terms."
+            )
+        return PSplineTerm1D(
+            feature=features[0],
+            k=smooth_spec.k,
+            basis="ps",
+            m=smooth_spec.m,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            fixed=smooth_spec.fx,
+            constraint_mode=smooth_spec.constraint_mode,
+            pc=smooth_spec.pc,
+            knots=smooth_spec.knots,
+            metadata=metadata,
+        )
 
+    if isinstance(smooth_spec, (ThinPlateSmoothSpec, ThinPlateShrinkageSmoothSpec)):
+        return make_smooth_term(
+            str(smooth_spec.bs).lower(),
+            feature=features,
+            k=smooth_spec.k,
+            basis=str(smooth_spec.bs).lower(),
+            m=smooth_spec.m,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            fixed=smooth_spec.fx,
+            constraint_mode=smooth_spec.constraint_mode,
+            pc=smooth_spec.pc,
+            knots=smooth_spec.knots,
+            xt=smooth_spec.xt,
+            metadata=metadata,
+        )
+
+    if isinstance(smooth_spec, GPSmoothSpec):
+        return GPSmoothTerm(
+            feature=features,
+            k=smooth_spec.k,
+            basis="gp",
+            m=smooth_spec.m,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            fixed=smooth_spec.fx,
+            constraint_mode=smooth_spec.constraint_mode,
+            pc=smooth_spec.pc,
+            knots=smooth_spec.knots,
+            xt=smooth_spec.xt,
+            metadata=metadata,
+        )
+
+    if isinstance(smooth_spec, MarkovRandomFieldSmoothSpec):
+        return MarkovRandomFieldTerm(
+            feature=features,
+            k=smooth_spec.k,
+            basis="mrf",
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            xt=smooth_spec.xt,
+            knots=smooth_spec.knots,
+            metadata=metadata,
+        )
+
+    if isinstance(smooth_spec, RandomEffectSmoothSpec):
+        return RandomEffectTerm(
+            feature=features,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            xt=smooth_spec.xt,
+            metadata=metadata,
+        )
+
+    if isinstance(smooth_spec, FactorSmoothInteractionSpec):
+        return FSmoothInteractionTerm(
+            feature=features,
+            k=smooth_spec.k,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            xt=smooth_spec.xt,
+            fixed=smooth_spec.fx,
+            knots=smooth_spec.knots,
+            metadata=metadata,
+        )
+
+    if isinstance(smooth_spec, SumToZeroFactorSmoothSpec):
+        return SZSmoothInteractionTerm(
+            feature=features,
+            k=smooth_spec.k,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            xt=smooth_spec.xt,
+            fixed=smooth_spec.fx,
+            knots=smooth_spec.knots,
+            metadata=metadata,
+        )
+
+    if isinstance(
+        smooth_spec,
+        (TensorProductSmoothSpec, TensorInteractionSmoothSpec, TensorANOVASmoothSpec),
+    ):
+        basis = [str(b).lower() for b in tensor_basis_list(smooth_spec, len(features))]
         kwargs = {
             "feature": features,
-            "k": k,
+            "k": smooth_spec.k,
             "basis": basis,
             "label": label,
             "term_id": term_like.term_id,
             "smoothing_id": smoothing_id,
             "by": by,
-            "sp": sp,
-            "select": select,
-            "fixed": fx,
-            "knots": knots,
+            "sp": smooth_spec.sp,
+            "select": smooth_spec.select,
+            "fixed": smooth_spec.fx,
+            "knots": smooth_spec.knots,
             "metadata": metadata,
         }
 
-        if special == "ti":
-            kwargs["mc"] = mc
-        elif special == "t2":
-            kwargs["full"] = full
-            kwargs["ord"] = ord_
+        if isinstance(smooth_spec, TensorInteractionSmoothSpec):
+            kwargs["mc"] = smooth_spec.mc
+        elif isinstance(smooth_spec, TensorANOVASmoothSpec):
+            kwargs["full"] = smooth_spec.full
+            kwargs["ord"] = smooth_spec.ord
 
-        return make_smooth_term(special, **kwargs)
+        return make_smooth_term(smooth_spec.special, **kwargs)
 
-    raise ValueError(f"Unknown smooth special {special!r}.")
+    raise ValueError(f"Unknown smooth spec type {type(smooth_spec).__name__!r}.")
+
+
+def _expected_penalty_group_size(runtime_term):
+    smoothing_id = getattr(runtime_term, "smoothing_id", None)
+    if smoothing_id is None:
+        return None
+
+    if bool(getattr(runtime_term, "fixed", False)):
+        return 0
+
+    term_type = str(getattr(runtime_term, "term_type", "smooth"))
+    if term_type in {"tensor_smooth", "tensor_interaction"}:
+        n_penalties = len(list(getattr(runtime_term, "feature", ()) or ()))
+    else:
+        n_penalties = 1
+
+    if bool(getattr(runtime_term, "select", False)):
+        n_penalties += 1
+
+    return int(n_penalties)
+
+
+def _build_penalty_group_specs(terms):
+    groups = {}
+    for term in terms:
+        smoothing_id = getattr(term, "smoothing_id", None)
+        if smoothing_id is None:
+            continue
+
+        key = str(smoothing_id)
+        expected_count = _expected_penalty_group_size(term)
+        if key not in groups:
+            groups[key] = PenaltyGroupSpec(
+                smoothing_id=key,
+                term_ids=(
+                    []
+                    if getattr(term, "term_id", None) is None
+                    else [str(term.term_id)]
+                ),
+                labels=[str(getattr(term, "label", key))],
+                sp_count=expected_count,
+            )
+            continue
+
+        group = groups[key]
+        if getattr(term, "term_id", None) is not None:
+            group.term_ids.append(str(term.term_id))
+        group.labels.append(str(getattr(term, "label", key)))
+        if (
+            group.sp_count is not None
+            and expected_count is not None
+            and group.sp_count != expected_count
+        ):
+            raise ValueError(
+                f"Linked smoothing id {key!r} expects {group.sp_count} smoothing "
+                f"parameters from earlier terms, got {expected_count}."
+            )
+        if group.sp_count is None:
+            group.sp_count = expected_count
+
+    return list(groups.values())
 
 
 def instantiate_predictor_terms(predictor_specs):
@@ -288,14 +352,17 @@ def instantiate_predictor_terms(predictor_specs):
                 raise TypeError(
                     f"Predictor terms must be canonical TermSpec, got {type(t)}."
                 )
+        runtime_terms = [instantiate_term(t) for t in pred.terms]
+        metadata = dict(pred.metadata)
+        metadata["penalty_group_specs"] = _build_penalty_group_specs(runtime_terms)
         out.append(
             LinearPredictorSpec(
                 name=pred.name,
-                terms=[instantiate_term(t) for t in pred.terms],
+                terms=runtime_terms,
                 has_intercept=bool(getattr(pred, "has_intercept", False)),
                 parameter_name=pred.parameter_name,
                 offset_name=pred.offset_name,
-                metadata=dict(pred.metadata),
+                metadata=metadata,
             )
         )
     return out

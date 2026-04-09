@@ -19,7 +19,8 @@ Algorithm outline
 Rank detection
 --------------
 Rank is revealed by an upper-triangular condition number estimate on the stacked
-R factor.  The threshold is :data:`STACKED_QR_RANK_TOLERANCE` (100 * machine eps).
+R factor.  The threshold is :data:`STACKED_QR_RANK_TOLERANCE` (sqrt(machine eps)),
+matching `mgcv`'s stacked-QR rank-drop tolerance.
 When ``penalty_blocks`` are provided, a Frobenius-normalised aggregate of the
 unscaled penalty templates is used for rank detection (more numerically stable
 than row-normalised ``sqrt(P)`` for mixed-scale penalties).
@@ -47,8 +48,8 @@ from scipy.linalg import lapack as _lapack
 from scipy.linalg import solve_triangular
 
 # Rank-detection threshold: condition number ratio above which a column is considered
-# linearly dependent.  100 * machine eps is the standard choice for this algorithm.
-STACKED_QR_RANK_TOLERANCE = np.finfo(np.float64).eps * 100.0
+# linearly dependent.  Match mgcv's stacked-QR tolerance at sqrt(machine eps).
+STACKED_QR_RANK_TOLERANCE = np.sqrt(np.finfo(np.float64).eps)
 
 # Below this Frobenius norm, the penalty is numerically zero on most of the null space
 # of X (e.g. a random-effect term at the lower smoothing parameter bound).  The
@@ -622,33 +623,13 @@ def _solve_coef_householder_chain_nonneg_weights(
 
 def penalty_sqrt_rows(P: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
-    Penalty square-root factor ``E`` with ``E.T @ E = P`` (``P`` symmetric PSD),
-    plus a row-normalised version ``Es`` used for rank detection in the stacked QR.
-    """
-    P = np.asarray(P, dtype=np.float64)
-    P = 0.5 * (P + P.T)
-    w, V = np.linalg.eigh(P)
-    mask = w > max(np.max(w) * 1e-15, 1e-300)
-    if not np.any(mask):
-        return np.zeros((0, P.shape[0])), np.zeros((0, P.shape[0]))
-    wl = np.sqrt(np.maximum(w[mask], 0.0))
-    Vp = V[:, mask]
-    E = wl[:, None] * Vp.T  # r × q
-    row_norms = np.linalg.norm(E, axis=1, keepdims=True)
-    row_norms = np.maximum(row_norms, 1e-300)
-    Es = E / row_norms
-    return E, Es
-
-
-def penalty_sqrt_rows_prefer_diagonal(P: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """
     Penalty square-root that preserves diagonal structure when ``P`` is diagonal.
 
     When ``P`` is (numerically) diagonal, an eigendecomposition would mix the
     eigenspace arbitrarily and change the minimum-norm tie-break used in lstsq.
     This function uses one identity row per positive diagonal entry instead,
     matching the coefficient tie-break from the triangular solve path.
-    Falls back to :func:`penalty_sqrt_rows` when ``P`` has off-diagonal entries.
+    Falls back to eigendecomposition when ``P`` has off-diagonal entries.
     """
     P = np.asarray(P, dtype=np.float64)
     P = 0.5 * (P + P.T)
@@ -659,7 +640,17 @@ def penalty_sqrt_rows_prefer_diagonal(P: np.ndarray) -> tuple[np.ndarray, np.nda
     if scale <= 0.0:
         scale = 1.0
     if not np.allclose(off, 0.0, atol=1e-14 * max(scale, 1.0), rtol=0.0):
-        return penalty_sqrt_rows(P)
+        w, V = np.linalg.eigh(P)
+        mask = w > max(np.max(w) * 1e-15, 1e-300)
+        if not np.any(mask):
+            return np.zeros((0, P.shape[0])), np.zeros((0, P.shape[0]))
+        wl = np.sqrt(np.maximum(w[mask], 0.0))
+        Vp = V[:, mask]
+        E = wl[:, None] * Vp.T  # r × q
+        row_norms = np.linalg.norm(E, axis=1, keepdims=True)
+        row_norms = np.maximum(row_norms, 1e-300)
+        Es = E / row_norms
+        return E, Es
     rows: list[np.ndarray] = []
     thr = max(np.max(d) * 1e-15, 1e-300)
     for j in range(q):
@@ -852,7 +843,7 @@ def solve_gaussian_penalized_ls_stacked_qr(
         )
 
     P = np.asarray(P, dtype=np.float64)
-    penalty_sqrt, penalty_rank_template = penalty_sqrt_rows_prefer_diagonal(P)
+    penalty_sqrt, penalty_rank_template = penalty_sqrt_rows(P)
     n_penalty_rows = int(penalty_sqrt.shape[0])
     if n_penalty_rows == 0:
         raise ValueError(

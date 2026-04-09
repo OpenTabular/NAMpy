@@ -126,9 +126,46 @@ def fit_model_core(
         model._optim_used_hessian = False
         model.smoothing_score_ = None
 
-    sol = solve_fit(model, y, model.smoothing_params)
+    sol = solve_fit(model, y, model.smoothing_params, weights=model.prior_weights_)
 
     assign_fit_solution(model, sol)
+    if method != "fixed" and not (getattr(model, "_optim_trace", None) or []):
+        inner_trace = list(getattr(sol, "inner_trace", None) or [])
+        if inner_trace:
+            fixed_mask = (
+                np.zeros(model.n_smoothing_params_, dtype=bool)
+                if model.smoothing_fixed_mask_ is None
+                else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+            )
+            free_vals = np.asarray(model.smoothing_params[~fixed_mask], dtype=np.float64)
+            log_sp = (
+                np.log(np.maximum(free_vals, 1e-300))
+                if free_vals.size > 0
+                else np.empty((0,), dtype=np.float64)
+            )
+            model._optim_trace = [
+                {
+                    **dict(row),
+                    "iter": int(row.get("iter", i + 1)),
+                    "log_sp": log_sp.copy(),
+                    "criterion": float(
+                        row.get(
+                            "penalized_deviance_conv",
+                            row.get("penalized_deviance", np.nan),
+                        )
+                    ),
+                    "gradient": np.asarray(
+                        [float(row["grad_inf_norm"])], dtype=np.float64
+                    )
+                    if row.get("grad_inf_norm", None) is not None
+                    else None,
+                    "rank_info": {
+                        "pirls_inner": True,
+                        "converged_here": bool(row.get("converged_here", False)),
+                    },
+                }
+                for i, row in enumerate(inner_trace)
+            ]
 
     # For Gaussian REML/LAML with the exact (profiled Laplace) backend, the optimizer
     # stores the profiled mixed-model criterion value, which differs from mgcv's reported

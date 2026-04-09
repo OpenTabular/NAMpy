@@ -20,7 +20,7 @@ from ..penalties import (
     normalize_penalty_spec,
 )
 from ..runtime.factory import instantiate_predictor_terms
-from ..specs import LinearPredictorSpec
+from ..specs import LinearPredictorSpec, PenaltyGroupSpec
 from .constructors import construct_terms
 from .linked_basis import attach_shared_basis_metadata
 from .structures import CompiledPenalty, CompiledPredictor, CompiledTerm
@@ -52,6 +52,28 @@ def compile_predictor_designs(
 
     designs = []
     for pred_spec in predictor_specs:
+        pred_metadata = dict(getattr(pred_spec, "metadata", {}) or {})
+        raw_group_specs = pred_metadata.get("penalty_group_specs", []) or []
+        penalty_group_specs = {}
+        for spec in raw_group_specs:
+            if isinstance(spec, PenaltyGroupSpec):
+                group = PenaltyGroupSpec(
+                    smoothing_id=str(spec.smoothing_id),
+                    term_ids=list(spec.term_ids),
+                    labels=list(spec.labels),
+                    sp_count=spec.sp_count,
+                    sp_indices=list(spec.sp_indices),
+                )
+            else:
+                group = PenaltyGroupSpec(
+                    smoothing_id=str(spec["smoothing_id"]),
+                    term_ids=list(spec.get("term_ids", [])),
+                    labels=list(spec.get("labels", [])),
+                    sp_count=spec.get("sp_count"),
+                    sp_indices=list(spec.get("sp_indices", [])),
+                )
+            penalty_group_specs[group.smoothing_id] = group
+
         term_blocks = []
         penalty_blocks = []
         design_blocks = []
@@ -118,6 +140,36 @@ def compile_predictor_designs(
                     term_smoothing_indices.append(sp_idx)
                     term_smoothing_ids.append(sid)
 
+                group_id = (
+                    None
+                    if getattr(smooth, "smoothing_id", None) is None
+                    else str(smooth.smoothing_id)
+                )
+                if group_id is not None:
+                    group = penalty_group_specs.get(group_id)
+                    if group is None:
+                        group = PenaltyGroupSpec(smoothing_id=group_id)
+                        penalty_group_specs[group_id] = group
+                    if group.sp_count is None:
+                        group.sp_count = len(term_smoothing_indices)
+                    elif group.sp_count != len(term_smoothing_indices):
+                        raise ValueError(
+                            f"Linked smoothing id {group_id!r} expects {group.sp_count} "
+                            f"smoothing parameters, got {len(term_smoothing_indices)}."
+                        )
+                    if not group.sp_indices:
+                        group.sp_indices = list(term_smoothing_indices)
+                    elif group.sp_indices != list(term_smoothing_indices):
+                        raise ValueError(
+                            f"Linked smoothing id {group_id!r} resolved to inconsistent "
+                            f"smoothing indices {group.sp_indices} and "
+                            f"{term_smoothing_indices}."
+                        )
+                    if smooth.term_id not in group.term_ids:
+                        group.term_ids.append(str(smooth.term_id))
+                    if smooth.label not in group.labels:
+                        group.labels.append(str(smooth.label))
+
                 term_meta = dict(smooth.metadata)
                 term_meta["constructor_metadata"] = dict(smooth.constructor_metadata)
                 term_blocks.append(
@@ -165,6 +217,12 @@ def compile_predictor_designs(
                 override_values[idx] = float(spec["value"])
 
         term_index_map = {tb.term_id: i for i, tb in enumerate(term_blocks)}
+        pred_metadata["penalty_group_specs"] = list(penalty_group_specs.values())
+        pred_metadata["s_id_to_sp_indices"] = {
+            sid: list(group.sp_indices)
+            for sid, group in penalty_group_specs.items()
+            if group.sp_indices
+        }
         designs.append(
             CompiledPredictor(
                 name=pred_spec.name,
@@ -174,11 +232,12 @@ def compile_predictor_designs(
                 smoothing_parameter_map=smoothing_id_map,
                 has_intercept=bool(pred_spec.has_intercept),
                 term_index_map=term_index_map,
+                side_condition_Q=np.eye(start, dtype=np.float64),
                 n_coef=start,
                 n_smoothing_params=len(smoothing_id_map),
                 smoothing_override_modes=override_modes,
                 smoothing_override_values=override_values,
-                metadata=dict(getattr(pred_spec, "metadata", {}) or {}),
+                metadata=pred_metadata,
             )
         )
     return designs

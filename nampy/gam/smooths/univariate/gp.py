@@ -13,14 +13,14 @@ of the smooth function is desired.
 import numpy as np
 
 from ....splines.gaussian_process import build_gp_term_setup, predict_gp_term
-from ....splines.penalty_scaling import scale_penalty
 from ...constraints.absorption import (
     apply_linear_constraint,
     fit_single_penalty_with_constraint_policy,
 )
 from ...design.structures import PenaltySpec
-from ...penalties.algebra import null_space_penalty_from_penalty
-from ..base import (
+from ...penalties.algebra import null_space_penalty_from_penalty, scale_penalty
+from ..registry import register_smooth
+from ..smooth_base import (
     BaseSmoothTerm,
     _normalize_point_constraint,
     _normalize_point_constraint_vector,
@@ -29,7 +29,6 @@ from ..base import (
     resolve_by_state,
     sync_by_state_attributes,
 )
-from ..registry import register_smooth
 
 
 @register_smooth("gp")

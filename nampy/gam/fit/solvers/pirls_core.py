@@ -63,7 +63,7 @@ def fit_pirls_core(
     smoothing_params
         Linear-scale smoothing parameters, shape ``(K,)``.
     family
-        A :class:`nampy.gam.families.base.GLMFamily` instance.
+        A :class:`nampy.gam.families.family_base.GLMFamily` instance.
     fit_intercept
         Whether to prepend an intercept column to ``Z``.
     max_iter
@@ -344,7 +344,9 @@ def fit_pirls_core(
         dev_new = float(family.deviance(y, mu_new))
         pdev_new = dev_new + float(beta_new @ (P_full @ beta_new))
 
-        div_thresh = 10.0 * (0.1 + abs(pdev_old)) * np.sqrt(np.finfo(np.float64).eps)
+        div_thresh = 10.0 * (0.1 + abs(pdev_old)) * (
+            np.finfo(np.float64).eps ** 0.25
+        )
 
         invalid = (not np.isfinite(dev_new)) or (not np.isfinite(pdev_new))
         bad_step = invalid or (pdev_new - pdev_old > div_thresh)

@@ -17,6 +17,7 @@ Provides two code paths:
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
+from ..reparam import ensure_penalty_reparameterization_state
 from .gaussian_dyn import (
     criterion_ml_reml_gaussian_dynamic_joint,
     criterion_ml_reml_gaussian_dynamic_profiled,
@@ -64,12 +65,13 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
     y = model.family.validate_y(y)
     y_eff = y if model.offset_train_ is None else (y - model.offset_train_)
     sp = model._expand_smoothing_params_from_log(log_sp)
+    state = ensure_penalty_reparameterization_state(model)
 
-    Xf = model.X_fix_
-    Zr = model.Z_rand_
+    Xf = state.X_fix
+    Zr = state.Z_rand
     n = Xf.shape[0]
-    p = model.rank_X_fix_
-    q = model.n_rand_
+    p = int(Xf.shape[1])
+    q = int(Zr.shape[1])
 
     if q == 0:
         if p == 0:
@@ -100,7 +102,7 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
     if np.any(lam_vec <= 0):
         return np.inf
 
-    M = model.ZtZ_rand_ + np.diag(lam_vec)
+    M = state.ZtZ_rand + np.diag(lam_vec)
     try:
         cM, loM = cho_factor(M, check_finite=False)
     except np.linalg.LinAlgError:

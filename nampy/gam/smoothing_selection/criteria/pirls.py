@@ -10,6 +10,7 @@ from contextlib import contextmanager
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
+from ..reparam import ensure_penalty_reparameterization_state
 from .penalty import (
     _stable_penalty_logdet,
     _static_fixed_and_random_designs,
@@ -198,33 +199,18 @@ def criterion_ubre_pirls(model, y, log_sp):
     return (sol["deviance"] / n) - scale + (2.0 * model.score_gamma * scale * edf / n)
 
 
-def _ensure_penalty_reparameterization(model):
-    if (
-        model.X_fix_ is None
-        or model.Z_rand_ is None
-        or getattr(model, "_reparam_sp_groups_", None) is None
-    ):
-        model._build_penalty_reparameterized_system()
-
-
 def _laplace_lambda_vector(model, sp):
-    blocks = getattr(model, "_reparam_rand_blocks_", None)
-    if not blocks:
-        return np.empty((0,), dtype=np.float64)
-    lam_parts = []
-    for block in blocks:
-        n_pen = int(block["n_pen"])
-        if n_pen == 0:
-            continue
-        sp_val = float(sp[int(block["smoothing_index"])])
-        scaling = float(block.get("lambda_scaling", 1.0))
-        lam_val = sp_val * scaling
-        lam_parts.append(np.full(n_pen, lam_val, dtype=np.float64))
-    return np.concatenate(lam_parts) if lam_parts else np.empty((0,), dtype=np.float64)
+    state = ensure_penalty_reparameterization_state(model)
+    from ..reparam import sl_lambda_vector
+
+    return sl_lambda_vector(state, sp)
 
 
 def _lambda_group_indices(model):
-    groups = getattr(model, "_reparam_sp_groups_", None)
+    state = ensure_penalty_reparameterization_state(model)
+    from ..reparam import sl_group_indices
+
+    groups = sl_group_indices(state)
     if groups is None:
         return {}
     return {
@@ -253,10 +239,11 @@ def _penalty_derivative_matrices(model, sp):
 
 
 def _pirls_laplace_logdet_term(model, sol, sp, method):
-    Xf = model.X_fix_
-    Zr = model.Z_rand_
-    p = int(model.rank_X_fix_)
-    q = int(model.n_rand_)
+    state = ensure_penalty_reparameterization_state(model)
+    Xf = state.X_fix
+    Zr = state.Z_rand
+    p = int(Xf.shape[1])
+    q = int(Zr.shape[1])
     W = np.asarray(sol["working_weights"], dtype=np.float64)
 
     if q == 0:
@@ -327,7 +314,7 @@ def criterion_ml_reml_pirls(model, y, log_sp, method):
             "null-space penalty per support block."
         )
 
-    _ensure_penalty_reparameterization(model)
+    ensure_penalty_reparameterization_state(model)
 
     sp = model._expand_smoothing_params_from_log(log_sp)
     sol = model._solve_pirls_given_smoothing(y, sp)
@@ -435,10 +422,11 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
             objective -= 0.5 * mp * np.log(2.0 * np.pi * scale)
         return objective
 
-    Xf = model.X_fix_
-    Zr = model.Z_rand_
-    p = int(model.rank_X_fix_)
-    q = int(model.n_rand_)
+    state = ensure_penalty_reparameterization_state(model)
+    Xf = state.X_fix
+    Zr = state.Z_rand
+    p = int(Xf.shape[1])
+    q = int(Zr.shape[1])
     W = np.asarray(sol["working_weights"], dtype=np.float64)
     if q == 0:
         if method == "ML":

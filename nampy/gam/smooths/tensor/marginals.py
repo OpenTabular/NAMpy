@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..base import column_as_float
+from ..smooth_base import column_as_float
 from ..univariate.cubic_regression import SplineTerm1D
 from ..univariate.gp import GPSmoothTerm
 from ..univariate.pspline import PSplineTerm1D

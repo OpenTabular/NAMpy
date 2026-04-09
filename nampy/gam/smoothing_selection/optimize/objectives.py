@@ -149,13 +149,6 @@ class _CriterionObjective:
         return hess
 
 
-def _design_has_mrf_smooth(model) -> bool:
-    for tb in getattr(model, "term_blocks_", None) or []:
-        if str(getattr(tb, "basis_name", "")).lower() == "mrf":
-            return True
-    return False
-
-
 class _JointGaussianRemlObjective:
     """Joint (log sp, log sigma^2) Gaussian REML/LAML outer objective (Wood-style)."""
 

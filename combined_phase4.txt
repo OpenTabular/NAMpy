@@ -1,941 +1,344 @@
-You are a senior computational statistician, numerical software architect, and Python package maintainer with deep expertise in generalized additive models, penalized regression splines, and Simon Wood's mgcv framework.
-I am building a Python reimplementation of the mgcv ecosystem as a submodule of my package nampy.
-You are reviewing Phase 4 - Parity, prediction, and integration.
-This is part 4/4. Keep continuity with prior parts when available, and produce structured feedback for correctness, redundancy elimination, and architecture cleanup.
+Continuation prompt: Phase 4 - Prediction and integration surfaces.
+This is part 4/5. Continue from earlier phases; do not restate prior context.
 
-Directory structure (this phase):
-nampy/
-├─ gam/
-│  ├─ basis/
-│  │  └─ tensor.py
-│  ├─ constraints/
-│  │  ├─ absorption.py
-│  │  ├─ identifiability.py
-│  │  └─ transforms.py
-│  ├─ diagnostics/
-│  │  ├─ plots.py
-│  │  └─ summary.py
-│  ├─ parity/
-│  │  ├─ compare.py
-│  │  ├─ snapshots.py
-│  │  └─ trace.py
-│  ├─ penalties/
-│  │  ├─ algebra.py
-│  │  └─ subsystem.py
-│  ├─ predict/
-│  │  ├─ contributions.py
-│  │  ├─ linear_predictor_matrix.py
-│  │  └─ predictions.py
-│  └─ terms/
-│     ├─ categorical.py
-│     ├─ linear.py
-│     ├─ tensor.py
-│     └─ univariate.py
-├─ splines/
-│  └─ neural_splines.py
-└─ utils/
-   ├─ colors.py
-   ├─ distributional_metrics.py
-   ├─ distributions.py
-   └─ plotting.py
+Included files in this phase: 11
 
-Included files in this phase: 23
-
-# --- Start of nampy/gam/basis/tensor.py ---
-import itertools
+# --- Start of nampy/gam/diagnostics/concurvity.py ---
+from __future__ import annotations
 
 import numpy as np
-
-from ..penalties.algebra import penalty_eigendecomposition
-from ...splines.cubic_basis import cr_exact_null_basis_from_knots
+from scipy.linalg import solve_triangular
 
 
-def rowwise_kronecker(matrices):
-    mats = [np.asarray(M, dtype=np.float64) for M in matrices]
-    if len(mats) == 0:
-        raise ValueError("matrices must contain at least one matrix.")
-    n = mats[0].shape[0]
-    for M in mats:
-        if M.ndim != 2 or M.shape[0] != n:
-            raise ValueError("All marginal model matrices must be 2D with equal rows.")
-    out = mats[0]
-    for M in mats[1:]:
-        out = np.einsum("ij,ik->ijk", out, M, optimize=True).reshape(n, out.shape[1] * M.shape[1])
-    return out
-
-
-def lifted_tensor_penalty(S, basis_dims, axis):
-    S = np.asarray(S, dtype=np.float64)
-    basis_dims = [int(d) for d in basis_dims]
-    left_dim = int(np.prod(basis_dims[:axis], dtype=np.int64)) if axis > 0 else 1
-    right_dim = int(np.prod(basis_dims[axis + 1 :], dtype=np.int64)) if axis + 1 < len(basis_dims) else 1
-    out = S
-    if left_dim > 1:
-        out = np.kron(np.eye(left_dim, dtype=np.float64), out)
-    if right_dim > 1:
-        out = np.kron(out, np.eye(right_dim, dtype=np.float64))
-    return np.asarray(out, dtype=np.float64)
-
-
-def tensor_product_penalties(marginal_penalties, basis_dims):
-    return [lifted_tensor_penalty(S, basis_dims=basis_dims, axis=j) for j, S in enumerate(marginal_penalties)]
-
-
-def normalize_tensor_marginal_penalty(S, tol=1e-12):
-    S = np.asarray(S, dtype=np.float64)
-    if S.shape[0] == 0:
-        return S.copy()
-    evals = np.linalg.eigvalsh(0.5 * (S + S.T))
-    scale = float(np.max(evals))
-    if scale <= tol:
-        return S.copy()
-    return S / scale
-
-
-def rescale_tensor_penalties_for_fit(B, penalties, tol=1e-12):
-    B = np.asarray(B, dtype=np.float64)
-    penalties = [np.asarray(S, dtype=np.float64) for S in penalties]
-    if len(penalties) == 0:
-        return []
-    x_scale = float(np.max(np.sum(np.abs(B), axis=1)) ** 2)
-    if x_scale <= tol:
-        return [S.copy() for S in penalties]
-    out = []
-    for S in penalties:
-        s_scale = float(np.max(np.sum(np.abs(S), axis=0))) / x_scale
-        out.append(S.copy() if s_scale <= tol else S / s_scale)
-    return out
-
-
-def marginal_range_null_decomposition(raw_basis, raw_penalty, tol=1e-10):
-    X = np.asarray(raw_basis, dtype=np.float64)
-    S = np.asarray(raw_penalty, dtype=np.float64)
-    dec = penalty_eigendecomposition(S, tol=tol)
-    U0, U1, d_pos = dec["U0"], dec["U1"], dec["d_pos"]
-    if d_pos.size > 0:
-        T_r = U1 / np.sqrt(d_pos)[np.newaxis, :]
-        B_r = X @ T_r
-    else:
-        T_r = np.empty((S.shape[0], 0), dtype=np.float64)
-        B_r = np.empty((X.shape[0], 0), dtype=np.float64)
-    T_n = U0
-    B_n = X @ T_n if T_n.shape[1] > 0 else np.empty((X.shape[0], 0), dtype=np.float64)
-    return {
-        "B_range": B_r,
-        "B_null": B_n,
-        "T_range": T_r,
-        "T_null": T_n,
-        "range_dim": B_r.shape[1],
-        "null_dim": B_n.shape[1],
-        "rank": dec["rank"],
-        "null_space_dim": dec["null_space_dim"],
-        "tol_eff": dec["tol_eff"],
-    }
-
-
-def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=None):
-    X = np.asarray(raw_basis, dtype=np.float64)
-    S = np.asarray(raw_penalty, dtype=np.float64)
-    evals, U = np.linalg.eigh(0.5 * (S + S.T))
-    idx = np.argsort(evals)[::-1]
-    evals, U = evals[idx], U[:, idx]
-    tol_eff = tol * max(1.0, float(np.max(evals)) if evals.size else 1.0)
-    rank = int(np.sum(evals > tol_eff))
-    p = X.shape[1]
-    null_exists = rank < p
-    if null_exists and knots is not None and (p - rank) == 2:
-        U = np.column_stack([U[:, :rank], cr_exact_null_basis_from_knots(knots)])
-    E = np.ones(p, dtype=np.float64)
-    if rank > 0:
-        E[:rank] = np.sqrt(evals[:rank])
-    Xp = X @ U
-    col_norm = np.sum(Xp**2, axis=0) / (E**2)
-    av_norm = float(np.mean(col_norm[:rank])) if rank > 0 else 1.0
-    if null_exists:
-        for i in range(rank, p):
-            if av_norm > 0.0 and col_norm[i] > 0.0:
-                E[i] = np.sqrt(col_norm[i] / av_norm)
-    P = U / E[np.newaxis, :]
-    Xp = Xp / E[np.newaxis, :]
-    B_r = Xp[:, :rank] if rank > 0 else np.empty((X.shape[0], 0), dtype=np.float64)
-    B_n = Xp[:, rank:] if rank < X.shape[1] else np.empty((X.shape[0], 0), dtype=np.float64)
-    T_r = P[:, :rank] if rank > 0 else np.empty((S.shape[0], 0), dtype=np.float64)
-    T_n = P[:, rank:] if rank < X.shape[1] else np.empty((S.shape[0], 0), dtype=np.float64)
-    return {
-        "B_range": B_r,
-        "B_null": B_n,
-        "T_range": T_r,
-        "T_null": T_n,
-        "range_dim": B_r.shape[1],
-        "null_dim": B_n.shape[1],
-        "rank": rank,
-        "null_space_dim": int(X.shape[1] - rank),
-        "tol_eff": tol_eff,
-    }
-
-
-def _normalize_ord(ord_value, n_marginals):
-    if ord_value is None:
-        return None
-    vals = [int(ord_value)] if np.isscalar(ord_value) else [int(v) for v in ord_value]
-    vals = sorted(set(vals))
-    for v in vals:
-        if v < 0 or v > n_marginals:
-            raise ValueError(f"ord entries must lie between 0 and {n_marginals}, got {vals}.")
-    return vals
-
-
-def _mean_constraint_matrix(B):
-    B = np.asarray(B, dtype=np.float64)
-    if B.shape[1] == 0:
-        return np.eye(0, dtype=np.float64)
-    c = B.mean(axis=0).reshape(-1, 1)
-    q, _ = np.linalg.qr(c, mode="complete")
-    return q[:, 1:]
-
-
-def build_t2_basis_and_penalties(marginal_decompositions, *, full=False, ord=None, remove_constant_from_null_block=True):
-    m = len(marginal_decompositions)
-    ord_keep = _normalize_ord(ord, m)
-    option_lists = []
-    for dec in marginal_decompositions:
-        opts = []
-        q, r = dec["null_dim"], dec["range_dim"]
-        if q > 0:
-            if full:
-                for j in range(q):
-                    opts.append({"kind": "null", "cols": [j], "label": f"n{j+1}"})
-            else:
-                opts.append({"kind": "null", "cols": list(range(q)), "label": "n"})
-        if r > 0:
-            opts.append({"kind": "range", "cols": None, "label": "r"})
-        option_lists.append(opts)
-
-    specs = []
-    for combo in itertools.product(*option_lists):
-        order = sum(1 for c in combo if c["kind"] == "range")
-        if ord_keep is not None and order not in ord_keep:
-            continue
-        specs.append({"combo": combo, "order": order, "label": "".join(c["label"] for c in combo)})
-    specs.sort(key=lambda spec: -int(spec["order"]))
-    penalized_specs = [spec for spec in specs if spec["order"] > 0]
-    allnull_specs = [spec for spec in specs if spec["order"] == 0]
-
-    def materialize_component(spec):
-        mats = []
-        for dec, choice in zip(marginal_decompositions, spec["combo"]):
-            mats.append(dec["B_range"] if choice["kind"] == "range" else dec["B_null"][:, choice["cols"]])
-        return rowwise_kronecker(mats)
-
-    basis_blocks, block_meta = [], []
-    for spec in penalized_specs:
-        B = materialize_component(spec)
-        if B.shape[1] == 0:
-            continue
-        basis_blocks.append(B)
-        block_meta.append({"order": spec["order"], "label": spec["label"], "penalized": True, "n_cols": B.shape[1]})
-
-    B0_raw = np.column_stack([materialize_component(spec) for spec in allnull_specs]) if len(allnull_specs) > 0 else None
-    basis_pre = np.column_stack(basis_blocks + ([B0_raw] if B0_raw is not None and B0_raw.shape[1] > 0 else []))
-    penalties_pre, component_slices_pre = [], []
-    start = 0
-    total_dim_pre = basis_pre.shape[1]
-    for meta in block_meta:
-        sl = slice(start, start + meta["n_cols"])
-        component_slices_pre.append(sl)
-        P = np.zeros((total_dim_pre, total_dim_pre), dtype=np.float64)
-        P[sl, sl] = np.eye(meta["n_cols"], dtype=np.float64)
-        penalties_pre.append(P)
-        start += meta["n_cols"]
-    allnull_transform = None
-    basis, penalties, component_slices = basis_pre, penalties_pre, component_slices_pre
-    if B0_raw is not None and B0_raw.shape[1] > 0 and remove_constant_from_null_block:
-        C0 = _mean_constraint_matrix(B0_raw)
-        allnull_transform = C0
-        n_pen = basis_pre.shape[1] - B0_raw.shape[1]
-        C_full = np.eye(basis_pre.shape[1], dtype=np.float64)
-        C_full = np.column_stack([C_full[:, :n_pen], np.vstack([np.zeros((n_pen, C0.shape[1]), dtype=np.float64), C0])])
-        basis = basis_pre @ C_full
-        penalties = [0.5 * (C_full.T @ S @ C_full + (C_full.T @ S @ C_full).T) for S in penalties_pre]
-        component_slices = component_slices_pre[:-1] + [slice(n_pen, basis.shape[1])]
-    return {
-        "basis": basis,
-        "penalties": penalties,
-        "component_slices": component_slices,
-        "basis_pre_constraint": basis_pre,
-        "penalties_pre_constraint": penalties_pre,
-        "allnull_specs": allnull_specs,
-        "allnull_transform": allnull_transform,
-        "component_specs": block_meta + ([{"order": 0, "label": "null", "penalized": False, "n_cols": 0}] if B0_raw is not None else []),
-        "penalized_specs": penalized_specs,
-    }
-
-
-def materialize_t2_newdata(marginal_new_range_null, *, allnull_specs, allnull_transform, penalized_specs):
-    def materialize_component(spec):
-        mats = []
-        for dec, choice in zip(marginal_new_range_null, spec["combo"]):
-            mats.append(dec["B_range"] if choice["kind"] == "range" else dec["B_null"][:, choice["cols"]])
-        return rowwise_kronecker(mats)
-
+def _term_blocks_for_concurvity(model, X):
+    offset = 1 if bool(getattr(model, "fit_intercept", False)) else 0
+    q = int(X.shape[1])
+    covered = np.zeros(q, dtype=bool)
     blocks = []
-    for spec in penalized_specs:
-        B = materialize_component(spec)
-        if B.shape[1] > 0:
-            blocks.append(B)
-    if len(allnull_specs) > 0:
-        B0 = np.column_stack([materialize_component(spec) for spec in allnull_specs])
-        if allnull_transform is not None and B0.shape[1] > 0:
-            B0 = B0 @ allnull_transform
-        if B0.shape[1] > 0:
-            blocks.append(B0)
-    if len(blocks) == 0:
-        n = next(iter(marginal_new_range_null))["B_null"].shape[0]
-        return np.empty((n, 0), dtype=np.float64)
-    return np.column_stack(blocks)
 
-__all__ = [
-    "rowwise_kronecker",
-    "lifted_tensor_penalty",
-    "tensor_product_penalties",
-    "normalize_tensor_marginal_penalty",
-    "rescale_tensor_penalties_for_fit",
-    "marginal_range_null_decomposition",
-    "t2_marginal_reparameterization",
-    "build_t2_basis_and_penalties",
-    "materialize_t2_newdata",
-]
-
-# --- End of nampy/gam/basis/tensor.py ---
-
-# --- Start of nampy/gam/constraints/absorption.py ---
-"""
-Constraint absorption utilities for GAM smooth terms.
-
-These helpers operate on an already-built basis matrix and its associated
-penalty matrices.  They implement the coefficient-transform invariant:
-
-    if B is transformed to B @ T,
-    then every penalty S must become T.T @ S @ T.
-
-Functions here are used by:
-  - runtime terms (gam/smooths/*) for term-local constraint absorption during fit
-  - the stage-3 wrapper (gam/design/constructors.py) for delegated absorption
-  - gam/constraints/identifiability.py for the centering transform in stage 5
-
-They must not know about compiled predictors, term specs, or fitted results.
-"""
-
-from __future__ import annotations
-
-import copy
-
-import numpy as np
-
-from ..penalties import normalize_penalty_spec
-from .transforms import apply_coefficient_transform, null_space_basis_from_constraint_matrix
-
-
-def apply_linear_constraint(B, penalties, constraint_row, tol: float = 1e-12):
-    """
-    Absorb a single linear constraint ``constraint_row @ coef = 0`` into the basis.
-
-    Computes the QR null space of ``constraint_row`` to obtain a transform T such
-    that any coefficient vector in the null space satisfies the constraint, then
-    returns ``B @ T``, transformed penalties, and T itself.
-
-    Parameters
-    ----------
-    B : np.ndarray, shape (n, d)
-    penalties : list of np.ndarray, each shape (d, d)
-    constraint_row : array-like, shape (d,)
-    tol : float
-        Norm threshold below which the constraint is considered trivial.
-
-    Returns
-    -------
-    Bc : np.ndarray, shape (n, d-1)
-    Sc : list of np.ndarray, each shape (d-1, d-1)
-    C  : np.ndarray, shape (d, d-1)  — the coefficient transform
-    """
-    B = np.asarray(B, dtype=np.float64)
-    penalties = [np.asarray(S, dtype=np.float64) for S in penalties]
-    c = np.asarray(constraint_row, dtype=np.float64).reshape(-1, 1)
-    cn = float(np.linalg.norm(c))
-    if cn <= tol:
-        C = np.eye(B.shape[1], dtype=np.float64)
-        return B, penalties, C
-    q, _ = np.linalg.qr(c, mode="complete")
-    C = q[:, 1:]
-    Bc, Sc = apply_coefficient_transform(B, penalties, C)
-    return Bc, Sc, C
-
-
-def full_term_sum_to_zero_constraint(B, penalties):
-    B = np.asarray(B, dtype=np.float64)
-    mean_row = B.mean(axis=0)
-    return apply_linear_constraint(B, penalties, mean_row)
-
-
-def absorb_explicit_constraints(B, penalty_specs, C, tol: float = 1e-12):
-    B = np.asarray(B, dtype=np.float64)
-    d = B.shape[1]
-    T, n_cons = null_space_basis_from_constraint_matrix(C, d=d, tol=tol)
-    mats = [np.asarray(p.matrix, dtype=np.float64) for p in penalty_specs]
-    B_new, mats_new = apply_coefficient_transform(B, mats, T)
-    out_specs = []
-    for p, S_new in zip(penalty_specs, mats_new):
-        p_new = copy.copy(p)
-        p_new.matrix = S_new
-        out_specs.append(normalize_penalty_spec(p_new))
-    return B_new, out_specs, T, int(n_cons)
-
-
-def should_apply_identifiability_constraint(by_state, constraint_mode, *, default_when_auto=False):
-    mode = str(constraint_mode).lower()
-    if mode == "always":
-        return True
-    if mode == "never":
-        return False
-    if mode == "auto":
-        return bool(default_when_auto) and bool(by_state.is_constant)
-    if mode == "factor_by":
-        return False
-    raise ValueError("constraint_mode must be one of {'auto', 'factor_by', 'always', 'never'}.")
-
-
-def fit_single_penalty_with_constraint_policy(base, penalty, by_state, *, constraint_mode, fixed=False, auto_constrain_when=False, apply_numeric_by_fn=None):
-    base = np.asarray(base, dtype=np.float64)
-    penalty = np.asarray(penalty, dtype=np.float64)
-    apply_numeric_by_fn = apply_numeric_by_fn or (lambda B, z: B if z is None else B * np.asarray(z)[:, None])
-
-    if str(constraint_mode).lower() == "factor_by":
-        if not by_state.is_present:
-            raise ValueError("constraint_mode='factor_by' requires a numeric indicator `by` column.")
-        base_fb = apply_numeric_by_fn(base, by_state.values)
-        penalties_in = [] if bool(fixed) else [penalty]
-        mean_row = base_fb.mean(axis=0)
-        Bc, Sc, C = apply_linear_constraint(base_fb, penalties_in, mean_row)
-        return {"basis_train": np.asarray(Bc, dtype=np.float64), "penalties": Sc, "constraint_kind": "factor_by", "constraint_transform": C}
-
-    should_constrain = should_apply_identifiability_constraint(by_state, constraint_mode, default_when_auto=bool(auto_constrain_when))
-    constraint_kind = None
-    constraint_transform = None
-    if should_constrain:
-        penalties_in = [] if bool(fixed) else [penalty]
-        mean_row = base.mean(axis=0)
-        Bc, Sc, C = apply_linear_constraint(base, penalties_in, mean_row)
-        base_out = Bc
-        penalties_out = Sc
-        constraint_kind = "sum_to_zero"
-        constraint_transform = C
-    else:
-        base_out = base
-        penalties_out = [] if bool(fixed) else [penalty]
-    base_out = apply_numeric_by_fn(base_out, by_state.values)
-    return {"basis_train": np.asarray(base_out, dtype=np.float64), "penalties": penalties_out, "constraint_kind": constraint_kind, "constraint_transform": constraint_transform}
-
-
-__all__ = [
-    "apply_linear_constraint",
-    "full_term_sum_to_zero_constraint",
-    "absorb_explicit_constraints",
-    "should_apply_identifiability_constraint",
-    "fit_single_penalty_with_constraint_policy",
-]
-
-# --- End of nampy/gam/constraints/absorption.py ---
-
-# --- Start of nampy/gam/constraints/identifiability.py ---
-"""
-Stage 5 of the GAM fit pipeline: predictor-wide identifiability side conditions.
-
-Pipeline overview
------------------
-Stage 1  formula / spec layer           gam/formula/
-Stage 2  runtime term materialization   gam/runtime/factory.py + gam/smooths/*
-Stage 3  term construction wrapper      gam/design/constructors.py
-Stage 4  predictor compilation          gam/design/compiler.py
-Stage 5  predictor-wide side conds      gam/constraints/identifiability.py  <- here
-Stage 6  model fitting                  gam/fit/
-Stage 7  prediction / parity            gam/predict/ + gam/parity/
-"""
-
-from __future__ import annotations
-
-import warnings
-
-import numpy as np
-
-from ..design.structures import CompiledPenalty, CompiledPredictor, CompiledTerm
-from .transforms import independent_column_indices, null_space_basis_from_constraint_matrix
-
-
-def apply_global_side_conditions(
-    design: CompiledPredictor,
-    *,
-    fit_intercept: bool = True,
-    tol: float = 1e-10,
-    warn: bool = True,
-):
-    """
-    Apply predictor-wide identifiability side conditions to a CompiledPredictor.
-
-    This is stage 5 of the fit pipeline.  It walks each compiled term in order
-    and performs three operations:
-
-    1. **Exempt terms** (random effects, factor smooths):
-       Preserve their basis and penalties unchanged.  Still add their columns to
-       the span accumulator so that later terms correctly detect linear dependence
-       on their subspace (architecture invariant 6.6: exempt terms still span
-       predictor space).
-
-    2. **Non-exempt terms** — two sub-steps:
-
-       a. *Centering*: if the model has an intercept and the runtime term did not
-          already absorb a sum-to-zero constraint, absorb one now via the
-          null-space of the column-sum vector.  The centering transform T is
-          applied simultaneously to the basis, the accumulated coefficient
-          transform, and every associated penalty matrix (invariant 6.3):
-              B  <- B @ T
-              C  <- C @ T
-              S  <- T.T @ S @ T   for each penalty S
-
-       b. *Column selection*: drop any columns of the (possibly re-parameterised)
-          basis that are linearly dependent on the current span accumulator.
-
-       After both steps, ``CompiledTerm.basis_transform`` holds the full mapping
-       from the runtime term's native coefficient space to the final fitted
-       coefficient space.  Prediction uses
-       ``runtime.transform_new(X_new) @ basis_transform`` and nothing else
-       (invariant 6.2: ``basis_transform`` is canonical).
-
-    3. **Drop zero-width terms**: terms whose every column was removed are
-       excluded from the final compiled predictor.  Keeping zero-width terms
-       complicates prediction, summaries, and parity (invariant 6.7).
-
-    Parameters
-    ----------
-    design : CompiledPredictor
-        Output of stage 4 (``compile_predictor_designs``).
-    fit_intercept : bool
-        Whether the model has an intercept.  Controls whether the constant
-        column is seeded into the span accumulator and whether sum-to-zero
-        centering is applied to eligible terms.
-    tol : float
-        Numerical rank tolerance passed to ``independent_column_indices`` and
-        ``null_space_basis_from_constraint_matrix``.
-    warn : bool
-        If True, emit ``warnings.warn`` when columns are deleted or terms are
-        dropped.
-
-    Returns
-    -------
-    new_design : CompiledPredictor
-        Updated predictor.  Every ``CompiledTerm.basis_transform`` is the
-        complete, canonical fit-to-predict coefficient map for that term.
-    report : dict
-        Diagnostic report with per-term deletion counts, centering flags,
-        and the total number of dropped zero-width terms.
-    """
-    if not isinstance(design, CompiledPredictor):
-        raise TypeError("design must be a CompiledPredictor instance.")
-
-    n_obs = design.design_matrix.shape[0]
-
-    # Span accumulator.  Seeded with a constant column when fit_intercept=True
-    # so that sum-to-zero centering removes the intercept-collinear component.
-    acc = (
-        np.ones((n_obs, 1), dtype=np.float64)
-        if fit_intercept
-        else np.empty((n_obs, 0), dtype=np.float64)
-    )
-
-    new_term_blocks: list[CompiledTerm] = []
-    new_penalty_blocks: list[CompiledPenalty] = []
-    design_blocks: list[np.ndarray] = []
-    deleted_total = 0
-    term_reports = []
-    start = 0
-
-    for term_idx, tb in enumerate(design.compiled_terms):
-        B = np.asarray(tb.basis_train, dtype=np.float64)
-        d = B.shape[1]
-
-        # Collect this term's penalties up-front so the centering transform can
-        # be applied to their matrices before column selection.
-        term_penalty_objs = [pb for pb in design.compiled_penalties if pb.term_index == term_idx]
-        pen_matrices = [np.asarray(pb.matrix, dtype=np.float64) for pb in term_penalty_objs]
-
-        # ── Exempt terms ──────────────────────────────────────────────────────
-        exempt = tb.term_type in {"random_effect", "factor_smooth_fs", "factor_smooth_sz"}
-        if exempt:
-            sl_new = slice(start, start + d)
-            new_idx = len(new_term_blocks)
-            new_term_blocks.append(
-                CompiledTerm(
-                    label=tb.label,
-                    coef_slice=sl_new,
-                    smooth=tb.smooth,
-                    basis_train=B,
-                    basis_transform=tb.basis_transform,
-                    original_n_coef=tb.original_n_coef,
-                    kept_columns=(
-                        np.asarray(tb.kept_columns, dtype=int).copy()
-                        if tb.kept_columns is not None
-                        else np.arange(d, dtype=int)
-                    ),
-                    deleted_columns=(
-                        np.asarray(tb.deleted_columns, dtype=int).copy()
-                        if tb.deleted_columns is not None
-                        else np.array([], dtype=int)
-                    ),
-                    smoothing_indices=list(tb.smoothing_indices),
-                    smoothing_ids=list(tb.smoothing_ids),
-                    n_penalties=tb.n_penalties,
-                    term_type=tb.term_type,
-                    basis_name=tb.basis_name,
-                    by_variable=tb.by_variable,
-                    term_id=tb.term_id,
-                    metadata=dict(tb.metadata),
-                )
-            )
-            for pb, P in zip(term_penalty_objs, pen_matrices):
-                new_penalty_blocks.append(
-                    CompiledPenalty(
-                        label=pb.label,
-                        coef_slice=sl_new,
-                        matrix=P.copy(),
-                        smoothing_index=pb.smoothing_index,
-                        term_index=new_idx,
-                        smoothing_id=pb.smoothing_id,
-                        kind=pb.kind,
-                        rank=pb.rank,
-                        null_space_dim=pb.null_space_dim,
-                        is_null_space_penalty=pb.is_null_space_penalty,
-                        sp_mode=pb.sp_mode,
-                        sp_value=pb.sp_value,
-                        metadata=dict(pb.metadata),
-                    )
-                )
-            if d > 0:
-                design_blocks.append(B)
-                # Exempt terms still span the predictor space (invariant 6.6).
-                acc = np.column_stack([acc, B])
-            term_reports.append({
-                "label": tb.label,
-                "exempt": True,
-                "deleted_columns": [],
-                "kept_columns": (
-                    list(np.asarray(tb.kept_columns, dtype=int))
-                    if tb.kept_columns is not None
-                    else list(range(d))
-                ),
-                "n_deleted": 0,
-                "absorbed_centering": False,
-            })
-            start += d
+    for tb in getattr(model, "term_blocks_", ()) or ():
+        if str(getattr(tb, "term_type", "")) == "parametric":
             continue
-
-        # ── Non-exempt: centering + column selection ──────────────────────────
-        #
-        # C accumulates the coefficient transform from the runtime's native
-        # coefficient space to the current (pre-side-condition) space.
-        # Initialise from whatever the compiler recorded; fall back to identity.
-        C = (
-            np.asarray(tb.basis_transform, dtype=np.float64)
-            if tb.basis_transform is not None
-            else np.eye(d, dtype=np.float64)
+        idx = np.arange(
+            int(tb.coef_slice.start) + offset,
+            int(tb.coef_slice.stop) + offset,
+            dtype=int,
         )
+        if idx.size == 0:
+            continue
+        covered[idx] = True
+        blocks.append((str(tb.label), idx))
 
-        constructor_meta = dict(tb.metadata.get("constructor_metadata", {}) or {})
-        runtime_absorbed = bool(constructor_meta.get("constraints_absorbed_by_runtime", False))
-        absorbed_centering = False
+    para_idx = np.flatnonzero(~covered)
+    if para_idx.size > 0:
+        blocks.insert(0, ("para", para_idx))
 
-        # Step (a): optionally absorb a sum-to-zero centering constraint.
-        if (
-            fit_intercept
-            and not runtime_absorbed
-            and tb.term_type not in {"tensor_interaction", "tensor_anova"}
-        ):
-            centering = np.sum(B, axis=0, keepdims=True)
-            if np.linalg.norm(centering) > tol:
-                T_con, _ = null_space_basis_from_constraint_matrix(centering, tol=tol)
-                if 0 < T_con.shape[1] < d:
-                    # Invariant 6.3: the same transform must be applied to the
-                    # basis, the coefficient map, and every penalty matrix.
-                    pen_matrices = [T_con.T @ S @ T_con for S in pen_matrices]
-                    B = B @ T_con
-                    C = C @ T_con
-                    d = B.shape[1]
-                    absorbed_centering = True
+    if len(blocks) == 0:
+        raise ValueError("No smooth or parametric components available for concurvity.")
+    return blocks
 
-        # Step (b): drop columns linearly dependent on the accumulator.
-        keep = np.asarray(independent_column_indices(B, A=acc, tol=tol), dtype=int)
-        deleted_local = np.setdiff1d(np.arange(d, dtype=int), keep)
 
-        # C_final is the canonical fit-to-predict coefficient map (invariant 6.2).
-        # It maps from the runtime's native coefficient vector to the final fitted
-        # coefficient slice: fitted_coef = runtime_coef @ C_final.
-        C_final = (
-            C[:, keep]
-            if keep.size > 0
-            else np.empty((C.shape[0], 0), dtype=np.float64)
+def _full_coef_vector(model) -> np.ndarray:
+    beta = np.asarray(model.coef_, dtype=np.float64).ravel()
+    if bool(getattr(model, "fit_intercept", False)):
+        return np.concatenate(
+            [np.array([float(model.intercept_)], dtype=np.float64), beta]
         )
-        B_final = (
-            B[:, keep]
-            if keep.size > 0
-            else np.empty((B.shape[0], 0), dtype=np.float64)
-        )
-        d_final = B_final.shape[1]
-
-        # Subset penalty matrices to the surviving columns.
-        # pen_matrices are already in the post-T_con coefficient space, so a
-        # plain row/column selection is valid here (no further transform needed).
-        pen_matrices_final = [
-            S[np.ix_(keep, keep)]
-            if keep.size > 0
-            else np.empty((0, 0), dtype=np.float64)
-            for S in pen_matrices
-        ]
-
-        # Track surviving original coefficient indices for diagnostics / parity.
-        # When centering was absorbed the mapping through T_con is non-trivial;
-        # set to None to signal that exact original indices are unavailable.
-        if absorbed_centering:
-            kept_orig = None
-            deleted_orig = None
-        else:
-            old_kept = (
-                np.asarray(tb.kept_columns, dtype=int)
-                if tb.kept_columns is not None
-                else np.arange(d, dtype=int)
-            )
-            kept_orig = old_kept[keep] if keep.size > 0 else np.array([], dtype=int)
-            deleted_orig = (
-                old_kept[deleted_local]
-                if deleted_local.size > 0
-                else np.array([], dtype=int)
-            )
-
-        tb_meta = dict(tb.metadata)
-        if deleted_orig is not None and deleted_orig.size > 0:
-            tb_meta["del_index"] = deleted_orig.tolist()
-        if absorbed_centering:
-            tb_meta["absorbed_sum_to_zero_constraint"] = True
-
-        sl_new = slice(start, start + d_final)
-        new_idx = len(new_term_blocks)
-
-        new_term_blocks.append(
-            CompiledTerm(
-                label=tb.label,
-                coef_slice=sl_new,
-                smooth=tb.smooth,
-                basis_train=B_final,
-                basis_transform=C_final,
-                original_n_coef=tb.original_n_coef if tb.original_n_coef is not None else d,
-                kept_columns=kept_orig,
-                deleted_columns=deleted_orig,
-                smoothing_indices=list(tb.smoothing_indices),
-                smoothing_ids=list(tb.smoothing_ids),
-                n_penalties=tb.n_penalties,
-                term_type=tb.term_type,
-                basis_name=tb.basis_name,
-                by_variable=tb.by_variable,
-                term_id=tb.term_id,
-                metadata=tb_meta,
-            )
-        )
-
-        for pb, P_new in zip(term_penalty_objs, pen_matrices_final):
-            new_penalty_blocks.append(
-                CompiledPenalty(
-                    label=pb.label,
-                    coef_slice=sl_new,
-                    matrix=P_new,
-                    smoothing_index=pb.smoothing_index,
-                    term_index=new_idx,
-                    smoothing_id=pb.smoothing_id,
-                    kind=pb.kind,
-                    rank=pb.rank,
-                    null_space_dim=pb.null_space_dim,
-                    is_null_space_penalty=pb.is_null_space_penalty,
-                    sp_mode=pb.sp_mode,
-                    sp_value=pb.sp_value,
-                    metadata=dict(pb.metadata),
-                )
-            )
-
-        n_deleted = int(d - d_final)
-        deleted_total += n_deleted
-
-        if d_final > 0:
-            design_blocks.append(B_final)
-            acc = np.column_stack([acc, B_final])
-
-        term_reports.append({
-            "label": tb.label,
-            "exempt": False,
-            "deleted_columns": [] if deleted_orig is None else deleted_orig.tolist(),
-            "kept_columns": [] if kept_orig is None else kept_orig.tolist(),
-            "n_deleted": n_deleted,
-            "absorbed_centering": absorbed_centering,
-        })
-
-        if warn and n_deleted > 0:
-            col_info = (
-                f" (original indices {deleted_orig.tolist()})"
-                if deleted_orig is not None and deleted_orig.size > 0
-                else ""
-            )
-            warnings.warn(
-                f"Applied side conditions to term {tb.label!r}: "
-                f"deleted {n_deleted} redundant column(s){col_info}."
-            )
-
-        start += d_final
-
-    # ── Drop zero-width terms (invariant 6.7) ─────────────────────────────────
-    # Build a mapping: old position in new_term_blocks -> final position (-1 = dropped).
-    old_to_final: dict[int, int] = {}
-    final_term_blocks: list[CompiledTerm] = []
-    for old_i, tb in enumerate(new_term_blocks):
-        if tb.basis_train.shape[1] > 0:
-            old_to_final[old_i] = len(final_term_blocks)
-            final_term_blocks.append(tb)
-        else:
-            old_to_final[old_i] = -1
-            if warn:
-                warnings.warn(
-                    f"Term {tb.label!r} was reduced to zero columns by side "
-                    f"conditions and has been dropped from the compiled predictor."
-                )
-
-    # Keep only penalties whose owning term survived; re-stamp term_index.
-    final_penalty_blocks: list[CompiledPenalty] = []
-    for pb in new_penalty_blocks:
-        new_ti = old_to_final.get(pb.term_index, -1)
-        if new_ti >= 0:
-            pb.term_index = new_ti
-            final_penalty_blocks.append(pb)
-
-    # ── Assemble final CompiledPredictor ──────────────────────────────────────
-    matrix_train = (
-        np.column_stack(design_blocks)
-        if design_blocks
-        else np.empty((n_obs, 0), dtype=np.float64)
-    )
-    term_index_map = {tb.label: i for i, tb in enumerate(final_term_blocks)}
-
-    new_design = CompiledPredictor(
-        name=design.name,
-        design_matrix=matrix_train,
-        compiled_terms=tuple(final_term_blocks),
-        compiled_penalties=tuple(final_penalty_blocks),
-        smoothing_parameter_map=dict(design.smoothing_parameter_map),
-        has_intercept=bool(fit_intercept),
-        term_index_map=term_index_map,
-        n_coef=start,
-        n_smoothing_params=design.n_smoothing_params,
-        smoothing_override_modes=list(design.smoothing_override_modes),
-        smoothing_override_values=(
-            None
-            if design.smoothing_override_values is None
-            else np.asarray(design.smoothing_override_values, dtype=np.float64).copy()
-        ),
-        metadata=dict(design.metadata),
-    )
-    report = {
-        "predictor": design.name,
-        "n_deleted_total": deleted_total,
-        "n_terms_dropped": len(new_term_blocks) - len(final_term_blocks),
-        "term_reports": term_reports,
-    }
-    return new_design, report
+    return beta
 
 
-__all__ = [
-    "apply_global_side_conditions",
-]
-
-# --- End of nampy/gam/constraints/identifiability.py ---
-
-# --- Start of nampy/gam/constraints/transforms.py ---
-from __future__ import annotations
-
-import numpy as np
-from scipy.linalg import qr as scipy_qr
+def _qr_R(X: np.ndarray) -> np.ndarray:
+    return np.linalg.qr(np.asarray(X, dtype=np.float64), mode="reduced")[1]
 
 
-def orthogonal_residual(B, A):
-    B = np.asarray(B, dtype=np.float64)
-    if A is None or np.asarray(A).size == 0 or np.asarray(A).shape[1] == 0:
-        return B
+def _residualize_against(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     A = np.asarray(A, dtype=np.float64)
+    B = np.asarray(B, dtype=np.float64)
+    if A.size == 0 or B.size == 0:
+        return B
     coef, *_ = np.linalg.lstsq(A, B, rcond=None)
     return B - A @ coef
 
 
-def independent_column_indices(B, A=None, tol: float = 1e-10):
-    B = np.asarray(B, dtype=np.float64)
-    if B.ndim != 2:
-        raise ValueError("B must be a 2D matrix.")
-    if B.shape[1] == 0:
-        return np.array([], dtype=int)
-    Rb = orthogonal_residual(B, A)
-    if np.all(np.abs(Rb) <= tol):
-        return np.array([], dtype=int)
-    _Q, R, piv = scipy_qr(Rb, mode="economic", pivoting=True)
-    diag_R = np.abs(np.diag(R))
-    if diag_R.size == 0:
-        return np.array([], dtype=int)
-    rank_tol = max(B.shape) * np.finfo(float).eps * diag_R[0]
-    tol_eff = max(float(tol), float(rank_tol))
-    rank = int(np.sum(diag_R > tol_eff))
-    if rank <= 0:
-        return np.array([], dtype=int)
-    return np.sort(np.asarray(piv[:rank], dtype=int))
+def concurvity(model, full: bool = True):
+    if not getattr(model, "_fitted", False):
+        raise RuntimeError("Model is not fitted.")
+
+    Z = np.asarray(model.design_.design_matrix, dtype=np.float64)
+    if bool(getattr(model, "fit_intercept", False)):
+        X = np.column_stack([np.ones(Z.shape[0], dtype=np.float64), Z])
+    else:
+        X = Z
+    X = X[np.sum(np.isnan(X), axis=1) == 0, :]
+    blocks = _term_blocks_for_concurvity(model, X)
+    beta_full = _full_coef_vector(model)
+    para_X = None
+    if len(blocks) > 0 and blocks[0][0] == "para":
+        para_X = X[:, blocks[0][1]]
+
+    block_mats = []
+    for lab, idx in blocks:
+        Xi = X[:, idx]
+        if (
+            lab != "para"
+            and str(lab).startswith("t2(")
+            and para_X is not None
+            and para_X.size > 0
+        ):
+            Xi = _residualize_against(para_X, Xi)
+        block_mats.append(Xi)
+
+    labels = [lab for lab, _ in blocks]
+    n_terms = len(blocks)
+    measure_names = ("worst", "observed", "estimate")
+
+    if full:
+        out = np.zeros((3, n_terms), dtype=np.float64)
+        for i, (_lab_i, idx_i) in enumerate(blocks):
+            Xi = np.column_stack([blk for j, blk in enumerate(block_mats) if j != i])
+            Xj = block_mats[i]
+            r = int(Xi.shape[1])
+            R = _qr_R(np.column_stack([Xi, Xj]))[:, r:]
+            Rt = _qr_R(R)
+            F = solve_triangular(Rt.T, R[:r, :].T, lower=True)
+            out[0, i] = float(np.linalg.svd(F, compute_uv=False)[0] ** 2)
+            beta = beta_full[idx_i]
+            denom = float(np.sum((Rt @ beta) ** 2))
+            out[1, i] = (
+                0.0 if denom <= 0.0 else float(np.sum((R[:r, :] @ beta) ** 2) / denom)
+            )
+            out[2, i] = float(np.sum(R[:r, :] ** 2) / np.sum(R**2))
+        return {
+            "measure_names": measure_names,
+            "labels": labels,
+            "values": out,
+        }
+
+    mats = [np.ones((n_terms, n_terms), dtype=np.float64) for _ in range(3)]
+    for i, (_lab_i, _idx_i) in enumerate(blocks):
+        Xi = block_mats[i]
+        r = int(Xi.shape[1])
+        for j, (_lab_j, idx_j) in enumerate(blocks):
+            if i == j:
+                continue
+            Xj = block_mats[j]
+            R = _qr_R(np.column_stack([Xi, Xj]))[:, r:]
+            Rt = _qr_R(R)
+            F = solve_triangular(Rt.T, R[:r, :].T, lower=True)
+            mats[0][i, j] = float(np.linalg.svd(F, compute_uv=False)[0] ** 2)
+            beta = beta_full[idx_j]
+            denom = float(np.sum((Rt @ beta) ** 2))
+            mats[1][i, j] = (
+                0.0 if denom <= 0.0 else float(np.sum((R[:r, :] @ beta) ** 2) / denom)
+            )
+            mats[2][i, j] = float(np.sum(R[:r, :] ** 2) / np.sum(R**2))
+
+    return {
+        "measure_names": measure_names,
+        "labels": labels,
+        "values": dict(zip(measure_names, mats)),
+    }
 
 
-def null_space_basis_from_constraint_matrix(C, d: int | None = None, tol: float = 1e-10):
-    C = np.asarray(C, dtype=np.float64)
-    if C.ndim == 1:
-        C = C.reshape(1, -1)
-    if C.ndim != 2:
-        raise ValueError("Constraint matrix must be 2D.")
-    if d is not None and C.shape[1] != int(d):
-        raise ValueError(f"Constraint matrix has width {C.shape[1]}, expected {d}.")
-    if C.size == 0:
-        return np.eye(C.shape[1], dtype=np.float64), 0
-    U, s, Vt = np.linalg.svd(C, full_matrices=True)
-    if s.size == 0:
-        return np.eye(C.shape[1], dtype=np.float64), 0
-    tol_eff = max(float(tol), float(np.max(s)) * max(C.shape) * np.finfo(float).eps)
-    rank = int(np.sum(s > tol_eff))
-    return Vt[rank:, :].T.copy(), rank
+__all__ = ["concurvity"]
+
+# --- End of nampy/gam/diagnostics/concurvity.py ---
+
+# --- Start of nampy/gam/diagnostics/k_check.py ---
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+
+from .residuals import residuals_gam
 
 
-def apply_coefficient_transform(B, penalties, T):
-    B = np.asarray(B, dtype=np.float64)
-    T = np.asarray(T, dtype=np.float64)
-    B_new = B @ T
-    out_penalties = []
-    for S in penalties:
-        S = np.asarray(S, dtype=np.float64)
-        S_new = 0.5 * (T.T @ S @ T + (T.T @ S @ T).T)
-        out_penalties.append(S_new)
-    return B_new, out_penalties
+def _numeric_feature_block(model, tb, row_idx):
+    runtime = getattr(tb.smooth, "runtime", None)
+    if runtime is None or getattr(tb, "by_variable", None) is not None:
+        return None
+
+    if getattr(runtime, "_feature_index", None) is not None:
+        idx = [int(runtime._feature_index)]
+    elif getattr(runtime, "_feature_indices", None) is not None:
+        idx = [int(v) for v in runtime._feature_indices]
+    else:
+        return None
+
+    X = np.asarray(model.X_, dtype=object)[row_idx][:, idx]
+    try:
+        X = np.asarray(X, dtype=np.float64)
+    except (TypeError, ValueError):
+        return None
+    if X.ndim == 1:
+        X = X.reshape(-1, 1)
+    if not np.all(np.isfinite(X)):
+        return None
+    return X
 
 
-__all__ = [
-    "orthogonal_residual",
-    "independent_column_indices",
-    "null_space_basis_from_constraint_matrix",
-    "apply_coefficient_transform",
-]
+def _nearest_indices(X: np.ndarray, n_neighbors: int = 3) -> np.ndarray:
+    d2 = np.sum((X[:, None, :] - X[None, :, :]) ** 2, axis=2)
+    np.fill_diagonal(d2, np.inf)
+    return np.argsort(d2, axis=1)[:, :n_neighbors]
 
-# --- End of nampy/gam/constraints/transforms.py ---
+
+def _stabilized_k_check_edf(model, tb, edf: float) -> float:
+    """Mirror mgcv's near-null-space EDF reporting for heavily penalized smooths."""
+    if not np.isfinite(edf):
+        return edf
+    if str(getattr(tb, "term_type", "")) != "smooth":
+        return edf
+
+    lower_df = None
+    for pb in getattr(model, "penalty_blocks_", ()) or ():
+        if pb.coef_slice != tb.coef_slice:
+            continue
+        nsd = getattr(pb, "null_space_dim", None)
+        if nsd is None:
+            continue
+        lower_df = float(nsd) if lower_df is None else max(lower_df, float(nsd))
+    if lower_df is None:
+        return edf
+
+    sp_vals = [
+        float(model.smoothing_params[j])
+        for j in getattr(tb, "smoothing_indices", ()) or ()
+        if np.isfinite(float(model.smoothing_params[j]))
+    ]
+    if len(sp_vals) == 0 or max(sp_vals) < 1e5:
+        return edf
+
+    delta = float(edf - lower_df)
+    if 0.0 < delta < 1e-3:
+        return float(lower_df + 1e-8)
+    return edf
+
+
+def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = None):
+    """Approximate mgcv::k.check() basis-dimension diagnostic.
+
+    The returned table is intended to be numerically comparable to
+    ``mgcv::k.check`` for term types where both implementations define the same
+    nearest-neighbour residual differencing diagnostic.
+    """
+    if not getattr(model, "_fitted", False):
+        raise RuntimeError("Model is not fitted.")
+
+    term_blocks = [
+        tb
+        for tb in (getattr(model, "term_blocks_", ()) or ())
+        if str(getattr(tb, "term_type", "")) != "parametric"
+    ]
+    if len(term_blocks) == 0:
+        return None
+
+    rsd = np.asarray(residuals_gam(model, type="deviance"), dtype=np.float64).ravel()
+    n = int(rsd.shape[0])
+    rng = np.random.default_rng(seed)
+    if n > int(subsample):
+        row_idx = np.sort(rng.choice(n, size=int(subsample), replace=False))
+        rsd = rsd[row_idx]
+    else:
+        row_idx = np.arange(n, dtype=int)
+
+    rows = []
+    ve = np.empty(int(max(n_rep, 1)), dtype=np.float64)
+    for i, tb in enumerate(term_blocks):
+        label = str(tb.label)
+        X_term = _numeric_feature_block(model, tb, row_idx)
+        k_prime = int(tb.coef_slice.stop - tb.coef_slice.start)
+        edf = float(model.edf_by_term_[i])
+        edf = _stabilized_k_check_edf(model, tb, edf)
+        if X_term is None:
+            rows.append((label, k_prime, edf, np.nan, np.nan))
+            continue
+
+        if X_term.shape[1] == 1:
+            e = np.diff(rsd[np.argsort(X_term[:, 0])])
+            v_obs = float(np.mean(e**2) / 2.0)
+            for rep in range(int(n_rep)):
+                e_rep = np.diff(rsd[rng.permutation(rsd.shape[0])])
+                ve[rep] = float(np.mean(e_rep**2) / 2.0)
+        else:
+            ni = _nearest_indices(X_term, n_neighbors=3)
+            e = rsd - rsd[ni[:, 0]]
+            for j in range(1, ni.shape[1]):
+                e = np.concatenate([e, rsd - rsd[ni[:, j]]])
+            v_obs = float(np.mean(e**2) / 2.0)
+            for rep in range(int(n_rep)):
+                rsdr = rsd[rng.permutation(rsd.shape[0])]
+                e_rep = rsdr - rsdr[ni[:, 0]]
+                for j in range(1, ni.shape[1]):
+                    e_rep = np.concatenate([e_rep, rsdr - rsdr[ni[:, j]]])
+                ve[rep] = float(np.mean(e_rep**2) / 2.0)
+
+        if int(n_rep) > 0:
+            p_val = float(np.mean(ve[: int(n_rep)] < v_obs))
+        else:
+            p_val = np.nan
+        k_index = float(v_obs / np.mean(rsd**2))
+        rows.append((label, k_prime, edf, k_index, p_val))
+
+    return pd.DataFrame(
+        rows,
+        columns=["label", "k_prime", "edf", "k_index", "p_value"],
+    ).set_index("label")
+
+
+def gam_check(
+    model,
+    *,
+    type: str = "deviance",
+    k_sample: int = 5000,
+    k_rep: int = 200,
+    seed: int | None = None,
+):
+    """Build a post-fit diagnostic report analogous to ``mgcv::gam.check``.
+
+    The report intentionally separates two categories of information:
+
+    - ``mgcv_comparable``: pieces with a direct numerical analogue in mgcv,
+      currently the selected residual series and the ``k_check`` table.
+    - ``nampy_specific``: local optimizer and fitted-state diagnostics with no
+      direct mgcv counterpart, such as convergence metadata and the assembled
+      model rank.
+
+    Callers should use the explicit nested blocks to distinguish parity-safe
+    quantities from nampy-only diagnostics.
+    """
+    resid = residuals_gam(model, type=type)
+    k_table = k_check(model, subsample=k_sample, n_rep=k_rep, seed=seed)
+
+    optim = getattr(model, "_optim_result", None)
+    convergence = {
+        "method": getattr(model, "_optim_method", None),
+        "success": None if optim is None else bool(getattr(optim, "success", False)),
+        "message": None if optim is None else str(getattr(optim, "message", "")),
+        "nit": None if optim is None else int(getattr(optim, "nit", 0)),
+        "used_gradient": bool(getattr(model, "_optim_used_gradient", False)),
+        "used_hessian": bool(getattr(model, "_optim_used_hessian", False)),
+    }
+
+    mgcv_comparable = {
+        "residual_type": str(type),
+        "residuals": np.asarray(resid, dtype=np.float64),
+        "k_check": k_table,
+    }
+    nampy_specific = {
+        "convergence": convergence,
+        "model_rank": int(model.n_coef_ + int(bool(model.fit_intercept))),
+    }
+
+    return {
+        "mgcv_comparable": mgcv_comparable,
+        "nampy_specific": nampy_specific,
+    }
+
+
+__all__ = ["k_check", "gam_check"]
+
+# --- End of nampy/gam/diagnostics/k_check.py ---
 
 # --- Start of nampy/gam/diagnostics/plots.py ---
 from __future__ import annotations
@@ -975,7 +378,7 @@ def plot_gam_terms(model, X=None, n_cols=2, figsize=None):
 
     for j, tb in enumerate(model.term_blocks_):
         ax = axes[j]
-        fj = np.asarray(contributions[tb.label]).ravel()
+        fj = np.asarray(contributions[tb.term_id]).ravel()
         smooth = tb.smooth
         term = smooth.runtime
 
@@ -1041,6 +444,109 @@ def plot_gam_terms(model, X=None, n_cols=2, figsize=None):
 __all__ = ["plot_gam_terms"]
 
 # --- End of nampy/gam/diagnostics/plots.py ---
+
+# --- Start of nampy/gam/diagnostics/residuals.py ---
+from __future__ import annotations
+
+import numpy as np
+
+
+def _prior_weights(model) -> np.ndarray:
+    w = getattr(model, "prior_weights_", None)
+    if w is None:
+        return np.ones(int(model.n_samples_), dtype=np.float64)
+    return np.asarray(w, dtype=np.float64).ravel()
+
+
+def _deviance_residuals(model) -> np.ndarray:
+    family = str(getattr(model.family, "name", "")).lower()
+    y = np.asarray(model.y_, dtype=np.float64).ravel()
+    mu = np.asarray(model._fitted_mu, dtype=np.float64).ravel()
+    w = _prior_weights(model)
+    eps = float(getattr(model.family, "eps", 1e-12))
+    sign = np.sign(y - mu)
+    sign[sign == 0.0] = 1.0
+
+    if family == "gaussian":
+        dev = (y - mu) ** 2
+    elif family == "binomial":
+        mu = np.clip(mu, eps, 1.0 - eps)
+        dev = np.zeros_like(y, dtype=np.float64)
+        mask1 = y > 0.0
+        dev[mask1] += y[mask1] * np.log(y[mask1] / mu[mask1])
+        mask2 = y < 1.0
+        dev[mask2] += (1.0 - y[mask2]) * np.log((1.0 - y[mask2]) / (1.0 - mu[mask2]))
+        dev *= 2.0
+    elif family == "poisson":
+        mu = np.clip(mu, eps, None)
+        dev = np.zeros_like(y, dtype=np.float64)
+        mask = y > 0.0
+        dev[mask] = y[mask] * np.log(y[mask] / mu[mask])
+        dev = 2.0 * (dev - (y - mu))
+    elif family == "gamma":
+        y = np.clip(y, eps, None)
+        mu = np.clip(mu, eps, None)
+        dev = 2.0 * ((y - mu) / mu - np.log(y / mu))
+    elif family == "negbin":
+        mu = np.clip(mu, eps, None)
+        theta = float(getattr(model.family, "theta", 1.0))
+        dev = np.zeros_like(y, dtype=np.float64)
+        mask = y > 0.0
+        dev[mask] = y[mask] * np.log(y[mask] / mu[mask])
+        dev = 2.0 * (dev - (y + theta) * np.log((y + theta) / (mu + theta)))
+    else:
+        raise NotImplementedError(
+            f"Deviance residuals are not implemented for family={model.family.name!r}."
+        )
+
+    return sign * np.sqrt(np.clip(w * dev, 0.0, None))
+
+
+def residuals_gam(model, type: str = "deviance") -> np.ndarray:
+    if not getattr(model, "_fitted", False):
+        raise RuntimeError("Model is not fitted.")
+
+    type = str(type).lower()
+    y = np.asarray(model.y_, dtype=np.float64).ravel()
+    mu = np.asarray(model._fitted_mu, dtype=np.float64).ravel()
+    eta = np.asarray(model._fitted_eta, dtype=np.float64).ravel()
+    w = _prior_weights(model)
+
+    if type == "response":
+        return y - mu
+    if type == "working":
+        fit_state = getattr(model, "fit_state_", None)
+        z_work = (
+            None if fit_state is None else getattr(fit_state, "working_response", None)
+        )
+        if z_work is not None:
+            z_work = np.asarray(z_work, dtype=np.float64).ravel()
+            offset = getattr(fit_state, "offset", None)
+            eta_base = (
+                eta
+                if offset is None
+                else eta - np.asarray(offset, dtype=np.float64).ravel()
+            )
+            return z_work - eta_base
+        mu_eta = np.asarray(model.family.mu_eta(eta), dtype=np.float64)
+        return (y - mu) / np.clip(mu_eta, 1e-300, None)
+    if type == "deviance":
+        return _deviance_residuals(model)
+    if type in {"pearson", "scaled.pearson"}:
+        var = np.asarray(model.family.variance(mu), dtype=np.float64)
+        res = (y - mu) * np.sqrt(w) / np.sqrt(np.clip(var, 1e-300, None))
+        if type == "scaled.pearson":
+            res = res / np.sqrt(max(float(model.scale_), 1e-300))
+        return res
+
+    raise ValueError(
+        "type must be one of {'deviance', 'pearson', 'scaled.pearson', 'working', 'response'}."
+    )
+
+
+__all__ = ["residuals_gam"]
+
+# --- End of nampy/gam/diagnostics/residuals.py ---
 
 # --- Start of nampy/gam/diagnostics/summary.py ---
 """
@@ -1200,7 +706,10 @@ def compare_parity_snapshots(actual, expected, atol=1e-6, rtol=1e-6):
     }
 
     if "cov_bayes" in a_fit or "cov_bayes" in e_fit:
-        checks["cov_bayes"] = (a_fit.get("cov_bayes", None), e_fit.get("cov_bayes", None))
+        checks["cov_bayes"] = (
+            a_fit.get("cov_bayes", None),
+            e_fit.get("cov_bayes", None),
+        )
     if "cov_freq" in a_fit or "cov_freq" in e_fit:
         checks["cov_freq"] = (a_fit.get("cov_freq", None), e_fit.get("cov_freq", None))
 
@@ -1220,12 +729,16 @@ def compare_parity_snapshots(actual, expected, atol=1e-6, rtol=1e-6):
     }
 
     for name, (a, e) in scalar_pairs.items():
-        ok = (a is None and e is None) or np.isclose(float(a), float(e), atol=atol, rtol=rtol)
+        ok = (a is None and e is None) or np.isclose(
+            float(a), float(e), atol=atol, rtol=rtol
+        )
         report["scalar_checks"][name] = {
             "actual": a,
             "expected": e,
             "ok": bool(ok),
-            "abs_diff": None if (a is None or e is None) else float(abs(float(a) - float(e))),
+            "abs_diff": (
+                None if (a is None or e is None) else float(abs(float(a) - float(e)))
+            ),
         }
         report["passed"] = report["passed"] and bool(ok)
 
@@ -1247,6 +760,7 @@ def assert_parity_snapshot_close(actual, expected, atol=1e-6, rtol=1e-6):
     if not report["passed"]:
         raise AssertionError(json.dumps(report, indent=2))
     return report
+
 # --- End of nampy/gam/parity/compare.py ---
 
 # --- Start of nampy/gam/parity/snapshots.py ---
@@ -1260,39 +774,183 @@ Core fit serialization is intentionally kept semantic-free:
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import numpy as np
+from scipy.linalg import qr
 
-from ..smoothness.criteria import (
+from ..smoothing_selection.criteria import (
     criterion_ml_reml,
     criterion_ml_reml_gaussian_dynamic_joint,
+    criterion_ml_reml_gaussian_exact_joint,
     criterion_ml_reml_pirls,
     resolve_ml_reml_scoring_backend,
 )
+from ..smoothing_selection.postfit import optimizer_endpoint_diagnostics
+
+
+def _intercept_offset(model) -> int:
+    """Return 1 if model was fit with an intercept column in X, else 0."""
+    return 1 if bool(getattr(model, "fit_intercept", False)) else 0
 
 
 def _coerce_snapshot_arrays(snapshot):
     out = dict(snapshot)
     fit = dict(out.get("fit", {}))
     preds = dict(out.get("predictions", {}))
+    parity = dict(out.get("parity", {}))
+    diagnostics = dict(parity.get("diagnostics", {}))
 
     for key in (
         "coef_full",
         "smoothing_params",
+        "log_smoothing_params",
         "edf_by_term",
         "cov_bayes",
         "cov_freq",
+        "outer_grad",
+        "outer_hess",
     ):
         if key in fit and fit[key] is not None:
             fit[key] = np.asarray(fit[key], dtype=np.float64)
 
-    for key in ("response", "link", "terms", "lpmatrix"):
+    for key in ("response", "link", "terms", "lpmatrix", "se_response", "se_link"):
         if key in preds and preds[key] is not None:
             preds[key] = np.asarray(preds[key], dtype=np.float64)
 
+    if diagnostics.get("concurvity_full", None) is not None:
+        diagnostics["concurvity_full"] = np.asarray(
+            diagnostics["concurvity_full"], dtype=np.float64
+        )
+    pairwise = diagnostics.get("concurvity_pairwise", None)
+    if pairwise is not None:
+        pairwise = dict(pairwise)
+        for key, vals in list(pairwise.items()):
+            if key == "labels" or vals is None:
+                continue
+            pairwise[key] = np.asarray(vals, dtype=np.float64)
+        diagnostics["concurvity_pairwise"] = pairwise
+    if diagnostics.get("sp_vcov", None) is not None:
+        diagnostics["sp_vcov"] = np.asarray(diagnostics["sp_vcov"], dtype=np.float64)
+    endpoint_block = diagnostics.get("optimizer_endpoint", None)
+    if endpoint_block is not None:
+        endpoint_block = dict(endpoint_block)
+        for key in (
+            "log_smoothing_params",
+            "bounds",
+            "gradient",
+            "projected_gradient",
+            "hessian",
+            "hessian_eigenvalues",
+            "at_lower_bound",
+            "at_upper_bound",
+        ):
+            vals = endpoint_block.get(key, None)
+            if vals is not None:
+                endpoint_block[key] = np.asarray(vals, dtype=np.float64)
+        diagnostics["optimizer_endpoint"] = endpoint_block
+    if diagnostics.get("one_se_rule", None) is not None:
+        diagnostics["one_se_rule"] = np.asarray(
+            diagnostics["one_se_rule"], dtype=np.float64
+        )
+    if diagnostics.get("gam_vcomp", None) is not None:
+        diagnostics["gam_vcomp"] = np.asarray(
+            diagnostics["gam_vcomp"], dtype=np.float64
+        )
+    residuals_block = diagnostics.get("residuals", None)
+    if residuals_block is not None:
+        residuals_block = dict(residuals_block)
+        for key in (
+            "response",
+            "working",
+            "pearson",
+            "scaled_pearson",
+            "deviance",
+        ):
+            vals = residuals_block.get(key, None)
+            if vals is not None:
+                residuals_block[key] = np.asarray(vals, dtype=np.float64)
+        diagnostics["residuals"] = residuals_block
+    k_check_block = diagnostics.get("k_check", None)
+    if k_check_block is not None:
+        k_check_block = dict(k_check_block)
+        labels = k_check_block.get("labels", None)
+        if labels is not None and not isinstance(labels, list):
+            k_check_block["labels"] = [labels]
+        vals = k_check_block.get("values", None)
+        if vals is not None:
+            k_check_block["values"] = np.asarray(vals, dtype=np.float64)
+        diagnostics["k_check"] = k_check_block
+    for key in ("smooth_cov_bayes", "smooth_cov_freq"):
+        block = diagnostics.get(key, None)
+        if block is not None:
+            block = dict(block)
+            labels = block.get("labels", None)
+            if labels is not None and not isinstance(labels, list):
+                block["labels"] = [labels]
+            mats = block.get("blocks", None)
+            if mats is not None:
+                block["blocks"] = [np.asarray(m, dtype=np.float64) for m in mats]
+            diagnostics[key] = block
+    edf1_block = diagnostics.get("smooth_edf1", None)
+    if edf1_block is not None:
+        edf1_block = dict(edf1_block)
+        labels = edf1_block.get("labels", None)
+        if labels is not None and not isinstance(labels, list):
+            edf1_block["labels"] = [labels]
+        if edf1_block.get("values", None) is not None:
+            edf1_block["values"] = np.asarray(edf1_block["values"], dtype=np.float64)
+        diagnostics["smooth_edf1"] = edf1_block
+    sti = diagnostics.get("smooth_test_inputs", None)
+    if sti is not None:
+        sti = dict(sti)
+        labels = sti.get("labels", None)
+        if labels is not None and not isinstance(labels, list):
+            sti["labels"] = [labels]
+        for key in ("coef_blocks", "r_blocks"):
+            mats = sti.get(key, None)
+            if mats is not None:
+                sti[key] = [np.asarray(m, dtype=np.float64) for m in mats]
+        for key in ("edf", "edf1"):
+            vals = sti.get(key, None)
+            if vals is not None:
+                sti[key] = np.asarray(vals, dtype=np.float64)
+        if sti.get("residual_df", None) is not None:
+            sti["residual_df"] = float(sti["residual_df"])
+        diagnostics["smooth_test_inputs"] = sti
+    sfs = diagnostics.get("smooth_function_space", None)
+    if sfs is not None:
+        sfs = dict(sfs)
+        labels = sfs.get("labels", None)
+        if labels is not None and not isinstance(labels, list):
+            sfs["labels"] = [labels]
+        for key in ("fitted", "variance_diag"):
+            vals = sfs.get(key, None)
+            if vals is not None:
+                if not isinstance(vals, list) or (
+                    len(sfs.get("labels", [])) == 1
+                    and vals
+                    and not isinstance(vals[0], (list, tuple))
+                ):
+                    vals = [vals]
+                sfs[key] = [np.asarray(v, dtype=np.float64) for v in vals]
+        diagnostics["smooth_function_space"] = sfs
+    for key in ("anova_parametric", "anova_smooth"):
+        block = diagnostics.get(key, None)
+        if block is not None:
+            block = dict(block)
+            labels = block.get("labels", None)
+            if labels is not None and not isinstance(labels, list):
+                block["labels"] = [labels]
+            if block.get("values", None) is not None:
+                block["values"] = np.asarray(block["values"], dtype=np.float64)
+            diagnostics[key] = block
+
     out["fit"] = fit
     out["predictions"] = preds
+    parity["diagnostics"] = diagnostics
+    out["parity"] = parity
     return out
 
 
@@ -1306,7 +964,11 @@ def _get_core(model):
         return model
     if hasattr(model, "core_") and model.core_ is not None:
         return model.core_
-    if hasattr(model, "model") and hasattr(model.model, "core_") and model.model.core_ is not None:
+    if (
+        hasattr(model, "model")
+        and hasattr(model.model, "core_")
+        and model.model.core_ is not None
+    ):
         return model.model.core_
     if (
         hasattr(model, "model")
@@ -1323,6 +985,22 @@ def _get_core(model):
     )
 
 
+def _normalize_mgcv_term_label(label):
+    if label is None:
+        return None
+    text = str(label)
+    text = re.sub(r",\s*bs\s*=\s*(\"[^\"]*\"|'[^']*'|[^,)]+)", "", text)
+    text = re.sub(r",\s*k\s*=\s*[^,)]+", "", text)
+    return text
+
+
+def _residual_df_from_snapshot_state(core) -> float:
+    H = np.asarray(core._H_coef, dtype=np.float64)
+    edf1 = 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
+    intercept_df = 1.0 if bool(getattr(core, "fit_intercept", False)) else 0.0
+    return float(core.n_samples_) - intercept_df - float(np.sum(edf1))
+
+
 def _build_parity_criterion_view(core, fit_dict):
     criterion_name = fit_dict.get("criterion_name", None)
     view = {
@@ -1331,6 +1009,9 @@ def _build_parity_criterion_view(core, fit_dict):
         "recomputed_criterion_value": None,
         "recomputed_criterion_source": None,
         "criterion_backend": None,
+        "profiled_criterion_value": None,
+        "joint_criterion_value": None,
+        "joint_log_sigma2": None,
     }
 
     if (
@@ -1346,14 +1027,63 @@ def _build_parity_criterion_view(core, fit_dict):
         else np.asarray(core.smoothing_fixed_mask_, dtype=bool)
     )
     free_vals = np.asarray(core.smoothing_params[~fixed_mask], dtype=np.float64)
-    log_free = np.log(free_vals) if free_vals.size > 0 else np.empty((0,), dtype=np.float64)
+    log_free = (
+        np.log(free_vals) if free_vals.size > 0 else np.empty((0,), dtype=np.float64)
+    )
     branch_method = "REML" if str(criterion_name).lower() in {"reml", "laml"} else "ML"
     backend = resolve_ml_reml_scoring_backend(core, method=str(criterion_name).lower())
     view["criterion_backend"] = backend
-
+    score_joint = getattr(core, "smoothing_score_", None)
     joint_s2 = getattr(core, "_gaussian_reml_sigma2_opt_", None)
     if joint_s2 is not None and np.isfinite(float(joint_s2)):
-        score_joint = getattr(core, "smoothing_score_", None)
+        view["joint_log_sigma2"] = float(np.log(max(float(joint_s2), 1e-300)))
+    if backend in {"gaussian_exact", "gaussian_dynamic"} and log_free.size > 0:
+        try:
+            view["profiled_criterion_value"] = float(
+                criterion_ml_reml(core, core.y_, log_free, method=branch_method)
+            )
+        except Exception:
+            view["profiled_criterion_value"] = None
+    if backend == "gaussian_exact" and log_free.size > 0 and joint_s2 is not None:
+        try:
+            view["joint_criterion_value"] = float(
+                criterion_ml_reml_gaussian_exact_joint(
+                    core,
+                    core.y_,
+                    log_free,
+                    float(np.log(max(float(joint_s2), 1e-300))),
+                    method=(
+                        "LAML"
+                        if str(criterion_name).lower() == "laml"
+                        else branch_method
+                    ),
+                )
+            )
+        except Exception:
+            view["joint_criterion_value"] = None
+    elif backend == "gaussian_dynamic" and log_free.size > 0 and joint_s2 is not None:
+        try:
+            view["joint_criterion_value"] = float(
+                criterion_ml_reml_gaussian_dynamic_joint(
+                    core,
+                    core.y_,
+                    log_free,
+                    float(np.log(max(float(joint_s2), 1e-300))),
+                    method=(
+                        "LAML"
+                        if str(criterion_name).lower() == "laml"
+                        else branch_method
+                    ),
+                )
+            )
+        except Exception:
+            view["joint_criterion_value"] = None
+    if score_joint is not None and np.isfinite(float(score_joint)):
+        view["recomputed_criterion_value"] = float(score_joint)
+        view["recomputed_criterion_source"] = "smoothing_score"
+        return view
+
+    if joint_s2 is not None and np.isfinite(float(joint_s2)):
         candidate = (
             float(score_joint)
             if score_joint is not None and np.isfinite(float(score_joint))
@@ -1377,11 +1107,15 @@ def _build_parity_criterion_view(core, fit_dict):
             except Exception:
                 candidate = None
                 source = None
-    elif backend in {"gaussian_dynamic", "pirls_laplace_dynamic"}:
-        candidate = float(criterion_ml_reml(core, core.y_, log_free, method=branch_method))
+    elif backend in {"gaussian_exact", "gaussian_dynamic", "pirls_laplace_dynamic"}:
+        candidate = float(
+            criterion_ml_reml(core, core.y_, log_free, method=branch_method)
+        )
         source = "criterion_ml_reml"
     else:
-        candidate = float(criterion_ml_reml_pirls(core, core.y_, log_free, method=branch_method))
+        candidate = float(
+            criterion_ml_reml_pirls(core, core.y_, log_free, method=branch_method)
+        )
         source = "criterion_ml_reml_pirls"
 
     view["recomputed_criterion_value"] = candidate
@@ -1397,20 +1131,286 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
 
     fit_result = core.fit_result(include_covariances=include_covariances)
     fit_dict = fit_result.to_dict(include_covariances=include_covariances)
+    if hasattr(core.family, "theta"):
+        fit_dict["family_theta"] = float(core.family.theta)
+    else:
+        fit_dict["family_theta"] = None
+    fit_dict["estimate_theta"] = bool(getattr(core.family, "estimate_theta", False))
+    if fit_dict.get("smoothing_params", None) is not None:
+        sp = np.asarray(fit_dict["smoothing_params"], dtype=np.float64)
+        fit_dict["log_smoothing_params"] = np.log(np.maximum(sp, 1e-300)).tolist()
     parity_view = _build_parity_criterion_view(core, fit_dict)
 
-    predict_api = model if (hasattr(model, "predict") and hasattr(model, "lpmatrix")) else core
+    predict_api = (
+        model if (hasattr(model, "predict") and hasattr(model, "lpmatrix")) else core
+    )
 
     if X is None:
         response = core.predict(X=None, type="response")
         link = core.predict(X=None, type="link")
         terms = core.predict(X=None, type="terms")
         lpmatrix = core.lpmatrix(core.X_)
+        _, se_response = core.predict(X=None, type="response", return_se=True)
+        _, se_link = core.predict(X=None, type="link", return_se=True)
     else:
         response = predict_api.predict(X=X, type="response")
         link = predict_api.predict(X=X, type="link")
         terms = predict_api.predict(X=X, type="terms")
         lpmatrix = predict_api.lpmatrix(X)
+        _, se_response = predict_api.predict(X=X, type="response", return_se=True)
+        _, se_link = predict_api.predict(X=X, type="link", return_se=True)
+
+    diagnostics = {}
+
+    smooth_labels = []
+    smooth_cov_bayes = []
+    smooth_cov_freq = []
+    smooth_edf1_vals = []
+    edf1_vec = None
+    if len(getattr(core, "term_blocks_", ()) or ()) > 0:
+        try:
+            H = np.asarray(core._H_coef, dtype=np.float64)
+            edf1_vec = 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
+        except Exception:
+            edf1_vec = None
+        x_off = _intercept_offset(core)
+        for tb in getattr(core, "term_blocks_", ()) or ():
+            if str(getattr(tb, "term_type", "")) == "parametric":
+                continue
+            sl = tb.coef_slice
+            # sl indexes coef_ (no intercept); Vp_, Vf_, H include the intercept column
+            x_sl = slice(sl.start + x_off, sl.stop + x_off)
+            smooth_labels.append(_normalize_mgcv_term_label(tb.label))
+            if getattr(core, "Vp_", None) is not None:
+                smooth_cov_bayes.append(
+                    np.asarray(core.Vp_[x_sl, x_sl], dtype=np.float64)
+                )
+            if getattr(core, "Vf_", None) is not None:
+                smooth_cov_freq.append(
+                    np.asarray(core.Vf_[x_sl, x_sl], dtype=np.float64)
+                )
+            if edf1_vec is not None:
+                smooth_edf1_vals.append(float(np.sum(edf1_vec[x_sl])))
+
+    diagnostics["smooth_cov_bayes"] = (
+        None
+        if len(smooth_cov_bayes) == 0
+        else {
+            "labels": list(smooth_labels),
+            "blocks": [m.tolist() for m in smooth_cov_bayes],
+        }
+    )
+    diagnostics["smooth_cov_freq"] = (
+        None
+        if len(smooth_cov_freq) == 0
+        else {
+            "labels": list(smooth_labels),
+            "blocks": [m.tolist() for m in smooth_cov_freq],
+        }
+    )
+    diagnostics["smooth_edf1"] = (
+        None
+        if len(smooth_edf1_vals) == 0
+        else {
+            "labels": list(smooth_labels),
+            "values": np.asarray(smooth_edf1_vals, dtype=np.float64).tolist(),
+        }
+    )
+    if len(smooth_labels) > 0:
+        X_full = np.asarray(core.fit_state_.X, dtype=np.float64)
+        R_full = getattr(core, "_summary_R_", None)
+        if R_full is None:
+            W_full = np.asarray(core.fit_state_.working_weights, dtype=np.float64)
+            weighted_X = np.sqrt(np.clip(W_full, 0.0, None))[:, None] * X_full
+            _, R_full = qr(weighted_X, mode="economic")
+        diagnostics["smooth_test_inputs"] = {
+            "labels": list(smooth_labels),
+            "coef_blocks": [
+                np.asarray(core.coef_[tb.coef_slice], dtype=np.float64).tolist()
+                for tb in getattr(core, "term_blocks_", ()) or ()
+                if str(getattr(tb, "term_type", "")) != "parametric"
+            ],
+            "r_blocks": [
+                np.asarray(
+                    R_full[
+                        :,
+                        int(tb.coef_slice.start)
+                        + _intercept_offset(core) : int(tb.coef_slice.stop)
+                        + _intercept_offset(core),
+                    ],
+                    dtype=np.float64,
+                ).tolist()
+                for tb in getattr(core, "term_blocks_", ()) or ()
+                if str(getattr(tb, "term_type", "")) != "parametric"
+            ],
+            "edf": np.asarray(
+                [
+                    float(core.edf_by_term_[i])
+                    for i, tb in enumerate(getattr(core, "term_blocks_", ()) or ())
+                    if str(getattr(tb, "term_type", "")) != "parametric"
+                ],
+                dtype=np.float64,
+            ).tolist(),
+            "edf1": np.asarray(smooth_edf1_vals, dtype=np.float64).tolist(),
+            "residual_df": float(core.n_samples_)
+            - (1.0 if bool(getattr(core, "fit_intercept", False)) else 0.0)
+            - float(core.edf_),
+        }
+        diagnostics["smooth_function_space"] = {
+            "labels": list(smooth_labels),
+            "fitted": [
+                np.asarray(terms[:, i], dtype=np.float64).tolist()
+                for i, tb in enumerate(getattr(core, "term_blocks_", ()) or ())
+                if str(getattr(tb, "term_type", "")) != "parametric"
+            ],
+            "variance_diag": [
+                np.asarray(
+                    np.sum(
+                        (
+                            np.asarray(
+                                lpmatrix[
+                                    :,
+                                    int(tb.coef_slice.start) : int(tb.coef_slice.stop),
+                                ],
+                                dtype=np.float64,
+                            )
+                            @ np.asarray(
+                                core.Vp_[tb.coef_slice, tb.coef_slice], dtype=np.float64
+                            )
+                        )
+                        * np.asarray(
+                            lpmatrix[
+                                :,
+                                int(tb.coef_slice.start) : int(tb.coef_slice.stop),
+                            ],
+                            dtype=np.float64,
+                        ),
+                        axis=1,
+                    ),
+                    dtype=np.float64,
+                ).tolist()
+                for tb in getattr(core, "term_blocks_", ()) or ()
+                if str(getattr(tb, "term_type", "")) != "parametric"
+            ],
+        }
+    else:
+        diagnostics["smooth_test_inputs"] = None
+        diagnostics["smooth_function_space"] = None
+    try:
+        conc = predict_api.concurvity(full=True)
+        diagnostics["concurvity_labels"] = [
+            _normalize_mgcv_term_label(v) for v in conc["labels"]
+        ]
+        diagnostics["concurvity_full"] = np.asarray(
+            conc["values"], dtype=np.float64
+        ).tolist()
+    except Exception:
+        diagnostics["concurvity_labels"] = None
+        diagnostics["concurvity_full"] = None
+
+    try:
+        conc = predict_api.concurvity(full=False)
+        diagnostics["concurvity_pairwise"] = {
+            "labels": [_normalize_mgcv_term_label(v) for v in conc["labels"]],
+            **{
+                name: np.asarray(mat, dtype=np.float64).tolist()
+                for name, mat in conc["values"].items()
+            },
+        }
+    except Exception:
+        diagnostics["concurvity_pairwise"] = None
+
+    try:
+        V = predict_api.sp_vcov(edge_correct=False)
+        diagnostics["sp_vcov"] = (
+            None if V is None else np.asarray(V, dtype=np.float64).tolist()
+        )
+    except Exception:
+        diagnostics["sp_vcov"] = None
+
+    try:
+        endpoint_diag = optimizer_endpoint_diagnostics(core)
+        diagnostics["optimizer_endpoint"] = endpoint_diag
+    except Exception:
+        diagnostics["optimizer_endpoint"] = None
+
+    try:
+        vc = predict_api.gam_vcomp(rescale=False)
+        if vc is not None and isinstance(vc, dict) and "vc" in vc:
+            diagnostics["gam_vcomp"] = np.asarray(vc["vc"], dtype=np.float64).tolist()
+            diagnostics["gam_vcomp_names"] = list(vc.get("names", []))
+        else:
+            diagnostics["gam_vcomp"] = None
+            diagnostics["gam_vcomp_names"] = None
+    except Exception:
+        diagnostics["gam_vcomp"] = None
+        diagnostics["gam_vcomp_names"] = None
+
+    try:
+        one_se = predict_api.one_se_rule()
+        diagnostics["one_se_rule"] = np.asarray(one_se, dtype=np.float64).tolist()
+    except Exception:
+        diagnostics["one_se_rule"] = None
+
+    try:
+        diagnostics["residuals"] = {
+            "response": np.asarray(
+                predict_api.residuals(type="response"), dtype=np.float64
+            ).tolist(),
+            "working": np.asarray(
+                predict_api.residuals(type="working"), dtype=np.float64
+            ).tolist(),
+            "pearson": np.asarray(
+                predict_api.residuals(type="pearson"), dtype=np.float64
+            ).tolist(),
+            "scaled_pearson": np.asarray(
+                predict_api.residuals(type="scaled.pearson"), dtype=np.float64
+            ).tolist(),
+            "deviance": np.asarray(
+                predict_api.residuals(type="deviance"), dtype=np.float64
+            ).tolist(),
+        }
+    except Exception:
+        diagnostics["residuals"] = None
+
+    try:
+        k_tab = predict_api.k_check(subsample=120, n_rep=8, seed=0)
+        diagnostics["k_check"] = (
+            None
+            if k_tab is None
+            else {
+                "labels": [_normalize_mgcv_term_label(v) for v in k_tab.index.tolist()],
+                "values": k_tab[["k_prime", "edf", "k_index", "p_value"]]
+                .to_numpy(dtype=np.float64)
+                .tolist(),
+            }
+        )
+    except Exception:
+        diagnostics["k_check"] = None
+
+    try:
+        anova_res = predict_api.anova(freq=False)
+        diagnostics["anova_parametric"] = {
+            "labels": [
+                _normalize_mgcv_term_label(v)
+                for v in anova_res.parametric_table["label"].tolist()
+            ],
+            "values": anova_res.parametric_table[["df", "wald_stat", "p_value"]]
+            .to_numpy(dtype=np.float64)
+            .tolist(),
+        }
+        diagnostics["anova_smooth"] = {
+            "labels": [
+                _normalize_mgcv_term_label(v)
+                for v in anova_res.smooth_table["label"].tolist()
+            ],
+            "values": anova_res.smooth_table[["edf", "ref_df", "wald_stat", "p_value"]]
+            .to_numpy(dtype=np.float64)
+            .tolist(),
+        }
+    except Exception:
+        diagnostics["anova_parametric"] = None
+        diagnostics["anova_smooth"] = None
 
     return {
         "fit": fit_dict,
@@ -1419,9 +1419,12 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
             "link": np.asarray(link, dtype=np.float64).tolist(),
             "terms": np.asarray(terms, dtype=np.float64).tolist(),
             "lpmatrix": np.asarray(lpmatrix, dtype=np.float64).tolist(),
+            "se_response": np.asarray(se_response, dtype=np.float64).tolist(),
+            "se_link": np.asarray(se_link, dtype=np.float64).tolist(),
         },
         "parity": {
             "criterion_view": parity_view,
+            "diagnostics": diagnostics,
         },
     }
 
@@ -1460,7 +1463,11 @@ def build_optimizer_trace(model):
     core = model
     if hasattr(model, "core_") and model.core_ is not None:
         core = model.core_
-    elif hasattr(model, "model") and hasattr(model.model, "core_") and model.model.core_ is not None:
+    elif (
+        hasattr(model, "model")
+        and hasattr(model.model, "core_")
+        and model.model.core_ is not None
+    ):
         core = model.model.core_
 
     rows = getattr(core, "_optim_trace", None)
@@ -1473,6 +1480,11 @@ def build_optimizer_trace(model):
             {
                 "iter": int(row.get("iter", 0)),
                 "log_sp": np.asarray(row.get("log_sp", []), dtype=np.float64).tolist(),
+                "log_theta": (
+                    None
+                    if row.get("log_theta", None) is None
+                    else float(row.get("log_theta"))
+                ),
                 "criterion": (
                     None
                     if row.get("criterion", None) is None
@@ -1515,238 +1527,11 @@ def load_optimizer_trace(path):
 
 # --- End of nampy/gam/parity/trace.py ---
 
-# --- Start of nampy/gam/penalties/algebra.py ---
-import numpy as np
-
-
-def symmetrize_penalty(P):
-    P = np.asarray(P, dtype=np.float64)
-    return 0.5 * (P + P.T)
-
-
-def penalty_eigendecomposition(P, tol=1e-10):
-    P = symmetrize_penalty(P)
-    evals, U = np.linalg.eigh(P)
-    idx = np.argsort(evals)
-    evals = evals[idx]
-    U = U[:, idx]
-
-    tol_eff = tol * max(1.0, np.max(np.abs(evals)) if evals.size else 1.0)
-    null_mask = evals <= tol_eff
-    pos_mask = ~null_mask
-
-    return {
-        "evals": evals,
-        "U": U,
-        "U0": U[:, null_mask],
-        "U1": U[:, pos_mask],
-        "d_pos": evals[pos_mask],
-        "null_mask": null_mask,
-        "pos_mask": pos_mask,
-        "rank": int(np.sum(pos_mask)),
-        "null_space_dim": int(np.sum(null_mask)),
-        "tol_eff": tol_eff,
-    }
-
-
-def null_space_penalty_from_penalty(P, tol=1e-10):
-    dec = penalty_eigendecomposition(P, tol=tol)
-    U0 = dec["U0"]
-
-    if U0.shape[1] == 0:
-        S0 = np.zeros_like(np.asarray(P, dtype=np.float64))
-        rank = 0
-        null_dim = 0
-    else:
-        S0 = U0 @ U0.T
-        S0 = symmetrize_penalty(S0)
-        rank = int(np.linalg.matrix_rank(S0))
-        null_dim = U0.shape[1]
-
-    return S0, {
-        "rank": rank,
-        "null_space_dim": null_dim,
-        "tol_eff": dec["tol_eff"],
-    }
-
-__all__ = [
-    "symmetrize_penalty",
-    "penalty_eigendecomposition",
-    "null_space_penalty_from_penalty",
-]
-
-# --- End of nampy/gam/penalties/algebra.py ---
-
-# --- Start of nampy/gam/penalties/subsystem.py ---
-"""
-Canonical penalty metadata and normalisation subsystem (architecture section 3.4).
-
-Every PenaltySpec that leaves a runtime term must pass through
-``normalize_penalty_spec`` before reaching the compiler or fitting code.
-That function is the single source of truth for:
-
-  - symmetrisation of the penalty matrix
-  - rank and null-space dimension computation
-  - validation of sp_mode / sp_value consistency
-
-Higher-level helpers (``make_penalty_spec``, ``build_null_space_selection_spec``)
-build on ``normalize_penalty_spec`` so callers never need to construct raw
-PenaltySpec objects and call normalisation separately.
-"""
-
-from __future__ import annotations
-
-from dataclasses import dataclass
-from typing import Any
-
-import numpy as np
-
-from ..design.structures import PenaltySpec
-from .algebra import null_space_penalty_from_penalty, symmetrize_penalty
-
-
-def penalty_rank_null_dim(P: np.ndarray, tol: float = 1e-10) -> tuple[int, int]:
-    """Return (rank, null_space_dim) for a square penalty matrix."""
-    P = np.asarray(P, dtype=np.float64)
-    if P.ndim != 2 or P.shape[0] != P.shape[1]:
-        raise ValueError("Penalty matrices must be square.")
-    if P.shape[0] == 0:
-        return 0, 0
-    evals = np.linalg.eigvalsh(symmetrize_penalty(P))
-    tol_eff = tol * max(1.0, float(np.max(np.abs(evals))))
-    rank = int(np.sum(evals > tol_eff))
-    return rank, int(P.shape[0] - rank)
-
-
-def normalize_penalty_spec(obj: PenaltySpec | np.ndarray, *, default_kind: str = "smooth") -> PenaltySpec:
-    if isinstance(obj, PenaltySpec):
-        spec = obj
-        P = np.asarray(spec.matrix, dtype=np.float64)
-    else:
-        spec = PenaltySpec(matrix=np.asarray(obj, dtype=np.float64), kind=default_kind)
-        P = np.asarray(spec.matrix, dtype=np.float64)
-
-    if P.ndim != 2 or P.shape[0] != P.shape[1]:
-        raise ValueError(f"Penalty matrices must be square 2D arrays, got shape={P.shape}.")
-    P = symmetrize_penalty(P)
-    rank, null_dim = penalty_rank_null_dim(P)
-
-    if spec.sp_mode not in {None, "fixed", "estimate"}:
-        raise ValueError("PenaltySpec.sp_mode must be one of {None, 'fixed', 'estimate'}.")
-    if spec.sp_mode == "fixed":
-        if spec.sp_value is None:
-            raise ValueError("Fixed penalty overrides require sp_value.")
-        if not np.isfinite(float(spec.sp_value)) or float(spec.sp_value) < 0:
-            raise ValueError("Fixed sp_value must be finite and >= 0.")
-    elif spec.sp_value is not None:
-        raise ValueError("sp_value should be None unless sp_mode == 'fixed'.")
-
-    return PenaltySpec(
-        matrix=P,
-        smoothing_id=spec.smoothing_id,
-        kind=str(spec.kind),
-        rank=(rank if spec.rank is None else spec.rank),
-        null_space_dim=(null_dim if spec.null_space_dim is None else spec.null_space_dim),
-        is_null_space_penalty=bool(spec.is_null_space_penalty),
-        sp_mode=spec.sp_mode,
-        sp_value=(None if spec.sp_value is None else float(spec.sp_value)),
-        metadata=dict(spec.metadata),
-    )
-
-
-def make_penalty_spec(
-    *,
-    matrix: np.ndarray,
-    smoothing_id: str | None,
-    kind: str,
-    sp_mode: str | None = None,
-    sp_value: float | None = None,
-    is_null_space_penalty: bool = False,
-    metadata: dict[str, Any] | None = None,
-) -> PenaltySpec:
-    return normalize_penalty_spec(
-        PenaltySpec(
-            matrix=np.asarray(matrix, dtype=np.float64),
-            smoothing_id=smoothing_id,
-            kind=str(kind),
-            is_null_space_penalty=bool(is_null_space_penalty),
-            sp_mode=sp_mode,
-            sp_value=sp_value,
-            metadata=dict(metadata or {}),
-        )
-    )
-
-
-def build_null_space_selection_spec(
-    *,
-    main_penalty: np.ndarray,
-    smoothing_id: str | None,
-    tol: float = 1e-10,
-    metadata: dict[str, Any] | None = None,
-) -> PenaltySpec | None:
-    S0, meta = null_space_penalty_from_penalty(main_penalty, tol=tol)
-    if int(meta["rank"]) <= 0:
-        return None
-    return make_penalty_spec(
-        matrix=S0,
-        smoothing_id=smoothing_id,
-        kind="null_space",
-        sp_mode=None,
-        sp_value=None,
-        is_null_space_penalty=True,
-        metadata=dict(metadata or {}),
-    )
-
-
-def merge_smoothing_override(existing, mode, value, *, smoothing_id: str, label: str):
-    if mode is None:
-        return existing
-    candidate = {
-        "mode": str(mode),
-        "value": (None if value is None else float(value)),
-        "labels": [str(label)],
-    }
-    if existing is None:
-        return candidate
-    if existing["mode"] != candidate["mode"]:
-        raise ValueError(
-            f"Conflicting term-level sp overrides for smoothing_id={smoothing_id!r}: "
-            f"got both {existing['mode']!r} and {candidate['mode']!r}."
-        )
-    if candidate["mode"] == "fixed":
-        if not np.isclose(existing["value"], candidate["value"], atol=0.0, rtol=0.0):
-            raise ValueError(
-                f"Conflicting fixed term-level sp overrides for smoothing_id={smoothing_id!r}: "
-                f"{existing['value']} vs {candidate['value']}."
-            )
-    existing["labels"].append(str(label))
-    return existing
-
-
-def default_penalty_id(pred_name: str, term, term_label: str, coef_start: int, local_penalty_index: int, n_penalties: int) -> str:
-    base_id = getattr(term, "smoothing_id", None)
-    if base_id is not None:
-        base_id = str(base_id)
-        return base_id if n_penalties <= 1 else f"{base_id}::{local_penalty_index}"
-    return f"__auto__:{pred_name}:{term_label}:{coef_start}:{local_penalty_index}"
-
-
-__all__ = [
-    "penalty_rank_null_dim",
-    "normalize_penalty_spec",
-    "make_penalty_spec",
-    "build_null_space_selection_spec",
-    "merge_smoothing_override",
-    "default_penalty_id",
-]
-
-# --- End of nampy/gam/penalties/subsystem.py ---
-
 # --- Start of nampy/gam/predict/contributions.py ---
 import numpy as np
 
 from .linear_predictor_matrix import _build_prediction_matrices
-from .predictions import predict_values
+from .predictions import _term_contribution, predict_values
 
 
 def predict_term_contributions(model, X=None, offset=None):
@@ -1763,7 +1548,7 @@ def predict_term_contributions(model, X=None, offset=None):
         result["response"] = predict_values(model, X=X, type="response", offset=offset)
 
     for tb in model.term_blocks_:
-        result[tb.label] = Z_new[:, tb.coef_slice] @ model.coef_[tb.coef_slice]
+        result[tb.term_id] = _term_contribution(model, Z_new, tb)
 
     if model.fit_intercept:
         result["intercept"] = np.array(model.intercept_, dtype=np.float64)
@@ -1853,7 +1638,29 @@ import numpy as np
 from .linear_predictor_matrix import _build_prediction_matrices
 
 
-def predict_values(model, X=None, return_se=False, cov=None, type="response", offset=None):
+def _term_contribution_shift(model, tb):
+    if str(getattr(tb, "term_type", "")) != "tensor_anova":
+        return 0.0
+
+    # mgcv's t2 prediction decomposition uses a prediction-time centering
+    # convention for predict(type="terms") that differs from the fitted
+    # coefficient split. Preserve link/lpmatrix parity and adjust only the
+    # reported term contribution by the fitted training-sample mean.
+    train_term = model.Z[:, tb.coef_slice] @ model.coef_[tb.coef_slice]
+    return -float(np.mean(np.asarray(train_term, dtype=np.float64)))
+
+
+def _term_contribution(model, Z_new, tb):
+    contrib = Z_new[:, tb.coef_slice] @ model.coef_[tb.coef_slice]
+    shift = _term_contribution_shift(model, tb)
+    if shift != 0.0:
+        contrib = np.asarray(contrib, dtype=np.float64) + shift
+    return contrib
+
+
+def predict_values(
+    model, X=None, return_se=False, cov=None, type="response", offset=None
+):
     if not getattr(model, "_fitted", False):
         raise RuntimeError("Model is not fitted.")
 
@@ -1872,10 +1679,7 @@ def predict_values(model, X=None, return_se=False, cov=None, type="response", of
 
     if type == "terms":
         terms = np.column_stack(
-            [
-                Z_new[:, tb.coef_slice] @ model.coef_[tb.coef_slice]
-                for tb in model.term_blocks_
-            ]
+            [_term_contribution(model, Z_new, tb) for tb in model.term_blocks_]
         )
         if not return_se:
             return terms
@@ -1903,7 +1707,9 @@ def predict_values(model, X=None, return_se=False, cov=None, type="response", of
         return eta, se_eta
 
     if type != "response":
-        raise ValueError("type must be one of {'response', 'link', 'terms', 'lpmatrix'}")
+        raise ValueError(
+            "type must be one of {'response', 'link', 'terms', 'lpmatrix'}"
+        )
 
     if not return_se:
         return mu
@@ -1918,2325 +1724,4 @@ def predict_values(model, X=None, return_se=False, cov=None, type="response", of
 __all__ = ["predict_values"]
 
 # --- End of nampy/gam/predict/predictions.py ---
-
-# --- Start of nampy/gam/terms/categorical.py ---
-"""Categorical/random-effect/factor-smooth terms."""
-
-from ..smooths.categorical.categorical_utils import (
-    all_bool_like,
-    as_object_1d,
-    factor_indicator_matrix,
-    is_factor_like_vector,
-    stable_unique_levels,
-    try_numeric_1d,
-)
-from ..smooths.categorical.factor_smooth import (
-    FSmoothInteractionTerm,
-    SZSmoothInteractionTerm,
-)
-from ..smooths.categorical.mrf import MarkovRandomFieldTerm
-from ..smooths.categorical.random_effect import RandomEffectTerm
-
-__all__ = [
-    "as_object_1d",
-    "try_numeric_1d",
-    "all_bool_like",
-    "is_factor_like_vector",
-    "stable_unique_levels",
-    "factor_indicator_matrix",
-    "RandomEffectTerm",
-    "FSmoothInteractionTerm",
-    "SZSmoothInteractionTerm",
-    "MarkovRandomFieldTerm",
-]
-
-# --- End of nampy/gam/terms/categorical.py ---
-
-# --- Start of nampy/gam/terms/linear.py ---
-import numpy as np
-
-from ..smooths.base import BaseSmoothTerm, _resolve_feature, column_as_float
-from ..smooths.registry import register_smooth
-
-
-@register_smooth("linear")
-class LinearTerm(BaseSmoothTerm):
-    term_type = "parametric"
-    basis_name = "linear"
-    supports_tensor_marginal = False
-
-    def __init__(self, feature, label=None, metadata=None):
-        super().__init__(
-            feature=feature,
-            label=label,
-            smoothing_id=None,
-            by=None,
-            metadata=metadata,
-        )
-        self._feature_index = None
-        self._feature_name = None
-        self._basis_train = None
-
-    def fit(self, X, feature_names):
-        idx, feature_name = _resolve_feature(self.feature, feature_names)
-        self._feature_index = idx
-        self._feature_name = feature_name
-        self._set_resolved_features([feature_name])
-        self._basis_train = column_as_float(X, idx)[:, None]
-        self._penalties = []
-        self._record_constraint_result(None, None, absorbed_by=None)
-        return self
-
-    @property
-    def n_coef(self):
-        self._require_fitted()
-        return 1
-
-    def transform_new(self, X_new):
-        if self._feature_index is None:
-            raise RuntimeError("Term is not fitted.")
-        return column_as_float(X_new, self._feature_index)[:, None]
-
-
-__all__ = ["LinearTerm"]
-
-# --- End of nampy/gam/terms/linear.py ---
-
-# --- Start of nampy/gam/terms/tensor.py ---
-"""Tensor-product smooth term implementations."""
-
-from ..smooths.tensor.t2 import TensorANOVASplineTerm
-from ..smooths.tensor.te import TensorProductSplineTerm
-from ..smooths.tensor.ti import InteractionTensorProductSplineTerm
-
-__all__ = [
-    "TensorProductSplineTerm",
-    "InteractionTensorProductSplineTerm",
-    "TensorANOVASplineTerm",
-]
-
-# --- End of nampy/gam/terms/tensor.py ---
-
-# --- Start of nampy/gam/terms/univariate.py ---
-"""Univariate smooth term implementations."""
-
-from ..smooths.univariate.cubic_regression import SplineTerm1D
-from ..smooths.univariate.gp import GPSmoothTerm
-from ..smooths.univariate.pspline import PSplineTerm1D
-from ..smooths.univariate.thin_plate import ThinPlateSplineTerm
-
-__all__ = ["SplineTerm1D", "PSplineTerm1D", "ThinPlateSplineTerm", "GPSmoothTerm"]
-
-# --- End of nampy/gam/terms/univariate.py ---
-
-# --- Start of nampy/splines/neural_splines.py ---
-import torch
-import torch.nn as nn
-
-
-class RunningMean(nn.Module):
-    def __init__(self, n_dim):
-        super().__init__()
-        self.register_buffer("mean", torch.zeros((1, n_dim)))
-        self.register_buffer("n", torch.zeros((1,)))
-        self._update_mean = True  # Toggle to control mean updating
-
-    def forward(self, x):
-        if self.training and self._update_mean:
-            self.n += 1
-            self.mean = ((self.n - 1) / self.n) * self.mean + (1 / self.n) * x.mean(
-                dim=0
-            )
-        return x - self.mean
-
-
-class CubicSplineLayer(nn.Module):
-    def __init__(
-        self, n_bases=10, min_val=0, max_val=1, learn_knots=False, identify=True
-    ):
-        super().__init__()
-        self.learn_knots = learn_knots
-        self.min_val = min_val
-        self.max_val = max_val
-        self.n_bases = n_bases
-
-        if self.learn_knots:
-            # We fix the first and last knot and only learn the distances between the intermediate knots
-            self.relative_distances = nn.Parameter(
-                torch.rand(
-                    n_bases - 1
-                )  # n_bases - 2 because first and last knots are fixed
-            )
-        self.knots = torch.linspace(min_val, max_val, n_bases)
-
-        self.identify = identify
-
-        if identify:
-            self.demean = RunningMean(n_bases)
-            self.linear = nn.Linear(n_bases, 1, bias=True)
-        else:
-            self.linear = nn.Linear(n_bases, 1, bias=False)
-
-        self.F, self.S = self.compute_F_and_S(self.knots)
-
-    def compute_knots(self):
-        """
-        Compute the knots based on the fixed first and last values, and the learned relative distances.
-        """
-        # Ensure that the distances are positive
-        distances = torch.nn.functional.softplus(self.relative_distances)
-
-        total_distance = distances.sum()
-        normalized_distances = (
-            distances * (self.max_val - self.min_val) / total_distance
-        )
-
-        # Compute cumulative sum of distances, ensuring the last value is exactly max_val
-        knots = torch.cat(
-            [
-                torch.tensor([self.min_val]),
-                self.min_val + torch.cumsum(normalized_distances, 0),
-                # torch.tensor([self.max_val]),
-            ]
-        )
-
-        return knots
-
-    def forward(self, x):
-        if self.learn_knots and self.training:
-            # Compute the knots during training based on the relative distances
-            self.knots = self.compute_knots()
-
-            # Recompute F and S based on the updated knots
-            self.F, self.S = self.compute_F_and_S(self.knots)
-
-        x = x.flatten()
-        x = self.apply_spline_basis(x, self.knots.detach(), self.F.detach())
-        if self.identify:
-            x = self.demean(x)
-        return self.linear(x)
-
-    def compute_F_and_S(self, knots):
-        """
-        Compute the F matrix for the spline basis and S matrix for penalization.
-        """
-        k = len(knots)
-        h = torch.diff(knots)
-        h_shift_up = h[1:]
-
-        D = torch.zeros((k - 2, k))
-        D[:, : k - 2] += (1 / h[: k - 2]) * torch.eye(k - 2)
-        D[:, 1 : k - 1] += (-1 / h[: k - 2] - 1 / h_shift_up) * torch.eye(k - 2)
-        D[:, 2:k] += (1 / h_shift_up) * torch.eye(k - 2)
-
-        B = torch.zeros((k - 2, k - 2))
-        B += ((h[: k - 2] + h_shift_up) / 3) * torch.eye(k - 2)
-        B[:-1, 1:] += torch.eye(k - 3) * (h_shift_up[: k - 3] / 6)
-        B[1:, :-1] += torch.eye(k - 3) * (h_shift_up[: k - 3] / 6)
-
-        F_minus = torch.linalg.inv(B) @ D
-        F = torch.vstack([torch.zeros(k), F_minus, torch.zeros(k)])
-        S = D.T @ torch.linalg.inv(B) @ D
-        return F, S
-
-    def apply_spline_basis(self, x, knots, F):
-        """
-        Apply the spline basis to the input x based on the knots and F matrix.
-        """
-        n = len(x)
-        k = len(knots)
-        base = torch.zeros((n, k))
-
-        for i in range(n):
-            if x[i] < min(knots):
-                j = 0
-                h = knots[1] - knots[0]
-                xik = x[i] - knots[0]
-                c_jm = -xik * h / 3
-                c_jp = -xik * h / 6
-                base[i, :] += c_jm * F[0, :] + c_jp * F[1, :]
-                base[i, 0] += 1 - xik / h
-                base[i, 1] += xik / h
-            elif x[i] > max(knots):
-                j = len(knots) - 1
-                h = knots[j] - knots[j - 1]
-                xik = x[i] - knots[j]
-                c_jm = xik * h / 6
-                c_jp = xik * h / 3
-                base[i, :] += c_jm * F[j - 1, :] + c_jp * F[j, 1]
-                base[i, j - 1] += -xik / h
-                base[i, j] += 1 + xik / h
-            else:
-                j = torch.searchsorted(knots, x[i])
-                x_j = knots[j - 1]
-                x_j1 = knots[j]
-                h = x_j1 - x_j
-                a_jm = (x_j1 - x[i]) / h
-                a_jp = (x[i] - x_j) / h
-                c_jm = ((x_j1 - x[i]) ** 3 / h - h * (x_j1 - x[i])) / 6
-                c_jp = ((x[i] - x_j) ** 3 / h - h * (x[i] - x_j)) / 6
-                base[i, :] += c_jm * F[j - 1, :] + c_jp * F[j, :]
-                base[i, j - 1] += a_jm
-                base[i, j] += a_jp
-
-        return base
-
-    def get_smooth_penalty(self):
-        return self.linear.weight @ self.S @ self.linear.weight.T
-
-    def get_knot_distance_penalty(self):
-        if self.learn_knots:
-            return (1 / torch.diff(self.knots).abs()).sum()
-        return 0
-
-# --- End of nampy/splines/neural_splines.py ---
-
-# --- Start of nampy/utils/colors.py ---
-import matplotlib as mpl
-import numpy as np
-
-
-def color_fader(c_1, c_2, mix=0):
-    """
-    Mix two colors as defined by mix in [0, 1].
-    """
-    c_1 = np.array(mpl.colors.to_rgb(c_1))
-    c_2 = np.array(mpl.colors.to_rgb(c_2))
-    if isinstance(mix, np.ndarray):
-        cols = []
-        for i in range(len(mix)):
-            cols.append(mpl.colors.to_hex((1 - mix[i]) * c_1 + mix[i] * c_2))
-        return cols
-    return mpl.colors.to_hex((1 - mix) * c_1 + mix * c_2)
-
-
-def color_bounds(values):
-    """
-    Helper for plotting MRF smooths.
-    """
-    interval = np.linspace(0, 1, 100)
-    min_v = min(values)[0]
-    max_v = max(values)[0]
-    mapped = min_v + ((max_v - min_v) / 1 - 0) * interval
-    return mapped
-
-# --- End of nampy/utils/colors.py ---
-
-# --- Start of nampy/utils/distributional_metrics.py ---
-#utils/distributional_metrics.py
-import math
-from typing import Optional
-
-import numpy as np
-from scipy.special import gammaln
-
-
-_EPS = 1e-9
-
-def _as_1d(x):
-    x = np.asarray(x)
-    if x.ndim == 0:
-        return x.reshape(1)
-    if x.ndim == 2 and x.shape[1] == 1:
-        return x[:, 0]
-    if x.ndim == 1:
-        return x
-    raise ValueError(f"Expected 1D array or shape (n,1); got shape {x.shape}")
-
-
-def _safe_positive(x, eps=_EPS):
-    return np.clip(np.asarray(x, dtype=float), eps, None)
-
-
-def _beta_mean_from_params(y_pred):
-    y_pred = np.asarray(y_pred, dtype=float)
-    if y_pred.ndim != 2 or y_pred.shape[1] < 2:
-        raise ValueError(
-            "Expected Beta transformed params with shape (n, 2): [alpha, beta]."
-        )
-    alpha = _safe_positive(y_pred[:, 0])
-    beta = _safe_positive(y_pred[:, 1])
-    return alpha / (alpha + beta)
-
-
-def _gamma_mean_from_params(y_pred):
-    y_pred = np.asarray(y_pred, dtype=float)
-    if y_pred.ndim != 2 or y_pred.shape[1] < 2:
-        raise ValueError(
-            "Expected Gamma transformed params with shape (n, 2): [shape, rate]."
-        )
-    shape = _safe_positive(y_pred[:, 0])
-    rate = _safe_positive(y_pred[:, 1])
-    return shape / rate
-
-
-def _student_t_params(y_pred, df=None):
-    """
-    Accept either:
-      - y_pred shape (n,3): [df, loc, scale]
-      - y_pred shape (n,2): [loc, scale], with scalar df provided
-    """
-    y_pred = np.asarray(y_pred, dtype=float)
-    if y_pred.ndim != 2:
-        raise ValueError(f"Expected 2D array for Student-t params; got {y_pred.shape}")
-
-    if y_pred.shape[1] >= 3:
-        nu = _safe_positive(y_pred[:, 0])
-        loc = y_pred[:, 1]
-        scale = _safe_positive(y_pred[:, 2])
-        return nu, loc, scale
-
-    if y_pred.shape[1] == 2 and df is not None:
-        nu = np.full(y_pred.shape[0], float(df), dtype=float)
-        loc = y_pred[:, 0]
-        scale = _safe_positive(y_pred[:, 1])
-        return nu, loc, scale
-
-    raise ValueError(
-        "Student-t metrics expect transformed params [df, loc, scale] "
-        "or [loc, scale] with `df=` provided."
-    )
-
-
-def poisson_deviance(y_true, y_pred):
-    """
-    Poisson deviance.
-
-    Parameters
-    ----------
-    y_true : array-like, shape (n,)
-    y_pred : array-like
-        Either:
-          - shape (n,) / (n,1): predicted mean/rate
-          - shape (n, k): if k>=1, column 0 is interpreted as rate
-    """
-    y = _as_1d(y_true).astype(float)
-    pred = np.asarray(y_pred, dtype=float)
-
-    if pred.ndim == 2:
-        mu = pred[:, 0]
-    else:
-        mu = _as_1d(pred)
-
-    mu = _safe_positive(mu)
-    if y.shape[0] != mu.shape[0]:
-        raise ValueError("y_true and y_pred lengths do not match.")
-
-    # 0 * log(0 / mu) := 0
-    term = np.where(y > 0, y * np.log(np.clip(y, _EPS, None) / mu), 0.0)
-    return float(2.0 * np.sum(term - (y - mu)))/y.shape[0]
-
-
-def gamma_deviance(y_true, y_pred):
-    """
-    Gamma deviance.
-
-    Parameters
-    ----------
-    y_true : array-like, positive
-    y_pred : array-like
-        Either:
-          - predicted mean mu (shape (n,) or (n,1))
-          - transformed Gamma params [shape, rate] (shape (n,2))
-    """
-    y = _safe_positive(_as_1d(y_true))
-    pred = np.asarray(y_pred, dtype=float)
-
-    if pred.ndim == 2 and pred.shape[1] >= 2:
-        mu = _gamma_mean_from_params(pred)
-    else:
-        mu = _safe_positive(_as_1d(pred))
-
-    if y.shape[0] != mu.shape[0]:
-        raise ValueError("y_true and y_pred lengths do not match.")
-
-    # Standard Gamma deviance for mean predictions
-    return float(2.0 * np.sum((y - mu) / mu - np.log(y / mu)))
-
-
-def beta_brier_score(y_true, y_pred):
-    """
-    Compatibility function retained from original code.
-
-    For Beta LSS models, `y_pred` is usually transformed params [alpha, beta].
-    We therefore compute MSE on the Beta mean:
-        E[Y] = alpha / (alpha + beta)
-
-    If y_pred is already a 1D mean prediction, computes ordinary MSE.
-    """
-    y = np.clip(_as_1d(y_true).astype(float), _EPS, 1.0 - _EPS)
-    pred = np.asarray(y_pred, dtype=float)
-
-    if pred.ndim == 2 and pred.shape[1] >= 2:
-        mu = _beta_mean_from_params(pred)
-    else:
-        mu = _as_1d(pred).astype(float)
-
-    if y.shape[0] != mu.shape[0]:
-        raise ValueError("y_true and y_pred lengths do not match.")
-
-    return float(np.mean((mu - y) ** 2))
-
-
-def dirichlet_error(y_true, y_pred):
-    """
-    Mean squared error on simplex-valued predictions.
-
-    Parameters
-    ----------
-    y_true : array-like, shape (n, K)
-    y_pred : array-like, shape (n, K)
-        Can be probabilities/simplex points OR positive concentrations.
-        If rows do not sum to ~1 but are positive, we normalize row-wise.
-    """
-    y = np.asarray(y_true, dtype=float)
-    p = np.asarray(y_pred, dtype=float)
-
-    if y.ndim == 3 and y.shape[1] == 1:
-        y = y[:, 0, :]
-    if p.ndim == 3 and p.shape[1] == 1:
-        p = p[:, 0, :]
-
-    if y.ndim != 2 or p.ndim != 2 or y.shape != p.shape:
-        raise ValueError(
-            f"dirichlet_error expects matching 2D arrays; got {y.shape=} and {p.shape=}"
-        )
-
-    # Ensure y on simplex
-    y = np.clip(y, _EPS, None)
-    y = y / np.clip(y.sum(axis=1, keepdims=True), _EPS, None)
-
-    # If predictions do not sum to 1, treat them as concentrations and convert to mean
-    row_sums = p.sum(axis=1, keepdims=True)
-    if not np.allclose(row_sums, 1.0, atol=1e-4):
-        p = np.clip(p, _EPS, None)
-        p = p / np.clip(p.sum(axis=1, keepdims=True), _EPS, None)
-
-    return float(np.mean(np.sum((p - y) ** 2, axis=1)))
-
-
-def student_t_loss(y_true, y_pred, df=None):
-    """
-    Student-t negative log-likelihood (up to exact constants when df is provided per sample, exact here).
-
-    Parameters
-    ----------
-    y_true : array-like, shape (n,)
-    y_pred : array-like
-        Either transformed params [df, loc, scale] or [loc, scale] with `df=...`.
-    df : float, optional
-        Used only when y_pred has shape (n,2).
-    """
-    y = _as_1d(y_true).astype(float)
-    nu, loc, scale = _student_t_params(y_pred, df=df)
-
-    if not (y.shape[0] == nu.shape[0] == loc.shape[0] == scale.shape[0]):
-        raise ValueError("y_true and y_pred lengths do not match.")
-
-    z = (y - loc) / scale
-    # Exact Student-t NLL
-    nll = (
-        gammaln((nu + 1.0) / 2.0)
-        - gammaln(nu / 2.0)
-        - 0.5 * np.log(nu * np.pi)
-        - np.log(scale)
-        - ((nu + 1.0) / 2.0) * np.log1p((z**2) / nu)
-    )
-    return float(-np.mean(nll))
-
-
-def negative_binomial_deviance(y_true, y_pred, alpha: Optional[float] = None):
-    """
-    Negative Binomial deviance under mean/dispersion parameterization.
-
-    Supported inputs
-    ----------------
-    y_pred can be:
-      - shape (n,) / (n,1): mean mu (requires scalar `alpha`)
-      - shape (n,2): transformed params [mean, dispersion], where dispersion=alpha > 0
-    """
-    y = _as_1d(y_true).astype(float)
-    pred = np.asarray(y_pred, dtype=float)
-
-    if pred.ndim == 2 and pred.shape[1] >= 2:
-        mu = _safe_positive(pred[:, 0])
-        alpha_arr = _safe_positive(pred[:, 1])
-    else:
-        if alpha is None:
-            raise ValueError(
-                "negative_binomial_deviance requires `alpha` when y_pred is only a mean prediction."
-            )
-        mu = _safe_positive(_as_1d(pred))
-        alpha_arr = np.full_like(mu, float(alpha), dtype=float)
-        alpha_arr = _safe_positive(alpha_arr)
-
-    if y.shape[0] != mu.shape[0]:
-        raise ValueError("y_true and y_pred lengths do not match.")
-
-    # NB2 variance: Var = mu + alpha * mu^2
-    # Deviance contribution (alpha -> 0 recovers Poisson limit)
-    term1 = np.where(y > 0, y * np.log(np.clip(y, _EPS, None) / mu), 0.0)
-    term2 = (y + 1.0 / alpha_arr) * np.log(
-        (1.0 + alpha_arr * y) / np.clip(1.0 + alpha_arr * mu, _EPS, None)
-    )
-    dev = 2.0 * np.sum(term1 - term2)
-    return float(dev)
-
-
-def inverse_gamma_loss(y_true, y_pred):
-    """
-    Inverse-Gamma negative log-likelihood from transformed params [shape, rate].
-
-    Parameters
-    ----------
-    y_true : array-like, shape (n,), positive
-    y_pred : array-like, shape (n,2)
-        Transformed params [shape, rate]
-    """
-    y = _safe_positive(_as_1d(y_true))
-    pred = np.asarray(y_pred, dtype=float)
-
-    if pred.ndim != 2 or pred.shape[1] < 2:
-        raise ValueError(
-            "inverse_gamma_loss expects transformed params with shape (n,2): [shape, rate]."
-        )
-
-    shape = _safe_positive(pred[:, 0])
-    rate = _safe_positive(pred[:, 1])
-
-    if y.shape[0] != shape.shape[0]:
-        raise ValueError("y_true and y_pred lengths do not match.")
-
-    # InverseGamma(shape=a, rate=b) logpdf:
-    #   a log b - gammaln(a) - (a+1) log y - b / y
-    logpdf = shape * np.log(rate) - gammaln(shape) - (shape + 1.0) * np.log(y) - rate / y
-    return float(-np.mean(logpdf))
-# --- End of nampy/utils/distributional_metrics.py ---
-
-# --- Start of nampy/utils/distributions.py ---
-#utils/distributions.py
-import math
-from typing import Any, Callable, Optional, Sequence, Union
-
-import numpy as np
-import torch
-import torch.distributions as dist
-import torch.nn.functional as F
-
-
-TensorLike = Union[torch.Tensor, np.ndarray]
-
-
-class BaseDistribution(torch.nn.Module):
-    """
-    Base class for distributional regression families.
-
-    Subclasses should implement:
-      - compute_loss(predictions, y_true)
-    and may override:
-      - forward(predictions)                -> transformed parameters
-      - predict_point(predictions, transformed=False)
-      - evaluate_nll(y_true, y_pred)
-
-    Notes
-    -----
-    * `predictions` in `compute_loss` are assumed to be raw network outputs.
-    * `forward(predictions)` returns transformed parameters (e.g. positive scales).
-    * `param_count` is the required network output dimension for fixed-dimension families.
-      For some families (Dirichlet/Categorical), this may depend on user-provided kwargs.
-    """
-
-    target_dtype = torch.float32
-
-    def __init__(self, name: str, param_names: Sequence[str], eps: float = 1e-6):
-        super().__init__()
-        self._name = name
-        self.param_names = list(param_names)
-        self.param_count = len(self.param_names)
-        self.eps = float(eps)
-
-        self.predefined_transforms = {
-            "positive": lambda x: F.softplus(x) + self.eps,
-            "strictly_positive": lambda x: F.softplus(x) + self.eps,
-            "none": lambda x: x,
-            "identity": lambda x: x,
-            "square": lambda x: x.square() + self.eps,
-            "exp": lambda x: torch.exp(torch.clamp(x, min=-40.0, max=40.0)) + self.eps,
-            "sqrt": lambda x: torch.sqrt(torch.clamp(x, min=self.eps)),
-            "probabilities": lambda x: torch.softmax(x, dim=-1),
-            "log": lambda x: torch.log(torch.clamp(x, min=self.eps)),
-            # Monotone transform for quantiles / cutpoints:
-            "sort": lambda x: torch.cumsum(F.softplus(x), dim=-1),
-        }
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def parameter_count(self) -> int:
-        return self.param_count
-
-    def get_transform(self, transform_name: Union[str, Callable]) -> Callable:
-        """Return a transform callable by name or pass through custom callables."""
-        if callable(transform_name):
-            return transform_name
-        if transform_name not in self.predefined_transforms:
-            raise ValueError(
-                f"Unknown transform {transform_name!r}. "
-                f"Available: {sorted(self.predefined_transforms.keys())}"
-            )
-        return self.predefined_transforms[transform_name]
-
-    # ------------------------------------------------------------------
-    # Shape / dtype helpers
-    # ------------------------------------------------------------------
-
-    def _ensure_2d_predictions(self, predictions: TensorLike) -> torch.Tensor:
-        if not torch.is_tensor(predictions):
-            predictions = torch.as_tensor(predictions, dtype=torch.float32)
-        else:
-            predictions = predictions.float()
-
-        if predictions.ndim == 1:
-            predictions = predictions.unsqueeze(-1)
-        if predictions.ndim != 2:
-            raise ValueError(
-                f"predictions must be 1D or 2D; got shape {tuple(predictions.shape)}"
-            )
-        return predictions
-
-    def _squeeze_target_last_singleton(self, y_true: TensorLike) -> torch.Tensor:
-        if not torch.is_tensor(y_true):
-            y_true = torch.as_tensor(y_true, dtype=self.target_dtype)
-        else:
-            y_true = y_true.to(dtype=self.target_dtype)
-
-        # Accept [N, 1] and squeeze to [N]
-        if y_true.ndim == 2 and y_true.shape[1] == 1:
-            y_true = y_true[:, 0]
-        return y_true
-
-    def _validate_batch_match(self, predictions: torch.Tensor, y_true: torch.Tensor):
-        if predictions.shape[0] != y_true.shape[0]:
-            raise ValueError(
-                f"Batch size mismatch: predictions has {predictions.shape[0]} rows, "
-                f"y_true has {y_true.shape[0]} rows."
-            )
-
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
-    def compute_loss(self, predictions: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError("Subclasses must implement compute_loss().")
-
-    def evaluate_nll(self, y_true: TensorLike, y_pred: TensorLike):
-        """
-        Evaluate negative log-likelihood from transformed or raw predictions.
-
-        Notes
-        -----
-        This method assumes `y_pred` is in the same format used by `compute_loss`.
-        In your codebase, `SklearnBaseLSS.evaluate()` already computes NLL directly
-        via `compute_loss` on raw predictions, so this method is mostly a utility.
-        """
-        y_true_tensor = torch.as_tensor(y_true, dtype=self.target_dtype)
-        y_pred_tensor = torch.as_tensor(y_pred, dtype=torch.float32)
-        nll_loss_tensor = self.compute_loss(y_pred_tensor, y_true_tensor)
-        return {"NLL": float(nll_loss_tensor.detach().cpu().item())}
-
-    def forward(self, predictions: TensorLike) -> torch.Tensor:
-        """
-        Transform raw network outputs into valid distribution parameters.
-
-        Default implementation applies one transform per parameter column using
-        attributes named `<param_name>_transform`.
-        """
-        predictions = self._ensure_2d_predictions(predictions)
-
-        if predictions.shape[1] != self.param_count:
-            raise ValueError(
-                f"{self.__class__.__name__} expects {self.param_count} raw parameters, "
-                f"got predictions with shape {tuple(predictions.shape)}."
-            )
-
-        cols = []
-        for idx, param_name in enumerate(self.param_names):
-            transform_spec = getattr(self, f"{param_name}_transform", "none")
-            transform_fn = self.get_transform(transform_spec)
-            cols.append(transform_fn(predictions[:, idx]).unsqueeze(1))
-        return torch.cat(cols, dim=1)
-
-    def predict_point(self, predictions: TensorLike, transformed: bool = False) -> torch.Tensor:
-        """
-        Optional point prediction (default = first transformed parameter).
-        Subclasses can override for family-specific meanings.
-        """
-        params = predictions if transformed else self.forward(predictions)
-        if not torch.is_tensor(params):
-            params = torch.as_tensor(params, dtype=torch.float32)
-        params = self._ensure_2d_predictions(params)
-        return params[:, 0]
-
-
-class NormalDistribution(BaseDistribution):
-    """
-    Gaussian with parameters [mean, scale].
-
-    Notes
-    -----
-    `scale` is the standard deviation (NOT the variance).
-    """
-
-    def __init__(
-        self,
-        name: str = "Normal",
-        mean_transform: Union[str, Callable] = "none",
-        scale_transform: Union[str, Callable] = "positive",
-        eps: float = 1e-6,
-    ):
-        super().__init__(name=name, param_names=["mean", "scale"], eps=eps)
-        self.mean_transform = mean_transform
-        self.scale_transform = scale_transform
-
-    def compute_loss(self, predictions, y_true):
-        predictions = self._ensure_2d_predictions(predictions)
-        y = self._squeeze_target_last_singleton(y_true).float()
-        self._validate_batch_match(predictions, y)
-
-        mean = self.get_transform(self.mean_transform)(predictions[:, 0])
-        scale = self.get_transform(self.scale_transform)(predictions[:, 1])
-        return -dist.Normal(loc=mean, scale=scale).log_prob(y).mean()
-
-    def evaluate_nll(self, y_true, y_pred):
-        metrics = super().evaluate_nll(y_true, y_pred)
-        y = np.asarray(y_true).reshape(-1)
-        pred = np.asarray(y_pred)
-        mu = pred[:, 0]
-        err = y - mu
-        metrics.update(
-            {
-                "mse": float(np.mean(err**2)),
-                "mae": float(np.mean(np.abs(err))),
-                "rmse": float(np.sqrt(np.mean(err**2))),
-            }
-        )
-        return metrics
-
-    def predict_point(self, predictions, transformed: bool = False):
-        params = predictions if transformed else self.forward(predictions)
-        params = self._ensure_2d_predictions(params)
-        return params[:, 0]
-
-
-class PoissonDistribution(BaseDistribution):
-    """Poisson with parameter [rate]."""
-
-    def __init__(
-        self,
-        name: str = "Poisson",
-        rate_transform: Union[str, Callable] = "positive",
-        eps: float = 1e-8,
-    ):
-        super().__init__(name=name, param_names=["rate"], eps=eps)
-        self.rate_transform = rate_transform
-
-    def compute_loss(self, predictions, y_true):
-        predictions = self._ensure_2d_predictions(predictions)
-        y = self._squeeze_target_last_singleton(y_true).float()
-        self._validate_batch_match(predictions, y)
-
-        if torch.any(y < 0):
-            raise ValueError("PoissonDistribution requires non-negative targets.")
-
-        rate = self.get_transform(self.rate_transform)(predictions[:, 0])
-        return -dist.Poisson(rate=rate).log_prob(y).mean()
-
-    def evaluate_nll(self, y_true, y_pred):
-        metrics = super().evaluate_nll(y_true, y_pred)
-        y = np.asarray(y_true).reshape(-1)
-        pred = np.asarray(y_pred)
-        rate = np.clip(pred[:, 0], 1e-9, None)
-        err = y - rate
-
-        # Safe Poisson deviance
-        term = np.where(y > 0, y * np.log(np.clip(y, 1e-12, None) / rate), 0.0)
-        poisson_dev = 2.0 * np.sum(term - (y - rate))
-
-        metrics.update(
-            {
-                "mse": float(np.mean(err**2)),
-                "mae": float(np.mean(np.abs(err))),
-                "rmse": float(np.sqrt(np.mean(err**2))),
-                "poisson_deviance": float(poisson_dev),
-            }
-        )
-        return metrics
-
-    def predict_point(self, predictions, transformed: bool = False):
-        params = predictions if transformed else self.forward(predictions)
-        params = self._ensure_2d_predictions(params)
-        return params[:, 0]
-
-
-class InverseGammaDistribution(BaseDistribution):
-    """Inverse-Gamma with parameters [shape, rate]."""
-
-    def __init__(
-        self,
-        name: str = "InverseGamma",
-        shape_transform: Union[str, Callable] = "positive",
-        rate_transform: Union[str, Callable] = "positive",
-        eps: float = 1e-8,
-    ):
-        super().__init__(name=name, param_names=["shape", "rate"], eps=eps)
-        self.shape_transform = shape_transform
-        self.rate_transform = rate_transform
-
-    def compute_loss(self, predictions, y_true):
-        predictions = self._ensure_2d_predictions(predictions)
-        y = self._squeeze_target_last_singleton(y_true).float()
-        self._validate_batch_match(predictions, y)
-
-        if torch.any(y <= 0):
-            raise ValueError("InverseGammaDistribution requires strictly positive targets.")
-
-        shape = self.get_transform(self.shape_transform)(predictions[:, 0])
-        rate = self.get_transform(self.rate_transform)(predictions[:, 1])
-        return -dist.InverseGamma(concentration=shape, rate=rate).log_prob(y).mean()
-
-    def predict_point(self, predictions, transformed: bool = False):
-        """
-        Mean exists for shape > 1 and equals rate / (shape - 1).
-        Returns a numerically safe approximation.
-        """
-        params = predictions if transformed else self.forward(predictions)
-        params = self._ensure_2d_predictions(params)
-        shape = params[:, 0]
-        rate = params[:, 1]
-        return rate / torch.clamp(shape - 1.0, min=self.eps)
-
-
-class BetaDistribution(BaseDistribution):
-    """Beta with parameters [alpha, beta]. Targets must lie in (0, 1)."""
-
-    def __init__(
-        self,
-        name: str = "Beta",
-        shape_transform: Union[str, Callable] = "positive",
-        scale_transform: Union[str, Callable] = "positive",
-        target_eps: float = 1e-6,
-        eps: float = 1e-8,
-    ):
-        super().__init__(name=name, param_names=["alpha", "beta"], eps=eps)
-        self.alpha_transform = shape_transform
-        self.beta_transform = scale_transform
-        self.target_eps = float(target_eps)
-
-    def compute_loss(self, predictions, y_true):
-        predictions = self._ensure_2d_predictions(predictions)
-        y = self._squeeze_target_last_singleton(y_true).float()
-        self._validate_batch_match(predictions, y)
-
-        y = torch.clamp(y, min=self.target_eps, max=1.0 - self.target_eps)
-        alpha = self.get_transform(self.alpha_transform)(predictions[:, 0])
-        beta = self.get_transform(self.beta_transform)(predictions[:, 1])
-        return -dist.Beta(concentration1=alpha, concentration0=beta).log_prob(y).mean()
-
-    def predict_point(self, predictions, transformed: bool = False):
-        """Beta mean = alpha / (alpha + beta)."""
-        params = predictions if transformed else self.forward(predictions)
-        params = self._ensure_2d_predictions(params)
-        alpha = params[:, 0]
-        beta = params[:, 1]
-        return alpha / torch.clamp(alpha + beta, min=self.eps)
-
-
-class DirichletDistribution(BaseDistribution):
-    """
-    Dirichlet with K concentration parameters.
-
-    IMPORTANT
-    ---------
-    This family needs a known output dimension K. Pass e.g.
-        DirichletDistribution(n_dim=y.shape[1])
-    so `param_count` matches the model output width.
-    """
-
-    def __init__(
-        self,
-        n_dim: Optional[int] = None,
-        name: str = "Dirichlet",
-        concentration_transform: Union[str, Callable] = "positive",
-        target_eps: float = 1e-8,
-        eps: float = 1e-8,
-    ):
-        k = n_dim
-        if k is None:
-            raise ValueError(
-                "DirichletDistribution requires `n_dim` at construction "
-                "so `param_count` matches the model output dimension. "
-                "Example: DirichletDistribution(n_dim=y.shape[1])."
-            )
-        k = int(k)
-        if k < 2:
-            raise ValueError("DirichletDistribution requires n_dim >= 2.")
-        param_names = [f"alpha_{i}" for i in range(k)]
-        self._n_dim = k
-
-        super().__init__(name=name, param_names=param_names, eps=eps)
-        self.concentration_transform = concentration_transform
-        self.target_eps = float(target_eps)
-
-    @property
-    def n_dim(self) -> int:
-        return self._n_dim
-
-    def _check_dim(self, predictions: torch.Tensor):
-        if predictions.shape[1] != self._n_dim:
-            raise ValueError(
-                f"DirichletDistribution expected {self._n_dim} parameters, got "
-                f"predictions with shape {tuple(predictions.shape)}."
-            )
-
-    def forward(self, predictions):
-        predictions = self._ensure_2d_predictions(predictions)
-        self._check_dim(predictions)
-        tfm = self.get_transform(self.concentration_transform)
-        return tfm(predictions)
-
-    def compute_loss(self, predictions, y_true):
-        predictions = self._ensure_2d_predictions(predictions)
-        self._check_dim(predictions)
-
-        if not torch.is_tensor(y_true):
-            y = torch.as_tensor(y_true, dtype=torch.float32)
-        else:
-            y = y_true.float()
-
-        # Accept [N, K], [N, 1, K]
-        if y.ndim == 3 and y.shape[1] == 1:
-            y = y[:, 0, :]
-        if y.ndim != 2:
-            raise ValueError(
-                f"Dirichlet targets must have shape [N, K] (or [N,1,K]); got {tuple(y.shape)}"
-            )
-        self._validate_batch_match(predictions, y)
-        if y.shape[1] != predictions.shape[1]:
-            raise ValueError(
-                f"Dirichlet target dimension {y.shape[1]} != prediction dimension {predictions.shape[1]}"
-            )
-
-        # Clamp and renormalize to simplex
-        y = torch.clamp(y, min=self.target_eps)
-        y = y / torch.clamp(y.sum(dim=1, keepdim=True), min=self.target_eps)
-
-        concentration = self.forward(predictions)
-        return -dist.Dirichlet(concentration=concentration).log_prob(y).mean()
-
-    def predict_point(self, predictions, transformed: bool = False):
-        """Dirichlet mean = alpha / sum(alpha)."""
-        alpha = predictions if transformed else self.forward(predictions)
-        alpha = self._ensure_2d_predictions(alpha)
-        return alpha / torch.clamp(alpha.sum(dim=1, keepdim=True), min=self.eps)
-
-
-class GammaDistribution(BaseDistribution):
-    """Gamma with parameters [shape, rate]. Targets must be > 0."""
-
-    def __init__(
-        self,
-        name: str = "Gamma",
-        shape_transform: Union[str, Callable] = "positive",
-        rate_transform: Union[str, Callable] = "positive",
-        eps: float = 1e-8,
-    ):
-        super().__init__(name=name, param_names=["shape", "rate"], eps=eps)
-        self.shape_transform = shape_transform
-        self.rate_transform = rate_transform
-
-    def compute_loss(self, predictions, y_true):
-        predictions = self._ensure_2d_predictions(predictions)
-        y = self._squeeze_target_last_singleton(y_true).float()
-        self._validate_batch_match(predictions, y)
-
-        if torch.any(y <= 0):
-            raise ValueError("GammaDistribution requires strictly positive targets.")
-
-        shape = self.get_transform(self.shape_transform)(predictions[:, 0])
-        rate = self.get_transform(self.rate_transform)(predictions[:, 1])
-        return -dist.Gamma(concentration=shape, rate=rate).log_prob(y).mean()
-
-    def predict_point(self, predictions, transformed: bool = False):
-        """Gamma mean = shape / rate."""
-        params = predictions if transformed else self.forward(predictions)
-        params = self._ensure_2d_predictions(params)
-        return params[:, 0] / torch.clamp(params[:, 1], min=self.eps)
-
-
-class StudentTDistribution(BaseDistribution):
-    """Student-t with parameters [df, loc, scale]."""
-
-    def __init__(
-        self,
-        name: str = "StudentT",
-        df_transform: Union[str, Callable] = "positive",
-        loc_transform: Union[str, Callable] = "none",
-        scale_transform: Union[str, Callable] = "positive",
-        min_df: float = 1e-3,
-        eps: float = 1e-8,
-    ):
-        super().__init__(name=name, param_names=["df", "loc", "scale"], eps=eps)
-        self.df_transform = df_transform
-        self.loc_transform = loc_transform
-        self.scale_transform = scale_transform
-        self.min_df = float(min_df)
-
-    def compute_loss(self, predictions, y_true):
-        predictions = self._ensure_2d_predictions(predictions)
-        y = self._squeeze_target_last_singleton(y_true).float()
-        self._validate_batch_match(predictions, y)
-
-        df = self.get_transform(self.df_transform)(predictions[:, 0]) + self.min_df
-        loc = self.get_transform(self.loc_transform)(predictions[:, 1])
-        scale = self.get_transform(self.scale_transform)(predictions[:, 2])
-        return -dist.StudentT(df=df, loc=loc, scale=scale).log_prob(y).mean()
-
-    def evaluate_nll(self, y_true, y_pred):
-        metrics = super().evaluate_nll(y_true, y_pred)
-        y = np.asarray(y_true).reshape(-1)
-        pred = np.asarray(y_pred)
-        loc = pred[:, 1]
-        err = y - loc
-        metrics.update(
-            {
-                "mse": float(np.mean(err**2)),
-                "mae": float(np.mean(np.abs(err))),
-                "rmse": float(np.sqrt(np.mean(err**2))),
-            }
-        )
-        return metrics
-
-    def predict_point(self, predictions, transformed: bool = False):
-        """Student-t location parameter."""
-        params = predictions if transformed else self.forward(predictions)
-        params = self._ensure_2d_predictions(params)
-        return params[:, 1]
-
-
-class NegativeBinomialDistribution(BaseDistribution):
-    """
-    Negative Binomial with parameters [mean, dispersion].
-
-    Parameterization
-    ----------------
-    We use `dispersion = alpha > 0` such that:
-        Var(Y) = mean + alpha * mean^2
-
-    PyTorch `NegativeBinomial` expects `(total_count=r, probs=p)` with mean:
-        mean = r * p / (1 - p)
-    Therefore:
-        r = 1 / alpha
-        p = mean / (mean + r)
-    """
-
-    def __init__(
-        self,
-        name: str = "NegativeBinomial",
-        mean_transform: Union[str, Callable] = "positive",
-        dispersion_transform: Union[str, Callable] = "positive",
-        eps: float = 1e-8,
-    ):
-        super().__init__(name=name, param_names=["mean", "dispersion"], eps=eps)
-        self.mean_transform = mean_transform
-        self.dispersion_transform = dispersion_transform
-
-    def compute_loss(self, predictions, y_true):
-        predictions = self._ensure_2d_predictions(predictions)
-        y = self._squeeze_target_last_singleton(y_true).float()
-        self._validate_batch_match(predictions, y)
-
-        if torch.any(y < 0):
-            raise ValueError("NegativeBinomialDistribution requires non-negative targets.")
-
-        mean = self.get_transform(self.mean_transform)(predictions[:, 0])
-        alpha = self.get_transform(self.dispersion_transform)(predictions[:, 1])
-
-        total_count = 1.0 / torch.clamp(alpha, min=self.eps)  # r
-        probs = mean / torch.clamp(mean + total_count, min=self.eps)
-        probs = torch.clamp(probs, min=self.eps, max=1.0 - self.eps)
-
-        nb = dist.NegativeBinomial(total_count=total_count, probs=probs)
-        return -nb.log_prob(y).mean()
-
-    def predict_point(self, predictions, transformed: bool = False):
-        """NB mean parameter."""
-        params = predictions if transformed else self.forward(predictions)
-        params = self._ensure_2d_predictions(params)
-        return params[:, 0]
-
-
-class CategoricalDistribution(BaseDistribution):
-    """
-    Categorical over K classes (returns probabilities in `forward`).
-
-    IMPORTANT
-    ---------
-    For correct model output width, pass:
-        CategoricalDistribution(num_classes=K)
-    so `param_count == K`.
-    """
-
-    target_dtype = torch.long
-
-    def __init__(
-        self,
-        num_classes: Optional[int] = None,
-        name: str = "Categorical",
-        prob_transform: Union[str, Callable] = "probabilities",
-        eps: float = 1e-8,
-    ):
-        if num_classes is None:
-            raise ValueError(
-                "CategoricalDistribution requires `num_classes` at construction so "
-                "`param_count` matches the model output dimension. "
-                "Example: CategoricalDistribution(num_classes=K)."
-            )
-        k = int(num_classes)
-        if k < 2:
-            raise ValueError("CategoricalDistribution requires num_classes >= 2.")
-        self._num_classes = k
-        param_names = [f"class_{i}" for i in range(k)]
-
-        super().__init__(name=name, param_names=param_names, eps=eps)
-        self.probs_transform = prob_transform
-
-    @property
-    def num_classes(self) -> int:
-        return self._num_classes
-
-    def _check_dim(self, predictions: torch.Tensor):
-        if predictions.shape[1] != self._num_classes:
-            raise ValueError(
-                f"CategoricalDistribution expected {self._num_classes} logits, got "
-                f"predictions with shape {tuple(predictions.shape)}."
-            )
-
-    def forward(self, predictions):
-        predictions = self._ensure_2d_predictions(predictions)
-        self._check_dim(predictions)
-        tfm = self.get_transform(self.probs_transform)
-        probs = tfm(predictions)
-        return torch.clamp(probs, min=self.eps, max=1.0 - self.eps)
-
-    def compute_loss(self, predictions, y_true):
-        predictions = self._ensure_2d_predictions(predictions)
-        self._check_dim(predictions)
-
-        if not torch.is_tensor(y_true):
-            y = torch.as_tensor(y_true)
-        else:
-            y = y_true
-
-        # Accept labels [N], [N,1], one-hot/probabilities [N,K], [N,1,K]
-        if y.ndim == 3 and y.shape[1] == 1:
-            y = y[:, 0, :]
-        if y.ndim == 2 and y.shape[1] == 1:
-            y = y[:, 0]
-        elif y.ndim == 2 and y.shape[1] == predictions.shape[1]:
-            y = torch.argmax(y, dim=1)
-        elif y.ndim != 1:
-            raise ValueError(
-                f"Categorical targets must be [N], [N,1], or [N,K]; got {tuple(y.shape)}"
-            )
-
-        y = y.long()
-        self._validate_batch_match(predictions, y)
-        probs = self.forward(predictions)
-        return -dist.Categorical(probs=probs).log_prob(y).mean()
-
-    def predict_point(self, predictions, transformed: bool = False):
-        probs = predictions if transformed else self.forward(predictions)
-        probs = self._ensure_2d_predictions(probs)
-        return torch.argmax(probs, dim=1)
-
-
-class Quantile(BaseDistribution):
-    """
-    Quantile regression (pinball loss).
-
-    Parameters
-    ----------
-    quantiles : sequence of float
-        Quantiles in (0,1). Example: [0.1, 0.5, 0.9]
-    enforce_monotonic : bool, default=True
-        If True, `forward()` maps raw predictions to monotone quantiles via:
-            q0 = raw0
-            increments = softplus(raw[1:])
-            q = q0 + cumsum(increments)
-        This changes the meaning of the raw parameterization but avoids
-        quantile crossing, which is typically desired in practice.
-    """
-
-    def __init__(
-        self,
-        name: str = "Quantile",
-        quantiles: Optional[Sequence[float]] = None,
-        enforce_monotonic: bool = True,
-        eps: float = 1e-8,
-    ):
-        if quantiles is None:
-            quantiles = [0.25, 0.5, 0.75]
-
-        q = np.asarray(quantiles, dtype=float)
-        if q.ndim != 1 or q.size == 0:
-            raise ValueError("quantiles must be a non-empty 1D sequence.")
-        if np.any(q <= 0.0) or np.any(q >= 1.0):
-            raise ValueError("All quantiles must lie strictly between 0 and 1.")
-        if len(np.unique(q)) != len(q):
-            raise ValueError("quantiles must be unique.")
-        if np.any(np.diff(q) < 0):
-            raise ValueError("quantiles must be sorted ascending.")
-
-        self.quantiles = [float(v) for v in q]
-        self.enforce_monotonic = bool(enforce_monotonic)
-        param_names = [f"q_{v:g}" for v in self.quantiles]
-        super().__init__(name=name, param_names=param_names, eps=eps)
-
-    def forward(self, predictions):
-        predictions = self._ensure_2d_predictions(predictions)
-        if predictions.shape[1] != self.param_count:
-            raise ValueError(
-                f"Quantile expects {self.param_count} outputs, got {tuple(predictions.shape)}"
-            )
-
-        if not self.enforce_monotonic:
-            return predictions
-
-        q0 = predictions[:, :1]
-        if predictions.shape[1] == 1:
-            return q0
-        inc = F.softplus(predictions[:, 1:])
-        q_rest = q0 + torch.cumsum(inc, dim=1)
-        return torch.cat([q0, q_rest], dim=1)
-
-    def compute_loss(self, predictions, y_true):
-        preds = self.forward(predictions)  # supports optional monotonic transform
-        y = self._squeeze_target_last_singleton(y_true).float()
-        self._validate_batch_match(preds, y)
-
-        # Broadcast y to [N, Q]
-        y = y.unsqueeze(1)
-        q = torch.tensor(self.quantiles, dtype=preds.dtype, device=preds.device).view(1, -1)
-        errors = y - preds
-        loss = torch.maximum((q - 1.0) * errors, q * errors)
-        return loss.sum(dim=1).mean()
-
-    def predict_point(self, predictions, transformed: bool = False):
-        preds = predictions if transformed else self.forward(predictions)
-        preds = self._ensure_2d_predictions(preds)
-        if 0.5 in self.quantiles:
-            idx = self.quantiles.index(0.5)
-            return preds[:, idx]
-        return preds.mean(dim=1)
-
-
-class RobustNormalDistribution(BaseDistribution):
-    """
-    Robustified Gaussian likelihood with parameters [mean, scale].
-
-    The robustness transformation is:
-        loglik_rob = log((1 + exp(loglik + rob)) / (1 + exp(rob)))
-    This downweights very unlikely observations while remaining smooth.
-    """
-
-    def __init__(
-        self,
-        name: str = "RobustNormal",
-        mean_transform: Union[str, Callable] = "none",
-        scale_transform: Union[str, Callable] = "positive",
-        rob: Optional[float] = 0.1,
-        eps: float = 1e-6,
-    ):
-        super().__init__(name=name, param_names=["mean", "scale"], eps=eps)
-        self.mean_transform = mean_transform
-        self.scale_transform = scale_transform
-        self.rob = None if rob is None else float(rob)
-
-    def compute_loss(self, predictions, y_true):
-        predictions = self._ensure_2d_predictions(predictions)
-        y = self._squeeze_target_last_singleton(y_true).float()
-        self._validate_batch_match(predictions, y)
-
-        mean = self.get_transform(self.mean_transform)(predictions[:, 0])
-        scale = self.get_transform(self.scale_transform)(predictions[:, 1])
-
-        normal_dist = dist.Normal(loc=mean, scale=scale)
-        log_likelihood = normal_dist.log_prob(y)
-
-        if self.rob is not None:
-            # numerically stable implementation using logaddexp:
-            # log(1 + exp(a)) = logaddexp(0, a)
-            rob_t = torch.tensor(self.rob, device=log_likelihood.device, dtype=log_likelihood.dtype)
-            log_num = torch.logaddexp(torch.zeros_like(log_likelihood), log_likelihood + rob_t)
-            log_den = torch.logaddexp(torch.tensor(0.0, device=rob_t.device, dtype=rob_t.dtype), rob_t)
-            log_likelihood = log_num - log_den
-
-        return -log_likelihood.mean()
-
-    def evaluate_nll(self, y_true, y_pred):
-        metrics = super().evaluate_nll(y_true, y_pred)
-        y = np.asarray(y_true).reshape(-1)
-        pred = np.asarray(y_pred)
-        mu = pred[:, 0]
-        err = y - mu
-        metrics.update(
-            {
-                "mse": float(np.mean(err**2)),
-                "mae": float(np.mean(np.abs(err))),
-                "rmse": float(np.sqrt(np.mean(err**2))),
-            }
-        )
-        return metrics
-
-    def predict_point(self, predictions, transformed: bool = False):
-        params = predictions if transformed else self.forward(predictions)
-        params = self._ensure_2d_predictions(params)
-        return params[:, 0]
-
-# ----------------------------------------------------------------------
-# Additional drop-in families for nampy/utils/distributions.py
-# ----------------------------------------------------------------------
-
-def _unit_interval_transform(x: torch.Tensor) -> torch.Tensor:
-    """Numerically safe sigmoid transform to (0, 1)."""
-    return torch.sigmoid(torch.clamp(x, min=-40.0, max=40.0))
-
-
-def _mean_dispersion_to_nb(mean: torch.Tensor, alpha: torch.Tensor, eps: float):
-    """
-    Convert NB2 mean/dispersion parameterization to PyTorch's
-    NegativeBinomial(total_count=r, probs=p) parameterization.
-
-    NB2:
-        Var(Y) = mean + alpha * mean^2
-        r = 1 / alpha
-        p = mean / (mean + r)
-    """
-    total_count = 1.0 / torch.clamp(alpha, min=eps)
-    probs = mean / torch.clamp(mean + total_count, min=eps)
-    probs = torch.clamp(probs, min=eps, max=1.0 - eps)
-    return total_count, probs
-
-
-class LogNormalDistribution(BaseDistribution):
-    """
-    Log-Normal with parameters [loc, scale].
-
-    Here `loc` and `scale` are the parameters of log(Y):
-        log(Y) ~ Normal(loc, scale)
-
-    Notes
-    -----
-    * Targets must be strictly positive.
-    * `predict_point()` returns the conditional mean:
-          E[Y] = exp(loc + 0.5 * scale^2)
-    """
-
-    def __init__(
-        self,
-        name: str = "LogNormal",
-        loc_transform: Union[str, Callable] = "none",
-        scale_transform: Union[str, Callable] = "positive",
-        eps: float = 1e-8,
-    ):
-        super().__init__(name=name, param_names=["loc", "scale"], eps=eps)
-        self.loc_transform = loc_transform
-        self.scale_transform = scale_transform
-
-    def compute_loss(self, predictions, y_true):
-        predictions = self._ensure_2d_predictions(predictions)
-        y = self._squeeze_target_last_singleton(y_true).float()
-        self._validate_batch_match(predictions, y)
-
-        if torch.any(y <= 0):
-            raise ValueError("LogNormalDistribution requires strictly positive targets.")
-
-        loc = self.get_transform(self.loc_transform)(predictions[:, 0])
-        scale = self.get_transform(self.scale_transform)(predictions[:, 1])
-
-        return -dist.LogNormal(loc=loc, scale=scale).log_prob(y).mean()
-
-    def predict_point(self, predictions, transformed: bool = False):
-        params = predictions if transformed else self.forward(predictions)
-        params = self._ensure_2d_predictions(params)
-        loc = params[:, 0]
-        scale = params[:, 1]
-        return torch.exp(loc + 0.5 * scale.square())
-
-
-class WeibullDistribution(BaseDistribution):
-    """
-    Weibull with parameters [scale, shape].
-
-    PyTorch parameterization:
-        Weibull(scale=scale, concentration=shape)
-
-    Notes
-    -----
-    * Targets must be strictly positive.
-    * `predict_point()` returns the conditional mean:
-          E[Y] = scale * Gamma(1 + 1/shape)
-    """
-
-    def __init__(
-        self,
-        name: str = "Weibull",
-        scale_transform: Union[str, Callable] = "positive",
-        shape_transform: Union[str, Callable] = "positive",
-        eps: float = 1e-8,
-    ):
-        super().__init__(name=name, param_names=["scale", "shape"], eps=eps)
-        self.scale_transform = scale_transform
-        self.shape_transform = shape_transform
-
-    def compute_loss(self, predictions, y_true):
-        predictions = self._ensure_2d_predictions(predictions)
-        y = self._squeeze_target_last_singleton(y_true).float()
-        self._validate_batch_match(predictions, y)
-
-        if torch.any(y <= 0):
-            raise ValueError("WeibullDistribution requires strictly positive targets.")
-
-        scale = self.get_transform(self.scale_transform)(predictions[:, 0])
-        shape = self.get_transform(self.shape_transform)(predictions[:, 1])
-
-        return -dist.Weibull(scale=scale, concentration=shape).log_prob(y).mean()
-
-    def predict_point(self, predictions, transformed: bool = False):
-        params = predictions if transformed else self.forward(predictions)
-        params = self._ensure_2d_predictions(params)
-        scale = params[:, 0]
-        shape = params[:, 1]
-        return scale * torch.exp(torch.lgamma(1.0 + 1.0 / torch.clamp(shape, min=self.eps)))
-
-
-class LogLogisticDistribution(BaseDistribution):
-    """
-    Log-Logistic with parameters [scale, shape].
-
-    Density:
-        f(y) = (shape / scale) * (y / scale)^(shape - 1) / (1 + (y / scale)^shape)^2
-    for y > 0.
-
-    Notes
-    -----
-    * Targets must be strictly positive.
-    * `predict_point()` returns the median, which equals `scale`.
-      (The mean exists only for shape > 1.)
-    """
-
-    def __init__(
-        self,
-        name: str = "LogLogistic",
-        scale_transform: Union[str, Callable] = "positive",
-        shape_transform: Union[str, Callable] = "positive",
-        eps: float = 1e-8,
-    ):
-        super().__init__(name=name, param_names=["scale", "shape"], eps=eps)
-        self.scale_transform = scale_transform
-        self.shape_transform = shape_transform
-
-    def compute_loss(self, predictions, y_true):
-        predictions = self._ensure_2d_predictions(predictions)
-        y = self._squeeze_target_last_singleton(y_true).float()
-        self._validate_batch_match(predictions, y)
-
-        if torch.any(y <= 0):
-            raise ValueError("LogLogisticDistribution requires strictly positive targets.")
-
-        scale = self.get_transform(self.scale_transform)(predictions[:, 0])
-        shape = self.get_transform(self.shape_transform)(predictions[:, 1])
-
-        log_y = torch.log(torch.clamp(y, min=self.eps))
-        log_scale = torch.log(torch.clamp(scale, min=self.eps))
-        z = log_y - log_scale
-        bz = shape * z
-
-        log_pdf = (
-            torch.log(torch.clamp(shape, min=self.eps))
-            - log_scale
-            + (shape - 1.0) * z
-            - 2.0 * F.softplus(bz)
-        )
-
-        return -log_pdf.mean()
-
-    def predict_point(self, predictions, transformed: bool = False):
-        params = predictions if transformed else self.forward(predictions)
-        params = self._ensure_2d_predictions(params)
-        # Median of the log-logistic is exactly scale.
-        return params[:, 0]
-
-
-class ZeroInflatedPoissonDistribution(BaseDistribution):
-    """
-    Zero-Inflated Poisson with parameters [zero_prob, rate].
-
-    Interpretation
-    --------------
-    P(Y = 0) = zero_prob + (1 - zero_prob) * Pois(rate).pmf(0)
-    P(Y = y>0) = (1 - zero_prob) * Pois(rate).pmf(y)
-
-    Notes
-    -----
-    * Targets must be non-negative.
-    * `predict_point()` returns the mean:
-          E[Y] = (1 - zero_prob) * rate
-    """
-
-    def __init__(
-        self,
-        name: str = "ZeroInflatedPoisson",
-        zero_prob_transform: Union[str, Callable] = _unit_interval_transform,
-        rate_transform: Union[str, Callable] = "positive",
-        eps: float = 1e-8,
-    ):
-        super().__init__(name=name, param_names=["zero_prob", "rate"], eps=eps)
-        self.zero_prob_transform = zero_prob_transform
-        self.rate_transform = rate_transform
-
-    def compute_loss(self, predictions, y_true):
-        predictions = self._ensure_2d_predictions(predictions)
-        y = self._squeeze_target_last_singleton(y_true).float()
-        self._validate_batch_match(predictions, y)
-
-        if torch.any(y < 0):
-            raise ValueError("ZeroInflatedPoissonDistribution requires non-negative targets.")
-
-        zero_prob = self.get_transform(self.zero_prob_transform)(predictions[:, 0])
-        zero_prob = torch.clamp(zero_prob, min=self.eps, max=1.0 - self.eps)
-        rate = self.get_transform(self.rate_transform)(predictions[:, 1])
-
-        pois = dist.Poisson(rate=rate)
-        log_pois = pois.log_prob(y)
-        log_pois0 = pois.log_prob(torch.zeros_like(y))
-
-        log_prob_zero = torch.logaddexp(torch.log(zero_prob), torch.log1p(-zero_prob) + log_pois0)
-        log_prob_pos = torch.log1p(-zero_prob) + log_pois
-
-        log_prob = torch.where(y == 0, log_prob_zero, log_prob_pos)
-        return -log_prob.mean()
-
-    def predict_point(self, predictions, transformed: bool = False):
-        params = predictions if transformed else self.forward(predictions)
-        params = self._ensure_2d_predictions(params)
-        zero_prob = params[:, 0]
-        rate = params[:, 1]
-        return (1.0 - zero_prob) * rate
-
-
-class ZeroInflatedNegativeBinomialDistribution(BaseDistribution):
-    """
-    Zero-Inflated Negative Binomial (NB2) with parameters [zero_prob, mean, dispersion].
-
-    NB2 parameterization:
-        Var(Y) = mean + dispersion * mean^2
-
-    Notes
-    -----
-    * Targets must be non-negative.
-    * `predict_point()` returns the mean:
-          E[Y] = (1 - zero_prob) * mean
-    """
-
-    def __init__(
-        self,
-        name: str = "ZeroInflatedNegativeBinomial",
-        zero_prob_transform: Union[str, Callable] = _unit_interval_transform,
-        mean_transform: Union[str, Callable] = "positive",
-        dispersion_transform: Union[str, Callable] = "positive",
-        eps: float = 1e-8,
-    ):
-        super().__init__(name=name, param_names=["zero_prob", "mean", "dispersion"], eps=eps)
-        self.zero_prob_transform = zero_prob_transform
-        self.mean_transform = mean_transform
-        self.dispersion_transform = dispersion_transform
-
-    def compute_loss(self, predictions, y_true):
-        predictions = self._ensure_2d_predictions(predictions)
-        y = self._squeeze_target_last_singleton(y_true).float()
-        self._validate_batch_match(predictions, y)
-
-        if torch.any(y < 0):
-            raise ValueError(
-                "ZeroInflatedNegativeBinomialDistribution requires non-negative targets."
-            )
-
-        zero_prob = self.get_transform(self.zero_prob_transform)(predictions[:, 0])
-        zero_prob = torch.clamp(zero_prob, min=self.eps, max=1.0 - self.eps)
-        mean = self.get_transform(self.mean_transform)(predictions[:, 1])
-        dispersion = self.get_transform(self.dispersion_transform)(predictions[:, 2])
-
-        total_count, probs = _mean_dispersion_to_nb(mean, dispersion, self.eps)
-        nb = dist.NegativeBinomial(total_count=total_count, probs=probs)
-
-        log_nb = nb.log_prob(y)
-        log_nb0 = nb.log_prob(torch.zeros_like(y))
-
-        log_prob_zero = torch.logaddexp(torch.log(zero_prob), torch.log1p(-zero_prob) + log_nb0)
-        log_prob_pos = torch.log1p(-zero_prob) + log_nb
-
-        log_prob = torch.where(y == 0, log_prob_zero, log_prob_pos)
-        return -log_prob.mean()
-
-    def predict_point(self, predictions, transformed: bool = False):
-        params = predictions if transformed else self.forward(predictions)
-        params = self._ensure_2d_predictions(params)
-        zero_prob = params[:, 0]
-        mean = params[:, 1]
-        return (1.0 - zero_prob) * mean
-
-
-class HurdlePoissonDistribution(BaseDistribution):
-    """
-    Hurdle Poisson with parameters [zero_prob, rate].
-
-    Interpretation
-    --------------
-    P(Y = 0) = zero_prob
-    P(Y = y>0) = (1 - zero_prob) * Pois(rate).pmf(y) / (1 - Pois(rate).pmf(0))
-
-    Notes
-    -----
-    * Targets must be non-negative.
-    * `predict_point()` returns the mean:
-          E[Y] = (1 - zero_prob) * E[Poisson(rate) | Y > 0]
-               = (1 - zero_prob) * rate / (1 - exp(-rate))
-    """
-
-    def __init__(
-        self,
-        name: str = "HurdlePoisson",
-        zero_prob_transform: Union[str, Callable] = _unit_interval_transform,
-        rate_transform: Union[str, Callable] = "positive",
-        eps: float = 1e-8,
-    ):
-        super().__init__(name=name, param_names=["zero_prob", "rate"], eps=eps)
-        self.zero_prob_transform = zero_prob_transform
-        self.rate_transform = rate_transform
-
-    def compute_loss(self, predictions, y_true):
-        predictions = self._ensure_2d_predictions(predictions)
-        y = self._squeeze_target_last_singleton(y_true).float()
-        self._validate_batch_match(predictions, y)
-
-        if torch.any(y < 0):
-            raise ValueError("HurdlePoissonDistribution requires non-negative targets.")
-
-        zero_prob = self.get_transform(self.zero_prob_transform)(predictions[:, 0])
-        zero_prob = torch.clamp(zero_prob, min=self.eps, max=1.0 - self.eps)
-        rate = self.get_transform(self.rate_transform)(predictions[:, 1])
-
-        pois = dist.Poisson(rate=rate)
-        log_pois = pois.log_prob(y)
-        log_pois0 = pois.log_prob(torch.zeros_like(y))
-
-        log_trunc_norm = torch.log(torch.clamp(1.0 - torch.exp(log_pois0), min=self.eps))
-        log_prob_zero = torch.log(zero_prob)
-        log_prob_pos = torch.log1p(-zero_prob) + log_pois - log_trunc_norm
-
-        log_prob = torch.where(y == 0, log_prob_zero, log_prob_pos)
-        return -log_prob.mean()
-
-    def predict_point(self, predictions, transformed: bool = False):
-        params = predictions if transformed else self.forward(predictions)
-        params = self._ensure_2d_predictions(params)
-        zero_prob = params[:, 0]
-        rate = params[:, 1]
-        trunc_mean = rate / torch.clamp(1.0 - torch.exp(-rate), min=self.eps)
-        return (1.0 - zero_prob) * trunc_mean
-
-
-class HurdleNegativeBinomialDistribution(BaseDistribution):
-    """
-    Hurdle Negative Binomial (NB2) with parameters [zero_prob, mean, dispersion].
-
-    Interpretation
-    --------------
-    P(Y = 0) = zero_prob
-    P(Y = y>0) = (1 - zero_prob) * NB(mean, dispersion).pmf(y) / (1 - NB(...).pmf(0))
-
-    Notes
-    -----
-    * Targets must be non-negative.
-    * `predict_point()` returns the mean:
-          E[Y] = (1 - zero_prob) * E[NB(mean, dispersion) | Y > 0]
-               = (1 - zero_prob) * mean / (1 - P_NB(Y=0))
-    """
-
-    def __init__(
-        self,
-        name: str = "HurdleNegativeBinomial",
-        zero_prob_transform: Union[str, Callable] = _unit_interval_transform,
-        mean_transform: Union[str, Callable] = "positive",
-        dispersion_transform: Union[str, Callable] = "positive",
-        eps: float = 1e-8,
-    ):
-        super().__init__(name=name, param_names=["zero_prob", "mean", "dispersion"], eps=eps)
-        self.zero_prob_transform = zero_prob_transform
-        self.mean_transform = mean_transform
-        self.dispersion_transform = dispersion_transform
-
-    def compute_loss(self, predictions, y_true):
-        predictions = self._ensure_2d_predictions(predictions)
-        y = self._squeeze_target_last_singleton(y_true).float()
-        self._validate_batch_match(predictions, y)
-
-        if torch.any(y < 0):
-            raise ValueError(
-                "HurdleNegativeBinomialDistribution requires non-negative targets."
-            )
-
-        zero_prob = self.get_transform(self.zero_prob_transform)(predictions[:, 0])
-        zero_prob = torch.clamp(zero_prob, min=self.eps, max=1.0 - self.eps)
-        mean = self.get_transform(self.mean_transform)(predictions[:, 1])
-        dispersion = self.get_transform(self.dispersion_transform)(predictions[:, 2])
-
-        total_count, probs = _mean_dispersion_to_nb(mean, dispersion, self.eps)
-        nb = dist.NegativeBinomial(total_count=total_count, probs=probs)
-
-        log_nb = nb.log_prob(y)
-        log_nb0 = nb.log_prob(torch.zeros_like(y))
-
-        log_trunc_norm = torch.log(torch.clamp(1.0 - torch.exp(log_nb0), min=self.eps))
-        log_prob_zero = torch.log(zero_prob)
-        log_prob_pos = torch.log1p(-zero_prob) + log_nb - log_trunc_norm
-
-        log_prob = torch.where(y == 0, log_prob_zero, log_prob_pos)
-        return -log_prob.mean()
-
-    def predict_point(self, predictions, transformed: bool = False):
-        params = predictions if transformed else self.forward(predictions)
-        params = self._ensure_2d_predictions(params)
-
-        zero_prob = params[:, 0]
-        mean = params[:, 1]
-        dispersion = params[:, 2]
-
-        total_count, probs = _mean_dispersion_to_nb(mean, dispersion, self.eps)
-        nb = dist.NegativeBinomial(total_count=total_count, probs=probs)
-        p0 = torch.exp(nb.log_prob(torch.zeros_like(mean)))
-
-        trunc_mean = mean / torch.clamp(1.0 - p0, min=self.eps)
-        return (1.0 - zero_prob) * trunc_mean
-
-# ----------------------------------------------------------------------
-# Additional advanced families for nampy/utils/distributions.py
-# ----------------------------------------------------------------------
-
-def _inverse_softplus(x: torch.Tensor) -> torch.Tensor:
-    """Numerically stable inverse softplus for x > 0."""
-    x = torch.as_tensor(x, dtype=torch.float32)
-    return x + torch.log(-torch.expm1(-x))
-
-
-class TweedieDistribution(BaseDistribution):
-    """
-    Proper Tweedie likelihood for the compound Poisson-Gamma case: 1 < p < 2.
-
-    Parameterization
-    ----------------
-    We use:
-        E[Y] = mean = mu > 0
-        Var(Y) = dispersion * mu^p,   with 1 < p < 2
-
-    The model predicts raw outputs for [mean, dispersion], and `variance_power`
-    (often called `p`) is fixed at construction time.
-
-    Notes
-    -----
-    * Supports y >= 0 with exact point mass at zero.
-    * For y > 0, the density is evaluated via the infinite series representation
-      of the compound Poisson-Gamma distribution, truncated at `series_max_terms`.
-    * `predict_point()` returns the mean parameter.
-    """
-
-    def __init__(
-        self,
-        variance_power: float = 1.5,
-        name: str = "Tweedie",
-        mean_transform: Union[str, Callable] = "positive",
-        dispersion_transform: Union[str, Callable] = "positive",
-        series_max_terms: int = 200,
-        eps: float = 1e-8,
-    ):
-        p = float(variance_power)
-        if not (1.0 < p < 2.0):
-            raise ValueError(
-                "TweedieDistribution currently supports only 1 < variance_power < 2 "
-                "(compound Poisson-Gamma case)."
-            )
-        if int(series_max_terms) < 1:
-            raise ValueError("series_max_terms must be >= 1.")
-
-        super().__init__(name=name, param_names=["mean", "dispersion"], eps=eps)
-        self.variance_power = p
-        self.mean_transform = mean_transform
-        self.dispersion_transform = dispersion_transform
-        self.series_max_terms = int(series_max_terms)
-
-    def _compound_params(self, mean: torch.Tensor, dispersion: torch.Tensor):
-        """
-        Compound Poisson-Gamma representation for 1 < p < 2.
-
-        If Y = sum_{i=1}^N X_i where:
-          N ~ Poisson(lambda)
-          X_i ~ Gamma(shape=a, scale=b)
-        then:
-          lambda = mean^(2-p) / (dispersion * (2-p))
-          a      = (2-p) / (p-1)
-          b      = dispersion * (p-1) * mean^(p-1)
-        """
-        p = self.variance_power
-        lam = mean.pow(2.0 - p) / torch.clamp(dispersion * (2.0 - p), min=self.eps)
-        a = (2.0 - p) / (p - 1.0)
-        b = dispersion * (p - 1.0) * mean.pow(p - 1.0)
-        b = torch.clamp(b, min=self.eps)
-        lam = torch.clamp(lam, min=self.eps)
-        return lam, a, b
-
-    def compute_loss(self, predictions, y_true):
-        predictions = self._ensure_2d_predictions(predictions)
-        y = self._squeeze_target_last_singleton(y_true).float()
-        self._validate_batch_match(predictions, y)
-
-        if torch.any(y < 0):
-            raise ValueError("TweedieDistribution requires non-negative targets.")
-
-        mean = self.get_transform(self.mean_transform)(predictions[:, 0])
-        dispersion = self.get_transform(self.dispersion_transform)(predictions[:, 1])
-
-        lam, a, b = self._compound_params(mean, dispersion)
-
-        log_prob = torch.empty_like(y)
-
-        # Exact mass at zero
-        zero_mask = y == 0
-        if zero_mask.any():
-            log_prob[zero_mask] = -lam[zero_mask]
-
-        # Continuous density for y > 0 via series expansion
-        pos_mask = ~zero_mask
-        if pos_mask.any():
-            y_pos = torch.clamp(y[pos_mask], min=self.eps)
-            lam_pos = lam[pos_mask]
-            b_pos = b[pos_mask]
-
-            n = torch.arange(
-                1,
-                self.series_max_terms + 1,
-                device=y_pos.device,
-                dtype=y_pos.dtype,
-            ).view(1, -1)
-
-            log_lambda = torch.log(lam_pos).unsqueeze(1)
-            log_y = torch.log(y_pos).unsqueeze(1)
-            log_b = torch.log(b_pos).unsqueeze(1)
-
-            # Gamma shape for the sum of n jumps
-            an = a * n
-
-            # log term_n:
-            #   n log(lambda) - lgamma(n+1) - lgamma(a n)
-            #   + a n (log y - log b)
-            log_terms = (
-                n * log_lambda
-                - torch.lgamma(n + 1.0)
-                - torch.lgamma(an)
-                + an * (log_y - log_b)
-            )
-
-            log_sum = torch.logsumexp(log_terms, dim=1)
-
-            # f(y) = exp(-lambda - y/b) * (1/y) * sum_n term_n
-            log_prob[pos_mask] = -lam_pos - y_pos / b_pos - torch.log(y_pos) + log_sum
-
-        return -log_prob.mean()
-
-    def predict_point(self, predictions, transformed: bool = False):
-        params = predictions if transformed else self.forward(predictions)
-        params = self._ensure_2d_predictions(params)
-        return params[:, 0]
-
-
-class OrdinalCumulativeLogitDistribution(BaseDistribution):
-    """
-    Proportional-odds ordinal regression with global ordered cutpoints.
-
-    Model
-    -----
-    The network predicts a single latent location per sample:
-        eta(x) in R
-
-    The family holds global ordered cutpoints:
-        c_1 < c_2 < ... < c_{K-1}
-
-    Then:
-        P(Y <= k | x) = sigmoid(c_k - eta(x))
-
-    This is often the cleanest ordinal head for tabular models because the network
-    only needs to output one score per sample, while the thresholds remain global.
-
-    Parameters
-    ----------
-    num_classes : int
-        Number of ordered classes K >= 2.
-
-    Notes
-    -----
-    * `param_count == 1`, so the backbone only needs one output dimension.
-    * `forward()` returns class probabilities of shape [N, K].
-    * `predict_point()` returns the most likely class index.
-    """
-
-    target_dtype = torch.long
-
-    def __init__(
-        self,
-        num_classes: Optional[int] = None,
-        name: str = "OrdinalCumulativeLogit",
-        eps: float = 1e-8,
-    ):
-        if num_classes is None:
-            raise ValueError(
-                "OrdinalCumulativeLogitDistribution requires `num_classes` at construction."
-            )
-        k = int(num_classes)
-        if k < 2:
-            raise ValueError("OrdinalCumulativeLogitDistribution requires num_classes >= 2.")
-
-        super().__init__(name=name, param_names=["eta"], eps=eps)
-        self._num_classes = k
-
-        # Initialize ordered cutpoints roughly centered around 0.
-        init_cuts = torch.linspace(-(k - 2) / 2.0, (k - 2) / 2.0, k - 1)
-        self.first_cutpoint = torch.nn.Parameter(init_cuts[:1].clone())
-
-        if k > 2:
-            init_diffs = init_cuts[1:] - init_cuts[:-1]
-            self.raw_cutpoint_increments = torch.nn.Parameter(
-                _inverse_softplus(init_diffs).clone()
-            )
-        else:
-            self.raw_cutpoint_increments = None
-
-    @property
-    def num_classes(self) -> int:
-        return self._num_classes
-
-    def _ordered_cutpoints(self) -> torch.Tensor:
-        if self.raw_cutpoint_increments is None:
-            return self.first_cutpoint
-        inc = F.softplus(self.raw_cutpoint_increments)
-        rest = self.first_cutpoint + torch.cumsum(inc, dim=0)
-        return torch.cat([self.first_cutpoint, rest], dim=0)
-
-    def get_cutpoints(self) -> torch.Tensor:
-        """Return current ordered cutpoints as a detached tensor."""
-        return self._ordered_cutpoints().detach()
-
-    def forward(self, predictions):
-        predictions = self._ensure_2d_predictions(predictions)
-        if predictions.shape[1] != 1:
-            raise ValueError(
-                f"OrdinalCumulativeLogitDistribution expects raw predictions with shape (N, 1), "
-                f"got {tuple(predictions.shape)}."
-            )
-
-        eta = predictions[:, 0:1]  # [N,1]
-        cutpoints = self._ordered_cutpoints().to(device=eta.device, dtype=eta.dtype)  # [K-1]
-
-        cum_probs = torch.sigmoid(cutpoints.unsqueeze(0) - eta)  # [N, K-1]
-
-        probs = []
-        probs.append(cum_probs[:, 0:1])  # P(Y=0)
-        for j in range(1, self.num_classes - 1):
-            probs.append(cum_probs[:, j:j+1] - cum_probs[:, j-1:j])
-        probs.append(1.0 - cum_probs[:, -1:])  # P(Y=K-1)
-
-        probs = torch.cat(probs, dim=1)
-        probs = torch.clamp(probs, min=self.eps, max=1.0 - self.eps)
-        probs = probs / torch.clamp(probs.sum(dim=1, keepdim=True), min=self.eps)
-        return probs
-
-    def compute_loss(self, predictions, y_true):
-        probs = self.forward(predictions)
-
-        if not torch.is_tensor(y_true):
-            y = torch.as_tensor(y_true)
-        else:
-            y = y_true
-
-        # Accept [N], [N,1], [N,K], [N,1,K]
-        if y.ndim == 3 and y.shape[1] == 1:
-            y = y[:, 0, :]
-        if y.ndim == 2 and y.shape[1] == 1:
-            y = y[:, 0]
-        elif y.ndim == 2 and y.shape[1] == self.num_classes:
-            y = torch.argmax(y, dim=1)
-        elif y.ndim != 1:
-            raise ValueError(
-                f"Ordinal targets must be [N], [N,1], or [N,K]; got {tuple(y.shape)}"
-            )
-
-        y = y.long().to(device=probs.device)
-        self._validate_batch_match(probs, y)
-
-        if torch.any((y < 0) | (y >= self.num_classes)):
-            raise ValueError(
-                f"Ordinal targets must lie in [0, {self.num_classes - 1}]."
-            )
-
-        gathered = probs.gather(1, y.unsqueeze(1)).squeeze(1)
-        return -torch.log(torch.clamp(gathered, min=self.eps)).mean()
-
-    def predict_point(self, predictions, transformed: bool = False):
-        probs = predictions if transformed else self.forward(predictions)
-        probs = self._ensure_2d_predictions(probs)
-        return torch.argmax(probs, dim=1)
-
-
-class MultivariateNormalDiagDistribution(BaseDistribution):
-    """
-    Multivariate Normal with diagonal covariance for K-dimensional targets.
-
-    Raw network output layout
-    -------------------------
-    [loc_0, ..., loc_{K-1}, scale_0, ..., scale_{K-1}]
-
-    Notes
-    -----
-    * Requires `n_dim` (or `dim`) at construction.
-    * Assumes conditional independence across target dimensions given x.
-    * `predict_point()` returns the mean vector of shape [N, K].
-    """
-
-    def __init__(
-        self,
-        n_dim: Optional[int] = None,
-        dim: Optional[int] = None,
-        name: str = "MultivariateNormalDiag",
-        loc_transform: Union[str, Callable] = "none",
-        scale_transform: Union[str, Callable] = "positive",
-        eps: float = 1e-8,
-    ):
-        k = n_dim if n_dim is not None else dim
-        if k is None:
-            raise ValueError(
-                "MultivariateNormalDiagDistribution requires `n_dim` (or `dim`) "
-                "at construction."
-            )
-        k = int(k)
-        if k < 2:
-            raise ValueError("MultivariateNormalDiagDistribution requires n_dim >= 2.")
-
-        param_names = [f"loc_{i}" for i in range(k)] + [f"scale_{i}" for i in range(k)]
-        super().__init__(name=name, param_names=param_names, eps=eps)
-
-        self._n_dim = k
-        self.loc_transform = loc_transform
-        self.scale_transform = scale_transform
-
-    @property
-    def n_dim(self) -> int:
-        return self._n_dim
-
-    def _check_dim(self, predictions: torch.Tensor):
-        if predictions.shape[1] != 2 * self._n_dim:
-            raise ValueError(
-                f"MultivariateNormalDiagDistribution expected {2 * self._n_dim} raw parameters, "
-                f"got {tuple(predictions.shape)}."
-            )
-
-    def forward(self, predictions):
-        predictions = self._ensure_2d_predictions(predictions)
-        self._check_dim(predictions)
-
-        loc_raw = predictions[:, : self._n_dim]
-        scale_raw = predictions[:, self._n_dim :]
-
-        loc = self.get_transform(self.loc_transform)(loc_raw)
-        scale = self.get_transform(self.scale_transform)(scale_raw)
-
-        return torch.cat([loc, scale], dim=1)
-
-    def compute_loss(self, predictions, y_true):
-        predictions = self._ensure_2d_predictions(predictions)
-        self._check_dim(predictions)
-
-        if not torch.is_tensor(y_true):
-            y = torch.as_tensor(y_true, dtype=torch.float32)
-        else:
-            y = y_true.float()
-
-        # Accept [N, K], [N,1,K]
-        if y.ndim == 3 and y.shape[1] == 1:
-            y = y[:, 0, :]
-        if y.ndim != 2:
-            raise ValueError(
-                f"MultivariateNormalDiag targets must have shape [N, K] (or [N,1,K]); got {tuple(y.shape)}"
-            )
-        self._validate_batch_match(predictions, y)
-        if y.shape[1] != self._n_dim:
-            raise ValueError(
-                f"MultivariateNormalDiag target dimension {y.shape[1]} != expected {self._n_dim}."
-            )
-
-        loc = self.get_transform(self.loc_transform)(predictions[:, : self._n_dim])
-        scale = self.get_transform(self.scale_transform)(predictions[:, self._n_dim :])
-
-        mvn = dist.Independent(dist.Normal(loc=loc, scale=scale), 1)
-        return -mvn.log_prob(y).mean()
-
-    def predict_point(self, predictions, transformed: bool = False):
-        params = predictions if transformed else self.forward(predictions)
-        params = self._ensure_2d_predictions(params)
-        return params[:, : self._n_dim]
-# --- End of nampy/utils/distributions.py ---
-
-# --- Start of nampy/utils/plotting.py ---
-"""Shared plotting utilities for NAMpy models."""
-
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-
-
-def compute_grid_layout(n_plots, max_cols=4):
-    """
-    Compute optimal grid dimensions for a given number of plots.
-
-    Parameters
-    ----------
-    n_plots : int
-        Number of plots to arrange in a grid.
-    max_cols : int, optional
-        Maximum number of columns, by default 4.
-
-    Returns
-    -------
-    tuple
-        (nrows, ncols) dimensions for the grid.
-    """
-    if n_plots <= 0:
-        return 0, 0
-    ncols = min(n_plots, max_cols)
-    nrows = int(np.ceil(n_plots / ncols))
-    return nrows, ncols
-
-
-def create_subplot_grid(n_plots, max_cols=4, subplot_size=(5, 4)):
-    """
-    Create a figure with a grid of subplots.
-
-    Parameters
-    ----------
-    n_plots : int
-        Number of subplots to create.
-    max_cols : int, optional
-        Maximum number of columns, by default 4.
-    subplot_size : tuple, optional
-        (width, height) of each subplot in inches, by default (5, 4).
-
-    Returns
-    -------
-    tuple
-        (fig, axes) where axes is a flattened array of Axes objects.
-    """
-    nrows, ncols = compute_grid_layout(n_plots, max_cols)
-    fig, axes = plt.subplots(
-        nrows,
-        ncols,
-        figsize=(subplot_size[0] * ncols, subplot_size[1] * nrows),
-        squeeze=False,  # Always return 2D array for consistent handling
-    )
-    return fig, axes.flatten()
-
-
-def prepare_plot_data(X, num_feature_info, cat_feature_info):
-    """
-    Prepare and validate input data for plotting.
-
-    Parameters
-    ----------
-    X : pd.DataFrame or np.ndarray
-        Input data to prepare.
-    num_feature_info : dict
-        Dictionary of numerical feature information.
-    cat_feature_info : dict
-        Dictionary of categorical feature information.
-
-    Returns
-    -------
-    tuple
-        (X_prepared, num_feature_names) where X_prepared is the processed DataFrame.
-
-    Raises
-    ------
-    ValueError
-        If the input data has incorrect number of columns.
-    """
-    num_feature_names = list(num_feature_info.keys())
-    cat_feature_names = list(cat_feature_info.keys())
-    all_feature_names = num_feature_names + cat_feature_names
-
-    X_df = pd.DataFrame(X)
-
-    # Assign column names if needed
-    if not all(col in all_feature_names for col in X_df.columns):
-        if len(X_df.columns) != len(all_feature_names):
-            raise ValueError(
-                f"Input has {len(X_df.columns)} columns but model expects {len(all_feature_names)} features."
-            )
-        X_df.columns = all_feature_names
-
-    # Sort numerical columns for smooth plotting
-    for fname in num_feature_names:
-        if fname in X_df.columns:
-            X_df[fname] = X_df[fname].sort_values().values
-
-    return X_df, num_feature_names
-
-
-def plot_density_shading(ax, x_values, y_range, num_bins=30):
-    """
-    Add density-based background shading to a plot.
-
-    Parameters
-    ----------
-    ax : matplotlib.axes.Axes
-        The axes to add shading to.
-    x_values : np.ndarray
-        The x values to compute density from.
-    y_range : tuple
-        (y_min, y_max) range for the shading bars.
-    num_bins : int, optional
-        Number of bins for density computation, by default 30.
-    """
-    counts, bin_edges = np.histogram(x_values, bins=num_bins)
-    max_count = counts.max() if counts.size else 1
-    norm_counts = counts / max_count
-
-    for i in range(num_bins):
-        ax.bar(
-            bin_edges[i],
-            y_range,
-            width=bin_edges[i + 1] - bin_edges[i],
-            color=plt.cm.Reds(norm_counts[i]),
-            alpha=0.6,
-        )
-
-# --- End of nampy/utils/plotting.py ---
 
