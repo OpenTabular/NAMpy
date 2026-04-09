@@ -26,7 +26,6 @@ from ..penalties import normalize_penalty_spec
 from .transforms import (
     apply_coefficient_transform,
     localized_null_space_basis_from_constraint_matrix,
-    null_space_basis_from_constraint_matrix,
 )
 
 
@@ -47,6 +46,7 @@ class ConstraintFitResult:
         Coefficient transform T such that ``basis_train == raw_base @ T``.
         None when no constraint was absorbed.
     """
+
     basis_train: np.ndarray
     penalties: list
     constraint_kind: str | None
@@ -108,7 +108,9 @@ def absorb_explicit_constraints(B, penalty_specs, C, tol: float = 1e-12):
     return B_new, out_specs, T, int(n_cons)
 
 
-def should_apply_identifiability_constraint(by_state, constraint_mode, *, default_when_auto=False):
+def should_apply_identifiability_constraint(
+    by_state, constraint_mode, *, default_when_auto=False
+):
     mode = str(constraint_mode).lower()
     if mode == "always":
         return True
@@ -118,17 +120,32 @@ def should_apply_identifiability_constraint(by_state, constraint_mode, *, defaul
         return bool(default_when_auto) and bool(by_state.is_constant)
     if mode == "factor_by":
         return False
-    raise ValueError("constraint_mode must be one of {'auto', 'factor_by', 'always', 'never'}.")
+    raise ValueError(
+        "constraint_mode must be one of {'auto', 'factor_by', 'always', 'never'}."
+    )
 
 
-def fit_single_penalty_with_constraint_policy(base, penalty, by_state, *, constraint_mode, fixed=False, auto_constrain_when=False, apply_numeric_by_fn=None):
+def fit_single_penalty_with_constraint_policy(
+    base,
+    penalty,
+    by_state,
+    *,
+    constraint_mode,
+    fixed=False,
+    auto_constrain_when=False,
+    apply_numeric_by_fn=None,
+):
     base = np.asarray(base, dtype=np.float64)
     penalty = np.asarray(penalty, dtype=np.float64)
-    apply_numeric_by_fn = apply_numeric_by_fn or (lambda B, z: B if z is None else B * np.asarray(z)[:, None])
+    apply_numeric_by_fn = apply_numeric_by_fn or (
+        lambda B, z: B if z is None else B * np.asarray(z)[:, None]
+    )
 
     if str(constraint_mode).lower() == "factor_by":
         if not by_state.is_present:
-            raise ValueError("constraint_mode='factor_by' requires a numeric indicator `by` column.")
+            raise ValueError(
+                "constraint_mode='factor_by' requires a numeric indicator `by` column."
+            )
         base_fb = apply_numeric_by_fn(base, by_state.values)
         penalties_in = [] if bool(fixed) else [penalty]
         mean_row = base_fb.mean(axis=0)
@@ -140,7 +157,9 @@ def fit_single_penalty_with_constraint_policy(base, penalty, by_state, *, constr
             constraint_transform=C,
         )
 
-    should_constrain = should_apply_identifiability_constraint(by_state, constraint_mode, default_when_auto=bool(auto_constrain_when))
+    should_constrain = should_apply_identifiability_constraint(
+        by_state, constraint_mode, default_when_auto=bool(auto_constrain_when)
+    )
     constraint_kind = None
     constraint_transform = None
     if should_constrain:

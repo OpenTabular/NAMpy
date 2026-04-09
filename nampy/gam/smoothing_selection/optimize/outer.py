@@ -1,17 +1,21 @@
 """Outer Newton optimizers for log smoothing parameters."""
+
 import numpy as np
 from scipy.optimize import OptimizeResult
 
 from .basics import _project_to_bounds
 
-def _optimize_outer_newton(objective, x0, bounds, max_iter=50, grad_tol=1e-6, step_tol=1e-8):
+
+def _optimize_outer_newton(
+    objective, x0, bounds, max_iter=50, grad_tol=1e-6, step_tol=1e-8
+):
     x = _project_to_bounds(x0, bounds)
     f = float(objective.fun(x))
     success = False
     message = "maximum iterations reached"
     nit = 0
 
-    for nit in range(1, max_iter + 1):
+    for _nit in range(1, max_iter + 1):
         g = np.asarray(objective.jac(x), dtype=np.float64)
         if not np.all(np.isfinite(g)):
             message = "non-finite gradient"
@@ -113,7 +117,7 @@ def _optimize_outer_newton_indefinite_hessian(
     def _score_scale(score_val, old_score_val, scale_est=None):
         score_val = float(score_val)
         old_score_val = float(old_score_val)
-        if score_type in {"REML", "P-REML"}:
+        if score_type in {"REML", "P-REML", "ML", "P-ML"}:
             if scale_est is None:
                 scale_obj = getattr(model, "scale_", 1.0)
                 scale = 1.0 if scale_obj is None else float(scale_obj)
@@ -140,24 +144,30 @@ def _optimize_outer_newton_indefinite_hessian(
         commit_start=False,
     ):
         x_eval = np.asarray(x_eval, dtype=np.float64).ravel()
-        setattr(model, "_pirls_eval_start_", None if start_coef is None else np.asarray(start_coef, dtype=np.float64).copy())
-        setattr(model, "_pirls_eval_eta_start_", None if start_eta is None else np.asarray(start_eta, dtype=np.float64).copy())
-        setattr(model, "_pirls_eval_mu_start_", None if start_mu is None else np.asarray(start_mu, dtype=np.float64).copy())
-        setattr(model, "_pirls_lock_start_", not bool(commit_start))
+        model._pirls_eval_start_ = (
+            None
+            if start_coef is None
+            else np.asarray(start_coef, dtype=np.float64).copy()
+        )
+        model._pirls_eval_eta_start_ = (
+            None
+            if start_eta is None
+            else np.asarray(start_eta, dtype=np.float64).copy()
+        )
+        model._pirls_eval_mu_start_ = (
+            None if start_mu is None else np.asarray(start_mu, dtype=np.float64).copy()
+        )
+        model._pirls_lock_start_ = not bool(commit_start)
         objective._last_x = None
         objective._last_fun = None
         objective._last_grad = None
         objective._last_hess = None
         score_eval = float(objective.fun(x_eval))
         grad_eval = (
-            np.asarray(objective.jac(x_eval), dtype=np.float64)
-            if need_grad
-            else None
+            np.asarray(objective.jac(x_eval), dtype=np.float64) if need_grad else None
         )
         hess_eval = (
-            np.asarray(objective.hess(x_eval), dtype=np.float64)
-            if need_hess
-            else None
+            np.asarray(objective.hess(x_eval), dtype=np.float64) if need_hess else None
         )
         coef_eval = getattr(model, "_pirls_last_coef_", None)
         eta_eval = getattr(model, "_pirls_last_eta_", None)
@@ -165,23 +175,31 @@ def _optimize_outer_newton_indefinite_hessian(
         if coef_eval is not None:
             coef_eval = np.asarray(coef_eval, dtype=np.float64).copy()
             if commit_start:
-                setattr(model, "_pirls_coef_start_", coef_eval.copy())
+                model._pirls_coef_start_ = coef_eval.copy()
         if eta_eval is not None:
             eta_eval = np.asarray(eta_eval, dtype=np.float64).copy()
             if commit_start:
-                setattr(model, "_pirls_eta_start_", eta_eval.copy())
+                model._pirls_eta_start_ = eta_eval.copy()
         if mu_eval is not None:
             mu_eval = np.asarray(mu_eval, dtype=np.float64).copy()
             if commit_start:
-                setattr(model, "_pirls_mu_start_", mu_eval.copy())
+                model._pirls_mu_start_ = mu_eval.copy()
         dvkk_diag = np.full(x_eval.shape, np.nan, dtype=np.float64)
         gamma_state = getattr(model, "_pirls_reml_gamma_state_", None)
         scale_eval = None
         if isinstance(gamma_state, dict):
             scale_obj = gamma_state.get("scale_est", None)
-            if scale_obj is not None and np.isfinite(scale_obj) and float(scale_obj) > 0.0:
+            if (
+                scale_obj is not None
+                and np.isfinite(scale_obj)
+                and float(scale_obj) > 0.0
+            ):
                 scale_eval = float(scale_obj)
-        if scale_eval is None and bool(getattr(objective, "uses_joint_log_scale", False)) and x_eval.size > 0:
+        if (
+            scale_eval is None
+            and bool(getattr(objective, "uses_joint_log_scale", False))
+            and x_eval.size > 0
+        ):
             phi = float(np.exp(float(x_eval[-1])))
             if np.isfinite(phi) and phi > 0.0:
                 scale_eval = phi
@@ -189,11 +207,20 @@ def _optimize_outer_newton_indefinite_hessian(
             phi = gamma_state.get("phi", None)
             if phi is not None and np.isfinite(phi) and float(phi) > 0.0:
                 scale_eval = float(phi)
-        setattr(model, "_pirls_eval_start_", None)
-        setattr(model, "_pirls_eval_eta_start_", None)
-        setattr(model, "_pirls_eval_mu_start_", None)
-        setattr(model, "_pirls_lock_start_", False)
-        return score_eval, grad_eval, hess_eval, dvkk_diag, coef_eval, eta_eval, mu_eval, scale_eval
+        model._pirls_eval_start_ = None
+        model._pirls_eval_eta_start_ = None
+        model._pirls_eval_mu_start_ = None
+        model._pirls_lock_start_ = False
+        return (
+            score_eval,
+            grad_eval,
+            hess_eval,
+            dvkk_diag,
+            coef_eval,
+            eta_eval,
+            mu_eval,
+            scale_eval,
+        )
 
     x = _project_to_bounds(np.asarray(x0, dtype=np.float64), bounds)
     accepted_start = getattr(model, "_pirls_coef_start_", None)
@@ -234,7 +261,6 @@ def _optimize_outer_newton_indefinite_hessian(
     step_failed = False
     nit = 0
     ii_last = 0
-    indef_last = False
 
     for nit in range(1, int(max_iter) + 1):
         uconv_ind1 = uconv & (np.abs(grad) > (np.max(np.abs(grad)) * 1e-3))
@@ -287,12 +313,21 @@ def _optimize_outer_newton_indefinite_hessian(
         trial_hess = None
         trial_coef = None
         if not np.array_equal(x1, x):
-                score1, trial_grad, trial_hess, trial_dvkk, trial_coef, trial_eta, trial_mu, trial_scale = _eval_at(
-                    x1,
-                    start_coef=accepted_start,
-                    start_eta=accepted_eta,
-                    start_mu=accepted_mu,
-                    need_grad=bool(pdef),
+            (
+                score1,
+                trial_grad,
+                trial_hess,
+                trial_dvkk,
+                trial_coef,
+                trial_eta,
+                trial_mu,
+                trial_scale,
+            ) = _eval_at(
+                x1,
+                start_coef=accepted_start,
+                start_eta=accepted_eta,
+                start_mu=accepted_mu,
+                need_grad=bool(pdef),
                 need_hess=bool(pdef),
                 commit_start=False,
             )
@@ -306,7 +341,12 @@ def _optimize_outer_newton_indefinite_hessian(
         accepted = False
         trial_step_inf = float(np.max(np.abs(step1))) if step1.size else 0.0
 
-        if np.isfinite(score1) and score_change < 0.0 and pdef and qerror < float(qerror_thresh):
+        if (
+            np.isfinite(score1)
+            and score_change < 0.0
+            and pdef
+            and qerror < float(qerror_thresh)
+        ):
             x = x1
             score = float(score1)
             grad = np.asarray(trial_grad, dtype=np.float64)
@@ -314,22 +354,27 @@ def _optimize_outer_newton_indefinite_hessian(
             dvkk = np.asarray(trial_dvkk, dtype=np.float64)
             if trial_coef is not None:
                 accepted_start = np.asarray(trial_coef, dtype=np.float64).copy()
-                setattr(model, "_pirls_coef_start_", accepted_start.copy())
+                model._pirls_coef_start_ = accepted_start.copy()
             if trial_eta is not None:
                 accepted_eta = np.asarray(trial_eta, dtype=np.float64).copy()
-                setattr(model, "_pirls_eta_start_", accepted_eta.copy())
+                model._pirls_eta_start_ = accepted_eta.copy()
             if trial_mu is not None:
                 accepted_mu = np.asarray(trial_mu, dtype=np.float64).copy()
-                setattr(model, "_pirls_mu_start_", accepted_mu.copy())
+                model._pirls_mu_start_ = accepted_mu.copy()
             accepted = True
-        elif (not np.isfinite(score1)) or (score1 >= score) or (qerror >= float(qerror_thresh)):
+        elif (
+            (not np.isfinite(score1))
+            or (score1 >= score)
+            or (qerror >= float(qerror_thresh))
+        ):
             step = nstep.copy()
             score2 = np.nan
             x2 = None
             while (
-                ((not np.isfinite(score1)) or (score1 >= score) or (qerror >= float(qerror_thresh)))
-                and ii < int(max_half)
-            ):
+                (not np.isfinite(score1))
+                or (score1 >= score)
+                or (qerror >= float(qerror_thresh))
+            ) and ii < int(max_half):
                 if ii == 3 and nit < 10:
                     s_len = min(float(np.linalg.norm(step)), float(max_sstep))
                     s_den = max(float(np.linalg.norm(sstep)), 1e-12)
@@ -345,14 +390,14 @@ def _optimize_outer_newton_indefinite_hessian(
                     float(np.max(np.abs(step1))) if step1.size else 0.0,
                 )
                 score1 = (
-                        _eval_at(
-                            x1,
-                            start_coef=accepted_start,
-                            start_eta=accepted_eta,
-                            start_mu=accepted_mu,
-                            need_grad=False,
-                            need_hess=False,
-                        )[0]
+                    _eval_at(
+                        x1,
+                        start_coef=accepted_start,
+                        start_eta=accepted_eta,
+                        start_mu=accepted_mu,
+                        need_grad=False,
+                        need_hess=False,
+                    )[0]
                     if not np.array_equal(x1, x)
                     else np.inf
                 )
@@ -361,13 +406,29 @@ def _optimize_outer_newton_indefinite_hessian(
                 if ii > min(4, int(max_half / 2)):
                     qerror = float(qerror_thresh) / 2.0
                 else:
-                    denom = max(abs(pred_change), abs(score_change)) + score_scale * conv_tol
+                    denom = (
+                        max(abs(pred_change), abs(score_change))
+                        + score_scale * conv_tol
+                    )
                     qerror = abs(pred_change - score_change) / max(denom, 1e-12)
 
-                if np.isfinite(score1) and score_change < 0.0 and qerror < float(qerror_thresh):
+                if (
+                    np.isfinite(score1)
+                    and score_change < 0.0
+                    and qerror < float(qerror_thresh)
+                ):
                     if pdef or (not sd_unused):
                         x = x1
-                        score, grad, hess, dvkk, coef_acc, eta_acc, mu_acc, scale_est = _eval_at(
+                        (
+                            score,
+                            grad,
+                            hess,
+                            dvkk,
+                            coef_acc,
+                            eta_acc,
+                            mu_acc,
+                            scale_est,
+                        ) = _eval_at(
                             x,
                             start_coef=accepted_start,
                             start_eta=accepted_eta,
@@ -387,7 +448,11 @@ def _optimize_outer_newton_indefinite_hessian(
                         x2 = x1.copy()
                         score2 = score1
                     score1 = score - abs(score) - 1.0
-                if (not np.isfinite(score1)) or (score1 >= score) or (qerror >= float(qerror_thresh)):
+                if (
+                    (not np.isfinite(score1))
+                    or (score1 >= score)
+                    or (qerror >= float(qerror_thresh))
+                ):
                     ii += 1
 
             if (not pdef) and sd_unused and ii < int(max_half) and np.isfinite(score2):
@@ -409,31 +474,37 @@ def _optimize_outer_newton_indefinite_hessian(
                     float(np.max(np.abs(step3))) if step3.size else 0.0,
                 )
                 score3 = (
-                        _eval_at(
-                            x3,
-                            start_coef=accepted_start,
-                            start_eta=accepted_eta,
-                            start_mu=accepted_mu,
-                            need_grad=False,
-                            need_hess=False,
-                        )[0]
+                    _eval_at(
+                        x3,
+                        start_coef=accepted_start,
+                        start_eta=accepted_eta,
+                        start_mu=accepted_mu,
+                        need_grad=False,
+                        need_hess=False,
+                    )[0]
                     if not np.array_equal(x3, x)
                     else np.inf
                 )
                 pred_change = float(grad @ step3 + 0.5 * (step3 @ hess @ step3))
                 score_change = float(score3 - score)
-                denom = max(abs(pred_change), abs(score_change)) + score_scale * conv_tol
+                denom = (
+                    max(abs(pred_change), abs(score_change)) + score_scale * conv_tol
+                )
                 qerror3 = abs(pred_change - score_change) / max(denom, 1e-12)
                 if (not np.isfinite(score2)) or (
-                    np.isfinite(score3) and score3 <= score2 and qerror3 < float(qerror_thresh)
+                    np.isfinite(score3)
+                    and score3 <= score2
+                    and qerror3 < float(qerror_thresh)
                 ):
                     score2 = score3
                     x2 = x3.copy()
 
                 if (
-                    (np.isfinite(score2) and np.isfinite(score3) and score2 < score and score3 > score2)
-                    or kk == 40
-                ):
+                    np.isfinite(score2)
+                    and np.isfinite(score3)
+                    and score2 < score
+                    and score3 > score2
+                ) or kk == 40:
                     break
 
             if np.isfinite(score2) and score2 < score1:
@@ -442,14 +513,16 @@ def _optimize_outer_newton_indefinite_hessian(
 
             if score1 < score and np.isfinite(score1):
                 x = x1
-                score, grad, hess, dvkk, coef_acc, eta_acc, mu_acc, scale_est = _eval_at(
-                    x,
-                    start_coef=accepted_start,
-                    start_eta=accepted_eta,
-                    start_mu=accepted_mu,
-                    need_grad=True,
-                    need_hess=True,
-                    commit_start=True,
+                score, grad, hess, dvkk, coef_acc, eta_acc, mu_acc, scale_est = (
+                    _eval_at(
+                        x,
+                        start_coef=accepted_start,
+                        start_eta=accepted_eta,
+                        start_mu=accepted_mu,
+                        need_grad=True,
+                        need_hess=True,
+                        commit_start=True,
+                    )
                 )
                 if coef_acc is not None:
                     accepted_start = coef_acc.copy()
@@ -464,12 +537,10 @@ def _optimize_outer_newton_indefinite_hessian(
                 success = True
                 msg = "step tolerance satisfied"
                 ii_last = ii
-                indef_last = indef
                 break
             step_failed = True
             msg = "step failed"
             ii_last = ii
-            indef_last = indef
             break
 
         score_scale = _score_scale(score, old_score, scale_est=scale_est)
@@ -489,7 +560,6 @@ def _optimize_outer_newton_indefinite_hessian(
         if ii == int(max_half):
             converged = True
         ii_last = ii
-        indef_last = indef
         if converged:
             success = True
             msg = "full convergence"

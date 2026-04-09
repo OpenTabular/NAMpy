@@ -31,6 +31,20 @@ def _make_gaussian_data(seed=123, n=180):
     return pd.DataFrame({"y": y, "x0": x0, "x1": x1})
 
 
+def _make_gaussian_data_3col(seed=51, n=180):
+    rng = np.random.default_rng(seed)
+    x0 = rng.uniform(-2.0, 2.0, size=n)
+    x1 = rng.uniform(-1.5, 1.5, size=n)
+    x2 = rng.uniform(-1.0, 1.0, size=n)
+    y = (
+        np.sin(1.2 * x0)
+        + 0.4 * x1**2
+        - 0.3 * np.cos(1.5 * x2)
+        + rng.normal(scale=0.15, size=n)
+    )
+    return pd.DataFrame({"y": y, "x0": x0, "x1": x1, "x2": x2})
+
+
 def _make_binomial_data(seed=456, n=220):
     rng = np.random.default_rng(seed)
     x0 = rng.normal(size=n)
@@ -91,7 +105,6 @@ def _make_random_effect_data_noisy(*, seed=21, n_draws=36, sigma=0.35):
 
 
 def _make_fs_data():
-    rng = np.random.default_rng(27)
     levels = ["a", "b", "c"]
     n = 18
     f = np.array([levels[i % len(levels)] for i in range(n)], dtype=object)
@@ -119,10 +132,73 @@ def _make_sz_data():
     return pd.DataFrame({"y": y, "f1": f1, "f2": f2, "x": x})
 
 
+def _make_fs_data_4levels(seed=77, n=24):
+    """FS smooth data with 4 factor levels — exercises the ≥3 level code path."""
+    rng = np.random.default_rng(seed)
+    levels = ["a", "b", "c", "d"]
+    f = np.array([levels[i % len(levels)] for i in range(n)], dtype=object)
+    x = np.linspace(0.1, 1.9, n)
+    offsets = {"a": 1.2, "b": -0.7, "c": 0.5, "d": -0.3}
+    y = (
+        0.4 * np.sin(2 * x)
+        + np.array([offsets[v] for v in f])
+        + rng.normal(scale=0.05, size=n)
+    )
+    return pd.DataFrame({"y": y, "f": f, "x": x})
+
+
+def _make_sz_data_3x3(seed=83):
+    """SZ smooth data with f1 (3 levels) × f2 (3 levels) — full 3×3 factor grid."""
+    rng = np.random.default_rng(seed)
+    f1_levels = ["a", "b", "c"]
+    f2_levels = ["u", "v", "w"]
+    # All 9 combinations appear; each repeated twice for a 18-row frame.
+    f1_base = [a for a in f1_levels for b in f2_levels] * 2
+    f2_base = [b for a in f1_levels for b in f2_levels] * 2
+    f1 = np.array(f1_base, dtype=object)
+    f2 = np.array(f2_base, dtype=object)
+    n = len(f1)
+    x = rng.uniform(0.0, 2.0, size=n)
+    base = np.sin(x) + 0.2 * x
+    offsets = {
+        ("a", "u"): 0.3,
+        ("a", "v"): -0.1,
+        ("a", "w"): 0.5,
+        ("b", "u"): -0.6,
+        ("b", "v"): 0.2,
+        ("b", "w"): -0.4,
+        ("c", "u"): 0.1,
+        ("c", "v"): 0.4,
+        ("c", "w"): -0.2,
+    }
+    y = np.array([base[i] + offsets[(f1[i], f2[i])] for i in range(n)])
+    return pd.DataFrame({"y": y, "f1": f1, "f2": f2, "x": x})
+
+
+def _make_distributional_gaussian_data(seed=7, n=60):
+    rng = np.random.default_rng(seed)
+    x0 = rng.uniform(-2.0, 2.0, size=n)
+    x1 = rng.uniform(-1.5, 1.5, size=n)
+    y = np.sin(x0) + 0.3 * x1**2 + rng.normal(scale=0.1, size=n)
+    return pd.DataFrame({"y": y, "x0": x0, "x1": x1})
+
+
 def _make_mrf_data():
     regions = np.array(["A", "B", "C", "A", "B", "C", "A", "B"], dtype=object)
     vals = {"A": 1.0, "B": -0.5, "C": 0.3}
     y = np.array([vals[r] for r in regions], dtype=np.float64)
+    return pd.DataFrame({"y": y, "region": regions})
+
+
+def _make_mrf_low_rank_data():
+    regions = np.array(
+        ["A"] * 8 + ["B"] * 7 + ["C"] * 9 + ["D"] * 6,
+        dtype=object,
+    )
+    vals = {"A": -1.0, "B": 0.5, "C": 1.25, "D": -0.25}
+    rng = np.random.default_rng(123)
+    y = np.array([vals[r] for r in regions], dtype=np.float64)
+    y = y + rng.normal(scale=0.05, size=regions.size)
     return pd.DataFrame({"y": y, "region": regions})
 
 
@@ -225,7 +301,9 @@ def make_parity_case_data(case_id: str) -> pd.DataFrame:
         return _make_mrf_data()
     if spec.data_factory == "fs":
         return _make_fs_data()
-    raise ValueError(f"Unsupported data factory '{spec.data_factory}' for case '{case_id}'.")
+    raise ValueError(
+        f"Unsupported data factory '{spec.data_factory}' for case '{case_id}'."
+    )
 
 
 def _family_specs(family):
@@ -233,6 +311,8 @@ def _family_specs(family):
         key = str(family.get("name", "")).lower()
         if key in {"negbin", "negativebinomial", "negative_binomial"}:
             theta = float(family.get("theta", 1.0))
+            if bool(family.get("estimate_theta", False)):
+                return family, f"negbin_est:{theta:.12g}"
             return family, f"negbin:{theta:.12g}"
         link = str(family.get("link", "")).lower()
         if link and link not in {"logit", "log"}:
@@ -241,6 +321,17 @@ def _family_specs(family):
         return family, key
     key = str(family).lower()
     return family, key
+
+
+def _normalize_python_formula_text(formula: str) -> str:
+    """Translate Python-style list/bool/null formula syntax into R syntax."""
+    out = str(formula)
+    out = out.replace("[", "c(")
+    out = out.replace("]", ")")
+    out = out.replace("True", "TRUE")
+    out = out.replace("False", "FALSE")
+    out = out.replace("None", "NULL")
+    return out
 
 
 def _run_mgcv_snapshot(
@@ -565,6 +656,7 @@ def _run_mgcv_predict_on_newdata(
     _family_nampy, family_token = _family_specs(family)
     del _family_nampy
     fit_method = "REML" if str(method).lower() == "fixed" else method
+    formula_r = _normalize_python_formula_text(formula)
 
     r_code = """
 suppressPackageStartupMessages(library(mgcv))
@@ -644,7 +736,7 @@ write_json(
                 str(script_path),
                 str(train_path),
                 str(new_path),
-                formula,
+                formula_r,
                 family_token,
                 fit_method,
                 type,
@@ -969,15 +1061,20 @@ __all__ = [
     "_fit_nampy_model_fixed_sp",
     "_fit_nampy_snapshot",
     "_make_binomial_data",
+    "_make_distributional_gaussian_data",
     "_make_fs_data",
+    "_make_fs_data_4levels",
     "_make_gamma_data",
     "_make_gaussian_data",
+    "_make_gaussian_data_3col",
     "_make_mrf_data",
+    "_make_mrf_low_rank_data",
     "_make_negbin_data",
     "_make_poisson_data",
     "_make_random_effect_data",
     "_make_random_effect_data_noisy",
     "_make_sz_data",
+    "_make_sz_data_3x3",
     "_run_mgcv_anova",
     "_run_mgcv_natparam_cr",
     "_run_mgcv_fixed_sp_score",

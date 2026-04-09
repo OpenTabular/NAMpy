@@ -16,8 +16,9 @@ Run:
 
 import os
 import tempfile
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import torch
 from sklearn.model_selection import train_test_split
@@ -39,11 +40,13 @@ def main():
     # Synthetic mixed data: numeric + categorical
     # ------------------------------------------------------------------
     n = 1400
-    X = pd.DataFrame({
-        "age": rng.uniform(18, 70, n),
-        "income": rng.lognormal(mean=10.0, sigma=0.55, size=n),
-        "region": rng.choice(["North", "South", "East", "West"], size=n),
-    })
+    X = pd.DataFrame(
+        {
+            "age": rng.uniform(18, 70, n),
+            "income": rng.lognormal(mean=10.0, sigma=0.55, size=n),
+            "region": rng.choice(["North", "South", "East", "West"], size=n),
+        }
+    )
 
     log_income = np.log(X["income"].to_numpy())
     income_z = (log_income - log_income.mean()) / log_income.std()
@@ -100,12 +103,7 @@ def main():
     sigma_region_all = np.array([REGION_SIGMA[r] for r in X["region"]])
 
     mu_all = INTERCEPT_MU + mu_age_all + mu_income_all + mu_region_all
-    sigma_all = (
-        INTERCEPT_SIGMA
-        + sigma_age_all
-        + sigma_income_all
-        + sigma_region_all
-    )
+    sigma_all = INTERCEPT_SIGMA + sigma_age_all + sigma_income_all + sigma_region_all
 
     eps = rng.normal(0.0, 1.0, n)
     y = mu_all + sigma_all * eps
@@ -165,12 +163,7 @@ def main():
     sigma_region_val = np.array([REGION_SIGMA[r] for r in xv["region"]])
 
     mu_val = INTERCEPT_MU + mu_age_val + mu_income_val + mu_region_val
-    sigma_val = (
-        INTERCEPT_SIGMA
-        + sigma_age_val
-        + sigma_income_val
-        + sigma_region_val
-    )
+    sigma_val = INTERCEPT_SIGMA + sigma_age_val + sigma_income_val + sigma_region_val
 
     true_quantiles = np.column_stack([mu_val + z * sigma_val for z in q_z])
 
@@ -322,8 +315,12 @@ def main():
     print("  - MAE vs true quantiles should be reasonably small.")
     print("  - Correlations should be clearly positive, often high.")
     print("  - Non-crossing prediction rate should be 1.0 (or extremely close).")
-    print("  - Feature contributions should also have nonnegative adjacent quantile gaps.")
-    print("  - region[...] keys confirm one-hot categorical effects are handled atomically.")
+    print(
+        "  - Feature contributions should also have nonnegative adjacent quantile gaps."
+    )
+    print(
+        "  - region[...] keys confirm one-hot categorical effects are handled atomically."
+    )
 
 
 if __name__ == "__main__":

@@ -249,12 +249,13 @@ class NAM(BaseModel):
         if self.feature_dropout_p > 0.0 and self.training:
             shaped = concatenated.view(-1, num_features_total, self.num_classes)
             mask = torch.ones(
-                shaped.shape[0], num_features_total, 1,
-                device=shaped.device, dtype=shaped.dtype,
+                shaped.shape[0],
+                num_features_total,
+                1,
+                device=shaped.device,
+                dtype=shaped.dtype,
             )
-            mask = nn.functional.dropout(
-                mask, p=self.feature_dropout_p, training=True
-            )
+            mask = nn.functional.dropout(mask, p=self.feature_dropout_p, training=True)
             shaped = shaped * mask
         else:
             shaped = concatenated.view(-1, num_features_total, self.num_classes)

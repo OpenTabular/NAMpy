@@ -18,16 +18,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from .categorical_utils import (
-    as_object_1d,
-    try_numeric_1d,
-    all_bool_like,
-    stable_unique_levels,
-    factor_indicator_matrix,
-)
+from ...basis.tensor import rowwise_kronecker
 from ...design.structures import PenaltySpec
 from ...penalties import build_null_space_selection_spec
-from ..base import (
+from ..smooth_base import (
     BaseSmoothTerm,
     _resolve_feature,
     by_values_from_new_data,
@@ -35,7 +29,13 @@ from ..base import (
     resolve_by_state,
     sync_by_state_attributes,
 )
-from ...basis.tensor import rowwise_kronecker
+from .categorical_utils import (
+    all_bool_like,
+    as_object_1d,
+    factor_indicator_matrix,
+    stable_unique_levels,
+    try_numeric_1d,
+)
 
 
 @dataclass
@@ -51,18 +51,24 @@ def _fit_re_component(x):
     x_obj = as_object_1d(x)
 
     if any(pd.isna(v) for v in x_obj):
-        raise ValueError("Random-effect terms do not currently allow missing values in fitting.")
+        raise ValueError(
+            "Random-effect terms do not currently allow missing values in fitting."
+        )
 
     if all_bool_like(x_obj):
         levels = stable_unique_levels(x_obj)
-        return factor_indicator_matrix(x_obj, levels), _REComponentSpec(kind="factor", levels=levels)
+        return factor_indicator_matrix(x_obj, levels), _REComponentSpec(
+            kind="factor", levels=levels
+        )
 
     x_num = try_numeric_1d(x_obj)
     if x_num is not None and np.isfinite(x_num).all():
         return x_num[:, None], _REComponentSpec(kind="numeric", levels=None)
 
     levels = stable_unique_levels(x_obj)
-    return factor_indicator_matrix(x_obj, levels), _REComponentSpec(kind="factor", levels=levels)
+    return factor_indicator_matrix(x_obj, levels), _REComponentSpec(
+        kind="factor", levels=levels
+    )
 
 
 def _predict_re_component(x_new, spec: _REComponentSpec):
@@ -71,7 +77,9 @@ def _predict_re_component(x_new, spec: _REComponentSpec):
     if spec.kind == "numeric":
         x_num = try_numeric_1d(x_obj)
         if x_num is None:
-            raise ValueError("Expected numeric prediction data for a numeric random-effect component.")
+            raise ValueError(
+                "Expected numeric prediction data for a numeric random-effect component."
+            )
         B = np.zeros((x_num.size, 1), dtype=np.float64)
         ok = np.isfinite(x_num)
         B[ok, 0] = x_num[ok]
@@ -100,6 +108,7 @@ class RandomEffectTerm(BaseSmoothTerm):
     - no centering constraints
     - unseen factor levels at prediction -> zero rows
     """
+
     term_type = "random_effect"
     basis_name = "re"
     supports_tensor_marginal = False
@@ -268,7 +277,10 @@ class RandomEffectTerm(BaseSmoothTerm):
                         "by_name": self._by_state.feature_name,
                         "xt": self.xt,
                         "component_specs": [
-                            {"kind": s.kind, "levels": None if s.levels is None else list(s.levels)}
+                            {
+                                "kind": s.kind,
+                                "levels": None if s.levels is None else list(s.levels),
+                            }
                             for s in (self._component_specs or [])
                         ],
                     },
@@ -290,7 +302,10 @@ class RandomEffectTerm(BaseSmoothTerm):
                         "is_selection_penalty": True,
                         "xt": self.xt,
                         "component_specs": [
-                            {"kind": s.kind, "levels": None if s.levels is None else list(s.levels)}
+                            {
+                                "kind": s.kind,
+                                "levels": None if s.levels is None else list(s.levels),
+                            }
                             for s in (self._component_specs or [])
                         ],
                     },

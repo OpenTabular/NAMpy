@@ -69,7 +69,9 @@ def _stable_wald_stat(beta: np.ndarray, cov: np.ndarray) -> tuple[float, int]:
         return 0.0, 0
 
     if cov.shape != (beta.size, beta.size):
-        raise ValueError("Coefficient covariance block shape does not match term width.")
+        raise ValueError(
+            "Coefficient covariance block shape does not match term width."
+        )
 
     rank = int(np.linalg.matrix_rank(cov))
     if rank == 0:
@@ -80,7 +82,9 @@ def _stable_wald_stat(beta: np.ndarray, cov: np.ndarray) -> tuple[float, int]:
     return max(stat, 0.0), rank
 
 
-def _wald_p_value(stat: float, ref_df: float, residual_df: float, *, gaussian: bool) -> tuple[str, float]:
+def _wald_p_value(
+    stat: float, ref_df: float, residual_df: float, *, gaussian: bool
+) -> tuple[str, float]:
     if not np.isfinite(stat) or not np.isfinite(ref_df) or ref_df <= 0.0:
         return ("F" if gaussian else "ChiSq"), np.nan
 
@@ -91,7 +95,9 @@ def _wald_p_value(stat: float, ref_df: float, residual_df: float, *, gaussian: b
     return "ChiSq", float(chi2.sf(stat, ref_df))
 
 
-def _smooth_test_stat(p: np.ndarray, X: np.ndarray, V: np.ndarray, rank: float, residual_df: float) -> tuple[float, float, float]:
+def _smooth_test_stat(
+    p: np.ndarray, X: np.ndarray, V: np.ndarray, rank: float, residual_df: float
+) -> tuple[float, float, float]:
     X = np.asarray(X, dtype=np.float64)
     V = np.asarray(V, dtype=np.float64)
     p = np.asarray(p, dtype=np.float64).ravel()
@@ -113,7 +119,10 @@ def _smooth_test_stat(p: np.ndarray, X: np.ndarray, V: np.ndarray, rank: float, 
         signs[signs == 0.0] = 1.0
         evecs = evecs * signs
 
-    tol = max(float(np.max(np.abs(evals))) if evals.size else 0.0, 1.0) * np.finfo(np.float64).eps ** 0.9
+    tol = (
+        max(float(np.max(np.abs(evals))) if evals.size else 0.0, 1.0)
+        * np.finfo(np.float64).eps ** 0.9
+    )
     r_est = int(np.sum(evals > tol))
 
     k = max(0, int(np.floor(rank)))
@@ -131,7 +140,9 @@ def _smooth_test_stat(p: np.ndarray, X: np.ndarray, V: np.ndarray, rank: float, 
     vec = evecs[:, :k1].copy()
     if nu > 0.0 and k > 0:
         if k > 1:
-            vec[:, : (k - 1)] = vec[:, : (k - 1)] / np.sqrt(np.clip(evals[: (k - 1)], 1e-300, None))
+            vec[:, : (k - 1)] = vec[:, : (k - 1)] / np.sqrt(
+                np.clip(evals[: (k - 1)], 1e-300, None)
+            )
         b12 = np.sqrt(max(0.5 * nu * (1.0 - nu), 0.0))
         B = np.array([[1.0, b12], [b12, nu]], dtype=np.float64)
         ev = np.diag(np.power(np.clip(evals[(k - 1) : k1], 1e-300, None), -0.5))
@@ -158,10 +169,7 @@ def _smooth_test_stat(p: np.ndarray, X: np.ndarray, V: np.ndarray, rank: float, 
             + float(f.sf(d1 / ref_df, ref_df, residual_df))
         )
     else:
-        pval = 0.5 * (
-            float(chi2.sf(d, ref_df))
-            + float(chi2.sf(d1, ref_df))
-        )
+        pval = 0.5 * (float(chi2.sf(d, ref_df)) + float(chi2.sf(d1, ref_df)))
     return d, ref_df, min(max(pval, 0.0), 1.0)
 
 
@@ -191,11 +199,25 @@ def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingl
         edf_i = float(edf_by_term[i]) if i < edf_by_term.size else float(beta_i.size)
 
         if str(getattr(tb, "term_type", "")) == "parametric":
-            cov_i = None if V_para is None else np.asarray(V_para[x_sl, x_sl], dtype=np.float64)
-            stat, rank = (np.nan, int(beta_i.size)) if cov_i is None else _stable_wald_stat(beta_i, cov_i)
+            cov_i = (
+                None
+                if V_para is None
+                else np.asarray(V_para[x_sl, x_sl], dtype=np.float64)
+            )
+            stat, rank = (
+                (np.nan, int(beta_i.size))
+                if cov_i is None
+                else _stable_wald_stat(beta_i, cov_i)
+            )
             ref_df = float(rank)
-            test_name, p_value = _wald_p_value(stat, ref_df, resid_df, gaussian=gaussian)
-            stat_out = float(stat / ref_df) if (gaussian and np.isfinite(stat) and ref_df > 0.0) else float(stat)
+            test_name, p_value = _wald_p_value(
+                stat, ref_df, resid_df, gaussian=gaussian
+            )
+            stat_out = (
+                float(stat / ref_df)
+                if (gaussian and np.isfinite(stat) and ref_df > 0.0)
+                else float(stat)
+            )
             param_rows.append(
                 {
                     "label": str(tb.label),
@@ -209,7 +231,11 @@ def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingl
             )
             continue
 
-        cov_i = None if V_smooth is None else np.asarray(V_smooth[x_sl, x_sl], dtype=np.float64)
+        cov_i = (
+            None
+            if V_smooth is None
+            else np.asarray(V_smooth[x_sl, x_sl], dtype=np.float64)
+        )
         if cov_i is None:
             stat, ref_df, p_value = np.nan, max(edf_i, 1.0), np.nan
         else:
@@ -232,7 +258,11 @@ def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingl
                 residual_df=(resid_df if gaussian else -1.0),
             )
         test_name = "F" if gaussian else "ChiSq"
-        stat_out = float(stat / ref_df) if (gaussian and np.isfinite(stat) and ref_df > 0.0) else float(stat)
+        stat_out = (
+            float(stat / ref_df)
+            if (gaussian and np.isfinite(stat) and ref_df > 0.0)
+            else float(stat)
+        )
         smooth_rows.append(
             {
                 "label": str(tb.label),
@@ -256,7 +286,15 @@ def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingl
         residual_df=resid_df,
         parametric_table=pd.DataFrame(
             param_rows,
-            columns=["label", "df", "wald_stat", "p_value", "test", "covariance", "dispersion"],
+            columns=[
+                "label",
+                "df",
+                "wald_stat",
+                "p_value",
+                "test",
+                "covariance",
+                "dispersion",
+            ],
         ),
         smooth_table=pd.DataFrame(
             smooth_rows,
@@ -276,7 +314,9 @@ def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingl
     )
 
 
-def _comparison_table(models: tuple, *, test: str | None, dispersion: float | None) -> AnovaGAMComparison:
+def _comparison_table(
+    models: tuple, *, test: str | None, dispersion: float | None
+) -> AnovaGAMComparison:
     family_name = str(models[0].family.name)
     method_name = str(getattr(models[0], "_optim_method", "")).lower()
     n_samples = int(models[0].n_samples_)
@@ -284,9 +324,13 @@ def _comparison_table(models: tuple, *, test: str | None, dispersion: float | No
     for model in models:
         _require_fitted(model)
         if str(model.family.name) != family_name:
-            raise ValueError("anova.gam multi-model comparisons require the same family.")
+            raise ValueError(
+                "anova.gam multi-model comparisons require the same family."
+            )
         if int(model.n_samples_) != n_samples:
-            raise ValueError("anova.gam multi-model comparisons require the same sample size.")
+            raise ValueError(
+                "anova.gam multi-model comparisons require the same sample size."
+            )
         if str(getattr(model, "_optim_method", "")).lower() != method_name:
             raise ValueError(
                 "anova.gam multi-model comparisons require the same smoothing selection method."
@@ -305,7 +349,8 @@ def _comparison_table(models: tuple, *, test: str | None, dispersion: float | No
         resid_df = _residual_df_approx_mgcv(model)
         row = {
             "model": idx,
-            "formula": getattr(model, "formula_", None) or getattr(model, "formula", None),
+            "formula": getattr(model, "formula_", None)
+            or getattr(model, "formula", None),
             "edf": float(model.edf_),
             "residual_df": resid_df,
             "deviance": float(model.deviance_),
@@ -324,24 +369,49 @@ def _comparison_table(models: tuple, *, test: str | None, dispersion: float | No
             row["deviance_diff"] = dev_diff
 
             if edf_diff > 0.0 and dev_diff >= 0.0:
-                chosen = "f" if (test_name == "f" or (test_name is None and gaussian)) else test_name
+                chosen = (
+                    "f"
+                    if (test_name == "f" or (test_name is None and gaussian))
+                    else test_name
+                )
                 if chosen == "cp":
                     row["statistic"] = float(
-                        (float(model.smoothing_score_) if model.smoothing_score_ is not None else model.deviance_)
-                        - (float(prev.smoothing_score_) if prev.smoothing_score_ is not None else prev.deviance_)
+                        (
+                            float(model.smoothing_score_)
+                            if model.smoothing_score_ is not None
+                            else model.deviance_
+                        )
+                        - (
+                            float(prev.smoothing_score_)
+                            if prev.smoothing_score_ is not None
+                            else prev.deviance_
+                        )
                     )
                     row["test"] = "CP"
                 elif chosen == "f":
-                    denom_df = max(float(model.n_samples_) - float(model.edf_) - (1.0 if model.fit_intercept else 0.0), 1.0)
+                    denom_df = max(
+                        float(model.n_samples_)
+                        - float(model.edf_)
+                        - (1.0 if model.fit_intercept else 0.0),
+                        1.0,
+                    )
                     denom = float(model.deviance_) / denom_df
-                    stat = np.nan if denom <= 0.0 else float((dev_diff / edf_diff) / denom)
+                    stat = (
+                        np.nan if denom <= 0.0 else float((dev_diff / edf_diff) / denom)
+                    )
                     row["statistic"] = stat
-                    row["p_value"] = float(f.sf(stat, edf_diff, denom_df)) if np.isfinite(stat) else np.nan
+                    row["p_value"] = (
+                        float(f.sf(stat, edf_diff, denom_df))
+                        if np.isfinite(stat)
+                        else np.nan
+                    )
                     row["test"] = "F"
                 else:
                     stat = float(dev_diff / disp) if disp > 0.0 else np.nan
                     row["statistic"] = stat
-                    row["p_value"] = float(chi2.sf(stat, edf_diff)) if np.isfinite(stat) else np.nan
+                    row["p_value"] = (
+                        float(chi2.sf(stat, edf_diff)) if np.isfinite(stat) else np.nan
+                    )
                     row["test"] = "CHISQ"
         rows.append(row)
         prev = model
@@ -368,7 +438,13 @@ def _comparison_table(models: tuple, *, test: str | None, dispersion: float | No
     )
 
 
-def anova_gam(model, *models, dispersion: float | None = None, test: str | None = None, freq: bool = False):
+def anova_gam(
+    model,
+    *models,
+    dispersion: float | None = None,
+    test: str | None = None,
+    freq: bool = False,
+):
     _require_fitted(model)
     if len(models) == 0:
         return _term_table(model, freq=bool(freq), dispersion=dispersion)

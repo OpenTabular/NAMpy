@@ -13,8 +13,9 @@ Run:
 
 import os
 import tempfile
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
@@ -30,11 +31,13 @@ def main():
     # Synthetic data: purely numerical so each feature stays atomic
     # after preprocessing (important for clean NBM verification).
     # ------------------------------------------------------------------
-    X = pd.DataFrame({
-        "x1": rng.uniform(-2.5, 2.5, n),
-        "x2": rng.uniform(-2.0, 2.0, n),
-        "x3": rng.uniform(-3.0, 3.0, n),
-    })
+    X = pd.DataFrame(
+        {
+            "x1": rng.uniform(-2.5, 2.5, n),
+            "x2": rng.uniform(-2.0, 2.0, n),
+            "x3": rng.uniform(-3.0, 3.0, n),
+        }
+    )
 
     # ------------------------------------------------------------------
     # Ground-truth decomposition:
@@ -46,7 +49,7 @@ def main():
         return 0.8 * np.sin(1.5 * x1)
 
     def f2(x2):
-        return 0.5 * (x2 ** 2 - np.mean(x2 ** 2))
+        return 0.5 * (x2**2 - np.mean(x2**2))
 
     def f3(x3):
         return -0.4 * x3
@@ -105,7 +108,8 @@ def main():
     # ------------------------------------------------------------------
     preds = model.predict(X_val)
     scores = model.evaluate(
-        X_val, y_val,
+        X_val,
+        y_val,
         metrics={"MAE": mean_absolute_error, "R2": r2_score},
     )
     print(f"Validation — MAE: {scores['MAE']:.4f}, R2: {scores['R2']:.4f}")
@@ -148,10 +152,7 @@ def main():
     }
 
     true_total_no_noise = (
-        true_main["x1"] +
-        true_main["x2"] +
-        true_main["x3"] +
-        true_interactions["x1:x2"]
+        true_main["x1"] + true_main["x2"] + true_main["x3"] + true_interactions["x1:x2"]
     )
 
     # ------------------------------------------------------------------
@@ -168,11 +169,15 @@ def main():
         return np.corrcoef(a, b)[0, 1]
 
     print("\nVerification (true DGP vs learned contributions):")
-    print(f"  total (no noise) vs predictions correlation: {centered_corr(true_total_no_noise, preds):.4f}")
+    print(
+        f"  total (no noise) vs predictions correlation: {centered_corr(true_total_no_noise, preds):.4f}"
+    )
 
     for key in ["x1", "x2", "x3"]:
         if key in learned:
-            print(f"  {key:8s} true vs learned correlation: {centered_corr(true_main[key], learned[key]):.4f}")
+            print(
+                f"  {key:8s} true vs learned correlation: {centered_corr(true_main[key], learned[key]):.4f}"
+            )
         else:
             print(f"  {key:8s} not found in learned contributions")
 
@@ -184,7 +189,9 @@ def main():
         learned_x1_x2 = learned["x2:x1"]
 
     if learned_x1_x2 is not None:
-        print(f"  {'x1:x2':8s} true vs learned correlation: {centered_corr(true_interactions['x1:x2'], learned_x1_x2):.4f}")
+        print(
+            f"  {'x1:x2':8s} true vs learned correlation: {centered_corr(true_interactions['x1:x2'], learned_x1_x2):.4f}"
+        )
     else:
         print("  x1:x2   not found in learned contributions")
 
@@ -195,12 +202,18 @@ def main():
     print("\nSpurious interaction magnitudes (smaller is better):")
     for spurious_key in ["x1:x3", "x3:x1", "x2:x3", "x3:x2"]:
         if spurious_key in learned:
-            print(f"  {spurious_key:8s} mean(|contribution|): {np.mean(np.abs(learned[spurious_key])):.4f}")
+            print(
+                f"  {spurious_key:8s} mean(|contribution|): {np.mean(np.abs(learned[spurious_key])):.4f}"
+            )
 
     print("\nInterpretation:")
     print("  - R2 should be high (typically > 0.85 on this synthetic task).")
-    print("  - Main-effect correlations should be clearly positive and often close to 1.")
-    print("  - The x1:x2 interaction should also correlate strongly with the true interaction.")
+    print(
+        "  - Main-effect correlations should be clearly positive and often close to 1."
+    )
+    print(
+        "  - The x1:x2 interaction should also correlate strongly with the true interaction."
+    )
     print("  - Spurious interactions should be much smaller than the true x1:x2 term.")
 
     # ------------------------------------------------------------------

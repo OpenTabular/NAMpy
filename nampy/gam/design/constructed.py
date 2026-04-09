@@ -33,6 +33,7 @@ class ConstructedTerm:
     ``CompiledTerm.basis_transform`` on top of the result of ``predict_matrix``.
     That composed application is implemented in ``CompiledPredictor.build_new_matrix``.
     """
+
     label: str
     term_id: str
     runtime: object

@@ -5,8 +5,8 @@ from collections import OrderedDict
 
 import numpy as np
 import pandas as pd
-from scipy.linalg import qr as scipy_qr
 from scipy.linalg import eigh as scipy_eigh
+from scipy.linalg import qr as scipy_qr
 from scipy.linalg import solve_triangular
 
 
@@ -179,7 +179,9 @@ def coerce_nb(nb, area_names):
     nb_names = list(nb.keys())
 
     if set(nb_names) != set(area_names):
-        raise ValueError("Mismatch between nb/polys supplied area names and data area names.")
+        raise ValueError(
+            "Mismatch between nb/polys supplied area names and data area names."
+        )
 
     ordered = OrderedDict()
     for nm in area_names:
@@ -249,7 +251,9 @@ def coerce_penalty_matrix(penalty, area_names):
         cols = list(penalty.columns)
         rows = list(penalty.index)
         if set(cols) != set(area_names) or set(rows) != set(area_names):
-            raise ValueError("Penalty row/column names do not match supplied area names.")
+            raise ValueError(
+                "Penalty row/column names do not match supplied area names."
+            )
         penalty = penalty.loc[area_names, area_names].to_numpy(dtype=np.float64)
     else:
         penalty = np.asarray(penalty, dtype=np.float64)
@@ -279,10 +283,12 @@ def nat_param_type0(X, S, rank=None, tol=None, unit_fnorm=True):
 
     Q, R = scipy_qr(X, mode="economic", pivoting=False)
     if np.linalg.matrix_rank(R) < R.shape[1]:
-        raise ValueError("MRF model matrix is not full rank in natural-parameter construction.")
+        raise ValueError(
+            "MRF model matrix is not full rank in natural-parameter construction."
+        )
 
-    I = np.eye(R.shape[0], dtype=np.float64)
-    invR = solve_triangular(R, I, lower=False, check_finite=False)
+    eye = np.eye(R.shape[0], dtype=np.float64)
+    invR = solve_triangular(R, eye, lower=False, check_finite=False)
     RSR = invR.T @ S @ invR
     RSR = 0.5 * (RSR + RSR.T)
 
@@ -336,7 +342,9 @@ def nat_param_type1(X, S, rank=None, tol=None, unit_fnorm=True):
     # for this block requires SciPy's MRRR driver here.
     Q, R = np.linalg.qr(X, mode="reduced")
     if np.linalg.matrix_rank(R) < R.shape[1]:
-        raise ValueError("Model matrix is not full rank in natural-parameter construction.")
+        raise ValueError(
+            "Model matrix is not full rank in natural-parameter construction."
+        )
 
     tmp = solve_triangular(R.T, S.T, lower=True, check_finite=False)
     RSR = solve_triangular(R.T, tmp.T, lower=True, check_finite=False)

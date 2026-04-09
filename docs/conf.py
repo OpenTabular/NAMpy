@@ -101,12 +101,12 @@ master_doc = "index"
 
 # Suppress specific warnings
 suppress_warnings = [
-    "autosummary",             # Suppress autosummary warnings
-    "ref.python",              # Suppress Python reference warnings
-    "autodoc",                 # Suppress autodoc warnings
-    "autodoc.import_object",   # Suppress import warnings
-    "autodoc.duplicate_object", # Suppress duplicate object warnings (from autosummary + manual docs)
-    "toc.not_included",        # Suppress toctree warnings for standalone docs
+    "autosummary",  # Suppress autosummary warnings
+    "ref.python",  # Suppress Python reference warnings
+    "autodoc",  # Suppress autodoc warnings
+    "autodoc.import_object",  # Suppress import warnings
+    "autodoc.duplicate_object",  # Suppress duplicate object warnings (from autosummary + manual docs)
+    "toc.not_included",  # Suppress toctree warnings for standalone docs
 ]
 
 # Ignore certain docstring issues from sklearn
@@ -202,4 +202,3 @@ texinfo_documents = [
         "Miscellaneous",
     ),
 ]
-

@@ -13,7 +13,15 @@ top of the main penalty.
 
 import numpy as np
 
-from ..base import (
+from ....splines.thin_plate import build_tprs_term_setup, predict_tprs_term
+from ...constraints.absorption import (
+    apply_linear_constraint,
+    fit_single_penalty_with_constraint_policy,
+)
+from ...design.structures import PenaltySpec
+from ...penalties.algebra import null_space_penalty_from_penalty
+from ..registry import register_smooth
+from ..smooth_base import (
     BaseSmoothTerm,
     _normalize_point_constraint,
     _normalize_point_constraint_vector,
@@ -22,14 +30,6 @@ from ..base import (
     resolve_by_state,
     sync_by_state_attributes,
 )
-from ..registry import register_smooth
-from ...constraints.absorption import (
-    apply_linear_constraint,
-    fit_single_penalty_with_constraint_policy,
-)
-from ...design.structures import PenaltySpec
-from ...penalties.algebra import null_space_penalty_from_penalty
-from ....splines.thin_plate import build_tprs_term_setup, predict_tprs_term
 
 
 @register_smooth("tp")
@@ -159,7 +159,9 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
             and bool(self._by_state.is_constant)
         )
         result = fit_single_penalty_with_constraint_policy(
-            base, pen, self._by_state,
+            base,
+            pen,
+            self._by_state,
             constraint_mode=self.constraint_mode,
             fixed=self.fixed,
             auto_constrain_when=auto_constrain,
@@ -169,7 +171,9 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
         self._record_constraint_result(
             result.constraint_kind,
             result.constraint_transform,
-            absorbed_by=("runtime" if result.constraint_transform is not None else None),
+            absorbed_by=(
+                "runtime" if result.constraint_transform is not None else None
+            ),
         )
         return self
 
@@ -203,7 +207,9 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
         defs = [
             PenaltySpec(
                 matrix=main_penalty,
-                smoothing_id=(None if self.smoothing_id is None else str(self.smoothing_id)),
+                smoothing_id=(
+                    None if self.smoothing_id is None else str(self.smoothing_id)
+                ),
                 kind="smooth",
                 rank=int(self._setup.rank) if self._setup is not None else None,
                 sp_mode=sp_mode,
@@ -222,10 +228,24 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
                     "knots": self.knots,
                     "xt": self.xt,
                     "m": self.m,
-                    "penalty_order": None if self._setup is None else self._setup.penalty_order,
-                    "original_null_space_dim": None if self._setup is None else self._setup.original_null_space_dim,
-                    "drop_null_requested": None if self._setup is None else bool(self._setup.drop_null_requested),
-                    "drop_null_effective": None if self._setup is None else bool(self._setup.drop_null_effective),
+                    "penalty_order": (
+                        None if self._setup is None else self._setup.penalty_order
+                    ),
+                    "original_null_space_dim": (
+                        None
+                        if self._setup is None
+                        else self._setup.original_null_space_dim
+                    ),
+                    "drop_null_requested": (
+                        None
+                        if self._setup is None
+                        else bool(self._setup.drop_null_requested)
+                    ),
+                    "drop_null_effective": (
+                        None
+                        if self._setup is None
+                        else bool(self._setup.drop_null_effective)
+                    ),
                     "fixed": bool(self.fixed),
                     "term_sp": sp_main,
                     "is_selection_penalty": False,
@@ -267,10 +287,26 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
                             "knots": self.knots,
                             "xt": self.xt,
                             "m": self.m,
-                            "penalty_order": None if self._setup is None else self._setup.penalty_order,
-                            "original_null_space_dim": None if self._setup is None else self._setup.original_null_space_dim,
-                            "drop_null_requested": None if self._setup is None else bool(self._setup.drop_null_requested),
-                            "drop_null_effective": None if self._setup is None else bool(self._setup.drop_null_effective),
+                            "penalty_order": (
+                                None
+                                if self._setup is None
+                                else self._setup.penalty_order
+                            ),
+                            "original_null_space_dim": (
+                                None
+                                if self._setup is None
+                                else self._setup.original_null_space_dim
+                            ),
+                            "drop_null_requested": (
+                                None
+                                if self._setup is None
+                                else bool(self._setup.drop_null_requested)
+                            ),
+                            "drop_null_effective": (
+                                None
+                                if self._setup is None
+                                else bool(self._setup.drop_null_effective)
+                            ),
                             "fixed": bool(self.fixed),
                             "is_selection_penalty": True,
                         },

@@ -8,9 +8,18 @@ separate ``s()`` terms for each marginal, decomposing the full interaction
 """
 
 import warnings
+
 import numpy as np
 
-from ..base import (
+from ...basis.tensor import (
+    normalize_tensor_marginal_penalty,
+    rescale_tensor_penalties_for_fit,
+    rowwise_kronecker,
+    tensor_product_penalties,
+)
+from ...penalties.algebra import null_space_penalty_from_penalty
+from ..registry import register_smooth
+from ..smooth_base import (
     BaseSmoothTerm,
     _normalize_knots,
     _normalize_mc,
@@ -21,14 +30,6 @@ from ..base import (
     resolve_by_state,
     sync_by_state_attributes,
 )
-from ..registry import register_smooth
-from ...basis.tensor import (
-    rowwise_kronecker,
-    tensor_product_penalties,
-    normalize_tensor_marginal_penalty,
-    rescale_tensor_penalties_for_fit,
-)
-from ...penalties.algebra import null_space_penalty_from_penalty
 from .marginals import (
     make_tensor_marginal_term,
     tensor_marginal_feature_index,
@@ -64,7 +65,9 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
     ):
         features = list(feature) if not isinstance(feature, (str, int)) else [feature]
         if len(features) < 1:
-            raise ValueError("InteractionTensorProductSplineTerm requires at least one feature.")
+            raise ValueError(
+                "InteractionTensorProductSplineTerm requires at least one feature."
+            )
 
         super().__init__(
             feature=features,
@@ -147,7 +150,8 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
             if self.mc is not None:
                 warnings.warn(
                     f"{self.label}: ignoring mc={self.mc} because numeric by={self._by_state.feature_name!r} "
-                    "is non-constant, so automatic identifiability constraints are not applied."
+                    "is non-constant, so automatic identifiability constraints are not applied.",
+                    stacklevel=2,
                 )
             use_centered = [False] * len(marginals)
         else:
@@ -212,7 +216,11 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
             sid = (
                 None
                 if self.smoothing_id is None
-                else (str(self.smoothing_id) if n_raw <= 1 else f"{self.smoothing_id}::{j}")
+                else (
+                    str(self.smoothing_id)
+                    if n_raw <= 1
+                    else f"{self.smoothing_id}::{j}"
+                )
             )
             sp_j = sp_vals[j] if j < len(sp_vals) else None
             defs.append(
@@ -228,7 +236,9 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
 
         if self.select:
             combined = sum(np.asarray(P, dtype=np.float64) for P in raw)
-            S0, meta = null_space_penalty_from_penalty(combined, tol=self.null_penalty_tol)
+            S0, meta = null_space_penalty_from_penalty(
+                combined, tol=self.null_penalty_tol
+            )
             if meta["rank"] > 0:
                 select_sid = (
                     None

@@ -155,7 +155,9 @@ class NBM(BaseModel):
                         "kind": kind,
                     }
                     self.channel_specs.append(spec)
-                    self.term_to_channel_indices.setdefault(name, []).append(channel_idx)
+                    self.term_to_channel_indices.setdefault(name, []).append(
+                        channel_idx
+                    )
 
         self.num_channels = len(self.channel_specs)
         if self.num_channels == 0:
@@ -212,7 +214,9 @@ class NBM(BaseModel):
         for name in self.num_feature_keys:
             dim = int(num_feature_info[name]["dimension"])
             if dim <= 0:
-                raise ValueError(f"Numerical feature '{name}' has invalid dimension {dim}.")
+                raise ValueError(
+                    f"Numerical feature '{name}' has invalid dimension {dim}."
+                )
             if dim == 1:
                 atomic_names.append(name)
             else:
@@ -255,7 +259,7 @@ class NBM(BaseModel):
         """
         if nary is not None:
             if isinstance(nary, (list, tuple)):
-                orders = sorted(set(int(o) for o in nary))
+                orders = sorted({int(o) for o in nary})
                 if not orders:
                     raise ValueError("nary list/tuple must not be empty.")
                 return {
@@ -364,8 +368,12 @@ class NBM(BaseModel):
         )
 
         channel_mask = torch.ones_like(term_scores)
-        for logical_idx, channel_indices in enumerate(self.term_to_channel_indices.values()):
-            channel_mask[:, channel_indices] = logical_mask[:, logical_idx].unsqueeze(-1)
+        for logical_idx, channel_indices in enumerate(
+            self.term_to_channel_indices.values()
+        ):
+            channel_mask[:, channel_indices] = logical_mask[:, logical_idx].unsqueeze(
+                -1
+            )
 
         return term_scores * channel_mask
 
@@ -412,13 +420,17 @@ class NBM(BaseModel):
             x_order_flat = x_order.reshape(-1, order)
 
             for subnet in range(self.num_subnets):
-                h = self.bases_nary_models[self.get_key(order_key, subnet)](x_order_flat)
+                h = self.bases_nary_models[self.get_key(order_key, subnet)](
+                    x_order_flat
+                )
                 h = self.bases_dropout(h)
                 h = h.reshape(batch_size, n_terms_for_order, self.num_bases)
                 basis_chunks.append(h)
 
         if not basis_chunks:
-            raise RuntimeError("No basis outputs were created. Check nary configuration.")
+            raise RuntimeError(
+                "No basis outputs were created. Check nary configuration."
+            )
 
         bases = torch.cat(basis_chunks, dim=1)  # [B, num_channels, num_bases]
 
@@ -430,8 +442,10 @@ class NBM(BaseModel):
         # Class-/parameter-wise additive contributions:
         # classifier.weight: [num_classes, num_channels]
         # -> transpose to [num_channels, num_classes]
-        term_contribs = (
-            term_scores.unsqueeze(-1) * self.classifier.weight.transpose(0, 1).unsqueeze(0)
+        term_contribs = term_scores.unsqueeze(-1) * self.classifier.weight.transpose(
+            0, 1
+        ).unsqueeze(
+            0
         )  # [B, num_channels, num_classes]
 
         output = term_contribs.sum(dim=1)  # [B, num_classes]

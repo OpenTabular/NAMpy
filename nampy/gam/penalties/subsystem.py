@@ -16,7 +16,6 @@ PenaltySpec objects and call normalisation separately.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -38,7 +37,9 @@ def penalty_rank_null_dim(P: np.ndarray, tol: float = 1e-10) -> tuple[int, int]:
     return rank, int(P.shape[0] - rank)
 
 
-def normalize_penalty_spec(obj: PenaltySpec | np.ndarray, *, default_kind: str = "smooth") -> PenaltySpec:
+def normalize_penalty_spec(
+    obj: PenaltySpec | np.ndarray, *, default_kind: str = "smooth"
+) -> PenaltySpec:
     if isinstance(obj, PenaltySpec):
         spec = obj
         P = np.asarray(spec.matrix, dtype=np.float64)
@@ -47,12 +48,16 @@ def normalize_penalty_spec(obj: PenaltySpec | np.ndarray, *, default_kind: str =
         P = np.asarray(spec.matrix, dtype=np.float64)
 
     if P.ndim != 2 or P.shape[0] != P.shape[1]:
-        raise ValueError(f"Penalty matrices must be square 2D arrays, got shape={P.shape}.")
+        raise ValueError(
+            f"Penalty matrices must be square 2D arrays, got shape={P.shape}."
+        )
     P = symmetrize_penalty(P)
     rank, null_dim = penalty_rank_null_dim(P)
 
     if spec.sp_mode not in {None, "fixed", "estimate"}:
-        raise ValueError("PenaltySpec.sp_mode must be one of {None, 'fixed', 'estimate'}.")
+        raise ValueError(
+            "PenaltySpec.sp_mode must be one of {None, 'fixed', 'estimate'}."
+        )
     if spec.sp_mode == "fixed":
         if spec.sp_value is None:
             raise ValueError("Fixed penalty overrides require sp_value.")
@@ -66,7 +71,9 @@ def normalize_penalty_spec(obj: PenaltySpec | np.ndarray, *, default_kind: str =
         smoothing_id=spec.smoothing_id,
         kind=str(spec.kind),
         rank=(rank if spec.rank is None else spec.rank),
-        null_space_dim=(null_dim if spec.null_space_dim is None else spec.null_space_dim),
+        null_space_dim=(
+            null_dim if spec.null_space_dim is None else spec.null_space_dim
+        ),
         is_null_space_penalty=bool(spec.is_null_space_penalty),
         sp_mode=spec.sp_mode,
         sp_value=(None if spec.sp_value is None else float(spec.sp_value)),
@@ -143,7 +150,14 @@ def merge_smoothing_override(existing, mode, value, *, smoothing_id: str, label:
     return existing
 
 
-def default_penalty_id(pred_name: str, term, term_label: str, coef_start: int, local_penalty_index: int, n_penalties: int) -> str:
+def default_penalty_id(
+    pred_name: str,
+    term,
+    term_label: str,
+    coef_start: int,
+    local_penalty_index: int,
+    n_penalties: int,
+) -> str:
     base_id = getattr(term, "smoothing_id", None)
     if base_id is not None:
         base_id = str(base_id)

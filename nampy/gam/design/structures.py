@@ -222,6 +222,7 @@ class CompiledPredictor:
     n_smoothing_params: int
     has_intercept: bool = False
     term_index_map: dict[str, int] = field(default_factory=dict)
+    side_condition_Q: np.ndarray | None = None
     smoothing_override_modes: list[str | None] = field(default_factory=list)
     smoothing_override_values: np.ndarray | None = None
     metadata: dict[str, Any] = field(default_factory=dict)

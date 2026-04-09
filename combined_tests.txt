@@ -244,7 +244,7 @@ def test_gaussian_identity_one_step_matches_direct_pls():
 
 
 def test_extended_family_raises():
-    from nampy.gam.families.base import ExtendedFamily
+    from nampy.gam.families.family_base import ExtendedFamily
 
     class DummyExt(ExtendedFamily):
         name = "dummy"

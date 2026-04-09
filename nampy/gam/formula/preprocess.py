@@ -1,13 +1,13 @@
 """Formula preprocessing (factor-by and parametric expansion)."""
 
-from dataclasses import replace
 import itertools
 import re
+from dataclasses import replace
 
 import numpy as np
 import pandas as pd
 
-from ..specs import LinearPredictorSpec, TermSpec
+from ..specs import LinearPredictorSpec, TermSpec, replace_smooth_spec
 
 
 def is_factor_like_series(s: pd.Series) -> bool:
@@ -85,7 +85,9 @@ def expand_parametric_term(
                 comps.append(
                     {
                         "label": f"{var}[{lev}]",
-                        "values": np.asarray((cat == lev).astype(float), dtype=np.float64),
+                        "values": np.asarray(
+                            (cat == lev).astype(float), dtype=np.float64
+                        ),
                         "recipe": {
                             "var": var,
                             "type": "factor",
@@ -191,11 +193,14 @@ def expand_factor_by_term(
     if not is_factor_like_series(by_series):
         return [term], hidden_counter
 
-    opts = dict(term.basis_options or {})
-    if str(opts.get("special", "s")) != "s":
+    smooth_spec = term.smooth_spec
+    if smooth_spec is None:
+        raise ValueError(f"Smooth term {term.label!r} is missing smooth_spec.")
+
+    if str(smooth_spec.special) != "s":
         raise NotImplementedError(
             f"Factor `by` expansion is implemented for s(...) only in this step, "
-            f"not for {opts.get('special')}(...)."
+            f"not for {smooth_spec.special}(...)."
         )
 
     cat, levels, ordered = factor_info(by_series)
@@ -224,7 +229,15 @@ def expand_factor_by_term(
 
         new_label = f"{original_label}:{by_name}={lev}"
         out_terms.append(
-            replace(term, by_variable=hidden_col, basis_options={**opts, "constraint_mode": "factor_by"}, label=new_label, metadata=new_meta)
+            replace(
+                term,
+                by_variable=hidden_col,
+                smooth_spec=replace_smooth_spec(
+                    smooth_spec, constraint_mode="factor_by"
+                ),
+                label=new_label,
+                metadata=new_meta,
+            )
         )
 
         state["factor_by_expansions"].append(
@@ -245,7 +258,9 @@ def expand_factor_by_term(
 
 def preprocess_formula_predictor_specs(parsed, predictor_specs, data):
     if not isinstance(data, pd.DataFrame):
-        raise TypeError("Formula preprocessing requires `data` to be a pandas DataFrame.")
+        raise TypeError(
+            "Formula preprocessing requires `data` to be a pandas DataFrame."
+        )
 
     if len(parsed.predictors) != len(predictor_specs):
         raise ValueError(
@@ -330,7 +345,9 @@ def apply_formula_preprocess_to_new_data(data, preprocess_state):
             if comp["type"] == "numeric":
                 vals = vals * numeric_1d_values(out[src], name=src)
             elif comp["type"] == "factor":
-                vals = vals * np.asarray((out[src] == comp["level"]).astype(float), dtype=np.float64)
+                vals = vals * np.asarray(
+                    (out[src] == comp["level"]).astype(float), dtype=np.float64
+                )
             else:
                 raise ValueError(f"Unknown parametric recipe type {comp['type']!r}.")
 
@@ -344,7 +361,9 @@ def apply_formula_preprocess_to_new_data(data, preprocess_state):
                 f"needed to rebuild formula columns."
             )
 
-        out[item["hidden_by"]] = np.asarray((out[src] == item["level"]).astype(float), dtype=np.float64)
+        out[item["hidden_by"]] = np.asarray(
+            (out[src] == item["level"]).astype(float), dtype=np.float64
+        )
 
     return out
 

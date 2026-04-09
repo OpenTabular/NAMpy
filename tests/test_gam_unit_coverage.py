@@ -12,7 +12,7 @@ Covers the following modules that have limited or no direct test coverage:
 - gam/fit/linalg/matrix_reindexing.py
 - gam/diagnostics/summary.py
 - gam/formula/parser.py
-- gam/smooths/base.py helpers
+- gam/smooths/smooth_base.py helpers
 
 Parity tests verify that numerical results match mgcv to machine precision
 for edge cases not covered elsewhere.
@@ -20,19 +20,16 @@ for edge cases not covered elsewhere.
 
 from __future__ import annotations
 
-import warnings
-
 import numpy as np
 import pandas as pd
 import pytest
 
-# ── imports ──────────────────────────────────────────────────────────────────
-
-from nampy.gam.constraints.transforms import (
-    apply_coefficient_transform,
-    independent_column_indices,
-    null_space_basis_from_constraint_matrix,
-    orthogonal_residual,
+from nampy.basemodels.gam import GAM
+from nampy.gam.basis.tensor import (
+    lifted_tensor_penalty,
+    normalize_tensor_marginal_penalty,
+    rowwise_kronecker,
+    tensor_product_penalties,
 )
 from nampy.gam.constraints.absorption import (
     ConstraintFitResult,
@@ -41,6 +38,48 @@ from nampy.gam.constraints.absorption import (
     fit_single_penalty_with_constraint_policy,
     full_term_sum_to_zero_constraint,
     should_apply_identifiability_constraint,
+)
+
+# ── imports ──────────────────────────────────────────────────────────────────
+from nampy.gam.constraints.transforms import (
+    apply_coefficient_transform,
+    independent_column_indices,
+    null_space_basis_from_constraint_matrix,
+    orthogonal_residual,
+)
+from nampy.gam.design.structures import (
+    PenaltySpec,
+)
+from nampy.gam.diagnostics.summary import (
+    build_summary_lines,
+    print_summary,
+    summary_text,
+)
+from nampy.gam.families import GaussianIdentityFamily
+from nampy.gam.families.exponential import (
+    BinomialCloglogFamily,
+    BinomialLogitFamily,
+    BinomialProbitFamily,
+    GammaInverseFamily,
+    GammaLogFamily,
+    NegativeBinomialLogFamily,
+    PoissonLogFamily,
+)
+from nampy.gam.families.family_base import BaseFamily
+from nampy.gam.fit.backends import available_fit_backends, resolve_fit_backend
+from nampy.gam.fit.covariance import build_bayes_and_freq_covariances
+from nampy.gam.fit.linalg.matrix_reindexing import (
+    drop_columns_dense,
+    drop_rows_dense,
+    permute_columns,
+    permute_rows,
+    restore_dropped_rows,
+)
+from nampy.gam.fit.penalized_system import build_full_penalty_from_blocks
+from nampy.gam.formula import compile_predictor_specs_from_formula, parse_gam_formula
+from nampy.gam.formula.parser import (
+    ParsedParametricTerm,
+    ParsedSmoothTerm,
 )
 from nampy.gam.penalties.algebra import (
     null_space_penalty_from_penalty,
@@ -55,47 +94,18 @@ from nampy.gam.penalties.subsystem import (
     normalize_penalty_spec,
     penalty_rank_null_dim,
 )
-from nampy.gam.basis.tensor import (
-    lifted_tensor_penalty,
-    normalize_tensor_marginal_penalty,
-    rowwise_kronecker,
-    tensor_product_penalties,
-)
-from nampy.gam.fit.covariance import build_bayes_and_freq_covariances
-from nampy.gam.fit.linalg.matrix_reindexing import (
-    drop_columns_dense,
-    drop_rows_dense,
-    permute_columns,
-    permute_rows,
-    restore_dropped_rows,
-)
-from nampy.gam.design.structures import (
-    CompiledPenalty,
-    CompiledPredictor,
-    CompiledTerm,
-    PenaltySpec,
-)
-from nampy.gam.smooths.base import (
+from nampy.gam.smooths.smooth_base import (
     ByState,
-    FeatureMatrixState,
     _resolve_feature,
     resolve_by_state,
     resolve_feature_matrix_state,
 )
-from nampy.gam.formula.parser import (
-    ParsedGAMFormula,
-    ParsedParametricTerm,
-    ParsedPredictorFormula,
-    ParsedSmoothTerm,
-)
-from nampy.gam.formula import parse_gam_formula, compile_predictor_specs_from_formula
-from nampy.gam.diagnostics.summary import build_summary_lines, print_summary, summary_text
-from nampy.basemodels.gam import GAM
-
+from nampy.gam.specs import TermSpec
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _make_gaussian_data(n=80, seed=1):
     rng = np.random.default_rng(seed)
@@ -107,7 +117,11 @@ def _make_gaussian_data(n=80, seed=1):
 
 def _fit_simple_gam(n=60):
     data = _make_gaussian_data(n=n)
-    gam = GAM(formula='y ~ s(x0, bs="cr", k=6)', optimize_smoothing=True, smoothing_method="REML")
+    gam = GAM(
+        formula='y ~ s(x0, bs="cr", k=6)',
+        optimize_smoothing=True,
+        smoothing_method="REML",
+    )
     gam.fit(data=data)
     return gam
 
@@ -115,6 +129,7 @@ def _fit_simple_gam(n=60):
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. gam/constraints/transforms.py
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestOrthogonalResidual:
     def test_none_A_returns_B_unchanged(self):
@@ -140,7 +155,7 @@ class TestOrthogonalResidual:
         rng = np.random.default_rng(42)
         A = rng.normal(size=(10, 2))
         # B is a linear combination of A columns
-        B = (A @ np.array([[1.5], [-0.7]]))
+        B = A @ np.array([[1.5], [-0.7]])
         R = orthogonal_residual(B, A)
         np.testing.assert_allclose(R, np.zeros_like(R), atol=1e-10)
 
@@ -257,6 +272,7 @@ class TestApplyCoefficientTransform:
 # 2. gam/constraints/absorption.py
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestApplyLinearConstraint:
     def test_trivial_constraint_returns_unchanged(self):
         B = np.eye(4)
@@ -336,15 +352,30 @@ class TestShouldApplyIdentifiabilityConstraint:
 
     def test_auto_default_when_auto_false(self):
         # When default_when_auto=False and by is not varying, result is False
-        assert should_apply_identifiability_constraint(self._by(), "auto", default_when_auto=False) is False
+        assert (
+            should_apply_identifiability_constraint(
+                self._by(), "auto", default_when_auto=False
+            )
+            is False
+        )
 
     def test_auto_default_when_auto_true_and_constant_by(self):
         # When is_constant=True and default_when_auto=True → True
-        assert should_apply_identifiability_constraint(self._by(is_constant=True), "auto", default_when_auto=True) is True
+        assert (
+            should_apply_identifiability_constraint(
+                self._by(is_constant=True), "auto", default_when_auto=True
+            )
+            is True
+        )
 
     def test_auto_default_when_auto_true_and_varying_by(self):
         # When is_constant=False and default_when_auto=True → False
-        assert should_apply_identifiability_constraint(self._by(is_constant=False), "auto", default_when_auto=True) is False
+        assert (
+            should_apply_identifiability_constraint(
+                self._by(is_constant=False), "auto", default_when_auto=True
+            )
+            is False
+        )
 
     def test_factor_by_returns_false(self):
         assert should_apply_identifiability_constraint(self._by(), "factor_by") is False
@@ -382,7 +413,9 @@ class TestFitSinglePenaltyWithConstraintPolicy:
         assert result.constraint_kind == "sum_to_zero"
         assert result.basis_train.shape == (10, 4)
         # columns sum to zero (in mean)
-        np.testing.assert_allclose(result.basis_train.mean(axis=0), np.zeros(4), atol=1e-12)
+        np.testing.assert_allclose(
+            result.basis_train.mean(axis=0), np.zeros(4), atol=1e-12
+        )
 
     def test_factor_by_mode_scales_and_constrains(self):
         rng = np.random.default_rng(6)
@@ -416,6 +449,7 @@ class TestFitSinglePenaltyWithConstraintPolicy:
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. gam/penalties/algebra.py
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestSymmetrizePenalty:
     def test_symmetric_matrix_unchanged(self):
@@ -506,6 +540,7 @@ class TestNullSpacePenaltyFromPenalty:
 # 4. gam/penalties/subsystem.py
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestPenaltyRankNullDim:
     def test_identity_full_rank(self):
         rank, null_dim = penalty_rank_null_dim(np.eye(5))
@@ -566,6 +601,45 @@ class TestNormalizePenaltySpec:
         assert out.sp_mode == "fixed"
         assert out.sp_value == pytest.approx(3.0)
 
+
+class TestBuildFullPenaltyFromBlocks:
+    def test_symmetrizes_penalty_block_before_assembly(self):
+        class _PB:
+            smoothing_index = 0
+            coef_slice = slice(0, 2)
+            label = "asym"
+            matrix = np.array([[2.0, 1e-12], [0.0, 3.0]], dtype=np.float64)
+
+        P_full = build_full_penalty_from_blocks(
+            penalty_blocks=[_PB()],
+            smoothing_params=np.array([0.5], dtype=np.float64),
+            fit_intercept=False,
+            n_coef=2,
+        )
+
+        np.testing.assert_allclose(P_full, P_full.T, atol=0.0, rtol=0.0)
+        np.testing.assert_allclose(
+            P_full,
+            0.5 * (_PB.matrix + _PB.matrix.T) * 0.5,
+            atol=0.0,
+            rtol=0.0,
+        )
+
+
+class TestFitBackendSelection:
+    def test_explicit_stacked_qr_backend_takes_priority(self):
+        class _Family:
+            name = "gaussian"
+            supports_closed_form_solve = True
+            supports_pirls = False
+
+        class _Model:
+            family = _Family()
+            _use_stacked_qr = True
+
+        assert available_fit_backends(_Model()) == ("stacked_qr", "gaussian_exact")
+        assert resolve_fit_backend(_Model()) == "stacked_qr"
+
     def test_numpy_array_input(self):
         S = np.eye(3)
         spec = normalize_penalty_spec(S)
@@ -582,7 +656,9 @@ class TestMakePenaltySpec:
 
     def test_null_space_penalty_flag(self):
         S = np.eye(2)
-        spec = make_penalty_spec(matrix=S, smoothing_id=None, kind="null_space", is_null_space_penalty=True)
+        spec = make_penalty_spec(
+            matrix=S, smoothing_id=None, kind="null_space", is_null_space_penalty=True
+        )
         assert spec.is_null_space_penalty is True
 
 
@@ -605,11 +681,15 @@ class TestBuildNullSpaceSelectionSpec:
 class TestMergeSmoothingOverride:
     def test_none_mode_returns_existing(self):
         existing = {"mode": "fixed", "value": 1.0, "labels": ["a"]}
-        result = merge_smoothing_override(existing, None, None, smoothing_id="id", label="b")
+        result = merge_smoothing_override(
+            existing, None, None, smoothing_id="id", label="b"
+        )
         assert result is existing
 
     def test_first_override_creates_entry(self):
-        result = merge_smoothing_override(None, "fixed", 2.5, smoothing_id="id", label="t")
+        result = merge_smoothing_override(
+            None, "fixed", 2.5, smoothing_id="id", label="t"
+        )
         assert result["mode"] == "fixed"
         assert result["value"] == pytest.approx(2.5)
         assert "t" in result["labels"]
@@ -617,16 +697,22 @@ class TestMergeSmoothingOverride:
     def test_conflicting_mode_raises(self):
         existing = {"mode": "fixed", "value": 1.0, "labels": ["a"]}
         with pytest.raises(ValueError, match="Conflicting"):
-            merge_smoothing_override(existing, "estimate", None, smoothing_id="id", label="b")
+            merge_smoothing_override(
+                existing, "estimate", None, smoothing_id="id", label="b"
+            )
 
     def test_conflicting_fixed_value_raises(self):
         existing = {"mode": "fixed", "value": 1.0, "labels": ["a"]}
         with pytest.raises(ValueError, match="Conflicting"):
-            merge_smoothing_override(existing, "fixed", 2.0, smoothing_id="id", label="b")
+            merge_smoothing_override(
+                existing, "fixed", 2.0, smoothing_id="id", label="b"
+            )
 
     def test_matching_fixed_value_appends_label(self):
         existing = {"mode": "fixed", "value": 1.0, "labels": ["a"]}
-        result = merge_smoothing_override(existing, "fixed", 1.0, smoothing_id="id", label="b")
+        result = merge_smoothing_override(
+            existing, "fixed", 1.0, smoothing_id="id", label="b"
+        )
         assert "b" in result["labels"]
 
 
@@ -653,6 +739,7 @@ class TestDefaultPenaltyId:
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. gam/basis/tensor.py
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestRowwiseKronecker:
     def test_two_matrices(self):
@@ -744,6 +831,7 @@ class TestNormalizeTensorMarginalPenalty:
 # 6. gam/fit/covariance.py
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestBuildBayesAndFreqCovariances:
     def test_identity_case(self):
         scale = 1.0
@@ -790,6 +878,7 @@ class TestBuildBayesAndFreqCovariances:
 # ─────────────────────────────────────────────────────────────────────────────
 # 7. gam/fit/linalg/matrix_reindexing.py
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestDropColumnsDense:
     def test_drop_no_columns_returns_copy(self):
@@ -892,6 +981,7 @@ class TestPermuteRows:
 # 8. gam/smooths/base.py helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestResolveFeature:
     def test_resolve_by_name(self):
         feature_names = ["a", "b", "c"]
@@ -953,6 +1043,7 @@ class TestResolveFeatureMatrixState:
 # 9. gam/formula/parser.py
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestParseGAMFormula:
     def test_simple_with_intercept(self):
         parsed = parse_gam_formula('y ~ s(x0, bs="cr", k=8)')
@@ -985,14 +1076,18 @@ class TestParseGAMFormula:
 
     def test_tensor_smooth_te(self):
         parsed = parse_gam_formula('y ~ te(x0, x1, bs="cr")')
-        terms = [t for t in parsed.predictors[0].terms if isinstance(t, ParsedSmoothTerm)]
+        terms = [
+            t for t in parsed.predictors[0].terms if isinstance(t, ParsedSmoothTerm)
+        ]
         assert len(terms) == 1
         assert terms[0].kind == "te"
         assert set(terms[0].features) == {"x0", "x1"}
 
     def test_multiple_smooths(self):
         parsed = parse_gam_formula('y ~ s(x0, bs="cr") + s(x1, bs="ps")')
-        smooths = [t for t in parsed.predictors[0].terms if isinstance(t, ParsedSmoothTerm)]
+        smooths = [
+            t for t in parsed.predictors[0].terms if isinstance(t, ParsedSmoothTerm)
+        ]
         assert len(smooths) == 2
 
     def test_unknown_smooth_raises(self):
@@ -1026,6 +1121,7 @@ class TestCompilePredictorSpecsFromFormula:
         specs = compile_predictor_specs_from_formula(parsed)
         smooth_specs = [t for t in specs[0].terms if t.kind == "smooth"]
         assert len(smooth_specs) == 1
+        assert smooth_specs[0].smooth_spec.__class__.__name__ == "ThinPlateSmoothSpec"
         assert smooth_specs[0].basis_options["bs"] == "tp"
 
     def test_bare_te_keeps_cr_marginals_even_when_s_default_is_tp(self):
@@ -1033,6 +1129,7 @@ class TestCompilePredictorSpecsFromFormula:
         specs = compile_predictor_specs_from_formula(parsed, default_basis="tp")
         smooth_specs = [t for t in specs[0].terms if t.kind == "smooth"]
         assert len(smooth_specs) == 1
+        assert smooth_specs[0].smooth_spec.__class__.__name__ == "TensorProductSmoothSpec"
         assert smooth_specs[0].basis_options["special"] == "te"
         assert smooth_specs[0].basis_options["bs"] == "cr"
 
@@ -1047,10 +1144,81 @@ class TestCompilePredictorSpecsFromFormula:
         smooth_specs = [t for t in specs[0].terms if t.kind == "smooth"]
         assert len(smooth_specs) == 2
 
+    def test_missing_by_column_raises_early(self):
+        parsed = parse_gam_formula('y ~ s(x0, by="temperatrue", bs="cr", k=8)')
+        with pytest.raises(KeyError, match="by column 'temperatrue' not found"):
+            compile_predictor_specs_from_formula(
+                parsed,
+                available_columns=["x0", "temperature", "y"],
+            )
+
+    def test_termspec_basis_options_is_read_only_copy(self):
+        opts = {"special": "s", "bs": "cr", "k": 8}
+        spec = TermSpec(kind="smooth", features=("x0",), basis_options=opts)
+
+        opts["k"] = 20
+        assert spec.basis_options["k"] == 8
+        assert spec.smooth_spec.__class__.__name__ == "CubicRegressionSmoothSpec"
+
+        with pytest.raises(TypeError):
+            spec.basis_options["k"] = 20
+
+    def test_returns_linear_predictor_spec_objects(self):
+        parsed = parse_gam_formula("y ~ s(x0)")
+        specs = compile_predictor_specs_from_formula(parsed)
+        assert all(spec.__class__.__name__ == "LinearPredictorSpec" for spec in specs)
+
+
+class TestFamilyApi:
+    def test_capability_flags_are_read_only_on_class_and_instance(self):
+        fam = GaussianIdentityFamily()
+
+        with pytest.raises(AttributeError, match="supports_reml is read-only"):
+            fam.supports_reml = False
+
+        with pytest.raises(AttributeError, match="supports_reml is read-only"):
+            BaseFamily.supports_reml = True
+
+    def test_weighted_deviance_and_aic_are_available(self):
+        fam = GaussianIdentityFamily()
+        y = np.asarray([1.0, 3.0], dtype=np.float64)
+        mu = np.asarray([0.0, 1.0], dtype=np.float64)
+        weights = np.asarray([2.0, 0.5], dtype=np.float64)
+
+        assert fam.deviance(y, mu, weights=weights) == pytest.approx(2.0 + 2.0)
+        assert fam.aic(y, mu, edf=3.0, scale=2.0, weights=weights) == pytest.approx(
+            -2.0 * np.sum(weights * fam.loglik_obs(y, mu, scale=2.0)) + 6.0
+        )
+
+    @pytest.mark.parametrize(
+        ("family", "mu"),
+        [
+            (GaussianIdentityFamily(), np.asarray([0.2, 1.3], dtype=np.float64)),
+            (BinomialLogitFamily(), np.asarray([0.2, 0.8], dtype=np.float64)),
+            (PoissonLogFamily(), np.asarray([0.2, 1.3], dtype=np.float64)),
+            (GammaLogFamily(), np.asarray([0.2, 1.3], dtype=np.float64)),
+            (
+                NegativeBinomialLogFamily(theta=2.0),
+                np.asarray([0.2, 1.3], dtype=np.float64),
+            ),
+            (BinomialProbitFamily(), np.asarray([0.2, 0.8], dtype=np.float64)),
+            (BinomialCloglogFamily(), np.asarray([0.2, 0.8], dtype=np.float64)),
+            (GammaInverseFamily(), np.asarray([0.2, 1.3], dtype=np.float64)),
+        ],
+    )
+    def test_link_and_variance_derivatives_delegate_to_mapped_objects(self, family, mu):
+        assert np.allclose(family.d2link(mu), family.link.d2(mu))
+        assert np.allclose(family.d3link(mu), family.link.d3(mu))
+        assert np.allclose(family.d4link(mu), family.link.d4(mu))
+        assert np.allclose(family.dvar(mu), family.variance.d1(mu))
+        assert np.allclose(family.d2var(mu), family.variance.d2(mu))
+        assert np.allclose(family.d3var(mu), family.variance.d3(mu))
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 10. gam/diagnostics/summary.py
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestBuildSummaryLines:
     def test_runs_on_fitted_model(self):
@@ -1107,6 +1275,7 @@ class TestPrintSummary:
 #     Tested via full pipeline using GAM objects
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestApplyGlobalSideConditions:
     """
     These tests verify the behavior of apply_global_side_conditions
@@ -1125,6 +1294,7 @@ class TestApplyGlobalSideConditions:
         )
         gam.fit(data=data)
         from nampy.gam.parity.snapshots import _get_core
+
         core = _get_core(gam)
         X = core.design_.design_matrix
         # Each column of the smooth block should have zero mean
@@ -1143,6 +1313,7 @@ class TestApplyGlobalSideConditions:
         )
         gam.fit(data=data)
         from nampy.gam.parity.snapshots import _get_core
+
         core = _get_core(gam)
         X = core.design_.design_matrix
         fr = core.fit_result()
@@ -1167,6 +1338,26 @@ class TestApplyGlobalSideConditions:
         # Predictions should be finite
         assert np.all(np.isfinite(pred))
 
+    def test_formula_prediction_metadata_derived_from_preprocess_state(self):
+        data = _make_gaussian_data(n=60)
+        data["off"] = np.linspace(0.0, 1.0, len(data))
+        gam = GAM(
+            formula='y ~ s(x0, bs="cr", k=6) + offset(off)',
+            optimize_smoothing=False,
+            smoothing_params=[0.5],
+        )
+        gam.fit(data=data)
+
+        assert "formula_used_columns_" not in gam.__dict__
+        assert "formula_offset_name_" not in gam.__dict__
+        assert (
+            gam.formula_used_columns_ == gam.formula_preprocess_state_["used_columns"]
+        )
+        assert gam.formula_offset_name_ == gam.formula_preprocess_state_["offset_name"]
+
+        pred = gam.predict(data)
+        assert pred.shape == (60,)
+
     def test_report_contains_term_reports(self):
         """apply_global_side_conditions should return a report dict."""
         from nampy.gam.constraints.identifiability import apply_global_side_conditions
@@ -1185,9 +1376,20 @@ class TestApplyGlobalSideConditions:
         new_design, report = apply_global_side_conditions(design_in, fit_intercept=True)
         assert "term_reports" in report
         assert "n_deleted_total" in report
+        assert new_design.side_condition_Q is not None
+        assert new_design.side_condition_Q.shape == (
+            design_in.n_coef,
+            new_design.n_coef,
+        )
+        np.testing.assert_allclose(
+            design_in.design_matrix @ new_design.side_condition_Q,
+            new_design.design_matrix,
+            atol=1e-12,
+        )
 
     def test_non_compiled_predictor_raises(self):
         from nampy.gam.constraints.identifiability import apply_global_side_conditions
+
         with pytest.raises(TypeError, match="CompiledPredictor"):
             apply_global_side_conditions("not_a_predictor")
 
@@ -1209,6 +1411,7 @@ class TestApplyGlobalSideConditions:
 # 12. Structural invariants that still add value outside parity suites
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestParityPenaltyMatrixConsistency:
     """After side conditions, penalty matrices must be consistent with basis."""
 
@@ -1221,6 +1424,7 @@ class TestParityPenaltyMatrixConsistency:
         )
         gam.fit(data=data)
         from nampy.gam.parity.snapshots import _get_core
+
         core = _get_core(gam)
         design = core.design_
         for pb in design.compiled_penalties:
@@ -1239,11 +1443,16 @@ class TestParityPenaltyMatrixConsistency:
         )
         gam.fit(data=data)
         from nampy.gam.parity.snapshots import _get_core
+
         core = _get_core(gam)
         for pb in core.design_.compiled_penalties:
             S = pb.matrix
-            np.testing.assert_allclose(S, S.T, atol=1e-12,
-                err_msg=f"Penalty for term {pb.label!r} is not symmetric")
+            np.testing.assert_allclose(
+                S,
+                S.T,
+                atol=1e-12,
+                err_msg=f"Penalty for term {pb.label!r} is not symmetric",
+            )
 
 
 class TestParityTermContributions:

@@ -56,15 +56,15 @@ class NeuralDecisionTree(nn.Module):
         self.inner_nodes = nn.Linear(input_dim, self.internal_node_num_, bias=True)
 
         # Leaf values / responses
-        self.leaf_values = nn.Parameter(
-            torch.empty(self.leaf_node_num_, output_dim)
-        )
+        self.leaf_values = nn.Parameter(torch.empty(self.leaf_node_num_, output_dim))
         nn.init.xavier_uniform_(self.leaf_values)
 
         # Layer-wise penalty coefficients
         self.penalty_list = [self.lamda * (2.0 ** (-d)) for d in range(depth)]
 
-    def _cal_penalty(self, layer_idx: int, mu_parent: torch.Tensor, gate_soft: torch.Tensor):
+    def _cal_penalty(
+        self, layer_idx: int, mu_parent: torch.Tensor, gate_soft: torch.Tensor
+    ):
         """
         Tree-balance penalty for one layer.
 
@@ -122,8 +122,8 @@ class NeuralDecisionTree(nn.Module):
         end_idx = 1
 
         for layer_idx in range(self.depth):
-            gate_soft_layer = gate_soft[:, begin_idx:end_idx]   # [B, n_nodes_layer]
-            gate_route_layer = gate_route[:, begin_idx:end_idx] # [B, n_nodes_layer]
+            gate_soft_layer = gate_soft[:, begin_idx:end_idx]  # [B, n_nodes_layer]
+            gate_route_layer = gate_route[:, begin_idx:end_idx]  # [B, n_nodes_layer]
 
             penalty = penalty + self._cal_penalty(layer_idx, mu, gate_soft_layer)
 

@@ -29,6 +29,7 @@ Not yet implemented
 - Unknown-scale ``sigma^2`` derivative in the REML Hessian.
 - Non-Gaussian families (those use the full P-IRLS derivative chain).
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -36,6 +37,9 @@ from typing import Any
 import numpy as np
 from scipy.linalg import cho_factor
 
+from nampy.gam.smoothing_selection.criteria.gaussian_dyn import (
+    criterion_ml_reml_gaussian_dynamic_profiled,
+)
 from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
     deviance_method_scale_estimate,
     gaussian_reml_laplace_score,
@@ -43,14 +47,11 @@ from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
     prior_weights_diagonal_from_fit,
     quadratic_form_penalty,
 )
-from nampy.gam.smoothing_selection.criteria.gaussian_dyn import (
-    criterion_ml_reml_gaussian_dynamic_profiled,
-)
 from nampy.gam.smoothing_selection.criteria.laplace import _penalty_derivative_matrices
 from nampy.gam.smoothing_selection.criteria.penalty import (
-    _static_penalty_null_dim,
     _stable_penalty_logdet,
     _stable_penalty_logdet_derivatives,
+    _static_penalty_null_dim,
 )
 from nampy.gam.smoothing_selection.criteria.pirls_reml_derivative_blocks import (
     _deviance_chained_to_smoothing,
@@ -169,9 +170,7 @@ def gaussian_smoothness_postprocess(
     else:
         try:
             cA, loA = cho_factor(A, check_finite=False)
-            log_det_xtwx_plus_penalty = 2.0 * float(
-                np.sum(np.log(np.abs(np.diag(cA))))
-            )
+            log_det_xtwx_plus_penalty = 2.0 * float(np.sum(np.log(np.abs(np.diag(cA)))))
         except np.linalg.LinAlgError:
             log_det_xtwx_plus_penalty = float("nan")
     if not np.isfinite(log_det_xtwx_plus_penalty):
@@ -256,20 +255,14 @@ def gaussian_smoothness_postprocess(
 
     n_sp = int(model.n_smoothing_params_ or 0)
     P_derivs = _penalty_derivative_matrices(model, sp)
-    dev_grad, dev_hess = _deviance_coefficient_derivatives(
-        model, yv, eta, mu, w, X
-    )
+    dev_grad, dev_hess = _deviance_coefficient_derivatives(model, yv, eta, mu, w, X)
 
     dbeta: list[np.ndarray] = []
     dA: list[np.ndarray] = []
     dXtWX: list[np.ndarray] = []
-    d2beta_mat: list[list[np.ndarray | None]] = [
-        [None] * n_sp for _ in range(n_sp)
-    ]
+    d2beta_mat: list[list[np.ndarray | None]] = [[None] * n_sp for _ in range(n_sp)]
     d2A_mat: list[list[np.ndarray | None]] = [[None] * n_sp for _ in range(n_sp)]
-    d2XtWX_mat: list[list[np.ndarray | None]] = [
-        [None] * n_sp for _ in range(n_sp)
-    ]
+    d2XtWX_mat: list[list[np.ndarray | None]] = [[None] * n_sp for _ in range(n_sp)]
 
     for j in range(n_sp):
         Pj = P_derivs[j]
@@ -291,12 +284,7 @@ def gaussian_smoothness_postprocess(
                 Pk = P_derivs[k]
                 delta_jk = 1.0 if j == k else 0.0
                 d2beta_jk = -(
-                    A_inv
-                    @ (
-                        Pk @ dbeta[j]
-                        + Pj @ dbeta[k]
-                        + delta_jk * (Pj @ beta)
-                    )
+                    A_inv @ (Pk @ dbeta[j] + Pj @ dbeta[k] + delta_jk * (Pj @ beta))
                 )
                 d2beta_mat[j][k] = d2beta_jk
                 d2beta_mat[k][j] = d2beta_jk
@@ -381,13 +369,17 @@ def gaussian_smoothness_postprocess(
 
     if deriv >= 1:
         if reml_like:
-            reml1 = D1_pen / (2.0 * scale * gamma_eff) + 0.5 * logdet_a1 - 0.5 * logdet_s1
+            reml1 = (
+                D1_pen / (2.0 * scale * gamma_eff) + 0.5 * logdet_a1 - 0.5 * logdet_s1
+            )
             out["reml_grad_log_sp"] = reml1.copy()
         if bucket in {"GCV", "GACV"}:
             delta = nobs - gamma_eff * tr_a
             delta2 = delta * delta
             delta3 = delta * delta2
-            gcv1 = nobs * D1_dev / delta2 + 2.0 * nobs * dev * tr_a1 * gamma_eff / delta3
+            gcv1 = (
+                nobs * D1_dev / delta2 + 2.0 * nobs * dev * tr_a1 * gamma_eff / delta3
+            )
             out["gcv_grad_log_sp"] = gcv1.copy()
         if bucket == "UBRE":
             sc = float(known_scale) if known_scale is not None else scale
@@ -408,14 +400,21 @@ def gaussian_smoothness_postprocess(
             outer_td = np.outer(tr_a1, D1_dev)
             gcv2 = (
                 (outer_td + outer_td.T) * gamma_eff * 2.0 * nobs / delta3
-                + 6.0 * nobs * dev * np.outer(tr_a1, tr_a1) * gamma_eff**2 / (delta2 * delta2)
+                + 6.0
+                * nobs
+                * dev
+                * np.outer(tr_a1, tr_a1)
+                * gamma_eff**2
+                / (delta2 * delta2)
                 + nobs * D2_dev / delta2
                 + 2.0 * nobs * dev * gamma_eff * tr_a2 / delta3
             )
             out["gcv_hess_log_sp"] = gcv2.copy()
         if bucket == "UBRE" and D2_pen is not None:
             sc = float(known_scale) if known_scale is not None else scale
-            out["ubre_hess_log_sp"] = D2_dev / nobs + 2.0 * gamma_eff * tr_a2 * sc / nobs
+            out["ubre_hess_log_sp"] = (
+                D2_dev / nobs + 2.0 * gamma_eff * tr_a2 * sc / nobs
+            )
 
     return out
 

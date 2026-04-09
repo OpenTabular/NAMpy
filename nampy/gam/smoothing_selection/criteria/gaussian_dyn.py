@@ -1,20 +1,21 @@
 """Gaussian dynamic REML/LAML joint objective and related designs."""
-import numpy as np
-from scipy.linalg import cho_factor, cho_solve
 
-from .laplace import _penalty_derivative_matrices
+import numpy as np
+from scipy.linalg import cho_factor
+
 from .gaussian_reml_algebra import (
     gaussian_reml_weighted_degrees_and_log_weight_term,
     gaussian_weighted_residual_sum_squares,
     prior_weights_diagonal_from_fit,
     quadratic_form_penalty,
 )
+from .laplace import _penalty_derivative_matrices
 from .penalty import (
-    _eigen_positive_mask,
-    _static_penalty_null_dim,
     _stable_penalty_logdet,
     _stable_penalty_logdet_derivatives,
+    _static_penalty_null_dim,
 )
+
 
 def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
     if abs(model.score_gamma - 1.0) > 1e-12:
@@ -23,7 +24,7 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
         )
 
     y = model.family.validate_y(y)
-    y_eff = y if model.offset_train_ is None else (y - model.offset_train_)
+    y if model.offset_train_ is None else (y - model.offset_train_)
     sp = model._expand_smoothing_params_from_log(log_sp)
     sol = model._solve_gaussian_given_smoothing(y, sp)
 
@@ -32,7 +33,7 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
             "Exact dynamic Gaussian derivatives are currently implemented for REML/LAML only."
         )
 
-    A = np.asarray(sol["A"], dtype=np.float64)
+    np.asarray(sol["A"], dtype=np.float64)
     A_inv = np.asarray(sol["A_inv"], dtype=np.float64)
     beta = np.asarray(sol["coef_full"], dtype=np.float64)
     n_s = int(model.n_samples_)
@@ -101,11 +102,7 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
         beta1[j] = beta_j
         F1[j] = float(beta @ (Pj @ beta))
         logdetA1[j] = float(np.trace(Uj))
-        grad_full[j] = 0.5 * (
-            nu * F1[j] / F
-            + logdetA1[j]
-            - logdetS_grad[j]
-        )
+        grad_full[j] = 0.5 * (nu * F1[j] / F + logdetA1[j] - logdetS_grad[j])
 
     for j, Pj in enumerate(P_derivs):
         if not np.any(Pj):
@@ -114,7 +111,7 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
             if not np.any(Pk):
                 continue
             delta = 1.0 if j == k else 0.0
-            beta_jk = -(A_inv @ (Pk @ beta1[j] + Pj @ beta1[k])) + delta * beta1[j]
+            -(A_inv @ (Pk @ beta1[j] + Pj @ beta1[k])) + delta * beta1[j]
             Fjk = 2.0 * float(beta1[k] @ (Pj @ beta)) + delta * F1[j]
             F2[j, k] = Fjk
             F2[k, j] = Fjk
@@ -145,7 +142,9 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
     }
 
 
-def criterion_ml_reml_gaussian_dynamic_joint(model, y, log_sp_free, log_sigma2, method="REML"):
+def criterion_ml_reml_gaussian_dynamic_joint(
+    model, y, log_sp_free, log_sigma2, method="REML"
+):
     """
     Gaussian REML/LAML criterion with an explicit error variance sigma^2 = exp(log_sigma2).
 
@@ -197,7 +196,9 @@ def criterion_ml_reml_gaussian_dynamic_joint(model, y, log_sp_free, log_sigma2, 
     if not np.isfinite(sigma2) or sigma2 <= 0.0:
         return np.inf
     ldet_xtwx_plus_penalty = sol.get("log_det_XtWX_plus_penalty", None)
-    if ldet_xtwx_plus_penalty is not None and np.isfinite(float(ldet_xtwx_plus_penalty)):
+    if ldet_xtwx_plus_penalty is not None and np.isfinite(
+        float(ldet_xtwx_plus_penalty)
+    ):
         logdet_A = float(ldet_xtwx_plus_penalty)
     else:
         try:
@@ -231,7 +232,9 @@ def criterion_ml_reml_gaussian_dynamic_profiled(model, y, log_sp_free, method="R
     """
     method_u = str(method).upper()
     if method_u not in {"REML", "LAML"}:
-        raise ValueError("method must be 'REML' or 'LAML' for the profiled Gaussian path.")
+        raise ValueError(
+            "method must be 'REML' or 'LAML' for the profiled Gaussian path."
+        )
 
     y = model.family.validate_y(y)
     sp = model._expand_smoothing_params_from_log(
@@ -300,79 +303,3 @@ def criterion_gradient_ml_reml_gaussian_dynamic_joint(
     g_sp = prof_g + 0.5 * F1f * (1.0 / sigma2 - nu / F)
     g_tau = 0.5 * (nu - F / sigma2)
     return np.concatenate([g_sp, np.array([g_tau], dtype=np.float64)])
-
-
-def _dynamic_penalty_split(model, X_pen, P_pen, *, tol=1e-10):
-    X_pen = np.asarray(X_pen, dtype=np.float64)
-    P_pen = np.asarray(P_pen, dtype=np.float64)
-
-    if X_pen.ndim != 2 or P_pen.ndim != 2:
-        raise ValueError("X_pen and P_pen must be 2D arrays.")
-    if P_pen.shape[0] != P_pen.shape[1] or P_pen.shape[0] != X_pen.shape[1]:
-        raise ValueError("Penalty split requires matching coefficient dimensions.")
-
-    if P_pen.shape[0] == 0:
-        return {
-            "X_null": np.empty((X_pen.shape[0], 0), dtype=np.float64),
-            "Z_rand": np.empty((X_pen.shape[0], 0), dtype=np.float64),
-            "d_pos": np.empty((0,), dtype=np.float64),
-            "rank": 0,
-            "null_dim": 0,
-            "logdet_plus": 0.0,
-        }
-
-    P_sym = 0.5 * (P_pen + P_pen.T)
-    evals, U = np.linalg.eigh(P_sym)
-    idx = np.argsort(evals)
-    evals = evals[idx]
-    U = U[:, idx]
-
-    pos_mask, tol_eff = _eigen_positive_mask(evals, tol=tol)
-    null_mask = ~pos_mask
-
-    U0 = U[:, null_mask]
-    U1 = U[:, pos_mask]
-    d_pos = np.asarray(evals[pos_mask], dtype=np.float64)
-
-    X_null = X_pen @ U0 if U0.shape[1] > 0 else np.empty((X_pen.shape[0], 0), dtype=np.float64)
-    Z_rand = (
-        X_pen @ (U1 / np.sqrt(d_pos)[np.newaxis, :])
-        if U1.shape[1] > 0
-        else np.empty((X_pen.shape[0], 0), dtype=np.float64)
-    )
-
-    return {
-        "X_null": X_null,
-        "Z_rand": Z_rand,
-        "d_pos": d_pos,
-        "rank": int(d_pos.size),
-        "null_dim": int(U0.shape[1]),
-        "logdet_plus": float(np.sum(np.log(d_pos)) if d_pos.size > 0 else 0.0),
-    }
-
-
-def _dynamic_fixed_and_random_designs(model, X_full, P_full, *, tol=1e-10):
-    X_full = np.asarray(X_full, dtype=np.float64)
-    P_full = np.asarray(P_full, dtype=np.float64)
-
-    if model.fit_intercept:
-        X_intercept = X_full[:, :1]
-        X_pen = X_full[:, 1:]
-        P_pen = P_full[1:, 1:]
-    else:
-        X_intercept = np.empty((X_full.shape[0], 0), dtype=np.float64)
-        X_pen = X_full
-        P_pen = P_full
-
-    split = _dynamic_penalty_split(model, X_pen, P_pen, tol=tol)
-    Xf_parts = []
-    if X_intercept.shape[1] > 0:
-        Xf_parts.append(X_intercept)
-    if split["X_null"].shape[1] > 0:
-        Xf_parts.append(split["X_null"])
-    Xf = (
-        np.column_stack(Xf_parts)
-        if Xf_parts
-        else np.empty((X_full.shape[0], 0), dtype=np.float64)
-    )
-    return Xf, split["Z_rand"], split

@@ -1,6 +1,7 @@
 """
 Dense matrix reindexing helpers for penalized QR workflows.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -37,9 +38,13 @@ def restore_dropped_rows(
     n_drop = int(drop_sorted.size)
     ncol = int(a.shape[1])
     if a.shape[0] != n_rows_full - n_drop:
-        raise ValueError("restore_dropped_rows: packed row count does not match drop count.")
+        raise ValueError(
+            "restore_dropped_rows: packed row count does not match drop count."
+        )
     out = np.zeros((n_rows_full, ncol), dtype=np.float64)
-    keep = np.setdiff1d(np.arange(n_rows_full, dtype=int), drop_sorted, assume_unique=True)
+    keep = np.setdiff1d(
+        np.arange(n_rows_full, dtype=int), drop_sorted, assume_unique=True
+    )
     out[keep, :] = np.asarray(a, dtype=np.float64)
     return out
 

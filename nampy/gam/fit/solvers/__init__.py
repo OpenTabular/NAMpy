@@ -10,13 +10,13 @@ Three backends are provided, all independent of criterion / optimiser / post-pro
 """
 
 from .gaussian_exact import solve_gaussian_fit
-from .pirls import solve_pirls_fit
-from .pirls_core import fit_pirls_core
 from .penalized_irls import (
     PenalizedIrlsControl,
     fit_penalized_irls,
     fit_penalized_irls_from_model,
 )
+from .pirls import solve_pirls_fit
+from .pirls_core import fit_pirls_core
 
 __all__ = [
     "solve_gaussian_fit",

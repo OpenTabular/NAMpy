@@ -8,22 +8,30 @@ Top-level dispatch for smoothing_selection-selection criterion value, gradient, 
 :func:`criterion_infinite_sp_signal` — gradient and curvature signal used by the
     outer optimiser to detect and roll back infinite-smoothing-parameter solutions.
 """
+
 import numpy as np
 
 from .gaussian import criterion_gcv_gaussian
 from .gaussian_dyn import _gaussian_dynamic_reml_derivative_terms
 from .gaussian_grad import criterion_gradient_ml_reml_exact
+from .laplace import _penalty_derivative_matrices
 from .ml_reml import (
     _model_has_random_effect_smooth,
     criterion_ml_reml,
     resolve_ml_reml_scoring_backend,
 )
-from .pirls import criterion_gcv_pirls, criterion_ubre_pirls
+from .pirls import (
+    _current_joint_negbin_eval_state,
+    _is_joint_negbin_theta_model,
+    criterion_gcv_pirls,
+    criterion_ml_reml_pirls_frozen_negbin,
+    criterion_ubre_pirls,
+)
 from .pirls_deriv import (
     criterion_gradient_ml_reml_pirls_exact,
     criterion_hessian_ml_reml_pirls_exact,
 )
-from .laplace import _penalty_derivative_matrices
+
 
 def criterion_value(model, y, log_sp, method="gcv"):
     method = str(method).lower()
@@ -34,8 +42,12 @@ def criterion_value(model, y, log_sp, method="gcv"):
     if method in {"ubre", "aic", "ubreaic"}:
         return criterion_ubre_pirls(model, y, log_sp)
     if method == "ml":
+        if _is_joint_negbin_theta_model(model):
+            return criterion_ml_reml_pirls_frozen_negbin(model, y, log_sp, "ML")
         return criterion_ml_reml(model, y, log_sp, "ml")
     if method in {"reml", "laml"}:
+        if _is_joint_negbin_theta_model(model):
+            return criterion_ml_reml_pirls_frozen_negbin(model, y, log_sp, "REML")
         return criterion_ml_reml(model, y, log_sp, method)
     raise ValueError(
         "method must be one of "
@@ -50,14 +62,37 @@ def criterion_gradient_numerical(
     method="gcv",
     eps_abs=1e-5,
     eps_rel=1e-4,
+    _baseline_state=None,
 ):
     """Centered finite-difference gradient of the smoothing criterion."""
     x = np.asarray(log_sp, dtype=np.float64).ravel()
     if x.size == 0:
         return np.empty((0,), dtype=np.float64)
 
+    baseline_state = _baseline_state
+    if (
+        baseline_state is None
+        and _is_joint_negbin_theta_model(model)
+        and method in {"ml", "reml", "laml"}
+    ):
+        baseline_state = _current_joint_negbin_eval_state(model)
+
+    def _value_at(x_eval):
+        if baseline_state is not None:
+            exact_method = "REML" if method in {"reml", "laml"} else "ML"
+            return float(
+                criterion_ml_reml_pirls_frozen_negbin(
+                    model,
+                    y,
+                    x_eval,
+                    exact_method,
+                    baseline_state=baseline_state,
+                )
+            )
+        return float(criterion_value(model, y, x_eval, method=method))
+
     grad = np.empty_like(x)
-    f0 = float(criterion_value(model, y, x, method=method))
+    f0 = _value_at(x)
 
     if not np.isfinite(f0):
         grad.fill(np.nan)
@@ -70,8 +105,8 @@ def criterion_gradient_numerical(
         x_plus[i] += step
         x_minus[i] -= step
 
-        f_plus = float(criterion_value(model, y, x_plus, method=method))
-        f_minus = float(criterion_value(model, y, x_minus, method=method))
+        f_plus = _value_at(x_plus)
+        f_minus = _value_at(x_minus)
 
         if np.isfinite(f_plus) and np.isfinite(f_minus):
             grad[i] = (f_plus - f_minus) / (2.0 * step)
@@ -100,9 +135,8 @@ def criterion_gradient(
     # profiling and are no longer reliable for outer optimisation. Keep the scalar
     # criterion exact, but differentiate it numerically until those branches are
     # rederived under the corrected convention.
-    if (
-        method in {"reml", "laml"}
-        and bool(getattr(model.family, "supports_closed_form_solve", False))
+    if method in {"reml", "laml"} and bool(
+        getattr(model.family, "supports_closed_form_solve", False)
     ):
         return criterion_gradient_numerical(
             model,
@@ -134,7 +168,9 @@ def criterion_gradient(
             return criterion_gradient_ml_reml_exact(model, y, log_sp, exact_method)
         if backend == "gaussian_dynamic" and method in {"reml", "laml"}:
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
-            out = _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, exact_method)
+            out = _gaussian_dynamic_reml_derivative_terms(
+                model, y, log_sp, exact_method
+            )
             if bool(out.get("valid", False)):
                 return np.asarray(out["grad"], dtype=np.float64)
         if (
@@ -143,10 +179,14 @@ def criterion_gradient(
                 getattr(model.family, "known_scale", None) is not None
                 or str(getattr(model.family, "name", "")).lower() == "gamma"
             )
-            and bool(getattr(model.family, "supports_exact_pirls_first_derivatives", False))
+            and bool(
+                getattr(model.family, "supports_exact_pirls_first_derivatives", False)
+            )
         ):
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
-            return criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, exact_method)
+            return criterion_gradient_ml_reml_pirls_exact(
+                model, y, log_sp, exact_method
+            )
     return criterion_gradient_numerical(
         model,
         y,
@@ -164,12 +204,21 @@ def criterion_hessian_numerical(
     method="gcv",
     eps_abs=1e-4,
     eps_rel=1e-3,
+    _baseline_state=None,
 ):
     """Centered finite-difference Hessian of the smoothing criterion."""
     x = np.asarray(log_sp, dtype=np.float64).ravel()
     n = x.size
     if n == 0:
         return np.empty((0, 0), dtype=np.float64)
+
+    baseline_state = _baseline_state
+    if (
+        baseline_state is None
+        and _is_joint_negbin_theta_model(model)
+        and method in {"ml", "reml", "laml"}
+    ):
+        baseline_state = _current_joint_negbin_eval_state(model)
 
     H = np.empty((n, n), dtype=np.float64)
     steps = np.maximum(float(eps_abs), float(eps_rel) * (1.0 + np.abs(x)))
@@ -181,22 +230,42 @@ def criterion_hessian_numerical(
         x_plus[j] += h
         x_minus[j] -= h
 
-        g_plus = criterion_gradient(
-            model,
-            y,
-            x_plus,
-            method=method,
-            eps_abs=max(eps_abs * 0.1, 1e-6),
-            eps_rel=max(eps_rel * 0.1, 1e-5),
-        )
-        g_minus = criterion_gradient(
-            model,
-            y,
-            x_minus,
-            method=method,
-            eps_abs=max(eps_abs * 0.1, 1e-6),
-            eps_rel=max(eps_rel * 0.1, 1e-5),
-        )
+        if baseline_state is not None:
+            g_plus = criterion_gradient_numerical(
+                model,
+                y,
+                x_plus,
+                method=method,
+                eps_abs=max(eps_abs * 0.1, 1e-6),
+                eps_rel=max(eps_rel * 0.1, 1e-5),
+                _baseline_state=baseline_state,
+            )
+            g_minus = criterion_gradient_numerical(
+                model,
+                y,
+                x_minus,
+                method=method,
+                eps_abs=max(eps_abs * 0.1, 1e-6),
+                eps_rel=max(eps_rel * 0.1, 1e-5),
+                _baseline_state=baseline_state,
+            )
+        else:
+            g_plus = criterion_gradient(
+                model,
+                y,
+                x_plus,
+                method=method,
+                eps_abs=max(eps_abs * 0.1, 1e-6),
+                eps_rel=max(eps_rel * 0.1, 1e-5),
+            )
+            g_minus = criterion_gradient(
+                model,
+                y,
+                x_minus,
+                method=method,
+                eps_abs=max(eps_abs * 0.1, 1e-6),
+                eps_rel=max(eps_rel * 0.1, 1e-5),
+            )
         H[:, j] = (g_plus - g_minus) / (2.0 * h)
 
     return 0.5 * (H + H.T)
@@ -211,9 +280,8 @@ def criterion_hessian(
     eps_rel=1e-3,
 ):
     method = str(method).lower()
-    if (
-        method in {"reml", "laml"}
-        and bool(getattr(model.family, "supports_closed_form_solve", False))
+    if method in {"reml", "laml"} and bool(
+        getattr(model.family, "supports_closed_form_solve", False)
     ):
         return criterion_hessian_numerical(
             model,
@@ -232,7 +300,9 @@ def criterion_hessian(
                 getattr(model.family, "known_scale", None) is not None
                 or str(getattr(model.family, "name", "")).lower() == "gamma"
             )
-            and bool(getattr(model.family, "supports_exact_pirls_second_derivatives", False))
+            and bool(
+                getattr(model.family, "supports_exact_pirls_second_derivatives", False)
+            )
         ):
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
             return criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, exact_method)
@@ -249,7 +319,9 @@ def criterion_hessian(
                 return np.asarray(out["hess"], dtype=np.float64)
         if backend == "gaussian_dynamic" and method in {"reml", "laml"}:
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
-            out = _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, exact_method)
+            out = _gaussian_dynamic_reml_derivative_terms(
+                model, y, log_sp, exact_method
+            )
             if bool(out.get("valid", False)):
                 return np.asarray(out["hess"], dtype=np.float64)
     return criterion_hessian_numerical(

@@ -37,9 +37,7 @@ def build_bundle(files: list[Path], tests_root: Path) -> str:
 
 def main() -> None:
     repo_root = Path(__file__).resolve().parent
-    parser = argparse.ArgumentParser(
-        description="Concatenate test files under tests/."
-    )
+    parser = argparse.ArgumentParser(description="Concatenate test files under tests/.")
     parser.add_argument(
         "--tests-root",
         default=str(repo_root / "tests"),

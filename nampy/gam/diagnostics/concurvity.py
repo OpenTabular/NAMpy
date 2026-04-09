@@ -98,7 +98,9 @@ def concurvity(model, full: bool = True):
             out[0, i] = float(np.linalg.svd(F, compute_uv=False)[0] ** 2)
             beta = beta_full[idx_i]
             denom = float(np.sum((Rt @ beta) ** 2))
-            out[1, i] = 0.0 if denom <= 0.0 else float(np.sum((R[:r, :] @ beta) ** 2) / denom)
+            out[1, i] = (
+                0.0 if denom <= 0.0 else float(np.sum((R[:r, :] @ beta) ** 2) / denom)
+            )
             out[2, i] = float(np.sum(R[:r, :] ** 2) / np.sum(R**2))
         return {
             "measure_names": measure_names,
@@ -107,7 +109,7 @@ def concurvity(model, full: bool = True):
         }
 
     mats = [np.ones((n_terms, n_terms), dtype=np.float64) for _ in range(3)]
-    for i, (_lab_i, idx_i) in enumerate(blocks):
+    for i, (_lab_i, _idx_i) in enumerate(blocks):
         Xi = block_mats[i]
         r = int(Xi.shape[1])
         for j, (_lab_j, idx_j) in enumerate(blocks):
@@ -120,15 +122,15 @@ def concurvity(model, full: bool = True):
             mats[0][i, j] = float(np.linalg.svd(F, compute_uv=False)[0] ** 2)
             beta = beta_full[idx_j]
             denom = float(np.sum((Rt @ beta) ** 2))
-            mats[1][i, j] = 0.0 if denom <= 0.0 else float(np.sum((R[:r, :] @ beta) ** 2) / denom)
+            mats[1][i, j] = (
+                0.0 if denom <= 0.0 else float(np.sum((R[:r, :] @ beta) ** 2) / denom)
+            )
             mats[2][i, j] = float(np.sum(R[:r, :] ** 2) / np.sum(R**2))
 
     return {
         "measure_names": measure_names,
         "labels": labels,
-        "values": {
-            name: mat for name, mat in zip(measure_names, mats)
-        },
+        "values": dict(zip(measure_names, mats)),
     }
 
 

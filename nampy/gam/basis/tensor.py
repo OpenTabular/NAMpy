@@ -1,5 +1,3 @@
-import itertools
-
 import numpy as np
 from scipy.linalg import eigh
 
@@ -16,7 +14,9 @@ def rowwise_kronecker(matrices):
             raise ValueError("All marginal model matrices must be 2D with equal rows.")
     out = mats[0]
     for M in mats[1:]:
-        out = np.einsum("ij,ik->ijk", out, M, optimize=True).reshape(n, out.shape[1] * M.shape[1])
+        out = np.einsum("ij,ik->ijk", out, M, optimize=True).reshape(
+            n, out.shape[1] * M.shape[1]
+        )
     return out
 
 
@@ -24,7 +24,11 @@ def lifted_tensor_penalty(S, basis_dims, axis):
     S = np.asarray(S, dtype=np.float64)
     basis_dims = [int(d) for d in basis_dims]
     left_dim = int(np.prod(basis_dims[:axis], dtype=np.int64)) if axis > 0 else 1
-    right_dim = int(np.prod(basis_dims[axis + 1 :], dtype=np.int64)) if axis + 1 < len(basis_dims) else 1
+    right_dim = (
+        int(np.prod(basis_dims[axis + 1 :], dtype=np.int64))
+        if axis + 1 < len(basis_dims)
+        else 1
+    )
     out = S
     if left_dim > 1:
         out = np.kron(np.eye(left_dim, dtype=np.float64), out)
@@ -34,7 +38,10 @@ def lifted_tensor_penalty(S, basis_dims, axis):
 
 
 def tensor_product_penalties(marginal_penalties, basis_dims):
-    return [lifted_tensor_penalty(S, basis_dims=basis_dims, axis=j) for j, S in enumerate(marginal_penalties)]
+    return [
+        lifted_tensor_penalty(S, basis_dims=basis_dims, axis=j)
+        for j, S in enumerate(marginal_penalties)
+    ]
 
 
 def normalize_tensor_marginal_penalty(S, tol=1e-12):
@@ -113,7 +120,9 @@ def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=N
     idx = np.argsort(evals)[::-1]
     evals, U = evals[idx], U[:, idx]
 
-    tol_eff = float(np.finfo(np.float64).eps) ** 0.8 * max(1.0, float(np.max(evals)) if evals.size else 1.0)
+    tol_eff = float(np.finfo(np.float64).eps) ** 0.8 * max(
+        1.0, float(np.max(evals)) if evals.size else 1.0
+    )
     rank = int(np.sum(evals > tol_eff))
     null_exists = rank < p
 
@@ -123,7 +132,7 @@ def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=N
         E[:rank] = np.sqrt(np.maximum(evals[:rank], 0.0))
 
     Xp = X @ U
-    col_norm = np.sum(Xp ** 2, axis=0) / (E ** 2)
+    col_norm = np.sum(Xp**2, axis=0) / (E**2)
     av_norm = float(np.mean(col_norm[:rank])) if rank > 0 else 1.0
 
     if null_exists:
@@ -138,7 +147,7 @@ def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=N
     # Step 3: type=3 null-space rotation — put near-constant column last
     # Matches R: if (null.exists && type==3 && rank < ncol(X)-1)
     if null_exists and rank < p - 1:
-        ind = list(range(rank, p))           # forward  (R: (rank+1):k 1-indexed)
+        ind = list(range(rank, p))  # forward  (R: (rank+1):k 1-indexed)
         rind = list(range(p - 1, rank - 1, -1))  # reversed (R: k:(rank+1) 1-indexed)
         Xn = Xp[:, ind].copy()
         n = Xn.shape[0]
@@ -158,7 +167,7 @@ def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=N
         pen_idx = list(range(rank))
         scale = 1.0 / np.sqrt(float(np.mean(Xp[:, pen_idx] ** 2)))
         Xp[:, pen_idx] *= scale
-        P[pen_idx, :] *= scale   # rows of P
+        P[pen_idx, :] *= scale  # rows of P
     else:
         scale = 1.0
 
@@ -166,7 +175,7 @@ def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=N
         null_idx = list(range(rank, p))
         scale_f = 1.0 / np.sqrt(float(np.mean(Xp[:, null_idx] ** 2)))
         Xp[:, null_idx] *= scale_f
-        P[null_idx, :] *= scale_f   # rows of P
+        P[null_idx, :] *= scale_f  # rows of P
 
     B_r = Xp[:, :rank] if rank > 0 else np.empty((X.shape[0], 0), dtype=np.float64)
     B_n = Xp[:, rank:] if null_exists else np.empty((X.shape[0], 0), dtype=np.float64)
@@ -193,7 +202,9 @@ def _normalize_ord(ord_value, n_marginals):
     vals = sorted(set(vals))
     for v in vals:
         if v < 0 or v > n_marginals:
-            raise ValueError(f"ord entries must lie between 0 and {n_marginals}, got {vals}.")
+            raise ValueError(
+                f"ord entries must lie between 0 and {n_marginals}, got {vals}."
+            )
     return vals
 
 
@@ -206,7 +217,13 @@ def _mean_constraint_matrix(B):
     return q[:, 1:]
 
 
-def build_t2_basis_and_penalties(marginal_decompositions, *, full=False, ord=None, remove_constant_from_null_block=True):
+def build_t2_basis_and_penalties(
+    marginal_decompositions,
+    *,
+    full=False,
+    ord=None,
+    remove_constant_from_null_block=True,
+):
     m = len(marginal_decompositions)
     ord_keep = _normalize_ord(ord, m)
     if m == 0:
@@ -358,7 +375,9 @@ def build_t2_basis_and_penalties(marginal_decompositions, *, full=False, ord=Non
     basis_pre = (
         np.column_stack(X2_blocks)
         if len(X2_blocks) > 0
-        else np.empty((marginal_decompositions[0]["B_range"].shape[0], 0), dtype=np.float64)
+        else np.empty(
+            (marginal_decompositions[0]["B_range"].shape[0], 0), dtype=np.float64
+        )
     )
 
     if not no_null and len(xc_all) > 0:
@@ -417,9 +436,17 @@ def build_t2_basis_and_penalties(marginal_decompositions, *, full=False, ord=Non
         allnull_transform = C0
         n_pen = basis_pre.shape[1] - B0_raw.shape[1]
         C_full = np.eye(basis_pre.shape[1], dtype=np.float64)
-        C_full = np.column_stack([C_full[:, :n_pen], np.vstack([np.zeros((n_pen, C0.shape[1]), dtype=np.float64), C0])])
+        C_full = np.column_stack(
+            [
+                C_full[:, :n_pen],
+                np.vstack([np.zeros((n_pen, C0.shape[1]), dtype=np.float64), C0]),
+            ]
+        )
         basis = basis_pre @ C_full
-        penalties = [0.5 * (C_full.T @ S @ C_full + (C_full.T @ S @ C_full).T) for S in penalties_pre]
+        penalties = [
+            0.5 * (C_full.T @ S @ C_full + (C_full.T @ S @ C_full).T)
+            for S in penalties_pre
+        ]
         component_slices = component_slices_pre[:-1] + [slice(n_pen, basis.shape[1])]
     return {
         "basis": basis,
@@ -429,16 +456,27 @@ def build_t2_basis_and_penalties(marginal_decompositions, *, full=False, ord=Non
         "penalties_pre_constraint": penalties_pre,
         "allnull_specs": allnull_specs,
         "allnull_transform": allnull_transform,
-        "component_specs": block_meta + ([{"order": 0, "label": "null", "penalized": False, "n_cols": 0}] if B0_raw is not None else []),
+        "component_specs": block_meta
+        + (
+            [{"order": 0, "label": "null", "penalized": False, "n_cols": 0}]
+            if B0_raw is not None
+            else []
+        ),
         "penalized_specs": penalized_specs,
     }
 
 
-def materialize_t2_newdata(marginal_new_range_null, *, allnull_specs, allnull_transform, penalized_specs):
+def materialize_t2_newdata(
+    marginal_new_range_null, *, allnull_specs, allnull_transform, penalized_specs
+):
     def materialize_component(spec):
         mats = []
         for dec, choice in zip(marginal_new_range_null, spec["combo"]):
-            mats.append(dec["B_range"] if choice["kind"] == "range" else dec["B_null"][:, choice["cols"]])
+            mats.append(
+                dec["B_range"]
+                if choice["kind"] == "range"
+                else dec["B_null"][:, choice["cols"]]
+            )
         return rowwise_kronecker(mats)
 
     blocks = []
@@ -456,6 +494,7 @@ def materialize_t2_newdata(marginal_new_range_null, *, allnull_specs, allnull_tr
         n = next(iter(marginal_new_range_null))["B_null"].shape[0]
         return np.empty((n, 0), dtype=np.float64)
     return np.column_stack(blocks)
+
 
 __all__ = [
     "rowwise_kronecker",

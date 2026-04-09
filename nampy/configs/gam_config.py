@@ -1,5 +1,5 @@
-#configs/gam_config.py
-from dataclasses import dataclass, field
+# configs/gam_config.py
+from dataclasses import dataclass
 from typing import Optional, Sequence, Union
 
 from ..gam.specs import TermSpec
@@ -9,7 +9,9 @@ from ..gam.specs import TermSpec
 class DefaultGAMConfig:
     # spline construction
     k: int = 10
-    basis: str = "tp"   # mgcv-compatible default for bare s(...); main effects also support cr, cs, cc, ps, ts
+    basis: str = (
+        "tp"  # mgcv-compatible default for bare s(...); main effects also support cr, cs, cc, ps, ts
+    )
     select: bool = False
     main_effects: bool = True
     tensor_terms: Optional[Sequence[TermSpec]] = None
@@ -20,7 +22,7 @@ class DefaultGAMConfig:
     # smoothing
     smoothing_params: Optional[Union[float, Sequence[float]]] = None
     optimize_smoothing: bool = False
-    smoothing_method: str = "fixed"   # fixed, gcv, ml, reml, laml
+    smoothing_method: str = "fixed"  # fixed, gcv, ml, reml, laml
     smoothing_optimizer: str = "lbfgsb"  # lbfgsb, outer_newton
     sp_log_bounds: tuple[float, float] = (-80.0, 20.0)
     score_gamma: float = 1.0
@@ -36,7 +38,7 @@ class DefaultGAMConfig:
     max_step_halving: int = 25
 
     # inference / covariance
-    covariance: str = "bayes"   # bayes, freq, kass_steffey, wood
+    covariance: str = "bayes"  # bayes, freq, kass_steffey, wood
     compute_edf: bool = True
 
     # diagnostics

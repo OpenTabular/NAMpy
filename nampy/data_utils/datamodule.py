@@ -126,9 +126,7 @@ class NAMpyDataModule(pl.LightningDataModule):
         """
 
         if (X_val is None) ^ (y_val is None):
-            raise ValueError(
-                "X_val and y_val must be provided together; got only one."
-            )
+            raise ValueError("X_val and y_val must be provided together; got only one.")
 
         if X_val is None and y_val is None:
             self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
@@ -256,7 +254,9 @@ class NAMpyDataModule(pl.LightningDataModule):
         for key in self.cat_feature_info:
             cat_key = "cat_" + key
             info = self.cat_feature_info[key]
-            is_onehot = "onehot" in info.get("preprocessing", "").lower() or (info.get("dimension", 1) > 1)
+            is_onehot = "onehot" in info.get("preprocessing", "").lower() or (
+                info.get("dimension", 1) > 1
+            )
             cat_dtype = torch.float32 if is_onehot else torch.long
 
             if cat_key in test_preprocessed_data:

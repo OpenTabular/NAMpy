@@ -18,10 +18,10 @@ def stabilized_cholesky_solve(A, b, jitter_schedule=None):
     if jitter_schedule is None:
         jitter_schedule = [0.0, 1e-10, 1e-8, 1e-6, 1e-4]
     last_err = None
-    I = np.eye(A.shape[0], dtype=np.float64)
+    eye = np.eye(A.shape[0], dtype=np.float64)
     for jitter in jitter_schedule:
         try:
-            A_work = A if jitter == 0.0 else A + jitter * I
+            A_work = A if jitter == 0.0 else A + jitter * eye
             cA, loA = cho_factor(A_work, check_finite=False)
             x = cho_solve((cA, loA), b, check_finite=False)
             return x, cA, loA, jitter
@@ -64,6 +64,7 @@ def build_full_penalty_from_blocks(
                 f"Penalty block for term {pb.label!r} has shape {P.shape}, "
                 f"but its coefficient slice width is {width}."
             )
+        P = 0.5 * (P + P.T)
 
         P_full[full_sl, full_sl] += lam * P
 

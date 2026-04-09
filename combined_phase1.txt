@@ -1,7 +1,7 @@
 You are a senior computational statistician, numerical software architect, and Python package maintainer with deep expertise in generalized additive models, penalized regression splines, and Simon Wood's mgcv framework.
 I am building a Python reimplementation of the mgcv ecosystem as a submodule of my package nampy.
 You are reviewing Phase 1 - Foundations and public interfaces.
-This is part 1/4. Keep continuity with prior parts when available, and produce structured feedback for correctness, redundancy elimination, and architecture cleanup.
+This is part 1/5. Keep continuity with prior parts when available, and produce structured feedback for correctness, redundancy elimination, and architecture cleanup.
 
 Directory structure (full collected scope):
 nampy/
@@ -21,14 +21,18 @@ nampy/
 │  │  ├─ constructed.py
 │  │  ├─ constructors.py
 │  │  ├─ linked_basis.py
-│  │  ├─ side_conditions.py
 │  │  └─ structures.py
 │  ├─ diagnostics/
+│  │  ├─ concurvity.py
+│  │  ├─ k_check.py
 │  │  ├─ plots.py
+│  │  ├─ residuals.py
 │  │  └─ summary.py
 │  ├─ families/
-│  │  ├─ base.py
+│  │  ├─ _derivatives.py
+│  │  ├─ _function_maps.py
 │  │  ├─ exponential.py
+│  │  ├─ family_base.py
 │  │  └─ registry.py
 │  ├─ fit/
 │  │  ├─ linalg/
@@ -55,6 +59,8 @@ nampy/
 │  │  ├─ extract.py
 │  │  ├─ parser.py
 │  │  └─ preprocess.py
+│  ├─ inference/
+│  │  └─ anova.py
 │  ├─ parity/
 │  │  ├─ compare.py
 │  │  ├─ snapshots.py
@@ -68,7 +74,7 @@ nampy/
 │  │  └─ predictions.py
 │  ├─ runtime/
 │  │  └─ factory.py
-│  ├─ smoothness/
+│  ├─ smoothing_selection/
 │  │  ├─ criteria/
 │  │  │  ├─ dispatch.py
 │  │  │  ├─ gaussian.py
@@ -87,6 +93,7 @@ nampy/
 │  │  │  ├─ objectives.py
 │  │  │  ├─ outer.py
 │  │  │  └─ postprocess.py
+│  │  ├─ postfit.py
 │  │  └─ reparam.py
 │  ├─ smooths/
 │  │  ├─ categorical/
@@ -95,6 +102,7 @@ nampy/
 │  │  │  ├─ mrf.py
 │  │  │  └─ random_effect.py
 │  │  ├─ tensor/
+│  │  │  ├─ marginals.py
 │  │  │  ├─ t2.py
 │  │  │  ├─ te.py
 │  │  │  └─ ti.py
@@ -104,25 +112,22 @@ nampy/
 │  │  │  ├─ pspline.py
 │  │  │  └─ thin_plate.py
 │  │  ├─ base.py
-│  │  └─ registry.py
+│  │  ├─ registry.py
+│  │  └─ smooth_base.py
 │  ├─ specs/
 │  │  ├─ base.py
-│  │  └─ predictors.py
+│  │  ├─ predictors.py
+│  │  └─ smooth.py
 │  └─ terms/
-│     ├─ categorical.py
-│     ├─ linear.py
-│     ├─ tensor.py
-│     └─ univariate.py
+│     └─ linear.py
 ├─ models/
 │  └─ gam.py
 ├─ splines/
-│  ├─ constraints.py
 │  ├─ cubic.py
 │  ├─ cubic_basis.py
 │  ├─ gaussian_process.py
 │  ├─ mrf.py
 │  ├─ neural_splines.py
-│  ├─ penalty_scaling.py
 │  ├─ pspline.py
 │  ├─ thin_plate.py
 │  ├─ thin_plate_basis.py
@@ -133,9 +138,1201 @@ nampy/
    ├─ distributions.py
    └─ plotting.py
 
-Included files in this phase: 15
+Included files in this phase: 16
 
-# --- Start of nampy/gam/families/base.py ---
+# --- Start of nampy/gam/families/_derivatives.py ---
+"""Shared family derivative helpers."""
+
+import numpy as np
+from scipy.stats import norm as _norm
+
+
+def _safe_pow(x, power, eps):
+    x = np.asarray(x, dtype=np.float64)
+    return np.clip(x**power, eps, None)
+
+
+def d2link_identity(mu):
+    mu = np.asarray(mu, dtype=np.float64)
+    return np.zeros_like(mu)
+
+
+def d2link_log(mu, eps):
+    mu = np.clip(np.asarray(mu, dtype=np.float64), eps, None)
+    return -1.0 / _safe_pow(mu, 2, eps)
+
+
+def d2link_inverse(mu, eps):
+    mu = np.clip(np.asarray(mu, dtype=np.float64), eps, None)
+    return 2.0 / _safe_pow(mu, 3, eps)
+
+
+def d2link_logit(mu, eps):
+    mu = np.clip(np.asarray(mu, dtype=np.float64), eps, 1.0 - eps)
+    denom = _safe_pow(mu, 2, eps) * _safe_pow(1.0 - mu, 2, eps)
+    return (2.0 * mu - 1.0) / denom
+
+
+def d2link_probit(mu, eps):
+    mu = np.clip(np.asarray(mu, dtype=np.float64), eps, 1.0 - eps)
+    eta = _norm.ppf(mu)
+    phi = np.clip(_norm.pdf(eta), eps, None)
+    return eta / _safe_pow(phi, 2, eps)
+
+
+def d2link_cloglog(mu, eps):
+    mu = np.clip(np.asarray(mu, dtype=np.float64), eps, 1.0 - eps)
+    lam = np.clip(-np.log(1.0 - mu), eps, None)
+    one_m_mu = np.clip(1.0 - mu, eps, None)
+    return (lam - 1.0) / _safe_pow(one_m_mu * lam, 2, eps)
+
+
+# --- End of nampy/gam/families/_derivatives.py ---
+
+# --- Start of nampy/gam/families/_function_maps.py ---
+"""Shared link and variance function objects for GLM families."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+import numpy as np
+from scipy.stats import norm as _norm
+
+
+def _safe_pow(x, power, eps):
+    x = np.asarray(x, dtype=np.float64)
+    return np.clip(x**power, eps, None)
+
+
+@dataclass(frozen=True)
+class LinkFunction:
+    eps: float
+
+    def __call__(self, mu):
+        raise NotImplementedError
+
+    def inverse(self, eta):
+        raise NotImplementedError
+
+    def mu_eta(self, eta):
+        raise NotImplementedError
+
+    def d2(self, mu):
+        raise NotImplementedError
+
+    def d3(self, mu):
+        raise NotImplementedError
+
+    def d4(self, mu):
+        raise NotImplementedError
+
+
+@dataclass(frozen=True)
+class IdentityLink(LinkFunction):
+    def __call__(self, mu):
+        return np.asarray(mu, dtype=np.float64)
+
+    def inverse(self, eta):
+        return np.asarray(eta, dtype=np.float64)
+
+    def mu_eta(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        return np.ones_like(eta)
+
+    def d2(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+    def d3(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+    def d4(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+
+@dataclass(frozen=True)
+class LogLink(LinkFunction):
+    def __call__(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return np.log(mu)
+
+    def inverse(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        return np.exp(np.clip(eta, -30.0, 30.0))
+
+    def mu_eta(self, eta):
+        mu = self.inverse(eta)
+        return np.clip(mu, self.eps, None)
+
+    def d2(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return -1.0 / _safe_pow(mu, 2, self.eps)
+
+    def d3(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 2.0 / _safe_pow(mu, 3, self.eps)
+
+    def d4(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return -6.0 / _safe_pow(mu, 4, self.eps)
+
+
+@dataclass(frozen=True)
+class InverseLink(LinkFunction):
+    def __call__(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 1.0 / mu
+
+    def inverse(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        return 1.0 / np.clip(eta, self.eps, None)
+
+    def mu_eta(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        return -1.0 / np.clip(eta**2, self.eps, None)
+
+    def d2(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 2.0 / _safe_pow(mu, 3, self.eps)
+
+    def d3(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return -6.0 / _safe_pow(mu, 4, self.eps)
+
+    def d4(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 24.0 / _safe_pow(mu, 5, self.eps)
+
+
+@dataclass(frozen=True)
+class LogitLink(LinkFunction):
+    def __call__(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return np.log(mu / (1.0 - mu))
+
+    def inverse(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        return 1.0 / (1.0 + np.exp(-np.clip(eta, -30.0, 30.0)))
+
+    def mu_eta(self, eta):
+        mu = self.inverse(eta)
+        return np.clip(mu * (1.0 - mu), self.eps, None)
+
+    def d2(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        denom = _safe_pow(mu, 2, self.eps) * _safe_pow(1.0 - mu, 2, self.eps)
+        return (2.0 * mu - 1.0) / denom
+
+    def d3(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        denom = _safe_pow(mu, 3, self.eps) * _safe_pow(1.0 - mu, 3, self.eps)
+        return 2.0 * (3.0 * mu**2 - 3.0 * mu + 1.0) / denom
+
+    def d4(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        denom = _safe_pow(mu, 4, self.eps) * _safe_pow(1.0 - mu, 4, self.eps)
+        return 6.0 * (4.0 * mu**3 - 6.0 * mu**2 + 4.0 * mu - 1.0) / denom
+
+
+@dataclass(frozen=True)
+class ProbitLink(LinkFunction):
+    def __call__(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return _norm.ppf(mu)
+
+    def inverse(self, eta):
+        return np.clip(
+            _norm.cdf(np.asarray(eta, dtype=np.float64)), self.eps, 1.0 - self.eps
+        )
+
+    def mu_eta(self, eta):
+        return np.clip(_norm.pdf(np.asarray(eta, dtype=np.float64)), self.eps, None)
+
+    def d2(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        eta = _norm.ppf(mu)
+        phi = np.clip(_norm.pdf(eta), self.eps, None)
+        return eta / _safe_pow(phi, 2, self.eps)
+
+    def d3(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        eta = _norm.ppf(mu)
+        phi = np.clip(_norm.pdf(eta), self.eps, None)
+        return (1.0 + 2.0 * eta**2) / np.clip(phi**3, self.eps, None)
+
+    def d4(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        eta = _norm.ppf(mu)
+        phi = np.clip(_norm.pdf(eta), self.eps, None)
+        return eta * (7.0 + 6.0 * eta**2) / np.clip(phi**4, self.eps, None)
+
+
+@dataclass(frozen=True)
+class CloglogLink(LinkFunction):
+    def __call__(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return np.log(-np.log(1.0 - mu))
+
+    def inverse(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        lam = np.exp(np.clip(eta, -30.0, 30.0))
+        return np.clip(1.0 - np.exp(-lam), self.eps, 1.0 - self.eps)
+
+    def mu_eta(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        lam = np.exp(np.clip(eta, -30.0, 30.0))
+        return np.clip(lam * np.exp(-lam), self.eps, None)
+
+    def d2(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        lam = np.clip(-np.log(1.0 - mu), self.eps, None)
+        one_m_mu = np.clip(1.0 - mu, self.eps, None)
+        return (lam - 1.0) / _safe_pow(one_m_mu * lam, 2, self.eps)
+
+    def d3(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        lam = np.clip(-np.log(1.0 - mu), self.eps, None)
+        one_m_mu = np.clip(1.0 - mu, self.eps, None)
+        return (lam + 2.0 * (lam - 1.0) ** 2) / _safe_pow(one_m_mu * lam, 3, self.eps)
+
+    def d4(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        lam = np.clip(-np.log(1.0 - mu), self.eps, None)
+        one_m_mu = np.clip(1.0 - mu, self.eps, None)
+        num = 6.0 * (lam - 1.0) ** 3 + (3.0 * lam - 1.0) * (
+            lam + 2.0 * (lam - 1.0) ** 2
+        )
+        return num / _safe_pow(one_m_mu * lam, 4, self.eps)
+
+
+@dataclass(frozen=True)
+class VarianceFunction:
+    eps: float
+
+    def __call__(self, mu):
+        raise NotImplementedError
+
+    def d1(self, mu):
+        raise NotImplementedError
+
+    def d2(self, mu):
+        raise NotImplementedError
+
+    def d3(self, mu):
+        raise NotImplementedError
+
+
+@dataclass(frozen=True)
+class ConstantVariance(VarianceFunction):
+    def __call__(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.ones_like(mu)
+
+    def d1(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+    def d2(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+    def d3(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+
+@dataclass(frozen=True)
+class BinomialVariance(VarianceFunction):
+    def __call__(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return np.clip(mu * (1.0 - mu), self.eps, None)
+
+    def d1(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return 1.0 - 2.0 * mu
+
+    def d2(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return -2.0 * np.ones_like(mu)
+
+    def d3(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return np.zeros_like(mu)
+
+
+@dataclass(frozen=True)
+class PoissonVariance(VarianceFunction):
+    def __call__(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.clip(mu, self.eps, None)
+
+    def d1(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.ones_like(mu)
+
+    def d2(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+    def d3(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+
+@dataclass(frozen=True)
+class GammaVariance(VarianceFunction):
+    def __call__(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return np.clip(mu**2, self.eps, None)
+
+    def d1(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 2.0 * mu
+
+    def d2(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return 2.0 * np.ones_like(mu)
+
+    def d3(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return np.zeros_like(mu)
+
+
+@dataclass(frozen=True)
+class NegativeBinomialVariance(VarianceFunction):
+    family: Any
+
+    def __call__(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        theta = float(self.family.theta)
+        return np.clip(mu + (mu**2) / theta, self.eps, None)
+
+    def d1(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        theta = float(self.family.theta)
+        return 1.0 + 2.0 * mu / theta
+
+    def d2(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        theta = float(self.family.theta)
+        return (2.0 / theta) * np.ones_like(mu)
+
+    def d3(self, mu):
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return np.zeros_like(mu)
+
+# --- End of nampy/gam/families/_function_maps.py ---
+
+# --- Start of nampy/gam/families/exponential.py ---
+"""
+Exponential-family GLM implementations.
+
+Each class implements the :class:`~nampy.gam.families.family_base.GLMFamily` interface
+for a specific distribution and canonical or common link function.  The classes
+are used directly as ``family`` arguments to GAM model constructors.
+"""
+
+import numpy as np
+from scipy.special import digamma, gammaln, polygamma
+from scipy.stats import norm as _norm
+
+from ._function_maps import (
+    BinomialVariance,
+    CloglogLink,
+    ConstantVariance,
+    GammaVariance,
+    IdentityLink,
+    InverseLink,
+    LogitLink,
+    LogLink,
+    NegativeBinomialVariance,
+    PoissonVariance,
+    ProbitLink,
+)
+from .family_base import _EPS, GLMFamily
+
+
+class GaussianIdentityFamily(GLMFamily):
+    """Gaussian family with identity link. Matches mgcv::gaussian()."""
+
+    name = "gaussian"
+    link_name = "identity"
+    canonical_link = True
+
+    supports_closed_form_solve = True
+    supports_pirls = True
+
+    supports_gcv = True
+    supports_ubre = False
+    supports_ml = True
+    supports_reml = True
+    supports_laml = True
+    known_scale = None
+    max_derivative_order = 1
+
+    def __init__(self, eps: float = _EPS):
+        super().__init__(eps=eps)
+        self.link = IdentityLink(eps=self.eps)
+        self.variance = ConstantVariance(eps=self.eps)
+
+    def initialize_mu(self, y):
+        return np.asarray(y, dtype=np.float64).copy()
+
+    def deviance(self, y, mu, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.asarray(mu, dtype=np.float64)
+        weights = self._check_weights(y, weights)
+        return float(np.sum(weights * (y - mu) ** 2))
+
+    def estimate_dispersion(self, y, mu, edf=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.asarray(mu, dtype=np.float64)
+        rss = float(np.sum((y - mu) ** 2))
+        if edf is None:
+            return rss / max(len(y), 1.0)
+        return rss / max(len(y) - float(edf), 1.0)
+
+    def loglik_obs(self, y, mu, scale=1.0):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.asarray(mu, dtype=np.float64)
+        scale = float(max(scale, self.eps))
+        return -0.5 * np.log(2.0 * np.pi * scale) - 0.5 * ((y - mu) ** 2) / scale
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        y = np.asarray(y, dtype=np.float64)
+        weights = self._check_weights(y, weights)
+        scale = float(max(scale, self.eps))
+        mask = weights > 0
+        nobs = int(np.sum(mask))
+        return float(
+            -0.5 * nobs * np.log(2.0 * np.pi * scale)
+            + 0.5 * np.sum(np.log(weights[mask]))
+        )
+
+
+class BinomialLogitFamily(GLMFamily):
+    """Binomial family with logit link. Matches mgcv::binomial(link="logit")."""
+
+    name = "binomial"
+    link_name = "logit"
+    canonical_link = True
+
+    supports_closed_form_solve = False
+    supports_pirls = True
+
+    supports_gcv = False
+    supports_ubre = True
+    supports_ml = True
+    supports_reml = True
+    supports_laml = False
+    supports_exact_pirls_first_derivatives = True
+    supports_exact_pirls_second_derivatives = True
+
+    known_scale = 1.0
+    max_derivative_order = 1
+
+    def __init__(self, eps: float = _EPS):
+        super().__init__(eps=eps)
+        self.link = LogitLink(eps=self.eps)
+        self.variance = BinomialVariance(eps=self.eps)
+
+    def validate_y(self, y):
+        y = super().validate_y(y)
+        if np.any((y < 0.0) | (y > 1.0)):
+            raise ValueError("BinomialLogitFamily requires targets in [0, 1].")
+        return y
+
+    def initialize_mu(self, y):
+        y = np.asarray(y, dtype=np.float64)
+        return np.clip((y + 0.5) / 2.0, self.eps, 1.0 - self.eps)
+
+    def deviance(self, y, mu, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        weights = self._check_weights(y, weights)
+        term1 = np.zeros_like(y, dtype=np.float64)
+        mask1 = y > 0
+        term1[mask1] = y[mask1] * np.log(y[mask1] / mu[mask1])
+        term2 = np.zeros_like(y, dtype=np.float64)
+        mask2 = y < 1
+        term2[mask2] = (1.0 - y[mask2]) * np.log((1.0 - y[mask2]) / (1.0 - mu[mask2]))
+        return float(2.0 * np.sum(weights * (term1 + term2)))
+
+    def loglik_obs(self, y, mu, scale=1.0):
+        del scale
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return y * np.log(mu) + (1.0 - y) * np.log(1.0 - mu)
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        del scale, n
+        y = np.asarray(y, dtype=np.float64)
+        weights = self._check_weights(y, weights)
+
+        term = np.zeros_like(y, dtype=np.float64)
+        mask1 = y > 0.0
+        term[mask1] += y[mask1] * np.log(y[mask1])
+        mask2 = y < 1.0
+        term[mask2] += (1.0 - y[mask2]) * np.log(1.0 - y[mask2])
+        return float(np.sum(weights * term))
+
+    def working_weight_derivative_eta(self, eta, y=None):
+        mu = self.inverse_link(eta)
+        W = np.clip(mu * (1.0 - mu), self.eps, None)
+        return (1.0 - 2.0 * mu) * W
+
+    def working_weight_second_derivative_eta(self, eta, y=None):
+        mu = self.inverse_link(eta)
+        W = np.clip(mu * (1.0 - mu), self.eps, None)
+        return W * ((1.0 - 2.0 * mu) ** 2 - 2.0 * W)
+
+
+class PoissonLogFamily(GLMFamily):
+    """Poisson family with log link. Matches mgcv::poisson(link="log")."""
+
+    name = "poisson"
+    link_name = "log"
+    canonical_link = True
+
+    supports_closed_form_solve = False
+    supports_pirls = True
+
+    supports_gcv = False
+    supports_ubre = True
+    supports_ml = True
+    supports_reml = True
+    supports_laml = False
+    supports_exact_pirls_first_derivatives = True
+    supports_exact_pirls_second_derivatives = True
+
+    known_scale = 1.0
+    max_derivative_order = 1
+
+    def __init__(self, eps: float = _EPS):
+        super().__init__(eps=eps)
+        self.link = LogLink(eps=self.eps)
+        self.variance = PoissonVariance(eps=self.eps)
+
+    def validate_y(self, y):
+        y = super().validate_y(y)
+        if np.any(y < 0.0):
+            raise ValueError("PoissonLogFamily requires non-negative targets.")
+        return y
+
+    def initialize_mu(self, y):
+        y = np.asarray(y, dtype=np.float64)
+        return np.clip(y + 0.1, self.eps, None)
+
+    def deviance(self, y, mu, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        weights = self._check_weights(y, weights)
+        term = np.zeros_like(y, dtype=np.float64)
+        mask = y > 0
+        term[mask] = y[mask] * np.log(np.clip(y[mask], self.eps, None) / mu[mask])
+        return float(2.0 * np.sum(weights * (term - (y - mu))))
+
+    def loglik_obs(self, y, mu, scale=1.0):
+        del scale
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        return y * np.log(mu) - mu - gammaln(y + 1.0)
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        del scale, n
+        y = np.asarray(y, dtype=np.float64)
+        weights = self._check_weights(y, weights)
+        y_safe = np.clip(y, self.eps, None)
+        sat = np.where(y > 0.0, y * np.log(y_safe) - y, -y) - gammaln(y + 1.0)
+        return float(np.sum(weights * sat))
+
+    def working_weight_derivative_eta(self, eta, y=None):
+        return self.inverse_link(eta)
+
+    def working_weight_second_derivative_eta(self, eta, y=None):
+        return self.inverse_link(eta)
+
+
+class GammaLogFamily(GLMFamily):
+    """Gamma family with log link. Matches mgcv::Gamma(link="log")."""
+
+    name = "gamma"
+    link_name = "log"
+    canonical_link = False
+
+    supports_closed_form_solve = False
+    supports_pirls = True
+
+    supports_gcv = True
+    supports_ubre = False
+    supports_ml = True
+    supports_reml = True
+    supports_laml = False
+    # Exact PIRLS derivatives for Gamma now rely on analytic working-weight
+    # expressions that depend on the observations.
+    supports_exact_pirls_first_derivatives = True
+    supports_exact_pirls_second_derivatives = True
+
+    known_scale = None
+    max_derivative_order = 1
+
+    def __init__(self, eps: float = _EPS):
+        super().__init__(eps=eps)
+        self.link = LogLink(eps=self.eps)
+        self.variance = GammaVariance(eps=self.eps)
+
+    def validate_y(self, y):
+        y = super().validate_y(y)
+        if np.any(y <= 0.0):
+            raise ValueError("GammaLogFamily requires strictly positive targets.")
+        return y
+
+    def initialize_mu(self, y):
+        y = np.asarray(y, dtype=np.float64)
+        return np.clip(y, self.eps, None)
+
+    def deviance(self, y, mu, weights=None):
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        weights = self._check_weights(y, weights)
+        return float(2.0 * np.sum(weights * ((y - mu) / mu - np.log(y / mu))))
+
+    def estimate_dispersion(self, y, mu, edf=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        pearson = float(np.sum((y - mu) ** 2 / self.variance(mu)))
+        if edf is None:
+            return pearson / max(len(y), 1.0)
+        return pearson / max(len(y) - float(edf), 1.0)
+
+    def loglik_obs(self, y, mu, scale=1.0):
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        scale = float(max(scale, self.eps))
+        shape = 1.0 / scale
+        return (
+            (shape - 1.0) * np.log(y)
+            - y * shape / mu
+            - gammaln(shape)
+            - shape * np.log(mu / shape)
+        )
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        del n
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        weights = self._check_weights(y, weights)
+        scale = float(max(scale, self.eps))
+        shape = 1.0 / scale
+        sat = -np.log(y) - shape - gammaln(shape) + shape * np.log(shape)
+        return float(np.sum(weights * sat))
+
+    def working_weight_derivative_eta(self, eta, y=None):
+        if y is None:
+            raise ValueError(
+                "GammaLogFamily requires targets to evaluate working-weight derivatives."
+            )
+        mu = np.clip(self.inverse_link(eta), self.eps, None)
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        return -np.asarray(y / mu, dtype=np.float64)
+
+    def working_weight_second_derivative_eta(self, eta, y=None):
+        if y is None:
+            raise ValueError(
+                "GammaLogFamily requires targets to evaluate working-weight derivatives."
+            )
+        mu = np.clip(self.inverse_link(eta), self.eps, None)
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        return np.asarray(y / mu, dtype=np.float64)
+
+
+class NegativeBinomialLogFamily(GLMFamily):
+    """Negative binomial family with log link. Matches mgcv::negbin(link="log")."""
+
+    name = "negbin"
+    link_name = "log"
+    canonical_link = False
+
+    supports_closed_form_solve = False
+    supports_pirls = True
+
+    supports_gcv = False
+    supports_ubre = True
+    supports_ml = True
+    supports_reml = True
+    supports_laml = False
+    supports_exact_pirls_first_derivatives = True
+    supports_exact_pirls_second_derivatives = True
+
+    known_scale = 1.0
+    max_derivative_order = 1
+
+    def __init__(self, theta=1.0, estimate_theta=False, eps: float = _EPS):
+        super().__init__(eps=eps)
+        self.link = LogLink(eps=self.eps)
+        self.theta = float(theta)
+        self.estimate_theta = bool(estimate_theta)
+        self.variance = NegativeBinomialVariance(eps=self.eps, family=self)
+
+    @property
+    def theta(self):
+        return self._theta
+
+    @theta.setter
+    def theta(self, value):
+        theta = float(value)
+        if theta <= 0:
+            raise ValueError("NegativeBinomialLogFamily requires theta > 0.")
+        self._theta = theta
+
+    def validate_y(self, y):
+        y = super().validate_y(y)
+        if np.any(y < 0.0):
+            raise ValueError("NegativeBinomialLogFamily requires non-negative targets.")
+        return y
+
+    def initialize_mu(self, y):
+        y = np.asarray(y, dtype=np.float64)
+        # Match common negative-binomial initialization (MASS-style).
+        return np.clip(y + (y == 0.0).astype(np.float64) / 6.0, self.eps, None)
+
+    def deviance(self, y, mu, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        weights = self._check_weights(y, weights)
+        th = self.theta
+        term1 = np.zeros_like(y, dtype=np.float64)
+        mask = y > 0
+        term1[mask] = y[mask] * np.log(y[mask] / mu[mask])
+        term2 = (y + th) * np.log((y + th) / (mu + th))
+        return float(2.0 * np.sum(weights * (term1 - term2)))
+
+    def loglik_obs(self, y, mu, scale=1.0):
+        del scale
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        th = float(self.theta)
+        return (
+            gammaln(y + th)
+            - gammaln(th)
+            - gammaln(y + 1.0)
+            + th * np.log(th / (th + mu))
+            + y * np.log(mu / (th + mu))
+        )
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        del scale, n
+        y = np.asarray(y, dtype=np.float64)
+        weights = self._check_weights(y, weights)
+        th = float(self.theta)
+        # Saturated NB log-likelihood at y (count density at mean y):
+        # keep y==0 exact (contributes 0) instead of epsilon-shifting.
+        term = (
+            gammaln(y + th)
+            - gammaln(th)
+            - gammaln(y + 1.0)
+            + th * np.log(th / (th + y))
+        )
+        mask = y > 0.0
+        term[mask] += y[mask] * np.log(y[mask] / (th + y[mask]))
+        return float(np.sum(weights * term))
+
+    def working_weight_derivative_eta(self, eta, y=None):
+        mu = np.clip(self.inverse_link(eta), self.eps, None)
+        th = float(self.theta)
+        denom = np.clip(th + mu, self.eps, None)
+        if y is None:
+            # Fisher-weight derivative fallback: d/deta [th*mu/(th+mu)].
+            return (th**2) * mu / np.clip(denom**2, self.eps, None)
+        y = np.asarray(y, dtype=np.float64)
+        # Exact derivative of P-IRLS Newton working weights w.r.t. eta:
+        # w = wf * alpha, with wf = th*mu/(th+mu),
+        # alpha = 1 + (y-mu)/(th+mu).
+        num = mu * th * (th + y) * (th - mu)
+        return num / np.clip(denom**3, self.eps, None)
+
+    def working_weight_second_derivative_eta(self, eta, y=None):
+        mu = np.clip(self.inverse_link(eta), self.eps, None)
+        th = float(self.theta)
+        denom = np.clip(th + mu, self.eps, None)
+        if y is None:
+            # Fisher-weight second derivative fallback.
+            return (th**2) * mu * (th - mu) / np.clip(denom**3, self.eps, None)
+        y = np.asarray(y, dtype=np.float64)
+        # Exact second derivative of P-IRLS Newton working weights w.r.t. eta.
+        num = mu * th * (th + y) * (mu**2 - 4.0 * mu * th + th**2)
+        return num / np.clip(denom**4, self.eps, None)
+
+    def estimate_theta_mle(self, y, mu, weights=None, max_iter=50, tol=1e-7):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        w = (
+            np.ones_like(y, dtype=np.float64)
+            if weights is None
+            else np.asarray(weights, dtype=np.float64)
+        )
+
+        def _nll_grad_hess(log_theta_val: float):
+            log_theta_val = float(log_theta_val)
+            theta_val = max(float(np.exp(log_theta_val)), self.eps)
+            yth = y + theta_val
+            muth = mu + theta_val
+
+            # mgcv::estimate.theta -> nlogl(): dev/2 - ls, all in log-theta.
+            dev = float(
+                np.sum(
+                    2.0
+                    * w
+                    * (y * np.log(np.maximum(1.0, y) / mu) - yth * np.log(yth / muth))
+                )
+            )
+
+            ylogy = y.copy()
+            ind = y > 0.0
+            ylogy[ind] = y[ind] * np.log(y[ind])
+            ls_term = (
+                yth * np.log(yth)
+                - ylogy
+                + gammaln(y + 1.0)
+                - theta_val * log_theta_val
+                + gammaln(theta_val)
+                - gammaln(yth)
+            )
+            ls = -float(np.sum(ls_term * w))
+            nll = dev / 2.0 - ls
+
+            dth = -2.0 * w * theta_val * (np.log(yth / muth) + (1.0 - yth / muth))
+            g1 = float(np.sum(dth) / 2.0)
+
+            psi0_yth = digamma(yth)
+            psi0_th = digamma(theta_val)
+            lsth_term = theta_val * (np.log(yth) - psi0_yth + psi0_th - log_theta_val)
+            lsth1 = -float(np.sum(lsth_term * w))
+            grad = g1 - lsth1
+
+            dth2 = (
+                -2.0
+                * w
+                * theta_val
+                * (
+                    np.log(yth / muth)
+                    + theta_val * yth / (muth**2)
+                    - yth / muth
+                    - 2.0 * theta_val / muth
+                    + 1.0
+                    + theta_val / yth
+                )
+            )
+            Dth2 = float(np.sum(dth2) / 2.0)
+
+            psi1_yth = polygamma(1, yth)
+            psi1_th = polygamma(1, theta_val)
+            lsth2_term = theta_val * (
+                np.log(yth)
+                - theta_val * psi1_yth
+                - psi0_yth
+                + theta_val / yth
+                + theta_val * psi1_th
+                + psi0_th
+                - log_theta_val
+                - 1.0
+            )
+            lsth2 = -float(np.sum(lsth2_term * w))
+            hess = Dth2 - lsth2
+            return nll, grad, hess
+
+        theta = float(np.log(max(float(self.theta), self.eps)))
+        nll, grad, hess = _nll_grad_hess(theta)
+        if not np.isfinite(nll) or not np.isfinite(grad) or not np.isfinite(hess):
+            return max(float(np.exp(theta)), self.eps)
+
+        for _ in range(min(int(max_iter), 100)):
+            if abs(grad) <= tol * (abs(nll) + 1.0):
+                break
+            hess_eff = float(hess)
+            if not np.isfinite(hess_eff):
+                break
+            if hess_eff <= 0.0:
+                hess_eff = max(abs(hess_eff), 1e-5)
+
+            step = -grad / hess_eff
+            if abs(step) > 4.0:
+                step *= 4.0 / abs(step)
+
+            theta_new = theta + step
+            iter_halve = 0
+            nll_new = np.inf
+            grad_new = grad
+            hess_new = hess
+            while iter_halve <= 25:
+                if not np.isfinite(theta_new):
+                    nll_new = np.inf
+                else:
+                    nll_new, grad_new, hess_new = _nll_grad_hess(theta_new)
+                if np.isfinite(nll_new) and nll_new - nll <= np.finfo(
+                    np.float64
+                ).eps ** 0.75 * abs(nll):
+                    break
+                step *= 0.5
+                iter_halve += 1
+                if abs(step) <= self.eps * max(1.0, abs(theta)):
+                    theta_new = theta
+                    nll_new, grad_new, hess_new = nll, grad, hess
+                    break
+                theta_new = theta + step
+
+            if theta_new == theta:
+                break
+            theta = float(theta_new)
+            nll, grad, hess = nll_new, grad_new, hess_new
+
+        return max(float(np.exp(theta)), self.eps)
+
+
+class BinomialProbitFamily(GLMFamily):
+    """Binomial family with probit link. Matches mgcv::binomial(link="probit")."""
+
+    name = "binomial"
+    link_name = "probit"
+    canonical_link = False
+
+    supports_closed_form_solve = False
+    supports_pirls = True
+
+    supports_gcv = False
+    supports_ubre = True
+    supports_ml = True
+    supports_reml = True
+    supports_laml = False
+    supports_exact_pirls_first_derivatives = True
+    supports_exact_pirls_second_derivatives = False
+
+    known_scale = 1.0
+    max_derivative_order = 1
+
+    def __init__(self, eps: float = _EPS):
+        super().__init__(eps=eps)
+        self.link = ProbitLink(eps=self.eps)
+        self.variance = BinomialVariance(eps=self.eps)
+
+    def validate_y(self, y):
+        y = super().validate_y(y)
+        if np.any((y < 0.0) | (y > 1.0)):
+            raise ValueError("BinomialProbitFamily requires targets in [0, 1].")
+        return y
+
+    def initialize_mu(self, y):
+        y = np.asarray(y, dtype=np.float64)
+        return np.clip((y + 0.5) / 2.0, self.eps, 1.0 - self.eps)
+
+    def deviance(self, y, mu, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        weights = self._check_weights(y, weights)
+        term1 = np.zeros_like(y)
+        mask1 = y > 0
+        term1[mask1] = y[mask1] * np.log(y[mask1] / mu[mask1])
+        term2 = np.zeros_like(y)
+        mask2 = y < 1
+        term2[mask2] = (1.0 - y[mask2]) * np.log((1.0 - y[mask2]) / (1.0 - mu[mask2]))
+        return float(2.0 * np.sum(weights * (term1 + term2)))
+
+    def loglik_obs(self, y, mu, scale=1.0):
+        del scale
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return y * np.log(mu) + (1.0 - y) * np.log(1.0 - mu)
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        del scale, n
+        y = np.asarray(y, dtype=np.float64)
+        weights = self._check_weights(y, weights)
+        term = np.zeros_like(y)
+        mask1 = y > 0.0
+        term[mask1] += y[mask1] * np.log(y[mask1])
+        mask2 = y < 1.0
+        term[mask2] += (1.0 - y[mask2]) * np.log(1.0 - y[mask2])
+        return float(np.sum(weights * term))
+
+    def working_weight_derivative_eta(self, eta, y=None):
+        eta = np.asarray(eta, dtype=np.float64)
+        phi = np.clip(_norm.pdf(eta), self.eps, None)
+        mu = np.clip(_norm.cdf(eta), self.eps, 1.0 - self.eps)
+        V = np.clip(mu * (1.0 - mu), self.eps, None)
+        # d/deta [phi^2/V] = phi^2 * [-2*eta*V - phi*(1-2*mu)] / V^2
+        return (
+            phi**2
+            * (-2.0 * eta * V - phi * (1.0 - 2.0 * mu))
+            / np.clip(V**2, self.eps, None)
+        )
+
+
+class BinomialCloglogFamily(GLMFamily):
+    """Binomial family with cloglog link. Matches mgcv::binomial(link="cloglog")."""
+
+    name = "binomial"
+    link_name = "cloglog"
+    canonical_link = False
+
+    supports_closed_form_solve = False
+    supports_pirls = True
+
+    supports_gcv = False
+    supports_ubre = True
+    supports_ml = True
+    supports_reml = True
+    supports_laml = False
+    supports_exact_pirls_first_derivatives = True
+    supports_exact_pirls_second_derivatives = False
+
+    known_scale = 1.0
+    max_derivative_order = 1
+
+    def __init__(self, eps: float = _EPS):
+        super().__init__(eps=eps)
+        self.link = CloglogLink(eps=self.eps)
+        self.variance = BinomialVariance(eps=self.eps)
+
+    def validate_y(self, y):
+        y = super().validate_y(y)
+        if np.any((y < 0.0) | (y > 1.0)):
+            raise ValueError("BinomialCloglogFamily requires targets in [0, 1].")
+        return y
+
+    def initialize_mu(self, y):
+        y = np.asarray(y, dtype=np.float64)
+        return np.clip((y + 0.5) / 2.0, self.eps, 1.0 - self.eps)
+
+    def deviance(self, y, mu, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        weights = self._check_weights(y, weights)
+        term1 = np.zeros_like(y)
+        mask1 = y > 0
+        term1[mask1] = y[mask1] * np.log(y[mask1] / mu[mask1])
+        term2 = np.zeros_like(y)
+        mask2 = y < 1
+        term2[mask2] = (1.0 - y[mask2]) * np.log((1.0 - y[mask2]) / (1.0 - mu[mask2]))
+        return float(2.0 * np.sum(weights * (term1 + term2)))
+
+    def loglik_obs(self, y, mu, scale=1.0):
+        del scale
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        return y * np.log(mu) + (1.0 - y) * np.log(1.0 - mu)
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        del scale, n
+        y = np.asarray(y, dtype=np.float64)
+        weights = self._check_weights(y, weights)
+        term = np.zeros_like(y)
+        mask1 = y > 0.0
+        term[mask1] += y[mask1] * np.log(y[mask1])
+        mask2 = y < 1.0
+        term[mask2] += (1.0 - y[mask2]) * np.log(1.0 - y[mask2])
+        return float(np.sum(weights * term))
+
+    def working_weight_derivative_eta(self, eta, y=None):
+        eta = np.asarray(eta, dtype=np.float64)
+        lam = np.exp(np.clip(eta, -30.0, 30.0))
+        mu = np.clip(1.0 - np.exp(-lam), self.eps, 1.0 - self.eps)
+        M = np.clip(lam * np.exp(-lam), self.eps, None)
+        V = np.clip(mu * (1.0 - mu), self.eps, None)
+        # d/deta [M^2/V] = M^2 * [2*(1-lam)*V - (1-2*mu)*M] / V^2
+        return (
+            M**2
+            * (2.0 * (1.0 - lam) * V - (1.0 - 2.0 * mu) * M)
+            / np.clip(V**2, self.eps, None)
+        )
+
+
+class GammaInverseFamily(GLMFamily):
+    """Gamma family with inverse link. Matches mgcv::Gamma(link="inverse")."""
+
+    name = "gamma"
+    link_name = "inverse"
+    canonical_link = True
+
+    supports_closed_form_solve = False
+    supports_pirls = True
+
+    supports_gcv = True
+    supports_ubre = False
+    supports_ml = True
+    supports_reml = True
+    supports_laml = False
+    supports_exact_pirls_first_derivatives = True
+    supports_exact_pirls_second_derivatives = True
+
+    known_scale = None
+    max_derivative_order = 1
+
+    def __init__(self, eps: float = _EPS):
+        super().__init__(eps=eps)
+        self.link = InverseLink(eps=self.eps)
+        self.variance = GammaVariance(eps=self.eps)
+
+    def validate_y(self, y):
+        y = super().validate_y(y)
+        if np.any(y <= 0.0):
+            raise ValueError("GammaInverseFamily requires strictly positive targets.")
+        return y
+
+    def initialize_mu(self, y):
+        y = np.asarray(y, dtype=np.float64)
+        return np.clip(y, self.eps, None)
+
+    def deviance(self, y, mu, weights=None):
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        weights = self._check_weights(y, weights)
+        return float(2.0 * np.sum(weights * ((y - mu) / mu - np.log(y / mu))))
+
+    def estimate_dispersion(self, y, mu, edf=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        pearson = float(np.sum((y - mu) ** 2 / self.variance(mu)))
+        if edf is None:
+            return pearson / max(len(y), 1.0)
+        return pearson / max(len(y) - float(edf), 1.0)
+
+    def loglik_obs(self, y, mu, scale=1.0):
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        scale = float(max(scale, self.eps))
+        shape = 1.0 / scale
+        return (
+            (shape - 1.0) * np.log(y)
+            - y * shape / mu
+            - gammaln(shape)
+            - shape * np.log(mu / shape)
+        )
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        del n
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        weights = self._check_weights(y, weights)
+        scale = float(max(scale, self.eps))
+        shape = 1.0 / scale
+        sat = -np.log(y) - shape - gammaln(shape) + shape * np.log(shape)
+        return float(np.sum(weights * sat))
+
+    def working_weight_derivative_eta(self, eta, y=None):
+        # W = mu^2 (canonical link, W_exact = W_Fisher = mu^2).
+        # dW/deta = 2*mu * dmu/deta = 2/eta * (-1/eta^2) = -2/eta^3
+        mu = np.clip(self.inverse_link(eta), self.eps, None)
+        return -2.0 * mu**3
+
+    def working_weight_second_derivative_eta(self, eta, y=None):
+        mu = np.clip(self.inverse_link(eta), self.eps, None)
+        return 6.0 * mu**4
+
+# --- End of nampy/gam/families/exponential.py ---
+
+# --- Start of nampy/gam/families/family_base.py ---
 """
 Family base classes for GAM smooth models.
 
@@ -160,12 +1357,41 @@ Three family tiers are defined here:
 """
 
 import abc
+
 import numpy as np
 
 _EPS = 1e-9
+_CAPABILITY_FLAGS = (
+    "supports_closed_form_solve",
+    "supports_pirls",
+    "supports_gcv",
+    "supports_ubre",
+    "supports_ml",
+    "supports_reml",
+    "supports_laml",
+    "supports_ncv",
+    "supports_qncv",
+    "supports_exact_pirls_first_derivatives",
+    "supports_exact_pirls_second_derivatives",
+)
 
 
-class BaseFamily(abc.ABC):
+class _FamilyMeta(abc.ABCMeta):
+    def __new__(mcls, name, bases, namespace):
+        cls = super().__new__(mcls, name, bases, namespace)
+        type.__setattr__(cls, "_capability_flags_locked", True)
+        return cls
+
+    def __setattr__(cls, name, value):
+        if (
+            getattr(cls, "_capability_flags_locked", False)
+            and name in _CAPABILITY_FLAGS
+        ):
+            raise AttributeError(f"{name} is read-only on family classes.")
+        super().__setattr__(name, value)
+
+
+class BaseFamily(metaclass=_FamilyMeta):
     """
     Abstract root class for all GAM families.
 
@@ -196,6 +1422,11 @@ class BaseFamily(abc.ABC):
 
     def __init__(self, eps: float = _EPS):
         self.eps = float(eps)
+
+    def __setattr__(self, name, value):
+        if name in _CAPABILITY_FLAGS and hasattr(self, name):
+            raise AttributeError(f"{name} is read-only on family instances.")
+        super().__setattr__(name, value)
 
     def validate_y(self, y):
         y = np.asarray(y, dtype=np.float64).ravel()
@@ -284,39 +1515,52 @@ class GLMFamily(BaseFamily):
     n_linear_predictors = 1
     canonical_link = False
 
-    @abc.abstractmethod
     def initialize_mu(self, y):
         raise NotImplementedError
 
-    @abc.abstractmethod
     def link(self, mu):
-        raise NotImplementedError
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must assign self.link to a LinkFunction."
+        )
 
-    @abc.abstractmethod
     def inverse_link(self, eta):
-        raise NotImplementedError
+        return self.link.inverse(eta)
 
-    @abc.abstractmethod
     def mu_eta(self, eta):
         """d mu / d eta"""
-        raise NotImplementedError
+        return self.link.mu_eta(eta)
 
-    @abc.abstractmethod
     def variance(self, mu):
-        raise NotImplementedError
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must assign self.variance to a VarianceFunction."
+        )
+
+    def _check_weights(self, y, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        if weights is None:
+            return np.ones_like(y, dtype=np.float64)
+        return np.asarray(weights, dtype=np.float64)
 
     def dvar(self, mu):
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not yet implement dvar(mu)."
-        )
+        return self.variance.d1(mu)
+
+    def d2var(self, mu):
+        return self.variance.d2(mu)
+
+    def d3var(self, mu):
+        return self.variance.d3(mu)
 
     def d2link(self, mu):
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not yet implement d2link(mu)."
-        )
+        return self.link.d2(mu)
+
+    def d3link(self, mu):
+        return self.link.d3(mu)
+
+    def d4link(self, mu):
+        return self.link.d4(mu)
 
     @abc.abstractmethod
-    def deviance(self, y, mu):
+    def deviance(self, y, mu, weights=None):
         raise NotImplementedError
 
     def estimate_dispersion(self, y, mu, edf=None):
@@ -331,6 +1575,11 @@ class GLMFamily(BaseFamily):
 
     def loglik(self, y, mu, scale=1.0):
         return float(np.sum(self.loglik_obs(y, mu, scale=scale)))
+
+    def aic(self, y, mu, *, edf=0.0, scale=1.0, weights=None):
+        loglik_obs = np.asarray(self.loglik_obs(y, mu, scale=scale), dtype=np.float64)
+        obs_weights = self._check_weights(loglik_obs, weights)
+        return float(-2.0 * np.sum(obs_weights * loglik_obs) + 2.0 * float(edf))
 
     def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
         raise NotImplementedError(
@@ -384,615 +1633,31 @@ class GeneralFamily(BaseFamily):
     def hessian_eta(self, y, eta_list):
         raise NotImplementedError
 
-# --- End of nampy/gam/families/base.py ---
-
-# --- Start of nampy/gam/families/exponential.py ---
-"""
-Exponential-family GLM implementations.
-
-Each class implements the :class:`~nampy.gam.families.base.GLMFamily` interface
-for a specific distribution and canonical or common link function.  The classes
-are used directly as ``family`` arguments to GAM model constructors.
-"""
-
-import numpy as np
-from scipy.special import gammaln
-
-from .base import GLMFamily, _EPS
-
-
-class GaussianIdentityFamily(GLMFamily):
-    name = "gaussian"
-    link_name = "identity"
-    canonical_link = True
-
-    supports_closed_form_solve = True
-    supports_pirls = True
-
-    supports_gcv = True
-    supports_ubre = False
-    supports_ml = True
-    supports_reml = True
-    supports_laml = True
-    known_scale = None
-    max_derivative_order = 1
-
-    def initialize_mu(self, y):
-        return np.asarray(y, dtype=np.float64).copy()
-
-    def link(self, mu):
-        return np.asarray(mu, dtype=np.float64)
-
-    def inverse_link(self, eta):
-        return np.asarray(eta, dtype=np.float64)
-
-    def mu_eta(self, eta):
-        eta = np.asarray(eta, dtype=np.float64)
-        return np.ones_like(eta)
-
-    def variance(self, mu):
-        mu = np.asarray(mu, dtype=np.float64)
-        return np.ones_like(mu)
-
-    def dvar(self, mu):
-        mu = np.asarray(mu, dtype=np.float64)
-        return np.zeros_like(mu)
-
-    def d2var(self, mu):
-        mu = np.asarray(mu, dtype=np.float64)
-        return np.zeros_like(mu)
-
-    def d3var(self, mu):
-        mu = np.asarray(mu, dtype=np.float64)
-        return np.zeros_like(mu)
-
-    def d2link(self, mu):
-        mu = np.asarray(mu, dtype=np.float64)
-        return np.zeros_like(mu)
-
-    def d3link(self, mu):
-        mu = np.asarray(mu, dtype=np.float64)
-        return np.zeros_like(mu)
-
-    def d4link(self, mu):
-        mu = np.asarray(mu, dtype=np.float64)
-        return np.zeros_like(mu)
-
-    def deviance(self, y, mu):
-        y = np.asarray(y, dtype=np.float64)
-        mu = np.asarray(mu, dtype=np.float64)
-        return float(np.sum((y - mu) ** 2))
-
-    def estimate_dispersion(self, y, mu, edf=None):
-        y = np.asarray(y, dtype=np.float64)
-        mu = np.asarray(mu, dtype=np.float64)
-        rss = float(np.sum((y - mu) ** 2))
-        if edf is None:
-            return rss / max(len(y), 1.0)
-        return rss / max(len(y) - float(edf), 1.0)
-
-    def loglik_obs(self, y, mu, scale=1.0):
-        y = np.asarray(y, dtype=np.float64)
-        mu = np.asarray(mu, dtype=np.float64)
-        scale = float(max(scale, self.eps))
-        return (
-            -0.5 * np.log(2.0 * np.pi * scale)
-            - 0.5 * ((y - mu) ** 2) / scale
-        )
-
-    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
-        y = np.asarray(y, dtype=np.float64)
-        if weights is None:
-            weights = np.ones_like(y, dtype=np.float64)
-        else:
-            weights = np.asarray(weights, dtype=np.float64)
-        scale = float(max(scale, self.eps))
-        mask = weights > 0
-        nobs = int(np.sum(mask))
-        return float(
-            -0.5 * nobs * np.log(2.0 * np.pi * scale)
-            + 0.5 * np.sum(np.log(weights[mask]))
-        )
-
-
-
-class BinomialLogitFamily(GLMFamily):
-    name = "binomial"
-    link_name = "logit"
-    canonical_link = True
-
-    supports_closed_form_solve = False
-    supports_pirls = True
-
-    supports_gcv = False
-    supports_ubre = True
-    supports_ml = True
-    supports_reml = True
-    supports_laml = False
-    supports_exact_pirls_first_derivatives = True
-    supports_exact_pirls_second_derivatives = True
-
-    known_scale = 1.0
-    max_derivative_order = 1
-
-    def validate_y(self, y):
-        y = super().validate_y(y)
-        if np.any((y < 0.0) | (y > 1.0)):
-            raise ValueError("BinomialLogitFamily requires targets in [0, 1].")
-        return y
-
-    def initialize_mu(self, y):
-        y = np.asarray(y, dtype=np.float64)
-        return np.clip((y + 0.5) / 2.0, self.eps, 1.0 - self.eps)
-
-    def link(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
-        return np.log(mu / (1.0 - mu))
-
-    def inverse_link(self, eta):
-        eta = np.asarray(eta, dtype=np.float64)
-        return 1.0 / (1.0 + np.exp(-np.clip(eta, -30.0, 30.0)))
-
-    def mu_eta(self, eta):
-        mu = self.inverse_link(eta)
-        return np.clip(mu * (1.0 - mu), self.eps, None)
-
-    def variance(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
-        return np.clip(mu * (1.0 - mu), self.eps, None)
-
-    def dvar(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
-        return 1.0 - 2.0 * mu
-
-    def d2var(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
-        return -2.0 * np.ones_like(mu)
-
-    def d3var(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
-        return np.zeros_like(mu)
-
-    def d2link(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
-        denom = np.clip((mu ** 2) * ((1.0 - mu) ** 2), self.eps, None)
-        return (2.0 * mu - 1.0) / denom
-
-    def d3link(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
-        denom = np.clip((mu**3) * ((1.0 - mu) ** 3), self.eps, None)
-        return 2.0 * (3.0 * mu**2 - 3.0 * mu + 1.0) / denom
-
-    def d4link(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
-        denom = np.clip((mu**4) * ((1.0 - mu) ** 4), self.eps, None)
-        return 6.0 * (4.0 * mu**3 - 6.0 * mu**2 + 4.0 * mu - 1.0) / denom
-
-    def deviance(self, y, mu):
-        y = np.asarray(y, dtype=np.float64)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
-        term1 = np.zeros_like(y, dtype=np.float64)
-        mask1 = y > 0
-        term1[mask1] = y[mask1] * np.log(y[mask1] / mu[mask1])
-        term2 = np.zeros_like(y, dtype=np.float64)
-        mask2 = y < 1
-        term2[mask2] = (1.0 - y[mask2]) * np.log((1.0 - y[mask2]) / (1.0 - mu[mask2]))
-        return float(2.0 * np.sum(term1 + term2))
-
-    def loglik_obs(self, y, mu, scale=1.0):
-        del scale
-        y = np.asarray(y, dtype=np.float64)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
-        return y * np.log(mu) + (1.0 - y) * np.log(1.0 - mu)
-
-    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
-        del scale, n
-        y = np.asarray(y, dtype=np.float64)
-        if weights is None:
-            weights = np.ones_like(y, dtype=np.float64)
-        else:
-            weights = np.asarray(weights, dtype=np.float64)
-
-        term = np.zeros_like(y, dtype=np.float64)
-        mask1 = y > 0.0
-        term[mask1] += y[mask1] * np.log(y[mask1])
-        mask2 = y < 1.0
-        term[mask2] += (1.0 - y[mask2]) * np.log(1.0 - y[mask2])
-        return float(np.sum(weights * term))
-
-    def working_weight_derivative_eta(self, eta, y=None):
-        mu = self.inverse_link(eta)
-        W = np.clip(mu * (1.0 - mu), self.eps, None)
-        return (1.0 - 2.0 * mu) * W
-
-    def working_weight_second_derivative_eta(self, eta, y=None):
-        mu = self.inverse_link(eta)
-        W = np.clip(mu * (1.0 - mu), self.eps, None)
-        return W * ((1.0 - 2.0 * mu) ** 2 - 2.0 * W)
-
-
-class PoissonLogFamily(GLMFamily):
-    name = "poisson"
-    link_name = "log"
-    canonical_link = True
-
-    supports_closed_form_solve = False
-    supports_pirls = True
-
-    supports_gcv = False
-    supports_ubre = True
-    supports_ml = True
-    supports_reml = True
-    supports_laml = False
-    supports_exact_pirls_first_derivatives = True
-    supports_exact_pirls_second_derivatives = True
-
-    known_scale = 1.0
-    max_derivative_order = 1
-
-    def validate_y(self, y):
-        y = super().validate_y(y)
-        if np.any(y < 0.0):
-            raise ValueError("PoissonLogFamily requires non-negative targets.")
-        return y
-
-    def initialize_mu(self, y):
-        y = np.asarray(y, dtype=np.float64)
-        return np.clip(y + 0.1, self.eps, None)
-
-    def link(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return np.log(mu)
-
-    def inverse_link(self, eta):
-        eta = np.asarray(eta, dtype=np.float64)
-        return np.exp(np.clip(eta, -30.0, 30.0))
-
-    def mu_eta(self, eta):
-        mu = self.inverse_link(eta)
-        return np.clip(mu, self.eps, None)
-
-    def variance(self, mu):
-        mu = np.asarray(mu, dtype=np.float64)
-        return np.clip(mu, self.eps, None)
-
-    def dvar(self, mu):
-        mu = np.asarray(mu, dtype=np.float64)
-        return np.ones_like(mu)
-
-    def d2var(self, mu):
-        mu = np.asarray(mu, dtype=np.float64)
-        return np.zeros_like(mu)
-
-    def d3var(self, mu):
-        mu = np.asarray(mu, dtype=np.float64)
-        return np.zeros_like(mu)
-
-    def d2link(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return -1.0 / np.clip(mu ** 2, self.eps, None)
-
-    def d3link(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return 2.0 / np.clip(mu**3, self.eps, None)
-
-    def d4link(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return -6.0 / np.clip(mu**4, self.eps, None)
-
-    def deviance(self, y, mu):
-        y = np.asarray(y, dtype=np.float64)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        term = np.zeros_like(y, dtype=np.float64)
-        mask = y > 0
-        term[mask] = y[mask] * np.log(np.clip(y[mask], self.eps, None) / mu[mask])
-        return float(2.0 * np.sum(term - (y - mu)))
-
-    def loglik_obs(self, y, mu, scale=1.0):
-        del scale
-        y = np.asarray(y, dtype=np.float64)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return y * np.log(mu) - mu - gammaln(y + 1.0)
-
-    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
-        del scale, n
-        y = np.asarray(y, dtype=np.float64)
-        if weights is None:
-            weights = np.ones_like(y, dtype=np.float64)
-        else:
-            weights = np.asarray(weights, dtype=np.float64)
-        y_safe = np.clip(y, self.eps, None)
-        sat = np.where(y > 0.0, y * np.log(y_safe) - y, -y) - gammaln(y + 1.0)
-        return float(np.sum(weights * sat))
-
-    def working_weight_derivative_eta(self, eta, y=None):
-        return self.inverse_link(eta)
-
-    def working_weight_second_derivative_eta(self, eta, y=None):
-        return self.inverse_link(eta)
-
-
-class GammaLogFamily(GLMFamily):
-    name = "gamma"
-    link_name = "log"
-    canonical_link = False
-
-    supports_closed_form_solve = False
-    supports_pirls = True
-
-    supports_gcv = True
-    supports_ubre = False
-    supports_ml = True
-    supports_reml = True
-    supports_laml = False
-    # Exact PIRLS derivatives for Gamma now rely on analytic working-weight
-    # expressions that depend on the observations.
-    supports_exact_pirls_first_derivatives = True
-    supports_exact_pirls_second_derivatives = True
-
-    known_scale = None
-    max_derivative_order = 1
-
-    def validate_y(self, y):
-        y = super().validate_y(y)
-        if np.any(y <= 0.0):
-            raise ValueError("GammaLogFamily requires strictly positive targets.")
-        return y
-
-    def initialize_mu(self, y):
-        y = np.asarray(y, dtype=np.float64)
-        return np.clip(y, self.eps, None)
-
-    def link(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return np.log(mu)
-
-    def inverse_link(self, eta):
-        eta = np.asarray(eta, dtype=np.float64)
-        return np.exp(np.clip(eta, -30.0, 30.0))
-
-    def mu_eta(self, eta):
-        mu = self.inverse_link(eta)
-        return np.clip(mu, self.eps, None)
-
-    def variance(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return np.clip(mu**2, self.eps, None)
-
-    def dvar(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return 2.0 * mu
-
-    def d2var(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return 2.0 * np.ones_like(mu)
-
-    def d3var(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return np.zeros_like(mu)
-
-    def d2link(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return -1.0 / np.clip(mu ** 2, self.eps, None)
-
-    def d3link(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return 2.0 / np.clip(mu**3, self.eps, None)
-
-    def d4link(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return -6.0 / np.clip(mu**4, self.eps, None)
-
-    def deviance(self, y, mu):
-        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return float(2.0 * np.sum((y - mu) / mu - np.log(y / mu)))
-
-    def estimate_dispersion(self, y, mu, edf=None):
-        y = np.asarray(y, dtype=np.float64)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        pearson = float(np.sum((y - mu) ** 2 / self.variance(mu)))
-        if edf is None:
-            return pearson / max(len(y), 1.0)
-        return pearson / max(len(y) - float(edf), 1.0)
-
-    def loglik_obs(self, y, mu, scale=1.0):
-        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        scale = float(max(scale, self.eps))
-        shape = 1.0 / scale
-        return (
-            (shape - 1.0) * np.log(y)
-            - y * shape / mu
-            - gammaln(shape)
-            - shape * np.log(mu / shape)
-        )
-
-    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
-        del n
-        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
-        if weights is None:
-            weights = np.ones_like(y, dtype=np.float64)
-        else:
-            weights = np.asarray(weights, dtype=np.float64)
-        scale = float(max(scale, self.eps))
-        shape = 1.0 / scale
-        sat = -np.log(y) - shape - gammaln(shape) + shape * np.log(shape)
-        return float(np.sum(weights * sat))
-
-    def working_weight_derivative_eta(self, eta, y=None):
-        if y is None:
-            raise ValueError("GammaLogFamily requires targets to evaluate working-weight derivatives.")
-        mu = np.clip(self.inverse_link(eta), self.eps, None)
-        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
-        return -np.asarray(y / mu, dtype=np.float64)
-
-    def working_weight_second_derivative_eta(self, eta, y=None):
-        if y is None:
-            raise ValueError("GammaLogFamily requires targets to evaluate working-weight derivatives.")
-        mu = np.clip(self.inverse_link(eta), self.eps, None)
-        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
-        return np.asarray(y / mu, dtype=np.float64)
-
-
-class NegativeBinomialLogFamily(GLMFamily):
-    """Fixed-theta NB2 family: Var(Y) = mu + mu^2 / theta"""
-
-    name = "negbin"
-    link_name = "log"
-    canonical_link = False
-
-    supports_closed_form_solve = False
-    supports_pirls = True
-
-    supports_gcv = False
-    supports_ubre = True
-    supports_ml = True
-    supports_reml = True
-    supports_laml = False
-    supports_exact_pirls_first_derivatives = True
-    supports_exact_pirls_second_derivatives = True
-
-    known_scale = 1.0
-    max_derivative_order = 1
-
-    def __init__(self, theta=1.0, eps: float = _EPS):
-        super().__init__(eps=eps)
-        self.theta = float(theta)
-        if self.theta <= 0:
-            raise ValueError("NegativeBinomialLogFamily requires theta > 0.")
-
-    def validate_y(self, y):
-        y = super().validate_y(y)
-        if np.any(y < 0.0):
-            raise ValueError("NegativeBinomialLogFamily requires non-negative targets.")
-        return y
-
-    def initialize_mu(self, y):
-        y = np.asarray(y, dtype=np.float64)
-        # Match common negative-binomial initialization (MASS-style).
-        return np.clip(y + (y == 0.0).astype(np.float64) / 6.0, self.eps, None)
-
-    def link(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return np.log(mu)
-
-    def inverse_link(self, eta):
-        eta = np.asarray(eta, dtype=np.float64)
-        return np.exp(np.clip(eta, -30.0, 30.0))
-
-    def mu_eta(self, eta):
-        mu = self.inverse_link(eta)
-        return np.clip(mu, self.eps, None)
-
-    def variance(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return np.clip(mu + (mu**2) / self.theta, self.eps, None)
-
-    def dvar(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return 1.0 + 2.0 * mu / self.theta
-
-    def d2var(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return (2.0 / self.theta) * np.ones_like(mu)
-
-    def d3var(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return np.zeros_like(mu)
-
-    def d2link(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return -1.0 / np.clip(mu ** 2, self.eps, None)
-
-    def d3link(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return 2.0 / np.clip(mu**3, self.eps, None)
-
-    def d4link(self, mu):
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return -6.0 / np.clip(mu**4, self.eps, None)
-
-    def deviance(self, y, mu):
-        y = np.asarray(y, dtype=np.float64)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        th = self.theta
-        term1 = np.zeros_like(y, dtype=np.float64)
-        mask = y > 0
-        term1[mask] = y[mask] * np.log(y[mask] / mu[mask])
-        term2 = (y + th) * np.log((y + th) / (mu + th))
-        return float(2.0 * np.sum(term1 - term2))
-
-    def loglik_obs(self, y, mu, scale=1.0):
-        del scale
-        y = np.asarray(y, dtype=np.float64)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        th = float(self.theta)
-        return (
-            gammaln(y + th)
-            - gammaln(th)
-            - gammaln(y + 1.0)
-            + th * np.log(th / (th + mu))
-            + y * np.log(mu / (th + mu))
-        )
-
-    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
-        del scale, n
-        y = np.asarray(y, dtype=np.float64)
-        if weights is None:
-            weights = np.ones_like(y, dtype=np.float64)
-        else:
-            weights = np.asarray(weights, dtype=np.float64)
-        th = float(self.theta)
-        # Saturated NB log-likelihood at y (count density at mean y):
-        # keep y==0 exact (contributes 0) instead of epsilon-shifting.
-        term = (
-            gammaln(y + th)
-            - gammaln(th)
-            - gammaln(y + 1.0)
-            + th * np.log(th / (th + y))
-        )
-        mask = y > 0.0
-        term[mask] += y[mask] * np.log(y[mask] / (th + y[mask]))
-        return float(np.sum(weights * term))
-
-    def working_weight_derivative_eta(self, eta, y=None):
-        mu = np.clip(self.inverse_link(eta), self.eps, None)
-        th = float(self.theta)
-        denom = np.clip(th + mu, self.eps, None)
-        if y is None:
-            # Fisher-weight derivative fallback: d/deta [th*mu/(th+mu)].
-            return (th**2) * mu / np.clip(denom**2, self.eps, None)
-        y = np.asarray(y, dtype=np.float64)
-        # Exact derivative of P-IRLS Newton working weights w.r.t. eta:
-        # w = wf * alpha, with wf = th*mu/(th+mu),
-        # alpha = 1 + (y-mu)/(th+mu).
-        num = mu * th * (th + y) * (th - mu)
-        return num / np.clip(denom**3, self.eps, None)
-
-    def working_weight_second_derivative_eta(self, eta, y=None):
-        mu = np.clip(self.inverse_link(eta), self.eps, None)
-        th = float(self.theta)
-        denom = np.clip(th + mu, self.eps, None)
-        if y is None:
-            # Fisher-weight second derivative fallback.
-            return (th**2) * mu * (th - mu) / np.clip(denom**3, self.eps, None)
-        y = np.asarray(y, dtype=np.float64)
-        # Exact second derivative of P-IRLS Newton working weights w.r.t. eta.
-        num = mu * th * (th + y) * (mu**2 - 4.0 * mu * th + th**2)
-        return num / np.clip(denom**4, self.eps, None)
-
-# --- End of nampy/gam/families/exponential.py ---
+# --- End of nampy/gam/families/family_base.py ---
 
 # --- Start of nampy/gam/families/registry.py ---
-from .base import BaseFamily
 from .exponential import (
-    GaussianIdentityFamily,
+    BinomialCloglogFamily,
     BinomialLogitFamily,
-    PoissonLogFamily,
+    BinomialProbitFamily,
+    GammaInverseFamily,
     GammaLogFamily,
+    GaussianIdentityFamily,
     NegativeBinomialLogFamily,
+    PoissonLogFamily,
 )
+from .family_base import BaseFamily
+
+_BINOMIAL_LINK_MAP = {
+    "logit": BinomialLogitFamily,
+    "probit": BinomialProbitFamily,
+    "cloglog": BinomialCloglogFamily,
+}
+
+_GAMMA_LINK_MAP = {
+    "log": GammaLogFamily,
+    "inverse": GammaInverseFamily,
+}
 
 
 def make_gam_family(family):
@@ -1004,8 +1669,18 @@ def make_gam_family(family):
 
     if isinstance(family, dict):
         name = str(family.get("name", "")).lower()
+        link = str(family.get("link", "")).lower() or None
         if name in {"negbin", "negativebinomial", "negative_binomial"}:
-            return NegativeBinomialLogFamily(theta=family.get("theta", 1.0))
+            return NegativeBinomialLogFamily(
+                theta=family.get("theta", 1.0),
+                estimate_theta=bool(family.get("estimate_theta", False)),
+            )
+        if name in {"binomial", "bernoulli", "logistic"}:
+            cls = _BINOMIAL_LINK_MAP.get(link or "logit", BinomialLogitFamily)
+            return cls()
+        if name in {"gamma"}:
+            cls = _GAMMA_LINK_MAP.get(link or "log", GammaLogFamily)
+            return cls()
         family = name
 
     if isinstance(family, tuple) and len(family) == 2:
@@ -1013,7 +1688,10 @@ def make_gam_family(family):
         spec = family[1]
         if key in {"negbin", "negativebinomial", "negative_binomial"}:
             if isinstance(spec, dict):
-                return NegativeBinomialLogFamily(theta=spec.get("theta", 1.0))
+                return NegativeBinomialLogFamily(
+                    theta=spec.get("theta", 1.0),
+                    estimate_theta=bool(spec.get("estimate_theta", False)),
+                )
             return NegativeBinomialLogFamily(theta=spec)
         family = key
 
@@ -1033,6 +1711,7 @@ def make_gam_family(family):
         f"Unknown GAM family {family!r}. "
         "Valid options: gaussian, binomial, poisson, gamma, negbin."
     )
+
 # --- End of nampy/gam/families/registry.py ---
 
 # --- Start of nampy/gam/formula/compiler.py ---
@@ -1052,7 +1731,7 @@ from dataclasses import replace
 
 import numpy as np
 
-from ..specs import LinearPredictorSpec, TermSpec
+from ..specs import LinearPredictorSpec, TermSpec, build_smooth_spec
 from .parser import ParsedGAMFormula, ParsedParametricTerm, ParsedSmoothTerm
 
 
@@ -1102,12 +1781,26 @@ def _default_k_for_basis(basis, default_k):
     return default_k
 
 
+def _default_basis_for_kind(kind, default_basis):
+    kind_key = str(kind).lower()
+    if kind_key == "s":
+        # Match mgcv: bare s(...) defaults to thin-plate regression splines.
+        return "tp" if default_basis is None else default_basis
+    if default_basis is not None and isinstance(default_basis, (list, tuple)):
+        return default_basis
+    return "cr"
+
+
 def _knots_for_features(knots, features):
     if knots is None:
         return None
     if isinstance(knots, dict):
         vals = [knots.get(str(f), None) for f in features]
-        return None if all(v is None for v in vals) else vals[0] if len(features) == 1 else vals
+        return (
+            None
+            if all(v is None for v in vals)
+            else vals[0] if len(features) == 1 else vals
+        )
     return knots
 
 
@@ -1115,11 +1808,15 @@ def compile_predictor_specs_from_formula(
     parsed: ParsedGAMFormula,
     *,
     default_k=10,
-    default_basis="cr",
+    default_basis=None,
     default_select=False,
     knots=None,
-):
+    available_columns=None,
+) -> list[LinearPredictorSpec]:
     predictor_specs = []
+    available_column_names = None
+    if available_columns is not None:
+        available_column_names = {str(col) for col in available_columns}
 
     for i, pf in enumerate(parsed.predictors):
         terms = []
@@ -1150,12 +1847,24 @@ def compile_predictor_specs_from_formula(
             features = list(term.features)
             kw = dict(term.kwargs)
 
-            basis = kw.pop("bs", kw.pop("basis", default_basis))
+            basis = kw.pop(
+                "bs",
+                kw.pop("basis", _default_basis_for_kind(kind, default_basis)),
+            )
             if "k" in kw:
                 k = kw.pop("k")
             else:
                 k = _default_k_for_basis(basis, default_k)
             by = kw.pop("by", None)
+            if by is not None:
+                by = str(by)
+                if (
+                    available_column_names is not None
+                    and by not in available_column_names
+                ):
+                    raise KeyError(
+                        f"by column {by!r} not found in available data columns."
+                    )
             smoothing_id = kw.pop("id", kw.pop("smoothing_id", None))
             fixed = _coerce_fx(kw.pop("fx", False))
             select = bool(kw.pop("select", default_select))
@@ -1175,30 +1884,28 @@ def compile_predictor_specs_from_formula(
                 )
 
             term_knots = _knots_for_features(knots, features)
-            basis_options = {
-                "special": kind,
-                "bs": basis,
-                "k": k,
-                "fx": fixed,
-                "select": select,
-                "m": m,
-                "xt": xt,
-                "sp": sp,
-                "pc": pc,
-                "knots": term_knots,
-                "constraint_mode": "auto",
-                "shared_basis_setup": None,
-                "mc": mc,
-                "full": full,
-                "ord": ord_,
-            }
-
             terms.append(
                 TermSpec(
                     kind="smooth",
                     features=tuple(str(f) for f in features),
                     by_variable=by,
-                    basis_options=basis_options,
+                    smooth_spec=build_smooth_spec(
+                        special=kind,
+                        bs=basis,
+                        k=k,
+                        fx=fixed,
+                        select=select,
+                        m=m,
+                        xt=xt,
+                        sp=sp,
+                        pc=pc,
+                        knots=term_knots,
+                        constraint_mode="auto",
+                        shared_basis_setup=None,
+                        mc=mc,
+                        full=full,
+                        ord_=ord_,
+                    ),
                     smoothing_id=(None if smoothing_id is None else str(smoothing_id)),
                     label=term.raw_label,
                     metadata={"formula_term": term.raw_label},
@@ -1284,6 +1991,7 @@ class ParsedGAMFormula:
 
 def _contains_standalone_dot(rhs: str) -> bool:
     import re
+
     return re.search(r"(^|[~+\-(),\s])\.([~+\-(),\s]|$)", rhs) is not None
 
 
@@ -1312,8 +2020,7 @@ def _ast_to_value(node):
         return [_ast_to_value(elt) for elt in node.elts]
     if isinstance(node, ast.Dict):
         return {
-            _ast_to_value(k): _ast_to_value(v)
-            for k, v in zip(node.keys, node.values)
+            _ast_to_value(k): _ast_to_value(v) for k, v in zip(node.keys, node.values)
         }
     if isinstance(node, ast.Call):
         func_name = _call_name(node.func)
@@ -1322,13 +2029,12 @@ def _ast_to_value(node):
                 raise NotImplementedError(
                     "positional arguments to list(...) are not supported in formulas."
                 )
-            return {
-                kw.arg: _ast_to_value(kw.value)
-                for kw in node.keywords
-            }
+            return {kw.arg: _ast_to_value(kw.value) for kw in node.keywords}
         if func_name == "c":
             if node.keywords:
-                raise NotImplementedError("keyword arguments to c(...) are not supported.")
+                raise NotImplementedError(
+                    "keyword arguments to c(...) are not supported."
+                )
             return [_ast_to_value(arg) for arg in node.args]
         raise NotImplementedError(
             f"Unsupported formula value expression: {ast.dump(node, include_attributes=False)}"
@@ -1385,7 +2091,9 @@ def _parse_smooth_call(node, rhs_src: str):
     kwargs = {}
     for kw in node.keywords:
         if kw.arg is None:
-            raise NotImplementedError("**kwargs style smooth specification is not supported.")
+            raise NotImplementedError(
+                "**kwargs style smooth specification is not supported."
+            )
         kwargs[kw.arg] = _ast_to_value(kw.value)
 
     raw_label = _source_segment(rhs_src, node, f"{kind}({', '.join(features)})")
@@ -1401,7 +2109,9 @@ def _parse_offset_call(node):
     if _call_name(node.func) != "offset":
         raise ValueError("Expected an offset(...) call.")
     if len(node.args) != 1 or len(node.keywords) != 0:
-        raise NotImplementedError("offset(...) currently supports exactly one bare variable name.")
+        raise NotImplementedError(
+            "offset(...) currently supports exactly one bare variable name."
+        )
     return _ast_to_feature_name(node.args[0])
 
 
@@ -1421,18 +2131,18 @@ def _parametric_termsets(node):
         left = _parametric_termsets(node.left)
         right = _parametric_termsets(node.right)
         out = set(left) | set(right)
-        for l in left:
-            for r in right:
-                out.add(_ordered_union(l, r))
+        for left_term in left:
+            for right_term in right:
+                out.add(_ordered_union(left_term, right_term))
         return out
 
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.MatMult):
         left = _parametric_termsets(node.left)
         right = _parametric_termsets(node.right)
         out = set()
-        for l in left:
-            for r in right:
-                out.add(_ordered_union(l, r))
+        for left_term in left:
+            for right_term in right:
+                out.add(_ordered_union(left_term, right_term))
         return out
 
     raise NotImplementedError(
@@ -1485,7 +2195,9 @@ def _parse_single_formula(formula: str) -> ParsedPredictorFormula:
 
             if fname == "offset":
                 if sign < 0:
-                    raise NotImplementedError("Negative offset terms are not supported.")
+                    raise NotImplementedError(
+                        "Negative offset terms are not supported."
+                    )
                 off = _parse_offset_call(node)
                 if offset_name is not None and offset_name != off:
                     raise NotImplementedError(
@@ -1494,16 +2206,14 @@ def _parse_single_formula(formula: str) -> ParsedPredictorFormula:
                 offset_name = off
                 continue
 
-            raise NotImplementedError(
-                f"Unsupported call in formula RHS: {fname}(...)"
-            )
+            raise NotImplementedError(f"Unsupported call in formula RHS: {fname}(...)")
 
         try:
             termsets = _parametric_termsets(node)
-        except NotImplementedError:
+        except NotImplementedError as err:
             raise NotImplementedError(
                 f"Unsupported formula term: {ast.dump(node, include_attributes=False)}"
-            )
+            ) from err
 
         if sign < 0:
             raise NotImplementedError(
@@ -1577,454 +2287,63 @@ __all__ = [
 # --- End of nampy/gam/formula/parser.py ---
 
 # --- Start of nampy/gam/smooths/base.py ---
-"""
-Runtime smooth term base class and shared helpers (Stage 2 of the pipeline).
+"""Backward-compatible imports for renamed smooth base module."""
 
-:class:`BaseSmoothTerm`
-    Abstract base for all runtime smooth terms.  Each concrete subclass
-    implements the fit/transform/predict interface and provides penalty
-    specifications via :meth:`get_penalty_definitions`.
-
-    Key properties (must be valid after :meth:`fit`):
-        - ``basis_train``: design matrix built from training data.
-        - ``penalties``: list of penalty matrices.
-        - ``n_coef``: number of coefficient columns.
-
-    Optional delegation (by-variable and constraint handling may be
-    delegated to the Stage-3 wrapper in constructors.py):
-        - ``constraint_mode``: ``"auto"``, ``"always"``, ``"never"``, ``"factor_by"``.
-        - ``delegate_constraint``: if True, the term returns the raw unconstrained
-          basis and lets the wrapper apply sum-to-zero or factor-by absorption.
-
-Supporting helpers:
-    :func:`_resolve_feature`, :class:`ByState`, :class:`FeatureMatrixState`
-    provide feature-index resolution and by-variable state.
-"""
-
-import abc
-from dataclasses import dataclass
-
-import numpy as np
-
-from ..penalties import (
-    build_null_space_selection_spec,
-    make_penalty_spec,
-    normalize_penalty_spec,
+from .smooth_base import (
+    RUNTIME_TERM_INTERFACE_CHECKLIST,
+    BaseSmoothTerm,
+    ByState,
+    FeatureMatrixState,
+    _column_from_matrix,
+    _is_effectively_constant,
+    _normalize_knots,
+    _normalize_mc,
+    _normalize_point_constraint,
+    _normalize_point_constraint_vector,
+    _resolve_feature,
+    _resolve_numeric_by,
+    apply_numeric_by,
+    build_penalty_definition,
+    build_selection_penalty_definition,
+    by_values_from_new_data,
+    column_as_float,
+    column_as_object,
+    columns_as_float_matrix,
+    resolve_by_state,
+    resolve_feature_matrix_state,
+    sync_by_state_attributes,
+    term_penalty_metadata,
 )
 
-
-def _resolve_feature(feature, feature_names):
-    if isinstance(feature, int):
-        idx = int(feature)
-        if idx < 0 or idx >= len(feature_names):
-            raise IndexError(
-                f"Feature index {idx} out of range for {len(feature_names)} features."
-            )
-        return idx, feature_names[idx]
-
-    feature_name = str(feature)
-    if feature_name not in feature_names:
-        raise KeyError(
-            f"Feature {feature_name!r} not found in feature_names={feature_names}."
-        )
-    return feature_names.index(feature_name), feature_name
-
-
-def _resolve_numeric_by(by, X, feature_names):
-    if by is None:
-        return None, None, None
-    idx, name = _resolve_feature(by, feature_names)
-    z = np.asarray(X[:, idx], dtype=np.float64).ravel()
-    if z.ndim != 1:
-        raise ValueError("Numeric `by` variables must resolve to a 1D column.")
-    return idx, name, z
-
-
-@dataclass
-class ByState:
-    feature_index: int | None
-    feature_name: str | None
-    values: np.ndarray | None
-    is_present: bool
-    is_constant: bool
-
-    @property
-    def index(self):
-        return self.feature_index
-
-    @property
-    def name(self):
-        return self.feature_name
-
-
-ByVariableState = ByState
-
-
-@dataclass
-class FeatureMatrixState:
-    indices: list[int]
-    names: list[str]
-    matrix: np.ndarray
-
-
-def resolve_by_state(by, X, feature_names):
-    if by is None:
-        return ByState(None, None, None, False, True)
-    idx, name, z = _resolve_numeric_by(by, X, feature_names)
-    return ByState(idx, name, z, True, _is_effectively_constant(z))
-
-
-def resolve_feature_matrix_state(features, X, feature_names):
-    feats = list(features) if not isinstance(features, (str, int)) else [features]
-    indices, names = [], []
-    for feat in feats:
-        idx, fname = _resolve_feature(feat, feature_names)
-        indices.append(idx)
-        names.append(fname)
-    X_arr = np.asarray(X)
-    Xf = np.column_stack([np.asarray(X_arr[:, idx], dtype=np.float64) for idx in indices])
-    return FeatureMatrixState(indices=indices, names=names, matrix=Xf)
-
-
-def sync_by_state_attributes(term, by_state: ByVariableState):
-    term._by_state = by_state
-    term._by_index = by_state.feature_index
-    term._by_name = by_state.feature_name
-    term._by_values = by_state.values
-    term._by_is_constant = bool(by_state.is_constant)
-
-
-def by_values_from_new_data(X_new, by_state: ByVariableState):
-    if by_state is None or not by_state.is_present:
-        return None
-    return column_as_float(X_new, by_state.feature_index)
-
-
-def _column_from_matrix(X, index):
-    idx = int(index)
-    if hasattr(X, "iloc"):
-        return X.iloc[:, idx].to_numpy()
-    return X[:, idx]
-
-
-def column_as_float(X, index):
-    return np.asarray(_column_from_matrix(X, index), dtype=np.float64).ravel()
-
-
-def column_as_object(X, index):
-    return np.asarray(_column_from_matrix(X, index), dtype=object).ravel()
-
-
-def columns_as_float_matrix(X, indices):
-    return np.column_stack([column_as_float(X, idx) for idx in list(indices)])
-
-
-def apply_numeric_by(B, z, allow_missing=False):
-    B = np.asarray(B, dtype=np.float64)
-    if z is None:
-        return B
-    z = np.asarray(z, dtype=np.float64).ravel()
-    if B.shape[0] != z.shape[0]:
-        raise ValueError(
-            f"Numeric by vector length {z.shape[0]} does not match basis rows {B.shape[0]}."
-        )
-    if not allow_missing:
-        return B * z[:, None]
-    out = np.zeros_like(B)
-    ok = np.isfinite(z)
-    out[ok, :] = B[ok, :] * z[ok][:, None]
-    return out
-
-
-def _sp_mode_value(sp_j):
-    if sp_j is None:
-        return None, None
-    if sp_j >= 0:
-        return "fixed", float(sp_j)
-    return "estimate", None
-
-
-def term_penalty_metadata(term, extra=None, *, is_selection_penalty=False):
-    meta = {
-        "term_type": term.term_type,
-        "basis_name": term.basis_name,
-        "feature": term.feature,
-        "label": term.label,
-        "by": term.by,
-        "by_name": getattr(term, "_by_name", None),
-        "by_is_constant": bool(getattr(term, "_by_is_constant", True)),
-        "is_selection_penalty": bool(is_selection_penalty),
-    }
-    if extra:
-        meta.update(dict(extra))
-    return meta
-
-
-def build_penalty_definition(term, matrix, *, kind="smooth", smoothing_id=None, sp_value_in=None, rank=None, null_space_dim=None, is_null_space_penalty=False, metadata_extra=None):
-    sp_mode, sp_value = _sp_mode_value(sp_value_in)
-    return make_penalty_spec(
-        matrix=np.asarray(matrix, dtype=np.float64),
-        smoothing_id=smoothing_id,
-        kind=kind,
-        sp_mode=sp_mode,
-        sp_value=sp_value,
-        is_null_space_penalty=bool(is_null_space_penalty),
-        metadata=term_penalty_metadata(
-            term, extra=metadata_extra, is_selection_penalty=False
-        ),
-    )
-
-
-def build_selection_penalty_definition(term, matrix, *, rank, null_space_dim, smoothing_id, metadata_extra=None):
-    return make_penalty_spec(
-        matrix=np.asarray(matrix, dtype=np.float64),
-        smoothing_id=smoothing_id,
-        kind="null_space",
-        is_null_space_penalty=True,
-        sp_mode=None,
-        sp_value=None,
-        metadata=term_penalty_metadata(
-            term, extra=metadata_extra, is_selection_penalty=True
-        ),
-    )
-
-
-def _normalize_knots(knots, features):
-    if knots is None:
-        return [None] * len(features)
-    if isinstance(knots, dict):
-        return [knots.get(str(f), None) for f in features]
-    if isinstance(knots, (list, tuple)):
-        if len(knots) == len(features):
-            return list(knots)
-        if len(features) == 1:
-            return [knots]
-        raise ValueError(f"knots must have length {len(features)} for features={features}, got {len(knots)}.")
-    if len(features) == 1:
-        return [knots]
-    raise TypeError("knots must be None, dict, or list/tuple aligned with features.")
-
-
-def _is_effectively_constant(z, tol=1e-12):
-    z = np.asarray(z, dtype=np.float64).ravel()
-    if z.size == 0:
-        return True
-    return bool(np.max(np.abs(z - z[0])) <= tol)
-
-
-def _normalize_mc(mc, n_marginals):
-    if mc is None:
-        return [True] * n_marginals
-    if np.isscalar(mc):
-        return [bool(mc)] * n_marginals
-    mc_list = [bool(v) for v in mc]
-    if len(mc_list) != n_marginals:
-        raise ValueError(f"mc must have length {n_marginals}, got {mc_list}.")
-    return mc_list
-
-
-def _normalize_point_constraint(pc, feature_name):
-    if pc is None:
-        return None
-    if np.isscalar(pc):
-        return float(pc)
-    if isinstance(pc, dict):
-        if feature_name in pc:
-            return float(pc[feature_name])
-        if len(pc) == 1:
-            return float(next(iter(pc.values())))
-        raise NotImplementedError("1D point constraint dict incompatible.")
-    if isinstance(pc, (list, tuple, np.ndarray)):
-        vals = np.asarray(pc, dtype=np.float64).ravel()
-        if vals.size != 1:
-            raise NotImplementedError("Only 1D point constraints supported.")
-        return float(vals[0])
-    raise NotImplementedError(f"Unsupported pc type {type(pc)}.")
-
-
-RUNTIME_TERM_INTERFACE_CHECKLIST = (
-    "basis_train",
-    "transform_new",
-    "get_penalty_definitions",
-    "label",
-    "basis_name",
-    "term_type",
-    "feature",
-    "constraints_absorbed",
-    "fit_constraint_matrix",
-    "predict_constraint_matrix",
-    "prediction_offset",
-    "metadata",
-)
-
-
-class BaseSmoothTerm(abc.ABC):
-    """
-    Abstract base class for all GAM runtime smooth terms.
-
-    A runtime term is the canonical owner of basis semantics for its smooth
-    family (architecture section 3.1).  Subclasses must implement:
-
-        fit(X, feature_names)  ->  self
-            Fit the basis and penalties to training data.  Sets ``_basis_train``
-            and ``_penalties`` on ``self``.
-
-        transform_new(X_new)   ->  np.ndarray, shape (n_new, n_coef)
-            Evaluate the basis at new observations using the same coefficient
-            parameterisation as ``basis_train``.
-
-    After fitting, the following properties must be available:
-
-        basis_train              final training design block
-        get_penalty_definitions  list of PenaltySpec via penalty subsystem
-        label, basis_name, term_type, feature
-        constraints_absorbed     True if this term already absorbed its constraints
-        fit_constraint_matrix    explicit constraint matrix, or None
-        predict_constraint_matrix
-        prediction_offset
-
-    Contract
-    --------
-    - ``basis_train.shape[1] == S.shape[0] == S.shape[1]`` for every penalty S.
-    - If a coefficient transform T was applied during fit, penalties satisfy
-      ``S_fitted = T.T @ S_raw @ T``.
-    - By-variable handling is done either by the runtime term OR delegated to
-      the stage-3 construction wrapper via ``by_done = False`` — never both.
-    - Constraint absorption is done either by the runtime term OR delegated to
-      the stage-3 wrapper via ``constraints_absorbed = False`` — never both.
-    """
-
-    term_type = "smooth"
-    basis_name = "unknown"
-    supports_tensor_marginal = False
-
-    def __init__(self, feature, label=None, smoothing_id=None, by=None, sp=None, metadata=None):
-        self.feature = feature
-        self.label = label or str(feature)
-        self.smoothing_id = smoothing_id
-        self.by = by
-        self.sp = sp
-        self.metadata = dict(metadata or {})
-        self.resolved_feature_names = None
-        self.by_done = True
-        self.constraints_absorbed = True
-        self.n_constraints_absorbed = 0
-        self.constraint_kind = None
-        self.constraint_transform = None
-        self.constraints_absorbed_by = None
-        self.fit_constraint_matrix = None
-        self.predict_constraint_matrix = None
-        self.prediction_offset = None
-        self.basis_train_base = None
-        self.knots = None
-
-    def _set_resolved_features(self, resolved_feature_names):
-        if resolved_feature_names is None:
-            self.resolved_feature_names = None
-        else:
-            self.resolved_feature_names = list(resolved_feature_names)
-
-    def _record_constraint_result(self, kind, transform, *, absorbed_by):
-        self.constraint_kind = kind
-        self.constraint_transform = transform
-        self.fit_constraint_matrix = transform
-        self.predict_constraint_matrix = transform
-        self.constraints_absorbed_by = absorbed_by
-        self.constraints_absorbed = bool(transform is not None)
-        if transform is None:
-            self.n_constraints_absorbed = 0
-        else:
-            self.n_constraints_absorbed = int(max(0, transform.shape[0] - transform.shape[1]))
-
-    @abc.abstractmethod
-    def fit(self, X, feature_names):
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def transform_new(self, X_new):
-        raise NotImplementedError
-
-    def _require_fitted(self):
-        if getattr(self, "_basis_train", None) is None:
-            raise RuntimeError("Term is not fitted.")
-
-    @property
-    def basis_train(self):
-        self._require_fitted()
-        return self._basis_train
-
-    @property
-    def penalties(self):
-        self._require_fitted()
-        return self._penalties
-
-    @property
-    def n_coef(self):
-        self._require_fitted()
-        return int(self._basis_train.shape[1])
-
-    def transform_new_base(self, X_new):
-        return self.transform_new(X_new)
-
-    def _normalized_term_sp(self, n_penalties):
-        if n_penalties <= 0:
-            return []
-        if self.sp is None:
-            return [None] * n_penalties
-        if np.isscalar(self.sp):
-            if n_penalties != 1:
-                raise NotImplementedError("Multi-penalty term-level sp must supply one value per penalty.")
-            vals = [float(self.sp)]
-        else:
-            vals = np.asarray(self.sp, dtype=np.float64).ravel()
-            if vals.size != n_penalties:
-                raise ValueError(f"term-level sp must have length {n_penalties}, got {vals.size}.")
-            vals = [float(v) for v in vals]
-        return vals
-
-    def get_penalty_definitions(self):
-        raw = list(self.penalties)
-        n_raw = len(raw)
-        sp_vals = self._normalized_term_sp(n_raw)
-        defs = []
-        for j, P in enumerate(raw):
-            if self.smoothing_id is None:
-                sid = None
-            elif n_raw <= 1:
-                sid = str(self.smoothing_id)
-            else:
-                sid = f"{self.smoothing_id}::{j}"
-            sp_j = sp_vals[j] if j < len(sp_vals) else None
-            if sp_j is None:
-                sp_mode, sp_value = None, None
-            elif sp_j >= 0:
-                sp_mode, sp_value = "fixed", float(sp_j)
-            else:
-                sp_mode, sp_value = "estimate", None
-            defs.append(
-                make_penalty_spec(
-                    matrix=np.asarray(P, dtype=np.float64),
-                    smoothing_id=sid,
-                    kind="smooth",
-                    sp_mode=sp_mode,
-                    sp_value=sp_value,
-                    metadata={
-                        "term_type": self.term_type,
-                        "basis_name": self.basis_name,
-                        "feature": self.feature,
-                        "label": self.label,
-                        "by": self.by,
-                        "term_sp": sp_j,
-                    },
-                )
-            )
-        return defs
+__all__ = [
+    "RUNTIME_TERM_INTERFACE_CHECKLIST",
+    "BaseSmoothTerm",
+    "ByState",
+    "FeatureMatrixState",
+    "_column_from_matrix",
+    "_is_effectively_constant",
+    "_normalize_knots",
+    "_normalize_mc",
+    "_normalize_point_constraint",
+    "_normalize_point_constraint_vector",
+    "_resolve_feature",
+    "_resolve_numeric_by",
+    "apply_numeric_by",
+    "build_penalty_definition",
+    "build_selection_penalty_definition",
+    "by_values_from_new_data",
+    "column_as_float",
+    "column_as_object",
+    "columns_as_float_matrix",
+    "resolve_by_state",
+    "resolve_feature_matrix_state",
+    "sync_by_state_attributes",
+    "term_penalty_metadata",
+]
 
 # --- End of nampy/gam/smooths/base.py ---
 
 # --- Start of nampy/gam/smooths/registry.py ---
-import numpy as np
-
 _SMOOTH_REGISTRY = {}
 
 
@@ -2055,7 +2374,15 @@ def make_smooth_term(kind: str, *args, **kwargs):
 
 # --- Start of nampy/gam/specs/base.py ---
 from dataclasses import dataclass, field
-from typing import Any
+from types import MappingProxyType
+from typing import Any, Mapping
+from uuid import uuid4
+
+from .smooth import SmoothSpec, smooth_spec_from_basis_options
+
+
+def _make_term_id() -> str:
+    return uuid4().hex[:12]
 
 
 @dataclass(frozen=True)
@@ -2067,10 +2394,31 @@ class TermSpec:
     kind: str
     features: tuple[str, ...] = ()
     by_variable: str | None = None
-    basis_options: dict[str, Any] = field(default_factory=dict)
+    smooth_spec: SmoothSpec | None = None
+    basis_options: Mapping[str, Any] = field(default_factory=dict)
     smoothing_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     label: str | None = None
+    term_id: str = field(default_factory=_make_term_id)
+
+    def __post_init__(self) -> None:
+        smooth_spec = self.smooth_spec
+        basis_options = dict(self.basis_options)
+
+        if self.kind == "smooth":
+            if smooth_spec is None:
+                smooth_spec = smooth_spec_from_basis_options(basis_options)
+            basis_options = smooth_spec.to_basis_options()
+        else:
+            smooth_spec = None
+            basis_options = {}
+
+        object.__setattr__(self, "smooth_spec", smooth_spec)
+        object.__setattr__(
+            self,
+            "basis_options",
+            MappingProxyType(basis_options),
+        )
 
 # --- End of nampy/gam/specs/base.py ---
 
@@ -2078,11 +2426,22 @@ class TermSpec:
 from dataclasses import dataclass, field
 from typing import Any
 
+from .base import TermSpec
+
+
+@dataclass
+class PenaltyGroupSpec:
+    smoothing_id: str
+    term_ids: list[str] = field(default_factory=list)
+    labels: list[str] = field(default_factory=list)
+    sp_count: int | None = None
+    sp_indices: list[int] = field(default_factory=list)
+
 
 @dataclass
 class LinearPredictorSpec:
     name: str = "eta"
-    terms: list = field(default_factory=list)
+    terms: list[TermSpec] = field(default_factory=list)
     has_intercept: bool = False
     parameter_name: str | None = None
     offset_name: str | None = None
@@ -2090,51 +2449,388 @@ class LinearPredictorSpec:
 
 # --- End of nampy/gam/specs/predictors.py ---
 
-# --- Start of nampy/splines/constraints.py ---
-import numpy as np
+# --- Start of nampy/gam/specs/smooth.py ---
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, replace
+from typing import Any, Mapping, Sequence, Union
 
 
-def identconst(basis, penalty):
-    """
-    Absorb identifiability (sum-to-zero) constraint into basis/penalty.
-    """
-    basis = np.asarray(basis, dtype=np.float64)
-    penalty = np.asarray(penalty, dtype=np.float64)
+@dataclass(frozen=True)
+class BaseSmoothSpec:
+    special: str
+    bs: Any
+    k: Any = -1
+    fx: bool = False
+    select: bool = False
+    sp: Any = None
+    knots: Any = None
 
-    constraint_matrix = basis.mean(axis=0).reshape(-1, 1)
-    q, _ = np.linalg.qr(constraint_matrix, mode="complete")
-    penalty = np.double(np.linalg.multi_dot([np.transpose(q[:, 1:]), penalty, q[:, 1:]]))
-    basis = basis @ q[:, 1:]
-    return basis, penalty, q[:, 1:]
-
-# --- End of nampy/splines/constraints.py ---
-
-# --- Start of nampy/splines/penalty_scaling.py ---
-import numpy as np
+    def to_basis_options(self) -> dict[str, Any]:
+        return asdict(self)
 
 
-def scale_penalty(basis, penalty):
-    """
-    Rescale the penalty matrix based on the smoother design matrix.
-    """
-    basis = np.asarray(basis, dtype=np.float64)
-    penalty = np.asarray(penalty, dtype=np.float64)
+@dataclass(frozen=True)
+class CubicRegressionSmoothSpec(BaseSmoothSpec):
+    bs: str = "cr"
+    constraint_mode: str = "auto"
+    shared_basis_setup: Any = None
+    pc: Any = None
 
-    X_inf_norm = max(np.sum(np.abs(basis), axis=1)) ** 2
-    S_norm = np.linalg.norm(penalty, ord=1)
 
-    if X_inf_norm <= 0 or S_norm <= 0:
-        return penalty.copy()
+@dataclass(frozen=True)
+class CyclicCubicRegressionSmoothSpec(BaseSmoothSpec):
+    bs: str = "cc"
+    constraint_mode: str = "auto"
+    shared_basis_setup: Any = None
+    pc: Any = None
 
-    norm = S_norm / X_inf_norm
-    return penalty / norm
 
-# --- End of nampy/splines/penalty_scaling.py ---
+@dataclass(frozen=True)
+class CubicShrinkageSmoothSpec(BaseSmoothSpec):
+    bs: str = "cs"
+    constraint_mode: str = "auto"
+    shared_basis_setup: Any = None
+    pc: Any = None
+
+
+@dataclass(frozen=True)
+class PSplineSmoothSpec(BaseSmoothSpec):
+    bs: str = "ps"
+    m: Any = None
+    constraint_mode: str = "auto"
+    pc: Any = None
+
+
+@dataclass(frozen=True)
+class ThinPlateSmoothSpec(BaseSmoothSpec):
+    bs: str = "tp"
+    m: Any = None
+    xt: Any = None
+    constraint_mode: str = "auto"
+    pc: Any = None
+
+
+@dataclass(frozen=True)
+class ThinPlateShrinkageSmoothSpec(BaseSmoothSpec):
+    bs: str = "ts"
+    m: Any = None
+    xt: Any = None
+    constraint_mode: str = "auto"
+    pc: Any = None
+
+
+@dataclass(frozen=True)
+class GPSmoothSpec(BaseSmoothSpec):
+    bs: str = "gp"
+    m: Any = None
+    xt: Any = None
+    constraint_mode: str = "auto"
+    pc: Any = None
+
+
+@dataclass(frozen=True)
+class MarkovRandomFieldSmoothSpec(BaseSmoothSpec):
+    bs: str = "mrf"
+    xt: Any = None
+
+
+@dataclass(frozen=True)
+class RandomEffectSmoothSpec(BaseSmoothSpec):
+    bs: str = "re"
+    xt: Any = None
+
+
+@dataclass(frozen=True)
+class FactorSmoothInteractionSpec(BaseSmoothSpec):
+    bs: str = "fs"
+    xt: Any = None
+
+
+@dataclass(frozen=True)
+class SumToZeroFactorSmoothSpec(BaseSmoothSpec):
+    bs: str = "sz"
+    xt: Any = None
+
+
+@dataclass(frozen=True)
+class TensorProductSmoothSpec(BaseSmoothSpec):
+    special: str = "te"
+    bs: Any = "cr"
+
+
+@dataclass(frozen=True)
+class TensorInteractionSmoothSpec(BaseSmoothSpec):
+    special: str = "ti"
+    bs: Any = "cr"
+    mc: Any = None
+
+
+@dataclass(frozen=True)
+class TensorANOVASmoothSpec(BaseSmoothSpec):
+    special: str = "t2"
+    bs: Any = "cr"
+    full: bool = False
+    ord: Any = None
+
+
+SmoothSpec = Union[
+    CubicRegressionSmoothSpec,
+    CyclicCubicRegressionSmoothSpec,
+    CubicShrinkageSmoothSpec,
+    PSplineSmoothSpec,
+    ThinPlateSmoothSpec,
+    ThinPlateShrinkageSmoothSpec,
+    GPSmoothSpec,
+    MarkovRandomFieldSmoothSpec,
+    RandomEffectSmoothSpec,
+    FactorSmoothInteractionSpec,
+    SumToZeroFactorSmoothSpec,
+    TensorProductSmoothSpec,
+    TensorInteractionSmoothSpec,
+    TensorANOVASmoothSpec,
+]
+
+
+def build_smooth_spec(
+    *,
+    special: str,
+    bs: Any,
+    k: Any = -1,
+    fx: bool = False,
+    select: bool = False,
+    m: Any = None,
+    xt: Any = None,
+    sp: Any = None,
+    pc: Any = None,
+    knots: Any = None,
+    constraint_mode: str = "auto",
+    shared_basis_setup: Any = None,
+    mc: Any = None,
+    full: bool = False,
+    ord_: Any = None,
+) -> SmoothSpec:
+    special_key = str(special).lower()
+    if special_key == "s":
+        bs_key = str(bs).lower()
+        if bs_key == "cr":
+            return CubicRegressionSmoothSpec(
+                special="s",
+                k=k,
+                fx=fx,
+                select=select,
+                sp=sp,
+                knots=knots,
+                constraint_mode=constraint_mode,
+                shared_basis_setup=shared_basis_setup,
+                pc=pc,
+            )
+        if bs_key == "cs":
+            return CubicShrinkageSmoothSpec(
+                special="s",
+                k=k,
+                fx=fx,
+                select=select,
+                sp=sp,
+                knots=knots,
+                constraint_mode=constraint_mode,
+                shared_basis_setup=shared_basis_setup,
+                pc=pc,
+            )
+        if bs_key == "cc":
+            return CyclicCubicRegressionSmoothSpec(
+                special="s",
+                k=k,
+                fx=fx,
+                select=select,
+                sp=sp,
+                knots=knots,
+                constraint_mode=constraint_mode,
+                shared_basis_setup=shared_basis_setup,
+                pc=pc,
+            )
+        if bs_key == "ps":
+            return PSplineSmoothSpec(
+                special="s",
+                k=k,
+                fx=fx,
+                select=select,
+                sp=sp,
+                knots=knots,
+                m=m,
+                constraint_mode=constraint_mode,
+                pc=pc,
+            )
+        if bs_key == "tp":
+            return ThinPlateSmoothSpec(
+                special="s",
+                k=k,
+                fx=fx,
+                select=select,
+                sp=sp,
+                knots=knots,
+                m=m,
+                xt=xt,
+                constraint_mode=constraint_mode,
+                pc=pc,
+            )
+        if bs_key == "ts":
+            return ThinPlateShrinkageSmoothSpec(
+                special="s",
+                k=k,
+                fx=fx,
+                select=select,
+                sp=sp,
+                knots=knots,
+                m=m,
+                xt=xt,
+                constraint_mode=constraint_mode,
+                pc=pc,
+            )
+        if bs_key == "gp":
+            return GPSmoothSpec(
+                special="s",
+                k=k,
+                fx=fx,
+                select=select,
+                sp=sp,
+                knots=knots,
+                m=m,
+                xt=xt,
+                constraint_mode=constraint_mode,
+                pc=pc,
+            )
+        if bs_key == "mrf":
+            return MarkovRandomFieldSmoothSpec(
+                special="s",
+                k=k,
+                fx=fx,
+                select=select,
+                sp=sp,
+                knots=knots,
+                xt=xt,
+            )
+        if bs_key == "re":
+            return RandomEffectSmoothSpec(
+                special="s",
+                k=k,
+                fx=fx,
+                select=select,
+                sp=sp,
+                knots=knots,
+                xt=xt,
+            )
+        if bs_key == "fs":
+            return FactorSmoothInteractionSpec(
+                special="s",
+                k=k,
+                fx=fx,
+                select=select,
+                sp=sp,
+                knots=knots,
+                xt=xt,
+            )
+        if bs_key == "sz":
+            return SumToZeroFactorSmoothSpec(
+                special="s",
+                k=k,
+                fx=fx,
+                select=select,
+                sp=sp,
+                knots=knots,
+                xt=xt,
+            )
+        raise NotImplementedError(f"Unsupported s() basis {bs!r}.")
+
+    if special_key == "te":
+        return TensorProductSmoothSpec(
+            special="te",
+            bs=bs,
+            k=k,
+            fx=fx,
+            select=select,
+            sp=sp,
+            knots=knots,
+        )
+    if special_key == "ti":
+        return TensorInteractionSmoothSpec(
+            special="ti",
+            bs=bs,
+            k=k,
+            fx=fx,
+            select=select,
+            sp=sp,
+            knots=knots,
+            mc=mc,
+        )
+    if special_key == "t2":
+        return TensorANOVASmoothSpec(
+            special="t2",
+            bs=bs,
+            k=k,
+            fx=fx,
+            select=select,
+            sp=sp,
+            knots=knots,
+            full=full,
+            ord=ord_,
+        )
+
+    raise NotImplementedError(f"Unsupported smooth special {special!r}.")
+
+
+def smooth_spec_from_basis_options(basis_options: Mapping[str, Any]) -> SmoothSpec:
+    opts = dict(basis_options or {})
+    return build_smooth_spec(
+        special=opts.get("special", "s"),
+        bs=opts.get("bs", "cr"),
+        k=opts.get("k", -1),
+        fx=bool(opts.get("fx", False)),
+        select=bool(opts.get("select", False)),
+        m=opts.get("m", None),
+        xt=opts.get("xt", None),
+        sp=opts.get("sp", None),
+        pc=opts.get("pc", None),
+        knots=opts.get("knots", None),
+        constraint_mode=str(opts.get("constraint_mode", "auto")),
+        shared_basis_setup=opts.get("shared_basis_setup", None),
+        mc=opts.get("mc", None),
+        full=bool(opts.get("full", False)),
+        ord_=opts.get("ord", None),
+    )
+
+
+def replace_smooth_spec(spec: SmoothSpec, **changes: Any) -> SmoothSpec:
+    return replace(spec, **changes)
+
+
+def smooth_spec_basis_name(spec: SmoothSpec) -> Any:
+    return spec.bs
+
+
+def is_s_type(spec: SmoothSpec) -> bool:
+    return spec.special == "s"
+
+
+def tensor_basis_list(spec: Union[TensorProductSmoothSpec, TensorInteractionSmoothSpec, TensorANOVASmoothSpec], n_features: int) -> list[Any]:
+    basis = spec.bs
+    if isinstance(basis, str):
+        return [basis] * n_features
+    if isinstance(basis, Sequence):
+        basis_list = list(basis)
+        if len(basis_list) != n_features:
+            raise ValueError(f"Expected length {n_features}, got {len(basis_list)}.")
+        return basis_list
+    return [basis] * n_features
+
+
+# --- End of nampy/gam/specs/smooth.py ---
 
 # --- Start of nampy/splines/univariate_bases.py ---
 # splines/univariate_bases.py
 import numpy as np
 from scipy.interpolate import BSpline
+from scipy.linalg import eigh as _scipy_eigh
 
 
 def place_knots_through_values(x, nk):
@@ -2177,7 +2873,12 @@ def add_full_rank_shrinkage(S, shrink=0.1, tol=1e-12):
     S = np.asarray(S, dtype=np.float64)
     S = 0.5 * (S + S.T)
 
-    evals, U = np.linalg.eigh(S)
+    # scipy.linalg.eigh (DSYEVR) matches R's eigen(symmetric=TRUE) null-space
+    # eigenvectors to machine precision.  np.linalg.eigh (DSYEVD) finds a
+    # different rotation of the 2-D null space, producing a ~1e-2 penalty
+    # discrepancy for cs after assigning different shrinkage values to the two
+    # null directions.
+    evals, U = _scipy_eigh(S)
     tol_eff = tol * max(1.0, np.max(np.abs(evals)) if evals.size else 1.0)
 
     pos = evals[evals > tol_eff]
@@ -2293,15 +2994,17 @@ def cyclic_cubic_predict_matrix(x, knots, BD):
     j = j.copy()
     j[j == n] = 1
 
-    I = np.eye(n - 1, dtype=np.float64)
+    eye = np.eye(n - 1, dtype=np.float64)
 
     X = (
         BD[j1 - 1, :] * ((knots[j1] - x)[:, None] ** 3) / (6.0 * h[hj - 1])[:, None]
-        + BD[j - 1, :] * ((x - knots[j1 - 1])[:, None] ** 3) / (6.0 * h[hj - 1])[:, None]
+        + BD[j - 1, :]
+        * ((x - knots[j1 - 1])[:, None] ** 3)
+        / (6.0 * h[hj - 1])[:, None]
         - BD[j1 - 1, :] * (h[hj - 1] * (knots[j1] - x) / 6.0)[:, None]
         - BD[j - 1, :] * (h[hj - 1] * (x - knots[j1 - 1]) / 6.0)[:, None]
-        + I[j1 - 1, :] * ((knots[j1] - x) / h[hj - 1])[:, None]
-        + I[j - 1, :] * ((x - knots[j1 - 1]) / h[hj - 1])[:, None]
+        + eye[j1 - 1, :] * ((knots[j1] - x) / h[hj - 1])[:, None]
+        + eye[j - 1, :] * ((x - knots[j1 - 1]) / h[hj - 1])[:, None]
     )
     return np.asarray(X, dtype=np.float64)
 
@@ -2490,12 +3193,14 @@ def pspline_predict_matrix(x, knots, basis_order, deriv=0):
             X[right, :] = np.broadcast_to(dB_ul, (np.sum(right), n_basis))
 
     return X
+
 # --- End of nampy/splines/univariate_bases.py ---
 
 # --- Start of nampy/basemodels/gam.py ---
-#basemodels/gam.py
+# basemodels/gam.py
 import pickle
 import warnings
+from collections.abc import Mapping
 
 import numpy as np
 import pandas as pd
@@ -2503,7 +3208,6 @@ import torch
 
 from ..configs.gam_config import DefaultGAMConfig
 from ..gam.families import make_gam_family
-from ..gam.parity import build_parity_snapshot
 from ..gam.formula import (
     apply_drop_intercept,
     compile_predictor_specs_from_formula,
@@ -2514,7 +3218,8 @@ from ..gam.formula.preprocess import (
     apply_formula_preprocess_to_new_data,
     preprocess_formula_predictor_specs,
 )
-from ..gam.specs import LinearPredictorSpec, TermSpec
+from ..gam.parity import build_parity_snapshot
+from ..gam.specs import LinearPredictorSpec, TermSpec, build_smooth_spec
 from .basemodel import BaseModel
 
 
@@ -2536,7 +3241,7 @@ class GAM(BaseModel):
         self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
 
         self.k = int(self.hparams.get("k", getattr(config, "k", 10)))
-        self.basis = self.hparams.get("basis", getattr(config, "basis", "cr"))
+        self.basis = self.hparams.get("basis", getattr(config, "basis", "tp"))
         self.fit_intercept = bool(
             self.hparams.get("fit_intercept", getattr(config, "fit_intercept", True))
         )
@@ -2544,7 +3249,7 @@ class GAM(BaseModel):
             self.hparams.get("max_irls_iter", getattr(config, "max_irls_iter", 100))
         )
         self.irls_tol = float(
-            self.hparams.get("irls_tol", getattr(config, "irls_tol", 1e-8))
+            self.hparams.get("irls_tol", getattr(config, "irls_tol", 1e-11))
         )
         self.max_step_halving = int(
             self.hparams.get(
@@ -2582,9 +3287,7 @@ class GAM(BaseModel):
             self.hparams.get("covariance", getattr(config, "covariance", "bayes"))
         ).lower()
 
-        self.select = bool(
-            self.hparams.get("select", getattr(config, "select", False))
-        )
+        self.select = bool(self.hparams.get("select", getattr(config, "select", False)))
 
         self.main_effects = bool(
             self.hparams.get("main_effects", getattr(config, "main_effects", True))
@@ -2608,9 +3311,7 @@ class GAM(BaseModel):
         self.formula_ = None
         self.formula_mode_ = False
         self.formula_response_name_ = None
-        self.formula_used_columns_ = None
         self.formula_preprocess_state_ = None
-        self.formula_offset_name_ = None
 
         # mirrored fitted attributes
         self.feature_names = None
@@ -2631,20 +3332,9 @@ class GAM(BaseModel):
         self.smoothing_fixed_mask_ = None
         self.smoothing_override_values_ = None
         self.smoothing_override_modes_ = None
-        self._primary_reparam_sp_index_per_term_ = None
         self.min_sp_ = None
-        self._reparam_meta = None
-        self._reparam_rand_blocks_ = None
-        self._reparam_sp_groups_ = None
-        self._penalty_ranks = None
-        self._penalty_logdet_plus_fixed = None
-        self.X_fix_ = None
-        self.rank_X_fix_ = None
-        self._fix_pivot_keep = None
-        self.Z_rand_ = None
-        self.n_rand_ = None
-        self.ZtZ_rand_ = None
-        self.rand_dims_per_term_ = None
+        self.reparam_state_ = None
+        self.sl_blocks_ = None
         self.intercept_ = None
         self.coef_ = None
         self.coef_full_ = None
@@ -2684,6 +3374,21 @@ class GAM(BaseModel):
 
     def get_device(self):
         return self._device_ref.device
+
+    @property
+    def formula_used_columns_(self):
+        if self.formula_preprocess_state_ is None:
+            return None
+        used_columns = self.formula_preprocess_state_.get("used_columns")
+        if used_columns is None:
+            return None
+        return list(used_columns)
+
+    @property
+    def formula_offset_name_(self):
+        if self.formula_preprocess_state_ is None:
+            return None
+        return self.formula_preprocess_state_.get("offset_name")
 
     # ------------------------------------------------------------------
     # Data handling
@@ -2753,7 +3458,9 @@ class GAM(BaseModel):
             return None if all(v is None for v in vals) else vals
         return knots
 
-    def _dataframe_to_feature_matrix(self, X_df: pd.DataFrame, *, allow_missing_non_numeric=False):
+    def _dataframe_to_feature_matrix(
+        self, X_df: pd.DataFrame, *, allow_missing_non_numeric=False
+    ):
         non_numeric = [
             c for c in X_df.columns if not pd.api.types.is_numeric_dtype(X_df[c])
         ]
@@ -2783,19 +3490,23 @@ class GAM(BaseModel):
         if hasattr(spec, "fit") and callable(spec.fit):
             return spec
 
-        if isinstance(spec, (tuple, list)) and len(spec) >= 2 and not isinstance(spec, dict):
+        if (
+            isinstance(spec, (tuple, list))
+            and len(spec) >= 2
+            and not isinstance(spec, dict)
+        ):
             features = list(spec)
             return TermSpec(
                 kind="smooth",
                 features=tuple(str(f) for f in features),
                 by_variable=None,
-                basis_options={
-                    "special": "te",
-                    "bs": self.basis,
-                    "k": self.k,
-                    "knots": self._knots_for_features(features, knots=knots),
-                    "select": bool(self.select),
-                },
+                smooth_spec=build_smooth_spec(
+                    special="te",
+                    bs=self.basis,
+                    k=self.k,
+                    knots=self._knots_for_features(features, knots=knots),
+                    select=bool(self.select),
+                ),
                 smoothing_id=None,
                 label=f"te({', '.join(map(str, features))})",
                 metadata={},
@@ -2837,7 +3548,8 @@ class GAM(BaseModel):
                 warnings.warn(
                     f"{label}: all ti() marginal constraints are turned off (mc={mc_vals}). "
                     "This leaves the term without identifiability constraints unless the rest "
-                    "of the model provides them."
+                    "of the model provides them.",
+                    stacklevel=2,
                 )
 
         if kind == "t2":
@@ -2845,17 +3557,17 @@ class GAM(BaseModel):
                 kind="smooth",
                 features=tuple(str(f) for f in features),
                 by_variable=by,
-                basis_options={
-                    "special": kind,
-                    "bs": basis,
-                    "k": k,
-                    "full": full,
-                    "ord": ord_,
-                    "fx": fixed,
-                    "select": select,
-                    "sp": sp,
-                    "knots": term_knots,
-                },
+                smooth_spec=build_smooth_spec(
+                    special=kind,
+                    bs=basis,
+                    k=k,
+                    full=full,
+                    ord_=ord_,
+                    fx=fixed,
+                    select=select,
+                    sp=sp,
+                    knots=term_knots,
+                ),
                 smoothing_id=(None if smoothing_id is None else str(smoothing_id)),
                 label=label,
                 metadata=dict(metadata or {}),
@@ -2865,16 +3577,16 @@ class GAM(BaseModel):
             kind="smooth",
             features=tuple(str(f) for f in features),
             by_variable=by,
-            basis_options={
-                "special": kind,
-                "bs": basis,
-                "k": k,
-                "mc": mc,
-                "fx": fixed,
-                "select": select,
-                "sp": sp,
-                "knots": term_knots,
-            },
+            smooth_spec=build_smooth_spec(
+                special=kind,
+                bs=basis,
+                k=k,
+                mc=mc,
+                fx=fixed,
+                select=select,
+                sp=sp,
+                knots=term_knots,
+            ),
             smoothing_id=(None if smoothing_id is None else str(smoothing_id)),
             label=label,
             metadata=dict(metadata or {}),
@@ -2896,15 +3608,15 @@ class GAM(BaseModel):
                             kind="smooth",
                             features=(str(name),),
                             by_variable=None,
-                            basis_options={
-                                "special": "s",
-                                "bs": basis,
-                                "k": self.k,
-                                "sp": None,
-                                "fx": False,
-                                "select": bool(self.select),
-                                "knots": term_knots,
-                            },
+                            smooth_spec=build_smooth_spec(
+                                special="s",
+                                bs=basis,
+                                k=self.k,
+                                sp=None,
+                                fx=False,
+                                select=bool(self.select),
+                                knots=term_knots,
+                            ),
                             smoothing_id=None,
                             label=name,
                             metadata={},
@@ -2916,16 +3628,16 @@ class GAM(BaseModel):
                             kind="smooth",
                             features=(str(name),),
                             by_variable=None,
-                            basis_options={
-                                "special": "s",
-                                "bs": "ps",
-                                "k": self.k,
-                                "m": None,
-                                "sp": None,
-                                "fx": False,
-                                "select": bool(self.select),
-                                "knots": term_knots,
-                            },
+                            smooth_spec=build_smooth_spec(
+                                special="s",
+                                bs="ps",
+                                k=self.k,
+                                m=None,
+                                sp=None,
+                                fx=False,
+                                select=bool(self.select),
+                                knots=term_knots,
+                            ),
                             smoothing_id=None,
                             label=name,
                             metadata={},
@@ -2937,17 +3649,17 @@ class GAM(BaseModel):
                             kind="smooth",
                             features=(str(name),),
                             by_variable=None,
-                            basis_options={
-                                "special": "s",
-                                "bs": basis,
-                                "k": self.k,
-                                "m": None,
-                                "sp": None,
-                                "fx": False,
-                                "select": bool(self.select),
-                                "knots": term_knots,
-                                "xt": None,
-                            },
+                            smooth_spec=build_smooth_spec(
+                                special="s",
+                                bs=basis,
+                                k=self.k,
+                                m=None,
+                                sp=None,
+                                fx=False,
+                                select=bool(self.select),
+                                knots=term_knots,
+                                xt=None,
+                            ),
                             smoothing_id=None,
                             label=name,
                             metadata={},
@@ -2959,18 +3671,18 @@ class GAM(BaseModel):
                             kind="smooth",
                             features=(str(name),),
                             by_variable=None,
-                            basis_options={
-                                "special": "s",
-                                "bs": "gp",
-                                "k": self.k,
-                                "m": None,
-                                "sp": None,
-                                "fx": False,
-                                "select": bool(self.select),
-                                "pc": None,
-                                "knots": term_knots,
-                                "xt": None,
-                            },
+                            smooth_spec=build_smooth_spec(
+                                special="s",
+                                bs="gp",
+                                k=self.k,
+                                m=None,
+                                sp=None,
+                                fx=False,
+                                select=bool(self.select),
+                                pc=None,
+                                knots=term_knots,
+                                xt=None,
+                            ),
                             smoothing_id=None,
                             label=name,
                             metadata={},
@@ -2982,12 +3694,12 @@ class GAM(BaseModel):
                             kind="smooth",
                             features=(str(name),),
                             by_variable=None,
-                            basis_options={
-                                "special": "s",
-                                "bs": "re",
-                                "sp": None,
-                                "xt": None,
-                            },
+                            smooth_spec=build_smooth_spec(
+                                special="s",
+                                bs="re",
+                                sp=None,
+                                xt=None,
+                            ),
                             smoothing_id=None,
                             label=name,
                             metadata={},
@@ -3016,19 +3728,23 @@ class GAM(BaseModel):
             warnings.warn(
                 "Model contains both main-effect smooths and full te() tensor-product terms. "
                 "This is identifiable via side conditions, but is typically less stable and less "
-                "interpretable than a ti() ANOVA-style decomposition."
+                "interpretable than a ti() ANOVA-style decomposition.",
+                stacklevel=2,
             )
 
         if self.main_effects and has_t2:
             warnings.warn(
                 "Model contains both separate main-effect smooths and t2() terms. "
                 "t2() already contains ANOVA-style lower-order components, so this combination "
-                "can create strong overlap in the current framework."
+                "can create strong overlap in the current framework.",
+                stacklevel=2,
             )
 
         return [LinearPredictorSpec(name="eta", terms=terms)]
 
-    def _prepare_formula_inputs(self, data, formula, y=None, knots=None, drop_intercept=None):
+    def _prepare_formula_inputs(
+        self, data, formula, y=None, knots=None, drop_intercept=None
+    ):
         parsed = parse_gam_formula(formula)
         parsed = apply_drop_intercept(parsed, drop_intercept=drop_intercept)
 
@@ -3038,12 +3754,15 @@ class GAM(BaseModel):
             default_basis=self.basis,
             default_select=self.select,
             knots=knots,
+            available_columns=(None if data is None else data.columns),
         )
 
-        predictor_specs, data_work, preprocess_state = preprocess_formula_predictor_specs(
-            parsed=parsed,
-            predictor_specs=predictor_specs,
-            data=data,
+        predictor_specs, data_work, preprocess_state = (
+            preprocess_formula_predictor_specs(
+                parsed=parsed,
+                predictor_specs=predictor_specs,
+                data=data,
+            )
         )
 
         X_np, feature_names, y_out, used_cols, offset_out = extract_formula_data(
@@ -3052,6 +3771,9 @@ class GAM(BaseModel):
             predictor_specs=predictor_specs,
             y=y,
         )
+        preprocess_state = dict(preprocess_state)
+        preprocess_state["used_columns"] = list(used_cols)
+        preprocess_state["offset_name"] = parsed.predictors[0].offset_name
         return (
             parsed,
             predictor_specs,
@@ -3073,15 +3795,11 @@ class GAM(BaseModel):
                 "Prediction for formula-based GAMs currently requires a pandas DataFrame."
             )
 
-        X_work = apply_formula_preprocess_to_new_data(
-            X, self.formula_preprocess_state_
-        )
+        X_work = apply_formula_preprocess_to_new_data(X, self.formula_preprocess_state_)
 
         missing = [c for c in self.formula_used_columns_ if c not in X_work.columns]
         if missing:
-            raise KeyError(
-                f"Prediction data is missing formula columns: {missing}"
-            )
+            raise KeyError(f"Prediction data is missing formula columns: {missing}")
 
         X_df = X_work[self.formula_used_columns_]
         X_np = self._dataframe_to_feature_matrix(X_df, allow_missing_non_numeric=True)
@@ -3136,12 +3854,12 @@ class GAM(BaseModel):
         return resolve_fit_backend(self)
 
     def _supports_smoothing_method(self, method):
-        from ..gam.smoothness.optimize import supports_smoothing_method
+        from ..gam.smoothing_selection.optimize import supports_smoothing_method
 
         return supports_smoothing_method(self, method)
 
     def _resolve_smoothing_method(self, method):
-        from ..gam.smoothness.optimize import resolve_smoothing_method
+        from ..gam.smoothing_selection.optimize import resolve_smoothing_method
 
         return resolve_smoothing_method(self, method)
 
@@ -3156,17 +3874,17 @@ class GAM(BaseModel):
         )
 
     def _can_use_exact_gaussian_ml_reml(self):
-        from ..gam.smoothness.reparam import can_use_exact_gaussian_ml_reml
+        from ..gam.smoothing_selection.reparam import can_use_exact_gaussian_ml_reml
 
         return can_use_exact_gaussian_ml_reml(self)
 
     def _can_use_simple_ml_reml_structure(self):
-        from ..gam.smoothness.reparam import can_use_simple_ml_reml_structure
+        from ..gam.smoothing_selection.reparam import can_use_simple_ml_reml_structure
 
         return can_use_simple_ml_reml_structure(self)
 
     def _resolve_ml_reml_scoring_backend(self, method="reml"):
-        from ..gam.smoothness.criteria import resolve_ml_reml_scoring_backend
+        from ..gam.smoothing_selection.criteria import resolve_ml_reml_scoring_backend
 
         return resolve_ml_reml_scoring_backend(self, method=method)
 
@@ -3202,7 +3920,8 @@ class GAM(BaseModel):
         if self.term_blocks_ is None:
             return False
         return any(
-            tb.term_type in {
+            tb.term_type
+            in {
                 "tensor_smooth",
                 "tensor_interaction",
                 "tensor_anova",
@@ -3241,6 +3960,37 @@ class GAM(BaseModel):
         sp = self.smoothing_params
         if sp is None:
             sp = np.ones(n_smoothing_params, dtype=np.float64)
+        elif isinstance(sp, Mapping):
+            out = np.ones(n_smoothing_params, dtype=np.float64)
+            group_map = (
+                {}
+                if getattr(self, "design_", None) is None
+                else dict(self.design_.metadata.get("s_id_to_sp_indices", {}) or {})
+            )
+            unknown = sorted(str(key) for key in sp.keys() if str(key) not in group_map)
+            if unknown:
+                raise ValueError(
+                    f"Unknown smoothing id(s) in smoothing_params: {unknown}."
+                )
+
+            for key, value in sp.items():
+                indices = list(group_map[str(key)])
+                vals = np.asarray(value, dtype=np.float64).ravel()
+                if vals.ndim == 0 or vals.size == 1:
+                    if len(indices) != 1:
+                        raise ValueError(
+                            f"smoothing_params[{key!r}] must provide {len(indices)} "
+                            "values for this multi-penalty smoothing id."
+                        )
+                    out[indices[0]] = float(vals.reshape(-1)[0])
+                    continue
+                if vals.shape != (len(indices),):
+                    raise ValueError(
+                        f"smoothing_params[{key!r}] must have shape ({len(indices)},), "
+                        f"got {vals.shape}."
+                    )
+                out[np.asarray(indices, dtype=int)] = vals
+            sp = out
         else:
             sp = np.asarray(sp, dtype=np.float64)
             if sp.ndim == 0:
@@ -3323,21 +4073,23 @@ class GAM(BaseModel):
         return sp
 
     def _n_free_smoothing_params(self):
-        from ..gam.smoothness.optimize import n_free_smoothing_params
+        from ..gam.smoothing_selection.optimize import n_free_smoothing_params
 
         return n_free_smoothing_params(self)
 
     def _expand_smoothing_params_from_log(self, log_free_sp):
-        from ..gam.smoothness.optimize import expand_smoothing_params_from_log
+        from ..gam.smoothing_selection.optimize import expand_smoothing_params_from_log
 
         return expand_smoothing_params_from_log(self, log_free_sp)
 
     def _compile_designs(self, X, feature_names):
-        from ..gam.design.compiler import compile_predictor_designs
         from ..gam.constraints.identifiability import apply_global_side_conditions
+        from ..gam.design.compiler import compile_predictor_designs
 
         compiled = compile_predictor_designs(
-            X=X, feature_names=feature_names, predictor_specs=self.predictor_specs,
+            X=X,
+            feature_names=feature_names,
+            predictor_specs=self.predictor_specs,
         )
 
         if bool(self.hparams.get("apply_side_conditions", True)):
@@ -3368,7 +4120,7 @@ class GAM(BaseModel):
             )
 
         self.design_ = self.predictor_designs[0]
-        self.Z = self.design_.matrix_train
+        self.Z = self.design_.design_matrix
         self.ZTZ = self.Z.T @ self.Z
         self.n_coef_ = self.design_.n_coef
         self.term_blocks_ = self.design_.compiled_terms
@@ -3379,25 +4131,21 @@ class GAM(BaseModel):
 
         if self._needs_exact_gaussian_reparameterization():
             self._build_gaussian_reparameterized_system()
+            self.sl_blocks_ = (
+                None
+                if self.reparam_state_ is None
+                else list(self.reparam_state_.sl_blocks or [])
+            )
         else:
-            self._reparam_meta = None
-            self._reparam_rand_blocks_ = None
-            self._reparam_sp_groups_ = None
-            self._penalty_ranks = None
-            self._penalty_logdet_plus_fixed = None
-            self.X_fix_ = None
-            self.rank_X_fix_ = None
-            self._fix_pivot_keep = None
-            self.Z_rand_ = None
-            self.n_rand_ = None
-            self.ZtZ_rand_ = None
-            self.rand_dims_per_term_ = None
-            self._primary_reparam_sp_index_per_term_ = None
+            self.reparam_state_ = None
+            self.sl_blocks_ = None
 
     def _one_penalty_per_term_matrices(self):
         penalties = []
         for tb in self.term_blocks_:
-            matches = [pb for pb in self.penalty_blocks_ if pb.coef_slice == tb.coef_slice]
+            matches = [
+                pb for pb in self.penalty_blocks_ if pb.coef_slice == tb.coef_slice
+            ]
             if len(matches) != 1:
                 raise NotImplementedError(
                     "Current PIRLS path assumes one penalty per term. "
@@ -3424,72 +4172,90 @@ class GAM(BaseModel):
     def _solve_gaussian_given_smoothing(self, y, smoothing_params):
         from ..gam.fit.solvers.gaussian_exact import solve_gaussian_fit
 
-        return solve_gaussian_fit(self, y, smoothing_params)
+        return solve_gaussian_fit(
+            self,
+            y,
+            smoothing_params,
+            weights=self.prior_weights_,
+        )
 
     def gcv_score(self, y, log_smoothing_params):
-        from ..gam.smoothness.criteria import gcv_score_gaussian
+        from ..gam.smoothing_selection.criteria import gcv_score_gaussian
 
         return gcv_score_gaussian(self, y, log_smoothing_params)
 
     def _criterion_gcv_gaussian(self, y, log_sp):
-        from ..gam.smoothness.criteria import criterion_gcv_gaussian
+        from ..gam.smoothing_selection.criteria import criterion_gcv_gaussian
 
         return criterion_gcv_gaussian(self, y, log_sp)
 
     def _build_gaussian_reparameterized_system(self):
-        from ..gam.smoothness.reparam import build_gaussian_reparameterized_system
+        from ..gam.smoothing_selection.reparam import (
+            build_gaussian_reparameterized_system,
+        )
 
         return build_gaussian_reparameterized_system(self)
 
     def _build_penalty_reparameterized_system(self):
-        from ..gam.smoothness.reparam import build_penalty_reparameterized_system
+        from ..gam.smoothing_selection.reparam import (
+            build_penalty_reparameterized_system,
+        )
 
         return build_penalty_reparameterized_system(self)
 
     def _criterion_ml_reml_exact(self, y, log_sp, method):
-        from ..gam.smoothness.criteria import criterion_ml_reml_exact
+        from ..gam.smoothing_selection.criteria import criterion_ml_reml_exact
 
         return criterion_ml_reml_exact(self, y, log_sp, method)
 
     def _criterion_ml_reml(self, y, log_sp, method):
-        from ..gam.smoothness.criteria import criterion_ml_reml
+        from ..gam.smoothing_selection.criteria import criterion_ml_reml
 
         return criterion_ml_reml(self, y, log_sp, method)
 
     def _solve_pirls_given_smoothing(self, y, smoothing_params):
         from ..gam.fit.solvers.pirls import solve_pirls_fit
 
-        return solve_pirls_fit(self, y, smoothing_params)
+        return solve_pirls_fit(
+            self,
+            y,
+            smoothing_params,
+            weights=self.prior_weights_,
+        )
 
     def _criterion_gcv_pirls(self, y, log_sp):
-        from ..gam.smoothness.criteria import criterion_gcv_pirls
+        from ..gam.smoothing_selection.criteria import criterion_gcv_pirls
 
         return criterion_gcv_pirls(self, y, log_sp)
 
     def _criterion_ubre_pirls(self, y, log_sp):
-        from ..gam.smoothness.criteria import criterion_ubre_pirls
+        from ..gam.smoothing_selection.criteria import criterion_ubre_pirls
 
         return criterion_ubre_pirls(self, y, log_sp)
 
     def _criterion(self, y, log_sp, method="gcv"):
-        from ..gam.smoothness.criteria import criterion_value
+        from ..gam.smoothing_selection.criteria import criterion_value
 
         return criterion_value(self, y, log_sp, method=method)
 
     def _criterion_gradient(self, y, log_sp, method="gcv"):
-        from ..gam.smoothness.criteria import criterion_gradient
+        from ..gam.smoothing_selection.criteria import criterion_gradient
 
         return criterion_gradient(self, y, log_sp, method=method)
 
     def _criterion_hessian(self, y, log_sp, method="gcv"):
-        from ..gam.smoothness.criteria import criterion_hessian
+        from ..gam.smoothing_selection.criteria import criterion_hessian
 
         return criterion_hessian(self, y, log_sp, method=method)
 
     def optimize_smoothing_params(
-        self, y, initial_smoothing_params=None, method="gcv", optimizer="lbfgsb",
+        self,
+        y,
+        initial_smoothing_params=None,
+        method="gcv",
+        optimizer="lbfgsb",
     ):
-        from ..gam.smoothness.optimize import optimize_smoothing_params
+        from ..gam.smoothing_selection.optimize import optimize_smoothing_params
 
         return optimize_smoothing_params(
             self,
@@ -3511,7 +4277,9 @@ class GAM(BaseModel):
 
             deleted = []
             if tb.deleted_columns is not None:
-                deleted = [int(v) for v in np.asarray(tb.deleted_columns, dtype=int).tolist()]
+                deleted = [
+                    int(v) for v in np.asarray(tb.deleted_columns, dtype=int).tolist()
+                ]
 
             kept = []
             if tb.kept_columns is not None:
@@ -3524,7 +4292,11 @@ class GAM(BaseModel):
                     basis_name=tb.basis_name,
                     coef_slice=(int(tb.coef_slice.start), int(tb.coef_slice.stop)),
                     n_coef=int(tb.coef_slice.stop - tb.coef_slice.start),
-                    edf=float(self.edf_by_term_[i]) if self.edf_by_term_ is not None else None,
+                    edf=(
+                        float(self.edf_by_term_[i])
+                        if self.edf_by_term_ is not None
+                        else None
+                    ),
                     smoothing_indices=[int(v) for v in tb.smoothing_indices],
                     smoothing_ids=list(tb.smoothing_ids),
                     smoothing_values=sp_vals,
@@ -3548,9 +4320,21 @@ class GAM(BaseModel):
             scale=float(self.scale_),
             rss=None if self.rss_ is None else float(self.rss_),
             deviance=float(self.deviance_),
-            cov_bayes=None if self.Vp_ is None else np.asarray(self.Vp_, dtype=np.float64).copy(),
-            cov_freq=None if self.Vf_ is None else np.asarray(self.Vf_, dtype=np.float64).copy(),
-            side_condition_reports=None if self.side_condition_reports_ is None else list(self.side_condition_reports_),
+            cov_bayes=(
+                None
+                if self.Vp_ is None
+                else np.asarray(self.Vp_, dtype=np.float64).copy()
+            ),
+            cov_freq=(
+                None
+                if self.Vf_ is None
+                else np.asarray(self.Vf_, dtype=np.float64).copy()
+            ),
+            side_condition_reports=(
+                None
+                if self.side_condition_reports_ is None
+                else list(self.side_condition_reports_)
+            ),
             term_results=term_results,
             metadata={
                 "n_samples": int(self.n_samples_),
@@ -3583,7 +4367,9 @@ class GAM(BaseModel):
         formula = self.formula if formula is None else formula
         knots = self.knots if knots is None else knots
         min_sp = self.min_sp if min_sp is None else min_sp
-        drop_intercept = self.drop_intercept if drop_intercept is None else drop_intercept
+        drop_intercept = (
+            self.drop_intercept if drop_intercept is None else drop_intercept
+        )
 
         if formula is not None:
             if data is None:
@@ -3616,8 +4402,6 @@ class GAM(BaseModel):
             self.formula_ = parsed
             self.formula_mode_ = True
             self.formula_response_name_ = parsed.response_name
-            self.formula_used_columns_ = list(used_cols)
-            self.formula_offset_name_ = parsed.predictors[0].offset_name
             self.formula_preprocess_state_ = preprocess_state
 
             fit_intercept = bool(parsed.predictors[0].intercept)
@@ -3643,8 +4427,6 @@ class GAM(BaseModel):
             self.formula_ = None
             self.formula_mode_ = False
             self.formula_response_name_ = None
-            self.formula_used_columns_ = None
-            self.formula_offset_name_ = None
             self.formula_preprocess_state_ = None
 
             # Separate fit-time offset is used in fitting, but not remembered by default
@@ -3668,7 +4450,9 @@ class GAM(BaseModel):
                     raise ValueError(
                         f"sample_weight column {sample_weight!r} not found in data."
                     )
-                sw_use = np.asarray(data[sample_weight].to_numpy(), dtype=np.float64).ravel()
+                sw_use = np.asarray(
+                    data[sample_weight].to_numpy(), dtype=np.float64
+                ).ravel()
             else:
                 sw_use = np.asarray(sample_weight, dtype=np.float64).ravel()
             if sw_use.shape[0] != len(y_use):
@@ -3710,7 +4494,9 @@ class GAM(BaseModel):
             raise RuntimeError("Model is not fitted.")
         if self.result_ is None:
             self.result_ = self._build_fit_result()
-        return self.result_ if include_covariances else self.result_.without_covariances()
+        return (
+            self.result_ if include_covariances else self.result_.without_covariances()
+        )
 
     def _select_cov(self, cov):
         from ..gam.fit.covariance import select_covariance_matrix
@@ -3818,11 +4604,63 @@ class GAM(BaseModel):
             raise RuntimeError("Model is not fitted.")
         return print_summary(self)
 
+    def residuals(self, type="deviance"):
+        from ..gam.diagnostics import residuals_gam
+
+        return residuals_gam(self, type=type)
+
+    def concurvity(self, full=True):
+        from ..gam.diagnostics import concurvity
+
+        return concurvity(self, full=full)
+
+    def k_check(self, subsample=5000, n_rep=400, seed=None):
+        from ..gam.diagnostics import k_check
+
+        return k_check(self, subsample=subsample, n_rep=n_rep, seed=seed)
+
+    def gam_check(self, *, type="deviance", k_sample=5000, k_rep=200, seed=None):
+        from ..gam.diagnostics import gam_check
+
+        return gam_check(
+            self,
+            type=type,
+            k_sample=k_sample,
+            k_rep=k_rep,
+            seed=seed,
+        )
+
+    def sp_vcov(self, edge_correct=True, reg=1e-3):
+        from ..gam.smoothing_selection import sp_vcov
+
+        return sp_vcov(self, edge_correct=edge_correct, reg=reg)
+
+    def gam_vcomp(self, *, rescale=False, conf_lev=0.95):
+        from ..gam.smoothing_selection import gam_vcomp
+
+        return gam_vcomp(self, rescale=rescale, conf_lev=conf_lev)
+
+    def one_se_rule(self, candidate_indices=None):
+        from ..gam.smoothing_selection import one_se_rule
+
+        return one_se_rule(self, candidate_indices=candidate_indices)
+
+    def anova(self, *models, dispersion=None, test=None, freq=False):
+        from ..gam.inference import anova_gam
+
+        return anova_gam(
+            self,
+            *models,
+            dispersion=dispersion,
+            test=test,
+            freq=freq,
+        )
+
 # --- End of nampy/basemodels/gam.py ---
 
 # --- Start of nampy/configs/gam_config.py ---
-#configs/gam_config.py
-from dataclasses import dataclass, field
+# configs/gam_config.py
+from dataclasses import dataclass
 from typing import Optional, Sequence, Union
 
 from ..gam.specs import TermSpec
@@ -3832,7 +4670,9 @@ from ..gam.specs import TermSpec
 class DefaultGAMConfig:
     # spline construction
     k: int = 10
-    basis: str = "cr"   # currently supported for main effects: cr, cs, cc, ps, tp, ts
+    basis: str = (
+        "tp"  # mgcv-compatible default for bare s(...); main effects also support cr, cs, cc, ps, ts
+    )
     select: bool = False
     main_effects: bool = True
     tensor_terms: Optional[Sequence[TermSpec]] = None
@@ -3843,7 +4683,7 @@ class DefaultGAMConfig:
     # smoothing
     smoothing_params: Optional[Union[float, Sequence[float]]] = None
     optimize_smoothing: bool = False
-    smoothing_method: str = "fixed"   # fixed, gcv, ml, reml, laml
+    smoothing_method: str = "fixed"  # fixed, gcv, ml, reml, laml
     smoothing_optimizer: str = "lbfgsb"  # lbfgsb, outer_newton
     sp_log_bounds: tuple[float, float] = (-80.0, 20.0)
     score_gamma: float = 1.0
@@ -3853,11 +4693,13 @@ class DefaultGAMConfig:
 
     # PIRLS controls
     max_irls_iter: int = 100
-    irls_tol: float = 1e-7
+    # Exact mgcv parity for non-Gaussian fixed-sp and outer-loop evaluations
+    # requires a tighter PIRLS stop than the original loose default.
+    irls_tol: float = 1e-11
     max_step_halving: int = 25
 
     # inference / covariance
-    covariance: str = "bayes"   # bayes, freq, kass_steffey, wood
+    covariance: str = "bayes"  # bayes, freq, kass_steffey, wood
     compute_edf: bool = True
 
     # diagnostics
@@ -3867,12 +4709,13 @@ class DefaultGAMConfig:
 # --- End of nampy/configs/gam_config.py ---
 
 # --- Start of nampy/models/gam.py ---
-#models/gam.py
+# models/gam.py
 import numpy as np
 
 from ..basemodels.gam import GAM
 from ..configs.gam_config import DefaultGAMConfig
 from ..gam.families import make_gam_family
+from ..gam.formula import parse_gam_formula
 from ..gam.parity import (
     assert_parity_snapshot_close,
     build_parity_snapshot,
@@ -3880,7 +4723,6 @@ from ..gam.parity import (
     load_parity_snapshot,
     save_parity_snapshot,
 )
-from ..gam.formula import parse_gam_formula
 
 
 class GAMRegressor:
@@ -4039,9 +4881,7 @@ class GAMClassifier:
     def __init__(self, family="binomial", threshold=0.5, **kwargs):
         fam = make_gam_family(family)
         if fam.name != "binomial":
-            raise ValueError(
-                "GAMClassifier currently supports only family='binomial'."
-            )
+            raise ValueError("GAMClassifier currently supports only family='binomial'.")
 
         self.family = fam
         self.threshold = float(threshold)
@@ -4296,11 +5136,13 @@ class GAMClassifier:
             "threshold": self.threshold,
         }
         import pickle
+
         with open(path, "wb") as f:
             pickle.dump(payload, f)
 
     def load_model(self, path, device="cpu"):
         import pickle
+
         with open(path, "rb") as f:
             payload = pickle.load(f)
 
@@ -4313,5 +5155,6 @@ class GAMClassifier:
             self.classes_[1]: 1.0,
         }
         return self
+
 # --- End of nampy/models/gam.py ---
 

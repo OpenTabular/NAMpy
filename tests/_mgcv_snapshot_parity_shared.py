@@ -1,50 +1,11 @@
 from __future__ import annotations
 
-import json
-import shutil
-import subprocess
-import tempfile
 import warnings
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
-from scipy.linalg import cho_factor
-
-from nampy.basemodels.gam import GAM
-from nampy.gam.fit.solvers.gaussian_exact import solve_gaussian_fit
-from nampy.gam.smoothing_selection.criteria import criterion_value
-from nampy.gam.smoothing_selection.criteria.gaussian import criterion_ml_reml_exact
-from nampy.gam.fit.linalg.stacked_qr import (
-    penalty_sqrt_rows_prefer_diagonal,
-    project_coef_onto_row_space,
-    snap_coef_to_reference_null_space,
-    solve_gaussian_penalized_ls_stacked_qr,
-)
-from nampy.gam.fit.penalized_system import build_full_design, build_full_penalty_from_blocks
-from nampy.gam.parity.snapshots import _get_core
-from nampy.gam.smoothing_selection.criteria.gaussian_dyn import (
-    criterion_ml_reml_gaussian_dynamic_joint,
-)
-from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
-    deviance_method_scale_estimate,
-    gaussian_reml_laplace_score,
-    gaussian_weighted_residual_sum_squares,
-    quadratic_form_penalty,
-)
-from nampy.gam.smoothing_selection.criteria.penalty import (
-    _static_penalty_null_dim,
-    _stable_penalty_logdet,
-)
-from nampy.gam.design.compiler import compile_predictor_designs
-from nampy.gam.formula import compile_predictor_specs_from_formula, parse_gam_formula
-from nampy.gam.basis.tensor import t2_marginal_reparameterization
-from nampy.gam.smooths.univariate.cubic_regression import SplineTerm1D
-
-
 from mgcv_parity_utils import (
-    MGCV_SNAPSHOT_SCRIPT,
     R_SCRIPT,
     _assert_allclose_up_to_column_sign,
     _assert_basic_mgcv_parity,
@@ -57,22 +18,55 @@ from mgcv_parity_utils import (
     _make_gamma_data,
     _make_gaussian_data,
     _make_mrf_data,
+    _make_mrf_low_rank_data,
     _make_negbin_data,
     _make_poisson_data,
     _make_random_effect_data,
     _make_random_effect_data_noisy,
     _make_sz_data,
-    _run_mgcv_natparam_cr,
     _run_mgcv_fixed_sp_score,
-    _run_mgcv_predict_on_newdata,
+    _run_mgcv_natparam_cr,
     _run_mgcv_smoothcon_matrix,
     _run_mgcv_smoothcon_matrix_unscaled,
     _run_mgcv_smoothcon_penalties,
     _run_mgcv_snapshot,
-    _fit_nampy_model_fixed_sp,
     get_parity_case,
     make_parity_case_data,
 )
+from scipy.linalg import cho_factor
+
+from nampy.basemodels.gam import GAM
+from nampy.gam.basis.tensor import t2_marginal_reparameterization
+from nampy.gam.design.compiler import compile_predictor_designs
+from nampy.gam.fit.linalg.stacked_qr import (
+    penalty_sqrt_rows,
+    project_coef_onto_row_space,
+    snap_coef_to_reference_null_space,
+    solve_gaussian_penalized_ls_stacked_qr,
+)
+from nampy.gam.fit.penalized_system import (
+    build_full_design,
+    build_full_penalty_from_blocks,
+)
+from nampy.gam.fit.solvers.gaussian_exact import solve_gaussian_fit
+from nampy.gam.formula import compile_predictor_specs_from_formula, parse_gam_formula
+from nampy.gam.parity.snapshots import _get_core
+from nampy.gam.smoothing_selection.criteria import criterion_value
+from nampy.gam.smoothing_selection.criteria.gaussian import criterion_ml_reml_exact
+from nampy.gam.smoothing_selection.criteria.gaussian_dyn import (
+    criterion_ml_reml_gaussian_dynamic_joint,
+)
+from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
+    deviance_method_scale_estimate,
+    gaussian_reml_laplace_score,
+    gaussian_weighted_residual_sum_squares,
+    quadratic_form_penalty,
+)
+from nampy.gam.smoothing_selection.criteria.penalty import (
+    _stable_penalty_logdet,
+    _static_penalty_null_dim,
+)
+from nampy.gam.smooths.univariate.cubic_regression import SplineTerm1D
 
 
 class TestParitySnapshotAPI:
@@ -169,7 +163,10 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(block.matrix, dtype=np.float64) for block in design.compiled_penalties]
+        actual = [
+            np.asarray(block.matrix, dtype=np.float64)
+            for block in design.compiled_penalties
+        ]
         target = [np.asarray(S, dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target) == 2
@@ -217,7 +214,9 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
+        actual = [
+            np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties
+        ]
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target)
@@ -265,7 +264,9 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
+        actual = [
+            np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties
+        ]
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target)
@@ -325,7 +326,9 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
+        actual = [
+            np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties
+        ]
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target)
@@ -351,7 +354,9 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
+        actual = [
+            np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties
+        ]
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target) == 1
@@ -360,7 +365,9 @@ class TestParitySnapshotAPI:
     @pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available")
     def test_mrf_smoothcon_basis_matches_mgcv(self):
         data = _make_mrf_data()
-        smooth_expr_r = 's(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
+        smooth_expr_r = (
+            's(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
+        )
 
         parsed = parse_gam_formula(
             'y ~ s(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
@@ -384,7 +391,9 @@ class TestParitySnapshotAPI:
     @pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available")
     def test_mrf_smoothcon_penalty_matches_mgcv(self):
         data = _make_mrf_data()
-        smooth_expr_r = 's(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
+        smooth_expr_r = (
+            's(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
+        )
 
         parsed = parse_gam_formula(
             'y ~ s(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
@@ -402,7 +411,71 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
+        actual = [
+            np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties
+        ]
+        target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
+
+        assert len(actual) == len(target)
+        for got, want in zip(actual, target):
+            np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
+
+    @pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available")
+    def test_mrf_low_rank_smoothcon_basis_matches_mgcv(self):
+        data = _make_mrf_low_rank_data()
+        smooth_expr_r = (
+            's(region, bs="mrf", k=3, '
+            'xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B","D"), D=c("C"))))'
+        )
+
+        parsed = parse_gam_formula(
+            'y ~ s(region, bs="mrf", k=3, '
+            'xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B","D"), D=c("C"))))'
+        )
+        specs = compile_predictor_specs_from_formula(parsed)
+        design = compile_predictor_designs(
+            data[["region"]].to_numpy(dtype=object),
+            ["region"],
+            specs,
+        )[0]
+
+        expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
+
+        np.testing.assert_allclose(
+            np.asarray(design.design_matrix, dtype=np.float64),
+            np.asarray(expected["X"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+
+    @pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available")
+    def test_mrf_low_rank_smoothcon_penalty_matches_mgcv(self):
+        data = _make_mrf_low_rank_data()
+        smooth_expr_r = (
+            's(region, bs="mrf", k=3, '
+            'xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B","D"), D=c("C"))))'
+        )
+
+        parsed = parse_gam_formula(
+            'y ~ s(region, bs="mrf", k=3, '
+            'xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B","D"), D=c("C"))))'
+        )
+        specs = compile_predictor_specs_from_formula(parsed)
+        design = compile_predictor_designs(
+            data[["region"]].to_numpy(dtype=object),
+            ["region"],
+            specs,
+        )[0]
+
+        expected = _run_mgcv_smoothcon_penalties(
+            data,
+            smooth_expr_r,
+            absorb_cons=True,
+            scale_penalty=True,
+        )
+        actual = [
+            np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties
+        ]
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target)
@@ -498,7 +571,10 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(block.matrix, dtype=np.float64) for block in design.compiled_penalties]
+        actual = [
+            np.asarray(block.matrix, dtype=np.float64)
+            for block in design.compiled_penalties
+        ]
         target = [np.asarray(S, dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target) == 2
@@ -585,7 +661,10 @@ class TestParitySnapshotAPI:
             scale_penalty=True,
         )
 
-        actual = [np.asarray(block.matrix, dtype=np.float64) for block in design.compiled_penalties]
+        actual = [
+            np.asarray(block.matrix, dtype=np.float64)
+            for block in design.compiled_penalties
+        ]
         target = [np.asarray(S, dtype=np.float64) for _, S in expected["S"].items()]
 
         assert len(actual) == len(target) == 3
@@ -740,6 +819,21 @@ class TestMgcvParity:
             atol=1e-8,
             rtol=1e-8,
         )
+        np.testing.assert_allclose(
+            np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
+            np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
+            atol=5e-3,
+            rtol=5e-3,
+        )
+
+    def test_gaussian_re_reml_intercept_edf_attribution_matches_mgcv(self):
+        """Near-singular intercept + `bs="re"` fits should credit EDF like `summary.gam`."""
+        data = _make_random_effect_data()
+        formula = 'y ~ s(f, bs="re")'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
         np.testing.assert_allclose(
             np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
             np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
@@ -918,13 +1012,15 @@ class TestMgcvParity:
             fit_intercept=gam.fit_intercept,
             n_coef=gam.n_coef_,
         )
-        E, Es = penalty_sqrt_rows_prefer_diagonal(P_full)
+        E, Es = penalty_sqrt_rows(P_full)
         lam = float(sp[0])
         q = int(P_full.shape[0])
         assert E.shape[0] == q - 1
         assert E.shape[1] == q
         np.testing.assert_allclose(E.T @ E, P_full, atol=1e-14, rtol=0.0)
-        np.testing.assert_allclose(np.linalg.norm(Es, axis=1), 1.0, atol=1e-15, rtol=0.0)
+        np.testing.assert_allclose(
+            np.linalg.norm(Es, axis=1), 1.0, atol=1e-15, rtol=0.0
+        )
         for i in range(E.shape[0]):
             j = i + 1
             np.testing.assert_allclose(E[i, j], np.sqrt(lam), rtol=1e-12, atol=0.0)
@@ -962,7 +1058,9 @@ class TestMgcvParity:
         gam.fit(data=data)
         y = np.asarray(data["y"], dtype=np.float64)
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
-        log_sp_mgcv = np.log(np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64))
+        log_sp_mgcv = np.log(
+            np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
+        )
 
         wood = float(criterion_value(gam, y, log_sp_mgcv, method="reml"))
         assert np.isfinite(wood)
@@ -1013,8 +1111,12 @@ class TestMgcvParity:
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
 
-        asp = np.atleast_1d(np.asarray(actual["fit"]["smoothing_params"], dtype=np.float64))
-        esp = np.atleast_1d(np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64))
+        asp = np.atleast_1d(
+            np.asarray(actual["fit"]["smoothing_params"], dtype=np.float64)
+        )
+        esp = np.atleast_1d(
+            np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
+        )
         assert asp.size == esp.size == 1
         # Both fits park λ at the optimizer floor; linear predictor parity is ~1e-15.
         assert float(asp[0]) < 1e-12 and float(esp[0]) < 1e-12
@@ -1030,6 +1132,116 @@ class TestMgcvParity:
             criterion_atol=2.5,
         )
 
+    def test_gaussian_mrf_low_rank_reml_matches_mgcv(self):
+        """MRF with k < n_areas (low-rank truncation): full REML model fit vs mgcv."""
+        data = _make_mrf_low_rank_data()
+        formula = (
+            'y ~ s(region, bs="mrf", k=3, '
+            'xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B","D"), D=c("C"))))'
+        )
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        _assert_basic_mgcv_parity(
+            actual,
+            expected,
+            pred_atol=1e-5,
+            pred_rtol=1e-5,
+            sp_log_atol=0.5,
+        )
+
+    def test_gaussian_concurvity_full_matches_mgcv(self):
+        data = _make_gaussian_data(seed=17, n=160)
+        formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="tp", k=8)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        actual_diag = actual["parity"]["diagnostics"]
+        expected_diag = expected["parity"]["diagnostics"]
+
+        assert actual_diag["concurvity_full"] is not None
+        assert expected_diag["concurvity_full"] is not None
+        assert len(actual_diag["concurvity_labels"]) == len(
+            expected_diag["concurvity_labels"]
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual_diag["concurvity_full"], dtype=np.float64),
+            np.asarray(expected_diag["concurvity_full"], dtype=np.float64),
+            atol=1e-9,
+            rtol=1e-9,
+        )
+
+    def test_poisson_concurvity_full_matches_mgcv(self):
+        data = _make_poisson_data(seed=23, n=180)
+        formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
+
+        actual = _fit_nampy_snapshot(data, formula, "poisson", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "poisson", "REML")
+
+        actual_diag = actual["parity"]["diagnostics"]
+        expected_diag = expected["parity"]["diagnostics"]
+
+        assert actual_diag["concurvity_full"] is not None
+        assert expected_diag["concurvity_full"] is not None
+        assert len(actual_diag["concurvity_labels"]) == len(
+            expected_diag["concurvity_labels"]
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual_diag["concurvity_full"], dtype=np.float64),
+            np.asarray(expected_diag["concurvity_full"], dtype=np.float64),
+            atol=1e-9,
+            rtol=1e-9,
+        )
+
+    def test_gaussian_concurvity_pairwise_matches_mgcv(self):
+        data = _make_gaussian_data(seed=17, n=160)
+        formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="tp", k=8)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        actual_diag = actual["parity"]["diagnostics"]
+        expected_diag = expected["parity"]["diagnostics"]
+
+        assert actual_diag["concurvity_pairwise"] is not None
+        assert expected_diag["concurvity_pairwise"] is not None
+        assert (
+            actual_diag["concurvity_pairwise"]["labels"]
+            == expected_diag["concurvity_pairwise"]["labels"]
+        )
+        for key in ("worst", "observed", "estimate"):
+            np.testing.assert_allclose(
+                np.asarray(actual_diag["concurvity_pairwise"][key], dtype=np.float64),
+                np.asarray(expected_diag["concurvity_pairwise"][key], dtype=np.float64),
+                atol=1e-9,
+                rtol=1e-9,
+            )
+
+    def test_poisson_concurvity_pairwise_matches_mgcv(self):
+        data = _make_poisson_data(seed=23, n=180)
+        formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
+
+        actual = _fit_nampy_snapshot(data, formula, "poisson", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "poisson", "REML")
+
+        actual_diag = actual["parity"]["diagnostics"]
+        expected_diag = expected["parity"]["diagnostics"]
+
+        assert actual_diag["concurvity_pairwise"] is not None
+        assert expected_diag["concurvity_pairwise"] is not None
+        assert (
+            actual_diag["concurvity_pairwise"]["labels"]
+            == expected_diag["concurvity_pairwise"]["labels"]
+        )
+        for key in ("worst", "observed", "estimate"):
+            np.testing.assert_allclose(
+                np.asarray(actual_diag["concurvity_pairwise"][key], dtype=np.float64),
+                np.asarray(expected_diag["concurvity_pairwise"][key], dtype=np.float64),
+                atol=1e-9,
+                rtol=1e-9,
+            )
 
     def test_gaussian_te_fixed_sp_matches_mgcv_exactly(self):
         data = _make_gaussian_data(seed=17, n=160)
@@ -1068,7 +1280,12 @@ class TestMgcvParity:
         n = 180
         x0 = rng.uniform(-2.0, 2.0, size=n)
         x1 = rng.uniform(-1.5, 1.5, size=n)
-        y = np.sin(1.1 * x0) + 0.35 * x0 * x1 + 0.2 * x1**2 + rng.normal(scale=0.15, size=n)
+        y = (
+            np.sin(1.1 * x0)
+            + 0.35 * x0 * x1
+            + 0.2 * x1**2
+            + rng.normal(scale=0.15, size=n)
+        )
         data = pd.DataFrame({"y": y, "x0": x0, "x1": x1})
         formula = 'y ~ ti(x0, x1, bs=["cr", "cr"], k=[5, 5], sp=[0.7, 1.3])'
 
@@ -1281,8 +1498,16 @@ class TestMgcvParity:
             rtol=0.0,
         )
         np.testing.assert_allclose(
-            np.log(np.atleast_1d(np.asarray(actual["fit"]["smoothing_params"], dtype=np.float64))),
-            np.log(np.atleast_1d(np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64))),
+            np.log(
+                np.atleast_1d(
+                    np.asarray(actual["fit"]["smoothing_params"], dtype=np.float64)
+                )
+            ),
+            np.log(
+                np.atleast_1d(
+                    np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
+                )
+            ),
             atol=1e-4,
             rtol=0.0,
         )
@@ -1347,11 +1572,16 @@ class TestMgcvParity:
         assert ri.get("joint_gaussian_reml_outer") is True
         opt_sigma = getattr(core, "_gaussian_reml_sigma2_opt_", None)
         assert opt_sigma is not None
-        np.testing.assert_allclose(float(opt_sigma), float(actual["fit"]["scale"]), rtol=0.0, atol=1e-12)
+        np.testing.assert_allclose(
+            float(opt_sigma), float(actual["fit"]["scale"]), rtol=0.0, atol=1e-12
+        )
         endpoint = actual["parity"]["diagnostics"]["optimizer_endpoint"]
         assert endpoint is not None
         assert bool(endpoint["joint_gaussian_reml_outer"]) is True
-        assert float(endpoint["projected_gradient_inf_norm"]) <= float(endpoint["gradient_inf_norm"]) + 1e-15
+        assert (
+            float(endpoint["projected_gradient_inf_norm"])
+            <= float(endpoint["gradient_inf_norm"]) + 1e-15
+        )
 
     def test_gaussian_reml_sig2_matches_mgcv_joint_outer_mrf_exact(self):
         """MRF uses gaussian_exact with mgcv's Wood-style joint REML outer (sp and sig2)."""
@@ -1607,7 +1837,9 @@ class TestMgcvParity:
         )
 
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped.")
+@pytest.mark.skipif(
+    R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped."
+)
 class TestMgcvDeviancePenaltyScaleAssembly:
     """
     Cross-check NAMpy mgcv-style dev / P / scale helpers against quantities computed
@@ -1675,7 +1907,10 @@ class TestMgcvDeviancePenaltyScaleAssembly:
             atol=1e-9,
         )
 
-    @pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped.")
+    @pytest.mark.skipif(
+        R_SCRIPT is None,
+        reason="Rscript is not available; mgcv parity tests are skipped.",
+    )
     def test_weighted_gaussian_dev_penalty_match_mgcv(self):
         rng = np.random.default_rng(31)
         n = 100
@@ -1700,7 +1935,12 @@ class TestMgcvDeviancePenaltyScaleAssembly:
         gam = _fit_nampy_model_fixed_sp(
             data, formula, "gaussian", r_sp, sample_weight="w"
         )
-        sol = solve_gaussian_fit(gam, gam.y_, gam.smoothing_params)
+        sol = solve_gaussian_fit(
+            gam,
+            gam.y_,
+            gam.smoothing_params,
+            weights=gam.prior_weights_,
+        )
         pen_py = quadratic_form_penalty(sol.coef_full, sol.penalty_matrix)
         np.testing.assert_allclose(
             pen_py,
@@ -1716,13 +1956,13 @@ class TestGaussianPriorWeights:
     def test_sample_weight_ones_matches_no_weights(self):
         data = _make_gaussian_data()
         formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
-        kwargs = dict(
-            family="gaussian",
-            formula=formula,
-            optimize_smoothing=False,
-            smoothing_method="fixed",
-            smoothing_params=1.0,
-        )
+        kwargs = {
+            "family": "gaussian",
+            "formula": formula,
+            "optimize_smoothing": False,
+            "smoothing_method": "fixed",
+            "smoothing_params": 1.0,
+        }
         g0 = GAM(**kwargs)
         g0.fit(data=data)
         g1 = GAM(**kwargs)
@@ -1745,7 +1985,12 @@ class TestGaussianPriorWeights:
             smoothing_method="fixed",
         )
         gam.fit(data=d, sample_weight="w")
-        sol = solve_gaussian_fit(gam, gam.y_, gam.smoothing_params)
+        sol = solve_gaussian_fit(
+            gam,
+            gam.y_,
+            gam.smoothing_params,
+            weights=gam.prior_weights_,
+        )
         X = np.asarray(sol.X, dtype=np.float64)
         P = np.asarray(sol.penalty_matrix, dtype=np.float64)
         y_work = np.asarray(gam.y_, dtype=np.float64).ravel()
@@ -1761,7 +2006,9 @@ class TestGaussianPriorWeights:
             gam.fit(data=data, sample_weight=np.ones(len(data) + 2, dtype=np.float64))
 
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped.")
+@pytest.mark.skipif(
+    R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped."
+)
 class TestGaussianPriorWeightsMgcvParity:
     def test_reml_weighted_snapshot_parity_at_r_smoothing(self):
         """
@@ -1776,7 +2023,9 @@ class TestGaussianPriorWeightsMgcvParity:
         w = rng.uniform(0.5, 2.0, size=n)
         d = pd.DataFrame({"y": y, "x0": x0, "x1": x1, "w": w})
         formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
-        expected = _run_mgcv_snapshot(d, formula, "gaussian", "REML", weights_column="w")
+        expected = _run_mgcv_snapshot(
+            d, formula, "gaussian", "REML", weights_column="w"
+        )
         r_sp = np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
         gam = _fit_nampy_model_fixed_sp(d, formula, "gaussian", r_sp, sample_weight="w")
         actual = gam.parity_snapshot(X=d, include_covariances=True)
@@ -1823,13 +2072,15 @@ class TestGaussianPriorWeightsMgcvParity:
             core, core.y_, log_free, np.log(sig2), method="REML"
         )
 
-        sol = solve_gaussian_fit(core, core.y_, sp)
+        sol = solve_gaussian_fit(core, core.y_, sp, weights=core.prior_weights_)
         yv = np.asarray(core.y_, dtype=np.float64).ravel()
         mu = np.asarray(sol.mu, dtype=np.float64).ravel()
         wv = d["w"].to_numpy(dtype=np.float64)
         dev = gaussian_weighted_residual_sum_squares(yv, mu, wv)
         Pq = quadratic_form_penalty(sol.coef_full, sol.penalty_matrix)
-        c_a, _ = cho_factor(np.asarray(sol.A, dtype=np.float64), lower=True, check_finite=False)
+        c_a, _ = cho_factor(
+            np.asarray(sol.A, dtype=np.float64), lower=True, check_finite=False
+        )
         logdet_a = 2.0 * float(np.sum(np.log(np.abs(np.diag(c_a)))))
         logdet_s = float(_stable_penalty_logdet(core, sp))
         mp = float(
@@ -1841,12 +2092,39 @@ class TestGaussianPriorWeightsMgcvParity:
         )
         np.testing.assert_allclose(joint, fit4, rtol=0.0, atol=1e-10)
 
+    def test_weighted_reml_end_to_end_sp_matches_mgcv(self):
+        """Full REML optimization with sample_weight: sp values and predictions match mgcv."""
+        rng = np.random.default_rng(43)
+        n = 160
+        x0 = rng.uniform(-2, 2, size=n)
+        x1 = rng.uniform(-1.5, 1.5, size=n)
+        y = np.sin(1.2 * x0) + 0.25 * x1**2 + rng.normal(0, 0.2, size=n)
+        w = rng.uniform(0.4, 2.2, size=n)
+        d = pd.DataFrame({"y": y, "x0": x0, "x1": x1, "w": w})
+        formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
+
+        actual = _fit_nampy_snapshot(d, formula, "gaussian", "REML", sample_weight="w")
+        expected = _run_mgcv_snapshot(
+            d, formula, "gaussian", "REML", weights_column="w"
+        )
+
+        _assert_basic_mgcv_parity(
+            actual,
+            expected,
+            pred_atol=1e-4,
+            pred_rtol=0.0,
+            sp_log_atol=0.5,
+        )
+
 
 # ---------------------------------------------------------------------------
 # Smooth-type parity: cc, ps, gp, numeric by-variable
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped.")
+
+@pytest.mark.skipif(
+    R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped."
+)
 class TestCyclicCubicSmooth:
     """Cyclic cubic regression spline (bs='cc') parity against mgcv."""
 
@@ -1892,7 +2170,9 @@ class TestCyclicCubicSmooth:
         expected = _run_mgcv_smoothcon_penalties(
             data, smooth_expr_r, absorb_cons=True, scale_penalty=True
         )
-        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
+        actual = [
+            np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties
+        ]
         target = [np.asarray(S, dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target) == 1
@@ -1908,12 +2188,14 @@ class TestCyclicCubicSmooth:
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["response"], dtype=np.float64),
             np.asarray(expected["predictions"]["response"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
             np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
 
     def test_gaussian_cc_reml_matches_mgcv(self):
@@ -1924,13 +2206,17 @@ class TestCyclicCubicSmooth:
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=5e-3, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=5e-3,
+            pred_rtol=0.0,
             sp_log_atol=0.6,
         )
 
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped.")
+@pytest.mark.skipif(
+    R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped."
+)
 class TestPSplineSmooth:
     """P-spline (bs='ps') standalone parity against mgcv."""
 
@@ -1976,7 +2262,9 @@ class TestPSplineSmooth:
         expected = _run_mgcv_smoothcon_penalties(
             data, smooth_expr_r, absorb_cons=True, scale_penalty=True
         )
-        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
+        actual = [
+            np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties
+        ]
         target = [np.asarray(S, dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target) == 1
@@ -1992,12 +2280,14 @@ class TestPSplineSmooth:
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["response"], dtype=np.float64),
             np.asarray(expected["predictions"]["response"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
             np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
 
     def test_gaussian_ps_reml_matches_mgcv(self):
@@ -2008,8 +2298,10 @@ class TestPSplineSmooth:
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=5e-3, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=5e-3,
+            pred_rtol=0.0,
             sp_log_atol=0.5,
         )
 
@@ -2027,13 +2319,179 @@ class TestPSplineSmooth:
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=8e-3, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=8e-3,
+            pred_rtol=0.0,
             sp_log_atol=0.6,
         )
 
+    # ------------------------------------------------------------------ #
+    # Non-default ps order: m=[1,1] and m=[3,3]                          #
+    # ------------------------------------------------------------------ #
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped.")
+    def test_ps_m11_smoothcon_basis_matches_mgcv(self):
+        data = self._make_ps_data()
+        smooth_expr_r = 's(x, bs="ps", k=12, m=c(1,1))'
+
+        parsed = parse_gam_formula('y ~ s(x, bs="ps", k=12, m=[1,1])')
+        specs = compile_predictor_specs_from_formula(parsed)
+        design = compile_predictor_designs(
+            data[["x"]].to_numpy(dtype=np.float64),
+            ["x"],
+            specs,
+        )[0]
+
+        expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
+
+        _assert_allclose_up_to_column_sign(
+            np.asarray(design.design_matrix, dtype=np.float64),
+            np.asarray(expected["X"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+
+    def test_ps_m11_smoothcon_penalties_match_mgcv(self):
+        data = self._make_ps_data()
+        smooth_expr_r = 's(x, bs="ps", k=12, m=c(1,1))'
+
+        parsed = parse_gam_formula('y ~ s(x, bs="ps", k=12, m=[1,1])')
+        specs = compile_predictor_specs_from_formula(parsed)
+        design = compile_predictor_designs(
+            data[["x"]].to_numpy(dtype=np.float64),
+            ["x"],
+            specs,
+        )[0]
+
+        expected = _run_mgcv_smoothcon_penalties(
+            data, smooth_expr_r, absorb_cons=True, scale_penalty=True
+        )
+        actual = [
+            np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties
+        ]
+        target = [np.asarray(S, dtype=np.float64) for S in expected["S"]]
+
+        assert len(actual) == len(target) == 1
+        np.testing.assert_allclose(actual[0], target[0], atol=1e-10, rtol=1e-10)
+
+    def test_gaussian_ps_m11_fixed_sp_matches_mgcv(self):
+        data = self._make_ps_data(seed=85)
+        formula = 'y ~ s(x, bs="ps", k=12, m=[1,1], sp=0.5)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["response"], dtype=np.float64),
+            np.asarray(expected["predictions"]["response"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
+            np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+
+    def test_gaussian_ps_m11_reml_matches_mgcv(self):
+        data = self._make_ps_data(seed=86, n=200)
+        formula = 'y ~ s(x, bs="ps", k=14, m=[1,1])'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        _assert_basic_mgcv_parity(
+            actual,
+            expected,
+            pred_atol=5e-3,
+            pred_rtol=0.0,
+            sp_log_atol=0.5,
+        )
+
+    def test_ps_m33_smoothcon_basis_matches_mgcv(self):
+        data = self._make_ps_data()
+        smooth_expr_r = 's(x, bs="ps", k=14, m=c(3,3))'
+
+        parsed = parse_gam_formula('y ~ s(x, bs="ps", k=14, m=[3,3])')
+        specs = compile_predictor_specs_from_formula(parsed)
+        design = compile_predictor_designs(
+            data[["x"]].to_numpy(dtype=np.float64),
+            ["x"],
+            specs,
+        )[0]
+
+        expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
+
+        _assert_allclose_up_to_column_sign(
+            np.asarray(design.design_matrix, dtype=np.float64),
+            np.asarray(expected["X"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+
+    def test_ps_m33_smoothcon_penalties_match_mgcv(self):
+        data = self._make_ps_data()
+        smooth_expr_r = 's(x, bs="ps", k=14, m=c(3,3))'
+
+        parsed = parse_gam_formula('y ~ s(x, bs="ps", k=14, m=[3,3])')
+        specs = compile_predictor_specs_from_formula(parsed)
+        design = compile_predictor_designs(
+            data[["x"]].to_numpy(dtype=np.float64),
+            ["x"],
+            specs,
+        )[0]
+
+        expected = _run_mgcv_smoothcon_penalties(
+            data, smooth_expr_r, absorb_cons=True, scale_penalty=True
+        )
+        actual = [
+            np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties
+        ]
+        target = [np.asarray(S, dtype=np.float64) for S in expected["S"]]
+
+        assert len(actual) == len(target) == 1
+        np.testing.assert_allclose(actual[0], target[0], atol=1e-10, rtol=1e-10)
+
+    def test_gaussian_ps_m33_fixed_sp_matches_mgcv(self):
+        data = self._make_ps_data(seed=87)
+        formula = 'y ~ s(x, bs="ps", k=14, m=[3,3], sp=0.5)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["response"], dtype=np.float64),
+            np.asarray(expected["predictions"]["response"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
+            np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+
+    def test_gaussian_ps_m33_reml_matches_mgcv(self):
+        data = self._make_ps_data(seed=88, n=200)
+        formula = 'y ~ s(x, bs="ps", k=14, m=[3,3])'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        _assert_basic_mgcv_parity(
+            actual,
+            expected,
+            pred_atol=5e-3,
+            pred_rtol=0.0,
+            sp_log_atol=0.5,
+        )
+
+
+@pytest.mark.skipif(
+    R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped."
+)
 class TestGPSmooth:
     """Gaussian process smooth (bs='gp') parity against mgcv."""
 
@@ -2077,12 +2535,14 @@ class TestGPSmooth:
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["response"], dtype=np.float64),
             np.asarray(expected["predictions"]["response"], dtype=np.float64),
-            atol=1e-8, rtol=1e-8,
+            atol=1e-8,
+            rtol=1e-8,
         )
         np.testing.assert_allclose(
             np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
             np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
-            atol=1e-8, rtol=1e-8,
+            atol=1e-8,
+            rtol=1e-8,
         )
 
     def test_gaussian_gp_reml_matches_mgcv(self):
@@ -2093,8 +2553,10 @@ class TestGPSmooth:
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=2e-7, pred_rtol=2e-7,
+            actual,
+            expected,
+            pred_atol=2e-7,
+            pred_rtol=2e-7,
             sp_log_atol=2e-5,
         )
 
@@ -2111,13 +2573,17 @@ class TestGPSmooth:
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=2e-7, pred_rtol=2e-7,
+            actual,
+            expected,
+            pred_atol=2e-7,
+            pred_rtol=2e-7,
             sp_log_atol=2e-5,
         )
 
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped.")
+@pytest.mark.skipif(
+    R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped."
+)
 class TestNumericByVariable:
     """Numeric by-variable smooth s(x, by=z) parity against mgcv."""
 
@@ -2138,17 +2604,20 @@ class TestNumericByVariable:
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["response"], dtype=np.float64),
             np.asarray(expected["predictions"]["response"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["link"], dtype=np.float64),
             np.asarray(expected["predictions"]["link"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
             np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
 
     def test_gaussian_numeric_by_cr_reml_matches_mgcv(self):
@@ -2159,8 +2628,10 @@ class TestNumericByVariable:
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=5e-3, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=5e-3,
+            pred_rtol=0.0,
             sp_log_atol=0.6,
         )
 
@@ -2179,8 +2650,10 @@ class TestNumericByVariable:
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=8e-3, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=8e-3,
+            pred_rtol=0.0,
             sp_log_atol=0.7,
         )
 
@@ -2198,8 +2671,10 @@ class TestNumericByVariable:
         expected = _run_mgcv_snapshot(data, formula, "poisson", "REML")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-2, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=1e-2,
+            pred_rtol=0.0,
             sp_log_atol=0.8,
             criterion_atol=1.5,
         )
@@ -2217,8 +2692,10 @@ class TestSmoothingMethodParity:
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "GCV.Cp")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-5, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=1e-5,
+            pred_rtol=0.0,
             sp_log_atol=1e-5,
         )
 
@@ -2231,8 +2708,10 @@ class TestSmoothingMethodParity:
         expected = _run_mgcv_snapshot(data, formula, "gamma", "GCV.Cp")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=5e-3, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=5e-3,
+            pred_rtol=0.0,
             sp_log_atol=0.1,
         )
 
@@ -2245,8 +2724,10 @@ class TestSmoothingMethodParity:
 
         # ML criterion values differ in additive constant between NAMpy and mgcv.
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-4, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=1e-4,
+            pred_rtol=0.0,
             sp_log_atol=1e-4,
             check_criterion=False,
         )
@@ -2259,8 +2740,10 @@ class TestSmoothingMethodParity:
         expected = _run_mgcv_snapshot(data, formula, "binomial", "ML")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=5e-2, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=5e-2,
+            pred_rtol=0.0,
             sp_log_atol=2.0,
         )
 
@@ -2272,8 +2755,10 @@ class TestSmoothingMethodParity:
         expected = _run_mgcv_snapshot(data, formula, "poisson", "ML")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=5e-2, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=5e-2,
+            pred_rtol=0.0,
             sp_log_atol=0.5,
         )
 
@@ -2296,8 +2781,10 @@ class TestAdditionalScenarioParity:
         expected = _run_mgcv_snapshot(data, formula, "binomial", "REML", select=True)
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=5e-3, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=5e-3,
+            pred_rtol=0.0,
             sp_log_atol=1e-10,
             check_sp=False,
         )
@@ -2310,8 +2797,10 @@ class TestAdditionalScenarioParity:
         expected = _run_mgcv_snapshot(data, formula, "poisson", "REML", select=True)
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=5e-3, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=5e-3,
+            pred_rtol=0.0,
             sp_log_atol=1e-10,
             check_sp=False,
         )
@@ -2371,17 +2860,24 @@ class TestAdditionalScenarioParity:
             select=True,
         )
 
-        assert float(actual_score_r["criterion_value"]) <= float(
-            expected_score_r["criterion_value"]
-        ) + 2e-5
-        assert np.linalg.norm(
-            np.asarray(expected_score_r["gradient"], dtype=np.float64)
-        ) > 1e-6
+        assert (
+            float(actual_score_r["criterion_value"])
+            <= float(expected_score_r["criterion_value"]) + 2e-5
+        )
+        assert (
+            np.linalg.norm(np.asarray(expected_score_r["gradient"], dtype=np.float64))
+            > 1e-6
+        )
         endpoint = actual["parity"]["diagnostics"]["optimizer_endpoint"]
         assert endpoint is not None
         assert bool(endpoint["flat_ridge_suspected"]) is True
-        assert float(endpoint["shared_shift_curvature"]) <= 1e-5
-        assert float(endpoint["projected_gradient_inf_norm"]) <= 5e-5
+        assert bool(endpoint["factor_smooth_shared_ridge_stabilized"]) is True
+        assert endpoint["factor_smooth_shared_ridge_shift"] is not None
+        assert len(endpoint["factor_smooth_shared_ridge_shift"]) >= 1
+        assert all(
+            any(float(v) > 0.0 for v in shift["log_sp_shift"])
+            for shift in endpoint["factor_smooth_shared_ridge_shift"]
+        )
 
     def test_gaussian_sz_select_reml_matches_mgcv(self):
         data = _make_sz_data()
@@ -2390,8 +2886,12 @@ class TestAdditionalScenarioParity:
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML", select=True)
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML", select=True)
 
-        a_sp = np.atleast_1d(np.asarray(actual["fit"]["smoothing_params"], dtype=np.float64))
-        e_sp = np.atleast_1d(np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64))
+        a_sp = np.atleast_1d(
+            np.asarray(actual["fit"]["smoothing_params"], dtype=np.float64)
+        )
+        e_sp = np.atleast_1d(
+            np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
+        )
         assert a_sp.size == e_sp.size == 7
 
         _assert_basic_mgcv_parity(
@@ -2439,7 +2939,9 @@ class TestAdditionalScenarioParity:
         data = pd.DataFrame({"y": y, "x0": x0, "x1": x1, "w": w})
         formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
 
-        expected = _run_mgcv_snapshot(data, formula, "poisson", "REML", weights_column="w")
+        expected = _run_mgcv_snapshot(
+            data, formula, "poisson", "REML", weights_column="w"
+        )
         sp = np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
         gam = _fit_nampy_model_fixed_sp(data, formula, "poisson", sp, sample_weight="w")
         actual = gam.parity_snapshot(X=data, include_covariances=True)
@@ -2447,7 +2949,8 @@ class TestAdditionalScenarioParity:
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["response"], dtype=np.float64),
             np.asarray(expected["predictions"]["response"], dtype=np.float64),
-            atol=1e-10, rtol=0.0,
+            atol=1e-10,
+            rtol=0.0,
         )
 
     def test_weighted_binomial_fixed_sp_matches_mgcv(self):
@@ -2463,15 +2966,20 @@ class TestAdditionalScenarioParity:
         data = pd.DataFrame({"y": y, "x0": x0, "x1": x1, "w": w})
         formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
 
-        expected = _run_mgcv_snapshot(data, formula, "binomial", "REML", weights_column="w")
+        expected = _run_mgcv_snapshot(
+            data, formula, "binomial", "REML", weights_column="w"
+        )
         sp = np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
-        gam = _fit_nampy_model_fixed_sp(data, formula, "binomial", sp, sample_weight="w")
+        gam = _fit_nampy_model_fixed_sp(
+            data, formula, "binomial", sp, sample_weight="w"
+        )
         actual = gam.parity_snapshot(X=data, include_covariances=True)
 
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["response"], dtype=np.float64),
             np.asarray(expected["predictions"]["response"], dtype=np.float64),
-            atol=1e-10, rtol=0.0,
+            atol=1e-10,
+            rtol=0.0,
         )
 
     # ------------------------------------------------------------------ #
@@ -2490,22 +2998,26 @@ class TestAdditionalScenarioParity:
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["response"], dtype=np.float64),
             np.asarray(expected["predictions"]["response"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["link"], dtype=np.float64),
             np.asarray(expected["predictions"]["link"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
             np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             float(actual["fit"]["deviance"]),
             float(expected["fit"]["deviance"]),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
 
     def test_gaussian_ti_ps_ps_fixed_matches_mgcv(self):
@@ -2516,22 +3028,26 @@ class TestAdditionalScenarioParity:
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["response"], dtype=np.float64),
             np.asarray(expected["predictions"]["response"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["link"], dtype=np.float64),
             np.asarray(expected["predictions"]["link"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
             np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             float(actual["fit"]["deviance"]),
             float(expected["fit"]["deviance"]),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
 
     def test_gaussian_t2_ps_ps_reml_matches_mgcv(self):
@@ -2540,8 +3056,10 @@ class TestAdditionalScenarioParity:
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-4, pred_rtol=1e-4,
+            actual,
+            expected,
+            pred_atol=1e-4,
+            pred_rtol=1e-4,
             sp_log_atol=0.0,
             check_sp=False,
         )
@@ -2552,12 +3070,16 @@ class TestAdditionalScenarioParity:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
-        assert any("length of sp incorrect in t2: ignored" in str(w.message) for w in caught)
+        assert any(
+            "length of sp incorrect in t2: ignored" in str(w.message) for w in caught
+        )
 
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-4, pred_rtol=1e-4,
+            actual,
+            expected,
+            pred_atol=1e-4,
+            pred_rtol=1e-4,
             sp_log_atol=0.0,
             check_sp=False,
         )
@@ -2570,22 +3092,26 @@ class TestAdditionalScenarioParity:
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["response"], dtype=np.float64),
             np.asarray(expected["predictions"]["response"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["link"], dtype=np.float64),
             np.asarray(expected["predictions"]["link"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
             np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             float(actual["fit"]["deviance"]),
             float(expected["fit"]["deviance"]),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
 
     def test_gaussian_ti_tp_ps_fixed_matches_mgcv(self):
@@ -2596,22 +3122,26 @@ class TestAdditionalScenarioParity:
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["response"], dtype=np.float64),
             np.asarray(expected["predictions"]["response"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["link"], dtype=np.float64),
             np.asarray(expected["predictions"]["link"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
             np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             float(actual["fit"]["deviance"]),
             float(expected["fit"]["deviance"]),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
 
     def test_gaussian_t2_tp_ps_reml_matches_mgcv(self):
@@ -2620,8 +3150,10 @@ class TestAdditionalScenarioParity:
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-4, pred_rtol=1e-4,
+            actual,
+            expected,
+            pred_atol=1e-4,
+            pred_rtol=1e-4,
             sp_log_atol=1.0,
             check_sp=False,
         )
@@ -2634,22 +3166,26 @@ class TestAdditionalScenarioParity:
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["response"], dtype=np.float64),
             np.asarray(expected["predictions"]["response"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["link"], dtype=np.float64),
             np.asarray(expected["predictions"]["link"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
             np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             float(actual["fit"]["deviance"]),
             float(expected["fit"]["deviance"]),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
 
     def test_gaussian_t2_gp_cr_fixed_matches_mgcv(self):
@@ -2660,22 +3196,26 @@ class TestAdditionalScenarioParity:
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["response"], dtype=np.float64),
             np.asarray(expected["predictions"]["response"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["link"], dtype=np.float64),
             np.asarray(expected["predictions"]["link"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
             np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             float(actual["fit"]["deviance"]),
             float(expected["fit"]["deviance"]),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
 
     def test_gaussian_t2_tp_gp_fixed_matches_mgcv(self):
@@ -2686,22 +3226,26 @@ class TestAdditionalScenarioParity:
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["response"], dtype=np.float64),
             np.asarray(expected["predictions"]["response"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["link"], dtype=np.float64),
             np.asarray(expected["predictions"]["link"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
             np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             float(actual["fit"]["deviance"]),
             float(expected["fit"]["deviance"]),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
 
     def test_gaussian_t2_ps_cr_fixed_matches_mgcv(self):
@@ -2712,22 +3256,26 @@ class TestAdditionalScenarioParity:
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["response"], dtype=np.float64),
             np.asarray(expected["predictions"]["response"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["link"], dtype=np.float64),
             np.asarray(expected["predictions"]["link"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
             np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             float(actual["fit"]["deviance"]),
             float(expected["fit"]["deviance"]),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
 
     def test_gaussian_t2_tp_cr_full_reml_matches_mgcv(self):
@@ -2736,8 +3284,10 @@ class TestAdditionalScenarioParity:
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-5, pred_rtol=1e-5,
+            actual,
+            expected,
+            pred_atol=1e-5,
+            pred_rtol=1e-5,
             sp_log_atol=0.0,
             check_sp=False,
             criterion_atol=5e-4,
@@ -2767,8 +3317,10 @@ class TestAdditionalScenarioParity:
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-6, pred_rtol=1e-6,
+            actual,
+            expected,
+            pred_atol=1e-6,
+            pred_rtol=1e-6,
             sp_log_atol=1.6,
             criterion_atol=1e-6,
         )
@@ -2779,8 +3331,10 @@ class TestAdditionalScenarioParity:
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=2.5e-5, pred_rtol=2.5e-5,
+            actual,
+            expected,
+            pred_atol=2.5e-5,
+            pred_rtol=2.5e-5,
             sp_log_atol=0.0,
             check_sp=False,
             criterion_atol=5e-4,
@@ -2792,8 +3346,10 @@ class TestAdditionalScenarioParity:
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-5, pred_rtol=1e-5,
+            actual,
+            expected,
+            pred_atol=1e-5,
+            pred_rtol=1e-5,
             sp_log_atol=0.0,
             check_sp=False,
             criterion_atol=5e-4,
@@ -2823,8 +3379,10 @@ class TestAdditionalScenarioParity:
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML", select=True)
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML", select=True)
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-5, pred_rtol=1e-5,
+            actual,
+            expected,
+            pred_atol=1e-5,
+            pred_rtol=1e-5,
             sp_log_atol=0.0,
             check_sp=False,
             criterion_atol=1e-4,
@@ -2836,9 +3394,225 @@ class TestAdditionalScenarioParity:
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-5, pred_rtol=1e-5,
+            actual,
+            expected,
+            pred_atol=1e-5,
+            pred_rtol=1e-5,
             sp_log_atol=0.1,
+        )
+
+    # ------------------------------------------------------------------ #
+    # Gap 13: tensor marginals — cc and ts                                #
+    # cc (cyclic cubic) and ts (shrinkage TP) as tensor marginals.        #
+    # ------------------------------------------------------------------ #
+
+    def test_gaussian_te_cc_cc_fixed_matches_mgcv(self):
+        data = _make_gaussian_data(seed=370, n=180)
+        formula = 'y ~ te(x0, x1, bs=["cc", "cc"], k=[7, 7], sp=[0.7, 1.3])'
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["response"], dtype=np.float64),
+            np.asarray(expected["predictions"]["response"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["link"], dtype=np.float64),
+            np.asarray(expected["predictions"]["link"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
+            np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            float(actual["fit"]["deviance"]),
+            float(expected["fit"]["deviance"]),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+
+    def test_gaussian_ti_cc_cc_fixed_matches_mgcv(self):
+        data = _make_gaussian_data(seed=371, n=180)
+        formula = 'y ~ ti(x0, x1, bs=["cc", "cc"], k=[7, 7], sp=[0.7, 1.3])'
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["response"], dtype=np.float64),
+            np.asarray(expected["predictions"]["response"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["link"], dtype=np.float64),
+            np.asarray(expected["predictions"]["link"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
+            np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            float(actual["fit"]["deviance"]),
+            float(expected["fit"]["deviance"]),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+
+    def test_gaussian_t2_cc_cc_reml_matches_mgcv(self):
+        data = _make_gaussian_data(seed=372, n=180)
+        formula = 'y ~ t2(x0, x1, bs=["cc", "cc"], k=[7, 7])'
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+        _assert_basic_mgcv_parity(
+            actual,
+            expected,
+            pred_atol=1e-5,
+            pred_rtol=1e-5,
+            sp_log_atol=0.0,
+            check_sp=False,
+        )
+
+    def test_gaussian_te_ts_cr_fixed_matches_mgcv(self):
+        data = _make_gaussian_data(seed=373, n=180)
+        formula = 'y ~ te(x0, x1, bs=["ts", "cr"], k=[6, 6], sp=[0.7, 1.3])'
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["response"], dtype=np.float64),
+            np.asarray(expected["predictions"]["response"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["link"], dtype=np.float64),
+            np.asarray(expected["predictions"]["link"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
+            np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            float(actual["fit"]["deviance"]),
+            float(expected["fit"]["deviance"]),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+
+    def test_gaussian_ti_ts_cr_fixed_matches_mgcv(self):
+        data = _make_gaussian_data(seed=374, n=180)
+        formula = 'y ~ ti(x0, x1, bs=["ts", "cr"], k=[6, 6], sp=[0.7, 1.3])'
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["response"], dtype=np.float64),
+            np.asarray(expected["predictions"]["response"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["link"], dtype=np.float64),
+            np.asarray(expected["predictions"]["link"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
+            np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            float(actual["fit"]["deviance"]),
+            float(expected["fit"]["deviance"]),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+
+    def test_gaussian_t2_ts_cr_reml_matches_mgcv(self):
+        data = _make_gaussian_data(seed=375, n=180)
+        formula = 'y ~ t2(x0, x1, bs=["ts", "cr"], k=[6, 6])'
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+        _assert_basic_mgcv_parity(
+            actual,
+            expected,
+            pred_atol=1e-5,
+            pred_rtol=1e-5,
+            sp_log_atol=0.0,
+            check_sp=False,
+        )
+
+    def test_gaussian_te_tp_cr_fixed_matches_mgcv(self):
+        data = _make_gaussian_data(seed=376, n=180)
+        formula = 'y ~ te(x0, x1, bs=["tp", "cr"], k=[6, 6], sp=[0.7, 1.3])'
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["response"], dtype=np.float64),
+            np.asarray(expected["predictions"]["response"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["link"], dtype=np.float64),
+            np.asarray(expected["predictions"]["link"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
+            np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            float(actual["fit"]["deviance"]),
+            float(expected["fit"]["deviance"]),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+
+    def test_gaussian_ti_gp_cr_fixed_matches_mgcv(self):
+        data = _make_gaussian_data(seed=377, n=180)
+        formula = 'y ~ ti(x0, x1, bs=["gp", "cr"], k=[8, 6], sp=[0.7, 1.3])'
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
+        # gp basis parity is TIGHT (atol~1e-6) not EXACT
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["response"], dtype=np.float64),
+            np.asarray(expected["predictions"]["response"], dtype=np.float64),
+            atol=1e-5,
+            rtol=1e-5,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["link"], dtype=np.float64),
+            np.asarray(expected["predictions"]["link"], dtype=np.float64),
+            atol=1e-5,
+            rtol=1e-5,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
+            np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
+            atol=1e-5,
+            rtol=1e-5,
+        )
+        np.testing.assert_allclose(
+            float(actual["fit"]["deviance"]),
+            float(expected["fit"]["deviance"]),
+            atol=1e-5,
+            rtol=1e-5,
         )
 
     # ------------------------------------------------------------------ #
@@ -2856,11 +3630,35 @@ class TestAdditionalScenarioParity:
         # landscape; sp values differ substantially in log-space but both
         # represent effectively-unpenalized fits.  Check predictions only.
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=5e-3, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=5e-3,
+            pred_rtol=0.0,
             sp_log_atol=5.0,
             criterion_atol=2.0,
         )
+
+    def test_gaussian_fs_ps_marginal_select_reml_matches_mgcv(self):
+        data = _make_fs_data()
+        formula = 'y ~ s(f, x, bs="fs", xt=list(bs="ps", m=2, k=7))'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML", select=True)
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML", select=True)
+
+        _assert_basic_mgcv_parity(
+            actual,
+            expected,
+            pred_atol=5e-3,
+            pred_rtol=0.0,
+            sp_log_atol=5.0,
+            criterion_atol=2.0,
+        )
+
+        endpoint = actual["parity"]["diagnostics"]["optimizer_endpoint"]
+        assert endpoint is not None
+        assert bool(endpoint["flat_ridge_suspected"]) is True
+        assert bool(endpoint["factor_smooth_shared_ridge_stabilized"]) is True
+        assert endpoint["factor_smooth_shared_ridge_shift"] is not None
 
     # ------------------------------------------------------------------ #
     # Gap 14: NegBin with theta != 1.0                                    #
@@ -2875,8 +3673,10 @@ class TestAdditionalScenarioParity:
         expected = _run_mgcv_snapshot(data, formula, family, "REML")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=5e-4, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=5e-4,
+            pred_rtol=0.0,
             sp_log_atol=1e-4,
         )
 
@@ -2889,8 +3689,10 @@ class TestAdditionalScenarioParity:
         expected = _run_mgcv_snapshot(data, formula, family, "REML")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-5, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=1e-5,
+            pred_rtol=0.0,
             sp_log_atol=1e-5,
         )
 
@@ -2905,8 +3707,10 @@ class TestAdditionalScenarioParity:
         actual = gam.parity_snapshot(X=data, include_covariances=True)
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-10, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=1e-10,
+            pred_rtol=0.0,
             sp_log_atol=1e-10,
             check_criterion=False,
         )
@@ -2922,8 +3726,10 @@ class TestAdditionalScenarioParity:
         actual = gam.parity_snapshot(X=data, include_covariances=True)
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-10, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=1e-10,
+            pred_rtol=0.0,
             sp_log_atol=1e-10,
             check_criterion=False,
         )
@@ -2943,8 +3749,10 @@ class TestAdditionalScenarioParity:
         actual = gam.parity_snapshot(X=data, include_covariances=True)
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-10, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=1e-10,
+            pred_rtol=0.0,
             sp_log_atol=1e-10,
             check_criterion=False,
         )
@@ -2958,8 +3766,10 @@ class TestAdditionalScenarioParity:
         expected = _run_mgcv_snapshot(data, formula, family, "REML")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=5e-2, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=5e-2,
+            pred_rtol=0.0,
             sp_log_atol=0.5,
         )
 
@@ -2974,8 +3784,10 @@ class TestAdditionalScenarioParity:
         actual = gam.parity_snapshot(X=data, include_covariances=True)
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-10, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=1e-10,
+            pred_rtol=0.0,
             sp_log_atol=1e-10,
             check_criterion=False,
         )
@@ -2989,8 +3801,10 @@ class TestAdditionalScenarioParity:
         expected = _run_mgcv_snapshot(data, formula, family, "REML")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=5e-2, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=5e-2,
+            pred_rtol=0.0,
             sp_log_atol=0.1,
         )
 
@@ -3009,8 +3823,10 @@ class TestAdditionalScenarioParity:
         actual = gam.parity_snapshot(X=data, include_covariances=True)
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-10, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=1e-10,
+            pred_rtol=0.0,
             sp_log_atol=1e-10,
             check_criterion=False,
         )
@@ -3031,10 +3847,12 @@ class TestAdditionalScenarioParity:
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["response"], dtype=np.float64),
             np.asarray(expected["predictions"]["response"], dtype=np.float64),
-            atol=1e-9, rtol=0.0,
+            atol=1e-9,
+            rtol=0.0,
         )
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["link"], dtype=np.float64),
             np.asarray(expected["predictions"]["link"], dtype=np.float64),
-            atol=1e-9, rtol=0.0,
+            atol=1e-9,
+            rtol=0.0,
         )

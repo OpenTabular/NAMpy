@@ -5,12 +5,12 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from nampy.gam.fit.penalized_qr import build_penalized_qr_state_nonnegative
 from nampy.gam.fit.linalg.stacked_qr import (
     STACKED_QR_RANK_TOLERANCE,
     penalty_sqrt_rows,
     pls_fit1_nonneg_w,
 )
+from nampy.gam.fit.penalized_qr import build_penalized_qr_state_nonnegative
 
 
 def _random_pls_instance(

@@ -3,7 +3,6 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import torch.nn as nn
 
-
 NaryExplicit = Dict[str, List[Tuple[int, ...]]]
 NarySpec = Optional[Union[NaryExplicit, List[int], Tuple[int, ...]]]
 
@@ -58,7 +57,7 @@ class DefaultNBMConfig:
     output_penalty : float, default=0.0
         Coefficient for L2 penalty on term scores (added to task loss when > 0).
     """
-    
+
     lr: float = 1e-04
     lr_patience: int = 10
     weight_decay: float = 1e-06

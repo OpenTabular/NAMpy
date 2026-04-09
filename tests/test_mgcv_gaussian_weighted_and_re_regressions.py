@@ -1,10 +1,6 @@
 """Focused Gaussian weighted-fit and random-effect regression parity coverage."""
 
-from _mgcv_snapshot_parity_shared import (
-    TestGaussianPriorWeights,
-    TestGaussianPriorWeightsMgcvParity,
-    TestMgcvParity as _SharedTestMgcvParity,
-)
+from _mgcv_snapshot_parity_shared import TestMgcvParity as _SharedTestMgcvParity
 
 
 class TestGaussianRandomEffectRegressions:

@@ -1,6 +1,8 @@
 """Penalty space geometry and stable log-determinants for multi-penalty REML."""
+
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
+
 
 def _positive_semidefinite_root(P, *, tol=1e-10):
     P = np.asarray(P, dtype=np.float64)
@@ -45,7 +47,7 @@ def _static_penalty_space(model, *, tol=1e-10):
             "Z": np.eye(p_pen, dtype=np.float64),
             "S_groups": [np.empty((0, 0), dtype=np.float64) for _ in range(n_sp)],
         }
-        setattr(model, "_penalty_subspace_cache_", cache)
+        model._penalty_subspace_cache_ = cache
         return cache
 
     St = np.zeros((p_pen, p_pen), dtype=np.float64)
@@ -68,7 +70,7 @@ def _static_penalty_space(model, *, tol=1e-10):
             "Z": np.eye(p_pen, dtype=np.float64),
             "S_groups": [np.empty((0, 0), dtype=np.float64) for _ in range(n_sp)],
         }
-        setattr(model, "_penalty_subspace_cache_", cache)
+        model._penalty_subspace_cache_ = cache
         return cache
 
     es_val, es_vec = np.linalg.eigh(0.5 * (St + St.T))
@@ -91,7 +93,7 @@ def _static_penalty_space(model, *, tol=1e-10):
             S_groups[sp_idx] += Ur @ Ur.T
 
     cache = {"Y": Y, "Z": Z, "S_groups": S_groups}
-    setattr(model, "_penalty_subspace_cache_", cache)
+    model._penalty_subspace_cache_ = cache
     return cache
 
 
@@ -128,11 +130,15 @@ def _static_fixed_and_random_designs(model, X_full, sp, *, tol=1e-10):
             if parts_fix
             else np.empty((X_full.shape[0], 0), dtype=np.float64)
         )
-        return Xf, np.empty((X_full.shape[0], 0), dtype=np.float64), {
-            "rank": 0,
-            "null_dim": int(Z.shape[1]),
-            "logdet_plus": 0.0,
-        }
+        return (
+            Xf,
+            np.empty((X_full.shape[0], 0), dtype=np.float64),
+            {
+                "rank": 0,
+                "null_dim": int(Z.shape[1]),
+                "logdet_plus": 0.0,
+            },
+        )
 
     S_range = np.zeros((Y.shape[1], Y.shape[1]), dtype=np.float64)
     for k, Sg in enumerate(S_groups):
@@ -166,41 +172,15 @@ def _static_fixed_and_random_designs(model, X_full, sp, *, tol=1e-10):
         d_pos = np.empty((0,), dtype=np.float64)
         logdet_plus = 0.0
 
-    return Xf, Zr, {
-        "rank": int(d_pos.size),
-        "null_dim": int(Z.shape[1] + np.sum(null_mask)),
-        "logdet_plus": logdet_plus,
-    }
-
-
-def _static_penalty_summary(model, sp, *, tol=1e-10):
-    sp = np.asarray(sp, dtype=np.float64)
-    cache = _static_penalty_space(model, tol=tol)
-    Y = np.asarray(cache["Y"], dtype=np.float64)
-    Z = np.asarray(cache["Z"], dtype=np.float64)
-    S_groups = cache["S_groups"]
-
-    if Y.shape[1] == 0:
-        return {
-            "rank": 0,
-            "null_dim": int(Z.shape[1]),
-            "logdet_plus": 0.0,
-        }
-
-    S_range = np.zeros((Y.shape[1], Y.shape[1]), dtype=np.float64)
-    for k, Sg in enumerate(S_groups):
-        if Sg.size == 0:
-            continue
-        S_range += float(sp[k]) * np.asarray(Sg, dtype=np.float64)
-
-    evals = np.linalg.eigvalsh(0.5 * (S_range + S_range.T))
-    pos_mask, tol_eff = _eigen_positive_mask(evals, tol=tol)
-    d_pos = np.asarray(evals[pos_mask], dtype=np.float64)
-    return {
-        "rank": int(d_pos.size),
-        "null_dim": int(Z.shape[1] + np.sum(~pos_mask)),
-        "logdet_plus": float(np.sum(np.log(d_pos)) if d_pos.size > 0 else 0.0),
-    }
+    return (
+        Xf,
+        Zr,
+        {
+            "rank": int(d_pos.size),
+            "null_dim": int(Z.shape[1] + np.sum(null_mask)),
+            "logdet_plus": logdet_plus,
+        },
+    )
 
 
 def _stable_penalty_logdet(model, sp, *, tol=1e-10):
@@ -317,9 +297,7 @@ def _stable_penalty_logdet(model, sp, *, tol=1e-10):
         S_out[K : K + Q, K : K + Q] = C
 
         Un = np.asarray(U[:, r:], dtype=np.float64)
-        Si_active = [
-            Un.T @ A @ Un if gamma1[i] else A for i, A in enumerate(Si_active)
-        ]
+        Si_active = [Un.T @ A @ Un if gamma1[i] else A for i, A in enumerate(Si_active)]
         K += r
         Q -= r
         gamma = gamma1
@@ -338,7 +316,10 @@ def _stable_penalty_logdet_derivatives(model, sp, *, tol=1e-10, order=2):
 
     cache = _static_penalty_space(model, tol=tol)
     Y = np.asarray(cache["Y"], dtype=np.float64)
-    S_groups = [0.5 * (np.asarray(Sg, dtype=np.float64) + np.asarray(Sg, dtype=np.float64).T) for Sg in cache["S_groups"]]
+    S_groups = [
+        0.5 * (np.asarray(Sg, dtype=np.float64) + np.asarray(Sg, dtype=np.float64).T)
+        for Sg in cache["S_groups"]
+    ]
     q = int(Y.shape[1])
 
     if q == 0 or len(S_groups) == 0:
@@ -435,9 +416,7 @@ def _stable_penalty_logdet_derivatives(model, sp, *, tol=1e-10, order=2):
         S_out[K : K + Q, K : K + Q] = C
 
         Un = np.asarray(U[:, r:], dtype=np.float64)
-        Si_active = [
-            Un.T @ A @ Un if gamma1[i] else A for i, A in enumerate(Si_active)
-        ]
+        Si_active = [Un.T @ A @ Un if gamma1[i] else A for i, A in enumerate(Si_active)]
         K += r
         Q -= r
         gamma = gamma1
@@ -454,10 +433,7 @@ def _stable_penalty_logdet_derivatives(model, sp, *, tol=1e-10, order=2):
         return logdet, grad, hess
 
     S_inv = cho_solve((cS, loS), np.eye(q), check_finite=False)
-    transformed = [
-        0.5 * (Qf.T @ Sg @ Qf + (Qf.T @ Sg @ Qf).T)
-        for Sg in S_groups
-    ]
+    transformed = [0.5 * (Qf.T @ Sg @ Qf + (Qf.T @ Sg @ Qf).T) for Sg in S_groups]
     SinvSi = [S_inv @ Si for Si in transformed]
     for i, Si in enumerate(transformed):
         if not Si.size or not np.any(Si):

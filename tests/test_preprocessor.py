@@ -4,7 +4,6 @@ NAMpy delegates all preprocessing to the pretab library. These tests ensure
 that the pretab Preprocessor works with NAMpyDataModule (fit, transform,
 get_feature_info(verbose=False) returning num_info, cat_info, emb_info).
 """
-import pytest
 
 from pretab.preprocessor import Preprocessor
 
@@ -31,10 +30,12 @@ def test_pretab_preprocessor_get_feature_info(mixed_data):
     preprocessor.fit(X, y)
     # NAMpyDataModule expects get_feature_info(verbose=False) -> (num, cat, emb)
     result = preprocessor.get_feature_info(verbose=False)
-    assert isinstance(result, (tuple, list)), "get_feature_info should return a sequence"
-    assert len(result) >= 3, (
-        "get_feature_info(verbose=False) should return (num, cat, emb) for NAMpyDataModule"
-    )
+    assert isinstance(
+        result, (tuple, list)
+    ), "get_feature_info should return a sequence"
+    assert (
+        len(result) >= 3
+    ), "get_feature_info(verbose=False) should return (num, cat, emb) for NAMpyDataModule"
     num_info, cat_info, emb_info = result[0], result[1], result[2]
     assert isinstance(num_info, dict)
     assert isinstance(cat_info, dict)

@@ -17,17 +17,19 @@ from dataclasses import replace
 
 import numpy as np
 
-from .backends import solve_fit
-from .offsets import coerce_offset_array
-from .state import assign_fit_solution
-from ..smoothing_selection.criteria.gaussian_dyn import criterion_ml_reml_gaussian_dynamic_joint
-from ..smoothing_selection.criteria.ml_reml import resolve_ml_reml_scoring_backend
-from ..smoothing_selection.criteria.penalty import _static_penalty_null_dim
+from ..smoothing_selection.criteria.gaussian_dyn import (
+    criterion_ml_reml_gaussian_dynamic_joint,
+)
 from ..smoothing_selection.criteria.gaussian_reml_algebra import (
     gaussian_weighted_residual_sum_squares,
     prior_weights_diagonal_from_fit,
     quadratic_form_penalty,
 )
+from ..smoothing_selection.criteria.ml_reml import resolve_ml_reml_scoring_backend
+from ..smoothing_selection.criteria.penalty import _static_penalty_null_dim
+from .backends import solve_fit
+from .offsets import coerce_offset_array
+from .state import assign_fit_solution
 
 
 def fit_model_core(
@@ -124,9 +126,46 @@ def fit_model_core(
         model._optim_used_hessian = False
         model.smoothing_score_ = None
 
-    sol = solve_fit(model, y, model.smoothing_params)
+    sol = solve_fit(model, y, model.smoothing_params, weights=model.prior_weights_)
 
     assign_fit_solution(model, sol)
+    if method != "fixed" and not (getattr(model, "_optim_trace", None) or []):
+        inner_trace = list(getattr(sol, "inner_trace", None) or [])
+        if inner_trace:
+            fixed_mask = (
+                np.zeros(model.n_smoothing_params_, dtype=bool)
+                if model.smoothing_fixed_mask_ is None
+                else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+            )
+            free_vals = np.asarray(model.smoothing_params[~fixed_mask], dtype=np.float64)
+            log_sp = (
+                np.log(np.maximum(free_vals, 1e-300))
+                if free_vals.size > 0
+                else np.empty((0,), dtype=np.float64)
+            )
+            model._optim_trace = [
+                {
+                    **dict(row),
+                    "iter": int(row.get("iter", i + 1)),
+                    "log_sp": log_sp.copy(),
+                    "criterion": float(
+                        row.get(
+                            "penalized_deviance_conv",
+                            row.get("penalized_deviance", np.nan),
+                        )
+                    ),
+                    "gradient": np.asarray(
+                        [float(row["grad_inf_norm"])], dtype=np.float64
+                    )
+                    if row.get("grad_inf_norm", None) is not None
+                    else None,
+                    "rank_info": {
+                        "pirls_inner": True,
+                        "converged_here": bool(row.get("converged_here", False)),
+                    },
+                }
+                for i, row in enumerate(inner_trace)
+            ]
 
     # For Gaussian REML/LAML with the exact (profiled Laplace) backend, the optimizer
     # stores the profiled mixed-model criterion value, which differs from mgcv's reported
@@ -146,7 +185,9 @@ def fit_model_core(
                     if model.smoothing_fixed_mask_ is None
                     else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
                 )
-                _free_vals = np.asarray(model.smoothing_params[~_fixed_mask], dtype=np.float64)
+                _free_vals = np.asarray(
+                    model.smoothing_params[~_fixed_mask], dtype=np.float64
+                )
                 _log_free = (
                     np.log(np.maximum(_free_vals, 1e-300))
                     if _free_vals.size > 0

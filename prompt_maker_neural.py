@@ -78,7 +78,9 @@ def render_tree(file_paths: list[str]) -> str:
     def _render(node: dict, prefix: str = "") -> list[str]:
         dirs = sorted(k for k in node.keys() if k != "__files__")
         files = sorted(node.get("__files__", set()))
-        entries: list[tuple[str, str]] = [(d, "dir") for d in dirs] + [(f, "file") for f in files]
+        entries: list[tuple[str, str]] = [(d, "dir") for d in dirs] + [
+            (f, "file") for f in files
+        ]
 
         lines: list[str] = []
         for i, (name, kind) in enumerate(entries):
@@ -98,7 +100,9 @@ def render_tree(file_paths: list[str]) -> str:
 input_files = collect_input_files(repo_root)
 
 with (repo_root / output_file).open("w", encoding="utf-8") as outfile:
-    outfile.write("""You are a senior computational statistician, numerical software architect, and Python package maintainer with deep expertise in neural additive models and Python package design. I am building a python packagw which offers a variety of neural models like NAM, NBM, GPNAM, NODE-GAM, MonotonicNAM etc as a single package. Review this core neural bundle, I have only included the example of NAM here. I wish to incorporate the ideas of the neurips paper into this as it can be done for any neural model like NAM or NBM.""")
+    outfile.write(
+        """You are a senior computational statistician, numerical software architect, and Python package maintainer with deep expertise in neural additive models and Python package design. I am building a python packagw which offers a variety of neural models like NAM, NBM, GPNAM, NODE-GAM, MonotonicNAM etc as a single package. Review this core neural bundle, I have only included the example of NAM here. I wish to incorporate the ideas of the neurips paper into this as it can be done for any neural model like NAM or NBM."""
+    )
     outfile.write("Directory structure (core neural scope):\n")
     outfile.write(render_tree(input_files))
     outfile.write("\n\n")

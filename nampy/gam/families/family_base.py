@@ -22,12 +22,41 @@ Three family tiers are defined here:
 """
 
 import abc
+
 import numpy as np
 
 _EPS = 1e-9
+_CAPABILITY_FLAGS = (
+    "supports_closed_form_solve",
+    "supports_pirls",
+    "supports_gcv",
+    "supports_ubre",
+    "supports_ml",
+    "supports_reml",
+    "supports_laml",
+    "supports_ncv",
+    "supports_qncv",
+    "supports_exact_pirls_first_derivatives",
+    "supports_exact_pirls_second_derivatives",
+)
 
 
-class BaseFamily(abc.ABC):
+class _FamilyMeta(abc.ABCMeta):
+    def __new__(mcls, name, bases, namespace):
+        cls = super().__new__(mcls, name, bases, namespace)
+        type.__setattr__(cls, "_capability_flags_locked", True)
+        return cls
+
+    def __setattr__(cls, name, value):
+        if (
+            getattr(cls, "_capability_flags_locked", False)
+            and name in _CAPABILITY_FLAGS
+        ):
+            raise AttributeError(f"{name} is read-only on family classes.")
+        super().__setattr__(name, value)
+
+
+class BaseFamily(metaclass=_FamilyMeta):
     """
     Abstract root class for all GAM families.
 
@@ -58,6 +87,11 @@ class BaseFamily(abc.ABC):
 
     def __init__(self, eps: float = _EPS):
         self.eps = float(eps)
+
+    def __setattr__(self, name, value):
+        if name in _CAPABILITY_FLAGS and hasattr(self, name):
+            raise AttributeError(f"{name} is read-only on family instances.")
+        super().__setattr__(name, value)
 
     def validate_y(self, y):
         y = np.asarray(y, dtype=np.float64).ravel()
@@ -146,39 +180,64 @@ class GLMFamily(BaseFamily):
     n_linear_predictors = 1
     canonical_link = False
 
-    @abc.abstractmethod
+    _link_key: str | None = None
+    _variance_key: str | None = None
+
+    def __init__(self, eps: float = _EPS):
+        super().__init__(eps=eps)
+        from ._function_maps import LINK_REGISTRY, VARIANCE_REGISTRY
+
+        if self._link_key is not None:
+            self.link = LINK_REGISTRY[self._link_key](eps=self.eps)
+        if self._variance_key is not None:
+            self.variance = VARIANCE_REGISTRY[self._variance_key](eps=self.eps)
+
     def initialize_mu(self, y):
         raise NotImplementedError
 
-    @abc.abstractmethod
     def link(self, mu):
-        raise NotImplementedError
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must assign self.link to a LinkFunction."
+        )
 
-    @abc.abstractmethod
     def inverse_link(self, eta):
-        raise NotImplementedError
+        return self.link.inverse(eta)
 
-    @abc.abstractmethod
     def mu_eta(self, eta):
         """d mu / d eta"""
-        raise NotImplementedError
+        return self.link.mu_eta(eta)
 
-    @abc.abstractmethod
     def variance(self, mu):
-        raise NotImplementedError
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must assign self.variance to a VarianceFunction."
+        )
+
+    def _check_weights(self, y, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        if weights is None:
+            return np.ones_like(y, dtype=np.float64)
+        return np.asarray(weights, dtype=np.float64)
 
     def dvar(self, mu):
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not yet implement dvar(mu)."
-        )
+        return self.variance.d1(mu)
+
+    def d2var(self, mu):
+        return self.variance.d2(mu)
+
+    def d3var(self, mu):
+        return self.variance.d3(mu)
 
     def d2link(self, mu):
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not yet implement d2link(mu)."
-        )
+        return self.link.d2(mu)
+
+    def d3link(self, mu):
+        return self.link.d3(mu)
+
+    def d4link(self, mu):
+        return self.link.d4(mu)
 
     @abc.abstractmethod
-    def deviance(self, y, mu):
+    def deviance(self, y, mu, weights=None):
         raise NotImplementedError
 
     def estimate_dispersion(self, y, mu, edf=None):
@@ -193,6 +252,11 @@ class GLMFamily(BaseFamily):
 
     def loglik(self, y, mu, scale=1.0):
         return float(np.sum(self.loglik_obs(y, mu, scale=scale)))
+
+    def aic(self, y, mu, *, edf=0.0, scale=1.0, weights=None):
+        loglik_obs = np.asarray(self.loglik_obs(y, mu, scale=scale), dtype=np.float64)
+        obs_weights = self._check_weights(loglik_obs, weights)
+        return float(-2.0 * np.sum(obs_weights * loglik_obs) + 2.0 * float(edf))
 
     def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
         raise NotImplementedError(

@@ -13,8 +13,9 @@ Run:
 
 import os
 import tempfile
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
@@ -29,12 +30,18 @@ def main():
     # ------------------------------------------------------------------
     # Mixed data: numerical + categorical
     # ------------------------------------------------------------------
-    X = pd.DataFrame({
-        "age": rng.uniform(18, 70, n),
-        "income": rng.lognormal(mean=10.0, sigma=0.6, size=n),
-        "region": rng.choice(["North", "South", "East", "West"], size=n, p=[0.25, 0.25, 0.25, 0.25]),
-        "channel": rng.choice(["Online", "Retail", "Partner"], size=n, p=[0.4, 0.4, 0.2]),
-    })
+    X = pd.DataFrame(
+        {
+            "age": rng.uniform(18, 70, n),
+            "income": rng.lognormal(mean=10.0, sigma=0.6, size=n),
+            "region": rng.choice(
+                ["North", "South", "East", "West"], size=n, p=[0.25, 0.25, 0.25, 0.25]
+            ),
+            "channel": rng.choice(
+                ["Online", "Retail", "Partner"], size=n, p=[0.4, 0.4, 0.2]
+            ),
+        }
+    )
 
     REGION_EFFECT = {
         "North": -0.35,
@@ -104,7 +111,8 @@ def main():
 
     preds = model.predict(X_val)
     scores = model.evaluate(
-        X_val, y_val,
+        X_val,
+        y_val,
         metrics={"MAE": mean_absolute_error, "R2": r2_score},
     )
     print(f"Validation — MAE: {scores['MAE']:.4f}, R2: {scores['R2']:.4f}")
@@ -138,9 +146,13 @@ def main():
     print(f"  channel keys: {channel_keys}")
 
     if not region_keys:
-        raise RuntimeError("No region[...] keys were returned. One-hot handling may be broken.")
+        raise RuntimeError(
+            "No region[...] keys were returned. One-hot handling may be broken."
+        )
     if not channel_keys:
-        raise RuntimeError("No channel[...] keys were returned. One-hot handling may be broken.")
+        raise RuntimeError(
+            "No channel[...] keys were returned. One-hot handling may be broken."
+        )
 
     # ------------------------------------------------------------------
     # Build validation-set truth
@@ -171,20 +183,30 @@ def main():
         return np.corrcoef(a, b)[0, 1]
 
     print("\nVerification (true DGP vs learned contributions):")
-    print(f"  total    true vs predictions correlation: {centered_corr(true_total_no_noise, preds):.4f}")
+    print(
+        f"  total    true vs predictions correlation: {centered_corr(true_total_no_noise, preds):.4f}"
+    )
 
     if "age" in learned:
-        print(f"  age      true vs learned correlation:     {centered_corr(true_age_val, learned['age']):.4f}")
+        print(
+            f"  age      true vs learned correlation:     {centered_corr(true_age_val, learned['age']):.4f}"
+        )
     else:
         print("  age      key not found")
 
     if "income" in learned:
-        print(f"  income   true vs learned correlation:     {centered_corr(true_income_val, learned['income']):.4f}")
+        print(
+            f"  income   true vs learned correlation:     {centered_corr(true_income_val, learned['income']):.4f}"
+        )
     else:
         print("  income   key not found")
 
-    print(f"  region   true vs learned correlation:     {centered_corr(true_region_val, learned_region_total):.4f}")
-    print(f"  channel  true vs learned correlation:     {centered_corr(true_channel_val, learned_channel_total):.4f}")
+    print(
+        f"  region   true vs learned correlation:     {centered_corr(true_region_val, learned_region_total):.4f}"
+    )
+    print(
+        f"  channel  true vs learned correlation:     {centered_corr(true_channel_val, learned_channel_total):.4f}"
+    )
 
     # ------------------------------------------------------------------
     # Category-level sanity check:
@@ -197,7 +219,9 @@ def main():
         mask = xv["region"].to_numpy() == region
         mean_learned = learned_region_total[mask].mean()
         region_summary.append((region, REGION_EFFECT[region], mean_learned))
-        print(f"  {region:>5s} | true: {REGION_EFFECT[region]: .3f} | learned mean: {mean_learned: .3f}")
+        print(
+            f"  {region:>5s} | true: {REGION_EFFECT[region]: .3f} | learned mean: {mean_learned: .3f}"
+        )
 
     print("\nMean learned channel contribution by category:")
     channel_summary = []
@@ -205,7 +229,9 @@ def main():
         mask = xv["channel"].to_numpy() == channel
         mean_learned = learned_channel_total[mask].mean()
         channel_summary.append((channel, CHANNEL_EFFECT[channel], mean_learned))
-        print(f"  {channel:>7s} | true: {CHANNEL_EFFECT[channel]: .3f} | learned mean: {mean_learned: .3f}")
+        print(
+            f"  {channel:>7s} | true: {CHANNEL_EFFECT[channel]: .3f} | learned mean: {mean_learned: .3f}"
+        )
 
     # ------------------------------------------------------------------
     # Optional: inspect individual region[...] terms
@@ -222,9 +248,15 @@ def main():
 
     print("\nInterpretation:")
     print("  - You should see keys like region[0], region[1], ... and channel[0], ...")
-    print("  - The summed region[...] contribution should correlate strongly with the true region effect.")
-    print("  - The grouped means by category should preserve the correct ordering of effects.")
-    print("  - Individual region[k] terms need not be directly human-readable unless you also inspect encoder category order.")
+    print(
+        "  - The summed region[...] contribution should correlate strongly with the true region effect."
+    )
+    print(
+        "  - The grouped means by category should preserve the correct ordering of effects."
+    )
+    print(
+        "  - Individual region[k] terms need not be directly human-readable unless you also inspect encoder category order."
+    )
 
     # ------------------------------------------------------------------
     # Optional plotting through your package API

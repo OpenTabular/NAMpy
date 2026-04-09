@@ -13,4 +13,4 @@ class DefaultEnsembleTreeNAMConfig(DefaultTreeNAMConfig):
     """
 
     num_estimators: int = 5
-    aggregation: str = "mean"   # currently only "mean" is supported
+    aggregation: str = "mean"  # currently only "mean" is supported

@@ -36,6 +36,38 @@ def _nearest_indices(X: np.ndarray, n_neighbors: int = 3) -> np.ndarray:
     return np.argsort(d2, axis=1)[:, :n_neighbors]
 
 
+def _stabilized_k_check_edf(model, tb, edf: float) -> float:
+    """Mirror mgcv's near-null-space EDF reporting for heavily penalized smooths."""
+    if not np.isfinite(edf):
+        return edf
+    if str(getattr(tb, "term_type", "")) != "smooth":
+        return edf
+
+    lower_df = None
+    for pb in getattr(model, "penalty_blocks_", ()) or ():
+        if pb.coef_slice != tb.coef_slice:
+            continue
+        nsd = getattr(pb, "null_space_dim", None)
+        if nsd is None:
+            continue
+        lower_df = float(nsd) if lower_df is None else max(lower_df, float(nsd))
+    if lower_df is None:
+        return edf
+
+    sp_vals = [
+        float(model.smoothing_params[j])
+        for j in getattr(tb, "smoothing_indices", ()) or ()
+        if np.isfinite(float(model.smoothing_params[j]))
+    ]
+    if len(sp_vals) == 0 or max(sp_vals) < 1e5:
+        return edf
+
+    delta = float(edf - lower_df)
+    if 0.0 < delta < 1e-3:
+        return float(lower_df + 1e-8)
+    return edf
+
+
 def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = None):
     """Approximate mgcv::k.check() basis-dimension diagnostic.
 
@@ -47,7 +79,8 @@ def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = N
         raise RuntimeError("Model is not fitted.")
 
     term_blocks = [
-        tb for tb in (getattr(model, "term_blocks_", ()) or ())
+        tb
+        for tb in (getattr(model, "term_blocks_", ()) or ())
         if str(getattr(tb, "term_type", "")) != "parametric"
     ]
     if len(term_blocks) == 0:
@@ -69,6 +102,7 @@ def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = N
         X_term = _numeric_feature_block(model, tb, row_idx)
         k_prime = int(tb.coef_slice.stop - tb.coef_slice.start)
         edf = float(model.edf_by_term_[i])
+        edf = _stabilized_k_check_edf(model, tb, edf)
         if X_term is None:
             rows.append((label, k_prime, edf, np.nan, np.nan))
             continue

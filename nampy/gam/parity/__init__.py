@@ -13,19 +13,19 @@ Typical workflow
 3. Compare with :func:`compare_parity_snapshots` and inspect tolerances.
 """
 
+from .compare import (
+    assert_parity_snapshot_close,
+    compare_parity_snapshots,
+)
 from .snapshots import (
     build_parity_snapshot,
-    save_parity_snapshot,
     load_parity_snapshot,
+    save_parity_snapshot,
 )
 from .trace import (
     build_optimizer_trace,
-    save_optimizer_trace,
     load_optimizer_trace,
-)
-from .compare import (
-    compare_parity_snapshots,
-    assert_parity_snapshot_close,
+    save_optimizer_trace,
 )
 
 __all__ = [

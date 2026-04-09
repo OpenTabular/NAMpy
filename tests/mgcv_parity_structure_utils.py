@@ -8,12 +8,21 @@ from typing import Any
 import numpy as np
 
 from nampy.basemodels.gam import GAM
-from nampy.gam.parity import build_parity_snapshot, load_parity_snapshot, save_parity_snapshot
+from nampy.gam.parity import (
+    build_parity_snapshot,
+    load_parity_snapshot,
+    save_parity_snapshot,
+)
 
 
 def fit_gaussian_formula(data, formula: str, **gam_kwargs) -> GAM:
     """Fit :class:`~nampy.basemodels.gam.GAM` with a formula (Gaussian family)."""
-    kw = dict(family="gaussian", formula=formula, optimize_smoothing=True, smoothing_method="REML")
+    kw = {
+        "family": "gaussian",
+        "formula": formula,
+        "optimize_smoothing": True,
+        "smoothing_method": "REML",
+    }
     kw.update(gam_kwargs)
     m = GAM(**kw)
     m.fit(data=data)
@@ -38,7 +47,9 @@ def design_structure(model: GAM) -> dict[str, Any]:
                 "train_shape": tuple(B.shape),
                 "coef_width": int(B.shape[1]),
                 "n_penalties": len(pbs),
-                "penalty_shapes": [tuple(np.asarray(pb.matrix, dtype=np.float64).shape) for pb in pbs],
+                "penalty_shapes": [
+                    tuple(np.asarray(pb.matrix, dtype=np.float64).shape) for pb in pbs
+                ],
                 "smoothing_ids": list(tb.smoothing_ids),
                 "has_parametric_expansion_meta": "parametric_expansion" in meta,
                 "runtime_by_name": cmeta.get("runtime_by_name"),
@@ -87,7 +98,10 @@ def term_contribution_shapes(model: GAM, X=None) -> dict[str, Any]:
     from nampy.gam.predict.contributions import predict_term_contributions
 
     out = predict_term_contributions(model, X=X)
-    shapes = {k: (tuple(np.asarray(v).shape) if np.ndim(v) > 0 else ()) for k, v in out.items()}
+    shapes = {
+        k: (tuple(np.asarray(v).shape) if np.ndim(v) > 0 else ())
+        for k, v in out.items()
+    }
     return shapes
 
 
@@ -98,14 +112,17 @@ def parity_snapshot_structure(snap: dict) -> dict[str, Any]:
     out: dict[str, Any] = {
         "fit": {
             "coef_full_shape": tuple(np.asarray(fit.get("coef_full")).shape),
-            "smoothing_params_shape": tuple(np.asarray(fit.get("smoothing_params")).shape),
+            "smoothing_params_shape": tuple(
+                np.asarray(fit.get("smoothing_params")).shape
+            ),
             "edf_by_term_shape": tuple(np.asarray(fit.get("edf_by_term")).shape),
             "intercept": float(fit.get("intercept", 0.0)),
             "edf_total": float(fit.get("edf_total", 0.0)),
             "n_term_results": len(fit.get("term_results", []) or []),
         },
         "predictions": {
-            k: tuple(np.asarray(preds.get(k)).shape) for k in ("response", "link", "terms", "lpmatrix")
+            k: tuple(np.asarray(preds.get(k)).shape)
+            for k in ("response", "link", "terms", "lpmatrix")
         },
     }
     tr = fit.get("term_results") or []
@@ -138,7 +155,9 @@ def roundtrip_parity_snapshot(model: GAM, tmp_path: Path, *, X=None) -> None:
     path = tmp_path / "snap.json"
     save_parity_snapshot(snap0, path)
     snap1 = load_parity_snapshot(path)
-    assert_parity_structure_equal(parity_snapshot_structure(snap0), parity_snapshot_structure(snap1))
+    assert_parity_structure_equal(
+        parity_snapshot_structure(snap0), parity_snapshot_structure(snap1)
+    )
 
 
 __all__ = [

@@ -2,11 +2,17 @@ from __future__ import annotations
 
 import numpy as np
 
-from .categorical_utils import factor_indicator_matrix, stable_unique_levels, as_object_1d
+from ....splines.mrf import (
+    coerce_nb,
+    coerce_penalty_matrix,
+    combine_duplicate_polys,
+    laplacian_penalty_from_nb,
+    nat_param_type0,
+    polys_to_nb,
+)
 from ...design.structures import PenaltySpec
 from ...penalties import build_null_space_selection_spec
-from ...basis.tensor import rescale_tensor_penalties_for_fit
-from ..base import (
+from ..smooth_base import (
     BaseSmoothTerm,
     _resolve_feature,
     by_values_from_new_data,
@@ -14,13 +20,10 @@ from ..base import (
     resolve_by_state,
     sync_by_state_attributes,
 )
-from ....splines.mrf import (
-    combine_duplicate_polys,
-    polys_to_nb,
-    coerce_nb,
-    laplacian_penalty_from_nb,
-    coerce_penalty_matrix,
-    nat_param_type0,
+from .categorical_utils import (
+    as_object_1d,
+    factor_indicator_matrix,
+    stable_unique_levels,
 )
 
 
@@ -40,6 +43,7 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
     If k < number of areas, use the natural-parameter truncation described in
     mgcv's constructor source and documentation.
     """
+
     term_type = "smooth"
     basis_name = "mrf"
     supports_tensor_marginal = False
@@ -61,7 +65,9 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
     ):
         features = list(feature) if not isinstance(feature, (str, int)) else [feature]
         if len(features) != 1:
-            raise NotImplementedError("bs='mrf' currently supports exactly one area-label variable.")
+            raise NotImplementedError(
+                "bs='mrf' currently supports exactly one area-label variable."
+            )
 
         super().__init__(
             feature=features,
@@ -174,14 +180,18 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
             miss = np.where(np.sum(X_full, axis=0) == 0.0)[0]
             X_aug = X_full
             if miss.size > 0:
-                X_aug = np.vstack([np.zeros((miss.size, n_areas), dtype=np.float64), X_aug])
+                X_aug = np.vstack(
+                    [np.zeros((miss.size, n_areas), dtype=np.float64), X_aug]
+                )
                 for i, j in enumerate(miss):
                     X_aug[i, j] = 1.0
 
-            rp = nat_param_type0(X_aug, self._full_penalty, rank=None, tol=None, unit_fnorm=True)
+            rp = nat_param_type0(
+                X_aug, self._full_penalty, rank=None, tol=None, unit_fnorm=True
+            )
 
             ind = np.arange(n_areas - bs_dim, n_areas, dtype=int)
-            X_red = rp["X"][miss.size:, :][:, ind]
+            X_red = rp["X"][miss.size :, :][:, ind]
             P_red = rp["P"][:, ind]
 
             D_red = np.zeros(bs_dim, dtype=np.float64)
@@ -193,9 +203,26 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
             S_red = np.diag(D_red)
             rank_red = int(np.sum(ind < rank_full))
 
-            self._basis_train = np.asarray(X_red, dtype=np.float64)
-            self._penalties = [S_red]
-            self._P = np.asarray(P_red, dtype=np.float64)
+            # smoothCon(..., absorb.cons=TRUE) removes the remaining null-space
+            # direction from the low-rank MRF basis after nat.param truncation.
+            C = np.mean(X_red, axis=0, keepdims=True)
+            Q, _ = np.linalg.qr(C.T, mode="complete")
+            Z = Q[:, 1:]
+            X_absorbed = X_red @ Z
+            S_absorbed = Z.T @ S_red @ Z
+            S_absorbed = 0.5 * (S_absorbed + S_absorbed.T)
+
+            # mgcv's scale.penalty=TRUE normalizes using the pre-absorption
+            # reduced basis and penalty, and the absorbed penalty inherits the
+            # same factor.
+            maXX = float(np.max(np.sum(np.abs(X_red), axis=1)) ** 2)
+            maS = float(np.max(np.sum(np.abs(S_red), axis=0)))
+            if maS > 1e-12 and maXX > 1e-12:
+                S_absorbed = S_absorbed / (maS / maXX)
+
+            self._basis_train = np.asarray(X_absorbed, dtype=np.float64)
+            self._penalties = [np.asarray(S_absorbed, dtype=np.float64)]
+            self._P = np.asarray(P_red @ Z, dtype=np.float64)
             self._rank = rank_red
         else:
             ev = np.linalg.eigvalsh(self._full_penalty)
@@ -206,8 +233,8 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
             # when absorb.cons=TRUE: C = colMeans(X), remove one null-space column
             # via QR so the basis shrinks from n_areas to n_areas-1 columns.
             C = np.mean(X_full, axis=0, keepdims=True)  # (1, n_areas)
-            Q, _ = np.linalg.qr(C.T, mode="complete")   # (n_areas, n_areas)
-            Z = Q[:, 1:]                                  # (n_areas, n_areas-1)
+            Q, _ = np.linalg.qr(C.T, mode="complete")  # (n_areas, n_areas)
+            Z = Q[:, 1:]  # (n_areas, n_areas-1)
             X_absorbed = X_full @ Z
             S_absorbed = Z.T @ self._full_penalty @ Z
             S_absorbed = 0.5 * (S_absorbed + S_absorbed.T)
@@ -273,10 +300,16 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         defs = [
             PenaltySpec(
                 matrix=np.asarray(self.penalties[0], dtype=np.float64),
-                smoothing_id=(None if self.smoothing_id is None else str(self.smoothing_id)),
+                smoothing_id=(
+                    None if self.smoothing_id is None else str(self.smoothing_id)
+                ),
                 kind="smooth",
                 rank=int(self._rank) if self._rank is not None else None,
-                null_space_dim=int(self._null_space_dim) if self._null_space_dim is not None else None,
+                null_space_dim=(
+                    int(self._null_space_dim)
+                    if self._null_space_dim is not None
+                    else None
+                ),
                 is_null_space_penalty=False,
                 sp_mode=sp_mode,
                 sp_value=sp_value,
@@ -287,7 +320,9 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
                     "label": self.label,
                     "by": self.by,
                     "by_name": self._by_state.feature_name,
-                    "area_names": list(self._area_names) if self._area_names is not None else None,
+                    "area_names": (
+                        list(self._area_names) if self._area_names is not None else None
+                    ),
                     "has_polys": self._plot_polys is not None,
                     "has_nb": self._nb is not None,
                     "has_penalty": self._full_penalty is not None,
@@ -311,7 +346,9 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
                     "label": self.label,
                     "by": self.by,
                     "by_name": self._by_state.feature_name,
-                    "area_names": list(self._area_names) if self._area_names is not None else None,
+                    "area_names": (
+                        list(self._area_names) if self._area_names is not None else None
+                    ),
                     "has_polys": self._plot_polys is not None,
                     "has_nb": self._nb is not None,
                     "has_penalty": self._full_penalty is not None,

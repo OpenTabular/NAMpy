@@ -1,12 +1,12 @@
-# splines/thin_plate.py
 import math
 import warnings
+from dataclasses import dataclass
 
 import numpy as np
 import scipy.linalg
 from scipy.spatial import distance_matrix
 
-from .penalty_scaling import scale_penalty
+from ..gam.penalties.algebra import scale_penalty
 from .thin_plate_basis import eta, tp_T
 
 
@@ -240,7 +240,9 @@ def normalize_tprs_knots(knots, n_dim: int):
         cols = [np.asarray(k, dtype=np.float64).ravel() for k in knots]
         n = cols[0].size
         if any(c.size != n for c in cols):
-            raise ValueError("All supplied knot coordinate arrays must have the same length.")
+            raise ValueError(
+                "All supplied knot coordinate arrays must have the same length."
+            )
         out = np.column_stack(cols)
         return np.asarray(out, dtype=np.float64)
 
@@ -360,7 +362,9 @@ def _top_eigensystem(E, k):
         b[j] = float(np.linalg.norm(z))
         if j < n - 1:
             if b[j] == 0.0:
-                raise np.linalg.LinAlgError("Lanczos breakdown in thin-plate eigensystem.")
+                raise np.linalg.LinAlgError(
+                    "Lanczos breakdown in thin-plate eigensystem."
+                )
             q.append(z / b[j])
 
         if ((j >= k) and (j % f_check == 0)) or (j == n - 1):
@@ -402,14 +406,14 @@ def _top_eigensystem(E, k):
     U = np.zeros((n, k), dtype=np.float64)
     for col in range(m_keep):
         coeff = vecs[:j_final, col]
-        for l in range(j_final):
-            U[:, col] += q[l] * coeff[l]
+        for q_idx in range(j_final):
+            U[:, col] += q[q_idx] * coeff[q_idx]
 
     for col in range(m_keep, m_keep + lm_keep):
         kk = j_final - (lm_keep + m_keep - col)
         coeff = vecs[:j_final, kk]
-        for l in range(j_final):
-            U[:, col] += q[l] * coeff[l]
+        for q_idx in range(j_final):
+            U[:, col] += q[q_idx] * coeff[q_idx]
 
     evals = np.zeros(k, dtype=np.float64)
     evals[:m_keep] = d[:m_keep]
@@ -506,7 +510,9 @@ def construct_tprs_basis(
     if k < 0:
         k = default_tprs_k(d, M)
     if k < M + 1:
-        warnings.warn("basis dimension k increased to the minimum possible M + 1.")
+        warnings.warn(
+            "basis dimension k increased to the minimum possible M + 1.", stacklevel=2
+        )
         k = M + 1
 
     Xu = choose_tprs_setup_locations(
@@ -633,8 +639,6 @@ def full_rank_shrinkage_penalty(S, shrink=1e-1, tol=1e-12):
     S_full = (U * out) @ U.T
     return 0.5 * (S_full + S_full.T)
 
-from dataclasses import dataclass
-
 
 @dataclass
 class ThinPlateBasisSetup:
@@ -729,7 +733,9 @@ def build_tprs_term_setup(
     if bs_dim < 0:
         bs_dim = default_tprs_k(d, original_null_space_dim)
     if bs_dim < original_null_space_dim + 1:
-        warnings.warn("basis dimension k increased to the minimum possible M + 1.")
+        warnings.warn(
+            "basis dimension k increased to the minimum possible M + 1.", stacklevel=2
+        )
         bs_dim = original_null_space_dim + 1
 
     mgcv_setup_locations = setup_knots

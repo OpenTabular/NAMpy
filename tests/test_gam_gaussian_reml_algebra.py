@@ -33,9 +33,7 @@ def test_gaussian_reml_laplace_matches_profiled_closed_form(seed: int) -> None:
         rss_bSb / scale + (n - Mp) * np.log(2.0 * np.pi * scale) + logdet_A - logdet_S
     ) / 2.0
 
-    dev = rss_bSb - float(
-        rng.uniform(0.0, min(rss_bSb * 0.5, rss_bSb - 1e-6))
-    )
+    dev = rss_bSb - float(rng.uniform(0.0, min(rss_bSb * 0.5, rss_bSb - 1e-6)))
     penalty_P = rss_bSb - dev
 
     assembled = gaussian_reml_laplace_score(

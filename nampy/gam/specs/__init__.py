@@ -1,7 +1,48 @@
+"""Canonical declarative GAM specification objects."""
+
 from .base import TermSpec
-from .predictors import LinearPredictorSpec
+from .predictors import LinearPredictorSpec, PenaltyGroupSpec
+from .smooth import (
+    BaseSmoothSpec,
+    CubicRegressionSmoothSpec,
+    CubicShrinkageSmoothSpec,
+    CyclicCubicRegressionSmoothSpec,
+    FactorSmoothInteractionSpec,
+    GPSmoothSpec,
+    MarkovRandomFieldSmoothSpec,
+    PSplineSmoothSpec,
+    RandomEffectSmoothSpec,
+    SmoothSpec,
+    SumToZeroFactorSmoothSpec,
+    TensorANOVASmoothSpec,
+    TensorInteractionSmoothSpec,
+    TensorProductSmoothSpec,
+    ThinPlateShrinkageSmoothSpec,
+    ThinPlateSmoothSpec,
+    build_smooth_spec,
+    replace_smooth_spec,
+)
 
 __all__ = [
     "TermSpec",
     "LinearPredictorSpec",
+    "PenaltyGroupSpec",
+    "BaseSmoothSpec",
+    "CubicRegressionSmoothSpec",
+    "CubicShrinkageSmoothSpec",
+    "CyclicCubicRegressionSmoothSpec",
+    "FactorSmoothInteractionSpec",
+    "GPSmoothSpec",
+    "MarkovRandomFieldSmoothSpec",
+    "PSplineSmoothSpec",
+    "RandomEffectSmoothSpec",
+    "SmoothSpec",
+    "SumToZeroFactorSmoothSpec",
+    "TensorANOVASmoothSpec",
+    "TensorInteractionSmoothSpec",
+    "TensorProductSmoothSpec",
+    "ThinPlateShrinkageSmoothSpec",
+    "ThinPlateSmoothSpec",
+    "build_smooth_spec",
+    "replace_smooth_spec",
 ]

@@ -108,7 +108,9 @@ class QNAMBase(BaseModel):
             )
 
         # Monotone transform function
-        self.monotone_transform = self.hparams.get("monotone_transform", config.monotone_transform)
+        self.monotone_transform = self.hparams.get(
+            "monotone_transform", config.monotone_transform
+        )
         self.min_increment = self.hparams.get("min_increment", config.min_increment)
 
     def _create_subnetwork(self, input_dim: int) -> MLP:
@@ -147,7 +149,9 @@ class QNAMBase(BaseModel):
                     input_dim
                 )
 
-    def _monotone_transform(self, x: torch.Tensor, min_increment: float = 0.00) -> torch.Tensor:
+    def _monotone_transform(
+        self, x: torch.Tensor, min_increment: float = 0.00
+    ) -> torch.Tensor:
         """
         Transform raw outputs into a nondecreasing sequence across the last dimension.
 
@@ -178,13 +182,18 @@ class QNAMBase(BaseModel):
         interaction_outputs = {}
         if self.interaction_degree is not None and self.interaction_degree >= 2:
             all_features = {**num_features, **cat_features}
-            for interaction_name, interaction_network in self.interaction_networks.items():
+            for (
+                interaction_name,
+                interaction_network,
+            ) in self.interaction_networks.items():
                 feature_names = interaction_name.split(":")
                 input_features = torch.cat(
                     [all_features[fn] for fn in feature_names], dim=-1
                 ).float()
                 raw_output = interaction_network(input_features)
-                interaction_outputs[interaction_name] = self._monotone_transform(raw_output)
+                interaction_outputs[interaction_name] = self._monotone_transform(
+                    raw_output
+                )
 
         return interaction_outputs
 

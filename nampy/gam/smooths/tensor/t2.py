@@ -12,14 +12,6 @@ import warnings
 
 import numpy as np
 
-from ..base import (
-    BaseSmoothTerm,
-    _normalize_knots,
-    build_penalty_definition,
-    build_selection_penalty_definition,
-    column_as_float,
-)
-from ..registry import register_smooth
 from ...basis.tensor import (
     build_t2_basis_and_penalties,
     materialize_t2_newdata,
@@ -27,6 +19,13 @@ from ...basis.tensor import (
     t2_marginal_reparameterization,
 )
 from ...penalties.algebra import null_space_penalty_from_penalty
+from ..registry import register_smooth
+from ..smooth_base import (
+    BaseSmoothTerm,
+    _normalize_knots,
+    build_penalty_definition,
+    build_selection_penalty_definition,
+)
 from .marginals import (
     make_tensor_marginal_term,
     tensor_marginal_feature_index,
@@ -123,7 +122,9 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         feature_names_resolved = []
         marginal_decompositions = []
 
-        for feat, k_i, bs_i, knots_i in zip(self.feature, self.k, self.basis, self.knots):
+        for feat, k_i, bs_i, knots_i in zip(
+            self.feature, self.k, self.basis, self.knots
+        ):
             term = make_tensor_marginal_term(
                 feature=feat,
                 basis=bs_i,
@@ -196,7 +197,11 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             sid = (
                 None
                 if self.smoothing_id is None
-                else (str(self.smoothing_id) if n_raw <= 1 else f"{self.smoothing_id}::{j}")
+                else (
+                    str(self.smoothing_id)
+                    if n_raw <= 1
+                    else f"{self.smoothing_id}::{j}"
+                )
             )
             sp_j = sp_vals[j] if j < len(sp_vals) else None
             defs.append(
@@ -212,7 +217,9 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
 
         if self.select:
             combined = sum(np.asarray(P, dtype=np.float64) for P in raw)
-            S0, meta = null_space_penalty_from_penalty(combined, tol=self.null_penalty_tol)
+            S0, meta = null_space_penalty_from_penalty(
+                combined, tol=self.null_penalty_tol
+            )
             if meta["rank"] > 0:
                 select_sid = (
                     None

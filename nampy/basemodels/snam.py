@@ -59,7 +59,9 @@ class SNAM(NAM):
         for name, subnet in self.cat_feature_networks.items():
             yield name, subnet
 
-        if self.group_lasso_include_interactions and hasattr(self, "interaction_networks"):
+        if self.group_lasso_include_interactions and hasattr(
+            self, "interaction_networks"
+        ):
             for name, subnet in self.interaction_networks.items():
                 yield name, subnet
 

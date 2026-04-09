@@ -1,8 +1,8 @@
 import numpy as np
 
-from .constraints import identconst
+from ..gam.constraints.absorption import full_term_sum_to_zero_constraint
+from ..gam.penalties.algebra import scale_penalty
 from .cubic_basis import cr_spl, cr_spl_predict
-from .penalty_scaling import scale_penalty
 
 
 def _compute_np_transform(X_raw, k, knots, F, x):
@@ -61,7 +61,11 @@ class CubicSplines:
         self.raw_penalty_unscaled = np.asarray(S_raw_unscaled, dtype=np.float64)
 
         S_raw = scale_penalty(X_raw, S_raw_unscaled)
-        X_centered, S_centered, center_mat = identconst(X_raw, S_raw)
+        # Match mgcv absorb.cons centering through GAM constraint absorption policy.
+        X_centered, penalties_centered, center_mat = full_term_sum_to_zero_constraint(
+            X_raw, [S_raw]
+        )
+        S_centered = penalties_centered[0]
 
         self.raw_basis = X_raw
         self.raw_penalty = S_raw
@@ -105,6 +109,7 @@ class CubicSplines:
         col_analytical="r",
     ):
         import matplotlib.pyplot as plt
+
         basis = self.transform_new_raw(self.x_plot)
         y_fitted = intercept + basis @ self.uncentered_gammas
 
@@ -118,5 +123,3 @@ class CubicSplines:
                 y_plot = intercept + basis @ self.center_mat @ self.analytical_gammas
                 ax.plot(self.x_plot, y_plot, col_analytical)
             ax.plot(self.x_plot, y_fitted, col, alpha=alpha)
-
-

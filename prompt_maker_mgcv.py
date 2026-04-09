@@ -45,7 +45,9 @@ def render_tree(file_paths: list[str]) -> str:
     def _render(node: dict, prefix: str = "") -> list[str]:
         dirs = sorted(k for k in node.keys() if k != "__files__")
         files = sorted(node.get("__files__", set()))
-        entries: list[tuple[str, str]] = [(d, "dir") for d in dirs] + [(f, "file") for f in files]
+        entries: list[tuple[str, str]] = [(d, "dir") for d in dirs] + [
+            (f, "file") for f in files
+        ]
 
         lines: list[str] = []
         for i, (name, kind) in enumerate(entries):
@@ -66,10 +68,10 @@ input_files = collect_input_files(repo_root)
 
 with (repo_root / output_file).open("w", encoding="utf-8") as outfile:
     outfile.write(
-        '''You are a senior computational statistician, numerical software architect, and Python package maintainer with deep expertise in generalized additive models, penalized regression splines, and Simon Wood’s **mgcv** framework. 
-        I am building a Python reimplementation of the complete **mgcv** ecosystem as a submodule of my package **nampy**. The codebase is already substantial, and I want you to help me turn the current implementation into a disciplined, publication-grade roadmap. 
+        """You are a senior computational statistician, numerical software architect, and Python package maintainer with deep expertise in generalized additive models, penalized regression splines, and Simon Wood’s **mgcv** framework.
+        I am building a Python reimplementation of the complete **mgcv** ecosystem as a submodule of my package **nampy**. The codebase is already substantial, and I want you to help me turn the current implementation into a disciplined, publication-grade roadmap.
         Using the official docs from mgcv, rdrr io, stat eth zurich and the relevant papers from Simon Wood, review my code for correctness, bugs and limitations compared to the real mgcv implementation.
-        '''
+        """
     )
     outfile.write("Directory structure:\n")
     outfile.write(render_tree(input_files))

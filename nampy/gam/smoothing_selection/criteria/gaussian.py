@@ -13,15 +13,18 @@ Provides two code paths:
   without the mixed-model reparameterisation.  More robust for designs with
   collinear fixed effects.
 """
+
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
+from ..reparam import ensure_penalty_reparameterization_state
 from .gaussian_dyn import (
     criterion_ml_reml_gaussian_dynamic_joint,
     criterion_ml_reml_gaussian_dynamic_profiled,
 )
 from .laplace import _laplace_lambda_vector
 from .penalty import _static_fixed_and_random_designs
+
 
 def gcv_score_gaussian(model, y, log_smoothing_params):
     sp = model._expand_smoothing_params_from_log(log_smoothing_params)
@@ -30,7 +33,7 @@ def gcv_score_gaussian(model, y, log_smoothing_params):
     den = 1.0 - model.score_gamma * sol["trace_H"] / n
     if den <= 1e-12 or not np.isfinite(den):
         return np.inf
-    return (sol["rss"] / n) / (den ** 2)
+    return (sol["rss"] / n) / (den**2)
 
 
 def criterion_gcv_gaussian(model, y, log_sp):
@@ -62,12 +65,13 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
     y = model.family.validate_y(y)
     y_eff = y if model.offset_train_ is None else (y - model.offset_train_)
     sp = model._expand_smoothing_params_from_log(log_sp)
+    state = ensure_penalty_reparameterization_state(model)
 
-    Xf = model.X_fix_
-    Zr = model.Z_rand_
+    Xf = state.X_fix
+    Zr = state.Z_rand
     n = Xf.shape[0]
-    p = model.rank_X_fix_
-    q = model.n_rand_
+    p = int(Xf.shape[1])
+    q = int(Zr.shape[1])
 
     if q == 0:
         if p == 0:
@@ -98,7 +102,7 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
     if np.any(lam_vec <= 0):
         return np.inf
 
-    M = model.ZtZ_rand_ + np.diag(lam_vec)
+    M = state.ZtZ_rand + np.diag(lam_vec)
     try:
         cM, loM = cho_factor(M, check_finite=False)
     except np.linalg.LinAlgError:
@@ -135,13 +139,13 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
     if n <= p:
         return np.inf
 
-    logdet_XtKX = 0.0 if p == 0 else 2.0 * float(
-        np.sum(np.log(np.abs(np.diag(cXKX))))
-    )
+    logdet_XtKX = 0.0 if p == 0 else 2.0 * float(np.sum(np.log(np.abs(np.diag(cXKX)))))
     return (n - p) * np.log(rss_v / (n - p)) + logdet_Vtilde + logdet_XtKX
 
 
-def criterion_ml_reml_gaussian_exact_joint(model, y, log_sp_free, log_sigma2, method="REML"):
+def criterion_ml_reml_gaussian_exact_joint(
+    model, y, log_sp_free, log_sigma2, method="REML"
+):
     """
     Joint (log sp, log sigma^2) Gaussian REML/LAML for the `gaussian_exact` backend.
 
@@ -253,7 +257,5 @@ def criterion_ml_reml_exact_dynamic(model, y, log_sp, method):
     if n <= p:
         return np.inf
 
-    logdet_XtKX = 0.0 if p == 0 else 2.0 * float(
-        np.sum(np.log(np.abs(np.diag(cXKX))))
-    )
+    logdet_XtKX = 0.0 if p == 0 else 2.0 * float(np.sum(np.log(np.abs(np.diag(cXKX)))))
     return (n - p) * np.log(rss_v / (n - p)) + logdet_Vtilde + logdet_XtKX

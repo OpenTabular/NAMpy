@@ -1,28 +1,23 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn.datasets import make_regression, fetch_california_housing
+from sklearn.datasets import make_regression
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
-from sklearn.preprocessing import StandardScaler
 
 # Import NAMpy models
-from nampy.models import NAMRegressor, NBMRegressor, GPNAMRegressor
+from nampy.models import NAMRegressor
 
 # Set random seed for reproducibility
 np.random.seed(42)
 
 # Generate synthetic regression data
 X, y = make_regression(
-    n_samples=10000, 
-    n_features=5, 
-    n_informative=5,
-    noise=10.0, 
-    random_state=42
+    n_samples=10000, n_features=5, n_informative=5, noise=10.0, random_state=42
 )
 
 # Convert to DataFrame for better visualization
-feature_names = [f'feature_{i}' for i in range(X.shape[1])]
+feature_names = [f"feature_{i}" for i in range(X.shape[1])]
 X_df = pd.DataFrame(X, columns=feature_names)
 
 print(f"Dataset shape: {X_df.shape}")
@@ -46,12 +41,12 @@ model = NAMRegressor(
 
 # Fit the model
 model.fit(
-    X_train, 
-    y_train, 
+    X_train,
+    y_train,
     max_epochs=20,
     lr=1e-3,
     patience=10,  # Early stopping patience
-    batch_size=128
+    batch_size=128,
 )
 
 # Make predictions
@@ -71,11 +66,17 @@ print(f"  R²:   {r2:.4f}")
 
 # Visualize predictions vs actual values
 plt.figure(figsize=(8, 6))
-plt.scatter(y_test, y_pred, alpha=0.5, edgecolors='k', linewidth=0.5)
-plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', lw=2, label='Perfect prediction')
-plt.xlabel('Actual Values')
-plt.ylabel('Predicted Values')
-plt.title(f'NAM Regression: Predicted vs Actual (R² = {r2:.4f})')
+plt.scatter(y_test, y_pred, alpha=0.5, edgecolors="k", linewidth=0.5)
+plt.plot(
+    [y_test.min(), y_test.max()],
+    [y_test.min(), y_test.max()],
+    "r--",
+    lw=2,
+    label="Perfect prediction",
+)
+plt.xlabel("Actual Values")
+plt.ylabel("Predicted Values")
+plt.title(f"NAM Regression: Predicted vs Actual (R² = {r2:.4f})")
 plt.legend()
 plt.tight_layout()
 plt.show()

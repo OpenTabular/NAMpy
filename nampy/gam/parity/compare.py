@@ -65,7 +65,10 @@ def compare_parity_snapshots(actual, expected, atol=1e-6, rtol=1e-6):
     }
 
     if "cov_bayes" in a_fit or "cov_bayes" in e_fit:
-        checks["cov_bayes"] = (a_fit.get("cov_bayes", None), e_fit.get("cov_bayes", None))
+        checks["cov_bayes"] = (
+            a_fit.get("cov_bayes", None),
+            e_fit.get("cov_bayes", None),
+        )
     if "cov_freq" in a_fit or "cov_freq" in e_fit:
         checks["cov_freq"] = (a_fit.get("cov_freq", None), e_fit.get("cov_freq", None))
 
@@ -85,12 +88,16 @@ def compare_parity_snapshots(actual, expected, atol=1e-6, rtol=1e-6):
     }
 
     for name, (a, e) in scalar_pairs.items():
-        ok = (a is None and e is None) or np.isclose(float(a), float(e), atol=atol, rtol=rtol)
+        ok = (a is None and e is None) or np.isclose(
+            float(a), float(e), atol=atol, rtol=rtol
+        )
         report["scalar_checks"][name] = {
             "actual": a,
             "expected": e,
             "ok": bool(ok),
-            "abs_diff": None if (a is None or e is None) else float(abs(float(a) - float(e))),
+            "abs_diff": (
+                None if (a is None or e is None) else float(abs(float(a) - float(e)))
+            ),
         }
         report["passed"] = report["passed"] and bool(ok)
 

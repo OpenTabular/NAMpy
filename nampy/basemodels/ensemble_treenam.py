@@ -85,9 +85,7 @@ class EnsembleTreeNAM(BaseModel):
         # Aggregate penalties by averaging so penalty scale stays roughly
         # comparable as num_estimators changes.
         penalties = [
-            res["output_penalty"]
-            for res in learner_results
-            if "output_penalty" in res
+            res["output_penalty"] for res in learner_results if "output_penalty" in res
         ]
         if penalties:
             result["output_penalty"] = torch.stack(penalties, dim=0).mean(dim=0)

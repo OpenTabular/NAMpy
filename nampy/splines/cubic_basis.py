@@ -32,7 +32,9 @@ def get_FS(xk):
     np.fill_diagonal(B[1:, :], h_shift_up / 6.0)
 
     F_minus = np.linalg.solve(B, D)
-    F = np.vstack([np.zeros(k, dtype=np.float64), F_minus, np.zeros(k, dtype=np.float64)])
+    F = np.vstack(
+        [np.zeros(k, dtype=np.float64), F_minus, np.zeros(k, dtype=np.float64)]
+    )
     S = D.T @ F_minus
     return F, S
 
@@ -48,7 +50,9 @@ def cr_spl(x, n_knots, knots=None):
     if knots is None:
         n_knots = int(n_knots)
         if n_knots < 3:
-            raise ValueError("At least 3 knots are required for cubic regression splines.")
+            raise ValueError(
+                "At least 3 knots are required for cubic regression splines."
+            )
         xu = np.unique(x)
         if xu.size < n_knots:
             raise ValueError(
@@ -61,12 +65,16 @@ def cr_spl(x, n_knots, knots=None):
         if xk.ndim != 1:
             raise ValueError("knots must be one-dimensional.")
         if xk.size < 3:
-            raise ValueError("At least 3 knots are required for cubic regression splines.")
+            raise ValueError(
+                "At least 3 knots are required for cubic regression splines."
+            )
         if not np.all(np.isfinite(xk)):
             raise ValueError("knots contain NaN or Inf.")
         xk = np.unique(xk)
         if xk.size < 3:
-            raise ValueError("Need at least 3 unique knots for cubic regression splines.")
+            raise ValueError(
+                "Need at least 3 unique knots for cubic regression splines."
+            )
         if np.any(np.diff(xk) <= 0):
             raise ValueError("knots must be strictly increasing.")
 

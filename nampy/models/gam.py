@@ -1,9 +1,10 @@
-#models/gam.py
+# models/gam.py
 import numpy as np
 
 from ..basemodels.gam import GAM
 from ..configs.gam_config import DefaultGAMConfig
 from ..gam.families import make_gam_family
+from ..gam.formula import parse_gam_formula
 from ..gam.parity import (
     assert_parity_snapshot_close,
     build_parity_snapshot,
@@ -11,7 +12,6 @@ from ..gam.parity import (
     load_parity_snapshot,
     save_parity_snapshot,
 )
-from ..gam.formula import parse_gam_formula
 
 
 class GAMRegressor:
@@ -170,9 +170,7 @@ class GAMClassifier:
     def __init__(self, family="binomial", threshold=0.5, **kwargs):
         fam = make_gam_family(family)
         if fam.name != "binomial":
-            raise ValueError(
-                "GAMClassifier currently supports only family='binomial'."
-            )
+            raise ValueError("GAMClassifier currently supports only family='binomial'.")
 
         self.family = fam
         self.threshold = float(threshold)
@@ -427,11 +425,13 @@ class GAMClassifier:
             "threshold": self.threshold,
         }
         import pickle
+
         with open(path, "wb") as f:
             pickle.dump(payload, f)
 
     def load_model(self, path, device="cpu"):
         import pickle
+
         with open(path, "rb") as f:
             payload = pickle.load(f)
 

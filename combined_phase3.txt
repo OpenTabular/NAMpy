@@ -1,44 +1,5 @@
-You are a senior computational statistician, numerical software architect, and Python package maintainer with deep expertise in generalized additive models, penalized regression splines, and Simon Wood's mgcv framework.
-I am building a Python reimplementation of the mgcv ecosystem as a submodule of my package nampy.
-You are reviewing Phase 3 - GAM design/construction/smooth runtime internals.
-This is part 3/4. Keep continuity with prior parts when available, and produce structured feedback for correctness, redundancy elimination, and architecture cleanup.
-
-Directory structure (this phase):
-nampy/
-├─ gam/
-│  ├─ design/
-│  │  ├─ compiler.py
-│  │  ├─ constructed.py
-│  │  ├─ constructors.py
-│  │  ├─ linked_basis.py
-│  │  ├─ side_conditions.py
-│  │  └─ structures.py
-│  ├─ formula/
-│  │  ├─ extract.py
-│  │  └─ preprocess.py
-│  ├─ runtime/
-│  │  └─ factory.py
-│  └─ smooths/
-│     ├─ categorical/
-│     │  ├─ categorical_utils.py
-│     │  ├─ factor_smooth.py
-│     │  ├─ mrf.py
-│     │  └─ random_effect.py
-│     ├─ tensor/
-│     │  ├─ t2.py
-│     │  ├─ te.py
-│     │  └─ ti.py
-│     └─ univariate/
-│        ├─ cubic_regression.py
-│        ├─ gp.py
-│        ├─ pspline.py
-│        └─ thin_plate.py
-└─ splines/
-   ├─ gaussian_process.py
-   ├─ mrf.py
-   ├─ pspline.py
-   ├─ thin_plate.py
-   └─ thin_plate_basis.py
+Continuation prompt: Phase 3 - GAM design/construction/smooth runtime internals.
+This is part 3/5. Continue from earlier phases; do not restate prior context.
 
 Included files in this phase: 25
 
@@ -52,19 +13,23 @@ penalty specs, and records the initial (identity) basis_transform on every term.
 
 The output of this stage is handed to stage 5 (apply_global_side_conditions)
 which applies predictor-wide identifiability constraints and updates basis_transform
-on each term to reflect the final fit-to-predict coefficient map.
+on each term to reflect the final constructed-space-to-fitted coefficient map.
 """
 
 from __future__ import annotations
 
 import numpy as np
 
-from ..penalties import default_penalty_id, merge_smoothing_override, normalize_penalty_spec
-from ..specs import LinearPredictorSpec
+from ..penalties import (
+    default_penalty_id,
+    merge_smoothing_override,
+    normalize_penalty_spec,
+)
 from ..runtime.factory import instantiate_predictor_terms
+from ..specs import LinearPredictorSpec, PenaltyGroupSpec
 from .constructors import construct_terms
 from .linked_basis import attach_shared_basis_metadata
-from .structures import CompiledPenalty, CompiledPredictor, CompiledTerm, PenaltySpec
+from .structures import CompiledPenalty, CompiledPredictor, CompiledTerm
 
 
 def compile_predictor_designs(
@@ -81,9 +46,10 @@ def compile_predictor_designs(
       - Stage 4: assemble ConstructedTerms into a CompiledPredictor, assign
         coefficient slices, smoothing-parameter ids, and initial basis_transforms
 
-    The returned CompiledPredictors have ``basis_transform = I`` on every term.
+    The returned CompiledPredictors have ``basis_transform = I`` on every term,
+    where that identity acts on the stage-3 constructed-term coefficient space.
     Stage 5 (``apply_global_side_conditions``) must be called to produce the
-    final predictor with canonical coefficient transforms.
+    final predictor with canonical constructed-space coefficient transforms.
     """
     predictor_specs = attach_shared_basis_metadata(
         predictor_specs, X=X, feature_names=feature_names
@@ -92,6 +58,28 @@ def compile_predictor_designs(
 
     designs = []
     for pred_spec in predictor_specs:
+        pred_metadata = dict(getattr(pred_spec, "metadata", {}) or {})
+        raw_group_specs = pred_metadata.get("penalty_group_specs", []) or []
+        penalty_group_specs = {}
+        for spec in raw_group_specs:
+            if isinstance(spec, PenaltyGroupSpec):
+                group = PenaltyGroupSpec(
+                    smoothing_id=str(spec.smoothing_id),
+                    term_ids=list(spec.term_ids),
+                    labels=list(spec.labels),
+                    sp_count=spec.sp_count,
+                    sp_indices=list(spec.sp_indices),
+                )
+            else:
+                group = PenaltyGroupSpec(
+                    smoothing_id=str(spec["smoothing_id"]),
+                    term_ids=list(spec.get("term_ids", [])),
+                    labels=list(spec.get("labels", [])),
+                    sp_count=spec.get("sp_count"),
+                    sp_indices=list(spec.get("sp_indices", [])),
+                )
+            penalty_group_specs[group.smoothing_id] = group
+
         term_blocks = []
         penalty_blocks = []
         design_blocks = []
@@ -158,6 +146,36 @@ def compile_predictor_designs(
                     term_smoothing_indices.append(sp_idx)
                     term_smoothing_ids.append(sid)
 
+                group_id = (
+                    None
+                    if getattr(smooth, "smoothing_id", None) is None
+                    else str(smooth.smoothing_id)
+                )
+                if group_id is not None:
+                    group = penalty_group_specs.get(group_id)
+                    if group is None:
+                        group = PenaltyGroupSpec(smoothing_id=group_id)
+                        penalty_group_specs[group_id] = group
+                    if group.sp_count is None:
+                        group.sp_count = len(term_smoothing_indices)
+                    elif group.sp_count != len(term_smoothing_indices):
+                        raise ValueError(
+                            f"Linked smoothing id {group_id!r} expects {group.sp_count} "
+                            f"smoothing parameters, got {len(term_smoothing_indices)}."
+                        )
+                    if not group.sp_indices:
+                        group.sp_indices = list(term_smoothing_indices)
+                    elif group.sp_indices != list(term_smoothing_indices):
+                        raise ValueError(
+                            f"Linked smoothing id {group_id!r} resolved to inconsistent "
+                            f"smoothing indices {group.sp_indices} and "
+                            f"{term_smoothing_indices}."
+                        )
+                    if smooth.term_id not in group.term_ids:
+                        group.term_ids.append(str(smooth.term_id))
+                    if smooth.label not in group.labels:
+                        group.labels.append(str(smooth.label))
+
                 term_meta = dict(smooth.metadata)
                 term_meta["constructor_metadata"] = dict(smooth.constructor_metadata)
                 term_blocks.append(
@@ -167,7 +185,11 @@ def compile_predictor_designs(
                         smooth=smooth,
                         basis_train=B,
                         basis_transform=np.eye(d, dtype=np.float64),
-                        original_n_coef=d,
+                        original_n_coef=(
+                            smooth.original_n_coef
+                            if smooth.original_n_coef is not None
+                            else d
+                        ),
                         kept_columns=np.arange(d, dtype=int),
                         deleted_columns=np.array([], dtype=int),
                         smoothing_indices=term_smoothing_indices,
@@ -176,14 +198,19 @@ def compile_predictor_designs(
                         term_type=str(smooth.term_type),
                         basis_name=str(smooth.basis_name),
                         by_variable=smooth.by_variable,
-                        term_id=smooth.smoothing_id,
+                        term_id=smooth.term_id,
+                        smoothing_group_id=smooth.smoothing_id,
                         metadata=term_meta,
                     )
                 )
                 design_blocks.append(B)
                 start += d
 
-        matrix_train = np.column_stack(design_blocks) if design_blocks else np.empty((X.shape[0], 0), dtype=np.float64)
+        matrix_train = (
+            np.column_stack(design_blocks)
+            if design_blocks
+            else np.empty((X.shape[0], 0), dtype=np.float64)
+        )
         n_sp = len(smoothing_id_map)
         override_modes = [None] * n_sp
         override_values = np.full(n_sp, np.nan, dtype=np.float64)
@@ -195,7 +222,13 @@ def compile_predictor_designs(
             if spec["mode"] == "fixed":
                 override_values[idx] = float(spec["value"])
 
-        term_index_map = {tb.label: i for i, tb in enumerate(term_blocks)}
+        term_index_map = {tb.term_id: i for i, tb in enumerate(term_blocks)}
+        pred_metadata["penalty_group_specs"] = list(penalty_group_specs.values())
+        pred_metadata["s_id_to_sp_indices"] = {
+            sid: list(group.sp_indices)
+            for sid, group in penalty_group_specs.items()
+            if group.sp_indices
+        }
         designs.append(
             CompiledPredictor(
                 name=pred_spec.name,
@@ -205,11 +238,12 @@ def compile_predictor_designs(
                 smoothing_parameter_map=smoothing_id_map,
                 has_intercept=bool(pred_spec.has_intercept),
                 term_index_map=term_index_map,
+                side_condition_Q=np.eye(start, dtype=np.float64),
                 n_coef=start,
                 n_smoothing_params=len(smoothing_id_map),
                 smoothing_override_modes=override_modes,
                 smoothing_override_values=override_values,
-                metadata=dict(getattr(pred_spec, "metadata", {}) or {}),
+                metadata=pred_metadata,
             )
         )
     return designs
@@ -246,14 +280,18 @@ class ConstructedTerm:
         predict_matrix(X_new)
 
     which internally calls either the runtime's ``transform_new`` directly, or a
-    ``_predict_fn`` closure that applies any wrapper-level transforms (by-scaling,
-    explicit constraint absorption) on top of it.
+    ``_predict_fn`` closure that applies any wrapper-level non-coefficient-space
+    logic (for example by-scaling) on top of it. Any linear map from the raw
+    prediction basis into the fitted coefficient coordinates is carried
+    explicitly by ``predict_coefficient_map``.
 
     After stage 5 (``apply_global_side_conditions``), the caller must apply
     ``CompiledTerm.basis_transform`` on top of the result of ``predict_matrix``.
     That composed application is implemented in ``CompiledPredictor.build_new_matrix``.
     """
+
     label: str
+    term_id: str
     runtime: object
     train_design_matrix: np.ndarray
     penalty_specs: tuple = field(default_factory=tuple)
@@ -262,8 +300,9 @@ class ConstructedTerm:
     by_variable: str | None = None
     smoothing_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    fit_constraint: np.ndarray | None = None
-    predict_constraint: np.ndarray | None = None
+    fit_constraint_operator: np.ndarray | None = None
+    fit_coefficient_map: np.ndarray | None = None
+    predict_coefficient_map: np.ndarray | None = None
     constraints_absorbed: bool = True
     prediction_offset: np.ndarray | None = None
     original_design_matrix: np.ndarray | None = None
@@ -289,6 +328,10 @@ class ConstructedTerm:
             M = np.asarray(self.runtime.transform_new(X_new), dtype=np.float64)
         else:
             M = np.asarray(self._predict_fn(X_new), dtype=np.float64)
+
+        C_pred = self.predict_coefficient_map
+        if C_pred is not None:
+            M = M @ np.asarray(C_pred, dtype=np.float64)
 
         if M.ndim != 2:
             raise ValueError(
@@ -327,8 +370,8 @@ Responsibilities of this layer
 - If the runtime delegated by-variable handling: apply the numeric by-vector
   and build a by-aware predict function.
 - If the runtime delegated explicit constraint absorption: call
-  ``absorb_explicit_constraints`` and wrap the predict function to apply the
-  same transform at prediction time.
+  ``absorb_explicit_constraints`` for the fit basis and store the resulting
+  fit/predict coefficient maps explicitly on the constructed term.
 - Record in ``constructor_metadata`` which layer handled each concern (runtime
   vs. wrapper) so that stage 5 can detect what was already done.
 
@@ -348,9 +391,9 @@ import numpy as np
 
 from ..constraints.absorption import absorb_explicit_constraints
 from ..penalties import normalize_penalty_spec
-from ..specs import TermSpec
 from ..runtime.factory import instantiate_term
-from ..smooths.base import _resolve_feature
+from ..smooths.smooth_base import _resolve_feature
+from ..specs import TermSpec
 from .constructed import ConstructedTerm
 
 
@@ -390,42 +433,63 @@ def construct_terms(
     by_done = bool(getattr(runtime, "by_done", True))
     constraints_absorbed = bool(getattr(runtime, "constraints_absorbed", True))
     fit_constraint = getattr(runtime, "fit_constraint_matrix", None)
-    predict_constraint = getattr(runtime, "predict_constraint_matrix", None)
+    predict_coefficient_map = getattr(runtime, "predict_coefficient_map", None)
     prediction_offset = getattr(runtime, "prediction_offset", None)
+    _by_state = getattr(runtime, "_by_state", None)
 
     constructor_metadata = {
         "by_done": by_done,
         "constraints_absorbed_by_runtime": constraints_absorbed,
-        "runtime_constraint_kind": getattr(runtime, "_constraint_kind", None),
-        "runtime_by_name": getattr(runtime, "_by_name", None),
-        "runtime_by_is_constant": getattr(runtime, "_by_is_constant", None),
+        "runtime_constraint_kind": getattr(runtime, "constraint_kind", None),
+        "runtime_by_name": _by_state.feature_name if _by_state is not None else None,
+        "runtime_by_is_constant": (
+            _by_state.is_constant if _by_state is not None else None
+        ),
     }
 
+    # Build predict_fn as a raw-basis producer only. Any linear map into the
+    # fitted coefficient coordinates is stored explicitly on ConstructedTerm.
     X0 = None
-    predict_fn = None
+    raw_predict_n_coef = int(B.shape[1])
     by_variable = getattr(runtime, "by", None)
     if by_variable is not None and apply_by and not by_done:
         idx, _by_name = _resolve_feature(by_variable, feature_names)
         z_train = np.asarray(X[:, idx], dtype=np.float64).ravel()
-        if hasattr(runtime, "basis_train_base") and runtime.basis_train_base is not None:
+        if (
+            hasattr(runtime, "basis_train_base")
+            and runtime.basis_train_base is not None
+        ):
             X0 = np.asarray(runtime.basis_train_base, dtype=np.float64)
         else:
-            raise NotImplementedError("Runtime term requested wrapper-level by handling without basis_train_base.")
+            raise NotImplementedError(
+                "Runtime term requested wrapper-level by handling without basis_train_base."
+            )
         B = X0 * z_train[:, None]
-        if hasattr(runtime, "transform_new_base") and callable(runtime.transform_new_base):
-            base_predict_fn = runtime.transform_new_base
-        else:
-            raise NotImplementedError("Runtime term requested wrapper-level by handling without transform_new_base().")
-
-        def predict_fn(X_new, *, _base=base_predict_fn, _idx=idx):
-            X_new = np.asarray(X_new, dtype=np.float64)
-            z_new = np.asarray(X_new[:, _idx], dtype=np.float64).ravel()
-            B0_new = np.asarray(_base(X_new), dtype=np.float64)
-            return B0_new * z_new[:, None]
+        raw_predict_n_coef = int(X0.shape[1])
+        if not (
+            hasattr(runtime, "transform_new_base")
+            and callable(runtime.transform_new_base)
+        ):
+            raise NotImplementedError(
+                "Runtime term requested wrapper-level by handling without transform_new_base()."
+            )
 
         constructor_metadata["by_handling"] = "wrapper"
+        _wrapper_base_fn = runtime.transform_new_base
+        _by_idx = idx
     else:
-        constructor_metadata["by_handling"] = "runtime" if by_variable is not None else "none"
+        constructor_metadata["by_handling"] = (
+            "runtime" if by_variable is not None else "none"
+        )
+        _wrapper_base_fn = None
+        _by_idx = None
+
+    fit_coefficient_map = None
+    predict_coefficient_map_arr = (
+        None
+        if predict_coefficient_map is None
+        else np.asarray(predict_coefficient_map, dtype=np.float64)
+    )
 
     if absorb_cons and (not constraints_absorbed) and fit_constraint is not None:
         B, penalty_defs, T_fit, n_cons = absorb_explicit_constraints(
@@ -433,17 +497,52 @@ def construct_terms(
             _copy_penalty_defs(penalty_defs),
             fit_constraint,
         )
-        base_predict_fn = runtime.transform_new if predict_fn is None else predict_fn
-
-        def predict_fn(X_new, *, _base=base_predict_fn, _T=T_fit):
-            return np.asarray(_base(X_new), dtype=np.float64) @ _T
-
+        fit_coefficient_map = np.asarray(T_fit, dtype=np.float64)
+        if predict_coefficient_map_arr is None:
+            predict_coefficient_map_arr = fit_coefficient_map
+        expected_shape = (int(raw_predict_n_coef), int(B.shape[1]))
+        if predict_coefficient_map_arr.shape != expected_shape:
+            raise ValueError(
+                f"Predict coefficient map for term {getattr(runtime, 'label', str(runtime))!r} "
+                f"has shape {predict_coefficient_map_arr.shape}, expected {expected_shape}."
+            )
         constraints_absorbed = True
         constructor_metadata["constraint_absorption"] = "wrapper"
         constructor_metadata["n_constraints_absorbed"] = int(n_cons)
+        constructor_metadata["predict_map_source"] = (
+            "runtime" if predict_coefficient_map is not None else "fit_coefficient_map"
+        )
     else:
-        constructor_metadata["constraint_absorption"] = "runtime" if constraints_absorbed else "none"
+        if predict_coefficient_map_arr is not None:
+            expected_shape = (int(raw_predict_n_coef), int(B.shape[1]))
+            if predict_coefficient_map_arr.shape != expected_shape:
+                raise ValueError(
+                    f"Predict coefficient map for term {getattr(runtime, 'label', str(runtime))!r} "
+                    f"has shape {predict_coefficient_map_arr.shape}, expected {expected_shape}."
+                )
+        constructor_metadata["constraint_absorption"] = (
+            "runtime" if constraints_absorbed else "none"
+        )
         constructor_metadata["n_constraints_absorbed"] = None
+        constructor_metadata["predict_map_source"] = (
+            "runtime" if predict_coefficient_map_arr is not None else "none"
+        )
+
+    # Compose predict_fn from the accumulated raw-basis parts.
+    if _wrapper_base_fn is not None:
+        _base_fn = _wrapper_base_fn
+        _apply_by = _wrapper_base_fn is not None
+        _by_col = _by_idx
+
+        def predict_fn(X_new, *, _base=_base_fn, _do_by=_apply_by, _col=_by_col):
+            B_out = np.asarray(_base(X_new), dtype=np.float64)
+            if _do_by:
+                z_new = np.asarray(np.asarray(X_new)[:, _col], dtype=np.float64).ravel()
+                B_out = B_out * z_new[:, None]
+            return B_out
+
+    else:
+        predict_fn = None
 
     if null_space_penalty:
         raise NotImplementedError(
@@ -452,18 +551,40 @@ def construct_terms(
 
     smooth = ConstructedTerm(
         label=str(getattr(runtime, "label", str(runtime))),
+        term_id=str(getattr(runtime, "term_id", "")),
         runtime=runtime,
         train_design_matrix=np.asarray(B, dtype=np.float64),
         penalty_specs=tuple(penalty_defs),
         basis_name=str(getattr(runtime, "basis_name", "unknown")),
         term_type=str(getattr(runtime, "term_type", "smooth")),
         by_variable=by_variable,
-        smoothing_id=(None if getattr(runtime, "smoothing_id", None) is None else str(getattr(runtime, "smoothing_id"))),
+        smoothing_id=(
+            None
+            if getattr(runtime, "smoothing_id", None) is None
+            else str(runtime.smoothing_id)
+        ),
         metadata=dict(getattr(runtime, "metadata", {}) or {}),
-        fit_constraint=(None if fit_constraint is None else np.asarray(fit_constraint, dtype=np.float64)),
-        predict_constraint=(None if predict_constraint is None else np.asarray(predict_constraint, dtype=np.float64)),
+        fit_constraint_operator=(
+            None
+            if fit_constraint is None
+            else np.asarray(fit_constraint, dtype=np.float64)
+        ),
+        fit_coefficient_map=(
+            None
+            if fit_coefficient_map is None
+            else np.asarray(fit_coefficient_map, dtype=np.float64)
+        ),
+        predict_coefficient_map=(
+            None
+            if predict_coefficient_map_arr is None
+            else np.asarray(predict_coefficient_map_arr, dtype=np.float64)
+        ),
         constraints_absorbed=bool(constraints_absorbed),
-        prediction_offset=(None if prediction_offset is None else np.asarray(prediction_offset, dtype=np.float64)),
+        prediction_offset=(
+            None
+            if prediction_offset is None
+            else np.asarray(prediction_offset, dtype=np.float64)
+        ),
         original_design_matrix=None if X0 is None else np.asarray(X0, dtype=np.float64),
         constructor_metadata=constructor_metadata,
         _predict_fn=predict_fn,
@@ -476,12 +597,16 @@ __all__ = ["construct_terms"]
 # --- End of nampy/gam/design/constructors.py ---
 
 # --- Start of nampy/gam/design/linked_basis.py ---
-from dataclasses import replace
 import warnings
+from dataclasses import replace
 
 import numpy as np
 
-from ..specs import LinearPredictorSpec, TermSpec
+from ..specs import LinearPredictorSpec, TermSpec, replace_smooth_spec
+from ..specs.smooth import (
+    CubicRegressionSmoothSpec,
+    CubicShrinkageSmoothSpec,
+)
 
 
 def _resolve_feature_column(X, feature_names, feature):
@@ -499,12 +624,15 @@ def _eligible_id_pool_term(term):
         return False
     if term.kind != "smooth":
         return False
-    opts = dict(term.basis_options or {})
     return (
         term.smoothing_id is not None
-        and str(opts.get("special", "s")) == "s"
+        and term.smooth_spec is not None
+        and str(term.smooth_spec.special) == "s"
         and len(term.features) == 1
-        and str(opts.get("bs", "cr")).lower() in {"cr", "cs"}
+        and isinstance(
+            term.smooth_spec,
+            (CubicRegressionSmoothSpec, CubicShrinkageSmoothSpec),
+        )
     )
 
 
@@ -517,7 +645,11 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
 
     for pi, pred in enumerate(predictor_specs):
         for ti, term in enumerate(pred.terms):
-            if isinstance(term, TermSpec) and term.kind == "smooth" and term.smoothing_id is not None:
+            if (
+                isinstance(term, TermSpec)
+                and term.kind == "smooth"
+                and term.smoothing_id is not None
+            ):
                 key = str(term.smoothing_id)
                 all_by_id.setdefault(key, []).append((pi, ti, term))
 
@@ -532,33 +664,44 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
             continue
 
         first_term = eligible_items[0][2]
-        first_opts = dict(first_term.basis_options or {})
-        first_k = int(first_opts.get("k", 10))
-        first_fx = bool(first_opts.get("fx", False))
-        incompatible = []
+        if first_term.smooth_spec is None:
+            raise ValueError(f"Smooth term {first_term.label!r} is missing smooth_spec.")
+        first_fx = bool(first_term.smooth_spec.fx)
+
+        # fx mismatch: mixing fixed and penalized terms is semantically incompatible
+        # because fixed terms have no smoothing parameter to share.
+        fx_incompatible = []
+        for _pi, _ti, term in eligible_items:
+            if term.smooth_spec is None:
+                raise ValueError(f"Smooth term {term.label!r} is missing smooth_spec.")
+            if bool(term.smooth_spec.fx) != first_fx:
+                fx_incompatible.append(
+                    f"{term.label!r} has fx={term.smooth_spec.fx}, expected fx={first_fx}"
+                )
+        if fx_incompatible:
+            raise NotImplementedError(
+                f"Linked id={id_key!r}: all terms must have the same fx value. "
+                f"Problems: {fx_incompatible}"
+            )
+
+        # k harmonisation: mgcv resolves k mismatches by using the first term's k
+        # for the shared basis, matching the representative-term convention in mgcv.
+        all_k = [
+            int(term.smooth_spec.k) for _, _, term in eligible_items if term.smooth_spec
+        ]
+        canonical_k = all_k[0]
+        if len(set(all_k)) > 1:
+            warnings.warn(
+                f"Linked id={id_key!r}: terms have differing k values "
+                f"{sorted(set(all_k))}; harmonizing all to k={canonical_k} "
+                f"(first term's k), matching mgcv behaviour.",
+                stacklevel=2,
+            )
+
         pooled_columns = []
-
-        for pi, ti, term in eligible_items:
-            opts = dict(term.basis_options or {})
-            if int(opts.get("k", 10)) != first_k:
-                incompatible.append(
-                    f"{term.label!r} has k={opts.get('k')}, expected k={first_k}"
-                )
-                continue
-            if bool(opts.get("fx", False)) != first_fx:
-                incompatible.append(
-                    f"{term.label!r} has fx={opts.get('fx')}, expected fx={first_fx}"
-                )
-                continue
-
+        for _pi, _ti, term in eligible_items:
             x_col = _resolve_feature_column(X, feature_names, term.features[0])
             pooled_columns.append(x_col)
-
-        if incompatible:
-            raise NotImplementedError(
-                f"Linked id={id_key!r} currently supports only common-k/common-fx "
-                f"1D cr smooths. Problems: {incompatible}"
-            )
 
         if len(pooled_columns) < 2:
             continue
@@ -574,13 +717,14 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
             warnings.warn(
                 f"id={id_key!r} is used by terms outside the current shared-basis "
                 f"pooling subset. Shared basis setup was applied only to compatible "
-                f"1D cr s() terms; skipped terms: {skipped}"
+                f"1D cr s() terms; skipped terms: {skipped}",
+                stacklevel=2,
             )
 
         shared_setup = {
             "mode": "pooled_cr_1d",
             "id": id_key,
-            "k": first_k,
+            "k": canonical_k,
             "fx": first_fx,
             "n_linked_terms": len(eligible_items),
             "features": [term.features[0] for _, _, term in eligible_items],
@@ -588,9 +732,16 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
         }
 
         for pi, ti, term in eligible_items:
-            opts = dict(term.basis_options or {})
-            opts["shared_basis_setup"] = shared_setup
-            replacements[(pi, ti)] = replace(term, basis_options=opts)
+            if term.smooth_spec is None:
+                raise ValueError(f"Smooth term {term.label!r} is missing smooth_spec.")
+            replacements[(pi, ti)] = replace(
+                term,
+                smooth_spec=replace_smooth_spec(
+                    term.smooth_spec,
+                    k=canonical_k,
+                    shared_basis_setup=shared_setup,
+                ),
+            )
 
     out_specs = []
     for pi, pred in enumerate(predictor_specs):
@@ -615,13 +766,6 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
 __all__ = ["attach_shared_basis_metadata"]
 
 # --- End of nampy/gam/design/linked_basis.py ---
-
-# --- Start of nampy/gam/design/side_conditions.py ---
-from ..constraints.identifiability import apply_global_side_conditions
-
-__all__ = ["apply_global_side_conditions"]
-
-# --- End of nampy/gam/design/side_conditions.py ---
 
 # --- Start of nampy/gam/design/structures.py ---
 """
@@ -741,7 +885,7 @@ class CompiledTerm:
 
     The central invariant is::
 
-        runtime.transform_new(X_new) @ basis_transform
+        smooth.predict_matrix(X_new) @ basis_transform
 
     produces the correct prediction columns for this term.  ``basis_transform``
     is the *only* coefficient-space mapping used at prediction time; no other
@@ -759,12 +903,15 @@ class CompiledTerm:
     basis_train : np.ndarray
         Final training design block for this term, shape (n_obs, n_coef).
     basis_transform : np.ndarray or None
-        Full coefficient transform from the runtime term's native coefficient
-        space to the final fitted coefficient space.
-        Shape: (runtime_n_coef, n_coef).
+        Full coefficient transform from the term's stage-4 constructed
+        coefficient space to the final fitted coefficient space.
+        Prediction always starts from ``smooth.predict_matrix(X_new)``, which is
+        already in the constructed-term space.
+        Shape: (constructed_n_coef, n_coef).
         None is interpreted as the identity (no transform applied).
     original_n_coef : int or None
-        Width of the basis before any side-condition column deletion.
+        Width of the constructed-term basis before any stage-5 side-condition
+        column deletion.
     kept_columns : np.ndarray or None
         Indices (in the pre-side-condition space) of surviving columns.
         None when centering was absorbed (original indices non-trivially remapped).
@@ -782,8 +929,13 @@ class CompiledTerm:
         Basis identifier: ``"cr"``, ``"tp"``, ``"ps"``, etc.
     by_variable : str or None
         Name of the numeric by-variable, if any.
-    term_id : str or None
-        User-supplied smoothing-id from the formula / TermSpec.
+    term_id : str
+        Stable unique identity assigned at TermSpec creation and carried through
+        all pipeline stages.  Used as the canonical key in ``term_index_map`` and
+        contribution dicts; never duplicated even when labels collide.
+    smoothing_group_id : str or None
+        User-supplied smoothing-id from the formula / TermSpec; used to share a
+        smoothing parameter across terms (linked basis, factor-by replicates).
     metadata : dict
         Provenance metadata including ``constructor_metadata`` from stage 3.
     """
@@ -802,7 +954,8 @@ class CompiledTerm:
     term_type: str = "smooth"
     basis_name: str = "unknown"
     by_variable: str | None = None
-    term_id: str | None = None
+    term_id: str = ""
+    smoothing_group_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -824,7 +977,7 @@ class CompiledPredictor:
     ``build_new_matrix(X_new)`` is the canonical predictor-level design builder
     for new data.  For each term it calls::
 
-        runtime.transform_new(X_new) @ basis_transform
+        smooth.predict_matrix(X_new) @ basis_transform
 
     and concatenates the results.  No fit-time transform is re-derived at
     prediction time.
@@ -839,32 +992,20 @@ class CompiledPredictor:
     n_smoothing_params: int
     has_intercept: bool = False
     term_index_map: dict[str, int] = field(default_factory=dict)
+    side_condition_Q: np.ndarray | None = None
     smoothing_override_modes: list[str | None] = field(default_factory=list)
     smoothing_override_values: np.ndarray | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-
-    @property
-    def matrix_train(self) -> np.ndarray:
-        """Alias for ``design_matrix`` (used by the GAM core and parity tests)."""
-        return self.design_matrix
-
-    @property
-    def penalty_blocks(self) -> tuple:
-        """Alias for ``compiled_penalties``."""
-        return self.compiled_penalties
-
-    @property
-    def term_blocks(self) -> tuple:
-        """Alias for ``compiled_terms``."""
-        return self.compiled_terms
 
     def build_new_matrix(self, X_new):
         """
         Build the predictor design matrix for new observations.
 
-        For each compiled term, evaluates the runtime basis at ``X_new`` and
-        applies ``basis_transform`` — the canonical fit-to-predict coefficient
-        map stored on that term.  No fit-time transforms are re-derived.
+        For each compiled term, evaluates the stage-3 constructed-term basis at
+        ``X_new`` via ``smooth.predict_matrix(X_new)`` and applies
+        ``basis_transform`` — the canonical mapping from constructed-term
+        coordinates to final fitted coordinates. No fit-time transforms are
+        re-derived.
         """
         if len(self.compiled_terms) == 0:
             return np.empty((len(X_new), 0), dtype=np.float64)
@@ -877,11 +1018,7 @@ class CompiledPredictor:
                 B = B @ C
             blocks.append(B)
 
-        return (
-            np.column_stack(blocks)
-            if blocks
-            else np.empty((len(X_new), 0), dtype=np.float64)
-        )
+        return np.column_stack(blocks)
 
 
 __all__ = ["PenaltySpec", "CompiledPenalty", "CompiledTerm", "CompiledPredictor"]
@@ -949,7 +1086,9 @@ def _dataframe_to_feature_matrix(X_df: pd.DataFrame):
         if pd.api.types.is_numeric_dtype(s):
             vals = np.asarray(s, dtype=np.float64)
             if not np.isfinite(vals).all():
-                raise ValueError(f"Referenced numeric column {c!r} contains NaN or Inf.")
+                raise ValueError(
+                    f"Referenced numeric column {c!r} contains NaN or Inf."
+                )
         else:
             if s.isna().any():
                 raise ValueError(
@@ -983,7 +1122,9 @@ def extract_formula_data(data, parsed, y=None, predictor_specs=None):
                     used.update(term.variables)
                 elif hasattr(term, "features"):
                     used.update(term.features)
-                    by_val = term.kwargs.get("by", None) if hasattr(term, "kwargs") else None
+                    by_val = (
+                        term.kwargs.get("by", None) if hasattr(term, "kwargs") else None
+                    )
                     if isinstance(by_val, str):
                         used.add(by_val)
 
@@ -998,9 +1139,7 @@ def extract_formula_data(data, parsed, y=None, predictor_specs=None):
     used_cols = [c for c in data.columns if c in used]
     missing = sorted(used.difference(set(data.columns)))
     if missing:
-        raise KeyError(
-            f"Formula references columns not present in `data`: {missing}"
-        )
+        raise KeyError(f"Formula references columns not present in `data`: {missing}")
 
     X_df = data[used_cols]
     X_np = _dataframe_to_feature_matrix(X_df)
@@ -1022,9 +1161,7 @@ def extract_formula_data(data, parsed, y=None, predictor_specs=None):
     offset_out = None
     if offset_name is not None:
         if offset_name not in data.columns:
-            raise KeyError(
-                f"Offset column {offset_name!r} not found in `data`."
-            )
+            raise KeyError(f"Offset column {offset_name!r} not found in `data`.")
         if not pd.api.types.is_numeric_dtype(data[offset_name]):
             raise NotImplementedError(
                 "Current formula-based GAM fitting supports numeric offsets only. "
@@ -1042,14 +1179,14 @@ __all__ = ["extract_formula_data"]
 # --- Start of nampy/gam/formula/preprocess.py ---
 """Formula preprocessing (factor-by and parametric expansion)."""
 
-from dataclasses import replace
 import itertools
 import re
+from dataclasses import replace
 
 import numpy as np
 import pandas as pd
 
-from ..specs import LinearPredictorSpec, TermSpec
+from ..specs import LinearPredictorSpec, TermSpec, replace_smooth_spec
 
 
 def is_factor_like_series(s: pd.Series) -> bool:
@@ -1127,7 +1264,9 @@ def expand_parametric_term(
                 comps.append(
                     {
                         "label": f"{var}[{lev}]",
-                        "values": np.asarray((cat == lev).astype(float), dtype=np.float64),
+                        "values": np.asarray(
+                            (cat == lev).astype(float), dtype=np.float64
+                        ),
                         "recipe": {
                             "var": var,
                             "type": "factor",
@@ -1233,11 +1372,14 @@ def expand_factor_by_term(
     if not is_factor_like_series(by_series):
         return [term], hidden_counter
 
-    opts = dict(term.basis_options or {})
-    if str(opts.get("special", "s")) != "s":
+    smooth_spec = term.smooth_spec
+    if smooth_spec is None:
+        raise ValueError(f"Smooth term {term.label!r} is missing smooth_spec.")
+
+    if str(smooth_spec.special) != "s":
         raise NotImplementedError(
             f"Factor `by` expansion is implemented for s(...) only in this step, "
-            f"not for {opts.get('special')}(...)."
+            f"not for {smooth_spec.special}(...)."
         )
 
     cat, levels, ordered = factor_info(by_series)
@@ -1266,7 +1408,15 @@ def expand_factor_by_term(
 
         new_label = f"{original_label}:{by_name}={lev}"
         out_terms.append(
-            replace(term, by_variable=hidden_col, basis_options={**opts, "constraint_mode": "factor_by"}, label=new_label, metadata=new_meta)
+            replace(
+                term,
+                by_variable=hidden_col,
+                smooth_spec=replace_smooth_spec(
+                    smooth_spec, constraint_mode="factor_by"
+                ),
+                label=new_label,
+                metadata=new_meta,
+            )
         )
 
         state["factor_by_expansions"].append(
@@ -1287,7 +1437,9 @@ def expand_factor_by_term(
 
 def preprocess_formula_predictor_specs(parsed, predictor_specs, data):
     if not isinstance(data, pd.DataFrame):
-        raise TypeError("Formula preprocessing requires `data` to be a pandas DataFrame.")
+        raise TypeError(
+            "Formula preprocessing requires `data` to be a pandas DataFrame."
+        )
 
     if len(parsed.predictors) != len(predictor_specs):
         raise ValueError(
@@ -1372,7 +1524,9 @@ def apply_formula_preprocess_to_new_data(data, preprocess_state):
             if comp["type"] == "numeric":
                 vals = vals * numeric_1d_values(out[src], name=src)
             elif comp["type"] == "factor":
-                vals = vals * np.asarray((out[src] == comp["level"]).astype(float), dtype=np.float64)
+                vals = vals * np.asarray(
+                    (out[src] == comp["level"]).astype(float), dtype=np.float64
+                )
             else:
                 raise ValueError(f"Unknown parametric recipe type {comp['type']!r}.")
 
@@ -1386,7 +1540,9 @@ def apply_formula_preprocess_to_new_data(data, preprocess_state):
                 f"needed to rebuild formula columns."
             )
 
-        out[item["hidden_by"]] = np.asarray((out[src] == item["level"]).astype(float), dtype=np.float64)
+        out[item["hidden_by"]] = np.asarray(
+            (out[src] == item["level"]).astype(float), dtype=np.float64
+        )
 
     return out
 
@@ -1413,31 +1569,44 @@ Each runtime term owns all basis-specific mathematics for its smooth family:
 basis construction, penalty definition, term-local constraints, by-variable
 handling, and new-data transforms.
 
-This module dispatches on ``TermSpec.kind``, ``basis_options["special"]``, and
-``basis_options["bs"]`` to select the correct runtime class.  It must not
-implement basis construction itself — it only routes to the canonical classes
-in ``gam/smooths/*``.
+This module dispatches on typed ``TermSpec.smooth_spec`` objects to select the
+correct runtime class. It must not implement basis construction itself — it
+only routes to the canonical classes in ``gam/smooths/*``.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from ..specs import LinearPredictorSpec, TermSpec
-
-from ..smooths.registry import make_smooth_term
-from ..terms.linear import LinearTerm
-from ..smooths.univariate.cubic_regression import SplineTerm1D
-from ..smooths.univariate.pspline import PSplineTerm1D
-from ..smooths.univariate.thin_plate import ThinPlateSplineTerm  # imported for registration / direct access
-from ..smooths.univariate.gp import GPSmoothTerm
-from ..smooths.tensor.te import TensorProductSplineTerm  # imported for registration
-from ..smooths.tensor.ti import InteractionTensorProductSplineTerm  # imported for registration
-from ..smooths.tensor.t2 import TensorANOVASplineTerm  # imported for registration
-
-from ..smooths.categorical.factor_smooth import FSmoothInteractionTerm, SZSmoothInteractionTerm
+from ..smooths.categorical.factor_smooth import (
+    FSmoothInteractionTerm,
+    SZSmoothInteractionTerm,
+)
 from ..smooths.categorical.mrf import MarkovRandomFieldTerm
 from ..smooths.categorical.random_effect import RandomEffectTerm
+from ..smooths.registry import make_smooth_term
+from ..smooths.univariate.cubic_regression import SplineTerm1D
+from ..smooths.univariate.gp import GPSmoothTerm
+from ..smooths.univariate.pspline import PSplineTerm1D
+from ..specs import LinearPredictorSpec, PenaltyGroupSpec, TermSpec
+from ..specs.smooth import (
+    CubicRegressionSmoothSpec,
+    CubicShrinkageSmoothSpec,
+    CyclicCubicRegressionSmoothSpec,
+    FactorSmoothInteractionSpec,
+    GPSmoothSpec,
+    MarkovRandomFieldSmoothSpec,
+    PSplineSmoothSpec,
+    RandomEffectSmoothSpec,
+    SumToZeroFactorSmoothSpec,
+    TensorANOVASmoothSpec,
+    TensorInteractionSmoothSpec,
+    TensorProductSmoothSpec,
+    ThinPlateShrinkageSmoothSpec,
+    ThinPlateSmoothSpec,
+    tensor_basis_list,
+)
+from ..terms.linear import LinearTerm
 
 
 def _as_list_or_repeat(value: Any, n: int):
@@ -1466,238 +1635,276 @@ def instantiate_term(term_like: TermSpec | Any):
         return LinearTerm(
             feature=term_like.features[0],
             label=term_like.label,
+            term_id=term_like.term_id,
             metadata=dict(term_like.metadata or {}),
         )
     if term_like.kind != "smooth":
         raise TypeError(f"Unsupported TermSpec.kind={term_like.kind!r}")
 
-    opts = dict(term_like.basis_options or {})
-    special = str(opts.get("special", "s")).lower()
     features = list(term_like.features)
     metadata = dict(term_like.metadata or {})
+    smooth_spec = term_like.smooth_spec
+    if smooth_spec is None:
+        raise ValueError(f"Smooth TermSpec {term_like.label!r} is missing smooth_spec.")
     metadata["term_spec"] = {
         "kind": term_like.kind,
         "features": list(term_like.features),
         "by_variable": term_like.by_variable,
-        "basis_options": dict(opts),
+        "basis_options": smooth_spec.to_basis_options(),
         "smoothing_id": term_like.smoothing_id,
         "label": term_like.label,
+        "smooth_spec_type": type(smooth_spec).__name__,
     }
-    bs = str(opts.get("bs", "cr")).lower()
-    k = opts.get("k", -1)
-    fx = bool(opts.get("fx", False))
-    select = bool(opts.get("select", False))
-    m = opts.get("m", None)
-    xt = opts.get("xt", None)
-    sp = opts.get("sp", None)
-    pc = opts.get("pc", None)
-    knots = opts.get("knots", None)
-    constraint_mode = str(opts.get("constraint_mode", "auto"))
-    shared_basis_setup = opts.get("shared_basis_setup", None)
-    mc = opts.get("mc", None)
-    full = bool(opts.get("full", False))
-    ord_ = opts.get("ord", None)
     by = term_like.by_variable
     smoothing_id = term_like.smoothing_id
     label = term_like.label
 
-    if special == "s":
-        if bs in {"cr", "cs", "cc"}:
-            if len(features) != 1:
-                raise NotImplementedError(
-                    f"Current runtime only materializes 1D s(..., bs={bs!r}) terms."
-                )
-
-            return SplineTerm1D(
-                feature=features[0],
-                k=k,
-                basis=bs,
-                label=label,
-                smoothing_id=smoothing_id,
-                by=by,
-                sp=sp,
-                select=select,
-                fixed=fx,
-                constraint_mode=constraint_mode,
-                shared_basis_setup=shared_basis_setup,
-                pc=pc,
-                knots=knots,
-                metadata=metadata,
-            )
-
-        if bs == "ps":
-            if len(features) != 1:
-                raise NotImplementedError(
-                    "Current runtime only materializes 1D s(..., bs='ps') terms."
-                )
-
-            return PSplineTerm1D(
-                feature=features[0],
-                k=k,
-                basis=bs,
-                m=m,
-                label=label,
-                smoothing_id=smoothing_id,
-                by=by,
-                sp=sp,
-                select=select,
-                fixed=fx,
-                constraint_mode=constraint_mode,
-                pc=pc,
-                knots=knots,
-                metadata=metadata,
-            )
-
-        if bs in {"tp", "ts"}:
-            return make_smooth_term(
-                bs,
-                feature=features,
-                k=k,
-                basis=bs,
-                m=m,
-                label=label,
-                smoothing_id=smoothing_id,
-                by=by,
-                sp=sp,
-                select=select,
-                fixed=fx,
-                constraint_mode=constraint_mode,
-                pc=pc,
-                knots=knots,
-                xt=xt,
-                metadata=metadata,
-            )
-
-        if bs == "gp":
-            return GPSmoothTerm(
-                feature=features,
-                k=k,
-                basis=bs,
-                m=m,
-                label=label,
-                smoothing_id=smoothing_id,
-                by=by,
-                sp=sp,
-                select=select,
-                fixed=fx,
-                constraint_mode=constraint_mode,
-                pc=pc,
-                knots=knots,
-                xt=xt,
-                metadata=metadata,
-            )
-
-        if bs == "mrf":
-            if select:
-                raise NotImplementedError(
-                    "select=True is not yet implemented for bs='mrf' smooths."
-                )
-            return MarkovRandomFieldTerm(
-                feature=features,
-                k=k,
-                basis=bs,
-                label=label,
-                smoothing_id=smoothing_id,
-                by=by,
-                sp=sp,
-                xt=xt,
-                knots=knots,
-                metadata=metadata,
-            )
-
-        if bs == "re":
-            if select:
-                raise NotImplementedError(
-                    "select=True is not implemented for bs='re' terms."
-                )
-            return RandomEffectTerm(
-                feature=features,
-                label=label,
-                smoothing_id=smoothing_id,
-                by=by,
-                sp=sp,
-                xt=xt,
-                metadata=metadata,
-            )
-
-        if bs == "fs":
-            if select:
-                raise NotImplementedError(
-                    "select=True is not yet implemented for bs='fs' factor smooths."
-                )
-            return FSmoothInteractionTerm(
-                feature=features,
-                k=k,
-                label=label,
-                smoothing_id=smoothing_id,
-                by=by,
-                sp=sp,
-                xt=xt,
-                fixed=fx,
-                knots=knots,
-                metadata=metadata,
-            )
-
-        if bs == "sz":
-            if select:
-                raise NotImplementedError(
-                    "select=True is not yet implemented for bs='sz' factor smooths."
-                )
-            return SZSmoothInteractionTerm(
-                feature=features,
-                k=k,
-                label=label,
-                smoothing_id=smoothing_id,
-                by=by,
-                sp=sp,
-                xt=xt,
-                fixed=fx,
-                knots=knots,
-                metadata=metadata,
-            )
-
-        raise NotImplementedError(
-            f"Current runtime materializes bs in "
-            f"{{'cr','cs','cc','ps','tp','ts','gp','mrf','re','fs','sz'}} for s(...). "
-            f"Received bs={bs!r}."
-        )
-
-    if special in {"te", "ti", "t2"}:
-        if select:
+    if isinstance(
+        smooth_spec,
+        (
+            CubicRegressionSmoothSpec,
+            CubicShrinkageSmoothSpec,
+            CyclicCubicRegressionSmoothSpec,
+        ),
+    ):
+        bs = str(smooth_spec.bs).lower()
+        if len(features) != 1:
             raise NotImplementedError(
-                "select=True is not yet implemented for te()/ti()/t2() tensor smooths."
+                f"Current runtime only materializes 1D s(..., bs={bs!r}) terms."
             )
-        raw_bs = opts.get("bs", "cr")
-        basis = _as_list_or_repeat(raw_bs, len(features))
-        basis = [str(b).lower() for b in basis]
-        if any(b != "cr" for b in basis):
-            raise NotImplementedError(
-                f"Current runtime only materializes bs='cr' marginals for {special}(...). "
-                f"Received basis={basis!r}."
-            )
-
-        kwargs = dict(
-            feature=features,
-            k=k,
-            basis=basis,
+        return SplineTerm1D(
+            feature=features[0],
+            k=smooth_spec.k,
+            basis=bs,
             label=label,
+            term_id=term_like.term_id,
             smoothing_id=smoothing_id,
             by=by,
-            sp=sp,
-            fixed=fx,
-            knots=knots,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            fixed=smooth_spec.fx,
+            constraint_mode=smooth_spec.constraint_mode,
+            shared_basis_setup=smooth_spec.shared_basis_setup,
+            pc=smooth_spec.pc,
+            knots=smooth_spec.knots,
             metadata=metadata,
         )
 
-        if special == "ti":
-            kwargs["mc"] = mc
-        elif special == "t2":
-            kwargs["full"] = full
-            kwargs["ord"] = ord_
+    if isinstance(smooth_spec, PSplineSmoothSpec):
+        if len(features) != 1:
+            raise NotImplementedError(
+                "Current runtime only materializes 1D s(..., bs='ps') terms."
+            )
+        return PSplineTerm1D(
+            feature=features[0],
+            k=smooth_spec.k,
+            basis="ps",
+            m=smooth_spec.m,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            fixed=smooth_spec.fx,
+            constraint_mode=smooth_spec.constraint_mode,
+            pc=smooth_spec.pc,
+            knots=smooth_spec.knots,
+            metadata=metadata,
+        )
 
-        return make_smooth_term(special, **kwargs)
+    if isinstance(smooth_spec, (ThinPlateSmoothSpec, ThinPlateShrinkageSmoothSpec)):
+        return make_smooth_term(
+            str(smooth_spec.bs).lower(),
+            feature=features,
+            k=smooth_spec.k,
+            basis=str(smooth_spec.bs).lower(),
+            m=smooth_spec.m,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            fixed=smooth_spec.fx,
+            constraint_mode=smooth_spec.constraint_mode,
+            pc=smooth_spec.pc,
+            knots=smooth_spec.knots,
+            xt=smooth_spec.xt,
+            metadata=metadata,
+        )
 
-    raise ValueError(f"Unknown smooth special {special!r}.")
+    if isinstance(smooth_spec, GPSmoothSpec):
+        return GPSmoothTerm(
+            feature=features,
+            k=smooth_spec.k,
+            basis="gp",
+            m=smooth_spec.m,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            fixed=smooth_spec.fx,
+            constraint_mode=smooth_spec.constraint_mode,
+            pc=smooth_spec.pc,
+            knots=smooth_spec.knots,
+            xt=smooth_spec.xt,
+            metadata=metadata,
+        )
+
+    if isinstance(smooth_spec, MarkovRandomFieldSmoothSpec):
+        return MarkovRandomFieldTerm(
+            feature=features,
+            k=smooth_spec.k,
+            basis="mrf",
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            xt=smooth_spec.xt,
+            knots=smooth_spec.knots,
+            metadata=metadata,
+        )
+
+    if isinstance(smooth_spec, RandomEffectSmoothSpec):
+        return RandomEffectTerm(
+            feature=features,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            xt=smooth_spec.xt,
+            metadata=metadata,
+        )
+
+    if isinstance(smooth_spec, FactorSmoothInteractionSpec):
+        return FSmoothInteractionTerm(
+            feature=features,
+            k=smooth_spec.k,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            xt=smooth_spec.xt,
+            fixed=smooth_spec.fx,
+            knots=smooth_spec.knots,
+            metadata=metadata,
+        )
+
+    if isinstance(smooth_spec, SumToZeroFactorSmoothSpec):
+        return SZSmoothInteractionTerm(
+            feature=features,
+            k=smooth_spec.k,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            xt=smooth_spec.xt,
+            fixed=smooth_spec.fx,
+            knots=smooth_spec.knots,
+            metadata=metadata,
+        )
+
+    if isinstance(
+        smooth_spec,
+        (TensorProductSmoothSpec, TensorInteractionSmoothSpec, TensorANOVASmoothSpec),
+    ):
+        basis = [str(b).lower() for b in tensor_basis_list(smooth_spec, len(features))]
+        kwargs = {
+            "feature": features,
+            "k": smooth_spec.k,
+            "basis": basis,
+            "label": label,
+            "term_id": term_like.term_id,
+            "smoothing_id": smoothing_id,
+            "by": by,
+            "sp": smooth_spec.sp,
+            "select": smooth_spec.select,
+            "fixed": smooth_spec.fx,
+            "knots": smooth_spec.knots,
+            "metadata": metadata,
+        }
+
+        if isinstance(smooth_spec, TensorInteractionSmoothSpec):
+            kwargs["mc"] = smooth_spec.mc
+        elif isinstance(smooth_spec, TensorANOVASmoothSpec):
+            kwargs["full"] = smooth_spec.full
+            kwargs["ord"] = smooth_spec.ord
+
+        return make_smooth_term(smooth_spec.special, **kwargs)
+
+    raise ValueError(f"Unknown smooth spec type {type(smooth_spec).__name__!r}.")
+
+
+def _expected_penalty_group_size(runtime_term):
+    smoothing_id = getattr(runtime_term, "smoothing_id", None)
+    if smoothing_id is None:
+        return None
+
+    if bool(getattr(runtime_term, "fixed", False)):
+        return 0
+
+    term_type = str(getattr(runtime_term, "term_type", "smooth"))
+    if term_type in {"tensor_smooth", "tensor_interaction"}:
+        n_penalties = len(list(getattr(runtime_term, "feature", ()) or ()))
+    else:
+        n_penalties = 1
+
+    if bool(getattr(runtime_term, "select", False)):
+        n_penalties += 1
+
+    return int(n_penalties)
+
+
+def _build_penalty_group_specs(terms):
+    groups = {}
+    for term in terms:
+        smoothing_id = getattr(term, "smoothing_id", None)
+        if smoothing_id is None:
+            continue
+
+        key = str(smoothing_id)
+        expected_count = _expected_penalty_group_size(term)
+        if key not in groups:
+            groups[key] = PenaltyGroupSpec(
+                smoothing_id=key,
+                term_ids=(
+                    []
+                    if getattr(term, "term_id", None) is None
+                    else [str(term.term_id)]
+                ),
+                labels=[str(getattr(term, "label", key))],
+                sp_count=expected_count,
+            )
+            continue
+
+        group = groups[key]
+        if getattr(term, "term_id", None) is not None:
+            group.term_ids.append(str(term.term_id))
+        group.labels.append(str(getattr(term, "label", key)))
+        if (
+            group.sp_count is not None
+            and expected_count is not None
+            and group.sp_count != expected_count
+        ):
+            raise ValueError(
+                f"Linked smoothing id {key!r} expects {group.sp_count} smoothing "
+                f"parameters from earlier terms, got {expected_count}."
+            )
+        if group.sp_count is None:
+            group.sp_count = expected_count
+
+    return list(groups.values())
 
 
 def instantiate_predictor_terms(predictor_specs):
@@ -1708,17 +1915,21 @@ def instantiate_predictor_terms(predictor_specs):
                 raise TypeError(
                     f"Predictor terms must be canonical TermSpec, got {type(t)}."
                 )
+        runtime_terms = [instantiate_term(t) for t in pred.terms]
+        metadata = dict(pred.metadata)
+        metadata["penalty_group_specs"] = _build_penalty_group_specs(runtime_terms)
         out.append(
             LinearPredictorSpec(
                 name=pred.name,
-                terms=[instantiate_term(t) for t in pred.terms],
+                terms=runtime_terms,
                 has_intercept=bool(getattr(pred, "has_intercept", False)),
                 parameter_name=pred.parameter_name,
                 offset_name=pred.offset_name,
-                metadata=dict(pred.metadata),
+                metadata=metadata,
             )
         )
     return out
+
 
 __all__ = [
     "instantiate_term",
@@ -1753,7 +1964,9 @@ def try_numeric_1d(x):
 
 def all_bool_like(arr):
     arr = as_object_1d(arr)
-    return all((v is None) or pd.isna(v) or isinstance(v, (bool, np.bool_)) for v in arr)
+    return all(
+        (v is None) or pd.isna(v) or isinstance(v, (bool, np.bool_)) for v in arr
+    )
 
 
 def is_factor_like_vector(x):
@@ -1824,19 +2037,20 @@ from typing import Any
 
 import numpy as np
 
-from .categorical_utils import (
-    as_object_1d,
-    is_factor_like_vector,
-    stable_unique_levels,
-    factor_indicator_matrix,
-)
+from ....splines.mrf import nat_param_type1
+from ...basis.tensor import rescale_tensor_penalties_for_fit, rowwise_kronecker
 from ...design.structures import PenaltySpec
-from ...penalties.algebra import penalty_eigendecomposition
-from ..base import BaseSmoothTerm, column_as_object
+from ...penalties import build_null_space_selection_spec
 from ..registry import make_smooth_term
-from ...basis.tensor import rowwise_kronecker
+from ..smooth_base import BaseSmoothTerm, column_as_object
 from ..univariate.cubic_regression import SplineTerm1D
 from ..univariate.pspline import PSplineTerm1D
+from .categorical_utils import (
+    as_object_1d,
+    factor_indicator_matrix,
+    is_factor_like_vector,
+    stable_unique_levels,
+)
 from .random_effect import RandomEffectTerm
 
 
@@ -1849,8 +2063,11 @@ def _as_object_2d(X):
 
 def _sum_to_zero_contrast(n_levels: int):
     """
-    Orthonormal basis for the null space of 1^T, i.e. sum-to-zero contrasts.
+    Last-level-as-reference contrast matrix matching mgcv's XZKr().
     Shape: (n_levels, n_levels - 1)
+
+    Each column subtracts the last level from one of the first (n_levels-1)
+    levels, i.e. C = vstack([I_{m-1}, -ones^T]).
     """
     n_levels = int(n_levels)
     if n_levels < 1:
@@ -1858,9 +2075,13 @@ def _sum_to_zero_contrast(n_levels: int):
     if n_levels == 1:
         return np.empty((1, 0), dtype=np.float64)
 
-    c = np.ones((n_levels, 1), dtype=np.float64)
-    q, _ = np.linalg.qr(c, mode="complete")
-    return q[:, 1:]
+    C = np.vstack(
+        [
+            np.eye(n_levels - 1, dtype=np.float64),
+            -np.ones((1, n_levels - 1), dtype=np.float64),
+        ]
+    )
+    return C
 
 
 @dataclass
@@ -1903,6 +2124,7 @@ def _build_base_smooth_term(
     knots,
     xt_rest,
     mode,  # "fs" or "sz"
+    select,
     metadata,
 ):
     """
@@ -1923,9 +2145,9 @@ def _build_base_smooth_term(
             f"for bs in {{'tp','ts','gp'}}, got base bs={base_bs!r}."
         )
 
-    if xt_rest is not None and base_bs not in {"tp", "ts", "gp"}:
+    if xt_rest is not None and base_bs not in {"tp", "ts", "gp", "ps"}:
         raise NotImplementedError(
-            f"Extra xt options are currently only supported for tp/ts/gp base smooths, "
+            f"Extra xt options are currently only supported for tp/ts/gp/ps base smooths, "
             f"got xt={xt_rest!r} with base bs={base_bs!r}."
         )
 
@@ -1938,9 +2160,9 @@ def _build_base_smooth_term(
             smoothing_id=None,
             by=None,
             sp=None,
-            select=False,
+            select=bool(select),
             fixed=bool(fixed),
-            constraint_mode=("never" if mode == "fs" else "auto"),
+            constraint_mode="never",
             shared_basis_setup=None,
             pc=None,
             knots=knots,
@@ -1948,18 +2170,22 @@ def _build_base_smooth_term(
         )
 
     if base_bs == "ps":
+        ps_m = None if xt_rest is None else xt_rest.get("m", None)
+        # For fs/sz, mgcv keeps the outer basis dimension and uses xt mainly to
+        # choose the base smoother family / order parameters.
+        ps_k = k
         return PSplineTerm1D(
             feature=metric_features[0],
-            k=k,
+            k=ps_k,
             basis="ps",
-            m=None,
+            m=ps_m,
             label=label,
             smoothing_id=None,
             by=None,
             sp=None,
-            select=False,
+            select=bool(select),
             fixed=bool(fixed),
-            constraint_mode=("never" if mode == "fs" else "auto"),
+            constraint_mode="never",
             pc=None,
             knots=knots,
             metadata=metadata,
@@ -1976,9 +2202,9 @@ def _build_base_smooth_term(
             smoothing_id=None,
             by=None,
             sp=None,
-            select=False,
+            select=bool(select),
             fixed=bool(fixed),
-            constraint_mode=("never" if mode == "fs" else "auto"),
+            constraint_mode="never",
             pc=None,
             knots=knots,
             xt=xt_rest,
@@ -1996,9 +2222,9 @@ def _build_base_smooth_term(
             smoothing_id=None,
             by=None,
             sp=None,
-            select=False,
+            select=bool(select),
             fixed=bool(fixed),
-            constraint_mode=("never" if mode == "fs" else "auto"),
+            constraint_mode="never",
             pc=None,
             knots=knots,
             xt=xt_rest,
@@ -2047,9 +2273,11 @@ class _FactorSmoothBase(BaseSmoothTerm):
         term_type,
         k=10,
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
+        select=False,
         xt=None,
         fixed=False,
         knots=None,
@@ -2060,6 +2288,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
         super().__init__(
             feature=features,
             label=label or f"{basis_name}({', '.join(map(str, features))})",
+            term_id=term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,
@@ -2069,6 +2298,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
         self.basis_name = basis_name
         self.term_type = term_type
         self.k = int(k)
+        self.select = bool(select)
         self.xt = xt
         self.fixed = bool(fixed)
         self.knots = knots
@@ -2091,8 +2321,6 @@ class _FactorSmoothBase(BaseSmoothTerm):
         self._ranks = None
 
         self.constraints_absorbed = True
-        self.fit_constraint_matrix = None
-        self.predict_constraint_matrix = None
 
     @property
     def basis_train(self):
@@ -2203,6 +2431,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
                 knots=self.knots,
                 xt_rest=base_spec.xt_rest,
                 mode=mode,
+                select=self.select,
                 metadata=dict(self.metadata),
             )
             base_term.fit(X, feature_names)
@@ -2223,6 +2452,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
                 smoothing_id=self.smoothing_id,
                 by=None,
                 sp=self.sp,
+                select=self.select,
                 xt=self.xt,
                 metadata=dict(self.metadata),
             )
@@ -2244,14 +2474,17 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
     - fully penalized, no centering
     - same penalty structure shared across levels
     """
+
     def __init__(
         self,
         feature,
         k=10,
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
+        select=False,
         xt=None,
         fixed=False,
         knots=None,
@@ -2268,9 +2501,11 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             term_type="factor_smooth_fs",
             k=k,
             label=label,
+            term_id=term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,
+            select=select,
             xt=xt,
             fixed=fixed,
             knots=knots,
@@ -2283,7 +2518,9 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         self._null_dim = None
 
     def fit(self, X, feature_names):
-        if self._build_delegate_base_or_re(X, feature_names, default_bs="tp", mode="fs"):
+        if self._build_delegate_base_or_re(
+            X, feature_names, default_bs="tp", mode="fs"
+        ):
             return self
 
         if len(self._factor_feature_indices) != 1:
@@ -2301,6 +2538,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             knots=self.knots,
             xt_rest=base_spec.xt_rest,
             mode="fs",
+            select=False,
             metadata=dict(self.metadata),
         )
         base_term.fit(X, feature_names)
@@ -2314,7 +2552,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         self._base_term = base_term
 
         fac_idx = self._factor_feature_indices[0]
-        fac_name = self._factor_feature_names[0]
+        self._factor_feature_names[0]
         fac = as_object_1d(X[:, fac_idx])
         levels = stable_unique_levels(fac)
         self._levels = levels
@@ -2333,45 +2571,64 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             return self
 
         S0 = np.asarray(base_term.penalties[0], dtype=np.float64)
-        dec = penalty_eigendecomposition(S0, tol=1e-10)
+        base_rank = int(getattr(base_term, "rank", 0) or 0)
+        if base_rank <= 0:
+            evals = np.linalg.eigvalsh(0.5 * (S0 + S0.T))
+            tol = (np.max(evals) if evals.size else 0.0) * (
+                np.finfo(np.float64).eps ** 0.8
+            )
+            base_rank = int(np.sum(evals > tol))
 
-        U1 = dec["U1"]
-        U0 = dec["U0"]
-        d_pos = dec["d_pos"]
+        # mgcv uses nat.param(X, S, rank, type=1): eigendecompose R^{-T} S R^{-1}
+        # (R from QR of X) and normalise the range space to an identity penalty.
+        rp = nat_param_type1(
+            B0,
+            S0,
+            rank=base_rank,
+            unit_fnorm=True,
+        )
+        X_reparam = rp["X"]  # (n, p0) reparameterised basis
+        P_coef = rp["P"]  # (p0, p0) transform: B0 @ P_coef = X_reparam
+        r = rp["rank"]  # penalty rank
+        D = rp["D"]  # scale^2 * ones(r) after type=1 + unit_fnorm
+        null_d = B0.shape[1] - r
 
-        r = U1.shape[1]
-        q = U0.shape[1]
+        self._base_transform = P_coef
         self._range_rank = r
-        self._null_dim = q
+        self._null_dim = null_d
 
-        T = np.column_stack([U1, U0]) if q > 0 else U1
-        self._base_transform = T
+        # Build full design matrix: replicate reparameterised basis per factor level
+        n = B0.shape[0]
+        p0 = X_reparam.shape[1]
+        X_full = np.zeros((n, p0 * n_levels), dtype=np.float64)
+        for i, lev in enumerate(levels):
+            mask = (fac == lev).astype(np.float64)
+            X_full[:, i * p0 : (i + 1) * p0] = X_reparam * mask[:, None]
 
-        B_sep = B0 @ T
-        X_full = rowwise_kronecker([Ifac, B_sep])
-
-        p_sep = B_sep.shape[1]
-        S_range = np.zeros((p_sep, p_sep), dtype=np.float64)
-        if r > 0:
-            S_range[:r, :r] = np.diag(d_pos)
+        # Build penalties matching mgcv's construction:
+        #   S[[1]] = diag(rep(c(D, 0...0), nf))          (range space)
+        #   S[[j+1]] = diag(rep(e_{r+j}, nf))  j=0..q-1  (null-space)
+        d_vec = np.concatenate([D, np.zeros(null_d, dtype=np.float64)])
+        P_range = np.diag(np.tile(d_vec, n_levels))
 
         penalties = []
         smoothing_ids = []
         ranks = []
 
-        P_range = np.kron(np.eye(n_levels, dtype=np.float64), S_range)
         penalties.append(0.5 * (P_range + P_range.T))
         smoothing_ids.append(f"__fs__:{self.label}:range")
         ranks.append(int(n_levels * r))
 
-        for i in range(q):
-            v = np.zeros((p_sep,), dtype=np.float64)
-            v[r + i] = 1.0
-            S_null_i = np.outer(v, v)
-            P_null_i = np.kron(np.eye(n_levels, dtype=np.float64), S_null_i)
+        for i in range(null_d):
+            um = np.zeros(p0, dtype=np.float64)
+            um[r + i] = 1.0
+            P_null_i = np.diag(np.tile(um, n_levels))
             penalties.append(0.5 * (P_null_i + P_null_i.T))
             smoothing_ids.append(f"__fs__:{self.label}:null:{i}")
             ranks.append(int(n_levels))
+
+        # Apply mgcv smoothCon scale_penalty step: normalise S relative to X.
+        penalties = rescale_tensor_penalties_for_fit(X_full, penalties)
 
         self._basis_train = np.asarray(X_full, dtype=np.float64)
         self._penalties = penalties
@@ -2440,7 +2697,11 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
                         "label": self.label,
                         "factor_name": self._factor_feature_names[0],
                         "levels": list(self._levels),
-                        "base_basis_name": self._base_term.basis_name if self._base_term is not None else None,
+                        "base_basis_name": (
+                            self._base_term.basis_name
+                            if self._base_term is not None
+                            else None
+                        ),
                         "base_metric_features": list(self._metric_feature_names),
                     },
                 )
@@ -2458,14 +2719,17 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
     - if smoothing_id is None: one penalty per factor combination
     - if smoothing_id is set: penalties summed to share one smoothing parameter
     """
+
     def __init__(
         self,
         feature,
         k=10,
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
+        select=False,
         xt=None,
         fixed=False,
         knots=None,
@@ -2477,9 +2741,11 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             term_type="factor_smooth_sz",
             k=k,
             label=label,
+            term_id=term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,
+            select=select,
             xt=xt,
             fixed=fixed,
             knots=knots,
@@ -2491,7 +2757,9 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         self._n_groups = None
 
     def fit(self, X, feature_names):
-        if self._build_delegate_base_or_re(X, feature_names, default_bs="tp", mode="sz"):
+        if self._build_delegate_base_or_re(
+            X, feature_names, default_bs="tp", mode="sz"
+        ):
             return self
 
         X = _as_object_2d(X)
@@ -2506,6 +2774,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             knots=self.knots,
             xt_rest=base_spec.xt_rest,
             mode="sz",
+            select=False,
             metadata=dict(self.metadata),
         )
         base_term.fit(X, feature_names)
@@ -2575,7 +2844,9 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
                 smoothing_ids.append(f"__sz__:{self.label}:group:{g}")
                 ranks.append(int(np.linalg.matrix_rank(P_con)))
         else:
-            P_sum = np.zeros((self._n_groups * p0, self._n_groups * p0), dtype=np.float64)
+            P_sum = np.zeros(
+                (self._n_groups * p0, self._n_groups * p0), dtype=np.float64
+            )
             for g in range(self._n_groups):
                 P_sum += _block_penalty_for_group(g, self._n_groups, S0)
             P_con = T.T @ P_sum @ T
@@ -2584,6 +2855,17 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             penalties.append(P_con)
             smoothing_ids.append(str(self.smoothing_id))
             ranks.append(int(np.linalg.matrix_rank(P_con)))
+
+        # Apply mgcv smoothCon scale_penalty step: normalise S relative to X.
+        # R applies this BEFORE the XZKr contrast, using the pre-contrast X_raw
+        # and the pre-contrast block penalty S_raw (which has norm_1 = norm_1(S0)).
+        # The scale factor is the same for all penalties (norm_1(S_raw[i]) = norm_1(S0)).
+        if len(penalties) > 0:
+            maXX = float(np.max(np.sum(np.abs(X_raw), axis=1)) ** 2)
+            maS0 = float(np.max(np.sum(np.abs(S0), axis=0)))
+            if maS0 > 1e-12 and maXX > 1e-12:
+                scale = maXX / maS0
+                penalties = [P * scale for P in penalties]
 
         self._basis_train = np.asarray(X_con, dtype=np.float64)
         self._penalties = penalties
@@ -2597,7 +2879,11 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         if self._delegate_term is not None:
             return self._delegate_term.transform_new(X_new)
 
-        if self._base_term is None or self._factor_levels is None or self._factor_transform is None:
+        if (
+            self._base_term is None
+            or self._factor_levels is None
+            or self._factor_transform is None
+        ):
             raise RuntimeError("Term is not fitted.")
 
         indicator_mats = []
@@ -2656,12 +2942,46 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
                         "label": self.label,
                         "factor_names": list(self._factor_feature_names),
                         "factor_levels": [list(lev) for lev in self._factor_levels],
-                        "base_basis_name": self._base_term.basis_name if self._base_term is not None else None,
+                        "base_basis_name": (
+                            self._base_term.basis_name
+                            if self._base_term is not None
+                            else None
+                        ),
                         "base_metric_features": list(self._metric_feature_names),
                         "shared_smoothing_id": self.smoothing_id,
                     },
                 )
             )
+
+        if self.select and len(self._penalties) > 0:
+            main_penalty = np.sum(np.asarray(self._penalties, dtype=np.float64), axis=0)
+            select_sid = (
+                f"{self.smoothing_id}::select"
+                if self.smoothing_id is not None
+                else f"__sz__:{self.label}:select"
+            )
+            sel_spec = build_null_space_selection_spec(
+                main_penalty=main_penalty,
+                smoothing_id=select_sid,
+                metadata={
+                    "term_type": self.term_type,
+                    "basis_name": self.basis_name,
+                    "feature": list(self.feature),
+                    "label": self.label,
+                    "factor_names": list(self._factor_feature_names),
+                    "factor_levels": [list(lev) for lev in self._factor_levels],
+                    "base_basis_name": (
+                        self._base_term.basis_name
+                        if self._base_term is not None
+                        else None
+                    ),
+                    "base_metric_features": list(self._metric_feature_names),
+                    "shared_smoothing_id": self.smoothing_id,
+                    "is_selection_penalty": True,
+                },
+            )
+            if sel_spec is not None:
+                defs.append(sel_spec)
 
         return defs
 
@@ -2672,9 +2992,17 @@ from __future__ import annotations
 
 import numpy as np
 
-from .categorical_utils import factor_indicator_matrix, stable_unique_levels, as_object_1d
+from ....splines.mrf import (
+    coerce_nb,
+    coerce_penalty_matrix,
+    combine_duplicate_polys,
+    laplacian_penalty_from_nb,
+    nat_param_type0,
+    polys_to_nb,
+)
 from ...design.structures import PenaltySpec
-from ..base import (
+from ...penalties import build_null_space_selection_spec
+from ..smooth_base import (
     BaseSmoothTerm,
     _resolve_feature,
     by_values_from_new_data,
@@ -2682,13 +3010,10 @@ from ..base import (
     resolve_by_state,
     sync_by_state_attributes,
 )
-from ....splines.mrf import (
-    combine_duplicate_polys,
-    polys_to_nb,
-    coerce_nb,
-    laplacian_penalty_from_nb,
-    coerce_penalty_matrix,
-    nat_param_type0,
+from .categorical_utils import (
+    as_object_1d,
+    factor_indicator_matrix,
+    stable_unique_levels,
 )
 
 
@@ -2708,6 +3033,7 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
     If k < number of areas, use the natural-parameter truncation described in
     mgcv's constructor source and documentation.
     """
+
     term_type = "smooth"
     basis_name = "mrf"
     supports_tensor_marginal = False
@@ -2718,20 +3044,25 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         k=-1,
         basis="mrf",
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
+        select=False,
         xt=None,
         knots=None,
         metadata=None,
     ):
         features = list(feature) if not isinstance(feature, (str, int)) else [feature]
         if len(features) != 1:
-            raise NotImplementedError("bs='mrf' currently supports exactly one area-label variable.")
+            raise NotImplementedError(
+                "bs='mrf' currently supports exactly one area-label variable."
+            )
 
         super().__init__(
             feature=features,
             label=label or f"mrf({features[0]})",
+            term_id=term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,
@@ -2739,6 +3070,7 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         )
 
         self.k = int(k)
+        self.select = bool(select)
         self.basis_name = str(basis).lower()
         self.xt = xt
         self.knots = knots
@@ -2838,14 +3170,18 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
             miss = np.where(np.sum(X_full, axis=0) == 0.0)[0]
             X_aug = X_full
             if miss.size > 0:
-                X_aug = np.vstack([np.zeros((miss.size, n_areas), dtype=np.float64), X_aug])
+                X_aug = np.vstack(
+                    [np.zeros((miss.size, n_areas), dtype=np.float64), X_aug]
+                )
                 for i, j in enumerate(miss):
                     X_aug[i, j] = 1.0
 
-            rp = nat_param_type0(X_aug, self._full_penalty, rank=None, tol=None, unit_fnorm=True)
+            rp = nat_param_type0(
+                X_aug, self._full_penalty, rank=None, tol=None, unit_fnorm=True
+            )
 
             ind = np.arange(n_areas - bs_dim, n_areas, dtype=int)
-            X_red = rp["X"][miss.size:, :][:, ind]
+            X_red = rp["X"][miss.size :, :][:, ind]
             P_red = rp["P"][:, ind]
 
             D_red = np.zeros(bs_dim, dtype=np.float64)
@@ -2857,18 +3193,53 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
             S_red = np.diag(D_red)
             rank_red = int(np.sum(ind < rank_full))
 
-            self._basis_train = np.asarray(X_red, dtype=np.float64)
-            self._penalties = [S_red]
-            self._P = np.asarray(P_red, dtype=np.float64)
+            # smoothCon(..., absorb.cons=TRUE) removes the remaining null-space
+            # direction from the low-rank MRF basis after nat.param truncation.
+            C = np.mean(X_red, axis=0, keepdims=True)
+            Q, _ = np.linalg.qr(C.T, mode="complete")
+            Z = Q[:, 1:]
+            X_absorbed = X_red @ Z
+            S_absorbed = Z.T @ S_red @ Z
+            S_absorbed = 0.5 * (S_absorbed + S_absorbed.T)
+
+            # mgcv's scale.penalty=TRUE normalizes using the pre-absorption
+            # reduced basis and penalty, and the absorbed penalty inherits the
+            # same factor.
+            maXX = float(np.max(np.sum(np.abs(X_red), axis=1)) ** 2)
+            maS = float(np.max(np.sum(np.abs(S_red), axis=0)))
+            if maS > 1e-12 and maXX > 1e-12:
+                S_absorbed = S_absorbed / (maS / maXX)
+
+            self._basis_train = np.asarray(X_absorbed, dtype=np.float64)
+            self._penalties = [np.asarray(S_absorbed, dtype=np.float64)]
+            self._P = np.asarray(P_red @ Z, dtype=np.float64)
             self._rank = rank_red
         else:
             ev = np.linalg.eigvalsh(self._full_penalty)
             tol = np.finfo(float).eps ** 0.8 * max(np.max(ev), 1.0)
             rank = int(np.sum(ev > tol))
 
-            self._basis_train = np.asarray(X_full, dtype=np.float64)
-            self._penalties = [np.asarray(self._full_penalty, dtype=np.float64)]
-            self._P = None
+            # Absorb the centering constraint, matching mgcv's smoothCon behaviour
+            # when absorb.cons=TRUE: C = colMeans(X), remove one null-space column
+            # via QR so the basis shrinks from n_areas to n_areas-1 columns.
+            C = np.mean(X_full, axis=0, keepdims=True)  # (1, n_areas)
+            Q, _ = np.linalg.qr(C.T, mode="complete")  # (n_areas, n_areas)
+            Z = Q[:, 1:]  # (n_areas, n_areas-1)
+            X_absorbed = X_full @ Z
+            S_absorbed = Z.T @ self._full_penalty @ Z
+            S_absorbed = 0.5 * (S_absorbed + S_absorbed.T)
+
+            # Apply mgcv smoothCon scale_penalty step: normalise using the
+            # pre-absorption X and S (R scales before absorb.cons, so the same
+            # factor is inherited by the absorbed penalty).
+            maXX = float(np.max(np.sum(np.abs(X_full), axis=1)) ** 2)
+            maS = float(np.max(np.sum(np.abs(self._full_penalty), axis=0)))
+            if maS > 1e-12 and maXX > 1e-12:
+                S_absorbed = S_absorbed / (maS / maXX)
+
+            self._basis_train = np.asarray(X_absorbed, dtype=np.float64)
+            self._penalties = [np.asarray(S_absorbed, dtype=np.float64)]
+            self._P = np.asarray(Z, dtype=np.float64)
             self._rank = rank
 
         if self._by_state.is_present:
@@ -2916,13 +3287,19 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
             sp_mode = "estimate"
             sp_value = None
 
-        return [
+        defs = [
             PenaltySpec(
                 matrix=np.asarray(self.penalties[0], dtype=np.float64),
-                smoothing_id=(None if self.smoothing_id is None else str(self.smoothing_id)),
+                smoothing_id=(
+                    None if self.smoothing_id is None else str(self.smoothing_id)
+                ),
                 kind="smooth",
                 rank=int(self._rank) if self._rank is not None else None,
-                null_space_dim=int(self._null_space_dim) if self._null_space_dim is not None else None,
+                null_space_dim=(
+                    int(self._null_space_dim)
+                    if self._null_space_dim is not None
+                    else None
+                ),
                 is_null_space_penalty=False,
                 sp_mode=sp_mode,
                 sp_value=sp_value,
@@ -2932,8 +3309,10 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
                     "feature": list(self.feature),
                     "label": self.label,
                     "by": self.by,
-                    "by_name": self._by_name,
-                    "area_names": list(self._area_names) if self._area_names is not None else None,
+                    "by_name": self._by_state.feature_name,
+                    "area_names": (
+                        list(self._area_names) if self._area_names is not None else None
+                    ),
                     "has_polys": self._plot_polys is not None,
                     "has_nb": self._nb is not None,
                     "has_penalty": self._full_penalty is not None,
@@ -2942,6 +3321,36 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
                 },
             )
         ]
+
+        if self.select:
+            select_sid = (
+                None if self.smoothing_id is None else f"{self.smoothing_id}::select"
+            )
+            sel_spec = build_null_space_selection_spec(
+                main_penalty=np.asarray(self.penalties[0], dtype=np.float64),
+                smoothing_id=select_sid,
+                metadata={
+                    "term_type": self.term_type,
+                    "basis_name": self.basis_name,
+                    "feature": list(self.feature),
+                    "label": self.label,
+                    "by": self.by,
+                    "by_name": self._by_state.feature_name,
+                    "area_names": (
+                        list(self._area_names) if self._area_names is not None else None
+                    ),
+                    "has_polys": self._plot_polys is not None,
+                    "has_nb": self._nb is not None,
+                    "has_penalty": self._full_penalty is not None,
+                    "low_rank": self._P is not None,
+                    "k": int(self.k),
+                    "is_selection_penalty": True,
+                },
+            )
+            if sel_spec is not None:
+                defs.append(sel_spec)
+
+        return defs
 
     def transform_new(self, X_new):
         if self._area_names is None:
@@ -2985,15 +3394,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from .categorical_utils import (
-    as_object_1d,
-    try_numeric_1d,
-    all_bool_like,
-    stable_unique_levels,
-    factor_indicator_matrix,
-)
+from ...basis.tensor import rowwise_kronecker
 from ...design.structures import PenaltySpec
-from ..base import (
+from ...penalties import build_null_space_selection_spec
+from ..smooth_base import (
     BaseSmoothTerm,
     _resolve_feature,
     by_values_from_new_data,
@@ -3001,7 +3405,13 @@ from ..base import (
     resolve_by_state,
     sync_by_state_attributes,
 )
-from ...basis.tensor import rowwise_kronecker
+from .categorical_utils import (
+    all_bool_like,
+    as_object_1d,
+    factor_indicator_matrix,
+    stable_unique_levels,
+    try_numeric_1d,
+)
 
 
 @dataclass
@@ -3017,18 +3427,24 @@ def _fit_re_component(x):
     x_obj = as_object_1d(x)
 
     if any(pd.isna(v) for v in x_obj):
-        raise ValueError("Random-effect terms do not currently allow missing values in fitting.")
+        raise ValueError(
+            "Random-effect terms do not currently allow missing values in fitting."
+        )
 
     if all_bool_like(x_obj):
         levels = stable_unique_levels(x_obj)
-        return factor_indicator_matrix(x_obj, levels), _REComponentSpec(kind="factor", levels=levels)
+        return factor_indicator_matrix(x_obj, levels), _REComponentSpec(
+            kind="factor", levels=levels
+        )
 
     x_num = try_numeric_1d(x_obj)
     if x_num is not None and np.isfinite(x_num).all():
         return x_num[:, None], _REComponentSpec(kind="numeric", levels=None)
 
     levels = stable_unique_levels(x_obj)
-    return factor_indicator_matrix(x_obj, levels), _REComponentSpec(kind="factor", levels=levels)
+    return factor_indicator_matrix(x_obj, levels), _REComponentSpec(
+        kind="factor", levels=levels
+    )
 
 
 def _predict_re_component(x_new, spec: _REComponentSpec):
@@ -3037,7 +3453,9 @@ def _predict_re_component(x_new, spec: _REComponentSpec):
     if spec.kind == "numeric":
         x_num = try_numeric_1d(x_obj)
         if x_num is None:
-            raise ValueError("Expected numeric prediction data for a numeric random-effect component.")
+            raise ValueError(
+                "Expected numeric prediction data for a numeric random-effect component."
+            )
         B = np.zeros((x_num.size, 1), dtype=np.float64)
         ok = np.isfinite(x_num)
         B[ok, 0] = x_num[ok]
@@ -3062,10 +3480,11 @@ class RandomEffectTerm(BaseSmoothTerm):
 
     Important mgcv-compatible behavior
     ----------------------------------
-    - no id support
+    - random effects do not work with linked smoothing ids via ``id=``
     - no centering constraints
     - unseen factor levels at prediction -> zero rows
     """
+
     term_type = "random_effect"
     basis_name = "re"
     supports_tensor_marginal = False
@@ -3074,26 +3493,30 @@ class RandomEffectTerm(BaseSmoothTerm):
         self,
         feature,
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
+        select=False,
         xt=None,
         metadata=None,
     ):
         features = list(feature) if not isinstance(feature, (str, int)) else [feature]
 
         if smoothing_id is not None:
-            raise NotImplementedError("mgcv-style bs='re' terms do not support linked ids.")
+            raise NotImplementedError("random effects don't work with ids.")
 
         super().__init__(
             feature=features,
             label=label or f"re({', '.join(map(str, features))})",
+            term_id=term_id,
             smoothing_id=None,
             by=by,
             sp=sp,
             metadata=metadata,
         )
 
+        self.select = bool(select)
         self.xt = xt
 
         self._feature_indices = None
@@ -3108,8 +3531,6 @@ class RandomEffectTerm(BaseSmoothTerm):
 
         # random effects are full-rank penalized: no side conditions needed
         self.constraints_absorbed = True
-        self.fit_constraint_matrix = None
-        self.predict_constraint_matrix = None
 
     def fit(self, X, feature_names):
         X = np.asarray(X, dtype=object)
@@ -3229,15 +3650,44 @@ class RandomEffectTerm(BaseSmoothTerm):
                         "feature": list(self.feature),
                         "label": self.label,
                         "by": self.by,
-                        "by_name": self._by_name,
+                        "by_name": self._by_state.feature_name,
                         "xt": self.xt,
                         "component_specs": [
-                            {"kind": s.kind, "levels": None if s.levels is None else list(s.levels)}
+                            {
+                                "kind": s.kind,
+                                "levels": None if s.levels is None else list(s.levels),
+                            }
                             for s in (self._component_specs or [])
                         ],
                     },
                 )
             )
+
+            if self.select:
+                select_sid = None
+                sel_spec = build_null_space_selection_spec(
+                    main_penalty=np.asarray(P, dtype=np.float64),
+                    smoothing_id=select_sid,
+                    metadata={
+                        "term_type": self.term_type,
+                        "basis_name": self.basis_name,
+                        "feature": list(self.feature),
+                        "label": self.label,
+                        "by": self.by,
+                        "by_name": self._by_state.feature_name,
+                        "is_selection_penalty": True,
+                        "xt": self.xt,
+                        "component_specs": [
+                            {
+                                "kind": s.kind,
+                                "levels": None if s.levels is None else list(s.levels),
+                            }
+                            for s in (self._component_specs or [])
+                        ],
+                    },
+                )
+                if sel_spec is not None:
+                    defs.append(sel_spec)
 
         return defs
 
@@ -3262,6 +3712,189 @@ class RandomEffectTerm(BaseSmoothTerm):
 
 # --- End of nampy/gam/smooths/categorical/random_effect.py ---
 
+# --- Start of nampy/gam/smooths/tensor/marginals.py ---
+from __future__ import annotations
+
+import numpy as np
+
+from ..smooth_base import column_as_float
+from ..univariate.cubic_regression import SplineTerm1D
+from ..univariate.gp import GPSmoothTerm
+from ..univariate.pspline import PSplineTerm1D
+from ..univariate.thin_plate import ThinPlateSplineTerm
+
+TENSOR_MARGINAL_BASES = frozenset({"cr", "cs", "cc", "ps", "tp", "ts", "gp"})
+
+
+def validate_tensor_marginal_bases(bases):
+    bases = [str(b).lower() for b in bases]
+    bad = [b for b in bases if b not in TENSOR_MARGINAL_BASES]
+    if bad:
+        raise NotImplementedError(
+            "Tensor marginals currently support only bs in "
+            f"{sorted(TENSOR_MARGINAL_BASES)}, got {bases!r}."
+        )
+    return bases
+
+
+def make_tensor_marginal_term(*, feature, basis, k, m=None, knots=None, centered=False):
+    basis = str(basis).lower()
+    validate_tensor_marginal_bases([basis])
+    constraint_mode = "always" if centered else "never"
+
+    if basis in {"cr", "cs", "cc"}:
+        return SplineTerm1D(
+            feature=feature,
+            k=k,
+            basis=basis,
+            label=str(feature),
+            smoothing_id=None,
+            by=None,
+            select=False,
+            fixed=False,
+            constraint_mode=constraint_mode,
+            knots=knots,
+        )
+
+    if basis == "ps":
+        return PSplineTerm1D(
+            feature=feature,
+            k=k,
+            basis=basis,
+            m=m,
+            label=str(feature),
+            smoothing_id=None,
+            by=None,
+            select=False,
+            fixed=False,
+            constraint_mode=constraint_mode,
+            knots=knots,
+        )
+
+    if basis in {"tp", "ts"}:
+        return ThinPlateSplineTerm(
+            feature=[feature],
+            k=k,
+            basis=basis,
+            m=m,
+            label=str(feature),
+            smoothing_id=None,
+            by=None,
+            select=False,
+            fixed=False,
+            constraint_mode=constraint_mode,
+            knots=knots,
+        )
+
+    return GPSmoothTerm(
+        feature=[feature],
+        k=k,
+        basis=basis,
+        m=m,
+        label=str(feature),
+        smoothing_id=None,
+        by=None,
+        select=False,
+        fixed=False,
+        constraint_mode=constraint_mode,
+        knots=knots,
+    )
+
+
+def tensor_marginal_feature_index(term):
+    if hasattr(term, "_feature_index"):
+        return int(term._feature_index)
+    if hasattr(term, "_feature_indices") and term._feature_indices is not None:
+        return int(term._feature_indices[0])
+    raise AttributeError(
+        "Tensor marginal term does not expose a resolved feature index."
+    )
+
+
+def tensor_marginal_feature_name(term):
+    if hasattr(term, "_feature_name"):
+        return str(term._feature_name)
+    if hasattr(term, "_feature_names") and term._feature_names is not None:
+        return str(term._feature_names[0])
+    raise AttributeError(
+        "Tensor marginal term does not expose a resolved feature name."
+    )
+
+
+def _tensor_marginal_eval_from_x(term, x):
+    idx = tensor_marginal_feature_index(term)
+    X_new = np.zeros((len(x), idx + 1), dtype=np.float64)
+    X_new[:, idx] = np.asarray(x, dtype=np.float64)
+    return np.asarray(term.transform_new(X_new), dtype=np.float64)
+
+
+def _tensor_np_reparameterization(term, x_train, basis_dim):
+    x_train = np.asarray(x_train, dtype=np.float64).ravel()
+    if x_train.size == 0:
+        return None
+    x_eval = np.linspace(
+        np.min(x_train), np.max(x_train), int(basis_dim), dtype=np.float64
+    )
+    B_eval = _tensor_marginal_eval_from_x(term, x_eval)
+    U, d, Vt = np.linalg.svd(B_eval, full_matrices=False)
+    if d.size == 0 or d[0] <= 0.0:
+        return None
+    if d[-1] / d[0] < np.finfo(np.float64).eps ** 0.66:
+        return None
+    return Vt.T @ (U.T / d[:, None])
+
+
+def tensor_marginal_fit_matrices(term, *, centered=False, apply_np=False, x_train=None):
+    basis_name = str(getattr(term, "basis_name", "")).lower()
+    if basis_name in {"cr", "cs"} and getattr(term, "_spline", None) is not None:
+        if centered:
+            B = np.asarray(term.basis_train, dtype=np.float64)
+            S = np.asarray(term.penalties[0], dtype=np.float64)
+            XP = term._spline._np_transform_centered
+        else:
+            B = np.asarray(term._spline.raw_basis, dtype=np.float64)
+            S = np.asarray(term._spline.raw_penalty_unscaled, dtype=np.float64)
+            XP = term._spline._np_transform
+        if XP is not None:
+            B = B @ XP
+            S = XP.T @ S @ XP
+        return B, S, XP
+
+    if len(term.penalties) != 1:
+        raise NotImplementedError(
+            "Tensor products of smooths with multiple penalties are not supported."
+        )
+
+    B = np.asarray(term.basis_train, dtype=np.float64)
+    S = np.asarray(term.penalties[0], dtype=np.float64)
+    XP = _tensor_np_reparameterization(term, x_train, B.shape[1]) if apply_np else None
+    if XP is not None:
+        B = B @ XP
+        S = XP.T @ S @ XP
+    return B, S, XP
+
+
+def tensor_marginal_predict_matrix(term, X_new, *, centered=False, np_transform=None):
+    basis_name = str(getattr(term, "basis_name", "")).lower()
+    if basis_name in {"cr", "cs"} and getattr(term, "_spline", None) is not None:
+        xj = column_as_float(X_new, term._feature_index)
+        if centered:
+            B = term._spline.transform_new_centered(xj)
+            XP = term._spline._np_transform_centered
+        else:
+            B = term._spline.transform_new_raw(xj)
+            XP = term._spline._np_transform
+        if XP is not None:
+            B = B @ XP
+        return np.asarray(B, dtype=np.float64)
+
+    B = np.asarray(term.transform_new(X_new), dtype=np.float64)
+    if np_transform is not None:
+        B = B @ np.asarray(np_transform, dtype=np.float64)
+    return B
+
+# --- End of nampy/gam/smooths/tensor/marginals.py ---
+
 # --- Start of nampy/gam/smooths/tensor/t2.py ---
 """
 Tensor-product smooth with null-space reparameterisation (``bs='t2'``).
@@ -3273,15 +3906,31 @@ splines and is the recommended choice when the smoothing parameters for
 different axes are very different in magnitude.
 """
 
+import warnings
+
 import numpy as np
 
-from ..base import BaseSmoothTerm, _normalize_knots, column_as_float
-from ..registry import register_smooth
-from ..univariate.cubic_regression import SplineTerm1D
 from ...basis.tensor import (
     build_t2_basis_and_penalties,
-    marginal_range_null_decomposition,
     materialize_t2_newdata,
+    rescale_tensor_penalties_for_fit,
+    t2_marginal_reparameterization,
+)
+from ...penalties.algebra import null_space_penalty_from_penalty
+from ..registry import register_smooth
+from ..smooth_base import (
+    BaseSmoothTerm,
+    _normalize_knots,
+    build_penalty_definition,
+    build_selection_penalty_definition,
+)
+from .marginals import (
+    make_tensor_marginal_term,
+    tensor_marginal_feature_index,
+    tensor_marginal_feature_name,
+    tensor_marginal_fit_matrices,
+    tensor_marginal_predict_matrix,
+    validate_tensor_marginal_bases,
 )
 
 
@@ -3297,12 +3946,15 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         k=10,
         basis="cr",
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
+        select=False,
         full=False,
         ord=None,
         fixed=False,
+        null_penalty_tol=1e-10,
         knots=None,
         metadata=None,
     ):
@@ -3313,6 +3965,7 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         super().__init__(
             feature=features,
             label=label or f"t2({', '.join(map(str, features))})",
+            term_id=term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,
@@ -3341,15 +3994,13 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             raise ValueError(
                 f"basis must have length {len(features)} for features={features}, got {self.basis}."
             )
+        self.basis = validate_tensor_marginal_bases(self.basis)
 
-        if any(bs != "cr" for bs in self.basis):
-            raise NotImplementedError(
-                "TensorANOVASplineTerm currently supports only basis='cr' marginals."
-            )
-
+        self.select = bool(select)
         self.full = bool(full)
         self.ord = ord
         self.fixed = bool(fixed)
+        self.null_penalty_tol = float(null_penalty_tol)
         self.knots = _normalize_knots(knots, features)
 
         self._feature_indices = None
@@ -3360,6 +4011,8 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         self._t2_train = None
         self._marginal_decompositions = None
         self._penalized_specs = None
+        self.fit_constraint_matrix = None
+        self.predict_coefficient_map = None
 
     def fit(self, X, feature_names):
         marginals = []
@@ -3367,35 +4020,40 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         feature_names_resolved = []
         marginal_decompositions = []
 
-        for feat, k_i, bs_i, knots_i in zip(self.feature, self.k, self.basis, self.knots):
-            term = SplineTerm1D(
+        for feat, k_i, bs_i, knots_i in zip(
+            self.feature, self.k, self.basis, self.knots
+        ):
+            term = make_tensor_marginal_term(
                 feature=feat,
-                k=k_i,
                 basis=bs_i,
-                label=str(feat),
-                smoothing_id=None,
-                by=None,
-                select=False,
-                fixed=False,
+                k=k_i,
                 knots=knots_i,
+                centered=False,
             )
             term.fit(X, feature_names)
             marginals.append(term)
-            feature_indices.append(term._feature_index)
-            feature_names_resolved.append(term._feature_name)
+            feature_indices.append(tensor_marginal_feature_index(term))
+            feature_names_resolved.append(tensor_marginal_feature_name(term))
 
-            dec = marginal_range_null_decomposition(
-                term._spline.raw_basis,
-                term._spline.raw_penalty,
-            )
+            B_i, S_i, _ = tensor_marginal_fit_matrices(term, centered=False)
+            dec = t2_marginal_reparameterization(B_i, S_i)
             marginal_decompositions.append(dec)
 
         t2_obj = build_t2_basis_and_penalties(
             marginal_decompositions,
             full=self.full,
             ord=self.ord,
-            remove_constant_from_null_block=True,
+            remove_constant_from_null_block=False,
         )
+        B_t2 = np.asarray(t2_obj["basis"], dtype=np.float64)
+        if not self.fixed:
+            pens_t2 = rescale_tensor_penalties_for_fit(
+                B_t2,
+                [np.asarray(S, dtype=np.float64) for S in t2_obj["penalties"]],
+            )
+            t2_obj = {**t2_obj, "basis": B_t2, "penalties": pens_t2}
+        else:
+            t2_obj = {**t2_obj, "basis": B_t2}
 
         self._marginals = marginals
         self._feature_indices = feature_indices
@@ -3408,11 +4066,89 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         self._penalized_specs = [
             spec for spec in t2_obj["component_specs"] if spec["penalized"]
         ]
+        n_pen = int(sum(spec["n_cols"] for spec in self._penalized_specs))
+        n_null = int(B_t2.shape[1] - n_pen)
+        if n_null > 0:
+            C = np.zeros((1, B_t2.shape[1]), dtype=np.float64)
+            C[0, n_pen:] = np.sum(B_t2[:, n_pen:], axis=0)
+            self.fit_constraint_matrix = C if np.linalg.norm(C) > 0.0 else None
+        else:
+            self.fit_constraint_matrix = None
+        self.predict_coefficient_map = None
         self._record_constraint_result(None, None, absorbed_by=None)
 
         suffix = "full" if self.full else "pars"
         self.basis_name = f"t2({','.join(self.basis)};{suffix})"
         return self
+
+    def get_penalty_definitions(self):
+        if self._basis_train is None:
+            raise RuntimeError("Term is not fitted.")
+        raw = list(self.penalties)
+        if len(raw) == 0:
+            return []
+
+        n_raw = len(raw)
+        sp_vals = self._normalized_t2_term_sp(n_raw)
+        defs = []
+        for j, P in enumerate(raw):
+            sid = (
+                None
+                if self.smoothing_id is None
+                else (
+                    str(self.smoothing_id)
+                    if n_raw <= 1
+                    else f"{self.smoothing_id}::{j}"
+                )
+            )
+            sp_j = sp_vals[j] if j < len(sp_vals) else None
+            defs.append(
+                build_penalty_definition(
+                    self,
+                    P,
+                    kind="smooth",
+                    smoothing_id=sid,
+                    sp_value_in=sp_j,
+                    metadata_extra={"term_sp": sp_j, "is_selection_penalty": False},
+                )
+            )
+
+        if self.select:
+            combined = sum(np.asarray(P, dtype=np.float64) for P in raw)
+            S0, meta = null_space_penalty_from_penalty(
+                combined, tol=self.null_penalty_tol
+            )
+            if meta["rank"] > 0:
+                select_sid = (
+                    None
+                    if self.smoothing_id is None
+                    else f"{self.smoothing_id}::select"
+                )
+                defs.append(
+                    build_selection_penalty_definition(
+                        self,
+                        S0,
+                        rank=meta["rank"],
+                        null_space_dim=meta["null_space_dim"],
+                        smoothing_id=select_sid,
+                    )
+                )
+
+        return defs
+
+    def _normalized_t2_term_sp(self, n_penalties):
+        if n_penalties <= 0:
+            return []
+        if self.sp is None:
+            return [None] * n_penalties
+        if np.isscalar(self.sp):
+            vals = np.asarray([float(self.sp)], dtype=np.float64)
+        else:
+            vals = np.asarray(self.sp, dtype=np.float64).ravel()
+        if vals.size != n_penalties:
+            warnings.warn("length of sp incorrect in t2: ignored", stacklevel=2)
+            return [None] * n_penalties
+        return [float(v) for v in vals]
 
     @property
     def basis_train(self):
@@ -3438,8 +4174,7 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
 
         marginal_new = []
         for m, dec in zip(self._marginals, self._marginal_decompositions):
-            xj = column_as_float(X_new, m._feature_index)
-            B_raw = m._spline.transform_new_raw(xj)
+            B_raw = tensor_marginal_predict_matrix(m, X_new, centered=False)
 
             B_r = (
                 B_raw @ dec["T_range"]
@@ -3493,18 +4228,32 @@ penalty parameterisation.
 
 import numpy as np
 
-from ..base import (
+from ...basis.tensor import (
+    normalize_tensor_marginal_penalty,
+    rescale_tensor_penalties_for_fit,
+    rowwise_kronecker,
+    tensor_product_penalties,
+)
+from ...constraints.absorption import full_term_sum_to_zero_constraint
+from ...penalties.algebra import null_space_penalty_from_penalty
+from ..registry import register_smooth
+from ..smooth_base import (
     BaseSmoothTerm,
     _normalize_knots,
-    by_values_from_new_data,
+    build_penalty_definition,
+    build_selection_penalty_definition,
     column_as_float,
     resolve_by_state,
     sync_by_state_attributes,
 )
-from ...constraints.absorption import full_term_sum_to_zero_constraint
-from ..registry import register_smooth
-from ..univariate.cubic_regression import SplineTerm1D
-from ...basis.tensor import rowwise_kronecker, tensor_product_penalties
+from .marginals import (
+    make_tensor_marginal_term,
+    tensor_marginal_feature_index,
+    tensor_marginal_feature_name,
+    tensor_marginal_fit_matrices,
+    tensor_marginal_predict_matrix,
+    validate_tensor_marginal_bases,
+)
 
 
 @register_smooth("te")
@@ -3520,10 +4269,13 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         k=10,
         basis="cr",
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
+        select=False,
         fixed=False,
+        null_penalty_tol=1e-10,
         knots=None,
         metadata=None,
     ):
@@ -3534,6 +4286,7 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         super().__init__(
             feature=features,
             label=label or f"te({', '.join(map(str, features))})",
+            term_id=term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,
@@ -3557,22 +4310,20 @@ class TensorProductSplineTerm(BaseSmoothTerm):
             raise ValueError(
                 f"basis must have length {len(features)} for features={features}, got {self.basis}."
             )
+        self.basis = validate_tensor_marginal_bases(self.basis)
 
-        if any(bs != "cr" for bs in self.basis):
-            raise NotImplementedError(
-                "TensorProductSplineTerm currently supports only basis='cr' marginals."
-            )
-
+        self.select = bool(select)
         self.fixed = bool(fixed)
+        self.null_penalty_tol = float(null_penalty_tol)
         self.knots = _normalize_knots(knots, features)
 
         self._feature_indices = None
         self._feature_names = None
         self._marginals = None
+        self._marginal_np_transforms = None
         self._basis_train = None
         self._penalties = None
         self._basis_dims = None
-        self._tensor_center_mat = None
 
         self._by_state = None
 
@@ -3581,32 +4332,50 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         feature_indices = []
         feature_names_resolved = []
 
-        for feat, k_i, bs_i, knots_i in zip(self.feature, self.k, self.basis, self.knots):
-            term = SplineTerm1D(
+        for feat, k_i, bs_i, knots_i in zip(
+            self.feature, self.k, self.basis, self.knots
+        ):
+            term = make_tensor_marginal_term(
                 feature=feat,
-                k=k_i,
                 basis=bs_i,
-                label=str(feat),
-                smoothing_id=None,
-                by=None,
-                select=False,
-                fixed=False,
+                k=k_i,
                 knots=knots_i,
+                centered=False,
             )
             term.fit(X, feature_names)
             marginals.append(term)
-            feature_indices.append(term._feature_index)
-            feature_names_resolved.append(term._feature_name)
+            feature_indices.append(tensor_marginal_feature_index(term))
+            feature_names_resolved.append(tensor_marginal_feature_name(term))
 
         self._by_state = resolve_by_state(self.by, X, feature_names)
         sync_by_state_attributes(self, self._by_state)
 
-        raw_marginal_bases = [m._spline.raw_basis for m in marginals]
-        raw_marginal_penalties = [m._spline.raw_penalty for m in marginals]
-        basis_dims = [B.shape[1] for B in raw_marginal_bases]
+        # Build marginal bases and penalties matching mgcv's te construction:
+        # 1. Use unscaled raw penalty (no scale_penalty yet).
+        # 2. Apply np=TRUE conditioning transform (SVD-based orthogonalisation).
+        # 3. Eigenvalue-normalize each marginal penalty.
+        # 4. Build tensor product.
+        # 5. Apply outer scale_penalty to the full tensor basis and penalties.
+        marginal_bases = []
+        marginal_penalties = []
+        marginal_np_transforms = []
+        for m in marginals:
+            x_train = column_as_float(X, tensor_marginal_feature_index(m))
+            X_j, S_j, XP_j = tensor_marginal_fit_matrices(
+                m, centered=False, apply_np=True, x_train=x_train
+            )
+            S_j = normalize_tensor_marginal_penalty(S_j)
+            marginal_bases.append(X_j)
+            marginal_penalties.append(S_j)
+            marginal_np_transforms.append(XP_j)
 
-        B_raw = rowwise_kronecker(raw_marginal_bases)
-        S_raw = tensor_product_penalties(raw_marginal_penalties, basis_dims=basis_dims)
+        basis_dims = [B.shape[1] for B in marginal_bases]
+
+        B_raw = rowwise_kronecker(marginal_bases)
+        S_raw = tensor_product_penalties(marginal_penalties, basis_dims=basis_dims)
+
+        # Outer scale_penalty on the full tensor product (matches smoothCon outer step).
+        S_raw = rescale_tensor_penalties_for_fit(B_raw, S_raw)
 
         if self._by_state.is_constant:
             B_te, S_te, C_te = full_term_sum_to_zero_constraint(B_raw, S_raw)
@@ -3617,13 +4386,15 @@ class TensorProductSplineTerm(BaseSmoothTerm):
             B_te = B_te * self._by_state.values[:, None]
 
         self._marginals = marginals
+        self._marginal_np_transforms = marginal_np_transforms
         self._feature_indices = feature_indices
         self._feature_names = feature_names_resolved
         self._set_resolved_features(feature_names_resolved)
         self._basis_dims = basis_dims
         self._basis_train = np.asarray(B_te, dtype=np.float64)
-        self._penalties = [] if self.fixed else [np.asarray(S, dtype=np.float64) for S in S_te]
-        self._tensor_center_mat = C_te
+        self._penalties = (
+            [] if self.fixed else [np.asarray(S, dtype=np.float64) for S in S_te]
+        )
         self._record_constraint_result(
             "sum_to_zero" if C_te is not None else None,
             C_te,
@@ -3633,40 +4404,74 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         self.basis_name = "te(" + ",".join(self.basis) + ")"
         return self
 
-    @property
-    def basis_train(self):
+    def get_penalty_definitions(self):
         if self._basis_train is None:
             raise RuntimeError("Term is not fitted.")
-        return self._basis_train
+        raw = list(self.penalties)
+        if len(raw) == 0:
+            return []
 
-    @property
-    def penalties(self):
-        if self._penalties is None:
-            raise RuntimeError("Term is not fitted.")
-        return self._penalties
+        n_raw = len(raw)
+        sp_vals = self._normalized_term_sp(n_raw)
+        defs = []
+        for j, P in enumerate(raw):
+            sid = (
+                None
+                if self.smoothing_id is None
+                else (
+                    str(self.smoothing_id)
+                    if n_raw <= 1
+                    else f"{self.smoothing_id}::{j}"
+                )
+            )
+            sp_j = sp_vals[j] if j < len(sp_vals) else None
+            defs.append(
+                build_penalty_definition(
+                    self,
+                    P,
+                    kind="smooth",
+                    smoothing_id=sid,
+                    sp_value_in=sp_j,
+                    metadata_extra={"term_sp": sp_j, "is_selection_penalty": False},
+                )
+            )
 
-    @property
-    def n_coef(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return int(self._basis_train.shape[1])
+        if self.select:
+            combined = sum(np.asarray(P, dtype=np.float64) for P in raw)
+            S0, meta = null_space_penalty_from_penalty(
+                combined, tol=self.null_penalty_tol
+            )
+            if meta["rank"] > 0:
+                select_sid = (
+                    None
+                    if self.smoothing_id is None
+                    else f"{self.smoothing_id}::select"
+                )
+                defs.append(
+                    build_selection_penalty_definition(
+                        self,
+                        S0,
+                        rank=meta["rank"],
+                        null_space_dim=meta["null_space_dim"],
+                        smoothing_id=select_sid,
+                    )
+                )
+
+        return defs
 
     def transform_new(self, X_new):
         if self._marginals is None:
             raise RuntimeError("Term is not fitted.")
 
-        raw_marginal_new = [
-            m._spline.transform_new_raw(column_as_float(X_new, m._feature_index))
-            for m in self._marginals
-        ]
-        B_new_raw = rowwise_kronecker(raw_marginal_new)
-        B = B_new_raw if self._tensor_center_mat is None else B_new_raw @ self._tensor_center_mat
-
-        z = by_values_from_new_data(X_new, self._by_state)
-        if z is not None:
-            B = B * z[:, None]
-
-        return B
+        marginal_new = []
+        for m, xp in zip(self._marginals, self._marginal_np_transforms):
+            marginal_new.append(
+                tensor_marginal_predict_matrix(
+                    m, X_new, centered=False, np_transform=xp
+                )
+            )
+        B_new_raw = rowwise_kronecker(marginal_new)
+        return self._apply_constraint_transform_and_by(B_new_raw, X_new)
 
 # --- End of nampy/gam/smooths/tensor/te.py ---
 
@@ -3681,20 +4486,36 @@ separate ``s()`` terms for each marginal, decomposing the full interaction
 """
 
 import warnings
+
 import numpy as np
 
-from ..base import (
+from ...basis.tensor import (
+    normalize_tensor_marginal_penalty,
+    rescale_tensor_penalties_for_fit,
+    rowwise_kronecker,
+    tensor_product_penalties,
+)
+from ...penalties.algebra import null_space_penalty_from_penalty
+from ..registry import register_smooth
+from ..smooth_base import (
     BaseSmoothTerm,
     _normalize_knots,
     _normalize_mc,
+    build_penalty_definition,
+    build_selection_penalty_definition,
     by_values_from_new_data,
     column_as_float,
     resolve_by_state,
     sync_by_state_attributes,
 )
-from ..registry import register_smooth
-from ..univariate.cubic_regression import SplineTerm1D
-from ...basis.tensor import rowwise_kronecker, tensor_product_penalties
+from .marginals import (
+    make_tensor_marginal_term,
+    tensor_marginal_feature_index,
+    tensor_marginal_feature_name,
+    tensor_marginal_fit_matrices,
+    tensor_marginal_predict_matrix,
+    validate_tensor_marginal_bases,
+)
 
 
 @register_smooth("ti")
@@ -3709,21 +4530,27 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         k=10,
         basis="cr",
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
         mc=None,
+        select=False,
         fixed=False,
+        null_penalty_tol=1e-10,
         knots=None,
         metadata=None,
     ):
         features = list(feature) if not isinstance(feature, (str, int)) else [feature]
         if len(features) < 1:
-            raise ValueError("InteractionTensorProductSplineTerm requires at least one feature.")
+            raise ValueError(
+                "InteractionTensorProductSplineTerm requires at least one feature."
+            )
 
         super().__init__(
             feature=features,
             label=label or f"ti({', '.join(map(str, features))})",
+            term_id=term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,
@@ -3747,20 +4574,19 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
             raise ValueError(
                 f"basis must have length {len(features)} for features={features}, got {self.basis}."
             )
-
-        if any(bs != "cr" for bs in self.basis):
-            raise NotImplementedError(
-                "InteractionTensorProductSplineTerm currently supports only basis='cr' marginals."
-            )
+        self.basis = validate_tensor_marginal_bases(self.basis)
 
         self.mc = mc
+        self.select = bool(select)
         self.fixed = bool(fixed)
+        self.null_penalty_tol = float(null_penalty_tol)
         self.knots = _normalize_knots(knots, features)
 
         self._mc = None
         self._feature_indices = None
         self._feature_names = None
         self._marginals = None
+        self._marginal_np_transforms = None
         self._basis_train = None
         self._penalties = None
         self._basis_dims = None
@@ -3778,67 +4604,136 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
 
         self._mc = _normalize_mc(self.mc, len(self.feature))
 
-        for feat, k_i, bs_i, knots_i in zip(self.feature, self.k, self.basis, self.knots):
-            term = SplineTerm1D(
+        for feat, k_i, bs_i, knots_i, center_i in zip(
+            self.feature, self.k, self.basis, self.knots, self._mc
+        ):
+            term = make_tensor_marginal_term(
                 feature=feat,
-                k=k_i,
                 basis=bs_i,
-                label=str(feat),
-                smoothing_id=None,
-                by=None,
-                select=False,
-                fixed=False,
+                k=k_i,
                 knots=knots_i,
+                centered=bool(center_i),
             )
             term.fit(X, feature_names)
             marginals.append(term)
-            feature_indices.append(term._feature_index)
-            feature_names_resolved.append(term._feature_name)
+            feature_indices.append(tensor_marginal_feature_index(term))
+            feature_names_resolved.append(tensor_marginal_feature_name(term))
 
         marginal_bases = []
         marginal_penalties = []
         basis_dims = []
+        marginal_np_transforms = []
 
         if self.by is not None and not self._by_state.is_constant:
             if self.mc is not None:
                 warnings.warn(
-                    f"{self.label}: ignoring mc={self.mc} because numeric by={self._by_name!r} "
-                    "is non-constant, so automatic identifiability constraints are not applied."
+                    f"{self.label}: ignoring mc={self.mc} because numeric by={self._by_state.feature_name!r} "
+                    "is non-constant, so automatic identifiability constraints are not applied.",
+                    stacklevel=2,
                 )
             use_centered = [False] * len(marginals)
         else:
             use_centered = list(self._mc)
 
+        # Build marginal bases and penalties matching mgcv's ti construction:
+        # - mc=TRUE marginals: smoothCon basis (scale_penalty + constraint absorbed),
+        #   np conditioning via the centered prediction, eigenvalue normalize.
+        # - mc=FALSE marginals: raw (unscaled) basis, np conditioning via raw prediction,
+        #   eigenvalue normalize.
+        # After the tensor product, apply outer scale_penalty (smoothCon outer step).
         for m, center_this_margin in zip(marginals, use_centered):
-            if center_this_margin:
-                B = m.basis_train
-                S = m.penalties[0]
-            else:
-                B = m._spline.raw_basis
-                S = m._spline.raw_penalty
-
-            marginal_bases.append(np.asarray(B, dtype=np.float64))
-            marginal_penalties.append(np.asarray(S, dtype=np.float64))
+            x_train = column_as_float(X, tensor_marginal_feature_index(m))
+            B, S, XP = tensor_marginal_fit_matrices(
+                m,
+                centered=bool(center_this_margin),
+                apply_np=True,
+                x_train=x_train,
+            )
+            S = normalize_tensor_marginal_penalty(S)
+            marginal_bases.append(B)
+            marginal_penalties.append(S)
             basis_dims.append(B.shape[1])
+            marginal_np_transforms.append(XP)
 
-        B_ti = rowwise_kronecker(marginal_bases)
+        B_ti_raw = rowwise_kronecker(marginal_bases)
+        S_ti = tensor_product_penalties(marginal_penalties, basis_dims=basis_dims)
+
+        # Outer scale_penalty on the tensor product (matches smoothCon outer step).
+        S_ti = rescale_tensor_penalties_for_fit(B_ti_raw, S_ti)
+
         if self._by_state.is_present:
-            B_ti = B_ti * self._by_state.values[:, None]
+            B_ti = B_ti_raw * self._by_state.values[:, None]
+        else:
+            B_ti = B_ti_raw
 
         self._marginals = marginals
+        self._marginal_np_transforms = marginal_np_transforms
         self._feature_indices = feature_indices
         self._feature_names = feature_names_resolved
         self._set_resolved_features(feature_names_resolved)
         self._basis_dims = basis_dims
         self._marginal_is_centered = list(use_centered)
         self._basis_train = np.asarray(B_ti, dtype=np.float64)
-        self._penalties = [] if self.fixed else tensor_product_penalties(
-            marginal_penalties, basis_dims=basis_dims
-        )
+        self._penalties = [] if self.fixed else S_ti
         self._record_constraint_result(None, None, absorbed_by=None)
 
         self.basis_name = "ti(" + ",".join(self.basis) + ")"
         return self
+
+    def get_penalty_definitions(self):
+        if self._basis_train is None:
+            raise RuntimeError("Term is not fitted.")
+        raw = list(self.penalties)
+        if len(raw) == 0:
+            return []
+
+        n_raw = len(raw)
+        sp_vals = self._normalized_term_sp(n_raw)
+        defs = []
+        for j, P in enumerate(raw):
+            sid = (
+                None
+                if self.smoothing_id is None
+                else (
+                    str(self.smoothing_id)
+                    if n_raw <= 1
+                    else f"{self.smoothing_id}::{j}"
+                )
+            )
+            sp_j = sp_vals[j] if j < len(sp_vals) else None
+            defs.append(
+                build_penalty_definition(
+                    self,
+                    P,
+                    kind="smooth",
+                    smoothing_id=sid,
+                    sp_value_in=sp_j,
+                    metadata_extra={"term_sp": sp_j, "is_selection_penalty": False},
+                )
+            )
+
+        if self.select:
+            combined = sum(np.asarray(P, dtype=np.float64) for P in raw)
+            S0, meta = null_space_penalty_from_penalty(
+                combined, tol=self.null_penalty_tol
+            )
+            if meta["rank"] > 0:
+                select_sid = (
+                    None
+                    if self.smoothing_id is None
+                    else f"{self.smoothing_id}::select"
+                )
+                defs.append(
+                    build_selection_penalty_definition(
+                        self,
+                        S0,
+                        rank=meta["rank"],
+                        null_space_dim=meta["null_space_dim"],
+                        smoothing_id=select_sid,
+                    )
+                )
+
+        return defs
 
     @property
     def basis_train(self):
@@ -3863,13 +4758,14 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
             raise RuntimeError("Term is not fitted.")
 
         marginal_new = []
-        for m, center_this_margin in zip(self._marginals, self._marginal_is_centered):
-            xj = column_as_float(X_new, m._feature_index)
-            if center_this_margin:
-                Bj = m._spline.transform_new_centered(xj)
-            else:
-                Bj = m._spline.transform_new_raw(xj)
-            marginal_new.append(Bj)
+        for m, center_this_margin, xp in zip(
+            self._marginals, self._marginal_is_centered, self._marginal_np_transforms
+        ):
+            marginal_new.append(
+                tensor_marginal_predict_matrix(
+                    m, X_new, centered=bool(center_this_margin), np_transform=xp
+                )
+            )
 
         B = rowwise_kronecker(marginal_new)
         z = by_values_from_new_data(X_new, self._by_state)
@@ -3897,24 +4793,24 @@ identifiability in some settings).
 
 import numpy as np
 
-from ..base import (
-    BaseSmoothTerm,
-    _resolve_feature,
-    _normalize_point_constraint,
-    by_values_from_new_data,
-    column_as_float,
-    resolve_by_state,
-    sync_by_state_attributes,
-)
-from ..registry import register_smooth
-from ...constraints.absorption import apply_linear_constraint
-from ...penalties import build_null_space_selection_spec, make_penalty_spec
 from ....splines.cubic import CubicSplines
 from ....splines.univariate_bases import (
     add_full_rank_shrinkage,
     cyclic_cubic_bd,
     cyclic_cubic_predict_matrix,
     place_knots_through_values,
+)
+from ...constraints.absorption import apply_linear_constraint
+from ...penalties import build_null_space_selection_spec, make_penalty_spec
+from ...penalties.algebra import scale_penalty
+from ..registry import register_smooth
+from ..smooth_base import (
+    BaseSmoothTerm,
+    _normalize_point_constraint,
+    _resolve_feature,
+    column_as_float,
+    resolve_by_state,
+    sync_by_state_attributes,
 )
 
 
@@ -3933,6 +4829,7 @@ class SplineTerm1D(BaseSmoothTerm):
         k=10,
         basis="cr",
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
@@ -3948,6 +4845,7 @@ class SplineTerm1D(BaseSmoothTerm):
         super().__init__(
             feature=feature,
             label=label,
+            term_id=term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,
@@ -3973,8 +4871,6 @@ class SplineTerm1D(BaseSmoothTerm):
         self._penalties = None
         self._use_centered_basis = True
 
-        self._constraint_kind = None
-        self._constraint_transform = None
         self._pc_value = None
 
         self._cc_knots = None
@@ -4009,12 +4905,22 @@ class SplineTerm1D(BaseSmoothTerm):
         if self._spline is None:
             raise RuntimeError("Term is not fitted.")
 
+        if self.basis_name == "cs":
+            # Mirror mgcv smooth.construct.cr.smooth.spec: shrinkage is applied to
+            # the *unscaled* raw penalty, then the result is scaled and (for the
+            # centered path) projected through the centering matrix.  Applying
+            # shrinkage after scaling changes the normalisation denominator and
+            # produces a ~1e-5 prediction error.
+            S_unscaled = np.asarray(self._spline.raw_penalty_unscaled, dtype=np.float64)
+            S = add_full_rank_shrinkage(S_unscaled, shrink=0.1)
+            S = scale_penalty(self._spline.raw_basis, S)
+            if not raw:
+                C = self._spline.center_mat
+                S = C.T @ S @ C
+            return 0.5 * (S + S.T)
+
         S = self._spline.raw_penalty if raw else self._spline.penalty
         S = np.asarray(S, dtype=np.float64)
-
-        if self.basis_name == "cs":
-            S = add_full_rank_shrinkage(S, shrink=0.1)
-
         return 0.5 * (S + S.T)
 
     def fit(self, X, feature_names):
@@ -4028,11 +4934,10 @@ class SplineTerm1D(BaseSmoothTerm):
         self._by_state = resolve_by_state(self.by, X, feature_names)
         sync_by_state_attributes(self, self._by_state)
 
-        self._constraint_kind = None
-        self._constraint_transform = None
         self._pc_value = None
 
         if self.basis_name in {"cr", "cs"}:
+            self._pooled_linked_raw_marginal = False
             if self.shared_basis_setup is not None:
                 mode = self.shared_basis_setup.get("mode", None)
                 if mode != "pooled_cr_1d":
@@ -4054,12 +4959,9 @@ class SplineTerm1D(BaseSmoothTerm):
                 pooled_setup = False
 
             if self.pc is not None:
-                if self.constraint_mode == "factor_by":
-                    raise NotImplementedError(
-                        "pc=... is not yet implemented for factor-by replicated smooths."
-                    )
-
-                self._pc_value = _normalize_point_constraint(self.pc, self._feature_name)
+                self._pc_value = _normalize_point_constraint(
+                    self.pc, self._feature_name
+                )
                 raw_base = (
                     self._spline.transform_new_raw(xj)
                     if pooled_setup
@@ -4083,8 +4985,6 @@ class SplineTerm1D(BaseSmoothTerm):
 
                 self._basis_train = np.asarray(Bc, dtype=np.float64)
                 self._penalties = Sc
-                self._constraint_kind = "pc"
-                self._constraint_transform = C
                 self._record_constraint_result("pc", C, absorbed_by="runtime")
                 self._use_centered_basis = False
                 return self
@@ -4100,21 +5000,23 @@ class SplineTerm1D(BaseSmoothTerm):
                     if pooled_setup
                     else self._spline.raw_basis
                 )
-                base = raw_base * self._by_state.values[:, None]
                 main_penalty = self._main_penalty(raw=True)
 
+                # mgcv centers the raw basis first (shared sum-to-zero over all
+                # observations), then scales by the level indicator.  Applying the
+                # constraint to the indicator-scaled basis produces a different
+                # constraint direction and breaks parity.
                 penalties_in = [] if self.fixed else [main_penalty]
-                mean_row = base.mean(axis=0)
-                Bc, Sc, C = apply_linear_constraint(
-                    base,
+                mean_row = raw_base.mean(axis=0)
+                Bc_raw, Sc, C = apply_linear_constraint(
+                    raw_base,
                     penalties_in,
                     mean_row,
                 )
+                base = Bc_raw * self._by_state.values[:, None]
 
-                self._basis_train = np.asarray(Bc, dtype=np.float64)
+                self._basis_train = np.asarray(base, dtype=np.float64)
                 self._penalties = Sc
-                self._constraint_kind = "factor_by"
-                self._constraint_transform = C
                 self._record_constraint_result("factor_by", C, absorbed_by="runtime")
                 self._use_centered_basis = False
                 return self
@@ -4127,12 +5029,19 @@ class SplineTerm1D(BaseSmoothTerm):
                 self._use_centered_basis = bool(self._by_state.is_constant)
 
             if self._use_centered_basis:
-                base = (
-                    self._spline.transform_new_centered(xj)
-                    if pooled_setup
-                    else self._spline.basis
-                )
-                pen = self._main_penalty(raw=False)
+                if pooled_setup:
+                    # Knots / identconst for linked `id=` smooths are built from pooled
+                    # covariates; centered columns from transform_new_centered(xj) need
+                    # not sum to zero on each term's row subset, so stage 5 would apply a
+                    # second sum-to-zero and drop an extra column vs mgcv. Use raw subset
+                    # basis and let apply_global_side_conditions perform the single
+                    # centering (same pattern as the non-centered branch).
+                    base = self._spline.transform_new_raw(xj)
+                    pen = self._main_penalty(raw=True)
+                    self._pooled_linked_raw_marginal = True
+                else:
+                    base = self._spline.basis
+                    pen = self._main_penalty(raw=False)
             else:
                 base = (
                     self._spline.transform_new_raw(xj)
@@ -4153,8 +5062,6 @@ class SplineTerm1D(BaseSmoothTerm):
             raise NotImplementedError(
                 "shared_basis_setup is not yet implemented for bs='cc'."
             )
-        if self.pc is not None:
-            raise NotImplementedError("pc=... is not yet implemented for bs='cc'.")
         if self.constraint_mode == "factor_by":
             raise NotImplementedError(
                 "factor-by replicated cyclic cubic smooths are not yet implemented."
@@ -4173,40 +5080,53 @@ class SplineTerm1D(BaseSmoothTerm):
         BD, _, D = cyclic_cubic_bd(k)
         base = cyclic_cubic_predict_matrix(xj, k, BD)
 
-        if self._by_state.is_present:
-            base = base * self._by_state.values[:, None]
-
         self._cc_knots = np.asarray(k, dtype=np.float64)
         self._cc_bd = np.asarray(BD, dtype=np.float64)
-        self._basis_train = np.asarray(base, dtype=np.float64)
 
-        if self.fixed:
-            self._penalties = []
-        else:
-            S = D.T @ BD
-            self._penalties = [0.5 * (S + S.T)]
+        if self.pc is not None:
+            pc_value = _normalize_point_constraint(self.pc, self._feature_name)
+            pc_basis = cyclic_cubic_predict_matrix(
+                np.asarray([pc_value], dtype=np.float64), k, BD
+            )[0]
+            S_raw = D.T @ BD
+            main_penalty = 0.5 * (S_raw + S_raw.T)
+            penalties_in = [] if self.fixed else [main_penalty]
+            Bc, Sc, C = apply_linear_constraint(base, penalties_in, pc_basis)
+            if self._by_state.is_present:
+                Bc = Bc * self._by_state.values[:, None]
+            self._basis_train = np.asarray(Bc, dtype=np.float64)
+            self._penalties = Sc
+            self._use_centered_basis = False
+            self._record_constraint_result("pc", C, absorbed_by="runtime")
+            return self
 
+        S_raw = D.T @ BD
+        S_sym = 0.5 * (S_raw + S_raw.T)
+
+        if self.constraint_mode == "never":
+            # Tensor-marginal path: return raw k-column basis without absorbing
+            # the sum-to-zero constraint (mgcv smoothCon absorb.cons=FALSE).
+            main_penalty = scale_penalty(base, S_sym)
+            penalties_in = [] if self.fixed else [main_penalty]
+            if self._by_state.is_present:
+                base = base * self._by_state.values[:, None]
+            self._basis_train = np.asarray(base, dtype=np.float64)
+            self._penalties = penalties_in
+            self._use_centered_basis = False
+            self._record_constraint_result(None, None, absorbed_by=None)
+            return self
+
+        main_penalty = scale_penalty(base, S_sym)
+        penalties_in = [] if self.fixed else [main_penalty]
+        mean_row = base.mean(axis=0)
+        Bc, Sc, C = apply_linear_constraint(base, penalties_in, mean_row)
+        if self._by_state.is_present:
+            Bc = Bc * self._by_state.values[:, None]
+        self._basis_train = np.asarray(Bc, dtype=np.float64)
+        self._penalties = Sc
         self._use_centered_basis = False
-        self._record_constraint_result(None, None, absorbed_by=None)
+        self._record_constraint_result("centering", C, absorbed_by="runtime")
         return self
-
-    @property
-    def basis_train(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return self._basis_train
-
-    @property
-    def penalties(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return self._penalties
-
-    @property
-    def n_coef(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return int(self._basis_train.shape[1])
 
     def get_penalty_definitions(self):
         if self._basis_train is None:
@@ -4217,7 +5137,8 @@ class SplineTerm1D(BaseSmoothTerm):
         if self.select and self.sp is not None:
             raise NotImplementedError(
                 "term-level sp is not yet implemented for select=True smooths in the "
-                "current runtime, because select adds an extra null-space penalty."
+                "current runtime, because select=True adds an extra explicit "
+                "null-space penalty in addition to the main penalty."
             )
 
         main_penalty = np.asarray(self.penalties[0], dtype=np.float64)
@@ -4240,10 +5161,10 @@ class SplineTerm1D(BaseSmoothTerm):
             "feature": self.feature,
             "label": self.label,
             "by": self.by,
-            "by_name": self._by_name,
-            "by_is_constant": bool(self._by_is_constant),
+            "by_name": self._by_state.feature_name,
+            "by_is_constant": bool(self._by_state.is_constant),
             "constraint_mode": self.constraint_mode,
-            "constraint_kind": self._constraint_kind,
+            "constraint_kind": self.constraint_kind,
             "pc": self._pc_value,
             "knots": self.knots,
             "has_shared_basis_setup": self.shared_basis_setup is not None,
@@ -4253,11 +5174,17 @@ class SplineTerm1D(BaseSmoothTerm):
         defs = [
             make_penalty_spec(
                 matrix=main_penalty,
-                smoothing_id=(None if self.smoothing_id is None else str(self.smoothing_id)),
+                smoothing_id=(
+                    None if self.smoothing_id is None else str(self.smoothing_id)
+                ),
                 kind="smooth",
                 sp_mode=sp_mode,
                 sp_value=sp_value,
-                metadata={**base_metadata, "term_sp": sp_main, "is_selection_penalty": False},
+                metadata={
+                    **base_metadata,
+                    "term_sp": sp_main,
+                    "is_selection_penalty": False,
+                },
             )
         ]
 
@@ -4286,42 +5213,19 @@ class SplineTerm1D(BaseSmoothTerm):
             if self._cc_knots is None or self._cc_bd is None:
                 raise RuntimeError("Term is not fitted.")
             B = cyclic_cubic_predict_matrix(xj, self._cc_knots, self._cc_bd)
-            z = by_values_from_new_data(X_new, self._by_state)
-            if z is not None:
-                B = B * z[:, None]
-            return B
+            return self._apply_constraint_transform_and_by(B, X_new)
 
         if self._spline is None:
             raise RuntimeError("Term is not fitted.")
 
-        if self._constraint_kind == "factor_by":
-            B = self._spline.transform_new_raw(xj)
-            if self._by_index is not None:
-                z = np.asarray(X_new[:, self._by_index], dtype=np.float64).ravel()
-                B = B * z[:, None]
-            if self._constraint_transform is not None:
-                B = B @ self._constraint_transform
-            return B
-
-        if self._constraint_kind == "pc":
-            B = self._spline.transform_new_raw(xj)
-            if self._constraint_transform is not None:
-                B = B @ self._constraint_transform
-            z = by_values_from_new_data(X_new, self._by_state)
-            if z is not None:
-                B = B * z[:, None]
-            return B
-
-        if self._use_centered_basis:
+        if self._use_centered_basis and not getattr(
+            self, "_pooled_linked_raw_marginal", False
+        ):
             B = self._spline.transform_new_centered(xj)
         else:
             B = self._spline.transform_new_raw(xj)
 
-        z = by_values_from_new_data(X_new, self._by_state)
-        if z is not None:
-            B = B * z[:, None]
-
-        return B
+        return self._apply_constraint_transform_and_by(B, X_new)
 
 # --- End of nampy/gam/smooths/univariate/cubic_regression.py ---
 
@@ -4340,19 +5244,23 @@ of the smooth function is desired.
 
 import numpy as np
 
-from ..base import (
+from ....splines.gaussian_process import build_gp_term_setup, predict_gp_term
+from ...constraints.absorption import (
+    apply_linear_constraint,
+    fit_single_penalty_with_constraint_policy,
+)
+from ...design.structures import PenaltySpec
+from ...penalties.algebra import null_space_penalty_from_penalty, scale_penalty
+from ..registry import register_smooth
+from ..smooth_base import (
     BaseSmoothTerm,
+    _normalize_point_constraint,
+    _normalize_point_constraint_vector,
     _resolve_feature,
-    by_values_from_new_data,
     columns_as_float_matrix,
     resolve_by_state,
     sync_by_state_attributes,
 )
-from ..registry import register_smooth
-from ...constraints.absorption import apply_linear_constraint
-from ...design.structures import PenaltySpec
-from ...penalties.algebra import null_space_penalty_from_penalty
-from ....splines.gaussian_process import build_gp_term_setup, predict_gp_term
 
 
 @register_smooth("gp")
@@ -4368,6 +5276,7 @@ class GPSmoothTerm(BaseSmoothTerm):
         basis="gp",
         m=None,
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
@@ -4385,6 +5294,7 @@ class GPSmoothTerm(BaseSmoothTerm):
         super().__init__(
             feature=features,
             label=label or f"s({', '.join(map(str, features))})",
+            term_id=term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,
@@ -4422,8 +5332,6 @@ class GPSmoothTerm(BaseSmoothTerm):
         self._basis_train = None
         self._penalties = None
 
-        self._constraint_kind = None
-        self._constraint_transform = None
         self._setup = None
 
     def fit(self, X, feature_names):
@@ -4440,9 +5348,6 @@ class GPSmoothTerm(BaseSmoothTerm):
         self._by_state = resolve_by_state(self.by, X, feature_names)
         sync_by_state_attributes(self, self._by_state)
 
-        if self.pc is not None:
-            raise NotImplementedError("pc=... is not yet implemented for bs='gp'.")
-
         self._feature_indices = feature_indices
         self._feature_names = feature_names_resolved
         self._set_resolved_features(feature_names_resolved)
@@ -4456,74 +5361,50 @@ class GPSmoothTerm(BaseSmoothTerm):
         )
 
         base = np.asarray(self._setup.basis_train, dtype=np.float64)
-        pen = np.asarray(self._setup.penalty, dtype=np.float64)
+        pen = scale_penalty(
+            base,
+            np.asarray(self._setup.penalty, dtype=np.float64),
+        )
 
-        self._constraint_kind = None
-        self._constraint_transform = None
-
-        if self.constraint_mode == "factor_by":
-            if not self._by_state.is_present:
-                raise ValueError(
-                    "constraint_mode='factor_by' requires a numeric indicator `by` column."
-                )
-
-            base_fb = base * self._by_state.values[:, None]
+        if self.pc is not None:
+            if len(self._feature_indices) == 1:
+                pc_value = _normalize_point_constraint(self.pc, self._feature_names[0])
+                pc_point = np.asarray([[pc_value]], dtype=np.float64)
+            else:
+                pc_point = _normalize_point_constraint_vector(
+                    self.pc, self._feature_names
+                )[None, :]
+            pc_basis = predict_gp_term(pc_point, self._setup)[0]
             penalties_in = [] if self.fixed else [pen]
-            mean_row = base_fb.mean(axis=0)
-            Bc, Sc, C = apply_linear_constraint(base_fb, penalties_in, mean_row)
-
+            Bc, Sc, C = apply_linear_constraint(base, penalties_in, pc_basis)
+            if self._by_state.is_present:
+                Bc = Bc * self._by_state.values[:, None]
             self._basis_train = np.asarray(Bc, dtype=np.float64)
             self._penalties = Sc
-            self._constraint_kind = "factor_by"
-            self._constraint_transform = C
-            self._record_constraint_result("factor_by", C, absorbed_by="runtime")
+            self._record_constraint_result("pc", C, absorbed_by="runtime")
             return self
 
-        should_constrain = False
-        if self.constraint_mode == "always":
-            should_constrain = True
-        elif self.constraint_mode == "never":
-            should_constrain = False
-        else:
-            should_constrain = bool(self._by_state.is_constant) and (self._setup.null_space_dim > 0)
-
-        if should_constrain:
-            penalties_in = [] if self.fixed else [pen]
-            mean_row = base.mean(axis=0)
-            Bc, Sc, C = apply_linear_constraint(base, penalties_in, mean_row)
-            base = Bc
-            penalties_out = Sc
-            self._constraint_kind = "sum_to_zero"
-            self._constraint_transform = C
-            self._record_constraint_result("sum_to_zero", C, absorbed_by="runtime")
-        else:
-            penalties_out = [] if self.fixed else [pen]
-            self._record_constraint_result(None, None, absorbed_by=None)
-
-        if self._by_state.is_present:
-            base = base * self._by_state.values[:, None]
-
-        self._basis_train = np.asarray(base, dtype=np.float64)
-        self._penalties = penalties_out
+        auto_constrain = bool(self._by_state.is_constant) and (
+            self._setup.null_space_dim > 0
+        )
+        result = fit_single_penalty_with_constraint_policy(
+            base,
+            pen,
+            self._by_state,
+            constraint_mode=self.constraint_mode,
+            fixed=self.fixed,
+            auto_constrain_when=auto_constrain,
+        )
+        self._basis_train = result.basis_train
+        self._penalties = result.penalties
+        self._record_constraint_result(
+            result.constraint_kind,
+            result.constraint_transform,
+            absorbed_by=(
+                "runtime" if result.constraint_transform is not None else None
+            ),
+        )
         return self
-
-    @property
-    def basis_train(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return self._basis_train
-
-    @property
-    def penalties(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return self._penalties
-
-    @property
-    def n_coef(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return int(self._basis_train.shape[1])
 
     def get_penalty_definitions(self):
         if self._basis_train is None:
@@ -4534,7 +5415,8 @@ class GPSmoothTerm(BaseSmoothTerm):
         if self.select and self.sp is not None:
             raise NotImplementedError(
                 "term-level sp is not yet implemented for select=True smooths in the "
-                "current runtime, because select adds an extra null-space penalty."
+                "current runtime, because select=True adds an extra explicit "
+                "null-space penalty in addition to the main penalty."
             )
 
         main_penalty = np.asarray(self.penalties[0], dtype=np.float64)
@@ -4554,7 +5436,9 @@ class GPSmoothTerm(BaseSmoothTerm):
         defs = [
             PenaltySpec(
                 matrix=main_penalty,
-                smoothing_id=(None if self.smoothing_id is None else str(self.smoothing_id)),
+                smoothing_id=(
+                    None if self.smoothing_id is None else str(self.smoothing_id)
+                ),
                 kind="smooth",
                 sp_mode=sp_mode,
                 sp_value=sp_value,
@@ -4564,16 +5448,20 @@ class GPSmoothTerm(BaseSmoothTerm):
                     "feature": list(self.feature),
                     "label": self.label,
                     "by": self.by,
-                    "by_name": self._by_name,
-                    "by_is_constant": bool(self._by_is_constant),
+                    "by_name": self._by_state.feature_name,
+                    "by_is_constant": bool(self._by_state.is_constant),
                     "constraint_mode": self.constraint_mode,
-                    "constraint_kind": self._constraint_kind,
+                    "constraint_kind": self.constraint_kind,
                     "pc": self.pc,
                     "knots": self.knots,
                     "xt": self.xt,
                     "m": self.m,
-                    "gp_defn": None if self._setup is None else dict(self._setup.gp_defn),
-                    "null_space_dim": None if self._setup is None else self._setup.null_space_dim,
+                    "gp_defn": (
+                        None if self._setup is None else dict(self._setup.gp_defn)
+                    ),
+                    "null_space_dim": (
+                        None if self._setup is None else self._setup.null_space_dim
+                    ),
                     "rank": None if self._setup is None else self._setup.rank,
                     "bs_dim": None if self._setup is None else self._setup.bs_dim,
                     "fixed": bool(self.fixed),
@@ -4609,18 +5497,28 @@ class GPSmoothTerm(BaseSmoothTerm):
                             "feature": list(self.feature),
                             "label": self.label,
                             "by": self.by,
-                            "by_name": self._by_name,
-                            "by_is_constant": bool(self._by_is_constant),
+                            "by_name": self._by_state.feature_name,
+                            "by_is_constant": bool(self._by_state.is_constant),
                             "constraint_mode": self.constraint_mode,
-                            "constraint_kind": self._constraint_kind,
+                            "constraint_kind": self.constraint_kind,
                             "pc": self.pc,
                             "knots": self.knots,
                             "xt": self.xt,
                             "m": self.m,
-                            "gp_defn": None if self._setup is None else dict(self._setup.gp_defn),
-                            "null_space_dim": None if self._setup is None else self._setup.null_space_dim,
+                            "gp_defn": (
+                                None
+                                if self._setup is None
+                                else dict(self._setup.gp_defn)
+                            ),
+                            "null_space_dim": (
+                                None
+                                if self._setup is None
+                                else self._setup.null_space_dim
+                            ),
                             "rank": None if self._setup is None else self._setup.rank,
-                            "bs_dim": None if self._setup is None else self._setup.bs_dim,
+                            "bs_dim": (
+                                None if self._setup is None else self._setup.bs_dim
+                            ),
                             "fixed": bool(self.fixed),
                             "is_selection_penalty": True,
                         },
@@ -4636,23 +5534,7 @@ class GPSmoothTerm(BaseSmoothTerm):
         Xf_new = columns_as_float_matrix(X_new, self._feature_indices)
 
         B = predict_gp_term(Xf_new, self._setup)
-
-        if self._constraint_kind == "factor_by":
-            z = by_values_from_new_data(X_new, self._by_state)
-            if z is not None:
-                B = B * z[:, None]
-            if self._constraint_transform is not None:
-                B = B @ self._constraint_transform
-            return B
-
-        if self._constraint_transform is not None:
-            B = B @ self._constraint_transform
-
-        z = by_values_from_new_data(X_new, self._by_state)
-        if z is not None:
-            B = B * z[:, None]
-
-        return B
+        return self._apply_constraint_transform_and_by(B, X_new)
 
 # --- End of nampy/gam/smooths/univariate/gp.py ---
 
@@ -4669,21 +5551,22 @@ is controlled entirely by the penalty order and the smoothing parameter.
 
 import numpy as np
 
-from ..base import (
+from ....splines.univariate_bases import (
+    pspline_difference_penalty,
+    pspline_knots,
+    pspline_predict_matrix,
+)
+from ...constraints.absorption import apply_linear_constraint
+from ...design.structures import PenaltySpec
+from ...penalties.algebra import null_space_penalty_from_penalty, scale_penalty
+from ..registry import register_smooth
+from ..smooth_base import (
     BaseSmoothTerm,
+    _normalize_point_constraint,
     _resolve_feature,
-    by_values_from_new_data,
     column_as_float,
     resolve_by_state,
     sync_by_state_attributes,
-)
-from ..registry import register_smooth
-from ...design.structures import PenaltySpec
-from ...penalties.algebra import null_space_penalty_from_penalty
-from ....splines.univariate_bases import (
-    pspline_knots,
-    pspline_difference_penalty,
-    pspline_predict_matrix,
 )
 
 
@@ -4700,6 +5583,7 @@ class PSplineTerm1D(BaseSmoothTerm):
         basis="ps",
         m=None,
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
@@ -4714,6 +5598,7 @@ class PSplineTerm1D(BaseSmoothTerm):
         super().__init__(
             feature=feature,
             label=label,
+            term_id=term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,
@@ -4772,13 +5657,6 @@ class PSplineTerm1D(BaseSmoothTerm):
         self._by_state = resolve_by_state(self.by, X, feature_names)
         sync_by_state_attributes(self, self._by_state)
 
-        if self.constraint_mode == "factor_by":
-            raise NotImplementedError(
-                "factor-by replicated P-splines are not yet implemented."
-            )
-        if self.pc is not None:
-            raise NotImplementedError("pc=... is not yet implemented for bs='ps'.")
-
         basis_order, penalty_order = self.m
         if basis_order < 0 or penalty_order < 0:
             raise ValueError("For bs='ps', m entries must be >= 0.")
@@ -4801,18 +5679,60 @@ class PSplineTerm1D(BaseSmoothTerm):
             extrapolate=True,
         )
 
+        if self.pc is not None:
+            pc_value = _normalize_point_constraint(self.pc, self._feature_name)
+            pc_basis = pspline_predict_matrix(
+                np.asarray([pc_value], dtype=np.float64),
+                self._ps_knots,
+                basis_order=basis_order,
+                deriv=0,
+            )[0]
+            S = pspline_difference_penalty(base.shape[1], penalty_order)
+            main_penalty = 0.5 * (S + S.T)
+            penalties_in = [] if self.fixed else [main_penalty]
+            Bc, Sc, C = apply_linear_constraint(base, penalties_in, pc_basis)
+            if self._by_state.is_present:
+                Bc = Bc * self._by_state.values[:, None]
+            self._basis_train = np.asarray(Bc, dtype=np.float64)
+            self._penalties = Sc
+            self._record_constraint_result("pc", C, absorbed_by="runtime")
+            return self
+
+        S_raw = pspline_difference_penalty(base.shape[1], penalty_order)
+        main_penalty = scale_penalty(base, 0.5 * (S_raw + S_raw.T))
+
+        if self.constraint_mode == "factor_by":
+            if not self._by_state.is_present:
+                raise ValueError(
+                    "constraint_mode='factor_by' requires a numeric indicator `by` column."
+                )
+            penalties_in = [] if self.fixed else [main_penalty]
+            mean_row = base.mean(axis=0)
+            Bc_raw, Sc, C = apply_linear_constraint(base, penalties_in, mean_row)
+            Bc = Bc_raw * self._by_state.values[:, None]
+            self._basis_train = np.asarray(Bc, dtype=np.float64)
+            self._penalties = Sc
+            self._record_constraint_result("factor_by", C, absorbed_by="runtime")
+            return self
+
+        if self.constraint_mode == "never":
+            if self._by_state.is_present:
+                base = base * self._by_state.values[:, None]
+            self._basis_train = np.asarray(base, dtype=np.float64)
+            self._penalties = (
+                [] if self.fixed else [np.asarray(main_penalty, dtype=np.float64)]
+            )
+            self._record_constraint_result(None, None, absorbed_by=None)
+            return self
+
+        penalties_in = [] if self.fixed else [main_penalty]
+        mean_row = base.mean(axis=0)
+        Bc, Sc, C = apply_linear_constraint(base, penalties_in, mean_row)
         if self._by_state.is_present:
-            base = base * self._by_state.values[:, None]
-
-        self._basis_train = np.asarray(base, dtype=np.float64)
-
-        if self.fixed:
-            self._penalties = []
-        else:
-            S = pspline_difference_penalty(self._basis_train.shape[1], penalty_order)
-            self._penalties = [0.5 * (S + S.T)]
-
-        self._record_constraint_result(None, None, absorbed_by=None)
+            Bc = Bc * self._by_state.values[:, None]
+        self._basis_train = np.asarray(Bc, dtype=np.float64)
+        self._penalties = Sc
+        self._record_constraint_result("centering", C, absorbed_by="runtime")
         return self
 
     @property
@@ -4842,7 +5762,8 @@ class PSplineTerm1D(BaseSmoothTerm):
         if self.select and self.sp is not None:
             raise NotImplementedError(
                 "term-level sp is not yet implemented for select=True smooths in the "
-                "current runtime, because select adds an extra null-space penalty."
+                "current runtime, because select=True adds an extra explicit "
+                "null-space penalty in addition to the main penalty."
             )
 
         main_penalty = np.asarray(self.penalties[0], dtype=np.float64)
@@ -4862,7 +5783,9 @@ class PSplineTerm1D(BaseSmoothTerm):
         defs = [
             PenaltySpec(
                 matrix=main_penalty,
-                smoothing_id=(None if self.smoothing_id is None else str(self.smoothing_id)),
+                smoothing_id=(
+                    None if self.smoothing_id is None else str(self.smoothing_id)
+                ),
                 kind="smooth",
                 sp_mode=sp_mode,
                 sp_value=sp_value,
@@ -4872,8 +5795,8 @@ class PSplineTerm1D(BaseSmoothTerm):
                     "feature": self.feature,
                     "label": self.label,
                     "by": self.by,
-                    "by_name": self._by_name,
-                    "by_is_constant": bool(self._by_is_constant),
+                    "by_name": self._by_state.feature_name,
+                    "by_is_constant": bool(self._by_state.is_constant),
                     "constraint_mode": self.constraint_mode,
                     "pc": self.pc,
                     "knots": self.knots,
@@ -4911,9 +5834,10 @@ class PSplineTerm1D(BaseSmoothTerm):
                             "feature": self.feature,
                             "label": self.label,
                             "by": self.by,
-                            "by_name": self._by_name,
-                            "by_is_constant": bool(self._by_is_constant),
+                            "by_name": self._by_state.feature_name,
+                            "by_is_constant": bool(self._by_state.is_constant),
                             "constraint_mode": self.constraint_mode,
+                            "constraint_kind": self.constraint_kind,
                             "pc": self.pc,
                             "knots": self.knots,
                             "m": self.m,
@@ -4938,11 +5862,7 @@ class PSplineTerm1D(BaseSmoothTerm):
             deriv=0,
         )
 
-        z = by_values_from_new_data(X_new, self._by_state)
-        if z is not None:
-            B = B * z[:, None]
-
-        return B
+        return self._apply_constraint_transform_and_by(B, X_new)
 
 # --- End of nampy/gam/smooths/univariate/pspline.py ---
 
@@ -4954,25 +5874,31 @@ Implements the :class:`BaseSmoothTerm` interface for a rank-reduced thin plate
 spline basis.  Thin plate splines are rotation-invariant and automatically
 extend to multi-variate smooths, making them the default smooth type.
 
-The ``'ts'`` variant adds a null-space selection penalty so the term can
-shrink entirely to zero.
+The ``'ts'`` variant uses a shrinkage version of the main thin-plate penalty,
+making the penalty full-rank so the term can shrink entirely to zero.
+Separately, ``select=True`` adds an explicit null-space selection penalty on
+top of the main penalty.
 """
 
 import numpy as np
 
-from ..base import (
+from ....splines.thin_plate import build_tprs_term_setup, predict_tprs_term
+from ...constraints.absorption import (
+    apply_linear_constraint,
+    fit_single_penalty_with_constraint_policy,
+)
+from ...design.structures import PenaltySpec
+from ...penalties.algebra import null_space_penalty_from_penalty
+from ..registry import register_smooth
+from ..smooth_base import (
     BaseSmoothTerm,
+    _normalize_point_constraint,
+    _normalize_point_constraint_vector,
     _resolve_feature,
-    by_values_from_new_data,
     columns_as_float_matrix,
     resolve_by_state,
     sync_by_state_attributes,
 )
-from ..registry import register_smooth
-from ...constraints.absorption import apply_linear_constraint
-from ...design.structures import PenaltySpec
-from ...penalties.algebra import null_space_penalty_from_penalty
-from ....splines.thin_plate import build_tprs_term_setup, predict_tprs_term
 
 
 @register_smooth("tp")
@@ -4989,6 +5915,7 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
         basis="tp",
         m=None,
         label=None,
+        term_id=None,
         smoothing_id=None,
         by=None,
         sp=None,
@@ -5006,6 +5933,7 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
         super().__init__(
             feature=features,
             label=label or f"s({', '.join(map(str, features))})",
+            term_id=term_id,
             smoothing_id=smoothing_id,
             by=by,
             sp=sp,
@@ -5044,8 +5972,6 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
         self._basis_train = None
         self._penalties = None
 
-        self._constraint_kind = None
-        self._constraint_transform = None
         self._setup = None
 
     def fit(self, X, feature_names):
@@ -5061,11 +5987,6 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
 
         self._by_state = resolve_by_state(self.by, X, feature_names)
         sync_by_state_attributes(self, self._by_state)
-
-        if self.pc is not None:
-            raise NotImplementedError(
-                "pc=... is not yet implemented for bs='tp'/'ts' in this step."
-            )
 
         self._feature_indices = feature_indices
         self._feature_names = feature_names_resolved
@@ -5083,76 +6004,47 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
         base = np.asarray(self._setup.basis_train, dtype=np.float64)
         pen = np.asarray(self._setup.penalty, dtype=np.float64)
 
-        self._constraint_kind = None
-        self._constraint_transform = None
-
-        if self.constraint_mode == "factor_by":
-            if not self._by_state.is_present:
-                raise ValueError(
-                    "constraint_mode='factor_by' requires a numeric indicator `by` column."
-                )
-
-            base_fb = base * self._by_state.values[:, None]
+        if self.pc is not None:
+            if len(self._feature_indices) == 1:
+                pc_value = _normalize_point_constraint(self.pc, self._feature_names[0])
+                pc_point = np.asarray([[pc_value]], dtype=np.float64)
+            else:
+                pc_point = _normalize_point_constraint_vector(
+                    self.pc, self._feature_names
+                )[None, :]
+            pc_basis = predict_tprs_term(pc_point, self._setup)[0]
             penalties_in = [] if self.fixed else [pen]
-            mean_row = base_fb.mean(axis=0)
-            Bc, Sc, C = apply_linear_constraint(base_fb, penalties_in, mean_row)
-
+            Bc, Sc, C = apply_linear_constraint(base, penalties_in, pc_basis)
+            if self._by_state.is_present:
+                Bc = Bc * self._by_state.values[:, None]
             self._basis_train = np.asarray(Bc, dtype=np.float64)
             self._penalties = Sc
-            self._constraint_kind = "factor_by"
-            self._constraint_transform = C
-            self._record_constraint_result("factor_by", C, absorbed_by="runtime")
+            self._record_constraint_result("pc", C, absorbed_by="runtime")
             return self
 
-        should_constrain = False
-        if self.constraint_mode == "always":
-            should_constrain = True
-        elif self.constraint_mode == "never":
-            should_constrain = False
-        else:
-            should_constrain = (
-                self.basis_name == "tp"
-                and not self._setup.drop_null_effective
-                and bool(self._by_state.is_constant)
-            )
-
-        if should_constrain:
-            penalties_in = [] if self.fixed else [pen]
-            mean_row = base.mean(axis=0)
-            Bc, Sc, C = apply_linear_constraint(base, penalties_in, mean_row)
-            base = Bc
-            penalties_out = Sc
-            self._constraint_kind = "sum_to_zero"
-            self._constraint_transform = C
-            self._record_constraint_result("sum_to_zero", C, absorbed_by="runtime")
-        else:
-            penalties_out = [] if self.fixed else [pen]
-            self._record_constraint_result(None, None, absorbed_by=None)
-
-        if self._by_state.is_present:
-            base = base * self._by_state.values[:, None]
-
-        self._basis_train = np.asarray(base, dtype=np.float64)
-        self._penalties = penalties_out
+        auto_constrain = (
+            self.basis_name == "tp"
+            and not self._setup.drop_null_effective
+            and bool(self._by_state.is_constant)
+        )
+        result = fit_single_penalty_with_constraint_policy(
+            base,
+            pen,
+            self._by_state,
+            constraint_mode=self.constraint_mode,
+            fixed=self.fixed,
+            auto_constrain_when=auto_constrain,
+        )
+        self._basis_train = result.basis_train
+        self._penalties = result.penalties
+        self._record_constraint_result(
+            result.constraint_kind,
+            result.constraint_transform,
+            absorbed_by=(
+                "runtime" if result.constraint_transform is not None else None
+            ),
+        )
         return self
-
-    @property
-    def basis_train(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return self._basis_train
-
-    @property
-    def penalties(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return self._penalties
-
-    @property
-    def n_coef(self):
-        if self._basis_train is None:
-            raise RuntimeError("Term is not fitted.")
-        return int(self._basis_train.shape[1])
 
     def get_penalty_definitions(self):
         if self._basis_train is None:
@@ -5163,7 +6055,8 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
         if self.select and self.sp is not None:
             raise NotImplementedError(
                 "term-level sp is not yet implemented for select=True smooths in the "
-                "current runtime, because select adds an extra null-space penalty."
+                "current runtime, because select=True adds an extra explicit "
+                "null-space penalty in addition to the main penalty."
             )
 
         main_penalty = np.asarray(self.penalties[0], dtype=np.float64)
@@ -5183,7 +6076,9 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
         defs = [
             PenaltySpec(
                 matrix=main_penalty,
-                smoothing_id=(None if self.smoothing_id is None else str(self.smoothing_id)),
+                smoothing_id=(
+                    None if self.smoothing_id is None else str(self.smoothing_id)
+                ),
                 kind="smooth",
                 rank=int(self._setup.rank) if self._setup is not None else None,
                 sp_mode=sp_mode,
@@ -5194,18 +6089,32 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
                     "feature": list(self.feature),
                     "label": self.label,
                     "by": self.by,
-                    "by_name": self._by_name,
-                    "by_is_constant": bool(self._by_is_constant),
+                    "by_name": self._by_state.feature_name,
+                    "by_is_constant": bool(self._by_state.is_constant),
                     "constraint_mode": self.constraint_mode,
-                    "constraint_kind": self._constraint_kind,
+                    "constraint_kind": self.constraint_kind,
                     "pc": self.pc,
                     "knots": self.knots,
                     "xt": self.xt,
                     "m": self.m,
-                    "penalty_order": None if self._setup is None else self._setup.penalty_order,
-                    "original_null_space_dim": None if self._setup is None else self._setup.original_null_space_dim,
-                    "drop_null_requested": None if self._setup is None else bool(self._setup.drop_null_requested),
-                    "drop_null_effective": None if self._setup is None else bool(self._setup.drop_null_effective),
+                    "penalty_order": (
+                        None if self._setup is None else self._setup.penalty_order
+                    ),
+                    "original_null_space_dim": (
+                        None
+                        if self._setup is None
+                        else self._setup.original_null_space_dim
+                    ),
+                    "drop_null_requested": (
+                        None
+                        if self._setup is None
+                        else bool(self._setup.drop_null_requested)
+                    ),
+                    "drop_null_effective": (
+                        None
+                        if self._setup is None
+                        else bool(self._setup.drop_null_effective)
+                    ),
                     "fixed": bool(self.fixed),
                     "term_sp": sp_main,
                     "is_selection_penalty": False,
@@ -5239,18 +6148,34 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
                             "feature": list(self.feature),
                             "label": self.label,
                             "by": self.by,
-                            "by_name": self._by_name,
-                            "by_is_constant": bool(self._by_is_constant),
+                            "by_name": self._by_state.feature_name,
+                            "by_is_constant": bool(self._by_state.is_constant),
                             "constraint_mode": self.constraint_mode,
-                            "constraint_kind": self._constraint_kind,
+                            "constraint_kind": self.constraint_kind,
                             "pc": self.pc,
                             "knots": self.knots,
                             "xt": self.xt,
                             "m": self.m,
-                            "penalty_order": None if self._setup is None else self._setup.penalty_order,
-                            "original_null_space_dim": None if self._setup is None else self._setup.original_null_space_dim,
-                            "drop_null_requested": None if self._setup is None else bool(self._setup.drop_null_requested),
-                            "drop_null_effective": None if self._setup is None else bool(self._setup.drop_null_effective),
+                            "penalty_order": (
+                                None
+                                if self._setup is None
+                                else self._setup.penalty_order
+                            ),
+                            "original_null_space_dim": (
+                                None
+                                if self._setup is None
+                                else self._setup.original_null_space_dim
+                            ),
+                            "drop_null_requested": (
+                                None
+                                if self._setup is None
+                                else bool(self._setup.drop_null_requested)
+                            ),
+                            "drop_null_effective": (
+                                None
+                                if self._setup is None
+                                else bool(self._setup.drop_null_effective)
+                            ),
                             "fixed": bool(self.fixed),
                             "is_selection_penalty": True,
                         },
@@ -5266,29 +6191,13 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
         Xf_new = columns_as_float_matrix(X_new, self._feature_indices)
 
         B = predict_tprs_term(Xf_new, self._setup)
-
-        if self._constraint_kind == "factor_by":
-            z = by_values_from_new_data(X_new, self._by_state)
-            if z is not None:
-                B = B * z[:, None]
-            if self._constraint_transform is not None:
-                B = B @ self._constraint_transform
-            return B
-
-        if self._constraint_transform is not None:
-            B = B @ self._constraint_transform
-
-        z = by_values_from_new_data(X_new, self._by_state)
-        if z is not None:
-            B = B * z[:, None]
-
-        return B
+        return self._apply_constraint_transform_and_by(B, X_new)
 
 # --- End of nampy/gam/smooths/univariate/thin_plate.py ---
 
 # --- Start of nampy/splines/gaussian_process.py ---
-# splines/gaussian_process.py
 import warnings
+from dataclasses import dataclass
 
 import numpy as np
 from scipy.spatial import distance_matrix
@@ -5324,7 +6233,9 @@ def normalize_gp_knots(knots, n_dim: int):
         cols = [np.asarray(k, dtype=np.float64).ravel() for k in knots]
         n = cols[0].size
         if any(c.size != n for c in cols):
-            raise ValueError("All supplied knot coordinate arrays must have the same length.")
+            raise ValueError(
+                "All supplied knot coordinate arrays must have the same length."
+            )
         out = np.column_stack(cols)
         return np.asarray(out, dtype=np.float64)
 
@@ -5378,7 +6289,9 @@ def parse_gp_m(m):
         raise ValueError("For bs='gp', abs(m[0]) must be one of {1,2,3,4,5}.")
     if gp_type == 2:
         if not (0.0 < power <= 2.0):
-            raise ValueError("For bs='gp' power exponential, m[2] must satisfy 0 < power <= 2.")
+            raise ValueError(
+                "For bs='gp' power exponential, m[2] must satisfy 0 < power <= 2."
+            )
     else:
         power = 1.0
 
@@ -5465,7 +6378,9 @@ def default_gp_bs_dim(d: int) -> int:
     return d + 1 + 100
 
 
-def choose_gp_setup_locations(X_shifted, knots=None, n_rows=None, max_knots=2000, seed=1):
+def choose_gp_setup_locations(
+    X_shifted, knots=None, n_rows=None, max_knots=2000, seed=1
+):
     """
     mgcv-like basis-setup location handling for bs='gp'.
 
@@ -5486,7 +6401,9 @@ def choose_gp_setup_locations(X_shifted, knots=None, n_rows=None, max_knots=2000
         if np.any(~np.isfinite(K)):
             raise ValueError("gp knots contain NaN or Inf.")
         if K.shape[0] > n_rows:
-            warnings.warn("more knots than data in a gp term: knots ignored.")
+            warnings.warn(
+                "more knots than data in a gp term: knots ignored.", stacklevel=2
+            )
         else:
             return np.asarray(K, dtype=np.float64)
 
@@ -5539,7 +6456,7 @@ def gp_setup_from_data(
 
     # Follow current mgcv source minimum.
     if bs_dim < d + 2:
-        warnings.warn("basis dimension reset to minimum possible")
+        warnings.warn("basis dimension reset to minimum possible", stacklevel=2)
         bs_dim = d + 2
 
     if xu.shape[0] < bs_dim:
@@ -5616,8 +6533,6 @@ def gp_predict_matrix(x_shifted, *, knt, UZ, gp_defn):
     E, _ = gp_kernel_matrix(x_shifted, knt, gp_defn)
     T = gp_polynomial_tail_basis(x_shifted, gp_defn)
     return np.column_stack([E @ UZ, T])
-
-from dataclasses import dataclass
 
 
 @dataclass
@@ -5699,7 +6614,9 @@ def build_gp_term_setup(
         rank=int(setup["rank"]),
         bs_dim=int(setup["bs_dim"]),
         basis_train=np.asarray(basis_train, dtype=np.float64),
-        penalty=np.asarray(0.5 * (setup["penalty"] + setup["penalty"].T), dtype=np.float64),
+        penalty=np.asarray(
+            0.5 * (setup["penalty"] + setup["penalty"].T), dtype=np.float64
+        ),
     )
 
 
@@ -5722,6 +6639,7 @@ def predict_gp_term(X_new, setup: GPBasisSetup):
         ),
         dtype=np.float64,
     )
+
 # --- End of nampy/splines/gaussian_process.py ---
 
 # --- Start of nampy/splines/mrf.py ---
@@ -5732,8 +6650,8 @@ from collections import OrderedDict
 
 import numpy as np
 import pandas as pd
-from scipy.linalg import qr as scipy_qr
 from scipy.linalg import eigh as scipy_eigh
+from scipy.linalg import qr as scipy_qr
 from scipy.linalg import solve_triangular
 
 
@@ -5906,7 +6824,9 @@ def coerce_nb(nb, area_names):
     nb_names = list(nb.keys())
 
     if set(nb_names) != set(area_names):
-        raise ValueError("Mismatch between nb/polys supplied area names and data area names.")
+        raise ValueError(
+            "Mismatch between nb/polys supplied area names and data area names."
+        )
 
     ordered = OrderedDict()
     for nm in area_names:
@@ -5976,7 +6896,9 @@ def coerce_penalty_matrix(penalty, area_names):
         cols = list(penalty.columns)
         rows = list(penalty.index)
         if set(cols) != set(area_names) or set(rows) != set(area_names):
-            raise ValueError("Penalty row/column names do not match supplied area names.")
+            raise ValueError(
+                "Penalty row/column names do not match supplied area names."
+            )
         penalty = penalty.loc[area_names, area_names].to_numpy(dtype=np.float64)
     else:
         penalty = np.asarray(penalty, dtype=np.float64)
@@ -6006,10 +6928,12 @@ def nat_param_type0(X, S, rank=None, tol=None, unit_fnorm=True):
 
     Q, R = scipy_qr(X, mode="economic", pivoting=False)
     if np.linalg.matrix_rank(R) < R.shape[1]:
-        raise ValueError("MRF model matrix is not full rank in natural-parameter construction.")
+        raise ValueError(
+            "MRF model matrix is not full rank in natural-parameter construction."
+        )
 
-    I = np.eye(R.shape[0], dtype=np.float64)
-    invR = solve_triangular(R, I, lower=False, check_finite=False)
+    eye = np.eye(R.shape[0], dtype=np.float64)
+    invR = solve_triangular(R, eye, lower=False, check_finite=False)
     RSR = invR.T @ S @ invR
     RSR = 0.5 * (RSR + RSR.T)
 
@@ -6058,14 +6982,17 @@ def nat_param_type1(X, S, rank=None, tol=None, unit_fnorm=True):
     S = np.asarray(S, dtype=np.float64)
     tol = np.finfo(float).eps ** 0.8 if tol is None else float(tol)
 
-    Q, R = scipy_qr(X, mode="economic", pivoting=False)
+    # ``mgcv::nat.param(type=1)`` is highly sensitive inside the near-degenerate
+    # null block used by ``bs="fs"``.  Matching R's ``eigen()`` ordering/stability
+    # for this block requires SciPy's MRRR driver here.
+    Q, R = np.linalg.qr(X, mode="reduced")
     if np.linalg.matrix_rank(R) < R.shape[1]:
-        raise ValueError("Model matrix is not full rank in natural-parameter construction.")
+        raise ValueError(
+            "Model matrix is not full rank in natural-parameter construction."
+        )
 
-    # Use explicit forward/back substitution to replicate R's tie-breaking
-    # behavior inside zero-eigenvalue blocks (critical for fs/sz parity).
-    tmp = _forwardsolve_lower(R.T, S.T)
-    RSR = _forwardsolve_lower(R.T, tmp.T)
+    tmp = solve_triangular(R.T, S.T, lower=True, check_finite=False)
+    RSR = solve_triangular(R.T, tmp.T, lower=True, check_finite=False)
     RSR = 0.5 * (RSR + RSR.T)
 
     evals, U = scipy_eigh(RSR, driver="evr")
@@ -6081,7 +7008,7 @@ def nat_param_type1(X, S, rank=None, tol=None, unit_fnorm=True):
 
     D = evals[:rank].copy()
     Xn = Q @ U
-    P = _backsolve_upper(R, U)
+    P = solve_triangular(R, U, lower=False, check_finite=False)
 
     total_cols = Xn.shape[1]
     E = np.ones(total_cols, dtype=np.float64)
@@ -6197,15 +7124,15 @@ def predict_pspline_term(x_new, setup: PSplineBasisSetup):
 # --- End of nampy/splines/pspline.py ---
 
 # --- Start of nampy/splines/thin_plate.py ---
-# splines/thin_plate.py
 import math
 import warnings
+from dataclasses import dataclass
 
 import numpy as np
 import scipy.linalg
 from scipy.spatial import distance_matrix
 
-from .penalty_scaling import scale_penalty
+from ..gam.penalties.algebra import scale_penalty
 from .thin_plate_basis import eta, tp_T
 
 
@@ -6439,7 +7366,9 @@ def normalize_tprs_knots(knots, n_dim: int):
         cols = [np.asarray(k, dtype=np.float64).ravel() for k in knots]
         n = cols[0].size
         if any(c.size != n for c in cols):
-            raise ValueError("All supplied knot coordinate arrays must have the same length.")
+            raise ValueError(
+                "All supplied knot coordinate arrays must have the same length."
+            )
         out = np.column_stack(cols)
         return np.asarray(out, dtype=np.float64)
 
@@ -6559,7 +7488,9 @@ def _top_eigensystem(E, k):
         b[j] = float(np.linalg.norm(z))
         if j < n - 1:
             if b[j] == 0.0:
-                raise np.linalg.LinAlgError("Lanczos breakdown in thin-plate eigensystem.")
+                raise np.linalg.LinAlgError(
+                    "Lanczos breakdown in thin-plate eigensystem."
+                )
             q.append(z / b[j])
 
         if ((j >= k) and (j % f_check == 0)) or (j == n - 1):
@@ -6601,14 +7532,14 @@ def _top_eigensystem(E, k):
     U = np.zeros((n, k), dtype=np.float64)
     for col in range(m_keep):
         coeff = vecs[:j_final, col]
-        for l in range(j_final):
-            U[:, col] += q[l] * coeff[l]
+        for q_idx in range(j_final):
+            U[:, col] += q[q_idx] * coeff[q_idx]
 
     for col in range(m_keep, m_keep + lm_keep):
         kk = j_final - (lm_keep + m_keep - col)
         coeff = vecs[:j_final, kk]
-        for l in range(j_final):
-            U[:, col] += q[l] * coeff[l]
+        for q_idx in range(j_final):
+            U[:, col] += q[q_idx] * coeff[q_idx]
 
     evals = np.zeros(k, dtype=np.float64)
     evals[:m_keep] = d[:m_keep]
@@ -6705,7 +7636,9 @@ def construct_tprs_basis(
     if k < 0:
         k = default_tprs_k(d, M)
     if k < M + 1:
-        warnings.warn("basis dimension k increased to the minimum possible M + 1.")
+        warnings.warn(
+            "basis dimension k increased to the minimum possible M + 1.", stacklevel=2
+        )
         k = M + 1
 
     Xu = choose_tprs_setup_locations(
@@ -6782,10 +7715,10 @@ def construct_tprs_basis(
     S_full[:, S_full.shape[1] - M :] = 0.0
 
     if bool(scale_columns):
-        # mgcv's smoothCon(..., scale.penalty=TRUE) path rescales X/UZ/S
-        # together so each design column has unit RMS. fs/sz use the raw
-        # constructor scale (scale.penalty=FALSE equivalent), so this can be
-        # disabled by callers.
+        # mgcv's tp constructor first normalizes columns to unit RMS, then
+        # smoothCon(scale.penalty=TRUE) applies the usual global penalty
+        # rescaling against the resulting model matrix. The final smoothing
+        # parameter convention depends on both steps.
         for j in range(X_raw.shape[1]):
             w = float(np.sqrt(np.mean(X_raw[:, j] ** 2)))
             if not np.isfinite(w) or w <= 0.0:
@@ -6794,6 +7727,7 @@ def construct_tprs_basis(
             UZ_full[:, j] /= w
             S_full[j, :] /= w
             S_full[:, j] /= w
+        S_full = scale_penalty(X_raw, S_full)
 
     S_full = 0.5 * (S_full + S_full.T)
 
@@ -6830,8 +7764,6 @@ def full_rank_shrinkage_penalty(S, shrink=1e-1, tol=1e-12):
 
     S_full = (U * out) @ U.T
     return 0.5 * (S_full + S_full.T)
-
-from dataclasses import dataclass
 
 
 @dataclass
@@ -6927,7 +7859,9 @@ def build_tprs_term_setup(
     if bs_dim < 0:
         bs_dim = default_tprs_k(d, original_null_space_dim)
     if bs_dim < original_null_space_dim + 1:
-        warnings.warn("basis dimension k increased to the minimum possible M + 1.")
+        warnings.warn(
+            "basis dimension k increased to the minimum possible M + 1.", stacklevel=2
+        )
         bs_dim = original_null_space_dim + 1
 
     mgcv_setup_locations = setup_knots
@@ -7051,7 +7985,7 @@ def eta(E, m, d):
         d_half = d // 2
         const = ((-1) ** (m + 1 + d_half)) / (
             2 ** (2 * m - 1)
-            * np.pi ** d_half
+            * np.pi**d_half
             * math.factorial(m - 1)
             * math.factorial(m - d_half)
         )

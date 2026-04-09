@@ -1,7 +1,7 @@
 import numpy as np
 
 from .linear_predictor_matrix import _build_prediction_matrices
-from .predictions import predict_values
+from .predictions import _term_contribution, predict_values
 
 
 def predict_term_contributions(model, X=None, offset=None):
@@ -18,7 +18,7 @@ def predict_term_contributions(model, X=None, offset=None):
         result["response"] = predict_values(model, X=X, type="response", offset=offset)
 
     for tb in model.term_blocks_:
-        result[tb.term_id] = Z_new[:, tb.coef_slice] @ model.coef_[tb.coef_slice]
+        result[tb.term_id] = _term_contribution(model, Z_new, tb)
 
     if model.fit_intercept:
         result["intercept"] = np.array(model.intercept_, dtype=np.float64)

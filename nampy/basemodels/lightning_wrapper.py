@@ -13,7 +13,7 @@ class TaskModel(pl.LightningModule):
         config,
         cat_feature_info,
         num_feature_info,
-        num_classes=1,           # semantic class count for classification, output dim for regression/LSS
+        num_classes=1,  # semantic class count for classification, output dim for regression/LSS
         lss=False,
         family=None,
         loss_fct: Any = None,
@@ -51,12 +51,24 @@ class TaskModel(pl.LightningModule):
                 self.output_dim = self.n_classes
                 if self.loss_fct is None:
                     self.loss_fct = nn.CrossEntropyLoss()
-                self.acc = torchmetrics.Accuracy(task="multiclass", num_classes=self.n_classes)
-                self.auroc = torchmetrics.AUROC(task="multiclass", num_classes=self.n_classes)
-                self.precision = torchmetrics.Precision(task="multiclass", num_classes=self.n_classes)
+                self.acc = torchmetrics.Accuracy(
+                    task="multiclass", num_classes=self.n_classes
+                )
+                self.auroc = torchmetrics.AUROC(
+                    task="multiclass", num_classes=self.n_classes
+                )
+                self.precision = torchmetrics.Precision(
+                    task="multiclass", num_classes=self.n_classes
+                )
 
         # Avoid checkpoint bloat / pickle issues
-        ignore_list = ["model_class", "loss_fct", "family", "cat_feature_info", "num_feature_info"]
+        ignore_list = [
+            "model_class",
+            "loss_fct",
+            "family",
+            "cat_feature_info",
+            "num_feature_info",
+        ]
         self.save_hyperparameters(ignore=ignore_list)
 
         self.lr = self.hparams.get("lr", config.lr)
@@ -129,17 +141,59 @@ class TaskModel(pl.LightningModule):
             # but using probs explicitly avoids version-specific behavior.
             probs = torch.sigmoid(preds).view(-1)
             y = labels.view(-1).long()
-            self.log(f"{prefix}_acc", self.acc(probs, y), on_step=False, on_epoch=True, prog_bar=True, logger=True)
-            self.log(f"{prefix}_auroc", self.auroc(probs, y), on_step=False, on_epoch=True, prog_bar=False, logger=True)
-            self.log(f"{prefix}_precision", self.precision(probs, y), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+            self.log(
+                f"{prefix}_acc",
+                self.acc(probs, y),
+                on_step=False,
+                on_epoch=True,
+                prog_bar=True,
+                logger=True,
+            )
+            self.log(
+                f"{prefix}_auroc",
+                self.auroc(probs, y),
+                on_step=False,
+                on_epoch=True,
+                prog_bar=False,
+                logger=True,
+            )
+            self.log(
+                f"{prefix}_precision",
+                self.precision(probs, y),
+                on_step=False,
+                on_epoch=True,
+                prog_bar=False,
+                logger=True,
+            )
 
         elif self.task_kind == "multiclass":
             logits = preds
             y = labels.view(-1).long()
-            self.log(f"{prefix}_acc", self.acc(logits, y), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log(
+                f"{prefix}_acc",
+                self.acc(logits, y),
+                on_step=False,
+                on_epoch=True,
+                prog_bar=True,
+                logger=True,
+            )
             probs = torch.softmax(logits, dim=1)
-            self.log(f"{prefix}_auroc", self.auroc(probs, y), on_step=False, on_epoch=True, prog_bar=False, logger=True)
-            self.log(f"{prefix}_precision", self.precision(logits, y), on_step=False, on_epoch=True, prog_bar=False, logger=True)
+            self.log(
+                f"{prefix}_auroc",
+                self.auroc(probs, y),
+                on_step=False,
+                on_epoch=True,
+                prog_bar=False,
+                logger=True,
+            )
+            self.log(
+                f"{prefix}_precision",
+                self.precision(logits, y),
+                on_step=False,
+                on_epoch=True,
+                prog_bar=False,
+                logger=True,
+            )
 
     def _shared_step(self, batch, batch_idx, stage: str):
         cat_features, num_features, labels = batch
@@ -162,7 +216,14 @@ class TaskModel(pl.LightningModule):
         self._log_task_metrics(stage, preds, labels)
 
         if stage == "test" and (not self.lss) and self.task_kind == "regression":
-            self.log("test_rmse", torch.sqrt(loss), on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log(
+                "test_rmse",
+                torch.sqrt(loss),
+                on_step=False,
+                on_epoch=True,
+                prog_bar=True,
+                logger=True,
+            )
 
         return loss
 

@@ -39,6 +39,7 @@ Not yet implemented
 This solver is the Python analogue of mgcv's ``gam.fit3`` (penalized IRLS inner loop).
 - Extended / general family support.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -133,7 +134,7 @@ def fit_penalized_irls(
         Total penalty matrix ``S = sum_k lambda_k * S_k``, shape ``(q, q)``.
         Used in quadratic-form evaluations and the convergence gradient check.
     family
-        A :class:`nampy.gam.families.base.GLMFamily` instance.
+        A :class:`nampy.gam.families.family_base.GLMFamily` instance.
     weights
         Prior observation weights (positive where informative).  Default: all ones.
     offset
@@ -206,6 +207,12 @@ def fit_penalized_irls(
 
     warnings_list: list[str] = []
 
+    def _irls_state(eta_value: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        mu_value = np.asarray(family.inverse_link(eta_value), dtype=np.float64)
+        mu_eta_value = np.asarray(family.mu_eta(eta_value), dtype=np.float64)
+        var_value = np.asarray(family.variance(mu_value), dtype=np.float64)
+        return mu_value, mu_eta_value, var_value
+
     # Empty model (no columns): return null-fit quantities directly.
     if q == 0:
         eta = np.zeros(nobs, dtype=np.float64) + offset
@@ -257,7 +264,10 @@ def fit_penalized_irls(
     mu = np.asarray(family.inverse_link(eta), dtype=np.float64)
     coef_old = null_coef.copy()
     null_eta = (X @ null_coef + offset).astype(np.float64, copy=False)
-    old_pdev = float(family.deviance(y, family.inverse_link(null_eta)) + float(null_coef @ (St @ null_coef)))
+    old_pdev = float(
+        family.deviance(y, family.inverse_link(null_eta))
+        + float(null_coef @ (St @ null_coef))
+    )
 
     ii = 0
     while True:
@@ -276,7 +286,7 @@ def fit_penalized_irls(
     conv = False
     coef = np.zeros(q, dtype=np.float64)
     # Initialise "previous" state to the null fit for the first step-halving check.
-    eta_old = null_eta.copy()
+    null_eta.copy()
     n_iter = 0
 
     # Main penalized IRLS loop.
@@ -284,13 +294,12 @@ def fit_penalized_irls(
         iter_no = it + 1
         n_iter = iter_no
         good_prior = weights > 0.0
-        var_val = np.asarray(family.variance(mu), dtype=np.float64)
+        mu, mu_eta_val, var_val = _irls_state(eta)
         if np.any(~np.isfinite(var_val[good_prior])):
             raise RuntimeError("NAs in V(mu)")
         if np.any(var_val[good_prior] <= 0.0):
             raise RuntimeError("0s in V(mu)")
 
-        mu_eta_val = np.asarray(family.mu_eta(eta), dtype=np.float64)
         if np.any(~np.isfinite(mu_eta_val[good_prior])):
             raise RuntimeError("NAs in d(mu)/d(eta)")
 
@@ -356,7 +365,7 @@ def fit_penalized_irls(
         # Update linear predictor and mean after the penalized LS step.
         eta_linear = X @ start_coef
         eta = eta_linear + offset
-        mu = np.asarray(family.inverse_link(eta), dtype=np.float64)
+        mu, mu_eta_val, var_val = _irls_state(eta)
 
         dev = float(family.deviance(y, mu))
 
@@ -364,7 +373,6 @@ def fit_penalized_irls(
             print(f"Deviance = {dev}  Iteration = {iter_no}")
 
         # Step-halve until deviance is finite.
-        boundary = False
         if not np.isfinite(dev):
             ii_h = 0
             while not np.isfinite(dev):
@@ -374,9 +382,8 @@ def fit_penalized_irls(
                 start_coef = 0.5 * (start_coef + coef_old)
                 eta_linear = X @ start_coef
                 eta = eta_linear + offset
-                mu = np.asarray(family.inverse_link(eta), dtype=np.float64)
+                mu, mu_eta_val, var_val = _irls_state(eta)
                 dev = float(family.deviance(y, mu))
-            boundary = True
             penalty = float(start_coef @ (St @ start_coef))
             if ctl.trace:
                 print(f"Step halved: new deviance = {dev}")
@@ -397,9 +404,8 @@ def fit_penalized_irls(
                 start_coef = 0.5 * (start_coef + coef_old)
                 eta_linear = X @ start_coef
                 eta = eta_linear + offset
-                mu = np.asarray(family.inverse_link(eta), dtype=np.float64)
+                mu, mu_eta_val, var_val = _irls_state(eta)
             if ii_h > 0:
-                boundary = True
                 penalty = float(start_coef @ (St @ start_coef))
                 dev = float(family.deviance(y, mu))
                 if ctl.trace:
@@ -411,12 +417,14 @@ def fit_penalized_irls(
             print(f"penalized deviance = {pdev}")
 
         # Step-halve if penalized deviance diverges relative to previous iteration.
-        div_thresh = 10.0 * (0.1 + abs(old_pdev)) * np.sqrt(np.finfo(np.float64).eps)
+        div_thresh = 10.0 * (0.1 + abs(old_pdev)) * (
+            np.finfo(np.float64).eps ** 0.25
+        )
         if pdev - old_pdev > div_thresh:
             ii_h = 0
             if iter_no == 1:
                 coef_old = null_coef.copy()
-                eta_old = null_eta.copy()
+                null_eta.copy()
             while pdev - old_pdev > div_thresh:
                 ii_h += 1
                 if ii_h > 100:
@@ -424,7 +432,7 @@ def fit_penalized_irls(
                 start_coef = 0.5 * (start_coef + coef_old)
                 eta_linear = X @ start_coef
                 eta = eta_linear + offset
-                mu = np.asarray(family.inverse_link(eta), dtype=np.float64)
+                mu, mu_eta_val, var_val = _irls_state(eta)
                 dev = float(family.deviance(y, mu))
                 pdev = dev + float(start_coef @ (St @ start_coef))
                 if ctl.trace:
@@ -439,20 +447,22 @@ def fit_penalized_irls(
         # Convergence check: penalized deviance change and gradient magnitude.
         scale = float(scale_reference)
         if abs(pdev - old_pdev) < ctl.epsilon * (abs(scale) + abs(pdev)):
-            grad = 2.0 * (X_g.T @ (w_work * ((X_g @ start_coef) - z))) + 2.0 * (St @ start_coef)
+            grad = 2.0 * (X_g.T @ (w_work * ((X_g @ start_coef) - z))) + 2.0 * (
+                St @ start_coef
+            )
             if np.max(np.abs(grad)) > ctl.epsilon * (abs(pdev) + abs(scale)):
                 old_pdev = pdev
                 coef = coef_old = start_coef
-                eta_old = eta.copy()
+                eta.copy()
             else:
                 conv = True
                 coef = start_coef
-                eta_old = eta.copy()
+                eta.copy()
                 break
         else:
             old_pdev = pdev
             coef = coef_old = start_coef
-            eta_old = eta.copy()
+            eta.copy()
     else:
         if not conv:
             warnings_list.append(
@@ -487,6 +497,7 @@ def fit_penalized_irls_from_model(
     smoothing_params: np.ndarray,
     *,
     attach_smoothness_postprocess: bool = True,
+    weights: np.ndarray | None = None,
 ) -> dict[str, Any]:
     """
     Run :func:`fit_penalized_irls` using a fitted model's compiled design and penalty blocks.
@@ -496,22 +507,21 @@ def fit_penalized_irls_from_model(
     is Gaussian, post-fit smoothness scores and derivatives are merged in via
     :func:`nampy.gam.fit.postprocess.gaussian_smoothness_postprocess.merge_gaussian_smoothness_into_fit_result`.
     """
+    from ..linalg.stacked_qr import (
+        balanced_penalty_template_sqrt_for_rank,
+        penalty_sqrt_rows,
+    )
     from ..penalized_system import (
         build_full_design,
         build_full_penalty_from_blocks,
     )
-    from ..linalg.stacked_qr import (
-        balanced_penalty_template_sqrt_for_rank,
-        penalty_sqrt_rows_prefer_diagonal,
-    )
 
     y = model.family.validate_y(y)
     n = int(y.shape[0])
-    w = getattr(model, "prior_weights_", None)
-    if w is None:
+    if weights is None:
         w = np.ones(n, dtype=np.float64)
     else:
-        w = np.asarray(w, dtype=np.float64).ravel()
+        w = np.asarray(weights, dtype=np.float64).ravel()
 
     X = build_full_design(model.Z, fit_intercept=model.fit_intercept)
     P = build_full_penalty_from_blocks(
@@ -520,16 +530,25 @@ def fit_penalized_irls_from_model(
         fit_intercept=model.fit_intercept,
         n_coef=model.n_coef_,
     )
-    Sr, Eb_template = penalty_sqrt_rows_prefer_diagonal(P)
+    Sr, Eb_template = penalty_sqrt_rows(P)
     Eb = balanced_penalty_template_sqrt_for_rank(
         model.penalty_blocks_,
         fit_intercept=model.fit_intercept,
         n_coef=int(model.n_coef_),
     )
     offset = model.offset_train_
-    off = np.zeros(n, dtype=np.float64) if offset is None else np.asarray(offset, dtype=np.float64).ravel()
+    off = (
+        np.zeros(n, dtype=np.float64)
+        if offset is None
+        else np.asarray(offset, dtype=np.float64).ravel()
+    )
 
-    log_sp = np.log(np.maximum(np.asarray(smoothing_params, dtype=np.float64).ravel(), np.finfo(np.float64).tiny))
+    log_sp = np.log(
+        np.maximum(
+            np.asarray(smoothing_params, dtype=np.float64).ravel(),
+            np.finfo(np.float64).tiny,
+        )
+    )
 
     from ..postprocess.gaussian_smoothness_postprocess import (
         merge_gaussian_smoothness_into_fit_result,
@@ -553,7 +572,10 @@ def fit_penalized_irls_from_model(
         ),
         score_type=score_type,
     )
-    if attach_smoothness_postprocess and str(getattr(model.family, "name", "")).lower() == "gaussian":
+    if (
+        attach_smoothness_postprocess
+        and str(getattr(model.family, "name", "")).lower() == "gaussian"
+    ):
         sp_lin = np.asarray(smoothing_params, dtype=np.float64).ravel()
         out = merge_gaussian_smoothness_into_fit_result(
             out,

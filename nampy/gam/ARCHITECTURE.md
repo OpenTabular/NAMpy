@@ -393,7 +393,7 @@ It may describe:
 - parametric term
 - smooth term
 - special type (`s`, `te`, `ti`, `t2`)
-- basis options
+- typed `smooth_spec` union for basis-specific arguments
 - by-variable
 - smoothing id
 - label

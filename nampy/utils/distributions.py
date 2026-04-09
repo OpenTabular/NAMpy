@@ -1,12 +1,10 @@
-#utils/distributions.py
-import math
-from typing import Any, Callable, Optional, Sequence, Union
+# utils/distributions.py
+from typing import Callable, Optional, Sequence, Union
 
 import numpy as np
 import torch
 import torch.distributions as dist
 import torch.nn.functional as F
-
 
 TensorLike = Union[torch.Tensor, np.ndarray]
 
@@ -112,7 +110,9 @@ class BaseDistribution(torch.nn.Module):
     # Public API
     # ------------------------------------------------------------------
 
-    def compute_loss(self, predictions: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    def compute_loss(
+        self, predictions: torch.Tensor, y_true: torch.Tensor
+    ) -> torch.Tensor:
         raise NotImplementedError("Subclasses must implement compute_loss().")
 
     def evaluate_nll(self, y_true: TensorLike, y_pred: TensorLike):
@@ -152,7 +152,9 @@ class BaseDistribution(torch.nn.Module):
             cols.append(transform_fn(predictions[:, idx]).unsqueeze(1))
         return torch.cat(cols, dim=1)
 
-    def predict_point(self, predictions: TensorLike, transformed: bool = False) -> torch.Tensor:
+    def predict_point(
+        self, predictions: TensorLike, transformed: bool = False
+    ) -> torch.Tensor:
         """
         Optional point prediction (default = first transformed parameter).
         Subclasses can override for family-specific meanings.
@@ -284,7 +286,9 @@ class InverseGammaDistribution(BaseDistribution):
         self._validate_batch_match(predictions, y)
 
         if torch.any(y <= 0):
-            raise ValueError("InverseGammaDistribution requires strictly positive targets.")
+            raise ValueError(
+                "InverseGammaDistribution requires strictly positive targets."
+            )
 
         shape = self.get_transform(self.shape_transform)(predictions[:, 0])
         rate = self.get_transform(self.rate_transform)(predictions[:, 1])
@@ -542,7 +546,9 @@ class NegativeBinomialDistribution(BaseDistribution):
         self._validate_batch_match(predictions, y)
 
         if torch.any(y < 0):
-            raise ValueError("NegativeBinomialDistribution requires non-negative targets.")
+            raise ValueError(
+                "NegativeBinomialDistribution requires non-negative targets."
+            )
 
         mean = self.get_transform(self.mean_transform)(predictions[:, 0])
         alpha = self.get_transform(self.dispersion_transform)(predictions[:, 1])
@@ -712,7 +718,9 @@ class Quantile(BaseDistribution):
 
         # Broadcast y to [N, Q]
         y = y.unsqueeze(1)
-        q = torch.tensor(self.quantiles, dtype=preds.dtype, device=preds.device).view(1, -1)
+        q = torch.tensor(self.quantiles, dtype=preds.dtype, device=preds.device).view(
+            1, -1
+        )
         errors = y - preds
         loss = torch.maximum((q - 1.0) * errors, q * errors)
         return loss.sum(dim=1).mean()
@@ -762,9 +770,15 @@ class RobustNormalDistribution(BaseDistribution):
         if self.rob is not None:
             # numerically stable implementation using logaddexp:
             # log(1 + exp(a)) = logaddexp(0, a)
-            rob_t = torch.tensor(self.rob, device=log_likelihood.device, dtype=log_likelihood.dtype)
-            log_num = torch.logaddexp(torch.zeros_like(log_likelihood), log_likelihood + rob_t)
-            log_den = torch.logaddexp(torch.tensor(0.0, device=rob_t.device, dtype=rob_t.dtype), rob_t)
+            rob_t = torch.tensor(
+                self.rob, device=log_likelihood.device, dtype=log_likelihood.dtype
+            )
+            log_num = torch.logaddexp(
+                torch.zeros_like(log_likelihood), log_likelihood + rob_t
+            )
+            log_den = torch.logaddexp(
+                torch.tensor(0.0, device=rob_t.device, dtype=rob_t.dtype), rob_t
+            )
             log_likelihood = log_num - log_den
 
         return -log_likelihood.mean()
@@ -789,9 +803,11 @@ class RobustNormalDistribution(BaseDistribution):
         params = self._ensure_2d_predictions(params)
         return params[:, 0]
 
+
 # ----------------------------------------------------------------------
 # Additional drop-in families for nampy/utils/distributions.py
 # ----------------------------------------------------------------------
+
 
 def _unit_interval_transform(x: torch.Tensor) -> torch.Tensor:
     """Numerically safe sigmoid transform to (0, 1)."""
@@ -845,7 +861,9 @@ class LogNormalDistribution(BaseDistribution):
         self._validate_batch_match(predictions, y)
 
         if torch.any(y <= 0):
-            raise ValueError("LogNormalDistribution requires strictly positive targets.")
+            raise ValueError(
+                "LogNormalDistribution requires strictly positive targets."
+            )
 
         loc = self.get_transform(self.loc_transform)(predictions[:, 0])
         scale = self.get_transform(self.scale_transform)(predictions[:, 1])
@@ -903,7 +921,9 @@ class WeibullDistribution(BaseDistribution):
         params = self._ensure_2d_predictions(params)
         scale = params[:, 0]
         shape = params[:, 1]
-        return scale * torch.exp(torch.lgamma(1.0 + 1.0 / torch.clamp(shape, min=self.eps)))
+        return scale * torch.exp(
+            torch.lgamma(1.0 + 1.0 / torch.clamp(shape, min=self.eps))
+        )
 
 
 class LogLogisticDistribution(BaseDistribution):
@@ -938,7 +958,9 @@ class LogLogisticDistribution(BaseDistribution):
         self._validate_batch_match(predictions, y)
 
         if torch.any(y <= 0):
-            raise ValueError("LogLogisticDistribution requires strictly positive targets.")
+            raise ValueError(
+                "LogLogisticDistribution requires strictly positive targets."
+            )
 
         scale = self.get_transform(self.scale_transform)(predictions[:, 0])
         shape = self.get_transform(self.shape_transform)(predictions[:, 1])
@@ -997,7 +1019,9 @@ class ZeroInflatedPoissonDistribution(BaseDistribution):
         self._validate_batch_match(predictions, y)
 
         if torch.any(y < 0):
-            raise ValueError("ZeroInflatedPoissonDistribution requires non-negative targets.")
+            raise ValueError(
+                "ZeroInflatedPoissonDistribution requires non-negative targets."
+            )
 
         zero_prob = self.get_transform(self.zero_prob_transform)(predictions[:, 0])
         zero_prob = torch.clamp(zero_prob, min=self.eps, max=1.0 - self.eps)
@@ -1007,7 +1031,9 @@ class ZeroInflatedPoissonDistribution(BaseDistribution):
         log_pois = pois.log_prob(y)
         log_pois0 = pois.log_prob(torch.zeros_like(y))
 
-        log_prob_zero = torch.logaddexp(torch.log(zero_prob), torch.log1p(-zero_prob) + log_pois0)
+        log_prob_zero = torch.logaddexp(
+            torch.log(zero_prob), torch.log1p(-zero_prob) + log_pois0
+        )
         log_prob_pos = torch.log1p(-zero_prob) + log_pois
 
         log_prob = torch.where(y == 0, log_prob_zero, log_prob_pos)
@@ -1043,7 +1069,9 @@ class ZeroInflatedNegativeBinomialDistribution(BaseDistribution):
         dispersion_transform: Union[str, Callable] = "positive",
         eps: float = 1e-8,
     ):
-        super().__init__(name=name, param_names=["zero_prob", "mean", "dispersion"], eps=eps)
+        super().__init__(
+            name=name, param_names=["zero_prob", "mean", "dispersion"], eps=eps
+        )
         self.zero_prob_transform = zero_prob_transform
         self.mean_transform = mean_transform
         self.dispersion_transform = dispersion_transform
@@ -1069,7 +1097,9 @@ class ZeroInflatedNegativeBinomialDistribution(BaseDistribution):
         log_nb = nb.log_prob(y)
         log_nb0 = nb.log_prob(torch.zeros_like(y))
 
-        log_prob_zero = torch.logaddexp(torch.log(zero_prob), torch.log1p(-zero_prob) + log_nb0)
+        log_prob_zero = torch.logaddexp(
+            torch.log(zero_prob), torch.log1p(-zero_prob) + log_nb0
+        )
         log_prob_pos = torch.log1p(-zero_prob) + log_nb
 
         log_prob = torch.where(y == 0, log_prob_zero, log_prob_pos)
@@ -1127,7 +1157,9 @@ class HurdlePoissonDistribution(BaseDistribution):
         log_pois = pois.log_prob(y)
         log_pois0 = pois.log_prob(torch.zeros_like(y))
 
-        log_trunc_norm = torch.log(torch.clamp(1.0 - torch.exp(log_pois0), min=self.eps))
+        log_trunc_norm = torch.log(
+            torch.clamp(1.0 - torch.exp(log_pois0), min=self.eps)
+        )
         log_prob_zero = torch.log(zero_prob)
         log_prob_pos = torch.log1p(-zero_prob) + log_pois - log_trunc_norm
 
@@ -1168,7 +1200,9 @@ class HurdleNegativeBinomialDistribution(BaseDistribution):
         dispersion_transform: Union[str, Callable] = "positive",
         eps: float = 1e-8,
     ):
-        super().__init__(name=name, param_names=["zero_prob", "mean", "dispersion"], eps=eps)
+        super().__init__(
+            name=name, param_names=["zero_prob", "mean", "dispersion"], eps=eps
+        )
         self.zero_prob_transform = zero_prob_transform
         self.mean_transform = mean_transform
         self.dispersion_transform = dispersion_transform
@@ -1216,9 +1250,11 @@ class HurdleNegativeBinomialDistribution(BaseDistribution):
         trunc_mean = mean / torch.clamp(1.0 - p0, min=self.eps)
         return (1.0 - zero_prob) * trunc_mean
 
+
 # ----------------------------------------------------------------------
 # Additional advanced families for nampy/utils/distributions.py
 # ----------------------------------------------------------------------
+
 
 def _inverse_softplus(x: torch.Tensor) -> torch.Tensor:
     """Numerically stable inverse softplus for x > 0."""
@@ -1399,7 +1435,9 @@ class OrdinalCumulativeLogitDistribution(BaseDistribution):
             )
         k = int(num_classes)
         if k < 2:
-            raise ValueError("OrdinalCumulativeLogitDistribution requires num_classes >= 2.")
+            raise ValueError(
+                "OrdinalCumulativeLogitDistribution requires num_classes >= 2."
+            )
 
         super().__init__(name=name, param_names=["eta"], eps=eps)
         self._num_classes = k
@@ -1440,14 +1478,16 @@ class OrdinalCumulativeLogitDistribution(BaseDistribution):
             )
 
         eta = predictions[:, 0:1]  # [N,1]
-        cutpoints = self._ordered_cutpoints().to(device=eta.device, dtype=eta.dtype)  # [K-1]
+        cutpoints = self._ordered_cutpoints().to(
+            device=eta.device, dtype=eta.dtype
+        )  # [K-1]
 
         cum_probs = torch.sigmoid(cutpoints.unsqueeze(0) - eta)  # [N, K-1]
 
         probs = []
         probs.append(cum_probs[:, 0:1])  # P(Y=0)
         for j in range(1, self.num_classes - 1):
-            probs.append(cum_probs[:, j:j+1] - cum_probs[:, j-1:j])
+            probs.append(cum_probs[:, j : j + 1] - cum_probs[:, j - 1 : j])
         probs.append(1.0 - cum_probs[:, -1:])  # P(Y=K-1)
 
         probs = torch.cat(probs, dim=1)

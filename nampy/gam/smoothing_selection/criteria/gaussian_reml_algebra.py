@@ -145,7 +145,9 @@ def pearson_method_scale_estimate(
     return float(scale / (1.0 + s_bar))
 
 
-def profiled_gaussian_reml_variance(dev: float, penalty_P: float, n_row: float, mp: float) -> float:
+def profiled_gaussian_reml_variance(
+    dev: float, penalty_P: float, n_row: float, mp: float
+) -> float:
     """
     Profiled Gaussian REML error variance ``(dev + P) / (n_row - Mp)`` for the
     concentrated Laplace REML score (matches ``_gaussian_dynamic_reml_derivative_terms``).
@@ -237,11 +239,13 @@ def gaussian_reml_score_from_saturated_part(
     gamma = float(gamma)
     if not np.isfinite(gamma) or gamma <= 0.0:
         return float(np.inf)
-    score = ((dev + penalty_P) / (2.0 * variance) - saturation_loglik) / gamma + 0.5 * float(
-        logdet_penalized_minus_penalty
-    )
+    score = (
+        (dev + penalty_P) / (2.0 * variance) - saturation_loglik
+    ) / gamma + 0.5 * float(logdet_penalized_minus_penalty)
     if reml:
-        score -= float(mp) * (np.log(2.0 * np.pi * variance) / 2.0 - np.log(gamma) / 2.0)
+        score -= float(mp) * (
+            np.log(2.0 * np.pi * variance) / 2.0 - np.log(gamma) / 2.0
+        )
     return float(score)
 
 

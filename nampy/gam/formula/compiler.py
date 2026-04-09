@@ -14,7 +14,7 @@ from dataclasses import replace
 
 import numpy as np
 
-from ..specs import LinearPredictorSpec, TermSpec
+from ..specs import LinearPredictorSpec, TermSpec, build_smooth_spec
 from .parser import ParsedGAMFormula, ParsedParametricTerm, ParsedSmoothTerm
 
 
@@ -79,7 +79,11 @@ def _knots_for_features(knots, features):
         return None
     if isinstance(knots, dict):
         vals = [knots.get(str(f), None) for f in features]
-        return None if all(v is None for v in vals) else vals[0] if len(features) == 1 else vals
+        return (
+            None
+            if all(v is None for v in vals)
+            else vals[0] if len(features) == 1 else vals
+        )
     return knots
 
 
@@ -90,8 +94,12 @@ def compile_predictor_specs_from_formula(
     default_basis=None,
     default_select=False,
     knots=None,
-):
+    available_columns=None,
+) -> list[LinearPredictorSpec]:
     predictor_specs = []
+    available_column_names = None
+    if available_columns is not None:
+        available_column_names = {str(col) for col in available_columns}
 
     for i, pf in enumerate(parsed.predictors):
         terms = []
@@ -131,6 +139,15 @@ def compile_predictor_specs_from_formula(
             else:
                 k = _default_k_for_basis(basis, default_k)
             by = kw.pop("by", None)
+            if by is not None:
+                by = str(by)
+                if (
+                    available_column_names is not None
+                    and by not in available_column_names
+                ):
+                    raise KeyError(
+                        f"by column {by!r} not found in available data columns."
+                    )
             smoothing_id = kw.pop("id", kw.pop("smoothing_id", None))
             fixed = _coerce_fx(kw.pop("fx", False))
             select = bool(kw.pop("select", default_select))
@@ -150,30 +167,28 @@ def compile_predictor_specs_from_formula(
                 )
 
             term_knots = _knots_for_features(knots, features)
-            basis_options = {
-                "special": kind,
-                "bs": basis,
-                "k": k,
-                "fx": fixed,
-                "select": select,
-                "m": m,
-                "xt": xt,
-                "sp": sp,
-                "pc": pc,
-                "knots": term_knots,
-                "constraint_mode": "auto",
-                "shared_basis_setup": None,
-                "mc": mc,
-                "full": full,
-                "ord": ord_,
-            }
-
             terms.append(
                 TermSpec(
                     kind="smooth",
                     features=tuple(str(f) for f in features),
                     by_variable=by,
-                    basis_options=basis_options,
+                    smooth_spec=build_smooth_spec(
+                        special=kind,
+                        bs=basis,
+                        k=k,
+                        fx=fixed,
+                        select=select,
+                        m=m,
+                        xt=xt,
+                        sp=sp,
+                        pc=pc,
+                        knots=term_knots,
+                        constraint_mode="auto",
+                        shared_basis_setup=None,
+                        mc=mc,
+                        full=full,
+                        ord_=ord_,
+                    ),
                     smoothing_id=(None if smoothing_id is None else str(smoothing_id)),
                     label=term.raw_label,
                     metadata={"formula_term": term.raw_label},

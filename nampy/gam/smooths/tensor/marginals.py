@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..base import column_as_float
+from ..smooth_base import column_as_float
 from ..univariate.cubic_regression import SplineTerm1D
 from ..univariate.gp import GPSmoothTerm
 from ..univariate.pspline import PSplineTerm1D
 from ..univariate.thin_plate import ThinPlateSplineTerm
-
 
 TENSOR_MARGINAL_BASES = frozenset({"cr", "cs", "cc", "ps", "tp", "ts", "gp"})
 
@@ -92,7 +91,9 @@ def tensor_marginal_feature_index(term):
         return int(term._feature_index)
     if hasattr(term, "_feature_indices") and term._feature_indices is not None:
         return int(term._feature_indices[0])
-    raise AttributeError("Tensor marginal term does not expose a resolved feature index.")
+    raise AttributeError(
+        "Tensor marginal term does not expose a resolved feature index."
+    )
 
 
 def tensor_marginal_feature_name(term):
@@ -100,7 +101,9 @@ def tensor_marginal_feature_name(term):
         return str(term._feature_name)
     if hasattr(term, "_feature_names") and term._feature_names is not None:
         return str(term._feature_names[0])
-    raise AttributeError("Tensor marginal term does not expose a resolved feature name.")
+    raise AttributeError(
+        "Tensor marginal term does not expose a resolved feature name."
+    )
 
 
 def _tensor_marginal_eval_from_x(term, x):
@@ -114,7 +117,9 @@ def _tensor_np_reparameterization(term, x_train, basis_dim):
     x_train = np.asarray(x_train, dtype=np.float64).ravel()
     if x_train.size == 0:
         return None
-    x_eval = np.linspace(np.min(x_train), np.max(x_train), int(basis_dim), dtype=np.float64)
+    x_eval = np.linspace(
+        np.min(x_train), np.max(x_train), int(basis_dim), dtype=np.float64
+    )
     B_eval = _tensor_marginal_eval_from_x(term, x_eval)
     U, d, Vt = np.linalg.svd(B_eval, full_matrices=False)
     if d.size == 0 or d[0] <= 0.0:

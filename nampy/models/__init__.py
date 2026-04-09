@@ -1,4 +1,5 @@
-from .gam import GAMRegressor, GAMClassifier
+from .ensemble_treenam import EnsembleTreeNAMRegressor
+from .gam import GAMClassifier, GAMRegressor
 from .gpnam import GPNAMLSS, GPNAMClassifier, GPNAMRegressor
 from .linreg import LinRegClassifier, LinRegLSS, LinRegRegressor
 from .nam import NAMLSS, NAMClassifier, NAMRegressor
@@ -10,10 +11,9 @@ from .qnam import QNAM
 from .sklearn_classifier import SklearnBaseClassifier
 from .sklearn_lss import SklearnBaseLSS
 from .sklearn_regressor import SklearnBaseRegressor
-from .spline_nam import SplineNAMRegressor
 from .snam import SNAMRegressor
+from .spline_nam import SplineNAMRegressor
 from .treenam import TreeNAMRegressor
-from .ensemble_treenam import EnsembleTreeNAMRegressor
 
 __all__ = [
     "GAMRegressor",
