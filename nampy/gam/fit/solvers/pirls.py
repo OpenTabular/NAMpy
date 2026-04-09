@@ -1,66 +1,16 @@
 """
-Entry points for the penalized IRLS solver for non-Gaussian GAMs.
-
-:func:`solve_pirls_fit` is the model-level entry point called by the fitting
-orchestrator.  It extracts design and penalty information from the model object
-and delegates to :func:`fit_pirls_core`.
+Model-level entry point for PIRLS fits.
 """
 
 import numpy as np
 
+from ..linalg.stacked_qr import balanced_penalty_template_sqrt_for_rank
+from ..penalized_system import build_full_design, build_full_penalty_from_blocks
 from ..state import FitCoreSolution
-from .pirls_core import fit_pirls_core
-
-
-def solve_pirls_gam(
-    Z,
-    y,
-    penalty_blocks,
-    smoothing_params,
-    family,
-    fit_intercept=True,
-    max_iter=100,
-    tol=1e-8,
-    max_step_halving=25,
-    offset=None,
-    weights=None,
-    coef_start=None,
-    etastart=None,
-    mustart=None,
-):
-    return fit_pirls_core(
-        Z=Z,
-        y=y,
-        penalty_blocks=penalty_blocks,
-        smoothing_params=smoothing_params,
-        family=family,
-        fit_intercept=fit_intercept,
-        max_iter=max_iter,
-        tol=tol,
-        max_step_halving=max_step_halving,
-        offset=offset,
-        weights=weights,
-        coef_start=coef_start,
-        etastart=etastart,
-        mustart=mustart,
-    )
+from .irls_core import irls_core
 
 
 def solve_pirls_fit(model, y, smoothing_params, weights=None):
-    """
-    Model-level entry point for the penalized IRLS solver.
-
-    Extracts the design matrix, penalty blocks, and offset from the model,
-    runs :func:`fit_pirls_core`, and stores the converged coefficient vector
-    on the model for use as a warm start in subsequent iterations.
-
-    When the family has ``estimate_theta=True``, EFS (Embedded Fisher Scoring)
-    updates theta after each IRLS step inside :func:`fit_pirls_core`, matching
-    mgcv's ``gam.fit4.r`` lines 507-515.
-
-    Returns a :class:`~nampy.gam.fit.state.FitCoreSolution` wrapping the
-    converged working system.
-    """
     coef_start = getattr(model, "_pirls_eval_start_", None)
     if coef_start is None:
         coef_start = getattr(model, "_pirls_coef_start_", None)
@@ -87,27 +37,40 @@ def solve_pirls_fit(model, y, smoothing_params, weights=None):
         if mustart.shape != (int(model.n_samples_),):
             mustart = None
 
+    X = build_full_design(model.Z, fit_intercept=model.fit_intercept)
+    S = build_full_penalty_from_blocks(
+        penalty_blocks=model.penalty_blocks_,
+        smoothing_params=smoothing_params,
+        fit_intercept=model.fit_intercept,
+        n_coef=model.n_coef_,
+    )
+    rank_rows = balanced_penalty_template_sqrt_for_rank(
+        model.penalty_blocks_,
+        fit_intercept=model.fit_intercept,
+        n_coef=int(model.n_coef_),
+    )
+
     disable_theta_efs = bool(getattr(model, "_pirls_disable_theta_efs_", False))
     prev_disable_theta_efs = bool(getattr(model.family, "_disable_theta_efs", False))
     if disable_theta_efs:
         model.family._disable_theta_efs = True
 
     try:
-        sol = solve_pirls_gam(
-            Z=model.Z,
-            y=y,
-            penalty_blocks=model.penalty_blocks_,
-            smoothing_params=smoothing_params,
-            family=model.family,
+        sol = irls_core(
+            X,
+            y,
+            model.family,
+            S,
+            offset=model.offset_train_,
+            weights=weights,
             fit_intercept=model.fit_intercept,
             max_iter=int(getattr(model, "max_irls_iter", 100)),
             tol=float(getattr(model, "irls_tol", 1e-8)),
             max_step_halving=int(getattr(model, "max_step_halving", 25)),
-            offset=model.offset_train_,
-            weights=weights,
             coef_start=coef_start,
             etastart=etastart,
             mustart=mustart,
+            penalty_rank_rows=rank_rows,
         )
     finally:
         model.family._disable_theta_efs = bool(prev_disable_theta_efs)

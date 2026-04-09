@@ -4,25 +4,18 @@ Fit solver backends for GAMs.
 Three backends are provided, all independent of criterion / optimiser / post-processing:
 
 - :mod:`gaussian_exact`: closed-form penalized least-squares for Gaussian families.
-- :mod:`pirls_core` + :mod:`pirls`: penalized IRLS for non-Gaussian families.
-- :mod:`penalized_irls`: low-level penalized IRLS entry point (mgcv ``gam.fit3`` analogue)
-  used for parity testing against R's mgcv output.
+- :mod:`irls_core` + :mod:`pirls`: shared penalized IRLS core for Gaussian and
+  non-Gaussian families.
 """
 
 from .gaussian_exact import solve_gaussian_fit
-from .penalized_irls import (
-    PenalizedIrlsControl,
-    fit_penalized_irls,
-    fit_penalized_irls_from_model,
-)
+from .irls_core import PenalizedIrlsControl, fit_irls_from_model, irls_core
 from .pirls import solve_pirls_fit
-from .pirls_core import fit_pirls_core
 
 __all__ = [
     "solve_gaussian_fit",
     "solve_pirls_fit",
-    "fit_pirls_core",
+    "irls_core",
     "PenalizedIrlsControl",
-    "fit_penalized_irls",
-    "fit_penalized_irls_from_model",
+    "fit_irls_from_model",
 ]

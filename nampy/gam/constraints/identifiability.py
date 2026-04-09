@@ -223,7 +223,6 @@ def apply_global_side_conditions(
                     smooth=tb.smooth,
                     basis_train=B,
                     basis_transform=tb.basis_transform,
-                    original_n_coef=tb.original_n_coef,
                     kept_columns=(
                         np.asarray(tb.kept_columns, dtype=int).copy()
                         if tb.kept_columns is not None
@@ -239,7 +238,6 @@ def apply_global_side_conditions(
                     n_penalties=tb.n_penalties,
                     term_type=tb.term_type,
                     basis_name=tb.basis_name,
-                    by_variable=tb.by_variable,
                     term_id=tb.term_id,
                     smoothing_group_id=tb.smoothing_group_id,
                     metadata=dict(tb.metadata),
@@ -432,9 +430,6 @@ def apply_global_side_conditions(
                 smooth=tb.smooth,
                 basis_train=B_final,
                 basis_transform=C_final,
-                original_n_coef=(
-                    tb.original_n_coef if tb.original_n_coef is not None else d
-                ),
                 kept_columns=kept_orig,
                 deleted_columns=deleted_orig,
                 smoothing_indices=list(tb.smoothing_indices),
@@ -442,7 +437,6 @@ def apply_global_side_conditions(
                 n_penalties=tb.n_penalties,
                 term_type=tb.term_type,
                 basis_name=tb.basis_name,
-                by_variable=tb.by_variable,
                 term_id=tb.term_id,
                 smoothing_group_id=tb.smoothing_group_id,
                 metadata=tb_meta,

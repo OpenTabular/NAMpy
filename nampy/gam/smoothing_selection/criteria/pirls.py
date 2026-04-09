@@ -532,7 +532,7 @@ def criterion_ml_reml_pirls_negbin_joint(model, y, log_sp, log_theta, method):
 
     Sets model.family.theta = exp(log_theta) as the EFS initialization, then
     evaluates the PIRLS REML criterion.  EFS (Embedded Fisher Scoring) updates
-    theta after each inner IRLS step inside :func:`fit_pirls_core`, mirroring
+    theta after each inner IRLS step inside :func:`irls_core`, mirroring
     mgcv's ``gam.fit4.r`` extended-family pattern where log(theta) is prepended
     to ``lsp`` and theta is updated per PIRLS step within the inner loop.
     """

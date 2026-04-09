@@ -139,9 +139,6 @@ class CompiledTerm:
         already in the constructed-term space.
         Shape: (constructed_n_coef, n_coef).
         None is interpreted as the identity (no transform applied).
-    original_n_coef : int or None
-        Width of the constructed-term basis before any stage-5 side-condition
-        column deletion.
     kept_columns : np.ndarray or None
         Indices (in the pre-side-condition space) of surviving columns.
         None when centering was absorbed (original indices non-trivially remapped).
@@ -157,8 +154,6 @@ class CompiledTerm:
         Term family: ``"smooth"``, ``"parametric"``, ``"random_effect"``, etc.
     basis_name : str
         Basis identifier: ``"cr"``, ``"tp"``, ``"ps"``, etc.
-    by_variable : str or None
-        Name of the numeric by-variable, if any.
     term_id : str
         Stable unique identity assigned at TermSpec creation and carried through
         all pipeline stages.  Used as the canonical key in ``term_index_map`` and
@@ -175,7 +170,6 @@ class CompiledTerm:
     smooth: object
     basis_train: np.ndarray
     basis_transform: np.ndarray | None = None
-    original_n_coef: int | None = None
     kept_columns: np.ndarray | None = None
     deleted_columns: np.ndarray | None = None
     smoothing_indices: list[int] = field(default_factory=list)
@@ -183,7 +177,6 @@ class CompiledTerm:
     n_penalties: int = 0
     term_type: str = "smooth"
     basis_name: str = "unknown"
-    by_variable: str | None = None
     term_id: str = ""
     smoothing_group_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)

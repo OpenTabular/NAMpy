@@ -1,11 +1,21 @@
+import importlib
+
 import numpy as np
 import pandas as pd
 from mgcv_parity_utils import _make_mrf_data
 from scipy.optimize import OptimizeResult
 
 from nampy.basemodels.gam import GAM
-from nampy.gam.families.exponential import GaussianIdentityFamily
-from nampy.gam.fit.solvers.pirls_core import fit_pirls_core
+from nampy.gam.families.exponential import BinomialLogitFamily, GaussianIdentityFamily
+from nampy.gam.fit.linalg.stacked_qr import (
+    _stacked_penalized_ls_nonneg_solution,
+    balanced_penalty_template_sqrt_for_rank,
+)
+from nampy.gam.fit.penalized_system import (
+    build_full_design,
+    build_full_penalty_from_blocks,
+)
+from nampy.gam.fit.solvers.irls_core import irls_core
 from nampy.gam.smoothing_selection.criteria import dispatch as criteria_dispatch
 from nampy.gam.smoothing_selection.optimize import (
     _rollback_working_infinite_smoothing_params,
@@ -55,20 +65,80 @@ def test_pirls_step_halving_exhaustion_returns_failure_without_accepting_bad_ste
     gam = GAM(k=8)
     gam.fit(X=X, y=y)
 
-    sol = fit_pirls_core(
-        Z=gam.Z,
-        y=y,
+    X = build_full_design(gam.Z, fit_intercept=gam.fit_intercept)
+    S = build_full_penalty_from_blocks(
         penalty_blocks=gam.penalty_blocks_,
         smoothing_params=gam.smoothing_params,
-        family=_FailingStepFamily(),
         fit_intercept=gam.fit_intercept,
+        n_coef=gam.n_coef_,
+    )
+    rank_rows = balanced_penalty_template_sqrt_for_rank(
+        gam.penalty_blocks_,
+        fit_intercept=gam.fit_intercept,
+        n_coef=int(gam.n_coef_),
+    )
+    sol = irls_core(
+        X,
+        y=y,
+        family=_FailingStepFamily(),
+        S=S,
         max_iter=5,
         max_step_halving=0,
         offset=None,
+        fit_intercept=gam.fit_intercept,
+        penalty_rank_rows=rank_rows,
     )
     assert sol["failed_step"] is True
     assert sol["failure_reason"] == "step_halving_exhausted"
     assert sol["converged"] is False
+
+
+def test_binomial_pirls_uses_stacked_qr_when_system_is_ill_conditioned(monkeypatch):
+    x = np.linspace(-2.0, 2.0, 80, dtype=np.float64)
+    y = (x > 0.0).astype(np.float64)
+
+    gam = GAM(k=8, optimize_smoothing=False, smoothing_method="fixed")
+    gam.fit(X=x[:, None], y=np.sin(x))
+
+    called = {"stacked_qr": 0}
+
+    def _wrapped_stacked_qr(*args, **kwargs):
+        called["stacked_qr"] += 1
+        return _stacked_penalized_ls_nonneg_solution(*args, **kwargs)
+
+    irls_core_module = importlib.import_module("nampy.gam.fit.solvers.irls_core")
+    monkeypatch.setattr(
+        irls_core_module, "_stacked_penalized_ls_nonneg_solution", _wrapped_stacked_qr
+    )
+    monkeypatch.setattr(irls_core_module.np.linalg, "cond", lambda _A: 1e13)
+
+    X = build_full_design(gam.Z, fit_intercept=gam.fit_intercept)
+    S = build_full_penalty_from_blocks(
+        penalty_blocks=gam.penalty_blocks_,
+        smoothing_params=gam.smoothing_params,
+        fit_intercept=gam.fit_intercept,
+        n_coef=gam.n_coef_,
+    )
+    rank_rows = balanced_penalty_template_sqrt_for_rank(
+        gam.penalty_blocks_,
+        fit_intercept=gam.fit_intercept,
+        n_coef=int(gam.n_coef_),
+    )
+    sol = irls_core(
+        X,
+        y=y,
+        family=BinomialLogitFamily(),
+        S=S,
+        max_iter=50,
+        offset=None,
+        fit_intercept=gam.fit_intercept,
+        penalty_rank_rows=rank_rows,
+    )
+
+    assert called["stacked_qr"] > 0
+    assert sol["failed_step"] is False
+    assert sol["failure_reason"] is None
+    assert np.all(np.isfinite(sol["coef_full"]))
 
 
 def test_optimizer_rollback_sets_stable_metadata(monkeypatch):

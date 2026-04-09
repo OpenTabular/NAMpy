@@ -3,6 +3,7 @@ from dataclasses import replace
 
 import numpy as np
 
+from ...splines.cubic import CubicSplines
 from ..specs import LinearPredictorSpec, TermSpec, replace_smooth_spec
 from ..specs.smooth import (
     CubicRegressionSmoothSpec,
@@ -122,6 +123,10 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
                 stacklevel=2,
             )
 
+        # Build a temporary spline from pooled data to extract canonical knots and
+        # penalty matrices.  Storing the k×k penalty (not the full n×k basis) keeps
+        # the shared_setup dict O(k²) rather than O(n).
+        pooled_spl = CubicSplines(pooled_x, canonical_k)
         shared_setup = {
             "mode": "pooled_cr_1d",
             "id": id_key,
@@ -129,7 +134,10 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
             "fx": first_fx,
             "n_linked_terms": len(eligible_items),
             "features": [term.features[0] for _, _, term in eligible_items],
-            "pooled_x": pooled_x.tolist(),
+            "pooled_knots": pooled_spl.knots.tolist(),
+            "pooled_raw_penalty": pooled_spl.raw_penalty.tolist(),
+            "pooled_center_mat": pooled_spl.center_mat.tolist(),
+            "pooled_penalty": pooled_spl.penalty.tolist(),
         }
 
         for pi, ti, term in eligible_items:

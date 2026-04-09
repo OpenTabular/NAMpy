@@ -8,7 +8,7 @@ from .residuals import residuals_gam
 
 def _numeric_feature_block(model, tb, row_idx):
     runtime = getattr(tb.smooth, "runtime", None)
-    if runtime is None or getattr(tb, "by_variable", None) is not None:
+    if runtime is None or getattr(runtime, "by", None) is not None:
         return None
 
     if getattr(runtime, "_feature_index", None) is not None:

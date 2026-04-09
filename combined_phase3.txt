@@ -197,7 +197,6 @@ def compile_predictor_designs(
                         n_penalties=len(penalty_defs),
                         term_type=str(smooth.term_type),
                         basis_name=str(smooth.basis_name),
-                        by_variable=smooth.by_variable,
                         term_id=smooth.term_id,
                         smoothing_group_id=smooth.smoothing_id,
                         metadata=term_meta,
@@ -297,7 +296,6 @@ class ConstructedTerm:
     penalty_specs: tuple = field(default_factory=tuple)
     basis_name: str = "unknown"
     term_type: str = "smooth"
-    by_variable: str | None = None
     smoothing_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     fit_constraint_operator: np.ndarray | None = None
@@ -367,8 +365,6 @@ mathematics.
 Responsibilities of this layer
 -------------------------------
 - Extract the fitted basis and penalty definitions from the runtime term.
-- If the runtime delegated by-variable handling: apply the numeric by-vector
-  and build a by-aware predict function.
 - If the runtime delegated explicit constraint absorption: call
   ``absorb_explicit_constraints`` for the fit basis and store the resulting
   fit/predict coefficient maps explicitly on the constructed term.
@@ -392,7 +388,6 @@ import numpy as np
 from ..constraints.absorption import absorb_explicit_constraints
 from ..penalties import normalize_penalty_spec
 from ..runtime.factory import instantiate_term
-from ..smooths.smooth_base import _resolve_feature
 from ..specs import TermSpec
 from .constructed import ConstructedTerm
 
@@ -430,7 +425,6 @@ def construct_terms(
     runtime = instantiate_term(term_like)
     runtime.fit(X, feature_names)
     B, penalty_defs = _extract_runtime_state(runtime)
-    by_done = bool(getattr(runtime, "by_done", True))
     constraints_absorbed = bool(getattr(runtime, "constraints_absorbed", True))
     fit_constraint = getattr(runtime, "fit_constraint_matrix", None)
     predict_coefficient_map = getattr(runtime, "predict_coefficient_map", None)
@@ -438,7 +432,6 @@ def construct_terms(
     _by_state = getattr(runtime, "_by_state", None)
 
     constructor_metadata = {
-        "by_done": by_done,
         "constraints_absorbed_by_runtime": constraints_absorbed,
         "runtime_constraint_kind": getattr(runtime, "constraint_kind", None),
         "runtime_by_name": _by_state.feature_name if _by_state is not None else None,
@@ -447,42 +440,13 @@ def construct_terms(
         ),
     }
 
-    # Build predict_fn as a raw-basis producer only. Any linear map into the
-    # fitted coefficient coordinates is stored explicitly on ConstructedTerm.
-    X0 = None
+    # Prediction basis already lives in runtime-owned by/constraint semantics.
+    # Any remaining linear map into fitted coefficient coordinates is stored
+    # explicitly on ConstructedTerm.
     raw_predict_n_coef = int(B.shape[1])
-    by_variable = getattr(runtime, "by", None)
-    if by_variable is not None and apply_by and not by_done:
-        idx, _by_name = _resolve_feature(by_variable, feature_names)
-        z_train = np.asarray(X[:, idx], dtype=np.float64).ravel()
-        if (
-            hasattr(runtime, "basis_train_base")
-            and runtime.basis_train_base is not None
-        ):
-            X0 = np.asarray(runtime.basis_train_base, dtype=np.float64)
-        else:
-            raise NotImplementedError(
-                "Runtime term requested wrapper-level by handling without basis_train_base."
-            )
-        B = X0 * z_train[:, None]
-        raw_predict_n_coef = int(X0.shape[1])
-        if not (
-            hasattr(runtime, "transform_new_base")
-            and callable(runtime.transform_new_base)
-        ):
-            raise NotImplementedError(
-                "Runtime term requested wrapper-level by handling without transform_new_base()."
-            )
-
-        constructor_metadata["by_handling"] = "wrapper"
-        _wrapper_base_fn = runtime.transform_new_base
-        _by_idx = idx
-    else:
-        constructor_metadata["by_handling"] = (
-            "runtime" if by_variable is not None else "none"
-        )
-        _wrapper_base_fn = None
-        _by_idx = None
+    constructor_metadata["by_handling"] = (
+        "runtime" if getattr(runtime, "by", None) is not None else "none"
+    )
 
     fit_coefficient_map = None
     predict_coefficient_map_arr = (
@@ -528,21 +492,7 @@ def construct_terms(
             "runtime" if predict_coefficient_map_arr is not None else "none"
         )
 
-    # Compose predict_fn from the accumulated raw-basis parts.
-    if _wrapper_base_fn is not None:
-        _base_fn = _wrapper_base_fn
-        _apply_by = _wrapper_base_fn is not None
-        _by_col = _by_idx
-
-        def predict_fn(X_new, *, _base=_base_fn, _do_by=_apply_by, _col=_by_col):
-            B_out = np.asarray(_base(X_new), dtype=np.float64)
-            if _do_by:
-                z_new = np.asarray(np.asarray(X_new)[:, _col], dtype=np.float64).ravel()
-                B_out = B_out * z_new[:, None]
-            return B_out
-
-    else:
-        predict_fn = None
+    predict_fn = None
 
     if null_space_penalty:
         raise NotImplementedError(
@@ -557,7 +507,6 @@ def construct_terms(
         penalty_specs=tuple(penalty_defs),
         basis_name=str(getattr(runtime, "basis_name", "unknown")),
         term_type=str(getattr(runtime, "term_type", "smooth")),
-        by_variable=by_variable,
         smoothing_id=(
             None
             if getattr(runtime, "smoothing_id", None) is None
@@ -585,7 +534,7 @@ def construct_terms(
             if prediction_offset is None
             else np.asarray(prediction_offset, dtype=np.float64)
         ),
-        original_design_matrix=None if X0 is None else np.asarray(X0, dtype=np.float64),
+        original_design_matrix=None,
         constructor_metadata=constructor_metadata,
         _predict_fn=predict_fn,
     )
@@ -927,8 +876,6 @@ class CompiledTerm:
         Term family: ``"smooth"``, ``"parametric"``, ``"random_effect"``, etc.
     basis_name : str
         Basis identifier: ``"cr"``, ``"tp"``, ``"ps"``, etc.
-    by_variable : str or None
-        Name of the numeric by-variable, if any.
     term_id : str
         Stable unique identity assigned at TermSpec creation and carried through
         all pipeline stages.  Used as the canonical key in ``term_index_map`` and
@@ -953,7 +900,6 @@ class CompiledTerm:
     n_penalties: int = 0
     term_type: str = "smooth"
     basis_name: str = "unknown"
-    by_variable: str | None = None
     term_id: str = ""
     smoothing_group_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)

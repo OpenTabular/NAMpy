@@ -1214,6 +1214,59 @@ class TestFamilyApi:
         assert np.allclose(family.d2var(mu), family.variance.d2(mu))
         assert np.allclose(family.d3var(mu), family.variance.d3(mu))
 
+    def test_binomial_and_gamma_link_variants_share_family_statistics(self):
+        binomial_families = [
+            BinomialLogitFamily(),
+            BinomialProbitFamily(),
+            BinomialCloglogFamily(),
+        ]
+        gamma_families = [GammaLogFamily(), GammaInverseFamily()]
+
+        y_bin = np.asarray([0.1, 0.8], dtype=np.float64)
+        mu_bin = np.asarray([0.2, 0.7], dtype=np.float64)
+        w_bin = np.asarray([1.5, 0.5], dtype=np.float64)
+
+        baseline = binomial_families[0]
+        baseline_bin = (
+            baseline.deviance(y_bin, mu_bin, weights=w_bin),
+            baseline.loglik_obs(y_bin, mu_bin),
+            baseline.saturated_loglik(y_bin, weights=w_bin),
+        )
+        for fam in binomial_families[1:]:
+            assert fam.deviance(y_bin, mu_bin, weights=w_bin) == pytest.approx(
+                baseline_bin[0]
+            )
+            assert np.allclose(fam.loglik_obs(y_bin, mu_bin), baseline_bin[1])
+            assert fam.saturated_loglik(y_bin, weights=w_bin) == pytest.approx(
+                baseline_bin[2]
+            )
+
+        y_gamma = np.asarray([0.4, 1.8], dtype=np.float64)
+        mu_gamma = np.asarray([0.5, 1.4], dtype=np.float64)
+        w_gamma = np.asarray([0.75, 1.25], dtype=np.float64)
+        scale = 0.3
+
+        gamma_baseline = gamma_families[0]
+        baseline_gamma = (
+            gamma_baseline.deviance(y_gamma, mu_gamma, weights=w_gamma),
+            gamma_baseline.loglik_obs(y_gamma, mu_gamma, scale=scale),
+            gamma_baseline.saturated_loglik(y_gamma, weights=w_gamma, scale=scale),
+            gamma_baseline.estimate_dispersion(y_gamma, mu_gamma, edf=0.5),
+        )
+        for fam in gamma_families[1:]:
+            assert fam.deviance(y_gamma, mu_gamma, weights=w_gamma) == pytest.approx(
+                baseline_gamma[0]
+            )
+            assert np.allclose(
+                fam.loglik_obs(y_gamma, mu_gamma, scale=scale), baseline_gamma[1]
+            )
+            assert fam.saturated_loglik(
+                y_gamma, weights=w_gamma, scale=scale
+            ) == pytest.approx(baseline_gamma[2])
+            assert fam.estimate_dispersion(y_gamma, mu_gamma, edf=0.5) == pytest.approx(
+                baseline_gamma[3]
+            )
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 10. gam/diagnostics/summary.py

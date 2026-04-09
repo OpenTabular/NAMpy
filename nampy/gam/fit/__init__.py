@@ -20,8 +20,8 @@ Key internal types
 
 Lower-level components (exposed for testing and post-processing)
 ----------------------------------------------------------------
-:func:`fit_penalized_irls`, :func:`fit_penalized_irls_from_model`
-    Low-level penalized IRLS entry points used for mgcv parity testing.
+:func:`irls_core`, :func:`fit_irls_from_model`
+    Shared low-level penalized IRLS entry points used by Gaussian and PIRLS fits.
 :func:`gaussian_smoothness_postprocess`
     Post-fit Gaussian smoothness scores and derivatives.
 :func:`pls_fit1_nonneg_w`, :func:`solve_gaussian_penalized_ls_stacked_qr`
@@ -50,11 +50,7 @@ from .postprocess.gaussian_smoothness_postprocess import (
     merge_gaussian_smoothness_into_fit_result,
 )
 from .solvers.gaussian_exact import solve_gaussian_fit
-from .solvers.penalized_irls import (
-    PenalizedIrlsControl,
-    fit_penalized_irls,
-    fit_penalized_irls_from_model,
-)
+from .solvers.irls_core import PenalizedIrlsControl, fit_irls_from_model, irls_core
 from .solvers.pirls import solve_pirls_fit
 from .state import (
     FitCoreSolution,
@@ -77,8 +73,8 @@ __all__ = [
     "assign_fit_solution",
     "compute_edf_by_term",
     "PenalizedIrlsControl",
-    "fit_penalized_irls",
-    "fit_penalized_irls_from_model",
+    "irls_core",
+    "fit_irls_from_model",
     "gaussian_smoothness_postprocess",
     "merge_gaussian_smoothness_into_fit_result",
     "STACKED_QR_RANK_TOLERANCE",

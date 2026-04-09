@@ -1068,9 +1068,14 @@ class GAM(BaseModel):
 
     def _build_fit_result(self):
         from ..gam.fit.results import GAMFitResult, TermFitResult
+        from ..gam.fit.postprocess.gaussian_smoothness_postprocess import (
+            refresh_gaussian_ml_reml_score_from_fit_state,
+        )
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
+        if str(getattr(self, "_optim_method", "")).lower() in {"reml", "ml"}:
+            refresh_gaussian_ml_reml_score_from_fit_state(self, self.y_)
 
         term_results = []
         for i, tb in enumerate(self.term_blocks_):

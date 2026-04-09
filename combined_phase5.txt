@@ -1,7 +1,27 @@
 Continuation prompt: Phase 5 - Parity, validation, and leftovers.
 This is part 5/5. Continue from earlier phases; do not restate prior context.
 
-Included files in this phase: 32
+Included files in this phase: 33
+
+# --- Start of nampy/gam/_mgcv_constants.py ---
+"""Frozen mgcv numerical constants.
+
+Reference target: mgcv 1.9-1.
+"""
+
+EIG_TOL_POWER = 0.8
+PENALTY_RIDGE_REL = 1e-6
+GAMMA_ABSTOL = 1e-12
+QR_TOL_SCALE = 1.0
+
+__all__ = [
+    "EIG_TOL_POWER",
+    "PENALTY_RIDGE_REL",
+    "GAMMA_ABSTOL",
+    "QR_TOL_SCALE",
+]
+
+# --- End of nampy/gam/_mgcv_constants.py ---
 
 # --- Start of nampy/gam/basis/tensor.py ---
 import numpy as np
@@ -954,7 +974,6 @@ def apply_global_side_conditions(
                     n_penalties=tb.n_penalties,
                     term_type=tb.term_type,
                     basis_name=tb.basis_name,
-                    by_variable=tb.by_variable,
                     term_id=tb.term_id,
                     smoothing_group_id=tb.smoothing_group_id,
                     metadata=dict(tb.metadata),
@@ -1157,7 +1176,6 @@ def apply_global_side_conditions(
                 n_penalties=tb.n_penalties,
                 term_type=tb.term_type,
                 basis_name=tb.basis_name,
-                by_variable=tb.by_variable,
                 term_id=tb.term_id,
                 smoothing_group_id=tb.smoothing_group_id,
                 metadata=tb_meta,
@@ -3514,8 +3532,6 @@ class BaseSmoothTerm(abc.ABC):
     - ``basis_train.shape[1] == S.shape[0] == S.shape[1]`` for every penalty S.
     - If a coefficient transform T was applied during fit, penalties satisfy
       ``S_fitted = T.T @ S_raw @ T``.
-    - By-variable handling is done either by the runtime term OR delegated to
-      the stage-3 construction wrapper via ``by_done = False`` — never both.
     - Constraint absorption is done either by the runtime term OR delegated to
       the stage-3 wrapper via ``constraints_absorbed = False`` — never both.
     """
@@ -3542,7 +3558,6 @@ class BaseSmoothTerm(abc.ABC):
         self.sp = sp
         self.metadata = dict(metadata or {})
         self.resolved_feature_names = None
-        self.by_done = True
         self.constraints_absorbed = True
         self.n_constraints_absorbed = 0
         self.constraint_kind = None
@@ -6236,7 +6251,7 @@ def criterion_ml_reml_pirls_negbin_joint(model, y, log_sp, log_theta, method):
 
     Sets model.family.theta = exp(log_theta) as the EFS initialization, then
     evaluates the PIRLS REML criterion.  EFS (Embedded Fisher Scoring) updates
-    theta after each inner IRLS step inside :func:`fit_pirls_core`, mirroring
+    theta after each inner IRLS step inside :func:`irls_core`, mirroring
     mgcv's ``gam.fit4.r`` extended-family pattern where log(theta) is prepended
     to ``lsp`` and theta is updated per PIRLS step within the inner loop.
     """

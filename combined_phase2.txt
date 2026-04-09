@@ -1,7 +1,7 @@
 Continuation prompt: Phase 2 - GAM fit and smoothness internals.
 This is part 2/5. Continue from earlier phases; do not restate prior context.
 
-Included files in this phase: 17
+Included files in this phase: 15
 
 # --- Start of nampy/gam/fit/backends.py ---
 """
@@ -1076,6 +1076,13 @@ import numpy as np
 from scipy.linalg import lapack as _lapack
 from scipy.linalg import solve_triangular
 
+from .matrix_reindexing import (
+    drop_columns_dense,
+    drop_rows_dense,
+    permute_columns,
+    permute_rows,
+)
+
 # Rank-detection threshold: condition number ratio above which a column is considered
 # linearly dependent.  Match mgcv's stacked-QR tolerance at sqrt(machine eps).
 STACKED_QR_RANK_TOLERANCE = np.sqrt(np.finfo(np.float64).eps)
@@ -1109,6 +1116,22 @@ class _StackedPlsNonnegOutcome:
     n_wx_econ: int
     kept_original_indices: list[int]
     dropped_column_indices: np.ndarray
+
+
+@dataclass(frozen=True)
+class NonnegativePenalizedQRState:
+    rank: int
+    n_drop: int
+    drop: np.ndarray
+    pivot1: np.ndarray
+    kept_original_indices: tuple[int, ...]
+    P: np.ndarray
+    K: np.ndarray
+    Rh: np.ndarray
+    PKtz: np.ndarray
+    ldet_XWX_plus_S: float
+    beta_full: np.ndarray
+    rS_work: np.ndarray
 
 
 def _stacked_penalized_ls_nonneg_solution(
@@ -1264,6 +1287,154 @@ def _stacked_penalized_ls_nonneg_solution(
         n_wx_econ=int(n_wx_econ),
         kept_original_indices=kept_original_indices,
         dropped_column_indices=dropped_column_indices,
+    )
+
+
+def _validate_nonnegative_qr_inputs(X, z, w, penalty_sqrt_E, penalty_rank_Es, rS):
+    if np.any(np.asarray(w, dtype=np.float64) < 0):
+        raise ValueError(
+            "build_penalized_qr_state_nonnegative requires non-negative weights."
+        )
+    X = np.asarray(X, dtype=np.float64, order="C")
+    z = np.asarray(z, dtype=np.float64).ravel()
+    w = np.asarray(w, dtype=np.float64).ravel()
+    n, q = X.shape
+    if z.shape[0] != n or w.shape[0] != n:
+        raise ValueError("z and w must have length n (rows of X).")
+    E = np.asarray(penalty_sqrt_E, dtype=np.float64, order="C")
+    Es = np.asarray(penalty_rank_Es, dtype=np.float64, order="C")
+    rS = np.asarray(rS, dtype=np.float64, order="C")
+    if E.ndim != 2 or Es.ndim != 2:
+        raise ValueError("penalty_sqrt_E and penalty_rank_Es must be 2-D.")
+    enrow = int(E.shape[0])
+    if E.shape[1] != q or Es.shape[1] != q or Es.shape[0] != enrow:
+        raise ValueError("E and Es must have q columns matching X.")
+    if rS.shape[0] != q:
+        raise ValueError("rS must have q rows.")
+    return X, z, w, E, Es, rS
+
+
+def _build_nonnegative_q1_and_k(out, n, rr, rank):
+    qr_aug_f = np.asfortranarray(np.asarray(out.qr_aug, dtype=np.float64).copy())
+    Q_aug = _dorgqr_economic(qr_aug_f, out.tau_aug, rank)
+    Q_top = np.asarray(Q_aug[:rr, :], dtype=np.float64)
+    Q1 = np.zeros((n, rank), dtype=np.float64, order="F")
+    Q1[:rr, :] = Q_top
+    Q1 = _dormqr_apply(b"L", b"N", out.qr_wx, out.tau_wx, Q1)
+    return np.asarray(Q1, dtype=np.float64, order="C"), qr_aug_f
+
+
+def _compute_nonnegative_pk_rhs(Rh, R_nr_rank, K, X, z, w, drop, pivot1):
+    P = solve_triangular(Rh, np.eye(Rh.shape[0], dtype=np.float64), lower=False)
+    raw = np.sqrt(np.maximum(w, 0.0))
+    zz = z * raw
+    ktz = K.T @ zz
+    q1tz = K.T @ zz
+    wz = w * z
+    X_drop = drop_columns_dense(X, drop)
+    X_piv = permute_columns(X_drop, pivot1, reverse=False)
+    xwz = X_piv.T @ wz
+
+    norm1 = 0.0
+    norm2 = 0.0
+    rank = Rh.shape[0]
+    for i in range(rank):
+        s = 0.0
+        for j in range(i + 1):
+            s += R_nr_rank[j, i] * q1tz[j]
+        diff = s - xwz[i]
+        norm1 += diff * diff
+        norm2 += xwz[i] * xwz[i]
+    return P, ktz, xwz, norm1, norm2
+
+
+def _scatter_nonnegative_coefficients(PKtz, kept, pivot1, q):
+    coef_nat = np.zeros(PKtz.shape[0], dtype=np.float64)
+    coef_nat[pivot1] = PKtz
+    beta_full = np.zeros(q, dtype=np.float64)
+    for j, orig_col in enumerate(kept):
+        beta_full[orig_col] = coef_nat[j]
+    return beta_full
+
+
+def build_penalized_qr_state_nonnegative(
+    X: np.ndarray,
+    z: np.ndarray,
+    w: np.ndarray,
+    *,
+    penalty_sqrt_E: np.ndarray,
+    penalty_rank_Es: np.ndarray,
+    rS: np.ndarray,
+    rank_tol: float,
+    reml: bool,
+    Mp: int = 0,
+) -> NonnegativePenalizedQRState:
+    X, z, w, E, Es, rS = _validate_nonnegative_qr_inputs(
+        X, z, w, penalty_sqrt_E, penalty_rank_Es, rS
+    )
+    q = X.shape[1]
+
+    out = _stacked_penalized_ls_nonneg_solution(
+        X,
+        z,
+        w,
+        penalty_sqrt=E,
+        penalty_rank_rows=Es,
+        P_dense=None,
+        rank_tol=rank_tol,
+        coef_method="householder",
+        near_singular_null_pin=False,
+    )
+
+    rank = int(out.system_rank)
+    rr = int(out.n_wx_econ)
+    drop = np.asarray(out.dropped_column_indices, dtype=int)
+    n_drop = int(drop.size)
+    pivot1 = np.asarray(out.pivot_aug, dtype=int).ravel()
+    if pivot1.size != rank:
+        raise RuntimeError("internal: pivot_aug length must equal system rank.")
+
+    kept = tuple(int(k) for k in out.kept_original_indices)
+    n_pen = int(E.shape[0])
+    nr = rr + n_pen
+
+    K, qr_aug_f = _build_nonnegative_q1_and_k(out, X.shape[0], rr, rank)
+    R_nr_rank = np.triu(np.asarray(qr_aug_f[:nr, :rank], dtype=np.float64))
+    Rh = np.triu(np.asarray(out.upper_r_final, dtype=np.float64))
+
+    P, ktz, xwz, norm1, norm2 = _compute_nonnegative_pk_rhs(
+        Rh, R_nr_rank, K, X, z, w, drop, pivot1
+    )
+    if norm1 > rank_tol * norm2:
+        tmp = solve_triangular(Rh, xwz, lower=False, trans="T")
+        PKtz = solve_triangular(Rh, tmp, lower=False)
+    else:
+        PKtz = solve_triangular(Rh, ktz, lower=False)
+
+    if reml:
+        d = np.abs(np.diag(Rh))
+        ldet = float(2.0 * np.sum(np.log(np.maximum(d, np.finfo(np.float64).tiny))))
+    else:
+        ldet = 0.0
+
+    beta_full = _scatter_nonnegative_coefficients(PKtz, kept, pivot1, q)
+    rS_drop = drop_rows_dense(rS, drop) if n_drop else rS.copy()
+    rS_work = permute_rows(rS_drop, pivot1, reverse=False)
+
+    _ = Mp
+    return NonnegativePenalizedQRState(
+        rank=rank,
+        n_drop=n_drop,
+        drop=drop.copy(),
+        pivot1=pivot1.copy(),
+        kept_original_indices=kept,
+        P=P,
+        K=K,
+        Rh=Rh,
+        PKtz=np.asarray(PKtz, dtype=np.float64).ravel().copy(),
+        ldet_XWX_plus_S=ldet,
+        beta_full=beta_full,
+        rS_work=rS_work,
     )
 
 
@@ -1921,36 +2092,42 @@ def solve_gaussian_penalized_ls_stacked_qr(
     XtWX = X.T @ (w[:, None] * X)
     A = XtWX + P
 
-    log_det_XtWX_plus_penalty = 2.0 * float(
-        np.sum(np.log(np.abs(np.diag(upper_r_final))))
+    from ..penalized_system import stabilized_cholesky_solve
+
+    _, cA, _, _ = stabilized_cholesky_solve(A, np.zeros(n_coef_total, dtype=np.float64))
+    chol_inv_embedded = solve_triangular(
+        cA,
+        np.eye(n_coef_total, dtype=np.float64),
+        lower=False,
+    )
+    log_det_XtWX_plus_penalty = 2.0 * float(np.sum(np.log(np.abs(np.diag(cA)))))
+
+    ridge_eps = _ridge_eps_for_upper_r(upper_r_final)
+    inv_upper_r = solve_triangular(
+        upper_r_final + ridge_eps * np.eye(system_rank),
+        np.eye(system_rank),
+        lower=False,
     )
 
     sqrt_w_X = sqrt_w[:, None] * X
     if str(coef_method).lower().strip() == "lstsq":
-        chol_inv_embedded = np.linalg.pinv(A, hermitian=True, rcond=1e-12)
         householder_mixing = np.zeros((n_obs, n_coef_total), dtype=np.float64)
-        coef_hat_matrix = chol_inv_embedded @ XtWX
+        coef_hat_matrix = (chol_inv_embedded @ chol_inv_embedded.T) @ XtWX
     else:
-        ridge_eps = _ridge_eps_for_upper_r(upper_r_final)
-        inv_upper_r = solve_triangular(
-            upper_r_final + ridge_eps * np.eye(system_rank),
-            np.eye(system_rank),
-            lower=False,
-        )
         Q_weighted_x = _dorgqr_economic(qr_wx.copy(), tau_wx, n_wx_econ)
         Q_augmented = _dorgqr_economic(qr_aug.copy(), tau_aug, system_rank)
         K_partial = Q_weighted_x @ Q_augmented[:n_wx_econ, :]
 
-        chol_inv_embedded = np.zeros((n_coef_total, n_coef_total), dtype=np.float64)
+        upper_r_inv_embedded = np.zeros((n_coef_total, n_coef_total), dtype=np.float64)
         householder_mixing = np.zeros((n_obs, n_coef_total), dtype=np.float64)
         for i in range(system_rank):
             ki = kept_original_indices[int(pivot_aug[i])]
             householder_mixing[:, ki] = K_partial[:, i]
             for j in range(system_rank):
                 kj = kept_original_indices[int(pivot_aug[j])]
-                chol_inv_embedded[ki, kj] = inv_upper_r[i, j]
+                upper_r_inv_embedded[ki, kj] = inv_upper_r[i, j]
 
-        coef_hat_matrix = (chol_inv_embedded @ householder_mixing.T) @ sqrt_w_X
+        coef_hat_matrix = (upper_r_inv_embedded @ householder_mixing.T) @ sqrt_w_X
 
     return {
         "coef_full": coef_full,
@@ -1990,192 +2167,6 @@ def gaussian_design_needs_stacked_qr_fit(model) -> bool:
 
 # --- End of nampy/gam/fit/linalg/stacked_qr.py ---
 
-# --- Start of nampy/gam/fit/penalized_qr/nonnegative.py ---
-"""
-Nonnegative-weight penalized QR state construction.
-"""
-
-from __future__ import annotations
-
-from dataclasses import dataclass
-
-import numpy as np
-from scipy.linalg import solve_triangular
-
-from ..linalg.matrix_reindexing import (
-    drop_columns_dense,
-    drop_rows_dense,
-    permute_columns,
-    permute_rows,
-)
-from ..linalg.stacked_qr import (
-    _dorgqr_economic,
-    _dormqr_apply,
-    _stacked_penalized_ls_nonneg_solution,
-)
-
-
-@dataclass(frozen=True)
-class NonnegativePenalizedQRState:
-    rank: int
-    n_drop: int
-    drop: np.ndarray
-    pivot1: np.ndarray
-    kept_original_indices: tuple[int, ...]
-    P: np.ndarray
-    K: np.ndarray
-    Rh: np.ndarray
-    PKtz: np.ndarray
-    ldet_XWX_plus_S: float
-    beta_full: np.ndarray
-    rS_work: np.ndarray
-
-
-def _validate_inputs(X, z, w, penalty_sqrt_E, penalty_rank_Es, rS):
-    if np.any(np.asarray(w, dtype=np.float64) < 0):
-        raise ValueError(
-            "build_penalized_qr_state_nonnegative requires non-negative weights."
-        )
-    X = np.asarray(X, dtype=np.float64, order="C")
-    z = np.asarray(z, dtype=np.float64).ravel()
-    w = np.asarray(w, dtype=np.float64).ravel()
-    n, q = X.shape
-    if z.shape[0] != n or w.shape[0] != n:
-        raise ValueError("z and w must have length n (rows of X).")
-    E = np.asarray(penalty_sqrt_E, dtype=np.float64, order="C")
-    Es = np.asarray(penalty_rank_Es, dtype=np.float64, order="C")
-    rS = np.asarray(rS, dtype=np.float64, order="C")
-    if E.ndim != 2 or Es.ndim != 2:
-        raise ValueError("penalty_sqrt_E and penalty_rank_Es must be 2-D.")
-    enrow = int(E.shape[0])
-    if E.shape[1] != q or Es.shape[1] != q or Es.shape[0] != enrow:
-        raise ValueError("E and Es must have q columns matching X.")
-    if rS.shape[0] != q:
-        raise ValueError("rS must have q rows.")
-    return X, z, w, E, Es, rS
-
-
-def _build_q1_and_k(out, n, rr, rank):
-    qr_aug_f = np.asfortranarray(np.asarray(out.qr_aug, dtype=np.float64).copy())
-    Q_aug = _dorgqr_economic(qr_aug_f, out.tau_aug, rank)
-    Q_top = np.asarray(Q_aug[:rr, :], dtype=np.float64)
-    Q1 = np.zeros((n, rank), dtype=np.float64, order="F")
-    Q1[:rr, :] = Q_top
-    Q1 = _dormqr_apply(b"L", b"N", out.qr_wx, out.tau_wx, Q1)
-    return np.asarray(Q1, dtype=np.float64, order="C"), qr_aug_f
-
-
-def _compute_pk_rhs(Rh, R_nr_rank, K, X, z, w, drop, pivot1):
-    P = solve_triangular(Rh, np.eye(Rh.shape[0], dtype=np.float64), lower=False)
-    raw = np.sqrt(np.maximum(w, 0.0))
-    zz = z * raw
-    ktz = K.T @ zz
-    q1tz = K.T @ zz
-    wz = w * z
-    X_drop = drop_columns_dense(X, drop)
-    X_piv = permute_columns(X_drop, pivot1, reverse=False)
-    xwz = X_piv.T @ wz
-
-    norm1 = 0.0
-    norm2 = 0.0
-    rank = Rh.shape[0]
-    for i in range(rank):
-        s = 0.0
-        for j in range(i + 1):
-            s += R_nr_rank[j, i] * q1tz[j]
-        diff = s - xwz[i]
-        norm1 += diff * diff
-        norm2 += xwz[i] * xwz[i]
-    return P, ktz, xwz, norm1, norm2
-
-
-def _scatter_coefficients(PKtz, kept, pivot1, q):
-    coef_nat = np.zeros(PKtz.shape[0], dtype=np.float64)
-    coef_nat[pivot1] = PKtz
-    beta_full = np.zeros(q, dtype=np.float64)
-    for j, orig_col in enumerate(kept):
-        beta_full[orig_col] = coef_nat[j]
-    return beta_full
-
-
-def build_penalized_qr_state_nonnegative(
-    X: np.ndarray,
-    z: np.ndarray,
-    w: np.ndarray,
-    *,
-    penalty_sqrt_E: np.ndarray,
-    penalty_rank_Es: np.ndarray,
-    rS: np.ndarray,
-    rank_tol: float,
-    reml: bool,
-    Mp: int = 0,
-) -> NonnegativePenalizedQRState:
-    X, z, w, E, Es, rS = _validate_inputs(X, z, w, penalty_sqrt_E, penalty_rank_Es, rS)
-    n, q = X.shape
-
-    out = _stacked_penalized_ls_nonneg_solution(
-        X,
-        z,
-        w,
-        penalty_sqrt=E,
-        penalty_rank_rows=Es,
-        P_dense=None,
-        rank_tol=rank_tol,
-        coef_method="householder",
-        near_singular_null_pin=False,
-    )
-
-    rank = int(out.system_rank)
-    rr = int(out.n_wx_econ)
-    drop = np.asarray(out.dropped_column_indices, dtype=int)
-    n_drop = int(drop.size)
-    pivot1 = np.asarray(out.pivot_aug, dtype=int).ravel()
-    if pivot1.size != rank:
-        raise RuntimeError("internal: pivot_aug length must equal system rank.")
-
-    kept = tuple(int(k) for k in out.kept_original_indices)
-    n_pen = int(E.shape[0])
-    nr = rr + n_pen
-
-    K, qr_aug_f = _build_q1_and_k(out, n, rr, rank)
-    R_nr_rank = np.triu(np.asarray(qr_aug_f[:nr, :rank], dtype=np.float64))
-    Rh = np.triu(np.asarray(out.upper_r_final, dtype=np.float64))
-
-    P, ktz, xwz, norm1, norm2 = _compute_pk_rhs(Rh, R_nr_rank, K, X, z, w, drop, pivot1)
-    if norm1 > rank_tol * norm2:
-        tmp = solve_triangular(Rh, xwz, lower=False, trans="T")
-        PKtz = solve_triangular(Rh, tmp, lower=False)
-    else:
-        PKtz = solve_triangular(Rh, ktz, lower=False)
-
-    if reml:
-        d = np.abs(np.diag(Rh))
-        ldet = float(2.0 * np.sum(np.log(np.maximum(d, np.finfo(np.float64).tiny))))
-    else:
-        ldet = 0.0
-
-    beta_full = _scatter_coefficients(PKtz, kept, pivot1, q)
-    rS_drop = drop_rows_dense(rS, drop) if n_drop else rS.copy()
-    rS_work = permute_rows(rS_drop, pivot1, reverse=False)
-
-    _ = Mp
-    return NonnegativePenalizedQRState(
-        rank=rank,
-        n_drop=n_drop,
-        drop=drop.copy(),
-        pivot1=pivot1.copy(),
-        kept_original_indices=kept,
-        P=P,
-        K=K,
-        Rh=Rh,
-        PKtz=np.asarray(PKtz, dtype=np.float64).ravel().copy(),
-        ldet_XWX_plus_S=ldet,
-        beta_full=beta_full,
-        rS_work=rS_work,
-    )
-
-# --- End of nampy/gam/fit/penalized_qr/nonnegative.py ---
-
 # --- Start of nampy/gam/fit/postprocess/gaussian_smoothness_postprocess.py ---
 """
 Post-fit smoothness scores and derivatives for Gaussian GAMs.
@@ -2195,17 +2186,11 @@ here.  Non-Gaussian families require the full penalized IRLS derivative chain.
 
 Derivative computation
 ----------------------
-First derivatives (``deriv >= 1``): gradient of each score w.r.t. all
-log-smoothing parameters.
-
-Second derivatives (``deriv >= 2``): Hessian for GCV/GACV and UBRE.  The REML
-Hessian requires an additional unknown-scale derivative block not yet
-implemented; ``reml_hess_log_sp`` is left as ``None``.
+Gradients / Hessians are delegated to ``nampy.gam.smoothing_selection.criteria``.
 
 Not yet implemented
 -------------------
 - P-REML / Pearson-Laplace and NCV score paths.
-- Unknown-scale ``sigma^2`` derivative in the REML Hessian.
 - Non-Gaussian families (those use the full P-IRLS derivative chain).
 """
 
@@ -2216,29 +2201,23 @@ from typing import Any
 import numpy as np
 from scipy.linalg import cho_factor
 
+from nampy.gam.smoothing_selection.criteria.dispatch import (
+    criterion_gradient,
+    criterion_hessian,
+)
+from nampy.gam.smoothing_selection.criteria.gaussian import criterion_gcv_gaussian
 from nampy.gam.smoothing_selection.criteria.gaussian_dyn import (
     criterion_ml_reml_gaussian_dynamic_profiled,
 )
 from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
     deviance_method_scale_estimate,
-    gaussian_reml_laplace_score,
     gaussian_weighted_residual_sum_squares,
     prior_weights_diagonal_from_fit,
     quadratic_form_penalty,
 )
-from nampy.gam.smoothing_selection.criteria.laplace import _penalty_derivative_matrices
-from nampy.gam.smoothing_selection.criteria.penalty import (
-    _stable_penalty_logdet,
-    _stable_penalty_logdet_derivatives,
-    _static_penalty_null_dim,
-)
-from nampy.gam.smoothing_selection.criteria.pirls_reml_derivative_blocks import (
-    _deviance_chained_to_smoothing,
-    _deviance_coefficient_derivatives,
-    _hat_matrix_trace_and_sp_derivatives,
-    _logdet_penalized_system_derivatives,
-    _penalty_quadratic_and_sp_derivatives,
-)
+from nampy.gam.smoothing_selection.criteria.ml_reml import criterion_ml_reml
+from nampy.gam.smoothing_selection.criteria.penalty import _stable_penalty_logdet
+from nampy.gam.smoothing_selection.criteria.pirls import criterion_ubre_pirls
 
 
 def _score_type_bucket(score_type: str) -> str:
@@ -2297,10 +2276,8 @@ def gaussian_smoothness_postprocess(
     dict
         ``tr_a``, ``pearson_chi2``, ``scale_est``, ``deviance``, ``penalty_quadratic``,
         ``log_det_xtwx_plus_penalty``, ``log_det_penalty_stable``, ``reml_score``,
-        ``gcv_score``, ``ubre_score`` (``None`` if not applicable), optional
-        ``*_grad_log_sp``, ``*_hess_log_sp``, and intermediate derivative tensors
-        ``D1``, ``D2``, ``logdet_a1``, ``logdet_a2``, ``logdet_s1``, ``logdet_s2``,
-        ``tr_a1``, ``tr_a2`` (GCV branch) or REML combinations (layout aligned with mgcv).
+        ``gcv_score``, ``ubre_score`` (``None`` if not applicable), plus optional
+        criterion gradients / Hessians with respect to ``log(sp)``.
     """
     if deriv not in (0, 1, 2):
         raise ValueError("deriv must be 0, 1, or 2.")
@@ -2317,7 +2294,6 @@ def gaussian_smoothness_postprocess(
 
     X = np.asarray(sol["X"], dtype=np.float64)
     beta = np.asarray(sol["coef_full"], dtype=np.float64).ravel()
-    eta = np.asarray(sol["eta"], dtype=np.float64).ravel()
     mu = np.asarray(sol["mu"], dtype=np.float64).ravel()
     A = np.asarray(sol["A"], dtype=np.float64)
     A_inv = np.asarray(sol["A_inv"], dtype=np.float64)
@@ -2358,60 +2334,45 @@ def gaussian_smoothness_postprocess(
         )
 
     log_det_penalty_stable = float(_stable_penalty_logdet(model, sp))
-    ldiff = log_det_xtwx_plus_penalty - log_det_penalty_stable
-
-    Mp = float(
-        _static_penalty_null_dim(model)
-        + int(bool(getattr(model, "fit_intercept", False)))
-    )
-
     gamma_eff = float(model.score_gamma if gamma is None else gamma)
     if not np.isfinite(gamma_eff) or gamma_eff <= 0.0:
         raise ValueError("gamma must be finite and positive.")
 
     bucket = _score_type_bucket(score_type)
+    log_sp = np.log(np.maximum(sp, np.finfo(np.float64).tiny))
     reml_score = gcv_score = ubre_score = None
     reml_score_profiled_scale = None
     reml_like = bucket in {"REML", "ML"}
     if reml_like:
-        if not np.isfinite(scale_est) or scale_est <= 0.0:
-            reml_score = float("nan")
-        else:
-            reml_score = gaussian_reml_laplace_score(
-                dev,
-                pen,
-                scale_est,
-                ldiff,
-                Mp,
-                w,
-                gamma=gamma_eff,
-                reml=(bucket == "REML"),
+        reml_score = float(criterion_ml_reml(model, y, log_sp, bucket))
+        reml_score_profiled_scale = float(
+            criterion_ml_reml_gaussian_dynamic_profiled(
+                model,
+                y,
+                log_sp,
+                method=bucket,
             )
-        if np.isfinite(scale_est) and scale_est > 0.0:
-            log_sp = np.log(np.maximum(sp, np.finfo(np.float64).tiny))
-            reml_score_profiled_scale = float(
-                criterion_ml_reml_gaussian_dynamic_profiled(
-                    model,
-                    y,
-                    log_sp,
-                    method=bucket,
-                )
-            )
+        )
 
     if bucket in {"GCV", "GACV"}:
-        delta = nobs - gamma_eff * tr_a
-        if np.isfinite(delta) and abs(delta) > 1e-300:
-            gcv_score = float(nobs * dev / (delta**2))
-        else:
-            gcv_score = float("inf")
+        gcv_score = float(criterion_gcv_gaussian(model, y, log_sp))
 
     if bucket == "UBRE":
-        delta = nobs - gamma_eff * tr_a
-        sc = float(known_scale) if known_scale is not None else scale_est
-        if np.isfinite(delta) and np.isfinite(sc):
-            ubre_score = float(dev / nobs - 2.0 * delta * sc / nobs + sc)
+        if known_scale is not None:
+            old_known_scale = getattr(model.family, "known_scale", None)
+            model.family.known_scale = float(known_scale)
+            try:
+                ubre_score = float(criterion_ubre_pirls(model, y, log_sp))
+            finally:
+                model.family.known_scale = old_known_scale
         else:
-            ubre_score = float("nan")
+            delta = nobs - gamma_eff * tr_a
+            if np.isfinite(delta) and np.isfinite(scale_est):
+                ubre_score = float(
+                    dev / nobs - 2.0 * delta * scale_est / nobs + scale_est
+                )
+            else:
+                ubre_score = float("nan")
 
     out: dict[str, Any] = {
         "tr_a": tr_a,
@@ -2432,168 +2393,50 @@ def gaussian_smoothness_postprocess(
     if deriv == 0:
         return out
 
-    n_sp = int(model.n_smoothing_params_ or 0)
-    P_derivs = _penalty_derivative_matrices(model, sp)
-    dev_grad, dev_hess = _deviance_coefficient_derivatives(model, yv, eta, mu, w, X)
-
-    dbeta: list[np.ndarray] = []
-    dA: list[np.ndarray] = []
-    dXtWX: list[np.ndarray] = []
-    d2beta_mat: list[list[np.ndarray | None]] = [[None] * n_sp for _ in range(n_sp)]
-    d2A_mat: list[list[np.ndarray | None]] = [[None] * n_sp for _ in range(n_sp)]
-    d2XtWX_mat: list[list[np.ndarray | None]] = [[None] * n_sp for _ in range(n_sp)]
-
-    for j in range(n_sp):
-        Pj = P_derivs[j]
-        if not np.any(Pj):
-            z = np.zeros_like(beta, dtype=np.float64)
-            dbeta.append(z)
-            dA.append(np.zeros_like(A, dtype=np.float64))
-            dXtWX.append(np.zeros_like(XtWX, dtype=np.float64))
-            continue
-        dbj = -(A_inv @ (Pj @ beta))
-        dbeta.append(dbj)
-        dA.append(np.asarray(Pj, dtype=np.float64))
-        dXtWX.append(np.zeros_like(XtWX, dtype=np.float64))
-
-    if deriv >= 2:
-        for j in range(n_sp):
-            Pj = P_derivs[j]
-            for k in range(j, n_sp):
-                Pk = P_derivs[k]
-                delta_jk = 1.0 if j == k else 0.0
-                d2beta_jk = -(
-                    A_inv @ (Pk @ dbeta[j] + Pj @ dbeta[k] + delta_jk * (Pj @ beta))
-                )
-                d2beta_mat[j][k] = d2beta_jk
-                d2beta_mat[k][j] = d2beta_jk
-                d2XtWX_jk = np.zeros_like(XtWX, dtype=np.float64)
-                d2XtWX_mat[j][k] = d2XtWX_jk
-                d2XtWX_mat[k][j] = d2XtWX_jk
-                if j == k and np.any(Pj):
-                    d2A_jk = d2XtWX_jk + np.asarray(Pj, dtype=np.float64)
-                else:
-                    d2A_jk = d2XtWX_jk
-                d2A_mat[j][k] = d2A_jk
-                d2A_mat[k][j] = d2A_jk
-    elif deriv == 1:
-        zb = np.zeros_like(beta, dtype=np.float64)
-        zA = np.zeros_like(A, dtype=np.float64)
-        for j in range(n_sp):
-            for k in range(j, n_sp):
-                d2beta_mat[j][k] = zb
-                d2beta_mat[k][j] = zb
-                zxt = np.zeros_like(XtWX, dtype=np.float64)
-                d2XtWX_mat[j][k] = zxt
-                d2XtWX_mat[k][j] = zxt
-                d2A_mat[j][k] = zA
-                d2A_mat[k][j] = zA
-
-    D1_dev, D2_dev = _deviance_chained_to_smoothing(
-        dev_grad, dev_hess, dbeta, d2beta_mat
-    )
-    bSb, bSb1, bSb2 = _penalty_quadratic_and_sp_derivatives(
-        beta=beta,
-        P_total=P_tot,
-        P_derivs=P_derivs,
-        dbeta_cols=dbeta,
-        d2beta_mat=d2beta_mat,
-    )
-    # Penalized deviance D_p = dev + b'Sb — used in the REML score combination.
-    D1_pen = D1_dev + bSb1
-    D2_pen = D2_dev + bSb2 if deriv >= 2 else None
-
-    logdet_a1, logdet_a2 = _logdet_penalized_system_derivatives(A_inv, dA, d2A_mat)
-    tr_hat, tr_a1, tr_a2 = _hat_matrix_trace_and_sp_derivatives(
-        A_inv,
-        XtWX,
-        dA,
-        d2A_mat,
-        dXtWX,
-        d2XtWX_mat,
-    )
-
-    _ldS0, logdet_s1, logdet_s2 = _stable_penalty_logdet_derivatives(
-        model, sp, order=2 if deriv >= 2 else 1
-    )
-
-    out.update(
-        {
-            "D1_deviance": D1_dev.copy(),
-            "D1_penalized_deviance": D1_pen.copy(),
-            "D1": D1_pen.copy(),
-            "penalized_deviance_grad": D1_pen.copy(),
-            "bSb": bSb,
-            "logdet_a1": logdet_a1.copy(),
-            "logdet_s1": logdet_s1.copy(),
-            "tr_a_hat": float(tr_hat),
-            "tr_a1_gcv": tr_a1.copy(),
-        }
-    )
-    if deriv >= 2 and D2_pen is not None:
-        out["D2_deviance"] = D2_dev.copy()
-        out["D2_penalized_deviance"] = D2_pen.copy()
-        out["D2"] = D2_pen.copy()
-        out["logdet_a2"] = logdet_a2.copy()
-        out["logdet_s2"] = logdet_s2.copy()
-        out["tr_a2_gcv"] = tr_a2.copy()
-
-    scale = scale_est
-    if not np.isfinite(scale) or scale <= 0.0:
-        out["reml_grad_log_sp"] = None
-        out["reml_hess_log_sp"] = None
-        out["gcv_grad_log_sp"] = None
-        out["gcv_hess_log_sp"] = None
-        return out
-
     if deriv >= 1:
         if reml_like:
-            reml1 = (
-                D1_pen / (2.0 * scale * gamma_eff) + 0.5 * logdet_a1 - 0.5 * logdet_s1
+            out["reml_grad_log_sp"] = np.asarray(
+                criterion_gradient(model, y, log_sp, method=bucket.lower()),
+                dtype=np.float64,
             )
-            out["reml_grad_log_sp"] = reml1.copy()
         if bucket in {"GCV", "GACV"}:
-            delta = nobs - gamma_eff * tr_a
-            delta2 = delta * delta
-            delta3 = delta * delta2
-            gcv1 = (
-                nobs * D1_dev / delta2 + 2.0 * nobs * dev * tr_a1 * gamma_eff / delta3
+            out["gcv_grad_log_sp"] = np.asarray(
+                criterion_gradient(model, y, log_sp, method="gcv"),
+                dtype=np.float64,
             )
-            out["gcv_grad_log_sp"] = gcv1.copy()
         if bucket == "UBRE":
-            sc = float(known_scale) if known_scale is not None else scale
-            delta = nobs - gamma_eff * tr_a
-            ubre1 = D1_dev / nobs + gamma_eff * tr_a1 * 2.0 * sc / nobs
-            out["ubre_grad_log_sp"] = ubre1.copy()
+            if known_scale is not None:
+                old_known_scale = getattr(model.family, "known_scale", None)
+                model.family.known_scale = float(known_scale)
+                try:
+                    out["ubre_grad_log_sp"] = np.asarray(
+                        criterion_gradient(model, y, log_sp, method="ubre"),
+                        dtype=np.float64,
+                    )
+                finally:
+                    model.family.known_scale = old_known_scale
 
     if deriv >= 2:
-        # The REML Hessian requires an additional unknown-scale branch for estimated
-        # sigma^2 that is not yet implemented; reml_hess_log_sp is left as None.
-        # GCV/GACV second derivatives use only the deviance second derivative D2.
         if reml_like:
-            out["reml_hess_log_sp"] = None
-        if bucket in {"GCV", "GACV"} and D2_pen is not None:
-            delta = nobs - gamma_eff * tr_a
-            delta2 = delta * delta
-            delta3 = delta * delta2
-            outer_td = np.outer(tr_a1, D1_dev)
-            gcv2 = (
-                (outer_td + outer_td.T) * gamma_eff * 2.0 * nobs / delta3
-                + 6.0
-                * nobs
-                * dev
-                * np.outer(tr_a1, tr_a1)
-                * gamma_eff**2
-                / (delta2 * delta2)
-                + nobs * D2_dev / delta2
-                + 2.0 * nobs * dev * gamma_eff * tr_a2 / delta3
+            out["reml_hess_log_sp"] = np.asarray(
+                criterion_hessian(model, y, log_sp, method=bucket.lower()),
+                dtype=np.float64,
             )
-            out["gcv_hess_log_sp"] = gcv2.copy()
-        if bucket == "UBRE" and D2_pen is not None:
-            sc = float(known_scale) if known_scale is not None else scale
-            out["ubre_hess_log_sp"] = (
-                D2_dev / nobs + 2.0 * gamma_eff * tr_a2 * sc / nobs
+        if bucket in {"GCV", "GACV"}:
+            out["gcv_hess_log_sp"] = np.asarray(
+                criterion_hessian(model, y, log_sp, method="gcv"),
+                dtype=np.float64,
             )
+        if bucket == "UBRE" and known_scale is not None:
+            old_known_scale = getattr(model.family, "known_scale", None)
+            model.family.known_scale = float(known_scale)
+            try:
+                out["ubre_hess_log_sp"] = np.asarray(
+                    criterion_hessian(model, y, log_sp, method="ubre"),
+                    dtype=np.float64,
+                )
+            finally:
+                model.family.known_scale = old_known_scale
 
     return out
 
@@ -2651,24 +2494,20 @@ def merge_gaussian_smoothness_into_fit_result(
 
 # --- Start of nampy/gam/fit/solvers/gaussian_exact.py ---
 import numpy as np
-from numpy.linalg import LinAlgError
-from scipy.linalg import cho_solve
 
-from ..covariance import build_bayes_and_freq_covariances
 from ..linalg.stacked_qr import (
+    balanced_penalty_template_sqrt_for_rank,
     gaussian_design_needs_stacked_qr_fit,
-    solve_gaussian_penalized_ls_stacked_qr,
 )
 from ..penalized_system import (
     build_full_design,
     build_full_penalty_from_blocks,
-    stabilized_cholesky_solve,
 )
 from ..state import FitCoreSolution
+from .irls_core import irls_core
 
 
 def _prior_weights_vector(weights, n: int) -> np.ndarray:
-    """Prior observation weights diagonal for Gaussian WLS / deviance / REML."""
     if weights is None:
         return np.ones(int(n), dtype=np.float64)
     w = np.asarray(weights, dtype=np.float64).ravel()
@@ -2682,230 +2521,73 @@ def _prior_weights_vector(weights, n: int) -> np.ndarray:
 
 
 def solve_gaussian_fit(model, y, smoothing_params, weights=None):
-    """
-    Exact Gaussian penalized (weighted) least-squares solve on the full design.
-
-    Minimises ``(y_work - X beta)' W (y_work - X beta) + beta' S beta`` with
-    ``W = diag(prior_weights)``, defaulting to identity.
-    At convergence this matches IRLS working weights for the Gaussian identity
-    family.
-
-    Offset handling
-    ---------------
-    The model is:
-        eta = offset + X beta
-        y   = eta + eps
-    so the penalized least-squares solve is applied to y - offset.
-    """
     y = model.family.validate_y(y)
     n = int(y.shape[0])
     w = _prior_weights_vector(weights, n)
     X = build_full_design(model.Z, fit_intercept=model.fit_intercept)
-
-    P_full = build_full_penalty_from_blocks(
+    S = build_full_penalty_from_blocks(
         penalty_blocks=model.penalty_blocks_,
         smoothing_params=smoothing_params,
         fit_intercept=model.fit_intercept,
         n_coef=model.n_coef_,
     )
-
-    y_work = y if model.offset_train_ is None else (y - model.offset_train_)
-
-    XtWX = X.T @ (w[:, np.newaxis] * X)
-    Xtwy = X.T @ (w * y_work)
-    A = XtWX + P_full
-
-    def _solve_with_stacked_qr():
-        term_types = {
-            str(getattr(tb, "term_type", "")).lower()
-            for tb in (getattr(model, "term_blocks_", None) or [])
-        }
-        coef_method = (
-            "lstsq"
-            if any(tt.startswith("factor_smooth_") for tt in term_types)
-            else "householder"
-        )
-        pls = solve_gaussian_penalized_ls_stacked_qr(
-            X,
-            y_work,
-            w,
-            P_full,
-            penalty_blocks=model.penalty_blocks_,
-            fit_intercept=model.fit_intercept,
-            n_coef=model.n_coef_,
-            coef_method=coef_method,
-        )
-        beta_full = np.asarray(pls["coef_full"], dtype=np.float64).ravel()
-        eta = (
-            X @ beta_full
-            if model.offset_train_ is None
-            else model.offset_train_ + X @ beta_full
-        )
-        resid = y - eta
-        wrss = float(np.sum(w * resid * resid))
-        penalty_quadratic = float(pls["penalty_quadratic"])
-        A_inv = np.linalg.pinv(A, hermitian=True, rcond=1e-12)
-        if coef_method == "householder":
-            H_coef = np.asarray(pls["coef_hat_matrix"], dtype=np.float64)
-        else:
-            H_coef = A_inv @ XtWX
-        trace_H = float(np.trace(H_coef))
-        edf = trace_H
-        denom = float(model.n_samples_ - edf)
-        if not np.isfinite(denom) or denom <= 0.0:
-            denom = np.finfo(np.float64).eps
-        scale = wrss / denom
-        Vp, Vf, _ = build_bayes_and_freq_covariances(scale, A_inv, XtWX)
-        return FitCoreSolution(
-            coef_full=beta_full.copy(),
-            intercept=float(beta_full[0]) if model.fit_intercept else 0.0,
-            beta=beta_full[1:].copy() if model.fit_intercept else beta_full.copy(),
-            eta=eta,
-            mu=eta,
-            rss=wrss,
-            deviance=wrss,
-            edf=edf,
-            trace_H=trace_H,
-            scale=float(scale),
-            cov_bayes=Vp,
-            cov_freq=Vf,
-            H_coef=H_coef,
-            X=X,
-            A=A,
-            A_inv=A_inv,
-            XtWX=XtWX,
-            P=P_full,
-            penalty_matrix=P_full,
-            working_weights=np.asarray(w, dtype=np.float64).copy(),
-            working_response=y_work.copy(),
-            penalty_quadratic=penalty_quadratic,
-            loglik=float(
-                np.sum(
-                    w
-                    * np.asarray(
-                        model.family.loglik_obs(y, eta, scale=scale),
-                        dtype=np.float64,
-                    )
-                )
-            ),
-            offset=None if model.offset_train_ is None else model.offset_train_.copy(),
-            log_det_XtWX_plus_penalty=float(pls["log_det_XtWX_plus_penalty"]),
-        )
-
-    if bool(getattr(model, "_use_stacked_qr", False)):
-        return _solve_with_stacked_qr()
-
-    if gaussian_design_needs_stacked_qr_fit(model):
-        return _solve_with_stacked_qr()
-
-    try:
-        beta_full, cA, loA, _ = stabilized_cholesky_solve(A, Xtwy)
-    except LinAlgError:
-        return _solve_with_stacked_qr()
-    eta = (
-        X @ beta_full
-        if model.offset_train_ is None
-        else model.offset_train_ + X @ beta_full
+    rank_rows = balanced_penalty_template_sqrt_for_rank(
+        model.penalty_blocks_,
+        fit_intercept=model.fit_intercept,
+        n_coef=int(model.n_coef_),
     )
+
+    sol = irls_core(
+        X,
+        y,
+        model.family,
+        S,
+        offset=model.offset_train_,
+        weights=w,
+        fit_intercept=model.fit_intercept,
+        max_iter=1,
+        tol=float(getattr(model, "irls_tol", 1e-8)),
+        max_step_halving=int(getattr(model, "max_step_halving", 25)),
+        penalty_rank_rows=rank_rows,
+        force_stacked_qr=bool(getattr(model, "_use_stacked_qr", False))
+        or gaussian_design_needs_stacked_qr_fit(model),
+    )
+
+    eta = np.asarray(sol["eta"], dtype=np.float64)
     resid = y - eta
     wrss = float(np.sum(w * resid * resid))
-    penalty_quadratic = float(beta_full @ (P_full @ beta_full))
-
-    A_inv = cho_solve((cA, loA), np.eye(A.shape[0]), check_finite=False)
-    trace_H = float(np.trace(A_inv @ XtWX))
-    edf = trace_H
-
-    denom = float(model.n_samples_ - edf)
+    denom = float(model.n_samples_ - sol["trace_H"])
     if not np.isfinite(denom) or denom <= 0.0:
         denom = np.finfo(np.float64).eps
     scale = wrss / denom
-    Vp, Vf, H_coef = build_bayes_and_freq_covariances(scale, A_inv, XtWX)
-
-    if model.fit_intercept:
-        intercept = float(beta_full[0])
-        beta_term = beta_full[1:].copy()
-    else:
-        intercept = 0.0
-        beta_term = beta_full.copy()
-
-    return FitCoreSolution(
-        coef_full=beta_full.copy(),
-        intercept=intercept,
-        beta=beta_term,
-        eta=eta,
-        mu=eta,
-        rss=wrss,
-        deviance=wrss,
-        edf=edf,
-        trace_H=trace_H,
-        scale=scale,
-        cov_bayes=Vp,
-        cov_freq=Vf,
-        H_coef=H_coef,
-        X=X,
-        A=A,
-        A_inv=A_inv,
-        XtWX=XtWX,
-        P=P_full,
-        penalty_matrix=P_full,
-        working_weights=np.asarray(w, dtype=np.float64).copy(),
-        working_response=y_work.copy(),
-        penalty_quadratic=penalty_quadratic,
-        loglik=float(
-            np.sum(
-                w
-                * np.asarray(
-                    model.family.loglik_obs(y, eta, scale=scale),
-                    dtype=np.float64,
-                )
-            )
-        ),
-        offset=None if model.offset_train_ is None else model.offset_train_.copy(),
+    sol["rss"] = wrss
+    sol["deviance"] = wrss
+    sol["scale"] = scale
+    sol["working_weights"] = w.copy()
+    sol["fisher_weights"] = w.copy()
+    sol["working_response"] = (
+        y.copy() if model.offset_train_ is None else (y - model.offset_train_).copy()
     )
+    sol["loglik"] = float(
+        np.sum(
+            w
+            * np.asarray(
+                model.family.loglik_obs(y, eta, scale=scale),
+                dtype=np.float64,
+            )
+        )
+    )
+
+    return FitCoreSolution.from_dict(sol)
 
 # --- End of nampy/gam/fit/solvers/gaussian_exact.py ---
 
-# --- Start of nampy/gam/fit/solvers/penalized_irls.py ---
+# --- Start of nampy/gam/fit/solvers/irls_core.py ---
 """
-Penalized IRLS coefficient solver for GAMs with fixed smoothing parameters.
+Shared penalized IRLS core for fixed-smoothing GAM fits.
 
-Given fixed smoothing parameters, this module iterates the penalized
-weighted least-squares problem until penalized deviance converges.  It is
-the inner loop called by the outer smoothness-parameter optimiser.
-
-Iteration outline
------------------
-1. Build working weights ``W`` and adjusted response ``z`` from the current
-   predicted mean ``mu`` (Fisher scoring or Newton step).
-2. Solve the penalized weighted least-squares subproblem via the stacked
-   pivoted QR solver.
-3. Apply step halving if the new penalized deviance is non-finite or
-   diverges by more than a threshold relative to the previous iteration.
-4. Check convergence on both penalized deviance and gradient magnitude.
-
-Fisher vs Newton working weights
----------------------------------
-Fisher scoring (positive-definite weights) is always used for canonical-link
-families.  For other links, Newton weights are attempted first; if they are
-negative or non-finite, the solver falls back to Fisher scoring for that step.
-
-Gaussian + identity shortcut
-------------------------------
-For the Gaussian identity-link family the working weights are constant (equal
-to the prior weights), so the penalized least-squares system does not change
-between iterations.  A single solve is sufficient; the loop exits after the
-first step.
-
-Not yet implemented
--------------------
-- Penalty reparameterisation for improved numerical stability near singular
-  penalty matrices.
-- Negative Newton working weights (requires a signed-weight penalized solver).
-- Full post-fit smoothness-score derivatives (handled separately in
-  :mod:`nampy.gam.fit.postprocess.gaussian_smoothness_postprocess`).
-
-This solver is the Python analogue of mgcv's ``gam.fit3`` (penalized IRLS inner loop).
-- Extended / general family support.
+This consolidates old Gaussian one-step penalized LS and PIRLS loops into one
+solver over the full design matrix ``X`` and full penalty matrix ``S``.
 """
 
 from __future__ import annotations
@@ -2914,25 +2596,19 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 import numpy as np
+from scipy.linalg import cho_solve
 
-from ..linalg.stacked_qr import STACKED_QR_RANK_TOLERANCE, pls_fit1_nonneg_w
+from ..covariance import build_bayes_and_freq_covariances
+from ..linalg.stacked_qr import (
+    STACKED_QR_RANK_TOLERANCE,
+    _stacked_penalized_ls_nonneg_solution,
+    penalty_sqrt_rows,
+)
+from ..penalized_system import stabilized_cholesky_solve
 
 
 @dataclass
 class PenalizedIrlsControl:
-    """
-    Iteration control for the penalized IRLS solver.
-
-    Attributes
-    ----------
-    maxit : int
-        Maximum IRLS iterations before declaring non-convergence.
-    epsilon : float
-        Relative convergence tolerance for penalized deviance.
-    trace : bool
-        If True, print deviance and penalized deviance at each iteration.
-    """
-
     maxit: int = 100
     epsilon: float = 1e-7
     trace: bool = False
@@ -2946,420 +2622,679 @@ def _family_is_extended(family: Any) -> bool:
 
 
 def _strictly_additive_gaussian_identity(family: Any) -> bool:
-    # Gaussian identity-link: working weights are constant, one solve is enough.
     return (
         str(getattr(family, "name", "")).lower() == "gaussian"
         and str(getattr(family, "link_name", "")).lower() == "identity"
     )
 
 
-def fit_penalized_irls(
+def irls_core(
     X: np.ndarray,
     y: np.ndarray,
-    log_smoothing_params: np.ndarray,
-    penalty_sqrt_work: np.ndarray,
-    penalty_sqrt_balanced: np.ndarray,
-    St: np.ndarray,
     family: Any,
-    *,
-    weights: np.ndarray | None = None,
+    S: np.ndarray,
     offset: np.ndarray | None = None,
-    control: PenalizedIrlsControl | None = None,
-    start: np.ndarray | None = None,
+    weights: np.ndarray | None = None,
+    *,
+    fit_intercept: bool = True,
+    max_iter: int = 100,
+    tol: float = 1e-8,
+    max_step_halving: int = 25,
+    coef_start: np.ndarray | None = None,
     etastart: np.ndarray | None = None,
     mustart: np.ndarray | None = None,
-    null_coef: np.ndarray | None = None,
-    score_type: str = "REML",
-    deriv: int = 2,
-    scale_reference: float = 1.0,
     fisher_scoring_only: bool = False,
-    pls_rank_tol: float = STACKED_QR_RANK_TOLERANCE,
+    penalty_rank_rows: np.ndarray | None = None,
+    rank_tol: float = STACKED_QR_RANK_TOLERANCE,
     coef_method: str = "householder",
     near_singular_null_pin: bool | Literal["auto"] = False,
+    force_stacked_qr: bool = False,
+    scale_reference: float | None = None,
+    trace: bool = False,
 ) -> dict[str, Any]:
-    """
-    Penalized IRLS solver for a GAM with fixed smoothing parameters.
-
-    Iterates the penalized weighted least-squares problem until convergence or
-    ``control.maxit`` iterations.  Returns coefficients and diagnostic quantities
-    but does **not** compute smoothness-selection scores; use
-    :func:`fit_penalized_irls_from_model` with ``attach_smoothness_postprocess=True`` for that.
-
-    Parameters
-    ----------
-    X
-        Model matrix, shape ``(n, q)``.
-    y
-        Response vector, shape ``(n,)``.
-    log_smoothing_params
-        Log-scale smoothing parameters; stored in the output dict for reference.
-    penalty_sqrt_work
-        Square-root factor ``E`` of the total penalty ``S = E'E``, used to form
-        the augmented system in each penalized least-squares step.
-    penalty_sqrt_balanced
-        Balanced penalty square root used for numerical rank detection.
-    St
-        Total penalty matrix ``S = sum_k lambda_k * S_k``, shape ``(q, q)``.
-        Used in quadratic-form evaluations and the convergence gradient check.
-    family
-        A :class:`nampy.gam.families.family_base.GLMFamily` instance.
-    weights
-        Prior observation weights (positive where informative).  Default: all ones.
-    offset
-        Fixed additive offset on the link scale.  Default: all zeros.
-    control
-        Convergence tolerances; see :class:`PenalizedIrlsControl`.
-    start, etastart, mustart
-        Optional starting values for coefficients, linear predictor, or mean.
-    null_coef
-        Coefficients for the null linear predictor used in step-halving guards.
-        Default: zero vector.
-    score_type, deriv
-        Passed through to the output dict for downstream scoring; no derivatives
-        are computed here.
-    scale_reference
-        Known or estimated scale used in the gradient convergence test.
-    fisher_scoring_only
-        If True, always use Fisher (expected-information) working weights.
-    pls_rank_tol, coef_method, near_singular_null_pin
-        Forwarded to :func:`pls_fit1_nonneg_w`.
-
-    Returns
-    -------
-    dict
-        Keys: ``coef``, ``linear_predictor`` (includes offset), ``mu``,
-        ``deviance``, ``penalty_quadratic``, ``penalized_deviance``,
-        ``converged``, ``iterations``, ``warnings``, ``score_type``,
-        ``deriv``, ``log_smoothing_params``.  ``reml_score`` and ``gcv_score``
-        are ``None`` until post-processing is applied.
-    """
-    # Extended / general families require a different solver; not yet implemented.
     if _family_is_extended(family):
         raise NotImplementedError(
             "Extended and general family support is not yet implemented."
         )
 
-    if int(deriv) not in (0, 1, 2):
-        raise ValueError("deriv must be 0, 1, or 2 (unsupported order).")
-
-    ctl = control or PenalizedIrlsControl()
     X = np.asarray(X, dtype=np.float64)
     y = family.validate_y(y)
     nobs, q = X.shape
-    St = np.asarray(St, dtype=np.float64)
-    if St.shape != (q, q):
-        raise ValueError(f"St must be ({q}, {q}), got {St.shape}.")
-
-    penalty_sqrt_work = np.asarray(penalty_sqrt_work, dtype=np.float64)
-    penalty_sqrt_balanced = np.asarray(penalty_sqrt_balanced, dtype=np.float64)
+    S = np.asarray(S, dtype=np.float64)
+    if S.shape != (q, q):
+        raise ValueError(f"S must be ({q}, {q}), got {S.shape}.")
 
     if weights is None:
         weights = np.ones(nobs, dtype=np.float64)
     else:
         weights = np.asarray(weights, dtype=np.float64).ravel()
-    if weights.shape[0] != nobs:
+    if weights.shape != (nobs,):
         raise ValueError("weights must match nrow(X).")
+    if np.any(~np.isfinite(weights)) or np.any(weights < 0.0):
+        raise ValueError("weights must be finite and non-negative.")
 
     if offset is None:
         offset = np.zeros(nobs, dtype=np.float64)
+        offset_out = None
     else:
         offset = np.asarray(offset, dtype=np.float64).ravel()
-    if offset.shape[0] != nobs:
+        offset_out = offset.copy()
+    if offset.shape != (nobs,):
         raise ValueError("offset must match nrow(X).")
-
-    log_sp = np.asarray(log_smoothing_params, dtype=np.float64).ravel()
-
-    use_fisher = bool(
-        fisher_scoring_only or bool(getattr(family, "canonical_link", False))
-    )
 
     warnings_list: list[str] = []
 
-    def _irls_state(eta_value: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    if q == 0:
+        eta = offset.copy()
+        mu = np.asarray(family.inverse_link(eta), dtype=np.float64)
+        dev = float(family.deviance(y, mu))
+        H_coef = np.zeros((0, 0), dtype=np.float64)
+        return {
+            "coef_full": np.zeros(0, dtype=np.float64),
+            "coef": np.zeros(0, dtype=np.float64),
+            "intercept": 0.0,
+            "beta": np.zeros(0, dtype=np.float64),
+            "eta": eta,
+            "linear_predictor": eta,
+            "mu": mu,
+            "rss": float(np.sum((y - mu) ** 2)),
+            "deviance": dev,
+            "edf": 0.0,
+            "trace_H": 0.0,
+            "scale": float(getattr(family, "known_scale", 1.0) or 1.0),
+            "cov_bayes": np.zeros((0, 0), dtype=np.float64),
+            "cov_freq": np.zeros((0, 0), dtype=np.float64),
+            "H_coef": H_coef,
+            "X": X,
+            "A": np.zeros((0, 0), dtype=np.float64),
+            "A_inv": np.zeros((0, 0), dtype=np.float64),
+            "XtWX": np.zeros((0, 0), dtype=np.float64),
+            "P": S,
+            "penalty_matrix": S,
+            "working_weights": weights.copy(),
+            "fisher_weights": weights.copy(),
+            "working_response": np.zeros(nobs, dtype=np.float64),
+            "penalty_quadratic": 0.0,
+            "loglik": None,
+            "converged": True,
+            "iter": 0,
+            "iterations": 0,
+            "failed_step": False,
+            "failure_reason": None,
+            "offset": offset_out,
+            "inner_trace": [],
+            "warnings": warnings_list,
+        }
+
+    penalty_sqrt, penalty_rank_template = penalty_sqrt_rows(S)
+    if penalty_rank_rows is None:
+        penalty_rank_rows = penalty_rank_template
+    else:
+        penalty_rank_rows = np.asarray(penalty_rank_rows, dtype=np.float64)
+
+    def _ill_conditioned_or_rank_deficient(A_curr):
+        rank_deficient = np.linalg.matrix_rank(A_curr) < A_curr.shape[0]
+        try:
+            cond_A = float(np.linalg.cond(A_curr))
+        except np.linalg.LinAlgError:
+            cond_A = np.inf
+        return rank_deficient or (not np.isfinite(cond_A)) or cond_A > 1e12
+
+    def _stacked_qr_penalized_step(X_curr, w_curr, rhs_curr, *, rhs_is_weighted):
+        if penalty_sqrt.shape[0] == 0 or penalty_rank_rows.shape[0] == 0:
+            raise np.linalg.LinAlgError("stacked QR requires non-empty penalty rows.")
+        z_curr = np.asarray(rhs_curr, dtype=np.float64).ravel().copy()
+        if rhs_is_weighted:
+            positive = w_curr > 0.0
+            z_weighted = z_curr.copy()
+            z_curr.fill(0.0)
+            z_curr[positive] = z_weighted[positive] / w_curr[positive]
+        out = _stacked_penalized_ls_nonneg_solution(
+            X_curr,
+            z_curr,
+            w_curr,
+            penalty_sqrt=np.asarray(penalty_sqrt, dtype=np.float64),
+            penalty_rank_rows=np.asarray(penalty_rank_rows, dtype=np.float64),
+            P_dense=S,
+            rank_tol=rank_tol,
+            coef_method=coef_method,
+            near_singular_null_pin=near_singular_null_pin,
+        )
+        return np.asarray(out.coef_full, dtype=np.float64)
+
+    def _irls_state(eta_value):
         mu_value = np.asarray(family.inverse_link(eta_value), dtype=np.float64)
         mu_eta_value = np.asarray(family.mu_eta(eta_value), dtype=np.float64)
         var_value = np.asarray(family.variance(mu_value), dtype=np.float64)
         return mu_value, mu_eta_value, var_value
 
-    # Empty model (no columns): return null-fit quantities directly.
-    if q == 0:
-        eta = np.zeros(nobs, dtype=np.float64) + offset
-        mu = np.asarray(family.inverse_link(eta), dtype=np.float64)
-        dev = float(family.deviance(y, mu))
+    def _working_response_terms(eta_curr, mu_curr):
+        mu_eta_curr = np.asarray(family.mu_eta(eta_curr), dtype=np.float64)
+        var_curr = np.asarray(family.variance(mu_curr), dtype=np.float64)
+        good_curr = (
+            (weights > 0.0)
+            & np.isfinite(mu_eta_curr)
+            & (mu_eta_curr != 0.0)
+            & np.isfinite(var_curr)
+            & (var_curr > 0.0)
+        )
+        if not np.any(good_curr):
+            return None
+
+        y_g_curr = y[good_curr]
+        mu_g_curr = mu_curr[good_curr]
+        eta_g_curr = eta_curr[good_curr]
+        mu_eta_g_curr = mu_eta_curr[good_curr]
+        var_g_curr = var_curr[good_curr]
+        weights_g_curr = weights[good_curr]
+        off_g_curr = offset[good_curr]
+
+        fisher_W_curr = weights_g_curr * (mu_eta_g_curr**2) / var_g_curr
+        use_fisher_curr = bool(
+            fisher_scoring_only or bool(getattr(family, "canonical_link", False))
+        )
+        if (
+            not use_fisher_curr
+            and hasattr(family, "dvar")
+            and hasattr(family, "d2link")
+        ):
+            try:
+                dvar_curr = np.asarray(family.dvar(mu_g_curr), dtype=np.float64)
+                d2link_curr = np.asarray(family.d2link(mu_g_curr), dtype=np.float64)
+                alpha_curr = 1.0 + (y_g_curr - mu_g_curr) * (
+                    dvar_curr / var_g_curr + d2link_curr * mu_eta_g_curr
+                )
+                eps_alpha_curr = np.finfo(np.float64).eps
+                zero_curr = alpha_curr == 0.0
+                if np.any(zero_curr):
+                    alpha_curr = alpha_curr.copy()
+                    alpha_curr[zero_curr] = eps_alpha_curr
+                w_curr = fisher_W_curr * alpha_curr
+                z_curr = (eta_g_curr - off_g_curr) + (y_g_curr - mu_g_curr) / (
+                    mu_eta_g_curr * alpha_curr
+                )
+                if np.any(~np.isfinite(w_curr)) or np.any(~np.isfinite(z_curr)):
+                    use_fisher_curr = True
+            except Exception:
+                use_fisher_curr = True
+        if use_fisher_curr:
+            w_curr = fisher_W_curr
+            z_curr = (eta_g_curr - off_g_curr) + (y_g_curr - mu_g_curr) / mu_eta_g_curr
+
         return {
-            "coef": np.zeros(0, dtype=np.float64),
-            "linear_predictor": eta,
-            "mu": mu,
-            "deviance": dev,
-            "penalty_quadratic": 0.0,
-            "penalized_deviance": dev,
-            "converged": True,
-            "iterations": 0,
-            "warnings": warnings_list,
-            "score_type": score_type,
-            "deriv": int(deriv),
-            "log_smoothing_params": log_sp,
-            "reml_score": None,
-            "edf": None,
+            "good": good_curr,
+            "w": np.asarray(w_curr, dtype=np.float64),
+            "z": np.asarray(z_curr, dtype=np.float64),
         }
 
-    if null_coef is None:
-        null_coef = np.zeros(q, dtype=np.float64)
-    else:
-        null_coef = np.asarray(null_coef, dtype=np.float64).ravel()
-        if null_coef.shape[0] != q:
-            raise ValueError("null_coef length must match ncol(X).")
+    beta = None
+    if coef_start is not None:
+        beta0 = np.asarray(coef_start, dtype=np.float64).ravel()
+        if beta0.shape == (q,) and np.all(np.isfinite(beta0)):
+            beta = beta0.copy()
+    if beta is None:
+        beta = np.zeros(q, dtype=np.float64)
 
-    # Compute initial linear predictor and mean; record null penalized deviance.
     if etastart is not None:
         eta = np.asarray(etastart, dtype=np.float64).ravel()
-        if eta.shape[0] != nobs:
+        if eta.shape != (nobs,):
             raise ValueError("etastart must have length nrow(X).")
-    elif start is not None:
-        start_v = np.asarray(start, dtype=np.float64).ravel()
-        if start_v.shape[0] != q:
-            raise ValueError("start must have length ncol(X).")
-        eta = offset + (X @ start_v)
+        mu = family.inverse_link(eta)
     elif mustart is not None:
         mu0 = np.asarray(mustart, dtype=np.float64).ravel()
-        eta = np.asarray(family.link(mu0), dtype=np.float64)
-        if eta.shape[0] != nobs:
+        if mu0.shape != (nobs,):
             raise ValueError("mustart must have length nrow(X).")
+        mu = mu0
+        eta = family.link(mu)
     else:
-        mu0 = family.initialize_mu(y)
-        eta = np.asarray(family.link(mu0), dtype=np.float64)
+        eta = (
+            family.link(family.initialize_mu(y))
+            if coef_start is None
+            else offset + X @ beta
+        )
+        mu = family.inverse_link(eta)
 
-    mu = np.asarray(family.inverse_link(eta), dtype=np.float64)
-    coef_old = null_coef.copy()
-    null_eta = (X @ null_coef + offset).astype(np.float64, copy=False)
+    null_beta = np.zeros_like(beta)
+    null_eta = offset + X @ null_beta
     old_pdev = float(
-        family.deviance(y, family.inverse_link(null_eta))
-        + float(null_coef @ (St @ null_coef))
+        family.deviance(y, family.inverse_link(null_eta)) + null_beta @ (S @ null_beta)
     )
 
-    ii = 0
-    while True:
+    for _ in range(20):
         if np.all(np.isfinite(mu)) and np.all(np.isfinite(eta)):
             break
-        ii += 1
-        if ii > 20:
-            raise RuntimeError("Cannot find valid starting values (eta/mu).")
-        if start is not None:
-            start = 0.9 * np.asarray(start, dtype=np.float64).ravel() + 0.1 * coef_old
         eta = 0.9 * eta + 0.1 * null_eta
-        mu = np.asarray(family.inverse_link(eta), dtype=np.float64)
+        mu = family.inverse_link(eta)
+    else:
+        raise RuntimeError("Cannot find valid starting values (eta/mu).")
+
+    if coef_start is not None:
+        old_pdev = float(family.deviance(y, mu) + beta @ (S @ beta))
 
     strictly_additive = _strictly_additive_gaussian_identity(family)
-
-    conv = False
-    coef = np.zeros(q, dtype=np.float64)
-    # Initialise "previous" state to the null fit for the first step-halving check.
-    null_eta.copy()
+    converged = False
+    failed_step = False
+    failure_reason = None
     n_iter = 0
+    inner_trace = []
 
-    # Main penalized IRLS loop.
-    for it in range(ctl.maxit):
-        iter_no = it + 1
-        n_iter = iter_no
-        good_prior = weights > 0.0
-        mu, mu_eta_val, var_val = _irls_state(eta)
-        if np.any(~np.isfinite(var_val[good_prior])):
-            raise RuntimeError("NAs in V(mu)")
-        if np.any(var_val[good_prior] <= 0.0):
-            raise RuntimeError("0s in V(mu)")
-
-        if np.any(~np.isfinite(mu_eta_val[good_prior])):
-            raise RuntimeError("NAs in d(mu)/d(eta)")
-
-        good = good_prior & (mu_eta_val != 0.0)
+    for it in range(max_iter):
+        n_iter = it + 1
+        mu, mu_eta, var = _irls_state(eta)
+        good = (
+            (weights > 0.0)
+            & np.isfinite(mu_eta)
+            & (mu_eta != 0.0)
+            & np.isfinite(var)
+            & (var > 0.0)
+        )
         if not np.any(good):
+            failed_step = True
+            failure_reason = "no_informative_observations"
             warnings_list.append(
-                f"fit_penalized_irls: no informative observations at iteration {iter_no}"
+                f"irls_core: no informative observations at iteration {n_iter}"
             )
-            conv = False
             break
 
-        mevg = mu_eta_val[good]
-        mug = mu[good]
-        yg = y[good]
-        weg = weights[good]
-        var_mug = var_val[good]
+        mu_eta_g = mu_eta[good]
+        var_g = var[good]
+        y_g = y[good]
+        mu_g = mu[good]
         eta_g = eta[good]
-        off_g = offset[good]
         X_g = X[good, :]
+        weights_g = weights[good]
+        off_g = offset[good]
+
+        fisher_W = weights_g * (mu_eta_g**2) / var_g
+        use_fisher = bool(
+            fisher_scoring_only or bool(getattr(family, "canonical_link", False))
+        )
+        if not use_fisher and hasattr(family, "dvar") and hasattr(family, "d2link"):
+            try:
+                dvar = np.asarray(family.dvar(mu_g), dtype=np.float64)
+                d2link = np.asarray(family.d2link(mu_g), dtype=np.float64)
+                alpha = 1.0 + (y_g - mu_g) * (dvar / var_g + d2link * mu_eta_g)
+                eps_alpha = np.finfo(np.float64).eps
+                zero = alpha == 0.0
+                if np.any(zero):
+                    alpha = alpha.copy()
+                    alpha[zero] = eps_alpha
+                W = fisher_W * alpha
+                z = (eta_g - off_g) + (y_g - mu_g) / (mu_eta_g * alpha)
+                if np.any(~np.isfinite(W)) or np.any(~np.isfinite(z)):
+                    use_fisher = True
+            except Exception:
+                use_fisher = True
 
         if use_fisher:
-            # Fisher scoring: positive-definite expected-information weights.
-            z = (eta_g - off_g) + (yg - mug) / mevg
-            w_work = (weg * mevg**2) / var_mug
+            W = fisher_W
+            z = (eta_g - off_g) + (y_g - mu_g) / mu_eta_g
+
+        eta_lin = eta_g - off_g
+        wz = W * eta_lin + weights_g * mu_eta_g * (y_g - mu_g) / var_g
+        good_z = np.isfinite(z) & np.isfinite(W)
+        if np.any(~good_z):
+            z_work = np.asarray(z, dtype=np.float64).copy()
+            bad_z = ~np.isfinite(z_work)
+            if np.any(bad_z):
+                z_work[bad_z] = 0.0
+            good_wz = np.isfinite(W) & np.isfinite(wz)
+            X_g = X_g[good_wz, :]
+            W = W[good_wz]
+            z_work = np.asarray(wz[good_wz], dtype=np.float64)
         else:
-            # Newton step: observed-information weights (may be negative).
-            c = yg - mug
-            dvar = np.asarray(family.dvar(mug), dtype=np.float64)
-            d2link = np.asarray(family.d2link(mug), dtype=np.float64)
-            alpha = 1.0 + c * (dvar / var_mug + d2link * mevg)
-            eps_m = np.finfo(np.float64).eps
-            alpha = np.where(alpha == 0.0, eps_m, alpha)
-            z = (eta_g - off_g) + (yg - mug) / (mevg * alpha)
-            w_work = weg * alpha * mevg**2 / var_mug
+            z_work = z
 
-        if np.any(~np.isfinite(w_work)) or np.any(w_work < 0.0):
-            # Newton weights are indefinite; fall back to Fisher scoring.
-            # (A signed-weight solver would be needed to handle the Newton branch fully.)
-            z = (eta_g - off_g) + (yg - mug) / mevg
-            w_work = (weg * mevg**2) / var_mug
+        XtW = X_g.T * W
+        XtWX = XtW @ X_g
+        A = XtWX + S
+        b = XtW @ z_work
 
-        wy = w_work * z
-        start_coef, penalty = pls_fit1_nonneg_w(
-            X_g,
-            z,
-            w_work,
-            wy,
-            penalty_sqrt_E=penalty_sqrt_work,
-            penalty_rank_Es=penalty_sqrt_balanced,
-            rank_tol=pls_rank_tol,
-            coef_method=coef_method,
-            near_singular_null_pin=near_singular_null_pin,
-            P_for_gauge=St,
-        )
+        try:
+            if force_stacked_qr or _ill_conditioned_or_rank_deficient(A):
+                beta_prop = _stacked_qr_penalized_step(
+                    X_g, W, z_work, rhs_is_weighted=bool(np.any(~good_z))
+                )
+            else:
+                beta_prop, _, _, _ = stabilized_cholesky_solve(A, b)
+        except (np.linalg.LinAlgError, ValueError):
+            if use_fisher:
+                failed_step = True
+                failure_reason = "linear_solve_failed"
+                warnings_list.append(
+                    f"irls_core: linear solve failed at iteration {n_iter}"
+                )
+                break
 
-        if np.any(~np.isfinite(start_coef)):
+            W_pos = np.where(np.isfinite(W) & (W > 0.0), W, 0.0)
+            wz_pos_full = W_pos * eta_lin + weights_g * mu_eta_g * (y_g - mu_g) / var_g
+            z_pos_full = np.asarray(z, dtype=np.float64).copy()
+            bad_z = ~np.isfinite(z_pos_full)
+            if np.any(bad_z):
+                z_pos_full[bad_z] = 0.0
+            good_pos = np.isfinite(z_pos_full) & np.isfinite(W_pos)
+            if np.any(~good_pos):
+                good_pos = np.isfinite(W_pos) & np.isfinite(wz_pos_full)
+                z_pos = np.asarray(wz_pos_full[good_pos], dtype=np.float64)
+            else:
+                z_pos = np.asarray(z_pos_full[good_pos], dtype=np.float64)
+            X_pos = X_g[good_pos, :]
+            W_pos = W_pos[good_pos]
+            XtW = X_pos.T * W_pos
+            XtWX = XtW @ X_pos
+            A = XtWX + S
+            b = XtW @ z_pos
+            try:
+                if force_stacked_qr or _ill_conditioned_or_rank_deficient(A):
+                    beta_prop = _stacked_qr_penalized_step(
+                        X_pos, W_pos, z_pos, rhs_is_weighted=bool(np.any(~good_pos))
+                    )
+                else:
+                    beta_prop, _, _, _ = stabilized_cholesky_solve(A, b)
+                X_g = X_pos
+                W = W_pos
+                z_work = z_pos
+            except (np.linalg.LinAlgError, ValueError):
+                failed_step = True
+                failure_reason = "linear_solve_failed"
+                warnings_list.append(
+                    f"irls_core: linear solve failed at iteration {n_iter}"
+                )
+                break
+
+        beta_new = np.asarray(beta_prop, dtype=np.float64)
+        if np.any(~np.isfinite(beta_new)):
+            failed_step = True
+            failure_reason = "non_finite_coefficients"
             warnings_list.append(
-                f"fit_penalized_irls: non-finite coefficients at iteration {iter_no}"
+                f"irls_core: non-finite coefficients at iteration {n_iter}"
             )
-            conv = False
             break
 
-        # Update linear predictor and mean after the penalized LS step.
-        eta_linear = X @ start_coef
-        eta = eta_linear + offset
-        mu, mu_eta_val, var_val = _irls_state(eta)
+        eta_new = offset + X @ beta_new
+        mu_new = family.inverse_link(eta_new)
+        dev_new = float(family.deviance(y, mu_new))
+        pdev_new = dev_new + float(beta_new @ (S @ beta_new))
 
-        dev = float(family.deviance(y, mu))
+        if trace:
+            print(f"Deviance = {dev_new}  Iteration = {n_iter}")
 
-        if ctl.trace:
-            print(f"Deviance = {dev}  Iteration = {iter_no}")
+        div_thresh = 10.0 * (0.1 + abs(old_pdev)) * (np.finfo(np.float64).eps ** 0.25)
+        invalid = (not np.isfinite(dev_new)) or (not np.isfinite(pdev_new))
+        bad_step = invalid or (pdev_new - old_pdev > div_thresh)
 
-        # Step-halve until deviance is finite.
-        if not np.isfinite(dev):
-            ii_h = 0
-            while not np.isfinite(dev):
-                ii_h += 1
-                if ii_h > ctl.maxit:
-                    raise RuntimeError("inner loop 1: cannot correct step size")
-                start_coef = 0.5 * (start_coef + coef_old)
-                eta_linear = X @ start_coef
-                eta = eta_linear + offset
-                mu, mu_eta_val, var_val = _irls_state(eta)
-                dev = float(family.deviance(y, mu))
-            penalty = float(start_coef @ (St @ start_coef))
-            if ctl.trace:
-                print(f"Step halved: new deviance = {dev}")
+        if bad_step:
+            beta_half = beta_prop.copy()
+            accepted_halfstep = False
+            for _ in range(max(max_step_halving, 100)):
+                beta_half = 0.5 * (beta + beta_half)
+                eta_half = offset + X @ beta_half
+                mu_half = family.inverse_link(eta_half)
+                dev_half = float(family.deviance(y, mu_half))
+                pdev_half = dev_half + float(beta_half @ (S @ beta_half))
+                valid_eta = getattr(family, "valid_eta", None)
+                valid_mu = getattr(family, "valid_mu", None)
+                ok_eta = True if not callable(valid_eta) else bool(valid_eta(eta_half))
+                ok_mu = True if not callable(valid_mu) else bool(valid_mu(mu_half))
+                if (
+                    np.isfinite(dev_half)
+                    and np.isfinite(pdev_half)
+                    and pdev_half - old_pdev <= div_thresh
+                    and ok_eta
+                    and ok_mu
+                ):
+                    beta_new = beta_half
+                    eta_new = eta_half
+                    mu_new = mu_half
+                    dev_new = dev_half
+                    pdev_new = pdev_half
+                    accepted_halfstep = True
+                    break
+            if not accepted_halfstep:
+                failed_step = True
+                failure_reason = "step_halving_exhausted"
+                warnings_list.append("irls_core: step halving exhausted")
+                break
 
-        # Step-halve until eta and mu are valid (family-specific validity hooks).
         valid_eta = getattr(family, "valid_eta", None)
         valid_mu = getattr(family, "valid_mu", None)
         if callable(valid_eta) or callable(valid_mu):
             ii_h = 0
             while True:
-                ok_eta = True if not callable(valid_eta) else bool(valid_eta(eta))
-                ok_mu = True if not callable(valid_mu) else bool(valid_mu(mu))
+                ok_eta = True if not callable(valid_eta) else bool(valid_eta(eta_new))
+                ok_mu = True if not callable(valid_mu) else bool(valid_mu(mu_new))
                 if ok_eta and ok_mu:
                     break
                 ii_h += 1
-                if ii_h > ctl.maxit:
-                    raise RuntimeError("inner loop 2: cannot correct step size")
-                start_coef = 0.5 * (start_coef + coef_old)
-                eta_linear = X @ start_coef
-                eta = eta_linear + offset
-                mu, mu_eta_val, var_val = _irls_state(eta)
-            if ii_h > 0:
-                penalty = float(start_coef @ (St @ start_coef))
-                dev = float(family.deviance(y, mu))
-                if ctl.trace:
-                    print(f"Step halved: new deviance = {dev}")
+                if ii_h > max(max_step_halving, 100):
+                    failed_step = True
+                    failure_reason = "step_halving_exhausted"
+                    warnings_list.append("irls_core: step halving exhausted")
+                    break
+                beta_new = 0.5 * (beta_new + beta)
+                eta_new = offset + X @ beta_new
+                mu_new = family.inverse_link(eta_new)
+            if failed_step:
+                break
+            dev_new = float(family.deviance(y, mu_new))
+            pdev_new = dev_new + float(beta_new @ (S @ beta_new))
 
-        pdev = dev + penalty
+        beta = beta_new
+        eta = eta_new
+        mu = mu_new
 
-        if ctl.trace:
-            print(f"penalized deviance = {pdev}")
-
-        # Step-halve if penalized deviance diverges relative to previous iteration.
-        div_thresh = 10.0 * (0.1 + abs(old_pdev)) * (
-            np.finfo(np.float64).eps ** 0.25
+        theta_efs_enabled = bool(getattr(family, "estimate_theta", False)) and not bool(
+            getattr(family, "_disable_theta_efs", False)
         )
-        if pdev - old_pdev > div_thresh:
-            ii_h = 0
-            if iter_no == 1:
-                coef_old = null_coef.copy()
-                null_eta.copy()
-            while pdev - old_pdev > div_thresh:
-                ii_h += 1
-                if ii_h > 100:
-                    raise RuntimeError("inner loop 3: cannot correct step size")
-                start_coef = 0.5 * (start_coef + coef_old)
-                eta_linear = X @ start_coef
-                eta = eta_linear + offset
-                mu, mu_eta_val, var_val = _irls_state(eta)
-                dev = float(family.deviance(y, mu))
-                pdev = dev + float(start_coef @ (St @ start_coef))
-                if ctl.trace:
-                    print(f"Step halved: new penalized deviance = {pdev}")
+        if theta_efs_enabled and hasattr(family, "estimate_theta_mle"):
+            theta_efs = family.estimate_theta_mle(y, mu, weights=weights)
+            if np.isfinite(theta_efs) and theta_efs > 0.0:
+                family.theta = theta_efs
+                dev_new = float(family.deviance(y, mu))
+        penalty_new = float(beta @ (S @ beta))
+        pdev_new = dev_new + penalty_new
 
-        # Gaussian identity-link: working weights are constant, converged after one step.
         if strictly_additive:
-            conv = True
-            coef = start_coef
+            converged = True
+            inner_trace.append(
+                {
+                    "iter": int(n_iter),
+                    "log_theta": (
+                        None
+                        if not hasattr(family, "theta")
+                        else float(np.log(max(float(family.theta), 1e-300)))
+                    ),
+                    "deviance": float(dev_new),
+                    "penalized_deviance": float(pdev_new),
+                    "penalized_deviance_conv": float(pdev_new),
+                    "grad_inf_norm": 0.0,
+                    "converged_here": True,
+                }
+            )
+            old_pdev = pdev_new
             break
 
-        # Convergence check: penalized deviance change and gradient magnitude.
-        scale = float(scale_reference)
-        if abs(pdev - old_pdev) < ctl.epsilon * (abs(scale) + abs(pdev)):
-            grad = 2.0 * (X_g.T @ (w_work * ((X_g @ start_coef) - z))) + 2.0 * (
-                St @ start_coef
-            )
-            if np.max(np.abs(grad)) > ctl.epsilon * (abs(pdev) + abs(scale)):
-                old_pdev = pdev
-                coef = coef_old = start_coef
-                eta.copy()
-            else:
-                conv = True
-                coef = start_coef
-                eta.copy()
-                break
-        else:
-            old_pdev = pdev
-            coef = coef_old = start_coef
-            eta.copy()
-    else:
-        if not conv:
+        grad_info = _working_response_terms(eta, mu)
+        if grad_info is None:
+            failed_step = True
+            failure_reason = "no_informative_observations"
             warnings_list.append(
-                f"fit_penalized_irls: reached maxit={ctl.maxit} without meeting convergence criteria"
+                f"irls_core: no informative observations at iteration {n_iter}"
             )
+            break
+        good_grad = np.asarray(grad_info["good"], dtype=bool)
+        w_grad = np.asarray(grad_info["w"], dtype=np.float64)
+        z_grad = np.asarray(grad_info["z"], dtype=np.float64)
+        eta_grad = (eta - offset)[good_grad]
+        X_good = X[good_grad, :]
+        grad = 2.0 * (X_good.T @ (w_grad * (eta_grad - z_grad))) + 2.0 * (S @ beta)
 
-    mu = np.asarray(family.inverse_link(eta), dtype=np.float64)
-    dev = float(family.deviance(y, mu))
-    penalty_out = float(coef @ (St @ coef))
+        scale_ref = (
+            float(scale_reference)
+            if scale_reference is not None
+            else (
+                1.0
+                if getattr(family, "known_scale", None) is not None
+                else max(abs(dev_new), 1.0)
+            )
+        )
+        pdev_conv = pdev_new
+        grad_inf_norm = float(np.max(np.abs(grad)))
+        converged_here = bool(
+            abs(pdev_conv - old_pdev) < tol * (abs(scale_ref) + abs(pdev_conv))
+            and grad_inf_norm <= tol * (abs(scale_ref) + abs(pdev_new))
+        )
+        inner_trace.append(
+            {
+                "iter": int(n_iter),
+                "log_theta": (
+                    None
+                    if not hasattr(family, "theta")
+                    else float(np.log(max(float(family.theta), 1e-300)))
+                ),
+                "deviance": float(dev_new),
+                "penalized_deviance": float(pdev_new),
+                "penalized_deviance_conv": float(pdev_conv),
+                "grad_inf_norm": grad_inf_norm,
+                "converged_here": converged_here,
+            }
+        )
+        old_pdev = pdev_new
+        if converged_here:
+            converged = True
+            break
+
+    eta = offset + X @ beta
+    mu = family.inverse_link(eta)
+    mu_eta = np.asarray(family.mu_eta(eta), dtype=np.float64)
+    var = np.asarray(family.variance(mu), dtype=np.float64)
+    good = (
+        (weights > 0.0)
+        & np.isfinite(mu_eta)
+        & (mu_eta != 0.0)
+        & np.isfinite(var)
+        & (var > 0.0)
+    )
+    if not np.any(good):
+        raise RuntimeError("No informative observations at IRLS solution.")
+
+    mu_eta_g = mu_eta[good]
+    var_g = var[good]
+    y_g = y[good]
+    mu_g = mu[good]
+    eta_g = eta[good]
+    X_g = X[good, :]
+    weights_g = weights[good]
+    off_g = offset[good]
+
+    fisher_W_g = weights_g * (mu_eta_g**2) / var_g
+    use_fisher = bool(
+        fisher_scoring_only or bool(getattr(family, "canonical_link", False))
+    )
+    if not use_fisher and hasattr(family, "dvar") and hasattr(family, "d2link"):
+        try:
+            dvar = np.asarray(family.dvar(mu_g), dtype=np.float64)
+            d2link = np.asarray(family.d2link(mu_g), dtype=np.float64)
+            alpha = 1.0 + (y_g - mu_g) * (dvar / var_g + d2link * mu_eta_g)
+            eps_alpha = np.finfo(np.float64).eps
+            zero = alpha == 0.0
+            if np.any(zero):
+                alpha = alpha.copy()
+                alpha[zero] = eps_alpha
+            W_g = fisher_W_g * alpha
+            z_g = (eta_g - off_g) + (y_g - mu_g) / (mu_eta_g * alpha)
+            if np.any(~np.isfinite(W_g)) or np.any(~np.isfinite(z_g)):
+                use_fisher = True
+        except Exception:
+            use_fisher = True
+    if use_fisher:
+        W_g = fisher_W_g
+        z_g = (eta_g - off_g) + (y_g - mu_g) / mu_eta_g
+
+    W = np.zeros_like(y, dtype=np.float64)
+    W[good] = W_g
+    fisher_W = np.zeros_like(y, dtype=np.float64)
+    fisher_W[good] = fisher_W_g
+    z_work = np.zeros_like(y, dtype=np.float64)
+    z_work[good] = z_g
+
+    XtW = X_g.T * W_g
+    XtWX = XtW @ X_g
+    A = XtWX + S
+    _, cA, loA, _ = stabilized_cholesky_solve(A, np.zeros(X.shape[1], dtype=np.float64))
+    A_inv = cho_solve((cA, loA), np.eye(A.shape[0]), check_finite=False)
+
+    H_coef = A_inv @ XtWX
+    trace_H = float(np.trace(H_coef))
+    edf = trace_H
+
+    if hasattr(family, "estimate_dispersion"):
+        scale = float(family.estimate_dispersion(y, mu, edf=edf))
+    elif getattr(family, "known_scale", None) is not None:
+        scale = float(family.known_scale)
+    else:
+        denom = max(float(nobs) - edf, np.finfo(np.float64).eps)
+        scale = float(family.deviance(y, mu) / denom)
+    deviance = float(family.deviance(y, mu))
+    rss = float(np.sum((y - mu) ** 2))
+    penalty_quadratic = float(beta @ (S @ beta))
+    loglik = None
+    if hasattr(family, "loglik"):
+        loglik = float(family.loglik(y, mu, scale=scale))
+
+    Vp, Vf, H_coef = build_bayes_and_freq_covariances(scale, A_inv, XtWX)
+
+    if fit_intercept and q > 0:
+        intercept = float(beta[0])
+        beta_term = beta[1:].copy()
+    else:
+        intercept = 0.0
+        beta_term = beta.copy()
+
+    if (not converged) and (not failed_step) and n_iter >= max_iter:
+        warnings_list.append(
+            f"irls_core: reached max_iter={max_iter} without meeting convergence criteria"
+        )
 
     return {
-        "coef": coef,
+        "coef_full": beta.copy(),
+        "coef": beta.copy(),
+        "intercept": intercept,
+        "beta": beta_term,
+        "eta": eta,
         "linear_predictor": eta,
         "mu": mu,
-        "deviance": dev,
-        "penalty_quadratic": penalty_out,
-        "penalized_deviance": dev + penalty_out,
-        "converged": bool(conv),
-        "iterations": int(n_iter),
+        "rss": rss,
+        "deviance": deviance,
+        "edf": edf,
+        "trace_H": trace_H,
+        "scale": scale,
+        "cov_bayes": Vp,
+        "cov_freq": Vf,
+        "H_coef": H_coef,
+        "X": X,
+        "A": A,
+        "A_inv": A_inv,
+        "XtWX": XtWX,
+        "P": S,
+        "penalty_matrix": S,
+        "working_weights": W,
+        "fisher_weights": fisher_W,
+        "working_response": z_work,
+        "penalty_quadratic": penalty_quadratic,
+        "loglik": loglik,
+        "converged": converged,
+        "iter": n_iter,
+        "iterations": n_iter,
+        "failed_step": failed_step,
+        "failure_reason": failure_reason,
+        "offset": offset_out,
+        "inner_trace": inner_trace,
         "warnings": warnings_list,
-        "score_type": score_type,
-        "deriv": int(deriv),
-        "log_smoothing_params": log_sp,
-        "reml_score": None,
-        "edf": None,
     }
 
 
-def fit_penalized_irls_from_model(
+def fit_irls_from_model(
     model: Any,
     y: np.ndarray,
     smoothing_params: np.ndarray,
@@ -3367,84 +3302,45 @@ def fit_penalized_irls_from_model(
     attach_smoothness_postprocess: bool = True,
     weights: np.ndarray | None = None,
 ) -> dict[str, Any]:
-    """
-    Run :func:`fit_penalized_irls` using a fitted model's compiled design and penalty blocks.
-
-    Builds the model matrix and total penalty from the model's compiled design,
-    then calls :func:`fit_penalized_irls`.  When ``attach_smoothness_postprocess`` is True and the family
-    is Gaussian, post-fit smoothness scores and derivatives are merged in via
-    :func:`nampy.gam.fit.postprocess.gaussian_smoothness_postprocess.merge_gaussian_smoothness_into_fit_result`.
-    """
-    from ..linalg.stacked_qr import (
-        balanced_penalty_template_sqrt_for_rank,
-        penalty_sqrt_rows,
-    )
-    from ..penalized_system import (
-        build_full_design,
-        build_full_penalty_from_blocks,
+    from ..linalg.stacked_qr import balanced_penalty_template_sqrt_for_rank
+    from ..penalized_system import build_full_design, build_full_penalty_from_blocks
+    from ..postprocess.gaussian_smoothness_postprocess import (
+        merge_gaussian_smoothness_into_fit_result,
     )
 
     y = model.family.validate_y(y)
-    n = int(y.shape[0])
-    if weights is None:
-        w = np.ones(n, dtype=np.float64)
-    else:
-        w = np.asarray(weights, dtype=np.float64).ravel()
-
     X = build_full_design(model.Z, fit_intercept=model.fit_intercept)
-    P = build_full_penalty_from_blocks(
+    S = build_full_penalty_from_blocks(
         penalty_blocks=model.penalty_blocks_,
         smoothing_params=np.asarray(smoothing_params, dtype=np.float64).ravel(),
         fit_intercept=model.fit_intercept,
         n_coef=model.n_coef_,
     )
-    Sr, Eb_template = penalty_sqrt_rows(P)
-    Eb = balanced_penalty_template_sqrt_for_rank(
+    rank_rows = balanced_penalty_template_sqrt_for_rank(
         model.penalty_blocks_,
         fit_intercept=model.fit_intercept,
         n_coef=int(model.n_coef_),
     )
-    offset = model.offset_train_
-    off = (
-        np.zeros(n, dtype=np.float64)
-        if offset is None
-        else np.asarray(offset, dtype=np.float64).ravel()
-    )
 
-    log_sp = np.log(
-        np.maximum(
-            np.asarray(smoothing_params, dtype=np.float64).ravel(),
-            np.finfo(np.float64).tiny,
-        )
-    )
-
-    from ..postprocess.gaussian_smoothness_postprocess import (
-        merge_gaussian_smoothness_into_fit_result,
-    )
-
-    score_type = str(getattr(model, "smoothing_method", "REML")).upper()
-    out = fit_penalized_irls(
+    out = irls_core(
         X,
         y,
-        log_sp,
-        penalty_sqrt_work=Sr,
-        penalty_sqrt_balanced=Eb,
-        St=P,
-        family=model.family,
-        weights=w,
-        offset=off,
-        control=PenalizedIrlsControl(
-            maxit=int(getattr(model, "max_irls_iter", 100)),
-            epsilon=float(getattr(model, "irls_tol", 1e-7)),
-            trace=False,
-        ),
-        score_type=score_type,
+        model.family,
+        S,
+        offset=model.offset_train_,
+        weights=weights,
+        fit_intercept=model.fit_intercept,
+        max_iter=int(getattr(model, "max_irls_iter", 100)),
+        tol=float(getattr(model, "irls_tol", 1e-7)),
+        max_step_halving=int(getattr(model, "max_step_halving", 25)),
+        penalty_rank_rows=rank_rows,
     )
     if (
         attach_smoothness_postprocess
         and str(getattr(model.family, "name", "")).lower() == "gaussian"
     ):
         sp_lin = np.asarray(smoothing_params, dtype=np.float64).ravel()
+        score_type = str(getattr(model, "smoothing_method", "REML")).upper()
         out = merge_gaussian_smoothness_into_fit_result(
             out,
             model,
@@ -3455,72 +3351,22 @@ def fit_penalized_irls_from_model(
         )
     return out
 
-# --- End of nampy/gam/fit/solvers/penalized_irls.py ---
+# --- End of nampy/gam/fit/solvers/irls_core.py ---
 
 # --- Start of nampy/gam/fit/solvers/pirls.py ---
 """
-Entry points for the penalized IRLS solver for non-Gaussian GAMs.
-
-:func:`solve_pirls_fit` is the model-level entry point called by the fitting
-orchestrator.  It extracts design and penalty information from the model object
-and delegates to :func:`fit_pirls_core`.
+Model-level entry point for PIRLS fits.
 """
 
 import numpy as np
 
+from ..linalg.stacked_qr import balanced_penalty_template_sqrt_for_rank
+from ..penalized_system import build_full_design, build_full_penalty_from_blocks
 from ..state import FitCoreSolution
-from .pirls_core import fit_pirls_core
-
-
-def solve_pirls_gam(
-    Z,
-    y,
-    penalty_blocks,
-    smoothing_params,
-    family,
-    fit_intercept=True,
-    max_iter=100,
-    tol=1e-8,
-    max_step_halving=25,
-    offset=None,
-    weights=None,
-    coef_start=None,
-    etastart=None,
-    mustart=None,
-):
-    return fit_pirls_core(
-        Z=Z,
-        y=y,
-        penalty_blocks=penalty_blocks,
-        smoothing_params=smoothing_params,
-        family=family,
-        fit_intercept=fit_intercept,
-        max_iter=max_iter,
-        tol=tol,
-        max_step_halving=max_step_halving,
-        offset=offset,
-        weights=weights,
-        coef_start=coef_start,
-        etastart=etastart,
-        mustart=mustart,
-    )
+from .irls_core import irls_core
 
 
 def solve_pirls_fit(model, y, smoothing_params, weights=None):
-    """
-    Model-level entry point for the penalized IRLS solver.
-
-    Extracts the design matrix, penalty blocks, and offset from the model,
-    runs :func:`fit_pirls_core`, and stores the converged coefficient vector
-    on the model for use as a warm start in subsequent iterations.
-
-    When the family has ``estimate_theta=True``, EFS (Embedded Fisher Scoring)
-    updates theta after each IRLS step inside :func:`fit_pirls_core`, matching
-    mgcv's ``gam.fit4.r`` lines 507-515.
-
-    Returns a :class:`~nampy.gam.fit.state.FitCoreSolution` wrapping the
-    converged working system.
-    """
     coef_start = getattr(model, "_pirls_eval_start_", None)
     if coef_start is None:
         coef_start = getattr(model, "_pirls_coef_start_", None)
@@ -3547,27 +3393,40 @@ def solve_pirls_fit(model, y, smoothing_params, weights=None):
         if mustart.shape != (int(model.n_samples_),):
             mustart = None
 
+    X = build_full_design(model.Z, fit_intercept=model.fit_intercept)
+    S = build_full_penalty_from_blocks(
+        penalty_blocks=model.penalty_blocks_,
+        smoothing_params=smoothing_params,
+        fit_intercept=model.fit_intercept,
+        n_coef=model.n_coef_,
+    )
+    rank_rows = balanced_penalty_template_sqrt_for_rank(
+        model.penalty_blocks_,
+        fit_intercept=model.fit_intercept,
+        n_coef=int(model.n_coef_),
+    )
+
     disable_theta_efs = bool(getattr(model, "_pirls_disable_theta_efs_", False))
     prev_disable_theta_efs = bool(getattr(model.family, "_disable_theta_efs", False))
     if disable_theta_efs:
         model.family._disable_theta_efs = True
 
     try:
-        sol = solve_pirls_gam(
-            Z=model.Z,
-            y=y,
-            penalty_blocks=model.penalty_blocks_,
-            smoothing_params=smoothing_params,
-            family=model.family,
+        sol = irls_core(
+            X,
+            y,
+            model.family,
+            S,
+            offset=model.offset_train_,
+            weights=weights,
             fit_intercept=model.fit_intercept,
             max_iter=int(getattr(model, "max_irls_iter", 100)),
             tol=float(getattr(model, "irls_tol", 1e-8)),
             max_step_halving=int(getattr(model, "max_step_halving", 25)),
-            offset=model.offset_train_,
-            weights=weights,
             coef_start=coef_start,
             etastart=etastart,
             mustart=mustart,
+            penalty_rank_rows=rank_rows,
         )
     finally:
         model.family._disable_theta_efs = bool(prev_disable_theta_efs)
@@ -3584,575 +3443,6 @@ def solve_pirls_fit(model, y, smoothing_params, weights=None):
     return FitCoreSolution.from_dict(sol)
 
 # --- End of nampy/gam/fit/solvers/pirls.py ---
-
-# --- Start of nampy/gam/fit/solvers/pirls_core.py ---
-"""
-Penalized IRLS core loop for non-Gaussian one-predictor GAMs.
-
-Minimises the penalized deviance ``D(y, mu) + beta' S beta`` where ``S`` is
-the total penalty at fixed smoothing parameters.  The fitted mean satisfies
-the GLM link ``g(mu) = eta = X beta + offset``.
-
-Algorithm
----------
-Each iteration:
-1. Compute working weights ``W`` and adjusted response ``z`` from current ``mu``.
-   Fisher scoring is used for canonical-link families; Newton weights are
-   attempted for non-canonical links and fall back to Fisher if unstable.
-2. Solve the penalized normal equations ``(X'WX + S) beta = X'Wz`` via
-   stabilised Cholesky.
-3. Step-halve if the new penalized deviance diverges or is non-finite.
-4. Check convergence.
-
-Returns all matrices needed by downstream smoothness-selection criteria
-(hat matrix trace, covariance matrices, working system).
-"""
-
-import numpy as np
-from scipy.linalg import cho_solve
-
-from ..covariance import build_bayes_and_freq_covariances
-from ..penalized_system import (
-    build_full_design,
-    build_full_penalty_from_blocks,
-    coerce_fit_offset,
-    stabilized_cholesky_solve,
-)
-
-
-def fit_pirls_core(
-    Z,
-    y,
-    penalty_blocks,
-    smoothing_params,
-    family,
-    fit_intercept=True,
-    max_iter=100,
-    tol=1e-8,
-    max_step_halving=25,
-    offset=None,
-    weights=None,
-    coef_start=None,
-    etastart=None,
-    mustart=None,
-):
-    """
-    Penalized IRLS for one-linear-predictor penalized GLMs.
-
-    Parameters
-    ----------
-    Z
-        Term design matrix (without intercept column), shape ``(n, p)``.
-    y
-        Response vector, shape ``(n,)``.
-    penalty_blocks
-        List of penalty block objects (each with ``.matrix``, ``.coef_slice``,
-        ``.smoothing_index``).
-    smoothing_params
-        Linear-scale smoothing parameters, shape ``(K,)``.
-    family
-        A :class:`nampy.gam.families.family_base.GLMFamily` instance.
-    fit_intercept
-        Whether to prepend an intercept column to ``Z``.
-    max_iter
-        Maximum IRLS iterations.
-    tol
-        Convergence tolerance for penalized deviance.
-    max_step_halving
-        Maximum number of step halvings per iteration.
-    offset
-        Fixed additive offset on the link scale, shape ``(n,)``.
-    weights
-        Optional prior observation weights, shape ``(n,)``. These scale the
-        PIRLS working weights and therefore the penalized normal equations.
-    coef_start
-        Optional warm-start coefficient vector.
-
-    Returns
-    -------
-    dict
-        Converged working system: ``coef_full``, ``eta``, ``mu``, ``deviance``,
-        ``edf``, ``scale``, covariance matrices ``cov_bayes``/``cov_freq``,
-        working matrices ``X``, ``A``, ``A_inv``, ``XtWX``, and convergence flags.
-    """
-    y = family.validate_y(y)
-    Z = np.asarray(Z, dtype=np.float64)
-    offset = coerce_fit_offset(offset, Z.shape[0])
-    if weights is None:
-        weights = np.ones(Z.shape[0], dtype=np.float64)
-    else:
-        weights = np.asarray(weights, dtype=np.float64).ravel()
-    if weights.shape != (Z.shape[0],):
-        raise ValueError("weights must have length nrow(Z).")
-    if np.any(~np.isfinite(weights)) or np.any(weights < 0.0):
-        raise ValueError("weights must be finite and non-negative.")
-
-    X = build_full_design(Z, fit_intercept=fit_intercept)
-    P_full = build_full_penalty_from_blocks(
-        penalty_blocks=penalty_blocks,
-        smoothing_params=smoothing_params,
-        fit_intercept=fit_intercept,
-        n_coef=Z.shape[1],
-    )
-
-    def _working_response_terms(eta_curr, mu_curr):
-        mu_eta_curr = np.asarray(family.mu_eta(eta_curr), dtype=np.float64)
-        var_curr = np.asarray(family.variance(mu_curr), dtype=np.float64)
-        good_curr = (
-            (weights > 0.0)
-            & np.isfinite(mu_eta_curr)
-            & (mu_eta_curr != 0.0)
-            & np.isfinite(var_curr)
-            & (var_curr > 0.0)
-        )
-        if not np.any(good_curr):
-            return None
-
-        y_g_curr = y[good_curr]
-        mu_g_curr = mu_curr[good_curr]
-        eta_g_curr = eta_curr[good_curr]
-        mu_eta_g_curr = mu_eta_curr[good_curr]
-        var_g_curr = var_curr[good_curr]
-        weights_g_curr = weights[good_curr]
-        off_g_curr = None if offset is None else offset[good_curr]
-
-        fisher_W_curr = weights_g_curr * (mu_eta_g_curr**2) / var_g_curr
-        use_fisher_curr = bool(getattr(family, "canonical_link", False))
-        if (
-            not use_fisher_curr
-            and hasattr(family, "dvar")
-            and hasattr(family, "d2link")
-        ):
-            try:
-                dvar_curr = np.asarray(family.dvar(mu_g_curr), dtype=np.float64)
-                d2link_curr = np.asarray(family.d2link(mu_g_curr), dtype=np.float64)
-                alpha_curr = 1.0 + (y_g_curr - mu_g_curr) * (
-                    dvar_curr / var_g_curr + d2link_curr * mu_eta_g_curr
-                )
-                eps_alpha_curr = np.finfo(np.float64).eps
-                zero_curr = alpha_curr == 0.0
-                if np.any(zero_curr):
-                    alpha_curr = alpha_curr.copy()
-                    alpha_curr[zero_curr] = eps_alpha_curr
-                w_curr = fisher_W_curr * alpha_curr
-                z_curr = (
-                    eta_g_curr if off_g_curr is None else (eta_g_curr - off_g_curr)
-                ) + (y_g_curr - mu_g_curr) / (mu_eta_g_curr * alpha_curr)
-                if np.any(~np.isfinite(w_curr)) or np.any(~np.isfinite(z_curr)):
-                    use_fisher_curr = True
-            except Exception:
-                use_fisher_curr = True
-        if use_fisher_curr:
-            w_curr = fisher_W_curr
-            z_curr = (
-                eta_g_curr if off_g_curr is None else (eta_g_curr - off_g_curr)
-            ) + (y_g_curr - mu_g_curr) / mu_eta_g_curr
-
-        return {
-            "good": good_curr,
-            "w": np.asarray(w_curr, dtype=np.float64),
-            "z": np.asarray(z_curr, dtype=np.float64),
-        }
-
-    beta = None
-    if coef_start is not None:
-        beta0 = np.asarray(coef_start, dtype=np.float64).ravel()
-        if beta0.shape == (X.shape[1],) and np.all(np.isfinite(beta0)):
-            beta = beta0.copy()
-
-    if beta is None:
-        # Default start path: begin from family link(mustart),
-        # not from a pre-solved penalized normal equation.
-        beta = np.zeros(X.shape[1], dtype=np.float64)
-
-    if etastart is not None:
-        eta = np.asarray(etastart, dtype=np.float64).ravel()
-        if eta.shape != (X.shape[0],):
-            raise ValueError("etastart must have length nrow(X).")
-        mu = family.inverse_link(eta)
-    elif mustart is not None:
-        mu0 = np.asarray(mustart, dtype=np.float64).ravel()
-        if mu0.shape != (X.shape[0],):
-            raise ValueError("mustart must have length nrow(X).")
-        mu = mu0
-        eta = family.link(mu)
-    else:
-        eta = (
-            family.link(family.initialize_mu(y))
-            if coef_start is None
-            else (X @ beta if offset is None else offset + X @ beta)
-        )
-        mu = family.inverse_link(eta)
-    null_beta = np.zeros_like(beta)
-    null_eta = X @ null_beta if offset is None else offset + X @ null_beta
-    null_mu = family.inverse_link(null_eta)
-    old_pdev = float(family.deviance(y, null_mu) + null_beta @ (P_full @ null_beta))
-
-    # If link(mustart) is immediately invalid, shrink toward null eta.
-    # Initialization safeguard for invalid starting mu.
-    for _ in range(20):
-        if np.all(np.isfinite(mu)) and np.all(np.isfinite(eta)):
-            break
-        eta = 0.9 * eta + 0.1 * null_eta
-        mu = family.inverse_link(eta)
-
-    if coef_start is not None:
-        old_pdev = float(family.deviance(y, mu) + beta @ (P_full @ beta))
-
-    mu = family.inverse_link(eta)
-    float(family.deviance(y, mu))
-    pdev_old = float(old_pdev)
-
-    converged = False
-    failed_step = False
-    failure_reason = None
-    n_iter = 0
-    inner_trace = []
-
-    for it in range(max_iter):
-        n_iter = it + 1
-        mu = family.inverse_link(eta)
-        mu_eta = np.asarray(family.mu_eta(eta), dtype=np.float64)
-        var = np.asarray(family.variance(mu), dtype=np.float64)
-        good = (
-            (weights > 0.0)
-            & np.isfinite(mu_eta)
-            & (mu_eta != 0.0)
-            & np.isfinite(var)
-            & (var > 0.0)
-        )
-        if not np.any(good):
-            failed_step = True
-            failure_reason = "no_informative_observations"
-            converged = False
-            break
-
-        mu_eta_g = mu_eta[good]
-        var_g = var[good]
-        y_g = y[good]
-        mu_g = mu[good]
-        eta_g = eta[good]
-        X_g = X[good, :]
-        weights_g = weights[good]
-        off_g = None if offset is None else offset[good]
-
-        fisher_W = weights_g * (mu_eta_g**2) / var_g
-        use_fisher = bool(getattr(family, "canonical_link", False))
-        if not use_fisher and hasattr(family, "dvar") and hasattr(family, "d2link"):
-            try:
-                dvar = np.asarray(family.dvar(mu_g), dtype=np.float64)
-                d2link = np.asarray(family.d2link(mu_g), dtype=np.float64)
-                alpha = 1.0 + (y_g - mu_g) * (dvar / var_g + d2link * mu_eta_g)
-                eps_alpha = np.finfo(np.float64).eps
-                zero = alpha == 0.0
-                if np.any(zero):
-                    alpha = alpha.copy()
-                    alpha[zero] = eps_alpha
-                W = fisher_W * alpha
-                z = (eta_g if off_g is None else (eta_g - off_g)) + (y_g - mu_g) / (
-                    mu_eta_g * alpha
-                )
-                if np.any(~np.isfinite(W)) or np.any(~np.isfinite(z)):
-                    # Newton weights are unstable; fall back to Fisher scoring.
-                    use_fisher = True
-            except Exception:
-                use_fisher = True
-
-        if use_fisher:
-            W = fisher_W
-            z = (eta_g if off_g is None else (eta_g - off_g)) + (y_g - mu_g) / mu_eta_g
-
-        eta_lin = eta_g if off_g is None else (eta_g - off_g)
-        wz = W * eta_lin + weights_g * mu_eta_g * (y_g - mu_g) / var_g
-        good_z = np.isfinite(z) & np.isfinite(W)
-        if np.any(~good_z):
-            z_work = np.asarray(z, dtype=np.float64).copy()
-            bad_z = ~np.isfinite(z_work)
-            if np.any(bad_z):
-                z_work[bad_z] = 0.0
-            good_wz = np.isfinite(W) & np.isfinite(wz)
-            X_g = X_g[good_wz, :]
-            W = W[good_wz]
-            z_work = np.asarray(wz[good_wz], dtype=np.float64)
-        else:
-            z_work = z
-
-        XtW = X_g.T * W
-        XtWX = XtW @ X_g
-        A = XtWX + P_full
-        b = XtW @ z_work
-
-        try:
-            beta_prop, _, _, _ = stabilized_cholesky_solve(A, b)
-        except np.linalg.LinAlgError:
-            if use_fisher:
-                failed_step = True
-                failure_reason = "linear_solve_failed"
-                converged = False
-                break
-
-            # Mirror mgcv gam.fit4.r lines 394-413 more closely: when the
-            # exact Newton-weight system is indefinite, retry the same PIRLS
-            # step with only the positive exact weights retained, rather than
-            # switching straight to Fisher scoring.
-            W_pos = np.where(np.isfinite(W) & (W > 0.0), W, 0.0)
-            eta_lin = eta_g if off_g is None else (eta_g - off_g)
-            wz_pos_full = W_pos * eta_lin + weights_g * mu_eta_g * (y_g - mu_g) / var_g
-            z_pos_full = np.asarray(z, dtype=np.float64).copy()
-            bad_z = ~np.isfinite(z_pos_full)
-            if np.any(bad_z):
-                z_pos_full[bad_z] = 0.0
-            good_pos = np.isfinite(z_pos_full) & np.isfinite(W_pos)
-            if np.any(~good_pos):
-                good_pos = np.isfinite(W_pos) & np.isfinite(wz_pos_full)
-                z_pos = np.asarray(wz_pos_full[good_pos], dtype=np.float64)
-            else:
-                z_pos = np.asarray(z_pos_full[good_pos], dtype=np.float64)
-            X_pos = X_g[good_pos, :]
-            W_pos = W_pos[good_pos]
-            XtW = X_pos.T * W_pos
-            XtWX = XtW @ X_pos
-            A = XtWX + P_full
-            b = XtW @ z_pos
-            try:
-                beta_prop, _, _, _ = stabilized_cholesky_solve(A, b)
-                X_g = X_pos
-                W = W_pos
-                z = z_pos
-                z_work = z_pos
-            except np.linalg.LinAlgError:
-                failed_step = True
-                failure_reason = "linear_solve_failed"
-                converged = False
-                break
-
-        beta_new = beta_prop
-        eta_new = X @ beta_new if offset is None else offset + X @ beta_new
-        mu_new = family.inverse_link(eta_new)
-        dev_new = float(family.deviance(y, mu_new))
-        pdev_new = dev_new + float(beta_new @ (P_full @ beta_new))
-
-        div_thresh = 10.0 * (0.1 + abs(pdev_old)) * (
-            np.finfo(np.float64).eps ** 0.25
-        )
-
-        invalid = (not np.isfinite(dev_new)) or (not np.isfinite(pdev_new))
-        bad_step = invalid or (pdev_new - pdev_old > div_thresh)
-
-        if bad_step:
-            beta_half = beta_prop.copy()
-            accepted_halfstep = False
-            for _ in range(max(max_step_halving, 100)):
-                beta_half = 0.5 * (beta + beta_half)
-                eta_half = X @ beta_half if offset is None else offset + X @ beta_half
-                mu_half = family.inverse_link(eta_half)
-                dev_half = float(family.deviance(y, mu_half))
-                pdev_half = dev_half + float(beta_half @ (P_full @ beta_half))
-                if (
-                    np.isfinite(dev_half)
-                    and np.isfinite(pdev_half)
-                    and pdev_half - pdev_old <= div_thresh
-                ):
-                    beta_new = beta_half
-                    eta_new = eta_half
-                    mu_new = mu_half
-                    dev_new = dev_half
-                    pdev_new = pdev_half
-                    accepted_halfstep = True
-                    break
-            if not accepted_halfstep:
-                failed_step = True
-                failure_reason = "step_halving_exhausted"
-                converged = False
-                break
-
-        penalty_new = float(beta_new @ (P_full @ beta_new))
-        pdev_step = dev_new + penalty_new
-        beta = beta_new
-        eta = eta_new
-        mu = mu_new
-
-        # EFS (Embedded Fisher Scoring): update theta once per IRLS step when
-        # the family has a free dispersion parameter.  Mirrors mgcv gam.fit4.r
-        # lines 507-515 (scoreType=="EFS" block).
-        theta_efs_enabled = bool(getattr(family, "estimate_theta", False)) and not bool(
-            getattr(family, "_disable_theta_efs", False)
-        )
-        if theta_efs_enabled and hasattr(family, "estimate_theta_mle"):
-            theta_efs = family.estimate_theta_mle(y, mu, weights=weights)
-            if np.isfinite(theta_efs) and theta_efs > 0.0:
-                family.theta = theta_efs
-                dev_new = float(family.deviance(y, mu))
-        pdev_new = dev_new + penalty_new
-
-        grad_info = _working_response_terms(eta, mu)
-        if grad_info is None:
-            failed_step = True
-            failure_reason = "no_informative_observations"
-            converged = False
-            break
-        good_grad = np.asarray(grad_info["good"], dtype=bool)
-        w_grad = np.asarray(grad_info["w"], dtype=np.float64)
-        z_grad = np.asarray(grad_info["z"], dtype=np.float64)
-        eta_grad = eta[good_grad] if offset is None else (eta - offset)[good_grad]
-        X_good = X[good_grad, :]
-        grad = 2.0 * (X_good.T @ (w_grad * (eta_grad - z_grad))) + 2.0 * (P_full @ beta)
-
-        scale_ref = 1.0 if family.known_scale is not None else max(abs(dev_new), 1.0)
-        pdev_conv = pdev_step if theta_efs_enabled else pdev_new
-        if abs(pdev_conv - pdev_old) < tol * (abs(scale_ref) + abs(pdev_conv)):
-            inner_trace.append(
-                {
-                    "iter": int(n_iter),
-                    "log_theta": (
-                        None
-                        if not hasattr(family, "theta")
-                        else float(np.log(max(float(family.theta), 1e-300)))
-                    ),
-                    "deviance": float(dev_new),
-                    "penalized_deviance": float(pdev_new),
-                    "penalized_deviance_conv": float(pdev_conv),
-                    "grad_inf_norm": float(np.max(np.abs(grad))),
-                    "converged_here": bool(
-                        np.max(np.abs(grad)) <= tol * (abs(scale_ref) + abs(pdev_new))
-                    ),
-                }
-            )
-            if np.max(np.abs(grad)) <= tol * (abs(scale_ref) + abs(pdev_new)):
-                converged = True
-                pdev_old = pdev_new
-                break
-
-        inner_trace.append(
-            {
-                "iter": int(n_iter),
-                "log_theta": (
-                    None
-                    if not hasattr(family, "theta")
-                    else float(np.log(max(float(family.theta), 1e-300)))
-                ),
-                "deviance": float(dev_new),
-                "penalized_deviance": float(pdev_new),
-                "penalized_deviance_conv": float(pdev_conv),
-                "grad_inf_norm": float(np.max(np.abs(grad))),
-                "converged_here": False,
-            }
-        )
-        pdev_old = pdev_new
-
-    eta = X @ beta if offset is None else offset + X @ beta
-    mu = family.inverse_link(eta)
-    mu_eta = np.asarray(family.mu_eta(eta), dtype=np.float64)
-    var = np.asarray(family.variance(mu), dtype=np.float64)
-    good = (
-        (weights > 0.0)
-        & np.isfinite(mu_eta)
-        & (mu_eta != 0.0)
-        & np.isfinite(var)
-        & (var > 0.0)
-    )
-    if not np.any(good):
-        raise RuntimeError("No informative observations at PIRLS solution.")
-    mu_eta_g = mu_eta[good]
-    var_g = var[good]
-    y_g = y[good]
-    mu_g = mu[good]
-    eta_g = eta[good]
-    X_g = X[good, :]
-    weights_g = weights[good]
-    off_g = None if offset is None else offset[good]
-
-    fisher_W_g = weights_g * (mu_eta_g**2) / var_g
-    use_fisher = bool(getattr(family, "canonical_link", False))
-    if not use_fisher and hasattr(family, "dvar") and hasattr(family, "d2link"):
-        try:
-            dvar = np.asarray(family.dvar(mu_g), dtype=np.float64)
-            d2link = np.asarray(family.d2link(mu_g), dtype=np.float64)
-            alpha = 1.0 + (y_g - mu_g) * (dvar / var_g + d2link * mu_eta_g)
-            eps_alpha = np.finfo(np.float64).eps
-            zero = alpha == 0.0
-            if np.any(zero):
-                alpha = alpha.copy()
-                alpha[zero] = eps_alpha
-            W_g = fisher_W_g * alpha
-            z_g = (eta_g if off_g is None else (eta_g - off_g)) + (y_g - mu_g) / (
-                mu_eta_g * alpha
-            )
-            if np.any(~np.isfinite(W_g)) or np.any(~np.isfinite(z_g)):
-                use_fisher = True
-        except Exception:
-            use_fisher = True
-    if use_fisher:
-        W_g = fisher_W_g
-        z_g = (eta_g if off_g is None else (eta_g - off_g)) + (y_g - mu_g) / mu_eta_g
-
-    W = np.zeros_like(y, dtype=np.float64)
-    W[good] = W_g
-    fisher_W = np.zeros_like(y, dtype=np.float64)
-    fisher_W[good] = fisher_W_g
-    z_work = np.zeros_like(y, dtype=np.float64)
-    z_work[good] = z_g
-
-    XtW = X_g.T * W_g
-    XtWX = XtW @ X_g
-    A = XtWX + P_full
-
-    _, cA, loA, _ = stabilized_cholesky_solve(A, np.zeros(X.shape[1], dtype=np.float64))
-    A_inv = cho_solve((cA, loA), np.eye(A.shape[0]), check_finite=False)
-
-    H_coef = A_inv @ XtWX
-    trace_H = float(np.trace(H_coef))
-    edf = trace_H
-
-    scale = float(family.estimate_dispersion(y, mu, edf=edf))
-    deviance = float(family.deviance(y, mu))
-    rss = float(np.sum((y - mu) ** 2))
-    penalty_quadratic = float(beta @ (P_full @ beta))
-    loglik = float(family.loglik(y, mu, scale=scale))
-
-    Vp, Vf, H_coef = build_bayes_and_freq_covariances(scale, A_inv, XtWX)
-
-    if fit_intercept:
-        intercept = float(beta[0])
-        beta_term = beta[1:].copy()
-    else:
-        intercept = 0.0
-        beta_term = beta.copy()
-
-    return {
-        "coef_full": beta.copy(),
-        "intercept": intercept,
-        "beta": beta_term,
-        "eta": eta,
-        "mu": mu,
-        "rss": rss,
-        "deviance": deviance,
-        "edf": edf,
-        "trace_H": trace_H,
-        "scale": scale,
-        "cov_bayes": Vp,
-        "cov_freq": Vf,
-        "H_coef": H_coef,
-        "X": X,
-        "A": A,
-        "A_inv": A_inv,
-        "XtWX": XtWX,
-        "P": P_full,
-        "penalty_matrix": P_full,
-        "working_weights": W,
-        "fisher_weights": fisher_W,
-        "working_response": z_work,
-        "penalty_quadratic": penalty_quadratic,
-        "loglik": loglik,
-        "converged": converged,
-        "iter": n_iter,
-        "failed_step": failed_step,
-        "failure_reason": failure_reason,
-        "offset": None if offset is None else offset.copy(),
-        "inner_trace": inner_trace,
-    }
-
-# --- End of nampy/gam/fit/solvers/pirls_core.py ---
 
 # --- Start of nampy/splines/cubic.py ---
 import numpy as np
@@ -4457,4 +3747,3 @@ def cr_exact_null_basis_from_knots(knots):
     return np.column_stack([u1, u2])
 
 # --- End of nampy/splines/cubic_basis.py ---
-

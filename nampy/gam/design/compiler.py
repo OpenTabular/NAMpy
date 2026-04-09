@@ -179,11 +179,6 @@ def compile_predictor_designs(
                         smooth=smooth,
                         basis_train=B,
                         basis_transform=np.eye(d, dtype=np.float64),
-                        original_n_coef=(
-                            smooth.original_n_coef
-                            if smooth.original_n_coef is not None
-                            else d
-                        ),
                         kept_columns=np.arange(d, dtype=int),
                         deleted_columns=np.array([], dtype=int),
                         smoothing_indices=term_smoothing_indices,
@@ -191,7 +186,6 @@ def compile_predictor_designs(
                         n_penalties=len(penalty_defs),
                         term_type=str(smooth.term_type),
                         basis_name=str(smooth.basis_name),
-                        by_variable=smooth.by_variable,
                         term_id=smooth.term_id,
                         smoothing_group_id=smooth.smoothing_id,
                         metadata=term_meta,
