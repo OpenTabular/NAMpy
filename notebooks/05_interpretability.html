@@ -567,13 +567,14 @@
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
-<div class="input_area highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<div class="input_area highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+
 <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">fetch_california_housing</span><span class="p">,</span> <span class="n">load_breast_cancer</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_test_split</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">StandardScaler</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+
 <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s1">&#39;ignore&#39;</span><span class="p">)</span>
 
 <span class="c1"># Set random seed for reproducibility</span>
@@ -626,30 +627,31 @@
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
-<div class="input_area highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NAMRegressor</span>
+<div class="input_area highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">mean_squared_error</span><span class="p">,</span> <span class="n">r2_score</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NAMRegressor</span>
 
 <span class="c1"># Train a NAM model</span>
 <span class="n">model</span> <span class="o">=</span> <span class="n">NAMRegressor</span><span class="p">(</span>
     <span class="n">numerical_preprocessing</span><span class="o">=</span><span class="s2">&quot;ple&quot;</span><span class="p">,</span>
     <span class="n">n_bins</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
     <span class="n">layer_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">32</span><span class="p">],</span>
-    <span class="n">dropout</span><span class="o">=</span><span class="mf">0.2</span>
+    <span class="n">dropout</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
-    <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span>
+    <span class="n">X_train</span><span class="p">,</span>
+    <span class="n">y_train</span><span class="p">,</span>
     <span class="n">max_epochs</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
     <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span>
-    <span class="n">patience</span><span class="o">=</span><span class="mi">10</span>
+    <span class="n">patience</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="c1"># Evaluate</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">r2_score</span><span class="p">,</span> <span class="n">mean_squared_error</span>
 <span class="n">y_pred</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_test</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Model Performance:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Model Performance:&quot;</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;R² Score: </span><span class="si">{</span><span class="n">r2_score</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span><span class="w"> </span><span class="n">y_pred</span><span class="p">)</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;RMSE: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mean_squared_error</span><span class="p">(</span><span class="n">y_test</span><span class="p">,</span><span class="w"> </span><span class="n">y_pred</span><span class="p">))</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</pre></div>
+<br/></pre></div>
 </div>
 </div>
 <section id="1.1-Extracting-and-Visualizing-Shape-Functions">
@@ -677,7 +679,7 @@
     <span class="n">n_features</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">feature_names</span><span class="p">)</span>
     <span class="n">nrows</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">n_features</span> <span class="o">/</span> <span class="n">ncols</span><span class="p">))</span>
 
-    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">nrows</span><span class="p">,</span> <span class="n">ncols</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="o">*</span><span class="n">ncols</span><span class="p">,</span> <span class="mi">3</span><span class="o">*</span><span class="n">nrows</span><span class="p">))</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">nrows</span><span class="p">,</span> <span class="n">ncols</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">ncols</span><span class="p">,</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">nrows</span><span class="p">))</span>
     <span class="n">axes</span> <span class="o">=</span> <span class="n">axes</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
 
     <span class="c1"># Get feature contributions from the model</span>
@@ -699,18 +701,18 @@
         <span class="n">preds_centered</span> <span class="o">=</span> <span class="n">preds</span> <span class="o">-</span> <span class="n">preds</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
 
         <span class="c1"># Plot</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">feature_vals</span><span class="p">,</span> <span class="n">preds_centered</span><span class="p">,</span> <span class="s1">&#39;b-&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">feature_vals</span><span class="p">,</span> <span class="n">preds_centered</span><span class="p">,</span> <span class="s2">&quot;b-&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 
         <span class="c1"># Add histogram of feature values</span>
         <span class="n">ax2</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">twinx</span><span class="p">()</span>
-        <span class="n">ax2</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">X</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span> <span class="n">bins</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
-        <span class="n">ax2</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+        <span class="n">ax2</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">X</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span> <span class="n">bins</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;gray&quot;</span><span class="p">)</span>
+        <span class="n">ax2</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
         <span class="n">ax2</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">([])</span>
 
         <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="n">feature_names</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Contribution&#39;</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Shape Function: </span><span class="si">{</span><span class="n">feature_names</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
-        <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;r&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Contribution&quot;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Shape Function: </span><span class="si">{</span><span class="n">feature_names</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">&quot;--&quot;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
 
     <span class="c1"># Hide empty subplots</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_features</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">axes</span><span class="p">)):</span>
@@ -719,9 +721,10 @@
     <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">fig</span>
 
+
 <span class="c1"># Plot shape functions</span>
 <span class="n">fig</span> <span class="o">=</span> <span class="n">plot_shape_functions</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">feature_names</span><span class="p">)</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s1">&#39;Shape Functions for California Housing Prediction&#39;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="s2">&quot;Shape Functions for California Housing Prediction&quot;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">1.02</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -796,7 +799,7 @@
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
-<div class="input_area highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">compute_feature_importance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;variance&#39;</span><span class="p">):</span>
+<div class="input_area highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">compute_feature_importance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;variance&quot;</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute feature importance based on shape function variance.</span>
 
@@ -807,8 +810,8 @@
 <span class="sd">    X : array-like</span>
 <span class="sd">        Input data</span>
 <span class="sd">    method : str</span>
-<span class="sd">        &#39;variance&#39; - variance of partial predictions</span>
-<span class="sd">        &#39;range&#39; - range of partial predictions</span>
+<span class="sd">        &quot;variance&quot; - variance of partial predictions</span>
+<span class="sd">        &quot;range&quot; - range of partial predictions</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">    --------</span>
@@ -827,17 +830,18 @@
         <span class="c1"># Get predictions</span>
         <span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_partial</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;variance&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;variance&quot;</span><span class="p">:</span>
             <span class="n">importances</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">preds</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;range&#39;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;range&quot;</span><span class="p">:</span>
             <span class="n">importances</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">preds</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">-</span> <span class="n">preds</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
 
     <span class="c1"># Normalize</span>
     <span class="n">importances</span> <span class="o">=</span> <span class="n">importances</span> <span class="o">/</span> <span class="n">importances</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">importances</span>
 
+
 <span class="c1"># Compute importance</span>
-<span class="n">importance</span> <span class="o">=</span> <span class="n">compute_feature_importance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;variance&#39;</span><span class="p">)</span>
+<span class="n">importance</span> <span class="o">=</span> <span class="n">compute_feature_importance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;variance&quot;</span><span class="p">)</span>
 
 <span class="c1"># Create a bar plot</span>
 <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
@@ -853,13 +857,18 @@
 <span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sorted_names</span><span class="p">)))</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">(</span><span class="n">sorted_names</span><span class="p">)</span>
 <span class="n">ax</span><span class="o">.</span><span class="n">invert_yaxis</span><span class="p">()</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Relative Importance&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
-<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Feature Importance (based on shape function variance)&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Relative Importance&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Feature Importance (based on shape function variance)&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
 
 <span class="c1"># Add percentage labels</span>
-<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">bar</span><span class="p">,</span> <span class="n">imp</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">bars</span><span class="p">,</span> <span class="n">sorted_importance</span><span class="p">)):</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">bar</span><span class="o">.</span><span class="n">get_width</span><span class="p">()</span> <span class="o">+</span> <span class="mf">0.01</span><span class="p">,</span> <span class="n">bar</span><span class="o">.</span><span class="n">get_y</span><span class="p">()</span> <span class="o">+</span> <span class="n">bar</span><span class="o">.</span><span class="n">get_height</span><span class="p">()</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span>
-            <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">imp</span><span class="o">*</span><span class="mi">100</span><span class="si">:</span><span class="s1">.1f</span><span class="si">}</span><span class="s1">%&#39;</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s1">&#39;center&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">_i</span><span class="p">,</span> <span class="p">(</span><span class="n">bar</span><span class="p">,</span> <span class="n">imp</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">bars</span><span class="p">,</span> <span class="n">sorted_importance</span><span class="p">)):</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span>
+        <span class="n">bar</span><span class="o">.</span><span class="n">get_width</span><span class="p">()</span> <span class="o">+</span> <span class="mf">0.01</span><span class="p">,</span>
+        <span class="n">bar</span><span class="o">.</span><span class="n">get_y</span><span class="p">()</span> <span class="o">+</span> <span class="n">bar</span><span class="o">.</span><span class="n">get_height</span><span class="p">()</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">imp</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">,</span>
+        <span class="n">va</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span>
+        <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+    <span class="p">)</span>
 
 <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
@@ -966,10 +975,11 @@
         <span class="n">contributions</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">partial_pred</span> <span class="o">-</span> <span class="n">baseline_pred</span>
 
     <span class="k">return</span> <span class="p">{</span>
-        <span class="s1">&#39;baseline_prediction&#39;</span><span class="p">:</span> <span class="n">baseline_pred</span><span class="p">,</span>
-        <span class="s1">&#39;actual_prediction&#39;</span><span class="p">:</span> <span class="n">actual_pred</span><span class="p">,</span>
-        <span class="s1">&#39;contributions&#39;</span><span class="p">:</span> <span class="n">contributions</span>
+        <span class="s2">&quot;baseline_prediction&quot;</span><span class="p">:</span> <span class="n">baseline_pred</span><span class="p">,</span>
+        <span class="s2">&quot;actual_prediction&quot;</span><span class="p">:</span> <span class="n">actual_pred</span><span class="p">,</span>
+        <span class="s2">&quot;contributions&quot;</span><span class="p">:</span> <span class="n">contributions</span><span class="p">,</span>
     <span class="p">}</span>
+
 
 <span class="c1"># Explain a specific prediction</span>
 <span class="n">sample_idx</span> <span class="o">=</span> <span class="mi">0</span>
@@ -977,15 +987,17 @@
 <span class="n">explanation</span> <span class="o">=</span> <span class="n">explain_prediction</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x_sample</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">feature_names</span><span class="p">,</span> <span class="n">X_train</span><span class="p">)</span>
 
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Explaining prediction for sample </span><span class="si">{</span><span class="n">sample_idx</span><span class="si">}</span><span class="s2">:&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Actual house value: $</span><span class="si">{</span><span class="n">y_test</span><span class="p">[</span><span class="n">sample_idx</span><span class="p">]</span><span class="o">*</span><span class="mi">100000</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Predicted house value: $</span><span class="si">{</span><span class="n">explanation</span><span class="p">[</span><span class="s1">&#39;actual_prediction&#39;</span><span class="p">]</span><span class="o">*</span><span class="mi">100000</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Baseline prediction: $</span><span class="si">{</span><span class="n">explanation</span><span class="p">[</span><span class="s1">&#39;baseline_prediction&#39;</span><span class="p">]</span><span class="o">*</span><span class="mi">100000</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Feature Contributions:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Actual house value: $</span><span class="si">{</span><span class="n">y_test</span><span class="p">[</span><span class="n">sample_idx</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100000</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Predicted house value: $</span><span class="si">{</span><span class="n">explanation</span><span class="p">[</span><span class="s1">&#39;actual_prediction&#39;</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100000</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Baseline prediction: $</span><span class="si">{</span><span class="n">explanation</span><span class="p">[</span><span class="s1">&#39;baseline_prediction&#39;</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100000</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Feature Contributions:&quot;</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">40</span><span class="p">)</span>
-<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">contrib</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">explanation</span><span class="p">[</span><span class="s1">&#39;contributions&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-    <span class="n">sign</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span> <span class="k">if</span> <span class="n">contrib</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">15s</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">sign</span><span class="si">}</span><span class="s2">$</span><span class="si">{</span><span class="n">contrib</span><span class="o">*</span><span class="mi">100000</span><span class="si">:</span><span class="s2">&gt;10,.0f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</pre></div>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">contrib</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span>
+    <span class="n">explanation</span><span class="p">[</span><span class="s2">&quot;contributions&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">):</span>
+    <span class="n">sign</span> <span class="o">=</span> <span class="s2">&quot;+&quot;</span> <span class="k">if</span> <span class="n">contrib</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">15s</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">sign</span><span class="si">}</span><span class="s2">$</span><span class="si">{</span><span class="n">contrib</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100000</span><span class="si">:</span><span class="s2">&gt;10,.0f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<br/></pre></div>
 </div>
 </div>
 <div class="nbinput nblast docutils container">
@@ -1045,8 +1057,9 @@
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
 </pre></div>
 </div>
-<div class="input_area highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NAMClassifier</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">accuracy_score</span>
+<div class="input_area highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">accuracy_score</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">NAMClassifier</span>
 
 <span class="c1"># Load breast cancer dataset</span>
 <span class="n">cancer_data</span> <span class="o">=</span> <span class="n">load_breast_cancer</span><span class="p">()</span>
