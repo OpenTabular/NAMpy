@@ -185,11 +185,6 @@ def compile_predictor_designs(
                         smooth=smooth,
                         basis_train=B,
                         basis_transform=np.eye(d, dtype=np.float64),
-                        original_n_coef=(
-                            smooth.original_n_coef
-                            if smooth.original_n_coef is not None
-                            else d
-                        ),
                         kept_columns=np.arange(d, dtype=int),
                         deleted_columns=np.array([], dtype=int),
                         smoothing_indices=term_smoothing_indices,
@@ -551,6 +546,7 @@ from dataclasses import replace
 
 import numpy as np
 
+from ...splines.cubic import CubicSplines
 from ..specs import LinearPredictorSpec, TermSpec, replace_smooth_spec
 from ..specs.smooth import (
     CubicRegressionSmoothSpec,
@@ -670,6 +666,10 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
                 stacklevel=2,
             )
 
+        # Build a temporary spline from pooled data to extract canonical knots and
+        # penalty matrices.  Storing the k×k penalty (not the full n×k basis) keeps
+        # the shared_setup dict O(k²) rather than O(n).
+        pooled_spl = CubicSplines(pooled_x, canonical_k)
         shared_setup = {
             "mode": "pooled_cr_1d",
             "id": id_key,
@@ -677,7 +677,10 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
             "fx": first_fx,
             "n_linked_terms": len(eligible_items),
             "features": [term.features[0] for _, _, term in eligible_items],
-            "pooled_x": pooled_x.tolist(),
+            "pooled_knots": pooled_spl.knots.tolist(),
+            "pooled_raw_penalty": pooled_spl.raw_penalty.tolist(),
+            "pooled_center_mat": pooled_spl.center_mat.tolist(),
+            "pooled_penalty": pooled_spl.penalty.tolist(),
         }
 
         for pi, ti, term in eligible_items:
@@ -858,9 +861,6 @@ class CompiledTerm:
         already in the constructed-term space.
         Shape: (constructed_n_coef, n_coef).
         None is interpreted as the identity (no transform applied).
-    original_n_coef : int or None
-        Width of the constructed-term basis before any stage-5 side-condition
-        column deletion.
     kept_columns : np.ndarray or None
         Indices (in the pre-side-condition space) of surviving columns.
         None when centering was absorbed (original indices non-trivially remapped).
@@ -892,7 +892,6 @@ class CompiledTerm:
     smooth: object
     basis_train: np.ndarray
     basis_transform: np.ndarray | None = None
-    original_n_coef: int | None = None
     kept_columns: np.ndarray | None = None
     deleted_columns: np.ndarray | None = None
     smoothing_indices: list[int] = field(default_factory=list)
@@ -4890,15 +4889,31 @@ class SplineTerm1D(BaseSmoothTerm):
                     raise NotImplementedError(
                         f"Unknown shared basis setup mode {mode!r}."
                     )
-                setup_x = np.asarray(
-                    self.shared_basis_setup.get("pooled_x", []),
+                pooled_knots = np.asarray(
+                    self.shared_basis_setup.get("pooled_knots", []),
                     dtype=np.float64,
                 ).ravel()
-                if setup_x.size == 0:
+                if pooled_knots.size == 0:
                     raise ValueError(
-                        "shared_basis_setup for pooled_cr_1d must contain non-empty pooled_x."
+                        "shared_basis_setup for pooled_cr_1d must contain non-empty pooled_knots."
                     )
-                self._spline = CubicSplines(setup_x, self.k, knots=self.knots)
+                self._spline = CubicSplines(xj, self.k, knots=pooled_knots)
+                # Restore pooled-data penalty matrices so smoothing parameter
+                # optimisation uses the same penalty scale as when the shared
+                # basis was built from all linked terms' data combined.
+                pooled_raw_pen = self.shared_basis_setup.get("pooled_raw_penalty")
+                pooled_center = self.shared_basis_setup.get("pooled_center_mat")
+                pooled_pen = self.shared_basis_setup.get("pooled_penalty")
+                if pooled_raw_pen is not None:
+                    self._spline.raw_penalty = np.asarray(
+                        pooled_raw_pen, dtype=np.float64
+                    )
+                if pooled_center is not None:
+                    self._spline.center_mat = np.asarray(
+                        pooled_center, dtype=np.float64
+                    )
+                if pooled_pen is not None:
+                    self._spline.penalty = np.asarray(pooled_pen, dtype=np.float64)
                 pooled_setup = True
             else:
                 self._spline = CubicSplines(xj, self.k, knots=self.knots)

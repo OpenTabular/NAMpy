@@ -1353,7 +1353,7 @@ class GAM(BaseModel):
         )
 
     def predict_feature_vals(self, X=None, offset=None):
-        from ..gam.predict import predict_term_contributions
+        from ..gam.predict import predict_values
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
@@ -1361,19 +1361,33 @@ class GAM(BaseModel):
             offset_use = None
             if offset is not None:
                 offset_use = self._coerce_optional_offset(offset, self.X_.shape[0])
-            return predict_term_contributions(self, X=None, offset=offset_use)
-
-        if self.formula_mode_:
+            X_use = None
+        elif self.formula_mode_:
             X_np, _, offset_formula = self._coerce_formula_predict_inputs(X)
             offset_use = self._combine_offsets(
                 offset_formula,
                 self._coerce_optional_offset(offset, X_np.shape[0]),
             )
+            X_use = X_np
         else:
             X_np, _ = self._coerce_X(X)
             offset_use = self._coerce_optional_offset(offset, X_np.shape[0])
+            X_use = X_np
 
-        return predict_term_contributions(self, X=X_np, offset=offset_use)
+        eta = predict_values(model=self, X=X_use, type="link", offset=offset_use)
+        terms = predict_values(model=self, X=X_use, type="terms", offset=offset_use)
+        out = {"output": eta}
+        if self.family.name != "gaussian":
+            out["response"] = predict_values(
+                model=self, X=X_use, type="response", offset=offset_use
+            )
+        for j, tb in enumerate(self.term_blocks_):
+            out[tb.term_id] = terms[:, j]
+        if self.fit_intercept:
+            out["intercept"] = np.array(self.intercept_, dtype=np.float64)
+        if offset_use is not None:
+            out["offset"] = np.asarray(offset_use, dtype=np.float64)
+        return out
 
     def lpmatrix(self, X):
         from ..gam.predict import build_lpmatrix

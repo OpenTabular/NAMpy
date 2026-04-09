@@ -1,7 +1,7 @@
 Continuation prompt: Phase 5 - Parity, validation, and leftovers.
 This is part 5/5. Continue from earlier phases; do not restate prior context.
 
-Included files in this phase: 33
+Included files in this phase: 34
 
 # --- Start of nampy/gam/_mgcv_constants.py ---
 """Frozen mgcv numerical constants.
@@ -958,7 +958,6 @@ def apply_global_side_conditions(
                     smooth=tb.smooth,
                     basis_train=B,
                     basis_transform=tb.basis_transform,
-                    original_n_coef=tb.original_n_coef,
                     kept_columns=(
                         np.asarray(tb.kept_columns, dtype=int).copy()
                         if tb.kept_columns is not None
@@ -1166,9 +1165,6 @@ def apply_global_side_conditions(
                 smooth=tb.smooth,
                 basis_train=B_final,
                 basis_transform=C_final,
-                original_n_coef=(
-                    tb.original_n_coef if tb.original_n_coef is not None else d
-                ),
                 kept_columns=kept_orig,
                 deleted_columns=deleted_orig,
                 smoothing_indices=list(tb.smoothing_indices),
@@ -3763,7 +3759,6 @@ import numpy as np
 
 from .gaussian import criterion_gcv_gaussian
 from .gaussian_dyn import _gaussian_dynamic_reml_derivative_terms
-from .gaussian_grad import criterion_gradient_ml_reml_exact
 from .laplace import _penalty_derivative_matrices
 from .ml_reml import (
     _model_has_random_effect_smooth,
@@ -3879,12 +3874,9 @@ def criterion_gradient(
     eps_rel=1e-4,
 ):
     method = str(method).lower()
-    # Gaussian REML/LAML now uses the deviance-based scale convention that matches
-    # mgcv's profiled Wood-style criterion. The older analytic derivative paths in
-    # `gaussian_grad.py` / `gaussian_dyn.py` were derived for the previous scale
-    # profiling and are no longer reliable for outer optimisation. Keep the scalar
-    # criterion exact, but differentiate it numerically until those branches are
-    # rederived under the corrected convention.
+    # Gaussian REML/LAML stays on finite differences for criterion derivatives.
+    # Exact Gaussian REML outer derivatives in dispatch were derived for an older
+    # scale convention and are intentionally not used here.
     if method in {"reml", "laml"} and bool(
         getattr(model.family, "supports_closed_form_solve", False)
     ):
@@ -3899,13 +3891,6 @@ def criterion_gradient(
     if method in {"ml", "reml", "laml"}:
         backend = resolve_ml_reml_scoring_backend(model, method=method)
         if backend == "gaussian_exact":
-            exact_method = "REML" if method in {"reml", "laml"} else "ML"
-            if _model_has_random_effect_smooth(model) and method in {"reml", "laml"}:
-                out = _gaussian_dynamic_reml_derivative_terms(
-                    model, y, log_sp, exact_method
-                )
-                if bool(out.get("valid", False)):
-                    return np.asarray(out["grad"], dtype=np.float64)
             if _model_has_random_effect_smooth(model) and method == "ml":
                 return criterion_gradient_numerical(
                     model,
@@ -3915,7 +3900,6 @@ def criterion_gradient(
                     eps_abs=eps_abs,
                     eps_rel=eps_rel,
                 )
-            return criterion_gradient_ml_reml_exact(model, y, log_sp, exact_method)
         if backend == "gaussian_dynamic" and method in {"reml", "laml"}:
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
             out = _gaussian_dynamic_reml_derivative_terms(
@@ -4056,17 +4040,6 @@ def criterion_hessian(
         ):
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
             return criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, exact_method)
-        if (
-            backend == "gaussian_exact"
-            and _model_has_random_effect_smooth(model)
-            and method in {"reml", "laml"}
-        ):
-            exact_method = "REML" if method in {"reml", "laml"} else "ML"
-            out = _gaussian_dynamic_reml_derivative_terms(
-                model, y, log_sp, exact_method
-            )
-            if bool(out.get("valid", False)):
-                return np.asarray(out["hess"], dtype=np.float64)
         if backend == "gaussian_dynamic" and method in {"reml", "laml"}:
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
             out = _gaussian_dynamic_reml_derivative_terms(
@@ -4118,33 +4091,6 @@ def criterion_infinite_sp_signal(model, y, log_sp, method="reml"):
 
         grad = np.asarray(
             criterion_gradient_ml_reml_pirls_exact(model, y, x, exact_method),
-            dtype=np.float64,
-        )
-        dvkk = np.zeros(int(model.n_smoothing_params_ or 0), dtype=np.float64)
-        for j, Pj in enumerate(P_derivs):
-            if not np.any(Pj):
-                continue
-            dbeta_j = -(A_inv @ (Pj @ beta))
-            dvkk[j] = float(dbeta_j @ (A @ dbeta_j))
-
-        free_mask = (
-            np.zeros(model.n_smoothing_params_, dtype=bool)
-            if model.smoothing_fixed_mask_ is None
-            else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
-        )
-        free_mask = ~free_mask
-        return grad, dvkk[free_mask]
-
-    if backend == "gaussian_exact" and model._can_use_exact_gaussian_ml_reml():
-        sp = model._expand_smoothing_params_from_log(x)
-        sol = model._solve_gaussian_given_smoothing(y, sp)
-        beta = np.asarray(sol["coef_full"], dtype=np.float64)
-        A = np.asarray(sol["A"], dtype=np.float64)
-        A_inv = np.asarray(sol["A_inv"], dtype=np.float64)
-        P_derivs = _penalty_derivative_matrices(model, sp)
-
-        grad = np.asarray(
-            criterion_gradient_ml_reml_exact(model, y, x, exact_method),
             dtype=np.float64,
         )
         dvkk = np.zeros(int(model.n_smoothing_params_ or 0), dtype=np.float64)
@@ -4745,120 +4691,6 @@ def criterion_gradient_ml_reml_gaussian_dynamic_joint(
     return np.concatenate([g_sp, np.array([g_tau], dtype=np.float64)])
 
 # --- End of nampy/gam/smoothing_selection/criteria/gaussian_dyn.py ---
-
-# --- Start of nampy/gam/smoothing_selection/criteria/gaussian_grad.py ---
-"""Exact gradients for Gaussian REML in the Laplace reparameterization."""
-
-import numpy as np
-from scipy.linalg import cho_factor, cho_solve
-
-from ..reparam import ensure_penalty_reparameterization_state
-from .laplace import _lambda_group_indices, _laplace_lambda_vector
-
-
-def criterion_gradient_ml_reml_exact(model, y, log_sp, method):
-    if abs(model.score_gamma - 1.0) > 1e-12:
-        raise NotImplementedError(
-            "score_gamma != 1 is not yet implemented for the exact Gaussian ML/REML/LAML gradient path."
-        )
-
-    if not model._can_use_exact_gaussian_ml_reml():
-        raise NotImplementedError(
-            "Exact Gaussian ML/REML/LAML gradients are currently available only for "
-            "terms with one primary smooth penalty, plus at most one "
-            "null-space penalty."
-        )
-
-    free_mask = (
-        np.zeros(model.n_smoothing_params_, dtype=bool)
-        if model.smoothing_fixed_mask_ is None
-        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
-    )
-    free_mask = ~free_mask
-    if int(np.sum(free_mask)) == 0:
-        return np.empty((0,), dtype=np.float64)
-
-    y = model.family.validate_y(y)
-    y_eff = y if model.offset_train_ is None else (y - model.offset_train_)
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    state = ensure_penalty_reparameterization_state(model)
-
-    Xf = state.X_fix
-    Zr = state.Z_rand
-    n = Xf.shape[0]
-    p = int(Xf.shape[1])
-    q = int(Zr.shape[1])
-
-    grad_full = np.zeros(int(model.n_smoothing_params_), dtype=np.float64)
-
-    if q == 0:
-        return grad_full[free_mask]
-
-    lam_vec = _laplace_lambda_vector(model, sp)
-    if np.any(lam_vec <= 0):
-        return np.full(int(np.sum(free_mask)), np.nan, dtype=np.float64)
-
-    groups = _lambda_group_indices(model)
-    M = state.ZtZ_rand + np.diag(lam_vec)
-    try:
-        cM, loM = cho_factor(M, check_finite=False)
-    except np.linalg.LinAlgError:
-        return np.full(int(np.sum(free_mask)), np.nan, dtype=np.float64)
-
-    ZTy = Zr.T @ y_eff
-    Minv_ZTy = cho_solve((cM, loM), ZTy, check_finite=False)
-    Ky = y_eff - Zr @ Minv_ZTy
-
-    if p > 0:
-        ZTX = Zr.T @ Xf
-        Minv_ZTX = cho_solve((cM, loM), ZTX, check_finite=False)
-        KX = Xf - Zr @ Minv_ZTX
-        XtKX = Xf.T @ KX
-        try:
-            cXKX, loXKX = cho_factor(XtKX, check_finite=False)
-        except np.linalg.LinAlgError:
-            return np.full(int(np.sum(free_mask)), np.nan, dtype=np.float64)
-
-        XtKy = Xf.T @ Ky
-        b_hat = cho_solve((cXKX, loXKX), XtKy, check_finite=False)
-        e = y_eff - Xf @ b_hat
-        rss_v = max(float(y_eff @ Ky - XtKy @ b_hat), 1e-14)
-    else:
-        cXKX = loXKX = None
-        e = y_eff
-        rss_v = max(float(y_eff @ Ky), 1e-14)
-
-    eye_q = np.eye(q, dtype=np.float64)
-
-    for sp_idx, group in groups.items():
-        if group.size == 0:
-            continue
-
-        lam = float(sp[sp_idx])
-        Minv_cols = cho_solve((cM, loM), eye_q[:, group], check_finite=False)
-        U = Zr @ Minv_cols
-
-        uTe = U.T @ e
-        drss = lam * float(uTe @ uTe)
-
-        trace_block = float(np.trace(Minv_cols[group, :]))
-        d_logdet_vtilde = lam * trace_block - float(group.size)
-
-        if method == "ML":
-            grad_full[sp_idx] = (n * drss / rss_v) + d_logdet_vtilde
-            continue
-
-        d_logdet_xtkx = 0.0
-        if p > 0:
-            B = Xf.T @ U
-            CinvB = cho_solve((cXKX, loXKX), B, check_finite=False)
-            d_logdet_xtkx = lam * float(np.sum(B * CinvB))
-
-        grad_full[sp_idx] = ((n - p) * drss / rss_v) + d_logdet_vtilde + d_logdet_xtkx
-
-    return grad_full[free_mask]
-
-# --- End of nampy/gam/smoothing_selection/criteria/gaussian_grad.py ---
 
 # --- Start of nampy/gam/smoothing_selection/criteria/gaussian_reml_algebra.py ---
 """
@@ -7978,6 +7810,20 @@ from .basics import (
     supports_criterion_gradient,
     supports_criterion_hessian,
 )
+from .heuristics.rollback import (
+    _accept_flat_boundary_result,
+    _accept_tiny_step_line_search_result,
+    _rollback_working_infinite_smoothing_params,
+)
+from .heuristics.stabilize import (
+    _collapse_near_zero_smoothing_params,
+    _coordinate_refine_smoothing_params,
+    _refine_null_space_smoothing_params,
+    _snap_gaussian_random_effect_boundary,
+    _stabilize_factor_smooth_shared_ridge,
+    _stabilize_flat_smoothing_params,
+    _stabilize_joint_negbin_flat_ridge,
+)
 from .objectives import (
     _approx_derivative,
     _CriterionObjective,
@@ -7986,18 +7832,6 @@ from .objectives import (
     _JointNegbinPirlsRemlObjective,
 )
 from .outer import _optimize_outer_newton, _optimize_outer_newton_indefinite_hessian
-from .postprocess import (
-    _accept_flat_boundary_result,
-    _accept_tiny_step_line_search_result,
-    _collapse_near_zero_smoothing_params,
-    _coordinate_refine_smoothing_params,
-    _refine_null_space_smoothing_params,
-    _rollback_working_infinite_smoothing_params,
-    _snap_gaussian_random_effect_boundary,
-    _stabilize_factor_smooth_shared_ridge,
-    _stabilize_flat_smoothing_params,
-    _stabilize_joint_negbin_flat_ridge,
-)
 
 
 def _joint_negbin_efs_update_terms(model, sol, sp):
@@ -8791,9 +8625,7 @@ def optimize_smoothing_params(
                 )
                 result_joint.fun = float(score_work)
                 result_joint.success = True
-                result_joint.message = (
-                    "Refined exact Gaussian REML joint optimum with profiled coordinate search."
-                )
+                result_joint.message = "Refined exact Gaussian REML joint optimum with profiled coordinate search."
 
             full_to_free = {
                 int(full): int(i) for i, full in enumerate(np.flatnonzero(free_mask))
@@ -8910,12 +8742,16 @@ def optimize_smoothing_params(
                         trial_grad = np.asarray(
                             profiled_objective.jac(trial_x_sp), dtype=np.float64
                         ).ravel()
-                        current_grad_norm = float(
-                            np.max(np.abs(current_grad))
-                        ) if current_grad.size else 0.0
-                        trial_grad_norm = float(
-                            np.max(np.abs(trial_grad))
-                        ) if trial_grad.size else 0.0
+                        current_grad_norm = (
+                            float(np.max(np.abs(current_grad)))
+                            if current_grad.size
+                            else 0.0
+                        )
+                        trial_grad_norm = (
+                            float(np.max(np.abs(trial_grad)))
+                            if trial_grad.size
+                            else 0.0
+                        )
                         if (
                             trial_fun <= float(result_joint.fun) + 1e-10
                             and trial_grad_norm + 1e-10 < current_grad_norm
@@ -8930,9 +8766,7 @@ def optimize_smoothing_params(
                             )
                             result_joint.fun = float(trial_fun)
                             result_joint.success = True
-                            result_joint.message = (
-                                "Refined exact Gaussian REML joint optimum with profiled outer Newton."
-                            )
+                            result_joint.message = "Refined exact Gaussian REML joint optimum with profiled outer Newton."
 
         model.smoothing_params = np.asarray(
             model.smoothing_params, dtype=np.float64
@@ -10505,13 +10339,50 @@ def _optimize_outer_newton_indefinite_hessian(
 # --- End of nampy/gam/smoothing_selection/optimize/outer.py ---
 
 # --- Start of nampy/gam/smoothing_selection/optimize/postprocess.py ---
-"""Post-optimization adjustments (rollback, refinement, acceptance heuristics)."""
+"""Compatibility re-exports for post-optimization heuristics."""
+
+from .heuristics.rollback import (
+    _accept_flat_boundary_result,
+    _accept_tiny_step_line_search_result,
+    _criterion_infinite_sp_signal,
+    _preserve_optimize_result_metadata,
+    _rollback_working_infinite_smoothing_params,
+)
+from .heuristics.stabilize import (
+    _collapse_near_zero_smoothing_params,
+    _coordinate_refine_smoothing_params,
+    _refine_null_space_smoothing_params,
+    _snap_gaussian_random_effect_boundary,
+    _stabilize_factor_smooth_shared_ridge,
+    _stabilize_flat_smoothing_params,
+    _stabilize_joint_negbin_flat_ridge,
+)
+
+__all__ = [
+    "_accept_flat_boundary_result",
+    "_accept_tiny_step_line_search_result",
+    "_collapse_near_zero_smoothing_params",
+    "_coordinate_refine_smoothing_params",
+    "_criterion_infinite_sp_signal",
+    "_preserve_optimize_result_metadata",
+    "_refine_null_space_smoothing_params",
+    "_rollback_working_infinite_smoothing_params",
+    "_snap_gaussian_random_effect_boundary",
+    "_stabilize_factor_smooth_shared_ridge",
+    "_stabilize_flat_smoothing_params",
+    "_stabilize_joint_negbin_flat_ridge",
+]
+
+# --- End of nampy/gam/smoothing_selection/optimize/postprocess.py ---
+
+# --- Start of nampy/gam/smoothing_selection/optimize/heuristics/rollback.py ---
+"""Rollback and acceptance heuristics for smoothing-parameter optimization."""
 
 import numpy as np
-from scipy.optimize import OptimizeResult, minimize, minimize_scalar
+from scipy.optimize import OptimizeResult, minimize
 
-from ..criteria import dispatch as _criteria_dispatch
-from .basics import _project_to_bounds
+from ...criteria import dispatch as _criteria_dispatch
+from ..basics import _project_to_bounds
 
 
 def _preserve_optimize_result_metadata(src, dst):
@@ -10689,6 +10560,118 @@ def _rollback_working_infinite_smoothing_params(
 
     retry.retry_rejected = False
     return retry
+
+
+def _accept_flat_boundary_result(objective, result, method, *, conv_tol=1e-6):
+    if bool(getattr(result, "success", False)):
+        return result
+
+    x = np.asarray(getattr(result, "x", ()), dtype=np.float64).ravel()
+    if x.size == 0:
+        return result
+
+    try:
+        score = float(objective.fun(x))
+        grad_signal, dvkk = _criterion_infinite_sp_signal(
+            objective.model, objective.y, x, method=method
+        )
+    except Exception:
+        return result
+
+    grad = np.asarray(grad_signal, dtype=np.float64).ravel()
+    dvkk = np.asarray(dvkk, dtype=np.float64).ravel()
+    if grad.shape != x.shape:
+        return result
+    if dvkk.shape != x.shape:
+        dvkk = np.full_like(grad, np.nan)
+
+    score_scale = 1.0 + abs(score)
+    flat_boundary = np.all(np.abs(dvkk) <= score_scale * conv_tol * 1e-3)
+    finite_boundary_signal = np.all(np.isfinite(grad))
+
+    if not (flat_boundary and finite_boundary_signal):
+        # L-BFGS-B can occasionally return ABNORMAL after the infinite-sp rollback
+        # even when we're effectively stationary at a finite, stable point.
+        # Treat that case as converged (common practical tolerance).
+        message = str(getattr(result, "message", ""))
+        if (
+            bool(getattr(result, "rolled_back_infinite_sp", False))
+            and "ABNORMAL" in message
+        ):
+            jac_vec = np.asarray(getattr(result, "jac", grad), dtype=np.float64).ravel()
+            if jac_vec.shape == x.shape and np.all(np.isfinite(jac_vec)):
+                jac_inf = float(np.linalg.norm(jac_vec, ord=np.inf))
+                if jac_inf <= score_scale * conv_tol * 50.0:
+                    result.success = True
+                    result.message = "Accepted stationary rollback solution after L-BFGS-B abnormal termination."
+                    result.fun = score
+                    result.jac = np.asarray(objective.jac(x), dtype=np.float64)
+                    result.hess = np.asarray(objective.hess(x), dtype=np.float64)
+                    result.flat_boundary_accepted = True
+        return result
+
+    result.success = True
+    result.message = (
+        "Accepted flat boundary solution after optimizer abnormal termination."
+    )
+    result.fun = score
+    result.jac = np.asarray(objective.jac(x), dtype=np.float64)
+    result.hess = np.asarray(objective.hess(x), dtype=np.float64)
+    result.flat_boundary_accepted = True
+    return result
+
+
+def _accept_tiny_step_line_search_result(objective, result, *, step_tol=1e-7):
+    if bool(getattr(result, "success", False)):
+        return result
+
+    message = str(getattr(result, "message", "")).lower()
+    if "line search failed" not in message:
+        return result
+
+    trace = getattr(objective, "trace", None)
+    if not trace:
+        return result
+
+    if len(trace) >= 2:
+        x_last = np.asarray(trace[-1].get("x", ()), dtype=np.float64).ravel()
+        x_prev = np.asarray(trace[-2].get("x", ()), dtype=np.float64).ravel()
+        if x_last.shape != x_prev.shape:
+            return result
+        last_step = float(np.linalg.norm(x_last - x_prev, ord=2))
+    else:
+        last_step = 0.0
+
+    if not np.isfinite(last_step) or last_step > float(step_tol):
+        return result
+
+    x = np.asarray(getattr(result, "x", ()), dtype=np.float64).ravel()
+    if x.size == 0:
+        return result
+
+    jac = np.asarray(getattr(result, "jac", objective.jac(x)), dtype=np.float64).ravel()
+    if jac.shape != x.shape or not np.all(np.isfinite(jac)):
+        return result
+
+    result.success = True
+    result.status = 0
+    result.message = "Accepted tiny-step line-search endpoint."
+    result.fun = float(objective.fun(x))
+    result.jac = np.asarray(objective.jac(x), dtype=np.float64)
+    result.hess = np.asarray(objective.hess(x), dtype=np.float64)
+    result.tiny_step_line_search_accepted = True
+    return result
+
+# --- End of nampy/gam/smoothing_selection/optimize/heuristics/rollback.py ---
+
+# --- Start of nampy/gam/smoothing_selection/optimize/heuristics/stabilize.py ---
+"""Stabilization and refinement heuristics for smoothing-parameter optimization."""
+
+import numpy as np
+from scipy.optimize import minimize_scalar
+
+from ..basics import _project_to_bounds
+from .rollback import _criterion_infinite_sp_signal
 
 
 def _stabilize_flat_smoothing_params(
@@ -10955,65 +10938,6 @@ def _collapse_near_zero_smoothing_params(
     return result
 
 
-def _accept_flat_boundary_result(objective, result, method, *, conv_tol=1e-6):
-    if bool(getattr(result, "success", False)):
-        return result
-
-    x = np.asarray(getattr(result, "x", ()), dtype=np.float64).ravel()
-    if x.size == 0:
-        return result
-
-    try:
-        score = float(objective.fun(x))
-        grad_signal, dvkk = _criterion_infinite_sp_signal(
-            objective.model, objective.y, x, method=method
-        )
-    except Exception:
-        return result
-
-    grad = np.asarray(grad_signal, dtype=np.float64).ravel()
-    dvkk = np.asarray(dvkk, dtype=np.float64).ravel()
-    if grad.shape != x.shape:
-        return result
-    if dvkk.shape != x.shape:
-        dvkk = np.full_like(grad, np.nan)
-
-    score_scale = 1.0 + abs(score)
-    flat_boundary = np.all(np.abs(dvkk) <= score_scale * conv_tol * 1e-3)
-    finite_boundary_signal = np.all(np.isfinite(grad))
-
-    if not (flat_boundary and finite_boundary_signal):
-        # L-BFGS-B can occasionally return ABNORMAL after the infinite-sp rollback
-        # even when we're effectively stationary at a finite, stable point.
-        # Treat that case as converged (common practical tolerance).
-        message = str(getattr(result, "message", ""))
-        if (
-            bool(getattr(result, "rolled_back_infinite_sp", False))
-            and "ABNORMAL" in message
-        ):
-            jac_vec = np.asarray(getattr(result, "jac", grad), dtype=np.float64).ravel()
-            if jac_vec.shape == x.shape and np.all(np.isfinite(jac_vec)):
-                jac_inf = float(np.linalg.norm(jac_vec, ord=np.inf))
-                if jac_inf <= score_scale * conv_tol * 50.0:
-                    result.success = True
-                    result.message = "Accepted stationary rollback solution after L-BFGS-B abnormal termination."
-                    result.fun = score
-                    result.jac = np.asarray(objective.jac(x), dtype=np.float64)
-                    result.hess = np.asarray(objective.hess(x), dtype=np.float64)
-                    result.flat_boundary_accepted = True
-        return result
-
-    result.success = True
-    result.message = (
-        "Accepted flat boundary solution after optimizer abnormal termination."
-    )
-    result.fun = score
-    result.jac = np.asarray(objective.jac(x), dtype=np.float64)
-    result.hess = np.asarray(objective.hess(x), dtype=np.float64)
-    result.flat_boundary_accepted = True
-    return result
-
-
 def _snap_gaussian_random_effect_boundary(
     objective,
     result,
@@ -11074,48 +10998,6 @@ def _snap_gaussian_random_effect_boundary(
     result.jac = np.asarray(objective.jac(x_snap), dtype=np.float64)
     result.hess = np.asarray(objective.hess(x_snap), dtype=np.float64)
     result.gaussian_re_boundary_snapped = True
-    return result
-
-
-def _accept_tiny_step_line_search_result(objective, result, *, step_tol=1e-7):
-    if bool(getattr(result, "success", False)):
-        return result
-
-    message = str(getattr(result, "message", "")).lower()
-    if "line search failed" not in message:
-        return result
-
-    trace = getattr(objective, "trace", None)
-    if not trace:
-        return result
-
-    if len(trace) >= 2:
-        x_last = np.asarray(trace[-1].get("x", ()), dtype=np.float64).ravel()
-        x_prev = np.asarray(trace[-2].get("x", ()), dtype=np.float64).ravel()
-        if x_last.shape != x_prev.shape:
-            return result
-        last_step = float(np.linalg.norm(x_last - x_prev, ord=2))
-    else:
-        last_step = 0.0
-
-    if not np.isfinite(last_step) or last_step > float(step_tol):
-        return result
-
-    x = np.asarray(getattr(result, "x", ()), dtype=np.float64).ravel()
-    if x.size == 0:
-        return result
-
-    jac = np.asarray(getattr(result, "jac", objective.jac(x)), dtype=np.float64).ravel()
-    if jac.shape != x.shape or not np.all(np.isfinite(jac)):
-        return result
-
-    result.success = True
-    result.status = 0
-    result.message = "Accepted tiny-step line-search endpoint."
-    result.fun = float(objective.fun(x))
-    result.jac = np.asarray(objective.jac(x), dtype=np.float64)
-    result.hess = np.asarray(objective.hess(x), dtype=np.float64)
-    result.tiny_step_line_search_accepted = True
     return result
 
 
@@ -11409,7 +11291,7 @@ def _coordinate_refine_smoothing_params(
     result.coordinate_refined = True
     return result
 
-# --- End of nampy/gam/smoothing_selection/optimize/postprocess.py ---
+# --- End of nampy/gam/smoothing_selection/optimize/heuristics/stabilize.py ---
 
 # --- Start of nampy/splines/neural_splines.py ---
 import torch

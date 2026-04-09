@@ -70,7 +70,7 @@ class LogLink(LinkFunction):
 
     def inverse(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
-        return np.exp(np.clip(eta, -30.0, 30.0))
+        return np.exp(np.clip(eta, -700.0, 700.0))
 
     def mu_eta(self, eta):
         mu = self.inverse(eta)

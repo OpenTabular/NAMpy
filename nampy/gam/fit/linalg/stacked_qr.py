@@ -19,7 +19,7 @@ Algorithm outline
 Rank detection
 --------------
 Rank is revealed by an upper-triangular condition number estimate on the stacked
-R factor.  The threshold is :data:`STACKED_QR_RANK_TOLERANCE` (sqrt(machine eps)),
+R factor.  The threshold is :data:`STACKED_QR_RANK_TOLERANCE` (eps**0.66),
 matching `mgcv`'s stacked-QR rank-drop tolerance.
 When ``penalty_blocks`` are provided, a Frobenius-normalised aggregate of the
 unscaled penalty templates is used for rank detection (more numerically stable
@@ -55,8 +55,8 @@ from .matrix_reindexing import (
 )
 
 # Rank-detection threshold: condition number ratio above which a column is considered
-# linearly dependent.  Match mgcv's stacked-QR tolerance at sqrt(machine eps).
-STACKED_QR_RANK_TOLERANCE = np.sqrt(np.finfo(np.float64).eps)
+# linearly dependent. Match mgcv's stacked-QR tolerance at eps**0.66.
+STACKED_QR_RANK_TOLERANCE = np.finfo(np.float64).eps ** 0.66
 
 # Below this Frobenius norm, the penalty is numerically zero on most of the null space
 # of X (e.g. a random-effect term at the lower smoothing parameter bound).  The

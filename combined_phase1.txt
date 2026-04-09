@@ -76,7 +76,6 @@ nampy/
 │  │  │  ├─ dispatch.py
 │  │  │  ├─ gaussian.py
 │  │  │  ├─ gaussian_dyn.py
-│  │  │  ├─ gaussian_grad.py
 │  │  │  ├─ gaussian_reml_algebra.py
 │  │  │  ├─ laplace.py
 │  │  │  ├─ ml_reml.py
@@ -85,6 +84,9 @@ nampy/
 │  │  │  ├─ pirls_deriv.py
 │  │  │  └─ pirls_reml_derivative_blocks.py
 │  │  ├─ optimize/
+│  │  │  ├─ heuristics/
+│  │  │  │  ├─ rollback.py
+│  │  │  │  └─ stabilize.py
 │  │  │  ├─ basics.py
 │  │  │  ├─ driver.py
 │  │  │  ├─ objectives.py
@@ -540,13 +542,15 @@ class GaussianIdentityFamily(GLMFamily):
         weights = self._check_weights(y, weights)
         return float(np.sum(weights * (y - mu) ** 2))
 
-    def estimate_dispersion(self, y, mu, edf=None):
+    def estimate_dispersion(self, y, mu, edf=None, weights=None):
         y = np.asarray(y, dtype=np.float64)
         mu = np.asarray(mu, dtype=np.float64)
-        rss = float(np.sum((y - mu) ** 2))
+        w = self._check_weights(y, weights)
+        rss = float(np.sum(w * (y - mu) ** 2))
+        w_sum = float(np.sum(w))
         if edf is None:
-            return rss / max(len(y), 1.0)
-        return rss / max(len(y) - float(edf), 1.0)
+            return rss / max(w_sum, 1.0)
+        return rss / max(w_sum - float(edf), 1.0)
 
     def loglik_obs(self, y, mu, scale=1.0):
         y = np.asarray(y, dtype=np.float64)
@@ -1354,7 +1358,7 @@ class GLMFamily(BaseFamily):
     def deviance(self, y, mu, weights=None):
         raise NotImplementedError
 
-    def estimate_dispersion(self, y, mu, edf=None):
+    def estimate_dispersion(self, y, mu, edf=None, weights=None):
         if self.known_scale is not None:
             return float(self.known_scale)
         return 1.0
@@ -1421,13 +1425,15 @@ class _GammaBase(GLMFamily):
         weights = self._check_weights(y, weights)
         return float(2.0 * np.sum(weights * ((y - mu) / mu - np.log(y / mu))))
 
-    def estimate_dispersion(self, y, mu, edf=None):
+    def estimate_dispersion(self, y, mu, edf=None, weights=None):
         y = np.asarray(y, dtype=np.float64)
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        pearson = float(np.sum((y - mu) ** 2 / self.variance(mu)))
+        w = self._check_weights(y, weights)
+        pearson = float(np.sum(w * (y - mu) ** 2 / self.variance(mu)))
+        w_sum = float(np.sum(w))
         if edf is None:
-            return pearson / max(len(y), 1.0)
-        return pearson / max(len(y) - float(edf), 1.0)
+            return pearson / max(w_sum, 1.0)
+        return pearson / max(w_sum - float(edf), 1.0)
 
     def loglik_obs(self, y, mu, scale=1.0):
         y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
@@ -4130,9 +4136,14 @@ class GAM(BaseModel):
 
     def _build_fit_result(self):
         from ..gam.fit.results import GAMFitResult, TermFitResult
+        from ..gam.fit.postprocess.gaussian_smoothness_postprocess import (
+            refresh_gaussian_ml_reml_score_from_fit_state,
+        )
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
+        if str(getattr(self, "_optim_method", "")).lower() in {"reml", "ml"}:
+            refresh_gaussian_ml_reml_score_from_fit_state(self, self.y_)
 
         term_results = []
         for i, tb in enumerate(self.term_blocks_):
