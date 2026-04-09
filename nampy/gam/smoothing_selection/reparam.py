@@ -34,13 +34,17 @@ def reparameterize_smooth(B, P, tol=1e-10):
     B0 = B @ U0
     B1 = B @ U1
     Zr = B1 / np.sqrt(d_pos)[np.newaxis, :] if d_pos.size else B1
-    return B0, Zr, {
-        "U0": U0,
-        "U1": U1,
-        "d_pos": d_pos,
-        "n_null": int(null_mask.sum()),
-        "n_pen": int(pos_mask.sum()),
-    }
+    return (
+        B0,
+        Zr,
+        {
+            "U0": U0,
+            "U1": U1,
+            "d_pos": d_pos,
+            "n_null": int(null_mask.sum()),
+            "n_pen": int(pos_mask.sum()),
+        },
+    )
 
 
 def _matrix_sqrt_psd(M, tol=1e-12):
@@ -169,13 +173,13 @@ def can_use_simple_ml_reml_structure(model):
             continue
 
         primary = [
-            pb for pb in matches
+            pb
+            for pb in matches
             if pb.kind in {"smooth", "random_effect"} and not pb.is_null_space_penalty
         ]
         null_space = [pb for pb in matches if pb.is_null_space_penalty]
         extras = [
-            pb for pb in matches
-            if id(pb) not in primary_ids and id(pb) not in null_ids
+            pb for pb in matches if id(pb) not in primary_ids and id(pb) not in null_ids
         ]
 
         if len(primary) < 1:
@@ -230,7 +234,9 @@ def build_penalty_reparameterized_system(model):
     model.rand_dims_per_term_ = []
     model._primary_reparam_sp_index_per_term_ = []
     model._penalty_ranks = np.empty(len(model.term_blocks_), dtype=np.int64)
-    model._penalty_logdet_plus_fixed = np.empty(len(model.term_blocks_), dtype=np.float64)
+    model._penalty_logdet_plus_fixed = np.empty(
+        len(model.term_blocks_), dtype=np.float64
+    )
     rand_start = 0
 
     for i, tb in enumerate(model.term_blocks_):
@@ -255,13 +261,13 @@ def build_penalty_reparameterized_system(model):
             continue
 
         primary = [
-            pb for pb in matches
+            pb
+            for pb in matches
             if pb.kind in {"smooth", "random_effect"} and not pb.is_null_space_penalty
         ]
         null_space = [pb for pb in matches if pb.is_null_space_penalty]
         extras = [
-            pb for pb in matches
-            if id(pb) not in primary_ids and id(pb) not in null_ids
+            pb for pb in matches if id(pb) not in primary_ids and id(pb) not in null_ids
         ]
 
         if len(primary) < 1 or len(extras) > 0:
@@ -301,7 +307,9 @@ def build_penalty_reparameterized_system(model):
             P_sum = np.zeros((local_idx.size, local_idx.size), dtype=np.float64)
             P_loc_list = []
             for pb in primaries:
-                P_loc = np.asarray(pb.matrix, dtype=np.float64)[np.ix_(local_idx, local_idx)]
+                P_loc = np.asarray(pb.matrix, dtype=np.float64)[
+                    np.ix_(local_idx, local_idx)
+                ]
                 P_sum += P_loc
                 P_loc_list.append(P_loc)
             evals = np.linalg.eigvalsh(0.5 * (P_sum + P_sum.T))
@@ -373,13 +381,19 @@ def build_penalty_reparameterized_system(model):
                 B_null = B_local @ U0
                 if len(pb0_list) == 1:
                     pb0 = pb0_list[0]
-                    P0_local = np.asarray(pb0.matrix, dtype=np.float64)[np.ix_(local_idx, local_idx)]
+                    P0_local = np.asarray(pb0.matrix, dtype=np.float64)[
+                        np.ix_(local_idx, local_idx)
+                    ]
                     P0_null = U0.T @ P0_local @ U0
-                    B0_extra, Zr_extra, extra_meta = reparameterize_smooth(B_null, P0_null)
+                    B0_extra, Zr_extra, extra_meta = reparameterize_smooth(
+                        B_null, P0_null
+                    )
                     B0_use = B0_extra
                     comp_rank += int(extra_meta["n_pen"])
                     comp_logdet += float(
-                        np.sum(np.log(extra_meta["d_pos"])) if extra_meta["d_pos"].size > 0 else 0.0
+                        np.sum(np.log(extra_meta["d_pos"]))
+                        if extra_meta["d_pos"].size > 0
+                        else 0.0
                     )
                     if Zr_extra.shape[1] > 0:
                         Z_null = np.asarray(Zr_extra, dtype=np.float64)
@@ -402,8 +416,12 @@ def build_penalty_reparameterized_system(model):
                     B0_null_parts = []
                     B0_use = np.empty((B_local.shape[0], 0), dtype=np.float64)
                     for pb0 in pb0_list:
-                        P0_local = np.asarray(pb0.matrix, dtype=np.float64)[np.ix_(local_idx, local_idx)]
-                        P0_null = 0.5 * (U0.T @ P0_local @ U0 + (U0.T @ P0_local @ U0).T)
+                        P0_local = np.asarray(pb0.matrix, dtype=np.float64)[
+                            np.ix_(local_idx, local_idx)
+                        ]
+                        P0_null = 0.5 * (
+                            U0.T @ P0_local @ U0 + (U0.T @ P0_local @ U0).T
+                        )
                         null_support = _penalty_support_mask(P0_null)
                         idx0 = np.flatnonzero(null_support)
                         if idx0.size == 0:
@@ -411,7 +429,9 @@ def build_penalty_reparameterized_system(model):
                         covered_null[idx0] = True
                         B_null_local = B_null[:, idx0]
                         P_null_local = P0_null[np.ix_(idx0, idx0)]
-                        B0_part, Zr_part, meta0 = reparameterize_smooth(B_null_local, P_null_local)
+                        B0_part, Zr_part, meta0 = reparameterize_smooth(
+                            B_null_local, P_null_local
+                        )
                         extra_meta.append(
                             {
                                 "smoothing_index": int(pb0.smoothing_index),
@@ -421,14 +441,18 @@ def build_penalty_reparameterized_system(model):
                         )
                         comp_rank += int(meta0["n_pen"])
                         comp_logdet += float(
-                            np.sum(np.log(meta0["d_pos"])) if meta0["d_pos"].size > 0 else 0.0
+                            np.sum(np.log(meta0["d_pos"]))
+                            if meta0["d_pos"].size > 0
+                            else 0.0
                         )
                         if B0_part.shape[1] > 0:
                             B0_null_parts.append(B0_part)
                         if Zr_part.shape[1] > 0:
                             Z_null = np.asarray(Zr_part, dtype=np.float64)
                             rand_blocks.append(Z_null)
-                            block_slice = slice(rand_start, rand_start + Z_null.shape[1])
+                            block_slice = slice(
+                                rand_start, rand_start + Z_null.shape[1]
+                            )
                             rand_blocks_term.append(
                                 {
                                     "term_index": i,
@@ -454,8 +478,12 @@ def build_penalty_reparameterized_system(model):
                     "primary": meta,
                     "null_space": extra_meta,
                     "support_index": local_idx,
-                    "primary_smoothing_indices": [int(pb.smoothing_index) for pb in primaries],
-                    "null_smoothing_indices": [int(pb.smoothing_index) for pb in pb0_list],
+                    "primary_smoothing_indices": [
+                        int(pb.smoothing_index) for pb in primaries
+                    ],
+                    "null_smoothing_indices": [
+                        int(pb.smoothing_index) for pb in pb0_list
+                    ],
                 }
             )
             primary_sp_indices.extend(int(pb.smoothing_index) for pb in primaries)
@@ -480,13 +508,17 @@ def build_penalty_reparameterized_system(model):
         model._reparam_meta.append(
             {
                 "primary": component_meta[0]["primary"] if component_meta else None,
-                "null_space": component_meta[0]["null_space"] if component_meta else None,
+                "null_space": (
+                    component_meta[0]["null_space"] if component_meta else None
+                ),
                 "components": component_meta,
                 "rand_blocks": rand_blocks_term,
                 "n_pen": int(sum(block["n_pen"] for block in rand_blocks_term)),
             }
         )
-        model.rand_dims_per_term_.append(int(sum(block["n_pen"] for block in rand_blocks_term)))
+        model.rand_dims_per_term_.append(
+            int(sum(block["n_pen"] for block in rand_blocks_term))
+        )
         model._primary_reparam_sp_index_per_term_.append(
             primary_sp_indices[0] if primary_sp_indices else None
         )
@@ -500,14 +532,15 @@ def build_penalty_reparameterized_system(model):
             rank = 0
             keep_cols = np.array([], dtype=int)
         else:
-            diag_R = np.abs(np.diag(R[:min(X_fix_raw.shape), :]))
+            diag_R = np.abs(np.diag(R[: min(X_fix_raw.shape), :]))
             if diag_R.size == 0:
                 rank = 0
                 keep_cols = np.array([], dtype=int)
             else:
                 rank_tol = (
                     max(X_fix_raw.shape) * np.finfo(float).eps * diag_R[0]
-                    if diag_R[0] > 0 else 1e-12
+                    if diag_R[0] > 0
+                    else 1e-12
                 )
                 rank = int(np.sum(diag_R > rank_tol))
                 keep_cols = np.sort(piv[:rank])

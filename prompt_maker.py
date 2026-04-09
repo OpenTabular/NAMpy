@@ -40,8 +40,10 @@ def _sort_key(rel_posix: str) -> tuple:
         group = 0
     elif rel_posix.startswith("nampy/splines/"):
         group = 1
-    elif rel_posix.startswith("nampy/basemodels/") or rel_posix.startswith("nampy/models/") or rel_posix.startswith(
-        "nampy/configs/"
+    elif (
+        rel_posix.startswith("nampy/basemodels/")
+        or rel_posix.startswith("nampy/models/")
+        or rel_posix.startswith("nampy/configs/")
     ):
         group = 2
     else:
@@ -152,7 +154,9 @@ def collect_input_files(root: Path) -> list[str]:
             if candidate.is_file():
                 files.add(candidate)
 
-    rels = sorted((_rel_posix(p) for p in files if p.name != "__init__.py"), key=_sort_key)
+    rels = sorted(
+        (_rel_posix(p) for p in files if p.name != "__init__.py"), key=_sort_key
+    )
     return rels
 
 
@@ -183,7 +187,9 @@ def render_tree(file_paths: list[str]) -> str:
     def _render(node: dict, prefix: str = "") -> list[str]:
         dirs = sorted(k for k in node.keys() if k != "__files__")
         files = sorted(node.get("__files__", set()))
-        entries: list[tuple[str, str]] = [(d, "dir") for d in dirs] + [(f, "file") for f in files]
+        entries: list[tuple[str, str]] = [(d, "dir") for d in dirs] + [
+            (f, "file") for f in files
+        ]
 
         lines: list[str] = []
         for i, (name, kind) in enumerate(entries):

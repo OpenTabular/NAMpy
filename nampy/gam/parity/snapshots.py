@@ -163,7 +163,9 @@ def _coerce_snapshot_arrays(snapshot):
             vals = sfs.get(key, None)
             if vals is not None:
                 if not isinstance(vals, list) or (
-                    len(sfs.get("labels", [])) == 1 and vals and not isinstance(vals[0], (list, tuple))
+                    len(sfs.get("labels", [])) == 1
+                    and vals
+                    and not isinstance(vals[0], (list, tuple))
                 ):
                     vals = [vals]
                 sfs[key] = [np.asarray(v, dtype=np.float64) for v in vals]
@@ -196,7 +198,11 @@ def _get_core(model):
         return model
     if hasattr(model, "core_") and model.core_ is not None:
         return model.core_
-    if hasattr(model, "model") and hasattr(model.model, "core_") and model.model.core_ is not None:
+    if (
+        hasattr(model, "model")
+        and hasattr(model.model, "core_")
+        and model.model.core_ is not None
+    ):
         return model.model.core_
     if (
         hasattr(model, "model")
@@ -255,7 +261,9 @@ def _build_parity_criterion_view(core, fit_dict):
         else np.asarray(core.smoothing_fixed_mask_, dtype=bool)
     )
     free_vals = np.asarray(core.smoothing_params[~fixed_mask], dtype=np.float64)
-    log_free = np.log(free_vals) if free_vals.size > 0 else np.empty((0,), dtype=np.float64)
+    log_free = (
+        np.log(free_vals) if free_vals.size > 0 else np.empty((0,), dtype=np.float64)
+    )
     branch_method = "REML" if str(criterion_name).lower() in {"reml", "laml"} else "ML"
     backend = resolve_ml_reml_scoring_backend(core, method=str(criterion_name).lower())
     view["criterion_backend"] = backend
@@ -278,7 +286,11 @@ def _build_parity_criterion_view(core, fit_dict):
                     core.y_,
                     log_free,
                     float(np.log(max(float(joint_s2), 1e-300))),
-                    method="LAML" if str(criterion_name).lower() == "laml" else branch_method,
+                    method=(
+                        "LAML"
+                        if str(criterion_name).lower() == "laml"
+                        else branch_method
+                    ),
                 )
             )
         except Exception:
@@ -291,7 +303,11 @@ def _build_parity_criterion_view(core, fit_dict):
                     core.y_,
                     log_free,
                     float(np.log(max(float(joint_s2), 1e-300))),
-                    method="LAML" if str(criterion_name).lower() == "laml" else branch_method,
+                    method=(
+                        "LAML"
+                        if str(criterion_name).lower() == "laml"
+                        else branch_method
+                    ),
                 )
             )
         except Exception:
@@ -326,10 +342,14 @@ def _build_parity_criterion_view(core, fit_dict):
                 candidate = None
                 source = None
     elif backend in {"gaussian_exact", "gaussian_dynamic", "pirls_laplace_dynamic"}:
-        candidate = float(criterion_ml_reml(core, core.y_, log_free, method=branch_method))
+        candidate = float(
+            criterion_ml_reml(core, core.y_, log_free, method=branch_method)
+        )
         source = "criterion_ml_reml"
     else:
-        candidate = float(criterion_ml_reml_pirls(core, core.y_, log_free, method=branch_method))
+        candidate = float(
+            criterion_ml_reml_pirls(core, core.y_, log_free, method=branch_method)
+        )
         source = "criterion_ml_reml_pirls"
 
     view["recomputed_criterion_value"] = candidate
@@ -345,12 +365,19 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
 
     fit_result = core.fit_result(include_covariances=include_covariances)
     fit_dict = fit_result.to_dict(include_covariances=include_covariances)
+    if hasattr(core.family, "theta"):
+        fit_dict["family_theta"] = float(core.family.theta)
+    else:
+        fit_dict["family_theta"] = None
+    fit_dict["estimate_theta"] = bool(getattr(core.family, "estimate_theta", False))
     if fit_dict.get("smoothing_params", None) is not None:
         sp = np.asarray(fit_dict["smoothing_params"], dtype=np.float64)
         fit_dict["log_smoothing_params"] = np.log(np.maximum(sp, 1e-300)).tolist()
     parity_view = _build_parity_criterion_view(core, fit_dict)
 
-    predict_api = model if (hasattr(model, "predict") and hasattr(model, "lpmatrix")) else core
+    predict_api = (
+        model if (hasattr(model, "predict") and hasattr(model, "lpmatrix")) else core
+    )
 
     if X is None:
         response = core.predict(X=None, type="response")
@@ -441,7 +468,9 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
                 np.asarray(
                     R_full[
                         :,
-                        int(tb.coef_slice.start) + _intercept_offset(core) : int(tb.coef_slice.stop) + _intercept_offset(core),
+                        int(tb.coef_slice.start)
+                        + _intercept_offset(core) : int(tb.coef_slice.stop)
+                        + _intercept_offset(core),
                     ],
                     dtype=np.float64,
                 ).tolist()
@@ -457,9 +486,9 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
                 dtype=np.float64,
             ).tolist(),
             "edf1": np.asarray(smooth_edf1_vals, dtype=np.float64).tolist(),
-            "residual_df": float(core.n_samples_) - (
-                1.0 if bool(getattr(core, "fit_intercept", False)) else 0.0
-            ) - float(core.edf_),
+            "residual_df": float(core.n_samples_)
+            - (1.0 if bool(getattr(core, "fit_intercept", False)) else 0.0)
+            - float(core.edf_),
         }
         diagnostics["smooth_function_space"] = {
             "labels": list(smooth_labels),
@@ -479,7 +508,9 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
                                 ],
                                 dtype=np.float64,
                             )
-                            @ np.asarray(core.Vp_[tb.coef_slice, tb.coef_slice], dtype=np.float64)
+                            @ np.asarray(
+                                core.Vp_[tb.coef_slice, tb.coef_slice], dtype=np.float64
+                            )
                         )
                         * np.asarray(
                             lpmatrix[
@@ -551,9 +582,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
 
     try:
         one_se = predict_api.one_se_rule()
-        diagnostics["one_se_rule"] = np.asarray(
-            one_se, dtype=np.float64
-        ).tolist()
+        diagnostics["one_se_rule"] = np.asarray(one_se, dtype=np.float64).tolist()
     except Exception:
         diagnostics["one_se_rule"] = None
 
@@ -600,18 +629,18 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
                 _normalize_mgcv_term_label(v)
                 for v in anova_res.parametric_table["label"].tolist()
             ],
-            "values": anova_res.parametric_table[
-                ["df", "wald_stat", "p_value"]
-            ].to_numpy(dtype=np.float64).tolist(),
+            "values": anova_res.parametric_table[["df", "wald_stat", "p_value"]]
+            .to_numpy(dtype=np.float64)
+            .tolist(),
         }
         diagnostics["anova_smooth"] = {
             "labels": [
                 _normalize_mgcv_term_label(v)
                 for v in anova_res.smooth_table["label"].tolist()
             ],
-            "values": anova_res.smooth_table[
-                ["edf", "ref_df", "wald_stat", "p_value"]
-            ].to_numpy(dtype=np.float64).tolist(),
+            "values": anova_res.smooth_table[["edf", "ref_df", "wald_stat", "p_value"]]
+            .to_numpy(dtype=np.float64)
+            .tolist(),
         }
     except Exception:
         diagnostics["anova_parametric"] = None

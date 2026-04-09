@@ -99,7 +99,9 @@ class TreeNAM(BaseModel):
         )
 
     def _create_interaction_trees(self, num_feature_info, cat_feature_info):
-        all_feature_names = list(num_feature_info.keys()) + list(cat_feature_info.keys())
+        all_feature_names = list(num_feature_info.keys()) + list(
+            cat_feature_info.keys()
+        )
 
         for degree in range(2, self.interaction_degree + 1):
             for interaction in combinations(all_feature_names, degree):
@@ -140,13 +142,17 @@ class TreeNAM(BaseModel):
         total_penalty = next(self.parameters()).new_zeros(())
 
         for feature_name, tree in self.num_feature_models.items():
-            output, penalty = tree(num_features[feature_name].float(), return_penalty=True)
+            output, penalty = tree(
+                num_features[feature_name].float(), return_penalty=True
+            )
             num_outputs[feature_name] = output
             total_penalty = total_penalty + penalty
 
         cat_outputs = {}
         for feature_name, tree in self.cat_feature_models.items():
-            output, penalty = tree(cat_features[feature_name].float(), return_penalty=True)
+            output, penalty = tree(
+                cat_features[feature_name].float(), return_penalty=True
+            )
             cat_outputs[feature_name] = output
             total_penalty = total_penalty + penalty
 

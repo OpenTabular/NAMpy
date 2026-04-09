@@ -1,5 +1,5 @@
-from dataclasses import replace
 import warnings
+from dataclasses import replace
 
 import numpy as np
 
@@ -39,7 +39,11 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
 
     for pi, pred in enumerate(predictor_specs):
         for ti, term in enumerate(pred.terms):
-            if isinstance(term, TermSpec) and term.kind == "smooth" and term.smoothing_id is not None:
+            if (
+                isinstance(term, TermSpec)
+                and term.kind == "smooth"
+                and term.smoothing_id is not None
+            ):
                 key = str(term.smoothing_id)
                 all_by_id.setdefault(key, []).append((pi, ti, term))
 
@@ -60,7 +64,7 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
         # fx mismatch: mixing fixed and penalized terms is semantically incompatible
         # because fixed terms have no smoothing parameter to share.
         fx_incompatible = []
-        for pi, ti, term in eligible_items:
+        for _pi, _ti, term in eligible_items:
             opts = dict(term.basis_options or {})
             if bool(opts.get("fx", False)) != first_fx:
                 fx_incompatible.append(
@@ -83,11 +87,12 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
             warnings.warn(
                 f"Linked id={id_key!r}: terms have differing k values "
                 f"{sorted(set(all_k))}; harmonizing all to k={canonical_k} "
-                f"(first term's k), matching mgcv behaviour."
+                f"(first term's k), matching mgcv behaviour.",
+                stacklevel=2,
             )
 
         pooled_columns = []
-        for pi, ti, term in eligible_items:
+        for _pi, _ti, term in eligible_items:
             x_col = _resolve_feature_column(X, feature_names, term.features[0])
             pooled_columns.append(x_col)
 
@@ -105,7 +110,8 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
             warnings.warn(
                 f"id={id_key!r} is used by terms outside the current shared-basis "
                 f"pooling subset. Shared basis setup was applied only to compatible "
-                f"1D cr s() terms; skipped terms: {skipped}"
+                f"1D cr s() terms; skipped terms: {skipped}",
+                stacklevel=2,
             )
 
         shared_setup = {

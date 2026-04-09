@@ -1,4 +1,4 @@
-#sklearn_lss.py
+# sklearn_lss.py
 import warnings
 
 import lightning as pl
@@ -8,10 +8,9 @@ import pandas as pd
 import properscoring as ps
 import torch
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
+from pretab.preprocessor import Preprocessor
 from sklearn.base import BaseEstimator
 from sklearn.metrics import accuracy_score, mean_squared_error
-
-from pretab.preprocessor import Preprocessor
 
 from ..basemodels.lightning_wrapper import TaskModel
 from ..data_utils.datamodule import NAMpyDataModule
@@ -451,7 +450,9 @@ class SklearnBaseLSS(BaseEstimator):
         if self.model is None or self.data_module is None:
             raise ValueError("The model or data module has not been fitted yet.")
         if getattr(self, "family", None) is None:
-            raise ValueError("No distribution family found. Fit the model with a valid family first.")
+            raise ValueError(
+                "No distribution family found. Fit the model with a valid family first."
+            )
 
         # Infer family name if not provided
         if distribution_family is None:
@@ -471,7 +472,9 @@ class SklearnBaseLSS(BaseEstimator):
                 "quantile": "quantile",
                 "robustnormaldistribution": "robustnormal",
             }
-            distribution_family = family_map.get(cls_name, cls_name.replace("distribution", ""))
+            distribution_family = family_map.get(
+                cls_name, cls_name.replace("distribution", "")
+            )
 
         distribution_family = str(distribution_family).lower()
 
@@ -487,11 +490,17 @@ class SklearnBaseLSS(BaseEstimator):
 
         # Compute NLL from raw outputs
         scores = {}
-        fam_for_loss = self.model.family if hasattr(self.model, "family") and self.model.family is not None else self.family
+        fam_for_loss = (
+            self.model.family
+            if hasattr(self.model, "family") and self.model.family is not None
+            else self.family
+        )
 
         with torch.no_grad():
             target_dtype = getattr(fam_for_loss, "target_dtype", torch.float32)
-            y_tensor = torch.as_tensor(y_true, dtype=target_dtype, device=raw_pred.device)
+            y_tensor = torch.as_tensor(
+                y_true, dtype=target_dtype, device=raw_pred.device
+            )
 
             # Keep multi-output LSS targets intact; only squeeze [N,1] -> [N]
             if y_tensor.ndim == 2 and y_tensor.shape[1] == 1:
@@ -654,7 +663,10 @@ class SklearnBaseLSS(BaseEstimator):
             scale = np.clip(pred[:, 1], 1e-9, None)  # std, not variance
             return float(
                 np.mean(
-                    [ps.crps_gaussian(y[i], mu=mu[i], sig=scale[i]) for i in range(len(y))]
+                    [
+                        ps.crps_gaussian(y[i], mu=mu[i], sig=scale[i])
+                        for i in range(len(y))
+                    ]
                 )
             )
 
@@ -673,7 +685,9 @@ class SklearnBaseLSS(BaseEstimator):
             y = _y_1d(y).astype(float)
             pred = np.asarray(pred, dtype=float)
             if pred.ndim != 2:
-                raise ValueError("Quantile predictions must be 2D (n_samples, n_quantiles).")
+                raise ValueError(
+                    "Quantile predictions must be 2D (n_samples, n_quantiles)."
+                )
 
             quantiles = getattr(self.family, "quantiles", None)
             if quantiles is None:
@@ -746,7 +760,9 @@ class SklearnBaseLSS(BaseEstimator):
             },
             "categorical": {
                 "Accuracy": lambda y, p: float(
-                    accuracy_score(_categorical_labels(y), np.argmax(np.asarray(p), axis=1))
+                    accuracy_score(
+                        _categorical_labels(y), np.argmax(np.asarray(p), axis=1)
+                    )
                 ),
             },
             "quantile": {
@@ -781,7 +797,9 @@ class SklearnBaseLSS(BaseEstimator):
         n_params = predictions.shape[1] if predictions.ndim > 1 else 1
 
         # Reduce multi-output targets (e.g. Dirichlet simplex) to a 1D signal for display
-        y_1d = y_true.mean(axis=1) if np.asarray(y_true).ndim > 1 else np.asarray(y_true)
+        y_1d = (
+            y_true.mean(axis=1) if np.asarray(y_true).ndim > 1 else np.asarray(y_true)
+        )
         y_range = (y_1d.min() - 1, y_1d.max() + 1)
 
         plot_density_shading(ax, x_plot, y_range, num_bins)
@@ -865,7 +883,9 @@ class SklearnBaseLSS(BaseEstimator):
             grid_count = np.zeros((num_bins - 1, num_bins - 1), dtype=int)
             np.add.at(grid_sum, (x1_bin_idx, x2_bin_idx), contribs)
             np.add.at(grid_count, (x1_bin_idx, x2_bin_idx), 1)
-            grid = np.where(grid_count > 0, grid_sum / np.maximum(grid_count, 1), np.nan)
+            grid = np.where(
+                grid_count > 0, grid_sum / np.maximum(grid_count, 1), np.nan
+            )
 
             im = ax.imshow(
                 grid.T,

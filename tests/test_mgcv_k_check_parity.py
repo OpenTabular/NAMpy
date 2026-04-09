@@ -18,8 +18,6 @@ NAMpy runs:     model.k_check(subsample=120, n_rep=8, seed=0).
 from __future__ import annotations
 
 import numpy as np
-import pytest
-
 from mgcv_parity_utils import (
     _fit_nampy_model,
     _make_binomial_data,
@@ -101,17 +99,17 @@ def _assert_k_check_parity(
     """
     r_labels, r_values = r_block
 
-    assert len(py_labels) == len(r_labels), (
-        f"Term count mismatch: NAMpy={len(py_labels)} R={len(r_labels)}"
-    )
+    assert len(py_labels) == len(
+        r_labels
+    ), f"Term count mismatch: NAMpy={len(py_labels)} R={len(r_labels)}"
 
-    for i, (py_lbl, r_lbl) in enumerate(zip(py_labels, r_labels)):
+    for i, (py_lbl, _r_lbl) in enumerate(zip(py_labels, r_labels)):
         # ---- k_prime (col 0) — exact ----------------------------------------
         py_kp = int(py_values[i, 0])
         r_kp = int(round(r_values[i, 0]))
-        assert py_kp == r_kp, (
-            f"k_prime mismatch for term '{py_lbl}': NAMpy={py_kp} R={r_kp}"
-        )
+        assert (
+            py_kp == r_kp
+        ), f"k_prime mismatch for term '{py_lbl}': NAMpy={py_kp} R={r_kp}"
 
         # ---- edf (col 1) — tight; tolerance varies by smooth type -----------
         np.testing.assert_allclose(
@@ -125,33 +123,33 @@ def _assert_k_check_parity(
         # ---- k_index and p_value — validity only ----------------------------
         is_numeric = any(s in py_lbl for s in numeric_terms)
         if is_numeric:
-            assert np.isfinite(py_values[i, 2]), (
-                f"NAMpy k_index should be finite for numeric term '{py_lbl}'"
-            )
-            assert np.isfinite(r_values[i, 2]), (
-                f"R k_index should be finite for numeric term '{py_lbl}'"
-            )
+            assert np.isfinite(
+                py_values[i, 2]
+            ), f"NAMpy k_index should be finite for numeric term '{py_lbl}'"
+            assert np.isfinite(
+                r_values[i, 2]
+            ), f"R k_index should be finite for numeric term '{py_lbl}'"
             p_py = py_values[i, 3]
             p_r = r_values[i, 3]
-            assert np.isfinite(p_py) and 0.0 <= p_py <= 1.0, (
-                f"NAMpy p_value out of [0,1] for '{py_lbl}': {p_py}"
-            )
-            assert np.isfinite(p_r) and 0.0 <= p_r <= 1.0, (
-                f"R p_value out of [0,1] for '{py_lbl}': {p_r}"
-            )
+            assert (
+                np.isfinite(p_py) and 0.0 <= p_py <= 1.0
+            ), f"NAMpy p_value out of [0,1] for '{py_lbl}': {p_py}"
+            assert (
+                np.isfinite(p_r) and 0.0 <= p_r <= 1.0
+            ), f"R p_value out of [0,1] for '{py_lbl}': {p_r}"
         else:
-            assert np.isnan(py_values[i, 2]), (
-                f"NAMpy k_index should be NaN for non-numeric term '{py_lbl}'"
-            )
-            assert np.isnan(r_values[i, 2]), (
-                f"R k_index should be NaN for non-numeric term '{py_lbl}'"
-            )
-            assert np.isnan(py_values[i, 3]), (
-                f"NAMpy p_value should be NaN for non-numeric term '{py_lbl}'"
-            )
-            assert np.isnan(r_values[i, 3]), (
-                f"R p_value should be NaN for non-numeric term '{py_lbl}'"
-            )
+            assert np.isnan(
+                py_values[i, 2]
+            ), f"NAMpy k_index should be NaN for non-numeric term '{py_lbl}'"
+            assert np.isnan(
+                r_values[i, 2]
+            ), f"R k_index should be NaN for non-numeric term '{py_lbl}'"
+            assert np.isnan(
+                py_values[i, 3]
+            ), f"NAMpy p_value should be NaN for non-numeric term '{py_lbl}'"
+            assert np.isnan(
+                r_values[i, 3]
+            ), f"R p_value should be NaN for non-numeric term '{py_lbl}'"
 
 
 # --------------------------------------------------------------------------- #
@@ -189,7 +187,9 @@ class TestKCheckParity:
         r_block = _r_k_check(snap)
         assert r_block is not None
         py_labels, py_values = _nampy_k_check(model)
-        _assert_k_check_parity(r_block, py_labels, py_values, numeric_terms={"x0", "x1"})
+        _assert_k_check_parity(
+            r_block, py_labels, py_values, numeric_terms={"x0", "x1"}
+        )
 
     def test_gaussian_cr_fixed_sp(self):
         """Fixed-sp: k_prime and edf must still match regardless of optimizer."""
@@ -202,7 +202,9 @@ class TestKCheckParity:
         r_block = _r_k_check(snap)
         assert r_block is not None
         py_labels, py_values = _nampy_k_check(model)
-        _assert_k_check_parity(r_block, py_labels, py_values, numeric_terms={"x0", "x1"})
+        _assert_k_check_parity(
+            r_block, py_labels, py_values, numeric_terms={"x0", "x1"}
+        )
 
     def test_gaussian_ps_reml(self):
         data = _make_gaussian_data(seed=600, n=180)
@@ -214,7 +216,9 @@ class TestKCheckParity:
         r_block = _r_k_check(snap)
         assert r_block is not None
         py_labels, py_values = _nampy_k_check(model)
-        _assert_k_check_parity(r_block, py_labels, py_values, numeric_terms={"x0", "x1"})
+        _assert_k_check_parity(
+            r_block, py_labels, py_values, numeric_terms={"x0", "x1"}
+        )
 
     def test_gaussian_tp_reml(self):
         data = _make_gaussian_data(seed=700, n=180)
@@ -266,7 +270,9 @@ class TestKCheckParity:
         r_block = _r_k_check(snap)
         assert r_block is not None
         py_labels, py_values = _nampy_k_check(model)
-        _assert_k_check_parity(r_block, py_labels, py_values, numeric_terms={"x0", "x1"})
+        _assert_k_check_parity(
+            r_block, py_labels, py_values, numeric_terms={"x0", "x1"}
+        )
 
     def test_poisson_cr_reml(self):
         data = _make_poisson_data(seed=789, n=220)
@@ -278,7 +284,9 @@ class TestKCheckParity:
         r_block = _r_k_check(snap)
         assert r_block is not None
         py_labels, py_values = _nampy_k_check(model)
-        _assert_k_check_parity(r_block, py_labels, py_values, numeric_terms={"x0", "x1"})
+        _assert_k_check_parity(
+            r_block, py_labels, py_values, numeric_terms={"x0", "x1"}
+        )
 
     def test_gamma_cr_reml(self):
         """Gamma REML: k_prime exact; edf tolerance 5e-3 (Gamma is a LOOSE family —
@@ -296,12 +304,15 @@ class TestKCheckParity:
         r_labels, r_values = r_block
         assert len(py_labels) == len(r_labels)
         for i in range(len(py_labels)):
-            assert int(py_values[i, 0]) == int(round(r_values[i, 0])), (
-                f"k_prime mismatch for term {i}"
-            )
+            assert int(py_values[i, 0]) == int(
+                round(r_values[i, 0])
+            ), f"k_prime mismatch for term {i}"
             # Gamma EDF can differ up to ~5e-3 when sp values differ
             np.testing.assert_allclose(
-                py_values[i, 1], r_values[i, 1], atol=5e-3, rtol=0.0,
+                py_values[i, 1],
+                r_values[i, 1],
+                atol=5e-3,
+                rtol=0.0,
                 err_msg=f"edf mismatch for term {i}",
             )
             assert np.isfinite(py_values[i, 2])
@@ -329,8 +340,11 @@ class TestKCheckParity:
         assert r_block is not None
         py_labels, py_values = _nampy_k_check(model)
         _assert_k_check_parity(
-            r_block, py_labels, py_values,
-            numeric_terms={"x0", "x1"}, edf_atol=1e-4,
+            r_block,
+            py_labels,
+            py_values,
+            numeric_terms={"x0", "x1"},
+            edf_atol=1e-4,
         )
 
     def test_gaussian_ti_reml(self):
@@ -345,8 +359,11 @@ class TestKCheckParity:
         assert r_block is not None
         py_labels, py_values = _nampy_k_check(model)
         _assert_k_check_parity(
-            r_block, py_labels, py_values,
-            numeric_terms={"x0", "x1"}, edf_atol=5e-4,
+            r_block,
+            py_labels,
+            py_values,
+            numeric_terms={"x0", "x1"},
+            edf_atol=5e-4,
         )
 
     def test_gaussian_t2_reml(self):
@@ -361,8 +378,11 @@ class TestKCheckParity:
         assert r_block is not None
         py_labels, py_values = _nampy_k_check(model)
         _assert_k_check_parity(
-            r_block, py_labels, py_values,
-            numeric_terms={"x0", "x1"}, edf_atol=1e-3,
+            r_block,
+            py_labels,
+            py_values,
+            numeric_terms={"x0", "x1"},
+            edf_atol=1e-3,
         )
 
     # ------------------------------------------------------------------ #
@@ -387,7 +407,10 @@ class TestKCheckParity:
         assert int(py_values[0, 0]) == int(round(r_values[0, 0]))
         # edf: tight
         np.testing.assert_allclose(
-            py_values[0, 1], r_values[0, 1], atol=1e-6, rtol=0.0,
+            py_values[0, 1],
+            r_values[0, 1],
+            atol=1e-6,
+            rtol=0.0,
         )
         # k_index + p_value: NaN for factor-only terms
         assert np.isnan(py_values[0, 2]), "NAMpy k_index should be NaN for re() term"
@@ -420,12 +443,15 @@ class TestKCheckParity:
         assert len(py_labels) == len(r_labels) == 1
 
         # k_prime: exact
-        assert int(py_values[0, 0]) == int(round(r_values[0, 0])), (
-            f"k_prime mismatch: NAMpy={int(py_values[0,0])} R={int(round(r_values[0,0]))}"
-        )
+        assert int(py_values[0, 0]) == int(
+            round(r_values[0, 0])
+        ), f"k_prime mismatch: NAMpy={int(py_values[0,0])} R={int(round(r_values[0,0]))}"
         # edf: tight
         np.testing.assert_allclose(
-            py_values[0, 1], r_values[0, 1], atol=5e-5, rtol=0.0,
+            py_values[0, 1],
+            r_values[0, 1],
+            atol=5e-5,
+            rtol=0.0,
             err_msg="edf mismatch for fs() term",
         )
         # k_index: both return NaN — mgcv's k.check also skips factor-smooth
@@ -452,7 +478,10 @@ class TestKCheckParity:
 
         assert int(py_values[0, 0]) == int(round(r_values[0, 0]))
         np.testing.assert_allclose(
-            py_values[0, 1], r_values[0, 1], atol=1e-6, rtol=0.0,
+            py_values[0, 1],
+            r_values[0, 1],
+            atol=1e-6,
+            rtol=0.0,
         )
         assert np.isnan(py_values[0, 2])
         assert np.isnan(r_values[0, 2])
@@ -485,7 +514,11 @@ class TestKCheckParity:
 
         # edf_atol=1e-5: small dataset (n=60) with RE term causes minor rounding
         _assert_k_check_parity(
-            r_block, py_labels, py_values, numeric_terms={"x0"}, edf_atol=1e-5,
+            r_block,
+            py_labels,
+            py_values,
+            numeric_terms={"x0"},
+            edf_atol=1e-5,
         )
 
     # ------------------------------------------------------------------ #
@@ -507,10 +540,13 @@ class TestKCheckParity:
         assert len(py_labels) == len(r_labels) == 2
 
         for i in range(2):
-            assert int(py_values[i, 0]) == int(round(r_values[i, 0])), (
-                f"k_prime mismatch under select=True for term {i}"
-            )
+            assert int(py_values[i, 0]) == int(
+                round(r_values[i, 0])
+            ), f"k_prime mismatch under select=True for term {i}"
             np.testing.assert_allclose(
-                py_values[i, 1], r_values[i, 1], atol=1e-6, rtol=0.0,
+                py_values[i, 1],
+                r_values[i, 1],
+                atol=1e-6,
+                rtol=0.0,
                 err_msg=f"edf mismatch under select=True for term {i}",
             )

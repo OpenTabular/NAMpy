@@ -16,21 +16,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..specs import LinearPredictorSpec, TermSpec
-
-from ..smooths.registry import make_smooth_term
-from ..terms.linear import LinearTerm
-from ..smooths.univariate.cubic_regression import SplineTerm1D
-from ..smooths.univariate.pspline import PSplineTerm1D
-from ..smooths.univariate.thin_plate import ThinPlateSplineTerm  # imported for registration / direct access
-from ..smooths.univariate.gp import GPSmoothTerm
-from ..smooths.tensor.te import TensorProductSplineTerm  # imported for registration
-from ..smooths.tensor.ti import InteractionTensorProductSplineTerm  # imported for registration
-from ..smooths.tensor.t2 import TensorANOVASplineTerm  # imported for registration
-
-from ..smooths.categorical.factor_smooth import FSmoothInteractionTerm, SZSmoothInteractionTerm
+from ..smooths.categorical.factor_smooth import (
+    FSmoothInteractionTerm,
+    SZSmoothInteractionTerm,
+)
 from ..smooths.categorical.mrf import MarkovRandomFieldTerm
 from ..smooths.categorical.random_effect import RandomEffectTerm
+from ..smooths.registry import make_smooth_term
+from ..smooths.univariate.cubic_regression import SplineTerm1D
+from ..smooths.univariate.gp import GPSmoothTerm
+from ..smooths.univariate.pspline import PSplineTerm1D
+from ..specs import LinearPredictorSpec, TermSpec
+from ..terms.linear import LinearTerm
 
 
 def _as_list_or_repeat(value: Any, n: int):
@@ -257,20 +254,20 @@ def instantiate_term(term_like: TermSpec | Any):
         basis = _as_list_or_repeat(raw_bs, len(features))
         basis = [str(b).lower() for b in basis]
 
-        kwargs = dict(
-            feature=features,
-            k=k,
-            basis=basis,
-            label=label,
-            term_id=term_like.term_id,
-            smoothing_id=smoothing_id,
-            by=by,
-            sp=sp,
-            select=select,
-            fixed=fx,
-            knots=knots,
-            metadata=metadata,
-        )
+        kwargs = {
+            "feature": features,
+            "k": k,
+            "basis": basis,
+            "label": label,
+            "term_id": term_like.term_id,
+            "smoothing_id": smoothing_id,
+            "by": by,
+            "sp": sp,
+            "select": select,
+            "fixed": fx,
+            "knots": knots,
+            "metadata": metadata,
+        }
 
         if special == "ti":
             kwargs["mc"] = mc
@@ -302,6 +299,7 @@ def instantiate_predictor_terms(predictor_specs):
             )
         )
     return out
+
 
 __all__ = [
     "instantiate_term",

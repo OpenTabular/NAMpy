@@ -39,6 +39,7 @@ Not yet implemented
 This solver is the Python analogue of mgcv's ``gam.fit3`` (penalized IRLS inner loop).
 - Extended / general family support.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -257,7 +258,10 @@ def fit_penalized_irls(
     mu = np.asarray(family.inverse_link(eta), dtype=np.float64)
     coef_old = null_coef.copy()
     null_eta = (X @ null_coef + offset).astype(np.float64, copy=False)
-    old_pdev = float(family.deviance(y, family.inverse_link(null_eta)) + float(null_coef @ (St @ null_coef)))
+    old_pdev = float(
+        family.deviance(y, family.inverse_link(null_eta))
+        + float(null_coef @ (St @ null_coef))
+    )
 
     ii = 0
     while True:
@@ -276,7 +280,7 @@ def fit_penalized_irls(
     conv = False
     coef = np.zeros(q, dtype=np.float64)
     # Initialise "previous" state to the null fit for the first step-halving check.
-    eta_old = null_eta.copy()
+    null_eta.copy()
     n_iter = 0
 
     # Main penalized IRLS loop.
@@ -364,7 +368,6 @@ def fit_penalized_irls(
             print(f"Deviance = {dev}  Iteration = {iter_no}")
 
         # Step-halve until deviance is finite.
-        boundary = False
         if not np.isfinite(dev):
             ii_h = 0
             while not np.isfinite(dev):
@@ -376,7 +379,6 @@ def fit_penalized_irls(
                 eta = eta_linear + offset
                 mu = np.asarray(family.inverse_link(eta), dtype=np.float64)
                 dev = float(family.deviance(y, mu))
-            boundary = True
             penalty = float(start_coef @ (St @ start_coef))
             if ctl.trace:
                 print(f"Step halved: new deviance = {dev}")
@@ -399,7 +401,6 @@ def fit_penalized_irls(
                 eta = eta_linear + offset
                 mu = np.asarray(family.inverse_link(eta), dtype=np.float64)
             if ii_h > 0:
-                boundary = True
                 penalty = float(start_coef @ (St @ start_coef))
                 dev = float(family.deviance(y, mu))
                 if ctl.trace:
@@ -416,7 +417,7 @@ def fit_penalized_irls(
             ii_h = 0
             if iter_no == 1:
                 coef_old = null_coef.copy()
-                eta_old = null_eta.copy()
+                null_eta.copy()
             while pdev - old_pdev > div_thresh:
                 ii_h += 1
                 if ii_h > 100:
@@ -439,20 +440,22 @@ def fit_penalized_irls(
         # Convergence check: penalized deviance change and gradient magnitude.
         scale = float(scale_reference)
         if abs(pdev - old_pdev) < ctl.epsilon * (abs(scale) + abs(pdev)):
-            grad = 2.0 * (X_g.T @ (w_work * ((X_g @ start_coef) - z))) + 2.0 * (St @ start_coef)
+            grad = 2.0 * (X_g.T @ (w_work * ((X_g @ start_coef) - z))) + 2.0 * (
+                St @ start_coef
+            )
             if np.max(np.abs(grad)) > ctl.epsilon * (abs(pdev) + abs(scale)):
                 old_pdev = pdev
                 coef = coef_old = start_coef
-                eta_old = eta.copy()
+                eta.copy()
             else:
                 conv = True
                 coef = start_coef
-                eta_old = eta.copy()
+                eta.copy()
                 break
         else:
             old_pdev = pdev
             coef = coef_old = start_coef
-            eta_old = eta.copy()
+            eta.copy()
     else:
         if not conv:
             warnings_list.append(
@@ -496,13 +499,13 @@ def fit_penalized_irls_from_model(
     is Gaussian, post-fit smoothness scores and derivatives are merged in via
     :func:`nampy.gam.fit.postprocess.gaussian_smoothness_postprocess.merge_gaussian_smoothness_into_fit_result`.
     """
-    from ..penalized_system import (
-        build_full_design,
-        build_full_penalty_from_blocks,
-    )
     from ..linalg.stacked_qr import (
         balanced_penalty_template_sqrt_for_rank,
         penalty_sqrt_rows_prefer_diagonal,
+    )
+    from ..penalized_system import (
+        build_full_design,
+        build_full_penalty_from_blocks,
     )
 
     y = model.family.validate_y(y)
@@ -527,9 +530,18 @@ def fit_penalized_irls_from_model(
         n_coef=int(model.n_coef_),
     )
     offset = model.offset_train_
-    off = np.zeros(n, dtype=np.float64) if offset is None else np.asarray(offset, dtype=np.float64).ravel()
+    off = (
+        np.zeros(n, dtype=np.float64)
+        if offset is None
+        else np.asarray(offset, dtype=np.float64).ravel()
+    )
 
-    log_sp = np.log(np.maximum(np.asarray(smoothing_params, dtype=np.float64).ravel(), np.finfo(np.float64).tiny))
+    log_sp = np.log(
+        np.maximum(
+            np.asarray(smoothing_params, dtype=np.float64).ravel(),
+            np.finfo(np.float64).tiny,
+        )
+    )
 
     from ..postprocess.gaussian_smoothness_postprocess import (
         merge_gaussian_smoothness_into_fit_result,
@@ -553,7 +565,10 @@ def fit_penalized_irls_from_model(
         ),
         score_type=score_type,
     )
-    if attach_smoothness_postprocess and str(getattr(model.family, "name", "")).lower() == "gaussian":
+    if (
+        attach_smoothness_postprocess
+        and str(getattr(model.family, "name", "")).lower() == "gaussian"
+    ):
         sp_lin = np.asarray(smoothing_params, dtype=np.float64).ravel()
         out = merge_gaussian_smoothness_into_fit_result(
             out,

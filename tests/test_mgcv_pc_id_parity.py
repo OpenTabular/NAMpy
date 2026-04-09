@@ -27,18 +27,21 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
-
 from mgcv_parity_utils import (
     R_SCRIPT,
     _assert_basic_mgcv_parity,
     _fit_nampy_snapshot,
+    _make_distributional_gaussian_data,
+    _make_fs_data_4levels,
+    _make_gaussian_data_3col,
+    _make_sz_data_3x3,
     _run_mgcv_snapshot,
 )
-
 
 # ---------------------------------------------------------------------------
 # Shared data fixtures
 # ---------------------------------------------------------------------------
+
 
 def _data_1d(n: int = 200, seed: int = 42) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
@@ -51,7 +54,7 @@ def _data_2col(n: int = 180, seed: int = 31) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     x0 = rng.uniform(-2.0, 2.0, n)
     x1 = rng.uniform(-1.5, 1.5, n)
-    y  = np.sin(1.2 * x0) + 0.4 * x1 ** 2 + rng.normal(0.0, 0.15, n)
+    y = np.sin(1.2 * x0) + 0.4 * x1**2 + rng.normal(0.0, 0.15, n)
     return pd.DataFrame({"y": y, "x0": x0, "x1": x1})
 
 
@@ -59,7 +62,7 @@ def _data_2d(n: int = 120, seed: int = 11) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     x = rng.uniform(-1.0, 1.0, n)
     z = rng.uniform(-1.5, 1.5, n)
-    y = np.sin(1.3 * x) + 0.4 * z ** 2 + rng.normal(0.0, 0.1, n)
+    y = np.sin(1.3 * x) + 0.4 * z**2 + rng.normal(0.0, 0.1, n)
     return pd.DataFrame({"y": y, "x": x, "z": z})
 
 
@@ -78,7 +81,7 @@ def _data_numeric_by_2d(n: int = 140, seed: int = 41) -> pd.DataFrame:
     x = rng.uniform(0.0, 1.0, n)
     w = rng.uniform(-1.0, 1.0, n)
     z = rng.uniform(0.5, 1.5, n)
-    y = z * (np.sin(1.3 * x) + 0.4 * w ** 2) + rng.normal(0.0, 0.1, n)
+    y = z * (np.sin(1.3 * x) + 0.4 * w**2) + rng.normal(0.0, 0.1, n)
     return pd.DataFrame({"y": y, "x": x, "w": w, "z": z})
 
 
@@ -93,6 +96,7 @@ def _data_numeric_by_1d(n: int = 140, seed: int = 44) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _exact_parity(actual: dict, expected: dict, *, atol: float = 1e-10) -> None:
     """Assert that response and link predictions match to ``atol``."""
@@ -130,6 +134,7 @@ def _exact_parity(actual: dict, expected: dict, *, atol: float = 1e-10) -> None:
 # pc= parity -- fixed smoothing parameter (cr: exact; cs: near-exact)
 # ===========================================================================
 
+
 @pytest.mark.skipif(R_SCRIPT is None, reason="Rscript not available")
 class TestPcParityFixed:
     """
@@ -148,24 +153,22 @@ class TestPcParityFixed:
         """cr basis with pc=0 at fixed sp matches mgcv to machine precision."""
         data = _data_1d()
         formula = 'y ~ s(x, bs="cr", k=8, pc=0.0, sp=1.5)'
-        actual   = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
         _exact_parity(actual, expected)
 
     def test_cs_pc_fixed_sp_matches_mgcv(self):
-        """
-        cs (shrinkage cr) with pc=0 at fixed sp matches mgcv to ~1e-4.
+        """cs (shrinkage cr) with pc=0 at fixed sp matches mgcv to machine precision.
 
-        cs adds a ridge penalty on top of the cr basis; the shrinkage penalty
-        matrix is scaled slightly differently from mgcv's, producing a
-        pre-existing ~1e-5 prediction difference even without pc=.
-        pc= does not worsen this gap.
+        scipy.linalg.eigh (DSYEVR) finds the same null-space eigenvectors as
+        R's eigen(symmetric=TRUE), so the cs shrinkage penalty now matches to
+        machine precision, making cs + pc= parity on par with cr.
         """
         data = _data_1d()
         formula = 'y ~ s(x, bs="cs", k=8, pc=0.0, sp=1.5)'
-        actual   = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
-        _exact_parity(actual, expected, atol=5e-5)
+        _exact_parity(actual, expected)
 
     def test_cr_pc_n_coef_matches_mgcv(self):
         """
@@ -183,12 +186,12 @@ class TestPcParityFixed:
         snap_no_pc = _run_mgcv_snapshot(
             data, 'y ~ s(x, bs="cr", k=8, sp=1.5)', "gaussian", "fixed"
         )
-        snap_pc    = _run_mgcv_snapshot(
+        snap_pc = _run_mgcv_snapshot(
             data, 'y ~ s(x, bs="cr", k=8, pc=0.0, sp=1.5)', "gaussian", "fixed"
         )
         # mgcv: same number of smooth coefs with and without pc=
         mgcv_n_no_pc = len(snap_no_pc["fit"]["coef_full"]) - 1  # subtract intercept
-        mgcv_n_pc    = len(snap_pc["fit"]["coef_full"])    - 1
+        mgcv_n_pc = len(snap_pc["fit"]["coef_full"]) - 1
         assert mgcv_n_no_pc == mgcv_n_pc, (
             f"mgcv itself: expected same smooth n_coef for pc= vs no-pc, "
             f"got {mgcv_n_no_pc} vs {mgcv_n_pc}"
@@ -196,14 +199,21 @@ class TestPcParityFixed:
 
         # NAMpy should match
         from nampy.basemodels.gam import GAM
-        gam_no_pc = GAM(family="gaussian",
-                        formula='y ~ s(x, bs="cr", k=8)',
-                        optimize_smoothing=False, smoothing_method="fixed",
-                        smoothing_params=[1.5])
-        gam_pc    = GAM(family="gaussian",
-                        formula='y ~ s(x, bs="cr", k=8, pc=0.0)',
-                        optimize_smoothing=False, smoothing_method="fixed",
-                        smoothing_params=[1.5])
+
+        gam_no_pc = GAM(
+            family="gaussian",
+            formula='y ~ s(x, bs="cr", k=8)',
+            optimize_smoothing=False,
+            smoothing_method="fixed",
+            smoothing_params=[1.5],
+        )
+        gam_pc = GAM(
+            family="gaussian",
+            formula='y ~ s(x, bs="cr", k=8, pc=0.0)',
+            optimize_smoothing=False,
+            smoothing_method="fixed",
+            smoothing_params=[1.5],
+        )
         gam_no_pc.fit(data=data)
         gam_pc.fit(data=data)
         assert gam_pc.n_coef_ == gam_no_pc.n_coef_, (
@@ -212,9 +222,9 @@ class TestPcParityFixed:
         )
         # NAMpy n_coef_ does NOT include the intercept (unlike mgcv coef_full).
         # mgcv_n_no_pc already has the intercept subtracted, so comparison is direct.
-        assert gam_no_pc.n_coef_ == mgcv_n_no_pc, (
-            f"NAMpy n_coef_={gam_no_pc.n_coef_} != mgcv smooth coefs={mgcv_n_no_pc}"
-        )
+        assert (
+            gam_no_pc.n_coef_ == mgcv_n_no_pc
+        ), f"NAMpy n_coef_={gam_no_pc.n_coef_} != mgcv smooth coefs={mgcv_n_no_pc}"
 
     def test_cr_pc_term_is_zero_at_constraint_point(self):
         """Internal contract: the constrained smooth contribution is zero at pc=."""
@@ -222,17 +232,22 @@ class TestPcParityFixed:
         pc_value = 0.5
 
         from nampy.basemodels.gam import GAM
+
         formula = f'y ~ s(x, bs="cr", k=8, pc={pc_value}, sp=1.5)'
-        gam = GAM(family="gaussian", formula=formula,
-                  optimize_smoothing=False, smoothing_method="fixed",
-                  smoothing_params=[1.5])
+        gam = GAM(
+            family="gaussian",
+            formula=formula,
+            optimize_smoothing=False,
+            smoothing_method="fixed",
+            smoothing_params=[1.5],
+        )
         gam.fit(data=data)
 
         x_at_pc = pd.DataFrame({"x": [pc_value]})
         smooth_at_pc = gam.predict(x_at_pc, type="terms")[0, 0]
-        assert abs(smooth_at_pc) < 1e-10, (
-            f"NAMpy smooth at pc={pc_value} is {smooth_at_pc}, expected ~0"
-        )
+        assert (
+            abs(smooth_at_pc) < 1e-10
+        ), f"NAMpy smooth at pc={pc_value} is {smooth_at_pc}, expected ~0"
 
     def test_cr_pc_fixed_sp_full_parity_matches_mgcv(self):
         """Whole-fit parity separately confirms the pc= path still matches mgcv."""
@@ -291,6 +306,7 @@ class TestPcParityFixed:
         pc_value = 0.2
 
         from nampy.basemodels.gam import GAM
+
         gam = GAM(
             family="gaussian",
             formula=f'y ~ s(x, by=f, bs="ps", k=8, pc={pc_value}, sp=1.0)',
@@ -316,6 +332,7 @@ class TestPcParityFixed:
 # pc= parity -- REML (approximate comparison)
 # ===========================================================================
 
+
 @pytest.mark.skipif(R_SCRIPT is None, reason="Rscript not available")
 class TestPcParityREML:
     """
@@ -336,24 +353,29 @@ class TestPcParityREML:
     def test_cr_pc_reml_matches_mgcv(self):
         data = _data_1d()
         formula = 'y ~ s(x, bs="cr", k=8, pc=0.0)'
-        actual   = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
             actual, expected, pred_atol=1e-2, pred_rtol=1e-2, sp_log_atol=0.3
         )
 
     def test_cs_pc_reml_matches_mgcv(self):
-        """
-        cs with pc=0 under REML: predictions match to ~1e-4.
-        sp values differ due to shrinkage-penalty scale mismatch; check_sp=False.
+        """cs with pc=0 under REML matches mgcv predictions to TIGHT tolerance.
+
+        With the corrected cs shrinkage penalty (scipy DSYEVR matches R's null
+        eigenvectors), REML predictions now agree to ~1e-6.  Smoothing
+        parameters are not compared because the REML optimizer landscape for cs
+        is slightly flat and the endpoints can differ by a small margin.
         """
         data = _data_1d()
         formula = 'y ~ s(x, bs="cs", k=8, pc=0.0)'
-        actual   = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-4, pred_rtol=1e-4,
+            actual,
+            expected,
+            pred_atol=1e-6,
+            pred_rtol=1e-6,
             sp_log_atol=0.0,  # unused
             check_sp=False,
         )
@@ -365,11 +387,13 @@ class TestPcParityREML:
         """
         data = _data_1d()
         formula = 'y ~ s(x, bs="cc", k=8, pc=0.5)'
-        actual   = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-7, pred_rtol=1e-7,
+            actual,
+            expected,
+            pred_atol=1e-7,
+            pred_rtol=1e-7,
             sp_log_atol=0.0,  # unused
             check_sp=False,
         )
@@ -381,11 +405,13 @@ class TestPcParityREML:
         """
         data = _data_1d()
         formula = 'y ~ s(x, bs="ps", k=8, pc=0.0)'
-        actual   = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-5, pred_rtol=1e-5,
+            actual,
+            expected,
+            pred_atol=1e-5,
+            pred_rtol=1e-5,
             sp_log_atol=0.0,  # unused
             check_sp=False,
         )
@@ -400,8 +426,10 @@ class TestPcParityREML:
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-6, pred_rtol=1e-6,
+            actual,
+            expected,
+            pred_atol=1e-6,
+            pred_rtol=1e-6,
             sp_log_atol=0.0,
             check_sp=False,
         )
@@ -415,11 +443,13 @@ class TestPcParityREML:
         """
         data = _data_1d()
         formula = 'y ~ s(x, bs="tp", k=8, pc=0.0)'
-        actual   = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-9, pred_rtol=1e-9,
+            actual,
+            expected,
+            pred_atol=1e-9,
+            pred_rtol=1e-9,
             sp_log_atol=1e-8,
             check_sp=True,
         )
@@ -430,7 +460,9 @@ class TestPcParityREML:
             rtol=1e-10,
             err_msg="tp pc REML criterion differs from mgcv",
         )
-        assert actual["parity"]["criterion_view"]["criterion_backend"] == "gaussian_exact"
+        assert (
+            actual["parity"]["criterion_view"]["criterion_backend"] == "gaussian_exact"
+        )
         np.testing.assert_allclose(
             float(actual["parity"]["criterion_view"]["joint_criterion_value"]),
             float(expected["fit"]["criterion_value"]),
@@ -446,11 +478,13 @@ class TestPcParityREML:
         """
         data = _data_1d()
         formula = 'y ~ s(x, bs="ts", k=8, pc=0.0)'
-        actual   = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-5, pred_rtol=1e-5,
+            actual,
+            expected,
+            pred_atol=1e-5,
+            pred_rtol=1e-5,
             sp_log_atol=0.0,  # unused
             check_sp=False,
         )
@@ -461,8 +495,10 @@ class TestPcParityREML:
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-8, pred_rtol=1e-8,
+            actual,
+            expected,
+            pred_atol=1e-8,
+            pred_rtol=1e-8,
             sp_log_atol=1e-6,
         )
 
@@ -472,8 +508,10 @@ class TestPcParityREML:
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=2e-8, pred_rtol=2e-8,
+            actual,
+            expected,
+            pred_atol=2e-8,
+            pred_rtol=2e-8,
             sp_log_atol=1e-6,
         )
 
@@ -483,8 +521,10 @@ class TestPcParityREML:
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-9, pred_rtol=1e-9,
+            actual,
+            expected,
+            pred_atol=1e-9,
+            pred_rtol=1e-9,
             sp_log_atol=1e-6,
         )
 
@@ -498,8 +538,10 @@ class TestPcParityREML:
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-7, pred_rtol=1e-7,
+            actual,
+            expected,
+            pred_atol=1e-7,
+            pred_rtol=1e-7,
             sp_log_atol=0.0,
             check_sp=False,
         )
@@ -508,6 +550,7 @@ class TestPcParityREML:
 # ===========================================================================
 # Linked basis (id=) parity -- compatible k (exact)
 # ===========================================================================
+
 
 @pytest.mark.skipif(R_SCRIPT is None, reason="Rscript not available")
 class TestLinkedIdParityFixed:
@@ -520,7 +563,7 @@ class TestLinkedIdParityFixed:
             'y ~ s(x0, bs="cr", k=6, id="g", sp=0.9)'
             ' + s(x1, bs="cr", k=6, id="g", sp=0.9)'
         )
-        actual   = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
         _exact_parity(actual, expected)
 
@@ -530,13 +573,13 @@ class TestLinkedIdParityFixed:
         fewer smoothing parameters than the equivalent unlinked model.
         """
         data = _data_2col()
-        formula_linked   = 'y ~ s(x0, bs="cr", k=6, id="g") + s(x1, bs="cr", k=6, id="g")'
+        formula_linked = 'y ~ s(x0, bs="cr", k=6, id="g") + s(x1, bs="cr", k=6, id="g")'
         formula_unlinked = 'y ~ s(x0, bs="cr", k=6) + s(x1, bs="cr", k=6)'
 
-        snap_linked   = _run_mgcv_snapshot(data, formula_linked,   "gaussian", "REML")
+        snap_linked = _run_mgcv_snapshot(data, formula_linked, "gaussian", "REML")
         snap_unlinked = _run_mgcv_snapshot(data, formula_unlinked, "gaussian", "REML")
         # Use atleast_1d to handle scalar smoothing_params (single-sp case)
-        mgcv_sp_linked   = len(np.atleast_1d(snap_linked["fit"]["smoothing_params"]))
+        mgcv_sp_linked = len(np.atleast_1d(snap_linked["fit"]["smoothing_params"]))
         mgcv_sp_unlinked = len(np.atleast_1d(snap_unlinked["fit"]["smoothing_params"]))
         assert mgcv_sp_linked < mgcv_sp_unlinked, (
             f"mgcv: expected fewer sp for linked ({mgcv_sp_linked}) vs "
@@ -544,28 +587,31 @@ class TestLinkedIdParityFixed:
         )
 
         from nampy.basemodels.gam import GAM
-        gam_linked   = GAM(family="gaussian", formula=formula_linked)
+
+        gam_linked = GAM(family="gaussian", formula=formula_linked)
         gam_unlinked = GAM(family="gaussian", formula=formula_unlinked)
         gam_linked.fit(data=data)
         gam_unlinked.fit(data=data)
-        assert gam_linked.n_smoothing_params_ < gam_unlinked.n_smoothing_params_, (
-            "NAMpy: expected fewer sp for linked vs unlinked model"
-        )
+        assert (
+            gam_linked.n_smoothing_params_ < gam_unlinked.n_smoothing_params_
+        ), "NAMpy: expected fewer sp for linked vs unlinked model"
         assert gam_linked.n_smoothing_params_ == mgcv_sp_linked
 
     def test_linked_cr_compatible_k_reml_matches_mgcv(self):
         """Linked cr smooths with same k under REML match mgcv approximately."""
         data = _data_2col()
         formula = 'y ~ s(x0, bs="cr", k=6, id="g") + s(x1, bs="cr", k=6, id="g")'
-        actual   = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_basic_mgcv_parity(
             actual, expected, pred_atol=3e-2, pred_rtol=3e-2, sp_log_atol=0.45
         )
 
+
 # ===========================================================================
 # Linked basis (id=) -- incompatible k harmonisation
 # ===========================================================================
+
 
 @pytest.mark.skipif(R_SCRIPT is None, reason="Rscript not available")
 class TestLinkedIdIncompatibleK:
@@ -597,16 +643,22 @@ class TestLinkedIdIncompatibleK:
         )
 
         import warnings
+
         from nampy.basemodels.gam import GAM
+
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            gam = GAM(family="gaussian", formula=formula,
-                      optimize_smoothing=False, smoothing_method="fixed",
-                      smoothing_params=[0.9])
+            gam = GAM(
+                family="gaussian",
+                formula=formula,
+                optimize_smoothing=False,
+                smoothing_method="fixed",
+                smoothing_params=[0.9],
+            )
             gam.fit(data=data)
-        assert any("k" in str(warning.message).lower() for warning in w), (
-            "Expected a warning about k harmonisation"
-        )
+        assert any(
+            "k" in str(warning.message).lower() for warning in w
+        ), "Expected a warning about k harmonisation"
         # NAMpy n_coef_ excludes the intercept; mgcv_n_coef includes it.
         # Subtract 1 from mgcv_n_coef to compare smooth coefs only.
         assert gam.n_coef_ == mgcv_n_coef - 1, (
@@ -625,6 +677,7 @@ class TestLinkedIdIncompatibleK:
             ' + s(x1, bs="cr", k=8, id="g", sp=0.9)'
         )
         import warnings
+
         with warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
             actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
@@ -653,26 +706,30 @@ class TestLinkedIdIncompatibleK:
         )
 
         import warnings
+
         from nampy.basemodels.gam import GAM
+
         with warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
-            gam = GAM(family="gaussian", formula=formula,
-                      optimize_smoothing=False, smoothing_method="fixed",
-                      smoothing_params=[0.9])
+            gam = GAM(
+                family="gaussian",
+                formula=formula,
+                optimize_smoothing=False,
+                smoothing_method="fixed",
+                smoothing_params=[0.9],
+            )
             gam.fit(data=data)
         # NAMpy n_coef_ excludes the intercept; mgcv_n_coef includes it.
-        assert gam.n_coef_ == mgcv_n_coef - 1, (
-            f"NAMpy n_coef_={gam.n_coef_} != mgcv smooth n_coef={mgcv_n_coef - 1}"
-        )
+        assert (
+            gam.n_coef_ == mgcv_n_coef - 1
+        ), f"NAMpy n_coef_={gam.n_coef_} != mgcv smooth n_coef={mgcv_n_coef - 1}"
 
     def test_linked_cr_incompatible_k_reml_matches_mgcv(self):
         """After k harmonisation, REML optimisation should also match mgcv."""
         data = _data_2col()
-        formula = (
-            'y ~ s(x0, bs="cr", k=6, id="g")'
-            ' + s(x1, bs="cr", k=8, id="g")'
-        )
+        formula = 'y ~ s(x0, bs="cr", k=6, id="g")' ' + s(x1, bs="cr", k=8, id="g")'
         import warnings
+
         with warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
             actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
@@ -685,6 +742,7 @@ class TestLinkedIdIncompatibleK:
 # ===========================================================================
 # Combined: pc= + linked id= (NAMpy-internal consistency only)
 # ===========================================================================
+
 
 class TestPcAndLinkedCombined:
     """
@@ -705,18 +763,172 @@ class TestPcAndLinkedCombined:
             ' + s(x1, bs="cr", k=6, id="g", pc=0.0, sp=1.0)'
         )
         from nampy.basemodels.gam import GAM
-        gam = GAM(family="gaussian", formula=formula,
-                  optimize_smoothing=False, smoothing_method="fixed",
-                  smoothing_params=[1.0])
+
+        gam = GAM(
+            family="gaussian",
+            formula=formula,
+            optimize_smoothing=False,
+            smoothing_method="fixed",
+            smoothing_params=[1.0],
+        )
         gam.fit(data=data)
         assert gam.n_coef_ > 0
 
         # Both smooths must be zero at x0=x1=0
         x_at_pc = pd.DataFrame({"x0": [0.0], "x1": [0.0]})
         terms = gam.predict(x_at_pc, type="terms")
-        assert abs(float(terms[0, 0])) < 1e-10, (
-            f"smooth for x0 at pc=0 is {terms[0, 0]}, expected ~0"
+        assert (
+            abs(float(terms[0, 0])) < 1e-10
+        ), f"smooth for x0 at pc=0 is {terms[0, 0]}, expected ~0"
+        assert (
+            abs(float(terms[0, 1])) < 1e-10
+        ), f"smooth for x1 at pc=0 is {terms[0, 1]}, expected ~0"
+
+
+@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript not available")
+class TestBySelectAndMoreLinkedIdParity:
+    def test_cr_factor_by_select_reml_matches_mgcv(self):
+        """Factor-by replicated cr smooths with select=True match mgcv under REML."""
+        data = _data_factor_by()
+        formula = 'y ~ s(x, by=f, bs="cr", k=8)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML", select=True)
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML", select=True)
+
+        _assert_basic_mgcv_parity(
+            actual,
+            expected,
+            pred_atol=5e-5,
+            pred_rtol=5e-5,
+            sp_log_atol=1e-4,
         )
-        assert abs(float(terms[0, 1])) < 1e-10, (
-            f"smooth for x1 at pc=0 is {terms[0, 1]}, expected ~0"
+
+    def test_linked_cr_three_terms_fixed_sp_matches_mgcv(self):
+        """Three linked cr smooths should still share one basis and match mgcv exactly."""
+        data = _make_gaussian_data_3col()
+        formula = (
+            'y ~ s(x0, bs="cr", k=6, id="g", sp=0.9)'
+            ' + s(x1, bs="cr", k=6, id="g", sp=0.9)'
+            ' + s(x2, bs="cr", k=6, id="g", sp=0.9)'
+        )
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
+        _exact_parity(actual, expected)
+
+    def test_linked_cr_three_terms_share_one_smoothing_param(self):
+        """Three linked terms should collapse to one smoothing parameter in mgcv and NAMpy."""
+        data = _make_gaussian_data_3col()
+        formula_linked = (
+            'y ~ s(x0, bs="cr", k=6, id="g")'
+            ' + s(x1, bs="cr", k=6, id="g")'
+            ' + s(x2, bs="cr", k=6, id="g")'
+        )
+        formula_unlinked = (
+            'y ~ s(x0, bs="cr", k=6)' ' + s(x1, bs="cr", k=6)' ' + s(x2, bs="cr", k=6)'
+        )
+
+        snap_linked = _run_mgcv_snapshot(data, formula_linked, "gaussian", "REML")
+        snap_unlinked = _run_mgcv_snapshot(data, formula_unlinked, "gaussian", "REML")
+        mgcv_sp_linked = len(np.atleast_1d(snap_linked["fit"]["smoothing_params"]))
+        mgcv_sp_unlinked = len(np.atleast_1d(snap_unlinked["fit"]["smoothing_params"]))
+        assert mgcv_sp_linked == 1
+        assert mgcv_sp_linked < mgcv_sp_unlinked
+
+        from nampy.basemodels.gam import GAM
+
+        gam_linked = GAM(family="gaussian", formula=formula_linked)
+        gam_unlinked = GAM(family="gaussian", formula=formula_unlinked)
+        gam_linked.fit(data=data)
+        gam_unlinked.fit(data=data)
+
+        assert gam_linked.n_smoothing_params_ == 1
+        assert gam_linked.n_smoothing_params_ == mgcv_sp_linked
+        assert gam_linked.n_smoothing_params_ < gam_unlinked.n_smoothing_params_
+
+
+@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript not available")
+class TestFsSzParityExpandedFactors:
+    def test_gaussian_fs_4levels_reml_matches_mgcv(self):
+        data = _make_fs_data_4levels()
+        formula = 'y ~ s(f, x, bs="fs", k=6)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        _assert_basic_mgcv_parity(
+            actual,
+            expected,
+            pred_atol=6e-3,
+            pred_rtol=6e-3,
+            sp_log_atol=12.0,
+            criterion_atol=5.0,
+        )
+
+    def test_gaussian_sz_3x3_reml_matches_mgcv(self):
+        data = _make_sz_data_3x3()
+        formula = 'y ~ s(f1, f2, x, bs="sz", k=6)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        _assert_basic_mgcv_parity(
+            actual,
+            expected,
+            pred_atol=6e-3,
+            pred_rtol=6e-3,
+            sp_log_atol=18.0,
+            criterion_atol=5.0,
+        )
+
+
+class TestDistributionalRegressionMultiPredictor:
+    """compile_predictor_designs with multiple predictors stays structurally independent."""
+
+    def test_two_predictors_are_structurally_independent(self):
+        from nampy.gam.design.compiler import compile_predictor_designs
+        from nampy.gam.formula import (
+            compile_predictor_specs_from_formula,
+            parse_gam_formula,
+        )
+        from nampy.gam.formula.preprocess import preprocess_formula_predictor_specs
+
+        data = _make_distributional_gaussian_data()
+        parsed = parse_gam_formula(
+            [
+                'y ~ s(x0, bs="cr", k=7) + s(x1, bs="cr", k=5)',
+                'y ~ s(x0, bs="cr", k=4)',
+            ]
+        )
+        predictor_specs = compile_predictor_specs_from_formula(parsed, default_k=8)
+        predictor_specs, data_work, _ = preprocess_formula_predictor_specs(
+            parsed=parsed,
+            predictor_specs=predictor_specs,
+            data=data,
+        )
+
+        X = data_work[["x0", "x1"]].to_numpy(dtype=np.float64)
+        designs = compile_predictor_designs(
+            X=X,
+            feature_names=["x0", "x1"],
+            predictor_specs=predictor_specs,
+        )
+
+        assert len(designs) == 2
+        d0, d1 = designs
+        assert d0.n_coef > 0
+        assert d1.n_coef > 0
+        assert d0.n_smoothing_params == 2
+        assert d1.n_smoothing_params == 1
+        assert len(d0.compiled_terms) == 2
+        assert len(d1.compiled_terms) == 1
+        assert d0.design_matrix.shape == (len(data), d0.n_coef)
+        assert d1.design_matrix.shape == (len(data), d1.n_coef)
+        assert d1.compiled_terms[0].coef_slice.start == 0
+
+        sp_ids_0 = set(d0.smoothing_parameter_map.keys())
+        sp_ids_1 = set(d1.smoothing_parameter_map.keys())
+        assert sp_ids_0.isdisjoint(sp_ids_1), (
+            f"Smoothing param IDs must not overlap across predictors: "
+            f"{sp_ids_0 & sp_ids_1}"
         )

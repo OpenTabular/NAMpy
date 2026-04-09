@@ -71,10 +71,10 @@ TERMS_PARITY_CASES = [
         ].rename(columns={"x0": "x"}),
         "formula": 'y ~ s(x, bs="cs", k=8, sp=1.1)',
         "method": "fixed",
-        "pred_atol": 1e-4,
-        "pred_rtol": 1e-4,
-        "se_atol": 1e-5,
-        "se_rtol": 1e-5,
+        "pred_atol": 1e-10,
+        "pred_rtol": 1e-10,
+        "se_atol": 1e-10,
+        "se_rtol": 1e-10,
     },
     {
         "case_id": "cc",
@@ -384,16 +384,8 @@ def test_output_parity_terms_all_smooth_types(case):
 
 @pytest.mark.parametrize(
     "case",
-    [
-        case
-        for case in TERMS_PARITY_CASES
-        if "se_atol" in case
-    ],
-    ids=[
-        case["case_id"]
-        for case in TERMS_PARITY_CASES
-        if "se_atol" in case
-    ],
+    [case for case in TERMS_PARITY_CASES if "se_atol" in case],
+    ids=[case["case_id"] for case in TERMS_PARITY_CASES if "se_atol" in case],
 )
 def test_output_parity_terms_standard_errors(case):
     train = case["data_factory"]()

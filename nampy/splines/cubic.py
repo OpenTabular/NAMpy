@@ -105,6 +105,7 @@ class CubicSplines:
         col_analytical="r",
     ):
         import matplotlib.pyplot as plt
+
         basis = self.transform_new_raw(self.x_plot)
         y_fitted = intercept + basis @ self.uncentered_gammas
 
@@ -118,5 +119,3 @@ class CubicSplines:
                 y_plot = intercept + basis @ self.center_mat @ self.analytical_gammas
                 ax.plot(self.x_plot, y_plot, col_analytical)
             ax.plot(self.x_plot, y_fitted, col, alpha=alpha)
-
-

@@ -12,6 +12,14 @@ of the smooth function is desired.
 
 import numpy as np
 
+from ....splines.gaussian_process import build_gp_term_setup, predict_gp_term
+from ....splines.penalty_scaling import scale_penalty
+from ...constraints.absorption import (
+    apply_linear_constraint,
+    fit_single_penalty_with_constraint_policy,
+)
+from ...design.structures import PenaltySpec
+from ...penalties.algebra import null_space_penalty_from_penalty
 from ..base import (
     BaseSmoothTerm,
     _normalize_point_constraint,
@@ -22,14 +30,6 @@ from ..base import (
     sync_by_state_attributes,
 )
 from ..registry import register_smooth
-from ...constraints.absorption import (
-    apply_linear_constraint,
-    fit_single_penalty_with_constraint_policy,
-)
-from ...design.structures import PenaltySpec
-from ...penalties.algebra import null_space_penalty_from_penalty
-from ....splines.penalty_scaling import scale_penalty
-from ....splines.gaussian_process import build_gp_term_setup, predict_gp_term
 
 
 @register_smooth("gp")
@@ -153,9 +153,13 @@ class GPSmoothTerm(BaseSmoothTerm):
             self._record_constraint_result("pc", C, absorbed_by="runtime")
             return self
 
-        auto_constrain = bool(self._by_state.is_constant) and (self._setup.null_space_dim > 0)
+        auto_constrain = bool(self._by_state.is_constant) and (
+            self._setup.null_space_dim > 0
+        )
         result = fit_single_penalty_with_constraint_policy(
-            base, pen, self._by_state,
+            base,
+            pen,
+            self._by_state,
             constraint_mode=self.constraint_mode,
             fixed=self.fixed,
             auto_constrain_when=auto_constrain,
@@ -165,7 +169,9 @@ class GPSmoothTerm(BaseSmoothTerm):
         self._record_constraint_result(
             result.constraint_kind,
             result.constraint_transform,
-            absorbed_by=("runtime" if result.constraint_transform is not None else None),
+            absorbed_by=(
+                "runtime" if result.constraint_transform is not None else None
+            ),
         )
         return self
 
@@ -199,7 +205,9 @@ class GPSmoothTerm(BaseSmoothTerm):
         defs = [
             PenaltySpec(
                 matrix=main_penalty,
-                smoothing_id=(None if self.smoothing_id is None else str(self.smoothing_id)),
+                smoothing_id=(
+                    None if self.smoothing_id is None else str(self.smoothing_id)
+                ),
                 kind="smooth",
                 sp_mode=sp_mode,
                 sp_value=sp_value,
@@ -217,8 +225,12 @@ class GPSmoothTerm(BaseSmoothTerm):
                     "knots": self.knots,
                     "xt": self.xt,
                     "m": self.m,
-                    "gp_defn": None if self._setup is None else dict(self._setup.gp_defn),
-                    "null_space_dim": None if self._setup is None else self._setup.null_space_dim,
+                    "gp_defn": (
+                        None if self._setup is None else dict(self._setup.gp_defn)
+                    ),
+                    "null_space_dim": (
+                        None if self._setup is None else self._setup.null_space_dim
+                    ),
                     "rank": None if self._setup is None else self._setup.rank,
                     "bs_dim": None if self._setup is None else self._setup.bs_dim,
                     "fixed": bool(self.fixed),
@@ -262,10 +274,20 @@ class GPSmoothTerm(BaseSmoothTerm):
                             "knots": self.knots,
                             "xt": self.xt,
                             "m": self.m,
-                            "gp_defn": None if self._setup is None else dict(self._setup.gp_defn),
-                            "null_space_dim": None if self._setup is None else self._setup.null_space_dim,
+                            "gp_defn": (
+                                None
+                                if self._setup is None
+                                else dict(self._setup.gp_defn)
+                            ),
+                            "null_space_dim": (
+                                None
+                                if self._setup is None
+                                else self._setup.null_space_dim
+                            ),
                             "rank": None if self._setup is None else self._setup.rank,
-                            "bs_dim": None if self._setup is None else self._setup.bs_dim,
+                            "bs_dim": (
+                                None if self._setup is None else self._setup.bs_dim
+                            ),
                             "fixed": bool(self.fixed),
                             "is_selection_penalty": True,
                         },

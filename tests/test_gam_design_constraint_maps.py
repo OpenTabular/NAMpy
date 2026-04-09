@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+
 from nampy.gam.design.constructors import construct_terms
 from nampy.gam.design.structures import PenaltySpec
 

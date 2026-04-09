@@ -22,12 +22,13 @@ Three family tiers are defined here:
 """
 
 import abc
+
 import numpy as np
 
 _EPS = 1e-9
 
 
-class BaseFamily(abc.ABC):
+class BaseFamily:
     """
     Abstract root class for all GAM families.
 

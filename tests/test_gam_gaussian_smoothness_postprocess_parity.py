@@ -1,14 +1,22 @@
 """Parity and finite-difference checks for Gaussian smoothness post-processing."""
+
 from __future__ import annotations
 
 import numpy as np
-import pytest
+from _mgcv_snapshot_parity_shared import (
+    _fit_nampy_model_fixed_sp,
+    _make_gaussian_data,
+    _make_random_effect_data_noisy,
+    _run_mgcv_snapshot,
+)
 
 from nampy.basemodels.gam import GAM
 from nampy.gam.fit.postprocess.gaussian_smoothness_postprocess import (
     gaussian_smoothness_postprocess,
 )
-from nampy.gam.smoothing_selection.criteria.gaussian import criterion_ml_reml_exact_dynamic
+from nampy.gam.smoothing_selection.criteria.gaussian import (
+    criterion_ml_reml_exact_dynamic,
+)
 from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
     gaussian_reml_laplace_score,
     gaussian_weighted_residual_sum_squares,
@@ -16,15 +24,8 @@ from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
     quadratic_form_penalty,
 )
 from nampy.gam.smoothing_selection.criteria.penalty import (
-    _static_penalty_null_dim,
     _stable_penalty_logdet,
-)
-
-from _mgcv_snapshot_parity_shared import (
-    _fit_nampy_model_fixed_sp,
-    _make_gaussian_data,
-    _make_random_effect_data_noisy,
-    _run_mgcv_snapshot,
+    _static_penalty_null_dim,
 )
 
 

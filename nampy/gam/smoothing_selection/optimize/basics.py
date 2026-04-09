@@ -1,8 +1,10 @@
 """Shared helpers for smoothing optimization (bounds, default initial lambda)."""
+
 import numpy as np
 
 from ...fit.penalized_system import build_full_design
 from ..criteria import resolve_ml_reml_scoring_backend
+
 
 def supports_criterion_gradient(model, method):
     method = str(method).lower()
@@ -20,12 +22,14 @@ def supports_criterion_hessian(model, method):
         return True
     if (
         backend == "pirls_laplace"
-        and method in {"reml", "laml"}
+        and method in {"reml", "laml", "ml"}
         and (
             getattr(model.family, "known_scale", None) is not None
             or str(getattr(model.family, "name", "")).lower() == "gamma"
         )
-        and bool(getattr(model.family, "supports_exact_pirls_second_derivatives", False))
+        and bool(
+            getattr(model.family, "supports_exact_pirls_second_derivatives", False)
+        )
     ):
         return True
     return False

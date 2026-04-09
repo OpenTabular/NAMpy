@@ -1,6 +1,7 @@
 """
 Nonnegative-weight penalized QR state construction.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,16 +9,16 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.linalg import solve_triangular
 
-from ..linalg.stacked_qr import (
-    _dorgqr_economic,
-    _dormqr_apply,
-    _stacked_penalized_ls_nonneg_solution,
-)
 from ..linalg.matrix_reindexing import (
     drop_columns_dense,
     drop_rows_dense,
     permute_columns,
     permute_rows,
+)
+from ..linalg.stacked_qr import (
+    _dorgqr_economic,
+    _dormqr_apply,
+    _stacked_penalized_ls_nonneg_solution,
 )
 
 
@@ -39,7 +40,9 @@ class NonnegativePenalizedQRState:
 
 def _validate_inputs(X, z, w, penalty_sqrt_E, penalty_rank_Es, rS):
     if np.any(np.asarray(w, dtype=np.float64) < 0):
-        raise ValueError("build_penalized_qr_state_nonnegative requires non-negative weights.")
+        raise ValueError(
+            "build_penalized_qr_state_nonnegative requires non-negative weights."
+        )
     X = np.asarray(X, dtype=np.float64, order="C")
     z = np.asarray(z, dtype=np.float64).ravel()
     w = np.asarray(w, dtype=np.float64).ravel()
@@ -145,9 +148,7 @@ def build_penalized_qr_state_nonnegative(
     R_nr_rank = np.triu(np.asarray(qr_aug_f[:nr, :rank], dtype=np.float64))
     Rh = np.triu(np.asarray(out.upper_r_final, dtype=np.float64))
 
-    P, ktz, xwz, norm1, norm2 = _compute_pk_rhs(
-        Rh, R_nr_rank, K, X, z, w, drop, pivot1
-    )
+    P, ktz, xwz, norm1, norm2 = _compute_pk_rhs(Rh, R_nr_rank, K, X, z, w, drop, pivot1)
     if norm1 > rank_tol * norm2:
         tmp = solve_triangular(Rh, xwz, lower=False, trans="T")
         PKtz = solve_triangular(Rh, tmp, lower=False)

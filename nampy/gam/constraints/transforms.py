@@ -34,7 +34,9 @@ def independent_column_indices(B, A=None, tol: float = 1e-10):
     return np.sort(np.asarray(piv[:rank], dtype=int))
 
 
-def null_space_basis_from_constraint_matrix(C, d: int | None = None, tol: float = 1e-10):
+def null_space_basis_from_constraint_matrix(
+    C, d: int | None = None, tol: float = 1e-10
+):
     C = np.asarray(C, dtype=np.float64)
     if C.ndim == 1:
         C = C.reshape(1, -1)
@@ -52,7 +54,9 @@ def null_space_basis_from_constraint_matrix(C, d: int | None = None, tol: float 
     return Vt[rank:, :].T.copy(), rank
 
 
-def localized_null_space_basis_from_constraint_matrix(C, d: int | None = None, tol: float = 1e-10):
+def localized_null_space_basis_from_constraint_matrix(
+    C, d: int | None = None, tol: float = 1e-10
+):
     """
     Compute a null-space basis while preserving coordinates untouched by C.
 
@@ -87,7 +91,9 @@ def localized_null_space_basis_from_constraint_matrix(C, d: int | None = None, t
         tol=tol,
     )
 
-    out = np.zeros((C.shape[1], inactive_idx.size + T_active.shape[1]), dtype=np.float64)
+    out = np.zeros(
+        (C.shape[1], inactive_idx.size + T_active.shape[1]), dtype=np.float64
+    )
     for col, src in enumerate(inactive_idx):
         out[src, col] = 1.0
     out[np.ix_(active_idx, np.arange(inactive_idx.size, out.shape[1]))] = T_active

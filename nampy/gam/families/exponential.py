@@ -10,7 +10,7 @@ import numpy as np
 from scipy.special import digamma, gammaln, polygamma
 from scipy.stats import norm as _norm
 
-from .base import GLMFamily, _EPS
+from .base import _EPS, GLMFamily
 
 
 class GaussianIdentityFamily(GLMFamily):
@@ -87,10 +87,7 @@ class GaussianIdentityFamily(GLMFamily):
         y = np.asarray(y, dtype=np.float64)
         mu = np.asarray(mu, dtype=np.float64)
         scale = float(max(scale, self.eps))
-        return (
-            -0.5 * np.log(2.0 * np.pi * scale)
-            - 0.5 * ((y - mu) ** 2) / scale
-        )
+        return -0.5 * np.log(2.0 * np.pi * scale) - 0.5 * ((y - mu) ** 2) / scale
 
     def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
         y = np.asarray(y, dtype=np.float64)
@@ -105,7 +102,6 @@ class GaussianIdentityFamily(GLMFamily):
             -0.5 * nobs * np.log(2.0 * np.pi * scale)
             + 0.5 * np.sum(np.log(weights[mask]))
         )
-
 
 
 class BinomialLogitFamily(GLMFamily):
@@ -167,7 +163,7 @@ class BinomialLogitFamily(GLMFamily):
 
     def d2link(self, mu):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
-        denom = np.clip((mu ** 2) * ((1.0 - mu) ** 2), self.eps, None)
+        denom = np.clip((mu**2) * ((1.0 - mu) ** 2), self.eps, None)
         return (2.0 * mu - 1.0) / denom
 
     def d3link(self, mu):
@@ -282,7 +278,7 @@ class PoissonLogFamily(GLMFamily):
 
     def d2link(self, mu):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return -1.0 / np.clip(mu ** 2, self.eps, None)
+        return -1.0 / np.clip(mu**2, self.eps, None)
 
     def d3link(self, mu):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
@@ -385,7 +381,7 @@ class GammaLogFamily(GLMFamily):
 
     def d2link(self, mu):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return -1.0 / np.clip(mu ** 2, self.eps, None)
+        return -1.0 / np.clip(mu**2, self.eps, None)
 
     def d3link(self, mu):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
@@ -434,14 +430,18 @@ class GammaLogFamily(GLMFamily):
 
     def working_weight_derivative_eta(self, eta, y=None):
         if y is None:
-            raise ValueError("GammaLogFamily requires targets to evaluate working-weight derivatives.")
+            raise ValueError(
+                "GammaLogFamily requires targets to evaluate working-weight derivatives."
+            )
         mu = np.clip(self.inverse_link(eta), self.eps, None)
         y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
         return -np.asarray(y / mu, dtype=np.float64)
 
     def working_weight_second_derivative_eta(self, eta, y=None):
         if y is None:
-            raise ValueError("GammaLogFamily requires targets to evaluate working-weight derivatives.")
+            raise ValueError(
+                "GammaLogFamily requires targets to evaluate working-weight derivatives."
+            )
         mu = np.clip(self.inverse_link(eta), self.eps, None)
         y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
         return np.asarray(y / mu, dtype=np.float64)
@@ -516,7 +516,7 @@ class NegativeBinomialLogFamily(GLMFamily):
 
     def d2link(self, mu):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
-        return -1.0 / np.clip(mu ** 2, self.eps, None)
+        return -1.0 / np.clip(mu**2, self.eps, None)
 
     def d3link(self, mu):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
@@ -596,16 +596,6 @@ class NegativeBinomialLogFamily(GLMFamily):
         return num / np.clip(denom**4, self.eps, None)
 
     def estimate_theta_mle(self, y, mu, weights=None, max_iter=50, tol=1e-7):
-        """
-        MLE of the NB dispersion parameter theta given current mu.
-
-        Optimises the NB log-likelihood over theta using Newton-Raphson on
-        the log(theta) scale to keep theta > 0.  The gradient and Hessian
-        w.r.t. log(theta) = phi are:
-
-          g(phi) = theta * d ell / d theta
-          H(phi) = theta^2 * d^2 ell / d theta^2 + theta * d ell / d theta
-        """
         y = np.asarray(y, dtype=np.float64)
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
         w = (
@@ -614,48 +604,121 @@ class NegativeBinomialLogFamily(GLMFamily):
             else np.asarray(weights, dtype=np.float64)
         )
 
-        theta = max(float(self.theta), self.eps)
-        for _ in range(max_iter):
-            # first derivative of ell w.r.t. theta
-            score = float(np.sum(
-                w * (
-                    digamma(y + theta)
-                    - digamma(theta)
-                    + np.log(theta / (theta + mu))
+        def _nll_grad_hess(log_theta_val: float):
+            log_theta_val = float(log_theta_val)
+            theta_val = max(float(np.exp(log_theta_val)), self.eps)
+            yth = y + theta_val
+            muth = mu + theta_val
+
+            # mgcv::estimate.theta -> nlogl(): dev/2 - ls, all in log-theta.
+            dev = float(
+                np.sum(
+                    2.0
+                    * w
+                    * (y * np.log(np.maximum(1.0, y) / mu) - yth * np.log(yth / muth))
+                )
+            )
+
+            ylogy = y.copy()
+            ind = y > 0.0
+            ylogy[ind] = y[ind] * np.log(y[ind])
+            ls_term = (
+                yth * np.log(yth)
+                - ylogy
+                + gammaln(y + 1.0)
+                - theta_val * log_theta_val
+                + gammaln(theta_val)
+                - gammaln(yth)
+            )
+            ls = -float(np.sum(ls_term * w))
+            nll = dev / 2.0 - ls
+
+            dth = -2.0 * w * theta_val * (np.log(yth / muth) + (1.0 - yth / muth))
+            g1 = float(np.sum(dth) / 2.0)
+
+            psi0_yth = digamma(yth)
+            psi0_th = digamma(theta_val)
+            lsth_term = theta_val * (np.log(yth) - psi0_yth + psi0_th - log_theta_val)
+            lsth1 = -float(np.sum(lsth_term * w))
+            grad = g1 - lsth1
+
+            dth2 = (
+                -2.0
+                * w
+                * theta_val
+                * (
+                    np.log(yth / muth)
+                    + theta_val * yth / (muth**2)
+                    - yth / muth
+                    - 2.0 * theta_val / muth
                     + 1.0
-                    - (y + theta) / (mu + theta)
+                    + theta_val / yth
                 )
-            ))
-            # second derivative of ell w.r.t. theta
-            hess = float(np.sum(
-                w * (
-                    polygamma(1, y + theta)
-                    - polygamma(1, theta)
-                    + mu / (theta * (theta + mu))
-                    + (y - mu) / (theta + mu) ** 2
-                )
-            ))
+            )
+            Dth2 = float(np.sum(dth2) / 2.0)
 
-            if not np.isfinite(score) or not np.isfinite(hess):
+            psi1_yth = polygamma(1, yth)
+            psi1_th = polygamma(1, theta_val)
+            lsth2_term = theta_val * (
+                np.log(yth)
+                - theta_val * psi1_yth
+                - psi0_yth
+                + theta_val / yth
+                + theta_val * psi1_th
+                + psi0_th
+                - log_theta_val
+                - 1.0
+            )
+            lsth2 = -float(np.sum(lsth2_term * w))
+            hess = Dth2 - lsth2
+            return nll, grad, hess
+
+        theta = float(np.log(max(float(self.theta), self.eps)))
+        nll, grad, hess = _nll_grad_hess(theta)
+        if not np.isfinite(nll) or not np.isfinite(grad) or not np.isfinite(hess):
+            return max(float(np.exp(theta)), self.eps)
+
+        for _ in range(min(int(max_iter), 100)):
+            if abs(grad) <= tol * (abs(nll) + 1.0):
                 break
-
-            # Newton on log(theta) = phi: phi_new = phi - g/H where
-            # g = theta * score, H = theta^2 * hess + theta * score
-            g_phi = theta * score
-            h_phi = theta ** 2 * hess + theta * score
-            if h_phi == 0.0 or not np.isfinite(h_phi):
+            hess_eff = float(hess)
+            if not np.isfinite(hess_eff):
                 break
+            if hess_eff <= 0.0:
+                hess_eff = max(abs(hess_eff), 1e-5)
 
-            phi = np.log(max(theta, self.eps))
-            phi_new = phi - g_phi / h_phi
-            theta_new = np.exp(np.clip(phi_new, -20.0, 10.0))
+            step = -grad / hess_eff
+            if abs(step) > 4.0:
+                step *= 4.0 / abs(step)
 
-            if abs(theta_new - theta) < tol * (1.0 + abs(theta)):
-                theta = theta_new
+            theta_new = theta + step
+            iter_halve = 0
+            nll_new = np.inf
+            grad_new = grad
+            hess_new = hess
+            while iter_halve <= 25:
+                if not np.isfinite(theta_new):
+                    nll_new = np.inf
+                else:
+                    nll_new, grad_new, hess_new = _nll_grad_hess(theta_new)
+                if np.isfinite(nll_new) and nll_new - nll <= np.finfo(
+                    np.float64
+                ).eps ** 0.75 * abs(nll):
+                    break
+                step *= 0.5
+                iter_halve += 1
+                if abs(step) <= self.eps * max(1.0, abs(theta)):
+                    theta_new = theta
+                    nll_new, grad_new, hess_new = nll, grad, hess
+                    break
+                theta_new = theta + step
+
+            if theta_new == theta:
                 break
-            theta = theta_new
+            theta = float(theta_new)
+            nll, grad, hess = nll_new, grad_new, hess_new
 
-        return max(theta, self.eps)
+        return max(float(np.exp(theta)), self.eps)
 
 
 class BinomialProbitFamily(GLMFamily):
@@ -694,7 +757,9 @@ class BinomialProbitFamily(GLMFamily):
         return _norm.ppf(mu)
 
     def inverse_link(self, eta):
-        return np.clip(_norm.cdf(np.asarray(eta, dtype=np.float64)), self.eps, 1.0 - self.eps)
+        return np.clip(
+            _norm.cdf(np.asarray(eta, dtype=np.float64)), self.eps, 1.0 - self.eps
+        )
 
     def mu_eta(self, eta):
         return np.clip(_norm.pdf(np.asarray(eta, dtype=np.float64)), self.eps, None)
@@ -770,7 +835,11 @@ class BinomialProbitFamily(GLMFamily):
         mu = np.clip(_norm.cdf(eta), self.eps, 1.0 - self.eps)
         V = np.clip(mu * (1.0 - mu), self.eps, None)
         # d/deta [phi^2/V] = phi^2 * [-2*eta*V - phi*(1-2*mu)] / V^2
-        return phi**2 * (-2.0 * eta * V - phi * (1.0 - 2.0 * mu)) / np.clip(V**2, self.eps, None)
+        return (
+            phi**2
+            * (-2.0 * eta * V - phi * (1.0 - 2.0 * mu))
+            / np.clip(V**2, self.eps, None)
+        )
 
 
 class BinomialCloglogFamily(GLMFamily):
@@ -844,13 +913,17 @@ class BinomialCloglogFamily(GLMFamily):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
         lam = np.clip(-np.log(1.0 - mu), self.eps, None)
         one_m_mu = np.clip(1.0 - mu, self.eps, None)
-        return (lam + 2.0 * (lam - 1.0) ** 2) / np.clip((one_m_mu * lam) ** 3, self.eps, None)
+        return (lam + 2.0 * (lam - 1.0) ** 2) / np.clip(
+            (one_m_mu * lam) ** 3, self.eps, None
+        )
 
     def d4link(self, mu):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
         lam = np.clip(-np.log(1.0 - mu), self.eps, None)
         one_m_mu = np.clip(1.0 - mu, self.eps, None)
-        num = 6.0 * (lam - 1.0)**3 + (3.0 * lam - 1.0) * (lam + 2.0 * (lam - 1.0)**2)
+        num = 6.0 * (lam - 1.0) ** 3 + (3.0 * lam - 1.0) * (
+            lam + 2.0 * (lam - 1.0) ** 2
+        )
         return num / np.clip((one_m_mu * lam) ** 4, self.eps, None)
 
     def deviance(self, y, mu):
@@ -891,7 +964,11 @@ class BinomialCloglogFamily(GLMFamily):
         M = np.clip(lam * np.exp(-lam), self.eps, None)
         V = np.clip(mu * (1.0 - mu), self.eps, None)
         # d/deta [M^2/V] = M^2 * [2*(1-lam)*V - (1-2*mu)*M] / V^2
-        return M**2 * (2.0 * (1.0 - lam) * V - (1.0 - 2.0 * mu) * M) / np.clip(V**2, self.eps, None)
+        return (
+            M**2
+            * (2.0 * (1.0 - lam) * V - (1.0 - 2.0 * mu) * M)
+            / np.clip(V**2, self.eps, None)
+        )
 
 
 class GammaInverseFamily(GLMFamily):

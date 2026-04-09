@@ -6,6 +6,7 @@ These functions compute the implicit-function derivatives of the fitted coeffici
 vector and working system matrices through the penalized IRLS fixed point, then
 combine them into the score derivatives needed by the outer optimiser.
 """
+
 import numpy as np
 
 
@@ -13,8 +14,12 @@ def _working_weight_derivatives_wrt_linpred(model, y, eta, mu, w):
     family = model.family
     fisher = bool(getattr(family, "canonical_link", False))
     if fisher:
-        d1 = np.asarray(family.working_weight_derivative_eta(eta, y=y), dtype=np.float64)
-        d2 = np.asarray(family.working_weight_second_derivative_eta(eta, y=y), dtype=np.float64)
+        d1 = np.asarray(
+            family.working_weight_derivative_eta(eta, y=y), dtype=np.float64
+        )
+        d2 = np.asarray(
+            family.working_weight_second_derivative_eta(eta, y=y), dtype=np.float64
+        )
         return d1, d2
 
     g1 = 1.0 / np.clip(np.asarray(family.mu_eta(eta), dtype=np.float64), 1e-14, None)
@@ -36,20 +41,29 @@ def _working_weight_derivatives_wrt_linpred(model, y, eta, mu, w):
     alpha1 = (-(V1 + g2) + c * xx) / alpha
     alpha2 = (
         -2.0 * xx
-        + c * (V3 - 3.0 * V1 * V2 + 2.0 * V1 * V1 * V1 + g4 - 3.0 * g3 * g2 + 2.0 * g2 * g2 * g2)
+        + c
+        * (
+            V3
+            - 3.0 * V1 * V2
+            + 2.0 * V1 * V1 * V1
+            + g4
+            - 3.0 * g3 * g2
+            + 2.0 * g2 * g2 * g2
+        )
     ) / alpha
 
     w = np.asarray(w, dtype=np.float64)
     a1 = w * (alpha1 - V1 - 2.0 * g2) / g1
     w_safe = np.clip(w, 1e-14, None)
-    a2 = (
-        a1 * (a1 / w_safe - g2 / g1)
-        - w * (alpha1 * alpha1 - alpha2 + V2 - V1 * V1 + 2.0 * g3 - 2.0 * g2 * g2) / (g1 * g1)
-    )
+    a2 = a1 * (a1 / w_safe - g2 / g1) - w * (
+        alpha1 * alpha1 - alpha2 + V2 - V1 * V1 + 2.0 * g3 - 2.0 * g2 * g2
+    ) / (g1 * g1)
     return a1, a2
 
 
-def _penalty_quadratic_and_sp_derivatives(beta, P_total, P_derivs, dbeta_cols, d2beta_mat):
+def _penalty_quadratic_and_sp_derivatives(
+    beta, P_total, P_derivs, dbeta_cols, d2beta_mat
+):
     beta = np.asarray(beta, dtype=np.float64)
     P_total = np.asarray(P_total, dtype=np.float64)
     M = len(P_derivs)
@@ -165,12 +179,18 @@ def _deviance_coefficient_derivatives(model, y, eta, mu, W, X):
     V = np.clip(np.asarray(family.variance(mu), dtype=np.float64), 1e-14, None)
     V1 = np.asarray(family.dvar(mu), dtype=np.float64)
     g2 = np.asarray(family.d2link(mu), dtype=np.float64)
-    mu2 = -g2 * (mu1 ** 3)
+    mu2 = -g2 * (mu1**3)
     resid = np.asarray(y, dtype=np.float64) - np.asarray(mu, dtype=np.float64)
     v1 = -2.0 * resid * mu1 / V
     dev_grad = np.asarray(X, dtype=np.float64).T @ v1
-    p_eta2 = 2.0 * (mu1 ** 2) / V - 2.0 * resid * mu2 / V + 2.0 * resid * (mu1 ** 2) * V1 / (V ** 2)
-    dev_hess = np.asarray(X, dtype=np.float64).T @ (p_eta2[:, None] * np.asarray(X, dtype=np.float64))
+    p_eta2 = (
+        2.0 * (mu1**2) / V
+        - 2.0 * resid * mu2 / V
+        + 2.0 * resid * (mu1**2) * V1 / (V**2)
+    )
+    dev_hess = np.asarray(X, dtype=np.float64).T @ (
+        p_eta2[:, None] * np.asarray(X, dtype=np.float64)
+    )
     return dev_grad, dev_hess
 
 
@@ -210,16 +230,12 @@ def _pearson_coefficient_derivatives(model, y, eta, mu, X):
     resid = y - mu
     xx = resid * weights / V
     p_eta1 = -xx * (2.0 + resid * V1) / g1
-    p_eta2 = (
-        -p_eta1 * g2 / g1
-        + (
-            2.0 * weights / V
-            + 2.0 * xx * V1
-            - p_eta1 * V1 * g1
-            - xx * resid * (V2 - V1 * V1)
-        )
-        / (g1 * g1)
-    )
+    p_eta2 = -p_eta1 * g2 / g1 + (
+        2.0 * weights / V
+        + 2.0 * xx * V1
+        - p_eta1 * V1 * g1
+        - xx * resid * (V2 - V1 * V1)
+    ) / (g1 * g1)
     grad = X.T @ p_eta1
     hess = X.T @ (p_eta2[:, None] * X)
     pearson = float(np.sum(xx * resid))

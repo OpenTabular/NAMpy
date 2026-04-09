@@ -1,8 +1,8 @@
 """Formula preprocessing (factor-by and parametric expansion)."""
 
-from dataclasses import replace
 import itertools
 import re
+from dataclasses import replace
 
 import numpy as np
 import pandas as pd
@@ -85,7 +85,9 @@ def expand_parametric_term(
                 comps.append(
                     {
                         "label": f"{var}[{lev}]",
-                        "values": np.asarray((cat == lev).astype(float), dtype=np.float64),
+                        "values": np.asarray(
+                            (cat == lev).astype(float), dtype=np.float64
+                        ),
                         "recipe": {
                             "var": var,
                             "type": "factor",
@@ -224,7 +226,13 @@ def expand_factor_by_term(
 
         new_label = f"{original_label}:{by_name}={lev}"
         out_terms.append(
-            replace(term, by_variable=hidden_col, basis_options={**opts, "constraint_mode": "factor_by"}, label=new_label, metadata=new_meta)
+            replace(
+                term,
+                by_variable=hidden_col,
+                basis_options={**opts, "constraint_mode": "factor_by"},
+                label=new_label,
+                metadata=new_meta,
+            )
         )
 
         state["factor_by_expansions"].append(
@@ -245,7 +253,9 @@ def expand_factor_by_term(
 
 def preprocess_formula_predictor_specs(parsed, predictor_specs, data):
     if not isinstance(data, pd.DataFrame):
-        raise TypeError("Formula preprocessing requires `data` to be a pandas DataFrame.")
+        raise TypeError(
+            "Formula preprocessing requires `data` to be a pandas DataFrame."
+        )
 
     if len(parsed.predictors) != len(predictor_specs):
         raise ValueError(
@@ -330,7 +340,9 @@ def apply_formula_preprocess_to_new_data(data, preprocess_state):
             if comp["type"] == "numeric":
                 vals = vals * numeric_1d_values(out[src], name=src)
             elif comp["type"] == "factor":
-                vals = vals * np.asarray((out[src] == comp["level"]).astype(float), dtype=np.float64)
+                vals = vals * np.asarray(
+                    (out[src] == comp["level"]).astype(float), dtype=np.float64
+                )
             else:
                 raise ValueError(f"Unknown parametric recipe type {comp['type']!r}.")
 
@@ -344,7 +356,9 @@ def apply_formula_preprocess_to_new_data(data, preprocess_state):
                 f"needed to rebuild formula columns."
             )
 
-        out[item["hidden_by"]] = np.asarray((out[src] == item["level"]).astype(float), dtype=np.float64)
+        out[item["hidden_by"]] = np.asarray(
+            (out[src] == item["level"]).astype(float), dtype=np.float64
+        )
 
     return out
 

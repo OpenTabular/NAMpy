@@ -5,20 +5,20 @@ from typing import Any
 
 import numpy as np
 
-from .categorical_utils import (
-    as_object_1d,
-    is_factor_like_vector,
-    stable_unique_levels,
-    factor_indicator_matrix,
-)
+from ....splines.mrf import nat_param_type1
+from ...basis.tensor import rescale_tensor_penalties_for_fit, rowwise_kronecker
 from ...design.structures import PenaltySpec
 from ...penalties import build_null_space_selection_spec
-from ....splines.mrf import nat_param_type1
 from ..base import BaseSmoothTerm, column_as_object
 from ..registry import make_smooth_term
-from ...basis.tensor import rowwise_kronecker, rescale_tensor_penalties_for_fit
 from ..univariate.cubic_regression import SplineTerm1D
 from ..univariate.pspline import PSplineTerm1D
+from .categorical_utils import (
+    as_object_1d,
+    factor_indicator_matrix,
+    is_factor_like_vector,
+    stable_unique_levels,
+)
 from .random_effect import RandomEffectTerm
 
 
@@ -43,10 +43,12 @@ def _sum_to_zero_contrast(n_levels: int):
     if n_levels == 1:
         return np.empty((1, 0), dtype=np.float64)
 
-    C = np.vstack([
-        np.eye(n_levels - 1, dtype=np.float64),
-        -np.ones((1, n_levels - 1), dtype=np.float64),
-    ])
+    C = np.vstack(
+        [
+            np.eye(n_levels - 1, dtype=np.float64),
+            -np.ones((1, n_levels - 1), dtype=np.float64),
+        ]
+    )
     return C
 
 
@@ -440,6 +442,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
     - fully penalized, no centering
     - same penalty structure shared across levels
     """
+
     def __init__(
         self,
         feature,
@@ -483,7 +486,9 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         self._null_dim = None
 
     def fit(self, X, feature_names):
-        if self._build_delegate_base_or_re(X, feature_names, default_bs="tp", mode="fs"):
+        if self._build_delegate_base_or_re(
+            X, feature_names, default_bs="tp", mode="fs"
+        ):
             return self
 
         if len(self._factor_feature_indices) != 1:
@@ -515,7 +520,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         self._base_term = base_term
 
         fac_idx = self._factor_feature_indices[0]
-        fac_name = self._factor_feature_names[0]
+        self._factor_feature_names[0]
         fac = as_object_1d(X[:, fac_idx])
         levels = stable_unique_levels(fac)
         self._levels = levels
@@ -537,7 +542,9 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         base_rank = int(getattr(base_term, "rank", 0) or 0)
         if base_rank <= 0:
             evals = np.linalg.eigvalsh(0.5 * (S0 + S0.T))
-            tol = (np.max(evals) if evals.size else 0.0) * (np.finfo(np.float64).eps ** 0.8)
+            tol = (np.max(evals) if evals.size else 0.0) * (
+                np.finfo(np.float64).eps ** 0.8
+            )
             base_rank = int(np.sum(evals > tol))
 
         # mgcv uses nat.param(X, S, rank, type=1): eigendecompose R^{-T} S R^{-1}
@@ -548,19 +555,19 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             rank=base_rank,
             unit_fnorm=True,
         )
-        X_reparam = rp["X"]       # (n, p0) reparameterised basis
-        P_coef    = rp["P"]       # (p0, p0) transform: B0 @ P_coef = X_reparam
-        r         = rp["rank"]    # penalty rank
-        D         = rp["D"]       # scale^2 * ones(r) after type=1 + unit_fnorm
-        null_d    = B0.shape[1] - r
+        X_reparam = rp["X"]  # (n, p0) reparameterised basis
+        P_coef = rp["P"]  # (p0, p0) transform: B0 @ P_coef = X_reparam
+        r = rp["rank"]  # penalty rank
+        D = rp["D"]  # scale^2 * ones(r) after type=1 + unit_fnorm
+        null_d = B0.shape[1] - r
 
         self._base_transform = P_coef
         self._range_rank = r
         self._null_dim = null_d
 
         # Build full design matrix: replicate reparameterised basis per factor level
-        n   = B0.shape[0]
-        p0  = X_reparam.shape[1]
+        n = B0.shape[0]
+        p0 = X_reparam.shape[1]
         X_full = np.zeros((n, p0 * n_levels), dtype=np.float64)
         for i, lev in enumerate(levels):
             mask = (fac == lev).astype(np.float64)
@@ -569,7 +576,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         # Build penalties matching mgcv's construction:
         #   S[[1]] = diag(rep(c(D, 0...0), nf))          (range space)
         #   S[[j+1]] = diag(rep(e_{r+j}, nf))  j=0..q-1  (null-space)
-        d_vec  = np.concatenate([D, np.zeros(null_d, dtype=np.float64)])
+        d_vec = np.concatenate([D, np.zeros(null_d, dtype=np.float64)])
         P_range = np.diag(np.tile(d_vec, n_levels))
 
         penalties = []
@@ -658,7 +665,11 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
                         "label": self.label,
                         "factor_name": self._factor_feature_names[0],
                         "levels": list(self._levels),
-                        "base_basis_name": self._base_term.basis_name if self._base_term is not None else None,
+                        "base_basis_name": (
+                            self._base_term.basis_name
+                            if self._base_term is not None
+                            else None
+                        ),
                         "base_metric_features": list(self._metric_feature_names),
                     },
                 )
@@ -676,6 +687,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
     - if smoothing_id is None: one penalty per factor combination
     - if smoothing_id is set: penalties summed to share one smoothing parameter
     """
+
     def __init__(
         self,
         feature,
@@ -713,7 +725,9 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         self._n_groups = None
 
     def fit(self, X, feature_names):
-        if self._build_delegate_base_or_re(X, feature_names, default_bs="tp", mode="sz"):
+        if self._build_delegate_base_or_re(
+            X, feature_names, default_bs="tp", mode="sz"
+        ):
             return self
 
         X = _as_object_2d(X)
@@ -798,7 +812,9 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
                 smoothing_ids.append(f"__sz__:{self.label}:group:{g}")
                 ranks.append(int(np.linalg.matrix_rank(P_con)))
         else:
-            P_sum = np.zeros((self._n_groups * p0, self._n_groups * p0), dtype=np.float64)
+            P_sum = np.zeros(
+                (self._n_groups * p0, self._n_groups * p0), dtype=np.float64
+            )
             for g in range(self._n_groups):
                 P_sum += _block_penalty_for_group(g, self._n_groups, S0)
             P_con = T.T @ P_sum @ T
@@ -831,7 +847,11 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         if self._delegate_term is not None:
             return self._delegate_term.transform_new(X_new)
 
-        if self._base_term is None or self._factor_levels is None or self._factor_transform is None:
+        if (
+            self._base_term is None
+            or self._factor_levels is None
+            or self._factor_transform is None
+        ):
             raise RuntimeError("Term is not fitted.")
 
         indicator_mats = []
@@ -890,7 +910,11 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
                         "label": self.label,
                         "factor_names": list(self._factor_feature_names),
                         "factor_levels": [list(lev) for lev in self._factor_levels],
-                        "base_basis_name": self._base_term.basis_name if self._base_term is not None else None,
+                        "base_basis_name": (
+                            self._base_term.basis_name
+                            if self._base_term is not None
+                            else None
+                        ),
                         "base_metric_features": list(self._metric_feature_names),
                         "shared_smoothing_id": self.smoothing_id,
                     },
@@ -914,7 +938,11 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
                     "label": self.label,
                     "factor_names": list(self._factor_feature_names),
                     "factor_levels": [list(lev) for lev in self._factor_levels],
-                    "base_basis_name": self._base_term.basis_name if self._base_term is not None else None,
+                    "base_basis_name": (
+                        self._base_term.basis_name
+                        if self._base_term is not None
+                        else None
+                    ),
                     "base_metric_features": list(self._metric_feature_names),
                     "shared_smoothing_id": self.smoothing_id,
                     "is_selection_penalty": True,

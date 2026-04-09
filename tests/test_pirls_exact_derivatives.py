@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from mgcv_parity_utils import _make_binomial_data, _make_gamma_data, _make_poisson_data
 
 from nampy.basemodels.gam import GAM
 from nampy.gam.smoothing_selection.criteria.dispatch import (
@@ -10,23 +11,20 @@ from nampy.gam.smoothing_selection.criteria.dispatch import (
     criterion_hessian,
     criterion_hessian_numerical,
 )
+from nampy.gam.smoothing_selection.criteria.laplace import _penalty_derivative_matrices
+from nampy.gam.smoothing_selection.criteria.pirls import (
+    _ensure_penalty_reparameterization,
+)
 from nampy.gam.smoothing_selection.criteria.pirls_deriv import (
-    _gamma_saturated_loglik_scale_derivatives,
     _pirls_laplace_term_derivatives,
     criterion_gradient_ml_reml_pirls_exact,
     criterion_hessian_ml_reml_pirls_exact,
 )
-from nampy.gam.smoothing_selection.criteria.penalty import _static_penalty_null_dim
-from nampy.gam.smoothing_selection.criteria.laplace import _penalty_derivative_matrices
-from nampy.gam.smoothing_selection.criteria.pirls import _ensure_penalty_reparameterization
 from nampy.gam.smoothing_selection.criteria.pirls_reml_derivative_blocks import (
-    _penalty_quadratic_and_sp_derivatives,
-    _deviance_chained_to_smoothing,
     _pearson_coefficient_derivatives,
+    _penalty_quadratic_and_sp_derivatives,
     _working_weight_derivatives_wrt_linpred,
 )
-
-from mgcv_parity_utils import _make_binomial_data, _make_gamma_data, _make_poisson_data
 
 
 def _fit_reml_model(data, formula, family):
@@ -84,7 +82,9 @@ def test_exact_pirls_gradient_matches_finite_difference(family, data_factory, se
     )
 
     exact = criterion_gradient_ml_reml_pirls_exact(gam, y, log_sp, "REML")
-    fd = criterion_gradient_numerical(gam, y, log_sp, method="reml", eps_abs=1e-6, eps_rel=1e-5)
+    fd = criterion_gradient_numerical(
+        gam, y, log_sp, method="reml", eps_abs=1e-6, eps_rel=1e-5
+    )
 
     np.testing.assert_allclose(exact, fd, rtol=1e-5, atol=1e-6)
     np.testing.assert_allclose(
@@ -111,7 +111,9 @@ def test_exact_pirls_hessian_matches_finite_difference(family, data_factory, see
     )
 
     exact = criterion_hessian_ml_reml_pirls_exact(gam, y, log_sp, "REML")
-    fd = criterion_hessian_numerical(gam, y, log_sp, method="reml", eps_abs=1e-4, eps_rel=1e-3)
+    fd = criterion_hessian_numerical(
+        gam, y, log_sp, method="reml", eps_abs=1e-4, eps_rel=1e-3
+    )
 
     np.testing.assert_allclose(exact, fd, rtol=2e-4, atol=5e-5)
     np.testing.assert_allclose(
@@ -131,7 +133,9 @@ def test_exact_pirls_gamma_gradient_matches_finite_difference():
     )
 
     exact = criterion_gradient_ml_reml_pirls_exact(gam, y, log_sp, "REML")
-    fd = criterion_gradient_numerical(gam, y, log_sp, method="reml", eps_abs=1e-6, eps_rel=1e-5)
+    fd = criterion_gradient_numerical(
+        gam, y, log_sp, method="reml", eps_abs=1e-6, eps_rel=1e-5
+    )
 
     np.testing.assert_allclose(exact, fd, rtol=1e-5, atol=1e-6)
     np.testing.assert_allclose(
@@ -165,10 +169,7 @@ def test_gamma_pirls_gradient_records_direct_laplace_k1_decomposition():
     )
     free_mask = ~fixed_mask
 
-    reconstructed = (
-        Dp1[free_mask] / (2.0 * phi)
-        + K1[free_mask]
-    )
+    reconstructed = Dp1[free_mask] / (2.0 * phi) + K1[free_mask]
     np.testing.assert_allclose(grad, reconstructed, rtol=0.0, atol=1e-12)
 
 
@@ -187,8 +188,12 @@ def test_gamma_pirls_hessian_records_direct_laplace_k2_decomposition():
     eta = np.asarray(sol["eta"], dtype=np.float64)
     W = np.asarray(sol["working_weights"], dtype=np.float64)
     A_inv = np.asarray(sol["A_inv"], dtype=np.float64)
-    from nampy.gam.smoothing_selection.criteria.laplace import _penalty_derivative_matrices
-    from nampy.gam.smoothing_selection.criteria.pirls import _ensure_penalty_reparameterization
+    from nampy.gam.smoothing_selection.criteria.laplace import (
+        _penalty_derivative_matrices,
+    )
+    from nampy.gam.smoothing_selection.criteria.pirls import (
+        _ensure_penalty_reparameterization,
+    )
     from nampy.gam.smoothing_selection.criteria.pirls_reml_derivative_blocks import (
         _working_weight_derivatives_wrt_linpred,
     )
@@ -242,15 +247,26 @@ def test_gamma_pirls_hessian_records_direct_laplace_k2_decomposition():
             d2beta_local = [[None] * n_local for _ in range(n_local)]
             dA_local = []
             for Pm in P_derivs_local:
-                dbm = -(A_inv_local @ (Pm @ beta_local)) if np.any(Pm) else np.zeros_like(beta_local)
+                dbm = (
+                    -(A_inv_local @ (Pm @ beta_local))
+                    if np.any(Pm)
+                    else np.zeros_like(beta_local)
+                )
                 dbeta_local.append(dbm)
-                dA_local.append(X_local.T @ ((dW_eta_local * (X_local @ dbm))[:, None] * X_local) + Pm)
+                dA_local.append(
+                    X_local.T @ ((dW_eta_local * (X_local @ dbm))[:, None] * X_local)
+                    + Pm
+                )
             for a, Pa in enumerate(P_derivs_local):
                 for b in range(a, n_local):
                     delta_ab = 1.0 if a == b else 0.0
                     d2b_val = -(
                         A_inv_local
-                        @ (dA_local[b] @ dbeta_local[a] + Pa @ dbeta_local[b] + delta_ab * (Pa @ beta_local))
+                        @ (
+                            dA_local[b] @ dbeta_local[a]
+                            + Pa @ dbeta_local[b]
+                            + delta_ab * (Pa @ beta_local)
+                        )
                     )
                     d2beta_local[a][b] = d2b_val
                     d2beta_local[b][a] = d2b_val
@@ -302,11 +318,9 @@ def test_gamma_pirls_pearson_eta_derivatives_match_finite_difference():
     resid = y - mu
     xx = resid / V
     pe1 = -xx * (2.0 + resid * V1) / g1
-    pe2 = (
-        -pe1 * g2 / g1
-        + (2.0 / V + 2.0 * xx * V1 - pe1 * V1 * g1 - xx * resid * (V2 - V1 * V1))
-        / (g1 * g1)
-    )
+    pe2 = -pe1 * g2 / g1 + (
+        2.0 / V + 2.0 * xx * V1 - pe1 * V1 * g1 - xx * resid * (V2 - V1 * V1)
+    ) / (g1 * g1)
 
     h = 1e-6
     fd1 = np.zeros_like(pe1)
@@ -318,8 +332,12 @@ def test_gamma_pirls_pearson_eta_derivatives_match_finite_difference():
         eta_minus[i] -= h
         mu_plus = np.asarray(family.inverse_link(eta_plus), dtype=np.float64)
         mu_minus = np.asarray(family.inverse_link(eta_minus), dtype=np.float64)
-        var_plus = np.clip(np.asarray(family.variance(mu_plus), dtype=np.float64), 1e-14, None)
-        var_minus = np.clip(np.asarray(family.variance(mu_minus), dtype=np.float64), 1e-14, None)
+        var_plus = np.clip(
+            np.asarray(family.variance(mu_plus), dtype=np.float64), 1e-14, None
+        )
+        var_minus = np.clip(
+            np.asarray(family.variance(mu_minus), dtype=np.float64), 1e-14, None
+        )
         f0 = float(((y[i] - mu[i]) ** 2) / V[i])
         fp = float(((y[i] - mu_plus[i]) ** 2) / var_plus[i])
         fm = float(((y[i] - mu_minus[i]) ** 2) / var_minus[i])
@@ -357,7 +375,9 @@ def test_gamma_penalty_quadratic_second_derivatives_match_finite_difference():
 
     def _bSb1_at(log_sp_local):
         sp_local = np.exp(log_sp_local)
-        sol_local, dbeta_local, d2beta_local = _gamma_pirls_smoothing_derivative_state(gam, y, sp_local)
+        sol_local, dbeta_local, d2beta_local = _gamma_pirls_smoothing_derivative_state(
+            gam, y, sp_local
+        )
         beta_local = np.asarray(sol_local["coef_full"], dtype=np.float64)
         P_derivs_local = _penalty_derivative_matrices(gam, sp_local)
         _, bSb1_local, _ = _penalty_quadratic_and_sp_derivatives(
@@ -393,7 +413,9 @@ def test_gamma_pirls_hessian_dispatch_matches_finite_difference():
     )
 
     exact = criterion_hessian_ml_reml_pirls_exact(gam, y, log_sp, "REML")
-    fd = criterion_hessian_numerical(gam, y, log_sp, method="reml", eps_abs=1e-4, eps_rel=1e-3)
+    fd = criterion_hessian_numerical(
+        gam, y, log_sp, method="reml", eps_abs=1e-4, eps_rel=1e-3
+    )
 
     np.testing.assert_allclose(exact, fd, rtol=2e-4, atol=5e-5)
     np.testing.assert_allclose(
@@ -402,5 +424,3 @@ def test_gamma_pirls_hessian_dispatch_matches_finite_difference():
         rtol=0.0,
         atol=1e-9,
     )
-
-

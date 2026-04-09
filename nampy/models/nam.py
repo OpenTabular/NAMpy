@@ -1,4 +1,4 @@
-#models/nam.py
+# models/nam.py
 from ..basemodels.nam import NAM
 from ..configs.nam_config import DefaultNAMConfig
 from .sklearn_classifier import SklearnBaseClassifier

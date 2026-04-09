@@ -23,7 +23,9 @@ def try_numeric_1d(x):
 
 def all_bool_like(arr):
     arr = as_object_1d(arr)
-    return all((v is None) or pd.isna(v) or isinstance(v, (bool, np.bool_)) for v in arr)
+    return all(
+        (v is None) or pd.isna(v) or isinstance(v, (bool, np.bool_)) for v in arr
+    )
 
 
 def is_factor_like_vector(x):

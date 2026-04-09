@@ -19,9 +19,17 @@ import warnings
 import numpy as np
 from scipy.linalg import eigh
 
+from ..design.structures import (
+    CompiledPenalty,
+    CompiledPredictor,
+    CompiledTerm,
+    PenaltySpec,
+)
 from ..penalties import normalize_penalty_spec
-from ..design.structures import CompiledPenalty, CompiledPredictor, CompiledTerm, PenaltySpec
-from .transforms import independent_column_indices, null_space_basis_from_constraint_matrix
+from .transforms import (
+    independent_column_indices,
+    null_space_basis_from_constraint_matrix,
+)
 
 
 def _penalty_root(S: np.ndarray, tol: float) -> np.ndarray:
@@ -84,7 +92,9 @@ def _augment_term_matrix(
 
     if np.any(np.abs(St) > tol):
         rS = _penalty_root(St, tol=tol)
-        row_slice = slice(n_obs + int(coef_slice.start), n_obs + int(coef_slice.start) + d)
+        row_slice = slice(
+            n_obs + int(coef_slice.start), n_obs + int(coef_slice.start) + d
+        )
         Xa[row_slice, :] = rS.T
     return Xa
 
@@ -186,11 +196,19 @@ def apply_global_side_conditions(
 
         # Collect this term's penalties up-front so the centering transform can
         # be applied to their matrices before column selection.
-        term_penalty_objs = [pb for pb in design.compiled_penalties if pb.term_index == term_idx]
-        pen_matrices = [np.asarray(pb.matrix, dtype=np.float64) for pb in term_penalty_objs]
+        term_penalty_objs = [
+            pb for pb in design.compiled_penalties if pb.term_index == term_idx
+        ]
+        pen_matrices = [
+            np.asarray(pb.matrix, dtype=np.float64) for pb in term_penalty_objs
+        ]
 
         # ── Exempt terms ──────────────────────────────────────────────────────
-        exempt = tb.term_type in {"random_effect", "factor_smooth_fs", "factor_smooth_sz"}
+        exempt = tb.term_type in {
+            "random_effect",
+            "factor_smooth_fs",
+            "factor_smooth_sz",
+        }
         if exempt:
             sl_new = slice(start, start + d)
             new_idx = len(new_term_blocks)
@@ -248,18 +266,20 @@ def apply_global_side_conditions(
                 B_aug = np.zeros((n_obs + design.n_coef, d), dtype=np.float64)
                 B_aug[:n_obs, :] = B
                 acc_aug = np.column_stack([acc_aug, B_aug])
-            term_reports.append({
-                "label": tb.label,
-                "exempt": True,
-                "deleted_columns": [],
-                "kept_columns": (
-                    list(np.asarray(tb.kept_columns, dtype=int))
-                    if tb.kept_columns is not None
-                    else list(range(d))
-                ),
-                "n_deleted": 0,
-                "absorbed_centering": False,
-            })
+            term_reports.append(
+                {
+                    "label": tb.label,
+                    "exempt": True,
+                    "deleted_columns": [],
+                    "kept_columns": (
+                        list(np.asarray(tb.kept_columns, dtype=int))
+                        if tb.kept_columns is not None
+                        else list(range(d))
+                    ),
+                    "n_deleted": 0,
+                    "absorbed_centering": False,
+                }
+            )
             start += d
             continue
 
@@ -275,7 +295,9 @@ def apply_global_side_conditions(
         )
 
         constructor_meta = dict(tb.metadata.get("constructor_metadata", {}) or {})
-        runtime_absorbed = bool(constructor_meta.get("constraints_absorbed_by_runtime", False))
+        runtime_absorbed = bool(
+            constructor_meta.get("constraints_absorbed_by_runtime", False)
+        )
         runtime_by_name = constructor_meta.get("runtime_by_name", None)
         runtime_by_is_constant = constructor_meta.get("runtime_by_is_constant", None)
         absorbed_centering = False
@@ -284,10 +306,7 @@ def apply_global_side_conditions(
         if (
             fit_intercept
             and not runtime_absorbed
-            and (
-                runtime_by_name is None
-                or bool(runtime_by_is_constant)
-            )
+            and (runtime_by_name is None or bool(runtime_by_is_constant))
             and tb.term_type not in {"tensor_interaction", "tensor_anova"}
         ):
             centering = np.sum(B, axis=0, keepdims=True)
@@ -311,7 +330,9 @@ def apply_global_side_conditions(
             if acc.shape[1] <= int(bool(fit_intercept)):
                 keep = np.arange(d, dtype=int)
             else:
-                keep = np.asarray(independent_column_indices(B, A=acc, tol=tol), dtype=int)
+                keep = np.asarray(
+                    independent_column_indices(B, A=acc, tol=tol), dtype=int
+                )
         elif pen_matrices:
             B_dep = _augment_term_matrix(
                 B,
@@ -320,7 +341,9 @@ def apply_global_side_conditions(
                 total_coef=design.n_coef,
                 tol=tol,
             )
-            keep = np.asarray(independent_column_indices(B_dep, A=acc_aug, tol=tol), dtype=int)
+            keep = np.asarray(
+                independent_column_indices(B_dep, A=acc_aug, tol=tol), dtype=int
+            )
         else:
             keep = np.asarray(independent_column_indices(B, A=acc, tol=tol), dtype=int)
         deleted_local = np.setdiff1d(np.arange(d, dtype=int), keep)
@@ -329,14 +352,10 @@ def apply_global_side_conditions(
         # (invariant 6.2). If basis matrices are right-multiplied by C_final,
         # coefficient vectors pull back in the opposite direction.
         C_final = (
-            C[:, keep]
-            if keep.size > 0
-            else np.empty((C.shape[0], 0), dtype=np.float64)
+            C[:, keep] if keep.size > 0 else np.empty((C.shape[0], 0), dtype=np.float64)
         )
         B_final = (
-            B[:, keep]
-            if keep.size > 0
-            else np.empty((B.shape[0], 0), dtype=np.float64)
+            B[:, keep] if keep.size > 0 else np.empty((B.shape[0], 0), dtype=np.float64)
         )
         d_final = B_final.shape[1]
 
@@ -400,7 +419,9 @@ def apply_global_side_conditions(
                 smooth=tb.smooth,
                 basis_train=B_final,
                 basis_transform=C_final,
-                original_n_coef=tb.original_n_coef if tb.original_n_coef is not None else d,
+                original_n_coef=(
+                    tb.original_n_coef if tb.original_n_coef is not None else d
+                ),
                 kept_columns=kept_orig,
                 deleted_columns=deleted_orig,
                 smoothing_indices=list(tb.smoothing_indices),
@@ -449,24 +470,30 @@ def apply_global_side_conditions(
                     tol=tol,
                 )
             else:
-                B_aug_final = np.zeros((n_obs + design.n_coef, d_final), dtype=np.float64)
+                B_aug_final = np.zeros(
+                    (n_obs + design.n_coef, d_final), dtype=np.float64
+                )
                 B_aug_final[:n_obs, :] = B_final
             acc_aug = np.column_stack([acc_aug, B_aug_final])
 
-        term_reports.append({
-            "label": tb.label,
-            "exempt": False,
-            "deleted_columns": [] if deleted_orig is None else deleted_orig.tolist(),
-            "kept_columns": [] if kept_orig is None else kept_orig.tolist(),
-            "n_deleted": n_deleted,
-            "absorbed_centering": absorbed_centering,
-        })
+        term_reports.append(
+            {
+                "label": tb.label,
+                "exempt": False,
+                "deleted_columns": (
+                    [] if deleted_orig is None else deleted_orig.tolist()
+                ),
+                "kept_columns": [] if kept_orig is None else kept_orig.tolist(),
+                "n_deleted": n_deleted,
+                "absorbed_centering": absorbed_centering,
+            }
+        )
 
         # Suppress the warning for non-constant numeric by-variable terms: the
         # cross-term column deletion there is expected orthogonalization (matching
         # mgcv's side-condition allocation), not a surprising constraint application.
-        numeric_by_redundancy = (
-            runtime_by_name is not None and not bool(runtime_by_is_constant)
+        numeric_by_redundancy = runtime_by_name is not None and not bool(
+            runtime_by_is_constant
         )
         if warn and n_deleted > 0 and not numeric_by_redundancy:
             col_info = (
@@ -476,7 +503,8 @@ def apply_global_side_conditions(
             )
             warnings.warn(
                 f"Applied side conditions to term {tb.label!r}: "
-                f"deleted {n_deleted} redundant column(s){col_info}."
+                f"deleted {n_deleted} redundant column(s){col_info}.",
+                stacklevel=2,
             )
 
         start += d_final
@@ -494,7 +522,8 @@ def apply_global_side_conditions(
             if warn:
                 warnings.warn(
                     f"Term {tb.label!r} was reduced to zero columns by side "
-                    f"conditions and has been dropped from the compiled predictor."
+                    f"conditions and has been dropped from the compiled predictor.",
+                    stacklevel=2,
                 )
 
     # Keep only penalties whose owning term survived; re-stamp term_index.

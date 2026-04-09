@@ -1,5 +1,7 @@
 """Reparameterized penalty / Laplace helpers for ML/REML criteria."""
+
 import numpy as np
+
 
 def _ensure_penalty_reparameterization(model):
     if (
@@ -31,8 +33,7 @@ def _lambda_group_indices(model):
     if groups is None:
         return {}
     return {
-        int(sp_idx): np.asarray(idxs, dtype=np.int64)
-        for sp_idx, idxs in groups.items()
+        int(sp_idx): np.asarray(idxs, dtype=np.int64) for sp_idx, idxs in groups.items()
     }
 
 
@@ -50,6 +51,7 @@ def _penalty_derivative_matrices(model, sp):
         k = int(pb.smoothing_index)
         sl = pb.coef_slice
         full_sl = slice(offset0 + sl.start, offset0 + sl.stop)
-        mats[k][full_sl, full_sl] += float(sp[k]) * np.asarray(pb.matrix, dtype=np.float64)
+        mats[k][full_sl, full_sl] += float(sp[k]) * np.asarray(
+            pb.matrix, dtype=np.float64
+        )
     return mats
-

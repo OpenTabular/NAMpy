@@ -1,4 +1,8 @@
-from ..parity.trace import build_optimizer_trace, load_optimizer_trace, save_optimizer_trace
+from ..parity.trace import (
+    build_optimizer_trace,
+    load_optimizer_trace,
+    save_optimizer_trace,
+)
 from .concurvity import concurvity
 from .k_check import gam_check, k_check
 from .plots import plot_gam_terms

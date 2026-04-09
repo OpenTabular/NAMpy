@@ -31,6 +31,20 @@ def _make_gaussian_data(seed=123, n=180):
     return pd.DataFrame({"y": y, "x0": x0, "x1": x1})
 
 
+def _make_gaussian_data_3col(seed=51, n=180):
+    rng = np.random.default_rng(seed)
+    x0 = rng.uniform(-2.0, 2.0, size=n)
+    x1 = rng.uniform(-1.5, 1.5, size=n)
+    x2 = rng.uniform(-1.0, 1.0, size=n)
+    y = (
+        np.sin(1.2 * x0)
+        + 0.4 * x1**2
+        - 0.3 * np.cos(1.5 * x2)
+        + rng.normal(scale=0.15, size=n)
+    )
+    return pd.DataFrame({"y": y, "x0": x0, "x1": x1, "x2": x2})
+
+
 def _make_binomial_data(seed=456, n=220):
     rng = np.random.default_rng(seed)
     x0 = rng.normal(size=n)
@@ -116,6 +130,57 @@ def _make_sz_data():
     }
     y = np.array([base[i] + offsets[(f1[i], f2[i])] for i in range(len(f1))])
     return pd.DataFrame({"y": y, "f1": f1, "f2": f2, "x": x})
+
+
+def _make_fs_data_4levels(seed=77, n=24):
+    """FS smooth data with 4 factor levels — exercises the ≥3 level code path."""
+    rng = np.random.default_rng(seed)
+    levels = ["a", "b", "c", "d"]
+    f = np.array([levels[i % len(levels)] for i in range(n)], dtype=object)
+    x = np.linspace(0.1, 1.9, n)
+    offsets = {"a": 1.2, "b": -0.7, "c": 0.5, "d": -0.3}
+    y = (
+        0.4 * np.sin(2 * x)
+        + np.array([offsets[v] for v in f])
+        + rng.normal(scale=0.05, size=n)
+    )
+    return pd.DataFrame({"y": y, "f": f, "x": x})
+
+
+def _make_sz_data_3x3(seed=83):
+    """SZ smooth data with f1 (3 levels) × f2 (3 levels) — full 3×3 factor grid."""
+    rng = np.random.default_rng(seed)
+    f1_levels = ["a", "b", "c"]
+    f2_levels = ["u", "v", "w"]
+    # All 9 combinations appear; each repeated twice for a 18-row frame.
+    f1_base = [a for a in f1_levels for b in f2_levels] * 2
+    f2_base = [b for a in f1_levels for b in f2_levels] * 2
+    f1 = np.array(f1_base, dtype=object)
+    f2 = np.array(f2_base, dtype=object)
+    n = len(f1)
+    x = rng.uniform(0.0, 2.0, size=n)
+    base = np.sin(x) + 0.2 * x
+    offsets = {
+        ("a", "u"): 0.3,
+        ("a", "v"): -0.1,
+        ("a", "w"): 0.5,
+        ("b", "u"): -0.6,
+        ("b", "v"): 0.2,
+        ("b", "w"): -0.4,
+        ("c", "u"): 0.1,
+        ("c", "v"): 0.4,
+        ("c", "w"): -0.2,
+    }
+    y = np.array([base[i] + offsets[(f1[i], f2[i])] for i in range(n)])
+    return pd.DataFrame({"y": y, "f1": f1, "f2": f2, "x": x})
+
+
+def _make_distributional_gaussian_data(seed=7, n=60):
+    rng = np.random.default_rng(seed)
+    x0 = rng.uniform(-2.0, 2.0, size=n)
+    x1 = rng.uniform(-1.5, 1.5, size=n)
+    y = np.sin(x0) + 0.3 * x1**2 + rng.normal(scale=0.1, size=n)
+    return pd.DataFrame({"y": y, "x0": x0, "x1": x1})
 
 
 def _make_mrf_data():
@@ -996,9 +1061,12 @@ __all__ = [
     "_fit_nampy_model_fixed_sp",
     "_fit_nampy_snapshot",
     "_make_binomial_data",
+    "_make_distributional_gaussian_data",
     "_make_fs_data",
+    "_make_fs_data_4levels",
     "_make_gamma_data",
     "_make_gaussian_data",
+    "_make_gaussian_data_3col",
     "_make_mrf_data",
     "_make_mrf_low_rank_data",
     "_make_negbin_data",
@@ -1006,6 +1074,7 @@ __all__ = [
     "_make_random_effect_data",
     "_make_random_effect_data_noisy",
     "_make_sz_data",
+    "_make_sz_data_3x3",
     "_run_mgcv_anova",
     "_run_mgcv_natparam_cr",
     "_run_mgcv_fixed_sp_score",

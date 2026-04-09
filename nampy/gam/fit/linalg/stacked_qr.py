@@ -36,14 +36,15 @@ deficiency; raw coefficient vectors along ``null(X)`` may differ from R due to
 LAPACK pivot differences.  :func:`snap_coef_to_reference_null_space` corrects
 this for parity testing.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Iterable, Literal
 
 import numpy as np
-from scipy.linalg import solve_triangular
 from scipy.linalg import lapack as _lapack
+from scipy.linalg import solve_triangular
 
 # Rank-detection threshold: condition number ratio above which a column is considered
 # linearly dependent.  100 * machine eps is the standard choice for this algorithm.
@@ -153,7 +154,7 @@ def _stacked_penalized_ls_nonneg_solution(
 
     R_weighted_kept = _drop_columns(R_weighted_natural, dropped_column_indices)
     penalty_sqrt_kept = _drop_columns(penalty_sqrt, dropped_column_indices)
-    drop_set = set(int(d) for d in dropped_column_indices)
+    drop_set = {int(d) for d in dropped_column_indices}
     kept_original_indices = [k for k in range(n_coef_total) if k not in drop_set]
 
     n_augmented_rows = n_wx_econ + n_penalty_rows
@@ -632,7 +633,7 @@ def penalty_sqrt_rows(P: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         return np.zeros((0, P.shape[0])), np.zeros((0, P.shape[0]))
     wl = np.sqrt(np.maximum(w[mask], 0.0))
     Vp = V[:, mask]
-    E = (wl[:, None] * Vp.T)  # r × q
+    E = wl[:, None] * Vp.T  # r × q
     row_norms = np.linalg.norm(E, axis=1, keepdims=True)
     row_norms = np.maximum(row_norms, 1e-300)
     Es = E / row_norms
@@ -846,13 +847,17 @@ def solve_gaussian_penalized_ls_stacked_qr(
     if y.shape[0] != n_obs or w.shape[0] != n_obs:
         raise ValueError("shape mismatch between X, y, and w.")
     if np.any(w < 0):
-        raise NotImplementedError("stacked QR PLS here supports only non-negative weights.")
+        raise NotImplementedError(
+            "stacked QR PLS here supports only non-negative weights."
+        )
 
     P = np.asarray(P, dtype=np.float64)
     penalty_sqrt, penalty_rank_template = penalty_sqrt_rows_prefer_diagonal(P)
     n_penalty_rows = int(penalty_sqrt.shape[0])
     if n_penalty_rows == 0:
-        raise ValueError("penalty_sqrt_rows returned empty factor (zero penalty matrix).")
+        raise ValueError(
+            "penalty_sqrt_rows returned empty factor (zero penalty matrix)."
+        )
 
     if penalty_blocks is not None and n_coef is not None:
         penalty_rank_rows = balanced_penalty_template_sqrt_for_rank(
@@ -954,7 +959,9 @@ def gaussian_design_needs_stacked_qr_fit(model) -> bool:
     from ..penalized_system import build_full_design
 
     X = np.asarray(
-        build_full_design(Z, fit_intercept=bool(getattr(model, "fit_intercept", False))),
+        build_full_design(
+            Z, fit_intercept=bool(getattr(model, "fit_intercept", False))
+        ),
         dtype=np.float64,
     )
     if X.ndim != 2 or X.shape[1] == 0:

@@ -37,7 +37,9 @@ def sp_vcov(model, edge_correct: bool = True, reg: float = 1e-3):
         H = None
     if H is None:
         log_sp = _free_log_smoothing_params(model)
-        H = np.asarray(model._criterion_hessian(model.y_, log_sp, method=method), dtype=np.float64)
+        H = np.asarray(
+            model._criterion_hessian(model.y_, log_sp, method=method), dtype=np.float64
+        )
     else:
         H = np.asarray(H, dtype=np.float64)
 
@@ -72,7 +74,9 @@ def gam_vcomp(model, *, rescale: bool = False, conf_lev: float = 0.95):
     H = None if result is None else getattr(result, "hess", None)
     if H is None:
         log_sp = _free_log_smoothing_params(model)
-        H = np.asarray(model._criterion_hessian(model.y_, log_sp, method=method), dtype=np.float64)
+        H = np.asarray(
+            model._criterion_hessian(model.y_, log_sp, method=method), dtype=np.float64
+        )
     else:
         H = np.asarray(H, dtype=np.float64)
 
@@ -82,7 +86,7 @@ def gam_vcomp(model, *, rescale: bool = False, conf_lev: float = 0.95):
         return {"vc": sd, "names": names}
 
     evals, evecs = np.linalg.eigh(H)
-    keep = evals > np.max(evals) * np.finfo(np.float64).eps**0.75
+    keep = evals > np.max(evals) * np.finfo(np.float64).eps ** 0.75
     rank = int(np.sum(keep))
     inv_vals = np.zeros_like(evals)
     inv_vals[keep] = 1.0 / evals[keep]
@@ -132,13 +136,17 @@ def one_se_rule(model, candidate_indices: list[int] | None = None) -> np.ndarray
                 continue
             pos.append(int(hit[0]))
         if len(pos) == 0:
-            raise ValueError("candidate_indices does not contain any estimated smoothing parameters.")
+            raise ValueError(
+                "candidate_indices does not contain any estimated smoothing parameters."
+            )
         sub_idx = np.asarray(pos, dtype=int)
 
     V_sub = np.asarray(V[np.ix_(sub_idx, sub_idx)], dtype=np.float64)
     d = np.sqrt(np.clip(np.diag(V_sub), 0.0, None))
     if np.any(d <= 0.0):
-        raise RuntimeError("one_se_rule requires positive smoothing-parameter standard errors.")
+        raise RuntimeError(
+            "one_se_rule requires positive smoothing-parameter standard errors."
+        )
     alpha = float(np.sqrt(2.0 * len(d)) / (d @ np.linalg.solve(V_sub, d)))
     step = alpha * d
 
@@ -149,7 +157,9 @@ def one_se_rule(model, candidate_indices: list[int] | None = None) -> np.ndarray
     return sp
 
 
-def optimizer_endpoint_diagnostics(model, *, conv_tol: float = 1e-6, fd_step: float = 1e-3):
+def optimizer_endpoint_diagnostics(
+    model, *, conv_tol: float = 1e-6, fd_step: float = 1e-3
+):
     if not getattr(model, "_fitted", False):
         raise RuntimeError("Model is not fitted.")
 
@@ -256,7 +266,9 @@ def optimizer_endpoint_diagnostics(model, *, conv_tol: float = 1e-6, fd_step: fl
         shared_fd_curvature = float((fp - 2.0 * f0 + fm) / (shared_step * shared_step))
 
     hess_scale = (
-        float(np.max(np.abs(eigvals))) if eigvals is not None and eigvals.size > 0 else 0.0
+        float(np.max(np.abs(eigvals)))
+        if eigvals is not None and eigvals.size > 0
+        else 0.0
     )
     flat_ridge_suspected = bool(
         np.linalg.norm(projected_grad, ord=np.inf) <= max(tol * 5.0, 1e-8)
@@ -275,10 +287,47 @@ def optimizer_endpoint_diagnostics(model, *, conv_tol: float = 1e-6, fd_step: fl
     return {
         "criterion_name": method,
         "criterion_backend": resolve_ml_reml_scoring_backend(model, method=method),
-        "optimizer_success": None if result is None else bool(getattr(result, "success", False)),
-        "optimizer_message": None if result is None else str(getattr(result, "message", "")),
+        "optimizer_success": (
+            None if result is None else bool(getattr(result, "success", False))
+        ),
+        "optimizer_message": (
+            None if result is None else str(getattr(result, "message", ""))
+        ),
         "joint_gaussian_reml_outer": bool(
             result is not None and getattr(result, "joint_gaussian_reml_outer", False)
+        ),
+        "joint_negbin_reml_outer": bool(
+            result is not None and getattr(result, "joint_negbin_reml_outer", False)
+        ),
+        "joint_negbin_postprocessed": bool(
+            result is not None and getattr(result, "joint_negbin_postprocessed", False)
+        ),
+        "joint_negbin_flat_ridge_stabilized": bool(
+            result is not None
+            and getattr(result, "joint_negbin_flat_ridge_stabilized", False)
+        ),
+        "joint_log_theta": (
+            None if result is None else getattr(result, "joint_log_theta", None)
+        ),
+        "joint_negbin_initial_log_theta": (
+            None
+            if result is None
+            else getattr(result, "joint_negbin_initial_log_theta", None)
+        ),
+        "joint_negbin_optimizer_message": (
+            None if result is None else getattr(result, "joint_negbin_message", None)
+        ),
+        "joint_negbin_optimizer_fun": (
+            None if result is None else getattr(result, "joint_negbin_fun", None)
+        ),
+        "joint_negbin_optimizer_nfev": (
+            None if result is None else getattr(result, "joint_negbin_nfev", None)
+        ),
+        "joint_negbin_optimizer_njev": (
+            None if result is None else getattr(result, "joint_negbin_njev", None)
+        ),
+        "family_theta": (
+            float(model.family.theta) if hasattr(model.family, "theta") else None
         ),
         "n_free_smoothing_params": n_free,
         "log_smoothing_params": x.tolist(),
@@ -286,7 +335,9 @@ def optimizer_endpoint_diagnostics(model, *, conv_tol: float = 1e-6, fd_step: fl
         "gradient": grad.tolist(),
         "projected_gradient": projected_grad.tolist(),
         "gradient_inf_norm": float(np.linalg.norm(grad, ord=np.inf)),
-        "projected_gradient_inf_norm": float(np.linalg.norm(projected_grad, ord=np.inf)),
+        "projected_gradient_inf_norm": float(
+            np.linalg.norm(projected_grad, ord=np.inf)
+        ),
         "stationary_by_raw_gradient": bool(np.linalg.norm(grad, ord=np.inf) <= tol),
         "stationary_by_projected_gradient": bool(
             np.linalg.norm(projected_grad, ord=np.inf) <= tol

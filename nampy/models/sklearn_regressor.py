@@ -1,4 +1,4 @@
-#sklearn_regressor.py
+# sklearn_regressor.py
 import warnings
 
 import lightning as pl
@@ -7,10 +7,9 @@ import numpy as np
 import pandas as pd
 import torch
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
+from pretab.preprocessor import Preprocessor
 from sklearn.base import BaseEstimator
 from sklearn.metrics import mean_squared_error
-
-from pretab.preprocessor import Preprocessor
 
 from ..basemodels.lightning_wrapper import TaskModel
 from ..data_utils.datamodule import NAMpyDataModule
@@ -465,7 +464,9 @@ class SklearnBaseRegressor(BaseEstimator):
             grid_count = np.zeros((num_bins - 1, num_bins - 1), dtype=int)
             np.add.at(grid_sum, (x1_bin_idx, x2_bin_idx), contribs)
             np.add.at(grid_count, (x1_bin_idx, x2_bin_idx), 1)
-            grid = np.where(grid_count > 0, grid_sum / np.maximum(grid_count, 1), np.nan)
+            grid = np.where(
+                grid_count > 0, grid_sum / np.maximum(grid_count, 1), np.nan
+            )
 
             im = ax.imshow(
                 grid.T,

@@ -1,9 +1,35 @@
 """Post-optimization adjustments (rollback, refinement, acceptance heuristics)."""
+
 import numpy as np
 from scipy.optimize import OptimizeResult, minimize, minimize_scalar
 
-from .basics import _project_to_bounds
 from ..criteria import dispatch as _criteria_dispatch
+from .basics import _project_to_bounds
+
+
+def _preserve_optimize_result_metadata(src, dst):
+    """Copy non-core OptimizeResult fields that downstream diagnostics rely on."""
+    if src is None or dst is None:
+        return dst
+
+    core_keys = {
+        "x",
+        "fun",
+        "jac",
+        "hess",
+        "success",
+        "status",
+        "message",
+        "nit",
+        "nfev",
+        "njev",
+        "nhev",
+    }
+    for key, value in dict(src).items():
+        if key in core_keys or key in dst:
+            continue
+        dst[key] = value
+    return dst
 
 
 def _criterion_infinite_sp_signal(model, y, log_sp, *, method="reml"):
@@ -15,7 +41,9 @@ def _criterion_infinite_sp_signal(model, y, log_sp, *, method="reml"):
     monkeypatch the underlying criterion implementation.
     """
     # Access via module attribute so tests can monkeypatch the criterion implementation.
-    return _criteria_dispatch.criterion_infinite_sp_signal(model, y, log_sp, method=method)
+    return _criteria_dispatch.criterion_infinite_sp_signal(
+        model, y, log_sp, method=method
+    )
 
 
 def _rollback_working_infinite_smoothing_params(
@@ -58,8 +86,7 @@ def _rollback_working_infinite_smoothing_params(
     rolled = False
 
     shrink_counts = np.zeros_like(x_roll, dtype=int)
-    nit = 0
-    for nit in range(1, int(max_iter) + 1):
+    for _nit in range(1, int(max_iter) + 1):
         stuck = ~informative
         if not np.any(stuck):
             break
@@ -114,6 +141,7 @@ def _rollback_working_infinite_smoothing_params(
     rolled_result.rolled_back_infinite_sp = True
     rolled_result.rollback_start_x = x.copy()
     rolled_result.rollback_final_x = x_roll.copy()
+    _preserve_optimize_result_metadata(result, rolled_result)
 
     stuck0 = ~informative0
 
@@ -130,6 +158,7 @@ def _rollback_working_infinite_smoothing_params(
     retry.rolled_back_infinite_sp = True
     retry.rollback_start_x = x.copy()
     retry.rollback_final_x = x_roll.copy()
+    _preserve_optimize_result_metadata(result, retry)
     if not hasattr(retry, "hess"):
         retry.hess = np.asarray(objective.hess(retry.x), dtype=np.float64)
 
@@ -142,7 +171,9 @@ def _rollback_working_infinite_smoothing_params(
         if np.any(retry_x[stuck0] > (x_roll[stuck0] + 0.5)):
             bad_retry = True
         # Also reject retry if objective meaningfully worsens.
-        if float(retry.fun) > float(rolled_result.fun) + 1e-8 * (1.0 + abs(float(rolled_result.fun))):
+        if float(retry.fun) > float(rolled_result.fun) + 1e-8 * (
+            1.0 + abs(float(rolled_result.fun))
+        ):
             bad_retry = True
 
     if bad_retry:
@@ -228,7 +259,124 @@ def _stabilize_flat_smoothing_params(
     return result
 
 
-def _collapse_near_zero_smoothing_params(objective, result, bounds, method, *, conv_tol=1e-6):
+def _stabilize_joint_negbin_flat_ridge(
+    objective,
+    result,
+    bounds,
+    *,
+    log_step=0.1,
+    score_tol=1.0e-4,
+    flat_grad_tol=5e-4,
+    flat_hess_tol=5e-4,
+    max_shift=2.0,
+):
+    if not bool(getattr(result, "joint_negbin_reml_outer", False)):
+        return result
+
+    x = np.asarray(getattr(result, "x", ()), dtype=np.float64).ravel()
+    if x.size == 0:
+        return result
+
+    grad = np.asarray(objective.jac(x), dtype=np.float64).ravel()
+    if grad.shape != x.shape or not np.all(np.isfinite(grad)):
+        return result
+    hess = np.asarray(objective.hess(x), dtype=np.float64)
+    if hess.shape != (x.size, x.size) or not np.all(np.isfinite(hess)):
+        return result
+    hess_diag = np.abs(np.diag(hess))
+    flat = (np.abs(grad) <= float(flat_grad_tol)) & (hess_diag <= float(flat_hess_tol))
+    flat_idx = np.flatnonzero(flat)
+    if flat_idx.size == 0:
+        return result
+
+    best_x = x.copy()
+    best_score = float(objective.fun(best_x))
+    if not np.isfinite(best_score):
+        return result
+
+    step = max(float(log_step), 1e-6)
+    improved = False
+    ref_score = best_score
+    if x.size == 1:
+        j = 0
+        lower_bound = float(bounds[j][0])
+        local_best = best_x.copy()
+        while True:
+            trial = local_best.copy()
+            trial[j] = max(lower_bound, trial[j] - step)
+            trial = _project_to_bounds(trial, bounds)
+            if trial[j] >= local_best[j] - 1e-12:
+                break
+            trial_score = float(objective.fun(trial))
+            if np.isfinite(trial_score) and trial_score <= ref_score + float(score_tol):
+                local_best = trial
+                best_x = trial
+                improved = True
+                continue
+            break
+    elif flat_idx.size > 1:
+        x_work = best_x.copy()
+        max_total_shift = max(float(max_shift), step)
+        changed = True
+        while changed:
+            changed = False
+            order = flat_idx[np.argsort(-x_work[flat_idx])]
+            for j in order.tolist():
+                lower_bound = float(bounds[j][0])
+                total_shift = 0.0
+                while total_shift + step <= max_total_shift + 1e-12:
+                    trial = x_work.copy()
+                    trial[j] = max(lower_bound, trial[j] - step)
+                    trial = _project_to_bounds(trial, bounds)
+                    shift = abs(float(trial[j] - x_work[j]))
+                    if shift <= 1e-12:
+                        break
+                    trial_score = float(objective.fun(trial))
+                    if not np.isfinite(trial_score) or trial_score > ref_score + float(
+                        score_tol
+                    ):
+                        break
+                    x_work = trial
+                    total_shift += shift
+                    improved = True
+                    changed = True
+        best_x = x_work
+        best_score = float(objective.fun(best_x))
+    else:
+        j = int(flat_idx[0])
+        lower_bound = float(bounds[j][0])
+        local_best = best_x.copy()
+        total_shift = 0.0
+        max_total_shift = max(float(max_shift), step)
+        while total_shift + step <= max_total_shift + 1e-12:
+            trial = local_best.copy()
+            trial[j] = max(lower_bound, trial[j] - step)
+            trial = _project_to_bounds(trial, bounds)
+            shift = abs(float(trial[j] - local_best[j]))
+            if shift <= 1e-12:
+                break
+            trial_score = float(objective.fun(trial))
+            if np.isfinite(trial_score) and trial_score <= ref_score + float(score_tol):
+                local_best = trial
+                best_x = trial
+                improved = True
+                total_shift += shift
+                continue
+            break
+    if not improved:
+        return result
+
+    result.x = best_x.copy()
+    result.fun = float(best_score)
+    result.jac = np.asarray(objective.jac(best_x), dtype=np.float64)
+    result.hess = np.asarray(objective.hess(best_x), dtype=np.float64)
+    result.joint_negbin_flat_ridge_stabilized = True
+    return result
+
+
+def _collapse_near_zero_smoothing_params(
+    objective, result, bounds, method, *, conv_tol=1e-6
+):
     method = str(method).lower()
     if method not in {"ml", "reml", "laml"}:
         return result
@@ -332,15 +480,16 @@ def _accept_flat_boundary_result(objective, result, method, *, conv_tol=1e-6):
         # even when we're effectively stationary at a finite, stable point.
         # Treat that case as converged (common practical tolerance).
         message = str(getattr(result, "message", ""))
-        if bool(getattr(result, "rolled_back_infinite_sp", False)) and "ABNORMAL" in message:
+        if (
+            bool(getattr(result, "rolled_back_infinite_sp", False))
+            and "ABNORMAL" in message
+        ):
             jac_vec = np.asarray(getattr(result, "jac", grad), dtype=np.float64).ravel()
             if jac_vec.shape == x.shape and np.all(np.isfinite(jac_vec)):
                 jac_inf = float(np.linalg.norm(jac_vec, ord=np.inf))
                 if jac_inf <= score_scale * conv_tol * 50.0:
                     result.success = True
-                    result.message = (
-                        "Accepted stationary rollback solution after L-BFGS-B abnormal termination."
-                    )
+                    result.message = "Accepted stationary rollback solution after L-BFGS-B abnormal termination."
                     result.fun = score
                     result.jac = np.asarray(objective.jac(x), dtype=np.float64)
                     result.hess = np.asarray(objective.hess(x), dtype=np.float64)
@@ -348,7 +497,9 @@ def _accept_flat_boundary_result(objective, result, method, *, conv_tol=1e-6):
         return result
 
     result.success = True
-    result.message = "Accepted flat boundary solution after optimizer abnormal termination."
+    result.message = (
+        "Accepted flat boundary solution after optimizer abnormal termination."
+    )
     result.fun = score
     result.jac = np.asarray(objective.jac(x), dtype=np.float64)
     result.hess = np.asarray(objective.hess(x), dtype=np.float64)
@@ -375,7 +526,10 @@ def _snap_gaussian_random_effect_boundary(
         return result
 
     term_blocks = getattr(model, "term_blocks_", None) or ()
-    if not any(str(getattr(tb, "term_type", "")).lower() == "random_effect" for tb in term_blocks):
+    if not any(
+        str(getattr(tb, "term_type", "")).lower() == "random_effect"
+        for tb in term_blocks
+    ):
         return result
 
     x = np.asarray(getattr(result, "x", ()), dtype=np.float64).ravel()
@@ -476,11 +630,15 @@ def _refine_null_space_smoothing_params(objective, result, bounds, *, xatol=1e-3
 
     fixed_mask = getattr(objective.model, "smoothing_fixed_mask_", None)
     if fixed_mask is None:
-        fixed_mask = np.zeros(int(getattr(objective.model, "n_smoothing_params_", 0) or 0), dtype=bool)
+        fixed_mask = np.zeros(
+            int(getattr(objective.model, "n_smoothing_params_", 0) or 0), dtype=bool
+        )
     else:
         fixed_mask = np.asarray(fixed_mask, dtype=bool)
     free_to_full = np.flatnonzero(~fixed_mask)
-    null_free = [j for j, full_idx in enumerate(free_to_full) if int(full_idx) in null_full]
+    null_free = [
+        j for j, full_idx in enumerate(free_to_full) if int(full_idx) in null_full
+    ]
     if not null_free:
         return result
 
@@ -511,7 +669,11 @@ def _refine_null_space_smoothing_params(objective, result, bounds, *, xatol=1e-3
             right = float(x_work[j])
             for _ in range(64):
                 left = max(lo, right - step)
-                g_left = float(np.asarray(objective.jac(_set_coord(x_work, j, left)), dtype=np.float64).ravel()[j])
+                g_left = float(
+                    np.asarray(
+                        objective.jac(_set_coord(x_work, j, left)), dtype=np.float64
+                    ).ravel()[j]
+                )
                 if not np.isfinite(g_left):
                     break
                 if g_left <= 0.0 or left <= lo + 1e-12:
@@ -523,7 +685,9 @@ def _refine_null_space_smoothing_params(objective, result, bounds, *, xatol=1e-3
             for _ in range(64):
                 right = min(hi, left + step)
                 g_right = float(
-                    np.asarray(objective.jac(_set_coord(x_work, j, right)), dtype=np.float64).ravel()[j]
+                    np.asarray(
+                        objective.jac(_set_coord(x_work, j, right)), dtype=np.float64
+                    ).ravel()[j]
                 )
                 if not np.isfinite(g_right):
                     break
@@ -539,7 +703,7 @@ def _refine_null_space_smoothing_params(objective, result, bounds, *, xatol=1e-3
         if not np.isfinite(a) or not np.isfinite(b) or b <= a:
             continue
 
-        def _fun_1d(v):
+        def _fun_1d(v, j=j):
             return float(objective.fun(_set_coord(x_work, j, v)))
 
         opt = minimize_scalar(
@@ -548,7 +712,9 @@ def _refine_null_space_smoothing_params(objective, result, bounds, *, xatol=1e-3
             method="bounded",
             options={"xatol": float(xatol)},
         )
-        if not bool(getattr(opt, "success", False)) or not np.isfinite(getattr(opt, "fun", np.nan)):
+        if not bool(getattr(opt, "success", False)) or not np.isfinite(
+            getattr(opt, "fun", np.nan)
+        ):
             continue
 
         if float(opt.fun) + 1e-10 < float(objective.fun(x_work)):
@@ -592,7 +758,9 @@ def _stabilize_factor_smooth_shared_ridge(
 
     fixed_mask = getattr(model, "smoothing_fixed_mask_", None)
     if fixed_mask is None:
-        fixed_mask = np.zeros(int(getattr(model, "n_smoothing_params_", 0) or 0), dtype=bool)
+        fixed_mask = np.zeros(
+            int(getattr(model, "n_smoothing_params_", 0) or 0), dtype=bool
+        )
     else:
         fixed_mask = np.asarray(fixed_mask, dtype=bool)
     free_to_full = np.flatnonzero(~fixed_mask)
@@ -701,7 +869,7 @@ def _coordinate_refine_smoothing_params(
             if not (np.isfinite(lo) and np.isfinite(hi) and hi > lo):
                 continue
 
-            def _fun_1d(v):
+            def _fun_1d(v, j=j):
                 return float(objective.fun(_set_coord(x_work, j, v)))
 
             opt = minimize_scalar(

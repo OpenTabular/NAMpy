@@ -79,7 +79,11 @@ def _knots_for_features(knots, features):
         return None
     if isinstance(knots, dict):
         vals = [knots.get(str(f), None) for f in features]
-        return None if all(v is None for v in vals) else vals[0] if len(features) == 1 else vals
+        return (
+            None
+            if all(v is None for v in vals)
+            else vals[0] if len(features) == 1 else vals
+        )
     return knots
 
 

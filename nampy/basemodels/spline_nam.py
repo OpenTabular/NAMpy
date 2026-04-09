@@ -157,4 +157,3 @@ class SplineNAM(BaseModel):
             result["intercept"] = self.intercept
 
         return result
-

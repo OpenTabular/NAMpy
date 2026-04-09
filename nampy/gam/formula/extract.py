@@ -58,7 +58,9 @@ def _dataframe_to_feature_matrix(X_df: pd.DataFrame):
         if pd.api.types.is_numeric_dtype(s):
             vals = np.asarray(s, dtype=np.float64)
             if not np.isfinite(vals).all():
-                raise ValueError(f"Referenced numeric column {c!r} contains NaN or Inf.")
+                raise ValueError(
+                    f"Referenced numeric column {c!r} contains NaN or Inf."
+                )
         else:
             if s.isna().any():
                 raise ValueError(
@@ -92,7 +94,9 @@ def extract_formula_data(data, parsed, y=None, predictor_specs=None):
                     used.update(term.variables)
                 elif hasattr(term, "features"):
                     used.update(term.features)
-                    by_val = term.kwargs.get("by", None) if hasattr(term, "kwargs") else None
+                    by_val = (
+                        term.kwargs.get("by", None) if hasattr(term, "kwargs") else None
+                    )
                     if isinstance(by_val, str):
                         used.add(by_val)
 
@@ -107,9 +111,7 @@ def extract_formula_data(data, parsed, y=None, predictor_specs=None):
     used_cols = [c for c in data.columns if c in used]
     missing = sorted(used.difference(set(data.columns)))
     if missing:
-        raise KeyError(
-            f"Formula references columns not present in `data`: {missing}"
-        )
+        raise KeyError(f"Formula references columns not present in `data`: {missing}")
 
     X_df = data[used_cols]
     X_np = _dataframe_to_feature_matrix(X_df)
@@ -131,9 +133,7 @@ def extract_formula_data(data, parsed, y=None, predictor_specs=None):
     offset_out = None
     if offset_name is not None:
         if offset_name not in data.columns:
-            raise KeyError(
-                f"Offset column {offset_name!r} not found in `data`."
-            )
+            raise KeyError(f"Offset column {offset_name!r} not found in `data`.")
         if not pd.api.types.is_numeric_dtype(data[offset_name]):
             raise NotImplementedError(
                 "Current formula-based GAM fitting supports numeric offsets only. "

@@ -15,18 +15,6 @@ identifiability in some settings).
 
 import numpy as np
 
-from ..base import (
-    BaseSmoothTerm,
-    _resolve_feature,
-    _normalize_point_constraint,
-    by_values_from_new_data,
-    column_as_float,
-    resolve_by_state,
-    sync_by_state_attributes,
-)
-from ..registry import register_smooth
-from ...constraints.absorption import apply_linear_constraint
-from ...penalties import build_null_space_selection_spec, make_penalty_spec
 from ....splines.cubic import CubicSplines
 from ....splines.penalty_scaling import scale_penalty
 from ....splines.univariate_bases import (
@@ -35,6 +23,17 @@ from ....splines.univariate_bases import (
     cyclic_cubic_predict_matrix,
     place_knots_through_values,
 )
+from ...constraints.absorption import apply_linear_constraint
+from ...penalties import build_null_space_selection_spec, make_penalty_spec
+from ..base import (
+    BaseSmoothTerm,
+    _normalize_point_constraint,
+    _resolve_feature,
+    column_as_float,
+    resolve_by_state,
+    sync_by_state_attributes,
+)
+from ..registry import register_smooth
 
 
 @register_smooth("spline_1d")
@@ -128,12 +127,22 @@ class SplineTerm1D(BaseSmoothTerm):
         if self._spline is None:
             raise RuntimeError("Term is not fitted.")
 
+        if self.basis_name == "cs":
+            # Mirror mgcv smooth.construct.cr.smooth.spec: shrinkage is applied to
+            # the *unscaled* raw penalty, then the result is scaled and (for the
+            # centered path) projected through the centering matrix.  Applying
+            # shrinkage after scaling changes the normalisation denominator and
+            # produces a ~1e-5 prediction error.
+            S_unscaled = np.asarray(self._spline.raw_penalty_unscaled, dtype=np.float64)
+            S = add_full_rank_shrinkage(S_unscaled, shrink=0.1)
+            S = scale_penalty(self._spline.raw_basis, S)
+            if not raw:
+                C = self._spline.center_mat
+                S = C.T @ S @ C
+            return 0.5 * (S + S.T)
+
         S = self._spline.raw_penalty if raw else self._spline.penalty
         S = np.asarray(S, dtype=np.float64)
-
-        if self.basis_name == "cs":
-            S = add_full_rank_shrinkage(S, shrink=0.1)
-
         return 0.5 * (S + S.T)
 
     def fit(self, X, feature_names):
@@ -172,7 +181,9 @@ class SplineTerm1D(BaseSmoothTerm):
                 pooled_setup = False
 
             if self.pc is not None:
-                self._pc_value = _normalize_point_constraint(self.pc, self._feature_name)
+                self._pc_value = _normalize_point_constraint(
+                    self.pc, self._feature_name
+                )
                 raw_base = (
                     self._spline.transform_new_raw(xj)
                     if pooled_setup
@@ -312,7 +323,22 @@ class SplineTerm1D(BaseSmoothTerm):
             return self
 
         S_raw = D.T @ BD
-        main_penalty = scale_penalty(base, 0.5 * (S_raw + S_raw.T))
+        S_sym = 0.5 * (S_raw + S_raw.T)
+
+        if self.constraint_mode == "never":
+            # Tensor-marginal path: return raw k-column basis without absorbing
+            # the sum-to-zero constraint (mgcv smoothCon absorb.cons=FALSE).
+            main_penalty = scale_penalty(base, S_sym)
+            penalties_in = [] if self.fixed else [main_penalty]
+            if self._by_state.is_present:
+                base = base * self._by_state.values[:, None]
+            self._basis_train = np.asarray(base, dtype=np.float64)
+            self._penalties = penalties_in
+            self._use_centered_basis = False
+            self._record_constraint_result(None, None, absorbed_by=None)
+            return self
+
+        main_penalty = scale_penalty(base, S_sym)
         penalties_in = [] if self.fixed else [main_penalty]
         mean_row = base.mean(axis=0)
         Bc, Sc, C = apply_linear_constraint(base, penalties_in, mean_row)
@@ -370,11 +396,17 @@ class SplineTerm1D(BaseSmoothTerm):
         defs = [
             make_penalty_spec(
                 matrix=main_penalty,
-                smoothing_id=(None if self.smoothing_id is None else str(self.smoothing_id)),
+                smoothing_id=(
+                    None if self.smoothing_id is None else str(self.smoothing_id)
+                ),
                 kind="smooth",
                 sp_mode=sp_mode,
                 sp_value=sp_value,
-                metadata={**base_metadata, "term_sp": sp_main, "is_selection_penalty": False},
+                metadata={
+                    **base_metadata,
+                    "term_sp": sp_main,
+                    "is_selection_penalty": False,
+                },
             )
         ]
 

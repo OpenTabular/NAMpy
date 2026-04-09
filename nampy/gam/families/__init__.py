@@ -1,13 +1,13 @@
-from .base import BaseFamily, GLMFamily, ExtendedFamily, GeneralFamily
+from .base import BaseFamily, ExtendedFamily, GeneralFamily, GLMFamily
 from .exponential import (
-    GaussianIdentityFamily,
+    BinomialCloglogFamily,
     BinomialLogitFamily,
     BinomialProbitFamily,
-    BinomialCloglogFamily,
-    PoissonLogFamily,
-    GammaLogFamily,
     GammaInverseFamily,
+    GammaLogFamily,
+    GaussianIdentityFamily,
     NegativeBinomialLogFamily,
+    PoissonLogFamily,
 )
 from .registry import make_gam_family
 

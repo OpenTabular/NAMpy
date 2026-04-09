@@ -8,7 +8,11 @@ def build_optimizer_trace(model):
     core = model
     if hasattr(model, "core_") and model.core_ is not None:
         core = model.core_
-    elif hasattr(model, "model") and hasattr(model.model, "core_") and model.model.core_ is not None:
+    elif (
+        hasattr(model, "model")
+        and hasattr(model.model, "core_")
+        and model.model.core_ is not None
+    ):
         core = model.model.core_
 
     rows = getattr(core, "_optim_trace", None)
@@ -21,6 +25,11 @@ def build_optimizer_trace(model):
             {
                 "iter": int(row.get("iter", 0)),
                 "log_sp": np.asarray(row.get("log_sp", []), dtype=np.float64).tolist(),
+                "log_theta": (
+                    None
+                    if row.get("log_theta", None) is None
+                    else float(row.get("log_theta"))
+                ),
                 "criterion": (
                     None
                     if row.get("criterion", None) is None

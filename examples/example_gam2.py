@@ -14,8 +14,9 @@ Run:
 """
 
 import os
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
@@ -80,9 +81,13 @@ def summarize_model(name, model, X_val, y_val, true_x1, true_x2, true_total):
     print("  Verification (true DGP vs learned contributions):")
     print(f"    total true vs learned correlation: {corr(true_total, preds):.4f}")
     if "x1" in learned:
-        print(f"    x1    true vs learned correlation: {corr(true_x1, learned['x1']):.4f}")
+        print(
+            f"    x1    true vs learned correlation: {corr(true_x1, learned['x1']):.4f}"
+        )
     if "x2" in learned:
-        print(f"    x2    true vs learned correlation: {corr(true_x2, learned['x2']):.4f}")
+        print(
+            f"    x2    true vs learned correlation: {corr(true_x2, learned['x2']):.4f}"
+        )
 
     return preds, learned, scores
 
@@ -108,7 +113,7 @@ def main():
         return 1.2 * np.sin(1.8 * x)
 
     def f2(x):
-        return 0.8 * (x ** 2) - 0.9 * x
+        return 0.8 * (x**2) - 0.9 * x
 
     intercept_true = 0.3
     noise = rng.normal(0, 0.35, n)
@@ -199,8 +204,12 @@ def main():
     print(f"  Fixed R2 : {scores_fixed['R2']:.4f}")
     print(f"  GCV R2   : {scores_gcv['R2']:.4f}")
     print(f"  REML R2  : {scores_reml['R2']:.4f}")
-    print(f"  GCV - Fixed  R2 improvement : {scores_gcv['R2'] - scores_fixed['R2']:+.4f}")
-    print(f"  REML - Fixed R2 improvement : {scores_reml['R2'] - scores_fixed['R2']:+.4f}")
+    print(
+        f"  GCV - Fixed  R2 improvement : {scores_gcv['R2'] - scores_fixed['R2']:+.4f}"
+    )
+    print(
+        f"  REML - Fixed R2 improvement : {scores_reml['R2'] - scores_fixed['R2']:+.4f}"
+    )
 
     # ------------------------------------------------------------------
     # Plots
@@ -262,7 +271,9 @@ def main():
     print("  - GCV and REML should produce finite positive smoothing parameters.")
     print("  - EDFs should be sensible (not exploding, not all collapsed).")
     print("  - Learned x1/x2 effects should correlate strongly with the true DGP.")
-    print("  - GCV / REML often match or improve on an arbitrary fixed smoothing choice.")
+    print(
+        "  - GCV / REML often match or improve on an arbitrary fixed smoothing choice."
+    )
 
 
 if __name__ == "__main__":

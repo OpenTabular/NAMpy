@@ -107,6 +107,65 @@ def fit_pirls_core(
         n_coef=Z.shape[1],
     )
 
+    def _working_response_terms(eta_curr, mu_curr):
+        mu_eta_curr = np.asarray(family.mu_eta(eta_curr), dtype=np.float64)
+        var_curr = np.asarray(family.variance(mu_curr), dtype=np.float64)
+        good_curr = (
+            (weights > 0.0)
+            & np.isfinite(mu_eta_curr)
+            & (mu_eta_curr != 0.0)
+            & np.isfinite(var_curr)
+            & (var_curr > 0.0)
+        )
+        if not np.any(good_curr):
+            return None
+
+        y_g_curr = y[good_curr]
+        mu_g_curr = mu_curr[good_curr]
+        eta_g_curr = eta_curr[good_curr]
+        mu_eta_g_curr = mu_eta_curr[good_curr]
+        var_g_curr = var_curr[good_curr]
+        weights_g_curr = weights[good_curr]
+        off_g_curr = None if offset is None else offset[good_curr]
+
+        fisher_W_curr = weights_g_curr * (mu_eta_g_curr**2) / var_g_curr
+        use_fisher_curr = bool(getattr(family, "canonical_link", False))
+        if (
+            not use_fisher_curr
+            and hasattr(family, "dvar")
+            and hasattr(family, "d2link")
+        ):
+            try:
+                dvar_curr = np.asarray(family.dvar(mu_g_curr), dtype=np.float64)
+                d2link_curr = np.asarray(family.d2link(mu_g_curr), dtype=np.float64)
+                alpha_curr = 1.0 + (y_g_curr - mu_g_curr) * (
+                    dvar_curr / var_g_curr + d2link_curr * mu_eta_g_curr
+                )
+                eps_alpha_curr = np.finfo(np.float64).eps
+                zero_curr = alpha_curr == 0.0
+                if np.any(zero_curr):
+                    alpha_curr = alpha_curr.copy()
+                    alpha_curr[zero_curr] = eps_alpha_curr
+                w_curr = fisher_W_curr * alpha_curr
+                z_curr = (
+                    eta_g_curr if off_g_curr is None else (eta_g_curr - off_g_curr)
+                ) + (y_g_curr - mu_g_curr) / (mu_eta_g_curr * alpha_curr)
+                if np.any(~np.isfinite(w_curr)) or np.any(~np.isfinite(z_curr)):
+                    use_fisher_curr = True
+            except Exception:
+                use_fisher_curr = True
+        if use_fisher_curr:
+            w_curr = fisher_W_curr
+            z_curr = (
+                eta_g_curr if off_g_curr is None else (eta_g_curr - off_g_curr)
+            ) + (y_g_curr - mu_g_curr) / mu_eta_g_curr
+
+        return {
+            "good": good_curr,
+            "w": np.asarray(w_curr, dtype=np.float64),
+            "z": np.asarray(z_curr, dtype=np.float64),
+        }
+
     beta = None
     if coef_start is not None:
         beta0 = np.asarray(coef_start, dtype=np.float64).ravel()
@@ -130,8 +189,10 @@ def fit_pirls_core(
         mu = mu0
         eta = family.link(mu)
     else:
-        eta = family.link(family.initialize_mu(y)) if coef_start is None else (
-            X @ beta if offset is None else offset + X @ beta
+        eta = (
+            family.link(family.initialize_mu(y))
+            if coef_start is None
+            else (X @ beta if offset is None else offset + X @ beta)
         )
         mu = family.inverse_link(eta)
     null_beta = np.zeros_like(beta)
@@ -151,13 +212,14 @@ def fit_pirls_core(
         old_pdev = float(family.deviance(y, mu) + beta @ (P_full @ beta))
 
     mu = family.inverse_link(eta)
-    dev_old = float(family.deviance(y, mu))
+    float(family.deviance(y, mu))
     pdev_old = float(old_pdev)
 
     converged = False
     failed_step = False
     failure_reason = None
     n_iter = 0
+    inner_trace = []
 
     for it in range(max_iter):
         n_iter = it + 1
@@ -199,7 +261,9 @@ def fit_pirls_core(
                     alpha = alpha.copy()
                     alpha[zero] = eps_alpha
                 W = fisher_W * alpha
-                z = (eta_g if off_g is None else (eta_g - off_g)) + (y_g - mu_g) / (mu_eta_g * alpha)
+                z = (eta_g if off_g is None else (eta_g - off_g)) + (y_g - mu_g) / (
+                    mu_eta_g * alpha
+                )
                 if np.any(~np.isfinite(W)) or np.any(~np.isfinite(z)):
                     # Newton weights are unstable; fall back to Fisher scoring.
                     use_fisher = True
@@ -210,7 +274,20 @@ def fit_pirls_core(
             W = fisher_W
             z = (eta_g if off_g is None else (eta_g - off_g)) + (y_g - mu_g) / mu_eta_g
 
-        z_work = z
+        eta_lin = eta_g if off_g is None else (eta_g - off_g)
+        wz = W * eta_lin + weights_g * mu_eta_g * (y_g - mu_g) / var_g
+        good_z = np.isfinite(z) & np.isfinite(W)
+        if np.any(~good_z):
+            z_work = np.asarray(z, dtype=np.float64).copy()
+            bad_z = ~np.isfinite(z_work)
+            if np.any(bad_z):
+                z_work[bad_z] = 0.0
+            good_wz = np.isfinite(W) & np.isfinite(wz)
+            X_g = X_g[good_wz, :]
+            W = W[good_wz]
+            z_work = np.asarray(wz[good_wz], dtype=np.float64)
+        else:
+            z_work = z
 
         XtW = X_g.T * W
         XtWX = XtW @ X_g
@@ -220,21 +297,46 @@ def fit_pirls_core(
         try:
             beta_prop, _, _, _ = stabilized_cholesky_solve(A, b)
         except np.linalg.LinAlgError:
-            # Newton-weight system is indefinite; retry with Fisher scoring.
             if use_fisher:
                 failed_step = True
                 failure_reason = "linear_solve_failed"
                 converged = False
                 break
-            use_fisher = True
-            W = fisher_W
-            z = (eta_g if off_g is None else (eta_g - off_g)) + (y_g - mu_g) / mu_eta_g
-            z_work = z
-            XtW = X_g.T * W
-            XtWX = XtW @ X_g
+
+            # Mirror mgcv gam.fit4.r lines 394-413 more closely: when the
+            # exact Newton-weight system is indefinite, retry the same PIRLS
+            # step with only the positive exact weights retained, rather than
+            # switching straight to Fisher scoring.
+            W_pos = np.where(np.isfinite(W) & (W > 0.0), W, 0.0)
+            eta_lin = eta_g if off_g is None else (eta_g - off_g)
+            wz_pos_full = W_pos * eta_lin + weights_g * mu_eta_g * (y_g - mu_g) / var_g
+            z_pos_full = np.asarray(z, dtype=np.float64).copy()
+            bad_z = ~np.isfinite(z_pos_full)
+            if np.any(bad_z):
+                z_pos_full[bad_z] = 0.0
+            good_pos = np.isfinite(z_pos_full) & np.isfinite(W_pos)
+            if np.any(~good_pos):
+                good_pos = np.isfinite(W_pos) & np.isfinite(wz_pos_full)
+                z_pos = np.asarray(wz_pos_full[good_pos], dtype=np.float64)
+            else:
+                z_pos = np.asarray(z_pos_full[good_pos], dtype=np.float64)
+            X_pos = X_g[good_pos, :]
+            W_pos = W_pos[good_pos]
+            XtW = X_pos.T * W_pos
+            XtWX = XtW @ X_pos
             A = XtWX + P_full
-            b = XtW @ z_work
-            beta_prop, _, _, _ = stabilized_cholesky_solve(A, b)
+            b = XtW @ z_pos
+            try:
+                beta_prop, _, _, _ = stabilized_cholesky_solve(A, b)
+                X_g = X_pos
+                W = W_pos
+                z = z_pos
+                z_work = z_pos
+            except np.linalg.LinAlgError:
+                failed_step = True
+                failure_reason = "linear_solve_failed"
+                converged = False
+                break
 
         beta_new = beta_prop
         eta_new = X @ beta_new if offset is None else offset + X @ beta_new
@@ -256,7 +358,11 @@ def fit_pirls_core(
                 mu_half = family.inverse_link(eta_half)
                 dev_half = float(family.deviance(y, mu_half))
                 pdev_half = dev_half + float(beta_half @ (P_full @ beta_half))
-                if np.isfinite(dev_half) and np.isfinite(pdev_half) and pdev_half - pdev_old <= div_thresh:
+                if (
+                    np.isfinite(dev_half)
+                    and np.isfinite(pdev_half)
+                    and pdev_half - pdev_old <= div_thresh
+                ):
                     beta_new = beta_half
                     eta_new = eta_half
                     mu_new = mu_half
@@ -270,7 +376,8 @@ def fit_pirls_core(
                 converged = False
                 break
 
-        grad = 2.0 * (A @ beta_new - b)
+        penalty_new = float(beta_new @ (P_full @ beta_new))
+        pdev_step = dev_new + penalty_new
         beta = beta_new
         eta = eta_new
         mu = mu_new
@@ -278,22 +385,69 @@ def fit_pirls_core(
         # EFS (Embedded Fisher Scoring): update theta once per IRLS step when
         # the family has a free dispersion parameter.  Mirrors mgcv gam.fit4.r
         # lines 507-515 (scoreType=="EFS" block).
-        if getattr(family, "estimate_theta", False) and hasattr(family, "estimate_theta_mle"):
+        theta_efs_enabled = bool(getattr(family, "estimate_theta", False)) and not bool(
+            getattr(family, "_disable_theta_efs", False)
+        )
+        if theta_efs_enabled and hasattr(family, "estimate_theta_mle"):
             theta_efs = family.estimate_theta_mle(y, mu, weights=weights)
             if np.isfinite(theta_efs) and theta_efs > 0.0:
                 family.theta = theta_efs
                 dev_new = float(family.deviance(y, mu))
-                pdev_new = dev_new + float(beta @ (P_full @ beta))
+        pdev_new = dev_new + penalty_new
+
+        grad_info = _working_response_terms(eta, mu)
+        if grad_info is None:
+            failed_step = True
+            failure_reason = "no_informative_observations"
+            converged = False
+            break
+        good_grad = np.asarray(grad_info["good"], dtype=bool)
+        w_grad = np.asarray(grad_info["w"], dtype=np.float64)
+        z_grad = np.asarray(grad_info["z"], dtype=np.float64)
+        eta_grad = eta[good_grad] if offset is None else (eta - offset)[good_grad]
+        X_good = X[good_grad, :]
+        grad = 2.0 * (X_good.T @ (w_grad * (eta_grad - z_grad))) + 2.0 * (P_full @ beta)
 
         scale_ref = 1.0 if family.known_scale is not None else max(abs(dev_new), 1.0)
-        if abs(pdev_new - pdev_old) < tol * (abs(scale_ref) + abs(pdev_new)):
+        pdev_conv = pdev_step if theta_efs_enabled else pdev_new
+        if abs(pdev_conv - pdev_old) < tol * (abs(scale_ref) + abs(pdev_conv)):
+            inner_trace.append(
+                {
+                    "iter": int(n_iter),
+                    "log_theta": (
+                        None
+                        if not hasattr(family, "theta")
+                        else float(np.log(max(float(family.theta), 1e-300)))
+                    ),
+                    "deviance": float(dev_new),
+                    "penalized_deviance": float(pdev_new),
+                    "penalized_deviance_conv": float(pdev_conv),
+                    "grad_inf_norm": float(np.max(np.abs(grad))),
+                    "converged_here": bool(
+                        np.max(np.abs(grad)) <= tol * (abs(scale_ref) + abs(pdev_new))
+                    ),
+                }
+            )
             if np.max(np.abs(grad)) <= tol * (abs(scale_ref) + abs(pdev_new)):
                 converged = True
-                dev_old = dev_new
                 pdev_old = pdev_new
                 break
 
-        dev_old = dev_new
+        inner_trace.append(
+            {
+                "iter": int(n_iter),
+                "log_theta": (
+                    None
+                    if not hasattr(family, "theta")
+                    else float(np.log(max(float(family.theta), 1e-300)))
+                ),
+                "deviance": float(dev_new),
+                "penalized_deviance": float(pdev_new),
+                "penalized_deviance_conv": float(pdev_conv),
+                "grad_inf_norm": float(np.max(np.abs(grad))),
+                "converged_here": False,
+            }
+        )
         pdev_old = pdev_new
 
     eta = X @ beta if offset is None else offset + X @ beta
@@ -331,7 +485,9 @@ def fit_pirls_core(
                 alpha = alpha.copy()
                 alpha[zero] = eps_alpha
             W_g = fisher_W_g * alpha
-            z_g = (eta_g if off_g is None else (eta_g - off_g)) + (y_g - mu_g) / (mu_eta_g * alpha)
+            z_g = (eta_g if off_g is None else (eta_g - off_g)) + (y_g - mu_g) / (
+                mu_eta_g * alpha
+            )
             if np.any(~np.isfinite(W_g)) or np.any(~np.isfinite(z_g)):
                 use_fisher = True
         except Exception:
@@ -351,9 +507,7 @@ def fit_pirls_core(
     XtWX = XtW @ X_g
     A = XtWX + P_full
 
-    _, cA, loA, _ = stabilized_cholesky_solve(
-        A, np.zeros(X.shape[1], dtype=np.float64)
-    )
+    _, cA, loA, _ = stabilized_cholesky_solve(A, np.zeros(X.shape[1], dtype=np.float64))
     A_inv = cho_solve((cA, loA), np.eye(A.shape[0]), check_finite=False)
 
     H_coef = A_inv @ XtWX
@@ -405,4 +559,5 @@ def fit_pirls_core(
         "failed_step": failed_step,
         "failure_reason": failure_reason,
         "offset": None if offset is None else offset.copy(),
+        "inner_trace": inner_trace,
     }

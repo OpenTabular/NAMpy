@@ -36,7 +36,11 @@ def resolve_prediction_offset(model, X, offset):
     if X is None:
         if offset is None:
             default_offset = getattr(model, "offset_predict_default_", None)
-            return None if default_offset is None else np.asarray(default_offset, dtype=np.float64)
+            return (
+                None
+                if default_offset is None
+                else np.asarray(default_offset, dtype=np.float64)
+            )
         return coerce_offset_array(offset, model.n_samples_)
 
     return coerce_offset_array(offset, len(X)) if offset is not None else None

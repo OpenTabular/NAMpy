@@ -1,12 +1,11 @@
-#utils/distributional_metrics.py
-import math
+# utils/distributional_metrics.py
 from typing import Optional
 
 import numpy as np
 from scipy.special import gammaln
 
-
 _EPS = 1e-9
+
 
 def _as_1d(x):
     x = np.asarray(x)
@@ -282,5 +281,7 @@ def inverse_gamma_loss(y_true, y_pred):
 
     # InverseGamma(shape=a, rate=b) logpdf:
     #   a log b - gammaln(a) - (a+1) log y - b / y
-    logpdf = shape * np.log(rate) - gammaln(shape) - (shape + 1.0) * np.log(y) - rate / y
+    logpdf = (
+        shape * np.log(rate) - gammaln(shape) - (shape + 1.0) * np.log(y) - rate / y
+    )
     return float(-np.mean(logpdf))

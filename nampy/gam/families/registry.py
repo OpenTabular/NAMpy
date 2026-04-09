@@ -1,13 +1,13 @@
 from .base import BaseFamily
 from .exponential import (
-    GaussianIdentityFamily,
+    BinomialCloglogFamily,
     BinomialLogitFamily,
     BinomialProbitFamily,
-    BinomialCloglogFamily,
-    PoissonLogFamily,
-    GammaLogFamily,
     GammaInverseFamily,
+    GammaLogFamily,
+    GaussianIdentityFamily,
     NegativeBinomialLogFamily,
+    PoissonLogFamily,
 )
 
 _BINOMIAL_LINK_MAP = {

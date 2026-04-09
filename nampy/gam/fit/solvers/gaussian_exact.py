@@ -1,16 +1,16 @@
 import numpy as np
-from scipy.linalg import cho_solve
 from numpy.linalg import LinAlgError
+from scipy.linalg import cho_solve
 
-from ..penalized_system import (
-    build_full_design,
-    build_full_penalty_from_blocks,
-    stabilized_cholesky_solve,
-)
 from ..covariance import build_bayes_and_freq_covariances
 from ..linalg.stacked_qr import (
     gaussian_design_needs_stacked_qr_fit,
     solve_gaussian_penalized_ls_stacked_qr,
+)
+from ..penalized_system import (
+    build_full_design,
+    build_full_penalty_from_blocks,
+    stabilized_cholesky_solve,
 )
 from ..state import FitCoreSolution
 
@@ -22,9 +22,7 @@ def _prior_weights_vector(model, n: int) -> np.ndarray:
         return np.ones(int(n), dtype=np.float64)
     w = np.asarray(w, dtype=np.float64).ravel()
     if w.shape != (int(n),):
-        raise ValueError(
-            f"prior_weights must have shape ({n},), got {w.shape}."
-        )
+        raise ValueError(f"prior_weights must have shape ({n},), got {w.shape}.")
     if not np.all(np.isfinite(w)) or np.any(w < 0.0):
         raise ValueError("prior_weights must be finite and non-negative.")
     if float(np.sum(w)) <= 0.0:
@@ -87,7 +85,11 @@ def solve_gaussian_fit(model, y, smoothing_params):
             coef_method=coef_method,
         )
         beta_full = np.asarray(pls["coef_full"], dtype=np.float64).ravel()
-        eta = X @ beta_full if model.offset_train_ is None else model.offset_train_ + X @ beta_full
+        eta = (
+            X @ beta_full
+            if model.offset_train_ is None
+            else model.offset_train_ + X @ beta_full
+        )
         resid = y - eta
         wrss = float(np.sum(w * resid * resid))
         penalty_quadratic = float(pls["penalty_quadratic"])
@@ -138,6 +140,7 @@ def solve_gaussian_fit(model, y, smoothing_params):
             offset=None if model.offset_train_ is None else model.offset_train_.copy(),
             log_det_XtWX_plus_penalty=float(pls["log_det_XtWX_plus_penalty"]),
         )
+
     if gaussian_design_needs_stacked_qr_fit(model):
         return _solve_with_stacked_qr()
 
@@ -145,7 +148,11 @@ def solve_gaussian_fit(model, y, smoothing_params):
         beta_full, cA, loA, _ = stabilized_cholesky_solve(A, Xtwy)
     except LinAlgError:
         return _solve_with_stacked_qr()
-    eta = X @ beta_full if model.offset_train_ is None else model.offset_train_ + X @ beta_full
+    eta = (
+        X @ beta_full
+        if model.offset_train_ is None
+        else model.offset_train_ + X @ beta_full
+    )
     resid = y - eta
     wrss = float(np.sum(w * resid * resid))
     penalty_quadratic = float(beta_full @ (P_full @ beta_full))

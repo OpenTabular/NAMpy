@@ -17,8 +17,9 @@ Run:
 
 import os
 import tempfile
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
@@ -33,11 +34,13 @@ def main():
     # ------------------------------------------------------------------
     # Synthetic mixed data
     # ------------------------------------------------------------------
-    X = pd.DataFrame({
-        "age": rng.uniform(18, 70, n),
-        "income": rng.uniform(0, 120, n),
-        "region": rng.choice(["North", "South", "East", "West"], size=n),
-    })
+    X = pd.DataFrame(
+        {
+            "age": rng.uniform(18, 70, n),
+            "income": rng.uniform(0, 120, n),
+            "region": rng.choice(["North", "South", "East", "West"], size=n),
+        }
+    )
 
     # ------------------------------------------------------------------
     # Piecewise-additive data-generating process
@@ -151,7 +154,9 @@ def main():
     )
 
     print("Single TreeNAM")
-    print(f"  Validation — MAE: {scores_single['MAE']:.4f}, R2: {scores_single['R2']:.4f}")
+    print(
+        f"  Validation — MAE: {scores_single['MAE']:.4f}, R2: {scores_single['R2']:.4f}"
+    )
     print("Ensemble TreeNAM")
     print(f"  Validation — MAE: {scores_ens['MAE']:.4f}, R2: {scores_ens['R2']:.4f}")
 
@@ -169,11 +174,7 @@ def main():
             arr = arr[:, 0]
         return arr.reshape(-1)
 
-    learned = {
-        k: to_numpy(v)
-        for k, v in feat_vals.items()
-        if k != "output_penalty"
-    }
+    learned = {k: to_numpy(v) for k, v in feat_vals.items() if k != "output_penalty"}
 
     # ------------------------------------------------------------------
     # Exact additive decomposition check
@@ -213,20 +214,28 @@ def main():
         return np.corrcoef(a, b)[0, 1]
 
     print("\nVerification (true DGP vs ensemble learned contributions):")
-    print(f"  total   true vs predictions correlation: {centered_corr(true_total_no_noise, preds_ens):.4f}")
+    print(
+        f"  total   true vs predictions correlation: {centered_corr(true_total_no_noise, preds_ens):.4f}"
+    )
 
     if "age" in learned:
-        print(f"  age     true vs learned correlation:     {centered_corr(true_age_val, learned['age']):.4f}")
+        print(
+            f"  age     true vs learned correlation:     {centered_corr(true_age_val, learned['age']):.4f}"
+        )
     else:
         print("  age     key not found")
 
     if "income" in learned:
-        print(f"  income  true vs learned correlation:     {centered_corr(true_income_val, learned['income']):.4f}")
+        print(
+            f"  income  true vs learned correlation:     {centered_corr(true_income_val, learned['income']):.4f}"
+        )
     else:
         print("  income  key not found")
 
     if "region" in learned:
-        print(f"  region  true vs learned correlation:     {centered_corr(true_region_val, learned['region']):.4f}")
+        print(
+            f"  region  true vs learned correlation:     {centered_corr(true_region_val, learned['region']):.4f}"
+        )
     else:
         print("  region  key not found")
 
@@ -277,8 +286,12 @@ def main():
     # Compare single model vs ensemble directly
     # ------------------------------------------------------------------
     print("\nSingle model vs ensemble comparison:")
-    print(f"  MAE improvement: {scores_single['MAE'] - scores_ens['MAE']:+.4f} (positive means ensemble is better)")
-    print(f"  R2  improvement: {scores_ens['R2'] - scores_single['R2']:+.4f} (positive means ensemble is better)")
+    print(
+        f"  MAE improvement: {scores_single['MAE'] - scores_ens['MAE']:+.4f} (positive means ensemble is better)"
+    )
+    print(
+        f"  R2  improvement: {scores_ens['R2'] - scores_single['R2']:+.4f} (positive means ensemble is better)"
+    )
 
     # ------------------------------------------------------------------
     # Plot: true noiseless signal vs predictions
@@ -312,8 +325,12 @@ def main():
     print("  - The additive reconstruction error should be ~0.")
     print("  - Returned keys should include age, income, region, intercept.")
     print("  - Ensemble R2 should often be at least as good as a single TreeNAM.")
-    print("  - Learned means within each step bin should roughly match the true step levels.")
-    print("  - region should be returned as one logical feature block, not region[0], region[1], ...")
+    print(
+        "  - Learned means within each step bin should roughly match the true step levels."
+    )
+    print(
+        "  - region should be returned as one logical feature block, not region[0], region[1], ..."
+    )
 
 
 if __name__ == "__main__":

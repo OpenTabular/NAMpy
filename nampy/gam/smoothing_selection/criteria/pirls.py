@@ -4,15 +4,126 @@ Penalized IRLS smoothing-selection criteria: GCV, UBRE, and Laplace ML/REML.
 Functions here solve the penalized system via P-IRLS at each criterion evaluation
 and compute the corresponding smoothing-selection score.
 """
+
+from contextlib import contextmanager
+
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
-from .laplace import _ensure_penalty_reparameterization, _laplace_lambda_vector
 from .penalty import (
     _stable_penalty_logdet,
     _static_fixed_and_random_designs,
     _static_penalty_null_dim,
 )
+
+
+def _is_joint_negbin_theta_model(model) -> bool:
+    return str(getattr(model.family, "name", "")).lower() == "negbin" and bool(
+        getattr(model.family, "estimate_theta", False)
+    )
+
+
+def _copy_state_vector(x):
+    if x is None:
+        return None
+    return np.asarray(x, dtype=np.float64).copy()
+
+
+def _current_joint_negbin_eval_state(model):
+    result = getattr(model, "_optim_result", None)
+    result_state = (
+        None if result is None else getattr(result, "joint_negbin_state", None)
+    )
+    if isinstance(result_state, dict):
+        return {
+            "coef": _copy_state_vector(result_state.get("coef", None)),
+            "eta": _copy_state_vector(result_state.get("eta", None)),
+            "mu": _copy_state_vector(result_state.get("mu", None)),
+            "theta": float(
+                result_state.get("theta", getattr(model.family, "theta", 1.0))
+            ),
+        }
+
+    baseline = getattr(model, "_joint_negbin_fd_baseline_", None)
+    if isinstance(baseline, dict):
+        return {
+            "coef": _copy_state_vector(baseline.get("coef", None)),
+            "eta": _copy_state_vector(baseline.get("eta", None)),
+            "mu": _copy_state_vector(baseline.get("mu", None)),
+            "theta": float(baseline.get("theta", getattr(model.family, "theta", 1.0))),
+        }
+
+    return {
+        "coef": _copy_state_vector(
+            getattr(
+                model, "_pirls_coef_start_", getattr(model, "_pirls_last_coef_", None)
+            )
+        ),
+        "eta": _copy_state_vector(
+            getattr(
+                model, "_pirls_eta_start_", getattr(model, "_pirls_last_eta_", None)
+            )
+        ),
+        "mu": _copy_state_vector(
+            getattr(model, "_pirls_mu_start_", getattr(model, "_pirls_last_mu_", None))
+        ),
+        "theta": float(getattr(model.family, "theta", 1.0)),
+    }
+
+
+@contextmanager
+def _frozen_joint_negbin_eval_state(model, baseline_state=None):
+    prev = {
+        "eval_coef": _copy_state_vector(getattr(model, "_pirls_eval_start_", None)),
+        "eval_eta": _copy_state_vector(getattr(model, "_pirls_eval_eta_start_", None)),
+        "eval_mu": _copy_state_vector(getattr(model, "_pirls_eval_mu_start_", None)),
+        "lock": bool(getattr(model, "_pirls_lock_start_", False)),
+        "coef": _copy_state_vector(getattr(model, "_pirls_coef_start_", None)),
+        "eta": _copy_state_vector(getattr(model, "_pirls_eta_start_", None)),
+        "mu": _copy_state_vector(getattr(model, "_pirls_mu_start_", None)),
+        "last_coef": _copy_state_vector(getattr(model, "_pirls_last_coef_", None)),
+        "last_eta": _copy_state_vector(getattr(model, "_pirls_last_eta_", None)),
+        "last_mu": _copy_state_vector(getattr(model, "_pirls_last_mu_", None)),
+        "theta": float(getattr(model.family, "theta", 1.0)),
+    }
+    state = (
+        _current_joint_negbin_eval_state(model)
+        if baseline_state is None
+        else {
+            "coef": _copy_state_vector(baseline_state.get("coef", None)),
+            "eta": _copy_state_vector(baseline_state.get("eta", None)),
+            "mu": _copy_state_vector(baseline_state.get("mu", None)),
+            "theta": float(
+                baseline_state.get("theta", getattr(model.family, "theta", 1.0))
+            ),
+        }
+    )
+    model._pirls_eval_start_ = _copy_state_vector(state.get("coef", None))
+    model._pirls_eval_eta_start_ = _copy_state_vector(state.get("eta", None))
+    model._pirls_eval_mu_start_ = _copy_state_vector(state.get("mu", None))
+    model._pirls_lock_start_ = True
+    model.family.theta = float(state["theta"])
+    try:
+        yield state
+    finally:
+        model._pirls_eval_start_ = prev["eval_coef"]
+        model._pirls_eval_eta_start_ = prev["eval_eta"]
+        model._pirls_eval_mu_start_ = prev["eval_mu"]
+        model._pirls_lock_start_ = prev["lock"]
+        model._pirls_coef_start_ = prev["coef"]
+        model._pirls_eta_start_ = prev["eta"]
+        model._pirls_mu_start_ = prev["mu"]
+        model._pirls_last_coef_ = prev["last_coef"]
+        model._pirls_last_eta_ = prev["last_eta"]
+        model._pirls_last_mu_ = prev["last_mu"]
+        model.family.theta = float(prev["theta"])
+
+
+def criterion_ml_reml_pirls_frozen_negbin(
+    model, y, log_sp, method, baseline_state=None
+):
+    with _frozen_joint_negbin_eval_state(model, baseline_state=baseline_state):
+        return criterion_ml_reml_pirls(model, y, log_sp, method)
 
 
 def _gamma_profile_objective_curvature(model, y, Dp, phi, mp, *, method):
@@ -32,7 +143,7 @@ def _gamma_profile_objective_curvature(model, y, Dp, phi, mp, *, method):
     ls1, ls2 = _gamma_saturated_loglik_scale_derivatives(y, phi)
     reml_ind = 1.0 if method == "REML" else 0.0
     score_lphi = -Dp / (2.0 * phi) - ls1 * phi - 0.5 * mp * reml_ind
-    curv_lphi = Dp / (2.0 * phi) - ls2 * (phi ** 2) - ls1 * phi
+    curv_lphi = Dp / (2.0 * phi) - ls2 * (phi**2) - ls1 * phi
     return ls, score_lphi, curv_lphi
 
 
@@ -62,6 +173,7 @@ def _solve_gamma_profile_scale(model, y, Dp, mp, *, method, init_scale):
         phi = new_phi
     return phi
 
+
 def criterion_gcv_pirls(model, y, log_sp):
     sp = model._expand_smoothing_params_from_log(log_sp)
     sol = model._solve_pirls_given_smoothing(y, sp)
@@ -69,7 +181,7 @@ def criterion_gcv_pirls(model, y, log_sp):
     den = 1.0 - model.score_gamma * sol["trace_H"] / n
     if den <= 1e-12 or not np.isfinite(den):
         return np.inf
-    return (sol["deviance"] / n) / (den ** 2)
+    return (sol["deviance"] / n) / (den**2)
 
 
 def criterion_ubre_pirls(model, y, log_sp):
@@ -116,8 +228,7 @@ def _lambda_group_indices(model):
     if groups is None:
         return {}
     return {
-        int(sp_idx): np.asarray(idxs, dtype=np.int64)
-        for sp_idx, idxs in groups.items()
+        int(sp_idx): np.asarray(idxs, dtype=np.int64) for sp_idx, idxs in groups.items()
     }
 
 
@@ -135,7 +246,9 @@ def _penalty_derivative_matrices(model, sp):
         k = int(pb.smoothing_index)
         sl = pb.coef_slice
         full_sl = slice(offset0 + sl.start, offset0 + sl.stop)
-        mats[k][full_sl, full_sl] += float(sp[k]) * np.asarray(pb.matrix, dtype=np.float64)
+        mats[k][full_sl, full_sl] += float(sp[k]) * np.asarray(
+            pb.matrix, dtype=np.float64
+        )
     return mats
 
 
@@ -219,6 +332,10 @@ def criterion_ml_reml_pirls(model, y, log_sp, method):
     sp = model._expand_smoothing_params_from_log(log_sp)
     sol = model._solve_pirls_given_smoothing(y, sp)
 
+    return _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method)
+
+
+def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
     scale = float(sol["scale"])
     if not np.isfinite(scale) or scale <= 0:
         return np.inf
@@ -249,8 +366,21 @@ def criterion_ml_reml_pirls(model, y, log_sp, method):
             )
             base_objective = Dp / (2.0 * phi) - saturated_loglik
         else:
-            var = np.clip(np.asarray(model.family.variance(sol["mu"]), dtype=np.float64), 1e-14, None)
-            pearson = float(np.sum((np.asarray(y, dtype=np.float64) - np.asarray(sol["mu"], dtype=np.float64)) ** 2 / var))
+            var = np.clip(
+                np.asarray(model.family.variance(sol["mu"]), dtype=np.float64),
+                1e-14,
+                None,
+            )
+            pearson = float(
+                np.sum(
+                    (
+                        np.asarray(y, dtype=np.float64)
+                        - np.asarray(sol["mu"], dtype=np.float64)
+                    )
+                    ** 2
+                    / var
+                )
+            )
             denom = n_obs - mp
             if not np.isfinite(denom) or denom <= 0.0:
                 return np.inf
@@ -266,7 +396,9 @@ def criterion_ml_reml_pirls(model, y, log_sp, method):
                     scale=phi,
                 )
             )
-            base_objective = (float(sol["deviance"]) + penalty_quad) / (2.0 * phi) - saturated_loglik
+            base_objective = (float(sol["deviance"]) + penalty_quad) / (
+                2.0 * phi
+            ) - saturated_loglik
         try:
             det_term = (
                 _pirls_tensor_coefficient_space_logdet_term(model, sol, sp)
@@ -290,7 +422,9 @@ def criterion_ml_reml_pirls(model, y, log_sp, method):
             scale=scale,
         )
     )
-    base_objective = (float(sol["deviance"]) + penalty_quad) / (2.0 * scale) - saturated_loglik
+    base_objective = (float(sol["deviance"]) + penalty_quad) / (
+        2.0 * scale
+    ) - saturated_loglik
 
     if model._has_tensor_terms():
         det_term = _pirls_tensor_coefficient_space_logdet_term(model, sol, sp)
@@ -367,7 +501,9 @@ def criterion_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
     method = str(method).upper()
     family_name = str(getattr(model.family, "name", "")).lower()
     if family_name != "gamma":
-        raise NotImplementedError("Joint PIRLS Gamma outer objective is implemented only for family='gamma'.")
+        raise NotImplementedError(
+            "Joint PIRLS Gamma outer objective is implemented only for family='gamma'."
+        )
 
     sp = model._expand_smoothing_params_from_log(log_sp)
     sol = model._solve_pirls_given_smoothing(y, sp)
@@ -420,9 +556,15 @@ def criterion_ml_reml_pirls_negbin_joint(model, y, log_sp, log_theta, method):
     theta = float(np.exp(float(log_theta)))
     if not np.isfinite(theta) or theta <= 0.0:
         return np.inf
-    # Initialize theta for EFS; the inner loop will update it via estimate_theta_mle.
-    model.family.theta = theta
-    return criterion_ml_reml_pirls(model, y, log_sp, method)
+    prev_theta = float(getattr(model.family, "theta", 1.0))
+    prev_disable_theta_efs = bool(getattr(model.family, "_disable_theta_efs", False))
+    try:
+        model.family.theta = theta
+        model.family._disable_theta_efs = True
+        return criterion_ml_reml_pirls(model, y, log_sp, method)
+    finally:
+        model.family.theta = prev_theta
+        model.family._disable_theta_efs = bool(prev_disable_theta_efs)
 
 
 def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
@@ -447,9 +589,8 @@ def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
         )
     )
     base_objective = (
-        (float(sol["deviance"]) + float(sol["penalty_quadratic"] or 0.0)) / (2.0 * scale)
-        - saturated_loglik
-    )
+        float(sol["deviance"]) + float(sol["penalty_quadratic"] or 0.0)
+    ) / (2.0 * scale) - saturated_loglik
 
     X = np.asarray(sol["X"], dtype=np.float64)
     W = np.asarray(sol["working_weights"], dtype=np.float64)

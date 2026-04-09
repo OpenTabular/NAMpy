@@ -10,25 +10,24 @@ is controlled entirely by the penalty order and the smoothing parameter.
 
 import numpy as np
 
+from ....splines.penalty_scaling import scale_penalty
+from ....splines.univariate_bases import (
+    pspline_difference_penalty,
+    pspline_knots,
+    pspline_predict_matrix,
+)
+from ...constraints.absorption import apply_linear_constraint
+from ...design.structures import PenaltySpec
+from ...penalties.algebra import null_space_penalty_from_penalty
 from ..base import (
     BaseSmoothTerm,
     _normalize_point_constraint,
     _resolve_feature,
-    by_values_from_new_data,
     column_as_float,
     resolve_by_state,
     sync_by_state_attributes,
 )
 from ..registry import register_smooth
-from ...constraints.absorption import apply_linear_constraint
-from ...design.structures import PenaltySpec
-from ...penalties.algebra import null_space_penalty_from_penalty
-from ....splines.penalty_scaling import scale_penalty
-from ....splines.univariate_bases import (
-    pspline_knots,
-    pspline_difference_penalty,
-    pspline_predict_matrix,
-)
 
 
 @register_smooth("ps")
@@ -180,7 +179,9 @@ class PSplineTerm1D(BaseSmoothTerm):
             if self._by_state.is_present:
                 base = base * self._by_state.values[:, None]
             self._basis_train = np.asarray(base, dtype=np.float64)
-            self._penalties = [] if self.fixed else [np.asarray(main_penalty, dtype=np.float64)]
+            self._penalties = (
+                [] if self.fixed else [np.asarray(main_penalty, dtype=np.float64)]
+            )
             self._record_constraint_result(None, None, absorbed_by=None)
             return self
 
@@ -242,7 +243,9 @@ class PSplineTerm1D(BaseSmoothTerm):
         defs = [
             PenaltySpec(
                 matrix=main_penalty,
-                smoothing_id=(None if self.smoothing_id is None else str(self.smoothing_id)),
+                smoothing_id=(
+                    None if self.smoothing_id is None else str(self.smoothing_id)
+                ),
                 kind="smooth",
                 sp_mode=sp_mode,
                 sp_value=sp_value,

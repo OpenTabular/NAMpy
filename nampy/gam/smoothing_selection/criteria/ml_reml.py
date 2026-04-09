@@ -5,6 +5,7 @@ Chooses between the Gaussian exact, Gaussian dynamic, P-IRLS Laplace, and
 P-IRLS dynamic backends based on the model family and design structure,
 then evaluates the appropriate criterion value.
 """
+
 import numpy as np
 
 from .gaussian import criterion_ml_reml_exact, criterion_ml_reml_exact_dynamic

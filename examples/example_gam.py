@@ -16,8 +16,9 @@ Run:
 """
 
 import os
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, log_loss, roc_auc_score
 from sklearn.model_selection import train_test_split
@@ -57,7 +58,7 @@ def main():
         return 1.1 * np.sin(1.7 * x) + 0.25 * x
 
     def f_income(x):
-        return 0.9 * x - 0.55 * (x ** 2)
+        return 0.9 * x - 0.55 * (x**2)
 
     intercept_true = -0.15
 
@@ -168,16 +169,24 @@ def main():
         return np.corrcoef(a, b)[0, 1]
 
     print("\nVerification (true DGP vs learned effects):")
-    print(f"  total link     true vs learned correlation: {centered_corr(true_eta_val, eta_pred):.4f}")
-    print(f"  total prob     true vs learned correlation: {centered_corr(true_prob_val, proba):.4f}")
+    print(
+        f"  total link     true vs learned correlation: {centered_corr(true_eta_val, eta_pred):.4f}"
+    )
+    print(
+        f"  total prob     true vs learned correlation: {centered_corr(true_prob_val, proba):.4f}"
+    )
 
     if "age" in learned:
-        print(f"  age effect     true vs learned correlation: {centered_corr(true_age_val, learned['age']):.4f}")
+        print(
+            f"  age effect     true vs learned correlation: {centered_corr(true_age_val, learned['age']):.4f}"
+        )
     else:
         print("  age effect     key not found")
 
     if "income" in learned:
-        print(f"  income effect  true vs learned correlation: {centered_corr(true_income_val, learned['income']):.4f}")
+        print(
+            f"  income effect  true vs learned correlation: {centered_corr(true_income_val, learned['income']):.4f}"
+        )
     else:
         print("  income effect  key not found")
 
@@ -189,8 +198,14 @@ def main():
         age_q = np.quantile(xv["age"], [0.25, 0.5, 0.75])
         age_bins = [
             ("Q1", xv["age"].to_numpy() < age_q[0]),
-            ("Q2", (xv["age"].to_numpy() >= age_q[0]) & (xv["age"].to_numpy() < age_q[1])),
-            ("Q3", (xv["age"].to_numpy() >= age_q[1]) & (xv["age"].to_numpy() < age_q[2])),
+            (
+                "Q2",
+                (xv["age"].to_numpy() >= age_q[0]) & (xv["age"].to_numpy() < age_q[1]),
+            ),
+            (
+                "Q3",
+                (xv["age"].to_numpy() >= age_q[1]) & (xv["age"].to_numpy() < age_q[2]),
+            ),
             ("Q4", xv["age"].to_numpy() >= age_q[2]),
         ]
         for name, mask in age_bins:
@@ -204,8 +219,16 @@ def main():
         inc_q = np.quantile(xv["income"], [0.25, 0.5, 0.75])
         inc_bins = [
             ("Q1", xv["income"].to_numpy() < inc_q[0]),
-            ("Q2", (xv["income"].to_numpy() >= inc_q[0]) & (xv["income"].to_numpy() < inc_q[1])),
-            ("Q3", (xv["income"].to_numpy() >= inc_q[1]) & (xv["income"].to_numpy() < inc_q[2])),
+            (
+                "Q2",
+                (xv["income"].to_numpy() >= inc_q[0])
+                & (xv["income"].to_numpy() < inc_q[1]),
+            ),
+            (
+                "Q3",
+                (xv["income"].to_numpy() >= inc_q[1])
+                & (xv["income"].to_numpy() < inc_q[2]),
+            ),
             ("Q4", xv["income"].to_numpy() >= inc_q[2]),
         ]
         for name, mask in inc_bins:
@@ -222,7 +245,9 @@ def main():
     order_age = np.argsort(xv["age"].to_numpy())
     axes[0].plot(xv["age"].to_numpy()[order_age], true_age_val[order_age], label="true")
     if "age" in learned:
-        axes[0].plot(xv["age"].to_numpy()[order_age], learned["age"][order_age], label="learned")
+        axes[0].plot(
+            xv["age"].to_numpy()[order_age], learned["age"][order_age], label="learned"
+        )
     axes[0].set_title("Age effect")
     axes[0].set_xlabel("age")
     axes[0].set_ylabel("effect on log-odds")

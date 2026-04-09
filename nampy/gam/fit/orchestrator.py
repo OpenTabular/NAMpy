@@ -17,17 +17,19 @@ from dataclasses import replace
 
 import numpy as np
 
-from .backends import solve_fit
-from .offsets import coerce_offset_array
-from .state import assign_fit_solution
-from ..smoothing_selection.criteria.gaussian_dyn import criterion_ml_reml_gaussian_dynamic_joint
-from ..smoothing_selection.criteria.ml_reml import resolve_ml_reml_scoring_backend
-from ..smoothing_selection.criteria.penalty import _static_penalty_null_dim
+from ..smoothing_selection.criteria.gaussian_dyn import (
+    criterion_ml_reml_gaussian_dynamic_joint,
+)
 from ..smoothing_selection.criteria.gaussian_reml_algebra import (
     gaussian_weighted_residual_sum_squares,
     prior_weights_diagonal_from_fit,
     quadratic_form_penalty,
 )
+from ..smoothing_selection.criteria.ml_reml import resolve_ml_reml_scoring_backend
+from ..smoothing_selection.criteria.penalty import _static_penalty_null_dim
+from .backends import solve_fit
+from .offsets import coerce_offset_array
+from .state import assign_fit_solution
 
 
 def fit_model_core(
@@ -146,7 +148,9 @@ def fit_model_core(
                     if model.smoothing_fixed_mask_ is None
                     else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
                 )
-                _free_vals = np.asarray(model.smoothing_params[~_fixed_mask], dtype=np.float64)
+                _free_vals = np.asarray(
+                    model.smoothing_params[~_fixed_mask], dtype=np.float64
+                )
                 _log_free = (
                     np.log(np.maximum(_free_vals, 1e-300))
                     if _free_vals.size > 0

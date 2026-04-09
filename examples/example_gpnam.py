@@ -15,8 +15,9 @@ Run:
 
 import os
 import tempfile
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
@@ -31,11 +32,13 @@ def main():
     # ------------------------------------------------------------------
     # Synthetic mixed data
     # ------------------------------------------------------------------
-    X = pd.DataFrame({
-        "age": rng.uniform(18, 70, n),
-        "income": rng.lognormal(mean=10.0, sigma=0.6, size=n),
-        "region": rng.choice(["North", "South", "East", "West"], size=n),
-    })
+    X = pd.DataFrame(
+        {
+            "age": rng.uniform(18, 70, n),
+            "income": rng.lognormal(mean=10.0, sigma=0.6, size=n),
+            "region": rng.choice(["North", "South", "East", "West"], size=n),
+        }
+    )
 
     # ------------------------------------------------------------------
     # Smooth additive data-generating process
@@ -51,7 +54,7 @@ def main():
 
     def f_income(z):
         # smooth nonlinear effect on standardized log-income
-        return 0.55 * z - 0.18 * (z ** 2)
+        return 0.55 * z - 0.18 * (z**2)
 
     REGION_EFFECT = {
         "North": -0.30,
@@ -184,19 +187,27 @@ def main():
         return np.corrcoef(a, b)[0, 1]
 
     print("\nVerification (true DGP vs learned contributions):")
-    print(f"  total   true vs predictions correlation: {centered_corr(true_total_no_noise, preds):.4f}")
+    print(
+        f"  total   true vs predictions correlation: {centered_corr(true_total_no_noise, preds):.4f}"
+    )
 
     if "age" in learned:
-        print(f"  age     true vs learned correlation:     {centered_corr(true_age_val, learned['age']):.4f}")
+        print(
+            f"  age     true vs learned correlation:     {centered_corr(true_age_val, learned['age']):.4f}"
+        )
     else:
         print("  age     key not found")
 
     if "income" in learned:
-        print(f"  income  true vs learned correlation:     {centered_corr(true_income_val, learned['income']):.4f}")
+        print(
+            f"  income  true vs learned correlation:     {centered_corr(true_income_val, learned['income']):.4f}"
+        )
     else:
         print("  income  key not found")
 
-    print(f"  region  true vs learned correlation:     {centered_corr(true_region_val, learned_region_total):.4f}")
+    print(
+        f"  region  true vs learned correlation:     {centered_corr(true_region_val, learned_region_total):.4f}"
+    )
 
     # ------------------------------------------------------------------
     # Category-level region summaries
@@ -241,7 +252,9 @@ def main():
     print("  - The additive reconstruction error should be ~0.")
     print("  - age / income correlations should be clearly positive, often high.")
     print("  - Summed region[...] terms should track the true region effect well.")
-    print("  - Seeing region[0], region[1], ... is expected because GP-NAM is atomic over scalar post-preprocessing columns.")
+    print(
+        "  - Seeing region[0], region[1], ... is expected because GP-NAM is atomic over scalar post-preprocessing columns."
+    )
 
 
 if __name__ == "__main__":

@@ -54,6 +54,7 @@ class ParsedGAMFormula:
 
 def _contains_standalone_dot(rhs: str) -> bool:
     import re
+
     return re.search(r"(^|[~+\-(),\s])\.([~+\-(),\s]|$)", rhs) is not None
 
 
@@ -82,8 +83,7 @@ def _ast_to_value(node):
         return [_ast_to_value(elt) for elt in node.elts]
     if isinstance(node, ast.Dict):
         return {
-            _ast_to_value(k): _ast_to_value(v)
-            for k, v in zip(node.keys, node.values)
+            _ast_to_value(k): _ast_to_value(v) for k, v in zip(node.keys, node.values)
         }
     if isinstance(node, ast.Call):
         func_name = _call_name(node.func)
@@ -92,13 +92,12 @@ def _ast_to_value(node):
                 raise NotImplementedError(
                     "positional arguments to list(...) are not supported in formulas."
                 )
-            return {
-                kw.arg: _ast_to_value(kw.value)
-                for kw in node.keywords
-            }
+            return {kw.arg: _ast_to_value(kw.value) for kw in node.keywords}
         if func_name == "c":
             if node.keywords:
-                raise NotImplementedError("keyword arguments to c(...) are not supported.")
+                raise NotImplementedError(
+                    "keyword arguments to c(...) are not supported."
+                )
             return [_ast_to_value(arg) for arg in node.args]
         raise NotImplementedError(
             f"Unsupported formula value expression: {ast.dump(node, include_attributes=False)}"
@@ -155,7 +154,9 @@ def _parse_smooth_call(node, rhs_src: str):
     kwargs = {}
     for kw in node.keywords:
         if kw.arg is None:
-            raise NotImplementedError("**kwargs style smooth specification is not supported.")
+            raise NotImplementedError(
+                "**kwargs style smooth specification is not supported."
+            )
         kwargs[kw.arg] = _ast_to_value(kw.value)
 
     raw_label = _source_segment(rhs_src, node, f"{kind}({', '.join(features)})")
@@ -171,7 +172,9 @@ def _parse_offset_call(node):
     if _call_name(node.func) != "offset":
         raise ValueError("Expected an offset(...) call.")
     if len(node.args) != 1 or len(node.keywords) != 0:
-        raise NotImplementedError("offset(...) currently supports exactly one bare variable name.")
+        raise NotImplementedError(
+            "offset(...) currently supports exactly one bare variable name."
+        )
     return _ast_to_feature_name(node.args[0])
 
 
@@ -191,18 +194,18 @@ def _parametric_termsets(node):
         left = _parametric_termsets(node.left)
         right = _parametric_termsets(node.right)
         out = set(left) | set(right)
-        for l in left:
-            for r in right:
-                out.add(_ordered_union(l, r))
+        for left_term in left:
+            for right_term in right:
+                out.add(_ordered_union(left_term, right_term))
         return out
 
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.MatMult):
         left = _parametric_termsets(node.left)
         right = _parametric_termsets(node.right)
         out = set()
-        for l in left:
-            for r in right:
-                out.add(_ordered_union(l, r))
+        for left_term in left:
+            for right_term in right:
+                out.add(_ordered_union(left_term, right_term))
         return out
 
     raise NotImplementedError(
@@ -255,7 +258,9 @@ def _parse_single_formula(formula: str) -> ParsedPredictorFormula:
 
             if fname == "offset":
                 if sign < 0:
-                    raise NotImplementedError("Negative offset terms are not supported.")
+                    raise NotImplementedError(
+                        "Negative offset terms are not supported."
+                    )
                 off = _parse_offset_call(node)
                 if offset_name is not None and offset_name != off:
                     raise NotImplementedError(
@@ -264,16 +269,14 @@ def _parse_single_formula(formula: str) -> ParsedPredictorFormula:
                 offset_name = off
                 continue
 
-            raise NotImplementedError(
-                f"Unsupported call in formula RHS: {fname}(...)"
-            )
+            raise NotImplementedError(f"Unsupported call in formula RHS: {fname}(...)")
 
         try:
             termsets = _parametric_termsets(node)
-        except NotImplementedError:
+        except NotImplementedError as err:
             raise NotImplementedError(
                 f"Unsupported formula term: {ast.dump(node, include_attributes=False)}"
-            )
+            ) from err
 
         if sign < 0:
             raise NotImplementedError(

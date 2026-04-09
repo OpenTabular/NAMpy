@@ -14,10 +14,10 @@ import pytest
 
 from nampy.basemodels.gam import GAM
 
-
 # ---------------------------------------------------------------------------
 # Shared fixtures
 # ---------------------------------------------------------------------------
+
 
 def _data(n=100, seed=0):
     rng = np.random.default_rng(seed)
@@ -37,6 +37,7 @@ def _data2(n=100, seed=1):
 # ===========================================================================
 # select=True for tensor smooths
 # ===========================================================================
+
 
 class TestTensorSelect:
     @pytest.mark.parametrize("smooth_type", ["te", "ti", "t2"])
@@ -64,6 +65,7 @@ class TestTensorSelect:
 # Prior / case weights
 # ===========================================================================
 
+
 class TestPriorWeights:
     def test_weights_are_accepted_on_public_api(self):
         data = _data()
@@ -77,6 +79,7 @@ class TestPriorWeights:
 # ===========================================================================
 # Standard errors and confidence intervals
 # ===========================================================================
+
 
 class TestStandardErrors:
     def test_return_se_true_returns_tuple(self):
@@ -135,9 +138,11 @@ class TestStandardErrors:
 # Negative binomial theta estimation
 # ===========================================================================
 
+
 class TestNegBinTheta:
     def _nb_data(self, n=200, seed=3, theta_true=2.0):
         from scipy.stats import nbinom
+
         rng = np.random.default_rng(seed)
         x = rng.uniform(0.0, 1.0, n)
         mu = np.exp(1.0 + np.sin(np.pi * x))
@@ -147,17 +152,20 @@ class TestNegBinTheta:
 
     def test_estimate_theta_mle_method_exists(self):
         from nampy.gam.families.exponential import NegativeBinomialLogFamily
+
         fam = NegativeBinomialLogFamily(theta=1.0, estimate_theta=True)
         assert hasattr(fam, "estimate_theta_mle")
 
     def test_estimate_theta_mle_updates_toward_true(self):
         from nampy.gam.families.exponential import NegativeBinomialLogFamily
+
         rng = np.random.default_rng(99)
         n = 500
         theta_true = 3.0
         mu = np.full(n, 2.0)
         # Simulate NB counts
         from scipy.stats import nbinom
+
         p = theta_true / (theta_true + mu)
         y = nbinom.rvs(theta_true, p, random_state=rng).astype(float)
 
@@ -168,6 +176,7 @@ class TestNegBinTheta:
 
     def test_estimate_theta_flag_off_by_default(self):
         from nampy.gam.families.exponential import NegativeBinomialLogFamily
+
         fam = NegativeBinomialLogFamily(theta=1.0)
         assert not fam.estimate_theta
 
@@ -194,9 +203,9 @@ class TestNegBinTheta:
         )
         gam.fit(data=data)
         theta_fit = gam.family.theta
-        assert abs(theta_fit - 3.0) < abs(theta_init - 3.0), (
-            f"Expected theta closer to 3.0, got {theta_fit}"
-        )
+        assert abs(theta_fit - 3.0) < abs(
+            theta_init - 3.0
+        ), f"Expected theta closer to 3.0, got {theta_fit}"
 
     def test_negbin_fixed_theta_unchanged(self):
         """With estimate_theta=False, theta should stay at its initial value."""
@@ -212,6 +221,7 @@ class TestNegBinTheta:
     def test_mle_theta_positive(self):
         """MLE should always return a positive theta."""
         from nampy.gam.families.exponential import NegativeBinomialLogFamily
+
         rng = np.random.default_rng(10)
         y = rng.poisson(2.0, 100).astype(float)
         mu = np.full(100, 2.0)
@@ -230,9 +240,9 @@ class TestNegBinTheta:
             optimize_smoothing=True,
         )
         gam.fit(data=data)
-        assert getattr(gam._optim_result, "joint_negbin_reml_outer", False), (
-            "Expected joint NegBin REML path to activate"
-        )
+        assert getattr(
+            gam._optim_result, "joint_negbin_reml_outer", False
+        ), "Expected joint NegBin REML path to activate"
         assert gam.family.theta > 0.0
         assert np.all(np.isfinite(gam.smoothing_params))
         assert np.all(gam.smoothing_params > 0.0)
@@ -247,9 +257,9 @@ class TestNegBinTheta:
             optimize_smoothing=True,
         )
         gam.fit(data=data)
-        assert abs(gam.family.theta - 3.0) < abs(1.0 - 3.0), (
-            f"Expected theta closer to 3.0, got {gam.family.theta}"
-        )
+        assert abs(gam.family.theta - 3.0) < abs(
+            1.0 - 3.0
+        ), f"Expected theta closer to 3.0, got {gam.family.theta}"
 
     def test_joint_reml_lower_score_than_fixed_theta(self):
         """Joint (sp, theta) REML score should be <= score with initial fixed theta."""

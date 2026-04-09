@@ -1,8 +1,10 @@
 """Exact gradients for Gaussian REML in the Laplace reparameterization."""
+
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
 from .laplace import _lambda_group_indices, _laplace_lambda_vector
+
 
 def criterion_gradient_ml_reml_exact(model, y, log_sp, method):
     if abs(model.score_gamma - 1.0) > 1e-12:

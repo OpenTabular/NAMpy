@@ -21,41 +21,39 @@ import matplotlib
 
 matplotlib.use("Agg")  # Non-interactive backend – must come before pyplot imports
 
+from unittest.mock import patch
+
 import numpy as np
 import pandas as pd
 import pytest
-import torch
 import torch.nn as nn
-from unittest.mock import patch
-
 from sklearn.metrics import mean_absolute_error, r2_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 
-from nampy.models import NAMClassifier, NAMRegressor, NAMLSS
-
+from nampy.models import NAMLSS, NAMClassifier, NAMRegressor
 
 # ---------------------------------------------------------------------------
 # Shared constants
 # ---------------------------------------------------------------------------
 
-_FAST_FIT = dict(
-    max_epochs=1,
-    batch_size=8,
-    val_size=0.2,
-    limit_train_batches=1,
-    limit_val_batches=1,
-    logger=False,
-    enable_model_summary=False,
-    enable_progress_bar=False,
-)
+_FAST_FIT = {
+    "max_epochs": 1,
+    "batch_size": 8,
+    "val_size": 0.2,
+    "limit_train_batches": 1,
+    "limit_val_batches": 1,
+    "logger": False,
+    "enable_model_summary": False,
+    "enable_progress_bar": False,
+}
 
-_BASE_KWARGS = dict(
-    layer_sizes=(4,),
-    dropout=0.0,
-    numerical_preprocessing="standardization",
-    categorical_preprocessing="int",
-    cat_cutoff=0.1,
-)
+_BASE_KWARGS = {
+    "layer_sizes": (4,),
+    "dropout": 0.0,
+    "numerical_preprocessing": "standardization",
+    "categorical_preprocessing": "int",
+    "cat_cutoff": 0.1,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -67,7 +65,11 @@ _BASE_KWARGS = dict(
 def reg_data():
     rng = np.random.default_rng(0)
     X = pd.DataFrame({"f1": rng.normal(size=60), "f2": rng.uniform(-1, 1, size=60)})
-    y = 0.5 * X["f1"].to_numpy() - 0.2 * X["f2"].to_numpy() + rng.normal(scale=0.1, size=60)
+    y = (
+        0.5 * X["f1"].to_numpy()
+        - 0.2 * X["f2"].to_numpy()
+        + rng.normal(scale=0.1, size=60)
+    )
     return X, y
 
 
@@ -234,7 +236,9 @@ class TestNAMRegressorBasics:
 
     def test_explicit_validation_set(self, reg_data, tmp_path):
         X, y = reg_data
-        X_tr, X_val, y_tr, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+        X_tr, X_val, y_tr, y_val = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
         model = _make(NAMRegressor)
         model.fit(
             X_tr,
@@ -255,7 +259,9 @@ class TestNAMRegressorBasics:
     def test_raises_if_only_x_val_provided(self, reg_data, tmp_path):
         X, y = reg_data
         X_tr, X_val, y_tr, _ = train_test_split(X, y, test_size=0.2, random_state=42)
-        with pytest.raises(ValueError, match="X_val and y_val must be provided together"):
+        with pytest.raises(
+            ValueError, match="X_val and y_val must be provided together"
+        ):
             _make(NAMRegressor).fit(
                 X_tr,
                 y_tr,
@@ -276,7 +282,9 @@ class TestNAMRegressorConfigs:
     @pytest.mark.parametrize("skip_connections", [False, True])
     def test_skip_connections(self, reg_data, tmp_path, skip_connections):
         X, y = reg_data
-        model = _fit(_make(NAMRegressor, skip_connections=skip_connections), X, y, tmp_path)
+        model = _fit(
+            _make(NAMRegressor, skip_connections=skip_connections), X, y, tmp_path
+        )
         assert model.predict(X).shape[0] == len(X)
 
     @pytest.mark.parametrize("batch_norm", [False, True])
@@ -462,7 +470,9 @@ class TestNAMClassifierBasics:
 
     def test_explicit_validation_set(self, cls_data, tmp_path):
         X, y = cls_data
-        X_tr, X_val, y_tr, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+        X_tr, X_val, y_tr, y_val = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
         model = _make(NAMClassifier)
         model.fit(
             X_tr,
@@ -483,7 +493,9 @@ class TestNAMClassifierBasics:
     def test_raises_if_only_x_val_provided(self, cls_data, tmp_path):
         X, y = cls_data
         X_tr, X_val, y_tr, _ = train_test_split(X, y, test_size=0.2, random_state=42)
-        with pytest.raises(ValueError, match="X_val and y_val must be provided together"):
+        with pytest.raises(
+            ValueError, match="X_val and y_val must be provided together"
+        ):
             _make(NAMClassifier).fit(
                 X_tr,
                 y_tr,
@@ -789,7 +801,9 @@ class TestNAMLSSInverseGamma:
         model = _fit_lss(X, y, "inversegamma", tmp_path)
         scores = model.evaluate(X, y)
         assert "NLL" in scores and np.isfinite(scores["NLL"])
-        assert "Inverse Gamma NLL" in scores and np.isfinite(scores["Inverse Gamma NLL"])
+        assert "Inverse Gamma NLL" in scores and np.isfinite(
+            scores["Inverse Gamma NLL"]
+        )
 
     def test_plot(self, positive_data, tmp_path):
         X, y = positive_data
@@ -913,7 +927,9 @@ class TestNAMLSSSklearnCompat:
 
     def test_explicit_validation_set(self, reg_data, tmp_path):
         X, y = reg_data
-        X_tr, X_val, y_tr, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+        X_tr, X_val, y_tr, y_val = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
         model = _make(NAMLSS)
         model.fit(
             X_tr,
@@ -936,7 +952,9 @@ class TestNAMLSSSklearnCompat:
     def test_raises_if_only_x_val_provided(self, reg_data, tmp_path):
         X, y = reg_data
         X_tr, X_val, y_tr, _ = train_test_split(X, y, test_size=0.2, random_state=42)
-        with pytest.raises(ValueError, match="X_val and y_val must be provided together"):
+        with pytest.raises(
+            ValueError, match="X_val and y_val must be provided together"
+        ):
             _make(NAMLSS).fit(
                 X_tr,
                 y_tr,

@@ -1,5 +1,5 @@
-# splines/gaussian_process.py
 import warnings
+from dataclasses import dataclass
 
 import numpy as np
 from scipy.spatial import distance_matrix
@@ -35,7 +35,9 @@ def normalize_gp_knots(knots, n_dim: int):
         cols = [np.asarray(k, dtype=np.float64).ravel() for k in knots]
         n = cols[0].size
         if any(c.size != n for c in cols):
-            raise ValueError("All supplied knot coordinate arrays must have the same length.")
+            raise ValueError(
+                "All supplied knot coordinate arrays must have the same length."
+            )
         out = np.column_stack(cols)
         return np.asarray(out, dtype=np.float64)
 
@@ -89,7 +91,9 @@ def parse_gp_m(m):
         raise ValueError("For bs='gp', abs(m[0]) must be one of {1,2,3,4,5}.")
     if gp_type == 2:
         if not (0.0 < power <= 2.0):
-            raise ValueError("For bs='gp' power exponential, m[2] must satisfy 0 < power <= 2.")
+            raise ValueError(
+                "For bs='gp' power exponential, m[2] must satisfy 0 < power <= 2."
+            )
     else:
         power = 1.0
 
@@ -176,7 +180,9 @@ def default_gp_bs_dim(d: int) -> int:
     return d + 1 + 100
 
 
-def choose_gp_setup_locations(X_shifted, knots=None, n_rows=None, max_knots=2000, seed=1):
+def choose_gp_setup_locations(
+    X_shifted, knots=None, n_rows=None, max_knots=2000, seed=1
+):
     """
     mgcv-like basis-setup location handling for bs='gp'.
 
@@ -197,7 +203,9 @@ def choose_gp_setup_locations(X_shifted, knots=None, n_rows=None, max_knots=2000
         if np.any(~np.isfinite(K)):
             raise ValueError("gp knots contain NaN or Inf.")
         if K.shape[0] > n_rows:
-            warnings.warn("more knots than data in a gp term: knots ignored.")
+            warnings.warn(
+                "more knots than data in a gp term: knots ignored.", stacklevel=2
+            )
         else:
             return np.asarray(K, dtype=np.float64)
 
@@ -250,7 +258,7 @@ def gp_setup_from_data(
 
     # Follow current mgcv source minimum.
     if bs_dim < d + 2:
-        warnings.warn("basis dimension reset to minimum possible")
+        warnings.warn("basis dimension reset to minimum possible", stacklevel=2)
         bs_dim = d + 2
 
     if xu.shape[0] < bs_dim:
@@ -327,8 +335,6 @@ def gp_predict_matrix(x_shifted, *, knt, UZ, gp_defn):
     E, _ = gp_kernel_matrix(x_shifted, knt, gp_defn)
     T = gp_polynomial_tail_basis(x_shifted, gp_defn)
     return np.column_stack([E @ UZ, T])
-
-from dataclasses import dataclass
 
 
 @dataclass
@@ -410,7 +416,9 @@ def build_gp_term_setup(
         rank=int(setup["rank"]),
         bs_dim=int(setup["bs_dim"]),
         basis_train=np.asarray(basis_train, dtype=np.float64),
-        penalty=np.asarray(0.5 * (setup["penalty"] + setup["penalty"].T), dtype=np.float64),
+        penalty=np.asarray(
+            0.5 * (setup["penalty"] + setup["penalty"].T), dtype=np.float64
+        ),
     )
 
 

@@ -12,7 +12,7 @@ def eta(E, m, d):
         d_half = d // 2
         const = ((-1) ** (m + 1 + d_half)) / (
             2 ** (2 * m - 1)
-            * np.pi ** d_half
+            * np.pi**d_half
             * math.factorial(m - 1)
             * math.factorial(m - d_half)
         )

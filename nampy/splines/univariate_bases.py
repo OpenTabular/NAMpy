@@ -1,6 +1,7 @@
 # splines/univariate_bases.py
 import numpy as np
 from scipy.interpolate import BSpline
+from scipy.linalg import eigh as _scipy_eigh
 
 
 def place_knots_through_values(x, nk):
@@ -43,7 +44,12 @@ def add_full_rank_shrinkage(S, shrink=0.1, tol=1e-12):
     S = np.asarray(S, dtype=np.float64)
     S = 0.5 * (S + S.T)
 
-    evals, U = np.linalg.eigh(S)
+    # scipy.linalg.eigh (DSYEVR) matches R's eigen(symmetric=TRUE) null-space
+    # eigenvectors to machine precision.  np.linalg.eigh (DSYEVD) finds a
+    # different rotation of the 2-D null space, producing a ~1e-2 penalty
+    # discrepancy for cs after assigning different shrinkage values to the two
+    # null directions.
+    evals, U = _scipy_eigh(S)
     tol_eff = tol * max(1.0, np.max(np.abs(evals)) if evals.size else 1.0)
 
     pos = evals[evals > tol_eff]
@@ -159,15 +165,17 @@ def cyclic_cubic_predict_matrix(x, knots, BD):
     j = j.copy()
     j[j == n] = 1
 
-    I = np.eye(n - 1, dtype=np.float64)
+    eye = np.eye(n - 1, dtype=np.float64)
 
     X = (
         BD[j1 - 1, :] * ((knots[j1] - x)[:, None] ** 3) / (6.0 * h[hj - 1])[:, None]
-        + BD[j - 1, :] * ((x - knots[j1 - 1])[:, None] ** 3) / (6.0 * h[hj - 1])[:, None]
+        + BD[j - 1, :]
+        * ((x - knots[j1 - 1])[:, None] ** 3)
+        / (6.0 * h[hj - 1])[:, None]
         - BD[j1 - 1, :] * (h[hj - 1] * (knots[j1] - x) / 6.0)[:, None]
         - BD[j - 1, :] * (h[hj - 1] * (x - knots[j1 - 1]) / 6.0)[:, None]
-        + I[j1 - 1, :] * ((knots[j1] - x) / h[hj - 1])[:, None]
-        + I[j - 1, :] * ((x - knots[j1 - 1]) / h[hj - 1])[:, None]
+        + eye[j1 - 1, :] * ((knots[j1] - x) / h[hj - 1])[:, None]
+        + eye[j - 1, :] * ((x - knots[j1 - 1]) / h[hj - 1])[:, None]
     )
     return np.asarray(X, dtype=np.float64)
 

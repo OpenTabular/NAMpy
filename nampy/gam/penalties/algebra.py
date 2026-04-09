@@ -51,6 +51,7 @@ def null_space_penalty_from_penalty(P, tol=1e-10):
         "tol_eff": dec["tol_eff"],
     }
 
+
 __all__ = [
     "symmetrize_penalty",
     "penalty_eigendecomposition",

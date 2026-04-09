@@ -4,23 +4,17 @@ Covers:
  - te, ti, t2, fs, sz, mrf, re (TestParitySnapshotAPI)
  - cc, ps, gp — smoothCon basis/penalties AND fixed-sp / REML end-to-end fits
 """
+
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
 import pytest
-
-from nampy.basemodels.gam import GAM
-from nampy.gam.basis.tensor import t2_marginal_reparameterization
-from nampy.gam.design.compiler import compile_predictor_designs
-from nampy.gam.formula import compile_predictor_specs_from_formula, parse_gam_formula
-from nampy.gam.smooths.univariate.cubic_regression import SplineTerm1D
-
+from _mgcv_snapshot_parity_shared import TestPSplineSmooth as _SharedTestPSplineSmooth
 from mgcv_parity_utils import (
     R_SCRIPT,
     _assert_allclose_up_to_column_sign,
     _assert_basic_mgcv_parity,
-    _fit_nampy_model_fixed_sp,
     _fit_nampy_snapshot,
     _make_fs_data,
     _make_gaussian_data,
@@ -33,6 +27,12 @@ from mgcv_parity_utils import (
     _run_mgcv_smoothcon_penalties,
     _run_mgcv_snapshot,
 )
+
+from nampy.basemodels.gam import GAM
+from nampy.gam.basis.tensor import t2_marginal_reparameterization
+from nampy.gam.design.compiler import compile_predictor_designs
+from nampy.gam.formula import compile_predictor_specs_from_formula, parse_gam_formula
+from nampy.gam.smooths.univariate.cubic_regression import SplineTerm1D
 
 
 class TestParitySnapshotAPI:
@@ -129,7 +129,10 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(block.matrix, dtype=np.float64) for block in design.compiled_penalties]
+        actual = [
+            np.asarray(block.matrix, dtype=np.float64)
+            for block in design.compiled_penalties
+        ]
         target = [np.asarray(S, dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target) == 2
@@ -177,7 +180,9 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
+        actual = [
+            np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties
+        ]
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target)
@@ -237,7 +242,9 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
+        actual = [
+            np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties
+        ]
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target)
@@ -297,7 +304,9 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
+        actual = [
+            np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties
+        ]
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target)
@@ -323,7 +332,9 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
+        actual = [
+            np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties
+        ]
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target) == 1
@@ -332,7 +343,9 @@ class TestParitySnapshotAPI:
     @pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available")
     def test_mrf_smoothcon_basis_matches_mgcv(self):
         data = _make_mrf_data()
-        smooth_expr_r = 's(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
+        smooth_expr_r = (
+            's(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
+        )
 
         parsed = parse_gam_formula(
             'y ~ s(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
@@ -356,7 +369,9 @@ class TestParitySnapshotAPI:
     @pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available")
     def test_mrf_smoothcon_penalty_matches_mgcv(self):
         data = _make_mrf_data()
-        smooth_expr_r = 's(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
+        smooth_expr_r = (
+            's(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
+        )
 
         parsed = parse_gam_formula(
             'y ~ s(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
@@ -374,7 +389,9 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
+        actual = [
+            np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties
+        ]
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target)
@@ -470,7 +487,10 @@ class TestParitySnapshotAPI:
             absorb_cons=True,
             scale_penalty=True,
         )
-        actual = [np.asarray(block.matrix, dtype=np.float64) for block in design.compiled_penalties]
+        actual = [
+            np.asarray(block.matrix, dtype=np.float64)
+            for block in design.compiled_penalties
+        ]
         target = [np.asarray(S, dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target) == 2
@@ -554,7 +574,10 @@ class TestParitySnapshotAPI:
             scale_penalty=True,
         )
 
-        actual = [np.asarray(block.matrix, dtype=np.float64) for block in design.compiled_penalties]
+        actual = [
+            np.asarray(block.matrix, dtype=np.float64)
+            for block in design.compiled_penalties
+        ]
         target = [np.asarray(S, dtype=np.float64) for _, S in expected["S"].items()]
 
         assert len(actual) == len(target) == 3
@@ -599,7 +622,10 @@ class TestParitySnapshotAPI:
 # Cyclic cubic spline (cc)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped.")
+
+@pytest.mark.skipif(
+    R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped."
+)
 class TestCyclicCubicSmooth:
     """Cyclic cubic regression spline (bs='cc') parity against mgcv."""
 
@@ -645,7 +671,9 @@ class TestCyclicCubicSmooth:
         expected = _run_mgcv_smoothcon_penalties(
             data, smooth_expr_r, absorb_cons=True, scale_penalty=True
         )
-        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
+        actual = [
+            np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties
+        ]
         target = [np.asarray(S, dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target) == 1
@@ -661,12 +689,14 @@ class TestCyclicCubicSmooth:
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["response"], dtype=np.float64),
             np.asarray(expected["predictions"]["response"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
             np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
 
     def test_gaussian_cc_reml_matches_mgcv(self):
@@ -677,8 +707,10 @@ class TestCyclicCubicSmooth:
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=5e-3, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=5e-3,
+            pred_rtol=0.0,
             sp_log_atol=0.6,
         )
 
@@ -687,7 +719,10 @@ class TestCyclicCubicSmooth:
 # P-spline (ps)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped.")
+
+@pytest.mark.skipif(
+    R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped."
+)
 class TestPSplineSmooth:
     """P-spline (bs='ps') standalone parity against mgcv."""
 
@@ -733,7 +768,9 @@ class TestPSplineSmooth:
         expected = _run_mgcv_smoothcon_penalties(
             data, smooth_expr_r, absorb_cons=True, scale_penalty=True
         )
-        actual = [np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties]
+        actual = [
+            np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties
+        ]
         target = [np.asarray(S, dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target) == 1
@@ -749,12 +786,14 @@ class TestPSplineSmooth:
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["response"], dtype=np.float64),
             np.asarray(expected["predictions"]["response"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
         np.testing.assert_allclose(
             np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
             np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
-            atol=1e-10, rtol=1e-10,
+            atol=1e-10,
+            rtol=1e-10,
         )
 
     def test_gaussian_ps_reml_matches_mgcv(self):
@@ -765,8 +804,10 @@ class TestPSplineSmooth:
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=5e-3, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=5e-3,
+            pred_rtol=0.0,
             sp_log_atol=0.5,
         )
 
@@ -784,17 +825,48 @@ class TestPSplineSmooth:
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=8e-3, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=8e-3,
+            pred_rtol=0.0,
             sp_log_atol=0.6,
         )
+
+    # Non-default ps order delegated to shared class
+    test_ps_m11_smoothcon_basis_matches_mgcv = (
+        _SharedTestPSplineSmooth.test_ps_m11_smoothcon_basis_matches_mgcv
+    )
+    test_ps_m11_smoothcon_penalties_match_mgcv = (
+        _SharedTestPSplineSmooth.test_ps_m11_smoothcon_penalties_match_mgcv
+    )
+    test_gaussian_ps_m11_fixed_sp_matches_mgcv = (
+        _SharedTestPSplineSmooth.test_gaussian_ps_m11_fixed_sp_matches_mgcv
+    )
+    test_gaussian_ps_m11_reml_matches_mgcv = (
+        _SharedTestPSplineSmooth.test_gaussian_ps_m11_reml_matches_mgcv
+    )
+    test_ps_m33_smoothcon_basis_matches_mgcv = (
+        _SharedTestPSplineSmooth.test_ps_m33_smoothcon_basis_matches_mgcv
+    )
+    test_ps_m33_smoothcon_penalties_match_mgcv = (
+        _SharedTestPSplineSmooth.test_ps_m33_smoothcon_penalties_match_mgcv
+    )
+    test_gaussian_ps_m33_fixed_sp_matches_mgcv = (
+        _SharedTestPSplineSmooth.test_gaussian_ps_m33_fixed_sp_matches_mgcv
+    )
+    test_gaussian_ps_m33_reml_matches_mgcv = (
+        _SharedTestPSplineSmooth.test_gaussian_ps_m33_reml_matches_mgcv
+    )
 
 
 # ---------------------------------------------------------------------------
 # Gaussian process smooth (gp)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped.")
+
+@pytest.mark.skipif(
+    R_SCRIPT is None, reason="Rscript is not available; mgcv parity tests are skipped."
+)
 class TestGPSmooth:
     """Gaussian process smooth (bs='gp') parity against mgcv."""
 
@@ -835,12 +907,14 @@ class TestGPSmooth:
         np.testing.assert_allclose(
             np.asarray(actual["predictions"]["response"], dtype=np.float64),
             np.asarray(expected["predictions"]["response"], dtype=np.float64),
-            atol=1e-8, rtol=1e-8,
+            atol=1e-8,
+            rtol=1e-8,
         )
         np.testing.assert_allclose(
             np.asarray(actual["fit"]["edf_by_term"], dtype=np.float64),
             np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
-            atol=1e-8, rtol=1e-8,
+            atol=1e-8,
+            rtol=1e-8,
         )
 
     def test_gaussian_gp_reml_matches_mgcv(self):
@@ -851,8 +925,10 @@ class TestGPSmooth:
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=8e-3, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=8e-3,
+            pred_rtol=0.0,
             sp_log_atol=0.7,
         )
 
@@ -869,7 +945,9 @@ class TestGPSmooth:
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
 
         _assert_basic_mgcv_parity(
-            actual, expected,
-            pred_atol=1e-2, pred_rtol=0.0,
+            actual,
+            expected,
+            pred_atol=1e-2,
+            pred_rtol=0.0,
             sp_log_atol=0.8,
         )

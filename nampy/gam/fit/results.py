@@ -78,7 +78,11 @@ class GAMFitResult:
             deviance=float(self.deviance),
             cov_bayes=None,
             cov_freq=None,
-            side_condition_reports=None if self.side_condition_reports is None else list(self.side_condition_reports),
+            side_condition_reports=(
+                None
+                if self.side_condition_reports is None
+                else list(self.side_condition_reports)
+            ),
             term_results=list(self.term_results),
             metadata=dict(self.metadata),
         )
@@ -88,24 +92,40 @@ class GAMFitResult:
             "family_name": self.family_name,
             "link_name": self.link_name,
             "criterion_name": self.criterion_name,
-            "criterion_value": None if self.criterion_value is None else float(self.criterion_value),
+            "criterion_value": (
+                None if self.criterion_value is None else float(self.criterion_value)
+            ),
             "coef_full": np.asarray(self.coef_full, dtype=np.float64).tolist(),
             "intercept": float(self.intercept),
-            "smoothing_params": np.asarray(self.smoothing_params, dtype=np.float64).tolist(),
+            "smoothing_params": np.asarray(
+                self.smoothing_params, dtype=np.float64
+            ).tolist(),
             "edf_total": float(self.edf_total),
             "edf_by_term": np.asarray(self.edf_by_term, dtype=np.float64).tolist(),
             "trace_H": float(self.trace_H),
             "scale": float(self.scale),
             "rss": None if self.rss is None else float(self.rss),
             "deviance": float(self.deviance),
-            "side_condition_reports": None if self.side_condition_reports is None else list(self.side_condition_reports),
+            "side_condition_reports": (
+                None
+                if self.side_condition_reports is None
+                else list(self.side_condition_reports)
+            ),
             "term_results": [t.to_dict() for t in self.term_results],
             "metadata": dict(self.metadata),
         }
 
         if include_covariances:
-            out["cov_bayes"] = None if self.cov_bayes is None else np.asarray(self.cov_bayes, dtype=np.float64).tolist()
-            out["cov_freq"] = None if self.cov_freq is None else np.asarray(self.cov_freq, dtype=np.float64).tolist()
+            out["cov_bayes"] = (
+                None
+                if self.cov_bayes is None
+                else np.asarray(self.cov_bayes, dtype=np.float64).tolist()
+            )
+            out["cov_freq"] = (
+                None
+                if self.cov_freq is None
+                else np.asarray(self.cov_freq, dtype=np.float64).tolist()
+            )
 
         return out
 

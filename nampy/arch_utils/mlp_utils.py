@@ -13,11 +13,7 @@ from .normalization_layers import (
 
 def _make_activation(activation) -> nn.Module:
     """Instantiate an activation from a class or deep-copy an instance."""
-    return (
-        activation()
-        if isinstance(activation, type)
-        else copy.deepcopy(activation)
-    )
+    return activation() if isinstance(activation, type) else copy.deepcopy(activation)
 
 
 def _make_norm(norm: Optional[str], size: int) -> Optional[nn.Module]:
@@ -36,9 +32,7 @@ def _make_norm(norm: Optional[str], size: int) -> Optional[nn.Module]:
     }
 
     if norm not in builders:
-        raise ValueError(
-            f"Unknown norm {norm!r}. Valid options: {', '.join(builders)}"
-        )
+        raise ValueError(f"Unknown norm {norm!r}. Valid options: {', '.join(builders)}")
     return builders[norm]()
 
 

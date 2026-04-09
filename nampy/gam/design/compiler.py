@@ -14,12 +14,16 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..penalties import default_penalty_id, merge_smoothing_override, normalize_penalty_spec
-from ..specs import LinearPredictorSpec
+from ..penalties import (
+    default_penalty_id,
+    merge_smoothing_override,
+    normalize_penalty_spec,
+)
 from ..runtime.factory import instantiate_predictor_terms
+from ..specs import LinearPredictorSpec
 from .constructors import construct_terms
 from .linked_basis import attach_shared_basis_metadata
-from .structures import CompiledPenalty, CompiledPredictor, CompiledTerm, PenaltySpec
+from .structures import CompiledPenalty, CompiledPredictor, CompiledTerm
 
 
 def compile_predictor_designs(
@@ -144,7 +148,11 @@ def compile_predictor_designs(
                 design_blocks.append(B)
                 start += d
 
-        matrix_train = np.column_stack(design_blocks) if design_blocks else np.empty((X.shape[0], 0), dtype=np.float64)
+        matrix_train = (
+            np.column_stack(design_blocks)
+            if design_blocks
+            else np.empty((X.shape[0], 0), dtype=np.float64)
+        )
         n_sp = len(smoothing_id_map)
         override_modes = [None] * n_sp
         override_values = np.full(n_sp, np.nan, dtype=np.float64)

@@ -78,7 +78,9 @@ class GPNAM(BaseModel):
 
         # GP-NAM hyperparameters
         self.rff_num_feat = int(
-            self.hparams.get("rff_num_feat", getattr(config, "rff_num_feat", rff_num_feat))
+            self.hparams.get(
+                "rff_num_feat", getattr(config, "rff_num_feat", rff_num_feat)
+            )
         )
         if self.rff_num_feat <= 0:
             raise ValueError("rff_num_feat must be a positive integer.")
@@ -103,9 +105,13 @@ class GPNAM(BaseModel):
             )
             if scalar_width <= 0:
                 raise ValueError("kernel_width must be positive.")
-            kernel_widths = torch.full((self.input_dim,), scalar_width, dtype=torch.float32)
+            kernel_widths = torch.full(
+                (self.input_dim,), scalar_width, dtype=torch.float32
+            )
         else:
-            kernel_widths = torch.as_tensor(raw_kernel_widths, dtype=torch.float32).flatten()
+            kernel_widths = torch.as_tensor(
+                raw_kernel_widths, dtype=torch.float32
+            ).flatten()
             if kernel_widths.numel() != self.input_dim:
                 raise ValueError(
                     f"kernel_widths must have length {self.input_dim}, got {kernel_widths.numel()}."
@@ -141,7 +147,9 @@ class GPNAM(BaseModel):
         for name in self.num_feature_keys:
             dim = int(num_feature_info[name]["dimension"])
             if dim <= 0:
-                raise ValueError(f"Numerical feature '{name}' has invalid dimension {dim}.")
+                raise ValueError(
+                    f"Numerical feature '{name}' has invalid dimension {dim}."
+                )
             if dim == 1:
                 atomic_names.append(name)
             else:
@@ -151,7 +159,9 @@ class GPNAM(BaseModel):
         for name in self.cat_feature_keys:
             dim = int(cat_feature_info[name]["dimension"])
             if dim <= 0:
-                raise ValueError(f"Categorical feature '{name}' has invalid dimension {dim}.")
+                raise ValueError(
+                    f"Categorical feature '{name}' has invalid dimension {dim}."
+                )
             if dim == 1:
                 atomic_names.append(name)
             else:
@@ -173,7 +183,9 @@ class GPNAM(BaseModel):
             probs = torch.arange(1, num_rff + 1, dtype=torch.float32) / (num_rff + 1)
             z = normal.icdf(probs)  # [S]
 
-            c_grid = 2.0 * math.pi * torch.arange(num_rff, dtype=torch.float32) / num_rff
+            c_grid = (
+                2.0 * math.pi * torch.arange(num_rff, dtype=torch.float32) / num_rff
+            )
             perm = torch.randperm(num_rff)
             c = c_grid[perm]
         else:

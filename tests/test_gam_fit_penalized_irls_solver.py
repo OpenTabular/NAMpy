@@ -1,15 +1,19 @@
 """Structural tests for :mod:`nampy.gam.fit.solvers.penalized_irls` (mgcv ``gam.fit3`` analogue)."""
+
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from nampy.gam.fit.solvers.penalized_irls import PenalizedIrlsControl, fit_penalized_irls
 from nampy.gam.families.exponential import GaussianIdentityFamily
 from nampy.gam.fit.linalg.stacked_qr import (
     balanced_penalty_template_sqrt_for_rank,
     penalty_sqrt_rows_prefer_diagonal,
     solve_gaussian_penalized_ls_stacked_qr,
+)
+from nampy.gam.fit.solvers.penalized_irls import (
+    PenalizedIrlsControl,
+    fit_penalized_irls,
 )
 
 

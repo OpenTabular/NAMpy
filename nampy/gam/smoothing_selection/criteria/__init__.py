@@ -26,7 +26,6 @@ from .gaussian_dyn import (
     criterion_ml_reml_gaussian_dynamic_joint,
 )
 from .gaussian_grad import criterion_gradient_ml_reml_exact
-from .laplace import _penalty_derivative_matrices
 from .gaussian_reml_algebra import (
     deviance_method_scale_estimate,
     gaussian_reml_laplace_score,
@@ -39,24 +38,27 @@ from .gaussian_reml_algebra import (
     profiled_gaussian_reml_variance,
     quadratic_form_penalty,
 )
+from .laplace import _penalty_derivative_matrices
 from .ml_reml import criterion_ml_reml, resolve_ml_reml_scoring_backend
 from .penalty import _stable_penalty_logdet_derivatives, _static_penalty_null_dim
 from .pirls import (
+    _pirls_ml_reml_objective_from_solution,
     criterion_gcv_pirls,
+    criterion_ml_reml_pirls,
     criterion_ml_reml_pirls_gamma_joint,
     criterion_ml_reml_pirls_negbin_joint,
-    criterion_ml_reml_pirls,
     criterion_ubre_pirls,
 )
 from .pirls_deriv import (
-    criterion_gradient_ml_reml_pirls_gamma_joint,
     criterion_gradient_ml_reml_pirls_exact,
-    criterion_hessian_ml_reml_pirls_gamma_joint,
+    criterion_gradient_ml_reml_pirls_gamma_joint,
     criterion_hessian_ml_reml_pirls_exact,
+    criterion_hessian_ml_reml_pirls_gamma_joint,
 )
 
 __all__ = [
     "_gaussian_dynamic_reml_derivative_terms",
+    "_pirls_ml_reml_objective_from_solution",
     "_penalty_derivative_matrices",
     "_stable_penalty_logdet_derivatives",
     "_static_penalty_null_dim",

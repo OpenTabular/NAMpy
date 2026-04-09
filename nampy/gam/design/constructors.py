@@ -32,9 +32,9 @@ import numpy as np
 
 from ..constraints.absorption import absorb_explicit_constraints
 from ..penalties import normalize_penalty_spec
-from ..specs import TermSpec
 from ..runtime.factory import instantiate_term
 from ..smooths.base import _resolve_feature
+from ..specs import TermSpec
 from .constructed import ConstructedTerm
 
 
@@ -83,7 +83,9 @@ def construct_terms(
         "constraints_absorbed_by_runtime": constraints_absorbed,
         "runtime_constraint_kind": getattr(runtime, "constraint_kind", None),
         "runtime_by_name": _by_state.feature_name if _by_state is not None else None,
-        "runtime_by_is_constant": _by_state.is_constant if _by_state is not None else None,
+        "runtime_by_is_constant": (
+            _by_state.is_constant if _by_state is not None else None
+        ),
     }
 
     # Build predict_fn as a raw-basis producer only. Any linear map into the
@@ -94,26 +96,40 @@ def construct_terms(
     if by_variable is not None and apply_by and not by_done:
         idx, _by_name = _resolve_feature(by_variable, feature_names)
         z_train = np.asarray(X[:, idx], dtype=np.float64).ravel()
-        if hasattr(runtime, "basis_train_base") and runtime.basis_train_base is not None:
+        if (
+            hasattr(runtime, "basis_train_base")
+            and runtime.basis_train_base is not None
+        ):
             X0 = np.asarray(runtime.basis_train_base, dtype=np.float64)
         else:
-            raise NotImplementedError("Runtime term requested wrapper-level by handling without basis_train_base.")
+            raise NotImplementedError(
+                "Runtime term requested wrapper-level by handling without basis_train_base."
+            )
         B = X0 * z_train[:, None]
         raw_predict_n_coef = int(X0.shape[1])
-        if not (hasattr(runtime, "transform_new_base") and callable(runtime.transform_new_base)):
-            raise NotImplementedError("Runtime term requested wrapper-level by handling without transform_new_base().")
+        if not (
+            hasattr(runtime, "transform_new_base")
+            and callable(runtime.transform_new_base)
+        ):
+            raise NotImplementedError(
+                "Runtime term requested wrapper-level by handling without transform_new_base()."
+            )
 
         constructor_metadata["by_handling"] = "wrapper"
         _wrapper_base_fn = runtime.transform_new_base
         _by_idx = idx
     else:
-        constructor_metadata["by_handling"] = "runtime" if by_variable is not None else "none"
+        constructor_metadata["by_handling"] = (
+            "runtime" if by_variable is not None else "none"
+        )
         _wrapper_base_fn = None
         _by_idx = None
 
     fit_coefficient_map = None
     predict_coefficient_map_arr = (
-        None if predict_coefficient_map is None else np.asarray(predict_coefficient_map, dtype=np.float64)
+        None
+        if predict_coefficient_map is None
+        else np.asarray(predict_coefficient_map, dtype=np.float64)
     )
 
     if absorb_cons and (not constraints_absorbed) and fit_constraint is not None:
@@ -145,7 +161,9 @@ def construct_terms(
                     f"Predict coefficient map for term {getattr(runtime, 'label', str(runtime))!r} "
                     f"has shape {predict_coefficient_map_arr.shape}, expected {expected_shape}."
                 )
-        constructor_metadata["constraint_absorption"] = "runtime" if constraints_absorbed else "none"
+        constructor_metadata["constraint_absorption"] = (
+            "runtime" if constraints_absorbed else "none"
+        )
         constructor_metadata["n_constraints_absorbed"] = None
         constructor_metadata["predict_map_source"] = (
             "runtime" if predict_coefficient_map_arr is not None else "none"
@@ -163,6 +181,7 @@ def construct_terms(
                 z_new = np.asarray(np.asarray(X_new)[:, _col], dtype=np.float64).ravel()
                 B_out = B_out * z_new[:, None]
             return B_out
+
     else:
         predict_fn = None
 
@@ -180,15 +199,33 @@ def construct_terms(
         basis_name=str(getattr(runtime, "basis_name", "unknown")),
         term_type=str(getattr(runtime, "term_type", "smooth")),
         by_variable=by_variable,
-        smoothing_id=(None if getattr(runtime, "smoothing_id", None) is None else str(getattr(runtime, "smoothing_id"))),
+        smoothing_id=(
+            None
+            if getattr(runtime, "smoothing_id", None) is None
+            else str(runtime.smoothing_id)
+        ),
         metadata=dict(getattr(runtime, "metadata", {}) or {}),
-        fit_constraint_operator=(None if fit_constraint is None else np.asarray(fit_constraint, dtype=np.float64)),
-        fit_coefficient_map=(None if fit_coefficient_map is None else np.asarray(fit_coefficient_map, dtype=np.float64)),
+        fit_constraint_operator=(
+            None
+            if fit_constraint is None
+            else np.asarray(fit_constraint, dtype=np.float64)
+        ),
+        fit_coefficient_map=(
+            None
+            if fit_coefficient_map is None
+            else np.asarray(fit_coefficient_map, dtype=np.float64)
+        ),
         predict_coefficient_map=(
-            None if predict_coefficient_map_arr is None else np.asarray(predict_coefficient_map_arr, dtype=np.float64)
+            None
+            if predict_coefficient_map_arr is None
+            else np.asarray(predict_coefficient_map_arr, dtype=np.float64)
         ),
         constraints_absorbed=bool(constraints_absorbed),
-        prediction_offset=(None if prediction_offset is None else np.asarray(prediction_offset, dtype=np.float64)),
+        prediction_offset=(
+            None
+            if prediction_offset is None
+            else np.asarray(prediction_offset, dtype=np.float64)
+        ),
         original_design_matrix=None if X0 is None else np.asarray(X0, dtype=np.float64),
         constructor_metadata=constructor_metadata,
         _predict_fn=predict_fn,

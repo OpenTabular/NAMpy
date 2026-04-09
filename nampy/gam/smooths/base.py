@@ -28,9 +28,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from ..penalties import (
-    build_null_space_selection_spec,
     make_penalty_spec,
-    normalize_penalty_spec,
 )
 
 
@@ -100,7 +98,9 @@ def resolve_feature_matrix_state(features, X, feature_names):
         indices.append(idx)
         names.append(fname)
     X_arr = np.asarray(X)
-    Xf = np.column_stack([np.asarray(X_arr[:, idx], dtype=np.float64) for idx in indices])
+    Xf = np.column_stack(
+        [np.asarray(X_arr[:, idx], dtype=np.float64) for idx in indices]
+    )
     return FeatureMatrixState(indices=indices, names=names, matrix=Xf)
 
 
@@ -167,7 +167,9 @@ def term_penalty_metadata(term, extra=None, *, is_selection_penalty=False):
         "label": term.label,
         "by": term.by,
         "by_name": _by_state.feature_name if _by_state is not None else None,
-        "by_is_constant": bool(_by_state.is_constant) if _by_state is not None else True,
+        "by_is_constant": (
+            bool(_by_state.is_constant) if _by_state is not None else True
+        ),
         "is_selection_penalty": bool(is_selection_penalty),
     }
     if extra:
@@ -175,7 +177,18 @@ def term_penalty_metadata(term, extra=None, *, is_selection_penalty=False):
     return meta
 
 
-def build_penalty_definition(term, matrix, *, kind="smooth", smoothing_id=None, sp_value_in=None, rank=None, null_space_dim=None, is_null_space_penalty=False, metadata_extra=None):
+def build_penalty_definition(
+    term,
+    matrix,
+    *,
+    kind="smooth",
+    smoothing_id=None,
+    sp_value_in=None,
+    rank=None,
+    null_space_dim=None,
+    is_null_space_penalty=False,
+    metadata_extra=None,
+):
     sp_mode, sp_value = _sp_mode_value(sp_value_in)
     return make_penalty_spec(
         matrix=np.asarray(matrix, dtype=np.float64),
@@ -190,7 +203,9 @@ def build_penalty_definition(term, matrix, *, kind="smooth", smoothing_id=None, 
     )
 
 
-def build_selection_penalty_definition(term, matrix, *, rank, null_space_dim, smoothing_id, metadata_extra=None):
+def build_selection_penalty_definition(
+    term, matrix, *, rank, null_space_dim, smoothing_id, metadata_extra=None
+):
     return make_penalty_spec(
         matrix=np.asarray(matrix, dtype=np.float64),
         smoothing_id=smoothing_id,
@@ -214,7 +229,9 @@ def _normalize_knots(knots, features):
             return list(knots)
         if len(features) == 1:
             return [knots]
-        raise ValueError(f"knots must have length {len(features)} for features={features}, got {len(knots)}.")
+        raise ValueError(
+            f"knots must have length {len(features)} for features={features}, got {len(knots)}."
+        )
     if len(features) == 1:
         return [knots]
     raise TypeError("knots must be None, dict, or list/tuple aligned with features.")
@@ -277,7 +294,9 @@ def _normalize_point_constraint_vector(pc, feature_names):
         return np.asarray([float(pc[name]) for name in names], dtype=np.float64)
     vals = np.asarray(pc, dtype=np.float64).ravel()
     if vals.size != n:
-        raise ValueError(f"pc must supply {n} values for features {names}, got {vals.size}.")
+        raise ValueError(
+            f"pc must supply {n} values for features {names}, got {vals.size}."
+        )
     return vals.astype(np.float64, copy=False)
 
 
@@ -335,7 +354,16 @@ class BaseSmoothTerm(abc.ABC):
     basis_name = "unknown"
     supports_tensor_marginal = False
 
-    def __init__(self, feature, label=None, term_id=None, smoothing_id=None, by=None, sp=None, metadata=None):
+    def __init__(
+        self,
+        feature,
+        label=None,
+        term_id=None,
+        smoothing_id=None,
+        by=None,
+        sp=None,
+        metadata=None,
+    ):
         self.feature = feature
         self.label = label or str(feature)
         self.smoothing_id = smoothing_id
@@ -368,11 +396,15 @@ class BaseSmoothTerm(abc.ABC):
         # signals that the runtime handled identifiability without a transform
         # (e.g. numeric by-variable smooths that keep the raw basis but must prevent
         # stage-5 from applying its own sum-to-zero centering pass).
-        self.constraints_absorbed = bool(transform is not None) or (absorbed_by is not None)
+        self.constraints_absorbed = bool(transform is not None) or (
+            absorbed_by is not None
+        )
         if transform is None:
             self.n_constraints_absorbed = 0
         else:
-            self.n_constraints_absorbed = int(max(0, transform.shape[0] - transform.shape[1]))
+            self.n_constraints_absorbed = int(
+                max(0, transform.shape[0] - transform.shape[1])
+            )
 
     def _apply_constraint_transform_and_by(self, B, X_new):
         """
@@ -428,12 +460,16 @@ class BaseSmoothTerm(abc.ABC):
             return [None] * n_penalties
         if np.isscalar(self.sp):
             if n_penalties != 1:
-                raise NotImplementedError("Multi-penalty term-level sp must supply one value per penalty.")
+                raise NotImplementedError(
+                    "Multi-penalty term-level sp must supply one value per penalty."
+                )
             vals = [float(self.sp)]
         else:
             vals = np.asarray(self.sp, dtype=np.float64).ravel()
             if vals.size != n_penalties:
-                raise ValueError(f"term-level sp must have length {n_penalties}, got {vals.size}.")
+                raise ValueError(
+                    f"term-level sp must have length {n_penalties}, got {vals.size}."
+                )
             vals = [float(v) for v in vals]
         return vals
 

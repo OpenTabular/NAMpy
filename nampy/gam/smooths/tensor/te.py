@@ -13,6 +13,14 @@ penalty parameterisation.
 
 import numpy as np
 
+from ...basis.tensor import (
+    normalize_tensor_marginal_penalty,
+    rescale_tensor_penalties_for_fit,
+    rowwise_kronecker,
+    tensor_product_penalties,
+)
+from ...constraints.absorption import full_term_sum_to_zero_constraint
+from ...penalties.algebra import null_space_penalty_from_penalty
 from ..base import (
     BaseSmoothTerm,
     _normalize_knots,
@@ -22,15 +30,7 @@ from ..base import (
     resolve_by_state,
     sync_by_state_attributes,
 )
-from ...constraints.absorption import full_term_sum_to_zero_constraint
 from ..registry import register_smooth
-from ...basis.tensor import (
-    rowwise_kronecker,
-    tensor_product_penalties,
-    normalize_tensor_marginal_penalty,
-    rescale_tensor_penalties_for_fit,
-)
-from ...penalties.algebra import null_space_penalty_from_penalty
 from .marginals import (
     make_tensor_marginal_term,
     tensor_marginal_feature_index,
@@ -117,7 +117,9 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         feature_indices = []
         feature_names_resolved = []
 
-        for feat, k_i, bs_i, knots_i in zip(self.feature, self.k, self.basis, self.knots):
+        for feat, k_i, bs_i, knots_i in zip(
+            self.feature, self.k, self.basis, self.knots
+        ):
             term = make_tensor_marginal_term(
                 feature=feat,
                 basis=bs_i,
@@ -175,7 +177,9 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         self._set_resolved_features(feature_names_resolved)
         self._basis_dims = basis_dims
         self._basis_train = np.asarray(B_te, dtype=np.float64)
-        self._penalties = [] if self.fixed else [np.asarray(S, dtype=np.float64) for S in S_te]
+        self._penalties = (
+            [] if self.fixed else [np.asarray(S, dtype=np.float64) for S in S_te]
+        )
         self._record_constraint_result(
             "sum_to_zero" if C_te is not None else None,
             C_te,
@@ -199,7 +203,11 @@ class TensorProductSplineTerm(BaseSmoothTerm):
             sid = (
                 None
                 if self.smoothing_id is None
-                else (str(self.smoothing_id) if n_raw <= 1 else f"{self.smoothing_id}::{j}")
+                else (
+                    str(self.smoothing_id)
+                    if n_raw <= 1
+                    else f"{self.smoothing_id}::{j}"
+                )
             )
             sp_j = sp_vals[j] if j < len(sp_vals) else None
             defs.append(
@@ -215,7 +223,9 @@ class TensorProductSplineTerm(BaseSmoothTerm):
 
         if self.select:
             combined = sum(np.asarray(P, dtype=np.float64) for P in raw)
-            S0, meta = null_space_penalty_from_penalty(combined, tol=self.null_penalty_tol)
+            S0, meta = null_space_penalty_from_penalty(
+                combined, tol=self.null_penalty_tol
+            )
             if meta["rank"] > 0:
                 select_sid = (
                     None
@@ -241,7 +251,9 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         marginal_new = []
         for m, xp in zip(self._marginals, self._marginal_np_transforms):
             marginal_new.append(
-                tensor_marginal_predict_matrix(m, X_new, centered=False, np_transform=xp)
+                tensor_marginal_predict_matrix(
+                    m, X_new, centered=False, np_transform=xp
+                )
             )
         B_new_raw = rowwise_kronecker(marginal_new)
         return self._apply_constraint_transform_and_by(B_new_raw, X_new)

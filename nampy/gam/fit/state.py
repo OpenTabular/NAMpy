@@ -12,6 +12,7 @@ the model after fitting to populate the model's public attributes.
 from __future__ import annotations
 
 from dataclasses import dataclass
+
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve, qr
 
@@ -52,6 +53,7 @@ class FitCoreSolution:
     iter: int | None = None
     failed_step: bool | None = None
     failure_reason: str | None = None
+    inner_trace: list | None = None
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -72,14 +74,42 @@ class FitCoreSolution:
             edf=float(data["edf"]),
             trace_H=float(data["trace_H"]),
             scale=float(data["scale"]),
-            cov_bayes=None if data.get("cov_bayes", None) is None else np.asarray(data["cov_bayes"], dtype=np.float64),
-            cov_freq=None if data.get("cov_freq", None) is None else np.asarray(data["cov_freq"], dtype=np.float64),
+            cov_bayes=(
+                None
+                if data.get("cov_bayes", None) is None
+                else np.asarray(data["cov_bayes"], dtype=np.float64)
+            ),
+            cov_freq=(
+                None
+                if data.get("cov_freq", None) is None
+                else np.asarray(data["cov_freq"], dtype=np.float64)
+            ),
             H_coef=np.asarray(data["H_coef"], dtype=np.float64),
-            X=None if data.get("X", None) is None else np.asarray(data["X"], dtype=np.float64),
-            A=None if data.get("A", None) is None else np.asarray(data["A"], dtype=np.float64),
-            A_inv=None if data.get("A_inv", None) is None else np.asarray(data["A_inv"], dtype=np.float64),
-            XtWX=None if data.get("XtWX", None) is None else np.asarray(data["XtWX"], dtype=np.float64),
-            P=None if data.get("P", None) is None else np.asarray(data["P"], dtype=np.float64),
+            X=(
+                None
+                if data.get("X", None) is None
+                else np.asarray(data["X"], dtype=np.float64)
+            ),
+            A=(
+                None
+                if data.get("A", None) is None
+                else np.asarray(data["A"], dtype=np.float64)
+            ),
+            A_inv=(
+                None
+                if data.get("A_inv", None) is None
+                else np.asarray(data["A_inv"], dtype=np.float64)
+            ),
+            XtWX=(
+                None
+                if data.get("XtWX", None) is None
+                else np.asarray(data["XtWX"], dtype=np.float64)
+            ),
+            P=(
+                None
+                if data.get("P", None) is None
+                else np.asarray(data["P"], dtype=np.float64)
+            ),
             penalty_matrix=(
                 None
                 if data.get("penalty_matrix", None) is None
@@ -105,8 +135,14 @@ class FitCoreSolution:
                 if data.get("penalty_quadratic", None) is None
                 else float(data["penalty_quadratic"])
             ),
-            loglik=(None if data.get("loglik", None) is None else float(data["loglik"])),
-            offset=None if data.get("offset", None) is None else np.asarray(data["offset"], dtype=np.float64),
+            loglik=(
+                None if data.get("loglik", None) is None else float(data["loglik"])
+            ),
+            offset=(
+                None
+                if data.get("offset", None) is None
+                else np.asarray(data["offset"], dtype=np.float64)
+            ),
             log_det_XtWX_plus_penalty=(
                 None
                 if data.get("log_det_XtWX_plus_penalty", None) is None
@@ -116,25 +152,58 @@ class FitCoreSolution:
             iter=data.get("iter", None),
             failed_step=data.get("failed_step", None),
             failure_reason=data.get("failure_reason", None),
+            inner_trace=data.get("inner_trace", None),
         )
 
 
 def compute_edf_by_term(model, H_coef):
     offset0 = 1 if model.fit_intercept else 0
-    edf = np.array(
-        [
-            float(
-                np.trace(
-                    H_coef[
-                        offset0 + tb.coef_slice.start : offset0 + tb.coef_slice.stop,
-                        offset0 + tb.coef_slice.start : offset0 + tb.coef_slice.stop,
-                    ]
-                )
-            )
-            for tb in model.term_blocks_
-        ],
-        dtype=np.float64,
-    )
+    fit_state = getattr(model, "fit_state_", None)
+    X_full = None if fit_state is None else getattr(fit_state, "X", None)
+    A_inv = None if fit_state is None else getattr(fit_state, "A_inv", None)
+    w = None if fit_state is None else getattr(fit_state, "working_weights", None)
+
+    edf = []
+    for tb in model.term_blocks_:
+        sl = slice(
+            offset0 + int(tb.coef_slice.start),
+            offset0 + int(tb.coef_slice.stop),
+        )
+        val = float(np.trace(H_coef[sl, sl]))
+
+        # mgcv summary EDF for `bs="re"` terms is effectively attributed after
+        # removing the intercept direction from the random-effect block. Without
+        # that orthogonalization, near-singular Gaussian REML fits can over-credit
+        # the RE term by the same tiny amount that belongs to the intercept.
+        if (
+            str(getattr(tb, "term_type", "")) == "random_effect"
+            and bool(getattr(model, "fit_intercept", False))
+            and X_full is not None
+            and A_inv is not None
+            and w is not None
+        ):
+            try:
+                X = np.asarray(X_full, dtype=np.float64)
+                A_inv_arr = np.asarray(A_inv, dtype=np.float64)
+                w_arr = np.asarray(w, dtype=np.float64).ravel()
+                Xp = X[:, :offset0]
+                Xt = X[:, sl]
+                if Xp.shape[1] > 0 and Xt.shape[1] > 0 and w_arr.shape[0] == X.shape[0]:
+                    sqrt_w = np.sqrt(np.clip(w_arr, 0.0, None))
+                    coef = np.linalg.lstsq(
+                        sqrt_w[:, None] * Xp,
+                        sqrt_w[:, None] * Xt,
+                        rcond=None,
+                    )[0]
+                    Xt_eff = Xt - Xp @ coef
+                    val = float(
+                        np.trace((Xt_eff.T @ (w_arr[:, None] * X) @ A_inv_arr)[:, sl])
+                    )
+            except Exception:
+                pass
+
+        edf.append(val)
+    edf = np.asarray(edf, dtype=np.float64)
     # Under predictor-wide side conditions, a later non-constant numeric-by
     # smooth can lose one or more redundant columns against the accumulated
     # design. The reduced fitted block trace then credits that shared null-space
@@ -177,7 +246,9 @@ def assign_fit_solution(model, sol: FitCoreSolution):
             P = np.asarray(sol.P, dtype=np.float64)
             fisher_w = np.asarray(sol.fisher_weights, dtype=np.float64).ravel()
             XtFX = X.T @ (fisher_w[:, None] * X)
-            cA_post, lower_post = cho_factor(XtFX + P, overwrite_a=False, check_finite=False)
+            cA_post, lower_post = cho_factor(
+                XtFX + P, overwrite_a=False, check_finite=False
+            )
             H_post = cho_solve((cA_post, lower_post), XtFX, check_finite=False)
             trace_H_post = float(np.trace(H_post))
         except Exception:
@@ -190,8 +261,12 @@ def assign_fit_solution(model, sol: FitCoreSolution):
     model.rss_ = None if sol.rss is None else float(sol.rss)
     model.deviance_ = float(sol.deviance)
 
-    model.Vp_ = None if sol.cov_bayes is None else np.asarray(sol.cov_bayes, dtype=np.float64)
-    model.Vf_ = None if sol.cov_freq is None else np.asarray(sol.cov_freq, dtype=np.float64)
+    model.Vp_ = (
+        None if sol.cov_bayes is None else np.asarray(sol.cov_bayes, dtype=np.float64)
+    )
+    model.Vf_ = (
+        None if sol.cov_freq is None else np.asarray(sol.cov_freq, dtype=np.float64)
+    )
     model._H_coef = H_post
 
     model._fitted_eta = np.asarray(sol.eta, dtype=np.float64)
