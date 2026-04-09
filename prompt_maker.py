@@ -1,19 +1,20 @@
 """
 Combine mgcv-replication code into coherent phase files for LLM handoff.
 
-By default this script writes 5 outputs:
+By default this script writes 6 outputs:
 - combined_phase1.txt
 - combined_phase2.txt
 - combined_phase3.txt
 - combined_phase4.txt
 - combined_phase5.txt
+- combined_phase6.txt
 
 Phase 1 contains:
 - the full instruction preface
 - the full relevant directory tree
 - full concatenated file contents
 
-Phases 2-5 contain:
+Phases 2-6 contain:
 - a concise continuation preface
 - full concatenated file contents
 """
@@ -29,6 +30,7 @@ phase_output_files = {
     3: "combined_phase3.txt",
     4: "combined_phase4.txt",
     5: "combined_phase5.txt",
+    6: "combined_phase6.txt",
 }
 
 
@@ -60,7 +62,7 @@ def _sort_key(rel_posix: str) -> tuple:
 
 def _phase_for_path(rel_posix: str) -> int:
     """
-    Assign each file to one of 5 coherent review phases.
+    Assign each file to one of 6 coherent review phases.
 
     Phase 1: Foundational APIs and interfaces
       - package exports, family definitions, configs, base models
@@ -68,22 +70,25 @@ def _phase_for_path(rel_posix: str) -> int:
       - low-level splines/utils foundations
 
     Phase 2: GAM core fitting + smoothness internals
-      - GAM fitting/orchestration/smoother optimization internals
+      - GAM fitting/orchestration and core smoothing-selection internals
       - GAM-facing spline math used heavily by fit/reparam pathways
 
     Phase 3: GAM design/construction + concrete smooth terms
       - formula preprocessing, term materialization, design compilation
       - univariate/tensor/categorical smooth runtime implementations
 
-    Phase 4: Prediction/integration-facing GAM surfaces
-      - GAM wrappers/public model glue and prediction/diagnostic APIs
+    Phase 4: Smoothing optimization internals
+      - outer optimization driver/objective/post-processing machinery
 
-    Phase 5: Validation/parity and uncategorized leftovers
+    Phase 5: Prediction, diagnostics, and parity surfaces
+
+    Phase 6: Uncategorized leftovers
       - anything uncategorized falls here
     """
     # Phase 1: core interfaces and foundations
     phase1_prefixes = (
         "nampy/gam/__init__.py",
+        "nampy/gam/_mgcv_constants.py",
         "nampy/gam/families/",
         "nampy/gam/smoothness/__init__.py",
         "nampy/gam/formula/parser.py",
@@ -92,6 +97,7 @@ def _phase_for_path(rel_posix: str) -> int:
         "nampy/gam/runtime/__init__.py",
         "nampy/gam/smooths/__init__.py",
         "nampy/gam/smooths/base.py",
+        "nampy/gam/smooths/smooth_base.py",
         "nampy/gam/smooths/registry.py",
         "nampy/splines/__init__.py",
         "nampy/splines/constraints.py",
@@ -110,18 +116,28 @@ def _phase_for_path(rel_posix: str) -> int:
         "nampy/gam/smoothness/criteria/",
         "nampy/gam/smoothness/optimize/",
         "nampy/gam/smoothness/reparam.py",
+        "nampy/gam/smoothing_selection/",
+        "nampy/gam/penalties/",
         "nampy/splines/cubic.py",
         "nampy/splines/cubic_basis.py",
     )
-    if any(rel_posix == p or rel_posix.startswith(p) for p in phase2_prefixes):
+    phase2_exclude_prefixes = (
+        "nampy/gam/smoothing_selection/optimize/",
+    )
+    if any(rel_posix == p or rel_posix.startswith(p) for p in phase2_prefixes) and not any(
+        rel_posix == p or rel_posix.startswith(p) for p in phase2_exclude_prefixes
+    ):
         return 2
 
     # Phase 3: GAM construction/design + concrete smooth implementations
     phase3_prefixes = (
+        "nampy/gam/basis/",
         "nampy/gam/construction/",
+        "nampy/gam/constraints/",
         "nampy/gam/design/",
         "nampy/gam/runtime/factory.py",
         "nampy/gam/runtime/terms/",
+        "nampy/gam/terms/",
         "nampy/gam/smooths/univariate/",
         "nampy/gam/smooths/tensor/",
         "nampy/gam/smooths/categorical/",
@@ -132,22 +148,31 @@ def _phase_for_path(rel_posix: str) -> int:
         "nampy/splines/thin_plate_basis.py",
         "nampy/splines/gaussian_process.py",
         "nampy/splines/mrf.py",
+        "nampy/splines/neural_splines.py",
     )
     if any(rel_posix == p or rel_posix.startswith(p) for p in phase3_prefixes):
         return 3
 
-    # Phase 4: prediction/integration-facing surfaces
+    # Phase 4: smoothing optimization internals (split from phase 2)
     phase4_prefixes = (
-        "nampy/gam/predict/",
-        "nampy/gam/diagnostics/",
-        "nampy/gam/parity/",
-        "nampy/models/gam.py",
+        "nampy/gam/smoothing_selection/optimize/",
     )
     if any(rel_posix == p or rel_posix.startswith(p) for p in phase4_prefixes):
         return 4
 
-    # Phase 5: parity/leftovers and uncategorized files
-    return 5
+    # Phase 5: diagnostics/parity surfaces
+    phase5_prefixes = (
+        "nampy/gam/predict/",
+        "nampy/gam/diagnostics/",
+        "nampy/gam/inference/",
+        "nampy/gam/parity/",
+        "nampy/models/gam.py",
+    )
+    if any(rel_posix == p or rel_posix.startswith(p) for p in phase5_prefixes):
+        return 5
+
+    # Phase 6: uncategorized files
+    return 6
 
 
 def collect_input_files(root: Path) -> list[str]:
@@ -179,7 +204,7 @@ def collect_input_files(root: Path) -> list[str]:
 
 
 def split_into_phases(file_paths: list[str]) -> dict[int, list[str]]:
-    phased: dict[int, list[str]] = {1: [], 2: [], 3: [], 4: [], 5: []}
+    phased: dict[int, list[str]] = {1: [], 2: [], 3: [], 4: [], 5: [], 6: []}
     for rel in file_paths:
         phase = _phase_for_path(rel)
         phased[phase].append(rel)
@@ -231,11 +256,12 @@ phase_titles = {
     1: "Phase 1 - Foundations and public interfaces",
     2: "Phase 2 - GAM fit and smoothness internals",
     3: "Phase 3 - GAM design/construction/smooth runtime internals",
-    4: "Phase 4 - Prediction and integration surfaces",
-    5: "Phase 5 - Parity, validation, and leftovers",
+    4: "Phase 4 - Smoothing optimization internals",
+    5: "Phase 5 - Prediction, diagnostics, and parity surfaces",
+    6: "Phase 6 - Validation and uncategorized leftovers",
 }
 
-for phase in (1, 2, 3, 4, 5):
+for phase in (1, 2, 3, 4, 5, 6):
     out_name = phase_output_files[phase]
     phase_paths = phased_files[phase]
     with (repo_root / out_name).open("w", encoding="utf-8") as outfile:
@@ -244,7 +270,7 @@ for phase in (1, 2, 3, 4, 5):
                 f"""You are a senior computational statistician, numerical software architect, and Python package maintainer with deep expertise in generalized additive models, penalized regression splines, and Simon Wood's mgcv framework.
 I am building a Python reimplementation of the mgcv ecosystem as a submodule of my package nampy.
 You are reviewing {phase_titles[phase]}.
-This is part {phase}/5. Keep continuity with prior parts when available, and produce structured feedback for correctness, redundancy elimination, and architecture cleanup.
+This is part {phase}/6. Keep continuity with prior parts when available, and produce structured feedback for correctness, redundancy elimination, and architecture cleanup.
 
 """
             )
@@ -254,7 +280,7 @@ This is part {phase}/5. Keep continuity with prior parts when available, and pro
         else:
             outfile.write(
                 f"""Continuation prompt: {phase_titles[phase]}.
-This is part {phase}/5. Continue from earlier phases; do not restate prior context.
+This is part {phase}/6. Continue from earlier phases; do not restate prior context.
 
 """
             )
@@ -272,6 +298,6 @@ This is part {phase}/5. Continue from earlier phases; do not restate prior conte
     print(f"Wrote {out_name} with {len(phase_paths)} files.")
 
 print(
-    "Done. Generated 5 phased bundles: "
-    + ", ".join(phase_output_files[i] for i in (1, 2, 3, 4, 5))
+    "Done. Generated 6 phased bundles: "
+    + ", ".join(phase_output_files[i] for i in (1, 2, 3, 4, 5, 6))
 )

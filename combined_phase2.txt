@@ -1,7 +1,7 @@
 Continuation prompt: Phase 2 - GAM fit and smoothness internals.
-This is part 2/5. Continue from earlier phases; do not restate prior context.
+This is part 2/6. Continue from earlier phases; do not restate prior context.
 
-Included files in this phase: 15
+Included files in this phase: 29
 
 # --- Start of nampy/gam/fit/backends.py ---
 """
@@ -104,6 +104,9 @@ def build_bayes_and_freq_covariances(scale, A_inv, XWX):
 
     H_coef = A_inv @ XWX
     Vp = scale * A_inv
+    # mgcv enforces symmetry on the inverted penalized information matrix
+    # before forming frequentist covariance (`vcov(..., freq=TRUE)` parity).
+    A_inv = 0.5 * (A_inv + A_inv.T)
     Vf = scale * (A_inv @ XWX @ A_inv.T)
     return Vp, Vf, H_coef
 
@@ -862,6 +865,1286 @@ def assign_fit_solution(model, sol: FitCoreSolution):
 
 # --- End of nampy/gam/fit/state.py ---
 
+# --- Start of nampy/gam/penalties/algebra.py ---
+import numpy as np
+
+
+def scale_penalty(basis, penalty):
+    basis = np.asarray(basis, dtype=np.float64)
+    penalty = np.asarray(penalty, dtype=np.float64)
+
+    X_inf_norm = max(np.sum(np.abs(basis), axis=1)) ** 2
+    S_norm = np.linalg.norm(penalty, ord=1)
+
+    if X_inf_norm <= 0 or S_norm <= 0:
+        return penalty.copy()
+
+    norm = S_norm / X_inf_norm
+    return penalty / norm
+
+
+def symmetrize_penalty(P):
+    P = np.asarray(P, dtype=np.float64)
+    return 0.5 * (P + P.T)
+
+
+def penalty_eigendecomposition(P, tol=1e-10):
+    P = symmetrize_penalty(P)
+    evals, U = np.linalg.eigh(P)
+    idx = np.argsort(evals)
+    evals = evals[idx]
+    U = U[:, idx]
+
+    tol_eff = tol * max(1.0, np.max(np.abs(evals)) if evals.size else 1.0)
+    null_mask = evals <= tol_eff
+    pos_mask = ~null_mask
+
+    return {
+        "evals": evals,
+        "U": U,
+        "U0": U[:, null_mask],
+        "U1": U[:, pos_mask],
+        "d_pos": evals[pos_mask],
+        "null_mask": null_mask,
+        "pos_mask": pos_mask,
+        "rank": int(np.sum(pos_mask)),
+        "null_space_dim": int(np.sum(null_mask)),
+        "tol_eff": tol_eff,
+    }
+
+
+def null_space_penalty_from_penalty(P, tol=1e-10):
+    dec = penalty_eigendecomposition(P, tol=tol)
+    U0 = dec["U0"]
+
+    if U0.shape[1] == 0:
+        S0 = np.zeros_like(np.asarray(P, dtype=np.float64))
+        rank = 0
+        null_dim = 0
+    else:
+        S0 = U0 @ U0.T
+        S0 = symmetrize_penalty(S0)
+        rank = int(np.linalg.matrix_rank(S0))
+        null_dim = U0.shape[1]
+
+    return S0, {
+        "rank": rank,
+        "null_space_dim": null_dim,
+        "tol_eff": dec["tol_eff"],
+    }
+
+
+__all__ = [
+    "scale_penalty",
+    "symmetrize_penalty",
+    "penalty_eigendecomposition",
+    "null_space_penalty_from_penalty",
+]
+
+# --- End of nampy/gam/penalties/algebra.py ---
+
+# --- Start of nampy/gam/penalties/subsystem.py ---
+"""
+Canonical penalty metadata and normalisation subsystem (architecture section 3.4).
+
+Every PenaltySpec that leaves a runtime term must pass through
+``normalize_penalty_spec`` before reaching the compiler or fitting code.
+That function is the single source of truth for:
+
+  - symmetrisation of the penalty matrix
+  - rank and null-space dimension computation
+  - validation of sp_mode / sp_value consistency
+
+Higher-level helpers (``make_penalty_spec``, ``build_null_space_selection_spec``)
+build on ``normalize_penalty_spec`` so callers never need to construct raw
+PenaltySpec objects and call normalisation separately.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import numpy as np
+
+from ..design.structures import PenaltySpec
+from .algebra import null_space_penalty_from_penalty, symmetrize_penalty
+
+
+def penalty_rank_null_dim(P: np.ndarray, tol: float = 1e-10) -> tuple[int, int]:
+    """Return (rank, null_space_dim) for a square penalty matrix."""
+    P = np.asarray(P, dtype=np.float64)
+    if P.ndim != 2 or P.shape[0] != P.shape[1]:
+        raise ValueError("Penalty matrices must be square.")
+    if P.shape[0] == 0:
+        return 0, 0
+    evals = np.linalg.eigvalsh(symmetrize_penalty(P))
+    tol_eff = tol * max(1.0, float(np.max(np.abs(evals))))
+    rank = int(np.sum(evals > tol_eff))
+    return rank, int(P.shape[0] - rank)
+
+
+def normalize_penalty_spec(
+    obj: PenaltySpec | np.ndarray, *, default_kind: str = "smooth"
+) -> PenaltySpec:
+    if isinstance(obj, PenaltySpec):
+        spec = obj
+        P = np.asarray(spec.matrix, dtype=np.float64)
+    else:
+        spec = PenaltySpec(matrix=np.asarray(obj, dtype=np.float64), kind=default_kind)
+        P = np.asarray(spec.matrix, dtype=np.float64)
+
+    if P.ndim != 2 or P.shape[0] != P.shape[1]:
+        raise ValueError(
+            f"Penalty matrices must be square 2D arrays, got shape={P.shape}."
+        )
+    P = symmetrize_penalty(P)
+    rank, null_dim = penalty_rank_null_dim(P)
+
+    if spec.sp_mode not in {None, "fixed", "estimate"}:
+        raise ValueError(
+            "PenaltySpec.sp_mode must be one of {None, 'fixed', 'estimate'}."
+        )
+    if spec.sp_mode == "fixed":
+        if spec.sp_value is None:
+            raise ValueError("Fixed penalty overrides require sp_value.")
+        if not np.isfinite(float(spec.sp_value)) or float(spec.sp_value) < 0:
+            raise ValueError("Fixed sp_value must be finite and >= 0.")
+    elif spec.sp_value is not None:
+        raise ValueError("sp_value should be None unless sp_mode == 'fixed'.")
+
+    return PenaltySpec(
+        matrix=P,
+        smoothing_id=spec.smoothing_id,
+        kind=str(spec.kind),
+        rank=(rank if spec.rank is None else spec.rank),
+        null_space_dim=(
+            null_dim if spec.null_space_dim is None else spec.null_space_dim
+        ),
+        is_null_space_penalty=bool(spec.is_null_space_penalty),
+        sp_mode=spec.sp_mode,
+        sp_value=(None if spec.sp_value is None else float(spec.sp_value)),
+        metadata=dict(spec.metadata),
+    )
+
+
+def make_penalty_spec(
+    *,
+    matrix: np.ndarray,
+    smoothing_id: str | None,
+    kind: str,
+    sp_mode: str | None = None,
+    sp_value: float | None = None,
+    is_null_space_penalty: bool = False,
+    metadata: dict[str, Any] | None = None,
+) -> PenaltySpec:
+    return normalize_penalty_spec(
+        PenaltySpec(
+            matrix=np.asarray(matrix, dtype=np.float64),
+            smoothing_id=smoothing_id,
+            kind=str(kind),
+            is_null_space_penalty=bool(is_null_space_penalty),
+            sp_mode=sp_mode,
+            sp_value=sp_value,
+            metadata=dict(metadata or {}),
+        )
+    )
+
+
+def build_null_space_selection_spec(
+    *,
+    main_penalty: np.ndarray,
+    smoothing_id: str | None,
+    tol: float = 1e-10,
+    metadata: dict[str, Any] | None = None,
+) -> PenaltySpec | None:
+    S0, meta = null_space_penalty_from_penalty(main_penalty, tol=tol)
+    if int(meta["rank"]) <= 0:
+        return None
+    return make_penalty_spec(
+        matrix=S0,
+        smoothing_id=smoothing_id,
+        kind="null_space",
+        sp_mode=None,
+        sp_value=None,
+        is_null_space_penalty=True,
+        metadata=dict(metadata or {}),
+    )
+
+
+def merge_smoothing_override(existing, mode, value, *, smoothing_id: str, label: str):
+    if mode is None:
+        return existing
+    candidate = {
+        "mode": str(mode),
+        "value": (None if value is None else float(value)),
+        "labels": [str(label)],
+    }
+    if existing is None:
+        return candidate
+    if existing["mode"] != candidate["mode"]:
+        raise ValueError(
+            f"Conflicting term-level sp overrides for smoothing_id={smoothing_id!r}: "
+            f"got both {existing['mode']!r} and {candidate['mode']!r}."
+        )
+    if candidate["mode"] == "fixed":
+        if not np.isclose(existing["value"], candidate["value"], atol=0.0, rtol=0.0):
+            raise ValueError(
+                f"Conflicting fixed term-level sp overrides for smoothing_id={smoothing_id!r}: "
+                f"{existing['value']} vs {candidate['value']}."
+            )
+    existing["labels"].append(str(label))
+    return existing
+
+
+def default_penalty_id(
+    pred_name: str,
+    term,
+    term_label: str,
+    coef_start: int,
+    local_penalty_index: int,
+    n_penalties: int,
+) -> str:
+    base_id = getattr(term, "smoothing_id", None)
+    if base_id is not None:
+        base_id = str(base_id)
+        return base_id if n_penalties <= 1 else f"{base_id}::{local_penalty_index}"
+    return f"__auto__:{pred_name}:{term_label}:{coef_start}:{local_penalty_index}"
+
+
+__all__ = [
+    "penalty_rank_null_dim",
+    "normalize_penalty_spec",
+    "make_penalty_spec",
+    "build_null_space_selection_spec",
+    "merge_smoothing_override",
+    "default_penalty_id",
+]
+
+# --- End of nampy/gam/penalties/subsystem.py ---
+
+# --- Start of nampy/gam/smoothing_selection/postfit.py ---
+from __future__ import annotations
+
+import numpy as np
+from scipy.stats import norm
+
+from .criteria.dispatch import criterion_gradient, criterion_hessian, criterion_value
+from .criteria.ml_reml import resolve_ml_reml_scoring_backend
+
+
+def _free_smoothing_mask(model) -> np.ndarray:
+    n_sp = int(getattr(model, "n_smoothing_params_", 0) or 0)
+    fixed = getattr(model, "smoothing_fixed_mask_", None)
+    if fixed is None:
+        return np.ones(n_sp, dtype=bool)
+    return ~np.asarray(fixed, dtype=bool)
+
+
+def _free_log_smoothing_params(model) -> np.ndarray:
+    sp = np.asarray(model.smoothing_params, dtype=np.float64).ravel()
+    free_mask = _free_smoothing_mask(model)
+    return np.log(np.clip(sp[free_mask], 1e-300, None))
+
+
+def sp_vcov(model, edge_correct: bool = True, reg: float = 1e-3):
+    del edge_correct
+    if not getattr(model, "_fitted", False):
+        raise RuntimeError("Model is not fitted.")
+
+    method = str(getattr(model, "_optim_method", "")).lower()
+    if method not in {"ml", "reml", "laml"}:
+        return None
+
+    backend = resolve_ml_reml_scoring_backend(model, method=method)
+    result = getattr(model, "_optim_result", None)
+    H = None if result is None else getattr(result, "hess", None)
+    if backend in {"pirls_laplace", "pirls_laplace_dynamic"}:
+        H = None
+    if H is None:
+        log_sp = _free_log_smoothing_params(model)
+        H = np.asarray(
+            model._criterion_hessian(model.y_, log_sp, method=method), dtype=np.float64
+        )
+    else:
+        H = np.asarray(H, dtype=np.float64)
+
+    if H.ndim != 2 or H.shape[0] != H.shape[1]:
+        raise ValueError("Smoothing Hessian must be square.")
+    if H.shape[0] == 0:
+        return np.empty((0, 0), dtype=np.float64)
+    return np.linalg.solve(H + float(reg), np.eye(H.shape[0], dtype=np.float64))
+
+
+def gam_vcomp(model, *, rescale: bool = False, conf_lev: float = 0.95):
+    if not getattr(model, "_fitted", False):
+        raise RuntimeError("Model is not fitted.")
+    if rescale:
+        raise NotImplementedError(
+            "gam_vcomp(rescale=True) requires stored penalty rescaling factors, which are not yet retained."
+        )
+
+    sp = np.asarray(model.smoothing_params, dtype=np.float64).ravel()
+    if sp.size == 0:
+        return None
+
+    scale = float(model.scale_)
+    vc = scale / sp
+    sd = np.sqrt(vc)
+    names = [f"sp_{i}" for i in range(len(sp))]
+    method = str(getattr(model, "_optim_method", "")).lower()
+    if method not in {"ml", "reml", "laml"}:
+        return {"vc": sd, "names": names}
+
+    result = getattr(model, "_optim_result", None)
+    H = None if result is None else getattr(result, "hess", None)
+    if H is None:
+        log_sp = _free_log_smoothing_params(model)
+        H = np.asarray(
+            model._criterion_hessian(model.y_, log_sp, method=method), dtype=np.float64
+        )
+    else:
+        H = np.asarray(H, dtype=np.float64)
+
+    if H.ndim != 2 or H.shape[0] != H.shape[1]:
+        return {"vc": sd, "names": names}
+    if H.shape[0] == 0:
+        return {"vc": sd, "names": names}
+
+    evals, evecs = np.linalg.eigh(H)
+    keep = evals > np.max(evals) * np.finfo(np.float64).eps ** 0.75
+    rank = int(np.sum(keep))
+    inv_vals = np.zeros_like(evals)
+    inv_vals[keep] = 1.0 / evals[keep]
+    V = evecs @ (inv_vals[:, None] * evecs.T)
+
+    crit = float(norm.ppf(1.0 - (1.0 - float(conf_lev)) / 2.0))
+    lsd = np.log(sd[_free_smoothing_mask(model)])
+    J = -0.5 * np.eye(V.shape[0], dtype=np.float64)
+    V_lsd = J @ V @ J.T
+    sd_lsd = np.sqrt(np.clip(np.diag(V_lsd), 0.0, None))
+    ci = np.column_stack(
+        [
+            np.exp(np.clip(lsd, -700.0, 700.0)),
+            np.exp(np.clip(lsd - crit * sd_lsd, -700.0, 700.0)),
+            np.exp(np.clip(lsd + crit * sd_lsd, -700.0, 700.0)),
+        ]
+    )
+    free_idx = np.flatnonzero(_free_smoothing_mask(model))
+    return {
+        "vc": ci,
+        "names": [names[i] for i in free_idx],
+        "rank": rank,
+        "rank_hess": int(H.shape[0]),
+        "conf_lev": float(conf_lev),
+        "all": sd,
+        "all_names": names,
+    }
+
+
+def one_se_rule(model, candidate_indices: list[int] | None = None) -> np.ndarray:
+    if not getattr(model, "_fitted", False):
+        raise RuntimeError("Model is not fitted.")
+
+    V = sp_vcov(model, edge_correct=False)
+    if V is None:
+        raise RuntimeError("one_se_rule requires ML/REML/LAML smoothing covariance.")
+
+    free_idx = np.flatnonzero(_free_smoothing_mask(model))
+    if candidate_indices is None:
+        sub_idx = np.arange(free_idx.size, dtype=int)
+    else:
+        candidate_indices = np.asarray(candidate_indices, dtype=int).ravel()
+        pos = []
+        for idx in candidate_indices:
+            hit = np.flatnonzero(free_idx == int(idx))
+            if hit.size == 0:
+                continue
+            pos.append(int(hit[0]))
+        if len(pos) == 0:
+            raise ValueError(
+                "candidate_indices does not contain any estimated smoothing parameters."
+            )
+        sub_idx = np.asarray(pos, dtype=int)
+
+    V_sub = np.asarray(V[np.ix_(sub_idx, sub_idx)], dtype=np.float64)
+    d = np.sqrt(np.clip(np.diag(V_sub), 0.0, None))
+    if np.any(d <= 0.0):
+        raise RuntimeError(
+            "one_se_rule requires positive smoothing-parameter standard errors."
+        )
+    alpha = float(np.sqrt(2.0 * len(d)) / (d @ np.linalg.solve(V_sub, d)))
+    step = alpha * d
+
+    sp = np.asarray(model.smoothing_params, dtype=np.float64).copy()
+    log_sp = np.log(np.clip(sp[free_idx], 1e-300, None))
+    log_sp[sub_idx] = log_sp[sub_idx] + step
+    sp[free_idx] = np.exp(log_sp)
+    return sp
+
+
+def optimizer_endpoint_diagnostics(
+    model, *, conv_tol: float = 1e-6, fd_step: float = 1e-3
+):
+    if not getattr(model, "_fitted", False):
+        raise RuntimeError("Model is not fitted.")
+
+    method = str(getattr(model, "_optim_method", "") or "").lower()
+    n_sp = int(getattr(model, "n_smoothing_params_", 0) or 0)
+    result = getattr(model, "_optim_result", None)
+    if method in {"", "fixed"} or n_sp == 0:
+        return None
+
+    free_mask = _free_smoothing_mask(model)
+    x = _free_log_smoothing_params(model)
+    n_free = int(x.size)
+    if n_free == 0:
+        return None
+
+    min_sp = (
+        np.zeros(n_sp, dtype=np.float64)
+        if getattr(model, "min_sp_", None) is None
+        else np.asarray(model.min_sp_, dtype=np.float64)
+    )
+    bounds = []
+    for lower_sp in min_sp[free_mask]:
+        if lower_sp > 0:
+            lo = max(float(model.sp_log_bounds[0]), float(np.log(lower_sp)))
+        else:
+            lo = float(model.sp_log_bounds[0])
+        bounds.append((lo, float(model.sp_log_bounds[1])))
+    bounds = np.asarray(bounds, dtype=np.float64)
+
+    grad = None
+    if result is not None and getattr(result, "jac", None) is not None:
+        grad = np.asarray(result.jac, dtype=np.float64).ravel()
+        if grad.shape != x.shape or not np.all(np.isfinite(grad)):
+            grad = None
+    if grad is None:
+        grad = np.asarray(
+            criterion_gradient(model, model.y_, x, method=method), dtype=np.float64
+        ).ravel()
+
+    hess = None
+    if result is not None and getattr(result, "hess", None) is not None:
+        hess = np.asarray(result.hess, dtype=np.float64)
+        if hess.shape != (n_free, n_free) or not np.all(np.isfinite(hess)):
+            hess = None
+    if hess is None:
+        try:
+            hess = np.asarray(
+                criterion_hessian(model, model.y_, x, method=method), dtype=np.float64
+            )
+            if hess.shape != (n_free, n_free) or not np.all(np.isfinite(hess)):
+                hess = None
+        except Exception:
+            hess = None
+
+    score = getattr(model, "smoothing_score_", None)
+    if score is None or not np.isfinite(float(score)):
+        score = float(criterion_value(model, model.y_, x, method=method))
+    else:
+        score = float(score)
+    score_scale = 1.0 + abs(score)
+    tol = float(conv_tol) * score_scale
+    factor_smooth_shared_ridge_stabilized = bool(
+        result is not None
+        and getattr(result, "factor_smooth_shared_ridge_stabilized", False)
+    )
+    factor_smooth_shared_ridge_shift = (
+        None
+        if result is None
+        else getattr(result, "factor_smooth_shared_ridge_shift", None)
+    )
+
+    lower = bounds[:, 0]
+    upper = bounds[:, 1]
+    at_lower = x <= (lower + 1e-10)
+    at_upper = x >= (upper - 1e-10)
+
+    projected_grad = grad.copy()
+    projected_grad[at_lower] = np.minimum(projected_grad[at_lower], 0.0)
+    projected_grad[at_upper] = np.maximum(projected_grad[at_upper], 0.0)
+
+    eigvals = None
+    shared_curvature = None
+    min_abs_eig = None
+    if hess is not None:
+        hess_sym = 0.5 * (hess + hess.T)
+        eigvals = np.linalg.eigvalsh(hess_sym)
+        min_abs_eig = float(np.min(np.abs(eigvals))) if eigvals.size else 0.0
+        u = np.full(n_free, 1.0 / np.sqrt(n_free), dtype=np.float64)
+        shared_curvature = float(u @ hess_sym @ u)
+    else:
+        u = np.full(n_free, 1.0 / np.sqrt(n_free), dtype=np.float64)
+
+    shared_slope = float(u @ grad)
+    max_down = float(np.min((x - lower) / u)) if n_free > 0 else 0.0
+    max_up = float(np.min((upper - x) / u)) if n_free > 0 else 0.0
+    shared_step = min(float(fd_step), max(0.0, max_down), max(0.0, max_up))
+    shared_fd_slope = None
+    shared_fd_curvature = None
+    if shared_step > 0.0:
+        f0 = score
+        fp = float(criterion_value(model, model.y_, x + shared_step * u, method=method))
+        fm = float(criterion_value(model, model.y_, x - shared_step * u, method=method))
+        shared_fd_slope = float((fp - fm) / (2.0 * shared_step))
+        shared_fd_curvature = float((fp - 2.0 * f0 + fm) / (shared_step * shared_step))
+
+    hess_scale = (
+        float(np.max(np.abs(eigvals)))
+        if eigvals is not None and eigvals.size > 0
+        else 0.0
+    )
+    flat_ridge_suspected = bool(
+        np.linalg.norm(projected_grad, ord=np.inf) <= max(tol * 5.0, 1e-8)
+        and hess is not None
+        and (
+            (min_abs_eig is not None and min_abs_eig <= max(1e-8, hess_scale * 1e-6))
+            or (
+                shared_curvature is not None
+                and abs(shared_curvature) <= max(1e-8, hess_scale * 1e-6)
+            )
+        )
+    )
+    if factor_smooth_shared_ridge_stabilized:
+        flat_ridge_suspected = True
+
+    return {
+        "criterion_name": method,
+        "criterion_backend": resolve_ml_reml_scoring_backend(model, method=method),
+        "optimizer_success": (
+            None if result is None else bool(getattr(result, "success", False))
+        ),
+        "optimizer_message": (
+            None if result is None else str(getattr(result, "message", ""))
+        ),
+        "joint_gaussian_reml_outer": bool(
+            result is not None and getattr(result, "joint_gaussian_reml_outer", False)
+        ),
+        "joint_negbin_reml_outer": bool(
+            result is not None and getattr(result, "joint_negbin_reml_outer", False)
+        ),
+        "joint_negbin_postprocessed": bool(
+            result is not None and getattr(result, "joint_negbin_postprocessed", False)
+        ),
+        "joint_negbin_flat_ridge_stabilized": bool(
+            result is not None
+            and getattr(result, "joint_negbin_flat_ridge_stabilized", False)
+        ),
+        "joint_log_theta": (
+            None if result is None else getattr(result, "joint_log_theta", None)
+        ),
+        "joint_negbin_initial_log_theta": (
+            None
+            if result is None
+            else getattr(result, "joint_negbin_initial_log_theta", None)
+        ),
+        "joint_negbin_optimizer_message": (
+            None if result is None else getattr(result, "joint_negbin_message", None)
+        ),
+        "joint_negbin_optimizer_fun": (
+            None if result is None else getattr(result, "joint_negbin_fun", None)
+        ),
+        "joint_negbin_optimizer_nfev": (
+            None if result is None else getattr(result, "joint_negbin_nfev", None)
+        ),
+        "joint_negbin_optimizer_njev": (
+            None if result is None else getattr(result, "joint_negbin_njev", None)
+        ),
+        "family_theta": (
+            float(model.family.theta) if hasattr(model.family, "theta") else None
+        ),
+        "n_free_smoothing_params": n_free,
+        "log_smoothing_params": x.tolist(),
+        "bounds": bounds.tolist(),
+        "gradient": grad.tolist(),
+        "projected_gradient": projected_grad.tolist(),
+        "gradient_inf_norm": float(np.linalg.norm(grad, ord=np.inf)),
+        "projected_gradient_inf_norm": float(
+            np.linalg.norm(projected_grad, ord=np.inf)
+        ),
+        "stationary_by_raw_gradient": bool(np.linalg.norm(grad, ord=np.inf) <= tol),
+        "stationary_by_projected_gradient": bool(
+            np.linalg.norm(projected_grad, ord=np.inf) <= tol
+        ),
+        "boundary_limited": bool(
+            np.any(at_lower | at_upper)
+            and np.linalg.norm(projected_grad, ord=np.inf) <= tol
+            and np.linalg.norm(grad, ord=np.inf) > tol
+        ),
+        "at_lower_bound": at_lower.tolist(),
+        "at_upper_bound": at_upper.tolist(),
+        "hessian": None if hess is None else hess.tolist(),
+        "hessian_eigenvalues": None if eigvals is None else eigvals.tolist(),
+        "min_abs_hessian_eigenvalue": min_abs_eig,
+        "shared_shift_directional_derivative": shared_slope,
+        "shared_shift_curvature": shared_curvature,
+        "shared_shift_fd_step": (None if shared_step <= 0.0 else float(shared_step)),
+        "shared_shift_fd_slope": shared_fd_slope,
+        "shared_shift_fd_curvature": shared_fd_curvature,
+        "factor_smooth_shared_ridge_stabilized": factor_smooth_shared_ridge_stabilized,
+        "factor_smooth_shared_ridge_shift": factor_smooth_shared_ridge_shift,
+        "flat_ridge_suspected": flat_ridge_suspected,
+    }
+
+
+__all__ = ["sp_vcov", "gam_vcomp", "one_se_rule", "optimizer_endpoint_diagnostics"]
+
+# --- End of nampy/gam/smoothing_selection/postfit.py ---
+
+# --- Start of nampy/gam/smoothing_selection/reparam.py ---
+"""
+Penalty reparameterisation utilities.
+
+Eigendecomposition-based reparameterisation splits a smooth term's basis into
+a null-space component (penalty eigenvalue ≈ 0) and a penalised component
+(positive eigenvalue).  This is used to convert the penalised regression
+problem into a mixed model form ``y = X_fix beta + Z_rand u + epsilon``,
+which simplifies REML score computation.
+
+:func:`reparameterize_smooth`
+    Split a single smooth basis ``B`` with penalty ``P`` into fixed and random
+    design sub-matrices.
+
+:func:`_matrix_sqrt_psd`
+    Symmetric square root of a PSD matrix (used for penalty scaling).
+"""
+
+from dataclasses import dataclass
+from typing import Dict, List, Optional
+
+import numpy as np
+from scipy.linalg import qr as scipy_qr
+
+
+@dataclass
+class ReparamState:
+    X_fix: Optional[np.ndarray]
+    Z_rand: Optional[np.ndarray]
+    ZtZ_rand: Optional[np.ndarray]
+    sl_blocks: Optional[List["SlBlock"]]
+
+
+@dataclass
+class SlBlock:
+    term_index: int
+    repara: bool
+    smoothing_index: Optional[int]
+    start: int
+    stop: int
+    ncol: int
+    blockSize: int
+    lambda_scaling: float = 1.0
+    kind: str = "smooth"
+    is_null_space_penalty: bool = False
+
+
+def _assign_reparam_state(model, state: Optional[ReparamState]) -> Optional[ReparamState]:
+    model.reparam_state_ = state
+    model.sl_blocks_ = None if state is None else list(state.sl_blocks or [])
+    return state
+
+
+def ensure_penalty_reparameterization_state(model) -> ReparamState:
+    state = getattr(model, "reparam_state_", None)
+    if state is None:
+        state = model._build_penalty_reparameterized_system()
+    if state is None:
+        raise RuntimeError("Penalty reparameterization state is unavailable.")
+    return state
+
+
+def iter_sl_random_blocks(state: ReparamState):
+    for sl_block in list(state.sl_blocks or []):
+        if sl_block.repara:
+            yield sl_block
+
+
+def sl_group_indices(state: ReparamState) -> Dict[int, np.ndarray]:
+    groups: Dict[int, list[int]] = {}
+    for sl_block in iter_sl_random_blocks(state):
+        if sl_block.smoothing_index is None:
+            continue
+        sp_idx = int(sl_block.smoothing_index)
+        groups.setdefault(sp_idx, []).extend(
+            range(int(sl_block.start), int(sl_block.stop))
+        )
+    return {
+        int(sp_idx): np.asarray(sorted(idxs), dtype=np.int64)
+        for sp_idx, idxs in groups.items()
+    }
+
+
+def sl_lambda_vector(state: ReparamState, sp: np.ndarray) -> np.ndarray:
+    if not state.sl_blocks:
+        return np.empty((0,), dtype=np.float64)
+    lam_parts = []
+    for sl_block in iter_sl_random_blocks(state):
+        if sl_block.smoothing_index is None or int(sl_block.blockSize) == 0:
+            continue
+        sp_val = float(sp[int(sl_block.smoothing_index)])
+        lam_parts.append(
+            np.full(
+                int(sl_block.blockSize),
+                sp_val * float(sl_block.lambda_scaling),
+                dtype=np.float64,
+            )
+        )
+    return np.concatenate(lam_parts) if lam_parts else np.empty((0,), dtype=np.float64)
+
+
+def sl_penalty_rank_scaling_derivatives(
+    state: ReparamState, n_smoothing_params: int
+) -> tuple[np.ndarray, np.ndarray]:
+    detS1 = np.zeros(int(n_smoothing_params), dtype=np.float64)
+    detS2 = np.zeros((int(n_smoothing_params), int(n_smoothing_params)), dtype=np.float64)
+    if not state.sl_blocks:
+        return detS1, detS2
+    for sl_block in iter_sl_random_blocks(state):
+        j = -1 if sl_block.smoothing_index is None else int(sl_block.smoothing_index)
+        n_pen = int(sl_block.blockSize)
+        if 0 <= j < int(n_smoothing_params) and n_pen > 0:
+            detS1[j] += float(n_pen)
+    return detS1, detS2
+
+
+def reparameterize_smooth(B, P, tol=1e-10):
+    P_sym = 0.5 * (P + P.T)
+    evals, U = np.linalg.eigh(P_sym)
+    idx = np.argsort(evals)
+    evals = evals[idx]
+    U = U[:, idx]
+    tol_eff = tol * max(1.0, np.max(np.abs(evals)))
+    null_mask = evals <= tol_eff
+    pos_mask = ~null_mask
+    U0 = U[:, null_mask]
+    U1 = U[:, pos_mask]
+    d_pos = evals[pos_mask]
+    B0 = B @ U0
+    B1 = B @ U1
+    Zr = B1 / np.sqrt(d_pos)[np.newaxis, :] if d_pos.size else B1
+    return (
+        B0,
+        Zr,
+        {
+            "U0": U0,
+            "U1": U1,
+            "d_pos": d_pos,
+            "n_null": int(null_mask.sum()),
+            "n_pen": int(pos_mask.sum()),
+        },
+    )
+
+
+def _matrix_sqrt_psd(M, tol=1e-12):
+    M = np.asarray(M, dtype=np.float64)
+    if M.size == 0:
+        return np.empty((0, 0), dtype=np.float64)
+    M = 0.5 * (M + M.T)
+    evals, vecs = np.linalg.eigh(M)
+    evals = np.clip(evals, 0.0, None)
+    sqrt_evals = np.sqrt(evals)
+    return vecs @ np.diag(sqrt_evals)
+
+
+def _penalty_support_mask(P, tol=1e-12):
+    P = np.asarray(P, dtype=np.float64)
+    if P.size == 0:
+        return np.zeros((0,), dtype=bool)
+    row_nz = np.any(np.abs(P) > tol, axis=1)
+    col_nz = np.any(np.abs(P) > tol, axis=0)
+    return np.asarray(row_nz | col_nz, dtype=bool)
+
+
+def _term_penalty_components(primary, null_space):
+    if len(primary) == 0:
+        return True, [], {}
+
+    supports = [
+        {
+            "pb": pb,
+            "mask": _penalty_support_mask(pb.matrix),
+        }
+        for pb in primary
+    ]
+
+    components = []
+    assigned = set()
+    null_assigned = set()
+
+    for idx in range(len(supports)):
+        if idx in assigned:
+            continue
+        queue = [idx]
+        assigned.add(idx)
+        group = [supports[idx]["pb"]]
+        union_mask = supports[idx]["mask"].copy()
+
+        while queue:
+            current = queue.pop()
+            current_mask = supports[current]["mask"]
+            for j in range(len(supports)):
+                if j in assigned:
+                    continue
+                if np.any(current_mask & supports[j]["mask"]):
+                    assigned.add(j)
+                    queue.append(j)
+                    group.append(supports[j]["pb"])
+                    union_mask |= supports[j]["mask"]
+
+        comp_null = []
+        comp_null_masks = []
+        for j, pb0 in enumerate(null_space):
+            if j in null_assigned:
+                continue
+            null_mask = _penalty_support_mask(pb0.matrix)
+            if np.any(union_mask & null_mask):
+                if any(np.any(null_mask & mask) for mask in comp_null_masks):
+                    return False, [], {}
+                comp_null.append(pb0)
+                comp_null_masks.append(null_mask)
+                null_assigned.add(j)
+
+        components.append(
+            {
+                "primary": group,
+                "support_mask": union_mask,
+                "null": comp_null,
+            }
+        )
+
+    if len(null_space) - len(null_assigned) > 0:
+        if len(components) != 1:
+            return False, [], {}
+        residual_masks = []
+        for j, pb0 in enumerate(null_space):
+            if j in null_assigned:
+                continue
+            null_mask = _penalty_support_mask(pb0.matrix)
+            if any(np.any(null_mask & mask) for mask in residual_masks):
+                return False, [], {}
+            residual_masks.append(null_mask)
+            components[0]["null"].append(pb0)
+            null_assigned.add(j)
+
+    if len(null_space) - len(null_assigned) > 0:
+        return False, [], {}
+
+    null_map = {}
+    for comp in components:
+        if len(comp["null"]) == 1 and len(comp["primary"]) == 1:
+            null_map[id(comp["primary"][0])] = comp["null"][0]
+    return True, components, null_map
+
+
+def can_use_simple_ml_reml_structure(model):
+    """
+    Conservative structural gate for the current ML/REML paths.
+
+    It is enabled only when every penalized smooth term contributes exactly one
+    primary smooth penalty, plus at most one null-space penalty acting on the
+    same term. This covers shrinkage / ``select``-style terms while still
+    excluding genuinely overlapping multi-penalty structures.
+    """
+    if model.design_ is None:
+        return False
+
+    for tb in model.term_blocks_:
+        matches = [pb for pb in model.penalty_blocks_ if pb.coef_slice == tb.coef_slice]
+        primary_ids = {
+            id(pb)
+            for pb in matches
+            if pb.kind in {"smooth", "random_effect"} and not pb.is_null_space_penalty
+        }
+        null_ids = {id(pb) for pb in matches if pb.is_null_space_penalty}
+
+        if len(matches) == 0:
+            continue
+
+        primary = [
+            pb
+            for pb in matches
+            if pb.kind in {"smooth", "random_effect"} and not pb.is_null_space_penalty
+        ]
+        null_space = [pb for pb in matches if pb.is_null_space_penalty]
+        extras = [
+            pb for pb in matches if id(pb) not in primary_ids and id(pb) not in null_ids
+        ]
+
+        if len(primary) < 1:
+            return False
+        if len(extras) > 0:
+            return False
+        ok, _, _ = _term_penalty_components(primary, null_space)
+        if not ok:
+            return False
+
+    return True
+
+
+def can_use_exact_gaussian_ml_reml(model):
+    if not model._uses_closed_form_solver():
+        return False
+    if model.design_ is None:
+        return False
+
+    for tb in model.term_blocks_:
+        matches = [pb for pb in model.penalty_blocks_ if pb.coef_slice == tb.coef_slice]
+        if not matches:
+            continue
+
+        primary = [
+            pb
+            for pb in matches
+            if pb.kind in {"smooth", "random_effect"} and not pb.is_null_space_penalty
+        ]
+        null_space = [pb for pb in matches if pb.is_null_space_penalty]
+        ok, components, _ = _term_penalty_components(primary, null_space)
+        if not ok:
+            return False
+        if any(len(comp["primary"]) != 1 for comp in components):
+            return False
+
+    return True
+
+
+def build_penalty_reparameterized_system(model):
+    if model.design_ is None:
+        return _assign_reparam_state(model, None)
+
+    fix_blocks = []
+    if model.fit_intercept:
+        fix_blocks.append(np.ones((model.n_samples_, 1), dtype=np.float64))
+
+    rand_blocks = []
+    sl_blocks: list[SlBlock] = []
+    rand_start = 0
+
+    for i, tb in enumerate(model.term_blocks_):
+        matches = [pb for pb in model.penalty_blocks_ if pb.coef_slice == tb.coef_slice]
+        B = tb.basis_train
+        term_rand_start = rand_start
+        primary_ids = {
+            id(pb)
+            for pb in matches
+            if pb.kind in {"smooth", "random_effect"} and not pb.is_null_space_penalty
+        }
+        null_ids = {id(pb) for pb in matches if pb.is_null_space_penalty}
+
+        if len(matches) == 0:
+            if B.shape[1] > 0:
+                fix_blocks.append(B)
+
+            sl_blocks.append(
+                SlBlock(
+                    term_index=i,
+                    repara=False,
+                    smoothing_index=None,
+                    start=int(term_rand_start),
+                    stop=int(term_rand_start),
+                    ncol=int(B.shape[1]),
+                    blockSize=0,
+                )
+            )
+            continue
+
+        primary = [
+            pb
+            for pb in matches
+            if pb.kind in {"smooth", "random_effect"} and not pb.is_null_space_penalty
+        ]
+        null_space = [pb for pb in matches if pb.is_null_space_penalty]
+        extras = [
+            pb for pb in matches if id(pb) not in primary_ids and id(pb) not in null_ids
+        ]
+
+        if len(primary) < 1 or len(extras) > 0:
+            raise NotImplementedError(
+                "Current ML/REML reparameterization is enabled only for terms with "
+                "at least one primary smooth penalty and disjoint primary supports. General "
+                "overlapping multi-penalty terms are not yet implemented in this path."
+            )
+
+        ok, components, _ = _term_penalty_components(primary, null_space)
+        if not ok:
+            raise NotImplementedError(
+                "Current ML/REML reparameterization requires disjoint support for "
+                "multiple primary penalties on a term."
+            )
+
+        rand_blocks_term = []
+        covered_mask = np.zeros(B.shape[1], dtype=bool)
+        for comp in components:
+            primaries = list(comp["primary"])
+            pb0_list = list(comp["null"])
+            support_mask = np.asarray(comp["support_mask"], dtype=bool)
+            if len(components) == 1:
+                local_idx = np.arange(B.shape[1], dtype=np.int64)
+            else:
+                local_idx = np.flatnonzero(support_mask)
+            covered_mask[local_idx] = True
+            if local_idx.size == 0:
+                continue
+
+            B_local = B[:, local_idx]
+            P_sum = np.zeros((local_idx.size, local_idx.size), dtype=np.float64)
+            P_loc_list = []
+            for pb in primaries:
+                P_loc = np.asarray(pb.matrix, dtype=np.float64)[
+                    np.ix_(local_idx, local_idx)
+                ]
+                P_sum += P_loc
+                P_loc_list.append(P_loc)
+            evals = np.linalg.eigvalsh(0.5 * (P_sum + P_sum.T))
+            tol = 1e-10 * max(1.0, np.max(np.abs(evals)))
+            pos = evals[evals > tol]
+            B0_main, Zr_main, meta = reparameterize_smooth(B_local, P_sum)
+            extra_meta = None
+            B0_use = B0_main
+            comp_rank = int(meta["n_pen"])
+            comp_logdet = float(np.sum(np.log(pos)) if len(pos) > 0 else 0.0)
+
+            if Zr_main.shape[1] > 0:
+                if len(primaries) == 1:
+                    pb = primaries[0]
+                    Z_block = np.asarray(Zr_main, dtype=np.float64)
+                    n_pen = Z_block.shape[1]
+                    rand_blocks.append(Z_block)
+                    block_slice = slice(rand_start, rand_start + n_pen)
+                    rand_blocks_term.append(
+                        {
+                            "term_index": i,
+                            "kind": str(pb.kind),
+                            "smoothing_index": int(pb.smoothing_index),
+                            "slice": block_slice,
+                            "n_pen": int(n_pen),
+                            "is_null_space_penalty": False,
+                        }
+                    )
+                    rand_start += n_pen
+                else:
+                    U_range = np.asarray(meta["U1"], dtype=np.float64)
+                    if U_range.shape[1] > 0:
+                        for idx_pb, pb in enumerate(primaries):
+                            P_proj = U_range.T @ (P_loc_list[idx_pb] @ U_range)
+                            P_proj = 0.5 * (P_proj + P_proj.T)
+                            norm_val = float(np.linalg.norm(P_proj, ord=2))
+                            if norm_val <= 0:
+                                norm_val = 1.0
+                            P_norm = P_proj / norm_val
+                            R = _matrix_sqrt_psd(P_norm)
+                            if R.size == 0:
+                                continue
+                            col_norm = np.linalg.norm(R, axis=0)
+                            keep = col_norm > 1e-14
+                            if not np.any(keep):
+                                continue
+                            R = R[:, keep]
+                            Z_block = np.asarray(Zr_main @ R, dtype=np.float64)
+                            n_pen = Z_block.shape[1]
+                            if n_pen == 0:
+                                continue
+                            rand_blocks.append(Z_block)
+                            block_slice = slice(rand_start, rand_start + n_pen)
+                            rand_blocks_term.append(
+                                {
+                                    "term_index": i,
+                                    "kind": "smooth",
+                                    "smoothing_index": int(pb.smoothing_index),
+                                    "slice": block_slice,
+                                    "n_pen": int(n_pen),
+                                    "is_null_space_penalty": False,
+                                    "lambda_scaling": norm_val,
+                                }
+                            )
+                            rand_start += n_pen
+
+            if pb0_list and meta["n_null"] > 0:
+                U0 = np.asarray(meta["U0"], dtype=np.float64)
+                B_null = B_local @ U0
+                if len(pb0_list) == 1:
+                    pb0 = pb0_list[0]
+                    P0_local = np.asarray(pb0.matrix, dtype=np.float64)[
+                        np.ix_(local_idx, local_idx)
+                    ]
+                    P0_null = U0.T @ P0_local @ U0
+                    B0_extra, Zr_extra, extra_meta = reparameterize_smooth(
+                        B_null, P0_null
+                    )
+                    B0_use = B0_extra
+                    comp_rank += int(extra_meta["n_pen"])
+                    comp_logdet += float(
+                        np.sum(np.log(extra_meta["d_pos"]))
+                        if extra_meta["d_pos"].size > 0
+                        else 0.0
+                    )
+                    if Zr_extra.shape[1] > 0:
+                        Z_null = np.asarray(Zr_extra, dtype=np.float64)
+                        rand_blocks.append(Z_null)
+                        block_slice = slice(rand_start, rand_start + Z_null.shape[1])
+                        rand_blocks_term.append(
+                            {
+                                "term_index": i,
+                                "kind": str(pb0.kind),
+                                "smoothing_index": int(pb0.smoothing_index),
+                                "slice": block_slice,
+                                "n_pen": int(Z_null.shape[1]),
+                                "is_null_space_penalty": True,
+                            }
+                        )
+                        rand_start += Z_null.shape[1]
+                else:
+                    covered_null = np.zeros(B_null.shape[1], dtype=bool)
+                    extra_meta = []
+                    B0_null_parts = []
+                    B0_use = np.empty((B_local.shape[0], 0), dtype=np.float64)
+                    for pb0 in pb0_list:
+                        P0_local = np.asarray(pb0.matrix, dtype=np.float64)[
+                            np.ix_(local_idx, local_idx)
+                        ]
+                        P0_null = 0.5 * (
+                            U0.T @ P0_local @ U0 + (U0.T @ P0_local @ U0).T
+                        )
+                        null_support = _penalty_support_mask(P0_null)
+                        idx0 = np.flatnonzero(null_support)
+                        if idx0.size == 0:
+                            continue
+                        covered_null[idx0] = True
+                        B_null_local = B_null[:, idx0]
+                        P_null_local = P0_null[np.ix_(idx0, idx0)]
+                        B0_part, Zr_part, meta0 = reparameterize_smooth(
+                            B_null_local, P_null_local
+                        )
+                        extra_meta.append(
+                            {
+                                "smoothing_index": int(pb0.smoothing_index),
+                                "meta": meta0,
+                                "support_index": idx0,
+                            }
+                        )
+                        comp_rank += int(meta0["n_pen"])
+                        comp_logdet += float(
+                            np.sum(np.log(meta0["d_pos"]))
+                            if meta0["d_pos"].size > 0
+                            else 0.0
+                        )
+                        if B0_part.shape[1] > 0:
+                            B0_null_parts.append(B0_part)
+                        if Zr_part.shape[1] > 0:
+                            Z_null = np.asarray(Zr_part, dtype=np.float64)
+                            rand_blocks.append(Z_null)
+                            block_slice = slice(
+                                rand_start, rand_start + Z_null.shape[1]
+                            )
+                            rand_blocks_term.append(
+                                {
+                                    "term_index": i,
+                                    "kind": str(pb0.kind),
+                                    "smoothing_index": int(pb0.smoothing_index),
+                                    "slice": block_slice,
+                                    "n_pen": int(Z_null.shape[1]),
+                                    "is_null_space_penalty": True,
+                                }
+                            )
+                            rand_start += Z_null.shape[1]
+                    residual_null = np.flatnonzero(~covered_null)
+                    if residual_null.size > 0:
+                        B0_null_parts.append(B_null[:, residual_null])
+                    if B0_null_parts:
+                        B0_use = np.column_stack(B0_null_parts)
+
+            if B0_use.shape[1] > 0:
+                fix_blocks.append(B0_use)
+
+        # For multi-primary disjoint decomposition, keep any residual columns
+        # (outside all penalty supports) as fixed effects.
+        if len(components) > 1:
+            residual_idx = np.flatnonzero(~covered_mask)
+            if residual_idx.size > 0:
+                B_resid = B[:, residual_idx]
+                if B_resid.shape[1] > 0:
+                    fix_blocks.append(B_resid)
+
+        if rand_blocks_term:
+            for block in rand_blocks_term:
+                sl = block["slice"]
+                sl_blocks.append(
+                    SlBlock(
+                        term_index=i,
+                        repara=True,
+                        smoothing_index=int(block["smoothing_index"]),
+                        start=int(sl.start),
+                        stop=int(sl.stop),
+                        ncol=int(B.shape[1]),
+                        blockSize=int(block["n_pen"]),
+                        lambda_scaling=float(block.get("lambda_scaling", 1.0)),
+                        kind=str(block.get("kind", "smooth")),
+                        is_null_space_penalty=bool(
+                            block.get("is_null_space_penalty", False)
+                        ),
+                    )
+                )
+        else:
+            sl_blocks.append(
+                SlBlock(
+                    term_index=i,
+                    repara=False,
+                    smoothing_index=None,
+                    start=int(term_rand_start),
+                    stop=int(term_rand_start),
+                    ncol=int(B.shape[1]),
+                    blockSize=0,
+                )
+            )
+    if fix_blocks:
+        X_fix_raw = np.column_stack(fix_blocks)
+        _Q, R, piv = scipy_qr(X_fix_raw, pivoting=True)
+
+        if R.size == 0:
+            rank = 0
+            keep_cols = np.array([], dtype=int)
+        else:
+            diag_R = np.abs(np.diag(R[: min(X_fix_raw.shape), :]))
+            if diag_R.size == 0:
+                rank = 0
+                keep_cols = np.array([], dtype=int)
+            else:
+                rank_tol = (
+                    max(X_fix_raw.shape) * np.finfo(float).eps * diag_R[0]
+                    if diag_R[0] > 0
+                    else 1e-12
+                )
+                rank = int(np.sum(diag_R > rank_tol))
+                keep_cols = np.sort(piv[:rank])
+
+        X_fix = (
+            X_fix_raw[:, keep_cols]
+            if rank > 0
+            else np.empty((model.n_samples_, 0), dtype=np.float64)
+        )
+    else:
+        X_fix = np.empty((model.n_samples_, 0), dtype=np.float64)
+
+    if rand_blocks:
+        Z_rand = np.column_stack(rand_blocks)
+    else:
+        Z_rand = np.empty((model.n_samples_, 0), dtype=np.float64)
+
+    ZtZ_rand = Z_rand.T @ Z_rand
+    state = ReparamState(
+        X_fix=X_fix,
+        Z_rand=Z_rand,
+        ZtZ_rand=ZtZ_rand,
+        sl_blocks=sl_blocks,
+    )
+    return _assign_reparam_state(model, state)
+
+
+def build_gaussian_reparameterized_system(model):
+    return build_penalty_reparameterized_system(model)
+
+# --- End of nampy/gam/smoothing_selection/reparam.py ---
+
 # --- Start of nampy/gam/fit/linalg/matrix_reindexing.py ---
 """
 Dense matrix reindexing helpers for penalized QR workflows.
@@ -971,7 +2254,7 @@ Algorithm outline
 Rank detection
 --------------
 Rank is revealed by an upper-triangular condition number estimate on the stacked
-R factor.  The threshold is :data:`STACKED_QR_RANK_TOLERANCE` (sqrt(machine eps)),
+R factor.  The threshold is :data:`STACKED_QR_RANK_TOLERANCE` (eps**0.66),
 matching `mgcv`'s stacked-QR rank-drop tolerance.
 When ``penalty_blocks`` are provided, a Frobenius-normalised aggregate of the
 unscaled penalty templates is used for rank detection (more numerically stable
@@ -1007,8 +2290,8 @@ from .matrix_reindexing import (
 )
 
 # Rank-detection threshold: condition number ratio above which a column is considered
-# linearly dependent.  Match mgcv's stacked-QR tolerance at sqrt(machine eps).
-STACKED_QR_RANK_TOLERANCE = np.sqrt(np.finfo(np.float64).eps)
+# linearly dependent. Match mgcv's stacked-QR tolerance at eps**0.66.
+STACKED_QR_RANK_TOLERANCE = np.finfo(np.float64).eps ** 0.66
 
 # Below this Frobenius norm, the penalty is numerically zero on most of the null space
 # of X (e.g. a random-effect term at the lower smoothing parameter bound).  The
@@ -3445,6 +4728,3815 @@ def solve_pirls_fit(model, y, smoothing_params, weights=None):
     return FitCoreSolution.from_dict(sol)
 
 # --- End of nampy/gam/fit/solvers/pirls.py ---
+
+# --- Start of nampy/gam/smoothing_selection/criteria/dispatch.py ---
+"""
+Top-level dispatch for smoothing_selection-selection criterion value, gradient, and Hessian.
+
+:func:`criterion_value` — scalar criterion at a given log-smoothing-parameter vector.
+:func:`criterion_gradient` — gradient w.r.t. log-smoothing parameters (exact when
+    available, finite-difference fallback otherwise).
+:func:`criterion_hessian` — Hessian (exact or finite-difference).
+:func:`criterion_infinite_sp_signal` — gradient and curvature signal used by the
+    outer optimiser to detect and roll back infinite-smoothing-parameter solutions.
+"""
+
+import numpy as np
+
+from .gaussian import criterion_gcv_gaussian
+from .gaussian_dyn import _gaussian_dynamic_reml_derivative_terms
+from .laplace import _penalty_derivative_matrices
+from .ml_reml import (
+    _model_has_random_effect_smooth,
+    criterion_ml_reml,
+    resolve_ml_reml_scoring_backend,
+)
+from .pirls import (
+    _current_joint_negbin_eval_state,
+    _is_joint_negbin_theta_model,
+    criterion_gcv_pirls,
+    criterion_ml_reml_pirls_frozen_negbin,
+    criterion_ubre_pirls,
+)
+from .pirls_deriv import (
+    criterion_gradient_ml_reml_pirls_exact,
+    criterion_hessian_ml_reml_pirls_exact,
+)
+
+
+def criterion_value(model, y, log_sp, method="gcv"):
+    method = str(method).lower()
+    if method == "gcv":
+        if model._uses_closed_form_solver():
+            return criterion_gcv_gaussian(model, y, log_sp)
+        return criterion_gcv_pirls(model, y, log_sp)
+    if method in {"ubre", "aic", "ubreaic"}:
+        return criterion_ubre_pirls(model, y, log_sp)
+    if method == "ml":
+        if _is_joint_negbin_theta_model(model):
+            return criterion_ml_reml_pirls_frozen_negbin(model, y, log_sp, "ML")
+        return criterion_ml_reml(model, y, log_sp, "ml")
+    if method in {"reml", "laml"}:
+        if _is_joint_negbin_theta_model(model):
+            return criterion_ml_reml_pirls_frozen_negbin(model, y, log_sp, "REML")
+        return criterion_ml_reml(model, y, log_sp, method)
+    raise ValueError(
+        "method must be one of "
+        "{'gcv', 'ubre', 'aic', 'ubreaic', 'ml', 'reml', 'laml'}"
+    )
+
+
+def criterion_gradient_numerical(
+    model,
+    y,
+    log_sp,
+    method="gcv",
+    eps_abs=1e-5,
+    eps_rel=1e-4,
+    _baseline_state=None,
+):
+    """Centered finite-difference gradient of the smoothing criterion."""
+    x = np.asarray(log_sp, dtype=np.float64).ravel()
+    if x.size == 0:
+        return np.empty((0,), dtype=np.float64)
+
+    baseline_state = _baseline_state
+    if (
+        baseline_state is None
+        and _is_joint_negbin_theta_model(model)
+        and method in {"ml", "reml", "laml"}
+    ):
+        baseline_state = _current_joint_negbin_eval_state(model)
+
+    def _value_at(x_eval):
+        if baseline_state is not None:
+            exact_method = "REML" if method in {"reml", "laml"} else "ML"
+            return float(
+                criterion_ml_reml_pirls_frozen_negbin(
+                    model,
+                    y,
+                    x_eval,
+                    exact_method,
+                    baseline_state=baseline_state,
+                )
+            )
+        return float(criterion_value(model, y, x_eval, method=method))
+
+    grad = np.empty_like(x)
+    f0 = _value_at(x)
+
+    if not np.isfinite(f0):
+        grad.fill(np.nan)
+        return grad
+
+    for i in range(x.size):
+        step = max(float(eps_abs), float(eps_rel) * (1.0 + abs(float(x[i]))))
+        x_plus = x.copy()
+        x_minus = x.copy()
+        x_plus[i] += step
+        x_minus[i] -= step
+
+        f_plus = _value_at(x_plus)
+        f_minus = _value_at(x_minus)
+
+        if np.isfinite(f_plus) and np.isfinite(f_minus):
+            grad[i] = (f_plus - f_minus) / (2.0 * step)
+        elif np.isfinite(f_plus):
+            grad[i] = (f_plus - f0) / step
+        elif np.isfinite(f_minus):
+            grad[i] = (f0 - f_minus) / step
+        else:
+            grad[i] = np.nan
+
+    return grad
+
+
+def criterion_gradient(
+    model,
+    y,
+    log_sp,
+    method="gcv",
+    eps_abs=1e-5,
+    eps_rel=1e-4,
+):
+    method = str(method).lower()
+    # Gaussian REML/LAML stays on finite differences for criterion derivatives.
+    # Exact Gaussian REML outer derivatives in dispatch were derived for an older
+    # scale convention and are intentionally not used here.
+    if method in {"reml", "laml"} and bool(
+        getattr(model.family, "supports_closed_form_solve", False)
+    ):
+        return criterion_gradient_numerical(
+            model,
+            y,
+            log_sp,
+            method=method,
+            eps_abs=eps_abs,
+            eps_rel=eps_rel,
+        )
+    if method in {"ml", "reml", "laml"}:
+        backend = resolve_ml_reml_scoring_backend(model, method=method)
+        if backend == "gaussian_exact":
+            if _model_has_random_effect_smooth(model) and method == "ml":
+                return criterion_gradient_numerical(
+                    model,
+                    y,
+                    log_sp,
+                    method=method,
+                    eps_abs=eps_abs,
+                    eps_rel=eps_rel,
+                )
+        if backend == "gaussian_dynamic" and method in {"reml", "laml"}:
+            exact_method = "REML" if method in {"reml", "laml"} else "ML"
+            out = _gaussian_dynamic_reml_derivative_terms(
+                model, y, log_sp, exact_method
+            )
+            if bool(out.get("valid", False)):
+                return np.asarray(out["grad"], dtype=np.float64)
+        if (
+            backend == "pirls_laplace"
+            and (
+                getattr(model.family, "known_scale", None) is not None
+                or str(getattr(model.family, "name", "")).lower() == "gamma"
+            )
+            and bool(
+                getattr(model.family, "supports_exact_pirls_first_derivatives", False)
+            )
+        ):
+            exact_method = "REML" if method in {"reml", "laml"} else "ML"
+            return criterion_gradient_ml_reml_pirls_exact(
+                model, y, log_sp, exact_method
+            )
+    return criterion_gradient_numerical(
+        model,
+        y,
+        log_sp,
+        method=method,
+        eps_abs=eps_abs,
+        eps_rel=eps_rel,
+    )
+
+
+def criterion_hessian_numerical(
+    model,
+    y,
+    log_sp,
+    method="gcv",
+    eps_abs=1e-4,
+    eps_rel=1e-3,
+    _baseline_state=None,
+):
+    """Centered finite-difference Hessian of the smoothing criterion."""
+    x = np.asarray(log_sp, dtype=np.float64).ravel()
+    n = x.size
+    if n == 0:
+        return np.empty((0, 0), dtype=np.float64)
+
+    baseline_state = _baseline_state
+    if (
+        baseline_state is None
+        and _is_joint_negbin_theta_model(model)
+        and method in {"ml", "reml", "laml"}
+    ):
+        baseline_state = _current_joint_negbin_eval_state(model)
+
+    H = np.empty((n, n), dtype=np.float64)
+    steps = np.maximum(float(eps_abs), float(eps_rel) * (1.0 + np.abs(x)))
+
+    for j in range(n):
+        h = float(steps[j])
+        x_plus = x.copy()
+        x_minus = x.copy()
+        x_plus[j] += h
+        x_minus[j] -= h
+
+        if baseline_state is not None:
+            g_plus = criterion_gradient_numerical(
+                model,
+                y,
+                x_plus,
+                method=method,
+                eps_abs=max(eps_abs * 0.1, 1e-6),
+                eps_rel=max(eps_rel * 0.1, 1e-5),
+                _baseline_state=baseline_state,
+            )
+            g_minus = criterion_gradient_numerical(
+                model,
+                y,
+                x_minus,
+                method=method,
+                eps_abs=max(eps_abs * 0.1, 1e-6),
+                eps_rel=max(eps_rel * 0.1, 1e-5),
+                _baseline_state=baseline_state,
+            )
+        else:
+            g_plus = criterion_gradient(
+                model,
+                y,
+                x_plus,
+                method=method,
+                eps_abs=max(eps_abs * 0.1, 1e-6),
+                eps_rel=max(eps_rel * 0.1, 1e-5),
+            )
+            g_minus = criterion_gradient(
+                model,
+                y,
+                x_minus,
+                method=method,
+                eps_abs=max(eps_abs * 0.1, 1e-6),
+                eps_rel=max(eps_rel * 0.1, 1e-5),
+            )
+        H[:, j] = (g_plus - g_minus) / (2.0 * h)
+
+    return 0.5 * (H + H.T)
+
+
+def criterion_hessian(
+    model,
+    y,
+    log_sp,
+    method="gcv",
+    eps_abs=1e-4,
+    eps_rel=1e-3,
+):
+    method = str(method).lower()
+    if method in {"reml", "laml"} and bool(
+        getattr(model.family, "supports_closed_form_solve", False)
+    ):
+        return criterion_hessian_numerical(
+            model,
+            y,
+            log_sp,
+            method=method,
+            eps_abs=eps_abs,
+            eps_rel=eps_rel,
+        )
+    if method in {"ml", "reml", "laml"}:
+        backend = resolve_ml_reml_scoring_backend(model, method=method)
+        if (
+            backend == "pirls_laplace"
+            and method in {"reml", "laml"}
+            and (
+                getattr(model.family, "known_scale", None) is not None
+                or str(getattr(model.family, "name", "")).lower() == "gamma"
+            )
+            and bool(
+                getattr(model.family, "supports_exact_pirls_second_derivatives", False)
+            )
+        ):
+            exact_method = "REML" if method in {"reml", "laml"} else "ML"
+            return criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, exact_method)
+        if backend == "gaussian_dynamic" and method in {"reml", "laml"}:
+            exact_method = "REML" if method in {"reml", "laml"} else "ML"
+            out = _gaussian_dynamic_reml_derivative_terms(
+                model, y, log_sp, exact_method
+            )
+            if bool(out.get("valid", False)):
+                return np.asarray(out["hess"], dtype=np.float64)
+    return criterion_hessian_numerical(
+        model,
+        y,
+        log_sp,
+        method=method,
+        eps_abs=eps_abs,
+        eps_rel=eps_rel,
+    )
+
+
+def criterion_infinite_sp_signal(model, y, log_sp, method="reml"):
+    method = str(method).lower()
+    x = np.asarray(log_sp, dtype=np.float64).ravel()
+    n = x.size
+    if n == 0:
+        return (
+            np.empty((0,), dtype=np.float64),
+            np.empty((0,), dtype=np.float64),
+        )
+
+    backend = None
+    if method in {"ml", "reml", "laml"}:
+        backend = resolve_ml_reml_scoring_backend(model, method=method)
+
+    exact_method = "REML" if method in {"reml", "laml"} else "ML"
+
+    if (
+        backend == "pirls_laplace"
+        and (
+            getattr(model.family, "known_scale", None) is not None
+            or str(getattr(model.family, "name", "")).lower() == "gamma"
+        )
+        and bool(getattr(model.family, "supports_exact_pirls_first_derivatives", False))
+        and model._can_use_simple_ml_reml_structure()
+    ):
+        sp = model._expand_smoothing_params_from_log(x)
+        sol = model._solve_pirls_given_smoothing(y, sp)
+        beta = np.asarray(sol["coef_full"], dtype=np.float64)
+        A = np.asarray(sol["A"], dtype=np.float64)
+        A_inv = np.asarray(sol["A_inv"], dtype=np.float64)
+        P_derivs = _penalty_derivative_matrices(model, sp)
+
+        grad = np.asarray(
+            criterion_gradient_ml_reml_pirls_exact(model, y, x, exact_method),
+            dtype=np.float64,
+        )
+        dvkk = np.zeros(int(model.n_smoothing_params_ or 0), dtype=np.float64)
+        for j, Pj in enumerate(P_derivs):
+            if not np.any(Pj):
+                continue
+            dbeta_j = -(A_inv @ (Pj @ beta))
+            dvkk[j] = float(dbeta_j @ (A @ dbeta_j))
+
+        free_mask = (
+            np.zeros(model.n_smoothing_params_, dtype=bool)
+            if model.smoothing_fixed_mask_ is None
+            else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+        )
+        free_mask = ~free_mask
+        return grad, dvkk[free_mask]
+
+    grad = np.asarray(criterion_gradient(model, y, x, method=method), dtype=np.float64)
+    hess = np.asarray(criterion_hessian(model, y, x, method=method), dtype=np.float64)
+    if hess.ndim != 2 or hess.shape[0] != hess.shape[1] or hess.shape[0] != n:
+        dvkk = np.full(n, np.nan, dtype=np.float64)
+    else:
+        dvkk = np.diag(hess).astype(np.float64, copy=True)
+    return grad, dvkk
+
+# --- End of nampy/gam/smoothing_selection/criteria/dispatch.py ---
+
+# --- Start of nampy/gam/smoothing_selection/criteria/gaussian.py ---
+"""
+GCV and Gaussian ML/REML/LAML smoothing_selection-selection criteria.
+
+Provides two code paths:
+
+- **Exact** (``criterion_ml_reml_exact``): Laplace REML/ML using the
+  reparameterised mixed-model form.  Fast and precise for most smooth designs;
+  may return ``inf`` for designs where the fixed-effects sub-matrix is singular
+  (e.g. random-effect plus intercept).
+
+- **Dynamic** (``criterion_ml_reml_exact_dynamic``): Fully profiled Gaussian
+  REML/ML objective evaluated directly from the penalized least-squares solve
+  without the mixed-model reparameterisation.  More robust for designs with
+  collinear fixed effects.
+"""
+
+import numpy as np
+from scipy.linalg import cho_factor, cho_solve
+
+from ..reparam import ensure_penalty_reparameterization_state
+from .gaussian_dyn import (
+    criterion_ml_reml_gaussian_dynamic_joint,
+    criterion_ml_reml_gaussian_dynamic_profiled,
+)
+from .laplace import _laplace_lambda_vector
+from .penalty import _static_fixed_and_random_designs
+
+
+def gcv_score_gaussian(model, y, log_smoothing_params):
+    sp = model._expand_smoothing_params_from_log(log_smoothing_params)
+    sol = model._solve_gaussian_given_smoothing(y, sp)
+    n = model.n_samples_
+    den = 1.0 - model.score_gamma * sol["trace_H"] / n
+    if den <= 1e-12 or not np.isfinite(den):
+        return np.inf
+    return (sol["rss"] / n) / (den**2)
+
+
+def criterion_gcv_gaussian(model, y, log_sp):
+    return gcv_score_gaussian(model, y, log_sp)
+
+
+def criterion_ml_reml_exact(model, y, log_sp, method):
+    """
+    Laplace / Schur-complement ML and REML for the reparameterized mixed form.
+
+    For ``bs=\"re\"`` with a parametric intercept, ``col(1) ⊆ col(Z)`` makes
+    ``Xf' K Xf`` singular here, so this Laplace path returns ``inf`` at many
+    ``(y, sp)``. Those models are scored for ML/REML **outer selection** via
+    ``criterion_ml_reml_exact_dynamic`` (Wood ``X'WX+S`` / ``\\log|A|-\\log|S|``)
+    instead; see ``nampy.gam.smoothing_selection.criteria.ml_reml``.
+    """
+    if abs(model.score_gamma - 1.0) > 1e-12:
+        raise NotImplementedError(
+            "score_gamma != 1 is not yet implemented for the exact Gaussian ML/REML/LAML path."
+        )
+
+    if not model._can_use_exact_gaussian_ml_reml():
+        raise NotImplementedError(
+            "Exact Gaussian ML/REML/LAML is currently available only for "
+            "terms with one or more disjoint-support primary smooth penalties, "
+            "plus at most one null-space penalty per support block."
+        )
+
+    y = model.family.validate_y(y)
+    y_eff = y if model.offset_train_ is None else (y - model.offset_train_)
+    sp = model._expand_smoothing_params_from_log(log_sp)
+    state = ensure_penalty_reparameterization_state(model)
+
+    Xf = state.X_fix
+    Zr = state.Z_rand
+    n = Xf.shape[0]
+    p = int(Xf.shape[1])
+    q = int(Zr.shape[1])
+
+    if q == 0:
+        if p == 0:
+            rss_v = max(float(y_eff @ y_eff), 1e-14)
+            return n * np.log(rss_v / n)
+
+        XtX = Xf.T @ Xf
+        try:
+            cXtX, lo = cho_factor(XtX, check_finite=False)
+        except np.linalg.LinAlgError:
+            return np.inf
+
+        b_hat = cho_solve((cXtX, lo), Xf.T @ y_eff, check_finite=False)
+        resid = y_eff - Xf @ b_hat
+        rss_v = max(float(resid @ resid), 1e-14)
+
+        if method == "ML":
+            return n * np.log(rss_v / n)
+
+        if n <= p:
+            return np.inf
+
+        logdet_XtX = 2.0 * float(np.sum(np.log(np.diag(cXtX))))
+        return (n - p) * np.log(rss_v / (n - p)) + logdet_XtX
+
+    lam_vec = _laplace_lambda_vector(model, sp)
+
+    if np.any(lam_vec <= 0):
+        return np.inf
+
+    M = state.ZtZ_rand + np.diag(lam_vec)
+    try:
+        cM, loM = cho_factor(M, check_finite=False)
+    except np.linalg.LinAlgError:
+        return np.inf
+
+    ZTy = Zr.T @ y_eff
+    Minv_ZTy = cho_solve((cM, loM), ZTy, check_finite=False)
+    Ky = y_eff - Zr @ Minv_ZTy
+
+    if p > 0:
+        ZTX = Zr.T @ Xf
+        Minv_ZTX = cho_solve((cM, loM), ZTX, check_finite=False)
+        KX = Xf - Zr @ Minv_ZTX
+        XtKX = Xf.T @ KX
+        try:
+            cXKX, loXKX = cho_factor(XtKX, check_finite=False)
+        except np.linalg.LinAlgError:
+            return np.inf
+
+        XtKy = Xf.T @ Ky
+        b_hat = cho_solve((cXKX, loXKX), XtKy, check_finite=False)
+        rss_v = max(float(y_eff @ Ky - XtKy @ b_hat), 1e-14)
+    else:
+        cXKX = None
+        rss_v = max(float(y_eff @ Ky), 1e-14)
+
+    logdet_M = 2.0 * float(np.sum(np.log(np.diag(cM))))
+    logdet_Lam = float(np.sum(np.log(lam_vec)))
+    logdet_Vtilde = logdet_M - logdet_Lam
+
+    if method == "ML":
+        return n * np.log(rss_v / n) + logdet_Vtilde
+
+    if n <= p:
+        return np.inf
+
+    logdet_XtKX = 0.0 if p == 0 else 2.0 * float(np.sum(np.log(np.abs(np.diag(cXKX)))))
+    return (n - p) * np.log(rss_v / (n - p)) + logdet_Vtilde + logdet_XtKX
+
+
+def criterion_ml_reml_gaussian_exact_joint(
+    model, y, log_sp_free, log_sigma2, method="REML"
+):
+    """
+    Joint (log sp, log sigma^2) Gaussian REML/LAML for the `gaussian_exact` backend.
+
+    Delegates to `criterion_ml_reml_gaussian_dynamic_joint`, i.e. the Wood-style
+    penalized likelihood using ``A``, ``log|A| - log|S|``, and ``nu * log(2 pi sigma^2)``
+    with ``rss_bSb / sigma^2``. That matches the standard Gaussian REML outer objective
+    (the same target the dynamic backend minimises jointly with scale).
+
+    A previous Laplace ``Z'Z + lambda`` formulation coincided with the *profiled*
+    ``criterion_ml_reml_exact`` score, but it is not the unconcentrated joint
+    objective and it used ``max(rss, 1e-14)``, which breaks down when optimal
+    ``sigma^2`` is far below that floor (e.g. near-interpolating MRF fits).
+    """
+    if abs(model.score_gamma - 1.0) > 1e-12:
+        raise NotImplementedError(
+            "score_gamma != 1 is not yet implemented for the joint Gaussian exact REML path."
+        )
+
+    if not model._can_use_exact_gaussian_ml_reml():
+        raise NotImplementedError(
+            "Joint exact Gaussian REML is only available when the exact Gaussian ML/REML "
+            "structure applies."
+        )
+
+    method_u = str(method).upper()
+    if method_u not in {"REML", "LAML"}:
+        raise ValueError("method must be 'REML' or 'LAML'.")
+
+    return criterion_ml_reml_gaussian_dynamic_joint(
+        model, y, log_sp_free, log_sigma2, method=method_u
+    )
+
+
+def criterion_ml_reml_exact_dynamic(model, y, log_sp, method):
+    if abs(model.score_gamma - 1.0) > 1e-12:
+        raise NotImplementedError(
+            "score_gamma != 1 is not yet implemented for the dynamic Gaussian ML/REML/LAML path."
+        )
+    y = model.family.validate_y(y)
+    y_eff = y if model.offset_train_ is None else (y - model.offset_train_)
+    sp = model._expand_smoothing_params_from_log(log_sp)
+
+    sol = model._solve_gaussian_given_smoothing(y, sp)
+    if method in {"REML", "LAML"}:
+        return criterion_ml_reml_gaussian_dynamic_profiled(
+            model,
+            y,
+            log_sp,
+            method=method,
+        )
+
+    X = np.asarray(sol["X"], dtype=np.float64)
+    Xf, Zr, split = _static_fixed_and_random_designs(model, X, sp)
+    n = X.shape[0]
+    p = int(Xf.shape[1])
+    q = int(Zr.shape[1])
+
+    if q == 0:
+        rss_v = max(float(sol["rss"]), 1e-14)
+        if method == "ML":
+            return n * np.log(rss_v / n)
+
+        if n <= p:
+            return np.inf
+
+        if p == 0:
+            return (n - p) * np.log(rss_v / (n - p))
+
+        XtX_fix = Xf.T @ Xf
+        try:
+            cFix, _ = cho_factor(XtX_fix, check_finite=False)
+        except np.linalg.LinAlgError:
+            return np.inf
+        logdet_fix = 2.0 * float(np.sum(np.log(np.abs(np.diag(cFix)))))
+        return (n - p) * np.log(rss_v / (n - p)) + logdet_fix
+
+    M = Zr.T @ Zr + np.eye(q, dtype=np.float64)
+    try:
+        cM, loM = cho_factor(M, check_finite=False)
+    except np.linalg.LinAlgError:
+        return np.inf
+
+    ZTy = Zr.T @ y_eff
+    Minv_ZTy = cho_solve((cM, loM), ZTy, check_finite=False)
+    Ky = y_eff - Zr @ Minv_ZTy
+
+    if p > 0:
+        ZTX = Zr.T @ Xf
+        Minv_ZTX = cho_solve((cM, loM), ZTX, check_finite=False)
+        KX = Xf - Zr @ Minv_ZTX
+        XtKX = Xf.T @ KX
+        try:
+            cXKX, _ = cho_factor(XtKX, check_finite=False)
+        except np.linalg.LinAlgError:
+            return np.inf
+        XtKy = Xf.T @ Ky
+        b_hat = cho_solve((cXKX, False), XtKy, check_finite=False)
+        rss_v = max(float(y_eff @ Ky - XtKy @ b_hat), 1e-14)
+    else:
+        cXKX = None
+        rss_v = max(float(y_eff @ Ky), 1e-14)
+
+    logdet_M = 2.0 * float(np.sum(np.log(np.abs(np.diag(cM)))))
+    logdet_Vtilde = logdet_M - float(split["logdet_plus"])
+
+    if method == "ML":
+        return n * np.log(rss_v / n) + logdet_Vtilde
+
+    if n <= p:
+        return np.inf
+
+    logdet_XtKX = 0.0 if p == 0 else 2.0 * float(np.sum(np.log(np.abs(np.diag(cXKX)))))
+    return (n - p) * np.log(rss_v / (n - p)) + logdet_Vtilde + logdet_XtKX
+
+# --- End of nampy/gam/smoothing_selection/criteria/gaussian.py ---
+
+# --- Start of nampy/gam/smoothing_selection/criteria/gaussian_dyn.py ---
+"""Gaussian dynamic REML/LAML joint objective and related designs."""
+
+import numpy as np
+from scipy.linalg import cho_factor
+
+from .gaussian_reml_algebra import (
+    gaussian_reml_weighted_degrees_and_log_weight_term,
+    gaussian_weighted_residual_sum_squares,
+    prior_weights_diagonal_from_fit,
+    quadratic_form_penalty,
+)
+from .laplace import _penalty_derivative_matrices
+from .penalty import (
+    _stable_penalty_logdet,
+    _stable_penalty_logdet_derivatives,
+    _static_penalty_null_dim,
+)
+
+
+def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
+    if abs(model.score_gamma - 1.0) > 1e-12:
+        raise NotImplementedError(
+            "score_gamma != 1 is not yet implemented for the dynamic Gaussian REML derivative path."
+        )
+
+    y = model.family.validate_y(y)
+    y if model.offset_train_ is None else (y - model.offset_train_)
+    sp = model._expand_smoothing_params_from_log(log_sp)
+    sol = model._solve_gaussian_given_smoothing(y, sp)
+
+    if method not in {"REML", "LAML"}:
+        raise NotImplementedError(
+            "Exact dynamic Gaussian derivatives are currently implemented for REML/LAML only."
+        )
+
+    np.asarray(sol["A"], dtype=np.float64)
+    A_inv = np.asarray(sol["A_inv"], dtype=np.float64)
+    beta = np.asarray(sol["coef_full"], dtype=np.float64)
+    n_s = int(model.n_samples_)
+    w1 = prior_weights_diagonal_from_fit(sol, n_s)
+    yv = np.asarray(y, dtype=np.float64).ravel()
+    mu = np.asarray(sol["mu"], dtype=np.float64).ravel()
+    dev = gaussian_weighted_residual_sum_squares(yv, mu, w1)
+    Pq = quadratic_form_penalty(
+        np.asarray(sol["coef_full"], dtype=np.float64),
+        np.asarray(sol["penalty_matrix"], dtype=np.float64),
+    )
+    F = float(dev) + float(Pq)
+    nobs = float(model.n_samples_)
+    Mp = float(
+        _static_penalty_null_dim(model)
+        + int(bool(getattr(model, "fit_intercept", False)))
+    )
+    n_eff = getattr(model, "n_true_", None)
+    nu, _sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
+        w1, nobs, Mp, n_effective_total=n_eff
+    )
+    scale = F / nu if nu > 0.0 else np.nan
+    if (
+        not np.isfinite(scale)
+        or scale <= 0.0
+        or not np.isfinite(F)
+        or F <= 0.0
+        or not np.isfinite(nu)
+        or nu <= 0.0
+    ):
+        n_sp = int(model.n_smoothing_params_ or 0)
+        return {
+            "valid": False,
+            "grad": np.full(n_sp, np.nan, dtype=np.float64),
+            "hess": np.full((n_sp, n_sp), np.nan, dtype=np.float64),
+        }
+
+    P_derivs = _penalty_derivative_matrices(model, sp)
+    _logdet_S, logdetS_grad, logdetS_hess = _stable_penalty_logdet_derivatives(
+        model, sp, order=2
+    )
+    if not np.all(np.isfinite(logdetS_grad)) or not np.all(np.isfinite(logdetS_hess)):
+        n_sp = int(model.n_smoothing_params_ or 0)
+        return {
+            "valid": False,
+            "grad": np.full(n_sp, np.nan, dtype=np.float64),
+            "hess": np.full((n_sp, n_sp), np.nan, dtype=np.float64),
+        }
+
+    n_sp = int(model.n_smoothing_params_ or 0)
+    grad_full = np.zeros(n_sp, dtype=np.float64)
+    hess_full = np.zeros((n_sp, n_sp), dtype=np.float64)
+    beta1 = [np.zeros_like(beta) for _ in range(n_sp)]
+    F1 = np.zeros(n_sp, dtype=np.float64)
+    F2 = np.zeros((n_sp, n_sp), dtype=np.float64)
+    logdetA1 = np.zeros(n_sp, dtype=np.float64)
+    logdetA2 = np.zeros((n_sp, n_sp), dtype=np.float64)
+    U = [None] * n_sp
+
+    for j, Pj in enumerate(P_derivs):
+        if not np.any(Pj):
+            continue
+        Uj = A_inv @ Pj
+        U[j] = Uj
+        beta_j = -(Uj @ beta)
+        beta1[j] = beta_j
+        F1[j] = float(beta @ (Pj @ beta))
+        logdetA1[j] = float(np.trace(Uj))
+        grad_full[j] = 0.5 * (nu * F1[j] / F + logdetA1[j] - logdetS_grad[j])
+
+    for j, Pj in enumerate(P_derivs):
+        if not np.any(Pj):
+            continue
+        for k, Pk in enumerate(P_derivs[j:], start=j):
+            if not np.any(Pk):
+                continue
+            delta = 1.0 if j == k else 0.0
+            -(A_inv @ (Pk @ beta1[j] + Pj @ beta1[k])) + delta * beta1[j]
+            Fjk = 2.0 * float(beta1[k] @ (Pj @ beta)) + delta * F1[j]
+            F2[j, k] = Fjk
+            F2[k, j] = Fjk
+            logdetAjk = -float(np.trace(U[k] @ U[j])) + delta * logdetA1[j]
+            logdetA2[j, k] = logdetAjk
+            logdetA2[k, j] = logdetAjk
+            val = 0.5 * (
+                nu * (Fjk / F - (F1[j] * F1[k]) / (F * F))
+                + logdetAjk
+                - logdetS_hess[j, k]
+            )
+            hess_full[j, k] = val
+            hess_full[k, j] = val
+
+    free_mask = (
+        np.zeros(model.n_smoothing_params_, dtype=bool)
+        if model.smoothing_fixed_mask_ is None
+        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+    )
+    free_mask = ~free_mask
+    return {
+        "valid": True,
+        "grad": grad_full[free_mask],
+        "hess": hess_full[np.ix_(free_mask, free_mask)],
+        "F": float(F),
+        "nu": float(nu),
+        "F1_free": np.asarray(F1[free_mask], dtype=np.float64).copy(),
+    }
+
+
+def criterion_ml_reml_gaussian_dynamic_joint(
+    model, y, log_sp_free, log_sigma2, method="REML"
+):
+    """
+    Gaussian REML/LAML criterion with an explicit error variance sigma^2 = exp(log_sigma2).
+
+    Standard GAM outer optimisation for Gaussian REML/LAML jointly updates log smoothing
+    parameters and ``log(sigma^2)``. The profiled criterion elsewhere uses
+    ``sigma^2 = F / nu``; this function is the unconcentrated form for that joint loop.
+
+    With prior weights, the doubled score subtracts ``(n_eff/n_row)*sum(log w[w>0])`` and
+    uses ``nu = (n_eff/n_row)*sum(w>0) - Mp`` in the ``log(2*pi*sigma^2)`` term. Set
+    ``model.n_true_`` for a custom effective row count ``n_eff`` (default ``n_row``).
+    """
+    if abs(model.score_gamma - 1.0) > 1e-12:
+        raise NotImplementedError(
+            "score_gamma != 1 is not yet implemented for the joint Gaussian REML path."
+        )
+    method_u = str(method).upper()
+    if method_u not in {"REML", "LAML"}:
+        raise ValueError("method must be 'REML' or 'LAML' for the joint Gaussian path.")
+
+    y = model.family.validate_y(y)
+    sp = model._expand_smoothing_params_from_log(
+        np.asarray(log_sp_free, dtype=np.float64).ravel()
+    )
+    sol = model._solve_gaussian_given_smoothing(y, sp)
+    A = np.asarray(sol["A"], dtype=np.float64)
+    nobs = float(model.n_samples_)
+    Mp = float(
+        _static_penalty_null_dim(model)
+        + int(bool(getattr(model, "fit_intercept", False)))
+    )
+    n_eff = getattr(model, "n_true_", None)
+    w1 = prior_weights_diagonal_from_fit(sol, int(nobs))
+    nu, sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
+        w1, nobs, Mp, n_effective_total=n_eff
+    )
+    if not np.isfinite(nu) or nu <= 0.0:
+        return np.inf
+    yv = np.asarray(y, dtype=np.float64).ravel()
+    mu = np.asarray(sol["mu"], dtype=np.float64).ravel()
+    dev = gaussian_weighted_residual_sum_squares(yv, mu, w1)
+    Pq = quadratic_form_penalty(
+        np.asarray(sol["coef_full"], dtype=np.float64),
+        np.asarray(sol["penalty_matrix"], dtype=np.float64),
+    )
+    rss_bSb = float(dev) + float(Pq)
+    if not np.isfinite(rss_bSb) or rss_bSb <= 0.0:
+        return np.inf
+    sigma2 = float(np.exp(float(log_sigma2)))
+    if not np.isfinite(sigma2) or sigma2 <= 0.0:
+        return np.inf
+    ldet_xtwx_plus_penalty = sol.get("log_det_XtWX_plus_penalty", None)
+    if ldet_xtwx_plus_penalty is not None and np.isfinite(
+        float(ldet_xtwx_plus_penalty)
+    ):
+        logdet_A = float(ldet_xtwx_plus_penalty)
+    else:
+        try:
+            cA, _ = cho_factor(A, check_finite=False)
+        except np.linalg.LinAlgError:
+            return np.inf
+        logdet_A = 2.0 * float(np.sum(np.log(np.abs(np.diag(cA)))))
+
+    logdet_S = _stable_penalty_logdet(model, sp)
+    if not np.isfinite(logdet_S):
+        return np.inf
+    if not np.isfinite(sum_log_scaled):
+        return np.inf
+    return (
+        rss_bSb / sigma2
+        + nu * np.log(2.0 * np.pi * sigma2)
+        - sum_log_scaled
+        + logdet_A
+        - logdet_S
+    ) / 2.0
+
+
+def criterion_ml_reml_gaussian_dynamic_profiled(model, y, log_sp_free, method="REML"):
+    """
+    Gaussian REML/LAML criterion profiled over sigma^2 using the same joint
+    objective as `criterion_ml_reml_gaussian_dynamic_joint`.
+
+    This matches mgcv's outer-optimization geometry: the reported profiled score
+    is the joint objective evaluated at the analytic optimum
+    `sigma^2 = (dev + beta'Sbeta) / nu`.
+    """
+    method_u = str(method).upper()
+    if method_u not in {"REML", "LAML"}:
+        raise ValueError(
+            "method must be 'REML' or 'LAML' for the profiled Gaussian path."
+        )
+
+    y = model.family.validate_y(y)
+    sp = model._expand_smoothing_params_from_log(
+        np.asarray(log_sp_free, dtype=np.float64).ravel()
+    )
+    sol = model._solve_gaussian_given_smoothing(y, sp)
+
+    nobs = float(model.n_samples_)
+    Mp = float(
+        _static_penalty_null_dim(model)
+        + int(bool(getattr(model, "fit_intercept", False)))
+    )
+    n_eff = getattr(model, "n_true_", None)
+    w1 = prior_weights_diagonal_from_fit(sol, int(nobs))
+    nu, _sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
+        w1, nobs, Mp, n_effective_total=n_eff
+    )
+    if not np.isfinite(nu) or nu <= 0.0:
+        return np.inf
+
+    yv = np.asarray(y, dtype=np.float64).ravel()
+    mu = np.asarray(sol["mu"], dtype=np.float64).ravel()
+    dev = gaussian_weighted_residual_sum_squares(yv, mu, w1)
+    Pq = quadratic_form_penalty(
+        np.asarray(sol["coef_full"], dtype=np.float64),
+        np.asarray(sol["penalty_matrix"], dtype=np.float64),
+    )
+    F = float(dev) + float(Pq)
+    if not np.isfinite(F) or F <= 0.0:
+        return np.inf
+
+    log_sigma2 = float(np.log(max(F / nu, 1e-300)))
+    return criterion_ml_reml_gaussian_dynamic_joint(
+        model,
+        y,
+        log_sp_free,
+        log_sigma2,
+        method=method_u,
+    )
+
+
+def criterion_gradient_ml_reml_gaussian_dynamic_joint(
+    model, y, log_sp_free, log_sigma2, method="REML"
+):
+    """
+    Gradient w.r.t. (log(sp_free...), log(sigma^2)) for `criterion_ml_reml_gaussian_dynamic_joint`.
+
+    Uses the profiled REML derivatives from `_gaussian_dynamic_reml_derivative_terms` and
+    corrects the smoothing-parameter block for a fixed sigma^2 (not profiled).
+    """
+    method_u = str(method).upper()
+    out = _gaussian_dynamic_reml_derivative_terms(model, y, log_sp_free, method_u)
+    if not bool(out.get("valid", False)):
+        return None
+    F = float(out["F"])
+    nu = float(out["nu"])
+    if not np.isfinite(F) or abs(F) < 1e-300:
+        return None
+    sigma2 = float(np.exp(float(log_sigma2)))
+    if not np.isfinite(sigma2) or sigma2 <= 0.0:
+        return None
+    prof_g = np.asarray(out["grad"], dtype=np.float64).ravel()
+    F1f = np.asarray(out["F1_free"], dtype=np.float64).ravel()
+    if prof_g.shape != F1f.shape:
+        return None
+    g_sp = prof_g + 0.5 * F1f * (1.0 / sigma2 - nu / F)
+    g_tau = 0.5 * (nu - F / sigma2)
+    return np.concatenate([g_sp, np.array([g_tau], dtype=np.float64)])
+
+# --- End of nampy/gam/smoothing_selection/criteria/gaussian_dyn.py ---
+
+# --- Start of nampy/gam/smoothing_selection/criteria/gaussian_reml_algebra.py ---
+"""
+Gaussian REML / ML Laplace score algebra (Wood-style penalized likelihood).
+
+Building blocks for the concentrated and joint Gaussian REML objectives:
+
+- **Weighted deviance** for identity Gaussian: ``sum_i w_i (y_i - μ_i)²``.
+- **Quadratic penalty** ``β' S β`` from the current penalized fit.
+- **Scale estimates** from deviance or Pearson χ² with effective residual degrees
+  ``n_effective - tr(A)``.
+- **Saturated Gaussian log-likelihood fragment** in ``σ²`` (value and first two
+  derivatives) used inside the Laplace REML score.
+- **Joint (sp, log σ²) objective** uses an effective count ``ν`` and a
+  ``sum(log w)`` correction when prior weights are not identically one.
+
+The joint outer loop matches standard GAM software that optimises ``log σ²``
+alongside log smoothing parameters; the profiled REML variance is
+``(deviance + penalty) / (n_row - Mp)`` for the derivative formulas in
+``_gaussian_dynamic_reml_derivative_terms``.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Mapping
+
+import numpy as np
+
+
+def prior_weights_diagonal_from_fit(sol: Any, n: int) -> np.ndarray:
+    """
+    Prior / IRLS diagonal weights to use in Gaussian deviance and REML saturation terms.
+
+    For a penalized fit, this should be the same positive weights that entered
+    ``X' W X + S`` (Gaussian identity: working weights equal prior weights).
+    Gaussian solves store this on ``working_weights``; P-IRLS stores the final ``W``.
+
+    Pass the same ``sol`` that supplied ``A`` / ``coef_full`` so weights match the
+    normal equations when non-unit weights are used.
+    """
+    n = int(n)
+    if sol is None:
+        return np.ones(n, dtype=np.float64)
+    if isinstance(sol, Mapping):
+        w = sol.get("working_weights")
+    else:
+        w = getattr(sol, "working_weights", None)
+    if w is None:
+        return np.ones(n, dtype=np.float64)
+    w = np.asarray(w, dtype=np.float64).ravel()
+    if w.size != n or not np.all(np.isfinite(w)):
+        return np.ones(n, dtype=np.float64)
+    return w
+
+
+def gaussian_weighted_residual_sum_squares(
+    y: np.ndarray,
+    mu: np.ndarray,
+    prior_weights: np.ndarray | None = None,
+) -> float:
+    """Weighted Gaussian ``deviance`` sum: ``sum_i w_i (y_i - μ_i)²``."""
+    y = np.asarray(y, dtype=np.float64).ravel()
+    mu = np.asarray(mu, dtype=np.float64).ravel()
+    if y.shape != mu.shape:
+        raise ValueError("y and mu must have the same shape.")
+    if prior_weights is None:
+        w = np.ones_like(y, dtype=np.float64)
+    else:
+        w = np.asarray(prior_weights, dtype=np.float64).ravel()
+        if w.shape != y.shape:
+            raise ValueError("prior_weights must match y.")
+    return float(np.sum(w * (y - mu) ** 2))
+
+
+def quadratic_form_penalty(beta: np.ndarray, penalty_matrix: np.ndarray) -> float:
+    """
+    Scalar smoothing_selection penalty ``β' S β``.
+
+    ``penalty_matrix`` is the total penalty ``S`` at the current smoothing
+    parameters (same as ``solve_gaussian_fit`` ``P_full``).
+    """
+    b = np.asarray(beta, dtype=np.float64).ravel()
+    P = np.asarray(penalty_matrix, dtype=np.float64)
+    if P.ndim != 2 or P.shape[0] != P.shape[1]:
+        raise ValueError("penalty_matrix must be a square matrix.")
+    if b.size != P.shape[0]:
+        raise ValueError("beta length must match penalty_matrix dimension.")
+    return float(b @ (P @ b))
+
+
+def deviance_method_scale_estimate(
+    dev: float,
+    tr_a: float,
+    n_effective_rows: float,
+    *,
+    dev_extra: float = 0.0,
+) -> float:
+    """
+    Deviance-based scale ``(dev + dev_extra) / (n_effective_rows - tr(A))``.
+
+    ``tr_a`` is the hat-matrix trace (total EDF) from the penalized fit.
+    """
+    den = float(n_effective_rows) - float(tr_a)
+    if not np.isfinite(den) or den <= 0.0:
+        return float("nan")
+    num = float(dev) + float(dev_extra)
+    if not np.isfinite(num) or num < 0.0:
+        return float("nan")
+    return float(num / den)
+
+
+def pearson_method_scale_estimate(
+    pearson_chi2: float,
+    tr_a: float,
+    n_effective_rows: float,
+    *,
+    pearson_extra: float = 0.0,
+    fletcher: bool = False,
+    y: np.ndarray | None = None,
+    mu: np.ndarray | None = None,
+    dvar_over_var: np.ndarray | None = None,
+) -> float:
+    """
+    Pearson (and optional Fletcher) scale ``(χ²_pearson + extra) / (n_eff - tr(A))``.
+
+    If ``fletcher`` is True, pass ``y``, ``mu``, and ``dvar_over_var`` with
+    ``dvar_over_var[i] = V'(μ_i)/V(μ_i)``.
+    """
+    den = float(n_effective_rows) - float(tr_a)
+    if not np.isfinite(den) or den <= 0.0:
+        return float("nan")
+    scale = (float(pearson_chi2) + float(pearson_extra)) / den
+    if not fletcher:
+        return float(scale)
+    if y is None or mu is None or dvar_over_var is None:
+        raise ValueError("Fletcher correction requires y, mu, and dvar_over_var.")
+    y = np.asarray(y, dtype=np.float64).ravel()
+    mu = np.asarray(mu, dtype=np.float64).ravel()
+    dv = np.asarray(dvar_over_var, dtype=np.float64).ravel()
+    if not (y.shape == mu.shape == dv.shape):
+        raise ValueError("y, mu, dvar_over_var must have the same shape.")
+    resid = y - mu
+    s_bar = float(np.mean(dv * resid))
+    s_bar = max(-0.9, s_bar)
+    if not np.isfinite(s_bar):
+        return float(scale)
+    return float(scale / (1.0 + s_bar))
+
+
+def profiled_gaussian_reml_variance(
+    dev: float, penalty_P: float, n_row: float, mp: float
+) -> float:
+    """
+    Profiled Gaussian REML error variance ``(dev + P) / (n_row - Mp)`` for the
+    concentrated Laplace REML score (matches ``_gaussian_dynamic_reml_derivative_terms``).
+    """
+    den = float(n_row) - float(mp)
+    if not np.isfinite(den) or den <= 0.0:
+        return float("nan")
+    num = float(dev) + float(penalty_P)
+    if not np.isfinite(num) or num <= 0.0:
+        return float("nan")
+    return float(num / den)
+
+
+def gaussian_reml_weighted_degrees_and_log_weight_term(
+    weights: np.ndarray,
+    n_row: float,
+    mp: float,
+    *,
+    n_effective_total: float | None = None,
+) -> tuple[float, float]:
+    """
+    Effective ``ν`` and scaled ``sum(log w)`` for the joint Gaussian REML objective.
+
+    For prior weights ``w`` with ``n_w = sum(w > 0)`` and optional effective row
+    count ``n_effective_total`` (defaults to ``n_row``), the doubled joint score uses::
+
+        ν = (n_eff / n_row) * n_w - Mp
+        correction = (n_eff / n_row) * sum(log w[w>0])
+
+    Returns ``(ν, correction)`` for ``criterion_ml_reml_gaussian_dynamic_joint``.
+    Set ``model.n_true_`` to supply ``n_effective_total`` when replicating software
+    that replaces ``nrow`` by a user ``n`` in ML/REML bookkeeping.
+    """
+    w = np.asarray(weights, dtype=np.float64).ravel()
+    nobs = float(n_row)
+    pos = w > 0.0
+    n_w = float(np.sum(pos))
+    if n_w <= 0.0 or not np.isfinite(nobs) or nobs <= 0.0:
+        return float("nan"), float("nan")
+    sum_log_w = float(np.sum(np.log(w[pos])))
+    if n_effective_total is None or float(n_effective_total) <= 0.0:
+        nt = nobs
+    else:
+        nt = float(n_effective_total)
+    fac = nt / nobs
+    nu = fac * n_w - float(mp)
+    return float(nu), float(fac * sum_log_w)
+
+
+def gaussian_reml_saturation_terms_wrt_variance(
+    weights: np.ndarray, variance: float
+) -> np.ndarray:
+    """
+    Gaussian saturated log-likelihood fragment and derivatives w.r.t. ``σ²``.
+
+    Returns ``array([L, dL/d(σ²), d²L/d(σ²)²])`` for the i.i.d. Gaussian part that
+    depends only on ``σ²`` and the prior weights (positive-weight count and
+    ``sum(log w)`` on positive weights).
+    """
+    w = np.asarray(weights, dtype=np.float64).ravel()
+    variance = float(variance)
+    pos = w > 0.0
+    n_w = int(np.sum(pos))
+    if n_w == 0 or not np.isfinite(variance) or variance <= 0.0:
+        return np.array([np.inf, np.nan, np.nan], dtype=np.float64)
+    sum_log_w = float(np.sum(np.log(w[pos])))
+    ls = -0.5 * n_w * np.log(2.0 * np.pi * variance) + 0.5 * sum_log_w
+    d1 = -0.5 * n_w / variance
+    d2 = 0.5 * n_w / (variance * variance)
+    return np.array([ls, d1, d2], dtype=np.float64)
+
+
+def gaussian_reml_score_from_saturated_part(
+    dev: float,
+    penalty_P: float,
+    variance: float,
+    logdet_penalized_minus_penalty: float,
+    mp: float,
+    gamma: float,
+    reml: bool,
+    saturation_loglik: float,
+) -> float:
+    """
+    Laplace REML/ML score given the Gaussian saturation term ``L`` at ``σ²``.
+
+    ``logdet_penalized_minus_penalty`` is ``log|X'WX + S| - log|S|_+`` (difference
+    before the outer ``1/2`` factor applied here).
+    """
+    gamma = float(gamma)
+    if not np.isfinite(gamma) or gamma <= 0.0:
+        return float(np.inf)
+    score = (
+        (dev + penalty_P) / (2.0 * variance) - saturation_loglik
+    ) / gamma + 0.5 * float(logdet_penalized_minus_penalty)
+    if reml:
+        score -= float(mp) * (
+            np.log(2.0 * np.pi * variance) / 2.0 - np.log(gamma) / 2.0
+        )
+    return float(score)
+
+
+def gaussian_reml_laplace_score(
+    dev: float,
+    penalty_P: float,
+    variance: float,
+    logdet_penalized_minus_penalty: float,
+    Mp: float,
+    weights: np.ndarray,
+    *,
+    gamma: float = 1.0,
+    reml: bool = True,
+) -> float:
+    """Full Gaussian REML/ML Laplace score using ``gaussian_reml_saturation_terms_wrt_variance``."""
+    ls_vec = gaussian_reml_saturation_terms_wrt_variance(weights, variance)
+    return gaussian_reml_score_from_saturated_part(
+        dev,
+        penalty_P,
+        variance,
+        logdet_penalized_minus_penalty,
+        Mp,
+        gamma,
+        reml,
+        float(ls_vec[0]),
+    )
+
+# --- End of nampy/gam/smoothing_selection/criteria/gaussian_reml_algebra.py ---
+
+# --- Start of nampy/gam/smoothing_selection/criteria/laplace.py ---
+"""Reparameterized penalty / Laplace helpers for ML/REML criteria."""
+
+import numpy as np
+
+from ..reparam import (
+    ensure_penalty_reparameterization_state,
+    sl_group_indices,
+    sl_lambda_vector,
+)
+
+
+def _laplace_lambda_vector(model, sp):
+    state = ensure_penalty_reparameterization_state(model)
+    return sl_lambda_vector(state, sp)
+
+
+def _lambda_group_indices(model):
+    state = ensure_penalty_reparameterization_state(model)
+    groups = sl_group_indices(state)
+    if groups is None:
+        return {}
+    return {
+        int(sp_idx): np.asarray(idxs, dtype=np.int64) for sp_idx, idxs in groups.items()
+    }
+
+
+def _penalty_derivative_matrices(model, sp):
+    n_full = int(model.n_coef_ + (1 if model.fit_intercept else 0))
+    offset0 = 1 if model.fit_intercept else 0
+    mats = [
+        np.zeros((n_full, n_full), dtype=np.float64)
+        for _ in range(int(model.n_smoothing_params_ or 0))
+    ]
+    if not mats:
+        return mats
+
+    for pb in model.penalty_blocks_:
+        k = int(pb.smoothing_index)
+        sl = pb.coef_slice
+        full_sl = slice(offset0 + sl.start, offset0 + sl.stop)
+        mats[k][full_sl, full_sl] += float(sp[k]) * np.asarray(
+            pb.matrix, dtype=np.float64
+        )
+    return mats
+
+# --- End of nampy/gam/smoothing_selection/criteria/laplace.py ---
+
+# --- Start of nampy/gam/smoothing_selection/criteria/ml_reml.py ---
+"""
+ML/REML/LAML criterion values: backend selection and evaluation.
+
+Chooses between the Gaussian exact, Gaussian dynamic, P-IRLS Laplace, and
+P-IRLS dynamic backends based on the model family and design structure,
+then evaluates the appropriate criterion value.
+"""
+
+import numpy as np
+
+from .gaussian import criterion_ml_reml_exact, criterion_ml_reml_exact_dynamic
+from .pirls import criterion_ml_reml_pirls, criterion_ml_reml_pirls_dynamic
+
+
+def _model_has_random_effect_smooth(model) -> bool:
+    """``bs=\"re\"`` designs: col(1) ⊆ col(Z) breaks the Laplace ``Z'Z+\\lambda`` REML path."""
+    for tb in getattr(model, "term_blocks_", None) or []:
+        if str(getattr(tb, "term_type", "")).lower() == "random_effect":
+            return True
+    return False
+
+
+def resolve_ml_reml_scoring_backend(model, method="reml"):
+    method = str(method).lower()
+    if method not in {"ml", "reml", "laml"}:
+        raise ValueError("method must be one of {'ml', 'reml', 'laml'}")
+
+    if (
+        bool(getattr(model.family, "supports_closed_form_solve", False))
+        and model._can_use_exact_gaussian_ml_reml()
+    ):
+        return "gaussian_exact"
+
+    if bool(getattr(model.family, "supports_closed_form_solve", False)):
+        return "gaussian_dynamic"
+
+    if (
+        bool(getattr(model.family, "supports_pirls", False))
+        and model._can_use_simple_ml_reml_structure()
+    ):
+        return "pirls_laplace"
+
+    if bool(getattr(model.family, "supports_pirls", False)):
+        return "pirls_laplace_dynamic"
+
+    return None
+
+
+def criterion_ml_reml(model, y, log_sp, method):
+    backend = resolve_ml_reml_scoring_backend(model, method=method)
+    if backend == "gaussian_exact":
+        score_exact = criterion_ml_reml_exact(model, y, log_sp, method.upper())
+        if np.isfinite(float(score_exact)):
+            return float(score_exact)
+        return criterion_ml_reml_exact_dynamic(model, y, log_sp, method.upper())
+    if backend == "gaussian_dynamic":
+        return criterion_ml_reml_exact_dynamic(model, y, log_sp, method.upper())
+    if backend == "pirls_laplace":
+        branch_method = "REML" if str(method).lower() in {"reml", "laml"} else "ML"
+        return criterion_ml_reml_pirls(model, y, log_sp, branch_method)
+    if backend == "pirls_laplace_dynamic":
+        branch_method = "REML" if str(method).lower() in {"reml", "laml"} else "ML"
+        return criterion_ml_reml_pirls_dynamic(model, y, log_sp, branch_method)
+    model._raise_ml_reml_backend_error(method)
+    raise AssertionError("unreachable")
+
+# --- End of nampy/gam/smoothing_selection/criteria/ml_reml.py ---
+
+# --- Start of nampy/gam/smoothing_selection/criteria/penalty.py ---
+"""Penalty space geometry and stable log-determinants for multi-penalty REML."""
+
+import numpy as np
+from scipy.linalg import cho_factor, cho_solve
+
+
+def _positive_semidefinite_root(P, *, tol=1e-10):
+    P = np.asarray(P, dtype=np.float64)
+    if P.ndim != 2 or P.shape[0] != P.shape[1]:
+        raise ValueError("Penalty root requires a square matrix.")
+    if P.shape[0] == 0:
+        return np.empty((0, 0), dtype=np.float64)
+
+    P_sym = 0.5 * (P + P.T)
+    evals, U = np.linalg.eigh(P_sym)
+    idx = np.argsort(evals)
+    evals = evals[idx]
+    U = U[:, idx]
+    tol_eff = float(tol) * max(1.0, float(np.max(np.abs(evals))))
+    pos_mask = evals > tol_eff
+    if not np.any(pos_mask):
+        return np.empty((P.shape[0], 0), dtype=np.float64)
+    return U[:, pos_mask] * np.sqrt(evals[pos_mask])[np.newaxis, :]
+
+
+def _eigen_positive_mask(evals, *, tol=1e-10):
+    evals = np.asarray(evals, dtype=np.float64)
+    scale = max(1.0, float(np.max(np.abs(evals))) if evals.size else 1.0)
+    # Treat `tol` as an absolute PSD threshold and only add a machine-precision
+    # relative term for numerical noise. Using a large purely relative threshold
+    # can incorrectly erase genuine small positive eigenvalues for multi-penalty
+    # Gaussian REML criteria (e.g. multi-penalty factor-smooth terms).
+    tol_eff = max(float(tol), np.finfo(np.float64).eps * scale)
+    return evals > tol_eff, float(tol_eff)
+
+
+def _static_penalty_space(model, *, tol=1e-10):
+    cache = getattr(model, "_penalty_subspace_cache_", None)
+    if cache is not None:
+        return cache
+
+    p_pen = int(model.n_coef_ or 0)
+    n_sp = int(model.n_smoothing_params_ or 0)
+    if p_pen == 0 or not getattr(model, "penalty_blocks_", None):
+        cache = {
+            "Y": np.empty((p_pen, 0), dtype=np.float64),
+            "Z": np.eye(p_pen, dtype=np.float64),
+            "S_groups": [np.empty((0, 0), dtype=np.float64) for _ in range(n_sp)],
+        }
+        model._penalty_subspace_cache_ = cache
+        return cache
+
+    St = np.zeros((p_pen, p_pen), dtype=np.float64)
+    roots = []
+    group_indices = []
+    for pb in model.penalty_blocks_:
+        S_emb = np.zeros((p_pen, p_pen), dtype=np.float64)
+        sl = pb.coef_slice
+        S_loc = np.asarray(pb.matrix, dtype=np.float64)
+        S_emb[sl, sl] += S_loc
+        frob = float(np.sqrt(np.sum(S_emb * S_emb)))
+        if frob > 0.0:
+            St += S_emb / frob
+        roots.append(_positive_semidefinite_root(S_emb, tol=tol))
+        group_indices.append(int(pb.smoothing_index))
+
+    if np.allclose(St, 0.0):
+        cache = {
+            "Y": np.empty((p_pen, 0), dtype=np.float64),
+            "Z": np.eye(p_pen, dtype=np.float64),
+            "S_groups": [np.empty((0, 0), dtype=np.float64) for _ in range(n_sp)],
+        }
+        model._penalty_subspace_cache_ = cache
+        return cache
+
+    es_val, es_vec = np.linalg.eigh(0.5 * (St + St.T))
+    idx = np.argsort(es_val)
+    es_val = es_val[idx]
+    es_vec = es_vec[:, idx]
+    tol_eff = max(float(np.max(es_val)), 1.0) * (np.finfo(np.float64).eps ** 0.66)
+    range_mask = es_val > tol_eff
+    Y = es_vec[:, range_mask]
+    Z = es_vec[:, ~range_mask]
+
+    q = int(Y.shape[1])
+    S_groups = [np.zeros((q, q), dtype=np.float64) for _ in range(n_sp)]
+    if q > 0:
+        YT = Y.T
+        for root, sp_idx in zip(roots, group_indices):
+            if root.shape[1] == 0:
+                continue
+            Ur = YT @ root
+            S_groups[sp_idx] += Ur @ Ur.T
+
+    cache = {"Y": Y, "Z": Z, "S_groups": S_groups}
+    model._penalty_subspace_cache_ = cache
+    return cache
+
+
+def _static_penalty_null_dim(model, *, tol=1e-10):
+    cache = _static_penalty_space(model, tol=tol)
+    return int(np.asarray(cache["Z"], dtype=np.float64).shape[1])
+
+
+def _static_fixed_and_random_designs(model, X_full, sp, *, tol=1e-10):
+    X_full = np.asarray(X_full, dtype=np.float64)
+    sp = np.asarray(sp, dtype=np.float64)
+
+    if model.fit_intercept:
+        X_intercept = X_full[:, :1]
+        X_pen = X_full[:, 1:]
+    else:
+        X_intercept = np.empty((X_full.shape[0], 0), dtype=np.float64)
+        X_pen = X_full
+
+    cache = _static_penalty_space(model, tol=tol)
+    Y = np.asarray(cache["Y"], dtype=np.float64)
+    Z = np.asarray(cache["Z"], dtype=np.float64)
+    S_groups = cache["S_groups"]
+
+    parts_fix = []
+    if X_intercept.shape[1] > 0:
+        parts_fix.append(X_intercept)
+    if Z.shape[1] > 0:
+        parts_fix.append(X_pen @ Z)
+
+    if Y.shape[1] == 0:
+        Xf = (
+            np.column_stack(parts_fix)
+            if parts_fix
+            else np.empty((X_full.shape[0], 0), dtype=np.float64)
+        )
+        return (
+            Xf,
+            np.empty((X_full.shape[0], 0), dtype=np.float64),
+            {
+                "rank": 0,
+                "null_dim": int(Z.shape[1]),
+                "logdet_plus": 0.0,
+            },
+        )
+
+    S_range = np.zeros((Y.shape[1], Y.shape[1]), dtype=np.float64)
+    for k, Sg in enumerate(S_groups):
+        if Sg.size == 0:
+            continue
+        S_range += float(sp[k]) * np.asarray(Sg, dtype=np.float64)
+
+    evals, U = np.linalg.eigh(0.5 * (S_range + S_range.T))
+    idx = np.argsort(evals)
+    evals = evals[idx]
+    U = U[:, idx]
+    pos_mask, tol_eff = _eigen_positive_mask(evals, tol=tol)
+    null_mask = ~pos_mask
+
+    if np.any(null_mask):
+        parts_fix.append(X_pen @ (Y @ U[:, null_mask]))
+
+    Xf = (
+        np.column_stack(parts_fix)
+        if parts_fix
+        else np.empty((X_full.shape[0], 0), dtype=np.float64)
+    )
+
+    if np.any(pos_mask):
+        U1 = U[:, pos_mask]
+        d_pos = np.asarray(evals[pos_mask], dtype=np.float64)
+        Zr = X_pen @ ((Y @ U1) / np.sqrt(d_pos)[np.newaxis, :])
+        logdet_plus = float(np.sum(np.log(d_pos)))
+    else:
+        Zr = np.empty((X_full.shape[0], 0), dtype=np.float64)
+        d_pos = np.empty((0,), dtype=np.float64)
+        logdet_plus = 0.0
+
+    return (
+        Xf,
+        Zr,
+        {
+            "rank": int(d_pos.size),
+            "null_dim": int(Z.shape[1] + np.sum(null_mask)),
+            "logdet_plus": logdet_plus,
+        },
+    )
+
+
+def _stable_penalty_logdet(model, sp, *, tol=1e-10):
+    """
+    Stable log-determinant of the penalty for multi-penalty REML (Wood-style).
+
+    Sums log-determinants of each penalty block evaluated at the given smoothing
+    parameters, rather than computing the pseudodeterminant of the assembled
+    total penalty.  The assembled form is adequate for well-separated penalties
+    but can drift near the boundary in grouped multi-penalty Gaussian REML problems.
+    """
+    sp = np.asarray(sp, dtype=np.float64).ravel()
+    cache = _static_penalty_space(model, tol=tol)
+    Y = np.asarray(cache["Y"], dtype=np.float64)
+    S_groups = [np.asarray(Sg, dtype=np.float64) for Sg in cache["S_groups"]]
+    q = int(Y.shape[1])
+
+    if q == 0 or len(S_groups) == 0:
+        return 0.0
+
+    Si = [
+        root @ root.T
+        for root in (
+            _positive_semidefinite_root(0.5 * (Sg + Sg.T), tol=tol) for Sg in S_groups
+        )
+    ]
+    if not any(A.size for A in Si):
+        return 0.0
+
+    d_tol = float(np.finfo(np.float64).eps ** 0.3)
+    r_tol = float(np.finfo(np.float64).eps ** 0.75)
+
+    S_out = np.zeros((q, q), dtype=np.float64)
+    gamma = np.ones(len(Si), dtype=bool)
+    K = 0
+    Q = q
+    iteration = 0
+
+    # `Si_active` always stores the current similarity-transformed penalty
+    # blocks in the active lower-right subspace of dimension `Q`.
+    Si_active = [np.asarray(A, dtype=np.float64).copy() for A in Si]
+
+    while True:
+        iteration += 1
+
+        frob = np.array(
+            [
+                float(np.linalg.norm(Si_active[i], ord="fro")) if gamma[i] else 0.0
+                for i in range(len(Si_active))
+            ],
+            dtype=np.float64,
+        )
+        max_frob = max(
+            [float(frob[i] * sp[i]) for i in range(len(Si_active)) if gamma[i]] + [0.0]
+        )
+        if not np.isfinite(max_frob) or max_frob <= 0.0:
+            return 0.0
+
+        alpha = np.zeros(len(Si_active), dtype=bool)
+        gamma1 = np.zeros(len(Si_active), dtype=bool)
+        for i in range(len(Si_active)):
+            if not gamma[i]:
+                continue
+            if float(frob[i] * sp[i]) > max_frob * d_tol:
+                alpha[i] = True
+            else:
+                gamma1[i] = True
+
+        if np.any(gamma1):
+            Sb = np.zeros((Q, Q), dtype=np.float64)
+            for i, A in enumerate(Si_active):
+                if alpha[i]:
+                    Sb += A / float(frob[i])
+            Sb = 0.5 * (Sb + Sb.T)
+            ev = np.linalg.eigvalsh(Sb)
+            if ev.size == 0 or ev[-1] <= 0.0:
+                r = 0
+            else:
+                r = 1
+                while r < Q and ev[Q - r - 1] > ev[Q - 1] * r_tol:
+                    r += 1
+        else:
+            r = Q
+
+        if Q == r:
+            if iteration == 1:
+                S_out.fill(0.0)
+                for i, A in enumerate(Si_active):
+                    S_out += float(sp[i]) * A
+            break
+
+        Sb = np.zeros((Q, Q), dtype=np.float64)
+        Sg = np.zeros((Q, Q), dtype=np.float64)
+        for i, A in enumerate(Si_active):
+            if alpha[i]:
+                Sb += float(sp[i]) * A
+            elif gamma1[i]:
+                Sg += float(sp[i]) * A
+
+        Sb = 0.5 * (Sb + Sb.T)
+        evals, U = np.linalg.eigh(Sb)
+        idx = np.argsort(evals)[::-1]
+        evals = np.asarray(evals[idx], dtype=np.float64)
+        U = np.asarray(U[:, idx], dtype=np.float64)
+
+        if K > 0:
+            B = S_out[:K, K : K + Q] @ U
+            S_out[:K, K : K + Q] = B
+            S_out[K : K + Q, :K] = B.T
+
+        C = U.T @ Sg @ U
+        if r > 0:
+            C[np.arange(r), np.arange(r)] += evals[:r]
+        S_out[K : K + Q, K : K + Q] = C
+
+        Un = np.asarray(U[:, r:], dtype=np.float64)
+        Si_active = [Un.T @ A @ Un if gamma1[i] else A for i, A in enumerate(Si_active)]
+        K += r
+        Q -= r
+        gamma = gamma1
+
+    sign, logdet = np.linalg.slogdet(0.5 * (S_out + S_out.T))
+    if sign <= 0 or not np.isfinite(logdet):
+        return np.inf
+    return float(logdet)
+
+
+def _stable_penalty_logdet_derivatives(model, sp, *, tol=1e-10, order=2):
+    sp = np.asarray(sp, dtype=np.float64).ravel()
+    n_sp = int(model.n_smoothing_params_ or 0)
+    grad = np.zeros(n_sp, dtype=np.float64)
+    hess = np.zeros((n_sp, n_sp), dtype=np.float64)
+
+    cache = _static_penalty_space(model, tol=tol)
+    Y = np.asarray(cache["Y"], dtype=np.float64)
+    S_groups = [
+        0.5 * (np.asarray(Sg, dtype=np.float64) + np.asarray(Sg, dtype=np.float64).T)
+        for Sg in cache["S_groups"]
+    ]
+    q = int(Y.shape[1])
+
+    if q == 0 or len(S_groups) == 0:
+        return 0.0, grad, hess
+
+    if not any(Sg.size and np.any(Sg) for Sg in S_groups):
+        return 0.0, grad, hess
+
+    d_tol = float(np.finfo(np.float64).eps ** 0.3)
+    r_tol = float(np.finfo(np.float64).eps ** 0.75)
+
+    S_out = np.zeros((q, q), dtype=np.float64)
+    Qf = np.eye(q, dtype=np.float64)
+    gamma = np.ones(len(S_groups), dtype=bool)
+    K = 0
+    Q = q
+    iteration = 0
+    Si_active = [Sg.copy() for Sg in S_groups]
+
+    while True:
+        iteration += 1
+        frob = np.array(
+            [
+                float(np.linalg.norm(Si_active[i], ord="fro")) if gamma[i] else 0.0
+                for i in range(len(Si_active))
+            ],
+            dtype=np.float64,
+        )
+        max_frob = max(
+            [float(frob[i] * sp[i]) for i in range(len(Si_active)) if gamma[i]] + [0.0]
+        )
+        if not np.isfinite(max_frob) or max_frob <= 0.0:
+            return 0.0, grad, hess
+
+        alpha = np.zeros(len(Si_active), dtype=bool)
+        gamma1 = np.zeros(len(Si_active), dtype=bool)
+        for i in range(len(Si_active)):
+            if not gamma[i]:
+                continue
+            if float(frob[i] * sp[i]) > max_frob * d_tol:
+                alpha[i] = True
+            else:
+                gamma1[i] = True
+
+        if np.any(gamma1):
+            Sb = np.zeros((Q, Q), dtype=np.float64)
+            for i, A in enumerate(Si_active):
+                if alpha[i]:
+                    Sb += A / float(frob[i])
+            Sb = 0.5 * (Sb + Sb.T)
+            ev = np.linalg.eigvalsh(Sb)
+            if ev.size == 0 or ev[-1] <= 0.0:
+                r = 0
+            else:
+                r = 1
+                while r < Q and ev[Q - r - 1] > ev[Q - 1] * r_tol:
+                    r += 1
+        else:
+            r = Q
+
+        if Q == r:
+            if iteration == 1:
+                S_out.fill(0.0)
+                for i, A in enumerate(Si_active):
+                    S_out += float(sp[i]) * A
+            break
+
+        Sb = np.zeros((Q, Q), dtype=np.float64)
+        Sg = np.zeros((Q, Q), dtype=np.float64)
+        for i, A in enumerate(Si_active):
+            if alpha[i]:
+                Sb += float(sp[i]) * A
+            elif gamma1[i]:
+                Sg += float(sp[i]) * A
+        Sb = 0.5 * (Sb + Sb.T)
+        evals, U = np.linalg.eigh(Sb)
+        idx = np.argsort(evals)[::-1]
+        evals = np.asarray(evals[idx], dtype=np.float64)
+        U = np.asarray(U[:, idx], dtype=np.float64)
+
+        if iteration == 1:
+            Qf[:, :Q] = U
+        else:
+            Qf[:, K : K + Q] = Qf[:, K : K + Q] @ U
+
+        if K > 0:
+            B = S_out[:K, K : K + Q] @ U
+            S_out[:K, K : K + Q] = B
+            S_out[K : K + Q, :K] = B.T
+
+        C = U.T @ Sg @ U
+        if r > 0:
+            C[np.arange(r), np.arange(r)] += evals[:r]
+        S_out[K : K + Q, K : K + Q] = C
+
+        Un = np.asarray(U[:, r:], dtype=np.float64)
+        Si_active = [Un.T @ A @ Un if gamma1[i] else A for i, A in enumerate(Si_active)]
+        K += r
+        Q -= r
+        gamma = gamma1
+
+    S_out = 0.5 * (S_out + S_out.T)
+    try:
+        cS, loS = cho_factor(S_out, check_finite=False)
+    except np.linalg.LinAlgError:
+        return np.inf, np.full(n_sp, np.nan), np.full((n_sp, n_sp), np.nan)
+    logdet = 2.0 * float(np.sum(np.log(np.abs(np.diag(cS)))))
+    if not np.isfinite(logdet):
+        return np.inf, np.full(n_sp, np.nan), np.full((n_sp, n_sp), np.nan)
+    if order <= 0:
+        return logdet, grad, hess
+
+    S_inv = cho_solve((cS, loS), np.eye(q), check_finite=False)
+    transformed = [0.5 * (Qf.T @ Sg @ Qf + (Qf.T @ Sg @ Qf).T) for Sg in S_groups]
+    SinvSi = [S_inv @ Si for Si in transformed]
+    for i, Si in enumerate(transformed):
+        if not Si.size or not np.any(Si):
+            continue
+        grad[i] = float(sp[i] * np.trace(SinvSi[i]))
+
+    if order <= 1:
+        return logdet, grad, hess
+
+    for i in range(n_sp):
+        if not transformed[i].size or not np.any(transformed[i]):
+            continue
+        for j in range(i, n_sp):
+            if not transformed[j].size or not np.any(transformed[j]):
+                continue
+            val = -float(sp[i] * sp[j] * np.trace(SinvSi[i] @ SinvSi[j]))
+            if i == j:
+                val += float(grad[i])
+            hess[i, j] = val
+            hess[j, i] = val
+    return logdet, grad, hess
+
+# --- End of nampy/gam/smoothing_selection/criteria/penalty.py ---
+
+# --- Start of nampy/gam/smoothing_selection/criteria/pirls.py ---
+"""
+Penalized IRLS smoothing-selection criteria: GCV, UBRE, and Laplace ML/REML.
+
+Functions here solve the penalized system via P-IRLS at each criterion evaluation
+and compute the corresponding smoothing-selection score.
+"""
+
+from contextlib import contextmanager
+
+import numpy as np
+from scipy.linalg import cho_factor, cho_solve
+
+from ..reparam import ensure_penalty_reparameterization_state
+from .penalty import (
+    _stable_penalty_logdet,
+    _static_fixed_and_random_designs,
+    _static_penalty_null_dim,
+)
+
+
+def _is_joint_negbin_theta_model(model) -> bool:
+    return str(getattr(model.family, "name", "")).lower() == "negbin" and bool(
+        getattr(model.family, "estimate_theta", False)
+    )
+
+
+def _copy_state_vector(x):
+    if x is None:
+        return None
+    return np.asarray(x, dtype=np.float64).copy()
+
+
+def _current_joint_negbin_eval_state(model):
+    result = getattr(model, "_optim_result", None)
+    result_state = (
+        None if result is None else getattr(result, "joint_negbin_state", None)
+    )
+    if isinstance(result_state, dict):
+        return {
+            "coef": _copy_state_vector(result_state.get("coef", None)),
+            "eta": _copy_state_vector(result_state.get("eta", None)),
+            "mu": _copy_state_vector(result_state.get("mu", None)),
+            "theta": float(
+                result_state.get("theta", getattr(model.family, "theta", 1.0))
+            ),
+        }
+
+    baseline = getattr(model, "_joint_negbin_fd_baseline_", None)
+    if isinstance(baseline, dict):
+        return {
+            "coef": _copy_state_vector(baseline.get("coef", None)),
+            "eta": _copy_state_vector(baseline.get("eta", None)),
+            "mu": _copy_state_vector(baseline.get("mu", None)),
+            "theta": float(baseline.get("theta", getattr(model.family, "theta", 1.0))),
+        }
+
+    return {
+        "coef": _copy_state_vector(
+            getattr(
+                model, "_pirls_coef_start_", getattr(model, "_pirls_last_coef_", None)
+            )
+        ),
+        "eta": _copy_state_vector(
+            getattr(
+                model, "_pirls_eta_start_", getattr(model, "_pirls_last_eta_", None)
+            )
+        ),
+        "mu": _copy_state_vector(
+            getattr(model, "_pirls_mu_start_", getattr(model, "_pirls_last_mu_", None))
+        ),
+        "theta": float(getattr(model.family, "theta", 1.0)),
+    }
+
+
+@contextmanager
+def _frozen_joint_negbin_eval_state(model, baseline_state=None):
+    prev = {
+        "eval_coef": _copy_state_vector(getattr(model, "_pirls_eval_start_", None)),
+        "eval_eta": _copy_state_vector(getattr(model, "_pirls_eval_eta_start_", None)),
+        "eval_mu": _copy_state_vector(getattr(model, "_pirls_eval_mu_start_", None)),
+        "lock": bool(getattr(model, "_pirls_lock_start_", False)),
+        "coef": _copy_state_vector(getattr(model, "_pirls_coef_start_", None)),
+        "eta": _copy_state_vector(getattr(model, "_pirls_eta_start_", None)),
+        "mu": _copy_state_vector(getattr(model, "_pirls_mu_start_", None)),
+        "last_coef": _copy_state_vector(getattr(model, "_pirls_last_coef_", None)),
+        "last_eta": _copy_state_vector(getattr(model, "_pirls_last_eta_", None)),
+        "last_mu": _copy_state_vector(getattr(model, "_pirls_last_mu_", None)),
+        "theta": float(getattr(model.family, "theta", 1.0)),
+    }
+    state = (
+        _current_joint_negbin_eval_state(model)
+        if baseline_state is None
+        else {
+            "coef": _copy_state_vector(baseline_state.get("coef", None)),
+            "eta": _copy_state_vector(baseline_state.get("eta", None)),
+            "mu": _copy_state_vector(baseline_state.get("mu", None)),
+            "theta": float(
+                baseline_state.get("theta", getattr(model.family, "theta", 1.0))
+            ),
+        }
+    )
+    model._pirls_eval_start_ = _copy_state_vector(state.get("coef", None))
+    model._pirls_eval_eta_start_ = _copy_state_vector(state.get("eta", None))
+    model._pirls_eval_mu_start_ = _copy_state_vector(state.get("mu", None))
+    model._pirls_lock_start_ = True
+    model.family.theta = float(state["theta"])
+    try:
+        yield state
+    finally:
+        model._pirls_eval_start_ = prev["eval_coef"]
+        model._pirls_eval_eta_start_ = prev["eval_eta"]
+        model._pirls_eval_mu_start_ = prev["eval_mu"]
+        model._pirls_lock_start_ = prev["lock"]
+        model._pirls_coef_start_ = prev["coef"]
+        model._pirls_eta_start_ = prev["eta"]
+        model._pirls_mu_start_ = prev["mu"]
+        model._pirls_last_coef_ = prev["last_coef"]
+        model._pirls_last_eta_ = prev["last_eta"]
+        model._pirls_last_mu_ = prev["last_mu"]
+        model.family.theta = float(prev["theta"])
+
+
+def criterion_ml_reml_pirls_frozen_negbin(
+    model, y, log_sp, method, baseline_state=None
+):
+    with _frozen_joint_negbin_eval_state(model, baseline_state=baseline_state):
+        return criterion_ml_reml_pirls(model, y, log_sp, method)
+
+
+def _gamma_profile_objective_curvature(model, y, Dp, phi, mp, *, method):
+    phi = float(phi)
+    if not np.isfinite(phi) or phi <= 0.0:
+        return np.inf, np.nan, np.nan
+    ls = float(
+        model.family.saturated_loglik(
+            y,
+            weights=np.ones_like(y, dtype=np.float64),
+            n=len(y),
+            scale=phi,
+        )
+    )
+    from .pirls_deriv import _gamma_saturated_loglik_scale_derivatives
+
+    ls1, ls2 = _gamma_saturated_loglik_scale_derivatives(y, phi)
+    reml_ind = 1.0 if method == "REML" else 0.0
+    score_lphi = -Dp / (2.0 * phi) - ls1 * phi - 0.5 * mp * reml_ind
+    curv_lphi = Dp / (2.0 * phi) - ls2 * (phi**2) - ls1 * phi
+    return ls, score_lphi, curv_lphi
+
+
+def _solve_gamma_profile_scale(model, y, Dp, mp, *, method, init_scale):
+    phi = float(max(init_scale, 1e-12))
+    if not np.isfinite(phi) or phi <= 0.0:
+        phi = max(float(Dp) / max(float(len(y)), 1.0), 1e-6)
+
+    for _ in range(40):
+        _, score_lphi, curv_lphi = _gamma_profile_objective_curvature(
+            model, y, Dp, phi, mp, method=method
+        )
+        if not np.isfinite(score_lphi) or not np.isfinite(curv_lphi):
+            break
+        if abs(score_lphi) <= 1e-12:
+            return phi
+        if abs(curv_lphi) <= 1e-14:
+            break
+        step = score_lphi / curv_lphi
+        if not np.isfinite(step):
+            break
+        if abs(step) <= 1e-12:
+            return phi
+        new_phi = float(np.exp(np.log(phi) - step))
+        if not np.isfinite(new_phi) or new_phi <= 0.0:
+            break
+        phi = new_phi
+    return phi
+
+
+def criterion_gcv_pirls(model, y, log_sp):
+    sp = model._expand_smoothing_params_from_log(log_sp)
+    sol = model._solve_pirls_given_smoothing(y, sp)
+    n = model.n_samples_
+    den = 1.0 - model.score_gamma * sol["trace_H"] / n
+    if den <= 1e-12 or not np.isfinite(den):
+        return np.inf
+    return (sol["deviance"] / n) / (den**2)
+
+
+def criterion_ubre_pirls(model, y, log_sp):
+    sp = model._expand_smoothing_params_from_log(log_sp)
+    sol = model._solve_pirls_given_smoothing(y, sp)
+    scale = model.family.known_scale
+    if scale is None:
+        raise ValueError(
+            f"UBRE/AIC requested for family={model.family.name!r}, "
+            "but the family does not have known scale."
+        )
+    n = model.n_samples_
+    edf = sol["trace_H"]
+    return (sol["deviance"] / n) - scale + (2.0 * model.score_gamma * scale * edf / n)
+
+
+def _laplace_lambda_vector(model, sp):
+    state = ensure_penalty_reparameterization_state(model)
+    from ..reparam import sl_lambda_vector
+
+    return sl_lambda_vector(state, sp)
+
+
+def _lambda_group_indices(model):
+    state = ensure_penalty_reparameterization_state(model)
+    from ..reparam import sl_group_indices
+
+    groups = sl_group_indices(state)
+    if groups is None:
+        return {}
+    return {
+        int(sp_idx): np.asarray(idxs, dtype=np.int64) for sp_idx, idxs in groups.items()
+    }
+
+
+def _penalty_derivative_matrices(model, sp):
+    n_full = int(model.n_coef_ + (1 if model.fit_intercept else 0))
+    offset0 = 1 if model.fit_intercept else 0
+    mats = [
+        np.zeros((n_full, n_full), dtype=np.float64)
+        for _ in range(int(model.n_smoothing_params_ or 0))
+    ]
+    if not mats:
+        return mats
+
+    for pb in model.penalty_blocks_:
+        k = int(pb.smoothing_index)
+        sl = pb.coef_slice
+        full_sl = slice(offset0 + sl.start, offset0 + sl.stop)
+        mats[k][full_sl, full_sl] += float(sp[k]) * np.asarray(
+            pb.matrix, dtype=np.float64
+        )
+    return mats
+
+
+def _pirls_laplace_logdet_term(model, sol, sp, method):
+    state = ensure_penalty_reparameterization_state(model)
+    Xf = state.X_fix
+    Zr = state.Z_rand
+    p = int(Xf.shape[1])
+    q = int(Zr.shape[1])
+    W = np.asarray(sol["working_weights"], dtype=np.float64)
+
+    if q == 0:
+        if method == "ML" or p == 0:
+            return 0.0
+
+        XtWX_fix = Xf.T @ (W[:, None] * Xf)
+        cFix, _ = cho_factor(XtWX_fix, check_finite=False)
+        logdet_fix = 2.0 * float(np.sum(np.log(np.abs(np.diag(cFix)))))
+        return 0.5 * logdet_fix
+
+    lam_vec = _laplace_lambda_vector(model, sp)
+    if np.any(lam_vec <= 0):
+        return np.inf
+
+    ZtW = Zr.T * W[np.newaxis, :]
+    M = ZtW @ Zr + np.diag(lam_vec)
+    cM, loM = cho_factor(M, check_finite=False)
+
+    logdet_M = 2.0 * float(np.sum(np.log(np.abs(np.diag(cM)))))
+    logdet_Lam = float(np.sum(np.log(lam_vec)))
+    det_term = 0.5 * (logdet_M - logdet_Lam)
+
+    if method == "ML" or p == 0:
+        return det_term
+
+    ZTWX = Zr.T @ (W[:, None] * Xf)
+    Minv_ZTWX = cho_solve((cM, loM), ZTWX, check_finite=False)
+    XtKX = Xf.T @ (W[:, None] * Xf) - ZTWX.T @ Minv_ZTWX
+    cXKX, _ = cho_factor(XtKX, check_finite=False)
+    logdet_XtKX = 2.0 * float(np.sum(np.log(np.abs(np.diag(cXKX)))))
+    return det_term + 0.5 * logdet_XtKX
+
+
+def _pirls_tensor_coefficient_space_logdet_term(model, sol, sp):
+    """Coefficient-space REML/ML determinant term for tensor PIRLS fits.
+
+    `mgcv` evaluates tensor-product REML penalties against the weighted coefficient-space
+    system `X'WX + S`. For non-Gaussian tensor terms, the static mixed-model block
+    decomposition used by the exact PIRLS Laplace path is not equivalent enough
+    numerically, even though the fixed-sp fitted functions agree.
+    """
+    X = np.asarray(sol["X"], dtype=np.float64)
+    W = np.asarray(sol["working_weights"], dtype=np.float64)
+    P = np.asarray(sol["P"], dtype=np.float64)
+    A = X.T @ (W[:, None] * X) + P
+    try:
+        cA, _ = cho_factor(A, check_finite=False)
+    except np.linalg.LinAlgError:
+        return np.inf
+    logdet_A = 2.0 * float(np.sum(np.log(np.abs(np.diag(cA)))))
+    logdet_S = float(_stable_penalty_logdet(model, sp))
+    if not np.isfinite(logdet_S):
+        return np.inf
+    return 0.5 * (logdet_A - logdet_S)
+
+
+def criterion_ml_reml_pirls(model, y, log_sp, method):
+    if abs(model.score_gamma - 1.0) > 1e-12:
+        raise NotImplementedError(
+            "score_gamma != 1 is not yet implemented for the PIRLS Laplace ML/REML path."
+        )
+
+    if not model._can_use_simple_ml_reml_structure():
+        raise NotImplementedError(
+            "Current PIRLS Laplace ML/REML is available only for terms with "
+            "disjoint-support primary smooth penalties, plus at most one "
+            "null-space penalty per support block."
+        )
+
+    ensure_penalty_reparameterization_state(model)
+
+    sp = model._expand_smoothing_params_from_log(log_sp)
+    sol = model._solve_pirls_given_smoothing(y, sp)
+
+    return _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method)
+
+
+def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
+    scale = float(sol["scale"])
+    if not np.isfinite(scale) or scale <= 0:
+        return np.inf
+
+    penalty_quad = float(sol["penalty_quadratic"] or 0.0)
+    mp = float(
+        _static_penalty_null_dim(model)
+        + int(bool(getattr(model, "fit_intercept", False)))
+    )
+    n_obs = float(len(y))
+    family_name = str(getattr(model.family, "name", "")).lower()
+
+    if getattr(model.family, "known_scale", None) is None:
+        if family_name == "gamma":
+            Dp = float(sol["deviance"]) + penalty_quad
+            phi = _solve_gamma_profile_scale(
+                model,
+                y,
+                Dp,
+                mp,
+                method=method,
+                init_scale=float(sol["scale"]),
+            )
+            if not np.isfinite(phi) or phi <= 0.0:
+                return np.inf
+            saturated_loglik, _, _ = _gamma_profile_objective_curvature(
+                model, y, Dp, phi, mp, method=method
+            )
+            base_objective = Dp / (2.0 * phi) - saturated_loglik
+        else:
+            var = np.clip(
+                np.asarray(model.family.variance(sol["mu"]), dtype=np.float64),
+                1e-14,
+                None,
+            )
+            pearson = float(
+                np.sum(
+                    (
+                        np.asarray(y, dtype=np.float64)
+                        - np.asarray(sol["mu"], dtype=np.float64)
+                    )
+                    ** 2
+                    / var
+                )
+            )
+            denom = n_obs - mp
+            if not np.isfinite(denom) or denom <= 0.0:
+                return np.inf
+            phi = pearson / denom
+            if not np.isfinite(phi) or phi <= 0.0:
+                return np.inf
+
+            saturated_loglik = float(
+                model.family.saturated_loglik(
+                    y,
+                    weights=np.ones_like(y, dtype=np.float64),
+                    n=len(y),
+                    scale=phi,
+                )
+            )
+            base_objective = (float(sol["deviance"]) + penalty_quad) / (
+                2.0 * phi
+            ) - saturated_loglik
+        try:
+            det_term = (
+                _pirls_tensor_coefficient_space_logdet_term(model, sol, sp)
+                if model._has_tensor_terms()
+                else _pirls_laplace_logdet_term(model, sol, sp, method)
+            )
+        except np.linalg.LinAlgError:
+            return np.inf
+        if not np.isfinite(det_term):
+            return np.inf
+        objective = base_objective + det_term
+        if method == "REML":
+            objective -= 0.5 * mp * np.log(2.0 * np.pi * phi)
+        return objective
+
+    saturated_loglik = float(
+        model.family.saturated_loglik(
+            y,
+            weights=np.ones_like(y, dtype=np.float64),
+            n=len(y),
+            scale=scale,
+        )
+    )
+    base_objective = (float(sol["deviance"]) + penalty_quad) / (
+        2.0 * scale
+    ) - saturated_loglik
+
+    if model._has_tensor_terms():
+        det_term = _pirls_tensor_coefficient_space_logdet_term(model, sol, sp)
+        if not np.isfinite(det_term):
+            return np.inf
+        objective = base_objective + det_term
+        if method == "REML":
+            objective -= 0.5 * mp * np.log(2.0 * np.pi * scale)
+        return objective
+
+    state = ensure_penalty_reparameterization_state(model)
+    Xf = state.X_fix
+    Zr = state.Z_rand
+    p = int(Xf.shape[1])
+    q = int(Zr.shape[1])
+    W = np.asarray(sol["working_weights"], dtype=np.float64)
+    if q == 0:
+        if method == "ML":
+            return base_objective
+
+        if p == 0:
+            return base_objective
+
+        XtWX_fix = Xf.T @ (W[:, None] * Xf)
+        try:
+            cFix, _ = cho_factor(XtWX_fix, check_finite=False)
+        except np.linalg.LinAlgError:
+            return np.inf
+
+        logdet_fix = 2.0 * float(np.sum(np.log(np.abs(np.diag(cFix)))))
+        objective = base_objective + 0.5 * logdet_fix
+        if method == "REML":
+            objective -= 0.5 * mp * np.log(2.0 * np.pi * scale)
+        return objective
+
+    lam_vec = _laplace_lambda_vector(model, sp)
+    if np.any(lam_vec <= 0):
+        return np.inf
+
+    ZtW = Zr.T * W[np.newaxis, :]
+    M = ZtW @ Zr + np.diag(lam_vec)
+
+    try:
+        cM, loM = cho_factor(M, check_finite=False)
+    except np.linalg.LinAlgError:
+        return np.inf
+
+    logdet_M = 2.0 * float(np.sum(np.log(np.abs(np.diag(cM)))))
+    logdet_Lam = float(np.sum(np.log(lam_vec)))
+
+    objective = base_objective + 0.5 * (logdet_M - logdet_Lam)
+
+    if method == "ML":
+        return objective
+
+    if p > 0:
+        objective -= 0.5 * mp * np.log(2.0 * np.pi * scale)
+    else:
+        return objective
+
+    ZTWX = Zr.T @ (W[:, None] * Xf)
+    Minv_ZTWX = cho_solve((cM, loM), ZTWX, check_finite=False)
+    XtKX = Xf.T @ (W[:, None] * Xf) - ZTWX.T @ Minv_ZTWX
+
+    try:
+        cXKX, _ = cho_factor(XtKX, check_finite=False)
+    except np.linalg.LinAlgError:
+        return np.inf
+
+    logdet_XtKX = 2.0 * float(np.sum(np.log(np.abs(np.diag(cXKX)))))
+    return objective + 0.5 * logdet_XtKX
+
+
+def criterion_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
+    method = str(method).upper()
+    family_name = str(getattr(model.family, "name", "")).lower()
+    if family_name != "gamma":
+        raise NotImplementedError(
+            "Joint PIRLS Gamma outer objective is implemented only for family='gamma'."
+        )
+
+    sp = model._expand_smoothing_params_from_log(log_sp)
+    sol = model._solve_pirls_given_smoothing(y, sp)
+
+    phi = float(np.exp(float(log_phi)))
+    if not np.isfinite(phi) or phi <= 0.0:
+        return np.inf
+
+    penalty_quad = float(sol["penalty_quadratic"] or 0.0)
+    mp = float(
+        _static_penalty_null_dim(model)
+        + int(bool(getattr(model, "fit_intercept", False)))
+    )
+    Dp = float(sol["deviance"]) + penalty_quad
+    saturated_loglik, _, _ = _gamma_profile_objective_curvature(
+        model, y, Dp, phi, mp, method=method
+    )
+    base_objective = Dp / (2.0 * phi) - saturated_loglik
+    try:
+        det_term = (
+            _pirls_tensor_coefficient_space_logdet_term(model, sol, sp)
+            if model._has_tensor_terms()
+            else _pirls_laplace_logdet_term(model, sol, sp, method)
+        )
+    except np.linalg.LinAlgError:
+        return np.inf
+    if not np.isfinite(det_term):
+        return np.inf
+
+    objective = base_objective + det_term
+    if method == "REML":
+        objective -= 0.5 * mp * np.log(2.0 * np.pi * phi)
+    return float(objective)
+
+
+def criterion_ml_reml_pirls_negbin_joint(model, y, log_sp, log_theta, method):
+    """Joint (log_sp, log_theta) NB REML outer objective.
+
+    Sets model.family.theta = exp(log_theta) as the EFS initialization, then
+    evaluates the PIRLS REML criterion.  EFS (Embedded Fisher Scoring) updates
+    theta after each inner IRLS step inside :func:`irls_core`, mirroring
+    mgcv's ``gam.fit4.r`` extended-family pattern where log(theta) is prepended
+    to ``lsp`` and theta is updated per PIRLS step within the inner loop.
+    """
+    family_name = str(getattr(model.family, "name", "")).lower()
+    if family_name != "negbin":
+        raise NotImplementedError(
+            "Joint PIRLS NegBin outer objective is implemented only for family='negbin'."
+        )
+    theta = float(np.exp(float(log_theta)))
+    if not np.isfinite(theta) or theta <= 0.0:
+        return np.inf
+    prev_theta = float(getattr(model.family, "theta", 1.0))
+    prev_disable_theta_efs = bool(getattr(model.family, "_disable_theta_efs", False))
+    try:
+        model.family.theta = theta
+        model.family._disable_theta_efs = True
+        return criterion_ml_reml_pirls(model, y, log_sp, method)
+    finally:
+        model.family.theta = prev_theta
+        model.family._disable_theta_efs = bool(prev_disable_theta_efs)
+
+
+def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
+    if abs(model.score_gamma - 1.0) > 1e-12:
+        raise NotImplementedError(
+            "score_gamma != 1 is not yet implemented for the dynamic PIRLS Laplace ML/REML path."
+        )
+
+    sp = model._expand_smoothing_params_from_log(log_sp)
+    sol = model._solve_pirls_given_smoothing(y, sp)
+
+    scale = float(sol["scale"])
+    if not np.isfinite(scale) or scale <= 0:
+        return np.inf
+
+    saturated_loglik = float(
+        model.family.saturated_loglik(
+            y,
+            weights=np.ones_like(y, dtype=np.float64),
+            n=len(y),
+            scale=scale,
+        )
+    )
+    base_objective = (
+        float(sol["deviance"]) + float(sol["penalty_quadratic"] or 0.0)
+    ) / (2.0 * scale) - saturated_loglik
+
+    X = np.asarray(sol["X"], dtype=np.float64)
+    W = np.asarray(sol["working_weights"], dtype=np.float64)
+    mp = float(
+        _static_penalty_null_dim(model)
+        + int(bool(getattr(model, "fit_intercept", False)))
+    )
+    Xf, Zr, split = _static_fixed_and_random_designs(model, X, sp)
+    p = int(Xf.shape[1])
+    q = int(Zr.shape[1])
+
+    if q == 0:
+        if method == "ML":
+            return base_objective
+
+        if p == 0:
+            return base_objective
+
+        XtWX_fix = Xf.T @ (W[:, None] * Xf)
+        try:
+            cFix, _ = cho_factor(XtWX_fix, check_finite=False)
+        except np.linalg.LinAlgError:
+            return np.inf
+        logdet_fix = 2.0 * float(np.sum(np.log(np.abs(np.diag(cFix)))))
+        objective = base_objective + 0.5 * logdet_fix
+        if method == "REML":
+            objective -= 0.5 * mp * np.log(2.0 * np.pi * scale)
+        return objective
+
+    ZtW = Zr.T * W[np.newaxis, :]
+    M = ZtW @ Zr + np.eye(q, dtype=np.float64)
+    try:
+        cM, loM = cho_factor(M, check_finite=False)
+    except np.linalg.LinAlgError:
+        return np.inf
+
+    logdet_M = 2.0 * float(np.sum(np.log(np.abs(np.diag(cM)))))
+    objective = base_objective + 0.5 * (logdet_M - float(split["logdet_plus"]))
+
+    if method == "ML":
+        return objective
+
+    if p > 0:
+        objective -= 0.5 * mp * np.log(2.0 * np.pi * scale)
+    else:
+        return objective
+
+    ZTWX = Zr.T @ (W[:, None] * Xf)
+    Minv_ZTWX = cho_solve((cM, loM), ZTWX, check_finite=False)
+    XtKX = Xf.T @ (W[:, None] * Xf) - ZTWX.T @ Minv_ZTWX
+
+    try:
+        cXKX, _ = cho_factor(XtKX, check_finite=False)
+    except np.linalg.LinAlgError:
+        return np.inf
+
+    logdet_XtKX = 2.0 * float(np.sum(np.log(np.abs(np.diag(cXKX)))))
+    return objective + 0.5 * logdet_XtKX
+
+# --- End of nampy/gam/smoothing_selection/criteria/pirls.py ---
+
+# --- Start of nampy/gam/smoothing_selection/criteria/pirls_deriv.py ---
+"""Exact first/second derivatives of PIRLS Laplace ML/REML criteria."""
+
+import numpy as np
+from scipy.linalg import cho_factor, cho_solve
+from scipy.special import digamma, polygamma
+
+from ..reparam import ensure_penalty_reparameterization_state
+from .laplace import (
+    _lambda_group_indices,
+    _laplace_lambda_vector,
+    _penalty_derivative_matrices,
+)
+from .penalty import _stable_penalty_logdet_derivatives, _static_penalty_null_dim
+from .pirls import _gamma_profile_objective_curvature, _solve_gamma_profile_scale
+from .pirls_reml_derivative_blocks import (
+    _deviance_chained_to_smoothing,
+    _deviance_coefficient_derivatives,
+    _hat_matrix_trace_and_sp_derivatives,
+    _logdet_penalized_system_derivatives,
+    _penalty_quadratic_and_sp_derivatives,
+    _quadratic_form_in_beta_directions,
+    _working_weight_derivatives_wrt_linpred,
+)
+
+
+def _gamma_saturated_loglik_scale_derivatives(y, scale):
+    y = np.asarray(y, dtype=np.float64)
+    n = float(y.size)
+    scale = float(scale)
+    if not np.isfinite(scale) or scale <= 0.0:
+        return np.nan, np.nan
+    inv_scale = 1.0 / scale
+    l1 = float(n * (digamma(inv_scale) + np.log(scale)) / (scale**2))
+    l2 = float(
+        n
+        * (
+            -polygamma(1, inv_scale) / scale
+            + (1.0 - 2.0 * np.log(scale) - 2.0 * digamma(inv_scale))
+        )
+        / (scale**3)
+    )
+    return l1, l2
+
+
+def _gamma_joint_kernel_state(model, y, log_sp, method):
+    method = str(method).upper()
+    _ = criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method)
+    state = getattr(model, "_pirls_reml_gamma_state_", None)
+    if not isinstance(state, dict):
+        raise RuntimeError(
+            "Gamma joint PIRLS derivatives require exact fixed-sp gamma kernel state."
+        )
+    mp = float(
+        _static_penalty_null_dim(model)
+        + int(bool(getattr(model, "fit_intercept", False)))
+    )
+    return state, mp
+
+
+def criterion_gradient_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
+    family_name = str(getattr(model.family, "name", "")).lower()
+    if family_name != "gamma":
+        raise NotImplementedError(
+            "Joint PIRLS Gamma derivatives are implemented only for family='gamma'."
+        )
+
+    state, mp = _gamma_joint_kernel_state(model, y, log_sp, method)
+    phi = float(np.exp(float(log_phi)))
+    if not np.isfinite(phi) or phi <= 0.0:
+        n_free = (
+            int(np.sum(~np.asarray(model.smoothing_fixed_mask_, dtype=bool)))
+            if model.smoothing_fixed_mask_ is not None
+            else int(model.n_smoothing_params_ or 0)
+        )
+        return np.full(n_free + 1, np.nan, dtype=np.float64)
+
+    _, score_lphi, _ = _gamma_profile_objective_curvature(
+        model,
+        y,
+        float(state["Dp"]),
+        phi,
+        mp,
+        method=str(method).upper(),
+    )
+    free_mask = (
+        np.zeros(model.n_smoothing_params_, dtype=bool)
+        if model.smoothing_fixed_mask_ is None
+        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+    )
+    free_mask = ~free_mask
+    grad_sp = np.asarray(state["Dp1"], dtype=np.float64) / (2.0 * phi) + np.asarray(
+        state["K1"], dtype=np.float64
+    )
+    return np.concatenate(
+        [
+            np.asarray(grad_sp[free_mask], dtype=np.float64),
+            np.array([float(score_lphi)], dtype=np.float64),
+        ]
+    )
+
+
+def criterion_hessian_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
+    family_name = str(getattr(model.family, "name", "")).lower()
+    if family_name != "gamma":
+        raise NotImplementedError(
+            "Joint PIRLS Gamma derivatives are implemented only for family='gamma'."
+        )
+
+    state, mp = _gamma_joint_kernel_state(model, y, log_sp, method)
+    phi = float(np.exp(float(log_phi)))
+    if not np.isfinite(phi) or phi <= 0.0:
+        n_free = (
+            int(np.sum(~np.asarray(model.smoothing_fixed_mask_, dtype=bool)))
+            if model.smoothing_fixed_mask_ is not None
+            else int(model.n_smoothing_params_ or 0)
+        )
+        return np.full((n_free + 1, n_free + 1), np.nan, dtype=np.float64)
+
+    _, _, curv_lphi = _gamma_profile_objective_curvature(
+        model,
+        y,
+        float(state["Dp"]),
+        phi,
+        mp,
+        method=str(method).upper(),
+    )
+    free_mask = (
+        np.zeros(model.n_smoothing_params_, dtype=bool)
+        if model.smoothing_fixed_mask_ is None
+        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+    )
+    free_mask = ~free_mask
+
+    H_sp = np.asarray(state["Dp2"], dtype=np.float64) / (2.0 * phi) + np.asarray(
+        state["K2"], dtype=np.float64
+    )
+    cross = -np.asarray(state["Dp1"], dtype=np.float64) / (2.0 * phi)
+    H_free = np.asarray(H_sp[np.ix_(free_mask, free_mask)], dtype=np.float64)
+    cross_free = np.asarray(cross[free_mask], dtype=np.float64)
+    out = np.zeros(
+        (int(np.sum(free_mask)) + 1, int(np.sum(free_mask)) + 1), dtype=np.float64
+    )
+    out[:-1, :-1] = H_free
+    out[:-1, -1] = cross_free
+    out[-1, :-1] = cross_free
+    out[-1, -1] = float(curv_lphi)
+    return out
+
+
+def _pirls_tensor_coefficient_space_term_and_gradient(model, sol, sp, dA):
+    A = np.asarray(sol["A"], dtype=np.float64)
+    try:
+        cA, _ = cho_factor(A, check_finite=False)
+    except np.linalg.LinAlgError:
+        n_sp = len(dA)
+        return np.nan, np.full(n_sp, np.nan, dtype=np.float64)
+
+    logdet_A = 2.0 * float(np.sum(np.log(np.abs(np.diag(cA)))))
+    logdet_S, detS1, _ = _stable_penalty_logdet_derivatives(model, sp, order=1)
+    if not np.isfinite(logdet_S):
+        n_sp = len(dA)
+        return np.inf, np.full(n_sp, np.nan, dtype=np.float64)
+
+    detA1, _ = _logdet_penalized_system_derivatives(
+        A_inv=np.asarray(sol["A_inv"], dtype=np.float64),
+        dA=dA,
+        d2A_mat=[[np.zeros_like(A, dtype=np.float64) for _ in dA] for _ in dA],
+    )
+    return 0.5 * (logdet_A - logdet_S), 0.5 * (detA1 - detS1)
+
+
+def _pirls_tensor_coefficient_space_term_derivatives(model, sol, sp, dA, d2A_mat):
+    A = np.asarray(sol["A"], dtype=np.float64)
+    try:
+        cA, _ = cho_factor(A, check_finite=False)
+    except np.linalg.LinAlgError:
+        n_sp = len(dA)
+        return (
+            np.nan,
+            np.full(n_sp, np.nan, dtype=np.float64),
+            np.full((n_sp, n_sp), np.nan, dtype=np.float64),
+        )
+
+    logdet_A = 2.0 * float(np.sum(np.log(np.abs(np.diag(cA)))))
+    logdet_S, detS1, detS2 = _stable_penalty_logdet_derivatives(model, sp, order=2)
+    if not np.isfinite(logdet_S):
+        n_sp = len(dA)
+        return (
+            np.inf,
+            np.full(n_sp, np.nan, dtype=np.float64),
+            np.full((n_sp, n_sp), np.nan, dtype=np.float64),
+        )
+
+    detA1, detA2 = _logdet_penalized_system_derivatives(
+        A_inv=np.asarray(sol["A_inv"], dtype=np.float64),
+        dA=dA,
+        d2A_mat=d2A_mat,
+    )
+    return (
+        0.5 * (logdet_A - logdet_S),
+        0.5 * (detA1 - detS1),
+        0.5 * (detA2 - detS2),
+    )
+
+
+def _pirls_laplace_term_and_gradient(model, sol, sp, dbeta_cols, dW_deta, *, method):
+    X = np.asarray(sol["X"], dtype=np.float64)
+    state = ensure_penalty_reparameterization_state(model)
+    Xf = state.X_fix
+    Zr = state.Z_rand
+    np.asarray(sol["coef_full"], dtype=np.float64)
+    W = np.asarray(sol["working_weights"], dtype=np.float64)
+    p = int(Xf.shape[1])
+    q = int(Zr.shape[1])
+    n_sp = int(model.n_smoothing_params_ or 0)
+
+    K = 0.0
+    K1 = np.zeros(n_sp, dtype=np.float64)
+
+    if q == 0:
+        if method == "ML" or p == 0:
+            return K, K1
+
+        XtWX_fix = Xf.T @ (W[:, None] * Xf)
+        cFix, loFix = cho_factor(XtWX_fix, check_finite=False)
+        C_inv = cho_solve((cFix, loFix), np.eye(p), check_finite=False)
+        K = 0.5 * (2.0 * float(np.sum(np.log(np.abs(np.diag(cFix))))))
+        for j, dbeta_j in enumerate(dbeta_cols):
+            deta_j = X @ np.asarray(dbeta_j, dtype=np.float64)
+            dW_j = dW_deta * deta_j
+            dXtWX_j = Xf.T @ (dW_j[:, None] * Xf)
+            K1[j] = 0.5 * float(np.sum(C_inv * dXtWX_j))
+        return K, K1
+
+    lam_vec = _laplace_lambda_vector(model, sp)
+    if np.any(lam_vec <= 0):
+        return np.nan, np.full(n_sp, np.nan, dtype=np.float64)
+
+    groups = _lambda_group_indices(model)
+    ZtW = Zr.T * W[np.newaxis, :]
+    B = ZtW @ Xf if p > 0 else np.empty((q, 0), dtype=np.float64)
+    M = ZtW @ Zr + np.diag(lam_vec)
+    cM, loM = cho_factor(M, check_finite=False)
+    Minv = cho_solve((cM, loM), np.eye(q), check_finite=False)
+
+    logdet_M = 2.0 * float(np.sum(np.log(np.abs(np.diag(cM)))))
+    logdet_Lam = float(np.sum(np.log(lam_vec)))
+    K = 0.5 * (logdet_M - logdet_Lam)
+
+    if method == "REML" and p > 0:
+        XtKX = Xf.T @ (W[:, None] * Xf) - B.T @ Minv @ B
+        cC, loC = cho_factor(XtKX, check_finite=False)
+        C_inv = cho_solve((cC, loC), np.eye(p), check_finite=False)
+        K += 0.5 * (2.0 * float(np.sum(np.log(np.abs(np.diag(cC))))))
+    else:
+        C_inv = None
+
+    for j, dbeta_j in enumerate(dbeta_cols):
+        deta_j = X @ np.asarray(dbeta_j, dtype=np.float64)
+        dW_j = dW_deta * deta_j
+        dM_j = Zr.T @ (dW_j[:, None] * Zr)
+        group = groups.get(j)
+        if group is not None and group.size > 0:
+            dM_j[np.ix_(group, group)] += float(sp[j]) * np.eye(
+                group.size, dtype=np.float64
+            )
+
+        grad_j = 0.5 * float(np.sum(Minv * dM_j))
+        if group is not None and group.size > 0:
+            grad_j -= 0.5 * float(group.size)
+
+        if method == "REML" and p > 0:
+            G_j = Xf.T @ (dW_j[:, None] * Xf)
+            dB_j = Zr.T @ (dW_j[:, None] * Xf)
+            dC_j = (
+                G_j
+                - dB_j.T @ Minv @ B
+                - B.T @ Minv @ dB_j
+                + B.T @ Minv @ dM_j @ Minv @ B
+            )
+            grad_j += 0.5 * float(np.sum(C_inv * dC_j))
+
+        K1[j] = grad_j
+
+    return K, K1
+
+
+def _pirls_laplace_term_derivatives(
+    model,
+    sol,
+    sp,
+    dbeta_cols,
+    d2beta_mat,
+    dW_eta,
+    d2W_eta,
+    *,
+    method,
+):
+    X = np.asarray(sol["X"], dtype=np.float64)
+    state = ensure_penalty_reparameterization_state(model)
+    Xf = state.X_fix
+    Zr = state.Z_rand
+    W = np.asarray(sol["working_weights"], dtype=np.float64)
+    p = int(Xf.shape[1])
+    q = int(Zr.shape[1])
+    n_sp = int(model.n_smoothing_params_ or 0)
+
+    K = 0.0
+    K1 = np.zeros(n_sp, dtype=np.float64)
+    K2 = np.zeros((n_sp, n_sp), dtype=np.float64)
+
+    deta = [X @ np.asarray(db, dtype=np.float64) for db in dbeta_cols]
+    dW = [np.asarray(dW_eta, dtype=np.float64) * dj for dj in deta]
+
+    if q == 0:
+        if method == "ML" or p == 0:
+            return K, K1, K2
+
+        C = Xf.T @ (W[:, None] * Xf)
+        cC, loC = cho_factor(C, check_finite=False)
+        C_inv = cho_solve((cC, loC), np.eye(p), check_finite=False)
+        K = 0.5 * (2.0 * float(np.sum(np.log(np.abs(np.diag(cC))))))
+
+        dC = [None] * n_sp
+        d2C = [[None] * n_sp for _ in range(n_sp)]
+        for j in range(n_sp):
+            dC_j = Xf.T @ (dW[j][:, None] * Xf)
+            dC[j] = dC_j
+            K1[j] = 0.5 * float(np.trace(C_inv @ dC_j))
+
+        for j in range(n_sp):
+            for k in range(j, n_sp):
+                d2eta_jk = X @ np.asarray(d2beta_mat[j][k], dtype=np.float64)
+                d2W_jk = (
+                    np.asarray(d2W_eta, dtype=np.float64) * deta[j] * deta[k]
+                    + np.asarray(dW_eta, dtype=np.float64) * d2eta_jk
+                )
+                d2C_jk = Xf.T @ (d2W_jk[:, None] * Xf)
+                d2C[j][k] = d2C_jk
+                d2C[k][j] = d2C_jk
+                val = 0.5 * float(
+                    np.trace(C_inv @ d2C_jk - C_inv @ dC[k] @ C_inv @ dC[j])
+                )
+                K2[j, k] = val
+                K2[k, j] = val
+        return K, K1, K2
+
+    groups = _lambda_group_indices(model)
+    lam_vec = _laplace_lambda_vector(model, sp)
+    if np.any(lam_vec <= 0):
+        return np.nan, np.full(n_sp, np.nan), np.full((n_sp, n_sp), np.nan)
+
+    ZtW = Zr.T * W[np.newaxis, :]
+    B0 = ZtW @ Xf if p > 0 else np.empty((q, 0), dtype=np.float64)
+    G0 = Xf.T @ (W[:, None] * Xf) if p > 0 else np.empty((0, 0), dtype=np.float64)
+    M = ZtW @ Zr + np.diag(lam_vec)
+    cM, loM = cho_factor(M, check_finite=False)
+    Minv = cho_solve((cM, loM), np.eye(q), check_finite=False)
+    logdet_M = 2.0 * float(np.sum(np.log(np.abs(np.diag(cM)))))
+    logdet_Lam = float(np.sum(np.log(lam_vec)))
+    K = 0.5 * (logdet_M - logdet_Lam)
+
+    dM = [None] * n_sp
+    dB = [None] * n_sp
+    dG = [None] * n_sp
+    dC = [None] * n_sp
+    d2M = [[None] * n_sp for _ in range(n_sp)]
+    d2B = [[None] * n_sp for _ in range(n_sp)]
+    d2G = [[None] * n_sp for _ in range(n_sp)]
+    d2C = [[None] * n_sp for _ in range(n_sp)]
+
+    for j in range(n_sp):
+        dM_j = Zr.T @ (dW[j][:, None] * Zr)
+        group_j = groups.get(j)
+        if group_j is not None and group_j.size > 0:
+            dM_j[np.ix_(group_j, group_j)] += float(sp[j]) * np.eye(
+                group_j.size, dtype=np.float64
+            )
+        dM[j] = dM_j
+        K1[j] = 0.5 * float(np.trace(Minv @ dM_j))
+        if group_j is not None and group_j.size > 0:
+            K1[j] -= 0.5 * float(group_j.size)
+        if p > 0:
+            dB_j = Zr.T @ (dW[j][:, None] * Xf)
+            dG_j = Xf.T @ (dW[j][:, None] * Xf)
+            dB[j] = dB_j
+            dG[j] = dG_j
+        else:
+            dB[j] = np.empty((q, 0), dtype=np.float64)
+            dG[j] = np.empty((0, 0), dtype=np.float64)
+
+    if method == "REML" and p > 0:
+        C = G0 - B0.T @ Minv @ B0
+        cC, loC = cho_factor(C, check_finite=False)
+        C_inv = cho_solve((cC, loC), np.eye(p), check_finite=False)
+        K += 0.5 * (2.0 * float(np.sum(np.log(np.abs(np.diag(cC))))))
+        for j in range(n_sp):
+            dC_j = (
+                dG[j]
+                - dB[j].T @ Minv @ B0
+                - B0.T @ Minv @ dB[j]
+                + B0.T @ Minv @ dM[j] @ Minv @ B0
+            )
+            dC[j] = dC_j
+            K1[j] += 0.5 * float(np.trace(C_inv @ dC_j))
+    else:
+        C = C_inv = None
+
+    for j in range(n_sp):
+        for k in range(j, n_sp):
+            d2eta_jk = X @ np.asarray(d2beta_mat[j][k], dtype=np.float64)
+            d2W_jk = (
+                np.asarray(d2W_eta, dtype=np.float64) * deta[j] * deta[k]
+                + np.asarray(dW_eta, dtype=np.float64) * d2eta_jk
+            )
+            group_j = groups.get(j)
+
+            d2M_jk = Zr.T @ (d2W_jk[:, None] * Zr)
+            if j == k and group_j is not None and group_j.size > 0:
+                d2M_jk[np.ix_(group_j, group_j)] += float(sp[j]) * np.eye(
+                    group_j.size, dtype=np.float64
+                )
+            d2M[j][k] = d2M_jk
+            d2M[k][j] = d2M_jk
+
+            val = 0.5 * float(np.trace(Minv @ d2M_jk - Minv @ dM[k] @ Minv @ dM[j]))
+            if method == "REML" and p > 0:
+                d2B_jk = Zr.T @ (d2W_jk[:, None] * Xf)
+                d2G_jk = Xf.T @ (d2W_jk[:, None] * Xf)
+                d2B[j][k] = d2B_jk
+                d2B[k][j] = d2B_jk
+                d2G[j][k] = d2G_jk
+                d2G[k][j] = d2G_jk
+                d2C_jk = (
+                    d2G_jk
+                    - d2B_jk.T @ Minv @ B0
+                    + dB[j].T @ Minv @ dM[k] @ Minv @ B0
+                    - dB[j].T @ Minv @ dB[k]
+                    - dB[k].T @ Minv @ dB[j]
+                    + B0.T @ Minv @ dM[k] @ Minv @ dB[j]
+                    - B0.T @ Minv @ d2B_jk
+                    + dB[k].T @ Minv @ dM[j] @ Minv @ B0
+                    - B0.T @ Minv @ dM[k] @ Minv @ dM[j] @ Minv @ B0
+                    + B0.T @ Minv @ d2M_jk @ Minv @ B0
+                    - B0.T @ Minv @ dM[j] @ Minv @ dM[k] @ Minv @ B0
+                    + B0.T @ Minv @ dM[j] @ Minv @ dB[k]
+                )
+                d2C[j][k] = d2C_jk
+                d2C[k][j] = d2C_jk
+                val += 0.5 * float(
+                    np.trace(C_inv @ d2C_jk - C_inv @ dC[k] @ C_inv @ dC[j])
+                )
+
+            K2[j, k] = val
+            K2[k, j] = val
+
+    return K, K1, K2
+
+
+def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
+    if abs(model.score_gamma - 1.0) > 1e-12:
+        raise NotImplementedError(
+            "score_gamma != 1 is not yet implemented for the exact PIRLS ML/REML gradient path."
+        )
+
+    if not model._can_use_simple_ml_reml_structure():
+        raise NotImplementedError(
+            "Exact PIRLS ML/REML gradients are currently available only for "
+            "terms with one primary smooth penalty, plus at most one "
+            "null-space penalty."
+        )
+
+    if not bool(getattr(model.family, "supports_exact_pirls_first_derivatives", False)):
+        raise NotImplementedError(
+            f"Family {model.family.name!r} does not yet provide exact PIRLS first derivatives."
+        )
+    family_name = str(getattr(model.family, "name", "")).lower()
+    if getattr(model.family, "known_scale", None) is None and family_name != "gamma":
+        raise NotImplementedError(
+            "Exact PIRLS ML/REML gradients are currently implemented only for "
+            "fixed-scale families, plus Gamma via the profiled scale branch."
+        )
+    if getattr(model.family, "known_scale", None) is None and family_name == "gamma":
+        free_mask = (
+            np.zeros(model.n_smoothing_params_, dtype=bool)
+            if model.smoothing_fixed_mask_ is None
+            else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+        )
+        free_mask = ~free_mask
+        if int(np.sum(free_mask)) == 0:
+            return np.empty((0,), dtype=np.float64)
+
+        ensure_penalty_reparameterization_state(model)
+        sp = model._expand_smoothing_params_from_log(log_sp)
+        sol = model._solve_pirls_given_smoothing(y, sp)
+
+        X = np.asarray(sol["X"], dtype=np.float64)
+        beta = np.asarray(sol["coef_full"], dtype=np.float64)
+        eta = np.asarray(sol["eta"], dtype=np.float64)
+        W = np.asarray(sol["working_weights"], dtype=np.float64)
+        A_inv = np.asarray(sol["A_inv"], dtype=np.float64)
+        P_derivs = _penalty_derivative_matrices(model, sp)
+
+        n_sp = int(model.n_smoothing_params_ or 0)
+        dbeta = [None] * n_sp
+        zero_d2 = [[None] * n_sp for _ in range(n_sp)]
+        for j, Pj in enumerate(P_derivs):
+            dbj = -(A_inv @ (Pj @ beta)) if np.any(Pj) else np.zeros_like(beta)
+            dbeta[j] = dbj
+            for k in range(n_sp):
+                zero_d2[j][k] = np.zeros_like(beta)
+
+        dev_grad, dev_hess = _deviance_coefficient_derivatives(
+            model,
+            y,
+            eta,
+            sol["mu"],
+            W,
+            X,
+        )
+        D1, _ = _deviance_chained_to_smoothing(dev_grad, dev_hess, dbeta, zero_d2)
+        bSb, bSb1, _ = _penalty_quadratic_and_sp_derivatives(
+            beta=beta,
+            P_total=np.asarray(sol["P"], dtype=np.float64),
+            P_derivs=P_derivs,
+            dbeta_cols=dbeta,
+            d2beta_mat=zero_d2,
+        )
+        mp = float(
+            _static_penalty_null_dim(model)
+            + int(bool(getattr(model, "fit_intercept", False)))
+        )
+        Dp = float(sol["deviance"]) + float(bSb)
+        phi = _solve_gamma_profile_scale(
+            model,
+            y,
+            Dp,
+            mp,
+            method=method,
+            init_scale=float(sol["scale"]),
+        )
+        if not np.isfinite(phi) or phi <= 0.0:
+            raise RuntimeError(
+                "Gamma exact PIRLS gradient requires positive profile scale."
+            )
+        Dp1 = np.asarray(D1 + bSb1, dtype=np.float64)
+
+        dW_eta = np.asarray(
+            _working_weight_derivatives_wrt_linpred(model, y, eta, sol["mu"], W)[0],
+            dtype=np.float64,
+        )
+        dA = [None] * n_sp
+        for j, Pj in enumerate(P_derivs):
+            deta_j = X @ np.asarray(dbeta[j], dtype=np.float64)
+            dW_j = dW_eta * deta_j
+            dA[j] = X.T @ (dW_j[:, None] * X) + np.asarray(Pj, dtype=np.float64)
+
+        if model._has_tensor_terms():
+            K, K1 = _pirls_tensor_coefficient_space_term_and_gradient(
+                model, sol, sp, dA
+            )
+        else:
+            K, K1 = _pirls_laplace_term_and_gradient(
+                model,
+                sol,
+                sp,
+                dbeta,
+                dW_eta,
+                method=method,
+            )
+
+        Dp1_free = Dp1[free_mask]
+        K1_free = K1[free_mask]
+        model._pirls_reml_gamma_state_ = {
+            "K": float(K),
+            "K1": np.asarray(K1, dtype=np.float64),
+            "phi": float(phi),
+            "scale_est": float(sol["scale"]),
+            "Dp": float(Dp),
+            "Dp1": np.asarray(Dp1, dtype=np.float64),
+        }
+        return Dp1_free / (2.0 * phi) + K1_free
+
+    ensure_penalty_reparameterization_state(model)
+
+    free_mask = (
+        np.zeros(model.n_smoothing_params_, dtype=bool)
+        if model.smoothing_fixed_mask_ is None
+        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+    )
+    free_mask = ~free_mask
+    if int(np.sum(free_mask)) == 0:
+        return np.empty((0,), dtype=np.float64)
+
+    sp = model._expand_smoothing_params_from_log(log_sp)
+    sol = model._solve_pirls_given_smoothing(y, sp)
+
+    X = np.asarray(sol["X"], dtype=np.float64)
+    beta = np.asarray(sol["coef_full"], dtype=np.float64)
+    eta = np.asarray(sol["eta"], dtype=np.float64)
+    W = np.asarray(sol["working_weights"], dtype=np.float64)
+    scale = float(sol["scale"])
+    A_inv = np.asarray(sol["A_inv"], dtype=np.float64)
+    P_derivs = _penalty_derivative_matrices(model, sp)
+    dW_deta, _ = _working_weight_derivatives_wrt_linpred(model, y, eta, sol["mu"], W)
+
+    if model._has_tensor_terms():
+        dev_grad, dev_hess = _deviance_coefficient_derivatives(
+            model,
+            y,
+            eta,
+            sol["mu"],
+            W,
+            X,
+        )
+        zero_d2 = [
+            [None] * int(model.n_smoothing_params_ or 0)
+            for _ in range(int(model.n_smoothing_params_ or 0))
+        ]
+        dA = [None] * int(model.n_smoothing_params_ or 0)
+        dbeta_store = [
+            np.zeros_like(beta, dtype=np.float64)
+            for _ in range(int(model.n_smoothing_params_ or 0))
+        ]
+        for j, Pj in enumerate(P_derivs):
+            dbeta_j = -(A_inv @ (Pj @ beta)) if np.any(Pj) else np.zeros_like(beta)
+            dbeta_store[j] = dbeta_j
+            deta_j = X @ dbeta_j
+            dW_j = dW_deta * deta_j
+            dA[j] = X.T @ (dW_j[:, None] * X) + np.asarray(Pj, dtype=np.float64)
+            for k in range(int(model.n_smoothing_params_ or 0)):
+                zero_d2[j][k] = np.zeros_like(beta)
+        D1, _ = _deviance_chained_to_smoothing(dev_grad, dev_hess, dbeta_store, zero_d2)
+        _, bSb1, _ = _penalty_quadratic_and_sp_derivatives(
+            beta=beta,
+            P_total=np.asarray(sol["P"], dtype=np.float64),
+            P_derivs=P_derivs,
+            dbeta_cols=dbeta_store,
+            d2beta_mat=zero_d2,
+        )
+        _, K1 = _pirls_tensor_coefficient_space_term_and_gradient(model, sol, sp, dA)
+        scale = float(sol["scale"])
+        grad_full = np.asarray(D1 + bSb1, dtype=np.float64) / (
+            2.0 * scale
+        ) + np.asarray(K1, dtype=np.float64)
+        return grad_full[free_mask]
+
+    state = ensure_penalty_reparameterization_state(model)
+    Xf = state.X_fix
+    Zr = state.Z_rand
+    p = int(Xf.shape[1])
+    q = int(Zr.shape[1])
+    grad_full = np.zeros(int(model.n_smoothing_params_), dtype=np.float64)
+    dA_store = [None] * int(model.n_smoothing_params_)
+
+    dbeta_store = [
+        np.zeros_like(beta, dtype=np.float64)
+        for _ in range(int(model.n_smoothing_params_ or 0))
+    ]
+
+    if q == 0:
+        for j, Pj in enumerate(P_derivs):
+            if np.any(Pj):
+                grad_full[j] = 0.5 * float(beta @ (Pj @ beta))
+                dA_store[j] = Pj.copy()
+                dbeta_store[j] = -(A_inv @ (Pj @ beta))
+
+        if method == "REML" and p > 0:
+            XtWX_fix = Xf.T @ (W[:, None] * Xf)
+            cFix, loFix = cho_factor(XtWX_fix, check_finite=False)
+            C_inv = cho_solve((cFix, loFix), np.eye(p), check_finite=False)
+            for j, Pj in enumerate(P_derivs):
+                if not np.any(Pj):
+                    continue
+                dbeta_j = -(A_inv @ (Pj @ beta))
+                dbeta_store[j] = dbeta_j
+                dW_j = dW_deta * (X @ dbeta_j)
+                dXtWX_j = Xf.T @ (dW_j[:, None] * Xf)
+                grad_full[j] += 0.5 * float(np.sum(C_inv * dXtWX_j))
+                dA_store[j] = X.T @ (dW_j[:, None] * X) + Pj
+
+        return grad_full[free_mask]
+
+    lam_vec = _laplace_lambda_vector(model, sp)
+    if np.any(lam_vec <= 0):
+        return np.full(int(np.sum(free_mask)), np.nan, dtype=np.float64)
+
+    groups = _lambda_group_indices(model)
+    ZtW = Zr.T * W[np.newaxis, :]
+    B = ZtW @ Xf if p > 0 else np.empty((q, 0), dtype=np.float64)
+    M = ZtW @ Zr + np.diag(lam_vec)
+    cM, loM = cho_factor(M, check_finite=False)
+    Minv = cho_solve((cM, loM), np.eye(q), check_finite=False)
+
+    if method == "REML" and p > 0:
+        XtKX = Xf.T @ (W[:, None] * Xf) - B.T @ Minv @ B
+        cC, loC = cho_factor(XtKX, check_finite=False)
+        C_inv = cho_solve((cC, loC), np.eye(p), check_finite=False)
+    else:
+        C_inv = None
+
+    for j, Pj in enumerate(P_derivs):
+        if not np.any(Pj):
+            continue
+
+        dbeta_j = -(A_inv @ (Pj @ beta))
+        dbeta_store[j] = dbeta_j
+        deta_j = X @ dbeta_j
+        dW_j = dW_deta * deta_j
+        dXtWX_j = X.T @ (dW_j[:, None] * X)
+
+        dM_j = Zr.T @ (dW_j[:, None] * Zr)
+        group = groups.get(j)
+        if group is not None and group.size > 0:
+            dM_j[np.ix_(group, group)] += float(sp[j]) * np.eye(
+                group.size, dtype=np.float64
+            )
+
+        grad_j = 0.5 * float(beta @ (Pj @ beta))
+        grad_j += 0.5 * float(np.sum(Minv * dM_j))
+        if group is not None and group.size > 0:
+            grad_j -= 0.5 * float(group.size)
+
+        if method == "REML" and p > 0:
+            G_j = Xf.T @ (dW_j[:, None] * Xf)
+            dB_j = Zr.T @ (dW_j[:, None] * Xf)
+            dC_j = (
+                G_j
+                - dB_j.T @ Minv @ B
+                - B.T @ Minv @ dB_j
+                + B.T @ Minv @ dM_j @ Minv @ B
+            )
+            grad_j += 0.5 * float(np.sum(C_inv * dC_j))
+
+        grad_full[j] = grad_j
+        dA_store[j] = dXtWX_j + Pj
+
+    return grad_full[free_mask]
+
+
+def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
+    if abs(model.score_gamma - 1.0) > 1e-12:
+        raise NotImplementedError(
+            "score_gamma != 1 is not yet implemented for the exact PIRLS ML/REML Hessian path."
+        )
+
+    if not model._can_use_simple_ml_reml_structure():
+        raise NotImplementedError(
+            "Exact PIRLS ML/REML Hessians are currently available only for "
+            "terms with one primary smooth penalty, plus at most one "
+            "null-space penalty."
+        )
+
+    if not bool(
+        getattr(model.family, "supports_exact_pirls_second_derivatives", False)
+    ):
+        raise NotImplementedError(
+            f"Family {model.family.name!r} does not yet provide exact PIRLS second derivatives."
+        )
+    family_name = str(getattr(model.family, "name", "")).lower()
+    if getattr(model.family, "known_scale", None) is None and family_name != "gamma":
+        raise NotImplementedError(
+            "Exact PIRLS ML/REML Hessians are currently implemented only for fixed-scale families, "
+            "plus Gamma via the profiled scale branch."
+        )
+
+    ensure_penalty_reparameterization_state(model)
+
+    free_mask = (
+        np.zeros(model.n_smoothing_params_, dtype=bool)
+        if model.smoothing_fixed_mask_ is None
+        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+    )
+    free_mask = ~free_mask
+    free_idx = np.flatnonzero(free_mask)
+    n_free = int(free_idx.size)
+    if n_free == 0:
+        return np.empty((0, 0), dtype=np.float64)
+
+    sp = model._expand_smoothing_params_from_log(log_sp)
+    sol = model._solve_pirls_given_smoothing(y, sp)
+
+    X = np.asarray(sol["X"], dtype=np.float64)
+    beta = np.asarray(sol["coef_full"], dtype=np.float64)
+    eta = np.asarray(sol["eta"], dtype=np.float64)
+    W = np.asarray(sol["working_weights"], dtype=np.float64)
+    A_inv = np.asarray(sol["A_inv"], dtype=np.float64)
+    P_derivs = _penalty_derivative_matrices(model, sp)
+    dW_eta, d2W_eta = _working_weight_derivatives_wrt_linpred(
+        model, y, eta, sol["mu"], W
+    )
+
+    state = ensure_penalty_reparameterization_state(model)
+    Xf = state.X_fix
+    Zr = state.Z_rand
+    p = int(Xf.shape[1])
+    q = int(Zr.shape[1])
+
+    n_sp = int(model.n_smoothing_params_ or 0)
+    grad_full = np.zeros(n_sp, dtype=np.float64)
+    penalty_grad_raw = np.zeros(n_sp, dtype=np.float64)
+    dbeta = [None] * n_sp
+    deta = [None] * n_sp
+    dW = [None] * n_sp
+    dA = [None] * n_sp
+    dM = [None] * n_sp
+    dB = [None] * n_sp
+    dG = [None] * n_sp
+    dXtWX = [None] * n_sp
+    d2beta_mat = [[None] * n_sp for _ in range(n_sp)]
+    d2A_mat = [[None] * n_sp for _ in range(n_sp)]
+    d2XtWX_mat = [[None] * n_sp for _ in range(n_sp)]
+
+    groups = _lambda_group_indices(model)
+
+    if q > 0:
+        ZtW = Zr.T * W[np.newaxis, :]
+        B0 = ZtW @ Xf if p > 0 else np.empty((q, 0), dtype=np.float64)
+        M = ZtW @ Zr + np.diag(_laplace_lambda_vector(model, sp))
+        cM, loM = cho_factor(M, check_finite=False)
+        Minv = cho_solve((cM, loM), np.eye(q), check_finite=False)
+    else:
+        B0 = None
+        M = None
+        Minv = None
+
+    if method == "REML" and p > 0:
+        if q > 0:
+            C = Xf.T @ (W[:, None] * Xf) - B0.T @ Minv @ B0
+        else:
+            C = Xf.T @ (W[:, None] * Xf)
+        cC, loC = cho_factor(C, check_finite=False)
+        C_inv = cho_solve((cC, loC), np.eye(p), check_finite=False)
+    else:
+        C = C_inv = None
+
+    for j in range(n_sp):
+        Pj = P_derivs[j]
+        dbeta_j = -(A_inv @ (Pj @ beta)) if np.any(Pj) else np.zeros_like(beta)
+        deta_j = X @ dbeta_j
+        dW_j = dW_eta * deta_j
+        dXtWX_j = X.T @ (dW_j[:, None] * X)
+        dA_j = dXtWX_j + Pj
+        dXtWX[j] = dXtWX_j
+
+        dbeta[j] = dbeta_j
+        deta[j] = deta_j
+        dW[j] = dW_j
+        dA[j] = dA_j
+
+        if q > 0:
+            dM_j = Zr.T @ (dW_j[:, None] * Zr)
+            group_j = groups.get(j)
+            if group_j is not None and group_j.size > 0:
+                dM_j[np.ix_(group_j, group_j)] += float(sp[j]) * np.eye(
+                    group_j.size, dtype=np.float64
+                )
+            dM[j] = dM_j
+            if p > 0:
+                dB[j] = Zr.T @ (dW_j[:, None] * Xf)
+                dG[j] = Xf.T @ (dW_j[:, None] * Xf)
+            else:
+                dB[j] = np.empty((q, 0), dtype=np.float64)
+                dG[j] = np.empty((0, 0), dtype=np.float64)
+        elif p > 0:
+            dG[j] = Xf.T @ (dW_j[:, None] * Xf)
+            dB[j] = np.empty((0, p), dtype=np.float64)
+            dM[j] = np.empty((0, 0), dtype=np.float64)
+
+        if not np.any(Pj):
+            continue
+        penalty_grad_raw[j] = 0.5 * float(beta @ (Pj @ beta))
+        grad_j = float(penalty_grad_raw[j])
+        if q > 0:
+            group_j = groups.get(j)
+            grad_j += 0.5 * float(np.sum(Minv * dM[j]))
+            if group_j is not None and group_j.size > 0:
+                grad_j -= 0.5 * float(group_j.size)
+            if method == "REML" and p > 0:
+                dC_j = (
+                    dG[j]
+                    - dB[j].T @ Minv @ B0
+                    - B0.T @ Minv @ dB[j]
+                    + B0.T @ Minv @ dM[j] @ Minv @ B0
+                )
+                grad_j += 0.5 * float(np.sum(C_inv * dC_j))
+        elif method == "REML" and p > 0:
+            grad_j += 0.5 * float(np.sum(C_inv * dG[j]))
+        grad_full[j] = grad_j
+
+    H_full = np.zeros((n_sp, n_sp), dtype=np.float64)
+    penalty_hess_raw = np.zeros((n_sp, n_sp), dtype=np.float64)
+
+    for j in range(n_sp):
+        Pj = P_derivs[j]
+        group_j = groups.get(j)
+        for k in range(j, n_sp):
+            P_derivs[k]
+            dbeta_j = dbeta[j]
+            dbeta_k = dbeta[k]
+            deta_j = deta[j]
+            deta_k = deta[k]
+
+            delta_jk = 1.0 if j == k else 0.0
+            d2beta_jk = -(
+                A_inv @ (dA[k] @ dbeta_j + Pj @ dbeta_k + delta_jk * (Pj @ beta))
+            )
+            d2eta_jk = X @ d2beta_jk
+            d2W_jk = d2W_eta * deta_j * deta_k + dW_eta * d2eta_jk
+            d2beta_mat[j][k] = d2beta_jk
+            d2beta_mat[k][j] = d2beta_jk
+
+            hij = float(dbeta_k @ (Pj @ beta))
+            if j == k:
+                hij += 0.5 * float(beta @ (Pj @ beta))
+            penalty_hess_raw[j, k] = hij
+            penalty_hess_raw[k, j] = hij
+
+            d2XtWX_jk = X.T @ (d2W_jk[:, None] * X)
+            d2A_jk = d2XtWX_jk + (Pj if j == k else 0.0)
+            d2XtWX_mat[j][k] = d2XtWX_jk
+            d2XtWX_mat[k][j] = d2XtWX_jk
+            d2A_mat[j][k] = d2A_jk
+            d2A_mat[k][j] = d2A_jk
+
+            if q > 0:
+                d2M_jk = Zr.T @ (d2W_jk[:, None] * Zr)
+                if j == k and group_j is not None and group_j.size > 0:
+                    d2M_jk[np.ix_(group_j, group_j)] += float(sp[j]) * np.eye(
+                        group_j.size, dtype=np.float64
+                    )
+
+                hij += 0.5 * float(
+                    np.trace(-Minv @ dM[k] @ Minv @ dM[j] + Minv @ d2M_jk)
+                )
+
+                if method == "REML" and p > 0:
+                    d2B_jk = Zr.T @ (d2W_jk[:, None] * Xf)
+                    d2G_jk = Xf.T @ (d2W_jk[:, None] * Xf)
+                    dC_j = (
+                        dG[j]
+                        - dB[j].T @ Minv @ B0
+                        - B0.T @ Minv @ dB[j]
+                        + B0.T @ Minv @ dM[j] @ Minv @ B0
+                    )
+                    dC_k = (
+                        dG[k]
+                        - dB[k].T @ Minv @ B0
+                        - B0.T @ Minv @ dB[k]
+                        + B0.T @ Minv @ dM[k] @ Minv @ B0
+                    )
+
+                    d2C_jk = (
+                        d2G_jk
+                        - d2B_jk.T @ Minv @ B0
+                        + dB[j].T @ Minv @ dM[k] @ Minv @ B0
+                        - dB[j].T @ Minv @ dB[k]
+                        - dB[k].T @ Minv @ dB[j]
+                        + B0.T @ Minv @ dM[k] @ Minv @ dB[j]
+                        - B0.T @ Minv @ d2B_jk
+                        + dB[k].T @ Minv @ dM[j] @ Minv @ B0
+                        - B0.T @ Minv @ dM[k] @ Minv @ dM[j] @ Minv @ B0
+                        + B0.T @ Minv @ d2M_jk @ Minv @ B0
+                        - B0.T @ Minv @ dM[j] @ Minv @ dM[k] @ Minv @ B0
+                        + B0.T @ Minv @ dM[j] @ Minv @ dB[k]
+                    )
+                    hij += 0.5 * float(
+                        np.trace(-C_inv @ dC_k @ C_inv @ dC_j + C_inv @ d2C_jk)
+                    )
+            elif method == "REML" and p > 0:
+                d2G_jk = Xf.T @ (d2W_jk[:, None] * Xf)
+                dC_j = dG[j]
+                dC_k = dG[k]
+                hij += 0.5 * float(
+                    np.trace(-C_inv @ dC_k @ C_inv @ dC_j + C_inv @ d2G_jk)
+                )
+
+            H_full[j, k] = hij
+            H_full[k, j] = hij
+
+    detXWXS1 = detXWXS2 = None
+    D1 = D2 = None
+    P1 = P2 = phi1 = phi2 = None
+    full_grad = full_hess = None
+
+    try:
+        dev_grad, dev_hess = _deviance_coefficient_derivatives(
+            model,
+            y,
+            eta,
+            sol["mu"],
+            W,
+            X,
+        )
+        D1, D2 = _deviance_chained_to_smoothing(dev_grad, dev_hess, dbeta, d2beta_mat)
+        bSb, bSb1_store, bSb2_store = _penalty_quadratic_and_sp_derivatives(
+            beta=beta,
+            P_total=np.asarray(sol["P"], dtype=np.float64),
+            P_derivs=P_derivs,
+            dbeta_cols=dbeta,
+            d2beta_mat=d2beta_mat,
+        )
+        dVkk = _quadratic_form_in_beta_directions(
+            np.asarray(sol["A"], dtype=np.float64), dbeta
+        )
+        det1, det2 = _logdet_penalized_system_derivatives(
+            A_inv=np.asarray(sol["A_inv"], dtype=np.float64),
+            dA=dA,
+            d2A_mat=d2A_mat,
+        )
+        trA, trA1, trA2 = _hat_matrix_trace_and_sp_derivatives(
+            A_inv=np.asarray(sol["A_inv"], dtype=np.float64),
+            XtWX=np.asarray(sol["XtWX"], dtype=np.float64),
+            dA=dA,
+            d2A_mat=d2A_mat,
+            dXtWX=dXtWX,
+            d2XtWX_mat=d2XtWX_mat,
+        )
+        if getattr(model.family, "known_scale", None) is None:
+            mp = float(
+                _static_penalty_null_dim(model)
+                + int(bool(getattr(model, "fit_intercept", False)))
+            )
+            Dp = float(sol["deviance"]) + float(bSb)
+            phi = _solve_gamma_profile_scale(
+                model,
+                y,
+                Dp,
+                mp,
+                method=method,
+                init_scale=float(sol["scale"]),
+            )
+            if not np.isfinite(phi) or phi <= 0.0:
+                raise RuntimeError(
+                    "Gamma exact PIRLS derivatives require positive profile scale."
+                )
+            Dp1 = np.asarray(D1 + bSb1_store, dtype=np.float64)
+            Dp2 = np.asarray(D2 + bSb2_store, dtype=np.float64)
+            _, _, phi_curv = _gamma_profile_objective_curvature(
+                model, y, Dp, phi, mp, method=method
+            )
+            if not np.isfinite(phi_curv) or abs(phi_curv) <= 1e-14:
+                raise RuntimeError(
+                    "Gamma exact PIRLS derivatives require finite profile curvature."
+                )
+            if model._has_tensor_terms():
+                K, det_grad, det_hess = (
+                    _pirls_tensor_coefficient_space_term_derivatives(
+                        model,
+                        sol,
+                        sp,
+                        dA,
+                        d2A_mat,
+                    )
+                )
+            else:
+                K, det_grad, det_hess = _pirls_laplace_term_derivatives(
+                    model,
+                    sol,
+                    sp,
+                    dbeta,
+                    d2beta_mat,
+                    dW_eta,
+                    d2W_eta,
+                    method=method,
+                )
+            joint_grad = det_grad + Dp1 / (2.0 * phi)
+            cross = -Dp1 / (2.0 * phi)
+            full_grad = joint_grad
+            full_hess = det_hess + Dp2 / (2.0 * phi) - np.outer(cross, cross) / phi_curv
+            model._pirls_reml_gamma_state_ = {
+                "K": float(K),
+                "K1": np.asarray(det_grad, dtype=np.float64),
+                "K2": np.asarray(det_hess, dtype=np.float64),
+                "phi": float(phi),
+                "scale_est": float(sol["scale"]),
+                "phi_curv": float(phi_curv),
+                "Dp": float(Dp),
+                "Dp1": np.asarray(Dp1, dtype=np.float64),
+                "Dp2": np.asarray(Dp2, dtype=np.float64),
+            }
+        elif model._has_tensor_terms():
+            scale = float(sol["scale"])
+            _, det_grad, det_hess = _pirls_tensor_coefficient_space_term_derivatives(
+                model,
+                sol,
+                sp,
+                dA,
+                d2A_mat,
+            )
+            full_grad = (
+                np.asarray(D1, dtype=np.float64)
+                + np.asarray(bSb1_store, dtype=np.float64)
+            ) / (2.0 * scale) + det_grad
+            full_hess = (
+                np.asarray(D2, dtype=np.float64)
+                + np.asarray(bSb2_store, dtype=np.float64)
+            ) / (2.0 * scale) + det_hess
+        model._pirls_reml_derivative_kernel_state_ = {
+            "bSb": bSb,
+            "bSb1": bSb1_store,
+            "bSb2": bSb2_store,
+            "dVkk": dVkk,
+            "det1": det1,
+            "det2": det2,
+            "trA": trA,
+            "trA1": trA1,
+            "trA2": trA2,
+            "D1": D1,
+            "D2": D2,
+            "P1": P1,
+            "P2": P2,
+            "phi1": phi1,
+            "phi2": phi2,
+            "full_grad": full_grad,
+            "full_hess": full_hess,
+            "penalty_grad_raw": penalty_grad_raw,
+            "penalty_hess_raw": penalty_hess_raw,
+            "detXWXS1": detXWXS1,
+            "detXWXS2": detXWXS2,
+        }
+    except Exception:
+        model._pirls_reml_derivative_kernel_state_ = None
+
+    out_hess = full_hess if full_hess is not None else H_full
+    return out_hess[np.ix_(free_idx, free_idx)]
+
+# --- End of nampy/gam/smoothing_selection/criteria/pirls_deriv.py ---
+
+# --- Start of nampy/gam/smoothing_selection/criteria/pirls_reml_derivative_blocks.py ---
+"""
+Algebra building blocks for exact first- and second-order derivatives of REML/ML
+smoothing_selection-selection criteria with respect to log-smoothing parameters.
+
+These functions compute the implicit-function derivatives of the fitted coefficient
+vector and working system matrices through the penalized IRLS fixed point, then
+combine them into the score derivatives needed by the outer optimiser.
+"""
+
+import numpy as np
+
+
+def _working_weight_derivatives_wrt_linpred(model, y, eta, mu, w):
+    family = model.family
+    fisher = bool(getattr(family, "canonical_link", False))
+    if fisher:
+        d1 = np.asarray(
+            family.working_weight_derivative_eta(eta, y=y), dtype=np.float64
+        )
+        d2 = np.asarray(
+            family.working_weight_second_derivative_eta(eta, y=y), dtype=np.float64
+        )
+        return d1, d2
+
+    g1 = 1.0 / np.clip(np.asarray(family.mu_eta(eta), dtype=np.float64), 1e-14, None)
+    V = np.clip(np.asarray(family.variance(mu), dtype=np.float64), 1e-14, None)
+    V1 = np.asarray(family.dvar(mu), dtype=np.float64) / V
+    V2 = np.asarray(family.d2var(mu), dtype=np.float64) / V
+    V3 = np.asarray(family.d3var(mu), dtype=np.float64) / V
+    g2 = np.asarray(family.d2link(mu), dtype=np.float64) / g1
+    g3 = np.asarray(family.d3link(mu), dtype=np.float64) / g1
+    g4 = np.asarray(family.d4link(mu), dtype=np.float64) / g1
+
+    c = np.asarray(y, dtype=np.float64) - np.asarray(mu, dtype=np.float64)
+    alpha = 1.0 + c * (V1 + g2)
+    eps_alpha = np.finfo(np.float64).eps
+    alpha = alpha.copy()
+    alpha[alpha == 0.0] = eps_alpha
+
+    xx = V2 - V1 * V1 + g3 - g2 * g2
+    alpha1 = (-(V1 + g2) + c * xx) / alpha
+    alpha2 = (
+        -2.0 * xx
+        + c
+        * (
+            V3
+            - 3.0 * V1 * V2
+            + 2.0 * V1 * V1 * V1
+            + g4
+            - 3.0 * g3 * g2
+            + 2.0 * g2 * g2 * g2
+        )
+    ) / alpha
+
+    w = np.asarray(w, dtype=np.float64)
+    a1 = w * (alpha1 - V1 - 2.0 * g2) / g1
+    w_safe = np.clip(w, 1e-14, None)
+    a2 = a1 * (a1 / w_safe - g2 / g1) - w * (
+        alpha1 * alpha1 - alpha2 + V2 - V1 * V1 + 2.0 * g3 - 2.0 * g2 * g2
+    ) / (g1 * g1)
+    return a1, a2
+
+
+def _penalty_quadratic_and_sp_derivatives(
+    beta, P_total, P_derivs, dbeta_cols, d2beta_mat
+):
+    beta = np.asarray(beta, dtype=np.float64)
+    P_total = np.asarray(P_total, dtype=np.float64)
+    M = len(P_derivs)
+    Sb = P_total @ beta
+    Skb = [np.asarray(Pj, dtype=np.float64) @ beta for Pj in P_derivs]
+    bSb = float(beta @ Sb)
+    bSb1 = np.zeros(M, dtype=np.float64)
+    bSb2 = np.zeros((M, M), dtype=np.float64)
+    for j in range(M):
+        dbj = np.asarray(dbeta_cols[j], dtype=np.float64)
+        bSb1[j] = float(beta @ Skb[j] + 2.0 * (dbj @ Sb))
+    for j in range(M):
+        dbj = np.asarray(dbeta_cols[j], dtype=np.float64)
+        for k in range(j, M):
+            dbk = np.asarray(dbeta_cols[k], dtype=np.float64)
+            d2b = np.asarray(d2beta_mat[j][k], dtype=np.float64)
+            val = float(
+                2.0 * (d2b @ Sb)
+                + 2.0 * (dbk @ (P_total @ dbj))
+                + 2.0 * (dbj @ Skb[k])
+                + 2.0 * (dbk @ Skb[j])
+            )
+            if j == k:
+                val += float(beta @ Skb[j])
+            bSb2[j, k] = val
+            bSb2[k, j] = val
+    return bSb, bSb1, bSb2
+
+
+def _quadratic_form_in_beta_directions(A, dbeta_cols):
+    A = np.asarray(A, dtype=np.float64)
+    if len(dbeta_cols) == 0:
+        return np.empty((0, 0), dtype=np.float64)
+    B = np.column_stack([np.asarray(v, dtype=np.float64) for v in dbeta_cols])
+    return B.T @ A @ B
+
+
+def _logdet_penalized_system_derivatives(A_inv, dA, d2A_mat):
+    A_inv = np.asarray(A_inv, dtype=np.float64)
+    M = len(dA)
+    det1 = np.zeros(M, dtype=np.float64)
+    det2 = np.zeros((M, M), dtype=np.float64)
+    for j in range(M):
+        dAj = np.asarray(dA[j], dtype=np.float64)
+        det1[j] = float(np.trace(A_inv @ dAj))
+    for j in range(M):
+        dAj = np.asarray(dA[j], dtype=np.float64)
+        for k in range(j, M):
+            dAk = np.asarray(dA[k], dtype=np.float64)
+            d2Ajk = np.asarray(d2A_mat[j][k], dtype=np.float64)
+            val = float(np.trace(A_inv @ d2Ajk - A_inv @ dAj @ A_inv @ dAk))
+            det2[j, k] = val
+            det2[k, j] = val
+    return det1, det2
+
+
+def _hat_matrix_trace_and_sp_derivatives(A_inv, XtWX, dA, d2A_mat, dXtWX, d2XtWX_mat):
+    A_inv = np.asarray(A_inv, dtype=np.float64)
+    XtWX = np.asarray(XtWX, dtype=np.float64)
+    H = A_inv @ XtWX
+    M = len(dA)
+    trA = float(np.trace(H))
+    dH = [None] * M
+    trA1 = np.zeros(M, dtype=np.float64)
+    trA2 = np.zeros((M, M), dtype=np.float64)
+    for j in range(M):
+        dAj = np.asarray(dA[j], dtype=np.float64)
+        dXtj = np.asarray(dXtWX[j], dtype=np.float64)
+        dHj = -A_inv @ dAj @ H + A_inv @ dXtj
+        dH[j] = dHj
+        trA1[j] = float(np.trace(dHj))
+    for j in range(M):
+        dAj = np.asarray(dA[j], dtype=np.float64)
+        dHj = dH[j]
+        for k in range(j, M):
+            dAk = np.asarray(dA[k], dtype=np.float64)
+            d2Ajk = np.asarray(d2A_mat[j][k], dtype=np.float64)
+            dXtj = np.asarray(dXtWX[j], dtype=np.float64)
+            d2Xtjk = np.asarray(d2XtWX_mat[j][k], dtype=np.float64)
+            dAinvk = -A_inv @ dAk @ A_inv
+            dHk = dH[k]
+            d2Hjk = (
+                -dAinvk @ dAj @ H
+                - A_inv @ d2Ajk @ H
+                - A_inv @ dAj @ dHk
+                + dAinvk @ dXtj
+                + A_inv @ d2Xtjk
+            )
+            val = float(np.trace(d2Hjk))
+            trA2[j, k] = val
+            trA2[k, j] = val
+    return trA, trA1, trA2
+
+
+def _deviance_coefficient_derivatives(model, y, eta, mu, W, X):
+    family = model.family
+    mu1 = np.clip(np.asarray(family.mu_eta(eta), dtype=np.float64), 1e-14, None)
+    V = np.clip(np.asarray(family.variance(mu), dtype=np.float64), 1e-14, None)
+    V1 = np.asarray(family.dvar(mu), dtype=np.float64)
+    g2 = np.asarray(family.d2link(mu), dtype=np.float64)
+    mu2 = -g2 * (mu1**3)
+    resid = np.asarray(y, dtype=np.float64) - np.asarray(mu, dtype=np.float64)
+    v1 = -2.0 * resid * mu1 / V
+    dev_grad = np.asarray(X, dtype=np.float64).T @ v1
+    p_eta2 = (
+        2.0 * (mu1**2) / V
+        - 2.0 * resid * mu2 / V
+        + 2.0 * resid * (mu1**2) * V1 / (V**2)
+    )
+    dev_hess = np.asarray(X, dtype=np.float64).T @ (
+        p_eta2[:, None] * np.asarray(X, dtype=np.float64)
+    )
+    return dev_grad, dev_hess
+
+
+def _deviance_chained_to_smoothing(dev_grad, dev_hess, dbeta_cols, d2beta_mat):
+    M = len(dbeta_cols)
+    D1 = np.zeros(M, dtype=np.float64)
+    D2 = np.zeros((M, M), dtype=np.float64)
+    dev_grad = np.asarray(dev_grad, dtype=np.float64)
+    dev_hess = np.asarray(dev_hess, dtype=np.float64)
+    for j in range(M):
+        dbj = np.asarray(dbeta_cols[j], dtype=np.float64)
+        D1[j] = float(dbj @ dev_grad)
+    for j in range(M):
+        dbj = np.asarray(dbeta_cols[j], dtype=np.float64)
+        for k in range(j, M):
+            dbk = np.asarray(dbeta_cols[k], dtype=np.float64)
+            d2b = np.asarray(d2beta_mat[j][k], dtype=np.float64)
+            val = float(dbk @ dev_hess @ dbj) + float(dev_grad @ d2b)
+            D2[j, k] = val
+            D2[k, j] = val
+    return D1, D2
+
+
+def _pearson_coefficient_derivatives(model, y, eta, mu, X):
+    family = model.family
+    y = np.asarray(y, dtype=np.float64)
+    eta = np.asarray(eta, dtype=np.float64)
+    mu = np.asarray(mu, dtype=np.float64)
+    X = np.asarray(X, dtype=np.float64)
+    weights = np.ones_like(y, dtype=np.float64)
+    g1 = 1.0 / np.clip(np.asarray(family.mu_eta(eta), dtype=np.float64), 1e-14, None)
+    V = np.clip(np.asarray(family.variance(mu), dtype=np.float64), 1e-14, None)
+    V1 = np.asarray(family.dvar(mu), dtype=np.float64) / V
+    V2 = np.asarray(family.d2var(mu), dtype=np.float64) / V
+    g2 = np.asarray(family.d2link(mu), dtype=np.float64) / g1
+
+    resid = y - mu
+    xx = resid * weights / V
+    p_eta1 = -xx * (2.0 + resid * V1) / g1
+    p_eta2 = -p_eta1 * g2 / g1 + (
+        2.0 * weights / V
+        + 2.0 * xx * V1
+        - p_eta1 * V1 * g1
+        - xx * resid * (V2 - V1 * V1)
+    ) / (g1 * g1)
+    grad = X.T @ p_eta1
+    hess = X.T @ (p_eta2[:, None] * X)
+    pearson = float(np.sum(xx * resid))
+    return pearson, grad, hess
+
+# --- End of nampy/gam/smoothing_selection/criteria/pirls_reml_derivative_blocks.py ---
 
 # --- Start of nampy/splines/cubic.py ---
 import numpy as np

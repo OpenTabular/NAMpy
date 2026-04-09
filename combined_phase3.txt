@@ -1,7 +1,1427 @@
 Continuation prompt: Phase 3 - GAM design/construction/smooth runtime internals.
-This is part 3/5. Continue from earlier phases; do not restate prior context.
+This is part 3/6. Continue from earlier phases; do not restate prior context.
 
-Included files in this phase: 25
+Included files in this phase: 31
+
+# --- Start of nampy/gam/basis/tensor.py ---
+import numpy as np
+from scipy.linalg import eigh
+
+from ..penalties.algebra import penalty_eigendecomposition
+
+
+def rowwise_kronecker(matrices):
+    mats = [np.asarray(M, dtype=np.float64) for M in matrices]
+    if len(mats) == 0:
+        raise ValueError("matrices must contain at least one matrix.")
+    n = mats[0].shape[0]
+    for M in mats:
+        if M.ndim != 2 or M.shape[0] != n:
+            raise ValueError("All marginal model matrices must be 2D with equal rows.")
+    out = mats[0]
+    for M in mats[1:]:
+        out = np.einsum("ij,ik->ijk", out, M, optimize=True).reshape(
+            n, out.shape[1] * M.shape[1]
+        )
+    return out
+
+
+def lifted_tensor_penalty(S, basis_dims, axis):
+    S = np.asarray(S, dtype=np.float64)
+    basis_dims = [int(d) for d in basis_dims]
+    left_dim = int(np.prod(basis_dims[:axis], dtype=np.int64)) if axis > 0 else 1
+    right_dim = (
+        int(np.prod(basis_dims[axis + 1 :], dtype=np.int64))
+        if axis + 1 < len(basis_dims)
+        else 1
+    )
+    out = S
+    if left_dim > 1:
+        out = np.kron(np.eye(left_dim, dtype=np.float64), out)
+    if right_dim > 1:
+        out = np.kron(out, np.eye(right_dim, dtype=np.float64))
+    return np.asarray(out, dtype=np.float64)
+
+
+def tensor_product_penalties(marginal_penalties, basis_dims):
+    return [
+        lifted_tensor_penalty(S, basis_dims=basis_dims, axis=j)
+        for j, S in enumerate(marginal_penalties)
+    ]
+
+
+def normalize_tensor_marginal_penalty(S, tol=1e-12):
+    S = np.asarray(S, dtype=np.float64)
+    if S.shape[0] == 0:
+        return S.copy()
+    evals = np.linalg.eigvalsh(0.5 * (S + S.T))
+    scale = float(np.max(evals))
+    if scale <= tol:
+        return S.copy()
+    return S / scale
+
+
+def rescale_tensor_penalties_for_fit(B, penalties, tol=1e-12):
+    B = np.asarray(B, dtype=np.float64)
+    penalties = [np.asarray(S, dtype=np.float64) for S in penalties]
+    if len(penalties) == 0:
+        return []
+    x_scale = float(np.max(np.sum(np.abs(B), axis=1)) ** 2)
+    if x_scale <= tol:
+        return [S.copy() for S in penalties]
+    out = []
+    for S in penalties:
+        s_scale = float(np.max(np.sum(np.abs(S), axis=0))) / x_scale
+        out.append(S.copy() if s_scale <= tol else S / s_scale)
+    return out
+
+
+def marginal_range_null_decomposition(raw_basis, raw_penalty, tol=1e-10):
+    X = np.asarray(raw_basis, dtype=np.float64)
+    S = np.asarray(raw_penalty, dtype=np.float64)
+    dec = penalty_eigendecomposition(S, tol=tol)
+    U0, U1, d_pos = dec["U0"], dec["U1"], dec["d_pos"]
+    if d_pos.size > 0:
+        T_r = U1 / np.sqrt(d_pos)[np.newaxis, :]
+        B_r = X @ T_r
+    else:
+        T_r = np.empty((S.shape[0], 0), dtype=np.float64)
+        B_r = np.empty((X.shape[0], 0), dtype=np.float64)
+    T_n = U0
+    B_n = X @ T_n if T_n.shape[1] > 0 else np.empty((X.shape[0], 0), dtype=np.float64)
+    return {
+        "B_range": B_r,
+        "B_null": B_n,
+        "T_range": T_r,
+        "T_null": T_n,
+        "range_dim": B_r.shape[1],
+        "null_dim": B_n.shape[1],
+        "rank": dec["rank"],
+        "null_space_dim": dec["null_space_dim"],
+        "tol_eff": dec["tol_eff"],
+    }
+
+
+def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=None):
+    """
+    Reparameterize a marginal smooth for use in t2 tensor products.
+
+    Implements mgcv's ``nat.param(type=3, unit.fnorm=TRUE)``:
+
+    1. Eigendecompose S (descending eigenvalue order).
+    2. Scale by sqrt(eigenvalues) for the penalized part; for the null space
+       scale so that the Frobenius-normalised column norms match the penalized average.
+    3. Rotate the null space columns so that a near-constant vector is last (type=3).
+    4. Rescale both penalised and null blocks to unit Frobenius norm (unit.fnorm).
+
+    Returns dict with keys ``B_range``, ``B_null``, ``T_range``, ``T_null``,
+    ``range_dim``, ``null_dim``, ``rank``, ``null_space_dim``, ``tol_eff``.
+    """
+    X = np.asarray(raw_basis, dtype=np.float64)
+    S = np.asarray(raw_penalty, dtype=np.float64)
+    p = X.shape[1]
+
+    # Step 1: eigendecompose S in descending order (matches R's eigen())
+    evals, U = eigh(0.5 * (S + S.T), driver="evr")
+    idx = np.argsort(evals)[::-1]
+    evals, U = evals[idx], U[:, idx]
+
+    tol_eff = float(np.finfo(np.float64).eps) ** 0.8 * max(
+        1.0, float(np.max(evals)) if evals.size else 1.0
+    )
+    rank = int(np.sum(evals > tol_eff))
+    null_exists = rank < p
+
+    # Step 2: build E vector, apply eigenvectors, compute column norms
+    E = np.ones(p, dtype=np.float64)
+    if rank > 0:
+        E[:rank] = np.sqrt(np.maximum(evals[:rank], 0.0))
+
+    Xp = X @ U
+    col_norm = np.sum(Xp**2, axis=0) / (E**2)
+    av_norm = float(np.mean(col_norm[:rank])) if rank > 0 else 1.0
+
+    if null_exists:
+        for i in range(rank, p):
+            if av_norm > 0.0 and col_norm[i] > 0.0:
+                E[i] = np.sqrt(col_norm[i] / av_norm)
+
+    # P = U / E  (divide column j by E[j]; matches R's t(t(er$vectors)/E))
+    P = U / E[np.newaxis, :]
+    Xp = Xp / E[np.newaxis, :]
+
+    # Step 3: type=3 null-space rotation — put near-constant column last
+    # Matches R: if (null.exists && type==3 && rank < ncol(X)-1)
+    if null_exists and rank < p - 1:
+        ind = list(range(rank, p))  # forward  (R: (rank+1):k 1-indexed)
+        rind = list(range(p - 1, rank - 1, -1))  # reversed (R: k:(rank+1) 1-indexed)
+        Xn = Xp[:, ind].copy()
+        n = Xn.shape[0]
+        one = np.ones(n, dtype=np.float64)
+        # centre columns of Xn
+        Xn -= (one[:, None] * (one[None, :] @ Xn)) / n
+        # eigendecompose gram matrix (R: eigen gives descending order)
+        um_evals, um_vecs = eigh(Xn.T @ Xn, driver="evr")
+        desc = np.argsort(um_evals)[::-1]
+        um_vecs = um_vecs[:, desc]
+        Xp[:, rind] = Xp[:, ind] @ um_vecs
+        P[:, rind] = P[:, ind] @ um_vecs
+
+    # Step 4: unit Frobenius norm  (unit.fnorm=TRUE)
+    # Penalised block: scale columns of Xp, scale ROWS of P (matches R's P[ind,] *= scale)
+    if rank > 0:
+        pen_idx = list(range(rank))
+        scale = 1.0 / np.sqrt(float(np.mean(Xp[:, pen_idx] ** 2)))
+        Xp[:, pen_idx] *= scale
+        P[pen_idx, :] *= scale  # rows of P
+    else:
+        scale = 1.0
+
+    if null_exists:
+        null_idx = list(range(rank, p))
+        scale_f = 1.0 / np.sqrt(float(np.mean(Xp[:, null_idx] ** 2)))
+        Xp[:, null_idx] *= scale_f
+        P[null_idx, :] *= scale_f  # rows of P
+
+    B_r = Xp[:, :rank] if rank > 0 else np.empty((X.shape[0], 0), dtype=np.float64)
+    B_n = Xp[:, rank:] if null_exists else np.empty((X.shape[0], 0), dtype=np.float64)
+    T_r = P[:, :rank] if rank > 0 else np.empty((p, 0), dtype=np.float64)
+    T_n = P[:, rank:] if null_exists else np.empty((p, 0), dtype=np.float64)
+
+    return {
+        "B_range": B_r,
+        "B_null": B_n,
+        "T_range": T_r,
+        "T_null": T_n,
+        "range_dim": int(B_r.shape[1]),
+        "null_dim": int(B_n.shape[1]),
+        "rank": rank,
+        "null_space_dim": int(p - rank),
+        "tol_eff": tol_eff,
+    }
+
+
+def _normalize_ord(ord_value, n_marginals):
+    if ord_value is None:
+        return None
+    vals = [int(ord_value)] if np.isscalar(ord_value) else [int(v) for v in ord_value]
+    vals = sorted(set(vals))
+    for v in vals:
+        if v < 0 or v > n_marginals:
+            raise ValueError(
+                f"ord entries must lie between 0 and {n_marginals}, got {vals}."
+            )
+    return vals
+
+
+def _mean_constraint_matrix(B):
+    B = np.asarray(B, dtype=np.float64)
+    if B.shape[1] == 0:
+        return np.eye(0, dtype=np.float64)
+    c = B.mean(axis=0).reshape(-1, 1)
+    q, _ = np.linalg.qr(c, mode="complete")
+    return q[:, 1:]
+
+
+def build_t2_basis_and_penalties(
+    marginal_decompositions,
+    *,
+    full=False,
+    ord=None,
+    remove_constant_from_null_block=True,
+):
+    m = len(marginal_decompositions)
+    ord_keep = _normalize_ord(ord, m)
+    if m == 0:
+        raise ValueError("marginal_decompositions must contain at least one margin.")
+
+    def _null_labels(n_cols):
+        return [f"n{i+1}" for i in range(n_cols)] if full else ["n"]
+
+    def _rowwise_product(A, B):
+        A = np.asarray(A, dtype=np.float64)
+        B = np.asarray(B, dtype=np.float64)
+        if A.shape[1] == 0 or B.shape[1] == 0:
+            return np.empty((A.shape[0], 0), dtype=np.float64)
+        return rowwise_kronecker([A, B])
+
+    first = marginal_decompositions[0]
+    Z1 = np.asarray(first["B_range"], dtype=np.float64)
+    X2_blocks = []
+    X2_desc = []
+    order_list = []
+    label_list = []
+    pen2 = [] if full else None
+    no_null = False
+
+    if Z1.shape[1] > 0:
+        X2_blocks.append(Z1)
+        X2_desc.append([{"kind": "range", "cols": None}])
+        order_list.append(1)
+        label_list.append("r")
+        if full:
+            pen2.append(True)
+
+    if first["null_dim"] > 0:
+        X1_null = np.asarray(first["B_null"], dtype=np.float64)
+        if full:
+            # mgcv treats each null-space column separately when full=TRUE
+            for j, lab in enumerate(_null_labels(X1_null.shape[1])):
+                X2_blocks.append(X1_null[:, [j]])
+                X2_desc.append([{"kind": "null", "cols": [j]}])
+                order_list.append(0)
+                label_list.append(lab)
+                pen2.append(False)
+        else:
+            X2_blocks.append(X1_null)
+            X2_desc.append([{"kind": "null", "cols": list(range(X1_null.shape[1]))}])
+            order_list.append(0)
+            label_list.append("n")
+    else:
+        no_null = True
+
+    for margin_idx in range(1, m):
+        dec = marginal_decompositions[margin_idx]
+        Zi = np.asarray(dec["B_range"], dtype=np.float64)
+        null_exists = int(dec["null_dim"]) > 0
+        Xi = np.asarray(dec["B_null"], dtype=np.float64) if null_exists else None
+
+        X1 = X2_blocks
+        D1 = X2_desc
+        lab1 = label_list
+        order1 = order_list
+        pen1 = pen2[:] if full else None
+
+        X2_blocks = []
+        X2_desc = []
+        label_list = []
+        order_list = []
+        if full:
+            pen2 = []
+
+        # Range-space products.
+        if Zi.shape[1] > 0:
+            for ii, block in enumerate(X1):
+                was_pen = True if not full else bool(pen1[ii])
+                if (not full) or was_pen:
+                    A = _rowwise_product(block, Zi)
+                    if A.shape[1] == 0:
+                        continue
+                    X2_blocks.append(A)
+                    X2_desc.append(D1[ii] + [{"kind": "range", "cols": None}])
+                    label_list.append(f"{lab1[ii]}r")
+                    order_list.append(int(order1[ii]) + 1)
+                    if full:
+                        pen2.append(True)
+                else:
+                    for j in range(block.shape[1]):
+                        A = _rowwise_product(block[:, [j]], Zi)
+                        if A.shape[1] == 0:
+                            continue
+                        X2_blocks.append(A)
+                        X2_desc.append(D1[ii] + [{"kind": "range", "cols": None}])
+                        label_list.append(f"{lab1[ii]}r")
+                        order_list.append(int(order1[ii]) + 1)
+                        pen2.append(True)
+
+        # Null-space products.
+        if null_exists and Xi.shape[1] > 0:
+            for ii, block in enumerate(X1):
+                was_pen = True if not full else bool(pen1[ii])
+                if (not full) or (not was_pen):
+                    A = _rowwise_product(block, Xi)
+                    if A.shape[1] == 0:
+                        continue
+                    X2_blocks.append(A)
+                    X2_desc.append(
+                        D1[ii] + [{"kind": "null", "cols": list(range(Xi.shape[1]))}]
+                    )
+                    label_list.append(f"{lab1[ii]}n")
+                    order_list.append(int(order1[ii]))
+                    if full:
+                        pen2.append(False)
+                else:
+                    null_labs = _null_labels(Xi.shape[1])
+                    for j in range(Xi.shape[1]):
+                        A = _rowwise_product(block, Xi[:, [j]])
+                        if A.shape[1] == 0:
+                            continue
+                        X2_blocks.append(A)
+                        X2_desc.append(D1[ii] + [{"kind": "null", "cols": [j]}])
+                        label_list.append(f"{lab1[ii]}{null_labs[j]}")
+                        order_list.append(int(order1[ii]))
+                        pen2.append(True)
+        else:
+            no_null = True
+
+    if ord_keep is not None:
+        keep_mask = [int(o) in ord_keep for o in order_list]
+        X2_blocks = [blk for blk, keep in zip(X2_blocks, keep_mask) if keep]
+        X2_desc = [desc for desc, keep in zip(X2_desc, keep_mask) if keep]
+        label_list = [lab for lab, keep in zip(label_list, keep_mask) if keep]
+        order_list = [o for o, keep in zip(order_list, keep_mask) if keep]
+        if full:
+            pen2 = [p for p, keep in zip(pen2, keep_mask) if keep]
+        if 0 not in ord_keep:
+            no_null = True
+
+    if full and len(X2_blocks) > 0 and pen2 is not None:
+        null_idx = [i for i, is_pen in enumerate(pen2) if not bool(is_pen)]
+        if len(null_idx) > 1:
+            pen_idx = [i for i, is_pen in enumerate(pen2) if bool(is_pen)]
+            null_blocks = [X2_blocks[i] for i in null_idx]
+            null_desc = [X2_desc[i] for i in null_idx]
+            X2_blocks = [X2_blocks[i] for i in pen_idx] + [np.column_stack(null_blocks)]
+            X2_desc = [X2_desc[i] for i in pen_idx] + [null_desc]
+            label_list = [label_list[i] for i in pen_idx] + ["n"]
+            order_list = [order_list[i] for i in pen_idx] + [0]
+            pen2 = [True] * len(pen_idx) + [False]
+
+    xc_all = [blk.shape[1] for blk in X2_blocks]
+    basis_pre = (
+        np.column_stack(X2_blocks)
+        if len(X2_blocks) > 0
+        else np.empty(
+            (marginal_decompositions[0]["B_range"].shape[0], 0), dtype=np.float64
+        )
+    )
+
+    if not no_null and len(xc_all) > 0:
+        pen_col_counts = xc_all[:-1]
+        pen_labels = label_list[:-1]
+        pen_desc = X2_desc[:-1]
+        B0_raw = X2_blocks[-1]
+        B0_descs = X2_desc[-1] if full else [X2_desc[-1]]
+    else:
+        pen_col_counts = xc_all
+        pen_labels = label_list
+        pen_desc = X2_desc
+        B0_raw = None
+        B0_descs = []
+
+    penalties_pre = []
+    component_slices_pre = []
+    block_meta = []
+    start = 0
+    total_dim_pre = basis_pre.shape[1]
+    for lab, order_val, n_cols, desc in zip(
+        pen_labels,
+        order_list[: len(pen_col_counts)],
+        pen_col_counts,
+        pen_desc,
+    ):
+        sl = slice(start, start + n_cols)
+        component_slices_pre.append(sl)
+        P = np.zeros((total_dim_pre, total_dim_pre), dtype=np.float64)
+        P[sl, sl] = np.eye(n_cols, dtype=np.float64)
+        penalties_pre.append(P)
+        block_meta.append(
+            {
+                "order": int(order_val),
+                "label": str(lab),
+                "penalized": True,
+                "n_cols": int(n_cols),
+                "desc": tuple(desc),
+            }
+        )
+        start += n_cols
+
+    penalized_specs = [
+        {"combo": tuple(meta["desc"]), "order": meta["order"], "label": meta["label"]}
+        for meta in block_meta
+    ]
+    allnull_specs = (
+        [{"combo": tuple(desc), "order": 0, "label": "null"} for desc in B0_descs]
+        if len(B0_descs) > 0
+        else []
+    )
+    allnull_transform = None
+    basis, penalties, component_slices = basis_pre, penalties_pre, component_slices_pre
+    if B0_raw is not None and B0_raw.shape[1] > 0 and remove_constant_from_null_block:
+        C0 = _mean_constraint_matrix(B0_raw)
+        allnull_transform = C0
+        n_pen = basis_pre.shape[1] - B0_raw.shape[1]
+        C_full = np.eye(basis_pre.shape[1], dtype=np.float64)
+        C_full = np.column_stack(
+            [
+                C_full[:, :n_pen],
+                np.vstack([np.zeros((n_pen, C0.shape[1]), dtype=np.float64), C0]),
+            ]
+        )
+        basis = basis_pre @ C_full
+        penalties = [
+            0.5 * (C_full.T @ S @ C_full + (C_full.T @ S @ C_full).T)
+            for S in penalties_pre
+        ]
+        component_slices = component_slices_pre[:-1] + [slice(n_pen, basis.shape[1])]
+    return {
+        "basis": basis,
+        "penalties": penalties,
+        "component_slices": component_slices,
+        "basis_pre_constraint": basis_pre,
+        "penalties_pre_constraint": penalties_pre,
+        "allnull_specs": allnull_specs,
+        "allnull_transform": allnull_transform,
+        "component_specs": block_meta
+        + (
+            [{"order": 0, "label": "null", "penalized": False, "n_cols": 0}]
+            if B0_raw is not None
+            else []
+        ),
+        "penalized_specs": penalized_specs,
+    }
+
+
+def materialize_t2_newdata(
+    marginal_new_range_null, *, allnull_specs, allnull_transform, penalized_specs
+):
+    def materialize_component(spec):
+        mats = []
+        for dec, choice in zip(marginal_new_range_null, spec["combo"]):
+            mats.append(
+                dec["B_range"]
+                if choice["kind"] == "range"
+                else dec["B_null"][:, choice["cols"]]
+            )
+        return rowwise_kronecker(mats)
+
+    blocks = []
+    for spec in penalized_specs:
+        B = materialize_component(spec)
+        if B.shape[1] > 0:
+            blocks.append(B)
+    if len(allnull_specs) > 0:
+        B0 = np.column_stack([materialize_component(spec) for spec in allnull_specs])
+        if allnull_transform is not None and B0.shape[1] > 0:
+            B0 = B0 @ allnull_transform
+        if B0.shape[1] > 0:
+            blocks.append(B0)
+    if len(blocks) == 0:
+        n = next(iter(marginal_new_range_null))["B_null"].shape[0]
+        return np.empty((n, 0), dtype=np.float64)
+    return np.column_stack(blocks)
+
+
+__all__ = [
+    "rowwise_kronecker",
+    "lifted_tensor_penalty",
+    "tensor_product_penalties",
+    "normalize_tensor_marginal_penalty",
+    "rescale_tensor_penalties_for_fit",
+    "marginal_range_null_decomposition",
+    "t2_marginal_reparameterization",
+    "build_t2_basis_and_penalties",
+    "materialize_t2_newdata",
+]
+
+# --- End of nampy/gam/basis/tensor.py ---
+
+# --- Start of nampy/gam/constraints/absorption.py ---
+"""
+Constraint absorption utilities for GAM smooth terms.
+
+These helpers operate on an already-built basis matrix and its associated
+penalty matrices.  They implement the coefficient-transform invariant:
+
+    if B is transformed to B @ T,
+    then every penalty S must become T.T @ S @ T.
+
+Functions here are used by:
+  - runtime terms (gam/smooths/*) for term-local constraint absorption during fit
+  - the stage-3 wrapper (gam/design/constructors.py) for delegated absorption
+  - gam/constraints/identifiability.py for the centering transform in stage 5
+
+They must not know about compiled predictors, term specs, or fitted results.
+"""
+
+from __future__ import annotations
+
+import copy
+from dataclasses import dataclass
+
+import numpy as np
+
+from ..penalties import normalize_penalty_spec
+from .transforms import (
+    apply_coefficient_transform,
+    localized_null_space_basis_from_constraint_matrix,
+)
+
+
+@dataclass
+class ConstraintFitResult:
+    """
+    Return value of :func:`fit_single_penalty_with_constraint_policy`.
+
+    Attributes
+    ----------
+    basis_train : np.ndarray
+        Possibly constrained and by-scaled training basis.
+    penalties : list of np.ndarray
+        Penalties transformed to match ``basis_train`` coefficient space.
+    constraint_kind : str or None
+        ``"sum_to_zero"``, ``"factor_by"``, or ``None`` if no constraint absorbed.
+    constraint_transform : np.ndarray or None
+        Coefficient transform T such that ``basis_train == raw_base @ T``.
+        None when no constraint was absorbed.
+    """
+
+    basis_train: np.ndarray
+    penalties: list
+    constraint_kind: str | None
+    constraint_transform: np.ndarray | None
+
+
+def apply_linear_constraint(B, penalties, constraint_row, tol: float = 1e-12):
+    """
+    Absorb a single linear constraint ``constraint_row @ coef = 0`` into the basis.
+
+    Computes the QR null space of ``constraint_row`` to obtain a transform T such
+    that any coefficient vector in the null space satisfies the constraint, then
+    returns ``B @ T``, transformed penalties, and T itself.
+
+    Parameters
+    ----------
+    B : np.ndarray, shape (n, d)
+    penalties : list of np.ndarray, each shape (d, d)
+    constraint_row : array-like, shape (d,)
+    tol : float
+        Norm threshold below which the constraint is considered trivial.
+
+    Returns
+    -------
+    Bc : np.ndarray, shape (n, d-1)
+    Sc : list of np.ndarray, each shape (d-1, d-1)
+    C  : np.ndarray, shape (d, d-1)  — the coefficient transform
+    """
+    B = np.asarray(B, dtype=np.float64)
+    penalties = [np.asarray(S, dtype=np.float64) for S in penalties]
+    c = np.asarray(constraint_row, dtype=np.float64).reshape(-1, 1)
+    cn = float(np.linalg.norm(c))
+    if cn <= tol:
+        C = np.eye(B.shape[1], dtype=np.float64)
+        return B, penalties, C
+    q, _ = np.linalg.qr(c, mode="complete")
+    C = q[:, 1:]
+    Bc, Sc = apply_coefficient_transform(B, penalties, C)
+    return Bc, Sc, C
+
+
+def full_term_sum_to_zero_constraint(B, penalties):
+    B = np.asarray(B, dtype=np.float64)
+    mean_row = B.mean(axis=0)
+    return apply_linear_constraint(B, penalties, mean_row)
+
+
+def absorb_explicit_constraints(B, penalty_specs, C, tol: float = 1e-12):
+    B = np.asarray(B, dtype=np.float64)
+    d = B.shape[1]
+    T, n_cons = localized_null_space_basis_from_constraint_matrix(C, d=d, tol=tol)
+    mats = [np.asarray(p.matrix, dtype=np.float64) for p in penalty_specs]
+    B_new, mats_new = apply_coefficient_transform(B, mats, T)
+    out_specs = []
+    for p, S_new in zip(penalty_specs, mats_new):
+        p_new = copy.copy(p)
+        p_new.matrix = S_new
+        out_specs.append(normalize_penalty_spec(p_new))
+    return B_new, out_specs, T, int(n_cons)
+
+
+def should_apply_identifiability_constraint(
+    by_state, constraint_mode, *, default_when_auto=False
+):
+    mode = str(constraint_mode).lower()
+    if mode == "always":
+        return True
+    if mode == "never":
+        return False
+    if mode == "auto":
+        return bool(default_when_auto) and bool(by_state.is_constant)
+    if mode == "factor_by":
+        return False
+    raise ValueError(
+        "constraint_mode must be one of {'auto', 'factor_by', 'always', 'never'}."
+    )
+
+
+def fit_single_penalty_with_constraint_policy(
+    base,
+    penalty,
+    by_state,
+    *,
+    constraint_mode,
+    fixed=False,
+    auto_constrain_when=False,
+    apply_numeric_by_fn=None,
+):
+    base = np.asarray(base, dtype=np.float64)
+    penalty = np.asarray(penalty, dtype=np.float64)
+    apply_numeric_by_fn = apply_numeric_by_fn or (
+        lambda B, z: B if z is None else B * np.asarray(z)[:, None]
+    )
+
+    if str(constraint_mode).lower() == "factor_by":
+        if not by_state.is_present:
+            raise ValueError(
+                "constraint_mode='factor_by' requires a numeric indicator `by` column."
+            )
+        base_fb = apply_numeric_by_fn(base, by_state.values)
+        penalties_in = [] if bool(fixed) else [penalty]
+        mean_row = base_fb.mean(axis=0)
+        Bc, Sc, C = apply_linear_constraint(base_fb, penalties_in, mean_row)
+        return ConstraintFitResult(
+            basis_train=np.asarray(Bc, dtype=np.float64),
+            penalties=Sc,
+            constraint_kind="factor_by",
+            constraint_transform=C,
+        )
+
+    should_constrain = should_apply_identifiability_constraint(
+        by_state, constraint_mode, default_when_auto=bool(auto_constrain_when)
+    )
+    constraint_kind = None
+    constraint_transform = None
+    if should_constrain:
+        penalties_in = [] if bool(fixed) else [penalty]
+        mean_row = base.mean(axis=0)
+        Bc, Sc, C = apply_linear_constraint(base, penalties_in, mean_row)
+        base_out = Bc
+        penalties_out = Sc
+        constraint_kind = "sum_to_zero"
+        constraint_transform = C
+    else:
+        base_out = base
+        penalties_out = [] if bool(fixed) else [penalty]
+    base_out = apply_numeric_by_fn(base_out, by_state.values)
+    return ConstraintFitResult(
+        basis_train=np.asarray(base_out, dtype=np.float64),
+        penalties=penalties_out,
+        constraint_kind=constraint_kind,
+        constraint_transform=constraint_transform,
+    )
+
+
+__all__ = [
+    "ConstraintFitResult",
+    "apply_linear_constraint",
+    "full_term_sum_to_zero_constraint",
+    "absorb_explicit_constraints",
+    "should_apply_identifiability_constraint",
+    "fit_single_penalty_with_constraint_policy",
+]
+
+# --- End of nampy/gam/constraints/absorption.py ---
+
+# --- Start of nampy/gam/constraints/identifiability.py ---
+"""
+Stage 5 of the GAM fit pipeline: predictor-wide identifiability side conditions.
+
+Pipeline overview
+-----------------
+Stage 1  formula / spec layer           gam/formula/
+Stage 2  runtime term materialization   gam/runtime/factory.py + gam/smooths/*
+Stage 3  term construction wrapper      gam/design/constructors.py
+Stage 4  predictor compilation          gam/design/compiler.py
+Stage 5  predictor-wide side conds      gam/constraints/identifiability.py  <- here
+Stage 6  model fitting                  gam/fit/
+Stage 7  prediction / parity            gam/predict/ + gam/parity/
+"""
+
+from __future__ import annotations
+
+import warnings
+
+import numpy as np
+from scipy.linalg import eigh
+
+from ..design.structures import (
+    CompiledPenalty,
+    CompiledPredictor,
+    CompiledTerm,
+    PenaltySpec,
+)
+from ..penalties import normalize_penalty_spec
+from .transforms import (
+    independent_column_indices,
+    null_space_basis_from_constraint_matrix,
+)
+
+
+def _penalty_root(S: np.ndarray, tol: float) -> np.ndarray:
+    S = 0.5 * (np.asarray(S, dtype=np.float64) + np.asarray(S, dtype=np.float64).T)
+    if S.size == 0:
+        return np.empty((0, 0), dtype=np.float64)
+    evals, evecs = eigh(S)
+    if evals.size == 0:
+        return np.empty_like(S)
+    scale = np.max(np.abs(evals))
+    tol_eff = max(float(tol), float(scale) * max(S.shape) * np.finfo(float).eps)
+    keep = evals > tol_eff
+    if not np.any(keep):
+        return np.zeros_like(S)
+    root = evecs[:, keep] * np.sqrt(evals[keep])[None, :]
+    return root @ evecs[:, keep].T
+
+
+def _augment_term_matrix(
+    B: np.ndarray,
+    penalties: list[np.ndarray],
+    *,
+    coef_slice: slice,
+    total_coef: int,
+    n_constraint_rows: int = 0,
+    tol: float = 1e-10,
+) -> np.ndarray:
+    """
+    Create a penalty-aware dependence-testing matrix similar to mgcv::augment.smX.
+
+    The top block is the observational design matrix. Penalty square-root rows
+    occupy the term's global coefficient slice so that only null-space overlap
+    remains visible when testing dependence against earlier terms.
+    """
+    B = np.asarray(B, dtype=np.float64)
+    n_obs, d = B.shape
+    Xa = np.zeros((n_obs + total_coef + n_constraint_rows, d), dtype=np.float64)
+    Xa[:n_obs, :] = B
+    if d == 0 or not penalties:
+        return Xa
+
+    nz_first = np.any(np.abs(np.asarray(penalties[0], dtype=np.float64)) > tol, axis=0)
+    if np.any(nz_first):
+        sqrma_x = float(np.mean(np.abs(B[:, nz_first])) ** 2)
+    else:
+        sqrma_x = float(np.mean(np.abs(B)) ** 2) if B.size else 1.0
+    if not np.isfinite(sqrma_x) or sqrma_x <= 0.0:
+        sqrma_x = 1.0
+
+    St = np.zeros((d, d), dtype=np.float64)
+    for S in penalties:
+        S = np.asarray(S, dtype=np.float64)
+        active = np.any(np.abs(S) > tol, axis=0)
+        if not np.any(active):
+            continue
+        denom = float(np.mean(np.abs(S[np.ix_(active, active)])))
+        if not np.isfinite(denom) or denom <= 0.0:
+            continue
+        St = St + (sqrma_x / denom) * S
+
+    if np.any(np.abs(St) > tol):
+        rS = _penalty_root(St, tol=tol)
+        row_slice = slice(
+            n_obs + int(coef_slice.start), n_obs + int(coef_slice.start) + d
+        )
+        Xa[row_slice, :] = rS.T
+    return Xa
+
+
+def apply_global_side_conditions(
+    design: CompiledPredictor,
+    *,
+    fit_intercept: bool = True,
+    tol: float = 1e-10,
+    warn: bool = True,
+):
+    """
+    Apply predictor-wide identifiability side conditions to a CompiledPredictor.
+
+    This is stage 5 of the fit pipeline.  It walks each compiled term in order
+    and performs three operations:
+
+    1. **Exempt terms** (random effects, factor smooths):
+       Preserve their basis and penalties unchanged.  Still add their columns to
+       the span accumulator so that later terms correctly detect linear dependence
+       on their subspace (architecture invariant 6.6: exempt terms still span
+       predictor space).
+
+    2. **Non-exempt terms** — two sub-steps:
+
+       a. *Centering*: if the model has an intercept and the runtime term did not
+          already absorb a sum-to-zero constraint, absorb one now via the
+          null-space of the column-sum vector.  The centering transform T is
+          applied simultaneously to the basis, the accumulated coefficient
+          transform, and every associated penalty matrix (invariant 6.3):
+              B  <- B @ T
+              C  <- C @ T
+              S  <- T.T @ S @ T   for each penalty S
+
+       b. *Column selection*: drop any columns of the (possibly re-parameterised)
+          basis that are linearly dependent on the current span accumulator.
+
+       After both steps, ``CompiledTerm.basis_transform`` holds the full mapping
+       from the stage-4 constructed-term coefficient space to the final fitted
+       coefficient space. Prediction uses
+       ``smooth.predict_matrix(X_new) @ basis_transform`` and nothing else
+       (invariant 6.2: ``basis_transform`` is canonical).
+
+    3. **Drop zero-width terms**: terms whose every column was removed are
+       excluded from the final compiled predictor.  Keeping zero-width terms
+       complicates prediction, summaries, and parity (invariant 6.7).
+
+    Parameters
+    ----------
+    design : CompiledPredictor
+        Output of stage 4 (``compile_predictor_designs``).
+    fit_intercept : bool
+        Whether the model has an intercept.  Controls whether the constant
+        column is seeded into the span accumulator and whether sum-to-zero
+        centering is applied to eligible terms.
+    tol : float
+        Numerical rank tolerance passed to ``independent_column_indices`` and
+        ``null_space_basis_from_constraint_matrix``.
+    warn : bool
+        If True, emit ``warnings.warn`` when columns are deleted or terms are
+        dropped.
+
+    Returns
+    -------
+    new_design : CompiledPredictor
+        Updated predictor.  Every ``CompiledTerm.basis_transform`` is the
+        complete, canonical constructed-space-to-fitted coefficient map for
+        that term.
+    report : dict
+        Diagnostic report with per-term deletion counts, centering flags,
+        and the total number of dropped zero-width terms.
+    """
+    if not isinstance(design, CompiledPredictor):
+        raise TypeError("design must be a CompiledPredictor instance.")
+
+    n_obs = design.design_matrix.shape[0]
+
+    # Span accumulator.  Seeded with a constant column when fit_intercept=True
+    # so that sum-to-zero centering removes the intercept-collinear component.
+    acc = (
+        np.ones((n_obs, 1), dtype=np.float64)
+        if fit_intercept
+        else np.empty((n_obs, 0), dtype=np.float64)
+    )
+    acc_aug = np.zeros((n_obs + design.n_coef, acc.shape[1]), dtype=np.float64)
+    if acc.shape[1] > 0:
+        acc_aug[:n_obs, :] = acc
+
+    new_term_blocks: list[CompiledTerm] = []
+    new_penalty_blocks: list[CompiledPenalty] = []
+    design_blocks: list[np.ndarray] = []
+    deleted_total = 0
+    term_reports = []
+    start = 0
+    predictor_Q = np.zeros((design.n_coef, design.n_coef), dtype=np.float64)
+
+    for term_idx, tb in enumerate(design.compiled_terms):
+        B = np.asarray(tb.basis_train, dtype=np.float64)
+        d = B.shape[1]
+        d_in = d
+
+        # Collect this term's penalties up-front so the centering transform can
+        # be applied to their matrices before column selection.
+        term_penalty_objs = [
+            pb for pb in design.compiled_penalties if pb.term_index == term_idx
+        ]
+        pen_matrices = [
+            np.asarray(pb.matrix, dtype=np.float64) for pb in term_penalty_objs
+        ]
+
+        # ── Exempt terms ──────────────────────────────────────────────────────
+        exempt = tb.term_type in {
+            "random_effect",
+            "factor_smooth_fs",
+            "factor_smooth_sz",
+        }
+        if exempt:
+            sl_new = slice(start, start + d)
+            new_idx = len(new_term_blocks)
+            if d > 0:
+                predictor_Q[tb.coef_slice, sl_new] = np.eye(d, dtype=np.float64)
+            new_term_blocks.append(
+                CompiledTerm(
+                    label=tb.label,
+                    coef_slice=sl_new,
+                    smooth=tb.smooth,
+                    basis_train=B,
+                    basis_transform=tb.basis_transform,
+                    kept_columns=(
+                        np.asarray(tb.kept_columns, dtype=int).copy()
+                        if tb.kept_columns is not None
+                        else np.arange(d, dtype=int)
+                    ),
+                    deleted_columns=(
+                        np.asarray(tb.deleted_columns, dtype=int).copy()
+                        if tb.deleted_columns is not None
+                        else np.array([], dtype=int)
+                    ),
+                    smoothing_indices=list(tb.smoothing_indices),
+                    smoothing_ids=list(tb.smoothing_ids),
+                    n_penalties=tb.n_penalties,
+                    term_type=tb.term_type,
+                    basis_name=tb.basis_name,
+                    term_id=tb.term_id,
+                    smoothing_group_id=tb.smoothing_group_id,
+                    metadata=dict(tb.metadata),
+                )
+            )
+            for pb, P in zip(term_penalty_objs, pen_matrices):
+                new_penalty_blocks.append(
+                    CompiledPenalty(
+                        label=pb.label,
+                        coef_slice=sl_new,
+                        matrix=P.copy(),
+                        smoothing_index=pb.smoothing_index,
+                        term_index=new_idx,
+                        smoothing_id=pb.smoothing_id,
+                        kind=pb.kind,
+                        rank=pb.rank,
+                        null_space_dim=pb.null_space_dim,
+                        is_null_space_penalty=pb.is_null_space_penalty,
+                        sp_mode=pb.sp_mode,
+                        sp_value=pb.sp_value,
+                        metadata=dict(pb.metadata),
+                    )
+                )
+            if d > 0:
+                design_blocks.append(B)
+                # Exempt terms still span the predictor space (invariant 6.6).
+                acc = np.column_stack([acc, B])
+                B_aug = np.zeros((n_obs + design.n_coef, d), dtype=np.float64)
+                B_aug[:n_obs, :] = B
+                acc_aug = np.column_stack([acc_aug, B_aug])
+            term_reports.append(
+                {
+                    "label": tb.label,
+                    "exempt": True,
+                    "deleted_columns": [],
+                    "kept_columns": (
+                        list(np.asarray(tb.kept_columns, dtype=int))
+                        if tb.kept_columns is not None
+                        else list(range(d))
+                    ),
+                    "n_deleted": 0,
+                    "absorbed_centering": False,
+                }
+            )
+            start += d
+            continue
+
+        # ── Non-exempt: centering + column selection ──────────────────────────
+        #
+        # C accumulates the coefficient transform from the stage-4 constructed
+        # coefficient space to the current (pre-side-condition) space.
+        # Initialise from whatever the compiler recorded; fall back to identity.
+        C = (
+            np.asarray(tb.basis_transform, dtype=np.float64)
+            if tb.basis_transform is not None
+            else np.eye(d, dtype=np.float64)
+        )
+        Q_term = np.eye(d_in, dtype=np.float64)
+
+        constructor_meta = dict(tb.metadata.get("constructor_metadata", {}) or {})
+        runtime_absorbed = bool(
+            constructor_meta.get("constraints_absorbed_by_runtime", False)
+        )
+        runtime_by_name = constructor_meta.get("runtime_by_name", None)
+        runtime_by_is_constant = constructor_meta.get("runtime_by_is_constant", None)
+        absorbed_centering = False
+
+        # Step (a): optionally absorb a sum-to-zero centering constraint.
+        if (
+            fit_intercept
+            and not runtime_absorbed
+            and (runtime_by_name is None or bool(runtime_by_is_constant))
+            and tb.term_type not in {"tensor_interaction", "tensor_anova"}
+        ):
+            centering = np.sum(B, axis=0, keepdims=True)
+            if np.linalg.norm(centering) > tol:
+                T_con, _ = null_space_basis_from_constraint_matrix(centering, tol=tol)
+                if 0 < T_con.shape[1] < d:
+                    # Invariant 6.3: the same transform must be applied to the
+                    # basis, the coefficient map, and every penalty matrix.
+                    pen_matrices = [T_con.T @ S @ T_con for S in pen_matrices]
+                    B = B @ T_con
+                    C = C @ T_con
+                    Q_term = Q_term @ T_con
+                    d = B.shape[1]
+                    absorbed_centering = True
+
+        # Step (b): drop columns linearly dependent on the accumulator.
+        if runtime_by_name is not None and not bool(runtime_by_is_constant):
+            # Ordinary non-constant numeric by-variable smooths should keep their
+            # raw term basis for the first occurrence, but later terms still need
+            # ordinary cross-term redundancy removal against the accumulated
+            # design to match mgcv's side-condition allocation.
+            if acc.shape[1] <= int(bool(fit_intercept)):
+                keep = np.arange(d, dtype=int)
+            else:
+                keep = np.asarray(
+                    independent_column_indices(B, A=acc, tol=tol), dtype=int
+                )
+        elif pen_matrices:
+            B_dep = _augment_term_matrix(
+                B,
+                pen_matrices,
+                coef_slice=tb.coef_slice,
+                total_coef=design.n_coef,
+                tol=tol,
+            )
+            keep = np.asarray(
+                independent_column_indices(B_dep, A=acc_aug, tol=tol), dtype=int
+            )
+        else:
+            keep = np.asarray(independent_column_indices(B, A=acc, tol=tol), dtype=int)
+        deleted_local = np.setdiff1d(np.arange(d, dtype=int), keep)
+
+        # C_final is the canonical constructed-space-to-fitted basis transform
+        # (invariant 6.2). If basis matrices are right-multiplied by C_final,
+        # coefficient vectors pull back in the opposite direction.
+        C_final = (
+            C[:, keep] if keep.size > 0 else np.empty((C.shape[0], 0), dtype=np.float64)
+        )
+        Q_term_final = (
+            Q_term[:, keep]
+            if keep.size > 0
+            else np.empty((Q_term.shape[0], 0), dtype=np.float64)
+        )
+        B_final = (
+            B[:, keep] if keep.size > 0 else np.empty((B.shape[0], 0), dtype=np.float64)
+        )
+        d_final = B_final.shape[1]
+
+        # Subset penalty matrices to the surviving columns and recompute their
+        # canonical metadata in the new coefficient space.
+        pen_specs_final = []
+        for pb, S in zip(term_penalty_objs, pen_matrices):
+            P_new = (
+                S[np.ix_(keep, keep)]
+                if keep.size > 0
+                else np.empty((0, 0), dtype=np.float64)
+            )
+            pen_specs_final.append(
+                normalize_penalty_spec(
+                    PenaltySpec(
+                        matrix=P_new,
+                        smoothing_id=pb.smoothing_id,
+                        kind=pb.kind,
+                        rank=None,
+                        null_space_dim=None,
+                        is_null_space_penalty=pb.is_null_space_penalty,
+                        sp_mode=pb.sp_mode,
+                        sp_value=pb.sp_value,
+                        metadata=dict(pb.metadata),
+                    )
+                )
+            )
+
+        # Track surviving original coefficient indices for diagnostics / parity.
+        # When centering was absorbed the mapping through T_con is non-trivial;
+        # set to None to signal that exact original indices are unavailable.
+        if absorbed_centering:
+            kept_orig = None
+            deleted_orig = None
+        else:
+            old_kept = (
+                np.asarray(tb.kept_columns, dtype=int)
+                if tb.kept_columns is not None
+                else np.arange(d, dtype=int)
+            )
+            kept_orig = old_kept[keep] if keep.size > 0 else np.array([], dtype=int)
+            deleted_orig = (
+                old_kept[deleted_local]
+                if deleted_local.size > 0
+                else np.array([], dtype=int)
+            )
+
+        tb_meta = dict(tb.metadata)
+        if deleted_orig is not None and deleted_orig.size > 0:
+            tb_meta["del_index"] = deleted_orig.tolist()
+        if absorbed_centering:
+            tb_meta["absorbed_sum_to_zero_constraint"] = True
+
+        sl_new = slice(start, start + d_final)
+        new_idx = len(new_term_blocks)
+        if d_final > 0:
+            predictor_Q[tb.coef_slice, sl_new] = Q_term_final
+
+        new_term_blocks.append(
+            CompiledTerm(
+                label=tb.label,
+                coef_slice=sl_new,
+                smooth=tb.smooth,
+                basis_train=B_final,
+                basis_transform=C_final,
+                kept_columns=kept_orig,
+                deleted_columns=deleted_orig,
+                smoothing_indices=list(tb.smoothing_indices),
+                smoothing_ids=list(tb.smoothing_ids),
+                n_penalties=tb.n_penalties,
+                term_type=tb.term_type,
+                basis_name=tb.basis_name,
+                term_id=tb.term_id,
+                smoothing_group_id=tb.smoothing_group_id,
+                metadata=tb_meta,
+            )
+        )
+
+        for pb, pdef_new in zip(term_penalty_objs, pen_specs_final):
+            new_penalty_blocks.append(
+                CompiledPenalty(
+                    label=pb.label,
+                    coef_slice=sl_new,
+                    matrix=np.asarray(pdef_new.matrix, dtype=np.float64),
+                    smoothing_index=pb.smoothing_index,
+                    term_index=new_idx,
+                    smoothing_id=pb.smoothing_id,
+                    kind=str(pdef_new.kind),
+                    rank=pdef_new.rank,
+                    null_space_dim=pdef_new.null_space_dim,
+                    is_null_space_penalty=bool(pdef_new.is_null_space_penalty),
+                    sp_mode=pdef_new.sp_mode,
+                    sp_value=pdef_new.sp_value,
+                    metadata=dict(pb.metadata),
+                )
+            )
+
+        n_deleted = int(d - d_final)
+        deleted_total += n_deleted
+
+        if d_final > 0:
+            design_blocks.append(B_final)
+            acc = np.column_stack([acc, B_final])
+            if pen_matrices:
+                B_aug_final = _augment_term_matrix(
+                    B_final,
+                    [np.asarray(p.matrix, dtype=np.float64) for p in pen_specs_final],
+                    coef_slice=tb.coef_slice,
+                    total_coef=design.n_coef,
+                    tol=tol,
+                )
+            else:
+                B_aug_final = np.zeros(
+                    (n_obs + design.n_coef, d_final), dtype=np.float64
+                )
+                B_aug_final[:n_obs, :] = B_final
+            acc_aug = np.column_stack([acc_aug, B_aug_final])
+
+        term_reports.append(
+            {
+                "label": tb.label,
+                "exempt": False,
+                "deleted_columns": (
+                    [] if deleted_orig is None else deleted_orig.tolist()
+                ),
+                "kept_columns": [] if kept_orig is None else kept_orig.tolist(),
+                "n_deleted": n_deleted,
+                "absorbed_centering": absorbed_centering,
+            }
+        )
+
+        # Suppress the warning for non-constant numeric by-variable terms: the
+        # cross-term column deletion there is expected orthogonalization (matching
+        # mgcv's side-condition allocation), not a surprising constraint application.
+        numeric_by_redundancy = runtime_by_name is not None and not bool(
+            runtime_by_is_constant
+        )
+        if warn and n_deleted > 0 and not numeric_by_redundancy:
+            col_info = (
+                f" (original indices {deleted_orig.tolist()})"
+                if deleted_orig is not None and deleted_orig.size > 0
+                else ""
+            )
+            warnings.warn(
+                f"Applied side conditions to term {tb.label!r}: "
+                f"deleted {n_deleted} redundant column(s){col_info}.",
+                stacklevel=2,
+            )
+
+        start += d_final
+
+    # ── Drop zero-width terms (invariant 6.7) ─────────────────────────────────
+    # Build a mapping: old position in new_term_blocks -> final position (-1 = dropped).
+    old_to_final: dict[int, int] = {}
+    final_term_blocks: list[CompiledTerm] = []
+    for old_i, tb in enumerate(new_term_blocks):
+        if tb.basis_train.shape[1] > 0:
+            old_to_final[old_i] = len(final_term_blocks)
+            final_term_blocks.append(tb)
+        else:
+            old_to_final[old_i] = -1
+            if warn:
+                warnings.warn(
+                    f"Term {tb.label!r} was reduced to zero columns by side "
+                    f"conditions and has been dropped from the compiled predictor.",
+                    stacklevel=2,
+                )
+
+    # Keep only penalties whose owning term survived; re-stamp term_index.
+    final_penalty_blocks: list[CompiledPenalty] = []
+    for pb in new_penalty_blocks:
+        new_ti = old_to_final.get(pb.term_index, -1)
+        if new_ti >= 0:
+            pb.term_index = new_ti
+            final_penalty_blocks.append(pb)
+
+    # ── Assemble final CompiledPredictor ──────────────────────────────────────
+    matrix_train = (
+        np.column_stack(design_blocks)
+        if design_blocks
+        else np.empty((n_obs, 0), dtype=np.float64)
+    )
+    term_index_map = {tb.term_id: i for i, tb in enumerate(final_term_blocks)}
+
+    new_design = CompiledPredictor(
+        name=design.name,
+        design_matrix=matrix_train,
+        compiled_terms=tuple(final_term_blocks),
+        compiled_penalties=tuple(final_penalty_blocks),
+        smoothing_parameter_map=dict(design.smoothing_parameter_map),
+        has_intercept=bool(fit_intercept),
+        term_index_map=term_index_map,
+        side_condition_Q=predictor_Q[:, :start].copy(),
+        n_coef=start,
+        n_smoothing_params=design.n_smoothing_params,
+        smoothing_override_modes=list(design.smoothing_override_modes),
+        smoothing_override_values=(
+            None
+            if design.smoothing_override_values is None
+            else np.asarray(design.smoothing_override_values, dtype=np.float64).copy()
+        ),
+        metadata=dict(design.metadata),
+    )
+    report = {
+        "predictor": design.name,
+        "n_deleted_total": deleted_total,
+        "n_terms_dropped": len(new_term_blocks) - len(final_term_blocks),
+        "term_reports": term_reports,
+    }
+    return new_design, report
+
+
+__all__ = [
+    "apply_global_side_conditions",
+]
+
+# --- End of nampy/gam/constraints/identifiability.py ---
+
+# --- Start of nampy/gam/constraints/transforms.py ---
+from __future__ import annotations
+
+import numpy as np
+from scipy.linalg import qr as scipy_qr
+
+
+def orthogonal_residual(B, A):
+    B = np.asarray(B, dtype=np.float64)
+    if A is None or np.asarray(A).size == 0 or np.asarray(A).shape[1] == 0:
+        return B
+    A = np.asarray(A, dtype=np.float64)
+    coef, *_ = np.linalg.lstsq(A, B, rcond=None)
+    return B - A @ coef
+
+
+def independent_column_indices(B, A=None, tol: float = 1e-10):
+    B = np.asarray(B, dtype=np.float64)
+    if B.ndim != 2:
+        raise ValueError("B must be a 2D matrix.")
+    if B.shape[1] == 0:
+        return np.array([], dtype=int)
+    Rb = orthogonal_residual(B, A)
+    if np.all(np.abs(Rb) <= tol):
+        return np.array([], dtype=int)
+    _Q, R, piv = scipy_qr(Rb, mode="economic", pivoting=True)
+    diag_R = np.abs(np.diag(R))
+    if diag_R.size == 0:
+        return np.array([], dtype=int)
+    rank_tol = max(B.shape) * np.finfo(float).eps * diag_R[0]
+    tol_eff = max(float(tol), float(rank_tol))
+    rank = int(np.sum(diag_R > tol_eff))
+    if rank <= 0:
+        return np.array([], dtype=int)
+    return np.sort(np.asarray(piv[:rank], dtype=int))
+
+
+def null_space_basis_from_constraint_matrix(
+    C, d: int | None = None, tol: float = 1e-10
+):
+    C = np.asarray(C, dtype=np.float64)
+    if C.ndim == 1:
+        C = C.reshape(1, -1)
+    if C.ndim != 2:
+        raise ValueError("Constraint matrix must be 2D.")
+    if d is not None and C.shape[1] != int(d):
+        raise ValueError(f"Constraint matrix has width {C.shape[1]}, expected {d}.")
+    if C.size == 0:
+        return np.eye(C.shape[1], dtype=np.float64), 0
+    U, s, Vt = np.linalg.svd(C, full_matrices=True)
+    if s.size == 0:
+        return np.eye(C.shape[1], dtype=np.float64), 0
+    tol_eff = max(float(tol), float(np.max(s)) * max(C.shape) * np.finfo(float).eps)
+    rank = int(np.sum(s > tol_eff))
+    return Vt[rank:, :].T.copy(), rank
+
+
+def localized_null_space_basis_from_constraint_matrix(
+    C, d: int | None = None, tol: float = 1e-10
+):
+    """
+    Compute a null-space basis while preserving coordinates untouched by C.
+
+    When a constraint matrix has support on only a strict subset of coefficient
+    coordinates, a generic SVD null-space basis can arbitrarily rotate the full
+    coefficient space. That is mathematically valid, but it destroys block-local
+    penalty structure such as t2's separate identity penalties. This helper
+    keeps inactive coordinates as explicit identity columns and reparameterizes
+    only the active block.
+    """
+    C = np.asarray(C, dtype=np.float64)
+    if C.ndim == 1:
+        C = C.reshape(1, -1)
+    if C.ndim != 2:
+        raise ValueError("Constraint matrix must be 2D.")
+    if d is not None and C.shape[1] != int(d):
+        raise ValueError(f"Constraint matrix has width {C.shape[1]}, expected {d}.")
+    if C.size == 0:
+        return np.eye(C.shape[1], dtype=np.float64), 0
+
+    active = np.any(np.abs(C) > float(tol), axis=0)
+    if not np.any(active):
+        return np.eye(C.shape[1], dtype=np.float64), 0
+    if np.all(active):
+        return null_space_basis_from_constraint_matrix(C, d=d, tol=tol)
+
+    active_idx = np.flatnonzero(active)
+    inactive_idx = np.flatnonzero(~active)
+    T_active, rank = null_space_basis_from_constraint_matrix(
+        C[:, active_idx],
+        d=int(active_idx.size),
+        tol=tol,
+    )
+
+    out = np.zeros(
+        (C.shape[1], inactive_idx.size + T_active.shape[1]), dtype=np.float64
+    )
+    for col, src in enumerate(inactive_idx):
+        out[src, col] = 1.0
+    out[np.ix_(active_idx, np.arange(inactive_idx.size, out.shape[1]))] = T_active
+    return out, rank
+
+
+def apply_coefficient_transform(B, penalties, T):
+    B = np.asarray(B, dtype=np.float64)
+    T = np.asarray(T, dtype=np.float64)
+    B_new = B @ T
+    out_penalties = []
+    for S in penalties:
+        S = np.asarray(S, dtype=np.float64)
+        S_new = 0.5 * (T.T @ S @ T + (T.T @ S @ T).T)
+        out_penalties.append(S_new)
+    return B_new, out_penalties
+
+
+__all__ = [
+    "orthogonal_residual",
+    "independent_column_indices",
+    "null_space_basis_from_constraint_matrix",
+    "localized_null_space_basis_from_constraint_matrix",
+    "apply_coefficient_transform",
+]
+
+# --- End of nampy/gam/constraints/transforms.py ---
 
 # --- Start of nampy/gam/design/compiler.py ---
 """
@@ -1882,6 +3302,55 @@ __all__ = [
 ]
 
 # --- End of nampy/gam/runtime/factory.py ---
+
+# --- Start of nampy/gam/terms/linear.py ---
+from ..smooths.registry import register_smooth
+from ..smooths.smooth_base import BaseSmoothTerm, _resolve_feature, column_as_float
+
+
+@register_smooth("linear")
+class LinearTerm(BaseSmoothTerm):
+    term_type = "parametric"
+    basis_name = "linear"
+    supports_tensor_marginal = False
+
+    def __init__(self, feature, label=None, term_id=None, metadata=None):
+        super().__init__(
+            feature=feature,
+            label=label,
+            term_id=term_id,
+            smoothing_id=None,
+            by=None,
+            metadata=metadata,
+        )
+        self._feature_index = None
+        self._feature_name = None
+        self._basis_train = None
+
+    def fit(self, X, feature_names):
+        idx, feature_name = _resolve_feature(self.feature, feature_names)
+        self._feature_index = idx
+        self._feature_name = feature_name
+        self._set_resolved_features([feature_name])
+        self._basis_train = column_as_float(X, idx)[:, None]
+        self._penalties = []
+        self._record_constraint_result(None, None, absorbed_by=None)
+        return self
+
+    @property
+    def n_coef(self):
+        self._require_fitted()
+        return 1
+
+    def transform_new(self, X_new):
+        if self._feature_index is None:
+            raise RuntimeError("Term is not fitted.")
+        return column_as_float(X_new, self._feature_index)[:, None]
+
+
+__all__ = ["LinearTerm"]
+
+# --- End of nampy/gam/terms/linear.py ---
 
 # --- Start of nampy/gam/smooths/categorical/categorical_utils.py ---
 from __future__ import annotations
@@ -6999,6 +8468,168 @@ def nat_param_type1(X, S, rank=None, tol=None, unit_fnorm=True):
     }
 
 # --- End of nampy/splines/mrf.py ---
+
+# --- Start of nampy/splines/neural_splines.py ---
+import torch
+import torch.nn as nn
+
+
+class RunningMean(nn.Module):
+    def __init__(self, n_dim):
+        super().__init__()
+        self.register_buffer("mean", torch.zeros((1, n_dim)))
+        self.register_buffer("n", torch.zeros((1,)))
+        self._update_mean = True  # Toggle to control mean updating
+
+    def forward(self, x):
+        if self.training and self._update_mean:
+            self.n += 1
+            self.mean = ((self.n - 1) / self.n) * self.mean + (1 / self.n) * x.mean(
+                dim=0
+            )
+        return x - self.mean
+
+
+class CubicSplineLayer(nn.Module):
+    def __init__(
+        self, n_bases=10, min_val=0, max_val=1, learn_knots=False, identify=True
+    ):
+        super().__init__()
+        self.learn_knots = learn_knots
+        self.min_val = min_val
+        self.max_val = max_val
+        self.n_bases = n_bases
+
+        if self.learn_knots:
+            # We fix the first and last knot and only learn the distances between the intermediate knots
+            self.relative_distances = nn.Parameter(
+                torch.rand(
+                    n_bases - 1
+                )  # n_bases - 2 because first and last knots are fixed
+            )
+        self.knots = torch.linspace(min_val, max_val, n_bases)
+
+        self.identify = identify
+
+        if identify:
+            self.demean = RunningMean(n_bases)
+            self.linear = nn.Linear(n_bases, 1, bias=True)
+        else:
+            self.linear = nn.Linear(n_bases, 1, bias=False)
+
+        self.F, self.S = self.compute_F_and_S(self.knots)
+
+    def compute_knots(self):
+        """
+        Compute the knots based on the fixed first and last values, and the learned relative distances.
+        """
+        # Ensure that the distances are positive
+        distances = torch.nn.functional.softplus(self.relative_distances)
+
+        total_distance = distances.sum()
+        normalized_distances = (
+            distances * (self.max_val - self.min_val) / total_distance
+        )
+
+        # Compute cumulative sum of distances, ensuring the last value is exactly max_val
+        knots = torch.cat(
+            [
+                torch.tensor([self.min_val]),
+                self.min_val + torch.cumsum(normalized_distances, 0),
+                # torch.tensor([self.max_val]),
+            ]
+        )
+
+        return knots
+
+    def forward(self, x):
+        if self.learn_knots and self.training:
+            # Compute the knots during training based on the relative distances
+            self.knots = self.compute_knots()
+
+            # Recompute F and S based on the updated knots
+            self.F, self.S = self.compute_F_and_S(self.knots)
+
+        x = x.flatten()
+        x = self.apply_spline_basis(x, self.knots.detach(), self.F.detach())
+        if self.identify:
+            x = self.demean(x)
+        return self.linear(x)
+
+    def compute_F_and_S(self, knots):
+        """
+        Compute the F matrix for the spline basis and S matrix for penalization.
+        """
+        k = len(knots)
+        h = torch.diff(knots)
+        h_shift_up = h[1:]
+
+        D = torch.zeros((k - 2, k))
+        D[:, : k - 2] += (1 / h[: k - 2]) * torch.eye(k - 2)
+        D[:, 1 : k - 1] += (-1 / h[: k - 2] - 1 / h_shift_up) * torch.eye(k - 2)
+        D[:, 2:k] += (1 / h_shift_up) * torch.eye(k - 2)
+
+        B = torch.zeros((k - 2, k - 2))
+        B += ((h[: k - 2] + h_shift_up) / 3) * torch.eye(k - 2)
+        B[:-1, 1:] += torch.eye(k - 3) * (h_shift_up[: k - 3] / 6)
+        B[1:, :-1] += torch.eye(k - 3) * (h_shift_up[: k - 3] / 6)
+
+        F_minus = torch.linalg.inv(B) @ D
+        F = torch.vstack([torch.zeros(k), F_minus, torch.zeros(k)])
+        S = D.T @ torch.linalg.inv(B) @ D
+        return F, S
+
+    def apply_spline_basis(self, x, knots, F):
+        """
+        Apply the spline basis to the input x based on the knots and F matrix.
+        """
+        n = len(x)
+        k = len(knots)
+        base = torch.zeros((n, k))
+
+        for i in range(n):
+            if x[i] < min(knots):
+                j = 0
+                h = knots[1] - knots[0]
+                xik = x[i] - knots[0]
+                c_jm = -xik * h / 3
+                c_jp = -xik * h / 6
+                base[i, :] += c_jm * F[0, :] + c_jp * F[1, :]
+                base[i, 0] += 1 - xik / h
+                base[i, 1] += xik / h
+            elif x[i] > max(knots):
+                j = len(knots) - 1
+                h = knots[j] - knots[j - 1]
+                xik = x[i] - knots[j]
+                c_jm = xik * h / 6
+                c_jp = xik * h / 3
+                base[i, :] += c_jm * F[j - 1, :] + c_jp * F[j, 1]
+                base[i, j - 1] += -xik / h
+                base[i, j] += 1 + xik / h
+            else:
+                j = torch.searchsorted(knots, x[i])
+                x_j = knots[j - 1]
+                x_j1 = knots[j]
+                h = x_j1 - x_j
+                a_jm = (x_j1 - x[i]) / h
+                a_jp = (x[i] - x_j) / h
+                c_jm = ((x_j1 - x[i]) ** 3 / h - h * (x_j1 - x[i])) / 6
+                c_jp = ((x[i] - x_j) ** 3 / h - h * (x[i] - x_j)) / 6
+                base[i, :] += c_jm * F[j - 1, :] + c_jp * F[j, :]
+                base[i, j - 1] += a_jm
+                base[i, j] += a_jp
+
+        return base
+
+    def get_smooth_penalty(self):
+        return self.linear.weight @ self.S @ self.linear.weight.T
+
+    def get_knot_distance_penalty(self):
+        if self.learn_knots:
+            return (1 / torch.diff(self.knots).abs()).sum()
+        return 0
+
+# --- End of nampy/splines/neural_splines.py ---
 
 # --- Start of nampy/splines/pspline.py ---
 from dataclasses import dataclass
