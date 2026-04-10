@@ -23,7 +23,6 @@ from ....splines.univariate_bases import (
     place_knots_through_values,
 )
 from ...constraints.absorption import apply_linear_constraint
-from ...penalties import build_null_space_selection_spec, make_penalty_spec
 from ...penalties.algebra import scale_penalty
 from ..registry import register_smooth
 from ..smooth_base import (
@@ -372,27 +371,6 @@ class SplineTerm1D(BaseSmoothTerm):
         if len(self.penalties) == 0:
             return []
 
-        if self.select and self.sp is not None:
-            raise NotImplementedError(
-                "term-level sp is not yet implemented for select=True smooths in the "
-                "current runtime, because select=True adds an extra explicit "
-                "null-space penalty in addition to the main penalty."
-            )
-
-        main_penalty = np.asarray(self.penalties[0], dtype=np.float64)
-        sp_vals = self._normalized_term_sp(1)
-        sp_main = sp_vals[0] if sp_vals else None
-
-        if sp_main is None:
-            sp_mode = None
-            sp_value = None
-        elif sp_main >= 0:
-            sp_mode = "fixed"
-            sp_value = float(sp_main)
-        else:
-            sp_mode = "estimate"
-            sp_value = None
-
         base_metadata = {
             "term_type": self.term_type,
             "basis_name": self.basis_name,
@@ -408,53 +386,21 @@ class SplineTerm1D(BaseSmoothTerm):
             "has_shared_basis_setup": self.shared_basis_setup is not None,
             "fixed": bool(self.fixed),
         }
-
-        defs = [
-            make_penalty_spec(
-                matrix=main_penalty,
-                smoothing_id=(
-                    None if self.smoothing_id is None else str(self.smoothing_id)
-                ),
-                kind="smooth",
-                sp_mode=sp_mode,
-                sp_value=sp_value,
-                metadata={
-                    **base_metadata,
-                    "term_sp": sp_main,
-                    "is_selection_penalty": False,
-                },
-            )
-        ]
-
-        if self.select:
-            select_sid = (
-                None if self.smoothing_id is None else f"{self.smoothing_id}::select"
-            )
-            sel_spec = build_null_space_selection_spec(
-                main_penalty=main_penalty,
-                smoothing_id=select_sid,
-                tol=self.null_penalty_tol,
-                metadata={**base_metadata, "is_selection_penalty": True},
-            )
-            if sel_spec is not None:
-                defs.append(sel_spec)
-
-        return defs
+        return self._build_penalty_block(
+            self.penalties[0],
+            smooth_metadata=base_metadata,
+            selection_metadata={**base_metadata, "is_selection_penalty": True},
+            selection_via_subsystem=True,
+        )
 
     def transform_new(self, X_new):
-        if self._feature_index is None:
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
 
         xj = column_as_float(X_new, self._feature_index)
 
         if self.basis_name == "cc":
-            if self._cc_knots is None or self._cc_bd is None:
-                raise RuntimeError("Term is not fitted.")
             B = cyclic_cubic_predict_matrix(xj, self._cc_knots, self._cc_bd)
             return self._apply_constraint_transform_and_by(B, X_new)
-
-        if self._spline is None:
-            raise RuntimeError("Term is not fitted.")
 
         if self._use_centered_basis and not getattr(
             self, "_pooled_linked_raw_marginal", False

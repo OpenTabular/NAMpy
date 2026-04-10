@@ -8,13 +8,14 @@ then evaluates the appropriate criterion value.
 
 import numpy as np
 
+from ..._model_state import _term_blocks_seq
 from .gaussian import criterion_ml_reml_exact, criterion_ml_reml_exact_dynamic
 from .pirls import criterion_ml_reml_pirls, criterion_ml_reml_pirls_dynamic
 
 
 def _model_has_random_effect_smooth(model) -> bool:
     """``bs=\"re\"`` designs: col(1) ⊆ col(Z) breaks the Laplace ``Z'Z+\\lambda`` REML path."""
-    for tb in getattr(model, "term_blocks_", None) or []:
+    for tb in _term_blocks_seq(model):
         if str(getattr(tb, "term_type", "")).lower() == "random_effect":
             return True
     return False

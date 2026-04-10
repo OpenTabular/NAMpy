@@ -7,9 +7,13 @@ from mgcv_parity_utils import _make_gaussian_data
 from nampy.basemodels.gam import GAM
 from nampy.gam._mgcv_constants import (
     EIG_TOL_POWER,
+    FAMILY_EPS,
     GAMMA_ABSTOL,
+    LINK_ETA_EXP_CLIP,
+    LOG_GUARD_MIN,
     PENALTY_RIDGE_REL,
     QR_TOL_SCALE,
+    SMOOTHING_SCORE_ABS_FLOOR,
 )
 from nampy.gam.parity import build_parity_snapshot, compare, save_parity_snapshot
 
@@ -19,6 +23,10 @@ def test_mgcv_constants_frozen_to_1_9_1_reference():
     assert PENALTY_RIDGE_REL == 1e-6
     assert GAMMA_ABSTOL == 1e-12
     assert QR_TOL_SCALE == 1.0
+    assert FAMILY_EPS == 1e-9
+    assert LINK_ETA_EXP_CLIP == 700.0
+    assert LOG_GUARD_MIN == 1e-300
+    assert SMOOTHING_SCORE_ABS_FLOOR == 1e-8
 
 
 def test_parity_validator_compare_accepts_dict_and_path(tmp_path: Path):

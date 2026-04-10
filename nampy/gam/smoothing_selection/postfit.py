@@ -3,6 +3,8 @@ from __future__ import annotations
 import numpy as np
 from scipy.stats import norm
 
+from .._mgcv_constants import LINK_ETA_EXP_CLIP, LOG_GUARD_MIN
+from .._model_state import _require_fitted
 from .criteria.dispatch import criterion_gradient, criterion_hessian, criterion_value
 from .criteria.ml_reml import resolve_ml_reml_scoring_backend
 
@@ -18,13 +20,12 @@ def _free_smoothing_mask(model) -> np.ndarray:
 def _free_log_smoothing_params(model) -> np.ndarray:
     sp = np.asarray(model.smoothing_params, dtype=np.float64).ravel()
     free_mask = _free_smoothing_mask(model)
-    return np.log(np.clip(sp[free_mask], 1e-300, None))
+    return np.log(np.clip(sp[free_mask], LOG_GUARD_MIN, None))
 
 
 def sp_vcov(model, edge_correct: bool = True, reg: float = 1e-3):
     del edge_correct
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
+    _require_fitted(model)
 
     method = str(getattr(model, "_optim_method", "")).lower()
     if method not in {"ml", "reml", "laml"}:
@@ -51,8 +52,7 @@ def sp_vcov(model, edge_correct: bool = True, reg: float = 1e-3):
 
 
 def gam_vcomp(model, *, rescale: bool = False, conf_lev: float = 0.95):
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
+    _require_fitted(model)
     if rescale:
         raise NotImplementedError(
             "gam_vcomp(rescale=True) requires stored penalty rescaling factors, which are not yet retained."
@@ -99,9 +99,9 @@ def gam_vcomp(model, *, rescale: bool = False, conf_lev: float = 0.95):
     sd_lsd = np.sqrt(np.clip(np.diag(V_lsd), 0.0, None))
     ci = np.column_stack(
         [
-            np.exp(np.clip(lsd, -700.0, 700.0)),
-            np.exp(np.clip(lsd - crit * sd_lsd, -700.0, 700.0)),
-            np.exp(np.clip(lsd + crit * sd_lsd, -700.0, 700.0)),
+            np.exp(np.clip(lsd, -LINK_ETA_EXP_CLIP, LINK_ETA_EXP_CLIP)),
+            np.exp(np.clip(lsd - crit * sd_lsd, -LINK_ETA_EXP_CLIP, LINK_ETA_EXP_CLIP)),
+            np.exp(np.clip(lsd + crit * sd_lsd, -LINK_ETA_EXP_CLIP, LINK_ETA_EXP_CLIP)),
         ]
     )
     free_idx = np.flatnonzero(_free_smoothing_mask(model))
@@ -117,8 +117,7 @@ def gam_vcomp(model, *, rescale: bool = False, conf_lev: float = 0.95):
 
 
 def one_se_rule(model, candidate_indices: list[int] | None = None) -> np.ndarray:
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
+    _require_fitted(model)
 
     V = sp_vcov(model, edge_correct=False)
     if V is None:
@@ -151,7 +150,7 @@ def one_se_rule(model, candidate_indices: list[int] | None = None) -> np.ndarray
     step = alpha * d
 
     sp = np.asarray(model.smoothing_params, dtype=np.float64).copy()
-    log_sp = np.log(np.clip(sp[free_idx], 1e-300, None))
+    log_sp = np.log(np.clip(sp[free_idx], LOG_GUARD_MIN, None))
     log_sp[sub_idx] = log_sp[sub_idx] + step
     sp[free_idx] = np.exp(log_sp)
     return sp
@@ -160,8 +159,7 @@ def one_se_rule(model, candidate_indices: list[int] | None = None) -> np.ndarray
 def optimizer_endpoint_diagnostics(
     model, *, conv_tol: float = 1e-6, fd_step: float = 1e-3
 ):
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
+    _require_fitted(model)
 
     method = str(getattr(model, "_optim_method", "") or "").lower()
     n_sp = int(getattr(model, "n_smoothing_params_", 0) or 0)

@@ -17,6 +17,7 @@ Provides two code paths:
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
+from ..._mgcv_constants import GAMMA_ABSTOL
 from ..reparam import ensure_penalty_reparameterization_state
 from .gaussian_dyn import criterion_ml_reml_gaussian_dynamic_profiled
 from .laplace import _laplace_lambda_vector
@@ -47,7 +48,7 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
     ``criterion_ml_reml_exact_dynamic`` (Wood ``X'WX+S`` / ``\\log|A|-\\log|S|``)
     instead; see ``nampy.gam.smoothing_selection.criteria.ml_reml``.
     """
-    if abs(model.score_gamma - 1.0) > 1e-12:
+    if abs(model.score_gamma - 1.0) > GAMMA_ABSTOL:
         raise NotImplementedError(
             "score_gamma != 1 is not yet implemented for the exact Gaussian ML/REML/LAML path."
         )
@@ -141,7 +142,7 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
 
 
 def criterion_ml_reml_exact_dynamic(model, y, log_sp, method):
-    if abs(model.score_gamma - 1.0) > 1e-12:
+    if abs(model.score_gamma - 1.0) > GAMMA_ABSTOL:
         raise NotImplementedError(
             "score_gamma != 1 is not yet implemented for the dynamic Gaussian ML/REML/LAML path."
         )

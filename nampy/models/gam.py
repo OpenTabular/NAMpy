@@ -2,6 +2,7 @@
 import numpy as np
 
 from ..basemodels.gam import GAM
+from ..gam._mgcv_constants import FAMILY_EPS
 from ..gam.families import make_gam_family
 from ..gam.formula import parse_gam_formula
 from ..gam.parity import (
@@ -349,7 +350,7 @@ class GAMClassifier:
                 ),
                 dtype=np.float64,
             ).ravel()
-            p1 = np.clip(p1, 1e-9, 1.0 - 1e-9)
+            p1 = np.clip(p1, FAMILY_EPS, 1.0 - FAMILY_EPS)
             return np.column_stack([1.0 - p1, p1])
 
         p1, se = self.model.predict(
@@ -361,7 +362,7 @@ class GAMClassifier:
         )
         p1 = np.asarray(p1, dtype=np.float64).ravel()
         se = np.asarray(se, dtype=np.float64).ravel()
-        p1 = np.clip(p1, 1e-9, 1.0 - 1e-9)
+        p1 = np.clip(p1, FAMILY_EPS, 1.0 - FAMILY_EPS)
         return np.column_stack([1.0 - p1, p1]), se
 
     def predict(self, X, offset=None):
@@ -402,7 +403,7 @@ class GAMClassifier:
         preds = (proba >= self.threshold).astype(float)
 
         def logloss(yt, p):
-            p = np.clip(np.asarray(p, dtype=np.float64), 1e-9, 1.0 - 1e-9)
+            p = np.clip(np.asarray(p, dtype=np.float64), FAMILY_EPS, 1.0 - FAMILY_EPS)
             yt = np.asarray(yt, dtype=np.float64)
             return float(-np.mean(yt * np.log(p) + (1.0 - yt) * np.log(1.0 - p)))
 

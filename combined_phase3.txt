@@ -7,6 +7,7 @@ Included files in this phase: 30
 import numpy as np
 from scipy.linalg import eigh
 
+from .._mgcv_constants import EIG_TOL_POWER
 from ..penalties.algebra import penalty_eigendecomposition
 
 
@@ -113,7 +114,7 @@ def _eigen_split(raw_basis, raw_penalty, tol=1e-10, *, mode="range_null", knots=
     idx = np.argsort(evals)[::-1]
     evals, U = evals[idx], U[:, idx]
 
-    tol_eff = float(np.finfo(np.float64).eps) ** 0.8 * max(
+    tol_eff = float(np.finfo(np.float64).eps) ** EIG_TOL_POWER * max(
         1.0, float(np.max(evals)) if evals.size else 1.0
     )
     rank = int(np.sum(evals > tol_eff))
@@ -3463,6 +3464,7 @@ from typing import Any
 import numpy as np
 
 from ....splines.mrf import nat_param_type1
+from ..._mgcv_constants import EIG_TOL_POWER
 from ...basis.tensor import rescale_tensor_penalties_for_fit, rowwise_kronecker
 from ...design.structures import PenaltySpec
 from ...penalties import build_null_space_selection_spec
@@ -4000,7 +4002,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         if base_rank <= 0:
             evals = np.linalg.eigvalsh(0.5 * (S0 + S0.T))
             tol = (np.max(evals) if evals.size else 0.0) * (
-                np.finfo(np.float64).eps ** 0.8
+                np.finfo(np.float64).eps ** EIG_TOL_POWER
             )
             base_rank = int(np.sum(evals > tol))
 
@@ -4425,6 +4427,7 @@ from ....splines.mrf import (
     nat_param_type0,
     polys_to_nb,
 )
+from ..._mgcv_constants import EIG_TOL_POWER
 from ...design.structures import PenaltySpec
 from ...penalties import build_null_space_selection_spec
 from ..smooth_base import (
@@ -4641,7 +4644,7 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
             self._rank = rank_red
         else:
             ev = np.linalg.eigvalsh(self._full_penalty)
-            tol = np.finfo(float).eps ** 0.8 * max(np.max(ev), 1.0)
+            tol = np.finfo(float).eps ** EIG_TOL_POWER * max(np.max(ev), 1.0)
             rank = int(np.sum(ev > tol))
 
             # Absorb the centering constraint, matching mgcv's smoothCon behaviour

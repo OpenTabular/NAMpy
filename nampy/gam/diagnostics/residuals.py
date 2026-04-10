@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import numpy as np
 
+from .._mgcv_constants import LOG_GUARD_MIN
+from .._model_state import _require_fitted
+
 
 def _prior_weights(model) -> np.ndarray:
     w = getattr(model, "prior_weights_", None)
@@ -17,15 +20,13 @@ def _deviance_residuals(model) -> np.ndarray:
     sign = np.sign(y - mu)
     sign[sign == 0.0] = 1.0
 
-    # Keep deviance algebra family-owned (mgcv-style `family$dev.resids` analogue)
-    # to avoid drift between residual diagnostics and fitting code.
-    dev = model.family.deviance(y, mu, w)
-    return sign * np.sqrt(np.clip(dev, 0.0, None))
+    # Per-observation deviance contributions (mgcv `family$dev.resids` analogue).
+    dev_obs = model.family.deviance_obs(y, mu, w)
+    return sign * np.sqrt(np.clip(dev_obs, 0.0, None))
 
 
 def residuals_gam(model, type: str = "deviance") -> np.ndarray:
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
+    _require_fitted(model)
 
     type = str(type).lower()
     y = np.asarray(model.y_, dtype=np.float64).ravel()
@@ -50,14 +51,14 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
             )
             return z_work - eta_base
         mu_eta = np.asarray(model.family.mu_eta(eta), dtype=np.float64)
-        return (y - mu) / np.clip(mu_eta, 1e-300, None)
+        return (y - mu) / np.clip(mu_eta, LOG_GUARD_MIN, None)
     if type == "deviance":
         return _deviance_residuals(model)
     if type in {"pearson", "scaled.pearson"}:
         var = np.asarray(model.family.variance(mu), dtype=np.float64)
-        res = (y - mu) * np.sqrt(w) / np.sqrt(np.clip(var, 1e-300, None))
+        res = (y - mu) * np.sqrt(w) / np.sqrt(np.clip(var, LOG_GUARD_MIN, None))
         if type == "scaled.pearson":
-            res = res / np.sqrt(max(float(model.scale_), 1e-300))
+            res = res / np.sqrt(max(float(model.scale_), LOG_GUARD_MIN))
         return res
 
     raise ValueError(

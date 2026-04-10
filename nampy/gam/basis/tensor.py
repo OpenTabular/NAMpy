@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.linalg import eigh
 
+from .._mgcv_constants import EIG_TOL_POWER
 from ..penalties.algebra import penalty_eigendecomposition
 
 
@@ -107,7 +108,7 @@ def _eigen_split(raw_basis, raw_penalty, tol=1e-10, *, mode="range_null", knots=
     idx = np.argsort(evals)[::-1]
     evals, U = evals[idx], U[:, idx]
 
-    tol_eff = float(np.finfo(np.float64).eps) ** 0.8 * max(
+    tol_eff = float(np.finfo(np.float64).eps) ** EIG_TOL_POWER * max(
         1.0, float(np.max(evals)) if evals.size else 1.0
     )
     rank = int(np.sum(evals > tol_eff))

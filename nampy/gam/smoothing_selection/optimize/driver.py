@@ -5,6 +5,8 @@ import warnings
 import numpy as np
 from scipy.optimize import OptimizeResult, minimize, minimize_scalar
 
+from ..._mgcv_constants import LOG_GUARD_MIN
+from ..._model_state import _coef_column_offset, _term_blocks_seq
 from ..criteria import (
     _pirls_ml_reml_objective_from_solution,
     _stable_penalty_logdet_derivatives,
@@ -52,7 +54,7 @@ def _joint_negbin_efs_update_terms(model, sol, sp):
     n_sp = int(model.n_smoothing_params_ or 0)
     quad = np.zeros(n_sp, dtype=np.float64)
     tr_vs = np.zeros(n_sp, dtype=np.float64)
-    offset0 = 1 if bool(getattr(model, "fit_intercept", False)) else 0
+    offset0 = _coef_column_offset(model)
 
     P_derivs = [np.zeros_like(A_inv, dtype=np.float64) for _ in range(n_sp)]
     for pb in getattr(model, "penalty_blocks_", None) or ():
@@ -196,11 +198,11 @@ def _optimize_joint_negbin_reml_efs(model, y, x0, bounds, free_mask, method):
         a, b_sb, _ = _joint_negbin_efs_update_terms(model, current_sol, sp)
         phi = float(current_sol["scale"])
         with np.errstate(divide="ignore", invalid="ignore"):
-            r = a / np.maximum(b_sb, 1e-300) * phi
+            r = a / np.maximum(b_sb, LOG_GUARD_MIN) * phi
         same_zero = (a == 0.0) & (b_sb == 0.0)
         r[same_zero] = 1.0
         r[~np.isfinite(r)] = 1e6
-        r = np.maximum(r, 1e-300)
+        r = np.maximum(r, LOG_GUARD_MIN)
 
         delta = np.log(r[free_idx]) * mult
         x1 = np.asarray(x, dtype=np.float64).copy()
@@ -505,7 +507,7 @@ def optimize_smoothing_params(
 
         has_factor_smooth_fs = any(
             str(getattr(tb, "term_type", "")).lower() == "factor_smooth_fs"
-            for tb in (getattr(model, "term_blocks_", None) or [])
+            for tb in _term_blocks_seq(model)
         )
         use_design_balance_init = user_sp is None and (
             (not bool(getattr(model.family, "supports_closed_form_solve", False)))
@@ -549,7 +551,7 @@ def optimize_smoothing_params(
     )
 
     init_free = np.maximum(init_free, min_sp[free_mask])
-    x0 = np.log(np.maximum(init_free, 1e-300))
+    x0 = np.log(np.maximum(init_free, LOG_GUARD_MIN))
 
     bounds = []
     for lower_sp in min_sp[free_mask]:
@@ -576,13 +578,13 @@ def optimize_smoothing_params(
         F0 = float(sol0["rss"]) + float(sol0["penalty_quadratic"] or 0.0)
         Mp = float(
             _static_penalty_null_dim(model)
-            + int(bool(getattr(model, "fit_intercept", False)))
+            + _coef_column_offset(model)
         )
         nu0 = float(model.n_samples_ - Mp)
         if not np.isfinite(nu0) or nu0 <= 0.0:
-            log_s2_0 = np.log(1e-300)
+            log_s2_0 = np.log(LOG_GUARD_MIN)
         else:
-            log_s2_0 = float(np.log(max(F0 / nu0, 1e-300)))
+            log_s2_0 = float(np.log(max(F0 / nu0, LOG_GUARD_MIN)))
         x_joint0 = np.concatenate(
             [
                 np.asarray(x0, dtype=np.float64).ravel(),
@@ -597,10 +599,10 @@ def optimize_smoothing_params(
         yv = (
             float(np.var(y_eff))
             if y_eff.size > 1
-            else float(np.maximum(np.abs(float(y_eff[0])), 1e-300))
+            else float(np.maximum(np.abs(float(y_eff[0])), LOG_GUARD_MIN))
         )
-        hi_scale = max(yv * 1e8, max(F0 / max(nu0, 1e-300), 1e-300) * 1e8, 1e-30)
-        joint_bounds = list(bounds) + [(float(np.log(1e-300)), float(np.log(hi_scale)))]
+        hi_scale = max(yv * 1e8, max(F0 / max(nu0, LOG_GUARD_MIN), LOG_GUARD_MIN) * 1e8, 1e-30)
+        joint_bounds = list(bounds) + [(float(np.log(LOG_GUARD_MIN)), float(np.log(hi_scale)))]
         branch_m = "LAML" if method == "laml" else "REML"
         j_obj = _JointGaussianRemlObjective(model, y, branch_m, str(ml_reml_backend))
         callback_state = {"last_x": np.asarray(x_joint0, dtype=np.float64).copy()}
@@ -649,7 +651,7 @@ def optimize_smoothing_params(
         sigma2_bounds = joint_bounds[-1]
         has_random_effect_term = any(
             str(getattr(tb, "term_type", "")).lower() == "random_effect"
-            for tb in (getattr(model, "term_blocks_", None) or ())
+            for tb in _term_blocks_seq(model)
         )
         if str(ml_reml_backend) == "gaussian_dynamic" and has_random_effect_term:
             x_joint = np.asarray(result_joint.x, dtype=np.float64).ravel()
@@ -842,7 +844,7 @@ def optimize_smoothing_params(
                 int(full): int(i) for i, full in enumerate(np.flatnonzero(free_mask))
             }
             fs_groups = []
-            for tb in getattr(model, "term_blocks_", None) or ():
+            for tb in _term_blocks_seq(model):
                 if str(getattr(tb, "term_type", "")).lower() != "factor_smooth_fs":
                     continue
                 group = sorted(
@@ -1250,11 +1252,11 @@ def optimize_smoothing_params(
             y_scale = (
                 float(np.var(y_eff))
                 if y_eff.size > 1
-                else float(np.maximum(np.abs(float(y_eff[0])), 1e-300))
+                else float(np.maximum(np.abs(float(y_eff[0])), LOG_GUARD_MIN))
             )
             hi_phi = max(phi0 * 1e8, y_scale * 1e8, 1e-30)
             joint_bounds = list(bounds) + [
-                (float(np.log(1e-300)), float(np.log(hi_phi)))
+                (float(np.log(LOG_GUARD_MIN)), float(np.log(hi_phi)))
             ]
             x_joint0 = np.concatenate(
                 [x0.copy(), np.array([np.log(phi0)], dtype=np.float64)]

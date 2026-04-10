@@ -2,6 +2,8 @@
 
 import numpy as np
 
+from ..._mgcv_constants import EIG_TOL_POWER
+from ..._model_state import _coef_column_offset, _fit_intercept
 from ...fit.penalized_system import build_full_design
 from ..criteria import resolve_ml_reml_scoring_backend
 
@@ -48,7 +50,7 @@ def _initial_smoothing_params_from_design_balance(model, y):
     if not penalty_blocks or n_sp == 0:
         return None
 
-    X = build_full_design(model.Z, fit_intercept=model.fit_intercept)
+    X = build_full_design(model.Z, fit_intercept=_fit_intercept(model))
     y = np.asarray(y, dtype=np.float64).ravel()
 
     try:
@@ -74,7 +76,7 @@ def _initial_smoothing_params_from_design_balance(model, y):
     counts = np.zeros(n_sp, dtype=np.int64)
     penalized = np.zeros_like(ldxx, dtype=bool)
 
-    coef_offset = 1 if bool(getattr(model, "fit_intercept", False)) else 0
+    coef_offset = _coef_column_offset(model)
 
     for pb in penalty_blocks:
         S = np.asarray(pb.matrix, dtype=np.float64)
@@ -89,7 +91,7 @@ def _initial_smoothing_params_from_design_balance(model, y):
         maS = float(np.max(np.abs(S)))
         if not np.isfinite(maS) or maS <= 0.0:
             continue
-        thresh = np.finfo(np.float64).eps ** 0.8 * maS
+        thresh = np.finfo(np.float64).eps ** EIG_TOL_POWER * maS
         rsS = np.mean(np.abs(S), axis=1)
         csS = np.mean(np.abs(S), axis=0)
         ind = (rsS > thresh) & (csS > thresh) & (dS > thresh)
@@ -143,7 +145,7 @@ def _initial_smoothing_params_mgcv_style(model, y):
     if not penalty_blocks or n_sp == 0:
         return None
 
-    X = build_full_design(model.Z, fit_intercept=model.fit_intercept)
+    X = build_full_design(model.Z, fit_intercept=_fit_intercept(model))
     y = np.asarray(y, dtype=np.float64).ravel()
     nobs, q = X.shape
 
@@ -165,7 +167,7 @@ def _initial_smoothing_params_mgcv_style(model, y):
     ldss = np.zeros(q, dtype=np.float64)
     penalized = np.zeros(q, dtype=bool)
 
-    coef_offset = 1 if bool(getattr(model, "fit_intercept", False)) else 0
+    coef_offset = _coef_column_offset(model)
     seen = np.zeros(n_sp, dtype=bool)
 
     for pb in penalty_blocks:
@@ -187,7 +189,7 @@ def _initial_smoothing_params_mgcv_style(model, y):
         rsS = np.mean(np.abs(S), axis=1)
         csS = np.mean(np.abs(S), axis=0)
         dS = np.diag(np.abs(S))
-        thresh = np.finfo(np.float64).eps ** 0.8 * maS
+        thresh = np.finfo(np.float64).eps ** EIG_TOL_POWER * maS
         ind = (rsS > thresh) & (csS > thresh) & (dS > thresh)
         if not np.any(ind):
             continue

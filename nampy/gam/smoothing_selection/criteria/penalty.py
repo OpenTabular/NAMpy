@@ -3,6 +3,8 @@
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
+from ..._model_state import _fit_intercept
+
 
 def _positive_semidefinite_root(P, *, tol=1e-10):
     P = np.asarray(P, dtype=np.float64)
@@ -106,7 +108,7 @@ def _static_fixed_and_random_designs(model, X_full, sp, *, tol=1e-10):
     X_full = np.asarray(X_full, dtype=np.float64)
     sp = np.asarray(sp, dtype=np.float64)
 
-    if model.fit_intercept:
+    if _fit_intercept(model):
         X_intercept = X_full[:, :1]
         X_pen = X_full[:, 1:]
     else:

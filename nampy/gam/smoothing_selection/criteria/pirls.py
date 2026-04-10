@@ -10,6 +10,8 @@ from contextlib import contextmanager
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
+from ..._mgcv_constants import GAMMA_ABSTOL
+from ..._model_state import _coef_column_offset
 from ..reparam import ensure_penalty_reparameterization_state
 from .laplace import _laplace_lambda_vector
 from .penalty import (
@@ -264,7 +266,7 @@ def _pirls_tensor_coefficient_space_logdet_term(model, sol, sp):
 
 
 def criterion_ml_reml_pirls(model, y, log_sp, method):
-    if abs(model.score_gamma - 1.0) > 1e-12:
+    if abs(model.score_gamma - 1.0) > GAMMA_ABSTOL:
         raise NotImplementedError(
             "score_gamma != 1 is not yet implemented for the PIRLS Laplace ML/REML path."
         )
@@ -292,7 +294,7 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
     penalty_quad = float(sol["penalty_quadratic"] or 0.0)
     mp = float(
         _static_penalty_null_dim(model)
-        + int(bool(getattr(model, "fit_intercept", False)))
+        + _coef_column_offset(model)
     )
     n_obs = float(len(y))
     family_name = str(getattr(model.family, "name", "")).lower()
@@ -465,7 +467,7 @@ def criterion_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
     penalty_quad = float(sol["penalty_quadratic"] or 0.0)
     mp = float(
         _static_penalty_null_dim(model)
-        + int(bool(getattr(model, "fit_intercept", False)))
+        + _coef_column_offset(model)
     )
     Dp = float(sol["deviance"]) + penalty_quad
     saturated_loglik, _, _ = _gamma_profile_objective_curvature(
@@ -518,7 +520,7 @@ def criterion_ml_reml_pirls_negbin_joint(model, y, log_sp, log_theta, method):
 
 
 def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
-    if abs(model.score_gamma - 1.0) > 1e-12:
+    if abs(model.score_gamma - 1.0) > GAMMA_ABSTOL:
         raise NotImplementedError(
             "score_gamma != 1 is not yet implemented for the dynamic PIRLS Laplace ML/REML path."
         )
@@ -546,7 +548,7 @@ def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
     W = np.asarray(sol["working_weights"], dtype=np.float64)
     mp = float(
         _static_penalty_null_dim(model)
-        + int(bool(getattr(model, "fit_intercept", False)))
+        + _coef_column_offset(model)
     )
     Xf, Zr, split = _static_fixed_and_random_designs(model, X, sp)
     p = int(Xf.shape[1])

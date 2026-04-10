@@ -46,7 +46,8 @@ class ConstructedTerm:
     fit_constraint_operator: np.ndarray | None = None
     fit_coefficient_map: np.ndarray | None = None
     predict_coefficient_map: np.ndarray | None = None
-    constraints_absorbed: bool = True
+    transform_applied: bool = False
+    skip_centering: bool = False
     prediction_offset: np.ndarray | None = None
     original_design_matrix: np.ndarray | None = None
     constructor_metadata: dict[str, Any] = field(default_factory=dict)

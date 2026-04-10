@@ -16,6 +16,8 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve, qr
 
+from .._model_state import _coef_column_offset, _fit_intercept
+
 
 @dataclass
 class FitCoreSolution:
@@ -157,7 +159,7 @@ class FitCoreSolution:
 
 
 def compute_edf_by_term(model, H_coef):
-    offset0 = 1 if model.fit_intercept else 0
+    offset0 = _coef_column_offset(model)
     fit_state = getattr(model, "fit_state_", None)
     X_full = None if fit_state is None else getattr(fit_state, "X", None)
     A_inv = None if fit_state is None else getattr(fit_state, "A_inv", None)
@@ -177,7 +179,7 @@ def compute_edf_by_term(model, H_coef):
         # the RE term by the same tiny amount that belongs to the intercept.
         if (
             str(getattr(tb, "term_type", "")) == "random_effect"
-            and bool(getattr(model, "fit_intercept", False))
+            and _fit_intercept(model)
             and X_full is not None
             and A_inv is not None
             and w is not None

@@ -17,8 +17,7 @@ from ...constraints.absorption import (
     apply_linear_constraint,
     fit_single_penalty_with_constraint_policy,
 )
-from ...design.structures import PenaltySpec
-from ...penalties.algebra import null_space_penalty_from_penalty, scale_penalty
+from ...penalties.algebra import scale_penalty
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
@@ -180,124 +179,37 @@ class GPSmoothTerm(BaseSmoothTerm):
         if len(self.penalties) == 0:
             return []
 
-        if self.select and self.sp is not None:
-            raise NotImplementedError(
-                "term-level sp is not yet implemented for select=True smooths in the "
-                "current runtime, because select=True adds an extra explicit "
-                "null-space penalty in addition to the main penalty."
-            )
-
-        main_penalty = np.asarray(self.penalties[0], dtype=np.float64)
-        sp_vals = self._normalized_term_sp(1)
-        sp_main = sp_vals[0] if sp_vals else None
-
-        if sp_main is None:
-            sp_mode = None
-            sp_value = None
-        elif sp_main >= 0:
-            sp_mode = "fixed"
-            sp_value = float(sp_main)
-        else:
-            sp_mode = "estimate"
-            sp_value = None
-
-        defs = [
-            PenaltySpec(
-                matrix=main_penalty,
-                smoothing_id=(
-                    None if self.smoothing_id is None else str(self.smoothing_id)
-                ),
-                kind="smooth",
-                sp_mode=sp_mode,
-                sp_value=sp_value,
-                metadata={
-                    "term_type": self.term_type,
-                    "basis_name": self.basis_name,
-                    "feature": list(self.feature),
-                    "label": self.label,
-                    "by": self.by,
-                    "by_name": self._by_state.feature_name,
-                    "by_is_constant": bool(self._by_state.is_constant),
-                    "constraint_mode": self.constraint_mode,
-                    "constraint_kind": self.constraint_kind,
-                    "pc": self.pc,
-                    "knots": self.knots,
-                    "xt": self.xt,
-                    "m": self.m,
-                    "gp_defn": (
-                        None if self._setup is None else dict(self._setup.gp_defn)
-                    ),
-                    "null_space_dim": (
-                        None if self._setup is None else self._setup.null_space_dim
-                    ),
-                    "rank": None if self._setup is None else self._setup.rank,
-                    "bs_dim": None if self._setup is None else self._setup.bs_dim,
-                    "fixed": bool(self.fixed),
-                    "term_sp": sp_main,
-                    "is_selection_penalty": False,
-                },
-            )
-        ]
-
-        if self.select:
-            S0, meta = null_space_penalty_from_penalty(
-                main_penalty,
-                tol=self.null_penalty_tol,
-            )
-            if meta["rank"] > 0:
-                defs.append(
-                    PenaltySpec(
-                        matrix=S0,
-                        smoothing_id=(
-                            None
-                            if self.smoothing_id is None
-                            else f"{self.smoothing_id}::select"
-                        ),
-                        kind="null_space",
-                        rank=meta["rank"],
-                        null_space_dim=meta["null_space_dim"],
-                        is_null_space_penalty=True,
-                        sp_mode=None,
-                        sp_value=None,
-                        metadata={
-                            "term_type": self.term_type,
-                            "basis_name": self.basis_name,
-                            "feature": list(self.feature),
-                            "label": self.label,
-                            "by": self.by,
-                            "by_name": self._by_state.feature_name,
-                            "by_is_constant": bool(self._by_state.is_constant),
-                            "constraint_mode": self.constraint_mode,
-                            "constraint_kind": self.constraint_kind,
-                            "pc": self.pc,
-                            "knots": self.knots,
-                            "xt": self.xt,
-                            "m": self.m,
-                            "gp_defn": (
-                                None
-                                if self._setup is None
-                                else dict(self._setup.gp_defn)
-                            ),
-                            "null_space_dim": (
-                                None
-                                if self._setup is None
-                                else self._setup.null_space_dim
-                            ),
-                            "rank": None if self._setup is None else self._setup.rank,
-                            "bs_dim": (
-                                None if self._setup is None else self._setup.bs_dim
-                            ),
-                            "fixed": bool(self.fixed),
-                            "is_selection_penalty": True,
-                        },
-                    )
-                )
-
-        return defs
+        smooth_meta = {
+            "term_type": self.term_type,
+            "basis_name": self.basis_name,
+            "feature": list(self.feature),
+            "label": self.label,
+            "by": self.by,
+            "by_name": self._by_state.feature_name,
+            "by_is_constant": bool(self._by_state.is_constant),
+            "constraint_mode": self.constraint_mode,
+            "constraint_kind": self.constraint_kind,
+            "pc": self.pc,
+            "knots": self.knots,
+            "xt": self.xt,
+            "m": self.m,
+            "gp_defn": (None if self._setup is None else dict(self._setup.gp_defn)),
+            "null_space_dim": (
+                None if self._setup is None else self._setup.null_space_dim
+            ),
+            "rank": None if self._setup is None else self._setup.rank,
+            "bs_dim": None if self._setup is None else self._setup.bs_dim,
+            "fixed": bool(self.fixed),
+        }
+        selection_meta = {**smooth_meta, "is_selection_penalty": True}
+        return self._build_penalty_block(
+            self.penalties[0],
+            smooth_metadata=smooth_meta,
+            selection_metadata=selection_meta,
+        )
 
     def transform_new(self, X_new):
-        if self._feature_indices is None or self._setup is None:
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
 
         Xf_new = columns_as_float_matrix(X_new, self._feature_indices)
 

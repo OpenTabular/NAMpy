@@ -26,7 +26,8 @@ import abc
 import numpy as np
 from scipy.special import gammaln
 
-_EPS = 1e-9
+from .._mgcv_constants import FAMILY_EPS
+
 _CAPABILITY_FLAGS = (
     "supports_closed_form_solve",
     "supports_pirls",
@@ -86,7 +87,7 @@ class BaseFamily(metaclass=_FamilyMeta):
     known_scale = None  # None -> unknown; numeric -> fixed/known scale
     max_derivative_order = 0
 
-    def __init__(self, eps: float = _EPS):
+    def __init__(self, eps: float = FAMILY_EPS):
         self.eps = float(eps)
 
     def __setattr__(self, name, value):
@@ -184,7 +185,7 @@ class GLMFamily(BaseFamily):
     _link_key: str | None = None
     _variance_key: str | None = None
 
-    def __init__(self, eps: float = _EPS):
+    def __init__(self, eps: float = FAMILY_EPS):
         super().__init__(eps=eps)
         from ._function_maps import LINK_REGISTRY, VARIANCE_REGISTRY
 
@@ -256,8 +257,8 @@ class GLMFamily(BaseFamily):
 
     def aic(self, y, mu, *, edf=0.0, scale=1.0, weights=None):
         loglik_obs = np.asarray(self.loglik_obs(y, mu, scale=scale), dtype=np.float64)
-        obs_weights = self._check_weights(loglik_obs, weights)
-        return float(-2.0 * np.sum(obs_weights * loglik_obs) + 2.0 * float(edf))
+        sample_weights = self._check_weights(loglik_obs, weights)
+        return float(-2.0 * np.sum(sample_weights * loglik_obs) + 2.0 * float(edf))
 
     def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
         raise NotImplementedError(
@@ -280,6 +281,18 @@ class _BinomialBase(GLMFamily):
         mask2 = y < 1
         term2[mask2] = (1.0 - y[mask2]) * np.log((1.0 - y[mask2]) / (1.0 - mu[mask2]))
         return float(2.0 * np.sum(weights * (term1 + term2)))
+
+    def deviance_obs(self, y, mu, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        weights = self._check_weights(y, weights)
+        term1 = np.zeros_like(y, dtype=np.float64)
+        mask1 = y > 0
+        term1[mask1] = y[mask1] * np.log(y[mask1] / mu[mask1])
+        term2 = np.zeros_like(y, dtype=np.float64)
+        mask2 = y < 1
+        term2[mask2] = (1.0 - y[mask2]) * np.log((1.0 - y[mask2]) / (1.0 - mu[mask2]))
+        return 2.0 * weights * (term1 + term2)
 
     def loglik_obs(self, y, mu, scale=1.0):
         del scale
@@ -307,6 +320,12 @@ class _GammaBase(GLMFamily):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
         weights = self._check_weights(y, weights)
         return float(2.0 * np.sum(weights * ((y - mu) / mu - np.log(y / mu))))
+
+    def deviance_obs(self, y, mu, weights=None):
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        weights = self._check_weights(y, weights)
+        return 2.0 * weights * ((y - mu) / mu - np.log(y / mu))
 
     def estimate_dispersion(self, y, mu, edf=None, weights=None):
         y = np.asarray(y, dtype=np.float64)

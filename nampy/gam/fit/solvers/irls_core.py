@@ -13,6 +13,8 @@ from typing import Any, Literal
 import numpy as np
 from scipy.linalg import cho_solve
 
+from ..._mgcv_constants import LOG_GUARD_MIN
+from ..._model_state import _fit_intercept
 from ..covariance import build_bayes_and_freq_covariances
 from ..linalg.stacked_qr import (
     STACKED_QR_RANK_TOLERANCE,
@@ -517,7 +519,7 @@ def irls_core(
                     "log_theta": (
                         None
                         if not hasattr(family, "theta")
-                        else float(np.log(max(float(family.theta), 1e-300)))
+                        else float(np.log(max(float(family.theta), LOG_GUARD_MIN)))
                     ),
                     "deviance": float(dev_new),
                     "penalized_deviance": float(pdev_new),
@@ -565,7 +567,7 @@ def irls_core(
                 "log_theta": (
                     None
                     if not hasattr(family, "theta")
-                    else float(np.log(max(float(family.theta), 1e-300)))
+                    else float(np.log(max(float(family.theta), LOG_GUARD_MIN)))
                 ),
                 "deviance": float(dev_new),
                 "penalized_deviance": float(pdev_new),
@@ -725,16 +727,17 @@ def fit_irls_from_model(
     )
 
     y = model.family.validate_y(y)
-    X = build_full_design(model.Z, fit_intercept=model.fit_intercept)
+    fi = _fit_intercept(model)
+    X = build_full_design(model.Z, fit_intercept=fi)
     S = build_full_penalty_from_blocks(
         penalty_blocks=model.penalty_blocks_,
         smoothing_params=np.asarray(smoothing_params, dtype=np.float64).ravel(),
-        fit_intercept=model.fit_intercept,
+        fit_intercept=fi,
         n_coef=model.n_coef_,
     )
     rank_rows = balanced_penalty_template_sqrt_for_rank(
         model.penalty_blocks_,
-        fit_intercept=model.fit_intercept,
+        fit_intercept=fi,
         n_coef=int(model.n_coef_),
     )
 
@@ -745,7 +748,7 @@ def fit_irls_from_model(
         S,
         offset=model.offset_train_,
         weights=weights,
-        fit_intercept=model.fit_intercept,
+        fit_intercept=fi,
         max_iter=int(getattr(model, "max_irls_iter", 100)),
         tol=float(getattr(model, "irls_tol", 1e-7)),
         max_step_halving=int(getattr(model, "max_step_halving", 25)),

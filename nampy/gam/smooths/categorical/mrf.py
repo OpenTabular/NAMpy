@@ -10,6 +10,7 @@ from ....splines.mrf import (
     nat_param_type0,
     polys_to_nb,
 )
+from ..._mgcv_constants import EIG_TOL_POWER
 from ...design.structures import PenaltySpec
 from ...penalties import build_null_space_selection_spec
 from ..smooth_base import (
@@ -226,7 +227,7 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
             self._rank = rank_red
         else:
             ev = np.linalg.eigvalsh(self._full_penalty)
-            tol = np.finfo(float).eps ** 0.8 * max(np.max(ev), 1.0)
+            tol = np.finfo(float).eps ** EIG_TOL_POWER * max(np.max(ev), 1.0)
             rank = int(np.sum(ev > tol))
 
             # Absorb the centering constraint, matching mgcv's smoothCon behaviour
@@ -363,8 +364,7 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         return defs
 
     def transform_new(self, X_new):
-        if self._area_names is None:
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
 
         x = as_object_1d(column_as_object(X_new, self._feature_index))
 

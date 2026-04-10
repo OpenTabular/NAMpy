@@ -8,6 +8,7 @@ Included files in this phase: 6
 
 import numpy as np
 
+from ..._mgcv_constants import EIG_TOL_POWER
 from ...fit.penalized_system import build_full_design
 from ..criteria import resolve_ml_reml_scoring_backend
 
@@ -95,7 +96,7 @@ def _initial_smoothing_params_from_design_balance(model, y):
         maS = float(np.max(np.abs(S)))
         if not np.isfinite(maS) or maS <= 0.0:
             continue
-        thresh = np.finfo(np.float64).eps ** 0.8 * maS
+        thresh = np.finfo(np.float64).eps ** EIG_TOL_POWER * maS
         rsS = np.mean(np.abs(S), axis=1)
         csS = np.mean(np.abs(S), axis=0)
         ind = (rsS > thresh) & (csS > thresh) & (dS > thresh)
@@ -193,7 +194,7 @@ def _initial_smoothing_params_mgcv_style(model, y):
         rsS = np.mean(np.abs(S), axis=1)
         csS = np.mean(np.abs(S), axis=0)
         dS = np.diag(np.abs(S))
-        thresh = np.finfo(np.float64).eps ** 0.8 * maS
+        thresh = np.finfo(np.float64).eps ** EIG_TOL_POWER * maS
         ind = (rsS > thresh) & (csS > thresh) & (dS > thresh)
         if not np.any(ind):
             continue
@@ -244,6 +245,7 @@ import warnings
 import numpy as np
 from scipy.optimize import OptimizeResult, minimize, minimize_scalar
 
+from ..._mgcv_constants import LOG_GUARD_MIN
 from ..criteria import (
     _pirls_ml_reml_objective_from_solution,
     _stable_penalty_logdet_derivatives,
@@ -252,7 +254,6 @@ from ..criteria import (
     criterion_gradient_ml_reml_pirls_exact,
     criterion_hessian_ml_reml_pirls_exact,
     criterion_ml_reml_gaussian_dynamic_joint,
-    criterion_ml_reml_gaussian_exact_joint,
     resolve_ml_reml_scoring_backend,
 )
 from .basics import (
@@ -436,11 +437,11 @@ def _optimize_joint_negbin_reml_efs(model, y, x0, bounds, free_mask, method):
         a, b_sb, _ = _joint_negbin_efs_update_terms(model, current_sol, sp)
         phi = float(current_sol["scale"])
         with np.errstate(divide="ignore", invalid="ignore"):
-            r = a / np.maximum(b_sb, 1e-300) * phi
+            r = a / np.maximum(b_sb, LOG_GUARD_MIN) * phi
         same_zero = (a == 0.0) & (b_sb == 0.0)
         r[same_zero] = 1.0
         r[~np.isfinite(r)] = 1e6
-        r = np.maximum(r, 1e-300)
+        r = np.maximum(r, LOG_GUARD_MIN)
 
         delta = np.log(r[free_idx]) * mult
         x1 = np.asarray(x, dtype=np.float64).copy()
@@ -789,7 +790,7 @@ def optimize_smoothing_params(
     )
 
     init_free = np.maximum(init_free, min_sp[free_mask])
-    x0 = np.log(np.maximum(init_free, 1e-300))
+    x0 = np.log(np.maximum(init_free, LOG_GUARD_MIN))
 
     bounds = []
     for lower_sp in min_sp[free_mask]:
@@ -820,9 +821,9 @@ def optimize_smoothing_params(
         )
         nu0 = float(model.n_samples_ - Mp)
         if not np.isfinite(nu0) or nu0 <= 0.0:
-            log_s2_0 = np.log(1e-300)
+            log_s2_0 = np.log(LOG_GUARD_MIN)
         else:
-            log_s2_0 = float(np.log(max(F0 / nu0, 1e-300)))
+            log_s2_0 = float(np.log(max(F0 / nu0, LOG_GUARD_MIN)))
         x_joint0 = np.concatenate(
             [
                 np.asarray(x0, dtype=np.float64).ravel(),
@@ -837,10 +838,10 @@ def optimize_smoothing_params(
         yv = (
             float(np.var(y_eff))
             if y_eff.size > 1
-            else float(np.maximum(np.abs(float(y_eff[0])), 1e-300))
+            else float(np.maximum(np.abs(float(y_eff[0])), LOG_GUARD_MIN))
         )
-        hi_scale = max(yv * 1e8, max(F0 / max(nu0, 1e-300), 1e-300) * 1e8, 1e-30)
-        joint_bounds = list(bounds) + [(float(np.log(1e-300)), float(np.log(hi_scale)))]
+        hi_scale = max(yv * 1e8, max(F0 / max(nu0, LOG_GUARD_MIN), LOG_GUARD_MIN) * 1e8, 1e-30)
+        joint_bounds = list(bounds) + [(float(np.log(LOG_GUARD_MIN)), float(np.log(hi_scale)))]
         branch_m = "LAML" if method == "laml" else "REML"
         j_obj = _JointGaussianRemlObjective(model, y, branch_m, str(ml_reml_backend))
         callback_state = {"last_x": np.asarray(x_joint0, dtype=np.float64).copy()}
@@ -929,7 +930,7 @@ def optimize_smoothing_params(
             def _refine_sigma2_for_log_sp(log_sp_scalar: float):
                 def _sigma2_obj(log_sigma2_scalar: float):
                     return float(
-                        criterion_ml_reml_gaussian_exact_joint(
+                        criterion_ml_reml_gaussian_dynamic_joint(
                             model,
                             y,
                             np.array([float(log_sp_scalar)], dtype=np.float64),
@@ -986,7 +987,7 @@ def optimize_smoothing_params(
             def _joint_exact_refine_sigma2(x_sp_vec):
                 def _sigma2_obj_exact(log_sigma2_scalar: float):
                     return float(
-                        criterion_ml_reml_gaussian_exact_joint(
+                        criterion_ml_reml_gaussian_dynamic_joint(
                             model,
                             y,
                             np.asarray(x_sp_vec, dtype=np.float64),
@@ -1490,11 +1491,11 @@ def optimize_smoothing_params(
             y_scale = (
                 float(np.var(y_eff))
                 if y_eff.size > 1
-                else float(np.maximum(np.abs(float(y_eff[0])), 1e-300))
+                else float(np.maximum(np.abs(float(y_eff[0])), LOG_GUARD_MIN))
             )
             hi_phi = max(phi0 * 1e8, y_scale * 1e8, 1e-30)
             joint_bounds = list(bounds) + [
-                (float(np.log(1e-300)), float(np.log(hi_phi)))
+                (float(np.log(LOG_GUARD_MIN)), float(np.log(hi_phi)))
             ]
             x_joint0 = np.concatenate(
                 [x0.copy(), np.array([np.log(phi0)], dtype=np.float64)]
@@ -1827,7 +1828,6 @@ from ..criteria import (
     criterion_hessian,
     criterion_hessian_ml_reml_pirls_gamma_joint,
     criterion_ml_reml_gaussian_dynamic_joint,
-    criterion_ml_reml_gaussian_exact_joint,
     criterion_ml_reml_pirls_gamma_joint,
     criterion_ml_reml_pirls_negbin_joint,
     criterion_value,
@@ -1981,16 +1981,6 @@ class _JointGaussianRemlObjective:
 
     def _raw_fun(self, x):
         x = np.asarray(x, dtype=np.float64).ravel()
-        if self.backend == "gaussian_exact":
-            return float(
-                criterion_ml_reml_gaussian_exact_joint(
-                    self.model,
-                    self.y,
-                    x[:-1],
-                    float(x[-1]),
-                    method=self.branch_method,
-                )
-            )
         return float(
             criterion_ml_reml_gaussian_dynamic_joint(
                 self.model,
@@ -2201,6 +2191,7 @@ class _JointNegbinPirlsRemlObjective:
 import numpy as np
 from scipy.optimize import OptimizeResult
 
+from ..._mgcv_constants import PENALTY_RIDGE_REL
 from .basics import _project_to_bounds
 
 
@@ -2235,12 +2226,18 @@ def _optimize_outer_newton(
             try:
                 direction_try = -np.linalg.solve(H + ridge * eye, g)
             except np.linalg.LinAlgError:
-                ridge = max(1e-6, 10.0 * ridge if ridge > 0 else 1e-6)
+                ridge = max(
+                    PENALTY_RIDGE_REL,
+                    10.0 * ridge if ridge > 0 else PENALTY_RIDGE_REL,
+                )
                 continue
             if float(g @ direction_try) < 0.0 and np.all(np.isfinite(direction_try)):
                 direction = direction_try
                 break
-            ridge = max(1e-6, 10.0 * ridge if ridge > 0 else 1e-6)
+            ridge = max(
+                PENALTY_RIDGE_REL,
+                10.0 * ridge if ridge > 0 else PENALTY_RIDGE_REL,
+            )
 
         if direction is None:
             direction = -g
@@ -3084,6 +3081,7 @@ def _accept_tiny_step_line_search_result(objective, result, *, step_tol=1e-7):
 import numpy as np
 from scipy.optimize import minimize_scalar
 
+from ...._mgcv_constants import FAMILY_EPS, SMOOTHING_SCORE_ABS_FLOOR
 from ..basics import _project_to_bounds
 from .rollback import _criterion_infinite_sp_signal
 
@@ -3311,7 +3309,7 @@ def _collapse_near_zero_smoothing_params(
     improved = False
     x_work = x.copy()
     score_work = score
-    score_tol = max(1e-8, score_scale * 1e-9)
+    score_tol = max(SMOOTHING_SCORE_ABS_FLOOR, score_scale * FAMILY_EPS)
 
     for j in np.flatnonzero(collapse):
         local_x = x_work.copy()
@@ -3394,7 +3392,7 @@ def _snap_gaussian_random_effect_boundary(
     score = float(objective.fun(x))
     score_scale = 1.0 + abs(score)
     wants_smaller_sp = grad > score_scale * 1e-6
-    near_zero_curvature = np.abs(dvkk) <= score_scale * 1e-9
+    near_zero_curvature = np.abs(dvkk) <= score_scale * FAMILY_EPS
     near_boundary_ridge = wants_smaller_sp & near_zero_curvature & (x < -20.0)
     if not np.any(near_boundary_ridge):
         return result

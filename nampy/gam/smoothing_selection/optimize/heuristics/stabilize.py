@@ -3,6 +3,8 @@
 import numpy as np
 from scipy.optimize import minimize_scalar
 
+from ...._mgcv_constants import FAMILY_EPS, SMOOTHING_SCORE_ABS_FLOOR
+from ...._model_state import _term_blocks_seq
 from ..basics import _project_to_bounds
 from .rollback import _criterion_infinite_sp_signal
 
@@ -230,7 +232,7 @@ def _collapse_near_zero_smoothing_params(
     improved = False
     x_work = x.copy()
     score_work = score
-    score_tol = max(1e-8, score_scale * 1e-9)
+    score_tol = max(SMOOTHING_SCORE_ABS_FLOOR, score_scale * FAMILY_EPS)
 
     for j in np.flatnonzero(collapse):
         local_x = x_work.copy()
@@ -289,7 +291,7 @@ def _snap_gaussian_random_effect_boundary(
     if str(getattr(getattr(model, "family", None), "name", "")).lower() != "gaussian":
         return result
 
-    term_blocks = getattr(model, "term_blocks_", None) or ()
+    term_blocks = _term_blocks_seq(model)
     if not any(
         str(getattr(tb, "term_type", "")).lower() == "random_effect"
         for tb in term_blocks
@@ -313,7 +315,7 @@ def _snap_gaussian_random_effect_boundary(
     score = float(objective.fun(x))
     score_scale = 1.0 + abs(score)
     wants_smaller_sp = grad > score_scale * 1e-6
-    near_zero_curvature = np.abs(dvkk) <= score_scale * 1e-9
+    near_zero_curvature = np.abs(dvkk) <= score_scale * FAMILY_EPS
     near_boundary_ridge = wants_smaller_sp & near_zero_curvature & (x < -20.0)
     if not np.any(near_boundary_ridge):
         return result
@@ -489,7 +491,7 @@ def _stabilize_factor_smooth_shared_ridge(
     full_to_free = {int(full): int(i) for i, full in enumerate(free_to_full)}
 
     fs_groups = []
-    for tb in getattr(model, "term_blocks_", None) or ():
+    for tb in _term_blocks_seq(model):
         if str(getattr(tb, "term_type", "")).lower() != "factor_smooth_fs":
             continue
         group = sorted(

@@ -3,6 +3,8 @@
 import numpy as np
 from scipy.linalg import cho_factor
 
+from ..._mgcv_constants import GAMMA_ABSTOL, LOG_GUARD_MIN
+from ..._model_state import _coef_column_offset
 from .gaussian_reml_algebra import (
     gaussian_reml_weighted_degrees_and_log_weight_term,
     gaussian_weighted_residual_sum_squares,
@@ -18,7 +20,7 @@ from .penalty import (
 
 
 def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
-    if abs(model.score_gamma - 1.0) > 1e-12:
+    if abs(model.score_gamma - 1.0) > GAMMA_ABSTOL:
         raise NotImplementedError(
             "score_gamma != 1 is not yet implemented for the dynamic Gaussian REML derivative path."
         )
@@ -49,7 +51,7 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
     nobs = float(model.n_samples_)
     Mp = float(
         _static_penalty_null_dim(model)
-        + int(bool(getattr(model, "fit_intercept", False)))
+        + _coef_column_offset(model)
     )
     n_eff = getattr(model, "n_true_", None)
     nu, _sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
@@ -156,7 +158,7 @@ def criterion_ml_reml_gaussian_dynamic_joint(
     uses ``nu = (n_eff/n_row)*sum(w>0) - Mp`` in the ``log(2*pi*sigma^2)`` term. Set
     ``model.n_true_`` for a custom effective row count ``n_eff`` (default ``n_row``).
     """
-    if abs(model.score_gamma - 1.0) > 1e-12:
+    if abs(model.score_gamma - 1.0) > GAMMA_ABSTOL:
         raise NotImplementedError(
             "score_gamma != 1 is not yet implemented for the joint Gaussian REML path."
         )
@@ -173,7 +175,7 @@ def criterion_ml_reml_gaussian_dynamic_joint(
     nobs = float(model.n_samples_)
     Mp = float(
         _static_penalty_null_dim(model)
-        + int(bool(getattr(model, "fit_intercept", False)))
+        + _coef_column_offset(model)
     )
     n_eff = getattr(model, "n_true_", None)
     w1 = prior_weights_diagonal_from_fit(sol, int(nobs))
@@ -245,7 +247,7 @@ def criterion_ml_reml_gaussian_dynamic_profiled(model, y, log_sp_free, method="R
     nobs = float(model.n_samples_)
     Mp = float(
         _static_penalty_null_dim(model)
-        + int(bool(getattr(model, "fit_intercept", False)))
+        + _coef_column_offset(model)
     )
     n_eff = getattr(model, "n_true_", None)
     w1 = prior_weights_diagonal_from_fit(sol, int(nobs))
@@ -266,7 +268,7 @@ def criterion_ml_reml_gaussian_dynamic_profiled(model, y, log_sp_free, method="R
     if not np.isfinite(F) or F <= 0.0:
         return np.inf
 
-    log_sigma2 = float(np.log(max(F / nu, 1e-300)))
+    log_sigma2 = float(np.log(max(F / nu, LOG_GUARD_MIN)))
     return criterion_ml_reml_gaussian_dynamic_joint(
         model,
         y,
@@ -291,7 +293,7 @@ def criterion_gradient_ml_reml_gaussian_dynamic_joint(
         return None
     F = float(out["F"])
     nu = float(out["nu"])
-    if not np.isfinite(F) or abs(F) < 1e-300:
+    if not np.isfinite(F) or abs(F) < LOG_GUARD_MIN:
         return None
     sigma2 = float(np.exp(float(log_sigma2)))
     if not np.isfinite(sigma2) or sigma2 <= 0.0:

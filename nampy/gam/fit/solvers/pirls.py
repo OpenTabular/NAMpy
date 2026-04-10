@@ -4,6 +4,7 @@ Model-level entry point for PIRLS fits.
 
 import numpy as np
 
+from ..._model_state import _coef_column_offset, _fit_intercept
 from ..linalg.stacked_qr import balanced_penalty_template_sqrt_for_rank
 from ..penalized_system import build_full_design, build_full_penalty_from_blocks
 from ..state import FitCoreSolution
@@ -17,7 +18,7 @@ def solve_pirls_fit(model, y, smoothing_params, weights=None):
     if coef_start is not None:
         coef_start = np.asarray(coef_start, dtype=np.float64).ravel()
         if coef_start.shape != (
-            int(model.Z.shape[1] + (1 if model.fit_intercept else 0)),
+            int(model.Z.shape[1] + _coef_column_offset(model)),
         ):
             coef_start = None
 
@@ -37,16 +38,17 @@ def solve_pirls_fit(model, y, smoothing_params, weights=None):
         if mustart.shape != (int(model.n_samples_),):
             mustart = None
 
-    X = build_full_design(model.Z, fit_intercept=model.fit_intercept)
+    fi = _fit_intercept(model)
+    X = build_full_design(model.Z, fit_intercept=fi)
     S = build_full_penalty_from_blocks(
         penalty_blocks=model.penalty_blocks_,
         smoothing_params=smoothing_params,
-        fit_intercept=model.fit_intercept,
+        fit_intercept=fi,
         n_coef=model.n_coef_,
     )
     rank_rows = balanced_penalty_template_sqrt_for_rank(
         model.penalty_blocks_,
-        fit_intercept=model.fit_intercept,
+        fit_intercept=fi,
         n_coef=int(model.n_coef_),
     )
 
@@ -63,7 +65,7 @@ def solve_pirls_fit(model, y, smoothing_params, weights=None):
             S,
             offset=model.offset_train_,
             weights=weights,
-            fit_intercept=model.fit_intercept,
+            fit_intercept=fi,
             max_iter=int(getattr(model, "max_irls_iter", 100)),
             tol=float(getattr(model, "irls_tol", 1e-8)),
             max_step_halving=int(getattr(model, "max_step_halving", 25)),

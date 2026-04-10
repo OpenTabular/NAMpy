@@ -4,6 +4,8 @@ from collections.abc import Mapping
 
 import numpy as np
 
+from .._model_state import _require_fitted
+
 
 class _GAMSolveMixin:
     # ------------------------------------------------------------------
@@ -460,8 +462,7 @@ class _GAMSolveMixin:
         )
         from ..fit.results import GAMFitResult, TermFitResult
 
-        if not self._fitted:
-            raise RuntimeError("Model is not fitted.")
+        _require_fitted(self)
         if str(getattr(self, "_optim_method", "")).lower() in {"reml", "ml"}:
             refresh_gaussian_ml_reml_score_from_fit_state(self, self.y_)
 

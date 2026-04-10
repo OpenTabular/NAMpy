@@ -14,7 +14,8 @@ class _WrapperConstraintRuntime:
     smoothing_id = None
     metadata = {}
     by_done = True
-    constraints_absorbed = False
+    transform_applied = False
+    skip_centering = False
     constraint_kind = None
     prediction_offset = None
     _by_state = None
@@ -51,6 +52,8 @@ def test_construct_terms_uses_explicit_predict_coefficient_map():
     assert term.fit_constraint_operator is not None
     assert term.fit_coefficient_map is not None
     assert term.predict_coefficient_map is not None
+    assert term.transform_applied
+    assert term.skip_centering
     assert np.allclose(term.predict_coefficient_map, predict_map)
 
     pred = term.predict_matrix(X)
@@ -66,3 +69,19 @@ def test_construct_terms_validates_predict_coefficient_map_shape():
     )
     with pytest.raises(ValueError, match="Predict coefficient map"):
         construct_terms(runtime, X=X, feature_names=["x0", "x1", "x2"])
+
+
+def test_construct_terms_preserves_runtime_skip_centering_without_transform():
+    X = np.eye(3, dtype=np.float64)
+    runtime = _WrapperConstraintRuntime()
+    runtime.skip_centering = True
+
+    term = construct_terms(
+        runtime,
+        X=X,
+        feature_names=["x0", "x1", "x2"],
+        absorb_cons=False,
+    )[0]
+
+    assert not term.transform_applied
+    assert term.skip_centering

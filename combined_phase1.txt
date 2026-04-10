@@ -131,7 +131,6 @@ nampy/
 │  ├─ thin_plate_basis.py
 │  └─ univariate_bases.py
 └─ utils/
-   ├─ colors.py
    ├─ distributional_metrics.py
    ├─ distributions.py
    └─ plotting.py
@@ -149,11 +148,27 @@ PENALTY_RIDGE_REL = 1e-6
 GAMMA_ABSTOL = 1e-12
 QR_TOL_SCALE = 1.0
 
+# Default GLM / IRLS floor (family.eps, binomial probability clips, etc.).
+FAMILY_EPS = 1e-9
+
+# Symmetric bound on |eta| before exp / inverse-logit (overflow guard).
+LINK_ETA_EXP_CLIP = 700.0
+
+# log(max(x, LOG_GUARD_MIN)) and similar underflow guards in the mgcv port.
+LOG_GUARD_MIN = 1e-300
+
+# Smoothing optimizer: absolute floor in score_tol = max(floor, scale * FAMILY_EPS).
+SMOOTHING_SCORE_ABS_FLOOR = 1e-8
+
 __all__ = [
     "EIG_TOL_POWER",
     "PENALTY_RIDGE_REL",
     "GAMMA_ABSTOL",
     "QR_TOL_SCALE",
+    "FAMILY_EPS",
+    "LINK_ETA_EXP_CLIP",
+    "LOG_GUARD_MIN",
+    "SMOOTHING_SCORE_ABS_FLOOR",
 ]
 
 # --- End of nampy/gam/_mgcv_constants.py ---
@@ -168,6 +183,8 @@ from typing import Any
 
 import numpy as np
 from scipy.stats import norm as _norm
+
+from .._mgcv_constants import LINK_ETA_EXP_CLIP
 
 
 def _safe_pow(x, power, eps):
@@ -233,7 +250,7 @@ class LogLink(LinkFunction):
 
     def inverse(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
-        return np.exp(np.clip(eta, -700.0, 700.0))
+        return np.exp(np.clip(eta, -LINK_ETA_EXP_CLIP, LINK_ETA_EXP_CLIP))
 
     def mu_eta(self, eta):
         mu = self.inverse(eta)
@@ -291,7 +308,9 @@ class LogitLink(LinkFunction):
 
     def inverse(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
-        return 1.0 / (1.0 + np.exp(-np.clip(eta, -700.0, 700.0)))
+        return 1.0 / (
+            1.0 + np.exp(-np.clip(eta, -LINK_ETA_EXP_CLIP, LINK_ETA_EXP_CLIP))
+        )
 
     def mu_eta(self, eta):
         mu = self.inverse(eta)
@@ -358,12 +377,12 @@ class CloglogLink(LinkFunction):
 
     def inverse(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
-        lam = np.exp(np.clip(eta, -700.0, 700.0))
+        lam = np.exp(np.clip(eta, -LINK_ETA_EXP_CLIP, LINK_ETA_EXP_CLIP))
         return np.clip(1.0 - np.exp(-lam), self.eps, 1.0 - self.eps)
 
     def mu_eta(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
-        lam = np.exp(np.clip(eta, -700.0, 700.0))
+        lam = np.exp(np.clip(eta, -LINK_ETA_EXP_CLIP, LINK_ETA_EXP_CLIP))
         return np.clip(lam * np.exp(-lam), self.eps, None)
 
     def d2(self, mu):
@@ -536,8 +555,9 @@ import numpy as np
 from scipy.special import digamma, gammaln, polygamma
 from scipy.stats import norm as _norm
 
+from .._mgcv_constants import FAMILY_EPS, LINK_ETA_EXP_CLIP
 from ._function_maps import NegativeBinomialVariance
-from .family_base import _EPS, GLMFamily, _BinomialBase, _GammaBase
+from .family_base import GLMFamily, _BinomialBase, _GammaBase
 
 
 class GaussianIdentityFamily(GLMFamily):
@@ -570,15 +590,23 @@ class GaussianIdentityFamily(GLMFamily):
         weights = self._check_weights(y, weights)
         return float(np.sum(weights * (y - mu) ** 2))
 
+    def deviance_obs(self, y, mu, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.asarray(mu, dtype=np.float64)
+        w = self._check_weights(y, weights)
+        return w * (y - mu) ** 2
+
     def estimate_dispersion(self, y, mu, edf=None, weights=None):
         y = np.asarray(y, dtype=np.float64)
         mu = np.asarray(mu, dtype=np.float64)
         w = self._check_weights(y, weights)
         rss = float(np.sum(w * (y - mu) ** 2))
-        w_sum = float(np.sum(w))
+        # Use n (number of observations) in denominator to match mgcv/glm convention.
+        # mgcv divides by (n - edf), not (sum(w) - edf), for Gaussian scale estimation.
+        n = float(y.shape[0])
         if edf is None:
-            return rss / max(w_sum, 1.0)
-        return rss / max(w_sum - float(edf), 1.0)
+            return rss / max(n, 1.0)
+        return rss / max(n - float(edf), 1.0)
 
     def loglik_obs(self, y, mu, scale=1.0):
         y = np.asarray(y, dtype=np.float64)
@@ -685,6 +713,15 @@ class PoissonLogFamily(GLMFamily):
         term[mask] = y[mask] * np.log(np.clip(y[mask], self.eps, None) / mu[mask])
         return float(2.0 * np.sum(weights * (term - (y - mu))))
 
+    def deviance_obs(self, y, mu, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        weights = self._check_weights(y, weights)
+        term = np.zeros_like(y, dtype=np.float64)
+        mask = y > 0
+        term[mask] = y[mask] * np.log(np.clip(y[mask], self.eps, None) / mu[mask])
+        return 2.0 * weights * (term - (y - mu))
+
     def loglik_obs(self, y, mu, scale=1.0):
         del scale
         y = np.asarray(y, dtype=np.float64)
@@ -783,7 +820,7 @@ class NegativeBinomialLogFamily(GLMFamily):
 
     _link_key = "log"
 
-    def __init__(self, theta=1.0, estimate_theta=False, eps: float = _EPS):
+    def __init__(self, theta=1.0, estimate_theta=False, eps: float = FAMILY_EPS):
         super().__init__(eps=eps)
         self.theta = float(theta)
         self.estimate_theta = bool(estimate_theta)
@@ -821,6 +858,17 @@ class NegativeBinomialLogFamily(GLMFamily):
         term1[mask] = y[mask] * np.log(y[mask] / mu[mask])
         term2 = (y + th) * np.log((y + th) / (mu + th))
         return float(2.0 * np.sum(weights * (term1 - term2)))
+
+    def deviance_obs(self, y, mu, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        weights = self._check_weights(y, weights)
+        th = self.theta
+        term1 = np.zeros_like(y, dtype=np.float64)
+        mask = y > 0
+        term1[mask] = y[mask] * np.log(y[mask] / mu[mask])
+        term2 = (y + th) * np.log((y + th) / (mu + th))
+        return 2.0 * weights * (term1 - term2)
 
     def loglik_obs(self, y, mu, scale=1.0):
         del scale
@@ -1085,7 +1133,7 @@ class BinomialCloglogFamily(_BinomialBase):
 
     def working_weight_derivative_eta(self, eta, y=None):
         eta = np.asarray(eta, dtype=np.float64)
-        lam = np.exp(np.clip(eta, -700.0, 700.0))
+        lam = np.exp(np.clip(eta, -LINK_ETA_EXP_CLIP, LINK_ETA_EXP_CLIP))
         mu = np.clip(1.0 - np.exp(-lam), self.eps, 1.0 - self.eps)
         M = np.clip(lam * np.exp(-lam), self.eps, None)
         V = np.clip(mu * (1.0 - mu), self.eps, None)
@@ -1171,7 +1219,8 @@ import abc
 import numpy as np
 from scipy.special import gammaln
 
-_EPS = 1e-9
+from .._mgcv_constants import FAMILY_EPS
+
 _CAPABILITY_FLAGS = (
     "supports_closed_form_solve",
     "supports_pirls",
@@ -1231,7 +1280,7 @@ class BaseFamily(metaclass=_FamilyMeta):
     known_scale = None  # None -> unknown; numeric -> fixed/known scale
     max_derivative_order = 0
 
-    def __init__(self, eps: float = _EPS):
+    def __init__(self, eps: float = FAMILY_EPS):
         self.eps = float(eps)
 
     def __setattr__(self, name, value):
@@ -1329,7 +1378,7 @@ class GLMFamily(BaseFamily):
     _link_key: str | None = None
     _variance_key: str | None = None
 
-    def __init__(self, eps: float = _EPS):
+    def __init__(self, eps: float = FAMILY_EPS):
         super().__init__(eps=eps)
         from ._function_maps import LINK_REGISTRY, VARIANCE_REGISTRY
 
@@ -1401,8 +1450,8 @@ class GLMFamily(BaseFamily):
 
     def aic(self, y, mu, *, edf=0.0, scale=1.0, weights=None):
         loglik_obs = np.asarray(self.loglik_obs(y, mu, scale=scale), dtype=np.float64)
-        obs_weights = self._check_weights(loglik_obs, weights)
-        return float(-2.0 * np.sum(obs_weights * loglik_obs) + 2.0 * float(edf))
+        sample_weights = self._check_weights(loglik_obs, weights)
+        return float(-2.0 * np.sum(sample_weights * loglik_obs) + 2.0 * float(edf))
 
     def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
         raise NotImplementedError(
@@ -1425,6 +1474,18 @@ class _BinomialBase(GLMFamily):
         mask2 = y < 1
         term2[mask2] = (1.0 - y[mask2]) * np.log((1.0 - y[mask2]) / (1.0 - mu[mask2]))
         return float(2.0 * np.sum(weights * (term1 + term2)))
+
+    def deviance_obs(self, y, mu, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        weights = self._check_weights(y, weights)
+        term1 = np.zeros_like(y, dtype=np.float64)
+        mask1 = y > 0
+        term1[mask1] = y[mask1] * np.log(y[mask1] / mu[mask1])
+        term2 = np.zeros_like(y, dtype=np.float64)
+        mask2 = y < 1
+        term2[mask2] = (1.0 - y[mask2]) * np.log((1.0 - y[mask2]) / (1.0 - mu[mask2]))
+        return 2.0 * weights * (term1 + term2)
 
     def loglik_obs(self, y, mu, scale=1.0):
         del scale
@@ -1452,6 +1513,12 @@ class _GammaBase(GLMFamily):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
         weights = self._check_weights(y, weights)
         return float(2.0 * np.sum(weights * ((y - mu) / mu - np.log(y / mu))))
+
+    def deviance_obs(self, y, mu, weights=None):
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        weights = self._check_weights(y, weights)
+        return 2.0 * weights * ((y - mu) / mu - np.log(y / mu))
 
     def estimate_dispersion(self, y, mu, edf=None, weights=None):
         y = np.asarray(y, dtype=np.float64)
@@ -1551,6 +1618,8 @@ _BINOMIAL_LINK_MAP = {
     "cloglog": BinomialCloglogFamily,
 }
 
+# Implemented gamma links (mgcv also supports link="identity"; see branch below).
+# TODO: GammaIdentityFamily — port mgcv::Gamma(link="identity") parity.
 _GAMMA_LINK_MAP = {
     "log": GammaLogFamily,
     "inverse": GammaInverseFamily,
@@ -1576,7 +1645,20 @@ def make_gam_family(family):
             cls = _BINOMIAL_LINK_MAP.get(link or "logit", BinomialLogitFamily)
             return cls()
         if name in {"gamma"}:
-            cls = _GAMMA_LINK_MAP.get(link or "log", GammaLogFamily)
+            resolved = (link or "log").lower()
+            if resolved == "identity":
+                raise NotImplementedError(
+                    "GammaIdentityFamily (mgcv::Gamma(link='identity')) is not "
+                    "implemented yet; supported dict links are 'log' and 'inverse'."
+                )
+            try:
+                cls = _GAMMA_LINK_MAP[resolved]
+            except KeyError:
+                raise ValueError(
+                    f"Unknown gamma link {link!r}. "
+                    f"Supported: {', '.join(sorted(_GAMMA_LINK_MAP))}. "
+                    "Identity link is not yet implemented (raises NotImplementedError)."
+                ) from None
             return cls()
         family = name
 
@@ -2898,12 +2980,14 @@ class RandomEffectSmoothSpec(BaseSmoothSpec):
 class FactorSmoothInteractionSpec(BaseSmoothSpec):
     bs: str = "fs"
     xt: Any = None
+    constraint_mode: str = "auto"
 
 
 @dataclass(frozen=True)
 class SumToZeroFactorSmoothSpec(BaseSmoothSpec):
     bs: str = "sz"
     xt: Any = None
+    constraint_mode: str = "auto"
 
 
 @dataclass(frozen=True)
@@ -4031,6 +4115,7 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
 import numpy as np
 
 from ..basemodels.gam import GAM
+from ..gam._mgcv_constants import FAMILY_EPS
 from ..gam.families import make_gam_family
 from ..gam.formula import parse_gam_formula
 from ..gam.parity import (
@@ -4378,7 +4463,7 @@ class GAMClassifier:
                 ),
                 dtype=np.float64,
             ).ravel()
-            p1 = np.clip(p1, 1e-9, 1.0 - 1e-9)
+            p1 = np.clip(p1, FAMILY_EPS, 1.0 - FAMILY_EPS)
             return np.column_stack([1.0 - p1, p1])
 
         p1, se = self.model.predict(
@@ -4390,7 +4475,7 @@ class GAMClassifier:
         )
         p1 = np.asarray(p1, dtype=np.float64).ravel()
         se = np.asarray(se, dtype=np.float64).ravel()
-        p1 = np.clip(p1, 1e-9, 1.0 - 1e-9)
+        p1 = np.clip(p1, FAMILY_EPS, 1.0 - FAMILY_EPS)
         return np.column_stack([1.0 - p1, p1]), se
 
     def predict(self, X, offset=None):
@@ -4431,7 +4516,7 @@ class GAMClassifier:
         preds = (proba >= self.threshold).astype(float)
 
         def logloss(yt, p):
-            p = np.clip(np.asarray(p, dtype=np.float64), 1e-9, 1.0 - 1e-9)
+            p = np.clip(np.asarray(p, dtype=np.float64), FAMILY_EPS, 1.0 - FAMILY_EPS)
             yt = np.asarray(yt, dtype=np.float64)
             return float(-np.mean(yt * np.log(p) + (1.0 - yt) * np.log(1.0 - p)))
 

@@ -47,6 +47,8 @@ import numpy as np
 from scipy.linalg import lapack as _lapack
 from scipy.linalg import solve_triangular
 
+from ..._mgcv_constants import LOG_GUARD_MIN, QR_TOL_SCALE
+from ..._model_state import _fit_intercept, _term_blocks_seq
 from .matrix_reindexing import (
     drop_columns_dense,
     drop_rows_dense,
@@ -56,7 +58,7 @@ from .matrix_reindexing import (
 
 # Rank-detection threshold: condition number ratio above which a column is considered
 # linearly dependent. Match mgcv's stacked-QR tolerance at eps**0.66.
-STACKED_QR_RANK_TOLERANCE = np.finfo(np.float64).eps ** 0.66
+STACKED_QR_RANK_TOLERANCE = np.finfo(np.float64).eps ** 0.66 * QR_TOL_SCALE
 
 # Below this Frobenius norm, the penalty is numerically zero on most of the null space
 # of X (e.g. a random-effect term at the lower smoothing parameter bound).  The
@@ -773,7 +775,7 @@ def _solve_coef_householder_chain_nonneg_weights(
             for j in range(k):
                 lower_dot += R_aug_f[j, k] * z[j]
             diag = R_aug_f[k, k]
-            z[k] = (scratch[k] - lower_dot) / diag if abs(diag) > 1e-300 else 0.0
+            z[k] = (scratch[k] - lower_dot) / diag if abs(diag) > LOG_GUARD_MIN else 0.0
         forward_rhs[:system_rank] = z[:system_rank]
 
     for k in range(system_rank - 1, -1, -1):
@@ -781,7 +783,7 @@ def _solve_coef_householder_chain_nonneg_weights(
         for j in range(k + 1, system_rank):
             back_dot += R_aug_f[k, j] * z[j]
         diag = R_aug_f[k, k]
-        z[k] = (forward_rhs[k] - back_dot) / diag if abs(diag) > 1e-300 else 0.0
+        z[k] = (forward_rhs[k] - back_dot) / diag if abs(diag) > LOG_GUARD_MIN else 0.0
 
     coef_reduced = np.zeros(system_rank, dtype=np.float64)
     for i in range(system_rank):
@@ -812,18 +814,18 @@ def penalty_sqrt_rows(P: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         scale = 1.0
     if not np.allclose(off, 0.0, atol=1e-14 * max(scale, 1.0), rtol=0.0):
         w, V = np.linalg.eigh(P)
-        mask = w > max(np.max(w) * 1e-15, 1e-300)
+        mask = w > max(np.max(w) * 1e-15, LOG_GUARD_MIN)
         if not np.any(mask):
             return np.zeros((0, P.shape[0])), np.zeros((0, P.shape[0]))
         wl = np.sqrt(np.maximum(w[mask], 0.0))
         Vp = V[:, mask]
         E = wl[:, None] * Vp.T  # r × q
         row_norms = np.linalg.norm(E, axis=1, keepdims=True)
-        row_norms = np.maximum(row_norms, 1e-300)
+        row_norms = np.maximum(row_norms, LOG_GUARD_MIN)
         Es = E / row_norms
         return E, Es
     rows: list[np.ndarray] = []
-    thr = max(np.max(d) * 1e-15, 1e-300)
+    thr = max(np.max(d) * 1e-15, LOG_GUARD_MIN)
     for j in range(q):
         if d[j] > thr:
             r = np.zeros(q, dtype=np.float64)
@@ -833,7 +835,7 @@ def penalty_sqrt_rows(P: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         return np.zeros((0, q)), np.zeros((0, q))
     E = np.vstack(rows)
     row_norms = np.linalg.norm(E, axis=1, keepdims=True)
-    row_norms = np.maximum(row_norms, 1e-300)
+    row_norms = np.maximum(row_norms, LOG_GUARD_MIN)
     Es = E / row_norms
     return E, Es
 
@@ -1118,7 +1120,7 @@ def solve_gaussian_penalized_ls_stacked_qr(
 
 
 def gaussian_design_needs_stacked_qr_fit(model) -> bool:
-    for tb in getattr(model, "term_blocks_", None) or []:
+    for tb in _term_blocks_seq(model):
         if str(getattr(tb, "term_type", "")).lower() == "random_effect":
             return True
     Z = getattr(model, "Z", None)
@@ -1128,7 +1130,7 @@ def gaussian_design_needs_stacked_qr_fit(model) -> bool:
 
     X = np.asarray(
         build_full_design(
-            Z, fit_intercept=bool(getattr(model, "fit_intercept", False))
+            Z, fit_intercept=_fit_intercept(model)
         ),
         dtype=np.float64,
     )

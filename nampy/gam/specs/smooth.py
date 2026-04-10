@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, replace
-from typing import Any, Mapping, Sequence, Union
+from typing import Any, Callable, Mapping, Sequence, Union
 
 
 @dataclass(frozen=True)
@@ -93,12 +93,14 @@ class RandomEffectSmoothSpec(BaseSmoothSpec):
 class FactorSmoothInteractionSpec(BaseSmoothSpec):
     bs: str = "fs"
     xt: Any = None
+    constraint_mode: str = "auto"
 
 
 @dataclass(frozen=True)
 class SumToZeroFactorSmoothSpec(BaseSmoothSpec):
     bs: str = "sz"
     xt: Any = None
+    constraint_mode: str = "auto"
 
 
 @dataclass(frozen=True)
@@ -139,6 +141,252 @@ SmoothSpec = Union[
     TensorANOVASmoothSpec,
 ]
 
+# Merged defaults for dict dispatch (build_smooth_spec / smooth_spec_from_basis_options).
+_SMOOTH_SPEC_DEFAULTS: dict[str, Any] = {
+    "special": "s",
+    "bs": "cr",
+    "k": -1,
+    "fx": False,
+    "select": False,
+    "m": None,
+    "xt": None,
+    "sp": None,
+    "pc": None,
+    "knots": None,
+    "constraint_mode": "auto",
+    "shared_basis_setup": None,
+    "mc": None,
+    "full": False,
+    "ord_": None,
+}
+
+
+def _build_s_cr(opts: Mapping[str, Any]) -> CubicRegressionSmoothSpec:
+    return CubicRegressionSmoothSpec(
+        special="s",
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        constraint_mode=opts["constraint_mode"],
+        shared_basis_setup=opts["shared_basis_setup"],
+        pc=opts["pc"],
+    )
+
+
+def _build_s_cs(opts: Mapping[str, Any]) -> CubicShrinkageSmoothSpec:
+    return CubicShrinkageSmoothSpec(
+        special="s",
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        constraint_mode=opts["constraint_mode"],
+        shared_basis_setup=opts["shared_basis_setup"],
+        pc=opts["pc"],
+    )
+
+
+def _build_s_cc(opts: Mapping[str, Any]) -> CyclicCubicRegressionSmoothSpec:
+    return CyclicCubicRegressionSmoothSpec(
+        special="s",
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        constraint_mode=opts["constraint_mode"],
+        shared_basis_setup=opts["shared_basis_setup"],
+        pc=opts["pc"],
+    )
+
+
+def _build_s_ps(opts: Mapping[str, Any]) -> PSplineSmoothSpec:
+    return PSplineSmoothSpec(
+        special="s",
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        m=opts["m"],
+        constraint_mode=opts["constraint_mode"],
+        pc=opts["pc"],
+    )
+
+
+def _build_s_tp(opts: Mapping[str, Any]) -> ThinPlateSmoothSpec:
+    return ThinPlateSmoothSpec(
+        special="s",
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        m=opts["m"],
+        xt=opts["xt"],
+        constraint_mode=opts["constraint_mode"],
+        pc=opts["pc"],
+    )
+
+
+def _build_s_ts(opts: Mapping[str, Any]) -> ThinPlateShrinkageSmoothSpec:
+    return ThinPlateShrinkageSmoothSpec(
+        special="s",
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        m=opts["m"],
+        xt=opts["xt"],
+        constraint_mode=opts["constraint_mode"],
+        pc=opts["pc"],
+    )
+
+
+def _build_s_gp(opts: Mapping[str, Any]) -> GPSmoothSpec:
+    return GPSmoothSpec(
+        special="s",
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        m=opts["m"],
+        xt=opts["xt"],
+        constraint_mode=opts["constraint_mode"],
+        pc=opts["pc"],
+    )
+
+
+def _build_s_mrf(opts: Mapping[str, Any]) -> MarkovRandomFieldSmoothSpec:
+    return MarkovRandomFieldSmoothSpec(
+        special="s",
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        xt=opts["xt"],
+    )
+
+
+def _build_s_re(opts: Mapping[str, Any]) -> RandomEffectSmoothSpec:
+    return RandomEffectSmoothSpec(
+        special="s",
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        xt=opts["xt"],
+    )
+
+
+def _build_s_fs(opts: Mapping[str, Any]) -> FactorSmoothInteractionSpec:
+    return FactorSmoothInteractionSpec(
+        special="s",
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        xt=opts["xt"],
+    )
+
+
+def _build_s_sz(opts: Mapping[str, Any]) -> SumToZeroFactorSmoothSpec:
+    return SumToZeroFactorSmoothSpec(
+        special="s",
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        xt=opts["xt"],
+    )
+
+
+# New s() basis: add ``_build_s_<bs>(opts)`` and one registry line below.
+_S_BASIS_SPEC_BUILDERS: dict[str, Callable[[Mapping[str, Any]], BaseSmoothSpec]] = {
+    "cr": _build_s_cr,
+    "cs": _build_s_cs,
+    "cc": _build_s_cc,
+    "ps": _build_s_ps,
+    "tp": _build_s_tp,
+    "ts": _build_s_ts,
+    "gp": _build_s_gp,
+    "mrf": _build_s_mrf,
+    "re": _build_s_re,
+    "fs": _build_s_fs,
+    "sz": _build_s_sz,
+}
+
+
+def _build_te(opts: Mapping[str, Any]) -> TensorProductSmoothSpec:
+    return TensorProductSmoothSpec(
+        special="te",
+        bs=opts["bs"],
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+    )
+
+
+def _build_ti(opts: Mapping[str, Any]) -> TensorInteractionSmoothSpec:
+    return TensorInteractionSmoothSpec(
+        special="ti",
+        bs=opts["bs"],
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        mc=opts["mc"],
+    )
+
+
+def _build_t2(opts: Mapping[str, Any]) -> TensorANOVASmoothSpec:
+    return TensorANOVASmoothSpec(
+        special="t2",
+        bs=opts["bs"],
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        full=opts["full"],
+        ord=opts["ord_"],
+    )
+
+
+# New tensor special (te/ti/t2-style): add ``_build_<name>(opts)`` and one line here.
+_SPECIAL_SMOOTH_BUILDERS: dict[str, Callable[[Mapping[str, Any]], SmoothSpec]] = {
+    "te": _build_te,
+    "ti": _build_ti,
+    "t2": _build_t2,
+}
+
+
+def _dispatch_smooth_spec_from_options(opts: Mapping[str, Any]) -> SmoothSpec:
+    merged = {**_SMOOTH_SPEC_DEFAULTS, **dict(opts)}
+    special_key = str(merged["special"]).lower()
+    if special_key == "s":
+        bs_key = str(merged["bs"]).lower()
+        builder = _S_BASIS_SPEC_BUILDERS.get(bs_key)
+        if builder is None:
+            raise NotImplementedError(f"Unsupported s() basis {merged['bs']!r}.")
+        return builder(merged)
+    builder = _SPECIAL_SMOOTH_BUILDERS.get(special_key)
+    if builder is None:
+        raise NotImplementedError(f"Unsupported smooth special {merged['special']!r}.")
+    return builder(merged)
+
 
 def build_smooth_spec(
     *,
@@ -158,194 +406,19 @@ def build_smooth_spec(
     full: bool = False,
     ord_: Any = None,
 ) -> SmoothSpec:
-    special_key = str(special).lower()
-    if special_key == "s":
-        bs_key = str(bs).lower()
-        if bs_key == "cr":
-            return CubicRegressionSmoothSpec(
-                special="s",
-                k=k,
-                fx=fx,
-                select=select,
-                sp=sp,
-                knots=knots,
-                constraint_mode=constraint_mode,
-                shared_basis_setup=shared_basis_setup,
-                pc=pc,
-            )
-        if bs_key == "cs":
-            return CubicShrinkageSmoothSpec(
-                special="s",
-                k=k,
-                fx=fx,
-                select=select,
-                sp=sp,
-                knots=knots,
-                constraint_mode=constraint_mode,
-                shared_basis_setup=shared_basis_setup,
-                pc=pc,
-            )
-        if bs_key == "cc":
-            return CyclicCubicRegressionSmoothSpec(
-                special="s",
-                k=k,
-                fx=fx,
-                select=select,
-                sp=sp,
-                knots=knots,
-                constraint_mode=constraint_mode,
-                shared_basis_setup=shared_basis_setup,
-                pc=pc,
-            )
-        if bs_key == "ps":
-            return PSplineSmoothSpec(
-                special="s",
-                k=k,
-                fx=fx,
-                select=select,
-                sp=sp,
-                knots=knots,
-                m=m,
-                constraint_mode=constraint_mode,
-                pc=pc,
-            )
-        if bs_key == "tp":
-            return ThinPlateSmoothSpec(
-                special="s",
-                k=k,
-                fx=fx,
-                select=select,
-                sp=sp,
-                knots=knots,
-                m=m,
-                xt=xt,
-                constraint_mode=constraint_mode,
-                pc=pc,
-            )
-        if bs_key == "ts":
-            return ThinPlateShrinkageSmoothSpec(
-                special="s",
-                k=k,
-                fx=fx,
-                select=select,
-                sp=sp,
-                knots=knots,
-                m=m,
-                xt=xt,
-                constraint_mode=constraint_mode,
-                pc=pc,
-            )
-        if bs_key == "gp":
-            return GPSmoothSpec(
-                special="s",
-                k=k,
-                fx=fx,
-                select=select,
-                sp=sp,
-                knots=knots,
-                m=m,
-                xt=xt,
-                constraint_mode=constraint_mode,
-                pc=pc,
-            )
-        if bs_key == "mrf":
-            return MarkovRandomFieldSmoothSpec(
-                special="s",
-                k=k,
-                fx=fx,
-                select=select,
-                sp=sp,
-                knots=knots,
-                xt=xt,
-            )
-        if bs_key == "re":
-            return RandomEffectSmoothSpec(
-                special="s",
-                k=k,
-                fx=fx,
-                select=select,
-                sp=sp,
-                knots=knots,
-                xt=xt,
-            )
-        if bs_key == "fs":
-            return FactorSmoothInteractionSpec(
-                special="s",
-                k=k,
-                fx=fx,
-                select=select,
-                sp=sp,
-                knots=knots,
-                xt=xt,
-            )
-        if bs_key == "sz":
-            return SumToZeroFactorSmoothSpec(
-                special="s",
-                k=k,
-                fx=fx,
-                select=select,
-                sp=sp,
-                knots=knots,
-                xt=xt,
-            )
-        raise NotImplementedError(f"Unsupported s() basis {bs!r}.")
-
-    if special_key == "te":
-        return TensorProductSmoothSpec(
-            special="te",
-            bs=bs,
-            k=k,
-            fx=fx,
-            select=select,
-            sp=sp,
-            knots=knots,
-        )
-    if special_key == "ti":
-        return TensorInteractionSmoothSpec(
-            special="ti",
-            bs=bs,
-            k=k,
-            fx=fx,
-            select=select,
-            sp=sp,
-            knots=knots,
-            mc=mc,
-        )
-    if special_key == "t2":
-        return TensorANOVASmoothSpec(
-            special="t2",
-            bs=bs,
-            k=k,
-            fx=fx,
-            select=select,
-            sp=sp,
-            knots=knots,
-            full=full,
-            ord=ord_,
-        )
-
-    raise NotImplementedError(f"Unsupported smooth special {special!r}.")
+    return _dispatch_smooth_spec_from_options(locals())
 
 
 def smooth_spec_from_basis_options(basis_options: Mapping[str, Any]) -> SmoothSpec:
-    opts = dict(basis_options or {})
-    return build_smooth_spec(
-        special=opts.get("special", "s"),
-        bs=opts.get("bs", "cr"),
-        k=opts.get("k", -1),
-        fx=bool(opts.get("fx", False)),
-        select=bool(opts.get("select", False)),
-        m=opts.get("m", None),
-        xt=opts.get("xt", None),
-        sp=opts.get("sp", None),
-        pc=opts.get("pc", None),
-        knots=opts.get("knots", None),
-        constraint_mode=str(opts.get("constraint_mode", "auto")),
-        shared_basis_setup=opts.get("shared_basis_setup", None),
-        mc=opts.get("mc", None),
-        full=bool(opts.get("full", False)),
-        ord_=opts.get("ord", None),
-    )
+    raw = dict(basis_options or {})
+    if "ord_" not in raw and "ord" in raw:
+        raw = {**raw, "ord_": raw["ord"]}
+    merged = {**_SMOOTH_SPEC_DEFAULTS, **raw}
+    merged["fx"] = bool(merged.get("fx", False))
+    merged["select"] = bool(merged.get("select", False))
+    merged["full"] = bool(merged.get("full", False))
+    merged["constraint_mode"] = str(merged.get("constraint_mode", "auto"))
+    return _dispatch_smooth_spec_from_options(merged)
 
 
 def replace_smooth_spec(spec: SmoothSpec, **changes: Any) -> SmoothSpec:
@@ -360,7 +433,12 @@ def is_s_type(spec: SmoothSpec) -> bool:
     return spec.special == "s"
 
 
-def tensor_basis_list(spec: Union[TensorProductSmoothSpec, TensorInteractionSmoothSpec, TensorANOVASmoothSpec], n_features: int) -> list[Any]:
+def tensor_basis_list(
+    spec: Union[
+        TensorProductSmoothSpec, TensorInteractionSmoothSpec, TensorANOVASmoothSpec
+    ],
+    n_features: int,
+) -> list[Any]:
     basis = spec.bs
     if isinstance(basis, str):
         return [basis] * n_features
@@ -370,4 +448,3 @@ def tensor_basis_list(spec: Union[TensorProductSmoothSpec, TensorInteractionSmoo
             raise ValueError(f"Expected length {n_features}, got {len(basis_list)}.")
         return basis_list
     return [basis] * n_features
-

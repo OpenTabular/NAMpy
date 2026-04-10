@@ -16,6 +16,7 @@ or the frequentist sandwich covariance.
 
 import numpy as np
 
+from .._model_state import _coef_column_offset, _require_fitted
 from .linear_predictor_matrix import _build_prediction_matrices
 
 
@@ -42,8 +43,7 @@ def _term_contribution(model, Z_new, tb):
 def predict_values(
     model, X=None, return_se=False, cov=None, type="response", offset=None
 ):
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
+    _require_fitted(model)
 
     type = str(type).lower()
     Z_new, Xp = _build_prediction_matrices(model, X_new=X)
@@ -66,7 +66,7 @@ def predict_values(
             return terms
 
         V = model._select_cov(cov)
-        offset0 = 1 if model.fit_intercept else 0
+        offset0 = _coef_column_offset(model)
         ses = []
         for tb in model.term_blocks_:
             sl_full = slice(

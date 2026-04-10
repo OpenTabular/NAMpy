@@ -4,6 +4,8 @@ import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 from scipy.special import digamma, polygamma
 
+from ..._mgcv_constants import GAMMA_ABSTOL
+from ..._model_state import _coef_column_offset
 from ..reparam import ensure_penalty_reparameterization_state
 from .laplace import (
     _lambda_group_indices,
@@ -52,7 +54,7 @@ def _gamma_joint_kernel_state(model, y, log_sp, method):
         )
     mp = float(
         _static_penalty_null_dim(model)
-        + int(bool(getattr(model, "fit_intercept", False)))
+        + _coef_column_offset(model)
     )
     return state, mp
 
@@ -458,7 +460,7 @@ def _pirls_laplace_term_derivatives(
 
 
 def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
-    if abs(model.score_gamma - 1.0) > 1e-12:
+    if abs(model.score_gamma - 1.0) > GAMMA_ABSTOL:
         raise NotImplementedError(
             "score_gamma != 1 is not yet implemented for the exact PIRLS ML/REML gradient path."
         )
@@ -528,7 +530,7 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
         )
         mp = float(
             _static_penalty_null_dim(model)
-            + int(bool(getattr(model, "fit_intercept", False)))
+            + _coef_column_offset(model)
         )
         Dp = float(sol["deviance"]) + float(bSb)
         phi = _solve_gamma_profile_scale(
@@ -739,7 +741,7 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
 
 
 def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
-    if abs(model.score_gamma - 1.0) > 1e-12:
+    if abs(model.score_gamma - 1.0) > GAMMA_ABSTOL:
         raise NotImplementedError(
             "score_gamma != 1 is not yet implemented for the exact PIRLS ML/REML Hessian path."
         )
@@ -1019,7 +1021,7 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
         if getattr(model.family, "known_scale", None) is None:
             mp = float(
                 _static_penalty_null_dim(model)
-                + int(bool(getattr(model, "fit_intercept", False)))
+                + _coef_column_offset(model)
             )
             Dp = float(sol["deviance"]) + float(bSb)
             phi = _solve_gamma_profile_scale(

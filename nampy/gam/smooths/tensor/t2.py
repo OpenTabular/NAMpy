@@ -271,8 +271,7 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         return int(self._basis_train.shape[1])
 
     def transform_new(self, X_new):
-        if self._marginals is None or self._t2_train is None:
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
 
         marginal_new = []
         for m, dec in zip(self._marginals, self._marginal_decompositions):

@@ -456,6 +456,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from .._mgcv_constants import LOG_GUARD_MIN
+
 
 def _prior_weights(model) -> np.ndarray:
     w = getattr(model, "prior_weights_", None)
@@ -471,10 +473,9 @@ def _deviance_residuals(model) -> np.ndarray:
     sign = np.sign(y - mu)
     sign[sign == 0.0] = 1.0
 
-    # Keep deviance algebra family-owned (mgcv-style `family$dev.resids` analogue)
-    # to avoid drift between residual diagnostics and fitting code.
-    dev = model.family.deviance(y, mu, w)
-    return sign * np.sqrt(np.clip(dev, 0.0, None))
+    # Per-observation deviance contributions (mgcv `family$dev.resids` analogue).
+    dev_obs = model.family.deviance_obs(y, mu, w)
+    return sign * np.sqrt(np.clip(dev_obs, 0.0, None))
 
 
 def residuals_gam(model, type: str = "deviance") -> np.ndarray:
@@ -504,14 +505,14 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
             )
             return z_work - eta_base
         mu_eta = np.asarray(model.family.mu_eta(eta), dtype=np.float64)
-        return (y - mu) / np.clip(mu_eta, 1e-300, None)
+        return (y - mu) / np.clip(mu_eta, LOG_GUARD_MIN, None)
     if type == "deviance":
         return _deviance_residuals(model)
     if type in {"pearson", "scaled.pearson"}:
         var = np.asarray(model.family.variance(mu), dtype=np.float64)
-        res = (y - mu) * np.sqrt(w) / np.sqrt(np.clip(var, 1e-300, None))
+        res = (y - mu) * np.sqrt(w) / np.sqrt(np.clip(var, LOG_GUARD_MIN, None))
         if type == "scaled.pearson":
-            res = res / np.sqrt(max(float(model.scale_), 1e-300))
+            res = res / np.sqrt(max(float(model.scale_), LOG_GUARD_MIN))
         return res
 
     raise ValueError(
@@ -648,6 +649,7 @@ import pandas as pd
 from scipy.linalg import qr
 from scipy.stats import chi2, f
 
+from .._mgcv_constants import LOG_GUARD_MIN
 from ..fit.covariance import select_covariance_matrix
 
 
@@ -782,11 +784,11 @@ def _smooth_test_stat(
     if nu > 0.0 and k > 0:
         if k > 1:
             vec[:, : (k - 1)] = vec[:, : (k - 1)] / np.sqrt(
-                np.clip(evals[: (k - 1)], 1e-300, None)
+                np.clip(evals[: (k - 1)], LOG_GUARD_MIN, None)
             )
         b12 = np.sqrt(max(0.5 * nu * (1.0 - nu), 0.0))
         B = np.array([[1.0, b12], [b12, nu]], dtype=np.float64)
-        ev = np.diag(np.power(np.clip(evals[(k - 1) : k1], 1e-300, None), -0.5))
+        ev = np.diag(np.power(np.clip(evals[(k - 1) : k1], LOG_GUARD_MIN, None), -0.5))
         B = ev @ B @ ev
         eb_vals, eb_vecs = np.linalg.eigh(B)
         rB = eb_vecs @ np.diag(np.sqrt(np.clip(eb_vals, 0.0, None))) @ eb_vecs.T
@@ -794,7 +796,7 @@ def _smooth_test_stat(
         vec1[:, (k - 1) : k1] = (rB @ np.diag([-1.0, 1.0]) @ vec[:, (k - 1) : k1].T).T
         vec[:, (k - 1) : k1] = (rB @ vec[:, (k - 1) : k1].T).T
     else:
-        scale = np.sqrt(np.clip(evals[:k1], 1e-300, None))
+        scale = np.sqrt(np.clip(evals[:k1], LOG_GUARD_MIN, None))
         vec = vec / scale
         vec1 = vec.copy()
         if k == 1:
@@ -2253,10 +2255,10 @@ from pathlib import Path
 import numpy as np
 from scipy.linalg import qr
 
+from .._mgcv_constants import LOG_GUARD_MIN
 from ..smoothing_selection.criteria import (
     criterion_ml_reml,
     criterion_ml_reml_gaussian_dynamic_joint,
-    criterion_ml_reml_gaussian_exact_joint,
     criterion_ml_reml_pirls,
     resolve_ml_reml_scoring_backend,
 )
@@ -2509,7 +2511,7 @@ def _build_parity_criterion_view(core, fit_dict):
     score_joint = getattr(core, "smoothing_score_", None)
     joint_s2 = getattr(core, "_gaussian_reml_sigma2_opt_", None)
     if joint_s2 is not None and np.isfinite(float(joint_s2)):
-        view["joint_log_sigma2"] = float(np.log(max(float(joint_s2), 1e-300)))
+        view["joint_log_sigma2"] = float(np.log(max(float(joint_s2), LOG_GUARD_MIN)))
     if backend in {"gaussian_exact", "gaussian_dynamic"} and log_free.size > 0:
         try:
             view["profiled_criterion_value"] = float(
@@ -2520,11 +2522,11 @@ def _build_parity_criterion_view(core, fit_dict):
     if backend == "gaussian_exact" and log_free.size > 0 and joint_s2 is not None:
         try:
             view["joint_criterion_value"] = float(
-                criterion_ml_reml_gaussian_exact_joint(
+                criterion_ml_reml_gaussian_dynamic_joint(
                     core,
                     core.y_,
                     log_free,
-                    float(np.log(max(float(joint_s2), 1e-300))),
+                    float(np.log(max(float(joint_s2), LOG_GUARD_MIN))),
                     method=(
                         "LAML"
                         if str(criterion_name).lower() == "laml"
@@ -2541,7 +2543,7 @@ def _build_parity_criterion_view(core, fit_dict):
                     core,
                     core.y_,
                     log_free,
-                    float(np.log(max(float(joint_s2), 1e-300))),
+                    float(np.log(max(float(joint_s2), LOG_GUARD_MIN))),
                     method=(
                         "LAML"
                         if str(criterion_name).lower() == "laml"
@@ -2565,7 +2567,7 @@ def _build_parity_criterion_view(core, fit_dict):
         source = "smoothing_score"
         if candidate is None and log_free.size > 0:
             try:
-                log_s2 = float(np.log(max(float(joint_s2), 1e-300)))
+                log_s2 = float(np.log(max(float(joint_s2), LOG_GUARD_MIN)))
                 jm = "LAML" if str(criterion_name).lower() == "laml" else branch_method
                 candidate = float(
                     criterion_ml_reml_gaussian_dynamic_joint(
@@ -2611,7 +2613,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
     fit_dict["estimate_theta"] = bool(getattr(core.family, "estimate_theta", False))
     if fit_dict.get("smoothing_params", None) is not None:
         sp = np.asarray(fit_dict["smoothing_params"], dtype=np.float64)
-        fit_dict["log_smoothing_params"] = np.log(np.maximum(sp, 1e-300)).tolist()
+        fit_dict["log_smoothing_params"] = np.log(np.maximum(sp, LOG_GUARD_MIN)).tolist()
     parity_view = _build_parity_criterion_view(core, fit_dict)
 
     predict_api = (

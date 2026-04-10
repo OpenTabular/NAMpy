@@ -298,8 +298,8 @@ def apply_global_side_conditions(
         Q_term = np.eye(d_in, dtype=np.float64)
 
         constructor_meta = dict(tb.metadata.get("constructor_metadata", {}) or {})
-        runtime_absorbed = bool(
-            constructor_meta.get("constraints_absorbed_by_runtime", False)
+        runtime_skip_centering = bool(
+            constructor_meta.get("runtime_skip_centering", False)
         )
         runtime_by_name = constructor_meta.get("runtime_by_name", None)
         runtime_by_is_constant = constructor_meta.get("runtime_by_is_constant", None)
@@ -308,7 +308,7 @@ def apply_global_side_conditions(
         # Step (a): optionally absorb a sum-to-zero centering constraint.
         if (
             fit_intercept
-            and not runtime_absorbed
+            and not runtime_skip_centering
             and (runtime_by_name is None or bool(runtime_by_is_constant))
             and tb.term_type not in {"tensor_interaction", "tensor_anova"}
         ):

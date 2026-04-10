@@ -21,6 +21,8 @@ from typing import Dict, List, Optional
 import numpy as np
 from scipy.linalg import qr as scipy_qr
 
+from .._model_state import _fit_intercept
+
 
 @dataclass
 class ReparamState:
@@ -318,7 +320,7 @@ def build_penalty_reparameterized_system(model):
         return _assign_reparam_state(model, None)
 
     fix_blocks = []
-    if model.fit_intercept:
+    if _fit_intercept(model):
         fix_blocks.append(np.ones((model.n_samples_, 1), dtype=np.float64))
 
     rand_blocks = []

@@ -15,6 +15,7 @@ Everything below this layer is stateless with respect to the model object.
 
 import numpy as np
 
+from .._mgcv_constants import LOG_GUARD_MIN
 from .backends import solve_fit
 from .offsets import coerce_offset_array
 from .state import assign_fit_solution
@@ -130,7 +131,7 @@ def fit_model_core(
             )
             free_vals = np.asarray(model.smoothing_params[~fixed_mask], dtype=np.float64)
             log_sp = (
-                np.log(np.maximum(free_vals, 1e-300))
+                np.log(np.maximum(free_vals, LOG_GUARD_MIN))
                 if free_vals.size > 0
                 else np.empty((0,), dtype=np.float64)
             )

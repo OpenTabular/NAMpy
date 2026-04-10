@@ -55,7 +55,7 @@ from nampy.gam.diagnostics.summary import (
     print_summary,
     summary_text,
 )
-from nampy.gam.families import GaussianIdentityFamily
+from nampy.gam.families import GaussianIdentityFamily, make_gam_family
 from nampy.gam.families.exponential import (
     BinomialCloglogFamily,
     BinomialLogitFamily,
@@ -1266,6 +1266,14 @@ class TestFamilyApi:
             assert fam.estimate_dispersion(y_gamma, mu_gamma, edf=0.5) == pytest.approx(
                 baseline_gamma[3]
             )
+
+    def test_make_gam_family_gamma_identity_not_implemented(self):
+        with pytest.raises(NotImplementedError, match="GammaIdentityFamily"):
+            make_gam_family({"name": "gamma", "link": "identity"})
+
+    def test_make_gam_family_gamma_unknown_link_raises(self):
+        with pytest.raises(ValueError, match="Unknown gamma link"):
+            make_gam_family({"name": "gamma", "link": "sqrt"})
 
 
 # ─────────────────────────────────────────────────────────────────────────────

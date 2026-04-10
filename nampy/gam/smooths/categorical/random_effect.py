@@ -154,7 +154,7 @@ class RandomEffectTerm(BaseSmoothTerm):
         self._ranks = None
 
         # random effects are full-rank penalized: no side conditions needed
-        self.constraints_absorbed = True
+        self.skip_centering = True
 
     def fit(self, X, feature_names):
         X = np.asarray(X, dtype=object)
@@ -316,8 +316,7 @@ class RandomEffectTerm(BaseSmoothTerm):
         return defs
 
     def transform_new(self, X_new):
-        if self._feature_indices is None or self._component_specs is None:
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
 
         blocks = []
         for idx, spec in zip(self._feature_indices, self._component_specs):

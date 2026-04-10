@@ -8,6 +8,8 @@ parameters, and goodness-of-fit statistics.
 
 from __future__ import annotations
 
+from .._model_state import _fit_intercept, _require_fitted
+
 TERM_COL_WIDTH = 20
 EDF_COL_WIDTH = 8
 K_COL_WIDTH = 5
@@ -48,8 +50,7 @@ def _format_sp_values(values) -> str:
 
 
 def build_summary_lines(model) -> list[str]:
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
+    _require_fitted(model)
 
     lines = []
     lines.append("General Smooth Model Summary")
@@ -86,7 +87,7 @@ def build_summary_lines(model) -> list[str]:
         )
 
     lines.append("-" * SUMMARY_WIDTH)
-    if model.fit_intercept:
+    if _fit_intercept(model):
         lines.append(f"Intercept : {model.intercept_:.6g}")
     lines.append(f"EDF (total) : {model.edf_:.3f}")
     lines.append(f"Scale : {model.scale_:.6g}")

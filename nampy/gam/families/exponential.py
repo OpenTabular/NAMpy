@@ -10,8 +10,9 @@ import numpy as np
 from scipy.special import digamma, gammaln, polygamma
 from scipy.stats import norm as _norm
 
+from .._mgcv_constants import FAMILY_EPS, LINK_ETA_EXP_CLIP
 from ._function_maps import NegativeBinomialVariance
-from .family_base import _EPS, GLMFamily, _BinomialBase, _GammaBase
+from .family_base import GLMFamily, _BinomialBase, _GammaBase
 
 
 class GaussianIdentityFamily(GLMFamily):
@@ -44,15 +45,23 @@ class GaussianIdentityFamily(GLMFamily):
         weights = self._check_weights(y, weights)
         return float(np.sum(weights * (y - mu) ** 2))
 
+    def deviance_obs(self, y, mu, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.asarray(mu, dtype=np.float64)
+        w = self._check_weights(y, weights)
+        return w * (y - mu) ** 2
+
     def estimate_dispersion(self, y, mu, edf=None, weights=None):
         y = np.asarray(y, dtype=np.float64)
         mu = np.asarray(mu, dtype=np.float64)
         w = self._check_weights(y, weights)
         rss = float(np.sum(w * (y - mu) ** 2))
-        w_sum = float(np.sum(w))
+        # Use n (number of observations) in denominator to match mgcv/glm convention.
+        # mgcv divides by (n - edf), not (sum(w) - edf), for Gaussian scale estimation.
+        n = float(y.shape[0])
         if edf is None:
-            return rss / max(w_sum, 1.0)
-        return rss / max(w_sum - float(edf), 1.0)
+            return rss / max(n, 1.0)
+        return rss / max(n - float(edf), 1.0)
 
     def loglik_obs(self, y, mu, scale=1.0):
         y = np.asarray(y, dtype=np.float64)
@@ -159,6 +168,15 @@ class PoissonLogFamily(GLMFamily):
         term[mask] = y[mask] * np.log(np.clip(y[mask], self.eps, None) / mu[mask])
         return float(2.0 * np.sum(weights * (term - (y - mu))))
 
+    def deviance_obs(self, y, mu, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        weights = self._check_weights(y, weights)
+        term = np.zeros_like(y, dtype=np.float64)
+        mask = y > 0
+        term[mask] = y[mask] * np.log(np.clip(y[mask], self.eps, None) / mu[mask])
+        return 2.0 * weights * (term - (y - mu))
+
     def loglik_obs(self, y, mu, scale=1.0):
         del scale
         y = np.asarray(y, dtype=np.float64)
@@ -257,7 +275,7 @@ class NegativeBinomialLogFamily(GLMFamily):
 
     _link_key = "log"
 
-    def __init__(self, theta=1.0, estimate_theta=False, eps: float = _EPS):
+    def __init__(self, theta=1.0, estimate_theta=False, eps: float = FAMILY_EPS):
         super().__init__(eps=eps)
         self.theta = float(theta)
         self.estimate_theta = bool(estimate_theta)
@@ -295,6 +313,17 @@ class NegativeBinomialLogFamily(GLMFamily):
         term1[mask] = y[mask] * np.log(y[mask] / mu[mask])
         term2 = (y + th) * np.log((y + th) / (mu + th))
         return float(2.0 * np.sum(weights * (term1 - term2)))
+
+    def deviance_obs(self, y, mu, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        weights = self._check_weights(y, weights)
+        th = self.theta
+        term1 = np.zeros_like(y, dtype=np.float64)
+        mask = y > 0
+        term1[mask] = y[mask] * np.log(y[mask] / mu[mask])
+        term2 = (y + th) * np.log((y + th) / (mu + th))
+        return 2.0 * weights * (term1 - term2)
 
     def loglik_obs(self, y, mu, scale=1.0):
         del scale
@@ -559,7 +588,7 @@ class BinomialCloglogFamily(_BinomialBase):
 
     def working_weight_derivative_eta(self, eta, y=None):
         eta = np.asarray(eta, dtype=np.float64)
-        lam = np.exp(np.clip(eta, -700.0, 700.0))
+        lam = np.exp(np.clip(eta, -LINK_ETA_EXP_CLIP, LINK_ETA_EXP_CLIP))
         mu = np.clip(1.0 - np.exp(-lam), self.eps, 1.0 - self.eps)
         M = np.clip(lam * np.exp(-lam), self.eps, None)
         V = np.clip(mu * (1.0 - mu), self.eps, None)

@@ -8,6 +8,8 @@ from typing import Any
 import numpy as np
 from scipy.stats import norm as _norm
 
+from .._mgcv_constants import LINK_ETA_EXP_CLIP
+
 
 def _safe_pow(x, power, eps):
     x = np.asarray(x, dtype=np.float64)
@@ -72,7 +74,7 @@ class LogLink(LinkFunction):
 
     def inverse(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
-        return np.exp(np.clip(eta, -700.0, 700.0))
+        return np.exp(np.clip(eta, -LINK_ETA_EXP_CLIP, LINK_ETA_EXP_CLIP))
 
     def mu_eta(self, eta):
         mu = self.inverse(eta)
@@ -130,7 +132,9 @@ class LogitLink(LinkFunction):
 
     def inverse(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
-        return 1.0 / (1.0 + np.exp(-np.clip(eta, -700.0, 700.0)))
+        return 1.0 / (
+            1.0 + np.exp(-np.clip(eta, -LINK_ETA_EXP_CLIP, LINK_ETA_EXP_CLIP))
+        )
 
     def mu_eta(self, eta):
         mu = self.inverse(eta)
@@ -197,12 +201,12 @@ class CloglogLink(LinkFunction):
 
     def inverse(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
-        lam = np.exp(np.clip(eta, -700.0, 700.0))
+        lam = np.exp(np.clip(eta, -LINK_ETA_EXP_CLIP, LINK_ETA_EXP_CLIP))
         return np.clip(1.0 - np.exp(-lam), self.eps, 1.0 - self.eps)
 
     def mu_eta(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
-        lam = np.exp(np.clip(eta, -700.0, 700.0))
+        lam = np.exp(np.clip(eta, -LINK_ETA_EXP_CLIP, LINK_ETA_EXP_CLIP))
         return np.clip(lam * np.exp(-lam), self.eps, None)
 
     def d2(self, mu):

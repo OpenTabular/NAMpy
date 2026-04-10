@@ -24,11 +24,16 @@ Supporting helpers:
 
 import abc
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
+from ..design.structures import PenaltySpec
 from ..penalties import (
+    build_null_space_selection_spec,
     make_penalty_spec,
+    normalize_penalty_spec,
+    null_space_penalty_from_penalty,
 )
 
 
@@ -308,7 +313,8 @@ RUNTIME_TERM_INTERFACE_CHECKLIST = (
     "basis_name",
     "term_type",
     "feature",
-    "constraints_absorbed",
+    "transform_applied",
+    "skip_centering",
     "constraint_transform",
     "prediction_offset",
     "metadata",
@@ -335,7 +341,8 @@ class BaseSmoothTerm(abc.ABC):
         basis_train              final training design block
         get_penalty_definitions  list of PenaltySpec via penalty subsystem
         label, basis_name, term_type, feature
-        constraints_absorbed     True if this term already absorbed its constraints
+        transform_applied        True if fit applied an explicit constraint transform
+        skip_centering          True if stage 5 must skip external centering
         constraint_transform     coefficient transform T from raw → constrained space, or None
         prediction_offset
 
@@ -344,8 +351,10 @@ class BaseSmoothTerm(abc.ABC):
     - ``basis_train.shape[1] == S.shape[0] == S.shape[1]`` for every penalty S.
     - If a coefficient transform T was applied during fit, penalties satisfy
       ``S_fitted = T.T @ S_raw @ T``.
-    - Constraint absorption is done either by the runtime term OR delegated to
-      the stage-3 wrapper via ``constraints_absorbed = False`` — never both.
+    - Explicit constraint transforms are done either by the runtime term OR
+      delegated to the stage-3 wrapper via ``transform_applied = False``.
+    - ``skip_centering`` is separate: runtimes may request no stage-5 centering
+      even when no explicit coefficient transform was applied.
     """
 
     term_type = "smooth"
@@ -370,7 +379,8 @@ class BaseSmoothTerm(abc.ABC):
         self.sp = sp
         self.metadata = dict(metadata or {})
         self.resolved_feature_names = None
-        self.constraints_absorbed = True
+        self.transform_applied = False
+        self.skip_centering = False
         self.n_constraints_absorbed = 0
         self.constraint_kind = None
         self.constraint_transform = None
@@ -389,13 +399,11 @@ class BaseSmoothTerm(abc.ABC):
         self.constraint_kind = kind
         self.constraint_transform = transform
         self.constraints_absorbed_by = absorbed_by
-        # Mark as absorbed if an explicit transform was applied OR if absorbed_by
-        # signals that the runtime handled identifiability without a transform
-        # (e.g. numeric by-variable smooths that keep the raw basis but must prevent
-        # stage-5 from applying its own sum-to-zero centering pass).
-        self.constraints_absorbed = bool(transform is not None) or (
-            absorbed_by is not None
-        )
+        # ``transform_applied`` means fit changed coefficient coordinates.
+        # ``skip_centering`` means stage 5 must not add external centering,
+        # even when no explicit transform exists.
+        self.transform_applied = bool(transform is not None)
+        self.skip_centering = self.transform_applied or (absorbed_by is not None)
         if transform is None:
             self.n_constraints_absorbed = 0
         else:
@@ -469,6 +477,98 @@ class BaseSmoothTerm(abc.ABC):
                 )
             vals = [float(v) for v in vals]
         return vals
+
+    def _build_penalty_block(
+        self,
+        matrix: np.ndarray,
+        *,
+        smooth_metadata: dict[str, Any],
+        rank: int | None = None,
+        null_space_dim: int | None = None,
+        selection_metadata: dict[str, Any] | None = None,
+        selection_via_subsystem: bool = False,
+    ):
+        """
+        Build penalty definition list for a single main penalty plus optional
+        ``select=True`` null-space penalty.
+
+        Subclasses supply ``matrix`` (the main penalty, usually
+        ``self.penalties[0]`` after fit) and term-specific ``smooth_metadata``.
+        Optional ``rank`` / ``null_space_dim`` are forwarded to the main
+        :class:`~nampy.gam.design.structures.PenaltySpec` before normalization
+        (e.g. TPRS passes a stored rank).
+        """
+        self._require_fitted()
+        if self.select and self.sp is not None:
+            raise NotImplementedError(
+                "term-level sp is not yet implemented for select=True smooths in the "
+                "current runtime, because select=True adds an extra explicit "
+                "null-space penalty in addition to the main penalty."
+            )
+        main_matrix = np.asarray(matrix, dtype=np.float64)
+        sp_vals = self._normalized_term_sp(1)
+        sp_main = sp_vals[0] if sp_vals else None
+        if sp_main is None:
+            sp_mode, sp_value = None, None
+        elif sp_main >= 0:
+            sp_mode, sp_value = "fixed", float(sp_main)
+        else:
+            sp_mode, sp_value = "estimate", None
+
+        sid = None if self.smoothing_id is None else str(self.smoothing_id)
+        meta_smooth = {
+            **smooth_metadata,
+            "term_sp": sp_main,
+            "is_selection_penalty": False,
+        }
+        main_spec = normalize_penalty_spec(
+            PenaltySpec(
+                matrix=main_matrix,
+                smoothing_id=sid,
+                kind="smooth",
+                rank=rank,
+                null_space_dim=null_space_dim,
+                is_null_space_penalty=False,
+                sp_mode=sp_mode,
+                sp_value=sp_value,
+                metadata=meta_smooth,
+            )
+        )
+        defs = [main_spec]
+        if self.select:
+            select_sid = (
+                None if self.smoothing_id is None else f"{self.smoothing_id}::select"
+            )
+            sel_meta = (
+                selection_metadata
+                if selection_metadata is not None
+                else {**smooth_metadata, "is_selection_penalty": True}
+            )
+            tol = float(getattr(self, "null_penalty_tol", 1e-10))
+            if selection_via_subsystem:
+                sel = build_null_space_selection_spec(
+                    main_penalty=main_matrix,
+                    smoothing_id=select_sid,
+                    tol=tol,
+                    metadata=sel_meta,
+                )
+            else:
+                S0, meta = null_space_penalty_from_penalty(main_matrix, tol=tol)
+                if int(meta["rank"]) <= 0:
+                    sel = None
+                else:
+                    sel = make_penalty_spec(
+                        matrix=S0,
+                        smoothing_id=select_sid,
+                        kind="null_space",
+                        sp_mode=None,
+                        sp_value=None,
+                        is_null_space_penalty=True,
+                        metadata=sel_meta,
+                    )
+            if sel is not None:
+                defs.append(sel)
+        return defs
 
     def get_penalty_definitions(self):
         raw = list(self.penalties)
