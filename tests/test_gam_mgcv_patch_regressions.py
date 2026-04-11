@@ -5,7 +5,7 @@ import pandas as pd
 from mgcv_parity_utils import _make_mrf_data
 from scipy.optimize import OptimizeResult
 
-from nampy.basemodels.gam import GAM
+from nampy.gam import GAM
 from nampy.gam.families.exponential import BinomialLogitFamily, GaussianIdentityFamily
 from nampy.gam.fit.linalg.stacked_qr import (
     _stacked_penalized_ls_nonneg_solution,

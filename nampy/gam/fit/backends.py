@@ -9,6 +9,7 @@ The fitting backend is determined by the family:
 """
 
 from .solvers.gaussian_exact import solve_gaussian_fit
+from .solvers.general_fit5 import solve_general_fit
 from .solvers.pirls import solve_pirls_fit
 
 
@@ -18,6 +19,8 @@ def available_fit_backends(model):
         backends.append("stacked_qr")
     if bool(getattr(model.family, "supports_closed_form_solve", False)):
         backends.append("gaussian_exact")
+    if str(getattr(model.family, "family_class", "")) == "general":
+        backends.append("general_fit5")
     if bool(getattr(model.family, "supports_pirls", False)):
         backends.append("pirls")
     return tuple(backends)
@@ -29,6 +32,8 @@ def resolve_fit_backend(model):
         return "stacked_qr"
     if "gaussian_exact" in backends:
         return "gaussian_exact"
+    if "general_fit5" in backends:
+        return "general_fit5"
     if "pirls" in backends:
         return "pirls"
     raise NotImplementedError(
@@ -43,6 +48,8 @@ def solve_fit(model, y, smoothing_params, backend=None, weights=None):
         return solve_gaussian_fit(model, y, smoothing_params, weights=weights)
     if backend == "gaussian_exact":
         return solve_gaussian_fit(model, y, smoothing_params, weights=weights)
+    if backend == "general_fit5":
+        return solve_general_fit(model, y, smoothing_params, weights=weights)
     if backend == "pirls":
         return solve_pirls_fit(model, y, smoothing_params, weights=weights)
 

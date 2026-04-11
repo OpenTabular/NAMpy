@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.basemodels.gam import GAM
+from nampy.gam import GAM
 from nampy.gam.basis.tensor import (
     lifted_tensor_penalty,
     normalize_tensor_marginal_penalty,
@@ -1129,7 +1129,9 @@ class TestCompilePredictorSpecsFromFormula:
         specs = compile_predictor_specs_from_formula(parsed, default_basis="tp")
         smooth_specs = [t for t in specs[0].terms if t.kind == "smooth"]
         assert len(smooth_specs) == 1
-        assert smooth_specs[0].smooth_spec.__class__.__name__ == "TensorProductSmoothSpec"
+        assert (
+            smooth_specs[0].smooth_spec.__class__.__name__ == "TensorProductSmoothSpec"
+        )
         assert smooth_specs[0].basis_options["special"] == "te"
         assert smooth_specs[0].basis_options["bs"] == "cr"
 

@@ -30,6 +30,21 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
 
     type = str(type).lower()
     y = np.asarray(model.y_, dtype=np.float64).ravel()
+    if getattr(model.family, "family_class", "") == "general":
+        fitted = np.asarray(model._fitted_mu, dtype=np.float64)
+        if fitted.ndim == 1:
+            fitted = fitted[:, None]
+        family_residuals = getattr(model.family, "residuals", None)
+        if callable(family_residuals):
+            return np.asarray(
+                family_residuals(y, fitted, rtype=type), dtype=np.float64
+            ).ravel()
+        if type == "response":
+            return y - np.asarray(fitted[:, 0], dtype=np.float64).ravel()
+        raise NotImplementedError(
+            f"Residual type {type!r} is not implemented for general family {model.family.name!r}."
+        )
+
     mu = np.asarray(model._fitted_mu, dtype=np.float64).ravel()
     eta = np.asarray(model._fitted_eta, dtype=np.float64).ravel()
     w = _prior_weights(model)

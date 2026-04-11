@@ -188,7 +188,11 @@ class TestKCheckParity:
         assert r_block is not None
         py_labels, py_values = _nampy_k_check(model)
         _assert_k_check_parity(
-            r_block, py_labels, py_values, numeric_terms={"x0", "x1"}
+            r_block,
+            py_labels,
+            py_values,
+            numeric_terms={"x0", "x1"},
+            edf_atol=1e-4,
         )
 
     def test_gaussian_cr_fixed_sp(self):
@@ -203,7 +207,11 @@ class TestKCheckParity:
         assert r_block is not None
         py_labels, py_values = _nampy_k_check(model)
         _assert_k_check_parity(
-            r_block, py_labels, py_values, numeric_terms={"x0", "x1"}
+            r_block,
+            py_labels,
+            py_values,
+            numeric_terms={"x0", "x1"},
+            edf_atol=1e-4,
         )
 
     def test_gaussian_ps_reml(self):
@@ -217,7 +225,11 @@ class TestKCheckParity:
         assert r_block is not None
         py_labels, py_values = _nampy_k_check(model)
         _assert_k_check_parity(
-            r_block, py_labels, py_values, numeric_terms={"x0", "x1"}
+            r_block,
+            py_labels,
+            py_values,
+            numeric_terms={"x0", "x1"},
+            edf_atol=1e-4,
         )
 
     def test_gaussian_tp_reml(self):
@@ -271,7 +283,11 @@ class TestKCheckParity:
         assert r_block is not None
         py_labels, py_values = _nampy_k_check(model)
         _assert_k_check_parity(
-            r_block, py_labels, py_values, numeric_terms={"x0", "x1"}
+            r_block,
+            py_labels,
+            py_values,
+            numeric_terms={"x0", "x1"},
+            edf_atol=1e-4,
         )
 
     def test_poisson_cr_reml(self):

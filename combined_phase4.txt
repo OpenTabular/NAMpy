@@ -9,6 +9,7 @@ Included files in this phase: 6
 import numpy as np
 
 from ..._mgcv_constants import EIG_TOL_POWER
+from ..._model_state import _coef_column_offset, _fit_intercept
 from ...fit.penalized_system import build_full_design
 from ..criteria import resolve_ml_reml_scoring_backend
 
@@ -55,7 +56,7 @@ def _initial_smoothing_params_from_design_balance(model, y):
     if not penalty_blocks or n_sp == 0:
         return None
 
-    X = build_full_design(model.Z, fit_intercept=model.fit_intercept)
+    X = build_full_design(model.Z, fit_intercept=_fit_intercept(model))
     y = np.asarray(y, dtype=np.float64).ravel()
 
     try:
@@ -81,7 +82,7 @@ def _initial_smoothing_params_from_design_balance(model, y):
     counts = np.zeros(n_sp, dtype=np.int64)
     penalized = np.zeros_like(ldxx, dtype=bool)
 
-    coef_offset = 1 if bool(getattr(model, "fit_intercept", False)) else 0
+    coef_offset = _coef_column_offset(model)
 
     for pb in penalty_blocks:
         S = np.asarray(pb.matrix, dtype=np.float64)
@@ -150,7 +151,7 @@ def _initial_smoothing_params_mgcv_style(model, y):
     if not penalty_blocks or n_sp == 0:
         return None
 
-    X = build_full_design(model.Z, fit_intercept=model.fit_intercept)
+    X = build_full_design(model.Z, fit_intercept=_fit_intercept(model))
     y = np.asarray(y, dtype=np.float64).ravel()
     nobs, q = X.shape
 
@@ -172,7 +173,7 @@ def _initial_smoothing_params_mgcv_style(model, y):
     ldss = np.zeros(q, dtype=np.float64)
     penalized = np.zeros(q, dtype=bool)
 
-    coef_offset = 1 if bool(getattr(model, "fit_intercept", False)) else 0
+    coef_offset = _coef_column_offset(model)
     seen = np.zeros(n_sp, dtype=bool)
 
     for pb in penalty_blocks:
@@ -246,6 +247,7 @@ import numpy as np
 from scipy.optimize import OptimizeResult, minimize, minimize_scalar
 
 from ..._mgcv_constants import LOG_GUARD_MIN
+from ..._model_state import _coef_column_offset, _term_blocks_seq
 from ..criteria import (
     _pirls_ml_reml_objective_from_solution,
     _stable_penalty_logdet_derivatives,
@@ -293,7 +295,7 @@ def _joint_negbin_efs_update_terms(model, sol, sp):
     n_sp = int(model.n_smoothing_params_ or 0)
     quad = np.zeros(n_sp, dtype=np.float64)
     tr_vs = np.zeros(n_sp, dtype=np.float64)
-    offset0 = 1 if bool(getattr(model, "fit_intercept", False)) else 0
+    offset0 = _coef_column_offset(model)
 
     P_derivs = [np.zeros_like(A_inv, dtype=np.float64) for _ in range(n_sp)]
     for pb in getattr(model, "penalty_blocks_", None) or ():
@@ -746,7 +748,7 @@ def optimize_smoothing_params(
 
         has_factor_smooth_fs = any(
             str(getattr(tb, "term_type", "")).lower() == "factor_smooth_fs"
-            for tb in (getattr(model, "term_blocks_", None) or [])
+            for tb in _term_blocks_seq(model)
         )
         use_design_balance_init = user_sp is None and (
             (not bool(getattr(model.family, "supports_closed_form_solve", False)))
@@ -817,7 +819,7 @@ def optimize_smoothing_params(
         F0 = float(sol0["rss"]) + float(sol0["penalty_quadratic"] or 0.0)
         Mp = float(
             _static_penalty_null_dim(model)
-            + int(bool(getattr(model, "fit_intercept", False)))
+            + _coef_column_offset(model)
         )
         nu0 = float(model.n_samples_ - Mp)
         if not np.isfinite(nu0) or nu0 <= 0.0:
@@ -890,7 +892,7 @@ def optimize_smoothing_params(
         sigma2_bounds = joint_bounds[-1]
         has_random_effect_term = any(
             str(getattr(tb, "term_type", "")).lower() == "random_effect"
-            for tb in (getattr(model, "term_blocks_", None) or ())
+            for tb in _term_blocks_seq(model)
         )
         if str(ml_reml_backend) == "gaussian_dynamic" and has_random_effect_term:
             x_joint = np.asarray(result_joint.x, dtype=np.float64).ravel()
@@ -1083,7 +1085,7 @@ def optimize_smoothing_params(
                 int(full): int(i) for i, full in enumerate(np.flatnonzero(free_mask))
             }
             fs_groups = []
-            for tb in getattr(model, "term_blocks_", None) or ():
+            for tb in _term_blocks_seq(model):
                 if str(getattr(tb, "term_type", "")).lower() != "factor_smooth_fs":
                     continue
                 group = sorted(
@@ -3082,6 +3084,7 @@ import numpy as np
 from scipy.optimize import minimize_scalar
 
 from ...._mgcv_constants import FAMILY_EPS, SMOOTHING_SCORE_ABS_FLOOR
+from ...._model_state import _term_blocks_seq
 from ..basics import _project_to_bounds
 from .rollback import _criterion_infinite_sp_signal
 
@@ -3368,7 +3371,7 @@ def _snap_gaussian_random_effect_boundary(
     if str(getattr(getattr(model, "family", None), "name", "")).lower() != "gaussian":
         return result
 
-    term_blocks = getattr(model, "term_blocks_", None) or ()
+    term_blocks = _term_blocks_seq(model)
     if not any(
         str(getattr(tb, "term_type", "")).lower() == "random_effect"
         for tb in term_blocks
@@ -3568,7 +3571,7 @@ def _stabilize_factor_smooth_shared_ridge(
     full_to_free = {int(full): int(i) for i, full in enumerate(free_to_full)}
 
     fs_groups = []
-    for tb in getattr(model, "term_blocks_", None) or ():
+    for tb in _term_blocks_seq(model):
         if str(getattr(tb, "term_type", "")).lower() != "factor_smooth_fs":
             continue
         group = sorted(

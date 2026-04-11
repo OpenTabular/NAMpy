@@ -22,6 +22,8 @@ def supports_criterion_hessian(model, method):
     backend = resolve_ml_reml_scoring_backend(model, method=method)
     if backend == "gaussian_dynamic" and method in {"reml", "laml"}:
         return True
+    if backend == "general_fit5":
+        return True
     if (
         backend == "pirls_laplace"
         and method in {"reml", "laml", "ml"}

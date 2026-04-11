@@ -47,12 +47,14 @@ from .fit import (
     fit_model_core,
     solve_fit,
 )
+from .model import GAM
 
 __all__ = [
     "families",
     "fit",
     "parity",
     "smoothing_selection",
+    "GAM",
     "fit_model_core",
     "solve_fit",
     "FitCoreSolution",

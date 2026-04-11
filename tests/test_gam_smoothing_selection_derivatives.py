@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from nampy.basemodels.gam import GAM
+from nampy.gam import GAM
 from nampy.gam.smoothing_selection.criteria import _penalty_derivative_matrices
 
 

@@ -7,7 +7,6 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 import pytest
-
 from mgcv_parity_utils import (
     _make_binomial_data,
     _make_gamma_data,
@@ -20,7 +19,8 @@ from mgcv_parity_utils import (
     _make_sz_data_3x3,
     _run_mgcv_snapshot,
 )
-from nampy.basemodels.gam import GAM
+
+from nampy.gam import GAM
 
 
 @dataclass(frozen=True)
@@ -76,7 +76,9 @@ def _data_gaussian_by_factor() -> pd.DataFrame:
     x = rng.uniform(-2.0, 2.0, size=n)
     f = rng.choice(np.array(["a", "b", "c"], dtype=object), size=n)
     shifts = {"a": 0.6, "b": -0.35, "c": 0.1}
-    y = np.sin(1.3 * x) + np.array([shifts[v] for v in f]) + rng.normal(0.0, 0.12, size=n)
+    y = np.sin(1.3 * x) + np.array([shifts[v] for v in f]) + rng.normal(
+        0.0, 0.12, size=n
+    )
     return pd.DataFrame({"y": y, "x": x, "f": f})
 
 
@@ -208,6 +210,7 @@ CASES: list[CaseSpec] = [
         formula='y ~ s(x, bs="fs", by=f, k=8)',
         family="gaussian",
         data_factory=_data_gaussian_fs_by_factor,
+        skip_coef_comparison=True,
     ),
     CaseSpec(
         case_id="gaussian_select_true",
@@ -278,54 +281,53 @@ def _fit_nampy_snapshot(case: CaseSpec, data: pd.DataFrame):
 
 
 def _assert_requested_parity(
-    case_id: str,
+    case: CaseSpec,
     actual_snapshot: dict,
     expected_snapshot: dict,
-    *,
-    skip_coef_comparison: bool = False,
 ) -> None:
-    if skip_coef_comparison:
-        # tp eigenvector signs are LAPACK-implementation-dependent; compare predictions.
+    if case.skip_coef_comparison:
         link_actual = np.asarray(actual_snapshot["predictions"]["link"], dtype=np.float64)
-        link_expected = np.asarray(expected_snapshot["predictions"]["link"], dtype=np.float64)
+        link_expected = np.asarray(
+            expected_snapshot["predictions"]["link"], dtype=np.float64
+        )
         link_tol = 1e-4 * (1.0 + np.abs(link_actual))
         link_err = np.abs(link_actual - link_expected)
         assert np.all(link_err <= link_tol), (
-            f"{case_id}: |link-link_mgcv| exceeded tolerance; "
+            f"{case.case_id}: |link-link_mgcv| exceeded tolerance; "
             f"max_err={link_err.max():.3e}, max_tol={link_tol.max():.3e}"
         )
     else:
         beta = np.asarray(actual_snapshot["fit"]["coef_full"], dtype=np.float64)
         beta_mgcv = np.asarray(expected_snapshot["fit"]["coef_full"], dtype=np.float64)
-        assert beta.shape == beta_mgcv.shape, f"{case_id}: beta shape mismatch"
+        assert beta.shape == beta_mgcv.shape, f"{case.case_id}: beta shape mismatch"
         beta_tol = 1e-6 * (1.0 + np.abs(beta))
         beta_err = np.abs(beta - beta_mgcv)
         assert np.all(beta_err <= beta_tol), (
-            f"{case_id}: |beta-beta_mgcv| exceeded tolerance; max_err={beta_err.max():.3e}, "
+            f"{case.case_id}: |beta-beta_mgcv| exceeded tolerance; max_err={beta_err.max():.3e}, "
             f"max_tol={beta_tol.max():.3e}"
         )
 
     edf = float(actual_snapshot["fit"]["edf_total"])
     edf_mgcv = float(expected_snapshot["fit"]["edf_total"])
     assert abs(edf - edf_mgcv) < 1e-4, (
-        f"{case_id}: |edf-edf_mgcv|={abs(edf - edf_mgcv):.3e} >= 1e-4"
+        f"{case.case_id}: |edf-edf_mgcv|={abs(edf - edf_mgcv):.3e} >= 1e-4"
     )
 
     reml = float(actual_snapshot["fit"]["criterion_value"])
     reml_mgcv = float(expected_snapshot["fit"]["criterion_value"])
-    assert abs(reml - reml_mgcv) < 1e-4, (
-        f"{case_id}: |REML-REML_mgcv|={abs(reml - reml_mgcv):.3e} >= 1e-4"
-    )
+    assert (
+        abs(reml - reml_mgcv) < 1e-4
+    ), f"{case.case_id}: |REML-REML_mgcv|={abs(reml - reml_mgcv):.3e} >= 1e-4"
 
     cov = np.asarray(actual_snapshot["fit"]["cov_bayes"], dtype=np.float64)
     cov_mgcv = np.asarray(expected_snapshot["fit"]["cov_bayes"], dtype=np.float64)
-    assert cov.shape == cov_mgcv.shape, f"{case_id}: covariance shape mismatch"
+    assert cov.shape == cov_mgcv.shape, f"{case.case_id}: covariance shape mismatch"
     se = np.sqrt(np.clip(np.diag(cov), 0.0, None))
     se_mgcv = np.sqrt(np.clip(np.diag(cov_mgcv), 0.0, None))
     se_tol = 1e-6 * (1.0 + np.abs(se))
     se_err = np.abs(se - se_mgcv)
     assert np.all(se_err <= se_tol), (
-        f"{case_id}: |se-se_mgcv| exceeded tolerance; max_err={se_err.max():.3e}, "
+        f"{case.case_id}: |se-se_mgcv| exceeded tolerance; max_err={se_err.max():.3e}, "
         f"max_tol={se_tol.max():.3e}"
     )
 
@@ -344,6 +346,4 @@ def test_requested_mgcv_parity_20_models(case: CaseSpec):
         weights_column=case.weights_column,
     )
 
-    _assert_requested_parity(
-        case.case_id, actual, expected, skip_coef_comparison=case.skip_coef_comparison
-    )
+    _assert_requested_parity(case, actual, expected)

@@ -518,33 +518,51 @@ def _stabilize_factor_smooth_shared_ridge(
     score_work = base_score
 
     for group in fs_groups:
-        local = x_work.copy()
-        local_best = local.copy()
+        local_best = x_work.copy()
         local_best_score = score_work
-        total_shift = 0.0
 
-        while total_shift + log_step <= max_shift + 1e-12:
-            trial = local.copy()
-            stop = False
-            for j in group:
-                hi = float(bounds[j][1])
-                trial[j] = min(hi, trial[j] + float(log_step))
-                if trial[j] <= local[j] + 1e-12:
-                    stop = True
-            if stop:
-                break
+        for direction in (-1.0, 1.0):
+            local = x_work.copy()
+            total_shift = 0.0
 
-            trial = _project_to_bounds(trial, bounds)
-            trial_score = float(objective.fun(trial))
-            if not np.isfinite(trial_score) or trial_score > base_score + score_tol:
-                break
+            while total_shift + log_step <= max_shift + 1e-12:
+                trial = local.copy()
+                stop = False
+                for j in group:
+                    bound = (
+                        float(bounds[j][0]) if direction < 0.0 else float(bounds[j][1])
+                    )
+                    trial[j] = trial[j] + direction * float(log_step)
+                    if direction < 0.0:
+                        trial[j] = max(bound, trial[j])
+                        if trial[j] >= local[j] - 1e-12:
+                            stop = True
+                    else:
+                        trial[j] = min(bound, trial[j])
+                        if trial[j] <= local[j] + 1e-12:
+                            stop = True
+                if stop:
+                    break
 
-            local = trial
-            local_best = trial.copy()
-            local_best_score = trial_score
-            total_shift += float(log_step)
+                trial = _project_to_bounds(trial, bounds)
+                trial_score = float(objective.fun(trial))
+                if not np.isfinite(trial_score) or trial_score > base_score + score_tol:
+                    break
 
-        if np.any(local_best[group] > x_work[group] + 1e-12):
+                local = trial
+                total_shift += float(log_step)
+                if (
+                    trial_score + 1e-12 < local_best_score
+                    or (
+                        abs(trial_score - local_best_score) <= score_tol
+                        and float(np.mean(trial[group]))
+                        < float(np.mean(local_best[group])) - 1e-12
+                    )
+                ):
+                    local_best = trial.copy()
+                    local_best_score = trial_score
+
+        if np.any(np.abs(local_best[group] - x_work[group]) > 1e-12):
             x_work = local_best
             score_work = local_best_score
             improved = True

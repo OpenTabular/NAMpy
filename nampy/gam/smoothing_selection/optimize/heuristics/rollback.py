@@ -283,3 +283,43 @@ def _accept_tiny_step_line_search_result(objective, result, *, step_tol=1e-7):
     result.hess = np.asarray(objective.hess(x), dtype=np.float64)
     result.tiny_step_line_search_accepted = True
     return result
+
+
+def _accept_stationary_abnormal_result(
+    objective,
+    result,
+    *,
+    grad_tol=1e-6,
+):
+    if bool(getattr(result, "success", False)):
+        return result
+
+    message = str(getattr(result, "message", ""))
+    if "ABNORMAL" not in message.upper():
+        return result
+
+    x = np.asarray(getattr(result, "x", ()), dtype=np.float64).ravel()
+    if x.size == 0 or not np.all(np.isfinite(x)):
+        return result
+
+    score = float(objective.fun(x))
+    if not np.isfinite(score):
+        return result
+
+    jac = np.asarray(getattr(result, "jac", objective.jac(x)), dtype=np.float64).ravel()
+    if jac.shape != x.shape or not np.all(np.isfinite(jac)):
+        return result
+
+    score_scale = 1.0 + abs(score)
+    jac_inf = float(np.linalg.norm(jac, ord=np.inf))
+    if jac_inf > score_scale * float(grad_tol):
+        return result
+
+    result.success = True
+    result.status = 0
+    result.message = "Accepted stationary endpoint after L-BFGS-B abnormal termination."
+    result.fun = score
+    result.jac = np.asarray(objective.jac(x), dtype=np.float64)
+    result.hess = np.asarray(objective.hess(x), dtype=np.float64)
+    result.stationary_abnormal_accepted = True
+    return result

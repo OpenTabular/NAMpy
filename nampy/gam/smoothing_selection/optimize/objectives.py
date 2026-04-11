@@ -20,6 +20,44 @@ except Exception:  # pragma: no cover
     _approx_derivative = None
 
 
+def _safe_scalar_fd_gradient(fun, x, *, eps_abs=1e-6, eps_rel=1e-6):
+    """Finite-difference gradient that avoids SciPy _numdiff warnings on non-finite probes."""
+    x = np.asarray(x, dtype=np.float64).ravel()
+    if x.size == 0:
+        return np.empty((0,), dtype=np.float64)
+
+    f0 = float(fun(x))
+    grad = np.zeros_like(x, dtype=np.float64)
+    steps = np.maximum(float(eps_abs), float(eps_rel) * (1.0 + np.abs(x)))
+
+    for j, h0 in enumerate(steps):
+        h = float(h0)
+        g_j = None
+        for _ in range(8):
+            xp = x.copy()
+            xm = x.copy()
+            xp[j] += h
+            xm[j] -= h
+
+            fp = float(fun(xp))
+            fm = float(fun(xm))
+
+            if np.isfinite(fp) and np.isfinite(fm):
+                g_j = (fp - fm) / (2.0 * h)
+                break
+            if np.isfinite(fp) and np.isfinite(f0):
+                g_j = (fp - f0) / h
+                break
+            if np.isfinite(fm) and np.isfinite(f0):
+                g_j = (f0 - fm) / h
+                break
+            h *= 0.5
+
+        grad[j] = 0.0 if g_j is None or not np.isfinite(g_j) else float(g_j)
+
+    return grad
+
+
 class _CriterionObjective:
     def __init__(self, model, y, method, use_gradient):
         self.model = model
@@ -180,12 +218,7 @@ class _JointGaussianRemlObjective:
         x = np.asarray(x, dtype=np.float64).ravel()
         self.n_jac += 1
         if self.backend == "gaussian_exact":
-            if _approx_derivative is None:
-                return None
-            return np.asarray(
-                _approx_derivative(self._raw_fun, x, method="2-point"),
-                dtype=np.float64,
-            )
+            return np.asarray(_safe_scalar_fd_gradient(self._raw_fun, x), dtype=np.float64)
         g = criterion_gradient_ml_reml_gaussian_dynamic_joint(
             self.model,
             self.y,

@@ -25,6 +25,7 @@ from .basics import (
 )
 from .heuristics.rollback import (
     _accept_flat_boundary_result,
+    _accept_stationary_abnormal_result,
     _accept_tiny_step_line_search_result,
     _rollback_working_infinite_smoothing_params,
 )
@@ -614,9 +615,10 @@ def optimize_smoothing_params(
             j_obj.record_iter(xk, step_norm)
             callback_state["last_x"] = xk.copy()
 
-        # `gaussian_exact` uses finite-difference gradients in `jac`; omitting `jac`
-        # often matches reference software more closely on ill-scaled (log sp, log sigma^2) steps.
-        use_jac = str(ml_reml_backend) != "gaussian_exact"
+        # Provide a local finite-difference `jac` even for `gaussian_exact` so
+        # SciPy does not invoke its internal `_numdiff` path on ill-scaled joint
+        # (log sp, log sigma^2) probes.
+        use_jac = True
         joint_options = (
             {"maxfun": 50000, "ftol": 1e-14, "gtol": 1e-14}
             if str(ml_reml_backend) == "gaussian_exact"
@@ -867,43 +869,63 @@ def optimize_smoothing_params(
                 fs_shift_by_group = []
 
                 for group in fs_groups:
-                    local = x_sp_work.copy()
-                    local_best = local.copy()
+                    local_best = x_sp_work.copy()
                     local_best_log_s2 = float(log_s2_work)
                     local_best_score = float(score_work)
-                    total_shift = 0.0
                     log_step = 0.25
                     max_shift = 4.0
 
-                    while total_shift + log_step <= max_shift + 1e-12:
-                        trial = local.copy()
-                        stop = False
-                        for j in group:
-                            hi = float(bounds[j][1])
-                            trial[j] = min(hi, trial[j] + log_step)
-                            if trial[j] <= local[j] + 1e-12:
-                                stop = True
-                        if stop:
-                            break
+                    for direction in (-1.0, 1.0):
+                        local = x_sp_work.copy()
+                        total_shift = 0.0
 
-                        trial_fun, trial_log_s2, trial_ok = _joint_exact_refine_sigma2(
-                            trial
-                        )
-                        if (
-                            (not trial_ok)
-                            or (not np.isfinite(trial_fun))
-                            or trial_fun > float(result_joint.fun) + score_tol
-                        ):
-                            break
+                        while total_shift + log_step <= max_shift + 1e-12:
+                            trial = local.copy()
+                            stop = False
+                            for j in group:
+                                bound = (
+                                    float(bounds[j][0])
+                                    if direction < 0.0
+                                    else float(bounds[j][1])
+                                )
+                                trial[j] = trial[j] + direction * log_step
+                                if direction < 0.0:
+                                    trial[j] = max(bound, trial[j])
+                                    if trial[j] >= local[j] - 1e-12:
+                                        stop = True
+                                else:
+                                    trial[j] = min(bound, trial[j])
+                                    if trial[j] <= local[j] + 1e-12:
+                                        stop = True
+                            if stop:
+                                break
 
-                        local = trial
-                        local_best = trial.copy()
-                        local_best_log_s2 = float(trial_log_s2)
-                        local_best_score = float(trial_fun)
-                        total_shift += log_step
+                            trial_fun, trial_log_s2, trial_ok = (
+                                _joint_exact_refine_sigma2(trial)
+                            )
+                            if (
+                                (not trial_ok)
+                                or (not np.isfinite(trial_fun))
+                                or trial_fun > float(result_joint.fun) + score_tol
+                            ):
+                                break
+
+                            local = trial
+                            total_shift += log_step
+                            if (
+                                trial_fun + 1e-12 < local_best_score
+                                or (
+                                    abs(trial_fun - local_best_score) <= score_tol
+                                    and float(np.mean(trial[group]))
+                                    < float(np.mean(local_best[group])) - 1e-12
+                                )
+                            ):
+                                local_best = trial.copy()
+                                local_best_log_s2 = float(trial_log_s2)
+                                local_best_score = float(trial_fun)
 
                     shift_vec = (local_best - x_sp_work)[group]
-                    if np.any(shift_vec > 1e-12):
+                    if np.any(np.abs(shift_vec) > 1e-12):
                         x_sp_work = local_best
                         log_s2_work = local_best_log_s2
                         score_work = local_best_score
@@ -1229,6 +1251,10 @@ def optimize_smoothing_params(
             bounds=bounds,
         )
     result = _accept_tiny_step_line_search_result(
+        objective=objective,
+        result=result,
+    )
+    result = _accept_stationary_abnormal_result(
         objective=objective,
         result=result,
     )

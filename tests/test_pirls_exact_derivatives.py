@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from mgcv_parity_utils import _make_binomial_data, _make_gamma_data, _make_poisson_data
 
-from nampy.basemodels.gam import GAM
+from nampy.gam import GAM
 from nampy.gam.smoothing_selection.criteria.dispatch import (
     criterion_gradient,
     criterion_gradient_numerical,

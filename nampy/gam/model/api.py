@@ -1,13 +1,15 @@
-# basemodels/gam.py
-"""User-facing classical GAM backend built on the general smooth-model core."""
+"""User-facing mgcv-aligned GAM model."""
+
 import pickle
 
 import numpy as np
 import pandas as pd
 
-from ..gam.families import make_gam_family
-from ..gam.model import _GAMDataMixin, _GAMSolveMixin, _GAMSpecsMixin
-from ..gam.parity import build_parity_snapshot
+from ..families import make_gam_family
+from ..parity import build_parity_snapshot
+from .gam_data import _GAMDataMixin
+from .gam_solve import _GAMSolveMixin
+from .gam_specs import _GAMSpecsMixin
 
 
 class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
@@ -43,9 +45,7 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         self.smoothing_optimizer = str(
             self.hparams.get("smoothing_optimizer", "lbfgsb")
         ).lower()
-        self.sp_log_bounds = tuple(
-            self.hparams.get("sp_log_bounds", (-80.0, 20.0))
-        )
+        self.sp_log_bounds = tuple(self.hparams.get("sp_log_bounds", (-80.0, 20.0)))
         self.score_gamma = float(self.hparams.get("score_gamma", 1.0))
         self.covariance = str(self.hparams.get("covariance", "bayes")).lower()
         self.select = bool(self.hparams.get("select", False))
@@ -98,8 +98,10 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         self.rss_ = None
         self.deviance_ = None
         self.edf_by_term_ = None
+        self.edf2_ = None
         self.Vp_ = None
         self.Vf_ = None
+        self.Vc_ = None
         self._fitted = False
         self._optim_method = None
         self._optim_result = None
@@ -109,6 +111,27 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         self.smoothing_score_ = None
         self.result_ = None
         self.side_condition_reports_ = None
+        self._predictor_full_slices_ = None
+        self._coef_reduced_to_full_idx = None
+
+    def _general_family_link_prediction(self, X_np):
+        eta_cols = []
+        for pred, sl in zip(self.predictor_designs, self._predictor_full_slices_):
+            Zp = (
+                np.asarray(pred.design_matrix, dtype=np.float64)
+                if X_np is None
+                else np.asarray(pred.build_new_matrix(X_np), dtype=np.float64)
+            )
+            if bool(pred.has_intercept):
+                Xp = np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp])
+            else:
+                Xp = Zp
+            eta_cols.append(Xp @ np.asarray(self.coef_full_[sl], dtype=np.float64))
+        return (
+            np.column_stack(eta_cols)
+            if eta_cols
+            else np.empty((0, 0), dtype=np.float64)
+        )
 
     # ------------------------------------------------------------------
     # Persistence
@@ -268,7 +291,7 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         self.result_ = None
         self.side_condition_reports_ = None
 
-        from ..gam.fit.orchestrator import fit_model_core
+        from ..fit.orchestrator import fit_model_core
 
         fit_model_core(
             X=X_np,
@@ -301,7 +324,7 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         return self.result_
 
     def _select_cov(self, cov):
-        from ..gam.fit.covariance import select_covariance_matrix
+        from ..fit.covariance import select_covariance_matrix
 
         return select_covariance_matrix(self, cov=cov)
 
@@ -311,10 +334,36 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         return build_parity_snapshot(self, X=X, include_covariances=include_covariances)
 
     def predict(self, X=None, return_se=False, cov=None, type="response", offset=None):
-        from ..gam.predict import predict_values
+        from ..predict import predict_values
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
+
+        if getattr(self.family, "family_class", "") == "general":
+            if return_se:
+                raise NotImplementedError(
+                    "return_se=True is not yet implemented for general families."
+                )
+            if offset is not None:
+                raise NotImplementedError(
+                    "Prediction offsets are not yet implemented for general families."
+                )
+
+            if X is None:
+                X_np = None
+            elif self.formula_mode_:
+                X_np, _, _ = self._coerce_formula_predict_inputs(X)
+            else:
+                X_np, _ = self._coerce_X(X)
+
+            eta = self._general_family_link_prediction(X_np)
+            if str(type).lower() == "link":
+                return eta
+            if str(type).lower() == "response":
+                return np.asarray(self.family.predict(eta=eta), dtype=np.float64)
+            raise NotImplementedError(
+                "General-family prediction currently supports type='link' and type='response'."
+            )
 
         if X is None:
             offset_use = None
@@ -349,7 +398,7 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         )
 
     def predict_feature_vals(self, X=None, offset=None):
-        from ..gam.predict import predict_values
+        from ..predict import predict_values
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
@@ -386,7 +435,7 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         return out
 
     def lpmatrix(self, X):
-        from ..gam.predict import build_lpmatrix
+        from ..predict import build_lpmatrix
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
@@ -399,7 +448,7 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         return build_lpmatrix(self, X_new=X_np)
 
     def plot(self, X=None, y=None, n_cols=2, figsize=None):
-        from ..gam.diagnostics import plot_gam_terms
+        from ..diagnostics import plot_gam_terms
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
@@ -414,29 +463,29 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         return plot_gam_terms(self, X=X_np, n_cols=n_cols, figsize=figsize)
 
     def summary(self):
-        from ..gam.diagnostics import print_summary
+        from ..diagnostics import print_summary
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
         return print_summary(self)
 
     def residuals(self, type="deviance"):
-        from ..gam.diagnostics import residuals_gam
+        from ..diagnostics import residuals_gam
 
         return residuals_gam(self, type=type)
 
     def concurvity(self, full=True):
-        from ..gam.diagnostics import concurvity
+        from ..diagnostics import concurvity
 
         return concurvity(self, full=full)
 
     def k_check(self, subsample=5000, n_rep=400, seed=None):
-        from ..gam.diagnostics import k_check
+        from ..diagnostics import k_check
 
         return k_check(self, subsample=subsample, n_rep=n_rep, seed=seed)
 
     def gam_check(self, *, type="deviance", k_sample=5000, k_rep=200, seed=None):
-        from ..gam.diagnostics import gam_check
+        from ..diagnostics import gam_check
 
         return gam_check(
             self,
@@ -447,22 +496,192 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         )
 
     def sp_vcov(self, edge_correct=True, reg=1e-3):
-        from ..gam.smoothing_selection import sp_vcov
+        from ..smoothing_selection import sp_vcov
 
         return sp_vcov(self, edge_correct=edge_correct, reg=reg)
 
+    def vcov(
+        self,
+        *,
+        sandwich: bool = False,
+        freq: bool = False,
+        dispersion: float | None = None,
+        unconditional: bool = False,
+    ):
+        """
+        Extract mgcv-style coefficient covariance matrix.
+
+        Mirrors mgcv ``vcov.gam`` in mgcv/R/mgcv.r.
+        """
+        if sandwich:
+            B2 = (
+                np.zeros_like(np.asarray(self.Vp_, dtype=np.float64))
+                if freq
+                else (
+                    np.asarray(self.Vp_, dtype=np.float64)
+                    - np.asarray(self.Vf_, dtype=np.float64)
+                )
+            )
+            X = np.asarray(self.fit_state_.X, dtype=np.float64)
+            m = float(X.shape[0])
+            m = m / (m - float(np.sum(np.asarray(self.edf_, dtype=np.float64))))
+
+            family_class = str(getattr(self.family, "family_class", "")).lower()
+            if family_class == "general":
+                if not hasattr(self.family, "sandwich"):
+                    raise RuntimeError(
+                        "Sandwich covariance matrix is not available for this general family."
+                    )
+                jj = [
+                    np.arange(sl.start, sl.stop, dtype=int)
+                    for sl in (self._predictor_full_slices_ or [])
+                ]
+                offset = (
+                    None
+                    if self.offset_train_ is None
+                    else [np.asarray(self.offset_train_, dtype=np.float64)]
+                    + [None] * (len(jj) - 1)
+                )
+                fill = np.asarray(
+                    self.family.sandwich(
+                        np.asarray(self.y_, dtype=np.float64),
+                        X,
+                        jj,
+                        np.asarray(self.coef_full_, dtype=np.float64),
+                        (
+                            None
+                            if self.prior_weights_ is None
+                            else np.asarray(self.prior_weights_, dtype=np.float64)
+                        ),
+                        offset=offset,
+                    ),
+                    dtype=np.float64,
+                )
+                vc = (
+                    m
+                    * np.asarray(self.Vp_, dtype=np.float64)
+                    @ fill
+                    @ np.asarray(self.Vp_, dtype=np.float64)
+                    + B2
+                )
+            elif family_class == "extended":
+                raise RuntimeError(
+                    "Sandwich covariance matrix is not implemented for this extended family."
+                )
+            else:
+                eta = np.asarray(self._fitted_eta, dtype=np.float64).ravel()
+                mu = np.asarray(self._fitted_mu, dtype=np.float64).ravel()
+                w = (
+                    self.family.mu_eta(eta)
+                    * (np.asarray(self.y_, dtype=np.float64).ravel() - mu)
+                    / (
+                        float(self.scale_)
+                        * self.family.variance(mu)
+                    )
+                )
+                WX = np.asarray(w[:, None] * X, dtype=np.float64)
+                vc = (
+                    m
+                    * np.asarray(self.Vp_, dtype=np.float64)
+                    @ (WX.T @ WX)
+                    @ np.asarray(self.Vp_, dtype=np.float64)
+                    + B2
+                )
+
+            vc = np.asarray(vc, dtype=np.float64).copy()
+            if dispersion is not None:
+                vc *= float(dispersion) / float(self.scale_)
+            return vc
+
+        if freq:
+            vc = self.Vf_
+        else:
+            vc = self.Vc_ if unconditional and self.Vc_ is not None else self.Vp_
+
+        if vc is None:
+            raise RuntimeError("Requested covariance matrix is not available.")
+
+        vc = np.asarray(vc, dtype=np.float64).copy()
+        if dispersion is not None:
+            vc *= float(dispersion) / float(self.scale_)
+        return vc
+
+    def _mgcv_loglik_df(self) -> float:
+        """
+        mgcv-style effective df used by ``logLik.gam`` / AIC / BIC.
+
+        Mirrors mgcv ``logLik.gam`` in mgcv/R/mgcv.r.
+        """
+        sc_p = 1.0 if getattr(self.family, "known_scale", None) is None else 0.0
+        if self.edf2_ is not None:
+            p = float(np.sum(np.asarray(self.edf2_, dtype=np.float64))) + sc_p
+        else:
+            p = float(self.edf_) + sc_p
+        np_max = float(len(np.asarray(self.coef_full_, dtype=np.float64))) + sc_p
+        return min(p, np_max)
+
+    def loglik(self) -> float:
+        """
+        Unpenalized fitted log-likelihood at penalized MLE.
+
+        Mirrors mgcv ``logLik.gam`` value semantics.
+        """
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+
+        if getattr(self.family, "family_class", "") == "general":
+            X = np.asarray(self.fit_state_.X, dtype=np.float64)
+            jj = [
+                np.arange(sl.start, sl.stop, dtype=int)
+                for sl in (self._predictor_full_slices_ or [])
+            ]
+            ll = self.family.ll(
+                np.asarray(self.y_, dtype=np.float64),
+                X,
+                jj,
+                np.asarray(self.coef_full_, dtype=np.float64),
+                np.asarray(self.prior_weights_, dtype=np.float64),
+                offset=(
+                    None
+                    if self.offset_train_ is None
+                    else [np.asarray(self.offset_train_, dtype=np.float64)]
+                    + [None] * (len(jj) - 1)
+                ),
+                deriv=0,
+            )
+            return float(ll["l"])
+
+        eta = self.predict(X=None, type="link")
+        mu = self.family.inverse_link(eta)
+        return float(
+            self.family.loglik(
+                np.asarray(self.y_, dtype=np.float64),
+                np.asarray(mu, dtype=np.float64),
+                scale=float(self.scale_),
+            )
+        )
+
+    def aic(self) -> float:
+        """mgcv-style conditional AIC based on effective df."""
+        return float(-2.0 * self.loglik() + 2.0 * self._mgcv_loglik_df())
+
+    def bic(self) -> float:
+        """BIC using mgcv-style effective df."""
+        n_obs = float(len(np.asarray(self.y_, dtype=np.float64)))
+        return float(-2.0 * self.loglik() + np.log(n_obs) * self._mgcv_loglik_df())
+
     def gam_vcomp(self, *, rescale=False, conf_lev=0.95):
-        from ..gam.smoothing_selection import gam_vcomp
+        from ..smoothing_selection import gam_vcomp
 
         return gam_vcomp(self, rescale=rescale, conf_lev=conf_lev)
 
     def one_se_rule(self, candidate_indices=None):
-        from ..gam.smoothing_selection import one_se_rule
+        from ..smoothing_selection import one_se_rule
 
         return one_se_rule(self, candidate_indices=candidate_indices)
 
     def anova(self, *models, dispersion=None, test=None, freq=False):
-        from ..gam.inference import anova_gam
+        from ..inference import anova_gam
 
         return anova_gam(
             self,

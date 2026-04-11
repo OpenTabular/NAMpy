@@ -9,6 +9,7 @@ from .exponential import (
     PoissonLogFamily,
 )
 from .family_base import BaseFamily, ExtendedFamily, GeneralFamily, GLMFamily
+from .gamlss import GammalsFamily, GaulssFamily, GevlssFamily, ShashlssFamily, ZiplssFamily, gammals, gaulss, gevlss, shashlss, ziplss
 from .registry import make_gam_family
 
 __all__ = [
@@ -25,4 +26,15 @@ __all__ = [
     "GammaInverseFamily",
     "NegativeBinomialLogFamily",
     "make_gam_family",
+    # GAMLSS families
+    "GaulssFamily",
+    "gaulss",
+    "GammalsFamily",
+    "gammals",
+    "ZiplssFamily",
+    "ziplss",
+    "GevlssFamily",
+    "gevlss",
+    "ShashlssFamily",
+    "shashlss",
 ]

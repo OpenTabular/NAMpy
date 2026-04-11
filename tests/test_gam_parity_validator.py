@@ -4,7 +4,7 @@ from pathlib import Path
 
 from mgcv_parity_utils import _make_gaussian_data
 
-from nampy.basemodels.gam import GAM
+from nampy.gam import GAM
 from nampy.gam._mgcv_constants import (
     EIG_TOL_POWER,
     FAMILY_EPS,

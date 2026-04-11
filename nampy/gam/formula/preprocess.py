@@ -7,7 +7,13 @@ from dataclasses import replace
 import numpy as np
 import pandas as pd
 
-from ..specs import LinearPredictorSpec, TermSpec, replace_smooth_spec
+from ..specs import (
+    LinearPredictorSpec,
+    TermSpec,
+    build_smooth_spec,
+    replace_smooth_spec,
+)
+from ..specs.smooth import FactorSmoothInteractionSpec
 
 
 def is_factor_like_series(s: pd.Series) -> bool:
@@ -203,6 +209,56 @@ def expand_factor_by_term(
             f"not for {smooth_spec.special}(...)."
         )
 
+    if isinstance(smooth_spec, FactorSmoothInteractionSpec):
+        has_factor_feature = any(
+            feature in data_work.columns and is_factor_like_series(data_work[feature])
+            for feature in term.features
+        )
+        if not has_factor_feature:
+            xt = smooth_spec.xt
+            base_bs = "tp"
+            base_k = smooth_spec.k
+            base_m = None
+            base_xt = None
+            if isinstance(xt, str):
+                base_bs = str(xt).lower()
+            elif isinstance(xt, dict):
+                base_bs = str(xt.get("bs", "tp")).lower()
+                xt_rest = {k: v for k, v in xt.items() if k != "bs"}
+                base_k = xt_rest.pop("k", base_k)
+                base_m = xt_rest.pop("m", None)
+                base_xt = xt_rest or None
+                if base_bs not in {"tp", "ts", "gp"}:
+                    base_xt = None
+
+            new_meta = dict(term.metadata)
+            new_meta["fs_base_by_fallback"] = {
+                "source_by": by_name,
+                "base_bs": base_bs,
+            }
+            term = replace(
+                term,
+                smooth_spec=build_smooth_spec(
+                    special="s",
+                    bs=base_bs,
+                    k=base_k,
+                    fx=smooth_spec.fx,
+                    select=smooth_spec.select,
+                    m=base_m,
+                    xt=base_xt,
+                    sp=smooth_spec.sp,
+                    pc=None,
+                    knots=smooth_spec.knots,
+                    constraint_mode="auto",
+                    shared_basis_setup=None,
+                    mc=None,
+                    full=False,
+                    ord_=None,
+                ),
+                metadata=new_meta,
+            )
+            smooth_spec = term.smooth_spec
+
     cat, levels, ordered = factor_info(by_series)
     if len(levels) == 0:
         return [], hidden_counter
@@ -232,9 +288,7 @@ def expand_factor_by_term(
             replace(
                 term,
                 by_variable=hidden_col,
-                smooth_spec=replace_smooth_spec(
-                    smooth_spec, constraint_mode="factor_by"
-                ),
+                smooth_spec=replace_smooth_spec(smooth_spec, constraint_mode="always"),
                 label=new_label,
                 metadata=new_meta,
             )

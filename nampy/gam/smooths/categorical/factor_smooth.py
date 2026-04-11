@@ -94,6 +94,7 @@ def _build_base_smooth_term(
     xt_rest,
     mode,  # "fs" or "sz"
     select,
+    constraint_mode,
     metadata,
 ):
     """
@@ -131,7 +132,7 @@ def _build_base_smooth_term(
             sp=None,
             select=bool(select),
             fixed=bool(fixed),
-            constraint_mode="never",
+            constraint_mode=str(constraint_mode),
             shared_basis_setup=None,
             pc=None,
             knots=knots,
@@ -154,7 +155,7 @@ def _build_base_smooth_term(
             sp=None,
             select=bool(select),
             fixed=bool(fixed),
-            constraint_mode="never",
+            constraint_mode=str(constraint_mode),
             pc=None,
             knots=knots,
             metadata=metadata,
@@ -173,7 +174,7 @@ def _build_base_smooth_term(
             sp=None,
             select=bool(select),
             fixed=bool(fixed),
-            constraint_mode="never",
+            constraint_mode=str(constraint_mode),
             pc=None,
             knots=knots,
             xt=xt_rest,
@@ -193,7 +194,7 @@ def _build_base_smooth_term(
             sp=None,
             select=bool(select),
             fixed=bool(fixed),
-            constraint_mode="never",
+            constraint_mode=str(constraint_mode),
             pc=None,
             knots=knots,
             xt=xt_rest,
@@ -402,6 +403,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
                 xt_rest=base_spec.xt_rest,
                 mode=mode,
                 select=self.select,
+                constraint_mode=("auto" if mode == "fs" else "never"),
                 metadata=dict(self.metadata),
             )
             base_term.fit(X, feature_names)
@@ -499,6 +501,10 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         X = _as_object_2d(X)
 
         base_spec = _parse_factor_smooth_xt(self.xt, default_bs="tp")
+        # mgcv::smooth.construct.fs.smooth.spec calls smooth.construct on the
+        # marginal spec without extra side constraints before duplicating by
+        # factor level, so the base smooth must retain its full null space.
+        base_constraint = "never"
         base_term = _build_base_smooth_term(
             metric_features=self._metric_feature_names,
             k=self.k,
@@ -509,6 +515,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             xt_rest=base_spec.xt_rest,
             mode="fs",
             select=False,
+            constraint_mode=base_constraint,
             metadata=dict(self.metadata),
         )
         base_term.fit(X, feature_names)
@@ -541,13 +548,18 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             return self
 
         S0 = np.asarray(base_term.penalties[0], dtype=np.float64)
-        base_rank = int(getattr(base_term, "rank", 0) or 0)
-        if base_rank <= 0:
-            evals = np.linalg.eigvalsh(0.5 * (S0 + S0.T))
-            tol = (np.max(evals) if evals.size else 0.0) * (
-                np.finfo(np.float64).eps ** EIG_TOL_POWER
-            )
-            base_rank = int(np.sum(evals > tol))
+        if isinstance(base_term, PSplineTerm1D) and len(base_term.penalties) > 0:
+            # mgcv::smooth.construct.ps.smooth.spec: rank <- bs.dim - m[2]
+            penalty_order = int(base_term.m[1])
+            base_rank = max(0, int(B0.shape[1]) - penalty_order)
+        else:
+            base_rank = int(getattr(base_term, "rank", 0) or 0)
+            if base_rank <= 0:
+                evals = np.linalg.eigvalsh(0.5 * (S0 + S0.T))
+                tol = (np.max(evals) if evals.size else 0.0) * (
+                    np.finfo(np.float64).eps ** EIG_TOL_POWER
+                )
+                base_rank = int(np.sum(evals > tol))
 
         # mgcv uses nat.param(X, S, rank, type=1): eigendecompose R^{-T} S R^{-1}
         # (R from QR of X) and normalise the range space to an identity penalty.
@@ -744,6 +756,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             xt_rest=base_spec.xt_rest,
             mode="sz",
             select=False,
+            constraint_mode="never",
             metadata=dict(self.metadata),
         )
         base_term.fit(X, feature_names)

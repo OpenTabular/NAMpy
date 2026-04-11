@@ -168,6 +168,12 @@ def _stacked_penalized_ls_nonneg_solution(
         system_rank -= 1
         rcond = _upper_r_condition_indicator(r_rank_econ, system_rank)
 
+    # Rank detection uses the balanced template rows (`penalty_rank_rows`) for
+    # numerical stability, but the actual coefficient solve uses the concrete
+    # penalty square root (`penalty_sqrt`). The carried rank cannot exceed the
+    # row count of that real augmented system.
+    system_rank = min(system_rank, n_wx_econ + n_penalty_rows)
+
     if n_coef_total > system_rank:
         dropped_column_indices = np.sort(
             np.asarray(

@@ -11,6 +11,10 @@ Top-level dispatch for smoothing_selection-selection criterion value, gradient, 
 
 import numpy as np
 
+from ...fit.solvers.general_fit5 import (
+    criterion_gradient_ml_reml_general_fit5,
+    criterion_hessian_ml_reml_general_fit5,
+)
 from .gaussian import criterion_gcv_gaussian
 from .gaussian_dyn import _gaussian_dynamic_reml_derivative_terms
 from .laplace import _penalty_derivative_matrices
@@ -161,6 +165,11 @@ def criterion_gradient(
             )
             if bool(out.get("valid", False)):
                 return np.asarray(out["grad"], dtype=np.float64)
+        if backend == "general_fit5":
+            exact_method = "REML" if method in {"reml", "laml"} else "ML"
+            return criterion_gradient_ml_reml_general_fit5(
+                model, y, log_sp, exact_method
+            )
         if (
             backend == "pirls_laplace"
             and (
@@ -301,6 +310,11 @@ def criterion_hessian(
             )
             if bool(out.get("valid", False)):
                 return np.asarray(out["hess"], dtype=np.float64)
+        if backend == "general_fit5":
+            exact_method = "REML" if method in {"reml", "laml"} else "ML"
+            return criterion_hessian_ml_reml_general_fit5(
+                model, y, log_sp, exact_method
+            )
     return criterion_hessian_numerical(
         model,
         y,

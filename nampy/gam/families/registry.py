@@ -9,6 +9,7 @@ from .exponential import (
     PoissonLogFamily,
 )
 from .family_base import BaseFamily
+from .gamlss import gammals, gaulss, gevlss, shashlss, ziplss
 
 _BINOMIAL_LINK_MAP = {
     "logit": BinomialLogitFamily,
@@ -83,8 +84,18 @@ def make_gam_family(family):
         return GammaLogFamily()
     if key in {"negbin", "negativebinomial", "negative_binomial"}:
         return NegativeBinomialLogFamily(theta=1.0)
+    if key in {"gaulss"}:
+        return gaulss()
+    if key in {"gammals"}:
+        return gammals()
+    if key in {"ziplss"}:
+        return ziplss()
+    if key in {"gevlss"}:
+        return gevlss()
+    if key in {"shashlss", "shash"}:
+        return shashlss()
 
     raise ValueError(
         f"Unknown GAM family {family!r}. "
-        "Valid options: gaussian, binomial, poisson, gamma, negbin."
+        "Valid options: gaussian, binomial, poisson, gamma, negbin, gaulss, gammals, ziplss, gevlss, shashlss."
     )

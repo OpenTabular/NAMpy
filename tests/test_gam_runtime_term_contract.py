@@ -197,7 +197,6 @@ def test_factory_supports_select_for_categorical_runtime_terms():
     sz_defs = terms[3].get_penalty_definitions()
     assert any(d.is_null_space_penalty for d in sz_defs)
 
-
 def test_random_effect_term_rejects_linked_ids_with_mgcv_message():
     with pytest.raises(
         NotImplementedError, match=r"random effects don't work with ids\."

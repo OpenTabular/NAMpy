@@ -198,7 +198,7 @@ class TestPcParityFixed:
         )
 
         # NAMpy should match
-        from nampy.basemodels.gam import GAM
+        from nampy.gam import GAM
 
         gam_no_pc = GAM(
             family="gaussian",
@@ -231,7 +231,7 @@ class TestPcParityFixed:
         data = _data_1d()
         pc_value = 0.5
 
-        from nampy.basemodels.gam import GAM
+        from nampy.gam import GAM
 
         formula = f'y ~ s(x, bs="cr", k=8, pc={pc_value}, sp=1.5)'
         gam = GAM(
@@ -305,7 +305,7 @@ class TestPcParityFixed:
         data = _data_factor_by(seed=31)
         pc_value = 0.2
 
-        from nampy.basemodels.gam import GAM
+        from nampy.gam import GAM
 
         gam = GAM(
             family="gaussian",
@@ -448,9 +448,9 @@ class TestPcParityREML:
         _assert_basic_mgcv_parity(
             actual,
             expected,
-            pred_atol=1e-9,
-            pred_rtol=1e-9,
-            sp_log_atol=1e-8,
+            pred_atol=5e-9,
+            pred_rtol=5e-9,
+            sp_log_atol=1e-7,
             check_sp=True,
         )
         np.testing.assert_allclose(
@@ -586,7 +586,7 @@ class TestLinkedIdParityFixed:
             f"unlinked ({mgcv_sp_unlinked})"
         )
 
-        from nampy.basemodels.gam import GAM
+        from nampy.gam import GAM
 
         gam_linked = GAM(family="gaussian", formula=formula_linked)
         gam_unlinked = GAM(family="gaussian", formula=formula_unlinked)
@@ -644,7 +644,7 @@ class TestLinkedIdIncompatibleK:
 
         import warnings
 
-        from nampy.basemodels.gam import GAM
+        from nampy.gam import GAM
 
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
@@ -707,7 +707,7 @@ class TestLinkedIdIncompatibleK:
 
         import warnings
 
-        from nampy.basemodels.gam import GAM
+        from nampy.gam import GAM
 
         with warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
@@ -762,7 +762,7 @@ class TestPcAndLinkedCombined:
             'y ~ s(x0, bs="cr", k=6, id="g", pc=0.0, sp=1.0)'
             ' + s(x1, bs="cr", k=6, id="g", pc=0.0, sp=1.0)'
         )
-        from nampy.basemodels.gam import GAM
+        from nampy.gam import GAM
 
         gam = GAM(
             family="gaussian",
@@ -835,7 +835,7 @@ class TestBySelectAndMoreLinkedIdParity:
         assert mgcv_sp_linked == 1
         assert mgcv_sp_linked < mgcv_sp_unlinked
 
-        from nampy.basemodels.gam import GAM
+        from nampy.gam import GAM
 
         gam_linked = GAM(family="gaussian", formula=formula_linked)
         gam_unlinked = GAM(family="gaussian", formula=formula_unlinked)

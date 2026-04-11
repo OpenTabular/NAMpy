@@ -9,10 +9,12 @@ description = "Interpretable (Additive) Tabular Deep Learning with Neural Additi
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Anton Thielmann", email = "anton.thielmann@tu-clausthal.de"}
+    {name = "Ananyapam De", email = "ananyapam7@tu-clausthal.de"},
+    {name = "Anton Thielmann", email = "anton.thielmann@tu-clausthal.de"},
 ]
 maintainers = [
-    {name = "Anton Thielmann", email = "anton.thielmann@tu-clausthal.de"}
+    {name = "Ananyapam De", email = "ananyapam7@tu-clausthal.de"},
+    {name = "Anton Thielmann", email = "anton.thielmann@tu-clausthal.de"},
 ]
 keywords = [
     "machine learning",

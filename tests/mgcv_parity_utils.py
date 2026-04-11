@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import io
 import json
 import shutil
 import subprocess
@@ -13,7 +15,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.basemodels.gam import GAM
+from nampy.gam import GAM
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _TESTS_DIR = Path(__file__).resolve().parent
@@ -21,6 +23,45 @@ _TESTS_DIR = Path(__file__).resolve().parent
 R_SCRIPT = shutil.which("Rscript")
 MGCV_SNAPSHOT_SCRIPT = _TESTS_DIR / "parity" / "mgcv_snapshot.R"
 MGCV_ANOVA_SCRIPT = _TESTS_DIR / "parity" / "mgcv_anova.R"
+
+# ---------------------------------------------------------------------------
+# mgcv result cache
+# ---------------------------------------------------------------------------
+# R mgcv results are deterministic given the same inputs — cache them so
+# tests only call R once per unique input combination.  Only mgcv outputs are
+# cached; nampy results are never cached.
+_MGCV_CACHE_DIR = _TESTS_DIR / "mgcv_r_cache"
+
+
+def _mgcv_cache_key(fn_name: str, key_parts: dict) -> str:
+    """Return a stable hex digest that identifies a unique mgcv call."""
+    buf = io.StringIO()
+    buf.write(fn_name)
+    buf.write("|")
+    # Sort keys for stability; values are already strings/primitives.
+    buf.write(json.dumps(key_parts, sort_keys=True, default=str))
+    digest = hashlib.sha256(buf.getvalue().encode()).hexdigest()
+    return digest
+
+
+def _mgcv_cache_load(key: str):
+    """Return cached JSON result or None if not cached."""
+    path = _MGCV_CACHE_DIR / f"{key}.json"
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    return None
+
+
+def _mgcv_cache_save(key: str, result) -> None:
+    """Persist mgcv JSON result to cache."""
+    _MGCV_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    path = _MGCV_CACHE_DIR / f"{key}.json"
+    path.write_text(json.dumps(result), encoding="utf-8")
+
+
+def _df_cache_repr(df: pd.DataFrame) -> str:
+    """Deterministic string representation of a DataFrame for cache keying."""
+    return df.to_csv(index=False)
 
 
 def _make_gaussian_data(seed=123, n=180):
@@ -320,10 +361,12 @@ def _family_specs(family):
             return family, f"{key}:{link}"
         return family, key
     key = str(family).lower()
+    if key == "shashlss":
+        return family, "shash"
     return family, key
 
 
-def _normalize_python_formula_text(formula: str) -> str:
+def _normalize_python_formula_text(formula) -> str:
     """Translate Python-style list/bool/null formula syntax into R syntax."""
     out = str(formula)
     out = out.replace("[", "c(")
@@ -343,10 +386,26 @@ def _run_mgcv_snapshot(
     select: bool = False,
     weights_column: str | None = None,
 ):
+    _family_nampy, family_token = _family_specs(family)
+
+    _cache_key = _mgcv_cache_key(
+        "snapshot",
+        {
+            "data": _df_cache_repr(data),
+            "formula": str(formula),
+            "family_token": family_token,
+            "method": method,
+            "select": select,
+            "weights_column": weights_column,
+        },
+    )
+    cached = _mgcv_cache_load(_cache_key)
+    if cached is not None:
+        return cached
+
     if R_SCRIPT is None:
         pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
 
-    _family_nampy, family_token = _family_specs(family)
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
         csv_path = tmpdir_path / "data.csv"
@@ -358,7 +417,7 @@ def _run_mgcv_snapshot(
             str(MGCV_SNAPSHOT_SCRIPT),
             str(csv_path),
             str(json_path),
-            formula,
+            str(formula),
             family_token,
             method,
             "true" if select else "false",
@@ -374,7 +433,10 @@ def _run_mgcv_snapshot(
             text=True,
         )
 
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+
+    _mgcv_cache_save(_cache_key, result)
+    return result
 
 
 def _run_mgcv_anova(
@@ -386,10 +448,26 @@ def _run_mgcv_anova(
     select: bool = False,
     test: str | None = None,
 ):
+    _family_nampy, family_token = _family_specs(family)
+
+    _cache_key = _mgcv_cache_key(
+        "anova",
+        {
+            "data": _df_cache_repr(data),
+            "formulas": list(formulas),
+            "family_token": family_token,
+            "method": method,
+            "select": select,
+            "test": test,
+        },
+    )
+    cached = _mgcv_cache_load(_cache_key)
+    if cached is not None:
+        return cached
+
     if R_SCRIPT is None:
         pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
 
-    _family_nampy, family_token = _family_specs(family)
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
         csv_path = tmpdir_path / "data.csv"
@@ -413,12 +491,15 @@ def _run_mgcv_anova(
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+
+    _mgcv_cache_save(_cache_key, result)
+    return result
 
 
 def _fit_nampy_model(
     data: pd.DataFrame,
-    formula: str,
+    formula,
     family,
     method: str,
     *,
@@ -440,7 +521,7 @@ def _fit_nampy_model(
 
 def _fit_nampy_model_fixed_sp(
     data: pd.DataFrame,
-    formula: str,
+    formula,
     family,
     smoothing_params,
     *,
@@ -477,6 +558,14 @@ def _fit_nampy_snapshot(
 
 
 def _run_mgcv_smoothcon_matrix(data: pd.DataFrame, smooth_expr: str):
+    _cache_key = _mgcv_cache_key(
+        "smoothcon_matrix",
+        {"data": _df_cache_repr(data), "smooth_expr": smooth_expr},
+    )
+    cached = _mgcv_cache_load(_cache_key)
+    if cached is not None:
+        return cached
+
     if R_SCRIPT is None:
         pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
 
@@ -505,7 +594,10 @@ write_json(list(X = unname(sm$X)), out, auto_unbox = TRUE, digits = 17)
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+
+    _mgcv_cache_save(_cache_key, result)
+    return result
 
 
 def _run_mgcv_smoothcon_penalties(
@@ -515,6 +607,19 @@ def _run_mgcv_smoothcon_penalties(
     absorb_cons: bool,
     scale_penalty: bool,
 ):
+    _cache_key = _mgcv_cache_key(
+        "smoothcon_penalties",
+        {
+            "data": _df_cache_repr(data),
+            "smooth_expr": smooth_expr,
+            "absorb_cons": absorb_cons,
+            "scale_penalty": scale_penalty,
+        },
+    )
+    cached = _mgcv_cache_load(_cache_key)
+    if cached is not None:
+        return cached
+
     if R_SCRIPT is None:
         pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
 
@@ -556,10 +661,21 @@ write_json(list(S = lapply(sm$S, unname)), out, auto_unbox = TRUE, digits = 17)
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+
+    _mgcv_cache_save(_cache_key, result)
+    return result
 
 
 def _run_mgcv_smoothcon_matrix_unscaled(data: pd.DataFrame, smooth_expr: str):
+    _cache_key = _mgcv_cache_key(
+        "smoothcon_matrix_unscaled",
+        {"data": _df_cache_repr(data), "smooth_expr": smooth_expr},
+    )
+    cached = _mgcv_cache_load(_cache_key)
+    if cached is not None:
+        return cached
+
     if R_SCRIPT is None:
         pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
 
@@ -593,10 +709,21 @@ write_json(list(X = unname(sm$X)), out, auto_unbox = TRUE, digits = 17)
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+
+    _mgcv_cache_save(_cache_key, result)
+    return result
 
 
 def _run_mgcv_natparam_cr(data: pd.DataFrame, *, k: int):
+    _cache_key = _mgcv_cache_key(
+        "natparam_cr",
+        {"data": _df_cache_repr(data), "k": k},
+    )
+    cached = _mgcv_cache_load(_cache_key)
+    if cached is not None:
+        return cached
+
     if R_SCRIPT is None:
         pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
 
@@ -637,7 +764,10 @@ write_json(
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+
+    _mgcv_cache_save(_cache_key, result)
+    return result
 
 
 def _run_mgcv_predict_on_newdata(
@@ -650,13 +780,28 @@ def _run_mgcv_predict_on_newdata(
     type="link",
     return_se=False,
 ):
-    if R_SCRIPT is None:
-        pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
-
-    _family_nampy, family_token = _family_specs(family)
-    del _family_nampy
+    _family_nampy_unused, family_token = _family_specs(family)
     fit_method = "REML" if str(method).lower() == "fixed" else method
     formula_r = _normalize_python_formula_text(formula)
+
+    _cache_key = _mgcv_cache_key(
+        "predict_on_newdata",
+        {
+            "data": _df_cache_repr(data),
+            "newdata": _df_cache_repr(newdata),
+            "formula_r": formula_r,
+            "family_token": family_token,
+            "fit_method": fit_method,
+            "type": type,
+            "return_se": return_se,
+        },
+    )
+    cached = _mgcv_cache_load(_cache_key)
+    if cached is not None:
+        return cached
+
+    if R_SCRIPT is None:
+        pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
 
     r_code = """
 suppressPackageStartupMessages(library(mgcv))
@@ -748,7 +893,10 @@ write_json(
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+
+    _mgcv_cache_save(_cache_key, result)
+    return result
 
 
 def _run_mgcv_fixed_sp_score(
@@ -760,11 +908,27 @@ def _run_mgcv_fixed_sp_score(
     *,
     select: bool = False,
 ):
-    if R_SCRIPT is None:
-        pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
-
     _family_nampy, family_token = _family_specs(family)
     del _family_nampy
+    sp_list = np.asarray(smoothing_params, dtype=np.float64).tolist()
+
+    _cache_key = _mgcv_cache_key(
+        "fixed_sp_score",
+        {
+            "data": _df_cache_repr(data),
+            "formula": formula,
+            "family_token": family_token,
+            "method": method,
+            "select": select,
+            "smoothing_params": sp_list,
+        },
+    )
+    cached = _mgcv_cache_load(_cache_key)
+    if cached is not None:
+        return cached
+
+    if R_SCRIPT is None:
+        pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
 
     r_code = """
 suppressPackageStartupMessages(library(mgcv))
@@ -863,7 +1027,7 @@ write_json(
                 family_token,
                 method,
                 "true" if select else "false",
-                json.dumps(np.asarray(smoothing_params, dtype=np.float64).tolist()),
+                json.dumps(sp_list),
                 str(json_path),
             ],
             check=True,
@@ -871,7 +1035,10 @@ write_json(
             capture_output=True,
             text=True,
         )
-        return json.loads(json_path.read_text(encoding="utf-8"))
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+
+    _mgcv_cache_save(_cache_key, result)
+    return result
 
 
 def _assert_basic_mgcv_parity(

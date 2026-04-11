@@ -313,3 +313,41 @@ class TestDistributionalRegressionMultiPredictor:
         # Coefficient slices on eta2 start from 0 (independent of eta1).
         term_eta2 = d1.compiled_terms[0]
         assert term_eta2.coef_slice.start == 0
+
+
+class TestFactorSmoothByPreprocess:
+    def test_fs_factor_by_falls_back_to_base_smooth_factor_by_expansion(self):
+        from nampy.gam.formula import (
+            compile_predictor_specs_from_formula,
+            parse_gam_formula,
+        )
+        from nampy.gam.formula.preprocess import preprocess_formula_predictor_specs
+
+        data = pd.DataFrame(
+            {
+                "y": [0.0, 1.0, 0.5, -0.25],
+                "x": [0.1, 0.4, 0.8, 1.2],
+                "f": ["a", "b", "a", "b"],
+            }
+        )
+        parsed = parse_gam_formula('y ~ s(x, bs="fs", by=f, k=8)')
+        predictor_specs = compile_predictor_specs_from_formula(parsed, default_k=8)
+
+        out_specs, data_work, state = preprocess_formula_predictor_specs(
+            parsed=parsed,
+            predictor_specs=predictor_specs,
+            data=data,
+        )
+
+        hidden_cols = [col for col in data_work.columns if col.startswith("__gam_by__")]
+        assert len(hidden_cols) == 2
+        assert len(state["factor_by_expansions"]) == 2
+
+        terms = out_specs[0].terms
+        assert len(terms) == 2
+        assert all(term.features == ("x",) for term in terms)
+        assert all(term.by_variable in hidden_cols for term in terms)
+        assert all(term.smooth_spec.bs == "tp" for term in terms)
+        assert all(
+            term.metadata["fs_base_by_fallback"]["source_by"] == "f" for term in terms
+        )

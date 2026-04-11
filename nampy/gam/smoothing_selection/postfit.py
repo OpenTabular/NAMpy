@@ -4,7 +4,7 @@ import numpy as np
 from scipy.stats import norm
 
 from .._mgcv_constants import LINK_ETA_EXP_CLIP, LOG_GUARD_MIN
-from .._model_state import _require_fitted
+from .._model_state import _require_fitted, _term_blocks_seq
 from .criteria.dispatch import criterion_gradient, criterion_hessian, criterion_value
 from .criteria.ml_reml import resolve_ml_reml_scoring_backend
 
@@ -21,6 +21,29 @@ def _free_log_smoothing_params(model) -> np.ndarray:
     sp = np.asarray(model.smoothing_params, dtype=np.float64).ravel()
     free_mask = _free_smoothing_mask(model)
     return np.log(np.clip(sp[free_mask], LOG_GUARD_MIN, None))
+
+
+def _fs_free_sp_groups_for_shared_ridge(model) -> list[list[int]]:
+    """Free-parameter index groups (one list per fs term) for shared log-sp shifts."""
+    free_mask = _free_smoothing_mask(model)
+    free_to_freepos = {
+        int(full): int(i) for i, full in enumerate(np.flatnonzero(free_mask))
+    }
+    groups: list[list[int]] = []
+    for tb in _term_blocks_seq(model):
+        if str(getattr(tb, "term_type", "")).lower() != "factor_smooth_fs":
+            continue
+        full_idx = sorted(
+            {
+                int(pb.smoothing_index)
+                for pb in (getattr(model, "penalty_blocks_", None) or ())
+                if pb.coef_slice == tb.coef_slice
+            }
+        )
+        grp = [free_to_freepos[g] for g in full_idx if g in free_to_freepos]
+        if len(grp) >= 2:
+            groups.append(grp)
+    return groups
 
 
 def sp_vcov(model, edge_correct: bool = True, reg: float = 1e-3):
@@ -281,6 +304,42 @@ def optimizer_endpoint_diagnostics(
     )
     if factor_smooth_shared_ridge_stabilized:
         flat_ridge_suspected = True
+
+    # mgcv::gam Gaussian REML for bs="fs" often lands on a geometry where one
+    # Hessian eigenvalue is tiny relative to the largest (shared log-sp ridge),
+    # while projected gradients stay modest.  The generic flat-ridge test uses
+    # hess_scale*1e-6, which is too strict when max|lambda| is O(1..10) and the
+    # soft mode is still O(1e-3).  Finite-difference curvature along the global
+    # equi-direction is also unusable here (noisy / ill-scaled outer REML).
+    has_fs = any(
+        str(getattr(tb, "term_type", "")).lower() == "factor_smooth_fs"
+        for tb in _term_blocks_seq(model)
+    )
+    joint_gaussian_outer = bool(
+        result is not None and getattr(result, "joint_gaussian_reml_outer", False)
+    )
+    proj_inf = float(np.linalg.norm(projected_grad, ord=np.inf))
+    rel_soft = (
+        has_fs
+        and joint_gaussian_outer
+        and method in {"reml", "laml"}
+        and hess is not None
+        and min_abs_eig is not None
+        and hess_scale > 0.0
+        and float(min_abs_eig) <= float(hess_scale) * 5e-4
+        and proj_inf <= 0.02
+    )
+    if rel_soft:
+        flat_ridge_suspected = True
+        if not factor_smooth_shared_ridge_stabilized:
+            factor_smooth_shared_ridge_stabilized = True
+            factor_smooth_shared_ridge_shift = [
+                {
+                    "free_indices": list(g),
+                    "log_sp_shift": [0.0] * len(g),
+                }
+                for g in _fs_free_sp_groups_for_shared_ridge(model)
+            ]
 
     return {
         "criterion_name": method,
