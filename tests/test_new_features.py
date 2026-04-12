@@ -82,19 +82,13 @@ class TestPriorWeights:
 
 
 class TestStandardErrors:
-    def test_return_se_true_returns_tuple(self):
-        data = _data()
-        gam = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
-        gam.fit(data=data)
-        result = gam.predict(data, return_se=True)
-        assert isinstance(result, tuple)
-        assert len(result) == 2
-
     def test_return_se_shapes_match_predictions(self):
         data = _data()
         gam = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
         gam.fit(data=data)
-        pred, se = gam.predict(data, return_se=True)
+        result = gam.predict(data, return_se=True)
+        assert isinstance(result, tuple) and len(result) == 2
+        pred, se = result
         assert pred.shape == se.shape
 
     def test_vp_cov_gives_larger_se_than_vf(self):

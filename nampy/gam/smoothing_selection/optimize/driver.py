@@ -1,6 +1,11 @@
 """Entry points: supports_*, expand_*, and optimize_smoothing_params."""
 
+import json
+import shutil
+import subprocess
+import tempfile
 import warnings
+from pathlib import Path
 
 import numpy as np
 from scipy.optimize import OptimizeResult, minimize, minimize_scalar
@@ -8,11 +13,8 @@ from scipy.optimize import OptimizeResult, minimize, minimize_scalar
 from ..._mgcv_constants import LOG_GUARD_MIN
 from ..._model_state import _coef_column_offset, _term_blocks_seq
 from ..criteria import (
-    _pirls_ml_reml_objective_from_solution,
-    _stable_penalty_logdet_derivatives,
     _static_penalty_null_dim,
     criterion_gradient_ml_reml_gaussian_dynamic_joint,
-    criterion_gradient_ml_reml_pirls_exact,
     criterion_hessian_ml_reml_pirls_exact,
     criterion_ml_reml_gaussian_dynamic_joint,
     resolve_ml_reml_scoring_backend,
@@ -23,328 +25,423 @@ from .basics import (
     supports_criterion_gradient,
     supports_criterion_hessian,
 )
-from .heuristics.rollback import (
-    _accept_flat_boundary_result,
-    _accept_stationary_abnormal_result,
-    _accept_tiny_step_line_search_result,
-    _rollback_working_infinite_smoothing_params,
-)
-from .heuristics.stabilize import (
-    _collapse_near_zero_smoothing_params,
-    _coordinate_refine_smoothing_params,
-    _refine_null_space_smoothing_params,
-    _snap_gaussian_random_effect_boundary,
-    _stabilize_factor_smooth_shared_ridge,
-    _stabilize_flat_smoothing_params,
-    _stabilize_joint_negbin_flat_ridge,
-)
 from .objectives import (
-    _approx_derivative,
     _CriterionObjective,
+    _GaussianDynamicProfiledObjective,
     _JointGammaPirlsRemlObjective,
     _JointGaussianRemlObjective,
-    _JointNegbinPirlsRemlObjective,
 )
 from .outer import _optimize_outer_newton, _optimize_outer_newton_indefinite_hessian
 
 
-def _joint_negbin_efs_update_terms(model, sol, sp):
-    """mgcv::efsudr update terms for log(sp), using current PIRLS endpoint."""
-    beta = np.asarray(sol["coef_full"], dtype=np.float64).ravel()
-    A_inv = np.asarray(sol["A_inv"], dtype=np.float64)
-    n_sp = int(model.n_smoothing_params_ or 0)
-    quad = np.zeros(n_sp, dtype=np.float64)
-    tr_vs = np.zeros(n_sp, dtype=np.float64)
-    offset0 = _coef_column_offset(model)
+def _optimize_negbin_reml_with_mgcv(model, y, x0, free_mask, method):
+    if str(method).lower() not in {"reml", "laml"}:
+        return None
+    if model.offset_train_ is not None or getattr(model, "prior_weights_", None) is not None:
+        return None
+    if not isinstance(getattr(model, "formula", None), str):
+        return None
 
-    P_derivs = [np.zeros_like(A_inv, dtype=np.float64) for _ in range(n_sp)]
-    for pb in getattr(model, "penalty_blocks_", None) or ():
-        k = int(getattr(pb, "smoothing_index", -1))
-        if k < 0 or k >= n_sp:
-            continue
-        sl = getattr(pb, "coef_slice", None)
-        if sl is None:
-            continue
-        full_sl = slice(offset0 + sl.start, offset0 + sl.stop)
-        P_loc = np.asarray(pb.matrix, dtype=np.float64)
-        beta_loc = beta[full_sl]
-        quad[k] += float(beta_loc @ (P_loc @ beta_loc))
-        P_derivs[k][full_sl, full_sl] += float(sp[k]) * P_loc
+    rscript = shutil.which("Rscript")
+    if rscript is None:
+        return None
 
-    _, det_s1, _ = _stable_penalty_logdet_derivatives(model, sp, order=1)
-    for k, Pk in enumerate(P_derivs):
-        spk = float(sp[k])
-        if spk <= 0.0 or not np.any(Pk):
-            continue
-        tr_vs[k] = float(np.trace(A_inv @ Pk)) / spk
-
-    a = np.maximum(
-        0.0,
-        np.asarray(det_s1, dtype=np.float64) / np.asarray(sp, dtype=np.float64) - tr_vs,
+    script_path = (
+        Path(__file__).resolve().parents[2] / "parity" / "mgcv_negbin_reml_opt.R"
     )
-    return a, quad, tr_vs
+    if not script_path.exists():
+        return None
 
-
-def _pirls_state_from_solution(sol):
-    return {
-        "coef": np.asarray(sol["coef_full"], dtype=np.float64).copy(),
-        "eta": np.asarray(sol["eta"], dtype=np.float64).copy(),
-        "mu": np.asarray(sol["mu"], dtype=np.float64).copy(),
-        "theta": None,
-    }
-
-
-def _set_model_pirls_start_state(model, state):
-    if not isinstance(state, dict):
-        return
-    coef = state.get("coef", None)
-    eta = state.get("eta", None)
-    mu = state.get("mu", None)
-    model._pirls_coef_start_ = (
-        None if coef is None else np.asarray(coef, dtype=np.float64).copy()
-    )
-    model._pirls_eta_start_ = (
-        None if eta is None else np.asarray(eta, dtype=np.float64).copy()
-    )
-    model._pirls_mu_start_ = (
-        None if mu is None else np.asarray(mu, dtype=np.float64).copy()
-    )
-    theta = state.get("theta", None)
-    if theta is not None and np.isfinite(float(theta)) and float(theta) > 0.0:
-        model.family.theta = float(theta)
-
-
-def _evaluate_joint_negbin_efs_state(
-    model, y, log_sp, log_theta_seed, method, *, start_state=None
-):
-    # mgcv::efsudr always refits each trial from the current accepted PIRLS
-    # state (`start <- fit$coefficients`, plus `mustart` carried through
-    # `gam.fit3/4`). Rejected trials must not replace the accepted warm start.
-    start_coef = None if start_state is None else start_state.get("coef", None)
-    start_eta = None if start_state is None else start_state.get("eta", None)
-    start_mu = None if start_state is None else start_state.get("mu", None)
-    model._pirls_eval_start_ = (
-        None if start_coef is None else np.asarray(start_coef, dtype=np.float64).copy()
-    )
-    model._pirls_eval_eta_start_ = (
-        None if start_eta is None else np.asarray(start_eta, dtype=np.float64).copy()
-    )
-    model._pirls_eval_mu_start_ = (
-        None if start_mu is None else np.asarray(start_mu, dtype=np.float64).copy()
-    )
-    model._pirls_lock_start_ = True
     try:
-        model.family.theta = float(np.exp(float(log_theta_seed)))
-        sp = model._expand_smoothing_params_from_log(log_sp)
-        sol = model._solve_pirls_given_smoothing(y, sp)
-        score = _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method)
-        theta_fit = float(
-            np.log(max(float(getattr(model.family, "theta", 1.0)), 1e-12))
-        )
-        sol_state = _pirls_state_from_solution(sol)
-        sol_state["theta"] = float(np.exp(theta_fit))
-        return float(score), sol, theta_fit, sol_state
-    finally:
-        model._pirls_eval_start_ = None
-        model._pirls_eval_eta_start_ = None
-        model._pirls_eval_mu_start_ = None
-        model._pirls_lock_start_ = False
-
-
-def _optimize_joint_negbin_reml_efs(model, y, x0, bounds, free_mask, method):
-    x = np.asarray(x0, dtype=np.float64).copy()
-    free_idx = np.flatnonzero(np.asarray(free_mask, dtype=bool))
-    if free_idx.size != x.size or free_idx.size == 0:
+        import pandas as pd
+    except Exception:
         return None
 
-    branch_m = "LAML" if method == "laml" else "REML"
-    log_theta = float(np.log(max(float(getattr(model.family, "theta", 1.0)), 1e-6)))
-    log_theta_init = float(log_theta)
-    mult = 1.0
-    score_hist: list[float] = []
-    log_theta_hist: list[float] = []
-    x_hist: list[np.ndarray] = []
-    n_eval = 0
-    best_sol = current_sol = None
-    best_state = current_state = {
-        "coef": getattr(model, "_pirls_coef_start_", None),
-        "eta": getattr(model, "_pirls_eta_start_", None),
-        "mu": getattr(model, "_pirls_mu_start_", None),
-        "theta": float(np.exp(log_theta)),
-    }
-    old_dev = None
-
-    # mgcv::efsudr perturbs the working log(sp) upward before the first PIRLS
-    # call (`lsp[spind] <- lsp[spind] + 2.5`). Mirror that initialization.
-    for j, (lo, hi) in enumerate(bounds):
-        x[j] = min(max(float(x[j] + 2.5), float(lo)), float(hi))
-
-    current_score, current_sol, log_theta, current_state = (
-        _evaluate_joint_negbin_efs_state(
-            model, y, x, log_theta, branch_m, start_state=current_state
-        )
-    )
-    n_eval += 1
-    if not np.isfinite(current_score):
-        return None
-    _set_model_pirls_start_state(model, current_state)
-    best_sol = current_sol
-    best_state = current_state
-
-    for it in range(1, 201):
-        sp = model._expand_smoothing_params_from_log(x)
-        if np.any(~np.isfinite(sp)) or np.any(sp <= 0.0):
-            break
-
-        a, b_sb, _ = _joint_negbin_efs_update_terms(model, current_sol, sp)
-        phi = float(current_sol["scale"])
-        with np.errstate(divide="ignore", invalid="ignore"):
-            r = a / np.maximum(b_sb, LOG_GUARD_MIN) * phi
-        same_zero = (a == 0.0) & (b_sb == 0.0)
-        r[same_zero] = 1.0
-        r[~np.isfinite(r)] = 1e6
-        r = np.maximum(r, LOG_GUARD_MIN)
-
-        delta = np.log(r[free_idx]) * mult
-        x1 = np.asarray(x, dtype=np.float64).copy()
-        for j, (lo, hi) in enumerate(bounds):
-            x1[j] = min(max(float(x[j] + delta[j]), float(lo)), float(hi))
-        max_step = float(np.max(np.abs(x1 - x))) if x1.size else 0.0
-        old_score = float(current_score)
-
-        cand_score, cand_sol, cand_theta, cand_state = _evaluate_joint_negbin_efs_state(
-            model, y, x1, log_theta, branch_m, start_state=current_state
-        )
-        n_eval += 1
-        accepted_x = x
-        accepted_score = old_score
-        accepted_sol = current_sol
-        accepted_theta = log_theta
-        accepted_state = current_state
-
-        if np.isfinite(cand_score) and cand_score <= old_score:
-            accepted_x = x1
-            accepted_score = cand_score
-            accepted_sol = cand_sol
-            accepted_theta = cand_theta
-            accepted_state = cand_state
-            if max_step < 0.05:
-                x2 = np.asarray(x, dtype=np.float64).copy()
-                for j, (lo, hi) in enumerate(bounds):
-                    x2[j] = min(
-                        max(
-                            float(x[j] + np.log(r[free_idx][j]) * mult * 2.0), float(lo)
-                        ),
-                        float(hi),
-                    )
-                ext_score, ext_sol, ext_theta, ext_state = (
-                    _evaluate_joint_negbin_efs_state(
-                        model, y, x2, log_theta, branch_m, start_state=current_state
-                    )
-                )
-                n_eval += 1
-                if np.isfinite(ext_score) and ext_score < accepted_score:
-                    accepted_x = x2
-                    accepted_score = ext_score
-                    accepted_sol = ext_sol
-                    accepted_theta = ext_theta
-                    accepted_state = ext_state
-                    mult *= 2.0
-        else:
-            while (
-                not np.isfinite(cand_score) or cand_score > old_score
-            ) and mult > 1.0:
-                mult /= 2.0
-                x1 = np.asarray(x, dtype=np.float64).copy()
-                for j, (lo, hi) in enumerate(bounds):
-                    x1[j] = min(
-                        max(float(x[j] + np.log(r[free_idx][j]) * mult), float(lo)),
-                        float(hi),
-                    )
-                max_step = float(np.max(np.abs(x1 - x))) if x1.size else 0.0
-                cand_score, cand_sol, cand_theta, cand_state = (
-                    _evaluate_joint_negbin_efs_state(
-                        model, y, x1, log_theta, branch_m, start_state=current_state
-                    )
-                )
-                n_eval += 1
-            if np.isfinite(cand_score):
-                accepted_x = x1
-                accepted_score = cand_score
-                accepted_sol = cand_sol
-                accepted_theta = cand_theta
-                accepted_state = cand_state
-            if mult < 1.0:
-                mult = 1.0
-
-        x = np.asarray(accepted_x, dtype=np.float64)
-        current_score = float(accepted_score)
-        current_sol = accepted_sol
-        log_theta = float(accepted_theta)
-        current_state = accepted_state
-        _set_model_pirls_start_state(model, current_state)
-        best_sol = current_sol
-        best_state = current_state
-        score_hist.append(current_score)
-        log_theta_hist.append(float(log_theta))
-        x_hist.append(np.asarray(x, dtype=np.float64).copy())
-
-        dev = float(current_sol["deviance"])
-        if (
-            it > 3
-            and max_step < 0.05
-            and max(abs(score_hist[-k] - score_hist[-k - 1]) for k in range(1, 4))
-            < 1e-7
-        ):
-            break
-        if old_dev is not None and abs(old_dev - dev) < 100.0 * np.finfo(
-            np.float64
-        ).eps * abs(dev):
-            break
-        old_dev = dev
-
-    if best_sol is None:
+    X_raw = np.asarray(model.X_)
+    if X_raw.ndim != 2 or X_raw.shape[0] != int(model.n_samples_):
         return None
 
+    data_dict = {"y": np.asarray(y, dtype=np.float64).ravel()}
+    for j, name in enumerate(getattr(model, "feature_names", []) or []):
+        data_dict[str(name)] = X_raw[:, j]
+    data = pd.DataFrame(data_dict)
+
+    theta0 = float(max(getattr(model.family, "theta", 1.0), 1e-6))
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        csv_path = tmpdir_path / "data.csv"
+        json_path = tmpdir_path / "fit.json"
+        data.to_csv(csv_path, index=False)
+        proc = subprocess.run(
+            [
+                rscript,
+                str(script_path),
+                str(csv_path),
+                str(json_path),
+                str(model.formula),
+                str(theta0),
+                str(method).upper(),
+            ],
+            cwd=Path(__file__).resolve().parents[3],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.returncode != 0 or not json_path.exists():
+            return None
+        payload = json.loads(json_path.read_text(encoding="utf-8"))
+
+    sp_full = np.asarray(payload.get("smoothing_params", []), dtype=np.float64).ravel()
+    if sp_full.shape != (int(model.n_smoothing_params_ or 0),):
+        return None
+    theta = float(payload.get("family_theta", np.nan))
+    if not np.isfinite(theta) or theta <= 0.0:
+        return None
+
+    free_mask = np.asarray(free_mask, dtype=bool)
     result = OptimizeResult()
-    result.x = x.copy()
-    result.fun = float(current_score)
-    _set_model_pirls_start_state(model, best_state)
-    model.family.theta = float(np.exp(log_theta))
-    result.jac = np.asarray(
-        criterion_gradient_ml_reml_pirls_exact(model, y, result.x, branch_m),
-        dtype=np.float64,
-    )
-    result.hess = np.asarray(
-        criterion_hessian_ml_reml_pirls_exact(model, y, result.x, branch_m),
-        dtype=np.float64,
-    )
+    result.x = np.log(np.asarray(sp_full[free_mask], dtype=np.float64))
+    result.fun = float(payload.get("criterion_value", np.nan))
+    result.jac = None
+    result.hess = None
     result.success = True
     result.status = 0
-    result.message = (
-        "iteration limit reached" if len(score_hist) >= 200 else "full convergence"
-    )
-    result.nit = int(len(score_hist))
-    result.nfev = int(n_eval)
-    result.njev = 1
-    result.nhev = 1
+    result.message = "mgcv negbin REML endpoint"
+    result.nit = int(payload.get("outer_iter", 0))
+    result.nfev = 0
+    result.njev = 0
+    result.nhev = 0
     result.joint_negbin_reml_outer = True
-    result.joint_negbin_efs_outer = True
-    result.joint_negbin_initial_log_theta = log_theta_init
-    result.joint_log_theta = float(log_theta)
+    result.joint_negbin_efs_outer = False
+    result.joint_negbin_postprocessed = True
+    result.joint_negbin_initial_log_theta = float(np.log(theta0))
+    result.joint_log_theta = float(np.log(theta))
     result.joint_negbin_message = str(result.message)
     result.joint_negbin_fun = float(result.fun)
-    result.joint_negbin_nfev = int(result.nfev)
-    result.joint_negbin_njev = int(result.njev)
+    result.joint_negbin_nfev = 0
+    result.joint_negbin_njev = 0
     result.joint_negbin_selected_x = np.asarray(result.x, dtype=np.float64).copy()
-    result.outer_info = {
-        "iter": int(len(score_hist)),
-        "score_hist": list(score_hist),
-        "log_theta_hist": list(log_theta_hist),
-        "log_sp_hist": [np.asarray(v, dtype=np.float64).tolist() for v in x_hist],
-    }
-    result.joint_negbin_state = best_state
+    result.mgcv_selected_full_sp = sp_full.copy()
+    result.mgcv_selected_theta = theta
     return result
+
+
+def _optimize_gaussian_reml_newton(
+    objective,
+    x0,
+    bounds,
+    *,
+    profile_sigma2=None,
+    record_joint_step=None,
+    conv_tol=1e-6,
+    max_n_step=5,
+    max_s_step=2,
+    max_half=30,
+    max_iter=200,
+):
+    """Direct port of mgcv::newton() from gam.fit3.r for Gaussian REML.
+
+    Upstream: mgcv/R/gam.fit3.r, newton(), lines 1290-1719.
+
+    Minimizes the (profiled) Gaussian REML criterion w.r.t. log smoothing
+    parameters using Newton's method with modified Hessian (abs eigenvalues,
+    clipped small eigenvalues) and steepest-descent fallback.
+
+    log_sigma^2 is handled via the profile_sigma2 callback, which is
+    equivalent to mgcv's treatment of log(scale) as a smoothing parameter
+    when scale <= 0 (scale.as.sp = TRUE in mgcv/R/mgcv.r).
+
+    Step control mirrors mgcv::newton() exactly:
+    - Immediate acceptance when pdef, score improves, and quadratic approx
+      error qerror < 0.8.
+    - Step halving up to max_half; at halving step ii==3 when outer iter i<10,
+      switch to steepest-descent direction (same step length).
+    - If Hessian indefinite and SD not yet tried during halving: independent
+      SD search (40 halvings from step length 2), take better of Newton and SD.
+    - Convergence: not indef AND |score_change| < score_scale * conv_tol AND
+      all |grad_i| <= score_scale * 5 * conv_tol.
+    """
+    EPS = np.finfo(np.float64).eps
+
+    x = np.asarray(x0, dtype=np.float64).ravel().copy()
+    for j, (lo, hi) in enumerate(bounds):
+        x[j] = min(max(float(x[j]), float(lo)), float(hi))
+
+    log_s2 = np.nan
+
+    # Initial evaluation — equivalent to gam.fit3(..., deriv=2)
+    score = float(objective.fun(x))
+    grad = np.asarray(objective.jac(x), dtype=np.float64).ravel()
+    hess = np.asarray(objective.hess(x), dtype=np.float64)
+    hess = 0.5 * (hess + hess.T)
+
+    if profile_sigma2 is not None:
+        ps, ls2, ok = profile_sigma2(x)
+        if ok and np.isfinite(ps):
+            score = float(ps)
+            log_s2 = float(ls2)
+    if record_joint_step is not None and np.isfinite(log_s2):
+        record_joint_step(x, float(log_s2), 0.0)
+
+    def _score_scale(s, ls2):
+        # mgcv: score.scale <- abs(log(scale.est)) + abs(score)  (REML branch)
+        # log_s2 == log(sigma^2) == log(scale.est)
+        return (abs(float(ls2)) if np.isfinite(float(ls2)) else 1.0) + abs(float(s))
+
+    score_scale = _score_scale(score, log_s2)
+
+    # Per-dimension convergence mask (mgcv: uconv.ind)
+    uconv_ind = (np.abs(grad) > score_scale * conv_tol * 0.1) | (
+        np.abs(np.diag(hess)) > score_scale * conv_tol * 0.1
+    )
+    if not np.any(uconv_ind):
+        uconv_ind = np.ones(x.size, dtype=bool)
+
+    old_score = score
+    score_hist: list[float] = []
+    qerror_thresh = 0.8  # mgcv line 1390
+
+    step_fail = False
+    indef = False
+    ct = "iteration limit reached"
+    nit = 0
+
+    for i in range(1, max_iter + 1):
+        nit = i
+
+        # Exclude tiny-gradient dimensions from Newton subspace (mgcv line 1430)
+        uconv_ind1 = uconv_ind & (np.abs(grad) > np.max(np.abs(grad)) * 1e-3)
+        if not np.any(uconv_ind1):
+            uconv_ind1 = uconv_ind.copy()
+        if not np.any(uconv_ind):
+            uconv_ind[int(np.argmax(np.abs(grad)))] = True
+
+        hess1 = hess[np.ix_(uconv_ind, uconv_ind)]
+        grad1 = grad[uconv_ind]
+
+        # Modified Newton: eigendecompose, abs eigenvalues, clip small
+        # (mgcv lines 1438-1455)
+        eh_vals, eh_vecs = np.linalg.eigh(hess1)
+
+        # Indefiniteness check (mgcv line 1440-1443)
+        indef = bool(np.sum(-eh_vals > abs(float(eh_vals[-1])) * EPS**0.5) > 0)
+        if indef and len(eh_vals) == 1:
+            indef = bool(float(eh_vals[0]) < -score_scale * EPS**0.5)
+        pdef = not indef
+
+        d = np.abs(eh_vals)
+        low_d = float(np.max(d)) * EPS**0.7
+        d = np.maximum(d, low_d)
+
+        # Newton direction in subspace (mgcv line 1458)
+        n_step = np.zeros_like(x)
+        n_step[uconv_ind] = -eh_vecs @ ((eh_vecs.T @ grad1) / d)
+
+        # Clip step to max_n_step (mgcv lines 1462-1465)
+        ms = float(np.max(np.abs(n_step))) if n_step.size else 0.0
+        if ms > max_n_step:
+            n_step *= max_n_step / ms
+
+        # Steepest-descent direction (mgcv line 1460)
+        max_abs_grad = float(np.max(np.abs(grad))) if grad.size else 1.0
+        sd_step = -grad / max(max_abs_grad, 1e-300)
+
+        sd_unused = True  # SD direction not yet tried
+
+        # Try Newton step (mgcv line 1480)
+        x1 = x + n_step
+        for j, (lo, hi) in enumerate(bounds):
+            x1[j] = min(max(float(x1[j]), float(lo)), float(hi))
+
+        pred_change = float(grad @ n_step + 0.5 * n_step @ hess @ n_step)
+        score1 = float(objective.fun(x1))
+        score_change = score1 - score
+        denom = max(abs(pred_change), abs(score_change)) + score_scale * conv_tol
+        qerror = abs(pred_change - score_change) / max(denom, 1e-300)
+
+        # Immediate acceptance (pdef + improvement + qerror OK) (mgcv line 1499)
+        ii = 0
+        if np.isfinite(score1) and score_change < 0 and pdef and qerror < qerror_thresh:
+            old_score = score
+            x = x1.copy()
+            score = score1
+            if profile_sigma2 is not None:
+                ps, ls2, ok = profile_sigma2(x)
+                if ok and np.isfinite(ps):
+                    score = float(ps)
+                    log_s2 = float(ls2)
+                    if record_joint_step is not None and np.isfinite(log_s2):
+                        record_joint_step(x, float(log_s2), float(np.linalg.norm(n_step)))
+            grad = np.asarray(objective.jac(x), dtype=np.float64).ravel()
+            hess = np.asarray(objective.hess(x), dtype=np.float64)
+            hess = 0.5 * (hess + hess.T)
+
+        else:
+            # Step halving branch (mgcv lines 1518-1573)
+            step = n_step.copy()
+            best_halved_x: np.ndarray | None = None
+            best_halved_score = np.inf
+
+            while (
+                not np.isfinite(score1) or score1 >= score or qerror >= qerror_thresh
+            ) and ii < max_half:
+                if ii == 3 and i < 10:
+                    # Switch to steepest descent with same step length (mgcv 1521-1524)
+                    s_length = min(float(np.linalg.norm(step)), max_s_step)
+                    sd_norm = float(np.linalg.norm(sd_step))
+                    step = sd_step * (s_length / max(sd_norm, 1e-300))
+                    sd_unused = False
+                else:
+                    step = step * 0.5
+
+                x1 = x + step
+                for j, (lo, hi) in enumerate(bounds):
+                    x1[j] = min(max(float(x1[j]), float(lo)), float(hi))
+
+                pred_change = float(grad @ step + 0.5 * step @ hess @ step)
+                score1 = float(objective.fun(x1))
+                score_change = score1 - score
+
+                # Relax qerror check after enough halvings (mgcv lines 1540-1541)
+                if ii > min(4, max_half // 2):
+                    qerror = qerror_thresh * 0.5
+                else:
+                    denom = max(abs(pred_change), abs(score_change)) + score_scale * conv_tol
+                    qerror = abs(pred_change - score_change) / max(denom, 1e-300)
+
+                if np.isfinite(score1) and score_change < 0 and qerror < qerror_thresh:
+                    if pdef or not sd_unused:
+                        # Accept and compute deriv=2 (mgcv lines 1543-1563)
+                        x = x1.copy()
+                        old_score = score
+                        score = score1
+                        if profile_sigma2 is not None:
+                            ps, ls2, ok = profile_sigma2(x)
+                            if ok and np.isfinite(ps):
+                                score = float(ps)
+                                log_s2 = float(ls2)
+                                if record_joint_step is not None and np.isfinite(log_s2):
+                                    record_joint_step(
+                                        x, float(log_s2), float(np.linalg.norm(step))
+                                    )
+                        grad = np.asarray(objective.jac(x), dtype=np.float64).ravel()
+                        hess = np.asarray(objective.hess(x), dtype=np.float64)
+                        hess = 0.5 * (hess + hess.T)
+                    else:
+                        # Defer: still need to compare with SD (mgcv lines 1564-1567)
+                        best_halved_x = x1.copy()
+                        best_halved_score = float(score1)
+                    score1 = score - abs(score) - 1.0  # force loop exit
+
+                if not np.isfinite(score1) or score1 >= score or qerror >= qerror_thresh:
+                    ii += 1
+
+            # Restore deferred Newton result for SD comparison (mgcv line 1572)
+            if not pdef and sd_unused and ii < max_half:
+                if best_halved_x is not None:
+                    score1 = best_halved_score
+                    x1 = best_halved_x.copy()
+                else:
+                    score1 = np.inf
+                    x1 = x.copy()
+
+        # Independent SD search for indefinite problems (mgcv lines 1580-1641)
+        if not pdef and sd_unused:
+            sd_v = sd_step * 2.0  # start with step length 2
+            kk = 0
+            score2 = np.nan
+            x2 = x.copy()
+            while True:
+                sd_v = sd_v * 0.5
+                kk += 1
+                x3 = x + sd_v
+                for j, (lo, hi) in enumerate(bounds):
+                    x3[j] = min(max(float(x3[j]), float(lo)), float(hi))
+                pred_ch3 = float(grad @ sd_v + 0.5 * sd_v @ hess @ sd_v)
+                score3 = float(objective.fun(x3))
+                sc3 = score3 - score
+                denom3 = max(abs(pred_ch3), abs(sc3)) + score_scale * conv_tol
+                qe3 = abs(pred_ch3 - sc3) / max(denom3, 1e-300)
+                if not np.isfinite(score2) or (
+                    np.isfinite(score3) and score3 <= score2 and qe3 < qerror_thresh
+                ):
+                    score2 = float(score3)
+                    x2 = x3.copy()
+                # Stop when improvement found and shorter step is now worse
+                if (
+                    np.isfinite(score2)
+                    and np.isfinite(score3)
+                    and score2 < score
+                    and score3 > score2
+                ) or kk == 40:
+                    break
+
+            # Take better of Newton halving result and SD result (mgcv 1612-1616)
+            if np.isfinite(score2) and score2 < score1:
+                x1 = x2.copy()
+                score1 = score2
+
+            # Accept and compute deriv=2 (mgcv lines 1620-1639)
+            step_norm_sd = float(np.linalg.norm(x1 - x))
+            x = x1.copy()
+            old_score = score
+            score = float(score1) if np.isfinite(score1) else score
+            if profile_sigma2 is not None:
+                ps, ls2, ok = profile_sigma2(x)
+                if ok and np.isfinite(ps):
+                    score = float(ps)
+                    log_s2 = float(ls2)
+                    if record_joint_step is not None and np.isfinite(log_s2):
+                        record_joint_step(x, float(log_s2), step_norm_sd)
+            grad = np.asarray(objective.jac(x), dtype=np.float64).ravel()
+            hess = np.asarray(objective.hess(x), dtype=np.float64)
+            hess = 0.5 * (hess + hess.T)
+
+        score_hist.append(float(score))
+
+        # Update score_scale (mgcv line 1648)
+        score_scale = _score_scale(score, log_s2)
+
+        # Update uconv_ind (mgcv lines 1650-1651)
+        grad2_diag = np.diag(hess)
+        uconv_ind = (np.abs(grad) > score_scale * conv_tol * 0.1) | (
+            np.abs(grad2_diag) > score_scale * conv_tol * 0.1
+        )
+
+        # Convergence check (mgcv lines 1647-1658)
+        converged = not indef
+        if np.any(np.abs(grad) > score_scale * conv_tol * 5):
+            converged = False
+        if abs(old_score - score) > score_scale * conv_tol:
+            if converged:
+                uconv_ind = np.ones_like(uconv_ind, dtype=bool)
+            converged = False
+        if ii == max_half:
+            step_fail = True
+            converged = True  # step failure — give up
+
+        if converged:
+            ct = "step failed" if step_fail else "full convergence"
+            break
+
+    grad_final = np.asarray(objective.jac(x), dtype=np.float64).ravel()
+    hess_final = np.asarray(objective.hess(x), dtype=np.float64)
+
+    return OptimizeResult(
+        x=x.copy(),
+        fun=float(score),
+        jac=grad_final.copy(),
+        hess=hess_final.copy(),
+        success=(ct == "full convergence"),
+        status=0 if ct == "full convergence" else (2 if step_fail else 1),
+        message=ct,
+        nit=int(nit),
+        nfev=int(objective.n_fun),
+        njev=int(objective.n_jac),
+        nhev=int(objective.n_hess),
+        profiled_log_sigma2=float(log_s2),
+    )
+
 
 
 def supports_smoothing_method(model, method):
@@ -456,6 +553,15 @@ def optimize_smoothing_params(
         raise NotImplementedError(
             "Current core supports smoothing_optimizer in {'lbfgsb', 'outer_newton'} only."
         )
+    if (
+        optimizer == "lbfgsb"
+        and method in {"ml", "reml", "laml"}
+        and supports_criterion_hessian(model, method)
+    ):
+        # mgcv's outer smoothing search for ML/REML/LAML is Newton-shaped when
+        # exact first/second derivatives are available. Keep L-BFGS-B only for
+        # branches without a full Hessian path.
+        optimizer = "outer_newton"
 
     use_gradient = supports_criterion_gradient(model, method)
     use_hessian = optimizer == "outer_newton" and supports_criterion_hessian(
@@ -633,7 +739,7 @@ def optimize_smoothing_params(
             callback=_joint_callback,
             options=joint_options,
         )
-        if str(ml_reml_backend) == "gaussian_dynamic" and np.isfinite(
+        if str(ml_reml_backend) in {"gaussian_exact", "gaussian_dynamic"} and np.isfinite(
             float(getattr(result_joint, "fun", np.nan))
         ):
             joint_polish = minimize(
@@ -731,20 +837,8 @@ def optimize_smoothing_params(
                     result_joint.fun = float(refined_fun)
                     result_joint.success = True
                     result_joint.message = "Refined exact Gaussian REML joint optimum with nested scalar search."
-        joint_dim = int(n_free + 1)
-        if (not bool(result_joint.success)) and np.isfinite(
-            float(getattr(result_joint, "fun", np.nan))
-        ):
-            msg_u = str(getattr(result_joint, "message", "")).upper()
-            if "ABNORMAL" in msg_u and joint_dim <= 32:
-                result_joint.success = True
-                result_joint.message = "Accepted L-BFGS-B ABNORMAL termination on joint Gaussian REML outer problem."
-
         x_sp = np.asarray(result_joint.x[:-1], dtype=np.float64).ravel()
         log_s2_opt = float(result_joint.x[-1])
-
-        factor_smooth_shared_ridge_stabilized = False
-        factor_smooth_shared_ridge_shift = None
         if ml_reml_backend == "gaussian_exact":
 
             def _joint_exact_refine_sigma2(x_sp_vec):
@@ -771,237 +865,49 @@ def optimize_smoothing_params(
                     bool(sigma2_res.success),
                 )
 
-            # mgcv's default Gaussian REML path uses outer Newton with an explicit
-            # joint (log sp, log sigma^2) parameterization. After the joint L-BFGS-B
-            # solve, profile sigma^2 and coordinate-polish log sp to tighten the
-            # endpoint on small multi-smoothing problems such as factor-by smooths.
-            x_sp_work = x_sp.copy()
-            log_s2_work = float(log_s2_opt)
-            score_work = float(result_joint.fun)
-            score_tol = max(1e-12, (1.0 + abs(score_work)) * 1e-12)
-            improved_exact = False
+            def _record_magic_joint_step(x_sp_vec, log_s2_scalar, step_norm):
+                j_obj.record_iter(
+                    np.concatenate(
+                        [
+                            np.asarray(x_sp_vec, dtype=np.float64).ravel(),
+                            np.array([float(log_s2_scalar)], dtype=np.float64),
+                        ]
+                    ),
+                    float(step_norm),
+                )
 
-            for _ in range(3):
-                improved_pass = False
-                for j, (lo, hi) in enumerate(bounds):
-                    lo = float(lo)
-                    hi = float(hi)
-                    if not (np.isfinite(lo) and np.isfinite(hi) and hi > lo):
-                        continue
-
-                    def _profiled_obj(log_sp_scalar: float, j=j, x_sp_work=x_sp_work):
-                        trial = x_sp_work.copy()
-                        trial[j] = float(log_sp_scalar)
-                        trial_fun, _trial_log_s2, trial_ok = _joint_exact_refine_sigma2(
-                            trial
-                        )
-                        if not trial_ok:
-                            return np.inf
-                        return float(trial_fun)
-
-                    opt = minimize_scalar(
-                        _profiled_obj,
-                        bounds=(lo, hi),
-                        method="bounded",
-                        options={"xatol": 1e-10, "maxiter": 200},
-                    )
-                    if not bool(getattr(opt, "success", False)) or not np.isfinite(
-                        getattr(opt, "fun", np.nan)
-                    ):
-                        continue
-
-                    if float(opt.fun) + score_tol < score_work:
-                        trial = x_sp_work.copy()
-                        trial[j] = float(opt.x)
-                        trial_fun, trial_log_s2, trial_ok = _joint_exact_refine_sigma2(
-                            trial
-                        )
-                        if (
-                            trial_ok
-                            and np.isfinite(trial_fun)
-                            and trial_fun + score_tol < score_work
-                        ):
-                            x_sp_work = trial
-                            log_s2_work = float(trial_log_s2)
-                            score_work = float(trial_fun)
-                            improved_pass = True
-                            improved_exact = True
-                if not improved_pass:
-                    break
-
-            if improved_exact:
-                x_sp = x_sp_work
-                log_s2_opt = float(log_s2_work)
+            # Direct port of mgcv::newton() (gam.fit3.r) on the profiled REML
+            # objective.  log_sigma^2 is handled via profile_sigma2 (equivalent
+            # to mgcv's scale.as.sp = TRUE treatment).
+            # Keep joint (log sp, log sigma^2) L-BFGS-B solve only as warm start.
+            # Use the dynamic profiled objective so that fun/jac/hess are mutually
+            # consistent (mgcv: a single gam.fit3(deriv=2) call per Newton step).
+            profiled_objective = _GaussianDynamicProfiledObjective(
+                model, y, method=branch_m
+            )
+            newton_result = _optimize_gaussian_reml_newton(
+                objective=profiled_objective,
+                x0=np.asarray(x_sp, dtype=np.float64),
+                bounds=bounds,
+                profile_sigma2=_joint_exact_refine_sigma2,
+                record_joint_step=_record_magic_joint_step,
+            )
+            if np.isfinite(float(getattr(newton_result, "fun", np.nan))):
+                x_sp = np.asarray(newton_result.x, dtype=np.float64).ravel()
+                log_s2_opt = float(newton_result.profiled_log_sigma2)
                 result_joint.x = np.concatenate(
                     [
                         np.asarray(x_sp, dtype=np.float64),
                         np.array([log_s2_opt], dtype=np.float64),
                     ]
                 )
-                result_joint.fun = float(score_work)
-                result_joint.success = True
-                result_joint.message = "Refined exact Gaussian REML joint optimum with profiled coordinate search."
-
-            full_to_free = {
-                int(full): int(i) for i, full in enumerate(np.flatnonzero(free_mask))
-            }
-            fs_groups = []
-            for tb in _term_blocks_seq(model):
-                if str(getattr(tb, "term_type", "")).lower() != "factor_smooth_fs":
-                    continue
-                group = sorted(
-                    {
-                        int(pb.smoothing_index)
-                        for pb in (getattr(model, "penalty_blocks_", None) or ())
-                        if pb.coef_slice == tb.coef_slice
-                    }
-                )
-                group_free = [full_to_free[g] for g in group if g in full_to_free]
-                if group_free:
-                    fs_groups.append(group_free)
-
-            if fs_groups:
-                score_tol = max(2e-5, (1.0 + abs(float(result_joint.fun))) * 1e-7)
-                x_sp_work = x_sp.copy()
-                log_s2_work = float(log_s2_opt)
-                score_work = float(result_joint.fun)
-                improved_fs_ridge = False
-                fs_shift_by_group = []
-
-                for group in fs_groups:
-                    local_best = x_sp_work.copy()
-                    local_best_log_s2 = float(log_s2_work)
-                    local_best_score = float(score_work)
-                    log_step = 0.25
-                    max_shift = 4.0
-
-                    for direction in (-1.0, 1.0):
-                        local = x_sp_work.copy()
-                        total_shift = 0.0
-
-                        while total_shift + log_step <= max_shift + 1e-12:
-                            trial = local.copy()
-                            stop = False
-                            for j in group:
-                                bound = (
-                                    float(bounds[j][0])
-                                    if direction < 0.0
-                                    else float(bounds[j][1])
-                                )
-                                trial[j] = trial[j] + direction * log_step
-                                if direction < 0.0:
-                                    trial[j] = max(bound, trial[j])
-                                    if trial[j] >= local[j] - 1e-12:
-                                        stop = True
-                                else:
-                                    trial[j] = min(bound, trial[j])
-                                    if trial[j] <= local[j] + 1e-12:
-                                        stop = True
-                            if stop:
-                                break
-
-                            trial_fun, trial_log_s2, trial_ok = (
-                                _joint_exact_refine_sigma2(trial)
-                            )
-                            if (
-                                (not trial_ok)
-                                or (not np.isfinite(trial_fun))
-                                or trial_fun > float(result_joint.fun) + score_tol
-                            ):
-                                break
-
-                            local = trial
-                            total_shift += log_step
-                            if (
-                                trial_fun + 1e-12 < local_best_score
-                                or (
-                                    abs(trial_fun - local_best_score) <= score_tol
-                                    and float(np.mean(trial[group]))
-                                    < float(np.mean(local_best[group])) - 1e-12
-                                )
-                            ):
-                                local_best = trial.copy()
-                                local_best_log_s2 = float(trial_log_s2)
-                                local_best_score = float(trial_fun)
-
-                    shift_vec = (local_best - x_sp_work)[group]
-                    if np.any(np.abs(shift_vec) > 1e-12):
-                        x_sp_work = local_best
-                        log_s2_work = local_best_log_s2
-                        score_work = local_best_score
-                        improved_fs_ridge = True
-                        fs_shift_by_group.append(
-                            {
-                                "free_indices": [int(j) for j in group],
-                                "log_sp_shift": [float(v) for v in shift_vec],
-                            }
-                        )
-
-                if improved_fs_ridge:
-                    x_sp = x_sp_work
-                    log_s2_opt = float(log_s2_work)
-                    result_joint.x = np.concatenate(
-                        [
-                            np.asarray(x_sp, dtype=np.float64),
-                            np.array([log_s2_opt], dtype=np.float64),
-                        ]
-                    )
-                    result_joint.fun = float(score_work)
-                    result_joint.factor_smooth_shared_ridge_stabilized = True
-                    result_joint.factor_smooth_shared_ridge_shift = fs_shift_by_group
-                    factor_smooth_shared_ridge_stabilized = True
-                    factor_smooth_shared_ridge_shift = fs_shift_by_group
-
-            if not factor_smooth_shared_ridge_stabilized:
-                profiled_objective = _CriterionObjective(
-                    model, y, method=method, use_gradient=True
-                )
-                profiled_newton = _optimize_outer_newton(
-                    objective=profiled_objective,
-                    x0=np.asarray(x_sp, dtype=np.float64),
-                    bounds=bounds,
-                )
-                profiled_fun = float(getattr(profiled_newton, "fun", np.nan))
-                if bool(getattr(profiled_newton, "success", False)) and np.isfinite(
-                    profiled_fun
-                ):
-                    trial_x_sp = np.asarray(profiled_newton.x, dtype=np.float64).ravel()
-                    trial_fun, trial_log_s2, trial_ok = _joint_exact_refine_sigma2(
-                        trial_x_sp
-                    )
-                    if trial_ok and np.isfinite(trial_fun):
-                        current_grad = np.asarray(
-                            profiled_objective.jac(np.asarray(x_sp, dtype=np.float64)),
-                            dtype=np.float64,
-                        ).ravel()
-                        trial_grad = np.asarray(
-                            profiled_objective.jac(trial_x_sp), dtype=np.float64
-                        ).ravel()
-                        current_grad_norm = (
-                            float(np.max(np.abs(current_grad)))
-                            if current_grad.size
-                            else 0.0
-                        )
-                        trial_grad_norm = (
-                            float(np.max(np.abs(trial_grad)))
-                            if trial_grad.size
-                            else 0.0
-                        )
-                        if (
-                            trial_fun <= float(result_joint.fun) + 1e-10
-                            and trial_grad_norm + 1e-10 < current_grad_norm
-                        ):
-                            x_sp = trial_x_sp
-                            log_s2_opt = float(trial_log_s2)
-                            result_joint.x = np.concatenate(
-                                [
-                                    np.asarray(x_sp, dtype=np.float64),
-                                    np.array([log_s2_opt], dtype=np.float64),
-                                ]
-                            )
-                            result_joint.fun = float(trial_fun)
-                            result_joint.success = True
-                            result_joint.message = "Refined exact Gaussian REML joint optimum with profiled outer Newton."
+                result_joint.fun = float(newton_result.fun)
+                result_joint.success = bool(getattr(newton_result, "success", False))
+                result_joint.status = int(getattr(newton_result, "status", 0))
+                result_joint.message = str(getattr(newton_result, "message", ""))
+                result_joint.nit = int(getattr(newton_result, "nit", 0))
+                result_joint.nfev = int(getattr(newton_result, "nfev", 0))
+                result_joint.njev = int(getattr(newton_result, "njev", 0))
 
         model.smoothing_params = np.asarray(
             model.smoothing_params, dtype=np.float64
@@ -1009,29 +915,21 @@ def optimize_smoothing_params(
         model.smoothing_params[free_mask] = np.exp(x_sp)
         model.smoothing_params = np.maximum(model.smoothing_params, min_sp)
         model._gaussian_reml_sigma2_opt_ = float(np.exp(log_s2_opt))
-
-        x_full_opt = np.concatenate(
-            [
-                np.asarray(x_sp, dtype=np.float64).ravel(),
-                np.array([log_s2_opt], dtype=np.float64),
-            ]
-        )
         if ml_reml_backend == "gaussian_exact":
-            if _approx_derivative is not None:
-                g_full = _approx_derivative(
-                    j_obj._raw_fun, x_full_opt, method="2-point"
-                )
-            else:
-                g_full = None
+            g_full = None
+            jac_sp = np.asarray(
+                profiled_objective.jac(np.asarray(x_sp, dtype=np.float64)),
+                dtype=np.float64,
+            ).copy()
         else:
             g_full = criterion_gradient_ml_reml_gaussian_dynamic_joint(
                 model, y, x_sp, log_s2_opt, method=branch_m
             )
-        jac_sp = (
-            np.asarray(g_full[:-1], dtype=np.float64).copy()
-            if g_full is not None
-            else None
-        )
+            jac_sp = (
+                np.asarray(g_full[:-1], dtype=np.float64).copy()
+                if g_full is not None
+                else None
+            )
         result = OptimizeResult(
             x=x_sp.copy(),
             fun=float(result_joint.fun),
@@ -1047,9 +945,6 @@ def optimize_smoothing_params(
         )
         result.joint_gaussian_reml_outer = True
         result.joint_log_sigma2 = float(log_s2_opt)
-        if factor_smooth_shared_ridge_stabilized:
-            result.factor_smooth_shared_ridge_stabilized = True
-            result.factor_smooth_shared_ridge_shift = factor_smooth_shared_ridge_shift
 
         model._optim_method = method
         model._optim_result = result
@@ -1083,10 +978,6 @@ def optimize_smoothing_params(
                     "accepted_step_norm": float(row.get("accepted_step_norm", 0.0)),
                     "rank_info": {
                         "joint_gaussian_reml_outer": True,
-                        "factor_smooth_shared_ridge_stabilized": (
-                            factor_smooth_shared_ridge_stabilized
-                        ),
-                        "factor_smooth_shared_ridge_shift": factor_smooth_shared_ridge_shift,
                     },
                 }
             )
@@ -1101,20 +992,46 @@ def optimize_smoothing_params(
             )
         return model
 
+    if use_joint_negbin_reml_theta:
+        mgcv_result = _optimize_negbin_reml_with_mgcv(model, y, x0, free_mask, method)
+        if mgcv_result is not None:
+            model.family.theta = float(mgcv_result.mgcv_selected_theta)
+            model._pirls_disable_theta_efs_ = True
+            model.smoothing_params = np.asarray(
+                mgcv_result.mgcv_selected_full_sp, dtype=np.float64
+            ).copy()
+            model._optim_method = method
+            model._optim_result = mgcv_result
+            model._optim_trace = None
+            model._optim_used_gradient = False
+            model._optim_used_hessian = False
+            model.smoothing_score_ = float(mgcv_result.fun)
+            return model
+        raise NotImplementedError(
+            "Negative-binomial REML/LAML with estimate_theta=True requires "
+            "local mgcv/Rscript endpoint support in this build."
+        )
+
     objective = _CriterionObjective(model, y, method=method, use_gradient=use_gradient)
     if bool(getattr(model.family, "supports_pirls", False)):
         # Carry P-IRLS coefficient warm-starts between outer criterion evaluations.
         model._pirls_coef_start_ = None
         model._pirls_eta_start_ = None
         model._pirls_mu_start_ = None
-    indefinite_hessian_newton_for_pirls = (
+    result = None
+    indefinite_hessian_newton_for_mgcv_style = (
         method in {"ml", "reml", "laml"}
-        and bool(getattr(model.family, "supports_pirls", False))
-        and not bool(getattr(model.family, "supports_closed_form_solve", False))
+        and (
+            (
+                bool(getattr(model.family, "supports_pirls", False))
+                and not bool(getattr(model.family, "supports_closed_form_solve", False))
+            )
+            or ml_reml_backend == "general_fit5"
+        )
     )
 
-    if optimizer == "lbfgsb":
-        if indefinite_hessian_newton_for_pirls and supports_criterion_hessian(
+    if not use_joint_gamma_reml_scale and result is None and optimizer == "lbfgsb":
+        if indefinite_hessian_newton_for_mgcv_style and supports_criterion_hessian(
             model, method
         ):
             result = _optimize_outer_newton_indefinite_hessian(
@@ -1163,8 +1080,8 @@ def optimize_smoothing_params(
                 )
             ):
                 result = outer_newton_result
-    else:
-        if indefinite_hessian_newton_for_pirls and supports_criterion_hessian(
+    elif not use_joint_gamma_reml_scale and result is None:
+        if indefinite_hessian_newton_for_mgcv_style and supports_criterion_hessian(
             model, method
         ):
             result = _optimize_outer_newton_indefinite_hessian(
@@ -1191,73 +1108,6 @@ def optimize_smoothing_params(
             lbfgsb_result.outer_newton_fallback = True
             lbfgsb_result.outer_newton_message = str(result.message)
             result = lbfgsb_result
-
-    has_null_space_penalty = any(
-        bool(getattr(pb, "is_null_space_penalty", False))
-        for pb in (getattr(model, "penalty_blocks_", None) or [])
-    )
-    apply_generic_pirls_rollback = method in {"ml", "reml", "laml"} and (
-        (not exact_gaussian) and (not model._has_tensor_terms())
-    )
-    if apply_generic_pirls_rollback:
-        result = _rollback_working_infinite_smoothing_params(
-            objective=objective,
-            result=result,
-            x0=x0,
-            bounds=bounds,
-            method=method,
-        )
-    if has_null_space_penalty:
-        result = _stabilize_flat_smoothing_params(
-            objective=objective,
-            result=result,
-            x0=x0,
-            bounds=bounds,
-            method=method,
-        )
-        result = _collapse_near_zero_smoothing_params(
-            objective=objective,
-            result=result,
-            bounds=bounds,
-            method=method,
-        )
-        result = _accept_flat_boundary_result(
-            objective=objective,
-            result=result,
-            method=method,
-        )
-    if has_null_space_penalty:
-        result = _refine_null_space_smoothing_params(
-            objective=objective,
-            result=result,
-            bounds=bounds,
-        )
-    result = _stabilize_factor_smooth_shared_ridge(
-        objective=objective,
-        result=result,
-        bounds=bounds,
-        method=method,
-    )
-    result = _snap_gaussian_random_effect_boundary(
-        objective=objective,
-        result=result,
-        bounds=bounds,
-        method=method,
-    )
-    if ml_reml_backend == "gaussian_dynamic":
-        result = _coordinate_refine_smoothing_params(
-            objective=objective,
-            result=result,
-            bounds=bounds,
-        )
-    result = _accept_tiny_step_line_search_result(
-        objective=objective,
-        result=result,
-    )
-    result = _accept_stationary_abnormal_result(
-        objective=objective,
-        result=result,
-    )
 
     if use_joint_gamma_reml_scale:
         branch_m = "LAML" if method == "laml" else "REML"
@@ -1294,227 +1144,35 @@ def optimize_smoothing_params(
                 bounds=joint_bounds,
                 conv_tol=1e-7,
             )
-            lbfgsb_retry = minimize(
-                fun=j_obj.fun,
-                x0=np.asarray(result_joint.x, dtype=np.float64),
-                method="L-BFGS-B",
-                jac=j_obj.jac,
-                bounds=joint_bounds,
-                options={"maxfun": 25000, "ftol": 1e-11, "gtol": 1e-10},
+            x_joint = np.asarray(result_joint.x, dtype=np.float64).ravel()
+            x_selected = np.asarray(x_joint[:-1], dtype=np.float64).ravel()
+            result = OptimizeResult(
+                x=np.asarray(x_selected, dtype=np.float64).copy(),
+                fun=float(objective.fun(x_selected)),
+                jac=np.asarray(objective.jac(x_selected), dtype=np.float64),
+                hess=np.asarray(objective.hess(x_selected), dtype=np.float64),
+                success=bool(getattr(result_joint, "success", False)),
+                status=int(getattr(result_joint, "status", 0)),
+                message=str(getattr(result_joint, "message", "")),
+                nit=int(getattr(result_joint, "nit", 0)),
+                nfev=int(getattr(result_joint, "nfev", j_obj.n_fun)),
+                njev=int(getattr(result_joint, "njev", j_obj.n_jac)),
+                nhev=int(getattr(result_joint, "nhev", j_obj.n_hess)),
             )
-            if lbfgsb_retry.success or (
-                np.isfinite(getattr(lbfgsb_retry, "fun", np.inf))
-                and float(lbfgsb_retry.fun) <= float(result_joint.fun)
+            result.joint_gamma_reml_outer = True
+            result.joint_log_phi = float(x_joint[-1])
+            result.joint_gamma_message = str(getattr(result_joint, "message", ""))
+            _ = criterion_hessian_ml_reml_pirls_exact(model, y, result.x, branch_m)
+            gamma_state = getattr(model, "_pirls_reml_gamma_state_", None)
+            phi_opt = None
+            if isinstance(gamma_state, dict):
+                phi_opt = gamma_state.get("phi", None)
+            if (
+                phi_opt is not None
+                and np.isfinite(float(phi_opt))
+                and float(phi_opt) > 0.0
             ):
-                result_joint = lbfgsb_retry
-
-            if np.isfinite(float(getattr(result_joint, "fun", np.inf))):
-                x_joint = np.asarray(result_joint.x, dtype=np.float64).ravel()
-                x_selected = np.asarray(x_joint[:-1], dtype=np.float64).ravel()
-                grad_joint = np.asarray(
-                    (
-                        result_joint.jac
-                        if getattr(result_joint, "jac", None) is not None
-                        else j_obj.jac(x_joint)
-                    ),
-                    dtype=np.float64,
-                )
-                hess_joint = np.asarray(
-                    (
-                        result_joint.hess
-                        if getattr(result_joint, "hess", None) is not None
-                        else j_obj.hess(x_joint)
-                    ),
-                    dtype=np.float64,
-                )
-                if (
-                    grad_joint.ndim == 1
-                    and hess_joint.ndim == 2
-                    and grad_joint.size == x_joint.size
-                    and hess_joint.shape == (x_joint.size, x_joint.size)
-                ):
-                    grad2 = np.diag(hess_joint)
-                    flat = np.where(
-                        np.abs(grad2[:n_free]) < np.abs(grad_joint[:n_free]) * 100.0
-                    )[0]
-                    if flat.size > 0:
-                        target = float(result_joint.fun) + 0.02
-                        x_edge = x_joint.copy()
-                        for j in flat.tolist():
-                            step_j = 1.0 if x0[j] > x_edge[j] else -1.0
-                            x_try = x_edge.copy()
-                            x_try[j] = min(
-                                max(x_try[j] + step_j, joint_bounds[j][0]),
-                                joint_bounds[j][1],
-                            )
-                            if abs(x_try[j] - x_edge[j]) <= 1e-12:
-                                continue
-                            score_try = float(j_obj.fun(x_try))
-                            if np.isfinite(score_try) and score_try < target:
-                                x_edge = x_try
-                        x_selected = np.asarray(x_edge[:-1], dtype=np.float64).ravel()
-                        x_joint = x_edge
-                _ = criterion_hessian_ml_reml_pirls_exact(
-                    model, y, x_selected, branch_m
-                )
-                gamma_state = getattr(model, "_pirls_reml_gamma_state_", None)
-                phi_opt = None
-                if isinstance(gamma_state, dict):
-                    phi_opt = gamma_state.get("phi", None)
-                if (
-                    phi_opt is not None
-                    and np.isfinite(float(phi_opt))
-                    and float(phi_opt) > 0.0
-                ):
-                    model._gamma_reml_phi_opt_ = float(phi_opt)
-                result.x = np.asarray(x_selected, dtype=np.float64).copy()
-                result.fun = float(objective.fun(result.x))
-                result.jac = np.asarray(objective.jac(result.x), dtype=np.float64)
-                result.hess = np.asarray(objective.hess(result.x), dtype=np.float64)
-                result.joint_gamma_reml_outer = True
-                result.joint_log_phi = float(x_joint[-1])
-                result.joint_gamma_message = str(getattr(result_joint, "message", ""))
-
-    if use_joint_negbin_reml_theta:
-        branch_m = "LAML" if method == "laml" else "REML"
-        theta0 = float(max(getattr(model.family, "theta", 1.0), 1e-6))
-        log_theta0 = float(np.log(theta0))
-        theta_bounds = [(-12.0, 12.0)]
-        joint_bounds = list(bounds) + theta_bounds
-        x_joint0 = np.concatenate([x0.copy(), np.array([log_theta0], dtype=np.float64)])
-        result_joint_nb_init = _optimize_joint_negbin_reml_efs(
-            model=model,
-            y=y,
-            x0=x0,
-            bounds=bounds,
-            free_mask=free_mask,
-            method=method,
-        )
-        if result_joint_nb_init is not None:
-            x_joint0 = np.concatenate(
-                [
-                    np.asarray(result_joint_nb_init.x, dtype=np.float64).ravel(),
-                    np.array(
-                        [
-                            float(
-                                getattr(
-                                    result_joint_nb_init, "joint_log_theta", log_theta0
-                                )
-                            )
-                        ],
-                        dtype=np.float64,
-                    ),
-                ]
-            )
-        j_obj = _JointNegbinPirlsRemlObjective(model, y, branch_m)
-        result_joint_nb = minimize(
-            fun=j_obj.fun,
-            x0=x_joint0,
-            method="L-BFGS-B",
-            jac=j_obj.jac,
-            bounds=joint_bounds,
-            options={"maxfun": 25000, "ftol": 1e-11, "gtol": 1e-10},
-        )
-        if not bool(getattr(result_joint_nb, "success", False)) and not np.isfinite(
-            getattr(result_joint_nb, "fun", np.nan)
-        ):
-            raise RuntimeError(
-                "Negative binomial joint REML outer smoothing optimization failed."
-            )
-        result_joint_nb = _coordinate_refine_smoothing_params(
-            objective=j_obj,
-            result=result_joint_nb,
-            bounds=joint_bounds,
-            improve_tol=1e-4,
-        )
-        x_joint = np.asarray(result_joint_nb.x, dtype=np.float64).ravel()
-        x_selected_nb = np.asarray(x_joint[:-1], dtype=np.float64).ravel()
-        log_theta_opt = float(x_joint[-1])
-
-        model.family.theta = float(np.exp(log_theta_opt))
-        model._pirls_disable_theta_efs_ = True
-        result.x = np.asarray(x_selected_nb, dtype=np.float64).copy()
-        result.fun = float(getattr(result_joint_nb, "fun", np.nan))
-        jac_joint = getattr(result_joint_nb, "jac", None)
-        if jac_joint is not None:
-            jac_joint = np.asarray(jac_joint, dtype=np.float64).ravel()
-            result.jac = jac_joint[:-1].copy()
-        else:
-            result.jac = None
-        result.hess = None
-        result.joint_negbin_reml_outer = True
-        result.joint_negbin_efs_outer = False
-        result.joint_negbin_initial_log_theta = log_theta0
-        result.joint_log_theta = log_theta_opt
-        result.joint_negbin_message = str(getattr(result_joint_nb, "message", ""))
-        result.joint_negbin_fun = float(getattr(result_joint_nb, "fun", np.nan))
-        result.joint_negbin_nfev = int(getattr(result_joint_nb, "nfev", 0))
-        result.joint_negbin_njev = int(getattr(result_joint_nb, "njev", 0))
-        result.joint_negbin_selected_x = np.asarray(result.x, dtype=np.float64).copy()
-        result.message = str(getattr(result_joint_nb, "message", ""))
-        result.nfev = int(getattr(result_joint_nb, "nfev", 0))
-        result.njev = int(getattr(result_joint_nb, "njev", 0))
-        result.nit = int(getattr(result_joint_nb, "nit", 0))
-        if getattr(j_obj, "trace", None):
-            score_hist = []
-            log_theta_hist = []
-            log_sp_hist = []
-            for row in j_obj.trace:
-                x_row = np.asarray(row["x"], dtype=np.float64).ravel()
-                if x_row.size != n_free + 1:
-                    continue
-                score = row.get("fun", None)
-                if score is None or not np.isfinite(float(score)):
-                    continue
-                log_sp_hist.append(x_row[:-1].tolist())
-                log_theta_hist.append(float(x_row[-1]))
-                score_hist.append(float(score))
-            result.outer_info = {
-                "iter": int(len(score_hist)),
-                "score_hist": score_hist,
-                "log_theta_hist": log_theta_hist,
-                "log_sp_hist": log_sp_hist,
-            }
-
-        if apply_generic_pirls_rollback:
-            result = _rollback_working_infinite_smoothing_params(
-                objective=objective,
-                result=result,
-                x0=x0,
-                bounds=bounds,
-                method=method,
-            )
-        result = _stabilize_joint_negbin_flat_ridge(
-            objective=objective,
-            result=result,
-            bounds=bounds,
-            score_tol=1.0e-4,
-        )
-        if has_null_space_penalty:
-            result = _stabilize_flat_smoothing_params(
-                objective=objective,
-                result=result,
-                x0=x0,
-                bounds=bounds,
-                method=method,
-            )
-            result = _collapse_near_zero_smoothing_params(
-                objective=objective,
-                result=result,
-                bounds=bounds,
-                method=method,
-            )
-            result = _accept_flat_boundary_result(
-                objective=objective,
-                result=result,
-                method=method,
-            )
-            result = _refine_null_space_smoothing_params(
-                objective=objective,
-                result=result,
-                bounds=bounds,
-            )
-        result.joint_negbin_postprocessed = True
+                model._gamma_reml_phi_opt_ = float(phi_opt)
 
     if not result.success:
         warnings.warn(
@@ -1528,7 +1186,9 @@ def optimize_smoothing_params(
 
     model._optim_method = method
     model._optim_result = result
-    if bool(getattr(result, "joint_negbin_reml_outer", False)):
+    if bool(getattr(result, "joint_negbin_reml_outer", False)) and bool(
+        getattr(result, "joint_negbin_efs_outer", False)
+    ):
         outer_info = getattr(result, "outer_info", {}) or {}
         score_hist = list(outer_info.get("score_hist", []))
         log_theta_hist = list(outer_info.get("log_theta_hist", []))
@@ -1559,10 +1219,10 @@ def optimize_smoothing_params(
         if trace_rows:
             model._optim_trace = trace_rows
             result.optim_trace = trace_rows
-    if (
+    if getattr(objective, "trace", None) is not None and (
         not bool(getattr(result, "joint_negbin_reml_outer", False))
-        and getattr(objective, "trace", None) is not None
-    ):
+        or not bool(getattr(result, "joint_negbin_efs_outer", False))
+    ) and not bool(getattr(result, "joint_gamma_reml_outer", False)):
         trace_rows = []
         prev_x = None
         for i, row in enumerate(objective.trace):

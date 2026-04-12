@@ -217,6 +217,37 @@ def _kron_many(mats):
     return out
 
 
+def _xzkr_contrast_transform(level_sizes, block_dim):
+    """
+    Exact mgcv::XZKr() contrast transform.
+
+    Returns ``T`` such that ``X_raw @ T`` matches
+    ``t(mgcv:::XZKr(X_raw, m))``. Implemented by running the upstream reshape /
+    subtraction logic on an identity basis, to preserve column order exactly.
+    """
+    level_sizes = [int(v) for v in level_sizes]
+    block_dim = int(block_dim)
+    if block_dim < 0:
+        raise ValueError("block_dim must be non-negative.")
+    if any(v < 1 for v in level_sizes):
+        raise ValueError("level_sizes must all be >= 1.")
+
+    q_in = int(np.prod(level_sizes, dtype=np.int64)) * block_dim
+    q_out = int(np.prod([v - 1 for v in level_sizes], dtype=np.int64)) * block_dim
+    if q_out == 0:
+        return np.empty((q_in, 0), dtype=np.float64)
+
+    work = np.eye(q_in, dtype=np.float64)
+    n = int(work.shape[0])
+    for m_i in level_sizes:
+        work = np.reshape(work, (work.size // m_i, m_i), order="F")
+        work = (work[:, : m_i - 1] - work[:, [m_i - 1]]).T
+    work = np.reshape(work, (work.size // block_dim, block_dim), order="F")
+    work = work.T
+    work = np.reshape(work, (work.size // n, n), order="F")
+    return np.asarray(work.T, dtype=np.float64)
+
+
 def _block_penalty_for_group(group_index, n_groups, S_base):
     """
     Penalty acting on one group-specific copy of the base smooth.
@@ -598,7 +629,12 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         ranks = []
 
         penalties.append(0.5 * (P_range + P_range.T))
-        smoothing_ids.append(f"__fs__:{self.label}:range")
+        shared_sid = (
+            str(self.smoothing_id)
+            if self.smoothing_id is not None
+            else f"__fs__:{self.label}"
+        )
+        smoothing_ids.append(shared_sid)
         ranks.append(int(n_levels * r))
 
         for i in range(null_d):
@@ -606,7 +642,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             um[r + i] = 1.0
             P_null_i = np.diag(np.tile(um, n_levels))
             penalties.append(0.5 * (P_null_i + P_null_i.T))
-            smoothing_ids.append(f"__fs__:{self.label}:null:{i}")
+            smoothing_ids.append(shared_sid)
             ranks.append(int(n_levels))
 
         # Apply mgcv smoothCon scale_penalty step: normalise S relative to X.
@@ -786,11 +822,12 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         X_raw = rowwise_kronecker(indicator_mats + [B0])
 
         p0 = B0.shape[1]
-        C_fac = _kron_many(contrast_mats)
-        self._factor_transform = C_fac
-        self._n_groups = int(np.prod([len(lev) for lev in level_lists], dtype=np.int64))
+        level_sizes = [len(lev) for lev in level_lists]
+        self._n_groups = int(np.prod(level_sizes, dtype=np.int64))
+        T = _xzkr_contrast_transform(level_sizes, p0)
+        self._factor_transform = T
 
-        if C_fac.shape[1] == 0:
+        if T.shape[1] == 0:
             self._basis_train = np.empty((X_raw.shape[0], 0), dtype=np.float64)
             self._penalties = []
             self._smoothing_ids = []
@@ -799,7 +836,6 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             self._record_constraint_result(None, None, absorbed_by=None)
             return self
 
-        T = np.kron(C_fac, np.eye(p0, dtype=np.float64))
         X_con = X_raw @ T
 
         if len(base_term.penalties) == 0:
@@ -874,8 +910,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         if self._factor_transform.shape[1] == 0:
             return np.empty((X_raw.shape[0], 0), dtype=np.float64)
 
-        T = np.kron(self._factor_transform, np.eye(B0_new.shape[1], dtype=np.float64))
-        return np.asarray(X_raw @ T, dtype=np.float64)
+        return np.asarray(X_raw @ self._factor_transform, dtype=np.float64)
 
     def get_penalty_definitions(self):
         if self._delegate_term is not None:

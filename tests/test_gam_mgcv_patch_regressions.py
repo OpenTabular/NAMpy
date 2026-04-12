@@ -2,6 +2,7 @@ import importlib
 
 import numpy as np
 import pandas as pd
+import pytest
 from mgcv_parity_utils import _make_mrf_data
 from scipy.optimize import OptimizeResult
 
@@ -17,13 +18,18 @@ from nampy.gam.fit.penalized_system import (
 )
 from nampy.gam.fit.solvers.irls_core import irls_core
 from nampy.gam.smoothing_selection.criteria import dispatch as criteria_dispatch
+from nampy.gam.smoothing_selection.criteria.pirls_deriv import (
+    criterion_gradient_ml_reml_pirls_exact,
+)
 from nampy.gam.smoothing_selection.optimize import (
     _rollback_working_infinite_smoothing_params,
 )
 from nampy.gam.smoothing_selection.reparam import (
     SlBlock,
+    build_canonical_gam_reparam_state,
     build_penalty_reparameterized_system,
     can_use_simple_ml_reml_structure,
+    dynamic_reparam_design,
     sl_group_indices,
 )
 
@@ -252,6 +258,152 @@ def test_disjoint_multi_penalty_term_is_accepted_and_reparameterized():
     np.testing.assert_array_equal(groups[1], np.array([2, 3], dtype=np.int64))
 
 
+def test_overlapping_null_space_penalties_on_one_term_are_accepted():
+    class _Dummy:
+        pass
+
+    class _TermBlock:
+        def __init__(self, basis_train, coef_slice):
+            self.basis_train = basis_train
+            self.coef_slice = coef_slice
+
+    class _PenaltyBlock:
+        def __init__(self, matrix, coef_slice, smoothing_index, *, is_null=False):
+            self.matrix = matrix
+            self.coef_slice = coef_slice
+            self.smoothing_index = smoothing_index
+            self.kind = "smooth"
+            self.is_null_space_penalty = is_null
+
+    rng = np.random.default_rng(199)
+    n = 80
+    B = rng.normal(size=(n, 4))
+    term_slice = slice(0, 4)
+
+    P = np.diag([1.0, 1.0, 0.0, 0.0])
+    N1 = np.diag([0.0, 0.0, 1.0, 1.0])
+    N2 = np.diag([0.0, 0.0, 1.0, 1.0])
+
+    model = _Dummy()
+    model.design_ = object()
+    model.fit_intercept = True
+    model.n_samples_ = n
+    model.term_blocks_ = [_TermBlock(B, term_slice)]
+    model.penalty_blocks_ = [
+        _PenaltyBlock(P, term_slice, smoothing_index=0),
+        _PenaltyBlock(N1, term_slice, smoothing_index=1, is_null=True),
+        _PenaltyBlock(N2, term_slice, smoothing_index=2, is_null=True),
+    ]
+
+    assert can_use_simple_ml_reml_structure(model)
+    state = build_penalty_reparameterized_system(model)
+    assert state is not None
+    assert state.Z_rand is not None
+    assert state.sl_blocks is not None
+    assert state.Z_rand.shape[1] == 6
+    assert len(state.sl_blocks) == 3
+    assert [b.smoothing_index for b in state.sl_blocks] == [0, 1, 2]
+    assert [b.blockSize for b in state.sl_blocks] == [2, 2, 2]
+    groups = sl_group_indices(state)
+    assert set(groups.keys()) == {0, 1, 2}
+    np.testing.assert_array_equal(groups[0], np.array([0, 1], dtype=np.int64))
+    np.testing.assert_array_equal(groups[1], np.array([2, 3], dtype=np.int64))
+    np.testing.assert_array_equal(groups[2], np.array([4, 5], dtype=np.int64))
+
+
+def test_dynamic_reparam_design_depends_on_current_sp():
+    class _Dummy:
+        pass
+
+    class _TermBlock:
+        def __init__(self, basis_train, coef_slice):
+            self.basis_train = basis_train
+            self.coef_slice = coef_slice
+
+    class _PenaltyBlock:
+        def __init__(self, matrix, coef_slice, smoothing_index):
+            self.matrix = matrix
+            self.coef_slice = coef_slice
+            self.smoothing_index = smoothing_index
+            self.kind = "smooth"
+            self.is_null_space_penalty = False
+
+    rng = np.random.default_rng(101)
+    n = 60
+    B = rng.normal(size=(n, 4))
+    term_slice = slice(0, 4)
+
+    model = _Dummy()
+    model.design_ = object()
+    model.fit_intercept = True
+    model.n_samples_ = n
+    model.n_coef_ = 4
+    model.n_smoothing_params_ = 2
+    model.term_blocks_ = [_TermBlock(B, term_slice)]
+    model.penalty_blocks_ = [
+        _PenaltyBlock(np.diag([1.0, 1.0, 0.0, 0.0]), term_slice, smoothing_index=0),
+        _PenaltyBlock(np.diag([0.0, 0.0, 1.0, 1.0]), term_slice, smoothing_index=1),
+    ]
+    X = build_full_design(B, fit_intercept=True)
+
+    d0 = dynamic_reparam_design(model, X, np.array([0.5, 2.0], dtype=np.float64))
+    d1 = dynamic_reparam_design(model, X, np.array([2.0, 0.5], dtype=np.float64))
+
+    assert d0.X_fix.shape == d1.X_fix.shape == (n, 1)
+    assert d0.Z_rand.shape == d1.Z_rand.shape == (n, 4)
+    assert np.isfinite(d0.penalty_logdet)
+    assert np.isfinite(d1.penalty_logdet)
+    assert np.max(np.abs(d0.Z_rand - d1.Z_rand)) > 1e-8
+
+
+def test_canonical_gam_reparam_state_matches_dynamic_design():
+    rng = np.random.default_rng(102)
+    n = 50
+    B = rng.normal(size=(n, 4))
+    x_full = build_full_design(B, fit_intercept=True)
+
+    class _Dummy:
+        pass
+
+    class _TermBlock:
+        def __init__(self, basis_train, coef_slice):
+            self.basis_train = basis_train
+            self.coef_slice = coef_slice
+
+    class _PenaltyBlock:
+        def __init__(self, matrix, coef_slice, smoothing_index):
+            self.matrix = matrix
+            self.coef_slice = coef_slice
+            self.smoothing_index = smoothing_index
+            self.kind = "smooth"
+            self.is_null_space_penalty = False
+
+    term_slice = slice(0, 4)
+    model = _Dummy()
+    model.design_ = object()
+    model.fit_intercept = True
+    model.n_samples_ = n
+    model.n_coef_ = 4
+    model.n_smoothing_params_ = 2
+    model.term_blocks_ = [_TermBlock(B, term_slice)]
+    model.penalty_blocks_ = [
+        _PenaltyBlock(np.diag([1.0, 1.0, 0.0, 0.0]), term_slice, smoothing_index=0),
+        _PenaltyBlock(np.diag([0.0, 0.0, 1.0, 1.0]), term_slice, smoothing_index=1),
+    ]
+
+    sp = np.array([0.5, 2.0], dtype=np.float64)
+    canonical = build_canonical_gam_reparam_state(model, x_full, sp, deriv=1)
+    dynamic = dynamic_reparam_design(model, x_full, sp)
+
+    assert canonical.U1.shape == (5, 5)
+    assert canonical.T.shape == (5, 5)
+    assert canonical.St.shape == (5, 5)
+    assert canonical.Sr.shape[1] == 5
+    assert canonical.Mp == 1
+    np.testing.assert_allclose(canonical.X_fix, dynamic.X_fix, rtol=0.0, atol=1e-12)
+    np.testing.assert_allclose(canonical.Z_rand, dynamic.Z_rand, rtol=0.0, atol=1e-12)
+
+
 def test_t2_term_emits_one_sl_block_per_penalty_slice():
     rng = np.random.default_rng(123)
     n = 80
@@ -311,6 +463,66 @@ def test_mrf_term_emits_single_sl_block():
     groups = sl_group_indices(state)
     assert set(groups.keys()) == {0}
     np.testing.assert_array_equal(groups[0], np.array([0, 1], dtype=np.int64))
+
+
+def test_pirls_laplace_reml_derivatives_dispatch_to_exact_backend(monkeypatch):
+    x = np.linspace(-2.0, 2.0, 40, dtype=np.float64)
+    y = (x > 0.0).astype(np.float64)
+
+    gam = GAM(k=8, family="binomial", optimize_smoothing=False, smoothing_method="fixed")
+    gam.fit(X=x[:, None], y=y)
+
+    seen = {"grad": 0, "hess": 0, "fd_grad": 0, "fd_hess": 0}
+
+    def _grad_stub(model, y, log_sp, method="REML"):
+        del model, y, log_sp, method
+        seen["grad"] += 1
+        return np.array([123.0], dtype=np.float64)
+
+    def _hess_stub(model, y, log_sp, method="REML"):
+        del model, y, log_sp, method
+        seen["hess"] += 1
+        return np.array([[456.0]], dtype=np.float64)
+
+    def _fd_grad(*args, **kwargs):
+        del args, kwargs
+        seen["fd_grad"] += 1
+        return np.array([-1.0], dtype=np.float64)
+
+    def _fd_hess(*args, **kwargs):
+        del args, kwargs
+        seen["fd_hess"] += 1
+        return np.array([[-1.0]], dtype=np.float64)
+
+    monkeypatch.setattr(criteria_dispatch, "criterion_gradient_ml_reml_pirls_exact", _grad_stub)
+    monkeypatch.setattr(criteria_dispatch, "criterion_hessian_ml_reml_pirls_exact", _hess_stub)
+    monkeypatch.setattr(criteria_dispatch, "criterion_gradient_numerical", _fd_grad)
+    monkeypatch.setattr(criteria_dispatch, "criterion_hessian_numerical", _fd_hess)
+
+    grad = criteria_dispatch.criterion_gradient(
+        gam, y, np.log(gam.smoothing_params), method="reml"
+    )
+    hess = criteria_dispatch.criterion_hessian(
+        gam, y, np.log(gam.smoothing_params), method="reml"
+    )
+
+    np.testing.assert_array_equal(grad, np.array([123.0], dtype=np.float64))
+    np.testing.assert_array_equal(hess, np.array([[456.0]], dtype=np.float64))
+    assert seen == {"grad": 1, "hess": 1, "fd_grad": 0, "fd_hess": 0}
+
+
+def test_direct_exact_pirls_derivative_entrypoint_runs_on_canonical_reparam_state():
+    x = np.linspace(-2.0, 2.0, 40, dtype=np.float64)
+    y = (x > 0.0).astype(np.float64)
+
+    gam = GAM(k=8, family="binomial", optimize_smoothing=False, smoothing_method="fixed")
+    gam.fit(X=x[:, None], y=y)
+
+    grad = criterion_gradient_ml_reml_pirls_exact(
+        gam, y, np.log(gam.smoothing_params), "REML"
+    )
+    assert grad.shape == (1,)
+    assert np.all(np.isfinite(grad))
 
 
 def test_tensor_id_metadata_maps_one_smoothing_id_to_multiple_sp_indices():

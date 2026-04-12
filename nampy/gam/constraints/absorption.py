@@ -26,6 +26,7 @@ from ..penalties import normalize_penalty_spec
 from .transforms import (
     apply_coefficient_transform,
     localized_null_space_basis_from_constraint_matrix,
+    null_space_basis_from_constraint_matrix,
 )
 
 
@@ -77,13 +78,12 @@ def apply_linear_constraint(B, penalties, constraint_row, tol: float = 1e-12):
     """
     B = np.asarray(B, dtype=np.float64)
     penalties = [np.asarray(S, dtype=np.float64) for S in penalties]
-    c = np.asarray(constraint_row, dtype=np.float64).reshape(-1, 1)
+    c = np.asarray(constraint_row, dtype=np.float64).reshape(1, -1)
     cn = float(np.linalg.norm(c))
     if cn <= tol:
         C = np.eye(B.shape[1], dtype=np.float64)
         return B, penalties, C
-    q, _ = np.linalg.qr(c, mode="complete")
-    C = q[:, 1:]
+    C, _ = null_space_basis_from_constraint_matrix(c, d=B.shape[1], tol=tol)
     Bc, Sc = apply_coefficient_transform(B, penalties, C)
     return Bc, Sc, C
 
@@ -146,10 +146,10 @@ def fit_single_penalty_with_constraint_policy(
             raise ValueError(
                 "constraint_mode='factor_by' requires a numeric indicator `by` column."
             )
-        base_fb = apply_numeric_by_fn(base, by_state.values)
         penalties_in = [] if bool(fixed) else [penalty]
-        mean_row = base_fb.mean(axis=0)
-        Bc, Sc, C = apply_linear_constraint(base_fb, penalties_in, mean_row)
+        mean_row = base.mean(axis=0)
+        Bc, Sc, C = apply_linear_constraint(base, penalties_in, mean_row)
+        Bc = apply_numeric_by_fn(Bc, by_state.values)
         return ConstraintFitResult(
             basis_train=np.asarray(Bc, dtype=np.float64),
             penalties=Sc,

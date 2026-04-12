@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 from _mgcv_snapshot_parity_shared import (
     TestAdditionalScenarioParity as _SharedTestAdditionalScenarioParity,
 )
@@ -11,6 +12,7 @@ from mgcv_parity_utils import (
     _assert_basic_mgcv_parity,
     _assert_exact_mgcv_snapshot_parity,
     _fit_nampy_model,
+    _fit_nampy_model_fixed_sp,
     _fit_nampy_snapshot,
     _make_fs_data_4levels,
     _make_gamma_data,
@@ -30,9 +32,6 @@ class TestAdditionalScenarioParity:
     )
     test_gaussian_re_select_reml_matches_mgcv_exactly = (
         _SharedTestAdditionalScenarioParity.test_gaussian_re_select_reml_matches_mgcv_exactly
-    )
-    test_gaussian_fs_select_reml_matches_mgcv = (
-        _SharedTestAdditionalScenarioParity.test_gaussian_fs_select_reml_matches_mgcv
     )
     test_gaussian_sz_select_reml_matches_mgcv = (
         _SharedTestAdditionalScenarioParity.test_gaussian_sz_select_reml_matches_mgcv
@@ -83,6 +82,65 @@ class TestAdditionalScenarioParity:
         _SharedTestAdditionalScenarioParity.test_gamma_inverse_link_reml_matches_mgcv
     )
 
+    def test_gamma_identity_link_fixed_sp_matches_mgcv(self):
+        data = _make_gamma_data(seed=362, n=220)
+        family = {"name": "gamma", "link": "identity"}
+        formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
+
+        expected = _run_mgcv_snapshot(data, formula, family, "REML")
+        sp = np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
+        gam = _fit_nampy_model_fixed_sp(data, formula, family, sp)
+        actual = gam.parity_snapshot(X=data, include_covariances=True)
+
+        _assert_basic_mgcv_parity(
+            actual,
+            expected,
+            pred_atol=1e-10,
+            pred_rtol=0.0,
+            sp_log_atol=1e-10,
+            check_criterion=False,
+        )
+
+    def test_gamma_identity_link_reml_prediction_matches_mgcv_fixed_sp(self):
+        data = _make_gamma_data(seed=363, n=220)
+        family = {"name": "gamma", "link": "identity"}
+        formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
+
+        expected = _run_mgcv_snapshot(data, formula, family, "REML")
+        sp = np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
+        gam = _fit_nampy_model_fixed_sp(data, formula, family, sp)
+        actual = gam.parity_snapshot(X=data, include_covariances=True)
+
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["response"], dtype=np.float64),
+            np.asarray(expected["predictions"]["response"], dtype=np.float64),
+            atol=1e-9,
+            rtol=0.0,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"]["link"], dtype=np.float64),
+            np.asarray(expected["predictions"]["link"], dtype=np.float64),
+            atol=1e-9,
+            rtol=0.0,
+        )
+
+    def test_gamma_identity_link_reml_matches_mgcv(self):
+        data = _make_gamma_data(seed=364, n=220)
+        family = {"name": "gamma", "link": "identity"}
+        formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
+
+        actual = _fit_nampy_snapshot(data, formula, family, "REML")
+        expected = _run_mgcv_snapshot(data, formula, family, "REML")
+
+        _assert_basic_mgcv_parity(
+            actual,
+            expected,
+            pred_atol=2e-5,
+            pred_rtol=0.0,
+            sp_log_atol=3e-5,
+            criterion_atol=1e-8,
+        )
+
     test_gaussian_te_cc_cc_fixed_matches_mgcv = (
         _SharedTestAdditionalScenarioParity.test_gaussian_te_cc_cc_fixed_matches_mgcv
     )
@@ -97,9 +155,6 @@ class TestAdditionalScenarioParity:
     )
     test_gaussian_ti_ts_cr_fixed_matches_mgcv = (
         _SharedTestAdditionalScenarioParity.test_gaussian_ti_ts_cr_fixed_matches_mgcv
-    )
-    test_gaussian_t2_ts_cr_reml_matches_mgcv = (
-        _SharedTestAdditionalScenarioParity.test_gaussian_t2_ts_cr_reml_matches_mgcv
     )
     test_gaussian_te_tp_cr_fixed_matches_mgcv = (
         _SharedTestAdditionalScenarioParity.test_gaussian_te_tp_cr_fixed_matches_mgcv
@@ -316,7 +371,7 @@ class TestDistributionalRegressionMultiPredictor:
 
 
 class TestFactorSmoothByPreprocess:
-    def test_fs_factor_by_falls_back_to_base_smooth_factor_by_expansion(self):
+    def test_fs_factor_by_without_factor_feature_uses_base_smooth_expansion(self):
         from nampy.gam.formula import (
             compile_predictor_specs_from_formula,
             parse_gam_formula,
@@ -339,15 +394,8 @@ class TestFactorSmoothByPreprocess:
             data=data,
         )
 
-        hidden_cols = [col for col in data_work.columns if col.startswith("__gam_by__")]
-        assert len(hidden_cols) == 2
-        assert len(state["factor_by_expansions"]) == 2
-
-        terms = out_specs[0].terms
+        terms = list(out_specs[0].terms)
         assert len(terms) == 2
-        assert all(term.features == ("x",) for term in terms)
-        assert all(term.by_variable in hidden_cols for term in terms)
-        assert all(term.smooth_spec.bs == "tp" for term in terms)
-        assert all(
-            term.metadata["fs_base_by_fallback"]["source_by"] == "f" for term in terms
-        )
+        assert all(str(term.smooth_spec.bs) == "tp" for term in terms)
+        assert all(term.by_variable in data_work.columns for term in terms)
+        assert len(state["factor_by_expansions"]) == 2

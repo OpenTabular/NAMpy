@@ -46,10 +46,27 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         n_coef=int(model.n_coef_),
     )
 
-    force_stacked_qr = bool(getattr(model, "_use_stacked_qr", False)) or gaussian_design_needs_stacked_qr_fit(model)
+    has_mrf_term = any(
+        str(getattr(tb, "basis_name", "")).lower() == "mrf"
+        for tb in getattr(getattr(model, "Z", None), "term_blocks", [])
+    )
+    tiny_mrf_penalty = has_mrf_term and np.any(
+        np.asarray(smoothing_params, dtype=np.float64) < 1e-20
+    )
+    force_stacked_qr = (
+        bool(getattr(model, "_use_stacked_qr", False))
+        or gaussian_design_needs_stacked_qr_fit(model)
+        or tiny_mrf_penalty
+    )
     # Underdetermined design (n < p): Householder dormqr fails with tau dimension mismatch.
     # Use lstsq path instead, matching the old explicit factor_smooth check.
     coef_method = "lstsq" if (force_stacked_qr and X.shape[0] < X.shape[1]) else "householder"
+
+    # Rank-deficient Gaussian designs (for example heavily penalized ti() terms at
+    # the REML boundary) can share fitted values with multiple coefficient vectors.
+    # mgcv's `magic` path implicitly picks a penalty-minimizing representative in
+    # that null(X) coset; enable the same gauge automatically for stacked-QR fits.
+    null_gauge = "auto" if force_stacked_qr else False
 
     sol = irls_core(
         X,
@@ -60,11 +77,12 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         weights=w,
         fit_intercept=fi,
         max_iter=1,
-        tol=float(getattr(model, "irls_tol", 1e-8)),
+        tol=float(getattr(model, "irls_tol", 1e-7)),
         max_step_halving=int(getattr(model, "max_step_halving", 25)),
         penalty_rank_rows=rank_rows,
         force_stacked_qr=force_stacked_qr,
         coef_method=coef_method,
+        near_singular_null_pin=null_gauge,
     )
 
     eta = np.asarray(sol["eta"], dtype=np.float64)
@@ -85,6 +103,7 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
             fit_intercept=fi,
             n_coef=int(model.n_coef_),
             coef_method=coef_method,
+            near_singular_null_pin=null_gauge,
         )
         trace_H = float(np.trace(stacked["coef_hat_matrix"]))
         scale = model.family.estimate_dispersion(y, eta, edf=trace_H, weights=w)

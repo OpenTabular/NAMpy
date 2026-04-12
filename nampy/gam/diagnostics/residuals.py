@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 
 from .._mgcv_constants import LOG_GUARD_MIN
@@ -30,27 +32,25 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
 
     type = str(type).lower()
     y = np.asarray(model.y_, dtype=np.float64).ravel()
-    if getattr(model.family, "family_class", "") == "general":
-        fitted = np.asarray(model._fitted_mu, dtype=np.float64)
-        if fitted.ndim == 1:
-            fitted = fitted[:, None]
-        family_residuals = getattr(model.family, "residuals", None)
-        if callable(family_residuals):
+    fitted = np.asarray(model._fitted_mu, dtype=np.float64)
+    family_residuals = getattr(model.family, "residuals", None)
+    if callable(family_residuals):
+        try:
             return np.asarray(
-                family_residuals(y, fitted, rtype=type), dtype=np.float64
+                family_residuals(y, fitted, rtype=type),
+                dtype=np.float64,
             ).ravel()
-        if type == "response":
-            return y - np.asarray(fitted[:, 0], dtype=np.float64).ravel()
-        raise NotImplementedError(
-            f"Residual type {type!r} is not implemented for general family {model.family.name!r}."
-        )
+        except TypeError:
+            return np.asarray(family_residuals(model, type), dtype=np.float64).ravel()
 
-    mu = np.asarray(model._fitted_mu, dtype=np.float64).ravel()
+    mu = np.asarray(fitted, dtype=np.float64).ravel()
     eta = np.asarray(model._fitted_eta, dtype=np.float64).ravel()
     w = _prior_weights(model)
 
     if type == "response":
-        return y - mu
+        if fitted.ndim == 1:
+            return y - fitted
+        return np.asarray(y.reshape(-1, 1) - fitted, dtype=np.float64).ravel()
     if type == "working":
         fit_state = getattr(model, "fit_state_", None)
         z_work = (
@@ -65,12 +65,29 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
                 else eta - np.asarray(offset, dtype=np.float64).ravel()
             )
             return z_work - eta_base
-        mu_eta = np.asarray(model.family.mu_eta(eta), dtype=np.float64)
-        return (y - mu) / np.clip(mu_eta, LOG_GUARD_MIN, None)
+        mu_eta = getattr(model.family, "mu_eta", None)
+        if callable(mu_eta):
+            mu_eta_val = np.asarray(mu_eta(eta), dtype=np.float64)
+            return (y - mu) / np.clip(mu_eta_val, LOG_GUARD_MIN, None)
+        if fitted.ndim == 1:
+            return y - fitted
+        return np.asarray(y.reshape(-1, 1) - fitted, dtype=np.float64).ravel()
     if type == "deviance":
+        if fitted.ndim != 1:
+            raise NotImplementedError(
+                f"Residual type {type!r} is not implemented for general family {model.family.name!r}."
+            )
         return _deviance_residuals(model)
     if type in {"pearson", "scaled.pearson"}:
-        var = np.asarray(model.family.variance(mu), dtype=np.float64)
+        variance = getattr(model.family, "variance", None)
+        if not callable(variance):
+            warnings.warn(
+                "Pearson residuals not available for this family - returning deviance residuals",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            return residuals_gam(model)
+        var = np.asarray(variance(mu), dtype=np.float64)
         res = (y - mu) * np.sqrt(w) / np.sqrt(np.clip(var, LOG_GUARD_MIN, None))
         if type == "scaled.pearson":
             res = res / np.sqrt(max(float(model.scale_), LOG_GUARD_MIN))

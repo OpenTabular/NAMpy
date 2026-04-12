@@ -175,6 +175,58 @@ def test_gaulss_reml_outer_fit_matches_mgcv_without_abnormal_warning():
 
 
 @pytest.mark.parametrize(
+    ("family", "formula", "data_factory", "method", "log_sp_atol", "score_atol"),
+    [
+        (
+            "gevlss",
+            ['y ~ s(x, bs="cr", k=6)', "~ 1", "~ 1"],
+            _gevlss_data,
+            "ML",
+            5e-5,
+            5e-6,
+        ),
+        (
+            "shashlss",
+            ['y ~ s(x, bs="cr", k=6)', "~ 1", "~ 1", "~ 1"],
+            _shashlss_data,
+            "ML",
+            8e-2,
+            5e-5,
+        ),
+    ],
+)
+def test_general_family_higher_order_outer_fit_matches_mgcv_endpoint(
+    family, formula, data_factory, method, log_sp_atol, score_atol
+):
+    data = data_factory()
+    expected = _run_mgcv_snapshot(data, formula, family, method)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        gam = _fit_nampy_model(data, formula, family, method)
+
+    abnormal = [
+        str(w.message)
+        for w in caught
+        if "Smoothing optimisation did not converge: ABNORMAL" in str(w.message)
+    ]
+    assert abnormal == []
+
+    np.testing.assert_allclose(
+        np.asarray(np.log(gam.smoothing_params), dtype=np.float64),
+        np.asarray(expected["fit"]["log_smoothing_params"], dtype=np.float64),
+        atol=log_sp_atol,
+        rtol=log_sp_atol,
+    )
+    np.testing.assert_allclose(
+        float(gam.smoothing_score_),
+        float(expected["fit"]["criterion_value"]),
+        atol=score_atol,
+        rtol=score_atol,
+    )
+
+
+@pytest.mark.parametrize(
     ("family", "formula", "data_factory", "method", "grad_tol", "hess_tol"),
     [
         ("gammals", ['y ~ s(x, bs="cr", k=6)', "~ 1"], _gammals_data, "ML", 5e-4, 5e-3),
@@ -494,23 +546,26 @@ def test_general_family_predict_rejects_unimplemented_surfaces(
     gam = GAM(family=family, formula=formula, optimize_smoothing=False)
     gam.fit(data=data)
 
-    with pytest.raises(
-        NotImplementedError,
-        match="return_se=True is not yet implemented for general families",
-    ):
-        gam.predict(data, type="response", return_se=True)
+    link, link_se = gam.predict(data, type="link", return_se=True)
+    response, response_se = gam.predict(data, type="response", return_se=True)
+    terms, terms_se = gam.predict(data, type="terms", return_se=True)
+    lpmatrix = gam.predict(data, type="lpmatrix")
+    shifted = gam.predict(
+        data,
+        type="link",
+        offset=np.full(len(data), 0.25, dtype=np.float64),
+    )
 
-    with pytest.raises(
-        NotImplementedError,
-        match="Prediction offsets are not yet implemented for general families",
-    ):
-        gam.predict(data, type="response", offset=np.zeros(len(data), dtype=np.float64))
-
-    with pytest.raises(
-        NotImplementedError,
-        match="General-family prediction currently supports type='link' and type='response'",
-    ):
-        gam.predict(data, type="terms")
+    assert np.asarray(link).shape == np.asarray(link_se).shape
+    assert np.asarray(response).shape == np.asarray(response_se).shape
+    assert np.asarray(terms).shape == np.asarray(terms_se).shape
+    assert np.asarray(lpmatrix).shape[0] == len(data)
+    np.testing.assert_allclose(
+        np.asarray(shifted, dtype=np.float64)[:, 0],
+        np.asarray(link, dtype=np.float64)[:, 0] + 0.25,
+        atol=1e-10,
+        rtol=1e-10,
+    )
 
 
 def test_shashlss_explicit_unsupported_surfaces_raise():
@@ -522,9 +577,12 @@ def test_shashlss_explicit_unsupported_surfaces_raise():
     )
     gam.fit(data=data)
 
-    with pytest.raises(
+    with pytest.warns(
+        RuntimeWarning,
+        match="Pearson residuals not available for this family - returning deviance residuals",
+    ), pytest.raises(
         NotImplementedError,
-        match="Residual type 'pearson' is not implemented for general family 'shashlss'",
+        match="Residual type 'deviance' is not implemented for general family 'shashlss'",
     ):
         gam.residuals(type="pearson")
 

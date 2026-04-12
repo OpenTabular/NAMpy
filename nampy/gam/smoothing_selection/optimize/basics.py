@@ -20,7 +20,7 @@ def supports_criterion_hessian(model, method):
     if method not in {"ml", "reml", "laml"}:
         return False
     backend = resolve_ml_reml_scoring_backend(model, method=method)
-    if backend == "gaussian_dynamic" and method in {"reml", "laml"}:
+    if backend in {"gaussian_exact", "gaussian_dynamic"} and method in {"reml", "laml"}:
         return True
     if backend == "general_fit5":
         return True

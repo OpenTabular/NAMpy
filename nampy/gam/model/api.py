@@ -34,8 +34,8 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         self.k = int(self.hparams.get("k", 10))
         self.basis = self.hparams.get("basis", "tp")
         self.fit_intercept = bool(self.hparams.get("fit_intercept", True))
-        self.max_irls_iter = int(self.hparams.get("max_irls_iter", 100))
-        self.irls_tol = float(self.hparams.get("irls_tol", 1e-11))
+        self.max_irls_iter = int(self.hparams.get("max_irls_iter", 200))
+        self.irls_tol = float(self.hparams.get("irls_tol", 1e-7))
         self.max_step_halving = int(self.hparams.get("max_step_halving", 25))
         self.smoothing_params = self.hparams.get("smoothing_params", None)
         self.optimize_smoothing = bool(self.hparams.get("optimize_smoothing", False))
@@ -115,8 +115,39 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         self._coef_reduced_to_full_idx = None
 
     def _general_family_link_prediction(self, X_np):
+        offset = self._general_family_prediction_offset(X_np, None)
+        return self._general_family_link_prediction_with_offset(X_np, offset)
+
+    def _general_family_prediction_offset(self, X_np, offset):
+        n_rows = self.n_samples_ if X_np is None else int(X_np.shape[0])
+        n_pred = len(self._predictor_full_slices_ or [])
+        if offset is None:
+            offset_vec = self._prediction_offset(X_np, None)
+            if offset_vec is None:
+                return None
+            return [offset_vec] + [None] * max(n_pred - 1, 0)
+        if isinstance(offset, (list, tuple)):
+            out = []
+            for i, off_i in enumerate(offset):
+                out.append(
+                    None
+                    if off_i is None
+                    else self._coerce_optional_offset(
+                        off_i, n_rows, name=f"offset[{i}]"
+                    )
+                )
+            if len(out) < n_pred:
+                out.extend([None] * (n_pred - len(out)))
+            return out
+        offset_vec = self._coerce_optional_offset(offset, n_rows)
+        return [offset_vec] + [None] * max(n_pred - 1, 0)
+
+    def _general_family_link_prediction_with_offset(self, X_np, offset):
         eta_cols = []
-        for pred, sl in zip(self.predictor_designs, self._predictor_full_slices_):
+        off_list = None if offset is None else list(offset)
+        for k, (pred, sl) in enumerate(
+            zip(self.predictor_designs, self._predictor_full_slices_)
+        ):
             Zp = (
                 np.asarray(pred.design_matrix, dtype=np.float64)
                 if X_np is None
@@ -126,11 +157,126 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
                 Xp = np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp])
             else:
                 Xp = Zp
-            eta_cols.append(Xp @ np.asarray(self.coef_full_[sl], dtype=np.float64))
+            eta_k = Xp @ np.asarray(self.coef_full_[sl], dtype=np.float64)
+            if off_list is not None and k < len(off_list) and off_list[k] is not None:
+                eta_k = eta_k + np.asarray(off_list[k], dtype=np.float64)
+            eta_cols.append(np.asarray(eta_k, dtype=np.float64))
         return (
             np.column_stack(eta_cols)
             if eta_cols
             else np.empty((0, 0), dtype=np.float64)
+        )
+
+    def _general_family_prediction_blocks(self, X_np):
+        Z_blocks = []
+        Xp_blocks = []
+        for pred in self.predictor_designs:
+            Zp = (
+                np.asarray(pred.design_matrix, dtype=np.float64)
+                if X_np is None
+                else np.asarray(pred.build_new_matrix(X_np), dtype=np.float64)
+            )
+            Z_blocks.append(Zp)
+            if bool(pred.has_intercept):
+                Xp_blocks.append(
+                    np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp])
+                )
+            else:
+                Xp_blocks.append(Zp)
+        Z_new = (
+            np.column_stack(Z_blocks)
+            if Z_blocks
+            else np.empty((self.n_samples_ if X_np is None else len(X_np), 0))
+        )
+        return Z_new, Xp_blocks
+
+    def _general_family_predict(
+        self, X_np, *, return_se=False, cov=None, type="response", offset=None
+    ):
+        type = str(type).lower()
+        if type not in {"response", "link", "terms", "lpmatrix"}:
+            raise ValueError(
+                "type must be one of {'response', 'link', 'terms', 'lpmatrix'}"
+            )
+
+        offset_list = self._general_family_prediction_offset(X_np, offset)
+        eta = self._general_family_link_prediction_with_offset(X_np, offset_list)
+        Z_new, Xp_blocks = self._general_family_prediction_blocks(X_np)
+
+        if type == "lpmatrix":
+            return (
+                np.column_stack(Xp_blocks)
+                if Xp_blocks
+                else np.empty((eta.shape[0], 0), dtype=np.float64)
+            )
+
+        if type == "terms":
+            terms = np.column_stack(
+                [
+                    Z_new[:, tb.coef_slice] @ self.coef_[tb.coef_slice]
+                    for tb in self.term_blocks_
+                ]
+            )
+            if not return_se:
+                return terms
+
+            V = self._select_cov(cov)
+            ses = []
+            full_idx = np.asarray(self._coef_reduced_to_full_idx, dtype=int)
+            for tb in self.term_blocks_:
+                idx = full_idx[tb.coef_slice]
+                Xi = np.zeros((Z_new.shape[0], V.shape[0]), dtype=np.float64)
+                Xi[:, idx] = Z_new[:, tb.coef_slice]
+                var = np.einsum("ij,jk,ik->i", Xi, V, Xi)
+                ses.append(np.sqrt(np.maximum(var, 0.0)))
+            return terms, np.column_stack(ses)
+
+        if type == "link":
+            if not return_se:
+                return eta
+            V = self._select_cov(cov)
+            se_cols = []
+            for Xp, sl in zip(Xp_blocks, self._predictor_full_slices_):
+                Vk = V[sl, sl]
+                var = np.einsum("ij,jk,ik->i", Xp, Vk, Xp)
+                se_cols.append(np.sqrt(np.maximum(var, 0.0)))
+            return eta, np.column_stack(se_cols)
+
+        family_predict = getattr(self.family, "predict", None)
+        if callable(family_predict):
+            out = family_predict(
+                eta=eta,
+                X=(
+                    np.column_stack(Xp_blocks)
+                    if Xp_blocks
+                    else np.empty((eta.shape[0], 0), dtype=np.float64)
+                ),
+                jj=[
+                    np.arange(sl.start, sl.stop, dtype=int)
+                    for sl in (self._predictor_full_slices_ or [])
+                ],
+                coef=np.asarray(self.coef_full_, dtype=np.float64),
+                offset=offset_list,
+                se=return_se,
+                Vb=None if not return_se else self._select_cov(cov),
+            )
+            return out
+
+        if return_se:
+            raise NotImplementedError(
+                f"{self.family.__class__.__name__} does not yet implement predictive standard errors."
+            )
+        return np.asarray(
+            self.family.predict_fitted(
+                np.column_stack(Xp_blocks),
+                [
+                    np.arange(sl.start, sl.stop, dtype=int)
+                    for sl in (self._predictor_full_slices_ or [])
+                ],
+                np.asarray(self.coef_full_, dtype=np.float64),
+                offset=offset_list,
+            ),
+            dtype=np.float64,
         )
 
     # ------------------------------------------------------------------
@@ -340,29 +486,28 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
             raise RuntimeError("Model is not fitted.")
 
         if getattr(self.family, "family_class", "") == "general":
-            if return_se:
-                raise NotImplementedError(
-                    "return_se=True is not yet implemented for general families."
-                )
-            if offset is not None:
-                raise NotImplementedError(
-                    "Prediction offsets are not yet implemented for general families."
-                )
-
             if X is None:
                 X_np = None
+                offset_use = offset
             elif self.formula_mode_:
-                X_np, _, _ = self._coerce_formula_predict_inputs(X)
+                X_np, _, offset_formula = self._coerce_formula_predict_inputs(X)
+                offset_use = (
+                    self._combine_offsets(
+                        offset_formula,
+                        self._coerce_optional_offset(offset, X_np.shape[0]),
+                    )
+                    if not isinstance(offset, (list, tuple))
+                    else offset
+                )
             else:
                 X_np, _ = self._coerce_X(X)
-
-            eta = self._general_family_link_prediction(X_np)
-            if str(type).lower() == "link":
-                return eta
-            if str(type).lower() == "response":
-                return np.asarray(self.family.predict(eta=eta), dtype=np.float64)
-            raise NotImplementedError(
-                "General-family prediction currently supports type='link' and type='response'."
+                offset_use = offset
+            return self._general_family_predict(
+                X_np,
+                return_se=return_se,
+                cov=cov,
+                type=type,
+                offset=offset_use,
             )
 
         if X is None:
@@ -574,10 +719,7 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
                 w = (
                     self.family.mu_eta(eta)
                     * (np.asarray(self.y_, dtype=np.float64).ravel() - mu)
-                    / (
-                        float(self.scale_)
-                        * self.family.variance(mu)
-                    )
+                    / (float(self.scale_) * self.family.variance(mu))
                 )
                 WX = np.asarray(w[:, None] * X, dtype=np.float64)
                 vc = (

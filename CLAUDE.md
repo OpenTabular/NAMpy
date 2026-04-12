@@ -6,6 +6,10 @@ Do **not**:
 - rederive `mgcv` from papers or memory when the upstream implementation is available,
 - “clean up” numerics by changing algebra/order of operations without evidence,
 - replace an upstream routine with a more idiomatic approach unless parity requires it and tests confirm it.
+- add NAMpy-only optimizer rescue heuristics after an upstream-style endpoint has been found,
+- use finite-difference outer-derivative fallbacks for parity-sensitive `ml` / `reml` / `laml` paths,
+- rewrite unsupported formula constructs into approximate fallback specs,
+- partially support linked `id=` groups by silently pooling only a compatible subset.
 
 If behavior differs between an apparent design preference and upstream `mgcv`, prefer upstream parity.
 
@@ -53,7 +57,7 @@ Three task flavors per model: regression, classification, distributional regress
 
 ### 2. GAM subsystem (`nampy/gam/`)
 
-A Python reimplementation of R's `mgcv`. **`nampy/gam/ARCHITECTURE.md` is the canonical source of truth** for internal design decisions. The objective is that results should match `mgcv` to machine precision whenever feasible.
+A Python reimplementation of R's `mgcv`. The objective is that results as well as the code should match `mgcv` to machine precision whenever feasible.
 
 The fit pipeline has 7 stages:
 
@@ -78,6 +82,7 @@ The fit pipeline has 7 stages:
 - Fit and predict transforms must be paired — no hidden one-off transforms.
 - Explicit errors for unsupported inputs — no silent approximations.
 - Upstream `mgcv` reference code is authoritative for parity-sensitive behavior.
+- If strict parity is not implemented yet, raise a clear error instead of applying a local fallback.
 
 ### Key data flow (GAM)
 
@@ -107,8 +112,6 @@ For any parity-sensitive change, your final summary should name:
 - `test_mgcv_pc_id_parity.py` — `pc=` and linked-`id=` parity
 - `test_mgcv_known_gaps.py` — tracked strict parity mismatches
 - `mgcv_parity_utils.py`, `mgcv_parity_structure_utils.py` — shared test helpers
-
-Legacy characterization / guardrail files remain in `tests/legacy_mgcv_*.py` but are not part of default collection.
 
 Parity snapshots compare against R `mgcv` output; do not update or break these casually.
 

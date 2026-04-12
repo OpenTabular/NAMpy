@@ -213,8 +213,8 @@ def _run_general_fit5(
     tol = max(np.max(evals), 0.0) * np.finfo(np.float64).eps ** 0.75
     Mp = int(St.shape[0] - np.count_nonzero(evals > tol))
     ctl = GamFit5Control(
-        maxit=int(getattr(model, "max_irls_iter", 100)),
-        epsilon=float(getattr(model, "irls_tol", 1e-11)),
+        maxit=int(getattr(model, "max_irls_iter", 200)),
+        epsilon=float(getattr(model, "irls_tol", 1e-7)),
         trace=bool(getattr(model, "hparams", {}).get("trace", False)),
     )
     offset_list = _offset_list(model, len(layout.jj))
@@ -333,8 +333,10 @@ def _finite_difference_general_fit5_hessian(model, y, log_sp, method):
 
 def criterion_gradient_ml_reml_general_fit5(model, y, log_sp, method):
     if not _supports_analytic_outer_gradient(model.family):
-        _record_outer_derivative_mode(model, gradient_source="finite_difference")
-        return _finite_difference_general_fit5_gradient(model, y, log_sp, method)
+        raise NotImplementedError(
+            "General-family ML/REML outer optimization requires analytic outer "
+            "gradients for strict mgcv parity; finite-difference fallback removed."
+        )
     _record_outer_derivative_mode(model, gradient_source="analytic")
     sp = model._expand_smoothing_params_from_log(log_sp)
     run = _run_general_fit5(
@@ -357,17 +359,10 @@ def criterion_hessian_ml_reml_general_fit5(model, y, log_sp, method):
         if hess is None:
             return np.empty((0, 0), dtype=np.float64)
         return np.asarray(hess, dtype=np.float64)
-    if _supports_analytic_outer_gradient(model.family):
-        _record_outer_derivative_mode(
-            model, hessian_source="analytic_gradient_finite_difference"
-        )
-        return _finite_difference_general_fit5_hessian_from_gradient(
-            model, y, log_sp, method
-        )
-    if not _supports_analytic_outer_gradient(model.family):
-        _record_outer_derivative_mode(model, hessian_source="finite_difference")
-        return _finite_difference_general_fit5_hessian(model, y, log_sp, method)
-    return np.empty((0, 0), dtype=np.float64)
+    raise NotImplementedError(
+        "General-family ML/REML outer optimization requires analytic outer "
+        "Hessians for strict mgcv parity; finite-difference fallback removed."
+    )
 
 
 def solve_general_fit(model, y, smoothing_params, weights=None):

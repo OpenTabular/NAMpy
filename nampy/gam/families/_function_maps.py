@@ -225,9 +225,8 @@ class CloglogLink(LinkFunction):
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
         lam = np.clip(-np.log(1.0 - mu), self.eps, None)
         one_m_mu = np.clip(1.0 - mu, self.eps, None)
-        num = 6.0 * (lam - 1.0) ** 3 + (3.0 * lam - 1.0) * (
-            lam + 2.0 * (lam - 1.0) ** 2
-        )
+        # Mirror mgcv::fix.family.link.family() cloglog d4link algebra exactly.
+        num = 6.0 * lam**3 - 11.0 * lam**2 + 12.0 * lam - 6.0
         return num / _safe_pow(one_m_mu * lam, 4, self.eps)
 
 

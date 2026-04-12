@@ -17,10 +17,10 @@ Provides two code paths:
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
-from ..._mgcv_constants import GAMMA_ABSTOL
-from ..reparam import ensure_penalty_reparameterization_state
+from ...fit.penalized_system import build_full_design
+from ..reparam import dynamic_reparam_design
 from .gaussian_dyn import criterion_ml_reml_gaussian_dynamic_profiled
-from .laplace import _laplace_lambda_vector
+from .gaussian_reml_algebra import gaussian_reml_saturation_terms_wrt_variance
 from .penalty import _static_fixed_and_random_designs
 
 
@@ -48,33 +48,35 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
     ``criterion_ml_reml_exact_dynamic`` (Wood ``X'WX+S`` / ``\\log|A|-\\log|S|``)
     instead; see ``nampy.gam.smoothing_selection.criteria.ml_reml``.
     """
-    if abs(model.score_gamma - 1.0) > GAMMA_ABSTOL:
-        raise NotImplementedError(
-            "score_gamma != 1 is not yet implemented for the exact Gaussian ML/REML/LAML path."
-        )
-
     if not model._can_use_exact_gaussian_ml_reml():
         raise NotImplementedError(
             "Exact Gaussian ML/REML/LAML is currently available only for "
-            "terms with one or more disjoint-support primary smooth penalties, "
-            "plus at most one null-space penalty per support block."
+            "terms whose penalties do not couple disconnected support "
+            "components through null-space penalties."
         )
 
     y = model.family.validate_y(y)
     y_eff = y if model.offset_train_ is None else (y - model.offset_train_)
     sp = model._expand_smoothing_params_from_log(log_sp)
-    state = ensure_penalty_reparameterization_state(model)
-
-    Xf = state.X_fix
-    Zr = state.Z_rand
+    X = build_full_design(model.Z, fit_intercept=model.fit_intercept)
+    design = dynamic_reparam_design(model, X, sp)
+    Xf = design.X_fix
+    Zr = design.Z_rand
     n = Xf.shape[0]
     p = int(Xf.shape[1])
     q = int(Zr.shape[1])
+    gamma = float(model.score_gamma)
+    if not np.isfinite(gamma) or gamma <= 0.0:
+        return np.inf
+    reml_ind = 1.0 if method in {"REML", "LAML"} else 0.0
+    w = np.ones(int(n), dtype=np.float64)
 
     if q == 0:
         if p == 0:
             rss_v = max(float(y_eff @ y_eff), 1e-14)
-            return n * np.log(rss_v / n)
+            scale = rss_v / float(n)
+            ls = gaussian_reml_saturation_terms_wrt_variance(w, scale)[0]
+            return (rss_v / (2.0 * scale) - ls) / gamma
 
         XtX = Xf.T @ Xf
         try:
@@ -85,22 +87,26 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
         b_hat = cho_solve((cXtX, lo), Xf.T @ y_eff, check_finite=False)
         resid = y_eff - Xf @ b_hat
         rss_v = max(float(resid @ resid), 1e-14)
+        prof_df = float(n - p * gamma)
+        if method == "ML":
+            prof_df = float(n)
+        if not np.isfinite(prof_df) or prof_df <= 0.0:
+            return np.inf
+        scale = rss_v / prof_df
+        if not np.isfinite(scale) or scale <= 0.0:
+            return np.inf
+        ls = gaussian_reml_saturation_terms_wrt_variance(w, scale)[0]
+        score = (rss_v / (2.0 * scale) - ls) / gamma
 
         if method == "ML":
-            return n * np.log(rss_v / n)
-
-        if n <= p:
-            return np.inf
+            return score
 
         logdet_XtX = 2.0 * float(np.sum(np.log(np.diag(cXtX))))
-        return (n - p) * np.log(rss_v / (n - p)) + logdet_XtX
+        return score + logdet_XtX / 2.0 - reml_ind * p * (
+            np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0
+        )
 
-    lam_vec = _laplace_lambda_vector(model, sp)
-
-    if np.any(lam_vec <= 0):
-        return np.inf
-
-    M = state.ZtZ_rand + np.diag(lam_vec)
+    M = design.ZtZ_rand + np.eye(q, dtype=np.float64)
     try:
         cM, loM = cho_factor(M, check_finite=False)
     except np.linalg.LinAlgError:
@@ -128,27 +134,36 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
         rss_v = max(float(y_eff @ Ky), 1e-14)
 
     logdet_M = 2.0 * float(np.sum(np.log(np.diag(cM))))
-    logdet_Lam = float(np.sum(np.log(lam_vec)))
-    logdet_Vtilde = logdet_M - logdet_Lam
+    logdet_Vtilde = logdet_M
+    prof_df = float(n - p * gamma)
+    if method == "ML":
+        prof_df = float(n)
+    if not np.isfinite(prof_df) or prof_df <= 0.0:
+        return np.inf
+    scale = rss_v / prof_df
+    if not np.isfinite(scale) or scale <= 0.0:
+        return np.inf
+    ls = gaussian_reml_saturation_terms_wrt_variance(w, scale)[0]
+    score = (rss_v / (2.0 * scale) - ls) / gamma + logdet_Vtilde / 2.0
 
     if method == "ML":
-        return n * np.log(rss_v / n) + logdet_Vtilde
-
-    if n <= p:
-        return np.inf
+        return score
 
     logdet_XtKX = 0.0 if p == 0 else 2.0 * float(np.sum(np.log(np.abs(np.diag(cXKX)))))
-    return (n - p) * np.log(rss_v / (n - p)) + logdet_Vtilde + logdet_XtKX
+    return score + logdet_XtKX / 2.0 - reml_ind * p * (
+        np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0
+    )
 
 
 def criterion_ml_reml_exact_dynamic(model, y, log_sp, method):
-    if abs(model.score_gamma - 1.0) > GAMMA_ABSTOL:
-        raise NotImplementedError(
-            "score_gamma != 1 is not yet implemented for the dynamic Gaussian ML/REML/LAML path."
-        )
     y = model.family.validate_y(y)
     y_eff = y if model.offset_train_ is None else (y - model.offset_train_)
     sp = model._expand_smoothing_params_from_log(log_sp)
+    gamma = float(model.score_gamma)
+    if not np.isfinite(gamma) or gamma <= 0.0:
+        return np.inf
+    reml_ind = 1.0 if method in {"REML", "LAML"} else 0.0
+    w = np.ones(int(y_eff.shape[0]), dtype=np.float64)
 
     sol = model._solve_gaussian_given_smoothing(y, sp)
     if method in {"REML", "LAML"}:
@@ -167,14 +182,19 @@ def criterion_ml_reml_exact_dynamic(model, y, log_sp, method):
 
     if q == 0:
         rss_v = max(float(sol["rss"]), 1e-14)
+        prof_df = float(n - p * gamma)
         if method == "ML":
-            return n * np.log(rss_v / n)
-
-        if n <= p:
+            prof_df = float(n)
+        if prof_df <= 0.0:
             return np.inf
+        scale = rss_v / prof_df
+        if not np.isfinite(scale) or scale <= 0.0:
+            return np.inf
+        ls = gaussian_reml_saturation_terms_wrt_variance(w, scale)[0]
+        score = (rss_v / (2.0 * scale) - ls) / gamma
 
         if p == 0:
-            return (n - p) * np.log(rss_v / (n - p))
+            return score
 
         XtX_fix = Xf.T @ Xf
         try:
@@ -182,7 +202,9 @@ def criterion_ml_reml_exact_dynamic(model, y, log_sp, method):
         except np.linalg.LinAlgError:
             return np.inf
         logdet_fix = 2.0 * float(np.sum(np.log(np.abs(np.diag(cFix)))))
-        return (n - p) * np.log(rss_v / (n - p)) + logdet_fix
+        return score + logdet_fix / 2.0 - reml_ind * p * (
+            np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0
+        )
 
     M = Zr.T @ Zr + np.eye(q, dtype=np.float64)
     try:
@@ -212,12 +234,21 @@ def criterion_ml_reml_exact_dynamic(model, y, log_sp, method):
 
     logdet_M = 2.0 * float(np.sum(np.log(np.abs(np.diag(cM)))))
     logdet_Vtilde = logdet_M - float(split["logdet_plus"])
+    prof_df = float(n - p * gamma)
+    if method == "ML":
+        prof_df = float(n)
+    if prof_df <= 0.0:
+        return np.inf
+    scale = rss_v / prof_df
+    if not np.isfinite(scale) or scale <= 0.0:
+        return np.inf
+    ls = gaussian_reml_saturation_terms_wrt_variance(w, scale)[0]
+    score = (rss_v / (2.0 * scale) - ls) / gamma + logdet_Vtilde / 2.0
 
     if method == "ML":
-        return n * np.log(rss_v / n) + logdet_Vtilde
-
-    if n <= p:
-        return np.inf
+        return score
 
     logdet_XtKX = 0.0 if p == 0 else 2.0 * float(np.sum(np.log(np.abs(np.diag(cXKX)))))
-    return (n - p) * np.log(rss_v / (n - p)) + logdet_Vtilde + logdet_XtKX
+    return score + logdet_XtKX / 2.0 - reml_ind * p * (
+        np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0
+    )

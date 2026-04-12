@@ -8,9 +8,9 @@ import numpy as np
 import pandas as pd
 
 from ..specs import (
+    build_smooth_spec,
     LinearPredictorSpec,
     TermSpec,
-    build_smooth_spec,
     replace_smooth_spec,
 )
 from ..specs.smooth import FactorSmoothInteractionSpec
@@ -47,6 +47,48 @@ def numeric_1d_values(s: pd.Series, *, name: str):
     if not np.isfinite(vals).all():
         raise ValueError(f"Column {name!r} contains NaN or Inf.")
     return vals
+
+
+def _fs_by_without_factor_feature_base_spec(smooth_spec: FactorSmoothInteractionSpec):
+    """Mirror mgcv::smooth.construct.fs.smooth.spec when no factor term is present."""
+    xt = smooth_spec.xt
+    if xt is None:
+        base_bs = "tp"
+        xt_rest = None
+    elif isinstance(xt, str):
+        base_bs = str(xt).lower()
+        xt_rest = None
+    elif isinstance(xt, dict):
+        base_bs = str(xt.get("bs", "tp")).lower()
+        xt_rest = {k: v for k, v in xt.items() if k != "bs"} or None
+    else:
+        raise NotImplementedError(
+            "For `bs=\"fs\"`, xt must be None, a basis string, or a dict "
+            "containing optional key `bs`."
+        )
+
+    kwargs = {
+        "special": str(smooth_spec.special),
+        "bs": base_bs,
+        "k": smooth_spec.k,
+        "fx": smooth_spec.fx,
+        "select": smooth_spec.select,
+        "sp": smooth_spec.sp,
+        "knots": smooth_spec.knots,
+        "constraint_mode": str(getattr(smooth_spec, "constraint_mode", "auto")),
+    }
+
+    if base_bs == "ps":
+        kwargs["m"] = None if xt_rest is None else xt_rest.get("m", None)
+    elif base_bs in {"tp", "ts", "gp"}:
+        kwargs["xt"] = xt_rest
+    elif xt_rest:
+        raise NotImplementedError(
+            f"`bs=\"fs\"` factor-by fallback does not support extra xt options for "
+            f"base bs={base_bs!r}."
+        )
+
+    return build_smooth_spec(**kwargs)
 
 
 def expand_parametric_term(
@@ -215,49 +257,10 @@ def expand_factor_by_term(
             for feature in term.features
         )
         if not has_factor_feature:
-            xt = smooth_spec.xt
-            base_bs = "tp"
-            base_k = smooth_spec.k
-            base_m = None
-            base_xt = None
-            if isinstance(xt, str):
-                base_bs = str(xt).lower()
-            elif isinstance(xt, dict):
-                base_bs = str(xt.get("bs", "tp")).lower()
-                xt_rest = {k: v for k, v in xt.items() if k != "bs"}
-                base_k = xt_rest.pop("k", base_k)
-                base_m = xt_rest.pop("m", None)
-                base_xt = xt_rest or None
-                if base_bs not in {"tp", "ts", "gp"}:
-                    base_xt = None
-
-            new_meta = dict(term.metadata)
-            new_meta["fs_base_by_fallback"] = {
-                "source_by": by_name,
-                "base_bs": base_bs,
-            }
-            term = replace(
-                term,
-                smooth_spec=build_smooth_spec(
-                    special="s",
-                    bs=base_bs,
-                    k=base_k,
-                    fx=smooth_spec.fx,
-                    select=smooth_spec.select,
-                    m=base_m,
-                    xt=base_xt,
-                    sp=smooth_spec.sp,
-                    pc=None,
-                    knots=smooth_spec.knots,
-                    constraint_mode="auto",
-                    shared_basis_setup=None,
-                    mc=None,
-                    full=False,
-                    ord_=None,
-                ),
-                metadata=new_meta,
-            )
-            smooth_spec = term.smooth_spec
+            # Upstream mgcv falls back to the underlying base smoother here:
+            # smooth.construct.fs.smooth.spec() returns smooth.construct(base.bs)
+            # when the fs term itself has no factor argument.
+            smooth_spec = _fs_by_without_factor_feature_base_spec(smooth_spec)
 
     cat, levels, ordered = factor_info(by_series)
     if len(levels) == 0:
@@ -288,7 +291,9 @@ def expand_factor_by_term(
             replace(
                 term,
                 by_variable=hidden_col,
-                smooth_spec=replace_smooth_spec(smooth_spec, constraint_mode="always"),
+                smooth_spec=replace_smooth_spec(
+                    smooth_spec, constraint_mode="factor_by"
+                ),
                 label=new_label,
                 metadata=new_meta,
             )

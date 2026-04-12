@@ -2,6 +2,7 @@ from .exponential import (
     BinomialCloglogFamily,
     BinomialLogitFamily,
     BinomialProbitFamily,
+    GammaIdentityFamily,
     GammaInverseFamily,
     GammaLogFamily,
     GaussianIdentityFamily,
@@ -17,9 +18,8 @@ _BINOMIAL_LINK_MAP = {
     "cloglog": BinomialCloglogFamily,
 }
 
-# Implemented gamma links (mgcv also supports link="identity"; see branch below).
-# TODO: GammaIdentityFamily — port mgcv::Gamma(link="identity") parity.
 _GAMMA_LINK_MAP = {
+    "identity": GammaIdentityFamily,
     "log": GammaLogFamily,
     "inverse": GammaInverseFamily,
 }
@@ -45,18 +45,12 @@ def make_gam_family(family):
             return cls()
         if name in {"gamma"}:
             resolved = (link or "log").lower()
-            if resolved == "identity":
-                raise NotImplementedError(
-                    "GammaIdentityFamily (mgcv::Gamma(link='identity')) is not "
-                    "implemented yet; supported dict links are 'log' and 'inverse'."
-                )
             try:
                 cls = _GAMMA_LINK_MAP[resolved]
             except KeyError:
                 raise ValueError(
                     f"Unknown gamma link {link!r}. "
-                    f"Supported: {', '.join(sorted(_GAMMA_LINK_MAP))}. "
-                    "Identity link is not yet implemented (raises NotImplementedError)."
+                    f"Supported: {', '.join(sorted(_GAMMA_LINK_MAP))}."
                 ) from None
             return cls()
         family = name

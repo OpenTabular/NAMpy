@@ -53,6 +53,8 @@ class FitCoreSolution:
     loglik: float | None = None
     offset: np.ndarray | None = None
     log_det_XtWX_plus_penalty: float | None = None
+    penalized_system_rank: int | None = None
+    dropped_column_indices: np.ndarray | None = None
 
     converged: bool | None = None
     iter: int | None = None
@@ -162,6 +164,16 @@ class FitCoreSolution:
                 None
                 if data.get("log_det_XtWX_plus_penalty", None) is None
                 else float(data["log_det_XtWX_plus_penalty"])
+            ),
+            penalized_system_rank=(
+                None
+                if data.get("penalized_system_rank", None) is None
+                else int(data["penalized_system_rank"])
+            ),
+            dropped_column_indices=(
+                None
+                if data.get("dropped_column_indices", None) is None
+                else np.asarray(data["dropped_column_indices"], dtype=np.int64)
             ),
             converged=data.get("converged", None),
             iter=data.get("iter", None),

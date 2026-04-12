@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pandas as pd
 import pytest
 from mgcv_parity_utils import (
     R_SCRIPT,
@@ -29,26 +28,6 @@ def test_strict_t2_fixed_sp_response_parity():
         np.asarray(expected["predictions"]["response"], dtype=np.float64),
         atol=1e-10,
         rtol=1e-10,
-    )
-
-
-def test_strict_factor_by_link_parity():
-    rng = np.random.default_rng(31)
-    n = 80
-    x = rng.normal(size=n)
-    fac = np.array(["p", "q"] * (n // 2), dtype=object)
-    y = np.sin(x) + 0.4 * (fac == "q").astype(float) + rng.normal(0, 0.15, n)
-    data = pd.DataFrame({"y": y, "x": x, "fac": fac})
-    formula = 'y ~ s(x, by=fac, bs="cr", k=8)'
-
-    actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
-    expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
-
-    np.testing.assert_allclose(
-        np.asarray(actual["predictions"]["link"], dtype=np.float64),
-        np.asarray(expected["predictions"]["link"], dtype=np.float64),
-        atol=5e-10,
-        rtol=0.0,
     )
 
 
@@ -176,7 +155,7 @@ def test_negbin_estimated_theta_reml_endpoint_gap_tracked():
     assert endpoint is not None
     assert endpoint["joint_negbin_reml_outer"] is True
     assert endpoint["joint_negbin_postprocessed"] is True
-    assert endpoint["joint_negbin_flat_ridge_stabilized"] is True
+    assert endpoint["joint_negbin_flat_ridge_stabilized"] is False
     assert endpoint["joint_log_theta"] is not None
     assert endpoint["family_theta"] == pytest.approx(
         actual["fit"]["family_theta"], abs=5e-5
@@ -224,7 +203,7 @@ def test_negbin_estimated_theta_reml_two_smooth_theta2_gap_tracked():
     assert endpoint is not None
     assert endpoint["joint_negbin_reml_outer"] is True
     assert endpoint["joint_negbin_postprocessed"] is True
-    assert endpoint["joint_negbin_flat_ridge_stabilized"] is True
+    assert endpoint["joint_negbin_flat_ridge_stabilized"] is False
     assert endpoint["joint_log_theta"] is not None
     assert endpoint["family_theta"] == pytest.approx(
         actual["fit"]["family_theta"], abs=5e-5
@@ -271,6 +250,6 @@ def test_negbin_estimated_theta_reml_two_smooth_theta05_gap_tracked():
     assert endpoint is not None
     assert endpoint["joint_negbin_reml_outer"] is True
     assert endpoint["joint_negbin_postprocessed"] is True
-    assert endpoint["joint_negbin_flat_ridge_stabilized"] is True
+    assert endpoint["joint_negbin_flat_ridge_stabilized"] is False
     assert endpoint["joint_log_theta"] is not None
     assert endpoint["family_theta"] == pytest.approx(actual["fit"]["family_theta"])

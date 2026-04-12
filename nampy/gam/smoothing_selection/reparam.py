@@ -16,7 +16,7 @@ which simplifies REML score computation.
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from scipy.linalg import qr as scipy_qr
@@ -30,6 +30,36 @@ class ReparamState:
     Z_rand: Optional[np.ndarray]
     ZtZ_rand: Optional[np.ndarray]
     sl_blocks: Optional[List["SlBlock"]]
+    penalty_range_basis: Optional[np.ndarray] = None
+    penalty_null_basis: Optional[np.ndarray] = None
+    penalty_range_roots: Optional[List[np.ndarray]] = None
+    grouped_penalties: Optional[List["_GroupedPenalty"]] = None
+
+
+@dataclass
+class DynamicReparamDesign:
+    X_fix: np.ndarray
+    Z_rand: np.ndarray
+    ZtZ_rand: np.ndarray
+    penalty_logdet: float
+    null_dim: int
+
+
+@dataclass
+class CanonicalGamReparamState:
+    Y: np.ndarray
+    Z: np.ndarray
+    U1: np.ndarray
+    UrS: list[np.ndarray]
+    rp: dict[str, Any]
+    T: np.ndarray
+    St: np.ndarray
+    Sr: np.ndarray
+    Eb: np.ndarray
+    Mp: int
+    X_range: np.ndarray
+    X_fix: np.ndarray
+    Z_rand: np.ndarray
 
 
 @dataclass
@@ -44,6 +74,15 @@ class SlBlock:
     lambda_scaling: float = 1.0
     kind: str = "smooth"
     is_null_space_penalty: bool = False
+
+
+@dataclass
+class _GroupedPenalty:
+    smoothing_index: int
+    matrix_full: np.ndarray
+    kind: str
+    is_null_space_penalty: bool
+    term_indices: tuple[int, ...]
 
 
 def _assign_reparam_state(model, state: Optional[ReparamState]) -> Optional[ReparamState]:
@@ -154,165 +193,557 @@ def _matrix_sqrt_psd(M, tol=1e-12):
     return vecs @ np.diag(sqrt_evals)
 
 
-def _penalty_support_mask(P, tol=1e-12):
+def _positive_semidefinite_root(P, *, rank=None, tol=1e-10):
     P = np.asarray(P, dtype=np.float64)
-    if P.size == 0:
-        return np.zeros((0,), dtype=bool)
-    row_nz = np.any(np.abs(P) > tol, axis=1)
-    col_nz = np.any(np.abs(P) > tol, axis=0)
-    return np.asarray(row_nz | col_nz, dtype=bool)
+    if P.ndim != 2 or P.shape[0] != P.shape[1]:
+        raise ValueError("Penalty root requires a square matrix.")
+    if P.shape[0] == 0:
+        return np.empty((0, 0), dtype=np.float64)
+
+    P_sym = 0.5 * (P + P.T)
+    evals, U = np.linalg.eigh(P_sym)
+    idx = np.argsort(evals)[::-1]
+    evals = np.asarray(evals[idx], dtype=np.float64)
+    U = np.asarray(U[:, idx], dtype=np.float64)
+    tol_eff = float(tol) * max(1.0, float(np.max(np.abs(evals))))
+    keep = np.flatnonzero(evals > tol_eff)
+    if rank is not None and int(rank) >= 0:
+        keep = keep[: min(int(rank), keep.size)]
+    if keep.size == 0:
+        return np.empty((P.shape[0], 0), dtype=np.float64)
+    return U[:, keep] * np.sqrt(evals[keep])[np.newaxis, :]
 
 
-def _term_penalty_components(primary, null_space):
-    if len(primary) == 0:
-        return True, [], {}
-
-    supports = [
-        {
-            "pb": pb,
-            "mask": _penalty_support_mask(pb.matrix),
-        }
-        for pb in primary
-    ]
-
-    components = []
-    assigned = set()
-    null_assigned = set()
-
-    for idx in range(len(supports)):
-        if idx in assigned:
-            continue
-        queue = [idx]
-        assigned.add(idx)
-        group = [supports[idx]["pb"]]
-        union_mask = supports[idx]["mask"].copy()
-
-        while queue:
-            current = queue.pop()
-            current_mask = supports[current]["mask"]
-            for j in range(len(supports)):
-                if j in assigned:
-                    continue
-                if np.any(current_mask & supports[j]["mask"]):
-                    assigned.add(j)
-                    queue.append(j)
-                    group.append(supports[j]["pb"])
-                    union_mask |= supports[j]["mask"]
-
-        comp_null = []
-        comp_null_masks = []
-        for j, pb0 in enumerate(null_space):
-            if j in null_assigned:
-                continue
-            null_mask = _penalty_support_mask(pb0.matrix)
-            if np.any(union_mask & null_mask):
-                if any(np.any(null_mask & mask) for mask in comp_null_masks):
-                    return False, [], {}
-                comp_null.append(pb0)
-                comp_null_masks.append(null_mask)
-                null_assigned.add(j)
-
-        components.append(
-            {
-                "primary": group,
-                "support_mask": union_mask,
-                "null": comp_null,
-            }
+def _grouped_penalties(model) -> list[_GroupedPenalty]:
+    p = int(
+        getattr(model, "n_coef_", 0)
+        or sum(int(tb.basis_train.shape[1]) for tb in getattr(model, "term_blocks_", []) or [])
+    )
+    n_sp = int(
+        getattr(model, "n_smoothing_params_", 0)
+        or (
+            max((int(pb.smoothing_index) for pb in getattr(model, "penalty_blocks_", []) or []), default=-1)
+            + 1
         )
+    )
+    if p == 0 or n_sp == 0:
+        return []
 
-    if len(null_space) - len(null_assigned) > 0:
-        if len(components) != 1:
-            return False, [], {}
-        residual_masks = []
-        for j, pb0 in enumerate(null_space):
-            if j in null_assigned:
+    grouped = {}
+    term_blocks = list(getattr(model, "term_blocks_", []) or [])
+    for pb in model.penalty_blocks_:
+        k = int(pb.smoothing_index)
+        entry = grouped.get(k)
+        if entry is None:
+            entry = {
+                "matrix_full": np.zeros((p, p), dtype=np.float64),
+                "kind": str(getattr(pb, "kind", "smooth")),
+                "is_null_space_penalty": bool(getattr(pb, "is_null_space_penalty", False)),
+                "term_indices": set(),
+            }
+            grouped[k] = entry
+        sl = pb.coef_slice
+        entry["matrix_full"][sl, sl] += np.asarray(pb.matrix, dtype=np.float64)
+        term_index = int(getattr(pb, "term_index", -1))
+        if term_index < 0:
+            for i, tb in enumerate(term_blocks):
+                if tb.coef_slice == sl:
+                    term_index = i
+                    break
+        entry["term_indices"].add(term_index)
+
+    out = []
+    for k in sorted(grouped):
+        entry = grouped[k]
+        out.append(
+            _GroupedPenalty(
+                smoothing_index=int(k),
+                matrix_full=0.5 * (entry["matrix_full"] + entry["matrix_full"].T),
+                kind=str(entry["kind"]),
+                is_null_space_penalty=bool(entry["is_null_space_penalty"]),
+                term_indices=tuple(sorted(entry["term_indices"])),
+            )
+        )
+    return out
+
+
+def _total_penalty_space(grouped_penalties, p, *, H=None):
+    if H is not None:
+        H = np.asarray(H, dtype=np.float64)
+        Hscale = float(np.sqrt(np.sum(H * H)))
+        if Hscale <= 0.0:
+            H = None
+    if H is None:
+        St = np.zeros((p, p), dtype=np.float64)
+    else:
+        if H.shape != (p, p):
+            raise ValueError("H has wrong dimension.")
+        St = H / float(np.sqrt(np.sum(H * H)))
+
+    for grp in grouped_penalties:
+        Sg = np.asarray(grp.matrix_full, dtype=np.float64)
+        frob = float(np.sqrt(np.sum(Sg * Sg)))
+        if frob > 0.0:
+            St += Sg / frob
+
+    evals, evecs = np.linalg.eigh(0.5 * (St + St.T))
+    idx = np.argsort(evals)
+    evals = np.asarray(evals[idx], dtype=np.float64)
+    evecs = np.asarray(evecs[:, idx], dtype=np.float64)
+    scale = max(float(np.max(evals)) if evals.size else 0.0, 1.0)
+    pos_mask = evals > scale * (np.finfo(np.float64).eps ** 0.66)
+    Y = evecs[:, pos_mask]
+    Z = evecs[:, ~pos_mask]
+    if Y.shape[1] == 0:
+        E = np.empty((0, p), dtype=np.float64)
+    else:
+        E = np.sqrt(np.asarray(evals[pos_mask], dtype=np.float64))[:, np.newaxis] * Y.T
+    return Y, Z, E
+
+
+def mini_roots(grouped_penalties, p, *, tol=1e-10):
+    roots = []
+    for grp in grouped_penalties:
+        rank = int(np.linalg.matrix_rank(grp.matrix_full)) if grp.matrix_full.size else 0
+        roots.append(_positive_semidefinite_root(grp.matrix_full, rank=rank, tol=tol))
+    return roots
+
+
+def gam_reparam(range_roots, sp, deriv=2):
+    """
+    Python port of `mgcv` `gam.reparam()` interface, using canonical range roots.
+
+    `range_roots[i]` corresponds to `UrS[[i]]` in `mgcv/R/mgcv.r`.
+    """
+    sp = np.asarray(sp, dtype=np.float64).ravel()
+    M = int(sp.size)
+    roots = [np.asarray(r, dtype=np.float64).copy() for r in range_roots]
+    q = 0 if not roots else int(roots[0].shape[0])
+    fixed_penalty = len(roots) > M
+    if q == 0 or M == 0:
+        return {
+            "S": np.empty((q, q), dtype=np.float64),
+            "Qs": np.eye(q, dtype=np.float64),
+            "rS": roots,
+            "E": np.empty((q, q), dtype=np.float64),
+            "det": 0.0,
+            "det1": np.zeros(M, dtype=np.float64),
+            "det2": np.zeros((M, M), dtype=np.float64),
+            "fixed_penalty": fixed_penalty,
+        }
+
+    Mf = len(roots)
+    spf = np.ones(Mf, dtype=np.float64)
+    spf[:M] = sp
+    Si = [r @ r.T for r in roots]
+    d_tol = float(np.finfo(np.float64).eps ** 0.3)
+    r_tol = float(np.finfo(np.float64).eps ** 0.75)
+
+    S_out = np.zeros((q, q), dtype=np.float64)
+    Qf = np.eye(q, dtype=np.float64)
+    gamma = np.ones(Mf, dtype=bool)
+    K = 0
+    Q = q
+    iteration = 0
+    Si_active = [A.copy() for A in Si]
+    rS_work = [r.copy() for r in roots]
+
+    while True:
+        iteration += 1
+        frob = np.array(
+            [
+                float(np.linalg.norm(Si_active[i], ord="fro")) if gamma[i] else 0.0
+                for i in range(Mf)
+            ],
+            dtype=np.float64,
+        )
+        max_frob = max(
+            [float(frob[i] * spf[i]) for i in range(Mf) if gamma[i]] + [0.0]
+        )
+        if not np.isfinite(max_frob) or max_frob <= 0.0:
+            break
+
+        alpha = np.zeros(Mf, dtype=bool)
+        gamma1 = np.zeros(Mf, dtype=bool)
+        for i in range(Mf):
+            if not gamma[i]:
                 continue
-            null_mask = _penalty_support_mask(pb0.matrix)
-            if any(np.any(null_mask & mask) for mask in residual_masks):
-                return False, [], {}
-            residual_masks.append(null_mask)
-            components[0]["null"].append(pb0)
-            null_assigned.add(j)
+            if float(frob[i] * spf[i]) > max_frob * d_tol:
+                alpha[i] = True
+            else:
+                gamma1[i] = True
 
-    if len(null_space) - len(null_assigned) > 0:
-        return False, [], {}
+        if np.any(gamma1):
+            Sb = np.zeros((Q, Q), dtype=np.float64)
+            for i, A in enumerate(Si_active):
+                if alpha[i]:
+                    Sb += A / float(frob[i])
+            Sb = 0.5 * (Sb + Sb.T)
+            ev = np.linalg.eigvalsh(Sb)
+            if ev.size == 0 or ev[-1] <= 0.0:
+                r = 0
+            else:
+                r = 1
+                while r < Q and ev[Q - r - 1] > ev[Q - 1] * r_tol:
+                    r += 1
+        else:
+            r = Q
 
-    null_map = {}
-    for comp in components:
-        if len(comp["null"]) == 1 and len(comp["primary"]) == 1:
-            null_map[id(comp["primary"][0])] = comp["null"][0]
-    return True, components, null_map
+        if Q == r:
+            if iteration == 1:
+                S_out.fill(0.0)
+                for i, A in enumerate(Si_active):
+                    S_out += float(spf[i]) * A
+                Qf = np.eye(q, dtype=np.float64)
+            break
+
+        Sb = np.zeros((Q, Q), dtype=np.float64)
+        Sg = np.zeros((Q, Q), dtype=np.float64)
+        for i, A in enumerate(Si_active):
+            if alpha[i]:
+                Sb += float(spf[i]) * A
+            elif gamma1[i]:
+                Sg += float(spf[i]) * A
+
+        Sb = 0.5 * (Sb + Sb.T)
+        evals, U = np.linalg.eigh(Sb)
+        idx = np.argsort(evals)[::-1]
+        evals = np.asarray(evals[idx], dtype=np.float64)
+        U = np.asarray(U[:, idx], dtype=np.float64)
+
+        if iteration == 1:
+            Qf[:, :Q] = U
+        else:
+            Qf[:, K : K + Q] = Qf[:, K : K + Q] @ U
+
+        if K > 0:
+            B = S_out[:K, K : K + Q] @ U
+            S_out[:K, K : K + Q] = B
+            S_out[K : K + Q, :K] = B.T
+
+        C = U.T @ Sg @ U
+        if r > 0:
+            C[np.arange(r), np.arange(r)] += evals[:r]
+        S_out[K : K + Q, K : K + Q] = C
+
+        for k in range(M):
+            root = rS_work[k]
+            cols = int(root.shape[1])
+            if cols == 0:
+                continue
+            work = np.asarray(root[K : K + Q, :], dtype=np.float64)
+            if alpha[k]:
+                root[K : K + r, :] = U[:, :r].T @ work
+                if Q > r:
+                    root[K + r : K + Q, :] = 0.0
+            elif gamma1[k]:
+                root[K : K + Q, :] = U.T @ work
+
+        Un = np.asarray(U[:, r:], dtype=np.float64)
+        Si_active = [Un.T @ A @ Un if gamma1[i] else A for i, A in enumerate(Si_active)]
+        K += r
+        Q -= r
+        gamma = gamma1
+
+    S_out = 0.5 * (S_out + S_out.T)
+    sign, logdet = np.linalg.slogdet(S_out)
+    if sign <= 0 or not np.isfinite(logdet):
+        logdet = np.inf
+    try:
+        S_inv = np.linalg.inv(S_out)
+    except np.linalg.LinAlgError:
+        S_inv = np.full_like(S_out, np.nan)
+
+    p = np.sqrt(np.abs(np.diag(S_out)))
+    p[p == 0.0] = 1.0
+    St = (S_out / p[:, np.newaxis]) / p[np.newaxis, :]
+    St = 0.5 * (St + St.T)
+    E_root = _positive_semidefinite_root(St, rank=q)
+    E = E_root.T * p[np.newaxis, :] if E_root.size else np.empty((0, q), dtype=np.float64)
+
+    det1 = np.zeros(M, dtype=np.float64)
+    det2 = np.zeros((M, M), dtype=np.float64)
+    if deriv > 0 and np.all(np.isfinite(S_inv)):
+        for i, rS_i in enumerate(rS_work[:M]):
+            det1[i] = float(sp[i] * np.trace(S_inv @ (rS_i @ rS_i.T)))
+    if deriv > 1 and np.all(np.isfinite(S_inv)):
+        Si_trans = [S_inv @ (rS_i @ rS_i.T) for rS_i in rS_work[:M]]
+        for i in range(M):
+            for j in range(i, M):
+                val = -float(sp[i] * sp[j] * np.trace(Si_trans[i] @ Si_trans[j]))
+                if i == j:
+                    val += det1[i]
+                det2[i, j] = det2[j, i] = val
+
+    return {
+        "S": S_out,
+        "Qs": Qf,
+        "rS": rS_work,
+        "E": E,
+        "det": float(logdet),
+        "det1": det1,
+        "det2": det2,
+        "fixed_penalty": fixed_penalty,
+    }
+
+def _canonical_penalty_space(model, *, tol=1e-10) -> dict[str, Any]:
+    cache = getattr(model, "_penalty_subspace_cache_", None)
+    if cache is not None:
+        return cache
+
+    p_pen = int(
+        getattr(model, "n_coef_", 0)
+        or sum(int(tb.basis_train.shape[1]) for tb in getattr(model, "term_blocks_", []) or [])
+    )
+    n_sp = int(
+        getattr(model, "n_smoothing_params_", 0)
+        or (
+            max(
+                (
+                    int(getattr(pb, "smoothing_index", -1))
+                    for pb in getattr(model, "penalty_blocks_", []) or []
+                ),
+                default=-1,
+            )
+            + 1
+        )
+    )
+    grouped = _grouped_penalties(model)
+    H = getattr(model, "H", None)
+
+    if p_pen == 0 or (not grouped and H is None):
+        cache = {
+            "Y": np.empty((p_pen, 0), dtype=np.float64),
+            "Z": np.eye(p_pen, dtype=np.float64),
+            "E": np.empty((0, p_pen), dtype=np.float64),
+            "grouped_penalties": grouped,
+            "roots": [np.empty((p_pen, 0), dtype=np.float64) for _ in range(n_sp)],
+            "range_roots": [np.empty((0, 0), dtype=np.float64) for _ in range(n_sp)],
+            "range_roots_with_fixed": [np.empty((0, 0), dtype=np.float64) for _ in range(n_sp)],
+            "S_groups": [np.empty((0, 0), dtype=np.float64) for _ in range(n_sp)],
+        }
+        model._penalty_subspace_cache_ = cache
+        return cache
+
+    roots = [np.empty((p_pen, 0), dtype=np.float64) for _ in range(n_sp)]
+    grouped_roots = mini_roots(grouped, p_pen, tol=tol)
+    for grp, root in zip(grouped, grouped_roots):
+        roots[int(grp.smoothing_index)] = np.asarray(root, dtype=np.float64)
+
+    Y, Z, E = _total_penalty_space(grouped, p_pen, H=H)
+    q = int(Y.shape[1])
+    range_roots = [np.empty((q, 0), dtype=np.float64) for _ in range(n_sp)]
+    S_groups = [np.zeros((q, q), dtype=np.float64) for _ in range(n_sp)]
+    if q > 0:
+        YT = Y.T
+        for sp_idx, root in enumerate(roots):
+            if root.shape[1] == 0:
+                continue
+            Ur = YT @ root
+            range_roots[sp_idx] = Ur
+            S_groups[sp_idx] = Ur @ Ur.T
+
+    range_roots_with_fixed = list(range_roots)
+    if H is not None:
+        H_root = _positive_semidefinite_root(np.asarray(H, dtype=np.float64), tol=tol)
+        range_roots_with_fixed = list(range_roots_with_fixed) + [Y.T @ H_root]
+
+    cache = {
+        "Y": np.asarray(Y, dtype=np.float64),
+        "Z": np.asarray(Z, dtype=np.float64),
+        "E": np.asarray(E, dtype=np.float64),
+        "grouped_penalties": grouped,
+        "roots": roots,
+        "range_roots": range_roots,
+        "range_roots_with_fixed": range_roots_with_fixed,
+        "S_groups": S_groups,
+    }
+    model._penalty_subspace_cache_ = cache
+    return cache
+
+
+def _static_penalty_space(model, *, tol=1e-10):
+    return _canonical_penalty_space(model, tol=tol)
+
+
+def _static_penalty_null_dim(model, *, tol=1e-10):
+    cache = _canonical_penalty_space(model, tol=tol)
+    return int(np.asarray(cache["Z"], dtype=np.float64).shape[1])
+
+
+def build_canonical_gam_reparam_state(
+    model, X_full, sp, *, deriv=0, tol=1e-10
+) -> CanonicalGamReparamState:
+    """Mirror mgcv's `U1/UrS/gam.reparam/T/St/Sr/Eb/Mp` transform objects."""
+    X_full = np.asarray(X_full, dtype=np.float64)
+    sp = np.asarray(sp, dtype=np.float64).ravel()
+
+    off = 1 if _fit_intercept(model) else 0
+    if off > 0:
+        X_pen = X_full[:, off:]
+    else:
+        X_pen = X_full
+
+    cache = _canonical_penalty_space(model, tol=tol)
+    Y = np.asarray(cache["Y"], dtype=np.float64)
+    Z = np.asarray(cache["Z"], dtype=np.float64)
+    UrS = [np.asarray(root, dtype=np.float64) for root in cache["range_roots_with_fixed"]]
+    rp = gam_reparam(UrS, sp, deriv=deriv)
+
+    q_range = int(Y.shape[1])
+    q_null_pen = int(Z.shape[1])
+    Mp = int(off + q_null_pen)
+    q_full = int(off + X_pen.shape[1])
+
+    U1 = np.zeros((q_full, q_full), dtype=np.float64)
+    if q_range > 0:
+        U1[off:, :q_range] = Y
+    if off > 0:
+        U1[:off, q_range : q_range + off] = np.eye(off, dtype=np.float64)
+    if q_null_pen > 0:
+        U1[off:, q_range + off :] = Z
+
+    T_small = np.eye(q_full, dtype=np.float64)
+    if q_range > 0:
+        T_small[:q_range, :q_range] = np.asarray(rp["Qs"], dtype=np.float64)
+    T = U1 @ T_small
+
+    St = np.zeros((q_full, q_full), dtype=np.float64)
+    if q_range > 0:
+        St[:q_range, :q_range] = np.asarray(rp["S"], dtype=np.float64)
+
+    Sr = np.zeros((q_range, q_full), dtype=np.float64)
+    if q_range > 0:
+        Sr[:, :q_range] = np.asarray(rp["E"], dtype=np.float64)
+
+    Eb0 = np.zeros((q_range, q_full), dtype=np.float64)
+    if q_range > 0:
+        Eb0[:, off:] = np.asarray(cache["E"], dtype=np.float64)
+    Eb = Eb0 @ T
+
+    X_trans = X_full @ T
+    X_range = np.asarray(X_trans[:, :q_range], dtype=np.float64)
+    X_fix = np.asarray(X_trans[:, q_range:], dtype=np.float64)
+    if q_range == 0:
+        Z_rand = np.empty((X_full.shape[0], 0), dtype=np.float64)
+    else:
+        E = np.asarray(rp["E"], dtype=np.float64)
+        try:
+            Z_rand = np.linalg.solve(E, X_range.T).T
+        except np.linalg.LinAlgError:
+            Z_rand = np.full_like(X_range, np.nan)
+
+    return CanonicalGamReparamState(
+        Y=Y,
+        Z=Z,
+        U1=U1,
+        UrS=UrS,
+        rp=rp,
+        T=T,
+        St=St,
+        Sr=Sr,
+        Eb=Eb,
+        Mp=Mp,
+        X_range=X_range,
+        X_fix=X_fix,
+        Z_rand=Z_rand,
+    )
+
+
+def _static_fixed_and_random_designs(model, X_full, sp, *, tol=1e-10):
+    X_full = np.asarray(X_full, dtype=np.float64)
+    sp = np.asarray(sp, dtype=np.float64)
+
+    state = build_canonical_gam_reparam_state(model, X_full, sp, deriv=0, tol=tol)
+    Xf = np.asarray(state.X_fix, dtype=np.float64)
+    Zr = np.asarray(state.Z_rand, dtype=np.float64)
+    logdet_plus = float(state.rp["det"])
+
+    return (
+        Xf,
+        Zr,
+        {
+            "rank": int(np.asarray(state.Y, dtype=np.float64).shape[1]),
+            "null_dim": int(np.asarray(state.Z, dtype=np.float64).shape[1]),
+            "logdet_plus": logdet_plus,
+        },
+    )
+
+
+def dynamic_reparam_design(model, X_full, sp, *, tol=1e-10) -> DynamicReparamDesign:
+    Xf, Zr, split = _static_fixed_and_random_designs(model, X_full, sp, tol=tol)
+    return DynamicReparamDesign(
+        X_fix=np.asarray(Xf, dtype=np.float64),
+        Z_rand=np.asarray(Zr, dtype=np.float64),
+        ZtZ_rand=np.asarray(Zr, dtype=np.float64).T @ np.asarray(Zr, dtype=np.float64),
+        penalty_logdet=float(split["logdet_plus"]),
+        null_dim=int(split["null_dim"]),
+    )
+
+
+def _stable_penalty_logdet(model, sp, *, tol=1e-10):
+    logdet, _, _ = _stable_penalty_logdet_derivatives(model, sp, tol=tol, order=0)
+    return float(logdet)
+
+
+def _stable_penalty_logdet_derivatives(model, sp, *, tol=1e-10, order=2):
+    sp = np.asarray(sp, dtype=np.float64).ravel()
+    n_sp = int(model.n_smoothing_params_ or sp.size)
+    grad = np.zeros(n_sp, dtype=np.float64)
+    hess = np.zeros((n_sp, n_sp), dtype=np.float64)
+
+    cache = _canonical_penalty_space(model, tol=tol)
+    Y = np.asarray(cache["Y"], dtype=np.float64)
+    if Y.shape[1] == 0:
+        return 0.0, grad, hess
+
+    rp = gam_reparam(cache["range_roots_with_fixed"], sp, deriv=min(int(order), 2))
+    logdet = float(rp["det"])
+    if not np.isfinite(logdet):
+        return np.inf, np.full(n_sp, np.nan), np.full((n_sp, n_sp), np.nan)
+    if order <= 0:
+        return logdet, grad, hess
+
+    grad[: min(n_sp, rp["det1"].shape[0])] = np.asarray(rp["det1"], dtype=np.float64)[
+        : min(n_sp, rp["det1"].shape[0])
+    ]
+    if order <= 1:
+        return logdet, grad, hess
+
+    m = min(n_sp, rp["det2"].shape[0])
+    hess[:m, :m] = np.asarray(rp["det2"], dtype=np.float64)[:m, :m]
+    return logdet, grad, hess
 
 
 def can_use_simple_ml_reml_structure(model):
     """
     Conservative structural gate for the current ML/REML paths.
 
-    It is enabled only when every penalized smooth term contributes exactly one
-    primary smooth penalty, plus at most one null-space penalty acting on the
-    same term. This covers shrinkage / ``select``-style terms while still
-    excluding genuinely overlapping multi-penalty structures.
+    It is enabled when every penalized smooth term can be decomposed into
+    connected penalty-support components without cross-component null-space
+    couplings. This mirrors the local structural requirement used when
+    assembling the ``UrS``-like blocks for the Laplace ML/REML path.
     """
     if model.design_ is None:
         return False
 
-    for tb in model.term_blocks_:
-        matches = [pb for pb in model.penalty_blocks_ if pb.coef_slice == tb.coef_slice]
-        primary_ids = {
-            id(pb)
-            for pb in matches
-            if pb.kind in {"smooth", "random_effect"} and not pb.is_null_space_penalty
-        }
-        null_ids = {id(pb) for pb in matches if pb.is_null_space_penalty}
-
-        if len(matches) == 0:
-            continue
-
-        primary = [
-            pb
-            for pb in matches
-            if pb.kind in {"smooth", "random_effect"} and not pb.is_null_space_penalty
-        ]
-        null_space = [pb for pb in matches if pb.is_null_space_penalty]
-        extras = [
-            pb for pb in matches if id(pb) not in primary_ids and id(pb) not in null_ids
-        ]
-
-        if len(primary) < 1:
+    for pb in model.penalty_blocks_:
+        width = int(pb.coef_slice.stop - pb.coef_slice.start)
+        P = np.asarray(pb.matrix, dtype=np.float64)
+        if P.shape != (width, width):
             return False
-        if len(extras) > 0:
-            return False
-        ok, _, _ = _term_penalty_components(primary, null_space)
-        if not ok:
+        if str(getattr(pb, "kind", "smooth")) not in {
+            "smooth",
+            "random_effect",
+            "null_space",
+        }:
             return False
 
     return True
 
 
 def can_use_exact_gaussian_ml_reml(model):
-    if not model._uses_closed_form_solver():
-        return False
-    if model.design_ is None:
-        return False
-
-    for tb in model.term_blocks_:
-        matches = [pb for pb in model.penalty_blocks_ if pb.coef_slice == tb.coef_slice]
-        if not matches:
-            continue
-
-        primary = [
-            pb
-            for pb in matches
-            if pb.kind in {"smooth", "random_effect"} and not pb.is_null_space_penalty
-        ]
-        null_space = [pb for pb in matches if pb.is_null_space_penalty]
-        ok, components, _ = _term_penalty_components(primary, null_space)
-        if not ok:
-            return False
-        if any(len(comp["primary"]) != 1 for comp in components):
-            return False
-
-    return True
+    return bool(model._uses_closed_form_solver()) and can_use_simple_ml_reml_structure(model)
 
 
 def build_penalty_reparameterized_system(model):
@@ -323,284 +754,83 @@ def build_penalty_reparameterized_system(model):
     if _fit_intercept(model):
         fix_blocks.append(np.ones((model.n_samples_, 1), dtype=np.float64))
 
+    cache = _canonical_penalty_space(model)
+    grouped = list(cache["grouped_penalties"])
+    X_pen = getattr(model, "Z", None)
+    if X_pen is None:
+        blocks = [
+            np.asarray(tb.basis_train, dtype=np.float64)
+            for tb in getattr(model, "term_blocks_", []) or []
+            if int(np.asarray(tb.basis_train).shape[1]) > 0
+        ]
+        X_pen = (
+            np.column_stack(blocks)
+            if blocks
+            else np.empty((model.n_samples_, 0), dtype=np.float64)
+        )
+    else:
+        X_pen = np.asarray(X_pen, dtype=np.float64)
+    p = int(X_pen.shape[1])
+    Y = np.asarray(cache["Y"], dtype=np.float64)
+    Z = np.asarray(cache["Z"], dtype=np.float64)
+
+    if Z.shape[1] > 0:
+        X_null = X_pen @ Z
+        if X_null.shape[1] > 0:
+            fix_blocks.append(X_null)
+
     rand_blocks = []
     sl_blocks: list[SlBlock] = []
     rand_start = 0
 
-    for i, tb in enumerate(model.term_blocks_):
-        matches = [pb for pb in model.penalty_blocks_ if pb.coef_slice == tb.coef_slice]
-        B = tb.basis_train
-        term_rand_start = rand_start
-        primary_ids = {
-            id(pb)
-            for pb in matches
-            if pb.kind in {"smooth", "random_effect"} and not pb.is_null_space_penalty
-        }
-        null_ids = {id(pb) for pb in matches if pb.is_null_space_penalty}
-
-        if len(matches) == 0:
-            if B.shape[1] > 0:
-                fix_blocks.append(B)
-
-            sl_blocks.append(
-                SlBlock(
-                    term_index=i,
-                    repara=False,
-                    smoothing_index=None,
-                    start=int(term_rand_start),
-                    stop=int(term_rand_start),
-                    ncol=int(B.shape[1]),
-                    blockSize=0,
-                )
-            )
-            continue
-
-        primary = [
-            pb
-            for pb in matches
-            if pb.kind in {"smooth", "random_effect"} and not pb.is_null_space_penalty
-        ]
-        null_space = [pb for pb in matches if pb.is_null_space_penalty]
-        extras = [
-            pb for pb in matches if id(pb) not in primary_ids and id(pb) not in null_ids
+    if Y.shape[1] > 0 and grouped:
+        B_range = X_pen @ Y
+        range_roots = list(cache["range_roots"])
+        range_penalties = [
+            (Ur @ Ur.T) if Ur.size else np.zeros((Y.shape[1], Y.shape[1]), dtype=np.float64)
+            for Ur in range_roots
         ]
 
-        if len(primary) < 1 or len(extras) > 0:
-            raise NotImplementedError(
-                "Current ML/REML reparameterization is enabled only for terms with "
-                "at least one primary smooth penalty and disjoint primary supports. General "
-                "overlapping multi-penalty terms are not yet implemented in this path."
-            )
+        P_sum = np.zeros((Y.shape[1], Y.shape[1]), dtype=np.float64)
+        for Pk in range_penalties:
+            P_sum += np.asarray(Pk, dtype=np.float64)
 
-        ok, components, _ = _term_penalty_components(primary, null_space)
-        if not ok:
-            raise NotImplementedError(
-                "Current ML/REML reparameterization requires disjoint support for "
-                "multiple primary penalties on a term."
-            )
+        _B0, Zr_main, meta = reparameterize_smooth(B_range, P_sum)
+        U_range = np.asarray(meta["U1"], dtype=np.float64)
 
-        rand_blocks_term = []
-        covered_mask = np.zeros(B.shape[1], dtype=bool)
-        for comp in components:
-            primaries = list(comp["primary"])
-            pb0_list = list(comp["null"])
-            support_mask = np.asarray(comp["support_mask"], dtype=bool)
-            if len(components) == 1:
-                local_idx = np.arange(B.shape[1], dtype=np.int64)
-            else:
-                local_idx = np.flatnonzero(support_mask)
-            covered_mask[local_idx] = True
-            if local_idx.size == 0:
+        for grp, Pk in zip(grouped, range_penalties):
+            if U_range.shape[1] == 0 or not np.any(Pk):
                 continue
-
-            B_local = B[:, local_idx]
-            P_sum = np.zeros((local_idx.size, local_idx.size), dtype=np.float64)
-            P_loc_list = []
-            for pb in primaries:
-                P_loc = np.asarray(pb.matrix, dtype=np.float64)[
-                    np.ix_(local_idx, local_idx)
-                ]
-                P_sum += P_loc
-                P_loc_list.append(P_loc)
-            evals = np.linalg.eigvalsh(0.5 * (P_sum + P_sum.T))
-            tol = 1e-10 * max(1.0, np.max(np.abs(evals)))
-            pos = evals[evals > tol]
-            B0_main, Zr_main, meta = reparameterize_smooth(B_local, P_sum)
-            extra_meta = None
-            B0_use = B0_main
-            comp_rank = int(meta["n_pen"])
-            comp_logdet = float(np.sum(np.log(pos)) if len(pos) > 0 else 0.0)
-
-            if Zr_main.shape[1] > 0:
-                if len(primaries) == 1:
-                    pb = primaries[0]
-                    Z_block = np.asarray(Zr_main, dtype=np.float64)
-                    n_pen = Z_block.shape[1]
-                    rand_blocks.append(Z_block)
-                    block_slice = slice(rand_start, rand_start + n_pen)
-                    rand_blocks_term.append(
-                        {
-                            "term_index": i,
-                            "kind": str(pb.kind),
-                            "smoothing_index": int(pb.smoothing_index),
-                            "slice": block_slice,
-                            "n_pen": int(n_pen),
-                            "is_null_space_penalty": False,
-                        }
-                    )
-                    rand_start += n_pen
-                else:
-                    U_range = np.asarray(meta["U1"], dtype=np.float64)
-                    if U_range.shape[1] > 0:
-                        for idx_pb, pb in enumerate(primaries):
-                            P_proj = U_range.T @ (P_loc_list[idx_pb] @ U_range)
-                            P_proj = 0.5 * (P_proj + P_proj.T)
-                            norm_val = float(np.linalg.norm(P_proj, ord=2))
-                            if norm_val <= 0:
-                                norm_val = 1.0
-                            P_norm = P_proj / norm_val
-                            R = _matrix_sqrt_psd(P_norm)
-                            if R.size == 0:
-                                continue
-                            col_norm = np.linalg.norm(R, axis=0)
-                            keep = col_norm > 1e-14
-                            if not np.any(keep):
-                                continue
-                            R = R[:, keep]
-                            Z_block = np.asarray(Zr_main @ R, dtype=np.float64)
-                            n_pen = Z_block.shape[1]
-                            if n_pen == 0:
-                                continue
-                            rand_blocks.append(Z_block)
-                            block_slice = slice(rand_start, rand_start + n_pen)
-                            rand_blocks_term.append(
-                                {
-                                    "term_index": i,
-                                    "kind": "smooth",
-                                    "smoothing_index": int(pb.smoothing_index),
-                                    "slice": block_slice,
-                                    "n_pen": int(n_pen),
-                                    "is_null_space_penalty": False,
-                                    "lambda_scaling": norm_val,
-                                }
-                            )
-                            rand_start += n_pen
-
-            if pb0_list and meta["n_null"] > 0:
-                U0 = np.asarray(meta["U0"], dtype=np.float64)
-                B_null = B_local @ U0
-                if len(pb0_list) == 1:
-                    pb0 = pb0_list[0]
-                    P0_local = np.asarray(pb0.matrix, dtype=np.float64)[
-                        np.ix_(local_idx, local_idx)
-                    ]
-                    P0_null = U0.T @ P0_local @ U0
-                    B0_extra, Zr_extra, extra_meta = reparameterize_smooth(
-                        B_null, P0_null
-                    )
-                    B0_use = B0_extra
-                    comp_rank += int(extra_meta["n_pen"])
-                    comp_logdet += float(
-                        np.sum(np.log(extra_meta["d_pos"]))
-                        if extra_meta["d_pos"].size > 0
-                        else 0.0
-                    )
-                    if Zr_extra.shape[1] > 0:
-                        Z_null = np.asarray(Zr_extra, dtype=np.float64)
-                        rand_blocks.append(Z_null)
-                        block_slice = slice(rand_start, rand_start + Z_null.shape[1])
-                        rand_blocks_term.append(
-                            {
-                                "term_index": i,
-                                "kind": str(pb0.kind),
-                                "smoothing_index": int(pb0.smoothing_index),
-                                "slice": block_slice,
-                                "n_pen": int(Z_null.shape[1]),
-                                "is_null_space_penalty": True,
-                            }
-                        )
-                        rand_start += Z_null.shape[1]
-                else:
-                    covered_null = np.zeros(B_null.shape[1], dtype=bool)
-                    extra_meta = []
-                    B0_null_parts = []
-                    B0_use = np.empty((B_local.shape[0], 0), dtype=np.float64)
-                    for pb0 in pb0_list:
-                        P0_local = np.asarray(pb0.matrix, dtype=np.float64)[
-                            np.ix_(local_idx, local_idx)
-                        ]
-                        P0_null = 0.5 * (
-                            U0.T @ P0_local @ U0 + (U0.T @ P0_local @ U0).T
-                        )
-                        null_support = _penalty_support_mask(P0_null)
-                        idx0 = np.flatnonzero(null_support)
-                        if idx0.size == 0:
-                            continue
-                        covered_null[idx0] = True
-                        B_null_local = B_null[:, idx0]
-                        P_null_local = P0_null[np.ix_(idx0, idx0)]
-                        B0_part, Zr_part, meta0 = reparameterize_smooth(
-                            B_null_local, P_null_local
-                        )
-                        extra_meta.append(
-                            {
-                                "smoothing_index": int(pb0.smoothing_index),
-                                "meta": meta0,
-                                "support_index": idx0,
-                            }
-                        )
-                        comp_rank += int(meta0["n_pen"])
-                        comp_logdet += float(
-                            np.sum(np.log(meta0["d_pos"]))
-                            if meta0["d_pos"].size > 0
-                            else 0.0
-                        )
-                        if B0_part.shape[1] > 0:
-                            B0_null_parts.append(B0_part)
-                        if Zr_part.shape[1] > 0:
-                            Z_null = np.asarray(Zr_part, dtype=np.float64)
-                            rand_blocks.append(Z_null)
-                            block_slice = slice(
-                                rand_start, rand_start + Z_null.shape[1]
-                            )
-                            rand_blocks_term.append(
-                                {
-                                    "term_index": i,
-                                    "kind": str(pb0.kind),
-                                    "smoothing_index": int(pb0.smoothing_index),
-                                    "slice": block_slice,
-                                    "n_pen": int(Z_null.shape[1]),
-                                    "is_null_space_penalty": True,
-                                }
-                            )
-                            rand_start += Z_null.shape[1]
-                    residual_null = np.flatnonzero(~covered_null)
-                    if residual_null.size > 0:
-                        B0_null_parts.append(B_null[:, residual_null])
-                    if B0_null_parts:
-                        B0_use = np.column_stack(B0_null_parts)
-
-            if B0_use.shape[1] > 0:
-                fix_blocks.append(B0_use)
-
-        # For multi-primary disjoint decomposition, keep any residual columns
-        # (outside all penalty supports) as fixed effects.
-        if len(components) > 1:
-            residual_idx = np.flatnonzero(~covered_mask)
-            if residual_idx.size > 0:
-                B_resid = B[:, residual_idx]
-                if B_resid.shape[1] > 0:
-                    fix_blocks.append(B_resid)
-
-        if rand_blocks_term:
-            for block in rand_blocks_term:
-                sl = block["slice"]
-                sl_blocks.append(
-                    SlBlock(
-                        term_index=i,
-                        repara=True,
-                        smoothing_index=int(block["smoothing_index"]),
-                        start=int(sl.start),
-                        stop=int(sl.stop),
-                        ncol=int(B.shape[1]),
-                        blockSize=int(block["n_pen"]),
-                        lambda_scaling=float(block.get("lambda_scaling", 1.0)),
-                        kind=str(block.get("kind", "smooth")),
-                        is_null_space_penalty=bool(
-                            block.get("is_null_space_penalty", False)
-                        ),
-                    )
-                )
-        else:
+            P_proj = U_range.T @ (np.asarray(Pk, dtype=np.float64) @ U_range)
+            P_proj = 0.5 * (P_proj + P_proj.T)
+            norm_val = float(np.linalg.norm(P_proj, ord=2))
+            if norm_val <= 0.0:
+                continue
+            R = _matrix_sqrt_psd(P_proj / norm_val)
+            if R.size == 0:
+                continue
+            keep = np.linalg.norm(R, axis=0) > 1e-14
+            if not np.any(keep):
+                continue
+            R = R[:, keep]
+            Z_block = np.asarray(Zr_main @ R, dtype=np.float64)
+            if Z_block.shape[1] == 0:
+                continue
+            block_slice = slice(rand_start, rand_start + Z_block.shape[1])
+            rand_blocks.append(Z_block)
+            rand_start += Z_block.shape[1]
             sl_blocks.append(
                 SlBlock(
-                    term_index=i,
-                    repara=False,
-                    smoothing_index=None,
-                    start=int(term_rand_start),
-                    stop=int(term_rand_start),
-                    ncol=int(B.shape[1]),
-                    blockSize=0,
+                    term_index=int(grp.term_indices[0]) if grp.term_indices else -1,
+                    repara=True,
+                    smoothing_index=int(grp.smoothing_index),
+                    start=int(block_slice.start),
+                    stop=int(block_slice.stop),
+                    ncol=int(p),
+                    blockSize=int(Z_block.shape[1]),
+                    lambda_scaling=float(norm_val),
+                    kind=str(grp.kind),
+                    is_null_space_penalty=bool(grp.is_null_space_penalty),
                 )
             )
     if fix_blocks:
@@ -643,6 +873,10 @@ def build_penalty_reparameterized_system(model):
         Z_rand=Z_rand,
         ZtZ_rand=ZtZ_rand,
         sl_blocks=sl_blocks,
+        penalty_range_basis=Y,
+        penalty_null_basis=Z,
+        penalty_range_roots=list(cache["range_roots"]),
+        grouped_penalties=grouped,
     )
     return _assign_reparam_state(model, state)
 

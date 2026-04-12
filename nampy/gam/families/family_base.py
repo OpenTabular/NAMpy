@@ -13,8 +13,9 @@ Three family tiers are defined here:
     (when ``supports_closed_form_solve = True``) or penalized IRLS.
 
 :class:`ExtendedFamily`
-    Non-standard single-predictor likelihoods requiring a bespoke solver.
-    Not yet implemented in the fitting backends.
+    Non-standard single-predictor likelihoods following the `mgcv`
+    `extended.family` contract. These can use PIRLS when the concrete family
+    supplies the required GLM/PIRLS hooks.
 
 :class:`GeneralFamily`
     Multi-linear-predictor families (e.g. GAMLSS-style location-scale models).
@@ -24,7 +25,7 @@ Three family tiers are defined here:
 import abc
 
 import numpy as np
-from scipy.special import gammaln
+from scipy.special import digamma, gammaln, polygamma
 
 from .._mgcv_constants import FAMILY_EPS
 
@@ -349,22 +350,48 @@ class _GammaBase(GLMFamily):
             - shape * np.log(mu / shape)
         )
 
-    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+    def ls(self, y, w, n=None, scale=1.0):
+        """
+        Port of `mgcv::fix.family.ls()` Gamma branch.
+
+        Returns saturated log-likelihood and first/second derivatives with
+        respect to the scale parameter.
+        """
         del n
         y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
-        weights = self._check_weights(y, weights)
+        w = self._check_weights(y, w)
         scale = float(max(scale, self.eps))
-        shape = 1.0 / scale
-        sat = -np.log(y) - shape - gammaln(shape) + shape * np.log(shape)
-        return float(np.sum(weights * sat))
+
+        mask = w > 0.0
+        if not np.any(mask):
+            return np.zeros(3, dtype=np.float64)
+
+        y = y[mask]
+        w = w[mask]
+        scale_w = scale / w
+
+        k0 = -gammaln(1.0 / scale_w) - np.log(scale_w) / scale_w - 1.0 / scale_w
+        k1 = (digamma(1.0 / scale_w) + np.log(scale_w)) / (scale_w**2)
+        k2 = (
+            -polygamma(1, 1.0 / scale_w) / scale_w
+            + (1.0 - 2.0 * np.log(scale_w) - 2.0 * digamma(1.0 / scale_w))
+        ) / (scale_w**3)
+        return np.asarray(
+            [np.sum(k0 - np.log(y)), np.sum(k1 / w), np.sum(k2 / (w**2))],
+            dtype=np.float64,
+        )
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        return float(self.ls(y, weights, n=n, scale=scale)[0])
 
 
 class ExtendedFamily(BaseFamily):
     """
-    Contract for extended exponential-family models:
+    Contract for `mgcv`-style extended-family models:
     - one linear predictor
     - richer likelihood structure than ordinary GLM families
-    - will later supply higher-order derivatives for outer REML/LAML machinery
+    - may still use PIRLS when the family supplies GLM-style link/variance hooks
+      plus `Dd`/`ls`/`getTheta`/`putTheta`
     """
 
     family_class = "extended"
@@ -381,6 +408,27 @@ class ExtendedFamily(BaseFamily):
 
     def hessian_eta(self, y, eta):
         raise NotImplementedError
+
+    def getTheta(self, trans: bool = False):
+        del trans
+        return np.zeros(0, dtype=np.float64)
+
+    def putTheta(self, theta):
+        theta_arr = np.asarray(theta, dtype=np.float64)
+        if theta_arr.size:
+            raise NotImplementedError(
+                f"{self.__class__.__name__} does not implement putTheta()."
+            )
+
+    def Dd(self, y, mu, theta, wt, level=0):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement mgcv-style Dd()."
+        )
+
+    def ls(self, y, w, theta, scale):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement mgcv-style ls()."
+        )
 
 
 class GeneralFamily(BaseFamily):

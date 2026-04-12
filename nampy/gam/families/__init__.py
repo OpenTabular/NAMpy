@@ -2,6 +2,7 @@ from .exponential import (
     BinomialCloglogFamily,
     BinomialLogitFamily,
     BinomialProbitFamily,
+    GammaIdentityFamily,
     GammaInverseFamily,
     GammaLogFamily,
     GaussianIdentityFamily,
@@ -9,7 +10,18 @@ from .exponential import (
     PoissonLogFamily,
 )
 from .family_base import BaseFamily, ExtendedFamily, GeneralFamily, GLMFamily
-from .gamlss import GammalsFamily, GaulssFamily, GevlssFamily, ShashlssFamily, ZiplssFamily, gammals, gaulss, gevlss, shashlss, ziplss
+from .gamlss import (
+    GammalsFamily,
+    GaulssFamily,
+    GevlssFamily,
+    ShashlssFamily,
+    ZiplssFamily,
+    gammals,
+    gaulss,
+    gevlss,
+    shashlss,
+    ziplss,
+)
 from .registry import make_gam_family
 
 __all__ = [
@@ -22,6 +34,7 @@ __all__ = [
     "BinomialProbitFamily",
     "BinomialCloglogFamily",
     "PoissonLogFamily",
+    "GammaIdentityFamily",
     "GammaLogFamily",
     "GammaInverseFamily",
     "NegativeBinomialLogFamily",

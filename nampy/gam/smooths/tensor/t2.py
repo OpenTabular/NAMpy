@@ -25,6 +25,8 @@ from ..smooth_base import (
     _normalize_knots,
     build_penalty_definition,
     build_selection_penalty_definition,
+    resolve_by_state,
+    sync_by_state_attributes,
 )
 from .marginals import (
     make_tensor_marginal_term,
@@ -113,10 +115,13 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         self._t2_train = None
         self._marginal_decompositions = None
         self._penalized_specs = None
+        self._by_state = None
         self.fit_constraint_matrix = None
         self.predict_coefficient_map = None
 
     def fit(self, X, feature_names):
+        self._by_state = resolve_by_state(self.by, X, feature_names)
+        sync_by_state_attributes(self, self._by_state)
         marginals = []
         feature_indices = []
         feature_names_resolved = []
@@ -145,14 +150,30 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             marginal_decompositions,
             full=self.full,
             ord=self.ord,
+            # mgcv::smooth.construct.t2.smooth.spec() keeps the raw t2 basis
+            # and exposes an explicit constraint matrix affecting only the
+            # final unpenalized null block.
             remove_constant_from_null_block=False,
         )
         B_t2 = np.asarray(t2_obj["basis"], dtype=np.float64)
-        if not self.fixed:
-            pens_t2 = rescale_tensor_penalties_for_fit(
-                B_t2,
-                [np.asarray(S, dtype=np.float64) for S in t2_obj["penalties"]],
-            )
+        pens_pre = [
+            np.asarray(S, dtype=np.float64) for S in t2_obj["penalties_pre_constraint"]
+        ]
+        B_pre = np.asarray(t2_obj["basis_pre_constraint"], dtype=np.float64)
+        full_transform = t2_obj.get("full_constraint_transform", None)
+        if len(pens_pre) > 0:
+            # mgcv smoothCon(scale.penalty=TRUE, absorb.cons=TRUE) scales the
+            # assembled t2 penalties before absorbing the null-block constraint,
+            # then applies the constraint transform to the scaled blocks.
+            pens_scaled_pre = rescale_tensor_penalties_for_fit(B_pre, pens_pre)
+            if full_transform is not None:
+                C_full = np.asarray(full_transform, dtype=np.float64)
+                pens_t2 = [
+                    0.5 * (C_full.T @ S @ C_full + (C_full.T @ S @ C_full).T)
+                    for S in pens_scaled_pre
+                ]
+            else:
+                pens_t2 = pens_scaled_pre
             t2_obj = {**t2_obj, "basis": B_t2, "penalties": pens_t2}
         else:
             t2_obj = {**t2_obj, "basis": B_t2}
@@ -171,9 +192,18 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         n_pen = int(sum(spec["n_cols"] for spec in self._penalized_specs))
         n_null = int(B_t2.shape[1] - n_pen)
         if n_null > 0:
-            C = np.zeros((1, B_t2.shape[1]), dtype=np.float64)
-            C[0, n_pen:] = np.sum(B_t2[:, n_pen:], axis=0)
-            self.fit_constraint_matrix = C if np.linalg.norm(C) > 0.0 else None
+            if n_null == 1:
+                # mgcv::smooth.construct.t2.smooth.spec():
+                # ``if (object$null.space.dim==1) C <- ncol(X)``
+                # i.e. set final unpenalized coefficient to zero, rather than
+                # centering it by row sums.
+                C = np.zeros((1, B_t2.shape[1]), dtype=np.float64)
+                C[0, -1] = 1.0
+                self.fit_constraint_matrix = C
+            else:
+                C = np.zeros((1, B_t2.shape[1]), dtype=np.float64)
+                C[0, n_pen:] = np.sum(B_t2[:, n_pen:], axis=0)
+                self.fit_constraint_matrix = C if np.linalg.norm(C) > 0.0 else None
         else:
             self.fit_constraint_matrix = None
         self.predict_coefficient_map = None
@@ -304,9 +334,10 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
                 "Stored t2 fit object does not contain penalized component specifications."
             )
 
-        return materialize_t2_newdata(
+        B_new = materialize_t2_newdata(
             marginal_new,
             allnull_specs=allnull_specs,
             allnull_transform=allnull_transform,
             penalized_specs=penalized_specs,
         )
+        return self._apply_constraint_transform_and_by(B_new, X_new)

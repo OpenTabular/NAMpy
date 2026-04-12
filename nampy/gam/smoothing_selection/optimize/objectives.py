@@ -3,14 +3,15 @@
 import numpy as np
 
 from ..criteria import (
+    _gaussian_dynamic_reml_derivative_terms,
     criterion_gradient,
     criterion_gradient_ml_reml_gaussian_dynamic_joint,
     criterion_gradient_ml_reml_pirls_gamma_joint,
     criterion_hessian,
     criterion_hessian_ml_reml_pirls_gamma_joint,
     criterion_ml_reml_gaussian_dynamic_joint,
+    criterion_ml_reml_gaussian_dynamic_profiled,
     criterion_ml_reml_pirls_gamma_joint,
-    criterion_ml_reml_pirls_negbin_joint,
     criterion_value,
 )
 
@@ -217,8 +218,6 @@ class _JointGaussianRemlObjective:
     def jac(self, x):
         x = np.asarray(x, dtype=np.float64).ravel()
         self.n_jac += 1
-        if self.backend == "gaussian_exact":
-            return np.asarray(_safe_scalar_fd_gradient(self._raw_fun, x), dtype=np.float64)
         g = criterion_gradient_ml_reml_gaussian_dynamic_joint(
             self.model,
             self.y,
@@ -233,7 +232,7 @@ class _JointGaussianRemlObjective:
                 _approx_derivative(self._raw_fun, x, method="2-point"),
                 dtype=np.float64,
             )
-        return None
+        return np.asarray(_safe_scalar_fd_gradient(self._raw_fun, x), dtype=np.float64)
 
     def record_iter(self, x, accepted_step_norm: float) -> None:
         x = np.asarray(x, dtype=np.float64).ravel()
@@ -245,6 +244,79 @@ class _JointGaussianRemlObjective:
                 "accepted_step_norm": float(accepted_step_norm),
             }
         )
+
+
+class _GaussianDynamicProfiledObjective:
+    """Consistent fun/jac/hess for the Gaussian dynamic profiled REML criterion.
+
+    Mirrors mgcv's ``gam.fit3(deriv=2)`` call: a single evaluation of
+    ``_gaussian_dynamic_reml_derivative_terms`` produces the gradient and
+    Hessian analytically from the penalized least-squares solve, consistent
+    with ``criterion_ml_reml_gaussian_dynamic_profiled`` as the objective.
+
+    Used by the mgcv-style Newton outer optimizer in place of
+    ``_CriterionObjective`` for the ``gaussian_exact`` backend, eliminating
+    the finite-difference derivative bottleneck.
+    """
+
+    def __init__(self, model, y, method: str):
+        self.model = model
+        self.y = y
+        self.method = str(method).upper()
+        self._last_x: np.ndarray | None = None
+        self._last_derivs: tuple | None = None
+        self._last_jac_x: np.ndarray | None = None
+        self._last_hess_x: np.ndarray | None = None
+        self.n_fun = 0
+        self.n_jac = 0
+        self.n_hess = 0
+
+    @staticmethod
+    def _same_x(a: np.ndarray | None, b: np.ndarray) -> bool:
+        return a is not None and np.array_equal(a, b)
+
+    def _eval(self, x: np.ndarray):
+        """Compute fun + derivative terms together (one penalized solve)."""
+        x = np.asarray(x, dtype=np.float64).ravel()
+        if self._same_x(self._last_x, x):
+            return self._last_derivs
+        fun_val = float(
+            criterion_ml_reml_gaussian_dynamic_profiled(
+                self.model, self.y, x, method=self.method
+            )
+        )
+        out = _gaussian_dynamic_reml_derivative_terms(self.model, self.y, x, self.method)
+        self._last_x = x.copy()
+        self._last_derivs = (fun_val, out)
+        self._last_jac_x = None
+        self._last_hess_x = None
+        self.n_fun += 1
+        return fun_val, out
+
+    def fun(self, x):
+        val, _ = self._eval(np.asarray(x, dtype=np.float64).ravel())
+        return val
+
+    def jac(self, x):
+        x = np.asarray(x, dtype=np.float64).ravel()
+        _, out = self._eval(x)
+        if not self._same_x(self._last_jac_x, x):
+            self.n_jac += 1
+            self._last_jac_x = x.copy()
+        if bool(out.get("valid", False)):
+            return np.asarray(out["grad"], dtype=np.float64)
+        return np.asarray(_safe_scalar_fd_gradient(self.fun, x), dtype=np.float64)
+
+    def hess(self, x):
+        x = np.asarray(x, dtype=np.float64).ravel()
+        _, out = self._eval(x)
+        if not self._same_x(self._last_hess_x, x):
+            self.n_hess += 1
+            self._last_hess_x = x.copy()
+        if bool(out.get("valid", False)):
+            return np.asarray(out["hess"], dtype=np.float64)
+        n = x.size
+        return np.full((n, n), np.nan, dtype=np.float64)
 
 
 class _JointGammaPirlsRemlObjective:
@@ -303,96 +375,3 @@ class _JointGammaPirlsRemlObjective:
             ),
             dtype=np.float64,
         )
-
-
-class _JointNegbinPirlsRemlObjective:
-    """Joint (log_sp, log_theta) NegBin PIRLS REML/LAML outer objective.
-
-    Mirrors mgcv's ``gam.fit4`` extended-family outer problem only partially:
-    ``log_theta`` is optimized jointly with ``log_sp``, but the optimizer is a
-    generic finite-difference L-BFGS-B step rather than mgcv's EFS smoothing
-    update loop. This means prediction/theta parity can hold while the chosen
-    ``log_sp`` lands at a different point on a shallow REML ridge.
-
-    Gradient is evaluated via numerical finite differences because analytic
-    theta derivatives of the NB REML criterion are not yet implemented.
-    """
-
-    def __init__(self, model, y, branch_method: str):
-        self.model = model
-        self.y = y
-        self.branch_method = str(branch_method).upper()
-        self.method = self.branch_method
-        self.n_fun = 0
-        self.n_jac = 0
-        self.n_hess = 0
-        self.trace = []
-        self._trace_index_by_x = {}
-
-    def _raw_fun(self, x):
-        x = np.asarray(x, dtype=np.float64).ravel()
-        return float(
-            criterion_ml_reml_pirls_negbin_joint(
-                self.model,
-                self.y,
-                x[:-1],
-                float(x[-1]),
-                method=self.branch_method,
-            )
-        )
-
-    def fun(self, x):
-        x = np.asarray(x, dtype=np.float64).ravel()
-        self.n_fun += 1
-        val = self._raw_fun(x)
-        key = tuple(np.asarray(x, dtype=np.float64).tolist())
-        idx = self._trace_index_by_x.get(key, None)
-        if idx is None:
-            self._trace_index_by_x[key] = len(self.trace)
-            self.trace.append({"x": x.copy(), "fun": float(val), "grad": None})
-        else:
-            self.trace[idx]["fun"] = float(val)
-        return val
-
-    def jac(self, x):
-        x = np.asarray(x, dtype=np.float64).ravel()
-        self.n_jac += 1
-        f0 = self._raw_fun(x)
-        if not np.isfinite(f0):
-            return np.full_like(x, np.nan)
-        grad = np.empty_like(x)
-        for i in range(x.size):
-            step = max(1e-5, 1e-4 * (1.0 + abs(float(x[i]))))
-            xp = x.copy()
-            xp[i] += step
-            fp = self._raw_fun(xp)
-            if np.isfinite(fp):
-                grad[i] = (fp - f0) / step
-            else:
-                grad[i] = np.nan
-        key = tuple(np.asarray(x, dtype=np.float64).tolist())
-        idx = self._trace_index_by_x.get(key, None)
-        if idx is None:
-            self._trace_index_by_x[key] = len(self.trace)
-            self.trace.append({"x": x.copy(), "fun": float(f0), "grad": grad.copy()})
-        else:
-            self.trace[idx]["grad"] = grad.copy()
-        return grad
-
-    def hess(self, x):
-        x = np.asarray(x, dtype=np.float64).ravel()
-        self.n_hess += 1
-        if _approx_derivative is not None:
-            return np.asarray(
-                _approx_derivative(self.jac, x, method="2-point"), dtype=np.float64
-            )
-        n = x.size
-        h = np.empty((n, n), dtype=np.float64)
-        g0 = self.jac(x)
-        for i in range(n):
-            step = max(1e-5, 1e-4 * (1.0 + abs(float(x[i]))))
-            xp = x.copy()
-            xp[i] += step
-            gp = self.jac(xp)
-            h[:, i] = (gp - g0) / step
-        return 0.5 * (h + h.T)

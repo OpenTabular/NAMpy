@@ -281,16 +281,37 @@ class GamlssFamily(GeneralFamily):
         se: bool = False,
         Vb: np.ndarray | None = None,
     ) -> np.ndarray:
-        del Vb
-        if se:
-            raise NotImplementedError(
-                f"{self.__class__.__name__} does not yet implement predictive standard errors."
-            )
         if eta is None:
             if X is None or jj is None or coef is None:
                 raise ValueError("Provide either eta or X/jj/coef for prediction.")
             eta = self._stacked_eta(X, jj, coef, offset=offset)
-        return np.asarray(self._predict_response_from_eta(eta), dtype=np.float64)
+        eta = np.asarray(eta, dtype=np.float64)
+        fit = np.asarray(self._predict_response_from_eta(eta), dtype=np.float64)
+        if not se:
+            return fit
+
+        if Vb is None:
+            raise ValueError("Vb is required when se=True.")
+        if X is None or jj is None:
+            raise ValueError("X and jj are required when se=True.")
+
+        X = np.asarray(X, dtype=np.float64)
+        Vb = np.asarray(Vb, dtype=np.float64)
+        ve = np.zeros_like(eta, dtype=np.float64)
+        for k, cols in enumerate(jj):
+            Xi = X[:, cols]
+            Vk = Vb[np.ix_(cols, cols)]
+            ve[:, k] = np.maximum(
+                np.einsum("ij,jk,ik->i", Xi, Vk, Xi),
+                0.0,
+            )
+
+        se_fit = np.zeros_like(fit, dtype=np.float64)
+        for k in range(min(fit.shape[1], eta.shape[1], len(self.linfo))):
+            se_fit[:, k] = np.abs(
+                np.asarray(self.linfo[k].mu_eta(eta[:, k]), dtype=np.float64)
+            ) * np.sqrt(ve[:, k])
+        return fit, se_fit
 
     def predict_fitted(
         self,
@@ -2643,10 +2664,7 @@ class GevlssFamily(GamlssFamily):
                 xi_nz = xi[~near_zero]
                 var[~near_zero] = (
                     sigma[~near_zero] ** 2
-                    * (
-                        gamma_fn(1.0 - 2.0 * xi_nz)
-                        - gamma_fn(1.0 - xi_nz) ** 2
-                    )
+                    * (gamma_fn(1.0 - 2.0 * xi_nz) - gamma_fn(1.0 - xi_nz) ** 2)
                     / (xi_nz**2)
                 )
             return rsd / np.sqrt(np.maximum(var, 1e-300))

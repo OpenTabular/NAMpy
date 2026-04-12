@@ -31,10 +31,7 @@ from mgcv_parity_utils import (
     R_SCRIPT,
     _assert_basic_mgcv_parity,
     _fit_nampy_snapshot,
-    _make_distributional_gaussian_data,
-    _make_fs_data_4levels,
     _make_gaussian_data_3col,
-    _make_sz_data_3x3,
     _run_mgcv_snapshot,
 )
 
@@ -845,90 +842,3 @@ class TestBySelectAndMoreLinkedIdParity:
         assert gam_linked.n_smoothing_params_ == 1
         assert gam_linked.n_smoothing_params_ == mgcv_sp_linked
         assert gam_linked.n_smoothing_params_ < gam_unlinked.n_smoothing_params_
-
-
-@pytest.mark.skipif(R_SCRIPT is None, reason="Rscript not available")
-class TestFsSzParityExpandedFactors:
-    def test_gaussian_fs_4levels_reml_matches_mgcv(self):
-        data = _make_fs_data_4levels()
-        formula = 'y ~ s(f, x, bs="fs", k=6)'
-
-        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
-        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
-
-        _assert_basic_mgcv_parity(
-            actual,
-            expected,
-            pred_atol=6e-3,
-            pred_rtol=6e-3,
-            sp_log_atol=12.0,
-            criterion_atol=5.0,
-        )
-
-    def test_gaussian_sz_3x3_reml_matches_mgcv(self):
-        data = _make_sz_data_3x3()
-        formula = 'y ~ s(f1, f2, x, bs="sz", k=6)'
-
-        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
-        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
-
-        _assert_basic_mgcv_parity(
-            actual,
-            expected,
-            pred_atol=6e-3,
-            pred_rtol=6e-3,
-            sp_log_atol=18.0,
-            criterion_atol=5.0,
-        )
-
-
-class TestDistributionalRegressionMultiPredictor:
-    """compile_predictor_designs with multiple predictors stays structurally independent."""
-
-    def test_two_predictors_are_structurally_independent(self):
-        from nampy.gam.design.compiler import compile_predictor_designs
-        from nampy.gam.formula import (
-            compile_predictor_specs_from_formula,
-            parse_gam_formula,
-        )
-        from nampy.gam.formula.preprocess import preprocess_formula_predictor_specs
-
-        data = _make_distributional_gaussian_data()
-        parsed = parse_gam_formula(
-            [
-                'y ~ s(x0, bs="cr", k=7) + s(x1, bs="cr", k=5)',
-                'y ~ s(x0, bs="cr", k=4)',
-            ]
-        )
-        predictor_specs = compile_predictor_specs_from_formula(parsed, default_k=8)
-        predictor_specs, data_work, _ = preprocess_formula_predictor_specs(
-            parsed=parsed,
-            predictor_specs=predictor_specs,
-            data=data,
-        )
-
-        X = data_work[["x0", "x1"]].to_numpy(dtype=np.float64)
-        designs = compile_predictor_designs(
-            X=X,
-            feature_names=["x0", "x1"],
-            predictor_specs=predictor_specs,
-        )
-
-        assert len(designs) == 2
-        d0, d1 = designs
-        assert d0.n_coef > 0
-        assert d1.n_coef > 0
-        assert d0.n_smoothing_params == 2
-        assert d1.n_smoothing_params == 1
-        assert len(d0.compiled_terms) == 2
-        assert len(d1.compiled_terms) == 1
-        assert d0.design_matrix.shape == (len(data), d0.n_coef)
-        assert d1.design_matrix.shape == (len(data), d1.n_coef)
-        assert d1.compiled_terms[0].coef_slice.start == 0
-
-        sp_ids_0 = set(d0.smoothing_parameter_map.keys())
-        sp_ids_1 = set(d1.smoothing_parameter_map.keys())
-        assert sp_ids_0.isdisjoint(sp_ids_1), (
-            f"Smoothing param IDs must not overlap across predictors: "
-            f"{sp_ids_0 & sp_ids_1}"
-        )

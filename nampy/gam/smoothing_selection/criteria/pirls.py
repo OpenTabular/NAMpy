@@ -10,10 +10,8 @@ from contextlib import contextmanager
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
-from ..._mgcv_constants import GAMMA_ABSTOL
 from ..._model_state import _coef_column_offset
-from ..reparam import ensure_penalty_reparameterization_state
-from .laplace import _laplace_lambda_vector
+from ..reparam import dynamic_reparam_design, ensure_penalty_reparameterization_state
 from .penalty import (
     _stable_penalty_logdet,
     _static_fixed_and_random_designs,
@@ -43,9 +41,7 @@ def _current_joint_negbin_eval_state(model):
             "coef": _copy_state_vector(result_state.get("coef", None)),
             "eta": _copy_state_vector(result_state.get("eta", None)),
             "mu": _copy_state_vector(result_state.get("mu", None)),
-            "theta": float(
-                result_state.get("theta", getattr(model.family, "theta", 1.0))
-            ),
+            "theta": float(result_state.get("theta", model.family.getTheta(True))),
         }
 
     baseline = getattr(model, "_joint_negbin_fd_baseline_", None)
@@ -54,7 +50,7 @@ def _current_joint_negbin_eval_state(model):
             "coef": _copy_state_vector(baseline.get("coef", None)),
             "eta": _copy_state_vector(baseline.get("eta", None)),
             "mu": _copy_state_vector(baseline.get("mu", None)),
-            "theta": float(baseline.get("theta", getattr(model.family, "theta", 1.0))),
+            "theta": float(baseline.get("theta", model.family.getTheta(True))),
         }
 
     return {
@@ -71,7 +67,7 @@ def _current_joint_negbin_eval_state(model):
         "mu": _copy_state_vector(
             getattr(model, "_pirls_mu_start_", getattr(model, "_pirls_last_mu_", None))
         ),
-        "theta": float(getattr(model.family, "theta", 1.0)),
+        "theta": float(model.family.getTheta(True)),
     }
 
 
@@ -88,7 +84,7 @@ def _frozen_joint_negbin_eval_state(model, baseline_state=None):
         "last_coef": _copy_state_vector(getattr(model, "_pirls_last_coef_", None)),
         "last_eta": _copy_state_vector(getattr(model, "_pirls_last_eta_", None)),
         "last_mu": _copy_state_vector(getattr(model, "_pirls_last_mu_", None)),
-        "theta": float(getattr(model.family, "theta", 1.0)),
+        "theta": float(model.family.getTheta(True)),
     }
     state = (
         _current_joint_negbin_eval_state(model)
@@ -97,16 +93,14 @@ def _frozen_joint_negbin_eval_state(model, baseline_state=None):
             "coef": _copy_state_vector(baseline_state.get("coef", None)),
             "eta": _copy_state_vector(baseline_state.get("eta", None)),
             "mu": _copy_state_vector(baseline_state.get("mu", None)),
-            "theta": float(
-                baseline_state.get("theta", getattr(model.family, "theta", 1.0))
-            ),
+            "theta": float(baseline_state.get("theta", model.family.getTheta(True))),
         }
     )
     model._pirls_eval_start_ = _copy_state_vector(state.get("coef", None))
     model._pirls_eval_eta_start_ = _copy_state_vector(state.get("eta", None))
     model._pirls_eval_mu_start_ = _copy_state_vector(state.get("mu", None))
     model._pirls_lock_start_ = True
-    model.family.theta = float(state["theta"])
+    model.family.putTheta(float(np.log(state["theta"])))
     try:
         yield state
     finally:
@@ -120,7 +114,7 @@ def _frozen_joint_negbin_eval_state(model, baseline_state=None):
         model._pirls_last_coef_ = prev["last_coef"]
         model._pirls_last_eta_ = prev["last_eta"]
         model._pirls_last_mu_ = prev["last_mu"]
-        model.family.theta = float(prev["theta"])
+        model.family.putTheta(float(np.log(prev["theta"])))
 
 
 def criterion_ml_reml_pirls_frozen_negbin(
@@ -134,21 +128,27 @@ def _gamma_profile_objective_curvature(model, y, Dp, phi, mp, *, method):
     phi = float(phi)
     if not np.isfinite(phi) or phi <= 0.0:
         return np.inf, np.nan, np.nan
-    ls = float(
-        model.family.saturated_loglik(
-            y,
-            weights=np.ones_like(y, dtype=np.float64),
-            n=len(y),
-            scale=phi,
-        )
-    )
-    from .pirls_deriv import _gamma_saturated_loglik_scale_derivatives
-
-    ls1, ls2 = _gamma_saturated_loglik_scale_derivatives(y, phi)
+    weights = getattr(model, "prior_weights_", None)
+    if weights is None:
+        weights = np.ones_like(np.asarray(y, dtype=np.float64), dtype=np.float64)
+    else:
+        weights = np.asarray(weights, dtype=np.float64)
+    ls = np.asarray(model.family.ls(y, weights, len(y), phi), dtype=np.float64)
+    nobs = float(len(y))
+    n_true = getattr(model, "n_true_", None)
+    if n_true is None:
+        n_true = nobs
+    n_true = float(n_true)
+    if not np.isfinite(n_true) or n_true <= 0.0 or not np.isfinite(nobs) or nobs <= 0.0:
+        fac = 1.0
+    else:
+        fac = n_true / nobs
+    ls *= fac
     reml_ind = 1.0 if method == "REML" else 0.0
-    score_lphi = -Dp / (2.0 * phi) - ls1 * phi - 0.5 * mp * reml_ind
-    curv_lphi = Dp / (2.0 * phi) - ls2 * (phi**2) - ls1 * phi
-    return ls, score_lphi, curv_lphi
+    gamma = float(model.score_gamma)
+    score_lphi = (-Dp / (2.0 * phi) - ls[1] * phi) / gamma - 0.5 * mp * reml_ind
+    curv_lphi = (Dp / (2.0 * phi) - ls[2] * (phi**2) - ls[1] * phi) / gamma
+    return float(ls[0]), float(score_lphi), float(curv_lphi)
 
 
 def _solve_gamma_profile_scale(model, y, Dp, mp, *, method, init_scale):
@@ -203,9 +203,9 @@ def criterion_ubre_pirls(model, y, log_sp):
 
 
 def _pirls_laplace_logdet_term(model, sol, sp, method):
-    state = ensure_penalty_reparameterization_state(model)
-    Xf = state.X_fix
-    Zr = state.Z_rand
+    design = dynamic_reparam_design(model, sol["X"], sp)
+    Xf = design.X_fix
+    Zr = design.Z_rand
     p = int(Xf.shape[1])
     q = int(Zr.shape[1])
     W = np.asarray(sol["working_weights"], dtype=np.float64)
@@ -219,17 +219,12 @@ def _pirls_laplace_logdet_term(model, sol, sp, method):
         logdet_fix = 2.0 * float(np.sum(np.log(np.abs(np.diag(cFix)))))
         return 0.5 * logdet_fix
 
-    lam_vec = _laplace_lambda_vector(model, sp)
-    if np.any(lam_vec <= 0):
-        return np.inf
-
     ZtW = Zr.T * W[np.newaxis, :]
-    M = ZtW @ Zr + np.diag(lam_vec)
+    M = ZtW @ Zr + np.eye(q, dtype=np.float64)
     cM, loM = cho_factor(M, check_finite=False)
 
     logdet_M = 2.0 * float(np.sum(np.log(np.abs(np.diag(cM)))))
-    logdet_Lam = float(np.sum(np.log(lam_vec)))
-    det_term = 0.5 * (logdet_M - logdet_Lam)
+    det_term = 0.5 * logdet_M
 
     if method == "ML" or p == 0:
         return det_term
@@ -266,16 +261,11 @@ def _pirls_tensor_coefficient_space_logdet_term(model, sol, sp):
 
 
 def criterion_ml_reml_pirls(model, y, log_sp, method):
-    if abs(model.score_gamma - 1.0) > GAMMA_ABSTOL:
-        raise NotImplementedError(
-            "score_gamma != 1 is not yet implemented for the PIRLS Laplace ML/REML path."
-        )
-
     if not model._can_use_simple_ml_reml_structure():
         raise NotImplementedError(
-            "Current PIRLS Laplace ML/REML is available only for terms with "
-            "disjoint-support primary smooth penalties, plus at most one "
-            "null-space penalty per support block."
+            "Current PIRLS Laplace ML/REML is unavailable only when "
+            "null-space penalties couple disconnected primary support "
+            "components."
         )
 
     ensure_penalty_reparameterization_state(model)
@@ -290,14 +280,19 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
     scale = float(sol["scale"])
     if not np.isfinite(scale) or scale <= 0:
         return np.inf
+    gamma = float(model.score_gamma)
+    if not np.isfinite(gamma) or gamma <= 0.0:
+        return np.inf
 
     penalty_quad = float(sol["penalty_quadratic"] or 0.0)
-    mp = float(
-        _static_penalty_null_dim(model)
-        + _coef_column_offset(model)
-    )
+    mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     n_obs = float(len(y))
     family_name = str(getattr(model.family, "name", "")).lower()
+    use_exact_logdet = bool(
+        model._can_use_simple_ml_reml_structure()
+        and not model._has_tensor_terms()
+        and bool(getattr(model.family, "supports_exact_pirls_first_derivatives", False))
+    )
 
     if getattr(model.family, "known_scale", None) is None:
         if family_name == "gamma":
@@ -315,7 +310,7 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
             saturated_loglik, _, _ = _gamma_profile_objective_curvature(
                 model, y, Dp, phi, mp, method=method
             )
-            base_objective = Dp / (2.0 * phi) - saturated_loglik
+            base_objective = Dp / (2.0 * phi * gamma) - saturated_loglik / gamma
         else:
             var = np.clip(
                 np.asarray(model.family.variance(sol["mu"]), dtype=np.float64),
@@ -348,21 +343,26 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
                 )
             )
             base_objective = (float(sol["deviance"]) + penalty_quad) / (
-                2.0 * phi
-            ) - saturated_loglik
+                2.0 * phi * gamma
+            ) - saturated_loglik / gamma
         try:
-            det_term = (
-                _pirls_tensor_coefficient_space_logdet_term(model, sol, sp)
-                if model._has_tensor_terms()
-                else _pirls_laplace_logdet_term(model, sol, sp, method)
-            )
+            if use_exact_logdet:
+                from .pirls_deriv import _gdi1_kernel
+
+                det_term = float(_gdi1_kernel(model, y, sol, sp, method=method).K)
+            else:
+                det_term = (
+                    _pirls_tensor_coefficient_space_logdet_term(model, sol, sp)
+                    if model._has_tensor_terms()
+                    else _pirls_laplace_logdet_term(model, sol, sp, method)
+                )
         except np.linalg.LinAlgError:
             return np.inf
         if not np.isfinite(det_term):
             return np.inf
         objective = base_objective + det_term
         if method == "REML":
-            objective -= 0.5 * mp * np.log(2.0 * np.pi * phi)
+            objective -= 0.5 * mp * (np.log(2.0 * np.pi * phi) - np.log(gamma))
         return objective
 
     saturated_loglik = float(
@@ -374,8 +374,8 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
         )
     )
     base_objective = (float(sol["deviance"]) + penalty_quad) / (
-        2.0 * scale
-    ) - saturated_loglik
+        2.0 * scale * gamma
+    ) - saturated_loglik / gamma
 
     if model._has_tensor_terms():
         det_term = _pirls_tensor_coefficient_space_logdet_term(model, sol, sp)
@@ -383,12 +383,26 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
             return np.inf
         objective = base_objective + det_term
         if method == "REML":
-            objective -= 0.5 * mp * np.log(2.0 * np.pi * scale)
+            objective -= 0.5 * mp * (np.log(2.0 * np.pi * scale) - np.log(gamma))
         return objective
 
-    state = ensure_penalty_reparameterization_state(model)
-    Xf = state.X_fix
-    Zr = state.Z_rand
+    if use_exact_logdet:
+        from .pirls_deriv import _gdi1_kernel
+
+        try:
+            det_term = float(_gdi1_kernel(model, y, sol, sp, method=method).K)
+        except np.linalg.LinAlgError:
+            return np.inf
+        if not np.isfinite(det_term):
+            return np.inf
+        objective = base_objective + det_term
+        if method == "REML":
+            objective -= 0.5 * mp * (np.log(2.0 * np.pi * scale) - np.log(gamma))
+        return objective
+
+    design = dynamic_reparam_design(model, sol["X"], sp)
+    Xf = design.X_fix
+    Zr = design.Z_rand
     p = int(Xf.shape[1])
     q = int(Zr.shape[1])
     W = np.asarray(sol["working_weights"], dtype=np.float64)
@@ -408,15 +422,11 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
         logdet_fix = 2.0 * float(np.sum(np.log(np.abs(np.diag(cFix)))))
         objective = base_objective + 0.5 * logdet_fix
         if method == "REML":
-            objective -= 0.5 * mp * np.log(2.0 * np.pi * scale)
+            objective -= 0.5 * mp * (np.log(2.0 * np.pi * scale) - np.log(gamma))
         return objective
 
-    lam_vec = _laplace_lambda_vector(model, sp)
-    if np.any(lam_vec <= 0):
-        return np.inf
-
     ZtW = Zr.T * W[np.newaxis, :]
-    M = ZtW @ Zr + np.diag(lam_vec)
+    M = ZtW @ Zr + np.eye(q, dtype=np.float64)
 
     try:
         cM, loM = cho_factor(M, check_finite=False)
@@ -424,15 +434,13 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
         return np.inf
 
     logdet_M = 2.0 * float(np.sum(np.log(np.abs(np.diag(cM)))))
-    logdet_Lam = float(np.sum(np.log(lam_vec)))
-
-    objective = base_objective + 0.5 * (logdet_M - logdet_Lam)
+    objective = base_objective + 0.5 * logdet_M
 
     if method == "ML":
         return objective
 
     if p > 0:
-        objective -= 0.5 * mp * np.log(2.0 * np.pi * scale)
+        objective -= 0.5 * mp * (np.log(2.0 * np.pi * scale) - np.log(gamma))
     else:
         return objective
 
@@ -465,21 +473,31 @@ def criterion_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
         return np.inf
 
     penalty_quad = float(sol["penalty_quadratic"] or 0.0)
-    mp = float(
-        _static_penalty_null_dim(model)
-        + _coef_column_offset(model)
-    )
+    mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     Dp = float(sol["deviance"]) + penalty_quad
     saturated_loglik, _, _ = _gamma_profile_objective_curvature(
         model, y, Dp, phi, mp, method=method
     )
-    base_objective = Dp / (2.0 * phi) - saturated_loglik
+    gamma = float(model.score_gamma)
+    if not np.isfinite(gamma) or gamma <= 0.0:
+        return np.inf
+    base_objective = Dp / (2.0 * phi * gamma) - saturated_loglik / gamma
+    use_exact_logdet = bool(
+        model._can_use_simple_ml_reml_structure()
+        and not model._has_tensor_terms()
+        and bool(getattr(model.family, "supports_exact_pirls_first_derivatives", False))
+    )
     try:
-        det_term = (
-            _pirls_tensor_coefficient_space_logdet_term(model, sol, sp)
-            if model._has_tensor_terms()
-            else _pirls_laplace_logdet_term(model, sol, sp, method)
-        )
+        if use_exact_logdet:
+            from .pirls_deriv import _gdi1_kernel
+
+            det_term = float(_gdi1_kernel(model, y, sol, sp, method=method).K)
+        else:
+            det_term = (
+                _pirls_tensor_coefficient_space_logdet_term(model, sol, sp)
+                if model._has_tensor_terms()
+                else _pirls_laplace_logdet_term(model, sol, sp, method)
+            )
     except np.linalg.LinAlgError:
         return np.inf
     if not np.isfinite(det_term):
@@ -487,14 +505,14 @@ def criterion_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
 
     objective = base_objective + det_term
     if method == "REML":
-        objective -= 0.5 * mp * np.log(2.0 * np.pi * phi)
+        objective -= 0.5 * mp * (np.log(2.0 * np.pi * phi) - np.log(gamma))
     return float(objective)
 
 
 def criterion_ml_reml_pirls_negbin_joint(model, y, log_sp, log_theta, method):
     """Joint (log_sp, log_theta) NB REML outer objective.
 
-    Sets model.family.theta = exp(log_theta) as the EFS initialization, then
+    Sets family `log(theta)` as EFS initialization, then
     evaluates the PIRLS REML criterion.  EFS (Embedded Fisher Scoring) updates
     theta after each inner IRLS step inside :func:`irls_core`, mirroring
     mgcv's ``gam.fit4.r`` extended-family pattern where log(theta) is prepended
@@ -508,28 +526,26 @@ def criterion_ml_reml_pirls_negbin_joint(model, y, log_sp, log_theta, method):
     theta = float(np.exp(float(log_theta)))
     if not np.isfinite(theta) or theta <= 0.0:
         return np.inf
-    prev_theta = float(getattr(model.family, "theta", 1.0))
+    prev_log_theta = float(model.family.getTheta(False))
     prev_disable_theta_efs = bool(getattr(model.family, "_disable_theta_efs", False))
     try:
-        model.family.theta = theta
+        model.family.putTheta(float(log_theta))
         model.family._disable_theta_efs = True
         return criterion_ml_reml_pirls(model, y, log_sp, method)
     finally:
-        model.family.theta = prev_theta
+        model.family.putTheta(prev_log_theta)
         model.family._disable_theta_efs = bool(prev_disable_theta_efs)
 
 
 def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
-    if abs(model.score_gamma - 1.0) > GAMMA_ABSTOL:
-        raise NotImplementedError(
-            "score_gamma != 1 is not yet implemented for the dynamic PIRLS Laplace ML/REML path."
-        )
-
     sp = model._expand_smoothing_params_from_log(log_sp)
     sol = model._solve_pirls_given_smoothing(y, sp)
 
     scale = float(sol["scale"])
     if not np.isfinite(scale) or scale <= 0:
+        return np.inf
+    gamma = float(model.score_gamma)
+    if not np.isfinite(gamma) or gamma <= 0.0:
         return np.inf
 
     saturated_loglik = float(
@@ -542,14 +558,11 @@ def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
     )
     base_objective = (
         float(sol["deviance"]) + float(sol["penalty_quadratic"] or 0.0)
-    ) / (2.0 * scale) - saturated_loglik
+    ) / (2.0 * scale * gamma) - saturated_loglik / gamma
 
     X = np.asarray(sol["X"], dtype=np.float64)
     W = np.asarray(sol["working_weights"], dtype=np.float64)
-    mp = float(
-        _static_penalty_null_dim(model)
-        + _coef_column_offset(model)
-    )
+    mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     Xf, Zr, split = _static_fixed_and_random_designs(model, X, sp)
     p = int(Xf.shape[1])
     q = int(Zr.shape[1])
@@ -569,7 +582,7 @@ def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
         logdet_fix = 2.0 * float(np.sum(np.log(np.abs(np.diag(cFix)))))
         objective = base_objective + 0.5 * logdet_fix
         if method == "REML":
-            objective -= 0.5 * mp * np.log(2.0 * np.pi * scale)
+            objective -= 0.5 * mp * (np.log(2.0 * np.pi * scale) - np.log(gamma))
         return objective
 
     ZtW = Zr.T * W[np.newaxis, :]
@@ -586,7 +599,7 @@ def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
         return objective
 
     if p > 0:
-        objective -= 0.5 * mp * np.log(2.0 * np.pi * scale)
+        objective -= 0.5 * mp * (np.log(2.0 * np.pi * scale) - np.log(gamma))
     else:
         return objective
 

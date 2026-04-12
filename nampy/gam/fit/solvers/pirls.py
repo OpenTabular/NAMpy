@@ -57,6 +57,12 @@ def solve_pirls_fit(model, y, smoothing_params, weights=None):
     if disable_theta_efs:
         model.family._disable_theta_efs = True
 
+    force_stacked_qr = (
+        str(getattr(model.family, "family_class", "")).lower() == "extended"
+        and str(getattr(model.family, "name", "")).lower() == "negbin"
+        and str(getattr(model.family, "link_name", "")).lower() == "log"
+    )
+
     try:
         sol = irls_core(
             X,
@@ -66,13 +72,15 @@ def solve_pirls_fit(model, y, smoothing_params, weights=None):
             offset=model.offset_train_,
             weights=weights,
             fit_intercept=fi,
-            max_iter=int(getattr(model, "max_irls_iter", 100)),
-            tol=float(getattr(model, "irls_tol", 1e-8)),
+            max_iter=int(getattr(model, "max_irls_iter", 200)),
+            tol=float(getattr(model, "irls_tol", 1e-7)),
             max_step_halving=int(getattr(model, "max_step_halving", 25)),
             coef_start=coef_start,
             etastart=etastart,
             mustart=mustart,
             penalty_rank_rows=rank_rows,
+            force_stacked_qr=force_stacked_qr,
+            near_singular_null_pin=("auto" if force_stacked_qr else False),
         )
     finally:
         model.family._disable_theta_efs = bool(prev_disable_theta_efs)

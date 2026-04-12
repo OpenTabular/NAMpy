@@ -1151,6 +1151,26 @@ class TestMgcvParity:
             sp_log_atol=0.5,
         )
 
+    def test_gaussian_mrf_coef_full_exact_mgcv_at_mgcv_sp(self):
+        """At mgcv's REML-selected sp, the Gaussian MRF solve matches mgcv's coef_full."""
+        data = _make_mrf_data()
+        formula = (
+            'y ~ s(region, bs="mrf", k=3, '
+            'xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
+        )
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+        sp = np.atleast_1d(
+            np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
+        ).ravel()
+        gam = _fit_nampy_model_fixed_sp(data, formula, "gaussian", sp)
+
+        y = gam.family.validate_y(np.asarray(data["y"], dtype=np.float64))
+        sol = solve_gaussian_fit(gam, y, sp)
+        coef_py = np.asarray(sol.coef_full, dtype=np.float64)
+        coef_r = np.asarray(expected["fit"]["coef_full"], dtype=np.float64)
+
+        np.testing.assert_allclose(coef_py, coef_r, atol=1e-14, rtol=0.0)
+
     def test_gaussian_concurvity_full_matches_mgcv(self):
         data = _make_gaussian_data(seed=17, n=160)
         formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="tp", k=8)'
@@ -2871,13 +2891,8 @@ class TestAdditionalScenarioParity:
         endpoint = actual["parity"]["diagnostics"]["optimizer_endpoint"]
         assert endpoint is not None
         assert bool(endpoint["flat_ridge_suspected"]) is True
-        assert bool(endpoint["factor_smooth_shared_ridge_stabilized"]) is True
-        assert endpoint["factor_smooth_shared_ridge_shift"] is not None
-        assert len(endpoint["factor_smooth_shared_ridge_shift"]) >= 1
-        assert all(
-            any(float(v) > 0.0 for v in shift["log_sp_shift"])
-            for shift in endpoint["factor_smooth_shared_ridge_shift"]
-        )
+        assert bool(endpoint["factor_smooth_shared_ridge_stabilized"]) is False
+        assert endpoint["factor_smooth_shared_ridge_shift"] is None
 
     def test_gaussian_sz_select_reml_matches_mgcv(self):
         data = _make_sz_data()
@@ -3660,8 +3675,8 @@ class TestAdditionalScenarioParity:
         endpoint = actual["parity"]["diagnostics"]["optimizer_endpoint"]
         assert endpoint is not None
         assert bool(endpoint["flat_ridge_suspected"]) is True
-        assert bool(endpoint["factor_smooth_shared_ridge_stabilized"]) is True
-        assert endpoint["factor_smooth_shared_ridge_shift"] is not None
+        assert bool(endpoint["factor_smooth_shared_ridge_stabilized"]) is False
+        assert endpoint["factor_smooth_shared_ridge_shift"] is None
 
     # ------------------------------------------------------------------ #
     # Gap 14: NegBin with theta != 1.0                                    #

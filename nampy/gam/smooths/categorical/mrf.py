@@ -11,12 +11,13 @@ from ....splines.mrf import (
     polys_to_nb,
 )
 from ..._mgcv_constants import EIG_TOL_POWER
+from ...constraints.absorption import full_term_sum_to_zero_constraint
 from ...design.structures import PenaltySpec
 from ...penalties import build_null_space_selection_spec
 from ..smooth_base import (
     BaseSmoothTerm,
     _resolve_feature,
-    by_values_from_new_data,
+    apply_numeric_by,
     column_as_object,
     resolve_by_state,
     sync_by_state_attributes,
@@ -202,62 +203,54 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
                 D_red[np.where(ind < rank_full)[0]] = rp["D"][penalized]
 
             S_red = np.diag(D_red)
-            rank_red = int(np.sum(ind < rank_full))
-
-            # smoothCon(..., absorb.cons=TRUE) removes the remaining null-space
-            # direction from the low-rank MRF basis after nat.param truncation.
-            C = np.mean(X_red, axis=0, keepdims=True)
-            Q, _ = np.linalg.qr(C.T, mode="complete")
-            Z = Q[:, 1:]
-            X_absorbed = X_red @ Z
-            S_absorbed = Z.T @ S_red @ Z
-            S_absorbed = 0.5 * (S_absorbed + S_absorbed.T)
 
             # mgcv's scale.penalty=TRUE normalizes using the pre-absorption
-            # reduced basis and penalty, and the absorbed penalty inherits the
-            # same factor.
+            # reduced basis and penalty.
             maXX = float(np.max(np.sum(np.abs(X_red), axis=1)) ** 2)
             maS = float(np.max(np.sum(np.abs(S_red), axis=0)))
             if maS > 1e-12 and maXX > 1e-12:
-                S_absorbed = S_absorbed / (maS / maXX)
+                S_red = S_red / (maS / maXX)
 
-            self._basis_train = np.asarray(X_absorbed, dtype=np.float64)
-            self._penalties = [np.asarray(S_absorbed, dtype=np.float64)]
-            self._P = np.asarray(P_red @ Z, dtype=np.float64)
-            self._rank = rank_red
+            self._P = np.asarray(P_red, dtype=np.float64)
+            basis_raw = np.asarray(X_red, dtype=np.float64)
+            penalty_raw = np.asarray(S_red, dtype=np.float64)
         else:
-            ev = np.linalg.eigvalsh(self._full_penalty)
-            tol = np.finfo(float).eps ** EIG_TOL_POWER * max(np.max(ev), 1.0)
-            rank = int(np.sum(ev > tol))
-
-            # Absorb the centering constraint, matching mgcv's smoothCon behaviour
-            # when absorb.cons=TRUE: C = colMeans(X), remove one null-space column
-            # via QR so the basis shrinks from n_areas to n_areas-1 columns.
-            C = np.mean(X_full, axis=0, keepdims=True)  # (1, n_areas)
-            Q, _ = np.linalg.qr(C.T, mode="complete")  # (n_areas, n_areas)
-            Z = Q[:, 1:]  # (n_areas, n_areas-1)
-            X_absorbed = X_full @ Z
-            S_absorbed = Z.T @ self._full_penalty @ Z
-            S_absorbed = 0.5 * (S_absorbed + S_absorbed.T)
-
             # Apply mgcv smoothCon scale_penalty step: normalise using the
-            # pre-absorption X and S (R scales before absorb.cons, so the same
-            # factor is inherited by the absorbed penalty).
+            # full-rank X and S.
             maXX = float(np.max(np.sum(np.abs(X_full), axis=1)) ** 2)
             maS = float(np.max(np.sum(np.abs(self._full_penalty), axis=0)))
+            S_full = np.asarray(self._full_penalty, dtype=np.float64)
             if maS > 1e-12 and maXX > 1e-12:
-                S_absorbed = S_absorbed / (maS / maXX)
+                S_full = S_full / (maS / maXX)
 
-            self._basis_train = np.asarray(X_absorbed, dtype=np.float64)
-            self._penalties = [np.asarray(S_absorbed, dtype=np.float64)]
-            self._P = np.asarray(Z, dtype=np.float64)
-            self._rank = rank
+            self._P = None
+            basis_raw = np.asarray(X_full, dtype=np.float64)
+            penalty_raw = np.asarray(S_full, dtype=np.float64)
+
+        if self._by_state.is_constant:
+            # Match mgcv::smoothCon(absorb.cons=TRUE): absorb the single MRF
+            # identifiability constraint in the term-local coefficient space.
+            basis_fit, penalties_fit, transform = full_term_sum_to_zero_constraint(
+                basis_raw, [penalty_raw]
+            )
+            self._record_constraint_result(
+                "sum_to_zero", transform, absorbed_by="runtime"
+            )
+        else:
+            basis_fit = basis_raw
+            penalties_fit = [penalty_raw]
+            self._record_constraint_result(None, None, absorbed_by=None)
 
         if self._by_state.is_present:
-            self._basis_train = self._basis_train * self._by_state.values[:, None]
+            basis_fit = apply_numeric_by(basis_fit, self._by_state.values)
 
+        penalty_fit = np.asarray(penalties_fit[0], dtype=np.float64)
+        ev_fit = np.linalg.eigvalsh(penalty_fit)
+        tol_fit = np.finfo(float).eps ** EIG_TOL_POWER * max(np.max(ev_fit), 1.0)
+        self._rank = int(np.sum(ev_fit > tol_fit))
+        self._basis_train = np.asarray(basis_fit, dtype=np.float64)
+        self._penalties = [penalty_fit]
         self._null_space_dim = int(self._basis_train.shape[1] - self._rank)
-        self._record_constraint_result(None, None, absorbed_by=None)
         return self
 
     @property
@@ -371,12 +364,5 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         Xp = factor_indicator_matrix(x, self._area_names)
         if self._P is not None:
             Xp = Xp @ self._P
-
-        z = by_values_from_new_data(X_new, self._by_state)
-        if z is not None:
-            out = np.zeros_like(Xp)
-            ok = np.isfinite(z)
-            out[ok, :] = Xp[ok, :] * z[ok][:, None]
-            Xp = out
-
+        Xp = self._apply_constraint_transform_and_by(Xp, X_new)
         return np.asarray(Xp, dtype=np.float64)

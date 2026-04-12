@@ -81,11 +81,10 @@ class _GAMSolveMixin:
             raise NotImplementedError(
                 f"Automatic smoothing selection with method={method!r} is not "
                 "currently available for this model configuration. "
-                "The current ML/REML backend requires each penalized term to "
-                "contribute exactly one primary smooth penalty, plus at most "
-                "one null-space penalty on the same term. General overlapping "
-                "multi-penalty structures must currently use 'fixed', 'gcv', "
-                "or 'ubre' where available."
+                "The current ML/REML backend still rejects penalty layouts "
+                "with null-space penalties coupling disconnected primary "
+                "penalty components. Use 'fixed', 'gcv', or 'ubre' where "
+                "available for those cases."
             )
 
         raise NotImplementedError(
@@ -432,12 +431,15 @@ class _GAMSolveMixin:
             matches = [
                 pb for pb in self.penalty_blocks_ if pb.coef_slice == tb.coef_slice
             ]
-            if len(matches) != 1:
-                raise NotImplementedError(
-                    "Current PIRLS path assumes one penalty per term. "
-                    "Multi-penalty terms are planned for later phases."
+            if not matches:
+                penalties.append(
+                    np.zeros((tb.basis_train.shape[1], tb.basis_train.shape[1]))
                 )
-            penalties.append(matches[0].matrix)
+                continue
+            P_term = np.zeros_like(np.asarray(matches[0].matrix, dtype=np.float64))
+            for pb in matches:
+                P_term += np.asarray(pb.matrix, dtype=np.float64)
+            penalties.append(P_term)
         return penalties
 
     def _assemble_penalty_matrix(self, smoothing_params):

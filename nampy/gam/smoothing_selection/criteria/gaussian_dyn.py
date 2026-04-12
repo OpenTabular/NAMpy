@@ -3,7 +3,7 @@
 import numpy as np
 from scipy.linalg import cho_factor
 
-from ..._mgcv_constants import GAMMA_ABSTOL, LOG_GUARD_MIN
+from ..._mgcv_constants import LOG_GUARD_MIN
 from ..._model_state import _coef_column_offset
 from .gaussian_reml_algebra import (
     gaussian_reml_weighted_degrees_and_log_weight_term,
@@ -20,11 +20,6 @@ from .penalty import (
 
 
 def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
-    if abs(model.score_gamma - 1.0) > GAMMA_ABSTOL:
-        raise NotImplementedError(
-            "score_gamma != 1 is not yet implemented for the dynamic Gaussian REML derivative path."
-        )
-
     y = model.family.validate_y(y)
     y if model.offset_train_ is None else (y - model.offset_train_)
     sp = model._expand_smoothing_params_from_log(log_sp)
@@ -57,14 +52,22 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
     nu, _sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
         w1, nobs, Mp, n_effective_total=n_eff
     )
-    scale = F / nu if nu > 0.0 else np.nan
+    gamma = float(model.score_gamma)
+    n_weighted = float(nu + Mp)
+    prof_df = n_weighted - gamma * Mp
+    coeff = prof_df / gamma if gamma > 0.0 else np.nan
+    scale = F / prof_df if prof_df > 0.0 else np.nan
     if (
-        not np.isfinite(scale)
+        not np.isfinite(gamma)
+        or gamma <= 0.0
+        or not np.isfinite(scale)
         or scale <= 0.0
         or not np.isfinite(F)
         or F <= 0.0
-        or not np.isfinite(nu)
-        or nu <= 0.0
+        or not np.isfinite(prof_df)
+        or prof_df <= 0.0
+        or not np.isfinite(coeff)
+        or coeff <= 0.0
     ):
         n_sp = int(model.n_smoothing_params_ or 0)
         return {
@@ -104,7 +107,7 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
         beta1[j] = beta_j
         F1[j] = float(beta @ (Pj @ beta))
         logdetA1[j] = float(np.trace(Uj))
-        grad_full[j] = 0.5 * (nu * F1[j] / F + logdetA1[j] - logdetS_grad[j])
+        grad_full[j] = 0.5 * (coeff * F1[j] / F + logdetA1[j] - logdetS_grad[j])
 
     for j, Pj in enumerate(P_derivs):
         if not np.any(Pj):
@@ -121,7 +124,7 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
             logdetA2[j, k] = logdetAjk
             logdetA2[k, j] = logdetAjk
             val = 0.5 * (
-                nu * (Fjk / F - (F1[j] * F1[k]) / (F * F))
+                coeff * (Fjk / F - (F1[j] * F1[k]) / (F * F))
                 + logdetAjk
                 - logdetS_hess[j, k]
             )
@@ -139,7 +142,7 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
         "grad": grad_full[free_mask],
         "hess": hess_full[np.ix_(free_mask, free_mask)],
         "F": float(F),
-        "nu": float(nu),
+        "coeff": float(coeff),
         "F1_free": np.asarray(F1[free_mask], dtype=np.float64).copy(),
     }
 
@@ -158,10 +161,6 @@ def criterion_ml_reml_gaussian_dynamic_joint(
     uses ``nu = (n_eff/n_row)*sum(w>0) - Mp`` in the ``log(2*pi*sigma^2)`` term. Set
     ``model.n_true_`` for a custom effective row count ``n_eff`` (default ``n_row``).
     """
-    if abs(model.score_gamma - 1.0) > GAMMA_ABSTOL:
-        raise NotImplementedError(
-            "score_gamma != 1 is not yet implemented for the joint Gaussian REML path."
-        )
     method_u = str(method).upper()
     if method_u not in {"REML", "LAML"}:
         raise ValueError("method must be 'REML' or 'LAML' for the joint Gaussian path.")
@@ -182,7 +181,15 @@ def criterion_ml_reml_gaussian_dynamic_joint(
     nu, sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
         w1, nobs, Mp, n_effective_total=n_eff
     )
-    if not np.isfinite(nu) or nu <= 0.0:
+    gamma = float(model.score_gamma)
+    n_weighted = float(nu + Mp)
+    coeff = n_weighted / gamma - Mp if gamma > 0.0 else np.nan
+    if (
+        not np.isfinite(gamma)
+        or gamma <= 0.0
+        or not np.isfinite(coeff)
+        or coeff <= 0.0
+    ):
         return np.inf
     yv = np.asarray(y, dtype=np.float64).ravel()
     mu = np.asarray(sol["mu"], dtype=np.float64).ravel()
@@ -215,11 +222,12 @@ def criterion_ml_reml_gaussian_dynamic_joint(
     if not np.isfinite(sum_log_scaled):
         return np.inf
     return (
-        rss_bSb / sigma2
-        + nu * np.log(2.0 * np.pi * sigma2)
-        - sum_log_scaled
+        rss_bSb / (gamma * sigma2)
+        + coeff * np.log(2.0 * np.pi * sigma2)
+        - sum_log_scaled / gamma
         + logdet_A
         - logdet_S
+        + Mp * np.log(gamma)
     ) / 2.0
 
 
@@ -254,7 +262,14 @@ def criterion_ml_reml_gaussian_dynamic_profiled(model, y, log_sp_free, method="R
     nu, _sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
         w1, nobs, Mp, n_effective_total=n_eff
     )
-    if not np.isfinite(nu) or nu <= 0.0:
+    gamma = float(model.score_gamma)
+    prof_df = float(nu + Mp - gamma * Mp)
+    if (
+        not np.isfinite(gamma)
+        or gamma <= 0.0
+        or not np.isfinite(prof_df)
+        or prof_df <= 0.0
+    ):
         return np.inf
 
     yv = np.asarray(y, dtype=np.float64).ravel()
@@ -268,7 +283,7 @@ def criterion_ml_reml_gaussian_dynamic_profiled(model, y, log_sp_free, method="R
     if not np.isfinite(F) or F <= 0.0:
         return np.inf
 
-    log_sigma2 = float(np.log(max(F / nu, LOG_GUARD_MIN)))
+    log_sigma2 = float(np.log(max(F / prof_df, LOG_GUARD_MIN)))
     return criterion_ml_reml_gaussian_dynamic_joint(
         model,
         y,
@@ -292,16 +307,19 @@ def criterion_gradient_ml_reml_gaussian_dynamic_joint(
     if not bool(out.get("valid", False)):
         return None
     F = float(out["F"])
-    nu = float(out["nu"])
+    coeff = float(out["coeff"])
     if not np.isfinite(F) or abs(F) < LOG_GUARD_MIN:
         return None
     sigma2 = float(np.exp(float(log_sigma2)))
     if not np.isfinite(sigma2) or sigma2 <= 0.0:
         return None
+    gamma = float(model.score_gamma)
+    if not np.isfinite(gamma) or gamma <= 0.0:
+        return None
     prof_g = np.asarray(out["grad"], dtype=np.float64).ravel()
     F1f = np.asarray(out["F1_free"], dtype=np.float64).ravel()
     if prof_g.shape != F1f.shape:
         return None
-    g_sp = prof_g + 0.5 * F1f * (1.0 / sigma2 - nu / F)
-    g_tau = 0.5 * (nu - F / sigma2)
+    g_sp = prof_g + 0.5 * F1f * (1.0 / (gamma * sigma2) - coeff / F)
+    g_tau = 0.5 * (coeff - F / (gamma * sigma2))
     return np.concatenate([g_sp, np.array([g_tau], dtype=np.float64)])
