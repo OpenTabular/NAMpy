@@ -10,18 +10,11 @@ from .exponential import (
     PoissonLogFamily,
 )
 from .family_base import BaseFamily, ExtendedFamily, GeneralFamily, GLMFamily
-from .gamlss import (
-    GammalsFamily,
-    GaulssFamily,
-    GevlssFamily,
-    ShashlssFamily,
-    ZiplssFamily,
-    gammals,
-    gaulss,
-    gevlss,
-    shashlss,
-    ziplss,
-)
+from .gamlss.gaulss import GaulssFamily, gaulss
+from .gamlss.gammals import GammalsFamily, gammals
+from .gamlss.gevlss import GevlssFamily, gevlss
+from .gamlss.shashlss import ShashlssFamily, shashlss
+from .gamlss.ziplss import ZiplssFamily, ziplss
 from .registry import make_gam_family
 
 __all__ = [

@@ -448,6 +448,8 @@ __all__ = ["plot_gam_terms"]
 # --- Start of nampy/gam/diagnostics/residuals.py ---
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 
 from .._mgcv_constants import LOG_GUARD_MIN
@@ -478,12 +480,25 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
 
     type = str(type).lower()
     y = np.asarray(model.y_, dtype=np.float64).ravel()
-    mu = np.asarray(model._fitted_mu, dtype=np.float64).ravel()
+    fitted = np.asarray(model._fitted_mu, dtype=np.float64)
+    family_residuals = getattr(model.family, "residuals", None)
+    if callable(family_residuals):
+        try:
+            return np.asarray(
+                family_residuals(y, fitted, rtype=type),
+                dtype=np.float64,
+            ).ravel()
+        except TypeError:
+            return np.asarray(family_residuals(model, type), dtype=np.float64).ravel()
+
+    mu = np.asarray(fitted, dtype=np.float64).ravel()
     eta = np.asarray(model._fitted_eta, dtype=np.float64).ravel()
     w = _prior_weights(model)
 
     if type == "response":
-        return y - mu
+        if fitted.ndim == 1:
+            return y - fitted
+        return np.asarray(y.reshape(-1, 1) - fitted, dtype=np.float64).ravel()
     if type == "working":
         fit_state = getattr(model, "fit_state_", None)
         z_work = (
@@ -498,12 +513,29 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
                 else eta - np.asarray(offset, dtype=np.float64).ravel()
             )
             return z_work - eta_base
-        mu_eta = np.asarray(model.family.mu_eta(eta), dtype=np.float64)
-        return (y - mu) / np.clip(mu_eta, LOG_GUARD_MIN, None)
+        mu_eta = getattr(model.family, "mu_eta", None)
+        if callable(mu_eta):
+            mu_eta_val = np.asarray(mu_eta(eta), dtype=np.float64)
+            return (y - mu) / np.clip(mu_eta_val, LOG_GUARD_MIN, None)
+        if fitted.ndim == 1:
+            return y - fitted
+        return np.asarray(y.reshape(-1, 1) - fitted, dtype=np.float64).ravel()
     if type == "deviance":
+        if fitted.ndim != 1:
+            raise NotImplementedError(
+                f"Residual type {type!r} is not implemented for general family {model.family.name!r}."
+            )
         return _deviance_residuals(model)
     if type in {"pearson", "scaled.pearson"}:
-        var = np.asarray(model.family.variance(mu), dtype=np.float64)
+        variance = getattr(model.family, "variance", None)
+        if not callable(variance):
+            warnings.warn(
+                "Pearson residuals not available for this family - returning deviance residuals",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            return residuals_gam(model)
+        var = np.asarray(variance(mu), dtype=np.float64)
         res = (y - mu) * np.sqrt(w) / np.sqrt(np.clip(var, LOG_GUARD_MIN, None))
         if type == "scaled.pearson":
             res = res / np.sqrt(max(float(model.scale_), LOG_GUARD_MIN))
@@ -1125,8 +1157,8 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         self.k = int(self.hparams.get("k", 10))
         self.basis = self.hparams.get("basis", "tp")
         self.fit_intercept = bool(self.hparams.get("fit_intercept", True))
-        self.max_irls_iter = int(self.hparams.get("max_irls_iter", 100))
-        self.irls_tol = float(self.hparams.get("irls_tol", 1e-11))
+        self.max_irls_iter = int(self.hparams.get("max_irls_iter", 200))
+        self.irls_tol = float(self.hparams.get("irls_tol", 1e-7))
         self.max_step_halving = int(self.hparams.get("max_step_halving", 25))
         self.smoothing_params = self.hparams.get("smoothing_params", None)
         self.optimize_smoothing = bool(self.hparams.get("optimize_smoothing", False))
@@ -1189,8 +1221,10 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         self.rss_ = None
         self.deviance_ = None
         self.edf_by_term_ = None
+        self.edf2_ = None
         self.Vp_ = None
         self.Vf_ = None
+        self.Vc_ = None
         self._fitted = False
         self._optim_method = None
         self._optim_result = None
@@ -1200,6 +1234,173 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         self.smoothing_score_ = None
         self.result_ = None
         self.side_condition_reports_ = None
+        self._predictor_full_slices_ = None
+        self._coef_reduced_to_full_idx = None
+
+    def _general_family_link_prediction(self, X_np):
+        offset = self._general_family_prediction_offset(X_np, None)
+        return self._general_family_link_prediction_with_offset(X_np, offset)
+
+    def _general_family_prediction_offset(self, X_np, offset):
+        n_rows = self.n_samples_ if X_np is None else int(X_np.shape[0])
+        n_pred = len(self._predictor_full_slices_ or [])
+        if offset is None:
+            offset_vec = self._prediction_offset(X_np, None)
+            if offset_vec is None:
+                return None
+            return [offset_vec] + [None] * max(n_pred - 1, 0)
+        if isinstance(offset, (list, tuple)):
+            out = []
+            for i, off_i in enumerate(offset):
+                out.append(
+                    None
+                    if off_i is None
+                    else self._coerce_optional_offset(
+                        off_i, n_rows, name=f"offset[{i}]"
+                    )
+                )
+            if len(out) < n_pred:
+                out.extend([None] * (n_pred - len(out)))
+            return out
+        offset_vec = self._coerce_optional_offset(offset, n_rows)
+        return [offset_vec] + [None] * max(n_pred - 1, 0)
+
+    def _general_family_link_prediction_with_offset(self, X_np, offset):
+        eta_cols = []
+        off_list = None if offset is None else list(offset)
+        for k, (pred, sl) in enumerate(
+            zip(self.predictor_designs, self._predictor_full_slices_)
+        ):
+            Zp = (
+                np.asarray(pred.design_matrix, dtype=np.float64)
+                if X_np is None
+                else np.asarray(pred.build_new_matrix(X_np), dtype=np.float64)
+            )
+            if bool(pred.has_intercept):
+                Xp = np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp])
+            else:
+                Xp = Zp
+            eta_k = Xp @ np.asarray(self.coef_full_[sl], dtype=np.float64)
+            if off_list is not None and k < len(off_list) and off_list[k] is not None:
+                eta_k = eta_k + np.asarray(off_list[k], dtype=np.float64)
+            eta_cols.append(np.asarray(eta_k, dtype=np.float64))
+        return (
+            np.column_stack(eta_cols)
+            if eta_cols
+            else np.empty((0, 0), dtype=np.float64)
+        )
+
+    def _general_family_prediction_blocks(self, X_np):
+        Z_blocks = []
+        Xp_blocks = []
+        for pred in self.predictor_designs:
+            Zp = (
+                np.asarray(pred.design_matrix, dtype=np.float64)
+                if X_np is None
+                else np.asarray(pred.build_new_matrix(X_np), dtype=np.float64)
+            )
+            Z_blocks.append(Zp)
+            if bool(pred.has_intercept):
+                Xp_blocks.append(
+                    np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp])
+                )
+            else:
+                Xp_blocks.append(Zp)
+        Z_new = (
+            np.column_stack(Z_blocks)
+            if Z_blocks
+            else np.empty((self.n_samples_ if X_np is None else len(X_np), 0))
+        )
+        return Z_new, Xp_blocks
+
+    def _general_family_predict(
+        self, X_np, *, return_se=False, cov=None, type="response", offset=None
+    ):
+        type = str(type).lower()
+        if type not in {"response", "link", "terms", "lpmatrix"}:
+            raise ValueError(
+                "type must be one of {'response', 'link', 'terms', 'lpmatrix'}"
+            )
+
+        offset_list = self._general_family_prediction_offset(X_np, offset)
+        eta = self._general_family_link_prediction_with_offset(X_np, offset_list)
+        Z_new, Xp_blocks = self._general_family_prediction_blocks(X_np)
+
+        if type == "lpmatrix":
+            return (
+                np.column_stack(Xp_blocks)
+                if Xp_blocks
+                else np.empty((eta.shape[0], 0), dtype=np.float64)
+            )
+
+        if type == "terms":
+            terms = np.column_stack(
+                [
+                    Z_new[:, tb.coef_slice] @ self.coef_[tb.coef_slice]
+                    for tb in self.term_blocks_
+                ]
+            )
+            if not return_se:
+                return terms
+
+            V = self._select_cov(cov)
+            ses = []
+            full_idx = np.asarray(self._coef_reduced_to_full_idx, dtype=int)
+            for tb in self.term_blocks_:
+                idx = full_idx[tb.coef_slice]
+                Xi = np.zeros((Z_new.shape[0], V.shape[0]), dtype=np.float64)
+                Xi[:, idx] = Z_new[:, tb.coef_slice]
+                var = np.einsum("ij,jk,ik->i", Xi, V, Xi)
+                ses.append(np.sqrt(np.maximum(var, 0.0)))
+            return terms, np.column_stack(ses)
+
+        if type == "link":
+            if not return_se:
+                return eta
+            V = self._select_cov(cov)
+            se_cols = []
+            for Xp, sl in zip(Xp_blocks, self._predictor_full_slices_):
+                Vk = V[sl, sl]
+                var = np.einsum("ij,jk,ik->i", Xp, Vk, Xp)
+                se_cols.append(np.sqrt(np.maximum(var, 0.0)))
+            return eta, np.column_stack(se_cols)
+
+        family_predict = getattr(self.family, "predict", None)
+        if callable(family_predict):
+            out = family_predict(
+                eta=eta,
+                X=(
+                    np.column_stack(Xp_blocks)
+                    if Xp_blocks
+                    else np.empty((eta.shape[0], 0), dtype=np.float64)
+                ),
+                jj=[
+                    np.arange(sl.start, sl.stop, dtype=int)
+                    for sl in (self._predictor_full_slices_ or [])
+                ],
+                coef=np.asarray(self.coef_full_, dtype=np.float64),
+                offset=offset_list,
+                se=return_se,
+                Vb=None if not return_se else self._select_cov(cov),
+            )
+            return out
+
+        if return_se:
+            raise NotImplementedError(
+                f"{self.family.__class__.__name__} does not yet implement predictive standard errors."
+            )
+        return np.asarray(
+            self.family.predict_fitted(
+                np.column_stack(Xp_blocks),
+                [
+                    np.arange(sl.start, sl.stop, dtype=int)
+                    for sl in (self._predictor_full_slices_ or [])
+                ],
+                np.asarray(self.coef_full_, dtype=np.float64),
+                offset=offset_list,
+            ),
+            dtype=np.float64,
+        )
 
     # ------------------------------------------------------------------
     # Persistence
@@ -1407,6 +1608,31 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
 
+        if getattr(self.family, "family_class", "") == "general":
+            if X is None:
+                X_np = None
+                offset_use = offset
+            elif self.formula_mode_:
+                X_np, _, offset_formula = self._coerce_formula_predict_inputs(X)
+                offset_use = (
+                    self._combine_offsets(
+                        offset_formula,
+                        self._coerce_optional_offset(offset, X_np.shape[0]),
+                    )
+                    if not isinstance(offset, (list, tuple))
+                    else offset
+                )
+            else:
+                X_np, _ = self._coerce_X(X)
+                offset_use = offset
+            return self._general_family_predict(
+                X_np,
+                return_se=return_se,
+                cov=cov,
+                type=type,
+                offset=offset_use,
+            )
+
         if X is None:
             offset_use = None
             if offset is not None:
@@ -1541,6 +1767,173 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         from ..smoothing_selection import sp_vcov
 
         return sp_vcov(self, edge_correct=edge_correct, reg=reg)
+
+    def vcov(
+        self,
+        *,
+        sandwich: bool = False,
+        freq: bool = False,
+        dispersion: float | None = None,
+        unconditional: bool = False,
+    ):
+        """
+        Extract mgcv-style coefficient covariance matrix.
+
+        Mirrors mgcv ``vcov.gam`` in mgcv/R/mgcv.r.
+        """
+        if sandwich:
+            B2 = (
+                np.zeros_like(np.asarray(self.Vp_, dtype=np.float64))
+                if freq
+                else (
+                    np.asarray(self.Vp_, dtype=np.float64)
+                    - np.asarray(self.Vf_, dtype=np.float64)
+                )
+            )
+            X = np.asarray(self.fit_state_.X, dtype=np.float64)
+            m = float(X.shape[0])
+            m = m / (m - float(np.sum(np.asarray(self.edf_, dtype=np.float64))))
+
+            family_class = str(getattr(self.family, "family_class", "")).lower()
+            if family_class == "general":
+                if not hasattr(self.family, "sandwich"):
+                    raise RuntimeError(
+                        "Sandwich covariance matrix is not available for this general family."
+                    )
+                jj = [
+                    np.arange(sl.start, sl.stop, dtype=int)
+                    for sl in (self._predictor_full_slices_ or [])
+                ]
+                offset = (
+                    None
+                    if self.offset_train_ is None
+                    else [np.asarray(self.offset_train_, dtype=np.float64)]
+                    + [None] * (len(jj) - 1)
+                )
+                fill = np.asarray(
+                    self.family.sandwich(
+                        np.asarray(self.y_, dtype=np.float64),
+                        X,
+                        jj,
+                        np.asarray(self.coef_full_, dtype=np.float64),
+                        (
+                            None
+                            if self.prior_weights_ is None
+                            else np.asarray(self.prior_weights_, dtype=np.float64)
+                        ),
+                        offset=offset,
+                    ),
+                    dtype=np.float64,
+                )
+                vc = (
+                    m
+                    * np.asarray(self.Vp_, dtype=np.float64)
+                    @ fill
+                    @ np.asarray(self.Vp_, dtype=np.float64)
+                    + B2
+                )
+            elif family_class == "extended":
+                raise RuntimeError(
+                    "Sandwich covariance matrix is not implemented for this extended family."
+                )
+            else:
+                eta = np.asarray(self._fitted_eta, dtype=np.float64).ravel()
+                mu = np.asarray(self._fitted_mu, dtype=np.float64).ravel()
+                w = (
+                    self.family.mu_eta(eta)
+                    * (np.asarray(self.y_, dtype=np.float64).ravel() - mu)
+                    / (float(self.scale_) * self.family.variance(mu))
+                )
+                WX = np.asarray(w[:, None] * X, dtype=np.float64)
+                vc = (
+                    m
+                    * np.asarray(self.Vp_, dtype=np.float64)
+                    @ (WX.T @ WX)
+                    @ np.asarray(self.Vp_, dtype=np.float64)
+                    + B2
+                )
+
+            vc = np.asarray(vc, dtype=np.float64).copy()
+            if dispersion is not None:
+                vc *= float(dispersion) / float(self.scale_)
+            return vc
+
+        if freq:
+            vc = self.Vf_
+        else:
+            vc = self.Vc_ if unconditional and self.Vc_ is not None else self.Vp_
+
+        if vc is None:
+            raise RuntimeError("Requested covariance matrix is not available.")
+
+        vc = np.asarray(vc, dtype=np.float64).copy()
+        if dispersion is not None:
+            vc *= float(dispersion) / float(self.scale_)
+        return vc
+
+    def _mgcv_loglik_df(self) -> float:
+        """
+        mgcv-style effective df used by ``logLik.gam`` / AIC / BIC.
+
+        Mirrors mgcv ``logLik.gam`` in mgcv/R/mgcv.r.
+        """
+        sc_p = 1.0 if getattr(self.family, "known_scale", None) is None else 0.0
+        if self.edf2_ is not None:
+            p = float(np.sum(np.asarray(self.edf2_, dtype=np.float64))) + sc_p
+        else:
+            p = float(self.edf_) + sc_p
+        np_max = float(len(np.asarray(self.coef_full_, dtype=np.float64))) + sc_p
+        return min(p, np_max)
+
+    def loglik(self) -> float:
+        """
+        Unpenalized fitted log-likelihood at penalized MLE.
+
+        Mirrors mgcv ``logLik.gam`` value semantics.
+        """
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+
+        if getattr(self.family, "family_class", "") == "general":
+            X = np.asarray(self.fit_state_.X, dtype=np.float64)
+            jj = [
+                np.arange(sl.start, sl.stop, dtype=int)
+                for sl in (self._predictor_full_slices_ or [])
+            ]
+            ll = self.family.ll(
+                np.asarray(self.y_, dtype=np.float64),
+                X,
+                jj,
+                np.asarray(self.coef_full_, dtype=np.float64),
+                np.asarray(self.prior_weights_, dtype=np.float64),
+                offset=(
+                    None
+                    if self.offset_train_ is None
+                    else [np.asarray(self.offset_train_, dtype=np.float64)]
+                    + [None] * (len(jj) - 1)
+                ),
+                deriv=0,
+            )
+            return float(ll["l"])
+
+        eta = self.predict(X=None, type="link")
+        mu = self.family.inverse_link(eta)
+        return float(
+            self.family.loglik(
+                np.asarray(self.y_, dtype=np.float64),
+                np.asarray(mu, dtype=np.float64),
+                scale=float(self.scale_),
+            )
+        )
+
+    def aic(self) -> float:
+        """mgcv-style conditional AIC based on effective df."""
+        return float(-2.0 * self.loglik() + 2.0 * self._mgcv_loglik_df())
+
+    def bic(self) -> float:
+        """BIC using mgcv-style effective df."""
+        n_obs = float(len(np.asarray(self.y_, dtype=np.float64)))
+        return float(-2.0 * self.loglik() + np.log(n_obs) * self._mgcv_loglik_df())
 
     def gam_vcomp(self, *, rescale=False, conf_lev=0.95):
         from ..smoothing_selection import gam_vcomp
@@ -1725,6 +2118,8 @@ class _GAMDataMixin:
 # gam/model/gam_solve.py
 """Solver dispatch, smoothing resolution, design compilation, and fit-result helpers."""
 from collections.abc import Mapping
+from dataclasses import replace
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -1803,11 +2198,10 @@ class _GAMSolveMixin:
             raise NotImplementedError(
                 f"Automatic smoothing selection with method={method!r} is not "
                 "currently available for this model configuration. "
-                "The current ML/REML backend requires each penalized term to "
-                "contribute exactly one primary smooth penalty, plus at most "
-                "one null-space penalty on the same term. General overlapping "
-                "multi-penalty structures must currently use 'fixed', 'gcv', "
-                "or 'ubre' where available."
+                "The current ML/REML backend still rejects penalty layouts "
+                "with null-space penalties coupling disconnected primary "
+                "penalty components. Use 'fixed', 'gcv', or 'ubre' where "
+                "available for those cases."
             )
 
         raise NotImplementedError(
@@ -2019,20 +2413,121 @@ class _GAMSolveMixin:
 
         self.family.validate_predictor_count(len(self.predictor_designs))
 
-        if len(self.predictor_designs) != 1:
-            raise NotImplementedError(
-                "Current core supports one active linear predictor in fitting. "
-                "The predictor architecture is in place for later extension "
-                "to multiple distribution parameters."
-            )
+        if len(self.predictor_designs) == 1:
+            self.design_ = self.predictor_designs[0]
+            self.Z = self.design_.design_matrix
+            self.ZTZ = self.Z.T @ self.Z
+            self.n_coef_ = self.design_.n_coef
+            self.term_blocks_ = self.design_.compiled_terms
+            self.penalty_blocks_ = self.design_.compiled_penalties
+            self.n_smoothing_params_ = self.design_.n_smoothing_params
+            self._predictor_full_slices_ = [
+                slice(
+                    0,
+                    int(self.design_.n_coef) + (1 if bool(self.design_.has_intercept) else 0),
+                )
+            ]
+            self._coef_reduced_to_full_idx = np.arange(
+                int(self.n_coef_), dtype=int
+            ) + (1 if bool(self.design_.has_intercept) else 0)
+        else:
+            global_terms = []
+            global_penalties = []
+            combined_blocks = []
+            combined_map = {}
+            override_modes = []
+            override_values = []
+            predictor_full_slices = []
+            reduced_to_full = []
+            coef_shift = 0
+            sp_shift = 0
+            full_shift = 0
 
-        self.design_ = self.predictor_designs[0]
-        self.Z = self.design_.design_matrix
-        self.ZTZ = self.Z.T @ self.Z
-        self.n_coef_ = self.design_.n_coef
-        self.term_blocks_ = self.design_.compiled_terms
-        self.penalty_blocks_ = self.design_.compiled_penalties
-        self.n_smoothing_params_ = self.design_.n_smoothing_params
+            for pred in self.predictor_designs:
+                combined_blocks.append(np.asarray(pred.design_matrix, dtype=np.float64))
+
+                if bool(pred.has_intercept):
+                    reduced_to_full.extend(
+                        list(
+                            np.arange(
+                                full_shift + 1,
+                                full_shift + 1 + int(pred.n_coef),
+                                dtype=int,
+                            )
+                        )
+                    )
+                    predictor_full_slices.append(
+                        slice(full_shift, full_shift + int(pred.n_coef) + 1)
+                    )
+                    full_shift += int(pred.n_coef) + 1
+                else:
+                    reduced_to_full.extend(
+                        list(np.arange(full_shift, full_shift + int(pred.n_coef), dtype=int))
+                    )
+                    predictor_full_slices.append(slice(full_shift, full_shift + int(pred.n_coef)))
+                    full_shift += int(pred.n_coef)
+
+                for term in pred.compiled_terms:
+                    global_terms.append(
+                        replace(
+                            term,
+                            coef_slice=slice(
+                                coef_shift + int(term.coef_slice.start),
+                                coef_shift + int(term.coef_slice.stop),
+                            ),
+                            smoothing_indices=[
+                                sp_shift + int(v) for v in getattr(term, "smoothing_indices", [])
+                            ],
+                            smoothing_ids=[
+                                f"{pred.name}:{sid}" if sid is not None else None
+                                for sid in getattr(term, "smoothing_ids", [])
+                            ],
+                        )
+                    )
+                for pb in pred.compiled_penalties:
+                    global_penalties.append(
+                        replace(
+                            pb,
+                            coef_slice=slice(
+                                coef_shift + int(pb.coef_slice.start),
+                                coef_shift + int(pb.coef_slice.stop),
+                            ),
+                            smoothing_index=sp_shift + int(pb.smoothing_index),
+                            smoothing_id=(
+                                None
+                                if pb.smoothing_id is None
+                                else f"{pred.name}:{pb.smoothing_id}"
+                            ),
+                        )
+                    )
+                for sid, idxs in (pred.metadata.get("s_id_to_sp_indices", {}) or {}).items():
+                    combined_map[f"{pred.name}:{sid}"] = [sp_shift + int(i) for i in idxs]
+                override_modes.extend(list(pred.smoothing_override_modes or []))
+                if pred.smoothing_override_values is not None:
+                    override_values.extend(
+                        list(np.asarray(pred.smoothing_override_values, dtype=np.float64))
+                    )
+                coef_shift += int(pred.n_coef)
+                sp_shift += int(pred.n_smoothing_params)
+
+            self.design_ = SimpleNamespace(
+                metadata={"s_id_to_sp_indices": combined_map},
+                smoothing_override_modes=list(override_modes),
+                smoothing_override_values=np.asarray(override_values, dtype=np.float64),
+            )
+            self.Z = (
+                np.column_stack(combined_blocks)
+                if combined_blocks
+                else np.empty((X.shape[0], 0), dtype=np.float64)
+            )
+            self.ZTZ = self.Z.T @ self.Z
+            self.n_coef_ = coef_shift
+            self.term_blocks_ = tuple(global_terms)
+            self.penalty_blocks_ = tuple(global_penalties)
+            self.n_smoothing_params_ = sp_shift
+            self._predictor_full_slices_ = predictor_full_slices
+            self._coef_reduced_to_full_idx = np.asarray(reduced_to_full, dtype=int)
+
         self.min_sp_ = self._resolve_min_sp(self.min_sp)
         self.smoothing_params = self._resolve_smoothing_params(self.n_smoothing_params_)
 
@@ -2053,12 +2548,15 @@ class _GAMSolveMixin:
             matches = [
                 pb for pb in self.penalty_blocks_ if pb.coef_slice == tb.coef_slice
             ]
-            if len(matches) != 1:
-                raise NotImplementedError(
-                    "Current PIRLS path assumes one penalty per term. "
-                    "Multi-penalty terms are planned for later phases."
+            if not matches:
+                penalties.append(
+                    np.zeros((tb.basis_train.shape[1], tb.basis_train.shape[1]))
                 )
-            penalties.append(matches[0].matrix)
+                continue
+            P_term = np.zeros_like(np.asarray(matches[0].matrix, dtype=np.float64))
+            for pb in matches:
+                P_term += np.asarray(pb.matrix, dtype=np.float64)
+            penalties.append(P_term)
         return penalties
 
     def _assemble_penalty_matrix(self, smoothing_params):

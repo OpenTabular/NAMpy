@@ -94,27 +94,6 @@ def _offset_list(model, n_pred: int):
     return [np.asarray(offset, dtype=np.float64)] + [None] * (n_pred - 1)
 
 
-def _penalty_logdet_terms(S_blocks, lsp):
-    m = len(S_blocks)
-    if m == 0:
-        return 0.0, np.empty((0,), dtype=np.float64), np.empty((0, 0), dtype=np.float64)
-
-    S = np.zeros_like(np.asarray(S_blocks[0], dtype=np.float64))
-    for rho, Si in zip(lsp, S_blocks):
-        S += np.exp(float(rho)) * np.asarray(Si, dtype=np.float64)
-
-    evals = np.linalg.eigvalsh(0.5 * (S + S.T))
-    pos = evals > max(np.max(evals), 0.0) * np.finfo(np.float64).eps ** 0.75
-    ldetS = float(np.sum(np.log(evals[pos]))) if np.any(pos) else 0.0
-
-    # mgcv uses exact derivatives of log|S|_+ when available. Current port keeps
-    # the structural hook but uses zero derivatives until full LAML outer machinery
-    # is wired through the optimizer stack.
-    ldetS1 = np.zeros(m, dtype=np.float64)
-    ldetS2 = np.zeros((m, m), dtype=np.float64)
-    return ldetS, ldetS1, ldetS2
-
-
 def _general_fit_score_type_name(method: str) -> str:
     method_l = str(method).lower()
     if method_l in {"reml", "laml"}:
@@ -137,6 +116,8 @@ def _record_outer_derivative_mode(model, *, gradient_source=None, hessian_source
     if hessian_source is not None:
         info["hessian_source"] = str(hessian_source)
     info["supports_analytic_outer_derivatives"] = supports_analytic
+    info["penalty_logdet_source"] = "analytic"
+    info["uses_exact_penalty_logdet"] = True
     if (
         not supports_analytic
         and not supports_analytic_hessian
@@ -165,30 +146,6 @@ def _supports_analytic_outer_hessian(family) -> bool:
     )
 
 
-def _finite_difference_general_fit5_hessian_from_gradient(model, y, log_sp, method):
-    log_sp = np.asarray(log_sp, dtype=np.float64).ravel()
-    if log_sp.size == 0:
-        return np.empty((0, 0), dtype=np.float64)
-
-    hess = np.zeros((log_sp.size, log_sp.size), dtype=np.float64)
-    steps = np.maximum(1e-4, 1e-3 * (1.0 + np.abs(log_sp)))
-    for j in range(log_sp.size):
-        plus = log_sp.copy()
-        minus = log_sp.copy()
-        plus[j] += steps[j]
-        minus[j] -= steps[j]
-        g_plus = np.asarray(
-            criterion_gradient_ml_reml_general_fit5(model, y, plus, method),
-            dtype=np.float64,
-        )
-        g_minus = np.asarray(
-            criterion_gradient_ml_reml_general_fit5(model, y, minus, method),
-            dtype=np.float64,
-        )
-        hess[:, j] = (g_plus - g_minus) / (2.0 * steps[j])
-    return 0.5 * (hess + hess.T)
-
-
 def _run_general_fit5(
     model,
     y,
@@ -198,14 +155,15 @@ def _run_general_fit5(
     deriv=2,
     score_type=None,
 ):
-    from ...smoothing_selection.criteria.penalty import (
-        _stable_penalty_logdet_derivatives,
-    )
+    from ...smoothing_selection.reparam import _stable_penalty_logdet_derivatives
 
     layout = _build_general_predictor_layout(model)
     St, S_blocks = _build_general_penalty_matrix(model, smoothing_params, layout)
     smoothing_params = np.asarray(smoothing_params, dtype=np.float64).ravel()
     log_sp = np.log(np.clip(smoothing_params, 1e-300, None))
+    # mgcv's gam.fit5 consumes rp$ldetS / rp$ldet1 / rp$ldet2 produced upstream
+    # by ldetS()/gam.reparam(); use the canonical reparameterization helper
+    # directly rather than carrying a local forwarding wrapper.
     ldetS, ldetS1, ldetS2 = _stable_penalty_logdet_derivatives(
         model, smoothing_params, order=2
     )
@@ -255,80 +213,6 @@ def criterion_ml_reml_general_fit5(model, y, log_sp, method):
         model, y, sp, weights=model.prior_weights_, deriv=0, score_type=method
     )
     return float(run["fit"]["score"])
-
-
-def _finite_difference_general_fit5_gradient(model, y, log_sp, method):
-    log_sp = np.asarray(log_sp, dtype=np.float64).ravel()
-    if log_sp.size == 0:
-        return np.empty((0,), dtype=np.float64)
-
-    grad = np.zeros_like(log_sp, dtype=np.float64)
-    steps = np.maximum(1e-6, 1e-5 * (1.0 + np.abs(log_sp)))
-    for i in range(log_sp.size):
-        plus1 = log_sp.copy()
-        minus1 = log_sp.copy()
-        plus2 = log_sp.copy()
-        minus2 = log_sp.copy()
-        plus1[i] += steps[i]
-        minus1[i] -= steps[i]
-        plus2[i] += 2.0 * steps[i]
-        minus2[i] -= 2.0 * steps[i]
-        grad[i] = (
-            -criterion_ml_reml_general_fit5(model, y, plus2, method)
-            + 8.0 * criterion_ml_reml_general_fit5(model, y, plus1, method)
-            - 8.0 * criterion_ml_reml_general_fit5(model, y, minus1, method)
-            + criterion_ml_reml_general_fit5(model, y, minus2, method)
-        ) / (12.0 * steps[i])
-    return grad
-
-
-def _finite_difference_general_fit5_hessian(model, y, log_sp, method):
-    log_sp = np.asarray(log_sp, dtype=np.float64).ravel()
-    if log_sp.size == 0:
-        return np.empty((0, 0), dtype=np.float64)
-
-    hess = np.zeros((log_sp.size, log_sp.size), dtype=np.float64)
-    steps = np.maximum(1e-4, 1e-3 * (1.0 + np.abs(log_sp)))
-    f0 = criterion_ml_reml_general_fit5(model, y, log_sp, method)
-    for j in range(log_sp.size):
-        for k in range(j, log_sp.size):
-            if j == k:
-                plus1 = log_sp.copy()
-                minus1 = log_sp.copy()
-                plus2 = log_sp.copy()
-                minus2 = log_sp.copy()
-                plus1[j] += steps[j]
-                minus1[j] -= steps[j]
-                plus2[j] += 2.0 * steps[j]
-                minus2[j] -= 2.0 * steps[j]
-                hess[j, j] = (
-                    -criterion_ml_reml_general_fit5(model, y, plus2, method)
-                    + 16.0 * criterion_ml_reml_general_fit5(model, y, plus1, method)
-                    - 30.0 * f0
-                    + 16.0 * criterion_ml_reml_general_fit5(model, y, minus1, method)
-                    - criterion_ml_reml_general_fit5(model, y, minus2, method)
-                ) / (12.0 * steps[j] * steps[j])
-            else:
-                pp = log_sp.copy()
-                pm = log_sp.copy()
-                mp = log_sp.copy()
-                mm = log_sp.copy()
-                pp[j] += steps[j]
-                pp[k] += steps[k]
-                pm[j] += steps[j]
-                pm[k] -= steps[k]
-                mp[j] -= steps[j]
-                mp[k] += steps[k]
-                mm[j] -= steps[j]
-                mm[k] -= steps[k]
-                hess[j, k] = (
-                    criterion_ml_reml_general_fit5(model, y, pp, method)
-                    - criterion_ml_reml_general_fit5(model, y, pm, method)
-                    - criterion_ml_reml_general_fit5(model, y, mp, method)
-                    + criterion_ml_reml_general_fit5(model, y, mm, method)
-                ) / (4.0 * steps[j] * steps[k])
-                hess[k, j] = hess[j, k]
-    return hess
 
 
 def criterion_gradient_ml_reml_general_fit5(model, y, log_sp, method):

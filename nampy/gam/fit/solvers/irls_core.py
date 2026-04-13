@@ -135,7 +135,7 @@ def irls_core(
     if q == 0:
         eta = offset.copy()
         mu = np.asarray(family.inverse_link(eta), dtype=np.float64)
-        dev = float(family.deviance(y, mu))
+        dev = float(family.deviance(y, mu, weights=weights))
         H_coef = np.zeros((0, 0), dtype=np.float64)
         return {
             "coef_full": np.zeros(0, dtype=np.float64),
@@ -344,10 +344,30 @@ def irls_core(
         ok_mu = True if not callable(valid_mu) else bool(valid_mu(mu_curr))
         return ok_eta and ok_mu
 
+    def _weighted_deviance(mu_curr: np.ndarray) -> float:
+        # Mirror mgcv::gam.fit3(), which uses dev.resids(..., weights) at every
+        # PIRLS deviance / penalized-deviance update.
+        return float(family.deviance(y, mu_curr, weights=weights))
+
+    def _weighted_loglik(mu_curr: np.ndarray, scale_curr: float) -> float | None:
+        if hasattr(family, "loglik_obs"):
+            return float(
+                np.sum(
+                    weights
+                    * np.asarray(
+                        family.loglik_obs(y, mu_curr, scale=scale_curr),
+                        dtype=np.float64,
+                    )
+                )
+            )
+        if hasattr(family, "loglik"):
+            return float(family.loglik(y, mu_curr, scale=scale_curr))
+        return None
+
     def _recompute_step(beta_curr: np.ndarray):
         eta_curr = offset + X @ beta_curr
         mu_curr = family.inverse_link(eta_curr)
-        dev_curr = float(family.deviance(y, mu_curr))
+        dev_curr = _weighted_deviance(mu_curr)
         pdev_curr = dev_curr + float(beta_curr @ (S @ beta_curr))
         return eta_curr, mu_curr, dev_curr, pdev_curr
 
@@ -381,7 +401,7 @@ def irls_core(
     null_beta = np.zeros_like(beta)
     null_eta = offset + X @ null_beta
     old_pdev = float(
-        family.deviance(y, family.inverse_link(null_eta)) + null_beta @ (S @ null_beta)
+        _weighted_deviance(family.inverse_link(null_eta)) + null_beta @ (S @ null_beta)
     )
     coefold = null_beta.copy()
 
@@ -402,6 +422,15 @@ def irls_core(
         raise RuntimeError("Cannot find valid starting values (eta/mu).")
 
     strictly_additive = _strictly_additive_gaussian_identity(family)
+    # Weighted canonical-link GLMs can satisfy the mgcv-style deviance/gradient
+    # convergence test one sweep before the fitted mean fully stabilizes at the
+    # reference weighted endpoint, so keep one extra PIRLS polish step.
+    weighted_canonical_polish = bool(
+        (not strictly_additive)
+        and bool(getattr(family, "canonical_link", False))
+        and not np.allclose(weights, 1.0)
+    )
+    weighted_canonical_polish_used = False
     converged = False
     failed_step = False
     failure_reason = None
@@ -424,6 +453,10 @@ def irls_core(
         W = np.asarray(work_terms["w"], dtype=np.float64)
         z_work = np.asarray(work_terms["z"], dtype=np.float64)
         rhs_is_weighted = bool(work_terms.get("rhs_is_weighted", False))
+        grad_good = good
+        grad_w = W
+        grad_z = z_work
+        grad_rhs_is_weighted = rhs_is_weighted
 
         XtW = X_g.T * W
         XtWX = XtW @ X_g
@@ -499,6 +532,11 @@ def irls_core(
             XtWX = XtW @ X_pos
             A = XtWX + S
             b = XtW @ z_pos
+            grad_good = np.zeros_like(good, dtype=bool)
+            grad_good[np.flatnonzero(good)[good_pos]] = True
+            grad_w = np.asarray(W_pos, dtype=np.float64)
+            grad_z = np.asarray(z_pos, dtype=np.float64)
+            grad_rhs_is_weighted = rhs_is_weighted
             try:
                 if force_stacked_qr or _ill_conditioned_or_rank_deficient(A):
                     beta_prop = _stacked_qr_penalized_step(
@@ -535,7 +573,9 @@ def irls_core(
                 if ii_h > max_iter:
                     failed_step = True
                     failure_reason = "step_halving_exhausted"
-                    warnings_list.append("irls_core: inner loop 1; can't correct step size")
+                    warnings_list.append(
+                        "irls_core: inner loop 1; can't correct step size"
+                    )
                     break
                 ii_h += 1
                 beta_new = 0.5 * (beta_new + coefold)
@@ -550,7 +590,9 @@ def irls_core(
                 if ii_h > max_iter:
                     failed_step = True
                     failure_reason = "step_halving_exhausted"
-                    warnings_list.append("irls_core: inner loop 2; can't correct step size")
+                    warnings_list.append(
+                        "irls_core: inner loop 2; can't correct step size"
+                    )
                     break
                 ii_h += 1
                 beta_new = 0.5 * (beta_new + coefold)
@@ -567,7 +609,9 @@ def irls_core(
                 if ii_h > 100:
                     failed_step = True
                     failure_reason = "step_halving_exhausted"
-                    warnings_list.append("irls_core: inner loop 3; can't correct step size")
+                    warnings_list.append(
+                        "irls_core: inner loop 3; can't correct step size"
+                    )
                     break
                 ii_h += 1
                 beta_new = 0.5 * (beta_new + coef_anchor)
@@ -586,7 +630,7 @@ def irls_core(
             theta_efs = family.estimate_theta_mle(y, mu, weights=weights)
             if np.isfinite(theta_efs) and theta_efs > 0.0:
                 family.theta = theta_efs
-                dev_new = float(family.deviance(y, mu))
+                dev_new = _weighted_deviance(mu)
         penalty_new = float(beta @ (S @ beta))
         pdev_new = dev_new + penalty_new
 
@@ -610,24 +654,12 @@ def irls_core(
             old_pdev = pdev_new
             break
 
-        grad_info = _working_response_terms(eta, mu)
-        if grad_info is None:
-            failed_step = True
-            failure_reason = "no_informative_observations"
-            warnings_list.append(
-                f"irls_core: no informative observations at iteration {n_iter}"
-            )
-            break
-        good_grad = np.asarray(grad_info["good"], dtype=bool)
-        w_grad = np.asarray(grad_info["w"], dtype=np.float64)
-        eta_grad = (eta - offset)[good_grad]
-        X_good = X[good_grad, :]
-        if "wz_full" in grad_info:
-            wz_grad = np.asarray(grad_info["wz_full"], dtype=np.float64)[good_grad]
-            grad = 2.0 * (X_good.T @ (w_grad * eta_grad - wz_grad)) + 2.0 * (S @ beta)
+        eta_grad = (eta - offset)[grad_good]
+        X_good = X[grad_good, :]
+        if grad_rhs_is_weighted:
+            grad = 2.0 * (X_good.T @ (grad_w * eta_grad - grad_z)) + 2.0 * (S @ beta)
         else:
-            z_grad = np.asarray(grad_info["z"], dtype=np.float64)
-            grad = 2.0 * (X_good.T @ (w_grad * (eta_grad - z_grad))) + 2.0 * (S @ beta)
+            grad = 2.0 * (X_good.T @ (grad_w * (eta_grad - grad_z))) + 2.0 * (S @ beta)
 
         scale_ref = (
             float(scale_reference)
@@ -662,6 +694,9 @@ def irls_core(
         old_pdev = pdev_new
         coefold = beta.copy()
         if converged_here:
+            if weighted_canonical_polish and not weighted_canonical_polish_used:
+                weighted_canonical_polish_used = True
+                continue
             converged = True
             break
 
@@ -747,13 +782,11 @@ def irls_core(
     else:
         w_sum = float(np.sum(weights))
         denom = max(w_sum - edf, np.finfo(np.float64).eps)
-        scale = float(family.deviance(y, mu) / denom)
-    deviance = float(family.deviance(y, mu))
+        scale = float(_weighted_deviance(mu) / denom)
+    deviance = _weighted_deviance(mu)
     rss = float(np.sum((y - mu) ** 2))
     penalty_quadratic = float(beta @ (S @ beta))
-    loglik = None
-    if hasattr(family, "loglik"):
-        loglik = float(family.loglik(y, mu, scale=scale))
+    loglik = _weighted_loglik(mu, scale)
 
     Vp, Vf, H_coef = build_bayes_and_freq_covariances(scale, A_inv, XtWX)
     if last_stacked_qr_state is None:

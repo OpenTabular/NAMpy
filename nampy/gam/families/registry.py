@@ -10,7 +10,11 @@ from .exponential import (
     PoissonLogFamily,
 )
 from .family_base import BaseFamily
-from .gamlss import gammals, gaulss, gevlss, shashlss, ziplss
+from .gamlss.gaulss import gaulss
+from .gamlss.gammals import gammals
+from .gamlss.gevlss import gevlss
+from .gamlss.shashlss import shashlss
+from .gamlss.ziplss import ziplss
 
 _BINOMIAL_LINK_MAP = {
     "logit": BinomialLogitFamily,
