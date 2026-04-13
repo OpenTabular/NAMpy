@@ -30,7 +30,6 @@ Stage 7  Prediction / parity / diagnostics
          gam/parity/         — snapshot build, load, and comparison against mgcv
          gam/diagnostics/    — summaries and plots
 
-Architectural invariants (see gam/ARCHITECTURE.md for full details)
 --------------------------------------------------------------------
 6.2  CompiledTerm.basis_transform is the only coefficient map used at prediction.
 6.3  If a coefficient transform T is applied, penalties become T.T @ S @ T.
@@ -47,12 +46,14 @@ from .fit import (
     fit_model_core,
     solve_fit,
 )
+from .model import GAM
 
 __all__ = [
     "families",
     "fit",
     "parity",
     "smoothing_selection",
+    "GAM",
     "fit_model_core",
     "solve_fit",
     "FitCoreSolution",

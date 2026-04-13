@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.linalg import eigh
 
+from .._mgcv_constants import EIG_TOL_POWER
 from ..penalties.algebra import penalty_eigendecomposition
 
 
@@ -107,7 +108,7 @@ def _eigen_split(raw_basis, raw_penalty, tol=1e-10, *, mode="range_null", knots=
     idx = np.argsort(evals)[::-1]
     evals, U = evals[idx], U[:, idx]
 
-    tol_eff = float(np.finfo(np.float64).eps) ** 0.8 * max(
+    tol_eff = float(np.finfo(np.float64).eps) ** EIG_TOL_POWER * max(
         1.0, float(np.max(evals)) if evals.size else 1.0
     )
     rank = int(np.sum(evals > tol_eff))
@@ -429,6 +430,7 @@ def build_t2_basis_and_penalties(
         else []
     )
     allnull_transform = None
+    full_constraint_transform = None
     basis, penalties, component_slices = basis_pre, penalties_pre, component_slices_pre
     if B0_raw is not None and B0_raw.shape[1] > 0 and remove_constant_from_null_block:
         C0 = _mean_constraint_matrix(B0_raw)
@@ -441,6 +443,7 @@ def build_t2_basis_and_penalties(
                 np.vstack([np.zeros((n_pen, C0.shape[1]), dtype=np.float64), C0]),
             ]
         )
+        full_constraint_transform = C_full
         basis = basis_pre @ C_full
         penalties = [
             0.5 * (C_full.T @ S @ C_full + (C_full.T @ S @ C_full).T)
@@ -455,6 +458,7 @@ def build_t2_basis_and_penalties(
         "penalties_pre_constraint": penalties_pre,
         "allnull_specs": allnull_specs,
         "allnull_transform": allnull_transform,
+        "full_constraint_transform": full_constraint_transform,
         "component_specs": block_meta
         + (
             [{"order": 0, "label": "null", "penalized": False, "n_cols": 0}]

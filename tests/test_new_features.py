@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.basemodels.gam import GAM
+from nampy.gam import GAM
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -82,19 +82,13 @@ class TestPriorWeights:
 
 
 class TestStandardErrors:
-    def test_return_se_true_returns_tuple(self):
-        data = _data()
-        gam = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
-        gam.fit(data=data)
-        result = gam.predict(data, return_se=True)
-        assert isinstance(result, tuple)
-        assert len(result) == 2
-
     def test_return_se_shapes_match_predictions(self):
         data = _data()
         gam = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
         gam.fit(data=data)
-        pred, se = gam.predict(data, return_se=True)
+        result = gam.predict(data, return_se=True)
+        assert isinstance(result, tuple) and len(result) == 2
+        pred, se = result
         assert pred.shape == se.shape
 
     def test_vp_cov_gives_larger_se_than_vf(self):
@@ -132,6 +126,52 @@ class TestStandardErrors:
         assert np.all(np.isfinite(pred))
         assert np.all(np.isfinite(se))
         assert np.all(se > 0.0)
+
+    def test_vcov_matches_bayes_and_freq_storage(self):
+        data = _data()
+        gam = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
+        gam.fit(data=data)
+        np.testing.assert_allclose(gam.vcov(), gam.Vp_, atol=0.0, rtol=0.0)
+        np.testing.assert_allclose(gam.vcov(freq=True), gam.Vf_, atol=0.0, rtol=0.0)
+        np.testing.assert_allclose(
+            gam.vcov(unconditional=True), gam.Vc_, atol=0.0, rtol=0.0
+        )
+
+    def test_vcov_sandwich_recomputes_covariance(self):
+        data = _data()
+        gam = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
+        gam.fit(data=data)
+        vc = np.asarray(gam.vcov(sandwich=True), dtype=np.float64)
+        assert vc.shape == np.asarray(gam.Vf_, dtype=np.float64).shape
+        assert np.all(np.isfinite(vc))
+        np.testing.assert_allclose(vc, vc.T, atol=1e-12, rtol=1e-12)
+
+    def test_vcov_dispersion_rescales_matrix(self):
+        data = _data()
+        gam = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
+        gam.fit(data=data)
+        scaled = gam.vcov(dispersion=2.5)
+        expected = np.asarray(gam.Vp_) * (2.5 / gam.scale_)
+        np.testing.assert_allclose(scaled, expected, atol=1e-12, rtol=1e-12)
+
+    def test_loglik_aic_bic_follow_mgcv_style_identities(self):
+        data = _data()
+        gam = GAM(family="gaussian", formula='y ~ s(x, bs="cr")')
+        gam.fit(data=data)
+
+        mu = np.asarray(gam.predict(data, type="response"), dtype=np.float64)
+        loglik_manual = gam.family.loglik(
+            np.asarray(data["y"], dtype=np.float64),
+            mu,
+            scale=float(gam.scale_),
+        )
+        df_manual = float(gam.edf_) + 1.0
+
+        assert gam.loglik() == pytest.approx(loglik_manual)
+        assert gam.aic() == pytest.approx(-2.0 * loglik_manual + 2.0 * df_manual)
+        assert gam.bic() == pytest.approx(
+            -2.0 * loglik_manual + np.log(len(data)) * df_manual
+        )
 
 
 # ===========================================================================

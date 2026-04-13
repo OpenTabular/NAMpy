@@ -11,9 +11,12 @@ Top-level dispatch for smoothing_selection-selection criterion value, gradient, 
 
 import numpy as np
 
+from ...fit.solvers.general_fit5 import (
+    criterion_gradient_ml_reml_general_fit5,
+    criterion_hessian_ml_reml_general_fit5,
+)
 from .gaussian import criterion_gcv_gaussian
 from .gaussian_dyn import _gaussian_dynamic_reml_derivative_terms
-from .laplace import _penalty_derivative_matrices
 from .ml_reml import (
     _model_has_random_effect_smooth,
     criterion_ml_reml,
@@ -161,6 +164,11 @@ def criterion_gradient(
             )
             if bool(out.get("valid", False)):
                 return np.asarray(out["grad"], dtype=np.float64)
+        if backend == "general_fit5":
+            exact_method = "REML" if method in {"reml", "laml"} else "ML"
+            return criterion_gradient_ml_reml_general_fit5(
+                model, y, log_sp, exact_method
+            )
         if (
             backend == "pirls_laplace"
             and (
@@ -292,8 +300,9 @@ def criterion_hessian(
                 getattr(model.family, "supports_exact_pirls_second_derivatives", False)
             )
         ):
-            exact_method = "REML" if method in {"reml", "laml"} else "ML"
-            return criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, exact_method)
+            return criterion_hessian_ml_reml_pirls_exact(
+                model, y, log_sp, "REML"
+            )
         if backend == "gaussian_dynamic" and method in {"reml", "laml"}:
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
             out = _gaussian_dynamic_reml_derivative_terms(
@@ -301,6 +310,11 @@ def criterion_hessian(
             )
             if bool(out.get("valid", False)):
                 return np.asarray(out["hess"], dtype=np.float64)
+        if backend == "general_fit5":
+            exact_method = "REML" if method in {"reml", "laml"} else "ML"
+            return criterion_hessian_ml_reml_general_fit5(
+                model, y, log_sp, exact_method
+            )
     return criterion_hessian_numerical(
         model,
         y,
@@ -320,47 +334,6 @@ def criterion_infinite_sp_signal(model, y, log_sp, method="reml"):
             np.empty((0,), dtype=np.float64),
             np.empty((0,), dtype=np.float64),
         )
-
-    backend = None
-    if method in {"ml", "reml", "laml"}:
-        backend = resolve_ml_reml_scoring_backend(model, method=method)
-
-    exact_method = "REML" if method in {"reml", "laml"} else "ML"
-
-    if (
-        backend == "pirls_laplace"
-        and (
-            getattr(model.family, "known_scale", None) is not None
-            or str(getattr(model.family, "name", "")).lower() == "gamma"
-        )
-        and bool(getattr(model.family, "supports_exact_pirls_first_derivatives", False))
-        and model._can_use_simple_ml_reml_structure()
-    ):
-        sp = model._expand_smoothing_params_from_log(x)
-        sol = model._solve_pirls_given_smoothing(y, sp)
-        beta = np.asarray(sol["coef_full"], dtype=np.float64)
-        A = np.asarray(sol["A"], dtype=np.float64)
-        A_inv = np.asarray(sol["A_inv"], dtype=np.float64)
-        P_derivs = _penalty_derivative_matrices(model, sp)
-
-        grad = np.asarray(
-            criterion_gradient_ml_reml_pirls_exact(model, y, x, exact_method),
-            dtype=np.float64,
-        )
-        dvkk = np.zeros(int(model.n_smoothing_params_ or 0), dtype=np.float64)
-        for j, Pj in enumerate(P_derivs):
-            if not np.any(Pj):
-                continue
-            dbeta_j = -(A_inv @ (Pj @ beta))
-            dvkk[j] = float(dbeta_j @ (A @ dbeta_j))
-
-        free_mask = (
-            np.zeros(model.n_smoothing_params_, dtype=bool)
-            if model.smoothing_fixed_mask_ is None
-            else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
-        )
-        free_mask = ~free_mask
-        return grad, dvkk[free_mask]
 
     grad = np.asarray(criterion_gradient(model, y, x, method=method), dtype=np.float64)
     hess = np.asarray(criterion_hessian(model, y, x, method=method), dtype=np.float64)

@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from ..._model_state import _coef_column_offset
 from ..reparam import (
     ensure_penalty_reparameterization_state,
     sl_group_indices,
@@ -25,8 +26,9 @@ def _lambda_group_indices(model):
 
 
 def _penalty_derivative_matrices(model, sp):
-    n_full = int(model.n_coef_ + (1 if model.fit_intercept else 0))
-    offset0 = 1 if model.fit_intercept else 0
+    off = _coef_column_offset(model)
+    n_full = int(model.n_coef_ + off)
+    offset0 = off
     mats = [
         np.zeros((n_full, n_full), dtype=np.float64)
         for _ in range(int(model.n_smoothing_params_ or 0))

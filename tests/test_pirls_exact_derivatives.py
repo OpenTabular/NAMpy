@@ -4,16 +4,17 @@ import numpy as np
 import pytest
 from mgcv_parity_utils import _make_binomial_data, _make_gamma_data, _make_poisson_data
 
-from nampy.basemodels.gam import GAM
+from nampy.gam import GAM
 from nampy.gam.smoothing_selection.criteria.dispatch import (
     criterion_gradient,
     criterion_gradient_numerical,
     criterion_hessian,
     criterion_hessian_numerical,
 )
-from nampy.gam.smoothing_selection.criteria.laplace import _penalty_derivative_matrices
 from nampy.gam.smoothing_selection.criteria.pirls_deriv import (
-    _pirls_laplace_term_derivatives,
+    _canonical_logdet_term_derivatives,
+    _canonical_penalty_derivative_matrices,
+    _gdi_pk_setup,
     criterion_gradient_ml_reml_pirls_exact,
     criterion_hessian_ml_reml_pirls_exact,
 )
@@ -21,9 +22,6 @@ from nampy.gam.smoothing_selection.criteria.pirls_reml_derivative_blocks import 
     _pearson_coefficient_derivatives,
     _penalty_quadratic_and_sp_derivatives,
     _working_weight_derivatives_wrt_linpred,
-)
-from nampy.gam.smoothing_selection.reparam import (
-    ensure_penalty_reparameterization_state,
 )
 
 
@@ -37,14 +35,16 @@ def _fit_reml_model(data, formula, family):
 
 
 def _gamma_pirls_smoothing_derivative_state(gam, y, sp):
-    ensure_penalty_reparameterization_state(gam)
     sol = gam._solve_pirls_given_smoothing(y, sp)
-    X = np.asarray(sol["X"], dtype=np.float64)
-    beta = np.asarray(sol["coef_full"], dtype=np.float64)
+    pirls_state = _gdi_pk_setup(gam, sol, sp, deriv=2).current
+    X = np.asarray(pirls_state.X, dtype=np.float64)
+    beta = np.asarray(pirls_state.beta, dtype=np.float64)
     eta = np.asarray(sol["eta"], dtype=np.float64)
-    W = np.asarray(sol["working_weights"], dtype=np.float64)
-    A_inv = np.asarray(sol["A_inv"], dtype=np.float64)
-    P_derivs = _penalty_derivative_matrices(gam, sp)
+    W = np.asarray(pirls_state.W, dtype=np.float64)
+    A_inv = np.asarray(pirls_state.A_inv, dtype=np.float64)
+    P_derivs = _canonical_penalty_derivative_matrices(
+        pirls_state.canonical, sp, int(gam.n_smoothing_params_ or 0)
+    )
     dW_eta, _ = _working_weight_derivatives_wrt_linpred(gam, y, eta, sol["mu"], W)
 
     n_sp = len(P_derivs)
@@ -63,7 +63,44 @@ def _gamma_pirls_smoothing_derivative_state(gam, y, sp):
             d2beta_mat[j][k] = d2b
             d2beta_mat[k][j] = d2b
 
-    return sol, dbeta, d2beta_mat
+    return sol, pirls_state, dbeta, d2beta_mat
+
+
+def _canonical_logdet_terms(gam, y, sol, sp):
+    pirls_state = _gdi_pk_setup(gam, sol, sp, deriv=2).current
+    X = np.asarray(pirls_state.X, dtype=np.float64)
+    beta = np.asarray(pirls_state.beta, dtype=np.float64)
+    eta = np.asarray(sol["eta"], dtype=np.float64)
+    W = np.asarray(pirls_state.W, dtype=np.float64)
+    A_inv = np.asarray(pirls_state.A_inv, dtype=np.float64)
+    P_derivs = _canonical_penalty_derivative_matrices(
+        pirls_state.canonical, sp, int(gam.n_smoothing_params_ or 0)
+    )
+    dW_eta, d2W_eta = _working_weight_derivatives_wrt_linpred(gam, y, eta, sol["mu"], W)
+    n_sp = len(P_derivs)
+    dbeta = []
+    dA = []
+    d2A_mat = [[None] * n_sp for _ in range(n_sp)]
+    deta = []
+    for Pj in P_derivs:
+        dbj = -(A_inv @ (Pj @ beta)) if np.any(Pj) else np.zeros_like(beta)
+        dj = X @ dbj
+        dW_j = dW_eta * dj
+        dbeta.append(dbj)
+        deta.append(dj)
+        dA.append(X.T @ (dW_j[:, None] * X) + Pj)
+    for j, Pj in enumerate(P_derivs):
+        for k in range(j, n_sp):
+            delta = 1.0 if j == k else 0.0
+            d2b = -(A_inv @ (dA[k] @ dbeta[j] + Pj @ dbeta[k] + delta * (Pj @ beta)))
+            d2eta = X @ d2b
+            d2W = d2W_eta * deta[j] * deta[k] + dW_eta * d2eta
+            d2A = X.T @ (d2W[:, None] * X) + (Pj if j == k else 0.0)
+            d2A_mat[j][k] = d2A
+            d2A_mat[k][j] = d2A
+    return _canonical_logdet_term_derivatives(
+        gam, sp, pirls_state.A, A_inv, dA, d2A_mat
+    )
 
 
 @pytest.mark.parametrize(
@@ -183,39 +220,7 @@ def test_gamma_pirls_hessian_records_direct_laplace_k2_decomposition():
 
     sp = np.asarray(gam.smoothing_params, dtype=np.float64).ravel()
     sol = gam._solve_pirls_given_smoothing(y, sp)
-    X = np.asarray(sol["X"], dtype=np.float64)
-    beta = np.asarray(sol["coef_full"], dtype=np.float64)
-    eta = np.asarray(sol["eta"], dtype=np.float64)
-    W = np.asarray(sol["working_weights"], dtype=np.float64)
-    A_inv = np.asarray(sol["A_inv"], dtype=np.float64)
-    from nampy.gam.smoothing_selection.criteria.laplace import (
-        _penalty_derivative_matrices,
-    )
-    from nampy.gam.smoothing_selection.criteria.pirls_reml_derivative_blocks import (
-        _working_weight_derivatives_wrt_linpred,
-    )
-
-    ensure_penalty_reparameterization_state(gam)
-    P_derivs = _penalty_derivative_matrices(gam, sp)
-    dW_eta, d2W_eta = _working_weight_derivatives_wrt_linpred(gam, y, eta, sol["mu"], W)
-    n_sp = len(P_derivs)
-    dbeta = []
-    d2beta_mat = [[None] * n_sp for _ in range(n_sp)]
-    dA = []
-    for Pj in P_derivs:
-        dbj = -(A_inv @ (Pj @ beta)) if np.any(Pj) else np.zeros_like(beta)
-        dbeta.append(dbj)
-        dA.append(X.T @ ((dW_eta * (X @ dbj))[:, None] * X) + Pj)
-    for j, Pj in enumerate(P_derivs):
-        for k in range(j, n_sp):
-            delta = 1.0 if j == k else 0.0
-            d2b = -(A_inv @ (dA[k] @ dbeta[j] + Pj @ dbeta[k] + delta * (Pj @ beta)))
-            d2beta_mat[j][k] = d2b
-            d2beta_mat[k][j] = d2b
-
-    _, K1, K2 = _pirls_laplace_term_derivatives(
-        gam, sol, sp, dbeta, d2beta_mat, dW_eta, d2W_eta, method="REML"
-    )
+    _, K1, K2 = _canonical_logdet_terms(gam, y, sol, sp)
 
     steps = np.maximum(1e-4, 1e-3 * (1.0 + np.abs(log_sp)))
     fd = np.zeros_like(K2)
@@ -230,53 +235,7 @@ def test_gamma_pirls_hessian_records_direct_laplace_k2_decomposition():
         sol_minus = gam._solve_pirls_given_smoothing(y, sp_minus)
 
         def _k1(sol_local, sp_local):
-            X_local = np.asarray(sol_local["X"], dtype=np.float64)
-            beta_local = np.asarray(sol_local["coef_full"], dtype=np.float64)
-            eta_local = np.asarray(sol_local["eta"], dtype=np.float64)
-            W_local = np.asarray(sol_local["working_weights"], dtype=np.float64)
-            A_inv_local = np.asarray(sol_local["A_inv"], dtype=np.float64)
-            P_derivs_local = _penalty_derivative_matrices(gam, sp_local)
-            dW_eta_local, d2W_eta_local = _working_weight_derivatives_wrt_linpred(
-                gam, y, eta_local, sol_local["mu"], W_local
-            )
-            n_local = len(P_derivs_local)
-            dbeta_local = []
-            d2beta_local = [[None] * n_local for _ in range(n_local)]
-            dA_local = []
-            for Pm in P_derivs_local:
-                dbm = (
-                    -(A_inv_local @ (Pm @ beta_local))
-                    if np.any(Pm)
-                    else np.zeros_like(beta_local)
-                )
-                dbeta_local.append(dbm)
-                dA_local.append(
-                    X_local.T @ ((dW_eta_local * (X_local @ dbm))[:, None] * X_local)
-                    + Pm
-                )
-            for a, Pa in enumerate(P_derivs_local):
-                for b in range(a, n_local):
-                    delta_ab = 1.0 if a == b else 0.0
-                    d2b_val = -(
-                        A_inv_local
-                        @ (
-                            dA_local[b] @ dbeta_local[a]
-                            + Pa @ dbeta_local[b]
-                            + delta_ab * (Pa @ beta_local)
-                        )
-                    )
-                    d2beta_local[a][b] = d2b_val
-                    d2beta_local[b][a] = d2b_val
-            return _pirls_laplace_term_derivatives(
-                gam,
-                sol_local,
-                sp_local,
-                dbeta_local,
-                d2beta_local,
-                dW_eta_local,
-                d2W_eta_local,
-                method="REML",
-            )[1]
+            return _canonical_logdet_terms(gam, y, sol_local, sp_local)[1]
 
         k1_plus = _k1(sol_plus, sp_plus)
         k1_minus = _k1(sol_minus, sp_minus)
@@ -295,10 +254,10 @@ def test_gamma_pirls_pearson_eta_derivatives_match_finite_difference():
     )
 
     sp = np.asarray(gam.smoothing_params, dtype=np.float64).ravel()
-    sol, _, _ = _gamma_pirls_smoothing_derivative_state(gam, y, sp)
+    sol, pirls_state, _, _ = _gamma_pirls_smoothing_derivative_state(gam, y, sp)
     eta = np.asarray(sol["eta"], dtype=np.float64)
     mu = np.asarray(sol["mu"], dtype=np.float64)
-    X = np.asarray(sol["X"], dtype=np.float64)
+    X = np.asarray(pirls_state.X, dtype=np.float64)
     pearson, pearson_grad, pearson_hess = _pearson_coefficient_derivatives(
         gam,
         y,
@@ -359,12 +318,16 @@ def test_gamma_penalty_quadratic_second_derivatives_match_finite_difference():
     )
 
     sp = np.asarray(gam.smoothing_params, dtype=np.float64).ravel()
-    sol, dbeta, d2beta_mat = _gamma_pirls_smoothing_derivative_state(gam, y, sp)
-    beta = np.asarray(sol["coef_full"], dtype=np.float64)
-    P_derivs = _penalty_derivative_matrices(gam, sp)
+    sol, pirls_state, dbeta, d2beta_mat = _gamma_pirls_smoothing_derivative_state(
+        gam, y, sp
+    )
+    beta = np.asarray(pirls_state.beta, dtype=np.float64)
+    P_derivs = _canonical_penalty_derivative_matrices(
+        pirls_state.canonical, sp, int(gam.n_smoothing_params_ or 0)
+    )
     _, bSb1, bSb2 = _penalty_quadratic_and_sp_derivatives(
         beta=beta,
-        P_total=np.asarray(sol["P"], dtype=np.float64),
+        P_total=np.asarray(pirls_state.P, dtype=np.float64),
         P_derivs=P_derivs,
         dbeta_cols=dbeta,
         d2beta_mat=d2beta_mat,
@@ -372,14 +335,16 @@ def test_gamma_penalty_quadratic_second_derivatives_match_finite_difference():
 
     def _bSb1_at(log_sp_local):
         sp_local = np.exp(log_sp_local)
-        sol_local, dbeta_local, d2beta_local = _gamma_pirls_smoothing_derivative_state(
-            gam, y, sp_local
+        sol_local, pirls_state_local, dbeta_local, d2beta_local = (
+            _gamma_pirls_smoothing_derivative_state(gam, y, sp_local)
         )
-        beta_local = np.asarray(sol_local["coef_full"], dtype=np.float64)
-        P_derivs_local = _penalty_derivative_matrices(gam, sp_local)
+        beta_local = np.asarray(pirls_state_local.beta, dtype=np.float64)
+        P_derivs_local = _canonical_penalty_derivative_matrices(
+            pirls_state_local.canonical, sp_local, int(gam.n_smoothing_params_ or 0)
+        )
         _, bSb1_local, _ = _penalty_quadratic_and_sp_derivatives(
             beta=beta_local,
-            P_total=np.asarray(sol_local["P"], dtype=np.float64),
+            P_total=np.asarray(pirls_state_local.P, dtype=np.float64),
             P_derivs=P_derivs_local,
             dbeta_cols=dbeta_local,
             d2beta_mat=d2beta_local,

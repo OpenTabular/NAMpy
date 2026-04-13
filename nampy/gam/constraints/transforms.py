@@ -46,12 +46,20 @@ def null_space_basis_from_constraint_matrix(
         raise ValueError(f"Constraint matrix has width {C.shape[1]}, expected {d}.")
     if C.size == 0:
         return np.eye(C.shape[1], dtype=np.float64), 0
-    U, s, Vt = np.linalg.svd(C, full_matrices=True)
-    if s.size == 0:
+    # Mirror mgcv smoothCon(absorb.cons=TRUE), which forms qr(t(C)) and takes
+    # the trailing columns of Q as a constraint null-space basis. An SVD basis
+    # spans the same space but can rotate coefficients differently, which shows
+    # up in parity-sensitive terms such as t2(full=FALSE).
+    Qt, R = scipy_qr(C.T, mode="full", pivoting=False)
+    diag_R = np.abs(np.diag(R))
+    if diag_R.size == 0:
         return np.eye(C.shape[1], dtype=np.float64), 0
-    tol_eff = max(float(tol), float(np.max(s)) * max(C.shape) * np.finfo(float).eps)
-    rank = int(np.sum(s > tol_eff))
-    return Vt[rank:, :].T.copy(), rank
+    tol_eff = max(
+        float(tol),
+        float(np.max(diag_R)) * max(C.shape) * np.finfo(float).eps,
+    )
+    rank = int(np.sum(diag_R > tol_eff))
+    return np.asarray(Qt[:, rank:], dtype=np.float64).copy(), rank
 
 
 def localized_null_space_basis_from_constraint_matrix(

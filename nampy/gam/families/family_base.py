@@ -13,8 +13,9 @@ Three family tiers are defined here:
     (when ``supports_closed_form_solve = True``) or penalized IRLS.
 
 :class:`ExtendedFamily`
-    Non-standard single-predictor likelihoods requiring a bespoke solver.
-    Not yet implemented in the fitting backends.
+    Non-standard single-predictor likelihoods following the `mgcv`
+    `extended.family` contract. These can use PIRLS when the concrete family
+    supplies the required GLM/PIRLS hooks.
 
 :class:`GeneralFamily`
     Multi-linear-predictor families (e.g. GAMLSS-style location-scale models).
@@ -24,9 +25,10 @@ Three family tiers are defined here:
 import abc
 
 import numpy as np
-from scipy.special import gammaln
+from scipy.special import digamma, gammaln, polygamma
 
-_EPS = 1e-9
+from .._mgcv_constants import FAMILY_EPS
+
 _CAPABILITY_FLAGS = (
     "supports_closed_form_solve",
     "supports_pirls",
@@ -86,7 +88,7 @@ class BaseFamily(metaclass=_FamilyMeta):
     known_scale = None  # None -> unknown; numeric -> fixed/known scale
     max_derivative_order = 0
 
-    def __init__(self, eps: float = _EPS):
+    def __init__(self, eps: float = FAMILY_EPS):
         self.eps = float(eps)
 
     def __setattr__(self, name, value):
@@ -184,7 +186,7 @@ class GLMFamily(BaseFamily):
     _link_key: str | None = None
     _variance_key: str | None = None
 
-    def __init__(self, eps: float = _EPS):
+    def __init__(self, eps: float = FAMILY_EPS):
         super().__init__(eps=eps)
         from ._function_maps import LINK_REGISTRY, VARIANCE_REGISTRY
 
@@ -256,8 +258,8 @@ class GLMFamily(BaseFamily):
 
     def aic(self, y, mu, *, edf=0.0, scale=1.0, weights=None):
         loglik_obs = np.asarray(self.loglik_obs(y, mu, scale=scale), dtype=np.float64)
-        obs_weights = self._check_weights(loglik_obs, weights)
-        return float(-2.0 * np.sum(obs_weights * loglik_obs) + 2.0 * float(edf))
+        sample_weights = self._check_weights(loglik_obs, weights)
+        return float(-2.0 * np.sum(sample_weights * loglik_obs) + 2.0 * float(edf))
 
     def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
         raise NotImplementedError(
@@ -280,6 +282,18 @@ class _BinomialBase(GLMFamily):
         mask2 = y < 1
         term2[mask2] = (1.0 - y[mask2]) * np.log((1.0 - y[mask2]) / (1.0 - mu[mask2]))
         return float(2.0 * np.sum(weights * (term1 + term2)))
+
+    def deviance_obs(self, y, mu, weights=None):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        weights = self._check_weights(y, weights)
+        term1 = np.zeros_like(y, dtype=np.float64)
+        mask1 = y > 0
+        term1[mask1] = y[mask1] * np.log(y[mask1] / mu[mask1])
+        term2 = np.zeros_like(y, dtype=np.float64)
+        mask2 = y < 1
+        term2[mask2] = (1.0 - y[mask2]) * np.log((1.0 - y[mask2]) / (1.0 - mu[mask2]))
+        return 2.0 * weights * (term1 + term2)
 
     def loglik_obs(self, y, mu, scale=1.0):
         del scale
@@ -308,6 +322,12 @@ class _GammaBase(GLMFamily):
         weights = self._check_weights(y, weights)
         return float(2.0 * np.sum(weights * ((y - mu) / mu - np.log(y / mu))))
 
+    def deviance_obs(self, y, mu, weights=None):
+        y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
+        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        weights = self._check_weights(y, weights)
+        return 2.0 * weights * ((y - mu) / mu - np.log(y / mu))
+
     def estimate_dispersion(self, y, mu, edf=None, weights=None):
         y = np.asarray(y, dtype=np.float64)
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
@@ -330,22 +350,48 @@ class _GammaBase(GLMFamily):
             - shape * np.log(mu / shape)
         )
 
-    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+    def ls(self, y, w, n=None, scale=1.0):
+        """
+        Port of `mgcv::fix.family.ls()` Gamma branch.
+
+        Returns saturated log-likelihood and first/second derivatives with
+        respect to the scale parameter.
+        """
         del n
         y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
-        weights = self._check_weights(y, weights)
+        w = self._check_weights(y, w)
         scale = float(max(scale, self.eps))
-        shape = 1.0 / scale
-        sat = -np.log(y) - shape - gammaln(shape) + shape * np.log(shape)
-        return float(np.sum(weights * sat))
+
+        mask = w > 0.0
+        if not np.any(mask):
+            return np.zeros(3, dtype=np.float64)
+
+        y = y[mask]
+        w = w[mask]
+        scale_w = scale / w
+
+        k0 = -gammaln(1.0 / scale_w) - np.log(scale_w) / scale_w - 1.0 / scale_w
+        k1 = (digamma(1.0 / scale_w) + np.log(scale_w)) / (scale_w**2)
+        k2 = (
+            -polygamma(1, 1.0 / scale_w) / scale_w
+            + (1.0 - 2.0 * np.log(scale_w) - 2.0 * digamma(1.0 / scale_w))
+        ) / (scale_w**3)
+        return np.asarray(
+            [np.sum(k0 - np.log(y)), np.sum(k1 / w), np.sum(k2 / (w**2))],
+            dtype=np.float64,
+        )
+
+    def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
+        return float(self.ls(y, weights, n=n, scale=scale)[0])
 
 
 class ExtendedFamily(BaseFamily):
     """
-    Contract for extended exponential-family models:
+    Contract for `mgcv`-style extended-family models:
     - one linear predictor
     - richer likelihood structure than ordinary GLM families
-    - will later supply higher-order derivatives for outer REML/LAML machinery
+    - may still use PIRLS when the family supplies GLM-style link/variance hooks
+      plus `Dd`/`ls`/`getTheta`/`putTheta`
     """
 
     family_class = "extended"
@@ -362,6 +408,27 @@ class ExtendedFamily(BaseFamily):
 
     def hessian_eta(self, y, eta):
         raise NotImplementedError
+
+    def getTheta(self, trans: bool = False):
+        del trans
+        return np.zeros(0, dtype=np.float64)
+
+    def putTheta(self, theta):
+        theta_arr = np.asarray(theta, dtype=np.float64)
+        if theta_arr.size:
+            raise NotImplementedError(
+                f"{self.__class__.__name__} does not implement putTheta()."
+            )
+
+    def Dd(self, y, mu, theta, wt, level=0):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement mgcv-style Dd()."
+        )
+
+    def ls(self, y, w, theta, scale):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement mgcv-style ls()."
+        )
 
 
 class GeneralFamily(BaseFamily):

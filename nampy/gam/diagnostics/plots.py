@@ -3,25 +3,13 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 
-
-def _coerce_plot_matrix(model, X):
-    if X is None:
-        return model.X_
-    if hasattr(model, "_coerce_feature_matrix"):
-        return model._coerce_feature_matrix(X)
-    X = np.asarray(X)
-    if X.ndim == 1:
-        X = X.reshape(-1, 1)
-    if X.ndim != 2:
-        raise ValueError("X must be a 2D feature matrix.")
-    return X
+from .._model_state import _coerce_feature_matrix, _require_fitted
 
 
 def plot_gam_terms(model, X=None, n_cols=2, figsize=None):
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
+    _require_fitted(model)
 
-    X_plot = _coerce_plot_matrix(model, X)
+    X_plot = _coerce_feature_matrix(model, X, none_is_training=True)
     contributions = model.predict_feature_vals(X_plot)
 
     n_terms = len(model.term_blocks_)

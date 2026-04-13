@@ -7,6 +7,12 @@ import pandas as pd
 from scipy.linalg import qr
 from scipy.stats import chi2, f
 
+from .._mgcv_constants import LOG_GUARD_MIN
+from .._model_state import (
+    _coef_column_offset,
+    _require_fitted,
+    _term_blocks_seq,
+)
 from ..fit.covariance import select_covariance_matrix
 
 
@@ -28,13 +34,8 @@ class AnovaGAMComparison:
     table: pd.DataFrame
 
 
-def _require_fitted(model):
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
-
-
 def _residual_df(model) -> float:
-    intercept_df = 1.0 if bool(getattr(model, "fit_intercept", False)) else 0.0
+    intercept_df = float(_coef_column_offset(model))
     return float(model.n_samples_) - intercept_df - float(model.edf_)
 
 
@@ -45,20 +46,15 @@ def _edf1_vector(model) -> np.ndarray:
     return 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
 
 
-def _x_col_offset(model) -> int:
-    """Number of columns prepended to X before the coef_ columns (intercept)."""
-    return 1 if bool(getattr(model, "fit_intercept", False)) else 0
-
-
 def _term_edf1(model, tb) -> float:
     sl = tb.coef_slice
-    offset = _x_col_offset(model)
+    offset = _coef_column_offset(model)
     edf1 = _edf1_vector(model)
     return float(np.sum(edf1[sl.start + offset : sl.stop + offset]))
 
 
 def _residual_df_approx_mgcv(model) -> float:
-    intercept_df = 1.0 if bool(getattr(model, "fit_intercept", False)) else 0.0
+    intercept_df = float(_coef_column_offset(model))
     return float(model.n_samples_) - intercept_df - float(np.sum(_edf1_vector(model)))
 
 
@@ -141,11 +137,11 @@ def _smooth_test_stat(
     if nu > 0.0 and k > 0:
         if k > 1:
             vec[:, : (k - 1)] = vec[:, : (k - 1)] / np.sqrt(
-                np.clip(evals[: (k - 1)], 1e-300, None)
+                np.clip(evals[: (k - 1)], LOG_GUARD_MIN, None)
             )
         b12 = np.sqrt(max(0.5 * nu * (1.0 - nu), 0.0))
         B = np.array([[1.0, b12], [b12, nu]], dtype=np.float64)
-        ev = np.diag(np.power(np.clip(evals[(k - 1) : k1], 1e-300, None), -0.5))
+        ev = np.diag(np.power(np.clip(evals[(k - 1) : k1], LOG_GUARD_MIN, None), -0.5))
         B = ev @ B @ ev
         eb_vals, eb_vecs = np.linalg.eigh(B)
         rB = eb_vecs @ np.diag(np.sqrt(np.clip(eb_vals, 0.0, None))) @ eb_vecs.T
@@ -153,7 +149,7 @@ def _smooth_test_stat(
         vec1[:, (k - 1) : k1] = (rB @ np.diag([-1.0, 1.0]) @ vec[:, (k - 1) : k1].T).T
         vec[:, (k - 1) : k1] = (rB @ vec[:, (k - 1) : k1].T).T
     else:
-        scale = np.sqrt(np.clip(evals[:k1], 1e-300, None))
+        scale = np.sqrt(np.clip(evals[:k1], LOG_GUARD_MIN, None))
         vec = vec / scale
         vec1 = vec.copy()
         if k == 1:
@@ -188,9 +184,9 @@ def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingl
     param_rows: list[dict[str, object]] = []
     smooth_rows: list[dict[str, object]] = []
 
-    x_offset = _x_col_offset(model)
+    x_offset = _coef_column_offset(model)
 
-    for i, tb in enumerate(getattr(model, "term_blocks_", ()) or ()):
+    for i, tb in enumerate(_term_blocks_seq(model)):
         sl = tb.coef_slice
         # sl indexes coef_ (no intercept); Vp_/Vf_ include the intercept column so
         # we shift by x_offset when extracting covariance submatrices.
@@ -392,7 +388,7 @@ def _comparison_table(
                     denom_df = max(
                         float(model.n_samples_)
                         - float(model.edf_)
-                        - (1.0 if model.fit_intercept else 0.0),
+                        - float(_coef_column_offset(model)),
                         1.0,
                     )
                     denom = float(model.deviance_) / denom_df

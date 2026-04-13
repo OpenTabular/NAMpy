@@ -7,6 +7,7 @@ Included files in this phase: 30
 import numpy as np
 from scipy.linalg import eigh
 
+from .._mgcv_constants import EIG_TOL_POWER
 from ..penalties.algebra import penalty_eigendecomposition
 
 
@@ -113,7 +114,7 @@ def _eigen_split(raw_basis, raw_penalty, tol=1e-10, *, mode="range_null", knots=
     idx = np.argsort(evals)[::-1]
     evals, U = evals[idx], U[:, idx]
 
-    tol_eff = float(np.finfo(np.float64).eps) ** 0.8 * max(
+    tol_eff = float(np.finfo(np.float64).eps) ** EIG_TOL_POWER * max(
         1.0, float(np.max(evals)) if evals.size else 1.0
     )
     rank = int(np.sum(evals > tol_eff))
@@ -435,6 +436,7 @@ def build_t2_basis_and_penalties(
         else []
     )
     allnull_transform = None
+    full_constraint_transform = None
     basis, penalties, component_slices = basis_pre, penalties_pre, component_slices_pre
     if B0_raw is not None and B0_raw.shape[1] > 0 and remove_constant_from_null_block:
         C0 = _mean_constraint_matrix(B0_raw)
@@ -447,6 +449,7 @@ def build_t2_basis_and_penalties(
                 np.vstack([np.zeros((n_pen, C0.shape[1]), dtype=np.float64), C0]),
             ]
         )
+        full_constraint_transform = C_full
         basis = basis_pre @ C_full
         penalties = [
             0.5 * (C_full.T @ S @ C_full + (C_full.T @ S @ C_full).T)
@@ -461,6 +464,7 @@ def build_t2_basis_and_penalties(
         "penalties_pre_constraint": penalties_pre,
         "allnull_specs": allnull_specs,
         "allnull_transform": allnull_transform,
+        "full_constraint_transform": full_constraint_transform,
         "component_specs": block_meta
         + (
             [{"order": 0, "label": "null", "penalized": False, "n_cols": 0}]
@@ -544,6 +548,7 @@ from ..penalties import normalize_penalty_spec
 from .transforms import (
     apply_coefficient_transform,
     localized_null_space_basis_from_constraint_matrix,
+    null_space_basis_from_constraint_matrix,
 )
 
 
@@ -595,13 +600,12 @@ def apply_linear_constraint(B, penalties, constraint_row, tol: float = 1e-12):
     """
     B = np.asarray(B, dtype=np.float64)
     penalties = [np.asarray(S, dtype=np.float64) for S in penalties]
-    c = np.asarray(constraint_row, dtype=np.float64).reshape(-1, 1)
+    c = np.asarray(constraint_row, dtype=np.float64).reshape(1, -1)
     cn = float(np.linalg.norm(c))
     if cn <= tol:
         C = np.eye(B.shape[1], dtype=np.float64)
         return B, penalties, C
-    q, _ = np.linalg.qr(c, mode="complete")
-    C = q[:, 1:]
+    C, _ = null_space_basis_from_constraint_matrix(c, d=B.shape[1], tol=tol)
     Bc, Sc = apply_coefficient_transform(B, penalties, C)
     return Bc, Sc, C
 
@@ -664,10 +668,10 @@ def fit_single_penalty_with_constraint_policy(
             raise ValueError(
                 "constraint_mode='factor_by' requires a numeric indicator `by` column."
             )
-        base_fb = apply_numeric_by_fn(base, by_state.values)
         penalties_in = [] if bool(fixed) else [penalty]
-        mean_row = base_fb.mean(axis=0)
-        Bc, Sc, C = apply_linear_constraint(base_fb, penalties_in, mean_row)
+        mean_row = base.mean(axis=0)
+        Bc, Sc, C = apply_linear_constraint(base, penalties_in, mean_row)
+        Bc = apply_numeric_by_fn(Bc, by_state.values)
         return ConstraintFitResult(
             basis_train=np.asarray(Bc, dtype=np.float64),
             penalties=Sc,
@@ -1012,8 +1016,8 @@ def apply_global_side_conditions(
         Q_term = np.eye(d_in, dtype=np.float64)
 
         constructor_meta = dict(tb.metadata.get("constructor_metadata", {}) or {})
-        runtime_absorbed = bool(
-            constructor_meta.get("constraints_absorbed_by_runtime", False)
+        runtime_skip_centering = bool(
+            constructor_meta.get("runtime_skip_centering", False)
         )
         runtime_by_name = constructor_meta.get("runtime_by_name", None)
         runtime_by_is_constant = constructor_meta.get("runtime_by_is_constant", None)
@@ -1022,7 +1026,7 @@ def apply_global_side_conditions(
         # Step (a): optionally absorb a sum-to-zero centering constraint.
         if (
             fit_intercept
-            and not runtime_absorbed
+            and not runtime_skip_centering
             and (runtime_by_name is None or bool(runtime_by_is_constant))
             and tb.term_type not in {"tensor_interaction", "tensor_anova"}
         ):
@@ -1346,12 +1350,20 @@ def null_space_basis_from_constraint_matrix(
         raise ValueError(f"Constraint matrix has width {C.shape[1]}, expected {d}.")
     if C.size == 0:
         return np.eye(C.shape[1], dtype=np.float64), 0
-    U, s, Vt = np.linalg.svd(C, full_matrices=True)
-    if s.size == 0:
+    # Mirror mgcv smoothCon(absorb.cons=TRUE), which forms qr(t(C)) and takes
+    # the trailing columns of Q as a constraint null-space basis. An SVD basis
+    # spans the same space but can rotate coefficients differently, which shows
+    # up in parity-sensitive terms such as t2(full=FALSE).
+    Qt, R = scipy_qr(C.T, mode="full", pivoting=False)
+    diag_R = np.abs(np.diag(R))
+    if diag_R.size == 0:
         return np.eye(C.shape[1], dtype=np.float64), 0
-    tol_eff = max(float(tol), float(np.max(s)) * max(C.shape) * np.finfo(float).eps)
-    rank = int(np.sum(s > tol_eff))
-    return Vt[rank:, :].T.copy(), rank
+    tol_eff = max(
+        float(tol),
+        float(np.max(diag_R)) * max(C.shape) * np.finfo(float).eps,
+    )
+    rank = int(np.sum(diag_R > tol_eff))
+    return np.asarray(Qt[:, rank:], dtype=np.float64).copy(), rank
 
 
 def localized_null_space_basis_from_constraint_matrix(
@@ -1727,7 +1739,8 @@ class ConstructedTerm:
     fit_constraint_operator: np.ndarray | None = None
     fit_coefficient_map: np.ndarray | None = None
     predict_coefficient_map: np.ndarray | None = None
-    constraints_absorbed: bool = True
+    transform_applied: bool = False
+    skip_centering: bool = False
     prediction_offset: np.ndarray | None = None
     original_design_matrix: np.ndarray | None = None
     constructor_metadata: dict[str, Any] = field(default_factory=dict)
@@ -1851,14 +1864,28 @@ def construct_terms(
     runtime = instantiate_term(term_like)
     runtime.fit(X, feature_names)
     B, penalty_defs = _extract_runtime_state(runtime)
-    constraints_absorbed = bool(getattr(runtime, "constraints_absorbed", True))
+    runtime_transform_applied = bool(
+        getattr(
+            runtime,
+            "transform_applied",
+            getattr(runtime, "constraint_transform", None) is not None,
+        )
+    )
+    runtime_skip_centering = bool(
+        getattr(
+            runtime,
+            "skip_centering",
+            getattr(runtime, "constraints_absorbed", False),
+        )
+    )
     fit_constraint = getattr(runtime, "fit_constraint_matrix", None)
     predict_coefficient_map = getattr(runtime, "predict_coefficient_map", None)
     prediction_offset = getattr(runtime, "prediction_offset", None)
     _by_state = getattr(runtime, "_by_state", None)
 
     constructor_metadata = {
-        "constraints_absorbed_by_runtime": constraints_absorbed,
+        "runtime_transform_applied": runtime_transform_applied,
+        "runtime_skip_centering": runtime_skip_centering,
         "runtime_constraint_kind": getattr(runtime, "constraint_kind", None),
         "runtime_by_name": _by_state.feature_name if _by_state is not None else None,
         "runtime_by_is_constant": (
@@ -1875,13 +1902,15 @@ def construct_terms(
     )
 
     fit_coefficient_map = None
+    transform_applied = runtime_transform_applied
+    skip_centering = runtime_skip_centering
     predict_coefficient_map_arr = (
         None
         if predict_coefficient_map is None
         else np.asarray(predict_coefficient_map, dtype=np.float64)
     )
 
-    if absorb_cons and (not constraints_absorbed) and fit_constraint is not None:
+    if absorb_cons and (not runtime_transform_applied) and fit_constraint is not None:
         B, penalty_defs, T_fit, n_cons = absorb_explicit_constraints(
             B,
             _copy_penalty_defs(penalty_defs),
@@ -1896,7 +1925,8 @@ def construct_terms(
                 f"Predict coefficient map for term {getattr(runtime, 'label', str(runtime))!r} "
                 f"has shape {predict_coefficient_map_arr.shape}, expected {expected_shape}."
             )
-        constraints_absorbed = True
+        transform_applied = True
+        skip_centering = True
         constructor_metadata["constraint_absorption"] = "wrapper"
         constructor_metadata["n_constraints_absorbed"] = int(n_cons)
         constructor_metadata["predict_map_source"] = (
@@ -1911,7 +1941,7 @@ def construct_terms(
                     f"has shape {predict_coefficient_map_arr.shape}, expected {expected_shape}."
                 )
         constructor_metadata["constraint_absorption"] = (
-            "runtime" if constraints_absorbed else "none"
+            "runtime" if transform_applied else "none"
         )
         constructor_metadata["n_constraints_absorbed"] = None
         constructor_metadata["predict_map_source"] = (
@@ -1954,7 +1984,8 @@ def construct_terms(
             if predict_coefficient_map_arr is None
             else np.asarray(predict_coefficient_map_arr, dtype=np.float64)
         ),
-        constraints_absorbed=bool(constraints_absorbed),
+        transform_applied=bool(transform_applied),
+        skip_centering=bool(skip_centering),
         prediction_offset=(
             None
             if prediction_offset is None
@@ -2036,6 +2067,13 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
 
     for id_key, eligible_items in eligible_by_id.items():
         all_items = all_by_id.get(id_key, [])
+        if len(all_items) > 1 and len(all_items) != len(eligible_items):
+            unsupported = [term.label for _, _, term in all_items]
+            raise NotImplementedError(
+                f"Linked id={id_key!r} currently requires full mgcv-parity support "
+                f"across every linked term. NAMpy's old partial pooling subset for "
+                f"compatible 1D cubic `s()` terms was removed. Terms: {unsupported}"
+            )
         if len(eligible_items) < 2:
             continue
 
@@ -2083,19 +2121,6 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
             continue
 
         pooled_x = np.concatenate(pooled_columns)
-
-        if len(all_items) > len(eligible_items):
-            skipped = [
-                term.label
-                for _, _, term in all_items
-                if not _eligible_id_pool_term(term)
-            ]
-            warnings.warn(
-                f"id={id_key!r} is used by terms outside the current shared-basis "
-                f"pooling subset. Shared basis setup was applied only to compatible "
-                f"1D cr s() terms; skipped terms: {skipped}",
-                stacklevel=2,
-            )
 
         # Build a temporary spline from pooled data to extract canonical knots and
         # penalty matrices.  Storing the k×k penalty (not the full n×k basis) keeps
@@ -2562,7 +2587,13 @@ from dataclasses import replace
 import numpy as np
 import pandas as pd
 
-from ..specs import LinearPredictorSpec, TermSpec, replace_smooth_spec
+from ..specs import (
+    build_smooth_spec,
+    LinearPredictorSpec,
+    TermSpec,
+    replace_smooth_spec,
+)
+from ..specs.smooth import FactorSmoothInteractionSpec
 
 
 def is_factor_like_series(s: pd.Series) -> bool:
@@ -2596,6 +2627,48 @@ def numeric_1d_values(s: pd.Series, *, name: str):
     if not np.isfinite(vals).all():
         raise ValueError(f"Column {name!r} contains NaN or Inf.")
     return vals
+
+
+def _fs_by_without_factor_feature_base_spec(smooth_spec: FactorSmoothInteractionSpec):
+    """Mirror mgcv::smooth.construct.fs.smooth.spec when no factor term is present."""
+    xt = smooth_spec.xt
+    if xt is None:
+        base_bs = "tp"
+        xt_rest = None
+    elif isinstance(xt, str):
+        base_bs = str(xt).lower()
+        xt_rest = None
+    elif isinstance(xt, dict):
+        base_bs = str(xt.get("bs", "tp")).lower()
+        xt_rest = {k: v for k, v in xt.items() if k != "bs"} or None
+    else:
+        raise NotImplementedError(
+            "For `bs=\"fs\"`, xt must be None, a basis string, or a dict "
+            "containing optional key `bs`."
+        )
+
+    kwargs = {
+        "special": str(smooth_spec.special),
+        "bs": base_bs,
+        "k": smooth_spec.k,
+        "fx": smooth_spec.fx,
+        "select": smooth_spec.select,
+        "sp": smooth_spec.sp,
+        "knots": smooth_spec.knots,
+        "constraint_mode": str(getattr(smooth_spec, "constraint_mode", "auto")),
+    }
+
+    if base_bs == "ps":
+        kwargs["m"] = None if xt_rest is None else xt_rest.get("m", None)
+    elif base_bs in {"tp", "ts", "gp"}:
+        kwargs["xt"] = xt_rest
+    elif xt_rest:
+        raise NotImplementedError(
+            f"`bs=\"fs\"` factor-by fallback does not support extra xt options for "
+            f"base bs={base_bs!r}."
+        )
+
+    return build_smooth_spec(**kwargs)
 
 
 def expand_parametric_term(
@@ -2757,6 +2830,17 @@ def expand_factor_by_term(
             f"Factor `by` expansion is implemented for s(...) only in this step, "
             f"not for {smooth_spec.special}(...)."
         )
+
+    if isinstance(smooth_spec, FactorSmoothInteractionSpec):
+        has_factor_feature = any(
+            feature in data_work.columns and is_factor_like_series(data_work[feature])
+            for feature in term.features
+        )
+        if not has_factor_feature:
+            # Upstream mgcv falls back to the underlying base smoother here:
+            # smooth.construct.fs.smooth.spec() returns smooth.construct(base.bs)
+            # when the fs term itself has no factor argument.
+            smooth_spec = _fs_by_without_factor_feature_base_spec(smooth_spec)
 
     cat, levels, ordered = factor_info(by_series)
     if len(levels) == 0:
@@ -3354,8 +3438,7 @@ class LinearTerm(BaseSmoothTerm):
         return 1
 
     def transform_new(self, X_new):
-        if self._feature_index is None:
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
         return column_as_float(X_new, self._feature_index)[:, None]
 
 
@@ -3463,6 +3546,7 @@ from typing import Any
 import numpy as np
 
 from ....splines.mrf import nat_param_type1
+from ..._mgcv_constants import EIG_TOL_POWER
 from ...basis.tensor import rescale_tensor_penalties_for_fit, rowwise_kronecker
 from ...design.structures import PenaltySpec
 from ...penalties import build_null_space_selection_spec
@@ -3550,6 +3634,7 @@ def _build_base_smooth_term(
     xt_rest,
     mode,  # "fs" or "sz"
     select,
+    constraint_mode,
     metadata,
 ):
     """
@@ -3587,7 +3672,7 @@ def _build_base_smooth_term(
             sp=None,
             select=bool(select),
             fixed=bool(fixed),
-            constraint_mode="never",
+            constraint_mode=str(constraint_mode),
             shared_basis_setup=None,
             pc=None,
             knots=knots,
@@ -3610,7 +3695,7 @@ def _build_base_smooth_term(
             sp=None,
             select=bool(select),
             fixed=bool(fixed),
-            constraint_mode="never",
+            constraint_mode=str(constraint_mode),
             pc=None,
             knots=knots,
             metadata=metadata,
@@ -3629,7 +3714,7 @@ def _build_base_smooth_term(
             sp=None,
             select=bool(select),
             fixed=bool(fixed),
-            constraint_mode="never",
+            constraint_mode=str(constraint_mode),
             pc=None,
             knots=knots,
             xt=xt_rest,
@@ -3649,7 +3734,7 @@ def _build_base_smooth_term(
             sp=None,
             select=bool(select),
             fixed=bool(fixed),
-            constraint_mode="never",
+            constraint_mode=str(constraint_mode),
             pc=None,
             knots=knots,
             xt=xt_rest,
@@ -3670,6 +3755,37 @@ def _kron_many(mats):
     for M in mats[1:]:
         out = np.kron(out, M)
     return out
+
+
+def _xzkr_contrast_transform(level_sizes, block_dim):
+    """
+    Exact mgcv::XZKr() contrast transform.
+
+    Returns ``T`` such that ``X_raw @ T`` matches
+    ``t(mgcv:::XZKr(X_raw, m))``. Implemented by running the upstream reshape /
+    subtraction logic on an identity basis, to preserve column order exactly.
+    """
+    level_sizes = [int(v) for v in level_sizes]
+    block_dim = int(block_dim)
+    if block_dim < 0:
+        raise ValueError("block_dim must be non-negative.")
+    if any(v < 1 for v in level_sizes):
+        raise ValueError("level_sizes must all be >= 1.")
+
+    q_in = int(np.prod(level_sizes, dtype=np.int64)) * block_dim
+    q_out = int(np.prod([v - 1 for v in level_sizes], dtype=np.int64)) * block_dim
+    if q_out == 0:
+        return np.empty((q_in, 0), dtype=np.float64)
+
+    work = np.eye(q_in, dtype=np.float64)
+    n = int(work.shape[0])
+    for m_i in level_sizes:
+        work = np.reshape(work, (work.size // m_i, m_i), order="F")
+        work = (work[:, : m_i - 1] - work[:, [m_i - 1]]).T
+    work = np.reshape(work, (work.size // block_dim, block_dim), order="F")
+    work = work.T
+    work = np.reshape(work, (work.size // n, n), order="F")
+    return np.asarray(work.T, dtype=np.float64)
 
 
 def _block_penalty_for_group(group_index, n_groups, S_base):
@@ -3745,7 +3861,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
         self._smoothing_ids = None
         self._ranks = None
 
-        self.constraints_absorbed = True
+        self.skip_centering = True
 
     @property
     def basis_train(self):
@@ -3774,6 +3890,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
     def transform_new(self, X_new):
         if self._delegate_term is not None:
             return self._delegate_term.transform_new(X_new)
+        self._require_fitted()
         raise NotImplementedError
 
     def get_penalty_definitions(self):
@@ -3857,6 +3974,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
                 xt_rest=base_spec.xt_rest,
                 mode=mode,
                 select=self.select,
+                constraint_mode=("auto" if mode == "fs" else "never"),
                 metadata=dict(self.metadata),
             )
             base_term.fit(X, feature_names)
@@ -3954,6 +4072,10 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         X = _as_object_2d(X)
 
         base_spec = _parse_factor_smooth_xt(self.xt, default_bs="tp")
+        # mgcv::smooth.construct.fs.smooth.spec calls smooth.construct on the
+        # marginal spec without extra side constraints before duplicating by
+        # factor level, so the base smooth must retain its full null space.
+        base_constraint = "never"
         base_term = _build_base_smooth_term(
             metric_features=self._metric_feature_names,
             k=self.k,
@@ -3964,6 +4086,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             xt_rest=base_spec.xt_rest,
             mode="fs",
             select=False,
+            constraint_mode=base_constraint,
             metadata=dict(self.metadata),
         )
         base_term.fit(X, feature_names)
@@ -3991,18 +4114,23 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             self._penalties = []
             self._smoothing_ids = []
             self._ranks = []
-            self.constraints_absorbed = True
+            self.skip_centering = True
             self._record_constraint_result(None, None, absorbed_by=None)
             return self
 
         S0 = np.asarray(base_term.penalties[0], dtype=np.float64)
-        base_rank = int(getattr(base_term, "rank", 0) or 0)
-        if base_rank <= 0:
-            evals = np.linalg.eigvalsh(0.5 * (S0 + S0.T))
-            tol = (np.max(evals) if evals.size else 0.0) * (
-                np.finfo(np.float64).eps ** 0.8
-            )
-            base_rank = int(np.sum(evals > tol))
+        if isinstance(base_term, PSplineTerm1D) and len(base_term.penalties) > 0:
+            # mgcv::smooth.construct.ps.smooth.spec: rank <- bs.dim - m[2]
+            penalty_order = int(base_term.m[1])
+            base_rank = max(0, int(B0.shape[1]) - penalty_order)
+        else:
+            base_rank = int(getattr(base_term, "rank", 0) or 0)
+            if base_rank <= 0:
+                evals = np.linalg.eigvalsh(0.5 * (S0 + S0.T))
+                tol = (np.max(evals) if evals.size else 0.0) * (
+                    np.finfo(np.float64).eps ** EIG_TOL_POWER
+                )
+                base_rank = int(np.sum(evals > tol))
 
         # mgcv uses nat.param(X, S, rank, type=1): eigendecompose R^{-T} S R^{-1}
         # (R from QR of X) and normalise the range space to an identity penalty.
@@ -4041,7 +4169,12 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         ranks = []
 
         penalties.append(0.5 * (P_range + P_range.T))
-        smoothing_ids.append(f"__fs__:{self.label}:range")
+        shared_sid = (
+            str(self.smoothing_id)
+            if self.smoothing_id is not None
+            else f"__fs__:{self.label}"
+        )
+        smoothing_ids.append(shared_sid)
         ranks.append(int(n_levels * r))
 
         for i in range(null_d):
@@ -4049,7 +4182,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             um[r + i] = 1.0
             P_null_i = np.diag(np.tile(um, n_levels))
             penalties.append(0.5 * (P_null_i + P_null_i.T))
-            smoothing_ids.append(f"__fs__:{self.label}:null:{i}")
+            smoothing_ids.append(shared_sid)
             ranks.append(int(n_levels))
 
         # Apply mgcv smoothCon scale_penalty step: normalise S relative to X.
@@ -4059,7 +4192,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         self._penalties = penalties
         self._smoothing_ids = smoothing_ids
         self._ranks = ranks
-        self.constraints_absorbed = True
+        self.skip_centering = True
         self._record_constraint_result(None, None, absorbed_by=None)
         return self
 
@@ -4067,8 +4200,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         if self._delegate_term is not None:
             return self._delegate_term.transform_new(X_new)
 
-        if self._base_term is None or self._levels is None:
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
 
         fac_idx = self._factor_feature_indices[0]
         fac = as_object_1d(column_as_object(X_new, fac_idx))
@@ -4200,6 +4332,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             xt_rest=base_spec.xt_rest,
             mode="sz",
             select=False,
+            constraint_mode="never",
             metadata=dict(self.metadata),
         )
         base_term.fit(X, feature_names)
@@ -4229,20 +4362,20 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         X_raw = rowwise_kronecker(indicator_mats + [B0])
 
         p0 = B0.shape[1]
-        C_fac = _kron_many(contrast_mats)
-        self._factor_transform = C_fac
-        self._n_groups = int(np.prod([len(lev) for lev in level_lists], dtype=np.int64))
+        level_sizes = [len(lev) for lev in level_lists]
+        self._n_groups = int(np.prod(level_sizes, dtype=np.int64))
+        T = _xzkr_contrast_transform(level_sizes, p0)
+        self._factor_transform = T
 
-        if C_fac.shape[1] == 0:
+        if T.shape[1] == 0:
             self._basis_train = np.empty((X_raw.shape[0], 0), dtype=np.float64)
             self._penalties = []
             self._smoothing_ids = []
             self._ranks = []
-            self.constraints_absorbed = True
+            self.skip_centering = True
             self._record_constraint_result(None, None, absorbed_by=None)
             return self
 
-        T = np.kron(C_fac, np.eye(p0, dtype=np.float64))
         X_con = X_raw @ T
 
         if len(base_term.penalties) == 0:
@@ -4250,7 +4383,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             self._penalties = []
             self._smoothing_ids = []
             self._ranks = []
-            self.constraints_absorbed = True
+            self.skip_centering = True
             self._record_constraint_result(None, None, absorbed_by=None)
             return self
 
@@ -4296,7 +4429,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         self._penalties = penalties
         self._smoothing_ids = smoothing_ids
         self._ranks = ranks
-        self.constraints_absorbed = True
+        self.skip_centering = True
         self._record_constraint_result(None, None, absorbed_by=None)
         return self
 
@@ -4304,12 +4437,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         if self._delegate_term is not None:
             return self._delegate_term.transform_new(X_new)
 
-        if (
-            self._base_term is None
-            or self._factor_levels is None
-            or self._factor_transform is None
-        ):
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
 
         indicator_mats = []
         for idx, lev in zip(self._factor_feature_indices, self._factor_levels):
@@ -4322,8 +4450,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         if self._factor_transform.shape[1] == 0:
             return np.empty((X_raw.shape[0], 0), dtype=np.float64)
 
-        T = np.kron(self._factor_transform, np.eye(B0_new.shape[1], dtype=np.float64))
-        return np.asarray(X_raw @ T, dtype=np.float64)
+        return np.asarray(X_raw @ self._factor_transform, dtype=np.float64)
 
     def get_penalty_definitions(self):
         if self._delegate_term is not None:
@@ -4425,12 +4552,14 @@ from ....splines.mrf import (
     nat_param_type0,
     polys_to_nb,
 )
+from ..._mgcv_constants import EIG_TOL_POWER
+from ...constraints.absorption import full_term_sum_to_zero_constraint
 from ...design.structures import PenaltySpec
 from ...penalties import build_null_space_selection_spec
 from ..smooth_base import (
     BaseSmoothTerm,
     _resolve_feature,
-    by_values_from_new_data,
+    apply_numeric_by,
     column_as_object,
     resolve_by_state,
     sync_by_state_attributes,
@@ -4616,62 +4745,54 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
                 D_red[np.where(ind < rank_full)[0]] = rp["D"][penalized]
 
             S_red = np.diag(D_red)
-            rank_red = int(np.sum(ind < rank_full))
-
-            # smoothCon(..., absorb.cons=TRUE) removes the remaining null-space
-            # direction from the low-rank MRF basis after nat.param truncation.
-            C = np.mean(X_red, axis=0, keepdims=True)
-            Q, _ = np.linalg.qr(C.T, mode="complete")
-            Z = Q[:, 1:]
-            X_absorbed = X_red @ Z
-            S_absorbed = Z.T @ S_red @ Z
-            S_absorbed = 0.5 * (S_absorbed + S_absorbed.T)
 
             # mgcv's scale.penalty=TRUE normalizes using the pre-absorption
-            # reduced basis and penalty, and the absorbed penalty inherits the
-            # same factor.
+            # reduced basis and penalty.
             maXX = float(np.max(np.sum(np.abs(X_red), axis=1)) ** 2)
             maS = float(np.max(np.sum(np.abs(S_red), axis=0)))
             if maS > 1e-12 and maXX > 1e-12:
-                S_absorbed = S_absorbed / (maS / maXX)
+                S_red = S_red / (maS / maXX)
 
-            self._basis_train = np.asarray(X_absorbed, dtype=np.float64)
-            self._penalties = [np.asarray(S_absorbed, dtype=np.float64)]
-            self._P = np.asarray(P_red @ Z, dtype=np.float64)
-            self._rank = rank_red
+            self._P = np.asarray(P_red, dtype=np.float64)
+            basis_raw = np.asarray(X_red, dtype=np.float64)
+            penalty_raw = np.asarray(S_red, dtype=np.float64)
         else:
-            ev = np.linalg.eigvalsh(self._full_penalty)
-            tol = np.finfo(float).eps ** 0.8 * max(np.max(ev), 1.0)
-            rank = int(np.sum(ev > tol))
-
-            # Absorb the centering constraint, matching mgcv's smoothCon behaviour
-            # when absorb.cons=TRUE: C = colMeans(X), remove one null-space column
-            # via QR so the basis shrinks from n_areas to n_areas-1 columns.
-            C = np.mean(X_full, axis=0, keepdims=True)  # (1, n_areas)
-            Q, _ = np.linalg.qr(C.T, mode="complete")  # (n_areas, n_areas)
-            Z = Q[:, 1:]  # (n_areas, n_areas-1)
-            X_absorbed = X_full @ Z
-            S_absorbed = Z.T @ self._full_penalty @ Z
-            S_absorbed = 0.5 * (S_absorbed + S_absorbed.T)
-
             # Apply mgcv smoothCon scale_penalty step: normalise using the
-            # pre-absorption X and S (R scales before absorb.cons, so the same
-            # factor is inherited by the absorbed penalty).
+            # full-rank X and S.
             maXX = float(np.max(np.sum(np.abs(X_full), axis=1)) ** 2)
             maS = float(np.max(np.sum(np.abs(self._full_penalty), axis=0)))
+            S_full = np.asarray(self._full_penalty, dtype=np.float64)
             if maS > 1e-12 and maXX > 1e-12:
-                S_absorbed = S_absorbed / (maS / maXX)
+                S_full = S_full / (maS / maXX)
 
-            self._basis_train = np.asarray(X_absorbed, dtype=np.float64)
-            self._penalties = [np.asarray(S_absorbed, dtype=np.float64)]
-            self._P = np.asarray(Z, dtype=np.float64)
-            self._rank = rank
+            self._P = None
+            basis_raw = np.asarray(X_full, dtype=np.float64)
+            penalty_raw = np.asarray(S_full, dtype=np.float64)
+
+        if self._by_state.is_constant:
+            # Match mgcv::smoothCon(absorb.cons=TRUE): absorb the single MRF
+            # identifiability constraint in the term-local coefficient space.
+            basis_fit, penalties_fit, transform = full_term_sum_to_zero_constraint(
+                basis_raw, [penalty_raw]
+            )
+            self._record_constraint_result(
+                "sum_to_zero", transform, absorbed_by="runtime"
+            )
+        else:
+            basis_fit = basis_raw
+            penalties_fit = [penalty_raw]
+            self._record_constraint_result(None, None, absorbed_by=None)
 
         if self._by_state.is_present:
-            self._basis_train = self._basis_train * self._by_state.values[:, None]
+            basis_fit = apply_numeric_by(basis_fit, self._by_state.values)
 
+        penalty_fit = np.asarray(penalties_fit[0], dtype=np.float64)
+        ev_fit = np.linalg.eigvalsh(penalty_fit)
+        tol_fit = np.finfo(float).eps ** EIG_TOL_POWER * max(np.max(ev_fit), 1.0)
+        self._rank = int(np.sum(ev_fit > tol_fit))
+        self._basis_train = np.asarray(basis_fit, dtype=np.float64)
+        self._penalties = [penalty_fit]
         self._null_space_dim = int(self._basis_train.shape[1] - self._rank)
-        self._record_constraint_result(None, None, absorbed_by=None)
         return self
 
     @property
@@ -4778,22 +4899,14 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         return defs
 
     def transform_new(self, X_new):
-        if self._area_names is None:
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
 
         x = as_object_1d(column_as_object(X_new, self._feature_index))
 
         Xp = factor_indicator_matrix(x, self._area_names)
         if self._P is not None:
             Xp = Xp @ self._P
-
-        z = by_values_from_new_data(X_new, self._by_state)
-        if z is not None:
-            out = np.zeros_like(Xp)
-            ok = np.isfinite(z)
-            out[ok, :] = Xp[ok, :] * z[ok][:, None]
-            Xp = out
-
+        Xp = self._apply_constraint_transform_and_by(Xp, X_new)
         return np.asarray(Xp, dtype=np.float64)
 
 # --- End of nampy/gam/smooths/categorical/mrf.py ---
@@ -4955,7 +5068,7 @@ class RandomEffectTerm(BaseSmoothTerm):
         self._ranks = None
 
         # random effects are full-rank penalized: no side conditions needed
-        self.constraints_absorbed = True
+        self.skip_centering = True
 
     def fit(self, X, feature_names):
         X = np.asarray(X, dtype=object)
@@ -5117,8 +5230,7 @@ class RandomEffectTerm(BaseSmoothTerm):
         return defs
 
     def transform_new(self, X_new):
-        if self._feature_indices is None or self._component_specs is None:
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
 
         blocks = []
         for idx, spec in zip(self._feature_indices, self._component_specs):
@@ -5348,6 +5460,8 @@ from ..smooth_base import (
     _normalize_knots,
     build_penalty_definition,
     build_selection_penalty_definition,
+    resolve_by_state,
+    sync_by_state_attributes,
 )
 from .marginals import (
     make_tensor_marginal_term,
@@ -5436,10 +5550,13 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         self._t2_train = None
         self._marginal_decompositions = None
         self._penalized_specs = None
+        self._by_state = None
         self.fit_constraint_matrix = None
         self.predict_coefficient_map = None
 
     def fit(self, X, feature_names):
+        self._by_state = resolve_by_state(self.by, X, feature_names)
+        sync_by_state_attributes(self, self._by_state)
         marginals = []
         feature_indices = []
         feature_names_resolved = []
@@ -5468,14 +5585,30 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             marginal_decompositions,
             full=self.full,
             ord=self.ord,
+            # mgcv::smooth.construct.t2.smooth.spec() keeps the raw t2 basis
+            # and exposes an explicit constraint matrix affecting only the
+            # final unpenalized null block.
             remove_constant_from_null_block=False,
         )
         B_t2 = np.asarray(t2_obj["basis"], dtype=np.float64)
-        if not self.fixed:
-            pens_t2 = rescale_tensor_penalties_for_fit(
-                B_t2,
-                [np.asarray(S, dtype=np.float64) for S in t2_obj["penalties"]],
-            )
+        pens_pre = [
+            np.asarray(S, dtype=np.float64) for S in t2_obj["penalties_pre_constraint"]
+        ]
+        B_pre = np.asarray(t2_obj["basis_pre_constraint"], dtype=np.float64)
+        full_transform = t2_obj.get("full_constraint_transform", None)
+        if len(pens_pre) > 0:
+            # mgcv smoothCon(scale.penalty=TRUE, absorb.cons=TRUE) scales the
+            # assembled t2 penalties before absorbing the null-block constraint,
+            # then applies the constraint transform to the scaled blocks.
+            pens_scaled_pre = rescale_tensor_penalties_for_fit(B_pre, pens_pre)
+            if full_transform is not None:
+                C_full = np.asarray(full_transform, dtype=np.float64)
+                pens_t2 = [
+                    0.5 * (C_full.T @ S @ C_full + (C_full.T @ S @ C_full).T)
+                    for S in pens_scaled_pre
+                ]
+            else:
+                pens_t2 = pens_scaled_pre
             t2_obj = {**t2_obj, "basis": B_t2, "penalties": pens_t2}
         else:
             t2_obj = {**t2_obj, "basis": B_t2}
@@ -5494,9 +5627,18 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         n_pen = int(sum(spec["n_cols"] for spec in self._penalized_specs))
         n_null = int(B_t2.shape[1] - n_pen)
         if n_null > 0:
-            C = np.zeros((1, B_t2.shape[1]), dtype=np.float64)
-            C[0, n_pen:] = np.sum(B_t2[:, n_pen:], axis=0)
-            self.fit_constraint_matrix = C if np.linalg.norm(C) > 0.0 else None
+            if n_null == 1:
+                # mgcv::smooth.construct.t2.smooth.spec():
+                # ``if (object$null.space.dim==1) C <- ncol(X)``
+                # i.e. set final unpenalized coefficient to zero, rather than
+                # centering it by row sums.
+                C = np.zeros((1, B_t2.shape[1]), dtype=np.float64)
+                C[0, -1] = 1.0
+                self.fit_constraint_matrix = C
+            else:
+                C = np.zeros((1, B_t2.shape[1]), dtype=np.float64)
+                C[0, n_pen:] = np.sum(B_t2[:, n_pen:], axis=0)
+                self.fit_constraint_matrix = C if np.linalg.norm(C) > 0.0 else None
         else:
             self.fit_constraint_matrix = None
         self.predict_coefficient_map = None
@@ -5594,8 +5736,7 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         return int(self._basis_train.shape[1])
 
     def transform_new(self, X_new):
-        if self._marginals is None or self._t2_train is None:
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
 
         marginal_new = []
         for m, dec in zip(self._marginals, self._marginal_decompositions):
@@ -5628,12 +5769,13 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
                 "Stored t2 fit object does not contain penalized component specifications."
             )
 
-        return materialize_t2_newdata(
+        B_new = materialize_t2_newdata(
             marginal_new,
             allnull_specs=allnull_specs,
             allnull_transform=allnull_transform,
             penalized_specs=penalized_specs,
         )
+        return self._apply_constraint_transform_and_by(B_new, X_new)
 
 # --- End of nampy/gam/smooths/tensor/t2.py ---
 
@@ -5885,8 +6027,7 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         return defs
 
     def transform_new(self, X_new):
-        if self._marginals is None:
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
 
         marginal_new = []
         for m, xp in zip(self._marginals, self._marginal_np_transforms):
@@ -6179,8 +6320,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         return int(self._basis_train.shape[1])
 
     def transform_new(self, X_new):
-        if self._marginals is None or self._marginal_is_centered is None:
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
 
         marginal_new = []
         for m, center_this_margin, xp in zip(
@@ -6226,7 +6366,6 @@ from ....splines.univariate_bases import (
     place_knots_through_values,
 )
 from ...constraints.absorption import apply_linear_constraint
-from ...penalties import build_null_space_selection_spec, make_penalty_spec
 from ...penalties.algebra import scale_penalty
 from ..registry import register_smooth
 from ..smooth_base import (
@@ -6575,27 +6714,6 @@ class SplineTerm1D(BaseSmoothTerm):
         if len(self.penalties) == 0:
             return []
 
-        if self.select and self.sp is not None:
-            raise NotImplementedError(
-                "term-level sp is not yet implemented for select=True smooths in the "
-                "current runtime, because select=True adds an extra explicit "
-                "null-space penalty in addition to the main penalty."
-            )
-
-        main_penalty = np.asarray(self.penalties[0], dtype=np.float64)
-        sp_vals = self._normalized_term_sp(1)
-        sp_main = sp_vals[0] if sp_vals else None
-
-        if sp_main is None:
-            sp_mode = None
-            sp_value = None
-        elif sp_main >= 0:
-            sp_mode = "fixed"
-            sp_value = float(sp_main)
-        else:
-            sp_mode = "estimate"
-            sp_value = None
-
         base_metadata = {
             "term_type": self.term_type,
             "basis_name": self.basis_name,
@@ -6611,53 +6729,21 @@ class SplineTerm1D(BaseSmoothTerm):
             "has_shared_basis_setup": self.shared_basis_setup is not None,
             "fixed": bool(self.fixed),
         }
-
-        defs = [
-            make_penalty_spec(
-                matrix=main_penalty,
-                smoothing_id=(
-                    None if self.smoothing_id is None else str(self.smoothing_id)
-                ),
-                kind="smooth",
-                sp_mode=sp_mode,
-                sp_value=sp_value,
-                metadata={
-                    **base_metadata,
-                    "term_sp": sp_main,
-                    "is_selection_penalty": False,
-                },
-            )
-        ]
-
-        if self.select:
-            select_sid = (
-                None if self.smoothing_id is None else f"{self.smoothing_id}::select"
-            )
-            sel_spec = build_null_space_selection_spec(
-                main_penalty=main_penalty,
-                smoothing_id=select_sid,
-                tol=self.null_penalty_tol,
-                metadata={**base_metadata, "is_selection_penalty": True},
-            )
-            if sel_spec is not None:
-                defs.append(sel_spec)
-
-        return defs
+        return self._build_penalty_block(
+            self.penalties[0],
+            smooth_metadata=base_metadata,
+            selection_metadata={**base_metadata, "is_selection_penalty": True},
+            selection_via_subsystem=True,
+        )
 
     def transform_new(self, X_new):
-        if self._feature_index is None:
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
 
         xj = column_as_float(X_new, self._feature_index)
 
         if self.basis_name == "cc":
-            if self._cc_knots is None or self._cc_bd is None:
-                raise RuntimeError("Term is not fitted.")
             B = cyclic_cubic_predict_matrix(xj, self._cc_knots, self._cc_bd)
             return self._apply_constraint_transform_and_by(B, X_new)
-
-        if self._spline is None:
-            raise RuntimeError("Term is not fitted.")
 
         if self._use_centered_basis and not getattr(
             self, "_pooled_linked_raw_marginal", False
@@ -6690,8 +6776,7 @@ from ...constraints.absorption import (
     apply_linear_constraint,
     fit_single_penalty_with_constraint_policy,
 )
-from ...design.structures import PenaltySpec
-from ...penalties.algebra import null_space_penalty_from_penalty, scale_penalty
+from ...penalties.algebra import scale_penalty
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
@@ -6853,124 +6938,37 @@ class GPSmoothTerm(BaseSmoothTerm):
         if len(self.penalties) == 0:
             return []
 
-        if self.select and self.sp is not None:
-            raise NotImplementedError(
-                "term-level sp is not yet implemented for select=True smooths in the "
-                "current runtime, because select=True adds an extra explicit "
-                "null-space penalty in addition to the main penalty."
-            )
-
-        main_penalty = np.asarray(self.penalties[0], dtype=np.float64)
-        sp_vals = self._normalized_term_sp(1)
-        sp_main = sp_vals[0] if sp_vals else None
-
-        if sp_main is None:
-            sp_mode = None
-            sp_value = None
-        elif sp_main >= 0:
-            sp_mode = "fixed"
-            sp_value = float(sp_main)
-        else:
-            sp_mode = "estimate"
-            sp_value = None
-
-        defs = [
-            PenaltySpec(
-                matrix=main_penalty,
-                smoothing_id=(
-                    None if self.smoothing_id is None else str(self.smoothing_id)
-                ),
-                kind="smooth",
-                sp_mode=sp_mode,
-                sp_value=sp_value,
-                metadata={
-                    "term_type": self.term_type,
-                    "basis_name": self.basis_name,
-                    "feature": list(self.feature),
-                    "label": self.label,
-                    "by": self.by,
-                    "by_name": self._by_state.feature_name,
-                    "by_is_constant": bool(self._by_state.is_constant),
-                    "constraint_mode": self.constraint_mode,
-                    "constraint_kind": self.constraint_kind,
-                    "pc": self.pc,
-                    "knots": self.knots,
-                    "xt": self.xt,
-                    "m": self.m,
-                    "gp_defn": (
-                        None if self._setup is None else dict(self._setup.gp_defn)
-                    ),
-                    "null_space_dim": (
-                        None if self._setup is None else self._setup.null_space_dim
-                    ),
-                    "rank": None if self._setup is None else self._setup.rank,
-                    "bs_dim": None if self._setup is None else self._setup.bs_dim,
-                    "fixed": bool(self.fixed),
-                    "term_sp": sp_main,
-                    "is_selection_penalty": False,
-                },
-            )
-        ]
-
-        if self.select:
-            S0, meta = null_space_penalty_from_penalty(
-                main_penalty,
-                tol=self.null_penalty_tol,
-            )
-            if meta["rank"] > 0:
-                defs.append(
-                    PenaltySpec(
-                        matrix=S0,
-                        smoothing_id=(
-                            None
-                            if self.smoothing_id is None
-                            else f"{self.smoothing_id}::select"
-                        ),
-                        kind="null_space",
-                        rank=meta["rank"],
-                        null_space_dim=meta["null_space_dim"],
-                        is_null_space_penalty=True,
-                        sp_mode=None,
-                        sp_value=None,
-                        metadata={
-                            "term_type": self.term_type,
-                            "basis_name": self.basis_name,
-                            "feature": list(self.feature),
-                            "label": self.label,
-                            "by": self.by,
-                            "by_name": self._by_state.feature_name,
-                            "by_is_constant": bool(self._by_state.is_constant),
-                            "constraint_mode": self.constraint_mode,
-                            "constraint_kind": self.constraint_kind,
-                            "pc": self.pc,
-                            "knots": self.knots,
-                            "xt": self.xt,
-                            "m": self.m,
-                            "gp_defn": (
-                                None
-                                if self._setup is None
-                                else dict(self._setup.gp_defn)
-                            ),
-                            "null_space_dim": (
-                                None
-                                if self._setup is None
-                                else self._setup.null_space_dim
-                            ),
-                            "rank": None if self._setup is None else self._setup.rank,
-                            "bs_dim": (
-                                None if self._setup is None else self._setup.bs_dim
-                            ),
-                            "fixed": bool(self.fixed),
-                            "is_selection_penalty": True,
-                        },
-                    )
-                )
-
-        return defs
+        smooth_meta = {
+            "term_type": self.term_type,
+            "basis_name": self.basis_name,
+            "feature": list(self.feature),
+            "label": self.label,
+            "by": self.by,
+            "by_name": self._by_state.feature_name,
+            "by_is_constant": bool(self._by_state.is_constant),
+            "constraint_mode": self.constraint_mode,
+            "constraint_kind": self.constraint_kind,
+            "pc": self.pc,
+            "knots": self.knots,
+            "xt": self.xt,
+            "m": self.m,
+            "gp_defn": (None if self._setup is None else dict(self._setup.gp_defn)),
+            "null_space_dim": (
+                None if self._setup is None else self._setup.null_space_dim
+            ),
+            "rank": None if self._setup is None else self._setup.rank,
+            "bs_dim": None if self._setup is None else self._setup.bs_dim,
+            "fixed": bool(self.fixed),
+        }
+        selection_meta = {**smooth_meta, "is_selection_penalty": True}
+        return self._build_penalty_block(
+            self.penalties[0],
+            smooth_metadata=smooth_meta,
+            selection_metadata=selection_meta,
+        )
 
     def transform_new(self, X_new):
-        if self._feature_indices is None or self._setup is None:
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
 
         Xf_new = columns_as_float_matrix(X_new, self._feature_indices)
 
@@ -6998,8 +6996,7 @@ from ....splines.univariate_bases import (
     pspline_predict_matrix,
 )
 from ...constraints.absorption import apply_linear_constraint
-from ...design.structures import PenaltySpec
-from ...penalties.algebra import null_space_penalty_from_penalty, scale_penalty
+from ...penalties.algebra import scale_penalty
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
@@ -7200,99 +7197,33 @@ class PSplineTerm1D(BaseSmoothTerm):
         if len(self.penalties) == 0:
             return []
 
-        if self.select and self.sp is not None:
-            raise NotImplementedError(
-                "term-level sp is not yet implemented for select=True smooths in the "
-                "current runtime, because select=True adds an extra explicit "
-                "null-space penalty in addition to the main penalty."
-            )
-
-        main_penalty = np.asarray(self.penalties[0], dtype=np.float64)
-        sp_vals = self._normalized_term_sp(1)
-        sp_main = sp_vals[0] if sp_vals else None
-
-        if sp_main is None:
-            sp_mode = None
-            sp_value = None
-        elif sp_main >= 0:
-            sp_mode = "fixed"
-            sp_value = float(sp_main)
-        else:
-            sp_mode = "estimate"
-            sp_value = None
-
-        defs = [
-            PenaltySpec(
-                matrix=main_penalty,
-                smoothing_id=(
-                    None if self.smoothing_id is None else str(self.smoothing_id)
-                ),
-                kind="smooth",
-                sp_mode=sp_mode,
-                sp_value=sp_value,
-                metadata={
-                    "term_type": self.term_type,
-                    "basis_name": self.basis_name,
-                    "feature": self.feature,
-                    "label": self.label,
-                    "by": self.by,
-                    "by_name": self._by_state.feature_name,
-                    "by_is_constant": bool(self._by_state.is_constant),
-                    "constraint_mode": self.constraint_mode,
-                    "pc": self.pc,
-                    "knots": self.knots,
-                    "m": self.m,
-                    "fixed": bool(self.fixed),
-                    "term_sp": sp_main,
-                    "is_selection_penalty": False,
-                },
-            )
-        ]
-
-        if self.select:
-            S0, meta = null_space_penalty_from_penalty(
-                main_penalty,
-                tol=self.null_penalty_tol,
-            )
-            if meta["rank"] > 0:
-                defs.append(
-                    PenaltySpec(
-                        matrix=S0,
-                        smoothing_id=(
-                            None
-                            if self.smoothing_id is None
-                            else f"{self.smoothing_id}::select"
-                        ),
-                        kind="null_space",
-                        rank=meta["rank"],
-                        null_space_dim=meta["null_space_dim"],
-                        is_null_space_penalty=True,
-                        sp_mode=None,
-                        sp_value=None,
-                        metadata={
-                            "term_type": self.term_type,
-                            "basis_name": self.basis_name,
-                            "feature": self.feature,
-                            "label": self.label,
-                            "by": self.by,
-                            "by_name": self._by_state.feature_name,
-                            "by_is_constant": bool(self._by_state.is_constant),
-                            "constraint_mode": self.constraint_mode,
-                            "constraint_kind": self.constraint_kind,
-                            "pc": self.pc,
-                            "knots": self.knots,
-                            "m": self.m,
-                            "fixed": bool(self.fixed),
-                            "is_selection_penalty": True,
-                        },
-                    )
-                )
-
-        return defs
+        smooth_meta = {
+            "term_type": self.term_type,
+            "basis_name": self.basis_name,
+            "feature": self.feature,
+            "label": self.label,
+            "by": self.by,
+            "by_name": self._by_state.feature_name,
+            "by_is_constant": bool(self._by_state.is_constant),
+            "constraint_mode": self.constraint_mode,
+            "pc": self.pc,
+            "knots": self.knots,
+            "m": self.m,
+            "fixed": bool(self.fixed),
+        }
+        selection_meta = {
+            **smooth_meta,
+            "constraint_kind": self.constraint_kind,
+            "is_selection_penalty": True,
+        }
+        return self._build_penalty_block(
+            self.penalties[0],
+            smooth_metadata=smooth_meta,
+            selection_metadata=selection_meta,
+        )
 
     def transform_new(self, X_new):
-        if self._feature_index is None or self._ps_knots is None:
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
 
         xj = column_as_float(X_new, self._feature_index)
 
@@ -7328,8 +7259,6 @@ from ...constraints.absorption import (
     apply_linear_constraint,
     fit_single_penalty_with_constraint_policy,
 )
-from ...design.structures import PenaltySpec
-from ...penalties.algebra import null_space_penalty_from_penalty
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
@@ -7493,141 +7422,45 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
         if len(self.penalties) == 0:
             return []
 
-        if self.select and self.sp is not None:
-            raise NotImplementedError(
-                "term-level sp is not yet implemented for select=True smooths in the "
-                "current runtime, because select=True adds an extra explicit "
-                "null-space penalty in addition to the main penalty."
-            )
-
-        main_penalty = np.asarray(self.penalties[0], dtype=np.float64)
-        sp_vals = self._normalized_term_sp(1)
-        sp_main = sp_vals[0] if sp_vals else None
-
-        if sp_main is None:
-            sp_mode = None
-            sp_value = None
-        elif sp_main >= 0:
-            sp_mode = "fixed"
-            sp_value = float(sp_main)
-        else:
-            sp_mode = "estimate"
-            sp_value = None
-
-        defs = [
-            PenaltySpec(
-                matrix=main_penalty,
-                smoothing_id=(
-                    None if self.smoothing_id is None else str(self.smoothing_id)
-                ),
-                kind="smooth",
-                rank=int(self._setup.rank) if self._setup is not None else None,
-                sp_mode=sp_mode,
-                sp_value=sp_value,
-                metadata={
-                    "term_type": self.term_type,
-                    "basis_name": self.basis_name,
-                    "feature": list(self.feature),
-                    "label": self.label,
-                    "by": self.by,
-                    "by_name": self._by_state.feature_name,
-                    "by_is_constant": bool(self._by_state.is_constant),
-                    "constraint_mode": self.constraint_mode,
-                    "constraint_kind": self.constraint_kind,
-                    "pc": self.pc,
-                    "knots": self.knots,
-                    "xt": self.xt,
-                    "m": self.m,
-                    "penalty_order": (
-                        None if self._setup is None else self._setup.penalty_order
-                    ),
-                    "original_null_space_dim": (
-                        None
-                        if self._setup is None
-                        else self._setup.original_null_space_dim
-                    ),
-                    "drop_null_requested": (
-                        None
-                        if self._setup is None
-                        else bool(self._setup.drop_null_requested)
-                    ),
-                    "drop_null_effective": (
-                        None
-                        if self._setup is None
-                        else bool(self._setup.drop_null_effective)
-                    ),
-                    "fixed": bool(self.fixed),
-                    "term_sp": sp_main,
-                    "is_selection_penalty": False,
-                },
-            )
-        ]
-
-        if self.select:
-            S0, meta = null_space_penalty_from_penalty(
-                main_penalty,
-                tol=self.null_penalty_tol,
-            )
-            if meta["rank"] > 0:
-                defs.append(
-                    PenaltySpec(
-                        matrix=S0,
-                        smoothing_id=(
-                            None
-                            if self.smoothing_id is None
-                            else f"{self.smoothing_id}::select"
-                        ),
-                        kind="null_space",
-                        rank=meta["rank"],
-                        null_space_dim=meta["null_space_dim"],
-                        is_null_space_penalty=True,
-                        sp_mode=None,
-                        sp_value=None,
-                        metadata={
-                            "term_type": self.term_type,
-                            "basis_name": self.basis_name,
-                            "feature": list(self.feature),
-                            "label": self.label,
-                            "by": self.by,
-                            "by_name": self._by_state.feature_name,
-                            "by_is_constant": bool(self._by_state.is_constant),
-                            "constraint_mode": self.constraint_mode,
-                            "constraint_kind": self.constraint_kind,
-                            "pc": self.pc,
-                            "knots": self.knots,
-                            "xt": self.xt,
-                            "m": self.m,
-                            "penalty_order": (
-                                None
-                                if self._setup is None
-                                else self._setup.penalty_order
-                            ),
-                            "original_null_space_dim": (
-                                None
-                                if self._setup is None
-                                else self._setup.original_null_space_dim
-                            ),
-                            "drop_null_requested": (
-                                None
-                                if self._setup is None
-                                else bool(self._setup.drop_null_requested)
-                            ),
-                            "drop_null_effective": (
-                                None
-                                if self._setup is None
-                                else bool(self._setup.drop_null_effective)
-                            ),
-                            "fixed": bool(self.fixed),
-                            "is_selection_penalty": True,
-                        },
-                    )
-                )
-
-        return defs
+        smooth_meta = {
+            "term_type": self.term_type,
+            "basis_name": self.basis_name,
+            "feature": list(self.feature),
+            "label": self.label,
+            "by": self.by,
+            "by_name": self._by_state.feature_name,
+            "by_is_constant": bool(self._by_state.is_constant),
+            "constraint_mode": self.constraint_mode,
+            "constraint_kind": self.constraint_kind,
+            "pc": self.pc,
+            "knots": self.knots,
+            "xt": self.xt,
+            "m": self.m,
+            "penalty_order": (
+                None if self._setup is None else self._setup.penalty_order
+            ),
+            "original_null_space_dim": (
+                None if self._setup is None else self._setup.original_null_space_dim
+            ),
+            "drop_null_requested": (
+                None if self._setup is None else bool(self._setup.drop_null_requested)
+            ),
+            "drop_null_effective": (
+                None if self._setup is None else bool(self._setup.drop_null_effective)
+            ),
+            "fixed": bool(self.fixed),
+        }
+        selection_meta = {**smooth_meta, "is_selection_penalty": True}
+        rank = int(self._setup.rank) if self._setup is not None else None
+        return self._build_penalty_block(
+            self.penalties[0],
+            rank=rank,
+            smooth_metadata=smooth_meta,
+            selection_metadata=selection_meta,
+        )
 
     def transform_new(self, X_new):
-        if self._feature_indices is None or self._setup is None:
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
 
         Xf_new = columns_as_float_matrix(X_new, self._feature_indices)
 
@@ -9223,7 +9056,6 @@ class ThinPlateBasisSetup:
     drop_null_effective: bool
     drop_keep: int | None = None
     cmX: np.ndarray | None = None
-    mgcv_c_backend: bool = False
 
 
 def _parse_tprs_xt(xt):
@@ -9323,18 +9155,6 @@ def build_tprs_term_setup(
         setup_locations=mgcv_setup_locations,
         scale_columns=scale_columns,
     )
-    mgcv_c_backend = tprs is not None
-
-    if tprs is None:
-        tprs = construct_tprs_basis(
-            X_shifted,
-            k=bs_dim,
-            penalty_order=penalty_order,
-            setup_locations=setup_knots,
-            max_knots=max_knots,
-            seed=seed,
-            scale_columns=scale_columns,
-        )
 
     basis_train = np.asarray(tprs["X_raw"], dtype=np.float64)
 
@@ -9376,7 +9196,6 @@ def build_tprs_term_setup(
         drop_null_effective=bool(drop_null_effective),
         drop_keep=(None if drop_keep is None else int(drop_keep)),
         cmX=(None if cmX is None else np.asarray(cmX, dtype=np.float64)),
-        mgcv_c_backend=bool(mgcv_c_backend),
     )
 
 
@@ -9390,17 +9209,7 @@ def predict_tprs_term(X_new, setup: ThinPlateBasisSetup):
 
     X_new_shift = X_new - setup.shift[None, :]
 
-    B = None
-    if bool(getattr(setup, "mgcv_c_backend", False)):
-        B = predict_tprs_reference_basis(X_new_shift, setup)
-
-    if B is None:
-        B = thin_plate_raw_model_matrix(
-            X_new_shift,
-            setup.Xu,
-            setup.penalty_order,
-            setup.UZ,
-        )
+    B = predict_tprs_reference_basis(X_new_shift, setup)
 
     if setup.drop_null_effective:
         B = B[:, : setup.drop_keep]
@@ -9415,8 +9224,6 @@ def predict_tprs_term(X_new, setup: ThinPlateBasisSetup):
 import math
 
 import numpy as np
-from scipy.sparse.linalg import eigsh
-from scipy.spatial import distance_matrix
 
 
 def eta(E, m, d):
@@ -9483,53 +9290,6 @@ def tp_T(data, M, m, d):
         T[:, i] = np.prod(data ** powers[i, :], axis=1)
 
     return T
-
-
-def tp_spline(x, k, pen_order, n, d, M):
-    if d == 1:
-        x = x - x.mean()
-
-    x_un = np.unique(x, axis=0)
-    map_idx = np.all(
-        (np.expand_dims(np.array(x_un), 0) == np.expand_dims(x, 1)), axis=2
-    )
-    map_idx = np.argwhere(map_idx)
-
-    E = distance_matrix(x_un, x_un)
-    E = eta(E, pen_order, d)
-
-    eigen_values, U = eigsh(E, k, which="LA")
-    idx = eigen_values.argsort()[::-1]
-    eigen_values = eigen_values[idx]
-    U = U[:, idx]
-    D = np.diag(eigen_values)
-
-    U_k = U[:, :k]
-    D_k = D[:k, :k]
-    T = tp_T(x_un, M, pen_order, d)
-
-    q, _ = np.linalg.qr(np.dot(U_k.T, T), mode="complete")
-    Z_k = q[:, M:]
-
-    UZ = U_k @ Z_k
-    S = Z_k.T @ D_k @ Z_k
-    S_full = np.zeros((k, k))
-    S_full[: k - M, : k - M] = S
-
-    X = U_k @ D_k @ Z_k
-    X = np.column_stack([X, T])
-    X_full = X[map_idx[:, 1], :]
-
-    UZ_full = np.zeros((UZ.shape[0] + M, k))
-    UZ_full[: UZ.shape[0], : k - M] = UZ
-    UZ_full[UZ.shape[0] :, k - M :] = np.eye(M)
-
-    w = np.sqrt((X_full**2).sum(0) / n)
-    W = np.diag(1 / w)
-    X_full = X_full @ W
-    S_full = W @ S_full @ W
-    UZ_full = UZ_full @ W
-    return X_full, S_full, UZ_full, map_idx
 
 # --- End of nampy/splines/thin_plate_basis.py ---
 

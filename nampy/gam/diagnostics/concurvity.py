@@ -3,14 +3,21 @@ from __future__ import annotations
 import numpy as np
 from scipy.linalg import solve_triangular
 
+from .._model_state import (
+    _coef_column_offset,
+    _fit_intercept,
+    _require_fitted,
+    _term_blocks_seq,
+)
+
 
 def _term_blocks_for_concurvity(model, X):
-    offset = 1 if bool(getattr(model, "fit_intercept", False)) else 0
+    offset = _coef_column_offset(model)
     q = int(X.shape[1])
     covered = np.zeros(q, dtype=bool)
     blocks = []
 
-    for tb in getattr(model, "term_blocks_", ()) or ():
+    for tb in _term_blocks_seq(model):
         if str(getattr(tb, "term_type", "")) == "parametric":
             continue
         idx = np.arange(
@@ -34,7 +41,7 @@ def _term_blocks_for_concurvity(model, X):
 
 def _full_coef_vector(model) -> np.ndarray:
     beta = np.asarray(model.coef_, dtype=np.float64).ravel()
-    if bool(getattr(model, "fit_intercept", False)):
+    if _fit_intercept(model):
         return np.concatenate(
             [np.array([float(model.intercept_)], dtype=np.float64), beta]
         )
@@ -55,11 +62,10 @@ def _residualize_against(A: np.ndarray, B: np.ndarray) -> np.ndarray:
 
 
 def concurvity(model, full: bool = True):
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
+    _require_fitted(model)
 
     Z = np.asarray(model.design_.design_matrix, dtype=np.float64)
-    if bool(getattr(model, "fit_intercept", False)):
+    if _fit_intercept(model):
         X = np.column_stack([np.ones(Z.shape[0], dtype=np.float64), Z])
     else:
         X = Z

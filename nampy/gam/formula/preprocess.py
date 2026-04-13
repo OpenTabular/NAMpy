@@ -7,7 +7,13 @@ from dataclasses import replace
 import numpy as np
 import pandas as pd
 
-from ..specs import LinearPredictorSpec, TermSpec, replace_smooth_spec
+from ..specs import (
+    build_smooth_spec,
+    LinearPredictorSpec,
+    TermSpec,
+    replace_smooth_spec,
+)
+from ..specs.smooth import FactorSmoothInteractionSpec
 
 
 def is_factor_like_series(s: pd.Series) -> bool:
@@ -41,6 +47,48 @@ def numeric_1d_values(s: pd.Series, *, name: str):
     if not np.isfinite(vals).all():
         raise ValueError(f"Column {name!r} contains NaN or Inf.")
     return vals
+
+
+def _fs_by_without_factor_feature_base_spec(smooth_spec: FactorSmoothInteractionSpec):
+    """Mirror mgcv::smooth.construct.fs.smooth.spec when no factor term is present."""
+    xt = smooth_spec.xt
+    if xt is None:
+        base_bs = "tp"
+        xt_rest = None
+    elif isinstance(xt, str):
+        base_bs = str(xt).lower()
+        xt_rest = None
+    elif isinstance(xt, dict):
+        base_bs = str(xt.get("bs", "tp")).lower()
+        xt_rest = {k: v for k, v in xt.items() if k != "bs"} or None
+    else:
+        raise NotImplementedError(
+            "For `bs=\"fs\"`, xt must be None, a basis string, or a dict "
+            "containing optional key `bs`."
+        )
+
+    kwargs = {
+        "special": str(smooth_spec.special),
+        "bs": base_bs,
+        "k": smooth_spec.k,
+        "fx": smooth_spec.fx,
+        "select": smooth_spec.select,
+        "sp": smooth_spec.sp,
+        "knots": smooth_spec.knots,
+        "constraint_mode": str(getattr(smooth_spec, "constraint_mode", "auto")),
+    }
+
+    if base_bs == "ps":
+        kwargs["m"] = None if xt_rest is None else xt_rest.get("m", None)
+    elif base_bs in {"tp", "ts", "gp"}:
+        kwargs["xt"] = xt_rest
+    elif xt_rest:
+        raise NotImplementedError(
+            f"`bs=\"fs\"` factor-by fallback does not support extra xt options for "
+            f"base bs={base_bs!r}."
+        )
+
+    return build_smooth_spec(**kwargs)
 
 
 def expand_parametric_term(
@@ -202,6 +250,17 @@ def expand_factor_by_term(
             f"Factor `by` expansion is implemented for s(...) only in this step, "
             f"not for {smooth_spec.special}(...)."
         )
+
+    if isinstance(smooth_spec, FactorSmoothInteractionSpec):
+        has_factor_feature = any(
+            feature in data_work.columns and is_factor_like_series(data_work[feature])
+            for feature in term.features
+        )
+        if not has_factor_feature:
+            # Upstream mgcv falls back to the underlying base smoother here:
+            # smooth.construct.fs.smooth.spec() returns smooth.construct(base.bs)
+            # when the fs term itself has no factor argument.
+            smooth_spec = _fs_by_without_factor_feature_base_spec(smooth_spec)
 
     cat, levels, ordered = factor_info(by_series)
     if len(levels) == 0:

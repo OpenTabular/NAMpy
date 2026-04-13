@@ -37,8 +37,7 @@ class LinearTerm(BaseSmoothTerm):
         return 1
 
     def transform_new(self, X_new):
-        if self._feature_index is None:
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
         return column_as_float(X_new, self._feature_index)[:, None]
 
 

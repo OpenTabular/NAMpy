@@ -1,8 +1,12 @@
 # gam/model/gam_solve.py
 """Solver dispatch, smoothing resolution, design compilation, and fit-result helpers."""
 from collections.abc import Mapping
+from dataclasses import replace
+from types import SimpleNamespace
 
 import numpy as np
+
+from .._model_state import _require_fitted
 
 
 class _GAMSolveMixin:
@@ -77,11 +81,10 @@ class _GAMSolveMixin:
             raise NotImplementedError(
                 f"Automatic smoothing selection with method={method!r} is not "
                 "currently available for this model configuration. "
-                "The current ML/REML backend requires each penalized term to "
-                "contribute exactly one primary smooth penalty, plus at most "
-                "one null-space penalty on the same term. General overlapping "
-                "multi-penalty structures must currently use 'fixed', 'gcv', "
-                "or 'ubre' where available."
+                "The current ML/REML backend still rejects penalty layouts "
+                "with null-space penalties coupling disconnected primary "
+                "penalty components. Use 'fixed', 'gcv', or 'ubre' where "
+                "available for those cases."
             )
 
         raise NotImplementedError(
@@ -293,20 +296,121 @@ class _GAMSolveMixin:
 
         self.family.validate_predictor_count(len(self.predictor_designs))
 
-        if len(self.predictor_designs) != 1:
-            raise NotImplementedError(
-                "Current core supports one active linear predictor in fitting. "
-                "The predictor architecture is in place for later extension "
-                "to multiple distribution parameters."
-            )
+        if len(self.predictor_designs) == 1:
+            self.design_ = self.predictor_designs[0]
+            self.Z = self.design_.design_matrix
+            self.ZTZ = self.Z.T @ self.Z
+            self.n_coef_ = self.design_.n_coef
+            self.term_blocks_ = self.design_.compiled_terms
+            self.penalty_blocks_ = self.design_.compiled_penalties
+            self.n_smoothing_params_ = self.design_.n_smoothing_params
+            self._predictor_full_slices_ = [
+                slice(
+                    0,
+                    int(self.design_.n_coef) + (1 if bool(self.design_.has_intercept) else 0),
+                )
+            ]
+            self._coef_reduced_to_full_idx = np.arange(
+                int(self.n_coef_), dtype=int
+            ) + (1 if bool(self.design_.has_intercept) else 0)
+        else:
+            global_terms = []
+            global_penalties = []
+            combined_blocks = []
+            combined_map = {}
+            override_modes = []
+            override_values = []
+            predictor_full_slices = []
+            reduced_to_full = []
+            coef_shift = 0
+            sp_shift = 0
+            full_shift = 0
 
-        self.design_ = self.predictor_designs[0]
-        self.Z = self.design_.design_matrix
-        self.ZTZ = self.Z.T @ self.Z
-        self.n_coef_ = self.design_.n_coef
-        self.term_blocks_ = self.design_.compiled_terms
-        self.penalty_blocks_ = self.design_.compiled_penalties
-        self.n_smoothing_params_ = self.design_.n_smoothing_params
+            for pred in self.predictor_designs:
+                combined_blocks.append(np.asarray(pred.design_matrix, dtype=np.float64))
+
+                if bool(pred.has_intercept):
+                    reduced_to_full.extend(
+                        list(
+                            np.arange(
+                                full_shift + 1,
+                                full_shift + 1 + int(pred.n_coef),
+                                dtype=int,
+                            )
+                        )
+                    )
+                    predictor_full_slices.append(
+                        slice(full_shift, full_shift + int(pred.n_coef) + 1)
+                    )
+                    full_shift += int(pred.n_coef) + 1
+                else:
+                    reduced_to_full.extend(
+                        list(np.arange(full_shift, full_shift + int(pred.n_coef), dtype=int))
+                    )
+                    predictor_full_slices.append(slice(full_shift, full_shift + int(pred.n_coef)))
+                    full_shift += int(pred.n_coef)
+
+                for term in pred.compiled_terms:
+                    global_terms.append(
+                        replace(
+                            term,
+                            coef_slice=slice(
+                                coef_shift + int(term.coef_slice.start),
+                                coef_shift + int(term.coef_slice.stop),
+                            ),
+                            smoothing_indices=[
+                                sp_shift + int(v) for v in getattr(term, "smoothing_indices", [])
+                            ],
+                            smoothing_ids=[
+                                f"{pred.name}:{sid}" if sid is not None else None
+                                for sid in getattr(term, "smoothing_ids", [])
+                            ],
+                        )
+                    )
+                for pb in pred.compiled_penalties:
+                    global_penalties.append(
+                        replace(
+                            pb,
+                            coef_slice=slice(
+                                coef_shift + int(pb.coef_slice.start),
+                                coef_shift + int(pb.coef_slice.stop),
+                            ),
+                            smoothing_index=sp_shift + int(pb.smoothing_index),
+                            smoothing_id=(
+                                None
+                                if pb.smoothing_id is None
+                                else f"{pred.name}:{pb.smoothing_id}"
+                            ),
+                        )
+                    )
+                for sid, idxs in (pred.metadata.get("s_id_to_sp_indices", {}) or {}).items():
+                    combined_map[f"{pred.name}:{sid}"] = [sp_shift + int(i) for i in idxs]
+                override_modes.extend(list(pred.smoothing_override_modes or []))
+                if pred.smoothing_override_values is not None:
+                    override_values.extend(
+                        list(np.asarray(pred.smoothing_override_values, dtype=np.float64))
+                    )
+                coef_shift += int(pred.n_coef)
+                sp_shift += int(pred.n_smoothing_params)
+
+            self.design_ = SimpleNamespace(
+                metadata={"s_id_to_sp_indices": combined_map},
+                smoothing_override_modes=list(override_modes),
+                smoothing_override_values=np.asarray(override_values, dtype=np.float64),
+            )
+            self.Z = (
+                np.column_stack(combined_blocks)
+                if combined_blocks
+                else np.empty((X.shape[0], 0), dtype=np.float64)
+            )
+            self.ZTZ = self.Z.T @ self.Z
+            self.n_coef_ = coef_shift
+            self.term_blocks_ = tuple(global_terms)
+            self.penalty_blocks_ = tuple(global_penalties)
+            self.n_smoothing_params_ = sp_shift
+            self._predictor_full_slices_ = predictor_full_slices
+            self._coef_reduced_to_full_idx = np.asarray(reduced_to_full, dtype=int)
+
         self.min_sp_ = self._resolve_min_sp(self.min_sp)
         self.smoothing_params = self._resolve_smoothing_params(self.n_smoothing_params_)
 
@@ -327,12 +431,15 @@ class _GAMSolveMixin:
             matches = [
                 pb for pb in self.penalty_blocks_ if pb.coef_slice == tb.coef_slice
             ]
-            if len(matches) != 1:
-                raise NotImplementedError(
-                    "Current PIRLS path assumes one penalty per term. "
-                    "Multi-penalty terms are planned for later phases."
+            if not matches:
+                penalties.append(
+                    np.zeros((tb.basis_train.shape[1], tb.basis_train.shape[1]))
                 )
-            penalties.append(matches[0].matrix)
+                continue
+            P_term = np.zeros_like(np.asarray(matches[0].matrix, dtype=np.float64))
+            for pb in matches:
+                P_term += np.asarray(pb.matrix, dtype=np.float64)
+            penalties.append(P_term)
         return penalties
 
     def _assemble_penalty_matrix(self, smoothing_params):
@@ -460,8 +567,7 @@ class _GAMSolveMixin:
         )
         from ..fit.results import GAMFitResult, TermFitResult
 
-        if not self._fitted:
-            raise RuntimeError("Model is not fitted.")
+        _require_fitted(self)
         if str(getattr(self, "_optim_method", "")).lower() in {"reml", "ml"}:
             refresh_gaussian_ml_reml_score_from_fit_state(self, self.y_)
 

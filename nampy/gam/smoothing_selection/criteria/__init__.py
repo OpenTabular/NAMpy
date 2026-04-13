@@ -23,6 +23,7 @@ from .gaussian_dyn import (
     _gaussian_dynamic_reml_derivative_terms,
     criterion_gradient_ml_reml_gaussian_dynamic_joint,
     criterion_ml_reml_gaussian_dynamic_joint,
+    criterion_ml_reml_gaussian_dynamic_profiled,
 )
 from .gaussian_reml_algebra import (
     deviance_method_scale_estimate,
@@ -50,8 +51,10 @@ from .pirls import (
 from .pirls_deriv import (
     criterion_gradient_ml_reml_pirls_exact,
     criterion_gradient_ml_reml_pirls_gamma_joint,
+    criterion_gradient_ml_reml_pirls_negbin_joint,
     criterion_hessian_ml_reml_pirls_exact,
     criterion_hessian_ml_reml_pirls_gamma_joint,
+    criterion_hessian_ml_reml_pirls_negbin_joint,
 )
 
 __all__ = [
@@ -65,10 +68,12 @@ __all__ = [
     "criterion_gradient",
     "criterion_gradient_ml_reml_gaussian_dynamic_joint",
     "criterion_gradient_ml_reml_pirls_gamma_joint",
+    "criterion_gradient_ml_reml_pirls_negbin_joint",
     "criterion_gradient_ml_reml_pirls_exact",
     "criterion_gradient_numerical",
     "criterion_hessian",
     "criterion_hessian_ml_reml_pirls_gamma_joint",
+    "criterion_hessian_ml_reml_pirls_negbin_joint",
     "criterion_hessian_ml_reml_pirls_exact",
     "criterion_hessian_numerical",
     "criterion_infinite_sp_signal",
@@ -76,6 +81,7 @@ __all__ = [
     "criterion_ml_reml_exact",
     "criterion_ml_reml_exact_dynamic",
     "criterion_ml_reml_gaussian_dynamic_joint",
+    "criterion_ml_reml_gaussian_dynamic_profiled",
     "criterion_ml_reml_pirls_gamma_joint",
     "criterion_ml_reml_pirls_negbin_joint",
     "criterion_ml_reml_pirls",

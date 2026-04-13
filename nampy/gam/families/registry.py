@@ -2,6 +2,7 @@ from .exponential import (
     BinomialCloglogFamily,
     BinomialLogitFamily,
     BinomialProbitFamily,
+    GammaIdentityFamily,
     GammaInverseFamily,
     GammaLogFamily,
     GaussianIdentityFamily,
@@ -9,6 +10,11 @@ from .exponential import (
     PoissonLogFamily,
 )
 from .family_base import BaseFamily
+from .gamlss.gaulss import gaulss
+from .gamlss.gammals import gammals
+from .gamlss.gevlss import gevlss
+from .gamlss.shashlss import shashlss
+from .gamlss.ziplss import ziplss
 
 _BINOMIAL_LINK_MAP = {
     "logit": BinomialLogitFamily,
@@ -17,6 +23,7 @@ _BINOMIAL_LINK_MAP = {
 }
 
 _GAMMA_LINK_MAP = {
+    "identity": GammaIdentityFamily,
     "log": GammaLogFamily,
     "inverse": GammaInverseFamily,
 }
@@ -41,7 +48,14 @@ def make_gam_family(family):
             cls = _BINOMIAL_LINK_MAP.get(link or "logit", BinomialLogitFamily)
             return cls()
         if name in {"gamma"}:
-            cls = _GAMMA_LINK_MAP.get(link or "log", GammaLogFamily)
+            resolved = (link or "log").lower()
+            try:
+                cls = _GAMMA_LINK_MAP[resolved]
+            except KeyError:
+                raise ValueError(
+                    f"Unknown gamma link {link!r}. "
+                    f"Supported: {', '.join(sorted(_GAMMA_LINK_MAP))}."
+                ) from None
             return cls()
         family = name
 
@@ -68,8 +82,18 @@ def make_gam_family(family):
         return GammaLogFamily()
     if key in {"negbin", "negativebinomial", "negative_binomial"}:
         return NegativeBinomialLogFamily(theta=1.0)
+    if key in {"gaulss"}:
+        return gaulss()
+    if key in {"gammals"}:
+        return gammals()
+    if key in {"ziplss"}:
+        return ziplss()
+    if key in {"gevlss"}:
+        return gevlss()
+    if key in {"shashlss", "shash"}:
+        return shashlss()
 
     raise ValueError(
         f"Unknown GAM family {family!r}. "
-        "Valid options: gaussian, binomial, poisson, gamma, negbin."
+        "Valid options: gaussian, binomial, poisson, gamma, negbin, gaulss, gammals, ziplss, gevlss, shashlss."
     )

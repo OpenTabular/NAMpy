@@ -62,6 +62,13 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
 
     for id_key, eligible_items in eligible_by_id.items():
         all_items = all_by_id.get(id_key, [])
+        if len(all_items) > 1 and len(all_items) != len(eligible_items):
+            unsupported = [term.label for _, _, term in all_items]
+            raise NotImplementedError(
+                f"Linked id={id_key!r} currently requires full mgcv-parity support "
+                f"across every linked term. NAMpy's old partial pooling subset for "
+                f"compatible 1D cubic `s()` terms was removed. Terms: {unsupported}"
+            )
         if len(eligible_items) < 2:
             continue
 
@@ -109,19 +116,6 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
             continue
 
         pooled_x = np.concatenate(pooled_columns)
-
-        if len(all_items) > len(eligible_items):
-            skipped = [
-                term.label
-                for _, _, term in all_items
-                if not _eligible_id_pool_term(term)
-            ]
-            warnings.warn(
-                f"id={id_key!r} is used by terms outside the current shared-basis "
-                f"pooling subset. Shared basis setup was applied only to compatible "
-                f"1D cr s() terms; skipped terms: {skipped}",
-                stacklevel=2,
-            )
 
         # Build a temporary spline from pooled data to extract canonical knots and
         # penalty matrices.  Storing the k×k penalty (not the full n×k basis) keeps

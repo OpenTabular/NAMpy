@@ -10,7 +10,7 @@ from _mgcv_snapshot_parity_shared import (
     _run_mgcv_snapshot,
 )
 
-from nampy.basemodels.gam import GAM
+from nampy.gam import GAM
 from nampy.gam.fit.postprocess.gaussian_smoothness_postprocess import (
     gaussian_smoothness_postprocess,
 )

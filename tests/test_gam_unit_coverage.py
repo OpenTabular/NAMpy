@@ -20,11 +20,25 @@ for edge cases not covered elsewhere.
 
 from __future__ import annotations
 
+import warnings
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
+from mgcv_parity_utils import _make_fs_data
 
-from nampy.basemodels.gam import GAM
+from nampy.gam import GAM
+from nampy.gam._mgcv_constants import (
+    EIG_TOL_POWER,
+    FAMILY_EPS,
+    GAMMA_ABSTOL,
+    LINK_ETA_EXP_CLIP,
+    LOG_GUARD_MIN,
+    PENALTY_RIDGE_REL,
+    QR_TOL_SCALE,
+    SMOOTHING_SCORE_ABS_FLOOR,
+)
 from nampy.gam.basis.tensor import (
     lifted_tensor_penalty,
     normalize_tensor_marginal_penalty,
@@ -47,6 +61,8 @@ from nampy.gam.constraints.transforms import (
     null_space_basis_from_constraint_matrix,
     orthogonal_residual,
 )
+from nampy.gam.design.compiler import compile_predictor_designs
+from nampy.gam.design.constructors import construct_terms
 from nampy.gam.design.structures import (
     PenaltySpec,
 )
@@ -55,7 +71,7 @@ from nampy.gam.diagnostics.summary import (
     print_summary,
     summary_text,
 )
-from nampy.gam.families import GaussianIdentityFamily
+from nampy.gam.families import GaussianIdentityFamily, make_gam_family
 from nampy.gam.families.exponential import (
     BinomialCloglogFamily,
     BinomialLogitFamily,
@@ -75,12 +91,22 @@ from nampy.gam.fit.linalg.matrix_reindexing import (
     permute_rows,
     restore_dropped_rows,
 )
+from nampy.gam.fit.linalg.stacked_qr import (
+    STACKED_QR_RANK_TOLERANCE,
+    balanced_penalty_template_sqrt_for_rank,
+    penalty_sqrt_rows,
+    pls_fit1_nonneg_w,
+    solve_gaussian_penalized_ls_stacked_qr,
+)
+from nampy.gam.fit.penalized_qr import build_penalized_qr_state_nonnegative
 from nampy.gam.fit.penalized_system import build_full_penalty_from_blocks
+from nampy.gam.fit.solvers.irls_core import PenalizedIrlsControl, irls_core
 from nampy.gam.formula import compile_predictor_specs_from_formula, parse_gam_formula
 from nampy.gam.formula.parser import (
     ParsedParametricTerm,
     ParsedSmoothTerm,
 )
+from nampy.gam.parity import build_parity_snapshot, compare, save_parity_snapshot
 from nampy.gam.penalties.algebra import (
     null_space_penalty_from_penalty,
     penalty_eigendecomposition,
@@ -94,13 +120,48 @@ from nampy.gam.penalties.subsystem import (
     normalize_penalty_spec,
     penalty_rank_null_dim,
 )
+from nampy.gam.runtime.factory import instantiate_term
+from nampy.gam.smoothing_selection.criteria import _penalty_derivative_matrices
+from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
+    deviance_method_scale_estimate,
+    gaussian_reml_laplace_score,
+    gaussian_reml_saturation_terms_wrt_variance,
+    gaussian_reml_weighted_degrees_and_log_weight_term,
+    gaussian_weighted_residual_sum_squares,
+    pearson_method_scale_estimate,
+    prior_weights_diagonal_from_fit,
+    profiled_gaussian_reml_variance,
+    quadratic_form_penalty,
+)
+from nampy.gam.smooths.categorical.factor_smooth import (
+    FSmoothInteractionTerm,
+    SZSmoothInteractionTerm,
+)
+from nampy.gam.smooths.categorical.mrf import MarkovRandomFieldTerm
+from nampy.gam.smooths.categorical.random_effect import RandomEffectTerm
 from nampy.gam.smooths.smooth_base import (
+    RUNTIME_TERM_INTERFACE_CHECKLIST,
     ByState,
     _resolve_feature,
     resolve_by_state,
     resolve_feature_matrix_state,
 )
-from nampy.gam.specs import TermSpec
+from nampy.gam.smooths.tensor.t2 import TensorANOVASplineTerm
+from nampy.gam.smooths.tensor.te import TensorProductSplineTerm
+from nampy.gam.smooths.tensor.ti import InteractionTensorProductSplineTerm
+from nampy.gam.smooths.univariate.cubic_regression import SplineTerm1D
+from nampy.gam.smooths.univariate.gp import GPSmoothTerm
+from nampy.gam.smooths.univariate.pspline import PSplineTerm1D
+from nampy.gam.smooths.univariate.thin_plate import ThinPlateSplineTerm
+from nampy.gam.specs import (
+    MarkovRandomFieldSmoothSpec,
+    RandomEffectSmoothSpec,
+    TensorANOVASmoothSpec,
+    TermSpec,
+    build_smooth_spec,
+)
+from nampy.gam.terms.linear import LinearTerm
+from nampy.splines.cubic import CubicSplines
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -1129,7 +1190,9 @@ class TestCompilePredictorSpecsFromFormula:
         specs = compile_predictor_specs_from_formula(parsed, default_basis="tp")
         smooth_specs = [t for t in specs[0].terms if t.kind == "smooth"]
         assert len(smooth_specs) == 1
-        assert smooth_specs[0].smooth_spec.__class__.__name__ == "TensorProductSmoothSpec"
+        assert (
+            smooth_specs[0].smooth_spec.__class__.__name__ == "TensorProductSmoothSpec"
+        )
         assert smooth_specs[0].basis_options["special"] == "te"
         assert smooth_specs[0].basis_options["bs"] == "cr"
 
@@ -1267,6 +1330,15 @@ class TestFamilyApi:
                 baseline_gamma[3]
             )
 
+    def test_make_gam_family_gamma_identity(self):
+        family = make_gam_family({"name": "gamma", "link": "identity"})
+        assert family.link_name == "identity"
+        assert family.name == "gamma"
+
+    def test_make_gam_family_gamma_unknown_link_raises(self):
+        with pytest.raises(ValueError, match="Unknown gamma link"):
+            make_gam_family({"name": "gamma", "link": "sqrt"})
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 10. gam/diagnostics/summary.py
@@ -1376,20 +1448,6 @@ class TestApplyGlobalSideConditions:
         pred_manual = intercept + X @ coef
         pred_api = gam.predict(data)
         np.testing.assert_allclose(pred_manual, pred_api, atol=1e-10)
-
-    def test_two_smooth_terms_predictions_match(self):
-        """Two-smooth model: prediction must be consistent."""
-        data = _make_gaussian_data(n=100)
-        gam = GAM(
-            formula='y ~ s(x0, bs="cr", k=6) + s(x1, bs="cr", k=6)',
-            optimize_smoothing=True,
-            smoothing_method="REML",
-        )
-        gam.fit(data=data)
-        pred = gam.predict(data)
-        assert pred.shape == (100,)
-        # Predictions should be finite
-        assert np.all(np.isfinite(pred))
 
     def test_formula_prediction_metadata_derived_from_preprocess_state(self):
         data = _make_gaussian_data(n=60)
@@ -1523,3 +1581,847 @@ class TestParityTermContributions:
         pred = gam.predict(data)
         # result["output"] should match predict()
         np.testing.assert_allclose(np.array(result["output"]), pred, atol=1e-10)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 13. gam/design/constructors.py — construct_terms with predict_coefficient_map
+# (from test_gam_design_constraint_maps.py)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class _WrapperConstraintRuntime:
+    label = "fake_constraint_term"
+    term_id = "fake_term_id"
+    basis_name = "fake"
+    term_type = "smooth"
+    by = None
+    smoothing_id = None
+    metadata = {}
+    by_done = True
+    transform_applied = False
+    skip_centering = False
+    constraint_kind = None
+    prediction_offset = None
+    _by_state = None
+
+    def __init__(self, *, predict_coefficient_map=None):
+        self.fit_constraint_matrix = np.array([[1.0, 0.0, 0.0]])
+        self.predict_coefficient_map = predict_coefficient_map
+
+    def fit(self, X, feature_names):
+        self.basis_train = np.asarray(X, dtype=np.float64)
+        return self
+
+    def get_penalty_definitions(self):
+        return [PenaltySpec(matrix=np.eye(3), kind="smooth")]
+
+    def transform_new(self, X_new):
+        return np.asarray(X_new, dtype=np.float64)
+
+
+def test_construct_terms_uses_explicit_predict_coefficient_map():
+    X = np.eye(3, dtype=np.float64)
+    predict_map = np.array([[0.0, 1.0], [0.0, 0.0], [1.0, 0.0]], dtype=np.float64)
+    runtime = _WrapperConstraintRuntime(predict_coefficient_map=predict_map)
+    term = construct_terms(runtime, X=X, feature_names=["x0", "x1", "x2"])[0]
+    assert term.fit_constraint_operator is not None
+    assert term.fit_coefficient_map is not None
+    assert term.predict_coefficient_map is not None
+    assert term.transform_applied
+    assert term.skip_centering
+    np.testing.assert_allclose(term.predict_coefficient_map, predict_map)
+    pred = term.predict_matrix(X)
+    assert pred.shape == term.train_design_matrix.shape
+    np.testing.assert_allclose(pred, predict_map)
+    assert not np.allclose(pred, term.train_design_matrix)
+
+
+def test_construct_terms_validates_predict_coefficient_map_shape():
+    X = np.eye(3, dtype=np.float64)
+    runtime = _WrapperConstraintRuntime(
+        predict_coefficient_map=np.array([[1.0], [0.0], [0.0]], dtype=np.float64)
+    )
+    with pytest.raises(ValueError, match="Predict coefficient map"):
+        construct_terms(runtime, X=X, feature_names=["x0", "x1", "x2"])
+
+
+def test_construct_terms_preserves_runtime_skip_centering_without_transform():
+    X = np.eye(3, dtype=np.float64)
+    runtime = _WrapperConstraintRuntime()
+    runtime.skip_centering = True
+    term = construct_terms(
+        runtime, X=X, feature_names=["x0", "x1", "x2"], absorb_cons=False
+    )[0]
+    assert not term.transform_applied
+    assert term.skip_centering
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 14. fs + ps marginal design matches mgcv smoothCon structure
+# (from test_fs_ps_marginal_mgcv_dims.py)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_fs_ps_marginal_design_matches_mgcv_smoothcon_structure():
+    data = _make_fs_data()
+    formula = 'y ~ s(f, x, bs="fs", xt=list(bs="ps", m=2, k=7))'
+    parsed = parse_gam_formula(formula)
+    specs = compile_predictor_specs_from_formula(
+        parsed, default_k=10, default_select=False
+    )
+    X = data[["f", "x"]].to_numpy(dtype=object)
+    des = compile_predictor_designs(X, ["f", "x"], specs)[0]
+    assert des.n_smoothing_params == 3
+    assert des.design_matrix.shape == (len(data), 30)
+    pdefs = des.compiled_terms[0].smooth.penalty_specs
+    assert len(pdefs) == 3
+    assert [int(p.rank) for p in pdefs] == [24, 3, 3]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 15. Parity tooling and frozen mgcv constants
+# (from test_gam_parity_validator.py)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_mgcv_constants_frozen_to_1_9_1_reference():
+    assert EIG_TOL_POWER == 0.8
+    assert PENALTY_RIDGE_REL == 1e-6
+    assert GAMMA_ABSTOL == 1e-12
+    assert QR_TOL_SCALE == 1.0
+    assert FAMILY_EPS == 1e-9
+    assert LINK_ETA_EXP_CLIP == 700.0
+    assert LOG_GUARD_MIN == 1e-300
+    assert SMOOTHING_SCORE_ABS_FLOOR == 1e-8
+
+
+def test_parity_validator_compare_accepts_dict_and_path(tmp_path: Path):
+    data = _make_gaussian_data(n=40)
+    model = GAM(
+        formula='y ~ s(x0, bs="cr", k=6) + s(x1, bs="cr", k=6)',
+        optimize_smoothing=False,
+        smoothing_params=[1.0, 1.0],
+    )
+    model.fit(data=data)
+    snapshot = build_parity_snapshot(model, X=data)
+    report_dict = compare(model, snapshot)
+    assert report_dict["passed"] is True
+    snapshot_path = tmp_path / "mgcv_snapshot.json"
+    save_parity_snapshot(snapshot, snapshot_path)
+    report_path = compare(model, snapshot_path)
+    assert report_path["passed"] is True
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 16. Runtime term contract and prediction coercion
+# (from test_gam_runtime_term_contract.py)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _build_mixed_data(n=40):
+    rng = np.random.default_rng(123)
+    x0 = rng.uniform(-1.0, 1.0, size=n)
+    x1 = rng.uniform(0.0, 2.0, size=n)
+    by = rng.uniform(0.5, 1.5, size=n)
+    fac = np.where(rng.random(n) > 0.5, "A", "B")
+    area = np.array(
+        ["r0", "r1", "r2", "r3"] * (n // 4) + ["r0"] * (n % 4), dtype=object
+    )
+    X = np.empty((n, 5), dtype=object)
+    X[:, 0] = x0
+    X[:, 1] = x1
+    X[:, 2] = fac
+    X[:, 3] = area
+    X[:, 4] = by
+    feature_names = ["x0", "x1", "fac", "area", "by"]
+    return X, feature_names
+
+
+def _assert_term_contract(term):
+    for attr in RUNTIME_TERM_INTERFACE_CHECKLIST:
+        assert hasattr(term, attr), f"missing runtime contract attribute: {attr}"
+    assert callable(term.transform_new)
+    assert callable(term.get_penalty_definitions)
+    assert term.resolved_feature_names is not None
+
+
+def test_runtime_term_contract_and_prediction_coercion():
+    X, feature_names = _build_mixed_data()
+    X_new = X.copy()
+    X_new[:, 2] = "UNUSED_FACTOR"
+    X_new[:, 3] = "UNUSED_REGION"
+    terms = [
+        LinearTerm(feature="x0", label="lin_x0"),
+        SplineTerm1D(feature="x0", k=8, basis="cr", label="s_x0"),
+        PSplineTerm1D(feature="x0", k=8, basis="ps", label="ps_x0", by="by"),
+        ThinPlateSplineTerm(feature=["x0", "x1"], basis="tp", k=15, label="tp_x0_x1"),
+        GPSmoothTerm(feature=["x0", "x1"], basis="gp", k=15, label="gp_x0_x1"),
+        TensorProductSplineTerm(
+            feature=["x0", "x1"], basis=["cr", "cr"], k=[6, 6], label="te_x0_x1"
+        ),
+        InteractionTensorProductSplineTerm(
+            feature=["x0", "x1"], basis=["cr", "cr"], k=[6, 6], label="ti_x0_x1"
+        ),
+        TensorANOVASplineTerm(
+            feature=["x0", "x1"], basis=["cr", "cr"], k=[6, 6], label="t2_x0_x1"
+        ),
+        RandomEffectTerm(feature=["fac"], label="re_fac"),
+        MarkovRandomFieldTerm(
+            feature=["area"], label="mrf_area", xt={"penalty": np.eye(4)}
+        ),
+        FSmoothInteractionTerm(feature=["x0", "fac"], k=7, label="fs_x0_fac", xt="cr"),
+        SZSmoothInteractionTerm(feature=["x0", "fac"], k=7, label="sz_x0_fac", xt="cr"),
+    ]
+    for term in terms:
+        term.fit(X, feature_names)
+        _assert_term_contract(term)
+        B = term.transform_new(X_new)
+        assert isinstance(B, np.ndarray)
+        assert B.shape[0] == X_new.shape[0]
+
+
+def test_cubic_spline_centering_uses_gam_absorption_policy():
+    x = np.linspace(0.0, 1.0, 12, dtype=np.float64).reshape(-1, 1)
+    spline = CubicSplines(x, k=6)
+    np.testing.assert_allclose(spline.basis.mean(axis=0), 0.0, atol=1e-12, rtol=0.0)
+    assert spline.center_mat.shape == (spline.raw_basis.shape[1], spline.basis.shape[1])
+    np.testing.assert_allclose(
+        spline.penalty,
+        spline.center_mat.T @ spline.raw_penalty @ spline.center_mat,
+        atol=1e-12,
+        rtol=0.0,
+    )
+
+
+def test_select_penalty_metadata_uses_canonical_runtime_state():
+    X, feature_names = _build_mixed_data()
+    terms = [
+        PSplineTerm1D(feature="x0", k=8, basis="ps", label="ps_sel", select=True),
+        ThinPlateSplineTerm(
+            feature=["x0", "x1"], basis="ts", k=15, label="tp_sel", select=True
+        ),
+        GPSmoothTerm(
+            feature=["x0", "x1"], basis="gp", k=15, label="gp_sel", select=True
+        ),
+    ]
+    found_selection_penalty = False
+    for term in terms:
+        term.fit(X, feature_names)
+        defs = term.get_penalty_definitions()
+        selection_defs = [d for d in defs if bool(d.is_null_space_penalty)]
+        for pdef in selection_defs:
+            found_selection_penalty = True
+            meta = pdef.metadata
+            assert meta["by_name"] == getattr(term._by_state, "feature_name", None)
+            assert meta["by_is_constant"] is bool(
+                getattr(term._by_state, "is_constant", True)
+            )
+            assert meta["constraint_kind"] == getattr(term, "constraint_kind", None)
+    assert found_selection_penalty
+
+
+def test_factory_supports_select_for_categorical_runtime_terms():
+    X, feature_names = _build_mixed_data()
+    specs = [
+        TermSpec(
+            kind="smooth",
+            features=("area",),
+            smooth_spec=build_smooth_spec(
+                special="s", bs="mrf", k=4, select=True, xt={"penalty": np.eye(4)}
+            ),
+            label="mrf_sel",
+        ),
+        TermSpec(
+            kind="smooth",
+            features=("fac",),
+            smooth_spec=build_smooth_spec(special="s", bs="re", select=True),
+            label="re_sel",
+        ),
+        TermSpec(
+            kind="smooth",
+            features=("x0", "fac"),
+            smooth_spec=build_smooth_spec(
+                special="s", bs="fs", k=7, select=True, xt="cr"
+            ),
+            label="fs_sel",
+        ),
+        TermSpec(
+            kind="smooth",
+            features=("x0", "fac"),
+            smooth_spec=build_smooth_spec(
+                special="s", bs="sz", k=7, select=True, xt="cr"
+            ),
+            label="sz_sel",
+        ),
+    ]
+    terms = [instantiate_term(spec) for spec in specs]
+    for term in terms:
+        assert getattr(term, "select", False) is True
+        term.fit(X, feature_names)
+        defs = term.get_penalty_definitions()
+        assert defs
+    mrf_defs = terms[0].get_penalty_definitions()
+    assert len(mrf_defs) == 1
+    re_defs = terms[1].get_penalty_definitions()
+    assert not any(d.is_null_space_penalty for d in re_defs)
+    fs_defs = terms[2].get_penalty_definitions()
+    assert any(d.is_null_space_penalty for d in fs_defs)
+    sz_defs = terms[3].get_penalty_definitions()
+    assert any(d.is_null_space_penalty for d in sz_defs)
+
+
+def test_random_effect_term_rejects_linked_ids_with_mgcv_message():
+    with pytest.raises(
+        NotImplementedError, match=r"random effects don't work with ids\."
+    ):
+        RandomEffectTerm(feature=["fac"], label="re_linked", smoothing_id="group_re")
+    spec = TermSpec(
+        kind="smooth",
+        features=("fac",),
+        smooth_spec=build_smooth_spec(special="s", bs="re"),
+        smoothing_id="group_re",
+        label="re_linked_spec",
+    )
+    with pytest.raises(
+        NotImplementedError, match=r"random effects don't work with ids\."
+    ):
+        instantiate_term(spec)
+
+
+def test_t2_invalid_term_sp_length_warns_and_is_ignored():
+    X, feature_names = _build_mixed_data()
+    spec = TermSpec(
+        kind="smooth",
+        features=("x0", "x1"),
+        smooth_spec=build_smooth_spec(
+            special="t2", bs=["ps", "ps"], k=[5, 5], sp=[0.7, 1.3]
+        ),
+        label="t2_ps_ps_bad_sp",
+    )
+    term = instantiate_term(spec)
+    term.fit(X, feature_names)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        defs = term.get_penalty_definitions()
+    assert any(
+        "length of sp incorrect in t2: ignored" in str(w.message) for w in caught
+    )
+    assert len(defs) == 3
+    assert all(d.sp_mode is None for d in defs)
+
+
+def test_t2_full_true_matches_mgcv_penalty_count():
+    X, feature_names = _build_mixed_data()
+    spec = TermSpec(
+        kind="smooth",
+        features=("x0", "x1"),
+        smooth_spec=build_smooth_spec(
+            special="t2", bs=["tp", "cr"], k=[6, 6], full=True
+        ),
+        label="t2_tp_cr_full",
+    )
+    term = instantiate_term(spec)
+    term.fit(X, feature_names)
+    defs = term.get_penalty_definitions()
+    assert len(defs) == 5
+
+
+def test_t2_select_adds_one_null_space_penalty():
+    X, feature_names = _build_mixed_data()
+    spec = TermSpec(
+        kind="smooth",
+        features=("x0", "x1"),
+        smooth_spec=build_smooth_spec(
+            special="t2", bs=["tp", "cr"], k=[6, 6], select=True
+        ),
+        label="t2_select_spec",
+    )
+    term = instantiate_term(spec)
+    term.fit(X, feature_names)
+    defs = term.get_penalty_definitions()
+    assert len(defs) == 4
+    assert sum(bool(d.is_null_space_penalty) for d in defs) == 1
+
+
+def test_termspec_carries_typed_smooth_spec():
+    mrf_spec = TermSpec(
+        kind="smooth",
+        features=("area",),
+        smooth_spec=build_smooth_spec(
+            special="s", bs="mrf", k=4, xt={"penalty": np.eye(4)}
+        ),
+    )
+    re_spec = TermSpec(
+        kind="smooth",
+        features=("fac",),
+        smooth_spec=build_smooth_spec(special="s", bs="re"),
+    )
+    t2_spec = TermSpec(
+        kind="smooth",
+        features=("x0", "x1"),
+        smooth_spec=build_smooth_spec(special="t2", bs=["tp", "cr"], k=[6, 6]),
+    )
+    assert isinstance(mrf_spec.smooth_spec, MarkovRandomFieldSmoothSpec)
+    assert isinstance(re_spec.smooth_spec, RandomEffectSmoothSpec)
+    assert isinstance(t2_spec.smooth_spec, TensorANOVASmoothSpec)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 17. IRLS solver internals
+# (from test_gam_fit_penalized_irls_solver.py)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class _PB:
+    smoothing_index = 0
+    matrix = np.eye(3)
+    coef_slice = slice(0, 3)
+
+
+def test_gaussian_identity_one_step_matches_direct_pls():
+    rng = np.random.default_rng(2)
+    n, q = 60, 4
+    X = np.c_[np.ones(n), rng.standard_normal((n, q - 1))]
+    beta = np.array([0.4, -0.15, 0.05, 0.2])
+    y = X @ beta + rng.standard_normal(n) * 0.25
+    lam = 0.35
+    P = np.zeros((q, q), dtype=np.float64)
+    P[1:, 1:] = lam * np.eye(q - 1)
+    Eb = balanced_penalty_template_sqrt_for_rank(
+        [_PB()], fit_intercept=True, n_coef=q - 1
+    )
+    w = np.ones(n, dtype=np.float64)
+    direct = solve_gaussian_penalized_ls_stacked_qr(
+        X, y, w, P, penalty_blocks=[_PB()], fit_intercept=True, n_coef=q - 1
+    )
+    ctl = PenalizedIrlsControl(maxit=10, epsilon=1e-10)
+    out = irls_core(
+        X,
+        y,
+        GaussianIdentityFamily(),
+        P,
+        weights=w,
+        offset=np.zeros(n),
+        fit_intercept=True,
+        max_iter=ctl.maxit,
+        tol=ctl.epsilon,
+        penalty_rank_rows=Eb,
+    )
+    assert out["converged"]
+    assert out["iter"] == 1
+    np.testing.assert_allclose(out["coef"], direct["coef_full"], atol=1e-10, rtol=0.0)
+
+
+def test_extended_family_pirls_path_runs_when_hooks_present():
+    from nampy.gam.families.family_base import ExtendedFamily
+
+    class DummyExt(ExtendedFamily):
+        name = "dummy"
+        link_name = "identity"
+        supports_pirls = True
+        known_scale = 1.0
+
+        def initialize_mu(self, y):
+            return np.asarray(y, dtype=np.float64)
+
+        def link(self, mu):
+            return np.asarray(mu, dtype=np.float64)
+
+        def inverse_link(self, eta):
+            return np.asarray(eta, dtype=np.float64)
+
+        def mu_eta(self, eta):
+            return np.ones_like(np.asarray(eta, dtype=np.float64))
+
+        def variance(self, mu):
+            return np.ones_like(np.asarray(mu, dtype=np.float64))
+
+        def dvar(self, mu):
+            return np.zeros_like(np.asarray(mu, dtype=np.float64))
+
+        def d2link(self, mu):
+            return np.zeros_like(np.asarray(mu, dtype=np.float64))
+
+        def deviance(self, y, mu, weights=None):
+            y = np.asarray(y, dtype=np.float64)
+            mu = np.asarray(mu, dtype=np.float64)
+            wt = (
+                np.ones_like(y, dtype=np.float64)
+                if weights is None
+                else np.asarray(weights, dtype=np.float64)
+            )
+            return float(np.sum(wt * (y - mu) ** 2))
+
+        def estimate_dispersion(self, y, mu, edf=None, weights=None):
+            del y, mu, edf, weights
+            return 1.0
+
+        def loglik(self, y, mu, scale=1.0):
+            del scale
+            y = np.asarray(y, dtype=np.float64)
+            mu = np.asarray(mu, dtype=np.float64)
+            return float(-0.5 * np.sum((y - mu) ** 2))
+
+        def Dd(self, y, mu, theta, wt, level=0):
+            del theta, level
+            y = np.asarray(y, dtype=np.float64)
+            mu = np.asarray(mu, dtype=np.float64)
+            wt = np.asarray(wt, dtype=np.float64)
+            return {
+                "Dmu": 2.0 * wt * (mu - y),
+                "Dmu2": 2.0 * wt,
+                "EDmu2": 2.0 * wt,
+            }
+
+        def ls(self, y, w, theta, scale):
+            del y, w, theta, scale
+            return {"ls": 0.0, "lsth1": 0.0, "LSTH1": np.zeros((0, 1)), "lsth2": 0.0}
+
+    X = np.eye(2)
+    y = np.array([1.0, 2.0])
+    P = np.eye(2) * 0.1
+    out = irls_core(X, y, DummyExt(), P)
+    assert out["converged"]
+    np.testing.assert_allclose(out["mu"], y, atol=1e-10, rtol=0.0)
+
+
+def test_irls_empty_columns():
+    y = np.array([1.0, 2.0, 3.0])
+    out = irls_core(np.zeros((3, 0)), y, GaussianIdentityFamily(), np.zeros((0, 0)))
+    assert out["coef"].shape == (0,)
+    assert out["converged"]
+
+
+def test_irls_step_halving_recomputes_mu_eta_and_variance():
+    class TrackingFamily:
+        name = "tracking"
+        link_name = "identity"
+        canonical_link = True
+
+        def __init__(self):
+            self.mu_eta_calls = 0
+            self.variance_calls = 0
+
+        def validate_y(self, y):
+            return np.asarray(y, dtype=np.float64).ravel()
+
+        def inverse_link(self, eta):
+            return np.asarray(eta, dtype=np.float64)
+
+        def link(self, mu):
+            return np.asarray(mu, dtype=np.float64)
+
+        def initialize_mu(self, y):
+            return np.zeros_like(np.asarray(y, dtype=np.float64))
+
+        def mu_eta(self, eta):
+            self.mu_eta_calls += 1
+            return np.ones_like(np.asarray(eta, dtype=np.float64))
+
+        def variance(self, mu):
+            self.variance_calls += 1
+            return np.ones_like(np.asarray(mu, dtype=np.float64))
+
+        def deviance(self, y, mu):
+            y = np.asarray(y, dtype=np.float64)
+            mu = np.asarray(mu, dtype=np.float64)
+            return float(np.sum((y - mu) ** 2))
+
+        def valid_mu(self, mu):
+            return bool(np.all(np.abs(np.asarray(mu, dtype=np.float64)) < 1.0))
+
+    family = TrackingFamily()
+    X = np.ones((1, 1), dtype=np.float64)
+    y = np.array([2.0], dtype=np.float64)
+    P = np.zeros((1, 1), dtype=np.float64)
+    ctl = PenalizedIrlsControl(maxit=10, epsilon=1e-12)
+    out = irls_core(X, y, family, P, max_iter=ctl.maxit, tol=ctl.epsilon)
+    assert family.mu_eta_calls > 1
+    assert family.variance_calls > 1
+    assert out["warnings"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 18. Nonnegative penalized QR state
+# (from test_gam_fit_nonnegative_penalized_qr_state.py)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _random_pls_instance(n, q, *, seed):
+    rng = np.random.default_rng(seed)
+    X = rng.standard_normal((n, q))
+    coef_true = rng.standard_normal(q)
+    mu = X @ coef_true
+    z = mu + 0.1 * rng.standard_normal(n)
+    w = np.abs(rng.standard_normal(n)) + 0.5
+    P_pen = np.diag(np.concatenate([[0.0], np.full(q - 1, 0.3 + rng.random(q - 1))]))
+    E, Es = penalty_sqrt_rows(P_pen)
+    return X, z, w, E, Es
+
+
+def _rS_q_rows(E, q):
+    E = np.asarray(E, dtype=np.float64)
+    n_e, qe = E.shape
+    if qe != q:
+        raise ValueError("E must have q columns.")
+    return E.T.copy()
+
+
+@pytest.mark.parametrize("seed", [0, 1])
+def test_penalized_qr_state_beta_matches_pls_fit1(seed):
+    n, q = 80, 12
+    X, z, w, E, Es = _random_pls_instance(n, q, seed=seed)
+    wy = w * z
+    rS = _rS_q_rows(E, q)
+    coef_pls, _pen = pls_fit1_nonneg_w(
+        X,
+        z,
+        w,
+        wy,
+        penalty_sqrt_E=E,
+        penalty_rank_Es=Es,
+        rank_tol=STACKED_QR_RANK_TOLERANCE,
+    )
+    state = build_penalized_qr_state_nonnegative(
+        X,
+        z,
+        w,
+        penalty_sqrt_E=E,
+        penalty_rank_Es=Es,
+        rS=rS,
+        rank_tol=STACKED_QR_RANK_TOLERANCE,
+        reml=True,
+    )
+    np.testing.assert_allclose(state.beta_full, coef_pls, rtol=0, atol=1e-9)
+    np.testing.assert_allclose(X @ state.beta_full, X @ coef_pls, rtol=0, atol=1e-10)
+
+
+@pytest.mark.parametrize("seed", [3])
+def test_penalized_qr_state_ldet_matches_log_det_from_upper_R(seed):
+    n, q = 60, 10
+    X, z, w, E, Es = _random_pls_instance(n, q, seed=seed)
+    state = build_penalized_qr_state_nonnegative(
+        X,
+        z,
+        w,
+        penalty_sqrt_E=E,
+        penalty_rank_Es=Es,
+        rS=_rS_q_rows(E, q),
+        rank_tol=STACKED_QR_RANK_TOLERANCE,
+        reml=True,
+    )
+    d = np.abs(np.diag(state.Rh))
+    expect = float(2.0 * np.sum(np.log(np.maximum(d, np.finfo(np.float64).tiny))))
+    np.testing.assert_allclose(state.ldet_XWX_plus_S, expect, rtol=0, atol=1e-10)
+
+
+def test_pls_fit1_alias_is_rejected_for_coef_method():
+    X, z, w, E, Es = _random_pls_instance(40, 6, seed=11)
+    wy = w * z
+    with pytest.raises(ValueError, match="Unknown coef_method"):
+        pls_fit1_nonneg_w(
+            X, z, w, wy, penalty_sqrt_E=E, penalty_rank_Es=Es, coef_method="pls_fit1"
+        )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 19. Smoothing selection derivatives
+# (from test_gam_smoothing_selection_derivatives.py)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _build_te_data(n=80, seed=0):
+    rng = np.random.default_rng(seed)
+    x0 = rng.uniform(-1.5, 1.5, size=n)
+    x1 = rng.uniform(-2.0, 2.0, size=n)
+    y = np.sin(x0) * np.cos(0.4 * x1) + rng.normal(scale=0.1, size=n)
+    return pd.DataFrame({"y": y, "x0": x0, "x1": x1})
+
+
+def _build_gamma_data_sel(n=120, seed=1):
+    rng = np.random.default_rng(seed)
+    x = rng.uniform(0.1, 1.5, size=n)
+    eta = 0.5 + 0.8 * x
+    mu = np.exp(eta)
+    shape = 3.0
+    y = rng.gamma(shape=shape, scale=mu / shape)
+    return pd.DataFrame({"y": y, "x": x})
+
+
+def test_penalty_derivative_matrices_match_block_sums():
+    data = _build_te_data()
+    model = GAM(
+        formula='y ~ te(x0, x1, bs=["cr", "cr"], k=[6, 6])',
+        family="gaussian",
+        optimize_smoothing=False,
+        smoothing_method="fixed",
+    )
+    model.fit(data=data)
+    sp = np.asarray(model.smoothing_params, dtype=np.float64)
+    derivatives = _penalty_derivative_matrices(model, sp)
+    n_full = int(model.n_coef_ + (1 if model.fit_intercept else 0))
+    offset = 1 if model.fit_intercept else 0
+    expected = [
+        np.zeros((n_full, n_full), dtype=np.float64)
+        for _ in range(int(model.n_smoothing_params_ or 0))
+    ]
+    for pb in model.penalty_blocks_:
+        sl = slice(offset + pb.coef_slice.start, offset + pb.coef_slice.stop)
+        expected[pb.smoothing_index][sl, sl] += np.asarray(pb.matrix, dtype=np.float64)
+    assert len(derivatives) == len(expected)
+    for got, want in zip(derivatives, expected):
+        np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
+
+
+def test_gamma_pirls_gradient_and_hessian_use_exact_derivatives():
+    data = _build_gamma_data_sel()
+    model = GAM(
+        formula='y ~ s(x, bs="cr", k=8)',
+        family="gamma",
+        optimize_smoothing=False,
+        smoothing_method="reml",
+    )
+    model.fit(data=data)
+    fixed_mask = (
+        np.zeros(model.n_smoothing_params_, dtype=bool)
+        if model.smoothing_fixed_mask_ is None
+        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+    )
+    free_mask = ~fixed_mask
+    log_free = np.log(np.asarray(model.smoothing_params[free_mask], dtype=np.float64))
+    grad = model._criterion_gradient(model.y_, log_free, method="reml")
+    hess = model._criterion_hessian(model.y_, log_free, method="reml")
+    assert grad.shape == (int(np.sum(free_mask)),)
+    assert hess.shape == (int(np.sum(free_mask)), int(np.sum(free_mask)))
+    assert np.isfinite(grad).all()
+    assert np.isfinite(hess).all()
+    np.testing.assert_allclose(hess, hess.T, atol=1e-8, rtol=1e-8)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 20. Gaussian REML Laplace score algebra
+# (from test_gam_gaussian_reml_algebra.py)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("seed", [0, 1, 42])
+def test_gaussian_reml_laplace_matches_profiled_closed_form(seed):
+    rng = np.random.default_rng(seed)
+    n = 40
+    Mp = 3.0
+    rss_bSb = float(rng.uniform(5.0, 80.0))
+    logdet_A = float(rng.uniform(-2.0, 6.0))
+    logdet_S = float(rng.uniform(-4.0, 2.0))
+    denom = float(n - Mp)
+    scale = rss_bSb / denom
+    weights = np.ones(n, dtype=np.float64)
+    closed = (
+        rss_bSb / scale + (n - Mp) * np.log(2.0 * np.pi * scale) + logdet_A - logdet_S
+    ) / 2.0
+    dev = rss_bSb - float(rng.uniform(0.0, min(rss_bSb * 0.5, rss_bSb - 1e-6)))
+    penalty_P = rss_bSb - dev
+    assembled = gaussian_reml_laplace_score(
+        dev, penalty_P, scale, logdet_A - logdet_S, Mp, weights, gamma=1.0, reml=True
+    )
+    np.testing.assert_allclose(assembled, closed, rtol=0.0, atol=2e-14)
+
+
+def test_deviance_penalty_scale_match_gaussian_solve():
+    rng = np.random.default_rng(7)
+    n = 25
+    q = 6
+    y = rng.standard_normal(n)
+    mu = rng.standard_normal(n)
+    w = np.ones(n, dtype=np.float64)
+    dev = gaussian_weighted_residual_sum_squares(y, mu, w)
+    rss = float(np.sum((y - mu) ** 2))
+    np.testing.assert_allclose(dev, rss, rtol=0.0, atol=1e-15)
+    beta = rng.standard_normal(q)
+    P = np.eye(q, dtype=np.float64)
+    P[0, 1] = P[1, 0] = 0.25
+    P = (P + P.T) * 0.5
+    pen = quadratic_form_penalty(beta, P)
+    np.testing.assert_allclose(pen, float(beta @ (P @ beta)), rtol=0.0, atol=1e-15)
+    tr_a = 4.2
+    sig2_est = deviance_method_scale_estimate(dev, tr_a, float(n), dev_extra=0.0)
+    np.testing.assert_allclose(sig2_est, dev / (n - tr_a), rtol=0.0, atol=1e-15)
+    Mp = 2.0
+    sp = profiled_gaussian_reml_variance(dev, pen, float(n), Mp)
+    np.testing.assert_allclose(sp, (dev + pen) / (n - Mp), rtol=0.0, atol=1e-15)
+
+
+def test_pearson_scale_fletcher_identity():
+    rng = np.random.default_rng(2)
+    n = 12
+    y = rng.standard_normal(n)
+    mu = rng.standard_normal(n)
+    pearson = float(np.sum((y - mu) ** 2))
+    tr_a = 3.0
+    s0 = pearson_method_scale_estimate(pearson, tr_a, float(n), fletcher=False)
+    s1 = pearson_method_scale_estimate(
+        pearson,
+        tr_a,
+        float(n),
+        fletcher=True,
+        y=y,
+        mu=mu,
+        dvar_over_var=np.zeros(n, dtype=np.float64),
+    )
+    np.testing.assert_allclose(s0, s1, rtol=0.0, atol=1e-15)
+
+
+def test_weighted_gaussian_reml_laplace_matches_expanded_score():
+    rng = np.random.default_rng(5)
+    n = 18
+    Mp = 2.0
+    w = rng.uniform(0.4, 1.9, size=n).astype(np.float64)
+    rss_bSb = float(rng.uniform(4.0, 40.0))
+    logdet_A = float(rng.uniform(-1.0, 4.0))
+    logdet_S = float(rng.uniform(-3.0, 1.5))
+    denom = float(n - Mp)
+    scale = rss_bSb / denom
+    dev = rss_bSb - float(rng.uniform(0.0, min(rss_bSb * 0.4, rss_bSb - 1e-6)))
+    penalty_P = rss_bSb - dev
+    assembled = gaussian_reml_laplace_score(
+        dev, penalty_P, scale, logdet_A - logdet_S, Mp, w, gamma=1.0, reml=True
+    )
+    ls0 = gaussian_reml_saturation_terms_wrt_variance(w, scale)[0]
+    closed = (
+        (dev + penalty_P) / (2.0 * scale)
+        - ls0
+        + 0.5 * (logdet_A - logdet_S)
+        - Mp * (np.log(2.0 * np.pi * scale) / 2.0)
+    )
+    np.testing.assert_allclose(assembled, closed, rtol=0.0, atol=2e-14)
+
+
+def test_prior_weights_diagonal_from_fit():
+    n = 5
+    w = np.array([1.0, 2.0, 0.5, 1.25, 1.0], dtype=np.float64)
+    got = prior_weights_diagonal_from_fit({"working_weights": w}, n)
+    np.testing.assert_array_equal(got, w)
+    np.testing.assert_array_equal(
+        prior_weights_diagonal_from_fit({"working_weights": w[:3]}, n),
+        np.ones(n, dtype=np.float64),
+    )
+    np.testing.assert_array_equal(
+        prior_weights_diagonal_from_fit({}, n), np.ones(n, dtype=np.float64)
+    )
+
+
+def test_gaussian_saturation_terms_match_exponential_family_saturated():
+    fam = GaussianIdentityFamily()
+    w = np.array([1.0, 2.0, 0.5, 0.0, 1.0])
+    scale = 0.37
+    vec = gaussian_reml_saturation_terms_wrt_variance(w, scale)
+    ls = fam.saturated_loglik(np.zeros(len(w)), weights=w, scale=scale)
+    np.testing.assert_allclose(vec[0], ls, rtol=0.0, atol=1e-15)
+
+
+def test_joint_gaussian_reml_zero_weight_rows_reduce_nu():
+    n = 8
+    w = np.array([1.0, 0.0, 2.0, 0.5, 0.0, 1.25, 0.0, 1.0], dtype=np.float64)
+    Mp = 1.0
+    nu, _ = gaussian_reml_weighted_degrees_and_log_weight_term(w, float(n), Mp)
+    n_ls = float(np.sum(w > 0.0))
+    np.testing.assert_allclose(nu, n_ls - Mp, rtol=0.0, atol=1e-15)

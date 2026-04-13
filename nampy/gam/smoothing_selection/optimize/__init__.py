@@ -12,11 +12,9 @@ from .driver import (
     resolve_smoothing_method,
     supports_smoothing_method,
 )
-from .heuristics.rollback import _rollback_working_infinite_smoothing_params
 
 __all__ = [
     "criterion_infinite_sp_signal",
-    "_rollback_working_infinite_smoothing_params",
     "expand_smoothing_params_from_log",
     "n_free_smoothing_params",
     "optimize_smoothing_params",

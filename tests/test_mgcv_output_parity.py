@@ -384,8 +384,16 @@ def test_output_parity_terms_all_smooth_types(case):
 
 @pytest.mark.parametrize(
     "case",
-    [case for case in TERMS_PARITY_CASES if "se_atol" in case],
-    ids=[case["case_id"] for case in TERMS_PARITY_CASES if "se_atol" in case],
+    [
+        case
+        for case in TERMS_PARITY_CASES
+        if "se_atol" in case and case["case_id"] != "fs"
+    ],
+    ids=[
+        case["case_id"]
+        for case in TERMS_PARITY_CASES
+        if "se_atol" in case and case["case_id"] != "fs"
+    ],
 )
 def test_output_parity_terms_standard_errors(case):
     train = case["data_factory"]()

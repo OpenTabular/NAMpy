@@ -3,6 +3,7 @@
 import numpy as np
 from scipy.optimize import OptimizeResult
 
+from ..._mgcv_constants import PENALTY_RIDGE_REL
 from .basics import _project_to_bounds
 
 
@@ -37,12 +38,18 @@ def _optimize_outer_newton(
             try:
                 direction_try = -np.linalg.solve(H + ridge * eye, g)
             except np.linalg.LinAlgError:
-                ridge = max(1e-6, 10.0 * ridge if ridge > 0 else 1e-6)
+                ridge = max(
+                    PENALTY_RIDGE_REL,
+                    10.0 * ridge if ridge > 0 else PENALTY_RIDGE_REL,
+                )
                 continue
             if float(g @ direction_try) < 0.0 and np.all(np.isfinite(direction_try)):
                 direction = direction_try
                 break
-            ridge = max(1e-6, 10.0 * ridge if ridge > 0 else 1e-6)
+            ridge = max(
+                PENALTY_RIDGE_REL,
+                10.0 * ridge if ridge > 0 else PENALTY_RIDGE_REL,
+            )
 
         if direction is None:
             direction = -g

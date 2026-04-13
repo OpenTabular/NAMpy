@@ -32,6 +32,8 @@ from typing import Any
 import numpy as np
 from scipy.linalg import cho_factor
 
+from nampy.gam._mgcv_constants import LOG_GUARD_MIN
+from nampy.gam._model_state import _coef_column_offset
 from nampy.gam.smoothing_selection.criteria.dispatch import (
     criterion_gradient,
     criterion_hessian,
@@ -46,10 +48,14 @@ from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
     prior_weights_diagonal_from_fit,
     quadratic_form_penalty,
 )
-from nampy.gam.smoothing_selection.criteria.ml_reml import criterion_ml_reml
-from nampy.gam.smoothing_selection.criteria.ml_reml import resolve_ml_reml_scoring_backend
-from nampy.gam.smoothing_selection.criteria.penalty import _static_penalty_null_dim
-from nampy.gam.smoothing_selection.criteria.penalty import _stable_penalty_logdet
+from nampy.gam.smoothing_selection.criteria.ml_reml import (
+    criterion_ml_reml,
+    resolve_ml_reml_scoring_backend,
+)
+from nampy.gam.smoothing_selection.criteria.penalty import (
+    _stable_penalty_logdet,
+    _static_penalty_null_dim,
+)
 from nampy.gam.smoothing_selection.criteria.pirls import criterion_ubre_pirls
 
 
@@ -83,7 +89,7 @@ def refresh_gaussian_ml_reml_score_from_fit_state(model: Any, y: np.ndarray) -> 
         )
         free_vals = np.asarray(model.smoothing_params[~fixed_mask], dtype=np.float64)
         log_free = (
-            np.log(np.maximum(free_vals, 1e-300))
+            np.log(np.maximum(free_vals, LOG_GUARD_MIN))
             if free_vals.size > 0
             else np.empty((0,), dtype=np.float64)
         )
@@ -103,7 +109,7 @@ def refresh_gaussian_ml_reml_score_from_fit_state(model: Any, y: np.ndarray) -> 
         )
         mp = float(
             _static_penalty_null_dim(model)
-            + int(bool(getattr(model, "fit_intercept", False)))
+            + _coef_column_offset(model)
         )
         nu = float(n_s) - mp
         if not (np.isfinite(nu) and nu > 0.0):

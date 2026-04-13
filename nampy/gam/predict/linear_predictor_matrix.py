@@ -10,30 +10,25 @@ It is built by running new data through the compiled predictor's
 
 import numpy as np
 
-
-def _coerce_prediction_matrix(model, X):
-    if hasattr(model, "_coerce_feature_matrix"):
-        return model._coerce_feature_matrix(X)
-
-    X = np.asarray(X)
-    if X.ndim == 1:
-        X = X.reshape(-1, 1)
-    if X.ndim != 2:
-        raise ValueError("X must be a 2D feature matrix.")
-    return X
+from .._model_state import (
+    _coerce_feature_matrix,
+    _fit_intercept,
+    _require_design,
+    _require_fitted,
+)
 
 
 def _build_prediction_matrices(model, X_new=None):
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
+    _require_fitted(model)
+    _require_design(model)
 
     if X_new is None:
         Z_new = model.Z
     else:
-        X_new = _coerce_prediction_matrix(model, X_new)
+        X_new = _coerce_feature_matrix(model, X_new, none_is_training=False)
         Z_new = model.design_.build_new_matrix(X_new)
 
-    if model.fit_intercept:
+    if _fit_intercept(model):
         Xp = np.column_stack([np.ones(Z_new.shape[0], dtype=np.float64), Z_new])
     else:
         Xp = Z_new

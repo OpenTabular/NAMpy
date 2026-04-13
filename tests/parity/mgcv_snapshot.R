@@ -44,7 +44,27 @@ data <- read.csv(csv_path, stringsAsFactors = FALSE)
 for (nm in names(data)) {
   if (is.character(data[[nm]])) data[[nm]] <- factor(data[[nm]])
 }
-response_name <- all.vars(as.formula(formula_text))[1]
+formula_raw <- NULL
+if (grepl("^\\s*(c|list)\\s*\\(", formula_text)) {
+  formula_raw <- eval(parse(text = formula_text))
+}
+
+coerce_formula_list <- function(x) {
+  if (is.character(x)) {
+    lapply(as.list(x), as.formula)
+  } else if (inherits(x, "formula")) {
+    list(x)
+  } else if (is.list(x)) {
+    lapply(x, function(f) {
+      if (inherits(f, "formula")) f else as.formula(f)
+    })
+  } else {
+    stop("Unsupported formula specification.")
+  }
+}
+
+formula_obj <- if (is.null(formula_raw)) as.formula(formula_text) else coerce_formula_list(formula_raw)
+response_name <- all.vars(if (is.list(formula_obj)) formula_obj[[1]] else formula_obj)[1]
 
 family_parts <- strsplit(family_name, ":", fixed = TRUE)[[1]]
 family_key <- family_parts[[1]]
@@ -70,11 +90,16 @@ family_obj <- switch(
     theta <- if (is.null(family_param)) 1.0 else as.numeric(family_param)
     mgcv::nb(theta = -abs(theta), link = "log")
   },
+  gaulss = mgcv::gaulss(),
+  gammals = mgcv::gammals(),
+  ziplss = mgcv::ziplss(),
+  gevlss = mgcv::gevlss(),
+  shash = mgcv::shash(),
   stop(sprintf("Unsupported family for parity snapshot: %s", family_name))
 )
 
 gam_args <- list(
-  formula = as.formula(formula_text),
+  formula = formula_obj,
   data = data,
   family = family_obj,
   method = fit_method,
@@ -194,13 +219,18 @@ pred_se_link <- tryCatch(
 conc_full <- tryCatch(concurvity(fit, full = TRUE), error = function(e) NULL)
 conc_pairwise <- tryCatch(concurvity(fit, full = FALSE), error = function(e) NULL)
 sp_cov <- tryCatch(sp.vcov(fit, edge.correct = FALSE), error = function(e) NULL)
+vcov_sandwich_bayes <- tryCatch(vcov(fit, sandwich = TRUE, freq = FALSE), error = function(e) NULL)
+vcov_sandwich_freq <- tryCatch(vcov(fit, sandwich = TRUE, freq = TRUE), error = function(e) NULL)
 gam_vc <- tryCatch(gam.vcomp(fit, rescale = FALSE), error = function(e) NULL)
+safe_residuals <- function(type) {
+  tryCatch(unname(as.numeric(residuals(fit, type = type))), error = function(e) NULL)
+}
 residuals_block <- list(
-  response = unname(as.numeric(residuals(fit, type = "response"))),
-  working = unname(as.numeric(residuals(fit, type = "working"))),
-  pearson = unname(as.numeric(residuals(fit, type = "pearson"))),
-  scaled_pearson = unname(as.numeric(residuals(fit, type = "scaled.pearson"))),
-  deviance = unname(as.numeric(residuals(fit, type = "deviance")))
+  response = safe_residuals("response"),
+  working = safe_residuals("working"),
+  pearson = safe_residuals("pearson"),
+  scaled_pearson = safe_residuals("scaled.pearson"),
+  deviance = safe_residuals("deviance")
 )
 k_check_table <- tryCatch({
   set.seed(0)
@@ -327,7 +357,10 @@ rss_val <- if (family_name == "gaussian") {
 }
 y_obs <- as.numeric(data[[response_name]])
 mu_fit <- pred_response
-dev_sum_dev_resids <- sum(fit$family$dev.resids(y_obs, mu_fit, prior_w))
+dev_sum_dev_resids <- tryCatch(
+  sum(fit$family$dev.resids(y_obs, mu_fit, prior_w)),
+  error = function(e) NULL
+)
 
 penalty_quadratic <- 0.0
 if (length(fit$smooth) > 0) {
@@ -372,6 +405,8 @@ snapshot <- list(
     deviance = unname(as.numeric(fit$deviance)),
     cov_bayes = if (is.null(fit$Vp)) NULL else unname(fit$Vp),
     cov_freq = if (is.null(fit$Ve)) NULL else unname(fit$Ve),
+    cov_sandwich_bayes = if (is.null(vcov_sandwich_bayes)) NULL else unname(vcov_sandwich_bayes),
+    cov_sandwich_freq = if (is.null(vcov_sandwich_freq)) NULL else unname(vcov_sandwich_freq),
     dev_sum_dev_resids = unname(as.numeric(dev_sum_dev_resids)),
     penalty_quadratic = unname(as.numeric(penalty_quadratic)),
     n_obs = nrow(data),

@@ -28,7 +28,7 @@ from mgcv_parity_utils import (
     _run_mgcv_snapshot,
 )
 
-from nampy.basemodels.gam import GAM
+from nampy.gam import GAM
 from nampy.gam.basis.tensor import t2_marginal_reparameterization
 from nampy.gam.design.compiler import compile_predictor_designs
 from nampy.gam.formula import compile_predictor_specs_from_formula, parse_gam_formula

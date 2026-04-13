@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from .._model_state import _coef_column_offset, _require_fitted, _term_blocks_seq
 from .residuals import residuals_gam
 
 
@@ -82,12 +83,11 @@ def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = N
     ``mgcv::k.check`` for term types where both implementations define the same
     nearest-neighbour residual differencing diagnostic.
     """
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
+    _require_fitted(model)
 
     term_blocks = [
         tb
-        for tb in (getattr(model, "term_blocks_", ()) or ())
+        for tb in _term_blocks_seq(model)
         if str(getattr(tb, "term_type", "")) != "parametric"
     ]
     if len(term_blocks) == 0:
@@ -188,7 +188,7 @@ def gam_check(
     }
     nampy_specific = {
         "convergence": convergence,
-        "model_rank": int(model.n_coef_ + int(bool(model.fit_intercept))),
+        "model_rank": int(model.n_coef_ + _coef_column_offset(model)),
     }
 
     return {

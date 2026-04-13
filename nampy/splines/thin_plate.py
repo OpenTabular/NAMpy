@@ -656,7 +656,6 @@ class ThinPlateBasisSetup:
     drop_null_effective: bool
     drop_keep: int | None = None
     cmX: np.ndarray | None = None
-    mgcv_c_backend: bool = False
 
 
 def _parse_tprs_xt(xt):
@@ -756,18 +755,6 @@ def build_tprs_term_setup(
         setup_locations=mgcv_setup_locations,
         scale_columns=scale_columns,
     )
-    mgcv_c_backend = tprs is not None
-
-    if tprs is None:
-        tprs = construct_tprs_basis(
-            X_shifted,
-            k=bs_dim,
-            penalty_order=penalty_order,
-            setup_locations=setup_knots,
-            max_knots=max_knots,
-            seed=seed,
-            scale_columns=scale_columns,
-        )
 
     basis_train = np.asarray(tprs["X_raw"], dtype=np.float64)
 
@@ -809,7 +796,6 @@ def build_tprs_term_setup(
         drop_null_effective=bool(drop_null_effective),
         drop_keep=(None if drop_keep is None else int(drop_keep)),
         cmX=(None if cmX is None else np.asarray(cmX, dtype=np.float64)),
-        mgcv_c_backend=bool(mgcv_c_backend),
     )
 
 
@@ -823,17 +809,7 @@ def predict_tprs_term(X_new, setup: ThinPlateBasisSetup):
 
     X_new_shift = X_new - setup.shift[None, :]
 
-    B = None
-    if bool(getattr(setup, "mgcv_c_backend", False)):
-        B = predict_tprs_reference_basis(X_new_shift, setup)
-
-    if B is None:
-        B = thin_plate_raw_model_matrix(
-            X_new_shift,
-            setup.Xu,
-            setup.penalty_order,
-            setup.UZ,
-        )
+    B = predict_tprs_reference_basis(X_new_shift, setup)
 
     if setup.drop_null_effective:
         B = B[:, : setup.drop_keep]

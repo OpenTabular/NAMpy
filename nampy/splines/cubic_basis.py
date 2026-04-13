@@ -1,5 +1,3 @@
-import bisect
-
 import numpy as np
 
 
@@ -83,24 +81,23 @@ def cr_spl(x, n_knots, knots=None):
     F, S = get_FS(xk)
     base = np.zeros((n, k), dtype=np.float64)
 
-    for i in range(n):
-        j = bisect.bisect_left(xk, x[i])
-        if j == 0:
-            j = 1
-        if j >= len(xk):
-            j = len(xk) - 1
+    j = np.searchsorted(xk, x, side="left")
+    j = np.clip(j, 1, k - 1)
 
-        x_j = xk[j - 1]
-        x_j1 = xk[j]
-        h = x_j1 - x_j
-        a_jm = (x_j1 - x[i]) / h
-        a_jp = (x[i] - x_j) / h
-        c_jm = ((x_j1 - x[i]) ** 3 / h - h * (x_j1 - x[i])) / 6.0
-        c_jp = ((x[i] - x_j) ** 3 / h - h * (x[i] - x_j)) / 6.0
+    x_j = xk[j - 1]
+    x_j1 = xk[j]
+    h = x_j1 - x_j
+    left = x_j1 - x
+    right = x - x_j
+    a_jm = left / h
+    a_jp = right / h
+    c_jm = (left**3 / h - h * left) / 6.0
+    c_jp = (right**3 / h - h * right) / 6.0
 
-        base[i, :] = c_jm * F[j - 1, :] + c_jp * F[j, :]
-        base[i, j - 1] += a_jm
-        base[i, j] += a_jp
+    base[:, :] = c_jm[:, None] * F[j - 1, :] + c_jp[:, None] * F[j, :]
+    rows = np.arange(n)
+    base[rows, j - 1] += a_jm
+    base[rows, j] += a_jp
 
     return base, S, xk, F
 
@@ -117,42 +114,49 @@ def cr_spl_predict(x, knots, F):
     k = len(knots)
     base = np.zeros((n, k), dtype=np.float64)
 
-    for i in range(n):
-        if x[i] <= knots[0]:
-            h = knots[1] - knots[0]
-            xik = x[i] - knots[0]
-            c_jm = -xik * h / 3.0
-            c_jp = -xik * h / 6.0
-            base[i, :] = c_jm * F[0, :] + c_jp * F[1, :]
-            base[i, 0] += 1.0 - xik / h
-            base[i, 1] += xik / h
+    left_mask = x <= knots[0]
+    if np.any(left_mask):
+        h = knots[1] - knots[0]
+        xik = x[left_mask] - knots[0]
+        c_jm = -xik * h / 3.0
+        c_jp = -xik * h / 6.0
+        base[left_mask, :] = c_jm[:, None] * F[0, :] + c_jp[:, None] * F[1, :]
+        base[left_mask, 0] += 1.0 - xik / h
+        base[left_mask, 1] += xik / h
 
-        elif x[i] >= knots[-1]:
-            j = len(knots) - 1
-            h = knots[j] - knots[j - 1]
-            xik = x[i] - knots[j]
-            c_jm = xik * h / 6.0
-            c_jp = xik * h / 3.0
-            base[i, :] = c_jm * F[j - 1, :] + c_jp * F[j, :]
-            base[i, j - 1] += -xik / h
-            base[i, j] += 1.0 + xik / h
+    right_mask = x >= knots[-1]
+    if np.any(right_mask):
+        j = k - 1
+        h = knots[j] - knots[j - 1]
+        xik = x[right_mask] - knots[j]
+        c_jm = xik * h / 6.0
+        c_jp = xik * h / 3.0
+        base[right_mask, :] = c_jm[:, None] * F[j - 1, :] + c_jp[:, None] * F[j, :]
+        base[right_mask, j - 1] += -xik / h
+        base[right_mask, j] += 1.0 + xik / h
 
-        else:
-            j = bisect.bisect_left(knots, x[i])
-            if j == 0:
-                j = 1
+    interior_mask = ~(left_mask | right_mask)
+    if np.any(interior_mask):
+        x_mid = x[interior_mask]
+        j = np.searchsorted(knots, x_mid, side="left")
+        j = np.clip(j, 1, k - 1)
 
-            x_j = knots[j - 1]
-            x_j1 = knots[j]
-            h = x_j1 - x_j
-            a_jm = (x_j1 - x[i]) / h
-            a_jp = (x[i] - x_j) / h
-            c_jm = ((x_j1 - x[i]) ** 3 / h - h * (x_j1 - x[i])) / 6.0
-            c_jp = ((x[i] - x_j) ** 3 / h - h * (x[i] - x_j)) / 6.0
+        x_j = knots[j - 1]
+        x_j1 = knots[j]
+        h = x_j1 - x_j
+        left = x_j1 - x_mid
+        right = x_mid - x_j
+        a_jm = left / h
+        a_jp = right / h
+        c_jm = (left**3 / h - h * left) / 6.0
+        c_jp = (right**3 / h - h * right) / 6.0
 
-            base[i, :] = c_jm * F[j - 1, :] + c_jp * F[j, :]
-            base[i, j - 1] += a_jm
-            base[i, j] += a_jp
+        base[interior_mask, :] = (
+            c_jm[:, None] * F[j - 1, :] + c_jp[:, None] * F[j, :]
+        )
+        rows = np.flatnonzero(interior_mask)
+        base[rows, j - 1] += a_jm
+        base[rows, j] += a_jp
 
     return base
 

@@ -6,6 +6,7 @@ from typing import Any
 import numpy as np
 
 from ....splines.mrf import nat_param_type1
+from ..._mgcv_constants import EIG_TOL_POWER
 from ...basis.tensor import rescale_tensor_penalties_for_fit, rowwise_kronecker
 from ...design.structures import PenaltySpec
 from ...penalties import build_null_space_selection_spec
@@ -93,6 +94,7 @@ def _build_base_smooth_term(
     xt_rest,
     mode,  # "fs" or "sz"
     select,
+    constraint_mode,
     metadata,
 ):
     """
@@ -130,7 +132,7 @@ def _build_base_smooth_term(
             sp=None,
             select=bool(select),
             fixed=bool(fixed),
-            constraint_mode="never",
+            constraint_mode=str(constraint_mode),
             shared_basis_setup=None,
             pc=None,
             knots=knots,
@@ -153,7 +155,7 @@ def _build_base_smooth_term(
             sp=None,
             select=bool(select),
             fixed=bool(fixed),
-            constraint_mode="never",
+            constraint_mode=str(constraint_mode),
             pc=None,
             knots=knots,
             metadata=metadata,
@@ -172,7 +174,7 @@ def _build_base_smooth_term(
             sp=None,
             select=bool(select),
             fixed=bool(fixed),
-            constraint_mode="never",
+            constraint_mode=str(constraint_mode),
             pc=None,
             knots=knots,
             xt=xt_rest,
@@ -192,7 +194,7 @@ def _build_base_smooth_term(
             sp=None,
             select=bool(select),
             fixed=bool(fixed),
-            constraint_mode="never",
+            constraint_mode=str(constraint_mode),
             pc=None,
             knots=knots,
             xt=xt_rest,
@@ -213,6 +215,37 @@ def _kron_many(mats):
     for M in mats[1:]:
         out = np.kron(out, M)
     return out
+
+
+def _xzkr_contrast_transform(level_sizes, block_dim):
+    """
+    Exact mgcv::XZKr() contrast transform.
+
+    Returns ``T`` such that ``X_raw @ T`` matches
+    ``t(mgcv:::XZKr(X_raw, m))``. Implemented by running the upstream reshape /
+    subtraction logic on an identity basis, to preserve column order exactly.
+    """
+    level_sizes = [int(v) for v in level_sizes]
+    block_dim = int(block_dim)
+    if block_dim < 0:
+        raise ValueError("block_dim must be non-negative.")
+    if any(v < 1 for v in level_sizes):
+        raise ValueError("level_sizes must all be >= 1.")
+
+    q_in = int(np.prod(level_sizes, dtype=np.int64)) * block_dim
+    q_out = int(np.prod([v - 1 for v in level_sizes], dtype=np.int64)) * block_dim
+    if q_out == 0:
+        return np.empty((q_in, 0), dtype=np.float64)
+
+    work = np.eye(q_in, dtype=np.float64)
+    n = int(work.shape[0])
+    for m_i in level_sizes:
+        work = np.reshape(work, (work.size // m_i, m_i), order="F")
+        work = (work[:, : m_i - 1] - work[:, [m_i - 1]]).T
+    work = np.reshape(work, (work.size // block_dim, block_dim), order="F")
+    work = work.T
+    work = np.reshape(work, (work.size // n, n), order="F")
+    return np.asarray(work.T, dtype=np.float64)
 
 
 def _block_penalty_for_group(group_index, n_groups, S_base):
@@ -288,7 +321,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
         self._smoothing_ids = None
         self._ranks = None
 
-        self.constraints_absorbed = True
+        self.skip_centering = True
 
     @property
     def basis_train(self):
@@ -317,6 +350,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
     def transform_new(self, X_new):
         if self._delegate_term is not None:
             return self._delegate_term.transform_new(X_new)
+        self._require_fitted()
         raise NotImplementedError
 
     def get_penalty_definitions(self):
@@ -400,6 +434,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
                 xt_rest=base_spec.xt_rest,
                 mode=mode,
                 select=self.select,
+                constraint_mode=("auto" if mode == "fs" else "never"),
                 metadata=dict(self.metadata),
             )
             base_term.fit(X, feature_names)
@@ -497,6 +532,10 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         X = _as_object_2d(X)
 
         base_spec = _parse_factor_smooth_xt(self.xt, default_bs="tp")
+        # mgcv::smooth.construct.fs.smooth.spec calls smooth.construct on the
+        # marginal spec without extra side constraints before duplicating by
+        # factor level, so the base smooth must retain its full null space.
+        base_constraint = "never"
         base_term = _build_base_smooth_term(
             metric_features=self._metric_feature_names,
             k=self.k,
@@ -507,6 +546,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             xt_rest=base_spec.xt_rest,
             mode="fs",
             select=False,
+            constraint_mode=base_constraint,
             metadata=dict(self.metadata),
         )
         base_term.fit(X, feature_names)
@@ -534,18 +574,23 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             self._penalties = []
             self._smoothing_ids = []
             self._ranks = []
-            self.constraints_absorbed = True
+            self.skip_centering = True
             self._record_constraint_result(None, None, absorbed_by=None)
             return self
 
         S0 = np.asarray(base_term.penalties[0], dtype=np.float64)
-        base_rank = int(getattr(base_term, "rank", 0) or 0)
-        if base_rank <= 0:
-            evals = np.linalg.eigvalsh(0.5 * (S0 + S0.T))
-            tol = (np.max(evals) if evals.size else 0.0) * (
-                np.finfo(np.float64).eps ** 0.8
-            )
-            base_rank = int(np.sum(evals > tol))
+        if isinstance(base_term, PSplineTerm1D) and len(base_term.penalties) > 0:
+            # mgcv::smooth.construct.ps.smooth.spec: rank <- bs.dim - m[2]
+            penalty_order = int(base_term.m[1])
+            base_rank = max(0, int(B0.shape[1]) - penalty_order)
+        else:
+            base_rank = int(getattr(base_term, "rank", 0) or 0)
+            if base_rank <= 0:
+                evals = np.linalg.eigvalsh(0.5 * (S0 + S0.T))
+                tol = (np.max(evals) if evals.size else 0.0) * (
+                    np.finfo(np.float64).eps ** EIG_TOL_POWER
+                )
+                base_rank = int(np.sum(evals > tol))
 
         # mgcv uses nat.param(X, S, rank, type=1): eigendecompose R^{-T} S R^{-1}
         # (R from QR of X) and normalise the range space to an identity penalty.
@@ -584,7 +629,12 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         ranks = []
 
         penalties.append(0.5 * (P_range + P_range.T))
-        smoothing_ids.append(f"__fs__:{self.label}:range")
+        shared_sid = (
+            str(self.smoothing_id)
+            if self.smoothing_id is not None
+            else f"__fs__:{self.label}"
+        )
+        smoothing_ids.append(shared_sid)
         ranks.append(int(n_levels * r))
 
         for i in range(null_d):
@@ -592,7 +642,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             um[r + i] = 1.0
             P_null_i = np.diag(np.tile(um, n_levels))
             penalties.append(0.5 * (P_null_i + P_null_i.T))
-            smoothing_ids.append(f"__fs__:{self.label}:null:{i}")
+            smoothing_ids.append(shared_sid)
             ranks.append(int(n_levels))
 
         # Apply mgcv smoothCon scale_penalty step: normalise S relative to X.
@@ -602,7 +652,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         self._penalties = penalties
         self._smoothing_ids = smoothing_ids
         self._ranks = ranks
-        self.constraints_absorbed = True
+        self.skip_centering = True
         self._record_constraint_result(None, None, absorbed_by=None)
         return self
 
@@ -610,8 +660,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         if self._delegate_term is not None:
             return self._delegate_term.transform_new(X_new)
 
-        if self._base_term is None or self._levels is None:
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
 
         fac_idx = self._factor_feature_indices[0]
         fac = as_object_1d(column_as_object(X_new, fac_idx))
@@ -743,6 +792,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             xt_rest=base_spec.xt_rest,
             mode="sz",
             select=False,
+            constraint_mode="never",
             metadata=dict(self.metadata),
         )
         base_term.fit(X, feature_names)
@@ -772,20 +822,20 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         X_raw = rowwise_kronecker(indicator_mats + [B0])
 
         p0 = B0.shape[1]
-        C_fac = _kron_many(contrast_mats)
-        self._factor_transform = C_fac
-        self._n_groups = int(np.prod([len(lev) for lev in level_lists], dtype=np.int64))
+        level_sizes = [len(lev) for lev in level_lists]
+        self._n_groups = int(np.prod(level_sizes, dtype=np.int64))
+        T = _xzkr_contrast_transform(level_sizes, p0)
+        self._factor_transform = T
 
-        if C_fac.shape[1] == 0:
+        if T.shape[1] == 0:
             self._basis_train = np.empty((X_raw.shape[0], 0), dtype=np.float64)
             self._penalties = []
             self._smoothing_ids = []
             self._ranks = []
-            self.constraints_absorbed = True
+            self.skip_centering = True
             self._record_constraint_result(None, None, absorbed_by=None)
             return self
 
-        T = np.kron(C_fac, np.eye(p0, dtype=np.float64))
         X_con = X_raw @ T
 
         if len(base_term.penalties) == 0:
@@ -793,7 +843,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             self._penalties = []
             self._smoothing_ids = []
             self._ranks = []
-            self.constraints_absorbed = True
+            self.skip_centering = True
             self._record_constraint_result(None, None, absorbed_by=None)
             return self
 
@@ -839,7 +889,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         self._penalties = penalties
         self._smoothing_ids = smoothing_ids
         self._ranks = ranks
-        self.constraints_absorbed = True
+        self.skip_centering = True
         self._record_constraint_result(None, None, absorbed_by=None)
         return self
 
@@ -847,12 +897,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         if self._delegate_term is not None:
             return self._delegate_term.transform_new(X_new)
 
-        if (
-            self._base_term is None
-            or self._factor_levels is None
-            or self._factor_transform is None
-        ):
-            raise RuntimeError("Term is not fitted.")
+        self._require_fitted()
 
         indicator_mats = []
         for idx, lev in zip(self._factor_feature_indices, self._factor_levels):
@@ -865,8 +910,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         if self._factor_transform.shape[1] == 0:
             return np.empty((X_raw.shape[0], 0), dtype=np.float64)
 
-        T = np.kron(self._factor_transform, np.eye(B0_new.shape[1], dtype=np.float64))
-        return np.asarray(X_raw @ T, dtype=np.float64)
+        return np.asarray(X_raw @ self._factor_transform, dtype=np.float64)
 
     def get_penalty_definitions(self):
         if self._delegate_term is not None:

@@ -68,14 +68,28 @@ def construct_terms(
     runtime = instantiate_term(term_like)
     runtime.fit(X, feature_names)
     B, penalty_defs = _extract_runtime_state(runtime)
-    constraints_absorbed = bool(getattr(runtime, "constraints_absorbed", True))
+    runtime_transform_applied = bool(
+        getattr(
+            runtime,
+            "transform_applied",
+            getattr(runtime, "constraint_transform", None) is not None,
+        )
+    )
+    runtime_skip_centering = bool(
+        getattr(
+            runtime,
+            "skip_centering",
+            getattr(runtime, "constraints_absorbed", False),
+        )
+    )
     fit_constraint = getattr(runtime, "fit_constraint_matrix", None)
     predict_coefficient_map = getattr(runtime, "predict_coefficient_map", None)
     prediction_offset = getattr(runtime, "prediction_offset", None)
     _by_state = getattr(runtime, "_by_state", None)
 
     constructor_metadata = {
-        "constraints_absorbed_by_runtime": constraints_absorbed,
+        "runtime_transform_applied": runtime_transform_applied,
+        "runtime_skip_centering": runtime_skip_centering,
         "runtime_constraint_kind": getattr(runtime, "constraint_kind", None),
         "runtime_by_name": _by_state.feature_name if _by_state is not None else None,
         "runtime_by_is_constant": (
@@ -92,13 +106,15 @@ def construct_terms(
     )
 
     fit_coefficient_map = None
+    transform_applied = runtime_transform_applied
+    skip_centering = runtime_skip_centering
     predict_coefficient_map_arr = (
         None
         if predict_coefficient_map is None
         else np.asarray(predict_coefficient_map, dtype=np.float64)
     )
 
-    if absorb_cons and (not constraints_absorbed) and fit_constraint is not None:
+    if absorb_cons and (not runtime_transform_applied) and fit_constraint is not None:
         B, penalty_defs, T_fit, n_cons = absorb_explicit_constraints(
             B,
             _copy_penalty_defs(penalty_defs),
@@ -113,7 +129,8 @@ def construct_terms(
                 f"Predict coefficient map for term {getattr(runtime, 'label', str(runtime))!r} "
                 f"has shape {predict_coefficient_map_arr.shape}, expected {expected_shape}."
             )
-        constraints_absorbed = True
+        transform_applied = True
+        skip_centering = True
         constructor_metadata["constraint_absorption"] = "wrapper"
         constructor_metadata["n_constraints_absorbed"] = int(n_cons)
         constructor_metadata["predict_map_source"] = (
@@ -128,7 +145,7 @@ def construct_terms(
                     f"has shape {predict_coefficient_map_arr.shape}, expected {expected_shape}."
                 )
         constructor_metadata["constraint_absorption"] = (
-            "runtime" if constraints_absorbed else "none"
+            "runtime" if transform_applied else "none"
         )
         constructor_metadata["n_constraints_absorbed"] = None
         constructor_metadata["predict_map_source"] = (
@@ -171,7 +188,8 @@ def construct_terms(
             if predict_coefficient_map_arr is None
             else np.asarray(predict_coefficient_map_arr, dtype=np.float64)
         ),
-        constraints_absorbed=bool(constraints_absorbed),
+        transform_applied=bool(transform_applied),
+        skip_centering=bool(skip_centering),
         prediction_offset=(
             None
             if prediction_offset is None

@@ -1,7 +1,7 @@
 Continuation prompt: Phase 5 - Prediction, diagnostics, parity, and model surfaces.
 This is part 5/6. Continue from earlier phases; do not restate prior context.
 
-Included files in this phase: 15
+Included files in this phase: 16
 
 # --- Start of nampy/gam/diagnostics/concurvity.py ---
 from __future__ import annotations
@@ -9,14 +9,21 @@ from __future__ import annotations
 import numpy as np
 from scipy.linalg import solve_triangular
 
+from .._model_state import (
+    _coef_column_offset,
+    _fit_intercept,
+    _require_fitted,
+    _term_blocks_seq,
+)
+
 
 def _term_blocks_for_concurvity(model, X):
-    offset = 1 if bool(getattr(model, "fit_intercept", False)) else 0
+    offset = _coef_column_offset(model)
     q = int(X.shape[1])
     covered = np.zeros(q, dtype=bool)
     blocks = []
 
-    for tb in getattr(model, "term_blocks_", ()) or ():
+    for tb in _term_blocks_seq(model):
         if str(getattr(tb, "term_type", "")) == "parametric":
             continue
         idx = np.arange(
@@ -40,7 +47,7 @@ def _term_blocks_for_concurvity(model, X):
 
 def _full_coef_vector(model) -> np.ndarray:
     beta = np.asarray(model.coef_, dtype=np.float64).ravel()
-    if bool(getattr(model, "fit_intercept", False)):
+    if _fit_intercept(model):
         return np.concatenate(
             [np.array([float(model.intercept_)], dtype=np.float64), beta]
         )
@@ -61,11 +68,10 @@ def _residualize_against(A: np.ndarray, B: np.ndarray) -> np.ndarray:
 
 
 def concurvity(model, full: bool = True):
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
+    _require_fitted(model)
 
     Z = np.asarray(model.design_.design_matrix, dtype=np.float64)
-    if bool(getattr(model, "fit_intercept", False)):
+    if _fit_intercept(model):
         X = np.column_stack([np.ones(Z.shape[0], dtype=np.float64), Z])
     else:
         X = Z
@@ -148,6 +154,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from .._model_state import _coef_column_offset, _require_fitted, _term_blocks_seq
 from .residuals import residuals_gam
 
 
@@ -227,12 +234,11 @@ def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = N
     ``mgcv::k.check`` for term types where both implementations define the same
     nearest-neighbour residual differencing diagnostic.
     """
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
+    _require_fitted(model)
 
     term_blocks = [
         tb
-        for tb in (getattr(model, "term_blocks_", ()) or ())
+        for tb in _term_blocks_seq(model)
         if str(getattr(tb, "term_type", "")) != "parametric"
     ]
     if len(term_blocks) == 0:
@@ -333,7 +339,7 @@ def gam_check(
     }
     nampy_specific = {
         "convergence": convergence,
-        "model_rank": int(model.n_coef_ + int(bool(model.fit_intercept))),
+        "model_rank": int(model.n_coef_ + _coef_column_offset(model)),
     }
 
     return {
@@ -352,25 +358,13 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 
-
-def _coerce_plot_matrix(model, X):
-    if X is None:
-        return model.X_
-    if hasattr(model, "_coerce_feature_matrix"):
-        return model._coerce_feature_matrix(X)
-    X = np.asarray(X)
-    if X.ndim == 1:
-        X = X.reshape(-1, 1)
-    if X.ndim != 2:
-        raise ValueError("X must be a 2D feature matrix.")
-    return X
+from .._model_state import _coerce_feature_matrix, _require_fitted
 
 
 def plot_gam_terms(model, X=None, n_cols=2, figsize=None):
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
+    _require_fitted(model)
 
-    X_plot = _coerce_plot_matrix(model, X)
+    X_plot = _coerce_feature_matrix(model, X, none_is_training=True)
     contributions = model.predict_feature_vals(X_plot)
 
     n_terms = len(model.term_blocks_)
@@ -454,7 +448,12 @@ __all__ = ["plot_gam_terms"]
 # --- Start of nampy/gam/diagnostics/residuals.py ---
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
+
+from .._mgcv_constants import LOG_GUARD_MIN
+from .._model_state import _require_fitted
 
 
 def _prior_weights(model) -> np.ndarray:
@@ -471,24 +470,35 @@ def _deviance_residuals(model) -> np.ndarray:
     sign = np.sign(y - mu)
     sign[sign == 0.0] = 1.0
 
-    # Keep deviance algebra family-owned (mgcv-style `family$dev.resids` analogue)
-    # to avoid drift between residual diagnostics and fitting code.
-    dev = model.family.deviance(y, mu, w)
-    return sign * np.sqrt(np.clip(dev, 0.0, None))
+    # Per-observation deviance contributions (mgcv `family$dev.resids` analogue).
+    dev_obs = model.family.deviance_obs(y, mu, w)
+    return sign * np.sqrt(np.clip(dev_obs, 0.0, None))
 
 
 def residuals_gam(model, type: str = "deviance") -> np.ndarray:
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
+    _require_fitted(model)
 
     type = str(type).lower()
     y = np.asarray(model.y_, dtype=np.float64).ravel()
-    mu = np.asarray(model._fitted_mu, dtype=np.float64).ravel()
+    fitted = np.asarray(model._fitted_mu, dtype=np.float64)
+    family_residuals = getattr(model.family, "residuals", None)
+    if callable(family_residuals):
+        try:
+            return np.asarray(
+                family_residuals(y, fitted, rtype=type),
+                dtype=np.float64,
+            ).ravel()
+        except TypeError:
+            return np.asarray(family_residuals(model, type), dtype=np.float64).ravel()
+
+    mu = np.asarray(fitted, dtype=np.float64).ravel()
     eta = np.asarray(model._fitted_eta, dtype=np.float64).ravel()
     w = _prior_weights(model)
 
     if type == "response":
-        return y - mu
+        if fitted.ndim == 1:
+            return y - fitted
+        return np.asarray(y.reshape(-1, 1) - fitted, dtype=np.float64).ravel()
     if type == "working":
         fit_state = getattr(model, "fit_state_", None)
         z_work = (
@@ -503,15 +513,32 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
                 else eta - np.asarray(offset, dtype=np.float64).ravel()
             )
             return z_work - eta_base
-        mu_eta = np.asarray(model.family.mu_eta(eta), dtype=np.float64)
-        return (y - mu) / np.clip(mu_eta, 1e-300, None)
+        mu_eta = getattr(model.family, "mu_eta", None)
+        if callable(mu_eta):
+            mu_eta_val = np.asarray(mu_eta(eta), dtype=np.float64)
+            return (y - mu) / np.clip(mu_eta_val, LOG_GUARD_MIN, None)
+        if fitted.ndim == 1:
+            return y - fitted
+        return np.asarray(y.reshape(-1, 1) - fitted, dtype=np.float64).ravel()
     if type == "deviance":
+        if fitted.ndim != 1:
+            raise NotImplementedError(
+                f"Residual type {type!r} is not implemented for general family {model.family.name!r}."
+            )
         return _deviance_residuals(model)
     if type in {"pearson", "scaled.pearson"}:
-        var = np.asarray(model.family.variance(mu), dtype=np.float64)
-        res = (y - mu) * np.sqrt(w) / np.sqrt(np.clip(var, 1e-300, None))
+        variance = getattr(model.family, "variance", None)
+        if not callable(variance):
+            warnings.warn(
+                "Pearson residuals not available for this family - returning deviance residuals",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            return residuals_gam(model)
+        var = np.asarray(variance(mu), dtype=np.float64)
+        res = (y - mu) * np.sqrt(w) / np.sqrt(np.clip(var, LOG_GUARD_MIN, None))
         if type == "scaled.pearson":
-            res = res / np.sqrt(max(float(model.scale_), 1e-300))
+            res = res / np.sqrt(max(float(model.scale_), LOG_GUARD_MIN))
         return res
 
     raise ValueError(
@@ -533,6 +560,8 @@ parameters, and goodness-of-fit statistics.
 """
 
 from __future__ import annotations
+
+from .._model_state import _fit_intercept, _require_fitted
 
 TERM_COL_WIDTH = 20
 EDF_COL_WIDTH = 8
@@ -574,8 +603,7 @@ def _format_sp_values(values) -> str:
 
 
 def build_summary_lines(model) -> list[str]:
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
+    _require_fitted(model)
 
     lines = []
     lines.append("General Smooth Model Summary")
@@ -612,7 +640,7 @@ def build_summary_lines(model) -> list[str]:
         )
 
     lines.append("-" * SUMMARY_WIDTH)
-    if model.fit_intercept:
+    if _fit_intercept(model):
         lines.append(f"Intercept : {model.intercept_:.6g}")
     lines.append(f"EDF (total) : {model.edf_:.3f}")
     lines.append(f"Scale : {model.scale_:.6g}")
@@ -648,6 +676,12 @@ import pandas as pd
 from scipy.linalg import qr
 from scipy.stats import chi2, f
 
+from .._mgcv_constants import LOG_GUARD_MIN
+from .._model_state import (
+    _coef_column_offset,
+    _require_fitted,
+    _term_blocks_seq,
+)
 from ..fit.covariance import select_covariance_matrix
 
 
@@ -669,13 +703,8 @@ class AnovaGAMComparison:
     table: pd.DataFrame
 
 
-def _require_fitted(model):
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
-
-
 def _residual_df(model) -> float:
-    intercept_df = 1.0 if bool(getattr(model, "fit_intercept", False)) else 0.0
+    intercept_df = float(_coef_column_offset(model))
     return float(model.n_samples_) - intercept_df - float(model.edf_)
 
 
@@ -686,20 +715,15 @@ def _edf1_vector(model) -> np.ndarray:
     return 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
 
 
-def _x_col_offset(model) -> int:
-    """Number of columns prepended to X before the coef_ columns (intercept)."""
-    return 1 if bool(getattr(model, "fit_intercept", False)) else 0
-
-
 def _term_edf1(model, tb) -> float:
     sl = tb.coef_slice
-    offset = _x_col_offset(model)
+    offset = _coef_column_offset(model)
     edf1 = _edf1_vector(model)
     return float(np.sum(edf1[sl.start + offset : sl.stop + offset]))
 
 
 def _residual_df_approx_mgcv(model) -> float:
-    intercept_df = 1.0 if bool(getattr(model, "fit_intercept", False)) else 0.0
+    intercept_df = float(_coef_column_offset(model))
     return float(model.n_samples_) - intercept_df - float(np.sum(_edf1_vector(model)))
 
 
@@ -782,11 +806,11 @@ def _smooth_test_stat(
     if nu > 0.0 and k > 0:
         if k > 1:
             vec[:, : (k - 1)] = vec[:, : (k - 1)] / np.sqrt(
-                np.clip(evals[: (k - 1)], 1e-300, None)
+                np.clip(evals[: (k - 1)], LOG_GUARD_MIN, None)
             )
         b12 = np.sqrt(max(0.5 * nu * (1.0 - nu), 0.0))
         B = np.array([[1.0, b12], [b12, nu]], dtype=np.float64)
-        ev = np.diag(np.power(np.clip(evals[(k - 1) : k1], 1e-300, None), -0.5))
+        ev = np.diag(np.power(np.clip(evals[(k - 1) : k1], LOG_GUARD_MIN, None), -0.5))
         B = ev @ B @ ev
         eb_vals, eb_vecs = np.linalg.eigh(B)
         rB = eb_vecs @ np.diag(np.sqrt(np.clip(eb_vals, 0.0, None))) @ eb_vecs.T
@@ -794,7 +818,7 @@ def _smooth_test_stat(
         vec1[:, (k - 1) : k1] = (rB @ np.diag([-1.0, 1.0]) @ vec[:, (k - 1) : k1].T).T
         vec[:, (k - 1) : k1] = (rB @ vec[:, (k - 1) : k1].T).T
     else:
-        scale = np.sqrt(np.clip(evals[:k1], 1e-300, None))
+        scale = np.sqrt(np.clip(evals[:k1], LOG_GUARD_MIN, None))
         vec = vec / scale
         vec1 = vec.copy()
         if k == 1:
@@ -829,9 +853,9 @@ def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingl
     param_rows: list[dict[str, object]] = []
     smooth_rows: list[dict[str, object]] = []
 
-    x_offset = _x_col_offset(model)
+    x_offset = _coef_column_offset(model)
 
-    for i, tb in enumerate(getattr(model, "term_blocks_", ()) or ()):
+    for i, tb in enumerate(_term_blocks_seq(model)):
         sl = tb.coef_slice
         # sl indexes coef_ (no intercept); Vp_/Vf_ include the intercept column so
         # we shift by x_offset when extracting covariance submatrices.
@@ -1033,7 +1057,7 @@ def _comparison_table(
                     denom_df = max(
                         float(model.n_samples_)
                         - float(model.edf_)
-                        - (1.0 if model.fit_intercept else 0.0),
+                        - float(_coef_column_offset(model)),
                         1.0,
                     )
                     denom = float(model.deviance_) / denom_df
@@ -1095,6 +1119,844 @@ def anova_gam(
 __all__ = ["anova_gam", "AnovaGAMSingle", "AnovaGAMComparison"]
 
 # --- End of nampy/gam/inference/anova.py ---
+
+# --- Start of nampy/gam/model/api.py ---
+"""User-facing mgcv-aligned GAM model."""
+
+import pickle
+
+import numpy as np
+import pandas as pd
+
+from ..families import make_gam_family
+from ..parity import build_parity_snapshot
+from .gam_data import _GAMDataMixin
+from .gam_solve import _GAMSolveMixin
+from .gam_specs import _GAMSpecsMixin
+
+
+class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
+    """
+    User-facing classical GAM backend built on the general smooth-model core.
+    """
+
+    def __init__(
+        self,
+        cat_feature_info=None,
+        num_feature_info=None,
+        num_classes: int = 1,
+        family=None,
+        **kwargs,
+    ):
+        self.hparams = {
+            k: v
+            for k, v in kwargs.items()
+            if k not in ("cat_feature_info", "num_feature_info")
+        }
+
+        self.k = int(self.hparams.get("k", 10))
+        self.basis = self.hparams.get("basis", "tp")
+        self.fit_intercept = bool(self.hparams.get("fit_intercept", True))
+        self.max_irls_iter = int(self.hparams.get("max_irls_iter", 200))
+        self.irls_tol = float(self.hparams.get("irls_tol", 1e-7))
+        self.max_step_halving = int(self.hparams.get("max_step_halving", 25))
+        self.smoothing_params = self.hparams.get("smoothing_params", None)
+        self.optimize_smoothing = bool(self.hparams.get("optimize_smoothing", False))
+        self.smoothing_method = str(
+            self.hparams.get("smoothing_method", "fixed")
+        ).lower()
+        self.smoothing_optimizer = str(
+            self.hparams.get("smoothing_optimizer", "lbfgsb")
+        ).lower()
+        self.sp_log_bounds = tuple(self.hparams.get("sp_log_bounds", (-80.0, 20.0)))
+        self.score_gamma = float(self.hparams.get("score_gamma", 1.0))
+        self.covariance = str(self.hparams.get("covariance", "bayes")).lower()
+        self.select = bool(self.hparams.get("select", False))
+        self.main_effects = bool(self.hparams.get("main_effects", True))
+        self.tensor_terms = self.hparams.get("tensor_terms", None)
+        self.knots = self.hparams.get("knots", None)
+        self.min_sp = self.hparams.get("min_sp", None)
+        self.drop_intercept = self.hparams.get("drop_intercept", None)
+
+        self.family = make_gam_family(family)
+
+        self._device = "cpu"
+
+        self.formula = self.hparams.get("formula", None)
+
+        self.formula_ = None
+        self.formula_mode_ = False
+        self.formula_response_name_ = None
+        self.formula_preprocess_state_ = None
+
+        # mirrored fitted attributes
+        self.feature_names = None
+        self.X_ = None
+        self.y_ = None
+        self.prior_weights_ = None
+        self.offset_train_ = None
+        self.offset_predict_default_ = None
+        self.predictor_designs = None
+        self.n_samples_ = None
+        self.design_ = None
+        self.Z = None
+        self.ZTZ = None
+        self.n_coef_ = None
+        self.term_blocks_ = None
+        self.penalty_blocks_ = None
+        self.n_smoothing_params_ = None
+        self.smoothing_fixed_mask_ = None
+        self.smoothing_override_values_ = None
+        self.smoothing_override_modes_ = None
+        self.min_sp_ = None
+        self.reparam_state_ = None
+        self.sl_blocks_ = None
+        self.intercept_ = None
+        self.coef_ = None
+        self.coef_full_ = None
+        self.beta = None
+        self.edf_ = None
+        self.trace_H_ = None
+        self.scale_ = None
+        self.rss_ = None
+        self.deviance_ = None
+        self.edf_by_term_ = None
+        self.edf2_ = None
+        self.Vp_ = None
+        self.Vf_ = None
+        self.Vc_ = None
+        self._fitted = False
+        self._optim_method = None
+        self._optim_result = None
+        self._optim_trace = None
+        self._optim_used_gradient = None
+        self._optim_used_hessian = None
+        self.smoothing_score_ = None
+        self.result_ = None
+        self.side_condition_reports_ = None
+        self._predictor_full_slices_ = None
+        self._coef_reduced_to_full_idx = None
+
+    def _general_family_link_prediction(self, X_np):
+        offset = self._general_family_prediction_offset(X_np, None)
+        return self._general_family_link_prediction_with_offset(X_np, offset)
+
+    def _general_family_prediction_offset(self, X_np, offset):
+        n_rows = self.n_samples_ if X_np is None else int(X_np.shape[0])
+        n_pred = len(self._predictor_full_slices_ or [])
+        if offset is None:
+            offset_vec = self._prediction_offset(X_np, None)
+            if offset_vec is None:
+                return None
+            return [offset_vec] + [None] * max(n_pred - 1, 0)
+        if isinstance(offset, (list, tuple)):
+            out = []
+            for i, off_i in enumerate(offset):
+                out.append(
+                    None
+                    if off_i is None
+                    else self._coerce_optional_offset(
+                        off_i, n_rows, name=f"offset[{i}]"
+                    )
+                )
+            if len(out) < n_pred:
+                out.extend([None] * (n_pred - len(out)))
+            return out
+        offset_vec = self._coerce_optional_offset(offset, n_rows)
+        return [offset_vec] + [None] * max(n_pred - 1, 0)
+
+    def _general_family_link_prediction_with_offset(self, X_np, offset):
+        eta_cols = []
+        off_list = None if offset is None else list(offset)
+        for k, (pred, sl) in enumerate(
+            zip(self.predictor_designs, self._predictor_full_slices_)
+        ):
+            Zp = (
+                np.asarray(pred.design_matrix, dtype=np.float64)
+                if X_np is None
+                else np.asarray(pred.build_new_matrix(X_np), dtype=np.float64)
+            )
+            if bool(pred.has_intercept):
+                Xp = np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp])
+            else:
+                Xp = Zp
+            eta_k = Xp @ np.asarray(self.coef_full_[sl], dtype=np.float64)
+            if off_list is not None and k < len(off_list) and off_list[k] is not None:
+                eta_k = eta_k + np.asarray(off_list[k], dtype=np.float64)
+            eta_cols.append(np.asarray(eta_k, dtype=np.float64))
+        return (
+            np.column_stack(eta_cols)
+            if eta_cols
+            else np.empty((0, 0), dtype=np.float64)
+        )
+
+    def _general_family_prediction_blocks(self, X_np):
+        Z_blocks = []
+        Xp_blocks = []
+        for pred in self.predictor_designs:
+            Zp = (
+                np.asarray(pred.design_matrix, dtype=np.float64)
+                if X_np is None
+                else np.asarray(pred.build_new_matrix(X_np), dtype=np.float64)
+            )
+            Z_blocks.append(Zp)
+            if bool(pred.has_intercept):
+                Xp_blocks.append(
+                    np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp])
+                )
+            else:
+                Xp_blocks.append(Zp)
+        Z_new = (
+            np.column_stack(Z_blocks)
+            if Z_blocks
+            else np.empty((self.n_samples_ if X_np is None else len(X_np), 0))
+        )
+        return Z_new, Xp_blocks
+
+    def _general_family_predict(
+        self, X_np, *, return_se=False, cov=None, type="response", offset=None
+    ):
+        type = str(type).lower()
+        if type not in {"response", "link", "terms", "lpmatrix"}:
+            raise ValueError(
+                "type must be one of {'response', 'link', 'terms', 'lpmatrix'}"
+            )
+
+        offset_list = self._general_family_prediction_offset(X_np, offset)
+        eta = self._general_family_link_prediction_with_offset(X_np, offset_list)
+        Z_new, Xp_blocks = self._general_family_prediction_blocks(X_np)
+
+        if type == "lpmatrix":
+            return (
+                np.column_stack(Xp_blocks)
+                if Xp_blocks
+                else np.empty((eta.shape[0], 0), dtype=np.float64)
+            )
+
+        if type == "terms":
+            terms = np.column_stack(
+                [
+                    Z_new[:, tb.coef_slice] @ self.coef_[tb.coef_slice]
+                    for tb in self.term_blocks_
+                ]
+            )
+            if not return_se:
+                return terms
+
+            V = self._select_cov(cov)
+            ses = []
+            full_idx = np.asarray(self._coef_reduced_to_full_idx, dtype=int)
+            for tb in self.term_blocks_:
+                idx = full_idx[tb.coef_slice]
+                Xi = np.zeros((Z_new.shape[0], V.shape[0]), dtype=np.float64)
+                Xi[:, idx] = Z_new[:, tb.coef_slice]
+                var = np.einsum("ij,jk,ik->i", Xi, V, Xi)
+                ses.append(np.sqrt(np.maximum(var, 0.0)))
+            return terms, np.column_stack(ses)
+
+        if type == "link":
+            if not return_se:
+                return eta
+            V = self._select_cov(cov)
+            se_cols = []
+            for Xp, sl in zip(Xp_blocks, self._predictor_full_slices_):
+                Vk = V[sl, sl]
+                var = np.einsum("ij,jk,ik->i", Xp, Vk, Xp)
+                se_cols.append(np.sqrt(np.maximum(var, 0.0)))
+            return eta, np.column_stack(se_cols)
+
+        family_predict = getattr(self.family, "predict", None)
+        if callable(family_predict):
+            out = family_predict(
+                eta=eta,
+                X=(
+                    np.column_stack(Xp_blocks)
+                    if Xp_blocks
+                    else np.empty((eta.shape[0], 0), dtype=np.float64)
+                ),
+                jj=[
+                    np.arange(sl.start, sl.stop, dtype=int)
+                    for sl in (self._predictor_full_slices_ or [])
+                ],
+                coef=np.asarray(self.coef_full_, dtype=np.float64),
+                offset=offset_list,
+                se=return_se,
+                Vb=None if not return_se else self._select_cov(cov),
+            )
+            return out
+
+        if return_se:
+            raise NotImplementedError(
+                f"{self.family.__class__.__name__} does not yet implement predictive standard errors."
+            )
+        return np.asarray(
+            self.family.predict_fitted(
+                np.column_stack(Xp_blocks),
+                [
+                    np.arange(sl.start, sl.stop, dtype=int)
+                    for sl in (self._predictor_full_slices_ or [])
+                ],
+                np.asarray(self.coef_full_, dtype=np.float64),
+                offset=offset_list,
+            ),
+            dtype=np.float64,
+        )
+
+    # ------------------------------------------------------------------
+    # Persistence
+    # ------------------------------------------------------------------
+
+    def save_model(self, path):
+        with open(path, "wb") as f:
+            pickle.dump(self, f)
+
+    def load_model(self, path, device="cpu"):
+        with open(path, "rb") as f:
+            other = pickle.load(f)
+        self.__dict__.update(other.__dict__)
+        self._device = device
+        return self
+
+    def get_device(self):
+        return self._device
+
+    # ------------------------------------------------------------------
+    # Properties
+    # ------------------------------------------------------------------
+
+    @property
+    def formula_used_columns_(self):
+        if self.formula_preprocess_state_ is None:
+            return None
+        used_columns = self.formula_preprocess_state_.get("used_columns")
+        if used_columns is None:
+            return None
+        return list(used_columns)
+
+    @property
+    def formula_offset_name_(self):
+        if self.formula_preprocess_state_ is None:
+            return None
+        return self.formula_preprocess_state_.get("offset_name")
+
+    # ------------------------------------------------------------------
+    # Fit / predict
+    # ------------------------------------------------------------------
+
+    def fit(
+        self,
+        X=None,
+        y=None,
+        optimize_smoothing=None,
+        smoothing_method=None,
+        data=None,
+        formula=None,
+        offset=None,
+        sample_weight=None,
+        min_sp=None,
+        knots=None,
+        drop_intercept=None,
+    ):
+        formula = self.formula if formula is None else formula
+        knots = self.knots if knots is None else knots
+        min_sp = self.min_sp if min_sp is None else min_sp
+        drop_intercept = (
+            self.drop_intercept if drop_intercept is None else drop_intercept
+        )
+
+        if formula is not None:
+            if data is None:
+                if isinstance(X, pd.DataFrame):
+                    data = X
+                    X = None
+                else:
+                    raise ValueError(
+                        "Formula-based fitting requires `data` as a pandas DataFrame "
+                        "(or pass the DataFrame as `X`)."
+                    )
+
+            (
+                parsed,
+                predictor_specs,
+                X_np,
+                feature_names,
+                y_out,
+                used_cols,
+                offset_formula,
+                preprocess_state,
+            ) = self._prepare_formula_inputs(
+                data=data,
+                formula=formula,
+                y=y,
+                knots=knots,
+                drop_intercept=drop_intercept,
+            )
+
+            self.formula_ = parsed
+            self.formula_mode_ = True
+            self.formula_response_name_ = parsed.response_name
+            self.formula_preprocess_state_ = preprocess_state
+
+            fit_intercept = bool(parsed.predictors[0].intercept)
+            self.fit_intercept = fit_intercept
+            y_use = y_out
+
+            offset_arg = self._coerce_optional_offset(offset, len(X_np))
+            offset_use = self._combine_offsets(offset_formula, offset_arg)
+
+            # mgcv-like prediction semantics:
+            # remember only formula offsets for default prediction.
+            predict_offset_default = (
+                None
+                if offset_formula is None
+                else np.asarray(offset_formula, dtype=np.float64).copy()
+            )
+        else:
+            X_np, feature_names = self._coerce_X(X)
+            predictor_specs = self._make_predictor_specs(feature_names, knots=knots)
+            fit_intercept = self.fit_intercept
+            y_use = y
+
+            self.formula_ = None
+            self.formula_mode_ = False
+            self.formula_response_name_ = None
+            self.formula_preprocess_state_ = None
+
+            # Separate fit-time offset is used in fitting, but not remembered by default
+            # for prediction, matching mgcv's documented behaviour.
+            offset_use = self._coerce_optional_offset(offset, len(X_np))
+            predict_offset_default = None
+
+        if y_use is None:
+            raise ValueError(
+                "y must be supplied, or a formula with a response column must be provided."
+            )
+
+        sw_use = None
+        if sample_weight is not None:
+            if isinstance(sample_weight, str):
+                if formula is None or data is None:
+                    raise ValueError(
+                        "sample_weight as a column name requires formula fitting with `data`."
+                    )
+                if sample_weight not in data.columns:
+                    raise ValueError(
+                        f"sample_weight column {sample_weight!r} not found in data."
+                    )
+                sw_use = np.asarray(
+                    data[sample_weight].to_numpy(), dtype=np.float64
+                ).ravel()
+            else:
+                sw_use = np.asarray(sample_weight, dtype=np.float64).ravel()
+            if sw_use.shape[0] != len(y_use):
+                raise ValueError(
+                    "sample_weight must have the same length as y "
+                    f"({len(y_use)}), got {sw_use.shape[0]}."
+                )
+
+        self.predictor_specs = predictor_specs
+        self.fit_intercept = fit_intercept
+        self.min_sp = min_sp
+        self.result_ = None
+        self.side_condition_reports_ = None
+
+        from ..fit.orchestrator import fit_model_core
+
+        fit_model_core(
+            X=X_np,
+            feature_names=feature_names,
+            y=y_use,
+            fit_offset=offset_use,
+            optimize_smoothing=optimize_smoothing,
+            smoothing_method=smoothing_method,
+            model=self,
+            sample_weight=sw_use,
+        )
+
+        # Default prediction offset follows mgcv semantics:
+        # formula offset(...) is remembered; separate fit-time offset is not.
+        self.offset_predict_default_ = (
+            None
+            if predict_offset_default is None
+            else np.asarray(predict_offset_default, dtype=np.float64).copy()
+        )
+        return self
+
+    def fit_result(self, include_covariances=True):
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+        if self.result_ is None:
+            self.result_ = self._build_fit_result()
+        if not include_covariances:
+            self.result_.cov_bayes = None
+            self.result_.cov_freq = None
+        return self.result_
+
+    def _select_cov(self, cov):
+        from ..fit.covariance import select_covariance_matrix
+
+        return select_covariance_matrix(self, cov=cov)
+
+    def parity_snapshot(self, X=None, include_covariances=False):
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+        return build_parity_snapshot(self, X=X, include_covariances=include_covariances)
+
+    def predict(self, X=None, return_se=False, cov=None, type="response", offset=None):
+        from ..predict import predict_values
+
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+
+        if getattr(self.family, "family_class", "") == "general":
+            if X is None:
+                X_np = None
+                offset_use = offset
+            elif self.formula_mode_:
+                X_np, _, offset_formula = self._coerce_formula_predict_inputs(X)
+                offset_use = (
+                    self._combine_offsets(
+                        offset_formula,
+                        self._coerce_optional_offset(offset, X_np.shape[0]),
+                    )
+                    if not isinstance(offset, (list, tuple))
+                    else offset
+                )
+            else:
+                X_np, _ = self._coerce_X(X)
+                offset_use = offset
+            return self._general_family_predict(
+                X_np,
+                return_se=return_se,
+                cov=cov,
+                type=type,
+                offset=offset_use,
+            )
+
+        if X is None:
+            offset_use = None
+            if offset is not None:
+                offset_use = self._coerce_optional_offset(offset, self.X_.shape[0])
+            return predict_values(
+                X=None,
+                return_se=return_se,
+                cov=cov,
+                type=type,
+                offset=offset_use,
+                model=self,
+            )
+
+        if self.formula_mode_:
+            X_np, _, offset_formula = self._coerce_formula_predict_inputs(X)
+            offset_use = self._combine_offsets(
+                offset_formula,
+                self._coerce_optional_offset(offset, X_np.shape[0]),
+            )
+        else:
+            X_np, _ = self._coerce_X(X)
+            offset_use = self._coerce_optional_offset(offset, X_np.shape[0])
+
+        return predict_values(
+            X=X_np,
+            return_se=return_se,
+            cov=cov,
+            type=type,
+            offset=offset_use,
+            model=self,
+        )
+
+    def predict_feature_vals(self, X=None, offset=None):
+        from ..predict import predict_values
+
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+        if X is None:
+            offset_use = None
+            if offset is not None:
+                offset_use = self._coerce_optional_offset(offset, self.X_.shape[0])
+            X_use = None
+        elif self.formula_mode_:
+            X_np, _, offset_formula = self._coerce_formula_predict_inputs(X)
+            offset_use = self._combine_offsets(
+                offset_formula,
+                self._coerce_optional_offset(offset, X_np.shape[0]),
+            )
+            X_use = X_np
+        else:
+            X_np, _ = self._coerce_X(X)
+            offset_use = self._coerce_optional_offset(offset, X_np.shape[0])
+            X_use = X_np
+
+        eta = predict_values(model=self, X=X_use, type="link", offset=offset_use)
+        terms = predict_values(model=self, X=X_use, type="terms", offset=offset_use)
+        out = {"output": eta}
+        if self.family.name != "gaussian":
+            out["response"] = predict_values(
+                model=self, X=X_use, type="response", offset=offset_use
+            )
+        for j, tb in enumerate(self.term_blocks_):
+            out[tb.term_id] = terms[:, j]
+        if self.fit_intercept:
+            out["intercept"] = np.array(self.intercept_, dtype=np.float64)
+        if offset_use is not None:
+            out["offset"] = np.asarray(offset_use, dtype=np.float64)
+        return out
+
+    def lpmatrix(self, X):
+        from ..predict import build_lpmatrix
+
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+
+        if self.formula_mode_:
+            X_np, _, _ = self._coerce_formula_predict_inputs(X)
+        else:
+            X_np, _ = self._coerce_X(X)
+
+        return build_lpmatrix(self, X_new=X_np)
+
+    def plot(self, X=None, y=None, n_cols=2, figsize=None):
+        from ..diagnostics import plot_gam_terms
+
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+        if X is None:
+            return plot_gam_terms(self, X=None, n_cols=n_cols, figsize=figsize)
+
+        if self.formula_mode_:
+            X_np, _, _ = self._coerce_formula_predict_inputs(X)
+        else:
+            X_np, _ = self._coerce_X(X)
+
+        return plot_gam_terms(self, X=X_np, n_cols=n_cols, figsize=figsize)
+
+    def summary(self):
+        from ..diagnostics import print_summary
+
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+        return print_summary(self)
+
+    def residuals(self, type="deviance"):
+        from ..diagnostics import residuals_gam
+
+        return residuals_gam(self, type=type)
+
+    def concurvity(self, full=True):
+        from ..diagnostics import concurvity
+
+        return concurvity(self, full=full)
+
+    def k_check(self, subsample=5000, n_rep=400, seed=None):
+        from ..diagnostics import k_check
+
+        return k_check(self, subsample=subsample, n_rep=n_rep, seed=seed)
+
+    def gam_check(self, *, type="deviance", k_sample=5000, k_rep=200, seed=None):
+        from ..diagnostics import gam_check
+
+        return gam_check(
+            self,
+            type=type,
+            k_sample=k_sample,
+            k_rep=k_rep,
+            seed=seed,
+        )
+
+    def sp_vcov(self, edge_correct=True, reg=1e-3):
+        from ..smoothing_selection import sp_vcov
+
+        return sp_vcov(self, edge_correct=edge_correct, reg=reg)
+
+    def vcov(
+        self,
+        *,
+        sandwich: bool = False,
+        freq: bool = False,
+        dispersion: float | None = None,
+        unconditional: bool = False,
+    ):
+        """
+        Extract mgcv-style coefficient covariance matrix.
+
+        Mirrors mgcv ``vcov.gam`` in mgcv/R/mgcv.r.
+        """
+        if sandwich:
+            B2 = (
+                np.zeros_like(np.asarray(self.Vp_, dtype=np.float64))
+                if freq
+                else (
+                    np.asarray(self.Vp_, dtype=np.float64)
+                    - np.asarray(self.Vf_, dtype=np.float64)
+                )
+            )
+            X = np.asarray(self.fit_state_.X, dtype=np.float64)
+            m = float(X.shape[0])
+            m = m / (m - float(np.sum(np.asarray(self.edf_, dtype=np.float64))))
+
+            family_class = str(getattr(self.family, "family_class", "")).lower()
+            if family_class == "general":
+                if not hasattr(self.family, "sandwich"):
+                    raise RuntimeError(
+                        "Sandwich covariance matrix is not available for this general family."
+                    )
+                jj = [
+                    np.arange(sl.start, sl.stop, dtype=int)
+                    for sl in (self._predictor_full_slices_ or [])
+                ]
+                offset = (
+                    None
+                    if self.offset_train_ is None
+                    else [np.asarray(self.offset_train_, dtype=np.float64)]
+                    + [None] * (len(jj) - 1)
+                )
+                fill = np.asarray(
+                    self.family.sandwich(
+                        np.asarray(self.y_, dtype=np.float64),
+                        X,
+                        jj,
+                        np.asarray(self.coef_full_, dtype=np.float64),
+                        (
+                            None
+                            if self.prior_weights_ is None
+                            else np.asarray(self.prior_weights_, dtype=np.float64)
+                        ),
+                        offset=offset,
+                    ),
+                    dtype=np.float64,
+                )
+                vc = (
+                    m
+                    * np.asarray(self.Vp_, dtype=np.float64)
+                    @ fill
+                    @ np.asarray(self.Vp_, dtype=np.float64)
+                    + B2
+                )
+            elif family_class == "extended":
+                raise RuntimeError(
+                    "Sandwich covariance matrix is not implemented for this extended family."
+                )
+            else:
+                eta = np.asarray(self._fitted_eta, dtype=np.float64).ravel()
+                mu = np.asarray(self._fitted_mu, dtype=np.float64).ravel()
+                w = (
+                    self.family.mu_eta(eta)
+                    * (np.asarray(self.y_, dtype=np.float64).ravel() - mu)
+                    / (float(self.scale_) * self.family.variance(mu))
+                )
+                WX = np.asarray(w[:, None] * X, dtype=np.float64)
+                vc = (
+                    m
+                    * np.asarray(self.Vp_, dtype=np.float64)
+                    @ (WX.T @ WX)
+                    @ np.asarray(self.Vp_, dtype=np.float64)
+                    + B2
+                )
+
+            vc = np.asarray(vc, dtype=np.float64).copy()
+            if dispersion is not None:
+                vc *= float(dispersion) / float(self.scale_)
+            return vc
+
+        if freq:
+            vc = self.Vf_
+        else:
+            vc = self.Vc_ if unconditional and self.Vc_ is not None else self.Vp_
+
+        if vc is None:
+            raise RuntimeError("Requested covariance matrix is not available.")
+
+        vc = np.asarray(vc, dtype=np.float64).copy()
+        if dispersion is not None:
+            vc *= float(dispersion) / float(self.scale_)
+        return vc
+
+    def _mgcv_loglik_df(self) -> float:
+        """
+        mgcv-style effective df used by ``logLik.gam`` / AIC / BIC.
+
+        Mirrors mgcv ``logLik.gam`` in mgcv/R/mgcv.r.
+        """
+        sc_p = 1.0 if getattr(self.family, "known_scale", None) is None else 0.0
+        if self.edf2_ is not None:
+            p = float(np.sum(np.asarray(self.edf2_, dtype=np.float64))) + sc_p
+        else:
+            p = float(self.edf_) + sc_p
+        np_max = float(len(np.asarray(self.coef_full_, dtype=np.float64))) + sc_p
+        return min(p, np_max)
+
+    def loglik(self) -> float:
+        """
+        Unpenalized fitted log-likelihood at penalized MLE.
+
+        Mirrors mgcv ``logLik.gam`` value semantics.
+        """
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+
+        if getattr(self.family, "family_class", "") == "general":
+            X = np.asarray(self.fit_state_.X, dtype=np.float64)
+            jj = [
+                np.arange(sl.start, sl.stop, dtype=int)
+                for sl in (self._predictor_full_slices_ or [])
+            ]
+            ll = self.family.ll(
+                np.asarray(self.y_, dtype=np.float64),
+                X,
+                jj,
+                np.asarray(self.coef_full_, dtype=np.float64),
+                np.asarray(self.prior_weights_, dtype=np.float64),
+                offset=(
+                    None
+                    if self.offset_train_ is None
+                    else [np.asarray(self.offset_train_, dtype=np.float64)]
+                    + [None] * (len(jj) - 1)
+                ),
+                deriv=0,
+            )
+            return float(ll["l"])
+
+        eta = self.predict(X=None, type="link")
+        mu = self.family.inverse_link(eta)
+        return float(
+            self.family.loglik(
+                np.asarray(self.y_, dtype=np.float64),
+                np.asarray(mu, dtype=np.float64),
+                scale=float(self.scale_),
+            )
+        )
+
+    def aic(self) -> float:
+        """mgcv-style conditional AIC based on effective df."""
+        return float(-2.0 * self.loglik() + 2.0 * self._mgcv_loglik_df())
+
+    def bic(self) -> float:
+        """BIC using mgcv-style effective df."""
+        n_obs = float(len(np.asarray(self.y_, dtype=np.float64)))
+        return float(-2.0 * self.loglik() + np.log(n_obs) * self._mgcv_loglik_df())
+
+    def gam_vcomp(self, *, rescale=False, conf_lev=0.95):
+        from ..smoothing_selection import gam_vcomp
+
+        return gam_vcomp(self, rescale=rescale, conf_lev=conf_lev)
+
+    def one_se_rule(self, candidate_indices=None):
+        from ..smoothing_selection import one_se_rule
+
+        return one_se_rule(self, candidate_indices=candidate_indices)
+
+    def anova(self, *models, dispersion=None, test=None, freq=False):
+        from ..inference import anova_gam
+
+        return anova_gam(
+            self,
+            *models,
+            dispersion=dispersion,
+            test=test,
+            freq=freq,
+        )
+
+# --- End of nampy/gam/model/api.py ---
 
 # --- Start of nampy/gam/model/gam_data.py ---
 # gam/model/gam_data.py
@@ -1256,8 +2118,12 @@ class _GAMDataMixin:
 # gam/model/gam_solve.py
 """Solver dispatch, smoothing resolution, design compilation, and fit-result helpers."""
 from collections.abc import Mapping
+from dataclasses import replace
+from types import SimpleNamespace
 
 import numpy as np
+
+from .._model_state import _require_fitted
 
 
 class _GAMSolveMixin:
@@ -1332,11 +2198,10 @@ class _GAMSolveMixin:
             raise NotImplementedError(
                 f"Automatic smoothing selection with method={method!r} is not "
                 "currently available for this model configuration. "
-                "The current ML/REML backend requires each penalized term to "
-                "contribute exactly one primary smooth penalty, plus at most "
-                "one null-space penalty on the same term. General overlapping "
-                "multi-penalty structures must currently use 'fixed', 'gcv', "
-                "or 'ubre' where available."
+                "The current ML/REML backend still rejects penalty layouts "
+                "with null-space penalties coupling disconnected primary "
+                "penalty components. Use 'fixed', 'gcv', or 'ubre' where "
+                "available for those cases."
             )
 
         raise NotImplementedError(
@@ -1548,20 +2413,121 @@ class _GAMSolveMixin:
 
         self.family.validate_predictor_count(len(self.predictor_designs))
 
-        if len(self.predictor_designs) != 1:
-            raise NotImplementedError(
-                "Current core supports one active linear predictor in fitting. "
-                "The predictor architecture is in place for later extension "
-                "to multiple distribution parameters."
-            )
+        if len(self.predictor_designs) == 1:
+            self.design_ = self.predictor_designs[0]
+            self.Z = self.design_.design_matrix
+            self.ZTZ = self.Z.T @ self.Z
+            self.n_coef_ = self.design_.n_coef
+            self.term_blocks_ = self.design_.compiled_terms
+            self.penalty_blocks_ = self.design_.compiled_penalties
+            self.n_smoothing_params_ = self.design_.n_smoothing_params
+            self._predictor_full_slices_ = [
+                slice(
+                    0,
+                    int(self.design_.n_coef) + (1 if bool(self.design_.has_intercept) else 0),
+                )
+            ]
+            self._coef_reduced_to_full_idx = np.arange(
+                int(self.n_coef_), dtype=int
+            ) + (1 if bool(self.design_.has_intercept) else 0)
+        else:
+            global_terms = []
+            global_penalties = []
+            combined_blocks = []
+            combined_map = {}
+            override_modes = []
+            override_values = []
+            predictor_full_slices = []
+            reduced_to_full = []
+            coef_shift = 0
+            sp_shift = 0
+            full_shift = 0
 
-        self.design_ = self.predictor_designs[0]
-        self.Z = self.design_.design_matrix
-        self.ZTZ = self.Z.T @ self.Z
-        self.n_coef_ = self.design_.n_coef
-        self.term_blocks_ = self.design_.compiled_terms
-        self.penalty_blocks_ = self.design_.compiled_penalties
-        self.n_smoothing_params_ = self.design_.n_smoothing_params
+            for pred in self.predictor_designs:
+                combined_blocks.append(np.asarray(pred.design_matrix, dtype=np.float64))
+
+                if bool(pred.has_intercept):
+                    reduced_to_full.extend(
+                        list(
+                            np.arange(
+                                full_shift + 1,
+                                full_shift + 1 + int(pred.n_coef),
+                                dtype=int,
+                            )
+                        )
+                    )
+                    predictor_full_slices.append(
+                        slice(full_shift, full_shift + int(pred.n_coef) + 1)
+                    )
+                    full_shift += int(pred.n_coef) + 1
+                else:
+                    reduced_to_full.extend(
+                        list(np.arange(full_shift, full_shift + int(pred.n_coef), dtype=int))
+                    )
+                    predictor_full_slices.append(slice(full_shift, full_shift + int(pred.n_coef)))
+                    full_shift += int(pred.n_coef)
+
+                for term in pred.compiled_terms:
+                    global_terms.append(
+                        replace(
+                            term,
+                            coef_slice=slice(
+                                coef_shift + int(term.coef_slice.start),
+                                coef_shift + int(term.coef_slice.stop),
+                            ),
+                            smoothing_indices=[
+                                sp_shift + int(v) for v in getattr(term, "smoothing_indices", [])
+                            ],
+                            smoothing_ids=[
+                                f"{pred.name}:{sid}" if sid is not None else None
+                                for sid in getattr(term, "smoothing_ids", [])
+                            ],
+                        )
+                    )
+                for pb in pred.compiled_penalties:
+                    global_penalties.append(
+                        replace(
+                            pb,
+                            coef_slice=slice(
+                                coef_shift + int(pb.coef_slice.start),
+                                coef_shift + int(pb.coef_slice.stop),
+                            ),
+                            smoothing_index=sp_shift + int(pb.smoothing_index),
+                            smoothing_id=(
+                                None
+                                if pb.smoothing_id is None
+                                else f"{pred.name}:{pb.smoothing_id}"
+                            ),
+                        )
+                    )
+                for sid, idxs in (pred.metadata.get("s_id_to_sp_indices", {}) or {}).items():
+                    combined_map[f"{pred.name}:{sid}"] = [sp_shift + int(i) for i in idxs]
+                override_modes.extend(list(pred.smoothing_override_modes or []))
+                if pred.smoothing_override_values is not None:
+                    override_values.extend(
+                        list(np.asarray(pred.smoothing_override_values, dtype=np.float64))
+                    )
+                coef_shift += int(pred.n_coef)
+                sp_shift += int(pred.n_smoothing_params)
+
+            self.design_ = SimpleNamespace(
+                metadata={"s_id_to_sp_indices": combined_map},
+                smoothing_override_modes=list(override_modes),
+                smoothing_override_values=np.asarray(override_values, dtype=np.float64),
+            )
+            self.Z = (
+                np.column_stack(combined_blocks)
+                if combined_blocks
+                else np.empty((X.shape[0], 0), dtype=np.float64)
+            )
+            self.ZTZ = self.Z.T @ self.Z
+            self.n_coef_ = coef_shift
+            self.term_blocks_ = tuple(global_terms)
+            self.penalty_blocks_ = tuple(global_penalties)
+            self.n_smoothing_params_ = sp_shift
+            self._predictor_full_slices_ = predictor_full_slices
+            self._coef_reduced_to_full_idx = np.asarray(reduced_to_full, dtype=int)
+
         self.min_sp_ = self._resolve_min_sp(self.min_sp)
         self.smoothing_params = self._resolve_smoothing_params(self.n_smoothing_params_)
 
@@ -1582,12 +2548,15 @@ class _GAMSolveMixin:
             matches = [
                 pb for pb in self.penalty_blocks_ if pb.coef_slice == tb.coef_slice
             ]
-            if len(matches) != 1:
-                raise NotImplementedError(
-                    "Current PIRLS path assumes one penalty per term. "
-                    "Multi-penalty terms are planned for later phases."
+            if not matches:
+                penalties.append(
+                    np.zeros((tb.basis_train.shape[1], tb.basis_train.shape[1]))
                 )
-            penalties.append(matches[0].matrix)
+                continue
+            P_term = np.zeros_like(np.asarray(matches[0].matrix, dtype=np.float64))
+            for pb in matches:
+                P_term += np.asarray(pb.matrix, dtype=np.float64)
+            penalties.append(P_term)
         return penalties
 
     def _assemble_penalty_matrix(self, smoothing_params):
@@ -1715,8 +2684,7 @@ class _GAMSolveMixin:
         )
         from ..fit.results import GAMFitResult, TermFitResult
 
-        if not self._fitted:
-            raise RuntimeError("Model is not fitted.")
+        _require_fitted(self)
         if str(getattr(self, "_optim_method", "")).lower() in {"reml", "ml"}:
             refresh_gaussian_ml_reml_score_from_fit_state(self, self.y_)
 
@@ -2253,19 +3221,19 @@ from pathlib import Path
 import numpy as np
 from scipy.linalg import qr
 
+from .._mgcv_constants import LOG_GUARD_MIN
+from .._model_state import (
+    _coef_column_offset,
+    _require_fitted,
+    _term_blocks_seq,
+)
 from ..smoothing_selection.criteria import (
     criterion_ml_reml,
     criterion_ml_reml_gaussian_dynamic_joint,
-    criterion_ml_reml_gaussian_exact_joint,
     criterion_ml_reml_pirls,
     resolve_ml_reml_scoring_backend,
 )
 from ..smoothing_selection.postfit import optimizer_endpoint_diagnostics
-
-
-def _intercept_offset(model) -> int:
-    """Return 1 if model was fit with an intercept column in X, else 0."""
-    return 1 if bool(getattr(model, "fit_intercept", False)) else 0
 
 
 def _coerce_snapshot_arrays(snapshot):
@@ -2470,7 +3438,7 @@ def _normalize_mgcv_term_label(label):
 def _residual_df_from_snapshot_state(core) -> float:
     H = np.asarray(core._H_coef, dtype=np.float64)
     edf1 = 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
-    intercept_df = 1.0 if bool(getattr(core, "fit_intercept", False)) else 0.0
+    intercept_df = float(_coef_column_offset(core))
     return float(core.n_samples_) - intercept_df - float(np.sum(edf1))
 
 
@@ -2509,7 +3477,7 @@ def _build_parity_criterion_view(core, fit_dict):
     score_joint = getattr(core, "smoothing_score_", None)
     joint_s2 = getattr(core, "_gaussian_reml_sigma2_opt_", None)
     if joint_s2 is not None and np.isfinite(float(joint_s2)):
-        view["joint_log_sigma2"] = float(np.log(max(float(joint_s2), 1e-300)))
+        view["joint_log_sigma2"] = float(np.log(max(float(joint_s2), LOG_GUARD_MIN)))
     if backend in {"gaussian_exact", "gaussian_dynamic"} and log_free.size > 0:
         try:
             view["profiled_criterion_value"] = float(
@@ -2520,11 +3488,11 @@ def _build_parity_criterion_view(core, fit_dict):
     if backend == "gaussian_exact" and log_free.size > 0 and joint_s2 is not None:
         try:
             view["joint_criterion_value"] = float(
-                criterion_ml_reml_gaussian_exact_joint(
+                criterion_ml_reml_gaussian_dynamic_joint(
                     core,
                     core.y_,
                     log_free,
-                    float(np.log(max(float(joint_s2), 1e-300))),
+                    float(np.log(max(float(joint_s2), LOG_GUARD_MIN))),
                     method=(
                         "LAML"
                         if str(criterion_name).lower() == "laml"
@@ -2541,7 +3509,7 @@ def _build_parity_criterion_view(core, fit_dict):
                     core,
                     core.y_,
                     log_free,
-                    float(np.log(max(float(joint_s2), 1e-300))),
+                    float(np.log(max(float(joint_s2), LOG_GUARD_MIN))),
                     method=(
                         "LAML"
                         if str(criterion_name).lower() == "laml"
@@ -2565,7 +3533,7 @@ def _build_parity_criterion_view(core, fit_dict):
         source = "smoothing_score"
         if candidate is None and log_free.size > 0:
             try:
-                log_s2 = float(np.log(max(float(joint_s2), 1e-300)))
+                log_s2 = float(np.log(max(float(joint_s2), LOG_GUARD_MIN)))
                 jm = "LAML" if str(criterion_name).lower() == "laml" else branch_method
                 candidate = float(
                     criterion_ml_reml_gaussian_dynamic_joint(
@@ -2599,8 +3567,7 @@ def _build_parity_criterion_view(core, fit_dict):
 def build_parity_snapshot(model, X=None, include_covariances=False):
     core = _get_core(model)
 
-    if not getattr(core, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
+    _require_fitted(core)
 
     fit_result = core.fit_result(include_covariances=include_covariances)
     fit_dict = fit_result.to_dict(include_covariances=include_covariances)
@@ -2611,7 +3578,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
     fit_dict["estimate_theta"] = bool(getattr(core.family, "estimate_theta", False))
     if fit_dict.get("smoothing_params", None) is not None:
         sp = np.asarray(fit_dict["smoothing_params"], dtype=np.float64)
-        fit_dict["log_smoothing_params"] = np.log(np.maximum(sp, 1e-300)).tolist()
+        fit_dict["log_smoothing_params"] = np.log(np.maximum(sp, LOG_GUARD_MIN)).tolist()
     parity_view = _build_parity_criterion_view(core, fit_dict)
 
     predict_api = (
@@ -2640,14 +3607,14 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
     smooth_cov_freq = []
     smooth_edf1_vals = []
     edf1_vec = None
-    if len(getattr(core, "term_blocks_", ()) or ()) > 0:
+    if len(_term_blocks_seq(core)) > 0:
         try:
             H = np.asarray(core._H_coef, dtype=np.float64)
             edf1_vec = 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
         except Exception:
             edf1_vec = None
-        x_off = _intercept_offset(core)
-        for tb in getattr(core, "term_blocks_", ()) or ():
+        x_off = _coef_column_offset(core)
+        for tb in _term_blocks_seq(core):
             if str(getattr(tb, "term_type", "")) == "parametric":
                 continue
             sl = tb.coef_slice
@@ -2700,7 +3667,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
             "labels": list(smooth_labels),
             "coef_blocks": [
                 np.asarray(core.coef_[tb.coef_slice], dtype=np.float64).tolist()
-                for tb in getattr(core, "term_blocks_", ()) or ()
+                for tb in _term_blocks_seq(core)
                 if str(getattr(tb, "term_type", "")) != "parametric"
             ],
             "r_blocks": [
@@ -2708,32 +3675,32 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
                     R_full[
                         :,
                         int(tb.coef_slice.start)
-                        + _intercept_offset(core) : int(tb.coef_slice.stop)
-                        + _intercept_offset(core),
+                        + _coef_column_offset(core) : int(tb.coef_slice.stop)
+                        + _coef_column_offset(core),
                     ],
                     dtype=np.float64,
                 ).tolist()
-                for tb in getattr(core, "term_blocks_", ()) or ()
+                for tb in _term_blocks_seq(core)
                 if str(getattr(tb, "term_type", "")) != "parametric"
             ],
             "edf": np.asarray(
                 [
                     float(core.edf_by_term_[i])
-                    for i, tb in enumerate(getattr(core, "term_blocks_", ()) or ())
+                    for i, tb in enumerate(_term_blocks_seq(core))
                     if str(getattr(tb, "term_type", "")) != "parametric"
                 ],
                 dtype=np.float64,
             ).tolist(),
             "edf1": np.asarray(smooth_edf1_vals, dtype=np.float64).tolist(),
             "residual_df": float(core.n_samples_)
-            - (1.0 if bool(getattr(core, "fit_intercept", False)) else 0.0)
+            - float(_coef_column_offset(core))
             - float(core.edf_),
         }
         diagnostics["smooth_function_space"] = {
             "labels": list(smooth_labels),
             "fitted": [
                 np.asarray(terms[:, i], dtype=np.float64).tolist()
-                for i, tb in enumerate(getattr(core, "term_blocks_", ()) or ())
+                for i, tb in enumerate(_term_blocks_seq(core))
                 if str(getattr(tb, "term_type", "")) != "parametric"
             ],
             "variance_diag": [
@@ -2762,7 +3729,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
                     ),
                     dtype=np.float64,
                 ).tolist()
-                for tb in getattr(core, "term_blocks_", ()) or ()
+                for tb in _term_blocks_seq(core)
                 if str(getattr(tb, "term_type", "")) != "parametric"
             ],
         }
@@ -3074,30 +4041,25 @@ It is built by running new data through the compiled predictor's
 
 import numpy as np
 
-
-def _coerce_prediction_matrix(model, X):
-    if hasattr(model, "_coerce_feature_matrix"):
-        return model._coerce_feature_matrix(X)
-
-    X = np.asarray(X)
-    if X.ndim == 1:
-        X = X.reshape(-1, 1)
-    if X.ndim != 2:
-        raise ValueError("X must be a 2D feature matrix.")
-    return X
+from .._model_state import (
+    _coerce_feature_matrix,
+    _fit_intercept,
+    _require_design,
+    _require_fitted,
+)
 
 
 def _build_prediction_matrices(model, X_new=None):
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
+    _require_fitted(model)
+    _require_design(model)
 
     if X_new is None:
         Z_new = model.Z
     else:
-        X_new = _coerce_prediction_matrix(model, X_new)
+        X_new = _coerce_feature_matrix(model, X_new, none_is_training=False)
         Z_new = model.design_.build_new_matrix(X_new)
 
-    if model.fit_intercept:
+    if _fit_intercept(model):
         Xp = np.column_stack([np.ones(Z_new.shape[0], dtype=np.float64), Z_new])
     else:
         Xp = Z_new
@@ -3133,6 +4095,7 @@ or the frequentist sandwich covariance.
 
 import numpy as np
 
+from .._model_state import _coef_column_offset, _require_fitted
 from .linear_predictor_matrix import _build_prediction_matrices
 
 
@@ -3159,8 +4122,7 @@ def _term_contribution(model, Z_new, tb):
 def predict_values(
     model, X=None, return_se=False, cov=None, type="response", offset=None
 ):
-    if not getattr(model, "_fitted", False):
-        raise RuntimeError("Model is not fitted.")
+    _require_fitted(model)
 
     type = str(type).lower()
     Z_new, Xp = _build_prediction_matrices(model, X_new=X)
@@ -3183,7 +4145,7 @@ def predict_values(
             return terms
 
         V = model._select_cov(cov)
-        offset0 = 1 if model.fit_intercept else 0
+        offset0 = _coef_column_offset(model)
         ses = []
         for tb in model.term_blocks_:
             sl_full = slice(
