@@ -16,7 +16,16 @@ or the frequentist sandwich covariance.
 
 import numpy as np
 
-from .._model_state import _coef_column_offset, _require_fitted
+from .._model_state import (
+    _coef,
+    _coef_column_offset,
+    _coef_full,
+    _design_matrix,
+    _require_fitted,
+    _term_blocks_seq,
+)
+from ..fit.offsets import resolve_prediction_offset
+from .general import predict_general_values
 from .linear_predictor_matrix import _build_prediction_matrices
 
 
@@ -28,12 +37,14 @@ def _term_contribution_shift(model, tb):
     # convention for predict(type="terms") that differs from the fitted
     # coefficient split. Preserve link/lpmatrix parity and adjust only the
     # reported term contribution by the fitted training-sample mean.
-    train_term = model.Z[:, tb.coef_slice] @ model.coef_[tb.coef_slice]
+    beta = np.asarray(_coef(model), dtype=np.float64)
+    train_term = np.asarray(_design_matrix(model), dtype=np.float64)[:, tb.coef_slice] @ beta[tb.coef_slice]
     return -float(np.mean(np.asarray(train_term, dtype=np.float64)))
 
 
 def _term_contribution(model, Z_new, tb):
-    contrib = Z_new[:, tb.coef_slice] @ model.coef_[tb.coef_slice]
+    beta = np.asarray(_coef(model), dtype=np.float64)
+    contrib = Z_new[:, tb.coef_slice] @ beta[tb.coef_slice]
     shift = _term_contribution_shift(model, tb)
     if shift != 0.0:
         contrib = np.asarray(contrib, dtype=np.float64) + shift
@@ -44,12 +55,22 @@ def predict_values(
     model, X=None, return_se=False, cov=None, type="response", offset=None
 ):
     _require_fitted(model)
+    if getattr(model.family, "family_class", "") == "general":
+        return predict_general_values(
+            model,
+            X=X,
+            return_se=return_se,
+            cov=cov,
+            type=type,
+            offset=offset,
+        )
 
     type = str(type).lower()
     Z_new, Xp = _build_prediction_matrices(model, X_new=X)
 
-    offset_vec = model._prediction_offset(X, offset)
-    eta = Xp @ model.coef_full_
+    offset_vec = resolve_prediction_offset(model, X, offset)
+    coef_full = np.asarray(_coef_full(model), dtype=np.float64)
+    eta = Xp @ coef_full
     if offset_vec is not None:
         eta = eta + offset_vec
 
@@ -60,7 +81,7 @@ def predict_values(
 
     if type == "terms":
         terms = np.column_stack(
-            [_term_contribution(model, Z_new, tb) for tb in model.term_blocks_]
+            [_term_contribution(model, Z_new, tb) for tb in _term_blocks_seq(model)]
         )
         if not return_se:
             return terms
@@ -68,7 +89,7 @@ def predict_values(
         V = model._select_cov(cov)
         offset0 = _coef_column_offset(model)
         ses = []
-        for tb in model.term_blocks_:
+        for tb in _term_blocks_seq(model):
             sl_full = slice(
                 offset0 + tb.coef_slice.start,
                 offset0 + tb.coef_slice.stop,

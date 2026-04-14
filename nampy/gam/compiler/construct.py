@@ -1,38 +1,71 @@
-"""
-Stage 3 of the GAM fit pipeline: term construction wrapper.
-
-Bridges a fitted runtime term (stage 2 output) into a ConstructedTerm that the
-stage-4 compiler can assemble without knowing anything about basis-specific
-mathematics.
-
-Responsibilities of this layer
--------------------------------
-- Extract the fitted basis and penalty definitions from the runtime term.
-- If the runtime delegated explicit constraint absorption: call
-  ``absorb_explicit_constraints`` for the fit basis and store the resulting
-  fit/predict coefficient maps explicitly on the constructed term.
-- Record in ``constructor_metadata`` which layer handled each concern (runtime
-  vs. wrapper) so that stage 5 can detect what was already done.
-
-What this layer must NOT do
-----------------------------
-- Implement basis-specific mathematics.
-- Apply predictor-wide side conditions (that is stage 5).
-- Duplicate transforms that the runtime already applied.
-"""
+"""Compiler-owned smoothCon-like construction."""
 
 from __future__ import annotations
 
 import copy
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, Callable
 
 import numpy as np
 
 from ..constraints.absorption import absorb_explicit_constraints
 from ..penalties import normalize_penalty_spec
-from ..runtime.factory import instantiate_term
 from ..specs import TermSpec
-from .constructed import ConstructedTerm
+from .factory import instantiate_term
+
+
+@dataclass(frozen=True)
+class ConstructedSmooth:
+    label: str
+    term_id: str
+    runtime: object
+    train_design_matrix: np.ndarray
+    penalty_specs: tuple = field(default_factory=tuple)
+    basis_name: str = "unknown"
+    term_type: str = "smooth"
+    smoothing_id: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    fit_constraint_operator: np.ndarray | None = None
+    fit_coefficient_map: np.ndarray | None = None
+    predict_coefficient_map: np.ndarray | None = None
+    transform_applied: bool = False
+    skip_centering: bool = False
+    prediction_offset: np.ndarray | None = None
+    original_design_matrix: np.ndarray | None = None
+    constructor_metadata: dict[str, Any] = field(default_factory=dict)
+    _predict_fn: Callable | None = field(default=None, repr=False, compare=False)
+
+    @property
+    def n_coef(self) -> int:
+        return int(self.train_design_matrix.shape[1])
+
+    def predict_matrix(self, X_new):
+        if self._predict_fn is None:
+            M = np.asarray(self.runtime.transform_new(X_new), dtype=np.float64)
+        else:
+            M = np.asarray(self._predict_fn(X_new), dtype=np.float64)
+
+        C_pred = self.predict_coefficient_map
+        if C_pred is not None:
+            M = M @ np.asarray(C_pred, dtype=np.float64)
+
+        if M.ndim != 2:
+            raise ValueError(
+                f"Predict matrix for smooth {self.label!r} must be 2D, got {M.shape}."
+            )
+        if M.shape[1] != self.n_coef:
+            raise ValueError(
+                f"Predict matrix for smooth {self.label!r} has width {M.shape[1]}, "
+                f"but fitted width is {self.n_coef}."
+            )
+        return M
+
+
+def build_term_matrix(term: ConstructedSmooth, X_new, return_offset=False):
+    Xp = term.predict_matrix(X_new)
+    if return_offset:
+        return Xp, term.prediction_offset
+    return Xp
 
 
 def _copy_penalty_defs(penalty_defs):
@@ -56,7 +89,7 @@ def _extract_runtime_state(runtime):
     return B, penalty_defs
 
 
-def construct_terms(
+def construct_smooth(
     term_like: TermSpec | Any,
     X: np.ndarray,
     feature_names: list[str],
@@ -97,9 +130,6 @@ def construct_terms(
         ),
     }
 
-    # Prediction basis already lives in runtime-owned by/constraint semantics.
-    # Any remaining linear map into fitted coefficient coordinates is stored
-    # explicitly on ConstructedTerm.
     raw_predict_n_coef = int(B.shape[1])
     constructor_metadata["by_handling"] = (
         "runtime" if getattr(runtime, "by", None) is not None else "none"
@@ -152,14 +182,12 @@ def construct_terms(
             "runtime" if predict_coefficient_map_arr is not None else "none"
         )
 
-    predict_fn = None
-
     if null_space_penalty:
         raise NotImplementedError(
             "Generic smoothCon-level null-space penalty insertion is not enabled yet in this wrapper."
         )
 
-    smooth = ConstructedTerm(
+    return ConstructedSmooth(
         label=str(getattr(runtime, "label", str(runtime))),
         term_id=str(getattr(runtime, "term_id", "")),
         runtime=runtime,
@@ -197,9 +225,8 @@ def construct_terms(
         ),
         original_design_matrix=None,
         constructor_metadata=constructor_metadata,
-        _predict_fn=predict_fn,
+        _predict_fn=None,
     )
-    return [smooth]
 
 
-__all__ = ["construct_terms"]
+__all__ = ["ConstructedSmooth", "build_term_matrix", "construct_smooth"]

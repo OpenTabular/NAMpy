@@ -3,7 +3,7 @@ from types import MappingProxyType
 from typing import Any, Mapping
 from uuid import uuid4
 
-from .smooth import SmoothSpec, smooth_spec_from_basis_options
+from .smooth import SmoothSpec
 
 
 def _make_term_id() -> str:
@@ -27,6 +27,8 @@ class TermSpec:
     term_id: str = field(default_factory=_make_term_id)
 
     def __post_init__(self) -> None:
+        from .build import smooth_spec_from_basis_options
+
         smooth_spec = self.smooth_spec
         basis_options = dict(self.basis_options)
 

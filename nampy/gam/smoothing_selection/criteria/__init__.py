@@ -5,6 +5,7 @@ Submodules: ``penalty``, ``laplace``, ``gaussian``, ``gaussian_dyn``, ``gaussian
 ``pirls``, ``ml_reml``, ``pirls_reml_derivative_blocks``, ``pirls_deriv``, ``dispatch``.
 """
 
+from ..reparam import _stable_penalty_logdet_derivatives, _static_penalty_null_dim
 from .dispatch import (
     criterion_gradient,
     criterion_gradient_numerical,
@@ -39,7 +40,6 @@ from .gaussian_reml_algebra import (
 )
 from .laplace import _penalty_derivative_matrices
 from .ml_reml import criterion_ml_reml, resolve_ml_reml_scoring_backend
-from .penalty import _stable_penalty_logdet_derivatives, _static_penalty_null_dim
 from .pirls import (
     _pirls_ml_reml_objective_from_solution,
     criterion_gcv_pirls,

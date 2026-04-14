@@ -20,7 +20,7 @@ from typing import Any
 
 import numpy as np
 
-from ..design.structures import PenaltySpec
+from ..compiler.structures import PenaltySpec
 from .algebra import null_space_penalty_from_penalty, symmetrize_penalty
 
 

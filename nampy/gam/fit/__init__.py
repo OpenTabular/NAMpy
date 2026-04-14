@@ -54,6 +54,9 @@ from .solvers.irls_core import PenalizedIrlsControl, fit_irls_from_model, irls_c
 from .solvers.pirls import solve_pirls_fit
 from .state import (
     FitCoreSolution,
+    FitResult,
+    FitState,
+    PenalizedSystem,
     assign_fit_solution,
     compute_edf_by_term,
 )
@@ -70,6 +73,9 @@ __all__ = [
     "coerce_offset_array",
     "resolve_prediction_offset",
     "FitCoreSolution",
+    "FitResult",
+    "FitState",
+    "PenalizedSystem",
     "assign_fit_solution",
     "compute_edf_by_term",
     "PenalizedIrlsControl",

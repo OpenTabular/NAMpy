@@ -4,6 +4,7 @@ import numpy as np
 from scipy.optimize import OptimizeResult
 
 from ..._mgcv_constants import PENALTY_RIDGE_REL
+from ..._model_state import _fit_scale
 from .basics import _project_to_bounds
 
 
@@ -126,7 +127,7 @@ def _optimize_outer_newton_indefinite_hessian(
         old_score_val = float(old_score_val)
         if score_type in {"REML", "P-REML", "ML", "P-ML"}:
             if scale_est is None:
-                scale_obj = getattr(model, "scale_", 1.0)
+                scale_obj = _fit_scale(model)
                 scale = 1.0 if scale_obj is None else float(scale_obj)
             else:
                 scale = float(scale_est)

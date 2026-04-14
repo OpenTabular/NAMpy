@@ -3,7 +3,14 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .._model_state import _coef_column_offset, _require_fitted, _term_blocks_seq
+from .._model_state import (
+    _coef_column_offset,
+    _edf_by_term,
+    _n_coef,
+    _penalty_blocks_seq,
+    _require_fitted,
+    _term_blocks_seq,
+)
 from .residuals import residuals_gam
 
 
@@ -52,7 +59,7 @@ def _stabilized_k_check_edf(model, tb, edf: float) -> float:
         return edf
 
     lower_df = None
-    for pb in getattr(model, "penalty_blocks_", ()) or ():
+    for pb in _penalty_blocks_seq(model):
         if pb.coef_slice != tb.coef_slice:
             continue
         nsd = getattr(pb, "null_space_dim", None)
@@ -104,11 +111,12 @@ def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = N
 
     rows = []
     ve = np.empty(int(max(n_rep, 1)), dtype=np.float64)
+    edf_by_term = np.asarray(_edf_by_term(model), dtype=np.float64).ravel()
     for i, tb in enumerate(term_blocks):
         label = str(tb.label)
         X_term = _numeric_feature_block(model, tb, row_idx)
         k_prime = int(tb.coef_slice.stop - tb.coef_slice.start)
-        edf = float(model.edf_by_term_[i])
+        edf = float(edf_by_term[i])
         edf = _stabilized_k_check_edf(model, tb, edf)
         if X_term is None:
             rows.append((label, k_prime, edf, np.nan, np.nan))
@@ -188,7 +196,7 @@ def gam_check(
     }
     nampy_specific = {
         "convergence": convergence,
-        "model_rank": int(model.n_coef_ + _coef_column_offset(model)),
+        "model_rank": int(_n_coef(model) + _coef_column_offset(model)),
     }
 
     return {

@@ -1,198 +1,6 @@
 import numpy as np
-from scipy.linalg import eigh
 
-from .._mgcv_constants import EIG_TOL_POWER
-from ..penalties.algebra import penalty_eigendecomposition
-
-
-def rowwise_kronecker(matrices):
-    mats = [np.asarray(M, dtype=np.float64) for M in matrices]
-    if len(mats) == 0:
-        raise ValueError("matrices must contain at least one matrix.")
-    n = mats[0].shape[0]
-    for M in mats:
-        if M.ndim != 2 or M.shape[0] != n:
-            raise ValueError("All marginal model matrices must be 2D with equal rows.")
-    out = mats[0]
-    for M in mats[1:]:
-        out = np.einsum("ij,ik->ijk", out, M, optimize=True).reshape(
-            n, out.shape[1] * M.shape[1]
-        )
-    return out
-
-
-def lifted_tensor_penalty(S, basis_dims, axis):
-    S = np.asarray(S, dtype=np.float64)
-    basis_dims = [int(d) for d in basis_dims]
-    left_dim = int(np.prod(basis_dims[:axis], dtype=np.int64)) if axis > 0 else 1
-    right_dim = (
-        int(np.prod(basis_dims[axis + 1 :], dtype=np.int64))
-        if axis + 1 < len(basis_dims)
-        else 1
-    )
-    out = S
-    if left_dim > 1:
-        out = np.kron(np.eye(left_dim, dtype=np.float64), out)
-    if right_dim > 1:
-        out = np.kron(out, np.eye(right_dim, dtype=np.float64))
-    return np.asarray(out, dtype=np.float64)
-
-
-def tensor_product_penalties(marginal_penalties, basis_dims):
-    return [
-        lifted_tensor_penalty(S, basis_dims=basis_dims, axis=j)
-        for j, S in enumerate(marginal_penalties)
-    ]
-
-
-def normalize_tensor_marginal_penalty(S, tol=1e-12):
-    S = np.asarray(S, dtype=np.float64)
-    if S.shape[0] == 0:
-        return S.copy()
-    evals = np.linalg.eigvalsh(0.5 * (S + S.T))
-    scale = float(np.max(evals))
-    if scale <= tol:
-        return S.copy()
-    return S / scale
-
-
-def rescale_tensor_penalties_for_fit(B, penalties, tol=1e-12):
-    B = np.asarray(B, dtype=np.float64)
-    penalties = [np.asarray(S, dtype=np.float64) for S in penalties]
-    if len(penalties) == 0:
-        return []
-    x_scale = float(np.max(np.sum(np.abs(B), axis=1)) ** 2)
-    if x_scale <= tol:
-        return [S.copy() for S in penalties]
-    out = []
-    for S in penalties:
-        s_scale = float(np.max(np.sum(np.abs(S), axis=0))) / x_scale
-        out.append(S.copy() if s_scale <= tol else S / s_scale)
-    return out
-
-
-def _eigen_split(raw_basis, raw_penalty, tol=1e-10, *, mode="range_null", knots=None):
-    X = np.asarray(raw_basis, dtype=np.float64)
-    S = np.asarray(raw_penalty, dtype=np.float64)
-
-    if mode == "range_null":
-        dec = penalty_eigendecomposition(S, tol=tol)
-        U0, U1, d_pos = dec["U0"], dec["U1"], dec["d_pos"]
-        if d_pos.size > 0:
-            T_r = U1 / np.sqrt(d_pos)[np.newaxis, :]
-            B_r = X @ T_r
-        else:
-            T_r = np.empty((S.shape[0], 0), dtype=np.float64)
-            B_r = np.empty((X.shape[0], 0), dtype=np.float64)
-        T_n = U0
-        B_n = (
-            X @ T_n if T_n.shape[1] > 0 else np.empty((X.shape[0], 0), dtype=np.float64)
-        )
-        return {
-            "B_range": B_r,
-            "B_null": B_n,
-            "T_range": T_r,
-            "T_null": T_n,
-            "range_dim": B_r.shape[1],
-            "null_dim": B_n.shape[1],
-            "rank": dec["rank"],
-            "null_space_dim": dec["null_space_dim"],
-            "tol_eff": dec["tol_eff"],
-        }
-
-    if mode != "t2":
-        raise ValueError(f"Unknown eigen split mode {mode!r}.")
-
-    p = X.shape[1]
-    evals, U = eigh(0.5 * (S + S.T), driver="evr")
-    idx = np.argsort(evals)[::-1]
-    evals, U = evals[idx], U[:, idx]
-
-    tol_eff = float(np.finfo(np.float64).eps) ** EIG_TOL_POWER * max(
-        1.0, float(np.max(evals)) if evals.size else 1.0
-    )
-    rank = int(np.sum(evals > tol_eff))
-    null_exists = rank < p
-
-    E = np.ones(p, dtype=np.float64)
-    if rank > 0:
-        E[:rank] = np.sqrt(np.maximum(evals[:rank], 0.0))
-
-    Xp = X @ U
-    col_norm = np.sum(Xp**2, axis=0) / (E**2)
-    av_norm = float(np.mean(col_norm[:rank])) if rank > 0 else 1.0
-
-    if null_exists:
-        for i in range(rank, p):
-            if av_norm > 0.0 and col_norm[i] > 0.0:
-                E[i] = np.sqrt(col_norm[i] / av_norm)
-
-    P = U / E[np.newaxis, :]
-    Xp = Xp / E[np.newaxis, :]
-
-    if null_exists and rank < p - 1:
-        ind = list(range(rank, p))
-        rind = list(range(p - 1, rank - 1, -1))
-        Xn = Xp[:, ind].copy()
-        n = Xn.shape[0]
-        one = np.ones(n, dtype=np.float64)
-        Xn -= (one[:, None] * (one[None, :] @ Xn)) / n
-        um_evals, um_vecs = eigh(Xn.T @ Xn, driver="evr")
-        desc = np.argsort(um_evals)[::-1]
-        um_vecs = um_vecs[:, desc]
-        Xp[:, rind] = Xp[:, ind] @ um_vecs
-        P[:, rind] = P[:, ind] @ um_vecs
-
-    if rank > 0:
-        pen_idx = list(range(rank))
-        scale = 1.0 / np.sqrt(float(np.mean(Xp[:, pen_idx] ** 2)))
-        Xp[:, pen_idx] *= scale
-        P[pen_idx, :] *= scale
-
-    if null_exists:
-        null_idx = list(range(rank, p))
-        scale_f = 1.0 / np.sqrt(float(np.mean(Xp[:, null_idx] ** 2)))
-        Xp[:, null_idx] *= scale_f
-        P[null_idx, :] *= scale_f
-
-    B_r = Xp[:, :rank] if rank > 0 else np.empty((X.shape[0], 0), dtype=np.float64)
-    B_n = Xp[:, rank:] if null_exists else np.empty((X.shape[0], 0), dtype=np.float64)
-    T_r = P[:, :rank] if rank > 0 else np.empty((p, 0), dtype=np.float64)
-    T_n = P[:, rank:] if null_exists else np.empty((p, 0), dtype=np.float64)
-
-    return {
-        "B_range": B_r,
-        "B_null": B_n,
-        "T_range": T_r,
-        "T_null": T_n,
-        "range_dim": int(B_r.shape[1]),
-        "null_dim": int(B_n.shape[1]),
-        "rank": rank,
-        "null_space_dim": int(p - rank),
-        "tol_eff": tol_eff,
-    }
-
-
-def marginal_range_null_decomposition(raw_basis, raw_penalty, tol=1e-10):
-    return _eigen_split(raw_basis, raw_penalty, tol=tol, mode="range_null")
-
-
-def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=None):
-    """
-    Reparameterize a marginal smooth for use in t2 tensor products.
-
-    Implements mgcv's ``nat.param(type=3, unit.fnorm=TRUE)``:
-
-    1. Eigendecompose S (descending eigenvalue order).
-    2. Scale by sqrt(eigenvalues) for the penalized part; for the null space
-       scale so that the Frobenius-normalised column norms match the penalized average.
-    3. Rotate the null space columns so that a near-constant vector is last (type=3).
-    4. Rescale both penalised and null blocks to unit Frobenius norm (unit.fnorm).
-
-    Returns dict with keys ``B_range``, ``B_null``, ``T_range``, ``T_null``,
-    ``range_dim``, ``null_dim``, ``rank``, ``null_space_dim``, ``tol_eff``.
-    """
-    return _eigen_split(raw_basis, raw_penalty, tol=tol, mode="t2", knots=knots)
+from .algebra import rowwise_kronecker
 
 
 def _normalize_ord(ord_value, n_marginals):
@@ -259,7 +67,6 @@ def build_t2_basis_and_penalties(
     if first["null_dim"] > 0:
         X1_null = np.asarray(first["B_null"], dtype=np.float64)
         if full:
-            # mgcv treats each null-space column separately when full=TRUE
             for j, lab in enumerate(_null_labels(X1_null.shape[1])):
                 X2_blocks.append(X1_null[:, [j]])
                 X2_desc.append([{"kind": "null", "cols": [j]}])
@@ -293,7 +100,6 @@ def build_t2_basis_and_penalties(
         if full:
             pen2 = []
 
-        # Range-space products.
         if Zi.shape[1] > 0:
             for ii, block in enumerate(X1):
                 was_pen = True if not full else bool(pen1[ii])
@@ -318,7 +124,6 @@ def build_t2_basis_and_penalties(
                         order_list.append(int(order1[ii]) + 1)
                         pen2.append(True)
 
-        # Null-space products.
         if null_exists and Xi.shape[1] > 0:
             for ii, block in enumerate(X1):
                 was_pen = True if not full else bool(pen1[ii])
@@ -499,14 +304,4 @@ def materialize_t2_newdata(
     return np.column_stack(blocks)
 
 
-__all__ = [
-    "rowwise_kronecker",
-    "lifted_tensor_penalty",
-    "tensor_product_penalties",
-    "normalize_tensor_marginal_penalty",
-    "rescale_tensor_penalties_for_fit",
-    "marginal_range_null_decomposition",
-    "t2_marginal_reparameterization",
-    "build_t2_basis_and_penalties",
-    "materialize_t2_newdata",
-]
+__all__ = ["build_t2_basis_and_penalties", "materialize_t2_newdata"]

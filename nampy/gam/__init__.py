@@ -1,58 +1,53 @@
 """
-mgcv-aligned GAM subsystem: families, fitting, smoothness, and parity checks.
+mgcv-aligned GAM subsystem: formulas, smooth construction, fitting, and parity.
 
 Fit pipeline
 ------------
 Stage 1  Formula / spec layer
-         gam/formula/        — parse formulas, build LinearPredictorSpec / TermSpec
+         ``gam/formula/``, ``gam/specs/`` — parse formulas into predictor and term specs
 
-Stage 2  Runtime term materialization
-         gam/runtime/        — instantiate TermSpecs into fitted runtime terms
-         gam/smooths/*       — canonical per-family basis construction and penalties
+Stage 2  Runtime terms
+         ``gam/smooths/*`` — canonical basis semantics, penalties, and runtime transforms
 
-Stage 3  Term construction wrapper
-         gam/design/constructors.py — fit runtime terms, handle delegated by/constraints,
-                                      wrap into ConstructedTerm
+Stage 3  Construction / compilation
+         ``gam/compiler/construct.py`` — materialize runtime terms into ``ConstructedSmooth``
+         ``gam/compiler/compile_*.py`` — assemble compiled predictors and model-wide design state
 
-Stage 4  Predictor compilation
-         gam/design/compiler.py    — assemble ConstructedTerms into CompiledPredictor,
-                                     assign coef slices and smoothing-parameter ids
+Stage 4  Side conditions
+         ``gam/constraints/identifiability.py`` — centre terms, drop redundant columns,
+         and update coefficient maps
 
-Stage 5  Predictor-wide side conditions
-         gam/constraints/identifiability.py — centre terms, drop redundant columns,
-                                              update basis_transform to canonical form
+Stage 5  Model fitting
+         ``gam/fit/`` — Gaussian, PIRLS, and general-family solvers plus covariance assembly
 
-Stage 6  Model fitting
-         gam/fit/            — PIRLS / Gaussian solvers, smoothness optimisation
-
-Stage 7  Prediction / parity / diagnostics
-         gam/predict/        — lpmatrix, response/link/term predictions
-         gam/parity/         — snapshot build, load, and comparison against mgcv
-         gam/diagnostics/    — summaries and plots
+Stage 6  Prediction / parity / diagnostics
+         ``gam/predict/`` — lpmatrix and response/link/term prediction helpers
+         ``gam/parity/`` — snapshot and trace comparisons against upstream ``mgcv``
+         ``gam/diagnostics/`` — summaries, plots, and checks
 
 --------------------------------------------------------------------
-6.2  CompiledTerm.basis_transform is the only coefficient map used at prediction.
-6.3  If a coefficient transform T is applied, penalties become T.T @ S @ T.
+6.2  ``CompiledTerm.basis_transform`` is the only coefficient map used at prediction.
+6.3  If a coefficient transform ``T`` is applied, penalties become ``T.T @ S @ T``.
 6.6  Exempt terms (random effects, factor smooths) still span predictor space.
 6.7  Zero-width terms are dropped from the final compiled design.
 """
 
-from . import families, fit, parity, smoothing_selection
+from . import engine, families, parity, selection
 
 # Stable user-facing entry points only.  Internal fit-subsystem symbols are
 # accessible via `nampy.gam.fit.*` and are not re-exported here.
-from .fit import (
+from .api import GAM
+from .engine import (
     FitCoreSolution,
     fit_model_core,
     solve_fit,
 )
-from .model import GAM
 
 __all__ = [
+    "engine",
     "families",
-    "fit",
     "parity",
-    "smoothing_selection",
+    "selection",
     "GAM",
     "fit_model_core",
     "solve_fit",

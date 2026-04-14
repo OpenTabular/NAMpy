@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..smooth_base import column_as_float
 from ..univariate.cubic_regression import SplineTerm1D
 from ..univariate.gp import GPSmoothTerm
 from ..univariate.pspline import PSplineTerm1D
@@ -87,23 +86,11 @@ def make_tensor_marginal_term(*, feature, basis, k, m=None, knots=None, centered
 
 
 def tensor_marginal_feature_index(term):
-    if hasattr(term, "_feature_index"):
-        return int(term._feature_index)
-    if hasattr(term, "_feature_indices") and term._feature_indices is not None:
-        return int(term._feature_indices[0])
-    raise AttributeError(
-        "Tensor marginal term does not expose a resolved feature index."
-    )
+    return int(term.resolved_feature_indices()[0])
 
 
 def tensor_marginal_feature_name(term):
-    if hasattr(term, "_feature_name"):
-        return str(term._feature_name)
-    if hasattr(term, "_feature_names") and term._feature_names is not None:
-        return str(term._feature_names[0])
-    raise AttributeError(
-        "Tensor marginal term does not expose a resolved feature name."
-    )
+    return str(term.resolved_feature_names_list()[0])
 
 
 def _tensor_marginal_eval_from_x(term, x):
@@ -130,28 +117,11 @@ def _tensor_np_reparameterization(term, x_train, basis_dim):
 
 
 def tensor_marginal_fit_matrices(term, *, centered=False, apply_np=False, x_train=None):
-    basis_name = str(getattr(term, "basis_name", "")).lower()
-    if basis_name in {"cr", "cs"} and getattr(term, "_spline", None) is not None:
-        if centered:
-            B = np.asarray(term.basis_train, dtype=np.float64)
-            S = np.asarray(term.penalties[0], dtype=np.float64)
-            XP = term._spline._np_transform_centered
-        else:
-            B = np.asarray(term._spline.raw_basis, dtype=np.float64)
-            S = np.asarray(term._spline.raw_penalty_unscaled, dtype=np.float64)
-            XP = term._spline._np_transform
-        if XP is not None:
-            B = B @ XP
-            S = XP.T @ S @ XP
-        return B, S, XP
-
-    if len(term.penalties) != 1:
-        raise NotImplementedError(
-            "Tensor products of smooths with multiple penalties are not supported."
-        )
-
-    B = np.asarray(term.basis_train, dtype=np.float64)
-    S = np.asarray(term.penalties[0], dtype=np.float64)
+    B, S, XP = term.tensor_marginal_fit_matrices(
+        centered=centered,
+        apply_np=False,
+        x_train=x_train,
+    )
     XP = _tensor_np_reparameterization(term, x_train, B.shape[1]) if apply_np else None
     if XP is not None:
         B = B @ XP
@@ -160,20 +130,8 @@ def tensor_marginal_fit_matrices(term, *, centered=False, apply_np=False, x_trai
 
 
 def tensor_marginal_predict_matrix(term, X_new, *, centered=False, np_transform=None):
-    basis_name = str(getattr(term, "basis_name", "")).lower()
-    if basis_name in {"cr", "cs"} and getattr(term, "_spline", None) is not None:
-        xj = column_as_float(X_new, term._feature_index)
-        if centered:
-            B = term._spline.transform_new_centered(xj)
-            XP = term._spline._np_transform_centered
-        else:
-            B = term._spline.transform_new_raw(xj)
-            XP = term._spline._np_transform
-        if XP is not None:
-            B = B @ XP
-        return np.asarray(B, dtype=np.float64)
-
-    B = np.asarray(term.transform_new(X_new), dtype=np.float64)
-    if np_transform is not None:
-        B = B @ np.asarray(np_transform, dtype=np.float64)
-    return B
+    return term.tensor_marginal_predict_matrix(
+        X_new,
+        centered=centered,
+        np_transform=np_transform,
+    )

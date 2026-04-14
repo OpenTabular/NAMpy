@@ -29,10 +29,20 @@ from mgcv_parity_utils import (
 )
 
 from nampy.gam import GAM
-from nampy.gam.basis.tensor import t2_marginal_reparameterization
-from nampy.gam.design.compiler import compile_predictor_designs
-from nampy.gam.formula import compile_predictor_specs_from_formula, parse_gam_formula
+from nampy.gam.basis.algebra import t2_marginal_reparameterization
+from nampy.gam.compiler import compile_predictors
+from nampy.gam.formula import extract_formula_terms, parse_gam_formula
 from nampy.gam.smooths.univariate.cubic_regression import SplineTerm1D
+from nampy.gam.specs.build import build_formula_model
+
+
+def _compile_formula_design(data, formula, **build_kwargs):
+    parsed = parse_gam_formula(formula)
+    extracted = extract_formula_terms(parsed)
+    built = build_formula_model(
+        extracted, data=data, y=np.zeros(len(data)), **build_kwargs
+    )
+    return compile_predictors(built.X, built.feature_names, built.predictor_specs)[0]
 
 
 class TestParitySnapshotAPI:
@@ -89,15 +99,10 @@ class TestParitySnapshotAPI:
         data = _make_gaussian_data(seed=7, n=80)
         smooth_expr_r = 'te(x0, x1, bs=c("cr", "cr"), k=c(5, 5), sp=c(0.7, 1.3))'
 
-        parsed = parse_gam_formula(
-            'y ~ te(x0, x1, bs=["cr", "cr"], k=[5, 5], sp=[0.7, 1.3])'
+        design = _compile_formula_design(
+            data,
+            'y ~ te(x0, x1, bs=["cr", "cr"], k=[5, 5], sp=[0.7, 1.3])',
         )
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["x0", "x1"]].to_numpy(dtype=np.float64),
-            ["x0", "x1"],
-            specs,
-        )[0]
 
         expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
 
@@ -113,15 +118,10 @@ class TestParitySnapshotAPI:
         data = _make_gaussian_data(seed=7, n=80)
         smooth_expr_r = 'te(x0, x1, bs=c("cr", "cr"), k=c(5, 5), sp=c(0.7, 1.3))'
 
-        parsed = parse_gam_formula(
-            'y ~ te(x0, x1, bs=["cr", "cr"], k=[5, 5], sp=[0.7, 1.3])'
+        design = _compile_formula_design(
+            data,
+            'y ~ te(x0, x1, bs=["cr", "cr"], k=[5, 5], sp=[0.7, 1.3])',
         )
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["x0", "x1"]].to_numpy(dtype=np.float64),
-            ["x0", "x1"],
-            specs,
-        )[0]
 
         expected = _run_mgcv_smoothcon_penalties(
             data,
@@ -144,13 +144,7 @@ class TestParitySnapshotAPI:
         data = _make_fs_data()
         smooth_expr_r = 's(f, x, bs="fs")'
 
-        parsed = parse_gam_formula('y ~ s(f, x, bs="fs")')
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["f", "x"]].to_numpy(dtype=object),
-            ["f", "x"],
-            specs,
-        )[0]
+        design = _compile_formula_design(data, 'y ~ s(f, x, bs="fs")')
 
         expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
 
@@ -166,13 +160,7 @@ class TestParitySnapshotAPI:
         data = _make_fs_data()
         smooth_expr_r = 's(f, x, bs="fs")'
 
-        parsed = parse_gam_formula('y ~ s(f, x, bs="fs")')
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["f", "x"]].to_numpy(dtype=object),
-            ["f", "x"],
-            specs,
-        )[0]
+        design = _compile_formula_design(data, 'y ~ s(f, x, bs="fs")')
 
         expected = _run_mgcv_smoothcon_penalties(
             data,
@@ -206,13 +194,9 @@ class TestParitySnapshotAPI:
         data = _make_fs_data()
         smooth_expr_r = 's(f, x, bs="fs", xt=list(bs="ps", m=2, k=7))'
 
-        parsed = parse_gam_formula('y ~ s(f, x, bs="fs", xt=list(bs="ps", m=2, k=7))')
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["f", "x"]].to_numpy(dtype=object),
-            ["f", "x"],
-            specs,
-        )[0]
+        design = _compile_formula_design(
+            data, 'y ~ s(f, x, bs="fs", xt=list(bs="ps", m=2, k=7))'
+        )
 
         expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
 
@@ -228,13 +212,9 @@ class TestParitySnapshotAPI:
         data = _make_fs_data()
         smooth_expr_r = 's(f, x, bs="fs", xt=list(bs="ps", m=2, k=7))'
 
-        parsed = parse_gam_formula('y ~ s(f, x, bs="fs", xt=list(bs="ps", m=2, k=7))')
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["f", "x"]].to_numpy(dtype=object),
-            ["f", "x"],
-            specs,
-        )[0]
+        design = _compile_formula_design(
+            data, 'y ~ s(f, x, bs="fs", xt=list(bs="ps", m=2, k=7))'
+        )
 
         expected = _run_mgcv_smoothcon_penalties(
             data,
@@ -268,13 +248,7 @@ class TestParitySnapshotAPI:
         data = _make_sz_data()
         smooth_expr_r = 's(f1, f2, x, bs="sz", k=6)'
 
-        parsed = parse_gam_formula('y ~ s(f1, f2, x, bs="sz", k=6)')
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["f1", "f2", "x"]].to_numpy(dtype=object),
-            ["f1", "f2", "x"],
-            specs,
-        )[0]
+        design = _compile_formula_design(data, 'y ~ s(f1, f2, x, bs="sz", k=6)')
 
         expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
 
@@ -290,13 +264,7 @@ class TestParitySnapshotAPI:
         data = _make_sz_data()
         smooth_expr_r = 's(f1, f2, x, bs="sz", k=6)'
 
-        parsed = parse_gam_formula('y ~ s(f1, f2, x, bs="sz", k=6)')
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["f1", "f2", "x"]].to_numpy(dtype=object),
-            ["f1", "f2", "x"],
-            specs,
-        )[0]
+        design = _compile_formula_design(data, 'y ~ s(f1, f2, x, bs="sz", k=6)')
 
         expected = _run_mgcv_smoothcon_penalties(
             data,
@@ -318,13 +286,9 @@ class TestParitySnapshotAPI:
         data = _make_sz_data()
         smooth_expr_r = 's(f1, f2, x, bs="sz", k=6, id="shared")'
 
-        parsed = parse_gam_formula('y ~ s(f1, f2, x, bs="sz", k=6, id="shared")')
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["f1", "f2", "x"]].to_numpy(dtype=object),
-            ["f1", "f2", "x"],
-            specs,
-        )[0]
+        design = _compile_formula_design(
+            data, 'y ~ s(f1, f2, x, bs="sz", k=6, id="shared")'
+        )
 
         expected = _run_mgcv_smoothcon_penalties(
             data,
@@ -347,15 +311,10 @@ class TestParitySnapshotAPI:
             's(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
         )
 
-        parsed = parse_gam_formula(
-            'y ~ s(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
+        design = _compile_formula_design(
+            data,
+            'y ~ s(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))',
         )
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["region"]].to_numpy(dtype=object),
-            ["region"],
-            specs,
-        )[0]
 
         expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
 
@@ -373,15 +332,10 @@ class TestParitySnapshotAPI:
             's(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
         )
 
-        parsed = parse_gam_formula(
-            'y ~ s(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
+        design = _compile_formula_design(
+            data,
+            'y ~ s(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))',
         )
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["region"]].to_numpy(dtype=object),
-            ["region"],
-            specs,
-        )[0]
 
         expected = _run_mgcv_smoothcon_penalties(
             data,
@@ -403,13 +357,7 @@ class TestParitySnapshotAPI:
         data = _make_random_effect_data()
         smooth_expr_r = 's(f, bs="re")'
 
-        parsed = parse_gam_formula('y ~ s(f, bs="re")')
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["f"]].to_numpy(dtype=object),
-            ["f"],
-            specs,
-        )[0]
+        design = _compile_formula_design(data, 'y ~ s(f, bs="re")')
 
         expected = _run_mgcv_smoothcon_matrix_unscaled(data[["f"]], smooth_expr_r)
 
@@ -425,13 +373,7 @@ class TestParitySnapshotAPI:
         data = pd.DataFrame({"x": [1.0, 2.0, 3.0, 4.0], "f": ["b", "a", "c", "a"]})
         smooth_expr_r = 's(x, f, bs="re")'
 
-        parsed = parse_gam_formula('y ~ s(x, f, bs="re")')
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["x", "f"]].to_numpy(dtype=object),
-            ["x", "f"],
-            specs,
-        )[0]
+        design = _compile_formula_design(data, 'y ~ s(x, f, bs="re")')
 
         expected = _run_mgcv_smoothcon_matrix_unscaled(data, smooth_expr_r)
 
@@ -447,15 +389,9 @@ class TestParitySnapshotAPI:
         data = _make_gaussian_data(seed=13, n=80)
         smooth_expr_r = 'ti(x0, x1, bs=c("cr", "cr"), k=c(5, 5), sp=c(0.7, 1.3))'
 
-        parsed = parse_gam_formula(
-            'y ~ ti(x0, x1, bs=["cr", "cr"], k=[5, 5], sp=[0.7, 1.3])'
+        design = _compile_formula_design(
+            data, 'y ~ ti(x0, x1, bs=["cr", "cr"], k=[5, 5], sp=[0.7, 1.3])'
         )
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["x0", "x1"]].to_numpy(dtype=np.float64),
-            ["x0", "x1"],
-            specs,
-        )[0]
 
         expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
 
@@ -471,15 +407,9 @@ class TestParitySnapshotAPI:
         data = _make_gaussian_data(seed=13, n=80)
         smooth_expr_r = 'ti(x0, x1, bs=c("cr", "cr"), k=c(5, 5), sp=c(0.7, 1.3))'
 
-        parsed = parse_gam_formula(
-            'y ~ ti(x0, x1, bs=["cr", "cr"], k=[5, 5], sp=[0.7, 1.3])'
+        design = _compile_formula_design(
+            data, 'y ~ ti(x0, x1, bs=["cr", "cr"], k=[5, 5], sp=[0.7, 1.3])'
         )
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["x0", "x1"]].to_numpy(dtype=np.float64),
-            ["x0", "x1"],
-            specs,
-        )[0]
 
         expected = _run_mgcv_smoothcon_penalties(
             data,
@@ -557,15 +487,9 @@ class TestParitySnapshotAPI:
         data = _make_gaussian_data(seed=7, n=80)
         smooth_expr_r = 't2(x0, x1, bs=c("cr", "cr"), k=c(5, 5), sp=c(0.7, 1.3, 0.9))'
 
-        parsed = parse_gam_formula(
-            'y ~ t2(x0, x1, bs=["cr", "cr"], k=[5, 5], sp=[0.7, 1.3, 0.9])'
+        design = _compile_formula_design(
+            data, 'y ~ t2(x0, x1, bs=["cr", "cr"], k=[5, 5], sp=[0.7, 1.3, 0.9])'
         )
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["x0", "x1"]].to_numpy(dtype=np.float64),
-            ["x0", "x1"],
-            specs,
-        )[0]
 
         expected = _run_mgcv_smoothcon_penalties(
             data,
@@ -596,15 +520,9 @@ class TestParitySnapshotAPI:
 
     def test_t2_transform_new_matches_training_basis(self):
         data = _make_gaussian_data(seed=7, n=60)
-        parsed = parse_gam_formula(
-            'y ~ t2(x0, x1, bs=["cr", "cr"], k=[5, 5], sp=[0.7, 1.3, 0.9])'
+        design = _compile_formula_design(
+            data, 'y ~ t2(x0, x1, bs=["cr", "cr"], k=[5, 5], sp=[0.7, 1.3, 0.9])'
         )
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["x0", "x1"]].to_numpy(dtype=np.float64),
-            ["x0", "x1"],
-            specs,
-        )[0]
         term = design.compiled_terms[0].smooth.runtime
 
         np.testing.assert_allclose(
@@ -639,13 +557,7 @@ class TestCyclicCubicSmooth:
         data = self._make_cyclic_data()
         smooth_expr_r = 's(x, bs="cc", k=9)'
 
-        parsed = parse_gam_formula('y ~ s(x, bs="cc", k=9)')
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["x"]].to_numpy(dtype=np.float64),
-            ["x"],
-            specs,
-        )[0]
+        design = _compile_formula_design(data, 'y ~ s(x, bs="cc", k=9)')
 
         expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
 
@@ -660,13 +572,7 @@ class TestCyclicCubicSmooth:
         data = self._make_cyclic_data()
         smooth_expr_r = 's(x, bs="cc", k=9)'
 
-        parsed = parse_gam_formula('y ~ s(x, bs="cc", k=9)')
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["x"]].to_numpy(dtype=np.float64),
-            ["x"],
-            specs,
-        )[0]
+        design = _compile_formula_design(data, 'y ~ s(x, bs="cc", k=9)')
 
         expected = _run_mgcv_smoothcon_penalties(
             data, smooth_expr_r, absorb_cons=True, scale_penalty=True
@@ -736,13 +642,7 @@ class TestPSplineSmooth:
         data = self._make_ps_data()
         smooth_expr_r = 's(x, bs="ps", k=12)'
 
-        parsed = parse_gam_formula('y ~ s(x, bs="ps", k=12)')
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["x"]].to_numpy(dtype=np.float64),
-            ["x"],
-            specs,
-        )[0]
+        design = _compile_formula_design(data, 'y ~ s(x, bs="ps", k=12)')
 
         expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
 
@@ -757,13 +657,7 @@ class TestPSplineSmooth:
         data = self._make_ps_data()
         smooth_expr_r = 's(x, bs="ps", k=12)'
 
-        parsed = parse_gam_formula('y ~ s(x, bs="ps", k=12)')
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["x"]].to_numpy(dtype=np.float64),
-            ["x"],
-            specs,
-        )[0]
+        design = _compile_formula_design(data, 'y ~ s(x, bs="ps", k=12)')
 
         expected = _run_mgcv_smoothcon_penalties(
             data, smooth_expr_r, absorb_cons=True, scale_penalty=True
@@ -881,13 +775,7 @@ class TestGPSmooth:
         data = self._make_gp_data()
         smooth_expr_r = 's(x, bs="gp", k=10)'
 
-        parsed = parse_gam_formula('y ~ s(x, bs="gp", k=10)')
-        specs = compile_predictor_specs_from_formula(parsed)
-        design = compile_predictor_designs(
-            data[["x"]].to_numpy(dtype=np.float64),
-            ["x"],
-            specs,
-        )[0]
+        design = _compile_formula_design(data, 'y ~ s(x, bs="gp", k=10)')
 
         expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
 

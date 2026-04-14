@@ -1,14 +1,4 @@
-"""
-Stage 4 of the GAM fit pipeline: predictor compilation.
-
-Assembles fitted ConstructedTerm objects (stage 3) into a CompiledPredictor:
-assigns global coefficient slices, registers smoothing-parameter ids, normalises
-penalty specs, and records the initial (identity) basis_transform on every term.
-
-The output of this stage is handed to stage 5 (apply_global_side_conditions)
-which applies predictor-wide identifiability constraints and updates basis_transform
-on each term to reflect the final constructed-space-to-fitted coefficient map.
-"""
+"""Compiler-owned predictor assembly from constructed terms."""
 
 from __future__ import annotations
 
@@ -19,32 +9,16 @@ from ..penalties import (
     merge_smoothing_override,
     normalize_penalty_spec,
 )
-from ..runtime.factory import instantiate_predictor_terms
 from ..specs import LinearPredictorSpec, PenaltyGroupSpec
-from .constructors import construct_terms
+from .construct import construct_smooth
+from .factory import instantiate_predictor_terms
 from .linked_basis import attach_shared_basis_metadata
 from .structures import CompiledPenalty, CompiledPredictor, CompiledTerm
 
 
-def compile_predictor_designs(
+def compile_predictors(
     X: np.ndarray, feature_names: list[str], predictor_specs: list[LinearPredictorSpec]
 ):
-    """
-    Run stages 2–4 for a list of LinearPredictorSpecs and return CompiledPredictors.
-
-    Internally this function drives:
-      - Stage 2: instantiate runtime terms from TermSpecs
-        (via ``instantiate_predictor_terms``)
-      - Stage 3: fit each runtime term and wrap it in a ConstructedTerm
-        (via ``construct_terms``)
-      - Stage 4: assemble ConstructedTerms into a CompiledPredictor, assign
-        coefficient slices, smoothing-parameter ids, and initial basis_transforms
-
-    The returned CompiledPredictors have ``basis_transform = I`` on every term,
-    where that identity acts on the stage-3 constructed-term coefficient space.
-    Stage 5 (``apply_global_side_conditions``) must be called to produce the
-    final predictor with canonical constructed-space coefficient transforms.
-    """
     predictor_specs = attach_shared_basis_metadata(
         predictor_specs, X=X, feature_names=feature_names
     )
@@ -82,7 +56,7 @@ def compile_predictor_designs(
         start = 0
 
         for term_like in pred_spec.terms:
-            constructed = construct_terms(
+            smooth = construct_smooth(
                 term_like,
                 X=X,
                 feature_names=feature_names,
@@ -90,35 +64,32 @@ def compile_predictor_designs(
                 apply_by=True,
                 null_space_penalty=False,
             )
-            for smooth in constructed:
-                B = np.asarray(smooth.train_design_matrix, dtype=np.float64)
-                d = B.shape[1]
-                sl = slice(start, start + d)
-                penalty_defs = [normalize_penalty_spec(p) for p in smooth.penalty_specs]
-                term_meta = dict(smooth.metadata)
-                term_meta["constructor_metadata"] = dict(smooth.constructor_metadata)
-                term_blocks.append(
-                    CompiledTerm(
-                        label=smooth.label,
-                        coef_slice=sl,
-                        smooth=smooth,
-                        basis_train=B,
-                        basis_transform=np.eye(d, dtype=np.float64),
-                        kept_columns=np.arange(d, dtype=int),
-                        deleted_columns=np.array([], dtype=int),
-                        smoothing_indices=[],
-                        smoothing_ids=[],
-                        n_penalties=0,
-                        term_type=str(smooth.term_type),
-                        basis_name=str(smooth.basis_name),
-                        term_id=smooth.term_id,
-                        smoothing_group_id=smooth.smoothing_id,
-                        metadata=term_meta,
-                    )
+            B = np.asarray(smooth.train_design_matrix, dtype=np.float64)
+            d = B.shape[1]
+            sl = slice(start, start + d)
+            term_meta = dict(smooth.metadata)
+            term_meta["constructor_metadata"] = dict(smooth.constructor_metadata)
+            term_blocks.append(
+                CompiledTerm(
+                    label=smooth.label,
+                    coef_slice=sl,
+                    smooth=smooth,
+                    basis_train=B,
+                    basis_transform=np.eye(d, dtype=np.float64),
+                    kept_columns=np.arange(d, dtype=int),
+                    deleted_columns=np.array([], dtype=int),
+                    smoothing_indices=[],
+                    smoothing_ids=[],
+                    n_penalties=0,
+                    term_type=str(smooth.term_type),
+                    basis_name=str(smooth.basis_name),
+                    term_id=smooth.term_id,
+                    smoothing_group_id=smooth.smoothing_id,
+                    metadata=term_meta,
                 )
-                start += d
+            )
+            start += d
 
-        # Single pass over compiled terms to collect design and penalties.
         for term_index, tb in enumerate(term_blocks):
             B = np.asarray(tb.basis_train, dtype=np.float64)
             d = B.shape[1]
@@ -249,4 +220,4 @@ def compile_predictor_designs(
     return designs
 
 
-__all__ = ["compile_predictor_designs"]
+__all__ = ["compile_predictors"]

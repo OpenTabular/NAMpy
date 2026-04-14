@@ -4,7 +4,16 @@ import numpy as np
 from scipy.linalg import cho_factor
 
 from ..._mgcv_constants import LOG_GUARD_MIN
-from ..._model_state import _coef_column_offset
+from ..._model_state import _coef_column_offset, _n_smoothing_params
+from ...fit.model_ops import (
+    expand_smoothing_params_from_log,
+    solve_gaussian_given_smoothing,
+)
+from ..reparam import (
+    _stable_penalty_logdet,
+    _stable_penalty_logdet_derivatives,
+    _static_penalty_null_dim,
+)
 from .gaussian_reml_algebra import (
     gaussian_reml_weighted_degrees_and_log_weight_term,
     gaussian_weighted_residual_sum_squares,
@@ -12,18 +21,13 @@ from .gaussian_reml_algebra import (
     quadratic_form_penalty,
 )
 from .laplace import _penalty_derivative_matrices
-from .penalty import (
-    _stable_penalty_logdet,
-    _stable_penalty_logdet_derivatives,
-    _static_penalty_null_dim,
-)
 
 
 def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
     y = model.family.validate_y(y)
     y if model.offset_train_ is None else (y - model.offset_train_)
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    sol = model._solve_gaussian_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_gaussian_given_smoothing(model, y, sp)
 
     if method not in {"REML", "LAML"}:
         raise NotImplementedError(
@@ -69,7 +73,7 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
         or not np.isfinite(coeff)
         or coeff <= 0.0
     ):
-        n_sp = int(model.n_smoothing_params_ or 0)
+        n_sp = int(_n_smoothing_params(model) or 0)
         return {
             "valid": False,
             "grad": np.full(n_sp, np.nan, dtype=np.float64),
@@ -81,14 +85,14 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
         model, sp, order=2
     )
     if not np.all(np.isfinite(logdetS_grad)) or not np.all(np.isfinite(logdetS_hess)):
-        n_sp = int(model.n_smoothing_params_ or 0)
+        n_sp = int(_n_smoothing_params(model) or 0)
         return {
             "valid": False,
             "grad": np.full(n_sp, np.nan, dtype=np.float64),
             "hess": np.full((n_sp, n_sp), np.nan, dtype=np.float64),
         }
 
-    n_sp = int(model.n_smoothing_params_ or 0)
+    n_sp = int(_n_smoothing_params(model) or 0)
     grad_full = np.zeros(n_sp, dtype=np.float64)
     hess_full = np.zeros((n_sp, n_sp), dtype=np.float64)
     beta1 = [np.zeros_like(beta) for _ in range(n_sp)]
@@ -132,7 +136,7 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
             hess_full[k, j] = val
 
     free_mask = (
-        np.zeros(model.n_smoothing_params_, dtype=bool)
+        np.zeros(_n_smoothing_params(model), dtype=bool)
         if model.smoothing_fixed_mask_ is None
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
@@ -166,10 +170,11 @@ def criterion_ml_reml_gaussian_dynamic_joint(
         raise ValueError("method must be 'REML' or 'LAML' for the joint Gaussian path.")
 
     y = model.family.validate_y(y)
-    sp = model._expand_smoothing_params_from_log(
+    sp = expand_smoothing_params_from_log(
+        model,
         np.asarray(log_sp_free, dtype=np.float64).ravel()
     )
-    sol = model._solve_gaussian_given_smoothing(y, sp)
+    sol = solve_gaussian_given_smoothing(model, y, sp)
     A = np.asarray(sol["A"], dtype=np.float64)
     nobs = float(model.n_samples_)
     Mp = float(
@@ -247,10 +252,11 @@ def criterion_ml_reml_gaussian_dynamic_profiled(model, y, log_sp_free, method="R
         )
 
     y = model.family.validate_y(y)
-    sp = model._expand_smoothing_params_from_log(
+    sp = expand_smoothing_params_from_log(
+        model,
         np.asarray(log_sp_free, dtype=np.float64).ravel()
     )
-    sol = model._solve_gaussian_given_smoothing(y, sp)
+    sol = solve_gaussian_given_smoothing(model, y, sp)
 
     nobs = float(model.n_samples_)
     Mp = float(

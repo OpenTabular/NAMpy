@@ -1,20 +1,9 @@
 """
-Formula parser for GAM model specifications (Stage 1 of the pipeline).
+Typed formula parsing for GAM model specifications.
 
-Parses string formulas of the form::
-
-    "y ~ x1 + s(x2) + s(x3, x4, bs='te') + offset(z)"
-
-into structured :class:`ParsedGAMFormula` objects used by the formula compiler
-to produce :class:`~nampy.gam.specs.LinearPredictorSpec` instances.
-
-Supported term types
---------------------
-- Intercept ``1`` / no-intercept ``-1`` or ``0``.
-- Parametric terms: bare variable names or ``x1 + x2 + ...``.
-- Smooth terms: ``s(vars, bs=..., k=..., by=..., ...)``.
-- Offset: ``offset(varname)``.
-- Multi-predictor (GAMLSS-style) lists of formulas.
+This stage mirrors the syntax-only portion of mgcv's interpret.gam handling:
+formula text/list -> parsed formula AST, without defaults, data attachment, or
+runtime/spec construction.
 """
 
 import ast

@@ -1,3 +1,5 @@
+"""Stable fit-result structures consumed outside the numerical engine."""
+
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -42,21 +44,17 @@ class GAMFitResult:
     link_name: str
     criterion_name: str | None
     criterion_value: float | None
-
     coef_full: np.ndarray
     intercept: float
     smoothing_params: np.ndarray
-
     edf_total: float
     edf_by_term: np.ndarray
     trace_H: float
     scale: float
     rss: float | None
     deviance: float
-
     cov_bayes: np.ndarray | None = None
     cov_freq: np.ndarray | None = None
-
     side_condition_reports: list[dict[str, Any]] | None = None
     term_results: list[TermFitResult] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -85,7 +83,7 @@ class GAMFitResult:
                 if self.side_condition_reports is None
                 else list(self.side_condition_reports)
             ),
-            "term_results": [t.to_dict() for t in self.term_results],
+            "term_results": [term.to_dict() for term in self.term_results],
             "metadata": dict(self.metadata),
         }
 

@@ -11,7 +11,16 @@ import numpy as np
 from scipy.optimize import OptimizeResult, minimize, minimize_scalar
 
 from ..._mgcv_constants import LOG_GUARD_MIN
-from ..._model_state import _coef_column_offset, _term_blocks_seq
+from ..._model_state import (
+    _coef_column_offset,
+    _n_smoothing_params,
+    _term_blocks_seq,
+)
+from ...fit.model_ops import (
+    criterion_value,
+    raise_ml_reml_backend_error,
+    solve_gaussian_given_smoothing,
+)
 from ..criteria import (
     _static_penalty_null_dim,
     criterion_gradient_ml_reml_gaussian_dynamic_joint,
@@ -92,7 +101,7 @@ def _optimize_negbin_reml_with_mgcv(model, y, x0, free_mask, method):
         payload = json.loads(json_path.read_text(encoding="utf-8"))
 
     sp_full = np.asarray(payload.get("smoothing_params", []), dtype=np.float64).ravel()
-    if sp_full.shape != (int(model.n_smoothing_params_ or 0),):
+    if sp_full.shape != (int(_n_smoothing_params(model) or 0),):
         return None
     theta = float(payload.get("family_theta", np.nan))
     if not np.isfinite(theta) or theta <= 0.0:
@@ -500,16 +509,17 @@ def resolve_smoothing_method(model, method):
 
 def n_free_smoothing_params(model):
     if model.smoothing_fixed_mask_ is None:
-        return int(model.n_smoothing_params_ or 0)
+        return int(_n_smoothing_params(model) or 0)
     return int(np.sum(~model.smoothing_fixed_mask_))
 
 
 def expand_smoothing_params_from_log(model, log_free_sp):
-    if model.n_smoothing_params_ is None:
+    n_smoothing_params = _n_smoothing_params(model)
+    if n_smoothing_params == 0 and getattr(model, "compiled_model_", None) is None:
         raise RuntimeError("Design has not been compiled yet.")
 
     fixed_mask = (
-        np.zeros(model.n_smoothing_params_, dtype=bool)
+        np.zeros(n_smoothing_params, dtype=bool)
         if model.smoothing_fixed_mask_ is None
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
@@ -533,7 +543,7 @@ def expand_smoothing_params_from_log(model, log_free_sp):
 def optimize_smoothing_params(
     model, y, initial_smoothing_params=None, method="gcv", optimizer="lbfgsb"
 ):
-    method = model._resolve_smoothing_method(method)
+    method = resolve_smoothing_method(model, method)
     optimizer = str(optimizer).lower()
     exact_gaussian = str(getattr(model.family, "name", "")).lower() == "gaussian"
 
@@ -542,9 +552,9 @@ def optimize_smoothing_params(
             "method must be one of "
             "{'gcv', 'ubre', 'aic', 'ubreaic', 'ml', 'reml', 'laml'}"
         )
-    if not model._supports_smoothing_method(method):
+    if not supports_smoothing_method(model, method):
         if method in {"ml", "reml", "laml"}:
-            model._raise_ml_reml_backend_error(method)
+            raise_ml_reml_backend_error(model, method)
         raise NotImplementedError(
             f"Automatic smoothing selection with method={method!r} is not "
             f"supported for family={model.family.name!r}."
@@ -569,7 +579,7 @@ def optimize_smoothing_params(
     )
 
     fixed_mask = (
-        np.zeros(model.n_smoothing_params_, dtype=bool)
+        np.zeros(_n_smoothing_params(model), dtype=bool)
         if model.smoothing_fixed_mask_ is None
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
@@ -601,7 +611,7 @@ def optimize_smoothing_params(
         model._optim_used_gradient = False
         model._optim_used_hessian = False
         model.smoothing_score_ = float(
-            model._criterion(y, np.empty((0,), dtype=np.float64), method=method)
+            criterion_value(model, y, np.empty((0,), dtype=np.float64), method=method)
         )
         return model
 
@@ -638,21 +648,21 @@ def optimize_smoothing_params(
             init_free = np.asarray(model.smoothing_params[free_mask], dtype=np.float64)
     else:
         init = np.asarray(initial_smoothing_params, dtype=np.float64)
-        if init.shape == (model.n_smoothing_params_,):
+        if init.shape == (_n_smoothing_params(model),):
             init_free = np.asarray(init[free_mask], dtype=np.float64)
         elif init.shape == (n_free,):
             init_free = init.copy()
         else:
             raise ValueError(
                 f"Expected initial smoothing params of shape "
-                f"({model.n_smoothing_params_},) or ({n_free},), got {init.shape}."
+                f"({_n_smoothing_params(model)},) or ({n_free},), got {init.shape}."
             )
 
     if np.any(~np.isfinite(init_free)) or np.any(init_free <= 0):
         raise ValueError("Initial free smoothing parameters must be finite and > 0.")
 
     min_sp = (
-        np.zeros(model.n_smoothing_params_, dtype=np.float64)
+        np.zeros(_n_smoothing_params(model), dtype=np.float64)
         if model.min_sp_ is None
         else np.asarray(model.min_sp_, dtype=np.float64)
     )
@@ -681,7 +691,7 @@ def optimize_smoothing_params(
 
     if use_joint_gaussian_reml_scale:
         sp0 = expand_smoothing_params_from_log(model, x0)
-        sol0 = model._solve_gaussian_given_smoothing(y, sp0)
+        sol0 = solve_gaussian_given_smoothing(model, y, sp0)
         F0 = float(sol0["rss"]) + float(sol0["penalty_quadratic"] or 0.0)
         Mp = float(
             _static_penalty_null_dim(model)

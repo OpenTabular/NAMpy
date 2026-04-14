@@ -1,15 +1,4 @@
-"""
-Stage 2 of the GAM fit pipeline: runtime term materialization.
-
-Converts declarative TermSpec objects into fitted runtime term instances.
-Each runtime term owns all basis-specific mathematics for its smooth family:
-basis construction, penalty definition, term-local constraints, by-variable
-handling, and new-data transforms.
-
-This module dispatches on typed ``TermSpec.smooth_spec`` objects to select the
-correct runtime class. It must not implement basis construction itself — it
-only routes to the canonical classes in ``gam/smooths/*``.
-"""
+"""Compiler-owned term instantiation from declarative specs."""
 
 from __future__ import annotations
 

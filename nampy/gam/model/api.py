@@ -5,14 +5,34 @@ import pickle
 import numpy as np
 import pandas as pd
 
+from .._model_state import (
+    _coef_full,
+    _cov_bayes,
+    _cov_freq,
+    _cov_unconditional,
+    _edf2,
+    _edf_total,
+    _fit_scale,
+    _fit_state,
+    _fitted_eta,
+    _fitted_mu,
+    _intercept,
+    _predictor_full_slices,
+    _term_blocks_seq,
+)
+from ..data import (
+    coerce_formula_predict_inputs,
+    coerce_optional_offset,
+    coerce_X,
+    combine_offsets,
+)
 from ..families import make_gam_family
+from ..fit.model_ops import copy_fit_result
 from ..parity import build_parity_snapshot
-from .gam_data import _GAMDataMixin
-from .gam_solve import _GAMSolveMixin
-from .gam_specs import _GAMSpecsMixin
+from ..specs.modeling import make_predictor_specs, prepare_formula_inputs
 
 
-class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
+class GAM:
     """
     User-facing classical GAM backend built on the general smooth-model core.
     """
@@ -73,35 +93,13 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         self.prior_weights_ = None
         self.offset_train_ = None
         self.offset_predict_default_ = None
-        self.predictor_designs = None
         self.n_samples_ = None
-        self.design_ = None
-        self.Z = None
-        self.ZTZ = None
-        self.n_coef_ = None
-        self.term_blocks_ = None
-        self.penalty_blocks_ = None
-        self.n_smoothing_params_ = None
         self.smoothing_fixed_mask_ = None
         self.smoothing_override_values_ = None
         self.smoothing_override_modes_ = None
         self.min_sp_ = None
         self.reparam_state_ = None
         self.sl_blocks_ = None
-        self.intercept_ = None
-        self.coef_ = None
-        self.coef_full_ = None
-        self.beta = None
-        self.edf_ = None
-        self.trace_H_ = None
-        self.scale_ = None
-        self.rss_ = None
-        self.deviance_ = None
-        self.edf_by_term_ = None
-        self.edf2_ = None
-        self.Vp_ = None
-        self.Vf_ = None
-        self.Vc_ = None
         self._fitted = False
         self._optim_method = None
         self._optim_result = None
@@ -109,175 +107,12 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         self._optim_used_gradient = None
         self._optim_used_hessian = None
         self.smoothing_score_ = None
-        self.result_ = None
+        self.gam_result_ = None
+        self.fit_core_solution_ = None
         self.side_condition_reports_ = None
-        self._predictor_full_slices_ = None
         self._coef_reduced_to_full_idx = None
-
-    def _general_family_link_prediction(self, X_np):
-        offset = self._general_family_prediction_offset(X_np, None)
-        return self._general_family_link_prediction_with_offset(X_np, offset)
-
-    def _general_family_prediction_offset(self, X_np, offset):
-        n_rows = self.n_samples_ if X_np is None else int(X_np.shape[0])
-        n_pred = len(self._predictor_full_slices_ or [])
-        if offset is None:
-            offset_vec = self._prediction_offset(X_np, None)
-            if offset_vec is None:
-                return None
-            return [offset_vec] + [None] * max(n_pred - 1, 0)
-        if isinstance(offset, (list, tuple)):
-            out = []
-            for i, off_i in enumerate(offset):
-                out.append(
-                    None
-                    if off_i is None
-                    else self._coerce_optional_offset(
-                        off_i, n_rows, name=f"offset[{i}]"
-                    )
-                )
-            if len(out) < n_pred:
-                out.extend([None] * (n_pred - len(out)))
-            return out
-        offset_vec = self._coerce_optional_offset(offset, n_rows)
-        return [offset_vec] + [None] * max(n_pred - 1, 0)
-
-    def _general_family_link_prediction_with_offset(self, X_np, offset):
-        eta_cols = []
-        off_list = None if offset is None else list(offset)
-        for k, (pred, sl) in enumerate(
-            zip(self.predictor_designs, self._predictor_full_slices_)
-        ):
-            Zp = (
-                np.asarray(pred.design_matrix, dtype=np.float64)
-                if X_np is None
-                else np.asarray(pred.build_new_matrix(X_np), dtype=np.float64)
-            )
-            if bool(pred.has_intercept):
-                Xp = np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp])
-            else:
-                Xp = Zp
-            eta_k = Xp @ np.asarray(self.coef_full_[sl], dtype=np.float64)
-            if off_list is not None and k < len(off_list) and off_list[k] is not None:
-                eta_k = eta_k + np.asarray(off_list[k], dtype=np.float64)
-            eta_cols.append(np.asarray(eta_k, dtype=np.float64))
-        return (
-            np.column_stack(eta_cols)
-            if eta_cols
-            else np.empty((0, 0), dtype=np.float64)
-        )
-
-    def _general_family_prediction_blocks(self, X_np):
-        Z_blocks = []
-        Xp_blocks = []
-        for pred in self.predictor_designs:
-            Zp = (
-                np.asarray(pred.design_matrix, dtype=np.float64)
-                if X_np is None
-                else np.asarray(pred.build_new_matrix(X_np), dtype=np.float64)
-            )
-            Z_blocks.append(Zp)
-            if bool(pred.has_intercept):
-                Xp_blocks.append(
-                    np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp])
-                )
-            else:
-                Xp_blocks.append(Zp)
-        Z_new = (
-            np.column_stack(Z_blocks)
-            if Z_blocks
-            else np.empty((self.n_samples_ if X_np is None else len(X_np), 0))
-        )
-        return Z_new, Xp_blocks
-
-    def _general_family_predict(
-        self, X_np, *, return_se=False, cov=None, type="response", offset=None
-    ):
-        type = str(type).lower()
-        if type not in {"response", "link", "terms", "lpmatrix"}:
-            raise ValueError(
-                "type must be one of {'response', 'link', 'terms', 'lpmatrix'}"
-            )
-
-        offset_list = self._general_family_prediction_offset(X_np, offset)
-        eta = self._general_family_link_prediction_with_offset(X_np, offset_list)
-        Z_new, Xp_blocks = self._general_family_prediction_blocks(X_np)
-
-        if type == "lpmatrix":
-            return (
-                np.column_stack(Xp_blocks)
-                if Xp_blocks
-                else np.empty((eta.shape[0], 0), dtype=np.float64)
-            )
-
-        if type == "terms":
-            terms = np.column_stack(
-                [
-                    Z_new[:, tb.coef_slice] @ self.coef_[tb.coef_slice]
-                    for tb in self.term_blocks_
-                ]
-            )
-            if not return_se:
-                return terms
-
-            V = self._select_cov(cov)
-            ses = []
-            full_idx = np.asarray(self._coef_reduced_to_full_idx, dtype=int)
-            for tb in self.term_blocks_:
-                idx = full_idx[tb.coef_slice]
-                Xi = np.zeros((Z_new.shape[0], V.shape[0]), dtype=np.float64)
-                Xi[:, idx] = Z_new[:, tb.coef_slice]
-                var = np.einsum("ij,jk,ik->i", Xi, V, Xi)
-                ses.append(np.sqrt(np.maximum(var, 0.0)))
-            return terms, np.column_stack(ses)
-
-        if type == "link":
-            if not return_se:
-                return eta
-            V = self._select_cov(cov)
-            se_cols = []
-            for Xp, sl in zip(Xp_blocks, self._predictor_full_slices_):
-                Vk = V[sl, sl]
-                var = np.einsum("ij,jk,ik->i", Xp, Vk, Xp)
-                se_cols.append(np.sqrt(np.maximum(var, 0.0)))
-            return eta, np.column_stack(se_cols)
-
-        family_predict = getattr(self.family, "predict", None)
-        if callable(family_predict):
-            out = family_predict(
-                eta=eta,
-                X=(
-                    np.column_stack(Xp_blocks)
-                    if Xp_blocks
-                    else np.empty((eta.shape[0], 0), dtype=np.float64)
-                ),
-                jj=[
-                    np.arange(sl.start, sl.stop, dtype=int)
-                    for sl in (self._predictor_full_slices_ or [])
-                ],
-                coef=np.asarray(self.coef_full_, dtype=np.float64),
-                offset=offset_list,
-                se=return_se,
-                Vb=None if not return_se else self._select_cov(cov),
-            )
-            return out
-
-        if return_se:
-            raise NotImplementedError(
-                f"{self.family.__class__.__name__} does not yet implement predictive standard errors."
-            )
-        return np.asarray(
-            self.family.predict_fitted(
-                np.column_stack(Xp_blocks),
-                [
-                    np.arange(sl.start, sl.stop, dtype=int)
-                    for sl in (self._predictor_full_slices_ or [])
-                ],
-                np.asarray(self.coef_full_, dtype=np.float64),
-                offset=offset_list,
-            ),
-            dtype=np.float64,
-        )
+        self.compiled_model_ = None
+        self._edf_by_term_fit_ = None
 
     # ------------------------------------------------------------------
     # Persistence
@@ -361,7 +196,8 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
                 used_cols,
                 offset_formula,
                 preprocess_state,
-            ) = self._prepare_formula_inputs(
+            ) = prepare_formula_inputs(
+                self,
                 data=data,
                 formula=formula,
                 y=y,
@@ -378,8 +214,8 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
             self.fit_intercept = fit_intercept
             y_use = y_out
 
-            offset_arg = self._coerce_optional_offset(offset, len(X_np))
-            offset_use = self._combine_offsets(offset_formula, offset_arg)
+            offset_arg = coerce_optional_offset(offset, len(X_np))
+            offset_use = combine_offsets(offset_formula, offset_arg)
 
             # mgcv-like prediction semantics:
             # remember only formula offsets for default prediction.
@@ -389,8 +225,8 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
                 else np.asarray(offset_formula, dtype=np.float64).copy()
             )
         else:
-            X_np, feature_names = self._coerce_X(X)
-            predictor_specs = self._make_predictor_specs(feature_names, knots=knots)
+            X_np, feature_names = coerce_X(self, X)
+            predictor_specs = make_predictor_specs(self, feature_names, knots=knots)
             fit_intercept = self.fit_intercept
             y_use = y
 
@@ -401,7 +237,7 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
 
             # Separate fit-time offset is used in fitting, but not remembered by default
             # for prediction, matching mgcv's documented behaviour.
-            offset_use = self._coerce_optional_offset(offset, len(X_np))
+            offset_use = coerce_optional_offset(offset, len(X_np))
             predict_offset_default = None
 
         if y_use is None:
@@ -434,10 +270,11 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         self.predictor_specs = predictor_specs
         self.fit_intercept = fit_intercept
         self.min_sp = min_sp
-        self.result_ = None
+        self.gam_result_ = None
         self.side_condition_reports_ = None
+        self._edf_by_term_fit_ = None
 
-        from ..fit.orchestrator import fit_model_core
+        from ..engine import fit_model_core
 
         fit_model_core(
             X=X_np,
@@ -462,15 +299,17 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
     def fit_result(self, include_covariances=True):
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
-        if self.result_ is None:
-            self.result_ = self._build_fit_result()
-        if not include_covariances:
-            self.result_.cov_bayes = None
-            self.result_.cov_freq = None
-        return self.result_
+        if self.gam_result_ is None:
+            from ..fit.model_ops import build_gam_result
+
+            self.gam_result_ = build_gam_result(self)
+        return copy_fit_result(
+            self.gam_result_.fit_summary,
+            include_covariances=include_covariances,
+        )
 
     def _select_cov(self, cov):
-        from ..fit.covariance import select_covariance_matrix
+        from ..engine import select_covariance_matrix
 
         return select_covariance_matrix(self, cov=cov)
 
@@ -485,35 +324,10 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
 
-        if getattr(self.family, "family_class", "") == "general":
-            if X is None:
-                X_np = None
-                offset_use = offset
-            elif self.formula_mode_:
-                X_np, _, offset_formula = self._coerce_formula_predict_inputs(X)
-                offset_use = (
-                    self._combine_offsets(
-                        offset_formula,
-                        self._coerce_optional_offset(offset, X_np.shape[0]),
-                    )
-                    if not isinstance(offset, (list, tuple))
-                    else offset
-                )
-            else:
-                X_np, _ = self._coerce_X(X)
-                offset_use = offset
-            return self._general_family_predict(
-                X_np,
-                return_se=return_se,
-                cov=cov,
-                type=type,
-                offset=offset_use,
-            )
-
         if X is None:
             offset_use = None
             if offset is not None:
-                offset_use = self._coerce_optional_offset(offset, self.X_.shape[0])
+                offset_use = coerce_optional_offset(offset, self.X_.shape[0])
             return predict_values(
                 X=None,
                 return_se=return_se,
@@ -524,14 +338,14 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
             )
 
         if self.formula_mode_:
-            X_np, _, offset_formula = self._coerce_formula_predict_inputs(X)
-            offset_use = self._combine_offsets(
+            X_np, _, offset_formula = coerce_formula_predict_inputs(self, X)
+            offset_use = combine_offsets(
                 offset_formula,
-                self._coerce_optional_offset(offset, X_np.shape[0]),
+                coerce_optional_offset(offset, X_np.shape[0]),
             )
         else:
-            X_np, _ = self._coerce_X(X)
-            offset_use = self._coerce_optional_offset(offset, X_np.shape[0])
+            X_np, _ = coerce_X(self, X)
+            offset_use = coerce_optional_offset(offset, X_np.shape[0])
 
         return predict_values(
             X=X_np,
@@ -550,18 +364,18 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         if X is None:
             offset_use = None
             if offset is not None:
-                offset_use = self._coerce_optional_offset(offset, self.X_.shape[0])
+                offset_use = coerce_optional_offset(offset, self.X_.shape[0])
             X_use = None
         elif self.formula_mode_:
-            X_np, _, offset_formula = self._coerce_formula_predict_inputs(X)
-            offset_use = self._combine_offsets(
+            X_np, _, offset_formula = coerce_formula_predict_inputs(self, X)
+            offset_use = combine_offsets(
                 offset_formula,
-                self._coerce_optional_offset(offset, X_np.shape[0]),
+                coerce_optional_offset(offset, X_np.shape[0]),
             )
             X_use = X_np
         else:
-            X_np, _ = self._coerce_X(X)
-            offset_use = self._coerce_optional_offset(offset, X_np.shape[0])
+            X_np, _ = coerce_X(self, X)
+            offset_use = coerce_optional_offset(offset, X_np.shape[0])
             X_use = X_np
 
         eta = predict_values(model=self, X=X_use, type="link", offset=offset_use)
@@ -571,10 +385,10 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
             out["response"] = predict_values(
                 model=self, X=X_use, type="response", offset=offset_use
             )
-        for j, tb in enumerate(self.term_blocks_):
+        for j, tb in enumerate(_term_blocks_seq(self)):
             out[tb.term_id] = terms[:, j]
         if self.fit_intercept:
-            out["intercept"] = np.array(self.intercept_, dtype=np.float64)
+            out["intercept"] = np.array(_intercept(self), dtype=np.float64)
         if offset_use is not None:
             out["offset"] = np.asarray(offset_use, dtype=np.float64)
         return out
@@ -586,9 +400,9 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
             raise RuntimeError("Model is not fitted.")
 
         if self.formula_mode_:
-            X_np, _, _ = self._coerce_formula_predict_inputs(X)
+            X_np, _, _ = coerce_formula_predict_inputs(self, X)
         else:
-            X_np, _ = self._coerce_X(X)
+            X_np, _ = coerce_X(self, X)
 
         return build_lpmatrix(self, X_new=X_np)
 
@@ -601,9 +415,9 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
             return plot_gam_terms(self, X=None, n_cols=n_cols, figsize=figsize)
 
         if self.formula_mode_:
-            X_np, _, _ = self._coerce_formula_predict_inputs(X)
+            X_np, _, _ = coerce_formula_predict_inputs(self, X)
         else:
-            X_np, _ = self._coerce_X(X)
+            X_np, _ = coerce_X(self, X)
 
         return plot_gam_terms(self, X=X_np, n_cols=n_cols, figsize=figsize)
 
@@ -641,7 +455,7 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         )
 
     def sp_vcov(self, edge_correct=True, reg=1e-3):
-        from ..smoothing_selection import sp_vcov
+        from ..selection import sp_vcov
 
         return sp_vcov(self, edge_correct=edge_correct, reg=reg)
 
@@ -658,18 +472,26 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
 
         Mirrors mgcv ``vcov.gam`` in mgcv/R/mgcv.r.
         """
+        Vp = None if _cov_bayes(self) is None else np.asarray(_cov_bayes(self), dtype=np.float64)
+        Vf = None if _cov_freq(self) is None else np.asarray(_cov_freq(self), dtype=np.float64)
+        Vc = _cov_unconditional(self)
+        Vc = None if Vc is None else np.asarray(Vc, dtype=np.float64)
+        fit_state = _fit_state(self)
+        fit_scale = float(_fit_scale(self))
+        coef_full = np.asarray(_coef_full(self), dtype=np.float64)
+        edf_total = float(_edf_total(self))
         if sandwich:
             B2 = (
-                np.zeros_like(np.asarray(self.Vp_, dtype=np.float64))
+                np.zeros_like(Vp)
                 if freq
                 else (
-                    np.asarray(self.Vp_, dtype=np.float64)
-                    - np.asarray(self.Vf_, dtype=np.float64)
+                    Vp
+                    - Vf
                 )
             )
-            X = np.asarray(self.fit_state_.X, dtype=np.float64)
+            X = np.asarray(fit_state.X, dtype=np.float64)
             m = float(X.shape[0])
-            m = m / (m - float(np.sum(np.asarray(self.edf_, dtype=np.float64))))
+            m = m / (m - edf_total)
 
             family_class = str(getattr(self.family, "family_class", "")).lower()
             if family_class == "general":
@@ -679,7 +501,7 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
                     )
                 jj = [
                     np.arange(sl.start, sl.stop, dtype=int)
-                    for sl in (self._predictor_full_slices_ or [])
+                    for sl in _predictor_full_slices(self)
                 ]
                 offset = (
                     None
@@ -692,7 +514,7 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
                         np.asarray(self.y_, dtype=np.float64),
                         X,
                         jj,
-                        np.asarray(self.coef_full_, dtype=np.float64),
+                        coef_full,
                         (
                             None
                             if self.prior_weights_ is None
@@ -704,9 +526,9 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
                 )
                 vc = (
                     m
-                    * np.asarray(self.Vp_, dtype=np.float64)
+                    * Vp
                     @ fill
-                    @ np.asarray(self.Vp_, dtype=np.float64)
+                    @ Vp
                     + B2
                 )
             elif family_class == "extended":
@@ -714,38 +536,38 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
                     "Sandwich covariance matrix is not implemented for this extended family."
                 )
             else:
-                eta = np.asarray(self._fitted_eta, dtype=np.float64).ravel()
-                mu = np.asarray(self._fitted_mu, dtype=np.float64).ravel()
+                eta = np.asarray(_fitted_eta(self), dtype=np.float64).ravel()
+                mu = np.asarray(_fitted_mu(self), dtype=np.float64).ravel()
                 w = (
                     self.family.mu_eta(eta)
                     * (np.asarray(self.y_, dtype=np.float64).ravel() - mu)
-                    / (float(self.scale_) * self.family.variance(mu))
+                    / (fit_scale * self.family.variance(mu))
                 )
                 WX = np.asarray(w[:, None] * X, dtype=np.float64)
                 vc = (
                     m
-                    * np.asarray(self.Vp_, dtype=np.float64)
+                    * Vp
                     @ (WX.T @ WX)
-                    @ np.asarray(self.Vp_, dtype=np.float64)
+                    @ Vp
                     + B2
                 )
 
             vc = np.asarray(vc, dtype=np.float64).copy()
             if dispersion is not None:
-                vc *= float(dispersion) / float(self.scale_)
+                vc *= float(dispersion) / fit_scale
             return vc
 
         if freq:
-            vc = self.Vf_
+            vc = Vf
         else:
-            vc = self.Vc_ if unconditional and self.Vc_ is not None else self.Vp_
+            vc = Vc if unconditional and Vc is not None else Vp
 
         if vc is None:
             raise RuntimeError("Requested covariance matrix is not available.")
 
         vc = np.asarray(vc, dtype=np.float64).copy()
         if dispersion is not None:
-            vc *= float(dispersion) / float(self.scale_)
+            vc *= float(dispersion) / fit_scale
         return vc
 
     def _mgcv_loglik_df(self) -> float:
@@ -755,11 +577,12 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         Mirrors mgcv ``logLik.gam`` in mgcv/R/mgcv.r.
         """
         sc_p = 1.0 if getattr(self.family, "known_scale", None) is None else 0.0
-        if self.edf2_ is not None:
-            p = float(np.sum(np.asarray(self.edf2_, dtype=np.float64))) + sc_p
+        edf2 = _edf2(self)
+        if edf2 is not None:
+            p = float(np.sum(np.asarray(edf2, dtype=np.float64))) + sc_p
         else:
-            p = float(self.edf_) + sc_p
-        np_max = float(len(np.asarray(self.coef_full_, dtype=np.float64))) + sc_p
+            p = float(_edf_total(self)) + sc_p
+        np_max = float(len(np.asarray(_coef_full(self), dtype=np.float64))) + sc_p
         return min(p, np_max)
 
     def loglik(self) -> float:
@@ -772,16 +595,16 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
             raise RuntimeError("Model is not fitted.")
 
         if getattr(self.family, "family_class", "") == "general":
-            X = np.asarray(self.fit_state_.X, dtype=np.float64)
+            X = np.asarray(_fit_state(self).X, dtype=np.float64)
             jj = [
                 np.arange(sl.start, sl.stop, dtype=int)
-                for sl in (self._predictor_full_slices_ or [])
+                for sl in _predictor_full_slices(self)
             ]
             ll = self.family.ll(
                 np.asarray(self.y_, dtype=np.float64),
                 X,
                 jj,
-                np.asarray(self.coef_full_, dtype=np.float64),
+                np.asarray(_coef_full(self), dtype=np.float64),
                 np.asarray(self.prior_weights_, dtype=np.float64),
                 offset=(
                     None
@@ -799,7 +622,7 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
             self.family.loglik(
                 np.asarray(self.y_, dtype=np.float64),
                 np.asarray(mu, dtype=np.float64),
-                scale=float(self.scale_),
+                scale=float(_fit_scale(self)),
             )
         )
 
@@ -813,12 +636,12 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         return float(-2.0 * self.loglik() + np.log(n_obs) * self._mgcv_loglik_df())
 
     def gam_vcomp(self, *, rescale=False, conf_lev=0.95):
-        from ..smoothing_selection import gam_vcomp
+        from ..selection import gam_vcomp
 
         return gam_vcomp(self, rescale=rescale, conf_lev=conf_lev)
 
     def one_se_rule(self, candidate_indices=None):
-        from ..smoothing_selection import one_se_rule
+        from ..selection import one_se_rule
 
         return one_se_rule(self, candidate_indices=candidate_indices)
 

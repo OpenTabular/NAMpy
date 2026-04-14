@@ -9,11 +9,19 @@ from scipy.stats import chi2, f
 
 from .._mgcv_constants import LOG_GUARD_MIN
 from .._model_state import (
+    _coef,
     _coef_column_offset,
+    _deviance,
+    _edf_by_term,
+    _edf_total,
+    _fit_scale,
+    _fit_state,
+    _H_coef,
     _require_fitted,
+    _summary_R,
     _term_blocks_seq,
 )
-from ..fit.covariance import select_covariance_matrix
+from ..engine import select_covariance_matrix
 
 
 @dataclass(frozen=True)
@@ -36,11 +44,11 @@ class AnovaGAMComparison:
 
 def _residual_df(model) -> float:
     intercept_df = float(_coef_column_offset(model))
-    return float(model.n_samples_) - intercept_df - float(model.edf_)
+    return float(model.n_samples_) - intercept_df - float(_edf_total(model))
 
 
 def _edf1_vector(model) -> np.ndarray:
-    H = np.asarray(getattr(model, "_H_coef", None), dtype=np.float64)
+    H = np.asarray(_H_coef(model), dtype=np.float64)
     if H.ndim != 2 or H.shape[0] != H.shape[1]:
         raise ValueError("Model does not expose a square coefficient hat matrix.")
     return 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
@@ -172,14 +180,15 @@ def _smooth_test_stat(
 def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingle:
     gaussian = str(getattr(model.family, "name", "")).lower() == "gaussian"
     resid_df = _residual_df(model)
-    disp = float(model.scale_ if dispersion is None else dispersion)
+    disp = float(_fit_scale(model) if dispersion is None else dispersion)
 
     V_para = select_covariance_matrix(model, cov=("freq" if freq else "bayes"))
     V_smooth = select_covariance_matrix(model, cov="bayes")
 
-    beta = np.asarray(model.coef_, dtype=np.float64).ravel()
-    edf_by_term = np.asarray(model.edf_by_term_, dtype=np.float64).ravel()
-    summary_R = getattr(model, "_summary_R_", None)
+    beta = np.asarray(_coef(model), dtype=np.float64).ravel()
+    edf_by_term = np.asarray(_edf_by_term(model), dtype=np.float64).ravel()
+    summary_R = _summary_R(model)
+    fit_state = _fit_state(model)
 
     param_rows: list[dict[str, object]] = []
     smooth_rows: list[dict[str, object]] = []
@@ -241,7 +250,7 @@ def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingl
                 (
                     summary_R[:, x_start:x_stop]
                     if summary_R is not None
-                    else model.fit_state_.X[:, x_start:x_stop]
+                    else fit_state.X[:, x_start:x_stop]
                 ),
                 dtype=np.float64,
             )
@@ -336,7 +345,7 @@ def _comparison_table(
     if test_name not in {None, "chisq", "f", "cp"}:
         raise ValueError("test must be one of None, 'Chisq', 'F', or 'Cp'.")
 
-    disp = float(models[-1].scale_ if dispersion is None else dispersion)
+    disp = float(_fit_scale(models[-1]) if dispersion is None else dispersion)
     gaussian = family_name.lower() == "gaussian"
 
     rows: list[dict[str, object]] = []
@@ -347,9 +356,9 @@ def _comparison_table(
             "model": idx,
             "formula": getattr(model, "formula_", None)
             or getattr(model, "formula", None),
-            "edf": float(model.edf_),
+            "edf": float(_edf_total(model)),
             "residual_df": resid_df,
-            "deviance": float(model.deviance_),
+            "deviance": float(_deviance(model)),
             "criterion": getattr(model, "smoothing_score_", None),
             "edf_diff": np.nan,
             "deviance_diff": np.nan,
@@ -359,8 +368,8 @@ def _comparison_table(
         }
 
         if prev is not None:
-            edf_diff = float(model.edf_) - float(prev.edf_)
-            dev_diff = float(prev.deviance_) - float(model.deviance_)
+            edf_diff = float(_edf_total(model)) - float(_edf_total(prev))
+            dev_diff = float(_deviance(prev)) - float(_deviance(model))
             row["edf_diff"] = edf_diff
             row["deviance_diff"] = dev_diff
 
@@ -375,23 +384,23 @@ def _comparison_table(
                         (
                             float(model.smoothing_score_)
                             if model.smoothing_score_ is not None
-                            else model.deviance_
+                            else _deviance(model)
                         )
                         - (
                             float(prev.smoothing_score_)
                             if prev.smoothing_score_ is not None
-                            else prev.deviance_
+                            else _deviance(prev)
                         )
                     )
                     row["test"] = "CP"
                 elif chosen == "f":
                     denom_df = max(
                         float(model.n_samples_)
-                        - float(model.edf_)
+                        - float(_edf_total(model))
                         - float(_coef_column_offset(model)),
                         1.0,
                     )
-                    denom = float(model.deviance_) / denom_df
+                    denom = float(_deviance(model)) / denom_df
                     stat = (
                         np.nan if denom <= 0.0 else float((dev_diff / edf_diff) / denom)
                     )

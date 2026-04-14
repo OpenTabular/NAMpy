@@ -1,6 +1,12 @@
 import numpy as np
 
-from ..._model_state import _fit_intercept
+from ..._model_state import (
+    _design_matrix,
+    _fit_intercept,
+    _n_coef,
+    _penalty_blocks_seq,
+    _term_blocks_seq,
+)
 from ..covariance import build_bayes_and_freq_covariances
 from ..linalg.stacked_qr import (
     balanced_penalty_template_sqrt_for_rank,
@@ -33,22 +39,25 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     n = int(y.shape[0])
     w = _prior_weights_vector(weights, n)
     fi = _fit_intercept(model)
-    X = build_full_design(model.Z, fit_intercept=fi)
+    Z = np.asarray(_design_matrix(model), dtype=np.float64)
+    penalty_blocks = tuple(_penalty_blocks_seq(model))
+    n_coef = _n_coef(model)
+    X = build_full_design(Z, fit_intercept=fi)
     S = build_full_penalty_from_blocks(
-        penalty_blocks=model.penalty_blocks_,
+        penalty_blocks=penalty_blocks,
         smoothing_params=smoothing_params,
         fit_intercept=fi,
-        n_coef=model.n_coef_,
+        n_coef=n_coef,
     )
     rank_rows = balanced_penalty_template_sqrt_for_rank(
-        model.penalty_blocks_,
+        penalty_blocks,
         fit_intercept=fi,
-        n_coef=int(model.n_coef_),
+        n_coef=int(n_coef),
     )
 
     has_mrf_term = any(
         str(getattr(tb, "basis_name", "")).lower() == "mrf"
-        for tb in getattr(getattr(model, "Z", None), "term_blocks", [])
+        for tb in _term_blocks_seq(model)
     )
     tiny_mrf_penalty = has_mrf_term and np.any(
         np.asarray(smoothing_params, dtype=np.float64) < 1e-20
@@ -99,9 +108,9 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
             y_eff,
             w,
             S,
-            penalty_blocks=model.penalty_blocks_,
+            penalty_blocks=penalty_blocks,
             fit_intercept=fi,
-            n_coef=int(model.n_coef_),
+            n_coef=int(n_coef),
             coef_method=coef_method,
             near_singular_null_pin=null_gauge,
         )

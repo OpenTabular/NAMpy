@@ -7,9 +7,12 @@ import numpy as np
 
 from ....splines.mrf import nat_param_type1
 from ..._mgcv_constants import EIG_TOL_POWER
-from ...basis.tensor import rescale_tensor_penalties_for_fit, rowwise_kronecker
-from ...design.structures import PenaltySpec
-from ...penalties import build_null_space_selection_spec
+from ...basis.algebra import rowwise_kronecker
+from ...compiler.structures import PenaltySpec
+from ...penalties import (
+    build_null_space_selection_spec,
+    rescale_tensor_penalties_for_fit,
+)
 from ..registry import make_smooth_term
 from ..smooth_base import BaseSmoothTerm, column_as_object
 from ..univariate.cubic_regression import SplineTerm1D

@@ -5,7 +5,13 @@ import warnings
 import numpy as np
 
 from .._mgcv_constants import LOG_GUARD_MIN
-from .._model_state import _require_fitted
+from .._model_state import (
+    _fit_scale,
+    _fit_state,
+    _fitted_eta,
+    _fitted_mu,
+    _require_fitted,
+)
 
 
 def _prior_weights(model) -> np.ndarray:
@@ -17,7 +23,7 @@ def _prior_weights(model) -> np.ndarray:
 
 def _deviance_residuals(model) -> np.ndarray:
     y = np.asarray(model.y_, dtype=np.float64).ravel()
-    mu = np.asarray(model._fitted_mu, dtype=np.float64).ravel()
+    mu = np.asarray(_fitted_mu(model), dtype=np.float64).ravel()
     w = _prior_weights(model)
     sign = np.sign(y - mu)
     sign[sign == 0.0] = 1.0
@@ -32,7 +38,7 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
 
     type = str(type).lower()
     y = np.asarray(model.y_, dtype=np.float64).ravel()
-    fitted = np.asarray(model._fitted_mu, dtype=np.float64)
+    fitted = np.asarray(_fitted_mu(model), dtype=np.float64)
     family_residuals = getattr(model.family, "residuals", None)
     if callable(family_residuals):
         try:
@@ -44,7 +50,7 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
             return np.asarray(family_residuals(model, type), dtype=np.float64).ravel()
 
     mu = np.asarray(fitted, dtype=np.float64).ravel()
-    eta = np.asarray(model._fitted_eta, dtype=np.float64).ravel()
+    eta = np.asarray(_fitted_eta(model), dtype=np.float64).ravel()
     w = _prior_weights(model)
 
     if type == "response":
@@ -52,7 +58,7 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
             return y - fitted
         return np.asarray(y.reshape(-1, 1) - fitted, dtype=np.float64).ravel()
     if type == "working":
-        fit_state = getattr(model, "fit_state_", None)
+        fit_state = _fit_state(model)
         z_work = (
             None if fit_state is None else getattr(fit_state, "working_response", None)
         )
@@ -90,7 +96,7 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
         var = np.asarray(variance(mu), dtype=np.float64)
         res = (y - mu) * np.sqrt(w) / np.sqrt(np.clip(var, LOG_GUARD_MIN, None))
         if type == "scaled.pearson":
-            res = res / np.sqrt(max(float(model.scale_), LOG_GUARD_MIN))
+            res = res / np.sqrt(max(float(_fit_scale(model)), LOG_GUARD_MIN))
         return res
 
     raise ValueError(

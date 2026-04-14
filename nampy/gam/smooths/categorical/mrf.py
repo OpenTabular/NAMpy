@@ -11,8 +11,8 @@ from ....splines.mrf import (
     polys_to_nb,
 )
 from ..._mgcv_constants import EIG_TOL_POWER
+from ...compiler.structures import PenaltySpec
 from ...constraints.absorption import full_term_sum_to_zero_constraint
-from ...design.structures import PenaltySpec
 from ...penalties import build_null_space_selection_spec
 from ..smooth_base import (
     BaseSmoothTerm,

@@ -13,13 +13,13 @@ penalty parameterisation.
 
 import numpy as np
 
-from ...basis.tensor import (
+from ...basis.algebra import rowwise_kronecker
+from ...constraints.absorption import full_term_sum_to_zero_constraint
+from ...penalties import (
     normalize_tensor_marginal_penalty,
     rescale_tensor_penalties_for_fit,
-    rowwise_kronecker,
     tensor_product_penalties,
 )
-from ...constraints.absorption import full_term_sum_to_zero_constraint
 from ...penalties.algebra import null_space_penalty_from_penalty
 from ..registry import register_smooth
 from ..smooth_base import (

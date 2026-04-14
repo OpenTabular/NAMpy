@@ -82,6 +82,8 @@ Two covariance estimates are provided for each fitted model:
 
 import numpy as np
 
+from .._model_state import _cov_bayes, _cov_freq
+
 
 def build_bayes_and_freq_covariances(scale, A_inv, XWX):
     """
@@ -121,12 +123,528 @@ def build_bayes_and_freq_covariances(scale, A_inv, XWX):
 def select_covariance_matrix(model, cov=None):
     key = (cov or model.covariance).lower()
     if key == "bayes":
-        return model.Vp_
+        cov_bayes = _cov_bayes(model)
+        return None if cov_bayes is None else np.asarray(cov_bayes, dtype=np.float64)
     if key == "freq":
-        return model.Vf_
+        cov_freq = _cov_freq(model)
+        return None if cov_freq is None else np.asarray(cov_freq, dtype=np.float64)
     raise ValueError("cov must be 'bayes' or 'freq'.")
 
 # --- End of nampy/gam/fit/covariance.py ---
+
+# --- Start of nampy/gam/fit/model_ops.py ---
+"""Internal model-facing fit helpers used by the GAM facade and engine."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import replace
+
+import numpy as np
+
+from .._model_state import (
+    _coef_full,
+    _compiled_metadata,
+    _compiled_model,
+    _cov_bayes,
+    _cov_freq,
+    _deviance,
+    _edf_by_term,
+    _edf_total,
+    _fit_core_solution,
+    _fit_scale,
+    _fit_summary,
+    _intercept,
+    _n_coef,
+    _n_smoothing_params,
+    _penalty_blocks_seq,
+    _predictor_designs,
+    _require_fitted,
+    _rss,
+    _term_blocks_seq,
+    _trace_H,
+)
+from ..results import GAMResult
+
+
+def uses_closed_form_solver(model):
+    return bool(getattr(model.family, "supports_closed_form_solve", False))
+
+
+def uses_pirls_solver(model):
+    return bool(getattr(model.family, "supports_pirls", False))
+
+
+def can_use_exact_gaussian_ml_reml(model):
+    from ..smoothing_selection.reparam import can_use_exact_gaussian_ml_reml
+
+    return can_use_exact_gaussian_ml_reml(model)
+
+
+def can_use_simple_ml_reml_structure(model):
+    from ..smoothing_selection.reparam import can_use_simple_ml_reml_structure
+
+    return can_use_simple_ml_reml_structure(model)
+
+
+def needs_exact_gaussian_reparameterization(model):
+    return uses_closed_form_solver(model) and can_use_exact_gaussian_ml_reml(model) and any(
+        bool(getattr(model.family, attr, False))
+        for attr in ("supports_ml", "supports_reml", "supports_laml")
+    )
+
+
+def resolve_ml_reml_scoring_backend(model, method="reml"):
+    from ..selection import resolve_ml_reml_scoring_backend as _resolve
+
+    return _resolve(model, method=method)
+
+
+def raise_ml_reml_backend_error(model, method):
+    method = str(method).lower()
+    backend = resolve_ml_reml_scoring_backend(model, method=method)
+    if backend is not None:
+        return
+    if not bool(getattr(model.family, f"supports_{method}", False)):
+        raise NotImplementedError(
+            f"Automatic smoothing selection with method={method!r} is not "
+            f"supported for family={model.family.name!r}."
+        )
+    if not can_use_simple_ml_reml_structure(model):
+        raise NotImplementedError(
+            f"Automatic smoothing selection with method={method!r} is not "
+            "currently available for this model configuration. "
+            "The current ML/REML backend still rejects penalty layouts "
+            "with null-space penalties coupling disconnected primary "
+            "penalty components. Use 'fixed', 'gcv', or 'ubre' where "
+            "available for those cases."
+        )
+    raise NotImplementedError(
+        f"Automatic smoothing selection with method={method!r} is not "
+        f"supported for family={model.family.name!r}."
+    )
+
+
+def supports_smoothing_method(model, method):
+    from ..selection import supports_smoothing_method as _supports
+
+    return _supports(model, method)
+
+
+def resolve_smoothing_method(model, method):
+    from ..selection import resolve_smoothing_method as _resolve
+
+    return _resolve(model, method)
+
+
+def resolve_min_sp(model, min_sp):
+    n_smoothing_params = _n_smoothing_params(model)
+    penalty_blocks = tuple(_penalty_blocks_seq(model))
+    if n_smoothing_params == 0 and _compiled_model(model) is None:
+        raise RuntimeError("Design has not been compiled yet.")
+
+    if min_sp is None:
+        return np.zeros(n_smoothing_params, dtype=np.float64)
+
+    arr = np.asarray(min_sp, dtype=np.float64).ravel()
+    if arr.size == 0 and n_smoothing_params == 0:
+        return np.empty((0,), dtype=np.float64)
+    if np.any(~np.isfinite(arr)) or np.any(arr < 0):
+        raise ValueError("min_sp values must be finite and >= 0.")
+
+    if arr.shape == (n_smoothing_params,):
+        return arr.copy()
+    if arr.shape == (len(penalty_blocks),):
+        out = np.zeros(n_smoothing_params, dtype=np.float64)
+        for val, pb in zip(arr, penalty_blocks):
+            out[pb.smoothing_index] = max(out[pb.smoothing_index], float(val))
+        return out
+    raise ValueError(
+        f"min_sp must have shape ({n_smoothing_params},) for underlying smoothing "
+        f"parameters or ({len(penalty_blocks)},) for total penalties, got {arr.shape}."
+    )
+
+
+def resolve_smoothing_params(model, n_smoothing_params):
+    sp = model.smoothing_params
+    if sp is None:
+        sp = np.ones(n_smoothing_params, dtype=np.float64)
+    elif isinstance(sp, Mapping):
+        out = np.ones(n_smoothing_params, dtype=np.float64)
+        group_map = dict(_compiled_metadata(model).get("s_id_to_sp_indices", {}) or {})
+        unknown = sorted(str(key) for key in sp.keys() if str(key) not in group_map)
+        if unknown:
+            raise ValueError(f"Unknown smoothing id(s) in smoothing_params: {unknown}.")
+        for key, value in sp.items():
+            indices = list(group_map[str(key)])
+            vals = np.asarray(value, dtype=np.float64).ravel()
+            if vals.ndim == 0 or vals.size == 1:
+                if len(indices) != 1:
+                    raise ValueError(
+                        f"smoothing_params[{key!r}] must provide {len(indices)} "
+                        "values for this multi-penalty smoothing id."
+                    )
+                out[indices[0]] = float(vals.reshape(-1)[0])
+                continue
+            if vals.shape != (len(indices),):
+                raise ValueError(
+                    f"smoothing_params[{key!r}] must have shape ({len(indices)},), "
+                    f"got {vals.shape}."
+                )
+            out[np.asarray(indices, dtype=int)] = vals
+        sp = out
+    else:
+        sp = np.asarray(sp, dtype=np.float64)
+        if sp.ndim == 0:
+            sp = np.full(n_smoothing_params, float(sp), dtype=np.float64)
+        if sp.shape != (n_smoothing_params,):
+            raise ValueError(
+                f"smoothing_params must have shape ({n_smoothing_params},), got {sp.shape}"
+            )
+        sp = sp.copy()
+
+    fixed_mask = np.zeros(n_smoothing_params, dtype=bool)
+    compiled_model = _compiled_model(model)
+    override_modes = (
+        None if compiled_model is None else getattr(compiled_model, "smoothing_override_modes", None)
+    )
+    override_values = (
+        None if compiled_model is None else getattr(compiled_model, "smoothing_override_values", None)
+    )
+    if override_modes is not None:
+        if len(override_modes) != n_smoothing_params:
+            raise ValueError(
+                "CompiledPredictor smoothing_override_modes has incompatible length."
+            )
+        if override_values is None:
+            override_values = np.full(n_smoothing_params, np.nan, dtype=np.float64)
+        override_values = np.asarray(override_values, dtype=np.float64)
+        if override_values.shape != (n_smoothing_params,):
+            raise ValueError(
+                "CompiledPredictor smoothing_override_values has incompatible shape."
+            )
+        for i, mode in enumerate(override_modes):
+            if mode is None:
+                continue
+            if mode == "fixed":
+                val = float(override_values[i])
+                if not np.isfinite(val) or val < 0:
+                    raise ValueError(
+                        f"Fixed smoothing parameter override at index {i} "
+                        f"must be finite and >= 0, got {val}."
+                    )
+                sp[i] = val
+                fixed_mask[i] = True
+            elif mode == "estimate":
+                fixed_mask[i] = False
+                if (not np.isfinite(sp[i])) or (sp[i] <= 0):
+                    sp[i] = 1.0
+            else:
+                raise ValueError(f"Unknown smoothing override mode {mode!r} at index {i}.")
+
+    min_sp = (
+        np.zeros(n_smoothing_params, dtype=np.float64)
+        if model.min_sp_ is None
+        else np.asarray(model.min_sp_, dtype=np.float64)
+    )
+    if min_sp.shape != (n_smoothing_params,):
+        raise ValueError(f"min_sp must have shape ({n_smoothing_params},), got {min_sp.shape}")
+    if np.any(fixed_mask & (sp < min_sp)):
+        raise ValueError(
+            "Fixed smoothing parameters must satisfy the configured min_sp lower bounds."
+        )
+
+    sp = np.maximum(sp, min_sp)
+    free_mask = ~fixed_mask
+    if np.any(~np.isfinite(sp[free_mask])) or np.any(sp[free_mask] <= 0):
+        raise ValueError("All free smoothing parameters must be finite and > 0.")
+    if np.any(~np.isfinite(sp[fixed_mask])) or np.any(sp[fixed_mask] < 0):
+        raise ValueError("All fixed smoothing parameters must be finite and >= 0.")
+
+    model.smoothing_fixed_mask_ = fixed_mask
+    model.smoothing_override_modes_ = None if override_modes is None else list(override_modes)
+    return sp
+
+
+def n_free_smoothing_params(model):
+    from ..selection import n_free_smoothing_params as _count
+
+    return _count(model)
+
+
+def expand_smoothing_params_from_log(model, log_free_sp):
+    from ..smoothing_selection.optimize import expand_smoothing_params_from_log
+
+    return expand_smoothing_params_from_log(model, log_free_sp)
+
+
+def compile_designs(model, X, feature_names):
+    from ..compiler.compile_model import compile_model
+
+    compiled_model = compile_model(
+        X=X,
+        feature_names=feature_names,
+        predictor_specs=model.predictor_specs,
+        fit_intercept=model.fit_intercept,
+        apply_side_conditions=bool(model.hparams.get("apply_side_conditions", True)),
+        side_condition_tol=float(model.hparams.get("side_condition_tol", 1e-10)),
+    )
+    model.compiled_model_ = compiled_model
+    model.side_condition_reports_ = (
+        None
+        if compiled_model.side_condition_reports is None
+        else list(compiled_model.side_condition_reports)
+    )
+    model.family.validate_predictor_count(len(_predictor_designs(model)))
+    model._coef_reduced_to_full_idx = np.asarray(
+        compiled_model.coef_reduced_to_full_idx,
+        dtype=int,
+    )
+    model.min_sp_ = resolve_min_sp(model, model.min_sp)
+    model.smoothing_params = resolve_smoothing_params(model, _n_smoothing_params(model))
+
+    if needs_exact_gaussian_reparameterization(model):
+        build_gaussian_reparameterized_system(model)
+        model.sl_blocks_ = (
+            None if model.reparam_state_ is None else list(model.reparam_state_.sl_blocks or [])
+        )
+    else:
+        model.reparam_state_ = None
+        model.sl_blocks_ = None
+
+
+def one_penalty_per_term_matrices(model):
+    penalties = []
+    penalty_blocks = tuple(_penalty_blocks_seq(model))
+    for tb in _term_blocks_seq(model):
+        matches = [pb for pb in penalty_blocks if pb.coef_slice == tb.coef_slice]
+        if not matches:
+            penalties.append(np.zeros((tb.basis_train.shape[1], tb.basis_train.shape[1])))
+            continue
+        P_term = np.zeros_like(np.asarray(matches[0].matrix, dtype=np.float64))
+        for pb in matches:
+            P_term += np.asarray(pb.matrix, dtype=np.float64)
+        penalties.append(P_term)
+    return penalties
+
+
+def assemble_penalty_matrix(model, smoothing_params):
+    smoothing_params = np.asarray(smoothing_params, dtype=np.float64)
+    n_coef = _n_coef(model)
+    n_smoothing_params = _n_smoothing_params(model)
+    if smoothing_params.shape != (n_smoothing_params,):
+        raise ValueError(
+            f"Expected {n_smoothing_params} smoothing parameters, "
+            f"got shape {smoothing_params.shape}."
+        )
+    P = np.zeros((n_coef, n_coef), dtype=np.float64)
+    for pb in _penalty_blocks_seq(model):
+        sl = pb.coef_slice
+        lam = float(smoothing_params[pb.smoothing_index])
+        P[sl, sl] += lam * pb.matrix
+    return P
+
+
+def build_gaussian_reparameterized_system(model):
+    from ..smoothing_selection.reparam import build_gaussian_reparameterized_system
+
+    return build_gaussian_reparameterized_system(model)
+
+
+def build_penalty_reparameterized_system(model):
+    from ..smoothing_selection.reparam import build_penalty_reparameterized_system
+
+    return build_penalty_reparameterized_system(model)
+
+
+def solve_gaussian_given_smoothing(model, y, smoothing_params):
+    from ..engine import solve_gaussian_fit
+
+    return solve_gaussian_fit(
+        model,
+        y,
+        smoothing_params,
+        weights=model.prior_weights_,
+    )
+
+
+def solve_pirls_given_smoothing(model, y, smoothing_params):
+    from ..engine import solve_pirls_fit
+
+    return solve_pirls_fit(
+        model,
+        y,
+        smoothing_params,
+        weights=model.prior_weights_,
+    )
+
+
+def criterion_value(model, y, log_sp, method="gcv"):
+    from ..selection import criterion_value as _criterion_value
+
+    return _criterion_value(model, y, log_sp, method=method)
+
+
+def criterion_gradient(model, y, log_sp, method="gcv"):
+    from ..selection import criterion_gradient as _criterion_gradient
+
+    return _criterion_gradient(model, y, log_sp, method=method)
+
+
+def criterion_hessian(model, y, log_sp, method="gcv"):
+    from ..selection import criterion_hessian as _criterion_hessian
+
+    return _criterion_hessian(model, y, log_sp, method=method)
+
+
+def optimize_smoothing_params(model, y, initial_smoothing_params=None, method="gcv", optimizer="lbfgsb"):
+    from ..selection import optimize_smoothing_params as _optimize
+
+    return _optimize(
+        model,
+        y=y,
+        initial_smoothing_params=initial_smoothing_params,
+        method=method,
+        optimizer=optimizer,
+    )
+
+
+def build_fit_result(model):
+    from ..fit.postprocess.gaussian_smoothness_postprocess import (
+        refresh_gaussian_ml_reml_score_from_fit_state,
+    )
+    from ..results.fit_result import GAMFitResult, TermFitResult
+
+    _require_fitted(model)
+    if str(getattr(model, "_optim_method", "")).lower() in {"reml", "ml"}:
+        refresh_gaussian_ml_reml_score_from_fit_state(model, model.y_)
+
+    compiled_model = _compiled_model(model)
+    if compiled_model is None:
+        raise RuntimeError("Model has no compiled model.")
+    fit_core_solution = _fit_core_solution(model)
+    if fit_core_solution is None:
+        raise RuntimeError("Model has no fitted core solution.")
+
+    term_results = []
+    edf_by_term = np.asarray(_edf_by_term(model), dtype=np.float64).copy()
+    for i, tb in enumerate(_term_blocks_seq(model)):
+        sp_vals = [float(model.smoothing_params[j]) for j in tb.smoothing_indices]
+        deleted = []
+        if tb.deleted_columns is not None:
+            deleted = [int(v) for v in np.asarray(tb.deleted_columns, dtype=int).tolist()]
+        kept = []
+        if tb.kept_columns is not None:
+            kept = [int(v) for v in np.asarray(tb.kept_columns, dtype=int).tolist()]
+        term_results.append(
+            TermFitResult(
+                label=tb.label,
+                term_type=tb.term_type,
+                basis_name=tb.basis_name,
+                coef_slice=(int(tb.coef_slice.start), int(tb.coef_slice.stop)),
+                n_coef=int(tb.coef_slice.stop - tb.coef_slice.start),
+                edf=(float(edf_by_term[i]) if i < edf_by_term.size else None),
+                smoothing_indices=[int(v) for v in tb.smoothing_indices],
+                smoothing_ids=list(tb.smoothing_ids),
+                smoothing_values=sp_vals,
+                deleted_columns=deleted,
+                kept_columns=kept,
+                metadata=dict(tb.metadata),
+            )
+        )
+
+    return GAMFitResult(
+        family_name=model.family.name,
+        link_name=model.family.link_name,
+        criterion_name=model._optim_method,
+        criterion_value=model.smoothing_score_,
+        coef_full=np.asarray(_coef_full(model), dtype=np.float64).copy(),
+        intercept=float(_intercept(model)),
+        smoothing_params=np.asarray(model.smoothing_params, dtype=np.float64).copy(),
+        edf_total=float(_edf_total(model)),
+        edf_by_term=edf_by_term,
+        trace_H=float(_trace_H(model)),
+        scale=float(_fit_scale(model)),
+        rss=None if _rss(model) is None else float(_rss(model)),
+        deviance=float(_deviance(model)),
+        cov_bayes=(
+            None if _cov_bayes(model) is None else np.asarray(_cov_bayes(model), dtype=np.float64).copy()
+        ),
+        cov_freq=(
+            None if _cov_freq(model) is None else np.asarray(_cov_freq(model), dtype=np.float64).copy()
+        ),
+        side_condition_reports=(
+            None if model.side_condition_reports_ is None else list(model.side_condition_reports_)
+        ),
+        term_results=term_results,
+        metadata={
+            "n_samples": int(model.n_samples_),
+            "n_coef": int(compiled_model.n_coef),
+            "fit_intercept": bool(model.fit_intercept),
+        },
+    )
+
+
+def copy_fit_result(result, *, include_covariances=True):
+    cov_bayes = result.cov_bayes
+    cov_freq = result.cov_freq
+    if include_covariances:
+        cov_bayes = (
+            None if cov_bayes is None else np.asarray(cov_bayes, dtype=np.float64).copy()
+        )
+        cov_freq = (
+            None if cov_freq is None else np.asarray(cov_freq, dtype=np.float64).copy()
+        )
+    else:
+        cov_bayes = None
+        cov_freq = None
+
+    term_results = [
+        replace(
+            term,
+            smoothing_indices=list(term.smoothing_indices),
+            smoothing_ids=list(term.smoothing_ids),
+            smoothing_values=list(term.smoothing_values),
+            deleted_columns=list(term.deleted_columns),
+            kept_columns=list(term.kept_columns),
+            metadata=dict(term.metadata),
+        )
+        for term in result.term_results
+    ]
+    return replace(
+        result,
+        coef_full=np.asarray(result.coef_full, dtype=np.float64).copy(),
+        smoothing_params=np.asarray(result.smoothing_params, dtype=np.float64).copy(),
+        edf_by_term=np.asarray(result.edf_by_term, dtype=np.float64).copy(),
+        cov_bayes=cov_bayes,
+        cov_freq=cov_freq,
+        side_condition_reports=(
+            None
+            if result.side_condition_reports is None
+            else [dict(report) for report in result.side_condition_reports]
+        ),
+        term_results=term_results,
+        metadata=dict(result.metadata),
+    )
+
+
+def build_gam_result(model):
+    compiled_model = _compiled_model(model)
+    if compiled_model is None:
+        raise RuntimeError("Model has no compiled model.")
+    fit_core_solution = _fit_core_solution(model)
+    if fit_core_solution is None:
+        raise RuntimeError("Model has no fitted core solution.")
+    fit_summary = _fit_summary(model)
+    if fit_summary is None:
+        fit_summary = build_fit_result(model)
+    return GAMResult(
+        compiled_model=compiled_model,
+        fit_core_solution=fit_core_solution,
+        fit_summary=fit_summary,
+    )
+
+# --- End of nampy/gam/fit/model_ops.py ---
 
 # --- Start of nampy/gam/fit/offsets.py ---
 """
@@ -197,7 +715,18 @@ Everything below this layer is stateless with respect to the model object.
 import numpy as np
 
 from .._mgcv_constants import LOG_GUARD_MIN
+from .._model_state import _n_smoothing_params
+from ..data import coerce_feature_matrix
 from .backends import solve_fit
+from .model_ops import (
+    build_gam_result,
+    compile_designs,
+    criterion_value,
+    optimize_smoothing_params,
+    raise_ml_reml_backend_error,
+    resolve_smoothing_method,
+    supports_smoothing_method,
+)
 from .offsets import coerce_offset_array
 from .state import assign_fit_solution
 
@@ -218,9 +747,7 @@ def fit_model_core(
     Parameters
     ----------
     model
-        GAM model object.  Must implement ``_coerce_feature_matrix``,
-        ``_compile_designs``, ``optimize_smoothing_params``, and
-        ``_build_fit_result``.
+        GAM model object.
     X
         Raw feature matrix, shape ``(n, p)``.
     feature_names
@@ -241,7 +768,7 @@ def fit_model_core(
     sample_weight
         Optional per-observation prior weights, shape ``(n,)``.
     """
-    X = model._coerce_feature_matrix(X)
+    X = coerce_feature_matrix(model, X)
     y = model.family.validate_y(y)
     fit_offset = coerce_offset_array(fit_offset, X.shape[0], name="fit_offset")
 
@@ -264,18 +791,19 @@ def fit_model_core(
             raise ValueError("sample_weight must sum to a positive value.")
         model.prior_weights_ = sw.copy()
 
-    model._compile_designs(X, model.feature_names)
+    compile_designs(model, X, model.feature_names)
 
     if optimize_smoothing is None:
         optimize_smoothing = model.optimize_smoothing
-    method = model._resolve_smoothing_method(
+    method = resolve_smoothing_method(
+        model,
         model.smoothing_method if smoothing_method is None else smoothing_method
     )
 
     if optimize_smoothing and method != "fixed":
-        if not model._supports_smoothing_method(method):
+        if not supports_smoothing_method(model, method):
             if method in {"ml", "reml", "laml"}:
-                model._raise_ml_reml_backend_error(method)
+                raise_ml_reml_backend_error(model, method)
             raise NotImplementedError(
                 f"Automatic smoothing selection with method={method!r} is not "
                 f"supported for family={model.family.name!r}."
@@ -283,7 +811,8 @@ def fit_model_core(
         user_initial_sp = None
         if hasattr(model, "hparams") and hasattr(model.hparams, "get"):
             user_initial_sp = model.hparams.get("smoothing_params", None)
-        model.optimize_smoothing_params(
+        optimize_smoothing_params(
+            model,
             y=y,
             initial_smoothing_params=(
                 model.smoothing_params if user_initial_sp is not None else None
@@ -306,7 +835,7 @@ def fit_model_core(
         inner_trace = list(getattr(sol, "inner_trace", None) or [])
         if inner_trace:
             fixed_mask = (
-                np.zeros(model.n_smoothing_params_, dtype=bool)
+                np.zeros(_n_smoothing_params(model), dtype=bool)
                 if model.smoothing_fixed_mask_ is None
                 else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
             )
@@ -342,7 +871,7 @@ def fit_model_core(
 
     if model.smoothing_score_ is None and model._optim_method not in {None, "fixed"}:
         fixed_mask = (
-            np.zeros(model.n_smoothing_params_, dtype=bool)
+            np.zeros(_n_smoothing_params(model), dtype=bool)
             if model.smoothing_fixed_mask_ is None
             else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
         )
@@ -353,11 +882,11 @@ def fit_model_core(
             else np.empty((0,), dtype=np.float64)
         )
         model.smoothing_score_ = float(
-            model._criterion(y, log_free, method=model._optim_method)
-        )
+            criterion_value(model, y, log_free, method=model._optim_method)
+    )
 
     model._fitted = True
-    model.result_ = model._build_fit_result()
+    model.gam_result_ = build_gam_result(model)
     return model
 
 # --- End of nampy/gam/fit/orchestrator.py ---
@@ -442,191 +971,68 @@ coerce_fit_offset = coerce_offset_array
 
 # --- End of nampy/gam/fit/penalized_system.py ---
 
-# --- Start of nampy/gam/fit/results.py ---
-from dataclasses import dataclass, field
-from typing import Any
-
-import numpy as np
-
-
-@dataclass
-class TermFitResult:
-    label: str
-    term_type: str
-    basis_name: str
-    coef_slice: tuple[int, int]
-    n_coef: int
-    edf: float | None = None
-    smoothing_indices: list[int] = field(default_factory=list)
-    smoothing_ids: list[str | None] = field(default_factory=list)
-    smoothing_values: list[float] = field(default_factory=list)
-    deleted_columns: list[int] = field(default_factory=list)
-    kept_columns: list[int] = field(default_factory=list)
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self):
-        return {
-            "label": self.label,
-            "term_type": self.term_type,
-            "basis_name": self.basis_name,
-            "coef_slice": list(self.coef_slice),
-            "n_coef": int(self.n_coef),
-            "edf": None if self.edf is None else float(self.edf),
-            "smoothing_indices": [int(i) for i in self.smoothing_indices],
-            "smoothing_ids": list(self.smoothing_ids),
-            "smoothing_values": [float(v) for v in self.smoothing_values],
-            "deleted_columns": [int(i) for i in self.deleted_columns],
-            "kept_columns": [int(i) for i in self.kept_columns],
-            "metadata": dict(self.metadata),
-        }
-
-
-@dataclass
-class GAMFitResult:
-    family_name: str
-    link_name: str
-    criterion_name: str | None
-    criterion_value: float | None
-
-    coef_full: np.ndarray
-    intercept: float
-    smoothing_params: np.ndarray
-
-    edf_total: float
-    edf_by_term: np.ndarray
-    trace_H: float
-    scale: float
-    rss: float | None
-    deviance: float
-
-    cov_bayes: np.ndarray | None = None
-    cov_freq: np.ndarray | None = None
-
-    side_condition_reports: list[dict[str, Any]] | None = None
-    term_results: list[TermFitResult] = field(default_factory=list)
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self, include_covariances=False):
-        out = {
-            "family_name": self.family_name,
-            "link_name": self.link_name,
-            "criterion_name": self.criterion_name,
-            "criterion_value": (
-                None if self.criterion_value is None else float(self.criterion_value)
-            ),
-            "coef_full": np.asarray(self.coef_full, dtype=np.float64).tolist(),
-            "intercept": float(self.intercept),
-            "smoothing_params": np.asarray(
-                self.smoothing_params, dtype=np.float64
-            ).tolist(),
-            "edf_total": float(self.edf_total),
-            "edf_by_term": np.asarray(self.edf_by_term, dtype=np.float64).tolist(),
-            "trace_H": float(self.trace_H),
-            "scale": float(self.scale),
-            "rss": None if self.rss is None else float(self.rss),
-            "deviance": float(self.deviance),
-            "side_condition_reports": (
-                None
-                if self.side_condition_reports is None
-                else list(self.side_condition_reports)
-            ),
-            "term_results": [t.to_dict() for t in self.term_results],
-            "metadata": dict(self.metadata),
-        }
-
-        if include_covariances:
-            out["cov_bayes"] = (
-                None
-                if self.cov_bayes is None
-                else np.asarray(self.cov_bayes, dtype=np.float64).tolist()
-            )
-            out["cov_freq"] = (
-                None
-                if self.cov_freq is None
-                else np.asarray(self.cov_freq, dtype=np.float64).tolist()
-            )
-
-        return out
-
-
-__all__ = ["TermFitResult", "GAMFitResult"]
-
-# --- End of nampy/gam/fit/results.py ---
-
 # --- Start of nampy/gam/fit/state.py ---
 """
-Fit solution container shared by all fitting backends.
+Compatibility wrapper over stable fitted outputs and transient engine state.
 
-:class:`FitCoreSolution` is the common return type of :func:`solve_gaussian_fit`
-and :func:`solve_pirls_fit`.  Downstream code (orchestrator, criterion functions,
-result builder) always receives this type, regardless of which backend produced it.
+`FitCoreSolution` remains the common solver return type during migration, but it
+now wraps:
 
-:func:`compute_edf_by_term` and :func:`assign_fit_solution` are helpers called by
-the model after fitting to populate the model's public attributes.
+- `FitResult`: stable fitted outputs for consumers
+- `FitState`: transient numerical workspace
+- `PenalizedSystem`: engine-facing assembled system metadata
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
-from scipy.linalg import cho_factor, cho_solve, qr
+from scipy.linalg import cho_factor, cho_solve
 
-from .._model_state import _coef_column_offset, _fit_intercept
+from .._model_state import (
+    _coef_column_offset,
+    _fit_intercept,
+    _fit_state,
+    _term_blocks_seq,
+)
+from ..engine.state import FitState, PenalizedSystem
+from ..results import FitResult
 from .covariance import build_bayes_and_freq_covariances
 
 
-@dataclass
+@dataclass(frozen=True)
 class FitCoreSolution:
-    coef_full: np.ndarray
-    intercept: float
-    beta: np.ndarray
-    eta: np.ndarray
-    mu: np.ndarray
-
-    rss: float | None
-    deviance: float
-    edf: float
-    trace_H: float
-    scale: float
-
-    cov_bayes: np.ndarray | None
-    cov_freq: np.ndarray | None
-    cov_unconditional: np.ndarray | None
-    H_coef: np.ndarray
-    edf2: np.ndarray | None = None
-
-    X: np.ndarray | None = None
-    A: np.ndarray | None = None
-    A_inv: np.ndarray | None = None
-    XtWX: np.ndarray | None = None
-    P: np.ndarray | None = None
-    penalty_matrix: np.ndarray | None = None
-    working_weights: np.ndarray | None = None
-    fisher_weights: np.ndarray | None = None
-    working_response: np.ndarray | None = None
-    penalty_quadratic: float | None = None
-    loglik: float | None = None
-    offset: np.ndarray | None = None
-    log_det_XtWX_plus_penalty: float | None = None
-    penalized_system_rank: int | None = None
-    dropped_column_indices: np.ndarray | None = None
-
-    converged: bool | None = None
-    iter: int | None = None
-    failed_step: bool | None = None
-    failure_reason: str | None = None
-    inner_trace: list | None = None
+    fit_result: FitResult
+    fit_state: FitState
+    penalized_system: PenalizedSystem
 
     def __getitem__(self, key):
-        return getattr(self, key)
+        return self.get(key)
 
     def get(self, key, default=None):
-        return getattr(self, key, default)
+        for obj in (self.fit_result, self.fit_state, self.penalized_system):
+            if hasattr(obj, key):
+                value = getattr(obj, key)
+                return default if value is None and not hasattr(self, key) else value
+        return default
+
+    def __getattr__(self, key):
+        for obj in (self.fit_result, self.fit_state, self.penalized_system):
+            if hasattr(obj, key):
+                return getattr(obj, key)
+        raise AttributeError(key)
+
+    def with_fit_result(self, **changes) -> "FitCoreSolution":
+        return replace(self, fit_result=replace(self.fit_result, **changes))
+
+    def with_fit_state(self, **changes) -> "FitCoreSolution":
+        new_state = replace(self.fit_state, **changes)
+        return replace(self, fit_state=new_state, penalized_system=new_state.to_penalized_system())
 
     @classmethod
     def from_dict(cls, data: dict) -> "FitCoreSolution":
-        return cls(
+        fit_result = FitResult(
             coef_full=np.asarray(data["coef_full"], dtype=np.float64),
             intercept=float(data["intercept"]),
             beta=np.asarray(data["beta"], dtype=np.float64),
@@ -658,6 +1064,21 @@ class FitCoreSolution:
                 if data.get("edf2", None) is None
                 else np.asarray(data["edf2"], dtype=np.float64)
             ),
+            penalty_quadratic=(
+                None
+                if data.get("penalty_quadratic", None) is None
+                else float(data["penalty_quadratic"])
+            ),
+            loglik=(
+                None if data.get("loglik", None) is None else float(data["loglik"])
+            ),
+            converged=data.get("converged", None),
+            iter=data.get("iter", None),
+            failed_step=data.get("failed_step", None),
+            failure_reason=data.get("failure_reason", None),
+            inner_trace=data.get("inner_trace", None),
+        )
+        fit_state = FitState(
             X=(
                 None
                 if data.get("X", None) is None
@@ -703,14 +1124,6 @@ class FitCoreSolution:
                 if data.get("working_response", None) is None
                 else np.asarray(data["working_response"], dtype=np.float64)
             ),
-            penalty_quadratic=(
-                None
-                if data.get("penalty_quadratic", None) is None
-                else float(data["penalty_quadratic"])
-            ),
-            loglik=(
-                None if data.get("loglik", None) is None else float(data["loglik"])
-            ),
             offset=(
                 None
                 if data.get("offset", None) is None
@@ -731,33 +1144,30 @@ class FitCoreSolution:
                 if data.get("dropped_column_indices", None) is None
                 else np.asarray(data["dropped_column_indices"], dtype=np.int64)
             ),
-            converged=data.get("converged", None),
-            iter=data.get("iter", None),
-            failed_step=data.get("failed_step", None),
-            failure_reason=data.get("failure_reason", None),
-            inner_trace=data.get("inner_trace", None),
+            scale=float(data["scale"]),
+        )
+        return cls(
+            fit_result=fit_result,
+            fit_state=fit_state,
+            penalized_system=fit_state.to_penalized_system(),
         )
 
 
 def compute_edf_by_term(model, H_coef):
     offset0 = _coef_column_offset(model)
-    fit_state = getattr(model, "fit_state_", None)
+    fit_state = _fit_state(model)
     X_full = None if fit_state is None else getattr(fit_state, "X", None)
     A_inv = None if fit_state is None else getattr(fit_state, "A_inv", None)
     w = None if fit_state is None else getattr(fit_state, "working_weights", None)
 
     edf = []
-    for tb in model.term_blocks_:
+    for tb in _term_blocks_seq(model):
         sl = slice(
             offset0 + int(tb.coef_slice.start),
             offset0 + int(tb.coef_slice.stop),
         )
         val = float(np.trace(H_coef[sl, sl]))
 
-        # mgcv summary EDF for `bs="re"` terms is effectively attributed after
-        # removing the intercept direction from the random-effect block. Without
-        # that orthogonalization, near-singular Gaussian REML fits can over-credit
-        # the RE term by the same tiny amount that belongs to the intercept.
         if (
             str(getattr(tb, "term_type", "")) == "random_effect"
             and _fit_intercept(model)
@@ -784,12 +1194,6 @@ def compute_edf_by_term(model, H_coef):
                         if len(getattr(tb, "smoothing_indices", [])) > 0 and sp.size > 0
                         else np.empty((0,), dtype=np.float64)
                     )
-                    # mgcv::summary.gam effectively credits the nested intercept
-                    # direction to the parametric part when bs="re" collapses to
-                    # the REML lower bound. In that boundary case the coefficient
-                    # hat matrix is numerically non-unique, but the weighted
-                    # residualized random-effect design has stable rank matching
-                    # mgcv's reported smooth EDF.
                     if tb_sp.size > 0 and np.max(tb_sp) <= 1e-20:
                         val = float(np.linalg.matrix_rank(Xt_eff_w))
                     elif A_inv is not None:
@@ -804,12 +1208,7 @@ def compute_edf_by_term(model, H_coef):
 
         edf.append(val)
     edf = np.asarray(edf, dtype=np.float64)
-    # Under predictor-wide side conditions, a later non-constant numeric-by
-    # smooth can lose one or more redundant columns against the accumulated
-    # design. The reduced fitted block trace then credits that shared null-space
-    # EDF to earlier terms, while mgcv reports it with the term that originally
-    # owned the deleted columns. Reassign those deleted directions for parity.
-    for i, tb in enumerate(model.term_blocks_):
+    for i, tb in enumerate(_term_blocks_seq(model)):
         meta = dict(getattr(tb, "metadata", {}) or {})
         ctor = dict(meta.get("constructor_metadata", {}) or {})
         runtime_by_name = ctor.get("runtime_by_name", None)
@@ -828,30 +1227,28 @@ def compute_edf_by_term(model, H_coef):
 
 
 def assign_fit_solution(model, sol: FitCoreSolution):
-    model.intercept_ = float(sol.intercept)
-    model.coef_full_ = np.asarray(sol.coef_full, dtype=np.float64)
-    model.coef_ = np.asarray(sol.beta, dtype=np.float64)
-    model.beta = [model.coef_[tb.coef_slice] for tb in model.term_blocks_]
+    fit_result = sol.fit_result
+    fit_state = sol.fit_state
 
-    H_post = np.asarray(sol.H_coef, dtype=np.float64)
-    trace_H_post = float(sol.trace_H)
-    scale_post = float(sol.scale)
+    H_post = np.asarray(fit_result.H_coef, dtype=np.float64)
+    trace_H_post = float(fit_result.trace_H)
+    scale_post = float(fit_result.scale)
     Vp_post = (
-        None if sol.cov_bayes is None else np.asarray(sol.cov_bayes, dtype=np.float64)
+        None if fit_result.cov_bayes is None else np.asarray(fit_result.cov_bayes, dtype=np.float64)
     )
     Vf_post = (
-        None if sol.cov_freq is None else np.asarray(sol.cov_freq, dtype=np.float64)
+        None if fit_result.cov_freq is None else np.asarray(fit_result.cov_freq, dtype=np.float64)
     )
     if (
         not bool(getattr(model.family, "canonical_link", False))
-        and sol.X is not None
-        and sol.P is not None
-        and sol.fisher_weights is not None
+        and fit_state.X is not None
+        and fit_state.P is not None
+        and fit_state.fisher_weights is not None
     ):
         try:
-            X = np.asarray(sol.X, dtype=np.float64)
-            P = np.asarray(sol.P, dtype=np.float64)
-            fisher_w = np.asarray(sol.fisher_weights, dtype=np.float64).ravel()
+            X = np.asarray(fit_state.X, dtype=np.float64)
+            P = np.asarray(fit_state.P, dtype=np.float64)
+            fisher_w = np.asarray(fit_state.fisher_weights, dtype=np.float64).ravel()
             XtFX = X.T @ (fisher_w[:, None] * X)
             cA_post, lower_post = cho_factor(
                 XtFX + P, overwrite_a=False, check_finite=False
@@ -865,7 +1262,7 @@ def assign_fit_solution(model, sol: FitCoreSolution):
                 scale_post = float(
                     model.family.estimate_dispersion(
                         model.y_,
-                        sol.mu,
+                        fit_result.mu,
                         edf=trace_H_post,
                         weights=model.prior_weights_,
                     )
@@ -875,28 +1272,16 @@ def assign_fit_solution(model, sol: FitCoreSolution):
             )
             trace_H_post = float(np.trace(H_post))
         except Exception:
-            H_post = np.asarray(sol.H_coef, dtype=np.float64)
-            trace_H_post = float(sol.trace_H)
-            scale_post = float(sol.scale)
-            Vp_post = (
-                None
-                if sol.cov_bayes is None
-                else np.asarray(sol.cov_bayes, dtype=np.float64)
-            )
-            Vf_post = (
-                None
-                if sol.cov_freq is None
-                else np.asarray(sol.cov_freq, dtype=np.float64)
-            )
+            pass
     if (
         str(getattr(model.family, "name", "")).lower() == "gamma"
-        and sol.X is not None
-        and sol.P is not None
-        and sol.fisher_weights is not None
+        and fit_state.X is not None
+        and fit_state.P is not None
+        and fit_state.fisher_weights is not None
     ):
-        X = np.asarray(sol.X, dtype=np.float64)
-        P = np.asarray(sol.P, dtype=np.float64)
-        fisher_w = np.asarray(sol.fisher_weights, dtype=np.float64).ravel()
+        X = np.asarray(fit_state.X, dtype=np.float64)
+        P = np.asarray(fit_state.P, dtype=np.float64)
+        fisher_w = np.asarray(fit_state.fisher_weights, dtype=np.float64).ravel()
         XtFX = X.T @ (fisher_w[:, None] * X)
         cA_post, lower_post = cho_factor(
             XtFX + P, overwrite_a=False, check_finite=False
@@ -911,7 +1296,7 @@ def assign_fit_solution(model, sol: FitCoreSolution):
         scale_post = float(
             model.family.estimate_dispersion(
                 model.y_,
-                sol.mu,
+                fit_result.mu,
                 edf=trace_H_post,
                 weights=model.prior_weights_,
             )
@@ -920,56 +1305,45 @@ def assign_fit_solution(model, sol: FitCoreSolution):
             scale_post, A_inv_post, XtFX
         )
         trace_H_post = float(np.trace(H_post))
-
-    model.edf_ = trace_H_post
-    model.trace_H_ = trace_H_post
-    model.scale_ = scale_post
-    model.rss_ = None if sol.rss is None else float(sol.rss)
-    model.deviance_ = float(sol.deviance)
-
-    model.Vp_ = Vp_post
-    model.Vf_ = Vf_post
-    model.Vc_ = (
-        np.asarray(sol.cov_unconditional, dtype=np.float64)
-        if sol.cov_unconditional is not None
-        else (
+    fit_state = replace(fit_state, scale=float(scale_post))
+    penalized_system = fit_state.to_penalized_system()
+    fit_result = replace(
+        fit_result,
+        trace_H=float(trace_H_post),
+        edf=float(trace_H_post),
+        scale=float(scale_post),
+        cov_bayes=(
             None if Vp_post is None else np.asarray(Vp_post, dtype=np.float64).copy()
-        )
+        ),
+        cov_freq=(
+            None if Vf_post is None else np.asarray(Vf_post, dtype=np.float64).copy()
+        ),
+        H_coef=np.asarray(H_post, dtype=np.float64).copy(),
     )
-    model.edf2_ = (
-        None
-        if sol.edf2 is None
-        else np.asarray(sol.edf2, dtype=np.float64).copy()
+    sol = replace(
+        sol,
+        fit_result=fit_result,
+        fit_state=fit_state,
+        penalized_system=penalized_system,
     )
-    model._H_coef = H_post
 
-    model._fitted_eta = np.asarray(sol.eta, dtype=np.float64)
-    model._fitted_mu = np.asarray(sol.mu, dtype=np.float64)
-    model.fit_state_ = sol
-    model._summary_R_ = None
-    if sol.X is not None and sol.working_weights is not None:
-        X = np.asarray(sol.X, dtype=np.float64)
-        w = np.asarray(sol.working_weights, dtype=np.float64).ravel()
-        if X.ndim == 2 and w.shape[0] == X.shape[0]:
-            # Use unpivoted QR to match mgcv's fit$R convention.
-            _, R_nat = qr(
-                np.sqrt(np.clip(w, 0.0, None))[:, None] * X,
-                mode="economic",
-            )
-            model._summary_R_ = R_nat
-
+    model.fit_core_solution_ = sol
+    model.gam_result_ = None
     if (
         getattr(model.family, "family_class", "") == "general"
         and getattr(model, "_coef_reduced_to_full_idx", None) is not None
     ):
         full_idx = np.asarray(model._coef_reduced_to_full_idx, dtype=int)
         edf = []
-        for tb in model.term_blocks_:
+        for tb in _term_blocks_seq(model):
             idx = full_idx[tb.coef_slice]
-            edf.append(float(np.trace(model._H_coef[np.ix_(idx, idx)])))
-        model.edf_by_term_ = np.asarray(edf, dtype=np.float64)
-    else:
-        model.edf_by_term_ = compute_edf_by_term(model, model._H_coef)
+            edf.append(float(np.trace(H_post[np.ix_(idx, idx)])))
+        model._edf_by_term_fit_ = np.asarray(edf, dtype=np.float64)
+        return
+    model._edf_by_term_fit_ = compute_edf_by_term(model, H_post)
+
+
+__all__ = ["FitCoreSolution", "FitState", "PenalizedSystem", "FitResult", "assign_fit_solution", "compute_edf_by_term"]
 
 # --- End of nampy/gam/fit/state.py ---
 
@@ -1074,7 +1448,7 @@ from typing import Any
 
 import numpy as np
 
-from ..design.structures import PenaltySpec
+from ..compiler.structures import PenaltySpec
 from .algebra import null_space_penalty_from_penalty, symmetrize_penalty
 
 
@@ -1230,6 +1604,73 @@ __all__ = [
 
 # --- End of nampy/gam/penalties/subsystem.py ---
 
+# --- Start of nampy/gam/penalties/tensor.py ---
+"""Tensor-product penalty helpers owned by the penalty layer."""
+
+from __future__ import annotations
+
+import numpy as np
+
+
+def lifted_tensor_penalty(S, basis_dims, axis):
+    S = np.asarray(S, dtype=np.float64)
+    basis_dims = [int(d) for d in basis_dims]
+    left_dim = int(np.prod(basis_dims[:axis], dtype=np.int64)) if axis > 0 else 1
+    right_dim = (
+        int(np.prod(basis_dims[axis + 1 :], dtype=np.int64))
+        if axis + 1 < len(basis_dims)
+        else 1
+    )
+    out = S
+    if left_dim > 1:
+        out = np.kron(np.eye(left_dim, dtype=np.float64), out)
+    if right_dim > 1:
+        out = np.kron(out, np.eye(right_dim, dtype=np.float64))
+    return np.asarray(out, dtype=np.float64)
+
+
+def tensor_product_penalties(marginal_penalties, basis_dims):
+    return [
+        lifted_tensor_penalty(S, basis_dims=basis_dims, axis=j)
+        for j, S in enumerate(marginal_penalties)
+    ]
+
+
+def normalize_tensor_marginal_penalty(S, tol=1e-12):
+    S = np.asarray(S, dtype=np.float64)
+    if S.shape[0] == 0:
+        return S.copy()
+    evals = np.linalg.eigvalsh(0.5 * (S + S.T))
+    scale = float(np.max(evals))
+    if scale <= tol:
+        return S.copy()
+    return S / scale
+
+
+def rescale_tensor_penalties_for_fit(B, penalties, tol=1e-12):
+    B = np.asarray(B, dtype=np.float64)
+    penalties = [np.asarray(S, dtype=np.float64) for S in penalties]
+    if len(penalties) == 0:
+        return []
+    x_scale = float(np.max(np.sum(np.abs(B), axis=1)) ** 2)
+    if x_scale <= tol:
+        return [S.copy() for S in penalties]
+    out = []
+    for S in penalties:
+        s_scale = float(np.max(np.sum(np.abs(S), axis=0))) / x_scale
+        out.append(S.copy() if s_scale <= tol else S / s_scale)
+    return out
+
+
+__all__ = [
+    "lifted_tensor_penalty",
+    "tensor_product_penalties",
+    "normalize_tensor_marginal_penalty",
+    "rescale_tensor_penalties_for_fit",
+]
+
+# --- End of nampy/gam/penalties/tensor.py ---
+
 # --- Start of nampy/gam/smoothing_selection/postfit.py ---
 from __future__ import annotations
 
@@ -1237,13 +1678,14 @@ import numpy as np
 from scipy.stats import norm
 
 from .._mgcv_constants import LINK_ETA_EXP_CLIP, LOG_GUARD_MIN
-from .._model_state import _require_fitted
+from .._model_state import _fit_scale, _n_smoothing_params, _require_fitted
+from ..fit.model_ops import criterion_hessian as fit_criterion_hessian
 from .criteria.dispatch import criterion_gradient, criterion_hessian, criterion_value
 from .criteria.ml_reml import resolve_ml_reml_scoring_backend
 
 
 def _free_smoothing_mask(model) -> np.ndarray:
-    n_sp = int(getattr(model, "n_smoothing_params_", 0) or 0)
+    n_sp = int(_n_smoothing_params(model) or 0)
     fixed = getattr(model, "smoothing_fixed_mask_", None)
     if fixed is None:
         return np.ones(n_sp, dtype=bool)
@@ -1272,7 +1714,8 @@ def sp_vcov(model, edge_correct: bool = True, reg: float = 1e-3):
     if H is None:
         log_sp = _free_log_smoothing_params(model)
         H = np.asarray(
-            model._criterion_hessian(model.y_, log_sp, method=method), dtype=np.float64
+            fit_criterion_hessian(model, model.y_, log_sp, method=method),
+            dtype=np.float64,
         )
     else:
         H = np.asarray(H, dtype=np.float64)
@@ -1295,7 +1738,7 @@ def gam_vcomp(model, *, rescale: bool = False, conf_lev: float = 0.95):
     if sp.size == 0:
         return None
 
-    scale = float(model.scale_)
+    scale = float(_fit_scale(model))
     vc = scale / sp
     sd = np.sqrt(vc)
     names = [f"sp_{i}" for i in range(len(sp))]
@@ -1308,7 +1751,8 @@ def gam_vcomp(model, *, rescale: bool = False, conf_lev: float = 0.95):
     if H is None:
         log_sp = _free_log_smoothing_params(model)
         H = np.asarray(
-            model._criterion_hessian(model.y_, log_sp, method=method), dtype=np.float64
+            fit_criterion_hessian(model, model.y_, log_sp, method=method),
+            dtype=np.float64,
         )
     else:
         H = np.asarray(H, dtype=np.float64)
@@ -1395,7 +1839,7 @@ def optimizer_endpoint_diagnostics(
     _require_fitted(model)
 
     method = str(getattr(model, "_optim_method", "") or "").lower()
-    n_sp = int(getattr(model, "n_smoothing_params_", 0) or 0)
+    n_sp = int(_n_smoothing_params(model) or 0)
     result = getattr(model, "_optim_result", None)
     if method in {"", "fixed"} or n_sp == 0:
         return None
@@ -1612,7 +2056,16 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 from scipy.linalg import qr as scipy_qr
 
-from .._model_state import _fit_intercept
+from .._model_state import (
+    _compiled_model,
+    _design_matrix,
+    _fit_intercept,
+    _n_coef,
+    _n_smoothing_params,
+    _penalty_blocks_seq,
+    _term_blocks_seq,
+)
+from ..fit.model_ops import uses_closed_form_solver
 
 
 @dataclass
@@ -1806,23 +2259,18 @@ def _positive_semidefinite_root(P, *, rank=None, tol=1e-10):
 
 
 def _grouped_penalties(model) -> list[_GroupedPenalty]:
-    p = int(
-        getattr(model, "n_coef_", 0)
-        or sum(int(tb.basis_train.shape[1]) for tb in getattr(model, "term_blocks_", []) or [])
-    )
+    term_blocks = list(_term_blocks_seq(model))
+    penalty_blocks = list(_penalty_blocks_seq(model))
+    p = int(_n_coef(model) or sum(int(tb.basis_train.shape[1]) for tb in term_blocks))
     n_sp = int(
-        getattr(model, "n_smoothing_params_", 0)
-        or (
-            max((int(pb.smoothing_index) for pb in getattr(model, "penalty_blocks_", []) or []), default=-1)
-            + 1
-        )
+        _n_smoothing_params(model)
+        or (max((int(pb.smoothing_index) for pb in penalty_blocks), default=-1) + 1)
     )
     if p == 0 or n_sp == 0:
         return []
 
     grouped = {}
-    term_blocks = list(getattr(model, "term_blocks_", []) or [])
-    for pb in model.penalty_blocks_:
+    for pb in penalty_blocks:
         k = int(pb.smoothing_index)
         entry = grouped.get(k)
         if entry is None:
@@ -2082,20 +2530,13 @@ def _canonical_penalty_space(model, *, tol=1e-10) -> dict[str, Any]:
     if cache is not None:
         return cache
 
-    p_pen = int(
-        getattr(model, "n_coef_", 0)
-        or sum(int(tb.basis_train.shape[1]) for tb in getattr(model, "term_blocks_", []) or [])
-    )
+    term_blocks = list(_term_blocks_seq(model))
+    penalty_blocks = list(_penalty_blocks_seq(model))
+    p_pen = int(_n_coef(model) or sum(int(tb.basis_train.shape[1]) for tb in term_blocks))
     n_sp = int(
-        getattr(model, "n_smoothing_params_", 0)
+        _n_smoothing_params(model)
         or (
-            max(
-                (
-                    int(getattr(pb, "smoothing_index", -1))
-                    for pb in getattr(model, "penalty_blocks_", []) or []
-                ),
-                default=-1,
-            )
+            max((int(getattr(pb, "smoothing_index", -1)) for pb in penalty_blocks), default=-1)
             + 1
         )
     )
@@ -2279,7 +2720,7 @@ def _stable_penalty_logdet(model, sp, *, tol=1e-10):
 
 def _stable_penalty_logdet_derivatives(model, sp, *, tol=1e-10, order=2):
     sp = np.asarray(sp, dtype=np.float64).ravel()
-    n_sp = int(model.n_smoothing_params_ or sp.size)
+    n_sp = int(_n_smoothing_params(model) or sp.size)
     grad = np.zeros(n_sp, dtype=np.float64)
     hess = np.zeros((n_sp, n_sp), dtype=np.float64)
 
@@ -2315,10 +2756,10 @@ def can_use_simple_ml_reml_structure(model):
     couplings. This mirrors the local structural requirement used when
     assembling the ``UrS``-like blocks for the Laplace ML/REML path.
     """
-    if model.design_ is None:
+    if _compiled_model(model) is None:
         return False
 
-    for pb in model.penalty_blocks_:
+    for pb in _penalty_blocks_seq(model):
         width = int(pb.coef_slice.stop - pb.coef_slice.start)
         P = np.asarray(pb.matrix, dtype=np.float64)
         if P.shape != (width, width):
@@ -2334,11 +2775,11 @@ def can_use_simple_ml_reml_structure(model):
 
 
 def can_use_exact_gaussian_ml_reml(model):
-    return bool(model._uses_closed_form_solver()) and can_use_simple_ml_reml_structure(model)
+    return bool(uses_closed_form_solver(model)) and can_use_simple_ml_reml_structure(model)
 
 
 def build_penalty_reparameterized_system(model):
-    if model.design_ is None:
+    if _compiled_model(model) is None:
         return _assign_reparam_state(model, None)
 
     fix_blocks = []
@@ -2347,20 +2788,7 @@ def build_penalty_reparameterized_system(model):
 
     cache = _canonical_penalty_space(model)
     grouped = list(cache["grouped_penalties"])
-    X_pen = getattr(model, "Z", None)
-    if X_pen is None:
-        blocks = [
-            np.asarray(tb.basis_train, dtype=np.float64)
-            for tb in getattr(model, "term_blocks_", []) or []
-            if int(np.asarray(tb.basis_train).shape[1]) > 0
-        ]
-        X_pen = (
-            np.column_stack(blocks)
-            if blocks
-            else np.empty((model.n_samples_, 0), dtype=np.float64)
-        )
-    else:
-        X_pen = np.asarray(X_pen, dtype=np.float64)
+    X_pen = np.asarray(_design_matrix(model), dtype=np.float64)
     p = int(X_pen.shape[1])
     Y = np.asarray(cache["Y"], dtype=np.float64)
     Z = np.asarray(cache["Z"], dtype=np.float64)
@@ -3696,7 +4124,9 @@ def gaussian_design_needs_stacked_qr_fit(model) -> bool:
     for tb in _term_blocks_seq(model):
         if str(getattr(tb, "term_type", "")).lower() == "random_effect":
             return True
-    Z = getattr(model, "Z", None)
+    from ..._model_state import _design_matrix
+
+    Z = _design_matrix(model)
     if Z is None:
         return False
     from ..penalized_system import build_full_design
@@ -3742,14 +4172,19 @@ Not yet implemented
 
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import Any
 
 import numpy as np
 from scipy.linalg import cho_factor
 
 from nampy.gam._mgcv_constants import LOG_GUARD_MIN
-from nampy.gam._model_state import _coef_column_offset
+from nampy.gam._model_state import (
+    _coef_column_offset,
+    _fit_core_solution,
+    _fit_result,
+    _fit_state,
+    _n_smoothing_params,
+)
 from nampy.gam.smoothing_selection.criteria.dispatch import (
     criterion_gradient,
     criterion_hessian,
@@ -3768,11 +4203,11 @@ from nampy.gam.smoothing_selection.criteria.ml_reml import (
     criterion_ml_reml,
     resolve_ml_reml_scoring_backend,
 )
-from nampy.gam.smoothing_selection.criteria.penalty import (
+from nampy.gam.smoothing_selection.criteria.pirls import criterion_ubre_pirls
+from nampy.gam.smoothing_selection.reparam import (
     _stable_penalty_logdet,
     _static_penalty_null_dim,
 )
-from nampy.gam.smoothing_selection.criteria.pirls import criterion_ubre_pirls
 
 
 def refresh_gaussian_ml_reml_score_from_fit_state(model: Any, y: np.ndarray) -> None:
@@ -3789,7 +4224,8 @@ def refresh_gaussian_ml_reml_score_from_fit_state(model: Any, y: np.ndarray) -> 
     if getattr(model, "_gaussian_reml_sigma2_opt_", None) is not None:
         return
 
-    fit_state = getattr(model, "fit_state_", None)
+    fit_state = _fit_state(model)
+    fit_result = _fit_result(model)
     if fit_state is None:
         return
 
@@ -3799,7 +4235,7 @@ def refresh_gaussian_ml_reml_score_from_fit_state(model: Any, y: np.ndarray) -> 
             return
 
         fixed_mask = (
-            np.zeros(model.n_smoothing_params_, dtype=bool)
+            np.zeros(_n_smoothing_params(model), dtype=bool)
             if model.smoothing_fixed_mask_ is None
             else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
         )
@@ -3812,14 +4248,14 @@ def refresh_gaussian_ml_reml_score_from_fit_state(model: Any, y: np.ndarray) -> 
 
         n_s = int(model.n_samples_)
         yv = np.asarray(y, dtype=np.float64).ravel()
-        mu_v = np.asarray(fit_state.mu, dtype=np.float64).ravel()
+        mu_v = np.asarray(fit_result.mu, dtype=np.float64).ravel()
         w = prior_weights_diagonal_from_fit(fit_state, n_s)
         dev = gaussian_weighted_residual_sum_squares(yv, mu_v, w)
         p_pen = (
             float(fit_state.penalty_quadratic)
             if fit_state.penalty_quadratic is not None
             else quadratic_form_penalty(
-                np.asarray(fit_state.coef_full, dtype=np.float64),
+                np.asarray(fit_result.coef_full, dtype=np.float64),
                 np.asarray(fit_state.penalty_matrix, dtype=np.float64),
             )
         )
@@ -3849,9 +4285,12 @@ def refresh_gaussian_ml_reml_score_from_fit_state(model: Any, y: np.ndarray) -> 
 
     reml_s2 = getattr(model, "_gaussian_reml_sigma2_opt_", None)
     if reml_s2 is not None and np.isfinite(reml_s2) and float(reml_s2) > 0.0:
-        model.scale_ = float(reml_s2)
-        if getattr(model, "fit_state_", None) is not None:
-            model.fit_state_ = replace(model.fit_state_, scale=float(reml_s2))
+        fit_core_solution = _fit_core_solution(model)
+        if fit_core_solution is not None:
+            fit_core_solution = fit_core_solution.with_fit_state(scale=float(reml_s2))
+            fit_core_solution = fit_core_solution.with_fit_result(scale=float(reml_s2))
+            model.fit_core_solution_ = fit_core_solution
+            model.gam_result_ = None
 
 
 def _score_type_bucket(score_type: str) -> str:
@@ -3924,7 +4363,9 @@ def gaussian_smoothness_postprocess(
 
     y = fam.validate_y(y)
     sp = np.asarray(smoothing_params, dtype=np.float64).ravel()
-    sol = model._solve_gaussian_given_smoothing(y, sp)
+    from ..model_ops import solve_gaussian_given_smoothing
+
+    sol = solve_gaussian_given_smoothing(model, y, sp)
 
     X = np.asarray(sol["X"], dtype=np.float64)
     beta = np.asarray(sol["coef_full"], dtype=np.float64).ravel()
@@ -5485,7 +5926,13 @@ def gamlss_gH(
 # --- Start of nampy/gam/fit/solvers/gaussian_exact.py ---
 import numpy as np
 
-from ..._model_state import _fit_intercept
+from ..._model_state import (
+    _design_matrix,
+    _fit_intercept,
+    _n_coef,
+    _penalty_blocks_seq,
+    _term_blocks_seq,
+)
 from ..covariance import build_bayes_and_freq_covariances
 from ..linalg.stacked_qr import (
     balanced_penalty_template_sqrt_for_rank,
@@ -5518,22 +5965,25 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     n = int(y.shape[0])
     w = _prior_weights_vector(weights, n)
     fi = _fit_intercept(model)
-    X = build_full_design(model.Z, fit_intercept=fi)
+    Z = np.asarray(_design_matrix(model), dtype=np.float64)
+    penalty_blocks = tuple(_penalty_blocks_seq(model))
+    n_coef = _n_coef(model)
+    X = build_full_design(Z, fit_intercept=fi)
     S = build_full_penalty_from_blocks(
-        penalty_blocks=model.penalty_blocks_,
+        penalty_blocks=penalty_blocks,
         smoothing_params=smoothing_params,
         fit_intercept=fi,
-        n_coef=model.n_coef_,
+        n_coef=n_coef,
     )
     rank_rows = balanced_penalty_template_sqrt_for_rank(
-        model.penalty_blocks_,
+        penalty_blocks,
         fit_intercept=fi,
-        n_coef=int(model.n_coef_),
+        n_coef=int(n_coef),
     )
 
     has_mrf_term = any(
         str(getattr(tb, "basis_name", "")).lower() == "mrf"
-        for tb in getattr(getattr(model, "Z", None), "term_blocks", [])
+        for tb in _term_blocks_seq(model)
     )
     tiny_mrf_penalty = has_mrf_term and np.any(
         np.asarray(smoothing_params, dtype=np.float64) < 1e-20
@@ -5584,9 +6034,9 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
             y_eff,
             w,
             S,
-            penalty_blocks=model.penalty_blocks_,
+            penalty_blocks=penalty_blocks,
             fit_intercept=fi,
-            n_coef=int(model.n_coef_),
+            n_coef=int(n_coef),
             coef_method=coef_method,
             near_singular_null_pin=null_gauge,
         )
@@ -5642,6 +6092,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from ..._model_state import _penalty_blocks_seq, _predictor_designs
+from ..model_ops import expand_smoothing_params_from_log
 from ..state import FitCoreSolution
 from .gam_fit5 import GamFit5Control, gam_fit5, gam_fit5_post_proc
 
@@ -5662,7 +6114,7 @@ def _build_general_predictor_layout(model) -> _GeneralPredictorLayout:
     full_start = 0
     reduced_start = 0
 
-    for pred in model.predictor_designs:
+    for pred in _predictor_designs(model):
         Z = np.asarray(pred.design_matrix, dtype=np.float64)
         if bool(pred.has_intercept):
             Xp = np.column_stack([np.ones(Z.shape[0], dtype=np.float64), Z])
@@ -5706,7 +6158,7 @@ def _build_general_penalty_matrix(
     S_blocks: list[np.ndarray] = []
 
     full_idx = layout.reduced_to_full_idx
-    for pb in model.penalty_blocks_:
+    for pb in _penalty_blocks_seq(model):
         S_full = np.zeros((p_full, p_full), dtype=np.float64)
         idx = full_idx[pb.coef_slice]
         S_full[np.ix_(idx, idx)] = np.asarray(pb.matrix, dtype=np.float64)
@@ -5839,7 +6291,7 @@ def _run_general_fit5(
 
 
 def criterion_ml_reml_general_fit5(model, y, log_sp, method):
-    sp = model._expand_smoothing_params_from_log(log_sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
     run = _run_general_fit5(
         model, y, sp, weights=model.prior_weights_, deriv=0, score_type=method
     )
@@ -5853,7 +6305,7 @@ def criterion_gradient_ml_reml_general_fit5(model, y, log_sp, method):
             "gradients for strict mgcv parity; finite-difference fallback removed."
         )
     _record_outer_derivative_mode(model, gradient_source="analytic")
-    sp = model._expand_smoothing_params_from_log(log_sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
     run = _run_general_fit5(
         model, y, sp, weights=model.prior_weights_, deriv=1, score_type=method
     )
@@ -5866,7 +6318,7 @@ def criterion_gradient_ml_reml_general_fit5(model, y, log_sp, method):
 def criterion_hessian_ml_reml_general_fit5(model, y, log_sp, method):
     if _supports_analytic_outer_hessian(model.family):
         _record_outer_derivative_mode(model, hessian_source="analytic")
-        sp = model._expand_smoothing_params_from_log(log_sp)
+        sp = expand_smoothing_params_from_log(model, log_sp)
         run = _run_general_fit5(
             model, y, sp, weights=model.prior_weights_, deriv=2, score_type=method
         )
@@ -5889,7 +6341,7 @@ def solve_general_fit(model, y, smoothing_params, weights=None):
         deriv=(
             2
             if (
-                len(getattr(model, "penalty_blocks_", []) or []) > 0
+                len(tuple(_penalty_blocks_seq(model))) > 0
                 and bool(
                     getattr(model.family, "supports_analytic_outer_derivatives", False)
                 )
@@ -5936,44 +6388,46 @@ def solve_general_fit(model, y, smoothing_params, weights=None):
     beta = np.asarray(coef_full[layout.reduced_to_full_idx], dtype=np.float64)
     intercept = float(coef_full[0]) if layout.predictor_full_slices else 0.0
 
-    return FitCoreSolution(
-        coef_full=coef_full,
-        intercept=intercept,
-        beta=beta,
-        eta=eta,
-        mu=mu,
-        rss=None,
-        deviance=float(-2.0 * float(fit["l"])),
-        edf=float(np.sum(np.asarray(post["edf"], dtype=np.float64))),
-        trace_H=float(np.trace(H_coef)),
-        scale=1.0,
-        cov_bayes=np.asarray(post["Vp"], dtype=np.float64),
-        cov_freq=np.asarray(post["Ve"], dtype=np.float64),
-        cov_unconditional=Vc,
-        H_coef=H_coef,
-        edf2=np.asarray(post["edf2"], dtype=np.float64),
-        X=layout.X_full,
-        A=np.asarray(-fit["lbb"], dtype=np.float64)
-        + np.asarray(fit["St_full"], dtype=np.float64),
-        A_inv=np.asarray(post["Vp"], dtype=np.float64),
-        XtWX=None,
-        P=np.asarray(fit["St_full"], dtype=np.float64),
-        penalty_matrix=np.asarray(fit["St_full"], dtype=np.float64),
-        working_weights=None,
-        fisher_weights=None,
-        working_response=None,
-        penalty_quadratic=0.5
-        * float(coef_full @ (np.asarray(fit["St_full"], dtype=np.float64) @ coef_full)),
-        loglik=float(fit["l"]),
-        offset=None,
-        log_det_XtWX_plus_penalty=float(fit["ldetHp"]),
-        converged=(len(fit.get("warn", [])) == 0),
-        iter=int(fit["iter"]),
-        failed_step=bool(len(fit.get("warn", [])) > 0),
-        failure_reason=(
-            None if len(fit.get("warn", [])) == 0 else "; ".join(fit["warn"])
-        ),
-        inner_trace=None,
+    return FitCoreSolution.from_dict(
+        {
+            "coef_full": coef_full,
+            "intercept": intercept,
+            "beta": beta,
+            "eta": eta,
+            "mu": mu,
+            "rss": None,
+            "deviance": float(-2.0 * float(fit["l"])),
+            "edf": float(np.sum(np.asarray(post["edf"], dtype=np.float64))),
+            "trace_H": float(np.trace(H_coef)),
+            "scale": 1.0,
+            "cov_bayes": np.asarray(post["Vp"], dtype=np.float64),
+            "cov_freq": np.asarray(post["Ve"], dtype=np.float64),
+            "cov_unconditional": Vc,
+            "H_coef": H_coef,
+            "edf2": np.asarray(post["edf2"], dtype=np.float64),
+            "X": layout.X_full,
+            "A": np.asarray(-fit["lbb"], dtype=np.float64)
+            + np.asarray(fit["St_full"], dtype=np.float64),
+            "A_inv": np.asarray(post["Vp"], dtype=np.float64),
+            "XtWX": None,
+            "P": np.asarray(fit["St_full"], dtype=np.float64),
+            "penalty_matrix": np.asarray(fit["St_full"], dtype=np.float64),
+            "working_weights": None,
+            "fisher_weights": None,
+            "working_response": None,
+            "penalty_quadratic": 0.5
+            * float(coef_full @ (np.asarray(fit["St_full"], dtype=np.float64) @ coef_full)),
+            "loglik": float(fit["l"]),
+            "offset": None,
+            "log_det_XtWX_plus_penalty": float(fit["ldetHp"]),
+            "converged": (len(fit.get("warn", [])) == 0),
+            "iter": int(fit["iter"]),
+            "failed_step": bool(len(fit.get("warn", [])) > 0),
+            "failure_reason": (
+                None if len(fit.get("warn", [])) == 0 else "; ".join(fit["warn"])
+            ),
+            "inner_trace": None,
+        }
     )
 
 # --- End of nampy/gam/fit/solvers/general_fit5.py ---
@@ -6853,17 +7307,22 @@ def fit_irls_from_model(
 
     y = model.family.validate_y(y)
     fi = _fit_intercept(model)
-    X = build_full_design(model.Z, fit_intercept=fi)
+    from ..._model_state import _design_matrix, _n_coef, _penalty_blocks_seq
+
+    Z = np.asarray(_design_matrix(model), dtype=np.float64)
+    penalty_blocks = tuple(_penalty_blocks_seq(model))
+    n_coef = _n_coef(model)
+    X = build_full_design(Z, fit_intercept=fi)
     S = build_full_penalty_from_blocks(
-        penalty_blocks=model.penalty_blocks_,
+        penalty_blocks=penalty_blocks,
         smoothing_params=np.asarray(smoothing_params, dtype=np.float64).ravel(),
         fit_intercept=fi,
-        n_coef=model.n_coef_,
+        n_coef=n_coef,
     )
     rank_rows = balanced_penalty_template_sqrt_for_rank(
-        model.penalty_blocks_,
+        penalty_blocks,
         fit_intercept=fi,
-        n_coef=int(model.n_coef_),
+        n_coef=int(n_coef),
     )
 
     out = irls_core(
@@ -6904,7 +7363,13 @@ Model-level entry point for PIRLS fits.
 
 import numpy as np
 
-from ..._model_state import _coef_column_offset, _fit_intercept
+from ..._model_state import (
+    _coef_column_offset,
+    _design_matrix,
+    _fit_intercept,
+    _n_coef,
+    _penalty_blocks_seq,
+)
 from ..linalg.stacked_qr import balanced_penalty_template_sqrt_for_rank
 from ..penalized_system import build_full_design, build_full_penalty_from_blocks
 from ..state import FitCoreSolution
@@ -6917,8 +7382,9 @@ def solve_pirls_fit(model, y, smoothing_params, weights=None):
         coef_start = getattr(model, "_pirls_coef_start_", None)
     if coef_start is not None:
         coef_start = np.asarray(coef_start, dtype=np.float64).ravel()
+        Z = np.asarray(_design_matrix(model), dtype=np.float64)
         if coef_start.shape != (
-            int(model.Z.shape[1] + _coef_column_offset(model)),
+            int(Z.shape[1] + _coef_column_offset(model)),
         ):
             coef_start = None
 
@@ -6939,17 +7405,20 @@ def solve_pirls_fit(model, y, smoothing_params, weights=None):
             mustart = None
 
     fi = _fit_intercept(model)
-    X = build_full_design(model.Z, fit_intercept=fi)
+    Z = np.asarray(_design_matrix(model), dtype=np.float64)
+    penalty_blocks = tuple(_penalty_blocks_seq(model))
+    n_coef = _n_coef(model)
+    X = build_full_design(Z, fit_intercept=fi)
     S = build_full_penalty_from_blocks(
-        penalty_blocks=model.penalty_blocks_,
+        penalty_blocks=penalty_blocks,
         smoothing_params=smoothing_params,
         fit_intercept=fi,
-        n_coef=model.n_coef_,
+        n_coef=n_coef,
     )
     rank_rows = balanced_penalty_template_sqrt_for_rank(
-        model.penalty_blocks_,
+        penalty_blocks,
         fit_intercept=fi,
-        n_coef=int(model.n_coef_),
+        n_coef=int(n_coef),
     )
 
     disable_theta_efs = bool(getattr(model, "_pirls_disable_theta_efs_", False))
@@ -7012,6 +7481,7 @@ Top-level dispatch for smoothing_selection-selection criterion value, gradient, 
 
 import numpy as np
 
+from ...fit.model_ops import uses_closed_form_solver
 from ...fit.solvers.general_fit5 import (
     criterion_gradient_ml_reml_general_fit5,
     criterion_hessian_ml_reml_general_fit5,
@@ -7039,7 +7509,7 @@ from .pirls_deriv import (
 def criterion_value(model, y, log_sp, method="gcv"):
     method = str(method).lower()
     if method == "gcv":
-        if model._uses_closed_form_solver():
+        if uses_closed_form_solver(model):
             return criterion_gcv_gaussian(model, y, log_sp)
         return criterion_gcv_pirls(model, y, log_sp)
     if method in {"ubre", "aic", "ubreaic"}:
@@ -7366,16 +7836,21 @@ Provides two code paths:
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
+from ..._model_state import _design_matrix
+from ...fit.model_ops import (
+    can_use_exact_gaussian_ml_reml,
+    expand_smoothing_params_from_log,
+    solve_gaussian_given_smoothing,
+)
 from ...fit.penalized_system import build_full_design
-from ..reparam import dynamic_reparam_design
+from ..reparam import _static_fixed_and_random_designs, dynamic_reparam_design
 from .gaussian_dyn import criterion_ml_reml_gaussian_dynamic_profiled
 from .gaussian_reml_algebra import gaussian_reml_saturation_terms_wrt_variance
-from .penalty import _static_fixed_and_random_designs
 
 
 def gcv_score_gaussian(model, y, log_smoothing_params):
-    sp = model._expand_smoothing_params_from_log(log_smoothing_params)
-    sol = model._solve_gaussian_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_smoothing_params)
+    sol = solve_gaussian_given_smoothing(model, y, sp)
     n = model.n_samples_
     den = 1.0 - model.score_gamma * sol["trace_H"] / n
     if den <= 1e-12 or not np.isfinite(den):
@@ -7397,7 +7872,7 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
     ``criterion_ml_reml_exact_dynamic`` (Wood ``X'WX+S`` / ``\\log|A|-\\log|S|``)
     instead; see ``nampy.gam.smoothing_selection.criteria.ml_reml``.
     """
-    if not model._can_use_exact_gaussian_ml_reml():
+    if not can_use_exact_gaussian_ml_reml(model):
         raise NotImplementedError(
             "Exact Gaussian ML/REML/LAML is currently available only for "
             "terms whose penalties do not couple disconnected support "
@@ -7406,8 +7881,8 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
 
     y = model.family.validate_y(y)
     y_eff = y if model.offset_train_ is None else (y - model.offset_train_)
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    X = build_full_design(model.Z, fit_intercept=model.fit_intercept)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    X = build_full_design(_design_matrix(model), fit_intercept=model.fit_intercept)
     design = dynamic_reparam_design(model, X, sp)
     Xf = design.X_fix
     Zr = design.Z_rand
@@ -7507,14 +7982,14 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
 def criterion_ml_reml_exact_dynamic(model, y, log_sp, method):
     y = model.family.validate_y(y)
     y_eff = y if model.offset_train_ is None else (y - model.offset_train_)
-    sp = model._expand_smoothing_params_from_log(log_sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
     gamma = float(model.score_gamma)
     if not np.isfinite(gamma) or gamma <= 0.0:
         return np.inf
     reml_ind = 1.0 if method in {"REML", "LAML"} else 0.0
     w = np.ones(int(y_eff.shape[0]), dtype=np.float64)
 
-    sol = model._solve_gaussian_given_smoothing(y, sp)
+    sol = solve_gaussian_given_smoothing(model, y, sp)
     if method in {"REML", "LAML"}:
         return criterion_ml_reml_gaussian_dynamic_profiled(
             model,
@@ -7611,7 +8086,16 @@ import numpy as np
 from scipy.linalg import cho_factor
 
 from ..._mgcv_constants import LOG_GUARD_MIN
-from ..._model_state import _coef_column_offset
+from ..._model_state import _coef_column_offset, _n_smoothing_params
+from ...fit.model_ops import (
+    expand_smoothing_params_from_log,
+    solve_gaussian_given_smoothing,
+)
+from ..reparam import (
+    _stable_penalty_logdet,
+    _stable_penalty_logdet_derivatives,
+    _static_penalty_null_dim,
+)
 from .gaussian_reml_algebra import (
     gaussian_reml_weighted_degrees_and_log_weight_term,
     gaussian_weighted_residual_sum_squares,
@@ -7619,18 +8103,13 @@ from .gaussian_reml_algebra import (
     quadratic_form_penalty,
 )
 from .laplace import _penalty_derivative_matrices
-from .penalty import (
-    _stable_penalty_logdet,
-    _stable_penalty_logdet_derivatives,
-    _static_penalty_null_dim,
-)
 
 
 def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
     y = model.family.validate_y(y)
     y if model.offset_train_ is None else (y - model.offset_train_)
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    sol = model._solve_gaussian_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_gaussian_given_smoothing(model, y, sp)
 
     if method not in {"REML", "LAML"}:
         raise NotImplementedError(
@@ -7676,7 +8155,7 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
         or not np.isfinite(coeff)
         or coeff <= 0.0
     ):
-        n_sp = int(model.n_smoothing_params_ or 0)
+        n_sp = int(_n_smoothing_params(model) or 0)
         return {
             "valid": False,
             "grad": np.full(n_sp, np.nan, dtype=np.float64),
@@ -7688,14 +8167,14 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
         model, sp, order=2
     )
     if not np.all(np.isfinite(logdetS_grad)) or not np.all(np.isfinite(logdetS_hess)):
-        n_sp = int(model.n_smoothing_params_ or 0)
+        n_sp = int(_n_smoothing_params(model) or 0)
         return {
             "valid": False,
             "grad": np.full(n_sp, np.nan, dtype=np.float64),
             "hess": np.full((n_sp, n_sp), np.nan, dtype=np.float64),
         }
 
-    n_sp = int(model.n_smoothing_params_ or 0)
+    n_sp = int(_n_smoothing_params(model) or 0)
     grad_full = np.zeros(n_sp, dtype=np.float64)
     hess_full = np.zeros((n_sp, n_sp), dtype=np.float64)
     beta1 = [np.zeros_like(beta) for _ in range(n_sp)]
@@ -7739,7 +8218,7 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
             hess_full[k, j] = val
 
     free_mask = (
-        np.zeros(model.n_smoothing_params_, dtype=bool)
+        np.zeros(_n_smoothing_params(model), dtype=bool)
         if model.smoothing_fixed_mask_ is None
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
@@ -7773,10 +8252,11 @@ def criterion_ml_reml_gaussian_dynamic_joint(
         raise ValueError("method must be 'REML' or 'LAML' for the joint Gaussian path.")
 
     y = model.family.validate_y(y)
-    sp = model._expand_smoothing_params_from_log(
+    sp = expand_smoothing_params_from_log(
+        model,
         np.asarray(log_sp_free, dtype=np.float64).ravel()
     )
-    sol = model._solve_gaussian_given_smoothing(y, sp)
+    sol = solve_gaussian_given_smoothing(model, y, sp)
     A = np.asarray(sol["A"], dtype=np.float64)
     nobs = float(model.n_samples_)
     Mp = float(
@@ -7854,10 +8334,11 @@ def criterion_ml_reml_gaussian_dynamic_profiled(model, y, log_sp_free, method="R
         )
 
     y = model.family.validate_y(y)
-    sp = model._expand_smoothing_params_from_log(
+    sp = expand_smoothing_params_from_log(
+        model,
         np.asarray(log_sp_free, dtype=np.float64).ravel()
     )
-    sol = model._solve_gaussian_given_smoothing(y, sp)
+    sol = solve_gaussian_given_smoothing(model, y, sp)
 
     nobs = float(model.n_samples_)
     Mp = float(
@@ -8216,7 +8697,7 @@ def gaussian_reml_laplace_score(
 
 import numpy as np
 
-from ..._model_state import _coef_column_offset
+from ..._model_state import _coef_column_offset, _n_coef, _n_smoothing_params, _penalty_blocks_seq
 from ..reparam import (
     ensure_penalty_reparameterization_state,
     sl_group_indices,
@@ -8241,16 +8722,16 @@ def _lambda_group_indices(model):
 
 def _penalty_derivative_matrices(model, sp):
     off = _coef_column_offset(model)
-    n_full = int(model.n_coef_ + off)
+    n_full = int(_n_coef(model) + off)
     offset0 = off
     mats = [
         np.zeros((n_full, n_full), dtype=np.float64)
-        for _ in range(int(model.n_smoothing_params_ or 0))
+        for _ in range(int(_n_smoothing_params(model) or 0))
     ]
     if not mats:
         return mats
 
-    for pb in model.penalty_blocks_:
+    for pb in _penalty_blocks_seq(model):
         k = int(pb.smoothing_index)
         sl = pb.coef_slice
         full_sl = slice(offset0 + sl.start, offset0 + sl.stop)
@@ -8273,6 +8754,11 @@ then evaluates the appropriate criterion value.
 import numpy as np
 
 from ..._model_state import _term_blocks_seq
+from ...fit.model_ops import (
+    can_use_exact_gaussian_ml_reml,
+    can_use_simple_ml_reml_structure,
+    raise_ml_reml_backend_error,
+)
 from ...fit.solvers.general_fit5 import criterion_ml_reml_general_fit5
 from .gaussian import criterion_ml_reml_exact, criterion_ml_reml_exact_dynamic
 from .pirls import criterion_ml_reml_pirls, criterion_ml_reml_pirls_dynamic
@@ -8293,7 +8779,7 @@ def resolve_ml_reml_scoring_backend(model, method="reml"):
 
     if (
         bool(getattr(model.family, "supports_closed_form_solve", False))
-        and model._can_use_exact_gaussian_ml_reml()
+        and can_use_exact_gaussian_ml_reml(model)
     ):
         return "gaussian_exact"
 
@@ -8302,7 +8788,7 @@ def resolve_ml_reml_scoring_backend(model, method="reml"):
 
     if (
         bool(getattr(model.family, "supports_pirls", False))
-        and model._can_use_simple_ml_reml_structure()
+        and can_use_simple_ml_reml_structure(model)
     ):
         return "pirls_laplace"
 
@@ -8331,31 +8817,10 @@ def criterion_ml_reml(model, y, log_sp, method):
         return criterion_ml_reml_pirls_dynamic(model, y, log_sp, branch_method)
     if backend == "general_fit5":
         return criterion_ml_reml_general_fit5(model, y, log_sp, method)
-    model._raise_ml_reml_backend_error(method)
+    raise_ml_reml_backend_error(model, method)
     raise AssertionError("unreachable")
 
 # --- End of nampy/gam/smoothing_selection/criteria/ml_reml.py ---
-
-# --- Start of nampy/gam/smoothing_selection/criteria/penalty.py ---
-"""Compatibility wrappers for canonical penalty reparameterization helpers."""
-
-from ..reparam import (
-    _stable_penalty_logdet,
-    _stable_penalty_logdet_derivatives,
-    _static_fixed_and_random_designs,
-    _static_penalty_null_dim,
-    _static_penalty_space,
-)
-
-__all__ = [
-    "_stable_penalty_logdet",
-    "_stable_penalty_logdet_derivatives",
-    "_static_fixed_and_random_designs",
-    "_static_penalty_null_dim",
-    "_static_penalty_space",
-]
-
-# --- End of nampy/gam/smoothing_selection/criteria/penalty.py ---
 
 # --- Start of nampy/gam/smoothing_selection/criteria/pirls.py ---
 """
@@ -8371,11 +8836,17 @@ import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
 from ..._model_state import _coef_column_offset
-from ..reparam import dynamic_reparam_design, ensure_penalty_reparameterization_state
-from .penalty import (
+from ...fit.model_ops import (
+    can_use_simple_ml_reml_structure,
+    expand_smoothing_params_from_log,
+    solve_pirls_given_smoothing,
+)
+from ..reparam import (
     _stable_penalty_logdet,
     _static_fixed_and_random_designs,
     _static_penalty_null_dim,
+    dynamic_reparam_design,
+    ensure_penalty_reparameterization_state,
 )
 
 
@@ -8539,8 +9010,8 @@ def _solve_gamma_profile_scale(model, y, Dp, mp, *, method, init_scale):
 
 
 def criterion_gcv_pirls(model, y, log_sp):
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    sol = model._solve_pirls_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp)
     n = model.n_samples_
     den = 1.0 - model.score_gamma * sol["trace_H"] / n
     if den <= 1e-12 or not np.isfinite(den):
@@ -8549,8 +9020,8 @@ def criterion_gcv_pirls(model, y, log_sp):
 
 
 def criterion_ubre_pirls(model, y, log_sp):
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    sol = model._solve_pirls_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp)
     scale = model.family.known_scale
     if scale is None:
         raise ValueError(
@@ -8621,7 +9092,7 @@ def _pirls_tensor_coefficient_space_logdet_term(model, sol, sp):
 
 
 def criterion_ml_reml_pirls(model, y, log_sp, method):
-    if not model._can_use_simple_ml_reml_structure():
+    if not can_use_simple_ml_reml_structure(model):
         raise NotImplementedError(
             "Current PIRLS Laplace ML/REML is unavailable only when "
             "null-space penalties couple disconnected primary support "
@@ -8630,8 +9101,8 @@ def criterion_ml_reml_pirls(model, y, log_sp, method):
 
     ensure_penalty_reparameterization_state(model)
 
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    sol = model._solve_pirls_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp)
 
     return _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method)
 
@@ -8649,7 +9120,7 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
     n_obs = float(len(y))
     family_name = str(getattr(model.family, "name", "")).lower()
     use_exact_logdet = bool(
-        model._can_use_simple_ml_reml_structure()
+        can_use_simple_ml_reml_structure(model)
         and not model._has_tensor_terms()
         and bool(getattr(model.family, "supports_exact_pirls_first_derivatives", False))
     )
@@ -8825,8 +9296,8 @@ def criterion_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
             "Joint PIRLS Gamma outer objective is implemented only for family='gamma'."
         )
 
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    sol = model._solve_pirls_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp)
 
     phi = float(np.exp(float(log_phi)))
     if not np.isfinite(phi) or phi <= 0.0:
@@ -8843,7 +9314,7 @@ def criterion_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
         return np.inf
     base_objective = Dp / (2.0 * phi * gamma) - saturated_loglik / gamma
     use_exact_logdet = bool(
-        model._can_use_simple_ml_reml_structure()
+        can_use_simple_ml_reml_structure(model)
         and not model._has_tensor_terms()
         and bool(getattr(model.family, "supports_exact_pirls_first_derivatives", False))
     )
@@ -8898,8 +9369,8 @@ def criterion_ml_reml_pirls_negbin_joint(model, y, log_sp, log_theta, method):
 
 
 def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    sol = model._solve_pirls_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp)
 
     scale = float(sol["scale"])
     if not np.isfinite(scale) or scale <= 0:
@@ -8986,7 +9457,7 @@ import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 from scipy.special import digamma, polygamma
 
-from ..._model_state import _coef_column_offset
+from ..._model_state import _coef_column_offset, _n_smoothing_params
 from ...fit.linalg.matrix_reindexing import (
     drop_columns_dense,
     drop_rows_dense,
@@ -8997,8 +9468,16 @@ from ...fit.linalg.stacked_qr import (
     build_penalized_qr_state_nonnegative,
     penalty_sqrt_rows,
 )
-from ..reparam import build_canonical_gam_reparam_state
-from .penalty import _stable_penalty_logdet_derivatives, _static_penalty_null_dim
+from ...fit.model_ops import (
+    can_use_simple_ml_reml_structure,
+    expand_smoothing_params_from_log,
+    solve_pirls_given_smoothing,
+)
+from ..reparam import (
+    _stable_penalty_logdet_derivatives,
+    _static_penalty_null_dim,
+    build_canonical_gam_reparam_state,
+)
 from .pirls import _gamma_profile_objective_curvature, _solve_gamma_profile_scale
 from .pirls_reml_derivative_blocks import (
     _deviance_chained_to_smoothing,
@@ -9234,8 +9713,8 @@ def _negbin_ddeta_logtheta(family, y, mu, weights, *, deriv):
 
 def _gamma_joint_kernel_state(model, y, log_sp, method):
     method = str(method).upper()
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    sol = model._solve_pirls_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp)
     gdi2 = _gdi2_joint_kernel(model, y, sol, sp, method=method, need_hessian=True)
     state = {
         "K": gdi2.gdi1.K,
@@ -9266,7 +9745,7 @@ def criterion_gradient_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, meth
         n_free = (
             int(np.sum(~np.asarray(model.smoothing_fixed_mask_, dtype=bool)))
             if model.smoothing_fixed_mask_ is not None
-            else int(model.n_smoothing_params_ or 0)
+            else int(_n_smoothing_params(model) or 0)
         )
         return np.full(n_free + 1, np.nan, dtype=np.float64)
 
@@ -9279,7 +9758,7 @@ def criterion_gradient_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, meth
         method=str(method).upper(),
     )
     free_mask = (
-        np.zeros(model.n_smoothing_params_, dtype=bool)
+        np.zeros(_n_smoothing_params(model), dtype=bool)
         if model.smoothing_fixed_mask_ is None
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
@@ -9309,7 +9788,7 @@ def criterion_hessian_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, metho
         n_free = (
             int(np.sum(~np.asarray(model.smoothing_fixed_mask_, dtype=bool)))
             if model.smoothing_fixed_mask_ is not None
-            else int(model.n_smoothing_params_ or 0)
+            else int(_n_smoothing_params(model) or 0)
         )
         return np.full((n_free + 1, n_free + 1), np.nan, dtype=np.float64)
 
@@ -9322,7 +9801,7 @@ def criterion_hessian_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, metho
         method=str(method).upper(),
     )
     free_mask = (
-        np.zeros(model.n_smoothing_params_, dtype=bool)
+        np.zeros(_n_smoothing_params(model), dtype=bool)
         if model.smoothing_fixed_mask_ is None
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
@@ -9359,8 +9838,8 @@ def _negbin_joint_kernel_state(model, y, log_sp, log_theta, method):
     try:
         model.family.putTheta(float(log_theta))
         model.family._disable_theta_efs = True
-        sp = model._expand_smoothing_params_from_log(log_sp)
-        sol = model._solve_pirls_given_smoothing(y, sp)
+        sp = expand_smoothing_params_from_log(model, log_sp)
+        sol = solve_pirls_given_smoothing(model, y, sp)
         gdi2 = _gdi2_joint_kernel(
             model, y, sol, sp, method=str(method).upper(), need_hessian=True
         )
@@ -9384,7 +9863,7 @@ def criterion_gradient_ml_reml_pirls_negbin_joint(model, y, log_sp, log_theta, m
     state = _negbin_joint_kernel_state(model, y, log_sp, log_theta, method)
     gamma = float(model.score_gamma)
     free_mask = (
-        np.zeros(model.n_smoothing_params_, dtype=bool)
+        np.zeros(_n_smoothing_params(model), dtype=bool)
         if model.smoothing_fixed_mask_ is None
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
@@ -9404,7 +9883,7 @@ def criterion_hessian_ml_reml_pirls_negbin_joint(model, y, log_sp, log_theta, me
     state = _negbin_joint_kernel_state(model, y, log_sp, log_theta, method)
     gamma = float(model.score_gamma)
     free_mask = (
-        np.zeros(model.n_smoothing_params_, dtype=bool)
+        np.zeros(_n_smoothing_params(model), dtype=bool)
         if model.smoothing_fixed_mask_ is None
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
@@ -9444,7 +9923,7 @@ def _gdi_pk_setup(model, sol, sp, *, deriv):
     rSncol = []
     roots = list(canonical.rp.get("rS", []))
     rows_e = q_range_full
-    for j in range(int(model.n_smoothing_params_ or 0)):
+    for j in range(int(_n_smoothing_params(model) or 0)):
         if j < len(roots):
             root = np.asarray(roots[j], dtype=np.float64)
             if root.size:
@@ -9611,7 +10090,7 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
     P_derivs = [
         _drop_permute_symmetric(Pj, current.dropped_column_indices, current.pivot1)
         for Pj in _canonical_penalty_derivative_matrices(
-            current.canonical, sp, int(model.n_smoothing_params_ or 0)
+            current.canonical, sp, int(_n_smoothing_params(model) or 0)
         )
     ]
     if str(getattr(model.family, "name", "")).lower() == "negbin":
@@ -10137,7 +10616,7 @@ def _gdi2_ift2_state_negbin(model, y, sol, sp, current, pk_state):
     P_sp = [
         _drop_permute_symmetric(Pj, current.dropped_column_indices, current.pivot1)
         for Pj in _canonical_penalty_derivative_matrices(
-            current.canonical, sp, int(model.n_smoothing_params_ or 0)
+            current.canonical, sp, int(_n_smoothing_params(model) or 0)
         )
     ]
 
@@ -10426,7 +10905,7 @@ def _gdi2_joint_kernel(model, y, sol, sp, *, method, need_hessian):
 
 
 def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
-    if not model._can_use_simple_ml_reml_structure():
+    if not can_use_simple_ml_reml_structure(model):
         raise NotImplementedError(
             "Exact PIRLS ML/REML gradients are currently available only for "
             "terms whose penalties do not couple disconnected support "
@@ -10447,7 +10926,7 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
             "fixed-scale families, plus Gamma via the profiled scale branch."
         )
     free_mask = (
-        np.zeros(model.n_smoothing_params_, dtype=bool)
+        np.zeros(_n_smoothing_params(model), dtype=bool)
         if model.smoothing_fixed_mask_ is None
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
@@ -10455,8 +10934,8 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
     if int(np.sum(free_mask)) == 0:
         return np.empty((0,), dtype=np.float64)
 
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    sol = model._solve_pirls_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp)
     kernel = _gdi1_kernel(model, y, sol, sp, method=method)
     scale = float(sol["scale"])
 
@@ -10481,7 +10960,7 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
 
 
 def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
-    if not model._can_use_simple_ml_reml_structure():
+    if not can_use_simple_ml_reml_structure(model):
         raise NotImplementedError(
             "Exact PIRLS ML/REML Hessians are currently available only for "
             "terms whose penalties do not couple disconnected support "
@@ -10505,7 +10984,7 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
         )
 
     free_mask = (
-        np.zeros(model.n_smoothing_params_, dtype=bool)
+        np.zeros(_n_smoothing_params(model), dtype=bool)
         if model.smoothing_fixed_mask_ is None
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
@@ -10515,8 +10994,8 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
     if n_free == 0:
         return np.empty((0, 0), dtype=np.float64)
 
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    sol = model._solve_pirls_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp)
     kernel = _gdi1_kernel(model, y, sol, sp, method=method)
     scale = float(sol["scale"])
 

@@ -3,7 +3,13 @@
 import numpy as np
 
 from ..._mgcv_constants import EIG_TOL_POWER
-from ..._model_state import _coef_column_offset, _fit_intercept
+from ..._model_state import (
+    _coef_column_offset,
+    _design_matrix,
+    _fit_intercept,
+    _n_smoothing_params,
+    _penalty_blocks_seq,
+)
 from ...fit.penalized_system import build_full_design
 from ..criteria import resolve_ml_reml_scoring_backend
 
@@ -47,12 +53,12 @@ def _project_to_bounds(x, bounds):
 
 
 def _initial_smoothing_params_from_design_balance(model, y):
-    penalty_blocks = getattr(model, "penalty_blocks_", None)
-    n_sp = int(getattr(model, "n_smoothing_params_", 0) or 0)
+    penalty_blocks = tuple(_penalty_blocks_seq(model))
+    n_sp = _n_smoothing_params(model)
     if not penalty_blocks or n_sp == 0:
         return None
 
-    X = build_full_design(model.Z, fit_intercept=_fit_intercept(model))
+    X = build_full_design(_design_matrix(model), fit_intercept=_fit_intercept(model))
     y = np.asarray(y, dtype=np.float64).ravel()
 
     try:
@@ -142,12 +148,12 @@ def _initial_smoothing_params_from_design_balance(model, y):
 
 
 def _initial_smoothing_params_mgcv_style(model, y):
-    penalty_blocks = getattr(model, "penalty_blocks_", None)
-    n_sp = int(getattr(model, "n_smoothing_params_", 0) or 0)
+    penalty_blocks = tuple(_penalty_blocks_seq(model))
+    n_sp = _n_smoothing_params(model)
     if not penalty_blocks or n_sp == 0:
         return None
 
-    X = build_full_design(model.Z, fit_intercept=_fit_intercept(model))
+    X = build_full_design(_design_matrix(model), fit_intercept=_fit_intercept(model))
     y = np.asarray(y, dtype=np.float64).ravel()
     nobs, q = X.shape
 

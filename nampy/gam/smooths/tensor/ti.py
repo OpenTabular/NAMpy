@@ -11,10 +11,10 @@ import warnings
 
 import numpy as np
 
-from ...basis.tensor import (
+from ...basis.algebra import rowwise_kronecker
+from ...penalties import (
     normalize_tensor_marginal_penalty,
     rescale_tensor_penalties_for_fit,
-    rowwise_kronecker,
     tensor_product_penalties,
 )
 from ...penalties.algebra import null_space_penalty_from_penalty

@@ -10,11 +10,7 @@ is controlled entirely by the penalty order and the smoothing parameter.
 
 import numpy as np
 
-from ....splines.univariate_bases import (
-    pspline_difference_penalty,
-    pspline_knots,
-    pspline_predict_matrix,
-)
+from ....splines.pspline import build_pspline_term_setup, predict_pspline_term
 from ...constraints.absorption import apply_linear_constraint
 from ...penalties.algebra import scale_penalty
 from ..registry import register_smooth
@@ -102,7 +98,7 @@ class PSplineTerm1D(BaseSmoothTerm):
 
         self._basis_train = None
         self._penalties = None
-        self._ps_knots = None
+        self._setup = None
 
     def fit(self, X, feature_names):
         idx, feature_name = _resolve_feature(self.feature, feature_names)
@@ -119,34 +115,22 @@ class PSplineTerm1D(BaseSmoothTerm):
         if basis_order < 0 or penalty_order < 0:
             raise ValueError("For bs='ps', m entries must be >= 0.")
 
-        self._ps_knots = pspline_knots(
+        self._setup = build_pspline_term_setup(
             xj,
+            feature_index=idx,
+            feature_name=feature_name,
             bs_dim=self.k,
-            basis_order=basis_order,
-            supplied_knots=self.knots,
+            m=self.m,
+            knots=self.knots,
         )
-
-        degree = basis_order + 1
-        from ....splines.univariate_bases import bspline_design_matrix
-
-        base = bspline_design_matrix(
-            xj,
-            self._ps_knots,
-            degree=degree,
-            deriv=0,
-            extrapolate=True,
-        )
+        base = np.asarray(self._setup.basis_train, dtype=np.float64)
 
         if self.pc is not None:
             pc_value = _normalize_point_constraint(self.pc, self._feature_name)
-            pc_basis = pspline_predict_matrix(
-                np.asarray([pc_value], dtype=np.float64),
-                self._ps_knots,
-                basis_order=basis_order,
-                deriv=0,
+            pc_basis = predict_pspline_term(
+                np.asarray([pc_value], dtype=np.float64), self._setup
             )[0]
-            S = pspline_difference_penalty(base.shape[1], penalty_order)
-            main_penalty = 0.5 * (S + S.T)
+            main_penalty = np.asarray(self._setup.penalty, dtype=np.float64)
             penalties_in = [] if self.fixed else [main_penalty]
             Bc, Sc, C = apply_linear_constraint(base, penalties_in, pc_basis)
             if self._by_state.is_present:
@@ -156,8 +140,9 @@ class PSplineTerm1D(BaseSmoothTerm):
             self._record_constraint_result("pc", C, absorbed_by="runtime")
             return self
 
-        S_raw = pspline_difference_penalty(base.shape[1], penalty_order)
-        main_penalty = scale_penalty(base, 0.5 * (S_raw + S_raw.T))
+        main_penalty = scale_penalty(
+            base, np.asarray(self._setup.penalty, dtype=np.float64)
+        )
 
         if self.constraint_mode == "factor_by":
             if not self._by_state.is_present:
@@ -246,12 +231,5 @@ class PSplineTerm1D(BaseSmoothTerm):
         self._require_fitted()
 
         xj = column_as_float(X_new, self._feature_index)
-
-        B = pspline_predict_matrix(
-            xj,
-            self._ps_knots,
-            basis_order=self.m[0],
-            deriv=0,
-        )
-
+        B = predict_pspline_term(xj, self._setup)
         return self._apply_constraint_transform_and_by(B, X_new)

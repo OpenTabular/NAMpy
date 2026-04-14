@@ -3,7 +3,7 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .._model_state import _coerce_feature_matrix, _require_fitted
+from .._model_state import _coerce_feature_matrix, _require_fitted, _term_blocks_seq
 
 
 def plot_gam_terms(model, X=None, n_cols=2, figsize=None):
@@ -12,7 +12,8 @@ def plot_gam_terms(model, X=None, n_cols=2, figsize=None):
     X_plot = _coerce_feature_matrix(model, X, none_is_training=True)
     contributions = model.predict_feature_vals(X_plot)
 
-    n_terms = len(model.term_blocks_)
+    term_blocks = tuple(_term_blocks_seq(model))
+    n_terms = len(term_blocks)
     n_cols = max(1, int(n_cols))
     n_rows = int(np.ceil(n_terms / n_cols))
     if figsize is None:
@@ -21,7 +22,7 @@ def plot_gam_terms(model, X=None, n_cols=2, figsize=None):
     fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize, squeeze=False)
     axes = axes.ravel()
 
-    for j, tb in enumerate(model.term_blocks_):
+    for j, tb in enumerate(term_blocks):
         ax = axes[j]
         fj = np.asarray(contributions[tb.term_id]).ravel()
         smooth = tb.smooth

@@ -5,8 +5,8 @@ Pipeline overview
 -----------------
 Stage 1  formula / spec layer           gam/formula/
 Stage 2  runtime term materialization   gam/runtime/factory.py + gam/smooths/*
-Stage 3  term construction wrapper      gam/design/constructors.py
-Stage 4  predictor compilation          gam/design/compiler.py
+Stage 3  term construction wrapper      gam/smooths/construct.py
+Stage 4  predictor compilation          gam/runtime/compile.py
 Stage 5  predictor-wide side conds      gam/constraints/identifiability.py  <- here
 Stage 6  model fitting                  gam/fit/
 Stage 7  prediction / parity            gam/predict/ + gam/parity/
@@ -19,7 +19,7 @@ import warnings
 import numpy as np
 from scipy.linalg import eigh
 
-from ..design.structures import (
+from ..compiler.structures import (
     CompiledPenalty,
     CompiledPredictor,
     CompiledTerm,
@@ -145,7 +145,7 @@ def apply_global_side_conditions(
     Parameters
     ----------
     design : CompiledPredictor
-        Output of stage 4 (``compile_predictor_designs``).
+        Output of stage 4 (``compile_predictors``).
     fit_intercept : bool
         Whether the model has an intercept.  Controls whether the constant
         column is seeded into the span accumulator and whether sum-to-zero

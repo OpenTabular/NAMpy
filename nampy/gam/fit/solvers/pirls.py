@@ -4,7 +4,13 @@ Model-level entry point for PIRLS fits.
 
 import numpy as np
 
-from ..._model_state import _coef_column_offset, _fit_intercept
+from ..._model_state import (
+    _coef_column_offset,
+    _design_matrix,
+    _fit_intercept,
+    _n_coef,
+    _penalty_blocks_seq,
+)
 from ..linalg.stacked_qr import balanced_penalty_template_sqrt_for_rank
 from ..penalized_system import build_full_design, build_full_penalty_from_blocks
 from ..state import FitCoreSolution
@@ -17,8 +23,9 @@ def solve_pirls_fit(model, y, smoothing_params, weights=None):
         coef_start = getattr(model, "_pirls_coef_start_", None)
     if coef_start is not None:
         coef_start = np.asarray(coef_start, dtype=np.float64).ravel()
+        Z = np.asarray(_design_matrix(model), dtype=np.float64)
         if coef_start.shape != (
-            int(model.Z.shape[1] + _coef_column_offset(model)),
+            int(Z.shape[1] + _coef_column_offset(model)),
         ):
             coef_start = None
 
@@ -39,17 +46,20 @@ def solve_pirls_fit(model, y, smoothing_params, weights=None):
             mustart = None
 
     fi = _fit_intercept(model)
-    X = build_full_design(model.Z, fit_intercept=fi)
+    Z = np.asarray(_design_matrix(model), dtype=np.float64)
+    penalty_blocks = tuple(_penalty_blocks_seq(model))
+    n_coef = _n_coef(model)
+    X = build_full_design(Z, fit_intercept=fi)
     S = build_full_penalty_from_blocks(
-        penalty_blocks=model.penalty_blocks_,
+        penalty_blocks=penalty_blocks,
         smoothing_params=smoothing_params,
         fit_intercept=fi,
-        n_coef=model.n_coef_,
+        n_coef=n_coef,
     )
     rank_rows = balanced_penalty_template_sqrt_for_rank(
-        model.penalty_blocks_,
+        penalty_blocks,
         fit_intercept=fi,
-        n_coef=int(model.n_coef_),
+        n_coef=int(n_coef),
     )
 
     disable_theta_efs = bool(getattr(model, "_pirls_disable_theta_efs_", False))

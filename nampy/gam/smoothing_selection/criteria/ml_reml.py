@@ -9,6 +9,11 @@ then evaluates the appropriate criterion value.
 import numpy as np
 
 from ..._model_state import _term_blocks_seq
+from ...fit.model_ops import (
+    can_use_exact_gaussian_ml_reml,
+    can_use_simple_ml_reml_structure,
+    raise_ml_reml_backend_error,
+)
 from ...fit.solvers.general_fit5 import criterion_ml_reml_general_fit5
 from .gaussian import criterion_ml_reml_exact, criterion_ml_reml_exact_dynamic
 from .pirls import criterion_ml_reml_pirls, criterion_ml_reml_pirls_dynamic
@@ -29,7 +34,7 @@ def resolve_ml_reml_scoring_backend(model, method="reml"):
 
     if (
         bool(getattr(model.family, "supports_closed_form_solve", False))
-        and model._can_use_exact_gaussian_ml_reml()
+        and can_use_exact_gaussian_ml_reml(model)
     ):
         return "gaussian_exact"
 
@@ -38,7 +43,7 @@ def resolve_ml_reml_scoring_backend(model, method="reml"):
 
     if (
         bool(getattr(model.family, "supports_pirls", False))
-        and model._can_use_simple_ml_reml_structure()
+        and can_use_simple_ml_reml_structure(model)
     ):
         return "pirls_laplace"
 
@@ -67,5 +72,5 @@ def criterion_ml_reml(model, y, log_sp, method):
         return criterion_ml_reml_pirls_dynamic(model, y, log_sp, branch_method)
     if backend == "general_fit5":
         return criterion_ml_reml_general_fit5(model, y, log_sp, method)
-    model._raise_ml_reml_backend_error(method)
+    raise_ml_reml_backend_error(model, method)
     raise AssertionError("unreachable")

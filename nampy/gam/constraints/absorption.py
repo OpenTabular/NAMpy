@@ -9,7 +9,7 @@ penalty matrices.  They implement the coefficient-transform invariant:
 
 Functions here are used by:
   - runtime terms (gam/smooths/*) for term-local constraint absorption during fit
-  - the stage-3 wrapper (gam/design/constructors.py) for delegated absorption
+  - the stage-3 wrapper (gam/smooths/construct.py) for delegated absorption
   - gam/constraints/identifiability.py for the centering transform in stage 5
 
 They must not know about compiled predictors, term specs, or fitted results.

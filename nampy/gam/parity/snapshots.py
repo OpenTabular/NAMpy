@@ -16,17 +16,25 @@ from scipy.linalg import qr
 
 from .._mgcv_constants import LOG_GUARD_MIN
 from .._model_state import (
+    _coef,
     _coef_column_offset,
+    _cov_bayes,
+    _cov_freq,
+    _edf_by_term,
+    _edf_total,
+    _fit_state,
+    _H_coef,
     _require_fitted,
+    _summary_R,
     _term_blocks_seq,
 )
-from ..smoothing_selection.criteria import (
+from ..selection import (
     criterion_ml_reml,
     criterion_ml_reml_gaussian_dynamic_joint,
     criterion_ml_reml_pirls,
+    optimizer_endpoint_diagnostics,
     resolve_ml_reml_scoring_backend,
 )
-from ..smoothing_selection.postfit import optimizer_endpoint_diagnostics
 
 
 def _coerce_snapshot_arrays(snapshot):
@@ -229,7 +237,7 @@ def _normalize_mgcv_term_label(label):
 
 
 def _residual_df_from_snapshot_state(core) -> float:
-    H = np.asarray(core._H_coef, dtype=np.float64)
+    H = np.asarray(_H_coef(core), dtype=np.float64)
     edf1 = 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
     intercept_df = float(_coef_column_offset(core))
     return float(core.n_samples_) - intercept_df - float(np.sum(edf1))
@@ -402,7 +410,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
     edf1_vec = None
     if len(_term_blocks_seq(core)) > 0:
         try:
-            H = np.asarray(core._H_coef, dtype=np.float64)
+            H = np.asarray(_H_coef(core), dtype=np.float64)
             edf1_vec = 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
         except Exception:
             edf1_vec = None
@@ -414,13 +422,13 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
             # sl indexes coef_ (no intercept); Vp_, Vf_, H include the intercept column
             x_sl = slice(sl.start + x_off, sl.stop + x_off)
             smooth_labels.append(_normalize_mgcv_term_label(tb.label))
-            if getattr(core, "Vp_", None) is not None:
+            if _cov_bayes(core) is not None:
                 smooth_cov_bayes.append(
-                    np.asarray(core.Vp_[x_sl, x_sl], dtype=np.float64)
+                    np.asarray(_cov_bayes(core)[x_sl, x_sl], dtype=np.float64)
                 )
-            if getattr(core, "Vf_", None) is not None:
+            if _cov_freq(core) is not None:
                 smooth_cov_freq.append(
-                    np.asarray(core.Vf_[x_sl, x_sl], dtype=np.float64)
+                    np.asarray(_cov_freq(core)[x_sl, x_sl], dtype=np.float64)
                 )
             if edf1_vec is not None:
                 smooth_edf1_vals.append(float(np.sum(edf1_vec[x_sl])))
@@ -450,16 +458,16 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
         }
     )
     if len(smooth_labels) > 0:
-        X_full = np.asarray(core.fit_state_.X, dtype=np.float64)
-        R_full = getattr(core, "_summary_R_", None)
+        X_full = np.asarray(_fit_state(core).X, dtype=np.float64)
+        R_full = _summary_R(core)
         if R_full is None:
-            W_full = np.asarray(core.fit_state_.working_weights, dtype=np.float64)
+            W_full = np.asarray(_fit_state(core).working_weights, dtype=np.float64)
             weighted_X = np.sqrt(np.clip(W_full, 0.0, None))[:, None] * X_full
             _, R_full = qr(weighted_X, mode="economic")
         diagnostics["smooth_test_inputs"] = {
             "labels": list(smooth_labels),
             "coef_blocks": [
-                np.asarray(core.coef_[tb.coef_slice], dtype=np.float64).tolist()
+                np.asarray(_coef(core)[tb.coef_slice], dtype=np.float64).tolist()
                 for tb in _term_blocks_seq(core)
                 if str(getattr(tb, "term_type", "")) != "parametric"
             ],
@@ -478,7 +486,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
             ],
             "edf": np.asarray(
                 [
-                    float(core.edf_by_term_[i])
+                    float(_edf_by_term(core)[i])
                     for i, tb in enumerate(_term_blocks_seq(core))
                     if str(getattr(tb, "term_type", "")) != "parametric"
                 ],
@@ -487,7 +495,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
             "edf1": np.asarray(smooth_edf1_vals, dtype=np.float64).tolist(),
             "residual_df": float(core.n_samples_)
             - float(_coef_column_offset(core))
-            - float(core.edf_),
+            - float(_edf_total(core)),
         }
         diagnostics["smooth_function_space"] = {
             "labels": list(smooth_labels),
@@ -508,7 +516,8 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
                                 dtype=np.float64,
                             )
                             @ np.asarray(
-                                core.Vp_[tb.coef_slice, tb.coef_slice], dtype=np.float64
+                                _cov_bayes(core)[tb.coef_slice, tb.coef_slice],
+                                dtype=np.float64,
                             )
                         )
                         * np.asarray(

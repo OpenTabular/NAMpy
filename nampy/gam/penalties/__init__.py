@@ -11,6 +11,12 @@ from .subsystem import (
     normalize_penalty_spec,
     penalty_rank_null_dim,
 )
+from .tensor import (
+    lifted_tensor_penalty,
+    normalize_tensor_marginal_penalty,
+    rescale_tensor_penalties_for_fit,
+    tensor_product_penalties,
+)
 
 __all__ = [
     "symmetrize_penalty",
@@ -22,4 +28,8 @@ __all__ = [
     "build_null_space_selection_spec",
     "merge_smoothing_override",
     "default_penalty_id",
+    "lifted_tensor_penalty",
+    "tensor_product_penalties",
+    "normalize_tensor_marginal_penalty",
+    "rescale_tensor_penalties_for_fit",
 ]

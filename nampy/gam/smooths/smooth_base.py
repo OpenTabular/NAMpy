@@ -12,7 +12,7 @@ Runtime smooth term base class and shared helpers (Stage 2 of the pipeline).
         - ``n_coef``: number of coefficient columns.
 
     Optional delegation (by-variable and constraint handling may be
-    delegated to the Stage-3 wrapper in constructors.py):
+    delegated to the Stage-3 wrapper in smooths/construct.py):
         - ``constraint_mode``: ``"auto"``, ``"always"``, ``"never"``, ``"factor_by"``.
         - ``delegate_constraint``: if True, the term returns the raw unconstrained
           basis and lets the wrapper apply sum-to-zero or factor-by absorption.
@@ -28,7 +28,7 @@ from typing import Any
 
 import numpy as np
 
-from ..design.structures import PenaltySpec
+from ..compiler.structures import PenaltySpec
 from ..penalties import (
     build_null_space_selection_spec,
     make_penalty_spec,
@@ -458,6 +458,45 @@ class BaseSmoothTerm(abc.ABC):
     def transform_new_base(self, X_new):
         return self.transform_new(X_new)
 
+    def resolved_feature_indices(self):
+        if hasattr(self, "_feature_index") and self._feature_index is not None:
+            return [int(self._feature_index)]
+        if hasattr(self, "_feature_indices") and self._feature_indices is not None:
+            return [int(v) for v in self._feature_indices]
+        raise AttributeError("Runtime term does not expose resolved feature indices.")
+
+    def resolved_feature_names_list(self):
+        if hasattr(self, "_feature_name") and self._feature_name is not None:
+            return [str(self._feature_name)]
+        if hasattr(self, "_feature_names") and self._feature_names is not None:
+            return [str(v) for v in self._feature_names]
+        if self.resolved_feature_names is not None:
+            return [str(v) for v in self.resolved_feature_names]
+        raise AttributeError("Runtime term does not expose resolved feature names.")
+
+    def tensor_marginal_fit_matrices(
+        self, *, centered=False, apply_np=False, x_train=None
+    ):
+        del centered, apply_np, x_train
+        if len(self.penalties) != 1:
+            raise NotImplementedError(
+                "Tensor products of smooths with multiple penalties are not supported."
+            )
+        return (
+            np.asarray(self.basis_train, dtype=np.float64),
+            np.asarray(self.penalties[0], dtype=np.float64),
+            None,
+        )
+
+    def tensor_marginal_predict_matrix(
+        self, X_new, *, centered=False, np_transform=None
+    ):
+        del centered
+        B = np.asarray(self.transform_new(X_new), dtype=np.float64)
+        if np_transform is not None:
+            B = B @ np.asarray(np_transform, dtype=np.float64)
+        return B
+
     def _normalized_term_sp(self, n_penalties):
         if n_penalties <= 0:
             return []
@@ -495,7 +534,7 @@ class BaseSmoothTerm(abc.ABC):
         Subclasses supply ``matrix`` (the main penalty, usually
         ``self.penalties[0]`` after fit) and term-specific ``smooth_metadata``.
         Optional ``rank`` / ``null_space_dim`` are forwarded to the main
-        :class:`~nampy.gam.design.structures.PenaltySpec` before normalization
+        :class:`~nampy.gam.compiler.structures.PenaltySpec` before normalization
         (e.g. TPRS passes a stored rank).
         """
         self._require_fitted()

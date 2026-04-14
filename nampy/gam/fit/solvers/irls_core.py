@@ -872,17 +872,22 @@ def fit_irls_from_model(
 
     y = model.family.validate_y(y)
     fi = _fit_intercept(model)
-    X = build_full_design(model.Z, fit_intercept=fi)
+    from ..._model_state import _design_matrix, _n_coef, _penalty_blocks_seq
+
+    Z = np.asarray(_design_matrix(model), dtype=np.float64)
+    penalty_blocks = tuple(_penalty_blocks_seq(model))
+    n_coef = _n_coef(model)
+    X = build_full_design(Z, fit_intercept=fi)
     S = build_full_penalty_from_blocks(
-        penalty_blocks=model.penalty_blocks_,
+        penalty_blocks=penalty_blocks,
         smoothing_params=np.asarray(smoothing_params, dtype=np.float64).ravel(),
         fit_intercept=fi,
-        n_coef=model.n_coef_,
+        n_coef=n_coef,
     )
     rank_rows = balanced_penalty_template_sqrt_for_rank(
-        model.penalty_blocks_,
+        penalty_blocks,
         fit_intercept=fi,
-        n_coef=int(model.n_coef_),
+        n_coef=int(n_coef),
     )
 
     out = irls_core(

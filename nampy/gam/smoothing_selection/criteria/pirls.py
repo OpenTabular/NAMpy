@@ -11,11 +11,17 @@ import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
 from ..._model_state import _coef_column_offset
-from ..reparam import dynamic_reparam_design, ensure_penalty_reparameterization_state
-from .penalty import (
+from ...fit.model_ops import (
+    can_use_simple_ml_reml_structure,
+    expand_smoothing_params_from_log,
+    solve_pirls_given_smoothing,
+)
+from ..reparam import (
     _stable_penalty_logdet,
     _static_fixed_and_random_designs,
     _static_penalty_null_dim,
+    dynamic_reparam_design,
+    ensure_penalty_reparameterization_state,
 )
 
 
@@ -179,8 +185,8 @@ def _solve_gamma_profile_scale(model, y, Dp, mp, *, method, init_scale):
 
 
 def criterion_gcv_pirls(model, y, log_sp):
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    sol = model._solve_pirls_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp)
     n = model.n_samples_
     den = 1.0 - model.score_gamma * sol["trace_H"] / n
     if den <= 1e-12 or not np.isfinite(den):
@@ -189,8 +195,8 @@ def criterion_gcv_pirls(model, y, log_sp):
 
 
 def criterion_ubre_pirls(model, y, log_sp):
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    sol = model._solve_pirls_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp)
     scale = model.family.known_scale
     if scale is None:
         raise ValueError(
@@ -261,7 +267,7 @@ def _pirls_tensor_coefficient_space_logdet_term(model, sol, sp):
 
 
 def criterion_ml_reml_pirls(model, y, log_sp, method):
-    if not model._can_use_simple_ml_reml_structure():
+    if not can_use_simple_ml_reml_structure(model):
         raise NotImplementedError(
             "Current PIRLS Laplace ML/REML is unavailable only when "
             "null-space penalties couple disconnected primary support "
@@ -270,8 +276,8 @@ def criterion_ml_reml_pirls(model, y, log_sp, method):
 
     ensure_penalty_reparameterization_state(model)
 
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    sol = model._solve_pirls_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp)
 
     return _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method)
 
@@ -289,7 +295,7 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
     n_obs = float(len(y))
     family_name = str(getattr(model.family, "name", "")).lower()
     use_exact_logdet = bool(
-        model._can_use_simple_ml_reml_structure()
+        can_use_simple_ml_reml_structure(model)
         and not model._has_tensor_terms()
         and bool(getattr(model.family, "supports_exact_pirls_first_derivatives", False))
     )
@@ -465,8 +471,8 @@ def criterion_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
             "Joint PIRLS Gamma outer objective is implemented only for family='gamma'."
         )
 
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    sol = model._solve_pirls_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp)
 
     phi = float(np.exp(float(log_phi)))
     if not np.isfinite(phi) or phi <= 0.0:
@@ -483,7 +489,7 @@ def criterion_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
         return np.inf
     base_objective = Dp / (2.0 * phi * gamma) - saturated_loglik / gamma
     use_exact_logdet = bool(
-        model._can_use_simple_ml_reml_structure()
+        can_use_simple_ml_reml_structure(model)
         and not model._has_tensor_terms()
         and bool(getattr(model.family, "supports_exact_pirls_first_derivatives", False))
     )
@@ -538,8 +544,8 @@ def criterion_ml_reml_pirls_negbin_joint(model, y, log_sp, log_theta, method):
 
 
 def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    sol = model._solve_pirls_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp)
 
     scale = float(sol["scale"])
     if not np.isfinite(scale) or scale <= 0:

@@ -36,8 +36,8 @@ from mgcv_parity_utils import (
 from scipy.linalg import cho_factor
 
 from nampy.gam import GAM
-from nampy.gam.basis.tensor import t2_marginal_reparameterization
-from nampy.gam.design.compiler import compile_predictor_designs
+from nampy.gam.basis.algebra import t2_marginal_reparameterization
+from nampy.gam.compiler import compile_predictors
 from nampy.gam.fit.linalg.stacked_qr import (
     penalty_sqrt_rows,
     project_coef_onto_row_space,
@@ -49,7 +49,7 @@ from nampy.gam.fit.penalized_system import (
     build_full_penalty_from_blocks,
 )
 from nampy.gam.fit.solvers.gaussian_exact import solve_gaussian_fit
-from nampy.gam.formula import compile_predictor_specs_from_formula, parse_gam_formula
+from nampy.gam.formula import extract_formula_terms, parse_gam_formula
 from nampy.gam.parity.snapshots import _get_core
 from nampy.gam.smoothing_selection.criteria import criterion_value
 from nampy.gam.smoothing_selection.criteria.gaussian import criterion_ml_reml_exact
@@ -62,11 +62,26 @@ from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
     gaussian_weighted_residual_sum_squares,
     quadratic_form_penalty,
 )
-from nampy.gam.smoothing_selection.criteria.penalty import (
+from nampy.gam.smoothing_selection.reparam import (
     _stable_penalty_logdet,
     _static_penalty_null_dim,
 )
 from nampy.gam.smooths.univariate.cubic_regression import SplineTerm1D
+from nampy.gam.specs.build import build_formula_model
+
+
+def _compile_predictor_specs_for_tests(parsed):
+    return extract_formula_terms(parsed)
+
+
+def _compile_predictor_designs_for_tests(X, feature_names, predictor_specs):
+    data = pd.DataFrame(X, columns=feature_names)
+    built = build_formula_model(predictor_specs, data=data, y=np.zeros(len(data)))
+    return compile_predictors(built.X, built.feature_names, built.predictor_specs)
+
+
+compile_predictor_specs_from_formula = _compile_predictor_specs_for_tests
+compile_predictor_designs = _compile_predictor_designs_for_tests
 
 
 class TestParitySnapshotAPI:

@@ -1,76 +1,64 @@
 """
-Fit solution container shared by all fitting backends.
+Compatibility wrapper over stable fitted outputs and transient engine state.
 
-:class:`FitCoreSolution` is the common return type of :func:`solve_gaussian_fit`
-and :func:`solve_pirls_fit`.  Downstream code (orchestrator, criterion functions,
-result builder) always receives this type, regardless of which backend produced it.
+`FitCoreSolution` remains the common solver return type during migration, but it
+now wraps:
 
-:func:`compute_edf_by_term` and :func:`assign_fit_solution` are helpers called by
-the model after fitting to populate the model's public attributes.
+- `FitResult`: stable fitted outputs for consumers
+- `FitState`: transient numerical workspace
+- `PenalizedSystem`: engine-facing assembled system metadata
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
-from scipy.linalg import cho_factor, cho_solve, qr
+from scipy.linalg import cho_factor, cho_solve
 
-from .._model_state import _coef_column_offset, _fit_intercept
+from .._model_state import (
+    _coef_column_offset,
+    _fit_intercept,
+    _fit_state,
+    _term_blocks_seq,
+)
+from ..engine.state import FitState, PenalizedSystem
+from ..results import FitResult
 from .covariance import build_bayes_and_freq_covariances
 
 
-@dataclass
+@dataclass(frozen=True)
 class FitCoreSolution:
-    coef_full: np.ndarray
-    intercept: float
-    beta: np.ndarray
-    eta: np.ndarray
-    mu: np.ndarray
-
-    rss: float | None
-    deviance: float
-    edf: float
-    trace_H: float
-    scale: float
-
-    cov_bayes: np.ndarray | None
-    cov_freq: np.ndarray | None
-    cov_unconditional: np.ndarray | None
-    H_coef: np.ndarray
-    edf2: np.ndarray | None = None
-
-    X: np.ndarray | None = None
-    A: np.ndarray | None = None
-    A_inv: np.ndarray | None = None
-    XtWX: np.ndarray | None = None
-    P: np.ndarray | None = None
-    penalty_matrix: np.ndarray | None = None
-    working_weights: np.ndarray | None = None
-    fisher_weights: np.ndarray | None = None
-    working_response: np.ndarray | None = None
-    penalty_quadratic: float | None = None
-    loglik: float | None = None
-    offset: np.ndarray | None = None
-    log_det_XtWX_plus_penalty: float | None = None
-    penalized_system_rank: int | None = None
-    dropped_column_indices: np.ndarray | None = None
-
-    converged: bool | None = None
-    iter: int | None = None
-    failed_step: bool | None = None
-    failure_reason: str | None = None
-    inner_trace: list | None = None
+    fit_result: FitResult
+    fit_state: FitState
+    penalized_system: PenalizedSystem
 
     def __getitem__(self, key):
-        return getattr(self, key)
+        return self.get(key)
 
     def get(self, key, default=None):
-        return getattr(self, key, default)
+        for obj in (self.fit_result, self.fit_state, self.penalized_system):
+            if hasattr(obj, key):
+                value = getattr(obj, key)
+                return default if value is None and not hasattr(self, key) else value
+        return default
+
+    def __getattr__(self, key):
+        for obj in (self.fit_result, self.fit_state, self.penalized_system):
+            if hasattr(obj, key):
+                return getattr(obj, key)
+        raise AttributeError(key)
+
+    def with_fit_result(self, **changes) -> "FitCoreSolution":
+        return replace(self, fit_result=replace(self.fit_result, **changes))
+
+    def with_fit_state(self, **changes) -> "FitCoreSolution":
+        new_state = replace(self.fit_state, **changes)
+        return replace(self, fit_state=new_state, penalized_system=new_state.to_penalized_system())
 
     @classmethod
     def from_dict(cls, data: dict) -> "FitCoreSolution":
-        return cls(
+        fit_result = FitResult(
             coef_full=np.asarray(data["coef_full"], dtype=np.float64),
             intercept=float(data["intercept"]),
             beta=np.asarray(data["beta"], dtype=np.float64),
@@ -102,6 +90,21 @@ class FitCoreSolution:
                 if data.get("edf2", None) is None
                 else np.asarray(data["edf2"], dtype=np.float64)
             ),
+            penalty_quadratic=(
+                None
+                if data.get("penalty_quadratic", None) is None
+                else float(data["penalty_quadratic"])
+            ),
+            loglik=(
+                None if data.get("loglik", None) is None else float(data["loglik"])
+            ),
+            converged=data.get("converged", None),
+            iter=data.get("iter", None),
+            failed_step=data.get("failed_step", None),
+            failure_reason=data.get("failure_reason", None),
+            inner_trace=data.get("inner_trace", None),
+        )
+        fit_state = FitState(
             X=(
                 None
                 if data.get("X", None) is None
@@ -147,14 +150,6 @@ class FitCoreSolution:
                 if data.get("working_response", None) is None
                 else np.asarray(data["working_response"], dtype=np.float64)
             ),
-            penalty_quadratic=(
-                None
-                if data.get("penalty_quadratic", None) is None
-                else float(data["penalty_quadratic"])
-            ),
-            loglik=(
-                None if data.get("loglik", None) is None else float(data["loglik"])
-            ),
             offset=(
                 None
                 if data.get("offset", None) is None
@@ -175,33 +170,30 @@ class FitCoreSolution:
                 if data.get("dropped_column_indices", None) is None
                 else np.asarray(data["dropped_column_indices"], dtype=np.int64)
             ),
-            converged=data.get("converged", None),
-            iter=data.get("iter", None),
-            failed_step=data.get("failed_step", None),
-            failure_reason=data.get("failure_reason", None),
-            inner_trace=data.get("inner_trace", None),
+            scale=float(data["scale"]),
+        )
+        return cls(
+            fit_result=fit_result,
+            fit_state=fit_state,
+            penalized_system=fit_state.to_penalized_system(),
         )
 
 
 def compute_edf_by_term(model, H_coef):
     offset0 = _coef_column_offset(model)
-    fit_state = getattr(model, "fit_state_", None)
+    fit_state = _fit_state(model)
     X_full = None if fit_state is None else getattr(fit_state, "X", None)
     A_inv = None if fit_state is None else getattr(fit_state, "A_inv", None)
     w = None if fit_state is None else getattr(fit_state, "working_weights", None)
 
     edf = []
-    for tb in model.term_blocks_:
+    for tb in _term_blocks_seq(model):
         sl = slice(
             offset0 + int(tb.coef_slice.start),
             offset0 + int(tb.coef_slice.stop),
         )
         val = float(np.trace(H_coef[sl, sl]))
 
-        # mgcv summary EDF for `bs="re"` terms is effectively attributed after
-        # removing the intercept direction from the random-effect block. Without
-        # that orthogonalization, near-singular Gaussian REML fits can over-credit
-        # the RE term by the same tiny amount that belongs to the intercept.
         if (
             str(getattr(tb, "term_type", "")) == "random_effect"
             and _fit_intercept(model)
@@ -228,12 +220,6 @@ def compute_edf_by_term(model, H_coef):
                         if len(getattr(tb, "smoothing_indices", [])) > 0 and sp.size > 0
                         else np.empty((0,), dtype=np.float64)
                     )
-                    # mgcv::summary.gam effectively credits the nested intercept
-                    # direction to the parametric part when bs="re" collapses to
-                    # the REML lower bound. In that boundary case the coefficient
-                    # hat matrix is numerically non-unique, but the weighted
-                    # residualized random-effect design has stable rank matching
-                    # mgcv's reported smooth EDF.
                     if tb_sp.size > 0 and np.max(tb_sp) <= 1e-20:
                         val = float(np.linalg.matrix_rank(Xt_eff_w))
                     elif A_inv is not None:
@@ -248,12 +234,7 @@ def compute_edf_by_term(model, H_coef):
 
         edf.append(val)
     edf = np.asarray(edf, dtype=np.float64)
-    # Under predictor-wide side conditions, a later non-constant numeric-by
-    # smooth can lose one or more redundant columns against the accumulated
-    # design. The reduced fitted block trace then credits that shared null-space
-    # EDF to earlier terms, while mgcv reports it with the term that originally
-    # owned the deleted columns. Reassign those deleted directions for parity.
-    for i, tb in enumerate(model.term_blocks_):
+    for i, tb in enumerate(_term_blocks_seq(model)):
         meta = dict(getattr(tb, "metadata", {}) or {})
         ctor = dict(meta.get("constructor_metadata", {}) or {})
         runtime_by_name = ctor.get("runtime_by_name", None)
@@ -272,30 +253,28 @@ def compute_edf_by_term(model, H_coef):
 
 
 def assign_fit_solution(model, sol: FitCoreSolution):
-    model.intercept_ = float(sol.intercept)
-    model.coef_full_ = np.asarray(sol.coef_full, dtype=np.float64)
-    model.coef_ = np.asarray(sol.beta, dtype=np.float64)
-    model.beta = [model.coef_[tb.coef_slice] for tb in model.term_blocks_]
+    fit_result = sol.fit_result
+    fit_state = sol.fit_state
 
-    H_post = np.asarray(sol.H_coef, dtype=np.float64)
-    trace_H_post = float(sol.trace_H)
-    scale_post = float(sol.scale)
+    H_post = np.asarray(fit_result.H_coef, dtype=np.float64)
+    trace_H_post = float(fit_result.trace_H)
+    scale_post = float(fit_result.scale)
     Vp_post = (
-        None if sol.cov_bayes is None else np.asarray(sol.cov_bayes, dtype=np.float64)
+        None if fit_result.cov_bayes is None else np.asarray(fit_result.cov_bayes, dtype=np.float64)
     )
     Vf_post = (
-        None if sol.cov_freq is None else np.asarray(sol.cov_freq, dtype=np.float64)
+        None if fit_result.cov_freq is None else np.asarray(fit_result.cov_freq, dtype=np.float64)
     )
     if (
         not bool(getattr(model.family, "canonical_link", False))
-        and sol.X is not None
-        and sol.P is not None
-        and sol.fisher_weights is not None
+        and fit_state.X is not None
+        and fit_state.P is not None
+        and fit_state.fisher_weights is not None
     ):
         try:
-            X = np.asarray(sol.X, dtype=np.float64)
-            P = np.asarray(sol.P, dtype=np.float64)
-            fisher_w = np.asarray(sol.fisher_weights, dtype=np.float64).ravel()
+            X = np.asarray(fit_state.X, dtype=np.float64)
+            P = np.asarray(fit_state.P, dtype=np.float64)
+            fisher_w = np.asarray(fit_state.fisher_weights, dtype=np.float64).ravel()
             XtFX = X.T @ (fisher_w[:, None] * X)
             cA_post, lower_post = cho_factor(
                 XtFX + P, overwrite_a=False, check_finite=False
@@ -309,7 +288,7 @@ def assign_fit_solution(model, sol: FitCoreSolution):
                 scale_post = float(
                     model.family.estimate_dispersion(
                         model.y_,
-                        sol.mu,
+                        fit_result.mu,
                         edf=trace_H_post,
                         weights=model.prior_weights_,
                     )
@@ -319,28 +298,16 @@ def assign_fit_solution(model, sol: FitCoreSolution):
             )
             trace_H_post = float(np.trace(H_post))
         except Exception:
-            H_post = np.asarray(sol.H_coef, dtype=np.float64)
-            trace_H_post = float(sol.trace_H)
-            scale_post = float(sol.scale)
-            Vp_post = (
-                None
-                if sol.cov_bayes is None
-                else np.asarray(sol.cov_bayes, dtype=np.float64)
-            )
-            Vf_post = (
-                None
-                if sol.cov_freq is None
-                else np.asarray(sol.cov_freq, dtype=np.float64)
-            )
+            pass
     if (
         str(getattr(model.family, "name", "")).lower() == "gamma"
-        and sol.X is not None
-        and sol.P is not None
-        and sol.fisher_weights is not None
+        and fit_state.X is not None
+        and fit_state.P is not None
+        and fit_state.fisher_weights is not None
     ):
-        X = np.asarray(sol.X, dtype=np.float64)
-        P = np.asarray(sol.P, dtype=np.float64)
-        fisher_w = np.asarray(sol.fisher_weights, dtype=np.float64).ravel()
+        X = np.asarray(fit_state.X, dtype=np.float64)
+        P = np.asarray(fit_state.P, dtype=np.float64)
+        fisher_w = np.asarray(fit_state.fisher_weights, dtype=np.float64).ravel()
         XtFX = X.T @ (fisher_w[:, None] * X)
         cA_post, lower_post = cho_factor(
             XtFX + P, overwrite_a=False, check_finite=False
@@ -355,7 +322,7 @@ def assign_fit_solution(model, sol: FitCoreSolution):
         scale_post = float(
             model.family.estimate_dispersion(
                 model.y_,
-                sol.mu,
+                fit_result.mu,
                 edf=trace_H_post,
                 weights=model.prior_weights_,
             )
@@ -364,53 +331,42 @@ def assign_fit_solution(model, sol: FitCoreSolution):
             scale_post, A_inv_post, XtFX
         )
         trace_H_post = float(np.trace(H_post))
-
-    model.edf_ = trace_H_post
-    model.trace_H_ = trace_H_post
-    model.scale_ = scale_post
-    model.rss_ = None if sol.rss is None else float(sol.rss)
-    model.deviance_ = float(sol.deviance)
-
-    model.Vp_ = Vp_post
-    model.Vf_ = Vf_post
-    model.Vc_ = (
-        np.asarray(sol.cov_unconditional, dtype=np.float64)
-        if sol.cov_unconditional is not None
-        else (
+    fit_state = replace(fit_state, scale=float(scale_post))
+    penalized_system = fit_state.to_penalized_system()
+    fit_result = replace(
+        fit_result,
+        trace_H=float(trace_H_post),
+        edf=float(trace_H_post),
+        scale=float(scale_post),
+        cov_bayes=(
             None if Vp_post is None else np.asarray(Vp_post, dtype=np.float64).copy()
-        )
+        ),
+        cov_freq=(
+            None if Vf_post is None else np.asarray(Vf_post, dtype=np.float64).copy()
+        ),
+        H_coef=np.asarray(H_post, dtype=np.float64).copy(),
     )
-    model.edf2_ = (
-        None
-        if sol.edf2 is None
-        else np.asarray(sol.edf2, dtype=np.float64).copy()
+    sol = replace(
+        sol,
+        fit_result=fit_result,
+        fit_state=fit_state,
+        penalized_system=penalized_system,
     )
-    model._H_coef = H_post
 
-    model._fitted_eta = np.asarray(sol.eta, dtype=np.float64)
-    model._fitted_mu = np.asarray(sol.mu, dtype=np.float64)
-    model.fit_state_ = sol
-    model._summary_R_ = None
-    if sol.X is not None and sol.working_weights is not None:
-        X = np.asarray(sol.X, dtype=np.float64)
-        w = np.asarray(sol.working_weights, dtype=np.float64).ravel()
-        if X.ndim == 2 and w.shape[0] == X.shape[0]:
-            # Use unpivoted QR to match mgcv's fit$R convention.
-            _, R_nat = qr(
-                np.sqrt(np.clip(w, 0.0, None))[:, None] * X,
-                mode="economic",
-            )
-            model._summary_R_ = R_nat
-
+    model.fit_core_solution_ = sol
+    model.gam_result_ = None
     if (
         getattr(model.family, "family_class", "") == "general"
         and getattr(model, "_coef_reduced_to_full_idx", None) is not None
     ):
         full_idx = np.asarray(model._coef_reduced_to_full_idx, dtype=int)
         edf = []
-        for tb in model.term_blocks_:
+        for tb in _term_blocks_seq(model):
             idx = full_idx[tb.coef_slice]
-            edf.append(float(np.trace(model._H_coef[np.ix_(idx, idx)])))
-        model.edf_by_term_ = np.asarray(edf, dtype=np.float64)
-    else:
-        model.edf_by_term_ = compute_edf_by_term(model, model._H_coef)
+            edf.append(float(np.trace(H_post[np.ix_(idx, idx)])))
+        model._edf_by_term_fit_ = np.asarray(edf, dtype=np.float64)
+        return
+    model._edf_by_term_fit_ = compute_edf_by_term(model, H_post)
+
+
+__all__ = ["FitCoreSolution", "FitState", "PenalizedSystem", "FitResult", "assign_fit_solution", "compute_edf_by_term"]

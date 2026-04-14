@@ -26,14 +26,19 @@ Not yet implemented
 
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import Any
 
 import numpy as np
 from scipy.linalg import cho_factor
 
 from nampy.gam._mgcv_constants import LOG_GUARD_MIN
-from nampy.gam._model_state import _coef_column_offset
+from nampy.gam._model_state import (
+    _coef_column_offset,
+    _fit_core_solution,
+    _fit_result,
+    _fit_state,
+    _n_smoothing_params,
+)
 from nampy.gam.smoothing_selection.criteria.dispatch import (
     criterion_gradient,
     criterion_hessian,
@@ -52,11 +57,11 @@ from nampy.gam.smoothing_selection.criteria.ml_reml import (
     criterion_ml_reml,
     resolve_ml_reml_scoring_backend,
 )
-from nampy.gam.smoothing_selection.criteria.penalty import (
+from nampy.gam.smoothing_selection.criteria.pirls import criterion_ubre_pirls
+from nampy.gam.smoothing_selection.reparam import (
     _stable_penalty_logdet,
     _static_penalty_null_dim,
 )
-from nampy.gam.smoothing_selection.criteria.pirls import criterion_ubre_pirls
 
 
 def refresh_gaussian_ml_reml_score_from_fit_state(model: Any, y: np.ndarray) -> None:
@@ -73,7 +78,8 @@ def refresh_gaussian_ml_reml_score_from_fit_state(model: Any, y: np.ndarray) -> 
     if getattr(model, "_gaussian_reml_sigma2_opt_", None) is not None:
         return
 
-    fit_state = getattr(model, "fit_state_", None)
+    fit_state = _fit_state(model)
+    fit_result = _fit_result(model)
     if fit_state is None:
         return
 
@@ -83,7 +89,7 @@ def refresh_gaussian_ml_reml_score_from_fit_state(model: Any, y: np.ndarray) -> 
             return
 
         fixed_mask = (
-            np.zeros(model.n_smoothing_params_, dtype=bool)
+            np.zeros(_n_smoothing_params(model), dtype=bool)
             if model.smoothing_fixed_mask_ is None
             else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
         )
@@ -96,14 +102,14 @@ def refresh_gaussian_ml_reml_score_from_fit_state(model: Any, y: np.ndarray) -> 
 
         n_s = int(model.n_samples_)
         yv = np.asarray(y, dtype=np.float64).ravel()
-        mu_v = np.asarray(fit_state.mu, dtype=np.float64).ravel()
+        mu_v = np.asarray(fit_result.mu, dtype=np.float64).ravel()
         w = prior_weights_diagonal_from_fit(fit_state, n_s)
         dev = gaussian_weighted_residual_sum_squares(yv, mu_v, w)
         p_pen = (
             float(fit_state.penalty_quadratic)
             if fit_state.penalty_quadratic is not None
             else quadratic_form_penalty(
-                np.asarray(fit_state.coef_full, dtype=np.float64),
+                np.asarray(fit_result.coef_full, dtype=np.float64),
                 np.asarray(fit_state.penalty_matrix, dtype=np.float64),
             )
         )
@@ -133,9 +139,12 @@ def refresh_gaussian_ml_reml_score_from_fit_state(model: Any, y: np.ndarray) -> 
 
     reml_s2 = getattr(model, "_gaussian_reml_sigma2_opt_", None)
     if reml_s2 is not None and np.isfinite(reml_s2) and float(reml_s2) > 0.0:
-        model.scale_ = float(reml_s2)
-        if getattr(model, "fit_state_", None) is not None:
-            model.fit_state_ = replace(model.fit_state_, scale=float(reml_s2))
+        fit_core_solution = _fit_core_solution(model)
+        if fit_core_solution is not None:
+            fit_core_solution = fit_core_solution.with_fit_state(scale=float(reml_s2))
+            fit_core_solution = fit_core_solution.with_fit_result(scale=float(reml_s2))
+            model.fit_core_solution_ = fit_core_solution
+            model.gam_result_ = None
 
 
 def _score_type_bucket(score_type: str) -> str:
@@ -208,7 +217,9 @@ def gaussian_smoothness_postprocess(
 
     y = fam.validate_y(y)
     sp = np.asarray(smoothing_params, dtype=np.float64).ravel()
-    sol = model._solve_gaussian_given_smoothing(y, sp)
+    from ..model_ops import solve_gaussian_given_smoothing
+
+    sol = solve_gaussian_given_smoothing(model, y, sp)
 
     X = np.asarray(sol["X"], dtype=np.float64)
     beta = np.asarray(sol["coef_full"], dtype=np.float64).ravel()

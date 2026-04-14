@@ -7,7 +7,8 @@ Covers the following modules that have limited or no direct test coverage:
 - gam/constraints/identifiability.py
 - gam/penalties/algebra.py
 - gam/penalties/subsystem.py
-- gam/basis/tensor.py
+- gam/basis/algebra.py
+- gam/basis/t2.py
 - gam/fit/covariance.py
 - gam/fit/linalg/matrix_reindexing.py
 - gam/diagnostics/summary.py
@@ -39,12 +40,19 @@ from nampy.gam._mgcv_constants import (
     QR_TOL_SCALE,
     SMOOTHING_SCORE_ABS_FLOOR,
 )
-from nampy.gam.basis.tensor import (
-    lifted_tensor_penalty,
-    normalize_tensor_marginal_penalty,
-    rowwise_kronecker,
-    tensor_product_penalties,
+from nampy.gam.basis.algebra import rowwise_kronecker
+from nampy.gam.compiler import compile_predictors, instantiate_term
+from nampy.gam.compiler.construct import (
+    ConstructedSmooth,
+    construct_smooth,
 )
+from nampy.gam.compiler.construct import (
+    ConstructedSmooth as CompilerConstructedSmooth,
+)
+from nampy.gam.compiler.construct import (
+    construct_smooth as compiler_construct_smooth,
+)
+from nampy.gam.compiler.structures import PenaltySpec
 from nampy.gam.constraints.absorption import (
     ConstraintFitResult,
     absorb_explicit_constraints,
@@ -53,18 +61,11 @@ from nampy.gam.constraints.absorption import (
     full_term_sum_to_zero_constraint,
     should_apply_identifiability_constraint,
 )
-
-# ── imports ──────────────────────────────────────────────────────────────────
 from nampy.gam.constraints.transforms import (
     apply_coefficient_transform,
     independent_column_indices,
     null_space_basis_from_constraint_matrix,
     orthogonal_residual,
-)
-from nampy.gam.design.compiler import compile_predictor_designs
-from nampy.gam.design.constructors import construct_terms
-from nampy.gam.design.structures import (
-    PenaltySpec,
 )
 from nampy.gam.diagnostics.summary import (
     build_summary_lines,
@@ -101,8 +102,8 @@ from nampy.gam.fit.linalg.stacked_qr import (
 from nampy.gam.fit.penalized_qr import build_penalized_qr_state_nonnegative
 from nampy.gam.fit.penalized_system import build_full_penalty_from_blocks
 from nampy.gam.fit.solvers.irls_core import PenalizedIrlsControl, irls_core
-from nampy.gam.formula import compile_predictor_specs_from_formula, parse_gam_formula
-from nampy.gam.formula.parser import (
+from nampy.gam.formula import extract_formula_terms, parse_gam_formula
+from nampy.gam.formula.parse import (
     ParsedParametricTerm,
     ParsedSmoothTerm,
 )
@@ -120,7 +121,12 @@ from nampy.gam.penalties.subsystem import (
     normalize_penalty_spec,
     penalty_rank_null_dim,
 )
-from nampy.gam.runtime.factory import instantiate_term
+from nampy.gam.penalties.tensor import (
+    lifted_tensor_penalty,
+    normalize_tensor_marginal_penalty,
+    tensor_product_penalties,
+)
+from nampy.gam.results import GAMFitResult, TermFitResult
 from nampy.gam.smoothing_selection.criteria import _penalty_derivative_matrices
 from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
     deviance_method_scale_estimate,
@@ -160,8 +166,33 @@ from nampy.gam.specs import (
     TermSpec,
     build_smooth_spec,
 )
+from nampy.gam.specs.build import build_formula_model
 from nampy.gam.terms.linear import LinearTerm
 from nampy.splines.cubic import CubicSplines
+
+
+def compile_predictor_specs_from_formula(parsed, **build_kwargs):
+    return extract_formula_terms(
+        parsed, drop_intercept=build_kwargs.pop("drop_intercept", None)
+    )
+
+
+def compile_predictor_designs(X, feature_names, predictor_specs):
+    data = pd.DataFrame(X, columns=feature_names)
+    built = build_formula_model(predictor_specs, data=data, y=np.zeros(len(data)))
+    return compile_predictors(built.X, built.feature_names, built.predictor_specs)
+
+
+def construct_terms(runtime, X, feature_names):
+    return [construct_smooth(runtime, X, feature_names)]
+
+
+def test_canonical_gam_owner_imports_are_consistent():
+    assert construct_smooth is compiler_construct_smooth
+    assert ConstructedSmooth is CompilerConstructedSmooth
+    assert GAMFitResult.__module__ == "nampy.gam.results.fit_result"
+    assert TermFitResult.__module__ == "nampy.gam.results.fit_result"
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -1421,7 +1452,7 @@ class TestApplyGlobalSideConditions:
         from nampy.gam.parity.snapshots import _get_core
 
         core = _get_core(gam)
-        X = core.design_.design_matrix
+        X = core.compiled_model_.design_matrix
         # Each column of the smooth block should have zero mean
         # (sum-to-zero constraint from identifiability)
         col_means = X.mean(axis=0)
@@ -1440,7 +1471,7 @@ class TestApplyGlobalSideConditions:
         from nampy.gam.parity.snapshots import _get_core
 
         core = _get_core(gam)
-        X = core.design_.design_matrix
+        X = core.compiled_model_.design_matrix
         fr = core.fit_result()
         # coef_full layout: [intercept, coef_0, ..., coef_{n_coef-1}]
         intercept = fr.coef_full[0]
@@ -1448,6 +1479,23 @@ class TestApplyGlobalSideConditions:
         pred_manual = intercept + X @ coef
         pred_api = gam.predict(data)
         np.testing.assert_allclose(pred_manual, pred_api, atol=1e-10)
+
+    def test_fit_result_without_covariances_does_not_mutate_cached_result(self):
+        data = _make_gaussian_data(n=60)
+        gam = GAM(
+            formula='y ~ s(x0, bs="cr", k=6)',
+            optimize_smoothing=False,
+            smoothing_params=[0.5],
+        )
+        gam.fit(data=data)
+
+        without_cov = gam.fit_result(include_covariances=False)
+        assert without_cov.cov_bayes is None
+        assert without_cov.cov_freq is None
+
+        with_cov = gam.fit_result()
+        assert with_cov.cov_bayes is not None
+        assert with_cov.cov_freq is not None
 
     def test_formula_prediction_metadata_derived_from_preprocess_state(self):
         data = _make_gaussian_data(n=60)

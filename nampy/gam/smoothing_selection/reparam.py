@@ -21,7 +21,16 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 from scipy.linalg import qr as scipy_qr
 
-from .._model_state import _fit_intercept
+from .._model_state import (
+    _compiled_model,
+    _design_matrix,
+    _fit_intercept,
+    _n_coef,
+    _n_smoothing_params,
+    _penalty_blocks_seq,
+    _term_blocks_seq,
+)
+from ..fit.model_ops import uses_closed_form_solver
 
 
 @dataclass
@@ -215,23 +224,18 @@ def _positive_semidefinite_root(P, *, rank=None, tol=1e-10):
 
 
 def _grouped_penalties(model) -> list[_GroupedPenalty]:
-    p = int(
-        getattr(model, "n_coef_", 0)
-        or sum(int(tb.basis_train.shape[1]) for tb in getattr(model, "term_blocks_", []) or [])
-    )
+    term_blocks = list(_term_blocks_seq(model))
+    penalty_blocks = list(_penalty_blocks_seq(model))
+    p = int(_n_coef(model) or sum(int(tb.basis_train.shape[1]) for tb in term_blocks))
     n_sp = int(
-        getattr(model, "n_smoothing_params_", 0)
-        or (
-            max((int(pb.smoothing_index) for pb in getattr(model, "penalty_blocks_", []) or []), default=-1)
-            + 1
-        )
+        _n_smoothing_params(model)
+        or (max((int(pb.smoothing_index) for pb in penalty_blocks), default=-1) + 1)
     )
     if p == 0 or n_sp == 0:
         return []
 
     grouped = {}
-    term_blocks = list(getattr(model, "term_blocks_", []) or [])
-    for pb in model.penalty_blocks_:
+    for pb in penalty_blocks:
         k = int(pb.smoothing_index)
         entry = grouped.get(k)
         if entry is None:
@@ -491,20 +495,13 @@ def _canonical_penalty_space(model, *, tol=1e-10) -> dict[str, Any]:
     if cache is not None:
         return cache
 
-    p_pen = int(
-        getattr(model, "n_coef_", 0)
-        or sum(int(tb.basis_train.shape[1]) for tb in getattr(model, "term_blocks_", []) or [])
-    )
+    term_blocks = list(_term_blocks_seq(model))
+    penalty_blocks = list(_penalty_blocks_seq(model))
+    p_pen = int(_n_coef(model) or sum(int(tb.basis_train.shape[1]) for tb in term_blocks))
     n_sp = int(
-        getattr(model, "n_smoothing_params_", 0)
+        _n_smoothing_params(model)
         or (
-            max(
-                (
-                    int(getattr(pb, "smoothing_index", -1))
-                    for pb in getattr(model, "penalty_blocks_", []) or []
-                ),
-                default=-1,
-            )
+            max((int(getattr(pb, "smoothing_index", -1)) for pb in penalty_blocks), default=-1)
             + 1
         )
     )
@@ -688,7 +685,7 @@ def _stable_penalty_logdet(model, sp, *, tol=1e-10):
 
 def _stable_penalty_logdet_derivatives(model, sp, *, tol=1e-10, order=2):
     sp = np.asarray(sp, dtype=np.float64).ravel()
-    n_sp = int(model.n_smoothing_params_ or sp.size)
+    n_sp = int(_n_smoothing_params(model) or sp.size)
     grad = np.zeros(n_sp, dtype=np.float64)
     hess = np.zeros((n_sp, n_sp), dtype=np.float64)
 
@@ -724,10 +721,10 @@ def can_use_simple_ml_reml_structure(model):
     couplings. This mirrors the local structural requirement used when
     assembling the ``UrS``-like blocks for the Laplace ML/REML path.
     """
-    if model.design_ is None:
+    if _compiled_model(model) is None:
         return False
 
-    for pb in model.penalty_blocks_:
+    for pb in _penalty_blocks_seq(model):
         width = int(pb.coef_slice.stop - pb.coef_slice.start)
         P = np.asarray(pb.matrix, dtype=np.float64)
         if P.shape != (width, width):
@@ -743,11 +740,11 @@ def can_use_simple_ml_reml_structure(model):
 
 
 def can_use_exact_gaussian_ml_reml(model):
-    return bool(model._uses_closed_form_solver()) and can_use_simple_ml_reml_structure(model)
+    return bool(uses_closed_form_solver(model)) and can_use_simple_ml_reml_structure(model)
 
 
 def build_penalty_reparameterized_system(model):
-    if model.design_ is None:
+    if _compiled_model(model) is None:
         return _assign_reparam_state(model, None)
 
     fix_blocks = []
@@ -756,20 +753,7 @@ def build_penalty_reparameterized_system(model):
 
     cache = _canonical_penalty_space(model)
     grouped = list(cache["grouped_penalties"])
-    X_pen = getattr(model, "Z", None)
-    if X_pen is None:
-        blocks = [
-            np.asarray(tb.basis_train, dtype=np.float64)
-            for tb in getattr(model, "term_blocks_", []) or []
-            if int(np.asarray(tb.basis_train).shape[1]) > 0
-        ]
-        X_pen = (
-            np.column_stack(blocks)
-            if blocks
-            else np.empty((model.n_samples_, 0), dtype=np.float64)
-        )
-    else:
-        X_pen = np.asarray(X_pen, dtype=np.float64)
+    X_pen = np.asarray(_design_matrix(model), dtype=np.float64)
     p = int(X_pen.shape[1])
     Y = np.asarray(cache["Y"], dtype=np.float64)
     Z = np.asarray(cache["Z"], dtype=np.float64)

@@ -11,6 +11,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from ..._model_state import _penalty_blocks_seq, _predictor_designs
+from ..model_ops import expand_smoothing_params_from_log
 from ..state import FitCoreSolution
 from .gam_fit5 import GamFit5Control, gam_fit5, gam_fit5_post_proc
 
@@ -31,7 +33,7 @@ def _build_general_predictor_layout(model) -> _GeneralPredictorLayout:
     full_start = 0
     reduced_start = 0
 
-    for pred in model.predictor_designs:
+    for pred in _predictor_designs(model):
         Z = np.asarray(pred.design_matrix, dtype=np.float64)
         if bool(pred.has_intercept):
             Xp = np.column_stack([np.ones(Z.shape[0], dtype=np.float64), Z])
@@ -75,7 +77,7 @@ def _build_general_penalty_matrix(
     S_blocks: list[np.ndarray] = []
 
     full_idx = layout.reduced_to_full_idx
-    for pb in model.penalty_blocks_:
+    for pb in _penalty_blocks_seq(model):
         S_full = np.zeros((p_full, p_full), dtype=np.float64)
         idx = full_idx[pb.coef_slice]
         S_full[np.ix_(idx, idx)] = np.asarray(pb.matrix, dtype=np.float64)
@@ -208,7 +210,7 @@ def _run_general_fit5(
 
 
 def criterion_ml_reml_general_fit5(model, y, log_sp, method):
-    sp = model._expand_smoothing_params_from_log(log_sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
     run = _run_general_fit5(
         model, y, sp, weights=model.prior_weights_, deriv=0, score_type=method
     )
@@ -222,7 +224,7 @@ def criterion_gradient_ml_reml_general_fit5(model, y, log_sp, method):
             "gradients for strict mgcv parity; finite-difference fallback removed."
         )
     _record_outer_derivative_mode(model, gradient_source="analytic")
-    sp = model._expand_smoothing_params_from_log(log_sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
     run = _run_general_fit5(
         model, y, sp, weights=model.prior_weights_, deriv=1, score_type=method
     )
@@ -235,7 +237,7 @@ def criterion_gradient_ml_reml_general_fit5(model, y, log_sp, method):
 def criterion_hessian_ml_reml_general_fit5(model, y, log_sp, method):
     if _supports_analytic_outer_hessian(model.family):
         _record_outer_derivative_mode(model, hessian_source="analytic")
-        sp = model._expand_smoothing_params_from_log(log_sp)
+        sp = expand_smoothing_params_from_log(model, log_sp)
         run = _run_general_fit5(
             model, y, sp, weights=model.prior_weights_, deriv=2, score_type=method
         )
@@ -258,7 +260,7 @@ def solve_general_fit(model, y, smoothing_params, weights=None):
         deriv=(
             2
             if (
-                len(getattr(model, "penalty_blocks_", []) or []) > 0
+                len(tuple(_penalty_blocks_seq(model))) > 0
                 and bool(
                     getattr(model.family, "supports_analytic_outer_derivatives", False)
                 )
@@ -305,42 +307,44 @@ def solve_general_fit(model, y, smoothing_params, weights=None):
     beta = np.asarray(coef_full[layout.reduced_to_full_idx], dtype=np.float64)
     intercept = float(coef_full[0]) if layout.predictor_full_slices else 0.0
 
-    return FitCoreSolution(
-        coef_full=coef_full,
-        intercept=intercept,
-        beta=beta,
-        eta=eta,
-        mu=mu,
-        rss=None,
-        deviance=float(-2.0 * float(fit["l"])),
-        edf=float(np.sum(np.asarray(post["edf"], dtype=np.float64))),
-        trace_H=float(np.trace(H_coef)),
-        scale=1.0,
-        cov_bayes=np.asarray(post["Vp"], dtype=np.float64),
-        cov_freq=np.asarray(post["Ve"], dtype=np.float64),
-        cov_unconditional=Vc,
-        H_coef=H_coef,
-        edf2=np.asarray(post["edf2"], dtype=np.float64),
-        X=layout.X_full,
-        A=np.asarray(-fit["lbb"], dtype=np.float64)
-        + np.asarray(fit["St_full"], dtype=np.float64),
-        A_inv=np.asarray(post["Vp"], dtype=np.float64),
-        XtWX=None,
-        P=np.asarray(fit["St_full"], dtype=np.float64),
-        penalty_matrix=np.asarray(fit["St_full"], dtype=np.float64),
-        working_weights=None,
-        fisher_weights=None,
-        working_response=None,
-        penalty_quadratic=0.5
-        * float(coef_full @ (np.asarray(fit["St_full"], dtype=np.float64) @ coef_full)),
-        loglik=float(fit["l"]),
-        offset=None,
-        log_det_XtWX_plus_penalty=float(fit["ldetHp"]),
-        converged=(len(fit.get("warn", [])) == 0),
-        iter=int(fit["iter"]),
-        failed_step=bool(len(fit.get("warn", [])) > 0),
-        failure_reason=(
-            None if len(fit.get("warn", [])) == 0 else "; ".join(fit["warn"])
-        ),
-        inner_trace=None,
+    return FitCoreSolution.from_dict(
+        {
+            "coef_full": coef_full,
+            "intercept": intercept,
+            "beta": beta,
+            "eta": eta,
+            "mu": mu,
+            "rss": None,
+            "deviance": float(-2.0 * float(fit["l"])),
+            "edf": float(np.sum(np.asarray(post["edf"], dtype=np.float64))),
+            "trace_H": float(np.trace(H_coef)),
+            "scale": 1.0,
+            "cov_bayes": np.asarray(post["Vp"], dtype=np.float64),
+            "cov_freq": np.asarray(post["Ve"], dtype=np.float64),
+            "cov_unconditional": Vc,
+            "H_coef": H_coef,
+            "edf2": np.asarray(post["edf2"], dtype=np.float64),
+            "X": layout.X_full,
+            "A": np.asarray(-fit["lbb"], dtype=np.float64)
+            + np.asarray(fit["St_full"], dtype=np.float64),
+            "A_inv": np.asarray(post["Vp"], dtype=np.float64),
+            "XtWX": None,
+            "P": np.asarray(fit["St_full"], dtype=np.float64),
+            "penalty_matrix": np.asarray(fit["St_full"], dtype=np.float64),
+            "working_weights": None,
+            "fisher_weights": None,
+            "working_response": None,
+            "penalty_quadratic": 0.5
+            * float(coef_full @ (np.asarray(fit["St_full"], dtype=np.float64) @ coef_full)),
+            "loglik": float(fit["l"]),
+            "offset": None,
+            "log_det_XtWX_plus_penalty": float(fit["ldetHp"]),
+            "converged": (len(fit.get("warn", [])) == 0),
+            "iter": int(fit["iter"]),
+            "failed_step": bool(len(fit.get("warn", [])) > 0),
+            "failure_reason": (
+                None if len(fit.get("warn", [])) == 0 else "; ".join(fit["warn"])
+            ),
+            "inner_trace": None,
+        }
     )

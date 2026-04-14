@@ -11,6 +11,7 @@ Top-level dispatch for smoothing_selection-selection criterion value, gradient, 
 
 import numpy as np
 
+from ...fit.model_ops import uses_closed_form_solver
 from ...fit.solvers.general_fit5 import (
     criterion_gradient_ml_reml_general_fit5,
     criterion_hessian_ml_reml_general_fit5,
@@ -38,7 +39,7 @@ from .pirls_deriv import (
 def criterion_value(model, y, log_sp, method="gcv"):
     method = str(method).lower()
     if method == "gcv":
-        if model._uses_closed_form_solver():
+        if uses_closed_form_solver(model):
             return criterion_gcv_gaussian(model, y, log_sp)
         return criterion_gcv_pirls(model, y, log_sp)
     if method in {"ubre", "aic", "ubreaic"}:

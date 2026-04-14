@@ -410,3 +410,43 @@ class SplineTerm1D(BaseSmoothTerm):
             B = self._spline.transform_new_raw(xj)
 
         return self._apply_constraint_transform_and_by(B, X_new)
+
+    def tensor_marginal_fit_matrices(
+        self, *, centered=False, apply_np=False, x_train=None
+    ):
+        del apply_np, x_train
+        basis_name = str(self.basis_name).lower()
+        if basis_name in {"cr", "cs"} and self._spline is not None:
+            if centered:
+                B = np.asarray(self.basis_train, dtype=np.float64)
+                S = np.asarray(self.penalties[0], dtype=np.float64)
+                XP = self._spline._np_transform_centered
+            else:
+                B = np.asarray(self._spline.raw_basis, dtype=np.float64)
+                S = np.asarray(self._spline.raw_penalty_unscaled, dtype=np.float64)
+                XP = self._spline._np_transform
+            if XP is not None:
+                B = B @ XP
+                S = XP.T @ S @ XP
+            return B, S, XP
+        return super().tensor_marginal_fit_matrices(centered=centered)
+
+    def tensor_marginal_predict_matrix(
+        self, X_new, *, centered=False, np_transform=None
+    ):
+        basis_name = str(self.basis_name).lower()
+        if basis_name in {"cr", "cs"} and self._spline is not None:
+            xj = column_as_float(X_new, self._feature_index)
+            if centered:
+                B = self._spline.transform_new_centered(xj)
+                XP = self._spline._np_transform_centered
+            else:
+                B = self._spline.transform_new_raw(xj)
+                XP = self._spline._np_transform
+            if XP is not None:
+                B = B @ XP
+        else:
+            B = np.asarray(self.transform_new(X_new), dtype=np.float64)
+        if np_transform is not None:
+            B = B @ np.asarray(np_transform, dtype=np.float64)
+        return np.asarray(B, dtype=np.float64)

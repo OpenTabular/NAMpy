@@ -4,8 +4,12 @@ import numpy as np
 from scipy.linalg import solve_triangular
 
 from .._model_state import (
+    _coef,
     _coef_column_offset,
+    _coef_full,
+    _design_matrix,
     _fit_intercept,
+    _intercept,
     _require_fitted,
     _term_blocks_seq,
 )
@@ -40,10 +44,13 @@ def _term_blocks_for_concurvity(model, X):
 
 
 def _full_coef_vector(model) -> np.ndarray:
-    beta = np.asarray(model.coef_, dtype=np.float64).ravel()
+    coef_full = _coef_full(model)
+    if coef_full is not None:
+        return np.asarray(coef_full, dtype=np.float64).ravel()
+    beta = np.asarray(_coef(model), dtype=np.float64).ravel()
     if _fit_intercept(model):
         return np.concatenate(
-            [np.array([float(model.intercept_)], dtype=np.float64), beta]
+            [np.array([float(_intercept(model))], dtype=np.float64), beta]
         )
     return beta
 
@@ -64,7 +71,7 @@ def _residualize_against(A: np.ndarray, B: np.ndarray) -> np.ndarray:
 def concurvity(model, full: bool = True):
     _require_fitted(model)
 
-    Z = np.asarray(model.design_.design_matrix, dtype=np.float64)
+    Z = np.asarray(_design_matrix(model), dtype=np.float64)
     if _fit_intercept(model):
         X = np.column_stack([np.ones(Z.shape[0], dtype=np.float64), Z])
     else:

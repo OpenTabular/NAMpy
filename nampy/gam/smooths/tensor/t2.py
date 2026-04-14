@@ -12,12 +12,9 @@ import warnings
 
 import numpy as np
 
-from ...basis.tensor import (
-    build_t2_basis_and_penalties,
-    materialize_t2_newdata,
-    rescale_tensor_penalties_for_fit,
-    t2_marginal_reparameterization,
-)
+from ...basis.algebra import t2_marginal_reparameterization
+from ...basis.t2 import build_t2_basis_and_penalties, materialize_t2_newdata
+from ...penalties import rescale_tensor_penalties_for_fit
 from ...penalties.algebra import null_space_penalty_from_penalty
 from ..registry import register_smooth
 from ..smooth_base import (

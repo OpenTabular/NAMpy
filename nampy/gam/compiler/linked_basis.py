@@ -5,10 +5,7 @@ import numpy as np
 
 from ...splines.cubic import CubicSplines
 from ..specs import LinearPredictorSpec, TermSpec, replace_smooth_spec
-from ..specs.smooth import (
-    CubicRegressionSmoothSpec,
-    CubicShrinkageSmoothSpec,
-)
+from ..specs.smooth import CubicRegressionSmoothSpec, CubicShrinkageSmoothSpec
 
 
 def _resolve_feature_column(X, feature_names, feature):
@@ -74,11 +71,11 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
 
         first_term = eligible_items[0][2]
         if first_term.smooth_spec is None:
-            raise ValueError(f"Smooth term {first_term.label!r} is missing smooth_spec.")
+            raise ValueError(
+                f"Smooth term {first_term.label!r} is missing smooth_spec."
+            )
         first_fx = bool(first_term.smooth_spec.fx)
 
-        # fx mismatch: mixing fixed and penalized terms is semantically incompatible
-        # because fixed terms have no smoothing parameter to share.
         fx_incompatible = []
         for _pi, _ti, term in eligible_items:
             if term.smooth_spec is None:
@@ -93,8 +90,6 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
                 f"Problems: {fx_incompatible}"
             )
 
-        # k harmonisation: mgcv resolves k mismatches by using the first term's k
-        # for the shared basis, matching the representative-term convention in mgcv.
         all_k = [
             int(term.smooth_spec.k) for _, _, term in eligible_items if term.smooth_spec
         ]
@@ -116,10 +111,6 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
             continue
 
         pooled_x = np.concatenate(pooled_columns)
-
-        # Build a temporary spline from pooled data to extract canonical knots and
-        # penalty matrices.  Storing the k×k penalty (not the full n×k basis) keeps
-        # the shared_setup dict O(k²) rather than O(n).
         pooled_spl = CubicSplines(pooled_x, canonical_k)
         shared_setup = {
             "mode": "pooled_cr_1d",

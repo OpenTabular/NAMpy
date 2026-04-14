@@ -1,6 +1,7 @@
 """Canonical declarative GAM specification objects."""
 
 from .base import TermSpec
+from .build import build_smooth_spec, smooth_spec_from_basis_options
 from .predictors import LinearPredictorSpec, PenaltyGroupSpec
 from .smooth import (
     BaseSmoothSpec,
@@ -19,7 +20,6 @@ from .smooth import (
     TensorProductSmoothSpec,
     ThinPlateShrinkageSmoothSpec,
     ThinPlateSmoothSpec,
-    build_smooth_spec,
     replace_smooth_spec,
 )
 
@@ -44,5 +44,6 @@ __all__ = [
     "ThinPlateShrinkageSmoothSpec",
     "ThinPlateSmoothSpec",
     "build_smooth_spec",
+    "smooth_spec_from_basis_options",
     "replace_smooth_spec",
 ]

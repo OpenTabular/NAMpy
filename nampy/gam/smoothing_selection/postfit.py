@@ -4,13 +4,14 @@ import numpy as np
 from scipy.stats import norm
 
 from .._mgcv_constants import LINK_ETA_EXP_CLIP, LOG_GUARD_MIN
-from .._model_state import _require_fitted
+from .._model_state import _fit_scale, _n_smoothing_params, _require_fitted
+from ..fit.model_ops import criterion_hessian as fit_criterion_hessian
 from .criteria.dispatch import criterion_gradient, criterion_hessian, criterion_value
 from .criteria.ml_reml import resolve_ml_reml_scoring_backend
 
 
 def _free_smoothing_mask(model) -> np.ndarray:
-    n_sp = int(getattr(model, "n_smoothing_params_", 0) or 0)
+    n_sp = int(_n_smoothing_params(model) or 0)
     fixed = getattr(model, "smoothing_fixed_mask_", None)
     if fixed is None:
         return np.ones(n_sp, dtype=bool)
@@ -39,7 +40,8 @@ def sp_vcov(model, edge_correct: bool = True, reg: float = 1e-3):
     if H is None:
         log_sp = _free_log_smoothing_params(model)
         H = np.asarray(
-            model._criterion_hessian(model.y_, log_sp, method=method), dtype=np.float64
+            fit_criterion_hessian(model, model.y_, log_sp, method=method),
+            dtype=np.float64,
         )
     else:
         H = np.asarray(H, dtype=np.float64)
@@ -62,7 +64,7 @@ def gam_vcomp(model, *, rescale: bool = False, conf_lev: float = 0.95):
     if sp.size == 0:
         return None
 
-    scale = float(model.scale_)
+    scale = float(_fit_scale(model))
     vc = scale / sp
     sd = np.sqrt(vc)
     names = [f"sp_{i}" for i in range(len(sp))]
@@ -75,7 +77,8 @@ def gam_vcomp(model, *, rescale: bool = False, conf_lev: float = 0.95):
     if H is None:
         log_sp = _free_log_smoothing_params(model)
         H = np.asarray(
-            model._criterion_hessian(model.y_, log_sp, method=method), dtype=np.float64
+            fit_criterion_hessian(model, model.y_, log_sp, method=method),
+            dtype=np.float64,
         )
     else:
         H = np.asarray(H, dtype=np.float64)
@@ -162,7 +165,7 @@ def optimizer_endpoint_diagnostics(
     _require_fitted(model)
 
     method = str(getattr(model, "_optim_method", "") or "").lower()
-    n_sp = int(getattr(model, "n_smoothing_params_", 0) or 0)
+    n_sp = int(_n_smoothing_params(model) or 0)
     result = getattr(model, "_optim_result", None)
     if method in {"", "fixed"} or n_sp == 0:
         return None

@@ -1129,7 +1129,9 @@ def gaussian_design_needs_stacked_qr_fit(model) -> bool:
     for tb in _term_blocks_seq(model):
         if str(getattr(tb, "term_type", "")).lower() == "random_effect":
             return True
-    Z = getattr(model, "Z", None)
+    from ..._model_state import _design_matrix
+
+    Z = _design_matrix(model)
     if Z is None:
         return False
     from ..penalized_system import build_full_design

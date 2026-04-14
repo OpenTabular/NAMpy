@@ -6,7 +6,7 @@ import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 from scipy.special import digamma, polygamma
 
-from ..._model_state import _coef_column_offset
+from ..._model_state import _coef_column_offset, _n_smoothing_params
 from ...fit.linalg.matrix_reindexing import (
     drop_columns_dense,
     drop_rows_dense,
@@ -17,8 +17,16 @@ from ...fit.linalg.stacked_qr import (
     build_penalized_qr_state_nonnegative,
     penalty_sqrt_rows,
 )
-from ..reparam import build_canonical_gam_reparam_state
-from .penalty import _stable_penalty_logdet_derivatives, _static_penalty_null_dim
+from ...fit.model_ops import (
+    can_use_simple_ml_reml_structure,
+    expand_smoothing_params_from_log,
+    solve_pirls_given_smoothing,
+)
+from ..reparam import (
+    _stable_penalty_logdet_derivatives,
+    _static_penalty_null_dim,
+    build_canonical_gam_reparam_state,
+)
 from .pirls import _gamma_profile_objective_curvature, _solve_gamma_profile_scale
 from .pirls_reml_derivative_blocks import (
     _deviance_chained_to_smoothing,
@@ -254,8 +262,8 @@ def _negbin_ddeta_logtheta(family, y, mu, weights, *, deriv):
 
 def _gamma_joint_kernel_state(model, y, log_sp, method):
     method = str(method).upper()
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    sol = model._solve_pirls_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp)
     gdi2 = _gdi2_joint_kernel(model, y, sol, sp, method=method, need_hessian=True)
     state = {
         "K": gdi2.gdi1.K,
@@ -286,7 +294,7 @@ def criterion_gradient_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, meth
         n_free = (
             int(np.sum(~np.asarray(model.smoothing_fixed_mask_, dtype=bool)))
             if model.smoothing_fixed_mask_ is not None
-            else int(model.n_smoothing_params_ or 0)
+            else int(_n_smoothing_params(model) or 0)
         )
         return np.full(n_free + 1, np.nan, dtype=np.float64)
 
@@ -299,7 +307,7 @@ def criterion_gradient_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, meth
         method=str(method).upper(),
     )
     free_mask = (
-        np.zeros(model.n_smoothing_params_, dtype=bool)
+        np.zeros(_n_smoothing_params(model), dtype=bool)
         if model.smoothing_fixed_mask_ is None
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
@@ -329,7 +337,7 @@ def criterion_hessian_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, metho
         n_free = (
             int(np.sum(~np.asarray(model.smoothing_fixed_mask_, dtype=bool)))
             if model.smoothing_fixed_mask_ is not None
-            else int(model.n_smoothing_params_ or 0)
+            else int(_n_smoothing_params(model) or 0)
         )
         return np.full((n_free + 1, n_free + 1), np.nan, dtype=np.float64)
 
@@ -342,7 +350,7 @@ def criterion_hessian_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, metho
         method=str(method).upper(),
     )
     free_mask = (
-        np.zeros(model.n_smoothing_params_, dtype=bool)
+        np.zeros(_n_smoothing_params(model), dtype=bool)
         if model.smoothing_fixed_mask_ is None
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
@@ -379,8 +387,8 @@ def _negbin_joint_kernel_state(model, y, log_sp, log_theta, method):
     try:
         model.family.putTheta(float(log_theta))
         model.family._disable_theta_efs = True
-        sp = model._expand_smoothing_params_from_log(log_sp)
-        sol = model._solve_pirls_given_smoothing(y, sp)
+        sp = expand_smoothing_params_from_log(model, log_sp)
+        sol = solve_pirls_given_smoothing(model, y, sp)
         gdi2 = _gdi2_joint_kernel(
             model, y, sol, sp, method=str(method).upper(), need_hessian=True
         )
@@ -404,7 +412,7 @@ def criterion_gradient_ml_reml_pirls_negbin_joint(model, y, log_sp, log_theta, m
     state = _negbin_joint_kernel_state(model, y, log_sp, log_theta, method)
     gamma = float(model.score_gamma)
     free_mask = (
-        np.zeros(model.n_smoothing_params_, dtype=bool)
+        np.zeros(_n_smoothing_params(model), dtype=bool)
         if model.smoothing_fixed_mask_ is None
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
@@ -424,7 +432,7 @@ def criterion_hessian_ml_reml_pirls_negbin_joint(model, y, log_sp, log_theta, me
     state = _negbin_joint_kernel_state(model, y, log_sp, log_theta, method)
     gamma = float(model.score_gamma)
     free_mask = (
-        np.zeros(model.n_smoothing_params_, dtype=bool)
+        np.zeros(_n_smoothing_params(model), dtype=bool)
         if model.smoothing_fixed_mask_ is None
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
@@ -464,7 +472,7 @@ def _gdi_pk_setup(model, sol, sp, *, deriv):
     rSncol = []
     roots = list(canonical.rp.get("rS", []))
     rows_e = q_range_full
-    for j in range(int(model.n_smoothing_params_ or 0)):
+    for j in range(int(_n_smoothing_params(model) or 0)):
         if j < len(roots):
             root = np.asarray(roots[j], dtype=np.float64)
             if root.size:
@@ -631,7 +639,7 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
     P_derivs = [
         _drop_permute_symmetric(Pj, current.dropped_column_indices, current.pivot1)
         for Pj in _canonical_penalty_derivative_matrices(
-            current.canonical, sp, int(model.n_smoothing_params_ or 0)
+            current.canonical, sp, int(_n_smoothing_params(model) or 0)
         )
     ]
     if str(getattr(model.family, "name", "")).lower() == "negbin":
@@ -1157,7 +1165,7 @@ def _gdi2_ift2_state_negbin(model, y, sol, sp, current, pk_state):
     P_sp = [
         _drop_permute_symmetric(Pj, current.dropped_column_indices, current.pivot1)
         for Pj in _canonical_penalty_derivative_matrices(
-            current.canonical, sp, int(model.n_smoothing_params_ or 0)
+            current.canonical, sp, int(_n_smoothing_params(model) or 0)
         )
     ]
 
@@ -1446,7 +1454,7 @@ def _gdi2_joint_kernel(model, y, sol, sp, *, method, need_hessian):
 
 
 def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
-    if not model._can_use_simple_ml_reml_structure():
+    if not can_use_simple_ml_reml_structure(model):
         raise NotImplementedError(
             "Exact PIRLS ML/REML gradients are currently available only for "
             "terms whose penalties do not couple disconnected support "
@@ -1467,7 +1475,7 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
             "fixed-scale families, plus Gamma via the profiled scale branch."
         )
     free_mask = (
-        np.zeros(model.n_smoothing_params_, dtype=bool)
+        np.zeros(_n_smoothing_params(model), dtype=bool)
         if model.smoothing_fixed_mask_ is None
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
@@ -1475,8 +1483,8 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
     if int(np.sum(free_mask)) == 0:
         return np.empty((0,), dtype=np.float64)
 
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    sol = model._solve_pirls_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp)
     kernel = _gdi1_kernel(model, y, sol, sp, method=method)
     scale = float(sol["scale"])
 
@@ -1501,7 +1509,7 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
 
 
 def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
-    if not model._can_use_simple_ml_reml_structure():
+    if not can_use_simple_ml_reml_structure(model):
         raise NotImplementedError(
             "Exact PIRLS ML/REML Hessians are currently available only for "
             "terms whose penalties do not couple disconnected support "
@@ -1525,7 +1533,7 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
         )
 
     free_mask = (
-        np.zeros(model.n_smoothing_params_, dtype=bool)
+        np.zeros(_n_smoothing_params(model), dtype=bool)
         if model.smoothing_fixed_mask_ is None
         else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
@@ -1535,8 +1543,8 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
     if n_free == 0:
         return np.empty((0, 0), dtype=np.float64)
 
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    sol = model._solve_pirls_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp)
     kernel = _gdi1_kernel(model, y, sol, sp, method=method)
     scale = float(sol["scale"])
 

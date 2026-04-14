@@ -1,5 +1,3 @@
-# After univariate/tensor smooths load (SplineTerm1D, etc.); registers parametric "linear".
-from ..terms.linear import LinearTerm as _LinearTerm  # noqa: F401
 from .registry import available_smooths, make_smooth_term, register_smooth
 from .smooth_base import (
     RUNTIME_TERM_INTERFACE_CHECKLIST,

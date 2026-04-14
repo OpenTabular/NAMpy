@@ -18,8 +18,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ...basis.tensor import rowwise_kronecker
-from ...design.structures import PenaltySpec
+from ...basis.algebra import rowwise_kronecker
+from ...compiler.structures import PenaltySpec
 from ...penalties import build_null_space_selection_spec
 from ..smooth_base import (
     BaseSmoothTerm,
