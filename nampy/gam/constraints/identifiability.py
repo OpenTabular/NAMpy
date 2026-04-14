@@ -1,16 +1,4 @@
-"""
-Stage 5 of the GAM fit pipeline: predictor-wide identifiability side conditions.
-
-Pipeline overview
------------------
-Stage 1  formula / spec layer           gam/formula/
-Stage 2  runtime term materialization   gam/runtime/factory.py + gam/smooths/*
-Stage 3  term construction wrapper      gam/smooths/construct.py
-Stage 4  predictor compilation          gam/runtime/compile.py
-Stage 5  predictor-wide side conds      gam/constraints/identifiability.py  <- here
-Stage 6  model fitting                  gam/fit/
-Stage 7  prediction / parity            gam/predict/ + gam/parity/
-"""
+"""Predictor-wide identifiability side conditions for compiled GAM designs."""
 
 from __future__ import annotations
 
@@ -109,8 +97,7 @@ def apply_global_side_conditions(
     """
     Apply predictor-wide identifiability side conditions to a CompiledPredictor.
 
-    This is stage 5 of the fit pipeline.  It walks each compiled term in order
-    and performs three operations:
+    It walks each compiled term in order and performs three operations:
 
     1. **Exempt terms** (random effects, factor smooths):
        Preserve their basis and penalties unchanged.  Still add their columns to
@@ -133,7 +120,7 @@ def apply_global_side_conditions(
           basis that are linearly dependent on the current span accumulator.
 
        After both steps, ``CompiledTerm.basis_transform`` holds the full mapping
-       from the stage-4 constructed-term coefficient space to the final fitted
+       from the constructed-term coefficient space to the final fitted
        coefficient space. Prediction uses
        ``smooth.predict_matrix(X_new) @ basis_transform`` and nothing else
        (invariant 6.2: ``basis_transform`` is canonical).
@@ -145,7 +132,7 @@ def apply_global_side_conditions(
     Parameters
     ----------
     design : CompiledPredictor
-        Output of stage 4 (``compile_predictors``).
+        Output of ``compile_predictors``.
     fit_intercept : bool
         Whether the model has an intercept.  Controls whether the constant
         column is seeded into the span accumulator and whether sum-to-zero
@@ -287,7 +274,7 @@ def apply_global_side_conditions(
 
         # ── Non-exempt: centering + column selection ──────────────────────────
         #
-        # C accumulates the coefficient transform from the stage-4 constructed
+        # C accumulates the coefficient transform from the constructed-term
         # coefficient space to the current (pre-side-condition) space.
         # Initialise from whatever the compiler recorded; fall back to identity.
         C = (

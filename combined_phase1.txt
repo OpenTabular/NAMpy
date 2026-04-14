@@ -2022,7 +2022,7 @@ def make_smooth_term(kind: str, *args, **kwargs):
 
 # --- Start of nampy/gam/smooths/smooth_base.py ---
 """
-Runtime smooth term base class and shared helpers (Stage 2 of the pipeline).
+Runtime smooth term base class and shared helpers.
 
 :class:`BaseSmoothTerm`
     Abstract base for all runtime smooth terms.  Each concrete subclass
@@ -2035,7 +2035,7 @@ Runtime smooth term base class and shared helpers (Stage 2 of the pipeline).
         - ``n_coef``: number of coefficient columns.
 
     Optional delegation (by-variable and constraint handling may be
-    delegated to the Stage-3 wrapper in smooths/construct.py):
+    delegated to the construction wrapper in ``smooths/construct.py``):
         - ``constraint_mode``: ``"auto"``, ``"always"``, ``"never"``, ``"factor_by"``.
         - ``delegate_constraint``: if True, the term returns the raw unconstrained
           basis and lets the wrapper apply sum-to-zero or factor-by absorption.
@@ -2365,7 +2365,7 @@ class BaseSmoothTerm(abc.ABC):
         get_penalty_definitions  list of PenaltySpec via penalty subsystem
         label, basis_name, term_type, feature
         transform_applied        True if fit applied an explicit constraint transform
-        skip_centering          True if stage 5 must skip external centering
+        skip_centering          True if identifiability processing must skip external centering
         constraint_transform     coefficient transform T from raw → constrained space, or None
         prediction_offset
 
@@ -2375,8 +2375,8 @@ class BaseSmoothTerm(abc.ABC):
     - If a coefficient transform T was applied during fit, penalties satisfy
       ``S_fitted = T.T @ S_raw @ T``.
     - Explicit constraint transforms are done either by the runtime term OR
-      delegated to the stage-3 wrapper via ``transform_applied = False``.
-    - ``skip_centering`` is separate: runtimes may request no stage-5 centering
+      delegated to the construction wrapper via ``transform_applied = False``.
+    - ``skip_centering`` is separate: runtimes may request no predictor-level centering
       even when no explicit coefficient transform was applied.
     """
 
@@ -2423,7 +2423,7 @@ class BaseSmoothTerm(abc.ABC):
         self.constraint_transform = transform
         self.constraints_absorbed_by = absorbed_by
         # ``transform_applied`` means fit changed coefficient coordinates.
-        # ``skip_centering`` means stage 5 must not add external centering,
+        # ``skip_centering`` means identifiability handling must not add external centering,
         # even when no explicit transform exists.
         self.transform_applied = bool(transform is not None)
         self.skip_centering = self.transform_applied or (absorbed_by is not None)

@@ -1,5 +1,5 @@
 """
-GAM fitting subsystem (Stage 6 of the pipeline).
+GAM fitting subsystem.
 
 Public entry points
 -------------------

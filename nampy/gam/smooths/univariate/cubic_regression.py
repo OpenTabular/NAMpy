@@ -269,7 +269,7 @@ class SplineTerm1D(BaseSmoothTerm):
                 if pooled_setup:
                     # Knots / identconst for linked `id=` smooths are built from pooled
                     # covariates; centered columns from transform_new_centered(xj) need
-                    # not sum to zero on each term's row subset, so stage 5 would apply a
+                    # not sum to zero on each term's row subset, so identifiability would apply a
                     # second sum-to-zero and drop an extra column vs mgcv. Use raw subset
                     # basis and let apply_global_side_conditions perform the single
                     # centering (same pattern as the non-centered branch).
