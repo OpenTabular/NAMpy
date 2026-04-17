@@ -7,14 +7,11 @@ import numpy as np
 
 from ....splines.mrf import nat_param_type1
 from ..._mgcv_constants import EIG_TOL_POWER
-from ...basis.algebra import rowwise_kronecker
 from ...compiler.structures import PenaltySpec
-from ...penalties import (
-    build_null_space_selection_spec,
-    rescale_tensor_penalties_for_fit,
-)
+from ...penalties import rescale_tensor_penalties_for_fit
+from ..algebra import rowwise_kronecker
 from ..registry import make_smooth_term
-from ..smooth_base import BaseSmoothTerm, column_as_object
+from ..smooth_base import BaseSmoothTerm, by_values_from_new_data, column_as_object
 from ..univariate.cubic_regression import SplineTerm1D
 from ..univariate.pspline import PSplineTerm1D
 from .categorical_utils import (
@@ -93,6 +90,7 @@ def _build_base_smooth_term(
     base_bs,
     label,
     fixed,
+    by,
     knots,
     xt_rest,
     mode,  # "fs" or "sz"
@@ -131,7 +129,7 @@ def _build_base_smooth_term(
             basis=base_bs,
             label=label,
             smoothing_id=None,
-            by=None,
+            by=by,
             sp=None,
             select=bool(select),
             fixed=bool(fixed),
@@ -154,7 +152,7 @@ def _build_base_smooth_term(
             m=ps_m,
             label=label,
             smoothing_id=None,
-            by=None,
+            by=by,
             sp=None,
             select=bool(select),
             fixed=bool(fixed),
@@ -173,7 +171,7 @@ def _build_base_smooth_term(
             m=None,
             label=label,
             smoothing_id=None,
-            by=None,
+            by=by,
             sp=None,
             select=bool(select),
             fixed=bool(fixed),
@@ -193,7 +191,7 @@ def _build_base_smooth_term(
             m=None,
             label=label,
             smoothing_id=None,
-            by=None,
+            by=by,
             sp=None,
             select=bool(select),
             fixed=bool(fixed),
@@ -420,11 +418,6 @@ class _FactorSmoothBase(BaseSmoothTerm):
         """
         X = self._resolve_features(X, feature_names)
 
-        if self.by is not None:
-            raise NotImplementedError(
-                f"{self.basis_name} terms do not currently support an additional by= variable."
-            )
-
         if len(self._factor_feature_indices) == 0:
             base_spec = _parse_factor_smooth_xt(self.xt, default_bs=default_bs)
             base_term = _build_base_smooth_term(
@@ -433,6 +426,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
                 base_bs=base_spec.bs,
                 label=self.label,
                 fixed=self.fixed,
+                by=self.by,
                 knots=self.knots,
                 xt_rest=base_spec.xt_rest,
                 mode=mode,
@@ -456,7 +450,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
                 feature=self._factor_feature_names,
                 label=self.label,
                 smoothing_id=self.smoothing_id,
-                by=None,
+                by=self.by,
                 sp=self.sp,
                 select=self.select,
                 xt=self.xt,
@@ -496,11 +490,6 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         knots=None,
         metadata=None,
     ):
-        if smoothing_id is not None:
-            raise NotImplementedError(
-                "Current bs='fs' implementation does not support id/linkage across terms."
-            )
-
         super().__init__(
             feature=feature,
             basis_name="fs",
@@ -533,6 +522,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             raise NotImplementedError("bs='fs' requires exactly one factor variable.")
 
         X = _as_object_2d(X)
+        self._set_by_state(X, feature_names)
 
         base_spec = _parse_factor_smooth_xt(self.xt, default_bs="tp")
         # mgcv::smooth.construct.fs.smooth.spec calls smooth.construct on the
@@ -545,6 +535,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             base_bs=base_spec.bs,
             label=self.label,
             fixed=self.fixed,
+            by=None,
             knots=self.knots,
             xt_rest=base_spec.xt_rest,
             mode="fs",
@@ -573,6 +564,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
 
         if len(base_term.penalties) == 0:
             X_full = rowwise_kronecker([Ifac, B0])
+            X_full = self._apply_cached_by(X_full)
             self._basis_train = np.asarray(X_full, dtype=np.float64)
             self._penalties = []
             self._smoothing_ids = []
@@ -651,6 +643,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         # Apply mgcv smoothCon scale_penalty step: normalise S relative to X.
         penalties = rescale_tensor_penalties_for_fit(X_full, penalties)
 
+        X_full = self._apply_cached_by(X_full)
         self._basis_train = np.asarray(X_full, dtype=np.float64)
         self._penalties = penalties
         self._smoothing_ids = smoothing_ids
@@ -673,7 +666,11 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         if self._base_transform is not None:
             B0_new = B0_new @ self._base_transform
 
-        return np.asarray(rowwise_kronecker([Ifac, B0_new]), dtype=np.float64)
+        B_new = rowwise_kronecker([Ifac, B0_new])
+        z = by_values_from_new_data(X_new, self._by_state)
+        return np.asarray(
+            self._apply_by_scale(B_new, z, allow_missing=True), dtype=np.float64
+        )
 
     def get_penalty_definitions(self):
         if self._delegate_term is not None:
@@ -715,6 +712,8 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
                         "basis_name": self.basis_name,
                         "feature": list(self.feature),
                         "label": self.label,
+                        "by": self.by,
+                        "by_name": self._by_state.feature_name,
                         "factor_name": self._factor_feature_names[0],
                         "levels": list(self._levels),
                         "base_basis_name": (
@@ -783,6 +782,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             return self
 
         X = _as_object_2d(X)
+        self._set_by_state(X, feature_names)
 
         base_spec = _parse_factor_smooth_xt(self.xt, default_bs="tp")
         base_term = _build_base_smooth_term(
@@ -791,6 +791,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             base_bs=base_spec.bs,
             label=self.label,
             fixed=self.fixed,
+            by=None,
             knots=self.knots,
             xt_rest=base_spec.xt_rest,
             mode="sz",
@@ -842,6 +843,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         X_con = X_raw @ T
 
         if len(base_term.penalties) == 0:
+            X_con = self._apply_cached_by(X_con)
             self._basis_train = np.asarray(X_con, dtype=np.float64)
             self._penalties = []
             self._smoothing_ids = []
@@ -888,6 +890,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
                 scale = maXX / maS0
                 penalties = [P * scale for P in penalties]
 
+        X_con = self._apply_cached_by(X_con)
         self._basis_train = np.asarray(X_con, dtype=np.float64)
         self._penalties = penalties
         self._smoothing_ids = smoothing_ids
@@ -913,7 +916,11 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         if self._factor_transform.shape[1] == 0:
             return np.empty((X_raw.shape[0], 0), dtype=np.float64)
 
-        return np.asarray(X_raw @ self._factor_transform, dtype=np.float64)
+        B_new = X_raw @ self._factor_transform
+        z = by_values_from_new_data(X_new, self._by_state)
+        return np.asarray(
+            self._apply_by_scale(B_new, z, allow_missing=True), dtype=np.float64
+        )
 
     def get_penalty_definitions(self):
         if self._delegate_term is not None:
@@ -955,6 +962,8 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
                         "basis_name": self.basis_name,
                         "feature": list(self.feature),
                         "label": self.label,
+                        "by": self.by,
+                        "by_name": self._by_state.feature_name,
                         "factor_names": list(self._factor_feature_names),
                         "factor_levels": [list(lev) for lev in self._factor_levels],
                         "base_basis_name": (
@@ -969,33 +978,27 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             )
 
         if self.select and len(self._penalties) > 0:
-            main_penalty = np.sum(np.asarray(self._penalties, dtype=np.float64), axis=0)
-            select_sid = (
-                f"{self.smoothing_id}::select"
-                if self.smoothing_id is not None
-                else f"__sz__:{self.label}:select"
+            selection_meta = {
+                "term_type": self.term_type,
+                "basis_name": self.basis_name,
+                "feature": list(self.feature),
+                "label": self.label,
+                "by": self.by,
+                "by_name": self._by_state.feature_name,
+                "factor_names": list(self._factor_feature_names),
+                "factor_levels": [list(lev) for lev in self._factor_levels],
+                "base_basis_name": (
+                    self._base_term.basis_name if self._base_term is not None else None
+                ),
+                "base_metric_features": list(self._metric_feature_names),
+                "shared_smoothing_id": self.smoothing_id,
+            }
+            defs.extend(
+                self._build_selection_penalty_definitions(
+                    [np.asarray(P, dtype=np.float64) for P in self._penalties],
+                    selection_metadata=selection_meta,
+                    fallback_selection_smoothing_id=f"__sz__:{self.label}:select",
+                )
             )
-            sel_spec = build_null_space_selection_spec(
-                main_penalty=main_penalty,
-                smoothing_id=select_sid,
-                metadata={
-                    "term_type": self.term_type,
-                    "basis_name": self.basis_name,
-                    "feature": list(self.feature),
-                    "label": self.label,
-                    "factor_names": list(self._factor_feature_names),
-                    "factor_levels": [list(lev) for lev in self._factor_levels],
-                    "base_basis_name": (
-                        self._base_term.basis_name
-                        if self._base_term is not None
-                        else None
-                    ),
-                    "base_metric_features": list(self._metric_feature_names),
-                    "shared_smoothing_id": self.smoothing_id,
-                    "is_selection_penalty": True,
-                },
-            )
-            if sel_spec is not None:
-                defs.append(sel_spec)
 
         return defs

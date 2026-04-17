@@ -336,6 +336,84 @@ def _scatter_nonnegative_coefficients(PKtz, kept, pivot1, q):
     return beta_full
 
 
+def _scatter_pivoted_rank_matrix_to_full(
+    pivoted_rank_matrix: np.ndarray,
+    kept_original_indices: list[int] | tuple[int, ...] | np.ndarray,
+    pivot1: np.ndarray,
+    q_total: int,
+) -> np.ndarray:
+    """
+    Undo stacked-QR drop/pivot bookkeeping on a rank-space matrix.
+
+    Mirrors `mgcv/src/gdi.c` post-processing: the final `P = R^{-1}` lives in the
+    pivoted reduced parameterization, so covariance roots need both the final
+    column unpivot and the dropped-column reinsertion to get back to the full
+    coefficient space.
+    """
+    pivoted_rank_matrix = np.asarray(pivoted_rank_matrix, dtype=np.float64)
+    pivot1 = np.asarray(pivot1, dtype=np.int64).ravel()
+    kept = np.asarray(kept_original_indices, dtype=np.int64).ravel()
+
+    if pivoted_rank_matrix.ndim != 2:
+        raise ValueError("pivoted_rank_matrix must be 2-D.")
+    if pivoted_rank_matrix.shape[0] != pivot1.size:
+        raise ValueError("pivoted_rank_matrix row count must match final pivot length.")
+    if kept.size != pivot1.size:
+        raise ValueError(
+            "kept_original_indices length must match final stacked-QR rank."
+        )
+
+    unpivoted_kept = np.zeros(
+        (kept.size, pivoted_rank_matrix.shape[1]), dtype=np.float64
+    )
+    unpivoted_kept[pivot1, :] = pivoted_rank_matrix
+
+    full = np.zeros((int(q_total), pivoted_rank_matrix.shape[1]), dtype=np.float64)
+    full[kept, :] = unpivoted_kept
+    return full
+
+
+def stacked_qr_covariance_from_factor(
+    upper_r_final: np.ndarray,
+    *,
+    pivot1: np.ndarray,
+    kept_original_indices: list[int] | tuple[int, ...] | np.ndarray,
+    q_total: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Rank-aware covariance root and covariance for stacked-QR Gaussian solves.
+
+    Mirrors `mgcv::magic.post.proc()` / `gdiPK()` logic: if the penalized system
+    is rank deficient, covariance is formed from the reduced `R^{-1}` root in the
+    identified parameter space and then scattered back to the full coefficient
+    layout, rather than by inverting the singular full `X'WX + S`.
+    """
+    upper_r_final = np.asarray(upper_r_final, dtype=np.float64)
+    if upper_r_final.ndim != 2 or upper_r_final.shape[0] != upper_r_final.shape[1]:
+        raise ValueError("upper_r_final must be square.")
+    rank = int(upper_r_final.shape[0])
+    if rank == 0:
+        root = np.zeros((int(q_total), 0), dtype=np.float64)
+        cov = np.zeros((int(q_total), int(q_total)), dtype=np.float64)
+        return root, cov
+
+    rank_root = solve_triangular(
+        upper_r_final,
+        np.eye(rank, dtype=np.float64),
+        lower=False,
+        check_finite=False,
+    )
+    root_full = _scatter_pivoted_rank_matrix_to_full(
+        rank_root,
+        kept_original_indices=kept_original_indices,
+        pivot1=pivot1,
+        q_total=int(q_total),
+    )
+    cov = np.asarray(root_full @ root_full.T, dtype=np.float64)
+    cov = 0.5 * (cov + cov.T)
+    return root_full, cov
+
+
 def build_penalized_qr_state_nonnegative(
     X: np.ndarray,
     z: np.ndarray,
@@ -530,6 +608,16 @@ def _dormqr_apply(
     lwork: int | None = None,
 ) -> np.ndarray:
     """Apply Householder ``Q`` from ``dgeqp3`` to Fortran-contiguous operand matrix."""
+    qr_a = np.asfortranarray(np.asarray(qr_a, dtype=np.float64), dtype=np.float64)
+    tau = np.asarray(tau, dtype=np.float64).ravel()
+    k = int(tau.shape[0])
+    if side == b"L" and qr_a.shape[1] != k:
+        # SciPy's `dormqr` wrapper expects the compact Householder storage in
+        # `(lda, k)` form. `dgeqp3` returns a wide `m x n` buffer when `m < n`,
+        # so keep only the leading reflector columns before applying `Q`.
+        qr_a = np.asfortranarray(qr_a[:, :k], dtype=np.float64)
+    elif side == b"R" and qr_a.shape[0] != k:
+        qr_a = np.asfortranarray(qr_a[:k, :], dtype=np.float64)
     c = np.asfortranarray(np.asarray(fortran_block, dtype=np.float64), dtype=np.float64)
     m = int(qr_a.shape[0])
     if lwork is None:
@@ -1005,8 +1093,10 @@ def solve_gaussian_penalized_ls_stacked_qr(
     -------
     dict
         Keys include ``coef_full``, ``XtWX_plus_penalty_chol_inverse_embedded``
-        (q×q embed of ``(R + eps*I)^{-1}``), ``householder_mixing_obs_coef`` (n×q K),
-        ``coef_hat_matrix`` (the F matrix for EDF computation),
+        (retained for compatibility; equal to the full-space covariance root),
+        ``covariance_root`` (q×rank `rV` analogue), ``A_inv`` (rank-aware
+        covariance / pseudoinverse analogue), ``householder_mixing_obs_coef``
+        (n×q K), ``coef_hat_matrix`` (the F matrix for EDF computation),
         ``log_det_XtWX_plus_penalty``, ``penalized_system_rank``,
         ``dropped_column_indices``.
     """
@@ -1052,15 +1142,9 @@ def solve_gaussian_penalized_ls_stacked_qr(
     )
     coef_full = outcome.coef_full
     weighted_X = outcome.weighted_X
-    sqrt_w = outcome.sqrt_w
     penalty_sqrt = outcome.penalty_sqrt
-    n_wx_econ = outcome.n_wx_econ
     system_rank = outcome.system_rank
     upper_r_final = outcome.upper_r_final
-    qr_wx = outcome.qr_wx
-    tau_wx = outcome.tau_wx
-    qr_aug = outcome.qr_aug
-    tau_aug = outcome.tau_aug
     pivot_aug = outcome.pivot_aug
     kept_original_indices = outcome.kept_original_indices
     dropped_column_indices = outcome.dropped_column_indices
@@ -1070,43 +1154,22 @@ def solve_gaussian_penalized_ls_stacked_qr(
 
     XtWX = X.T @ (w[:, None] * X)
     A = XtWX + P
-
-    from ..penalized_system import stabilized_cholesky_solve
-
-    _, cA, _, _ = stabilized_cholesky_solve(A, np.zeros(n_coef_total, dtype=np.float64))
-    chol_inv_embedded = solve_triangular(
-        cA,
-        np.eye(n_coef_total, dtype=np.float64),
-        lower=False,
+    covariance_root, A_inv = stacked_qr_covariance_from_factor(
+        upper_r_final,
+        pivot1=pivot_aug,
+        kept_original_indices=kept_original_indices,
+        q_total=n_coef_total,
     )
-    log_det_XtWX_plus_penalty = 2.0 * float(np.sum(np.log(np.abs(np.diag(cA)))))
-
-    ridge_eps = _ridge_eps_for_upper_r(upper_r_final)
-    inv_upper_r = solve_triangular(
-        upper_r_final + ridge_eps * np.eye(system_rank),
-        np.eye(system_rank),
-        lower=False,
+    diag_r = np.abs(np.diag(upper_r_final))
+    log_det_XtWX_plus_penalty = 2.0 * float(
+        np.sum(np.log(np.maximum(diag_r, np.finfo(np.float64).tiny)))
     )
 
-    sqrt_w_X = sqrt_w[:, None] * X
-    if str(coef_method).lower().strip() == "lstsq":
-        householder_mixing = np.zeros((n_obs, n_coef_total), dtype=np.float64)
-        coef_hat_matrix = (chol_inv_embedded @ chol_inv_embedded.T) @ XtWX
-    else:
-        Q_weighted_x = _dorgqr_economic(qr_wx.copy(), tau_wx, n_wx_econ)
-        Q_augmented = _dorgqr_economic(qr_aug.copy(), tau_aug, system_rank)
-        K_partial = Q_weighted_x @ Q_augmented[:n_wx_econ, :]
+    householder_mixing = np.zeros((n_obs, n_coef_total), dtype=np.float64)
 
-        upper_r_inv_embedded = np.zeros((n_coef_total, n_coef_total), dtype=np.float64)
-        householder_mixing = np.zeros((n_obs, n_coef_total), dtype=np.float64)
-        for i in range(system_rank):
-            ki = kept_original_indices[int(pivot_aug[i])]
-            householder_mixing[:, ki] = K_partial[:, i]
-            for j in range(system_rank):
-                kj = kept_original_indices[int(pivot_aug[j])]
-                upper_r_inv_embedded[ki, kj] = inv_upper_r[i, j]
-
-        coef_hat_matrix = (upper_r_inv_embedded @ householder_mixing.T) @ sqrt_w_X
+    # Mirror mgcv post-processing: EDF uses the rank-aware covariance assembled
+    # from the reduced QR factor, not a dense inverse of singular X'WX + S.
+    coef_hat_matrix = A_inv @ XtWX
 
     return {
         "coef_full": coef_full,
@@ -1114,9 +1177,11 @@ def solve_gaussian_penalized_ls_stacked_qr(
         "penalty_quadratic": penalty_quadratic,
         "XtWX": XtWX,
         "A": A,
+        "A_inv": A_inv,
         "WX_sqrt": weighted_X,
         "E": penalty_sqrt,
-        "XtWX_plus_penalty_chol_inverse_embedded": chol_inv_embedded,
+        "covariance_root": covariance_root,
+        "XtWX_plus_penalty_chol_inverse_embedded": covariance_root,
         "householder_mixing_obs_coef": householder_mixing,
         "log_det_XtWX_plus_penalty": log_det_XtWX_plus_penalty,
         "penalized_system_rank": int(system_rank),
@@ -1137,9 +1202,7 @@ def gaussian_design_needs_stacked_qr_fit(model) -> bool:
     from ..penalized_system import build_full_design
 
     X = np.asarray(
-        build_full_design(
-            Z, fit_intercept=_fit_intercept(model)
-        ),
+        build_full_design(Z, fit_intercept=_fit_intercept(model)),
         dtype=np.float64,
     )
     if X.ndim != 2 or X.shape[1] == 0:

@@ -1,12 +1,18 @@
+import ctypes
 import math
+import os
+import shutil
+import subprocess
 import warnings
+from ctypes.util import find_library
 from dataclasses import dataclass
+from functools import lru_cache
 
 import numpy as np
 import scipy.linalg
+from numpy.ctypeslib import ndpointer
 from scipy.spatial import distance_matrix
 
-from ..gam.penalties.algebra import scale_penalty
 from .thin_plate_basis import eta, tp_T
 
 
@@ -30,6 +36,140 @@ def _pack_covariates_colwise(X):
     if X.ndim == 1:
         X = X.reshape(-1, 1)
     return np.ascontiguousarray(X.T.reshape(-1), dtype=np.float64)
+
+
+def _configure_dstevd_signature(fn):
+    fn.argtypes = [
+        ctypes.c_char_p,
+        ctypes.POINTER(ctypes.c_int),
+        ndpointer(dtype=np.float64, flags="C_CONTIGUOUS"),
+        ndpointer(dtype=np.float64, flags="C_CONTIGUOUS"),
+        ndpointer(dtype=np.float64, flags="F_CONTIGUOUS"),
+        ctypes.POINTER(ctypes.c_int),
+        ndpointer(dtype=np.float64, flags="C_CONTIGUOUS"),
+        ctypes.POINTER(ctypes.c_int),
+        ndpointer(dtype=np.int32, flags="C_CONTIGUOUS"),
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.c_size_t,
+    ]
+    fn.restype = None
+    return fn
+
+
+@lru_cache(maxsize=1)
+def _discover_r_lapack_path():
+    rscript = shutil.which("Rscript")
+    if not rscript:
+        return None
+    cmd = [
+        rscript,
+        "-e",
+        "si <- sessionInfo(); cat(if (is.null(si$LAPACK)) '' else si$LAPACK)",
+    ]
+    try:
+        proc = subprocess.run(
+            cmd,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except Exception:
+        return None
+    if proc.returncode != 0:
+        return None
+    path = proc.stdout.strip()
+    return path or None
+
+
+@lru_cache(maxsize=1)
+def _load_system_dstevd():
+    override = os.environ.get("NAMPY_TPRS_LAPACK_LIB")
+    candidates = []
+    if override:
+        candidates.append(override)
+    r_lapack = _discover_r_lapack_path()
+    if r_lapack:
+        candidates.append(r_lapack)
+    for libname in ("Rlapack", "lapack"):
+        resolved = find_library(libname)
+        if resolved:
+            candidates.append(resolved)
+
+    seen = set()
+    for libname in candidates:
+        if libname in seen:
+            continue
+        seen.add(libname)
+        try:
+            lib = ctypes.CDLL(libname)
+            return _configure_dstevd_signature(lib.dstevd_)
+        except Exception:
+            continue
+    return None
+
+
+def _system_dstevd_tridiagonal(diag, offdiag):
+    fn = _load_system_dstevd()
+    if fn is None:
+        return None
+
+    d = np.array(diag, dtype=np.float64, order="C", copy=True)
+    e = np.array(offdiag, dtype=np.float64, order="C", copy=True)
+    n_int = int(d.shape[0])
+    n = ctypes.c_int(n_int)
+    z = np.empty((n_int, n_int), dtype=np.float64, order="F")
+    ldz = ctypes.c_int(max(1, n_int))
+    work = np.empty(1, dtype=np.float64)
+    lwork = ctypes.c_int(-1)
+    iwork = np.empty(1, dtype=np.int32)
+    liwork = ctypes.c_int(-1)
+    info = ctypes.c_int(0)
+
+    try:
+        fn(
+            b"V",
+            ctypes.byref(n),
+            d,
+            e,
+            z,
+            ctypes.byref(ldz),
+            work,
+            ctypes.byref(lwork),
+            iwork,
+            ctypes.byref(liwork),
+            ctypes.byref(info),
+            1,
+        )
+        if info.value != 0:
+            return None
+
+        lwork = ctypes.c_int(int(work[0]))
+        liwork = ctypes.c_int(int(iwork[0]))
+        work = np.empty(lwork.value, dtype=np.float64)
+        iwork = np.empty(liwork.value, dtype=np.int32)
+        info = ctypes.c_int(0)
+        fn(
+            b"V",
+            ctypes.byref(n),
+            d,
+            e,
+            z,
+            ctypes.byref(ldz),
+            work,
+            ctypes.byref(lwork),
+            iwork,
+            ctypes.byref(liwork),
+            ctypes.byref(info),
+            1,
+        )
+    except Exception:
+        return None
+
+    if info.value != 0:
+        return None
+
+    return d, z
 
 
 def householder_qr_rowspace(A, full_q):
@@ -368,12 +508,23 @@ def _top_eigensystem(E, k):
             q.append(z / b[j])
 
         if ((j >= k) and (j % f_check == 0)) or (j == n - 1):
-            d_asc, vecs_asc = scipy.linalg.eigh_tridiagonal(a[: j + 1], b[:j])
+            eig_res = _system_dstevd_tridiagonal(a[: j + 1], b[:j])
+            if eig_res is None:
+                d_asc, vecs_asc, info = scipy.linalg.lapack.dstevd(
+                    a[: j + 1].copy(),
+                    b[:j].copy(),
+                    compute_v=1,
+                )
+                if info != 0:
+                    raise np.linalg.LinAlgError(
+                        f"dstevd failed in thin-plate eigensystem with info={info}."
+                    )
+            else:
+                d_asc, vecs_asc = eig_res
 
-            # mgcv_trisymeig returns eigenvalues/eigenvectors in descending order.
-            order = np.argsort(d_asc)[::-1]
-            d = np.asarray(d_asc[order], dtype=np.float64)
-            vecs = np.asarray(vecs_asc[:, order], dtype=np.float64)
+            # mgcv/src/mat.c::mgcv_trisymeig returns descending order.
+            d = np.asarray(d_asc[::-1], dtype=np.float64)
+            vecs = np.asarray(vecs_asc[:, ::-1], dtype=np.float64)
 
             norm_tj = max(abs(d[0]), abs(d[j]))
             err[: j + 1] = np.abs(b[j] * vecs[-1, :])
@@ -589,10 +740,8 @@ def construct_tprs_basis(
     S_full[:, S_full.shape[1] - M :] = 0.0
 
     if bool(scale_columns):
-        # mgcv's tp constructor first normalizes columns to unit RMS, then
-        # smoothCon(scale.penalty=TRUE) applies the usual global penalty
-        # rescaling against the resulting model matrix. The final smoothing
-        # parameter convention depends on both steps.
+        # mgcv/src/tprs.c::tprs_setup rescales each column of X to unit RMS
+        # and applies the same similarity transform to UZ and S.
         for j in range(X_raw.shape[1]):
             w = float(np.sqrt(np.mean(X_raw[:, j] ** 2)))
             if not np.isfinite(w) or w <= 0.0:
@@ -601,7 +750,6 @@ def construct_tprs_basis(
             UZ_full[:, j] /= w
             S_full[j, :] /= w
             S_full[:, j] /= w
-        S_full = scale_penalty(X_raw, S_full)
 
     S_full = 0.5 * (S_full + S_full.T)
 

@@ -29,16 +29,35 @@ from .general import predict_general_values
 from .linear_predictor_matrix import _build_prediction_matrices
 
 
+def _tensor_anova_full_mode(tb):
+    metadata = getattr(tb, "metadata", None) or {}
+    term_spec = metadata.get("term_spec", {}) if isinstance(metadata, dict) else {}
+    basis_options = (
+        term_spec.get("basis_options", {}) if isinstance(term_spec, dict) else {}
+    )
+    if isinstance(basis_options, dict) and "full" in basis_options:
+        return bool(basis_options["full"])
+    return ";full)" in str(getattr(tb, "basis_name", ""))
+
+
 def _term_contribution_shift(model, tb):
     if str(getattr(tb, "term_type", "")) != "tensor_anova":
         return 0.0
 
-    # mgcv's t2 prediction decomposition uses a prediction-time centering
-    # convention for predict(type="terms") that differs from the fitted
-    # coefficient split. Preserve link/lpmatrix parity and adjust only the
-    # reported term contribution by the fitted training-sample mean.
+    # mgcv::predict.gam() splits term contributions after the prediction
+    # matrix has already absorbed any fitted centering (`Xcentre`) and the
+    # t2() smooth's null-block handling from
+    # smooth.construct.t2.smooth.spec(). Our tensor-ANOVA port needs an
+    # extra prediction-time mean correction for the default `full=FALSE`
+    # decomposition, but not for `full=TRUE`.
+    if _tensor_anova_full_mode(tb):
+        return 0.0
+
     beta = np.asarray(_coef(model), dtype=np.float64)
-    train_term = np.asarray(_design_matrix(model), dtype=np.float64)[:, tb.coef_slice] @ beta[tb.coef_slice]
+    train_term = (
+        np.asarray(_design_matrix(model), dtype=np.float64)[:, tb.coef_slice]
+        @ beta[tb.coef_slice]
+    )
     return -float(np.mean(np.asarray(train_term, dtype=np.float64)))
 
 

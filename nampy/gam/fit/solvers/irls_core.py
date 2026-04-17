@@ -422,15 +422,6 @@ def irls_core(
         raise RuntimeError("Cannot find valid starting values (eta/mu).")
 
     strictly_additive = _strictly_additive_gaussian_identity(family)
-    # Weighted canonical-link GLMs can satisfy the mgcv-style deviance/gradient
-    # convergence test one sweep before the fitted mean fully stabilizes at the
-    # reference weighted endpoint, so keep one extra PIRLS polish step.
-    weighted_canonical_polish = bool(
-        (not strictly_additive)
-        and bool(getattr(family, "canonical_link", False))
-        and not np.allclose(weights, 1.0)
-    )
-    weighted_canonical_polish_used = False
     converged = False
     failed_step = False
     failure_reason = None
@@ -694,9 +685,6 @@ def irls_core(
         old_pdev = pdev_new
         coefold = beta.copy()
         if converged_here:
-            if weighted_canonical_polish and not weighted_canonical_polish_used:
-                weighted_canonical_polish_used = True
-                continue
             converged = True
             break
 
@@ -757,9 +745,54 @@ def irls_core(
     XtW = X_g.T * W_g
     XtWX = XtW @ X_g
     A = XtWX + S
+    beta_report = np.asarray(beta, dtype=np.float64).copy()
+    eta_report = np.asarray(eta, dtype=np.float64).copy()
+    mu_report = np.asarray(mu, dtype=np.float64).copy()
+
+    # Mirror mgcv::gam.fit3(): the post-loop gdi1() call solves the current
+    # weighted penalized least-squares system one more time and reports
+    # oo$beta / fitted values from that solve, while the derivative and
+    # covariance objects remain tied to the same working system.
+    if (
+        str(getattr(family, "family_class", "")).lower() == "glm"
+        and np.all(np.isfinite(W_g))
+        and np.all(W_g >= 0.0)
+    ):
+        b_report = XtW @ z_g
+        try:
+            if force_stacked_qr or _ill_conditioned_or_rank_deficient(A):
+                beta_refresh = _stacked_qr_penalized_step(
+                    X_g, W_g, z_g, rhs_is_weighted=False
+                )
+            else:
+                beta_refresh, _, _, _ = stabilized_cholesky_solve(A, b_report)
+        except (np.linalg.LinAlgError, ValueError):
+            beta_refresh = None
+        if beta_refresh is not None:
+            beta_refresh = np.asarray(beta_refresh, dtype=np.float64).ravel()
+            if beta_refresh.shape == beta_report.shape and np.all(
+                np.isfinite(beta_refresh)
+            ):
+                eta_refresh = offset + X @ beta_refresh
+                mu_refresh = family.inverse_link(eta_refresh)
+                if _eta_mu_valid(eta_refresh, mu_refresh):
+                    beta_report = beta_refresh
+                    eta_report = np.asarray(eta_refresh, dtype=np.float64)
+                    mu_report = np.asarray(mu_refresh, dtype=np.float64)
+
     _, cA, loA, jitter_A = stabilized_cholesky_solve(
         A, np.zeros(X.shape[1], dtype=np.float64)
     )
+    if float(jitter_A) == 0.0:
+        log_det_xtwx_plus_penalty = 2.0 * float(np.sum(np.log(np.abs(np.diag(cA)))))
+    else:
+        try:
+            cA0, _ = cho_factor(A, check_finite=False)
+            log_det_xtwx_plus_penalty = 2.0 * float(
+                np.sum(np.log(np.abs(np.diag(cA0))))
+            )
+        except np.linalg.LinAlgError:
+            log_det_xtwx_plus_penalty = float("nan")
     try:
         if float(jitter_A) == 0.0:
             A_inv = cho_solve((cA, loA), np.eye(A.shape[0]), check_finite=False)
@@ -804,11 +837,11 @@ def irls_core(
     )
 
     if fit_intercept and q > 0:
-        intercept = float(beta[0])
-        beta_term = beta[1:].copy()
+        intercept = float(beta_report[0])
+        beta_term = beta_report[1:].copy()
     else:
         intercept = 0.0
-        beta_term = beta.copy()
+        beta_term = beta_report.copy()
 
     if (not converged) and (not failed_step) and n_iter >= max_iter:
         warnings_list.append(
@@ -816,13 +849,13 @@ def irls_core(
         )
 
     return {
-        "coef_full": beta.copy(),
-        "coef": beta.copy(),
+        "coef_full": beta_report.copy(),
+        "coef": beta_report.copy(),
         "intercept": intercept,
         "beta": beta_term,
-        "eta": eta,
-        "linear_predictor": eta,
-        "mu": mu,
+        "eta": eta_report,
+        "linear_predictor": eta_report,
+        "mu": mu_report,
         "rss": rss,
         "deviance": deviance,
         "edf": edf,
@@ -837,6 +870,7 @@ def irls_core(
         "XtWX": XtWX,
         "P": S,
         "penalty_matrix": S,
+        "log_det_XtWX_plus_penalty": log_det_xtwx_plus_penalty,
         "working_weights": W,
         "fisher_weights": fisher_W,
         "working_response": z_work,

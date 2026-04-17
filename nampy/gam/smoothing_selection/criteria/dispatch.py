@@ -1,10 +1,11 @@
 """
-Top-level dispatch for smoothing_selection-selection criterion value, gradient, and Hessian.
+Top-level dispatch for smoothing-selection criterion value, gradient, and Hessian.
 
 :func:`criterion_value` — scalar criterion at a given log-smoothing-parameter vector.
-:func:`criterion_gradient` — gradient w.r.t. log-smoothing parameters (exact when
-    available, finite-difference fallback otherwise).
-:func:`criterion_hessian` — Hessian (exact or finite-difference).
+:func:`criterion_gradient` — exact gradient w.r.t. log smoothing parameters when
+    the upstream-mirrored derivative path exists.
+:func:`criterion_hessian` — exact Hessian when the upstream-mirrored derivative
+    path exists.
 :func:`criterion_infinite_sp_signal` — gradient and curvature signal used by the
     outer optimiser to detect and roll back infinite-smoothing-parameter solutions.
 """
@@ -19,7 +20,6 @@ from ...fit.solvers.general_fit5 import (
 from .gaussian import criterion_gcv_gaussian
 from .gaussian_dyn import _gaussian_dynamic_reml_derivative_terms
 from .ml_reml import (
-    _model_has_random_effect_smooth,
     criterion_ml_reml,
     resolve_ml_reml_scoring_backend,
 )
@@ -132,39 +132,22 @@ def criterion_gradient(
     eps_rel=1e-4,
 ):
     method = str(method).lower()
-    # Gaussian REML/LAML stays on finite differences for criterion derivatives.
-    # Exact Gaussian REML outer derivatives in dispatch were derived for an older
-    # scale convention and are intentionally not used here.
-    if method in {"reml", "laml"} and bool(
-        getattr(model.family, "supports_closed_form_solve", False)
-    ):
-        return criterion_gradient_numerical(
-            model,
-            y,
-            log_sp,
-            method=method,
-            eps_abs=eps_abs,
-            eps_rel=eps_rel,
-        )
     if method in {"ml", "reml", "laml"}:
         backend = resolve_ml_reml_scoring_backend(model, method=method)
-        if backend == "gaussian_exact":
-            if _model_has_random_effect_smooth(model) and method == "ml":
-                return criterion_gradient_numerical(
-                    model,
-                    y,
-                    log_sp,
-                    method=method,
-                    eps_abs=eps_abs,
-                    eps_rel=eps_rel,
-                )
-        if backend == "gaussian_dynamic" and method in {"reml", "laml"}:
+        if backend in {"gaussian_exact", "gaussian_dynamic"} and method in {
+            "reml",
+            "laml",
+        }:
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
             out = _gaussian_dynamic_reml_derivative_terms(
                 model, y, log_sp, exact_method
             )
             if bool(out.get("valid", False)):
                 return np.asarray(out["grad"], dtype=np.float64)
+            raise NotImplementedError(
+                "Gaussian REML/LAML outer optimisation requires exact "
+                "mgcv-parity derivatives; finite-difference fallback removed."
+            )
         if backend == "general_fit5":
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
             return criterion_gradient_ml_reml_general_fit5(
@@ -184,6 +167,10 @@ def criterion_gradient(
             return criterion_gradient_ml_reml_pirls_exact(
                 model, y, log_sp, exact_method
             )
+        raise NotImplementedError(
+            "ML/REML/LAML outer optimisation requires an exact upstream-mirrored "
+            "derivative path; numerical fallback removed."
+        )
     return criterion_gradient_numerical(
         model,
         y,
@@ -277,17 +264,6 @@ def criterion_hessian(
     eps_rel=1e-3,
 ):
     method = str(method).lower()
-    if method in {"reml", "laml"} and bool(
-        getattr(model.family, "supports_closed_form_solve", False)
-    ):
-        return criterion_hessian_numerical(
-            model,
-            y,
-            log_sp,
-            method=method,
-            eps_abs=eps_abs,
-            eps_rel=eps_rel,
-        )
     if method in {"ml", "reml", "laml"}:
         backend = resolve_ml_reml_scoring_backend(model, method=method)
         if (
@@ -304,18 +280,29 @@ def criterion_hessian(
             return criterion_hessian_ml_reml_pirls_exact(
                 model, y, log_sp, "REML"
             )
-        if backend == "gaussian_dynamic" and method in {"reml", "laml"}:
+        if backend in {"gaussian_exact", "gaussian_dynamic"} and method in {
+            "reml",
+            "laml",
+        }:
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
             out = _gaussian_dynamic_reml_derivative_terms(
                 model, y, log_sp, exact_method
             )
             if bool(out.get("valid", False)):
                 return np.asarray(out["hess"], dtype=np.float64)
+            raise NotImplementedError(
+                "Gaussian REML/LAML outer optimisation requires exact "
+                "mgcv-parity Hessians; finite-difference fallback removed."
+            )
         if backend == "general_fit5":
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
             return criterion_hessian_ml_reml_general_fit5(
                 model, y, log_sp, exact_method
             )
+        raise NotImplementedError(
+            "ML/REML/LAML outer optimisation requires an exact upstream-mirrored "
+            "Hessian path; numerical fallback removed."
+        )
     return criterion_hessian_numerical(
         model,
         y,

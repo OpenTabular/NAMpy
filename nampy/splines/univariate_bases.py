@@ -42,14 +42,20 @@ def add_full_rank_shrinkage(S, shrink=0.1, tol=1e-12):
     replaced by small positive multiples of the smallest positive eigenvalue.
     """
     S = np.asarray(S, dtype=np.float64)
-    S = 0.5 * (S + S.T)
+    # mgcv's CR penalty arrives from C exactly symmetric before the cs
+    # shrinkage eigen step. Our Python port can pick up ~1e-14 upper-triangle
+    # roundoff from `solve(B, D)`, and averaging that noise rotates the tied
+    # null-space eigenvectors. Preserve the lower triangle, which already
+    # matches mgcv's penalty to machine precision, then mirror it.
+    S = np.tril(S) + np.tril(S, -1).T
 
     # scipy.linalg.eigh (DSYEVR) matches R's eigen(symmetric=TRUE) null-space
-    # eigenvectors to machine precision.  np.linalg.eigh (DSYEVD) finds a
-    # different rotation of the 2-D null space, producing a ~1e-2 penalty
-    # discrepancy for cs after assigning different shrinkage values to the two
-    # null directions.
-    evals, U = _scipy_eigh(S)
+    # eigenvectors to machine precision. R returns eigenpairs in descending
+    # order, and mgcv/R/smooth.r applies cs shrinkage on that ordering.
+    evals, U = _scipy_eigh(S, driver="evr")
+    idx = np.argsort(evals)[::-1]
+    evals = np.asarray(evals[idx], dtype=np.float64)
+    U = np.asarray(U[:, idx], dtype=np.float64)
     tol_eff = tol * max(1.0, np.max(np.abs(evals)) if evals.size else 1.0)
 
     pos = evals[evals > tol_eff]
@@ -61,9 +67,11 @@ def add_full_rank_shrinkage(S, shrink=0.1, tol=1e-12):
 
     if null_idx.size:
         base = float(np.min(pos))
-        # keep the null-space penalties ordered and smaller than the range-space penalties
+        # Mirror mgcv/R/smooth.r shrinkage updates on the tied null-space
+        # eigenvectors returned by the symmetric eigensolver: apply the larger
+        # shrinkage to the first null direction, then cascade down.
         for j, idx in enumerate(null_idx):
-            out[idx] = base * (shrink ** (null_idx.size - j))
+            out[idx] = base * (shrink ** (j + 1))
 
     return (U * out) @ U.T
 

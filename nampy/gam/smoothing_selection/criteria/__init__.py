@@ -23,6 +23,7 @@ from .gaussian import (
 from .gaussian_dyn import (
     _gaussian_dynamic_reml_derivative_terms,
     criterion_gradient_ml_reml_gaussian_dynamic_joint,
+    criterion_hessian_ml_reml_gaussian_dynamic_joint,
     criterion_ml_reml_gaussian_dynamic_joint,
     criterion_ml_reml_gaussian_dynamic_profiled,
 )
@@ -72,6 +73,7 @@ __all__ = [
     "criterion_gradient_ml_reml_pirls_exact",
     "criterion_gradient_numerical",
     "criterion_hessian",
+    "criterion_hessian_ml_reml_gaussian_dynamic_joint",
     "criterion_hessian_ml_reml_pirls_gamma_joint",
     "criterion_hessian_ml_reml_pirls_negbin_joint",
     "criterion_hessian_ml_reml_pirls_exact",

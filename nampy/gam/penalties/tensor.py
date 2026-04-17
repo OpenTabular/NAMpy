@@ -40,17 +40,22 @@ def normalize_tensor_marginal_penalty(S, tol=1e-12):
     return S / scale
 
 
-def rescale_tensor_penalties_for_fit(B, penalties, tol=1e-12):
+def rescale_tensor_penalties_for_fit(B, penalties, tol=1e-12, *, x_norm_axis="row"):
     B = np.asarray(B, dtype=np.float64)
     penalties = [np.asarray(S, dtype=np.float64) for S in penalties]
     if len(penalties) == 0:
         return []
-    x_scale = float(np.max(np.sum(np.abs(B), axis=1)) ** 2)
+    if x_norm_axis == "row":
+        x_scale = float(np.max(np.sum(np.abs(B), axis=1)) ** 2)
+    elif x_norm_axis == "col":
+        x_scale = float(np.max(np.sum(np.abs(B), axis=0)) ** 2)
+    else:
+        raise ValueError("x_norm_axis must be 'row' or 'col'.")
     if x_scale <= tol:
         return [S.copy() for S in penalties]
     out = []
     for S in penalties:
-        s_scale = float(np.max(np.sum(np.abs(S), axis=0))) / x_scale
+        s_scale = float(np.linalg.norm(S, ord=np.inf)) / x_scale
         out.append(S.copy() if s_scale <= tol else S / s_scale)
     return out
 

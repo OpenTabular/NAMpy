@@ -56,6 +56,8 @@ _SMOOTH_SPEC_DEFAULTS: dict[str, object] = {
     "ord_": None,
 }
 
+_FORMULA_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
 
 @dataclass(frozen=True)
 class FormulaBuildResult:
@@ -68,6 +70,12 @@ class FormulaBuildResult:
     offsets: np.ndarray | None
     preprocess_state: dict
     response_name: str | None
+
+
+def _is_bare_formula_name(expr: str | None) -> bool:
+    if expr is None:
+        return False
+    return _FORMULA_NAME_RE.fullmatch(str(expr)) is not None
 
 
 def _build_s_cr(opts) -> CubicRegressionSmoothSpec:
@@ -241,6 +249,7 @@ def _build_te(opts) -> TensorProductSmoothSpec:
         k=opts["k"],
         fx=opts["fx"],
         select=opts["select"],
+        m=opts["m"],
         sp=opts["sp"],
         knots=opts["knots"],
     )
@@ -253,6 +262,7 @@ def _build_ti(opts) -> TensorInteractionSmoothSpec:
         k=opts["k"],
         fx=opts["fx"],
         select=opts["select"],
+        m=opts["m"],
         sp=opts["sp"],
         knots=opts["knots"],
         mc=opts["mc"],
@@ -266,6 +276,7 @@ def _build_t2(opts) -> TensorANOVASmoothSpec:
         k=opts["k"],
         fx=opts["fx"],
         select=opts["select"],
+        m=opts["m"],
         sp=opts["sp"],
         knots=opts["knots"],
         full=opts["full"],
@@ -733,6 +744,16 @@ def _build_predictor_spec(
 
     for term in extracted_predictor.terms:
         if isinstance(term, ExtractedParametricTerm):
+            factor_labels = (
+                list(term.factor_labels)
+                if getattr(term, "factor_labels", None)
+                else [term.raw_label]
+            )
+            if any(not _is_bare_formula_name(label) for label in factor_labels):
+                raise NotImplementedError(
+                    "Transformed parametric formula terms are parsed exactly, but "
+                    "downstream formula building does not yet support them."
+                )
             terms.append(
                 TermSpec(
                     kind="parametric",
@@ -757,6 +778,12 @@ def _build_predictor_spec(
         features = list(term.features)
         kw = dict(term.kwargs)
 
+        if any(not _is_bare_formula_name(feature) for feature in features):
+            raise NotImplementedError(
+                "Transformed smooth covariates are parsed exactly, but downstream "
+                "formula building does not yet support them."
+            )
+
         basis = kw.pop(
             "bs",
             kw.pop("basis", _default_basis_for_kind(kind, default_basis)),
@@ -768,6 +795,11 @@ def _build_predictor_spec(
         by = kw.pop("by", None)
         if by is not None:
             by = str(by)
+            if not _is_bare_formula_name(by):
+                raise NotImplementedError(
+                    "Transformed smooth `by` expressions are parsed exactly, but "
+                    "downstream formula building does not yet support them."
+                )
             if available_column_names is not None and by not in available_column_names:
                 raise KeyError(f"by column {by!r} not found in available data columns.")
         smoothing_id = kw.pop("id", kw.pop("smoothing_id", None))
@@ -815,6 +847,14 @@ def _build_predictor_spec(
                 label=term.raw_label,
                 metadata={"formula_term": term.raw_label},
             )
+        )
+
+    if extracted_predictor.offset_name is not None and not _is_bare_formula_name(
+        extracted_predictor.offset_name
+    ):
+        raise NotImplementedError(
+            "Transformed offset(...) expressions are parsed exactly, but downstream "
+            "formula building does not yet support them."
         )
 
     return LinearPredictorSpec(
@@ -957,6 +997,11 @@ def build_formula_model(
         if response_name is None:
             raise ValueError(
                 "Formula does not specify a response, so `y` must be supplied explicitly."
+            )
+        if not _is_bare_formula_name(response_name):
+            raise NotImplementedError(
+                "Transformed formula responses are parsed exactly, but downstream "
+                "formula building does not yet support them."
             )
         if response_name not in data_work.columns:
             raise KeyError(f"Response column {response_name!r} not found in `data`.")

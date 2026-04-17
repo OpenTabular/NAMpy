@@ -107,12 +107,14 @@ class SumToZeroFactorSmoothSpec(BaseSmoothSpec):
 class TensorProductSmoothSpec(BaseSmoothSpec):
     special: str = "te"
     bs: Any = "cr"
+    m: Any = None
 
 
 @dataclass(frozen=True)
 class TensorInteractionSmoothSpec(BaseSmoothSpec):
     special: str = "ti"
     bs: Any = "cr"
+    m: Any = None
     mc: Any = None
 
 
@@ -120,6 +122,7 @@ class TensorInteractionSmoothSpec(BaseSmoothSpec):
 class TensorANOVASmoothSpec(BaseSmoothSpec):
     special: str = "t2"
     bs: Any = "cr"
+    m: Any = None
     full: bool = False
     ord: Any = None
 

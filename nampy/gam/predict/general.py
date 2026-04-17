@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
 
 from .._model_state import (
@@ -13,6 +15,15 @@ from .._model_state import (
 )
 from ..data import coerce_optional_offset
 from ..fit.offsets import resolve_prediction_offset
+
+
+@dataclass(frozen=True)
+class _GeneralPredictionLayout:
+    Z_new: np.ndarray
+    Xp_blocks: list[np.ndarray]
+    predictor_slices: tuple[slice, ...]
+    jj: list[np.ndarray]
+    lpmatrix: np.ndarray
 
 
 def general_family_prediction_offset(model, X_np, offset):
@@ -27,7 +38,9 @@ def general_family_prediction_offset(model, X_np, offset):
         out = []
         for i, off_i in enumerate(offset):
             out.append(
-                None if off_i is None else coerce_optional_offset(off_i, n_rows, name=f"offset[{i}]")
+                None
+                if off_i is None
+                else coerce_optional_offset(off_i, n_rows, name=f"offset[{i}]")
             )
         if len(out) < n_pred:
             out.extend([None] * (n_pred - len(out)))
@@ -36,10 +49,11 @@ def general_family_prediction_offset(model, X_np, offset):
     return [offset_vec] + [None] * max(n_pred - 1, 0)
 
 
-def general_family_prediction_blocks(model, X_np):
+def general_family_prediction_layout(model, X_np):
     Z_blocks = []
     Xp_blocks = []
     predictors = _predictor_designs(model)
+    predictor_slices = tuple(_predictor_full_slices(model))
     for pred in predictors:
         Zp = (
             np.asarray(pred.design_matrix, dtype=np.float64)
@@ -48,7 +62,9 @@ def general_family_prediction_blocks(model, X_np):
         )
         Z_blocks.append(Zp)
         if bool(pred.has_intercept):
-            Xp_blocks.append(np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp]))
+            Xp_blocks.append(
+                np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp])
+            )
         else:
             Xp_blocks.append(Zp)
     Z_new = (
@@ -56,25 +72,30 @@ def general_family_prediction_blocks(model, X_np):
         if Z_blocks
         else np.empty((model.n_samples_ if X_np is None else len(X_np), 0))
     )
-    return Z_new, Xp_blocks
+    lpmatrix = (
+        np.column_stack(Xp_blocks)
+        if Xp_blocks
+        else np.empty((Z_new.shape[0], 0), dtype=np.float64)
+    )
+    return _GeneralPredictionLayout(
+        Z_new=Z_new,
+        Xp_blocks=Xp_blocks,
+        predictor_slices=predictor_slices,
+        jj=[np.arange(sl.start, sl.stop, dtype=int) for sl in predictor_slices],
+        lpmatrix=lpmatrix,
+    )
 
 
-def general_family_link_prediction_with_offset(model, X_np, offset):
+def general_family_prediction_blocks(model, X_np):
+    layout = general_family_prediction_layout(model, X_np)
+    return layout.Z_new, layout.Xp_blocks
+
+
+def general_family_link_prediction_with_offset(model, layout, offset):
     eta_cols = []
     off_list = None if offset is None else list(offset)
-    predictors = _predictor_designs(model)
-    predictor_slices = _predictor_full_slices(model)
     coef_full = np.asarray(_coef_full(model), dtype=np.float64)
-    for k, (pred, sl) in enumerate(zip(predictors, predictor_slices)):
-        Zp = (
-            np.asarray(pred.design_matrix, dtype=np.float64)
-            if X_np is None
-            else np.asarray(pred.build_new_matrix(X_np), dtype=np.float64)
-        )
-        if bool(pred.has_intercept):
-            Xp = np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp])
-        else:
-            Xp = Zp
+    for k, (Xp, sl) in enumerate(zip(layout.Xp_blocks, layout.predictor_slices)):
         eta_k = Xp @ np.asarray(coef_full[sl], dtype=np.float64)
         if off_list is not None and k < len(off_list) and off_list[k] is not None:
             eta_k = eta_k + np.asarray(off_list[k], dtype=np.float64)
@@ -83,26 +104,32 @@ def general_family_link_prediction_with_offset(model, X_np, offset):
 
 
 def build_general_lpmatrix(model, X_new=None):
-    _, Xp_blocks = general_family_prediction_blocks(model, X_new)
-    n_rows = model.n_samples_ if X_new is None else int(X_new.shape[0])
-    return np.column_stack(Xp_blocks) if Xp_blocks else np.empty((n_rows, 0), dtype=np.float64)
+    return general_family_prediction_layout(model, X_new).lpmatrix
 
 
-def predict_general_values(model, X=None, return_se=False, cov=None, type="response", offset=None):
+def predict_general_values(
+    model, X=None, return_se=False, cov=None, type="response", offset=None
+):
     type = str(type).lower()
     if type not in {"response", "link", "terms", "lpmatrix"}:
-        raise ValueError("type must be one of {'response', 'link', 'terms', 'lpmatrix'}")
+        raise ValueError(
+            "type must be one of {'response', 'link', 'terms', 'lpmatrix'}"
+        )
 
     offset_list = general_family_prediction_offset(model, X, offset)
-    eta = general_family_link_prediction_with_offset(model, X, offset_list)
-    Z_new, Xp_blocks = general_family_prediction_blocks(model, X)
+    layout = general_family_prediction_layout(model, X)
+    eta = general_family_link_prediction_with_offset(model, layout, offset_list)
+    Z_new = layout.Z_new
 
     if type == "lpmatrix":
-        return build_general_lpmatrix(model, X_new=X)
+        return layout.lpmatrix
     if type == "terms":
         beta = np.asarray(_coef(model), dtype=np.float64)
         terms = np.column_stack(
-            [Z_new[:, tb.coef_slice] @ beta[tb.coef_slice] for tb in _term_blocks_seq(model)]
+            [
+                Z_new[:, tb.coef_slice] @ beta[tb.coef_slice]
+                for tb in _term_blocks_seq(model)
+            ]
         )
         if not return_se:
             return terms
@@ -121,20 +148,19 @@ def predict_general_values(model, X=None, return_se=False, cov=None, type="respo
             return eta
         V = model._select_cov(cov)
         se_cols = []
-        for Xp, sl in zip(Xp_blocks, _predictor_full_slices(model)):
+        for Xp, sl in zip(layout.Xp_blocks, layout.predictor_slices):
             Vk = V[sl, sl]
             var = np.einsum("ij,jk,ik->i", Xp, Vk, Xp)
             se_cols.append(np.sqrt(np.maximum(var, 0.0)))
         return eta, np.column_stack(se_cols)
 
     coef_full = np.asarray(_coef_full(model), dtype=np.float64)
-    predictor_slices = _predictor_full_slices(model)
     family_predict = getattr(model.family, "predict", None)
     if callable(family_predict):
         out = family_predict(
             eta=eta,
-            X=build_general_lpmatrix(model, X_new=X),
-            jj=[np.arange(sl.start, sl.stop, dtype=int) for sl in predictor_slices],
+            X=layout.lpmatrix,
+            jj=layout.jj,
             coef=coef_full,
             offset=offset_list,
             se=return_se,
@@ -148,8 +174,8 @@ def predict_general_values(model, X=None, return_se=False, cov=None, type="respo
         )
     return np.asarray(
         model.family.predict_fitted(
-            build_general_lpmatrix(model, X_new=X),
-            [np.arange(sl.start, sl.stop, dtype=int) for sl in predictor_slices],
+            layout.lpmatrix,
+            layout.jj,
             coef_full,
             offset=offset_list,
         ),

@@ -428,7 +428,7 @@ class GammalsFamily(GamlssFamily):
     ) -> np.ndarray:
         """Residuals for gammals.  Mirrors mgcv ``gammals$residuals``."""
         y = np.asarray(y, dtype=np.float64)
-        mu = np.exp(np.asarray(fitted[:, 0], dtype=np.float64))  # actual mean
+        mu = np.asarray(fitted[:, 0], dtype=np.float64)
         rho = np.asarray(fitted[:, 1], dtype=np.float64)  # log sigma
         if rtype == "deviance":
             rsd = 2.0 * ((y - mu) / mu - np.log(y / mu)) * np.exp(-rho)
@@ -469,5 +469,3 @@ def gammals(link=("identity", "log"), b: float = -7.0) -> GammalsFamily:
 # ---------------------------------------------------------------------------
 # ZIP helpers  (mirrors mgcv/R/gamlss.r: l1ee, lee1, ldg, lde, zipll)
 # ---------------------------------------------------------------------------
-
-

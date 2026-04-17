@@ -39,6 +39,7 @@ from nampy.gam._model_state import (
     _fit_state,
     _n_smoothing_params,
 )
+from nampy.gam.fit.model_ops import sync_gam_result
 from nampy.gam.smoothing_selection.criteria.dispatch import (
     criterion_gradient,
     criterion_hessian,
@@ -113,10 +114,7 @@ def refresh_gaussian_ml_reml_score_from_fit_state(model: Any, y: np.ndarray) -> 
                 np.asarray(fit_state.penalty_matrix, dtype=np.float64),
             )
         )
-        mp = float(
-            _static_penalty_null_dim(model)
-            + _coef_column_offset(model)
-        )
+        mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
         nu = float(n_s) - mp
         if not (np.isfinite(nu) and nu > 0.0):
             return
@@ -144,7 +142,7 @@ def refresh_gaussian_ml_reml_score_from_fit_state(model: Any, y: np.ndarray) -> 
             fit_core_solution = fit_core_solution.with_fit_state(scale=float(reml_s2))
             fit_core_solution = fit_core_solution.with_fit_result(scale=float(reml_s2))
             model.fit_core_solution_ = fit_core_solution
-            model.gam_result_ = None
+            sync_gam_result(model)
 
 
 def _score_type_bucket(score_type: str) -> str:
@@ -180,8 +178,8 @@ def gaussian_smoothness_postprocess(
     ----------
     model
         Fitted ``GAM``-like object with ``_solve_gaussian_given_smoothing``,
-        ``penalty_blocks_``, ``n_coef_``, ``fit_intercept``, ``family`` (Gaussian),
-        ``n_samples_``, optional ``n_true_``.
+        compiled penalties / coefficient count, ``fit_intercept``, ``family``
+        (Gaussian), ``n_samples_``, optional ``n_true_``.
     y
         Response vector used for the fit.
     smoothing_params

@@ -250,6 +250,7 @@ def instantiate_term(term_like: TermSpec | Any):
             "feature": features,
             "k": smooth_spec.k,
             "basis": basis,
+            "m": smooth_spec.m,
             "label": label,
             "term_id": term_like.term_id,
             "smoothing_id": smoothing_id,

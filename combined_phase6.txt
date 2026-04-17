@@ -1,7 +1,7 @@
 Continuation prompt: Phase 6 - Validation and uncategorized leftovers.
 This is part 6/6. Continue from earlier phases; do not restate prior context.
 
-Included files in this phase: 17
+Included files in this phase: 19
 
 # --- Start of nampy/gam/_model_state.py ---
 """Shared model lifecycle checks and canonical fitted-state accessors."""
@@ -33,6 +33,14 @@ def _compiled_model(obj: Any):
     if result is not None:
         return result.compiled_model
     return getattr(obj, "compiled_model_", None)
+
+
+def _constructed_terms(obj: Any):
+    return {}
+
+
+def _constructed_term(obj: Any, term_id: str):
+    return _constructed_terms(obj).get(str(term_id))
 
 
 def _fit_summary(obj: Any):
@@ -287,7 +295,10 @@ def _cov_freq(obj: Any):
 
 def _cov_unconditional(obj: Any):
     fit_result = _fit_result(obj)
-    if fit_result is not None and getattr(fit_result, "cov_unconditional", None) is not None:
+    if (
+        fit_result is not None
+        and getattr(fit_result, "cov_unconditional", None) is not None
+    ):
         return fit_result.cov_unconditional
     return getattr(obj, "Vc_", None)
 
@@ -549,7 +560,7 @@ def compile_model(
 
     if len(compiled_predictors) == 1:
         predictor = compiled_predictors[0]
-        return CompiledModel(
+        compiled_model = CompiledModel(
             predictors=(predictor,),
             design_matrix=np.asarray(predictor.design_matrix, dtype=np.float64),
             compiled_terms=tuple(predictor.compiled_terms),
@@ -577,6 +588,7 @@ def compile_model(
                 None if reports is None else tuple(dict(report) for report in reports)
             ),
         )
+        return compiled_model
 
     global_terms = []
     global_penalties = []
@@ -666,7 +678,7 @@ def compile_model(
         coef_shift += int(predictor.n_coef)
         sp_shift += int(predictor.n_smoothing_params)
 
-    return CompiledModel(
+    compiled_model = CompiledModel(
         predictors=tuple(compiled_predictors),
         design_matrix=(
             np.column_stack(combined_blocks)
@@ -686,6 +698,7 @@ def compile_model(
             None if reports is None else tuple(dict(report) for report in reports)
         ),
     )
+    return compiled_model
 
 
 __all__ = ["compile_model"]
@@ -703,6 +716,7 @@ from ..penalties import (
     default_penalty_id,
     merge_smoothing_override,
     normalize_penalty_spec,
+    penalty_id_for_local_index,
 )
 from ..specs import LinearPredictorSpec, PenaltyGroupSpec
 from .construct import construct_smooth
@@ -712,7 +726,9 @@ from .structures import CompiledPenalty, CompiledPredictor, CompiledTerm
 
 
 def compile_predictors(
-    X: np.ndarray, feature_names: list[str], predictor_specs: list[LinearPredictorSpec]
+    X: np.ndarray,
+    feature_names: list[str],
+    predictor_specs: list[LinearPredictorSpec],
 ):
     predictor_specs = attach_shared_basis_metadata(
         predictor_specs, X=X, feature_names=feature_names
@@ -759,27 +775,35 @@ def compile_predictors(
                 apply_by=True,
                 null_space_penalty=False,
             )
-            B = np.asarray(smooth.train_design_matrix, dtype=np.float64)
+            base_term = smooth.compiled_term
+            B = np.asarray(base_term.basis_train, dtype=np.float64)
             d = B.shape[1]
             sl = slice(start, start + d)
-            term_meta = dict(smooth.metadata)
-            term_meta["constructor_metadata"] = dict(smooth.constructor_metadata)
+            term_meta = dict(base_term.metadata)
+            term_meta["constructor_metadata"] = dict(base_term.constructor_metadata)
             term_blocks.append(
                 CompiledTerm(
-                    label=smooth.label,
+                    label=base_term.label,
                     coef_slice=sl,
-                    smooth=smooth,
                     basis_train=B,
-                    basis_transform=np.eye(d, dtype=np.float64),
+                    predict_fn=base_term.predict_fn,
+                    predict_coefficient_map=base_term.predict_coefficient_map,
+                    basis_transform=base_term.basis_transform,
+                    coefficient_maps=tuple(base_term.coefficient_maps),
+                    feature_info=base_term.feature_info,
+                    by_variable_info=base_term.by_variable_info,
+                    side_condition_policy=base_term.side_condition_policy,
                     kept_columns=np.arange(d, dtype=int),
                     deleted_columns=np.array([], dtype=int),
                     smoothing_indices=[],
                     smoothing_ids=[],
                     n_penalties=0,
-                    term_type=str(smooth.term_type),
-                    basis_name=str(smooth.basis_name),
-                    term_id=smooth.term_id,
-                    smoothing_group_id=smooth.smoothing_id,
+                    term_type=str(base_term.term_type),
+                    basis_name=str(base_term.basis_name),
+                    term_id=base_term.term_id,
+                    smoothing_group_id=base_term.smoothing_group_id,
+                    penalty_specs=tuple(smooth.penalty_specs),
+                    constructor_metadata=dict(base_term.constructor_metadata),
                     metadata=term_meta,
                 )
             )
@@ -791,21 +815,40 @@ def compile_predictors(
             if d > 0:
                 design_blocks.append(B)
 
-            smooth = tb.smooth
-            penalty_defs = [normalize_penalty_spec(p) for p in smooth.penalty_specs]
+            penalty_defs = [normalize_penalty_spec(p) for p in tb.penalty_specs]
+            raw_sid_counts: dict[str, int] = {}
+            for pdef in penalty_defs:
+                sid_raw = getattr(pdef, "smoothing_id", None)
+                if sid_raw is None:
+                    continue
+                sid_key = str(sid_raw)
+                raw_sid_counts[sid_key] = raw_sid_counts.get(sid_key, 0) + 1
             term_smoothing_indices = []
             term_smoothing_ids = []
             for j, pdef in enumerate(penalty_defs):
                 P = np.asarray(pdef.matrix, dtype=np.float64)
                 sid = pdef.smoothing_id
                 if sid is None:
-                    sid = default_penalty_id(
-                        pred_name=pred_spec.name,
-                        term=smooth,
-                        term_label=smooth.label,
-                        coef_start=int(tb.coef_slice.start),
-                        local_penalty_index=j,
-                        n_penalties=len(penalty_defs),
+                    if tb.smoothing_group_id is not None:
+                        sid = (
+                            str(tb.smoothing_group_id)
+                            if len(penalty_defs) <= 1
+                            else penalty_id_for_local_index(
+                                tb.smoothing_group_id, j, n_penalties=len(penalty_defs)
+                            )
+                        )
+                    else:
+                        sid = default_penalty_id(
+                            pred_name=pred_spec.name,
+                            term=tb,
+                            term_label=tb.label,
+                            coef_start=int(tb.coef_slice.start),
+                            local_penalty_index=j,
+                            n_penalties=len(penalty_defs),
+                        )
+                elif raw_sid_counts.get(str(sid), 0) > 1:
+                    sid = penalty_id_for_local_index(
+                        sid, j, n_penalties=len(penalty_defs)
                     )
                 sid = str(sid)
                 if sid not in smoothing_id_map:
@@ -816,11 +859,11 @@ def compile_predictors(
                     pdef.sp_mode,
                     pdef.sp_value,
                     smoothing_id=sid,
-                    label=smooth.label,
+                    label=tb.label,
                 )
                 penalty_blocks.append(
                     CompiledPenalty(
-                        label=smooth.label,
+                        label=tb.label,
                         coef_slice=tb.coef_slice,
                         matrix=P,
                         smoothing_index=sp_idx,
@@ -844,8 +887,8 @@ def compile_predictors(
 
             group_id = (
                 None
-                if getattr(smooth, "smoothing_id", None) is None
-                else str(smooth.smoothing_id)
+                if getattr(tb, "smoothing_group_id", None) is None
+                else str(tb.smoothing_group_id)
             )
             if group_id is not None:
                 group = penalty_group_specs.get(group_id)
@@ -867,10 +910,10 @@ def compile_predictors(
                         f"smoothing indices {group.sp_indices} and "
                         f"{term_smoothing_indices}."
                     )
-                if smooth.term_id not in group.term_ids:
-                    group.term_ids.append(str(smooth.term_id))
-                if smooth.label not in group.labels:
-                    group.labels.append(str(smooth.label))
+                if tb.term_id not in group.term_ids:
+                    group.term_ids.append(str(tb.term_id))
+                if tb.label not in group.labels:
+                    group.labels.append(str(tb.label))
 
         matrix_train = (
             np.column_stack(design_blocks)
@@ -926,61 +969,66 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 
 from ..constraints.absorption import absorb_explicit_constraints
 from ..penalties import normalize_penalty_spec
 from ..specs import TermSpec
+from .contracts import (
+    ByVariableInfo,
+    CoefficientMap,
+    TermFeatureInfo,
+    compatibility_constructor_metadata,
+    compose_coefficient_maps,
+    default_side_condition_policy,
+)
 from .factory import instantiate_term
+from .structures import CompiledTerm
 
 
 @dataclass(frozen=True)
 class ConstructedSmooth:
-    label: str
-    term_id: str
-    runtime: object
-    train_design_matrix: np.ndarray
+    compiled_term: CompiledTerm
     penalty_specs: tuple = field(default_factory=tuple)
-    basis_name: str = "unknown"
-    term_type: str = "smooth"
-    smoothing_id: str | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
     fit_constraint_operator: np.ndarray | None = None
-    fit_coefficient_map: np.ndarray | None = None
-    predict_coefficient_map: np.ndarray | None = None
-    transform_applied: bool = False
-    skip_centering: bool = False
     prediction_offset: np.ndarray | None = None
     original_design_matrix: np.ndarray | None = None
-    constructor_metadata: dict[str, Any] = field(default_factory=dict)
-    _predict_fn: Callable | None = field(default=None, repr=False, compare=False)
+
+    def __getattr__(self, name: str):
+        return getattr(self.compiled_term, name)
 
     @property
     def n_coef(self) -> int:
-        return int(self.train_design_matrix.shape[1])
+        return int(self.compiled_term.basis_train.shape[1])
+
+    @property
+    def basis_train(self) -> np.ndarray:
+        return np.asarray(self.compiled_term.basis_train, dtype=np.float64)
+
+    @property
+    def fit_coefficient_map(self) -> np.ndarray | None:
+        for cmap in self.compiled_term.coefficient_maps:
+            if cmap.reason == "local_constraint_absorption":
+                return np.asarray(cmap.matrix, dtype=np.float64)
+        return None
+
+    @property
+    def predict_coefficient_map(self) -> np.ndarray | None:
+        return compose_coefficient_maps(self.compiled_term.coefficient_maps)
+
+    @property
+    def transform_applied(self) -> bool:
+        return len(self.compiled_term.coefficient_maps) > 0
+
+    @property
+    def skip_centering(self) -> bool:
+        policy = self.compiled_term.side_condition_policy
+        return bool(policy is not None and policy.skip_centering)
 
     def predict_matrix(self, X_new):
-        if self._predict_fn is None:
-            M = np.asarray(self.runtime.transform_new(X_new), dtype=np.float64)
-        else:
-            M = np.asarray(self._predict_fn(X_new), dtype=np.float64)
-
-        C_pred = self.predict_coefficient_map
-        if C_pred is not None:
-            M = M @ np.asarray(C_pred, dtype=np.float64)
-
-        if M.ndim != 2:
-            raise ValueError(
-                f"Predict matrix for smooth {self.label!r} must be 2D, got {M.shape}."
-            )
-        if M.shape[1] != self.n_coef:
-            raise ValueError(
-                f"Predict matrix for smooth {self.label!r} has width {M.shape[1]}, "
-                f"but fitted width is {self.n_coef}."
-            )
-        return M
+        return self.compiled_term.predict_matrix(X_new)
 
 
 def build_term_matrix(term: ConstructedSmooth, X_new, return_offset=False):
@@ -1009,6 +1057,31 @@ def _extract_runtime_state(runtime):
     for pdef in penalty_defs:
         _set_penalty_matrix_and_meta(pdef, np.asarray(pdef.matrix, dtype=np.float64))
     return B, penalty_defs
+
+
+def _feature_info_from_runtime(runtime) -> TermFeatureInfo:
+    feature_names = tuple(str(v) for v in getattr(runtime, "_feature_names", ()) or ())
+    if len(feature_names) == 0 and getattr(runtime, "_feature_name", None) is not None:
+        feature_names = (str(runtime._feature_name),)
+
+    feature_indices = ()
+    if getattr(runtime, "_feature_indices", None) is not None:
+        feature_indices = tuple(int(v) for v in runtime._feature_indices)
+    elif getattr(runtime, "_feature_index", None) is not None:
+        feature_indices = (int(runtime._feature_index),)
+
+    metric_feature_indices = tuple(
+        int(v) for v in (getattr(runtime, "_metric_feature_indices", None) or ())
+    )
+    factor_feature_indices = tuple(
+        int(v) for v in (getattr(runtime, "_factor_feature_indices", None) or ())
+    )
+    return TermFeatureInfo(
+        feature_names=feature_names,
+        feature_indices=feature_indices,
+        metric_feature_indices=metric_feature_indices,
+        factor_feature_indices=factor_feature_indices,
+    )
 
 
 def construct_smooth(
@@ -1041,25 +1114,19 @@ def construct_smooth(
     predict_coefficient_map = getattr(runtime, "predict_coefficient_map", None)
     prediction_offset = getattr(runtime, "prediction_offset", None)
     _by_state = getattr(runtime, "_by_state", None)
-
-    constructor_metadata = {
-        "runtime_transform_applied": runtime_transform_applied,
-        "runtime_skip_centering": runtime_skip_centering,
-        "runtime_constraint_kind": getattr(runtime, "constraint_kind", None),
-        "runtime_by_name": _by_state.feature_name if _by_state is not None else None,
-        "runtime_by_is_constant": (
-            _by_state.is_constant if _by_state is not None else None
-        ),
-    }
-
-    raw_predict_n_coef = int(B.shape[1])
-    constructor_metadata["by_handling"] = (
-        "runtime" if getattr(runtime, "by", None) is not None else "none"
+    by_variable_info = ByVariableInfo(
+        name=None if _by_state is None else _by_state.feature_name,
+        is_constant=None if _by_state is None else _by_state.is_constant,
+        handling="runtime" if getattr(runtime, "by", None) is not None else "none",
+    )
+    side_condition_policy = default_side_condition_policy(
+        term_type=str(getattr(runtime, "term_type", "smooth")),
+        runtime_skip_centering=runtime_skip_centering,
+        by_variable_info=by_variable_info,
     )
 
-    fit_coefficient_map = None
-    transform_applied = runtime_transform_applied
-    skip_centering = runtime_skip_centering
+    raw_predict_n_coef = int(B.shape[1])
+    coefficient_maps: list[CoefficientMap] = []
     predict_coefficient_map_arr = (
         None
         if predict_coefficient_map is None
@@ -1073,19 +1140,25 @@ def construct_smooth(
             fit_constraint,
         )
         fit_coefficient_map = np.asarray(T_fit, dtype=np.float64)
+        coefficient_maps.append(
+            CoefficientMap(
+                source_space="raw_term_space",
+                target_space="local_fit_space",
+                matrix=fit_coefficient_map,
+                reason="local_constraint_absorption",
+            )
+        )
         if predict_coefficient_map_arr is None:
-            predict_coefficient_map_arr = fit_coefficient_map
+            predict_coefficient_map_arr = fit_coefficient_map.copy()
         expected_shape = (int(raw_predict_n_coef), int(B.shape[1]))
         if predict_coefficient_map_arr.shape != expected_shape:
             raise ValueError(
                 f"Predict coefficient map for term {getattr(runtime, 'label', str(runtime))!r} "
                 f"has shape {predict_coefficient_map_arr.shape}, expected {expected_shape}."
             )
-        transform_applied = True
-        skip_centering = True
-        constructor_metadata["constraint_absorption"] = "wrapper"
-        constructor_metadata["n_constraints_absorbed"] = int(n_cons)
-        constructor_metadata["predict_map_source"] = (
+        constraint_absorption = "wrapper"
+        n_constraints_absorbed = int(n_cons)
+        predict_map_source = (
             "runtime" if predict_coefficient_map is not None else "fit_coefficient_map"
         )
     else:
@@ -1096,64 +1169,203 @@ def construct_smooth(
                     f"Predict coefficient map for term {getattr(runtime, 'label', str(runtime))!r} "
                     f"has shape {predict_coefficient_map_arr.shape}, expected {expected_shape}."
                 )
-        constructor_metadata["constraint_absorption"] = (
-            "runtime" if transform_applied else "none"
-        )
-        constructor_metadata["n_constraints_absorbed"] = None
-        constructor_metadata["predict_map_source"] = (
+        constraint_absorption = "runtime" if runtime_transform_applied else "none"
+        n_constraints_absorbed = None
+        predict_map_source = (
             "runtime" if predict_coefficient_map_arr is not None else "none"
         )
+
+    if predict_coefficient_map_arr is not None and not any(
+        cmap.reason == "local_constraint_absorption" for cmap in coefficient_maps
+    ):
+        coefficient_maps.append(
+            CoefficientMap(
+                source_space="raw_term_space",
+                target_space="local_fit_space",
+                matrix=np.asarray(predict_coefficient_map_arr, dtype=np.float64),
+                reason="runtime_constraint_transform",
+            )
+        )
+
+    constructor_metadata = compatibility_constructor_metadata(
+        runtime_transform_applied=runtime_transform_applied,
+        side_condition_policy=side_condition_policy,
+        by_variable_info=by_variable_info,
+        constraint_kind=getattr(runtime, "constraint_kind", None),
+        constraint_absorption=constraint_absorption,
+        n_constraints_absorbed=n_constraints_absorbed,
+        predict_map_source=predict_map_source,
+    )
 
     if null_space_penalty:
         raise NotImplementedError(
             "Generic smoothCon-level null-space penalty insertion is not enabled yet in this wrapper."
         )
 
-    return ConstructedSmooth(
+    compiled_term = CompiledTerm(
         label=str(getattr(runtime, "label", str(runtime))),
-        term_id=str(getattr(runtime, "term_id", "")),
-        runtime=runtime,
-        train_design_matrix=np.asarray(B, dtype=np.float64),
-        penalty_specs=tuple(penalty_defs),
-        basis_name=str(getattr(runtime, "basis_name", "unknown")),
+        coef_slice=slice(0, int(B.shape[1])),
+        basis_train=np.asarray(B, dtype=np.float64),
+        predict_fn=getattr(runtime, "transform_new", None),
+        predict_coefficient_map=compose_coefficient_maps(tuple(coefficient_maps)),
+        basis_transform=np.eye(int(B.shape[1]), dtype=np.float64),
+        coefficient_maps=tuple(coefficient_maps),
+        feature_info=_feature_info_from_runtime(runtime),
+        by_variable_info=by_variable_info,
+        side_condition_policy=side_condition_policy,
+        kept_columns=np.arange(int(B.shape[1]), dtype=int),
+        deleted_columns=np.array([], dtype=int),
+        smoothing_indices=[],
+        smoothing_ids=[],
+        n_penalties=0,
         term_type=str(getattr(runtime, "term_type", "smooth")),
-        smoothing_id=(
+        basis_name=str(getattr(runtime, "basis_name", "unknown")),
+        term_id=str(getattr(runtime, "term_id", "")),
+        smoothing_group_id=(
             None
             if getattr(runtime, "smoothing_id", None) is None
             else str(runtime.smoothing_id)
         ),
+        penalty_specs=tuple(penalty_defs),
+        constructor_metadata=constructor_metadata,
         metadata=dict(getattr(runtime, "metadata", {}) or {}),
+    )
+
+    return ConstructedSmooth(
+        compiled_term=compiled_term,
+        penalty_specs=tuple(penalty_defs),
         fit_constraint_operator=(
             None
             if fit_constraint is None
             else np.asarray(fit_constraint, dtype=np.float64)
         ),
-        fit_coefficient_map=(
-            None
-            if fit_coefficient_map is None
-            else np.asarray(fit_coefficient_map, dtype=np.float64)
-        ),
-        predict_coefficient_map=(
-            None
-            if predict_coefficient_map_arr is None
-            else np.asarray(predict_coefficient_map_arr, dtype=np.float64)
-        ),
-        transform_applied=bool(transform_applied),
-        skip_centering=bool(skip_centering),
         prediction_offset=(
             None
             if prediction_offset is None
             else np.asarray(prediction_offset, dtype=np.float64)
         ),
         original_design_matrix=None,
-        constructor_metadata=constructor_metadata,
-        _predict_fn=None,
     )
 
 
 __all__ = ["ConstructedSmooth", "build_term_matrix", "construct_smooth"]
 
 # --- End of nampy/gam/compiler/construct.py ---
+
+# --- Start of nampy/gam/compiler/contracts.py ---
+"""Typed architecture contracts for GAM construction and compilation."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
+
+import numpy as np
+
+
+@dataclass(frozen=True)
+class CoefficientMap:
+    source_space: str
+    target_space: str
+    matrix: np.ndarray
+    reason: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ByVariableInfo:
+    name: str | None = None
+    is_constant: bool | None = None
+    handling: str = "none"
+
+    @property
+    def is_active(self) -> bool:
+        return self.name is not None
+
+
+@dataclass(frozen=True)
+class TermFeatureInfo:
+    feature_names: tuple[str, ...] = ()
+    feature_indices: tuple[int, ...] = ()
+    metric_feature_indices: tuple[int, ...] = ()
+    factor_feature_indices: tuple[int, ...] = ()
+
+
+@dataclass(frozen=True)
+class SideConditionPolicy:
+    skip_centering: bool = False
+    exempt_from_predictor_side_conditions: bool = False
+    exempt_from_predictor_centering: bool = False
+    exempt_from_dependency_pruning: bool = False
+    requires_penalty_aware_pruning: bool = True
+    allow_first_numeric_by_unpruned: bool = False
+
+
+def compose_coefficient_maps(
+    maps: tuple[CoefficientMap, ...] | list[CoefficientMap],
+) -> np.ndarray | None:
+    ordered = list(maps)
+    if len(ordered) == 0:
+        return None
+    result = np.asarray(ordered[0].matrix, dtype=np.float64)
+    for cmap in ordered[1:]:
+        result = result @ np.asarray(cmap.matrix, dtype=np.float64)
+    return np.asarray(result, dtype=np.float64)
+
+
+def compatibility_constructor_metadata(
+    *,
+    runtime_transform_applied: bool,
+    side_condition_policy: SideConditionPolicy,
+    by_variable_info: ByVariableInfo,
+    constraint_kind: str | None,
+    constraint_absorption: str,
+    n_constraints_absorbed: int | None,
+    predict_map_source: str,
+) -> dict[str, Any]:
+    return {
+        "runtime_transform_applied": bool(runtime_transform_applied),
+        "runtime_skip_centering": bool(side_condition_policy.skip_centering),
+        "runtime_constraint_kind": constraint_kind,
+        "runtime_by_name": by_variable_info.name,
+        "runtime_by_is_constant": by_variable_info.is_constant,
+        "by_handling": by_variable_info.handling,
+        "constraint_absorption": constraint_absorption,
+        "n_constraints_absorbed": n_constraints_absorbed,
+        "predict_map_source": predict_map_source,
+    }
+
+
+def default_side_condition_policy(
+    *,
+    term_type: str,
+    runtime_skip_centering: bool,
+    by_variable_info: ByVariableInfo,
+) -> SideConditionPolicy:
+    exempt = term_type in {"random_effect", "factor_smooth_fs", "factor_smooth_sz"}
+    return SideConditionPolicy(
+        skip_centering=bool(runtime_skip_centering),
+        exempt_from_predictor_side_conditions=exempt,
+        exempt_from_predictor_centering=exempt,
+        exempt_from_dependency_pruning=exempt,
+        requires_penalty_aware_pruning=True,
+        allow_first_numeric_by_unpruned=(
+            by_variable_info.is_active and not bool(by_variable_info.is_constant)
+        ),
+    )
+
+
+__all__ = [
+    "ByVariableInfo",
+    "CoefficientMap",
+    "SideConditionPolicy",
+    "TermFeatureInfo",
+    "compatibility_constructor_metadata",
+    "compose_coefficient_maps",
+    "default_side_condition_policy",
+]
+
+# --- End of nampy/gam/compiler/contracts.py ---
 
 # --- Start of nampy/gam/compiler/factory.py ---
 """Compiler-owned term instantiation from declarative specs."""
@@ -1692,9 +1904,16 @@ __all__ = ["attach_shared_basis_metadata"]
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
+
+from .contracts import (
+    ByVariableInfo,
+    CoefficientMap,
+    SideConditionPolicy,
+    TermFeatureInfo,
+)
 
 
 @dataclass
@@ -1731,9 +1950,20 @@ class CompiledPenalty:
 class CompiledTerm:
     label: str
     coef_slice: slice
-    smooth: object
     basis_train: np.ndarray
+    predict_fn: Callable[..., np.ndarray] | None = field(
+        default=None, repr=False, compare=False
+    )
+    predict_coefficient_map: np.ndarray | None = field(
+        default=None, repr=False, compare=False
+    )
     basis_transform: np.ndarray | None = None
+    coefficient_maps: tuple[CoefficientMap, ...] = field(default_factory=tuple)
+    feature_info: TermFeatureInfo = field(default_factory=TermFeatureInfo)
+    by_variable_info: ByVariableInfo = field(default_factory=ByVariableInfo)
+    side_condition_policy: SideConditionPolicy = field(
+        default_factory=SideConditionPolicy
+    )
     kept_columns: np.ndarray | None = None
     deleted_columns: np.ndarray | None = None
     smoothing_indices: list[int] = field(default_factory=list)
@@ -1743,7 +1973,35 @@ class CompiledTerm:
     basis_name: str = "unknown"
     term_id: str = ""
     smoothing_group_id: str | None = None
+    penalty_specs: tuple = field(default_factory=tuple)
+    constructor_metadata: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def smoothing_id(self):
+        return self.smoothing_group_id
+
+    def predict_matrix(self, X_new):
+        if self.predict_fn is None:
+            raise RuntimeError(
+                f"Compiled term {self.label!r} has no prediction callback."
+            )
+        basis = np.asarray(self.predict_fn(X_new), dtype=np.float64)
+        if self.predict_coefficient_map is not None:
+            basis = basis @ np.asarray(self.predict_coefficient_map, dtype=np.float64)
+        if self.basis_transform is not None:
+            basis = basis @ np.asarray(self.basis_transform, dtype=np.float64)
+        if basis.ndim != 2:
+            raise ValueError(
+                f"Predict matrix for compiled term {self.label!r} must be 2D, got {basis.shape}."
+            )
+        expected_width = int(self.basis_train.shape[1])
+        if basis.shape[1] != expected_width:
+            raise ValueError(
+                f"Predict matrix for compiled term {self.label!r} has width {basis.shape[1]}, "
+                f"expected {expected_width}."
+            )
+        return basis
 
 
 @dataclass(frozen=True)
@@ -1768,11 +2026,7 @@ class CompiledPredictor:
 
         blocks = []
         for term in self.compiled_terms:
-            basis = np.asarray(term.smooth.predict_matrix(X_new), dtype=np.float64)
-            transform = term.basis_transform
-            if transform is not None:
-                basis = basis @ transform
-            blocks.append(basis)
+            blocks.append(np.asarray(term.predict_matrix(X_new), dtype=np.float64))
 
         return np.column_stack(blocks)
 
@@ -2390,6 +2644,157 @@ class FitResult:
 __all__ = ["FitResult"]
 
 # --- End of nampy/gam/results/solution.py ---
+
+# --- Start of nampy/gam/smooths/algebra.py ---
+import numpy as np
+from scipy.linalg import eigh
+
+from .._mgcv_constants import EIG_TOL_POWER
+from ..penalties.algebra import penalty_eigendecomposition
+
+
+def rowwise_kronecker(matrices):
+    mats = [np.asarray(M, dtype=np.float64) for M in matrices]
+    if len(mats) == 0:
+        raise ValueError("matrices must contain at least one matrix.")
+    n = mats[0].shape[0]
+    for M in mats:
+        if M.ndim != 2 or M.shape[0] != n:
+            raise ValueError("All marginal model matrices must be 2D with equal rows.")
+    out = mats[0]
+    for M in mats[1:]:
+        out = np.einsum("ij,ik->ijk", out, M, optimize=True).reshape(
+            n, out.shape[1] * M.shape[1]
+        )
+    return out
+
+
+def _eigen_split(raw_basis, raw_penalty, tol=None, *, mode="range_null", rank=None):
+    X = np.asarray(raw_basis, dtype=np.float64)
+    S = np.asarray(raw_penalty, dtype=np.float64)
+
+    if tol is None:
+        tol = float(np.finfo(np.float64).eps ** EIG_TOL_POWER)
+
+    if mode == "range_null":
+        dec = penalty_eigendecomposition(S, tol=tol)
+        U0, U1, d_pos = dec["U0"], dec["U1"], dec["d_pos"]
+        if d_pos.size > 0:
+            T_r = U1 / np.sqrt(d_pos)[np.newaxis, :]
+            B_r = X @ T_r
+        else:
+            T_r = np.empty((S.shape[0], 0), dtype=np.float64)
+            B_r = np.empty((X.shape[0], 0), dtype=np.float64)
+        T_n = U0
+        B_n = (
+            X @ T_n if T_n.shape[1] > 0 else np.empty((X.shape[0], 0), dtype=np.float64)
+        )
+        return {
+            "B_range": B_r,
+            "B_null": B_n,
+            "T_range": T_r,
+            "T_null": T_n,
+            "range_dim": B_r.shape[1],
+            "null_dim": B_n.shape[1],
+            "rank": dec["rank"],
+            "null_space_dim": dec["null_space_dim"],
+            "tol_eff": dec["tol_eff"],
+        }
+
+    if mode != "t2":
+        raise ValueError(f"Unknown eigen split mode {mode!r}.")
+
+    p = int(X.shape[1])
+    # Match mgcv::nat.param(type=3), which uses R's `eigen(..., symmetric=TRUE)`.
+    # SciPy's LAPACK-backed `eigh` tracks that null-space basis choice much more
+    # closely than NumPy's wrapper on repeated-zero eigenspaces, and that basis
+    # feeds directly into t2 block construction.
+    evals, U = eigh(0.5 * (S + S.T), driver="evr")
+    idx = np.argsort(evals)[::-1]
+    evals, U = evals[idx], U[:, idx]
+
+    max_eval = float(np.max(evals)) if evals.size else 0.0
+    tol_eff = float(max_eval * tol)
+    if rank is None or int(rank) < 1 or int(rank) > p:
+        rank = int(np.sum(evals > tol_eff))
+    rank = int(rank)
+    null_exists = rank < p
+
+    E = np.ones(p, dtype=np.float64)
+    if rank > 0:
+        E[:rank] = np.sqrt(np.maximum(evals[:rank], 0.0))
+
+    Xp = X @ U
+    col_norm = np.sum(Xp**2, axis=0) / (E**2)
+    av_norm = float(np.mean(col_norm[:rank])) if rank > 0 else 1.0
+
+    if null_exists:
+        for i in range(rank, p):
+            if av_norm > 0.0 and col_norm[i] > 0.0:
+                E[i] = np.sqrt(col_norm[i] / av_norm)
+
+    P = U / E[np.newaxis, :]
+    Xp = Xp / E[np.newaxis, :]
+
+    if null_exists and rank < p - 1:
+        ind = list(range(rank, p))
+        rind = list(range(p - 1, rank - 1, -1))
+        Xn = Xp[:, ind].copy()
+        n = Xn.shape[0]
+        one = np.ones(n, dtype=np.float64)
+        Xn = Xn - (one[:, None] * (one[None, :] @ Xn)) / n
+        um_evals, um_vecs = eigh(Xn.T @ Xn, driver="evr")
+        desc = np.argsort(um_evals)[::-1]
+        um_vecs = um_vecs[:, desc]
+        Xp[:, rind] = Xp[:, ind] @ um_vecs
+        P[:, rind] = P[:, ind] @ um_vecs
+
+    if rank > 0:
+        pen_idx = list(range(rank))
+        scale = 1.0 / np.sqrt(float(np.mean(Xp[:, pen_idx] ** 2)))
+        Xp[:, pen_idx] *= scale
+        P[pen_idx, :] *= scale
+
+    if null_exists:
+        null_idx = list(range(rank, p))
+        scale_f = 1.0 / np.sqrt(float(np.mean(Xp[:, null_idx] ** 2)))
+        Xp[:, null_idx] *= scale_f
+        P[null_idx, :] *= scale_f
+
+    B_r = Xp[:, :rank] if rank > 0 else np.empty((X.shape[0], 0), dtype=np.float64)
+    B_n = Xp[:, rank:] if null_exists else np.empty((X.shape[0], 0), dtype=np.float64)
+    T_r = P[:, :rank] if rank > 0 else np.empty((p, 0), dtype=np.float64)
+    T_n = P[:, rank:] if null_exists else np.empty((p, 0), dtype=np.float64)
+
+    return {
+        "B_range": B_r,
+        "B_null": B_n,
+        "T_range": T_r,
+        "T_null": T_n,
+        "range_dim": int(B_r.shape[1]),
+        "null_dim": int(B_n.shape[1]),
+        "rank": rank,
+        "null_space_dim": int(p - rank),
+        "tol_eff": tol_eff,
+    }
+
+
+def marginal_range_null_decomposition(raw_basis, raw_penalty, tol=1e-10):
+    return _eigen_split(raw_basis, raw_penalty, tol=tol, mode="range_null")
+
+
+def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=None):
+    del knots
+    return _eigen_split(raw_basis, raw_penalty, tol=tol, mode="t2")
+
+
+__all__ = [
+    "rowwise_kronecker",
+    "marginal_range_null_decomposition",
+    "t2_marginal_reparameterization",
+]
+
+# --- End of nampy/gam/smooths/algebra.py ---
 
 # --- Start of nampy/utils/distributional_metrics.py ---
 # utils/distributional_metrics.py

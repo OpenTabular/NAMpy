@@ -4,6 +4,8 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.spatial import distance_matrix
 
+from .thin_plate import _top_eigensystem
+
 
 def normalize_gp_knots(knots, n_dim: int):
     """
@@ -295,10 +297,9 @@ def gp_setup_from_data(
     )
 
     if rank < nk:
-        evals, U = np.linalg.eigh(E)
-        idx = np.argsort(evals)[::-1][:rank]
-        evals = np.maximum(evals[idx], 0.0)
-        UZ = U[:, idx]
+        # mgcv::smooth.construct.gp.smooth.spec uses slanczos(E, k, -1),
+        # i.e. the same largest-magnitude truncated eigensystem used by tprs.
+        evals, UZ = _top_eigensystem(E, rank)
         penalty = np.zeros((bs_dim, bs_dim), dtype=np.float64)
         penalty[:rank, :rank] = np.diag(evals)
     else:

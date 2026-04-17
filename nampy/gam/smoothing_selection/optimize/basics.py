@@ -16,7 +16,28 @@ from ..criteria import resolve_ml_reml_scoring_backend
 
 def supports_criterion_gradient(model, method):
     method = str(method).lower()
-    return method in {"gcv", "ubre", "aic", "ubreaic", "ml", "reml", "laml"}
+    if method in {"gcv", "ubre", "aic", "ubreaic"}:
+        return True
+    if method not in {"ml", "reml", "laml"}:
+        return False
+    backend = resolve_ml_reml_scoring_backend(model, method=method)
+    if backend in {"gaussian_exact", "gaussian_dynamic"} and method in {"reml", "laml"}:
+        return True
+    if backend == "general_fit5":
+        return True
+    if (
+        backend == "pirls_laplace"
+        and method in {"reml", "laml", "ml"}
+        and (
+            getattr(model.family, "known_scale", None) is not None
+            or str(getattr(model.family, "name", "")).lower() == "gamma"
+        )
+        and bool(
+            getattr(model.family, "supports_exact_pirls_first_derivatives", False)
+        )
+    ):
+        return True
+    return False
 
 
 def supports_criterion_hessian(model, method):

@@ -158,20 +158,23 @@ def _hat_matrix_trace_and_sp_derivatives(A_inv, XtWX, dA, d2A_mat, dXtWX, d2XtWX
     return trA, trA1, trA2
 
 
-def _deviance_coefficient_derivatives(model, y, eta, mu, W, X):
+def _deviance_coefficient_derivatives(model, y, eta, mu, weights, X):
     family = model.family
     mu1 = np.clip(np.asarray(family.mu_eta(eta), dtype=np.float64), 1e-14, None)
     V = np.clip(np.asarray(family.variance(mu), dtype=np.float64), 1e-14, None)
     V1 = np.asarray(family.dvar(mu), dtype=np.float64)
     g2 = np.asarray(family.d2link(mu), dtype=np.float64)
     mu2 = -g2 * (mu1**3)
+    weights = np.asarray(weights, dtype=np.float64)
     resid = np.asarray(y, dtype=np.float64) - np.asarray(mu, dtype=np.float64)
-    v1 = -2.0 * resid * mu1 / V
+    # mgcv::gam.fit3 differentiates sum(dev.resids(y, mu, weights)), so the
+    # deviance chain must carry prior weights rather than IRLS/Newton weights.
+    v1 = -2.0 * weights * resid * mu1 / V
     dev_grad = np.asarray(X, dtype=np.float64).T @ v1
     p_eta2 = (
-        2.0 * (mu1**2) / V
-        - 2.0 * resid * mu2 / V
-        + 2.0 * resid * (mu1**2) * V1 / (V**2)
+        2.0 * weights * (mu1**2) / V
+        - 2.0 * weights * resid * mu2 / V
+        + 2.0 * weights * resid * (mu1**2) * V1 / (V**2)
     )
     dev_hess = np.asarray(X, dtype=np.float64).T @ (
         p_eta2[:, None] * np.asarray(X, dtype=np.float64)

@@ -6,10 +6,13 @@ from .algebra import (
 from .subsystem import (
     build_null_space_selection_spec,
     default_penalty_id,
+    penalty_id_for_local_index,
+    penalty_id_with_suffix,
     make_penalty_spec,
     merge_smoothing_override,
     normalize_penalty_spec,
     penalty_rank_null_dim,
+    selection_penalty_id,
 )
 from .tensor import (
     lifted_tensor_penalty,
@@ -28,6 +31,9 @@ __all__ = [
     "build_null_space_selection_spec",
     "merge_smoothing_override",
     "default_penalty_id",
+    "penalty_id_with_suffix",
+    "penalty_id_for_local_index",
+    "selection_penalty_id",
     "lifted_tensor_penalty",
     "tensor_product_penalties",
     "normalize_tensor_marginal_penalty",

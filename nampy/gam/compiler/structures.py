@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
+
+from .contracts import (
+    ByVariableInfo,
+    CoefficientMap,
+    SideConditionPolicy,
+    TermFeatureInfo,
+)
 
 
 @dataclass
@@ -42,9 +49,20 @@ class CompiledPenalty:
 class CompiledTerm:
     label: str
     coef_slice: slice
-    smooth: object
     basis_train: np.ndarray
+    predict_fn: Callable[..., np.ndarray] | None = field(
+        default=None, repr=False, compare=False
+    )
+    predict_coefficient_map: np.ndarray | None = field(
+        default=None, repr=False, compare=False
+    )
     basis_transform: np.ndarray | None = None
+    coefficient_maps: tuple[CoefficientMap, ...] = field(default_factory=tuple)
+    feature_info: TermFeatureInfo = field(default_factory=TermFeatureInfo)
+    by_variable_info: ByVariableInfo = field(default_factory=ByVariableInfo)
+    side_condition_policy: SideConditionPolicy = field(
+        default_factory=SideConditionPolicy
+    )
     kept_columns: np.ndarray | None = None
     deleted_columns: np.ndarray | None = None
     smoothing_indices: list[int] = field(default_factory=list)
@@ -54,7 +72,35 @@ class CompiledTerm:
     basis_name: str = "unknown"
     term_id: str = ""
     smoothing_group_id: str | None = None
+    penalty_specs: tuple = field(default_factory=tuple)
+    constructor_metadata: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def smoothing_id(self):
+        return self.smoothing_group_id
+
+    def predict_matrix(self, X_new):
+        if self.predict_fn is None:
+            raise RuntimeError(
+                f"Compiled term {self.label!r} has no prediction callback."
+            )
+        basis = np.asarray(self.predict_fn(X_new), dtype=np.float64)
+        if self.predict_coefficient_map is not None:
+            basis = basis @ np.asarray(self.predict_coefficient_map, dtype=np.float64)
+        if self.basis_transform is not None:
+            basis = basis @ np.asarray(self.basis_transform, dtype=np.float64)
+        if basis.ndim != 2:
+            raise ValueError(
+                f"Predict matrix for compiled term {self.label!r} must be 2D, got {basis.shape}."
+            )
+        expected_width = int(self.basis_train.shape[1])
+        if basis.shape[1] != expected_width:
+            raise ValueError(
+                f"Predict matrix for compiled term {self.label!r} has width {basis.shape[1]}, "
+                f"expected {expected_width}."
+            )
+        return basis
 
 
 @dataclass(frozen=True)
@@ -79,11 +125,7 @@ class CompiledPredictor:
 
         blocks = []
         for term in self.compiled_terms:
-            basis = np.asarray(term.smooth.predict_matrix(X_new), dtype=np.float64)
-            transform = term.basis_transform
-            if transform is not None:
-                basis = basis @ transform
-            blocks.append(basis)
+            blocks.append(np.asarray(term.predict_matrix(X_new), dtype=np.float64))
 
         return np.column_stack(blocks)
 

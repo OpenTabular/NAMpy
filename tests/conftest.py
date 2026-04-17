@@ -1,3 +1,7 @@
+import re
+from pathlib import Path
+from typing import Any
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -53,3 +57,282 @@ def mixed_data():
     )
     y = (X["num1"] * 0.3 + rng.normal(scale=0.1, size=40)).to_numpy()
     return X, y
+
+
+_SMOOTH_MARK_NAMES = {
+    "cr": "smooth_cr",
+    "cs": "smooth_cs",
+    "cc": "smooth_cc",
+    "ps": "smooth_ps",
+    "tp": "smooth_tp",
+    "ts": "smooth_ts",
+    "te": "smooth_te",
+    "ti": "smooth_ti",
+    "t2": "smooth_t2",
+    "gp": "smooth_gp",
+    "fs": "smooth_fs",
+    "sz": "smooth_sz",
+    "mrf": "smooth_mrf",
+    "re": "smooth_re",
+}
+
+_FAMILY_MARK_NAMES = {
+    "gaussian": "family_gaussian",
+    "binomial": "family_binomial",
+    "poisson": "family_poisson",
+    "gamma": "family_gamma",
+    "negbin": "family_negbin",
+    "gaulss": "family_gaulss",
+    "gammals": "family_gammals",
+    "gevlss": "family_gevlss",
+    "shashlss": "family_shashlss",
+    "ziplss": "family_ziplss",
+    "general": "family_general",
+}
+
+_METHOD_MARK_NAMES = {
+    "fixed": "method_fixed",
+    "reml": "method_reml",
+    "ml": "method_ml",
+    "laml": "method_laml",
+}
+
+_STATUS_MARKS_BY_FILE = {
+    "test_mgcv_known_gaps.py": {"status_known_gap"},
+    "test_mgcv_parity_failing_and_warnings.py": {"status_failing_or_warning"},
+    "test_gam_mgcv_patch_regressions.py": {"status_regression"},
+}
+
+_DEFAULT_MARKS_BY_FILE = {
+    "test_mgcv_parity.py": {"surface_snapshot"},
+    "test_mgcv_snapshot_parity.py": {"surface_snapshot"},
+    "test_mgcv_additional_scenarios.py": {"surface_snapshot"},
+    "test_mgcv_pc_id_parity.py": {"surface_snapshot"},
+    "test_mgcv_known_gaps.py": {"surface_snapshot"},
+    "test_mgcv_parity_failing_and_warnings.py": {"surface_snapshot"},
+    "test_mgcv_output_parity.py": {"surface_output"},
+    "test_mgcv_smoothcon_parity.py": {"surface_smoothcon"},
+    "test_mgcv_raw_constructor_parity.py": {"surface_smoothcon"},
+    "test_mgcv_trace_parity.py": {"surface_trace"},
+    "test_mgcv_newton_parity.py": {"surface_trace"},
+    "test_mgcv_newton_exact_parity.py": {"surface_trace"},
+    "test_mgcv_k_check_parity.py": {"surface_kcheck"},
+    "test_mgcv_score_gamma_parity.py": {"surface_derivatives"},
+    "test_gam_gaussian_smoothness_postprocess_parity.py": {
+        "surface_derivatives",
+        "family_gaussian",
+    },
+    "test_general_family_mgcv_parity.py": {
+        "surface_derivatives",
+        "family_general",
+    },
+    "test_mgcv_gamlss_core.py": {"surface_derivatives", "family_general"},
+    "test_mgcv_gamlss_gaulss.py": {"surface_derivatives", "family_gaulss"},
+    "test_mgcv_gamlss_gammals.py": {"surface_derivatives", "family_gammals"},
+    "test_mgcv_gamlss_gevlss.py": {"surface_derivatives", "family_gevlss"},
+    "test_mgcv_gamlss_shashlss.py": {"surface_derivatives", "family_shashlss"},
+    "test_mgcv_gamlss_ziplss.py": {"surface_derivatives", "family_ziplss"},
+    "test_mgcv_gaussian_backend_selection.py": {
+        "surface_backend",
+        "family_gaussian",
+    },
+    "test_gam_mgcv_patch_regressions.py": {"surface_regression"},
+}
+
+_SELECTION_CAPABLE_FILES = {
+    "test_mgcv_parity.py",
+    "test_mgcv_snapshot_parity.py",
+    "test_mgcv_additional_scenarios.py",
+    "test_mgcv_pc_id_parity.py",
+    "test_mgcv_known_gaps.py",
+    "test_mgcv_output_parity.py",
+    "test_mgcv_trace_parity.py",
+    "test_mgcv_score_gamma_parity.py",
+    "test_general_family_mgcv_parity.py",
+}
+
+_SURFACE_HINTS = {
+    "surface_output": ("anova", "predict", "prediction", "residual", "vcov", "terms"),
+    "surface_smoothcon": ("smoothcon", "basis", "penalt"),
+    "surface_trace": ("trace",),
+    "surface_kcheck": ("k_check",),
+    "surface_derivatives": (
+        "gradient",
+        "hessian",
+        "derivative",
+        "criterion",
+        "laplace",
+        "fd",
+    ),
+    "surface_snapshot": ("snapshot", "parity_snapshot"),
+    "surface_backend": ("backend",),
+}
+
+
+def _has_token(text: str, token: str) -> bool:
+    return re.search(rf"(?<![a-z0-9]){re.escape(token)}(?![a-z0-9])", text) is not None
+
+
+def _extract_case_like_fields(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    out = {}
+    for attr in ("case_id", "formula", "family", "method", "select", "weights_column"):
+        if hasattr(value, attr):
+            out[attr] = getattr(value, attr)
+    return out
+
+
+def _normalize_family_name(value: Any) -> str | None:
+    if isinstance(value, dict):
+        name = str(value.get("name", "")).lower()
+        if name in {"negativebinomial", "negative_binomial"}:
+            return "negbin"
+        return name or None
+    if value is None:
+        return None
+    name = str(value).lower()
+    if name in {"negativebinomial", "negative_binomial"}:
+        return "negbin"
+    return name
+
+
+def _collect_text_fragments(item: pytest.Item) -> list[str]:
+    texts = [item.nodeid.lower(), item.name.lower()]
+    if item.cls is not None:
+        texts.append(item.cls.__name__.lower())
+    if hasattr(item, "callspec"):
+        for value in item.callspec.params.values():
+            texts.extend(_collect_value_strings(value))
+    return texts
+
+
+def _collect_value_strings(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value.lower()]
+    if isinstance(value, dict):
+        out: list[str] = []
+        for key, val in value.items():
+            out.append(str(key).lower())
+            out.extend(_collect_value_strings(val))
+        return out
+    if isinstance(value, (list, tuple, set)):
+        out: list[str] = []
+        for part in value:
+            out.extend(_collect_value_strings(part))
+        return out
+    case_like = _extract_case_like_fields(value)
+    if case_like:
+        return _collect_value_strings(case_like)
+    if isinstance(value, bool):
+        return [str(value).lower()]
+    return [str(value).lower()]
+
+
+def _infer_marks_from_text(texts: list[str]) -> set[str]:
+    joined = " ".join(texts)
+    marks: set[str] = set()
+
+    for surface_mark, hints in _SURFACE_HINTS.items():
+        if any(hint in joined for hint in hints):
+            marks.add(surface_mark)
+
+    if "te(" in joined or _has_token(joined, "te"):
+        marks.add("smooth_te")
+    if "ti(" in joined or _has_token(joined, "ti"):
+        marks.add("smooth_ti")
+    if "t2(" in joined or _has_token(joined, "t2") or "tensor_anova" in joined:
+        marks.add("smooth_t2")
+
+    for token, mark in _SMOOTH_MARK_NAMES.items():
+        if token in {"te", "ti", "t2"}:
+            continue
+        if (
+            f'bs="{token}"' in joined
+            or f"bs='{token}'" in joined
+            or _has_token(joined, token)
+        ):
+            marks.add(mark)
+
+    for family, mark in _FAMILY_MARK_NAMES.items():
+        if family == "general":
+            continue
+        if _has_token(joined, family):
+            marks.add(mark)
+
+    for method, mark in _METHOD_MARK_NAMES.items():
+        if _has_token(joined, method):
+            marks.add(mark)
+
+    if "select=true" in joined or "select true" in joined or "_select_" in joined:
+        marks.add("select_true")
+
+    return marks
+
+
+def _infer_marks_from_callspec(item: pytest.Item) -> set[str]:
+    marks: set[str] = set()
+    callspec = getattr(item, "callspec", None)
+    if callspec is None:
+        return marks
+
+    params = callspec.params
+    family_value = params.get("family")
+    family_name = _normalize_family_name(family_value)
+    if family_name in _FAMILY_MARK_NAMES:
+        marks.add(_FAMILY_MARK_NAMES[family_name])
+
+    method_value = params.get("method")
+    if method_value is not None:
+        method_name = str(method_value).lower()
+        if method_name in _METHOD_MARK_NAMES:
+            marks.add(_METHOD_MARK_NAMES[method_name])
+
+    case_value = params.get("case")
+    if case_value is not None:
+        case_fields = _extract_case_like_fields(case_value)
+        case_family = _normalize_family_name(case_fields.get("family"))
+        if case_family in _FAMILY_MARK_NAMES:
+            marks.add(_FAMILY_MARK_NAMES[case_family])
+        case_method = case_fields.get("method")
+        if case_method is not None:
+            case_method_name = str(case_method).lower()
+            if case_method_name in _METHOD_MARK_NAMES:
+                marks.add(_METHOD_MARK_NAMES[case_method_name])
+        if "select" in case_fields:
+            marks.add("select_true" if case_fields["select"] else "select_false")
+
+    if "fixed_sp_override" in params and params["fixed_sp_override"] is not None:
+        marks.add("method_fixed")
+
+    if "select" in params:
+        marks.add("select_true" if params["select"] else "select_false")
+
+    return marks
+
+
+def pytest_collection_modifyitems(config, items):
+    for item in items:
+        path = Path(str(item.fspath)).name
+        marks: set[str] = set()
+        marks.update(_DEFAULT_MARKS_BY_FILE.get(path, set()))
+        marks.update(_STATUS_MARKS_BY_FILE.get(path, set()))
+
+        if not any(mark.startswith("status_") for mark in marks):
+            marks.add("status_stable")
+
+        text_marks = _infer_marks_from_text(_collect_text_fragments(item))
+        marks.update(text_marks)
+        marks.update(_infer_marks_from_callspec(item))
+
+        if (
+            path in _SELECTION_CAPABLE_FILES
+            and "select_true" not in marks
+            and "select_false" not in marks
+        ):
+            marks.add("select_false")
+
+        for mark_name in sorted(marks):
+            item.add_marker(getattr(pytest.mark, mark_name))

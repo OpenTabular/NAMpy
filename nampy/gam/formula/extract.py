@@ -19,6 +19,7 @@ from .parse import ParsedGAMFormula, ParsedParametricTerm, ParsedSmoothTerm
 class ExtractedParametricTerm:
     variables: tuple[str, ...]
     raw_label: str
+    factor_labels: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -61,6 +62,12 @@ def extract_formula_terms(
 
     extracted = []
     for i, (pf, drop_flag) in enumerate(zip(parsed.predictors, flags)):
+        if len(getattr(pf, "offset_names", ())) > 1:
+            raise NotImplementedError(
+                "Multiple offset(...) terms per predictor are not yet supported "
+                "beyond formula parsing."
+            )
+
         terms: list[ExtractedTerm] = []
         for term in pf.terms:
             if isinstance(term, ParsedParametricTerm):
@@ -68,6 +75,7 @@ def extract_formula_terms(
                     ExtractedParametricTerm(
                         variables=tuple(str(v) for v in term.variables),
                         raw_label=str(term.raw_label),
+                        factor_labels=tuple(str(v) for v in term.factor_labels),
                     )
                 )
                 continue

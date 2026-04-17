@@ -313,6 +313,26 @@ class GAM:
 
         return select_covariance_matrix(self, cov=cov)
 
+    def _resolve_ml_reml_scoring_backend(self, method="reml"):
+        from ..fit.model_ops import resolve_ml_reml_scoring_backend
+
+        return resolve_ml_reml_scoring_backend(self, method=method)
+
+    def _expand_smoothing_params_from_log(self, log_free_sp):
+        from ..fit.model_ops import expand_smoothing_params_from_log
+
+        return expand_smoothing_params_from_log(self, log_free_sp)
+
+    def _has_tensor_terms(self) -> bool:
+        for tb in _term_blocks_seq(self):
+            if str(getattr(tb, "term_type", "")).lower() in {
+                "tensor_smooth",
+                "tensor_interaction",
+                "tensor_anova",
+            }:
+                return True
+        return False
+
     def parity_snapshot(self, X=None, include_covariances=False):
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
@@ -472,8 +492,16 @@ class GAM:
 
         Mirrors mgcv ``vcov.gam`` in mgcv/R/mgcv.r.
         """
-        Vp = None if _cov_bayes(self) is None else np.asarray(_cov_bayes(self), dtype=np.float64)
-        Vf = None if _cov_freq(self) is None else np.asarray(_cov_freq(self), dtype=np.float64)
+        Vp = (
+            None
+            if _cov_bayes(self) is None
+            else np.asarray(_cov_bayes(self), dtype=np.float64)
+        )
+        Vf = (
+            None
+            if _cov_freq(self) is None
+            else np.asarray(_cov_freq(self), dtype=np.float64)
+        )
         Vc = _cov_unconditional(self)
         Vc = None if Vc is None else np.asarray(Vc, dtype=np.float64)
         fit_state = _fit_state(self)
@@ -481,14 +509,7 @@ class GAM:
         coef_full = np.asarray(_coef_full(self), dtype=np.float64)
         edf_total = float(_edf_total(self))
         if sandwich:
-            B2 = (
-                np.zeros_like(Vp)
-                if freq
-                else (
-                    Vp
-                    - Vf
-                )
-            )
+            B2 = np.zeros_like(Vp) if freq else (Vp - Vf)
             X = np.asarray(fit_state.X, dtype=np.float64)
             m = float(X.shape[0])
             m = m / (m - edf_total)
@@ -524,13 +545,7 @@ class GAM:
                     ),
                     dtype=np.float64,
                 )
-                vc = (
-                    m
-                    * Vp
-                    @ fill
-                    @ Vp
-                    + B2
-                )
+                vc = m * Vp @ fill @ Vp + B2
             elif family_class == "extended":
                 raise RuntimeError(
                     "Sandwich covariance matrix is not implemented for this extended family."
@@ -544,13 +559,7 @@ class GAM:
                     / (fit_scale * self.family.variance(mu))
                 )
                 WX = np.asarray(w[:, None] * X, dtype=np.float64)
-                vc = (
-                    m
-                    * Vp
-                    @ (WX.T @ WX)
-                    @ Vp
-                    + B2
-                )
+                vc = m * Vp @ (WX.T @ WX) @ Vp + B2
 
             vc = np.asarray(vc, dtype=np.float64).copy()
             if dispersion is not None:

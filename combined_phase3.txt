@@ -1,461 +1,7 @@
 Continuation prompt: Phase 3 - GAM design/construction/smooth runtime internals.
 This is part 3/6. Continue from earlier phases; do not restate prior context.
 
-Included files in this phase: 24
-
-# --- Start of nampy/gam/basis/algebra.py ---
-import numpy as np
-from scipy.linalg import eigh
-
-from .._mgcv_constants import EIG_TOL_POWER
-from ..penalties.algebra import penalty_eigendecomposition
-
-
-def rowwise_kronecker(matrices):
-    mats = [np.asarray(M, dtype=np.float64) for M in matrices]
-    if len(mats) == 0:
-        raise ValueError("matrices must contain at least one matrix.")
-    n = mats[0].shape[0]
-    for M in mats:
-        if M.ndim != 2 or M.shape[0] != n:
-            raise ValueError("All marginal model matrices must be 2D with equal rows.")
-    out = mats[0]
-    for M in mats[1:]:
-        out = np.einsum("ij,ik->ijk", out, M, optimize=True).reshape(
-            n, out.shape[1] * M.shape[1]
-        )
-    return out
-
-
-def _eigen_split(raw_basis, raw_penalty, tol=1e-10, *, mode="range_null"):
-    X = np.asarray(raw_basis, dtype=np.float64)
-    S = np.asarray(raw_penalty, dtype=np.float64)
-
-    if mode == "range_null":
-        dec = penalty_eigendecomposition(S, tol=tol)
-        U0, U1, d_pos = dec["U0"], dec["U1"], dec["d_pos"]
-        if d_pos.size > 0:
-            T_r = U1 / np.sqrt(d_pos)[np.newaxis, :]
-            B_r = X @ T_r
-        else:
-            T_r = np.empty((S.shape[0], 0), dtype=np.float64)
-            B_r = np.empty((X.shape[0], 0), dtype=np.float64)
-        T_n = U0
-        B_n = (
-            X @ T_n if T_n.shape[1] > 0 else np.empty((X.shape[0], 0), dtype=np.float64)
-        )
-        return {
-            "B_range": B_r,
-            "B_null": B_n,
-            "T_range": T_r,
-            "T_null": T_n,
-            "range_dim": B_r.shape[1],
-            "null_dim": B_n.shape[1],
-            "rank": dec["rank"],
-            "null_space_dim": dec["null_space_dim"],
-            "tol_eff": dec["tol_eff"],
-        }
-
-    if mode != "t2":
-        raise ValueError(f"Unknown eigen split mode {mode!r}.")
-
-    p = X.shape[1]
-    evals, U = eigh(0.5 * (S + S.T), driver="evr")
-    idx = np.argsort(evals)[::-1]
-    evals, U = evals[idx], U[:, idx]
-
-    tol_eff = float(np.finfo(np.float64).eps) ** EIG_TOL_POWER * max(
-        1.0, float(np.max(evals)) if evals.size else 1.0
-    )
-    rank = int(np.sum(evals > tol_eff))
-    null_exists = rank < p
-
-    E = np.ones(p, dtype=np.float64)
-    if rank > 0:
-        E[:rank] = np.sqrt(np.maximum(evals[:rank], 0.0))
-
-    Xp = X @ U
-    col_norm = np.sum(Xp**2, axis=0) / (E**2)
-    av_norm = float(np.mean(col_norm[:rank])) if rank > 0 else 1.0
-
-    if null_exists:
-        for i in range(rank, p):
-            if av_norm > 0.0 and col_norm[i] > 0.0:
-                E[i] = np.sqrt(col_norm[i] / av_norm)
-
-    P = U / E[np.newaxis, :]
-    Xp = Xp / E[np.newaxis, :]
-
-    if null_exists and rank < p - 1:
-        ind = list(range(rank, p))
-        rind = list(range(p - 1, rank - 1, -1))
-        Xn = Xp[:, ind].copy()
-        n = Xn.shape[0]
-        one = np.ones(n, dtype=np.float64)
-        Xn -= (one[:, None] * (one[None, :] @ Xn)) / n
-        um_evals, um_vecs = eigh(Xn.T @ Xn, driver="evr")
-        desc = np.argsort(um_evals)[::-1]
-        um_vecs = um_vecs[:, desc]
-        Xp[:, rind] = Xp[:, ind] @ um_vecs
-        P[:, rind] = P[:, ind] @ um_vecs
-
-    if rank > 0:
-        pen_idx = list(range(rank))
-        scale = 1.0 / np.sqrt(float(np.mean(Xp[:, pen_idx] ** 2)))
-        Xp[:, pen_idx] *= scale
-        P[pen_idx, :] *= scale
-
-    if null_exists:
-        null_idx = list(range(rank, p))
-        scale_f = 1.0 / np.sqrt(float(np.mean(Xp[:, null_idx] ** 2)))
-        Xp[:, null_idx] *= scale_f
-        P[null_idx, :] *= scale_f
-
-    B_r = Xp[:, :rank] if rank > 0 else np.empty((X.shape[0], 0), dtype=np.float64)
-    B_n = Xp[:, rank:] if null_exists else np.empty((X.shape[0], 0), dtype=np.float64)
-    T_r = P[:, :rank] if rank > 0 else np.empty((p, 0), dtype=np.float64)
-    T_n = P[:, rank:] if null_exists else np.empty((p, 0), dtype=np.float64)
-
-    return {
-        "B_range": B_r,
-        "B_null": B_n,
-        "T_range": T_r,
-        "T_null": T_n,
-        "range_dim": int(B_r.shape[1]),
-        "null_dim": int(B_n.shape[1]),
-        "rank": rank,
-        "null_space_dim": int(p - rank),
-        "tol_eff": tol_eff,
-    }
-
-
-def marginal_range_null_decomposition(raw_basis, raw_penalty, tol=1e-10):
-    return _eigen_split(raw_basis, raw_penalty, tol=tol, mode="range_null")
-
-
-def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=None):
-    del knots
-    return _eigen_split(raw_basis, raw_penalty, tol=tol, mode="t2")
-
-
-__all__ = [
-    "rowwise_kronecker",
-    "marginal_range_null_decomposition",
-    "t2_marginal_reparameterization",
-]
-
-# --- End of nampy/gam/basis/algebra.py ---
-
-# --- Start of nampy/gam/basis/t2.py ---
-import numpy as np
-
-from .algebra import rowwise_kronecker
-
-
-def _normalize_ord(ord_value, n_marginals):
-    if ord_value is None:
-        return None
-    vals = [int(ord_value)] if np.isscalar(ord_value) else [int(v) for v in ord_value]
-    vals = sorted(set(vals))
-    for v in vals:
-        if v < 0 or v > n_marginals:
-            raise ValueError(
-                f"ord entries must lie between 0 and {n_marginals}, got {vals}."
-            )
-    return vals
-
-
-def _mean_constraint_matrix(B):
-    B = np.asarray(B, dtype=np.float64)
-    if B.shape[1] == 0:
-        return np.eye(0, dtype=np.float64)
-    c = B.mean(axis=0).reshape(-1, 1)
-    q, _ = np.linalg.qr(c, mode="complete")
-    return q[:, 1:]
-
-
-def build_t2_basis_and_penalties(
-    marginal_decompositions,
-    *,
-    full=False,
-    ord=None,
-    remove_constant_from_null_block=True,
-):
-    m = len(marginal_decompositions)
-    ord_keep = _normalize_ord(ord, m)
-    if m == 0:
-        raise ValueError("marginal_decompositions must contain at least one margin.")
-
-    def _null_labels(n_cols):
-        return [f"n{i+1}" for i in range(n_cols)] if full else ["n"]
-
-    def _rowwise_product(A, B):
-        A = np.asarray(A, dtype=np.float64)
-        B = np.asarray(B, dtype=np.float64)
-        if A.shape[1] == 0 or B.shape[1] == 0:
-            return np.empty((A.shape[0], 0), dtype=np.float64)
-        return rowwise_kronecker([A, B])
-
-    first = marginal_decompositions[0]
-    Z1 = np.asarray(first["B_range"], dtype=np.float64)
-    X2_blocks = []
-    X2_desc = []
-    order_list = []
-    label_list = []
-    pen2 = [] if full else None
-    no_null = False
-
-    if Z1.shape[1] > 0:
-        X2_blocks.append(Z1)
-        X2_desc.append([{"kind": "range", "cols": None}])
-        order_list.append(1)
-        label_list.append("r")
-        if full:
-            pen2.append(True)
-
-    if first["null_dim"] > 0:
-        X1_null = np.asarray(first["B_null"], dtype=np.float64)
-        if full:
-            for j, lab in enumerate(_null_labels(X1_null.shape[1])):
-                X2_blocks.append(X1_null[:, [j]])
-                X2_desc.append([{"kind": "null", "cols": [j]}])
-                order_list.append(0)
-                label_list.append(lab)
-                pen2.append(False)
-        else:
-            X2_blocks.append(X1_null)
-            X2_desc.append([{"kind": "null", "cols": list(range(X1_null.shape[1]))}])
-            order_list.append(0)
-            label_list.append("n")
-    else:
-        no_null = True
-
-    for margin_idx in range(1, m):
-        dec = marginal_decompositions[margin_idx]
-        Zi = np.asarray(dec["B_range"], dtype=np.float64)
-        null_exists = int(dec["null_dim"]) > 0
-        Xi = np.asarray(dec["B_null"], dtype=np.float64) if null_exists else None
-
-        X1 = X2_blocks
-        D1 = X2_desc
-        lab1 = label_list
-        order1 = order_list
-        pen1 = pen2[:] if full else None
-
-        X2_blocks = []
-        X2_desc = []
-        label_list = []
-        order_list = []
-        if full:
-            pen2 = []
-
-        if Zi.shape[1] > 0:
-            for ii, block in enumerate(X1):
-                was_pen = True if not full else bool(pen1[ii])
-                if (not full) or was_pen:
-                    A = _rowwise_product(block, Zi)
-                    if A.shape[1] == 0:
-                        continue
-                    X2_blocks.append(A)
-                    X2_desc.append(D1[ii] + [{"kind": "range", "cols": None}])
-                    label_list.append(f"{lab1[ii]}r")
-                    order_list.append(int(order1[ii]) + 1)
-                    if full:
-                        pen2.append(True)
-                else:
-                    for j in range(block.shape[1]):
-                        A = _rowwise_product(block[:, [j]], Zi)
-                        if A.shape[1] == 0:
-                            continue
-                        X2_blocks.append(A)
-                        X2_desc.append(D1[ii] + [{"kind": "range", "cols": None}])
-                        label_list.append(f"{lab1[ii]}r")
-                        order_list.append(int(order1[ii]) + 1)
-                        pen2.append(True)
-
-        if null_exists and Xi.shape[1] > 0:
-            for ii, block in enumerate(X1):
-                was_pen = True if not full else bool(pen1[ii])
-                if (not full) or (not was_pen):
-                    A = _rowwise_product(block, Xi)
-                    if A.shape[1] == 0:
-                        continue
-                    X2_blocks.append(A)
-                    X2_desc.append(
-                        D1[ii] + [{"kind": "null", "cols": list(range(Xi.shape[1]))}]
-                    )
-                    label_list.append(f"{lab1[ii]}n")
-                    order_list.append(int(order1[ii]))
-                    if full:
-                        pen2.append(False)
-                else:
-                    null_labs = _null_labels(Xi.shape[1])
-                    for j in range(Xi.shape[1]):
-                        A = _rowwise_product(block, Xi[:, [j]])
-                        if A.shape[1] == 0:
-                            continue
-                        X2_blocks.append(A)
-                        X2_desc.append(D1[ii] + [{"kind": "null", "cols": [j]}])
-                        label_list.append(f"{lab1[ii]}{null_labs[j]}")
-                        order_list.append(int(order1[ii]))
-                        pen2.append(True)
-        else:
-            no_null = True
-
-    if ord_keep is not None:
-        keep_mask = [int(o) in ord_keep for o in order_list]
-        X2_blocks = [blk for blk, keep in zip(X2_blocks, keep_mask) if keep]
-        X2_desc = [desc for desc, keep in zip(X2_desc, keep_mask) if keep]
-        label_list = [lab for lab, keep in zip(label_list, keep_mask) if keep]
-        order_list = [o for o, keep in zip(order_list, keep_mask) if keep]
-        if full:
-            pen2 = [p for p, keep in zip(pen2, keep_mask) if keep]
-        if 0 not in ord_keep:
-            no_null = True
-
-    if full and len(X2_blocks) > 0 and pen2 is not None:
-        null_idx = [i for i, is_pen in enumerate(pen2) if not bool(is_pen)]
-        if len(null_idx) > 1:
-            pen_idx = [i for i, is_pen in enumerate(pen2) if bool(is_pen)]
-            null_blocks = [X2_blocks[i] for i in null_idx]
-            null_desc = [X2_desc[i] for i in null_idx]
-            X2_blocks = [X2_blocks[i] for i in pen_idx] + [np.column_stack(null_blocks)]
-            X2_desc = [X2_desc[i] for i in pen_idx] + [null_desc]
-            label_list = [label_list[i] for i in pen_idx] + ["n"]
-            order_list = [order_list[i] for i in pen_idx] + [0]
-            pen2 = [True] * len(pen_idx) + [False]
-
-    xc_all = [blk.shape[1] for blk in X2_blocks]
-    basis_pre = (
-        np.column_stack(X2_blocks)
-        if len(X2_blocks) > 0
-        else np.empty(
-            (marginal_decompositions[0]["B_range"].shape[0], 0), dtype=np.float64
-        )
-    )
-
-    if not no_null and len(xc_all) > 0:
-        pen_col_counts = xc_all[:-1]
-        pen_labels = label_list[:-1]
-        pen_desc = X2_desc[:-1]
-        B0_raw = X2_blocks[-1]
-        B0_descs = X2_desc[-1] if full else [X2_desc[-1]]
-    else:
-        pen_col_counts = xc_all
-        pen_labels = label_list
-        pen_desc = X2_desc
-        B0_raw = None
-        B0_descs = []
-
-    penalties_pre = []
-    component_slices_pre = []
-    block_meta = []
-    start = 0
-    total_dim_pre = basis_pre.shape[1]
-    for lab, order_val, n_cols, desc in zip(
-        pen_labels,
-        order_list[: len(pen_col_counts)],
-        pen_col_counts,
-        pen_desc,
-    ):
-        sl = slice(start, start + n_cols)
-        component_slices_pre.append(sl)
-        P = np.zeros((total_dim_pre, total_dim_pre), dtype=np.float64)
-        P[sl, sl] = np.eye(n_cols, dtype=np.float64)
-        penalties_pre.append(P)
-        block_meta.append(
-            {
-                "order": int(order_val),
-                "label": str(lab),
-                "penalized": True,
-                "n_cols": int(n_cols),
-                "desc": tuple(desc),
-            }
-        )
-        start += n_cols
-
-    penalized_specs = [
-        {"combo": tuple(meta["desc"]), "order": meta["order"], "label": meta["label"]}
-        for meta in block_meta
-    ]
-    allnull_specs = (
-        [{"combo": tuple(desc), "order": 0, "label": "null"} for desc in B0_descs]
-        if len(B0_descs) > 0
-        else []
-    )
-    allnull_transform = None
-    full_constraint_transform = None
-    basis, penalties, component_slices = basis_pre, penalties_pre, component_slices_pre
-    if B0_raw is not None and B0_raw.shape[1] > 0 and remove_constant_from_null_block:
-        C0 = _mean_constraint_matrix(B0_raw)
-        allnull_transform = C0
-        n_pen = basis_pre.shape[1] - B0_raw.shape[1]
-        C_full = np.eye(basis_pre.shape[1], dtype=np.float64)
-        C_full = np.column_stack(
-            [
-                C_full[:, :n_pen],
-                np.vstack([np.zeros((n_pen, C0.shape[1]), dtype=np.float64), C0]),
-            ]
-        )
-        full_constraint_transform = C_full
-        basis = basis_pre @ C_full
-        penalties = [
-            0.5 * (C_full.T @ S @ C_full + (C_full.T @ S @ C_full).T)
-            for S in penalties_pre
-        ]
-        component_slices = component_slices_pre[:-1] + [slice(n_pen, basis.shape[1])]
-    return {
-        "basis": basis,
-        "penalties": penalties,
-        "component_slices": component_slices,
-        "basis_pre_constraint": basis_pre,
-        "penalties_pre_constraint": penalties_pre,
-        "allnull_specs": allnull_specs,
-        "allnull_transform": allnull_transform,
-        "full_constraint_transform": full_constraint_transform,
-        "component_specs": block_meta
-        + (
-            [{"order": 0, "label": "null", "penalized": False, "n_cols": 0}]
-            if B0_raw is not None
-            else []
-        ),
-        "penalized_specs": penalized_specs,
-    }
-
-
-def materialize_t2_newdata(
-    marginal_new_range_null, *, allnull_specs, allnull_transform, penalized_specs
-):
-    def materialize_component(spec):
-        mats = []
-        for dec, choice in zip(marginal_new_range_null, spec["combo"]):
-            mats.append(
-                dec["B_range"]
-                if choice["kind"] == "range"
-                else dec["B_null"][:, choice["cols"]]
-            )
-        return rowwise_kronecker(mats)
-
-    blocks = []
-    for spec in penalized_specs:
-        B = materialize_component(spec)
-        if B.shape[1] > 0:
-            blocks.append(B)
-    if len(allnull_specs) > 0:
-        B0 = np.column_stack([materialize_component(spec) for spec in allnull_specs])
-        if allnull_transform is not None and B0.shape[1] > 0:
-            B0 = B0 @ allnull_transform
-        if B0.shape[1] > 0:
-            blocks.append(B0)
-    if len(blocks) == 0:
-        n = next(iter(marginal_new_range_null))["B_null"].shape[0]
-        return np.empty((n, 0), dtype=np.float64)
-    return np.column_stack(blocks)
-
-
-__all__ = ["build_t2_basis_and_penalties", "materialize_t2_newdata"]
-
-# --- End of nampy/gam/basis/t2.py ---
+Included files in this phase: 23
 
 # --- Start of nampy/gam/constraints/absorption.py ---
 """
@@ -663,6 +209,7 @@ import warnings
 import numpy as np
 from scipy.linalg import eigh
 
+from ..compiler.contracts import CoefficientMap
 from ..compiler.structures import (
     CompiledPenalty,
     CompiledPredictor,
@@ -849,11 +396,10 @@ def apply_global_side_conditions(
         ]
 
         # ── Exempt terms ──────────────────────────────────────────────────────
-        exempt = tb.term_type in {
-            "random_effect",
-            "factor_smooth_fs",
-            "factor_smooth_sz",
-        }
+        policy = getattr(tb, "side_condition_policy", None)
+        exempt = bool(
+            policy is not None and policy.exempt_from_predictor_side_conditions
+        )
         if exempt:
             sl_new = slice(start, start + d)
             new_idx = len(new_term_blocks)
@@ -863,9 +409,18 @@ def apply_global_side_conditions(
                 CompiledTerm(
                     label=tb.label,
                     coef_slice=sl_new,
-                    smooth=tb.smooth,
                     basis_train=B,
+                    predict_fn=tb.predict_fn,
+                    predict_coefficient_map=(
+                        None
+                        if tb.predict_coefficient_map is None
+                        else np.asarray(tb.predict_coefficient_map, dtype=np.float64)
+                    ),
                     basis_transform=tb.basis_transform,
+                    coefficient_maps=tuple(tb.coefficient_maps),
+                    feature_info=tb.feature_info,
+                    by_variable_info=tb.by_variable_info,
+                    side_condition_policy=tb.side_condition_policy,
                     kept_columns=(
                         np.asarray(tb.kept_columns, dtype=int).copy()
                         if tb.kept_columns is not None
@@ -883,6 +438,8 @@ def apply_global_side_conditions(
                     basis_name=tb.basis_name,
                     term_id=tb.term_id,
                     smoothing_group_id=tb.smoothing_group_id,
+                    penalty_specs=tuple(tb.penalty_specs),
+                    constructor_metadata=dict(tb.constructor_metadata),
                     metadata=dict(tb.metadata),
                 )
             )
@@ -940,12 +497,9 @@ def apply_global_side_conditions(
         )
         Q_term = np.eye(d_in, dtype=np.float64)
 
-        constructor_meta = dict(tb.metadata.get("constructor_metadata", {}) or {})
-        runtime_skip_centering = bool(
-            constructor_meta.get("runtime_skip_centering", False)
-        )
-        runtime_by_name = constructor_meta.get("runtime_by_name", None)
-        runtime_by_is_constant = constructor_meta.get("runtime_by_is_constant", None)
+        runtime_skip_centering = bool(policy is not None and policy.skip_centering)
+        runtime_by_name = tb.by_variable_info.name
+        runtime_by_is_constant = tb.by_variable_info.is_constant
         absorbed_centering = False
 
         # Step (a): optionally absorb a sum-to-zero centering constraint.
@@ -953,7 +507,7 @@ def apply_global_side_conditions(
             fit_intercept
             and not runtime_skip_centering
             and (runtime_by_name is None or bool(runtime_by_is_constant))
-            and tb.term_type not in {"tensor_interaction", "tensor_anova"}
+            and not bool(tb.term_type in {"tensor_interaction", "tensor_anova"})
         ):
             centering = np.sum(B, axis=0, keepdims=True)
             if np.linalg.norm(centering) > tol:
@@ -969,7 +523,7 @@ def apply_global_side_conditions(
                     absorbed_centering = True
 
         # Step (b): drop columns linearly dependent on the accumulator.
-        if runtime_by_name is not None and not bool(runtime_by_is_constant):
+        if policy is not None and policy.allow_first_numeric_by_unpruned:
             # Ordinary non-constant numeric by-variable smooths should keep their
             # raw term basis for the first occurrence, but later terms still need
             # ordinary cross-term redundancy removal against the accumulated
@@ -980,7 +534,10 @@ def apply_global_side_conditions(
                 keep = np.asarray(
                     independent_column_indices(B, A=acc, tol=tol), dtype=int
                 )
-        elif pen_matrices:
+        elif (
+            bool(policy is None or policy.requires_penalty_aware_pruning)
+            and pen_matrices
+        ):
             B_dep = _augment_term_matrix(
                 B,
                 pen_matrices,
@@ -1061,6 +618,21 @@ def apply_global_side_conditions(
         if absorbed_centering:
             tb_meta["absorbed_sum_to_zero_constraint"] = True
 
+        predictor_maps = list(tb.coefficient_maps)
+        if C_final.shape[1] != 0:
+            predictor_maps.append(
+                CoefficientMap(
+                    source_space="local_fit_space",
+                    target_space="predictor_fit_space",
+                    matrix=np.asarray(C_final, dtype=np.float64),
+                    reason="predictor_side_conditions",
+                    metadata={
+                        "absorbed_centering": bool(absorbed_centering),
+                        "n_deleted": int(deleted_local.size),
+                    },
+                )
+            )
+
         sl_new = slice(start, start + d_final)
         new_idx = len(new_term_blocks)
         if d_final > 0:
@@ -1070,9 +642,18 @@ def apply_global_side_conditions(
             CompiledTerm(
                 label=tb.label,
                 coef_slice=sl_new,
-                smooth=tb.smooth,
                 basis_train=B_final,
+                predict_fn=tb.predict_fn,
+                predict_coefficient_map=(
+                    None
+                    if tb.predict_coefficient_map is None
+                    else np.asarray(tb.predict_coefficient_map, dtype=np.float64)
+                ),
                 basis_transform=C_final,
+                coefficient_maps=tuple(predictor_maps),
+                feature_info=tb.feature_info,
+                by_variable_info=tb.by_variable_info,
+                side_condition_policy=tb.side_condition_policy,
                 kept_columns=kept_orig,
                 deleted_columns=deleted_orig,
                 smoothing_indices=list(tb.smoothing_indices),
@@ -1082,6 +663,8 @@ def apply_global_side_conditions(
                 basis_name=tb.basis_name,
                 term_id=tb.term_id,
                 smoothing_group_id=tb.smoothing_group_id,
+                penalty_specs=tuple(pen_specs_final),
+                constructor_metadata=dict(tb.constructor_metadata),
                 metadata=tb_meta,
             )
         )
@@ -1619,12 +1202,9 @@ import numpy as np
 
 from ....splines.mrf import nat_param_type1
 from ..._mgcv_constants import EIG_TOL_POWER
-from ...basis.algebra import rowwise_kronecker
 from ...compiler.structures import PenaltySpec
-from ...penalties import (
-    build_null_space_selection_spec,
-    rescale_tensor_penalties_for_fit,
-)
+from ...penalties import rescale_tensor_penalties_for_fit
+from ..algebra import rowwise_kronecker
 from ..registry import make_smooth_term
 from ..smooth_base import BaseSmoothTerm, column_as_object
 from ..univariate.cubic_regression import SplineTerm1D
@@ -2581,34 +2161,26 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             )
 
         if self.select and len(self._penalties) > 0:
-            main_penalty = np.sum(np.asarray(self._penalties, dtype=np.float64), axis=0)
-            select_sid = (
-                f"{self.smoothing_id}::select"
-                if self.smoothing_id is not None
-                else f"__sz__:{self.label}:select"
+            selection_meta = {
+                "term_type": self.term_type,
+                "basis_name": self.basis_name,
+                "feature": list(self.feature),
+                "label": self.label,
+                "factor_names": list(self._factor_feature_names),
+                "factor_levels": [list(lev) for lev in self._factor_levels],
+                "base_basis_name": (
+                    self._base_term.basis_name if self._base_term is not None else None
+                ),
+                "base_metric_features": list(self._metric_feature_names),
+                "shared_smoothing_id": self.smoothing_id,
+            }
+            defs.extend(
+                self._build_selection_penalty_definitions(
+                    [np.asarray(P, dtype=np.float64) for P in self._penalties],
+                    selection_metadata=selection_meta,
+                    fallback_selection_smoothing_id=f"__sz__:{self.label}:select",
+                )
             )
-            sel_spec = build_null_space_selection_spec(
-                main_penalty=main_penalty,
-                smoothing_id=select_sid,
-                metadata={
-                    "term_type": self.term_type,
-                    "basis_name": self.basis_name,
-                    "feature": list(self.feature),
-                    "label": self.label,
-                    "factor_names": list(self._factor_feature_names),
-                    "factor_levels": [list(lev) for lev in self._factor_levels],
-                    "base_basis_name": (
-                        self._base_term.basis_name
-                        if self._base_term is not None
-                        else None
-                    ),
-                    "base_metric_features": list(self._metric_feature_names),
-                    "shared_smoothing_id": self.smoothing_id,
-                    "is_selection_penalty": True,
-                },
-            )
-            if sel_spec is not None:
-                defs.append(sel_spec)
 
         return defs
 
@@ -2630,14 +2202,10 @@ from ....splines.mrf import (
 from ..._mgcv_constants import EIG_TOL_POWER
 from ...compiler.structures import PenaltySpec
 from ...constraints.absorption import full_term_sum_to_zero_constraint
-from ...penalties import build_null_space_selection_spec
 from ..smooth_base import (
     BaseSmoothTerm,
     _resolve_feature,
-    apply_numeric_by,
     column_as_object,
-    resolve_by_state,
-    sync_by_state_attributes,
 )
 from .categorical_utils import (
     as_object_1d,
@@ -2733,8 +2301,7 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         self._feature_index = idx
         self._feature_name = fname
 
-        self._by_state = resolve_by_state(self.by, X, feature_names)
-        sync_by_state_attributes(self, self._by_state)
+        self._set_by_state(X, feature_names)
 
         x = as_object_1d(X[:, idx])
         self._set_resolved_features([fname])
@@ -2858,8 +2425,7 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
             penalties_fit = [penalty_raw]
             self._record_constraint_result(None, None, absorbed_by=None)
 
-        if self._by_state.is_present:
-            basis_fit = apply_numeric_by(basis_fit, self._by_state.values)
+        basis_fit = self._apply_cached_by(basis_fit)
 
         penalty_fit = np.asarray(penalties_fit[0], dtype=np.float64)
         ev_fit = np.linalg.eigvalsh(penalty_fit)
@@ -2944,32 +2510,28 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         ]
 
         if self.select:
-            select_sid = (
-                None if self.smoothing_id is None else f"{self.smoothing_id}::select"
+            selection_meta = {
+                "term_type": self.term_type,
+                "basis_name": self.basis_name,
+                "feature": list(self.feature),
+                "label": self.label,
+                "by": self.by,
+                "by_name": self._by_state.feature_name,
+                "area_names": (
+                    list(self._area_names) if self._area_names is not None else None
+                ),
+                "has_polys": self._plot_polys is not None,
+                "has_nb": self._nb is not None,
+                "has_penalty": self._full_penalty is not None,
+                "low_rank": self._P is not None,
+                "k": int(self.k),
+            }
+            defs.extend(
+                self._build_selection_penalty_definitions(
+                    [np.asarray(self.penalties[0], dtype=np.float64)],
+                    selection_metadata=selection_meta,
+                )
             )
-            sel_spec = build_null_space_selection_spec(
-                main_penalty=np.asarray(self.penalties[0], dtype=np.float64),
-                smoothing_id=select_sid,
-                metadata={
-                    "term_type": self.term_type,
-                    "basis_name": self.basis_name,
-                    "feature": list(self.feature),
-                    "label": self.label,
-                    "by": self.by,
-                    "by_name": self._by_state.feature_name,
-                    "area_names": (
-                        list(self._area_names) if self._area_names is not None else None
-                    ),
-                    "has_polys": self._plot_polys is not None,
-                    "has_nb": self._nb is not None,
-                    "has_penalty": self._full_penalty is not None,
-                    "low_rank": self._P is not None,
-                    "k": int(self.k),
-                    "is_selection_penalty": True,
-                },
-            )
-            if sel_spec is not None:
-                defs.append(sel_spec)
 
         return defs
 
@@ -3007,16 +2569,13 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ...basis.algebra import rowwise_kronecker
 from ...compiler.structures import PenaltySpec
-from ...penalties import build_null_space_selection_spec
+from ..algebra import rowwise_kronecker
 from ..smooth_base import (
     BaseSmoothTerm,
     _resolve_feature,
-    by_values_from_new_data,
     column_as_object,
-    resolve_by_state,
-    sync_by_state_attributes,
+    by_values_from_new_data,
 )
 from .categorical_utils import (
     all_bool_like,
@@ -3162,13 +2721,11 @@ class RandomEffectTerm(BaseSmoothTerm):
             blocks.append(B_i)
             specs.append(spec_i)
 
-        self._by_state = resolve_by_state(self.by, X, feature_names)
-        sync_by_state_attributes(self, self._by_state)
+        self._set_by_state(X, feature_names)
 
         B = blocks[0] if len(blocks) == 1 else rowwise_kronecker(blocks)
 
-        if self._by_state.is_present:
-            B = B * self._by_state.values[:, None]
+        B = self._apply_cached_by(B, allow_missing=True)
 
         self._feature_indices = feature_indices
         self._feature_names = feature_names_resolved
@@ -3277,11 +2834,7 @@ class RandomEffectTerm(BaseSmoothTerm):
             )
 
             if self.select:
-                select_sid = None
-                sel_spec = build_null_space_selection_spec(
-                    main_penalty=np.asarray(P, dtype=np.float64),
-                    smoothing_id=select_sid,
-                    metadata={
+                selection_meta = {
                         "term_type": self.term_type,
                         "basis_name": self.basis_name,
                         "feature": list(self.feature),
@@ -3297,10 +2850,13 @@ class RandomEffectTerm(BaseSmoothTerm):
                             }
                             for s in (self._component_specs or [])
                         ],
-                    },
+                    }
+                defs.extend(
+                    self._build_selection_penalty_definitions(
+                        [np.asarray(P, dtype=np.float64)],
+                        selection_metadata=selection_meta,
+                    )
                 )
-                if sel_spec is not None:
-                    defs.append(sel_spec)
 
         return defs
 
@@ -3314,13 +2870,7 @@ class RandomEffectTerm(BaseSmoothTerm):
         B = blocks[0] if len(blocks) == 1 else rowwise_kronecker(blocks)
 
         z = by_values_from_new_data(X_new, self._by_state)
-        if z is not None:
-            out = np.zeros_like(B)
-            ok = np.isfinite(z)
-            out[ok, :] = B[ok, :] * z[ok][:, None]
-            B = out
-
-        return np.asarray(B, dtype=np.float64)
+        return np.asarray(self._apply_by_scale(B, z, allow_missing=True), dtype=np.float64)
 
 # --- End of nampy/gam/smooths/categorical/random_effect.py ---
 
@@ -3329,10 +2879,13 @@ from __future__ import annotations
 
 import numpy as np
 
+from ...penalties.tensor import normalize_tensor_marginal_penalty
+from ..algebra import rowwise_kronecker
 from ..univariate.cubic_regression import SplineTerm1D
 from ..univariate.gp import GPSmoothTerm
 from ..univariate.pspline import PSplineTerm1D
 from ..univariate.thin_plate import ThinPlateSplineTerm
+from ..smooth_base import column_as_float
 
 TENSOR_MARGINAL_BASES = frozenset({"cr", "cs", "cc", "ps", "tp", "ts", "gp"})
 
@@ -3412,8 +2965,144 @@ def make_tensor_marginal_term(*, feature, basis, k, m=None, knots=None, centered
     )
 
 
+def _normalize_bool_list(x, n: int):
+    if np.isscalar(x):
+        return [bool(x)] * n
+    vals = [bool(v) for v in x]
+    if len(vals) != n:
+        raise ValueError(f"Expected {n} values, got {len(vals)}.")
+    return vals
+
+
+def build_tensor_marginal_terms(
+    *,
+    feature,
+    k,
+    basis,
+    knots=None,
+    centered=False,
+):
+    features = list(feature) if not isinstance(feature, (str, int)) else [feature]
+    k_list = [int(k)] * len(features) if np.isscalar(k) else [int(v) for v in k]
+    if len(k_list) != len(features):
+        raise ValueError(
+            f"k must have length {len(features)} for features={features}, got {k_list}."
+        )
+    if isinstance(basis, str):
+        basis_list = [str(basis)] * len(features)
+    else:
+        basis_list = [str(v) for v in basis]
+    if len(basis_list) != len(features):
+        raise ValueError(
+            f"basis must have length {len(features)} for features={features}, got {basis_list}."
+        )
+    basis_list = validate_tensor_marginal_bases(basis_list)
+    knots_list = [knots for _ in features] if np.isscalar(knots) else knots
+    if not isinstance(knots_list, (list, tuple)):
+        knots_list = [knots_list]
+    if len(knots_list) == 1 and len(features) > 1:
+        knots_list = [knots_list[0]] * len(features)
+    if len(knots_list) != len(features):
+        raise ValueError(
+            f"knots must have length {len(features)} for features={features}, got {knots_list!r}."
+        )
+    centered_flags = _normalize_bool_list(centered, len(features))
+
+    marginals = []
+    feature_ids = []
+    feature_names = []
+    for feat, k_i, bs_i, knots_i, center_i in zip(
+        features, k_list, basis_list, knots_list, centered_flags
+    ):
+        term = make_tensor_marginal_term(
+            feature=feat,
+            basis=bs_i,
+            k=k_i,
+            knots=knots_i,
+            centered=center_i,
+        )
+        marginals.append(term)
+        feature_ids.append(feat)
+        feature_names.append(str(feat))
+    return marginals, feature_ids, feature_names
+
+
+def build_tensor_product_components(
+    marginals,
+    X,
+    *,
+    use_centered,
+    apply_np=True,
+):
+    use_centered = list(use_centered)
+    if len(use_centered) != len(marginals):
+        raise ValueError(
+            f"centered mask length mismatch: got {len(use_centered)} for {len(marginals)} marginals."
+        )
+
+    marginal_bases = []
+    marginal_penalties = []
+    marginal_np_transforms = []
+    for m, center_i in zip(marginals, use_centered):
+        x_train = column_as_float(X, tensor_marginal_feature_index(m))
+        X_j, S_j, XP_j = tensor_marginal_fit_matrices(
+            m, centered=bool(center_i), apply_np=bool(apply_np), x_train=x_train
+        )
+        S_j = normalize_tensor_marginal_penalty(S_j)
+        marginal_bases.append(X_j)
+        marginal_penalties.append(S_j)
+        marginal_np_transforms.append(XP_j)
+    basis_dims = [int(B.shape[1]) for B in marginal_bases]
+    B_raw = rowwise_kronecker(marginal_bases)
+    return (
+        marginal_bases,
+        marginal_penalties,
+        marginal_np_transforms,
+        basis_dims,
+        B_raw,
+    )
+
+
+def tensor_predict_matrix(
+    marginals,
+    X_new,
+    *,
+    centered=False,
+    np_transforms=None,
+):
+    if np_transforms is None:
+        np_transforms = [None] * len(marginals)
+    np_transforms = list(np_transforms)
+    if len(np_transforms) != len(marginals):
+        raise ValueError(
+            "np_transforms length mismatch: "
+            f"{len(np_transforms)} for {len(marginals)} marginals."
+        )
+    centered = _normalize_bool_list(centered, len(marginals))
+    blocks = []
+    for m, center_i, xp in zip(marginals, centered, np_transforms):
+        blocks.append(
+            tensor_marginal_predict_matrix(
+                m, X_new, centered=center_i, np_transform=xp
+            )
+        )
+    return rowwise_kronecker(blocks)
+
+
+def resolve_tensor_marginal_features(marginals):
+    feature_indices = []
+    feature_names = []
+    for term in marginals:
+        feature_indices.append(tensor_marginal_feature_index(term))
+        feature_names.append(tensor_marginal_feature_name(term))
+    return feature_indices, feature_names
+
+
 def tensor_marginal_feature_index(term):
-    return int(term.resolved_feature_indices()[0])
+    idxs = term.resolved_feature_indices()
+    if len(idxs) != 1:
+        raise AttributeError("Tensor marginal exposes unexpected number of resolved indices.")
+    return int(idxs[0])
 
 
 def tensor_marginal_feature_name(term):
@@ -3428,6 +3117,8 @@ def _tensor_marginal_eval_from_x(term, x):
 
 
 def _tensor_np_reparameterization(term, x_train, basis_dim):
+    if str(getattr(term, "basis_name", "")).lower() in {"cr", "cs", "cc"}:
+        return None
     x_train = np.asarray(x_train, dtype=np.float64).ravel()
     if x_train.size == 0:
         return None
@@ -3480,27 +3171,23 @@ import warnings
 
 import numpy as np
 
-from ...basis.algebra import t2_marginal_reparameterization
-from ...basis.t2 import build_t2_basis_and_penalties, materialize_t2_newdata
 from ...penalties import rescale_tensor_penalties_for_fit
-from ...penalties.algebra import null_space_penalty_from_penalty
+from ...penalties import penalty_id_for_local_index
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
     _normalize_knots,
     build_penalty_definition,
-    build_selection_penalty_definition,
-    resolve_by_state,
-    sync_by_state_attributes,
 )
+from ..algebra import t2_marginal_reparameterization
 from .marginals import (
-    make_tensor_marginal_term,
-    tensor_marginal_feature_index,
-    tensor_marginal_feature_name,
+    build_tensor_marginal_terms,
+    resolve_tensor_marginal_features,
     tensor_marginal_fit_matrices,
     tensor_marginal_predict_matrix,
     validate_tensor_marginal_bases,
 )
+from .t2_basis import build_t2_basis_and_penalties, materialize_t2_newdata
 
 
 @register_smooth("t2")
@@ -3541,11 +3228,6 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             metadata=metadata,
         )
 
-        if by is not None:
-            raise NotImplementedError(
-                "t2 `by` variables are deferred to a later phase."
-            )
-
         if np.isscalar(k):
             self.k = [int(k)] * len(features)
         else:
@@ -3585,27 +3267,19 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         self.predict_coefficient_map = None
 
     def fit(self, X, feature_names):
-        self._by_state = resolve_by_state(self.by, X, feature_names)
-        sync_by_state_attributes(self, self._by_state)
-        marginals = []
-        feature_indices = []
-        feature_names_resolved = []
-        marginal_decompositions = []
-
-        for feat, k_i, bs_i, knots_i in zip(
-            self.feature, self.k, self.basis, self.knots
-        ):
-            term = make_tensor_marginal_term(
-                feature=feat,
-                basis=bs_i,
-                k=k_i,
-                knots=knots_i,
-                centered=False,
-            )
+        self._set_by_state(X, feature_names)
+        marginals, _, _ = build_tensor_marginal_terms(
+            feature=self.feature,
+            k=self.k,
+            basis=self.basis,
+            knots=self.knots,
+            centered=False,
+        )
+        for term in marginals:
             term.fit(X, feature_names)
-            marginals.append(term)
-            feature_indices.append(tensor_marginal_feature_index(term))
-            feature_names_resolved.append(tensor_marginal_feature_name(term))
+        feature_indices, feature_names_resolved = resolve_tensor_marginal_features(marginals)
+        marginal_decompositions = []
+        for term in marginals:
 
             B_i, S_i, _ = tensor_marginal_fit_matrices(term, centered=False)
             dec = t2_marginal_reparameterization(B_i, S_i)
@@ -3621,6 +3295,7 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             remove_constant_from_null_block=False,
         )
         B_t2 = np.asarray(t2_obj["basis"], dtype=np.float64)
+        B_t2 = self._apply_cached_by(B_t2)
         pens_pre = [
             np.asarray(S, dtype=np.float64) for S in t2_obj["penalties_pre_constraint"]
         ]
@@ -3656,7 +3331,7 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         ]
         n_pen = int(sum(spec["n_cols"] for spec in self._penalized_specs))
         n_null = int(B_t2.shape[1] - n_pen)
-        if n_null > 0:
+        if n_null > 0 and self._by_state.is_constant:
             if n_null == 1:
                 # mgcv::smooth.construct.t2.smooth.spec():
                 # ``if (object$null.space.dim==1) C <- ncol(X)``
@@ -3692,10 +3367,8 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             sid = (
                 None
                 if self.smoothing_id is None
-                else (
-                    str(self.smoothing_id)
-                    if n_raw <= 1
-                    else f"{self.smoothing_id}::{j}"
+                else penalty_id_for_local_index(
+                    self.smoothing_id, j, n_penalties=n_raw
                 )
             )
             sp_j = sp_vals[j] if j < len(sp_vals) else None
@@ -3710,26 +3383,12 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
                 )
             )
 
-        if self.select:
-            combined = sum(np.asarray(P, dtype=np.float64) for P in raw)
-            S0, meta = null_space_penalty_from_penalty(
-                combined, tol=self.null_penalty_tol
+        defs.extend(
+            self._build_selection_penalty_definitions(
+                raw,
+                null_penalty_tol=self.null_penalty_tol,
             )
-            if meta["rank"] > 0:
-                select_sid = (
-                    None
-                    if self.smoothing_id is None
-                    else f"{self.smoothing_id}::select"
-                )
-                defs.append(
-                    build_selection_penalty_definition(
-                        self,
-                        S0,
-                        rank=meta["rank"],
-                        null_space_dim=meta["null_space_dim"],
-                        smoothing_id=select_sid,
-                    )
-                )
+        )
 
         return defs
 
@@ -3809,6 +3468,341 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
 
 # --- End of nampy/gam/smooths/tensor/t2.py ---
 
+# --- Start of nampy/gam/smooths/tensor/t2_basis.py ---
+import numpy as np
+
+from ..algebra import rowwise_kronecker
+
+
+def _normalize_ord(ord_value, n_marginals):
+    if ord_value is None:
+        return None
+    vals = [int(ord_value)] if np.isscalar(ord_value) else [int(v) for v in ord_value]
+    _ = n_marginals
+    return list(vals)
+
+
+def _mean_constraint_matrix(B):
+    B = np.asarray(B, dtype=np.float64)
+    if B.shape[1] == 0:
+        return np.eye(0, dtype=np.float64)
+    c = B.mean(axis=0).reshape(-1, 1)
+    q, _ = np.linalg.qr(c, mode="complete")
+    return q[:, 1:]
+
+
+def _rowwise_product(A, B):
+    A = np.asarray(A, dtype=np.float64)
+    B = np.asarray(B, dtype=np.float64)
+    if A.shape[1] == 0 or B.shape[1] == 0:
+        return np.empty((A.shape[0], 0), dtype=np.float64)
+    return rowwise_kronecker([A, B])
+
+
+def _null_colnames(n_cols):
+    return [str(i + 1) for i in range(int(n_cols))]
+
+
+def _append_block(
+    blocks,
+    block_matrix,
+    desc,
+    order_value,
+    label,
+    penalized,
+    col_names=None,
+):
+    blocks.append(
+        {
+            "matrix": np.asarray(block_matrix, dtype=np.float64),
+            "desc": list(desc),
+            "order": int(order_value),
+            "label": str(label),
+            "penalized": bool(penalized),
+            "col_names": None if col_names is None else list(col_names),
+        }
+    )
+
+
+def build_t2_basis_and_penalties(
+    marginal_decompositions,
+    *,
+    full=False,
+    ord=None,
+    remove_constant_from_null_block=True,
+):
+    m = len(marginal_decompositions)
+    if m == 0:
+        raise ValueError("marginal_decompositions must contain at least one margin.")
+
+    ord_keep = _normalize_ord(ord, m)
+
+    # mgcv::t2.model.matrix is translated directly with its exact block-order
+    # bookkeeping (orders, labels, and null-block handling).
+    blocks = []
+    no_null = True
+
+    first = marginal_decompositions[0]
+    Z1 = np.asarray(first["B_range"], dtype=np.float64)
+    if Z1.shape[1] > 0:
+        _append_block(
+            blocks=blocks,
+            block_matrix=Z1,
+            desc=[{"kind": "range", "cols": None}],
+            order_value=1,
+            label="r",
+            penalized=True,
+            col_names=None,
+        )
+
+    if first["null_dim"] > 0:
+        X1 = np.asarray(first["B_null"], dtype=np.float64)
+        if X1.shape[1] > 0:
+            _append_block(
+                blocks=blocks,
+                block_matrix=X1,
+                desc=[{"kind": "null", "cols": list(range(X1.shape[1]))}],
+                order_value=0,
+                label="n",
+                penalized=False if full else True,
+                col_names=_null_colnames(X1.shape[1]) if full else None,
+            )
+        no_null = False
+
+    for margin_idx in range(1, m):
+        dec = marginal_decompositions[margin_idx]
+        Zi = np.asarray(dec["B_range"], dtype=np.float64)
+        null_exists = int(dec["null_dim"]) > 0
+        Xi = np.asarray(dec["B_null"], dtype=np.float64) if null_exists else None
+
+        prior_blocks = list(blocks)
+        blocks = []
+        for prior in prior_blocks:
+            # Range-space expansion
+            if Zi.shape[1] > 0:
+                if (not full) or prior["penalized"]:
+                    if prior["matrix"].shape[1] > 0:
+                        A = _rowwise_product(prior["matrix"], Zi)
+                        if A.shape[1] > 0:
+                            _append_block(
+                                blocks=blocks,
+                                block_matrix=A,
+                                desc=prior["desc"] + [{"kind": "range", "cols": None}],
+                                order_value=prior["order"] + 1,
+                                label=f"{prior['label']}r",
+                                penalized=True,
+                                col_names=None,
+                            )
+                else:
+                    prior_names = prior["col_names"] or [prior["label"]] * prior["matrix"].shape[1]
+                    for j, col_name in enumerate(prior_names):
+                        A = _rowwise_product(prior["matrix"][:, [j]], Zi)
+                        if A.shape[1] > 0:
+                            split_label = f"{col_name}r"
+                            _append_block(
+                                blocks=blocks,
+                                block_matrix=A,
+                                desc=prior["desc"] + [{"kind": "range", "cols": None}],
+                                order_value=prior["order"] + 1,
+                                label=split_label,
+                                penalized=True,
+                                col_names=[split_label] * A.shape[1] if full else None,
+                            )
+
+        # Null-space expansion
+        if null_exists and Xi is not None and Xi.shape[1] > 0:
+            xnames = _null_colnames(Xi.shape[1]) if full else None
+            for prior in prior_blocks:
+                if (not full) or (not prior["penalized"]):
+                    if prior["matrix"].shape[1] > 0:
+                        A = _rowwise_product(prior["matrix"], Xi)
+                        if A.shape[1] > 0:
+                            prior_names = prior["col_names"] or [prior["label"]] * prior["matrix"].shape[
+                                1
+                            ]
+                            if full:
+                                col_names = [
+                                    f"{cn1}{cn2}"
+                                    for cn1 in prior_names
+                                    for cn2 in xnames
+                                ]
+                            else:
+                                col_names = None
+                            _append_block(
+                                blocks=blocks,
+                                block_matrix=A,
+                                desc=prior["desc"] + [{"kind": "null", "cols": list(range(Xi.shape[1]))}],
+                                order_value=prior["order"],
+                                label=f"{prior['label']}n",
+                                penalized=bool(False if full else True),
+                                col_names=col_names,
+                            )
+                else:
+                    # full=TRUE only: split Xi by columns for a penalized prior block.
+                    prior_names = prior["col_names"] or [prior["label"]] * prior["matrix"].shape[1]
+                    for j, cnxi in enumerate(xnames):
+                        A = prior["matrix"] * Xi[:, [j]]
+                        if A.shape[1] > 0:
+                            _append_block(
+                                blocks=blocks,
+                                block_matrix=A,
+                                desc=prior["desc"] + [{"kind": "null", "cols": [j]}],
+                                order_value=prior["order"],
+                                label=f"{prior['label']}{cnxi}",
+                                penalized=True,
+                                col_names=None,
+                            )
+        else:
+            no_null = True
+
+    if ord_keep is not None:
+        keep_mask = [int(block["order"]) in ord_keep for block in blocks]
+        blocks = [block for block, keep in zip(blocks, keep_mask) if keep]
+        if 0 not in ord_keep:
+            no_null = True
+
+    if len(blocks) == 0:
+        n = int(marginal_decompositions[0]["B_range"].shape[0])
+        return {
+            "basis": np.empty((n, 0), dtype=np.float64),
+            "penalties": [],
+            "component_slices": [],
+            "basis_pre_constraint": np.empty((n, 0), dtype=np.float64),
+            "penalties_pre_constraint": [],
+            "allnull_specs": [],
+            "allnull_transform": None,
+            "full_constraint_transform": None,
+            "component_specs": [],
+            "penalized_specs": [],
+        }
+
+    basis_pre = np.column_stack([block["matrix"] for block in blocks])
+
+    allnull_block = None if no_null else blocks[-1]
+
+    penalties_pre = []
+    component_slices_pre = []
+    component_specs = []
+    penalized_specs = []
+    total_dim_pre = basis_pre.shape[1]
+    start = 0
+    for idx, block in enumerate(blocks):
+        is_penalized = (not no_null) and (idx != len(blocks) - 1)
+        block_n_cols = int(block["matrix"].shape[1])
+        block_meta = {
+            "order": int(block["order"]),
+            "label": str(block["label"]),
+            "penalized": bool(is_penalized),
+            "n_cols": block_n_cols,
+            "desc": tuple(block["desc"]),
+            "combo": tuple(block["desc"]),
+        }
+        component_specs.append(block_meta)
+
+        if is_penalized:
+            sl = slice(start, start + block_n_cols)
+            component_slices_pre.append(sl)
+            P = np.zeros((total_dim_pre, total_dim_pre), dtype=np.float64)
+            P[sl, sl] = np.eye(block_n_cols, dtype=np.float64)
+            penalties_pre.append(P)
+            penalized_specs.append(
+                {
+                    "combo": tuple(block["desc"]),
+                    "order": int(block["order"]),
+                    "label": str(block["label"]),
+                }
+            )
+            start += block_n_cols
+
+    component_slices = component_slices_pre
+    penalties = list(penalties_pre)
+
+    allnull_transform = None
+    full_constraint_transform = None
+    basis = basis_pre
+
+    if allnull_block is not None and allnull_block["matrix"].shape[1] > 0 and remove_constant_from_null_block:
+        C0 = _mean_constraint_matrix(allnull_block["matrix"])
+        allnull_transform = C0
+        n_pen = basis_pre.shape[1] - allnull_block["matrix"].shape[1]
+        C_full = np.eye(basis_pre.shape[1], dtype=np.float64)
+        C_full = np.column_stack(
+            [
+                C_full[:, :n_pen],
+                np.vstack([np.zeros((n_pen, C0.shape[1]), dtype=np.float64), C0]),
+            ]
+        )
+        full_constraint_transform = C_full
+        basis = basis_pre @ C_full
+        penalties = [
+            0.5 * (C_full.T @ S @ C_full + (C_full.T @ S @ C_full).T)
+            for S in penalties_pre
+        ]
+        component_slices = component_slices_pre[:-1] + [slice(n_pen, basis.shape[1])]
+
+    return {
+        "basis": basis,
+        "penalties": penalties,
+        "component_slices": component_slices,
+        "basis_pre_constraint": basis_pre,
+        "penalties_pre_constraint": penalties_pre,
+        "allnull_specs": (
+            [{"combo": tuple(allnull_block["desc"]), "order": 0, "label": "null"}]
+            if allnull_block is not None
+            else []
+        ),
+        "allnull_transform": allnull_transform,
+        "full_constraint_transform": full_constraint_transform,
+        "component_specs": component_specs,
+        "penalized_specs": penalized_specs,
+    }
+
+
+def materialize_t2_newdata(
+    marginal_new_range_null, *, allnull_specs, allnull_transform, penalized_specs
+):
+    def materialize_component(spec):
+        mats = []
+        for dec, choice in zip(marginal_new_range_null, spec["combo"]):
+            if choice["kind"] == "range":
+                mats.append(np.asarray(dec["B_range"], dtype=np.float64))
+            else:
+                cols = choice.get("cols")
+                if cols is None:
+                    mats.append(np.asarray(dec["B_null"], dtype=np.float64))
+                else:
+                    cols = np.asarray(cols, dtype=np.int64)
+                    if cols.size == 0:
+                        return np.empty((marginal_new_range_null[0]["B_range"].shape[0], 0), dtype=np.float64)
+                    mats.append(np.asarray(dec["B_null"], dtype=np.float64)[:, cols])
+        return rowwise_kronecker(mats)
+
+    blocks = []
+    for spec in penalized_specs:
+        B = materialize_component(spec)
+        if B.shape[1] > 0:
+            blocks.append(B)
+
+    if len(allnull_specs) > 0:
+        B0 = np.column_stack(
+            [materialize_component(spec) for spec in allnull_specs]
+        )
+        if allnull_transform is not None and B0.shape[1] > 0:
+            B0 = B0 @ allnull_transform
+        if B0.shape[1] > 0:
+            blocks.append(B0)
+
+    if len(blocks) == 0:
+        n = next(iter(marginal_new_range_null))["B_null"].shape[0]
+        return np.empty((n, 0), dtype=np.float64)
+
+    return np.column_stack(blocks)
+
+
+__all__ = ["build_t2_basis_and_penalties", "materialize_t2_newdata"]
+
+# --- End of nampy/gam/smooths/tensor/t2_basis.py ---
+
 # --- Start of nampy/gam/smooths/tensor/te.py ---
 """
 Tensor-product smooth term (``bs='te'``).
@@ -3825,30 +3819,23 @@ penalty parameterisation.
 
 import numpy as np
 
-from ...basis.algebra import rowwise_kronecker
 from ...constraints.absorption import full_term_sum_to_zero_constraint
 from ...penalties import (
-    normalize_tensor_marginal_penalty,
+    penalty_id_for_local_index,
     rescale_tensor_penalties_for_fit,
     tensor_product_penalties,
 )
-from ...penalties.algebra import null_space_penalty_from_penalty
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
     _normalize_knots,
     build_penalty_definition,
-    build_selection_penalty_definition,
-    column_as_float,
-    resolve_by_state,
-    sync_by_state_attributes,
 )
 from .marginals import (
-    make_tensor_marginal_term,
-    tensor_marginal_feature_index,
-    tensor_marginal_feature_name,
-    tensor_marginal_fit_matrices,
-    tensor_marginal_predict_matrix,
+    build_tensor_marginal_terms,
+    build_tensor_product_components,
+    resolve_tensor_marginal_features,
+    tensor_predict_matrix,
     validate_tensor_marginal_bases,
 )
 
@@ -3925,27 +3912,18 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         self._by_state = None
 
     def fit(self, X, feature_names):
-        marginals = []
-        feature_indices = []
-        feature_names_resolved = []
-
-        for feat, k_i, bs_i, knots_i in zip(
-            self.feature, self.k, self.basis, self.knots
-        ):
-            term = make_tensor_marginal_term(
-                feature=feat,
-                basis=bs_i,
-                k=k_i,
-                knots=knots_i,
-                centered=False,
-            )
+        marginals, _, _ = build_tensor_marginal_terms(
+            feature=self.feature,
+            k=self.k,
+            basis=self.basis,
+            knots=self.knots,
+            centered=False,
+        )
+        for term in marginals:
             term.fit(X, feature_names)
-            marginals.append(term)
-            feature_indices.append(tensor_marginal_feature_index(term))
-            feature_names_resolved.append(tensor_marginal_feature_name(term))
+        feature_indices, feature_names_resolved = resolve_tensor_marginal_features(marginals)
 
-        self._by_state = resolve_by_state(self.by, X, feature_names)
-        sync_by_state_attributes(self, self._by_state)
+        self._set_by_state(X, feature_names)
 
         # Build marginal bases and penalties matching mgcv's te construction:
         # 1. Use unscaled raw penalty (no scale_penalty yet).
@@ -3953,22 +3931,20 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         # 3. Eigenvalue-normalize each marginal penalty.
         # 4. Build tensor product.
         # 5. Apply outer scale_penalty to the full tensor basis and penalties.
-        marginal_bases = []
-        marginal_penalties = []
-        marginal_np_transforms = []
-        for m in marginals:
-            x_train = column_as_float(X, tensor_marginal_feature_index(m))
-            X_j, S_j, XP_j = tensor_marginal_fit_matrices(
-                m, centered=False, apply_np=True, x_train=x_train
+        (
+            _marginal_bases,
+            marginal_penalties,
+            marginal_np_transforms,
+            basis_dims,
+            B_raw,
+        ) = (
+            build_tensor_product_components(
+                marginals,
+                X,
+                use_centered=[False] * len(marginals),
+                apply_np=True,
             )
-            S_j = normalize_tensor_marginal_penalty(S_j)
-            marginal_bases.append(X_j)
-            marginal_penalties.append(S_j)
-            marginal_np_transforms.append(XP_j)
-
-        basis_dims = [B.shape[1] for B in marginal_bases]
-
-        B_raw = rowwise_kronecker(marginal_bases)
+        )
         S_raw = tensor_product_penalties(marginal_penalties, basis_dims=basis_dims)
 
         # Outer scale_penalty on the full tensor product (matches smoothCon outer step).
@@ -3979,8 +3955,7 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         else:
             B_te, S_te, C_te = B_raw, S_raw, None
 
-        if self._by_state.is_present:
-            B_te = B_te * self._by_state.values[:, None]
+        B_te = self._apply_cached_by(B_te)
 
         self._marginals = marginals
         self._marginal_np_transforms = marginal_np_transforms
@@ -4015,10 +3990,8 @@ class TensorProductSplineTerm(BaseSmoothTerm):
             sid = (
                 None
                 if self.smoothing_id is None
-                else (
-                    str(self.smoothing_id)
-                    if n_raw <= 1
-                    else f"{self.smoothing_id}::{j}"
+                else penalty_id_for_local_index(
+                    self.smoothing_id, j, n_penalties=n_raw
                 )
             )
             sp_j = sp_vals[j] if j < len(sp_vals) else None
@@ -4033,40 +4006,24 @@ class TensorProductSplineTerm(BaseSmoothTerm):
                 )
             )
 
-        if self.select:
-            combined = sum(np.asarray(P, dtype=np.float64) for P in raw)
-            S0, meta = null_space_penalty_from_penalty(
-                combined, tol=self.null_penalty_tol
+        defs.extend(
+            self._build_selection_penalty_definitions(
+                raw,
+                null_penalty_tol=self.null_penalty_tol,
             )
-            if meta["rank"] > 0:
-                select_sid = (
-                    None
-                    if self.smoothing_id is None
-                    else f"{self.smoothing_id}::select"
-                )
-                defs.append(
-                    build_selection_penalty_definition(
-                        self,
-                        S0,
-                        rank=meta["rank"],
-                        null_space_dim=meta["null_space_dim"],
-                        smoothing_id=select_sid,
-                    )
-                )
+        )
 
         return defs
 
     def transform_new(self, X_new):
         self._require_fitted()
 
-        marginal_new = []
-        for m, xp in zip(self._marginals, self._marginal_np_transforms):
-            marginal_new.append(
-                tensor_marginal_predict_matrix(
-                    m, X_new, centered=False, np_transform=xp
-                )
-            )
-        B_new_raw = rowwise_kronecker(marginal_new)
+        B_new_raw = tensor_predict_matrix(
+            self._marginals,
+            X_new,
+            centered=False,
+            np_transforms=self._marginal_np_transforms,
+        )
         return self._apply_constraint_transform_and_by(B_new_raw, X_new)
 
 # --- End of nampy/gam/smooths/tensor/te.py ---
@@ -4085,31 +4042,24 @@ import warnings
 
 import numpy as np
 
-from ...basis.algebra import rowwise_kronecker
 from ...penalties import (
-    normalize_tensor_marginal_penalty,
+    penalty_id_for_local_index,
     rescale_tensor_penalties_for_fit,
     tensor_product_penalties,
 )
-from ...penalties.algebra import null_space_penalty_from_penalty
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
     _normalize_knots,
     _normalize_mc,
     build_penalty_definition,
-    build_selection_penalty_definition,
     by_values_from_new_data,
-    column_as_float,
-    resolve_by_state,
-    sync_by_state_attributes,
 )
 from .marginals import (
-    make_tensor_marginal_term,
-    tensor_marginal_feature_index,
-    tensor_marginal_feature_name,
-    tensor_marginal_fit_matrices,
-    tensor_marginal_predict_matrix,
+    build_tensor_marginal_terms,
+    build_tensor_product_components,
+    resolve_tensor_marginal_features,
+    tensor_predict_matrix,
     validate_tensor_marginal_bases,
 )
 
@@ -4191,34 +4141,19 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         self._by_state = None
 
     def fit(self, X, feature_names):
-        marginals = []
-        feature_indices = []
-        feature_names_resolved = []
-
-        self._by_state = resolve_by_state(self.by, X, feature_names)
-        sync_by_state_attributes(self, self._by_state)
+        self._set_by_state(X, feature_names)
 
         self._mc = _normalize_mc(self.mc, len(self.feature))
-
-        for feat, k_i, bs_i, knots_i, center_i in zip(
-            self.feature, self.k, self.basis, self.knots, self._mc
-        ):
-            term = make_tensor_marginal_term(
-                feature=feat,
-                basis=bs_i,
-                k=k_i,
-                knots=knots_i,
-                centered=bool(center_i),
-            )
+        marginals, _, _ = build_tensor_marginal_terms(
+            feature=self.feature,
+            k=self.k,
+            basis=self.basis,
+            knots=self.knots,
+            centered=self._mc,
+        )
+        for term in marginals:
             term.fit(X, feature_names)
-            marginals.append(term)
-            feature_indices.append(tensor_marginal_feature_index(term))
-            feature_names_resolved.append(tensor_marginal_feature_name(term))
-
-        marginal_bases = []
-        marginal_penalties = []
-        basis_dims = []
-        marginal_np_transforms = []
+        feature_indices, feature_names_resolved = resolve_tensor_marginal_features(marginals)
 
         if self.by is not None and not self._by_state.is_constant:
             if self.mc is not None:
@@ -4231,36 +4166,27 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         else:
             use_centered = list(self._mc)
 
-        # Build marginal bases and penalties matching mgcv's ti construction:
-        # - mc=TRUE marginals: smoothCon basis (scale_penalty + constraint absorbed),
-        #   np conditioning via the centered prediction, eigenvalue normalize.
-        # - mc=FALSE marginals: raw (unscaled) basis, np conditioning via raw prediction,
-        #   eigenvalue normalize.
-        # After the tensor product, apply outer scale_penalty (smoothCon outer step).
-        for m, center_this_margin in zip(marginals, use_centered):
-            x_train = column_as_float(X, tensor_marginal_feature_index(m))
-            B, S, XP = tensor_marginal_fit_matrices(
-                m,
-                centered=bool(center_this_margin),
+        # Build marginal bases and penalties matching mgcv's ti construction.
+        (
+            _marginal_bases,
+            marginal_penalties,
+            marginal_np_transforms,
+            basis_dims,
+            B_ti_raw,
+        ) = (
+            build_tensor_product_components(
+                marginals,
+                X,
+                use_centered=use_centered,
                 apply_np=True,
-                x_train=x_train,
             )
-            S = normalize_tensor_marginal_penalty(S)
-            marginal_bases.append(B)
-            marginal_penalties.append(S)
-            basis_dims.append(B.shape[1])
-            marginal_np_transforms.append(XP)
-
-        B_ti_raw = rowwise_kronecker(marginal_bases)
+        )
         S_ti = tensor_product_penalties(marginal_penalties, basis_dims=basis_dims)
 
         # Outer scale_penalty on the tensor product (matches smoothCon outer step).
         S_ti = rescale_tensor_penalties_for_fit(B_ti_raw, S_ti)
 
-        if self._by_state.is_present:
-            B_ti = B_ti_raw * self._by_state.values[:, None]
-        else:
-            B_ti = B_ti_raw
+        B_ti = self._apply_cached_by(B_ti_raw)
 
         self._marginals = marginals
         self._marginal_np_transforms = marginal_np_transforms
@@ -4290,10 +4216,8 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
             sid = (
                 None
                 if self.smoothing_id is None
-                else (
-                    str(self.smoothing_id)
-                    if n_raw <= 1
-                    else f"{self.smoothing_id}::{j}"
+                else penalty_id_for_local_index(
+                    self.smoothing_id, j, n_penalties=n_raw
                 )
             )
             sp_j = sp_vals[j] if j < len(sp_vals) else None
@@ -4308,26 +4232,12 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
                 )
             )
 
-        if self.select:
-            combined = sum(np.asarray(P, dtype=np.float64) for P in raw)
-            S0, meta = null_space_penalty_from_penalty(
-                combined, tol=self.null_penalty_tol
+        defs.extend(
+            self._build_selection_penalty_definitions(
+                raw,
+                null_penalty_tol=self.null_penalty_tol,
             )
-            if meta["rank"] > 0:
-                select_sid = (
-                    None
-                    if self.smoothing_id is None
-                    else f"{self.smoothing_id}::select"
-                )
-                defs.append(
-                    build_selection_penalty_definition(
-                        self,
-                        S0,
-                        rank=meta["rank"],
-                        null_space_dim=meta["null_space_dim"],
-                        smoothing_id=select_sid,
-                    )
-                )
+        )
 
         return defs
 
@@ -4351,22 +4261,14 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
 
     def transform_new(self, X_new):
         self._require_fitted()
-
-        marginal_new = []
-        for m, center_this_margin, xp in zip(
-            self._marginals, self._marginal_is_centered, self._marginal_np_transforms
-        ):
-            marginal_new.append(
-                tensor_marginal_predict_matrix(
-                    m, X_new, centered=bool(center_this_margin), np_transform=xp
-                )
-            )
-
-        B = rowwise_kronecker(marginal_new)
+        B = tensor_predict_matrix(
+            self._marginals,
+            X_new,
+            centered=self._marginal_is_centered,
+            np_transforms=self._marginal_np_transforms,
+        )
         z = by_values_from_new_data(X_new, self._by_state)
-        if z is not None:
-            B = B * z[:, None]
-        return B
+        return self._apply_by_scale(B, z)
 
 # --- End of nampy/gam/smooths/tensor/ti.py ---
 
@@ -4400,11 +4302,8 @@ from ...penalties.algebra import scale_penalty
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
-    _normalize_point_constraint,
     _resolve_feature,
     column_as_float,
-    resolve_by_state,
-    sync_by_state_attributes,
 )
 
 
@@ -4525,8 +4424,7 @@ class SplineTerm1D(BaseSmoothTerm):
 
         xj = column_as_float(X, idx)
 
-        self._by_state = resolve_by_state(self.by, X, feature_names)
-        sync_by_state_attributes(self, self._by_state)
+        self._set_by_state(X, feature_names)
 
         self._pc_value = None
 
@@ -4569,29 +4467,20 @@ class SplineTerm1D(BaseSmoothTerm):
                 pooled_setup = False
 
             if self.pc is not None:
-                self._pc_value = _normalize_point_constraint(
-                    self.pc, self._feature_name
-                )
                 raw_base = (
                     self._spline.transform_new_raw(xj)
                     if pooled_setup
                     else self._spline.raw_basis
                 )
-                main_penalty = self._main_penalty(raw=True)
-
-                pc_basis = self._spline.transform_new_raw(
-                    np.asarray([self._pc_value], dtype=np.float64)
-                )[0]
-
-                penalties_in = [] if self.fixed else [main_penalty]
-                Bc, Sc, C = apply_linear_constraint(
+                Bc, Sc, C, pc_row = self._apply_point_constraint(
                     raw_base,
-                    penalties_in,
-                    pc_basis,
+                    [self._main_penalty(raw=True)],
+                    self.pc,
+                    feature_names=[self._feature_name],
+                    point_basis_fn=self._spline.transform_new_raw,
+                    fixed=self.fixed,
                 )
-
-                if self._by_state.is_present:
-                    Bc = Bc * self._by_state.values[:, None]
+                self._pc_value = float(pc_row[0])
 
                 self._basis_train = np.asarray(Bc, dtype=np.float64)
                 self._penalties = Sc
@@ -4623,7 +4512,7 @@ class SplineTerm1D(BaseSmoothTerm):
                     penalties_in,
                     mean_row,
                 )
-                base = Bc_raw * self._by_state.values[:, None]
+                base = self._apply_cached_by(Bc_raw)
 
                 self._basis_train = np.asarray(base, dtype=np.float64)
                 self._penalties = Sc
@@ -4660,8 +4549,7 @@ class SplineTerm1D(BaseSmoothTerm):
                 )
                 pen = self._main_penalty(raw=True)
 
-            if self._by_state.is_present:
-                base = base * self._by_state.values[:, None]
+            base = self._apply_cached_by(base)
 
             self._basis_train = np.asarray(base, dtype=np.float64)
             self._penalties = [] if self.fixed else [np.asarray(pen, dtype=np.float64)]
@@ -4694,16 +4582,17 @@ class SplineTerm1D(BaseSmoothTerm):
         self._cc_bd = np.asarray(BD, dtype=np.float64)
 
         if self.pc is not None:
-            pc_value = _normalize_point_constraint(self.pc, self._feature_name)
-            pc_basis = cyclic_cubic_predict_matrix(
-                np.asarray([pc_value], dtype=np.float64), k, BD
-            )[0]
             S_raw = D.T @ BD
-            main_penalty = 0.5 * (S_raw + S_raw.T)
-            penalties_in = [] if self.fixed else [main_penalty]
-            Bc, Sc, C = apply_linear_constraint(base, penalties_in, pc_basis)
-            if self._by_state.is_present:
-                Bc = Bc * self._by_state.values[:, None]
+            Bc, Sc, C, pc_row = self._apply_point_constraint(
+                base,
+                [0.5 * (S_raw + S_raw.T)],
+                self.pc,
+                feature_names=[self._feature_name],
+                point_basis_fn=lambda x: cyclic_cubic_predict_matrix(x, k, BD),
+                fixed=self.fixed,
+            )
+            self._pc_value = float(pc_row[0])
+            Bc = self._apply_cached_by(Bc)
             self._basis_train = np.asarray(Bc, dtype=np.float64)
             self._penalties = Sc
             self._use_centered_basis = False
@@ -4718,8 +4607,7 @@ class SplineTerm1D(BaseSmoothTerm):
             # the sum-to-zero constraint (mgcv smoothCon absorb.cons=FALSE).
             main_penalty = scale_penalty(base, S_sym)
             penalties_in = [] if self.fixed else [main_penalty]
-            if self._by_state.is_present:
-                base = base * self._by_state.values[:, None]
+            base = self._apply_cached_by(base)
             self._basis_train = np.asarray(base, dtype=np.float64)
             self._penalties = penalties_in
             self._use_centered_basis = False
@@ -4730,8 +4618,7 @@ class SplineTerm1D(BaseSmoothTerm):
         penalties_in = [] if self.fixed else [main_penalty]
         mean_row = base.mean(axis=0)
         Bc, Sc, C = apply_linear_constraint(base, penalties_in, mean_row)
-        if self._by_state.is_present:
-            Bc = Bc * self._by_state.values[:, None]
+        Bc = self._apply_cached_by(Bc)
         self._basis_train = np.asarray(Bc, dtype=np.float64)
         self._penalties = Sc
         self._use_centered_basis = False
@@ -4843,19 +4730,14 @@ import numpy as np
 
 from ....splines.gaussian_process import build_gp_term_setup, predict_gp_term
 from ...constraints.absorption import (
-    apply_linear_constraint,
     fit_single_penalty_with_constraint_policy,
 )
 from ...penalties.algebra import scale_penalty
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
-    _normalize_point_constraint,
-    _normalize_point_constraint_vector,
     _resolve_feature,
     columns_as_float_matrix,
-    resolve_by_state,
-    sync_by_state_attributes,
 )
 
 
@@ -4941,8 +4823,7 @@ class GPSmoothTerm(BaseSmoothTerm):
 
         Xf = columns_as_float_matrix(X, feature_indices)
 
-        self._by_state = resolve_by_state(self.by, X, feature_names)
-        sync_by_state_attributes(self, self._by_state)
+        self._set_by_state(X, feature_names)
 
         self._feature_indices = feature_indices
         self._feature_names = feature_names_resolved
@@ -4963,18 +4844,15 @@ class GPSmoothTerm(BaseSmoothTerm):
         )
 
         if self.pc is not None:
-            if len(self._feature_indices) == 1:
-                pc_value = _normalize_point_constraint(self.pc, self._feature_names[0])
-                pc_point = np.asarray([[pc_value]], dtype=np.float64)
-            else:
-                pc_point = _normalize_point_constraint_vector(
-                    self.pc, self._feature_names
-                )[None, :]
-            pc_basis = predict_gp_term(pc_point, self._setup)[0]
-            penalties_in = [] if self.fixed else [pen]
-            Bc, Sc, C = apply_linear_constraint(base, penalties_in, pc_basis)
-            if self._by_state.is_present:
-                Bc = Bc * self._by_state.values[:, None]
+            constrained = self._apply_point_constraint(
+                base,
+                [pen],
+                self.pc,
+                feature_names=self._feature_names,
+                point_basis_fn=lambda pts: predict_gp_term(pts, self._setup)[0],
+                fixed=self.fixed,
+            )
+            Bc, Sc, C, _ = constrained
             self._basis_train = np.asarray(Bc, dtype=np.float64)
             self._penalties = Sc
             self._record_constraint_result("pc", C, absorbed_by="runtime")
@@ -5066,11 +4944,8 @@ from ...penalties.algebra import scale_penalty
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
-    _normalize_point_constraint,
     _resolve_feature,
     column_as_float,
-    resolve_by_state,
-    sync_by_state_attributes,
 )
 
 
@@ -5158,8 +5033,7 @@ class PSplineTerm1D(BaseSmoothTerm):
 
         xj = column_as_float(X, idx)
 
-        self._by_state = resolve_by_state(self.by, X, feature_names)
-        sync_by_state_attributes(self, self._by_state)
+        self._set_by_state(X, feature_names)
 
         basis_order, penalty_order = self.m
         if basis_order < 0 or penalty_order < 0:
@@ -5176,15 +5050,14 @@ class PSplineTerm1D(BaseSmoothTerm):
         base = np.asarray(self._setup.basis_train, dtype=np.float64)
 
         if self.pc is not None:
-            pc_value = _normalize_point_constraint(self.pc, self._feature_name)
-            pc_basis = predict_pspline_term(
-                np.asarray([pc_value], dtype=np.float64), self._setup
-            )[0]
-            main_penalty = np.asarray(self._setup.penalty, dtype=np.float64)
-            penalties_in = [] if self.fixed else [main_penalty]
-            Bc, Sc, C = apply_linear_constraint(base, penalties_in, pc_basis)
-            if self._by_state.is_present:
-                Bc = Bc * self._by_state.values[:, None]
+            Bc, Sc, C, _ = self._apply_point_constraint(
+                base,
+                [np.asarray(self._setup.penalty, dtype=np.float64)],
+                self.pc,
+                feature_names=[self._feature_name],
+                point_basis_fn=lambda pts: predict_pspline_term(pts, self._setup)[0],
+                fixed=self.fixed,
+            )
             self._basis_train = np.asarray(Bc, dtype=np.float64)
             self._penalties = Sc
             self._record_constraint_result("pc", C, absorbed_by="runtime")
@@ -5202,15 +5075,14 @@ class PSplineTerm1D(BaseSmoothTerm):
             penalties_in = [] if self.fixed else [main_penalty]
             mean_row = base.mean(axis=0)
             Bc_raw, Sc, C = apply_linear_constraint(base, penalties_in, mean_row)
-            Bc = Bc_raw * self._by_state.values[:, None]
+            Bc = self._apply_cached_by(Bc_raw)
             self._basis_train = np.asarray(Bc, dtype=np.float64)
             self._penalties = Sc
             self._record_constraint_result("factor_by", C, absorbed_by="runtime")
             return self
 
         if self.constraint_mode == "never":
-            if self._by_state.is_present:
-                base = base * self._by_state.values[:, None]
+            base = self._apply_cached_by(base)
             self._basis_train = np.asarray(base, dtype=np.float64)
             self._penalties = (
                 [] if self.fixed else [np.asarray(main_penalty, dtype=np.float64)]
@@ -5221,8 +5093,7 @@ class PSplineTerm1D(BaseSmoothTerm):
         penalties_in = [] if self.fixed else [main_penalty]
         mean_row = base.mean(axis=0)
         Bc, Sc, C = apply_linear_constraint(base, penalties_in, mean_row)
-        if self._by_state.is_present:
-            Bc = Bc * self._by_state.values[:, None]
+        Bc = self._apply_cached_by(Bc)
         self._basis_train = np.asarray(Bc, dtype=np.float64)
         self._penalties = Sc
         self._record_constraint_result("centering", C, absorbed_by="runtime")
@@ -5304,18 +5175,13 @@ import numpy as np
 
 from ....splines.thin_plate import build_tprs_term_setup, predict_tprs_term
 from ...constraints.absorption import (
-    apply_linear_constraint,
     fit_single_penalty_with_constraint_policy,
 )
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
-    _normalize_point_constraint,
-    _normalize_point_constraint_vector,
     _resolve_feature,
     columns_as_float_matrix,
-    resolve_by_state,
-    sync_by_state_attributes,
 )
 
 
@@ -5403,8 +5269,7 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
 
         Xf = columns_as_float_matrix(X, feature_indices)
 
-        self._by_state = resolve_by_state(self.by, X, feature_names)
-        sync_by_state_attributes(self, self._by_state)
+        self._set_by_state(X, feature_names)
 
         self._feature_indices = feature_indices
         self._feature_names = feature_names_resolved
@@ -5423,18 +5288,14 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
         pen = np.asarray(self._setup.penalty, dtype=np.float64)
 
         if self.pc is not None:
-            if len(self._feature_indices) == 1:
-                pc_value = _normalize_point_constraint(self.pc, self._feature_names[0])
-                pc_point = np.asarray([[pc_value]], dtype=np.float64)
-            else:
-                pc_point = _normalize_point_constraint_vector(
-                    self.pc, self._feature_names
-                )[None, :]
-            pc_basis = predict_tprs_term(pc_point, self._setup)[0]
-            penalties_in = [] if self.fixed else [pen]
-            Bc, Sc, C = apply_linear_constraint(base, penalties_in, pc_basis)
-            if self._by_state.is_present:
-                Bc = Bc * self._by_state.values[:, None]
+            Bc, Sc, C, _ = self._apply_point_constraint(
+                base,
+                [pen],
+                self.pc,
+                feature_names=self._feature_names,
+                point_basis_fn=lambda pts: predict_tprs_term(pts, self._setup)[0],
+                fixed=self.fixed,
+            )
             self._basis_train = np.asarray(Bc, dtype=np.float64)
             self._penalties = Sc
             self._record_constraint_result("pc", C, absorbed_by="runtime")

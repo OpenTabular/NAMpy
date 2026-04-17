@@ -165,7 +165,6 @@ from .._model_state import (
     _coef_column_offset,
     _edf_by_term,
     _n_coef,
-    _penalty_blocks_seq,
     _require_fitted,
     _term_blocks_seq,
 )
@@ -173,16 +172,27 @@ from .residuals import residuals_gam
 
 
 def _numeric_feature_block(model, tb, row_idx):
-    runtime = getattr(tb.smooth, "runtime", None)
-    if runtime is None or getattr(runtime, "by", None) is not None:
+    by_info = getattr(tb, "by_variable_info", None)
+    if by_info is not None and bool(getattr(by_info, "is_active", False)):
         return None
 
-    if getattr(runtime, "_feature_index", None) is not None:
-        idx = [int(runtime._feature_index)]
-    elif getattr(runtime, "_feature_indices", None) is not None:
-        idx = [int(v) for v in runtime._feature_indices]
-    else:
+    idx = None
+    feature_info = getattr(tb, "feature_info", None)
+    if feature_info is not None and getattr(feature_info, "metric_feature_indices", ()):
+        metric_idx = [int(v) for v in feature_info.metric_feature_indices]
+        factor_idx = [int(v) for v in feature_info.factor_feature_indices]
+        if factor_idx:
+            return None
+        idx = metric_idx
+    elif feature_info is not None and getattr(feature_info, "feature_indices", ()):
+        idx = [int(v) for v in feature_info.feature_indices]
+    if idx is None or len(idx) == 0:
         return None
+    if feature_info is not None and getattr(feature_info, "factor_feature_indices", ()):
+        if len(feature_info.factor_feature_indices) > 0 and (
+            not getattr(feature_info, "metric_feature_indices", ())
+        ):
+            return None
 
     X = np.asarray(model.X_, dtype=object)[row_idx][:, idx]
     try:
@@ -209,45 +219,8 @@ def _mgcv_nn_count(n_obs: int) -> int:
     return 3
 
 
-def _stabilized_k_check_edf(model, tb, edf: float) -> float:
-    """Mirror mgcv's near-null-space EDF reporting for heavily penalized smooths."""
-    if not np.isfinite(edf):
-        return edf
-    if str(getattr(tb, "term_type", "")) != "smooth":
-        return edf
-
-    lower_df = None
-    for pb in _penalty_blocks_seq(model):
-        if pb.coef_slice != tb.coef_slice:
-            continue
-        nsd = getattr(pb, "null_space_dim", None)
-        if nsd is None:
-            continue
-        lower_df = float(nsd) if lower_df is None else max(lower_df, float(nsd))
-    if lower_df is None:
-        return edf
-
-    sp_vals = [
-        float(model.smoothing_params[j])
-        for j in getattr(tb, "smoothing_indices", ()) or ()
-        if np.isfinite(float(model.smoothing_params[j]))
-    ]
-    if len(sp_vals) == 0 or max(sp_vals) < 1e5:
-        return edf
-
-    delta = float(edf - lower_df)
-    if 0.0 < delta < 1e-3:
-        return float(lower_df + 1e-8)
-    return edf
-
-
 def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = None):
-    """Approximate mgcv::k.check() basis-dimension diagnostic.
-
-    The returned table is intended to be numerically comparable to
-    ``mgcv::k.check`` for term types where both implementations define the same
-    nearest-neighbour residual differencing diagnostic.
-    """
+    """Port of mgcv::k.check() basis-dimension diagnostic."""
     _require_fitted(model)
 
     term_blocks = [
@@ -258,7 +231,7 @@ def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = N
     if len(term_blocks) == 0:
         return None
 
-    rsd = np.asarray(residuals_gam(model, type="deviance"), dtype=np.float64).ravel()
+    rsd = np.asarray(residuals_gam(model), dtype=np.float64).ravel()
     n = int(rsd.shape[0])
     rng = np.random.default_rng(seed)
     if n > int(subsample):
@@ -275,7 +248,6 @@ def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = N
         X_term = _numeric_feature_block(model, tb, row_idx)
         k_prime = int(tb.coef_slice.stop - tb.coef_slice.start)
         edf = float(edf_by_term[i])
-        edf = _stabilized_k_check_edf(model, tb, edf)
         if X_term is None:
             rows.append((label, k_prime, edf, np.nan, np.nan))
             continue
@@ -300,10 +272,7 @@ def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = N
                     e_rep = np.concatenate([e_rep, rsdr - rsdr[ni[:, j]]])
                 ve[rep] = float(np.mean(e_rep**2) / 2.0)
 
-        if int(n_rep) > 0:
-            p_val = float(np.mean(ve[: int(n_rep)] < v_obs))
-        else:
-            p_val = np.nan
+        p_val = float(np.mean(ve[: int(n_rep)] < v_obs)) if int(n_rep) > 0 else np.nan
         k_index = float(v_obs / np.mean(rsd**2))
         rows.append((label, k_prime, edf, k_index, p_val))
 
@@ -395,50 +364,34 @@ def plot_gam_terms(model, X=None, n_cols=2, figsize=None):
     for j, tb in enumerate(term_blocks):
         ax = axes[j]
         fj = np.asarray(contributions[tb.term_id]).ravel()
-        smooth = tb.smooth
-        term = smooth.runtime
+        feature_info = getattr(tb, "feature_info", None)
+        idxs = [] if feature_info is None else list(feature_info.feature_indices)
+        names = [] if feature_info is None else list(feature_info.feature_names)
 
-        if hasattr(term, "_feature_index") and term._feature_index is not None:
-            xj = X_plot[:, term._feature_index]
+        if len(idxs) == 1:
+            xj = X_plot[:, idxs[0]]
             order = np.argsort(xj)
             ax.plot(xj[order], fj[order])
             ax.set_title(tb.label)
-            ax.set_xlabel(getattr(term, "_feature_name", tb.label))
+            ax.set_xlabel(names[0] if names else tb.label)
             ax.set_ylabel("term effect")
             continue
 
-        if hasattr(term, "_feature_indices") and term._feature_indices is not None:
-            idxs = list(term._feature_indices)
+        if len(idxs) == 2:
+            x1 = X_plot[:, idxs[0]]
+            x2 = X_plot[:, idxs[1]]
+            try:
+                tcf = ax.tricontourf(x1, x2, fj, levels=20)
+                fig.colorbar(tcf, ax=ax)
+            except Exception:
+                sc = ax.scatter(x1, x2, c=fj, s=18)
+                fig.colorbar(sc, ax=ax)
 
-            if len(idxs) == 1:
-                xj = X_plot[:, idxs[0]]
-                order = np.argsort(xj)
-                name = (
-                    term._feature_names[0]
-                    if getattr(term, "_feature_names", None) is not None
-                    else f"x{idxs[0]}"
-                )
-                ax.plot(xj[order], fj[order])
-                ax.set_title(tb.label)
-                ax.set_xlabel(name)
-                ax.set_ylabel("term effect")
-                continue
-
-            if len(idxs) == 2:
-                x1 = X_plot[:, idxs[0]]
-                x2 = X_plot[:, idxs[1]]
-                try:
-                    tcf = ax.tricontourf(x1, x2, fj, levels=20)
-                    fig.colorbar(tcf, ax=ax)
-                except Exception:
-                    sc = ax.scatter(x1, x2, c=fj, s=18)
-                    fig.colorbar(sc, ax=ax)
-
-                names = getattr(term, "_feature_names", [f"x{idxs[0]}", f"x{idxs[1]}"])
-                ax.set_title(tb.label)
-                ax.set_xlabel(names[0])
-                ax.set_ylabel(names[1])
-                continue
+            axis_names = names if len(names) == 2 else [f"x{idxs[0]}", f"x{idxs[1]}"]
+            ax.set_title(tb.label)
+            ax.set_xlabel(axis_names[0])
+            ax.set_ylabel(axis_names[1])
+            continue
 
         ax.text(
             0.5,
@@ -528,13 +481,9 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
         )
         if z_work is not None:
             z_work = np.asarray(z_work, dtype=np.float64).ravel()
-            offset = getattr(fit_state, "offset", None)
-            eta_base = (
-                eta
-                if offset is None
-                else eta - np.asarray(offset, dtype=np.float64).ravel()
-            )
-            return z_work - eta_base
+            # mgcv::residuals.gam() returns the stored working residual series,
+            # equivalent to z - eta in the fitted parameterization.
+            return z_work - eta
         mu_eta = getattr(model.family, "mu_eta", None)
         if callable(mu_eta):
             mu_eta_val = np.asarray(mu_eta(eta), dtype=np.float64)
@@ -1485,6 +1434,26 @@ class GAM:
 
         return select_covariance_matrix(self, cov=cov)
 
+    def _resolve_ml_reml_scoring_backend(self, method="reml"):
+        from ..fit.model_ops import resolve_ml_reml_scoring_backend
+
+        return resolve_ml_reml_scoring_backend(self, method=method)
+
+    def _expand_smoothing_params_from_log(self, log_free_sp):
+        from ..fit.model_ops import expand_smoothing_params_from_log
+
+        return expand_smoothing_params_from_log(self, log_free_sp)
+
+    def _has_tensor_terms(self) -> bool:
+        for tb in _term_blocks_seq(self):
+            if str(getattr(tb, "term_type", "")).lower() in {
+                "tensor_smooth",
+                "tensor_interaction",
+                "tensor_anova",
+            }:
+                return True
+        return False
+
     def parity_snapshot(self, X=None, include_covariances=False):
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
@@ -1644,8 +1613,16 @@ class GAM:
 
         Mirrors mgcv ``vcov.gam`` in mgcv/R/mgcv.r.
         """
-        Vp = None if _cov_bayes(self) is None else np.asarray(_cov_bayes(self), dtype=np.float64)
-        Vf = None if _cov_freq(self) is None else np.asarray(_cov_freq(self), dtype=np.float64)
+        Vp = (
+            None
+            if _cov_bayes(self) is None
+            else np.asarray(_cov_bayes(self), dtype=np.float64)
+        )
+        Vf = (
+            None
+            if _cov_freq(self) is None
+            else np.asarray(_cov_freq(self), dtype=np.float64)
+        )
         Vc = _cov_unconditional(self)
         Vc = None if Vc is None else np.asarray(Vc, dtype=np.float64)
         fit_state = _fit_state(self)
@@ -1653,14 +1630,7 @@ class GAM:
         coef_full = np.asarray(_coef_full(self), dtype=np.float64)
         edf_total = float(_edf_total(self))
         if sandwich:
-            B2 = (
-                np.zeros_like(Vp)
-                if freq
-                else (
-                    Vp
-                    - Vf
-                )
-            )
+            B2 = np.zeros_like(Vp) if freq else (Vp - Vf)
             X = np.asarray(fit_state.X, dtype=np.float64)
             m = float(X.shape[0])
             m = m / (m - edf_total)
@@ -1696,13 +1666,7 @@ class GAM:
                     ),
                     dtype=np.float64,
                 )
-                vc = (
-                    m
-                    * Vp
-                    @ fill
-                    @ Vp
-                    + B2
-                )
+                vc = m * Vp @ fill @ Vp + B2
             elif family_class == "extended":
                 raise RuntimeError(
                     "Sandwich covariance matrix is not implemented for this extended family."
@@ -1716,13 +1680,7 @@ class GAM:
                     / (fit_scale * self.family.variance(mu))
                 )
                 WX = np.asarray(w[:, None] * X, dtype=np.float64)
-                vc = (
-                    m
-                    * Vp
-                    @ (WX.T @ WX)
-                    @ Vp
-                    + B2
-                )
+                vc = m * Vp @ (WX.T @ WX) @ Vp + B2
 
             vc = np.asarray(vc, dtype=np.float64).copy()
             if dispersion is not None:
@@ -2788,6 +2746,8 @@ __all__ = ["compare"]
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
 
 from .._model_state import (
@@ -2799,6 +2759,15 @@ from .._model_state import (
 )
 from ..data import coerce_optional_offset
 from ..fit.offsets import resolve_prediction_offset
+
+
+@dataclass(frozen=True)
+class _GeneralPredictionLayout:
+    Z_new: np.ndarray
+    Xp_blocks: list[np.ndarray]
+    predictor_slices: tuple[slice, ...]
+    jj: list[np.ndarray]
+    lpmatrix: np.ndarray
 
 
 def general_family_prediction_offset(model, X_np, offset):
@@ -2813,7 +2782,9 @@ def general_family_prediction_offset(model, X_np, offset):
         out = []
         for i, off_i in enumerate(offset):
             out.append(
-                None if off_i is None else coerce_optional_offset(off_i, n_rows, name=f"offset[{i}]")
+                None
+                if off_i is None
+                else coerce_optional_offset(off_i, n_rows, name=f"offset[{i}]")
             )
         if len(out) < n_pred:
             out.extend([None] * (n_pred - len(out)))
@@ -2822,10 +2793,11 @@ def general_family_prediction_offset(model, X_np, offset):
     return [offset_vec] + [None] * max(n_pred - 1, 0)
 
 
-def general_family_prediction_blocks(model, X_np):
+def general_family_prediction_layout(model, X_np):
     Z_blocks = []
     Xp_blocks = []
     predictors = _predictor_designs(model)
+    predictor_slices = tuple(_predictor_full_slices(model))
     for pred in predictors:
         Zp = (
             np.asarray(pred.design_matrix, dtype=np.float64)
@@ -2834,7 +2806,9 @@ def general_family_prediction_blocks(model, X_np):
         )
         Z_blocks.append(Zp)
         if bool(pred.has_intercept):
-            Xp_blocks.append(np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp]))
+            Xp_blocks.append(
+                np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp])
+            )
         else:
             Xp_blocks.append(Zp)
     Z_new = (
@@ -2842,25 +2816,30 @@ def general_family_prediction_blocks(model, X_np):
         if Z_blocks
         else np.empty((model.n_samples_ if X_np is None else len(X_np), 0))
     )
-    return Z_new, Xp_blocks
+    lpmatrix = (
+        np.column_stack(Xp_blocks)
+        if Xp_blocks
+        else np.empty((Z_new.shape[0], 0), dtype=np.float64)
+    )
+    return _GeneralPredictionLayout(
+        Z_new=Z_new,
+        Xp_blocks=Xp_blocks,
+        predictor_slices=predictor_slices,
+        jj=[np.arange(sl.start, sl.stop, dtype=int) for sl in predictor_slices],
+        lpmatrix=lpmatrix,
+    )
 
 
-def general_family_link_prediction_with_offset(model, X_np, offset):
+def general_family_prediction_blocks(model, X_np):
+    layout = general_family_prediction_layout(model, X_np)
+    return layout.Z_new, layout.Xp_blocks
+
+
+def general_family_link_prediction_with_offset(model, layout, offset):
     eta_cols = []
     off_list = None if offset is None else list(offset)
-    predictors = _predictor_designs(model)
-    predictor_slices = _predictor_full_slices(model)
     coef_full = np.asarray(_coef_full(model), dtype=np.float64)
-    for k, (pred, sl) in enumerate(zip(predictors, predictor_slices)):
-        Zp = (
-            np.asarray(pred.design_matrix, dtype=np.float64)
-            if X_np is None
-            else np.asarray(pred.build_new_matrix(X_np), dtype=np.float64)
-        )
-        if bool(pred.has_intercept):
-            Xp = np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp])
-        else:
-            Xp = Zp
+    for k, (Xp, sl) in enumerate(zip(layout.Xp_blocks, layout.predictor_slices)):
         eta_k = Xp @ np.asarray(coef_full[sl], dtype=np.float64)
         if off_list is not None and k < len(off_list) and off_list[k] is not None:
             eta_k = eta_k + np.asarray(off_list[k], dtype=np.float64)
@@ -2869,26 +2848,32 @@ def general_family_link_prediction_with_offset(model, X_np, offset):
 
 
 def build_general_lpmatrix(model, X_new=None):
-    _, Xp_blocks = general_family_prediction_blocks(model, X_new)
-    n_rows = model.n_samples_ if X_new is None else int(X_new.shape[0])
-    return np.column_stack(Xp_blocks) if Xp_blocks else np.empty((n_rows, 0), dtype=np.float64)
+    return general_family_prediction_layout(model, X_new).lpmatrix
 
 
-def predict_general_values(model, X=None, return_se=False, cov=None, type="response", offset=None):
+def predict_general_values(
+    model, X=None, return_se=False, cov=None, type="response", offset=None
+):
     type = str(type).lower()
     if type not in {"response", "link", "terms", "lpmatrix"}:
-        raise ValueError("type must be one of {'response', 'link', 'terms', 'lpmatrix'}")
+        raise ValueError(
+            "type must be one of {'response', 'link', 'terms', 'lpmatrix'}"
+        )
 
     offset_list = general_family_prediction_offset(model, X, offset)
-    eta = general_family_link_prediction_with_offset(model, X, offset_list)
-    Z_new, Xp_blocks = general_family_prediction_blocks(model, X)
+    layout = general_family_prediction_layout(model, X)
+    eta = general_family_link_prediction_with_offset(model, layout, offset_list)
+    Z_new = layout.Z_new
 
     if type == "lpmatrix":
-        return build_general_lpmatrix(model, X_new=X)
+        return layout.lpmatrix
     if type == "terms":
         beta = np.asarray(_coef(model), dtype=np.float64)
         terms = np.column_stack(
-            [Z_new[:, tb.coef_slice] @ beta[tb.coef_slice] for tb in _term_blocks_seq(model)]
+            [
+                Z_new[:, tb.coef_slice] @ beta[tb.coef_slice]
+                for tb in _term_blocks_seq(model)
+            ]
         )
         if not return_se:
             return terms
@@ -2907,20 +2892,19 @@ def predict_general_values(model, X=None, return_se=False, cov=None, type="respo
             return eta
         V = model._select_cov(cov)
         se_cols = []
-        for Xp, sl in zip(Xp_blocks, _predictor_full_slices(model)):
+        for Xp, sl in zip(layout.Xp_blocks, layout.predictor_slices):
             Vk = V[sl, sl]
             var = np.einsum("ij,jk,ik->i", Xp, Vk, Xp)
             se_cols.append(np.sqrt(np.maximum(var, 0.0)))
         return eta, np.column_stack(se_cols)
 
     coef_full = np.asarray(_coef_full(model), dtype=np.float64)
-    predictor_slices = _predictor_full_slices(model)
     family_predict = getattr(model.family, "predict", None)
     if callable(family_predict):
         out = family_predict(
             eta=eta,
-            X=build_general_lpmatrix(model, X_new=X),
-            jj=[np.arange(sl.start, sl.stop, dtype=int) for sl in predictor_slices],
+            X=layout.lpmatrix,
+            jj=layout.jj,
             coef=coef_full,
             offset=offset_list,
             se=return_se,
@@ -2934,8 +2918,8 @@ def predict_general_values(model, X=None, return_se=False, cov=None, type="respo
         )
     return np.asarray(
         model.family.predict_fitted(
-            build_general_lpmatrix(model, X_new=X),
-            [np.arange(sl.start, sl.stop, dtype=int) for sl in predictor_slices],
+            layout.lpmatrix,
+            layout.jj,
             coef_full,
             offset=offset_list,
         ),

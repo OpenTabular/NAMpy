@@ -5,10 +5,137 @@ from __future__ import annotations
 from dataclasses import replace
 
 import numpy as np
+from scipy.linalg import qr as scipy_qr
+from scipy.linalg import solve_triangular
+from scipy.linalg.lapack import get_lapack_funcs
 
 from ..constraints.identifiability import apply_global_side_conditions
 from .compile_predictors import compile_predictors
 from .structures import CompiledModel
+
+
+def _block_diagonal_matrix(blocks: list[np.ndarray]) -> np.ndarray:
+    total = int(sum(block.shape[0] for block in blocks))
+    out = np.zeros((total, total), dtype=np.float64)
+    start = 0
+    for block in blocks:
+        width = int(block.shape[0])
+        stop = start + width
+        out[start:stop, start:stop] = np.asarray(block, dtype=np.float64)
+        start = stop
+    return out
+
+
+def _full_predictor_matrix(predictor, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    Z_fit = np.asarray(predictor.design_matrix, dtype=np.float64)
+    Z_pred = np.asarray(predictor.build_new_matrix(X), dtype=np.float64)
+    if bool(predictor.has_intercept):
+        ones = np.ones((Z_fit.shape[0], 1), dtype=np.float64)
+        return (
+            np.column_stack([ones, Z_fit]),
+            np.column_stack([ones, Z_pred]),
+        )
+    return Z_fit, Z_pred
+
+
+def _fit_to_prediction_parameterization_map(
+    X_fit: np.ndarray,
+    X_pred: np.ndarray,
+    *,
+    tol: float = 1e-10,
+) -> np.ndarray | None:
+    def _mgcv_r_rank(R: np.ndarray, *, rank_tol: float) -> int:
+        R = np.asarray(R, dtype=np.float64)
+        rank = int(min(R.shape))
+        if rank <= 0:
+            return 0
+        trcon = get_lapack_funcs("trcon", (R,))
+        while rank > 0:
+            block = np.array(R[:rank, :rank], dtype=np.float64, order="F", copy=True)
+            rcond, info = trcon(block, norm="1", uplo="U", diag="N")
+            if info != 0:
+                raise RuntimeError(
+                    f"Failed to estimate triangular condition number for mgcv-style G$P (info={info})."
+                )
+            if float(rcond) * float(rank_tol) < 1.0:
+                return rank
+            rank -= 1
+        return 0
+
+    X_fit = np.asarray(X_fit, dtype=np.float64)
+    X_pred = np.asarray(X_pred, dtype=np.float64)
+    if X_fit.shape != X_pred.shape:
+        raise ValueError(
+            f"fit/prediction matrices must share shape, got {X_fit.shape} and {X_pred.shape}."
+        )
+    if X_fit.shape[1] == 0:
+        return None
+    if np.allclose(X_fit, X_pred, atol=tol, rtol=tol):
+        return None
+    # Mirror mgcv/R/mgcv.r construction of G$P:
+    # qr(Xp, LAPACK=TRUE) -> Rrank(R) -> triangular solve on QtX -> restore pivots.
+    Q, R, piv = scipy_qr(X_pred, mode="economic", pivoting=True)
+    p = int(R.shape[1])
+    rank = _mgcv_r_rank(R, rank_tol=np.finfo(np.float64).eps ** 0.9)
+    QtX = np.asarray(Q.T @ X_fit, dtype=np.float64)[:rank, :]
+    if rank < p:
+        R1 = np.asarray(R[:rank, :], dtype=np.float64)
+        Qr, Rr = scipy_qr(R1.T, mode="full", pivoting=False)
+        G0 = solve_triangular(
+            np.asarray(Rr[:rank, :rank], dtype=np.float64).T,
+            QtX,
+            lower=True,
+            check_finite=False,
+        )
+        P_pivot = Qr @ np.vstack(
+            [
+                np.asarray(G0, dtype=np.float64),
+                np.zeros((p - rank, X_fit.shape[1]), dtype=np.float64),
+            ]
+        )
+    else:
+        P_pivot = solve_triangular(
+            np.asarray(R[:rank, :rank], dtype=np.float64),
+            QtX,
+            lower=False,
+            check_finite=False,
+        )
+
+    P = np.zeros((p, X_fit.shape[1]), dtype=np.float64)
+    P[np.asarray(piv, dtype=int), :] = np.asarray(P_pivot, dtype=np.float64)
+    recon = X_pred @ P
+    if not np.allclose(recon, X_fit, atol=1e-8, rtol=1e-8):
+        raise RuntimeError(
+            "Failed to recover mgcv-style fit->prediction parameterization transform."
+        )
+    return np.asarray(P, dtype=np.float64)
+
+
+def _predictor_parameterization_map(
+    predictor,
+    X: np.ndarray,
+) -> np.ndarray | None:
+    X_fit_full, X_pred_full = _full_predictor_matrix(predictor, X)
+    return _fit_to_prediction_parameterization_map(X_fit_full, X_pred_full)
+
+
+def _model_parameterization_map(
+    compiled_predictors,
+    X: np.ndarray,
+) -> np.ndarray | None:
+    blocks: list[np.ndarray] = []
+    any_nontrivial = False
+    for predictor in compiled_predictors:
+        P_pred = _predictor_parameterization_map(predictor, X)
+        if P_pred is None:
+            width = int(predictor.n_coef) + int(bool(predictor.has_intercept))
+            P_pred = np.eye(width, dtype=np.float64)
+        else:
+            any_nontrivial = True
+        blocks.append(np.asarray(P_pred, dtype=np.float64))
+    if not any_nontrivial:
+        return None
+    return _block_diagonal_matrix(blocks)
 
 
 def compile_model(
@@ -41,14 +168,21 @@ def compile_model(
             reports.append(report)
         compiled_predictors = adjusted
 
+    pred_param_map = _model_parameterization_map(compiled_predictors, X)
+
     if len(compiled_predictors) == 1:
         predictor = compiled_predictors[0]
+        metadata = dict(getattr(predictor, "metadata", {}) or {})
+        if pred_param_map is not None:
+            metadata["fit_to_prediction_parameterization_map"] = np.asarray(
+                pred_param_map, dtype=np.float64
+            )
         return CompiledModel(
             predictors=(predictor,),
             design_matrix=np.asarray(predictor.design_matrix, dtype=np.float64),
             compiled_terms=tuple(predictor.compiled_terms),
             compiled_penalties=tuple(predictor.compiled_penalties),
-            metadata=dict(getattr(predictor, "metadata", {}) or {}),
+            metadata=metadata,
             n_coef=int(predictor.n_coef),
             n_smoothing_params=int(predictor.n_smoothing_params),
             predictor_full_slices=(
@@ -169,7 +303,18 @@ def compile_model(
         ),
         compiled_terms=tuple(global_terms),
         compiled_penalties=tuple(global_penalties),
-        metadata={"s_id_to_sp_indices": combined_map},
+        metadata={
+            "s_id_to_sp_indices": combined_map,
+            **(
+                {}
+                if pred_param_map is None
+                else {
+                    "fit_to_prediction_parameterization_map": np.asarray(
+                        pred_param_map, dtype=np.float64
+                    )
+                }
+            ),
+        },
         n_coef=coef_shift,
         n_smoothing_params=sp_shift,
         predictor_full_slices=tuple(predictor_full_slices),

@@ -16,6 +16,7 @@ Entry points
 
 from __future__ import annotations
 
+from copy import copy
 from dataclasses import dataclass
 from typing import Any
 
@@ -59,6 +60,7 @@ def gam_fit5(
     Mp: int = -1,
     start: np.ndarray | None = None,
     gamma: float = 1.0,
+    Sl: Any | None = None,
 ) -> dict[str, Any]:
     """
     Fit a penalized log-likelihood model for a general (GAMLSS-style) family
@@ -102,7 +104,6 @@ def gam_fit5(
     X = np.asarray(X, dtype=np.float64)
     y = np.asarray(y, dtype=np.float64).ravel()
     lsp = np.asarray(lsp, dtype=np.float64).ravel()
-    St = np.asarray(St, dtype=np.float64)
     n, p = X.shape
     q = p
     nSp = len(lsp)
@@ -113,17 +114,56 @@ def gam_fit5(
     else:
         weights = np.asarray(weights, dtype=np.float64).ravel()
 
-    # --- initialize coefficients ---
-    if start is None:
-        # `initialize()` expects penalty-root rows that can be stacked under the
-        # model matrix, matching mgcv's use of `E` as an extra design block.
+    use_exact_sl = Sl is not None and _sl_length(Sl) > 0
+    rp_state: dict[str, Any] | None = None
+
+    if use_exact_sl:
+        rp_state = _sl_ldetS(
+            Sl,
+            rho=lsp,
+            fixed=np.zeros(nSp, dtype=bool),
+            np_=q,
+            root=True,
+            Stot=True,
+            deriv=deriv,
+        )
+        X = _sl_repara(rp_state["rp"], X)
+        St = np.asarray(rp_state["S"], dtype=np.float64)
+        E = np.asarray(rp_state["E"], dtype=np.float64)
+        Sb = _sl_repa(rp_state["rp"], _sl_total_penalty_matrix(Sl), l=-2, r=-1)
+        if start is not None:
+            start = _sl_repara(rp_state["rp"], np.asarray(start, dtype=np.float64))
+        ldetS = float(rp_state["ldetS"])
+        ldetS1 = np.asarray(rp_state["ldet1"], dtype=np.float64)
+        ldetS2 = np.asarray(rp_state["ldet2"], dtype=np.float64)
+    elif Sl is not None and _sl_length(Sl) == 0:
+        deriv = 0
+        St = np.zeros((q, q), dtype=np.float64)
+        E = np.empty((0, q), dtype=np.float64)
+        Sb = np.zeros((q, q), dtype=np.float64)
+        rp_state = {
+            "ldetS": 0.0,
+            "ldet1": np.zeros(nSp, dtype=np.float64),
+            "ldet2": np.zeros((nSp, nSp), dtype=np.float64),
+            "rp": [],
+            "Sl": [],
+            "E": E,
+            "S": St,
+        }
+        ldetS = 0.0
+        ldetS1 = np.zeros(nSp, dtype=np.float64)
+        ldetS2 = np.zeros((nSp, nSp), dtype=np.float64)
+    else:
+        St = np.asarray(St, dtype=np.float64)
         E = _build_root_penalty(St).T
+        Sb = np.asarray(St, dtype=np.float64)
+
+    if start is None:
         start = family.initialize(y, X, jj, offset=offset, weights=weights, E=E)
     coef = np.asarray(start, dtype=np.float64).copy()
 
     llf = family.ll
 
-    # --- first evaluation ---
     ll = llf(y, X, jj, coef, weights, offset=offset, deriv=1)
     ll0 = float(ll["l"]) - 0.5 * float(coef @ St @ coef)
     grad = np.asarray(ll["lb"], dtype=np.float64).ravel() - St @ coef
@@ -276,13 +316,13 @@ def gam_fit5(
                         Hp = -np.asarray(ll["lbb"], dtype=np.float64) + St
                     else:
                         rank_checked = True
-                        rank, drop, bdrop = _detect_rank_drop(
-                            ll["lbb"], St, coef, q, rank
-                        )
+                        rank, drop, bdrop = _detect_rank_drop(ll["lbb"], Sb, coef, q, rank)
                         if rank < q:
                             coef, St, X, jj = _apply_rank_drop(
                                 coef, St, X, jj, bdrop, q
                             )
+                            if Sb.shape[0] >= np.sum(~bdrop):
+                                Sb = Sb[np.ix_(~bdrop, ~bdrop)]
                             ll = llf(y, X, jj, coef, weights, offset=offset, deriv=1)
                             ll0 = float(ll["l"]) - 0.5 * float(coef @ St @ coef)
                             grad = (
@@ -342,6 +382,7 @@ def gam_fit5(
     d2b = None
     d1ldetH = d2ldetH = None
     d1bSb = d2pen = None
+    d2l = None
     dH = None
     REML1 = REML2 = None
     trHid2H = None
@@ -353,11 +394,18 @@ def gam_fit5(
         d1b = np.zeros((rank_eff, m), dtype=np.float64)
         sp = np.exp(lsp)
 
-        # d1b[:,i] = -Hp^{-1} S_i coef  (implicit differentiation)
-        for i in range(m):
-            Si_r = float(sp[i]) * S_blocks[i][np.ix_(keep, keep)][:rank_eff, :rank_eff]
-            v = Si_r @ coef
-            d1b[:, i] = -D * _chol_solve(L, D * v)
+        if use_exact_sl and rp_state is not None:
+            Sib = _sl_term_mult(rp_state["Sl"], fcoef, full=True)
+            for i in range(m):
+                v = np.asarray(Sib[i], dtype=np.float64)[keep]
+                d1b[:, i] = -D * _chol_solve(L, D * v)
+        else:
+            for i in range(m):
+                Si_r = (
+                    float(sp[i]) * S_blocks[i][np.ix_(keep, keep)][:rank_eff, :rank_eff]
+                )
+                v = Si_r @ coef
+                d1b[:, i] = -D * _chol_solve(L, D * v)
 
         fd1b = np.zeros((q, m), dtype=np.float64)
         fd1b[keep[:q], :] = d1b
@@ -381,26 +429,38 @@ def gam_fit5(
             ll_d3 = llf(y, X, jj, coef, weights, offset=offset, deriv=3, d1b=d1b)
             dH = ll_d3.get("d1H")
 
-            # d2b = -Hp^{-1}(dH_i d1b_j - Si d1b_j - Sj d1b_i)
             d2b = np.zeros((rank_eff, m * (m + 1) // 2), dtype=np.float64)
             kk = 0
             for i in range(m):
                 for j in range(i, m):
-                    Si_r = (
-                        float(sp[i])
-                        * S_blocks[i][np.ix_(keep, keep)][:rank_eff, :rank_eff]
-                    )
-                    Sj_r = (
-                        float(sp[j])
-                        * S_blocks[j][np.ix_(keep, keep)][:rank_eff, :rank_eff]
-                    )
                     dH_i_v = np.zeros(rank_eff, dtype=np.float64)
                     if isinstance(dH, list) and len(dH) > i:
                         dH_i_v = (
                             np.asarray(dH[i], dtype=np.float64)[:rank_eff, :rank_eff]
                             @ d1b[:, j]
                         )
-                    v = -dH_i_v + Si_r @ d1b[:, j] + Sj_r @ d1b[:, i]
+                    if use_exact_sl and rp_state is not None:
+                        v = (
+                            -dH_i_v
+                            + np.asarray(
+                                _sl_mult(rp_state["Sl"], fd1b[:, j], i + 1),
+                                dtype=np.float64,
+                            )[keep]
+                            + np.asarray(
+                                _sl_mult(rp_state["Sl"], fd1b[:, i], j + 1),
+                                dtype=np.float64,
+                            )[keep]
+                        )
+                    else:
+                        Si_r = (
+                            float(sp[i])
+                            * S_blocks[i][np.ix_(keep, keep)][:rank_eff, :rank_eff]
+                        )
+                        Sj_r = (
+                            float(sp[j])
+                            * S_blocks[j][np.ix_(keep, keep)][:rank_eff, :rank_eff]
+                        )
+                        v = -dH_i_v + Si_r @ d1b[:, j] + Sj_r @ d1b[:, i]
                     d2b[:, kk] = -D * _chol_solve(L, D * v)
                     if i == j:
                         d2b[:, kk] += d1b[:, i]
@@ -421,38 +481,115 @@ def gam_fit5(
                 D=D,
             )
             trHid2H = ll_r.get("trHid2H")
+            d2l = np.zeros((m, m), dtype=np.float64)
+            llbb_outer = np.asarray(ll_d3["lbb"], dtype=np.float64)
+            for i in range(m):
+                for j in range(i, m):
+                    d2l[i, j] = d2l[j, i] = float(
+                        d1b[:, i] @ (llbb_outer[:rank_eff, :rank_eff] @ d1b[:, j])
+                    )
 
-        # d1bSb[i] = coef' Si coef
-        d1bSb = np.zeros(m, dtype=np.float64)
-        for i in range(m):
-            Si_r = float(sp[i]) * S_blocks[i][np.ix_(keep, keep)][:rank_eff, :rank_eff]
-            d1bSb[i] = float(coef @ (Si_r @ coef))
+        if use_exact_sl and rp_state is not None:
+            Skb = _sl_term_mult(rp_state["Sl"], fcoef, full=True)
+            d1bSb = np.zeros(m, dtype=np.float64)
+            for i in range(m):
+                Skb[i] = np.asarray(Skb[i], dtype=np.float64)[keep]
+                d1bSb[i] = float(np.sum(coef * Skb[i]))
 
-        if deriv > 1:
-            # score1 uses the simplified penalty derivative term coef' Si coef.
-            # Differentiate that expression directly for the score2 penalty block.
-            d2pen = np.zeros((m, m), dtype=np.float64)
+            if deriv > 1:
+                d2pen = np.zeros((m, m), dtype=np.float64)
+                for i in range(m):
+                    Sd1b = St @ d1b[:, i]
+                    for j in range(i, m):
+                        val_ij = 2.0 * float(
+                            np.sum(
+                                d1b[:, i] * Skb[j]
+                                + d1b[:, j] * Skb[i]
+                                + d1b[:, j] * Sd1b
+                            )
+                        )
+                        if i == j:
+                            val_ij += float(np.sum(coef * Skb[i]))
+                        d2pen[i, j] = d2pen[j, i] = val_ij
+        else:
+            d1bSb = np.zeros(m, dtype=np.float64)
             for i in range(m):
                 Si_r = (
                     float(sp[i]) * S_blocks[i][np.ix_(keep, keep)][:rank_eff, :rank_eff]
                 )
-                for j in range(i, m):
-                    val_ij = 2.0 * float(d1b[:, j] @ (Si_r @ coef))
-                    if i == j:
-                        val_ij += float(coef @ (Si_r @ coef))
-                    d2pen[i, j] = val_ij
-                    if j > i:
-                        Sj_r = (
-                            float(sp[j])
-                            * S_blocks[j][np.ix_(keep, keep)][:rank_eff, :rank_eff]
-                        )
-                        d2pen[j, i] = 2.0 * float(d1b[:, i] @ (Sj_r @ coef))
-            d2pen = 0.5 * (d2pen + d2pen.T)
+                d1bSb[i] = float(coef @ (Si_r @ coef))
 
-        # d1ldetH  (mgcv lines 1347-1365)
+            if deriv > 1:
+                d2pen = np.zeros((m, m), dtype=np.float64)
+                for i in range(m):
+                    Si_r = (
+                        float(sp[i])
+                        * S_blocks[i][np.ix_(keep, keep)][:rank_eff, :rank_eff]
+                    )
+                    for j in range(i, m):
+                        val_ij = 2.0 * float(d1b[:, j] @ (Si_r @ coef))
+                        if i == j:
+                            val_ij += float(coef @ (Si_r @ coef))
+                        d2pen[i, j] = val_ij
+                        if j > i:
+                            Sj_r = (
+                                float(sp[j])
+                                * S_blocks[j][np.ix_(keep, keep)][:rank_eff, :rank_eff]
+                            )
+                            d2pen[j, i] = 2.0 * float(d1b[:, i] @ (Sj_r @ coef))
+                d2pen = 0.5 * (d2pen + d2pen.T)
+
         d1ldetH = np.zeros(m, dtype=np.float64)
         d1Hp_list = []
-        if d1ldetH_trace is not None:
+        if use_exact_sl and rp_state is not None:
+            eye_q = np.eye(q, dtype=np.float64)
+            if (
+                deriv == 1
+                and d1ldetH_trace is not None
+                and not isinstance(d1ldetH_trace, list)
+            ):
+                d1ldetH = -np.asarray(d1ldetH_trace, dtype=np.float64).ravel()
+                for i in range(m):
+                    A_full = np.asarray(
+                        _sl_mult(rp_state["Sl"], eye_q, i + 1, full=True),
+                        dtype=np.float64,
+                    )[np.ix_(keep, keep)]
+                    bind = np.sum(np.abs(A_full), axis=1) != 0.0
+                    A = A_full[:, bind]
+                    A = D[:, None] * _chol_solve_matrix(L, np.diag(D) @ A)
+                    if np.any(bind):
+                        d1ldetH[i] += float(np.trace(A[bind, :]))
+                    if isinstance(dH, list):
+                        dH_i = (
+                            np.asarray(dH[i], dtype=np.float64)[:rank_eff, :rank_eff]
+                            if len(dH) > i
+                            else np.zeros((rank_eff, rank_eff))
+                        )
+                        A_hp = -dH_i + A_full
+                        d1Hp_list.append(
+                            D[:, None] * _chol_solve_matrix(L, np.diag(D) @ A_hp)
+                        )
+            else:
+                if dH is not None and not isinstance(dH, list):
+                    d1ldetH = d1ldetH - np.asarray(dH, dtype=np.float64)
+                for i in range(m):
+                    A_full = np.asarray(
+                        _sl_mult(rp_state["Sl"], eye_q, i + 1, full=True),
+                        dtype=np.float64,
+                    )[np.ix_(keep, keep)]
+                    if isinstance(dH, list):
+                        dH_i = (
+                            np.asarray(dH[i], dtype=np.float64)[:rank_eff, :rank_eff]
+                            if len(dH) > i
+                            else np.zeros((rank_eff, rank_eff))
+                        )
+                        A_hp = -dH_i + A_full
+                    else:
+                        A_hp = A_full
+                    Ai = D[:, None] * _chol_solve_matrix(L, np.diag(D) @ A_hp)
+                    d1ldetH[i] = float(np.trace(Ai))
+                    d1Hp_list.append(Ai)
+        elif deriv == 1 and d1ldetH_trace is not None:
             d1ldetH = -np.asarray(d1ldetH_trace, dtype=np.float64).ravel()
             for i in range(m):
                 Si_r = (
@@ -503,12 +640,23 @@ def gam_fit5(
                         -float(np.sum(d1Hp_list[i] * d1Hp_list[j].T)) - thr
                     )
                     if i == j:
-                        Si_r = (
-                            float(sp[i])
-                            * S_blocks[i][np.ix_(keep, keep)][:rank_eff, :rank_eff]
-                        )
-                        Ai = D[:, None] * _chol_solve_matrix(L, np.diag(D) @ Si_r)
-                        d2ldetH[i, j] += float(np.trace(Ai))
+                        if use_exact_sl and rp_state is not None:
+                            A_full = np.asarray(
+                                _sl_mult(rp_state["Sl"], np.eye(q, dtype=np.float64), i + 1),
+                                dtype=np.float64,
+                            )[np.ix_(keep, keep)]
+                            bind = np.sum(np.abs(A_full), axis=1) != 0.0
+                            A = A_full[:, bind]
+                            A = D[:, None] * _chol_solve_matrix(L, np.diag(D) @ A)
+                            if np.any(bind):
+                                d2ldetH[i, j] += float(np.trace(A[bind, :]))
+                        else:
+                            Si_r = (
+                                float(sp[i])
+                                * S_blocks[i][np.ix_(keep, keep)][:rank_eff, :rank_eff]
+                            )
+                            Ai = D[:, None] * _chol_solve_matrix(L, np.diag(D) @ Si_r)
+                            d2ldetH[i, j] += float(np.trace(Ai))
                     kk += 1
 
     # ----------------------------------------------------------------
@@ -536,7 +684,10 @@ def gam_fit5(
             if ldetS2 is not None
             else np.zeros((nSp, nSp))
         )
-        score2 = (d2pen - _ldetS2 + d2ldetH) / (2.0 * gamma)
+        if use_exact_sl:
+            score2 = -((d2l - d2pen / 2.0) / gamma + _ldetS2 / 2.0 - d2ldetH / 2.0)
+        else:
+            score2 = (d2pen - _ldetS2 + d2ldetH) / (2.0 * gamma)
         REML2 = np.asarray(score2, dtype=np.float64)
 
     if control.trace:
@@ -546,8 +697,18 @@ def gam_fit5(
         if REML1 is not None:
             print(f"  {score_name}1={REML1}")
 
+    coef_out = fcoef
+    db_drho_out = fd1b
+    if use_exact_sl and rp_state is not None:
+        coef_out = np.asarray(_sl_repara(rp_state["rp"], fcoef, inverse=True), dtype=np.float64)
+        if db_drho_out is not None:
+            db_drho_out = np.asarray(
+                _sl_repa(rp_state["rp"], db_drho_out, l=-1),
+                dtype=np.float64,
+            )
+
     return {
-        "coef": fcoef,
+        "coef": coef_out,
         "lbb": ll["lbb"],
         "L": L,
         "D": D,
@@ -561,12 +722,13 @@ def gam_fit5(
         "score": float(score),
         "score1": REML1,
         "score2": REML2,
-        "db_drho": fd1b,
+        "db_drho": db_drho_out,
         "dH": dH,
         "iter": iter_,
         "warn": warn,
         "rank": rank_eff,
         "ldetHp": ldetHp,
+        "rp": [] if rp_state is None else list(rp_state["rp"]),
     }
 
 
@@ -575,7 +737,7 @@ def gam_fit5(
 # ---------------------------------------------------------------------------
 
 
-def gam_fit5_post_proc(fit: dict) -> dict:
+def gam_fit5_post_proc(fit: dict, *, Sl: Any | None = None) -> dict:
     """
     Compute Bayesian and frequentist covariance matrices and EDF.
 
@@ -584,16 +746,14 @@ def gam_fit5_post_proc(fit: dict) -> dict:
     lbb = -np.asarray(fit["lbb"], dtype=np.float64)
     L = fit["L"]
     D = fit["D"]
-    bdrop = fit["bdrop"]
-    St_full = fit["St_full"]
+    bdrop = np.asarray(fit["bdrop"], dtype=bool)
+    St_full = np.asarray(fit["St_full"], dtype=np.float64)
     q = St_full.shape[0]
     keep = ~bdrop
     p = int(np.sum(keep))
 
     lbb_r = lbb[:p, :p] if lbb.shape[0] >= p else lbb
     D_r = D[:p]
-
-    # Pre-conditioned lbb for rank check
     lbb_c = D_r[:, None] * lbb_r * D_r[None, :]
 
     try:
@@ -606,11 +766,9 @@ def gam_fit5_post_proc(fit: dict) -> dict:
         lbb_c = R_sq @ R_sq.T
         St_r = St_full[np.ix_(keep, keep)]
         Hp_c = lbb_c + D_r[:, None] * St_r * D_r[None, :]
-        L_new = cholesky(Hp_c, lower=False)
-        L = L_new
+        L = cholesky(Hp_c, lower=False)
         R = (R_sq / D_r[:, None]).T
 
-    # Bayesian covariance Vb = (lbb + St)^{-1} = Hp^{-1}
     Vb = _compute_Hp_inv(L, D_r, p)
 
     if np.any(bdrop):
@@ -621,19 +779,457 @@ def gam_fit5_post_proc(fit: dict) -> dict:
         R_full[np.ix_(keep, keep)] = R
         R = R_full
 
-    F = Vb @ (R.T @ R)
-    Ve = F @ Vb
-    edf = np.diag(F)
-    edf1 = 2.0 * edf - np.sum(F * F.T, axis=1)
-    edf2 = np.sum(Vb * (R.T @ R), axis=1)
+    if Sl is not None and _sl_length(Sl) > 0:
+        Vb = _sl_repara(fit.get("rp", []), Vb, inverse=True)
+        Vb = _sl_initial_repara_local(Sl, Vb, inverse=True)
+        R = _sl_repa(fit.get("rp", []), R, r=1)
+        R = _sl_initial_repara_local(
+            Sl,
+            R,
+            inverse=True,
+            both_sides=False,
+            cov=False,
+        )
+
+    RTR = np.asarray(R.T @ R, dtype=np.float64)
+    F = np.asarray(Vb @ RTR, dtype=np.float64)
+    Ve = np.asarray(F @ Vb, dtype=np.float64)
+    edf = np.asarray(np.diag(F), dtype=np.float64)
+    edf1 = np.asarray(2.0 * edf - np.sum(F * F.T, axis=1), dtype=np.float64)
+    edf2 = np.asarray(np.sum(Vb * RTR, axis=1), dtype=np.float64)
     edf2 = np.where(edf2 > edf1, edf1, edf2)
 
-    return {"Vp": Vb, "Ve": Ve, "edf": edf, "edf1": edf1, "edf2": edf2, "R": R}
+    return {
+        "Vp": Vb,
+        "Ve": Ve,
+        "edf": edf,
+        "edf1": edf1,
+        "edf2": edf2,
+        "R": R,
+    }
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+def _sl_blocks(Sl: Any) -> list[Any]:
+    if Sl is None:
+        return []
+    blocks = getattr(Sl, "blocks", None)
+    if blocks is not None:
+        return list(blocks)
+    return list(Sl)
+
+
+def _sl_length(Sl: Any) -> int:
+    return len(_sl_blocks(Sl))
+
+
+def _sl_total_penalty_matrix(Sl: Any) -> np.ndarray:
+    total = getattr(Sl, "S", None)
+    if total is None:
+        return np.zeros((0, 0), dtype=np.float64)
+    return np.asarray(total, dtype=np.float64)
+
+
+def _sl_initial_repara_local(Sl: Any, X: np.ndarray, **kwargs) -> np.ndarray:
+    from .general_fit5 import sl_initial_repara
+
+    return sl_initial_repara(Sl, X, **kwargs)
+
+
+def _sl_repara(
+    rp: list[dict[str, Any]],
+    X: np.ndarray,
+    *,
+    inverse: bool = False,
+    both_sides: bool = True,
+) -> np.ndarray:
+    X_arr = np.asarray(X, dtype=np.float64).copy()
+    if len(rp) == 0:
+        return X_arr
+
+    is_matrix = X_arr.ndim == 2
+    if inverse:
+        if is_matrix:
+            for item in rp:
+                if not bool(item.get("repara", False)):
+                    continue
+                ind = np.asarray(item["ind"], dtype=int)
+                if both_sides:
+                    X_arr[ind, :] = (
+                        np.asarray(item["Ti"], dtype=np.float64) @ X_arr[ind, :]
+                        if item.get("Qs", None) is None
+                        else np.asarray(item["Qs"], dtype=np.float64) @ X_arr[ind, :]
+                    )
+                X_arr[:, ind] = (
+                    X_arr[:, ind] @ np.asarray(item["Ti"], dtype=np.float64).T
+                    if item.get("Qs", None) is None
+                    else X_arr[:, ind] @ np.asarray(item["Qs"], dtype=np.float64).T
+                )
+        else:
+            for item in rp:
+                if not bool(item.get("repara", False)):
+                    continue
+                ind = np.asarray(item["ind"], dtype=int)
+                X_arr[ind] = (
+                    np.asarray(item["Ti"], dtype=np.float64) @ X_arr[ind]
+                    if item.get("Qs", None) is None
+                    else np.asarray(item["Qs"], dtype=np.float64) @ X_arr[ind]
+                )
+    else:
+        if is_matrix:
+            for item in rp:
+                if not bool(item.get("repara", False)):
+                    continue
+                ind = np.asarray(item["ind"], dtype=int)
+                X_arr[:, ind] = (
+                    X_arr[:, ind] @ np.asarray(item["Ti"], dtype=np.float64)
+                    if item.get("Qs", None) is None
+                    else X_arr[:, ind] @ np.asarray(item["Qs"], dtype=np.float64)
+                )
+        else:
+            for item in rp:
+                if not bool(item.get("repara", False)):
+                    continue
+                ind = np.asarray(item["ind"], dtype=int)
+                X_arr[ind] = (
+                    np.asarray(item["T"], dtype=np.float64) @ X_arr[ind]
+                    if item.get("Qs", None) is None
+                    else np.asarray(item["Qs"], dtype=np.float64).T @ X_arr[ind]
+                )
+
+    return np.asarray(X_arr, dtype=np.float64)
+
+
+def _sl_repa(
+    rp: list[dict[str, Any]],
+    X: np.ndarray,
+    *,
+    l: int = 0,  # noqa: E741
+    r: int = 0,
+) -> np.ndarray:
+    X_arr = np.asarray(X, dtype=np.float64).copy()
+    if len(rp) == 0:
+        return X_arr
+
+    is_matrix = X_arr.ndim == 2
+    for item in rp:
+        if not bool(item.get("repara", False)):
+            continue
+        ind = np.asarray(item["ind"], dtype=int)
+        if l:
+            if item.get("Qs", None) is None:
+                if l < 0:
+                    T = (
+                        np.asarray(item["Ti"], dtype=np.float64).T
+                        if l == -2
+                        else np.asarray(item["Ti"], dtype=np.float64)
+                    )
+                else:
+                    T = (
+                        np.asarray(item["T"], dtype=np.float64).T
+                        if l == 2
+                        else np.asarray(item["T"], dtype=np.float64)
+                    )
+            else:
+                Qs = np.asarray(item["Qs"], dtype=np.float64)
+                if l < 0:
+                    T = Qs.T if l == -2 else Qs
+                else:
+                    T = Qs if l == 2 else Qs.T
+            if is_matrix:
+                X_arr[ind, :] = T @ X_arr[ind, :]
+            else:
+                X_arr[ind] = T @ X_arr[ind]
+        if r:
+            if item.get("Qs", None) is None:
+                if r < 0:
+                    T = (
+                        np.asarray(item["Ti"], dtype=np.float64).T
+                        if r == -2
+                        else np.asarray(item["Ti"], dtype=np.float64)
+                    )
+                else:
+                    T = (
+                        np.asarray(item["T"], dtype=np.float64).T
+                        if r == 2
+                        else np.asarray(item["T"], dtype=np.float64)
+                    )
+            else:
+                Qs = np.asarray(item["Qs"], dtype=np.float64)
+                if r < 0:
+                    T = Qs.T if r == -2 else Qs
+                else:
+                    T = Qs if r == 2 else Qs.T
+            if is_matrix:
+                X_arr[:, ind] = X_arr[:, ind] @ T
+            else:
+                X_arr[ind] = X_arr[ind] @ T
+
+    return np.asarray(X_arr, dtype=np.float64)
+
+
+def _sl_term_mult(sl_blocks: list[Any], A: np.ndarray, *, full: bool = False) -> list[np.ndarray]:
+    A_arr = np.asarray(A, dtype=np.float64)
+    SA: list[np.ndarray] = []
+
+    for block in sl_blocks:
+        base_ind = np.arange(int(block.start) - 1, int(block.stop), dtype=int)
+        if len(block.S) == 1:
+            ind = (
+                base_ind[np.asarray(block.ind, dtype=bool)]
+                if bool(block.repara)
+                else base_ind
+            )
+            lam = float(np.asarray(block.lambda_, dtype=np.float64).ravel()[0])
+            local = lam * A_arr[ind, ...]
+            if not bool(block.repara):
+                local = lam * (
+                    np.asarray(block.S[0], dtype=np.float64) @ A_arr[ind, ...]
+                )
+            if full:
+                out = np.zeros_like(A_arr)
+                out[ind, ...] = local
+            else:
+                out = np.asarray(local, dtype=np.float64)
+            SA.append(np.asarray(out, dtype=np.float64))
+            continue
+
+        ind = (
+            base_ind[np.asarray(block.ind, dtype=bool)]
+            if bool(block.repara)
+            else base_ind
+        )
+        srp = getattr(block, "Srp", None)
+        for i in range(len(block.S)):
+            if srp is None or not bool(block.repara):
+                local_mat = (
+                    float(np.asarray(block.lambda_, dtype=np.float64)[i])
+                    * np.asarray(block.S[i], dtype=np.float64)
+                )
+            else:
+                local_mat = np.asarray(srp[i], dtype=np.float64)
+            local = local_mat @ A_arr[ind, ...]
+            if full:
+                out = np.zeros_like(A_arr)
+                out[ind, ...] = local
+            else:
+                out = np.asarray(local, dtype=np.float64)
+            SA.append(np.asarray(out, dtype=np.float64))
+
+    return SA
+
+
+def _sl_mult(
+    sl_blocks: list[Any],
+    A: np.ndarray,
+    k: int = 0,
+    *,
+    full: bool = True,
+) -> np.ndarray:
+    A_arr = np.asarray(A, dtype=np.float64)
+    if len(sl_blocks) == 0:
+        return np.zeros_like(A_arr)
+
+    if k <= 0:
+        out = np.zeros_like(A_arr)
+        for block in sl_blocks:
+            base_ind = np.arange(int(block.start) - 1, int(block.stop), dtype=int)
+            if len(block.S) == 1:
+                if bool(block.repara):
+                    ind = base_ind[np.asarray(block.ind, dtype=bool)]
+                    lam = float(np.asarray(block.lambda_, dtype=np.float64).ravel()[0])
+                    out[ind, ...] = lam * A_arr[ind, ...]
+                else:
+                    lam = float(np.asarray(block.lambda_, dtype=np.float64).ravel()[0])
+                    out[base_ind, ...] = lam * (
+                        np.asarray(block.S[0], dtype=np.float64) @ A_arr[base_ind, ...]
+                    )
+            else:
+                ind = (
+                    base_ind[np.asarray(block.ind, dtype=bool)]
+                    if bool(block.repara)
+                    else base_ind
+                )
+                out[ind, ...] = np.asarray(block.St, dtype=np.float64) @ A_arr[ind, ...]
+        return np.asarray(out, dtype=np.float64)
+
+    j = 0
+    for block in sl_blocks:
+        base_ind = np.arange(int(block.start) - 1, int(block.stop), dtype=int)
+        for i in range(len(block.S)):
+            j += 1
+            if j != k:
+                continue
+
+            if len(block.S) == 1:
+                if bool(block.repara):
+                    ind = base_ind[np.asarray(block.ind, dtype=bool)]
+                    lam = float(np.asarray(block.lambda_, dtype=np.float64).ravel()[0])
+                    local = lam * A_arr[ind, ...]
+                    if full:
+                        out = np.zeros_like(A_arr)
+                        out[ind, ...] = local
+                        return np.asarray(out, dtype=np.float64)
+                    return np.asarray(local, dtype=np.float64)
+
+                local = float(np.asarray(block.lambda_, dtype=np.float64).ravel()[0]) * (
+                    np.asarray(block.S[0], dtype=np.float64) @ A_arr[base_ind, ...]
+                )
+                if full:
+                    out = np.zeros_like(A_arr)
+                    out[base_ind, ...] = local
+                    return np.asarray(out, dtype=np.float64)
+                return np.asarray(local, dtype=np.float64)
+
+            ind = (
+                base_ind[np.asarray(block.ind, dtype=bool)]
+                if bool(block.repara)
+                else base_ind
+            )
+            srp = getattr(block, "Srp", None)
+            if srp is None or not bool(block.repara):
+                local_mat = (
+                    float(np.asarray(block.lambda_, dtype=np.float64)[i])
+                    * np.asarray(block.S[i], dtype=np.float64)
+                )
+            else:
+                local_mat = np.asarray(srp[i], dtype=np.float64)
+            local = local_mat @ A_arr[ind, ...]
+            if full:
+                out = np.zeros_like(A_arr)
+                out[ind, ...] = local
+                return np.asarray(out, dtype=np.float64)
+            return np.asarray(local, dtype=np.float64)
+
+    return np.zeros_like(A_arr)
+
+
+def _sl_ldetS(
+    Sl: Any,
+    *,
+    rho: np.ndarray,
+    fixed: np.ndarray,
+    np_: int,
+    root: bool = False,
+    Stot: bool = False,
+    deriv: int = 2,
+) -> dict[str, Any]:
+    from ...smoothing_selection.reparam import gam_reparam
+
+    rho = np.asarray(rho, dtype=np.float64).ravel()
+    fixed = np.asarray(fixed, dtype=bool).ravel()
+    blocks = [copy(block) for block in _sl_blocks(Sl)]
+    n_deriv = int(np.sum(~fixed))
+    ldS = 0.0
+    d1 = np.zeros(n_deriv, dtype=np.float64)
+    d2 = np.zeros((n_deriv, n_deriv), dtype=np.float64)
+    k_deriv = 0
+    k_sp = 0
+    rp: list[dict[str, Any]] = []
+
+    E = np.zeros((np_, np_), dtype=np.float64) if root else None
+    S = np.zeros((np_, np_), dtype=np.float64) if Stot else None
+
+    for b_idx, block in enumerate(blocks):
+        if not bool(getattr(block, "linear", True)):
+            raise NotImplementedError(
+                "Non-linear general-family Sl blocks are not implemented."
+            )
+
+        if len(block.S) == 1:
+            rank = int(block.rank if block.rank is not None else np.sum(block.ind))
+            ldS += float(block.ldet) + float(rho[k_sp]) * rank
+            block.lambda_ = np.array([np.exp(rho[k_sp])], dtype=np.float64)
+            if not bool(fixed[k_sp]):
+                d1[k_deriv] = rank
+                k_deriv += 1
+
+            if bool(block.repara):
+                active = (
+                    np.arange(int(block.start) - 1, int(block.stop), dtype=int)[
+                        np.asarray(block.ind, dtype=bool)
+                    ]
+                )
+                if E is not None and active.size > 0:
+                    E[active, active] = np.exp(rho[k_sp] * 0.5)
+                if S is not None and active.size > 0:
+                    S[active, active] = np.exp(rho[k_sp])
+            else:
+                raise NotImplementedError(
+                    "Non-reparameterized single-penalty general-family Sl blocks are unsupported."
+                )
+
+            k_sp += 1
+            continue
+
+        m = len(block.S)
+        sp_ind = np.arange(k_sp, k_sp + m, dtype=int)
+        grp = gam_reparam(block.rS, rho[sp_ind], deriv=deriv)
+        block.lambda_ = np.exp(rho[sp_ind])
+        block.St = np.asarray(grp["S"], dtype=np.float64)
+        block.Srp = [
+            float(block.lambda_[i]) * (np.asarray(grp["rS"][i], dtype=np.float64) @ np.asarray(grp["rS"][i], dtype=np.float64).T)
+            for i in range(m)
+        ]
+        ldS += float(block.ldet) + float(grp["det"])
+
+        free = ~fixed[sp_ind]
+        nd = int(np.sum(free))
+        if nd > 0:
+            d1[k_deriv : k_deriv + nd] = np.asarray(grp["det1"], dtype=np.float64)[free]
+            if deriv > 1:
+                d2_block = np.asarray(grp["det2"], dtype=np.float64)[np.ix_(free, free)]
+                d2[k_deriv : k_deriv + nd, k_deriv : k_deriv + nd] = d2_block
+            k_deriv += nd
+
+        if bool(block.repara):
+            active = (
+                np.arange(int(block.start) - 1, int(block.stop), dtype=int)[
+                    np.asarray(block.ind, dtype=bool)
+                ]
+            )
+            rp.append(
+                {
+                    "block": b_idx,
+                    "ind": np.asarray(active, dtype=int),
+                    "Qs": np.asarray(grp["Qs"], dtype=np.float64),
+                    "repara": bool(block.repara),
+                }
+            )
+            if E is not None:
+                grp_E = np.asarray(grp["E"], dtype=np.float64)
+                ir = np.arange(int(block.start) - 1, int(block.start) - 1 + grp_E.shape[0])
+                ic = np.arange(int(block.start) - 1, int(block.start) - 1 + grp_E.shape[1])
+                E[np.ix_(ir, ic)] = grp_E
+            if S is not None:
+                grp_S = np.asarray(grp["S"], dtype=np.float64)
+                ir = np.arange(int(block.start) - 1, int(block.start) - 1 + grp_S.shape[0])
+                ic = np.arange(int(block.start) - 1, int(block.start) - 1 + grp_S.shape[1])
+                S[np.ix_(ir, ic)] = grp_S
+        else:
+            raise NotImplementedError(
+                "Non-reparameterized multi-penalty general-family Sl blocks are unsupported."
+            )
+
+        k_sp += m
+
+    if E is not None:
+        keep_rows = np.sum(np.abs(E), axis=1) != 0.0
+        E = E[keep_rows, :]
+
+    return {
+        "ldetS": float(ldS),
+        "ldet1": np.asarray(d1, dtype=np.float64),
+        "ldet2": np.asarray(d2, dtype=np.float64),
+        "Sl": blocks,
+        "rp": rp,
+        "E": E,
+        "S": S,
+    }
 
 
 def _build_root_penalty(St: np.ndarray) -> np.ndarray:

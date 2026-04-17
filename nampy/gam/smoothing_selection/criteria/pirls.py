@@ -21,7 +21,6 @@ from ..reparam import (
     _static_fixed_and_random_designs,
     _static_penalty_null_dim,
     dynamic_reparam_design,
-    ensure_penalty_reparameterization_state,
 )
 
 
@@ -273,8 +272,6 @@ def criterion_ml_reml_pirls(model, y, log_sp, method):
             "null-space penalties couple disconnected primary support "
             "components."
         )
-
-    ensure_penalty_reparameterization_state(model)
 
     sp = expand_smoothing_params_from_log(model, log_sp)
     sol = solve_pirls_given_smoothing(model, y, sp)

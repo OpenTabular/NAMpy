@@ -39,18 +39,27 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
     type = str(type).lower()
     y = np.asarray(model.y_, dtype=np.float64).ravel()
     fitted = np.asarray(_fitted_mu(model), dtype=np.float64)
+    eta_fitted = _fitted_eta(model)
     family_residuals = getattr(model.family, "residuals", None)
     if callable(family_residuals):
         try:
             return np.asarray(
-                family_residuals(y, fitted, rtype=type),
+                family_residuals(y, fitted, rtype=type, eta=eta_fitted),
                 dtype=np.float64,
             ).ravel()
         except TypeError:
-            return np.asarray(family_residuals(model, type), dtype=np.float64).ravel()
+            try:
+                return np.asarray(
+                    family_residuals(y, fitted, rtype=type),
+                    dtype=np.float64,
+                ).ravel()
+            except TypeError:
+                return np.asarray(
+                    family_residuals(model, type), dtype=np.float64
+                ).ravel()
 
     mu = np.asarray(fitted, dtype=np.float64).ravel()
-    eta = np.asarray(_fitted_eta(model), dtype=np.float64).ravel()
+    eta = np.asarray(eta_fitted, dtype=np.float64).ravel()
     w = _prior_weights(model)
 
     if type == "response":
@@ -64,13 +73,9 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
         )
         if z_work is not None:
             z_work = np.asarray(z_work, dtype=np.float64).ravel()
-            offset = getattr(fit_state, "offset", None)
-            eta_base = (
-                eta
-                if offset is None
-                else eta - np.asarray(offset, dtype=np.float64).ravel()
-            )
-            return z_work - eta_base
+            # mgcv::residuals.gam() returns the stored working residual series,
+            # equivalent to z - eta in the fitted parameterization.
+            return z_work - eta
         mu_eta = getattr(model.family, "mu_eta", None)
         if callable(mu_eta):
             mu_eta_val = np.asarray(mu_eta(eta), dtype=np.float64)

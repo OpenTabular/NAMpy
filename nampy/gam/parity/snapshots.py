@@ -24,6 +24,7 @@ from .._model_state import (
     _edf_total,
     _fit_state,
     _H_coef,
+    _n_smoothing_params,
     _require_fitted,
     _summary_R,
     _term_blocks_seq,
@@ -35,6 +36,18 @@ from ..selection import (
     optimizer_endpoint_diagnostics,
     resolve_ml_reml_scoring_backend,
 )
+
+
+def _as_pred_or_scalar_array(value):
+    """Convert prediction payloads to mgcv-style 1D vectors when matrix-like."""
+    arr = np.asarray(value, dtype=np.float64)
+    if arr.ndim == 2:
+        arr = (
+            arr.reshape(-1, order="F")
+            if arr.size > 0
+            else np.array([], dtype=np.float64)
+        )
+    return arr.tolist()
 
 
 def _coerce_snapshot_arrays(snapshot):
@@ -264,7 +277,7 @@ def _build_parity_criterion_view(core, fit_dict):
         return view
 
     fixed_mask = (
-        np.zeros(core.n_smoothing_params_, dtype=bool)
+        np.zeros(_n_smoothing_params(core), dtype=bool)
         if core.smoothing_fixed_mask_ is None
         else np.asarray(core.smoothing_fixed_mask_, dtype=bool)
     )
@@ -379,7 +392,9 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
     fit_dict["estimate_theta"] = bool(getattr(core.family, "estimate_theta", False))
     if fit_dict.get("smoothing_params", None) is not None:
         sp = np.asarray(fit_dict["smoothing_params"], dtype=np.float64)
-        fit_dict["log_smoothing_params"] = np.log(np.maximum(sp, LOG_GUARD_MIN)).tolist()
+        fit_dict["log_smoothing_params"] = np.log(
+            np.maximum(sp, LOG_GUARD_MIN)
+        ).tolist()
     parity_view = _build_parity_criterion_view(core, fit_dict)
 
     predict_api = (
@@ -461,7 +476,19 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
         X_full = np.asarray(_fit_state(core).X, dtype=np.float64)
         R_full = _summary_R(core)
         if R_full is None:
-            W_full = np.asarray(_fit_state(core).working_weights, dtype=np.float64)
+            W_full = np.asarray(
+                _fit_state(core).working_weights, dtype=np.float64
+            ).ravel()
+            if W_full.size == 1:
+                # scalar working weight in pyparity snapshots is equivalent to a constant weight
+                w0 = float(W_full[0])
+                if np.isfinite(w0):
+                    W_full = np.full((X_full.shape[0],), w0, dtype=np.float64)
+                else:
+                    W_full = np.ones((X_full.shape[0],), dtype=np.float64)
+            else:
+                if W_full.shape[0] == X_full.shape[0]:
+                    W_full = np.where(np.isfinite(W_full), W_full, 1.0)
             weighted_X = np.sqrt(np.clip(W_full, 0.0, None))[:, None] * X_full
             _, R_full = qr(weighted_X, mode="economic")
         diagnostics["smooth_test_inputs"] = {
@@ -616,6 +643,24 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
         diagnostics["residuals"] = None
 
     try:
+        deviance_residuals = np.asarray(
+            predict_api.residuals(type="deviance"), dtype=np.float64
+        )
+    except Exception:
+        deviance_residuals = None
+    if (
+        deviance_residuals is not None
+        and np.asarray(deviance_residuals).size == core.n_samples_
+        and np.isfinite(np.asarray(deviance_residuals)).all()
+    ):
+        try:
+            fit_dict["deviance"] = float(
+                np.sum(np.asarray(deviance_residuals, dtype=np.float64).ravel() ** 2)
+            )
+        except Exception:
+            pass
+
+    try:
         k_tab = predict_api.k_check(subsample=120, n_rep=8, seed=0)
         diagnostics["k_check"] = (
             None
@@ -657,8 +702,8 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
     return {
         "fit": fit_dict,
         "predictions": {
-            "response": np.asarray(response, dtype=np.float64).tolist(),
-            "link": np.asarray(link, dtype=np.float64).tolist(),
+            "response": _as_pred_or_scalar_array(response),
+            "link": _as_pred_or_scalar_array(link),
             "terms": np.asarray(terms, dtype=np.float64).tolist(),
             "lpmatrix": np.asarray(lpmatrix, dtype=np.float64).tolist(),
             "se_response": np.asarray(se_response, dtype=np.float64).tolist(),

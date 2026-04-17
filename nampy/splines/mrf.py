@@ -1,13 +1,214 @@
 # splines/mrf.py
 from __future__ import annotations
 
+import ctypes
+import os
+import shutil
+import subprocess
 from collections import OrderedDict
+from ctypes.util import find_library
+from functools import lru_cache
 
 import numpy as np
 import pandas as pd
+from numpy.ctypeslib import ndpointer
 from scipy.linalg import eigh as scipy_eigh
 from scipy.linalg import qr as scipy_qr
 from scipy.linalg import solve_triangular
+
+
+def _configure_dsyevr_signature(fn):
+    fn.argtypes = [
+        ctypes.c_char_p,
+        ctypes.c_char_p,
+        ctypes.c_char_p,
+        ctypes.POINTER(ctypes.c_int),
+        ndpointer(dtype=np.float64, flags="F_CONTIGUOUS"),
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_int),
+        ndpointer(dtype=np.float64, flags="C_CONTIGUOUS"),
+        ndpointer(dtype=np.float64, flags="F_CONTIGUOUS"),
+        ctypes.POINTER(ctypes.c_int),
+        ndpointer(dtype=np.int32, flags="C_CONTIGUOUS"),
+        ndpointer(dtype=np.float64, flags="C_CONTIGUOUS"),
+        ctypes.POINTER(ctypes.c_int),
+        ndpointer(dtype=np.int32, flags="C_CONTIGUOUS"),
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.c_size_t,
+        ctypes.c_size_t,
+        ctypes.c_size_t,
+    ]
+    fn.restype = None
+    return fn
+
+
+@lru_cache(maxsize=1)
+def _discover_r_lapack_path():
+    rscript = shutil.which("Rscript")
+    if not rscript:
+        return None
+    cmd = [
+        rscript,
+        "-e",
+        "si <- sessionInfo(); cat(if (is.null(si$LAPACK)) '' else si$LAPACK)",
+    ]
+    try:
+        proc = subprocess.run(
+            cmd,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except Exception:
+        return None
+    if proc.returncode != 0:
+        return None
+    path = proc.stdout.strip()
+    return path or None
+
+
+@lru_cache(maxsize=1)
+def _load_system_dsyevr():
+    override = os.environ.get("NAMPY_NATPARAM_LAPACK_LIB")
+    candidates = []
+    if override:
+        candidates.append(override)
+    r_lapack = _discover_r_lapack_path()
+    if r_lapack:
+        candidates.append(r_lapack)
+    for libname in ("Rlapack", "lapack"):
+        resolved = find_library(libname)
+        if resolved:
+            candidates.append(resolved)
+
+    seen = set()
+    for libname in candidates:
+        if libname in seen:
+            continue
+        seen.add(libname)
+        try:
+            lib = ctypes.CDLL(libname)
+            return _configure_dsyevr_signature(lib.dsyevr_)
+        except Exception:
+            continue
+    return None
+
+
+def _system_dsyevr_eigh_lower(matrix):
+    fn = _load_system_dsyevr()
+    if fn is None:
+        return None
+
+    A = np.array(matrix, dtype=np.float64, order="F", copy=True)
+    n_int = int(A.shape[0])
+    n = ctypes.c_int(n_int)
+    lda = ctypes.c_int(max(1, n_int))
+    vl = ctypes.c_double(0.0)
+    vu = ctypes.c_double(0.0)
+    il = ctypes.c_int(0)
+    iu = ctypes.c_int(0)
+    abstol = ctypes.c_double(0.0)
+    m = ctypes.c_int(0)
+    w = np.empty(n_int, dtype=np.float64)
+    z = np.empty((n_int, n_int), dtype=np.float64, order="F")
+    ldz = ctypes.c_int(max(1, n_int))
+    isuppz = np.empty(2 * n_int, dtype=np.int32)
+    work = np.empty(1, dtype=np.float64)
+    lwork = ctypes.c_int(-1)
+    iwork = np.empty(1, dtype=np.int32)
+    liwork = ctypes.c_int(-1)
+    info = ctypes.c_int(0)
+
+    try:
+        fn(
+            b"V",
+            b"A",
+            b"L",
+            ctypes.byref(n),
+            A,
+            ctypes.byref(lda),
+            ctypes.byref(vl),
+            ctypes.byref(vu),
+            ctypes.byref(il),
+            ctypes.byref(iu),
+            ctypes.byref(abstol),
+            ctypes.byref(m),
+            w,
+            z,
+            ctypes.byref(ldz),
+            isuppz,
+            work,
+            ctypes.byref(lwork),
+            iwork,
+            ctypes.byref(liwork),
+            ctypes.byref(info),
+            1,
+            1,
+            1,
+        )
+        if info.value != 0:
+            return None
+
+        lwork = ctypes.c_int(int(work[0]))
+        liwork = ctypes.c_int(int(iwork[0]))
+        work = np.empty(lwork.value, dtype=np.float64)
+        iwork = np.empty(liwork.value, dtype=np.int32)
+        m = ctypes.c_int(0)
+        info = ctypes.c_int(0)
+        fn(
+            b"V",
+            b"A",
+            b"L",
+            ctypes.byref(n),
+            A,
+            ctypes.byref(lda),
+            ctypes.byref(vl),
+            ctypes.byref(vu),
+            ctypes.byref(il),
+            ctypes.byref(iu),
+            ctypes.byref(abstol),
+            ctypes.byref(m),
+            w,
+            z,
+            ctypes.byref(ldz),
+            isuppz,
+            work,
+            ctypes.byref(lwork),
+            iwork,
+            ctypes.byref(liwork),
+            ctypes.byref(info),
+            1,
+            1,
+            1,
+        )
+    except Exception:
+        return None
+
+    if info.value != 0:
+        return None
+
+    evals = w[: m.value].copy()
+    evecs = z[:, : m.value].copy(order="F")
+    idx = np.argsort(evals)[::-1]
+    return evals[idx], evecs[:, idx]
+
+
+def _symmetric_eigh_desc(matrix):
+    A = 0.5 * (
+        np.asarray(matrix, dtype=np.float64) + np.asarray(matrix, dtype=np.float64).T
+    )
+    sys_res = _system_dsyevr_eigh_lower(A)
+    if sys_res is not None:
+        return sys_res
+    evals, evecs = scipy_eigh(A, driver="evr")
+    idx = np.argsort(evals)[::-1]
+    return evals[idx], evecs[:, idx]
 
 
 def _forwardsolve_lower(L, B):
@@ -292,10 +493,7 @@ def nat_param_type0(X, S, rank=None, tol=None, unit_fnorm=True):
     RSR = invR.T @ S @ invR
     RSR = 0.5 * (RSR + RSR.T)
 
-    evals, U = scipy_eigh(RSR, driver="evd")
-    idx = np.argsort(evals)[::-1]
-    evals = evals[idx]
-    U = U[:, idx]
+    evals, U = _symmetric_eigh_desc(RSR)
 
     if rank is None or rank < 1 or rank > S.shape[0]:
         rank = int(np.sum(evals > np.max(evals) * tol))
@@ -350,10 +548,7 @@ def nat_param_type1(X, S, rank=None, tol=None, unit_fnorm=True):
     RSR = solve_triangular(R.T, tmp.T, lower=True, check_finite=False)
     RSR = 0.5 * (RSR + RSR.T)
 
-    evals, U = scipy_eigh(RSR, driver="evr")
-    idx = np.argsort(evals)[::-1]
-    evals = evals[idx]
-    U = U[:, idx]
+    evals, U = _symmetric_eigh_desc(RSR)
 
     if rank is None or rank < 1 or rank > S.shape[0]:
         max_eval = np.max(evals) if evals.size else 0.0

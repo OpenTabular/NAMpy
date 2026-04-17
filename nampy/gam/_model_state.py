@@ -281,7 +281,10 @@ def _cov_freq(obj: Any):
 
 def _cov_unconditional(obj: Any):
     fit_result = _fit_result(obj)
-    if fit_result is not None and getattr(fit_result, "cov_unconditional", None) is not None:
+    if (
+        fit_result is not None
+        and getattr(fit_result, "cov_unconditional", None) is not None
+    ):
         return fit_result.cov_unconditional
     return getattr(obj, "Vc_", None)
 
@@ -324,6 +327,16 @@ def _summary_R(obj: Any):
         return getattr(obj, "_summary_R_", None)
     X = np.asarray(X, dtype=np.float64)
     w = np.asarray(w, dtype=np.float64).ravel()
+    if w.size == 1:
+        w0 = float(w[0])
+        if np.isfinite(w0):
+            w = np.full((X.shape[0],), w0, dtype=np.float64)
+        else:
+            w = np.ones((X.shape[0],), dtype=np.float64)
+    else:
+        if w.shape[0] != X.shape[0]:
+            return getattr(obj, "_summary_R_", None)
+        w = np.where(np.isfinite(w), w, 1.0)
     if X.ndim != 2 or w.shape[0] != X.shape[0]:
         return getattr(obj, "_summary_R_", None)
     _, R_nat = qr(np.sqrt(np.clip(w, 0.0, None))[:, None] * X, mode="economic")

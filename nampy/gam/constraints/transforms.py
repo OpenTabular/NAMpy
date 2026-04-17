@@ -98,13 +98,24 @@ def localized_null_space_basis_from_constraint_matrix(
         d=int(active_idx.size),
         tol=tol,
     )
+    n_keep_active = int(T_active.shape[1])
+    keep_active_idx = active_idx[:n_keep_active]
+    drop_active_idx = active_idx[n_keep_active:]
+    keep_idx = [
+        int(j) for j in range(C.shape[1]) if j not in set(drop_active_idx.tolist())
+    ]
+    col_pos = {int(j): int(i) for i, j in enumerate(keep_idx)}
 
-    out = np.zeros(
-        (C.shape[1], inactive_idx.size + T_active.shape[1]), dtype=np.float64
-    )
-    for col, src in enumerate(inactive_idx):
-        out[src, col] = 1.0
-    out[np.ix_(active_idx, np.arange(inactive_idx.size, out.shape[1]))] = T_active
+    out = np.zeros((C.shape[1], len(keep_idx)), dtype=np.float64)
+    for src in inactive_idx:
+        out[int(src), col_pos[int(src)]] = 1.0
+    if n_keep_active > 0:
+        out[
+            np.ix_(
+                active_idx,
+                np.asarray([col_pos[int(j)] for j in keep_active_idx], dtype=int),
+            )
+        ] = T_active
     return out, rank
 
 

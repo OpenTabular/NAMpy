@@ -14,6 +14,8 @@ For parity-sensitive work, the upstream vendored `mgcv` source code in this repo
 ## Non-negotiable rules
 
 - Do not replace upstream logic with a fresh derivation when the upstream implementation exists in the repo.
+- Do not add heuristic, approximate, or best-effort parity fallbacks in parity-sensitive code.
+- If a strict `mgcv` port is not yet possible, leave the surface unsupported or add a small explicit TODO rather than shipping heuristic behavior.
 - Do not make numerically meaningful algebraic rewrites unless parity tests demonstrate no regression.
 - Do not change ordering of penalties, constraints, pivots, side conditions, or block assembly casually.
 - Do not use matrix inverses where upstream logic uses solves/factorizations.

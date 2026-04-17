@@ -12,6 +12,7 @@ from .._model_state import (
     _coef,
     _coef_column_offset,
     _deviance,
+    _edf2,
     _edf_by_term,
     _edf_total,
     _fit_scale,
@@ -62,8 +63,13 @@ def _term_edf1(model, tb) -> float:
 
 
 def _residual_df_approx_mgcv(model) -> float:
-    intercept_df = float(_coef_column_offset(model))
-    return float(model.n_samples_) - intercept_df - float(np.sum(_edf1_vector(model)))
+    dfc = 0.0
+    edf2 = _edf2(model)
+    if edf2 is not None:
+        dfc = float(np.sum(np.asarray(edf2, dtype=np.float64))) - float(
+            _edf_total(model)
+        )
+    return float(model.n_samples_) - float(np.sum(_edf1_vector(model))) - dfc
 
 
 def _stable_wald_stat(beta: np.ndarray, cov: np.ndarray) -> tuple[float, int]:
@@ -342,45 +348,43 @@ def _comparison_table(
             )
 
     test_name = None if test is None else str(test).strip().lower()
+    if test_name == "lrt":
+        test_name = "chisq"
     if test_name not in {None, "chisq", "f", "cp"}:
-        raise ValueError("test must be one of None, 'Chisq', 'F', or 'Cp'.")
+        raise ValueError("test must be one of None, 'Chisq', 'LRT', 'F', or 'Cp'.")
 
     disp = float(_fit_scale(models[-1]) if dispersion is None else dispersion)
-    gaussian = family_name.lower() == "gaussian"
+    chosen_test = test_name
+    extra_cols: list[str] = []
+    if chosen_test == "f":
+        extra_cols = ["F", "Pr(>F)"]
+    elif chosen_test == "chisq":
+        extra_cols = ["Pr(>Chi)"]
+    elif chosen_test == "cp":
+        extra_cols = ["Cp"]
 
     rows: list[dict[str, object]] = []
     prev = None
-    for idx, model in enumerate(models):
+    for _idx, model in enumerate(models):
         resid_df = _residual_df_approx_mgcv(model)
-        row = {
-            "model": idx,
-            "formula": getattr(model, "formula_", None)
-            or getattr(model, "formula", None),
-            "edf": float(_edf_total(model)),
-            "residual_df": resid_df,
-            "deviance": float(_deviance(model)),
-            "criterion": getattr(model, "smoothing_score_", None),
-            "edf_diff": np.nan,
-            "deviance_diff": np.nan,
-            "statistic": np.nan,
-            "p_value": np.nan,
-            "test": None if test_name is None else str(test).upper(),
+        row: dict[str, object] = {
+            "Resid. Df": resid_df,
+            "Resid. Dev": float(_deviance(model)),
+            "Df": np.nan,
+            "Deviance": np.nan,
         }
+        for col in extra_cols:
+            row[col] = np.nan
 
         if prev is not None:
-            edf_diff = float(_edf_total(model)) - float(_edf_total(prev))
+            df_diff = float(_residual_df_approx_mgcv(prev)) - float(resid_df)
             dev_diff = float(_deviance(prev)) - float(_deviance(model))
-            row["edf_diff"] = edf_diff
-            row["deviance_diff"] = dev_diff
+            row["Df"] = df_diff
+            row["Deviance"] = dev_diff
 
-            if edf_diff > 0.0 and dev_diff >= 0.0:
-                chosen = (
-                    "f"
-                    if (test_name == "f" or (test_name is None and gaussian))
-                    else test_name
-                )
-                if chosen == "cp":
-                    row["statistic"] = float(
+            if df_diff > 0.0 and dev_diff >= 0.0:
+                if chosen_test == "cp":
+                    row["Cp"] = float(
                         (
                             float(model.smoothing_score_)
                             if model.smoothing_score_ is not None
@@ -392,54 +396,34 @@ def _comparison_table(
                             else _deviance(prev)
                         )
                     )
-                    row["test"] = "CP"
-                elif chosen == "f":
+                elif chosen_test == "f":
                     denom_df = max(
-                        float(model.n_samples_)
-                        - float(_edf_total(model))
-                        - float(_coef_column_offset(model)),
+                        float(resid_df),
                         1.0,
                     )
                     denom = float(_deviance(model)) / denom_df
                     stat = (
-                        np.nan if denom <= 0.0 else float((dev_diff / edf_diff) / denom)
+                        np.nan if denom <= 0.0 else float((dev_diff / df_diff) / denom)
                     )
-                    row["statistic"] = stat
-                    row["p_value"] = (
-                        float(f.sf(stat, edf_diff, denom_df))
+                    row["F"] = stat
+                    row["Pr(>F)"] = (
+                        float(f.sf(stat, df_diff, denom_df))
                         if np.isfinite(stat)
                         else np.nan
                     )
-                    row["test"] = "F"
-                else:
+                elif chosen_test == "chisq":
                     stat = float(dev_diff / disp) if disp > 0.0 else np.nan
-                    row["statistic"] = stat
-                    row["p_value"] = (
-                        float(chi2.sf(stat, edf_diff)) if np.isfinite(stat) else np.nan
+                    row["Pr(>Chi)"] = (
+                        float(chi2.sf(stat, df_diff)) if np.isfinite(stat) else np.nan
                     )
-                    row["test"] = "CHISQ"
         rows.append(row)
         prev = model
 
+    columns = ["Resid. Df", "Resid. Dev", "Df", "Deviance"] + extra_cols
     return AnovaGAMComparison(
         family_name=family_name,
         test=None if test_name is None else str(test).upper(),
-        table=pd.DataFrame(
-            rows,
-            columns=[
-                "model",
-                "formula",
-                "edf",
-                "residual_df",
-                "deviance",
-                "criterion",
-                "edf_diff",
-                "deviance_diff",
-                "statistic",
-                "p_value",
-                "test",
-            ],
-        ),
+        table=pd.DataFrame(rows, columns=columns),
     )
 
 

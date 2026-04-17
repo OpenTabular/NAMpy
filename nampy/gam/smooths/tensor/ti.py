@@ -11,31 +11,24 @@ import warnings
 
 import numpy as np
 
-from ...basis.algebra import rowwise_kronecker
 from ...penalties import (
-    normalize_tensor_marginal_penalty,
+    penalty_id_for_local_index,
     rescale_tensor_penalties_for_fit,
     tensor_product_penalties,
 )
-from ...penalties.algebra import null_space_penalty_from_penalty
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
     _normalize_knots,
     _normalize_mc,
     build_penalty_definition,
-    build_selection_penalty_definition,
     by_values_from_new_data,
-    column_as_float,
-    resolve_by_state,
-    sync_by_state_attributes,
 )
 from .marginals import (
-    make_tensor_marginal_term,
-    tensor_marginal_feature_index,
-    tensor_marginal_feature_name,
-    tensor_marginal_fit_matrices,
-    tensor_marginal_predict_matrix,
+    build_tensor_marginal_terms,
+    build_tensor_product_components,
+    resolve_tensor_marginal_features,
+    tensor_predict_matrix,
     validate_tensor_marginal_bases,
 )
 
@@ -51,6 +44,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         feature,
         k=10,
         basis="cr",
+        m=None,
         label=None,
         term_id=None,
         smoothing_id=None,
@@ -97,6 +91,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
                 f"basis must have length {len(features)} for features={features}, got {self.basis}."
             )
         self.basis = validate_tensor_marginal_bases(self.basis)
+        self.m = m
 
         self.mc = mc
         self.select = bool(select)
@@ -117,34 +112,24 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         self._by_state = None
 
     def fit(self, X, feature_names):
-        marginals = []
-        feature_indices = []
-        feature_names_resolved = []
-
-        self._by_state = resolve_by_state(self.by, X, feature_names)
-        sync_by_state_attributes(self, self._by_state)
+        self._set_by_state(X, feature_names)
 
         self._mc = _normalize_mc(self.mc, len(self.feature))
-
-        for feat, k_i, bs_i, knots_i, center_i in zip(
-            self.feature, self.k, self.basis, self.knots, self._mc
-        ):
-            term = make_tensor_marginal_term(
-                feature=feat,
-                basis=bs_i,
-                k=k_i,
-                knots=knots_i,
-                centered=bool(center_i),
-            )
+        marginal_shared_setups = self._linked_id_marginal_setups()
+        marginals, _, _ = build_tensor_marginal_terms(
+            feature=self.feature,
+            k=self.k,
+            basis=self.basis,
+            m=self.m,
+            knots=self.knots,
+            centered=self._mc,
+            shared_basis_setups=marginal_shared_setups,
+        )
+        for term in marginals:
             term.fit(X, feature_names)
-            marginals.append(term)
-            feature_indices.append(tensor_marginal_feature_index(term))
-            feature_names_resolved.append(tensor_marginal_feature_name(term))
-
-        marginal_bases = []
-        marginal_penalties = []
-        basis_dims = []
-        marginal_np_transforms = []
+        feature_indices, feature_names_resolved = resolve_tensor_marginal_features(
+            marginals
+        )
 
         if self.by is not None and not self._by_state.is_constant:
             if self.mc is not None:
@@ -157,36 +142,26 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         else:
             use_centered = list(self._mc)
 
-        # Build marginal bases and penalties matching mgcv's ti construction:
-        # - mc=TRUE marginals: smoothCon basis (scale_penalty + constraint absorbed),
-        #   np conditioning via the centered prediction, eigenvalue normalize.
-        # - mc=FALSE marginals: raw (unscaled) basis, np conditioning via raw prediction,
-        #   eigenvalue normalize.
-        # After the tensor product, apply outer scale_penalty (smoothCon outer step).
-        for m, center_this_margin in zip(marginals, use_centered):
-            x_train = column_as_float(X, tensor_marginal_feature_index(m))
-            B, S, XP = tensor_marginal_fit_matrices(
-                m,
-                centered=bool(center_this_margin),
-                apply_np=True,
-                x_train=x_train,
-            )
-            S = normalize_tensor_marginal_penalty(S)
-            marginal_bases.append(B)
-            marginal_penalties.append(S)
-            basis_dims.append(B.shape[1])
-            marginal_np_transforms.append(XP)
-
-        B_ti_raw = rowwise_kronecker(marginal_bases)
+        # Build marginal bases and penalties matching mgcv's ti construction.
+        (
+            _marginal_bases,
+            marginal_penalties,
+            marginal_np_transforms,
+            basis_dims,
+            B_ti_raw,
+            B_ti_setup,
+        ) = build_tensor_product_components(
+            marginals,
+            X,
+            use_centered=use_centered,
+            apply_np=True,
+        )
         S_ti = tensor_product_penalties(marginal_penalties, basis_dims=basis_dims)
 
         # Outer scale_penalty on the tensor product (matches smoothCon outer step).
-        S_ti = rescale_tensor_penalties_for_fit(B_ti_raw, S_ti)
+        S_ti = rescale_tensor_penalties_for_fit(B_ti_setup, S_ti)
 
-        if self._by_state.is_present:
-            B_ti = B_ti_raw * self._by_state.values[:, None]
-        else:
-            B_ti = B_ti_raw
+        B_ti = self._apply_cached_by(B_ti_raw)
 
         self._marginals = marginals
         self._marginal_np_transforms = marginal_np_transforms
@@ -216,11 +191,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
             sid = (
                 None
                 if self.smoothing_id is None
-                else (
-                    str(self.smoothing_id)
-                    if n_raw <= 1
-                    else f"{self.smoothing_id}::{j}"
-                )
+                else penalty_id_for_local_index(self.smoothing_id, j, n_penalties=n_raw)
             )
             sp_j = sp_vals[j] if j < len(sp_vals) else None
             defs.append(
@@ -234,26 +205,12 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
                 )
             )
 
-        if self.select:
-            combined = sum(np.asarray(P, dtype=np.float64) for P in raw)
-            S0, meta = null_space_penalty_from_penalty(
-                combined, tol=self.null_penalty_tol
+        defs.extend(
+            self._build_selection_penalty_definitions(
+                raw,
+                null_penalty_tol=self.null_penalty_tol,
             )
-            if meta["rank"] > 0:
-                select_sid = (
-                    None
-                    if self.smoothing_id is None
-                    else f"{self.smoothing_id}::select"
-                )
-                defs.append(
-                    build_selection_penalty_definition(
-                        self,
-                        S0,
-                        rank=meta["rank"],
-                        null_space_dim=meta["null_space_dim"],
-                        smoothing_id=select_sid,
-                    )
-                )
+        )
 
         return defs
 
@@ -277,19 +234,11 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
 
     def transform_new(self, X_new):
         self._require_fitted()
-
-        marginal_new = []
-        for m, center_this_margin, xp in zip(
-            self._marginals, self._marginal_is_centered, self._marginal_np_transforms
-        ):
-            marginal_new.append(
-                tensor_marginal_predict_matrix(
-                    m, X_new, centered=bool(center_this_margin), np_transform=xp
-                )
-            )
-
-        B = rowwise_kronecker(marginal_new)
+        B = tensor_predict_matrix(
+            self._marginals,
+            X_new,
+            centered=self._marginal_is_centered,
+            np_transforms=self._marginal_np_transforms,
+        )
         z = by_values_from_new_data(X_new, self._by_state)
-        if z is not None:
-            B = B * z[:, None]
-        return B
+        return self._apply_by_scale(B, z)

@@ -1,7 +1,6 @@
 """Gaussian dynamic REML/LAML joint objective and related designs."""
 
 import numpy as np
-from scipy.linalg import cho_factor
 
 from ..._mgcv_constants import LOG_GUARD_MIN
 from ..._model_state import _coef_column_offset, _n_smoothing_params
@@ -10,17 +9,43 @@ from ...fit.model_ops import (
     solve_gaussian_given_smoothing,
 )
 from ..reparam import (
-    _stable_penalty_logdet,
     _stable_penalty_logdet_derivatives,
     _static_penalty_null_dim,
+    build_gam_fit3_reparam_state,
 )
 from .gaussian_reml_algebra import (
+    gaussian_reml_saturation_terms_wrt_variance,
     gaussian_reml_weighted_degrees_and_log_weight_term,
     gaussian_weighted_residual_sum_squares,
     prior_weights_diagonal_from_fit,
     quadratic_form_penalty,
 )
 from .laplace import _penalty_derivative_matrices
+from .pirls_deriv import _gdi1_kernel
+
+
+def _cache_gaussian_reml_scale_est(model, sol) -> None:
+    """Cache the current fixed-fit Gaussian scale estimate for outer-Newton scaling."""
+    try:
+        scale = float(sol["scale"])
+    except Exception:
+        scale = np.nan
+    model._gaussian_reml_last_scale_est_ = scale
+
+
+def _gaussian_penalty_quadratic_mgcv_style(model, sol, sp) -> float:
+    beta = np.asarray(sol["coef_full"], dtype=np.float64).ravel()
+    if beta.size == 0:
+        return 0.0
+    state = build_gam_fit3_reparam_state(
+        model,
+        np.asarray(sol["X"], dtype=np.float64),
+        np.asarray(sp, dtype=np.float64),
+        deriv=0,
+    )
+    alpha = np.linalg.solve(np.asarray(state.T, dtype=np.float64), beta)
+    St = np.asarray(state.St, dtype=np.float64)
+    return float(alpha @ (St @ alpha))
 
 
 def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
@@ -28,6 +53,7 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
     y if model.offset_train_ is None else (y - model.offset_train_)
     sp = expand_smoothing_params_from_log(model, log_sp)
     sol = solve_gaussian_given_smoothing(model, y, sp)
+    _cache_gaussian_reml_scale_est(model, sol)
 
     if method not in {"REML", "LAML"}:
         raise NotImplementedError(
@@ -48,10 +74,7 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
     )
     F = float(dev) + float(Pq)
     nobs = float(model.n_samples_)
-    Mp = float(
-        _static_penalty_null_dim(model)
-        + _coef_column_offset(model)
-    )
+    Mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     n_eff = getattr(model, "n_true_", None)
     nu, _sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
         w1, nobs, Mp, n_effective_total=n_eff
@@ -148,6 +171,17 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
         "F": float(F),
         "coeff": float(coeff),
         "F1_free": np.asarray(F1[free_mask], dtype=np.float64).copy(),
+        "F2_free": np.asarray(
+            F2[np.ix_(free_mask, free_mask)], dtype=np.float64
+        ).copy(),
+        "logdetA1_free": np.asarray(logdetA1[free_mask], dtype=np.float64).copy(),
+        "logdetS1_free": np.asarray(logdetS_grad[free_mask], dtype=np.float64).copy(),
+        "logdetA2_free": np.asarray(
+            logdetA2[np.ix_(free_mask, free_mask)], dtype=np.float64
+        ).copy(),
+        "logdetS2_free": np.asarray(
+            logdetS_hess[np.ix_(free_mask, free_mask)], dtype=np.float64
+        ).copy(),
     }
 
 
@@ -171,16 +205,12 @@ def criterion_ml_reml_gaussian_dynamic_joint(
 
     y = model.family.validate_y(y)
     sp = expand_smoothing_params_from_log(
-        model,
-        np.asarray(log_sp_free, dtype=np.float64).ravel()
+        model, np.asarray(log_sp_free, dtype=np.float64).ravel()
     )
     sol = solve_gaussian_given_smoothing(model, y, sp)
-    A = np.asarray(sol["A"], dtype=np.float64)
+    _cache_gaussian_reml_scale_est(model, sol)
     nobs = float(model.n_samples_)
-    Mp = float(
-        _static_penalty_null_dim(model)
-        + _coef_column_offset(model)
-    )
+    Mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     n_eff = getattr(model, "n_true_", None)
     w1 = prior_weights_diagonal_from_fit(sol, int(nobs))
     nu, sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
@@ -189,51 +219,40 @@ def criterion_ml_reml_gaussian_dynamic_joint(
     gamma = float(model.score_gamma)
     n_weighted = float(nu + Mp)
     coeff = n_weighted / gamma - Mp if gamma > 0.0 else np.nan
-    if (
-        not np.isfinite(gamma)
-        or gamma <= 0.0
-        or not np.isfinite(coeff)
-        or coeff <= 0.0
-    ):
+    if not np.isfinite(gamma) or gamma <= 0.0 or not np.isfinite(coeff) or coeff <= 0.0:
         return np.inf
     yv = np.asarray(y, dtype=np.float64).ravel()
     mu = np.asarray(sol["mu"], dtype=np.float64).ravel()
     dev = gaussian_weighted_residual_sum_squares(yv, mu, w1)
-    Pq = quadratic_form_penalty(
-        np.asarray(sol["coef_full"], dtype=np.float64),
-        np.asarray(sol["penalty_matrix"], dtype=np.float64),
-    )
+    kernel = _gdi1_kernel(model, y, sol, sp, method=method_u)
+    Pq = float(kernel.bSb)
     rss_bSb = float(dev) + float(Pq)
     if not np.isfinite(rss_bSb) or rss_bSb <= 0.0:
         return np.inf
     sigma2 = float(np.exp(float(log_sigma2)))
     if not np.isfinite(sigma2) or sigma2 <= 0.0:
         return np.inf
-    ldet_xtwx_plus_penalty = sol.get("log_det_XtWX_plus_penalty", None)
-    if ldet_xtwx_plus_penalty is not None and np.isfinite(
-        float(ldet_xtwx_plus_penalty)
-    ):
-        logdet_A = float(ldet_xtwx_plus_penalty)
-    else:
-        try:
-            cA, _ = cho_factor(A, check_finite=False)
-        except np.linalg.LinAlgError:
-            return np.inf
-        logdet_A = 2.0 * float(np.sum(np.log(np.abs(np.diag(cA)))))
-
-    logdet_S = _stable_penalty_logdet(model, sp)
+    ldet_xtwx_plus_penalty = kernel.ldet_XWX_plus_S
+    if ldet_xtwx_plus_penalty is None or not np.isfinite(float(ldet_xtwx_plus_penalty)):
+        return np.inf
+    logdet_S = _stable_penalty_logdet_derivatives(model, sp, order=0)[0]
     if not np.isfinite(logdet_S):
         return np.inf
     if not np.isfinite(sum_log_scaled):
         return np.inf
+    ls = gaussian_reml_saturation_terms_wrt_variance(w1, sigma2)
+    if np.any(~np.isfinite(ls)):
+        return np.inf
+    fac = 1.0
+    if np.isfinite(nobs) and nobs > 0.0 and n_eff is not None and np.isfinite(n_eff):
+        fac = float(n_eff) / nobs
+    ls0 = fac * float(ls[0])
     return (
-        rss_bSb / (gamma * sigma2)
-        + coeff * np.log(2.0 * np.pi * sigma2)
-        - sum_log_scaled / gamma
-        + logdet_A
-        - logdet_S
-        + Mp * np.log(gamma)
-    ) / 2.0
+        (rss_bSb / (2.0 * sigma2) - ls0) / gamma
+        + float(ldet_xtwx_plus_penalty) / 2.0
+        - float(logdet_S) / 2.0
+        - (Mp / 2.0) * (np.log(2.0 * np.pi * sigma2) - np.log(gamma))
+    )
 
 
 def criterion_ml_reml_gaussian_dynamic_profiled(model, y, log_sp_free, method="REML"):
@@ -253,16 +272,13 @@ def criterion_ml_reml_gaussian_dynamic_profiled(model, y, log_sp_free, method="R
 
     y = model.family.validate_y(y)
     sp = expand_smoothing_params_from_log(
-        model,
-        np.asarray(log_sp_free, dtype=np.float64).ravel()
+        model, np.asarray(log_sp_free, dtype=np.float64).ravel()
     )
     sol = solve_gaussian_given_smoothing(model, y, sp)
+    _cache_gaussian_reml_scale_est(model, sol)
 
     nobs = float(model.n_samples_)
-    Mp = float(
-        _static_penalty_null_dim(model)
-        + _coef_column_offset(model)
-    )
+    Mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     n_eff = getattr(model, "n_true_", None)
     w1 = prior_weights_diagonal_from_fit(sol, int(nobs))
     nu, _sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
@@ -309,23 +325,107 @@ def criterion_gradient_ml_reml_gaussian_dynamic_joint(
     corrects the smoothing-parameter block for a fixed sigma^2 (not profiled).
     """
     method_u = str(method).upper()
-    out = _gaussian_dynamic_reml_derivative_terms(model, y, log_sp_free, method_u)
-    if not bool(out.get("valid", False)):
-        return None
-    F = float(out["F"])
-    coeff = float(out["coeff"])
+    y = model.family.validate_y(y)
+    sp = expand_smoothing_params_from_log(
+        model, np.asarray(log_sp_free, dtype=np.float64).ravel()
+    )
+    sol = solve_gaussian_given_smoothing(model, y, sp)
+    _cache_gaussian_reml_scale_est(model, sol)
+    kernel = _gdi1_kernel(model, y, sol, sp, method=method_u)
+    F = float(sol["deviance"]) + float(kernel.bSb)
+    nobs = float(model.n_samples_)
+    Mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
+    n_eff = getattr(model, "n_true_", None)
+    w1 = prior_weights_diagonal_from_fit(sol, int(nobs))
+    nu, _sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
+        w1, nobs, Mp, n_effective_total=n_eff
+    )
+    gamma = float(model.score_gamma)
+    n_weighted = float(nu + Mp)
+    coeff = n_weighted / gamma - Mp if gamma > 0.0 else np.nan
     if not np.isfinite(F) or abs(F) < LOG_GUARD_MIN:
         return None
     sigma2 = float(np.exp(float(log_sigma2)))
     if not np.isfinite(sigma2) or sigma2 <= 0.0:
         return None
+    if not np.isfinite(gamma) or gamma <= 0.0:
+        return None
+    free_mask = (
+        np.zeros(_n_smoothing_params(model), dtype=bool)
+        if model.smoothing_fixed_mask_ is None
+        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+    )
+    free_mask = ~free_mask
+    Dp1 = np.asarray(kernel.D1 + kernel.bSb1, dtype=np.float64)
+    K1 = np.asarray(kernel.K1, dtype=np.float64)
+    g_sp = Dp1[free_mask] / (2.0 * gamma * sigma2) + K1[free_mask]
+    g_tau = 0.5 * (coeff - F / (gamma * sigma2))
+    return np.concatenate([g_sp, np.array([g_tau], dtype=np.float64)])
+
+
+def criterion_hessian_ml_reml_gaussian_dynamic_joint(
+    model, y, log_sp_free, log_sigma2, method="REML"
+):
+    """
+    Hessian of the joint Gaussian REML/LAML criterion with respect to
+    ``(log(sp_free...), log(sigma^2))``.
+
+    The ``(log(sp_free...))`` block is the profiled Hessian from
+    ``_gaussian_dynamic_reml_derivative_terms`` plus the joint variance term
+    ``F/(gamma*sigma^2)``. Off-diagonal terms are
+    ``-0.5 * dF/dsp_i / (gamma*sigma^2)`` and the variance block is
+    ``0.5 * F / (gamma*sigma^2)``.
+    """
+    method_u = str(method).upper()
+    y = model.family.validate_y(y)
+    sp = expand_smoothing_params_from_log(
+        model, np.asarray(log_sp_free, dtype=np.float64).ravel()
+    )
+    sol = solve_gaussian_given_smoothing(model, y, sp)
+    _cache_gaussian_reml_scale_est(model, sol)
+    kernel = _gdi1_kernel(model, y, sol, sp, method=method_u)
     gamma = float(model.score_gamma)
     if not np.isfinite(gamma) or gamma <= 0.0:
         return None
-    prof_g = np.asarray(out["grad"], dtype=np.float64).ravel()
-    F1f = np.asarray(out["F1_free"], dtype=np.float64).ravel()
-    if prof_g.shape != F1f.shape:
+
+    F = float(sol["deviance"]) + float(kernel.bSb)
+    nobs = float(model.n_samples_)
+    Mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
+    n_eff = getattr(model, "n_true_", None)
+    w1 = prior_weights_diagonal_from_fit(sol, int(nobs))
+    nu, _sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
+        w1, nobs, Mp, n_effective_total=n_eff
+    )
+    n_weighted = float(nu + Mp)
+    coeff = n_weighted / gamma - Mp if gamma > 0.0 else np.nan
+    if not np.isfinite(F) or F <= 0.0:
         return None
-    g_sp = prof_g + 0.5 * F1f * (1.0 / (gamma * sigma2) - coeff / F)
-    g_tau = 0.5 * (coeff - F / (gamma * sigma2))
-    return np.concatenate([g_sp, np.array([g_tau], dtype=np.float64)])
+    if not np.isfinite(coeff) or coeff <= 0.0:
+        return None
+
+    sigma2 = float(np.exp(float(log_sigma2)))
+    if not np.isfinite(sigma2) or sigma2 <= 0.0:
+        return None
+
+    free_mask = (
+        np.zeros(_n_smoothing_params(model), dtype=bool)
+        if model.smoothing_fixed_mask_ is None
+        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+    )
+    free_mask = ~free_mask
+    Dp1 = np.asarray(kernel.D1 + kernel.bSb1, dtype=np.float64)
+    Dp2 = np.asarray(kernel.D2 + kernel.bSb2, dtype=np.float64)
+    K2 = np.asarray(kernel.K2, dtype=np.float64)
+    h_sp = (
+        Dp2[np.ix_(free_mask, free_mask)] / (2.0 * gamma * sigma2)
+        + K2[np.ix_(free_mask, free_mask)]
+    )
+
+    n_free = int(h_sp.shape[0])
+    h = np.zeros((n_free + 1, n_free + 1), dtype=np.float64)
+    h[:n_free, :n_free] = h_sp
+    h_cross = -Dp1[free_mask] / (2.0 * gamma * sigma2)
+    h[:n_free, n_free] = h_cross
+    h[n_free, :n_free] = h_cross
+    h[n_free, n_free] = 0.5 * F / (gamma * sigma2)
+    return h

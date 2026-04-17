@@ -22,16 +22,16 @@ from ....splines.univariate_bases import (
     cyclic_cubic_predict_matrix,
     place_knots_through_values,
 )
-from ...constraints.absorption import apply_linear_constraint
+from ...constraints.absorption import (
+    apply_linear_constraint,
+    fit_single_penalty_with_setup_basis,
+)
 from ...penalties.algebra import scale_penalty
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
-    _normalize_point_constraint,
     _resolve_feature,
     column_as_float,
-    resolve_by_state,
-    sync_by_state_attributes,
 )
 
 
@@ -77,7 +77,11 @@ class SplineTerm1D(BaseSmoothTerm):
         self.select = bool(select)
         self.fixed = bool(fixed)
         self.constraint_mode = str(constraint_mode).lower()
-        self.shared_basis_setup = shared_basis_setup
+        self.shared_basis_setup = (
+            shared_basis_setup
+            if shared_basis_setup is not None
+            else getattr(self, "shared_basis_setup", None)
+        )
         self.pc = pc
         self.knots = knots
         self.null_penalty_tol = float(null_penalty_tol)
@@ -152,77 +156,117 @@ class SplineTerm1D(BaseSmoothTerm):
 
         xj = column_as_float(X, idx)
 
-        self._by_state = resolve_by_state(self.by, X, feature_names)
-        sync_by_state_attributes(self, self._by_state)
+        self._set_by_state(X, feature_names)
 
         self._pc_value = None
 
         if self.basis_name in {"cr", "cs"}:
             self._pooled_linked_raw_marginal = False
+            pooled_linked_cols = self._linked_id_pooled_columns()
             if self.shared_basis_setup is not None:
                 mode = self.shared_basis_setup.get("mode", None)
-                if mode != "pooled_cr_1d":
+                if mode == "linked_id":
+                    if pooled_linked_cols is None or len(pooled_linked_cols) != 1:
+                        raise ValueError(
+                            "linked `id` setup for a univariate spline must supply one pooled feature column."
+                        )
+                    pooled_x = np.asarray(
+                        pooled_linked_cols[0], dtype=np.float64
+                    ).ravel()
+                    self._spline = CubicSplines(pooled_x, self.k, knots=self.knots)
+                    pooled_setup = True
+                elif mode != "pooled_cr_1d":
                     raise NotImplementedError(
                         f"Unknown shared basis setup mode {mode!r}."
                     )
-                pooled_knots = np.asarray(
-                    self.shared_basis_setup.get("pooled_knots", []),
-                    dtype=np.float64,
-                ).ravel()
-                if pooled_knots.size == 0:
-                    raise ValueError(
-                        "shared_basis_setup for pooled_cr_1d must contain non-empty pooled_knots."
-                    )
-                self._spline = CubicSplines(xj, self.k, knots=pooled_knots)
-                # Restore pooled-data penalty matrices so smoothing parameter
-                # optimisation uses the same penalty scale as when the shared
-                # basis was built from all linked terms' data combined.
-                pooled_raw_pen = self.shared_basis_setup.get("pooled_raw_penalty")
-                pooled_center = self.shared_basis_setup.get("pooled_center_mat")
-                pooled_pen = self.shared_basis_setup.get("pooled_penalty")
-                if pooled_raw_pen is not None:
-                    self._spline.raw_penalty = np.asarray(
-                        pooled_raw_pen, dtype=np.float64
-                    )
-                if pooled_center is not None:
-                    self._spline.center_mat = np.asarray(
-                        pooled_center, dtype=np.float64
-                    )
-                if pooled_pen is not None:
-                    self._spline.penalty = np.asarray(pooled_pen, dtype=np.float64)
-                pooled_setup = True
+                else:
+                    pooled_knots = np.asarray(
+                        self.shared_basis_setup.get("pooled_knots", []),
+                        dtype=np.float64,
+                    ).ravel()
+                    if pooled_knots.size == 0:
+                        raise ValueError(
+                            "shared_basis_setup for pooled_cr_1d must contain non-empty pooled_knots."
+                        )
+                    self._spline = CubicSplines(xj, self.k, knots=pooled_knots)
+                    # Restore pooled-data penalty matrices so smoothing parameter
+                    # optimisation uses the same penalty scale as when the shared
+                    # basis was built from all linked terms' data combined.
+                    pooled_raw_pen = self.shared_basis_setup.get("pooled_raw_penalty")
+                    pooled_center = self.shared_basis_setup.get("pooled_center_mat")
+                    pooled_pen = self.shared_basis_setup.get("pooled_penalty")
+                    if pooled_raw_pen is not None:
+                        self._spline.raw_penalty = np.asarray(
+                            pooled_raw_pen, dtype=np.float64
+                        )
+                    if pooled_center is not None:
+                        self._spline.center_mat = np.asarray(
+                            pooled_center, dtype=np.float64
+                        )
+                    if pooled_pen is not None:
+                        self._spline.penalty = np.asarray(pooled_pen, dtype=np.float64)
+                    pooled_setup = True
             else:
                 self._spline = CubicSplines(xj, self.k, knots=self.knots)
                 pooled_setup = False
 
             if self.pc is not None:
-                self._pc_value = _normalize_point_constraint(
-                    self.pc, self._feature_name
-                )
                 raw_base = (
                     self._spline.transform_new_raw(xj)
                     if pooled_setup
                     else self._spline.raw_basis
                 )
-                main_penalty = self._main_penalty(raw=True)
-
-                pc_basis = self._spline.transform_new_raw(
-                    np.asarray([self._pc_value], dtype=np.float64)
-                )[0]
-
-                penalties_in = [] if self.fixed else [main_penalty]
-                Bc, Sc, C = apply_linear_constraint(
+                Bc, Sc, C, pc_row = self._apply_point_constraint(
                     raw_base,
-                    penalties_in,
-                    pc_basis,
+                    [self._main_penalty(raw=True)],
+                    self.pc,
+                    feature_names=[self._feature_name],
+                    point_basis_fn=self._spline.transform_new_raw,
+                    fixed=self.fixed,
                 )
-
-                if self._by_state.is_present:
-                    Bc = Bc * self._by_state.values[:, None]
+                self._pc_value = float(pc_row[0])
 
                 self._basis_train = np.asarray(Bc, dtype=np.float64)
                 self._penalties = Sc
                 self._record_constraint_result("pc", C, absorbed_by="runtime")
+                self._use_centered_basis = False
+                return self
+
+            if pooled_setup:
+                base_raw = self._spline.transform_new_raw(xj)
+                setup_base_raw = np.asarray(self._spline.raw_basis, dtype=np.float64)
+                main_penalty = self._main_penalty(raw=True)
+
+                if self.constraint_mode == "never":
+                    base = self._apply_cached_by(base_raw)
+                    self._basis_train = np.asarray(base, dtype=np.float64)
+                    self._penalties = (
+                        []
+                        if self.fixed
+                        else [np.asarray(main_penalty, dtype=np.float64)]
+                    )
+                    self._record_constraint_result(None, None, absorbed_by=None)
+                    self._use_centered_basis = False
+                    return self
+
+                result = fit_single_penalty_with_setup_basis(
+                    base_raw,
+                    setup_base_raw,
+                    main_penalty,
+                    self._by_state,
+                    constraint_mode=self.constraint_mode,
+                    fixed=self.fixed,
+                    auto_constrain_when=True,
+                )
+                self._basis_train = result.basis_train
+                self._penalties = result.penalties
+                self._record_constraint_result(
+                    result.constraint_kind,
+                    result.constraint_transform,
+                    absorbed_by=(
+                        "runtime" if result.constraint_transform is not None else None
+                    ),
+                )
                 self._use_centered_basis = False
                 return self
 
@@ -250,7 +294,7 @@ class SplineTerm1D(BaseSmoothTerm):
                     penalties_in,
                     mean_row,
                 )
-                base = Bc_raw * self._by_state.values[:, None]
+                base = self._apply_cached_by(Bc_raw)
 
                 self._basis_train = np.asarray(base, dtype=np.float64)
                 self._penalties = Sc
@@ -266,19 +310,8 @@ class SplineTerm1D(BaseSmoothTerm):
                 self._use_centered_basis = bool(self._by_state.is_constant)
 
             if self._use_centered_basis:
-                if pooled_setup:
-                    # Knots / identconst for linked `id=` smooths are built from pooled
-                    # covariates; centered columns from transform_new_centered(xj) need
-                    # not sum to zero on each term's row subset, so identifiability would apply a
-                    # second sum-to-zero and drop an extra column vs mgcv. Use raw subset
-                    # basis and let apply_global_side_conditions perform the single
-                    # centering (same pattern as the non-centered branch).
-                    base = self._spline.transform_new_raw(xj)
-                    pen = self._main_penalty(raw=True)
-                    self._pooled_linked_raw_marginal = True
-                else:
-                    base = self._spline.basis
-                    pen = self._main_penalty(raw=False)
+                base = self._spline.basis
+                pen = self._main_penalty(raw=False)
             else:
                 base = (
                     self._spline.transform_new_raw(xj)
@@ -287,82 +320,104 @@ class SplineTerm1D(BaseSmoothTerm):
                 )
                 pen = self._main_penalty(raw=True)
 
-            if self._by_state.is_present:
-                base = base * self._by_state.values[:, None]
+            base = self._apply_cached_by(base)
 
             self._basis_train = np.asarray(base, dtype=np.float64)
             self._penalties = [] if self.fixed else [np.asarray(pen, dtype=np.float64)]
             self._record_constraint_result(None, None, absorbed_by=None)
             return self
 
+        pooled_setup = False
+        setup_x = xj
         if self.shared_basis_setup is not None:
-            raise NotImplementedError(
-                "shared_basis_setup is not yet implemented for bs='cc'."
-            )
-        if self.constraint_mode == "factor_by":
-            raise NotImplementedError(
-                "factor-by replicated cyclic cubic smooths are not yet implemented."
-            )
+            mode = self.shared_basis_setup.get("mode", None)
+            if mode != "linked_id":
+                raise NotImplementedError(
+                    f"Unknown shared basis setup mode {mode!r} for bs='cc'."
+                )
+            pooled_linked_cols = self._linked_id_pooled_columns()
+            if pooled_linked_cols is None or len(pooled_linked_cols) != 1:
+                raise ValueError(
+                    "linked `id` setup for a cyclic cubic spline must supply "
+                    "one pooled feature column."
+                )
+            setup_x = np.asarray(pooled_linked_cols[0], dtype=np.float64).ravel()
+            pooled_setup = True
 
         k = self.knots
         if k is None:
-            k = place_knots_through_values(xj, self.k)
+            k = place_knots_through_values(setup_x, self.k)
         else:
             k = np.asarray(k, dtype=np.float64).ravel()
             if k.size == 2:
-                k = place_knots_through_values(np.concatenate([k, xj]), self.k)
+                k = place_knots_through_values(np.concatenate([k, setup_x]), self.k)
             elif k.size != self.k:
                 raise ValueError("number of supplied knots != k for a cc smooth")
 
         BD, _, D = cyclic_cubic_bd(k)
         base = cyclic_cubic_predict_matrix(xj, k, BD)
+        setup_base = (
+            cyclic_cubic_predict_matrix(setup_x, k, BD) if pooled_setup else base
+        )
 
         self._cc_knots = np.asarray(k, dtype=np.float64)
         self._cc_bd = np.asarray(BD, dtype=np.float64)
 
+        S_raw = D.T @ BD
+        S_sym = 0.5 * (S_raw + S_raw.T)
+        main_penalty = scale_penalty(setup_base, S_sym)
+
         if self.pc is not None:
-            pc_value = _normalize_point_constraint(self.pc, self._feature_name)
-            pc_basis = cyclic_cubic_predict_matrix(
-                np.asarray([pc_value], dtype=np.float64), k, BD
-            )[0]
-            S_raw = D.T @ BD
-            main_penalty = 0.5 * (S_raw + S_raw.T)
-            penalties_in = [] if self.fixed else [main_penalty]
-            Bc, Sc, C = apply_linear_constraint(base, penalties_in, pc_basis)
-            if self._by_state.is_present:
-                Bc = Bc * self._by_state.values[:, None]
+            Bc, Sc, C, pc_row = self._apply_point_constraint(
+                base,
+                [main_penalty],
+                self.pc,
+                feature_names=[self._feature_name],
+                point_basis_fn=lambda x: cyclic_cubic_predict_matrix(x, k, BD),
+                fixed=self.fixed,
+            )
+            self._pc_value = float(pc_row[0])
+            Bc = self._apply_cached_by(Bc)
             self._basis_train = np.asarray(Bc, dtype=np.float64)
             self._penalties = Sc
             self._use_centered_basis = False
             self._record_constraint_result("pc", C, absorbed_by="runtime")
             return self
 
-        S_raw = D.T @ BD
-        S_sym = 0.5 * (S_raw + S_raw.T)
-
         if self.constraint_mode == "never":
             # Tensor-marginal path: return raw k-column basis without absorbing
             # the sum-to-zero constraint (mgcv smoothCon absorb.cons=FALSE).
-            main_penalty = scale_penalty(base, S_sym)
             penalties_in = [] if self.fixed else [main_penalty]
-            if self._by_state.is_present:
-                base = base * self._by_state.values[:, None]
+            base = self._apply_cached_by(base)
             self._basis_train = np.asarray(base, dtype=np.float64)
             self._penalties = penalties_in
             self._use_centered_basis = False
             self._record_constraint_result(None, None, absorbed_by=None)
             return self
 
-        main_penalty = scale_penalty(base, S_sym)
-        penalties_in = [] if self.fixed else [main_penalty]
-        mean_row = base.mean(axis=0)
-        Bc, Sc, C = apply_linear_constraint(base, penalties_in, mean_row)
-        if self._by_state.is_present:
-            Bc = Bc * self._by_state.values[:, None]
-        self._basis_train = np.asarray(Bc, dtype=np.float64)
-        self._penalties = Sc
+        result = fit_single_penalty_with_setup_basis(
+            base,
+            setup_base,
+            main_penalty,
+            self._by_state,
+            constraint_mode=self.constraint_mode,
+            fixed=self.fixed,
+            auto_constrain_when=True,
+        )
+        self._basis_train = result.basis_train
+        self._penalties = result.penalties
         self._use_centered_basis = False
-        self._record_constraint_result("centering", C, absorbed_by="runtime")
+        self._record_constraint_result(
+            (
+                "centering"
+                if result.constraint_kind == "sum_to_zero"
+                else result.constraint_kind
+            ),
+            result.constraint_transform,
+            absorbed_by=(
+                "runtime" if result.constraint_transform is not None else None
+            ),
+        )
         return self
 
     def get_penalty_definitions(self):
@@ -416,10 +471,27 @@ class SplineTerm1D(BaseSmoothTerm):
     ):
         del apply_np, x_train
         basis_name = str(self.basis_name).lower()
+        if basis_name == "cc" and self._cc_knots is not None:
+            if centered:
+                return super().tensor_marginal_fit_matrices(centered=centered)
+            BD, _, D = cyclic_cubic_bd(self._cc_knots)
+            S = D.T @ BD
+            return (
+                np.asarray(self._basis_train, dtype=np.float64),
+                np.asarray(0.5 * (S + S.T), dtype=np.float64),
+                None,
+            )
         if basis_name in {"cr", "cs"} and self._spline is not None:
             if centered:
-                B = np.asarray(self.basis_train, dtype=np.float64)
-                S = np.asarray(self.penalties[0], dtype=np.float64)
+                if (
+                    self._linked_id_setup() is not None
+                    and self.constraint_transform is not None
+                ):
+                    B = np.asarray(self._spline.basis, dtype=np.float64)
+                    S = np.asarray(self._main_penalty(raw=False), dtype=np.float64)
+                else:
+                    B = np.asarray(self.basis_train, dtype=np.float64)
+                    S = np.asarray(self.penalties[0], dtype=np.float64)
                 XP = self._spline._np_transform_centered
             else:
                 B = np.asarray(self._spline.raw_basis, dtype=np.float64)
@@ -435,7 +507,15 @@ class SplineTerm1D(BaseSmoothTerm):
         self, X_new, *, centered=False, np_transform=None
     ):
         basis_name = str(self.basis_name).lower()
-        if basis_name in {"cr", "cs"} and self._spline is not None:
+        if basis_name == "cc" and self._cc_knots is not None:
+            xj = column_as_float(X_new, self._feature_index)
+            B = cyclic_cubic_predict_matrix(xj, self._cc_knots, self._cc_bd)
+            if centered:
+                # mgcv::smooth.construct.tensor.smooth.spec uses
+                # smoothCon(..., absorb.cons=TRUE) for constrained ti()
+                # marginals, so prediction must emit constrained cc columns too.
+                B = self._apply_constraint_transform_and_by(B, X_new)
+        elif basis_name in {"cr", "cs"} and self._spline is not None:
             xj = column_as_float(X_new, self._feature_index)
             if centered:
                 B = self._spline.transform_new_centered(xj)
