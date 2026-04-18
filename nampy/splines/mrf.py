@@ -10,6 +10,15 @@ from scipy.linalg import qr as scipy_qr
 from scipy.linalg import solve_triangular
 
 
+def _symmetric_eigh_desc(matrix):
+    A = 0.5 * (
+        np.asarray(matrix, dtype=np.float64) + np.asarray(matrix, dtype=np.float64).T
+    )
+    evals, evecs = scipy_eigh(A, driver="evr")
+    idx = np.argsort(evals)[::-1]
+    return evals[idx], evecs[:, idx]
+
+
 def _forwardsolve_lower(L, B):
     """
     Dense lower-triangular solve mirroring R's forwardsolve semantics.
@@ -292,10 +301,7 @@ def nat_param_type0(X, S, rank=None, tol=None, unit_fnorm=True):
     RSR = invR.T @ S @ invR
     RSR = 0.5 * (RSR + RSR.T)
 
-    evals, U = scipy_eigh(RSR, driver="evd")
-    idx = np.argsort(evals)[::-1]
-    evals = evals[idx]
-    U = U[:, idx]
+    evals, U = _symmetric_eigh_desc(RSR)
 
     if rank is None or rank < 1 or rank > S.shape[0]:
         rank = int(np.sum(evals > np.max(evals) * tol))
@@ -338,7 +344,7 @@ def nat_param_type1(X, S, rank=None, tol=None, unit_fnorm=True):
     tol = np.finfo(float).eps ** 0.8 if tol is None else float(tol)
 
     # ``mgcv::nat.param(type=1)`` is highly sensitive inside the near-degenerate
-    # null block used by ``bs="fs"``.  Matching R's ``eigen()`` ordering/stability
+    # null block used by ``bs="fs"``. Matching R's ``eigen()`` ordering/stability
     # for this block requires SciPy's MRRR driver here.
     Q, R = np.linalg.qr(X, mode="reduced")
     if np.linalg.matrix_rank(R) < R.shape[1]:
@@ -350,10 +356,7 @@ def nat_param_type1(X, S, rank=None, tol=None, unit_fnorm=True):
     RSR = solve_triangular(R.T, tmp.T, lower=True, check_finite=False)
     RSR = 0.5 * (RSR + RSR.T)
 
-    evals, U = scipy_eigh(RSR, driver="evr")
-    idx = np.argsort(evals)[::-1]
-    evals = evals[idx]
-    U = U[:, idx]
+    evals, U = _symmetric_eigh_desc(RSR)
 
     if rank is None or rank < 1 or rank > S.shape[0]:
         max_eval = np.max(evals) if evals.size else 0.0

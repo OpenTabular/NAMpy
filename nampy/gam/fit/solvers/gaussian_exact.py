@@ -1,6 +1,11 @@
 import numpy as np
 
-from ..._model_state import _fit_intercept
+from ..._model_state import (
+    _design_matrix,
+    _fit_intercept,
+    _n_coef,
+    _penalty_blocks_seq,
+)
 from ..covariance import build_bayes_and_freq_covariances
 from ..linalg.stacked_qr import (
     balanced_penalty_template_sqrt_for_rank,
@@ -33,34 +38,31 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     n = int(y.shape[0])
     w = _prior_weights_vector(weights, n)
     fi = _fit_intercept(model)
-    X = build_full_design(model.Z, fit_intercept=fi)
+    Z = np.asarray(_design_matrix(model), dtype=np.float64)
+    penalty_blocks = tuple(_penalty_blocks_seq(model))
+    n_coef = _n_coef(model)
+    X = build_full_design(Z, fit_intercept=fi)
     S = build_full_penalty_from_blocks(
-        penalty_blocks=model.penalty_blocks_,
+        penalty_blocks=penalty_blocks,
         smoothing_params=smoothing_params,
         fit_intercept=fi,
-        n_coef=model.n_coef_,
+        n_coef=n_coef,
     )
     rank_rows = balanced_penalty_template_sqrt_for_rank(
-        model.penalty_blocks_,
+        penalty_blocks,
         fit_intercept=fi,
-        n_coef=int(model.n_coef_),
+        n_coef=int(n_coef),
     )
 
-    has_mrf_term = any(
-        str(getattr(tb, "basis_name", "")).lower() == "mrf"
-        for tb in getattr(getattr(model, "Z", None), "term_blocks", [])
-    )
-    tiny_mrf_penalty = has_mrf_term and np.any(
-        np.asarray(smoothing_params, dtype=np.float64) < 1e-20
-    )
     force_stacked_qr = (
         bool(getattr(model, "_use_stacked_qr", False))
         or gaussian_design_needs_stacked_qr_fit(model)
-        or tiny_mrf_penalty
     )
     # Underdetermined design (n < p): Householder dormqr fails with tau dimension mismatch.
     # Use lstsq path instead, matching the old explicit factor_smooth check.
-    coef_method = "lstsq" if (force_stacked_qr and X.shape[0] < X.shape[1]) else "householder"
+    coef_method = (
+        "lstsq" if (force_stacked_qr and X.shape[0] < X.shape[1]) else "householder"
+    )
 
     # Rank-deficient Gaussian designs (for example heavily penalized ti() terms at
     # the REML boundary) can share fitted values with multiple coefficient vectors.
@@ -90,30 +92,42 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     wrss = float(np.sum(w * resid * resid))
 
     if force_stacked_qr:
-        # Recompute EDF and covariance from stacked QR factors (numerically stable for
-        # near-singular systems like re/fs with lambda near 0). Cholesky-based EDF in
-        # irls_core adds jitter to A which corrupts trace(H) in those cases.
+        # Recompute EDF/covariance from stacked-QR rank-reduced factors. This mirrors
+        # mgcv's `rV %*% t(rV)` post-processing for near-singular Gaussian REML fits
+        # (for example `bs="re"` at the lambda boundary), instead of inverting the
+        # singular full `X'WX + S`.
         y_eff = y if model.offset_train_ is None else (y - model.offset_train_)
         stacked = solve_gaussian_penalized_ls_stacked_qr(
             X,
             y_eff,
             w,
             S,
-            penalty_blocks=model.penalty_blocks_,
+            penalty_blocks=penalty_blocks,
             fit_intercept=fi,
-            n_coef=int(model.n_coef_),
+            n_coef=int(n_coef),
             coef_method=coef_method,
             near_singular_null_pin=null_gauge,
         )
-        trace_H = float(np.trace(stacked["coef_hat_matrix"]))
+        A = np.asarray(stacked["A"], dtype=np.float64)
+        A_inv = np.asarray(stacked["A_inv"], dtype=np.float64)
+        XtWX = np.asarray(stacked["XtWX"], dtype=np.float64)
+        H_coef = np.asarray(stacked["coef_hat_matrix"], dtype=np.float64)
+        # Mirror mgcv's post-fit EDF trace from the stacked-QR covariance root
+        # (`rV`) rather than from an explicit `A^{-1} X'WX` product. The two are
+        # algebraically identical, but the root-based Frobenius form is
+        # materially more stable in nearly saturated aliased designs such as
+        # intercept + `bs="fs"`, where tiny EDF differences feed directly into
+        # the Gaussian scale estimate.
+        WX_rV = np.asarray(stacked["WX_sqrt"], dtype=np.float64) @ np.asarray(
+            stacked["covariance_root"], dtype=np.float64
+        )
+        trace_H = float(np.sum(WX_rV * WX_rV))
         scale = model.family.estimate_dispersion(y, eta, edf=trace_H, weights=w)
-        A_inv = (
-            stacked["XtWX_plus_penalty_chol_inverse_embedded"]
-            @ stacked["XtWX_plus_penalty_chol_inverse_embedded"].T
-        )
-        Vp, Vf, H_coef = build_bayes_and_freq_covariances(
-            scale, A_inv, stacked["XtWX"]
-        )
+        Vp, Vf, H_coef = build_bayes_and_freq_covariances(scale, A_inv, stacked["XtWX"])
+        sol["A"] = A
+        sol["A_inv"] = A_inv
+        sol["XtWX"] = XtWX
+        sol["log_det_XtWX_plus_penalty"] = float(stacked["log_det_XtWX_plus_penalty"])
         sol["trace_H"] = trace_H
         sol["edf"] = trace_H
         sol["cov_bayes"] = Vp

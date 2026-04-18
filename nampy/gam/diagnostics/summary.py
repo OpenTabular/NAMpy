@@ -8,7 +8,18 @@ parameters, and goodness-of-fit statistics.
 
 from __future__ import annotations
 
-from .._model_state import _fit_intercept, _require_fitted
+from .._model_state import (
+    _deviance,
+    _edf_by_term,
+    _edf_total,
+    _fit_intercept,
+    _fit_scale,
+    _fit_summary,
+    _intercept,
+    _require_fitted,
+    _rss,
+    _term_blocks_seq,
+)
 
 TERM_COL_WIDTH = 20
 EDF_COL_WIDTH = 8
@@ -51,6 +62,8 @@ def _format_sp_values(values) -> str:
 
 def build_summary_lines(model) -> list[str]:
     _require_fitted(model)
+    fit_summary = _fit_summary(model)
+    term_blocks = _term_blocks_seq(model)
 
     lines = []
     lines.append("General Smooth Model Summary")
@@ -73,14 +86,14 @@ def build_summary_lines(model) -> list[str]:
     )
     lines.append("-" * SUMMARY_WIDTH)
 
-    for i, tb in enumerate(model.term_blocks_):
+    for i, tb in enumerate(term_blocks):
         k_i = tb.coef_slice.stop - tb.coef_slice.start
         sp_vals = [model.smoothing_params[j] for j in tb.smoothing_indices]
         sp_txt = _format_sp_values(sp_vals)
         lines.append(
             _format_summary_row(
                 _format_term_cell(tb),
-                model.edf_by_term_[i],
+                fit_summary.edf_by_term[i] if fit_summary is not None else _edf_by_term(model)[i],
                 k_i,
                 sp_txt,
             )
@@ -88,13 +101,18 @@ def build_summary_lines(model) -> list[str]:
 
     lines.append("-" * SUMMARY_WIDTH)
     if _fit_intercept(model):
-        lines.append(f"Intercept : {model.intercept_:.6g}")
-    lines.append(f"EDF (total) : {model.edf_:.3f}")
-    lines.append(f"Scale : {model.scale_:.6g}")
+        intercept = fit_summary.intercept if fit_summary is not None else _intercept(model)
+        lines.append(f"Intercept : {intercept:.6g}")
+    edf_total = fit_summary.edf_total if fit_summary is not None else _edf_total(model)
+    scale = fit_summary.scale if fit_summary is not None else _fit_scale(model)
+    lines.append(f"EDF (total) : {edf_total:.3f}")
+    lines.append(f"Scale : {scale:.6g}")
     if model.family.name == "gaussian":
-        lines.append(f"RSS : {model.rss_:.6g}")
+        rss = fit_summary.rss if fit_summary is not None else _rss(model)
+        lines.append(f"RSS : {rss:.6g}")
     else:
-        lines.append(f"Deviance : {model.deviance_:.6g}")
+        deviance = fit_summary.deviance if fit_summary is not None else _deviance(model)
+        lines.append(f"Deviance : {deviance:.6g}")
 
     return lines
 

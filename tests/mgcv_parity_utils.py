@@ -2,27 +2,34 @@
 
 from __future__ import annotations
 
+import ast
+import atexit
 import hashlib
 import io
+import itertools
 import json
+import re
 import shutil
 import subprocess
 import tempfile
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from nampy.gam import GAM
+from tests._paths import PARITY_DIR, REPO_ROOT, TESTS_DIR
 
-_REPO_ROOT = Path(__file__).resolve().parents[1]
-_TESTS_DIR = Path(__file__).resolve().parent
+_REPO_ROOT = REPO_ROOT
+_TESTS_DIR = TESTS_DIR
 
 R_SCRIPT = shutil.which("Rscript")
-MGCV_SNAPSHOT_SCRIPT = _TESTS_DIR / "parity" / "mgcv_snapshot.R"
-MGCV_ANOVA_SCRIPT = _TESTS_DIR / "parity" / "mgcv_anova.R"
+MGCV_SNAPSHOT_SCRIPT = PARITY_DIR / "mgcv_snapshot.R"
+MGCV_SNAPSHOT_SERVER_SCRIPT = PARITY_DIR / "mgcv_snapshot_server.R"
+MGCV_ANOVA_SCRIPT = PARITY_DIR / "mgcv_anova.R"
+MGCV_GAM_SETUP_ASSEMBLY_SCRIPT = PARITY_DIR / "mgcv_gam_setup_assembly.R"
 
 # ---------------------------------------------------------------------------
 # mgcv result cache
@@ -31,6 +38,223 @@ MGCV_ANOVA_SCRIPT = _TESTS_DIR / "parity" / "mgcv_anova.R"
 # tests only call R once per unique input combination.  Only mgcv outputs are
 # cached; nampy results are never cached.
 _MGCV_CACHE_DIR = _TESTS_DIR / "mgcv_r_cache"
+_MGCV_SNAPSHOT_SERVER_PROCESS = None
+_MGCV_SNAPSHOT_SERVER_LOCK = threading.Lock()
+_MGCV_SNAPSHOT_SERVER_REQUEST_IDS = itertools.count(1)
+_SNAPSHOT_CACHE_VERSION = 2
+_RAW_CONSTRUCTOR_CACHE_VERSION = 5
+_GAM_SETUP_ASSEMBLY_CACHE_VERSION = 4
+
+
+def _start_mgcv_snapshot_server() -> subprocess.Popen:
+    """Start the persistent mgcv snapshot worker process."""
+    cmd = [
+        R_SCRIPT,
+        str(MGCV_SNAPSHOT_SERVER_SCRIPT),
+        str(MGCV_SNAPSHOT_SCRIPT),
+    ]
+    proc = subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        cwd=_REPO_ROOT,
+        text=True,
+        bufsize=1,
+    )
+    return proc
+
+
+def _stop_mgcv_snapshot_server() -> None:
+    """Stop the long-lived snapshot worker if it is running."""
+    global _MGCV_SNAPSHOT_SERVER_PROCESS
+    proc = _MGCV_SNAPSHOT_SERVER_PROCESS
+    if proc is None:
+        return
+
+    try:
+        if proc.stdin is not None:
+            proc.stdin.write(
+                json.dumps({"action": "shutdown", "id": "shutdown"}) + "\n"
+            )
+            proc.stdin.flush()
+    except Exception:
+        pass
+
+    try:
+        if proc.poll() is None:
+            proc.terminate()
+            proc.wait(timeout=2)
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+    _MGCV_SNAPSHOT_SERVER_PROCESS = None
+
+
+atexit.register(_stop_mgcv_snapshot_server)
+
+
+def _run_mgcv_snapshot_single(
+    data: pd.DataFrame,
+    formula: str,
+    family,
+    method: str,
+    *,
+    select: bool = False,
+    weights_column: str | None = None,
+):
+    """Run a single snapshot via subprocess call (legacy behavior)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        csv_path = tmpdir_path / "data.csv"
+        json_path = tmpdir_path / "snapshot.json"
+        data.to_csv(csv_path, index=False)
+
+        cmd = [
+            R_SCRIPT,
+            str(MGCV_SNAPSHOT_SCRIPT),
+            str(csv_path),
+            str(json_path),
+            str(formula),
+            family,
+            method,
+            "true" if select else "false",
+        ]
+        if weights_column is not None:
+            cmd.append(str(weights_column))
+
+        subprocess.run(
+            cmd,
+            check=True,
+            cwd=_REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+
+    return result
+
+
+def _run_mgcv_snapshot_batched(
+    data: pd.DataFrame,
+    formula: str,
+    family,
+    method: str,
+    *,
+    select: bool = False,
+    weights_column: str | None = None,
+):
+    """Run a snapshot request through the long-lived R worker."""
+    global _MGCV_SNAPSHOT_SERVER_PROCESS
+    family_token = _family_specs(family)[1]
+
+    if MGCV_SNAPSHOT_SERVER_SCRIPT is None or not MGCV_SNAPSHOT_SERVER_SCRIPT.exists():
+        return _run_mgcv_snapshot_single(
+            data,
+            formula,
+            family_token,
+            method,
+            select=select,
+            weights_column=weights_column,
+        )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        csv_path = tmpdir_path / "data.csv"
+        data.to_csv(csv_path, index=False)
+
+        request = {
+            "action": "snapshot",
+            "id": str(next(_MGCV_SNAPSHOT_SERVER_REQUEST_IDS)),
+            "csv_path": str(csv_path),
+            "formula": str(formula),
+            "family": family_token,
+            "method": str(method),
+            "select": bool(select),
+            "weights_column": "" if weights_column is None else str(weights_column),
+        }
+
+        with _MGCV_SNAPSHOT_SERVER_LOCK:
+            if _MGCV_SNAPSHOT_SERVER_PROCESS is None:
+                _MGCV_SNAPSHOT_SERVER_PROCESS = _start_mgcv_snapshot_server()
+
+            proc = _MGCV_SNAPSHOT_SERVER_PROCESS
+            if proc is None or proc.poll() is not None:
+                _MGCV_SNAPSHOT_SERVER_PROCESS = _start_mgcv_snapshot_server()
+                proc = _MGCV_SNAPSHOT_SERVER_PROCESS
+
+            try:
+                proc.stdin.write(json.dumps(request) + "\n")
+                proc.stdin.flush()
+            except Exception:
+                _stop_mgcv_snapshot_server()
+                return _run_mgcv_snapshot_single(
+                    data,
+                    formula,
+                    family_token,
+                    method,
+                    select=select,
+                    weights_column=weights_column,
+                )
+
+            try:
+                response_line = ""
+                for _ in range(200):
+                    candidate = proc.stdout.readline()
+                    if not candidate:
+                        response_line = ""
+                        break
+                    if candidate.strip():
+                        response_line = candidate
+                        break
+            except Exception:
+                _stop_mgcv_snapshot_server()
+                return _run_mgcv_snapshot_single(
+                    data,
+                    formula,
+                    family_token,
+                    method,
+                    select=select,
+                    weights_column=weights_column,
+                )
+
+            if not response_line:
+                _stop_mgcv_snapshot_server()
+                return _run_mgcv_snapshot_single(
+                    data,
+                    formula,
+                    family_token,
+                    method,
+                    select=select,
+                    weights_column=weights_column,
+                )
+
+            try:
+                response = json.loads(response_line)
+            except Exception:
+                _stop_mgcv_snapshot_server()
+                return _run_mgcv_snapshot_single(
+                    data,
+                    formula,
+                    family_token,
+                    method,
+                    select=select,
+                    weights_column=weights_column,
+                )
+            if response.get("id") != request["id"]:
+                raise RuntimeError(
+                    "mgcv snapshot server returned mismatched response id."
+                )
+
+            if response.get("status") != "ok":
+                raise RuntimeError(
+                    response.get("message", "mgcv snapshot server error.")
+                )
+
+            return response["result"]
 
 
 def _mgcv_cache_key(fn_name: str, key_parts: dict) -> str:
@@ -366,9 +590,138 @@ def _family_specs(family):
     return family, key
 
 
+_R_NAME_RE = re.compile(r"^[A-Za-z.][A-Za-z0-9._]*$")
+
+
+def _r_name(name: str) -> str:
+    text = str(name)
+    return text if _R_NAME_RE.fullmatch(text) else f"`{text}`"
+
+
+def _is_scalar_literal_node(node) -> bool:
+    if isinstance(node, ast.Constant):
+        return node.value is None or isinstance(node.value, (bool, int, float, str))
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
+        return isinstance(node.operand, ast.Constant) and isinstance(
+            node.operand.value, (int, float)
+        )
+    return False
+
+
+def _is_matrix_literal_node(node) -> bool:
+    if not isinstance(node, (ast.List, ast.Tuple)) or len(node.elts) == 0:
+        return False
+    row_lengths = []
+    for elt in node.elts:
+        if not isinstance(elt, (ast.List, ast.Tuple)) or len(elt.elts) == 0:
+            return False
+        if not all(_is_scalar_literal_node(item) for item in elt.elts):
+            return False
+        row_lengths.append(len(elt.elts))
+    return len(set(row_lengths)) == 1
+
+
+def _emit_r_expr(
+    node, *, dict_key: str | None = None, kw_name: str | None = None
+) -> str:
+    if isinstance(node, ast.Constant):
+        value = node.value
+        if value is None:
+            return "NULL"
+        if isinstance(value, bool):
+            return "TRUE" if value else "FALSE"
+        if isinstance(value, str):
+            return json.dumps(value)
+        return repr(value)
+
+    if isinstance(node, ast.Name):
+        return node.id
+
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+        return "-" + _emit_r_expr(node.operand, dict_key=dict_key, kw_name=kw_name)
+
+    if isinstance(node, (ast.List, ast.Tuple)):
+        if _is_matrix_literal_node(node):
+            if (kw_name or dict_key) == "m":
+                rows = []
+                for row in node.elts:
+                    row_values = ", ".join(_emit_r_expr(item) for item in row.elts)
+                    rows.append(f"c({row_values})")
+                return f"list({', '.join(rows)})"
+
+            rows = len(node.elts)
+            flat = []
+            for row in node.elts:
+                flat.extend(_emit_r_expr(item) for item in row.elts)
+            return f"matrix(c({', '.join(flat)}), nrow={rows}, byrow=TRUE)"
+
+        values = [_emit_r_expr(elt) for elt in node.elts]
+        if all(_is_scalar_literal_node(elt) for elt in node.elts):
+            return f"c({', '.join(values)})"
+        return f"list({', '.join(values)})"
+
+    if isinstance(node, ast.Dict):
+        parts = []
+        for key_node, value_node in zip(node.keys, node.values):
+            if key_node is None:
+                parts.append(_emit_r_expr(value_node))
+                continue
+            if not isinstance(key_node, ast.Constant) or not isinstance(
+                key_node.value, str
+            ):
+                raise TypeError("Only string dict keys are supported in formula text.")
+            parts.append(
+                f"{_r_name(key_node.value)}="
+                f"{_emit_r_expr(value_node, dict_key=str(key_node.value))}"
+            )
+        return f"list({', '.join(parts)})"
+
+    if isinstance(node, ast.Call):
+        func = _emit_r_expr(node.func)
+        args = [_emit_r_expr(arg) for arg in node.args]
+        kwargs = [
+            f"{_r_name(kw.arg)}={_emit_r_expr(kw.value, kw_name=kw.arg)}"
+            for kw in node.keywords
+        ]
+        return f"{func}({', '.join([*args, *kwargs])})"
+
+    if isinstance(node, ast.BinOp):
+        op_map = {
+            ast.Add: "+",
+            ast.Sub: "-",
+            ast.Mult: "*",
+            ast.Div: "/",
+            ast.Pow: "^",
+        }
+        op = op_map.get(type(node.op), None)
+        if op is None:
+            raise TypeError(f"Unsupported operator in formula text: {type(node.op)}")
+        return (
+            f"{_emit_r_expr(node.left, dict_key=dict_key, kw_name=kw_name)} "
+            f"{op} "
+            f"{_emit_r_expr(node.right, dict_key=dict_key, kw_name=kw_name)}"
+        )
+
+    raise TypeError(f"Unsupported formula node: {type(node).__name__}")
+
+
 def _normalize_python_formula_text(formula) -> str:
-    """Translate Python-style list/bool/null formula syntax into R syntax."""
-    out = str(formula)
+    """Translate Python-style formula literals into R syntax."""
+    text = str(formula).strip()
+    if "~" in text:
+        lhs, rhs = text.split("~", 1)
+        try:
+            rhs_r = _emit_r_expr(ast.parse(rhs.strip(), mode="eval").body)
+            return f"{lhs.strip()} ~ {rhs_r}"
+        except Exception:
+            pass
+    else:
+        try:
+            return _emit_r_expr(ast.parse(text, mode="eval").body)
+        except Exception:
+            pass
+
+    out = text
     out = out.replace("[", "c(")
     out = out.replace("]", ")")
     out = out.replace("True", "TRUE")
@@ -391,6 +744,7 @@ def _run_mgcv_snapshot(
     _cache_key = _mgcv_cache_key(
         "snapshot",
         {
+            "version": _SNAPSHOT_CACHE_VERSION,
             "data": _df_cache_repr(data),
             "formula": str(formula),
             "family_token": family_token,
@@ -403,37 +757,24 @@ def _run_mgcv_snapshot(
     if cached is not None:
         return cached
 
-    if R_SCRIPT is None:
-        pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir_path = Path(tmpdir)
-        csv_path = tmpdir_path / "data.csv"
-        json_path = tmpdir_path / "snapshot.json"
-        data.to_csv(csv_path, index=False)
-
-        cmd = [
-            R_SCRIPT,
-            str(MGCV_SNAPSHOT_SCRIPT),
-            str(csv_path),
-            str(json_path),
-            str(formula),
+    try:
+        result = _run_mgcv_snapshot_batched(
+            data,
+            formula,
             family_token,
             method,
-            "true" if select else "false",
-        ]
-        if weights_column is not None:
-            cmd.append(str(weights_column))
-
-        subprocess.run(
-            cmd,
-            check=True,
-            cwd=_REPO_ROOT,
-            capture_output=True,
-            text=True,
+            select=select,
+            weights_column=weights_column,
         )
-
-        result = json.loads(json_path.read_text(encoding="utf-8"))
+    except Exception:
+        result = _run_mgcv_snapshot_single(
+            data,
+            formula,
+            family_token,
+            method,
+            select=select,
+            weights_column=weights_column,
+        )
 
     _mgcv_cache_save(_cache_key, result)
     return result
@@ -464,9 +805,6 @@ def _run_mgcv_anova(
     cached = _mgcv_cache_load(_cache_key)
     if cached is not None:
         return cached
-
-    if R_SCRIPT is None:
-        pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
@@ -566,9 +904,6 @@ def _run_mgcv_smoothcon_matrix(data: pd.DataFrame, smooth_expr: str):
     if cached is not None:
         return cached
 
-    if R_SCRIPT is None:
-        pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
-
     r_code = """
 suppressPackageStartupMessages(library(mgcv))
 suppressPackageStartupMessages(library(jsonlite))
@@ -619,9 +954,6 @@ def _run_mgcv_smoothcon_penalties(
     cached = _mgcv_cache_load(_cache_key)
     if cached is not None:
         return cached
-
-    if R_SCRIPT is None:
-        pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
 
     r_code = """
 suppressPackageStartupMessages(library(mgcv))
@@ -676,9 +1008,6 @@ def _run_mgcv_smoothcon_matrix_unscaled(data: pd.DataFrame, smooth_expr: str):
     if cached is not None:
         return cached
 
-    if R_SCRIPT is None:
-        pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
-
     r_code = """
 suppressPackageStartupMessages(library(mgcv))
 suppressPackageStartupMessages(library(jsonlite))
@@ -715,6 +1044,262 @@ write_json(list(X = unname(sm$X)), out, auto_unbox = TRUE, digits = 17)
     return result
 
 
+def _decode_packed_matrix_payload(value):
+    if isinstance(value, dict):
+        if value.get("__kind__") == "matrix":
+            dim = tuple(int(v) for v in value.get("dim", []))
+            data = np.asarray(value.get("data", []), dtype=np.float64)
+            return data.reshape(dim)
+        return {k: _decode_packed_matrix_payload(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_decode_packed_matrix_payload(v) for v in value]
+    return value
+
+
+def _normalize_raw_constructor_knots(knots):
+    if knots is None:
+        return None
+    if not isinstance(knots, dict):
+        raise TypeError("raw constructor knots must be a dict keyed by feature name.")
+    out = {}
+    for key, value in knots.items():
+        if value is None:
+            out[str(key)] = None
+            continue
+        arr = np.asarray(value, dtype=object).ravel()
+        out[str(key)] = arr.tolist()
+    return out
+
+
+def _run_mgcv_raw_constructor(
+    data: pd.DataFrame, smooth_expr: str, knots: dict | None = None
+):
+    smooth_expr_r = _normalize_python_formula_text(smooth_expr)
+    knots_payload = _normalize_raw_constructor_knots(knots)
+    _cache_key = _mgcv_cache_key(
+        "raw_constructor",
+        {
+            "version": _RAW_CONSTRUCTOR_CACHE_VERSION,
+            "data": _df_cache_repr(data),
+            "smooth_expr": smooth_expr_r,
+            "knots": json.dumps(knots_payload, sort_keys=True, default=str),
+        },
+    )
+    cached = _mgcv_cache_load(_cache_key)
+    if cached is not None:
+        return _decode_packed_matrix_payload(cached)
+
+    r_code = """
+suppressPackageStartupMessages(library(mgcv))
+suppressPackageStartupMessages(library(jsonlite))
+args <- commandArgs(trailingOnly = TRUE)
+d <- read.csv(args[[1]], stringsAsFactors = FALSE)
+for (nm in names(d)) if (is.character(d[[nm]])) d[[nm]] <- factor(d[[nm]])
+out <- args[[2]]
+kn <- NULL
+if (length(args) >= 4 && nzchar(args[[4]])) {
+  kraw <- fromJSON(args[[4]], simplifyVector = FALSE)
+  kn <- lapply(kraw, function(v) {
+    if (is.null(v)) return(NULL)
+    vals <- unlist(v, recursive = TRUE, use.names = FALSE)
+    if (is.numeric(vals)) return(unname(as.numeric(vals)))
+    if (is.integer(vals)) return(unname(as.integer(vals)))
+    if (is.logical(vals)) return(unname(as.logical(vals)))
+    unname(as.character(vals))
+  })
+}
+
+pack_matrix <- function(x) {
+  if (is.null(x)) return(NULL)
+  x <- as.matrix(x)
+  list(
+    "__kind__" = "matrix",
+    dim = as.integer(dim(x)),
+    data = unname(as.numeric(t(x)))
+  )
+}
+
+pack_vector <- function(x, mode = c("numeric", "integer", "logical", "character")) {
+  mode <- match.arg(mode)
+  if (is.null(x)) return(NULL)
+  if (mode == "numeric") return(unname(as.numeric(x)))
+  if (mode == "integer") return(unname(as.integer(x)))
+  if (mode == "logical") return(unname(as.logical(x)))
+  unname(as.character(x))
+}
+
+pack_constraint <- function(x) {
+  if (is.null(x)) return(NULL)
+  if (is.matrix(x) || (is.array(x) && length(dim(x)) == 2)) return(pack_matrix(x))
+  if (is.logical(x)) return(pack_vector(x, "logical"))
+  pack_vector(x, "numeric")
+}
+
+serialize_base_summary <- function(base) {
+  if (is.null(base)) return(NULL)
+  out <- list(
+    class_name = if (is.null(base$bs)) NULL else as.character(base$bs[[1]]),
+    bs_dim = if (is.null(base$bs.dim)) NULL else as.integer(base$bs.dim),
+    rank = if (is.null(base$rank)) NULL else pack_vector(base$rank, "integer"),
+    null_space_dim = if (is.null(base$null.space.dim)) NULL else as.integer(base$null.space.dim),
+    term = if (is.null(base$term)) NULL else pack_vector(base$term, "character")
+  )
+  if (!is.null(base$dim)) out$dim <- as.integer(base$dim)
+  out
+}
+
+serialize_gp_defn <- function(defn) {
+  if (is.null(defn)) return(NULL)
+  vals <- as.numeric(defn)
+  list(
+    type = as.integer(abs(vals[1])),
+    stationary = isTRUE(vals[1] < 0),
+    rho = if (length(vals) >= 2) as.numeric(vals[2]) else NULL,
+    power = if (length(vals) >= 3) as.numeric(vals[3]) else 1.0
+  )
+}
+
+pack_numeric_object <- function(x) {
+  if (is.null(x)) return(NULL)
+  if (is.null(dim(x))) return(pack_vector(x, "numeric"))
+  pack_matrix(x)
+}
+
+serialize_smooth <- function(sm) {
+  cls <- as.character(class(sm)[1])
+  out <- list(
+    class_name = cls,
+    X = pack_matrix(sm$X),
+    S = if (is.null(sm$S)) list() else lapply(sm$S, pack_matrix),
+    rank = if (is.null(sm$rank)) NULL else pack_vector(sm$rank, "integer"),
+    null_space_dim = if (is.null(sm$null.space.dim)) NULL else as.integer(sm$null.space.dim)
+  )
+
+  extra <- switch(
+    cls,
+    "cr.smooth" = list(
+      xp = pack_vector(sm$xp, "numeric"),
+      F = pack_numeric_object(sm$F),
+      noterp = isTRUE(sm$noterp)
+    ),
+    "cs.smooth" = list(
+      xp = pack_vector(sm$xp, "numeric"),
+      F = pack_numeric_object(sm$F),
+      noterp = isTRUE(sm$noterp)
+    ),
+    "cyclic.smooth" = list(
+      xp = pack_vector(sm$xp, "numeric"),
+      BD = pack_matrix(sm$BD),
+      noterp = isTRUE(sm$noterp)
+    ),
+    "pspline.smooth" = list(
+      knots = pack_vector(sm$knots, "numeric"),
+      m = pack_vector(sm$m, "integer")
+    ),
+    "tprs.smooth" = list(
+      Xu = pack_matrix(sm$Xu),
+      UZ = pack_matrix(sm$UZ),
+      shift = pack_vector(sm$shift, "numeric"),
+      drop_null = isTRUE(sm$drop.null != 0)
+    ),
+    "ts.smooth" = list(
+      Xu = pack_matrix(sm$Xu),
+      UZ = pack_matrix(sm$UZ),
+      shift = pack_vector(sm$shift, "numeric"),
+      drop_null = isTRUE(sm$drop.null != 0)
+    ),
+    "gp.smooth" = list(
+      shift = pack_vector(sm$shift, "numeric"),
+      gp_defn = serialize_gp_defn(sm$gp.defn),
+      UZ = pack_matrix(sm$UZ),
+      knt = pack_matrix(sm$knt)
+    ),
+    "mrf.smooth" = list(
+      knots = if (is.null(sm$knots)) NULL else pack_vector(as.character(sm$knots), "character"),
+      P = pack_matrix(sm$P),
+      plot_me = isTRUE(sm$plot.me),
+      te_ok = if (is.null(sm$te.ok)) NULL else as.integer(sm$te.ok),
+      noterp = isTRUE(sm$noterp)
+    ),
+    "random.effect" = list(
+      C = pack_constraint(sm$C),
+      random = isTRUE(sm$random),
+      noterp = isTRUE(sm$noterp)
+    ),
+    "fs.interaction" = list(
+      base = serialize_base_summary(sm$base),
+      P = pack_matrix(sm$P),
+      fterm = pack_vector(sm$fterm, "character"),
+      flev = pack_vector(sm$flev, "character"),
+      Xb = pack_matrix(sm$Xb),
+      C = pack_constraint(sm$C),
+      te_ok = if (is.null(sm$te.ok)) NULL else as.integer(sm$te.ok),
+      side_constrain = isTRUE(sm$side.constrain)
+    ),
+    "sz.interaction" = list(
+      base = serialize_base_summary(sm$base),
+      fterm = pack_vector(sm$fterm, "character"),
+      flev = if (is.null(sm$flev)) NULL else lapply(sm$flev, function(v) pack_vector(v, "character")),
+      Xb = pack_matrix(sm$Xb),
+      C = pack_constraint(sm$C),
+      te_ok = if (is.null(sm$te.ok)) NULL else as.integer(sm$te.ok),
+      side_constrain = isTRUE(sm$side.constrain)
+    ),
+    "tensor.smooth" = list(
+      mc = if (is.null(sm$mc)) NULL else pack_vector(sm$mc, "logical"),
+      XP = if (is.null(sm$XP)) NULL else lapply(sm$XP, pack_matrix),
+      C = pack_constraint(sm$C)
+    ),
+    "t2.smooth" = list(
+      full = isTRUE(sm$full),
+      ord = if (is.null(sm$ord)) NULL else pack_vector(sm$ord, "integer"),
+      C = pack_constraint(sm$C),
+      Cp = pack_constraint(sm$Cp),
+      P = if (is.null(sm$P)) NULL else lapply(sm$P, pack_matrix),
+      penalty_labels = if (is.null(names(sm$S))) NULL else pack_vector(names(sm$S), "character")
+    ),
+    list()
+  )
+  out$extra <- extra
+  out
+}
+
+sm <- mgcv:::smooth.construct3(eval(parse(text = args[[3]])), d, kn)
+write_json(serialize_smooth(sm), out, auto_unbox = TRUE, digits = 17, null = "null")
+"""
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        csv_path = tmpdir_path / "data.csv"
+        json_path = tmpdir_path / "raw_constructor.json"
+        script_path = tmpdir_path / "raw_constructor.R"
+        data.to_csv(csv_path, index=False)
+        script_path.write_text(r_code, encoding="utf-8")
+        knots_json = (
+            ""
+            if knots_payload is None
+            else json.dumps(knots_payload, sort_keys=True, default=str)
+        )
+        subprocess.run(
+            [
+                R_SCRIPT,
+                str(script_path),
+                str(csv_path),
+                str(json_path),
+                smooth_expr_r,
+                knots_json,
+            ],
+            check=True,
+            cwd=_REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+
+    _mgcv_cache_save(_cache_key, result)
+    return _decode_packed_matrix_payload(result)
+
+
 def _run_mgcv_natparam_cr(data: pd.DataFrame, *, k: int):
     _cache_key = _mgcv_cache_key(
         "natparam_cr",
@@ -723,9 +1308,6 @@ def _run_mgcv_natparam_cr(data: pd.DataFrame, *, k: int):
     cached = _mgcv_cache_load(_cache_key)
     if cached is not None:
         return cached
-
-    if R_SCRIPT is None:
-        pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
 
     r_code = """
 suppressPackageStartupMessages(library(mgcv))
@@ -779,6 +1361,10 @@ def _run_mgcv_predict_on_newdata(
     method="REML",
     type="link",
     return_se=False,
+    unconditional=False,
+    iterms_type: int | None = None,
+    select: bool = False,
+    weights_column: str | None = None,
 ):
     _family_nampy_unused, family_token = _family_specs(family)
     fit_method = "REML" if str(method).lower() == "fixed" else method
@@ -794,14 +1380,15 @@ def _run_mgcv_predict_on_newdata(
             "fit_method": fit_method,
             "type": type,
             "return_se": return_se,
+            "unconditional": unconditional,
+            "iterms_type": iterms_type,
+            "select": select,
+            "weights_column": weights_column,
         },
     )
     cached = _mgcv_cache_load(_cache_key)
     if cached is not None:
         return cached
-
-    if R_SCRIPT is None:
-        pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
 
     r_code = """
 suppressPackageStartupMessages(library(mgcv))
@@ -814,6 +1401,11 @@ family_name <- tolower(args[[4]])
 method_name <- args[[5]]
 pred_type <- args[[6]]
 want_se <- identical(tolower(args[[7]]), "true")
+want_unconditional <- identical(tolower(args[[8]]), "true")
+iterms_type_text <- args[[9]]
+iterms_type <- if (tolower(iterms_type_text) %in% c("none", "null", "")) NULL else as.integer(iterms_type_text)
+select_flag <- identical(tolower(args[[10]]), "true")
+weights_column <- args[[11]]
 for (nm in names(train)) if (is.character(train[[nm]])) train[[nm]] <- factor(train[[nm]])
 for (nm in names(newd)) {
   if (is.character(newd[[nm]]) && nm %in% names(train) && is.factor(train[[nm]])) {
@@ -823,22 +1415,52 @@ for (nm in names(newd)) {
   }
 }
 family_obj <- switch(
-  family_name,
+  strsplit(family_name, ":", fixed = TRUE)[[1]][1],
   gaussian = gaussian(),
-  binomial = binomial(link = "logit"),
+  binomial = {
+    family_parts <- strsplit(family_name, ":", fixed = TRUE)[[1]]
+    link <- if (length(family_parts) >= 2) family_parts[[2]] else "logit"
+    binomial(link = link)
+  },
   poisson = poisson(link = "log"),
-  gamma = Gamma(link = "log"),
+  gamma = {
+    family_parts <- strsplit(family_name, ":", fixed = TRUE)[[1]]
+    link <- if (length(family_parts) >= 2) family_parts[[2]] else "log"
+    Gamma(link = link)
+  },
+  negbin = {
+    family_parts <- strsplit(family_name, ":", fixed = TRUE)[[1]]
+    theta <- if (length(family_parts) >= 2) as.numeric(family_parts[[2]]) else 1.0
+    mgcv::nb(theta = theta, link = "log")
+  },
+  negbin_est = {
+    family_parts <- strsplit(family_name, ":", fixed = TRUE)[[1]]
+    theta <- if (length(family_parts) >= 2) as.numeric(family_parts[[2]]) else 1.0
+    mgcv::nb(theta = -abs(theta), link = "log")
+  },
   stop(sprintf("Unsupported family for newdata parity: %s", family_name))
 )
-fit <- gam(
+gam_args <- list(
   formula = as.formula(formula_text),
   data = train,
   family = family_obj,
-  method = method_name
+  method = method_name,
+  select = select_flag
 )
-pred <- predict(fit, newdata = newd, type = pred_type, se.fit = want_se)
+if (!(tolower(weights_column) %in% c("none", "null", ""))) {
+  gam_args$weights <- train[[weights_column]]
+}
+fit <- do.call(gam, gam_args)
+pred <- predict(
+  fit,
+  newdata = newd,
+  type = pred_type,
+  se.fit = want_se,
+  unconditional = want_unconditional,
+  iterms.type = iterms_type
+)
 out <- list()
-if (pred_type == "terms") {
+if (pred_type == "terms" || pred_type == "iterms") {
   if (want_se) {
     out$pred <- unname(as.matrix(pred$fit))
     out$se <- unname(as.matrix(pred$se.fit))
@@ -860,7 +1482,7 @@ if (pred_type == "terms") {
 }
 write_json(
   out,
-  args[[8]],
+  args[[12]],
   auto_unbox = TRUE,
   digits = 17
 )
@@ -886,6 +1508,10 @@ write_json(
                 fit_method,
                 type,
                 "true" if return_se else "false",
+                "true" if unconditional else "false",
+                "NULL" if iterms_type is None else str(int(iterms_type)),
+                "true" if select else "false",
+                "NULL" if weights_column is None else str(weights_column),
                 str(json_path),
             ],
             check=True,
@@ -926,9 +1552,6 @@ def _run_mgcv_fixed_sp_score(
     cached = _mgcv_cache_load(_cache_key)
     if cached is not None:
         return cached
-
-    if R_SCRIPT is None:
-        pytest.skip("Rscript is not available; mgcv parity tests are skipped.")
 
     r_code = """
 suppressPackageStartupMessages(library(mgcv))
@@ -1029,6 +1652,60 @@ write_json(
                 "true" if select else "false",
                 json.dumps(sp_list),
                 str(json_path),
+            ],
+            check=True,
+            cwd=_REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+
+    _mgcv_cache_save(_cache_key, result)
+    return result
+
+
+def _run_mgcv_gam_setup_assembly(
+    data: pd.DataFrame,
+    formula: str,
+    family,
+    method: str,
+    *,
+    select: bool = False,
+):
+    _family_nampy, family_token = _family_specs(family)
+    del _family_nampy
+    formula_r = _normalize_python_formula_text(formula)
+
+    _cache_key = _mgcv_cache_key(
+        "gam_setup_assembly",
+        {
+            "version": _GAM_SETUP_ASSEMBLY_CACHE_VERSION,
+            "data": _df_cache_repr(data),
+            "formula": formula_r,
+            "family_token": family_token,
+            "method": method,
+            "select": select,
+        },
+    )
+    cached = _mgcv_cache_load(_cache_key)
+    if cached is not None:
+        return cached
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        csv_path = tmpdir_path / "data.csv"
+        json_path = tmpdir_path / "gam_setup_assembly.json"
+        data.to_csv(csv_path, index=False)
+        subprocess.run(
+            [
+                R_SCRIPT,
+                str(MGCV_GAM_SETUP_ASSEMBLY_SCRIPT),
+                str(csv_path),
+                str(json_path),
+                formula_r,
+                family_token,
+                method,
+                "true" if select else "false",
             ],
             check=True,
             cwd=_REPO_ROOT,
@@ -1245,6 +1922,7 @@ __all__ = [
     "_run_mgcv_anova",
     "_run_mgcv_natparam_cr",
     "_run_mgcv_fixed_sp_score",
+    "_run_mgcv_gam_setup_assembly",
     "_run_mgcv_predict_on_newdata",
     "_run_mgcv_smoothcon_matrix",
     "_run_mgcv_smoothcon_matrix_unscaled",

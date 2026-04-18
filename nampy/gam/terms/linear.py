@@ -1,8 +1,6 @@
-from ..smooths.registry import register_smooth
 from ..smooths.smooth_base import BaseSmoothTerm, _resolve_feature, column_as_float
 
 
-@register_smooth("linear")
 class LinearTerm(BaseSmoothTerm):
     term_type = "parametric"
     basis_name = "linear"

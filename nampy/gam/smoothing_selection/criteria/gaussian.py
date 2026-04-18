@@ -17,16 +17,21 @@ Provides two code paths:
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
+from ..._model_state import _design_matrix, _term_blocks_seq
+from ...fit.model_ops import (
+    can_use_exact_gaussian_ml_reml,
+    expand_smoothing_params_from_log,
+    solve_gaussian_given_smoothing,
+)
 from ...fit.penalized_system import build_full_design
-from ..reparam import dynamic_reparam_design
+from ..reparam import _static_fixed_and_random_designs, dynamic_reparam_design
 from .gaussian_dyn import criterion_ml_reml_gaussian_dynamic_profiled
 from .gaussian_reml_algebra import gaussian_reml_saturation_terms_wrt_variance
-from .penalty import _static_fixed_and_random_designs
 
 
 def gcv_score_gaussian(model, y, log_smoothing_params):
-    sp = model._expand_smoothing_params_from_log(log_smoothing_params)
-    sol = model._solve_gaussian_given_smoothing(y, sp)
+    sp = expand_smoothing_params_from_log(model, log_smoothing_params)
+    sol = solve_gaussian_given_smoothing(model, y, sp)
     n = model.n_samples_
     den = 1.0 - model.score_gamma * sol["trace_H"] / n
     if den <= 1e-12 or not np.isfinite(den):
@@ -48,17 +53,29 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
     ``criterion_ml_reml_exact_dynamic`` (Wood ``X'WX+S`` / ``\\log|A|-\\log|S|``)
     instead; see ``nampy.gam.smoothing_selection.criteria.ml_reml``.
     """
-    if not model._can_use_exact_gaussian_ml_reml():
+    if not can_use_exact_gaussian_ml_reml(model):
         raise NotImplementedError(
             "Exact Gaussian ML/REML/LAML is currently available only for "
             "terms whose penalties do not couple disconnected support "
             "components through null-space penalties."
         )
 
+    # `mgcv`'s fs constructor (`smooth.construct.fs.smooth.spec`) remains in the
+    # direct coefficient parameterization with replicated null-space penalties.
+    # Our current mixed-model Laplace port is not exact for that surface, while
+    # the Wood-style dynamic profile below matches mgcv on the audited parity
+    # slices. Fail closed here so `criterion_ml_reml()` falls back to the
+    # dynamic path instead of trusting a finite but wrong exact score.
+    if any(
+        str(getattr(tb, "term_type", "")).lower() == "factor_smooth_fs"
+        for tb in _term_blocks_seq(model)
+    ):
+        return np.inf
+
     y = model.family.validate_y(y)
     y_eff = y if model.offset_train_ is None else (y - model.offset_train_)
-    sp = model._expand_smoothing_params_from_log(log_sp)
-    X = build_full_design(model.Z, fit_intercept=model.fit_intercept)
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    X = build_full_design(_design_matrix(model), fit_intercept=model.fit_intercept)
     design = dynamic_reparam_design(model, X, sp)
     Xf = design.X_fix
     Zr = design.Z_rand
@@ -158,14 +175,14 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
 def criterion_ml_reml_exact_dynamic(model, y, log_sp, method):
     y = model.family.validate_y(y)
     y_eff = y if model.offset_train_ is None else (y - model.offset_train_)
-    sp = model._expand_smoothing_params_from_log(log_sp)
+    sp = expand_smoothing_params_from_log(model, log_sp)
     gamma = float(model.score_gamma)
     if not np.isfinite(gamma) or gamma <= 0.0:
         return np.inf
     reml_ind = 1.0 if method in {"REML", "LAML"} else 0.0
     w = np.ones(int(y_eff.shape[0]), dtype=np.float64)
 
-    sol = model._solve_gaussian_given_smoothing(y, sp)
+    sol = solve_gaussian_given_smoothing(model, y, sp)
     if method in {"REML", "LAML"}:
         return criterion_ml_reml_gaussian_dynamic_profiled(
             model,

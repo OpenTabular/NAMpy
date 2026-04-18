@@ -1,0 +1,1 @@
+"""Diagnostic-focused GAM tests."""

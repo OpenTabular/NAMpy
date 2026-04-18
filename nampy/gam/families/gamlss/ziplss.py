@@ -237,6 +237,57 @@ def _zipll(y: np.ndarray, g: np.ndarray, eta: np.ndarray, deriv: int = 0) -> dic
     return {"l": l, "l1": l1, "l2": l2, "l3": l3, "l4": l4}
 
 
+_ZIPLSS_SATURATED_LAMBDA = np.array(
+    [
+        1.593624,
+        2.821439,
+        3.920690,
+        4.965114,
+        5.984901,
+        6.993576,
+        7.997309,
+        8.998888,
+        9.999546,
+        10.999816,
+        11.999926,
+        12.999971,
+        13.999988,
+        14.999995,
+        15.999998,
+        16.999999,
+    ],
+    dtype=np.float64,
+)
+
+
+def _ziplss_saturated_loglik(y: np.ndarray) -> np.ndarray:
+    """Saturated log-likelihood for ziplss (mgcv ``zipll(log(g), 1e10)`` analogue)."""
+    y = np.asarray(y, dtype=np.float64).ravel().copy()
+    l = y.copy()
+    if l.size == 0:
+        return l
+
+    l[y < 2.0] = 0.0
+    ind_mid = (y > 1.0) & (y < 18.0)
+    if np.any(ind_mid):
+        g = y.copy()
+        idx = y[ind_mid].astype(np.int64) - 2
+        idx = np.clip(idx, 0, _ZIPLSS_SATURATED_LAMBDA.size - 1)
+        g[ind_mid] = _ZIPLSS_SATURATED_LAMBDA[idx]
+    else:
+        g = y.copy()
+
+    ind = y > 1.0
+    if np.any(ind):
+        l[ind] = _zipll(
+            y[ind],
+            np.log(np.asarray(g, dtype=np.float64)[ind]),
+            np.full(int(np.sum(ind)), 1.0e10, dtype=np.float64),
+            deriv=0,
+        )["l"]
+    return l
+
+
 # ---------------------------------------------------------------------------
 # ziplss: Zero-inflated Poisson  (mgcv: gamlss.r::ziplss)
 # ---------------------------------------------------------------------------
@@ -486,15 +537,42 @@ class ZiplssFamily(GamlssFamily):
         return start
 
     def residuals(
-        self, y: np.ndarray, fitted: np.ndarray, rtype: str = "deviance"
+        self,
+        y: np.ndarray,
+        fitted: np.ndarray,
+        rtype: str = "deviance",
+        *,
+        eta: np.ndarray | None = None,
     ) -> np.ndarray:
         """Response or deviance residuals.  Mirrors mgcv ``ziplss$residuals``."""
         y = np.asarray(y, dtype=np.float64)
-        lam_pred = np.asarray(fitted[:, 0], dtype=np.float64)  # log lambda
-        p_pred = np.asarray(fitted[:, 1], dtype=np.float64)  # loglog p
+        fitted = np.asarray(fitted, dtype=np.float64)
+        eta_arr = None if eta is None else np.asarray(eta, dtype=np.float64)
+
+        if eta_arr is not None:
+            if eta_arr.ndim == 1:
+                eta_arr = eta_arr[:, None]
+            if eta_arr.shape[1] >= 2:
+                lam_pred = np.asarray(eta_arr[:, 0], dtype=np.float64)
+                eta_pred = np.asarray(eta_arr[:, 1], dtype=np.float64)
+            else:
+                lam_pred = eta_pred = None
+        elif fitted.ndim == 2 and fitted.shape[1] >= 2:
+            lam_pred = np.asarray(fitted[:, 0], dtype=np.float64)
+            eta_pred = np.asarray(fitted[:, 1], dtype=np.float64)
+        else:
+            lam_pred = eta_pred = None
+
+        if lam_pred is None or eta_pred is None:
+            rsd = y - np.asarray(fitted, dtype=np.float64).ravel()
+            if rtype == "response":
+                return rsd
+            raise NotImplementedError(
+                "ziplss deviance residuals require fitted eta for both predictors."
+            )
 
         lam = np.exp(lam_pred)
-        p = 1.0 - np.exp(-np.exp(p_pred))  # prob of presence
+        p = 1.0 - np.exp(-np.exp(eta_pred))  # prob of presence
 
         small_lam = lam <= np.sqrt(np.finfo(np.float64).eps)
         Ey = p.copy()
@@ -505,8 +583,12 @@ class ZiplssFamily(GamlssFamily):
         rsd = y - Ey
         if rtype == "response":
             return rsd
-        # deviance residuals omitted (requires saturated log-lik computation)
-        return rsd
+
+        rsd_dev = 2.0 * (
+            _ziplss_saturated_loglik(y) - _zipll(y, lam_pred, eta_pred, deriv=0)["l"]
+        )
+        rsd_dev = np.maximum(0.0, rsd_dev)
+        return np.sqrt(rsd_dev) * np.sign(rsd)
 
     def _predict_response_from_eta(self, eta: np.ndarray) -> np.ndarray:
         eta = np.asarray(eta, dtype=np.float64)
@@ -540,5 +622,3 @@ def ziplss() -> "ZiplssFamily":
 # ---------------------------------------------------------------------------
 # Link: shifted logit  (gevlss shape parameter xi confined to (-1, 0.5))
 # ---------------------------------------------------------------------------
-
-

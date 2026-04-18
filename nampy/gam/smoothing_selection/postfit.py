@@ -4,13 +4,14 @@ import numpy as np
 from scipy.stats import norm
 
 from .._mgcv_constants import LINK_ETA_EXP_CLIP, LOG_GUARD_MIN
-from .._model_state import _require_fitted
+from .._model_state import _fit_scale, _n_smoothing_params, _require_fitted
+from ..fit.model_ops import criterion_hessian as fit_criterion_hessian
 from .criteria.dispatch import criterion_gradient, criterion_hessian, criterion_value
 from .criteria.ml_reml import resolve_ml_reml_scoring_backend
 
 
 def _free_smoothing_mask(model) -> np.ndarray:
-    n_sp = int(getattr(model, "n_smoothing_params_", 0) or 0)
+    n_sp = int(_n_smoothing_params(model) or 0)
     fixed = getattr(model, "smoothing_fixed_mask_", None)
     if fixed is None:
         return np.ones(n_sp, dtype=bool)
@@ -23,26 +24,43 @@ def _free_log_smoothing_params(model) -> np.ndarray:
     return np.log(np.clip(sp[free_mask], LOG_GUARD_MIN, None))
 
 
+def _postfit_hessian(model, method: str, *, edge_correct: bool) -> np.ndarray | None:
+    backend = resolve_ml_reml_scoring_backend(model, method=method)
+    result = getattr(model, "_optim_result", None)
+    H = None if result is None else getattr(result, "hess", None)
+    if edge_correct and result is not None:
+        H_edge = getattr(result, "hess1", None)
+        if H_edge is None:
+            outer_info = getattr(result, "outer_info", {}) or {}
+            H_edge = outer_info.get("hess1", None)
+        if H_edge is not None:
+            H = H_edge
+    if backend in {"pirls_laplace", "pirls_laplace_dynamic"}:
+        H = None
+    if H is not None:
+        H = np.asarray(H, dtype=np.float64)
+
+    if H is None:
+        H = np.asarray(
+            fit_criterion_hessian(
+                model,
+                model.y_,
+                _free_log_smoothing_params(model),
+                method=method,
+            ),
+            dtype=np.float64,
+        )
+    return H
+
+
 def sp_vcov(model, edge_correct: bool = True, reg: float = 1e-3):
-    del edge_correct
     _require_fitted(model)
 
     method = str(getattr(model, "_optim_method", "")).lower()
     if method not in {"ml", "reml", "laml"}:
         return None
 
-    backend = resolve_ml_reml_scoring_backend(model, method=method)
-    result = getattr(model, "_optim_result", None)
-    H = None if result is None else getattr(result, "hess", None)
-    if backend in {"pirls_laplace", "pirls_laplace_dynamic"}:
-        H = None
-    if H is None:
-        log_sp = _free_log_smoothing_params(model)
-        H = np.asarray(
-            model._criterion_hessian(model.y_, log_sp, method=method), dtype=np.float64
-        )
-    else:
-        H = np.asarray(H, dtype=np.float64)
+    H = _postfit_hessian(model, method, edge_correct=edge_correct)
 
     if H.ndim != 2 or H.shape[0] != H.shape[1]:
         raise ValueError("Smoothing Hessian must be square.")
@@ -55,14 +73,14 @@ def gam_vcomp(model, *, rescale: bool = False, conf_lev: float = 0.95):
     _require_fitted(model)
     if rescale:
         raise NotImplementedError(
-            "gam_vcomp(rescale=True) requires stored penalty rescaling factors, which are not yet retained."
+            "gam_vcomp(rescale=True) requires a strict upstream mgcv port."
         )
 
     sp = np.asarray(model.smoothing_params, dtype=np.float64).ravel()
     if sp.size == 0:
         return None
 
-    scale = float(model.scale_)
+    scale = float(_fit_scale(model))
     vc = scale / sp
     sd = np.sqrt(vc)
     names = [f"sp_{i}" for i in range(len(sp))]
@@ -70,15 +88,7 @@ def gam_vcomp(model, *, rescale: bool = False, conf_lev: float = 0.95):
     if method not in {"ml", "reml", "laml"}:
         return {"vc": sd, "names": names}
 
-    result = getattr(model, "_optim_result", None)
-    H = None if result is None else getattr(result, "hess", None)
-    if H is None:
-        log_sp = _free_log_smoothing_params(model)
-        H = np.asarray(
-            model._criterion_hessian(model.y_, log_sp, method=method), dtype=np.float64
-        )
-    else:
-        H = np.asarray(H, dtype=np.float64)
+    H = _postfit_hessian(model, method, edge_correct=False)
 
     if H.ndim != 2 or H.shape[0] != H.shape[1]:
         return {"vc": sd, "names": names}
@@ -162,7 +172,7 @@ def optimizer_endpoint_diagnostics(
     _require_fitted(model)
 
     method = str(getattr(model, "_optim_method", "") or "").lower()
-    n_sp = int(getattr(model, "n_smoothing_params_", 0) or 0)
+    n_sp = int(_n_smoothing_params(model) or 0)
     result = getattr(model, "_optim_result", None)
     if method in {"", "fixed"} or n_sp == 0:
         return None
@@ -286,6 +296,9 @@ def optimizer_endpoint_diagnostics(
         ),
         "joint_negbin_reml_outer": bool(
             result is not None and getattr(result, "joint_negbin_reml_outer", False)
+        ),
+        "joint_negbin_efs_outer": bool(
+            result is not None and getattr(result, "joint_negbin_efs_outer", False)
         ),
         "joint_negbin_postprocessed": bool(
             result is not None and getattr(result, "joint_negbin_postprocessed", False)

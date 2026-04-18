@@ -6,7 +6,6 @@ import numpy as np
 import scipy.linalg
 from scipy.spatial import distance_matrix
 
-from ..gam.penalties.algebra import scale_penalty
 from .thin_plate_basis import eta, tp_T
 
 
@@ -317,7 +316,11 @@ def _top_eigensystem(E, k):
         raise ValueError(f"k must be <= matrix dimension, got k={k}, n={n}.")
 
     tol = float(np.finfo(np.float64).eps ** 0.7)
-    f_check = max(10, max(1, n // 10))
+    # mgcv/src/mat.c::Rlanczos checks convergence every
+    # min(max((m + lm) / 2, 10), floor(n / 10)) steps. For the tp/ts setup
+    # here lm is always zero, so mirror the same cadence exactly.
+    f_check = max(10, k // 2)
+    f_check = min(f_check, max(1, n // 10))
 
     # mgcv uses a fixed linear congruential generator to build the start vector.
     jran = 1
@@ -368,12 +371,19 @@ def _top_eigensystem(E, k):
             q.append(z / b[j])
 
         if ((j >= k) and (j % f_check == 0)) or (j == n - 1):
-            d_asc, vecs_asc = scipy.linalg.eigh_tridiagonal(a[: j + 1], b[:j])
+            d_asc, vecs_asc, info = scipy.linalg.lapack.dstevd(
+                a[: j + 1].copy(),
+                b[:j].copy(),
+                compute_v=1,
+            )
+            if info != 0:
+                raise np.linalg.LinAlgError(
+                    f"dstevd failed in thin-plate eigensystem with info={info}."
+                )
 
-            # mgcv_trisymeig returns eigenvalues/eigenvectors in descending order.
-            order = np.argsort(d_asc)[::-1]
-            d = np.asarray(d_asc[order], dtype=np.float64)
-            vecs = np.asarray(vecs_asc[:, order], dtype=np.float64)
+            # mgcv/src/mat.c::mgcv_trisymeig returns descending order.
+            d = np.asarray(d_asc[::-1], dtype=np.float64)
+            vecs = np.asarray(vecs_asc[:, ::-1], dtype=np.float64)
 
             norm_tj = max(abs(d[0]), abs(d[j]))
             err[: j + 1] = np.abs(b[j] * vecs[-1, :])
@@ -589,10 +599,8 @@ def construct_tprs_basis(
     S_full[:, S_full.shape[1] - M :] = 0.0
 
     if bool(scale_columns):
-        # mgcv's tp constructor first normalizes columns to unit RMS, then
-        # smoothCon(scale.penalty=TRUE) applies the usual global penalty
-        # rescaling against the resulting model matrix. The final smoothing
-        # parameter convention depends on both steps.
+        # mgcv/src/tprs.c::tprs_setup rescales each column of X to unit RMS
+        # and applies the same similarity transform to UZ and S.
         for j in range(X_raw.shape[1]):
             w = float(np.sqrt(np.mean(X_raw[:, j] ** 2)))
             if not np.isfinite(w) or w <= 0.0:
@@ -601,7 +609,6 @@ def construct_tprs_basis(
             UZ_full[:, j] /= w
             S_full[j, :] /= w
             S_full[:, j] /= w
-        S_full = scale_penalty(X_raw, S_full)
 
     S_full = 0.5 * (S_full + S_full.T)
 

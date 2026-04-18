@@ -87,6 +87,7 @@ class GevlssFamily(GamlssFamily):
     supports_gcv = False
     supports_ubre = False
     supports_pirls = False
+    supports_analytic_outer_derivatives = False
     supports_closed_form_solve = False
     supports_exact_pirls_first_derivatives = False
     supports_exact_pirls_second_derivatives = False
@@ -934,4 +935,3 @@ def gevlss(link=("identity", "identity", "logit")) -> GevlssFamily:
 # ---------------------------------------------------------------------------
 # shashlss: Sinh-arcsinh location-scale-skewness-kurtosis  (mgcv: shash)
 # ---------------------------------------------------------------------------
-

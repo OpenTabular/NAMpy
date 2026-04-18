@@ -1,7 +1,7 @@
 Continuation prompt: Phase 5 - Prediction, diagnostics, parity, and model surfaces.
 This is part 5/6. Continue from earlier phases; do not restate prior context.
 
-Included files in this phase: 16
+Included files in this phase: 14
 
 # --- Start of nampy/gam/diagnostics/concurvity.py ---
 from __future__ import annotations
@@ -10,8 +10,12 @@ import numpy as np
 from scipy.linalg import solve_triangular
 
 from .._model_state import (
+    _coef,
     _coef_column_offset,
+    _coef_full,
+    _design_matrix,
     _fit_intercept,
+    _intercept,
     _require_fitted,
     _term_blocks_seq,
 )
@@ -46,10 +50,13 @@ def _term_blocks_for_concurvity(model, X):
 
 
 def _full_coef_vector(model) -> np.ndarray:
-    beta = np.asarray(model.coef_, dtype=np.float64).ravel()
+    coef_full = _coef_full(model)
+    if coef_full is not None:
+        return np.asarray(coef_full, dtype=np.float64).ravel()
+    beta = np.asarray(_coef(model), dtype=np.float64).ravel()
     if _fit_intercept(model):
         return np.concatenate(
-            [np.array([float(model.intercept_)], dtype=np.float64), beta]
+            [np.array([float(_intercept(model))], dtype=np.float64), beta]
         )
     return beta
 
@@ -70,7 +77,7 @@ def _residualize_against(A: np.ndarray, B: np.ndarray) -> np.ndarray:
 def concurvity(model, full: bool = True):
     _require_fitted(model)
 
-    Z = np.asarray(model.design_.design_matrix, dtype=np.float64)
+    Z = np.asarray(_design_matrix(model), dtype=np.float64)
     if _fit_intercept(model):
         X = np.column_stack([np.ones(Z.shape[0], dtype=np.float64), Z])
     else:
@@ -154,21 +161,38 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .._model_state import _coef_column_offset, _require_fitted, _term_blocks_seq
+from .._model_state import (
+    _coef_column_offset,
+    _edf_by_term,
+    _n_coef,
+    _require_fitted,
+    _term_blocks_seq,
+)
 from .residuals import residuals_gam
 
 
 def _numeric_feature_block(model, tb, row_idx):
-    runtime = getattr(tb.smooth, "runtime", None)
-    if runtime is None or getattr(runtime, "by", None) is not None:
+    by_info = getattr(tb, "by_variable_info", None)
+    if by_info is not None and bool(getattr(by_info, "is_active", False)):
         return None
 
-    if getattr(runtime, "_feature_index", None) is not None:
-        idx = [int(runtime._feature_index)]
-    elif getattr(runtime, "_feature_indices", None) is not None:
-        idx = [int(v) for v in runtime._feature_indices]
-    else:
+    idx = None
+    feature_info = getattr(tb, "feature_info", None)
+    if feature_info is not None and getattr(feature_info, "metric_feature_indices", ()):
+        metric_idx = [int(v) for v in feature_info.metric_feature_indices]
+        factor_idx = [int(v) for v in feature_info.factor_feature_indices]
+        if factor_idx:
+            return None
+        idx = metric_idx
+    elif feature_info is not None and getattr(feature_info, "feature_indices", ()):
+        idx = [int(v) for v in feature_info.feature_indices]
+    if idx is None or len(idx) == 0:
         return None
+    if feature_info is not None and getattr(feature_info, "factor_feature_indices", ()):
+        if len(feature_info.factor_feature_indices) > 0 and (
+            not getattr(feature_info, "metric_feature_indices", ())
+        ):
+            return None
 
     X = np.asarray(model.X_, dtype=object)[row_idx][:, idx]
     try:
@@ -195,45 +219,8 @@ def _mgcv_nn_count(n_obs: int) -> int:
     return 3
 
 
-def _stabilized_k_check_edf(model, tb, edf: float) -> float:
-    """Mirror mgcv's near-null-space EDF reporting for heavily penalized smooths."""
-    if not np.isfinite(edf):
-        return edf
-    if str(getattr(tb, "term_type", "")) != "smooth":
-        return edf
-
-    lower_df = None
-    for pb in getattr(model, "penalty_blocks_", ()) or ():
-        if pb.coef_slice != tb.coef_slice:
-            continue
-        nsd = getattr(pb, "null_space_dim", None)
-        if nsd is None:
-            continue
-        lower_df = float(nsd) if lower_df is None else max(lower_df, float(nsd))
-    if lower_df is None:
-        return edf
-
-    sp_vals = [
-        float(model.smoothing_params[j])
-        for j in getattr(tb, "smoothing_indices", ()) or ()
-        if np.isfinite(float(model.smoothing_params[j]))
-    ]
-    if len(sp_vals) == 0 or max(sp_vals) < 1e5:
-        return edf
-
-    delta = float(edf - lower_df)
-    if 0.0 < delta < 1e-3:
-        return float(lower_df + 1e-8)
-    return edf
-
-
 def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = None):
-    """Approximate mgcv::k.check() basis-dimension diagnostic.
-
-    The returned table is intended to be numerically comparable to
-    ``mgcv::k.check`` for term types where both implementations define the same
-    nearest-neighbour residual differencing diagnostic.
-    """
+    """Port of mgcv::k.check() basis-dimension diagnostic."""
     _require_fitted(model)
 
     term_blocks = [
@@ -244,7 +231,7 @@ def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = N
     if len(term_blocks) == 0:
         return None
 
-    rsd = np.asarray(residuals_gam(model, type="deviance"), dtype=np.float64).ravel()
+    rsd = np.asarray(residuals_gam(model), dtype=np.float64).ravel()
     n = int(rsd.shape[0])
     rng = np.random.default_rng(seed)
     if n > int(subsample):
@@ -255,12 +242,12 @@ def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = N
 
     rows = []
     ve = np.empty(int(max(n_rep, 1)), dtype=np.float64)
+    edf_by_term = np.asarray(_edf_by_term(model), dtype=np.float64).ravel()
     for i, tb in enumerate(term_blocks):
         label = str(tb.label)
         X_term = _numeric_feature_block(model, tb, row_idx)
         k_prime = int(tb.coef_slice.stop - tb.coef_slice.start)
-        edf = float(model.edf_by_term_[i])
-        edf = _stabilized_k_check_edf(model, tb, edf)
+        edf = float(edf_by_term[i])
         if X_term is None:
             rows.append((label, k_prime, edf, np.nan, np.nan))
             continue
@@ -285,10 +272,7 @@ def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = N
                     e_rep = np.concatenate([e_rep, rsdr - rsdr[ni[:, j]]])
                 ve[rep] = float(np.mean(e_rep**2) / 2.0)
 
-        if int(n_rep) > 0:
-            p_val = float(np.mean(ve[: int(n_rep)] < v_obs))
-        else:
-            p_val = np.nan
+        p_val = float(np.mean(ve[: int(n_rep)] < v_obs)) if int(n_rep) > 0 else np.nan
         k_index = float(v_obs / np.mean(rsd**2))
         rows.append((label, k_prime, edf, k_index, p_val))
 
@@ -339,7 +323,7 @@ def gam_check(
     }
     nampy_specific = {
         "convergence": convergence,
-        "model_rank": int(model.n_coef_ + _coef_column_offset(model)),
+        "model_rank": int(_n_coef(model) + _coef_column_offset(model)),
     }
 
     return {
@@ -358,7 +342,7 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .._model_state import _coerce_feature_matrix, _require_fitted
+from .._model_state import _coerce_feature_matrix, _require_fitted, _term_blocks_seq
 
 
 def plot_gam_terms(model, X=None, n_cols=2, figsize=None):
@@ -367,7 +351,8 @@ def plot_gam_terms(model, X=None, n_cols=2, figsize=None):
     X_plot = _coerce_feature_matrix(model, X, none_is_training=True)
     contributions = model.predict_feature_vals(X_plot)
 
-    n_terms = len(model.term_blocks_)
+    term_blocks = tuple(_term_blocks_seq(model))
+    n_terms = len(term_blocks)
     n_cols = max(1, int(n_cols))
     n_rows = int(np.ceil(n_terms / n_cols))
     if figsize is None:
@@ -376,53 +361,37 @@ def plot_gam_terms(model, X=None, n_cols=2, figsize=None):
     fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize, squeeze=False)
     axes = axes.ravel()
 
-    for j, tb in enumerate(model.term_blocks_):
+    for j, tb in enumerate(term_blocks):
         ax = axes[j]
         fj = np.asarray(contributions[tb.term_id]).ravel()
-        smooth = tb.smooth
-        term = smooth.runtime
+        feature_info = getattr(tb, "feature_info", None)
+        idxs = [] if feature_info is None else list(feature_info.feature_indices)
+        names = [] if feature_info is None else list(feature_info.feature_names)
 
-        if hasattr(term, "_feature_index") and term._feature_index is not None:
-            xj = X_plot[:, term._feature_index]
+        if len(idxs) == 1:
+            xj = X_plot[:, idxs[0]]
             order = np.argsort(xj)
             ax.plot(xj[order], fj[order])
             ax.set_title(tb.label)
-            ax.set_xlabel(getattr(term, "_feature_name", tb.label))
+            ax.set_xlabel(names[0] if names else tb.label)
             ax.set_ylabel("term effect")
             continue
 
-        if hasattr(term, "_feature_indices") and term._feature_indices is not None:
-            idxs = list(term._feature_indices)
+        if len(idxs) == 2:
+            x1 = X_plot[:, idxs[0]]
+            x2 = X_plot[:, idxs[1]]
+            try:
+                tcf = ax.tricontourf(x1, x2, fj, levels=20)
+                fig.colorbar(tcf, ax=ax)
+            except Exception:
+                sc = ax.scatter(x1, x2, c=fj, s=18)
+                fig.colorbar(sc, ax=ax)
 
-            if len(idxs) == 1:
-                xj = X_plot[:, idxs[0]]
-                order = np.argsort(xj)
-                name = (
-                    term._feature_names[0]
-                    if getattr(term, "_feature_names", None) is not None
-                    else f"x{idxs[0]}"
-                )
-                ax.plot(xj[order], fj[order])
-                ax.set_title(tb.label)
-                ax.set_xlabel(name)
-                ax.set_ylabel("term effect")
-                continue
-
-            if len(idxs) == 2:
-                x1 = X_plot[:, idxs[0]]
-                x2 = X_plot[:, idxs[1]]
-                try:
-                    tcf = ax.tricontourf(x1, x2, fj, levels=20)
-                    fig.colorbar(tcf, ax=ax)
-                except Exception:
-                    sc = ax.scatter(x1, x2, c=fj, s=18)
-                    fig.colorbar(sc, ax=ax)
-
-                names = getattr(term, "_feature_names", [f"x{idxs[0]}", f"x{idxs[1]}"])
-                ax.set_title(tb.label)
-                ax.set_xlabel(names[0])
-                ax.set_ylabel(names[1])
-                continue
+            axis_names = names if len(names) == 2 else [f"x{idxs[0]}", f"x{idxs[1]}"]
+            ax.set_title(tb.label)
+            ax.set_xlabel(axis_names[0])
+            ax.set_ylabel(axis_names[1])
+            continue
 
         ax.text(
             0.5,
@@ -453,7 +422,13 @@ import warnings
 import numpy as np
 
 from .._mgcv_constants import LOG_GUARD_MIN
-from .._model_state import _require_fitted
+from .._model_state import (
+    _fit_scale,
+    _fit_state,
+    _fitted_eta,
+    _fitted_mu,
+    _require_fitted,
+)
 
 
 def _prior_weights(model) -> np.ndarray:
@@ -465,7 +440,7 @@ def _prior_weights(model) -> np.ndarray:
 
 def _deviance_residuals(model) -> np.ndarray:
     y = np.asarray(model.y_, dtype=np.float64).ravel()
-    mu = np.asarray(model._fitted_mu, dtype=np.float64).ravel()
+    mu = np.asarray(_fitted_mu(model), dtype=np.float64).ravel()
     w = _prior_weights(model)
     sign = np.sign(y - mu)
     sign[sign == 0.0] = 1.0
@@ -480,7 +455,7 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
 
     type = str(type).lower()
     y = np.asarray(model.y_, dtype=np.float64).ravel()
-    fitted = np.asarray(model._fitted_mu, dtype=np.float64)
+    fitted = np.asarray(_fitted_mu(model), dtype=np.float64)
     family_residuals = getattr(model.family, "residuals", None)
     if callable(family_residuals):
         try:
@@ -492,7 +467,7 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
             return np.asarray(family_residuals(model, type), dtype=np.float64).ravel()
 
     mu = np.asarray(fitted, dtype=np.float64).ravel()
-    eta = np.asarray(model._fitted_eta, dtype=np.float64).ravel()
+    eta = np.asarray(_fitted_eta(model), dtype=np.float64).ravel()
     w = _prior_weights(model)
 
     if type == "response":
@@ -500,19 +475,15 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
             return y - fitted
         return np.asarray(y.reshape(-1, 1) - fitted, dtype=np.float64).ravel()
     if type == "working":
-        fit_state = getattr(model, "fit_state_", None)
+        fit_state = _fit_state(model)
         z_work = (
             None if fit_state is None else getattr(fit_state, "working_response", None)
         )
         if z_work is not None:
             z_work = np.asarray(z_work, dtype=np.float64).ravel()
-            offset = getattr(fit_state, "offset", None)
-            eta_base = (
-                eta
-                if offset is None
-                else eta - np.asarray(offset, dtype=np.float64).ravel()
-            )
-            return z_work - eta_base
+            # mgcv::residuals.gam() returns the stored working residual series,
+            # equivalent to z - eta in the fitted parameterization.
+            return z_work - eta
         mu_eta = getattr(model.family, "mu_eta", None)
         if callable(mu_eta):
             mu_eta_val = np.asarray(mu_eta(eta), dtype=np.float64)
@@ -538,7 +509,7 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
         var = np.asarray(variance(mu), dtype=np.float64)
         res = (y - mu) * np.sqrt(w) / np.sqrt(np.clip(var, LOG_GUARD_MIN, None))
         if type == "scaled.pearson":
-            res = res / np.sqrt(max(float(model.scale_), LOG_GUARD_MIN))
+            res = res / np.sqrt(max(float(_fit_scale(model)), LOG_GUARD_MIN))
         return res
 
     raise ValueError(
@@ -561,7 +532,18 @@ parameters, and goodness-of-fit statistics.
 
 from __future__ import annotations
 
-from .._model_state import _fit_intercept, _require_fitted
+from .._model_state import (
+    _deviance,
+    _edf_by_term,
+    _edf_total,
+    _fit_intercept,
+    _fit_scale,
+    _fit_summary,
+    _intercept,
+    _require_fitted,
+    _rss,
+    _term_blocks_seq,
+)
 
 TERM_COL_WIDTH = 20
 EDF_COL_WIDTH = 8
@@ -604,6 +586,8 @@ def _format_sp_values(values) -> str:
 
 def build_summary_lines(model) -> list[str]:
     _require_fitted(model)
+    fit_summary = _fit_summary(model)
+    term_blocks = _term_blocks_seq(model)
 
     lines = []
     lines.append("General Smooth Model Summary")
@@ -626,14 +610,14 @@ def build_summary_lines(model) -> list[str]:
     )
     lines.append("-" * SUMMARY_WIDTH)
 
-    for i, tb in enumerate(model.term_blocks_):
+    for i, tb in enumerate(term_blocks):
         k_i = tb.coef_slice.stop - tb.coef_slice.start
         sp_vals = [model.smoothing_params[j] for j in tb.smoothing_indices]
         sp_txt = _format_sp_values(sp_vals)
         lines.append(
             _format_summary_row(
                 _format_term_cell(tb),
-                model.edf_by_term_[i],
+                fit_summary.edf_by_term[i] if fit_summary is not None else _edf_by_term(model)[i],
                 k_i,
                 sp_txt,
             )
@@ -641,13 +625,18 @@ def build_summary_lines(model) -> list[str]:
 
     lines.append("-" * SUMMARY_WIDTH)
     if _fit_intercept(model):
-        lines.append(f"Intercept : {model.intercept_:.6g}")
-    lines.append(f"EDF (total) : {model.edf_:.3f}")
-    lines.append(f"Scale : {model.scale_:.6g}")
+        intercept = fit_summary.intercept if fit_summary is not None else _intercept(model)
+        lines.append(f"Intercept : {intercept:.6g}")
+    edf_total = fit_summary.edf_total if fit_summary is not None else _edf_total(model)
+    scale = fit_summary.scale if fit_summary is not None else _fit_scale(model)
+    lines.append(f"EDF (total) : {edf_total:.3f}")
+    lines.append(f"Scale : {scale:.6g}")
     if model.family.name == "gaussian":
-        lines.append(f"RSS : {model.rss_:.6g}")
+        rss = fit_summary.rss if fit_summary is not None else _rss(model)
+        lines.append(f"RSS : {rss:.6g}")
     else:
-        lines.append(f"Deviance : {model.deviance_:.6g}")
+        deviance = fit_summary.deviance if fit_summary is not None else _deviance(model)
+        lines.append(f"Deviance : {deviance:.6g}")
 
     return lines
 
@@ -678,11 +667,19 @@ from scipy.stats import chi2, f
 
 from .._mgcv_constants import LOG_GUARD_MIN
 from .._model_state import (
+    _coef,
     _coef_column_offset,
+    _deviance,
+    _edf_by_term,
+    _edf_total,
+    _fit_scale,
+    _fit_state,
+    _H_coef,
     _require_fitted,
+    _summary_R,
     _term_blocks_seq,
 )
-from ..fit.covariance import select_covariance_matrix
+from ..engine import select_covariance_matrix
 
 
 @dataclass(frozen=True)
@@ -705,11 +702,11 @@ class AnovaGAMComparison:
 
 def _residual_df(model) -> float:
     intercept_df = float(_coef_column_offset(model))
-    return float(model.n_samples_) - intercept_df - float(model.edf_)
+    return float(model.n_samples_) - intercept_df - float(_edf_total(model))
 
 
 def _edf1_vector(model) -> np.ndarray:
-    H = np.asarray(getattr(model, "_H_coef", None), dtype=np.float64)
+    H = np.asarray(_H_coef(model), dtype=np.float64)
     if H.ndim != 2 or H.shape[0] != H.shape[1]:
         raise ValueError("Model does not expose a square coefficient hat matrix.")
     return 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
@@ -841,14 +838,15 @@ def _smooth_test_stat(
 def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingle:
     gaussian = str(getattr(model.family, "name", "")).lower() == "gaussian"
     resid_df = _residual_df(model)
-    disp = float(model.scale_ if dispersion is None else dispersion)
+    disp = float(_fit_scale(model) if dispersion is None else dispersion)
 
     V_para = select_covariance_matrix(model, cov=("freq" if freq else "bayes"))
     V_smooth = select_covariance_matrix(model, cov="bayes")
 
-    beta = np.asarray(model.coef_, dtype=np.float64).ravel()
-    edf_by_term = np.asarray(model.edf_by_term_, dtype=np.float64).ravel()
-    summary_R = getattr(model, "_summary_R_", None)
+    beta = np.asarray(_coef(model), dtype=np.float64).ravel()
+    edf_by_term = np.asarray(_edf_by_term(model), dtype=np.float64).ravel()
+    summary_R = _summary_R(model)
+    fit_state = _fit_state(model)
 
     param_rows: list[dict[str, object]] = []
     smooth_rows: list[dict[str, object]] = []
@@ -910,7 +908,7 @@ def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingl
                 (
                     summary_R[:, x_start:x_stop]
                     if summary_R is not None
-                    else model.fit_state_.X[:, x_start:x_stop]
+                    else fit_state.X[:, x_start:x_stop]
                 ),
                 dtype=np.float64,
             )
@@ -1005,7 +1003,7 @@ def _comparison_table(
     if test_name not in {None, "chisq", "f", "cp"}:
         raise ValueError("test must be one of None, 'Chisq', 'F', or 'Cp'.")
 
-    disp = float(models[-1].scale_ if dispersion is None else dispersion)
+    disp = float(_fit_scale(models[-1]) if dispersion is None else dispersion)
     gaussian = family_name.lower() == "gaussian"
 
     rows: list[dict[str, object]] = []
@@ -1016,9 +1014,9 @@ def _comparison_table(
             "model": idx,
             "formula": getattr(model, "formula_", None)
             or getattr(model, "formula", None),
-            "edf": float(model.edf_),
+            "edf": float(_edf_total(model)),
             "residual_df": resid_df,
-            "deviance": float(model.deviance_),
+            "deviance": float(_deviance(model)),
             "criterion": getattr(model, "smoothing_score_", None),
             "edf_diff": np.nan,
             "deviance_diff": np.nan,
@@ -1028,8 +1026,8 @@ def _comparison_table(
         }
 
         if prev is not None:
-            edf_diff = float(model.edf_) - float(prev.edf_)
-            dev_diff = float(prev.deviance_) - float(model.deviance_)
+            edf_diff = float(_edf_total(model)) - float(_edf_total(prev))
+            dev_diff = float(_deviance(prev)) - float(_deviance(model))
             row["edf_diff"] = edf_diff
             row["deviance_diff"] = dev_diff
 
@@ -1044,23 +1042,23 @@ def _comparison_table(
                         (
                             float(model.smoothing_score_)
                             if model.smoothing_score_ is not None
-                            else model.deviance_
+                            else _deviance(model)
                         )
                         - (
                             float(prev.smoothing_score_)
                             if prev.smoothing_score_ is not None
-                            else prev.deviance_
+                            else _deviance(prev)
                         )
                     )
                     row["test"] = "CP"
                 elif chosen == "f":
                     denom_df = max(
                         float(model.n_samples_)
-                        - float(model.edf_)
+                        - float(_edf_total(model))
                         - float(_coef_column_offset(model)),
                         1.0,
                     )
-                    denom = float(model.deviance_) / denom_df
+                    denom = float(_deviance(model)) / denom_df
                     stat = (
                         np.nan if denom <= 0.0 else float((dev_diff / edf_diff) / denom)
                     )
@@ -1128,14 +1126,34 @@ import pickle
 import numpy as np
 import pandas as pd
 
+from .._model_state import (
+    _coef_full,
+    _cov_bayes,
+    _cov_freq,
+    _cov_unconditional,
+    _edf2,
+    _edf_total,
+    _fit_scale,
+    _fit_state,
+    _fitted_eta,
+    _fitted_mu,
+    _intercept,
+    _predictor_full_slices,
+    _term_blocks_seq,
+)
+from ..data import (
+    coerce_formula_predict_inputs,
+    coerce_optional_offset,
+    coerce_X,
+    combine_offsets,
+)
 from ..families import make_gam_family
+from ..fit.model_ops import copy_fit_result
 from ..parity import build_parity_snapshot
-from .gam_data import _GAMDataMixin
-from .gam_solve import _GAMSolveMixin
-from .gam_specs import _GAMSpecsMixin
+from ..specs.modeling import make_predictor_specs, prepare_formula_inputs
 
 
-class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
+class GAM:
     """
     User-facing classical GAM backend built on the general smooth-model core.
     """
@@ -1196,35 +1214,13 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         self.prior_weights_ = None
         self.offset_train_ = None
         self.offset_predict_default_ = None
-        self.predictor_designs = None
         self.n_samples_ = None
-        self.design_ = None
-        self.Z = None
-        self.ZTZ = None
-        self.n_coef_ = None
-        self.term_blocks_ = None
-        self.penalty_blocks_ = None
-        self.n_smoothing_params_ = None
         self.smoothing_fixed_mask_ = None
         self.smoothing_override_values_ = None
         self.smoothing_override_modes_ = None
         self.min_sp_ = None
         self.reparam_state_ = None
         self.sl_blocks_ = None
-        self.intercept_ = None
-        self.coef_ = None
-        self.coef_full_ = None
-        self.beta = None
-        self.edf_ = None
-        self.trace_H_ = None
-        self.scale_ = None
-        self.rss_ = None
-        self.deviance_ = None
-        self.edf_by_term_ = None
-        self.edf2_ = None
-        self.Vp_ = None
-        self.Vf_ = None
-        self.Vc_ = None
         self._fitted = False
         self._optim_method = None
         self._optim_result = None
@@ -1232,175 +1228,12 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         self._optim_used_gradient = None
         self._optim_used_hessian = None
         self.smoothing_score_ = None
-        self.result_ = None
+        self.gam_result_ = None
+        self.fit_core_solution_ = None
         self.side_condition_reports_ = None
-        self._predictor_full_slices_ = None
         self._coef_reduced_to_full_idx = None
-
-    def _general_family_link_prediction(self, X_np):
-        offset = self._general_family_prediction_offset(X_np, None)
-        return self._general_family_link_prediction_with_offset(X_np, offset)
-
-    def _general_family_prediction_offset(self, X_np, offset):
-        n_rows = self.n_samples_ if X_np is None else int(X_np.shape[0])
-        n_pred = len(self._predictor_full_slices_ or [])
-        if offset is None:
-            offset_vec = self._prediction_offset(X_np, None)
-            if offset_vec is None:
-                return None
-            return [offset_vec] + [None] * max(n_pred - 1, 0)
-        if isinstance(offset, (list, tuple)):
-            out = []
-            for i, off_i in enumerate(offset):
-                out.append(
-                    None
-                    if off_i is None
-                    else self._coerce_optional_offset(
-                        off_i, n_rows, name=f"offset[{i}]"
-                    )
-                )
-            if len(out) < n_pred:
-                out.extend([None] * (n_pred - len(out)))
-            return out
-        offset_vec = self._coerce_optional_offset(offset, n_rows)
-        return [offset_vec] + [None] * max(n_pred - 1, 0)
-
-    def _general_family_link_prediction_with_offset(self, X_np, offset):
-        eta_cols = []
-        off_list = None if offset is None else list(offset)
-        for k, (pred, sl) in enumerate(
-            zip(self.predictor_designs, self._predictor_full_slices_)
-        ):
-            Zp = (
-                np.asarray(pred.design_matrix, dtype=np.float64)
-                if X_np is None
-                else np.asarray(pred.build_new_matrix(X_np), dtype=np.float64)
-            )
-            if bool(pred.has_intercept):
-                Xp = np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp])
-            else:
-                Xp = Zp
-            eta_k = Xp @ np.asarray(self.coef_full_[sl], dtype=np.float64)
-            if off_list is not None and k < len(off_list) and off_list[k] is not None:
-                eta_k = eta_k + np.asarray(off_list[k], dtype=np.float64)
-            eta_cols.append(np.asarray(eta_k, dtype=np.float64))
-        return (
-            np.column_stack(eta_cols)
-            if eta_cols
-            else np.empty((0, 0), dtype=np.float64)
-        )
-
-    def _general_family_prediction_blocks(self, X_np):
-        Z_blocks = []
-        Xp_blocks = []
-        for pred in self.predictor_designs:
-            Zp = (
-                np.asarray(pred.design_matrix, dtype=np.float64)
-                if X_np is None
-                else np.asarray(pred.build_new_matrix(X_np), dtype=np.float64)
-            )
-            Z_blocks.append(Zp)
-            if bool(pred.has_intercept):
-                Xp_blocks.append(
-                    np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp])
-                )
-            else:
-                Xp_blocks.append(Zp)
-        Z_new = (
-            np.column_stack(Z_blocks)
-            if Z_blocks
-            else np.empty((self.n_samples_ if X_np is None else len(X_np), 0))
-        )
-        return Z_new, Xp_blocks
-
-    def _general_family_predict(
-        self, X_np, *, return_se=False, cov=None, type="response", offset=None
-    ):
-        type = str(type).lower()
-        if type not in {"response", "link", "terms", "lpmatrix"}:
-            raise ValueError(
-                "type must be one of {'response', 'link', 'terms', 'lpmatrix'}"
-            )
-
-        offset_list = self._general_family_prediction_offset(X_np, offset)
-        eta = self._general_family_link_prediction_with_offset(X_np, offset_list)
-        Z_new, Xp_blocks = self._general_family_prediction_blocks(X_np)
-
-        if type == "lpmatrix":
-            return (
-                np.column_stack(Xp_blocks)
-                if Xp_blocks
-                else np.empty((eta.shape[0], 0), dtype=np.float64)
-            )
-
-        if type == "terms":
-            terms = np.column_stack(
-                [
-                    Z_new[:, tb.coef_slice] @ self.coef_[tb.coef_slice]
-                    for tb in self.term_blocks_
-                ]
-            )
-            if not return_se:
-                return terms
-
-            V = self._select_cov(cov)
-            ses = []
-            full_idx = np.asarray(self._coef_reduced_to_full_idx, dtype=int)
-            for tb in self.term_blocks_:
-                idx = full_idx[tb.coef_slice]
-                Xi = np.zeros((Z_new.shape[0], V.shape[0]), dtype=np.float64)
-                Xi[:, idx] = Z_new[:, tb.coef_slice]
-                var = np.einsum("ij,jk,ik->i", Xi, V, Xi)
-                ses.append(np.sqrt(np.maximum(var, 0.0)))
-            return terms, np.column_stack(ses)
-
-        if type == "link":
-            if not return_se:
-                return eta
-            V = self._select_cov(cov)
-            se_cols = []
-            for Xp, sl in zip(Xp_blocks, self._predictor_full_slices_):
-                Vk = V[sl, sl]
-                var = np.einsum("ij,jk,ik->i", Xp, Vk, Xp)
-                se_cols.append(np.sqrt(np.maximum(var, 0.0)))
-            return eta, np.column_stack(se_cols)
-
-        family_predict = getattr(self.family, "predict", None)
-        if callable(family_predict):
-            out = family_predict(
-                eta=eta,
-                X=(
-                    np.column_stack(Xp_blocks)
-                    if Xp_blocks
-                    else np.empty((eta.shape[0], 0), dtype=np.float64)
-                ),
-                jj=[
-                    np.arange(sl.start, sl.stop, dtype=int)
-                    for sl in (self._predictor_full_slices_ or [])
-                ],
-                coef=np.asarray(self.coef_full_, dtype=np.float64),
-                offset=offset_list,
-                se=return_se,
-                Vb=None if not return_se else self._select_cov(cov),
-            )
-            return out
-
-        if return_se:
-            raise NotImplementedError(
-                f"{self.family.__class__.__name__} does not yet implement predictive standard errors."
-            )
-        return np.asarray(
-            self.family.predict_fitted(
-                np.column_stack(Xp_blocks),
-                [
-                    np.arange(sl.start, sl.stop, dtype=int)
-                    for sl in (self._predictor_full_slices_ or [])
-                ],
-                np.asarray(self.coef_full_, dtype=np.float64),
-                offset=offset_list,
-            ),
-            dtype=np.float64,
-        )
+        self.compiled_model_ = None
+        self._edf_by_term_fit_ = None
 
     # ------------------------------------------------------------------
     # Persistence
@@ -1484,7 +1317,8 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
                 used_cols,
                 offset_formula,
                 preprocess_state,
-            ) = self._prepare_formula_inputs(
+            ) = prepare_formula_inputs(
+                self,
                 data=data,
                 formula=formula,
                 y=y,
@@ -1501,8 +1335,8 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
             self.fit_intercept = fit_intercept
             y_use = y_out
 
-            offset_arg = self._coerce_optional_offset(offset, len(X_np))
-            offset_use = self._combine_offsets(offset_formula, offset_arg)
+            offset_arg = coerce_optional_offset(offset, len(X_np))
+            offset_use = combine_offsets(offset_formula, offset_arg)
 
             # mgcv-like prediction semantics:
             # remember only formula offsets for default prediction.
@@ -1512,8 +1346,8 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
                 else np.asarray(offset_formula, dtype=np.float64).copy()
             )
         else:
-            X_np, feature_names = self._coerce_X(X)
-            predictor_specs = self._make_predictor_specs(feature_names, knots=knots)
+            X_np, feature_names = coerce_X(self, X)
+            predictor_specs = make_predictor_specs(self, feature_names, knots=knots)
             fit_intercept = self.fit_intercept
             y_use = y
 
@@ -1524,7 +1358,7 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
 
             # Separate fit-time offset is used in fitting, but not remembered by default
             # for prediction, matching mgcv's documented behaviour.
-            offset_use = self._coerce_optional_offset(offset, len(X_np))
+            offset_use = coerce_optional_offset(offset, len(X_np))
             predict_offset_default = None
 
         if y_use is None:
@@ -1557,10 +1391,11 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         self.predictor_specs = predictor_specs
         self.fit_intercept = fit_intercept
         self.min_sp = min_sp
-        self.result_ = None
+        self.gam_result_ = None
         self.side_condition_reports_ = None
+        self._edf_by_term_fit_ = None
 
-        from ..fit.orchestrator import fit_model_core
+        from ..engine import fit_model_core
 
         fit_model_core(
             X=X_np,
@@ -1585,17 +1420,39 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
     def fit_result(self, include_covariances=True):
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
-        if self.result_ is None:
-            self.result_ = self._build_fit_result()
-        if not include_covariances:
-            self.result_.cov_bayes = None
-            self.result_.cov_freq = None
-        return self.result_
+        if self.gam_result_ is None:
+            from ..fit.model_ops import build_gam_result
+
+            self.gam_result_ = build_gam_result(self)
+        return copy_fit_result(
+            self.gam_result_.fit_summary,
+            include_covariances=include_covariances,
+        )
 
     def _select_cov(self, cov):
-        from ..fit.covariance import select_covariance_matrix
+        from ..engine import select_covariance_matrix
 
         return select_covariance_matrix(self, cov=cov)
+
+    def _resolve_ml_reml_scoring_backend(self, method="reml"):
+        from ..fit.model_ops import resolve_ml_reml_scoring_backend
+
+        return resolve_ml_reml_scoring_backend(self, method=method)
+
+    def _expand_smoothing_params_from_log(self, log_free_sp):
+        from ..fit.model_ops import expand_smoothing_params_from_log
+
+        return expand_smoothing_params_from_log(self, log_free_sp)
+
+    def _has_tensor_terms(self) -> bool:
+        for tb in _term_blocks_seq(self):
+            if str(getattr(tb, "term_type", "")).lower() in {
+                "tensor_smooth",
+                "tensor_interaction",
+                "tensor_anova",
+            }:
+                return True
+        return False
 
     def parity_snapshot(self, X=None, include_covariances=False):
         if not self._fitted:
@@ -1608,35 +1465,10 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
 
-        if getattr(self.family, "family_class", "") == "general":
-            if X is None:
-                X_np = None
-                offset_use = offset
-            elif self.formula_mode_:
-                X_np, _, offset_formula = self._coerce_formula_predict_inputs(X)
-                offset_use = (
-                    self._combine_offsets(
-                        offset_formula,
-                        self._coerce_optional_offset(offset, X_np.shape[0]),
-                    )
-                    if not isinstance(offset, (list, tuple))
-                    else offset
-                )
-            else:
-                X_np, _ = self._coerce_X(X)
-                offset_use = offset
-            return self._general_family_predict(
-                X_np,
-                return_se=return_se,
-                cov=cov,
-                type=type,
-                offset=offset_use,
-            )
-
         if X is None:
             offset_use = None
             if offset is not None:
-                offset_use = self._coerce_optional_offset(offset, self.X_.shape[0])
+                offset_use = coerce_optional_offset(offset, self.X_.shape[0])
             return predict_values(
                 X=None,
                 return_se=return_se,
@@ -1647,14 +1479,14 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
             )
 
         if self.formula_mode_:
-            X_np, _, offset_formula = self._coerce_formula_predict_inputs(X)
-            offset_use = self._combine_offsets(
+            X_np, _, offset_formula = coerce_formula_predict_inputs(self, X)
+            offset_use = combine_offsets(
                 offset_formula,
-                self._coerce_optional_offset(offset, X_np.shape[0]),
+                coerce_optional_offset(offset, X_np.shape[0]),
             )
         else:
-            X_np, _ = self._coerce_X(X)
-            offset_use = self._coerce_optional_offset(offset, X_np.shape[0])
+            X_np, _ = coerce_X(self, X)
+            offset_use = coerce_optional_offset(offset, X_np.shape[0])
 
         return predict_values(
             X=X_np,
@@ -1673,18 +1505,18 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         if X is None:
             offset_use = None
             if offset is not None:
-                offset_use = self._coerce_optional_offset(offset, self.X_.shape[0])
+                offset_use = coerce_optional_offset(offset, self.X_.shape[0])
             X_use = None
         elif self.formula_mode_:
-            X_np, _, offset_formula = self._coerce_formula_predict_inputs(X)
-            offset_use = self._combine_offsets(
+            X_np, _, offset_formula = coerce_formula_predict_inputs(self, X)
+            offset_use = combine_offsets(
                 offset_formula,
-                self._coerce_optional_offset(offset, X_np.shape[0]),
+                coerce_optional_offset(offset, X_np.shape[0]),
             )
             X_use = X_np
         else:
-            X_np, _ = self._coerce_X(X)
-            offset_use = self._coerce_optional_offset(offset, X_np.shape[0])
+            X_np, _ = coerce_X(self, X)
+            offset_use = coerce_optional_offset(offset, X_np.shape[0])
             X_use = X_np
 
         eta = predict_values(model=self, X=X_use, type="link", offset=offset_use)
@@ -1694,10 +1526,10 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
             out["response"] = predict_values(
                 model=self, X=X_use, type="response", offset=offset_use
             )
-        for j, tb in enumerate(self.term_blocks_):
+        for j, tb in enumerate(_term_blocks_seq(self)):
             out[tb.term_id] = terms[:, j]
         if self.fit_intercept:
-            out["intercept"] = np.array(self.intercept_, dtype=np.float64)
+            out["intercept"] = np.array(_intercept(self), dtype=np.float64)
         if offset_use is not None:
             out["offset"] = np.asarray(offset_use, dtype=np.float64)
         return out
@@ -1709,9 +1541,9 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
             raise RuntimeError("Model is not fitted.")
 
         if self.formula_mode_:
-            X_np, _, _ = self._coerce_formula_predict_inputs(X)
+            X_np, _, _ = coerce_formula_predict_inputs(self, X)
         else:
-            X_np, _ = self._coerce_X(X)
+            X_np, _ = coerce_X(self, X)
 
         return build_lpmatrix(self, X_new=X_np)
 
@@ -1724,9 +1556,9 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
             return plot_gam_terms(self, X=None, n_cols=n_cols, figsize=figsize)
 
         if self.formula_mode_:
-            X_np, _, _ = self._coerce_formula_predict_inputs(X)
+            X_np, _, _ = coerce_formula_predict_inputs(self, X)
         else:
-            X_np, _ = self._coerce_X(X)
+            X_np, _ = coerce_X(self, X)
 
         return plot_gam_terms(self, X=X_np, n_cols=n_cols, figsize=figsize)
 
@@ -1764,7 +1596,7 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         )
 
     def sp_vcov(self, edge_correct=True, reg=1e-3):
-        from ..smoothing_selection import sp_vcov
+        from ..selection import sp_vcov
 
         return sp_vcov(self, edge_correct=edge_correct, reg=reg)
 
@@ -1781,18 +1613,27 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
 
         Mirrors mgcv ``vcov.gam`` in mgcv/R/mgcv.r.
         """
+        Vp = (
+            None
+            if _cov_bayes(self) is None
+            else np.asarray(_cov_bayes(self), dtype=np.float64)
+        )
+        Vf = (
+            None
+            if _cov_freq(self) is None
+            else np.asarray(_cov_freq(self), dtype=np.float64)
+        )
+        Vc = _cov_unconditional(self)
+        Vc = None if Vc is None else np.asarray(Vc, dtype=np.float64)
+        fit_state = _fit_state(self)
+        fit_scale = float(_fit_scale(self))
+        coef_full = np.asarray(_coef_full(self), dtype=np.float64)
+        edf_total = float(_edf_total(self))
         if sandwich:
-            B2 = (
-                np.zeros_like(np.asarray(self.Vp_, dtype=np.float64))
-                if freq
-                else (
-                    np.asarray(self.Vp_, dtype=np.float64)
-                    - np.asarray(self.Vf_, dtype=np.float64)
-                )
-            )
-            X = np.asarray(self.fit_state_.X, dtype=np.float64)
+            B2 = np.zeros_like(Vp) if freq else (Vp - Vf)
+            X = np.asarray(fit_state.X, dtype=np.float64)
             m = float(X.shape[0])
-            m = m / (m - float(np.sum(np.asarray(self.edf_, dtype=np.float64))))
+            m = m / (m - edf_total)
 
             family_class = str(getattr(self.family, "family_class", "")).lower()
             if family_class == "general":
@@ -1802,7 +1643,7 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
                     )
                 jj = [
                     np.arange(sl.start, sl.stop, dtype=int)
-                    for sl in (self._predictor_full_slices_ or [])
+                    for sl in _predictor_full_slices(self)
                 ]
                 offset = (
                     None
@@ -1815,7 +1656,7 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
                         np.asarray(self.y_, dtype=np.float64),
                         X,
                         jj,
-                        np.asarray(self.coef_full_, dtype=np.float64),
+                        coef_full,
                         (
                             None
                             if self.prior_weights_ is None
@@ -1825,50 +1666,38 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
                     ),
                     dtype=np.float64,
                 )
-                vc = (
-                    m
-                    * np.asarray(self.Vp_, dtype=np.float64)
-                    @ fill
-                    @ np.asarray(self.Vp_, dtype=np.float64)
-                    + B2
-                )
+                vc = m * Vp @ fill @ Vp + B2
             elif family_class == "extended":
                 raise RuntimeError(
                     "Sandwich covariance matrix is not implemented for this extended family."
                 )
             else:
-                eta = np.asarray(self._fitted_eta, dtype=np.float64).ravel()
-                mu = np.asarray(self._fitted_mu, dtype=np.float64).ravel()
+                eta = np.asarray(_fitted_eta(self), dtype=np.float64).ravel()
+                mu = np.asarray(_fitted_mu(self), dtype=np.float64).ravel()
                 w = (
                     self.family.mu_eta(eta)
                     * (np.asarray(self.y_, dtype=np.float64).ravel() - mu)
-                    / (float(self.scale_) * self.family.variance(mu))
+                    / (fit_scale * self.family.variance(mu))
                 )
                 WX = np.asarray(w[:, None] * X, dtype=np.float64)
-                vc = (
-                    m
-                    * np.asarray(self.Vp_, dtype=np.float64)
-                    @ (WX.T @ WX)
-                    @ np.asarray(self.Vp_, dtype=np.float64)
-                    + B2
-                )
+                vc = m * Vp @ (WX.T @ WX) @ Vp + B2
 
             vc = np.asarray(vc, dtype=np.float64).copy()
             if dispersion is not None:
-                vc *= float(dispersion) / float(self.scale_)
+                vc *= float(dispersion) / fit_scale
             return vc
 
         if freq:
-            vc = self.Vf_
+            vc = Vf
         else:
-            vc = self.Vc_ if unconditional and self.Vc_ is not None else self.Vp_
+            vc = Vc if unconditional and Vc is not None else Vp
 
         if vc is None:
             raise RuntimeError("Requested covariance matrix is not available.")
 
         vc = np.asarray(vc, dtype=np.float64).copy()
         if dispersion is not None:
-            vc *= float(dispersion) / float(self.scale_)
+            vc *= float(dispersion) / fit_scale
         return vc
 
     def _mgcv_loglik_df(self) -> float:
@@ -1878,11 +1707,12 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         Mirrors mgcv ``logLik.gam`` in mgcv/R/mgcv.r.
         """
         sc_p = 1.0 if getattr(self.family, "known_scale", None) is None else 0.0
-        if self.edf2_ is not None:
-            p = float(np.sum(np.asarray(self.edf2_, dtype=np.float64))) + sc_p
+        edf2 = _edf2(self)
+        if edf2 is not None:
+            p = float(np.sum(np.asarray(edf2, dtype=np.float64))) + sc_p
         else:
-            p = float(self.edf_) + sc_p
-        np_max = float(len(np.asarray(self.coef_full_, dtype=np.float64))) + sc_p
+            p = float(_edf_total(self)) + sc_p
+        np_max = float(len(np.asarray(_coef_full(self), dtype=np.float64))) + sc_p
         return min(p, np_max)
 
     def loglik(self) -> float:
@@ -1895,16 +1725,16 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
             raise RuntimeError("Model is not fitted.")
 
         if getattr(self.family, "family_class", "") == "general":
-            X = np.asarray(self.fit_state_.X, dtype=np.float64)
+            X = np.asarray(_fit_state(self).X, dtype=np.float64)
             jj = [
                 np.arange(sl.start, sl.stop, dtype=int)
-                for sl in (self._predictor_full_slices_ or [])
+                for sl in _predictor_full_slices(self)
             ]
             ll = self.family.ll(
                 np.asarray(self.y_, dtype=np.float64),
                 X,
                 jj,
-                np.asarray(self.coef_full_, dtype=np.float64),
+                np.asarray(_coef_full(self), dtype=np.float64),
                 np.asarray(self.prior_weights_, dtype=np.float64),
                 offset=(
                     None
@@ -1922,7 +1752,7 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
             self.family.loglik(
                 np.asarray(self.y_, dtype=np.float64),
                 np.asarray(mu, dtype=np.float64),
-                scale=float(self.scale_),
+                scale=float(_fit_scale(self)),
             )
         )
 
@@ -1936,12 +1766,12 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         return float(-2.0 * self.loglik() + np.log(n_obs) * self._mgcv_loglik_df())
 
     def gam_vcomp(self, *, rescale=False, conf_lev=0.95):
-        from ..smoothing_selection import gam_vcomp
+        from ..selection import gam_vcomp
 
         return gam_vcomp(self, rescale=rescale, conf_lev=conf_lev)
 
     def one_se_rule(self, candidate_indices=None):
-        from ..smoothing_selection import one_se_rule
+        from ..selection import one_se_rule
 
         return one_se_rule(self, candidate_indices=candidate_indices)
 
@@ -1957,1132 +1787,6 @@ class GAM(_GAMDataMixin, _GAMSpecsMixin, _GAMSolveMixin):
         )
 
 # --- End of nampy/gam/model/api.py ---
-
-# --- Start of nampy/gam/model/gam_data.py ---
-# gam/model/gam_data.py
-"""Data coercion helpers for the GAM class."""
-import numpy as np
-import pandas as pd
-
-
-class _GAMDataMixin:
-    def _coerce_X(self, X, *, allow_missing_non_numeric=False):
-        if isinstance(X, pd.DataFrame):
-            feature_names = list(X.columns)
-            X_np = self._dataframe_to_feature_matrix(
-                X, allow_missing_non_numeric=allow_missing_non_numeric
-            )
-        else:
-            X_np = np.asarray(X)
-            if X_np.ndim == 1:
-                X_np = X_np.reshape(-1, 1)
-            if X_np.ndim != 2:
-                raise ValueError("X must be a 2D array or DataFrame.")
-
-            feature_names = [f"x{i}" for i in range(X_np.shape[1])]
-
-            # Preserve mixed/object arrays if the caller supplied them.
-            if X_np.dtype != object:
-                X_num = np.asarray(X_np, dtype=np.float64)
-                if not np.isfinite(X_num).all():
-                    raise ValueError("X contains NaN or Inf")
-                X_np = X_num
-
-        return X_np, feature_names
-
-    def _coerce_optional_offset(self, offset, n_rows, *, name="offset"):
-        if offset is None:
-            return None
-        out = np.asarray(offset, dtype=np.float64).ravel()
-        if out.shape != (int(n_rows),):
-            raise ValueError(
-                f"{name} must have shape ({int(n_rows)},), got {out.shape}."
-            )
-        if not np.isfinite(out).all():
-            raise ValueError(f"{name} contains NaN or Inf")
-        return out
-
-    def _combine_offsets(self, *offsets):
-        arrs = [np.asarray(o, dtype=np.float64) for o in offsets if o is not None]
-        if not arrs:
-            return None
-        out = np.zeros_like(arrs[0], dtype=np.float64)
-        for arr in arrs:
-            if arr.shape != out.shape:
-                raise ValueError(
-                    f"Offset arrays must all have the same shape, got {out.shape} and {arr.shape}."
-                )
-            out = out + arr
-        return out
-
-    def _knots_for_feature(self, feature_name, *, knots=None):
-        knots = self.knots if knots is None else knots
-        if knots is None:
-            return None
-        if isinstance(knots, dict):
-            return knots.get(str(feature_name), None)
-        return knots
-
-    def _knots_for_features(self, feature_names, *, knots=None):
-        knots = self.knots if knots is None else knots
-        if knots is None:
-            return None
-        if isinstance(knots, dict):
-            vals = [knots.get(str(f), None) for f in feature_names]
-            return None if all(v is None for v in vals) else vals
-        return knots
-
-    def _dataframe_to_feature_matrix(
-        self, X_df: pd.DataFrame, *, allow_missing_non_numeric=False
-    ):
-        non_numeric = [
-            c for c in X_df.columns if not pd.api.types.is_numeric_dtype(X_df[c])
-        ]
-
-        if len(non_numeric) == 0:
-            X_np = X_df.to_numpy(dtype=np.float64)
-            if not np.isfinite(X_np).all():
-                raise ValueError("X contains NaN or Inf")
-            return X_np
-
-        for c in X_df.columns:
-            s = X_df[c]
-            if pd.api.types.is_numeric_dtype(s):
-                vals = np.asarray(s, dtype=np.float64)
-                if not np.isfinite(vals).all():
-                    raise ValueError(f"Numeric column {c!r} contains NaN or Inf.")
-            else:
-                if s.isna().any() and not bool(allow_missing_non_numeric):
-                    raise ValueError(
-                        f"Non-numeric column {c!r} contains missing values, "
-                        "which are not currently supported in fitting."
-                    )
-
-        return X_df.to_numpy(dtype=object)
-
-    def _coerce_feature_matrix(self, X):
-        X_np, _ = self._coerce_X(X)
-        if np.asarray(X_np).ndim != 2:
-            raise ValueError("X must be a 2D feature matrix.")
-        return X_np
-
-    def _coerce_offset(self, offset, n_rows):
-        from ..fit.offsets import coerce_offset_array
-
-        return coerce_offset_array(offset, n_rows)
-
-    def _prediction_offset(self, X, offset):
-        from ..fit.offsets import resolve_prediction_offset
-
-        return resolve_prediction_offset(self, X, offset)
-
-    def _coerce_formula_predict_inputs(self, X):
-        from ..formula.preprocess import apply_formula_preprocess_to_new_data
-
-        if not self.formula_mode_:
-            X_np, feature_names = self._coerce_X(X)
-            return X_np, feature_names, None
-
-        if not isinstance(X, pd.DataFrame):
-            raise TypeError(
-                "Prediction for formula-based GAMs currently requires a pandas DataFrame."
-            )
-
-        X_work = apply_formula_preprocess_to_new_data(X, self.formula_preprocess_state_)
-
-        missing = [c for c in self.formula_used_columns_ if c not in X_work.columns]
-        if missing:
-            raise KeyError(f"Prediction data is missing formula columns: {missing}")
-
-        X_df = X_work[self.formula_used_columns_]
-        X_np, _ = self._coerce_X(X_df, allow_missing_non_numeric=True)
-
-        offset = None
-        if self.formula_offset_name_ is not None:
-            if self.formula_offset_name_ not in X_work.columns:
-                raise KeyError(
-                    f"Prediction data is missing formula offset column: {self.formula_offset_name_!r}"
-                )
-            if not pd.api.types.is_numeric_dtype(X_work[self.formula_offset_name_]):
-                raise NotImplementedError(
-                    "Current formula-based prediction supports numeric offsets only. "
-                    f"Offset column {self.formula_offset_name_!r} is non-numeric."
-                )
-            offset = X_work[self.formula_offset_name_].to_numpy(dtype=np.float64)
-
-        return X_np, list(X_df.columns), offset
-
-# --- End of nampy/gam/model/gam_data.py ---
-
-# --- Start of nampy/gam/model/gam_solve.py ---
-# gam/model/gam_solve.py
-"""Solver dispatch, smoothing resolution, design compilation, and fit-result helpers."""
-from collections.abc import Mapping
-from dataclasses import replace
-from types import SimpleNamespace
-
-import numpy as np
-
-from .._model_state import _require_fitted
-
-
-class _GAMSolveMixin:
-    # ------------------------------------------------------------------
-    # Solver / backend dispatch
-    # ------------------------------------------------------------------
-
-    def _uses_closed_form_solver(self):
-        return bool(getattr(self.family, "supports_closed_form_solve", False))
-
-    def _uses_pirls_solver(self):
-        return bool(getattr(self.family, "supports_pirls", False))
-
-    def _available_fit_backends(self):
-        from ..fit.backends import available_fit_backends
-
-        return available_fit_backends(self)
-
-    def _resolve_fit_backend(self):
-        from ..fit.backends import resolve_fit_backend
-
-        return resolve_fit_backend(self)
-
-    def _supports_smoothing_method(self, method):
-        from ..smoothing_selection.optimize import supports_smoothing_method
-
-        return supports_smoothing_method(self, method)
-
-    def _resolve_smoothing_method(self, method):
-        from ..smoothing_selection.optimize import resolve_smoothing_method
-
-        return resolve_smoothing_method(self, method)
-
-    def _needs_exact_gaussian_reparameterization(self):
-        return (
-            self._uses_closed_form_solver()
-            and self._can_use_exact_gaussian_ml_reml()
-            and any(
-                bool(getattr(self.family, attr, False))
-                for attr in ("supports_ml", "supports_reml", "supports_laml")
-            )
-        )
-
-    def _can_use_exact_gaussian_ml_reml(self):
-        from ..smoothing_selection.reparam import can_use_exact_gaussian_ml_reml
-
-        return can_use_exact_gaussian_ml_reml(self)
-
-    def _can_use_simple_ml_reml_structure(self):
-        from ..smoothing_selection.reparam import can_use_simple_ml_reml_structure
-
-        return can_use_simple_ml_reml_structure(self)
-
-    def _resolve_ml_reml_scoring_backend(self, method="reml"):
-        from ..smoothing_selection.criteria import resolve_ml_reml_scoring_backend
-
-        return resolve_ml_reml_scoring_backend(self, method=method)
-
-    def _raise_ml_reml_backend_error(self, method):
-        method = str(method).lower()
-        backend = self._resolve_ml_reml_scoring_backend(method=method)
-        if backend is not None:
-            return
-
-        if not bool(getattr(self.family, f"supports_{method}", False)):
-            raise NotImplementedError(
-                f"Automatic smoothing selection with method={method!r} is not "
-                f"supported for family={self.family.name!r}."
-            )
-
-        if not self._can_use_simple_ml_reml_structure():
-            raise NotImplementedError(
-                f"Automatic smoothing selection with method={method!r} is not "
-                "currently available for this model configuration. "
-                "The current ML/REML backend still rejects penalty layouts "
-                "with null-space penalties coupling disconnected primary "
-                "penalty components. Use 'fixed', 'gcv', or 'ubre' where "
-                "available for those cases."
-            )
-
-        raise NotImplementedError(
-            f"Automatic smoothing selection with method={method!r} is not "
-            f"supported for family={self.family.name!r}."
-        )
-
-    # ------------------------------------------------------------------
-    # Smoothing parameter resolution
-    # ------------------------------------------------------------------
-
-    def _has_tensor_terms(self):
-        if self.term_blocks_ is None:
-            return False
-        return any(
-            tb.term_type
-            in {
-                "tensor_smooth",
-                "tensor_interaction",
-                "tensor_anova",
-            }
-            for tb in self.term_blocks_
-        )
-
-    def _resolve_min_sp(self, min_sp):
-        if self.n_smoothing_params_ is None:
-            raise RuntimeError("Design has not been compiled yet.")
-
-        if min_sp is None:
-            return np.zeros(self.n_smoothing_params_, dtype=np.float64)
-
-        arr = np.asarray(min_sp, dtype=np.float64).ravel()
-        if arr.size == 0 and self.n_smoothing_params_ == 0:
-            return np.empty((0,), dtype=np.float64)
-        if np.any(~np.isfinite(arr)) or np.any(arr < 0):
-            raise ValueError("min_sp values must be finite and >= 0.")
-
-        if arr.shape == (self.n_smoothing_params_,):
-            return arr.copy()
-
-        if arr.shape == (len(self.penalty_blocks_),):
-            out = np.zeros(self.n_smoothing_params_, dtype=np.float64)
-            for val, pb in zip(arr, self.penalty_blocks_):
-                out[pb.smoothing_index] = max(out[pb.smoothing_index], float(val))
-            return out
-
-        raise ValueError(
-            f"min_sp must have shape ({self.n_smoothing_params_},) for underlying smoothing "
-            f"parameters or ({len(self.penalty_blocks_)},) for total penalties, got {arr.shape}."
-        )
-
-    def _resolve_smoothing_params(self, n_smoothing_params):
-        sp = self.smoothing_params
-        if sp is None:
-            sp = np.ones(n_smoothing_params, dtype=np.float64)
-        elif isinstance(sp, Mapping):
-            out = np.ones(n_smoothing_params, dtype=np.float64)
-            group_map = (
-                {}
-                if getattr(self, "design_", None) is None
-                else dict(self.design_.metadata.get("s_id_to_sp_indices", {}) or {})
-            )
-            unknown = sorted(str(key) for key in sp.keys() if str(key) not in group_map)
-            if unknown:
-                raise ValueError(
-                    f"Unknown smoothing id(s) in smoothing_params: {unknown}."
-                )
-
-            for key, value in sp.items():
-                indices = list(group_map[str(key)])
-                vals = np.asarray(value, dtype=np.float64).ravel()
-                if vals.ndim == 0 or vals.size == 1:
-                    if len(indices) != 1:
-                        raise ValueError(
-                            f"smoothing_params[{key!r}] must provide {len(indices)} "
-                            "values for this multi-penalty smoothing id."
-                        )
-                    out[indices[0]] = float(vals.reshape(-1)[0])
-                    continue
-                if vals.shape != (len(indices),):
-                    raise ValueError(
-                        f"smoothing_params[{key!r}] must have shape ({len(indices)},), "
-                        f"got {vals.shape}."
-                    )
-                out[np.asarray(indices, dtype=int)] = vals
-            sp = out
-        else:
-            sp = np.asarray(sp, dtype=np.float64)
-            if sp.ndim == 0:
-                sp = np.full(n_smoothing_params, float(sp), dtype=np.float64)
-            if sp.shape != (n_smoothing_params,):
-                raise ValueError(
-                    f"smoothing_params must have shape ({n_smoothing_params},), got {sp.shape}"
-                )
-            sp = sp.copy()
-
-        fixed_mask = np.zeros(n_smoothing_params, dtype=bool)
-
-        override_modes = getattr(self.design_, "smoothing_override_modes", None)
-        override_values = getattr(self.design_, "smoothing_override_values", None)
-
-        if override_modes is not None:
-            if len(override_modes) != n_smoothing_params:
-                raise ValueError(
-                    "CompiledPredictor smoothing_override_modes has incompatible length."
-                )
-            if override_values is None:
-                override_values = np.full(n_smoothing_params, np.nan, dtype=np.float64)
-            override_values = np.asarray(override_values, dtype=np.float64)
-            if override_values.shape != (n_smoothing_params,):
-                raise ValueError(
-                    "CompiledPredictor smoothing_override_values has incompatible shape."
-                )
-
-            for i, mode in enumerate(override_modes):
-                if mode is None:
-                    continue
-
-                if mode == "fixed":
-                    val = float(override_values[i])
-                    if not np.isfinite(val) or val < 0:
-                        raise ValueError(
-                            f"Fixed smoothing parameter override at index {i} "
-                            f"must be finite and >= 0, got {val}."
-                        )
-                    sp[i] = val
-                    fixed_mask[i] = True
-                elif mode == "estimate":
-                    fixed_mask[i] = False
-                    if (not np.isfinite(sp[i])) or (sp[i] <= 0):
-                        sp[i] = 1.0
-                else:
-                    raise ValueError(
-                        f"Unknown smoothing override mode {mode!r} at index {i}."
-                    )
-
-        min_sp = (
-            np.zeros(n_smoothing_params, dtype=np.float64)
-            if self.min_sp_ is None
-            else np.asarray(self.min_sp_, dtype=np.float64)
-        )
-
-        if min_sp.shape != (n_smoothing_params,):
-            raise ValueError(
-                f"min_sp must have shape ({n_smoothing_params},), got {min_sp.shape}"
-            )
-
-        if np.any(fixed_mask & (sp < min_sp)):
-            raise ValueError(
-                "Fixed smoothing parameters must satisfy the configured min_sp lower bounds."
-            )
-
-        sp = np.maximum(sp, min_sp)
-        free_mask = ~fixed_mask
-
-        if np.any(~np.isfinite(sp[free_mask])) or np.any(sp[free_mask] <= 0):
-            raise ValueError("All free smoothing parameters must be finite and > 0.")
-
-        if np.any(~np.isfinite(sp[fixed_mask])) or np.any(sp[fixed_mask] < 0):
-            raise ValueError("All fixed smoothing parameters must be finite and >= 0.")
-
-        self.smoothing_fixed_mask_ = fixed_mask
-        self.smoothing_override_modes_ = (
-            None if override_modes is None else list(override_modes)
-        )
-        return sp
-
-    def _n_free_smoothing_params(self):
-        from ..smoothing_selection.optimize import n_free_smoothing_params
-
-        return n_free_smoothing_params(self)
-
-    def _expand_smoothing_params_from_log(self, log_free_sp):
-        from ..smoothing_selection.optimize import expand_smoothing_params_from_log
-
-        return expand_smoothing_params_from_log(self, log_free_sp)
-
-    # ------------------------------------------------------------------
-    # Design compilation
-    # ------------------------------------------------------------------
-
-    def _compile_designs(self, X, feature_names):
-        from ..constraints.identifiability import apply_global_side_conditions
-        from ..design.compiler import compile_predictor_designs
-
-        compiled = compile_predictor_designs(
-            X=X,
-            feature_names=feature_names,
-            predictor_specs=self.predictor_specs,
-        )
-
-        if bool(self.hparams.get("apply_side_conditions", True)):
-            adjusted = []
-            reports = []
-            for d in compiled:
-                d_adj, rep = apply_global_side_conditions(
-                    d,
-                    fit_intercept=self.fit_intercept,
-                    tol=float(self.hparams.get("side_condition_tol", 1e-10)),
-                    warn=True,
-                )
-                adjusted.append(d_adj)
-                reports.append(rep)
-            self.predictor_designs = adjusted
-            self.side_condition_reports_ = reports
-        else:
-            self.predictor_designs = compiled
-            self.side_condition_reports_ = None
-
-        self.family.validate_predictor_count(len(self.predictor_designs))
-
-        if len(self.predictor_designs) == 1:
-            self.design_ = self.predictor_designs[0]
-            self.Z = self.design_.design_matrix
-            self.ZTZ = self.Z.T @ self.Z
-            self.n_coef_ = self.design_.n_coef
-            self.term_blocks_ = self.design_.compiled_terms
-            self.penalty_blocks_ = self.design_.compiled_penalties
-            self.n_smoothing_params_ = self.design_.n_smoothing_params
-            self._predictor_full_slices_ = [
-                slice(
-                    0,
-                    int(self.design_.n_coef) + (1 if bool(self.design_.has_intercept) else 0),
-                )
-            ]
-            self._coef_reduced_to_full_idx = np.arange(
-                int(self.n_coef_), dtype=int
-            ) + (1 if bool(self.design_.has_intercept) else 0)
-        else:
-            global_terms = []
-            global_penalties = []
-            combined_blocks = []
-            combined_map = {}
-            override_modes = []
-            override_values = []
-            predictor_full_slices = []
-            reduced_to_full = []
-            coef_shift = 0
-            sp_shift = 0
-            full_shift = 0
-
-            for pred in self.predictor_designs:
-                combined_blocks.append(np.asarray(pred.design_matrix, dtype=np.float64))
-
-                if bool(pred.has_intercept):
-                    reduced_to_full.extend(
-                        list(
-                            np.arange(
-                                full_shift + 1,
-                                full_shift + 1 + int(pred.n_coef),
-                                dtype=int,
-                            )
-                        )
-                    )
-                    predictor_full_slices.append(
-                        slice(full_shift, full_shift + int(pred.n_coef) + 1)
-                    )
-                    full_shift += int(pred.n_coef) + 1
-                else:
-                    reduced_to_full.extend(
-                        list(np.arange(full_shift, full_shift + int(pred.n_coef), dtype=int))
-                    )
-                    predictor_full_slices.append(slice(full_shift, full_shift + int(pred.n_coef)))
-                    full_shift += int(pred.n_coef)
-
-                for term in pred.compiled_terms:
-                    global_terms.append(
-                        replace(
-                            term,
-                            coef_slice=slice(
-                                coef_shift + int(term.coef_slice.start),
-                                coef_shift + int(term.coef_slice.stop),
-                            ),
-                            smoothing_indices=[
-                                sp_shift + int(v) for v in getattr(term, "smoothing_indices", [])
-                            ],
-                            smoothing_ids=[
-                                f"{pred.name}:{sid}" if sid is not None else None
-                                for sid in getattr(term, "smoothing_ids", [])
-                            ],
-                        )
-                    )
-                for pb in pred.compiled_penalties:
-                    global_penalties.append(
-                        replace(
-                            pb,
-                            coef_slice=slice(
-                                coef_shift + int(pb.coef_slice.start),
-                                coef_shift + int(pb.coef_slice.stop),
-                            ),
-                            smoothing_index=sp_shift + int(pb.smoothing_index),
-                            smoothing_id=(
-                                None
-                                if pb.smoothing_id is None
-                                else f"{pred.name}:{pb.smoothing_id}"
-                            ),
-                        )
-                    )
-                for sid, idxs in (pred.metadata.get("s_id_to_sp_indices", {}) or {}).items():
-                    combined_map[f"{pred.name}:{sid}"] = [sp_shift + int(i) for i in idxs]
-                override_modes.extend(list(pred.smoothing_override_modes or []))
-                if pred.smoothing_override_values is not None:
-                    override_values.extend(
-                        list(np.asarray(pred.smoothing_override_values, dtype=np.float64))
-                    )
-                coef_shift += int(pred.n_coef)
-                sp_shift += int(pred.n_smoothing_params)
-
-            self.design_ = SimpleNamespace(
-                metadata={"s_id_to_sp_indices": combined_map},
-                smoothing_override_modes=list(override_modes),
-                smoothing_override_values=np.asarray(override_values, dtype=np.float64),
-            )
-            self.Z = (
-                np.column_stack(combined_blocks)
-                if combined_blocks
-                else np.empty((X.shape[0], 0), dtype=np.float64)
-            )
-            self.ZTZ = self.Z.T @ self.Z
-            self.n_coef_ = coef_shift
-            self.term_blocks_ = tuple(global_terms)
-            self.penalty_blocks_ = tuple(global_penalties)
-            self.n_smoothing_params_ = sp_shift
-            self._predictor_full_slices_ = predictor_full_slices
-            self._coef_reduced_to_full_idx = np.asarray(reduced_to_full, dtype=int)
-
-        self.min_sp_ = self._resolve_min_sp(self.min_sp)
-        self.smoothing_params = self._resolve_smoothing_params(self.n_smoothing_params_)
-
-        if self._needs_exact_gaussian_reparameterization():
-            self._build_gaussian_reparameterized_system()
-            self.sl_blocks_ = (
-                None
-                if self.reparam_state_ is None
-                else list(self.reparam_state_.sl_blocks or [])
-            )
-        else:
-            self.reparam_state_ = None
-            self.sl_blocks_ = None
-
-    def _one_penalty_per_term_matrices(self):
-        penalties = []
-        for tb in self.term_blocks_:
-            matches = [
-                pb for pb in self.penalty_blocks_ if pb.coef_slice == tb.coef_slice
-            ]
-            if not matches:
-                penalties.append(
-                    np.zeros((tb.basis_train.shape[1], tb.basis_train.shape[1]))
-                )
-                continue
-            P_term = np.zeros_like(np.asarray(matches[0].matrix, dtype=np.float64))
-            for pb in matches:
-                P_term += np.asarray(pb.matrix, dtype=np.float64)
-            penalties.append(P_term)
-        return penalties
-
-    def _assemble_penalty_matrix(self, smoothing_params):
-        smoothing_params = np.asarray(smoothing_params, dtype=np.float64)
-        if smoothing_params.shape != (self.n_smoothing_params_,):
-            raise ValueError(
-                f"Expected {self.n_smoothing_params_} smoothing parameters, "
-                f"got shape {smoothing_params.shape}."
-            )
-
-        P = np.zeros((self.n_coef_, self.n_coef_), dtype=np.float64)
-        for pb in self.penalty_blocks_:
-            sl = pb.coef_slice
-            lam = float(smoothing_params[pb.smoothing_index])
-            P[sl, sl] += lam * pb.matrix
-        return P
-
-    # ------------------------------------------------------------------
-    # Solver entry points
-    # ------------------------------------------------------------------
-
-    def _solve_gaussian_given_smoothing(self, y, smoothing_params):
-        from ..fit.solvers.gaussian_exact import solve_gaussian_fit
-
-        return solve_gaussian_fit(
-            self,
-            y,
-            smoothing_params,
-            weights=self.prior_weights_,
-        )
-
-    def gcv_score(self, y, log_smoothing_params):
-        from ..smoothing_selection.criteria import gcv_score_gaussian
-
-        return gcv_score_gaussian(self, y, log_smoothing_params)
-
-    def _criterion_gcv_gaussian(self, y, log_sp):
-        from ..smoothing_selection.criteria import criterion_gcv_gaussian
-
-        return criterion_gcv_gaussian(self, y, log_sp)
-
-    def _build_gaussian_reparameterized_system(self):
-        from ..smoothing_selection.reparam import (
-            build_gaussian_reparameterized_system,
-        )
-
-        return build_gaussian_reparameterized_system(self)
-
-    def _build_penalty_reparameterized_system(self):
-        from ..smoothing_selection.reparam import (
-            build_penalty_reparameterized_system,
-        )
-
-        return build_penalty_reparameterized_system(self)
-
-    def _criterion_ml_reml_exact(self, y, log_sp, method):
-        from ..smoothing_selection.criteria import criterion_ml_reml_exact
-
-        return criterion_ml_reml_exact(self, y, log_sp, method)
-
-    def _criterion_ml_reml(self, y, log_sp, method):
-        from ..smoothing_selection.criteria import criterion_ml_reml
-
-        return criterion_ml_reml(self, y, log_sp, method)
-
-    def _solve_pirls_given_smoothing(self, y, smoothing_params):
-        from ..fit.solvers.pirls import solve_pirls_fit
-
-        return solve_pirls_fit(
-            self,
-            y,
-            smoothing_params,
-            weights=self.prior_weights_,
-        )
-
-    def _criterion_gcv_pirls(self, y, log_sp):
-        from ..smoothing_selection.criteria import criterion_gcv_pirls
-
-        return criterion_gcv_pirls(self, y, log_sp)
-
-    def _criterion_ubre_pirls(self, y, log_sp):
-        from ..smoothing_selection.criteria import criterion_ubre_pirls
-
-        return criterion_ubre_pirls(self, y, log_sp)
-
-    def _criterion(self, y, log_sp, method="gcv"):
-        from ..smoothing_selection.criteria import criterion_value
-
-        return criterion_value(self, y, log_sp, method=method)
-
-    def _criterion_gradient(self, y, log_sp, method="gcv"):
-        from ..smoothing_selection.criteria import criterion_gradient
-
-        return criterion_gradient(self, y, log_sp, method=method)
-
-    def _criterion_hessian(self, y, log_sp, method="gcv"):
-        from ..smoothing_selection.criteria import criterion_hessian
-
-        return criterion_hessian(self, y, log_sp, method=method)
-
-    def optimize_smoothing_params(
-        self,
-        y,
-        initial_smoothing_params=None,
-        method="gcv",
-        optimizer="lbfgsb",
-    ):
-        from ..smoothing_selection.optimize import optimize_smoothing_params
-
-        return optimize_smoothing_params(
-            self,
-            y=y,
-            initial_smoothing_params=initial_smoothing_params,
-            method=method,
-            optimizer=optimizer,
-        )
-
-    # ------------------------------------------------------------------
-    # Fit result assembly
-    # ------------------------------------------------------------------
-
-    def _build_fit_result(self):
-        from ..fit.postprocess.gaussian_smoothness_postprocess import (
-            refresh_gaussian_ml_reml_score_from_fit_state,
-        )
-        from ..fit.results import GAMFitResult, TermFitResult
-
-        _require_fitted(self)
-        if str(getattr(self, "_optim_method", "")).lower() in {"reml", "ml"}:
-            refresh_gaussian_ml_reml_score_from_fit_state(self, self.y_)
-
-        term_results = []
-        for i, tb in enumerate(self.term_blocks_):
-            sp_vals = [float(self.smoothing_params[j]) for j in tb.smoothing_indices]
-
-            deleted = []
-            if tb.deleted_columns is not None:
-                deleted = [
-                    int(v) for v in np.asarray(tb.deleted_columns, dtype=int).tolist()
-                ]
-
-            kept = []
-            if tb.kept_columns is not None:
-                kept = [int(v) for v in np.asarray(tb.kept_columns, dtype=int).tolist()]
-
-            term_results.append(
-                TermFitResult(
-                    label=tb.label,
-                    term_type=tb.term_type,
-                    basis_name=tb.basis_name,
-                    coef_slice=(int(tb.coef_slice.start), int(tb.coef_slice.stop)),
-                    n_coef=int(tb.coef_slice.stop - tb.coef_slice.start),
-                    edf=(
-                        float(self.edf_by_term_[i])
-                        if self.edf_by_term_ is not None
-                        else None
-                    ),
-                    smoothing_indices=[int(v) for v in tb.smoothing_indices],
-                    smoothing_ids=list(tb.smoothing_ids),
-                    smoothing_values=sp_vals,
-                    deleted_columns=deleted,
-                    kept_columns=kept,
-                    metadata=dict(tb.metadata),
-                )
-            )
-
-        return GAMFitResult(
-            family_name=self.family.name,
-            link_name=self.family.link_name,
-            criterion_name=self._optim_method,
-            criterion_value=self.smoothing_score_,
-            coef_full=np.asarray(self.coef_full_, dtype=np.float64).copy(),
-            intercept=float(self.intercept_),
-            smoothing_params=np.asarray(self.smoothing_params, dtype=np.float64).copy(),
-            edf_total=float(self.edf_),
-            edf_by_term=np.asarray(self.edf_by_term_, dtype=np.float64).copy(),
-            trace_H=float(self.trace_H_),
-            scale=float(self.scale_),
-            rss=None if self.rss_ is None else float(self.rss_),
-            deviance=float(self.deviance_),
-            cov_bayes=(
-                None
-                if self.Vp_ is None
-                else np.asarray(self.Vp_, dtype=np.float64).copy()
-            ),
-            cov_freq=(
-                None
-                if self.Vf_ is None
-                else np.asarray(self.Vf_, dtype=np.float64).copy()
-            ),
-            side_condition_reports=(
-                None
-                if self.side_condition_reports_ is None
-                else list(self.side_condition_reports_)
-            ),
-            term_results=term_results,
-            metadata={
-                "n_samples": int(self.n_samples_),
-                "n_coef": int(self.n_coef_),
-                "fit_intercept": bool(self.fit_intercept),
-                "covariance_default": str(self.covariance),
-                "score_gamma": float(self.score_gamma),
-                "has_offset": bool(self.offset_train_ is not None),
-            },
-        )
-
-# --- End of nampy/gam/model/gam_solve.py ---
-
-# --- Start of nampy/gam/model/gam_specs.py ---
-# gam/model/gam_specs.py
-"""Predictor spec building helpers for the GAM class."""
-import warnings
-
-import numpy as np
-
-from ..formula import (
-    apply_drop_intercept,
-    compile_predictor_specs_from_formula,
-    extract_formula_data,
-    parse_gam_formula,
-)
-from ..formula.preprocess import preprocess_formula_predictor_specs
-from ..specs import LinearPredictorSpec, TermSpec, build_smooth_spec
-
-
-class _GAMSpecsMixin:
-    def _make_tensor_term(self, spec, *, knots=None):
-        if hasattr(spec, "fit") and callable(spec.fit):
-            return spec
-
-        if (
-            isinstance(spec, (tuple, list))
-            and len(spec) >= 2
-            and not isinstance(spec, dict)
-        ):
-            features = list(spec)
-            return TermSpec(
-                kind="smooth",
-                features=tuple(str(f) for f in features),
-                by_variable=None,
-                smooth_spec=build_smooth_spec(
-                    special="te",
-                    bs=self.basis,
-                    k=self.k,
-                    knots=self._knots_for_features(features, knots=knots),
-                    select=bool(self.select),
-                ),
-                smoothing_id=None,
-                label=f"te({', '.join(map(str, features))})",
-                metadata={},
-            )
-
-        if not isinstance(spec, dict):
-            raise TypeError(
-                "Each tensor term specification must be either a term object, "
-                "a tuple/list of features, or a dict."
-            )
-
-        features = spec.get("features", None)
-        if features is None:
-            raise ValueError(
-                "Tensor term dicts must contain a 'features' entry, "
-                "e.g. {'features': ('x1', 'x2')}"
-            )
-
-        kind = str(spec.get("kind", "te")).lower()
-        k = spec.get("k", self.k)
-        basis = spec.get("basis", self.basis)
-        label = spec.get("label", f"{kind}({', '.join(map(str, features))})")
-        smoothing_id = spec.get("smoothing_id", None)
-        metadata = spec.get("metadata", None)
-        by = spec.get("by", None)
-        mc = spec.get("mc", None)
-        full = bool(spec.get("full", False))
-        ord_ = spec.get("ord", None)
-        fixed = bool(spec.get("fixed", spec.get("fx", False)))
-        select = bool(spec.get("select", self.select))
-        sp = spec.get("sp", None)
-        term_knots = spec.get("knots", self._knots_for_features(features, knots=knots))
-
-        if kind == "ti" and mc is not None:
-            mc_vals = [bool(v) for v in ([mc] if np.isscalar(mc) else mc)]
-            if len(mc_vals) == 0:
-                raise ValueError("mc must not be empty.")
-            if not any(mc_vals):
-                warnings.warn(
-                    f"{label}: all ti() marginal constraints are turned off (mc={mc_vals}). "
-                    "This leaves the term without identifiability constraints unless the rest "
-                    "of the model provides them.",
-                    stacklevel=2,
-                )
-
-        if kind == "t2":
-            return TermSpec(
-                kind="smooth",
-                features=tuple(str(f) for f in features),
-                by_variable=by,
-                smooth_spec=build_smooth_spec(
-                    special=kind,
-                    bs=basis,
-                    k=k,
-                    full=full,
-                    ord_=ord_,
-                    fx=fixed,
-                    select=select,
-                    sp=sp,
-                    knots=term_knots,
-                ),
-                smoothing_id=(None if smoothing_id is None else str(smoothing_id)),
-                label=label,
-                metadata=dict(metadata or {}),
-            )
-
-        return TermSpec(
-            kind="smooth",
-            features=tuple(str(f) for f in features),
-            by_variable=by,
-            smooth_spec=build_smooth_spec(
-                special=kind,
-                bs=basis,
-                k=k,
-                mc=mc,
-                fx=fixed,
-                select=select,
-                sp=sp,
-                knots=term_knots,
-            ),
-            smoothing_id=(None if smoothing_id is None else str(smoothing_id)),
-            label=label,
-            metadata=dict(metadata or {}),
-        )
-
-    def _make_predictor_specs(self, feature_names, *, knots=None):
-        terms = []
-
-        if self.main_effects:
-            basis = str(self.basis).lower()
-            main_terms = []
-
-            for name in feature_names:
-                term_knots = self._knots_for_feature(name, knots=knots)
-
-                if basis in {"cr", "cs", "cc"}:
-                    main_terms.append(
-                        TermSpec(
-                            kind="smooth",
-                            features=(str(name),),
-                            by_variable=None,
-                            smooth_spec=build_smooth_spec(
-                                special="s",
-                                bs=basis,
-                                k=self.k,
-                                sp=None,
-                                fx=False,
-                                select=bool(self.select),
-                                knots=term_knots,
-                            ),
-                            smoothing_id=None,
-                            label=name,
-                            metadata={},
-                        )
-                    )
-                elif basis == "ps":
-                    main_terms.append(
-                        TermSpec(
-                            kind="smooth",
-                            features=(str(name),),
-                            by_variable=None,
-                            smooth_spec=build_smooth_spec(
-                                special="s",
-                                bs="ps",
-                                k=self.k,
-                                m=None,
-                                sp=None,
-                                fx=False,
-                                select=bool(self.select),
-                                knots=term_knots,
-                            ),
-                            smoothing_id=None,
-                            label=name,
-                            metadata={},
-                        )
-                    )
-                elif basis in {"tp", "ts"}:
-                    main_terms.append(
-                        TermSpec(
-                            kind="smooth",
-                            features=(str(name),),
-                            by_variable=None,
-                            smooth_spec=build_smooth_spec(
-                                special="s",
-                                bs=basis,
-                                k=self.k,
-                                m=None,
-                                sp=None,
-                                fx=False,
-                                select=bool(self.select),
-                                knots=term_knots,
-                                xt=None,
-                            ),
-                            smoothing_id=None,
-                            label=name,
-                            metadata={},
-                        )
-                    )
-                elif basis == "gp":
-                    main_terms.append(
-                        TermSpec(
-                            kind="smooth",
-                            features=(str(name),),
-                            by_variable=None,
-                            smooth_spec=build_smooth_spec(
-                                special="s",
-                                bs="gp",
-                                k=self.k,
-                                m=None,
-                                sp=None,
-                                fx=False,
-                                select=bool(self.select),
-                                pc=None,
-                                knots=term_knots,
-                                xt=None,
-                            ),
-                            smoothing_id=None,
-                            label=name,
-                            metadata={},
-                        ),
-                    )
-                elif basis == "re":
-                    main_terms.append(
-                        TermSpec(
-                            kind="smooth",
-                            features=(str(name),),
-                            by_variable=None,
-                            smooth_spec=build_smooth_spec(
-                                special="s",
-                                bs="re",
-                                sp=None,
-                                xt=None,
-                            ),
-                            smoothing_id=None,
-                            label=name,
-                            metadata={},
-                        ),
-                    )
-                else:
-                    raise NotImplementedError(
-                        f"Automatic main-effect construction currently supports "
-                        f"basis in {{'cr','cs','cc','ps','tp','ts','gp','re'}}, got {self.basis!r}."
-                    )
-
-            terms.extend(main_terms)
-
-        has_full_te = False
-        has_t2 = False
-        if self.tensor_terms is not None:
-            for spec in self.tensor_terms:
-                term = self._make_tensor_term(spec, knots=knots)
-                if getattr(term, "term_type", None) == "tensor_smooth":
-                    has_full_te = True
-                if getattr(term, "term_type", None) == "tensor_anova":
-                    has_t2 = True
-                terms.append(term)
-
-        if self.main_effects and has_full_te:
-            warnings.warn(
-                "Model contains both main-effect smooths and full te() tensor-product terms. "
-                "This is identifiable via side conditions, but is typically less stable and less "
-                "interpretable than a ti() ANOVA-style decomposition.",
-                stacklevel=2,
-            )
-
-        if self.main_effects and has_t2:
-            warnings.warn(
-                "Model contains both separate main-effect smooths and t2() terms. "
-                "t2() already contains ANOVA-style lower-order components, so this combination "
-                "can create strong overlap in the current framework.",
-                stacklevel=2,
-            )
-
-        return [LinearPredictorSpec(name="eta", terms=terms)]
-
-    def _prepare_formula_inputs(
-        self, data, formula, y=None, knots=None, drop_intercept=None
-    ):
-        parsed = parse_gam_formula(formula)
-        parsed = apply_drop_intercept(parsed, drop_intercept=drop_intercept)
-
-        predictor_specs = compile_predictor_specs_from_formula(
-            parsed,
-            default_k=self.k,
-            default_basis=self.basis,
-            default_select=self.select,
-            knots=knots,
-            available_columns=(None if data is None else data.columns),
-        )
-
-        predictor_specs, data_work, preprocess_state = (
-            preprocess_formula_predictor_specs(
-                parsed=parsed,
-                predictor_specs=predictor_specs,
-                data=data,
-            )
-        )
-
-        X_np, feature_names, y_out, used_cols, offset_out = extract_formula_data(
-            data=data_work,
-            parsed=parsed,
-            predictor_specs=predictor_specs,
-            y=y,
-        )
-        preprocess_state = dict(preprocess_state)
-        preprocess_state["used_columns"] = list(used_cols)
-        preprocess_state["offset_name"] = parsed.predictors[0].offset_name
-        return (
-            parsed,
-            predictor_specs,
-            X_np,
-            feature_names,
-            y_out,
-            used_cols,
-            offset_out,
-            preprocess_state,
-        )
-
-# --- End of nampy/gam/model/gam_specs.py ---
 
 # --- Start of nampy/gam/parity/compare.py ---
 """
@@ -3223,17 +1927,25 @@ from scipy.linalg import qr
 
 from .._mgcv_constants import LOG_GUARD_MIN
 from .._model_state import (
+    _coef,
     _coef_column_offset,
+    _cov_bayes,
+    _cov_freq,
+    _edf_by_term,
+    _edf_total,
+    _fit_state,
+    _H_coef,
     _require_fitted,
+    _summary_R,
     _term_blocks_seq,
 )
-from ..smoothing_selection.criteria import (
+from ..selection import (
     criterion_ml_reml,
     criterion_ml_reml_gaussian_dynamic_joint,
     criterion_ml_reml_pirls,
+    optimizer_endpoint_diagnostics,
     resolve_ml_reml_scoring_backend,
 )
-from ..smoothing_selection.postfit import optimizer_endpoint_diagnostics
 
 
 def _coerce_snapshot_arrays(snapshot):
@@ -3436,7 +2148,7 @@ def _normalize_mgcv_term_label(label):
 
 
 def _residual_df_from_snapshot_state(core) -> float:
-    H = np.asarray(core._H_coef, dtype=np.float64)
+    H = np.asarray(_H_coef(core), dtype=np.float64)
     edf1 = 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
     intercept_df = float(_coef_column_offset(core))
     return float(core.n_samples_) - intercept_df - float(np.sum(edf1))
@@ -3609,7 +2321,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
     edf1_vec = None
     if len(_term_blocks_seq(core)) > 0:
         try:
-            H = np.asarray(core._H_coef, dtype=np.float64)
+            H = np.asarray(_H_coef(core), dtype=np.float64)
             edf1_vec = 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
         except Exception:
             edf1_vec = None
@@ -3621,13 +2333,13 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
             # sl indexes coef_ (no intercept); Vp_, Vf_, H include the intercept column
             x_sl = slice(sl.start + x_off, sl.stop + x_off)
             smooth_labels.append(_normalize_mgcv_term_label(tb.label))
-            if getattr(core, "Vp_", None) is not None:
+            if _cov_bayes(core) is not None:
                 smooth_cov_bayes.append(
-                    np.asarray(core.Vp_[x_sl, x_sl], dtype=np.float64)
+                    np.asarray(_cov_bayes(core)[x_sl, x_sl], dtype=np.float64)
                 )
-            if getattr(core, "Vf_", None) is not None:
+            if _cov_freq(core) is not None:
                 smooth_cov_freq.append(
-                    np.asarray(core.Vf_[x_sl, x_sl], dtype=np.float64)
+                    np.asarray(_cov_freq(core)[x_sl, x_sl], dtype=np.float64)
                 )
             if edf1_vec is not None:
                 smooth_edf1_vals.append(float(np.sum(edf1_vec[x_sl])))
@@ -3657,16 +2369,16 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
         }
     )
     if len(smooth_labels) > 0:
-        X_full = np.asarray(core.fit_state_.X, dtype=np.float64)
-        R_full = getattr(core, "_summary_R_", None)
+        X_full = np.asarray(_fit_state(core).X, dtype=np.float64)
+        R_full = _summary_R(core)
         if R_full is None:
-            W_full = np.asarray(core.fit_state_.working_weights, dtype=np.float64)
+            W_full = np.asarray(_fit_state(core).working_weights, dtype=np.float64)
             weighted_X = np.sqrt(np.clip(W_full, 0.0, None))[:, None] * X_full
             _, R_full = qr(weighted_X, mode="economic")
         diagnostics["smooth_test_inputs"] = {
             "labels": list(smooth_labels),
             "coef_blocks": [
-                np.asarray(core.coef_[tb.coef_slice], dtype=np.float64).tolist()
+                np.asarray(_coef(core)[tb.coef_slice], dtype=np.float64).tolist()
                 for tb in _term_blocks_seq(core)
                 if str(getattr(tb, "term_type", "")) != "parametric"
             ],
@@ -3685,7 +2397,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
             ],
             "edf": np.asarray(
                 [
-                    float(core.edf_by_term_[i])
+                    float(_edf_by_term(core)[i])
                     for i, tb in enumerate(_term_blocks_seq(core))
                     if str(getattr(tb, "term_type", "")) != "parametric"
                 ],
@@ -3694,7 +2406,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
             "edf1": np.asarray(smooth_edf1_vals, dtype=np.float64).tolist(),
             "residual_df": float(core.n_samples_)
             - float(_coef_column_offset(core))
-            - float(core.edf_),
+            - float(_edf_total(core)),
         }
         diagnostics["smooth_function_space"] = {
             "labels": list(smooth_labels),
@@ -3715,7 +2427,8 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
                                 dtype=np.float64,
                             )
                             @ np.asarray(
-                                core.Vp_[tb.coef_slice, tb.coef_slice], dtype=np.float64
+                                _cov_bayes(core)[tb.coef_slice, tb.coef_slice],
+                                dtype=np.float64,
                             )
                         )
                         * np.asarray(
@@ -4028,6 +2741,193 @@ __all__ = ["compare"]
 
 # --- End of nampy/gam/parity/validator.py ---
 
+# --- Start of nampy/gam/predict/general.py ---
+"""Prediction helpers for multi-predictor general-family GAMs."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import numpy as np
+
+from .._model_state import (
+    _coef,
+    _coef_full,
+    _predictor_designs,
+    _predictor_full_slices,
+    _term_blocks_seq,
+)
+from ..data import coerce_optional_offset
+from ..fit.offsets import resolve_prediction_offset
+
+
+@dataclass(frozen=True)
+class _GeneralPredictionLayout:
+    Z_new: np.ndarray
+    Xp_blocks: list[np.ndarray]
+    predictor_slices: tuple[slice, ...]
+    jj: list[np.ndarray]
+    lpmatrix: np.ndarray
+
+
+def general_family_prediction_offset(model, X_np, offset):
+    n_rows = model.n_samples_ if X_np is None else int(X_np.shape[0])
+    n_pred = len(_predictor_full_slices(model))
+    if offset is None:
+        offset_vec = resolve_prediction_offset(model, X_np, None)
+        if offset_vec is None:
+            return None
+        return [offset_vec] + [None] * max(n_pred - 1, 0)
+    if isinstance(offset, (list, tuple)):
+        out = []
+        for i, off_i in enumerate(offset):
+            out.append(
+                None
+                if off_i is None
+                else coerce_optional_offset(off_i, n_rows, name=f"offset[{i}]")
+            )
+        if len(out) < n_pred:
+            out.extend([None] * (n_pred - len(out)))
+        return out
+    offset_vec = coerce_optional_offset(offset, n_rows)
+    return [offset_vec] + [None] * max(n_pred - 1, 0)
+
+
+def general_family_prediction_layout(model, X_np):
+    Z_blocks = []
+    Xp_blocks = []
+    predictors = _predictor_designs(model)
+    predictor_slices = tuple(_predictor_full_slices(model))
+    for pred in predictors:
+        Zp = (
+            np.asarray(pred.design_matrix, dtype=np.float64)
+            if X_np is None
+            else np.asarray(pred.build_new_matrix(X_np), dtype=np.float64)
+        )
+        Z_blocks.append(Zp)
+        if bool(pred.has_intercept):
+            Xp_blocks.append(
+                np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp])
+            )
+        else:
+            Xp_blocks.append(Zp)
+    Z_new = (
+        np.column_stack(Z_blocks)
+        if Z_blocks
+        else np.empty((model.n_samples_ if X_np is None else len(X_np), 0))
+    )
+    lpmatrix = (
+        np.column_stack(Xp_blocks)
+        if Xp_blocks
+        else np.empty((Z_new.shape[0], 0), dtype=np.float64)
+    )
+    return _GeneralPredictionLayout(
+        Z_new=Z_new,
+        Xp_blocks=Xp_blocks,
+        predictor_slices=predictor_slices,
+        jj=[np.arange(sl.start, sl.stop, dtype=int) for sl in predictor_slices],
+        lpmatrix=lpmatrix,
+    )
+
+
+def general_family_prediction_blocks(model, X_np):
+    layout = general_family_prediction_layout(model, X_np)
+    return layout.Z_new, layout.Xp_blocks
+
+
+def general_family_link_prediction_with_offset(model, layout, offset):
+    eta_cols = []
+    off_list = None if offset is None else list(offset)
+    coef_full = np.asarray(_coef_full(model), dtype=np.float64)
+    for k, (Xp, sl) in enumerate(zip(layout.Xp_blocks, layout.predictor_slices)):
+        eta_k = Xp @ np.asarray(coef_full[sl], dtype=np.float64)
+        if off_list is not None and k < len(off_list) and off_list[k] is not None:
+            eta_k = eta_k + np.asarray(off_list[k], dtype=np.float64)
+        eta_cols.append(np.asarray(eta_k, dtype=np.float64))
+    return np.column_stack(eta_cols) if eta_cols else np.empty((0, 0), dtype=np.float64)
+
+
+def build_general_lpmatrix(model, X_new=None):
+    return general_family_prediction_layout(model, X_new).lpmatrix
+
+
+def predict_general_values(
+    model, X=None, return_se=False, cov=None, type="response", offset=None
+):
+    type = str(type).lower()
+    if type not in {"response", "link", "terms", "lpmatrix"}:
+        raise ValueError(
+            "type must be one of {'response', 'link', 'terms', 'lpmatrix'}"
+        )
+
+    offset_list = general_family_prediction_offset(model, X, offset)
+    layout = general_family_prediction_layout(model, X)
+    eta = general_family_link_prediction_with_offset(model, layout, offset_list)
+    Z_new = layout.Z_new
+
+    if type == "lpmatrix":
+        return layout.lpmatrix
+    if type == "terms":
+        beta = np.asarray(_coef(model), dtype=np.float64)
+        terms = np.column_stack(
+            [
+                Z_new[:, tb.coef_slice] @ beta[tb.coef_slice]
+                for tb in _term_blocks_seq(model)
+            ]
+        )
+        if not return_se:
+            return terms
+        V = model._select_cov(cov)
+        ses = []
+        full_idx = np.asarray(model._coef_reduced_to_full_idx, dtype=int)
+        for tb in _term_blocks_seq(model):
+            idx = full_idx[tb.coef_slice]
+            Xi = np.zeros((Z_new.shape[0], V.shape[0]), dtype=np.float64)
+            Xi[:, idx] = Z_new[:, tb.coef_slice]
+            var = np.einsum("ij,jk,ik->i", Xi, V, Xi)
+            ses.append(np.sqrt(np.maximum(var, 0.0)))
+        return terms, np.column_stack(ses)
+    if type == "link":
+        if not return_se:
+            return eta
+        V = model._select_cov(cov)
+        se_cols = []
+        for Xp, sl in zip(layout.Xp_blocks, layout.predictor_slices):
+            Vk = V[sl, sl]
+            var = np.einsum("ij,jk,ik->i", Xp, Vk, Xp)
+            se_cols.append(np.sqrt(np.maximum(var, 0.0)))
+        return eta, np.column_stack(se_cols)
+
+    coef_full = np.asarray(_coef_full(model), dtype=np.float64)
+    family_predict = getattr(model.family, "predict", None)
+    if callable(family_predict):
+        out = family_predict(
+            eta=eta,
+            X=layout.lpmatrix,
+            jj=layout.jj,
+            coef=coef_full,
+            offset=offset_list,
+            se=return_se,
+            Vb=None if not return_se else model._select_cov(cov),
+        )
+        return out
+
+    if return_se:
+        raise NotImplementedError(
+            f"{model.family.__class__.__name__} does not yet implement predictive standard errors."
+        )
+    return np.asarray(
+        model.family.predict_fitted(
+            layout.lpmatrix,
+            layout.jj,
+            coef_full,
+            offset=offset_list,
+        ),
+        dtype=np.float64,
+    )
+
+# --- End of nampy/gam/predict/general.py ---
+
 # --- Start of nampy/gam/predict/linear_predictor_matrix.py ---
 """
 Linear predictor matrix (lpmatrix) construction for prediction.
@@ -4043,10 +2943,13 @@ import numpy as np
 
 from .._model_state import (
     _coerce_feature_matrix,
+    _compiled_model,
+    _design_matrix,
     _fit_intercept,
     _require_design,
     _require_fitted,
 )
+from .general import build_general_lpmatrix
 
 
 def _build_prediction_matrices(model, X_new=None):
@@ -4054,10 +2957,11 @@ def _build_prediction_matrices(model, X_new=None):
     _require_design(model)
 
     if X_new is None:
-        Z_new = model.Z
+        Z_new = np.asarray(_design_matrix(model), dtype=np.float64)
     else:
         X_new = _coerce_feature_matrix(model, X_new, none_is_training=False)
-        Z_new = model.design_.build_new_matrix(X_new)
+        compiled_model = _compiled_model(model)
+        Z_new = compiled_model.build_new_matrix(X_new)
 
     if _fit_intercept(model):
         Xp = np.column_stack([np.ones(Z_new.shape[0], dtype=np.float64), Z_new])
@@ -4068,6 +2972,8 @@ def _build_prediction_matrices(model, X_new=None):
 
 
 def build_lpmatrix(model, X_new=None):
+    if str(getattr(model.family, "family_class", "")).lower() == "general":
+        return np.asarray(build_general_lpmatrix(model, X_new=X_new), dtype=np.float64)
     _, Xp = _build_prediction_matrices(model, X_new=X_new)
     return np.asarray(Xp, dtype=np.float64)
 
@@ -4095,7 +3001,16 @@ or the frequentist sandwich covariance.
 
 import numpy as np
 
-from .._model_state import _coef_column_offset, _require_fitted
+from .._model_state import (
+    _coef,
+    _coef_column_offset,
+    _coef_full,
+    _design_matrix,
+    _require_fitted,
+    _term_blocks_seq,
+)
+from ..fit.offsets import resolve_prediction_offset
+from .general import predict_general_values
 from .linear_predictor_matrix import _build_prediction_matrices
 
 
@@ -4107,12 +3022,14 @@ def _term_contribution_shift(model, tb):
     # convention for predict(type="terms") that differs from the fitted
     # coefficient split. Preserve link/lpmatrix parity and adjust only the
     # reported term contribution by the fitted training-sample mean.
-    train_term = model.Z[:, tb.coef_slice] @ model.coef_[tb.coef_slice]
+    beta = np.asarray(_coef(model), dtype=np.float64)
+    train_term = np.asarray(_design_matrix(model), dtype=np.float64)[:, tb.coef_slice] @ beta[tb.coef_slice]
     return -float(np.mean(np.asarray(train_term, dtype=np.float64)))
 
 
 def _term_contribution(model, Z_new, tb):
-    contrib = Z_new[:, tb.coef_slice] @ model.coef_[tb.coef_slice]
+    beta = np.asarray(_coef(model), dtype=np.float64)
+    contrib = Z_new[:, tb.coef_slice] @ beta[tb.coef_slice]
     shift = _term_contribution_shift(model, tb)
     if shift != 0.0:
         contrib = np.asarray(contrib, dtype=np.float64) + shift
@@ -4123,12 +3040,22 @@ def predict_values(
     model, X=None, return_se=False, cov=None, type="response", offset=None
 ):
     _require_fitted(model)
+    if getattr(model.family, "family_class", "") == "general":
+        return predict_general_values(
+            model,
+            X=X,
+            return_se=return_se,
+            cov=cov,
+            type=type,
+            offset=offset,
+        )
 
     type = str(type).lower()
     Z_new, Xp = _build_prediction_matrices(model, X_new=X)
 
-    offset_vec = model._prediction_offset(X, offset)
-    eta = Xp @ model.coef_full_
+    offset_vec = resolve_prediction_offset(model, X, offset)
+    coef_full = np.asarray(_coef_full(model), dtype=np.float64)
+    eta = Xp @ coef_full
     if offset_vec is not None:
         eta = eta + offset_vec
 
@@ -4139,7 +3066,7 @@ def predict_values(
 
     if type == "terms":
         terms = np.column_stack(
-            [_term_contribution(model, Z_new, tb) for tb in model.term_blocks_]
+            [_term_contribution(model, Z_new, tb) for tb in _term_blocks_seq(model)]
         )
         if not return_se:
             return terms
@@ -4147,7 +3074,7 @@ def predict_values(
         V = model._select_cov(cov)
         offset0 = _coef_column_offset(model)
         ses = []
-        for tb in model.term_blocks_:
+        for tb in _term_blocks_seq(model):
             sl_full = slice(
                 offset0 + tb.coef_slice.start,
                 offset0 + tb.coef_slice.stop,

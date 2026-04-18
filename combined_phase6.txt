@@ -1,16 +1,17 @@
 Continuation prompt: Phase 6 - Validation and uncategorized leftovers.
 This is part 6/6. Continue from earlier phases; do not restate prior context.
 
-Included files in this phase: 4
+Included files in this phase: 19
 
 # --- Start of nampy/gam/_model_state.py ---
-"""Shared model lifecycle checks and duck-typed GAM wrapper accessors."""
+"""Shared model lifecycle checks and canonical fitted-state accessors."""
 
 from __future__ import annotations
 
 from typing import Any
 
 import numpy as np
+from scipy.linalg import qr
 
 
 def _require_fitted(obj: Any) -> None:
@@ -19,8 +20,62 @@ def _require_fitted(obj: Any) -> None:
 
 
 def _require_design(model: Any) -> None:
-    if getattr(model, "design_", None) is None:
+    if _compiled_model(model) is None:
         raise RuntimeError("Model has no compiled design; fit the model first.")
+
+
+def _gam_result(obj: Any):
+    return getattr(obj, "gam_result_", None)
+
+
+def _compiled_model(obj: Any):
+    result = _gam_result(obj)
+    if result is not None:
+        return result.compiled_model
+    return getattr(obj, "compiled_model_", None)
+
+
+def _constructed_terms(obj: Any):
+    return {}
+
+
+def _constructed_term(obj: Any, term_id: str):
+    return _constructed_terms(obj).get(str(term_id))
+
+
+def _fit_summary(obj: Any):
+    result = _gam_result(obj)
+    if result is not None:
+        return result.fit_summary
+    return None
+
+
+def _fit_core_solution(obj: Any):
+    result = _gam_result(obj)
+    if result is not None:
+        return result.fit_core_solution
+    return getattr(obj, "fit_core_solution_", None)
+
+
+def _fit_state(obj: Any):
+    fit_core_solution = _fit_core_solution(obj)
+    if fit_core_solution is not None:
+        return fit_core_solution.fit_state
+    return None
+
+
+def _fit_result(obj: Any):
+    fit_core_solution = _fit_core_solution(obj)
+    if fit_core_solution is not None:
+        return fit_core_solution.fit_result
+    return None
+
+
+def _penalized_system(obj: Any):
+    fit_core_solution = _fit_core_solution(obj)
+    if fit_core_solution is not None:
+        return fit_core_solution.penalized_system
+    return None
 
 
 def _fit_intercept(obj: Any) -> bool:
@@ -32,26 +87,2714 @@ def _coef_column_offset(obj: Any) -> int:
 
 
 def _term_blocks_seq(obj: Any):
-    blocks = getattr(obj, "term_blocks_", None)
+    compiled_model = _compiled_model(obj)
+    blocks = (
+        None
+        if compiled_model is None
+        else getattr(compiled_model, "compiled_terms", None)
+    )
     if not blocks:
         return ()
     return blocks
+
+
+def _penalty_blocks_seq(obj: Any):
+    compiled_model = _compiled_model(obj)
+    blocks = (
+        None
+        if compiled_model is None
+        else getattr(compiled_model, "compiled_penalties", None)
+    )
+    if not blocks:
+        return ()
+    return blocks
+
+
+def _predictor_designs(obj: Any):
+    compiled_model = _compiled_model(obj)
+    if compiled_model is None:
+        return ()
+    return getattr(compiled_model, "predictors", ())
+
+
+def _predictor_full_slices(obj: Any):
+    compiled_model = _compiled_model(obj)
+    if compiled_model is None:
+        return ()
+    return getattr(compiled_model, "predictor_full_slices", ())
+
+
+def _n_coef(obj: Any) -> int:
+    compiled_model = _compiled_model(obj)
+    if compiled_model is None:
+        return 0
+    return int(getattr(compiled_model, "n_coef", 0))
+
+
+def _n_smoothing_params(obj: Any) -> int:
+    compiled_model = _compiled_model(obj)
+    if compiled_model is None:
+        return 0
+    return int(getattr(compiled_model, "n_smoothing_params", 0))
+
+
+def _compiled_metadata(obj: Any) -> dict[str, Any]:
+    compiled_model = _compiled_model(obj)
+    if compiled_model is None:
+        return {}
+    return dict(getattr(compiled_model, "metadata", {}) or {})
+
+
+def _design_matrix(obj: Any):
+    compiled_model = _compiled_model(obj)
+    if compiled_model is not None:
+        design = getattr(compiled_model, "design_matrix", None)
+        if design is not None:
+            return design
+    return None
+
+
+def _coef_full(obj: Any):
+    fit_result = _fit_result(obj)
+    if fit_result is not None:
+        coef_full = getattr(fit_result, "coef_full", None)
+        if coef_full is not None:
+            return coef_full
+    fit_summary = _fit_summary(obj)
+    if fit_summary is not None:
+        coef_full = getattr(fit_summary, "coef_full", None)
+        if coef_full is not None:
+            return coef_full
+    return getattr(obj, "coef_full_", None)
+
+
+def _coef(obj: Any):
+    fit_result = _fit_result(obj)
+    if fit_result is not None:
+        coef = getattr(fit_result, "beta", None)
+        if coef is not None:
+            return coef
+    coef_full = _coef_full(obj)
+    if coef_full is None:
+        return getattr(obj, "coef_", None)
+    coef_full = np.asarray(coef_full, dtype=np.float64).ravel()
+    return coef_full[_coef_column_offset(obj) :]
+
+
+def _intercept(obj: Any):
+    fit_result = _fit_result(obj)
+    if fit_result is not None:
+        intercept = getattr(fit_result, "intercept", None)
+        if intercept is not None:
+            return intercept
+    fit_summary = _fit_summary(obj)
+    if fit_summary is not None:
+        intercept = getattr(fit_summary, "intercept", None)
+        if intercept is not None:
+            return intercept
+    return getattr(obj, "intercept_", None)
+
+
+def _fit_scale(obj: Any):
+    fit_summary = _fit_summary(obj)
+    if fit_summary is not None:
+        scale = getattr(fit_summary, "scale", None)
+        if scale is not None:
+            return scale
+    fit_result = _fit_result(obj)
+    if fit_result is not None:
+        scale = getattr(fit_result, "scale", None)
+        if scale is not None:
+            return scale
+    return getattr(obj, "scale_", None)
+
+
+def _edf_total(obj: Any):
+    fit_summary = _fit_summary(obj)
+    if fit_summary is not None:
+        edf_total = getattr(fit_summary, "edf_total", None)
+        if edf_total is not None:
+            return edf_total
+    fit_result = _fit_result(obj)
+    if fit_result is not None:
+        edf_total = getattr(fit_result, "edf", None)
+        if edf_total is not None:
+            return edf_total
+    return getattr(obj, "edf_", None)
+
+
+def _edf_by_term(obj: Any):
+    fit_summary = _fit_summary(obj)
+    if fit_summary is not None:
+        edf = getattr(fit_summary, "edf_by_term", None)
+        if edf is not None:
+            return edf
+    edf = getattr(obj, "_edf_by_term_fit_", None)
+    if edf is not None:
+        return edf
+    return getattr(obj, "edf_by_term_", None)
+
+
+def _trace_H(obj: Any):
+    fit_summary = _fit_summary(obj)
+    if fit_summary is not None:
+        trace_H = getattr(fit_summary, "trace_H", None)
+        if trace_H is not None:
+            return trace_H
+    fit_result = _fit_result(obj)
+    if fit_result is not None:
+        trace_H = getattr(fit_result, "trace_H", None)
+        if trace_H is not None:
+            return trace_H
+    return getattr(obj, "trace_H_", None)
+
+
+def _rss(obj: Any):
+    fit_summary = _fit_summary(obj)
+    if fit_summary is not None:
+        return getattr(fit_summary, "rss", None)
+    fit_result = _fit_result(obj)
+    if fit_result is not None:
+        return getattr(fit_result, "rss", None)
+    return getattr(obj, "rss_", None)
+
+
+def _deviance(obj: Any):
+    fit_summary = _fit_summary(obj)
+    if fit_summary is not None:
+        deviance = getattr(fit_summary, "deviance", None)
+        if deviance is not None:
+            return deviance
+    fit_result = _fit_result(obj)
+    if fit_result is not None:
+        deviance = getattr(fit_result, "deviance", None)
+        if deviance is not None:
+            return deviance
+    return getattr(obj, "deviance_", None)
+
+
+def _cov_bayes(obj: Any):
+    fit_summary = _fit_summary(obj)
+    if fit_summary is not None and getattr(fit_summary, "cov_bayes", None) is not None:
+        return fit_summary.cov_bayes
+    fit_result = _fit_result(obj)
+    if fit_result is not None and getattr(fit_result, "cov_bayes", None) is not None:
+        return fit_result.cov_bayes
+    return getattr(obj, "Vp_", None)
+
+
+def _cov_freq(obj: Any):
+    fit_summary = _fit_summary(obj)
+    if fit_summary is not None and getattr(fit_summary, "cov_freq", None) is not None:
+        return fit_summary.cov_freq
+    fit_result = _fit_result(obj)
+    if fit_result is not None and getattr(fit_result, "cov_freq", None) is not None:
+        return fit_result.cov_freq
+    return getattr(obj, "Vf_", None)
+
+
+def _cov_unconditional(obj: Any):
+    fit_result = _fit_result(obj)
+    if (
+        fit_result is not None
+        and getattr(fit_result, "cov_unconditional", None) is not None
+    ):
+        return fit_result.cov_unconditional
+    return getattr(obj, "Vc_", None)
+
+
+def _edf2(obj: Any):
+    fit_result = _fit_result(obj)
+    if fit_result is not None and getattr(fit_result, "edf2", None) is not None:
+        return fit_result.edf2
+    return getattr(obj, "edf2_", None)
+
+
+def _H_coef(obj: Any):
+    fit_result = _fit_result(obj)
+    if fit_result is not None and getattr(fit_result, "H_coef", None) is not None:
+        return fit_result.H_coef
+    return getattr(obj, "_H_coef", None)
+
+
+def _fitted_eta(obj: Any):
+    fit_result = _fit_result(obj)
+    if fit_result is not None and getattr(fit_result, "eta", None) is not None:
+        return fit_result.eta
+    return getattr(obj, "_fitted_eta", None)
+
+
+def _fitted_mu(obj: Any):
+    fit_result = _fit_result(obj)
+    if fit_result is not None and getattr(fit_result, "mu", None) is not None:
+        return fit_result.mu
+    return getattr(obj, "_fitted_mu", None)
+
+
+def _summary_R(obj: Any):
+    fit_state = _fit_state(obj)
+    if fit_state is None:
+        return getattr(obj, "_summary_R_", None)
+    X = getattr(fit_state, "X", None)
+    w = getattr(fit_state, "working_weights", None)
+    if X is None or w is None:
+        return getattr(obj, "_summary_R_", None)
+    X = np.asarray(X, dtype=np.float64)
+    w = np.asarray(w, dtype=np.float64).ravel()
+    if X.ndim != 2 or w.shape[0] != X.shape[0]:
+        return getattr(obj, "_summary_R_", None)
+    _, R_nat = qr(np.sqrt(np.clip(w, 0.0, None))[:, None] * X, mode="economic")
+    return R_nat
 
 
 def _coerce_feature_matrix(model: Any, X, *, none_is_training: bool = False):
     """Coerce user features to a 2D array; optional training-matrix default."""
     if none_is_training and X is None:
         return model.X_
-    if hasattr(model, "_coerce_feature_matrix"):
-        return model._coerce_feature_matrix(X)
-    X = np.asarray(X)
-    if X.ndim == 1:
-        X = X.reshape(-1, 1)
-    if X.ndim != 2:
-        raise ValueError("X must be a 2D feature matrix.")
-    return X
+    from .data import coerce_feature_matrix
+
+    return coerce_feature_matrix(model, X)
 
 # --- End of nampy/gam/_model_state.py ---
+
+# --- Start of nampy/gam/data.py ---
+"""Internal data coercion and formula prediction helpers for GAM models."""
+
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+
+
+def coerce_X(model, X, *, allow_missing_non_numeric: bool = False):
+    if isinstance(X, pd.DataFrame):
+        feature_names = list(X.columns)
+        X_np = dataframe_to_feature_matrix(
+            X,
+            allow_missing_non_numeric=allow_missing_non_numeric,
+        )
+    else:
+        X_np = np.asarray(X)
+        if X_np.ndim == 1:
+            X_np = X_np.reshape(-1, 1)
+        if X_np.ndim != 2:
+            raise ValueError("X must be a 2D array or DataFrame.")
+
+        feature_names = [f"x{i}" for i in range(X_np.shape[1])]
+        if X_np.dtype != object:
+            X_num = np.asarray(X_np, dtype=np.float64)
+            if not np.isfinite(X_num).all():
+                raise ValueError("X contains NaN or Inf")
+            X_np = X_num
+
+    return X_np, feature_names
+
+
+def coerce_feature_matrix(model, X):
+    X_np, _ = coerce_X(model, X)
+    if np.asarray(X_np).ndim != 2:
+        raise ValueError("X must be a 2D feature matrix.")
+    return X_np
+
+
+def coerce_optional_offset(offset, n_rows, *, name: str = "offset"):
+    if offset is None:
+        return None
+    out = np.asarray(offset, dtype=np.float64).ravel()
+    if out.shape != (int(n_rows),):
+        raise ValueError(f"{name} must have shape ({int(n_rows)},), got {out.shape}.")
+    if not np.isfinite(out).all():
+        raise ValueError(f"{name} contains NaN or Inf")
+    return out
+
+
+def combine_offsets(*offsets):
+    arrs = [np.asarray(o, dtype=np.float64) for o in offsets if o is not None]
+    if not arrs:
+        return None
+    out = np.zeros_like(arrs[0], dtype=np.float64)
+    for arr in arrs:
+        if arr.shape != out.shape:
+            raise ValueError(
+                f"Offset arrays must all have the same shape, got {out.shape} and {arr.shape}."
+            )
+        out = out + arr
+    return out
+
+
+def knots_for_feature(model, feature_name, *, knots=None):
+    knots = model.knots if knots is None else knots
+    if knots is None:
+        return None
+    if isinstance(knots, dict):
+        return knots.get(str(feature_name), None)
+    return knots
+
+
+def knots_for_features(model, feature_names, *, knots=None):
+    knots = model.knots if knots is None else knots
+    if knots is None:
+        return None
+    if isinstance(knots, dict):
+        vals = [knots.get(str(f), None) for f in feature_names]
+        return None if all(v is None for v in vals) else vals
+    return knots
+
+
+def dataframe_to_feature_matrix(
+    X_df: pd.DataFrame, *, allow_missing_non_numeric: bool = False
+):
+    non_numeric = [c for c in X_df.columns if not pd.api.types.is_numeric_dtype(X_df[c])]
+
+    if len(non_numeric) == 0:
+        X_np = X_df.to_numpy(dtype=np.float64)
+        if not np.isfinite(X_np).all():
+            raise ValueError("X contains NaN or Inf")
+        return X_np
+
+    for c in X_df.columns:
+        s = X_df[c]
+        if pd.api.types.is_numeric_dtype(s):
+            vals = np.asarray(s, dtype=np.float64)
+            if not np.isfinite(vals).all():
+                raise ValueError(f"Numeric column {c!r} contains NaN or Inf.")
+        elif s.isna().any() and not bool(allow_missing_non_numeric):
+            raise ValueError(
+                f"Non-numeric column {c!r} contains missing values, "
+                "which are not currently supported in fitting."
+            )
+
+    return X_df.to_numpy(dtype=object)
+
+
+def coerce_formula_predict_inputs(model, X):
+    from .specs.build import apply_formula_preprocess_to_new_data
+
+    if not model.formula_mode_:
+        X_np, feature_names = coerce_X(model, X)
+        return X_np, feature_names, None
+
+    if not isinstance(X, pd.DataFrame):
+        raise TypeError(
+            "Prediction for formula-based GAMs currently requires a pandas DataFrame."
+        )
+
+    X_work = apply_formula_preprocess_to_new_data(X, model.formula_preprocess_state_)
+    missing = [c for c in model.formula_used_columns_ if c not in X_work.columns]
+    if missing:
+        raise KeyError(f"Prediction data is missing formula columns: {missing}")
+
+    X_df = X_work[model.formula_used_columns_]
+    X_np, _ = coerce_X(model, X_df, allow_missing_non_numeric=True)
+
+    offset = None
+    if model.formula_offset_name_ is not None:
+        if model.formula_offset_name_ not in X_work.columns:
+            raise KeyError(
+                "Prediction data is missing formula offset column: "
+                f"{model.formula_offset_name_!r}"
+            )
+        if not pd.api.types.is_numeric_dtype(X_work[model.formula_offset_name_]):
+            raise NotImplementedError(
+                "Current formula-based prediction supports numeric offsets only. "
+                f"Offset column {model.formula_offset_name_!r} is non-numeric."
+            )
+        offset = X_work[model.formula_offset_name_].to_numpy(dtype=np.float64)
+
+    return X_np, list(X_df.columns), offset
+
+# --- End of nampy/gam/data.py ---
+
+# --- Start of nampy/gam/api/gam.py ---
+"""Stable public export for the user-facing :class:`~nampy.gam.model.api.GAM`."""
+
+from ..model.api import GAM
+
+__all__ = ["GAM"]
+
+# --- End of nampy/gam/api/gam.py ---
+
+# --- Start of nampy/gam/compiler/compile_model.py ---
+"""Compile declarative predictor specs into an engine-facing compiled model."""
+
+from __future__ import annotations
+
+from dataclasses import replace
+
+import numpy as np
+
+from ..constraints.identifiability import apply_global_side_conditions
+from .compile_predictors import compile_predictors
+from .structures import CompiledModel
+
+
+def compile_model(
+    X: np.ndarray,
+    feature_names: list[str],
+    predictor_specs,
+    *,
+    fit_intercept: bool,
+    apply_side_conditions: bool = True,
+    side_condition_tol: float = 1e-10,
+):
+    compiled_predictors = compile_predictors(
+        X=X,
+        feature_names=feature_names,
+        predictor_specs=predictor_specs,
+    )
+
+    reports = None
+    if apply_side_conditions:
+        adjusted = []
+        reports = []
+        for predictor in compiled_predictors:
+            predictor_adj, report = apply_global_side_conditions(
+                predictor,
+                fit_intercept=fit_intercept,
+                tol=side_condition_tol,
+                warn=True,
+            )
+            adjusted.append(predictor_adj)
+            reports.append(report)
+        compiled_predictors = adjusted
+
+    if len(compiled_predictors) == 1:
+        predictor = compiled_predictors[0]
+        compiled_model = CompiledModel(
+            predictors=(predictor,),
+            design_matrix=np.asarray(predictor.design_matrix, dtype=np.float64),
+            compiled_terms=tuple(predictor.compiled_terms),
+            compiled_penalties=tuple(predictor.compiled_penalties),
+            metadata=dict(getattr(predictor, "metadata", {}) or {}),
+            n_coef=int(predictor.n_coef),
+            n_smoothing_params=int(predictor.n_smoothing_params),
+            predictor_full_slices=(
+                slice(
+                    0,
+                    int(predictor.n_coef) + (1 if bool(predictor.has_intercept) else 0),
+                ),
+            ),
+            coef_reduced_to_full_idx=np.arange(int(predictor.n_coef), dtype=int)
+            + (1 if bool(predictor.has_intercept) else 0),
+            smoothing_override_modes=list(predictor.smoothing_override_modes or []),
+            smoothing_override_values=(
+                None
+                if predictor.smoothing_override_values is None
+                else np.asarray(
+                    predictor.smoothing_override_values, dtype=np.float64
+                ).copy()
+            ),
+            side_condition_reports=(
+                None if reports is None else tuple(dict(report) for report in reports)
+            ),
+        )
+        return compiled_model
+
+    global_terms = []
+    global_penalties = []
+    combined_blocks = []
+    combined_map = {}
+    override_modes = []
+    override_values = []
+    predictor_full_slices = []
+    reduced_to_full = []
+    coef_shift = 0
+    sp_shift = 0
+    full_shift = 0
+
+    for predictor in compiled_predictors:
+        combined_blocks.append(np.asarray(predictor.design_matrix, dtype=np.float64))
+
+        if bool(predictor.has_intercept):
+            reduced_to_full.extend(
+                list(
+                    np.arange(
+                        full_shift + 1,
+                        full_shift + 1 + int(predictor.n_coef),
+                        dtype=int,
+                    )
+                )
+            )
+            predictor_full_slices.append(
+                slice(full_shift, full_shift + int(predictor.n_coef) + 1)
+            )
+            full_shift += int(predictor.n_coef) + 1
+        else:
+            reduced_to_full.extend(
+                list(
+                    np.arange(full_shift, full_shift + int(predictor.n_coef), dtype=int)
+                )
+            )
+            predictor_full_slices.append(
+                slice(full_shift, full_shift + int(predictor.n_coef))
+            )
+            full_shift += int(predictor.n_coef)
+
+        for term in predictor.compiled_terms:
+            global_terms.append(
+                replace(
+                    term,
+                    coef_slice=slice(
+                        coef_shift + int(term.coef_slice.start),
+                        coef_shift + int(term.coef_slice.stop),
+                    ),
+                    smoothing_indices=[
+                        sp_shift + int(value)
+                        for value in getattr(term, "smoothing_indices", [])
+                    ],
+                    smoothing_ids=[
+                        f"{predictor.name}:{sid}" if sid is not None else None
+                        for sid in getattr(term, "smoothing_ids", [])
+                    ],
+                )
+            )
+        for penalty in predictor.compiled_penalties:
+            global_penalties.append(
+                replace(
+                    penalty,
+                    coef_slice=slice(
+                        coef_shift + int(penalty.coef_slice.start),
+                        coef_shift + int(penalty.coef_slice.stop),
+                    ),
+                    smoothing_index=sp_shift + int(penalty.smoothing_index),
+                    smoothing_id=(
+                        None
+                        if penalty.smoothing_id is None
+                        else f"{predictor.name}:{penalty.smoothing_id}"
+                    ),
+                )
+            )
+        for smoothing_id, indices in (
+            predictor.metadata.get("s_id_to_sp_indices", {}) or {}
+        ).items():
+            combined_map[f"{predictor.name}:{smoothing_id}"] = [
+                sp_shift + int(index) for index in indices
+            ]
+        override_modes.extend(list(predictor.smoothing_override_modes or []))
+        if predictor.smoothing_override_values is not None:
+            override_values.extend(
+                list(np.asarray(predictor.smoothing_override_values, dtype=np.float64))
+            )
+        coef_shift += int(predictor.n_coef)
+        sp_shift += int(predictor.n_smoothing_params)
+
+    compiled_model = CompiledModel(
+        predictors=tuple(compiled_predictors),
+        design_matrix=(
+            np.column_stack(combined_blocks)
+            if combined_blocks
+            else np.empty((X.shape[0], 0), dtype=np.float64)
+        ),
+        compiled_terms=tuple(global_terms),
+        compiled_penalties=tuple(global_penalties),
+        metadata={"s_id_to_sp_indices": combined_map},
+        n_coef=coef_shift,
+        n_smoothing_params=sp_shift,
+        predictor_full_slices=tuple(predictor_full_slices),
+        coef_reduced_to_full_idx=np.asarray(reduced_to_full, dtype=int),
+        smoothing_override_modes=list(override_modes),
+        smoothing_override_values=np.asarray(override_values, dtype=np.float64),
+        side_condition_reports=(
+            None if reports is None else tuple(dict(report) for report in reports)
+        ),
+    )
+    return compiled_model
+
+
+__all__ = ["compile_model"]
+
+# --- End of nampy/gam/compiler/compile_model.py ---
+
+# --- Start of nampy/gam/compiler/compile_predictors.py ---
+"""Compiler-owned predictor assembly from constructed terms."""
+
+from __future__ import annotations
+
+import numpy as np
+
+from ..penalties import (
+    default_penalty_id,
+    merge_smoothing_override,
+    normalize_penalty_spec,
+    penalty_id_for_local_index,
+)
+from ..specs import LinearPredictorSpec, PenaltyGroupSpec
+from .construct import construct_smooth
+from .factory import instantiate_predictor_terms
+from .linked_basis import attach_shared_basis_metadata
+from .structures import CompiledPenalty, CompiledPredictor, CompiledTerm
+
+
+def compile_predictors(
+    X: np.ndarray,
+    feature_names: list[str],
+    predictor_specs: list[LinearPredictorSpec],
+):
+    predictor_specs = attach_shared_basis_metadata(
+        predictor_specs, X=X, feature_names=feature_names
+    )
+    predictor_specs = instantiate_predictor_terms(predictor_specs)
+
+    designs = []
+    for pred_spec in predictor_specs:
+        pred_metadata = dict(getattr(pred_spec, "metadata", {}) or {})
+        raw_group_specs = pred_metadata.get("penalty_group_specs", []) or []
+        penalty_group_specs = {}
+        for spec in raw_group_specs:
+            if isinstance(spec, PenaltyGroupSpec):
+                group = PenaltyGroupSpec(
+                    smoothing_id=str(spec.smoothing_id),
+                    term_ids=list(spec.term_ids),
+                    labels=list(spec.labels),
+                    sp_count=spec.sp_count,
+                    sp_indices=list(spec.sp_indices),
+                )
+            else:
+                group = PenaltyGroupSpec(
+                    smoothing_id=str(spec["smoothing_id"]),
+                    term_ids=list(spec.get("term_ids", [])),
+                    labels=list(spec.get("labels", [])),
+                    sp_count=spec.get("sp_count"),
+                    sp_indices=list(spec.get("sp_indices", [])),
+                )
+            penalty_group_specs[group.smoothing_id] = group
+
+        term_blocks = []
+        penalty_blocks = []
+        design_blocks = []
+        smoothing_id_map = {}
+        smoothing_override_by_id = {}
+        start = 0
+
+        for term_like in pred_spec.terms:
+            smooth = construct_smooth(
+                term_like,
+                X=X,
+                feature_names=feature_names,
+                absorb_cons=True,
+                apply_by=True,
+                null_space_penalty=False,
+            )
+            base_term = smooth.compiled_term
+            B = np.asarray(base_term.basis_train, dtype=np.float64)
+            d = B.shape[1]
+            sl = slice(start, start + d)
+            term_meta = dict(base_term.metadata)
+            term_meta["constructor_metadata"] = dict(base_term.constructor_metadata)
+            term_blocks.append(
+                CompiledTerm(
+                    label=base_term.label,
+                    coef_slice=sl,
+                    basis_train=B,
+                    predict_fn=base_term.predict_fn,
+                    predict_coefficient_map=base_term.predict_coefficient_map,
+                    basis_transform=base_term.basis_transform,
+                    coefficient_maps=tuple(base_term.coefficient_maps),
+                    feature_info=base_term.feature_info,
+                    by_variable_info=base_term.by_variable_info,
+                    side_condition_policy=base_term.side_condition_policy,
+                    kept_columns=np.arange(d, dtype=int),
+                    deleted_columns=np.array([], dtype=int),
+                    smoothing_indices=[],
+                    smoothing_ids=[],
+                    n_penalties=0,
+                    term_type=str(base_term.term_type),
+                    basis_name=str(base_term.basis_name),
+                    term_id=base_term.term_id,
+                    smoothing_group_id=base_term.smoothing_group_id,
+                    penalty_specs=tuple(smooth.penalty_specs),
+                    constructor_metadata=dict(base_term.constructor_metadata),
+                    metadata=term_meta,
+                )
+            )
+            start += d
+
+        for term_index, tb in enumerate(term_blocks):
+            B = np.asarray(tb.basis_train, dtype=np.float64)
+            d = B.shape[1]
+            if d > 0:
+                design_blocks.append(B)
+
+            penalty_defs = [normalize_penalty_spec(p) for p in tb.penalty_specs]
+            raw_sid_counts: dict[str, int] = {}
+            for pdef in penalty_defs:
+                sid_raw = getattr(pdef, "smoothing_id", None)
+                if sid_raw is None:
+                    continue
+                sid_key = str(sid_raw)
+                raw_sid_counts[sid_key] = raw_sid_counts.get(sid_key, 0) + 1
+            term_smoothing_indices = []
+            term_smoothing_ids = []
+            for j, pdef in enumerate(penalty_defs):
+                P = np.asarray(pdef.matrix, dtype=np.float64)
+                sid = pdef.smoothing_id
+                if sid is None:
+                    if tb.smoothing_group_id is not None:
+                        sid = (
+                            str(tb.smoothing_group_id)
+                            if len(penalty_defs) <= 1
+                            else penalty_id_for_local_index(
+                                tb.smoothing_group_id, j, n_penalties=len(penalty_defs)
+                            )
+                        )
+                    else:
+                        sid = default_penalty_id(
+                            pred_name=pred_spec.name,
+                            term=tb,
+                            term_label=tb.label,
+                            coef_start=int(tb.coef_slice.start),
+                            local_penalty_index=j,
+                            n_penalties=len(penalty_defs),
+                        )
+                elif raw_sid_counts.get(str(sid), 0) > 1:
+                    sid = penalty_id_for_local_index(
+                        sid, j, n_penalties=len(penalty_defs)
+                    )
+                sid = str(sid)
+                if sid not in smoothing_id_map:
+                    smoothing_id_map[sid] = len(smoothing_id_map)
+                sp_idx = smoothing_id_map[sid]
+                smoothing_override_by_id[sid] = merge_smoothing_override(
+                    smoothing_override_by_id.get(sid, None),
+                    pdef.sp_mode,
+                    pdef.sp_value,
+                    smoothing_id=sid,
+                    label=tb.label,
+                )
+                penalty_blocks.append(
+                    CompiledPenalty(
+                        label=tb.label,
+                        coef_slice=tb.coef_slice,
+                        matrix=P,
+                        smoothing_index=sp_idx,
+                        term_index=term_index,
+                        smoothing_id=sid,
+                        kind=str(pdef.kind),
+                        rank=pdef.rank,
+                        null_space_dim=pdef.null_space_dim,
+                        is_null_space_penalty=bool(pdef.is_null_space_penalty),
+                        sp_mode=pdef.sp_mode,
+                        sp_value=pdef.sp_value,
+                        metadata=dict(pdef.metadata),
+                    )
+                )
+                term_smoothing_indices.append(sp_idx)
+                term_smoothing_ids.append(sid)
+
+            tb.smoothing_indices = term_smoothing_indices
+            tb.smoothing_ids = term_smoothing_ids
+            tb.n_penalties = len(penalty_defs)
+
+            group_id = (
+                None
+                if getattr(tb, "smoothing_group_id", None) is None
+                else str(tb.smoothing_group_id)
+            )
+            if group_id is not None:
+                group = penalty_group_specs.get(group_id)
+                if group is None:
+                    group = PenaltyGroupSpec(smoothing_id=group_id)
+                    penalty_group_specs[group_id] = group
+                if group.sp_count is None:
+                    group.sp_count = len(term_smoothing_indices)
+                elif group.sp_count != len(term_smoothing_indices):
+                    raise ValueError(
+                        f"Linked smoothing id {group_id!r} expects {group.sp_count} "
+                        f"smoothing parameters, got {len(term_smoothing_indices)}."
+                    )
+                if not group.sp_indices:
+                    group.sp_indices = list(term_smoothing_indices)
+                elif group.sp_indices != list(term_smoothing_indices):
+                    raise ValueError(
+                        f"Linked smoothing id {group_id!r} resolved to inconsistent "
+                        f"smoothing indices {group.sp_indices} and "
+                        f"{term_smoothing_indices}."
+                    )
+                if tb.term_id not in group.term_ids:
+                    group.term_ids.append(str(tb.term_id))
+                if tb.label not in group.labels:
+                    group.labels.append(str(tb.label))
+
+        matrix_train = (
+            np.column_stack(design_blocks)
+            if design_blocks
+            else np.empty((X.shape[0], 0), dtype=np.float64)
+        )
+        n_sp = len(smoothing_id_map)
+        override_modes = [None] * n_sp
+        override_values = np.full(n_sp, np.nan, dtype=np.float64)
+        for sid, spec in smoothing_override_by_id.items():
+            if spec is None:
+                continue
+            idx = smoothing_id_map[sid]
+            override_modes[idx] = spec["mode"]
+            if spec["mode"] == "fixed":
+                override_values[idx] = float(spec["value"])
+
+        term_index_map = {tb.term_id: i for i, tb in enumerate(term_blocks)}
+        pred_metadata["penalty_group_specs"] = list(penalty_group_specs.values())
+        pred_metadata["s_id_to_sp_indices"] = {
+            sid: list(group.sp_indices)
+            for sid, group in penalty_group_specs.items()
+            if group.sp_indices
+        }
+        designs.append(
+            CompiledPredictor(
+                name=pred_spec.name,
+                design_matrix=matrix_train,
+                compiled_terms=tuple(term_blocks),
+                compiled_penalties=tuple(penalty_blocks),
+                smoothing_parameter_map=smoothing_id_map,
+                has_intercept=bool(pred_spec.has_intercept),
+                term_index_map=term_index_map,
+                side_condition_Q=np.eye(start, dtype=np.float64),
+                n_coef=start,
+                n_smoothing_params=len(smoothing_id_map),
+                smoothing_override_modes=override_modes,
+                smoothing_override_values=override_values,
+                metadata=pred_metadata,
+            )
+        )
+    return designs
+
+
+__all__ = ["compile_predictors"]
+
+# --- End of nampy/gam/compiler/compile_predictors.py ---
+
+# --- Start of nampy/gam/compiler/construct.py ---
+"""Compiler-owned smoothCon-like construction."""
+
+from __future__ import annotations
+
+import copy
+from dataclasses import dataclass, field
+from typing import Any
+
+import numpy as np
+
+from ..constraints.absorption import absorb_explicit_constraints
+from ..penalties import normalize_penalty_spec
+from ..specs import TermSpec
+from .contracts import (
+    ByVariableInfo,
+    CoefficientMap,
+    TermFeatureInfo,
+    compatibility_constructor_metadata,
+    compose_coefficient_maps,
+    default_side_condition_policy,
+)
+from .factory import instantiate_term
+from .structures import CompiledTerm
+
+
+@dataclass(frozen=True)
+class ConstructedSmooth:
+    compiled_term: CompiledTerm
+    penalty_specs: tuple = field(default_factory=tuple)
+    fit_constraint_operator: np.ndarray | None = None
+    prediction_offset: np.ndarray | None = None
+    original_design_matrix: np.ndarray | None = None
+
+    def __getattr__(self, name: str):
+        return getattr(self.compiled_term, name)
+
+    @property
+    def n_coef(self) -> int:
+        return int(self.compiled_term.basis_train.shape[1])
+
+    @property
+    def basis_train(self) -> np.ndarray:
+        return np.asarray(self.compiled_term.basis_train, dtype=np.float64)
+
+    @property
+    def fit_coefficient_map(self) -> np.ndarray | None:
+        for cmap in self.compiled_term.coefficient_maps:
+            if cmap.reason == "local_constraint_absorption":
+                return np.asarray(cmap.matrix, dtype=np.float64)
+        return None
+
+    @property
+    def predict_coefficient_map(self) -> np.ndarray | None:
+        return compose_coefficient_maps(self.compiled_term.coefficient_maps)
+
+    @property
+    def transform_applied(self) -> bool:
+        return len(self.compiled_term.coefficient_maps) > 0
+
+    @property
+    def skip_centering(self) -> bool:
+        policy = self.compiled_term.side_condition_policy
+        return bool(policy is not None and policy.skip_centering)
+
+    def predict_matrix(self, X_new):
+        return self.compiled_term.predict_matrix(X_new)
+
+
+def build_term_matrix(term: ConstructedSmooth, X_new, return_offset=False):
+    Xp = term.predict_matrix(X_new)
+    if return_offset:
+        return Xp, term.prediction_offset
+    return Xp
+
+
+def _copy_penalty_defs(penalty_defs):
+    return [copy.copy(p) for p in penalty_defs]
+
+
+def _set_penalty_matrix_and_meta(pdef, P):
+    pdef.matrix = np.asarray(P, dtype=np.float64)
+    return normalize_penalty_spec(pdef)
+
+
+def _extract_runtime_state(runtime):
+    B = np.asarray(runtime.basis_train, dtype=np.float64)
+    if hasattr(runtime, "get_penalty_definitions"):
+        penalty_defs = list(runtime.get_penalty_definitions())
+    else:
+        penalty_defs = []
+    penalty_defs = _copy_penalty_defs(penalty_defs)
+    for pdef in penalty_defs:
+        _set_penalty_matrix_and_meta(pdef, np.asarray(pdef.matrix, dtype=np.float64))
+    return B, penalty_defs
+
+
+def _feature_info_from_runtime(runtime) -> TermFeatureInfo:
+    feature_names = tuple(str(v) for v in getattr(runtime, "_feature_names", ()) or ())
+    if len(feature_names) == 0 and getattr(runtime, "_feature_name", None) is not None:
+        feature_names = (str(runtime._feature_name),)
+
+    feature_indices = ()
+    if getattr(runtime, "_feature_indices", None) is not None:
+        feature_indices = tuple(int(v) for v in runtime._feature_indices)
+    elif getattr(runtime, "_feature_index", None) is not None:
+        feature_indices = (int(runtime._feature_index),)
+
+    metric_feature_indices = tuple(
+        int(v) for v in (getattr(runtime, "_metric_feature_indices", None) or ())
+    )
+    factor_feature_indices = tuple(
+        int(v) for v in (getattr(runtime, "_factor_feature_indices", None) or ())
+    )
+    return TermFeatureInfo(
+        feature_names=feature_names,
+        feature_indices=feature_indices,
+        metric_feature_indices=metric_feature_indices,
+        factor_feature_indices=factor_feature_indices,
+    )
+
+
+def construct_smooth(
+    term_like: TermSpec | Any,
+    X: np.ndarray,
+    feature_names: list[str],
+    *,
+    absorb_cons=True,
+    apply_by=True,
+    null_space_penalty=False,
+):
+    runtime = instantiate_term(term_like)
+    runtime.fit(X, feature_names)
+    B, penalty_defs = _extract_runtime_state(runtime)
+    runtime_transform_applied = bool(
+        getattr(
+            runtime,
+            "transform_applied",
+            getattr(runtime, "constraint_transform", None) is not None,
+        )
+    )
+    runtime_skip_centering = bool(
+        getattr(
+            runtime,
+            "skip_centering",
+            getattr(runtime, "constraints_absorbed", False),
+        )
+    )
+    fit_constraint = getattr(runtime, "fit_constraint_matrix", None)
+    predict_coefficient_map = getattr(runtime, "predict_coefficient_map", None)
+    prediction_offset = getattr(runtime, "prediction_offset", None)
+    _by_state = getattr(runtime, "_by_state", None)
+    by_variable_info = ByVariableInfo(
+        name=None if _by_state is None else _by_state.feature_name,
+        is_constant=None if _by_state is None else _by_state.is_constant,
+        handling="runtime" if getattr(runtime, "by", None) is not None else "none",
+    )
+    side_condition_policy = default_side_condition_policy(
+        term_type=str(getattr(runtime, "term_type", "smooth")),
+        runtime_skip_centering=runtime_skip_centering,
+        by_variable_info=by_variable_info,
+    )
+
+    raw_predict_n_coef = int(B.shape[1])
+    coefficient_maps: list[CoefficientMap] = []
+    predict_coefficient_map_arr = (
+        None
+        if predict_coefficient_map is None
+        else np.asarray(predict_coefficient_map, dtype=np.float64)
+    )
+
+    if absorb_cons and (not runtime_transform_applied) and fit_constraint is not None:
+        B, penalty_defs, T_fit, n_cons = absorb_explicit_constraints(
+            B,
+            _copy_penalty_defs(penalty_defs),
+            fit_constraint,
+        )
+        fit_coefficient_map = np.asarray(T_fit, dtype=np.float64)
+        coefficient_maps.append(
+            CoefficientMap(
+                source_space="raw_term_space",
+                target_space="local_fit_space",
+                matrix=fit_coefficient_map,
+                reason="local_constraint_absorption",
+            )
+        )
+        if predict_coefficient_map_arr is None:
+            predict_coefficient_map_arr = fit_coefficient_map.copy()
+        expected_shape = (int(raw_predict_n_coef), int(B.shape[1]))
+        if predict_coefficient_map_arr.shape != expected_shape:
+            raise ValueError(
+                f"Predict coefficient map for term {getattr(runtime, 'label', str(runtime))!r} "
+                f"has shape {predict_coefficient_map_arr.shape}, expected {expected_shape}."
+            )
+        constraint_absorption = "wrapper"
+        n_constraints_absorbed = int(n_cons)
+        predict_map_source = (
+            "runtime" if predict_coefficient_map is not None else "fit_coefficient_map"
+        )
+    else:
+        if predict_coefficient_map_arr is not None:
+            expected_shape = (int(raw_predict_n_coef), int(B.shape[1]))
+            if predict_coefficient_map_arr.shape != expected_shape:
+                raise ValueError(
+                    f"Predict coefficient map for term {getattr(runtime, 'label', str(runtime))!r} "
+                    f"has shape {predict_coefficient_map_arr.shape}, expected {expected_shape}."
+                )
+        constraint_absorption = "runtime" if runtime_transform_applied else "none"
+        n_constraints_absorbed = None
+        predict_map_source = (
+            "runtime" if predict_coefficient_map_arr is not None else "none"
+        )
+
+    if predict_coefficient_map_arr is not None and not any(
+        cmap.reason == "local_constraint_absorption" for cmap in coefficient_maps
+    ):
+        coefficient_maps.append(
+            CoefficientMap(
+                source_space="raw_term_space",
+                target_space="local_fit_space",
+                matrix=np.asarray(predict_coefficient_map_arr, dtype=np.float64),
+                reason="runtime_constraint_transform",
+            )
+        )
+
+    constructor_metadata = compatibility_constructor_metadata(
+        runtime_transform_applied=runtime_transform_applied,
+        side_condition_policy=side_condition_policy,
+        by_variable_info=by_variable_info,
+        constraint_kind=getattr(runtime, "constraint_kind", None),
+        constraint_absorption=constraint_absorption,
+        n_constraints_absorbed=n_constraints_absorbed,
+        predict_map_source=predict_map_source,
+    )
+
+    if null_space_penalty:
+        raise NotImplementedError(
+            "Generic smoothCon-level null-space penalty insertion is not enabled yet in this wrapper."
+        )
+
+    compiled_term = CompiledTerm(
+        label=str(getattr(runtime, "label", str(runtime))),
+        coef_slice=slice(0, int(B.shape[1])),
+        basis_train=np.asarray(B, dtype=np.float64),
+        predict_fn=getattr(runtime, "transform_new", None),
+        predict_coefficient_map=compose_coefficient_maps(tuple(coefficient_maps)),
+        basis_transform=np.eye(int(B.shape[1]), dtype=np.float64),
+        coefficient_maps=tuple(coefficient_maps),
+        feature_info=_feature_info_from_runtime(runtime),
+        by_variable_info=by_variable_info,
+        side_condition_policy=side_condition_policy,
+        kept_columns=np.arange(int(B.shape[1]), dtype=int),
+        deleted_columns=np.array([], dtype=int),
+        smoothing_indices=[],
+        smoothing_ids=[],
+        n_penalties=0,
+        term_type=str(getattr(runtime, "term_type", "smooth")),
+        basis_name=str(getattr(runtime, "basis_name", "unknown")),
+        term_id=str(getattr(runtime, "term_id", "")),
+        smoothing_group_id=(
+            None
+            if getattr(runtime, "smoothing_id", None) is None
+            else str(runtime.smoothing_id)
+        ),
+        penalty_specs=tuple(penalty_defs),
+        constructor_metadata=constructor_metadata,
+        metadata=dict(getattr(runtime, "metadata", {}) or {}),
+    )
+
+    return ConstructedSmooth(
+        compiled_term=compiled_term,
+        penalty_specs=tuple(penalty_defs),
+        fit_constraint_operator=(
+            None
+            if fit_constraint is None
+            else np.asarray(fit_constraint, dtype=np.float64)
+        ),
+        prediction_offset=(
+            None
+            if prediction_offset is None
+            else np.asarray(prediction_offset, dtype=np.float64)
+        ),
+        original_design_matrix=None,
+    )
+
+
+__all__ = ["ConstructedSmooth", "build_term_matrix", "construct_smooth"]
+
+# --- End of nampy/gam/compiler/construct.py ---
+
+# --- Start of nampy/gam/compiler/contracts.py ---
+"""Typed architecture contracts for GAM construction and compilation."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
+
+import numpy as np
+
+
+@dataclass(frozen=True)
+class CoefficientMap:
+    source_space: str
+    target_space: str
+    matrix: np.ndarray
+    reason: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ByVariableInfo:
+    name: str | None = None
+    is_constant: bool | None = None
+    handling: str = "none"
+
+    @property
+    def is_active(self) -> bool:
+        return self.name is not None
+
+
+@dataclass(frozen=True)
+class TermFeatureInfo:
+    feature_names: tuple[str, ...] = ()
+    feature_indices: tuple[int, ...] = ()
+    metric_feature_indices: tuple[int, ...] = ()
+    factor_feature_indices: tuple[int, ...] = ()
+
+
+@dataclass(frozen=True)
+class SideConditionPolicy:
+    skip_centering: bool = False
+    exempt_from_predictor_side_conditions: bool = False
+    exempt_from_predictor_centering: bool = False
+    exempt_from_dependency_pruning: bool = False
+    requires_penalty_aware_pruning: bool = True
+    allow_first_numeric_by_unpruned: bool = False
+
+
+def compose_coefficient_maps(
+    maps: tuple[CoefficientMap, ...] | list[CoefficientMap],
+) -> np.ndarray | None:
+    ordered = list(maps)
+    if len(ordered) == 0:
+        return None
+    result = np.asarray(ordered[0].matrix, dtype=np.float64)
+    for cmap in ordered[1:]:
+        result = result @ np.asarray(cmap.matrix, dtype=np.float64)
+    return np.asarray(result, dtype=np.float64)
+
+
+def compatibility_constructor_metadata(
+    *,
+    runtime_transform_applied: bool,
+    side_condition_policy: SideConditionPolicy,
+    by_variable_info: ByVariableInfo,
+    constraint_kind: str | None,
+    constraint_absorption: str,
+    n_constraints_absorbed: int | None,
+    predict_map_source: str,
+) -> dict[str, Any]:
+    return {
+        "runtime_transform_applied": bool(runtime_transform_applied),
+        "runtime_skip_centering": bool(side_condition_policy.skip_centering),
+        "runtime_constraint_kind": constraint_kind,
+        "runtime_by_name": by_variable_info.name,
+        "runtime_by_is_constant": by_variable_info.is_constant,
+        "by_handling": by_variable_info.handling,
+        "constraint_absorption": constraint_absorption,
+        "n_constraints_absorbed": n_constraints_absorbed,
+        "predict_map_source": predict_map_source,
+    }
+
+
+def default_side_condition_policy(
+    *,
+    term_type: str,
+    runtime_skip_centering: bool,
+    by_variable_info: ByVariableInfo,
+) -> SideConditionPolicy:
+    exempt = term_type in {"random_effect", "factor_smooth_fs", "factor_smooth_sz"}
+    return SideConditionPolicy(
+        skip_centering=bool(runtime_skip_centering),
+        exempt_from_predictor_side_conditions=exempt,
+        exempt_from_predictor_centering=exempt,
+        exempt_from_dependency_pruning=exempt,
+        requires_penalty_aware_pruning=True,
+        allow_first_numeric_by_unpruned=(
+            by_variable_info.is_active and not bool(by_variable_info.is_constant)
+        ),
+    )
+
+
+__all__ = [
+    "ByVariableInfo",
+    "CoefficientMap",
+    "SideConditionPolicy",
+    "TermFeatureInfo",
+    "compatibility_constructor_metadata",
+    "compose_coefficient_maps",
+    "default_side_condition_policy",
+]
+
+# --- End of nampy/gam/compiler/contracts.py ---
+
+# --- Start of nampy/gam/compiler/factory.py ---
+"""Compiler-owned term instantiation from declarative specs."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from ..smooths.categorical.factor_smooth import (
+    FSmoothInteractionTerm,
+    SZSmoothInteractionTerm,
+)
+from ..smooths.categorical.mrf import MarkovRandomFieldTerm
+from ..smooths.categorical.random_effect import RandomEffectTerm
+from ..smooths.registry import make_smooth_term
+from ..smooths.univariate.cubic_regression import SplineTerm1D
+from ..smooths.univariate.gp import GPSmoothTerm
+from ..smooths.univariate.pspline import PSplineTerm1D
+from ..specs import LinearPredictorSpec, PenaltyGroupSpec, TermSpec
+from ..specs.smooth import (
+    CubicRegressionSmoothSpec,
+    CubicShrinkageSmoothSpec,
+    CyclicCubicRegressionSmoothSpec,
+    FactorSmoothInteractionSpec,
+    GPSmoothSpec,
+    MarkovRandomFieldSmoothSpec,
+    PSplineSmoothSpec,
+    RandomEffectSmoothSpec,
+    SumToZeroFactorSmoothSpec,
+    TensorANOVASmoothSpec,
+    TensorInteractionSmoothSpec,
+    TensorProductSmoothSpec,
+    ThinPlateShrinkageSmoothSpec,
+    ThinPlateSmoothSpec,
+    tensor_basis_list,
+)
+from ..terms.linear import LinearTerm
+
+
+def _as_list_or_repeat(value: Any, n: int):
+    if isinstance(value, str):
+        return [value] * n
+    if isinstance(value, (list, tuple)):
+        out = list(value)
+        if len(out) != n:
+            raise ValueError(f"Expected length {n}, got {len(out)}.")
+        return out
+    return [value] * n
+
+
+def instantiate_term(term_like: TermSpec | Any):
+    if hasattr(term_like, "fit") and callable(term_like.fit):
+        return term_like
+
+    if not isinstance(term_like, TermSpec):
+        raise TypeError(
+            "instantiate_term expects TermSpec (or already-materialized runtime term)."
+        )
+
+    if term_like.kind == "parametric":
+        if len(term_like.features) != 1:
+            raise ValueError("Parametric TermSpec requires exactly one feature.")
+        return LinearTerm(
+            feature=term_like.features[0],
+            label=term_like.label,
+            term_id=term_like.term_id,
+            metadata=dict(term_like.metadata or {}),
+        )
+    if term_like.kind != "smooth":
+        raise TypeError(f"Unsupported TermSpec.kind={term_like.kind!r}")
+
+    features = list(term_like.features)
+    metadata = dict(term_like.metadata or {})
+    smooth_spec = term_like.smooth_spec
+    if smooth_spec is None:
+        raise ValueError(f"Smooth TermSpec {term_like.label!r} is missing smooth_spec.")
+    metadata["term_spec"] = {
+        "kind": term_like.kind,
+        "features": list(term_like.features),
+        "by_variable": term_like.by_variable,
+        "basis_options": smooth_spec.to_basis_options(),
+        "smoothing_id": term_like.smoothing_id,
+        "label": term_like.label,
+        "smooth_spec_type": type(smooth_spec).__name__,
+    }
+    by = term_like.by_variable
+    smoothing_id = term_like.smoothing_id
+    label = term_like.label
+
+    if isinstance(
+        smooth_spec,
+        (
+            CubicRegressionSmoothSpec,
+            CubicShrinkageSmoothSpec,
+            CyclicCubicRegressionSmoothSpec,
+        ),
+    ):
+        bs = str(smooth_spec.bs).lower()
+        if len(features) != 1:
+            raise NotImplementedError(
+                f"Current runtime only materializes 1D s(..., bs={bs!r}) terms."
+            )
+        return SplineTerm1D(
+            feature=features[0],
+            k=smooth_spec.k,
+            basis=bs,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            fixed=smooth_spec.fx,
+            constraint_mode=smooth_spec.constraint_mode,
+            shared_basis_setup=smooth_spec.shared_basis_setup,
+            pc=smooth_spec.pc,
+            knots=smooth_spec.knots,
+            metadata=metadata,
+        )
+
+    if isinstance(smooth_spec, PSplineSmoothSpec):
+        if len(features) != 1:
+            raise NotImplementedError(
+                "Current runtime only materializes 1D s(..., bs='ps') terms."
+            )
+        return PSplineTerm1D(
+            feature=features[0],
+            k=smooth_spec.k,
+            basis="ps",
+            m=smooth_spec.m,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            fixed=smooth_spec.fx,
+            constraint_mode=smooth_spec.constraint_mode,
+            pc=smooth_spec.pc,
+            knots=smooth_spec.knots,
+            metadata=metadata,
+        )
+
+    if isinstance(smooth_spec, (ThinPlateSmoothSpec, ThinPlateShrinkageSmoothSpec)):
+        return make_smooth_term(
+            str(smooth_spec.bs).lower(),
+            feature=features,
+            k=smooth_spec.k,
+            basis=str(smooth_spec.bs).lower(),
+            m=smooth_spec.m,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            fixed=smooth_spec.fx,
+            constraint_mode=smooth_spec.constraint_mode,
+            pc=smooth_spec.pc,
+            knots=smooth_spec.knots,
+            xt=smooth_spec.xt,
+            metadata=metadata,
+        )
+
+    if isinstance(smooth_spec, GPSmoothSpec):
+        return GPSmoothTerm(
+            feature=features,
+            k=smooth_spec.k,
+            basis="gp",
+            m=smooth_spec.m,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            fixed=smooth_spec.fx,
+            constraint_mode=smooth_spec.constraint_mode,
+            pc=smooth_spec.pc,
+            knots=smooth_spec.knots,
+            xt=smooth_spec.xt,
+            metadata=metadata,
+        )
+
+    if isinstance(smooth_spec, MarkovRandomFieldSmoothSpec):
+        return MarkovRandomFieldTerm(
+            feature=features,
+            k=smooth_spec.k,
+            basis="mrf",
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            xt=smooth_spec.xt,
+            knots=smooth_spec.knots,
+            metadata=metadata,
+        )
+
+    if isinstance(smooth_spec, RandomEffectSmoothSpec):
+        return RandomEffectTerm(
+            feature=features,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            xt=smooth_spec.xt,
+            metadata=metadata,
+        )
+
+    if isinstance(smooth_spec, FactorSmoothInteractionSpec):
+        return FSmoothInteractionTerm(
+            feature=features,
+            k=smooth_spec.k,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            xt=smooth_spec.xt,
+            fixed=smooth_spec.fx,
+            knots=smooth_spec.knots,
+            metadata=metadata,
+        )
+
+    if isinstance(smooth_spec, SumToZeroFactorSmoothSpec):
+        return SZSmoothInteractionTerm(
+            feature=features,
+            k=smooth_spec.k,
+            label=label,
+            term_id=term_like.term_id,
+            smoothing_id=smoothing_id,
+            by=by,
+            sp=smooth_spec.sp,
+            select=smooth_spec.select,
+            xt=smooth_spec.xt,
+            fixed=smooth_spec.fx,
+            knots=smooth_spec.knots,
+            metadata=metadata,
+        )
+
+    if isinstance(
+        smooth_spec,
+        (TensorProductSmoothSpec, TensorInteractionSmoothSpec, TensorANOVASmoothSpec),
+    ):
+        basis = [str(b).lower() for b in tensor_basis_list(smooth_spec, len(features))]
+        kwargs = {
+            "feature": features,
+            "k": smooth_spec.k,
+            "basis": basis,
+            "label": label,
+            "term_id": term_like.term_id,
+            "smoothing_id": smoothing_id,
+            "by": by,
+            "sp": smooth_spec.sp,
+            "select": smooth_spec.select,
+            "fixed": smooth_spec.fx,
+            "knots": smooth_spec.knots,
+            "metadata": metadata,
+        }
+
+        if isinstance(smooth_spec, TensorInteractionSmoothSpec):
+            kwargs["mc"] = smooth_spec.mc
+        elif isinstance(smooth_spec, TensorANOVASmoothSpec):
+            kwargs["full"] = smooth_spec.full
+            kwargs["ord"] = smooth_spec.ord
+
+        return make_smooth_term(smooth_spec.special, **kwargs)
+
+    raise ValueError(f"Unknown smooth spec type {type(smooth_spec).__name__!r}.")
+
+
+def _expected_penalty_group_size(runtime_term):
+    smoothing_id = getattr(runtime_term, "smoothing_id", None)
+    if smoothing_id is None:
+        return None
+
+    if bool(getattr(runtime_term, "fixed", False)):
+        return 0
+
+    term_type = str(getattr(runtime_term, "term_type", "smooth"))
+    if term_type in {"tensor_smooth", "tensor_interaction"}:
+        n_penalties = len(list(getattr(runtime_term, "feature", ()) or ()))
+    else:
+        n_penalties = 1
+
+    if bool(getattr(runtime_term, "select", False)):
+        n_penalties += 1
+
+    return int(n_penalties)
+
+
+def _build_penalty_group_specs(terms):
+    groups = {}
+    for term in terms:
+        smoothing_id = getattr(term, "smoothing_id", None)
+        if smoothing_id is None:
+            continue
+
+        key = str(smoothing_id)
+        expected_count = _expected_penalty_group_size(term)
+        if key not in groups:
+            groups[key] = PenaltyGroupSpec(
+                smoothing_id=key,
+                term_ids=(
+                    []
+                    if getattr(term, "term_id", None) is None
+                    else [str(term.term_id)]
+                ),
+                labels=[str(getattr(term, "label", key))],
+                sp_count=expected_count,
+            )
+            continue
+
+        group = groups[key]
+        if getattr(term, "term_id", None) is not None:
+            group.term_ids.append(str(term.term_id))
+        group.labels.append(str(getattr(term, "label", key)))
+        if (
+            group.sp_count is not None
+            and expected_count is not None
+            and group.sp_count != expected_count
+        ):
+            raise ValueError(
+                f"Linked smoothing id {key!r} expects {group.sp_count} smoothing "
+                f"parameters from earlier terms, got {expected_count}."
+            )
+        if group.sp_count is None:
+            group.sp_count = expected_count
+
+    return list(groups.values())
+
+
+def instantiate_predictor_terms(predictor_specs):
+    out = []
+    for pred in predictor_specs:
+        for t in pred.terms:
+            if not isinstance(t, TermSpec):
+                raise TypeError(
+                    f"Predictor terms must be canonical TermSpec, got {type(t)}."
+                )
+        runtime_terms = [instantiate_term(t) for t in pred.terms]
+        metadata = dict(pred.metadata)
+        metadata["penalty_group_specs"] = _build_penalty_group_specs(runtime_terms)
+        out.append(
+            LinearPredictorSpec(
+                name=pred.name,
+                terms=runtime_terms,
+                has_intercept=bool(getattr(pred, "has_intercept", False)),
+                parameter_name=pred.parameter_name,
+                offset_name=pred.offset_name,
+                metadata=metadata,
+            )
+        )
+    return out
+
+
+__all__ = [
+    "instantiate_term",
+    "instantiate_predictor_terms",
+]
+
+# --- End of nampy/gam/compiler/factory.py ---
+
+# --- Start of nampy/gam/compiler/linked_basis.py ---
+import warnings
+from dataclasses import replace
+
+import numpy as np
+
+from ...splines.cubic import CubicSplines
+from ..specs import LinearPredictorSpec, TermSpec, replace_smooth_spec
+from ..specs.smooth import CubicRegressionSmoothSpec, CubicShrinkageSmoothSpec
+
+
+def _resolve_feature_column(X, feature_names, feature):
+    feature = str(feature)
+    if feature not in feature_names:
+        raise KeyError(
+            f"Feature {feature!r} not found in feature_names={feature_names}."
+        )
+    idx = feature_names.index(feature)
+    return np.asarray(X[:, idx], dtype=np.float64).ravel()
+
+
+def _eligible_id_pool_term(term):
+    if not isinstance(term, TermSpec):
+        return False
+    if term.kind != "smooth":
+        return False
+    return (
+        term.smoothing_id is not None
+        and term.smooth_spec is not None
+        and str(term.smooth_spec.special) == "s"
+        and len(term.features) == 1
+        and isinstance(
+            term.smooth_spec,
+            (CubicRegressionSmoothSpec, CubicShrinkageSmoothSpec),
+        )
+    )
+
+
+def attach_shared_basis_metadata(predictor_specs, X, feature_names):
+    X = np.asarray(X)
+    feature_names = list(feature_names)
+
+    all_by_id = {}
+    eligible_by_id = {}
+
+    for pi, pred in enumerate(predictor_specs):
+        for ti, term in enumerate(pred.terms):
+            if (
+                isinstance(term, TermSpec)
+                and term.kind == "smooth"
+                and term.smoothing_id is not None
+            ):
+                key = str(term.smoothing_id)
+                all_by_id.setdefault(key, []).append((pi, ti, term))
+
+                if _eligible_id_pool_term(term):
+                    eligible_by_id.setdefault(key, []).append((pi, ti, term))
+
+    replacements = {}
+
+    for id_key, eligible_items in eligible_by_id.items():
+        all_items = all_by_id.get(id_key, [])
+        if len(all_items) > 1 and len(all_items) != len(eligible_items):
+            unsupported = [term.label for _, _, term in all_items]
+            raise NotImplementedError(
+                f"Linked id={id_key!r} currently requires full mgcv-parity support "
+                f"across every linked term. NAMpy's old partial pooling subset for "
+                f"compatible 1D cubic `s()` terms was removed. Terms: {unsupported}"
+            )
+        if len(eligible_items) < 2:
+            continue
+
+        first_term = eligible_items[0][2]
+        if first_term.smooth_spec is None:
+            raise ValueError(
+                f"Smooth term {first_term.label!r} is missing smooth_spec."
+            )
+        first_fx = bool(first_term.smooth_spec.fx)
+
+        fx_incompatible = []
+        for _pi, _ti, term in eligible_items:
+            if term.smooth_spec is None:
+                raise ValueError(f"Smooth term {term.label!r} is missing smooth_spec.")
+            if bool(term.smooth_spec.fx) != first_fx:
+                fx_incompatible.append(
+                    f"{term.label!r} has fx={term.smooth_spec.fx}, expected fx={first_fx}"
+                )
+        if fx_incompatible:
+            raise NotImplementedError(
+                f"Linked id={id_key!r}: all terms must have the same fx value. "
+                f"Problems: {fx_incompatible}"
+            )
+
+        all_k = [
+            int(term.smooth_spec.k) for _, _, term in eligible_items if term.smooth_spec
+        ]
+        canonical_k = all_k[0]
+        if len(set(all_k)) > 1:
+            warnings.warn(
+                f"Linked id={id_key!r}: terms have differing k values "
+                f"{sorted(set(all_k))}; harmonizing all to k={canonical_k} "
+                f"(first term's k), matching mgcv behaviour.",
+                stacklevel=2,
+            )
+
+        pooled_columns = []
+        for _pi, _ti, term in eligible_items:
+            x_col = _resolve_feature_column(X, feature_names, term.features[0])
+            pooled_columns.append(x_col)
+
+        if len(pooled_columns) < 2:
+            continue
+
+        pooled_x = np.concatenate(pooled_columns)
+        pooled_spl = CubicSplines(pooled_x, canonical_k)
+        shared_setup = {
+            "mode": "pooled_cr_1d",
+            "id": id_key,
+            "k": canonical_k,
+            "fx": first_fx,
+            "n_linked_terms": len(eligible_items),
+            "features": [term.features[0] for _, _, term in eligible_items],
+            "pooled_knots": pooled_spl.knots.tolist(),
+            "pooled_raw_penalty": pooled_spl.raw_penalty.tolist(),
+            "pooled_center_mat": pooled_spl.center_mat.tolist(),
+            "pooled_penalty": pooled_spl.penalty.tolist(),
+        }
+
+        for pi, ti, term in eligible_items:
+            if term.smooth_spec is None:
+                raise ValueError(f"Smooth term {term.label!r} is missing smooth_spec.")
+            replacements[(pi, ti)] = replace(
+                term,
+                smooth_spec=replace_smooth_spec(
+                    term.smooth_spec,
+                    k=canonical_k,
+                    shared_basis_setup=shared_setup,
+                ),
+            )
+
+    out_specs = []
+    for pi, pred in enumerate(predictor_specs):
+        new_terms = []
+        for ti, term in enumerate(pred.terms):
+            new_terms.append(replacements.get((pi, ti), term))
+
+        out_specs.append(
+            LinearPredictorSpec(
+                name=pred.name,
+                terms=new_terms,
+                has_intercept=bool(getattr(pred, "has_intercept", False)),
+                parameter_name=pred.parameter_name,
+                offset_name=pred.offset_name,
+                metadata=dict(pred.metadata),
+            )
+        )
+
+    return out_specs
+
+
+__all__ = ["attach_shared_basis_metadata"]
+
+# --- End of nampy/gam/compiler/linked_basis.py ---
+
+# --- Start of nampy/gam/compiler/structures.py ---
+"""Stable compiled-model contracts bridging specs, engine, and prediction."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Callable
+
+import numpy as np
+
+from .contracts import (
+    ByVariableInfo,
+    CoefficientMap,
+    SideConditionPolicy,
+    TermFeatureInfo,
+)
+
+
+@dataclass
+class PenaltySpec:
+    matrix: np.ndarray
+    smoothing_id: str | None = None
+    kind: str = "smooth"
+    rank: int | None = None
+    null_space_dim: int | None = None
+    is_null_space_penalty: bool = False
+    sp_mode: str | None = None
+    sp_value: float | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class CompiledPenalty:
+    label: str
+    coef_slice: slice
+    matrix: np.ndarray
+    smoothing_index: int
+    term_index: int = -1
+    smoothing_id: str | None = None
+    kind: str = "smooth"
+    rank: int | None = None
+    null_space_dim: int | None = None
+    is_null_space_penalty: bool = False
+    sp_mode: str | None = None
+    sp_value: float | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class CompiledTerm:
+    label: str
+    coef_slice: slice
+    basis_train: np.ndarray
+    predict_fn: Callable[..., np.ndarray] | None = field(
+        default=None, repr=False, compare=False
+    )
+    predict_coefficient_map: np.ndarray | None = field(
+        default=None, repr=False, compare=False
+    )
+    basis_transform: np.ndarray | None = None
+    coefficient_maps: tuple[CoefficientMap, ...] = field(default_factory=tuple)
+    feature_info: TermFeatureInfo = field(default_factory=TermFeatureInfo)
+    by_variable_info: ByVariableInfo = field(default_factory=ByVariableInfo)
+    side_condition_policy: SideConditionPolicy = field(
+        default_factory=SideConditionPolicy
+    )
+    kept_columns: np.ndarray | None = None
+    deleted_columns: np.ndarray | None = None
+    smoothing_indices: list[int] = field(default_factory=list)
+    smoothing_ids: list[str | None] = field(default_factory=list)
+    n_penalties: int = 0
+    term_type: str = "smooth"
+    basis_name: str = "unknown"
+    term_id: str = ""
+    smoothing_group_id: str | None = None
+    penalty_specs: tuple = field(default_factory=tuple)
+    constructor_metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def smoothing_id(self):
+        return self.smoothing_group_id
+
+    def predict_matrix(self, X_new):
+        if self.predict_fn is None:
+            raise RuntimeError(
+                f"Compiled term {self.label!r} has no prediction callback."
+            )
+        basis = np.asarray(self.predict_fn(X_new), dtype=np.float64)
+        if self.predict_coefficient_map is not None:
+            basis = basis @ np.asarray(self.predict_coefficient_map, dtype=np.float64)
+        if self.basis_transform is not None:
+            basis = basis @ np.asarray(self.basis_transform, dtype=np.float64)
+        if basis.ndim != 2:
+            raise ValueError(
+                f"Predict matrix for compiled term {self.label!r} must be 2D, got {basis.shape}."
+            )
+        expected_width = int(self.basis_train.shape[1])
+        if basis.shape[1] != expected_width:
+            raise ValueError(
+                f"Predict matrix for compiled term {self.label!r} has width {basis.shape[1]}, "
+                f"expected {expected_width}."
+            )
+        return basis
+
+
+@dataclass(frozen=True)
+class CompiledPredictor:
+    name: str
+    design_matrix: np.ndarray
+    compiled_terms: tuple
+    compiled_penalties: tuple
+    smoothing_parameter_map: dict[str, int]
+    n_coef: int
+    n_smoothing_params: int
+    has_intercept: bool = False
+    term_index_map: dict[str, int] = field(default_factory=dict)
+    side_condition_Q: np.ndarray | None = None
+    smoothing_override_modes: list[str | None] = field(default_factory=list)
+    smoothing_override_values: np.ndarray | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def build_new_matrix(self, X_new):
+        if len(self.compiled_terms) == 0:
+            return np.empty((len(X_new), 0), dtype=np.float64)
+
+        blocks = []
+        for term in self.compiled_terms:
+            blocks.append(np.asarray(term.predict_matrix(X_new), dtype=np.float64))
+
+        return np.column_stack(blocks)
+
+
+@dataclass(frozen=True)
+class CompiledModel:
+    predictors: tuple[CompiledPredictor, ...]
+    design_matrix: np.ndarray
+    compiled_terms: tuple[CompiledTerm, ...]
+    compiled_penalties: tuple[CompiledPenalty, ...]
+    metadata: dict[str, Any]
+    n_coef: int
+    n_smoothing_params: int
+    predictor_full_slices: tuple[slice, ...]
+    coef_reduced_to_full_idx: np.ndarray
+    smoothing_override_modes: list[str | None] = field(default_factory=list)
+    smoothing_override_values: np.ndarray | None = None
+    side_condition_reports: tuple[dict[str, Any], ...] | None = None
+
+    def build_new_matrix(self, X_new):
+        if len(self.predictors) == 0:
+            return np.empty((len(X_new), 0), dtype=np.float64)
+
+        blocks = [
+            np.asarray(pred.build_new_matrix(X_new), dtype=np.float64)
+            for pred in self.predictors
+        ]
+        return (
+            np.column_stack(blocks)
+            if blocks
+            else np.empty((len(X_new), 0), dtype=np.float64)
+        )
+
+
+__all__ = [
+    "PenaltySpec",
+    "CompiledPenalty",
+    "CompiledPredictor",
+    "CompiledTerm",
+    "CompiledModel",
+]
+
+# --- End of nampy/gam/compiler/structures.py ---
+
+# --- Start of nampy/gam/engine/state.py ---
+"""Transient engine state and penalized-system contracts."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import numpy as np
+
+
+@dataclass(frozen=True)
+class PenalizedSystem:
+    X: np.ndarray | None = None
+    A: np.ndarray | None = None
+    XtWX: np.ndarray | None = None
+    P: np.ndarray | None = None
+    penalty_matrix: np.ndarray | None = None
+    offset: np.ndarray | None = None
+    log_det_XtWX_plus_penalty: float | None = None
+    penalized_system_rank: int | None = None
+    dropped_column_indices: np.ndarray | None = None
+
+
+@dataclass(frozen=True)
+class FitState:
+    X: np.ndarray | None = None
+    A: np.ndarray | None = None
+    A_inv: np.ndarray | None = None
+    XtWX: np.ndarray | None = None
+    P: np.ndarray | None = None
+    penalty_matrix: np.ndarray | None = None
+    working_weights: np.ndarray | None = None
+    fisher_weights: np.ndarray | None = None
+    working_response: np.ndarray | None = None
+    offset: np.ndarray | None = None
+    log_det_XtWX_plus_penalty: float | None = None
+    penalized_system_rank: int | None = None
+    dropped_column_indices: np.ndarray | None = None
+    scale: float | None = None
+
+    def to_penalized_system(self) -> PenalizedSystem:
+        return PenalizedSystem(
+            X=self.X,
+            A=self.A,
+            XtWX=self.XtWX,
+            P=self.P,
+            penalty_matrix=self.penalty_matrix,
+            offset=self.offset,
+            log_det_XtWX_plus_penalty=self.log_det_XtWX_plus_penalty,
+            penalized_system_rank=self.penalized_system_rank,
+            dropped_column_indices=self.dropped_column_indices,
+        )
+
+
+__all__ = ["PenalizedSystem", "FitState"]
+
+# --- End of nampy/gam/engine/state.py ---
+
+# --- Start of nampy/gam/formula/parse.py ---
+"""
+Typed formula parsing for GAM model specifications.
+
+This stage mirrors the syntax-only portion of mgcv's interpret.gam handling:
+formula text/list -> parsed formula AST, without defaults, data attachment, or
+runtime/spec construction.
+"""
+
+import ast
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass
+class ParsedParametricTerm:
+    variables: tuple[str, ...]
+    raw_label: str
+
+
+@dataclass
+class ParsedSmoothTerm:
+    kind: str
+    features: list[str]
+    kwargs: dict[str, Any] = field(default_factory=dict)
+    raw_label: str = ""
+
+
+@dataclass
+class ParsedPredictorFormula:
+    response_name: str | None
+    intercept: bool
+    terms: list[Any]
+    offset_name: str | None = None
+    raw_formula: str = ""
+
+
+@dataclass
+class ParsedGAMFormula:
+    response_name: str | None
+    predictors: list[ParsedPredictorFormula]
+    raw: Any = None
+
+
+def _contains_standalone_dot(rhs: str) -> bool:
+    import re
+
+    return re.search(r"(^|[~+\-(),\s])\.([~+\-(),\s]|$)", rhs) is not None
+
+
+def _call_name(node):
+    if isinstance(node, ast.Name):
+        return node.id
+    return None
+
+
+def _source_segment(src: str, node, default: str):
+    try:
+        out = ast.get_source_segment(src, node)
+        return out if out is not None else default
+    except Exception:
+        return default
+
+
+def _ast_to_value(node):
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Constant):
+        return node.value
+    if isinstance(node, ast.Tuple):
+        return tuple(_ast_to_value(elt) for elt in node.elts)
+    if isinstance(node, ast.List):
+        return [_ast_to_value(elt) for elt in node.elts]
+    if isinstance(node, ast.Dict):
+        return {
+            _ast_to_value(k): _ast_to_value(v) for k, v in zip(node.keys, node.values)
+        }
+    if isinstance(node, ast.Call):
+        func_name = _call_name(node.func)
+        if func_name == "list":
+            if len(node.args) != 0:
+                raise NotImplementedError(
+                    "positional arguments to list(...) are not supported in formulas."
+                )
+            return {kw.arg: _ast_to_value(kw.value) for kw in node.keywords}
+        if func_name == "c":
+            if node.keywords:
+                raise NotImplementedError(
+                    "keyword arguments to c(...) are not supported."
+                )
+            return [_ast_to_value(arg) for arg in node.args]
+        raise NotImplementedError(
+            f"Unsupported formula value expression: {ast.dump(node, include_attributes=False)}"
+        )
+    if isinstance(node, ast.Set):
+        out = {}
+        for elt in node.elts:
+            if not (isinstance(elt, ast.BinOp) and isinstance(elt.op, ast.MatMult)):
+                raise NotImplementedError(
+                    "Unsupported set-shaped dictionary literal in formula."
+                )
+            key = _ast_to_value(elt.left)
+            value = _ast_to_value(elt.right)
+            out[key] = value
+        return out
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+        val = _ast_to_value(node.operand)
+        if isinstance(val, (int, float)):
+            return -val
+    raise NotImplementedError(
+        f"Unsupported formula value expression: {ast.dump(node, include_attributes=False)}"
+    )
+
+
+def _ast_to_feature_name(node):
+    val = _ast_to_value(node)
+    if isinstance(val, str):
+        return val
+    raise NotImplementedError(
+        "Smooth covariates must currently be bare variable names."
+    )
+
+
+def _flatten_additive_terms(node, sign=1):
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        return _flatten_additive_terms(node.left, sign=sign) + _flatten_additive_terms(
+            node.right, sign=sign
+        )
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Sub):
+        return _flatten_additive_terms(node.left, sign=sign) + _flatten_additive_terms(
+            node.right, sign=-sign
+        )
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+        return _flatten_additive_terms(node.operand, sign=-sign)
+    return [(sign, node)]
+
+
+def _parse_smooth_call(node, rhs_src: str):
+    kind = _call_name(node.func)
+    if kind not in {"s", "te", "ti", "t2"}:
+        raise ValueError(f"Unknown smooth special {kind!r}.")
+
+    features = [_ast_to_feature_name(arg) for arg in node.args]
+    kwargs = {}
+    for kw in node.keywords:
+        if kw.arg is None:
+            raise NotImplementedError(
+                "**kwargs style smooth specification is not supported."
+            )
+        kwargs[kw.arg] = _ast_to_value(kw.value)
+
+    raw_label = _source_segment(rhs_src, node, f"{kind}({', '.join(features)})")
+    return ParsedSmoothTerm(
+        kind=kind,
+        features=features,
+        kwargs=kwargs,
+        raw_label=raw_label,
+    )
+
+
+def _parse_offset_call(node):
+    if _call_name(node.func) != "offset":
+        raise ValueError("Expected an offset(...) call.")
+    if len(node.args) != 1 or len(node.keywords) != 0:
+        raise NotImplementedError(
+            "offset(...) currently supports exactly one bare variable name."
+        )
+    return _ast_to_feature_name(node.args[0])
+
+
+def _ordered_union(a, b):
+    out = []
+    for v in list(a) + list(b):
+        if v not in out:
+            out.append(v)
+    return tuple(out)
+
+
+def _parametric_termsets(node):
+    if isinstance(node, ast.Name):
+        return {(node.id,)}
+
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
+        left = _parametric_termsets(node.left)
+        right = _parametric_termsets(node.right)
+        out = set(left) | set(right)
+        for left_term in left:
+            for right_term in right:
+                out.add(_ordered_union(left_term, right_term))
+        return out
+
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.MatMult):
+        left = _parametric_termsets(node.left)
+        right = _parametric_termsets(node.right)
+        out = set()
+        for left_term in left:
+            for right_term in right:
+                out.add(_ordered_union(left_term, right_term))
+        return out
+
+    raise NotImplementedError(
+        f"Unsupported parametric formula term: {ast.dump(node, include_attributes=False)}"
+    )
+
+
+def _parse_single_formula(formula: str) -> ParsedPredictorFormula:
+    if "~" not in formula:
+        response_name = None
+        rhs = formula.strip()
+    else:
+        lhs, rhs = formula.split("~", 1)
+        lhs = lhs.strip()
+        rhs = rhs.strip()
+        response_name = lhs if lhs != "" else None
+
+    if rhs == "":
+        rhs = "1"
+
+    if _contains_standalone_dot(rhs):
+        raise NotImplementedError("'.' is not supported in GAM formulas.")
+
+    rhs_ast = rhs.replace(":", "@")
+    expr = ast.parse(rhs_ast, mode="eval")
+    items = _flatten_additive_terms(expr.body)
+
+    intercept = True
+    offset_name = None
+    parsed_terms = []
+    seen_parametric = set()
+
+    for sign, node in items:
+        if isinstance(node, ast.Constant) and node.value in {0, 1}:
+            if node.value == 0:
+                intercept = False
+            elif node.value == 1 and sign < 0:
+                intercept = False
+            continue
+
+        if isinstance(node, ast.Call):
+            fname = _call_name(node.func)
+            if fname in {"s", "te", "ti", "t2"}:
+                if sign < 0:
+                    raise NotImplementedError(
+                        f"Removing smooth terms via '-' is not yet supported: {fname}(...)"
+                    )
+                parsed_terms.append(_parse_smooth_call(node, rhs))
+                continue
+
+            if fname == "offset":
+                if sign < 0:
+                    raise NotImplementedError(
+                        "Negative offset terms are not supported."
+                    )
+                off = _parse_offset_call(node)
+                if offset_name is not None and offset_name != off:
+                    raise NotImplementedError(
+                        "Only one offset(...) term is currently supported per predictor."
+                    )
+                offset_name = off
+                continue
+
+            raise NotImplementedError(f"Unsupported call in formula RHS: {fname}(...)")
+
+        try:
+            termsets = _parametric_termsets(node)
+        except NotImplementedError as err:
+            raise NotImplementedError(
+                f"Unsupported formula term: {ast.dump(node, include_attributes=False)}"
+            ) from err
+
+        if sign < 0:
+            raise NotImplementedError(
+                "Removing parametric terms via '-' is not yet supported."
+            )
+
+        for vars_ in sorted(termsets, key=lambda z: (len(z), z)):
+            if vars_ in seen_parametric:
+                continue
+            seen_parametric.add(vars_)
+            parsed_terms.append(
+                ParsedParametricTerm(
+                    variables=tuple(str(v) for v in vars_),
+                    raw_label=":".join(vars_),
+                )
+            )
+
+    return ParsedPredictorFormula(
+        response_name=response_name,
+        intercept=bool(intercept),
+        terms=parsed_terms,
+        offset_name=offset_name,
+        raw_formula=formula,
+    )
+
+
+def parse_gam_formula(formula) -> ParsedGAMFormula:
+    if isinstance(formula, str):
+        parsed = [_parse_single_formula(formula)]
+        response_name = parsed[0].response_name
+        return ParsedGAMFormula(
+            response_name=response_name,
+            predictors=parsed,
+            raw=formula,
+        )
+
+    if isinstance(formula, (list, tuple)):
+        if len(formula) == 0:
+            raise ValueError("Formula list must not be empty.")
+
+        parsed = [_parse_single_formula(f) for f in formula]
+
+        response_name = None
+        for pf in parsed:
+            if pf.response_name is not None:
+                if response_name is None:
+                    response_name = pf.response_name
+                elif pf.response_name != response_name:
+                    raise ValueError(
+                        f"All formulae must refer to the same response. "
+                        f"Got {response_name!r} and {pf.response_name!r}."
+                    )
+
+        return ParsedGAMFormula(
+            response_name=response_name,
+            predictors=parsed,
+            raw=formula,
+        )
+
+    raise TypeError("formula must be a string or a list/tuple of strings.")
+
+
+__all__ = [
+    "ParsedParametricTerm",
+    "ParsedSmoothTerm",
+    "ParsedPredictorFormula",
+    "ParsedGAMFormula",
+    "parse_gam_formula",
+]
+
+# --- End of nampy/gam/formula/parse.py ---
+
+# --- Start of nampy/gam/results/artifacts.py ---
+"""Canonical post-fit artifacts shared by prediction, diagnostics, and results."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+from ..compiler.structures import CompiledModel
+from .fit_result import GAMFitResult
+
+if TYPE_CHECKING:
+    from ..fit.state import FitCoreSolution
+
+
+@dataclass(frozen=True)
+class GAMResult:
+    compiled_model: CompiledModel
+    fit_core_solution: FitCoreSolution
+    fit_summary: GAMFitResult
+
+
+__all__ = ["GAMResult"]
+
+# --- End of nampy/gam/results/artifacts.py ---
+
+# --- Start of nampy/gam/results/fit_result.py ---
+"""Stable fit-result structures consumed outside the numerical engine."""
+
+from dataclasses import dataclass, field
+from typing import Any
+
+import numpy as np
+
+
+@dataclass
+class TermFitResult:
+    label: str
+    term_type: str
+    basis_name: str
+    coef_slice: tuple[int, int]
+    n_coef: int
+    edf: float | None = None
+    smoothing_indices: list[int] = field(default_factory=list)
+    smoothing_ids: list[str | None] = field(default_factory=list)
+    smoothing_values: list[float] = field(default_factory=list)
+    deleted_columns: list[int] = field(default_factory=list)
+    kept_columns: list[int] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self):
+        return {
+            "label": self.label,
+            "term_type": self.term_type,
+            "basis_name": self.basis_name,
+            "coef_slice": list(self.coef_slice),
+            "n_coef": int(self.n_coef),
+            "edf": None if self.edf is None else float(self.edf),
+            "smoothing_indices": [int(i) for i in self.smoothing_indices],
+            "smoothing_ids": list(self.smoothing_ids),
+            "smoothing_values": [float(v) for v in self.smoothing_values],
+            "deleted_columns": [int(i) for i in self.deleted_columns],
+            "kept_columns": [int(i) for i in self.kept_columns],
+            "metadata": dict(self.metadata),
+        }
+
+
+@dataclass
+class GAMFitResult:
+    family_name: str
+    link_name: str
+    criterion_name: str | None
+    criterion_value: float | None
+    coef_full: np.ndarray
+    intercept: float
+    smoothing_params: np.ndarray
+    edf_total: float
+    edf_by_term: np.ndarray
+    trace_H: float
+    scale: float
+    rss: float | None
+    deviance: float
+    cov_bayes: np.ndarray | None = None
+    cov_freq: np.ndarray | None = None
+    side_condition_reports: list[dict[str, Any]] | None = None
+    term_results: list[TermFitResult] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self, include_covariances=False):
+        out = {
+            "family_name": self.family_name,
+            "link_name": self.link_name,
+            "criterion_name": self.criterion_name,
+            "criterion_value": (
+                None if self.criterion_value is None else float(self.criterion_value)
+            ),
+            "coef_full": np.asarray(self.coef_full, dtype=np.float64).tolist(),
+            "intercept": float(self.intercept),
+            "smoothing_params": np.asarray(
+                self.smoothing_params, dtype=np.float64
+            ).tolist(),
+            "edf_total": float(self.edf_total),
+            "edf_by_term": np.asarray(self.edf_by_term, dtype=np.float64).tolist(),
+            "trace_H": float(self.trace_H),
+            "scale": float(self.scale),
+            "rss": None if self.rss is None else float(self.rss),
+            "deviance": float(self.deviance),
+            "side_condition_reports": (
+                None
+                if self.side_condition_reports is None
+                else list(self.side_condition_reports)
+            ),
+            "term_results": [term.to_dict() for term in self.term_results],
+            "metadata": dict(self.metadata),
+        }
+
+        if include_covariances:
+            out["cov_bayes"] = (
+                None
+                if self.cov_bayes is None
+                else np.asarray(self.cov_bayes, dtype=np.float64).tolist()
+            )
+            out["cov_freq"] = (
+                None
+                if self.cov_freq is None
+                else np.asarray(self.cov_freq, dtype=np.float64).tolist()
+            )
+
+        return out
+
+
+__all__ = ["TermFitResult", "GAMFitResult"]
+
+# --- End of nampy/gam/results/fit_result.py ---
+
+# --- Start of nampy/gam/results/solution.py ---
+"""Stable fitted-output contract shared across fitting backends."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import numpy as np
+
+
+@dataclass(frozen=True)
+class FitResult:
+    coef_full: np.ndarray
+    intercept: float
+    beta: np.ndarray
+    eta: np.ndarray
+    mu: np.ndarray
+    rss: float | None
+    deviance: float
+    edf: float
+    trace_H: float
+    scale: float
+    cov_bayes: np.ndarray | None
+    cov_freq: np.ndarray | None
+    cov_unconditional: np.ndarray | None
+    H_coef: np.ndarray
+    edf2: np.ndarray | None = None
+    penalty_quadratic: float | None = None
+    loglik: float | None = None
+    converged: bool | None = None
+    iter: int | None = None
+    failed_step: bool | None = None
+    failure_reason: str | None = None
+    inner_trace: list | None = None
+
+
+__all__ = ["FitResult"]
+
+# --- End of nampy/gam/results/solution.py ---
+
+# --- Start of nampy/gam/smooths/algebra.py ---
+import numpy as np
+from scipy.linalg import eigh
+
+from .._mgcv_constants import EIG_TOL_POWER
+from ..penalties.algebra import penalty_eigendecomposition
+
+
+def rowwise_kronecker(matrices):
+    mats = [np.asarray(M, dtype=np.float64) for M in matrices]
+    if len(mats) == 0:
+        raise ValueError("matrices must contain at least one matrix.")
+    n = mats[0].shape[0]
+    for M in mats:
+        if M.ndim != 2 or M.shape[0] != n:
+            raise ValueError("All marginal model matrices must be 2D with equal rows.")
+    out = mats[0]
+    for M in mats[1:]:
+        out = np.einsum("ij,ik->ijk", out, M, optimize=True).reshape(
+            n, out.shape[1] * M.shape[1]
+        )
+    return out
+
+
+def _eigen_split(raw_basis, raw_penalty, tol=None, *, mode="range_null", rank=None):
+    X = np.asarray(raw_basis, dtype=np.float64)
+    S = np.asarray(raw_penalty, dtype=np.float64)
+
+    if tol is None:
+        tol = float(np.finfo(np.float64).eps ** EIG_TOL_POWER)
+
+    if mode == "range_null":
+        dec = penalty_eigendecomposition(S, tol=tol)
+        U0, U1, d_pos = dec["U0"], dec["U1"], dec["d_pos"]
+        if d_pos.size > 0:
+            T_r = U1 / np.sqrt(d_pos)[np.newaxis, :]
+            B_r = X @ T_r
+        else:
+            T_r = np.empty((S.shape[0], 0), dtype=np.float64)
+            B_r = np.empty((X.shape[0], 0), dtype=np.float64)
+        T_n = U0
+        B_n = (
+            X @ T_n if T_n.shape[1] > 0 else np.empty((X.shape[0], 0), dtype=np.float64)
+        )
+        return {
+            "B_range": B_r,
+            "B_null": B_n,
+            "T_range": T_r,
+            "T_null": T_n,
+            "range_dim": B_r.shape[1],
+            "null_dim": B_n.shape[1],
+            "rank": dec["rank"],
+            "null_space_dim": dec["null_space_dim"],
+            "tol_eff": dec["tol_eff"],
+        }
+
+    if mode != "t2":
+        raise ValueError(f"Unknown eigen split mode {mode!r}.")
+
+    p = int(X.shape[1])
+    # Match mgcv::nat.param(type=3), which uses R's `eigen(..., symmetric=TRUE)`.
+    # SciPy's LAPACK-backed `eigh` tracks that null-space basis choice much more
+    # closely than NumPy's wrapper on repeated-zero eigenspaces, and that basis
+    # feeds directly into t2 block construction.
+    evals, U = eigh(0.5 * (S + S.T), driver="evr")
+    idx = np.argsort(evals)[::-1]
+    evals, U = evals[idx], U[:, idx]
+
+    max_eval = float(np.max(evals)) if evals.size else 0.0
+    tol_eff = float(max_eval * tol)
+    if rank is None or int(rank) < 1 or int(rank) > p:
+        rank = int(np.sum(evals > tol_eff))
+    rank = int(rank)
+    null_exists = rank < p
+
+    E = np.ones(p, dtype=np.float64)
+    if rank > 0:
+        E[:rank] = np.sqrt(np.maximum(evals[:rank], 0.0))
+
+    Xp = X @ U
+    col_norm = np.sum(Xp**2, axis=0) / (E**2)
+    av_norm = float(np.mean(col_norm[:rank])) if rank > 0 else 1.0
+
+    if null_exists:
+        for i in range(rank, p):
+            if av_norm > 0.0 and col_norm[i] > 0.0:
+                E[i] = np.sqrt(col_norm[i] / av_norm)
+
+    P = U / E[np.newaxis, :]
+    Xp = Xp / E[np.newaxis, :]
+
+    if null_exists and rank < p - 1:
+        ind = list(range(rank, p))
+        rind = list(range(p - 1, rank - 1, -1))
+        Xn = Xp[:, ind].copy()
+        n = Xn.shape[0]
+        one = np.ones(n, dtype=np.float64)
+        Xn = Xn - (one[:, None] * (one[None, :] @ Xn)) / n
+        um_evals, um_vecs = eigh(Xn.T @ Xn, driver="evr")
+        desc = np.argsort(um_evals)[::-1]
+        um_vecs = um_vecs[:, desc]
+        Xp[:, rind] = Xp[:, ind] @ um_vecs
+        P[:, rind] = P[:, ind] @ um_vecs
+
+    if rank > 0:
+        pen_idx = list(range(rank))
+        scale = 1.0 / np.sqrt(float(np.mean(Xp[:, pen_idx] ** 2)))
+        Xp[:, pen_idx] *= scale
+        P[pen_idx, :] *= scale
+
+    if null_exists:
+        null_idx = list(range(rank, p))
+        scale_f = 1.0 / np.sqrt(float(np.mean(Xp[:, null_idx] ** 2)))
+        Xp[:, null_idx] *= scale_f
+        P[null_idx, :] *= scale_f
+
+    B_r = Xp[:, :rank] if rank > 0 else np.empty((X.shape[0], 0), dtype=np.float64)
+    B_n = Xp[:, rank:] if null_exists else np.empty((X.shape[0], 0), dtype=np.float64)
+    T_r = P[:, :rank] if rank > 0 else np.empty((p, 0), dtype=np.float64)
+    T_n = P[:, rank:] if null_exists else np.empty((p, 0), dtype=np.float64)
+
+    return {
+        "B_range": B_r,
+        "B_null": B_n,
+        "T_range": T_r,
+        "T_null": T_n,
+        "range_dim": int(B_r.shape[1]),
+        "null_dim": int(B_n.shape[1]),
+        "rank": rank,
+        "null_space_dim": int(p - rank),
+        "tol_eff": tol_eff,
+    }
+
+
+def marginal_range_null_decomposition(raw_basis, raw_penalty, tol=1e-10):
+    return _eigen_split(raw_basis, raw_penalty, tol=tol, mode="range_null")
+
+
+def t2_marginal_reparameterization(raw_basis, raw_penalty, tol=1e-10, *, knots=None):
+    del knots
+    return _eigen_split(raw_basis, raw_penalty, tol=tol, mode="t2")
+
+
+__all__ = [
+    "rowwise_kronecker",
+    "marginal_range_null_decomposition",
+    "t2_marginal_reparameterization",
+]
+
+# --- End of nampy/gam/smooths/algebra.py ---
 
 # --- Start of nampy/utils/distributional_metrics.py ---
 # utils/distributional_metrics.py

@@ -13,25 +13,89 @@ def orthogonal_residual(B, A):
     return B - A @ coef
 
 
+def dependent_column_indices(
+    B,
+    A=None,
+    *,
+    tol: float = 1e-10,
+    rank_def: int = 0,
+    strict: bool = False,
+):
+    """
+    Mirror mgcv/R/mgcv.r::fixDependence().
+
+    Returns 0-based column indices of ``B`` that should be deleted so that ``B``
+    is linearly independent of ``A``.
+    """
+    B = np.asarray(B, dtype=np.float64)
+    if B.ndim != 2:
+        raise ValueError("B must be a 2D matrix.")
+    if B.shape[1] == 0:
+        return np.array([], dtype=int)
+    if A is None:
+        A = np.empty((B.shape[0], 0), dtype=np.float64)
+    A = np.asarray(A, dtype=np.float64)
+    if A.ndim != 2:
+        raise ValueError("A must be a 2D matrix.")
+    if A.shape[0] != B.shape[0]:
+        raise ValueError("A and B must have the same row count.")
+    if A.shape[1] == 0:
+        return np.array([], dtype=int)
+
+    Q1, R1, _piv1 = scipy_qr(A, mode="full", pivoting=True)
+    R11 = float(abs(R1[0, 0])) if R1.size else 0.0
+    r = int(A.shape[1])
+    n = int(A.shape[0])
+
+    if strict:
+        QtX2 = Q1.T @ B
+        if r < n:
+            QtX2[r:, :] = 0.0
+        mdiff = np.mean(np.abs(B - Q1 @ QtX2), axis=0)
+        if rank_def > 0:
+            order = np.argsort(np.argsort(mdiff, kind="mergesort"), kind="mergesort")
+            deleted = np.flatnonzero(order < int(rank_def))
+        else:
+            deleted = np.flatnonzero(mdiff < R11 * float(tol))
+        return np.asarray(deleted, dtype=int)
+
+    QtX2 = (Q1.T @ B)[r:n, :]
+    if QtX2.size == 0:
+        return np.array([], dtype=int)
+
+    _Q2, R2, piv2 = scipy_qr(QtX2, mode="economic", pivoting=True)
+    R = np.asarray(R2, dtype=np.float64)
+    if R.size == 0:
+        return np.array([], dtype=int)
+
+    r_total = int(R.shape[0])
+    r0 = r_total
+    if 0 < int(rank_def) <= r_total:
+        r0 = r_total - int(rank_def)
+    else:
+        while r0 > 0:
+            block = R[r0 - 1 : r_total, r0 - 1 : r_total]
+            if np.mean(np.abs(block)) >= R11 * float(tol):
+                break
+            r0 -= 1
+    r0 += 1
+    if r0 > r_total:
+        return np.array([], dtype=int)
+    return np.asarray(piv2[r0 - 1 : r_total], dtype=int)
+
+
 def independent_column_indices(B, A=None, tol: float = 1e-10):
     B = np.asarray(B, dtype=np.float64)
     if B.ndim != 2:
         raise ValueError("B must be a 2D matrix.")
     if B.shape[1] == 0:
         return np.array([], dtype=int)
-    Rb = orthogonal_residual(B, A)
-    if np.all(np.abs(Rb) <= tol):
-        return np.array([], dtype=int)
-    _Q, R, piv = scipy_qr(Rb, mode="economic", pivoting=True)
-    diag_R = np.abs(np.diag(R))
-    if diag_R.size == 0:
-        return np.array([], dtype=int)
-    rank_tol = max(B.shape) * np.finfo(float).eps * diag_R[0]
-    tol_eff = max(float(tol), float(rank_tol))
-    rank = int(np.sum(diag_R > tol_eff))
-    if rank <= 0:
-        return np.array([], dtype=int)
-    return np.sort(np.asarray(piv[:rank], dtype=int))
+    deleted = dependent_column_indices(B, A=A, tol=tol)
+    if deleted.size == 0:
+        return np.arange(B.shape[1], dtype=int)
+    keep_mask = np.ones(B.shape[1], dtype=bool)
+    keep_mask[np.asarray(deleted, dtype=int)] = False
+    return np.flatnonzero(keep_mask).astype(int, copy=False)
 
 
 def null_space_basis_from_constraint_matrix(
@@ -98,13 +162,24 @@ def localized_null_space_basis_from_constraint_matrix(
         d=int(active_idx.size),
         tol=tol,
     )
+    n_keep_active = int(T_active.shape[1])
+    keep_active_idx = active_idx[:n_keep_active]
+    drop_active_idx = active_idx[n_keep_active:]
+    keep_idx = [
+        int(j) for j in range(C.shape[1]) if j not in set(drop_active_idx.tolist())
+    ]
+    col_pos = {int(j): int(i) for i, j in enumerate(keep_idx)}
 
-    out = np.zeros(
-        (C.shape[1], inactive_idx.size + T_active.shape[1]), dtype=np.float64
-    )
-    for col, src in enumerate(inactive_idx):
-        out[src, col] = 1.0
-    out[np.ix_(active_idx, np.arange(inactive_idx.size, out.shape[1]))] = T_active
+    out = np.zeros((C.shape[1], len(keep_idx)), dtype=np.float64)
+    for src in inactive_idx:
+        out[int(src), col_pos[int(src)]] = 1.0
+    if n_keep_active > 0:
+        out[
+            np.ix_(
+                active_idx,
+                np.asarray([col_pos[int(j)] for j in keep_active_idx], dtype=int),
+            )
+        ] = T_active
     return out, rank
 
 
@@ -121,6 +196,7 @@ def apply_coefficient_transform(B, penalties, T):
 
 
 __all__ = [
+    "dependent_column_indices",
     "orthogonal_residual",
     "independent_column_indices",
     "null_space_basis_from_constraint_matrix",

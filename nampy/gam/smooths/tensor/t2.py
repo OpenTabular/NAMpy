@@ -12,30 +12,23 @@ import warnings
 
 import numpy as np
 
-from ...basis.tensor import (
-    build_t2_basis_and_penalties,
-    materialize_t2_newdata,
-    rescale_tensor_penalties_for_fit,
-    t2_marginal_reparameterization,
-)
-from ...penalties.algebra import null_space_penalty_from_penalty
+from ...constraints.transforms import null_space_basis_from_constraint_matrix
+from ...penalties import penalty_id_for_local_index, rescale_tensor_penalties_for_fit
+from ..algebra import t2_marginal_reparameterization
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
     _normalize_knots,
     build_penalty_definition,
-    build_selection_penalty_definition,
-    resolve_by_state,
-    sync_by_state_attributes,
 )
 from .marginals import (
-    make_tensor_marginal_term,
-    tensor_marginal_feature_index,
-    tensor_marginal_feature_name,
+    build_tensor_marginal_terms,
+    resolve_tensor_marginal_features,
     tensor_marginal_fit_matrices,
     tensor_marginal_predict_matrix,
     validate_tensor_marginal_bases,
 )
+from .t2_basis import build_t2_basis_and_penalties, materialize_t2_newdata
 
 
 @register_smooth("t2")
@@ -49,6 +42,7 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         feature,
         k=10,
         basis="cr",
+        m=None,
         label=None,
         term_id=None,
         smoothing_id=None,
@@ -76,11 +70,6 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             metadata=metadata,
         )
 
-        if by is not None:
-            raise NotImplementedError(
-                "t2 `by` variables are deferred to a later phase."
-            )
-
         if np.isscalar(k):
             self.k = [int(k)] * len(features)
         else:
@@ -99,6 +88,7 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
                 f"basis must have length {len(features)} for features={features}, got {self.basis}."
             )
         self.basis = validate_tensor_marginal_bases(self.basis)
+        self.m = m
 
         self.select = bool(select)
         self.full = bool(full)
@@ -120,30 +110,27 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         self.predict_coefficient_map = None
 
     def fit(self, X, feature_names):
-        self._by_state = resolve_by_state(self.by, X, feature_names)
-        sync_by_state_attributes(self, self._by_state)
-        marginals = []
-        feature_indices = []
-        feature_names_resolved = []
-        marginal_decompositions = []
-
-        for feat, k_i, bs_i, knots_i in zip(
-            self.feature, self.k, self.basis, self.knots
-        ):
-            term = make_tensor_marginal_term(
-                feature=feat,
-                basis=bs_i,
-                k=k_i,
-                knots=knots_i,
-                centered=False,
-            )
+        self._set_by_state(X, feature_names)
+        marginal_shared_setups = self._linked_id_marginal_setups()
+        marginals, _, _ = build_tensor_marginal_terms(
+            feature=self.feature,
+            k=self.k,
+            basis=self.basis,
+            m=self.m,
+            knots=self.knots,
+            centered=False,
+            shared_basis_setups=marginal_shared_setups,
+        )
+        for term in marginals:
             term.fit(X, feature_names)
-            marginals.append(term)
-            feature_indices.append(tensor_marginal_feature_index(term))
-            feature_names_resolved.append(tensor_marginal_feature_name(term))
+        feature_indices, feature_names_resolved = resolve_tensor_marginal_features(
+            marginals
+        )
+        marginal_decompositions = []
+        for basis_name, term in zip(self.basis, marginals):
 
             B_i, S_i, _ = tensor_marginal_fit_matrices(term, centered=False)
-            dec = t2_marginal_reparameterization(B_i, S_i)
+            dec = t2_marginal_reparameterization(B_i, S_i, basis_name=basis_name)
             marginal_decompositions.append(dec)
 
         t2_obj = build_t2_basis_and_penalties(
@@ -155,7 +142,7 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             # final unpenalized null block.
             remove_constant_from_null_block=False,
         )
-        B_t2 = np.asarray(t2_obj["basis"], dtype=np.float64)
+        B_t2_setup = np.asarray(t2_obj["basis"], dtype=np.float64)
         pens_pre = [
             np.asarray(S, dtype=np.float64) for S in t2_obj["penalties_pre_constraint"]
         ]
@@ -165,7 +152,10 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             # mgcv smoothCon(scale.penalty=TRUE, absorb.cons=TRUE) scales the
             # assembled t2 penalties before absorbing the null-block constraint,
             # then applies the constraint transform to the scaled blocks.
-            pens_scaled_pre = rescale_tensor_penalties_for_fit(B_pre, pens_pre)
+            pens_scaled_pre = rescale_tensor_penalties_for_fit(
+                B_pre,
+                pens_pre,
+            )
             if full_transform is not None:
                 C_full = np.asarray(full_transform, dtype=np.float64)
                 pens_t2 = [
@@ -174,9 +164,35 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
                 ]
             else:
                 pens_t2 = pens_scaled_pre
-            t2_obj = {**t2_obj, "basis": B_t2, "penalties": pens_t2}
+            t2_obj = {**t2_obj, "basis": B_t2_setup, "penalties": pens_t2}
         else:
-            t2_obj = {**t2_obj, "basis": B_t2}
+            t2_obj = {**t2_obj, "basis": B_t2_setup}
+
+        marginal_fit = []
+        for m, dec in zip(marginals, marginal_decompositions):
+            B_raw = tensor_marginal_predict_matrix(m, X, centered=False)
+
+            B_r = (
+                B_raw @ dec["T_range"]
+                if dec["T_range"].shape[1] > 0
+                else np.empty((B_raw.shape[0], 0), dtype=np.float64)
+            )
+            B_n = (
+                B_raw @ dec["T_null"]
+                if dec["T_null"].shape[1] > 0
+                else np.empty((B_raw.shape[0], 0), dtype=np.float64)
+            )
+
+            marginal_fit.append({"B_range": B_r, "B_null": B_n})
+
+        B_t2 = materialize_t2_newdata(
+            marginal_fit,
+            allnull_specs=t2_obj["allnull_specs"],
+            allnull_transform=t2_obj["allnull_transform"],
+            penalized_specs=t2_obj["penalized_specs"],
+        )
+        B_t2 = self._apply_cached_by(np.asarray(B_t2, dtype=np.float64))
+        t2_obj = {**t2_obj, "basis": B_t2}
 
         self._marginals = marginals
         self._feature_indices = feature_indices
@@ -190,23 +206,34 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             spec for spec in t2_obj["component_specs"] if spec["penalized"]
         ]
         n_pen = int(sum(spec["n_cols"] for spec in self._penalized_specs))
-        n_null = int(B_t2.shape[1] - n_pen)
-        if n_null > 0:
+        n_null = int(B_t2_setup.shape[1] - n_pen)
+        if n_null > 0 and self._by_state.is_constant:
+            Cp = np.sum(B_t2_setup, axis=0, keepdims=True)
+            if np.linalg.norm(Cp) > 0.0:
+                self.predict_coefficient_map, _ = (
+                    null_space_basis_from_constraint_matrix(
+                        Cp,
+                        d=B_t2_setup.shape[1],
+                        tol=self.null_penalty_tol,
+                    )
+                )
+            else:
+                self.predict_coefficient_map = None
             if n_null == 1:
                 # mgcv::smooth.construct.t2.smooth.spec():
                 # ``if (object$null.space.dim==1) C <- ncol(X)``
                 # i.e. set final unpenalized coefficient to zero, rather than
                 # centering it by row sums.
-                C = np.zeros((1, B_t2.shape[1]), dtype=np.float64)
+                C = np.zeros((1, B_t2_setup.shape[1]), dtype=np.float64)
                 C[0, -1] = 1.0
                 self.fit_constraint_matrix = C
             else:
-                C = np.zeros((1, B_t2.shape[1]), dtype=np.float64)
-                C[0, n_pen:] = np.sum(B_t2[:, n_pen:], axis=0)
+                C = np.zeros((1, B_t2_setup.shape[1]), dtype=np.float64)
+                C[0, n_pen:] = np.sum(B_t2_setup[:, n_pen:], axis=0)
                 self.fit_constraint_matrix = C if np.linalg.norm(C) > 0.0 else None
         else:
             self.fit_constraint_matrix = None
-        self.predict_coefficient_map = None
+            self.predict_coefficient_map = None
         self._record_constraint_result(None, None, absorbed_by=None)
 
         suffix = "full" if self.full else "pars"
@@ -227,11 +254,7 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             sid = (
                 None
                 if self.smoothing_id is None
-                else (
-                    str(self.smoothing_id)
-                    if n_raw <= 1
-                    else f"{self.smoothing_id}::{j}"
-                )
+                else penalty_id_for_local_index(self.smoothing_id, j, n_penalties=n_raw)
             )
             sp_j = sp_vals[j] if j < len(sp_vals) else None
             defs.append(
@@ -245,26 +268,12 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
                 )
             )
 
-        if self.select:
-            combined = sum(np.asarray(P, dtype=np.float64) for P in raw)
-            S0, meta = null_space_penalty_from_penalty(
-                combined, tol=self.null_penalty_tol
+        defs.extend(
+            self._build_selection_penalty_definitions(
+                raw,
+                null_penalty_tol=self.null_penalty_tol,
             )
-            if meta["rank"] > 0:
-                select_sid = (
-                    None
-                    if self.smoothing_id is None
-                    else f"{self.smoothing_id}::select"
-                )
-                defs.append(
-                    build_selection_penalty_definition(
-                        self,
-                        S0,
-                        rank=meta["rank"],
-                        null_space_dim=meta["null_space_dim"],
-                        smoothing_id=select_sid,
-                    )
-                )
+        )
 
         return defs
 

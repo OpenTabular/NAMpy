@@ -12,10 +12,13 @@ import numpy as np
 
 from .._model_state import (
     _coerce_feature_matrix,
+    _compiled_model,
+    _design_matrix,
     _fit_intercept,
     _require_design,
     _require_fitted,
 )
+from .general import build_general_lpmatrix
 
 
 def _build_prediction_matrices(model, X_new=None):
@@ -23,10 +26,11 @@ def _build_prediction_matrices(model, X_new=None):
     _require_design(model)
 
     if X_new is None:
-        Z_new = model.Z
+        Z_new = np.asarray(_design_matrix(model), dtype=np.float64)
     else:
         X_new = _coerce_feature_matrix(model, X_new, none_is_training=False)
-        Z_new = model.design_.build_new_matrix(X_new)
+        compiled_model = _compiled_model(model)
+        Z_new = compiled_model.build_new_matrix(X_new)
 
     if _fit_intercept(model):
         Xp = np.column_stack([np.ones(Z_new.shape[0], dtype=np.float64), Z_new])
@@ -37,6 +41,8 @@ def _build_prediction_matrices(model, X_new=None):
 
 
 def build_lpmatrix(model, X_new=None):
+    if str(getattr(model.family, "family_class", "")).lower() == "general":
+        return np.asarray(build_general_lpmatrix(model, X_new=X_new), dtype=np.float64)
     _, Xp = _build_prediction_matrices(model, X_new=X_new)
     return np.asarray(Xp, dtype=np.float64)
 

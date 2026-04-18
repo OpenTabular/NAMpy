@@ -5,7 +5,13 @@ import warnings
 import numpy as np
 
 from .._mgcv_constants import LOG_GUARD_MIN
-from .._model_state import _require_fitted
+from .._model_state import (
+    _fit_scale,
+    _fit_state,
+    _fitted_eta,
+    _fitted_mu,
+    _require_fitted,
+)
 
 
 def _prior_weights(model) -> np.ndarray:
@@ -17,7 +23,7 @@ def _prior_weights(model) -> np.ndarray:
 
 def _deviance_residuals(model) -> np.ndarray:
     y = np.asarray(model.y_, dtype=np.float64).ravel()
-    mu = np.asarray(model._fitted_mu, dtype=np.float64).ravel()
+    mu = np.asarray(_fitted_mu(model), dtype=np.float64).ravel()
     w = _prior_weights(model)
     sign = np.sign(y - mu)
     sign[sign == 0.0] = 1.0
@@ -32,19 +38,28 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
 
     type = str(type).lower()
     y = np.asarray(model.y_, dtype=np.float64).ravel()
-    fitted = np.asarray(model._fitted_mu, dtype=np.float64)
+    fitted = np.asarray(_fitted_mu(model), dtype=np.float64)
+    eta_fitted = _fitted_eta(model)
     family_residuals = getattr(model.family, "residuals", None)
     if callable(family_residuals):
         try:
             return np.asarray(
-                family_residuals(y, fitted, rtype=type),
+                family_residuals(y, fitted, rtype=type, eta=eta_fitted),
                 dtype=np.float64,
             ).ravel()
         except TypeError:
-            return np.asarray(family_residuals(model, type), dtype=np.float64).ravel()
+            try:
+                return np.asarray(
+                    family_residuals(y, fitted, rtype=type),
+                    dtype=np.float64,
+                ).ravel()
+            except TypeError:
+                return np.asarray(
+                    family_residuals(model, type), dtype=np.float64
+                ).ravel()
 
     mu = np.asarray(fitted, dtype=np.float64).ravel()
-    eta = np.asarray(model._fitted_eta, dtype=np.float64).ravel()
+    eta = np.asarray(eta_fitted, dtype=np.float64).ravel()
     w = _prior_weights(model)
 
     if type == "response":
@@ -52,19 +67,26 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
             return y - fitted
         return np.asarray(y.reshape(-1, 1) - fitted, dtype=np.float64).ravel()
     if type == "working":
-        fit_state = getattr(model, "fit_state_", None)
+        fit_state = _fit_state(model)
         z_work = (
             None if fit_state is None else getattr(fit_state, "working_response", None)
         )
         if z_work is not None:
             z_work = np.asarray(z_work, dtype=np.float64).ravel()
-            offset = getattr(fit_state, "offset", None)
-            eta_base = (
-                eta
-                if offset is None
-                else eta - np.asarray(offset, dtype=np.float64).ravel()
-            )
-            return z_work - eta_base
+            offset = None if fit_state is None else getattr(fit_state, "offset", None)
+            if (
+                str(getattr(getattr(model, "family", None), "name", "")).lower()
+                == "gaussian"
+                and offset is not None
+            ):
+                # mgcv::residuals.gam() returns the fitted object's stored working
+                # residual series. Our Gaussian exact-fit state keeps
+                # `working_response = y - offset` for inner-state parity, so restore
+                # the fit-time offset before forming the user-facing residuals.
+                return z_work + np.asarray(offset, dtype=np.float64).ravel() - eta
+            # mgcv::residuals.gam() returns the stored working residual series,
+            # equivalent to z - eta in the fitted parameterization.
+            return z_work - eta
         mu_eta = getattr(model.family, "mu_eta", None)
         if callable(mu_eta):
             mu_eta_val = np.asarray(mu_eta(eta), dtype=np.float64)
@@ -90,7 +112,7 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
         var = np.asarray(variance(mu), dtype=np.float64)
         res = (y - mu) * np.sqrt(w) / np.sqrt(np.clip(var, LOG_GUARD_MIN, None))
         if type == "scaled.pearson":
-            res = res / np.sqrt(max(float(model.scale_), LOG_GUARD_MIN))
+            res = res / np.sqrt(max(float(_fit_scale(model)), LOG_GUARD_MIN))
         return res
 
     raise ValueError(

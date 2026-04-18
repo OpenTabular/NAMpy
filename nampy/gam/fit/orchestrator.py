@@ -16,7 +16,18 @@ Everything below this layer is stateless with respect to the model object.
 import numpy as np
 
 from .._mgcv_constants import LOG_GUARD_MIN
+from .._model_state import _n_smoothing_params
+from ..data import coerce_feature_matrix
 from .backends import solve_fit
+from .model_ops import (
+    build_gam_result,
+    compile_designs,
+    criterion_value,
+    optimize_smoothing_params,
+    raise_ml_reml_backend_error,
+    resolve_smoothing_method,
+    supports_smoothing_method,
+)
 from .offsets import coerce_offset_array
 from .state import assign_fit_solution
 
@@ -37,9 +48,7 @@ def fit_model_core(
     Parameters
     ----------
     model
-        GAM model object.  Must implement ``_coerce_feature_matrix``,
-        ``_compile_designs``, ``optimize_smoothing_params``, and
-        ``_build_fit_result``.
+        GAM model object.
     X
         Raw feature matrix, shape ``(n, p)``.
     feature_names
@@ -60,7 +69,7 @@ def fit_model_core(
     sample_weight
         Optional per-observation prior weights, shape ``(n,)``.
     """
-    X = model._coerce_feature_matrix(X)
+    X = coerce_feature_matrix(model, X)
     y = model.family.validate_y(y)
     fit_offset = coerce_offset_array(fit_offset, X.shape[0], name="fit_offset")
 
@@ -83,18 +92,19 @@ def fit_model_core(
             raise ValueError("sample_weight must sum to a positive value.")
         model.prior_weights_ = sw.copy()
 
-    model._compile_designs(X, model.feature_names)
+    compile_designs(model, X, model.feature_names)
 
     if optimize_smoothing is None:
         optimize_smoothing = model.optimize_smoothing
-    method = model._resolve_smoothing_method(
+    method = resolve_smoothing_method(
+        model,
         model.smoothing_method if smoothing_method is None else smoothing_method
     )
 
     if optimize_smoothing and method != "fixed":
-        if not model._supports_smoothing_method(method):
+        if not supports_smoothing_method(model, method):
             if method in {"ml", "reml", "laml"}:
-                model._raise_ml_reml_backend_error(method)
+                raise_ml_reml_backend_error(model, method)
             raise NotImplementedError(
                 f"Automatic smoothing selection with method={method!r} is not "
                 f"supported for family={model.family.name!r}."
@@ -102,7 +112,8 @@ def fit_model_core(
         user_initial_sp = None
         if hasattr(model, "hparams") and hasattr(model.hparams, "get"):
             user_initial_sp = model.hparams.get("smoothing_params", None)
-        model.optimize_smoothing_params(
+        optimize_smoothing_params(
+            model,
             y=y,
             initial_smoothing_params=(
                 model.smoothing_params if user_initial_sp is not None else None
@@ -125,7 +136,7 @@ def fit_model_core(
         inner_trace = list(getattr(sol, "inner_trace", None) or [])
         if inner_trace:
             fixed_mask = (
-                np.zeros(model.n_smoothing_params_, dtype=bool)
+                np.zeros(_n_smoothing_params(model), dtype=bool)
                 if model.smoothing_fixed_mask_ is None
                 else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
             )
@@ -161,7 +172,7 @@ def fit_model_core(
 
     if model.smoothing_score_ is None and model._optim_method not in {None, "fixed"}:
         fixed_mask = (
-            np.zeros(model.n_smoothing_params_, dtype=bool)
+            np.zeros(_n_smoothing_params(model), dtype=bool)
             if model.smoothing_fixed_mask_ is None
             else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
         )
@@ -172,9 +183,9 @@ def fit_model_core(
             else np.empty((0,), dtype=np.float64)
         )
         model.smoothing_score_ = float(
-            model._criterion(y, log_free, method=model._optim_method)
-        )
+            criterion_value(model, y, log_free, method=model._optim_method)
+    )
 
     model._fitted = True
-    model.result_ = model._build_fit_result()
+    model.gam_result_ = build_gam_result(model)
     return model

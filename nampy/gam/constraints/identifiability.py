@@ -1,16 +1,4 @@
-"""
-Stage 5 of the GAM fit pipeline: predictor-wide identifiability side conditions.
-
-Pipeline overview
------------------
-Stage 1  formula / spec layer           gam/formula/
-Stage 2  runtime term materialization   gam/runtime/factory.py + gam/smooths/*
-Stage 3  term construction wrapper      gam/design/constructors.py
-Stage 4  predictor compilation          gam/design/compiler.py
-Stage 5  predictor-wide side conds      gam/constraints/identifiability.py  <- here
-Stage 6  model fitting                  gam/fit/
-Stage 7  prediction / parity            gam/predict/ + gam/parity/
-"""
+"""Predictor-wide identifiability side conditions for compiled GAM designs."""
 
 from __future__ import annotations
 
@@ -19,7 +7,8 @@ import warnings
 import numpy as np
 from scipy.linalg import eigh
 
-from ..design.structures import (
+from ..compiler.contracts import CoefficientMap
+from ..compiler.structures import (
     CompiledPenalty,
     CompiledPredictor,
     CompiledTerm,
@@ -109,8 +98,7 @@ def apply_global_side_conditions(
     """
     Apply predictor-wide identifiability side conditions to a CompiledPredictor.
 
-    This is stage 5 of the fit pipeline.  It walks each compiled term in order
-    and performs three operations:
+    It walks each compiled term in order and performs three operations:
 
     1. **Exempt terms** (random effects, factor smooths):
        Preserve their basis and penalties unchanged.  Still add their columns to
@@ -133,7 +121,7 @@ def apply_global_side_conditions(
           basis that are linearly dependent on the current span accumulator.
 
        After both steps, ``CompiledTerm.basis_transform`` holds the full mapping
-       from the stage-4 constructed-term coefficient space to the final fitted
+       from the constructed-term coefficient space to the final fitted
        coefficient space. Prediction uses
        ``smooth.predict_matrix(X_new) @ basis_transform`` and nothing else
        (invariant 6.2: ``basis_transform`` is canonical).
@@ -145,7 +133,7 @@ def apply_global_side_conditions(
     Parameters
     ----------
     design : CompiledPredictor
-        Output of stage 4 (``compile_predictor_designs``).
+        Output of ``compile_predictors``.
     fit_intercept : bool
         Whether the model has an intercept.  Controls whether the constant
         column is seeded into the span accumulator and whether sum-to-zero
@@ -206,11 +194,10 @@ def apply_global_side_conditions(
         ]
 
         # ── Exempt terms ──────────────────────────────────────────────────────
-        exempt = tb.term_type in {
-            "random_effect",
-            "factor_smooth_fs",
-            "factor_smooth_sz",
-        }
+        policy = getattr(tb, "side_condition_policy", None)
+        exempt = bool(
+            policy is not None and policy.exempt_from_predictor_side_conditions
+        )
         if exempt:
             sl_new = slice(start, start + d)
             new_idx = len(new_term_blocks)
@@ -220,9 +207,18 @@ def apply_global_side_conditions(
                 CompiledTerm(
                     label=tb.label,
                     coef_slice=sl_new,
-                    smooth=tb.smooth,
                     basis_train=B,
+                    predict_fn=tb.predict_fn,
+                    predict_coefficient_map=(
+                        None
+                        if tb.predict_coefficient_map is None
+                        else np.asarray(tb.predict_coefficient_map, dtype=np.float64)
+                    ),
                     basis_transform=tb.basis_transform,
+                    coefficient_maps=tuple(tb.coefficient_maps),
+                    feature_info=tb.feature_info,
+                    by_variable_info=tb.by_variable_info,
+                    side_condition_policy=tb.side_condition_policy,
                     kept_columns=(
                         np.asarray(tb.kept_columns, dtype=int).copy()
                         if tb.kept_columns is not None
@@ -240,6 +236,8 @@ def apply_global_side_conditions(
                     basis_name=tb.basis_name,
                     term_id=tb.term_id,
                     smoothing_group_id=tb.smoothing_group_id,
+                    penalty_specs=tuple(tb.penalty_specs),
+                    constructor_metadata=dict(tb.constructor_metadata),
                     metadata=dict(tb.metadata),
                 )
             )
@@ -287,7 +285,7 @@ def apply_global_side_conditions(
 
         # ── Non-exempt: centering + column selection ──────────────────────────
         #
-        # C accumulates the coefficient transform from the stage-4 constructed
+        # C accumulates the coefficient transform from the constructed-term
         # coefficient space to the current (pre-side-condition) space.
         # Initialise from whatever the compiler recorded; fall back to identity.
         C = (
@@ -297,12 +295,9 @@ def apply_global_side_conditions(
         )
         Q_term = np.eye(d_in, dtype=np.float64)
 
-        constructor_meta = dict(tb.metadata.get("constructor_metadata", {}) or {})
-        runtime_skip_centering = bool(
-            constructor_meta.get("runtime_skip_centering", False)
-        )
-        runtime_by_name = constructor_meta.get("runtime_by_name", None)
-        runtime_by_is_constant = constructor_meta.get("runtime_by_is_constant", None)
+        runtime_skip_centering = bool(policy is not None and policy.skip_centering)
+        runtime_by_name = tb.by_variable_info.name
+        runtime_by_is_constant = tb.by_variable_info.is_constant
         absorbed_centering = False
 
         # Step (a): optionally absorb a sum-to-zero centering constraint.
@@ -310,7 +305,7 @@ def apply_global_side_conditions(
             fit_intercept
             and not runtime_skip_centering
             and (runtime_by_name is None or bool(runtime_by_is_constant))
-            and tb.term_type not in {"tensor_interaction", "tensor_anova"}
+            and not bool(tb.term_type in {"tensor_interaction", "tensor_anova"})
         ):
             centering = np.sum(B, axis=0, keepdims=True)
             if np.linalg.norm(centering) > tol:
@@ -326,7 +321,7 @@ def apply_global_side_conditions(
                     absorbed_centering = True
 
         # Step (b): drop columns linearly dependent on the accumulator.
-        if runtime_by_name is not None and not bool(runtime_by_is_constant):
+        if policy is not None and policy.allow_first_numeric_by_unpruned:
             # Ordinary non-constant numeric by-variable smooths should keep their
             # raw term basis for the first occurrence, but later terms still need
             # ordinary cross-term redundancy removal against the accumulated
@@ -337,7 +332,10 @@ def apply_global_side_conditions(
                 keep = np.asarray(
                     independent_column_indices(B, A=acc, tol=tol), dtype=int
                 )
-        elif pen_matrices:
+        elif (
+            bool(policy is None or policy.requires_penalty_aware_pruning)
+            and pen_matrices
+        ):
             B_dep = _augment_term_matrix(
                 B,
                 pen_matrices,
@@ -418,6 +416,21 @@ def apply_global_side_conditions(
         if absorbed_centering:
             tb_meta["absorbed_sum_to_zero_constraint"] = True
 
+        predictor_maps = list(tb.coefficient_maps)
+        if C_final.shape[1] != 0:
+            predictor_maps.append(
+                CoefficientMap(
+                    source_space="local_fit_space",
+                    target_space="predictor_fit_space",
+                    matrix=np.asarray(C_final, dtype=np.float64),
+                    reason="predictor_side_conditions",
+                    metadata={
+                        "absorbed_centering": bool(absorbed_centering),
+                        "n_deleted": int(deleted_local.size),
+                    },
+                )
+            )
+
         sl_new = slice(start, start + d_final)
         new_idx = len(new_term_blocks)
         if d_final > 0:
@@ -427,9 +440,18 @@ def apply_global_side_conditions(
             CompiledTerm(
                 label=tb.label,
                 coef_slice=sl_new,
-                smooth=tb.smooth,
                 basis_train=B_final,
+                predict_fn=tb.predict_fn,
+                predict_coefficient_map=(
+                    None
+                    if tb.predict_coefficient_map is None
+                    else np.asarray(tb.predict_coefficient_map, dtype=np.float64)
+                ),
                 basis_transform=C_final,
+                coefficient_maps=tuple(predictor_maps),
+                feature_info=tb.feature_info,
+                by_variable_info=tb.by_variable_info,
+                side_condition_policy=tb.side_condition_policy,
                 kept_columns=kept_orig,
                 deleted_columns=deleted_orig,
                 smoothing_indices=list(tb.smoothing_indices),
@@ -439,6 +461,8 @@ def apply_global_side_conditions(
                 basis_name=tb.basis_name,
                 term_id=tb.term_id,
                 smoothing_group_id=tb.smoothing_group_id,
+                penalty_specs=tuple(pen_specs_final),
+                constructor_metadata=dict(tb.constructor_metadata),
                 metadata=tb_meta,
             )
         )

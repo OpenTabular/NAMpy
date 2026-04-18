@@ -6,6 +6,7 @@ Do **not**:
 - rederive `mgcv` from papers or memory when the upstream implementation is available,
 - “clean up” numerics by changing algebra/order of operations without evidence,
 - replace an upstream routine with a more idiomatic approach unless parity requires it and tests confirm it.
+- add heuristic, approximate, or best-effort parity fallbacks in parity-sensitive code,
 - add NAMpy-only optimizer rescue heuristics after an upstream-style endpoint has been found,
 - use finite-difference outer-derivative fallbacks for parity-sensitive `ml` / `reml` / `laml` paths,
 - rewrite unsupported formula constructs into approximate fallback specs,
@@ -82,7 +83,7 @@ The fit pipeline has 7 stages:
 - Fit and predict transforms must be paired — no hidden one-off transforms.
 - Explicit errors for unsupported inputs — no silent approximations.
 - Upstream `mgcv` reference code is authoritative for parity-sensitive behavior.
-- If strict parity is not implemented yet, raise a clear error instead of applying a local fallback.
+- If strict parity is not implemented yet, raise a clear error or add a small explicit TODO instead of applying a local fallback.
 
 ### Key data flow (GAM)
 

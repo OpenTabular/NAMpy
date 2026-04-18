@@ -20,8 +20,10 @@ from typing import Any
 
 import numpy as np
 
-from ..design.structures import PenaltySpec
+from ..compiler.structures import PenaltySpec
 from .algebra import null_space_penalty_from_penalty, symmetrize_penalty
+
+PENALTY_ID_SEPARATOR = "::"
 
 
 def penalty_rank_null_dim(P: np.ndarray, tol: float = 1e-10) -> tuple[int, int]:
@@ -161,8 +163,56 @@ def default_penalty_id(
     base_id = getattr(term, "smoothing_id", None)
     if base_id is not None:
         base_id = str(base_id)
-        return base_id if n_penalties <= 1 else f"{base_id}::{local_penalty_index}"
+        return penalty_id_for_local_index(
+            base_id, local_penalty_index, n_penalties=n_penalties
+        )
     return f"__auto__:{pred_name}:{term_label}:{coef_start}:{local_penalty_index}"
+
+
+def penalty_id_with_suffix(
+    base_id: str | None,
+    suffix: str | int | None,
+    *,
+    fallback: str | None = None,
+) -> str | None:
+    """
+    Build a penalty id with optional suffix.
+
+    Centralises separator usage and fallback behavior.
+    """
+    if base_id is None:
+        return fallback
+    if suffix is None:
+        return str(base_id)
+    return f"{str(base_id)}{PENALTY_ID_SEPARATOR}{suffix}"
+
+
+def penalty_id_for_local_index(
+    base_id: str | None,
+    local_penalty_index: int,
+    *,
+    n_penalties: int,
+    fallback: str | None = None,
+) -> str | None:
+    """
+    Return base id, or suffixed local index when term has multiple penalties.
+    """
+    return (
+        penalty_id_with_suffix(base_id, local_penalty_index, fallback=fallback)
+        if n_penalties > 1
+        else penalty_id_with_suffix(base_id, None, fallback=fallback)
+    )
+
+
+def selection_penalty_id(
+    base_id: str | None,
+    *,
+    fallback: str | None = None,
+) -> str | None:
+    """
+    Return penalty id for select=True branch.
+    """
+    return penalty_id_with_suffix(base_id, "select", fallback=fallback)
 
 
 __all__ = [
@@ -172,4 +222,7 @@ __all__ = [
     "build_null_space_selection_spec",
     "merge_smoothing_override",
     "default_penalty_id",
+    "penalty_id_with_suffix",
+    "penalty_id_for_local_index",
+    "selection_penalty_id",
 ]

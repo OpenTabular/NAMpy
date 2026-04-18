@@ -34,36 +34,43 @@ def place_knots_through_values(x, nk):
     return knot
 
 
-def add_full_rank_shrinkage(S, shrink=0.1, tol=1e-12):
+def add_full_rank_shrinkage(S, shrink=0.1, tol=1e-12, null_basis=None, knots=None):
     """
     Make a symmetric penalty full rank by shrinking its null space.
 
-    This mirrors mgcv's cs/ts construction idea: null-space eigenvalues are
-    replaced by small positive multiples of the smallest positive eigenvalue.
+    Mirror mgcv/R/smooth.r::smooth.construct.cr.smooth.spec(): eigen-decompose
+    the raw CR penalty, then replace the trailing zero eigenvalues by small
+    positive multiples of the smallest positive eigenvalue.
     """
+    del null_basis, knots
     S = np.asarray(S, dtype=np.float64)
-    S = 0.5 * (S + S.T)
+    # The upstream CR penalty is exactly symmetric. Our Python port can carry
+    # ~1e-14 asymmetry from the linear solve that builds S; mirroring the lower
+    # triangle preserves the branch that matches mgcv's C-side penalty values
+    # more closely than averaging the noisy upper/lower triangles.
+    S = np.tril(S) + np.tril(S, -1).T
 
     # scipy.linalg.eigh (DSYEVR) matches R's eigen(symmetric=TRUE) null-space
-    # eigenvectors to machine precision.  np.linalg.eigh (DSYEVD) finds a
-    # different rotation of the 2-D null space, producing a ~1e-2 penalty
-    # discrepancy for cs after assigning different shrinkage values to the two
-    # null directions.
-    evals, U = _scipy_eigh(S)
+    # eigenvectors to machine precision. R returns eigenpairs in descending
+    # order, and mgcv/R/smooth.r applies cs shrinkage on that ordering.
+    evals, U = _scipy_eigh(S, driver="evr")
+    idx = np.argsort(evals)[::-1]
+    evals = np.asarray(evals[idx], dtype=np.float64)
+    U = np.asarray(U[:, idx], dtype=np.float64)
     tol_eff = tol * max(1.0, np.max(np.abs(evals)) if evals.size else 1.0)
 
-    pos = evals[evals > tol_eff]
+    pos_mask = evals > tol_eff
+    pos = evals[pos_mask]
     if pos.size == 0:
         return S.copy()
 
     out = evals.copy()
-    null_idx = np.where(evals <= tol_eff)[0]
+    null_idx = np.where(~pos_mask)[0]
 
     if null_idx.size:
         base = float(np.min(pos))
-        # keep the null-space penalties ordered and smaller than the range-space penalties
         for j, idx in enumerate(null_idx):
-            out[idx] = base * (shrink ** (null_idx.size - j))
+            out[idx] = base * (shrink ** (j + 1))
 
     return (U * out) @ U.T
 

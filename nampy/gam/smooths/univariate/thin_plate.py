@@ -15,18 +15,15 @@ import numpy as np
 
 from ....splines.thin_plate import build_tprs_term_setup, predict_tprs_term
 from ...constraints.absorption import (
-    apply_linear_constraint,
     fit_single_penalty_with_constraint_policy,
+    fit_single_penalty_with_setup_basis,
 )
+from ...penalties.algebra import scale_penalty
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
-    _normalize_point_constraint,
-    _normalize_point_constraint_vector,
     _resolve_feature,
     columns_as_float_matrix,
-    resolve_by_state,
-    sync_by_state_attributes,
 )
 
 
@@ -114,38 +111,54 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
 
         Xf = columns_as_float_matrix(X, feature_indices)
 
-        self._by_state = resolve_by_state(self.by, X, feature_names)
-        sync_by_state_attributes(self, self._by_state)
+        self._set_by_state(X, feature_names)
 
         self._feature_indices = feature_indices
         self._feature_names = feature_names_resolved
         self._set_resolved_features(feature_names_resolved)
 
-        self._setup = build_tprs_term_setup(
-            Xf,
-            basis=self.basis_name,
-            k=self.k,
-            m=self.m,
-            knots=self.knots,
-            xt=self.xt,
-        )
-
-        base = np.asarray(self._setup.basis_train, dtype=np.float64)
-        pen = np.asarray(self._setup.penalty, dtype=np.float64)
+        shared_X = self._linked_id_setup_matrix(feature_names)
+        if shared_X is not None:
+            Xf_setup = columns_as_float_matrix(shared_X, feature_indices)
+            self._setup = build_tprs_term_setup(
+                Xf_setup,
+                basis=self.basis_name,
+                k=self.k,
+                m=self.m,
+                knots=self.knots,
+                xt=self.xt,
+            )
+            setup_base = np.asarray(self._setup.basis_train, dtype=np.float64)
+            base = np.asarray(predict_tprs_term(Xf, self._setup), dtype=np.float64)
+            pen = scale_penalty(
+                setup_base,
+                np.asarray(self._setup.penalty, dtype=np.float64),
+            )
+        else:
+            self._setup = build_tprs_term_setup(
+                Xf,
+                basis=self.basis_name,
+                k=self.k,
+                m=self.m,
+                knots=self.knots,
+                xt=self.xt,
+            )
+            setup_base = np.asarray(self._setup.basis_train, dtype=np.float64)
+            base = setup_base
+            pen = scale_penalty(
+                base,
+                np.asarray(self._setup.penalty, dtype=np.float64),
+            )
 
         if self.pc is not None:
-            if len(self._feature_indices) == 1:
-                pc_value = _normalize_point_constraint(self.pc, self._feature_names[0])
-                pc_point = np.asarray([[pc_value]], dtype=np.float64)
-            else:
-                pc_point = _normalize_point_constraint_vector(
-                    self.pc, self._feature_names
-                )[None, :]
-            pc_basis = predict_tprs_term(pc_point, self._setup)[0]
-            penalties_in = [] if self.fixed else [pen]
-            Bc, Sc, C = apply_linear_constraint(base, penalties_in, pc_basis)
-            if self._by_state.is_present:
-                Bc = Bc * self._by_state.values[:, None]
+            Bc, Sc, C, _ = self._apply_point_constraint(
+                base,
+                [pen],
+                self.pc,
+                feature_names=self._feature_names,
+                point_basis_fn=lambda pts: predict_tprs_term(pts, self._setup)[0],
+                fixed=self.fixed,
+            )
             self._basis_train = np.asarray(Bc, dtype=np.float64)
             self._penalties = Sc
             self._record_constraint_result("pc", C, absorbed_by="runtime")
@@ -156,14 +169,25 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
             and not self._setup.drop_null_effective
             and bool(self._by_state.is_constant)
         )
-        result = fit_single_penalty_with_constraint_policy(
-            base,
-            pen,
-            self._by_state,
-            constraint_mode=self.constraint_mode,
-            fixed=self.fixed,
-            auto_constrain_when=auto_constrain,
-        )
+        if shared_X is None:
+            result = fit_single_penalty_with_constraint_policy(
+                base,
+                pen,
+                self._by_state,
+                constraint_mode=self.constraint_mode,
+                fixed=self.fixed,
+                auto_constrain_when=auto_constrain,
+            )
+        else:
+            result = fit_single_penalty_with_setup_basis(
+                base,
+                setup_base,
+                pen,
+                self._by_state,
+                constraint_mode=self.constraint_mode,
+                fixed=self.fixed,
+                auto_constrain_when=auto_constrain,
+            )
         self._basis_train = result.basis_train
         self._penalties = result.penalties
         self._record_constraint_result(
@@ -225,3 +249,42 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
 
         B = predict_tprs_term(Xf_new, self._setup)
         return self._apply_constraint_transform_and_by(B, X_new)
+
+    def tensor_marginal_fit_matrices(
+        self, *, centered=False, apply_np=False, x_train=None
+    ):
+        del apply_np, x_train
+        if self._setup is None:
+            raise RuntimeError("Term is not fitted.")
+        setup_base = np.asarray(self._setup.basis_train, dtype=np.float64)
+        setup_penalty = np.asarray(self._setup.penalty, dtype=np.float64)
+        if centered:
+            if (
+                self._linked_id_setup() is not None
+                and self.constraint_transform is not None
+            ):
+                T = np.asarray(self.constraint_transform, dtype=np.float64)
+                pen = scale_penalty(setup_base, setup_penalty)
+                return (
+                    np.asarray(setup_base @ T, dtype=np.float64),
+                    np.asarray(T.T @ pen @ T, dtype=np.float64),
+                    None,
+                )
+            return super().tensor_marginal_fit_matrices(centered=centered)
+        return (
+            setup_base,
+            setup_penalty,
+            None,
+        )
+
+    def tensor_marginal_predict_matrix(
+        self, X_new, *, centered=False, np_transform=None
+    ):
+        if centered:
+            B = np.asarray(self.transform_new(X_new), dtype=np.float64)
+        else:
+            Xf_new = columns_as_float_matrix(X_new, self._feature_indices)
+            B = np.asarray(predict_tprs_term(Xf_new, self._setup), dtype=np.float64)
+        if np_transform is not None:
+            B = B @ np.asarray(np_transform, dtype=np.float64)
+        return np.asarray(B, dtype=np.float64)

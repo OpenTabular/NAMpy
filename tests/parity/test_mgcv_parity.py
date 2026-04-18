@@ -5,12 +5,13 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
-from _mgcv_parity_requested_shared import (
+
+from tests._mgcv_parity_requested_shared import (
     CaseSpec,
     _assert_requested_parity,
     _fit_nampy_snapshot,
 )
-from mgcv_parity_utils import (
+from tests.mgcv_parity_utils import (
     _make_binomial_data,
     _make_gamma_data,
     _make_gaussian_data,
@@ -62,8 +63,10 @@ def _data_gaussian_by_factor() -> pd.DataFrame:
     x = rng.uniform(-2.0, 2.0, size=n)
     f = rng.choice(np.array(["a", "b", "c"], dtype=object), size=n)
     shifts = {"a": 0.6, "b": -0.35, "c": 0.1}
-    y = np.sin(1.3 * x) + np.array([shifts[v] for v in f]) + rng.normal(
-        0.0, 0.12, size=n
+    y = (
+        np.sin(1.3 * x)
+        + np.array([shifts[v] for v in f])
+        + rng.normal(0.0, 0.12, size=n)
     )
     return pd.DataFrame({"y": y, "x": x, "f": f})
 

@@ -18,16 +18,14 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ...basis.tensor import rowwise_kronecker
-from ...design.structures import PenaltySpec
-from ...penalties import build_null_space_selection_spec
+from ...compiler.structures import PenaltySpec
+from ...penalties.algebra import scale_penalty
+from ..algebra import rowwise_kronecker
 from ..smooth_base import (
     BaseSmoothTerm,
     _resolve_feature,
     by_values_from_new_data,
     column_as_object,
-    resolve_by_state,
-    sync_by_state_attributes,
 )
 from .categorical_utils import (
     all_bool_like,
@@ -173,13 +171,11 @@ class RandomEffectTerm(BaseSmoothTerm):
             blocks.append(B_i)
             specs.append(spec_i)
 
-        self._by_state = resolve_by_state(self.by, X, feature_names)
-        sync_by_state_attributes(self, self._by_state)
+        self._set_by_state(X, feature_names)
 
         B = blocks[0] if len(blocks) == 1 else rowwise_kronecker(blocks)
 
-        if self._by_state.is_present:
-            B = B * self._by_state.values[:, None]
+        B = self._apply_cached_by(B, allow_missing=True)
 
         self._feature_indices = feature_indices
         self._feature_names = feature_names_resolved
@@ -191,7 +187,7 @@ class RandomEffectTerm(BaseSmoothTerm):
         q = self._basis_train.shape[1]
 
         if self.xt is None or self.xt.get("S", None) is None:
-            self._penalties = [np.eye(q, dtype=np.float64)]
+            self._penalties = [scale_penalty(self._basis_train, np.eye(q, dtype=np.float64))]
             self._ranks = [q]
         else:
             S_in = self.xt["S"]
@@ -215,7 +211,9 @@ class RandomEffectTerm(BaseSmoothTerm):
                     f"xt['rank'] must have shape ({len(S_list)},), got {ranks.shape}."
                 )
 
-            self._penalties = [0.5 * (S + S.T) for S in S_list]
+            self._penalties = [
+                scale_penalty(self._basis_train, 0.5 * (S + S.T)) for S in S_list
+            ]
             self._ranks = [int(r) for r in ranks.tolist()]
 
         return self
@@ -288,11 +286,7 @@ class RandomEffectTerm(BaseSmoothTerm):
             )
 
             if self.select:
-                select_sid = None
-                sel_spec = build_null_space_selection_spec(
-                    main_penalty=np.asarray(P, dtype=np.float64),
-                    smoothing_id=select_sid,
-                    metadata={
+                selection_meta = {
                         "term_type": self.term_type,
                         "basis_name": self.basis_name,
                         "feature": list(self.feature),
@@ -308,10 +302,13 @@ class RandomEffectTerm(BaseSmoothTerm):
                             }
                             for s in (self._component_specs or [])
                         ],
-                    },
+                    }
+                defs.extend(
+                    self._build_selection_penalty_definitions(
+                        [np.asarray(P, dtype=np.float64)],
+                        selection_metadata=selection_meta,
+                    )
                 )
-                if sel_spec is not None:
-                    defs.append(sel_spec)
 
         return defs
 
@@ -325,10 +322,4 @@ class RandomEffectTerm(BaseSmoothTerm):
         B = blocks[0] if len(blocks) == 1 else rowwise_kronecker(blocks)
 
         z = by_values_from_new_data(X_new, self._by_state)
-        if z is not None:
-            out = np.zeros_like(B)
-            ok = np.isfinite(z)
-            out[ok, :] = B[ok, :] * z[ok][:, None]
-            B = out
-
-        return np.asarray(B, dtype=np.float64)
+        return np.asarray(self._apply_by_scale(B, z, allow_missing=True), dtype=np.float64)

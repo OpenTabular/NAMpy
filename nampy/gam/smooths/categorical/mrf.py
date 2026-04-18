@@ -11,16 +11,15 @@ from ....splines.mrf import (
     polys_to_nb,
 )
 from ..._mgcv_constants import EIG_TOL_POWER
-from ...constraints.absorption import full_term_sum_to_zero_constraint
-from ...design.structures import PenaltySpec
-from ...penalties import build_null_space_selection_spec
+from ...compiler.structures import PenaltySpec
+from ...constraints.transforms import (
+    apply_coefficient_transform,
+    null_space_basis_from_constraint_matrix,
+)
 from ..smooth_base import (
     BaseSmoothTerm,
     _resolve_feature,
-    apply_numeric_by,
     column_as_object,
-    resolve_by_state,
-    sync_by_state_attributes,
 )
 from .categorical_utils import (
     as_object_1d,
@@ -116,8 +115,7 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         self._feature_index = idx
         self._feature_name = fname
 
-        self._by_state = resolve_by_state(self.by, X, feature_names)
-        sync_by_state_attributes(self, self._by_state)
+        self._set_by_state(X, feature_names)
 
         x = as_object_1d(X[:, idx])
         self._set_resolved_features([fname])
@@ -192,6 +190,8 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
                 X_aug, self._full_penalty, rank=None, tol=None, unit_fnorm=True
             )
 
+            # mgcv keeps the final `bs.dim` natural-parameter columns in their
+            # original ascending order: `(np - bs.dim + 1):np`.
             ind = np.arange(n_areas - bs_dim, n_areas, dtype=int)
             X_red = rp["X"][miss.size :, :][:, ind]
             P_red = rp["P"][:, ind]
@@ -229,9 +229,24 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
 
         if self._by_state.is_constant:
             # Match mgcv::smoothCon(absorb.cons=TRUE): absorb the single MRF
-            # identifiability constraint in the term-local coefficient space.
-            basis_fit, penalties_fit, transform = full_term_sum_to_zero_constraint(
-                basis_raw, [penalty_raw]
+            # identifiability constraint in the term-local coefficient space via
+            # qr(t(C)) on the full coefficient block. The localized null-space
+            # helper preserves inactive coordinates, but mgcv rotates the kept
+            # low-rank columns here (e.g. swapping the two retained mrf columns
+            # when the dropped coefficient is the final constant direction).
+            mean_row = np.asarray(
+                np.mean(np.asarray(basis_raw, dtype=np.float64), axis=0),
+                dtype=np.float64,
+            ).reshape(1, -1)
+            transform, _ = null_space_basis_from_constraint_matrix(
+                mean_row,
+                d=basis_raw.shape[1],
+                tol=1e-12,
+            )
+            basis_fit, penalties_fit = apply_coefficient_transform(
+                basis_raw,
+                [penalty_raw],
+                transform,
             )
             self._record_constraint_result(
                 "sum_to_zero", transform, absorbed_by="runtime"
@@ -241,8 +256,7 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
             penalties_fit = [penalty_raw]
             self._record_constraint_result(None, None, absorbed_by=None)
 
-        if self._by_state.is_present:
-            basis_fit = apply_numeric_by(basis_fit, self._by_state.values)
+        basis_fit = self._apply_cached_by(basis_fit)
 
         penalty_fit = np.asarray(penalties_fit[0], dtype=np.float64)
         ev_fit = np.linalg.eigvalsh(penalty_fit)
@@ -327,32 +341,28 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
         ]
 
         if self.select:
-            select_sid = (
-                None if self.smoothing_id is None else f"{self.smoothing_id}::select"
+            selection_meta = {
+                "term_type": self.term_type,
+                "basis_name": self.basis_name,
+                "feature": list(self.feature),
+                "label": self.label,
+                "by": self.by,
+                "by_name": self._by_state.feature_name,
+                "area_names": (
+                    list(self._area_names) if self._area_names is not None else None
+                ),
+                "has_polys": self._plot_polys is not None,
+                "has_nb": self._nb is not None,
+                "has_penalty": self._full_penalty is not None,
+                "low_rank": self._P is not None,
+                "k": int(self.k),
+            }
+            defs.extend(
+                self._build_selection_penalty_definitions(
+                    [np.asarray(self.penalties[0], dtype=np.float64)],
+                    selection_metadata=selection_meta,
+                )
             )
-            sel_spec = build_null_space_selection_spec(
-                main_penalty=np.asarray(self.penalties[0], dtype=np.float64),
-                smoothing_id=select_sid,
-                metadata={
-                    "term_type": self.term_type,
-                    "basis_name": self.basis_name,
-                    "feature": list(self.feature),
-                    "label": self.label,
-                    "by": self.by,
-                    "by_name": self._by_state.feature_name,
-                    "area_names": (
-                        list(self._area_names) if self._area_names is not None else None
-                    ),
-                    "has_polys": self._plot_polys is not None,
-                    "has_nb": self._nb is not None,
-                    "has_penalty": self._full_penalty is not None,
-                    "low_rank": self._P is not None,
-                    "k": int(self.k),
-                    "is_selection_penalty": True,
-                },
-            )
-            if sel_spec is not None:
-                defs.append(sel_spec)
 
         return defs
 

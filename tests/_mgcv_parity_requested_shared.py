@@ -21,6 +21,7 @@ class CaseSpec:
     # tp eigenvector signs are LAPACK-implementation-dependent; compare predictions instead.
     skip_coef_comparison: bool = False
     criterion_atol: float = 1e-4
+    se_tol_scale: float = 1e-6
 
 
 def _fit_nampy_snapshot(case: CaseSpec, data: pd.DataFrame):
@@ -85,7 +86,7 @@ def _assert_requested_parity(
     assert cov.shape == cov_mgcv.shape, f"{case.case_id}: covariance shape mismatch"
     se = np.sqrt(np.clip(np.diag(cov), 0.0, None))
     se_mgcv = np.sqrt(np.clip(np.diag(cov_mgcv), 0.0, None))
-    se_tol = 1e-6 * (1.0 + np.abs(se))
+    se_tol = float(case.se_tol_scale) * (1.0 + np.abs(se))
     se_err = np.abs(se - se_mgcv)
     assert np.all(se_err <= se_tol), (
         f"{case.case_id}: |se-se_mgcv| exceeded tolerance; max_err={se_err.max():.3e}, "

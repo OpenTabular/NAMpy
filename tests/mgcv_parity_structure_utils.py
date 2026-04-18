@@ -32,13 +32,16 @@ def fit_gaussian_formula(data, formula: str, **gam_kwargs) -> GAM:
 def design_structure(model: GAM) -> dict[str, Any]:
     """Structural summary of the training design (no full numeric dumps)."""
     assert getattr(model, "_fitted", False)
-    n = int(model.Z.shape[0])
+    compiled = model.compiled_model_
+    assert compiled is not None
+    design = np.asarray(compiled.design_matrix, dtype=np.float64)
+    n = int(design.shape[0])
     blocks: list[dict[str, Any]] = []
-    for tb in model.term_blocks_:
-        B = np.asarray(model.Z[:, tb.coef_slice], dtype=np.float64)
-        pbs = [pb for pb in model.penalty_blocks_ if pb.coef_slice == tb.coef_slice]
+    for tb in compiled.compiled_terms:
+        B = np.asarray(design[:, tb.coef_slice], dtype=np.float64)
+        pbs = [pb for pb in compiled.compiled_penalties if pb.coef_slice == tb.coef_slice]
         meta = dict(tb.metadata or {})
-        cmeta = dict(getattr(tb.smooth, "constructor_metadata", {}) or {})
+        cmeta = dict(getattr(tb, "constructor_metadata", {}) or {})
         blocks.append(
             {
                 "label": tb.label,
@@ -59,17 +62,27 @@ def design_structure(model: GAM) -> dict[str, Any]:
         )
     return {
         "n_samples": n,
-        "n_coef": int(model.n_coef_),
-        "n_smoothing_params": int(model.n_smoothing_params_),
+        "n_coef": int(compiled.n_coef),
+        "n_smoothing_params": int(compiled.n_smoothing_params),
         "term_blocks": blocks,
     }
 
 
 def smoothing_parameter_map_structure(model: GAM) -> dict[str, Any]:
     """How penalties map to global smoothing indices (linked ids share an index)."""
-    pmap = dict(model.design_.smoothing_parameter_map)
+    compiled = model.compiled_model_
+    assert compiled is not None
+    if len(compiled.predictors) == 1:
+        pmap = dict(compiled.predictors[0].smoothing_parameter_map)
+    else:
+        pmap = {}
+        sp_shift = 0
+        for predictor in compiled.predictors:
+            for key, value in predictor.smoothing_parameter_map.items():
+                pmap[f"{predictor.name}:{key}"] = sp_shift + int(value)
+            sp_shift += int(predictor.n_smoothing_params)
     penalties = []
-    for pb in model.penalty_blocks_:
+    for pb in compiled.compiled_penalties:
         penalties.append(
             {
                 "label": pb.label,
@@ -79,7 +92,7 @@ def smoothing_parameter_map_structure(model: GAM) -> dict[str, Any]:
         )
     return {
         "smoothing_parameter_map": pmap,
-        "n_smoothing_params": int(model.n_smoothing_params_),
+        "n_smoothing_params": int(compiled.n_smoothing_params),
         "penalty_smoothing_indices": [p["smoothing_index"] for p in penalties],
         "penalty_smoothing_ids": [p["smoothing_id"] for p in penalties],
     }

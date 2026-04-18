@@ -9,8 +9,8 @@ penalty matrices.  They implement the coefficient-transform invariant:
 
 Functions here are used by:
   - runtime terms (gam/smooths/*) for term-local constraint absorption during fit
-  - the stage-3 wrapper (gam/design/constructors.py) for delegated absorption
-  - gam/constraints/identifiability.py for the centering transform in stage 5
+  - the construction wrapper (gam/smooths/construct.py) for delegated absorption
+  - gam/constraints/identifiability.py for predictor-level centering transforms
 
 They must not know about compiled predictors, term specs, or fitted results.
 """
@@ -26,7 +26,6 @@ from ..penalties import normalize_penalty_spec
 from .transforms import (
     apply_coefficient_transform,
     localized_null_space_basis_from_constraint_matrix,
-    null_space_basis_from_constraint_matrix,
 )
 
 
@@ -83,7 +82,7 @@ def apply_linear_constraint(B, penalties, constraint_row, tol: float = 1e-12):
     if cn <= tol:
         C = np.eye(B.shape[1], dtype=np.float64)
         return B, penalties, C
-    C, _ = null_space_basis_from_constraint_matrix(c, d=B.shape[1], tol=tol)
+    C, _ = localized_null_space_basis_from_constraint_matrix(c, d=B.shape[1], tol=tol)
     Bc, Sc = apply_coefficient_transform(B, penalties, C)
     return Bc, Sc, C
 
@@ -182,6 +181,74 @@ def fit_single_penalty_with_constraint_policy(
     )
 
 
+def fit_single_penalty_with_setup_basis(
+    local_base,
+    setup_base,
+    penalty,
+    by_state,
+    *,
+    constraint_mode,
+    fixed=False,
+    auto_constrain_when=False,
+    apply_numeric_by_fn=None,
+):
+    local_base = np.asarray(local_base, dtype=np.float64)
+    setup_base = np.asarray(setup_base, dtype=np.float64)
+    penalty = np.asarray(penalty, dtype=np.float64)
+    apply_numeric_by_fn = apply_numeric_by_fn or (
+        lambda B, z: B if z is None else B * np.asarray(z)[:, None]
+    )
+
+    if local_base.shape[1] != setup_base.shape[1]:
+        raise ValueError(
+            "local and setup bases must share coefficient dimension, got "
+            f"{local_base.shape[1]} and {setup_base.shape[1]}."
+        )
+
+    if str(constraint_mode).lower() == "factor_by":
+        if not by_state.is_present:
+            raise ValueError(
+                "constraint_mode='factor_by' requires a numeric indicator `by` column."
+            )
+        penalties_in = [] if bool(fixed) else [penalty]
+        _, Sc, C = apply_linear_constraint(
+            setup_base, penalties_in, setup_base.mean(axis=0)
+        )
+        Bc = local_base @ C
+        Bc = apply_numeric_by_fn(Bc, by_state.values)
+        return ConstraintFitResult(
+            basis_train=np.asarray(Bc, dtype=np.float64),
+            penalties=Sc,
+            constraint_kind="factor_by",
+            constraint_transform=C,
+        )
+
+    should_constrain = should_apply_identifiability_constraint(
+        by_state, constraint_mode, default_when_auto=bool(auto_constrain_when)
+    )
+    constraint_kind = None
+    constraint_transform = None
+    if should_constrain:
+        penalties_in = [] if bool(fixed) else [penalty]
+        _, Sc, C = apply_linear_constraint(
+            setup_base, penalties_in, setup_base.mean(axis=0)
+        )
+        base_out = local_base @ C
+        penalties_out = Sc
+        constraint_kind = "sum_to_zero"
+        constraint_transform = C
+    else:
+        base_out = local_base
+        penalties_out = [] if bool(fixed) else [penalty]
+    base_out = apply_numeric_by_fn(base_out, by_state.values)
+    return ConstraintFitResult(
+        basis_train=np.asarray(base_out, dtype=np.float64),
+        penalties=penalties_out,
+        constraint_kind=constraint_kind,
+        constraint_transform=constraint_transform,
+    )
+
+
 __all__ = [
     "ConstraintFitResult",
     "apply_linear_constraint",
@@ -189,4 +256,5 @@ __all__ = [
     "absorb_explicit_constraints",
     "should_apply_identifiability_constraint",
     "fit_single_penalty_with_constraint_policy",
+    "fit_single_penalty_with_setup_basis",
 ]

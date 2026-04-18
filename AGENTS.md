@@ -14,6 +14,8 @@ For parity-sensitive work, the upstream vendored `mgcv` source code in this repo
 ## Non-negotiable rules
 
 - Do not replace upstream logic with a fresh derivation when the upstream implementation exists in the repo.
+- Do not add heuristic, approximate, or best-effort parity fallbacks in parity-sensitive code.
+- If a strict `mgcv` port is not yet possible, leave the surface unsupported or add a small explicit TODO rather than shipping heuristic behavior.
 - Do not make numerically meaningful algebraic rewrites unless parity tests demonstrate no regression.
 - Do not change ordering of penalties, constraints, pivots, side conditions, or block assembly casually.
 - Do not use matrix inverses where upstream logic uses solves/factorizations.
@@ -70,6 +72,12 @@ When porting from upstream `mgcv`:
 - document the upstream function name in code comments if that mapping is not obvious.
 
 Do not “improve” an algorithm just because a different Python implementation seems more elegant.
+
+## Representation vs behavior parity
+
+- Behavioral parity remains strict: fit, predict, scores, EDF, smoothing-parameter behavior, penalty structure, constraints, and block assembly should match `mgcv`.
+- Raw constructor parity should be strict only up to mathematically indeterminate eigenspace orientation. For eigendecomposition-based smooths, prefer canonicalized or invariant comparisons (for example row-space, projector, or penalty-spectrum comparisons) over exact column-by-column basis matching.
+- Do not add implementation-level `Rscript` probing, custom LAPACK library selection, or other platform-specific solver hooks solely to force raw basis orientation parity.
 
 ## Repository structure
 

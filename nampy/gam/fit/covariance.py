@@ -16,6 +16,8 @@ Two covariance estimates are provided for each fitted model:
 
 import numpy as np
 
+from .._model_state import _cov_bayes, _cov_freq
+
 
 def build_bayes_and_freq_covariances(scale, A_inv, XWX):
     """
@@ -53,9 +55,13 @@ def build_bayes_and_freq_covariances(scale, A_inv, XWX):
 
 
 def select_covariance_matrix(model, cov=None):
+    if cov is not None and not isinstance(cov, str):
+        return np.asarray(cov, dtype=np.float64)
     key = (cov or model.covariance).lower()
     if key == "bayes":
-        return model.Vp_
+        cov_bayes = _cov_bayes(model)
+        return None if cov_bayes is None else np.asarray(cov_bayes, dtype=np.float64)
     if key == "freq":
-        return model.Vf_
+        cov_freq = _cov_freq(model)
+        return None if cov_freq is None else np.asarray(cov_freq, dtype=np.float64)
     raise ValueError("cov must be 'bayes' or 'freq'.")
