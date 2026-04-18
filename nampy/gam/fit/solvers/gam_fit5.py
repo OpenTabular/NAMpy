@@ -21,7 +21,9 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
-from scipy.linalg import cholesky
+from scipy.linalg import cholesky, solve_triangular
+
+from ..state import _mgcv_dchol, _mgcv_vcorr
 
 # ---------------------------------------------------------------------------
 # Control parameters  (mgcv: gam.control)
@@ -737,7 +739,17 @@ def gam_fit5(
 # ---------------------------------------------------------------------------
 
 
-def gam_fit5_post_proc(fit: dict, *, Sl: Any | None = None) -> dict:
+def gam_fit5_post_proc(
+    fit: dict,
+    *,
+    Sl: Any | None = None,
+    L_map: np.ndarray | None = None,
+    lsp0: np.ndarray | None = None,
+    S_blocks: list[np.ndarray] | None = None,
+    off: list[int] | None = None,
+    outer_hess: np.ndarray | None = None,
+    smoothing_params: np.ndarray | None = None,
+) -> dict:
     """
     Compute Bayesian and frequentist covariance matrices and EDF.
 
@@ -791,17 +803,76 @@ def gam_fit5_post_proc(fit: dict, *, Sl: Any | None = None) -> dict:
             cov=False,
         )
 
+    Vc = np.asarray(Vb, dtype=np.float64)
+    Hsp = outer_hess
+    if Hsp is None and fit.get("REML2", None) is not None:
+        Hsp = np.asarray(fit["REML2"], dtype=np.float64)
+    db_drho = None if fit.get("db_drho", None) is None else np.asarray(
+        fit["db_drho"], dtype=np.float64
+    )
+    if Hsp is not None and db_drho is not None and db_drho.size > 0:
+        Hsp = 0.5 * (np.asarray(Hsp, dtype=np.float64) + np.asarray(Hsp, dtype=np.float64).T)
+        if L_map is not None:
+            db_drho = np.asarray(
+                db_drho @ np.asarray(L_map, dtype=np.float64), dtype=np.float64
+            )
+        if Sl is not None and _sl_length(Sl) > 0:
+            cols = []
+            for i in range(db_drho.shape[1]):
+                cols.append(
+                    np.asarray(
+                        _sl_initial_repara_local(
+                            Sl,
+                            db_drho[:, i],
+                            inverse=True,
+                            both_sides=False,
+                            cov=False,
+                        ),
+                        dtype=np.float64,
+                    )
+                )
+            db_drho = np.column_stack(cols) if cols else db_drho[:, :0]
+        evals, evecs = np.linalg.eigh(Hsp)
+        pos = evals > 0.0
+        inv_sqrt = np.zeros_like(evals)
+        inv_sqrt[pos] = 1.0 / np.sqrt(evals[pos])
+        Vsp = np.asarray(evecs @ ((inv_sqrt * inv_sqrt)[:, None] * evecs.T), dtype=np.float64)
+        Vc = np.asarray(Vb + db_drho @ Vsp @ db_drho.T, dtype=np.float64)
+
+        if S_blocks is not None and len(S_blocks) > 0:
+            reg = np.zeros_like(evals)
+            reg[pos] = 1.0 / np.sqrt(evals[pos] + 1.0 / 50.0)
+            Vr = np.asarray(evecs @ ((reg * reg)[:, None] * evecs.T), dtype=np.float64)
+            if smoothing_params is None:
+                raise KeyError(
+                    "gam_fit5_post_proc requires smoothing_params for Vb.corr parity."
+                )
+            Vc += _vb_corr_root(
+                R,
+                L=L_map,
+                lsp0=lsp0,
+                S_blocks=S_blocks,
+                off=off,
+                rho=np.log(
+                    np.maximum(np.asarray(smoothing_params, dtype=np.float64), 1e-300)
+                ),
+                Vr=Vr,
+            )
+
+    Vc = 0.5 * (Vc + Vc.T)
     RTR = np.asarray(R.T @ R, dtype=np.float64)
     F = np.asarray(Vb @ RTR, dtype=np.float64)
     Ve = np.asarray(F @ Vb, dtype=np.float64)
     edf = np.asarray(np.diag(F), dtype=np.float64)
     edf1 = np.asarray(2.0 * edf - np.sum(F * F.T, axis=1), dtype=np.float64)
-    edf2 = np.asarray(np.sum(Vb * RTR, axis=1), dtype=np.float64)
-    edf2 = np.where(edf2 > edf1, edf1, edf2)
+    edf2 = np.asarray(np.sum(Vc * RTR, axis=1), dtype=np.float64)
+    if float(np.sum(edf2)) > float(np.sum(edf1)):
+        edf2 = np.asarray(edf1, dtype=np.float64).copy()
 
     return {
         "Vp": Vb,
         "Ve": Ve,
+        "Vc": Vc,
         "edf": edf,
         "edf1": edf1,
         "edf2": edf2,
@@ -838,6 +909,80 @@ def _sl_initial_repara_local(Sl: Any, X: np.ndarray, **kwargs) -> np.ndarray:
     from .general_fit5 import sl_initial_repara
 
     return sl_initial_repara(Sl, X, **kwargs)
+
+
+def _vb_corr_root(
+    X_root: np.ndarray,
+    *,
+    L: np.ndarray | None,
+    lsp0: np.ndarray | None,
+    S_blocks: list[np.ndarray],
+    off: list[int] | None,
+    rho: np.ndarray,
+    Vr: np.ndarray,
+) -> np.ndarray:
+    """Dense NumPy port of ``mgcv::Vb.corr`` for the ``w is NULL`` case."""
+
+    rho = np.asarray(rho, dtype=np.float64).ravel()
+    if rho.size == 0 or len(S_blocks) == 0:
+        return np.zeros((X_root.shape[1], X_root.shape[1]), dtype=np.float64)
+
+    if lsp0 is None:
+        lsp0 = (
+            np.zeros_like(rho)
+            if L is None
+            else np.zeros((np.asarray(L, dtype=np.float64).shape[0],), dtype=np.float64)
+        )
+    lsp0 = np.asarray(lsp0, dtype=np.float64).ravel()
+    if L is None:
+        lam = np.exp(rho + lsp0[: rho.size])
+    else:
+        L = np.asarray(L, dtype=np.float64)
+        lam = np.exp(L @ rho + lsp0[: L.shape[0]])
+
+    H = np.asarray(X_root.T @ X_root, dtype=np.float64)
+    full_blocks = [np.asarray(Si, dtype=np.float64) for Si in S_blocks]
+    if off is None:
+        off = [1] * len(full_blocks)
+    for i, Si in enumerate(full_blocks):
+        H = H + float(lam[i]) * Si
+
+    try:
+        R = cholesky(H, lower=False)
+    except np.linalg.LinAlgError:
+        return np.zeros_like(H)
+
+    dH = [float(lam[i]) * Si for i, Si in enumerate(full_blocks)]
+    if L is not None:
+        dH_linked = []
+        for j in range(L.shape[1]):
+            acc = None
+            for i in range(L.shape[0]):
+                if L[i, j] == 0.0:
+                    continue
+                term = dH[i] * float(L[i, j])
+                acc = term if acc is None else acc + term
+            if acc is not None:
+                dH_linked.append(acc)
+        dH = dH_linked
+    if len(dH) == 0:
+        return np.zeros_like(H)
+
+    R_inv = solve_triangular(
+        R,
+        np.eye(R.shape[0], dtype=np.float64),
+        lower=False,
+        check_finite=False,
+    )
+    dR_inv = []
+    for dHi in dH:
+        dRi = _mgcv_dchol(np.asarray(dHi, dtype=np.float64), R)
+        dR_inv.append(
+            -(
+                solve_triangular(R, dRi, lower=False, check_finite=False) @ R_inv
+            )
+        )
+    return np.asarray(_mgcv_vcorr(dR_inv, np.asarray(Vr, dtype=np.float64), trans=False), dtype=np.float64)
 
 
 def _sl_repara(

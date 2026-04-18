@@ -72,6 +72,14 @@ def _fit_to_prediction_parameterization_map(
         return None
     if np.allclose(X_fit, X_pred, atol=tol, rtol=tol):
         return None
+    # `mgcv` only needs a non-trivial fit->prediction map when the training
+    # and prediction matrices genuinely differ as parameterizations. Some
+    # smooths (notably `bs="fs"`) can differ only at ~1e-9 floating noise
+    # between constructor-time and Predict.matrix paths. Building the mgcv-style
+    # QR map in those aliased designs can collapse covariance rank even though
+    # the matrices are behaviorally identical, so keep the identity map here.
+    if np.allclose(X_fit, X_pred, atol=1e-8, rtol=1e-8):
+        return None
     # Mirror mgcv/R/mgcv.r construction of G$P:
     # qr(Xp, LAPACK=TRUE) -> Rrank(R) -> triangular solve on QtX -> restore pivots.
     Q, R, piv = scipy_qr(X_pred, mode="economic", pivoting=True)

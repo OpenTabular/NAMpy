@@ -55,6 +55,8 @@ def build_bayes_and_freq_covariances(scale, A_inv, XWX):
 
 
 def select_covariance_matrix(model, cov=None):
+    if cov is not None and not isinstance(cov, str):
+        return np.asarray(cov, dtype=np.float64)
     key = (cov or model.covariance).lower()
     if key == "bayes":
         cov_bayes = _cov_bayes(model)

@@ -112,7 +112,16 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         A_inv = np.asarray(stacked["A_inv"], dtype=np.float64)
         XtWX = np.asarray(stacked["XtWX"], dtype=np.float64)
         H_coef = np.asarray(stacked["coef_hat_matrix"], dtype=np.float64)
-        trace_H = float(np.trace(H_coef))
+        # Mirror mgcv's post-fit EDF trace from the stacked-QR covariance root
+        # (`rV`) rather than from an explicit `A^{-1} X'WX` product. The two are
+        # algebraically identical, but the root-based Frobenius form is
+        # materially more stable in nearly saturated aliased designs such as
+        # intercept + `bs="fs"`, where tiny EDF differences feed directly into
+        # the Gaussian scale estimate.
+        WX_rV = np.asarray(stacked["WX_sqrt"], dtype=np.float64) @ np.asarray(
+            stacked["covariance_root"], dtype=np.float64
+        )
+        trace_H = float(np.sum(WX_rV * WX_rV))
         scale = model.family.estimate_dispersion(y, eta, edf=trace_H, weights=w)
         Vp, Vf, H_coef = build_bayes_and_freq_covariances(scale, A_inv, stacked["XtWX"])
         sol["A"] = A

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import numpy as np
-from scipy.optimize import OptimizeResult
 from scipy.linalg import eigh as scipy_eigh
+from scipy.optimize import OptimizeResult
 
 from ..._model_state import _fit_scale
 from .basics import _project_to_bounds
@@ -113,6 +113,7 @@ def _optimize_outer_newton_mgcv(
 
     score_hist = np.full(int(max_iter), np.nan, dtype=np.float64)
     accepted_x_hist = []
+    iter_trace = []
 
     msg = "iteration limit reached"
     success = False
@@ -224,6 +225,7 @@ def _optimize_outer_newton_mgcv(
         ii = 0
         accepted = False
         trial_step_inf = float(np.max(np.abs(step1))) if step1.size else 0.0
+        used_sd_step = False
 
         if np.isfinite(score1) and score_change < 0.0 and pdef and qerror < float(qerror_thresh):
             _record_iter(x, x1)
@@ -255,6 +257,7 @@ def _optimize_outer_newton_mgcv(
                     s_den = max(float(np.linalg.norm(sstep)), 1e-12)
                     step = sstep * (s_len / s_den)
                     sd_unused = False
+                    used_sd_step = True
                 else:
                     step *= 0.5
 
@@ -389,6 +392,7 @@ def _optimize_outer_newton_mgcv(
             if np.isfinite(score2) and score2 < score1:
                 score1 = score2
                 x1 = x2.copy() if x2 is not None else x1
+                used_sd_step = True
 
             if score1 < score and np.isfinite(score1):
                 prev_score = float(score)
@@ -460,6 +464,33 @@ def _optimize_outer_newton_mgcv(
         if ii == int(max_half):
             converged = True
         ii_last = ii
+        iter_trace.append(
+            {
+                "iter": int(nit),
+                "log_sp": np.asarray(x, dtype=np.float64).copy(),
+                "criterion": float(score),
+                "gradient": np.asarray(grad, dtype=np.float64).copy(),
+                "hessian": np.asarray(hess, dtype=np.float64).copy(),
+                "accepted_step_norm": (
+                    0.0
+                    if len(accepted_x_hist) <= 1
+                    else float(
+                        np.linalg.norm(
+                            np.asarray(accepted_x_hist[-1], dtype=np.float64)
+                            - np.asarray(accepted_x_hist[-2], dtype=np.float64)
+                        )
+                    )
+                ),
+                "rank_info": {
+                    "source": "outer_newton_mgcv",
+                    "indefinite_hessian": bool(indef),
+                    "positive_definite": bool(pdef),
+                    "step_halving_count": int(ii),
+                    "used_steepest_descent": bool(used_sd_step),
+                    "converged_here": bool(converged),
+                },
+            }
+        )
         if converged:
             success = True
             msg = "full convergence"
@@ -545,7 +576,6 @@ def _optimize_outer_newton_mgcv(
             score = float(score1)
             grad = np.asarray(grad1, dtype=np.float64)
             hess = np.asarray(hess1, dtype=np.float64)
-            dvkk = np.asarray(dvkk1, dtype=np.float64)
             if coef1 is not None:
                 accepted_start = np.asarray(coef1, dtype=np.float64).copy()
             if eta1 is not None:
@@ -558,7 +588,7 @@ def _optimize_outer_newton_mgcv(
             if model is not None and isinstance(
                 getattr(model, "_pirls_reml_derivative_kernel_state_", None), dict
             ):
-                drv = getattr(model, "_pirls_reml_derivative_kernel_state_")
+                drv = model._pirls_reml_derivative_kernel_state_
                 # `db.drho`/`dw.drho`/`rp` are not yet carried through Python's
                 # PIRLS exact path in the same raw form as mgcv.
                 db_drho1 = drv.get("dbeta")
@@ -588,6 +618,7 @@ def _optimize_outer_newton_mgcv(
     # not post-hoc objective recomputes at accepted iterates.
     result.mgcv_score_hist = [v for v in score_hist.tolist() if np.isfinite(v)]
     result.accepted_x_hist = accepted_x_hist
+    result.optim_trace = iter_trace
     result.mgcv_qerror_thresh = float(qerror_thresh)
     result.mgcv_edge_correct = bool(edge_correct)
     result.mgcv_edge_correct_applied = bool(edge_corrected)
@@ -596,12 +627,31 @@ def _optimize_outer_newton_mgcv(
     result.dw_drho1 = None if dw_drho1 is None else np.asarray(dw_drho1, dtype=np.float64)
     result.rp = rp1
     result.lsp1 = None if lsp1 is None else np.asarray(lsp1, dtype=np.float64)
+    result.outer_info = {
+        "conv": str(msg),
+        "iter": int(nit),
+        "score_hist": result.mgcv_score_hist,
+        "grad": np.asarray(grad, dtype=np.float64),
+        "hess": np.asarray(hess, dtype=np.float64),
+    }
     if bool(edge_correct):
-        result.outer_info = {
-            "hess1": None if hess1 is None else np.asarray(hess1, dtype=np.float64),
-            "db_drho1": None if db_drho1 is None else np.asarray(db_drho1, dtype=np.float64),
-            "dw_drho1": None if dw_drho1 is None else np.asarray(dw_drho1, dtype=np.float64),
-            "rp": rp1,
-            "lsp1": None if lsp1 is None else np.asarray(lsp1, dtype=np.float64),
-        }
+        result.outer_info.update(
+            {
+                "hess1": (
+                    None if hess1 is None else np.asarray(hess1, dtype=np.float64)
+                ),
+                "db_drho1": (
+                    None
+                    if db_drho1 is None
+                    else np.asarray(db_drho1, dtype=np.float64)
+                ),
+                "dw_drho1": (
+                    None
+                    if dw_drho1 is None
+                    else np.asarray(dw_drho1, dtype=np.float64)
+                ),
+                "rp": rp1,
+                "lsp1": None if lsp1 is None else np.asarray(lsp1, dtype=np.float64),
+            }
+        )
     return result

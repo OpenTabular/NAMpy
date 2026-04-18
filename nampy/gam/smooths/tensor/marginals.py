@@ -251,11 +251,12 @@ def build_tensor_product_components(
     for m, center_i in zip(marginals, use_centered):
         x_train = column_as_float(X, tensor_marginal_feature_index(m))
         shared_setup = getattr(m, "shared_basis_setup", None)
-        if (
+        use_linked_id_predict_path = (
             isinstance(shared_setup, dict)
             and str(shared_setup.get("mode", "")).lower() == "linked_id"
             and shared_setup.get("pooled_feature_values")
-        ):
+        )
+        if use_linked_id_predict_path:
             x_train = np.asarray(
                 shared_setup["pooled_feature_values"][0], dtype=np.float64
             ).ravel()
@@ -266,10 +267,18 @@ def build_tensor_product_components(
         marginal_setup_bases.append(X_j)
         marginal_penalties.append(S_j)
         marginal_np_transforms.append(XP_j)
+
+        # mgcv/R/smooth.r::smooth.construct.tensor.smooth.spec uses the fitted
+        # marginal model matrices in `Xm[[i]] <- object$margin[[i]]$X` for the
+        # tensor fit construction. Only linked `id=` marginals need the pooled
+        # prediction path here because their local fit rows differ from the
+        # pooled setup rows used to build the shared basis.
         marginal_local_bases.append(
             tensor_marginal_predict_matrix(
                 m, X, centered=bool(center_i), np_transform=XP_j
             )
+            if use_linked_id_predict_path
+            else X_j
         )
     basis_dims = [int(B.shape[1]) for B in marginal_setup_bases]
     B_raw = rowwise_kronecker(marginal_local_bases)

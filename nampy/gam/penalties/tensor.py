@@ -55,7 +55,10 @@ def rescale_tensor_penalties_for_fit(B, penalties, tol=1e-12, *, x_norm_axis="ro
         return [S.copy() for S in penalties]
     out = []
     for S in penalties:
-        s_scale = float(np.linalg.norm(S, ord=np.inf)) / x_scale
+        # Mirror mgcv/R/smooth.r::smoothCon(), which rescales each penalty by
+        # `norm(sm$S[[i]]) / norm(sm$X, type="I")^2`. For matrices `norm()`
+        # defaults to the one-norm (maximum column sum), not the infinity norm.
+        s_scale = float(np.linalg.norm(S, ord=1)) / x_scale
         out.append(S.copy() if s_scale <= tol else S / s_scale)
     return out
 

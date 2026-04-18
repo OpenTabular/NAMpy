@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.spatial import distance_matrix
 
+from .._column_orientation import apply_column_signs, canonical_column_signs
 from .thin_plate import _top_eigensystem
 
 
@@ -307,6 +308,9 @@ def gp_setup_from_data(
         UZ = np.eye(nk, dtype=np.float64)
         penalty = np.zeros((bs_dim, bs_dim), dtype=np.float64)
         penalty[:rank, :rank] = E
+
+    col_signs = canonical_column_signs(UZ)
+    UZ = apply_column_signs(UZ, col_signs)
 
     penalty = 0.5 * (penalty + penalty.T)
 

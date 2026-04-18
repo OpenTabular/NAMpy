@@ -612,6 +612,20 @@ def _assert_root_crossprod_equal(actual, expected, *, atol=1e-10):
     )
 
 
+def _assert_u1_subspaces_equal(actual, expected, *, q_range, atol=1e-10):
+    actual = np.asarray(actual, dtype=np.float64)
+    expected = np.asarray(expected, dtype=np.float64)
+    assert actual.shape == expected.shape
+
+    q_range = int(q_range)
+    if q_range > 0:
+        _assert_projector_equal(actual[:, :q_range], expected[:, :q_range], atol=atol)
+
+    q_null = int(actual.shape[1]) - q_range
+    if q_null > 0:
+        _assert_projector_equal(actual[:, q_range:], expected[:, q_range:], atol=atol)
+
+
 def _align_columns_with_transform(actual, expected, *, atol=1e-10):
     actual = np.asarray(actual, dtype=np.float64)
     expected = np.asarray(expected, dtype=np.float64)
@@ -694,15 +708,15 @@ def _assert_preoptimization_parity(
     )
     expected_S = _as_matrix_list(expected.get("S", []))
     assert len(actual.S) == len(expected_S)
-    for off_i, a_S, e_S in zip(np.asarray(actual.off, dtype=np.int64), actual.S, expected_S):
+    for off_i, a_S, e_S in zip(
+        np.asarray(actual.off, dtype=np.int64), actual.S, expected_S
+    ):
         if basis_transform is not None:
             start = int(off_i) - 1
             stop = start + int(np.asarray(a_S, dtype=np.float64).shape[0])
             local_transform = basis_transform[start:stop, start:stop]
             a_S = (
-                local_transform.T
-                @ np.asarray(a_S, dtype=np.float64)
-                @ local_transform
+                local_transform.T @ np.asarray(a_S, dtype=np.float64) @ local_transform
             )
         np.testing.assert_allclose(a_S, e_S, rtol=0.0, atol=penalty_atol)
     np.testing.assert_array_equal(
@@ -760,6 +774,12 @@ def _assert_preoptimization_parity(
     assert actual.U1.shape == expected_U1.shape
     assert actual.Mp == int(expected["Mp"])
 
+    _assert_u1_subspaces_equal(
+        actual.U1,
+        expected_U1,
+        q_range=expected_E.shape[0],
+        atol=projector_atol,
+    )
     _assert_projector_equal(actual.Y, expected_Y)
     _assert_projector_equal(actual.Z, expected_Z)
     if compare_range_root_repr:
@@ -812,6 +832,11 @@ def test_preoptimization_blocks_match_mgcv(
     projector_atol = 1e-9 if case_id == "gaussian_fs" else 1e-10
     if case_id == "gaussian_fs":
         penalty_atol = 1e-8
+    elif case_id in {"gaussian_t2_full_false", "gaussian_t2_full_true"}:
+        # These two t2() slices are matching up to ~1e-12 on the penalty
+        # blocks, which is residual floating-point noise rather than a
+        # behavior-affecting preoptimization mismatch.
+        penalty_atol = 2e-12
     elif align_basis_columns:
         penalty_atol = 1e-10
     else:

@@ -114,7 +114,22 @@ if (length(args) >= 7) {
     gam_args$weights <- data[[wcol]]
   }
 }
-fit <- do.call(gam, gam_args)
+
+capture_warnings <- function(expr) {
+  warnings <- character(0)
+  value <- withCallingHandlers(
+    expr,
+    warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  list(value = value, warnings = warnings)
+}
+
+fit_capture <- capture_warnings(do.call(gam, gam_args))
+fit <- fit_capture$value
+fit_warnings <- unname(as.character(fit_capture$warnings))
 
 fixed_sp_derivatives <- function(sp_ref, eps_grad = 1e-6, eps_hess = 1e-4) {
   sp_ref <- as.numeric(sp_ref)
@@ -232,6 +247,14 @@ residuals_block <- list(
   scaled_pearson = safe_residuals("scaled.pearson"),
   deviance = safe_residuals("deviance")
 )
+safe_aic <- capture_warnings(tryCatch(AIC(fit), error = function(e) NULL))
+aic_val <- safe_aic$value
+fit_warnings <- unname(as.character(c(fit_warnings, safe_aic$warnings)))
+safe_loglik <- tryCatch(logLik(fit), error = function(e) NULL)
+
+outer_info <- fit$outer.info
+outer_grad <- if (!is.null(outer_info) && !is.null(outer_info$grad)) unname(as.numeric(outer_info$grad)) else NULL
+outer_hess <- if (!is.null(outer_info) && !is.null(outer_info$hess)) unname(as.matrix(outer_info$hess)) else NULL
 k_check_table <- tryCatch({
   set.seed(0)
   out <- k.check(fit, subsample = 120, n.rep = 8)
@@ -393,25 +416,43 @@ snapshot <- list(
     family_theta = if (!is.null(fit$family$getTheta)) unname(as.numeric(fit$family$getTheta(TRUE))) else NULL,
     criterion_name = method_name,
     criterion_value = unname(as.numeric(fit$gcv.ubre)),
+    optimizer = if (is.null(fit$optimizer)) NULL else as.character(fit$optimizer),
     coef_full = coef_full,
     intercept = intercept,
     smoothing_params = unname(as.numeric(fit$sp)),
     log_smoothing_params = unname(as.numeric(log(pmax(fit$sp, 1e-300)))),
     edf_total = edf_total,
     edf_by_term = edf_by_term,
+    edf2 = if (is.null(fit$edf2)) NULL else unname(as.numeric(fit$edf2)),
     trace_H = trace_H,
+    hat = if (is.null(fit$hat)) NULL else unname(as.numeric(fit$hat)),
     scale = scale_val,
     rss = rss_val,
     deviance = unname(as.numeric(fit$deviance)),
     cov_bayes = if (is.null(fit$Vp)) NULL else unname(fit$Vp),
     cov_freq = if (is.null(fit$Ve)) NULL else unname(fit$Ve),
+    cov_unconditional = if (is.null(fit$Vc)) NULL else unname(fit$Vc),
     cov_sandwich_bayes = if (is.null(vcov_sandwich_bayes)) NULL else unname(vcov_sandwich_bayes),
     cov_sandwich_freq = if (is.null(vcov_sandwich_freq)) NULL else unname(vcov_sandwich_freq),
     dev_sum_dev_resids = unname(as.numeric(dev_sum_dev_resids)),
     penalty_quadratic = unname(as.numeric(penalty_quadratic)),
+    loglik = if (is.null(safe_loglik)) NULL else unname(as.numeric(safe_loglik)),
+    aic = if (is.null(aic_val)) NULL else unname(as.numeric(aic_val)),
     n_obs = nrow(data),
     outer_grad = unname(as.numeric(fixed_outer$grad)),
-    outer_hess = unname(as.matrix(fixed_outer$hess))
+    outer_hess = unname(as.matrix(fixed_outer$hess)),
+    outer_info = list(
+      conv = if (!is.null(outer_info) && !is.null(outer_info$conv)) as.character(outer_info$conv) else NULL,
+      iter = if (!is.null(outer_info) && !is.null(outer_info$iter)) as.integer(outer_info$iter) else NULL,
+      score_hist = if (!is.null(outer_info) && !is.null(outer_info$score.hist)) unname(as.numeric(outer_info$score.hist)) else NULL,
+      grad = outer_grad,
+      hess = outer_hess,
+      convergence = if (!is.null(outer_info) && !is.null(outer_info$convergence)) as.integer(outer_info$convergence) else NULL,
+      message = if (!is.null(outer_info) && !is.null(outer_info$message)) as.character(outer_info$message) else NULL,
+      counts = if (!is.null(outer_info) && !is.null(outer_info$counts)) unname(as.integer(outer_info$counts)) else NULL
+    ),
+    fit_warn = if (is.null(fit$warn)) NULL else unname(as.character(fit$warn)),
+    warnings = fit_warnings
   ),
   predictions = list(
     response = pred_response,

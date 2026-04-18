@@ -118,6 +118,7 @@ def _optimize_outer_newton_indefinite_hessian(
     max_sstep=2.0,
     max_half=30,
     qerror_thresh=0.8,
+    edge_correct=False,
 ):
     model = getattr(objective, "model", None)
     score_type = str(getattr(objective, "method", "reml")).upper()
@@ -256,5 +257,5 @@ def _optimize_outer_newton_indefinite_hessian(
         qerror_thresh=qerror_thresh,
         max_iter=max_iter,
         step_tol=step_tol,
-        edge_correct=False,
+        edge_correct=edge_correct,
     )

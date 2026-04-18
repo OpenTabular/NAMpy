@@ -349,9 +349,18 @@ def _coerce_fx(fx):
 
 def _default_k_for_basis(basis, default_k):
     basis_key = str(basis).lower()
-    if basis_key == "mrf":
+    if basis_key in {"mrf", "gp"}:
         return -1
     return default_k
+
+
+def _default_k_for_smooth(kind, basis, features, default_k):
+    kind_key = str(kind).lower()
+    if kind_key in {"te", "ti", "t2"}:
+        # mgcv::te()/ti()/t2() default k to 5^d per marginal. The current
+        # Python tensor surface supports one feature per marginal, so d = 1.
+        return [5] * len(features)
+    return _default_k_for_basis(basis, default_k)
 
 
 def _default_basis_for_kind(kind, default_basis):
@@ -791,7 +800,7 @@ def _build_predictor_spec(
         if "k" in kw:
             k = kw.pop("k")
         else:
-            k = _default_k_for_basis(basis, default_k)
+            k = _default_k_for_smooth(kind, basis, features, default_k)
         by = kw.pop("by", None)
         if by is not None:
             by = str(by)

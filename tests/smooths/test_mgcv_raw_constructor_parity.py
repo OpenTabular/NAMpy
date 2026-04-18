@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass
 from numbers import Number
 
@@ -7,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from nampy._column_orientation import apply_column_signs, canonical_column_signs
 from nampy.gam.compiler.factory import instantiate_term
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
 from nampy.gam.penalties import tensor_product_penalties
@@ -32,19 +34,25 @@ from nampy.gam.smooths.univariate.gp import GPSmoothTerm
 from nampy.gam.smooths.univariate.pspline import PSplineTerm1D
 from nampy.gam.smooths.univariate.thin_plate import ThinPlateSplineTerm
 from nampy.gam.specs.build import build_formula_model
+from nampy.splines.cubic_basis import cr_exact_null_basis_from_knots
 from nampy.splines.mrf import nat_param_type0, nat_param_type1
 from nampy.splines.univariate_bases import (
     add_full_rank_shrinkage,
     cyclic_cubic_bd,
     cyclic_cubic_predict_matrix,
+    pspline_knots,
 )
 from tests.mgcv_parity_utils import (
     _make_fs_data,
+    _make_fs_data_4levels,
     _make_gaussian_data,
+    _make_gaussian_data_3col,
     _make_mrf_data,
     _make_mrf_low_rank_data,
     _make_random_effect_data,
+    _make_random_effect_data_noisy,
     _make_sz_data,
+    _make_sz_data_3x3,
     _normalize_python_formula_text,
     _run_mgcv_raw_constructor,
 )
@@ -56,6 +64,7 @@ class RawConstructorCase:
     data_factory: object
     formula: str
     atol: float = 1e-10
+    knots_factory: object | None = None
 
 
 def _make_univariate_data(seed=31, n=140):
@@ -79,139 +88,794 @@ def _make_gp_data(seed=91, n=150):
     return pd.DataFrame({"y": y, "x": x})
 
 
+def _make_large_univariate_data(seed=111, n=2205):
+    return _make_univariate_data(seed=seed, n=n)
+
+
+def _make_large_gaussian_data(seed=112, n=2205):
+    return _make_gaussian_data(seed=seed, n=n)
+
+
+def _make_factorized_gaussian_data(seed=101, n=96):
+    df = _make_gaussian_data(seed=seed, n=n).copy()
+    levels = np.array(["a", "b", "c"], dtype=object)
+    df["f"] = levels[np.arange(n) % levels.size]
+    return df
+
+
+def _make_sz_metric2d_data(seed=102, n=54):
+    df = _make_gaussian_data(seed=seed, n=n).copy()
+    f1_levels = np.array(["a", "b", "c"], dtype=object)
+    f2_levels = np.array(["u", "v", "w"], dtype=object)
+    df["f1"] = f1_levels[np.arange(n) % f1_levels.size]
+    df["f2"] = f2_levels[(np.arange(n) // f1_levels.size) % f2_levels.size]
+    return df
+
+
+def _make_random_effect_pair_data():
+    f1 = np.array(["a", "b", "c", "a", "b", "c"], dtype=object)
+    f2 = np.array(["u", "u", "u", "v", "v", "v"], dtype=object)
+    y = np.array([1.0, -0.5, 0.2, 1.4, -0.1, 0.6], dtype=np.float64)
+    return pd.DataFrame({"y": y, "f1": f1, "f2": f2})
+
+
+def _make_random_effect_numeric_pair_data():
+    return pd.DataFrame(
+        {
+            "y": [0.1, 0.3, 0.9, 1.2, 1.7, 2.0],
+            "x0": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            "x1": [0.5, 0.75, 1.5, 1.0, 1.25, 1.75],
+        }
+    )
+
+
+def _factory(fn, **kwargs):
+    return lambda fn=fn, kwargs=kwargs: fn(**kwargs)
+
+
+def _equally_spaced_knots(column: str, n_knots: int):
+    def _build(data):
+        vals = np.asarray(data[column], dtype=np.float64)
+        return {
+            str(column): np.linspace(
+                float(np.min(vals)),
+                float(np.max(vals)),
+                num=int(n_knots),
+            )
+        }
+
+    return _build
+
+
+def _pspline_supplied_knots(column: str, bs_dim: int, basis_order: int):
+    def _build(data):
+        vals = np.asarray(data[column], dtype=np.float64)
+        return {
+            str(column): pspline_knots(
+                vals,
+                bs_dim=int(bs_dim),
+                basis_order=int(basis_order),
+                supplied_knots=None,
+            )
+        }
+
+    return _build
+
+
+def _paired_feature_knots(columns, n_knots: int):
+    cols = [str(col) for col in columns]
+
+    def _build(data):
+        out = {}
+        for col in cols:
+            vals = np.asarray(data[col], dtype=np.float64)
+            out[col] = np.linspace(
+                float(np.min(vals)),
+                float(np.max(vals)),
+                num=int(n_knots),
+            )
+        return out
+
+    return _build
+
+
+def _merge_knots_factories(*builders):
+    def _build(data):
+        out = {}
+        for builder in builders:
+            if builder is None:
+                continue
+            out.update(builder(data))
+        return out
+
+    return _build
+
+
+def _feature_specific_knots(counts):
+    counts = {str(key): int(value) for key, value in dict(counts).items()}
+
+    def _build(data):
+        out = {}
+        for col, n_knots in counts.items():
+            vals = np.asarray(data[col], dtype=np.float64)
+            out[col] = np.linspace(
+                float(np.min(vals)),
+                float(np.max(vals)),
+                num=n_knots,
+            )
+        return out
+
+    return _build
+
+
+def _cyclic_endpoint_knots(column: str):
+    def _build(data):
+        vals = np.asarray(data[column], dtype=np.float64)
+        return {str(column): [float(np.min(vals)), float(np.max(vals))]}
+
+    return _build
+
+
+def _mrf_nb3():
+    return {"A": ["B"], "B": ["A", "C"], "C": ["B"]}
+
+
+def _mrf_nb4():
+    return {"A": ["B"], "B": ["A", "C"], "C": ["B", "D"], "D": ["C"]}
+
+
+def _mrf_penalty3():
+    return [[1.0, -1.0, 0.0], [-1.0, 2.0, -1.0], [0.0, -1.0, 1.0]]
+
+
+def _mrf_polys3():
+    return {
+        "A": [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 0.0]],
+        "B": [[1.0, 0.0], [2.0, 0.0], [2.0, 1.0], [1.0, 1.0], [1.0, 0.0]],
+        "C": [[2.0, 0.0], [3.0, 0.0], [3.0, 1.0], [2.0, 1.0], [2.0, 0.0]],
+    }
+
+
+def _mrf_region_knots(*levels):
+    return lambda _data: {"region": list(levels)}
+
+
+def _tensor_case_atol(special, bases):
+    basis_set = {str(b).lower() for b in bases}
+    if special == "ti" and basis_set == {"gp"}:
+        return 1e-4
+    if special == "ti" and basis_set.intersection({"ps", "tp", "ts", "gp"}):
+        return 1e-8
+    if basis_set.intersection({"tp", "ts", "gp"}):
+        return 1e-8
+    return 1e-10
+
+
+def _case(
+    case_id: str,
+    data_factory,
+    formula: str,
+    atol: float = 1e-10,
+    knots_factory=None,
+):
+    return RawConstructorCase(
+        case_id=case_id,
+        data_factory=data_factory,
+        formula=formula,
+        atol=atol,
+        knots_factory=knots_factory,
+    )
+
+
+def _build_cubic_case_matrix():
+    cases = []
+    for basis, seed_default, seed_shared, seed_knots in [
+        ("cr", 31, 43, 57),
+        ("cs", 32, 44, 58),
+    ]:
+        cases.extend(
+            [
+                _case(
+                    f"{basis}_default_k",
+                    _factory(_make_univariate_data, seed=seed_default),
+                    f'y ~ s(x, bs="{basis}")',
+                ),
+                _case(
+                    f"{basis}_k8",
+                    _factory(_make_univariate_data, seed=seed_default + 100),
+                    f'y ~ s(x, bs="{basis}", k=8)',
+                ),
+                _case(
+                    f"{basis}_shared_id",
+                    _factory(_make_univariate_data, seed=seed_shared),
+                    f'y ~ s(x, bs="{basis}", k=8, id="shared")',
+                ),
+                _case(
+                    f"{basis}_supplied_knots",
+                    _factory(_make_univariate_data, seed=seed_knots),
+                    f'y ~ s(x, bs="{basis}", k=8)',
+                    knots_factory=_equally_spaced_knots("x", 8),
+                ),
+            ]
+        )
+
+    cases.extend(
+        [
+            _case(
+                "cc_default_k",
+                _factory(_make_cyclic_data, seed=77),
+                'y ~ s(x, bs="cc")',
+            ),
+            _case(
+                "cc_k10",
+                _factory(_make_cyclic_data, seed=78),
+                'y ~ s(x, bs="cc", k=10)',
+            ),
+            _case(
+                "cc_endpoint_knots",
+                _factory(_make_cyclic_data, seed=79),
+                'y ~ s(x, bs="cc", k=8)',
+                knots_factory=_cyclic_endpoint_knots("x"),
+            ),
+            _case(
+                "cc_full_knots",
+                _factory(_make_cyclic_data, seed=80),
+                'y ~ s(x, bs="cc", k=8)',
+                knots_factory=_equally_spaced_knots("x", 8),
+            ),
+        ]
+    )
+    return cases
+
+
+def _build_ps_case_matrix():
+    return [
+        _case(
+            "ps_default_k_default_m",
+            _factory(_make_univariate_data, seed=33),
+            'y ~ s(x, bs="ps")',
+        ),
+        _case(
+            "ps_k9_default_m",
+            _factory(_make_univariate_data, seed=34),
+            'y ~ s(x, bs="ps", k=9)',
+        ),
+        _case(
+            "ps_m_scalar_1",
+            _factory(_make_univariate_data, seed=35),
+            'y ~ s(x, bs="ps", k=9, m=1)',
+        ),
+        _case(
+            "ps_m_vec_len1",
+            _factory(_make_univariate_data, seed=36),
+            'y ~ s(x, bs="ps", k=9, m=[2])',
+        ),
+        _case(
+            "ps_m_balanced",
+            _factory(_make_univariate_data, seed=45),
+            'y ~ s(x, bs="ps", k=9, m=[2, 2])',
+        ),
+        _case(
+            "ps_m_ordered",
+            _factory(_make_univariate_data, seed=46),
+            'y ~ s(x, bs="ps", k=10, m=[2, 3])',
+        ),
+        _case(
+            "ps_shared_id",
+            _factory(_make_univariate_data, seed=47),
+            'y ~ s(x, bs="ps", k=10, id="shared")',
+        ),
+        _case(
+            "ps_supplied_knots",
+            _factory(_make_univariate_data, seed=48),
+            'y ~ s(x, bs="ps", k=10, m=[2, 2])',
+            knots_factory=_pspline_supplied_knots("x", bs_dim=10, basis_order=2),
+        ),
+    ]
+
+
+def _build_tprs_case_matrix():
+    cases = []
+    for basis, seed_base in [("tp", 60), ("ts", 80)]:
+        cases.extend(
+            [
+                _case(
+                    f"{basis}_1d_default_k",
+                    _factory(_make_univariate_data, seed=seed_base),
+                    f'y ~ s(x, bs="{basis}")',
+                    atol=1e-7,
+                ),
+                _case(
+                    f"{basis}_1d_k9",
+                    _factory(_make_univariate_data, seed=seed_base + 1),
+                    f'y ~ s(x, bs="{basis}", k=9)',
+                    atol=1e-7,
+                ),
+                _case(
+                    f"{basis}_1d_shared_id",
+                    _factory(_make_univariate_data, seed=seed_base + 2),
+                    f'y ~ s(x, bs="{basis}", k=10, id="shared")',
+                    atol=1e-7,
+                ),
+                _case(
+                    f"{basis}_1d_supplied_knots",
+                    _factory(_make_univariate_data, seed=seed_base + 3),
+                    f'y ~ s(x, bs="{basis}", k=9)',
+                    atol=1e-7,
+                    knots_factory=_equally_spaced_knots("x", 9),
+                ),
+                _case(
+                    f"{basis}_2d_default_m",
+                    _factory(_make_gaussian_data, seed=seed_base + 4, n=120),
+                    f'y ~ s(x0, x1, bs="{basis}", k=10)',
+                    atol=1e-7,
+                ),
+                _case(
+                    f"{basis}_2d_m3",
+                    _factory(_make_gaussian_data, seed=seed_base + 5, n=120),
+                    f'y ~ s(x0, x1, bs="{basis}", k=12, m=3)',
+                    atol=1e-7,
+                ),
+                _case(
+                    f"{basis}_2d_supplied_knots",
+                    _factory(_make_gaussian_data, seed=seed_base + 6, n=120),
+                    f'y ~ s(x0, x1, bs="{basis}", k=10)',
+                    atol=1e-7,
+                    knots_factory=_paired_feature_knots(["x0", "x1"], 12),
+                ),
+                _case(
+                    f"{basis}_3d_basic",
+                    _factory(_make_gaussian_data_3col, seed=seed_base + 7, n=90),
+                    f'y ~ s(x0, x1, x2, bs="{basis}", k=15)',
+                    atol=5e-7 if basis == "tp" else 1e-7,
+                ),
+                _case(
+                    f"{basis}_max_knots_xt",
+                    _factory(_make_large_gaussian_data, seed=seed_base + 8, n=2205),
+                    f'y ~ s(x0, x1, bs="{basis}", k=14, xt={{"max.knots": 60, "seed": 2}})',
+                    atol=1e-7,
+                ),
+            ]
+        )
+    cases.append(
+        _case(
+            "tp_drop_null",
+            _factory(_make_gaussian_data, seed=34, n=120),
+            'y ~ s(x0, x1, bs="tp", k=10, m=[2, 0])',
+            atol=1e-7,
+        )
+    )
+    return cases
+
+
+def _build_gp_case_matrix():
+    cases = [
+        _case(
+            "gp_default_k",
+            _factory(_make_gp_data, seed=90),
+            'y ~ s(x, bs="gp")',
+        ),
+        _case(
+            "gp_shared_id",
+            _factory(_make_gp_data, seed=91),
+            'y ~ s(x, bs="gp", k=9, id="shared")',
+        ),
+        _case(
+            "gp_supplied_knots",
+            _factory(_make_gp_data, seed=92),
+            'y ~ s(x, bs="gp", k=8)',
+            knots_factory=_equally_spaced_knots("x", 8),
+        ),
+        _case(
+            "gp_2d_default",
+            _factory(_make_gaussian_data, seed=93, n=120),
+            'y ~ s(x0, x1, bs="gp", k=12)',
+        ),
+        _case(
+            "gp_3d_default",
+            _factory(_make_gaussian_data_3col, seed=94, n=100),
+            'y ~ s(x0, x1, x2, bs="gp", k=14)',
+        ),
+        _case(
+            "gp_max_knots_xt",
+            _factory(_make_large_gaussian_data, seed=95, n=2205),
+            'y ~ s(x0, x1, bs="gp", k=12, xt={"max.knots": 60, "seed": 3})',
+        ),
+    ]
+    gp_m_specs = [
+        ("spherical", [1, 1.0], 1e-10),
+        ("stationary_spherical", [-1, 1.0], 1e-10),
+        ("powerexp", [2, 0.8, 1.2], 1e-8),
+        ("stationary_powerexp", [-2, 0.6, 1.7], 1e-10),
+        ("matern15", [3, 1.0], 1e-10),
+        ("stationary_matern15", [-3, 1.0], 1e-10),
+        ("matern25", [4, 1.0], 1e-10),
+        ("stationary_matern25", [-4, 1.0], 1e-10),
+        ("matern35", [5, 1.1], 1e-10),
+        ("stationary_matern35", [-5, 1.1], 1e-10),
+    ]
+    for idx, (label, m_spec, atol) in enumerate(gp_m_specs):
+        cases.append(
+            _case(
+                f"gp_{label}",
+                _factory(_make_gp_data, seed=100 + idx),
+                f'y ~ s(x, bs="gp", k=10, m={repr(m_spec)})',
+                atol=atol,
+            )
+        )
+    return cases
+
+
+def _build_mrf_case_matrix():
+    nb3 = _mrf_nb3()
+    nb4 = _mrf_nb4()
+    penalty3 = _mrf_penalty3()
+    polys3 = _mrf_polys3()
+    return [
+        _case(
+            "mrf_nb_full_rank",
+            _make_mrf_data,
+            f'y ~ s(region, bs="mrf", xt={repr({"nb": nb3})})',
+        ),
+        _case(
+            "mrf_penalty_full_rank",
+            _make_mrf_data,
+            f'y ~ s(region, bs="mrf", xt={repr({"penalty": penalty3})})',
+        ),
+        _case(
+            "mrf_nb_plus_penalty",
+            _make_mrf_data,
+            f'y ~ s(region, bs="mrf", xt={repr({"nb": nb3, "penalty": penalty3})})',
+        ),
+        _case(
+            "mrf_polys_full_rank",
+            _make_mrf_data,
+            f'y ~ s(region, bs="mrf", xt={repr({"polys": polys3})})',
+        ),
+        _case(
+            "mrf_knots_explicit",
+            _make_mrf_data,
+            f'y ~ s(region, bs="mrf", xt={repr({"nb": nb3})})',
+            knots_factory=_mrf_region_knots("A", "B", "C"),
+        ),
+        _case(
+            "mrf_low_rank",
+            _make_mrf_low_rank_data,
+            f'y ~ s(region, bs="mrf", k=3, xt={repr({"nb": nb4})})',
+        ),
+    ]
+
+
+def _build_re_case_matrix():
+    penalty_multi = {
+        "S": [
+            [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            [[1.0, -1.0, 0.0], [-1.0, 2.0, -1.0], [0.0, -1.0, 1.0]],
+        ],
+        "rank": [3, 2],
+    }
+    return [
+        _case("re_factor", _make_random_effect_data, 'y ~ s(f, bs="re")'),
+        _case(
+            "re_factor_pair",
+            _make_random_effect_pair_data,
+            'y ~ s(f1, f2, bs="re")',
+        ),
+        _case(
+            "re_numeric_factor",
+            lambda: pd.DataFrame(
+                {
+                    "y": [0.0, 1.0, 2.0, 3.0],
+                    "x": [1.0, 2.0, 3.0, 4.0],
+                    "f": ["b", "a", "c", "a"],
+                }
+            ),
+            'y ~ s(x, f, bs="re")',
+        ),
+        _case(
+            "re_numeric_pair",
+            _make_random_effect_numeric_pair_data,
+            'y ~ s(x0, x1, bs="re")',
+        ),
+        _case(
+            "re_factor_custom_xt",
+            _make_random_effect_data,
+            f'y ~ s(f, bs="re", xt={repr(penalty_multi)})',
+        ),
+        _case(
+            "re_factor_noisy",
+            _factory(_make_random_effect_data_noisy, seed=21, n_draws=36, sigma=0.35),
+            'y ~ s(f, bs="re")',
+        ),
+    ]
+
+
+def _build_factor_smooth_case_matrix():
+    cases = [
+        _case("fs_default_tp", _make_fs_data, 'y ~ s(f, x, bs="fs")'),
+        _case(
+            "fs_default_tp_shared_id",
+            _make_fs_data,
+            'y ~ s(f, x, bs="fs", id="shared")',
+        ),
+        _case(
+            "fs_tp_4levels",
+            _factory(_make_fs_data_4levels, seed=77, n=24),
+            'y ~ s(f, x, bs="fs", k=8)',
+        ),
+        _case("sz_default", _make_sz_data, 'y ~ s(f1, f2, x, bs="sz", k=6)'),
+        _case(
+            "sz_shared_id",
+            _make_sz_data,
+            'y ~ s(f1, f2, x, bs="sz", k=6, id="shared")',
+        ),
+        _case(
+            "sz_grid_3x3",
+            _factory(_make_sz_data_3x3, seed=83),
+            'y ~ s(f1, f2, x, bs="sz", k=6)',
+            atol=1e-9,
+        ),
+        _case(
+            "sz_grid_3x3_shared_id",
+            _factory(_make_sz_data_3x3, seed=84),
+            'y ~ s(f1, f2, x, bs="sz", k=6, id="shared")',
+            atol=2e-8,
+        ),
+    ]
+    fs_xt_cases = [
+        ("cr", "cr"),
+        ("cs", "cs"),
+        ("cc", "cc"),
+        ("ps", {"bs": "ps", "m": 2, "k": 7}),
+        ("ts", "ts"),
+        ("gp", "gp"),
+    ]
+    for label, xt_spec in fs_xt_cases:
+        cases.append(
+            _case(
+                f"fs_base_{label}",
+                _make_fs_data,
+                f'y ~ s(f, x, bs="fs", xt={repr(xt_spec)})',
+                atol=1e-8 if label in {"ps", "ts", "gp"} else 1e-10,
+            )
+        )
+        cases.append(
+            _case(
+                f"sz_base_{label}",
+                _make_sz_data,
+                f'y ~ s(f1, f2, x, bs="sz", k=6, xt={repr(xt_spec)})',
+                atol=1e-8 if label in {"ps", "ts", "gp"} else 1e-10,
+            )
+        )
+
+    for base_bs in ["tp", "ts", "gp"]:
+        cases.append(
+            _case(
+                f"fs_2d_base_{base_bs}",
+                _factory(_make_factorized_gaussian_data, seed=120 + len(cases), n=96),
+                f'y ~ s(f, x0, x1, bs="fs", xt={repr(base_bs)}, k=10)',
+                atol=1e-7,
+            )
+        )
+        cases.append(
+            _case(
+                f"sz_2d_base_{base_bs}",
+                _factory(_make_sz_metric2d_data, seed=140 + len(cases), n=54),
+                f'y ~ s(f1, f2, x0, x1, bs="sz", k=8, xt={repr(base_bs)})',
+                atol=1e-7,
+            )
+        )
+
+    return cases
+
+
+def _build_tensor_case_matrix():
+    tensor_bases = ("cr", "cs", "cc", "ps", "tp", "ts", "gp")
+    cases = []
+
+    for special in ("te", "ti", "t2"):
+        for b0, b1 in itertools.product(tensor_bases, repeat=2):
+            cases.append(
+                _case(
+                    f"{special}_2d_{b0}_{b1}",
+                    _factory(_make_gaussian_data, seed=200 + len(cases), n=90),
+                    f'y ~ {special}(x0, x1, bs=["{b0}", "{b1}"], k=[5, 6])',
+                    atol=_tensor_case_atol(special, (b0, b1)),
+                )
+            )
+
+    for special in ("te", "ti", "t2"):
+        for basis in tensor_bases:
+            cases.append(
+                _case(
+                    f"{special}_3d_{basis}",
+                    _factory(_make_gaussian_data_3col, seed=500 + len(cases), n=90),
+                    f'y ~ {special}(x0, x1, x2, bs=["{basis}", "{basis}", "{basis}"], k=[4, 4, 4])',
+                    atol=_tensor_case_atol(special, (basis, basis, basis)),
+                )
+            )
+
+    cases.extend(
+        [
+            _case(
+                "te_default_k",
+                _factory(_make_gaussian_data, seed=800, n=90),
+                'y ~ te(x0, x1, bs=["cr", "cr"])',
+            ),
+            _case(
+                "ti_default_k",
+                _factory(_make_gaussian_data, seed=801, n=90),
+                'y ~ ti(x0, x1, bs=["cr", "cr"])',
+            ),
+            _case(
+                "t2_default_k",
+                _factory(_make_gaussian_data, seed=802, n=90),
+                'y ~ t2(x0, x1, bs=["cr", "cr"])',
+            ),
+            _case(
+                "te_ps_ps_m",
+                _factory(_make_gaussian_data, seed=803, n=90),
+                'y ~ te(x0, x1, bs=["ps", "ps"], k=[6, 6], m=[[2, 2], [2, 3]])',
+            ),
+            _case(
+                "te_tp_ts_m",
+                _factory(_make_gaussian_data, seed=804, n=90),
+                'y ~ te(x0, x1, bs=["tp", "ts"], k=[10, 10], m=[3, 3])',
+                atol=1e-8,
+            ),
+            _case(
+                "te_gp_gp_m",
+                _factory(_make_gaussian_data, seed=805, n=90),
+                'y ~ te(x0, x1, bs=["gp", "gp"], k=[8, 8], m=[[2, 0.8, 1.2], [-3, 1.0]])',
+                atol=1e-8,
+            ),
+            _case(
+                "ti_mc_true_false",
+                _factory(_make_gaussian_data, seed=806, n=90),
+                'y ~ ti(x0, x1, bs=["cr", "ps"], k=[5, 6], m=[2, 2], mc=[True, False])',
+                atol=1e-8,
+            ),
+            _case(
+                "ti_mc_false_true",
+                _factory(_make_gaussian_data, seed=807, n=90),
+                'y ~ ti(x0, x1, bs=["cr", "ps"], k=[5, 6], m=[2, 2], mc=[False, True])',
+                atol=1e-8,
+            ),
+            _case(
+                "ti_mc_false_false",
+                _factory(_make_gaussian_data, seed=808, n=90),
+                'y ~ ti(x0, x1, bs=["cr", "ps"], k=[5, 6], m=[2, 2], mc=[False, False])',
+                atol=1e-8,
+            ),
+            _case(
+                "t2_full_true",
+                _factory(_make_gaussian_data, seed=809, n=90),
+                'y ~ t2(x0, x1, bs=["cr", "cr"], k=[5, 6], full=True)',
+            ),
+            _case(
+                "t2_ord_1",
+                _factory(_make_gaussian_data, seed=810, n=90),
+                'y ~ t2(x0, x1, bs=["cr", "cr"], k=[5, 6], ord=[1])',
+            ),
+            _case(
+                "te_knots_cr_cs",
+                _factory(_make_gaussian_data, seed=811, n=90),
+                'y ~ te(x0, x1, bs=["cr", "cs"], k=[5, 6])',
+                atol=2e-3,
+                knots_factory=_feature_specific_knots({"x0": 5, "x1": 6}),
+            ),
+            _case(
+                "ti_knots_tp_gp",
+                _factory(_make_gaussian_data, seed=812, n=90),
+                'y ~ ti(x0, x1, bs=["tp", "gp"], k=[8, 8])',
+                atol=1e-8,
+                knots_factory=_paired_feature_knots(["x0", "x1"], 9),
+            ),
+            _case(
+                "t2_knots_ps_cc",
+                _factory(_make_gaussian_data, seed=813, n=90),
+                'y ~ t2(x0, x1, bs=["ps", "cc"], k=[6, 6])',
+                knots_factory=_merge_knots_factories(
+                    _pspline_supplied_knots("x0", bs_dim=6, basis_order=2),
+                    _equally_spaced_knots("x1", 6),
+                ),
+            ),
+        ]
+    )
+
+    return cases
+
+
 CASES = [
-    RawConstructorCase(
-        case_id="cr_basic",
-        data_factory=lambda: _make_univariate_data(seed=31),
-        formula='y ~ s(x, bs="cr", k=7)',
-    ),
-    RawConstructorCase(
-        case_id="cs_basic",
-        data_factory=lambda: _make_univariate_data(seed=32),
-        formula='y ~ s(x, bs="cs", k=7)',
-    ),
-    RawConstructorCase(
-        case_id="cc_basic",
-        data_factory=lambda: _make_cyclic_data(seed=77),
-        formula='y ~ s(x, bs="cc", k=8)',
-    ),
-    RawConstructorCase(
-        case_id="ps_m_ordered",
-        data_factory=lambda: _make_univariate_data(seed=33),
-        formula='y ~ s(x, bs="ps", k=10, m=[2, 3])',
-    ),
-    RawConstructorCase(
-        case_id="tp_drop_null",
-        data_factory=lambda: _make_gaussian_data(seed=34, n=120),
-        formula='y ~ s(x0, x1, bs="tp", k=10, m=[2, 0])',
-    ),
-    RawConstructorCase(
-        case_id="ts_basic",
-        data_factory=lambda: _make_gaussian_data(seed=35, n=120),
-        formula='y ~ s(x0, x1, bs="ts", k=10)',
-    ),
-    RawConstructorCase(
-        case_id="gp_stationary_powerexp",
-        data_factory=lambda: _make_gp_data(seed=91),
-        formula='y ~ s(x, bs="gp", k=9, m=[-2, 0.6, 1.7])',
-    ),
-    RawConstructorCase(
-        case_id="mrf_full_rank",
-        data_factory=_make_mrf_data,
-        formula=(
-            'y ~ s(region, bs="mrf", '
-            'xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
-        ),
-    ),
-    RawConstructorCase(
-        case_id="mrf_low_rank",
-        data_factory=_make_mrf_low_rank_data,
-        formula=(
-            'y ~ s(region, bs="mrf", k=3, '
-            'xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B","D"), D=c("C"))))'
-        ),
-    ),
-    RawConstructorCase(
-        case_id="re_factor",
-        data_factory=_make_random_effect_data,
-        formula='y ~ s(f, bs="re")',
-    ),
-    RawConstructorCase(
-        case_id="re_numeric_factor",
-        data_factory=lambda: pd.DataFrame(
-            {
-                "y": [0.0, 1.0, 2.0, 3.0],
-                "x": [1.0, 2.0, 3.0, 4.0],
-                "f": ["b", "a", "c", "a"],
-            }
-        ),
-        formula='y ~ s(x, f, bs="re")',
-    ),
-    RawConstructorCase(
-        case_id="fs_default_tp",
-        data_factory=_make_fs_data,
-        formula='y ~ s(f, x, bs="fs")',
-    ),
-    RawConstructorCase(
-        case_id="fs_ps_xt",
-        data_factory=_make_fs_data,
-        formula='y ~ s(f, x, bs="fs", xt=list(bs="ps", m=2, k=7))',
-    ),
-    RawConstructorCase(
-        case_id="sz_default",
-        data_factory=_make_sz_data,
-        formula='y ~ s(f1, f2, x, bs="sz", k=6)',
-    ),
-    RawConstructorCase(
-        case_id="sz_shared_id",
-        data_factory=_make_sz_data,
-        formula='y ~ s(f1, f2, x, bs="sz", k=6, id="shared")',
-    ),
-    RawConstructorCase(
-        case_id="te_cr",
-        data_factory=lambda: _make_gaussian_data(seed=36, n=90),
-        formula='y ~ te(x0, x1, bs=["cr", "cr"], k=[5, 6])',
-    ),
-    RawConstructorCase(
-        case_id="te_ps_m",
-        data_factory=lambda: _make_gaussian_data(seed=37, n=90),
-        formula='y ~ te(x0, x1, bs=["ps", "ps"], k=[6, 7], m=[1, 3])',
-    ),
-    RawConstructorCase(
-        case_id="ti_cr",
-        data_factory=lambda: _make_gaussian_data(seed=38, n=90),
-        formula='y ~ ti(x0, x1, bs=["cr", "cr"], k=[5, 6])',
-    ),
-    RawConstructorCase(
-        case_id="ti_custom_mc",
-        data_factory=lambda: _make_gaussian_data(seed=39, n=90),
-        formula='y ~ ti(x0, x1, bs=["cr", "ps"], k=[5, 6], m=[2, 2], mc=[True, False])',
-    ),
-    RawConstructorCase(
-        case_id="t2_default",
-        data_factory=lambda: _make_gaussian_data(seed=40, n=90),
-        formula='y ~ t2(x0, x1, bs=["cr", "cr"], k=[5, 6])',
-    ),
-    RawConstructorCase(
-        case_id="t2_full",
-        data_factory=lambda: _make_gaussian_data(seed=41, n=90),
-        formula='y ~ t2(x0, x1, bs=["cr", "cr"], k=[5, 6], full=True)',
-    ),
-    RawConstructorCase(
-        case_id="t2_ord",
-        data_factory=lambda: _make_gaussian_data(seed=42, n=90),
-        formula='y ~ t2(x0, x1, bs=["cr", "cr"], k=[5, 6], ord=[1])',
-    ),
+    *_build_cubic_case_matrix(),
+    *_build_ps_case_matrix(),
+    *_build_tprs_case_matrix(),
+    *_build_gp_case_matrix(),
+    *_build_mrf_case_matrix(),
+    *_build_re_case_matrix(),
+    *_build_factor_smooth_case_matrix(),
+    *_build_tensor_case_matrix(),
 ]
 
+# Triage categories from a fixed-sp fit parity sweep against mgcv REML
+# reference smoothing parameters. This separates unsupported branches from
+# raw-only representation mismatches and branches that already leak into
+# downstream fitted behavior.
+_KNOWN_RAW_GAPS_UNSUPPORTED_BY_MGCV = {
+    "tp_max_knots_xt",
+    "ts_max_knots_xt",
+    "gp_max_knots_xt",
+    "fs_base_cs",
+    "fs_base_ts",
+    "fs_2d_base_ts",
+}
+
+_KNOWN_RAW_GAPS_FIXED_SP_RAW_ONLY = {
+    "tp_1d_supplied_knots",
+    "tp_2d_supplied_knots",
+    "ts_1d_supplied_knots",
+    "ts_2d_supplied_knots",
+    "gp_supplied_knots",
+    "gp_2d_default",
+    "gp_3d_default",
+    "gp_spherical",
+    "gp_powerexp",
+    "re_factor_pair",
+    "fs_base_cc",
+    "sz_base_cc",
+    "fs_base_gp",
+    "te_2d_ps_cr",
+    "te_2d_ps_cc",
+    "te_2d_tp_cr",
+    "te_2d_tp_cc",
+    "te_2d_ts_cr",
+    "te_2d_ts_cc",
+    "te_2d_gp_cr",
+    "te_2d_gp_cc",
+    "ti_2d_cs_cs",
+    "ti_2d_cs_ps",
+    "ti_2d_ps_cr",
+    "ti_2d_ps_cs",
+    "ti_2d_ps_cc",
+    "ti_2d_tp_cr",
+    "ti_2d_tp_cs",
+    "ti_2d_tp_cc",
+    "ti_2d_ts_cr",
+    "ti_2d_ts_cs",
+    "ti_2d_ts_cc",
+    "ti_2d_gp_cr",
+    "ti_2d_gp_cs",
+    "ti_2d_gp_cc",
+    "ti_3d_cs",
+    "ti_knots_tp_gp",
+    "t2_3d_cs",
+    "te_2d_ps_cs",
+    "te_2d_tp_cs",
+    "te_2d_ts_cs",
+    "te_2d_gp_cs",
+}
+
+_KNOWN_RAW_GAPS_FIXED_SP_BEHAVIOR = {
+    "t2_2d_cs_cr",
+    "t2_2d_cs_tp",
+    "t2_2d_cs_gp",
+    "t2_2d_ts_cs",
+    "t2_2d_gp_cs",
+}
+
 KNOWN_GAP_REASONS = {
-    "tp_drop_null": "Thin-plate raw constructor still differs from mgcv in Lanczos/LAPACK-dependent column orientation.",
-    "ts_basic": "Shrinkage thin-plate raw constructor still differs from mgcv in Lanczos/LAPACK-dependent column orientation.",
-    "gp_stationary_powerexp": "GP raw constructor still differs from mgcv in Lanczos/LAPACK-dependent column orientation.",
-    "fs_ps_xt": "fs raw constructor still differs from mgcv in nat.param(type=1) column orientation for ps marginals.",
-    "t2_default": "t2 raw constructor still differs from mgcv in raw nat.param(type=3) marginal/block orientation.",
-    "t2_full": "t2(full=TRUE) raw constructor still differs from mgcv in raw nat.param(type=3) marginal/block orientation.",
-    "t2_ord": "t2(ord=...) raw constructor still differs from mgcv in raw nat.param(type=3) marginal/block orientation.",
+    **dict.fromkeys(
+        sorted(_KNOWN_RAW_GAPS_UNSUPPORTED_BY_MGCV),
+        "mgcv itself does not support fitting this branch; leave unsupported rather than porting raw constructor behavior.",
+    ),
+    **dict.fromkeys(
+        sorted(_KNOWN_RAW_GAPS_FIXED_SP_RAW_ONLY),
+        "raw constructor mismatch is present, but fixed-sp fit parity holds; representation-only or optimizer-only de-prioritized gap.",
+    ),
+    **dict.fromkeys(
+        sorted(_KNOWN_RAW_GAPS_FIXED_SP_BEHAVIOR),
+        "raw constructor mismatch already leaks into fixed-sp fit parity; priority behavior-affecting gap.",
+    ),
 }
 
 CASE_PARAMS = [
@@ -261,10 +925,12 @@ def _common_raw_state(class_name, X, penalties, *, rank, null_space_dim, extra):
     }
 
 
-def _build_runtime_term(data: pd.DataFrame, formula: str):
+def _build_runtime_term(data: pd.DataFrame, formula: str, knots=None):
     parsed = parse_gam_formula(formula)
     extracted = extract_formula_terms(parsed)
-    built = build_formula_model(extracted, data=data, y=np.zeros(len(data)))
+    built = build_formula_model(
+        extracted, data=data, y=np.zeros(len(data)), knots=knots
+    )
     predictor = built.predictor_specs[0]
     assert len(predictor.terms) == 1
     term = instantiate_term(predictor.terms[0])
@@ -282,8 +948,6 @@ def _serialize_base_summary(base_term, X):
         "null_space_dim": raw["null_space_dim"],
         "term": _scalar_or_list(names),
     }
-    if len(names) > 1:
-        out["dim"] = len(names)
     return out
 
 
@@ -293,7 +957,12 @@ def _serialize_cubic_raw(term, X):
         B = np.asarray(term._spline.raw_basis, dtype=np.float64)
         S = np.asarray(term._spline.raw_penalty_unscaled, dtype=np.float64)
         if basis_name == "cs":
-            S = add_full_rank_shrinkage(S, shrink=0.1)
+            S = add_full_rank_shrinkage(
+                S,
+                shrink=0.1,
+                null_basis=cr_exact_null_basis_from_knots(term._spline.knots),
+                knots=term._spline.knots,
+            )
             rank = int(B.shape[1])
             null_dim = 0
             class_name = "cs.smooth"
@@ -470,22 +1139,36 @@ def _serialize_re_raw(term):
 def _serialize_fs_raw(term, X):
     base_term = term._base_term
     base_raw = _serialize_term_raw(base_term, X)
-    B0 = np.asarray(base_raw["X"], dtype=np.float64)
-    S0 = np.asarray(base_raw["S"][0], dtype=np.float64)
-    base_rank = int(base_raw["rank"])
-    base_null = int(base_raw["null_space_dim"])
-
     fac_idx = term._factor_feature_indices[0]
     fac = as_object_1d(X[:, fac_idx])
     levels = list(term._levels)
     Ifac = factor_indicator_matrix(fac, levels)
     n_levels = len(levels)
 
-    rp = nat_param_type1(B0, S0, rank=base_rank, unit_fnorm=True)
-    Xb = np.asarray(rp["X"], dtype=np.float64)
-    P = np.asarray(rp["P"], dtype=np.float64)
-    r = int(rp["rank"])
-    D = np.asarray(rp["D"], dtype=np.float64)
+    if (
+        term._base_transform is not None
+        and term._base_range_penalty_diag is not None
+        and term._range_rank is not None
+        and term._null_dim is not None
+    ):
+        Xb = np.asarray(term._base_constructor_predict_matrix(X), dtype=np.float64)
+        P = np.asarray(term._base_transform, dtype=np.float64)
+        Xb = Xb @ P
+        r = int(term._range_rank)
+        base_null = int(term._null_dim)
+        d_vec = np.asarray(term._base_range_penalty_diag, dtype=np.float64)
+        D = d_vec[:r].copy()
+    else:
+        B0 = np.asarray(base_raw["X"], dtype=np.float64)
+        S0 = np.asarray(base_raw["S"][0], dtype=np.float64)
+        base_rank = int(base_raw["rank"])
+        base_null = int(base_raw["null_space_dim"])
+
+        rp = nat_param_type1(B0, S0, rank=base_rank, unit_fnorm=True)
+        Xb = np.asarray(rp["X"], dtype=np.float64)
+        P = np.asarray(rp["P"], dtype=np.float64)
+        r = int(rp["rank"])
+        D = np.asarray(rp["D"], dtype=np.float64)
 
     X_full = rowwise_kronecker([Ifac, Xb])
     d_vec = np.concatenate([D, np.zeros(base_null, dtype=np.float64)])
@@ -590,11 +1273,14 @@ def _serialize_te_raw(term, X):
         null_space_dim=null_dim,
         extra={
             "mc": [False] * n_marg,
-            "XP": [
-                np.asarray(xp, dtype=np.float64)
-                for xp in marginal_np_transforms
-                if xp is not None
-            ],
+            "XP": (
+                []
+                if all(xp is None for xp in marginal_np_transforms)
+                else [
+                    None if xp is None else np.asarray(xp, dtype=np.float64)
+                    for xp in marginal_np_transforms
+                ]
+            ),
             "C": None,
         },
     )
@@ -724,6 +1410,173 @@ def _serialize_term_raw(term, X):
     raise TypeError(f"Unsupported runtime term type {type(term).__name__}.")
 
 
+def _copy_raw_value(value):
+    if isinstance(value, np.ndarray):
+        return np.asarray(value).copy()
+    if isinstance(value, dict):
+        return {key: _copy_raw_value(val) for key, val in value.items()}
+    if isinstance(value, list):
+        return [_copy_raw_value(val) for val in value]
+    return value
+
+
+def _normalized_penalties(value):
+    if isinstance(value, dict):
+        values = list(value.values())
+    else:
+        values = list(value)
+    return [np.asarray(v, dtype=np.float64) for v in values]
+
+
+def _matrix_self_gram(matrix):
+    mat = np.asarray(matrix, dtype=np.float64)
+    return np.asarray(mat @ mat.T, dtype=np.float64)
+
+
+def _column_space_projector(matrix):
+    mat = np.asarray(matrix, dtype=np.float64)
+    if mat.ndim != 2:
+        raise ValueError("matrix must be 2D.")
+    if mat.shape[1] == 0:
+        return np.zeros((mat.shape[0], mat.shape[0]), dtype=np.float64)
+    return np.asarray(mat @ np.linalg.pinv(mat), dtype=np.float64)
+
+
+def _row_space_projector(matrix):
+    mat = np.asarray(matrix, dtype=np.float64)
+    if mat.ndim != 2:
+        raise ValueError("matrix must be 2D.")
+    if mat.shape[0] == 0:
+        return np.zeros((mat.shape[1], mat.shape[1]), dtype=np.float64)
+    return np.asarray(np.linalg.pinv(mat) @ mat, dtype=np.float64)
+
+
+def _penalty_spectrum(matrix):
+    mat = np.asarray(matrix, dtype=np.float64)
+    sym = 0.5 * (mat + mat.T)
+    return np.asarray(np.sort(np.linalg.eigvalsh(sym)), dtype=np.float64)
+
+
+def _matrix_summary(matrix):
+    mat = np.asarray(matrix, dtype=np.float64)
+    return {
+        "shape": tuple(int(v) for v in mat.shape),
+        "rank": int(
+            0 if mat.size == 0 or 0 in mat.shape else np.linalg.matrix_rank(mat)
+        ),
+    }
+
+
+def _canonicalize_tprs_raw_state(state):
+    state["S"] = [_penalty_spectrum(S) for S in state["S"]]
+    state["X"] = _matrix_self_gram(state["X"])
+    extra = state["extra"]
+    extra["UZ"] = _column_space_projector(extra["UZ"])
+    return state
+
+
+def _canonicalize_cs_raw_state(state):
+    state["S"] = [_penalty_spectrum(S) for S in state["S"]]
+    return state
+
+
+def _canonicalize_gp_raw_state(state):
+    state["S"] = [_penalty_spectrum(S) for S in state["S"]]
+    state["X"] = _matrix_self_gram(state["X"])
+    extra = state["extra"]
+    extra["UZ"] = _column_space_projector(extra["UZ"])
+    return state
+
+
+def _canonicalize_mrf_raw_state(state):
+    extra = state["extra"]
+    if extra["P"] is None:
+        return state
+    P = np.asarray(extra["P"], dtype=np.float64)
+    col_signs = canonical_column_signs(P)
+    extra["P"] = apply_column_signs(P, col_signs)
+    state["X"] = apply_column_signs(np.asarray(state["X"], dtype=np.float64), col_signs)
+    return state
+
+
+def _canonicalize_fs_raw_state(state):
+    state["S"] = [_penalty_spectrum(S) for S in state["S"]]
+    state["X"] = _matrix_self_gram(state["X"])
+    extra = state["extra"]
+    extra["P"] = _column_space_projector(extra["P"])
+    extra["Xb"] = _matrix_self_gram(extra["Xb"])
+    return state
+
+
+def _canonicalize_sz_raw_state(state):
+    state["S"] = [_penalty_spectrum(S) for S in state["S"]]
+    state["X"] = _matrix_self_gram(state["X"])
+    extra = state["extra"]
+    extra["Xb"] = _matrix_self_gram(extra["Xb"])
+    return state
+
+
+def _canonicalize_tensor_raw_state(state):
+    state["S"] = [_penalty_spectrum(S) for S in state["S"]]
+    # mgcv's tensor `np=TRUE` reparameterization only fixes the function space,
+    # not a unique basis scaling for ill-conditioned marginal inverses. Compare
+    # the tensor column space invariantly instead of amplifying that scaling
+    # drift through `X @ X.T`.
+    state["X"] = _column_space_projector(state["X"])
+    extra = state["extra"]
+
+    XP = extra.get("XP", None)
+    if isinstance(XP, list):
+        extra["XP"] = [None if xp is None else _row_space_projector(xp) for xp in XP]
+
+    C = extra.get("C", None)
+    if isinstance(C, np.ndarray) and C.ndim == 2:
+        extra["C"] = _matrix_summary(C)
+
+    return state
+
+
+def _canonicalize_t2_raw_state(state):
+    state["S"] = [_penalty_spectrum(S) for S in state["S"]]
+    state["X"] = _matrix_self_gram(state["X"])
+    extra = state["extra"]
+    extra["P"] = [_column_space_projector(P) for P in extra["P"]]
+
+    Cp = extra["Cp"]
+    if isinstance(Cp, np.ndarray) and Cp.ndim == 2:
+        extra["Cp"] = _matrix_summary(Cp)
+
+    C = extra["C"]
+    if isinstance(C, np.ndarray) and C.ndim == 2:
+        extra["C"] = _matrix_summary(C)
+
+    return state
+
+
+def _canonicalize_raw_state(state):
+    state = _copy_raw_value(state)
+    state["S"] = _normalized_penalties(state["S"])
+    class_name = str(state["class_name"])
+
+    if class_name == "cs.smooth":
+        return _canonicalize_cs_raw_state(state)
+    if class_name in {"tprs.smooth", "ts.smooth"}:
+        return _canonicalize_tprs_raw_state(state)
+    if class_name == "gp.smooth":
+        return _canonicalize_gp_raw_state(state)
+    if class_name == "mrf.smooth":
+        return _canonicalize_mrf_raw_state(state)
+    if class_name == "fs.interaction":
+        return _canonicalize_fs_raw_state(state)
+    if class_name == "sz.interaction":
+        return _canonicalize_sz_raw_state(state)
+    if class_name == "tensor.smooth":
+        return _canonicalize_tensor_raw_state(state)
+    if class_name == "t2.smooth":
+        return _canonicalize_t2_raw_state(state)
+    return state
+
+
 def _assert_raw_state_equal(actual, expected, *, atol, path="state"):
     actual_numeric = None
     expected_numeric = None
@@ -795,8 +1648,11 @@ def _assert_raw_state_equal(actual, expected, *, atol, path="state"):
 @pytest.mark.parametrize("case", CASE_PARAMS)
 def test_raw_constructor_matches_mgcv(case: RawConstructorCase):
     data = case.data_factory()
-    term, X, _feature_names = _build_runtime_term(data, case.formula)
-    actual = _serialize_term_raw(term, X)
+    knots = None if case.knots_factory is None else case.knots_factory(data)
+    term, X, _feature_names = _build_runtime_term(data, case.formula, knots=knots)
+    actual = _canonicalize_raw_state(_serialize_term_raw(term, X))
     smooth_expr = _normalize_python_formula_text(case.formula.split("~", 1)[1].strip())
-    expected = _run_mgcv_raw_constructor(data, smooth_expr)
+    expected = _canonicalize_raw_state(
+        _run_mgcv_raw_constructor(data, smooth_expr, knots=knots)
+    )
     _assert_raw_state_equal(actual, expected, atol=case.atol)

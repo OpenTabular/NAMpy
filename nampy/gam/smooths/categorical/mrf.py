@@ -12,7 +12,10 @@ from ....splines.mrf import (
 )
 from ..._mgcv_constants import EIG_TOL_POWER
 from ...compiler.structures import PenaltySpec
-from ...constraints.absorption import full_term_sum_to_zero_constraint
+from ...constraints.transforms import (
+    apply_coefficient_transform,
+    null_space_basis_from_constraint_matrix,
+)
 from ..smooth_base import (
     BaseSmoothTerm,
     _resolve_feature,
@@ -226,9 +229,24 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
 
         if self._by_state.is_constant:
             # Match mgcv::smoothCon(absorb.cons=TRUE): absorb the single MRF
-            # identifiability constraint in the term-local coefficient space.
-            basis_fit, penalties_fit, transform = full_term_sum_to_zero_constraint(
-                basis_raw, [penalty_raw]
+            # identifiability constraint in the term-local coefficient space via
+            # qr(t(C)) on the full coefficient block. The localized null-space
+            # helper preserves inactive coordinates, but mgcv rotates the kept
+            # low-rank columns here (e.g. swapping the two retained mrf columns
+            # when the dropped coefficient is the final constant direction).
+            mean_row = np.asarray(
+                np.mean(np.asarray(basis_raw, dtype=np.float64), axis=0),
+                dtype=np.float64,
+            ).reshape(1, -1)
+            transform, _ = null_space_basis_from_constraint_matrix(
+                mean_row,
+                d=basis_raw.shape[1],
+                tol=1e-12,
+            )
+            basis_fit, penalties_fit = apply_coefficient_transform(
+                basis_raw,
+                [penalty_raw],
+                transform,
             )
             self._record_constraint_result(
                 "sum_to_zero", transform, absorbed_by="runtime"

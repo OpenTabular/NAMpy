@@ -749,6 +749,13 @@ def _run_general_fit5(
         smoothing_params,
         score_type=score_type,
     )
+    from ...smoothing_selection.reparam import _stable_penalty_logdet_derivatives
+
+    ldetS, ldetS1, ldetS2 = _stable_penalty_logdet_derivatives(
+        model,
+        np.asarray(smoothing_params, dtype=np.float64),
+        order=2,
+    )
     ctl = GamFit5Control(
         maxit=int(getattr(model, "max_irls_iter", 200)),
         epsilon=float(getattr(model, "irls_tol", 1e-7)),
@@ -761,9 +768,9 @@ def _run_general_fit5(
         setup.log_sp,
         setup.St,
         setup.S_blocks,
-        ldetS=setup.ldetS,
-        ldetS1=setup.ldetS1,
-        ldetS2=setup.ldetS2,
+        ldetS=float(ldetS),
+        ldetS1=np.asarray(ldetS1, dtype=np.float64),
+        ldetS2=np.asarray(ldetS2, dtype=np.float64),
         family=model.family,
         weights=weights,
         offset=setup.offset_list,
@@ -845,7 +852,21 @@ def solve_general_fit(model, y, smoothing_params, weights=None):
     )
     setup = run["setup"]
     fit = run["fit"]
-    post = gam_fit5_post_proc(fit, Sl=setup.Sl)
+    outer_hess = None
+    optim_result = getattr(model, "_optim_result", None)
+    if optim_result is not None and getattr(optim_result, "hess", None) is not None:
+        outer_hess = np.asarray(optim_result.hess, dtype=np.float64)
+
+    post = gam_fit5_post_proc(
+        fit,
+        Sl=setup.Sl,
+        L_map=None,
+        lsp0=None,
+        S_blocks=setup.S_blocks,
+        off=[1] * len(setup.S_blocks),
+        outer_hess=outer_hess,
+        smoothing_params=setup.smoothing_params,
+    )
 
     coef_full = np.asarray(fit["coef"], dtype=np.float64)
     if len(setup.Sl) > 0:
@@ -879,28 +900,7 @@ def solve_general_fit(model, y, smoothing_params, weights=None):
     RTR = np.asarray(post["R"].T @ post["R"], dtype=np.float64)
     H_coef = np.asarray(post["Vp"] @ RTR, dtype=np.float64)
 
-    Vc = None
-    if fit.get("db_drho", None) is not None and fit.get("REML2", None) is not None:
-        J = np.asarray(fit["db_drho"], dtype=np.float64)
-        if len(setup.Sl) > 0:
-            J = np.column_stack(
-                [
-                    np.asarray(
-                        sl_initial_repara(setup.Sl, J[:, i], inverse=True),
-                        dtype=np.float64,
-                    )
-                    for i in range(J.shape[1])
-                ]
-            )
-        Hsp = np.asarray(fit["REML2"], dtype=np.float64)
-        if J.ndim == 2 and Hsp.ndim == 2 and Hsp.size > 0:
-            try:
-                Vsp = np.linalg.pinv(0.5 * (Hsp + Hsp.T), rcond=1e-10)
-                Vc = np.asarray(post["Vp"] + J @ Vsp @ J.T, dtype=np.float64)
-            except np.linalg.LinAlgError:
-                Vc = None
-    if Vc is None:
-        Vc = np.asarray(post["Vp"], dtype=np.float64)
+    Vc = np.asarray(post.get("Vc", post["Vp"]), dtype=np.float64)
 
     beta = np.asarray(coef_full[setup.reduced_to_full_idx], dtype=np.float64)
     intercept = float(coef_full[0]) if setup.predictor_full_slices else 0.0

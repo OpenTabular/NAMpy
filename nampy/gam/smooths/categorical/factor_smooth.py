@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
+from scipy.linalg import orthogonal_procrustes
 
 from ....splines.mrf import nat_param_type1
 from ..._mgcv_constants import EIG_TOL_POWER
@@ -465,6 +466,16 @@ class _FactorSmoothBase(BaseSmoothTerm):
 
         return False
 
+    def _base_constructor_fit_matrices(self):
+        if self._base_term is None:
+            raise RuntimeError("Base smooth term is not fitted.")
+        return self._base_term.tensor_marginal_fit_matrices(centered=False)
+
+    def _base_constructor_predict_matrix(self, X_new):
+        if self._base_term is None:
+            raise RuntimeError("Base smooth term is not fitted.")
+        return self._base_term.tensor_marginal_predict_matrix(X_new, centered=False)
+
 
 class FSmoothInteractionTerm(_FactorSmoothBase):
     """
@@ -509,8 +520,88 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
 
         self._levels = None
         self._base_transform = None
+        self._base_range_penalty_diag = None
         self._range_rank = None
         self._null_dim = None
+
+    def _align_multivariate_base_reparameterization(
+        self,
+        X,
+        X_reparam,
+        P_coef,
+        *,
+        range_rank,
+        null_dim,
+    ):
+        base_term = self._base_term
+        basis_key = str(getattr(base_term, "basis_name", "")).lower()
+        if null_dim <= 1:
+            return X_reparam, P_coef
+
+        X_reparam = np.asarray(X_reparam, dtype=np.float64).copy()
+        P_coef = np.asarray(P_coef, dtype=np.float64).copy()
+
+        if basis_key == "tp":
+            n_metric = len(self._metric_feature_names)
+            metric = np.column_stack(
+                [
+                    np.asarray(X[:, idx], dtype=np.float64)
+                    for idx in base_term.resolved_feature_indices()
+                ]
+            )
+            metric = metric - metric.mean(axis=0, keepdims=True)
+
+            # 1D tp bases used by `bs="fs"` retain a 2D null block spanning the
+            # centred linear function and the constant. For >=4 factor levels the
+            # repeated-zero eigenspace in `nat.param(type=1)` can land in the
+            # opposite linear/constant order from mgcv. Align that 2D block to the
+            # corresponding model-space span before duplicating by level so the
+            # later smoothCon scaling sees the same orientation.
+            if (
+                n_metric == 1
+                and null_dim == 2
+                and len(self._levels or []) >= 4
+            ):
+                X_null = X_reparam[:, range_rank:].copy()
+                centered_norm = np.linalg.norm(
+                    X_null - X_null.mean(axis=0, keepdims=True),
+                    axis=0,
+                )
+                if float(centered_norm[0]) > float(centered_norm[1]):
+                    target = np.column_stack(
+                        [metric[:, 0], np.ones(metric.shape[0], dtype=np.float64)]
+                    )
+                else:
+                    target = np.column_stack(
+                        [np.ones(metric.shape[0], dtype=np.float64), metric[:, 0]]
+                    )
+                R, _ = orthogonal_procrustes(X_null, target)
+                X_reparam[:, range_rank:] = X_null @ R
+                P_coef[:, range_rank:] = P_coef[:, range_rank:] @ R
+                return X_reparam, P_coef
+
+            if n_metric > 1:
+                target = np.column_stack(
+                    [metric, np.ones(metric.shape[0], dtype=np.float64)]
+                )
+                if target.shape[1] != null_dim:
+                    return X_reparam, P_coef
+                R, _ = orthogonal_procrustes(X_reparam[:, range_rank:], target)
+                X_reparam[:, range_rank:] = X_reparam[:, range_rank:] @ R
+                P_coef[:, range_rank:] = P_coef[:, range_rank:] @ R
+                return X_reparam, P_coef
+
+        if basis_key == "gp":
+            X_null = X_reparam[:, range_rank:].copy()
+            one = np.ones((X_null.shape[0], 1), dtype=np.float64)
+            X_centered = X_null - one @ (one.T @ X_null) / X_null.shape[0]
+            evals, vecs = np.linalg.eigh(X_centered.T @ X_centered)
+            idx = np.argsort(evals)[::-1]
+            R = vecs[:, idx][:, ::-1]
+            X_reparam[:, range_rank:] = X_reparam[:, range_rank:] @ R
+            P_coef[:, range_rank:] = P_coef[:, range_rank:] @ R
+
+        return X_reparam, P_coef
 
     def fit(self, X, feature_names):
         if self._build_delegate_base_or_re(
@@ -550,8 +641,10 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
                 'bs="fs" currently requires a singly penalized base smooth.'
             )
 
-        B0 = np.asarray(base_term.basis_train, dtype=np.float64)
         self._base_term = base_term
+        B0, S0, _ = self._base_constructor_fit_matrices()
+        B0 = np.asarray(B0, dtype=np.float64)
+        S0 = np.asarray(S0, dtype=np.float64)
 
         fac_idx = self._factor_feature_indices[0]
         self._factor_feature_names[0]
@@ -573,7 +666,6 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             self._record_constraint_result(None, None, absorbed_by=None)
             return self
 
-        S0 = np.asarray(base_term.penalties[0], dtype=np.float64)
         if isinstance(base_term, PSplineTerm1D) and len(base_term.penalties) > 0:
             # mgcv::smooth.construct.ps.smooth.spec: rank <- bs.dim - m[2]
             penalty_order = int(base_term.m[1])
@@ -601,7 +693,18 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         D = rp["D"]  # scale^2 * ones(r) after type=1 + unit_fnorm
         null_d = B0.shape[1] - r
 
+        X_reparam, P_coef = self._align_multivariate_base_reparameterization(
+            X,
+            X_reparam,
+            P_coef,
+            range_rank=r,
+            null_dim=null_d,
+        )
+
         self._base_transform = P_coef
+        self._base_range_penalty_diag = np.concatenate(
+            [D, np.zeros(null_d, dtype=np.float64)]
+        )
         self._range_rank = r
         self._null_dim = null_d
 
@@ -616,7 +719,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         # Build penalties matching mgcv's construction:
         #   S[[1]] = diag(rep(c(D, 0...0), nf))          (range space)
         #   S[[j+1]] = diag(rep(e_{r+j}, nf))  j=0..q-1  (null-space)
-        d_vec = np.concatenate([D, np.zeros(null_d, dtype=np.float64)])
+        d_vec = np.asarray(self._base_range_penalty_diag, dtype=np.float64)
         P_range = np.diag(np.tile(d_vec, n_levels))
 
         penalties = []
@@ -662,7 +765,9 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         fac = as_object_1d(column_as_object(X_new, fac_idx))
         Ifac = factor_indicator_matrix(fac, self._levels)
 
-        B0_new = np.asarray(self._base_term.transform_new(X_new), dtype=np.float64)
+        B0_new = np.asarray(
+            self._base_constructor_predict_matrix(X_new), dtype=np.float64
+        )
         if self._base_transform is not None:
             B0_new = B0_new @ self._base_transform
 

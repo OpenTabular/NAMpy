@@ -17,7 +17,7 @@ Provides two code paths:
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
-from ..._model_state import _design_matrix
+from ..._model_state import _design_matrix, _term_blocks_seq
 from ...fit.model_ops import (
     can_use_exact_gaussian_ml_reml,
     expand_smoothing_params_from_log,
@@ -59,6 +59,18 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
             "terms whose penalties do not couple disconnected support "
             "components through null-space penalties."
         )
+
+    # `mgcv`'s fs constructor (`smooth.construct.fs.smooth.spec`) remains in the
+    # direct coefficient parameterization with replicated null-space penalties.
+    # Our current mixed-model Laplace port is not exact for that surface, while
+    # the Wood-style dynamic profile below matches mgcv on the audited parity
+    # slices. Fail closed here so `criterion_ml_reml()` falls back to the
+    # dynamic path instead of trusting a finite but wrong exact score.
+    if any(
+        str(getattr(tb, "term_type", "")).lower() == "factor_smooth_fs"
+        for tb in _term_blocks_seq(model)
+    ):
+        return np.inf
 
     y = model.family.validate_y(y)
     y_eff = y if model.offset_train_ is None else (y - model.offset_train_)

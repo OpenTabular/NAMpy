@@ -34,19 +34,20 @@ def place_knots_through_values(x, nk):
     return knot
 
 
-def add_full_rank_shrinkage(S, shrink=0.1, tol=1e-12):
+def add_full_rank_shrinkage(S, shrink=0.1, tol=1e-12, null_basis=None, knots=None):
     """
     Make a symmetric penalty full rank by shrinking its null space.
 
-    This mirrors mgcv's cs/ts construction idea: null-space eigenvalues are
-    replaced by small positive multiples of the smallest positive eigenvalue.
+    Mirror mgcv/R/smooth.r::smooth.construct.cr.smooth.spec(): eigen-decompose
+    the raw CR penalty, then replace the trailing zero eigenvalues by small
+    positive multiples of the smallest positive eigenvalue.
     """
+    del null_basis, knots
     S = np.asarray(S, dtype=np.float64)
-    # mgcv's CR penalty arrives from C exactly symmetric before the cs
-    # shrinkage eigen step. Our Python port can pick up ~1e-14 upper-triangle
-    # roundoff from `solve(B, D)`, and averaging that noise rotates the tied
-    # null-space eigenvectors. Preserve the lower triangle, which already
-    # matches mgcv's penalty to machine precision, then mirror it.
+    # The upstream CR penalty is exactly symmetric. Our Python port can carry
+    # ~1e-14 asymmetry from the linear solve that builds S; mirroring the lower
+    # triangle preserves the branch that matches mgcv's C-side penalty values
+    # more closely than averaging the noisy upper/lower triangles.
     S = np.tril(S) + np.tril(S, -1).T
 
     # scipy.linalg.eigh (DSYEVR) matches R's eigen(symmetric=TRUE) null-space
@@ -58,18 +59,16 @@ def add_full_rank_shrinkage(S, shrink=0.1, tol=1e-12):
     U = np.asarray(U[:, idx], dtype=np.float64)
     tol_eff = tol * max(1.0, np.max(np.abs(evals)) if evals.size else 1.0)
 
-    pos = evals[evals > tol_eff]
+    pos_mask = evals > tol_eff
+    pos = evals[pos_mask]
     if pos.size == 0:
         return S.copy()
 
     out = evals.copy()
-    null_idx = np.where(evals <= tol_eff)[0]
+    null_idx = np.where(~pos_mask)[0]
 
     if null_idx.size:
         base = float(np.min(pos))
-        # Mirror mgcv/R/smooth.r shrinkage updates on the tied null-space
-        # eigenvectors returned by the symmetric eigensolver: apply the larger
-        # shrinkage to the first null direction, then cascade down.
         for j, idx in enumerate(null_idx):
             out[idx] = base * (shrink ** (j + 1))
 

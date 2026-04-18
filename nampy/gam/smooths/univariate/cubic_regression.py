@@ -16,6 +16,7 @@ identifiability in some settings).
 import numpy as np
 
 from ....splines.cubic import CubicSplines
+from ....splines.cubic_basis import cr_exact_null_basis_from_knots
 from ....splines.univariate_bases import (
     add_full_rank_shrinkage,
     cyclic_cubic_bd,
@@ -137,7 +138,12 @@ class SplineTerm1D(BaseSmoothTerm):
             # shrinkage after scaling changes the normalisation denominator and
             # produces a ~1e-5 prediction error.
             S_unscaled = np.asarray(self._spline.raw_penalty_unscaled, dtype=np.float64)
-            S = add_full_rank_shrinkage(S_unscaled, shrink=0.1)
+            S = add_full_rank_shrinkage(
+                S_unscaled,
+                shrink=0.1,
+                null_basis=cr_exact_null_basis_from_knots(self._spline.knots),
+                knots=self._spline.knots,
+            )
             S = scale_penalty(self._spline.raw_basis, S)
             if not raw:
                 C = self._spline.center_mat
@@ -496,6 +502,17 @@ class SplineTerm1D(BaseSmoothTerm):
             else:
                 B = np.asarray(self._spline.raw_basis, dtype=np.float64)
                 S = np.asarray(self._spline.raw_penalty_unscaled, dtype=np.float64)
+                if basis_name == "cs":
+                    # mgcv::smooth.construct.cs.smooth.spec applies the
+                    # shrinkage augmentation in the raw constructor path too,
+                    # so tensor/fs builders must see the full-rank raw penalty
+                    # rather than the underlying cr penalty.
+                    S = add_full_rank_shrinkage(
+                        S,
+                        shrink=0.1,
+                        null_basis=cr_exact_null_basis_from_knots(self._spline.knots),
+                        knots=self._spline.knots,
+                    )
                 XP = self._spline._np_transform
             if XP is not None:
                 B = B @ XP

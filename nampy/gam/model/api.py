@@ -585,7 +585,11 @@ class GAM:
 
         Mirrors mgcv ``logLik.gam`` in mgcv/R/mgcv.r.
         """
-        sc_p = 1.0 if getattr(self.family, "known_scale", None) is None else 0.0
+        family_class = str(getattr(self.family, "family_class", "")).lower()
+        if family_class == "general":
+            sc_p = 0.0
+        else:
+            sc_p = 1.0 if getattr(self.family, "known_scale", None) is None else 0.0
         edf2 = _edf2(self)
         if edf2 is not None:
             p = float(np.sum(np.asarray(edf2, dtype=np.float64))) + sc_p
@@ -625,15 +629,28 @@ class GAM:
             )
             return float(ll["l"])
 
-        eta = self.predict(X=None, type="link")
-        mu = self.family.inverse_link(eta)
-        return float(
-            self.family.loglik(
-                np.asarray(self.y_, dtype=np.float64),
-                np.asarray(mu, dtype=np.float64),
-                scale=float(_fit_scale(self)),
+        y = np.asarray(self.y_, dtype=np.float64)
+        mu = np.asarray(self.predict(X=None, type="response"), dtype=np.float64)
+        weights = (
+            None
+            if self.prior_weights_ is None
+            else np.asarray(self.prior_weights_, dtype=np.float64)
+        )
+        dev = float(self.family.deviance(y, mu, weights=weights))
+        if getattr(self.family, "known_scale", None) is None:
+            n_obs = float(len(y))
+            scale = max(dev / n_obs, np.finfo(np.float64).tiny)
+        else:
+            scale = float(_fit_scale(self))
+        sat = float(
+            self.family.saturated_loglik(
+                y,
+                weights=weights,
+                n=len(y),
+                scale=scale,
             )
         )
+        return float(sat - dev / (2.0 * scale))
 
     def aic(self) -> float:
         """mgcv-style conditional AIC based on effective df."""

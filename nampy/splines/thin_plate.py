@@ -1,16 +1,9 @@
-import ctypes
 import math
-import os
-import shutil
-import subprocess
 import warnings
-from ctypes.util import find_library
 from dataclasses import dataclass
-from functools import lru_cache
 
 import numpy as np
 import scipy.linalg
-from numpy.ctypeslib import ndpointer
 from scipy.spatial import distance_matrix
 
 from .thin_plate_basis import eta, tp_T
@@ -36,140 +29,6 @@ def _pack_covariates_colwise(X):
     if X.ndim == 1:
         X = X.reshape(-1, 1)
     return np.ascontiguousarray(X.T.reshape(-1), dtype=np.float64)
-
-
-def _configure_dstevd_signature(fn):
-    fn.argtypes = [
-        ctypes.c_char_p,
-        ctypes.POINTER(ctypes.c_int),
-        ndpointer(dtype=np.float64, flags="C_CONTIGUOUS"),
-        ndpointer(dtype=np.float64, flags="C_CONTIGUOUS"),
-        ndpointer(dtype=np.float64, flags="F_CONTIGUOUS"),
-        ctypes.POINTER(ctypes.c_int),
-        ndpointer(dtype=np.float64, flags="C_CONTIGUOUS"),
-        ctypes.POINTER(ctypes.c_int),
-        ndpointer(dtype=np.int32, flags="C_CONTIGUOUS"),
-        ctypes.POINTER(ctypes.c_int),
-        ctypes.POINTER(ctypes.c_int),
-        ctypes.c_size_t,
-    ]
-    fn.restype = None
-    return fn
-
-
-@lru_cache(maxsize=1)
-def _discover_r_lapack_path():
-    rscript = shutil.which("Rscript")
-    if not rscript:
-        return None
-    cmd = [
-        rscript,
-        "-e",
-        "si <- sessionInfo(); cat(if (is.null(si$LAPACK)) '' else si$LAPACK)",
-    ]
-    try:
-        proc = subprocess.run(
-            cmd,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-    except Exception:
-        return None
-    if proc.returncode != 0:
-        return None
-    path = proc.stdout.strip()
-    return path or None
-
-
-@lru_cache(maxsize=1)
-def _load_system_dstevd():
-    override = os.environ.get("NAMPY_TPRS_LAPACK_LIB")
-    candidates = []
-    if override:
-        candidates.append(override)
-    r_lapack = _discover_r_lapack_path()
-    if r_lapack:
-        candidates.append(r_lapack)
-    for libname in ("Rlapack", "lapack"):
-        resolved = find_library(libname)
-        if resolved:
-            candidates.append(resolved)
-
-    seen = set()
-    for libname in candidates:
-        if libname in seen:
-            continue
-        seen.add(libname)
-        try:
-            lib = ctypes.CDLL(libname)
-            return _configure_dstevd_signature(lib.dstevd_)
-        except Exception:
-            continue
-    return None
-
-
-def _system_dstevd_tridiagonal(diag, offdiag):
-    fn = _load_system_dstevd()
-    if fn is None:
-        return None
-
-    d = np.array(diag, dtype=np.float64, order="C", copy=True)
-    e = np.array(offdiag, dtype=np.float64, order="C", copy=True)
-    n_int = int(d.shape[0])
-    n = ctypes.c_int(n_int)
-    z = np.empty((n_int, n_int), dtype=np.float64, order="F")
-    ldz = ctypes.c_int(max(1, n_int))
-    work = np.empty(1, dtype=np.float64)
-    lwork = ctypes.c_int(-1)
-    iwork = np.empty(1, dtype=np.int32)
-    liwork = ctypes.c_int(-1)
-    info = ctypes.c_int(0)
-
-    try:
-        fn(
-            b"V",
-            ctypes.byref(n),
-            d,
-            e,
-            z,
-            ctypes.byref(ldz),
-            work,
-            ctypes.byref(lwork),
-            iwork,
-            ctypes.byref(liwork),
-            ctypes.byref(info),
-            1,
-        )
-        if info.value != 0:
-            return None
-
-        lwork = ctypes.c_int(int(work[0]))
-        liwork = ctypes.c_int(int(iwork[0]))
-        work = np.empty(lwork.value, dtype=np.float64)
-        iwork = np.empty(liwork.value, dtype=np.int32)
-        info = ctypes.c_int(0)
-        fn(
-            b"V",
-            ctypes.byref(n),
-            d,
-            e,
-            z,
-            ctypes.byref(ldz),
-            work,
-            ctypes.byref(lwork),
-            iwork,
-            ctypes.byref(liwork),
-            ctypes.byref(info),
-            1,
-        )
-    except Exception:
-        return None
-
-    if info.value != 0:
-        return None
-
-    return d, z
 
 
 def householder_qr_rowspace(A, full_q):
@@ -457,7 +316,11 @@ def _top_eigensystem(E, k):
         raise ValueError(f"k must be <= matrix dimension, got k={k}, n={n}.")
 
     tol = float(np.finfo(np.float64).eps ** 0.7)
-    f_check = max(10, max(1, n // 10))
+    # mgcv/src/mat.c::Rlanczos checks convergence every
+    # min(max((m + lm) / 2, 10), floor(n / 10)) steps. For the tp/ts setup
+    # here lm is always zero, so mirror the same cadence exactly.
+    f_check = max(10, k // 2)
+    f_check = min(f_check, max(1, n // 10))
 
     # mgcv uses a fixed linear congruential generator to build the start vector.
     jran = 1
@@ -508,19 +371,15 @@ def _top_eigensystem(E, k):
             q.append(z / b[j])
 
         if ((j >= k) and (j % f_check == 0)) or (j == n - 1):
-            eig_res = _system_dstevd_tridiagonal(a[: j + 1], b[:j])
-            if eig_res is None:
-                d_asc, vecs_asc, info = scipy.linalg.lapack.dstevd(
-                    a[: j + 1].copy(),
-                    b[:j].copy(),
-                    compute_v=1,
+            d_asc, vecs_asc, info = scipy.linalg.lapack.dstevd(
+                a[: j + 1].copy(),
+                b[:j].copy(),
+                compute_v=1,
+            )
+            if info != 0:
+                raise np.linalg.LinAlgError(
+                    f"dstevd failed in thin-plate eigensystem with info={info}."
                 )
-                if info != 0:
-                    raise np.linalg.LinAlgError(
-                        f"dstevd failed in thin-plate eigensystem with info={info}."
-                    )
-            else:
-                d_asc, vecs_asc = eig_res
 
             # mgcv/src/mat.c::mgcv_trisymeig returns descending order.
             d = np.asarray(d_asc[::-1], dtype=np.float64)

@@ -1,0 +1,698 @@
+"""Prediction / inference / diagnostics parity against mgcv.
+
+Compared here:
+  predict.gam on explicit ``newdata`` for ``link``, ``response``, ``terms``,
+  ``lpmatrix``, standard errors, and unconditional standard errors.
+  anova.gam single-model tables and representative model-comparison tables.
+  residuals() and k.check() against mgcv snapshot outputs.
+
+Tracked known gaps stay visible as ``xfail``:
+  ``predict(type="iterms")`` is not implemented in NAMpy yet.
+  Non-Gaussian unconditional prediction SE still depends on the known PIRLS
+  ``Vc`` parity gap.
+  The requested failing/warning cases remain documented rather than removed.
+"""
+
+from __future__ import annotations
+
+import hashlib
+from functools import lru_cache
+
+import numpy as np
+import pytest
+
+from tests._mgcv_parity_requested_shared import CaseSpec
+from tests._mgcv_snapshot_parity_shared import _make_fs_data, _make_gaussian_data
+from tests.mgcv_parity_utils import (
+    _family_specs,
+    _fit_nampy_model,
+    _fit_nampy_model_fixed_sp,
+    _make_binomial_data,
+    _make_gamma_data,
+    _make_poisson_data,
+    _run_mgcv_anova,
+    _run_mgcv_predict_on_newdata,
+    _run_mgcv_snapshot,
+)
+from tests.parity.test_mgcv_parity import CASES as REQUESTED_CASES
+from tests.parity.test_mgcv_parity_failing_and_warnings import (
+    REQUESTED_PARITY_FAILING_OR_WARNING_CASES,
+)
+
+pytestmark = [pytest.mark.surface_output]
+
+
+def _dedupe_cases(cases: list[CaseSpec]) -> list[CaseSpec]:
+    out = []
+    seen: set[str] = set()
+    for case in cases:
+        if case.case_id in seen:
+            continue
+        seen.add(case.case_id)
+        out.append(case)
+    return out
+
+
+ADDITIONAL_SCENARIO_CASES = [
+    CaseSpec(
+        case_id="gaussian_fs_select_reml",
+        formula='y ~ s(f, x, bs="fs", k=6)',
+        family="gaussian",
+        data_factory=_make_fs_data,
+        select=True,
+        skip_coef_comparison=True,
+        criterion_atol=1e-3,
+    ),
+    CaseSpec(
+        case_id="gaussian_t2_ts_cr_reml",
+        formula='y ~ t2(x0, x1, bs=["ts", "cr"], k=[6, 6])',
+        family="gaussian",
+        data_factory=lambda: _make_gaussian_data(seed=375, n=180),
+        skip_coef_comparison=True,
+    ),
+]
+
+
+ORDINARY_CASES = _dedupe_cases(
+    list(REQUESTED_CASES)
+    + list(REQUESTED_PARITY_FAILING_OR_WARNING_CASES)
+    + ADDITIONAL_SCENARIO_CASES
+)
+CASE_BY_ID = {case.case_id: case for case in ORDINARY_CASES}
+KNOWN_FAILING_CASE_IDS = {
+    case.case_id for case in REQUESTED_PARITY_FAILING_OR_WARNING_CASES
+} | {case.case_id for case in ADDITIONAL_SCENARIO_CASES}
+KCHECK_KNOWN_GAP_CASE_IDS = KNOWN_FAILING_CASE_IDS | {
+    "gaussian_fs_by_factor",
+    "gaussian_fs_select_reml",
+    "gaussian_by_factor",
+}
+
+
+def _sample_weight_from_case(case: CaseSpec, data):
+    if case.weights_column is None:
+        return None
+    return np.asarray(data[case.weights_column], dtype=np.float64)
+
+
+def _family_key(case: CaseSpec) -> str:
+    return str(_family_specs(case.family)[1]).split(":", 1)[0].lower()
+
+
+def _is_gaussian_case(case: CaseSpec) -> bool:
+    return _family_key(case) == "gaussian"
+
+
+def _prediction_tol(case: CaseSpec) -> float:
+    if case.case_id == "gaussian_t2_ts_cr_reml":
+        return 1e-5
+    if case.case_id == "gaussian_fs_select_reml":
+        return 1e-6
+    if not _is_gaussian_case(case):
+        return 1e-8
+    if any(token in case.case_id for token in ("tp", "te", "weights", "offset", "by")):
+        return 1e-8
+    return 1e-10
+
+
+def _anova_tol(case: CaseSpec) -> float:
+    if case.case_id == "gaussian_t2_ts_cr_reml":
+        return 1e-4
+    if case.case_id == "gaussian_fs_select_reml":
+        return 2e-5
+    if not _is_gaussian_case(case):
+        return 1e-6
+    return 1e-10
+
+
+def _residual_tol(case: CaseSpec) -> float:
+    if case.case_id == "gaussian_t2_ts_cr_reml":
+        return 1e-5
+    if case.case_id == "gaussian_fs_select_reml":
+        return 1e-6
+    if not _is_gaussian_case(case):
+        return 1e-8
+    return 1e-10
+
+
+def _unconditional_tol(case: CaseSpec) -> float:
+    if case.case_id == "gaussian_t2_ts_cr_reml":
+        return 1e-5
+    if case.case_id == "gaussian_fs_select_reml":
+        return 1e-6
+    return max(_prediction_tol(case), 1e-7)
+
+
+def _normalize_matrix(x) -> np.ndarray:
+    arr = np.asarray(x, dtype=np.float64)
+    if arr.ndim == 0:
+        return arr.reshape(1, 1)
+    if arr.ndim == 1:
+        return arr[:, None]
+    return arr
+
+
+def _normalize_numeric_matrix(x) -> np.ndarray:
+    arr = np.asarray(x, dtype=object)
+    if arr.ndim == 0:
+        arr = arr.reshape(1, 1)
+    elif arr.ndim == 1:
+        arr = arr[:, None]
+
+    def _coerce(v):
+        if v is None or v == "NA":
+            return np.nan
+        return float(v)
+
+    return np.vectorize(_coerce, otypes=[np.float64])(arr)
+
+
+def _normalize_vector(x) -> np.ndarray:
+    return np.asarray(x, dtype=np.float64).reshape(-1)
+
+
+def _labels_list(x) -> list[str]:
+    if x is None:
+        return []
+    if isinstance(x, str):
+        return [x]
+    return [str(v) for v in x]
+
+
+def _extract_parametric_triplet(values) -> np.ndarray:
+    arr = _normalize_numeric_matrix(values)
+    if arr.shape[1] >= 5:
+        return arr[:, [0, 3, 4]]
+    if arr.shape[1] >= 3:
+        return arr[:, [0, 1, 2]]
+    raise AssertionError("Unexpected mgcv anova parametric table shape.")
+
+
+def _maybe_xfail_prediction_gap(case: CaseSpec, pred_type: str) -> None:
+    if case.case_id in KNOWN_FAILING_CASE_IDS:
+        pytest.xfail(
+            f"{case.case_id}: requested failing/warning parity case remains under triage."
+        )
+    if case.case_id == "gaussian_by_factor" and pred_type == "terms":
+        pytest.xfail(
+            "gaussian_by_factor: predict(type='terms') still splits the factor parametric block differently from mgcv."
+        )
+
+
+def _maybe_xfail_unconditional_gap(case: CaseSpec, pred_type: str) -> None:
+    if case.case_id in KNOWN_FAILING_CASE_IDS:
+        pytest.xfail(
+            f"{case.case_id}: unconditional prediction parity is still a tracked gap."
+        )
+    if not _is_gaussian_case(case):
+        pytest.xfail(
+            f"{case.case_id}: non-Gaussian unconditional predict parity depends on the known mgcv-style Vc/edf2 gap."
+        )
+    if case.case_id == "gaussian_by_factor" and pred_type == "terms":
+        pytest.xfail(
+            "gaussian_by_factor: unconditional predict(type='terms') still differs from mgcv term aggregation."
+        )
+    if case.case_id == "gaussian_random_intercept_re" and pred_type == "terms":
+        pytest.xfail(
+            "gaussian_random_intercept_re: unconditional termwise SE parity for re smooths remains under triage."
+        )
+
+
+def _maybe_xfail_anova_gap(case: CaseSpec) -> None:
+    if case.case_id in KNOWN_FAILING_CASE_IDS:
+        pytest.xfail(
+            f"{case.case_id}: anova parity remains part of the requested failing/warning gap set."
+        )
+    if case.case_id in {
+        "binomial_logit",
+        "poisson",
+        "gamma_log",
+        "gaussian_random_intercept_re",
+        "gaussian_by_factor",
+        "gaussian_fs_by_factor",
+        "gaussian_select_true",
+        "gaussian_weights",
+        "gaussian_formula_offset",
+    }:
+        pytest.xfail(
+            f"{case.case_id}: anova.gam parity is still a tracked gap for this surface."
+        )
+
+
+def _maybe_xfail_residual_gap(case: CaseSpec) -> None:
+    if case.case_id in KNOWN_FAILING_CASE_IDS:
+        pytest.xfail(
+            f"{case.case_id}: residual parity remains part of the requested failing/warning gap set."
+        )
+
+
+def _maybe_xfail_kcheck_gap(case: CaseSpec) -> None:
+    if case.case_id in KCHECK_KNOWN_GAP_CASE_IDS:
+        pytest.xfail(
+            f"{case.case_id}: k.check parity remains a tracked gap for this requested case."
+        )
+
+
+@lru_cache(maxsize=None)
+def _case_bundle(case_id: str):
+    case = CASE_BY_ID[case_id]
+    data = case.data_factory()
+    expected = _run_mgcv_snapshot(
+        data=data,
+        formula=case.formula,
+        family=case.family,
+        method="REML",
+        select=case.select,
+        weights_column=case.weights_column,
+    )
+    sp = np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
+    model = _fit_nampy_model_fixed_sp(
+        data,
+        case.formula,
+        case.family,
+        sp,
+        select=case.select,
+        sample_weight=_sample_weight_from_case(case, data),
+    )
+    return data, expected, model
+
+
+@lru_cache(maxsize=None)
+def _case_outer_bundle(case_id: str):
+    case = CASE_BY_ID[case_id]
+    data = case.data_factory()
+    expected = _run_mgcv_snapshot(
+        data=data,
+        formula=case.formula,
+        family=case.family,
+        method="REML",
+        select=case.select,
+        weights_column=case.weights_column,
+    )
+    model = _fit_nampy_model(
+        data,
+        case.formula,
+        case.family,
+        "REML",
+        select=case.select,
+        sample_weight=_sample_weight_from_case(case, data),
+    )
+    return data, expected, model
+
+
+def _newdata_for_case(case_id: str):
+    data, _expected, _model = _case_bundle(case_id)
+    digest = hashlib.sha256(case_id.encode("utf-8")).digest()
+    seed = int.from_bytes(digest[:4], byteorder="little", signed=False)
+    n = min(40, len(data))
+    return data.sample(n=n, random_state=seed).copy()
+
+
+def _assert_p_values_close(actual, expected, *, atol: float, rtol: float) -> None:
+    actual = np.asarray(actual, dtype=np.float64)
+    expected = np.asarray(expected, dtype=np.float64)
+    actual = np.where(np.abs(actual) < 1e-300, 0.0, actual)
+    expected = np.where(np.abs(expected) < 1e-300, 0.0, expected)
+    np.testing.assert_allclose(actual, expected, atol=atol, rtol=rtol, equal_nan=True)
+
+
+@pytest.mark.parametrize("case", ORDINARY_CASES, ids=[case.case_id for case in ORDINARY_CASES])
+@pytest.mark.parametrize(
+    "pred_type",
+    ["link", "response", "terms", "lpmatrix"],
+    ids=["link", "response", "terms", "lpmatrix"],
+)
+def test_predict_gam_newdata_surfaces_match_mgcv(case: CaseSpec, pred_type: str):
+    _maybe_xfail_prediction_gap(case, pred_type)
+
+    data, _expected, model = _case_bundle(case.case_id)
+    newdata = _newdata_for_case(case.case_id)
+    r_result = _run_mgcv_predict_on_newdata(
+        data,
+        newdata,
+        case.formula,
+        family=case.family,
+        method="REML",
+        type=pred_type,
+        return_se=(pred_type != "lpmatrix"),
+        select=case.select,
+        weights_column=case.weights_column,
+    )
+
+    tol = _unconditional_tol(case)
+    if pred_type == "lpmatrix":
+        actual = np.asarray(model.predict(X=newdata, type="lpmatrix"), dtype=np.float64)
+        expected = np.asarray(r_result["pred"], dtype=np.float64)
+        np.testing.assert_allclose(actual, expected, atol=tol, rtol=tol)
+        return
+
+    actual_pred, actual_se = model.predict(X=newdata, type=pred_type, return_se=True)
+    if pred_type == "terms":
+        expected_pred = _normalize_matrix(r_result["pred"])
+        expected_se = _normalize_matrix(r_result["se"])
+        actual_pred = _normalize_matrix(actual_pred)
+        actual_se = _normalize_matrix(actual_se)
+        assert actual_pred.shape == expected_pred.shape
+        assert actual_se.shape == expected_se.shape
+        assert actual_pred.shape[1] == len(_labels_list(r_result.get("term_names", None)))
+    else:
+        expected_pred = _normalize_vector(r_result["pred"])
+        expected_se = _normalize_vector(r_result["se"])
+        actual_pred = _normalize_vector(actual_pred)
+        actual_se = _normalize_vector(actual_se)
+
+    np.testing.assert_allclose(actual_pred, expected_pred, atol=tol, rtol=tol)
+    np.testing.assert_allclose(actual_se, expected_se, atol=tol, rtol=tol)
+
+
+@pytest.mark.parametrize("case", ORDINARY_CASES, ids=[case.case_id for case in ORDINARY_CASES])
+@pytest.mark.parametrize(
+    "pred_type",
+    ["link", "response", "terms"],
+    ids=["link", "response", "terms"],
+)
+def test_predict_gam_unconditional_se_match_mgcv_or_documented_gap(
+    case: CaseSpec, pred_type: str
+):
+    _maybe_xfail_unconditional_gap(case, pred_type)
+
+    data, _expected, model = _case_outer_bundle(case.case_id)
+    newdata = _newdata_for_case(case.case_id)
+    r_result = _run_mgcv_predict_on_newdata(
+        data,
+        newdata,
+        case.formula,
+        family=case.family,
+        method="REML",
+        type=pred_type,
+        return_se=True,
+        unconditional=True,
+        select=case.select,
+        weights_column=case.weights_column,
+    )
+
+    actual_cov = np.asarray(model.vcov(unconditional=True), dtype=np.float64)
+    actual_pred, actual_se = model.predict(
+        X=newdata,
+        type=pred_type,
+        return_se=True,
+        cov=actual_cov,
+    )
+    tol = _unconditional_tol(case)
+    if pred_type == "terms":
+        np.testing.assert_allclose(
+            _normalize_matrix(actual_pred),
+            _normalize_matrix(r_result["pred"]),
+            atol=tol,
+            rtol=tol,
+        )
+        np.testing.assert_allclose(
+            _normalize_matrix(actual_se),
+            _normalize_matrix(r_result["se"]),
+            atol=tol,
+            rtol=tol,
+        )
+        return
+
+    np.testing.assert_allclose(
+        _normalize_vector(actual_pred),
+        _normalize_vector(r_result["pred"]),
+        atol=tol,
+        rtol=tol,
+    )
+    np.testing.assert_allclose(
+        _normalize_vector(actual_se),
+        _normalize_vector(r_result["se"]),
+        atol=tol,
+        rtol=tol,
+    )
+
+
+@pytest.mark.xfail(
+    reason="predict(type='iterms') is not implemented in NAMpy yet; keep mgcv reference coverage visible.",
+    strict=False,
+)
+@pytest.mark.parametrize("case", ORDINARY_CASES, ids=[case.case_id for case in ORDINARY_CASES])
+def test_predict_gam_iterms_newdata_matches_mgcv(case: CaseSpec):
+    data, _expected, model = _case_bundle(case.case_id)
+    newdata = _newdata_for_case(case.case_id)
+    r_result = _run_mgcv_predict_on_newdata(
+        data,
+        newdata,
+        case.formula,
+        family=case.family,
+        method="REML",
+        type="iterms",
+        return_se=True,
+        select=case.select,
+        weights_column=case.weights_column,
+    )
+    actual_pred, actual_se = model.predict(X=newdata, type="iterms", return_se=True)
+
+    tol = _prediction_tol(case)
+    np.testing.assert_allclose(
+        _normalize_matrix(actual_pred),
+        _normalize_matrix(r_result["pred"]),
+        atol=tol,
+        rtol=tol,
+    )
+    np.testing.assert_allclose(
+        _normalize_matrix(actual_se),
+        _normalize_matrix(r_result["se"]),
+        atol=tol,
+        rtol=tol,
+    )
+
+
+@pytest.mark.parametrize("case", ORDINARY_CASES, ids=[case.case_id for case in ORDINARY_CASES])
+def test_anova_gam_single_model_matches_mgcv(case: CaseSpec):
+    _maybe_xfail_anova_gap(case)
+
+    _data, expected, model = _case_bundle(case.case_id)
+    actual = model.anova(freq=False)
+    tol = _anova_tol(case)
+
+    expected_smooth = expected["parity"]["diagnostics"].get("anova_smooth")
+    if expected_smooth is not None:
+        expected_values = _normalize_numeric_matrix(expected_smooth["values"])
+        actual_values = np.asarray(
+            actual.smooth_table[["edf", "ref_df", "wald_stat", "p_value"]].to_numpy(),
+            dtype=np.float64,
+        )
+        assert actual_values.shape == expected_values.shape
+        np.testing.assert_allclose(
+            actual_values[:, :2],
+            expected_values[:, :2],
+            atol=max(tol, 1e-6),
+            rtol=1e-6,
+        )
+        np.testing.assert_allclose(
+            actual_values[:, 2],
+            expected_values[:, 2],
+            atol=max(tol, 1e-6),
+            rtol=1e-3,
+        )
+        _assert_p_values_close(
+            actual_values[:, 3],
+            expected_values[:, 3],
+            atol=max(tol, 1e-12),
+            rtol=1e-4,
+        )
+
+    expected_parametric = expected["parity"]["diagnostics"].get("anova_parametric")
+    if expected_parametric and "values" in expected_parametric:
+        expected_values = _extract_parametric_triplet(expected_parametric["values"])
+        actual_values = np.asarray(
+            actual.parametric_table[["df", "wald_stat", "p_value"]].to_numpy(),
+            dtype=np.float64,
+        )
+        assert actual_values.shape == expected_values.shape
+        np.testing.assert_allclose(
+            actual_values[:, :2],
+            expected_values[:, :2],
+            atol=max(tol, 1e-6),
+            rtol=1e-4,
+            equal_nan=True,
+        )
+        _assert_p_values_close(
+            actual_values[:, 2],
+            expected_values[:, 2],
+            atol=max(tol, 1e-12),
+            rtol=1e-4,
+        )
+
+
+ANOVA_COMPARISON_CASES = [
+    (
+        "gaussian_two_cr",
+        _make_gaussian_data,
+        "gaussian",
+        [
+            'y ~ s(x0, bs="cr", k=8)',
+            'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)',
+        ],
+        "REML",
+    ),
+    (
+        "binomial_two_cr",
+        _make_binomial_data,
+        "binomial",
+        [
+            'y ~ s(x0, bs="cr", k=8)',
+            'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)',
+        ],
+        "REML",
+    ),
+    (
+        "poisson_two_cr",
+        _make_poisson_data,
+        "poisson",
+        [
+            'y ~ s(x0, bs="cr", k=8)',
+            'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)',
+        ],
+        "REML",
+    ),
+    (
+        "gamma_two_cr",
+        _make_gamma_data,
+        "gamma",
+        [
+            'y ~ s(x0, bs="cr", k=8)',
+            'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)',
+        ],
+        "REML",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("case_id", "data_factory", "family", "formulas", "method"),
+    ANOVA_COMPARISON_CASES,
+    ids=[case[0] for case in ANOVA_COMPARISON_CASES],
+)
+def test_anova_gam_model_comparison_matches_mgcv(
+    case_id, data_factory, family, formulas, method
+):
+    del case_id
+    if family != "gaussian":
+        pytest.xfail(
+            f"{family}: non-Gaussian anova.gam model-comparison parity remains a tracked gap."
+        )
+    data = data_factory()
+    py0 = _fit_nampy_model(data, formulas[0], family, method)
+    py1 = _fit_nampy_model(data, formulas[1], family, method)
+    actual = py0.anova(py1, test="Chisq")
+    expected = _run_mgcv_anova(data, formulas, family, method, test="Chisq")
+
+    expected_values = _normalize_numeric_matrix(expected["table"]["values"])
+    np.testing.assert_allclose(
+        actual.table["Resid. Df"].to_numpy(dtype=np.float64),
+        expected_values[:, 0],
+        atol=5e-6,
+        rtol=5e-6,
+    )
+    np.testing.assert_allclose(
+        actual.table["Resid. Dev"].to_numpy(dtype=np.float64),
+        expected_values[:, 1],
+        atol=1e-10,
+        rtol=1e-10,
+    )
+    np.testing.assert_allclose(
+        actual.table["Df"].to_numpy(dtype=np.float64),
+        np.asarray([np.nan, expected_values[1, 2]], dtype=np.float64),
+        atol=5e-6,
+        rtol=5e-6,
+        equal_nan=True,
+    )
+    np.testing.assert_allclose(
+        actual.table["Deviance"].to_numpy(dtype=np.float64),
+        np.asarray([np.nan, expected_values[1, 3]], dtype=np.float64),
+        atol=1e-10,
+        rtol=1e-10,
+        equal_nan=True,
+    )
+    np.testing.assert_allclose(
+        actual.table["Pr(>Chi)"].to_numpy(dtype=np.float64),
+        np.asarray([np.nan, expected_values[1, 4]], dtype=np.float64),
+        atol=1e-12,
+        rtol=1e-8,
+        equal_nan=True,
+    )
+
+
+@pytest.mark.parametrize("case", ORDINARY_CASES, ids=[case.case_id for case in ORDINARY_CASES])
+@pytest.mark.parametrize(
+    ("snapshot_key", "resid_type"),
+    [
+        ("response", "response"),
+        ("working", "working"),
+        ("pearson", "pearson"),
+        ("scaled_pearson", "scaled.pearson"),
+        ("deviance", "deviance"),
+    ],
+    ids=["response", "working", "pearson", "scaled_pearson", "deviance"],
+)
+def test_residuals_match_mgcv(case: CaseSpec, snapshot_key: str, resid_type: str):
+    _maybe_xfail_residual_gap(case)
+    if case.case_id == "gaussian_formula_offset" and resid_type == "working":
+        pytest.xfail(
+            "gaussian_formula_offset: working residuals still differ under remembered formula offsets."
+        )
+
+    _data, expected, model = _case_bundle(case.case_id)
+    expected_values = expected["parity"]["diagnostics"]["residuals"][snapshot_key]
+    actual = np.asarray(model.residuals(type=resid_type), dtype=np.float64)
+    tol = _residual_tol(case)
+    if resid_type == "working" and not _is_gaussian_case(case):
+        tol = max(tol, 1e-6)
+    np.testing.assert_allclose(
+        actual,
+        np.asarray(expected_values, dtype=np.float64),
+        atol=tol,
+        rtol=tol,
+    )
+
+
+@pytest.mark.surface_kcheck
+@pytest.mark.parametrize("case", ORDINARY_CASES, ids=[case.case_id for case in ORDINARY_CASES])
+def test_k_check_matches_mgcv_or_documented_gap(case: CaseSpec):
+    _maybe_xfail_kcheck_gap(case)
+
+    _data, expected, model = _case_bundle(case.case_id)
+    expected_block = expected["parity"]["diagnostics"].get("k_check")
+    assert expected_block is not None
+
+    actual = model.k_check(subsample=120, n_rep=8, seed=0)
+    actual_values = actual[["k_prime", "edf", "k_index", "p_value"]].to_numpy(
+        dtype=np.float64
+    )
+
+    expected_labels = _labels_list(expected_block["labels"])
+    expected_values = _normalize_numeric_matrix(expected_block["values"])
+
+    assert len(actual.index) == len(expected_labels) == expected_values.shape[0]
+    for i in range(expected_values.shape[0]):
+        assert int(actual_values[i, 0]) == int(round(expected_values[i, 0]))
+        np.testing.assert_allclose(
+            actual_values[i, 1],
+            expected_values[i, 1],
+            atol=1e-4,
+            rtol=0.0,
+        )
+        if np.isnan(expected_values[i, 2]):
+            assert np.isnan(actual_values[i, 2])
+            assert np.isnan(actual_values[i, 3])
+            continue
+        np.testing.assert_allclose(
+            actual_values[i, 2],
+            expected_values[i, 2],
+            atol=1e-12,
+            rtol=0.0,
+        )
+        np.testing.assert_allclose(
+            actual_values[i, 3],
+            expected_values[i, 3],
+            atol=0.0,
+            rtol=0.0,
+        )

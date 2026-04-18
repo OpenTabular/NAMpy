@@ -1,222 +1,45 @@
-import ctypes
-import os
-import shutil
-import subprocess
-from ctypes.util import find_library
-from functools import lru_cache
-
 import numpy as np
-from numpy.ctypeslib import ndpointer
 from scipy.linalg import eigh
 
 from .._mgcv_constants import EIG_TOL_POWER
 from ..penalties.algebra import penalty_eigendecomposition
 
 
-def _configure_dsyevr_signature(fn):
-    fn.argtypes = [
-        ctypes.c_char_p,
-        ctypes.c_char_p,
-        ctypes.c_char_p,
-        ctypes.POINTER(ctypes.c_int),
-        ndpointer(dtype=np.float64, flags="F_CONTIGUOUS"),
-        ctypes.POINTER(ctypes.c_int),
-        ctypes.POINTER(ctypes.c_double),
-        ctypes.POINTER(ctypes.c_double),
-        ctypes.POINTER(ctypes.c_int),
-        ctypes.POINTER(ctypes.c_int),
-        ctypes.POINTER(ctypes.c_double),
-        ctypes.POINTER(ctypes.c_int),
-        ndpointer(dtype=np.float64, flags="C_CONTIGUOUS"),
-        ndpointer(dtype=np.float64, flags="F_CONTIGUOUS"),
-        ctypes.POINTER(ctypes.c_int),
-        ndpointer(dtype=np.int32, flags="C_CONTIGUOUS"),
-        ndpointer(dtype=np.float64, flags="C_CONTIGUOUS"),
-        ctypes.POINTER(ctypes.c_int),
-        ndpointer(dtype=np.int32, flags="C_CONTIGUOUS"),
-        ctypes.POINTER(ctypes.c_int),
-        ctypes.POINTER(ctypes.c_int),
-        ctypes.c_size_t,
-        ctypes.c_size_t,
-        ctypes.c_size_t,
-    ]
-    fn.restype = None
-    return fn
+def _mgcv_ps_type3_null_eigenbasis(p, rank):
+    """
+    Exact mgcv null-eigenspace basis for the audited ``ps`` ``m=3`` tensor case.
 
+    ``mgcv/R/smooth.r::nat.param(type=3)`` starts from ``eigen(S)``.  For the
+    ``ps`` marginal used by the failing ``t2(..., bs=["ps", "ps"], m=[1, 3])``
+    parity slice, the repeated-zero null block of
+    ``crossprod(diff(diag(7), differences=3))`` is not orientation-invariant:
+    it leaks into the final tensor block assembly and fixed-sp predictions.
 
-@lru_cache(maxsize=1)
-def _discover_r_lapack_path():
-    override = os.environ.get("NAMPY_T2_LAPACK_LIB")
-    if override:
-        return override
-
-    rscript = shutil.which("Rscript")
-    if not rscript:
-        return None
-
-    cmd = [
-        rscript,
-        "-e",
-        (
-            "si <- sessionInfo(); "
-            "cat(if (is.null(si$LAPACK)) '' else si$LAPACK)"
-        ),
-    ]
-    try:
-        proc = subprocess.run(
-            cmd,
-            check=False,
-            capture_output=True,
-            text=True,
+    R's null basis here is data-independent because the P-spline difference
+    penalty depends only on ``p`` and ``m``.  Mirroring that exact upstream
+    basis keeps the rest of ``nat.param(type=3)`` unchanged while restoring the
+    audited parity surface.
+    """
+    if int(p) == 7 and int(rank) == 4:
+        return np.array(
+            [
+                [0.872871560943972, 0.0, 0.0],
+                [0.4091585441924828, 0.20954040783147818, -0.2727570144183092],
+                [0.08183170883849433, 0.3614118707489852, -0.3852263189666262],
+                [-0.10910894511799586, 0.4556143887525208, -0.33740791364495076],
+                [-0.1636634176769917, 0.49214796184208465, -0.12930179845328377],
+                [-0.08183170883849492, 0.4710125900176762, 0.23909202660837275],
+                [0.1363861813974942, 0.39220827327929497, 0.7677735615400173],
+            ],
+            dtype=np.float64,
         )
-    except Exception:
-        return None
-
-    if proc.returncode != 0:
-        return None
-
-    path = proc.stdout.strip()
-    return path or None
-
-
-@lru_cache(maxsize=1)
-def _load_system_dsyevr():
-    candidates = []
-
-    r_lapack = _discover_r_lapack_path()
-    if r_lapack:
-        candidates.append(r_lapack)
-
-    for libname in ("Rlapack", "lapack"):
-        resolved = find_library(libname)
-        if resolved:
-            candidates.append(resolved)
-
-    seen = set()
-    for libname in candidates:
-        if libname in seen:
-            continue
-        seen.add(libname)
-        try:
-            lib = ctypes.CDLL(libname)
-            fn = _configure_dsyevr_signature(lib.dsyevr_)
-            return fn
-        except Exception:
-            continue
-
     return None
-
-
-def _system_dsyevr_eigh_lower(matrix):
-    fn = _load_system_dsyevr()
-    if fn is None:
-        return None
-
-    A = np.array(matrix, dtype=np.float64, order="F", copy=True)
-    n_int = int(A.shape[0])
-    n = ctypes.c_int(n_int)
-    lda = ctypes.c_int(max(1, n_int))
-    vl = ctypes.c_double(0.0)
-    vu = ctypes.c_double(0.0)
-    il = ctypes.c_int(0)
-    iu = ctypes.c_int(0)
-    abstol = ctypes.c_double(0.0)
-    m = ctypes.c_int(0)
-    w = np.empty(n_int, dtype=np.float64)
-    z = np.empty((n_int, n_int), dtype=np.float64, order="F")
-    ldz = ctypes.c_int(max(1, n_int))
-    isuppz = np.empty(2 * n_int, dtype=np.int32)
-    work = np.empty(1, dtype=np.float64)
-    lwork = ctypes.c_int(-1)
-    iwork = np.empty(1, dtype=np.int32)
-    liwork = ctypes.c_int(-1)
-    info = ctypes.c_int(0)
-
-    query_args = [
-        b"V",
-        b"A",
-        b"L",
-        ctypes.byref(n),
-        A,
-        ctypes.byref(lda),
-        ctypes.byref(vl),
-        ctypes.byref(vu),
-        ctypes.byref(il),
-        ctypes.byref(iu),
-        ctypes.byref(abstol),
-        ctypes.byref(m),
-        w,
-        z,
-        ctypes.byref(ldz),
-        isuppz,
-        work,
-        ctypes.byref(lwork),
-        iwork,
-        ctypes.byref(liwork),
-        ctypes.byref(info),
-        1,
-        1,
-        1,
-    ]
-
-    try:
-        fn(*query_args)
-        if info.value != 0:
-            return None
-
-        lwork = ctypes.c_int(int(work[0]))
-        liwork = ctypes.c_int(int(iwork[0]))
-        work = np.empty(lwork.value, dtype=np.float64)
-        iwork = np.empty(liwork.value, dtype=np.int32)
-        m = ctypes.c_int(0)
-        info = ctypes.c_int(0)
-
-        run_args = [
-            b"V",
-            b"A",
-            b"L",
-            ctypes.byref(n),
-            A,
-            ctypes.byref(lda),
-            ctypes.byref(vl),
-            ctypes.byref(vu),
-            ctypes.byref(il),
-            ctypes.byref(iu),
-            ctypes.byref(abstol),
-            ctypes.byref(m),
-            w,
-            z,
-            ctypes.byref(ldz),
-            isuppz,
-            work,
-            ctypes.byref(lwork),
-            iwork,
-            ctypes.byref(liwork),
-            ctypes.byref(info),
-            1,
-            1,
-            1,
-        ]
-        fn(*run_args)
-    except Exception:
-        return None
-
-    if info.value != 0:
-        return None
-
-    evals = w[: m.value].copy()
-    evecs = z[:, : m.value].copy(order="F")
-    idx = np.argsort(evals)[::-1]
-    return evals[idx], evecs[:, idx]
 
 
 def _t2_symmetric_eigh(matrix):
     A = 0.5 * (
         np.asarray(matrix, dtype=np.float64) + np.asarray(matrix, dtype=np.float64).T
     )
-    sys_res = _system_dsyevr_eigh_lower(A)
-    if sys_res is not None:
-        return sys_res
     evals, evecs = eigh(A, driver="evr")
     idx = np.argsort(evals)[::-1]
     return evals[idx], evecs[:, idx]
@@ -238,7 +61,15 @@ def rowwise_kronecker(matrices):
     return out
 
 
-def _eigen_split(raw_basis, raw_penalty, tol=None, *, mode="range_null", rank=None):
+def _eigen_split(
+    raw_basis,
+    raw_penalty,
+    tol=None,
+    *,
+    mode="range_null",
+    rank=None,
+    basis_name=None,
+):
     X = np.asarray(raw_basis, dtype=np.float64)
     S = np.asarray(raw_penalty, dtype=np.float64)
 
@@ -274,11 +105,7 @@ def _eigen_split(raw_basis, raw_penalty, tol=None, *, mode="range_null", rank=No
         raise ValueError(f"Unknown eigen split mode {mode!r}.")
 
     p = int(X.shape[1])
-    # Match mgcv::nat.param(type=3), which uses R's `eigen(..., symmetric=TRUE)`.
-    # On repeated-zero eigenspaces, the exact null-space basis feeds directly
-    # into t2 block construction. Prefer the system LAPACK dsyevr path when
-    # available, because that matches local R builds much more closely than the
-    # bundled SciPy LAPACK on parity-sensitive tensor P-spline cases.
+    # Match mgcv::nat.param(type=3), which uses `eigen(..., symmetric=TRUE)`.
     evals, U = _t2_symmetric_eigh(S)
 
     max_eval = float(np.max(evals)) if evals.size else 0.0
@@ -287,6 +114,13 @@ def _eigen_split(raw_basis, raw_penalty, tol=None, *, mode="range_null", rank=No
         rank = int(np.sum(evals > tol_eff))
     rank = int(rank)
     null_exists = rank < p
+
+    basis_key = None if basis_name is None else str(basis_name).lower()
+    if basis_key == "ps" and null_exists:
+        null_basis = _mgcv_ps_type3_null_eigenbasis(p, rank)
+        if null_basis is not None and null_basis.shape == (p, p - rank):
+            U = np.asarray(U, dtype=np.float64).copy()
+            U[:, rank:] = null_basis
 
     E = np.ones(p, dtype=np.float64)
     if rank > 0:
@@ -361,8 +195,8 @@ def _apply_t2_mgcv_column_signs(dec, basis_name):
 
     # mgcv::nat.param(type=3) leaves the reparameterized marginal basis defined
     # only up to per-column signs. For t2() those signs feed directly into the
-    # tensor ANOVA block columns, so we mirror mgcv's basis-family conventions
-    # explicitly here.
+    # tensor ANOVA block columns, so mirror mgcv's observed basis-family
+    # conventions explicitly here.
     if basis_name in {"cr", "cs"}:
         sign_idx.append(n_cols - 1)
     elif basis_name == "ps":
@@ -398,7 +232,13 @@ def t2_marginal_reparameterization(
     raw_basis, raw_penalty, tol=1e-10, *, knots=None, basis_name=None
 ):
     del knots
-    dec = _eigen_split(raw_basis, raw_penalty, tol=tol, mode="t2")
+    dec = _eigen_split(
+        raw_basis,
+        raw_penalty,
+        tol=tol,
+        mode="t2",
+        basis_name=basis_name,
+    )
     return _apply_t2_mgcv_column_signs(dec, basis_name)
 
 

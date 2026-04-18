@@ -26,6 +26,8 @@ from .basics import (
     supports_criterion_gradient,
     supports_criterion_hessian,
 )
+from .bfgs_mgcv import _optimize_outer_bfgs_mgcv
+from .efs_mgcv import _optimize_outer_efs_mgcv
 from .objectives import (
     _CriterionObjective,
     _GaussianRemlJointObjective,
@@ -238,6 +240,8 @@ def optimize_smoothing_params(
 ):
     method = resolve_smoothing_method(model, method)
     optimizer = str(optimizer).lower()
+    if optimizer == "newton":
+        optimizer = "outer_newton"
     exact_gaussian = str(getattr(model.family, "name", "")).lower() == "gaussian"
 
     if method not in {"gcv", "ubre", "aic", "ubreaic", "ml", "reml", "laml"}:
@@ -252,9 +256,10 @@ def optimize_smoothing_params(
             f"Automatic smoothing selection with method={method!r} is not "
             f"supported for family={model.family.name!r}."
         )
-    if optimizer not in {"lbfgsb", "outer_newton"}:
+    if optimizer not in {"lbfgsb", "outer_newton", "bfgs", "efs"}:
         raise NotImplementedError(
-            "Current core supports smoothing_optimizer in {'lbfgsb', 'outer_newton'} only."
+            "Current core supports smoothing_optimizer in "
+            "{'lbfgsb', 'outer_newton', 'bfgs', 'efs'} only."
         )
     if (
         optimizer == "lbfgsb"
@@ -270,11 +275,25 @@ def optimize_smoothing_params(
     use_hessian = optimizer == "outer_newton" and supports_criterion_hessian(
         model, method
     )
-    if method in {"ml", "reml", "laml"} and (not use_gradient or not use_hessian):
+    if (
+        optimizer == "outer_newton"
+        and method in {"ml", "reml", "laml"}
+        and (not use_gradient or not use_hessian)
+    ):
         raise NotImplementedError(
             "Strict mgcv-parity ML/REML/LAML smoothing optimisation requires "
             "exact first- and second-derivative support; local fallback paths "
             "have been removed."
+        )
+    if optimizer == "bfgs" and method in {"ml", "reml", "laml"} and (not use_gradient):
+        raise NotImplementedError(
+            "Strict mgcv-parity BFGS smoothing optimisation requires an exact "
+            "gradient path for this method/family."
+        )
+    if optimizer == "efs" and method not in {"reml", "laml"}:
+        raise NotImplementedError(
+            "Strict mgcv-parity EFS smoothing optimisation is currently "
+            "implemented only for REML/LAML."
         )
 
     fixed_mask = (
@@ -434,7 +453,7 @@ def optimize_smoothing_params(
         )
 
     branch_m = "LAML" if method == "laml" else "REML"
-    if use_joint_gaussian_reml_scale:
+    if use_joint_gaussian_reml_scale and optimizer != "bfgs":
         objective = _GaussianRemlJointObjective(
             model=model,
             y=y,
@@ -458,7 +477,22 @@ def optimize_smoothing_params(
     result = None
 
     if not use_joint_gamma_reml_scale and result is None:
-        if method in {"ml", "reml", "laml"}:
+        if optimizer == "efs":
+            result = _optimize_outer_efs_mgcv(
+                model=model,
+                y=y,
+                x0=x0,
+                bounds=bounds,
+                method=method,
+            )
+        elif optimizer == "bfgs":
+            result = _optimize_outer_bfgs_mgcv(
+                objective=objective,
+                x0=x0,
+                bounds=bounds,
+                score_type=method,
+            )
+        elif method in {"ml", "reml", "laml"}:
             result = _optimize_outer_newton_indefinite_hessian(
                 objective=objective,
                 x0=x0,
@@ -604,8 +638,64 @@ def optimize_smoothing_params(
 
     model._optim_method = method
     model._optim_result = result
-    if bool(getattr(result, "joint_negbin_reml_outer", False)) and bool(
-        getattr(result, "joint_negbin_efs_outer", False)
+    if (
+        getattr(result, "optim_trace", None) is not None
+        and (
+            not bool(getattr(result, "joint_negbin_reml_outer", False))
+            or not bool(getattr(result, "joint_negbin_efs_outer", False))
+        )
+        and not bool(getattr(result, "joint_gamma_reml_outer", False))
+    ):
+        trace_rows = []
+        uses_joint_log_scale = bool(getattr(objective, "uses_joint_log_scale", False))
+        for row in list(getattr(result, "optim_trace", []) or []):
+            row_dict = dict(row)
+            log_sp = np.asarray(row_dict.get("log_sp", []), dtype=np.float64).ravel()
+            log_scale = None
+            if uses_joint_log_scale and log_sp.size > 0:
+                log_scale = float(log_sp[-1])
+                log_sp = log_sp[:-1]
+            trace_rows.append(
+                {
+                    "iter": int(row_dict.get("iter", 0)),
+                    "log_sp": log_sp.tolist(),
+                    "log_scale": log_scale,
+                    "log_theta": (
+                        None
+                        if row_dict.get("log_theta", None) is None
+                        else float(row_dict.get("log_theta"))
+                    ),
+                    "criterion": (
+                        None
+                        if row_dict.get("criterion", None) is None
+                        else float(row_dict.get("criterion"))
+                    ),
+                    "gradient": (
+                        None
+                        if row_dict.get("gradient", None) is None
+                        else np.asarray(
+                            row_dict.get("gradient"), dtype=np.float64
+                        ).tolist()
+                    ),
+                    "hessian": (
+                        None
+                        if row_dict.get("hessian", None) is None
+                        else np.asarray(
+                            row_dict.get("hessian"), dtype=np.float64
+                        ).tolist()
+                    ),
+                    "accepted_step_norm": float(
+                        row_dict.get("accepted_step_norm", 0.0)
+                    ),
+                    "rank_info": row_dict.get("rank_info", None),
+                }
+            )
+        model._optim_trace = trace_rows
+        result.optim_trace = trace_rows
+    if (
+        getattr(result, "optim_trace", None) is None
+        and bool(getattr(result, "joint_negbin_reml_outer", False))
+        and bool(getattr(result, "joint_negbin_efs_outer", False))
     ):
         outer_info = getattr(result, "outer_info", {}) or {}
         score_hist = list(outer_info.get("score_hist", []))
@@ -637,8 +727,9 @@ def optimize_smoothing_params(
         if trace_rows:
             model._optim_trace = trace_rows
             result.optim_trace = trace_rows
-    if (
-        getattr(objective, "trace", None) is not None
+    elif (
+        getattr(result, "optim_trace", None) is None
+        and getattr(objective, "trace", None) is not None
         and (
             not bool(getattr(result, "joint_negbin_reml_outer", False))
             or not bool(getattr(result, "joint_negbin_efs_outer", False))
@@ -679,7 +770,8 @@ def optimize_smoothing_params(
         model._optim_trace = trace_rows
         result.optim_trace = trace_rows
     elif (
-        getattr(objective, "accepted_trace", None) is not None
+        getattr(result, "optim_trace", None) is None
+        and getattr(objective, "accepted_trace", None) is not None
         and (
             not bool(getattr(result, "joint_negbin_reml_outer", False))
             or not bool(getattr(result, "joint_negbin_efs_outer", False))

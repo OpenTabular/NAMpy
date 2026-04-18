@@ -73,6 +73,12 @@ When porting from upstream `mgcv`:
 
 Do not “improve” an algorithm just because a different Python implementation seems more elegant.
 
+## Representation vs behavior parity
+
+- Behavioral parity remains strict: fit, predict, scores, EDF, smoothing-parameter behavior, penalty structure, constraints, and block assembly should match `mgcv`.
+- Raw constructor parity should be strict only up to mathematically indeterminate eigenspace orientation. For eigendecomposition-based smooths, prefer canonicalized or invariant comparisons (for example row-space, projector, or penalty-spectrum comparisons) over exact column-by-column basis matching.
+- Do not add implementation-level `Rscript` probing, custom LAPACK library selection, or other platform-specific solver hooks solely to force raw basis orientation parity.
+
 ## Repository structure
 
 ### Neural Additive Models

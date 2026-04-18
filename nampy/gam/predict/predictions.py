@@ -21,6 +21,7 @@ from .._model_state import (
     _coef_column_offset,
     _coef_full,
     _design_matrix,
+    _penalty_blocks_seq,
     _require_fitted,
     _term_blocks_seq,
 )
@@ -40,7 +41,50 @@ def _tensor_anova_full_mode(tb):
     return ";full)" in str(getattr(tb, "basis_name", ""))
 
 
+def _fs_term_penalty_adjustment(model, tb):
+    Z = _design_matrix(model)
+    sp = getattr(model, "smoothing_params", None)
+    if Z is None or sp is None:
+        return None
+
+    Z_term = np.asarray(Z, dtype=np.float64)[:, tb.coef_slice]
+    if Z_term.size == 0:
+        return None
+
+    one = np.ones(Z_term.shape[0], dtype=np.float64)
+    v_const, *_ = np.linalg.lstsq(Z_term, one, rcond=None)
+    if np.max(np.abs(Z_term @ v_const - one)) > 1e-10:
+        return None
+
+    sp = np.asarray(sp, dtype=np.float64).ravel()
+    numer_vec = np.zeros_like(v_const, dtype=np.float64)
+    denom = 0.0
+    for pb in _penalty_blocks_seq(model):
+        if pb.coef_slice != tb.coef_slice:
+            continue
+        idx = int(pb.smoothing_index)
+        if idx < 0 or idx >= sp.size:
+            continue
+        lam = float(sp[idx])
+        if not np.isfinite(lam) or lam == 0.0:
+            continue
+        S = np.asarray(pb.matrix, dtype=np.float64)
+        numer_vec += lam * (S @ v_const)
+        denom += lam * float(v_const @ (S @ v_const))
+
+    if not np.isfinite(denom) or abs(denom) <= np.finfo(np.float64).eps:
+        return None
+    return np.asarray(numer_vec / denom, dtype=np.float64)
+
+
 def _term_contribution_shift(model, tb):
+    if str(getattr(tb, "term_type", "")) == "factor_smooth_fs":
+        beta_term = np.asarray(_coef(model), dtype=np.float64)[tb.coef_slice]
+        adjust = _fs_term_penalty_adjustment(model, tb)
+        if adjust is None:
+            return 0.0
+        return -float(adjust @ beta_term)
+
     if str(getattr(tb, "term_type", "")) != "tensor_anova":
         return 0.0
 
