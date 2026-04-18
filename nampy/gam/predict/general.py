@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -108,13 +109,28 @@ def build_general_lpmatrix(model, X_new=None):
 
 
 def predict_general_values(
-    model, X=None, return_se=False, cov=None, type="response", offset=None
+    model,
+    X=None,
+    return_se=False,
+    cov=None,
+    type="response",
+    offset=None,
+    iterms_type=None,
 ):
     type = str(type).lower()
+    if type == "iterms":
+        warnings.warn(
+            "type iterms not available for multiple predictor cases",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        type = "terms"
+
     if type not in {"response", "link", "terms", "lpmatrix"}:
         raise ValueError(
             "type must be one of {'response', 'link', 'terms', 'lpmatrix'}"
         )
+    del iterms_type
 
     offset_list = general_family_prediction_offset(model, X, offset)
     layout = general_family_prediction_layout(model, X)

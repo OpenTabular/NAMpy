@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import json
-import shutil
-import subprocess
 from functools import lru_cache
 
 import numpy as np
@@ -17,33 +14,6 @@ from .._model_state import (
     _term_blocks_seq,
 )
 from .residuals import residuals_gam
-
-_R_KCHECK_SAMPLE_EXPR = r"""
-suppressPackageStartupMessages(library(jsonlite))
-args <- commandArgs(trailingOnly = TRUE)
-seed <- as.integer(args[[1]])
-n_obs <- as.integer(args[[2]])
-subsample <- as.integer(args[[3]])
-nr <- as.integer(args[[4]])
-n_perm <- as.integer(args[[5]])
-set.seed(seed)
-if (n_obs > subsample) {
-  row_idx <- sample.int(n_obs, subsample) - 1L
-} else {
-  row_idx <- seq_len(n_obs) - 1L
-}
-perm_flat <- integer(0)
-if (n_perm > 0L) {
-  perms <- replicate(n_perm, sample.int(nr, nr) - 1L, simplify = "matrix")
-  perm_flat <- as.vector(perms)
-}
-cat(
-  toJSON(
-    list(row_idx = row_idx, perm_flat = perm_flat, nrow = nr, ncol = n_perm),
-    auto_unbox = TRUE
-  )
-)
-"""
 
 
 def _feature_block_indices(tb) -> list[int] | None:
@@ -84,52 +54,37 @@ def _nearest_indices(X: np.ndarray, n_neighbors: int = 3) -> np.ndarray:
 
 
 @lru_cache(maxsize=128)
-def _r_kcheck_sample_plan(
+def _kcheck_sample_plan(
     seed: int,
     n_obs: int,
     subsample: int,
     nr: int,
     n_perm: int,
 ) -> tuple[np.ndarray, np.ndarray]:
-    rscript = shutil.which("Rscript")
-    if rscript is None:
-        raise RuntimeError(
-            "Exact mgcv::k.check() parity requires Rscript for the sample.int() RNG path."
-        )
-    cmd = [
-        rscript,
-        "-e",
-        _R_KCHECK_SAMPLE_EXPR,
-        str(int(seed)),
-        str(int(n_obs)),
-        str(int(subsample)),
-        str(int(nr)),
-        str(int(n_perm)),
-    ]
-    proc = subprocess.run(
-        cmd,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    payload = json.loads(proc.stdout)
-    row_idx = np.asarray(payload["row_idx"], dtype=int).ravel()
-    perm_flat = np.asarray(payload["perm_flat"], dtype=int).ravel()
-    nrow = int(payload["nrow"])
-    ncol = int(payload["ncol"])
-    if ncol == 0:
-        perms = np.empty((nrow, 0), dtype=int)
+    rng = np.random.Generator(np.random.MT19937(int(seed)))
+
+    if n_obs <= subsample:
+        row_idx = np.arange(n_obs, dtype=np.int64)
     else:
-        perms = np.asarray(perm_flat, dtype=int).reshape((nrow, ncol), order="F")
+        row_idx = np.asarray(rng.permutation(n_obs), dtype=np.int64)[:subsample]
+
+    if n_perm <= 0:
+        perms = np.empty((nr, 0), dtype=np.int64)
+        return row_idx, perms
+
+    perms = np.empty((nr, n_perm), dtype=np.int64)
+    for i in range(n_perm):
+        perms[:, i] = np.asarray(rng.permutation(nr), dtype=np.int64)
+
     return row_idx, perms
 
 
 def _resolve_seed(seed: int | None) -> int:
     if seed is not None:
         return int(seed)
-    # mgcv::k.check() consumes R's global RNG stream. Without an explicit seed
-    # there is no stable cross-process parity target, so draw one seed locally
-    # and then follow R's exact sample.int() path from that seed.
+    # mgcv::k.check() uses sample() draws. Without an explicit seed there is no
+    # stable cross-process parity target, so draw one seed locally and use a
+    # deterministic MT19937 plan from that seed.
     return int(np.random.SeedSequence().generate_state(1, dtype=np.uint32)[0])
 
 
@@ -191,7 +146,7 @@ def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = N
     n_numeric_terms = sum(_feature_block_indices(tb) is not None for tb in term_blocks)
     seed_use = _resolve_seed(seed)
     n_perm = n_numeric_terms * n_rep
-    row_idx, perms = _r_kcheck_sample_plan(
+    row_idx, perms = _kcheck_sample_plan(
         seed_use,
         n,
         subsample,

@@ -73,6 +73,17 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
         )
         if z_work is not None:
             z_work = np.asarray(z_work, dtype=np.float64).ravel()
+            offset = None if fit_state is None else getattr(fit_state, "offset", None)
+            if (
+                str(getattr(getattr(model, "family", None), "name", "")).lower()
+                == "gaussian"
+                and offset is not None
+            ):
+                # mgcv::residuals.gam() returns the fitted object's stored working
+                # residual series. Our Gaussian exact-fit state keeps
+                # `working_response = y - offset` for inner-state parity, so restore
+                # the fit-time offset before forming the user-facing residuals.
+                return z_work + np.asarray(offset, dtype=np.float64).ravel() - eta
             # mgcv::residuals.gam() returns the stored working residual series,
             # equivalent to z - eta in the fitted parameterization.
             return z_work - eta

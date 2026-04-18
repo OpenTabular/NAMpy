@@ -1,7 +1,8 @@
-"""mgcv parity tests that currently fail or emit scipy optimizer warnings.
+"""Historically noisy requested parity scenarios kept visible in one place.
 
-Kept in one module so the main parity matrix and scenario files stay green while
-these are triaged. See FAILING_TESTS.md / parity workstreams for context.
+Model-fit parity for most cases in this module is now green; downstream output /
+diagnostic gaps are tracked separately. Keep this module strict so regressions
+in the core fit surface become loud again.
 """
 
 from __future__ import annotations
@@ -21,7 +22,6 @@ from tests._mgcv_snapshot_parity_shared import (
     TestAdditionalScenarioParity as _SharedTestAdditionalScenarioParity,
 )
 from tests.mgcv_parity_utils import (
-    R_SCRIPT,
     _fit_nampy_snapshot,
     _make_gaussian_data_3col,
     _make_mrf_data,
@@ -29,7 +29,6 @@ from tests.mgcv_parity_utils import (
     _make_sz_data_3x3,
     _run_mgcv_snapshot,
 )
-
 
 
 def _rename_univariate(df: pd.DataFrame) -> pd.DataFrame:
@@ -66,7 +65,7 @@ def _data_negbin_theta_estimation() -> pd.DataFrame:
     return _rename_univariate(_make_negbin_data(seed=113, n=300, theta=1.4))[["y", "x"]]
 
 
-REQUESTED_PARITY_FAILING_OR_WARNING_CASES: list[CaseSpec] = [
+REQUESTED_PARITY_TRACKED_MODEL_CASES: list[CaseSpec] = [
     CaseSpec(
         case_id="gaussian_ti_mc",
         formula='y ~ ti(x1, x2, bs=["cr", "cr"], k=[4, 4], mc=c(True, True))',
@@ -84,7 +83,6 @@ REQUESTED_PARITY_FAILING_OR_WARNING_CASES: list[CaseSpec] = [
         formula='y ~ s(x, bs="tp", k=12)',
         family="binomial",
         data_factory=_data_binomial_separation,
-        skip_coef_comparison=True,
         se_tol_scale=3e-6,
     ),
     CaseSpec(
@@ -99,22 +97,24 @@ REQUESTED_PARITY_FAILING_OR_WARNING_CASES: list[CaseSpec] = [
         formula='y ~ s(f1, f2, x, bs="sz", k=6)',
         family="gaussian",
         data_factory=_data_sz_interaction,
-        skip_coef_comparison=True,
     ),
 ]
 
+# Backward-compatible alias for existing imports.
+REQUESTED_PARITY_FAILING_OR_WARNING_CASES = REQUESTED_PARITY_TRACKED_MODEL_CASES
+
 
 def _parametrize_requested_parity_failing_cases():
-    for c in REQUESTED_PARITY_FAILING_OR_WARNING_CASES:
+    for c in REQUESTED_PARITY_TRACKED_MODEL_CASES:
         yield c
 
 
 @pytest.mark.parametrize(
     "case",
     _parametrize_requested_parity_failing_cases(),
-    ids=[c.case_id for c in REQUESTED_PARITY_FAILING_OR_WARNING_CASES],
+    ids=[c.case_id for c in REQUESTED_PARITY_TRACKED_MODEL_CASES],
 )
-def test_requested_mgcv_parity_models_failing_or_warning(case: CaseSpec):
+def test_requested_mgcv_parity_tracked_model_cases(case: CaseSpec):
     data = case.data_factory()
     actual = _fit_requested_nampy_snapshot(case, data)
     expected = _run_mgcv_snapshot(

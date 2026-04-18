@@ -27,6 +27,7 @@ from .._model_state import (
 from ..engine.state import FitState, PenalizedSystem
 from ..results import FitResult
 from .covariance import build_bayes_and_freq_covariances
+from .linalg.matrix_reindexing import permute_rows, restore_dropped_rows
 
 
 def _prediction_parameterization_map(model) -> np.ndarray | None:
@@ -221,6 +222,179 @@ def _gaussian_exact_unconditional_postfit(
     Vc = np.asarray(Vp + Vc1 + Vc2, dtype=np.float64)
     Vc = 0.5 * (Vc + Vc.T)
 
+    edf1 = 2.0 * np.diag(H_coef) - np.sum(H_coef * H_coef.T, axis=1)
+    edf2 = np.sum(Vc * XtWX, axis=1) / scale
+    if float(np.sum(edf2)) > float(np.sum(edf1)):
+        edf2 = np.asarray(edf1, dtype=np.float64).copy()
+
+    return Vc, np.asarray(edf2, dtype=np.float64)
+
+
+def _restore_pirls_dbeta_to_original_parameterization(
+    current, dbeta_rank
+) -> np.ndarray:
+    """Undo rank drop/pivot + `T` reparameterization for `gam.fit3`-style `db.drho`."""
+    packed = np.asarray(dbeta_rank, dtype=np.float64).reshape(-1, 1)
+    pivot1 = np.asarray(current.pivot1, dtype=np.int64)
+    dropped = np.asarray(current.dropped_column_indices, dtype=np.int64)
+    canonical_T = np.asarray(current.canonical.T, dtype=np.float64)
+
+    unpermuted = permute_rows(packed, pivot1, reverse=True)
+    full_canonical = restore_dropped_rows(
+        unpermuted,
+        int(canonical_T.shape[1]),
+        dropped,
+    )
+    return np.asarray(canonical_T @ full_canonical, dtype=np.float64).ravel()
+
+
+def _pirls_exact_unconditional_postfit(
+    model,
+    sol: "FitCoreSolution",
+    fit_result: FitResult,
+    fit_state: FitState,
+) -> tuple[np.ndarray | None, np.ndarray | None]:
+    """
+    Mirror `mgcv::gam.fit3.post.proc()` unconditional `Vc` / `edf2` for
+    ordinary PIRLS fits with exact outer derivatives.
+
+    Current strict support matches the implemented exact ordinary-family PIRLS
+    ML/REML/LAML path: binomial, poisson, and gamma.
+    """
+    family = getattr(model, "family", None)
+    family_name = str(getattr(family, "name", "")).lower()
+    if family_name not in {"binomial", "poisson", "gamma"}:
+        return None, None
+
+    method = str(getattr(model, "_optim_method", "")).lower()
+    if method not in {"ml", "reml", "laml"}:
+        return None, None
+
+    if (
+        fit_result.cov_bayes is None
+        or fit_result.H_coef is None
+        or fit_state.X is None
+        or fit_state.P is None
+    ):
+        return None, None
+
+    n_sp = int(_n_smoothing_params(model) or 0)
+    if n_sp == 0:
+        return None, None
+
+    from .model_ops import can_use_simple_ml_reml_structure, criterion_hessian
+
+    if not can_use_simple_ml_reml_structure(model):
+        return None, None
+    if not bool(getattr(family, "supports_exact_pirls_second_derivatives", False)):
+        return None, None
+
+    fixed_mask = (
+        np.zeros(n_sp, dtype=bool)
+        if model.smoothing_fixed_mask_ is None
+        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+    )
+    free_mask = ~fixed_mask
+    free_idx = np.flatnonzero(free_mask)
+    if free_idx.size == 0:
+        return None, None
+
+    sp = np.asarray(model.smoothing_params, dtype=np.float64).ravel()
+    log_sp = np.log(np.maximum(sp[free_mask], np.finfo(np.float64).tiny))
+
+    try:
+        Hsp = np.asarray(
+            criterion_hessian(model, model.y_, log_sp, method=method),
+            dtype=np.float64,
+        )
+    except Exception:
+        return None, None
+    if Hsp.shape != (free_idx.size, free_idx.size) or not np.all(np.isfinite(Hsp)):
+        return None, None
+    Hsp = 0.5 * (Hsp + Hsp.T)
+
+    evals, evecs = np.linalg.eigh(Hsp)
+    inv_vals = np.zeros_like(evals)
+    pos = evals > 0.0
+    inv_vals[pos] = 1.0 / evals[pos]
+    Vsp = np.asarray(evecs @ (inv_vals[:, None] * evecs.T), dtype=np.float64)
+
+    reg_vals = np.zeros_like(evals)
+    reg_vals[pos] = 1.0 / (evals[pos] + 0.1)
+    Vr = np.asarray(evecs @ (reg_vals[:, None] * evecs.T), dtype=np.float64)
+
+    from ..smoothing_selection.criteria.laplace import _penalty_derivative_matrices
+    from ..smoothing_selection.criteria.pirls_deriv import _gdi1_kernel
+
+    try:
+        kernel = _gdi1_kernel(
+            model,
+            model.y_,
+            sol,
+            sp,
+            method=("REML" if method in {"reml", "laml"} else "ML"),
+        )
+    except Exception:
+        return None, None
+
+    db_cols = [
+        _restore_pirls_dbeta_to_original_parameterization(
+            kernel.current,
+            kernel.ift.dbeta[int(j)],
+        )
+        for j in free_idx.tolist()
+    ]
+    if len(db_cols) == 0:
+        return None, None
+    db_drho = np.column_stack(db_cols)
+
+    weights = fit_state.fisher_weights
+    if weights is None:
+        weights = fit_state.working_weights
+    if weights is None:
+        return None, None
+
+    X = np.asarray(fit_state.X, dtype=np.float64)
+    w = np.asarray(weights, dtype=np.float64).ravel()
+    if w.size != X.shape[0]:
+        return None, None
+    XtWX = np.asarray(X.T @ (w[:, None] * X), dtype=np.float64)
+    P = np.asarray(fit_state.P, dtype=np.float64)
+    A = np.asarray(XtWX + P, dtype=np.float64)
+
+    scale = float(fit_result.scale)
+    if not (np.isfinite(scale) and scale > 0.0):
+        return None, None
+
+    try:
+        R = np.linalg.cholesky(A).T
+        R_inv = solve_triangular(
+            R,
+            np.eye(R.shape[0], dtype=np.float64),
+            lower=False,
+            check_finite=False,
+        )
+    except np.linalg.LinAlgError:
+        return None, None
+
+    P_derivs_full = _penalty_derivative_matrices(model, sp)
+    dR_inv = []
+    for j in free_idx.tolist():
+        Pj = np.asarray(P_derivs_full[int(j)], dtype=np.float64)
+        dRj = _mgcv_dchol(Pj, R)
+        dR_inv.append(
+            -(solve_triangular(R, dRj, lower=False, check_finite=False) @ R_inv)
+        )
+    if len(dR_inv) == 0:
+        return None, None
+
+    Vp = np.asarray(fit_result.cov_bayes, dtype=np.float64)
+    Vc1 = np.asarray(db_drho @ Vsp @ db_drho.T, dtype=np.float64)
+    Vc2 = scale * _mgcv_vcorr(dR_inv, Vr, trans=False)
+    Vc = np.asarray(Vp + Vc1 + Vc2, dtype=np.float64)
+    Vc = 0.5 * (Vc + Vc.T)
+
+    H_coef = np.asarray(fit_result.H_coef, dtype=np.float64)
     edf1 = 2.0 * np.diag(H_coef) - np.sum(H_coef * H_coef.T, axis=1)
     edf2 = np.sum(Vc * XtWX, axis=1) / scale
     if float(np.sum(edf2)) > float(np.sum(edf1)):
@@ -563,6 +737,13 @@ def assign_fit_solution(model, sol: FitCoreSolution):
         if fit_result.edf2 is None
         else np.asarray(fit_result.edf2, dtype=np.float64).copy()
     )
+    Vc_pirls, edf2_pirls = _pirls_exact_unconditional_postfit(
+        model, sol, fit_result, fit_state
+    )
+    if Vc_pirls is not None:
+        cov_unconditional_post = np.asarray(Vc_pirls, dtype=np.float64).copy()
+    if edf2_pirls is not None:
+        edf2_post = np.asarray(edf2_pirls, dtype=np.float64).copy()
     Vc_gauss, edf2_gauss = _gaussian_exact_unconditional_postfit(
         model, fit_result, fit_state
     )

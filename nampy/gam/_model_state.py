@@ -322,7 +322,9 @@ def _summary_R(obj: Any):
     if fit_state is None:
         return getattr(obj, "_summary_R_", None)
     X = getattr(fit_state, "X", None)
-    w = getattr(fit_state, "working_weights", None)
+    w = getattr(fit_state, "fisher_weights", None)
+    if w is None:
+        w = getattr(fit_state, "working_weights", None)
     if X is None or w is None:
         return getattr(obj, "_summary_R_", None)
     X = np.asarray(X, dtype=np.float64)
@@ -339,7 +341,15 @@ def _summary_R(obj: Any):
         w = np.where(np.isfinite(w), w, 1.0)
     if X.ndim != 2 or w.shape[0] != X.shape[0]:
         return getattr(obj, "_summary_R_", None)
-    _, R_nat = qr(np.sqrt(np.clip(w, 0.0, None))[:, None] * X, mode="economic")
+    # Mirror mgcv/R/gam.fit3.r post-processing:
+    #   qrx <- pqr(WX); R <- pqr.R(qrx); R[, qrx$pivot] <- R
+    _, R_piv, pivot = qr(
+        np.sqrt(np.clip(w, 0.0, None))[:, None] * X,
+        mode="economic",
+        pivoting=True,
+    )
+    R_nat = np.zeros_like(R_piv)
+    R_nat[:, np.asarray(pivot, dtype=np.intp)] = R_piv
     return R_nat
 
 

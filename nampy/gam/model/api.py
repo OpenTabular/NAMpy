@@ -338,7 +338,15 @@ class GAM:
             raise RuntimeError("Model is not fitted.")
         return build_parity_snapshot(self, X=X, include_covariances=include_covariances)
 
-    def predict(self, X=None, return_se=False, cov=None, type="response", offset=None):
+    def predict(
+        self,
+        X=None,
+        return_se=False,
+        cov=None,
+        type="response",
+        offset=None,
+        iterms_type=None,
+    ):
         from ..predict import predict_values
 
         if not self._fitted:
@@ -354,6 +362,7 @@ class GAM:
                 cov=cov,
                 type=type,
                 offset=offset_use,
+                iterms_type=iterms_type,
                 model=self,
             )
 
@@ -373,6 +382,7 @@ class GAM:
             cov=cov,
             type=type,
             offset=offset_use,
+            iterms_type=iterms_type,
             model=self,
         )
 
