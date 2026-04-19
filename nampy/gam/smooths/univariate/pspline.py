@@ -12,7 +12,7 @@ import numpy as np
 
 from ....splines.pspline import build_pspline_term_setup, predict_pspline_term
 from ...constraints.absorption import fit_single_penalty_with_setup_basis
-from ...penalties.algebra import scale_penalty
+from ...penalties.algebra import penalty_rescale_factor, scale_penalty
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
@@ -141,6 +141,13 @@ class PSplineTerm1D(BaseSmoothTerm):
             main_penalty = scale_penalty(
                 base, np.asarray(self._setup.penalty, dtype=np.float64)
             )
+        self._set_mgcv_penalty_rescale_factors(
+            [
+                penalty_rescale_factor(
+                    setup_base, np.asarray(self._setup.penalty, dtype=np.float64)
+                )
+            ]
+        )
 
         if self.pc is not None:
             Bc, Sc, C, _ = self._apply_point_constraint(
@@ -228,6 +235,7 @@ class PSplineTerm1D(BaseSmoothTerm):
             "constraint_kind": self.constraint_kind,
             "is_selection_penalty": True,
         }
+        smooth_meta = self._penalty_metadata_with_scale(smooth_meta, penalty_index=0)
         return self._build_penalty_block(
             self.penalties[0],
             smooth_metadata=smooth_meta,

@@ -196,13 +196,15 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         ]
         B_pre = np.asarray(t2_obj["basis_pre_constraint"], dtype=np.float64)
         full_transform = t2_obj.get("full_constraint_transform", None)
+        penalty_scales = []
         if len(pens_pre) > 0:
             # mgcv smoothCon(scale.penalty=TRUE, absorb.cons=TRUE) scales the
             # assembled t2 penalties before absorbing the null-block constraint,
             # then applies the constraint transform to the scaled blocks.
-            pens_scaled_pre = rescale_tensor_penalties_for_fit(
+            pens_scaled_pre, penalty_scales = rescale_tensor_penalties_for_fit(
                 B_pre,
                 pens_pre,
+                return_scales=True,
             )
             if full_transform is not None:
                 C_full = np.asarray(full_transform, dtype=np.float64)
@@ -286,6 +288,7 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
 
         suffix = "full" if self.full else "pars"
         self.basis_name = f"t2({','.join(self.basis)};{suffix})"
+        self._set_mgcv_penalty_rescale_factors([] if self.fixed else penalty_scales)
         return self
 
     def get_penalty_definitions(self):
@@ -313,6 +316,7 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
                     smoothing_id=sid,
                     sp_value_in=sp_j,
                     metadata_extra={"term_sp": sp_j, "is_selection_penalty": False},
+                    local_penalty_index=j,
                 )
             )
 

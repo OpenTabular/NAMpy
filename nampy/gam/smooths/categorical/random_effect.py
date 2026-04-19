@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 
 from ...compiler.structures import PenaltySpec
-from ...penalties.algebra import scale_penalty
+from ...penalties.algebra import penalty_rescale_factor, scale_penalty
 from ..algebra import rowwise_kronecker
 from ..smooth_base import (
     BaseSmoothTerm,
@@ -187,8 +187,12 @@ class RandomEffectTerm(BaseSmoothTerm):
         q = self._basis_train.shape[1]
 
         if self.xt is None or self.xt.get("S", None) is None:
-            self._penalties = [scale_penalty(self._basis_train, np.eye(q, dtype=np.float64))]
+            S_raw = np.eye(q, dtype=np.float64)
+            self._penalties = [scale_penalty(self._basis_train, S_raw)]
             self._ranks = [q]
+            self._set_mgcv_penalty_rescale_factors(
+                [penalty_rescale_factor(self._basis_train, S_raw)]
+            )
         else:
             S_in = self.xt["S"]
             S_list = S_in if isinstance(S_in, list) else [S_in]
@@ -211,10 +215,17 @@ class RandomEffectTerm(BaseSmoothTerm):
                     f"xt['rank'] must have shape ({len(S_list)},), got {ranks.shape}."
                 )
 
+            S_raw_list = [0.5 * (S + S.T) for S in S_list]
             self._penalties = [
-                scale_penalty(self._basis_train, 0.5 * (S + S.T)) for S in S_list
+                scale_penalty(self._basis_train, S_raw) for S_raw in S_raw_list
             ]
             self._ranks = [int(r) for r in ranks.tolist()]
+            self._set_mgcv_penalty_rescale_factors(
+                [
+                    penalty_rescale_factor(self._basis_train, S_raw)
+                    for S_raw in S_raw_list
+                ]
+            )
 
         return self
 
@@ -266,22 +277,27 @@ class RandomEffectTerm(BaseSmoothTerm):
                     is_null_space_penalty=False,
                     sp_mode=sp_mode,
                     sp_value=sp_value,
-                    metadata={
-                        "term_type": self.term_type,
-                        "basis_name": self.basis_name,
-                        "feature": list(self.feature),
-                        "label": self.label,
-                        "by": self.by,
-                        "by_name": self._by_state.feature_name,
-                        "xt": self.xt,
-                        "component_specs": [
-                            {
-                                "kind": s.kind,
-                                "levels": None if s.levels is None else list(s.levels),
-                            }
-                            for s in (self._component_specs or [])
-                        ],
-                    },
+                    metadata=self._penalty_metadata_with_scale(
+                        {
+                            "term_type": self.term_type,
+                            "basis_name": self.basis_name,
+                            "feature": list(self.feature),
+                            "label": self.label,
+                            "by": self.by,
+                            "by_name": self._by_state.feature_name,
+                            "xt": self.xt,
+                            "component_specs": [
+                                {
+                                    "kind": s.kind,
+                                    "levels": (
+                                        None if s.levels is None else list(s.levels)
+                                    ),
+                                }
+                                for s in (self._component_specs or [])
+                            ],
+                        },
+                        penalty_index=j,
+                    ),
                 )
             )
 

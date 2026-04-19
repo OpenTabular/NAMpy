@@ -833,21 +833,21 @@ def criterion_hessian_ml_reml_general_fit5(model, y, log_sp, method):
 
 
 def solve_general_fit(model, y, smoothing_params, weights=None):
+    need_postproc_derivs = len(tuple(_penalty_blocks_seq(model))) > 0 and (
+        _supports_analytic_outer_gradient(model.family)
+        or _supports_analytic_outer_hessian(model.family)
+    )
+    deriv_order = (
+        2
+        if need_postproc_derivs and _supports_analytic_outer_hessian(model.family)
+        else 1 if need_postproc_derivs else 0
+    )
     run = _run_general_fit5(
         model,
         y,
         smoothing_params,
         weights=weights,
-        deriv=(
-            2
-            if (
-                len(tuple(_penalty_blocks_seq(model))) > 0
-                and bool(
-                    getattr(model.family, "supports_analytic_outer_derivatives", False)
-                )
-            )
-            else 0
-        ),
+        deriv=deriv_order,
         score_type=getattr(model, "_optim_method", "REML"),
     )
     setup = run["setup"]

@@ -4,7 +4,12 @@ import numpy as np
 from scipy.stats import norm
 
 from .._mgcv_constants import LINK_ETA_EXP_CLIP, LOG_GUARD_MIN
-from .._model_state import _fit_scale, _n_smoothing_params, _require_fitted
+from .._model_state import (
+    _fit_scale,
+    _n_smoothing_params,
+    _penalty_blocks_seq,
+    _require_fitted,
+)
 from ..fit.model_ops import criterion_hessian as fit_criterion_hessian
 from .criteria.dispatch import criterion_gradient, criterion_hessian, criterion_value
 from .criteria.ml_reml import resolve_ml_reml_scoring_backend
@@ -22,6 +27,62 @@ def _free_log_smoothing_params(model) -> np.ndarray:
     sp = np.asarray(model.smoothing_params, dtype=np.float64).ravel()
     free_mask = _free_smoothing_mask(model)
     return np.log(np.clip(sp[free_mask], LOG_GUARD_MIN, None))
+
+
+def _mgcv_penalty_rescale_factors(model) -> np.ndarray:
+    n_sp = int(_n_smoothing_params(model) or 0)
+    if n_sp == 0:
+        return np.empty((0,), dtype=np.float64)
+
+    factors = np.ones(n_sp, dtype=np.float64)
+    seen = np.zeros(n_sp, dtype=bool)
+
+    for pb in _penalty_blocks_seq(model):
+        idx = int(getattr(pb, "smoothing_index", -1))
+        if idx < 0 or idx >= n_sp:
+            continue
+        meta = dict(getattr(pb, "metadata", {}) or {})
+        s_scale = meta.get("mgcv_s_scale", None)
+        if s_scale is None and (
+            bool(meta.get("is_selection_penalty", False))
+            or bool(getattr(pb, "is_null_space_penalty", False))
+        ):
+            s_scale = 1.0
+        if s_scale is None:
+            sid = getattr(pb, "smoothing_id", None)
+            raise NotImplementedError(
+                "gam_vcomp(rescale=True) missing exact mgcv penalty rescale metadata "
+                f"for {sid if sid is not None else f'sp_{idx}'}."
+            )
+
+        s_scale = float(s_scale)
+        if not np.isfinite(s_scale) or s_scale <= 0.0:
+            raise ValueError(
+                f"Invalid mgcv penalty rescale factor {s_scale!r} for smoothing "
+                f"parameter index {idx}."
+            )
+
+        if seen[idx]:
+            if not np.isclose(
+                factors[idx], s_scale, rtol=1e-12, atol=1e-12 * max(1.0, abs(s_scale))
+            ):
+                raise NotImplementedError(
+                    "gam_vcomp(rescale=True) requires one exact mgcv penalty "
+                    f"rescale factor per smoothing parameter; index {idx} has "
+                    f"{factors[idx]} and {s_scale}."
+                )
+        else:
+            factors[idx] = s_scale
+            seen[idx] = True
+
+    if np.any(~seen):
+        missing_idx = ", ".join(str(i) for i in np.flatnonzero(~seen))
+        raise NotImplementedError(
+            "gam_vcomp(rescale=True) missing penalty metadata for smoothing "
+            f"parameter indices {missing_idx}."
+        )
+
+    return factors
 
 
 def _postfit_hessian(model, method: str, *, edge_correct: bool) -> np.ndarray | None:
@@ -71,14 +132,12 @@ def sp_vcov(model, edge_correct: bool = True, reg: float = 1e-3):
 
 def gam_vcomp(model, *, rescale: bool = False, conf_lev: float = 0.95):
     _require_fitted(model)
-    if rescale:
-        raise NotImplementedError(
-            "gam_vcomp(rescale=True) requires a strict upstream mgcv port."
-        )
 
     sp = np.asarray(model.smoothing_params, dtype=np.float64).ravel()
     if sp.size == 0:
         return None
+    if rescale:
+        sp = sp / _mgcv_penalty_rescale_factors(model)
 
     scale = float(_fit_scale(model))
     vc = scale / sp

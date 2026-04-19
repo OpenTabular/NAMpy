@@ -149,14 +149,6 @@ UNCONDITIONAL_GAP_REASONS: dict[tuple[str, str], str] = {
         "factor_smooth_sz",
         "terms",
     ): 'predict.gam(type="terms", unconditional=TRUE) for sz still differs from mgcv.',
-    (
-        "gaussian_fs_select_reml",
-        "terms",
-    ): 'predict.gam(type="terms", unconditional=TRUE) for fs select still differs from mgcv.',
-    (
-        "gaussian_random_intercept_re",
-        "terms",
-    ): "unconditional termwise SE parity for re smooths remains under triage.",
 }
 ITERMS_GAP_REASONS: dict[str, str] = {
     "factor_smooth_sz": 'predict.gam(type="iterms") for sz still differs from mgcv.',
@@ -166,7 +158,6 @@ ANOVA_GAP_REASONS: dict[str, str] = {
 RESIDUAL_GAP_REASONS: dict[tuple[str, str], str] = {
 }
 KCHECK_GAP_REASONS: dict[str, str] = {
-    "gaussian_fs_by_factor": "k.check parity remains under triage for fs factor-by smooths.",
     "gaussian_by_factor": "k.check parity remains under triage for factor-by smooths.",
 }
 

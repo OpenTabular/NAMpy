@@ -208,8 +208,11 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
             # reduced basis and penalty.
             maXX = float(np.max(np.sum(np.abs(X_red), axis=1)) ** 2)
             maS = float(np.max(np.sum(np.abs(S_red), axis=0)))
+            s_scale = 1.0
             if maS > 1e-12 and maXX > 1e-12:
+                s_scale = maS / maXX
                 S_red = S_red / (maS / maXX)
+            self._set_mgcv_penalty_rescale_factors([s_scale])
 
             self._P = np.asarray(P_red, dtype=np.float64)
             basis_raw = np.asarray(X_red, dtype=np.float64)
@@ -220,8 +223,11 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
             maXX = float(np.max(np.sum(np.abs(X_full), axis=1)) ** 2)
             maS = float(np.max(np.sum(np.abs(self._full_penalty), axis=0)))
             S_full = np.asarray(self._full_penalty, dtype=np.float64)
+            s_scale = 1.0
             if maS > 1e-12 and maXX > 1e-12:
+                s_scale = maS / maXX
                 S_full = S_full / (maS / maXX)
+            self._set_mgcv_penalty_rescale_factors([s_scale])
 
             self._P = None
             basis_raw = np.asarray(X_full, dtype=np.float64)
@@ -321,22 +327,27 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
                 is_null_space_penalty=False,
                 sp_mode=sp_mode,
                 sp_value=sp_value,
-                metadata={
-                    "term_type": self.term_type,
-                    "basis_name": self.basis_name,
-                    "feature": list(self.feature),
-                    "label": self.label,
-                    "by": self.by,
-                    "by_name": self._by_state.feature_name,
-                    "area_names": (
-                        list(self._area_names) if self._area_names is not None else None
-                    ),
-                    "has_polys": self._plot_polys is not None,
-                    "has_nb": self._nb is not None,
-                    "has_penalty": self._full_penalty is not None,
-                    "low_rank": self._P is not None,
-                    "k": int(self.k),
-                },
+                metadata=self._penalty_metadata_with_scale(
+                    {
+                        "term_type": self.term_type,
+                        "basis_name": self.basis_name,
+                        "feature": list(self.feature),
+                        "label": self.label,
+                        "by": self.by,
+                        "by_name": self._by_state.feature_name,
+                        "area_names": (
+                            list(self._area_names)
+                            if self._area_names is not None
+                            else None
+                        ),
+                        "has_polys": self._plot_polys is not None,
+                        "has_nb": self._nb is not None,
+                        "has_penalty": self._full_penalty is not None,
+                        "low_rank": self._P is not None,
+                        "k": int(self.k),
+                    },
+                    penalty_index=0,
+                ),
             )
         ]
 

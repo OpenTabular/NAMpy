@@ -1,17 +1,26 @@
 import numpy as np
 
 
-def scale_penalty(basis, penalty):
+def penalty_rescale_factor(basis, penalty, tol=0.0):
     basis = np.asarray(basis, dtype=np.float64)
     penalty = np.asarray(penalty, dtype=np.float64)
 
     X_inf_norm = max(np.sum(np.abs(basis), axis=1)) ** 2
     S_norm = np.linalg.norm(penalty, ord=1)
 
-    if X_inf_norm <= 0 or S_norm <= 0:
-        return penalty.copy()
+    if X_inf_norm <= tol or S_norm <= tol:
+        return 1.0
 
-    norm = S_norm / X_inf_norm
+    return float(S_norm / X_inf_norm)
+
+
+def scale_penalty(basis, penalty):
+    basis = np.asarray(basis, dtype=np.float64)
+    penalty = np.asarray(penalty, dtype=np.float64)
+
+    norm = penalty_rescale_factor(basis, penalty)
+    if norm <= 0:
+        return penalty.copy()
     return penalty / norm
 
 
@@ -67,6 +76,7 @@ def null_space_penalty_from_penalty(P, tol=1e-10):
 
 
 __all__ = [
+    "penalty_rescale_factor",
     "scale_penalty",
     "symmetrize_penalty",
     "penalty_eigendecomposition",

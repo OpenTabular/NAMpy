@@ -199,6 +199,7 @@ def build_penalty_definition(
     null_space_dim=None,
     is_null_space_penalty=False,
     metadata_extra=None,
+    local_penalty_index=0,
 ):
     sp_mode, sp_value = _sp_mode_value(sp_value_in)
     return make_penalty_spec(
@@ -208,8 +209,11 @@ def build_penalty_definition(
         sp_mode=sp_mode,
         sp_value=sp_value,
         is_null_space_penalty=bool(is_null_space_penalty),
-        metadata=term_penalty_metadata(
-            term, extra=metadata_extra, is_selection_penalty=False
+        metadata=term._penalty_metadata_with_scale(
+            term_penalty_metadata(
+                term, extra=metadata_extra, is_selection_penalty=False
+            ),
+            penalty_index=int(local_penalty_index),
         ),
     )
 
@@ -407,6 +411,7 @@ class BaseSmoothTerm(abc.ABC):
         self.prediction_offset = None
         self.basis_train_base = None
         self.knots = None
+        self._mgcv_penalty_rescale_factors = None
 
     def _set_resolved_features(self, resolved_feature_names):
         if resolved_feature_names is None:
@@ -429,6 +434,34 @@ class BaseSmoothTerm(abc.ABC):
             self.n_constraints_absorbed = int(
                 max(0, transform.shape[0] - transform.shape[1])
             )
+
+    def _set_mgcv_penalty_rescale_factors(self, factors):
+        if factors is None:
+            self._mgcv_penalty_rescale_factors = None
+            return
+        vals = np.asarray(factors, dtype=np.float64).ravel()
+        if vals.size == 0:
+            self._mgcv_penalty_rescale_factors = []
+            return
+        if not np.all(np.isfinite(vals)) or np.any(vals <= 0.0):
+            raise ValueError("mgcv penalty rescale factors must be finite and positive.")
+        self._mgcv_penalty_rescale_factors = [float(v) for v in vals]
+
+    def _mgcv_penalty_scale(self, penalty_index: int) -> float:
+        factors = self._mgcv_penalty_rescale_factors
+        if not factors:
+            return 1.0
+        if penalty_index < 0 or penalty_index >= len(factors):
+            raise IndexError(
+                f"Penalty index {penalty_index} out of range for {len(factors)} mgcv "
+                "rescale factors."
+            )
+        return float(factors[penalty_index])
+
+    def _penalty_metadata_with_scale(self, metadata, *, penalty_index: int):
+        meta = dict(metadata or {})
+        meta.setdefault("mgcv_s_scale", self._mgcv_penalty_scale(penalty_index))
+        return meta
 
     def _apply_constraint_transform_and_by(self, B, X_new):
         """
@@ -683,6 +716,7 @@ class BaseSmoothTerm(abc.ABC):
             "term_sp": sp_main,
             "is_selection_penalty": False,
         }
+        meta_smooth = self._penalty_metadata_with_scale(meta_smooth, penalty_index=0)
         main_spec = normalize_penalty_spec(
             PenaltySpec(
                 matrix=main_matrix,
@@ -747,6 +781,7 @@ class BaseSmoothTerm(abc.ABC):
         else:
             meta = dict(selection_metadata)
         meta["is_selection_penalty"] = True
+        meta.setdefault("mgcv_s_scale", 1.0)
 
         if selection_via_subsystem:
             sel = build_null_space_selection_spec(
@@ -839,14 +874,17 @@ class BaseSmoothTerm(abc.ABC):
                     kind="smooth",
                     sp_mode=sp_mode,
                     sp_value=sp_value,
-                    metadata={
-                        "term_type": self.term_type,
-                        "basis_name": self.basis_name,
-                        "feature": self.feature,
-                        "label": self.label,
-                        "by": self.by,
-                        "term_sp": sp_j,
-                    },
+                    metadata=self._penalty_metadata_with_scale(
+                        {
+                            "term_type": self.term_type,
+                            "basis_name": self.basis_name,
+                            "feature": self.feature,
+                            "label": self.label,
+                            "by": self.by,
+                            "term_sp": sp_j,
+                        },
+                        penalty_index=j,
+                    ),
                 )
             )
         return defs

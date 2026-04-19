@@ -28,6 +28,9 @@ from ..engine import select_covariance_matrix
 
 
 def _scale_estimated(model) -> bool:
+    if str(getattr(model.family, "family_class", "")).lower() == "general":
+        # mgcv general.family fits carry fixed scale 1 in summary/anova output.
+        return False
     return getattr(model.family, "known_scale", None) is None
 
 
@@ -222,10 +225,17 @@ def _psum_chisq(
     return float(out[0]) if scalar else out
 
 
-def _retest_like_stat(model, tb, *, residual_df: float, scale_estimated: bool):
+def _retest_like_stat(
+    model,
+    tb,
+    *,
+    residual_df: float,
+    scale_estimated: bool,
+    cov_freq: np.ndarray | None,
+):
     fit_state = _fit_state(model)
     summary_R = _summary_R(model)
-    if fit_state is None or summary_R is None:
+    if fit_state is None or summary_R is None or cov_freq is None:
         return None
 
     penalty = getattr(fit_state, "penalty_matrix", None)
@@ -250,26 +260,24 @@ def _retest_like_stat(model, tb, *, residual_df: float, scale_estimated: bool):
     Rm = np.asarray(Rm_full[np.ix_(block, block)], dtype=np.float64)
 
     scale = max(float(_fit_scale(model)), LOG_GUARD_MIN)
-    # Mirror the `recov(..., m)` block used by mgcv/R/mgcv.r::reTest():
-    # `Rm` is the square root of the term-local unpenalized precision, so the
-    # corresponding covariance block is `sig2 * pinv(crossprod(Rm))`.
-    Ve_i = scale * np.linalg.pinv(
-        Rm.T @ Rm,
-        hermitian=True,
-        rcond=np.sqrt(np.finfo(np.float64).eps),
-    )
-    B = _mroot_psd(Ve_i)
+    Ve_i = np.asarray(cov_freq[np.ix_(ind, ind)], dtype=np.float64)
 
     coef_full = np.asarray(_coef_full(model), dtype=np.float64).ravel()
     b_hat = coef_full[ind]
     stat = float(np.sum((Rm @ b_hat) ** 2) / scale)
 
-    RB = np.asarray(Rm @ B, dtype=np.float64)
-    ev = np.linalg.eigvalsh((RB.T @ RB) / scale)
+    # mgcv::reTest() forms `crossprod(Rm %*% B) / sig2` with
+    # `B <- mroot(Ve[ind, ind])`. Computing the invariant
+    # `Rm %*% Ve %*% t(Rm) / sig2` avoids square-root orientation drift here.
+    RBt = np.asarray((Rm @ Ve_i @ Rm.T) / scale, dtype=np.float64)
+    RBt = 0.5 * (RBt + RBt.T)
+    ev = np.linalg.eigvalsh(RBt)
     ev = np.clip(np.asarray(ev, dtype=np.float64), 0.0, None)
+    # The direct `Ve` route needs a slightly stronger cutoff than the
+    # idealized `mroot()` path to mirror mgcv's pivoted-Cholesky rank drop.
     tol = (
-        max(float(np.max(ev)) if ev.size else 0.0, 1.0)
-        * np.finfo(np.float64).eps ** 0.8
+        max(float(np.max(ev)) if ev.size else 0.0, 0.0)
+        * np.finfo(np.float64).eps ** 0.5
     )
     ev = np.asarray(ev[ev > tol], dtype=np.float64)
     rank = int(ev.size)
@@ -383,11 +391,9 @@ def _smooth_test_stat(
         raise ValueError("Smooth test inputs have inconsistent shapes.")
 
     # Mirror mgcv/R/mgcv.r::testStat():
-    # `qrx <- qr(X, tol=0); R <- qr.R(qrx); V <- R %*% V[qrx$pivot,qrx$pivot] %*% t(R)`.
-    _, R, pivot = qr(X, mode="economic", pivoting=True)
-    pivot = np.asarray(pivot, dtype=np.intp)
-    p = p[pivot]
-    V = V[np.ix_(pivot, pivot)]
+    # `Xt` is already the fitted `R` block, so the downstream `qr(Xt, tol=0)`
+    # path should stay unpivoted here.
+    _, R = qr(X, mode="economic", pivoting=False)
     Vt = R @ V @ R.T
     Vt = 0.5 * (Vt + Vt.T)
     evals, evecs = np.linalg.eigh(Vt)
@@ -509,6 +515,10 @@ def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingl
 
     V_para = select_covariance_matrix(model, cov=("freq" if freq else "bayes"))
     V_smooth = select_covariance_matrix(model, cov="bayes")
+    try:
+        V_freq = select_covariance_matrix(model, cov="freq")
+    except Exception:
+        V_freq = None
 
     beta = np.asarray(_coef(model), dtype=np.float64).ravel()
     edf_by_term = np.asarray(_edf_by_term(model), dtype=np.float64).ravel()
@@ -580,6 +590,7 @@ def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingl
                 tb,
                 residual_df=resid_df,
                 scale_estimated=scale_est,
+                cov_freq=V_freq,
             )
             if res is None:
                 stat, ref_df, p_value = np.nan, max(edf_i, 1.0), np.nan

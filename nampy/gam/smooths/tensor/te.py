@@ -148,7 +148,9 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         S_raw = tensor_product_penalties(marginal_penalties, basis_dims=basis_dims)
 
         # Outer scale_penalty on the full tensor product (matches smoothCon outer step).
-        S_raw = rescale_tensor_penalties_for_fit(B_setup, S_raw)
+        S_raw, penalty_scales = rescale_tensor_penalties_for_fit(
+            B_setup, S_raw, return_scales=True
+        )
 
         if self._by_state.is_constant:
             if self._linked_id_setup() is None:
@@ -171,6 +173,7 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         self._penalties = (
             [] if self.fixed else [np.asarray(S, dtype=np.float64) for S in S_te]
         )
+        self._set_mgcv_penalty_rescale_factors([] if self.fixed else penalty_scales)
         self._record_constraint_result(
             "sum_to_zero" if C_te is not None else None,
             C_te,
@@ -205,6 +208,7 @@ class TensorProductSplineTerm(BaseSmoothTerm):
                     smoothing_id=sid,
                     sp_value_in=sp_j,
                     metadata_extra={"term_sp": sp_j, "is_selection_penalty": False},
+                    local_penalty_index=j,
                 )
             )
 

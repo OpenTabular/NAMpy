@@ -29,6 +29,7 @@ from .._model_state import (
     _summary_R,
     _term_blocks_seq,
 )
+from ..predict.predictions import _prediction_term_groups
 from ..selection import (
     criterion_ml_reml,
     criterion_ml_reml_gaussian_dynamic_joint,
@@ -415,10 +416,14 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
         lpmatrix = predict_api.lpmatrix(X)
         _, se_response = predict_api.predict(X=X, type="response", return_se=True)
         _, se_link = predict_api.predict(X=X, type="link", return_se=True)
+    terms = np.asarray(terms, dtype=np.float64)
+    if terms.ndim == 1:
+        terms = terms[:, None]
 
     diagnostics = {}
 
     smooth_labels = []
+    smooth_blocks = []
     smooth_cov_bayes = []
     smooth_cov_freq = []
     smooth_edf1_vals = []
@@ -433,6 +438,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
         for tb in _term_blocks_seq(core):
             if str(getattr(tb, "term_type", "")) == "parametric":
                 continue
+            smooth_blocks.append(tb)
             sl = tb.coef_slice
             # sl indexes coef_ (no intercept); Vp_, Vf_, H include the intercept column
             x_sl = slice(sl.start + x_off, sl.stop + x_off)
@@ -495,8 +501,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
             "labels": list(smooth_labels),
             "coef_blocks": [
                 np.asarray(_coef(core)[tb.coef_slice], dtype=np.float64).tolist()
-                for tb in _term_blocks_seq(core)
-                if str(getattr(tb, "term_type", "")) != "parametric"
+                for tb in smooth_blocks
             ],
             "r_blocks": [
                 np.asarray(
@@ -508,8 +513,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
                     ],
                     dtype=np.float64,
                 ).tolist()
-                for tb in _term_blocks_seq(core)
-                if str(getattr(tb, "term_type", "")) != "parametric"
+                for tb in smooth_blocks
             ],
             "edf": np.asarray(
                 [
@@ -524,12 +528,19 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
             - float(_coef_column_offset(core))
             - float(_edf_total(core)),
         }
+        if str(getattr(core.family, "family_class", "")).lower() == "general":
+            smooth_term_cols = list(range(len(smooth_blocks)))
+        else:
+            smooth_term_cols = [
+                i
+                for i, group in enumerate(_prediction_term_groups(core))
+                if str(group.get("term_type", "")) != "parametric"
+            ]
         diagnostics["smooth_function_space"] = {
             "labels": list(smooth_labels),
             "fitted": [
-                np.asarray(terms[:, i], dtype=np.float64).tolist()
-                for i, tb in enumerate(_term_blocks_seq(core))
-                if str(getattr(tb, "term_type", "")) != "parametric"
+                np.asarray(terms[:, term_col], dtype=np.float64).tolist()
+                for term_col in smooth_term_cols
             ],
             "variance_diag": [
                 np.asarray(
@@ -538,19 +549,30 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
                             np.asarray(
                                 lpmatrix[
                                     :,
-                                    int(tb.coef_slice.start) : int(tb.coef_slice.stop),
+                                    int(tb.coef_slice.start)
+                                    + _coef_column_offset(core) : int(tb.coef_slice.stop)
+                                    + _coef_column_offset(core),
                                 ],
                                 dtype=np.float64,
                             )
                             @ np.asarray(
-                                _cov_bayes(core)[tb.coef_slice, tb.coef_slice],
+                                _cov_bayes(core)[
+                                    int(tb.coef_slice.start)
+                                    + _coef_column_offset(core) : int(tb.coef_slice.stop)
+                                    + _coef_column_offset(core),
+                                    int(tb.coef_slice.start)
+                                    + _coef_column_offset(core) : int(tb.coef_slice.stop)
+                                    + _coef_column_offset(core),
+                                ],
                                 dtype=np.float64,
                             )
                         )
                         * np.asarray(
                             lpmatrix[
                                 :,
-                                int(tb.coef_slice.start) : int(tb.coef_slice.stop),
+                                int(tb.coef_slice.start)
+                                + _coef_column_offset(core) : int(tb.coef_slice.stop)
+                                + _coef_column_offset(core),
                             ],
                             dtype=np.float64,
                         ),
@@ -558,8 +580,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
                     ),
                     dtype=np.float64,
                 ).tolist()
-                for tb in _term_blocks_seq(core)
-                if str(getattr(tb, "term_type", "")) != "parametric"
+                for tb in smooth_blocks
             ],
         }
     else:

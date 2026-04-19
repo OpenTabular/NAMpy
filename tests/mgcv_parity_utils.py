@@ -94,6 +94,7 @@ _MGCV_SNAPSHOT_SERVER_REQUEST_IDS = itertools.count(1)
 _SNAPSHOT_CACHE_VERSION = 2
 _RAW_CONSTRUCTOR_CACHE_VERSION = 5
 _GAM_SETUP_ASSEMBLY_CACHE_VERSION = 4
+_GAM_VCOMP_CACHE_VERSION = 1
 _MGCV_CACHE_ONLY = os.environ.get("MGCV_CACHE_ONLY", "1").lower() in {
     "1",
     "true",
@@ -883,6 +884,162 @@ def _run_mgcv_anova(
         )
         subprocess.run(
             cmd,
+            check=True,
+            cwd=_REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+
+    _mgcv_cache_save(_cache_key, result)
+    return result
+
+
+def _run_mgcv_gam_vcomp(
+    data: pd.DataFrame,
+    formula: str,
+    family,
+    method: str,
+    *,
+    select: bool = False,
+    rescale: bool = True,
+    weights_column: str | None = None,
+):
+    _family_nampy, family_token = _family_specs(family)
+
+    _cache_key = _mgcv_cache_key(
+        "gam_vcomp",
+        {
+            "version": _GAM_VCOMP_CACHE_VERSION,
+            "data": _df_cache_repr(data),
+            "formula": str(formula),
+            "family_token": family_token,
+            "method": str(method),
+            "select": bool(select),
+            "rescale": bool(rescale),
+            "weights_column": weights_column,
+        },
+    )
+    cached = _mgcv_cache_load(_cache_key)
+    if cached is not None:
+        return cached
+
+    r_code = """
+normalize_formula_text <- function(x) {
+  x <- gsub("\\\\[", "c(", x)
+  x <- gsub("\\\\]", ")", x)
+  x <- gsub("\\\\bTrue\\\\b", "TRUE", x)
+  x <- gsub("\\\\bFalse\\\\b", "FALSE", x)
+  x <- gsub("\\\\bNone\\\\b", "NULL", x)
+  x
+}
+
+serialize_gam_vcomp <- function(v) {
+  if (is.null(v)) return(NULL)
+  if (is.list(v)) {
+    vc_part <- v$vc
+    vc_names <- if (is.null(vc_part)) NULL else if (!is.null(dim(vc_part))) rownames(vc_part) else names(vc_part)
+    all_part <- v$all
+    all_names <- if (is.null(all_part)) NULL else names(all_part)
+    return(list(
+      vc = if (is.null(vc_part)) NULL else unname(vc_part),
+      names = vc_names,
+      all = if (is.null(all_part)) NULL else unname(all_part),
+      all_names = all_names,
+      rank = if (is.null(v$rank)) NULL else as.integer(v$rank),
+      rank_hess = if (is.null(v$rank.hess)) NULL else as.integer(v$rank.hess),
+      conf_lev = if (is.null(v$conf.lev)) NULL else as.numeric(v$conf.lev)
+    ))
+  }
+  list(
+    vc = unname(v),
+    names = names(v),
+    all = NULL,
+    all_names = NULL,
+    rank = NULL,
+    rank_hess = NULL,
+    conf_lev = NULL
+  )
+}
+
+suppressPackageStartupMessages(library(mgcv))
+suppressPackageStartupMessages(library(jsonlite))
+args <- commandArgs(trailingOnly = TRUE)
+d <- read.csv(args[[1]], stringsAsFactors = FALSE)
+for (nm in names(d)) if (is.character(d[[nm]])) d[[nm]] <- factor(d[[nm]])
+out <- args[[2]]
+formula_text <- normalize_formula_text(args[[3]])
+family_name <- tolower(args[[4]])
+method_name <- args[[5]]
+select_flag <- tolower(args[[6]]) %in% c("true", "1", "yes")
+rescale_flag <- tolower(args[[7]]) %in% c("true", "1", "yes")
+weights_column <- if (length(args) >= 8 && nzchar(args[[8]]) && args[[8]] != "NULL") args[[8]] else NULL
+fit_method <- if (tolower(method_name) == "fixed") "REML" else method_name
+if (tolower(method_name) == "gcv") fit_method <- "GCV.Cp"
+
+family_parts <- strsplit(family_name, ":", fixed = TRUE)[[1]]
+family_key <- family_parts[[1]]
+family_param <- if (length(family_parts) >= 2) family_parts[[2]] else NULL
+family_obj <- switch(
+  family_key,
+  gaussian = gaussian(),
+  binomial = {
+    link <- if (is.null(family_param) || family_param == "") "logit" else family_param
+    binomial(link = link)
+  },
+  poisson = poisson(link = "log"),
+  gamma = {
+    link <- if (is.null(family_param) || family_param == "") "log" else family_param
+    Gamma(link = link)
+  },
+  negbin = {
+    theta <- if (is.null(family_param)) 1.0 else as.numeric(family_param)
+    mgcv::nb(theta = theta, link = "log")
+  },
+  negbin_est = {
+    theta <- if (is.null(family_param)) 1.0 else as.numeric(family_param)
+    mgcv::nb(theta = -abs(theta), link = "log")
+  },
+  gaulss = mgcv::gaulss(),
+  gammals = mgcv::gammals(),
+  ziplss = mgcv::ziplss(),
+  gevlss = mgcv::gevlss(),
+  shash = mgcv::shash(),
+  stop(sprintf("Unsupported family for gam_vcomp parity: %s", family_name))
+)
+
+gam_args <- list(
+  formula = as.formula(formula_text),
+  data = d,
+  family = family_obj,
+  method = fit_method,
+  select = select_flag
+)
+if (!is.null(weights_column)) gam_args$weights <- d[[weights_column]]
+fit <- do.call(gam, gam_args)
+vc <- gam.vcomp(fit, rescale = rescale_flag)
+write_json(serialize_gam_vcomp(vc), out, auto_unbox = TRUE, digits = 17)
+"""
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        csv_path = tmpdir_path / "data.csv"
+        json_path = tmpdir_path / "gam_vcomp.json"
+        script_path = tmpdir_path / "gam_vcomp.R"
+        data.to_csv(csv_path, index=False)
+        script_path.write_text(r_code, encoding="utf-8")
+        subprocess.run(
+            _build_r_command(
+                script_path,
+                str(csv_path),
+                str(json_path),
+                str(formula),
+                family_token,
+                str(method),
+                "true" if select else "false",
+                "true" if rescale else "false",
+                "NULL" if weights_column is None else str(weights_column),
+            ),
             check=True,
             cwd=_REPO_ROOT,
             capture_output=True,
@@ -1983,6 +2140,7 @@ __all__ = [
     "_run_mgcv_natparam_cr",
     "_run_mgcv_fixed_sp_score",
     "_run_mgcv_gam_setup_assembly",
+    "_run_mgcv_gam_vcomp",
     "_run_mgcv_predict_on_newdata",
     "_run_mgcv_smoothcon_matrix",
     "_run_mgcv_smoothcon_matrix_unscaled",

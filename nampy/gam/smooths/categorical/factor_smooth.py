@@ -744,13 +744,16 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             ranks.append(int(n_levels))
 
         # Apply mgcv smoothCon scale_penalty step: normalise S relative to X.
-        penalties = rescale_tensor_penalties_for_fit(X_full, penalties)
+        penalties, penalty_scales = rescale_tensor_penalties_for_fit(
+            X_full, penalties, return_scales=True
+        )
 
         X_full = self._apply_cached_by(X_full)
         self._basis_train = np.asarray(X_full, dtype=np.float64)
         self._penalties = penalties
         self._smoothing_ids = smoothing_ids
         self._ranks = ranks
+        self._set_mgcv_penalty_rescale_factors(penalty_scales)
         self.skip_centering = True
         self._record_constraint_result(None, None, absorbed_by=None)
         return self
@@ -812,22 +815,25 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
                     is_null_space_penalty=(j > 0),
                     sp_mode=sp_mode,
                     sp_value=sp_value,
-                    metadata={
-                        "term_type": self.term_type,
-                        "basis_name": self.basis_name,
-                        "feature": list(self.feature),
-                        "label": self.label,
-                        "by": self.by,
-                        "by_name": self._by_state.feature_name,
-                        "factor_name": self._factor_feature_names[0],
-                        "levels": list(self._levels),
-                        "base_basis_name": (
-                            self._base_term.basis_name
-                            if self._base_term is not None
-                            else None
-                        ),
-                        "base_metric_features": list(self._metric_feature_names),
-                    },
+                    metadata=self._penalty_metadata_with_scale(
+                        {
+                            "term_type": self.term_type,
+                            "basis_name": self.basis_name,
+                            "feature": list(self.feature),
+                            "label": self.label,
+                            "by": self.by,
+                            "by_name": self._by_state.feature_name,
+                            "factor_name": self._factor_feature_names[0],
+                            "levels": list(self._levels),
+                            "base_basis_name": (
+                                self._base_term.basis_name
+                                if self._base_term is not None
+                                else None
+                            ),
+                            "base_metric_features": list(self._metric_feature_names),
+                        },
+                        penalty_index=j,
+                    ),
                 )
             )
 
@@ -991,9 +997,14 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         if len(penalties) > 0:
             maXX = float(np.max(np.sum(np.abs(X_raw), axis=1)) ** 2)
             maS0 = float(np.max(np.sum(np.abs(S0), axis=0)))
+            s_scale = 1.0
             if maS0 > 1e-12 and maXX > 1e-12:
+                s_scale = maS0 / maXX
                 scale = maXX / maS0
                 penalties = [P * scale for P in penalties]
+            self._set_mgcv_penalty_rescale_factors([s_scale] * len(penalties))
+        else:
+            self._set_mgcv_penalty_rescale_factors([])
 
         X_con = self._apply_cached_by(X_con)
         self._basis_train = np.asarray(X_con, dtype=np.float64)
@@ -1062,23 +1073,26 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
                     is_null_space_penalty=False,
                     sp_mode=sp_mode,
                     sp_value=sp_value,
-                    metadata={
-                        "term_type": self.term_type,
-                        "basis_name": self.basis_name,
-                        "feature": list(self.feature),
-                        "label": self.label,
-                        "by": self.by,
-                        "by_name": self._by_state.feature_name,
-                        "factor_names": list(self._factor_feature_names),
-                        "factor_levels": [list(lev) for lev in self._factor_levels],
-                        "base_basis_name": (
-                            self._base_term.basis_name
-                            if self._base_term is not None
-                            else None
-                        ),
-                        "base_metric_features": list(self._metric_feature_names),
-                        "shared_smoothing_id": self.smoothing_id,
-                    },
+                    metadata=self._penalty_metadata_with_scale(
+                        {
+                            "term_type": self.term_type,
+                            "basis_name": self.basis_name,
+                            "feature": list(self.feature),
+                            "label": self.label,
+                            "by": self.by,
+                            "by_name": self._by_state.feature_name,
+                            "factor_names": list(self._factor_feature_names),
+                            "factor_levels": [list(lev) for lev in self._factor_levels],
+                            "base_basis_name": (
+                                self._base_term.basis_name
+                                if self._base_term is not None
+                                else None
+                            ),
+                            "base_metric_features": list(self._metric_feature_names),
+                            "shared_smoothing_id": self.smoothing_id,
+                        },
+                        penalty_index=j,
+                    ),
                 )
             )
 

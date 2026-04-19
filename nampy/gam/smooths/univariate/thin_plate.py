@@ -18,7 +18,7 @@ from ...constraints.absorption import (
     fit_single_penalty_with_constraint_policy,
     fit_single_penalty_with_setup_basis,
 )
-from ...penalties.algebra import scale_penalty
+from ...penalties.algebra import penalty_rescale_factor, scale_penalty
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
@@ -149,6 +149,13 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
                 base,
                 np.asarray(self._setup.penalty, dtype=np.float64),
             )
+        self._set_mgcv_penalty_rescale_factors(
+            [
+                penalty_rescale_factor(
+                    setup_base, np.asarray(self._setup.penalty, dtype=np.float64)
+                )
+            ]
+        )
 
         if self.pc is not None:
             Bc, Sc, C, _ = self._apply_point_constraint(
@@ -234,6 +241,7 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
             "fixed": bool(self.fixed),
         }
         selection_meta = {**smooth_meta, "is_selection_penalty": True}
+        smooth_meta = self._penalty_metadata_with_scale(smooth_meta, penalty_index=0)
         rank = int(self._setup.rank) if self._setup is not None else None
         return self._build_penalty_block(
             self.penalties[0],

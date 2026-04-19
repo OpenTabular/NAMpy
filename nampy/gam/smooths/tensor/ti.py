@@ -159,7 +159,9 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         S_ti = tensor_product_penalties(marginal_penalties, basis_dims=basis_dims)
 
         # Outer scale_penalty on the tensor product (matches smoothCon outer step).
-        S_ti = rescale_tensor_penalties_for_fit(B_ti_setup, S_ti)
+        S_ti, penalty_scales = rescale_tensor_penalties_for_fit(
+            B_ti_setup, S_ti, return_scales=True
+        )
 
         B_ti = self._apply_cached_by(B_ti_raw)
 
@@ -172,6 +174,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         self._marginal_is_centered = list(use_centered)
         self._basis_train = np.asarray(B_ti, dtype=np.float64)
         self._penalties = [] if self.fixed else S_ti
+        self._set_mgcv_penalty_rescale_factors([] if self.fixed else penalty_scales)
         self._record_constraint_result(None, None, absorbed_by=None)
 
         self.basis_name = "ti(" + ",".join(self.basis) + ")"
@@ -202,6 +205,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
                     smoothing_id=sid,
                     sp_value_in=sp_j,
                     metadata_extra={"term_sp": sp_j, "is_selection_penalty": False},
+                    local_penalty_index=j,
                 )
             )
 

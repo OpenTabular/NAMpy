@@ -27,7 +27,7 @@ from ...constraints.absorption import (
     apply_linear_constraint,
     fit_single_penalty_with_setup_basis,
 )
-from ...penalties.algebra import scale_penalty
+from ...penalties.algebra import penalty_rescale_factor, scale_penalty
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
@@ -216,6 +216,21 @@ class SplineTerm1D(BaseSmoothTerm):
                 self._spline = CubicSplines(xj, self.k, knots=self.knots)
                 pooled_setup = False
 
+            if self.basis_name == "cs":
+                S_for_scale = add_full_rank_shrinkage(
+                    np.asarray(self._spline.raw_penalty_unscaled, dtype=np.float64),
+                    shrink=0.1,
+                    null_basis=cr_exact_null_basis_from_knots(self._spline.knots),
+                    knots=self._spline.knots,
+                )
+            else:
+                S_for_scale = np.asarray(
+                    self._spline.raw_penalty_unscaled, dtype=np.float64
+                )
+            self._set_mgcv_penalty_rescale_factors(
+                [penalty_rescale_factor(self._spline.raw_basis, S_for_scale)]
+            )
+
             if self.pc is not None:
                 raw_base = (
                     self._spline.transform_new_raw(xj)
@@ -371,6 +386,9 @@ class SplineTerm1D(BaseSmoothTerm):
 
         S_raw = D.T @ BD
         S_sym = 0.5 * (S_raw + S_raw.T)
+        self._set_mgcv_penalty_rescale_factors(
+            [penalty_rescale_factor(setup_base, S_sym)]
+        )
         main_penalty = scale_penalty(setup_base, S_sym)
 
         if self.pc is not None:
@@ -447,6 +465,7 @@ class SplineTerm1D(BaseSmoothTerm):
             "has_shared_basis_setup": self.shared_basis_setup is not None,
             "fixed": bool(self.fixed),
         }
+        base_metadata = self._penalty_metadata_with_scale(base_metadata, penalty_index=0)
         return self._build_penalty_block(
             self.penalties[0],
             smooth_metadata=base_metadata,

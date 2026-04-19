@@ -545,9 +545,27 @@ def _gdi_pk_setup(model, sol, sp, *, deriv):
     ).ravel()
     P_rank = _drop_permute_symmetric(P, dropped_idx, pivot1)
     XtWX_rank = X_rank.T @ (W[:, None] * X_rank)
-    A_rank = XtWX_rank + P_rank
-    cA, loA = cho_factor(A_rank, check_finite=False)
-    A_inv_rank = cho_solve((cA, loA), np.eye(A_rank.shape[0]), check_finite=False)
+    # Mirror `mgcv/src/gdi.c::gdiPK()`: downstream `gdi1/gdi2` carry `Rh` with
+    # `Rh'Rh = X'WX + S` in the pivoted reduced parameterization rather than
+    # refactorizing a reconstructed normal-equation matrix.
+    A_rank = np.asarray(Rh.T @ Rh, dtype=np.float64)
+    A_rank = 0.5 * (A_rank + A_rank.T)
+    if rank > 0:
+        eye_rank = np.eye(rank, dtype=np.float64)
+        A_inv_rank = solve_triangular(
+            Rh,
+            solve_triangular(
+                Rh,
+                eye_rank,
+                lower=False,
+                trans="T",
+                check_finite=False,
+            ),
+            lower=False,
+            check_finite=False,
+        )
+    else:
+        A_inv_rank = np.empty((0, 0), dtype=np.float64)
     nulli_full = np.concatenate(
         [
             -np.ones(q_range_full, dtype=np.float64),
@@ -898,10 +916,12 @@ def _schur_logdet_terms(A_rr, A_rf, A_ff, dArr, dArf, dAff, d2Arr, d2Arf, d2Aff)
     Cinv = cho_solve((cC, loC), np.eye(p), check_finite=False)
     n_sp = len(dArr)
     dC = [None] * n_sp
+    dRinv = [None] * n_sp
     d1 = np.zeros(n_sp, dtype=np.float64)
     d2 = np.zeros((n_sp, n_sp), dtype=np.float64)
     for j in range(n_sp):
         dRinv_j = -Rinv @ dArr[j] @ Rinv
+        dRinv[j] = dRinv_j
         dC_j = (
             dAff[j]
             - dArf[j].T @ Rinv @ A_rf
@@ -912,7 +932,8 @@ def _schur_logdet_terms(A_rr, A_rf, A_ff, dArr, dArf, dAff, d2Arr, d2Arf, d2Aff)
         d1[j] = float(np.trace(Cinv @ dC_j))
     for j in range(n_sp):
         for k in range(j, n_sp):
-            dRinv_k = -Rinv @ dArr[k] @ Rinv
+            dRinv_j = np.asarray(dRinv[j], dtype=np.float64)
+            dRinv_k = np.asarray(dRinv[k], dtype=np.float64)
             d2Rinv_jk = (
                 Rinv @ dArr[k] @ Rinv @ dArr[j] @ Rinv
                 - Rinv @ d2Arr[j][k] @ Rinv
