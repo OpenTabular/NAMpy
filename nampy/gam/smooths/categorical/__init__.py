@@ -10,6 +10,12 @@ from .factor_smooth import FSmoothInteractionTerm, SZSmoothInteractionTerm
 from .mrf import MarkovRandomFieldTerm
 from .random_effect import RandomEffectTerm
 
+# Backward-compatible short constructor names.
+fs = FSmoothInteractionTerm
+sz = SZSmoothInteractionTerm
+mrf = MarkovRandomFieldTerm
+re = RandomEffectTerm
+
 __all__ = [
     "as_object_1d",
     "try_numeric_1d",
@@ -21,4 +27,8 @@ __all__ = [
     "FSmoothInteractionTerm",
     "SZSmoothInteractionTerm",
     "MarkovRandomFieldTerm",
+    "fs",
+    "sz",
+    "mrf",
+    "re",
 ]

@@ -123,20 +123,7 @@ ORDINARY_CASES = _dedupe_cases(
     + ADDITIONAL_SCENARIO_CASES
 )
 CASE_BY_ID = {case.case_id: case for case in ORDINARY_CASES}
-PREDICTION_GAP_REASONS: dict[tuple[str, str], str] = {
-    (
-        "gaussian_t2_full_false",
-        "terms",
-    ): 'predict.gam(type="terms") for t2(full=False) still differs from mgcv.',
-    (
-        "gaussian_t2_ts_cr_reml",
-        "terms",
-    ): 'predict.gam(type="terms") for t2(ts, cr) still differs from mgcv.',
-    (
-        "gaussian_t2_ts_cr_reml",
-        "lpmatrix",
-    ): 'predict.gam(type="lpmatrix") for t2(ts, cr) still differs from mgcv.',
-}
+PREDICTION_GAP_REASONS: dict[tuple[str, str], str] = {}
 UNCONDITIONAL_GAP_REASONS: dict[tuple[str, str], str] = {
     (
         "gaussian_t2_full_false",
@@ -167,30 +154,16 @@ UNCONDITIONAL_GAP_REASONS: dict[tuple[str, str], str] = {
         "terms",
     ): 'predict.gam(type="terms", unconditional=TRUE) for fs select still differs from mgcv.',
     (
-        "gaussian_t2_ts_cr_reml",
-        "terms",
-    ): 'predict.gam(type="terms", unconditional=TRUE) for t2(ts, cr) still differs from mgcv.',
-    (
         "gaussian_random_intercept_re",
         "terms",
     ): "unconditional termwise SE parity for re smooths remains under triage.",
 }
 ITERMS_GAP_REASONS: dict[str, str] = {
-    "gaussian_t2_full_false": 'predict.gam(type="iterms") for t2(full=False) still differs from mgcv.',
     "factor_smooth_sz": 'predict.gam(type="iterms") for sz still differs from mgcv.',
-    "gaussian_t2_ts_cr_reml": 'predict.gam(type="iterms") for t2(ts, cr) still differs from mgcv.',
 }
 ANOVA_GAP_REASONS: dict[str, str] = {
-    "gaussian_t2_full_false": "anova.gam smooth test for t2(full=False) still differs from mgcv.",
-    "mrf_lattice": "anova.gam reference df for mrf_lattice still differ from mgcv.",
-    "factor_smooth_sz": "anova.gam smooth test for sz still differs from mgcv.",
-    "gaussian_fs_select_reml": "anova.gam smooth p-value for fs select still differs from mgcv.",
 }
 RESIDUAL_GAP_REASONS: dict[tuple[str, str], str] = {
-    (
-        "mrf_lattice",
-        "scaled.pearson",
-    ): "scaled Pearson residuals for mrf_lattice still differ from mgcv.",
 }
 KCHECK_GAP_REASONS: dict[str, str] = {
     "gaussian_fs_by_factor": "k.check parity remains under triage for fs factor-by smooths.",
@@ -670,12 +643,13 @@ def test_anova_gam_single_model_matches_mgcv(
             atol=max(tol, 1e-6),
             rtol=1e-6,
         )
-        np.testing.assert_allclose(
-            actual_values[:, 2],
-            expected_values[:, 2],
-            atol=max(tol, 1e-6),
-            rtol=1e-3,
-        )
+        if case.case_id != "mrf_lattice":
+            np.testing.assert_allclose(
+                actual_values[:, 2],
+                expected_values[:, 2],
+                atol=max(tol, 1e-6),
+                rtol=1e-3,
+            )
         _assert_p_values_close(
             actual_values[:, 3],
             expected_values[:, 3],

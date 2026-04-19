@@ -9,7 +9,7 @@ from scipy.linalg import cho_factor
 
 from nampy.gam import GAM
 from nampy.gam._model_state import _design_matrix, _n_coef, _penalty_blocks_seq
-from nampy.gam.compiler import compile_predictors
+from nampy.gam.compiler.compile_predictors import compile_predictors
 from nampy.gam.fit.linalg.stacked_qr import (
     penalty_sqrt_rows,
     project_coef_onto_row_space,

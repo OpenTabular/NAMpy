@@ -31,6 +31,49 @@ from .marginals import (
 from .t2_basis import build_t2_basis_and_penalties, materialize_t2_newdata
 
 
+def _t2_marginal_feature_values(term, X):
+    X = np.asarray(X, dtype=np.float64)
+    idx = getattr(term, "_feature_index", None)
+    if idx is not None:
+        return np.asarray(X[:, int(idx)], dtype=np.float64).ravel()
+
+    idxs = getattr(term, "_feature_indices", None)
+    if idxs is None:
+        return None
+    idxs = np.asarray(idxs, dtype=np.int64).ravel()
+    if idxs.size != 1:
+        return None
+    return np.asarray(X[:, int(idxs[0])], dtype=np.float64).ravel()
+
+
+def _orient_t2_marginal_like_mgcv(dec, *, basis_name, feature_values):
+    x = None if feature_values is None else np.asarray(feature_values, dtype=np.float64).ravel()
+    if x is None or x.size == 0 or not np.all(np.isfinite(x)):
+        return dec
+
+    x_centered = x - np.mean(x)
+    if not np.any(np.abs(x_centered) > 0.0):
+        return dec
+
+    basis_key = str(basis_name).lower()
+
+    if basis_key in {"cr", "cs"} and dec["B_null"].shape[1] >= 2:
+        linear_col = np.asarray(dec["B_null"][:, -1], dtype=np.float64)
+        cov = float((linear_col - np.mean(linear_col)) @ x_centered)
+        if cov < 0.0:
+            dec["B_null"][:, -1] *= -1.0
+            dec["T_null"][:, -1] *= -1.0
+
+    if basis_key in {"tp", "ts"} and dec["B_range"].shape[1] > 2:
+        linear_col = np.asarray(dec["B_range"][:, 2], dtype=np.float64)
+        cov = float((linear_col - np.mean(linear_col)) @ x_centered)
+        if cov > 0.0:
+            dec["B_range"][:, 2] *= -1.0
+            dec["T_range"][:, 2] *= -1.0
+
+    return dec
+
+
 @register_smooth("t2")
 class TensorANOVASplineTerm(BaseSmoothTerm):
     term_type = "tensor_anova"
@@ -131,6 +174,11 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
 
             B_i, S_i, _ = tensor_marginal_fit_matrices(term, centered=False)
             dec = t2_marginal_reparameterization(B_i, S_i, basis_name=basis_name)
+            dec = _orient_t2_marginal_like_mgcv(
+                dec,
+                basis_name=basis_name,
+                feature_values=_t2_marginal_feature_values(term, X),
+            )
             marginal_decompositions.append(dec)
 
         t2_obj = build_t2_basis_and_penalties(

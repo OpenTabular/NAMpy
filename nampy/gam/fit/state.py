@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 
 import numpy as np
-from scipy.linalg import cho_factor, cho_solve, solve_triangular
+from scipy.linalg import cho_factor, cho_solve, qr, solve_triangular
 
 from .._model_state import (
     _coef_column_offset,
@@ -158,31 +158,65 @@ def _gaussian_exact_unconditional_postfit(
     sp = np.asarray(model.smoothing_params, dtype=np.float64).ravel()
     log_sp = np.log(np.maximum(sp[free_mask], np.finfo(np.float64).tiny))
 
-    from ..smoothing_selection.criteria.laplace import _penalty_derivative_matrices
-    from .model_ops import criterion_hessian
-
-    Hsp = np.asarray(
-        criterion_hessian(model, model.y_, log_sp, method=method), dtype=np.float64
+    from ..smoothing_selection.criteria.gaussian_dyn import (
+        criterion_hessian_ml_reml_gaussian_dynamic_joint,
     )
-    if Hsp.shape != (free_idx.size, free_idx.size) or not np.all(np.isfinite(Hsp)):
-        return None, None
-    Hsp = 0.5 * (Hsp + Hsp.T)
+    from ..smoothing_selection.reparam import build_estimate_gam_setup_state
+    from .model_ops import criterion_hessian
+    from .solvers.gam_fit5 import _vb_corr_root
 
     optim_result = getattr(model, "_optim_result", None)
-    if optim_result is not None:
-        optim_result.hess = Hsp.copy()
+    joint_log_sigma2 = None
+    if method in {"reml", "laml"}:
+        if optim_result is not None and getattr(optim_result, "joint_log_sigma2", None) is not None:
+            joint_log_sigma2 = float(optim_result.joint_log_sigma2)
+        else:
+            sigma2_opt = getattr(model, "_gaussian_reml_sigma2_opt_", None)
+            if sigma2_opt is not None and np.isfinite(float(sigma2_opt)) and float(sigma2_opt) > 0.0:
+                joint_log_sigma2 = float(np.log(float(sigma2_opt)))
 
-    evals, evecs = np.linalg.eigh(Hsp)
+    H_outer = None
+    if joint_log_sigma2 is not None:
+        H_joint = np.asarray(
+            criterion_hessian_ml_reml_gaussian_dynamic_joint(
+                model,
+                model.y_,
+                log_sp,
+                joint_log_sigma2,
+                method=method.upper(),
+            ),
+            dtype=np.float64,
+        )
+        if H_joint.shape == (free_idx.size + 1, free_idx.size + 1) and np.all(
+            np.isfinite(H_joint)
+        ):
+            H_outer = 0.5 * (H_joint + H_joint.T)
+
+    if H_outer is None:
+        Hsp = np.asarray(
+            criterion_hessian(model, model.y_, log_sp, method=method), dtype=np.float64
+        )
+        if Hsp.shape != (free_idx.size, free_idx.size) or not np.all(np.isfinite(Hsp)):
+            return None, None
+        H_outer = 0.5 * (Hsp + Hsp.T)
+        if optim_result is not None:
+            optim_result.hess = Hsp.copy()
+
+    evals, evecs = np.linalg.eigh(H_outer)
     inv_vals = np.zeros_like(evals)
     pos = evals > 0.0
     inv_vals[pos] = 1.0 / evals[pos]
-    Vsp = np.asarray(evecs @ (inv_vals[:, None] * evecs.T), dtype=np.float64)
+    Vouter = np.asarray(evecs @ (inv_vals[:, None] * evecs.T), dtype=np.float64)
 
-    reg_vals = np.where(evals <= 0.0, 0.0, evals)
-    d_reg = 1.0 / np.sqrt(reg_vals + 0.1)
-    Vr = np.asarray(evecs @ ((d_reg * d_reg)[:, None] * evecs.T), dtype=np.float64)
+    reg_vals = np.zeros_like(evals)
+    reg_vals[pos] = 1.0 / (evals[pos] + 0.1)
+    Vouter_reg = np.asarray(evecs @ (reg_vals[:, None] * evecs.T), dtype=np.float64)
 
-    A = np.asarray(fit_state.A, dtype=np.float64)
+    Vsp = np.asarray(Vouter[: free_idx.size, : free_idx.size], dtype=np.float64)
+    Vr = np.asarray(
+        Vouter_reg[: free_idx.size, : free_idx.size], dtype=np.float64
+    )
+
     A_inv = np.asarray(fit_state.A_inv, dtype=np.float64)
     XtWX = np.asarray(fit_state.XtWX, dtype=np.float64)
     beta = np.asarray(fit_result.coef_full, dtype=np.float64).ravel()
@@ -192,32 +226,66 @@ def _gaussian_exact_unconditional_postfit(
     if not (np.isfinite(scale) and scale > 0.0):
         return None, None
 
-    P_derivs_full = _penalty_derivative_matrices(model, sp)
-    P_derivs = [
-        np.asarray(P_derivs_full[i], dtype=np.float64).copy() for i in free_idx.tolist()
-    ]
+    setup = build_estimate_gam_setup_state(model)
+    p_full = int(beta.size)
+    S_blocks_full = []
+    for S_local, off_i in zip(list(setup.S), np.asarray(setup.off, dtype=np.int64)):
+        S_local = np.asarray(S_local, dtype=np.float64)
+        S_full = np.zeros((p_full, p_full), dtype=np.float64)
+        start = int(off_i) - 1
+        stop = start + int(S_local.shape[0])
+        S_full[start:stop, start:stop] = S_local
+        S_blocks_full.append(S_full)
+
+    rho = np.log(np.maximum(sp[free_mask], np.finfo(np.float64).tiny))
+    if setup.L is None:
+        lam = np.exp(rho + np.asarray(setup.lsp0, dtype=np.float64)[: rho.size])
+        P_derivs = [float(lam[i]) * S_blocks_full[i] for i in range(rho.size)]
+    else:
+        L = np.asarray(setup.L, dtype=np.float64)
+        lsp0 = np.asarray(setup.lsp0, dtype=np.float64).ravel()
+        lam = np.exp(L @ rho + lsp0[: L.shape[0]])
+        P_derivs = []
+        for j in range(L.shape[1]):
+            Pj = np.zeros((p_full, p_full), dtype=np.float64)
+            for i, Si in enumerate(S_blocks_full):
+                wij = float(L[i, j])
+                if wij == 0.0:
+                    continue
+                Pj += float(lam[i]) * wij * Si
+            P_derivs.append(Pj)
+
+    if len(P_derivs) != free_idx.size:
+        return None, None
+
     db_drho = np.column_stack([-(A_inv @ (Pj @ beta)) for Pj in P_derivs])
     Vc1 = np.asarray(db_drho @ Vsp @ db_drho.T, dtype=np.float64)
 
-    Vc2 = np.zeros_like(Vp)
-    try:
-        R = np.linalg.cholesky(A).T
-        R_inv = solve_triangular(
-            R,
-            np.eye(R.shape[0], dtype=np.float64),
-            lower=False,
-            check_finite=False,
-        )
-        dR_inv = []
-        for Pj in P_derivs:
-            dRj = _mgcv_dchol(Pj, R)
-            dRj_inv = -(
-                solve_triangular(R, dRj, lower=False, check_finite=False) @ R_inv
-            )
-            dR_inv.append(np.asarray(dRj_inv, dtype=np.float64))
-        Vc2 = scale * _mgcv_vcorr(dR_inv, Vr, trans=False)
-    except np.linalg.LinAlgError:
-        Vc2 = np.zeros_like(Vp)
+    weights = fit_state.fisher_weights
+    if weights is None:
+        weights = fit_state.working_weights
+    if weights is None:
+        return None, None
+    weights = np.asarray(weights, dtype=np.float64).ravel()
+    X_full = np.asarray(setup.X, dtype=np.float64)
+    if weights.size == 1 and X_full.shape[0] > 1:
+        weights = np.full(X_full.shape[0], float(weights[0]), dtype=np.float64)
+    if weights.size != X_full.shape[0]:
+        return None, None
+    WX = np.sqrt(weights)[:, None] * X_full
+    _Q, R_raw, pivot = qr(WX, mode="economic", pivoting=True)
+    R = np.asarray(R_raw, dtype=np.float64).copy()
+    R[:, np.asarray(pivot, dtype=np.int64)] = np.asarray(R_raw, dtype=np.float64)
+
+    Vc2 = scale * _vb_corr_root(
+        R,
+        L=None if setup.L is None else np.asarray(setup.L, dtype=np.float64),
+        lsp0=np.asarray(setup.lsp0, dtype=np.float64),
+        S_blocks=S_blocks_full,
+        off=None,
+        rho=rho,
+        Vr=Vr,
+    )
 
     Vc = np.asarray(Vp + Vc1 + Vc2, dtype=np.float64)
     Vc = 0.5 * (Vc + Vc.T)

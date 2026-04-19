@@ -348,8 +348,24 @@ def _summary_R(obj: Any):
         mode="economic",
         pivoting=True,
     )
-    R_nat = np.zeros_like(R_piv)
-    R_nat[:, np.asarray(pivot, dtype=np.intp)] = R_piv
+    n_rows, n_cols = R_piv.shape
+    # Mirror mgcv/R/misc.r::pqr.R calling mgcv/src/mat.c::getRpqr().
+    # The source storage is read with the compact QR row count as leading
+    # dimension, which yields a square c x c upper-triangular view even when
+    # the weighted design is wide (n < p).
+    flat = np.concatenate(
+        [
+            np.asarray(R_piv, dtype=np.float64, order="F").ravel(order="F"),
+            np.zeros(n_cols * n_cols, dtype=np.float64),
+        ]
+    )
+    R_sq = np.zeros((n_cols, n_cols), dtype=np.float64)
+    for j in range(n_cols):
+        stop = j + 1
+        base = n_rows * j
+        R_sq[:stop, j] = flat[base : base + stop]
+    R_nat = np.zeros_like(R_sq)
+    R_nat[:, np.asarray(pivot, dtype=np.intp)] = R_sq
     return R_nat
 
 

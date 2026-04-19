@@ -79,8 +79,11 @@ def _mroot_psd(A: np.ndarray) -> np.ndarray:
     if A.size == 0:
         return np.zeros((A.shape[0], 0), dtype=np.float64)
     evals, evecs = np.linalg.eigh(A)
+    # Keep the cutoff relative to the matrix scale only. mgcv::mroot() with
+    # `chol(..., tol=0)` preserves tiny positive directions for exact-fit
+    # cases like low-rank MRFs, and absolute `1.0 * eps` flooring drops them.
     tol = (
-        max(float(np.max(evals)) if evals.size else 0.0, 1.0)
+        max(float(np.max(evals)) if evals.size else 0.0, 0.0)
         * np.finfo(np.float64).eps
     )
     keep = evals > tol
@@ -222,8 +225,7 @@ def _psum_chisq(
 def _retest_like_stat(model, tb, *, residual_df: float, scale_estimated: bool):
     fit_state = _fit_state(model)
     summary_R = _summary_R(model)
-    V_freq = select_covariance_matrix(model, cov="freq")
-    if fit_state is None or summary_R is None or V_freq is None:
+    if fit_state is None or summary_R is None:
         return None
 
     penalty = getattr(fit_state, "penalty_matrix", None)
@@ -247,13 +249,19 @@ def _retest_like_stat(model, tb, *, residual_df: float, scale_estimated: bool):
     block = np.arange(q - ind.size, q, dtype=int)
     Rm = np.asarray(Rm_full[np.ix_(block, block)], dtype=np.float64)
 
-    Ve = 0.5 * (np.asarray(V_freq, dtype=np.float64) + np.asarray(V_freq, dtype=np.float64).T)
-    Ve_i = np.asarray(Ve[np.ix_(ind, ind)], dtype=np.float64)
+    scale = max(float(_fit_scale(model)), LOG_GUARD_MIN)
+    # Mirror the `recov(..., m)` block used by mgcv/R/mgcv.r::reTest():
+    # `Rm` is the square root of the term-local unpenalized precision, so the
+    # corresponding covariance block is `sig2 * pinv(crossprod(Rm))`.
+    Ve_i = scale * np.linalg.pinv(
+        Rm.T @ Rm,
+        hermitian=True,
+        rcond=np.sqrt(np.finfo(np.float64).eps),
+    )
     B = _mroot_psd(Ve_i)
 
     coef_full = np.asarray(_coef_full(model), dtype=np.float64).ravel()
     b_hat = coef_full[ind]
-    scale = max(float(_fit_scale(model)), LOG_GUARD_MIN)
     stat = float(np.sum((Rm @ b_hat) ** 2) / scale)
 
     RB = np.asarray(Rm @ B, dtype=np.float64)
@@ -303,8 +311,9 @@ class AnovaGAMComparison:
 
 
 def _residual_df(model) -> float:
-    intercept_df = float(_coef_column_offset(model))
-    return float(model.n_samples_) - intercept_df - float(_edf_total(model))
+    # Mirror mgcv/R/mgcv.r::summary.gam:
+    #   residual.df <- length(object$y) - sum(object$edf)
+    return float(model.n_samples_) - float(_edf_total(model))
 
 
 def _edf1_vector(model) -> np.ndarray:
@@ -373,10 +382,12 @@ def _smooth_test_stat(
     if X.ndim != 2 or V.shape != (X.shape[1], X.shape[1]) or p.size != X.shape[1]:
         raise ValueError("Smooth test inputs have inconsistent shapes.")
 
-    # mgcv::summary.gam supplies testStat() with smooth blocks already mapped back to
-    # original coefficient order via object$R. Re-pivoting with SciPy's QR here does
-    # not reproduce mgcv's LINPACK path, so work directly in the current column order.
-    _, R = qr(X, mode="economic", pivoting=False)
+    # Mirror mgcv/R/mgcv.r::testStat():
+    # `qrx <- qr(X, tol=0); R <- qr.R(qrx); V <- R %*% V[qrx$pivot,qrx$pivot] %*% t(R)`.
+    _, R, pivot = qr(X, mode="economic", pivoting=True)
+    pivot = np.asarray(pivot, dtype=np.intp)
+    p = p[pivot]
+    V = V[np.ix_(pivot, pivot)]
     Vt = R @ V @ R.T
     Vt = 0.5 * (Vt + Vt.T)
     evals, evecs = np.linalg.eigh(Vt)

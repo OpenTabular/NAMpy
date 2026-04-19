@@ -12,7 +12,7 @@ import pandas as pd
 import pytest
 
 from nampy.gam import GAM
-from nampy.gam.compiler import compile_predictors
+from nampy.gam.compiler.compile_predictors import compile_predictors
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
 from nampy.gam.smooths.algebra import t2_marginal_reparameterization
 from nampy.gam.smooths.univariate.cubic_regression import SplineTerm1D

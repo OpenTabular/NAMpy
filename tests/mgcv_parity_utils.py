@@ -8,6 +8,7 @@ import hashlib
 import io
 import itertools
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -25,11 +26,60 @@ from tests._paths import PARITY_DIR, REPO_ROOT, TESTS_DIR
 _REPO_ROOT = REPO_ROOT
 _TESTS_DIR = TESTS_DIR
 
-R_SCRIPT = shutil.which("Rscript")
 MGCV_SNAPSHOT_SCRIPT = PARITY_DIR / "mgcv_snapshot.R"
 MGCV_SNAPSHOT_SERVER_SCRIPT = PARITY_DIR / "mgcv_snapshot_server.R"
 MGCV_ANOVA_SCRIPT = PARITY_DIR / "mgcv_anova.R"
 MGCV_GAM_SETUP_ASSEMBLY_SCRIPT = PARITY_DIR / "mgcv_gam_setup_assembly.R"
+
+
+def _resolve_r_executable() -> str | None:
+    """Resolve a working R invocation, preferring Rscript and then R."""
+    explicit = os.environ.get("MGCV_RSCRIPT")
+    if explicit:
+        return explicit
+
+    rscript = shutil.which("Rscript")
+    if rscript:
+        return rscript
+
+    r_binary = shutil.which("R")
+    if r_binary:
+        return r_binary
+
+    r_home = os.environ.get("R_HOME", "")
+    if r_home:
+        for rel in ("bin/Rscript", "bin/R"):
+            candidate = Path(r_home) / rel
+            if candidate.exists():
+                return str(candidate)
+
+    return None
+
+
+def _build_r_command(script_path: Path, *args: str) -> list[str]:
+    """Build a command list that can run `script_path` with `args`."""
+    if R_SCRIPT is None:
+        raise RuntimeError(
+            "R not available: install R (including Rscript) or set MGCV_RSCRIPT."
+        )
+
+    exe = Path(R_SCRIPT).name.lower()
+    if exe == "r" or exe == "r.exe":
+        return [
+            R_SCRIPT,
+            "--quiet",
+            "--no-restore",
+            "--no-save",
+            "--slave",
+            "-f",
+            str(script_path),
+            "--args",
+            *[str(arg) for arg in args],
+        ]
+    return [R_SCRIPT, str(script_path), *[str(arg) for arg in args]]
+
+
+R_SCRIPT = _resolve_r_executable()
 
 # ---------------------------------------------------------------------------
 # mgcv result cache
@@ -44,15 +94,20 @@ _MGCV_SNAPSHOT_SERVER_REQUEST_IDS = itertools.count(1)
 _SNAPSHOT_CACHE_VERSION = 2
 _RAW_CONSTRUCTOR_CACHE_VERSION = 5
 _GAM_SETUP_ASSEMBLY_CACHE_VERSION = 4
+_MGCV_CACHE_ONLY = os.environ.get("MGCV_CACHE_ONLY", "1").lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 
 def _start_mgcv_snapshot_server() -> subprocess.Popen:
     """Start the persistent mgcv snapshot worker process."""
-    cmd = [
-        R_SCRIPT,
-        str(MGCV_SNAPSHOT_SERVER_SCRIPT),
+    cmd = _build_r_command(
+        MGCV_SNAPSHOT_SERVER_SCRIPT,
         str(MGCV_SNAPSHOT_SCRIPT),
-    ]
+    )
     proc = subprocess.Popen(
         cmd,
         stdin=subprocess.PIPE,
@@ -112,16 +167,15 @@ def _run_mgcv_snapshot_single(
         json_path = tmpdir_path / "snapshot.json"
         data.to_csv(csv_path, index=False)
 
-        cmd = [
-            R_SCRIPT,
-            str(MGCV_SNAPSHOT_SCRIPT),
+        cmd = _build_r_command(
+            MGCV_SNAPSHOT_SCRIPT,
             str(csv_path),
             str(json_path),
             str(formula),
             family,
             method,
             "true" if select else "false",
-        ]
+        )
         if weights_column is not None:
             cmd.append(str(weights_column))
 
@@ -273,6 +327,12 @@ def _mgcv_cache_load(key: str):
     path = _MGCV_CACHE_DIR / f"{key}.json"
     if path.exists():
         return json.loads(path.read_text(encoding="utf-8"))
+    if _MGCV_CACHE_ONLY:
+        raise RuntimeError(
+            "MGCV cache-only mode is enabled. This test requires a precomputed fixture "
+            f"and key '{key}' is not present in {path.parent}. "
+            "Set MGCV_CACHE_ONLY=0 to regenerate via R."
+        )
     return None
 
 
@@ -811,8 +871,7 @@ def _run_mgcv_anova(
         csv_path = tmpdir_path / "data.csv"
         json_path = tmpdir_path / "anova.json"
         data.to_csv(csv_path, index=False)
-        cmd = [
-            R_SCRIPT,
+        cmd = _build_r_command(
             str(MGCV_ANOVA_SCRIPT),
             str(csv_path),
             str(json_path),
@@ -821,7 +880,7 @@ def _run_mgcv_anova(
             method,
             "true" if select else "false",
             "NULL" if test is None else str(test),
-        ]
+        )
         subprocess.run(
             cmd,
             check=True,
@@ -923,7 +982,9 @@ write_json(list(X = unname(sm$X)), out, auto_unbox = TRUE, digits = 17)
         data.to_csv(csv_path, index=False)
         script_path.write_text(r_code, encoding="utf-8")
         subprocess.run(
-            [R_SCRIPT, str(script_path), str(csv_path), str(json_path), smooth_expr],
+            _build_r_command(
+                script_path, str(csv_path), str(json_path), smooth_expr
+            ),
             check=True,
             cwd=_REPO_ROOT,
             capture_output=True,
@@ -979,15 +1040,14 @@ write_json(list(S = lapply(sm$S, unname)), out, auto_unbox = TRUE, digits = 17)
         data.to_csv(csv_path, index=False)
         script_path.write_text(r_code, encoding="utf-8")
         subprocess.run(
-            [
-                R_SCRIPT,
-                str(script_path),
+            _build_r_command(
+                script_path,
                 str(csv_path),
                 str(json_path),
                 smooth_expr,
                 "true" if absorb_cons else "false",
                 "true" if scale_penalty else "false",
-            ],
+            ),
             check=True,
             cwd=_REPO_ROOT,
             capture_output=True,
@@ -1032,7 +1092,9 @@ write_json(list(X = unname(sm$X)), out, auto_unbox = TRUE, digits = 17)
         data.to_csv(csv_path, index=False)
         script_path.write_text(r_code, encoding="utf-8")
         subprocess.run(
-            [R_SCRIPT, str(script_path), str(csv_path), str(json_path), smooth_expr],
+            _build_r_command(
+                script_path, str(csv_path), str(json_path), smooth_expr
+            ),
             check=True,
             cwd=_REPO_ROOT,
             capture_output=True,
@@ -1281,14 +1343,13 @@ write_json(serialize_smooth(sm), out, auto_unbox = TRUE, digits = 17, null = "nu
             else json.dumps(knots_payload, sort_keys=True, default=str)
         )
         subprocess.run(
-            [
-                R_SCRIPT,
-                str(script_path),
+            _build_r_command(
+                script_path,
                 str(csv_path),
                 str(json_path),
                 smooth_expr_r,
                 knots_json,
-            ],
+            ),
             check=True,
             cwd=_REPO_ROOT,
             capture_output=True,
@@ -1340,7 +1401,9 @@ write_json(
         data.to_csv(csv_path, index=False)
         script_path.write_text(r_code, encoding="utf-8")
         subprocess.run(
-            [R_SCRIPT, str(script_path), str(csv_path), str(json_path), str(int(k))],
+            _build_r_command(
+                script_path, str(csv_path), str(json_path), str(int(k))
+            ),
             check=True,
             cwd=_REPO_ROOT,
             capture_output=True,
@@ -1498,9 +1561,8 @@ write_json(
         newdata.to_csv(new_path, index=False)
         script_path.write_text(r_code, encoding="utf-8")
         subprocess.run(
-            [
-                R_SCRIPT,
-                str(script_path),
+            _build_r_command(
+                script_path,
                 str(train_path),
                 str(new_path),
                 formula_r,
@@ -1513,7 +1575,7 @@ write_json(
                 "true" if select else "false",
                 "NULL" if weights_column is None else str(weights_column),
                 str(json_path),
-            ],
+            ),
             check=True,
             cwd=_REPO_ROOT,
             capture_output=True,
@@ -1642,9 +1704,8 @@ write_json(
         data.to_csv(csv_path, index=False)
         script_path.write_text(r_code, encoding="utf-8")
         subprocess.run(
-            [
-                R_SCRIPT,
-                str(script_path),
+            _build_r_command(
+                script_path,
                 str(csv_path),
                 formula,
                 family_token,
@@ -1652,7 +1713,7 @@ write_json(
                 "true" if select else "false",
                 json.dumps(sp_list),
                 str(json_path),
-            ],
+            ),
             check=True,
             cwd=_REPO_ROOT,
             capture_output=True,
@@ -1697,16 +1758,15 @@ def _run_mgcv_gam_setup_assembly(
         json_path = tmpdir_path / "gam_setup_assembly.json"
         data.to_csv(csv_path, index=False)
         subprocess.run(
-            [
-                R_SCRIPT,
-                str(MGCV_GAM_SETUP_ASSEMBLY_SCRIPT),
+            _build_r_command(
+                MGCV_GAM_SETUP_ASSEMBLY_SCRIPT,
                 str(csv_path),
                 str(json_path),
                 formula_r,
                 family_token,
                 method,
                 "true" if select else "false",
-            ],
+            ),
             check=True,
             cwd=_REPO_ROOT,
             capture_output=True,

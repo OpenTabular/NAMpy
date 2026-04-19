@@ -23,10 +23,27 @@ from .smooth_base import (
 from .tensor.t2 import TensorANOVASplineTerm
 from .tensor.te import TensorProductSplineTerm
 from .tensor.ti import InteractionTensorProductSplineTerm
+from .categorical.factor_smooth import FSmoothInteractionTerm, SZSmoothInteractionTerm
+from .categorical.mrf import MarkovRandomFieldTerm
+from .categorical.random_effect import RandomEffectTerm
 from .univariate.cubic_regression import SplineTerm1D
 from .univariate.gp import GPSmoothTerm
 from .univariate.pspline import PSplineTerm1D
 from .univariate.thin_plate import ThinPlateSplineTerm
+
+# Backward-compatible short constructor names.
+te = TensorProductSplineTerm
+ti = InteractionTensorProductSplineTerm
+t2 = TensorANOVASplineTerm
+
+cc = cr = cs = SplineTerm1D
+ps = PSplineTerm1D
+tp = ts = ThinPlateSplineTerm
+gp = GPSmoothTerm
+fs = FSmoothInteractionTerm
+sz = SZSmoothInteractionTerm
+mrf = MarkovRandomFieldTerm
+re = RandomEffectTerm
 
 __all__ = [
     "register_smooth",
@@ -58,4 +75,18 @@ __all__ = [
     "TensorProductSplineTerm",
     "InteractionTensorProductSplineTerm",
     "TensorANOVASplineTerm",
+    "te",
+    "ti",
+    "t2",
+    "cc",
+    "cs",
+    "cr",
+    "ps",
+    "tp",
+    "ts",
+    "gp",
+    "fs",
+    "sz",
+    "mrf",
+    "re",
 ]

@@ -4,6 +4,9 @@ import numpy as np
 
 
 class DaviesAlgorithm:
+    _C_INT_MIN = -(2**31)
+    _C_INT_MAX = 2**31 - 1
+
     def __init__(self):
         self._count = 0
 
@@ -186,6 +189,18 @@ class DaviesAlgorithm:
             res = math.pow(2.0, sum1 * 0.25) / (pi * axl * axl)
             return res, False
 
+    def _c_round_int(self, x):
+        base = math.floor(x)
+        if x - base > 0.5:
+            base += 1
+        # Mirror the platform behavior of mgcv/src/davies.c assigning an
+        # out-of-range rounded double into a C `int` (`nt`, `ntm`).
+        # On the target toolchain this yields INT_MIN, and mgcv parity tests
+        # depend on reproducing that exact overflow path.
+        if base < self._C_INT_MIN or base > self._C_INT_MAX:
+            return self._C_INT_MIN
+        return int(base)
+
     def davies(self, lb, nc, n, r, sigma, c_val, lim, acc):
         """
         Main entry point.
@@ -263,9 +278,9 @@ class DaviesAlgorithm:
             intv = (2.0 * pi / d1) if d1 > d2 else (2.0 * pi / d2)
 
             x = utx / intv
-            nt = int(math.floor(x + 0.5))
+            nt = self._c_round_int(x)
             x = 3.0 / math.sqrt(acc1)
-            ntm = int(math.floor(x + 0.5))
+            ntm = self._c_round_int(x)
 
             if nt > ntm * 1.5:
                 intv1 = utx / ntm

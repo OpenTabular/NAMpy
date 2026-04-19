@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+from scipy.linalg import blas
 from scipy.linalg import qr as scipy_qr
 
 
@@ -110,6 +111,8 @@ def null_space_basis_from_constraint_matrix(
         raise ValueError(f"Constraint matrix has width {C.shape[1]}, expected {d}.")
     if C.size == 0:
         return np.eye(C.shape[1], dtype=np.float64), 0
+    if C.shape[0] == 1:
+        return _single_constraint_null_space_basis_r_qr(C, d=d)
     # Mirror mgcv smoothCon(absorb.cons=TRUE), which forms qr(t(C)) and takes
     # the trailing columns of Q as a constraint null-space basis. An SVD basis
     # spans the same space but can rotate coefficients differently, which shows
@@ -124,6 +127,50 @@ def null_space_basis_from_constraint_matrix(
     )
     rank = int(np.sum(diag_R > tol_eff))
     return np.asarray(Qt[:, rank:], dtype=np.float64).copy(), rank
+
+
+def _single_constraint_null_space_basis_r_qr(C, d: int | None = None):
+    """
+    Mirror base R default ``qr(t(C))`` / ``qr.qty`` for a single dense constraint.
+
+    `mgcv::smoothCon(absorb.cons=TRUE)` uses base R's default `qr`, which for this
+    one-column case follows the LINPACK reflector path rather than LAPACK. That
+    differs by 1 ulp from `dgeqrf`/SciPy QR on some smooths (notably `bs="mrf"`),
+    and those last-bit differences propagate into exact-fit Gaussian residual parity.
+    """
+    C = np.asarray(C, dtype=np.float64)
+    if C.ndim != 2 or C.shape[0] != 1:
+        raise ValueError("single-constraint QR helper expects a 1 x d matrix.")
+    if d is not None and C.shape[1] != int(d):
+        raise ValueError(f"Constraint matrix has width {C.shape[1]}, expected {d}.")
+
+    q = int(C.shape[1])
+    if q == 0:
+        return np.zeros((0, 0), dtype=np.float64), 0
+    if q == 1:
+        return np.zeros((1, 0), dtype=np.float64), 1
+
+    x = np.asarray(C.T.copy(), dtype=np.float64, order="F")
+    qraux = np.zeros(1, dtype=np.float64)
+
+    nrmxl = float(blas.dnrm2(x[:, 0]))
+    if nrmxl == 0.0:
+        return np.eye(q, dtype=np.float64), 0
+    if x[0, 0] != 0.0:
+        nrmxl = float(np.copysign(nrmxl, x[0, 0]))
+    x[:, 0] = blas.dscal(1.0 / nrmxl, x[:, 0])
+    x[0, 0] = 1.0 + x[0, 0]
+    qraux[0] = x[0, 0]
+    x[0, 0] = -nrmxl
+
+    q_full = np.eye(q, dtype=np.float64, order="F")
+    temp = float(x[0, 0])
+    x[0, 0] = qraux[0]
+    for col in range(q):
+        t = -float(blas.ddot(x[:, 0], q_full[:, col])) / float(x[0, 0])
+        q_full[:, col] = blas.daxpy(x[:, 0], q_full[:, col], a=t)
+    x[0, 0] = temp
+    return np.asarray(q_full[:, 1:], dtype=np.float64), 1
 
 
 def localized_null_space_basis_from_constraint_matrix(
