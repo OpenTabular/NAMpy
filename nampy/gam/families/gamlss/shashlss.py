@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 import numpy as np
 
 from ...fit.solvers.gamlss_utils import gamlss_etamu, gamlss_gH, trind_generator
@@ -149,10 +147,17 @@ class ShashlssFamily(GamlssFamily):
             weights = np.ones(len(y), dtype=np.float64)
         weights = np.asarray(weights, dtype=np.float64)
 
-        eta = X[:, jj[0]] @ coef[jj[0]]
-        eta1 = X[:, jj[1]] @ coef[jj[1]]
-        eta2 = X[:, jj[2]] @ coef[jj[2]]
-        eta3 = X[:, jj[3]] @ coef[jj[3]]
+        eta_mat = self._eta_matrix_from_inputs(
+            X,
+            jj,
+            coef,
+            offset=offset,
+            eta=kw.get("eta", None),
+        )
+        eta = np.asarray(eta_mat[:, 0], dtype=np.float64)
+        eta1 = np.asarray(eta_mat[:, 1], dtype=np.float64)
+        eta2 = np.asarray(eta_mat[:, 2], dtype=np.float64)
+        eta3 = np.asarray(eta_mat[:, 3], dtype=np.float64)
 
         mu = self.linfo[0].linkinv(eta)
         tau = self.linfo[1].linkinv(eta1)
@@ -178,10 +183,10 @@ class ShashlssFamily(GamlssFamily):
             - 0.5 * SS**2
             - self.phi_pen * phi**2
         )
-        l = float(np.sum(l0 * weights))
+        ll = float(np.sum(l0 * weights))
 
         if not deriv:
-            return {"l": l, "l0": l0}
+            return {"l": ll, "l0": l0}
 
         # ----------------------------------------------------------------
         # First derivatives w.r.t. distribution parameters (mu,tau,eps,phi)
@@ -1458,7 +1463,11 @@ class ShashlssFamily(GamlssFamily):
             D=D,
             sandwich=sandwich,
         )
-        ret["l"] = l
+        if bool(kw.get("ncv", False)):
+            ret["l1"] = np.asarray(de["l1"], dtype=np.float64)
+            ret["l2"] = np.asarray(de["l2"], dtype=np.float64)
+            ret["l3"] = de["l3"]
+        ret["l"] = ll
         ret["l0"] = l0
         return ret
 

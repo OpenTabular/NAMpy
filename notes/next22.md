@@ -55,8 +55,8 @@ still differs, and scaled.pearson residuals still differ.
 
     hard-fails at tests/mgcv_parity_utils.py:330.
 
-  - XPASS(strict) items are stale test metadata, not regressions. I confirmed
+  - ~~XPASS(strict) items are stale test metadata, not regressions. I confirmed~~
 
     representative cases for unconditional RE SE and k.check fs-by-factor now pass;
 
-    xfail markers need cleanup.
+    ~~xfail markers need cleanup.~~

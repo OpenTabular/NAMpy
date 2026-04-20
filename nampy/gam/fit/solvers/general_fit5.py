@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import numpy as np
+from scipy.linalg import eigh as scipy_eigh
 
 from ..._model_state import _penalty_blocks_seq, _predictor_designs, _term_blocks_seq
 from ..model_ops import expand_smoothing_params_from_log
@@ -218,7 +219,11 @@ def _sl_single_penalty_block(
             Di=None,
         )
 
-    values, vectors = np.linalg.eigh(S_local)
+    values, vectors = scipy_eigh(
+        S_local,
+        check_finite=False,
+        driver="evr",
+    )
     order = np.argsort(values)[::-1]
     values = np.asarray(values[order], dtype=np.float64)
     vectors = np.asarray(vectors[:, order], dtype=np.float64)
@@ -261,7 +266,11 @@ def _sl_multi_penalty_block(
     for Si in S_work:
         St_sum += Si
 
-    values, vectors = np.linalg.eigh(St_sum)
+    values, vectors = scipy_eigh(
+        St_sum,
+        check_finite=False,
+        driver="evr",
+    )
     order = np.argsort(values)[::-1]
     values = np.asarray(values[order], dtype=np.float64)
     vectors = np.asarray(vectors[:, order], dtype=np.float64)
@@ -336,7 +345,9 @@ def _materialize_sl_attrs(
                 E[idx, idx] = 1.0
                 S[idx, idx] = 1.0
         else:
-            St = np.zeros_like(np.asarray(block.S[0], dtype=np.float64), dtype=np.float64)
+            St = np.zeros_like(
+                np.asarray(block.S[0], dtype=np.float64), dtype=np.float64
+            )
             for Si in block.S:
                 Si_arr = np.asarray(Si, dtype=np.float64)
                 St += Si_arr / _r_matrix_norm(Si_arr)
@@ -761,6 +772,11 @@ def _run_general_fit5(
         epsilon=float(getattr(model, "irls_tol", 1e-7)),
         trace=bool(getattr(model, "hparams", {}).get("trace", False)),
     )
+    start_coef = getattr(model, "_pirls_eval_start_", None)
+    if start_coef is None:
+        start_coef = getattr(model, "_pirls_coef_start_", None)
+    if start_coef is not None:
+        start_coef = np.asarray(start_coef, dtype=np.float64).copy()
     fit = gam_fit5(
         setup.X_initial,
         np.asarray(y, dtype=np.float64),
@@ -779,7 +795,35 @@ def _run_general_fit5(
         control=ctl,
         Mp=setup.Mp,
         Sl=setup.Sl,
+        start=start_coef,
     )
+    coef_fit = fit.get("coef", None)
+    if coef_fit is not None:
+        coef_fit = np.asarray(coef_fit, dtype=np.float64).copy()
+        model._pirls_last_coef_ = coef_fit
+    offset_list = setup.offset_list
+    if hasattr(model.family, "_offset_list"):
+        offset_list = model.family._offset_list(offset_list)
+    if coef_fit is not None and hasattr(model.family, "_stacked_eta"):
+        model._pirls_last_eta_ = np.asarray(
+            model.family._stacked_eta(
+                setup.X_initial,
+                setup.jj,
+                coef_fit,
+                offset=offset_list,
+            ),
+            dtype=np.float64,
+        )
+    if coef_fit is not None and hasattr(model.family, "predict_fitted"):
+        model._pirls_last_mu_ = np.asarray(
+            model.family.predict_fitted(
+                setup.X_initial,
+                setup.jj,
+                coef_fit,
+                offset=offset_list,
+            ),
+            dtype=np.float64,
+        )
     return {
         "layout": setup.layout,
         "setup": setup,
@@ -854,8 +898,11 @@ def solve_general_fit(model, y, smoothing_params, weights=None):
     fit = run["fit"]
     outer_hess = None
     optim_result = getattr(model, "_optim_result", None)
+    outer_info = None
     if optim_result is not None and getattr(optim_result, "hess", None) is not None:
         outer_hess = np.asarray(optim_result.hess, dtype=np.float64)
+    if optim_result is not None:
+        outer_info = dict(getattr(optim_result, "outer_info", {}) or {})
 
     post = gam_fit5_post_proc(
         fit,
@@ -865,6 +912,7 @@ def solve_general_fit(model, y, smoothing_params, weights=None):
         S_blocks=setup.S_blocks,
         off=[1] * len(setup.S_blocks),
         outer_hess=outer_hess,
+        outer_info=outer_info,
         smoothing_params=setup.smoothing_params,
     )
 

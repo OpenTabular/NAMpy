@@ -38,4 +38,3 @@ def apply_column_signs(matrix, signs):
     if signs.ndim != 1 or signs.shape[0] != arr.shape[1]:
         raise ValueError("signs must be a vector matching the matrix column count.")
     return np.asarray(arr * signs[np.newaxis, :], dtype=np.float64)
-

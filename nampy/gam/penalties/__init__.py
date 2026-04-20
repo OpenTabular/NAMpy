@@ -6,11 +6,11 @@ from .algebra import (
 from .subsystem import (
     build_null_space_selection_spec,
     default_penalty_id,
-    penalty_id_for_local_index,
-    penalty_id_with_suffix,
     make_penalty_spec,
     merge_smoothing_override,
     normalize_penalty_spec,
+    penalty_id_for_local_index,
+    penalty_id_with_suffix,
     penalty_rank_null_dim,
     selection_penalty_id,
 )

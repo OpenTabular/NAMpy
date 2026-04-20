@@ -222,6 +222,7 @@ def compile_model(
     override_values = []
     predictor_full_slices = []
     reduced_to_full = []
+    term_shift = 0
     coef_shift = 0
     sp_shift = 0
     full_shift = 0
@@ -280,6 +281,11 @@ def compile_model(
                         coef_shift + int(penalty.coef_slice.start),
                         coef_shift + int(penalty.coef_slice.stop),
                     ),
+                    term_index=(
+                        term_shift + int(penalty.term_index)
+                        if int(penalty.term_index) >= 0
+                        else int(penalty.term_index)
+                    ),
                     smoothing_index=sp_shift + int(penalty.smoothing_index),
                     smoothing_id=(
                         None
@@ -299,6 +305,7 @@ def compile_model(
             override_values.extend(
                 list(np.asarray(predictor.smoothing_override_values, dtype=np.float64))
             )
+        term_shift += len(predictor.compiled_terms)
         coef_shift += int(predictor.n_coef)
         sp_shift += int(predictor.n_smoothing_params)
 

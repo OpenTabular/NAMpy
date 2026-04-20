@@ -303,22 +303,22 @@ class RandomEffectTerm(BaseSmoothTerm):
 
             if self.select:
                 selection_meta = {
-                        "term_type": self.term_type,
-                        "basis_name": self.basis_name,
-                        "feature": list(self.feature),
-                        "label": self.label,
-                        "by": self.by,
-                        "by_name": self._by_state.feature_name,
-                        "is_selection_penalty": True,
-                        "xt": self.xt,
-                        "component_specs": [
-                            {
-                                "kind": s.kind,
-                                "levels": None if s.levels is None else list(s.levels),
-                            }
-                            for s in (self._component_specs or [])
-                        ],
-                    }
+                    "term_type": self.term_type,
+                    "basis_name": self.basis_name,
+                    "feature": list(self.feature),
+                    "label": self.label,
+                    "by": self.by,
+                    "by_name": self._by_state.feature_name,
+                    "is_selection_penalty": True,
+                    "xt": self.xt,
+                    "component_specs": [
+                        {
+                            "kind": s.kind,
+                            "levels": None if s.levels is None else list(s.levels),
+                        }
+                        for s in (self._component_specs or [])
+                    ],
+                }
                 defs.extend(
                     self._build_selection_penalty_definitions(
                         [np.asarray(P, dtype=np.float64)],
@@ -338,4 +338,6 @@ class RandomEffectTerm(BaseSmoothTerm):
         B = blocks[0] if len(blocks) == 1 else rowwise_kronecker(blocks)
 
         z = by_values_from_new_data(X_new, self._by_state)
-        return np.asarray(self._apply_by_scale(B, z, allow_missing=True), dtype=np.float64)
+        return np.asarray(
+            self._apply_by_scale(B, z, allow_missing=True), dtype=np.float64
+        )

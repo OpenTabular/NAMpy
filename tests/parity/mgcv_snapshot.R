@@ -215,7 +215,12 @@ fixed_sp_derivatives <- function(sp_ref, eps_grad = 1e-6, eps_hess = 1e-4) {
   list(grad = grad, hess = hess)
 }
 
-fixed_outer <- fixed_sp_derivatives(fit$sp)
+fixed_outer <- tryCatch(
+  fixed_sp_derivatives(fit$sp),
+  error = function(e) {
+    list(grad = numeric(0), hess = matrix(numeric(0), 0, 0))
+  }
+)
 
 pred_response <- unname(as.numeric(predict(fit, type = "response")))
 pred_link <- unname(as.numeric(predict(fit, type = "link")))

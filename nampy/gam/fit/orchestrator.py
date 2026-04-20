@@ -97,8 +97,7 @@ def fit_model_core(
     if optimize_smoothing is None:
         optimize_smoothing = model.optimize_smoothing
     method = resolve_smoothing_method(
-        model,
-        model.smoothing_method if smoothing_method is None else smoothing_method
+        model, model.smoothing_method if smoothing_method is None else smoothing_method
     )
 
     if optimize_smoothing and method != "fixed":
@@ -140,7 +139,9 @@ def fit_model_core(
                 if model.smoothing_fixed_mask_ is None
                 else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
             )
-            free_vals = np.asarray(model.smoothing_params[~fixed_mask], dtype=np.float64)
+            free_vals = np.asarray(
+                model.smoothing_params[~fixed_mask], dtype=np.float64
+            )
             log_sp = (
                 np.log(np.maximum(free_vals, LOG_GUARD_MIN))
                 if free_vals.size > 0
@@ -157,11 +158,11 @@ def fit_model_core(
                             row.get("penalized_deviance", np.nan),
                         )
                     ),
-                    "gradient": np.asarray(
-                        [float(row["grad_inf_norm"])], dtype=np.float64
-                    )
-                    if row.get("grad_inf_norm", None) is not None
-                    else None,
+                    "gradient": (
+                        np.asarray([float(row["grad_inf_norm"])], dtype=np.float64)
+                        if row.get("grad_inf_norm", None) is not None
+                        else None
+                    ),
                     "rank_info": {
                         "pirls_inner": True,
                         "converged_here": bool(row.get("converged_here", False)),
@@ -184,7 +185,7 @@ def fit_model_core(
         )
         model.smoothing_score_ = float(
             criterion_value(model, y, log_free, method=model._optim_method)
-    )
+        )
 
     model._fitted = True
     model.gam_result_ = build_gam_result(model)

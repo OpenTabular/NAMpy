@@ -84,7 +84,9 @@ def knots_for_features(model, feature_names, *, knots=None):
 def dataframe_to_feature_matrix(
     X_df: pd.DataFrame, *, allow_missing_non_numeric: bool = False
 ):
-    non_numeric = [c for c in X_df.columns if not pd.api.types.is_numeric_dtype(X_df[c])]
+    non_numeric = [
+        c for c in X_df.columns if not pd.api.types.is_numeric_dtype(X_df[c])
+    ]
 
     if len(non_numeric) == 0:
         X_np = X_df.to_numpy(dtype=np.float64)

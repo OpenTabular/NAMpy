@@ -969,6 +969,14 @@ d <- read.csv(args[[1]], stringsAsFactors = FALSE)
 for (nm in names(d)) if (is.character(d[[nm]])) d[[nm]] <- factor(d[[nm]])
 out <- args[[2]]
 formula_text <- normalize_formula_text(args[[3]])
+coerce_formula <- function(x) {
+  obj <- eval(parse(text = x))
+  if (is.character(obj)) {
+    if (length(obj) == 1) return(as.formula(obj))
+    return(lapply(obj, as.formula))
+  }
+  obj
+}
 family_name <- tolower(args[[4]])
 method_name <- args[[5]]
 select_flag <- tolower(args[[6]]) %in% c("true", "1", "yes")
@@ -1009,7 +1017,7 @@ family_obj <- switch(
 )
 
 gam_args <- list(
-  formula = as.formula(formula_text),
+  formula = coerce_formula(formula_text),
   data = d,
   family = family_obj,
   method = fit_method,
@@ -1139,9 +1147,7 @@ write_json(list(X = unname(sm$X)), out, auto_unbox = TRUE, digits = 17)
         data.to_csv(csv_path, index=False)
         script_path.write_text(r_code, encoding="utf-8")
         subprocess.run(
-            _build_r_command(
-                script_path, str(csv_path), str(json_path), smooth_expr
-            ),
+            _build_r_command(script_path, str(csv_path), str(json_path), smooth_expr),
             check=True,
             cwd=_REPO_ROOT,
             capture_output=True,
@@ -1249,9 +1255,7 @@ write_json(list(X = unname(sm$X)), out, auto_unbox = TRUE, digits = 17)
         data.to_csv(csv_path, index=False)
         script_path.write_text(r_code, encoding="utf-8")
         subprocess.run(
-            _build_r_command(
-                script_path, str(csv_path), str(json_path), smooth_expr
-            ),
+            _build_r_command(script_path, str(csv_path), str(json_path), smooth_expr),
             check=True,
             cwd=_REPO_ROOT,
             capture_output=True,
@@ -1558,9 +1562,7 @@ write_json(
         data.to_csv(csv_path, index=False)
         script_path.write_text(r_code, encoding="utf-8")
         subprocess.run(
-            _build_r_command(
-                script_path, str(csv_path), str(json_path), str(int(k))
-            ),
+            _build_r_command(script_path, str(csv_path), str(json_path), str(int(k))),
             check=True,
             cwd=_REPO_ROOT,
             capture_output=True,
@@ -1756,12 +1758,13 @@ def _run_mgcv_fixed_sp_score(
     _family_nampy, family_token = _family_specs(family)
     del _family_nampy
     sp_list = np.asarray(smoothing_params, dtype=np.float64).tolist()
+    formula_r = _normalize_python_formula_text(formula)
 
     _cache_key = _mgcv_cache_key(
         "fixed_sp_score",
         {
             "data": _df_cache_repr(data),
-            "formula": formula,
+            "formula": formula_r,
             "family_token": family_token,
             "method": method,
             "select": select,
@@ -1779,6 +1782,14 @@ args <- commandArgs(trailingOnly = TRUE)
 d <- read.csv(args[[1]], stringsAsFactors = FALSE)
 for (nm in names(d)) if (is.character(d[[nm]])) d[[nm]] <- factor(d[[nm]])
 formula_text <- args[[2]]
+coerce_formula <- function(x) {
+  obj <- eval(parse(text = x))
+  if (is.character(obj)) {
+    if (length(obj) == 1) return(as.formula(obj))
+    return(lapply(obj, as.formula))
+  }
+  obj
+}
 family_name <- tolower(args[[3]])
 method_name <- args[[4]]
 select_flag <- tolower(args[[5]]) == "true"
@@ -1802,10 +1813,19 @@ family_obj <- switch(
     theta <- if (is.null(family_param)) 1.0 else as.numeric(family_param)
     mgcv::nb(theta = theta, link = "log")
   },
+  negbin_est = {
+    theta <- if (is.null(family_param)) 1.0 else as.numeric(family_param)
+    mgcv::nb(theta = -abs(theta), link = "log")
+  },
+  gaulss = mgcv::gaulss(),
+  gammals = mgcv::gammals(),
+  ziplss = mgcv::ziplss(),
+  gevlss = mgcv::gevlss(),
+  shash = mgcv::shash(),
   stop(sprintf("Unsupported family for fixed-sp score: %s", family_name))
 )
 fit <- gam(
-  formula = as.formula(formula_text),
+  formula = coerce_formula(formula_text),
   data = d,
   family = family_obj,
   method = method_name,
@@ -1815,7 +1835,7 @@ fit <- gam(
 log_sp_ref <- log(pmax(sp, 1e-300))
 eval_at_log_sp <- function(log_sp) {
   fixed_fit <- gam(
-    formula = as.formula(formula_text),
+    formula = coerce_formula(formula_text),
     data = d,
     family = family_obj,
     method = method_name,
@@ -1864,7 +1884,7 @@ write_json(
             _build_r_command(
                 script_path,
                 str(csv_path),
-                formula,
+                formula_r,
                 family_token,
                 method,
                 "true" if select else "false",

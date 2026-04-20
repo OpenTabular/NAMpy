@@ -179,4 +179,3 @@ def sync_gam_result(model):
     model.gam_result_ = None
     model.gam_result_ = build_gam_result(model, prefer_cached_summary=False)
     return model.gam_result_
-

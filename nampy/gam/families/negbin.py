@@ -17,6 +17,8 @@ class NegativeBinomialLogFamily(ExtendedFamily):
     supports_pirls = True
 
     supports_gcv = False
+    supports_ncv = True
+    supports_qncv = True
     supports_ubre = True
     supports_ml = True
     supports_reml = True

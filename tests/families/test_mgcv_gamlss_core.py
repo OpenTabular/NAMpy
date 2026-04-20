@@ -471,9 +471,9 @@ def test_general_fit5_run_uses_canonical_penalty_logdet_derivatives(monkeypatch)
     np.testing.assert_allclose(
         setup.X_initial,
         _Pred().design_matrix
-        * np.array(
-            [1.0, 1.0 / np.sqrt(2.0), 1.0 / np.sqrt(3.0)], dtype=np.float64
-        )[np.newaxis, :],
+        * np.array([1.0, 1.0 / np.sqrt(2.0), 1.0 / np.sqrt(3.0)], dtype=np.float64)[
+            np.newaxis, :
+        ],
         rtol=0.0,
         atol=1e-15,
     )
@@ -502,7 +502,9 @@ def test_general_fit5_run_uses_canonical_penalty_logdet_derivatives(monkeypatch)
     assert recorded["ldetS"] == pytest.approx(3.5)
     np.testing.assert_allclose(recorded["ldetS1"], np.array([1.0], dtype=np.float64))
     np.testing.assert_allclose(recorded["ldetS2"], np.array([[7.0]], dtype=np.float64))
-    np.testing.assert_allclose(run["setup"].X_initial, recorded["X"], rtol=0.0, atol=0.0)
+    np.testing.assert_allclose(
+        run["setup"].X_initial, recorded["X"], rtol=0.0, atol=0.0
+    )
     assert recorded["Sl"] is run["setup"].Sl
     np.testing.assert_allclose(run["setup"].St, setup.St, rtol=0.0, atol=0.0)
     np.testing.assert_allclose(run["setup"].log_sp, setup.log_sp, rtol=0.0, atol=0.0)

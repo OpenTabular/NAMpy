@@ -153,10 +153,8 @@ UNCONDITIONAL_GAP_REASONS: dict[tuple[str, str], str] = {
 ITERMS_GAP_REASONS: dict[str, str] = {
     "factor_smooth_sz": 'predict.gam(type="iterms") for sz still differs from mgcv.',
 }
-ANOVA_GAP_REASONS: dict[str, str] = {
-}
-RESIDUAL_GAP_REASONS: dict[tuple[str, str], str] = {
-}
+ANOVA_GAP_REASONS: dict[str, str] = {}
+RESIDUAL_GAP_REASONS: dict[tuple[str, str], str] = {}
 KCHECK_GAP_REASONS: dict[str, str] = {
     "gaussian_by_factor": "k.check parity remains under triage for factor-by smooths.",
 }
@@ -326,21 +324,21 @@ def _maybe_mark_kcheck_gap(request: pytest.FixtureRequest, case: CaseSpec) -> No
 
 
 def _assert_kcheck_p_value(value: float, *, n_rep: int, term: str, source: str) -> None:
-    assert np.isfinite(value), (
-        f"{source} k_check p_value is non-finite for '{term}': {value}"
-    )
-    assert 0.0 <= value <= 1.0, (
-        f"{source} k_check p_value out of range for '{term}': {value}"
-    )
+    assert np.isfinite(
+        value
+    ), f"{source} k_check p_value is non-finite for '{term}': {value}"
+    assert (
+        0.0 <= value <= 1.0
+    ), f"{source} k_check p_value out of range for '{term}': {value}"
     scaled = value * n_rep
     nearest = np.rint(scaled)
     assert np.isclose(scaled, nearest, atol=1e-12), (
         f"{source} k_check p_value for '{term}' is not on mgcv grid "
         f"({_KCHECK_PGRID:g} increments): value={value}"
     )
-    assert 0.0 <= nearest <= n_rep, (
-        f"{source} k_check p_value for '{term}' maps to invalid grid index: value={value}, n_rep={n_rep}"
-    )
+    assert (
+        0.0 <= nearest <= n_rep
+    ), f"{source} k_check p_value for '{term}' maps to invalid grid index: value={value}, n_rep={n_rep}"
 
 
 @lru_cache(maxsize=None)
@@ -819,9 +817,7 @@ def test_k_check_matches_mgcv_or_documented_gap(
     expected_block = expected["parity"]["diagnostics"].get("k_check")
     assert expected_block is not None
 
-    actual = model.k_check(
-        subsample=_KCHECK_SUBSAMPLE, n_rep=_KCHECK_N_REP, seed=0
-    )
+    actual = model.k_check(subsample=_KCHECK_SUBSAMPLE, n_rep=_KCHECK_N_REP, seed=0)
     actual_values = actual[["k_prime", "edf", "k_index", "p_value"]].to_numpy(
         dtype=np.float64
     )
@@ -830,9 +826,7 @@ def test_k_check_matches_mgcv_or_documented_gap(
     expected_values = _normalize_numeric_matrix(expected_block["values"])
 
     assert len(actual.index) == len(expected_labels) == expected_values.shape[0]
-    assert [
-        _compact_kcheck_label(x) for x in actual.index
-    ] == [
+    assert [_compact_kcheck_label(x) for x in actual.index] == [
         _compact_kcheck_label(x) for x in expected_labels
     ], (
         "k_check term order diverged between NAMpy and mgcv snapshots.\n"

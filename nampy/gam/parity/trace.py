@@ -56,10 +56,14 @@ def build_optimizer_trace(model):
         )
 
     optim_result = getattr(core, "_optim_result", None)
-    optim_success = None if optim_result is None else getattr(optim_result, "success", None)
+    optim_success = (
+        None if optim_result is None else getattr(optim_result, "success", None)
+    )
     optim_nit = None if optim_result is None else getattr(optim_result, "nit", None)
     edge_correct = (
-        None if optim_result is None else getattr(optim_result, "mgcv_edge_correct", None)
+        None
+        if optim_result is None
+        else getattr(optim_result, "mgcv_edge_correct", None)
     )
     edge_correct_applied = (
         None

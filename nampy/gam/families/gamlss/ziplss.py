@@ -16,11 +16,11 @@ def _l1ee(x: np.ndarray) -> np.ndarray:
     # lower tail: log(1-exp(-f)) ≈ log(f - f^2/2 + f^3/6)
     low = x < np.log(np.finfo(np.float64).eps) / 3.0
     very_low = x < -np.log(np.finfo(np.float64).max)
-    l = np.log1p(-np.exp(-ex))
+    ll = np.log1p(-np.exp(-ex))
     exi = ex[low]
-    l[low] = np.log(exi - exi**2 / 2.0 + exi**3 / 6.0)
-    l[very_low] = x[very_low]
-    return l
+    ll[low] = np.log(exi - exi**2 / 2.0 + exi**3 / 6.0)
+    ll[very_low] = x[very_low]
+    return ll
 
 
 def _lee1(x: np.ndarray) -> np.ndarray:
@@ -30,12 +30,12 @@ def _lee1(x: np.ndarray) -> np.ndarray:
     low = x < np.log(np.finfo(np.float64).eps) / 3.0
     very_low = x < -np.log(np.finfo(np.float64).max)
     high = x > np.log(np.log(np.finfo(np.float64).max))
-    l = np.log(np.expm1(ex))
+    ll = np.log(np.expm1(ex))
     exi = ex[low]
-    l[low] = np.log(exi + exi**2 / 2.0 + exi**3 / 6.0)
-    l[very_low] = x[very_low]
-    l[high] = ex[high]
-    return l
+    ll[low] = np.log(exi + exi**2 / 2.0 + exi**3 / 6.0)
+    ll[very_low] = x[very_low]
+    ll[high] = ex[high]
+    return ll
 
 
 def _ldg(g: np.ndarray, deriv: int = 4) -> dict:
@@ -200,9 +200,9 @@ def _zipll(y: np.ndarray, g: np.ndarray, eta: np.ndarray, deriv: int = 0) -> dic
     yp = y[~zind]
 
     et = np.exp(np.minimum(eta, 500.0))  # exp(eta)
-    l = et.copy()  # start with zeros shaped like et
-    l[zind] = -et[zind]  # log P(y=0) = log(exp(-exp(eta))) = -exp(eta)
-    l[~zind] = _l1ee(eta[~zind]) + yp * g[~zind] - _lee1(g[~zind]) - gammaln(yp + 1.0)
+    ll = et.copy()  # start with zeros shaped like et
+    ll[zind] = -et[zind]  # log P(y=0) = log(exp(-exp(eta))) = -exp(eta)
+    ll[~zind] = _l1ee(eta[~zind]) + yp * g[~zind] - _lee1(g[~zind]) - gammaln(yp + 1.0)
 
     l1 = l2 = l3 = l4 = None
     if deriv:
@@ -211,30 +211,30 @@ def _zipll(y: np.ndarray, g: np.ndarray, eta: np.ndarray, deriv: int = 0) -> dic
         lg = _ldg(g, deriv)
 
         l1[~zind, 0] = yp + lg["l1"][~zind]  # l_g, y>0
-        l1[zind, 1] = l[zind]  # l_eta, y=0 = -exp(eta)
+        l1[zind, 1] = ll[zind]  # l_eta, y=0 = -exp(eta)
         l1[~zind, 1] = le["l1"][~zind]  # l_eta, y>0
 
         l2 = np.zeros((n, 3), dtype=np.float64)
         # order: gg, ge, ee
         l2[~zind, 0] = lg["l2"][~zind]  # l_gg, y>0
         l2[~zind, 2] = le["l2"][~zind]  # l_ee, y>0
-        l2[zind, 2] = l[zind]  # l_ee, y=0
+        l2[zind, 2] = ll[zind]  # l_ee, y=0
 
     if deriv > 1:
         l3 = np.zeros((n, 4), dtype=np.float64)
         # order: ggg, gge, gee, eee
         l3[~zind, 0] = lg["l3"][~zind]
         l3[~zind, 3] = le["l3"][~zind]
-        l3[zind, 3] = l[zind]
+        l3[zind, 3] = ll[zind]
 
     if deriv > 3:
         l4 = np.zeros((n, 5), dtype=np.float64)
         # order: gggg, ggge, ggee, geee, eeee
         l4[~zind, 0] = lg["l4"][~zind]
         l4[~zind, 4] = le["l4"][~zind]
-        l4[zind, 4] = l[zind]
+        l4[zind, 4] = ll[zind]
 
-    return {"l": l, "l1": l1, "l2": l2, "l3": l3, "l4": l4}
+    return {"l": ll, "l1": l1, "l2": l2, "l3": l3, "l4": l4}
 
 
 _ZIPLSS_SATURATED_LAMBDA = np.array(
@@ -263,11 +263,11 @@ _ZIPLSS_SATURATED_LAMBDA = np.array(
 def _ziplss_saturated_loglik(y: np.ndarray) -> np.ndarray:
     """Saturated log-likelihood for ziplss (mgcv ``zipll(log(g), 1e10)`` analogue)."""
     y = np.asarray(y, dtype=np.float64).ravel().copy()
-    l = y.copy()
-    if l.size == 0:
-        return l
+    ll = y.copy()
+    if ll.size == 0:
+        return ll
 
-    l[y < 2.0] = 0.0
+    ll[y < 2.0] = 0.0
     ind_mid = (y > 1.0) & (y < 18.0)
     if np.any(ind_mid):
         g = y.copy()
@@ -279,13 +279,13 @@ def _ziplss_saturated_loglik(y: np.ndarray) -> np.ndarray:
 
     ind = y > 1.0
     if np.any(ind):
-        l[ind] = _zipll(
+        ll[ind] = _zipll(
             y[ind],
             np.log(np.asarray(g, dtype=np.float64)[ind]),
             np.full(int(np.sum(ind)), 1.0e10, dtype=np.float64),
             deriv=0,
         )["l"]
-    return l
+    return ll
 
 
 # ---------------------------------------------------------------------------
@@ -364,39 +364,25 @@ class ZiplssFamily(GamlssFamily):
         coef = np.asarray(coef, dtype=np.float64)
         sandwich = bool(kw.get("sandwich", False))
 
-        off1 = off2 = None
-        if offset is not None:
-            if isinstance(offset, (list, tuple)):
-                off1 = (
-                    np.asarray(offset[0], dtype=np.float64)
-                    if len(offset) > 0 and offset[0] is not None
-                    else None
-                )
-                off2 = (
-                    np.asarray(offset[1], dtype=np.float64)
-                    if len(offset) > 1 and offset[1] is not None
-                    else None
-                )
-            else:
-                off1 = np.asarray(offset, dtype=np.float64)
-
-        # Linear predictors (both identity links)
-        g = X[:, jj[0]] @ coef[jj[0]]  # log Poisson mean
-        if off1 is not None:
-            g = g + off1
-        eta = X[:, jj[1]] @ coef[jj[1]]  # loglog presence
-        if off2 is not None:
-            eta = eta + off2
+        eta_mat = self._eta_matrix_from_inputs(
+            X,
+            jj,
+            coef,
+            offset=offset,
+            eta=kw.get("eta", None),
+        )
+        g = np.asarray(eta_mat[:, 0], dtype=np.float64)
+        eta = np.asarray(eta_mat[:, 1], dtype=np.float64)
 
         # lambda and p are linkinv(eta_k) = identity = eta_k directly
         lam = self.linfo[0].linkinv(g)  # = g
         p = self.linfo[1].linkinv(eta)  # = eta
 
         zl = _zipll(y, lam, p, deriv)
-        l = float(np.sum(zl["l"]))
+        ll = float(np.sum(zl["l"]))
 
         if deriv == 0:
-            return {"l": l, "l0": zl["l"]}
+            return {"l": ll, "l0": zl["l"]}
 
         # Link derivatives for chain rule (both identity → trivial)
         ig1 = np.column_stack(
@@ -446,7 +432,6 @@ class ZiplssFamily(GamlssFamily):
             i4,
             deriv - 1,
         )
-
         ret = gamlss_gH(
             X,
             jj,
@@ -464,7 +449,11 @@ class ZiplssFamily(GamlssFamily):
             D=D,
             sandwich=sandwich,
         )
-        ret["l"] = l
+        if bool(kw.get("ncv", False)):
+            ret["l1"] = np.asarray(de["l1"], dtype=np.float64)
+            ret["l2"] = np.asarray(de["l2"], dtype=np.float64)
+            ret["l3"] = de["l3"]
+        ret["l"] = ll
         ret["l0"] = zl["l"]
         return ret
 

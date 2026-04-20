@@ -12,6 +12,7 @@ from .._model_state import (
     _cov_unconditional,
     _edf2,
     _edf_total,
+    _fit_result,
     _fit_scale,
     _fit_state,
     _fitted_eta,
@@ -74,6 +75,7 @@ class GAM:
         self.knots = self.hparams.get("knots", None)
         self.min_sp = self.hparams.get("min_sp", None)
         self.drop_intercept = self.hparams.get("drop_intercept", None)
+        self.nei = self.hparams.get("nei", None)
 
         self.family = make_gam_family(family)
 
@@ -168,6 +170,7 @@ class GAM:
         min_sp=None,
         knots=None,
         drop_intercept=None,
+        nei=None,
     ):
         formula = self.formula if formula is None else formula
         knots = self.knots if knots is None else knots
@@ -175,6 +178,7 @@ class GAM:
         drop_intercept = (
             self.drop_intercept if drop_intercept is None else drop_intercept
         )
+        self.nei = self.nei if nei is None else nei
 
         if formula is not None:
             if data is None:
@@ -596,17 +600,73 @@ class GAM:
         Mirrors mgcv ``logLik.gam`` in mgcv/R/mgcv.r.
         """
         family_class = str(getattr(self.family, "family_class", "")).lower()
-        if family_class == "general":
-            sc_p = 0.0
-        else:
-            sc_p = 1.0 if getattr(self.family, "known_scale", None) is None else 0.0
+        sc_p = 0.0 if family_class == "general" else (
+            1.0 if getattr(self.family, "known_scale", None) is None else 0.0
+        )
+        p = float(_edf_total(self)) + sc_p
         edf2 = _edf2(self)
         if edf2 is not None:
             p = float(np.sum(np.asarray(edf2, dtype=np.float64))) + sc_p
-        else:
-            p = float(_edf_total(self)) + sc_p
         np_max = float(len(np.asarray(_coef_full(self), dtype=np.float64))) + sc_p
         return min(p, np_max)
+
+    def _mgcv_loglik_value_df(self) -> tuple[float, float]:
+        """
+        mgcv ``logLik.gam`` uses two df notions:
+
+        - value uses ``sum(edf) + scale.estimated``
+        - attr(df) uses ``sum(edf2) + scale.estimated`` when available
+        """
+        family_class = str(getattr(self.family, "family_class", "")).lower()
+        sc_p = 0.0 if family_class == "general" else (
+            1.0 if getattr(self.family, "known_scale", None) is None else 0.0
+        )
+        p_val = float(_edf_total(self)) + sc_p
+        p_df = p_val
+        edf2 = _edf2(self)
+        if edf2 is not None:
+            p_df = float(np.sum(np.asarray(edf2, dtype=np.float64))) + sc_p
+        np_max = float(len(np.asarray(_coef_full(self), dtype=np.float64))) + sc_p
+        if p_df > np_max:
+            p_df = np_max
+        n_theta = getattr(self.family, "n_theta", None)
+        if family_class == "extended" and n_theta is not None:
+            p_df += float(n_theta)
+        return p_val, p_df
+
+    def _mgcv_object_aic(self) -> float | None:
+        """
+        Final ``object$aic`` before ``logLik.gam`` post-processing.
+
+        For Gaussian fits, mirror ``gam.fit3.r`` raw-family AIC plus the later
+        ``mgcv.r`` `+ 2*sum(object$edf)` update exactly.
+        """
+        fit_result = _fit_result(self)
+        if fit_result is None:
+            return None
+
+        family_name = str(getattr(self.family, "name", "")).lower()
+        if family_name == "gaussian":
+            weights = (
+                np.ones_like(np.asarray(self.y_, dtype=np.float64), dtype=np.float64)
+                if self.prior_weights_ is None
+                else np.asarray(self.prior_weights_, dtype=np.float64)
+            )
+            positive = weights > 0.0
+            nobs = int(np.count_nonzero(positive))
+            if nobs == 0:
+                return None
+            dev = float(getattr(fit_result, "deviance", np.nan))
+            if not np.isfinite(dev) or dev <= 0.0:
+                return None
+            raw_aic = (
+                float(nobs) * (np.log(dev / float(nobs) * 2.0 * np.pi) + 1.0)
+                + 2.0
+                - float(np.sum(np.log(weights[positive])))
+            )
+            return float(raw_aic + 2.0 * float(_edf_total(self)))
+
+        return None
 
     def loglik(self) -> float:
         """
@@ -616,6 +676,11 @@ class GAM:
         """
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
+
+        object_aic = self._mgcv_object_aic()
+        if object_aic is not None:
+            p_val, _p_df = self._mgcv_loglik_value_df()
+            return float(p_val - object_aic / 2.0)
 
         if getattr(self.family, "family_class", "") == "general":
             X = np.asarray(_fit_state(self).X, dtype=np.float64)
@@ -647,11 +712,23 @@ class GAM:
             else np.asarray(self.prior_weights_, dtype=np.float64)
         )
         dev = float(self.family.deviance(y, mu, weights=weights))
-        if getattr(self.family, "known_scale", None) is None:
-            n_obs = float(len(y))
-            scale = max(dev / n_obs, np.finfo(np.float64).tiny)
+        fit_scale = _fit_scale(self)
+        if (
+            fit_scale is not None
+            and np.isfinite(float(fit_scale))
+            and float(fit_scale) > 0.0
+        ):
+            scale = float(fit_scale)
+        elif getattr(self.family, "known_scale", None) is None:
+            scale_est = self.family.estimate_dispersion(
+                y,
+                mu,
+                edf=float(_edf_total(self)),
+                weights=weights,
+            )
+            scale = max(float(scale_est), np.finfo(np.float64).tiny)
         else:
-            scale = float(_fit_scale(self))
+            scale = float(self.family.known_scale)
         sat = float(
             self.family.saturated_loglik(
                 y,
@@ -664,6 +741,10 @@ class GAM:
 
     def aic(self) -> float:
         """mgcv-style conditional AIC based on effective df."""
+        object_aic = self._mgcv_object_aic()
+        if object_aic is not None:
+            p_val, p_df = self._mgcv_loglik_value_df()
+            return float(object_aic + 2.0 * (p_df - p_val))
         return float(-2.0 * self.loglik() + 2.0 * self._mgcv_loglik_df())
 
     def bic(self) -> float:

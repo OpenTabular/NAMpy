@@ -1,3 +1,6 @@
+from .categorical.factor_smooth import FSmoothInteractionTerm, SZSmoothInteractionTerm
+from .categorical.mrf import MarkovRandomFieldTerm
+from .categorical.random_effect import RandomEffectTerm
 from .registry import available_smooths, make_smooth_term, register_smooth
 from .smooth_base import (
     RUNTIME_TERM_INTERFACE_CHECKLIST,
@@ -23,9 +26,6 @@ from .smooth_base import (
 from .tensor.t2 import TensorANOVASplineTerm
 from .tensor.te import TensorProductSplineTerm
 from .tensor.ti import InteractionTensorProductSplineTerm
-from .categorical.factor_smooth import FSmoothInteractionTerm, SZSmoothInteractionTerm
-from .categorical.mrf import MarkovRandomFieldTerm
-from .categorical.random_effect import RandomEffectTerm
 from .univariate.cubic_regression import SplineTerm1D
 from .univariate.gp import GPSmoothTerm
 from .univariate.pspline import PSplineTerm1D

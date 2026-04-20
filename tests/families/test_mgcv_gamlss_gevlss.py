@@ -77,7 +77,6 @@ def test_gevlss_ll_loglik():
     assert np.isfinite(result["l"])
 
     # Direct GEV log-lik: Gumbel (xi→0) or GEV(xi≠0)
-    eps_xi = 1e-7
     aa = np.maximum(1.0 + xi * (y - mu) / sigma, 1e-300)
     l_ref = float(np.sum(-(1.0 / xi + 1.0) * np.log(aa) - aa ** (-1.0 / xi) - rho))
     assert_allclose(result["l"], l_ref, rtol=1e-10)
@@ -385,18 +384,6 @@ def test_gevlss_l3_fd():
     # Simulate y from GEV
     U = rng.uniform(0.02, 0.98, n)
     y = mu0 + sigma * ((-np.log(U)) ** (-xi0) - 1.0) / xi0
-
-    # Build trivial design (intercept-only, identity link for all params)
-    p = 3
-    X = np.ones((n, p))
-    jj = [np.array([0]), np.array([1]), np.array([2])]
-    coef = np.array([mu0, rho0, 0.0])  # xi link is shifted logit; 0 → xi≈0
-
-    fam = gevlss(link=("identity", "identity", "identity"))
-    # With identity link on xi, coef[2] = xi directly
-    coef_xi = np.array([mu0, rho0, xi0])
-
-    weights = np.ones(n)
 
     # Get analytic l3 — call ll with deriv=2 and extract l3_val via a helper
     # We test at the raw (mu, rho, xi) parameter level using _gevlss_l2_raw.
@@ -752,8 +739,6 @@ def test_gevlss_l4_fd():
 
     mu_v = np.full(n, mu0)
     rho_v = np.full(n, rho0)
-    xi_v = np.full(n, xi0)
-
     h = 1e-4  # larger step for 4th deriv FD stability
 
     # Centered FD of l3 w.r.t. each parameter

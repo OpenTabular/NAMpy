@@ -379,6 +379,8 @@ def _optimize_outer_efs_mgcv(
             "conv": result.message,
             "iter": int(iter_idx),
             "score_hist": list(score_hist),
+            "convergence": int(result.status),
+            "message": str(result.message),
         }
         return result
     finally:

@@ -465,7 +465,9 @@ class SplineTerm1D(BaseSmoothTerm):
             "has_shared_basis_setup": self.shared_basis_setup is not None,
             "fixed": bool(self.fixed),
         }
-        base_metadata = self._penalty_metadata_with_scale(base_metadata, penalty_index=0)
+        base_metadata = self._penalty_metadata_with_scale(
+            base_metadata, penalty_index=0
+        )
         return self._build_penalty_block(
             self.penalties[0],
             smooth_metadata=base_metadata,

@@ -42,7 +42,6 @@ from nampy.gam.smooths.algebra import t2_marginal_reparameterization
 from nampy.gam.smooths.univariate.cubic_regression import SplineTerm1D
 from nampy.gam.specs.build import build_formula_model
 from tests.mgcv_parity_utils import (
-    R_SCRIPT,
     _assert_allclose_up_to_column_sign,
     _assert_basic_mgcv_parity,
     _assert_exact_mgcv_snapshot_parity,

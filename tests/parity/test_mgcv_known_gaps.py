@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from tests.mgcv_parity_utils import (
-    R_SCRIPT,
     _fit_nampy_model_fixed_sp,
     _fit_nampy_snapshot,
     _make_negbin_data,
@@ -12,7 +10,6 @@ from tests.mgcv_parity_utils import (
     get_parity_case,
     make_parity_case_data,
 )
-
 
 
 def test_strict_t2_fixed_sp_response_parity():

@@ -270,7 +270,9 @@ def make_predictor_specs(model, feature_names, *, knots=None):
     return [LinearPredictorSpec(name="eta", terms=terms)]
 
 
-def prepare_formula_inputs(model, data, formula, y=None, knots=None, drop_intercept=None):
+def prepare_formula_inputs(
+    model, data, formula, y=None, knots=None, drop_intercept=None
+):
     parsed = parse_gam_formula(formula)
     extracted = extract_formula_terms(parsed, drop_intercept=drop_intercept)
     build_result: FormulaBuildResult = build_formula_model(

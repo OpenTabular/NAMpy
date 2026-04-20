@@ -83,7 +83,7 @@ def test_zipll_loglik():
     g = rng.uniform(0.5, 1.5, n)
     eta = rng.uniform(-0.5, 1.0, n)
     lam = np.exp(g)  # Poisson mean
-    p = 1.0 - np.exp(-np.exp(eta))  # presence prob
+    _p = 1.0 - np.exp(-np.exp(eta))  # presence prob
 
     y = np.zeros(n, dtype=np.float64)
     y[::3] = rng.poisson(lam[::3]) + 1  # some non-zeros

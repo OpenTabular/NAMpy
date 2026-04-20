@@ -53,7 +53,9 @@ def _gaussian_fit3_gdi_beta_full(model, X, smoothing_params, z_work, w):
     w = np.asarray(w, dtype=np.float64).ravel()
 
     canonical = build_gam_fit3_reparam_state(model, X, sp, deriv=0)
-    X_canon = np.asarray(X @ np.asarray(canonical.T, dtype=np.float64), dtype=np.float64)
+    X_canon = np.asarray(
+        X @ np.asarray(canonical.T, dtype=np.float64), dtype=np.float64
+    )
     q_full = int(X_canon.shape[1])
     q_range = int(q_full - int(canonical.Mp))
     n_sp = int(_n_smoothing_params(model) or 0)
@@ -244,7 +246,9 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         else:
             sol["intercept"] = 0.0
             sol["beta"] = coef_full.copy()
-        sol["penalty_quadratic"] = float(sol.get("penalty_quadratic", stacked["penalty_quadratic"]))
+        sol["penalty_quadratic"] = float(
+            sol.get("penalty_quadratic", stacked["penalty_quadratic"])
+        )
     else:
         scale = model.family.estimate_dispersion(y, eta, edf=sol["trace_H"], weights=w)
     resid = y - eta

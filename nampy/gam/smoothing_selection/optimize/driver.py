@@ -12,6 +12,8 @@ from ..._model_state import (
     _term_blocks_seq,
 )
 from ...fit.model_ops import (
+    criterion_gradient,
+    criterion_hessian,
     criterion_value,
     raise_ml_reml_backend_error,
 )
@@ -33,6 +35,7 @@ from .objectives import (
     _GaussianRemlJointObjective,
     _GaussianRemlProfiledObjective,
     _JointGammaPirlsRemlObjective,
+    _JointNegbinNcvObjective,
     _JointNegbinPirlsRemlObjective,
 )
 from .outer import _optimize_outer_newton, _optimize_outer_newton_indefinite_hessian
@@ -149,10 +152,60 @@ def _optimize_negbin_reml_joint_native(model, y, x0, free_mask, method, sp_bound
     return result
 
 
+def _refresh_final_outer_derivatives(model, y, method, result, objective=None):
+    """Populate mgcv-style outer_info grad/hess at the selected free log-sp."""
+    if result is None or getattr(result, "x", None) is None:
+        return
+    if str(method).lower() not in {"ml", "reml", "laml"}:
+        return
+    if bool(getattr(objective, "uses_joint_log_scale", False)):
+        return
+    if bool(getattr(result, "joint_negbin_reml_outer", False)) or bool(
+        getattr(result, "joint_gamma_reml_outer", False)
+    ):
+        return
+
+    x = np.asarray(result.x, dtype=np.float64).ravel()
+    if x.size == 0:
+        return
+
+    outer_info = dict(getattr(result, "outer_info", {}) or {})
+    try:
+        grad = np.asarray(
+            criterion_gradient(model, y, x, method=method),
+            dtype=np.float64,
+        )
+    except Exception:
+        grad = None
+    try:
+        hess = np.asarray(
+            criterion_hessian(model, y, x, method=method),
+            dtype=np.float64,
+        )
+    except Exception:
+        hess = None
+
+    if grad is not None and grad.shape == x.shape and np.all(np.isfinite(grad)):
+        result.jac = grad.copy()
+        outer_info["grad"] = grad.copy()
+    if (
+        hess is not None
+        and hess.shape == (x.size, x.size)
+        and np.all(np.isfinite(hess))
+    ):
+        hess = 0.5 * (hess + hess.T)
+        result.hess = hess.copy()
+        outer_info["hess"] = hess.copy()
+    if outer_info:
+        result.outer_info = outer_info
+
+
 def supports_smoothing_method(model, method):
     attr_map = {
         "fixed": None,
         "gcv": "supports_gcv",
+        "ncv": "supports_ncv",
+        "qncv": "supports_qncv",
         "ubre": "supports_ubre",
         "aic": "supports_ubre",
         "ubreaic": "supports_ubre",
@@ -163,7 +216,7 @@ def supports_smoothing_method(model, method):
     if method not in attr_map:
         raise ValueError(
             "method must be one of "
-            "{'fixed', 'gcv', 'ubre', 'aic', 'ubreaic', 'ml', 'reml', 'laml'}"
+            "{'fixed', 'gcv', 'ncv', 'qncv', 'ubre', 'aic', 'ubreaic', 'ml', 'reml', 'laml'}"
         )
 
     attr = attr_map[method]
@@ -240,14 +293,26 @@ def optimize_smoothing_params(
 ):
     method = resolve_smoothing_method(model, method)
     optimizer = str(optimizer).lower()
+    if method in {"ncv", "qncv"}:
+        optimizer = "bfgs"
     if optimizer == "newton":
         optimizer = "outer_newton"
     exact_gaussian = str(getattr(model.family, "name", "")).lower() == "gaussian"
 
-    if method not in {"gcv", "ubre", "aic", "ubreaic", "ml", "reml", "laml"}:
+    if method not in {
+        "gcv",
+        "ncv",
+        "qncv",
+        "ubre",
+        "aic",
+        "ubreaic",
+        "ml",
+        "reml",
+        "laml",
+    }:
         raise ValueError(
             "method must be one of "
-            "{'gcv', 'ubre', 'aic', 'ubreaic', 'ml', 'reml', 'laml'}"
+            "{'gcv', 'ncv', 'qncv', 'ubre', 'aic', 'ubreaic', 'ml', 'reml', 'laml'}"
         )
     if not supports_smoothing_method(model, method):
         if method in {"ml", "reml", "laml"}:
@@ -285,7 +350,7 @@ def optimize_smoothing_params(
             "exact first- and second-derivative support; local fallback paths "
             "have been removed."
         )
-    if optimizer == "bfgs" and method in {"ml", "reml", "laml"} and (not use_gradient):
+    if optimizer == "bfgs" and (not use_gradient):
         raise NotImplementedError(
             "Strict mgcv-parity BFGS smoothing optimisation requires an exact "
             "gradient path for this method/family."
@@ -314,6 +379,9 @@ def optimize_smoothing_params(
         and method in {"reml", "laml"}
         and ml_reml_backend == "pirls_laplace"
     )
+    family_class = str(
+        getattr(getattr(model, "family", None), "family_class", "")
+    ).lower()
     use_joint_gaussian_reml_scale = exact_gaussian and method == "reml"
     use_joint_negbin_reml_theta = (
         family_name == "negbin"
@@ -321,9 +389,14 @@ def optimize_smoothing_params(
         and ml_reml_backend == "pirls_laplace"
         and bool(getattr(model.family, "estimate_theta", False))
     )
+    use_joint_negbin_ncv_theta = (
+        family_name == "negbin"
+        and method in {"ncv", "qncv"}
+        and bool(getattr(model.family, "estimate_theta", False))
+    )
     model._pirls_disable_theta_efs_ = False
 
-    if n_free == 0:
+    if n_free == 0 and not use_joint_negbin_ncv_theta:
         model._optim_method = method
         model._optim_result = None
         model._optim_trace = []
@@ -357,6 +430,10 @@ def optimize_smoothing_params(
                 if init is None:
                     init = _initial_smoothing_params_from_design_balance(model, y)
             elif exact_gaussian:
+                init = _initial_smoothing_params_mgcv_style(model, y)
+                if init is None:
+                    init = _initial_smoothing_params_from_design_balance(model, y)
+            elif family_class == "general":
                 init = _initial_smoothing_params_mgcv_style(model, y)
                 if init is None:
                     init = _initial_smoothing_params_from_design_balance(model, y)
@@ -401,6 +478,11 @@ def optimize_smoothing_params(
         else:
             lo = float(model.sp_log_bounds[0])
         bounds.append((lo, float(model.sp_log_bounds[1])))
+
+    if use_joint_negbin_ncv_theta:
+        theta0 = float(max(float(getattr(model.family, "theta", 1.0)), LOG_GUARD_MIN))
+        x0 = np.concatenate([x0, np.array([float(np.log(theta0))], dtype=np.float64)])
+        bounds = list(bounds) + [(float(np.log(LOG_GUARD_MIN)), np.inf)]
 
     if use_joint_gaussian_reml_scale:
         # Mirror `mgcv/R/mgcv.r::get.null.coef` + `scale.as.sp` initialization:
@@ -453,7 +535,13 @@ def optimize_smoothing_params(
         )
 
     branch_m = "LAML" if method == "laml" else "REML"
-    if use_joint_gaussian_reml_scale and optimizer != "bfgs":
+    if use_joint_negbin_ncv_theta:
+        objective = _JointNegbinNcvObjective(
+            model=model,
+            y=y,
+            qapprox=(method == "qncv"),
+        )
+    elif use_joint_gaussian_reml_scale and optimizer != "bfgs":
         objective = _GaussianRemlJointObjective(
             model=model,
             y=y,
@@ -601,6 +689,22 @@ def optimize_smoothing_params(
             if getattr(result, "hess", None) is not None:
                 result.hess = np.asarray(result.hess, dtype=np.float64)[:-1, :-1]
 
+    if use_joint_negbin_ncv_theta and result is not None and result.x is not None:
+        x_joint = np.asarray(result.x, dtype=np.float64).ravel()
+        if x_joint.size == n_free + 1:
+            joint_log_theta = float(x_joint[-1])
+            theta_opt = float(np.exp(joint_log_theta))
+            model.family.theta = float(theta_opt)
+            model._pirls_disable_theta_efs_ = True
+            result.joint_negbin_ncv_outer = True
+            result.joint_log_theta = float(joint_log_theta)
+            result.joint_x = x_joint.copy()
+            result.x = np.asarray(x_joint[:-1], dtype=np.float64).copy()
+            if getattr(result, "jac", None) is not None:
+                result.jac = np.asarray(result.jac, dtype=np.float64).ravel()[:-1]
+            if getattr(result, "hess", None) is not None:
+                result.hess = np.asarray(result.hess, dtype=np.float64)[:-1, :-1]
+
     if (
         exact_gaussian
         and method in {"reml", "laml"}
@@ -638,6 +742,7 @@ def optimize_smoothing_params(
 
     model._optim_method = method
     model._optim_result = result
+    _refresh_final_outer_derivatives(model, y, method, result, objective=objective)
     if (
         getattr(result, "optim_trace", None) is not None
         and (
@@ -648,23 +753,24 @@ def optimize_smoothing_params(
     ):
         trace_rows = []
         uses_joint_log_scale = bool(getattr(objective, "uses_joint_log_scale", False))
+        uses_joint_log_theta = bool(getattr(objective, "uses_joint_log_theta", False))
         for row in list(getattr(result, "optim_trace", []) or []):
             row_dict = dict(row)
             log_sp = np.asarray(row_dict.get("log_sp", []), dtype=np.float64).ravel()
             log_scale = None
+            log_theta = row_dict.get("log_theta", None)
             if uses_joint_log_scale and log_sp.size > 0:
                 log_scale = float(log_sp[-1])
+                log_sp = log_sp[:-1]
+            if uses_joint_log_theta and log_sp.size > 0:
+                log_theta = float(log_sp[-1])
                 log_sp = log_sp[:-1]
             trace_rows.append(
                 {
                     "iter": int(row_dict.get("iter", 0)),
                     "log_sp": log_sp.tolist(),
                     "log_scale": log_scale,
-                    "log_theta": (
-                        None
-                        if row_dict.get("log_theta", None) is None
-                        else float(row_dict.get("log_theta"))
-                    ),
+                    "log_theta": (None if log_theta is None else float(log_theta)),
                     "criterion": (
                         None
                         if row_dict.get("criterion", None) is None
@@ -780,14 +886,17 @@ def optimize_smoothing_params(
     ):
         trace_rows = []
         uses_joint_log_scale = bool(getattr(objective, "uses_joint_log_scale", False))
+        uses_joint_log_theta = bool(getattr(objective, "uses_joint_log_theta", False))
         prev_x = None
         for i, row in enumerate(objective.accepted_trace):
             x_row_full = np.asarray(row["x"], dtype=np.float64)
-            x_row = (
-                np.asarray(x_row_full[:-1], dtype=np.float64)
-                if uses_joint_log_scale and x_row_full.size > 0
-                else x_row_full
-            )
+            log_theta = None
+            x_row = x_row_full
+            if uses_joint_log_scale and x_row.size > 0:
+                x_row = np.asarray(x_row[:-1], dtype=np.float64)
+            if uses_joint_log_theta and x_row.size > 0:
+                log_theta = float(x_row[-1])
+                x_row = np.asarray(x_row[:-1], dtype=np.float64)
             step_norm = float(row.get("accepted_step_norm", 0.0))
             if prev_x is not None and not np.isfinite(step_norm):
                 step_norm = float(np.linalg.norm(x_row - prev_x, ord=2))
@@ -795,7 +904,7 @@ def optimize_smoothing_params(
                 {
                     "iter": int(i + 1),
                     "log_sp": x_row.tolist(),
-                    "log_theta": None,
+                    "log_theta": log_theta,
                     "criterion": None if row.get("fun") is None else float(row["fun"]),
                     "gradient": None,
                     "hessian": None,

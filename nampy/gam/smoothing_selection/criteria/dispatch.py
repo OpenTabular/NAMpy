@@ -23,6 +23,7 @@ from .ml_reml import (
     criterion_ml_reml,
     resolve_ml_reml_scoring_backend,
 )
+from .ncv import criterion_gradient_ncv, criterion_ncv
 from .pirls import (
     _current_joint_negbin_eval_state,
     _is_joint_negbin_theta_model,
@@ -42,6 +43,10 @@ def criterion_value(model, y, log_sp, method="gcv"):
         if uses_closed_form_solver(model):
             return criterion_gcv_gaussian(model, y, log_sp)
         return criterion_gcv_pirls(model, y, log_sp)
+    if method == "ncv":
+        return criterion_ncv(model, y, log_sp, qapprox=False)
+    if method == "qncv":
+        return criterion_ncv(model, y, log_sp, qapprox=True)
     if method in {"ubre", "aic", "ubreaic"}:
         return criterion_ubre_pirls(model, y, log_sp)
     if method == "ml":
@@ -54,7 +59,7 @@ def criterion_value(model, y, log_sp, method="gcv"):
         return criterion_ml_reml(model, y, log_sp, method)
     raise ValueError(
         "method must be one of "
-        "{'gcv', 'ubre', 'aic', 'ubreaic', 'ml', 'reml', 'laml'}"
+        "{'gcv', 'ncv', 'qncv', 'ubre', 'aic', 'ubreaic', 'ml', 'reml', 'laml'}"
     )
 
 
@@ -132,6 +137,10 @@ def criterion_gradient(
     eps_rel=1e-4,
 ):
     method = str(method).lower()
+    if method == "ncv":
+        return criterion_gradient_ncv(model, y, log_sp, qapprox=False)
+    if method == "qncv":
+        return criterion_gradient_ncv(model, y, log_sp, qapprox=True)
     if method in {"ml", "reml", "laml"}:
         backend = resolve_ml_reml_scoring_backend(model, method=method)
         if backend in {"gaussian_exact", "gaussian_dynamic"} and method in {
@@ -277,9 +286,7 @@ def criterion_hessian(
                 getattr(model.family, "supports_exact_pirls_second_derivatives", False)
             )
         ):
-            return criterion_hessian_ml_reml_pirls_exact(
-                model, y, log_sp, "REML"
-            )
+            return criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, "REML")
         if backend in {"gaussian_exact", "gaussian_dynamic"} and method in {
             "reml",
             "laml",

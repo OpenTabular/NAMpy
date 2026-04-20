@@ -27,22 +27,22 @@ unsupported: tests/test_general_family_mgcv_parity.py:571. fs/sz dynamic
 Gaussian REML still loose: tests/test_mgcv_additional_scenarios.py:265.
 fs() k.check feature extraction still incomplete: nampy/gam/diagnostics/
 k_check.py:16, tests/test_mgcv_k_check_parity.py:437.
-  Implemented
-- Core pipeline solid: formula parse/build -> predictor specs -> runtime term
-instantiate -> compile -> identifiability -> fit -> predict.
-- Smooth coverage good for current subset: univariate cr/cs/cc/ps/tp/ts/gp,
-categorical re/mrf/fs/sz, tensor te/ti/t2. Registry proof: nampy/gam/
-smooths/registry.py:1, smooth classes in smooths/.
-- mgcv-port intent real in key backend pieces: smoothCon-like constructor
-path in nampy/gam/compiler/construct.py:150, predictor-side identifiability
-in nampy/gam/constraints/identifiability.py:82, gam.fit5/post-proc mirror
-in nampy/gam/fit/solvers/gam_fit5.py:1, general-family backend in nampy/
-gam/fit/solvers/general_fit5.py:1.
-- Family coverage broad: gaussian, binomial logit/probit/cloglog, poisson,
-gamma variants, negbin, gaulss/gammals/gevlss/shashlss/ziplss. See nampy/
-gam/families/registry.py:1.
-- Diagnostics/parity harness substantial: residuals, concurvity, k-check,
-parity snapshots/traces/output tests. See nampy/gam/diagnostics/
+  ~~Implemented~~
+- ~~Core pipeline solid: formula parse/build -> predictor specs -> runtime term
+    instantiate -> compile -> identifiability -> fit -> predict.~~
+- ~~Smooth coverage good for current subset: univariate cr/cs/cc/ps/tp/ts/gp,
+    categorical re/mrf/fs/sz, tensor te/ti/t2. Registry proof: nampy/gam/
+    smooths/registry.py:1, smooth classes in smooths/.~~
+- ~~mgcv-port intent real in key backend pieces: smoothCon-like constructor
+    path in nampy/gam/compiler/construct.py:150, predictor-side identifiability
+    in nampy/gam/constraints/identifiability.py:82, gam.fit5/post-proc mirror
+    in nampy/gam/fit/solvers/gam_fit5.py:1, general-family backend in nampy/
+    gam/fit/solvers/general_fit5.py:1.~~
+- ~~Family coverage broad: gaussian, binomial logit/probit/cloglog, poisson,
+    gamma variants, negbin, gaulss/gammals/gevlss/shashlss/ziplss. See nampy/
+    gam/families/registry.py:1.~~
+- ~~Diagnostics/parity harness substantial: residuals, concurvity, k-check,
+    parity snapshots/traces/output tests. See nampy/gam/diagnostics/~~
 residuals.py:36, nampy/gam/diagnostics/concurvity.py:71, nampy/gam/
   What Remains
 - Bigger mgcv formula language.

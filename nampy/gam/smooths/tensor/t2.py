@@ -47,7 +47,11 @@ def _t2_marginal_feature_values(term, X):
 
 
 def _orient_t2_marginal_like_mgcv(dec, *, basis_name, feature_values):
-    x = None if feature_values is None else np.asarray(feature_values, dtype=np.float64).ravel()
+    x = (
+        None
+        if feature_values is None
+        else np.asarray(feature_values, dtype=np.float64).ravel()
+    )
     if x is None or x.size == 0 or not np.all(np.isfinite(x)):
         return dec
 

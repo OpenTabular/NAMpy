@@ -550,7 +550,9 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
                                 lpmatrix[
                                     :,
                                     int(tb.coef_slice.start)
-                                    + _coef_column_offset(core) : int(tb.coef_slice.stop)
+                                    + _coef_column_offset(core) : int(
+                                        tb.coef_slice.stop
+                                    )
                                     + _coef_column_offset(core),
                                 ],
                                 dtype=np.float64,
@@ -558,10 +560,14 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
                             @ np.asarray(
                                 _cov_bayes(core)[
                                     int(tb.coef_slice.start)
-                                    + _coef_column_offset(core) : int(tb.coef_slice.stop)
+                                    + _coef_column_offset(core) : int(
+                                        tb.coef_slice.stop
+                                    )
                                     + _coef_column_offset(core),
                                     int(tb.coef_slice.start)
-                                    + _coef_column_offset(core) : int(tb.coef_slice.stop)
+                                    + _coef_column_offset(core) : int(
+                                        tb.coef_slice.stop
+                                    )
                                     + _coef_column_offset(core),
                                 ],
                                 dtype=np.float64,

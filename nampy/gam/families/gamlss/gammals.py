@@ -182,29 +182,15 @@ class GammalsFamily(GamlssFamily):
         n = len(y)
         sandwich = bool(kw.get("sandwich", False))
 
-        off1 = off2 = None
-        if offset is not None:
-            if isinstance(offset, (list, tuple)):
-                off1 = (
-                    np.asarray(offset[0], dtype=np.float64)
-                    if len(offset) > 0 and offset[0] is not None
-                    else None
-                )
-                off2 = (
-                    np.asarray(offset[1], dtype=np.float64)
-                    if len(offset) > 1 and offset[1] is not None
-                    else None
-                )
-            else:
-                off1 = np.asarray(offset, dtype=np.float64)
-
-        # Linear predictors
-        eta = X[:, jj[0]] @ coef[jj[0]]
-        if off1 is not None:
-            eta = eta + off1
-        etat = X[:, jj[1]] @ coef[jj[1]]
-        if off2 is not None:
-            etat = etat + off2
+        eta_mat = self._eta_matrix_from_inputs(
+            X,
+            jj,
+            coef,
+            offset=offset,
+            eta=kw.get("eta", None),
+        )
+        eta = np.asarray(eta_mat[:, 0], dtype=np.float64)
+        etat = np.asarray(eta_mat[:, 1], dtype=np.float64)
 
         mu = self.linfo[0].linkinv(eta)  # log(mean)
         th = self.linfo[1].linkinv(etat)  # log(sigma)
@@ -219,10 +205,10 @@ class GammalsFamily(GamlssFamily):
         l0 = etlymt - logy - ethmuy - gammaln(eth)
         if not np.isfinite(np.sum(l0)):
             return {"l": float(np.sum(l0)), "l0": l0}
-        l = float(np.sum(l0))
+        ll = float(np.sum(l0))
 
         if deriv == 0:
-            return {"l": l, "l0": l0}
+            return {"l": ll, "l0": l0}
 
         # First derivatives w.r.t. mu and th
         l1 = np.empty((n, 2), dtype=np.float64)
@@ -311,7 +297,6 @@ class GammalsFamily(GamlssFamily):
         de = gamlss_etamu(
             l1, l2, l3_val, l4_val, ig1, g2, g3, g4, i2, i3, i4, deriv - 1
         )
-
         ret = gamlss_gH(
             X,
             jj,
@@ -329,7 +314,11 @@ class GammalsFamily(GamlssFamily):
             D=D,
             sandwich=sandwich,
         )
-        ret["l"] = l
+        if bool(kw.get("ncv", False)):
+            ret["l1"] = np.asarray(de["l1"], dtype=np.float64)
+            ret["l2"] = np.asarray(de["l2"], dtype=np.float64)
+            ret["l3"] = de["l3"]
+        ret["l"] = ll
         ret["l0"] = l0
         return ret
 

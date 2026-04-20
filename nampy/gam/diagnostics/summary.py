@@ -93,7 +93,11 @@ def build_summary_lines(model) -> list[str]:
         lines.append(
             _format_summary_row(
                 _format_term_cell(tb),
-                fit_summary.edf_by_term[i] if fit_summary is not None else _edf_by_term(model)[i],
+                (
+                    fit_summary.edf_by_term[i]
+                    if fit_summary is not None
+                    else _edf_by_term(model)[i]
+                ),
                 k_i,
                 sp_txt,
             )
@@ -101,7 +105,9 @@ def build_summary_lines(model) -> list[str]:
 
     lines.append("-" * SUMMARY_WIDTH)
     if _fit_intercept(model):
-        intercept = fit_summary.intercept if fit_summary is not None else _intercept(model)
+        intercept = (
+            fit_summary.intercept if fit_summary is not None else _intercept(model)
+        )
         lines.append(f"Intercept : {intercept:.6g}")
     edf_total = fit_summary.edf_total if fit_summary is not None else _edf_total(model)
     scale = fit_summary.scale if fit_summary is not None else _fit_scale(model)

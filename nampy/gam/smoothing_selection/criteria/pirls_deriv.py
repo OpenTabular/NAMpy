@@ -50,6 +50,7 @@ class _GDI1CurrentSpState:
     XtWX: np.ndarray
     P: np.ndarray
     A: np.ndarray
+    R: np.ndarray
     A_inv: np.ndarray
     penalized_system_rank: int
     dropped_column_indices: np.ndarray
@@ -586,6 +587,7 @@ def _gdi_pk_setup(model, sol, sp, *, deriv):
         XtWX=XtWX_rank,
         P=P_rank,
         A=A_rank,
+        R=np.asarray(Rh, dtype=np.float64),
         A_inv=A_inv_rank,
         penalized_system_rank=rank,
         dropped_column_indices=dropped_idx,

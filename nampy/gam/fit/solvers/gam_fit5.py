@@ -22,6 +22,7 @@ from typing import Any
 
 import numpy as np
 from scipy.linalg import cholesky, solve_triangular
+from scipy.linalg.lapack import get_lapack_funcs
 
 from ..state import _mgcv_dchol, _mgcv_vcorr
 
@@ -35,6 +36,22 @@ class GamFit5Control:
     maxit: int = 200
     epsilon: float = 1e-7
     trace: bool = False
+
+
+class _PivotedCholesky(np.ndarray):
+    """ndarray view carrying mgcv-style pivot metadata for higher-derivative helpers."""
+
+    pivot: np.ndarray | None
+
+    def __new__(cls, array: np.ndarray, pivot: np.ndarray | None = None):
+        obj = np.asarray(array, dtype=np.float64).view(cls)
+        obj.pivot = None if pivot is None else np.asarray(pivot, dtype=np.intp)
+        return obj
+
+    def __array_finalize__(self, obj):
+        if obj is None:
+            return
+        self.pivot = getattr(obj, "pivot", None)
 
 
 # ---------------------------------------------------------------------------
@@ -181,6 +198,8 @@ def gam_fit5(
     eigen_fix = False
     L: np.ndarray | None = None
     D: np.ndarray | None = None
+    piv = np.arange(rank, dtype=int)
+    ipiv = np.arange(rank, dtype=int)
     iter_ = 0
 
     for iter_ in range(1, 2 * control.maxit + 1):
@@ -211,19 +230,23 @@ def gam_fit5(
             Ip = np.eye(rank) * np.finfo(np.float64).eps ** 0.5
 
         # Cholesky factorization with jitter if needed
-        L_arr, ok = _safe_cholesky(Hp_work, Ip, eigen_fix=eigen_fix)
+        L_arr, piv_arr, ipiv_arr, ok = _safe_cholesky(
+            Hp_work, Ip, eigen_fix=eigen_fix
+        )
         if not ok:
             indefinite = True
 
         D = D_arr
         L = L_arr
+        piv = piv_arr
+        ipiv = ipiv_arr
 
         if converged:
             break
 
         # --- Newton step: step = D * L^{-1} L^{-T} * (D * grad[:rank]) ---
         rhs = D * grad[:rank]
-        step = D * _chol_solve(L, rhs)
+        step = D * _chol_solve_pivoted(L, rhs, piv=piv, ipiv=ipiv)
 
         c_norm = float(np.sqrt(np.sum(coef**2)))
         if c_norm > 0.0:
@@ -318,7 +341,9 @@ def gam_fit5(
                         Hp = -np.asarray(ll["lbb"], dtype=np.float64) + St
                     else:
                         rank_checked = True
-                        rank, drop, bdrop = _detect_rank_drop(ll["lbb"], Sb, coef, q, rank)
+                        rank, drop, bdrop = _detect_rank_drop(
+                            ll["lbb"], Sb, coef, q, rank
+                        )
                         if rank < q:
                             coef, St, X, jj = _apply_rank_drop(
                                 coef, St, X, jj, bdrop, q
@@ -400,19 +425,25 @@ def gam_fit5(
             Sib = _sl_term_mult(rp_state["Sl"], fcoef, full=True)
             for i in range(m):
                 v = np.asarray(Sib[i], dtype=np.float64)[keep]
-                d1b[:, i] = -D * _chol_solve(L, D * v)
+                d1b[:, i] = -D * _chol_solve_pivoted(
+                    L, D * v, piv=piv, ipiv=ipiv
+                )
         else:
             for i in range(m):
                 Si_r = (
                     float(sp[i]) * S_blocks[i][np.ix_(keep, keep)][:rank_eff, :rank_eff]
                 )
                 v = Si_r @ coef
-                d1b[:, i] = -D * _chol_solve(L, D * v)
+                d1b[:, i] = -D * _chol_solve_pivoted(
+                    L, D * v, piv=piv, ipiv=ipiv
+                )
 
         fd1b = np.zeros((q, m), dtype=np.float64)
         fd1b[keep[:q], :] = d1b
 
-        Hp_inv = D[:, None] * _chol_solve_matrix(L, np.diag(D))
+        Hp_inv = D[:, None] * _chol_solve_pivoted(
+            L, np.diag(D), piv=piv, ipiv=ipiv
+        )
         ll_trace = llf(
             y,
             X,
@@ -463,7 +494,9 @@ def gam_fit5(
                             * S_blocks[j][np.ix_(keep, keep)][:rank_eff, :rank_eff]
                         )
                         v = -dH_i_v + Si_r @ d1b[:, j] + Sj_r @ d1b[:, i]
-                    d2b[:, kk] = -D * _chol_solve(L, D * v)
+                    d2b[:, kk] = -D * _chol_solve_pivoted(
+                        L, D * v, piv=piv, ipiv=ipiv
+                    )
                     if i == j:
                         d2b[:, kk] += d1b[:, i]
                     kk += 1
@@ -479,7 +512,7 @@ def gam_fit5(
                 deriv=4,
                 d1b=d1b,
                 d2b=d2b,
-                fh=L,
+                fh=_PivotedCholesky(L, piv),
                 D=D,
             )
             trHid2H = ll_r.get("trHid2H")
@@ -558,7 +591,9 @@ def gam_fit5(
                     )[np.ix_(keep, keep)]
                     bind = np.sum(np.abs(A_full), axis=1) != 0.0
                     A = A_full[:, bind]
-                    A = D[:, None] * _chol_solve_matrix(L, np.diag(D) @ A)
+                    A = D[:, None] * _chol_solve_pivoted(
+                        L, np.diag(D) @ A, piv=piv, ipiv=ipiv
+                    )
                     if np.any(bind):
                         d1ldetH[i] += float(np.trace(A[bind, :]))
                     if isinstance(dH, list):
@@ -569,7 +604,13 @@ def gam_fit5(
                         )
                         A_hp = -dH_i + A_full
                         d1Hp_list.append(
-                            D[:, None] * _chol_solve_matrix(L, np.diag(D) @ A_hp)
+                            D[:, None]
+                            * _chol_solve_pivoted(
+                                L,
+                                np.diag(D) @ A_hp,
+                                piv=piv,
+                                ipiv=ipiv,
+                            )
                         )
             else:
                 if dH is not None and not isinstance(dH, list):
@@ -588,7 +629,9 @@ def gam_fit5(
                         A_hp = -dH_i + A_full
                     else:
                         A_hp = A_full
-                    Ai = D[:, None] * _chol_solve_matrix(L, np.diag(D) @ A_hp)
+                    Ai = D[:, None] * _chol_solve_pivoted(
+                        L, np.diag(D) @ A_hp, piv=piv, ipiv=ipiv
+                    )
                     d1ldetH[i] = float(np.trace(Ai))
                     d1Hp_list.append(Ai)
         elif deriv == 1 and d1ldetH_trace is not None:
@@ -597,7 +640,9 @@ def gam_fit5(
                 Si_r = (
                     float(sp[i]) * S_blocks[i][np.ix_(keep, keep)][:rank_eff, :rank_eff]
                 )
-                Ai = D[:, None] * _chol_solve_matrix(L, np.diag(D) @ Si_r)
+                Ai = D[:, None] * _chol_solve_pivoted(
+                    L, np.diag(D) @ Si_r, piv=piv, ipiv=ipiv
+                )
                 d1ldetH[i] += float(np.trace(Ai))
                 if isinstance(dH, list):
                     dH_i = (
@@ -606,7 +651,15 @@ def gam_fit5(
                         else np.zeros((rank_eff, rank_eff))
                     )
                     A = -dH_i + Si_r
-                    d1Hp_list.append(D[:, None] * _chol_solve_matrix(L, np.diag(D) @ A))
+                    d1Hp_list.append(
+                        D[:, None]
+                        * _chol_solve_pivoted(
+                            L,
+                            np.diag(D) @ A,
+                            piv=piv,
+                            ipiv=ipiv,
+                        )
+                    )
         elif isinstance(dH, list):
             for i in range(m):
                 Si_r = (
@@ -618,7 +671,9 @@ def gam_fit5(
                     else np.zeros((rank_eff, rank_eff))
                 )
                 A = -dH_i + Si_r
-                Ai = D[:, None] * _chol_solve_matrix(L, np.diag(D) @ A)
+                Ai = D[:, None] * _chol_solve_pivoted(
+                    L, np.diag(D) @ A, piv=piv, ipiv=ipiv
+                )
                 d1ldetH[i] = float(np.trace(Ai))
                 d1Hp_list.append(Ai)
         else:
@@ -628,7 +683,9 @@ def gam_fit5(
                 Si_r = (
                     float(sp[i]) * S_blocks[i][np.ix_(keep, keep)][:rank_eff, :rank_eff]
                 )
-                Ai = D[:, None] * _chol_solve_matrix(L, np.diag(D) @ Si_r)
+                Ai = D[:, None] * _chol_solve_pivoted(
+                    L, np.diag(D) @ Si_r, piv=piv, ipiv=ipiv
+                )
                 d1ldetH[i] += float(np.trace(Ai))
                 d1Hp_list.append(Ai)
 
@@ -644,12 +701,16 @@ def gam_fit5(
                     if i == j:
                         if use_exact_sl and rp_state is not None:
                             A_full = np.asarray(
-                                _sl_mult(rp_state["Sl"], np.eye(q, dtype=np.float64), i + 1),
+                                _sl_mult(
+                                    rp_state["Sl"], np.eye(q, dtype=np.float64), i + 1
+                                ),
                                 dtype=np.float64,
                             )[np.ix_(keep, keep)]
                             bind = np.sum(np.abs(A_full), axis=1) != 0.0
                             A = A_full[:, bind]
-                            A = D[:, None] * _chol_solve_matrix(L, np.diag(D) @ A)
+                            A = D[:, None] * _chol_solve_pivoted(
+                                L, np.diag(D) @ A, piv=piv, ipiv=ipiv
+                            )
                             if np.any(bind):
                                 d2ldetH[i, j] += float(np.trace(A[bind, :]))
                         else:
@@ -657,7 +718,9 @@ def gam_fit5(
                                 float(sp[i])
                                 * S_blocks[i][np.ix_(keep, keep)][:rank_eff, :rank_eff]
                             )
-                            Ai = D[:, None] * _chol_solve_matrix(L, np.diag(D) @ Si_r)
+                            Ai = D[:, None] * _chol_solve_pivoted(
+                                L, np.diag(D) @ Si_r, piv=piv, ipiv=ipiv
+                            )
                             d2ldetH[i, j] += float(np.trace(Ai))
                     kk += 1
 
@@ -699,10 +762,16 @@ def gam_fit5(
         if REML1 is not None:
             print(f"  {score_name}1={REML1}")
 
-    coef_out = fcoef
-    db_drho_out = fd1b
+    coef_fit_space = np.asarray(fcoef, dtype=np.float64).copy()
+    db_drho_fit_space = (
+        None if fd1b is None else np.asarray(fd1b, dtype=np.float64).copy()
+    )
+    coef_out = coef_fit_space
+    db_drho_out = db_drho_fit_space
     if use_exact_sl and rp_state is not None:
-        coef_out = np.asarray(_sl_repara(rp_state["rp"], fcoef, inverse=True), dtype=np.float64)
+        coef_out = np.asarray(
+            _sl_repara(rp_state["rp"], fcoef, inverse=True), dtype=np.float64
+        )
         if db_drho_out is not None:
             db_drho_out = np.asarray(
                 _sl_repa(rp_state["rp"], db_drho_out, l=-1),
@@ -711,9 +780,12 @@ def gam_fit5(
 
     return {
         "coef": coef_out,
+        "coef_fit_space": coef_fit_space,
         "lbb": ll["lbb"],
         "L": L,
         "D": D,
+        "piv": np.asarray(piv, dtype=int),
+        "ipiv": np.asarray(ipiv, dtype=int),
         "bdrop": bdrop,
         "St_full": St_full,
         "l": ll_val,
@@ -725,6 +797,7 @@ def gam_fit5(
         "score1": REML1,
         "score2": REML2,
         "db_drho": db_drho_out,
+        "db_drho_fit_space": db_drho_fit_space,
         "dH": dH,
         "iter": iter_,
         "warn": warn,
@@ -748,6 +821,7 @@ def gam_fit5_post_proc(
     S_blocks: list[np.ndarray] | None = None,
     off: list[int] | None = None,
     outer_hess: np.ndarray | None = None,
+    outer_info: dict[str, Any] | None = None,
     smoothing_params: np.ndarray | None = None,
 ) -> dict:
     """
@@ -767,6 +841,8 @@ def gam_fit5_post_proc(
     lbb_r = lbb[:p, :p] if lbb.shape[0] >= p else lbb
     D_r = D[:p]
     lbb_c = D_r[:, None] * lbb_r * D_r[None, :]
+    piv_used = np.asarray(fit.get("piv", np.arange(p)), dtype=int)
+    ipiv_used = np.asarray(fit.get("ipiv", np.arange(p)), dtype=int)
 
     try:
         R_chol = cholesky(lbb_c, lower=False)
@@ -779,9 +855,17 @@ def gam_fit5_post_proc(
         St_r = St_full[np.ix_(keep, keep)]
         Hp_c = lbb_c + D_r[:, None] * St_r * D_r[None, :]
         L = cholesky(Hp_c, lower=False)
+        piv_used = np.arange(p, dtype=int)
+        ipiv_used = np.arange(p, dtype=int)
         R = (R_sq / D_r[:, None]).T
 
-    Vb = _compute_Hp_inv(L, D_r, p)
+    Vb = _compute_Hp_inv(
+        L,
+        D_r,
+        p,
+        piv=piv_used,
+        ipiv=ipiv_used,
+    )
 
     if np.any(bdrop):
         Vb_full = np.zeros((q, q), dtype=np.float64)
@@ -790,6 +874,103 @@ def gam_fit5_post_proc(
         R_full = np.zeros((q, q), dtype=np.float64)
         R_full[np.ix_(keep, keep)] = R
         R = R_full
+
+    outer_info = dict(outer_info or {})
+    Hsp = outer_hess
+    if Hsp is None and outer_info.get("hess", None) is not None:
+        Hsp = np.asarray(outer_info["hess"], dtype=np.float64)
+    if Hsp is None and fit.get("REML2", None) is not None:
+        Hsp = np.asarray(fit["REML2"], dtype=np.float64)
+
+    db_drho = (
+        None
+        if fit.get("db_drho", None) is None
+        else np.asarray(fit["db_drho"], dtype=np.float64)
+    )
+    edge_correct = bool(outer_info.get("hess1", None) is not None)
+    Vc_corr = np.zeros_like(Vb, dtype=np.float64)
+    Vc1_corr = None
+    Vsp = None
+    work_lsp = None
+    work_lsp1 = None
+    Vr = None
+    Vr1 = None
+    if smoothing_params is not None:
+        work_lsp = np.log(
+            np.maximum(np.asarray(smoothing_params, dtype=np.float64).ravel(), 1e-300)
+        )
+    if Hsp is not None and db_drho is not None and db_drho.size > 0:
+        K = 2 if edge_correct else 1
+        for k in range(K):
+            if k == 0:
+                Hsp_k = np.asarray(Hsp, dtype=np.float64)
+                db_drho_k = np.asarray(db_drho, dtype=np.float64)
+                lsp_k = work_lsp
+                reg_eps = 1.0 / 50.0
+            else:
+                Hsp_k = np.asarray(outer_info["hess1"], dtype=np.float64)
+                db_drho1_raw = outer_info.get("db_drho1", None)
+                if db_drho1_raw is None:
+                    break
+                db_drho_k = np.asarray(db_drho1_raw, dtype=np.float64)
+                lsp1_raw = outer_info.get("lsp1", None)
+                lsp_k = (
+                    None
+                    if lsp1_raw is None
+                    else np.asarray(lsp1_raw, dtype=np.float64).ravel()
+                )
+                reg_eps = 1e-7
+
+            Hsp_k = 0.5 * (Hsp_k + Hsp_k.T)
+            if L_map is not None:
+                db_drho_k = np.asarray(
+                    db_drho_k @ np.asarray(L_map, dtype=np.float64),
+                    dtype=np.float64,
+                )
+            if db_drho_k.shape[0] == p and np.any(bdrop):
+                db_full = np.zeros((q, db_drho_k.shape[1]), dtype=np.float64)
+                db_full[keep, :] = db_drho_k
+                db_drho_k = db_full
+            if Sl is not None and _sl_length(Sl) > 0:
+                cols = []
+                for i in range(db_drho_k.shape[1]):
+                    cols.append(
+                        np.asarray(
+                            _sl_initial_repara_local(
+                                Sl,
+                                db_drho_k[:, i],
+                                inverse=True,
+                                both_sides=False,
+                                cov=False,
+                            ),
+                            dtype=np.float64,
+                        )
+                    )
+                db_drho_k = np.column_stack(cols) if cols else db_drho_k[:, :0]
+
+            evals, evecs = np.linalg.eigh(Hsp_k)
+            pos = evals > 0.0
+            inv_sqrt = np.zeros_like(evals)
+            inv_sqrt[pos] = 1.0 / np.sqrt(evals[pos])
+            Vsp_k = np.asarray(
+                evecs @ ((inv_sqrt * inv_sqrt)[:, None] * evecs.T),
+                dtype=np.float64,
+            )
+            Vc_k = np.asarray(db_drho_k @ Vsp_k @ db_drho_k.T, dtype=np.float64)
+
+            reg = np.zeros_like(evals)
+            reg[pos] = 1.0 / np.sqrt(evals[pos] + reg_eps)
+            Vr_k = np.asarray(evecs @ ((reg * reg)[:, None] * evecs.T), dtype=np.float64)
+
+            if k == 0:
+                Vc1_corr = np.asarray(Vc_k, dtype=np.float64)
+                Vr1 = np.asarray(Vr_k, dtype=np.float64)
+                work_lsp1 = None if lsp_k is None else np.asarray(lsp_k, dtype=np.float64)
+
+            Vc_corr = np.asarray(Vc_k, dtype=np.float64)
+            Vsp = np.asarray(Vr_k, dtype=np.float64)
+            Vr = np.asarray(Vr_k, dtype=np.float64)
+            work_lsp = None if lsp_k is None else np.asarray(lsp_k, dtype=np.float64)
 
     if Sl is not None and _sl_length(Sl) > 0:
         Vb = _sl_repara(fit.get("rp", []), Vb, inverse=True)
@@ -803,69 +984,54 @@ def gam_fit5_post_proc(
             cov=False,
         )
 
-    Vc = np.asarray(Vb, dtype=np.float64)
-    Hsp = outer_hess
-    if Hsp is None and fit.get("REML2", None) is not None:
-        Hsp = np.asarray(fit["REML2"], dtype=np.float64)
-    db_drho = None if fit.get("db_drho", None) is None else np.asarray(
-        fit["db_drho"], dtype=np.float64
-    )
-    if Hsp is not None and db_drho is not None and db_drho.size > 0:
-        Hsp = 0.5 * (np.asarray(Hsp, dtype=np.float64) + np.asarray(Hsp, dtype=np.float64).T)
-        if L_map is not None:
-            db_drho = np.asarray(
-                db_drho @ np.asarray(L_map, dtype=np.float64), dtype=np.float64
+    Vc = np.asarray(Vb + Vc_corr, dtype=np.float64)
+    Vc1 = np.asarray(Vb + Vc1_corr, dtype=np.float64) if Vc1_corr is not None else None
+    RTR = np.asarray(R.T @ R, dtype=np.float64)
+    F = np.asarray(Vb @ RTR, dtype=np.float64)
+    Ve = np.asarray(F @ Vb, dtype=np.float64)
+    edf = np.asarray(np.diag(F), dtype=np.float64)
+    if Vsp is not None and S_blocks is not None and len(S_blocks) > 0:
+        if work_lsp is None:
+            raise KeyError(
+                "gam_fit5_post_proc requires working log smoothing parameters for "
+                "Vb.corr parity."
             )
-        if Sl is not None and _sl_length(Sl) > 0:
-            cols = []
-            for i in range(db_drho.shape[1]):
-                cols.append(
-                    np.asarray(
-                        _sl_initial_repara_local(
-                            Sl,
-                            db_drho[:, i],
-                            inverse=True,
-                            both_sides=False,
-                            cov=False,
-                        ),
-                        dtype=np.float64,
-                    )
-                )
-            db_drho = np.column_stack(cols) if cols else db_drho[:, :0]
-        evals, evecs = np.linalg.eigh(Hsp)
-        pos = evals > 0.0
-        inv_sqrt = np.zeros_like(evals)
-        inv_sqrt[pos] = 1.0 / np.sqrt(evals[pos])
-        Vsp = np.asarray(evecs @ ((inv_sqrt * inv_sqrt)[:, None] * evecs.T), dtype=np.float64)
-        Vc = np.asarray(Vb + db_drho @ Vsp @ db_drho.T, dtype=np.float64)
-
-        if S_blocks is not None and len(S_blocks) > 0:
-            reg = np.zeros_like(evals)
-            reg[pos] = 1.0 / np.sqrt(evals[pos] + 1.0 / 50.0)
-            Vr = np.asarray(evecs @ ((reg * reg)[:, None] * evecs.T), dtype=np.float64)
-            if smoothing_params is None:
-                raise KeyError(
-                    "gam_fit5_post_proc requires smoothing_params for Vb.corr parity."
-                )
-            Vc += _vb_corr_root(
+        Vc = np.asarray(
+            Vc
+            + _vb_corr_root(
                 R,
                 L=L_map,
                 lsp0=lsp0,
                 S_blocks=S_blocks,
                 off=off,
-                rho=np.log(
-                    np.maximum(np.asarray(smoothing_params, dtype=np.float64), 1e-300)
-                ),
+                rho=work_lsp,
                 Vr=Vr,
+            ),
+            dtype=np.float64,
+        )
+        if Vc1 is not None:
+            Vc1 = np.asarray(
+                Vc1
+                + _vb_corr_root(
+                    R,
+                    L=L_map,
+                    lsp0=lsp0,
+                    S_blocks=S_blocks,
+                    off=off,
+                    rho=work_lsp1,
+                    Vr=Vr1,
+                ),
+                dtype=np.float64,
             )
+        else:
+            Vc1 = np.asarray(Vc, dtype=np.float64)
 
     Vc = 0.5 * (Vc + Vc.T)
-    RTR = np.asarray(R.T @ R, dtype=np.float64)
-    F = np.asarray(Vb @ RTR, dtype=np.float64)
-    Ve = np.asarray(F @ Vb, dtype=np.float64)
-    edf = np.asarray(np.diag(F), dtype=np.float64)
+    if Vc1 is not None:
+        Vc1 = 0.5 * (Vc1 + Vc1.T)
     edf1 = np.asarray(2.0 * edf - np.sum(F * F.T, axis=1), dtype=np.float64)
-    edf2 = np.asarray(np.sum(Vc * RTR, axis=1), dtype=np.float64)
+    edf2_src = Vc1 if Vc1 is not None else Vc
+    edf2 = np.asarray(np.sum(edf2_src * RTR, axis=1), dtype=np.float64)
     if float(np.sum(edf2)) > float(np.sum(edf1)):
         edf2 = np.asarray(edf1, dtype=np.float64).copy()
 
@@ -873,10 +1039,12 @@ def gam_fit5_post_proc(
         "Vp": Vb,
         "Ve": Ve,
         "Vc": Vc,
+        "V_sp": Vsp,
         "edf": edf,
         "edf1": edf1,
         "edf2": edf2,
         "R": R,
+        "db_drho": db_drho,
     }
 
 
@@ -978,11 +1146,12 @@ def _vb_corr_root(
     for dHi in dH:
         dRi = _mgcv_dchol(np.asarray(dHi, dtype=np.float64), R)
         dR_inv.append(
-            -(
-                solve_triangular(R, dRi, lower=False, check_finite=False) @ R_inv
-            )
+            -(solve_triangular(R, dRi, lower=False, check_finite=False) @ R_inv)
         )
-    return np.asarray(_mgcv_vcorr(dR_inv, np.asarray(Vr, dtype=np.float64), trans=False), dtype=np.float64)
+    return np.asarray(
+        _mgcv_vcorr(dR_inv, np.asarray(Vr, dtype=np.float64), trans=False),
+        dtype=np.float64,
+    )
 
 
 def _sl_repara(
@@ -1117,7 +1286,9 @@ def _sl_repa(
     return np.asarray(X_arr, dtype=np.float64)
 
 
-def _sl_term_mult(sl_blocks: list[Any], A: np.ndarray, *, full: bool = False) -> list[np.ndarray]:
+def _sl_term_mult(
+    sl_blocks: list[Any], A: np.ndarray, *, full: bool = False
+) -> list[np.ndarray]:
     A_arr = np.asarray(A, dtype=np.float64)
     SA: list[np.ndarray] = []
 
@@ -1151,10 +1322,9 @@ def _sl_term_mult(sl_blocks: list[Any], A: np.ndarray, *, full: bool = False) ->
         srp = getattr(block, "Srp", None)
         for i in range(len(block.S)):
             if srp is None or not bool(block.repara):
-                local_mat = (
-                    float(np.asarray(block.lambda_, dtype=np.float64)[i])
-                    * np.asarray(block.S[i], dtype=np.float64)
-                )
+                local_mat = float(
+                    np.asarray(block.lambda_, dtype=np.float64)[i]
+                ) * np.asarray(block.S[i], dtype=np.float64)
             else:
                 local_mat = np.asarray(srp[i], dtype=np.float64)
             local = local_mat @ A_arr[ind, ...]
@@ -1221,9 +1391,9 @@ def _sl_mult(
                         return np.asarray(out, dtype=np.float64)
                     return np.asarray(local, dtype=np.float64)
 
-                local = float(np.asarray(block.lambda_, dtype=np.float64).ravel()[0]) * (
-                    np.asarray(block.S[0], dtype=np.float64) @ A_arr[base_ind, ...]
-                )
+                local = float(
+                    np.asarray(block.lambda_, dtype=np.float64).ravel()[0]
+                ) * (np.asarray(block.S[0], dtype=np.float64) @ A_arr[base_ind, ...])
                 if full:
                     out = np.zeros_like(A_arr)
                     out[base_ind, ...] = local
@@ -1237,10 +1407,9 @@ def _sl_mult(
             )
             srp = getattr(block, "Srp", None)
             if srp is None or not bool(block.repara):
-                local_mat = (
-                    float(np.asarray(block.lambda_, dtype=np.float64)[i])
-                    * np.asarray(block.S[i], dtype=np.float64)
-                )
+                local_mat = float(
+                    np.asarray(block.lambda_, dtype=np.float64)[i]
+                ) * np.asarray(block.S[i], dtype=np.float64)
             else:
                 local_mat = np.asarray(srp[i], dtype=np.float64)
             local = local_mat @ A_arr[ind, ...]
@@ -1294,11 +1463,9 @@ def _sl_ldetS(
                 k_deriv += 1
 
             if bool(block.repara):
-                active = (
-                    np.arange(int(block.start) - 1, int(block.stop), dtype=int)[
-                        np.asarray(block.ind, dtype=bool)
-                    ]
-                )
+                active = np.arange(int(block.start) - 1, int(block.stop), dtype=int)[
+                    np.asarray(block.ind, dtype=bool)
+                ]
                 if E is not None and active.size > 0:
                     E[active, active] = np.exp(rho[k_sp] * 0.5)
                 if S is not None and active.size > 0:
@@ -1317,7 +1484,11 @@ def _sl_ldetS(
         block.lambda_ = np.exp(rho[sp_ind])
         block.St = np.asarray(grp["S"], dtype=np.float64)
         block.Srp = [
-            float(block.lambda_[i]) * (np.asarray(grp["rS"][i], dtype=np.float64) @ np.asarray(grp["rS"][i], dtype=np.float64).T)
+            float(block.lambda_[i])
+            * (
+                np.asarray(grp["rS"][i], dtype=np.float64)
+                @ np.asarray(grp["rS"][i], dtype=np.float64).T
+            )
             for i in range(m)
         ]
         ldS += float(block.ldet) + float(grp["det"])
@@ -1332,11 +1503,9 @@ def _sl_ldetS(
             k_deriv += nd
 
         if bool(block.repara):
-            active = (
-                np.arange(int(block.start) - 1, int(block.stop), dtype=int)[
-                    np.asarray(block.ind, dtype=bool)
-                ]
-            )
+            active = np.arange(int(block.start) - 1, int(block.stop), dtype=int)[
+                np.asarray(block.ind, dtype=bool)
+            ]
             rp.append(
                 {
                     "block": b_idx,
@@ -1347,13 +1516,21 @@ def _sl_ldetS(
             )
             if E is not None:
                 grp_E = np.asarray(grp["E"], dtype=np.float64)
-                ir = np.arange(int(block.start) - 1, int(block.start) - 1 + grp_E.shape[0])
-                ic = np.arange(int(block.start) - 1, int(block.start) - 1 + grp_E.shape[1])
+                ir = np.arange(
+                    int(block.start) - 1, int(block.start) - 1 + grp_E.shape[0]
+                )
+                ic = np.arange(
+                    int(block.start) - 1, int(block.start) - 1 + grp_E.shape[1]
+                )
                 E[np.ix_(ir, ic)] = grp_E
             if S is not None:
                 grp_S = np.asarray(grp["S"], dtype=np.float64)
-                ir = np.arange(int(block.start) - 1, int(block.start) - 1 + grp_S.shape[0])
-                ic = np.arange(int(block.start) - 1, int(block.start) - 1 + grp_S.shape[1])
+                ir = np.arange(
+                    int(block.start) - 1, int(block.start) - 1 + grp_S.shape[0]
+                )
+                ic = np.arange(
+                    int(block.start) - 1, int(block.start) - 1 + grp_S.shape[1]
+                )
                 S[np.ix_(ir, ic)] = grp_S
         else:
             raise NotImplementedError(
@@ -1388,17 +1565,42 @@ def _build_root_penalty(St: np.ndarray) -> np.ndarray:
 
 def _safe_cholesky(
     Hp_work: np.ndarray, Ip: np.ndarray, eigen_fix: bool = False  # noqa: ARG001
-) -> tuple[np.ndarray, bool]:
-    """Try Cholesky; apply jitter if needed.  Returns (L, ok)."""
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, bool]:
+    """
+    Try pivoted Cholesky; apply jitter if needed.
+
+    Mirrors `chol(Hp, pivot = TRUE)` structure used by upstream `mgcv::gam.fit5`.
+    Returns `(L, piv, ipiv, ok)` where `L` is upper-triangular and the solve is
+    `x = chol_solve_pivoted(L, rhs, piv, ipiv)`.
+    """
+
+    def _factor(A: np.ndarray):
+        pstrf = get_lapack_funcs("pstrf", dtype=np.float64)
+        L_arr, piv_arr, rank_found, info = pstrf(
+            np.asarray(A, dtype=np.float64), lower=0
+        )
+        if int(info) < 0:
+            raise np.linalg.LinAlgError(f"dpstrf failed with info={info}.")
+        piv0 = np.asarray(piv_arr, dtype=int).ravel() - 1
+        ipiv0 = np.empty_like(piv0)
+        ipiv0[piv0] = np.arange(piv0.size, dtype=int)
+        return (
+            np.asarray(np.triu(L_arr), dtype=np.float64),
+            piv0,
+            ipiv0,
+            int(rank_found) == int(A.shape[0]) and int(info) == 0,
+        )
+
     try:
-        return cholesky(Hp_work, lower=False), True
+        return _factor(Hp_work)
     except np.linalg.LinAlgError:
         pass
 
     for _ in range(10):
         Ip = Ip * 100.0
         try:
-            return cholesky(Hp_work + Ip, lower=False), False
+            L_arr, piv_arr, ipiv_arr, _ = _factor(Hp_work + Ip)
+            return L_arr, piv_arr, ipiv_arr, False
         except np.linalg.LinAlgError:
             continue
     # Last resort: eigen fix
@@ -1407,31 +1609,43 @@ def _safe_cholesky(
     ev = np.where(ev < ev.max() * 1e-10, ev.max() * 1e-10, ev)
     Hpf = U @ (ev[:, None] * U.T)
     try:
-        return cholesky(Hpf, lower=False), False
+        L_arr, piv_arr, ipiv_arr, _ = _factor(Hpf)
+        return L_arr, piv_arr, ipiv_arr, False
     except np.linalg.LinAlgError:
-        return np.eye(Hp_work.shape[0], dtype=np.float64), False
+        n = Hp_work.shape[0]
+        ident = np.arange(n, dtype=int)
+        return np.eye(n, dtype=np.float64), ident, ident, False
 
 
-def _chol_solve(L: np.ndarray, rhs: np.ndarray) -> np.ndarray:
-    """Solve L.T @ L @ x = rhs (upper Cholesky)."""
-    from scipy.linalg import solve_triangular
+def _chol_solve_pivoted(
+    L: np.ndarray,
+    rhs: np.ndarray,
+    *,
+    piv: np.ndarray | None = None,
+    ipiv: np.ndarray | None = None,
+) -> np.ndarray:
+    """Solve `A x = rhs` with `P'A P = L'L` from pivoted upper Cholesky."""
+    rhs_arr = np.asarray(rhs, dtype=np.float64)
+    if piv is not None:
+        rhs_arr = rhs_arr[piv, ...]
+    z = solve_triangular(L, rhs_arr, lower=False, trans="T", check_finite=False)
+    y = solve_triangular(L, z, lower=False, check_finite=False)
+    if ipiv is not None:
+        y = y[ipiv, ...]
+    return np.asarray(y, dtype=np.float64)
 
-    z = solve_triangular(L, rhs, lower=False, trans="T")
-    return solve_triangular(L, z, lower=False)
 
-
-def _chol_solve_matrix(L: np.ndarray, rhs: np.ndarray) -> np.ndarray:
-    """Solve L.T @ L @ X = rhs column-by-column."""
-    from scipy.linalg import solve_triangular
-
-    z = solve_triangular(L, rhs, lower=False, trans="T")
-    return solve_triangular(L, z, lower=False)
-
-
-def _compute_Hp_inv(L: np.ndarray, D: np.ndarray, p: int) -> np.ndarray:
+def _compute_Hp_inv(
+    L: np.ndarray,
+    D: np.ndarray,
+    p: int,
+    *,
+    piv: np.ndarray | None = None,
+    ipiv: np.ndarray | None = None,
+) -> np.ndarray:
     """Hp^{-1} = D * L^{-1} L^{-T} * D (upper Chol L, diag precon D)."""
     eye = np.eye(p, dtype=np.float64)
-    sol = _chol_solve_matrix(L, eye)
+    sol = _chol_solve_pivoted(L, eye, piv=piv, ipiv=ipiv)
     return D[:, None] * sol * D[None, :]
 
 

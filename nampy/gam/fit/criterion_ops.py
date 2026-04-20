@@ -19,4 +19,3 @@ def criterion_hessian(model, y, log_sp, method="gcv"):
     from ..selection import criterion_hessian as _criterion_hessian
 
     return _criterion_hessian(model, y, log_sp, method=method)
-

@@ -23,4 +23,3 @@ def solve_pirls_given_smoothing(model, y, smoothing_params):
         smoothing_params,
         weights=model.prior_weights_,
     )
-

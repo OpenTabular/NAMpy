@@ -25,15 +25,15 @@ class _LogBLinkInfo:
 
     def linkfun(self, mu: np.ndarray) -> np.ndarray:
         mu = np.asarray(mu, dtype=np.float64)
-        return np.log(np.clip(1.0 / mu - self.b, 1e-300, None))
+        return np.log(1.0 / mu - self.b)
 
     def linkinv(self, eta: np.ndarray) -> np.ndarray:
         eta = np.asarray(eta, dtype=np.float64)
-        return 1.0 / (np.exp(np.clip(eta, -500.0, 500.0)) + self.b)
+        return 1.0 / (np.exp(eta) + self.b)
 
     def mu_eta(self, eta: np.ndarray) -> np.ndarray:
         eta = np.asarray(eta, dtype=np.float64)
-        ee = np.exp(np.clip(eta, -500.0, 500.0))
+        ee = np.exp(eta)
         return -ee / (ee + self.b) ** 2
 
     def d2link(self, mu: np.ndarray) -> np.ndarray:
@@ -141,30 +141,15 @@ class GaulssFamily(GamlssFamily):
         n = len(y)
         sandwich = bool(kw.get("sandwich", False))
 
-        # offset handling: offset[[1]], offset[[2]], offset[[3]] in R
-        off1 = off2 = None
-        if offset is not None:
-            if isinstance(offset, (list, tuple)):
-                off1 = (
-                    np.asarray(offset[0], dtype=np.float64)
-                    if len(offset) > 0 and offset[0] is not None
-                    else None
-                )
-                off2 = (
-                    np.asarray(offset[1], dtype=np.float64)
-                    if len(offset) > 1 and offset[1] is not None
-                    else None
-                )
-            else:
-                off1 = np.asarray(offset, dtype=np.float64)
-
-        # Linear predictors
-        eta = X[:, jj[0]] @ coef[jj[0]]
-        if off1 is not None:
-            eta = eta + off1
-        eta1 = X[:, jj[1]] @ coef[jj[1]]
-        if off2 is not None:
-            eta1 = eta1 + off2
+        eta_mat = self._eta_matrix_from_inputs(
+            X,
+            jj,
+            coef,
+            offset=offset,
+            eta=kw.get("eta", None),
+        )
+        eta = np.asarray(eta_mat[:, 0], dtype=np.float64)
+        eta1 = np.asarray(eta_mat[:, 1], dtype=np.float64)
 
         mu = self.linfo[0].linkinv(eta)  # mean
         tau = self.linfo[1].linkinv(eta1)  # precision 1/sigma
@@ -178,13 +163,13 @@ class GaulssFamily(GamlssFamily):
         l0 = (
             -0.5 * ymu2 * tau2
             - 0.5 * np.log(2.0 * np.pi)
-            + np.log(np.maximum(tau, 1e-300))
+            + np.log(tau)
         )
-        l = float(np.sum(l0))
+        ll = float(np.sum(l0))
 
         if deriv == 0:
             return {
-                "l": l,
+                "l": ll,
                 "l0": l0,
                 "lb": None,
                 "lbb": None,
@@ -270,7 +255,6 @@ class GaulssFamily(GamlssFamily):
         de = gamlss_etamu(
             l1, l2, l3_val, l4_val, ig1, g2, g3, g4, i2, i3, i4, deriv - 1
         )
-
         # Gradient and Hessian w.r.t. coefficients  (mgcv: gamlss.gH)
         ret = gamlss_gH(
             X,
@@ -289,7 +273,11 @@ class GaulssFamily(GamlssFamily):
             D=D,
             sandwich=sandwich,
         )
-        ret["l"] = l
+        if bool(kw.get("ncv", False)):
+            ret["l1"] = np.asarray(de["l1"], dtype=np.float64)
+            ret["l2"] = np.asarray(de["l2"], dtype=np.float64)
+            ret["l3"] = de["l3"]
+        ret["l"] = ll
         ret["l0"] = l0
         return ret
 
@@ -358,7 +346,7 @@ class GaulssFamily(GamlssFamily):
         mu_init = self.linfo[0].linkinv(
             X1 @ start1 + (off1 if off1 is not None else 0.0)
         )
-        lres1 = np.log(np.maximum(np.abs(y - mu_init), 1e-300))
+        lres1 = np.log(np.abs(y - mu_init))
         if off2 is not None:
             lres1 = lres1 - off2
 
@@ -445,4 +433,3 @@ def gaulss(link=("identity", "logb"), b: float = 0.01) -> GaulssFamily:
 # ---------------------------------------------------------------------------
 # Adapter for existing LinkFunction objects
 # ---------------------------------------------------------------------------
-

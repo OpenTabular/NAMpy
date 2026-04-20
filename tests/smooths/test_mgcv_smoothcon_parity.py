@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from nampy.gam import GAM
 from nampy.gam.compiler.compile_predictors import compile_predictors
@@ -21,7 +20,6 @@ from tests._mgcv_snapshot_parity_shared import (
     TestPSplineSmooth as _SharedTestPSplineSmooth,
 )
 from tests.mgcv_parity_utils import (
-    R_SCRIPT,
     _assert_allclose_up_to_column_sign,
     _assert_basic_mgcv_parity,
     _fit_nampy_snapshot,

@@ -86,8 +86,7 @@ def _mroot_psd(A: np.ndarray) -> np.ndarray:
     # `chol(..., tol=0)` preserves tiny positive directions for exact-fit
     # cases like low-rank MRFs, and absolute `1.0 * eps` flooring drops them.
     tol = (
-        max(float(np.max(evals)) if evals.size else 0.0, 0.0)
-        * np.finfo(np.float64).eps
+        max(float(np.max(evals)) if evals.size else 0.0, 0.0) * np.finfo(np.float64).eps
     )
     keep = evals > tol
     if not np.any(keep):
@@ -251,7 +250,9 @@ def _retest_like_stat(
     LRB = np.vstack([np.asarray(summary_R, dtype=np.float64), root_penalty.T])
 
     offset = _coef_column_offset(model)
-    ind = np.arange(offset + tb.coef_slice.start, offset + tb.coef_slice.stop, dtype=int)
+    ind = np.arange(
+        offset + tb.coef_slice.start, offset + tb.coef_slice.stop, dtype=int
+    )
     keep = np.setdiff1d(np.arange(q, dtype=int), ind, assume_unique=True)
     perm = np.concatenate([keep, ind])
     LRB = np.asarray(LRB[:, perm], dtype=np.float64)
@@ -489,9 +490,7 @@ def _smooth_test_stat(
                 )
             )
         else:
-            pval = 0.5 * (
-                float(_psum_chisq(d, val)) + float(_psum_chisq(d1, val))
-            )
+            pval = 0.5 * (float(_psum_chisq(d, val)) + float(_psum_chisq(d1, val)))
     else:
         pval = 2.0
 
@@ -502,9 +501,7 @@ def _smooth_test_stat(
                 + float(f.sf(d1 / rank1, rank1, residual_df))
             )
         else:
-            pval = 0.5 * (
-                float(chi2.sf(d, rank1)) + float(chi2.sf(d1, rank1))
-            )
+            pval = 0.5 * (float(chi2.sf(d, rank1)) + float(chi2.sf(d1, rank1)))
     return d, rank1, min(max(pval, 0.0), 1.0)
 
 
@@ -534,7 +531,9 @@ def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingl
         full_cols = []
         for tb in group["blocks"]:
             beta_cols.extend(range(tb.coef_slice.start, tb.coef_slice.stop))
-            full_cols.extend(range(tb.coef_slice.start + x_offset, tb.coef_slice.stop + x_offset))
+            full_cols.extend(
+                range(tb.coef_slice.start + x_offset, tb.coef_slice.stop + x_offset)
+            )
 
         beta_i = np.asarray(beta[np.asarray(beta_cols, dtype=int)], dtype=np.float64)
         cov_i = (

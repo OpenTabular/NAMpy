@@ -270,6 +270,8 @@ class GLMFamily(BaseFamily):
 
 class _BinomialBase(GLMFamily):
     _variance_key = "binomial"
+    supports_ncv = True
+    supports_qncv = True
 
     def deviance(self, y, mu, weights=None):
         y = np.asarray(y, dtype=np.float64)
@@ -315,6 +317,8 @@ class _BinomialBase(GLMFamily):
 
 class _GammaBase(GLMFamily):
     _variance_key = "gamma"
+    supports_ncv = True
+    supports_qncv = True
 
     def deviance(self, y, mu, weights=None):
         y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)

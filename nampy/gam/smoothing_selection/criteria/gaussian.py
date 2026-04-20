@@ -119,8 +119,10 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
             return score
 
         logdet_XtX = 2.0 * float(np.sum(np.log(np.diag(cXtX))))
-        return score + logdet_XtX / 2.0 - reml_ind * p * (
-            np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0
+        return (
+            score
+            + logdet_XtX / 2.0
+            - reml_ind * p * (np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0)
         )
 
     M = design.ZtZ_rand + np.eye(q, dtype=np.float64)
@@ -167,8 +169,10 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
         return score
 
     logdet_XtKX = 0.0 if p == 0 else 2.0 * float(np.sum(np.log(np.abs(np.diag(cXKX)))))
-    return score + logdet_XtKX / 2.0 - reml_ind * p * (
-        np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0
+    return (
+        score
+        + logdet_XtKX / 2.0
+        - reml_ind * p * (np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0)
     )
 
 
@@ -219,8 +223,10 @@ def criterion_ml_reml_exact_dynamic(model, y, log_sp, method):
         except np.linalg.LinAlgError:
             return np.inf
         logdet_fix = 2.0 * float(np.sum(np.log(np.abs(np.diag(cFix)))))
-        return score + logdet_fix / 2.0 - reml_ind * p * (
-            np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0
+        return (
+            score
+            + logdet_fix / 2.0
+            - reml_ind * p * (np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0)
         )
 
     M = Zr.T @ Zr + np.eye(q, dtype=np.float64)
@@ -266,6 +272,8 @@ def criterion_ml_reml_exact_dynamic(model, y, log_sp, method):
         return score
 
     logdet_XtKX = 0.0 if p == 0 else 2.0 * float(np.sum(np.log(np.abs(np.diag(cXKX)))))
-    return score + logdet_XtKX / 2.0 - reml_ind * p * (
-        np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0
+    return (
+        score
+        + logdet_XtKX / 2.0
+        - reml_ind * p * (np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0)
     )

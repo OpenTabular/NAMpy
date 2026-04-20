@@ -55,13 +55,13 @@ The big remaining implementation items are:
 
 Listed “still-failing model-level scenarios” in tests/parity/
 
-  test_mgcv_parity_failing_and_warnings.py:69 not actually failing on current tree. All
+  - ~~test_mgcv_parity_failing_and_warnings.py:69 not actually failing on current tree. All
 
-  7 pass. Zero fit warnings captured. File/comment now stale as model-fit tracker.
+  7 pass. Zero fit warnings captured.~~
 
   Shared assertion helper in tests/_mgcv_parity_requested_shared.py:42 also shows which
 
-  cases still use relaxed/skipped checks. Some of those relaxations now look stale too.
+  cases still use relaxed/skipped checks. ~~Some of those relaxations now look stale too.~~
 
   Triage
 
@@ -79,9 +79,8 @@ Listed “still-failing model-level scenarios” in tests/parity/
 
     nampy/gam/smooths/tensor/t2.py:136 for term construction.
 
-  - binomial_separation: fit parity exact enough that current skip_coef_comparison=True
-
-    looks stale. Raw coef max err only 1.84e-9. Link newdata parity passes. anova.gam
+  - binomial_separation: fit parity exact enough that current ~~skip_coef_comparison=True
+    looks stale.~~ Raw coef max err only 1.84e-9. Link newdata parity passes. anova.gam
 
     passes. Remaining tested gap is k.check p-value: 0.75 vs 0.0 in nampy/gam/
 
@@ -97,17 +96,15 @@ Listed “still-failing model-level scenarios” in tests/parity/
 
     mrf.py:217 plus anova retest path.
 
-  - factor_smooth_sz: model fit now very close; skip_coef_comparison=True also looks
-
-    stale here. Raw coef max err 5.09e-9. Link newdata parity passes. k.check passes.
+  - factor_smooth_sz: model fit now very close; ~~skip_coef_comparison=True also looks
+    stale here.~~ Raw coef max err 5.09e-9. Link newdata parity passes. k.check passes.
 
     Remaining tested gap is anova.gam: smooth stat 2.3733 vs 1.6726. Local owner nampy/
 
     gam/smooths/categorical/factor_smooth.py:883.
 
-  - gaussian_fs_select_reml: fit parity very close; raw coef max err 1.23e-9, so skip
-
-    also looks stale. Link newdata parity passes. k.check passes. Remaining tested gap
+  - gaussian_fs_select_reml: fit parity very close; raw coef max err 1.23e-9, so ~~skip
+    also looks stale.~~ Link newdata parity passes. k.check passes. Remaining tested gap
 
     is anova.gam p-value 0.0 vs 0.5. Owner same nampy/gam/smooths/categorical/
 

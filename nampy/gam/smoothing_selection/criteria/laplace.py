@@ -2,7 +2,12 @@
 
 import numpy as np
 
-from ..._model_state import _coef_column_offset, _n_coef, _n_smoothing_params, _penalty_blocks_seq
+from ..._model_state import (
+    _coef_column_offset,
+    _n_coef,
+    _n_smoothing_params,
+    _penalty_blocks_seq,
+)
 from ..reparam import (
     ensure_penalty_reparameterization_state,
     sl_group_indices,

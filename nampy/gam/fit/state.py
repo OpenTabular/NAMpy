@@ -168,11 +168,18 @@ def _gaussian_exact_unconditional_postfit(
     optim_result = getattr(model, "_optim_result", None)
     joint_log_sigma2 = None
     if method in {"reml", "laml"}:
-        if optim_result is not None and getattr(optim_result, "joint_log_sigma2", None) is not None:
+        if (
+            optim_result is not None
+            and getattr(optim_result, "joint_log_sigma2", None) is not None
+        ):
             joint_log_sigma2 = float(optim_result.joint_log_sigma2)
         else:
             sigma2_opt = getattr(model, "_gaussian_reml_sigma2_opt_", None)
-            if sigma2_opt is not None and np.isfinite(float(sigma2_opt)) and float(sigma2_opt) > 0.0:
+            if (
+                sigma2_opt is not None
+                and np.isfinite(float(sigma2_opt))
+                and float(sigma2_opt) > 0.0
+            ):
                 joint_log_sigma2 = float(np.log(float(sigma2_opt)))
 
     H_outer = None
@@ -213,9 +220,7 @@ def _gaussian_exact_unconditional_postfit(
     Vouter_reg = np.asarray(evecs @ (reg_vals[:, None] * evecs.T), dtype=np.float64)
 
     Vsp = np.asarray(Vouter[: free_idx.size, : free_idx.size], dtype=np.float64)
-    Vr = np.asarray(
-        Vouter_reg[: free_idx.size, : free_idx.size], dtype=np.float64
-    )
+    Vr = np.asarray(Vouter_reg[: free_idx.size, : free_idx.size], dtype=np.float64)
 
     A_inv = np.asarray(fit_state.A_inv, dtype=np.float64)
     XtWX = np.asarray(fit_state.XtWX, dtype=np.float64)
@@ -715,7 +720,8 @@ def assign_fit_solution(model, sol: FitCoreSolution):
         else np.asarray(fit_result.cov_freq, dtype=np.float64)
     )
     if (
-        not bool(getattr(model.family, "canonical_link", False))
+        str(getattr(model.family, "family_class", "")).lower() != "general"
+        and not bool(getattr(model.family, "canonical_link", False))
         and fit_state.X is not None
         and fit_state.P is not None
         and fit_state.fisher_weights is not None

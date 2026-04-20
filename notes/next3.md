@@ -1,9 +1,9 @@
 Main fix:
 
   - In nampy/gam/smoothing_selection/reparam.py:166, _term_penalty_components()
-    no longer rejects overlapping null-space penalties when they live inside
+    ~~no longer rejects overlapping null-space penalties when they live inside
     one connected primary-penalty component. That was old false restriction,
-    unlike mgcv gam.reparam() flow.
+    unlike mgcv gam.reparam() flow.~~
   - In nampy/gam/smoothing_selection/reparam.py:238 and nampy/gam/model/
     gam_solve.py:80, error text now only rejects cross-component null-space
     coupling, not generic overlap.
@@ -52,11 +52,11 @@ Main fix:
 
   Stale / legacy / old code here:
 
-  - null_map in nampy/gam/smoothing_selection/reparam.py:231 looks legacy.
+  - ~~null_map in nampy/gam/smoothing_selection/reparam.py:231 looks legacy.
     Built, mostly unused, likely leftover from older one-primary/one-null
-    design.
-  - _one_penalty_per_term_matrices in nampy/gam/model/gam_solve.py:428 name
-    stale now. Function no longer “one penalty per term”; now sums many.
+    design.~~
+  - ~~_one_penalty_per_term_matrices in nampy/gam/model/gam_solve.py:428 name
+    stale now. Function no longer “one penalty per term”; now sums many.~~
   - can_use_simple_ml_reml_structure itself is legacy-conservative concept.
     mgcv does not gate this way before gam.reparam().
   - Comments/docstrings in reparam.py still describe “conservative structural

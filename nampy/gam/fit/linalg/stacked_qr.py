@@ -118,7 +118,7 @@ def _get_r_pqr_serial(qr_a: np.ndarray, *, rr: int, ncol: int) -> np.ndarray:
     out = np.zeros((int(rr), int(ncol)), dtype=np.float64)
     rows = min(int(rr), int(ncol), int(qr_a.shape[0]))
     for i in range(rows):
-        out[i, i:int(ncol)] = qr_a[i, i:int(ncol)]
+        out[i, i : int(ncol)] = qr_a[i, i : int(ncol)]
     return out
 
 
@@ -153,7 +153,9 @@ def _mgcv_apply_q_left_serial(
     return np.asarray(_dormqr_apply(b"L", b"N", qr_a, tau, full), dtype=np.float64)
 
 
-def _undrop_rows_vec(v: np.ndarray, n_rows_full: int, drop_sorted: np.ndarray) -> np.ndarray:
+def _undrop_rows_vec(
+    v: np.ndarray, n_rows_full: int, drop_sorted: np.ndarray
+) -> np.ndarray:
     """Mirror ``mgcv/src/gdi.c::undrop_rows()`` for a single packed column."""
     restored = restore_dropped_rows(
         np.asarray(v, dtype=np.float64).reshape(-1, 1),
@@ -229,7 +231,9 @@ def _stacked_penalized_ls_nonneg_solution_literal(
     del tau_rank
     system_rank = min(n_coef_total, n_stack_rows)
     rcond = _upper_r_condition_indicator(
-        _get_r_pqr_serial(qr_rank, rr=min(n_stack_rows, n_coef_total), ncol=n_coef_total),
+        _get_r_pqr_serial(
+            qr_rank, rr=min(n_stack_rows, n_coef_total), ncol=n_coef_total
+        ),
         system_rank,
     )
     while system_rank > 0 and rank_tol * rcond > 1.0:
@@ -348,9 +352,11 @@ def _stacked_penalized_ls_nonneg_solution_literal(
             xx = 0.0
             for j in range(k):
                 xx += qr_aug[j, k] * z_rank[j]
-            z_rank[k] = xwz_pivoted[k] / qr_aug[k, k] if k == 0 else (
-                xwz_pivoted[k] - xx
-            ) / qr_aug[k, k]
+            z_rank[k] = (
+                xwz_pivoted[k] / qr_aug[k, k]
+                if k == 0
+                else (xwz_pivoted[k] - xx) / qr_aug[k, k]
+            )
         y_rank = z_rank.copy()
 
     for k in range(system_rank - 1, -1, -1):

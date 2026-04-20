@@ -180,7 +180,9 @@ def test_poisson_gam_fit3_fixed_sp_inner_state_matches_mgcv():
     _assert_allclose(sol.working_response, expected["working_response"], atol=2e-7)
 
     _assert_allclose(kernel.dVkk, expected["dVkk"], atol=5e-8)
-    _assert_allclose(_expand_dbeta_to_original_space(kernel), expected["db_drho"], atol=5e-8)
+    _assert_allclose(
+        _expand_dbeta_to_original_space(kernel), expected["db_drho"], atol=5e-8
+    )
 
     actual_reml = float(criterion_value(gam, y, np.log(sp), method="reml"))
     actual_grad = np.asarray(criterion_gradient(gam, y, np.log(sp), method="reml"))

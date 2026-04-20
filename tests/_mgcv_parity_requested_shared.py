@@ -45,7 +45,9 @@ def _assert_requested_parity(
     expected_snapshot: dict,
 ) -> None:
     if case.skip_coef_comparison:
-        link_actual = np.asarray(actual_snapshot["predictions"]["link"], dtype=np.float64)
+        link_actual = np.asarray(
+            actual_snapshot["predictions"]["link"], dtype=np.float64
+        )
         link_expected = np.asarray(
             expected_snapshot["predictions"]["link"], dtype=np.float64
         )
@@ -68,15 +70,13 @@ def _assert_requested_parity(
 
     edf = float(actual_snapshot["fit"]["edf_total"])
     edf_mgcv = float(expected_snapshot["fit"]["edf_total"])
-    assert abs(edf - edf_mgcv) < 1e-4, (
-        f"{case.case_id}: |edf-edf_mgcv|={abs(edf - edf_mgcv):.3e} >= 1e-4"
-    )
+    assert (
+        abs(edf - edf_mgcv) < 1e-4
+    ), f"{case.case_id}: |edf-edf_mgcv|={abs(edf - edf_mgcv):.3e} >= 1e-4"
 
     reml = float(actual_snapshot["fit"]["criterion_value"])
     reml_mgcv = float(expected_snapshot["fit"]["criterion_value"])
-    assert (
-        abs(reml - reml_mgcv) < float(case.criterion_atol)
-    ), (
+    assert abs(reml - reml_mgcv) < float(case.criterion_atol), (
         f"{case.case_id}: |REML-REML_mgcv|={abs(reml - reml_mgcv):.3e} "
         f">= {float(case.criterion_atol):.3e}"
     )

@@ -145,13 +145,19 @@ def _optimize_outer_newton_indefinite_hessian(
 
         if model is not None:
             model._pirls_eval_start_ = (
-                None if start_coef is None else np.asarray(start_coef, dtype=np.float64).copy()
+                None
+                if start_coef is None
+                else np.asarray(start_coef, dtype=np.float64).copy()
             )
             model._pirls_eval_eta_start_ = (
-                None if start_eta is None else np.asarray(start_eta, dtype=np.float64).copy()
+                None
+                if start_eta is None
+                else np.asarray(start_eta, dtype=np.float64).copy()
             )
             model._pirls_eval_mu_start_ = (
-                None if start_mu is None else np.asarray(start_mu, dtype=np.float64).copy()
+                None
+                if start_mu is None
+                else np.asarray(start_mu, dtype=np.float64).copy()
             )
             model._pirls_lock_start_ = not bool(commit_start)
 
@@ -168,8 +174,12 @@ def _optimize_outer_newton_indefinite_hessian(
             np.asarray(objective.hess(x_eval), dtype=np.float64) if need_hess else None
         )
 
-        coef_eval = getattr(model, "_pirls_last_coef_", None) if model is not None else None
-        eta_eval = getattr(model, "_pirls_last_eta_", None) if model is not None else None
+        coef_eval = (
+            getattr(model, "_pirls_last_coef_", None) if model is not None else None
+        )
+        eta_eval = (
+            getattr(model, "_pirls_last_eta_", None) if model is not None else None
+        )
         mu_eval = getattr(model, "_pirls_last_mu_", None) if model is not None else None
         if model is not None:
             if coef_eval is not None:
@@ -186,7 +196,11 @@ def _optimize_outer_newton_indefinite_hessian(
                     model._pirls_mu_start_ = mu_eval.copy()
 
         dvkk_diag = np.full(x_eval.shape, np.nan, dtype=np.float64)
-        gamma_state = getattr(model, "_pirls_reml_gamma_state_", None) if model is not None else None
+        gamma_state = (
+            getattr(model, "_pirls_reml_gamma_state_", None)
+            if model is not None
+            else None
+        )
         scale_est = None
 
         if isinstance(gamma_state, dict):

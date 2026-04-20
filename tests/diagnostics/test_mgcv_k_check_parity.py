@@ -87,18 +87,24 @@ def _compact_kcheck_label(label: str) -> str:
     return f"{fn}({','.join(kept)})"
 
 
-def _assert_kcheck_p_value(value: float, *, n_rep: int, label: str, source: str) -> None:
-    assert np.isfinite(value), f"{source} k_check p_value is non-finite for {label}: {value}"
-    assert 0.0 <= value <= 1.0, f"{source} k_check p_value out of range for {label}: {value}"
+def _assert_kcheck_p_value(
+    value: float, *, n_rep: int, label: str, source: str
+) -> None:
+    assert np.isfinite(
+        value
+    ), f"{source} k_check p_value is non-finite for {label}: {value}"
+    assert (
+        0.0 <= value <= 1.0
+    ), f"{source} k_check p_value out of range for {label}: {value}"
     scaled = value * n_rep
     nearest = np.rint(scaled)
     assert np.isclose(scaled, nearest, atol=1e-12), (
         f"{source} k_check p_value for {label} is not on mgcv grid "
         f"({_KCHECK_PGRID:g} increments): value={value}"
     )
-    assert 0.0 <= nearest <= n_rep, (
-        f"{source} k_check p_value for {label} maps to invalid grid index: value={value}, n_rep={n_rep}"
-    )
+    assert (
+        0.0 <= nearest <= n_rep
+    ), f"{source} k_check p_value for {label} maps to invalid grid index: value={value}, n_rep={n_rep}"
 
 
 def _coerce_na(x):
@@ -168,9 +174,7 @@ def _assert_k_check_parity(
     assert len(py_labels) == len(
         r_labels
     ), f"Term count mismatch: NAMpy={len(py_labels)} R={len(r_labels)}"
-    assert [
-        _compact_kcheck_label(x) for x in py_labels
-    ] == [
+    assert [_compact_kcheck_label(x) for x in py_labels] == [
         _compact_kcheck_label(x) for x in r_labels
     ], (
         "Term labels diverged between NAMpy and mgcv k_check outputs.\n"

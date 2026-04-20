@@ -9,8 +9,8 @@ Basis for this file:
 - current implementation state in `nampy/gam/`
 
 This file intentionally excludes stale items already resolved structurally:
-- `gamlss.py` split is already done as `nampy/gam/families/gamlss/`
-- `gam/design/` deletion plan is stale; current code already uses `nampy/gam/compiler/`
+- ~~`gamlss.py` split is already done as `nampy/gam/families/gamlss/`~~
+- ~~`gam/design/` deletion plan is stale; current code already uses `nampy/gam/compiler/`~~
 
 ## Definition Of Done
 

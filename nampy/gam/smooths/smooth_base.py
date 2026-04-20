@@ -444,7 +444,9 @@ class BaseSmoothTerm(abc.ABC):
             self._mgcv_penalty_rescale_factors = []
             return
         if not np.all(np.isfinite(vals)) or np.any(vals <= 0.0):
-            raise ValueError("mgcv penalty rescale factors must be finite and positive.")
+            raise ValueError(
+                "mgcv penalty rescale factors must be finite and positive."
+            )
         self._mgcv_penalty_rescale_factors = [float(v) for v in vals]
 
     def _mgcv_penalty_scale(self, penalty_index: int) -> float:

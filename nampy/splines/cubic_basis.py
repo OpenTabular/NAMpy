@@ -151,9 +151,7 @@ def cr_spl_predict(x, knots, F):
         c_jm = (left**3 / h - h * left) / 6.0
         c_jp = (right**3 / h - h * right) / 6.0
 
-        base[interior_mask, :] = (
-            c_jm[:, None] * F[j - 1, :] + c_jp[:, None] * F[j, :]
-        )
+        base[interior_mask, :] = c_jm[:, None] * F[j - 1, :] + c_jp[:, None] * F[j, :]
         rows = np.flatnonzero(interior_mask)
         base[rows, j - 1] += a_jm
         base[rows, j] += a_jp

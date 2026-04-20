@@ -14,9 +14,27 @@ from ...fit.penalized_system import build_full_design
 from ..criteria import resolve_ml_reml_scoring_backend
 
 
+def _r_matrix_norm_max_abs(M) -> float:
+    """Mirror R ``norm(M, "M")`` used by ``mgcv::initial.spg``."""
+    M = np.asarray(M, dtype=np.float64)
+    if M.size == 0:
+        return 0.0
+    return float(np.max(np.abs(M)))
+
+
+def _r_matrix_norm_one(M) -> float:
+    """Mirror R matrix ``norm()`` default one-norm."""
+    M = np.asarray(M, dtype=np.float64)
+    if M.size == 0:
+        return 0.0
+    if M.ndim == 1:
+        return float(np.sum(np.abs(M)))
+    return float(np.max(np.sum(np.abs(M), axis=0)))
+
+
 def supports_criterion_gradient(model, method):
     method = str(method).lower()
-    if method in {"gcv", "ubre", "aic", "ubreaic"}:
+    if method in {"gcv", "ncv", "qncv", "ubre", "aic", "ubreaic"}:
         return True
     if method not in {"ml", "reml", "laml"}:
         return False
@@ -32,9 +50,7 @@ def supports_criterion_gradient(model, method):
             getattr(model.family, "known_scale", None) is not None
             or str(getattr(model.family, "name", "")).lower() == "gamma"
         )
-        and bool(
-            getattr(model.family, "supports_exact_pirls_first_derivatives", False)
-        )
+        and bool(getattr(model.family, "supports_exact_pirls_first_derivatives", False))
     ):
         return True
     return False
@@ -44,6 +60,8 @@ def supports_criterion_hessian(model, method):
     method = str(method).lower()
     if method in {"gcv", "ubre", "aic", "ubreaic"}:
         return True
+    if method in {"ncv", "qncv"}:
+        return False
     if method not in {"ml", "reml", "laml"}:
         return False
     backend = resolve_ml_reml_scoring_backend(model, method=method)
@@ -173,6 +191,126 @@ def _initial_smoothing_params_mgcv_style(model, y):
     n_sp = _n_smoothing_params(model)
     if not penalty_blocks or n_sp == 0:
         return None
+
+    family_class = str(
+        getattr(getattr(model, "family", None), "family_class", "")
+    ).lower()
+    if family_class == "general":
+        try:
+            from scipy.linalg.lapack import get_lapack_funcs
+
+            from ...families.gamlss._base import _pen_reg
+            from ...fit.solvers.general_fit5 import build_gam_fit5_setup_state
+            from ..reparam import build_estimate_gam_setup_state
+
+            fit5_setup = build_gam_fit5_setup_state(
+                model,
+                np.ones(n_sp, dtype=np.float64),
+                score_type="REML",
+            )
+            exact_setup = build_estimate_gam_setup_state(model)
+            X = np.asarray(fit5_setup.X_initial, dtype=np.float64)
+            weights = (
+                np.ones_like(np.asarray(y, dtype=np.float64).ravel(), dtype=np.float64)
+                if getattr(model, "prior_weights_", None) is None
+                else np.asarray(model.prior_weights_, dtype=np.float64).ravel()
+            )
+            yv = np.asarray(y, dtype=np.float64).ravel()
+            E_init = np.asarray(exact_setup.Eb, dtype=np.float64)
+            if str(getattr(model.family, "name", "")).lower() == "gaulss":
+                start = np.zeros(X.shape[1], dtype=np.float64)
+                X1 = np.asarray(X[:, fit5_setup.jj[0]], dtype=np.float64)
+                E1 = np.asarray(E_init[:, fit5_setup.jj[0]], dtype=np.float64)
+                yt1 = yv.copy()
+                start1 = _pen_reg(X1, E1, yt1)
+                start[np.asarray(fit5_setup.jj[0], dtype=int)] = start1
+
+                mu_init = np.asarray(
+                    model.family.linfo[0].linkinv(X1 @ start1),
+                    dtype=np.float64,
+                )
+                lres1 = np.log(np.maximum(np.abs(yv - mu_init), 1e-300))
+                X2 = np.asarray(X[:, fit5_setup.jj[1]], dtype=np.float64)
+                E2 = np.asarray(E_init[:, fit5_setup.jj[1]], dtype=np.float64)
+                start2 = _pen_reg(X2, E2, lres1)
+                start[np.asarray(fit5_setup.jj[1], dtype=int)] = start2
+            else:
+                start = np.asarray(
+                    model.family.initialize(
+                        yv,
+                        X,
+                        fit5_setup.jj,
+                        offset=fit5_setup.offset_list,
+                        weights=weights,
+                        E=E_init,
+                    ),
+                    dtype=np.float64,
+                )
+            lbb = np.asarray(
+                model.family.ll(
+                    yv,
+                    X,
+                    fit5_setup.jj,
+                    start,
+                    weights,
+                    offset=fit5_setup.offset_list,
+                    deriv=1,
+                )["lbb"],
+                dtype=np.float64,
+            )
+            full_idx = np.asarray(fit5_setup.layout.reduced_to_full_idx, dtype=int)
+            pstrf = get_lapack_funcs("pstrf", dtype=np.float64)
+            def_sp = np.zeros(n_sp, dtype=np.float64)
+            seen = np.zeros(n_sp, dtype=bool)
+
+            for pb in penalty_blocks:
+                j = int(pb.smoothing_index)
+                if seen[j]:
+                    continue
+                seen[j] = True
+
+                S = np.asarray(pb.matrix, dtype=np.float64)
+                if S.size == 0:
+                    continue
+                ind = np.asarray(full_idx[pb.coef_slice], dtype=int)
+                if ind.size == 0:
+                    continue
+                block_lbb = np.asarray(lbb[np.ix_(ind, ind)], dtype=np.float64)
+                rank_i = (
+                    int(pb.rank)
+                    if getattr(pb, "rank", None) is not None
+                    else int(np.linalg.matrix_rank(S))
+                )
+
+                if rank_i < S.shape[1]:
+                    _R, piv, _rank_p, _info = pstrf(
+                        np.asarray(S, dtype=np.float64), lower=0
+                    )
+                    piv = np.asarray(piv, dtype=int).ravel() - 1
+                    Z = np.asarray(S[:, piv[:rank_i]], dtype=np.float64)
+                    zn = _r_matrix_norm_one(Z)
+                    if not np.isfinite(zn) or zn <= 0.0:
+                        continue
+                    Z = Z / zn
+                    ZHZ = -np.asarray(Z.T @ block_lbb @ Z, dtype=np.float64)
+                    ZSZ = np.asarray(Z.T @ S @ Z, dtype=np.float64)
+                else:
+                    ZHZ = -np.asarray(block_lbb, dtype=np.float64)
+                    ZSZ = np.asarray(S, dtype=np.float64)
+
+                num = _r_matrix_norm_max_abs(ZHZ)
+                den = _r_matrix_norm_max_abs(ZSZ)
+                if not np.isfinite(num) or not np.isfinite(den) or den <= 0.0:
+                    continue
+                def_sp[j] = 0.3 * num / den
+
+            ok = def_sp > 0.0
+            if not np.any(ok):
+                return None
+            def_sp[~ok] = 1.0
+            return np.maximum(def_sp, 1e-12)
+        except Exception:
+            return None
 
     X = build_full_design(_design_matrix(model), fit_intercept=_fit_intercept(model))
     y = np.asarray(y, dtype=np.float64).ravel()

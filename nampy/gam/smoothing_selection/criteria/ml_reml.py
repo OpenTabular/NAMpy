@@ -32,19 +32,17 @@ def resolve_ml_reml_scoring_backend(model, method="reml"):
     if method not in {"ml", "reml", "laml"}:
         raise ValueError("method must be one of {'ml', 'reml', 'laml'}")
 
-    if (
-        bool(getattr(model.family, "supports_closed_form_solve", False))
-        and can_use_exact_gaussian_ml_reml(model)
-    ):
+    if bool(
+        getattr(model.family, "supports_closed_form_solve", False)
+    ) and can_use_exact_gaussian_ml_reml(model):
         return "gaussian_exact"
 
     if bool(getattr(model.family, "supports_closed_form_solve", False)):
         return "gaussian_dynamic"
 
-    if (
-        bool(getattr(model.family, "supports_pirls", False))
-        and can_use_simple_ml_reml_structure(model)
-    ):
+    if bool(
+        getattr(model.family, "supports_pirls", False)
+    ) and can_use_simple_ml_reml_structure(model):
         return "pirls_laplace"
 
     if bool(getattr(model.family, "supports_pirls", False)):

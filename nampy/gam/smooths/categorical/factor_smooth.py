@@ -557,11 +557,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             # opposite linear/constant order from mgcv. Align that 2D block to the
             # corresponding model-space span before duplicating by level so the
             # later smoothCon scaling sees the same orientation.
-            if (
-                n_metric == 1
-                and null_dim == 2
-                and len(self._levels or []) >= 4
-            ):
+            if n_metric == 1 and null_dim == 2 and len(self._levels or []) >= 4:
                 X_null = X_reparam[:, range_rank:].copy()
                 centered_norm = np.linalg.norm(
                     X_null - X_null.mean(axis=0, keepdims=True),
