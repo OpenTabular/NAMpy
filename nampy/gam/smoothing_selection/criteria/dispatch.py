@@ -12,11 +12,13 @@ Top-level dispatch for smoothing-selection criterion value, gradient, and Hessia
 
 import numpy as np
 
+from ...fit.backends import GENERAL_FAMILY_BACKEND
 from ...fit.model_ops import uses_closed_form_solver
-from ...fit.solvers.general_fit5 import (
-    criterion_gradient_ml_reml_general_fit5,
-    criterion_hessian_ml_reml_general_fit5,
+from ...fit.solvers.general_family_solver import (
+    criterion_gradient_ml_reml_general_family,
+    criterion_hessian_ml_reml_general_family,
 )
+from ...linalg import symmetrize_matrix
 from .gaussian import criterion_gcv_gaussian
 from .gaussian_dyn import _gaussian_dynamic_reml_derivative_terms
 from .ml_reml import (
@@ -157,9 +159,9 @@ def criterion_gradient(
                 "Gaussian REML/LAML outer optimisation requires exact "
                 "mgcv-parity derivatives; finite-difference fallback removed."
             )
-        if backend == "general_fit5":
+        if backend == GENERAL_FAMILY_BACKEND:
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
-            return criterion_gradient_ml_reml_general_fit5(
+            return criterion_gradient_ml_reml_general_family(
                 model, y, log_sp, exact_method
             )
         if (
@@ -261,7 +263,7 @@ def criterion_hessian_numerical(
             )
         H[:, j] = (g_plus - g_minus) / (2.0 * h)
 
-    return 0.5 * (H + H.T)
+    return symmetrize_matrix(H)
 
 
 def criterion_hessian(
@@ -301,9 +303,9 @@ def criterion_hessian(
                 "Gaussian REML/LAML outer optimisation requires exact "
                 "mgcv-parity Hessians; finite-difference fallback removed."
             )
-        if backend == "general_fit5":
+        if backend == GENERAL_FAMILY_BACKEND:
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
-            return criterion_hessian_ml_reml_general_fit5(
+            return criterion_hessian_ml_reml_general_family(
                 model, y, log_sp, exact_method
             )
         raise NotImplementedError(

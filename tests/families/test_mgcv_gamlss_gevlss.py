@@ -7,7 +7,10 @@ from numpy.testing import assert_allclose
 from nampy.gam import GAM
 from nampy.gam.families.gamlss import gevlss
 from nampy.gam.families.gamlss.gevlss import _ShiftedLogitLinkInfo
-from nampy.gam.fit.solvers.gam_fit5 import GamFit5Control, gam_fit5
+from nampy.gam.fit.solvers.general_newton_solver import (
+    GeneralNewtonControl,
+    solve_general_newton_fit,
+)
 
 # ======================================================================
 # gevlss
@@ -19,6 +22,7 @@ from nampy.gam.fit.solvers.gam_fit5 import GamFit5Control, gam_fit5
 
 
 def test_shifted_logit_roundtrip():
+    """Verify that shifted logit roundtrip."""
     link = _ShiftedLogitLinkInfo()
     xi = np.linspace(-0.9, 0.45, 30)
     eta = link.linkfun(xi)
@@ -27,6 +31,7 @@ def test_shifted_logit_roundtrip():
 
 
 def test_shifted_logit_range():
+    """Verify that shifted logit range."""
     link = _ShiftedLogitLinkInfo()
     eta = np.linspace(-10.0, 10.0, 100)
     xi = link.linkinv(eta)
@@ -35,6 +40,7 @@ def test_shifted_logit_range():
 
 
 def test_shifted_logit_mu_eta_fd():
+    """Verify that shifted logit mu eta finite differences."""
     link = _ShiftedLogitLinkInfo()
     rng = np.random.default_rng(3)
     eta = rng.uniform(-3.0, 3.0, 30)
@@ -186,13 +192,13 @@ def test_gevlss_initialize():
 
 
 # ---------------------------------------------------------------------------
-# 6. gam_fit5 convergence on simulated GEV data
+# 6. solve_general_newton_fit convergence on simulated GEV data
 # ---------------------------------------------------------------------------
 
 
 def test_gam_fit5_gevlss_convergence():
     """
-    gam_fit5 with gevlss recovers approximate location and log-scale intercepts.
+    solve_general_newton_fit with gevlss recovers approximate location and log-scale intercepts.
     """
     rng = np.random.default_rng(77)
     n = 300
@@ -222,8 +228,8 @@ def test_gam_fit5_gevlss_convergence():
     lsp = np.array([], dtype=np.float64)
     S_blocks: list = []
 
-    ctl = GamFit5Control(maxit=200, epsilon=1e-7, trace=False)
-    fit = gam_fit5(
+    ctl = GeneralNewtonControl(maxit=200, epsilon=1e-7, trace=False)
+    fit = solve_general_newton_fit(
         X,
         y,
         jj,

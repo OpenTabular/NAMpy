@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from ..linalg import symmetric_eigvalsh
+
 
 def lifted_tensor_penalty(S, basis_dims, axis):
     S = np.asarray(S, dtype=np.float64)
@@ -33,7 +35,7 @@ def normalize_tensor_marginal_penalty(S, tol=1e-12):
     S = np.asarray(S, dtype=np.float64)
     if S.shape[0] == 0:
         return S.copy()
-    evals = np.linalg.eigvalsh(0.5 * (S + S.T))
+    evals = symmetric_eigvalsh(S)
     scale = float(np.max(evals))
     if scale <= tol:
         return S.copy()

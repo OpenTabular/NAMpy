@@ -674,6 +674,7 @@ def test_gam_side_matches_mgcv_current_non_general_case_matrix(
     select,
     _compare_design_space_only,
 ):
+    """Verify that gam side matches mgcv current non general case matrix."""
     del _compare_design_space_only
     _assert_gam_side_case(
         case_id,
@@ -700,6 +701,7 @@ def test_gam_side_matches_mgcv_current_general_case_matrix(
     select,
     _compare_design_space_only,
 ):
+    """Verify that gam side matches mgcv current general case matrix."""
     del _compare_design_space_only
     _assert_gam_side_case(
         case_id,
@@ -726,6 +728,7 @@ def test_gam_side_matches_mgcv_nested_side_condition_cases(
     select,
     use_model_fit,
 ):
+    """Verify that gam side matches mgcv nested side condition cases."""
     _assert_gam_side_case(
         case_id,
         data_factory(),

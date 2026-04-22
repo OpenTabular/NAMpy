@@ -60,14 +60,15 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
             "components through null-space penalties."
         )
 
-    # `mgcv`'s fs constructor (`smooth.construct.fs.smooth.spec`) remains in the
-    # direct coefficient parameterization with replicated null-space penalties.
-    # Our current mixed-model Laplace port is not exact for that surface, while
-    # the Wood-style dynamic profile below matches mgcv on the audited parity
-    # slices. Fail closed here so `criterion_ml_reml()` falls back to the
-    # dynamic path instead of trusting a finite but wrong exact score.
+    # `mgcv`'s fs / sz constructors remain in the direct coefficient
+    # parameterization with replicated group penalties. Our current mixed-model
+    # Laplace port is not exact for those surfaces, while the Wood-style
+    # dynamic profile below matches mgcv on the audited parity slices. Fail
+    # closed here so `criterion_ml_reml()` falls back to the dynamic path
+    # instead of trusting a finite but wrong exact score.
     if any(
-        str(getattr(tb, "term_type", "")).lower() == "factor_smooth_fs"
+        str(getattr(tb, "term_type", "")).lower()
+        in {"factor_smooth_fs", "factor_smooth_sz"}
         for tb in _term_blocks_seq(model)
     ):
         return np.inf

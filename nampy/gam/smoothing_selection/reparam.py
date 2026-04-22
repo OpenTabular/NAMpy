@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import numpy as np
-from scipy.linalg import eigh as scipy_eigh
 from scipy.linalg import qr as scipy_qr
 from scipy.linalg import solve_triangular
 from scipy.linalg.lapack import get_lapack_funcs
@@ -35,6 +34,14 @@ from .._model_state import (
     _term_blocks_seq,
 )
 from ..fit.model_ops import uses_closed_form_solver
+from ..linalg import (
+    matrix_sqrt_psd,
+    numerical_rank,
+    positive_semidefinite_root,
+    symmetric_eigen_partition,
+    symmetric_eigh,
+    symmetric_eigvalsh,
+)
 
 
 @dataclass
@@ -59,7 +66,7 @@ class DynamicReparamDesign:
 
 
 @dataclass
-class GamFit3ReparamState:
+class PenaltyReparameterizationState:
     Y: np.ndarray
     Z: np.ndarray
     U1: np.ndarray
@@ -76,7 +83,7 @@ class GamFit3ReparamState:
 
 
 @dataclass
-class EstimateGamSetupState:
+class PreOptimizationSetupState:
     """
     Exact mgcv-style pre-optimization setup state.
 
@@ -137,6 +144,14 @@ def _assign_reparam_state(
 ) -> Optional[ReparamState]:
     model.reparam_state_ = state
     model.sl_blocks_ = None if state is None else list(state.sl_blocks or [])
+    return state
+
+
+def assign_exact_reparam_state(
+    model, state: Optional[PenaltyReparameterizationState]
+) -> Optional[PenaltyReparameterizationState]:
+    model.reparam_state_ = state
+    model.sl_blocks_ = None
     return state
 
 
@@ -206,17 +221,10 @@ def sl_penalty_rank_scaling_derivatives(
 
 
 def reparameterize_smooth(B, P, tol=1e-10):
-    P_sym = 0.5 * (P + P.T)
-    evals, U = np.linalg.eigh(P_sym)
-    idx = np.argsort(evals)
-    evals = evals[idx]
-    U = U[:, idx]
-    tol_eff = tol * max(1.0, np.max(np.abs(evals)))
-    null_mask = evals <= tol_eff
-    pos_mask = ~null_mask
-    U0 = U[:, null_mask]
-    U1 = U[:, pos_mask]
-    d_pos = evals[pos_mask]
+    dec = symmetric_eigen_partition(P, tol=tol)
+    U0 = np.asarray(dec["U0"], dtype=np.float64)
+    U1 = np.asarray(dec["U1"], dtype=np.float64)
+    d_pos = np.asarray(dec["d_pos"], dtype=np.float64)
     B0 = B @ U0
     B1 = B @ U1
     Zr = B1 / np.sqrt(d_pos)[np.newaxis, :] if d_pos.size else B1
@@ -227,42 +235,19 @@ def reparameterize_smooth(B, P, tol=1e-10):
             "U0": U0,
             "U1": U1,
             "d_pos": d_pos,
-            "n_null": int(null_mask.sum()),
-            "n_pen": int(pos_mask.sum()),
+            "n_null": int(dec["null_space_dim"]),
+            "n_pen": int(dec["rank"]),
         },
     )
 
 
 def _matrix_sqrt_psd(M, tol=1e-12):
-    M = np.asarray(M, dtype=np.float64)
-    if M.size == 0:
-        return np.empty((0, 0), dtype=np.float64)
-    M = 0.5 * (M + M.T)
-    evals, vecs = np.linalg.eigh(M)
-    evals = np.clip(evals, 0.0, None)
-    sqrt_evals = np.sqrt(evals)
-    return vecs @ np.diag(sqrt_evals)
+    del tol
+    return matrix_sqrt_psd(M)
 
 
 def _positive_semidefinite_root(P, *, rank=None, tol=1e-10):
-    P = np.asarray(P, dtype=np.float64)
-    if P.ndim != 2 or P.shape[0] != P.shape[1]:
-        raise ValueError("Penalty root requires a square matrix.")
-    if P.shape[0] == 0:
-        return np.empty((0, 0), dtype=np.float64)
-
-    P_sym = 0.5 * (P + P.T)
-    evals, U = np.linalg.eigh(P_sym)
-    idx = np.argsort(evals)[::-1]
-    evals = np.asarray(evals[idx], dtype=np.float64)
-    U = np.asarray(U[:, idx], dtype=np.float64)
-    tol_eff = float(tol) * max(1.0, float(np.max(np.abs(evals))))
-    keep = np.flatnonzero(evals > tol_eff)
-    if rank is not None and int(rank) >= 0:
-        keep = keep[: min(int(rank), keep.size)]
-    if keep.size == 0:
-        return np.empty((P.shape[0], 0), dtype=np.float64)
-    return U[:, keep] * np.sqrt(evals[keep])[np.newaxis, :]
+    return positive_semidefinite_root(P, rank=rank, tol=tol)
 
 
 def _mroot_chol(P, *, rank=None):
@@ -408,10 +393,7 @@ def _total_penalty_space_from_blocks(
         stop = start + int(S_i.shape[0])
         St[start:stop, start:stop] += S_i / frob
 
-    evals, evecs = scipy_eigh(0.5 * (St + St.T), driver="evr", check_finite=False)
-    idx = np.argsort(evals)[::-1]
-    evals = np.asarray(evals[idx], dtype=np.float64)
-    evecs = np.asarray(evecs[:, idx], dtype=np.float64)
+    evals, evecs = symmetric_eigh(St, descending=True, use_scipy=True)
     max_eval = float(np.max(evals)) if evals.size else 0.0
     pos_mask = evals > max(max_eval, 1.0) * (np.finfo(np.float64).eps ** 0.66)
     Y = evecs[:, pos_mask]
@@ -519,7 +501,7 @@ def _mgcv_l_matrix_and_lsp0(
 
 def build_estimate_gam_setup_state(
     model, *, tol: float = 1e-10
-) -> EstimateGamSetupState:
+) -> PreOptimizationSetupState:
     """
     Reconstruct mgcv's exact pre-optimization block state from the compiled model.
 
@@ -548,7 +530,9 @@ def build_estimate_gam_setup_state(
             (
                 int(pb.rank)
                 if getattr(pb, "rank", None) is not None
-                else int(np.linalg.matrix_rank(np.asarray(pb.matrix, dtype=np.float64)))
+                else numerical_rank(
+                    np.asarray(pb.matrix, dtype=np.float64), hermitian=True
+                )
             )
             for pb in penalty_blocks
         ],
@@ -592,7 +576,7 @@ def build_estimate_gam_setup_state(
     if H_full is not None:
         UrS.append(np.asarray(Y.T @ _mroot_chol(H_full), dtype=np.float64))
 
-    return EstimateGamSetupState(
+    return PreOptimizationSetupState(
         X=np.asarray(X_full, dtype=np.float64),
         offset=(
             np.zeros(X_full.shape[0], dtype=np.float64)
@@ -618,7 +602,7 @@ def build_estimate_gam_setup_state(
 
 
 def _group_exact_setup_roots_by_smoothing_parameter(
-    model, setup: EstimateGamSetupState
+    model, setup: PreOptimizationSetupState
 ) -> tuple[list[np.ndarray], list[np.ndarray], list[np.ndarray], list[np.ndarray]]:
     penalty_blocks = list(_penalty_blocks_seq(model))
     n_sp = int(
@@ -732,10 +716,7 @@ def _total_penalty_space(grouped_penalties, p, *, H=None):
         if frob > 0.0:
             St += Sg / frob
 
-    evals, evecs = scipy_eigh(0.5 * (St + St.T), driver="evr", check_finite=False)
-    idx = np.argsort(evals)[::-1]
-    evals = np.asarray(evals[idx], dtype=np.float64)
-    evecs = np.asarray(evecs[:, idx], dtype=np.float64)
+    evals, evecs = symmetric_eigh(St, descending=True, use_scipy=True)
     scale = max(float(np.max(evals)) if evals.size else 0.0, 1.0)
     pos_mask = evals > scale * (np.finfo(np.float64).eps ** 0.66)
     Y = evecs[:, pos_mask]
@@ -751,7 +732,9 @@ def mini_roots(grouped_penalties, p, *, tol=1e-10):
     roots = []
     for grp in grouped_penalties:
         rank = (
-            int(np.linalg.matrix_rank(grp.matrix_full)) if grp.matrix_full.size else 0
+            numerical_rank(grp.matrix_full, hermitian=True)
+            if grp.matrix_full.size
+            else 0
         )
         roots.append(_mroot_chol(grp.matrix_full, rank=rank))
     return roots
@@ -828,7 +811,7 @@ def gam_reparam(range_roots, lsp, deriv=2):
                 if alpha[i]:
                     Sb += A / float(frob[i])
             Sb = 0.5 * (Sb + Sb.T)
-            ev = scipy_eigh(Sb, eigvals_only=True, driver="evr", check_finite=False)
+            ev = symmetric_eigvalsh(Sb, use_scipy=True)
             if ev.size == 0 or ev[-1] <= 0.0:
                 r = 0
             else:
@@ -855,10 +838,7 @@ def gam_reparam(range_roots, lsp, deriv=2):
                 Sg += float(spf[i]) * A
 
         Sb = 0.5 * (Sb + Sb.T)
-        evals, U = scipy_eigh(Sb, driver="evr", check_finite=False)
-        idx = np.argsort(evals)[::-1]
-        evals = np.asarray(evals[idx], dtype=np.float64)
-        U = np.asarray(U[:, idx], dtype=np.float64)
+        evals, U = symmetric_eigh(Sb, descending=True, use_scipy=True)
 
         if iteration == 1:
             Qf[:, :Q] = U
@@ -993,9 +973,9 @@ def _static_penalty_null_dim(model, *, tol=1e-10):
     )
 
 
-def build_gam_fit3_reparam_state(
+def build_penalty_reparameterization_state(
     model, X_full, sp, *, deriv=0, tol=1e-10
-) -> GamFit3ReparamState:
+) -> PenaltyReparameterizationState:
     """Mirror mgcv's `gam.fit3/gam.fit4` reparameterization on `estimate.gam` setup."""
     X_full = np.asarray(X_full, dtype=np.float64)
     sp = np.asarray(sp, dtype=np.float64).ravel()
@@ -1046,7 +1026,7 @@ def build_gam_fit3_reparam_state(
         except np.linalg.LinAlgError:
             Z_rand = np.full_like(X_range, np.nan)
 
-    return GamFit3ReparamState(
+    return PenaltyReparameterizationState(
         Y=Y,
         Z=Z,
         U1=U1,
@@ -1067,7 +1047,7 @@ def _static_fixed_and_random_designs(model, X_full, sp, *, tol=1e-10):
     X_full = np.asarray(X_full, dtype=np.float64)
     sp = np.asarray(sp, dtype=np.float64)
 
-    state = build_gam_fit3_reparam_state(model, X_full, sp, deriv=0, tol=tol)
+    state = build_penalty_reparameterization_state(model, X_full, sp, deriv=0, tol=tol)
     Xf = np.asarray(state.X_fix, dtype=np.float64)
     Zr = np.asarray(state.Z_rand, dtype=np.float64)
     logdet_plus = float(state.rp["det"])
@@ -1131,14 +1111,6 @@ def _stable_penalty_logdet_derivatives(model, sp, *, tol=1e-10, order=2):
     m = min(n_sp, rp["det2"].shape[0])
     hess[:m, :m] = np.asarray(rp["det2"], dtype=np.float64)[:m, :m]
     return logdet, grad, hess
-
-
-# Backward-compatible aliases while the standard GAM path migrates to the
-# upstream-role names.
-CanonicalGamReparamState = GamFit3ReparamState
-MgcvPreOptimizationState = EstimateGamSetupState
-build_canonical_gam_reparam_state = build_gam_fit3_reparam_state
-build_mgcv_preoptimization_state = build_estimate_gam_setup_state
 
 
 def can_use_simple_ml_reml_structure(model):

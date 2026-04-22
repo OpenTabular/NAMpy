@@ -3,7 +3,7 @@
 #
 # Dump mgcv::gam(..., fit = FALSE) assembly payload:
 #   G$X, G$S, G$off, G$rank, G$L, G$lsp0, G$sp, G$smooth,
-#   G$P, G$cmX, G$assign, G$xlevels, G$offset.
+#   G$P, G$cmX, G$assign, G$xlevels, G$offset, G$y.
 
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 6) {
@@ -240,7 +240,8 @@ payload <- list(
   cmX = if (is.null(prefit$cmX)) NULL else unname(as.numeric(prefit$cmX)),
   assign = serialize_integer_or_list(prefit$assign),
   xlevels = serialize_xlevels(prefit$xlevels),
-  offset = serialize_offset(prefit$offset)
+  offset = serialize_offset(prefit$offset),
+  y = if (is.null(prefit$y)) NULL else unname(as.numeric(prefit$y))
 )
 
 write_json(payload, output_json, auto_unbox = TRUE, digits = 17, pretty = TRUE, null = "null")

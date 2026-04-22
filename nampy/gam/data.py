@@ -48,10 +48,47 @@ def coerce_optional_offset(offset, n_rows, *, name: str = "offset"):
     return out
 
 
-def combine_offsets(*offsets):
-    arrs = [np.asarray(o, dtype=np.float64) for o in offsets if o is not None]
-    if not arrs:
+def _is_offset_sequence(offset):
+    return isinstance(offset, (list, tuple))
+
+
+def copy_offset(offset):
+    if offset is None:
         return None
+    if _is_offset_sequence(offset):
+        return [
+            None if off is None else np.asarray(off, dtype=np.float64).copy()
+            for off in offset
+        ]
+    return np.asarray(offset, dtype=np.float64).copy()
+
+
+def combine_offsets(*offsets):
+    active = [o for o in offsets if o is not None]
+    if not active:
+        return None
+    if any(_is_offset_sequence(offset) for offset in active):
+        n_pred = max(
+            len(offset) if _is_offset_sequence(offset) else 1 for offset in active
+        )
+        return [
+            combine_offsets(
+                *[
+                    (
+                        offset[i]
+                        if _is_offset_sequence(offset) and i < len(offset)
+                        else (
+                            offset
+                            if not _is_offset_sequence(offset) and i == 0
+                            else None
+                        )
+                    )
+                    for offset in active
+                ]
+            )
+            for i in range(n_pred)
+        ]
+    arrs = [np.asarray(o, dtype=np.float64) for o in active]
     out = np.zeros_like(arrs[0], dtype=np.float64)
     for arr in arrs:
         if arr.shape != out.shape:
@@ -129,18 +166,43 @@ def coerce_formula_predict_inputs(model, X):
     X_df = X_work[model.formula_used_columns_]
     X_np, _ = coerce_X(model, X_df, allow_missing_non_numeric=True)
 
+    offset_names = getattr(model, "formula_offset_names_", None)
     offset = None
-    if model.formula_offset_name_ is not None:
-        if model.formula_offset_name_ not in X_work.columns:
-            raise KeyError(
-                "Prediction data is missing formula offset column: "
-                f"{model.formula_offset_name_!r}"
-            )
-        if not pd.api.types.is_numeric_dtype(X_work[model.formula_offset_name_]):
-            raise NotImplementedError(
-                "Current formula-based prediction supports numeric offsets only. "
-                f"Offset column {model.formula_offset_name_!r} is non-numeric."
-            )
-        offset = X_work[model.formula_offset_name_].to_numpy(dtype=np.float64)
+    if offset_names is not None:
+        if len(offset_names) == 1:
+            offset_name = offset_names[0]
+            if offset_name is not None:
+                if offset_name not in X_work.columns:
+                    raise KeyError(
+                        "Prediction data is missing formula offset column: "
+                        f"{offset_name!r}"
+                    )
+                if not pd.api.types.is_numeric_dtype(X_work[offset_name]):
+                    raise NotImplementedError(
+                        "Current formula-based prediction supports numeric offsets only. "
+                        f"Offset column {offset_name!r} is non-numeric."
+                    )
+                offset = X_work[offset_name].to_numpy(dtype=np.float64)
+        else:
+            offset_list = []
+            has_offset = False
+            for offset_name in offset_names:
+                if offset_name is None:
+                    offset_list.append(None)
+                    continue
+                if offset_name not in X_work.columns:
+                    raise KeyError(
+                        "Prediction data is missing formula offset column: "
+                        f"{offset_name!r}"
+                    )
+                if not pd.api.types.is_numeric_dtype(X_work[offset_name]):
+                    raise NotImplementedError(
+                        "Current formula-based prediction supports numeric offsets only. "
+                        f"Offset column {offset_name!r} is non-numeric."
+                    )
+                offset_list.append(X_work[offset_name].to_numpy(dtype=np.float64))
+                has_offset = True
+            if has_offset:
+                offset = offset_list
 
     return X_np, list(X_df.columns), offset

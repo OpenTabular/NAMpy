@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ....splines.mrf import (
+from ....splines.basis.mrf import (
     coerce_nb,
     coerce_penalty_matrix,
     combine_duplicate_polys,

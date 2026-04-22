@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from nampy.gam.fit.solvers.general_fit5 import build_gam_fit5_setup_state
+from nampy.gam.fit.solvers.general_family_solver import build_general_family_setup_state
 from tests._paths import PARITY_DIR, REPO_ROOT
 from tests.families.test_general_family_mgcv_parity import (
     GAULSS_FORMULA,
@@ -562,6 +562,9 @@ _GENERAL_FAMILY_SET = {"gaulss", "gammals", "gevlss", "shashlss", "ziplss"}
 
 
 def test_general_family_preoptimization_case_matrix_covers_requested_surface():
+    """
+    Verify that general family preoptimization case matrix covers requested surface.
+    """
     families = {case[1] for case in GENERAL_PREOPT_CASES}
     assert families >= _GENERAL_FAMILY_SET
 
@@ -592,6 +595,7 @@ def test_general_family_preoptimization_case_matrix_covers_requested_surface():
 def test_general_family_preoptimization_setup_matches_mgcv(
     case_id, family, formula, data_factory, method, select, compare_x_space_only
 ):
+    """Verify that general family preoptimization setup matches mgcv."""
     data = data_factory()
     expected = _run_mgcv_general_preoptimization(
         data, formula, family, method, select=select
@@ -599,7 +603,7 @@ def test_general_family_preoptimization_setup_matches_mgcv(
     sp = np.asarray(expected["smoothing_params"], dtype=np.float64)
 
     gam = _fit_nampy_model_fixed_sp(data, formula, family, sp, select=select)
-    actual = build_gam_fit5_setup_state(gam, sp, score_type=method)
+    actual = build_general_family_setup_state(gam, sp, score_type=method)
     st_rtol = 2e-15
     s_block_atol = 5e-12
     if case_id == "ziplss_t2_full_false":

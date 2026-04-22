@@ -130,6 +130,12 @@ def _eval_objective_at(
         hess = (
             np.asarray(objective.hess(x_eval), dtype=np.float64) if need_hess else None
         )
+        if (
+            getattr(objective, "_last_fun", None) is not None
+            and hasattr(objective, "_same_x")
+            and bool(objective._same_x(x_eval))
+        ):
+            score = float(objective._last_fun)
         hess_for_dvkk = hess
         if need_grad and model is not None and hess_for_dvkk is None:
             dvkk_now = _extract_dvkk_diag(model, x_eval, None)

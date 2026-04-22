@@ -11,15 +11,19 @@ from scipy.linalg import solve_triangular
 
 from ..._model_state import _n_smoothing_params
 from ...fit.solve_ops import solve_pirls_given_smoothing
-from ...fit.solvers.gam_fit5 import (
+from ...fit.solvers.general_family_solver import (
+    run_general_family_fixed_smoothing,
+    sl_initial_repara,
+)
+from ...fit.solvers.general_newton_solver import (
     _sl_ldetS,
     _sl_mult,
     _sl_repa,
     _sl_repara,
-    gam_fit5_post_proc,
+    postprocess_general_newton_fit,
 )
-from ...fit.solvers.general_fit5 import _run_general_fit5, sl_initial_repara
 from ...fit.state import _restore_pirls_dbeta_to_original_parameterization
+from ...linalg import symmetrize_matrix
 from .pirls_deriv import (
     _gdi1_kernel,
     _gdi2_joint_kernel,
@@ -179,11 +183,6 @@ def _resolve_nei(model, n_obs):
     return {"d": d, "md": md, "a": a, "ma": ma, "jackknife": jackknife}
 
 
-def _symmetrize(M):
-    M = np.asarray(M, dtype=np.float64)
-    return np.asarray(0.5 * (M + M.T), dtype=np.float64)
-
-
 def _subset_offset_list(offset_list, idx):
     if offset_list is None:
         return None
@@ -268,7 +267,7 @@ def _build_ncv_kernel_state(model, y, log_sp):
 def _build_general_ncv_state(model, y, log_sp, *, need_gradient):
     sp = _expand_smoothing_params_from_log(model, log_sp)
     deriv = 2 if need_gradient else 0
-    run = _run_general_fit5(
+    run = run_general_family_fixed_smoothing(
         model,
         y,
         sp,
@@ -278,7 +277,7 @@ def _build_general_ncv_state(model, y, log_sp, *, need_gradient):
     )
     setup = run["setup"]
     fit = run["fit"]
-    post = gam_fit5_post_proc(
+    post = postprocess_general_newton_fit(
         fit,
         Sl=setup.Sl,
         L_map=None,
@@ -287,6 +286,8 @@ def _build_general_ncv_state(model, y, log_sp, *, need_gradient):
         off=[1] * len(setup.S_blocks),
         outer_hess=None,
         smoothing_params=setup.smoothing_params,
+        penalty_matrix=setup.St,
+        penalty_derivatives=setup.penalty_derivatives,
     )
 
     beta = np.asarray(
@@ -358,14 +359,14 @@ def _build_general_ncv_state(model, y, log_sp, *, need_gradient):
             for i in range(dbeta_fit.shape[1])
         ]
 
-    H = _symmetrize(
+    H = symmetrize_matrix(
         -np.asarray(fit["lbb"], dtype=np.float64)
         + np.asarray(fit["St_full"], dtype=np.float64)
     )
     try:
-        Hi = _symmetrize(np.linalg.inv(H))
+        Hi = symmetrize_matrix(np.linalg.inv(H))
     except np.linalg.LinAlgError:
-        Hi = _symmetrize(np.linalg.pinv(H))
+        Hi = symmetrize_matrix(np.linalg.pinv(H))
     if dbeta_fit.size == 0:
         dVkk = np.empty((0,), dtype=np.float64)
     else:
@@ -898,7 +899,7 @@ def _compute_general_fold_predictions_rncvls(state, nei, *, need_gradient):
     nsp = int(db.shape[1])
     eps = float(np.finfo(np.float64).eps)
 
-    H_chol = np.linalg.cholesky(_symmetrize(H)).T
+    H_chol = np.linalg.cholesky(symmetrize_matrix(H)).T
     eta_cv = np.empty((no, nlp), dtype=np.float64)
     deta_cv = np.empty((no * nlp, nsp), dtype=np.float64)
     dbeta_cv = np.empty((nei["ma"].shape[0], p), dtype=np.float64)
@@ -1405,8 +1406,7 @@ def _general_ncv_score(model, y, state, fold, *, qapprox, need_gradient):
             row_block = slice(lp_idx * nm, (lp_idx + 1) * nm)
             full_rows = np.arange(lp_idx * n, lp_idx * n + nm, dtype=np.int64)
             ncv1 -= np.asarray(ll1[d_idx, lp_idx], dtype=np.float64)[:, None] * (
-                deta_cv[row_block, :] * gamma
-                + (1.0 - gamma) * deta[full_rows, :]
+                deta_cv[row_block, :] * gamma + (1.0 - gamma) * deta[full_rows, :]
             )
 
         kk = 0

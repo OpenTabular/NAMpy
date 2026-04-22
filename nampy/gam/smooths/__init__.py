@@ -1,6 +1,6 @@
-from .categorical.factor_smooth import FSmoothInteractionTerm, SZSmoothInteractionTerm
+from .categorical.fs import FSmoothInteractionTerm, SZSmoothInteractionTerm
 from .categorical.mrf import MarkovRandomFieldTerm
-from .categorical.random_effect import RandomEffectTerm
+from .categorical.re import RandomEffectTerm
 from .registry import available_smooths, make_smooth_term, register_smooth
 from .smooth_base import (
     RUNTIME_TERM_INTERFACE_CHECKLIST,
@@ -26,17 +26,18 @@ from .smooth_base import (
 from .tensor.t2 import TensorANOVASplineTerm
 from .tensor.te import TensorProductSplineTerm
 from .tensor.ti import InteractionTensorProductSplineTerm
-from .univariate.cubic_regression import SplineTerm1D
+from .univariate.cr import CubicSplineTerm
 from .univariate.gp import GPSmoothTerm
-from .univariate.pspline import PSplineTerm1D
-from .univariate.thin_plate import ThinPlateSplineTerm
+from .univariate.ps import PSplineTerm1D
+from .univariate.tp import ThinPlateSplineTerm
 
-# Backward-compatible short constructor names.
+# mgcv-facing smooth aliases keep formulas/tests readable without reintroducing
+# the old module-level compatibility facades.
 te = TensorProductSplineTerm
 ti = InteractionTensorProductSplineTerm
 t2 = TensorANOVASplineTerm
 
-cc = cr = cs = SplineTerm1D
+cr = cs = cc = CubicSplineTerm
 ps = PSplineTerm1D
 tp = ts = ThinPlateSplineTerm
 gp = GPSmoothTerm
@@ -68,19 +69,23 @@ __all__ = [
     "sync_by_state_attributes",
     "build_penalty_definition",
     "build_selection_penalty_definition",
-    "SplineTerm1D",
+    "CubicSplineTerm",
     "PSplineTerm1D",
     "ThinPlateSplineTerm",
     "GPSmoothTerm",
     "TensorProductSplineTerm",
     "InteractionTensorProductSplineTerm",
     "TensorANOVASplineTerm",
+    "FSmoothInteractionTerm",
+    "SZSmoothInteractionTerm",
+    "MarkovRandomFieldTerm",
+    "RandomEffectTerm",
     "te",
     "ti",
     "t2",
-    "cc",
-    "cs",
     "cr",
+    "cs",
+    "cc",
     "ps",
     "tp",
     "ts",

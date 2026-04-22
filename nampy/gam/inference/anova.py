@@ -25,6 +25,12 @@ from .._model_state import (
     _term_blocks_seq,
 )
 from ..engine import select_covariance_matrix
+from ..linalg import (
+    numerical_rank,
+    symmetric_eigh,
+    symmetric_eigvalsh,
+    symmetrize_matrix,
+)
 
 
 def _scale_estimated(model) -> bool:
@@ -74,14 +80,14 @@ def _term_uses_retest(tb, summary_R) -> bool:
     if total_penalty is None:
         return False
     width = int(total_penalty.shape[0])
-    return int(np.linalg.matrix_rank(total_penalty)) >= width
+    return numerical_rank(total_penalty) >= width
 
 
 def _mroot_psd(A: np.ndarray) -> np.ndarray:
-    A = 0.5 * (np.asarray(A, dtype=np.float64) + np.asarray(A, dtype=np.float64).T)
+    A = symmetrize_matrix(A)
     if A.size == 0:
         return np.zeros((A.shape[0], 0), dtype=np.float64)
-    evals, evecs = np.linalg.eigh(A)
+    evals, evecs = symmetric_eigh(A)
     # Keep the cutoff relative to the matrix scale only. mgcv::mroot() with
     # `chol(..., tol=0)` preserves tiny positive directions for exact-fit
     # cases like low-rank MRFs, and absolute `1.0 * eps` flooring drops them.
@@ -271,8 +277,8 @@ def _retest_like_stat(
     # `B <- mroot(Ve[ind, ind])`. Computing the invariant
     # `Rm %*% Ve %*% t(Rm) / sig2` avoids square-root orientation drift here.
     RBt = np.asarray((Rm @ Ve_i @ Rm.T) / scale, dtype=np.float64)
-    RBt = 0.5 * (RBt + RBt.T)
-    ev = np.linalg.eigvalsh(RBt)
+    RBt = symmetrize_matrix(RBt)
+    ev = symmetric_eigvalsh(RBt)
     ev = np.clip(np.asarray(ev, dtype=np.float64), 0.0, None)
     # The direct `Ve` route needs a slightly stronger cutoff than the
     # idealized `mroot()` path to mirror mgcv's pivoted-Cholesky rank drop.
@@ -360,7 +366,7 @@ def _stable_wald_stat(beta: np.ndarray, cov: np.ndarray) -> tuple[float, int]:
             "Coefficient covariance block shape does not match term width."
         )
 
-    rank = int(np.linalg.matrix_rank(cov))
+    rank = numerical_rank(cov)
     if rank == 0:
         return 0.0, 0
 
@@ -396,11 +402,8 @@ def _smooth_test_stat(
     # path should stay unpivoted here.
     _, R = qr(X, mode="economic", pivoting=False)
     Vt = R @ V @ R.T
-    Vt = 0.5 * (Vt + Vt.T)
-    evals, evecs = np.linalg.eigh(Vt)
-    order = np.argsort(evals)[::-1]
-    evals = evals[order]
-    evecs = evecs[:, order]
+    Vt = symmetrize_matrix(Vt)
+    evals, evecs = symmetric_eigh(Vt, descending=True)
     if evecs.size > 0:
         signs = np.sign(evecs[0, :])
         signs[signs == 0.0] = 1.0

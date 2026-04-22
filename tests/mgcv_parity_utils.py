@@ -94,13 +94,27 @@ _MGCV_SNAPSHOT_SERVER_REQUEST_IDS = itertools.count(1)
 _SNAPSHOT_CACHE_VERSION = 2
 _RAW_CONSTRUCTOR_CACHE_VERSION = 5
 _GAM_SETUP_ASSEMBLY_CACHE_VERSION = 4
-_GAM_VCOMP_CACHE_VERSION = 1
-_MGCV_CACHE_ONLY = os.environ.get("MGCV_CACHE_ONLY", "1").lower() in {
-    "1",
-    "true",
-    "yes",
-    "on",
-}
+_GAM_VCOMP_CACHE_VERSION = 2
+_NATPARAM_TYPE3_CACHE_VERSION = 1
+_SMOOTHCON_PREDICT_MATRIX_CACHE_VERSION = 1
+
+
+def _env_flag_is_true(value: str) -> bool:
+    return value.lower() in {"1", "true", "yes", "on"}
+
+
+def _mgcv_cache_only_override() -> bool | None:
+    override = os.environ.get("MGCV_CACHE_ONLY")
+    if override is None:
+        return None
+    return _env_flag_is_true(override)
+
+
+def _mgcv_cache_only_mode() -> bool:
+    override = _mgcv_cache_only_override()
+    if override is not None:
+        return override
+    return R_SCRIPT is None
 
 
 def _start_mgcv_snapshot_server() -> subprocess.Popen:
@@ -328,11 +342,17 @@ def _mgcv_cache_load(key: str):
     path = _MGCV_CACHE_DIR / f"{key}.json"
     if path.exists():
         return json.loads(path.read_text(encoding="utf-8"))
-    if _MGCV_CACHE_ONLY:
+    if _mgcv_cache_only_mode():
+        if _mgcv_cache_only_override() is True:
+            raise RuntimeError(
+                "MGCV cache-only mode is enabled. This test requires a precomputed fixture "
+                f"and key '{key}' is not present in {path.parent}. "
+                "Set MGCV_CACHE_ONLY=0 to regenerate via R."
+            )
         raise RuntimeError(
-            "MGCV cache-only mode is enabled. This test requires a precomputed fixture "
-            f"and key '{key}' is not present in {path.parent}. "
-            "Set MGCV_CACHE_ONLY=0 to regenerate via R."
+            "R is not available and this test requires a precomputed MGCV fixture. "
+            f"Key '{key}' is not present in {path.parent}. "
+            "Install R (including Rscript), set MGCV_RSCRIPT, or precompute the cache."
         )
     return None
 
@@ -740,10 +760,30 @@ def _emit_r_expr(
     if isinstance(node, ast.Call):
         func = _emit_r_expr(node.func)
         args = [_emit_r_expr(arg) for arg in node.args]
-        kwargs = [
-            f"{_r_name(kw.arg)}={_emit_r_expr(kw.value, kw_name=kw.arg)}"
-            for kw in node.keywords
-        ]
+        kwargs = []
+        for kw in node.keywords:
+            if kw.arg is None:
+                if not isinstance(kw.value, ast.Dict):
+                    raise TypeError(
+                        "**kwargs in formula text must expand a dictionary literal."
+                    )
+                for key_node, value_node in zip(kw.value.keys, kw.value.values):
+                    if key_node is None:
+                        raise TypeError(
+                            "Nested **kwargs expansion is not supported in formula text."
+                        )
+                    if not isinstance(key_node, ast.Constant) or not isinstance(
+                        key_node.value, str
+                    ):
+                        raise TypeError(
+                            "Only string dict keys are supported in formula text."
+                        )
+                    kwargs.append(
+                        f"{_r_name(str(key_node.value))}="
+                        f"{_emit_r_expr(value_node, kw_name=str(key_node.value))}"
+                    )
+                continue
+            kwargs.append(f"{_r_name(kw.arg)}={_emit_r_expr(kw.value, kw_name=kw.arg)}")
         return f"{func}({', '.join([*args, *kwargs])})"
 
     if isinstance(node, ast.BinOp):
@@ -799,6 +839,7 @@ def _run_mgcv_snapshot(
     *,
     select: bool = False,
     weights_column: str | None = None,
+    allow_live_run: bool = False,
 ):
     _family_nampy, family_token = _family_specs(family)
 
@@ -814,7 +855,12 @@ def _run_mgcv_snapshot(
             "weights_column": weights_column,
         },
     )
-    cached = _mgcv_cache_load(_cache_key)
+    try:
+        cached = _mgcv_cache_load(_cache_key)
+    except RuntimeError:
+        if not allow_live_run:
+            raise
+        cached = None
     if cached is not None:
         return cached
 
@@ -843,7 +889,7 @@ def _run_mgcv_snapshot(
 
 def _run_mgcv_anova(
     data: pd.DataFrame,
-    formulas: list[str],
+    formulas,
     family,
     method: str,
     *,
@@ -851,12 +897,13 @@ def _run_mgcv_anova(
     test: str | None = None,
 ):
     _family_nampy, family_token = _family_specs(family)
+    formula_texts = [str(formula) for formula in list(formulas)]
 
     _cache_key = _mgcv_cache_key(
         "anova",
         {
             "data": _df_cache_repr(data),
-            "formulas": list(formulas),
+            "formulas": formula_texts,
             "family_token": family_token,
             "method": method,
             "select": select,
@@ -876,7 +923,7 @@ def _run_mgcv_anova(
             str(MGCV_ANOVA_SCRIPT),
             str(csv_path),
             str(json_path),
-            json.dumps(list(formulas)),
+            json.dumps(formula_texts),
             family_token,
             method,
             "true" if select else "false",
@@ -920,9 +967,20 @@ def _run_mgcv_gam_vcomp(
             "weights_column": weights_column,
         },
     )
+    def _normalize_gam_vcomp_payload(payload):
+        if payload is None:
+            return None
+        if not isinstance(payload, dict):
+            return payload
+        out = dict(payload)
+        for key in ("all_names", "rank", "rank_hess", "conf_lev"):
+            if isinstance(out.get(key, None), dict) and len(out[key]) == 0:
+                out[key] = None
+        return out
+
     cached = _mgcv_cache_load(_cache_key)
     if cached is not None:
-        return cached
+        return _normalize_gam_vcomp_payload(cached)
 
     r_code = """
 normalize_formula_text <- function(x) {
@@ -1053,7 +1111,9 @@ write_json(serialize_gam_vcomp(vc), out, auto_unbox = TRUE, digits = 17)
             capture_output=True,
             text=True,
         )
-        result = json.loads(json_path.read_text(encoding="utf-8"))
+        result = _normalize_gam_vcomp_payload(
+            json.loads(json_path.read_text(encoding="utf-8"))
+        )
 
     _mgcv_cache_save(_cache_key, result)
     return result
@@ -1574,6 +1634,233 @@ write_json(
     return result
 
 
+def _run_mgcv_natparam_type3(
+    data: pd.DataFrame,
+    smooth_expr: str,
+    *,
+    knots: dict | None = None,
+):
+    smooth_expr_r = _normalize_python_formula_text(smooth_expr)
+    knots_payload = _normalize_raw_constructor_knots(knots)
+    _cache_key = _mgcv_cache_key(
+        "natparam_type3",
+        {
+            "version": _NATPARAM_TYPE3_CACHE_VERSION,
+            "data": _df_cache_repr(data),
+            "smooth_expr": smooth_expr_r,
+            "knots": json.dumps(knots_payload, sort_keys=True, default=str),
+        },
+    )
+    cached = _mgcv_cache_load(_cache_key)
+    if cached is not None:
+        return _decode_packed_matrix_payload(cached)
+
+    r_code = """
+suppressPackageStartupMessages(library(mgcv))
+suppressPackageStartupMessages(library(jsonlite))
+args <- commandArgs(trailingOnly = TRUE)
+d <- read.csv(args[[1]], stringsAsFactors = FALSE)
+for (nm in names(d)) if (is.character(d[[nm]])) d[[nm]] <- factor(d[[nm]])
+out <- args[[2]]
+kn <- NULL
+if (length(args) >= 4 && nzchar(args[[4]])) {
+  kraw <- fromJSON(args[[4]], simplifyVector = FALSE)
+  kn <- lapply(kraw, function(v) {
+    if (is.null(v)) return(NULL)
+    vals <- unlist(v, recursive = TRUE, use.names = FALSE)
+    if (is.numeric(vals)) return(unname(as.numeric(vals)))
+    if (is.integer(vals)) return(unname(as.integer(vals)))
+    if (is.logical(vals)) return(unname(as.logical(vals)))
+    unname(as.character(vals))
+  })
+}
+
+pack_matrix <- function(x) {
+  if (is.null(x)) return(NULL)
+  x <- as.matrix(x)
+  list(
+    "__kind__" = "matrix",
+    dim = as.integer(dim(x)),
+    data = unname(as.numeric(t(x)))
+  )
+}
+
+sm <- mgcv:::smooth.construct3(eval(parse(text = args[[3]])), d, kn)
+if (length(sm$S) != 1) stop("nat.param(type=3) helper requires exactly one penalty.")
+rank_val <- if (length(sm$rank) >= 1) as.integer(sm$rank[[1]]) else NULL
+np <- mgcv:::nat.param(
+  sm$X,
+  sm$S[[1]],
+  rank = rank_val,
+  type = 3,
+  unit.fnorm = TRUE
+)
+write_json(
+  list(
+    X = pack_matrix(np$X),
+    P = pack_matrix(np$P),
+    rank = if (is.null(np$rank)) NULL else as.integer(np$rank),
+    rawX = pack_matrix(sm$X),
+    rawS = pack_matrix(sm$S[[1]])
+  ),
+  out,
+  auto_unbox = TRUE,
+  digits = 17,
+  null = "null"
+)
+"""
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        csv_path = tmpdir_path / "data.csv"
+        json_path = tmpdir_path / "natparam_type3.json"
+        script_path = tmpdir_path / "natparam_type3.R"
+        data.to_csv(csv_path, index=False)
+        script_path.write_text(r_code, encoding="utf-8")
+        knots_json = (
+            ""
+            if knots_payload is None
+            else json.dumps(knots_payload, sort_keys=True, default=str)
+        )
+        subprocess.run(
+            _build_r_command(
+                script_path,
+                str(csv_path),
+                str(json_path),
+                smooth_expr_r,
+                knots_json,
+            ),
+            check=True,
+            cwd=_REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+
+    _mgcv_cache_save(_cache_key, result)
+    return _decode_packed_matrix_payload(result)
+
+
+def _run_mgcv_smoothcon_predict_matrix(
+    data: pd.DataFrame,
+    newdata: pd.DataFrame,
+    smooth_expr: str,
+    *,
+    knots: dict | None = None,
+    absorb_cons: bool = True,
+    scale_penalty: bool = True,
+):
+    smooth_expr_r = _normalize_python_formula_text(smooth_expr)
+    knots_payload = _normalize_raw_constructor_knots(knots)
+    _cache_key = _mgcv_cache_key(
+        "smoothcon_predict_matrix",
+        {
+            "version": _SMOOTHCON_PREDICT_MATRIX_CACHE_VERSION,
+            "data": _df_cache_repr(data),
+            "newdata": _df_cache_repr(newdata),
+            "smooth_expr": smooth_expr_r,
+            "knots": json.dumps(knots_payload, sort_keys=True, default=str),
+            "absorb_cons": bool(absorb_cons),
+            "scale_penalty": bool(scale_penalty),
+        },
+    )
+    cached = _mgcv_cache_load(_cache_key)
+    if cached is not None:
+        return _decode_packed_matrix_payload(cached)
+
+    r_code = """
+suppressPackageStartupMessages(library(mgcv))
+suppressPackageStartupMessages(library(jsonlite))
+args <- commandArgs(trailingOnly = TRUE)
+train <- read.csv(args[[1]], stringsAsFactors = FALSE)
+newd <- read.csv(args[[2]], stringsAsFactors = FALSE)
+for (nm in names(train)) if (is.character(train[[nm]])) train[[nm]] <- factor(train[[nm]])
+for (nm in names(newd)) {
+  if (is.character(newd[[nm]]) && nm %in% names(train) && is.factor(train[[nm]])) {
+    newd[[nm]] <- factor(newd[[nm]], levels = levels(train[[nm]]))
+  } else if (is.character(newd[[nm]])) {
+    newd[[nm]] <- factor(newd[[nm]])
+  }
+}
+out <- args[[3]]
+kn <- NULL
+if (length(args) >= 8 && nzchar(args[[8]])) {
+  kraw <- fromJSON(args[[8]], simplifyVector = FALSE)
+  kn <- lapply(kraw, function(v) {
+    if (is.null(v)) return(NULL)
+    vals <- unlist(v, recursive = TRUE, use.names = FALSE)
+    if (is.numeric(vals)) return(unname(as.numeric(vals)))
+    if (is.integer(vals)) return(unname(as.integer(vals)))
+    if (is.logical(vals)) return(unname(as.logical(vals)))
+    unname(as.character(vals))
+  })
+}
+
+pack_matrix <- function(x) {
+  if (is.null(x)) return(NULL)
+  x <- as.matrix(x)
+  list(
+    "__kind__" = "matrix",
+    dim = as.integer(dim(x)),
+    data = unname(as.numeric(t(x)))
+  )
+}
+
+absorb_cons <- tolower(args[[5]]) %in% c("true", "1", "yes")
+scale_penalty <- tolower(args[[6]]) %in% c("true", "1", "yes")
+sm <- smoothCon(
+  eval(parse(text = args[[4]])),
+  train,
+  knots = kn,
+  absorb.cons = absorb_cons,
+  scale.penalty = scale_penalty
+)[[1]]
+pm <- PredictMat(sm, newd)
+write_json(
+  list(X = pack_matrix(pm)),
+  out,
+  auto_unbox = TRUE,
+  digits = 17,
+  null = "null"
+)
+"""
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        train_path = tmpdir_path / "train.csv"
+        new_path = tmpdir_path / "new.csv"
+        json_path = tmpdir_path / "predict_matrix.json"
+        script_path = tmpdir_path / "predict_matrix.R"
+        data.to_csv(train_path, index=False)
+        newdata.to_csv(new_path, index=False)
+        script_path.write_text(r_code, encoding="utf-8")
+        knots_json = (
+            ""
+            if knots_payload is None
+            else json.dumps(knots_payload, sort_keys=True, default=str)
+        )
+        subprocess.run(
+            _build_r_command(
+                script_path,
+                str(train_path),
+                str(new_path),
+                str(json_path),
+                smooth_expr_r,
+                "true" if absorb_cons else "false",
+                "true" if scale_penalty else "false",
+                knots_json,
+            ),
+            check=True,
+            cwd=_REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        result = json.loads(json_path.read_text(encoding="utf-8"))
+
+    _mgcv_cache_save(_cache_key, result)
+    return _decode_packed_matrix_payload(result)
+
+
 def _run_mgcv_predict_on_newdata(
     data: pd.DataFrame,
     newdata: pd.DataFrame,
@@ -1587,6 +1874,7 @@ def _run_mgcv_predict_on_newdata(
     iterms_type: int | None = None,
     select: bool = False,
     weights_column: str | None = None,
+    allow_live_run: bool = False,
 ):
     _family_nampy_unused, family_token = _family_specs(family)
     fit_method = "REML" if str(method).lower() == "fixed" else method
@@ -1608,7 +1896,12 @@ def _run_mgcv_predict_on_newdata(
             "weights_column": weights_column,
         },
     )
-    cached = _mgcv_cache_load(_cache_key)
+    try:
+        cached = _mgcv_cache_load(_cache_key)
+    except RuntimeError:
+        if not allow_live_run:
+            raise
+        cached = None
     if cached is not None:
         return cached
 
@@ -1628,6 +1921,20 @@ iterms_type_text <- args[[9]]
 iterms_type <- if (tolower(iterms_type_text) %in% c("none", "null", "")) NULL else as.integer(iterms_type_text)
 select_flag <- identical(tolower(args[[10]]), "true")
 weights_column <- args[[11]]
+coerce_formula <- function(x) {
+  obj <- eval(parse(text = x))
+  if (is.character(obj)) {
+    if (length(obj) == 1) return(as.formula(obj))
+    return(lapply(obj, as.formula))
+  }
+  obj
+}
+serialize_numeric_object <- function(x) {
+  if (is.null(x)) return(NULL)
+  dims <- dim(x)
+  if (is.null(dims) || length(dims) == 0) return(unname(as.numeric(x)))
+  unname(as.matrix(x))
+}
 for (nm in names(train)) if (is.character(train[[nm]])) train[[nm]] <- factor(train[[nm]])
 for (nm in names(newd)) {
   if (is.character(newd[[nm]]) && nm %in% names(train) && is.factor(train[[nm]])) {
@@ -1660,13 +1967,19 @@ family_obj <- switch(
     theta <- if (length(family_parts) >= 2) as.numeric(family_parts[[2]]) else 1.0
     mgcv::nb(theta = -abs(theta), link = "log")
   },
+  gaulss = mgcv::gaulss(),
+  gammals = mgcv::gammals(),
+  ziplss = mgcv::ziplss(),
+  gevlss = mgcv::gevlss(),
+  shash = mgcv::shash(),
   stop(sprintf("Unsupported family for newdata parity: %s", family_name))
 )
+fit_method <- if (tolower(method_name) == "gcv") "GCV.Cp" else method_name
 gam_args <- list(
-  formula = as.formula(formula_text),
+  formula = coerce_formula(formula_text),
   data = train,
   family = family_obj,
-  method = method_name,
+  method = fit_method,
   select = select_flag
 )
 if (!(tolower(weights_column) %in% c("none", "null", ""))) {
@@ -1697,10 +2010,10 @@ if (pred_type == "terms" || pred_type == "iterms") {
   }
   out$pred <- unname(as.matrix(pred))
 } else if (want_se) {
-  out$pred <- unname(as.numeric(pred$fit))
-  out$se <- unname(as.numeric(pred$se.fit))
+  out$pred <- serialize_numeric_object(pred$fit)
+  out$se <- serialize_numeric_object(pred$se.fit)
 } else {
-  out$pred <- unname(as.numeric(pred))
+  out$pred <- serialize_numeric_object(pred)
 }
 write_json(
   out,
@@ -1909,6 +2222,7 @@ def _run_mgcv_gam_setup_assembly(
     method: str,
     *,
     select: bool = False,
+    allow_live_run: bool = False,
 ):
     _family_nampy, family_token = _family_specs(family)
     del _family_nampy
@@ -1925,7 +2239,12 @@ def _run_mgcv_gam_setup_assembly(
             "select": select,
         },
     )
-    cached = _mgcv_cache_load(_cache_key)
+    try:
+        cached = _mgcv_cache_load(_cache_key)
+    except RuntimeError:
+        if not allow_live_run:
+            raise
+        cached = None
     if cached is not None:
         return cached
 
@@ -2158,10 +2477,12 @@ __all__ = [
     "_make_sz_data_3x3",
     "_run_mgcv_anova",
     "_run_mgcv_natparam_cr",
+    "_run_mgcv_natparam_type3",
     "_run_mgcv_fixed_sp_score",
     "_run_mgcv_gam_setup_assembly",
     "_run_mgcv_gam_vcomp",
     "_run_mgcv_predict_on_newdata",
+    "_run_mgcv_smoothcon_predict_matrix",
     "_run_mgcv_smoothcon_matrix",
     "_run_mgcv_smoothcon_matrix_unscaled",
     "_run_mgcv_smoothcon_penalties",

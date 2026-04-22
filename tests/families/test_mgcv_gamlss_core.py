@@ -14,11 +14,11 @@ from nampy.gam.compiler.structures import (
 )
 from nampy.gam.families.gamlss import gevlss, shashlss
 from nampy.gam.fit.solvers.gamlss_utils import gamlss_etamu, gamlss_gH, trind_generator
-from nampy.gam.fit.solvers.general_fit5 import (
-    _run_general_fit5,
-    build_gam_fit5_setup_state,
-    criterion_gradient_ml_reml_general_fit5,
-    criterion_hessian_ml_reml_general_fit5,
+from nampy.gam.fit.solvers.general_family_solver import (
+    build_general_family_setup_state,
+    criterion_gradient_ml_reml_general_family,
+    criterion_hessian_ml_reml_general_family,
+    run_general_family_fixed_smoothing,
 )
 from nampy.gam.smoothing_selection.reparam import _stable_penalty_logdet_derivatives
 
@@ -32,6 +32,7 @@ from nampy.gam.smoothing_selection.reparam import _stable_penalty_logdet_derivat
 
 
 def test_trind_generator_k2_symmetry():
+    """Verify that trind generator k2 symmetry."""
     tri = trind_generator(2)
     i2 = tri["i2"]
     # i2 must be symmetric
@@ -43,6 +44,7 @@ def test_trind_generator_k2_symmetry():
 
 
 def test_trind_generator_k2_reverse():
+    """Verify that trind generator k2 reverse."""
     tri = trind_generator(2)
     i2r = tri["i2r"]
     K = 2
@@ -54,6 +56,7 @@ def test_trind_generator_k2_reverse():
 
 
 def test_trind_generator_k3_counts():
+    """Verify that trind generator k3 counts."""
     tri = trind_generator(3)
     i2 = tri["i2"]
     i3 = tri["i3"]
@@ -217,6 +220,7 @@ def _shashlss_data(n=120, seed=4):
 def test_general_family_response_prediction_shapes(
     family, formula, data_factory, response_shape
 ):
+    """Verify that general family response prediction shapes."""
     data = data_factory()
     gam = GAM(family=family, formula=formula, optimize_smoothing=False)
     gam.fit(data=data)
@@ -230,6 +234,7 @@ def test_general_family_response_prediction_shapes(
 
 
 def test_gaulss_reml_outer_smoothing_smoke():
+    """Verify that gaulss REML outer smoothing smoke."""
     rng = np.random.default_rng(0)
     n = 80
     x = np.linspace(-1.0, 1.0, n)
@@ -253,6 +258,7 @@ def test_gaulss_reml_outer_smoothing_smoke():
 
 @pytest.mark.parametrize("factory", [gevlss, shashlss])
 def test_general_families_expose_outer_derivative_modes(factory, monkeypatch):
+    """Verify that general families expose outer derivative modes."""
     family = factory()
     assert not family.supports_analytic_outer_derivatives
     assert family.supports_analytic_outer_gradient
@@ -282,7 +288,7 @@ def test_general_families_expose_outer_derivative_modes(factory, monkeypatch):
     log_sp = np.array([0.0, 0.5], dtype=np.float64)
 
     monkeypatch.setattr(
-        "nampy.gam.fit.solvers.general_fit5._run_general_fit5",
+        "nampy.gam.fit.solvers.general_family_solver.run_general_family_fixed_smoothing",
         lambda *_args, **_kwargs: {
             "fit": {
                 "score1": np.array([1.25, -0.5], dtype=np.float64),
@@ -290,14 +296,14 @@ def test_general_families_expose_outer_derivative_modes(factory, monkeypatch):
             }
         },
     )
-    grad = criterion_gradient_ml_reml_general_fit5(model, y, log_sp, "REML")
-    hess = criterion_hessian_ml_reml_general_fit5(model, y, log_sp, "REML")
+    grad = criterion_gradient_ml_reml_general_family(model, y, log_sp, "REML")
+    hess = criterion_hessian_ml_reml_general_family(model, y, log_sp, "REML")
 
     np.testing.assert_allclose(grad, np.array([1.25, -0.5], dtype=np.float64))
     np.testing.assert_allclose(
         hess, np.array([[2.0, 0.3], [0.3, 4.0]], dtype=np.float64)
     )
-    assert model._general_fit5_outer_derivative_info == {
+    assert model._general_family_outer_derivative_info == {
         "gradient_source": "analytic",
         "hessian_source": "analytic",
         "penalty_logdet_source": "analytic",
@@ -307,6 +313,7 @@ def test_general_families_expose_outer_derivative_modes(factory, monkeypatch):
 
 
 def test_general_family_outer_derivatives_require_exact_family_support():
+    """Verify that general family outer derivatives require exact family support."""
     class _Family:
         supports_analytic_outer_derivatives = False
         supports_analytic_outer_gradient = False
@@ -335,13 +342,14 @@ def test_general_family_outer_derivatives_require_exact_family_support():
     log_sp = np.array([0.0, 0.5], dtype=np.float64)
 
     with pytest.raises(NotImplementedError, match="analytic outer gradients"):
-        criterion_gradient_ml_reml_general_fit5(model, y, log_sp, "REML")
+        criterion_gradient_ml_reml_general_family(model, y, log_sp, "REML")
 
     with pytest.raises(NotImplementedError, match="analytic outer Hessians"):
-        criterion_hessian_ml_reml_general_fit5(model, y, log_sp, "REML")
+        criterion_hessian_ml_reml_general_family(model, y, log_sp, "REML")
 
 
 def test_general_fit5_run_uses_canonical_penalty_logdet_derivatives(monkeypatch):
+    """Verify that general fit5 run uses canonical penalty logdet derivatives."""
     recorded = {}
 
     def _stub_gam_fit5(
@@ -425,10 +433,13 @@ def test_general_fit5_run_uses_canonical_penalty_logdet_derivatives(monkeypatch)
             np.array([[7.0]], dtype=np.float64),
         ),
     )
-    monkeypatch.setattr("nampy.gam.fit.solvers.general_fit5.gam_fit5", _stub_gam_fit5)
+    monkeypatch.setattr(
+        "nampy.gam.fit.solvers.general_family_solver.solve_general_newton_fit",
+        _stub_gam_fit5,
+    )
 
     model = _Model()
-    setup = build_gam_fit5_setup_state(model, np.array([2.0]), score_type="REML")
+    setup = build_general_family_setup_state(model, np.array([2.0]), score_type="REML")
     assert len(setup.Sl) == 1
     block = setup.Sl[0]
     assert block.start == 1
@@ -497,7 +508,9 @@ def test_general_fit5_run_uses_canonical_penalty_logdet_derivatives(monkeypatch)
     assert len(setup.jj) == 1
     np.testing.assert_array_equal(setup.jj[0], np.array([0, 1, 2], dtype=int))
 
-    run = _run_general_fit5(model, np.ones(4, dtype=np.float64), np.array([2.0]))
+    run = run_general_family_fixed_smoothing(
+        model, np.ones(4, dtype=np.float64), np.array([2.0])
+    )
 
     assert recorded["ldetS"] == pytest.approx(3.5)
     np.testing.assert_allclose(recorded["ldetS1"], np.array([1.0], dtype=np.float64))
@@ -512,6 +525,7 @@ def test_general_fit5_run_uses_canonical_penalty_logdet_derivatives(monkeypatch)
 
 
 def test_general_fit5_penalty_logdet_derivatives_match_finite_difference():
+    """Verify that general fit5 penalty logdet derivatives match finite difference."""
     rng = np.random.default_rng(123)
     n = 80
     x = np.linspace(-1.0, 1.0, n)

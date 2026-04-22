@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.linalg import cho_factor, cho_solve, solve_triangular
+from scipy.linalg import cho_factor, cho_solve
 from scipy.special import digamma, polygamma
 
 from ..._model_state import _coef_column_offset, _n_smoothing_params
@@ -12,6 +12,7 @@ from ...fit.linalg.matrix_reindexing import (
     drop_rows_dense,
     permute_columns,
     permute_rows,
+    restore_dropped_rows,
 )
 from ...fit.linalg.stacked_qr import (
     build_penalized_qr_state_nonnegative,
@@ -25,7 +26,7 @@ from ...fit.model_ops import (
 from ..reparam import (
     _stable_penalty_logdet_derivatives,
     _static_penalty_null_dim,
-    build_gam_fit3_reparam_state,
+    build_penalty_reparameterization_state,
 )
 from .pirls import _gamma_profile_objective_curvature, _solve_gamma_profile_scale
 from .pirls_reml_derivative_blocks import (
@@ -51,6 +52,7 @@ class _GDI1CurrentSpState:
     P: np.ndarray
     A: np.ndarray
     R: np.ndarray
+    rank_root: np.ndarray
     A_inv: np.ndarray
     penalized_system_rank: int
     dropped_column_indices: np.ndarray
@@ -161,6 +163,18 @@ class _GDI2IFTState:
     ntheta: int
 
 
+def _apply_penalized_inverse_root(rank_root: np.ndarray, rhs: np.ndarray) -> np.ndarray:
+    """
+    Mirror `mgcv/src/gdi.c::applyP()` + `applyPt()` via the QR-state inverse root.
+
+    `rank_root` is the reduced-space `P` returned by `gdiPK()`-style setup, with
+    `PP' = (X'WX + S)^{-1}` in the pivoted rank-identified parameterization.
+    """
+    rank_root = np.asarray(rank_root, dtype=np.float64)
+    rhs = np.asarray(rhs, dtype=np.float64)
+    return np.asarray(rank_root @ (rank_root.T @ rhs), dtype=np.float64)
+
+
 def _gamma_saturated_loglik_scale_derivatives(y, phi, weights=None):
     """
     `mgcv`-style Gamma saturated log-likelihood derivatives w.r.t. scale `phi`.
@@ -206,6 +220,48 @@ def _drop_permute_symmetric(mat, drop, pivot1):
     out = drop_columns_dense(out, drop)
     out = permute_rows(out, pivot1, reverse=False)
     return permute_columns(out, pivot1, reverse=False)
+
+
+def _column_stack_or_empty(cols, nrow):
+    if len(cols) == 0:
+        return np.empty((int(nrow), 0), dtype=np.float64)
+    return np.column_stack([np.asarray(col, dtype=np.float64) for col in cols])
+
+
+def _restore_pirls_dbeta_to_fit_space(current, dbeta_rank):
+    packed = np.asarray(dbeta_rank, dtype=np.float64).reshape(-1, 1)
+    pivot1 = np.asarray(current.pivot1, dtype=np.int64)
+    dropped = np.asarray(current.dropped_column_indices, dtype=np.int64)
+    canonical_T = np.asarray(current.canonical.T, dtype=np.float64)
+
+    unpermuted = permute_rows(packed, pivot1, reverse=True)
+    full_canonical = restore_dropped_rows(
+        unpermuted,
+        int(canonical_T.shape[1]),
+        dropped,
+    )
+    return np.asarray(canonical_T @ full_canonical, dtype=np.float64).ravel()
+
+
+def _serialize_pirls_postproc_derivatives(kernel: _GDI1Kernel) -> dict[str, object]:
+    current = kernel.current
+    dbeta = _column_stack_or_empty(
+        [
+            _restore_pirls_dbeta_to_fit_space(current, col)
+            for col in list(kernel.ift.dbeta)
+        ],
+        int(np.asarray(current.canonical.T, dtype=np.float64).shape[0]),
+    )
+    dW_obs = (
+        None
+        if kernel.ift.dW_obs is None
+        else _column_stack_or_empty(list(kernel.ift.dW_obs), int(current.X.shape[0]))
+    )
+    return {
+        "dbeta": dbeta,
+        "dW_obs": dW_obs,
+        "rp": getattr(current.canonical, "rp", None),
+    }
 
 
 def _negbin_ddeta_logtheta(family, y, mu, weights, *, deriv):
@@ -476,7 +532,7 @@ def _gdi_pk_setup(model, sol, sp, *, deriv):
 
     Owns current-sp canonical reparameterization plus solver rank/drop metadata.
     """
-    canonical = build_gam_fit3_reparam_state(model, sol["X"], sp, deriv=deriv)
+    canonical = build_penalty_reparameterization_state(model, sol["X"], sp, deriv=deriv)
     X = np.asarray(sol["X"], dtype=np.float64) @ np.asarray(
         canonical.T, dtype=np.float64
     )
@@ -519,7 +575,7 @@ def _gdi_pk_setup(model, sol, sp, *, deriv):
     qr_state = build_penalized_qr_state_nonnegative(
         np.asarray(X, dtype=np.float64),
         np.asarray(X @ beta, dtype=np.float64),
-        np.abs(np.asarray(W, dtype=np.float64)),
+        np.asarray(W, dtype=np.float64),
         penalty_sqrt_E=np.asarray(penalty_sqrt, dtype=np.float64),
         penalty_rank_Es=np.asarray(penalty_rank_rows, dtype=np.float64),
         rS=np.asarray(rS, dtype=np.float64),
@@ -552,19 +608,8 @@ def _gdi_pk_setup(model, sol, sp, *, deriv):
     A_rank = np.asarray(Rh.T @ Rh, dtype=np.float64)
     A_rank = 0.5 * (A_rank + A_rank.T)
     if rank > 0:
-        eye_rank = np.eye(rank, dtype=np.float64)
-        A_inv_rank = solve_triangular(
-            Rh,
-            solve_triangular(
-                Rh,
-                eye_rank,
-                lower=False,
-                trans="T",
-                check_finite=False,
-            ),
-            lower=False,
-            check_finite=False,
-        )
+        A_inv_rank = np.asarray(Pk @ Pk.T, dtype=np.float64)
+        A_inv_rank = 0.5 * (A_inv_rank + A_inv_rank.T)
     else:
         A_inv_rank = np.empty((0, 0), dtype=np.float64)
     nulli_full = np.concatenate(
@@ -588,6 +633,7 @@ def _gdi_pk_setup(model, sol, sp, *, deriv):
         P=P_rank,
         A=A_rank,
         R=np.asarray(Rh, dtype=np.float64),
+        rank_root=np.asarray(Pk, dtype=np.float64),
         A_inv=A_inv_rank,
         penalized_system_rank=rank,
         dropped_column_indices=dropped_idx,
@@ -679,7 +725,7 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
     beta = np.asarray(current.beta, dtype=np.float64)
     eta = np.asarray(sol["eta"], dtype=np.float64)
     W = np.asarray(current.W, dtype=np.float64)
-    Rh = np.asarray(pk_state.Rh, dtype=np.float64)
+    P_root = np.asarray(pk_state.P, dtype=np.float64)
     n_sp = int(_n_smoothing_params(model) or 0)
     rank = int(beta.size)
     roots = list(current.canonical.rp.get("rS", []))
@@ -730,10 +776,7 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
             work = root.T @ beta
             work *= -float(sp[j])
             work = root @ work
-            work = solve_triangular(
-                Rh, work, lower=False, trans="T", check_finite=False
-            )
-            dbeta_j = solve_triangular(Rh, work, lower=False, check_finite=False)
+            dbeta_j = _apply_penalized_inverse_root(P_root, work)
         else:
             dbeta_j = np.zeros_like(beta)
         deta_j = X @ dbeta_j
@@ -757,8 +800,7 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
                 work = root_k.T @ np.asarray(dbeta[j], dtype=np.float64)
                 work *= -float(sp[k])
                 Skb = Skb + root_k @ work
-            work = solve_triangular(Rh, Skb, lower=False, trans="T", check_finite=False)
-            d2beta_jk = solve_triangular(Rh, work, lower=False, check_finite=False)
+            d2beta_jk = _apply_penalized_inverse_root(P_root, Skb)
             if j == k:
                 d2beta_jk = d2beta_jk + np.asarray(dbeta[j], dtype=np.float64)
             d2eta_jk = X @ d2beta_jk
@@ -1243,7 +1285,7 @@ def _gdi2_ift2_state_negbin(model, y, sol, sp, current, pk_state):
     X = np.asarray(current.X, dtype=np.float64)
     beta = np.asarray(current.beta, dtype=np.float64)
     mu = np.asarray(sol["mu"], dtype=np.float64)
-    A_inv = np.asarray(current.A_inv, dtype=np.float64)
+    P_root = np.asarray(pk_state.P, dtype=np.float64)
     weights = _prior_weights(model, y)
     dd = _negbin_ddeta_logtheta(model.family, y, mu, weights, deriv=2)
     P_sp = [
@@ -1271,7 +1313,7 @@ def _gdi2_ift2_state_negbin(model, y, sol, sp, current, pk_state):
             rhs = -0.5 * (X.T @ np.asarray(dd["Detath"], dtype=np.float64))
         else:
             rhs = -(P_derivs[i] @ beta)
-        dbeta_i = A_inv @ rhs
+        dbeta_i = _apply_penalized_inverse_root(P_root, rhs)
         deta_i = X @ dbeta_i
         if i == 0:
             dW_i = 0.5 * (
@@ -1320,7 +1362,7 @@ def _gdi2_ift2_state_negbin(model, y, sol, sp, current, pk_state):
                 rhs -= 0.5 * (X.T @ np.asarray(dd["Detath2"], dtype=np.float64))
             elif i == k and i > 0:
                 rhs -= P_derivs[i] @ beta
-            d2beta_ik = A_inv @ rhs
+            d2beta_ik = _apply_penalized_inverse_root(P_root, rhs)
             d2eta_ik = X @ d2beta_ik
             d2W_ik = 0.5 * (
                 np.asarray(dd["Deta4"], dtype=np.float64)
@@ -1515,6 +1557,83 @@ def _gdi2_gamma_joint_kernel(model, y, sol, sp, *, method, need_hessian):
     )
 
 
+def _gdi2_general_family_kernel(model, y, sol, sp, *, method, need_hessian):
+    """
+    Port-shaped `gam.fit5()` decomposition for theta-free general families.
+
+    Mirrors `mgcv/R/gam.fit4.r::gam.fit5` where the REML/ML score splits into
+    `Dp / (2 * gamma) + K`, with `Dp = -2 * ll + b'Sb`.
+    """
+    del sol
+    from ...fit.solvers.general_family_solver import run_general_family_fixed_smoothing
+    from ...fit.solvers.general_newton_solver import _sl_term_mult
+
+    gamma = float(model.score_gamma)
+    run = run_general_family_fixed_smoothing(
+        model,
+        y,
+        sp,
+        weights=_prior_weights(model, y),
+        deriv=2 if need_hessian else 1,
+        score_type=method,
+    )
+    fit = run["fit"]
+    setup = run["setup"]
+
+    coef = np.asarray(fit["coef"], dtype=np.float64)
+    St_full = np.asarray(fit["St_full"], dtype=np.float64)
+    ll_val = float(fit["l"])
+    penalty_full = float(coef @ (St_full @ coef))
+    Dp = float(-2.0 * ll_val + penalty_full)
+
+    Skb = _sl_term_mult(setup.Sl, coef, full=True)
+    Dp1 = np.asarray(
+        [float(np.sum(coef * np.asarray(Skb_i, dtype=np.float64))) for Skb_i in Skb],
+        dtype=np.float64,
+    )
+    score1 = np.asarray(fit.get("score1", np.zeros_like(Dp1)), dtype=np.float64)
+    K1 = np.asarray(score1 - Dp1 / (2.0 * gamma), dtype=np.float64)
+
+    Dp2 = None
+    K2 = None
+    if need_hessian:
+        db_drho = np.asarray(fit["db_drho"], dtype=np.float64)
+        llbb = np.asarray(fit["lbb"], dtype=np.float64)
+        n_sp = int(db_drho.shape[1])
+        d2pen = np.zeros((n_sp, n_sp), dtype=np.float64)
+        d2l = np.zeros((n_sp, n_sp), dtype=np.float64)
+        for i in range(n_sp):
+            Sd1b = St_full @ db_drho[:, i]
+            for j in range(i, n_sp):
+                val = 2.0 * float(
+                    np.sum(
+                        db_drho[:, i] * np.asarray(Skb[j], dtype=np.float64)
+                        + db_drho[:, j] * np.asarray(Skb[i], dtype=np.float64)
+                        + db_drho[:, j] * Sd1b
+                    )
+                )
+                if i == j:
+                    val += float(np.sum(coef * np.asarray(Skb[i], dtype=np.float64)))
+                d2pen[i, j] = d2pen[j, i] = val
+                d2l[i, j] = d2l[j, i] = float(db_drho[:, i] @ (llbb @ db_drho[:, j]))
+        Dp2 = np.asarray(d2pen - 2.0 * d2l, dtype=np.float64)
+        score2 = np.asarray(fit["score2"], dtype=np.float64)
+        K2 = np.asarray(score2 - Dp2 / (2.0 * gamma), dtype=np.float64)
+
+    return _GDI2Kernel(
+        gdi1=None,
+        phi=1.0,
+        phi_curv=np.inf,
+        Dp=Dp,
+        Dp1=Dp1,
+        Dp2=Dp2,
+        K1_full=K1,
+        K2_full=K2,
+        extra_name=None,
+        extra_value=None,
+    )
+
+
 def _gdi2_joint_kernel(model, y, sol, sp, *, method, need_hessian):
     """
     Generic extended-family entry mirroring `gdi2()` dispatch.
@@ -1529,6 +1648,16 @@ def _gdi2_joint_kernel(model, y, sol, sp, *, method, need_hessian):
         )
     if family_name == "negbin":
         return _gdi2_negbin_joint_kernel(
+            model, y, sol, sp, method=method, need_hessian=need_hessian
+        )
+    if str(getattr(model.family, "family_class", "")).lower() == "general":
+        n_theta = int(getattr(model.family, "n_theta", 0) or 0)
+        if n_theta != 0:
+            raise NotImplementedError(
+                "Generic `gdi2` current-sp extended-family port is implemented "
+                "only for theta-free general families."
+            )
+        return _gdi2_general_family_kernel(
             model, y, sol, sp, method=method, need_hessian=need_hessian
         )
     raise NotImplementedError(
@@ -1669,6 +1798,7 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
                 np.asarray(kernel.D2, dtype=np.float64)
                 + np.asarray(kernel.bSb2, dtype=np.float64)
             ) / (2.0 * scale * gamma) + kernel.K2
+        postproc_derivs = _serialize_pirls_postproc_derivatives(kernel)
         model._pirls_reml_derivative_kernel_state_ = {
             "bSb": kernel.bSb,
             "bSb1": kernel.bSb1,
@@ -1691,6 +1821,7 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
             "penalty_hess_raw": None,
             "detXWXS1": detXWXS1,
             "detXWXS2": detXWXS2,
+            **postproc_derivs,
         }
     except Exception:
         model._pirls_reml_derivative_kernel_state_ = None

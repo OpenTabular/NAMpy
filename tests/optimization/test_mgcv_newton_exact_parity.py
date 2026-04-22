@@ -83,6 +83,7 @@ def _fit_nampy_trace(data, formula, family, method):
     [("gaussian", 321, 1e-12), ("binomial", 456, 1e-6), ("poisson", 789, 1e-6)],
 )
 def test_newton_score_hist_matches_r_exact(family, seed, atol):
+    """Verify that newton score hist matches r exact."""
     formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
     if family == "gaussian":
         data = _make_gaussian_data(seed=seed)

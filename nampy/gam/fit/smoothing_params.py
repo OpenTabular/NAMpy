@@ -162,7 +162,7 @@ def expand_smoothing_params_from_log(model, log_free_sp):
 def optimize_smoothing_params(
     model, y, initial_smoothing_params=None, method="gcv", optimizer="lbfgsb"
 ):
-    from ..selection import optimize_smoothing_params as _optimize
+    from ..smoothing_selection import optimize_smoothing_params as _optimize
 
     return _optimize(
         model,

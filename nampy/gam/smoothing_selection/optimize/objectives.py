@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from ...fit.backends import GENERAL_FAMILY_BACKEND
 from ..criteria import (
     _gaussian_dynamic_reml_derivative_terms,
     criterion_gradient,
@@ -19,6 +20,7 @@ from ..criteria import (
     criterion_ml_reml_pirls_negbin_joint,
     criterion_ncv_negbin_joint,
     criterion_value,
+    resolve_ml_reml_scoring_backend,
 )
 
 
@@ -41,6 +43,28 @@ class _CriterionObjective:
 
     def _same_x(self, x):
         return self._last_x is not None and np.array_equal(self._last_x, x)
+
+    def _refresh_general_family_score(self, x):
+        method = str(self.method).lower()
+        if method not in {"ml", "reml", "laml"}:
+            return
+        try:
+            backend = resolve_ml_reml_scoring_backend(self.model, method=method)
+        except Exception:
+            return
+        if backend != GENERAL_FAMILY_BACKEND:
+            return
+        try:
+            val = float(criterion_value(self.model, self.y, x, method=self.method))
+        except Exception:
+            return
+
+        self._last_fun = val
+        if self.capture_trace:
+            key = tuple(np.asarray(x, dtype=np.float64).tolist())
+            idx = self._trace_index_by_x.get(key, None)
+            if idx is not None:
+                self.trace[idx]["fun"] = float(val)
 
     def fun(self, x):
         x = np.asarray(x, dtype=np.float64).ravel()
@@ -90,6 +114,7 @@ class _CriterionObjective:
         self._last_x = x.copy()
         self._last_grad = grad.copy()
         self._last_hess = None
+        self._refresh_general_family_score(x)
         if self.capture_trace:
             key = tuple(np.asarray(x, dtype=np.float64).tolist())
             idx = self._trace_index_by_x.get(key, None)
@@ -127,6 +152,7 @@ class _CriterionObjective:
         self.n_hess += 1
         self._last_x = x.copy()
         self._last_hess = hess.copy()
+        self._refresh_general_family_score(x)
         if self.capture_trace:
             key = tuple(np.asarray(x, dtype=np.float64).tolist())
             idx = self._trace_index_by_x.get(key, None)

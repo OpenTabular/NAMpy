@@ -6,9 +6,6 @@ What is compared:
   k_index  — v_obs / mean(rsd^2). Approximate with independent RNG path.
   p_value  — permutation-test p-value. Validity checks are probabilistic-range checks.
 
-What is NOT compared:
-  fs k_check whole-surface parity. This remains under triage and is skipped here.
-
 R script runs:  k.check(fit, subsample=120, n.rep=8) with set.seed(0).
 NAMpy runs:     model.k_check(subsample=120, n_rep=8, seed=0).
 """
@@ -284,6 +281,10 @@ class TestKCheckParity:
     def test_numeric_k_check_parity_representative_cases(
         self, data_factory, formula, family, method, numeric_terms, edf_atol
     ):
+        """
+        Verify that numeric-term k-check diagnostics match mgcv on the representative
+        case matrix in this file.
+        """
         data = data_factory()
         snap = _run_mgcv_snapshot(data, formula, family, method)
         model = _fit_nampy_model(data, formula, family, method)
@@ -319,6 +320,10 @@ class TestKCheckParity:
     def test_factor_like_terms_have_nan_k_diagnostics(
         self, data_factory, formula, edf_atol
     ):
+        """
+        Verify that factor-like smooths surface NaN k-index diagnostics, matching the
+        mgcv convention for nonnumeric terms.
+        """
         data = data_factory()
         snap = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         model = _fit_nampy_model(data, formula, "gaussian", "REML")

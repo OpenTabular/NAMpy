@@ -10,6 +10,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from tests.families.test_general_family_mgcv_parity import (
+    _gevlss_data,
+    _gammals_data,
+    _shashlss_data,
+    _ziplss_data,
+)
 from nampy.gam.smoothing_selection.criteria.dispatch import (
     criterion_gradient,
     criterion_value,
@@ -140,6 +146,7 @@ write_json(
 
 
 def test_gaussian_fixed_sp_ncv_matches_mgcv():
+    """Verify that gaussian fixed sp NCV matches mgcv."""
     data = _make_gaussian_data(seed=321, n=60)
     formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
     sp = np.array([0.7, 1.2], dtype=np.float64)
@@ -167,6 +174,7 @@ def test_gaussian_fixed_sp_ncv_matches_mgcv():
 
 
 def test_binomial_fixed_sp_qncv_matches_mgcv():
+    """Verify that binomial fixed sp QNCV matches mgcv."""
     data = _make_binomial_data(seed=456, n=80)
     formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
     sp = np.array([0.8, 1.6], dtype=np.float64)
@@ -194,6 +202,7 @@ def test_binomial_fixed_sp_qncv_matches_mgcv():
 
 
 def test_negbin_fixed_sp_ncv_matches_mgcv():
+    """Verify that negative-binomial fixed sp NCV matches mgcv."""
     data = _make_negbin_data(seed=77, n=70)
     formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
     sp = np.array([0.9, 1.4], dtype=np.float64)
@@ -222,6 +231,7 @@ def test_negbin_fixed_sp_ncv_matches_mgcv():
 
 
 def test_poisson_outer_ncv_matches_mgcv():
+    """Verify that poisson outer NCV matches mgcv."""
     data = _make_poisson_data(seed=789, n=90)
     formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
 
@@ -243,6 +253,7 @@ def test_poisson_outer_ncv_matches_mgcv():
 
 
 def test_binomial_outer_qncv_single_smooth_matches_mgcv():
+    """Verify that binomial outer QNCV single smooth matches mgcv."""
     data = _make_binomial_data(seed=456, n=100)
     formula = 'y ~ s(x0, bs="cr", k=8)'
 
@@ -264,6 +275,7 @@ def test_binomial_outer_qncv_single_smooth_matches_mgcv():
 
 
 def test_gamma_outer_qncv_single_smooth_matches_mgcv():
+    """Verify that gamma outer QNCV single smooth matches mgcv."""
     data = _make_gamma_data(seed=123, n=100)
     formula = 'y ~ s(x0, bs="cr", k=8)'
 
@@ -285,6 +297,7 @@ def test_gamma_outer_qncv_single_smooth_matches_mgcv():
 
 
 def test_gaulss_outer_ncv_matches_mgcv():
+    """Verify that gaulss outer NCV matches mgcv."""
     data = _make_gaulss_data(seed=11, n=90)
     formula = ['y ~ s(x, bs="cr", k=6)', "~ 1"]
 
@@ -306,6 +319,7 @@ def test_gaulss_outer_ncv_matches_mgcv():
 
 
 def test_gaulss_outer_qncv_matches_mgcv():
+    """Verify that gaulss outer QNCV matches mgcv."""
     data = _make_gaulss_data(seed=13, n=90)
     formula = ['y ~ s(x, bs="cr", k=6)', '~ s(x, bs="cr", k=5)']
 
@@ -326,7 +340,118 @@ def test_gaulss_outer_qncv_matches_mgcv():
     )
 
 
+@pytest.mark.parametrize(
+    ("family", "formula", "data_factory", "method", "pred_atol", "edf_atol", "sp_atol"),
+    [
+        (
+            "gammals",
+            ['y ~ s(x, bs="cr", k=6)', "~ 1"],
+            _gammals_data,
+            "NCV",
+            2e-6,
+            2e-5,
+            2e-4,
+        ),
+        (
+            "gammals",
+            ['y ~ s(x, bs="cr", k=6)', "~ 1"],
+            _gammals_data,
+            "QNCV",
+            2e-6,
+            2e-5,
+            2e-4,
+        ),
+        (
+            "gevlss",
+            ['y ~ s(x, bs="cr", k=6)', "~ 1", "~ 1"],
+            _gevlss_data,
+            "NCV",
+            3e-5,
+            3e-5,
+            5e-4,
+        ),
+        (
+            "gevlss",
+            ['y ~ s(x, bs="cr", k=6)', "~ 1", "~ 1"],
+            _gevlss_data,
+            "QNCV",
+            3e-5,
+            3e-5,
+            5e-4,
+        ),
+        (
+            "shashlss",
+            ['y ~ s(x, bs="cr", k=6)', "~ 1", "~ 1", "~ 1"],
+            _shashlss_data,
+            "NCV",
+            8e-5,
+            5e-5,
+            2e-3,
+        ),
+        (
+            "shashlss",
+            ['y ~ s(x, bs="cr", k=6)', "~ 1", "~ 1", "~ 1"],
+            _shashlss_data,
+            "QNCV",
+            8e-5,
+            5e-5,
+            2e-3,
+        ),
+        (
+            "ziplss",
+            ['y ~ s(x, bs="cr", k=6)', "~ 1"],
+            _ziplss_data,
+            "NCV",
+            5e-4,
+            5e-5,
+            1e-3,
+        ),
+        (
+            "ziplss",
+            ['y ~ s(x, bs="cr", k=6)', "~ 1"],
+            _ziplss_data,
+            "QNCV",
+            5e-4,
+            5e-5,
+            1e-3,
+        ),
+    ],
+    ids=[
+        "gammals_ncv",
+        "gammals_qncv",
+        "gevlss_ncv",
+        "gevlss_qncv",
+        "shashlss_ncv",
+        "shashlss_qncv",
+        "ziplss_ncv",
+        "ziplss_qncv",
+    ],
+)
+def test_general_family_outer_ncv_qncv_matches_mgcv_requested_families(
+    family, formula, data_factory, method, pred_atol, edf_atol, sp_atol
+):
+    """Verify that general family outer NCV QNCV matches mgcv requested families."""
+    data = data_factory()
+
+    actual = _fit_nampy_snapshot(data, formula, family, method)
+    expected = _run_mgcv_snapshot(data, formula, family, method)
+
+    _assert_exact_mgcv_snapshot_parity(
+        actual,
+        expected,
+        pred_atol=pred_atol,
+        pred_rtol=0.0,
+        edf_atol=edf_atol,
+        criterion_atol=1e-8,
+        criterion_rtol=0.0,
+        sp_atol=sp_atol,
+        sp_rtol=0.0,
+        log_sp_atol=sp_atol,
+    )
+
+
 def test_negbin_est_outer_ncv_matches_mgcv():
+    """Verify that negative-binomial est outer NCV matches mgcv."""
     data = _make_negbin_data(seed=93, n=90)
     formula = 'y ~ s(x0, bs="cr", k=8)'
     family = {"name": "negbin", "theta": 1.8, "estimate_theta": True}
@@ -355,6 +480,7 @@ def test_negbin_est_outer_ncv_matches_mgcv():
 
 
 def test_negbin_est_outer_qncv_matches_mgcv():
+    """Verify that negative-binomial est outer QNCV matches mgcv."""
     data = _make_negbin_data(seed=94, n=90)
     formula = 'y ~ s(x0, bs="cr", k=8)'
     family = {"name": "negbin", "theta": 1.8, "estimate_theta": True}
@@ -383,6 +509,7 @@ def test_negbin_est_outer_qncv_matches_mgcv():
 
 
 def test_gaulss_fixed_sp_ncv_jackknife_dd_matches_mgcv():
+    """Verify that gaulss fixed sp NCV jackknife dd matches mgcv."""
     data = _make_gaulss_data(seed=17, n=60)
     formula = ['y ~ s(x, bs="cr", k=6)', "~ 1"]
     sp = np.array([0.9], dtype=np.float64)

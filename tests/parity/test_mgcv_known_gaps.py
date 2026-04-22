@@ -13,6 +13,7 @@ from tests.mgcv_parity_utils import (
 
 
 def test_strict_t2_fixed_sp_response_parity():
+    """Known-gap coverage verifying that strict t2 fixed sp response parity."""
     data = make_parity_case_data("gaussian_cr_uni_reml")
     formula = 'y ~ t2(x0, x1, bs=["cr", "cr"], k=[5, 5], sp=[0.7, 1.3, 0.9])'
 
@@ -28,6 +29,7 @@ def test_strict_t2_fixed_sp_response_parity():
 
 
 def test_strict_poisson_reml_residual_parity():
+    """Known-gap coverage verifying that strict poisson REML residual parity."""
     case = get_parity_case("poisson_cr_uni_reml")
     data = make_parity_case_data(case.case_id)
     expected = _run_mgcv_snapshot(data, case.formula, case.family, case.method)
@@ -48,6 +50,7 @@ def test_strict_poisson_reml_residual_parity():
 
 
 def test_strict_binomial_reml_residual_parity():
+    """Known-gap coverage verifying that strict binomial REML residual parity."""
     case = get_parity_case("binomial_cr_uni_reml")
     data = make_parity_case_data(case.case_id)
     expected = _run_mgcv_snapshot(data, case.formula, case.family, case.method)
@@ -68,6 +71,7 @@ def test_strict_binomial_reml_residual_parity():
 
 
 def test_tensor_te_ps_ps_fixed_sp_response_parity():
+    """Known-gap coverage verifying that tensor te ps ps fixed sp response parity."""
     data = make_parity_case_data("gaussian_cr_uni_reml")
     formula = 'y ~ te(x0, x1, bs=["ps", "ps"], k=[5, 5], sp=[0.7, 1.3])'
     actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
@@ -81,6 +85,10 @@ def test_tensor_te_ps_ps_fixed_sp_response_parity():
 
 
 def test_tensor_te_ps_ps_margin_orders_fixed_sp_response_parity():
+    """
+    Known-gap coverage verifying that tensor te ps ps margin orders fixed sp response
+    parity.
+    """
     data = make_parity_case_data("gaussian_cr_uni_reml")
     formula = 'y ~ te(x0, x1, bs=["ps", "ps"], k=[6, 7], m=[1, 3], sp=[0.7, 1.3])'
     actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
@@ -94,6 +102,7 @@ def test_tensor_te_ps_ps_margin_orders_fixed_sp_response_parity():
 
 
 def test_tensor_ti_ps_ps_fixed_sp_response_parity():
+    """Known-gap coverage verifying that tensor ti ps ps fixed sp response parity."""
     data = make_parity_case_data("gaussian_cr_uni_reml")
     formula = 'y ~ ti(x0, x1, bs=["ps", "ps"], k=[5, 5], sp=[0.7, 1.3])'
     actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
@@ -107,6 +116,10 @@ def test_tensor_ti_ps_ps_fixed_sp_response_parity():
 
 
 def test_tensor_ti_ps_ps_margin_orders_fixed_sp_response_parity():
+    """
+    Known-gap coverage verifying that tensor ti ps ps margin orders fixed sp response
+    parity.
+    """
     data = make_parity_case_data("gaussian_cr_uni_reml")
     formula = 'y ~ ti(x0, x1, bs=["ps", "ps"], k=[6, 7], m=[1, 3], sp=[0.7, 1.3])'
     actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
@@ -120,6 +133,7 @@ def test_tensor_ti_ps_ps_margin_orders_fixed_sp_response_parity():
 
 
 def test_tensor_t2_ps_ps_fixed_sp_response_parity():
+    """Known-gap coverage verifying that tensor t2 ps ps fixed sp response parity."""
     data = make_parity_case_data("gaussian_cr_uni_reml")
     formula = 'y ~ t2(x0, x1, bs=["ps", "ps"], k=[5, 5], sp=[0.7, 1.3, 0.9])'
     actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
@@ -133,6 +147,10 @@ def test_tensor_t2_ps_ps_fixed_sp_response_parity():
 
 
 def test_tensor_t2_ps_ps_margin_orders_fixed_sp_response_parity():
+    """
+    Known-gap coverage verifying that tensor t2 ps ps margin orders fixed sp response
+    parity.
+    """
     data = make_parity_case_data("gaussian_cr_uni_reml")
     formula = (
         'y ~ t2(x0, x1, bs=["ps", "ps"], k=[6, 7], m=[1, 3], ' "sp=[0.7, 1.3, 0.9])"
@@ -148,6 +166,10 @@ def test_tensor_t2_ps_ps_margin_orders_fixed_sp_response_parity():
 
 
 def test_negbin_estimated_theta_reml_endpoint_matches_mgcv():
+    """
+    Known-gap coverage verifying that negative-binomial estimated theta REML endpoint
+    matches mgcv.
+    """
     data = _make_negbin_data(seed=2024, n=240, theta=1.0)
     formula = 'y ~ s(x0, bs="cr", k=8)'
     family = {"name": "negbin", "theta": 2.0, "estimate_theta": True}
@@ -182,6 +204,10 @@ def test_negbin_estimated_theta_reml_endpoint_matches_mgcv():
 
 
 def test_negbin_estimated_theta_reml_two_smooth_theta2_matches_mgcv():
+    """
+    Known-gap coverage verifying that negative-binomial estimated theta REML two smooth
+    theta2 matches mgcv.
+    """
     data = _make_negbin_data(seed=341, n=240, theta=2.0)
     formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
     family = {"name": "negbin", "theta": 2.0, "estimate_theta": True}
@@ -216,6 +242,10 @@ def test_negbin_estimated_theta_reml_two_smooth_theta2_matches_mgcv():
 
 
 def test_negbin_estimated_theta_reml_two_smooth_theta05_matches_mgcv():
+    """
+    Known-gap coverage verifying that negative-binomial estimated theta REML two smooth
+    theta05 matches mgcv.
+    """
     data = _make_negbin_data(seed=340, n=240, theta=0.5)
     formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
     family = {"name": "negbin", "theta": 0.5, "estimate_theta": True}

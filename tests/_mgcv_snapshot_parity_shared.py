@@ -39,7 +39,7 @@ from nampy.gam.smoothing_selection.reparam import (
     _static_penalty_null_dim,
 )
 from nampy.gam.smooths.algebra import t2_marginal_reparameterization
-from nampy.gam.smooths.univariate.cubic_regression import SplineTerm1D
+from nampy.gam.smooths.univariate.cr import CubicSplineTerm
 from nampy.gam.specs.build import build_formula_model
 from tests.mgcv_parity_utils import (
     _assert_allclose_up_to_column_sign,
@@ -102,7 +102,7 @@ class TestParitySnapshotAPI:
         rng = np.random.default_rng(31)
         data = pd.DataFrame({"x": rng.uniform(-2.0, 2.0, size=120)})
 
-        term = SplineTerm1D(feature="x", k=5, basis="cr")
+        term = CubicSplineTerm(feature="x", k=5, basis="cr")
         term.fit(data[["x"]].to_numpy(dtype=np.float64), ["x"])
 
         raw_basis = np.asarray(term._spline.raw_basis, dtype=np.float64)
@@ -582,7 +582,7 @@ class TestParitySnapshotAPI:
         rng = np.random.default_rng(31)
         data = pd.DataFrame({"x": rng.uniform(-2.0, 2.0, size=120)})
 
-        term = SplineTerm1D(feature="x", k=5, basis="cr")
+        term = CubicSplineTerm(feature="x", k=5, basis="cr")
         term.fit(data[["x"]].to_numpy(dtype=np.float64), ["x"])
 
         expected = _run_mgcv_natparam_cr(data, k=5)
@@ -604,7 +604,7 @@ class TestParitySnapshotAPI:
         rng = np.random.default_rng(31)
         data = pd.DataFrame({"x": rng.uniform(-2.0, 2.0, size=120)})
 
-        term = SplineTerm1D(feature="x", k=5, basis="cr")
+        term = CubicSplineTerm(feature="x", k=5, basis="cr")
         term.fit(data[["x"]].to_numpy(dtype=np.float64), ["x"])
         expected = _run_mgcv_natparam_cr(data, k=5)
         # Compare nat.param on the *same* (X, S) as R's smoothCon: knot placement /

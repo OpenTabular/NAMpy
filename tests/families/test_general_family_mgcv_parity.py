@@ -6,16 +6,24 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from nampy.gam._model_state import _term_blocks_seq
 from nampy.gam import GAM
+from nampy.gam.parity.snapshots import _normalize_mgcv_term_label
 from nampy.gam.smoothing_selection.criteria import (
     criterion_gradient,
     criterion_hessian,
     criterion_value,
 )
+from tests.diagnostics.test_mgcv_k_check_parity import (
+    _assert_k_check_parity,
+    _nampy_k_check,
+    _r_k_check,
+)
 from tests.mgcv_parity_utils import (
     _assert_basic_mgcv_parity,
     _fit_nampy_model,
     _fit_nampy_model_fixed_sp,
+    _run_mgcv_predict_on_newdata,
     _run_mgcv_snapshot,
 )
 
@@ -551,8 +559,27 @@ GENERAL_SE_CASES = [
 
 _GENERAL_FAMILIES = {"gaulss", "gammals", "gevlss", "shashlss", "ziplss"}
 
+GENERAL_OUTER_DERIV_TOLS = {
+    "gaulss": {"grad": 3e-4, "hess": 3e-3},
+    "gammals": {"grad": 5e-4, "hess": 5e-3},
+    "gevlss": {"grad": 5e-4, "hess": 5e-3},
+    "shashlss": {"grad": 5e-4, "hess": 5e-3},
+    "ziplss": {"grad": 1e-3, "hess": 5e-2},
+}
+
+GENERAL_OUTER_ENDPOINT_TOLS = {
+    "gaulss": {"log_sp": 2e-2, "score": 2e-5},
+    "gammals": {"log_sp": 2e-2, "score": 5e-5},
+    "gevlss": {"log_sp": 5e-5, "score": 5e-6},
+    "shashlss": {"log_sp": 8e-2, "score": 5e-5},
+    "ziplss": {"log_sp": 2e-2, "score": 5e-5},
+}
+
 
 def test_general_family_se_case_matrix_covers_requested_surface():
+    """
+    Verify that general family standard errors case matrix covers requested surface.
+    """
     families = {case[1] for case in GENERAL_SE_CASES}
     assert families >= _GENERAL_FAMILIES
 
@@ -575,8 +602,93 @@ def _reshape_expected_like(actual, expected):
     return actual_arr, expected_arr
 
 
+def _outer_case_tolerances(case_id: str, family: str):
+    deriv = dict(GENERAL_OUTER_DERIV_TOLS[family])
+    endpoint = dict(GENERAL_OUTER_ENDPOINT_TOLS[family])
+
+    if "t2_" in case_id:
+        deriv["grad"] *= 2.0
+        deriv["hess"] *= 2.0
+        endpoint["log_sp"] *= 2.0
+        endpoint["score"] *= 2.0
+    elif "two_cr" in case_id:
+        endpoint["log_sp"] *= 1.5
+        endpoint["score"] *= 1.5
+
+    return deriv, endpoint
+
+
+_GENERAL_KNOWN_GAP_TAGS = ("t2_",)
+GENERAL_TWO_CR_CASES = [case for case in GENERAL_SE_CASES if case[0].endswith("two_cr")]
+
+
+def _maybe_xfail_known_general_gap(case_id: str, *, surface: str) -> None:
+    if any(tag in case_id for tag in _GENERAL_KNOWN_GAP_TAGS):
+        pytest.xfail(
+            "Known general-family t2 final-fit gap; "
+            f"{surface} parity coverage is kept visible without claiming parity."
+        )
+
+
+def _general_newdata(data: pd.DataFrame, *, n: int = 31) -> pd.DataFrame:
+    cols: dict[str, np.ndarray | pd.Series] = {}
+    for col in data.columns:
+        if col == "y":
+            continue
+        series = data[col]
+        if pd.api.types.is_numeric_dtype(series):
+            values = series.to_numpy(dtype=np.float64, copy=False)
+            lo = float(np.nanquantile(values, 0.15))
+            hi = float(np.nanquantile(values, 0.85))
+            if not np.isfinite(lo):
+                lo = float(np.nanmin(values))
+            if not np.isfinite(hi):
+                hi = float(np.nanmax(values))
+            if not np.isfinite(lo) or not np.isfinite(hi):
+                lo = hi = 0.0
+            if np.isclose(lo, hi):
+                cols[col] = np.full(n, lo, dtype=np.float64)
+            else:
+                cols[col] = np.linspace(lo, hi, n, dtype=np.float64)
+            continue
+        cols[col] = pd.Series([series.iloc[0]] * n, dtype=series.dtype)
+    return pd.DataFrame(cols)
+
+
+def _general_diag_tol(base_atol: float) -> float:
+    return max(1e-5, 10.0 * float(base_atol))
+
+
+def _general_kcheck_edf_tol(base_atol: float) -> float:
+    return max(5e-5, 10.0 * float(base_atol))
+
+
+def _assert_general_prediction_close(actual, expected, *, atol: float) -> None:
+    actual_arr, expected_arr = _reshape_expected_like(actual, expected)
+    np.testing.assert_allclose(
+        actual_arr,
+        expected_arr,
+        atol=atol,
+        rtol=atol,
+    )
+
+
+def _assert_general_term_labels_match(gam: GAM, expected_names) -> None:
+    if expected_names is None:
+        expected_names = []
+    elif isinstance(expected_names, str):
+        expected_names = [expected_names]
+    actual_labels = [
+        _normalize_mgcv_term_label(getattr(tb, "label", None))
+        for tb in _term_blocks_seq(gam)
+    ]
+    expected_labels = [_normalize_mgcv_term_label(name) for name in expected_names]
+    assert actual_labels == expected_labels
+
+
 @pytest.mark.parametrize("method", ["ML", "LAML"])
 def test_gaulss_fixed_sp_outer_derivatives_match_mgcv(method):
+    """Verify that gaulss fixed sp outer derivatives match mgcv."""
     data = _gaulss_data()
     expected = _run_mgcv_snapshot(data, GAULSS_FORMULA, "gaulss", method)
     sp = np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
@@ -616,6 +728,7 @@ def test_gaulss_fixed_sp_outer_derivatives_match_mgcv(method):
 
 
 def test_gaulss_sandwich_vcov_matches_mgcv_snapshot():
+    """Verify that gaulss sandwich vcov matches mgcv snapshot."""
     data = _gaulss_data(seed=13)
     expected = _run_mgcv_snapshot(data, GAULSS_FORMULA, "gaulss", "REML")
     gam = _fit_nampy_model(data, GAULSS_FORMULA, "gaulss", "REML")
@@ -638,6 +751,7 @@ def test_gaulss_sandwich_vcov_matches_mgcv_snapshot():
 
 
 def test_gaulss_reml_outer_fit_matches_mgcv_without_abnormal_warning():
+    """Verify that gaulss REML outer fit matches mgcv without abnormal warning."""
     data = _gaulss_data(seed=17, n=100)
     expected = _run_mgcv_snapshot(data, GAULSS_FORMULA, "gaulss", "REML")
 
@@ -690,6 +804,7 @@ def test_gaulss_reml_outer_fit_matches_mgcv_without_abnormal_warning():
 def test_general_family_higher_order_outer_fit_matches_mgcv_endpoint(
     family, formula, data_factory, method, log_sp_atol, score_atol
 ):
+    """Verify that general family higher order outer fit matches mgcv endpoint."""
     data = data_factory()
     expected = _run_mgcv_snapshot(data, formula, family, method)
 
@@ -719,6 +834,130 @@ def test_general_family_higher_order_outer_fit_matches_mgcv_endpoint(
 
 
 @pytest.mark.parametrize(
+    (
+        "case_id",
+        "family",
+        "formula",
+        "data_factory",
+        "method",
+        "_pred_atol",
+        "_se_atol",
+        "_check_response_se",
+    ),
+    GENERAL_SE_CASES,
+    ids=[case[0] for case in GENERAL_SE_CASES],
+)
+def test_general_family_fixed_sp_outer_derivatives_match_mgcv_across_surface(
+    case_id,
+    family,
+    formula,
+    data_factory,
+    method,
+    _pred_atol,
+    _se_atol,
+    _check_response_se,
+):
+    """
+    Verify that general family fixed sp outer derivatives match mgcv across surface.
+    """
+    del _pred_atol, _se_atol, _check_response_se
+    select = "select_true" in case_id
+    deriv_tol, _endpoint_tol = _outer_case_tolerances(case_id, family)
+    data = data_factory()
+    expected = _run_mgcv_snapshot(data, formula, family, method, select=select)
+    sp = np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
+    log_sp = np.log(sp)
+
+    gam = _fit_nampy_model_fixed_sp(data, formula, family, sp, select=select)
+
+    actual = float(criterion_value(gam, gam.y_, log_sp, method=method.lower()))
+    np.testing.assert_allclose(
+        actual,
+        float(expected["fit"]["criterion_value"]),
+        atol=2e-7,
+        rtol=2e-7,
+    )
+
+    grad = np.asarray(
+        criterion_gradient(gam, gam.y_, log_sp, method=method.lower()),
+        dtype=np.float64,
+    )
+    np.testing.assert_allclose(
+        grad,
+        np.asarray(expected["fit"]["outer_grad"], dtype=np.float64),
+        atol=deriv_tol["grad"],
+        rtol=deriv_tol["grad"],
+    )
+
+    hess = np.asarray(
+        criterion_hessian(gam, gam.y_, log_sp, method=method.lower()),
+        dtype=np.float64,
+    )
+    np.testing.assert_allclose(
+        hess,
+        np.asarray(expected["fit"]["outer_hess"], dtype=np.float64),
+        atol=deriv_tol["hess"],
+        rtol=deriv_tol["hess"],
+    )
+
+
+@pytest.mark.parametrize(
+    (
+        "case_id",
+        "family",
+        "formula",
+        "data_factory",
+        "method",
+        "_pred_atol",
+        "_se_atol",
+        "_check_response_se",
+    ),
+    GENERAL_SE_CASES,
+    ids=[case[0] for case in GENERAL_SE_CASES],
+)
+def test_general_family_outer_fit_matches_mgcv_endpoint_across_surface(
+    case_id,
+    family,
+    formula,
+    data_factory,
+    method,
+    _pred_atol,
+    _se_atol,
+    _check_response_se,
+):
+    """Verify that general family outer fit matches mgcv endpoint across surface."""
+    del _pred_atol, _se_atol, _check_response_se
+    select = "select_true" in case_id
+    _deriv_tol, endpoint_tol = _outer_case_tolerances(case_id, family)
+    data = data_factory()
+    expected = _run_mgcv_snapshot(data, formula, family, method, select=select)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        gam = _fit_nampy_model(data, formula, family, method, select=select)
+
+    abnormal = [
+        str(w.message)
+        for w in caught
+        if "Smoothing optimisation did not converge: ABNORMAL" in str(w.message)
+    ]
+    assert abnormal == []
+
+    np.testing.assert_allclose(
+        np.asarray(np.log(gam.smoothing_params), dtype=np.float64),
+        np.asarray(expected["fit"]["log_smoothing_params"], dtype=np.float64),
+        atol=endpoint_tol["log_sp"],
+        rtol=endpoint_tol["log_sp"],
+    )
+    np.testing.assert_allclose(
+        float(gam.smoothing_score_),
+        float(expected["fit"]["criterion_value"]),
+        atol=endpoint_tol["score"],
+        rtol=endpoint_tol["score"],
+    )
+
+
+@pytest.mark.parametrize(
     ("family", "formula", "data_factory", "method", "grad_tol", "hess_tol"),
     [
         ("gammals", ['y ~ s(x, bs="cr", k=6)', "~ 1"], _gammals_data, "ML", 5e-4, 5e-3),
@@ -736,6 +975,7 @@ def test_general_family_higher_order_outer_fit_matches_mgcv_endpoint(
 def test_general_family_fixed_sp_outer_derivatives_match_mgcv(
     family, formula, data_factory, method, grad_tol, hess_tol
 ):
+    """Verify that general family fixed sp outer derivatives match mgcv."""
     data = data_factory()
     expected = _run_mgcv_snapshot(data, formula, family, method)
     sp = np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
@@ -806,6 +1046,10 @@ def test_general_family_fixed_sp_outer_derivatives_match_mgcv(
 def test_general_family_fixed_sp_outer_derivatives_match_mgcv_for_higher_order_families(
     family, formula, data_factory, method, grad_tol, hess_tol
 ):
+    """
+    Verify that general family fixed sp outer derivatives match mgcv for higher order
+    families.
+    """
     data = data_factory()
     expected = _run_mgcv_snapshot(data, formula, family, method)
     sp = np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
@@ -861,6 +1105,7 @@ def test_general_family_fixed_sp_outer_derivatives_match_mgcv_for_higher_order_f
 def test_general_family_sandwich_vcov_matches_mgcv_snapshot(
     family, formula, data_factory
 ):
+    """Verify that general family sandwich vcov matches mgcv snapshot."""
     data = data_factory()
     expected = _run_mgcv_snapshot(data, formula, family, "REML")
     sp = np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
@@ -916,7 +1161,7 @@ def test_general_family_sandwich_vcov_matches_mgcv_snapshot(
             _shashlss_data,
             2e-6,
             2e-6,
-            (),
+            ("response", "deviance"),
         ),
         (
             "ziplss",
@@ -931,6 +1176,7 @@ def test_general_family_sandwich_vcov_matches_mgcv_snapshot(
 def test_general_family_prediction_residual_and_vcov_parity_surfaces(
     family, formula, data_factory, vcov_tol, resid_tol, residual_types
 ):
+    """Verify that general family prediction residual and vcov parity surfaces."""
     data = data_factory()
     expected = _run_mgcv_snapshot(data, formula, family, "ML")
     sp = np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
@@ -1012,6 +1258,7 @@ def test_general_family_prediction_residual_and_vcov_parity_surfaces(
 def test_general_family_anova_smooth_parity(
     family, formula, data_factory, atol, rtol, compare_cols
 ):
+    """Verify that general family anova smooth parity."""
     data = data_factory()
     expected = _run_mgcv_snapshot(data, formula, family, "ML")
     sp = np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
@@ -1050,6 +1297,7 @@ def test_general_family_anova_smooth_parity(
 def test_general_family_predict_rejects_unimplemented_surfaces(
     family, formula, data_factory
 ):
+    """Verify that general family predict rejects unimplemented surfaces."""
     data = data_factory()
     gam = GAM(family=family, formula=formula, optimize_smoothing=False)
     gam.fit(data=data)
@@ -1100,6 +1348,7 @@ def test_general_family_link_response_standard_errors_match_mgcv_snapshot(
     se_atol,
     check_response_se,
 ):
+    """Verify that general family link response standard errors match mgcv snapshot."""
     select = "select_true" in case_id
     data = data_factory()
     expected = _run_mgcv_snapshot(data, formula, family, method, select=select)
@@ -1151,7 +1400,266 @@ def test_general_family_link_response_standard_errors_match_mgcv_snapshot(
         )
 
 
+@pytest.mark.parametrize(
+    (
+        "case_id",
+        "family",
+        "formula",
+        "data_factory",
+        "method",
+        "pred_atol",
+        "se_atol",
+        "check_response_se",
+    ),
+    GENERAL_SE_CASES,
+    ids=[case[0] for case in GENERAL_SE_CASES],
+)
+@pytest.mark.parametrize(
+    "pred_type",
+    ["link", "response", "terms", "lpmatrix"],
+    ids=["link", "response", "terms", "lpmatrix"],
+)
+def test_general_family_newdata_prediction_surfaces_match_mgcv(
+    case_id,
+    family,
+    formula,
+    data_factory,
+    method,
+    pred_atol,
+    se_atol,
+    check_response_se,
+    pred_type,
+):
+    """Verify that general family new-data prediction surfaces match mgcv."""
+    if pred_type != "lpmatrix":
+        _maybe_xfail_known_general_gap(case_id, surface=f"newdata {pred_type}")
+
+    select = "select_true" in case_id
+    data = data_factory()
+    newdata = _general_newdata(data)
+    gam = _fit_nampy_model(data, formula, family, method, select=select)
+    expected = _run_mgcv_predict_on_newdata(
+        data,
+        newdata,
+        formula,
+        family=family,
+        method=method,
+        type=pred_type,
+        return_se=(pred_type != "lpmatrix"),
+        select=select,
+    )
+
+    if pred_type == "lpmatrix":
+        actual = np.asarray(gam.predict(newdata, type="lpmatrix"), dtype=np.float64)
+        np.testing.assert_allclose(
+            actual,
+            np.asarray(expected["pred"], dtype=np.float64),
+            atol=max(1e-8, pred_atol),
+            rtol=max(1e-8, pred_atol),
+        )
+        return
+
+    actual_pred, actual_se = gam.predict(newdata, type=pred_type, return_se=True)
+    _assert_general_prediction_close(actual_pred, expected["pred"], atol=pred_atol)
+
+    if pred_type == "terms":
+        _assert_general_term_labels_match(gam, expected.get("term_names", []))
+        _assert_general_prediction_close(actual_se, expected["se"], atol=se_atol)
+        return
+
+    if pred_type == "response" and not check_response_se:
+        assert (
+            np.asarray(actual_se, dtype=np.float64).shape
+            == np.asarray(actual_pred, dtype=np.float64).shape
+        )
+        return
+
+    _assert_general_prediction_close(actual_se, expected["se"], atol=se_atol)
+
+
+@pytest.mark.parametrize(
+    (
+        "case_id",
+        "family",
+        "formula",
+        "data_factory",
+        "method",
+        "pred_atol",
+        "se_atol",
+        "check_response_se",
+    ),
+    GENERAL_SE_CASES,
+    ids=[case[0] for case in GENERAL_SE_CASES],
+)
+@pytest.mark.parametrize("pred_type", ["link", "response", "terms"])
+def test_general_family_newdata_unconditional_standard_errors_match_mgcv(
+    case_id,
+    family,
+    formula,
+    data_factory,
+    method,
+    pred_atol,
+    se_atol,
+    check_response_se,
+    pred_type,
+):
+    """Verify that general family new-data unconditional standard errors match mgcv."""
+    _maybe_xfail_known_general_gap(case_id, surface=f"{pred_type} unconditional SE")
+
+    select = "select_true" in case_id
+    data = data_factory()
+    newdata = _general_newdata(data)
+    gam = _fit_nampy_model(data, formula, family, method, select=select)
+    expected = _run_mgcv_predict_on_newdata(
+        data,
+        newdata,
+        formula,
+        family=family,
+        method=method,
+        type=pred_type,
+        return_se=True,
+        unconditional=True,
+        select=select,
+    )
+
+    actual_cov = np.asarray(gam.vcov(unconditional=True), dtype=np.float64)
+    actual_pred, actual_se = gam.predict(
+        newdata,
+        type=pred_type,
+        return_se=True,
+        cov=actual_cov,
+    )
+    _assert_general_prediction_close(actual_pred, expected["pred"], atol=pred_atol)
+
+    if pred_type == "terms":
+        _assert_general_term_labels_match(gam, expected.get("term_names", []))
+        _assert_general_prediction_close(actual_se, expected["se"], atol=se_atol)
+        return
+
+    if pred_type == "response" and not check_response_se:
+        assert (
+            np.asarray(actual_se, dtype=np.float64).shape
+            == np.asarray(actual_pred, dtype=np.float64).shape
+        )
+        return
+
+    _assert_general_prediction_close(actual_se, expected["se"], atol=se_atol)
+
+
+@pytest.mark.parametrize(
+    (
+        "case_id",
+        "family",
+        "formula",
+        "data_factory",
+        "method",
+        "pred_atol",
+        "_se_atol",
+        "_check_response_se",
+    ),
+    GENERAL_TWO_CR_CASES,
+    ids=[case[0] for case in GENERAL_TWO_CR_CASES],
+)
+def test_general_family_secondary_diagnostics_match_mgcv_snapshot(
+    case_id,
+    family,
+    formula,
+    data_factory,
+    method,
+    pred_atol,
+    _se_atol,
+    _check_response_se,
+):
+    """Verify that general family secondary diagnostics match mgcv snapshot."""
+    del case_id, _se_atol, _check_response_se
+    data = data_factory()
+    expected = _run_mgcv_snapshot(data, formula, family, method)
+    gam = _fit_nampy_model(data, formula, family, method)
+    expected_diag = expected["parity"]["diagnostics"]
+    diag_tol = _general_diag_tol(pred_atol)
+
+    actual_full = gam.concurvity(full=True)
+    actual_pairwise = gam.concurvity(full=False)
+
+    assert [
+        _normalize_mgcv_term_label(v) for v in actual_full["labels"]
+    ] == expected_diag["concurvity_labels"]
+    np.testing.assert_allclose(
+        np.asarray(actual_full["values"], dtype=np.float64),
+        np.asarray(expected_diag["concurvity_full"], dtype=np.float64),
+        atol=diag_tol,
+        rtol=0.0,
+    )
+
+    assert [
+        _normalize_mgcv_term_label(v) for v in actual_pairwise["labels"]
+    ] == expected_diag["concurvity_pairwise"]["labels"]
+    for name in actual_pairwise["measure_names"]:
+        np.testing.assert_allclose(
+            np.asarray(actual_pairwise["values"][name], dtype=np.float64),
+            np.asarray(expected_diag["concurvity_pairwise"][name], dtype=np.float64),
+            atol=diag_tol,
+            rtol=0.0,
+        )
+
+    np.testing.assert_allclose(
+        np.asarray(gam.sp_vcov(edge_correct=False), dtype=np.float64),
+        np.asarray(expected_diag["sp_vcov"], dtype=np.float64),
+        atol=max(1e-4, diag_tol),
+        rtol=0.0,
+    )
+    np.testing.assert_allclose(
+        np.asarray(gam.one_se_rule(), dtype=np.float64),
+        np.asarray(expected_diag["one_se_rule"], dtype=np.float64),
+        atol=max(1e-4, diag_tol),
+        rtol=diag_tol,
+    )
+
+
+@pytest.mark.parametrize(
+    (
+        "case_id",
+        "family",
+        "formula",
+        "data_factory",
+        "method",
+        "pred_atol",
+        "_se_atol",
+        "_check_response_se",
+    ),
+    GENERAL_TWO_CR_CASES,
+    ids=[case[0] for case in GENERAL_TWO_CR_CASES],
+)
+def test_general_family_two_smooth_k_check_matches_mgcv_snapshot(
+    case_id,
+    family,
+    formula,
+    data_factory,
+    method,
+    pred_atol,
+    _se_atol,
+    _check_response_se,
+):
+    """Verify that general family two smooth k-check matches mgcv snapshot."""
+    del case_id, _se_atol, _check_response_se
+    data = data_factory()
+    snap = _run_mgcv_snapshot(data, formula, family, method)
+    gam = _fit_nampy_model(data, formula, family, method)
+
+    r_block = _r_k_check(snap)
+    assert r_block is not None
+    py_labels, py_values = _nampy_k_check(gam)
+    _assert_k_check_parity(
+        r_block,
+        py_labels,
+        py_values,
+        numeric_terms={"x", "z"},
+        edf_atol=_general_kcheck_edf_tol(pred_atol),
+    )
+
+
 def test_shashlss_explicit_unsupported_surfaces_raise():
+    """Verify that shashlss explicit unsupported surfaces raise."""
     data = _shashlss_data()
     gam = GAM(
         family="shashlss",
@@ -1160,20 +1668,14 @@ def test_shashlss_explicit_unsupported_surfaces_raise():
     )
     gam.fit(data=data)
 
-    with pytest.warns(
-        RuntimeWarning,
-        match="Pearson residuals not available for this family - returning deviance residuals",
-    ), pytest.raises(
-        NotImplementedError,
-        match="Residual type 'deviance' is not implemented for general family 'shashlss'",
+    with pytest.raises(
+        ValueError,
+        match="`rtype` must be 'deviance' or 'response' for shashlss",
     ):
         gam.residuals(type="pearson")
 
-    with pytest.raises(
-        NotImplementedError,
-        match="Residual type 'deviance' is not implemented for general family 'shashlss'",
-    ):
-        gam.k_check(subsample=120, n_rep=8, seed=0)
+    k_check = gam.k_check(subsample=120, n_rep=8, seed=0)
+    assert isinstance(k_check, pd.DataFrame)
 
 
 @pytest.mark.parametrize(
@@ -1224,6 +1726,7 @@ def test_shashlss_explicit_unsupported_surfaces_raise():
 def test_general_family_fixed_sp_snapshot_parity_matches_mgcv(
     family, formula, data_factory, method, pred_atol, sp_log_atol
 ):
+    """Verify that general family fixed sp snapshot parity matches mgcv."""
     data = data_factory()
     expected = _run_mgcv_snapshot(data, formula, family, method)
     sp = np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)

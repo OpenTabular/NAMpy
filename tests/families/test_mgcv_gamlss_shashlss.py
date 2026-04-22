@@ -3,11 +3,15 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from numpy.testing import assert_allclose
+from scipy.special import kv
 
 from nampy.gam import GAM
 from nampy.gam.families.gamlss import shashlss
 from nampy.gam.families.gamlss.shashlss import ShashlssFamily, _LogEBLinkInfo
-from nampy.gam.fit.solvers.gam_fit5 import GamFit5Control, gam_fit5
+from nampy.gam.fit.solvers.general_newton_solver import (
+    GeneralNewtonControl,
+    solve_general_newton_fit,
+)
 
 # ======================================================================
 # shashlss
@@ -19,6 +23,7 @@ from nampy.gam.fit.solvers.gam_fit5 import GamFit5Control, gam_fit5
 
 
 def test_logeb_roundtrip():
+    """Verify that logeb roundtrip."""
     link = _LogEBLinkInfo(b=0.01)
     tau = np.linspace(-2.0, 3.0, 30)
     eta = link.linkfun(tau)
@@ -27,6 +32,7 @@ def test_logeb_roundtrip():
 
 
 def test_logeb_lower_bound():
+    """Verify that logeb lower bound."""
     link = _LogEBLinkInfo(b=0.01)
     eta = np.linspace(-10.0, 10.0, 100)
     tau = link.linkinv(eta)
@@ -40,6 +46,7 @@ def test_logeb_lower_bound():
 
 
 def test_logeb_mu_eta_fd():
+    """Verify that logeb mu eta finite differences."""
     link = _LogEBLinkInfo(b=0.01)
     rng = np.random.default_rng(3)
     eta = rng.uniform(-3.0, 3.0, 30)
@@ -55,6 +62,7 @@ def test_logeb_mu_eta_fd():
 
 
 def test_logeb_d2link_fd():
+    """Verify that logeb d2link finite differences."""
     link = _LogEBLinkInfo(b=0.01)
     rng = np.random.default_rng(5)
     # Use mu values well above log(b) to avoid numerical issues
@@ -243,13 +251,13 @@ def test_shashlss_initialize():
 
 
 # ---------------------------------------------------------------------------
-# 8. gam_fit5 convergence on simulated shash data
+# 8. solve_general_newton_fit convergence on simulated shash data
 # ---------------------------------------------------------------------------
 
 
 def test_gam_fit5_shashlss_convergence():
     """
-    gam_fit5 with shashlss recovers approximate location and log-scale intercepts.
+    solve_general_newton_fit with shashlss recovers approximate location and log-scale intercepts.
     Simulate from shash with eps=0, delta=1 (reduces to Gaussian).
     """
     rng = np.random.default_rng(99)
@@ -288,8 +296,8 @@ def test_gam_fit5_shashlss_convergence():
     lsp = np.array([], dtype=np.float64)
     S_blocks: list = []
 
-    ctl = GamFit5Control(maxit=200, epsilon=1e-7, trace=False)
-    fit = gam_fit5(
+    ctl = GeneralNewtonControl(maxit=200, epsilon=1e-7, trace=False)
+    fit = solve_general_newton_fit(
         X,
         y,
         jj,
@@ -360,6 +368,59 @@ def test_gam_public_api_shashlss_formula_list_fit():
     assert_allclose(tau_est, tau_true, atol=0.45)
     assert_allclose(coef_full[3], eps_true, atol=0.35)
     assert_allclose(coef_full[4], phi_true, atol=0.35)
+
+
+# ---------------------------------------------------------------------------
+# 8b. shashlss residual owner mirrors mgcv residual formula
+# ---------------------------------------------------------------------------
+
+
+def test_shashlss_residuals_match_direct_formula():
+    """Verify that shashlss residuals match direct formula."""
+    fam = shashlss()
+
+    y = np.array([0.4, -0.7, 1.1, 0.2], dtype=np.float64)
+    mu = np.array([0.1, -0.2, 0.5, 0.0], dtype=np.float64)
+    tau = np.array([0.2, -0.1, 0.35, 0.05], dtype=np.float64)
+    eps = np.array([0.15, -0.25, 0.05, 0.3], dtype=np.float64)
+    phi = np.array([np.log(2.0), np.log(1.5), np.log(0.8), np.log(1.2)], dtype=np.float64)
+    fitted = np.column_stack([mu, tau, eps, phi])
+
+    sig = np.exp(tau)
+    delta = np.exp(phi)
+    delinv = 1.0 / delta
+
+    response_expected = y - mu - sig * delta * np.exp(0.25) * (
+        kv((delinv + 1.0) / 2.0, 0.25) + kv((delinv - 1.0) / 2.0, 0.25)
+    ) / np.sqrt(8.0 * np.pi)
+
+    z = (y - mu) / (sig * delta)
+    d_tas_me = delta * np.arcsinh(z) - eps
+    cc = np.cosh(d_tas_me)
+    ss = np.sinh(d_tas_me)
+    loglik = (
+        -tau
+        - 0.5 * np.log(2.0 * np.pi)
+        + np.log(cc)
+        - 0.5 * np.log1p(z**2)
+        - 0.5 * ss**2
+    )
+    deviance_expected = np.sign(response_expected) * np.sqrt(
+        np.maximum(0.0, -2.0 * loglik)
+    )
+
+    assert_allclose(
+        fam.residuals(y, fitted, rtype="response"),
+        response_expected,
+        rtol=1e-12,
+        atol=1e-12,
+    )
+    assert_allclose(
+        fam.residuals(y, fitted, rtype="deviance"),
+        deviance_expected,
+        rtol=1e-12,
+        atol=1e-12,
+    )
 
 
 # ---------------------------------------------------------------------------

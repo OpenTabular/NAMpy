@@ -487,6 +487,7 @@ def _normalize_family_name(family):
 
 
 def test_preoptimization_case_matrix_covers_supported_non_general_surface():
+    """Verify that preoptimization case matrix covers supported non general surface."""
     families = {_normalize_family_name(case[3]) for case in PREOPT_CASES}
     assert families >= _REQUIRED_PREOPT_FAMILIES
 
@@ -802,6 +803,7 @@ def _assert_preoptimization_parity(
 def test_preoptimization_blocks_match_mgcv(
     case_id, data_factory, formula, family, method, select, compare_design_space_only
 ):
+    """Verify that preoptimization blocks match mgcv."""
     data = data_factory()
     actual = _fit_nampy_preoptimization(
         data,

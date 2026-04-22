@@ -6,11 +6,10 @@ from .categorical_utils import (
     stable_unique_levels,
     try_numeric_1d,
 )
-from .factor_smooth import FSmoothInteractionTerm, SZSmoothInteractionTerm
+from .fs import FSmoothInteractionTerm, SZSmoothInteractionTerm
 from .mrf import MarkovRandomFieldTerm
-from .random_effect import RandomEffectTerm
+from .re import RandomEffectTerm
 
-# Backward-compatible short constructor names.
 fs = FSmoothInteractionTerm
 sz = SZSmoothInteractionTerm
 mrf = MarkovRandomFieldTerm

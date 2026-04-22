@@ -12,7 +12,7 @@ of the smooth function is desired.
 
 import numpy as np
 
-from ....splines.gaussian_process import build_gp_term_setup, predict_gp_term
+from ....splines.univariate.gp import build_gp_term_setup, predict_gp_term
 from ...constraints.absorption import (
     fit_single_penalty_with_constraint_policy,
     fit_single_penalty_with_setup_basis,

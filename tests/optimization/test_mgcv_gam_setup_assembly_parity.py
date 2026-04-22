@@ -609,6 +609,14 @@ def _assert_gam_setup_assembly_case(case_id, data, formula, family, method, *, s
     assert _canonical_xlevels(_python_xlevels(model, data)) == _canonical_xlevels(
         expected.get("xlevels", {})
     )
+    expected_y = expected.get("y", None)
+    if expected_y is not None:
+        np.testing.assert_allclose(
+            np.asarray(model.y_, dtype=np.float64),
+            _coerce_float_array_1d(expected_y),
+            rtol=0.0,
+            atol=1e-12,
+        )
 
     if _is_nested_offset_list(expected.get("offset", None)) or isinstance(
         getattr(model, "offset_train_", None), (list, tuple)
@@ -653,6 +661,7 @@ def test_gam_setup_assembly_matches_mgcv(
     select,
     _compare_design_space_only,
 ):
+    """Verify that gam setup assembly matches mgcv."""
     del _compare_design_space_only
     _assert_gam_setup_assembly_case(
         case_id,
@@ -678,6 +687,7 @@ def test_general_family_gam_setup_assembly_matches_mgcv(
     select,
     _compare_design_space_only,
 ):
+    """Verify that general family gam setup assembly matches mgcv."""
     del _compare_design_space_only
     _assert_gam_setup_assembly_case(
         case_id,
@@ -686,4 +696,24 @@ def test_general_family_gam_setup_assembly_matches_mgcv(
         family,
         method,
         select=select,
+    )
+
+
+def test_gam_setup_assembly_matches_mgcv_for_transformed_formula_surfaces():
+    """Verify that gam setup assembly matches mgcv for transformed formula surfaces."""
+    data = pd.DataFrame(
+        {
+            "y": [1.0, 1.5, 2.0, 2.5, 3.0],
+            "x": [0.0, 0.5, 1.0, 1.5, 2.0],
+            "o": [0.2, 0.4, 0.6, 0.8, 1.0],
+        }
+    )
+
+    _assert_gam_setup_assembly_case(
+        "gaussian_transformed_formula_surfaces",
+        data,
+        "I(y**2) ~ I(x**2) + offset(log(o + 1))",
+        "gaussian",
+        "fixed",
+        select=False,
     )

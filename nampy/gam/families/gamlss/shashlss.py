@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import numpy as np
+from scipy.special import kv
 
 from ...fit.solvers.gamlss_utils import gamlss_etamu, gamlss_gH, trind_generator
-from ._base import GamlssFamily, _IdentityLinkInfo
+from ._base import GamlssFamily, _IdentityLinkInfo, _pen_reg
 
 
 class _LogEBLinkInfo:
@@ -1471,6 +1472,58 @@ class ShashlssFamily(GamlssFamily):
         ret["l0"] = l0
         return ret
 
+    def residuals(
+        self, y: np.ndarray, fitted: np.ndarray, rtype: str = "deviance"
+    ) -> np.ndarray:
+        """Residuals for shashlss.  Mirrors ``mgcv`` ``shash$residuals``."""
+        y = np.asarray(y, dtype=np.float64).ravel()
+        fitted = np.asarray(fitted, dtype=np.float64)
+        if fitted.ndim != 2:
+            raise ValueError(
+                "shashlss residuals expect fitted values with shape (n, 4)."
+            )
+        if fitted.shape[1] != 4:
+            raise ValueError(
+                "shashlss residuals expect fitted values with 4 columns."
+            )
+        if y.size != fitted.shape[0]:
+            raise ValueError("y and fitted must have the same number of observations.")
+
+        mu = np.asarray(fitted[:, 0], dtype=np.float64)
+        tau = np.asarray(fitted[:, 1], dtype=np.float64)
+        eps = np.asarray(fitted[:, 2], dtype=np.float64)
+        phi = np.asarray(fitted[:, 3], dtype=np.float64)
+
+        sig = np.exp(tau)
+        delta = np.exp(phi)
+        delinv = np.asarray(
+            1.0 / np.maximum(delta, np.finfo(np.float64).eps), dtype=np.float64
+        )
+
+        # mgcv::shash$residuals uses R's besselK(x, nu), where x=0.25 and
+        # nu depends on delta. scipy.special.kv reverses that order to kv(v, z).
+        rsd = y - mu - sig * delta * np.exp(0.25) * (
+            kv((delinv + 1.0) / 2.0, 0.25)
+            + kv((delinv - 1.0) / 2.0, 0.25)
+        ) / np.sqrt(8.0 * np.pi)
+
+        if rtype == "response":
+            return rsd
+        if rtype != "deviance":
+            raise ValueError("`rtype` must be 'deviance' or 'response' for shashlss")
+
+        z = (y - mu) / np.maximum(sig * delta, np.finfo(np.float64).eps)
+        d_tas_me = delta * np.arcsinh(z) - eps
+        cc = np.cosh(d_tas_me)
+        loglik = (
+            -tau
+            - 0.5 * np.log(2.0 * np.pi)
+            + np.log(np.maximum(cc, np.finfo(np.float64).eps))
+            - 0.5 * np.log1p(z**2)
+            - 0.5 * np.sinh(d_tas_me) ** 2
+        )
+        return np.sign(rsd) * np.sqrt(np.maximum(0.0, -2.0 * loglik))
+
     def initialize(
         self,
         y: np.ndarray,
@@ -1485,13 +1538,28 @@ class ShashlssFamily(GamlssFamily):
         n = len(y)
         p = X.shape[1]
         start = np.zeros(p, dtype=np.float64)
+        use_unscaled = bool(E is not None and getattr(E, "use_unscaled", False))
 
         # 1) Location: regress y on X1
         X1 = X[:, jj[0]]
-        try:
-            start1 = np.linalg.lstsq(X1, y, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start1 = np.zeros(X1.shape[1], dtype=np.float64)
+        if E is not None and E.shape[1] > 0:
+            E1 = E[:, jj[0]]
+            if use_unscaled:
+                try:
+                    start1 = np.linalg.lstsq(
+                        np.vstack([X1, E1]),
+                        np.concatenate([y, np.zeros(E1.shape[0], dtype=np.float64)]),
+                        rcond=None,
+                    )[0]
+                except np.linalg.LinAlgError:
+                    start1 = np.zeros(X1.shape[1], dtype=np.float64)
+            else:
+                start1 = _pen_reg(X1, E1, y)
+        else:
+            try:
+                start1 = np.linalg.lstsq(X1, y, rcond=None)[0]
+            except np.linalg.LinAlgError:
+                start1 = np.zeros(X1.shape[1], dtype=np.float64)
         start1 = np.where(np.isfinite(start1), start1, 0.0)
         start[jj[0]] = start1
 
@@ -1500,10 +1568,26 @@ class ShashlssFamily(GamlssFamily):
         res = y - mu_hat
         log_abs_res = np.log(np.maximum(np.abs(res), 1e-7))
         X2 = X[:, jj[1]]
-        try:
-            start2 = np.linalg.lstsq(X2, log_abs_res, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start2 = np.zeros(X2.shape[1], dtype=np.float64)
+        if E is not None and E.shape[1] > 0:
+            E2 = E[:, jj[1]]
+            if use_unscaled:
+                try:
+                    start2 = np.linalg.lstsq(
+                        np.vstack([X2, E2]),
+                        np.concatenate(
+                            [log_abs_res, np.zeros(E2.shape[0], dtype=np.float64)]
+                        ),
+                        rcond=None,
+                    )[0]
+                except np.linalg.LinAlgError:
+                    start2 = np.zeros(X2.shape[1], dtype=np.float64)
+            else:
+                start2 = _pen_reg(X2, E2, log_abs_res)
+        else:
+            try:
+                start2 = np.linalg.lstsq(X2, log_abs_res, rcond=None)[0]
+            except np.linalg.LinAlgError:
+                start2 = np.zeros(X2.shape[1], dtype=np.float64)
         start2 = np.where(np.isfinite(start2), start2, 0.0)
         start[jj[1]] = start2
 

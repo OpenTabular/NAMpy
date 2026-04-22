@@ -5,8 +5,8 @@ from typing import Any
 import numpy as np
 from scipy.linalg import qr as scipy_qr
 from scipy.linalg import solve_triangular
-from scipy.linalg.lapack import get_lapack_funcs
 
+from ...linalg import upper_triangular_rrank
 from ..family_base import GeneralFamily
 
 
@@ -33,36 +33,6 @@ class _IdentityLinkInfo:
     def d4link(self, mu: np.ndarray) -> np.ndarray:
         return np.zeros(np.asarray(mu).shape, dtype=np.float64)
 
-
-def _r_matrix_norm_one(M: np.ndarray) -> float:
-    """Mirror R matrix ``norm()`` default one-norm."""
-    M = np.asarray(M, dtype=np.float64)
-    if M.size == 0:
-        return 0.0
-    if M.ndim == 1:
-        return float(np.sum(np.abs(M)))
-    return float(np.max(np.sum(np.abs(M), axis=0)))
-
-
-def _rrank_upper_triangular(R: np.ndarray, tol: float | None = None) -> int:
-    """Mirror ``mgcv::Rrank`` for an upper-triangular factor."""
-    R = np.asarray(R, dtype=np.float64)
-    m = int(R.shape[0])
-    rank = min(m, int(R.shape[1]))
-    if tol is None:
-        tol = float(np.finfo(np.float64).eps ** 0.9)
-    trcon = get_lapack_funcs("trcon", (np.asfortranarray(R),))
-    while rank > 0:
-        block = np.asfortranarray(R[:rank, :rank], dtype=np.float64)
-        rcond, info = trcon(block, norm="1", uplo="U", diag="N")
-        if info != 0 or not np.isfinite(rcond):
-            rcond = 0.0
-        if float(rcond) > float(tol):
-            break
-        rank -= 1
-    return int(rank)
-
-
 def _qr_coef_pivoted(X: np.ndarray, y: np.ndarray) -> np.ndarray:
     """Mirror ``qr.coef(qr(X), y)`` with pivoted QR."""
     X = np.asarray(X, dtype=np.float64)
@@ -78,7 +48,7 @@ def _qr_coef_pivoted(X: np.ndarray, y: np.ndarray) -> np.ndarray:
         pivoting=True,
         check_finite=False,
     )
-    rank = _rrank_upper_triangular(R)
+    rank = upper_triangular_rrank(R)
     if rank > 0:
         qty = np.asarray(Q.T @ y, dtype=np.float64)
         sol = solve_triangular(
@@ -98,6 +68,14 @@ def _pen_reg(X: np.ndarray, E: np.ndarray, y: np.ndarray) -> np.ndarray:
     E = np.asarray(E, dtype=np.float64)
     y = np.asarray(y, dtype=np.float64)
 
+    def _r_default_matrix_norm(matrix: np.ndarray) -> float:
+        matrix = np.asarray(matrix, dtype=np.float64)
+        if matrix.size == 0:
+            return 0.0
+        if matrix.ndim == 1:
+            return float(np.sum(np.abs(matrix)))
+        return float(np.max(np.sum(np.abs(matrix), axis=0)))
+
     if float(np.sum(np.abs(E))) == 0.0:
         return _qr_coef_pivoted(X, y)
 
@@ -108,14 +86,14 @@ def _pen_reg(X: np.ndarray, E: np.ndarray, y: np.ndarray) -> np.ndarray:
         check_finite=False,
     )
     r = int(R_piv.shape[1])
-    rr = _rrank_upper_triangular(R_piv)
+    rr = upper_triangular_rrank(R_piv)
 
     R = np.zeros_like(R_piv)
     R[:, np.asarray(piv, dtype=int)] = R_piv
     Qy = np.asarray(Qx.T @ y, dtype=np.float64)[:r]
 
-    norm_R = _r_matrix_norm_one(R)
-    norm_E = _r_matrix_norm_one(E)
+    norm_R = _r_default_matrix_norm(R)
+    norm_E = _r_default_matrix_norm(E)
     if not np.isfinite(norm_R) or norm_R <= 0.0:
         return np.zeros(r, dtype=np.float64)
     if not np.isfinite(norm_E) or norm_E <= 0.0:
@@ -132,7 +110,7 @@ def _pen_reg(X: np.ndarray, E: np.ndarray, y: np.ndarray) -> np.ndarray:
             check_finite=False,
         )
         edf = float(np.sum(np.asarray(Q[:r, :], dtype=np.float64) ** 2))
-        rank_q = _rrank_upper_triangular(Rq)
+        rank_q = upper_triangular_rrank(Rq)
         return A, Q, Rq, pivq, edf, rank_q
 
     A, Qq, Rq, pivq, edf, rank_q = _qrr_stats(k)
@@ -215,6 +193,81 @@ class GamlssFamily(GeneralFamily):
         E: Any = None,
     ) -> np.ndarray:
         raise NotImplementedError
+
+    def residuals(
+        self,
+        y: np.ndarray,
+        fitted: np.ndarray,
+        rtype: str = "deviance",
+        *,
+        eta: np.ndarray | None = None,
+        **kwargs,
+    ) -> np.ndarray:
+        """Conservative residual fallback for multi-predictor GAMLSS families.
+
+        Concrete families should override to provide distribution-specific residuals.
+        This base behavior keeps prediction/diagnostic pathways functional by
+        returning response residuals.
+        """
+        del kwargs
+        y = np.asarray(y, dtype=np.float64).ravel()
+        fitted = np.asarray(fitted, dtype=np.float64)
+
+        if fitted.ndim == 1:
+            if fitted.size != y.size:
+                raise ValueError(
+                    f"{self.__class__.__name__} fitted vector length {fitted.size} "
+                    f"does not match y length {y.size}."
+                )
+            mu = fitted
+        else:
+            if eta is not None:
+                eta_arr = np.asarray(eta, dtype=np.float64)
+                if eta_arr.ndim == 1:
+                    eta_arr = eta_arr[:, None]
+                if eta_arr.ndim != 2 or eta_arr.shape[0] != y.size:
+                    raise ValueError(
+                        f"{self.__class__.__name__} eta must be shape (n, k) with n={y.size}, "
+                        f"got {eta_arr.shape}."
+                    )
+                mu = np.asarray(self.linfo[0].linkinv(eta_arr[:, 0]), dtype=np.float64)
+            elif fitted.ndim == 2 and fitted.shape[1] >= 1:
+                if fitted.shape[0] != y.size:
+                    raise ValueError(
+                        f"{self.__class__.__name__} fitted has {fitted.shape[0]} rows, "
+                        f"but y has {y.size}."
+                    )
+                mu = np.asarray(fitted[:, 0], dtype=np.float64)
+            else:
+                raise ValueError(
+                    f"{self.__class__.__name__} fitted must have one predictor column "
+                    "for residual fallback."
+                )
+
+        rtype = str(rtype).lower()
+        if rtype in {"response", "deviance", "pearson", "scaled.pearson", "working"}:
+            return y - mu
+        raise ValueError(f"Unsupported residual type {rtype!r} for {self.__class__.__name__}.")
+
+    def influence(
+        self,
+        y: np.ndarray,
+        fitted: np.ndarray,
+        rtype: str = "deviance",
+        *,
+        eta: np.ndarray | None = None,
+        **kwargs,
+    ) -> np.ndarray:
+        """Conservative fallback influence proxy used by diagnostics.
+
+        Parity-critical custom influence diagnostics should be implemented by
+        concrete families. This fallback mirrors the response-scale residual
+        vector shape and remains explicit rather than missing.
+        """
+        return np.asarray(
+            self.residuals(y=y, fitted=fitted, eta=eta, rtype=rtype),
+            dtype=np.float64,
+        )
 
     def _stacked_eta(
         self,

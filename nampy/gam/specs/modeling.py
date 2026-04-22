@@ -9,7 +9,7 @@ import numpy as np
 from ..data import knots_for_feature, knots_for_features
 from ..formula import extract_formula_terms, parse_gam_formula
 from . import LinearPredictorSpec, TermSpec, build_smooth_spec
-from .build import FormulaBuildResult, build_formula_model
+from .build import FormulaBuildResult, _coerce_fx, build_formula_model
 
 
 def make_tensor_term(model, spec, *, knots=None):
@@ -61,7 +61,11 @@ def make_tensor_term(model, spec, *, knots=None):
     mc = spec.get("mc", None)
     full = bool(spec.get("full", False))
     ord_ = spec.get("ord", None)
-    fixed = bool(spec.get("fixed", spec.get("fx", False)))
+    fixed = _coerce_fx(
+        spec.get("fixed", spec.get("fx", False)),
+        kind=kind,
+        n_features=len(features),
+    )
     select = bool(spec.get("select", model.select))
     sp = spec.get("sp", None)
     term_knots = spec.get("knots", knots_for_features(model, features, knots=knots))

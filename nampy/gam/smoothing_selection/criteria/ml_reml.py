@@ -9,12 +9,13 @@ then evaluates the appropriate criterion value.
 import numpy as np
 
 from ..._model_state import _term_blocks_seq
+from ...fit.backends import GENERAL_FAMILY_BACKEND
 from ...fit.model_ops import (
     can_use_exact_gaussian_ml_reml,
     can_use_simple_ml_reml_structure,
     raise_ml_reml_backend_error,
 )
-from ...fit.solvers.general_fit5 import criterion_ml_reml_general_fit5
+from ...fit.solvers.general_family_solver import criterion_ml_reml_general_family
 from .gaussian import criterion_ml_reml_exact, criterion_ml_reml_exact_dynamic
 from .pirls import criterion_ml_reml_pirls, criterion_ml_reml_pirls_dynamic
 
@@ -48,7 +49,7 @@ def resolve_ml_reml_scoring_backend(model, method="reml"):
     if bool(getattr(model.family, "supports_pirls", False)):
         return "pirls_laplace_dynamic"
     if str(getattr(model.family, "family_class", "")).lower() == "general":
-        return "general_fit5"
+        return GENERAL_FAMILY_BACKEND
 
     return None
 
@@ -68,7 +69,7 @@ def criterion_ml_reml(model, y, log_sp, method):
     if backend == "pirls_laplace_dynamic":
         branch_method = "REML" if str(method).lower() in {"reml", "laml"} else "ML"
         return criterion_ml_reml_pirls_dynamic(model, y, log_sp, branch_method)
-    if backend == "general_fit5":
-        return criterion_ml_reml_general_fit5(model, y, log_sp, method)
+    if backend == GENERAL_FAMILY_BACKEND:
+        return criterion_ml_reml_general_family(model, y, log_sp, method)
     raise_ml_reml_backend_error(model, method)
     raise AssertionError("unreachable")

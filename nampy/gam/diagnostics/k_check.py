@@ -20,10 +20,12 @@ def _feature_block_indices(tb) -> list[int] | None:
     feature_info = getattr(tb, "feature_info", None)
     if feature_info is None:
         return None
-    metric_idx = [int(v) for v in getattr(feature_info, "metric_feature_indices", ())]
     factor_idx = [int(v) for v in getattr(feature_info, "factor_feature_indices", ())]
     if factor_idx:
+        # Mirror `mgcv::k.check()`: if any extracted smooth variable is a factor,
+        # the nearest-neighbor basis-dimension diagnostic is not defined.
         return None
+    metric_idx = [int(v) for v in getattr(feature_info, "metric_feature_indices", ())]
     if metric_idx:
         return metric_idx
     feature_idx = [int(v) for v in getattr(feature_info, "feature_indices", ())]
@@ -126,10 +128,9 @@ def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = N
     """Port of mgcv::k.check() basis-dimension diagnostic."""
     _require_fitted(model)
 
+    all_term_blocks = list(_term_blocks_seq(model))
     term_blocks = [
-        tb
-        for tb in _term_blocks_seq(model)
-        if str(getattr(tb, "term_type", "")) != "parametric"
+        tb for tb in all_term_blocks if str(getattr(tb, "term_type", "")) != "parametric"
     ]
     if len(term_blocks) == 0:
         return None
@@ -156,7 +157,18 @@ def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = N
     rsd = rsd[row_idx]
 
     rows = []
-    edf_by_term = np.asarray(_edf_by_term(model), dtype=np.float64).ravel()
+    edf_all = np.asarray(_edf_by_term(model), dtype=np.float64).ravel()
+    if edf_all.size == len(all_term_blocks):
+        edf_by_term = np.asarray(
+            [
+                edf_all[i]
+                for i, tb in enumerate(all_term_blocks)
+                if str(getattr(tb, "term_type", "")) != "parametric"
+            ],
+            dtype=np.float64,
+        )
+    else:
+        edf_by_term = edf_all
     perm_col = 0
     for i, tb in enumerate(term_blocks):
         label = str(tb.label)

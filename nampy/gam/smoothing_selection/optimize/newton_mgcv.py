@@ -21,6 +21,8 @@ def _mgcv_score_scale(
     score_val = float(score_val)
     old_score_val = float(old_score_val)
     if str(score_type).upper() in {"REML", "P-REML", "ML", "P-ML"}:
+        # Mirror `mgcv/R/gam.fit3.r::newton()`: for REML/ML-like scores use
+        # `abs(log(scale.est)) + abs(score)` throughout.
         if scale_est is None:
             scale_obj = _fit_scale(model)
             scale = 1.0 if scale_obj is None else float(scale_obj)
@@ -121,6 +123,15 @@ def _optimize_outer_newton_mgcv(
     nit = 0
     ii_last = 0
 
+    def _curvature_diag(dvkk_val, hess_val, shape):
+        del dvkk_val
+        hess_arr = np.asarray(hess_val, dtype=np.float64)
+        if hess_arr.shape == (shape[0], shape[0]):
+            out = np.diag(hess_arr).astype(np.float64, copy=True)
+            if out.shape == shape and np.all(np.isfinite(out)):
+                return out
+        return np.full(shape, np.nan, dtype=np.float64)
+
     def _record_iter(x_prev, x_next):
         if not hasattr(objective, "record_iter"):
             return
@@ -181,7 +192,7 @@ def _optimize_outer_newton_mgcv(
 
         nstep = np.zeros_like(grad, dtype=np.float64)
         nstep[uconv] = -(U @ (d_inv * (U.T @ grad1)))
-        sstep = -grad / max(float(np.max(np.abs(grad))), 1e-12)
+        sstep = grad / max(float(np.max(np.abs(grad))), 1e-12)
 
         ms = float(np.max(np.abs(nstep))) if nstep.size else 0.0
         if ms > float(max_nstep):
@@ -461,9 +472,7 @@ def _optimize_outer_newton_mgcv(
             model=getattr(objective, "model", None),
             scale_est=scale_est,
         )
-        grad2 = np.diag(hess)
-        if grad2.shape != grad.shape or np.any(~np.isfinite(grad2)):
-            grad2 = np.asarray(grad2, dtype=np.float64).reshape(-1)
+        grad2 = _curvature_diag(dvkk, hess, grad.shape)
         uconv = (np.abs(grad) > score_scale * conv_tol * 0.1) | (
             np.abs(grad2) > score_scale * conv_tol * 0.1
         )
@@ -526,7 +535,7 @@ def _optimize_outer_newton_mgcv(
     dw_drho1 = None
     rp1 = None
     reml_mode = str(score_type).upper() in {"REML", "P-REML", "ML", "P-ML"}
-    grad2 = np.diag(hess)
+    grad2 = _curvature_diag(dvkk, hess, grad.shape)
     if not np.all(np.isfinite(grad2)):
         grad2 = np.zeros_like(grad, dtype=np.float64)
     if bool(edge_correct) and reml_mode and grad.size > 0:
@@ -583,19 +592,9 @@ def _optimize_outer_newton_mgcv(
             start_mu=accepted_mu,
             need_grad=True,
             need_hess=True,
-            commit_start=True,
+            commit_start=False,
         )
         if np.isfinite(score1):
-            score = float(score1)
-            grad = np.asarray(grad1, dtype=np.float64)
-            hess = np.asarray(hess1, dtype=np.float64)
-            if coef1 is not None:
-                accepted_start = np.asarray(coef1, dtype=np.float64).copy()
-            if eta1 is not None:
-                accepted_eta = np.asarray(eta1, dtype=np.float64).copy()
-            if mu1 is not None:
-                accepted_mu = np.asarray(mu1, dtype=np.float64).copy()
-            x = np.asarray(lsp1, dtype=np.float64).copy()
             edge_corrected = True
             model = getattr(objective, "model", None)
             if model is not None and isinstance(
@@ -607,6 +606,11 @@ def _optimize_outer_newton_mgcv(
                 db_drho1 = drv.get("dbeta")
                 dw_drho1 = drv.get("dW_obs")
                 rp1 = drv.get("rp")
+            elif model is not None and isinstance(
+                getattr(model, "_general_family_outer_derivative_info", None), dict
+            ):
+                drv = model._general_family_outer_derivative_info
+                db_drho1 = drv.get("db_drho")
         else:
             hess1 = None
     elif bool(edge_correct) and reml_mode and grad.size == 0:

@@ -1,4 +1,4 @@
-"""Shared helpers for tests/parity/test_mgcv_parity.py matrix cases."""
+"""Shared helpers for tests/parity/test_mgcv_snapshot_core_matrix.py cases."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from nampy.gam import GAM
+from nampy.gam.parity import covariance_standard_errors
 
 
 @dataclass(frozen=True)
@@ -84,8 +85,8 @@ def _assert_requested_parity(
     cov = np.asarray(actual_snapshot["fit"]["cov_bayes"], dtype=np.float64)
     cov_mgcv = np.asarray(expected_snapshot["fit"]["cov_bayes"], dtype=np.float64)
     assert cov.shape == cov_mgcv.shape, f"{case.case_id}: covariance shape mismatch"
-    se = np.sqrt(np.clip(np.diag(cov), 0.0, None))
-    se_mgcv = np.sqrt(np.clip(np.diag(cov_mgcv), 0.0, None))
+    se = covariance_standard_errors(cov)
+    se_mgcv = covariance_standard_errors(cov_mgcv)
     se_tol = float(case.se_tol_scale) * (1.0 + np.abs(se))
     se_err = np.abs(se - se_mgcv)
     assert np.all(se_err <= se_tol), (

@@ -136,20 +136,59 @@ class BaseFamily(metaclass=_FamilyMeta):
     # ------------------------------------------------------------------
     # Future derivative contracts
     # ------------------------------------------------------------------
+    def _link_derivative_object(self):
+        link = getattr(self, "link", None)
+        if link is None or any(not hasattr(link, attr) for attr in ("d2", "d3", "d4")):
+            raise NotImplementedError(
+                f"{self.__class__.__name__} does not yet implement mgcv-style "
+                "higher-order link derivatives."
+            )
+        return link
+
+    def d2link(self, mu):
+        return self._link_derivative_object().d2(mu)
+
+    def d3link(self, mu):
+        return self._link_derivative_object().d3(mu)
+
+    def d4link(self, mu):
+        return self._link_derivative_object().d4(mu)
+
     def inverse_link_derivatives(self, eta, order=1):
         """
         Derivatives of inverse link mu(eta) w.r.t. eta.
 
-        Phase 1 only guarantees order=1 for GLM-style families via mu_eta().
-        Higher orders are intentionally deferred to later phases where they will
-        be hardcoded and tested carefully.
+        When raw link derivatives are available via `d2link`/`d3link`/`d4link`,
+        derive inverse-link orders 2-4 via inverse-function identities so
+        extended families can reuse the same exact PIRLS chain-rule surface as
+        ordinary GLM families.
         """
-        if int(order) != 1:
+        order = int(order)
+        mu_eta = np.asarray(self.mu_eta(eta), dtype=np.float64)
+        if order == 1:
+            return mu_eta
+
+        if order < 1 or order > 4:
             raise NotImplementedError(
                 f"{self.__class__.__name__} does not yet implement inverse-link "
                 f"derivatives of order {order}."
             )
-        return self.mu_eta(eta)
+
+        mu = np.asarray(self.inverse_link(eta), dtype=np.float64)
+        g2 = np.asarray(self.d2link(mu), dtype=np.float64)
+        if order == 2:
+            return -g2 * (mu_eta**3)
+
+        g3 = np.asarray(self.d3link(mu), dtype=np.float64)
+        if order == 3:
+            return 3.0 * (g2**2) * (mu_eta**5) - g3 * (mu_eta**4)
+
+        g4 = np.asarray(self.d4link(mu), dtype=np.float64)
+        return (
+            -15.0 * (g2**3) * (mu_eta**7)
+            + 10.0 * g2 * g3 * (mu_eta**6)
+            - g4 * (mu_eta**5)
+        )
 
     def deviance_derivatives_mu(self, y, mu, order=1):
         raise NotImplementedError(

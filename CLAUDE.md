@@ -3,7 +3,8 @@
 For the GAM subsystem, the goal is **behavioral parity with `mgcv`**, not a merely reasonable Python approximation. When working on `nampy/gam/`, treat the vendored upstream **R and C `mgcv` sources in this repository as the primary specification**. Mirror the same logic, ordering, control flow, constraints, and edge-case behavior in Python whenever practical.
 
 Do **not**:
-- rederive `mgcv` from papers or memory when the upstream implementation is available,
+
+- rederive `mgcv` from papers or memory,
 - “clean up” numerics by changing algebra/order of operations without evidence,
 - replace an upstream routine with a more idiomatic approach unless parity requires it and tests confirm it.
 - add heuristic, approximate, or best-effort parity fallbacks in parity-sensitive code,
@@ -19,6 +20,7 @@ If behavior differs between an apparent design preference and upstream `mgcv`, p
 Do **not** run the full test suite by default.
 
 Always run the **smallest targeted test slice** that can validate the change:
+
 1. exact test function,
 2. exact test file,
 3. narrow `-k` selection within one file,
@@ -27,9 +29,9 @@ Always run the **smallest targeted test slice** that can validate the change:
 Preferred examples:
 
 ```bash
-pytest tests/test_mgcv_snapshot_parity.py::test_name -v
-pytest tests/test_mgcv_snapshot_parity.py -v
-pytest tests/test_mgcv_output_parity.py -k linked_id -v
+pytest tests/parity/test_mgcv_snapshot_parity.py::test_name -v
+pytest tests/parity/test_mgcv_snapshot_parity.py -v
+pytest tests/parity/test_mgcv_output_parity.py -k linked_id -v
 ```
 
 Avoid broad commands such as:
@@ -49,10 +51,11 @@ NAMpy has two distinct subsystems:
 ### 1. Neural Additive Models (`nampy/basemodels/`, `nampy/models/`)
 
 Each model (NAM, GPNAM, NBM, NATT, NAMformer, NodeGAM, SplineNAM, QNAM, SNAM, TreeNAM, LinReg) follows a layered pattern:
-- **`nampy/basemodels/<model>.py`** — PyTorch `nn.Module` + Lightning harness (`TaskModel`)
-- **`nampy/models/<model>.py`** — scikit-learn-compatible wrappers (`<Model>Regressor`, `<Model>Classifier`, `<Model>LSS`)
-- **`nampy/configs/<model>_config.py`** — hyperparameter dataclasses
-- **`nampy/arch_utils/`** — shared building blocks (MLP layers, normalization, attention, embeddings)
+
+- `**nampy/basemodels/<model>.py**` — PyTorch `nn.Module` + Lightning harness (`TaskModel`)
+- `**nampy/models/<model>.py**` — scikit-learn-compatible wrappers (`<Model>Regressor`, `<Model>Classifier`, `<Model>LSS`)
+- `**nampy/configs/<model>_config.py**` — hyperparameter dataclasses
+- `**nampy/arch_utils/**` — shared building blocks (MLP layers, normalization, attention, embeddings)
 
 Three task flavors per model: regression, classification, distributional regression (LSS). All expose `.fit(X, y)`, `.predict(X)`, `.score(X, y)`.
 
@@ -62,15 +65,17 @@ A Python reimplementation of R's `mgcv`. The objective is that results as well a
 
 The fit pipeline has 7 stages:
 
-| Stage | Location | Role |
-|-------|----------|------|
-| 1. Formula/spec | `gam/formula/`, `gam/specs/` | Parse `TermSpec` objects |
-| 2. Runtime terms | `gam/smooths/`, `gam/runtime/` | Fit basis & penalties; own basis semantics |
-| 3. Term wrapper | `gam/design/constructors.py` | `ConstructedTerm` (constraints, by-variable) |
-| 4. Predictor compilation | `gam/design/compiler.py` | Assemble `CompiledPredictor` |
-| 5. Side conditions | `gam/constraints/identifiability.py` | Column deletion, centering |
-| 6. Model fitting | `gam/fit/orchestrator.py` | Solve coefficients, optimize smoothing |
-| 7. Prediction/diagnostics | `gam/predict/`, `gam/parity/`, `gam/diagnostics/` | Inference, parity checks |
+
+| Stage                     | Location                                          | Role                                         |
+| ------------------------- | ------------------------------------------------- | -------------------------------------------- |
+| 1. Formula/spec           | `gam/formula/`, `gam/specs/`                      | Parse `TermSpec` objects                     |
+| 2. Runtime terms          | `gam/smooths/`, `gam/runtime/`                    | Fit basis & penalties; own basis semantics   |
+| 3. Term wrapper           | `gam/design/constructors.py`                      | `ConstructedTerm` (constraints, by-variable) |
+| 4. Predictor compilation  | `gam/design/compiler.py`                          | Assemble `CompiledPredictor`                 |
+| 5. Side conditions        | `gam/constraints/identifiability.py`              | Column deletion, centering                   |
+| 6. Model fitting          | `gam/fit/orchestrator.py`                         | Solve coefficients, optimize smoothing       |
+| 7. Prediction/diagnostics | `gam/predict/`, `gam/parity/`, `gam/diagnostics/` | Inference, parity checks                     |
+
 
 **Public API** (`nampy/gam/__init__.py` exports only): `fit_model_core`, `solve_fit`, `FitCoreSolution`
 
@@ -92,6 +97,7 @@ The fit pipeline has 7 stages:
 ## Working rules for `mgcv` parity changes
 
 When changing `nampy/gam/`:
+
 - locate the corresponding upstream `mgcv` R and/or C implementation in the vendored reference sources,
 - mirror the upstream routine as directly as possible in Python,
 - preserve operation ordering when numerically relevant,
@@ -99,6 +105,7 @@ When changing `nampy/gam/`:
 - add comments only where they clarify the mapping from upstream logic.
 
 For any parity-sensitive change, your final summary should name:
+
 - the upstream file(s) consulted,
 - the upstream function(s) mirrored,
 - the exact targeted test command(s) run,
@@ -107,9 +114,12 @@ For any parity-sensitive change, your final summary should name:
 ## Testing
 
 `tests/` default collection is mgcv parity-focused:
+
 - `test_mgcv_snapshot_parity.py` — broad numeric parity vs. R `mgcv`
 - `test_mgcv_output_parity.py` — predictions and model-comparison outputs
-- `test_mgcv_trace_parity.py` — smoothing optimizer trace parity
+- `tests/optimization/test_mgcv_score_hist_trace_parity.py` — score-history and trace I/O parity
+- `tests/optimization/test_mgcv_outer_optimization_parity.py` — full outer-object and optimizer-row parity
+- `tests/optimization/test_mgcv_inner_trace_parity.py` — PIRLS and negbin inner-trace parity
 - `test_mgcv_pc_id_parity.py` — `pc=` and linked-`id=` parity
 - `test_mgcv_known_gaps.py` — tracked strict parity mismatches
 - `mgcv_parity_utils.py`, `mgcv_parity_structure_utils.py` — shared test helpers

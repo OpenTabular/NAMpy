@@ -90,15 +90,6 @@ class NegativeBinomialLogFamily(ExtendedFamily):
     def d3var(self, mu):
         return self.variance.d3(mu)
 
-    def d2link(self, mu):
-        return self.link.d2(mu)
-
-    def d3link(self, mu):
-        return self.link.d3(mu)
-
-    def d4link(self, mu):
-        return self.link.d4(mu)
-
     def estimate_dispersion(self, y, mu, edf=None, weights=None):
         del y, mu, edf, weights
         return float(self.known_scale)

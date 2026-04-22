@@ -30,7 +30,7 @@ from .._model_state import (
     _term_blocks_seq,
 )
 from ..predict.predictions import _prediction_term_groups
-from ..selection import (
+from ..smoothing_selection import (
     criterion_ml_reml,
     criterion_ml_reml_gaussian_dynamic_joint,
     criterion_ml_reml_pirls,
@@ -247,6 +247,11 @@ def _normalize_mgcv_term_label(label):
     text = str(label)
     text = re.sub(r",\s*bs\s*=\s*(\"[^\"]*\"|'[^']*'|[^,)]+)", "", text)
     text = re.sub(r",\s*k\s*=\s*[^,)]+", "", text)
+    text = re.sub(
+        r"^([a-zA-Z0-9_]+\([^)]*?)(?:,\s*by\s*=\s*([^)]+))\)$",
+        lambda m: f"{m.group(1)}):{m.group(2).strip()}",
+        text,
+    )
     return text
 
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -27,27 +26,34 @@ class _GeneralPredictionLayout:
     lpmatrix: np.ndarray
 
 
+def _prediction_parameterization_wider(tb) -> bool:
+    metadata = dict(getattr(tb, "metadata", {}) or {})
+    expose_raw = bool(metadata.get("expose_raw_prediction_basis", False))
+    return expose_raw and bool(
+        metadata.get("prediction_parameterization_wider", expose_raw)
+    )
+
+
 def general_family_prediction_offset(model, X_np, offset):
     n_rows = model.n_samples_ if X_np is None else int(X_np.shape[0])
     n_pred = len(_predictor_full_slices(model))
-    if offset is None:
-        offset_vec = resolve_prediction_offset(model, X_np, None)
-        if offset_vec is None:
-            return None
-        return [offset_vec] + [None] * max(n_pred - 1, 0)
-    if isinstance(offset, (list, tuple)):
-        out = []
-        for i, off_i in enumerate(offset):
-            out.append(
+    offset_value = resolve_prediction_offset(model, X_np, offset)
+    if offset_value is None:
+        return None
+    if isinstance(offset_value, (list, tuple)):
+        out = [
+            (
                 None
                 if off_i is None
                 else coerce_optional_offset(off_i, n_rows, name=f"offset[{i}]")
             )
-        if len(out) < n_pred:
-            out.extend([None] * (n_pred - len(out)))
-        return out
-    offset_vec = coerce_optional_offset(offset, n_rows)
-    return [offset_vec] + [None] * max(n_pred - 1, 0)
+            for i, off_i in enumerate(offset_value)
+        ]
+    else:
+        out = [coerce_optional_offset(offset_value, n_rows)]
+    if len(out) < n_pred:
+        out.extend([None] * (n_pred - len(out)))
+    return out
 
 
 def general_family_prediction_layout(model, X_np):
@@ -56,13 +62,22 @@ def general_family_prediction_layout(model, X_np):
     predictors = _predictor_designs(model)
     predictor_slices = tuple(_predictor_full_slices(model))
     for pred in predictors:
+        use_training_prediction_matrix = any(
+            bool(getattr(tb, "metadata", {}).get("expose_raw_prediction_basis"))
+            for tb in getattr(pred, "compiled_terms", ())
+        )
+        predict_has_intercept = bool(
+            getattr(pred, "prediction_has_intercept", pred.has_intercept)
+        )
         Zp = (
-            np.asarray(pred.design_matrix, dtype=np.float64)
+            np.asarray(pred.build_new_matrix(model.X_), dtype=np.float64)
+            if X_np is None and use_training_prediction_matrix
+            else np.asarray(pred.design_matrix, dtype=np.float64)
             if X_np is None
             else np.asarray(pred.build_new_matrix(X_np), dtype=np.float64)
         )
         Z_blocks.append(Zp)
-        if bool(pred.has_intercept):
+        if predict_has_intercept:
             Xp_blocks.append(
                 np.column_stack([np.ones(Zp.shape[0], dtype=np.float64), Zp])
             )
@@ -117,29 +132,37 @@ def predict_general_values(
     offset=None,
     iterms_type=None,
 ):
-    type = str(type).lower()
-    if type == "iterms":
-        warnings.warn(
-            "type iterms not available for multiple predictor cases",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-        type = "terms"
-
-    if type not in {"response", "link", "terms", "lpmatrix"}:
+    pred_type = str(type).lower()
+    if pred_type not in {"response", "link", "terms", "lpmatrix", "iterms"}:
         raise ValueError(
-            "type must be one of {'response', 'link', 'terms', 'lpmatrix'}"
+            "type must be one of {'response', 'link', 'terms', 'iterms', 'lpmatrix'}"
         )
     del iterms_type
+    if pred_type in {"terms", "iterms"} and any(
+        _prediction_parameterization_wider(tb)
+        for tb in _term_blocks_seq(model)
+    ):
+        raise NotImplementedError(
+            "type='terms' is not supported for general-family models whose "
+            "prediction parameterization is wider than the fitted coefficient space."
+        )
 
     offset_list = general_family_prediction_offset(model, X, offset)
     layout = general_family_prediction_layout(model, X)
+    if pred_type == "iterms" and len(layout.predictor_slices) > 1:
+        raise ValueError(
+            "type='iterms' is not supported for multi-predictor general-family models."
+        )
+    iterms_requested = pred_type == "iterms"
+    if iterms_requested:
+        pred_type = "terms"
+
     eta = general_family_link_prediction_with_offset(model, layout, offset_list)
     Z_new = layout.Z_new
 
-    if type == "lpmatrix":
+    if pred_type == "lpmatrix":
         return layout.lpmatrix
-    if type == "terms":
+    if pred_type == "terms":
         beta = np.asarray(_coef(model), dtype=np.float64)
         terms = np.column_stack(
             [
@@ -159,7 +182,7 @@ def predict_general_values(
             var = np.einsum("ij,jk,ik->i", Xi, V, Xi)
             ses.append(np.sqrt(np.maximum(var, 0.0)))
         return terms, np.column_stack(ses)
-    if type == "link":
+    if pred_type == "link":
         if not return_se:
             return eta
         V = model._select_cov(cov)

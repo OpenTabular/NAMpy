@@ -233,7 +233,12 @@ def _fit_fixed_sp_model(
 
 
 class TestMgcvScoreGammaParity:
+    """
+    Fixed-smoothing score and derivative parity checks against mgcv across exact and
+    PIRLS-backed families.
+    """
     def test_gaussian_exact_reml_fixed_sp_matches_mgcv(self):
+        """Verify that gaussian exact REML fixed sp matches mgcv."""
         data = _make_gaussian_data(seed=1401, n=180)
         formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
         sp = np.array([0.45, 2.15], dtype=np.float64)
@@ -265,6 +270,10 @@ class TestMgcvScoreGammaParity:
     def test_gaussian_random_effect_reml_fixed_sp_value_gradient_hessian_match_mgcv(
         self,
     ):
+        """
+        Verify that gaussian random effect REML fixed sp value gradient hessian match
+        mgcv.
+        """
         data = _make_random_effect_data()
         formula = 'y ~ s(f, bs="re")'
         sp = np.array([1.35], dtype=np.float64)
@@ -311,6 +320,7 @@ class TestMgcvScoreGammaParity:
         )
 
     def test_poisson_pirls_reml_fixed_sp_value_gradient_hessian_match_mgcv(self):
+        """Verify that poisson PIRLS REML fixed sp value gradient hessian match mgcv."""
         data = _make_poisson_data(seed=1403, n=180)
         formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
         sp = np.array([0.55, 1.85], dtype=np.float64)
@@ -357,6 +367,7 @@ class TestMgcvScoreGammaParity:
         )
 
     def test_gamma_pirls_reml_fixed_sp_value_gradient_hessian_match_mgcv(self):
+        """Verify that gamma PIRLS REML fixed sp value gradient hessian match mgcv."""
         data = _make_gamma_data(seed=1404, n=180)
         formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
         sp = np.array([0.75, 1.45], dtype=np.float64)

@@ -38,10 +38,21 @@ def _default_compare_X(model):
         return None
 
     X_df = pd.DataFrame(X_train, columns=list(used_columns))
-    offset_name = getattr(model, "formula_offset_name_", None)
+    offset_names = getattr(model, "formula_offset_names_", None)
     offset_default = getattr(model, "offset_predict_default_", None)
-    if offset_name is not None and offset_default is not None:
-        X_df[offset_name] = offset_default
+    if offset_names is not None and offset_default is not None:
+        offset_values = (
+            list(offset_default)
+            if isinstance(offset_default, (list, tuple))
+            else [offset_default]
+        )
+        for i, offset_name in enumerate(offset_names):
+            if offset_name is None or i >= len(offset_values):
+                continue
+            offset_value = offset_values[i]
+            if offset_value is None:
+                continue
+            X_df[offset_name] = offset_value
     return X_df
 
 

@@ -36,6 +36,31 @@ def _prior_weights_vector(weights, n: int) -> np.ndarray:
     return w
 
 
+def _penalized_system_needs_stacked_qr(
+    X: np.ndarray,
+    w: np.ndarray,
+    S: np.ndarray,
+    *,
+    cond_tol: float = 1e12,
+) -> bool:
+    """
+    Detect numerically singular Gaussian penalized systems.
+
+    Mirror the cases where mgcv's `magic`/`gam.fit3` covariance root drops
+    effectively infinite-smoothing directions even though the raw design matrix
+    itself is full rank.
+    """
+    XtWX = np.asarray(X.T @ (np.asarray(w, dtype=np.float64)[:, None] * X))
+    A = np.asarray(XtWX + S, dtype=np.float64)
+    if np.linalg.matrix_rank(A) < A.shape[0]:
+        return True
+    try:
+        cond_A = float(np.linalg.cond(A))
+    except np.linalg.LinAlgError:
+        return True
+    return (not np.isfinite(cond_A)) or cond_A > float(cond_tol)
+
+
 def _gaussian_fit3_gdi_beta_full(model, X, smoothing_params, z_work, w):
     """
     Mirror `mgcv::gam.fit3()` post-loop `gdi1()` coefficient overwrite for Gaussian.
@@ -45,14 +70,14 @@ def _gaussian_fit3_gdi_beta_full(model, X, smoothing_params, z_work, w):
     """
     from scipy.linalg.blas import dgemv
 
-    from ...smoothing_selection.reparam import build_gam_fit3_reparam_state
+    from ...smoothing_selection.reparam import build_penalty_reparameterization_state
 
     X = np.asarray(X, dtype=np.float64)
     sp = np.asarray(smoothing_params, dtype=np.float64).ravel()
     z_work = np.asarray(z_work, dtype=np.float64).ravel()
     w = np.asarray(w, dtype=np.float64).ravel()
 
-    canonical = build_gam_fit3_reparam_state(model, X, sp, deriv=0)
+    canonical = build_penalty_reparameterization_state(model, X, sp, deriv=0)
     X_canon = np.asarray(
         X @ np.asarray(canonical.T, dtype=np.float64), dtype=np.float64
     )
@@ -78,7 +103,7 @@ def _gaussian_fit3_gdi_beta_full(model, X, smoothing_params, z_work, w):
     qr_state = build_penalized_qr_state_nonnegative(
         X_canon,
         z_work,
-        np.abs(w),
+        w,
         penalty_sqrt_E=np.asarray(canonical.Sr, dtype=np.float64),
         penalty_rank_Es=np.asarray(canonical.Eb, dtype=np.float64),
         rS=rS,
@@ -122,6 +147,7 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     force_stacked_qr = (
         bool(getattr(model, "_use_stacked_qr", False))
         or gaussian_design_needs_stacked_qr_fit(model)
+        or _penalized_system_needs_stacked_qr(X, w, S)
         or (
             (
                 str(getattr(model, "_optim_method", "")).lower() == "fixed"
@@ -145,6 +171,11 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     # that null(X) coset; enable the same gauge automatically for stacked-QR fits.
     null_gauge = "auto" if force_stacked_qr else False
 
+    has_mrf_term = any(
+        str(getattr(tb, "basis_name", "")).lower() == "mrf"
+        for tb in _term_blocks_seq(model)
+    )
+
     sol = irls_core(
         X,
         y,
@@ -161,6 +192,29 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         coef_method=coef_method,
         near_singular_null_pin=null_gauge,
     )
+    # mgcv/R/gam.fit3.r keeps `object$deviance` from the PIRLS step even when a
+    # later `gdi1()` overwrite changes the final reported coefficients / fitted
+    # values. `mrf` REML fits route through the stable stacked-QR/gdi endpoint
+    # here, but `AIC()` / `logLik()` still need the pre-gdi PIRLS deviance.
+    reported_deviance = float(sol["deviance"])
+    if force_stacked_qr and has_mrf_term:
+        report_sol = irls_core(
+            X,
+            y,
+            model.family,
+            S,
+            offset=model.offset_train_,
+            weights=w,
+            fit_intercept=fi,
+            max_iter=1,
+            tol=float(getattr(model, "irls_tol", 1e-7)),
+            max_step_halving=int(getattr(model, "max_step_halving", 25)),
+            penalty_rank_rows=rank_rows,
+            force_stacked_qr=False,
+            coef_method="householder",
+            near_singular_null_pin=False,
+        )
+        reported_deviance = float(report_sol["deviance"])
 
     eta = np.asarray(sol["eta"], dtype=np.float64)
 
@@ -185,6 +239,7 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         A_inv = np.asarray(stacked["A_inv"], dtype=np.float64)
         XtWX = np.asarray(stacked["XtWX"], dtype=np.float64)
         H_coef = np.asarray(stacked["coef_hat_matrix"], dtype=np.float64)
+        cov_root = np.asarray(stacked["covariance_root"], dtype=np.float64)
         coef_full = np.asarray(stacked["coef_full"], dtype=np.float64)
         # Mirror mgcv/R/gam.fit3.r: after the stable `pls_fit1()` / `gdi1()`
         # solve, the reported Gaussian linear predictor is recomputed as
@@ -205,6 +260,8 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         trace_H = float(np.sum(WX_rV * WX_rV))
         scale = model.family.estimate_dispersion(y, eta, edf=trace_H, weights=w)
         Vp, Vf, H_coef = build_bayes_and_freq_covariances(scale, A_inv, stacked["XtWX"])
+        Vp = np.asarray(scale * (cov_root @ cov_root.T), dtype=np.float64)
+        Vp = 0.5 * (Vp + Vp.T)
         sol["A"] = A
         sol["A_inv"] = A_inv
         sol["XtWX"] = XtWX
@@ -214,27 +271,30 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         sol["cov_bayes"] = Vp
         sol["cov_freq"] = Vf
         sol["H_coef"] = H_coef
-        if any(
-            str(getattr(tb, "basis_name", "")).lower() == "mrf"
-            for tb in _term_blocks_seq(model)
-        ):
-            coef_full, eta_fit = _gaussian_fit3_gdi_beta_full(
-                model,
-                X,
-                smoothing_params,
-                sol["working_response"],
-                w,
-            )
-            eta = np.asarray(eta_fit, dtype=np.float64)
-            if model.offset_train_ is not None:
-                eta = eta + np.asarray(model.offset_train_, dtype=np.float64).ravel()
-            mu = np.asarray(model.family.inverse_link(eta), dtype=np.float64)
-            scale = model.family.estimate_dispersion(y, eta, edf=trace_H, weights=w)
-            Vp, Vf, H_coef = build_bayes_and_freq_covariances(scale, A_inv, XtWX)
-            sol["cov_bayes"] = Vp
-            sol["cov_freq"] = Vf
-            sol["H_coef"] = H_coef
-            sol["penalty_quadratic"] = float(coef_full @ (S @ coef_full))
+        # Mirror `mgcv/R/gam.fit3.r`: for stacked-QR Gaussian fits, the
+        # reported coefficient vector is the final `gdi1()` solve on the
+        # reparameterized system, not the raw Householder / least-squares
+        # coefficient buffer. This matters most in underdetermined designs
+        # (`n < p`) where multiple coefficient vectors share the same fit.
+        coef_full, eta_fit = _gaussian_fit3_gdi_beta_full(
+            model,
+            X,
+            smoothing_params,
+            sol["working_response"],
+            w,
+        )
+        eta = np.asarray(eta_fit, dtype=np.float64)
+        if model.offset_train_ is not None:
+            eta = eta + np.asarray(model.offset_train_, dtype=np.float64).ravel()
+        mu = np.asarray(model.family.inverse_link(eta), dtype=np.float64)
+        scale = model.family.estimate_dispersion(y, eta, edf=trace_H, weights=w)
+        Vp, Vf, H_coef = build_bayes_and_freq_covariances(scale, A_inv, XtWX)
+        Vp = np.asarray(scale * (cov_root @ cov_root.T), dtype=np.float64)
+        Vp = 0.5 * (Vp + Vp.T)
+        sol["cov_bayes"] = Vp
+        sol["cov_freq"] = Vf
+        sol["H_coef"] = H_coef
+        sol["penalty_quadratic"] = float(coef_full @ (S @ coef_full))
         sol["coef_full"] = coef_full.copy()
         sol["coef"] = coef_full.copy()
         sol["eta"] = eta.copy()
@@ -254,7 +314,7 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     resid = y - eta
     wrss = float(np.sum(w * resid * resid))
     sol["rss"] = wrss
-    sol["deviance"] = wrss
+    sol["deviance"] = reported_deviance
     sol["scale"] = float(scale)
     sol["working_weights"] = w.copy()
     sol["fisher_weights"] = w.copy()

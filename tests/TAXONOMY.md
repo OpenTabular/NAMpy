@@ -4,12 +4,12 @@ The GAM test suite is intentionally overlapping. The goal is fast subset runs an
 
 ## Directory Layout
 - `tests/parity/`: end-to-end mgcv parity matrix, output parity, additional scenarios, known gaps, and isolated failing/warning slices
-- `tests/smooths/`: smooth constructor, basis, penalty, `pc=`, and linked-`id=` coverage
-- `tests/optimization/`: outer optimization, Newton/trace parity, score-gamma checks, backend selection, and Gaussian smoothness post-processing
+- `tests/smooths/`: smooth constructor, basis, penalty, `pc=`, linked-`id=`, and linked-`id` trace coverage
+- `tests/optimization/`: score-history traces, full outer optimization objects, inner traces, score-gamma checks, backend selection, and Gaussian smoothness post-processing
 - `tests/families/`: general-family and GAMLSS-specific derivative/value coverage
 - `tests/diagnostics/`: diagnostics such as `k_check`
-- `tests/regressions/`: targeted regression tests for previously fixed bugs
-- `tests/`: shared helpers, marker inference, cache, and parity R scripts
+- `tests/regressions/`: targeted regression tests for previously fixed bugs and test-suite structure contracts
+- `tests/`: shared helpers, marker inference, taxonomy registry, cache, and parity R scripts
 
 ## Taxonomy Axes
 - `smooth_<name>`: `cr`, `cs`, `cc`, `ps`, `tp`, `ts`, `te`, `ti`, `t2`, `gp`, `fs`, `sz`, `mrf`, `re`
@@ -38,3 +38,17 @@ pytest -m "smooth_fs and family_gaussian and surface_snapshot"
 - Family and method marks are additive; a test may carry several marks.
 - Overlap is expected when it improves triage.
 - `status_failing_or_warning` and `status_known_gap` are intended to be easy to exclude from normal parity sweeps.
+- Canonical file/mark ownership lives in `tests/_taxonomy_registry.py`.
+- `tests/regressions/test_gam_test_suite_contracts.py` guards against hidden nested tests and missing taxonomy-owner entries.
+
+## Owner-Level Coverage
+- Owner-level localization lives alongside the broader parity suites; use [SUBSYSTEM_COVERAGE.md](/home/ad32/projects/package/NAMpy/tests/SUBSYSTEM_COVERAGE.md) as the primary map.
+- Prefer adding one direct owner contract test before expanding end-to-end scenario matrices.
+- New owner-level tests for routing, covariance/post-fit, parity tooling, and general-family postprocessing should usually land in:
+  - `tests/optimization/test_gam_fit_backend_owner_contracts.py`
+  - `tests/optimization/test_gam_owner_routing_objective_contracts.py`
+  - `tests/optimization/test_gam_covariance_owner_contracts.py`
+  - `tests/optimization/test_gam_postfit_owner_contracts.py`
+  - `tests/diagnostics/test_gam_diagnostics_owner_contracts.py`
+  - `tests/parity/test_gam_parity_owner_contracts.py`
+  - `tests/families/test_gam_general_family_owner_contracts.py`

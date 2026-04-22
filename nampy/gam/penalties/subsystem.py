@@ -21,6 +21,7 @@ from typing import Any
 import numpy as np
 
 from ..compiler.structures import PenaltySpec
+from ..linalg import symmetric_eigvalsh
 from .algebra import null_space_penalty_from_penalty, symmetrize_penalty
 
 PENALTY_ID_SEPARATOR = "::"
@@ -33,7 +34,7 @@ def penalty_rank_null_dim(P: np.ndarray, tol: float = 1e-10) -> tuple[int, int]:
         raise ValueError("Penalty matrices must be square.")
     if P.shape[0] == 0:
         return 0, 0
-    evals = np.linalg.eigvalsh(symmetrize_penalty(P))
+    evals = symmetric_eigvalsh(P)
     tol_eff = tol * max(1.0, float(np.max(np.abs(evals))))
     rank = int(np.sum(evals > tol_eff))
     return rank, int(P.shape[0] - rank)

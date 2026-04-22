@@ -6,7 +6,7 @@ import numpy as np
 from scipy.special import digamma, gammaln, polygamma
 
 from ...fit.solvers.gamlss_utils import gamlss_etamu, gamlss_gH, trind_generator
-from ._base import GamlssFamily, _IdentityLinkInfo
+from ._base import GamlssFamily, _IdentityLinkInfo, _pen_reg
 
 
 class _SoftplusBLinkInfo:
@@ -342,7 +342,7 @@ class GammalsFamily(GamlssFamily):
         """
         y = np.asarray(y, dtype=np.float64)
         X = np.asarray(X, dtype=np.float64)
-        n, p = X.shape
+        _n, p = X.shape
         start = np.zeros(p, dtype=np.float64)
 
         off1 = off2 = None
@@ -362,6 +362,7 @@ class GammalsFamily(GamlssFamily):
                 off1 = np.asarray(offset, dtype=np.float64)
 
         eps = np.max(y) * np.finfo(np.float64).eps ** 0.75
+        use_unscaled = bool(E is not None and getattr(E, "use_unscaled", False))
 
         # --- Fit log-mean predictor on log(y) ---
         yt1 = np.log(np.maximum(y + eps, 1e-300))
@@ -371,16 +372,20 @@ class GammalsFamily(GamlssFamily):
         X1 = X[:, jj[0]]
         if E is not None and E.shape[1] > 0:
             E1 = E[:, jj[0]]
-            XE1 = np.vstack([X1, E1])
-            y1e = np.concatenate([yt1, np.zeros(E1.shape[0])])
+            if use_unscaled:
+                XE1 = np.vstack([X1, E1])
+                y1e = np.concatenate([yt1, np.zeros(E1.shape[0])])
+                try:
+                    start1 = np.linalg.lstsq(XE1, y1e, rcond=None)[0]
+                except np.linalg.LinAlgError:
+                    start1 = np.zeros(X1.shape[1], dtype=np.float64)
+            else:
+                start1 = _pen_reg(X1, E1, yt1)
         else:
-            XE1 = X1
-            y1e = yt1
-
-        try:
-            start1 = np.linalg.lstsq(XE1, y1e, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start1 = np.zeros(X1.shape[1], dtype=np.float64)
+            try:
+                start1 = np.linalg.lstsq(X1, yt1, rcond=None)[0]
+            except np.linalg.LinAlgError:
+                start1 = np.zeros(X1.shape[1], dtype=np.float64)
         start1 = np.where(np.isfinite(start1), start1, 0.0)
         start[jj[0]] = start1
 
@@ -388,25 +393,29 @@ class GammalsFamily(GamlssFamily):
         mu_init = self.linfo[0].linkinv(
             X1 @ start1 + (off1 if off1 is not None else 0.0)
         )
-        # residuals from fitted log-mean: y/exp(mu_init) - 1
-        res = np.log(np.maximum(np.abs(y - np.exp(mu_init)), 1e-300))
-        lres1 = self.linfo[1].linkfun(res)
+        lres1 = self.linfo[1].linkfun(
+            np.log(np.maximum(np.abs(y - self.linfo[0].linkinv(X1 @ start1)), 1e-300))
+        )
         if off2 is not None:
             lres1 = lres1 - off2
 
         X2 = X[:, jj[1]]
         if E is not None and E.shape[1] > 0:
             E2 = E[:, jj[1]]
-            XE2 = np.vstack([X2, E2])
-            y2e = np.concatenate([lres1, np.zeros(E2.shape[0])])
+            if use_unscaled:
+                XE2 = np.vstack([X2, E2])
+                y2e = np.concatenate([lres1, np.zeros(E2.shape[0])])
+                try:
+                    start2 = np.linalg.lstsq(XE2, y2e, rcond=None)[0]
+                except np.linalg.LinAlgError:
+                    start2 = np.zeros(X2.shape[1], dtype=np.float64)
+            else:
+                start2 = _pen_reg(X2, E2, lres1)
         else:
-            XE2 = X2
-            y2e = lres1
-
-        try:
-            start2 = np.linalg.lstsq(XE2, y2e, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start2 = np.zeros(X2.shape[1], dtype=np.float64)
+            try:
+                start2 = np.linalg.lstsq(X2, lres1, rcond=None)[0]
+            except np.linalg.LinAlgError:
+                start2 = np.zeros(X2.shape[1], dtype=np.float64)
         start2 = np.where(np.isfinite(start2), start2, 0.0)
         start[jj[1]] = start2
 

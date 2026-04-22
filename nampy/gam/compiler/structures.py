@@ -102,6 +102,21 @@ class CompiledTerm:
             )
         return basis
 
+    def prediction_parameterization_matrix(self, X_new):
+        if self.predict_fn is None:
+            raise RuntimeError(
+                f"Compiled term {self.label!r} has no prediction callback."
+            )
+        basis = np.asarray(self.predict_fn(X_new), dtype=np.float64)
+        pred_basis_map = dict(self.metadata or {}).get("prediction_basis_map", None)
+        if pred_basis_map is not None:
+            basis = basis @ np.asarray(pred_basis_map, dtype=np.float64)
+        if basis.ndim != 2:
+            raise ValueError(
+                f"Predict matrix for compiled term {self.label!r} must be 2D, got {basis.shape}."
+            )
+        return basis
+
 
 @dataclass(frozen=True)
 class CompiledPredictor:
@@ -119,13 +134,31 @@ class CompiledPredictor:
     smoothing_override_values: np.ndarray | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    @property
+    def prediction_has_intercept(self) -> bool:
+        if not bool(self.has_intercept):
+            return False
+        for term in self.compiled_terms:
+            if bool(
+                getattr(term, "metadata", {}).get("prediction_replaces_intercept")
+            ):
+                return False
+        return True
+
     def build_new_matrix(self, X_new):
         if len(self.compiled_terms) == 0:
             return np.empty((len(X_new), 0), dtype=np.float64)
 
         blocks = []
         for term in self.compiled_terms:
-            blocks.append(np.asarray(term.predict_matrix(X_new), dtype=np.float64))
+            use_raw = bool(getattr(term, "metadata", {}).get("expose_raw_prediction_basis"))
+            if use_raw:
+                basis = np.asarray(
+                    term.prediction_parameterization_matrix(X_new), dtype=np.float64
+                )
+            else:
+                basis = np.asarray(term.predict_matrix(X_new), dtype=np.float64)
+            blocks.append(basis)
 
         return np.column_stack(blocks)
 
@@ -144,6 +177,7 @@ class CompiledModel:
     smoothing_override_modes: list[str | None] = field(default_factory=list)
     smoothing_override_values: np.ndarray | None = None
     side_condition_reports: tuple[dict[str, Any], ...] | None = None
+    fit_to_prediction_parameterization_map: np.ndarray | None = None
 
     def build_new_matrix(self, X_new):
         if len(self.predictors) == 0:

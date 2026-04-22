@@ -280,11 +280,12 @@ def _normalize_point_constraint(pc, feature_name):
             return float(pc[feature_name])
         if len(pc) == 1:
             return float(next(iter(pc.values())))
-        raise NotImplementedError("1D point constraint dict incompatible.")
+        # mgcv accepts pc containers with at least one value for 1D smooths.
+        return float(next(iter(pc.values())))
     if isinstance(pc, (list, tuple, np.ndarray)):
         vals = np.asarray(pc, dtype=np.float64).ravel()
-        if vals.size != 1:
-            raise NotImplementedError("Only 1D point constraints supported.")
+        if vals.size == 0:
+            raise ValueError("point-constraint sequence cannot be empty.")
         return float(vals[0])
     raise NotImplementedError(f"Unsupported pc type {type(pc)}.")
 
@@ -308,10 +309,12 @@ def _normalize_point_constraint_vector(pc, feature_names):
             )
         return np.asarray([float(pc[name]) for name in names], dtype=np.float64)
     vals = np.asarray(pc, dtype=np.float64).ravel()
-    if vals.size != n:
+    if vals.size < n:
         raise ValueError(
             f"pc must supply {n} values for features {names}, got {vals.size}."
         )
+    if vals.size > n:
+        vals = vals[:n]
     return vals.astype(np.float64, copy=False)
 
 

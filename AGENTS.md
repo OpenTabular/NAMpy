@@ -35,10 +35,10 @@ Preferred order:
 Examples:
 
 ```bash
-pytest tests/test_mgcv_snapshot_parity.py::test_name -v
-pytest tests/test_mgcv_snapshot_parity.py -v
-pytest tests/test_mgcv_trace_parity.py -k optimizer -v
-pytest tests/test_mgcv_pc_id_parity.py -k linked_id -v
+pytest tests/parity/test_mgcv_snapshot_parity.py::test_name -v
+pytest tests/parity/test_mgcv_snapshot_parity.py -v
+pytest tests/optimization/test_mgcv_score_hist_trace_parity.py -k endpoint -v
+pytest tests/smooths/test_mgcv_pc_id_parity.py -k linked_id -v
 ```
 
 Avoid unless explicitly justified:
@@ -127,9 +127,9 @@ Use the repository’s configured tools rather than guessing:
 Typical focused commands:
 
 ```bash
-black path/to/touched_file.py tests/test_mgcv_snapshot_parity.py
-isort path/to/touched_file.py tests/test_mgcv_snapshot_parity.py
-ruff check path/to/touched_file.py tests/test_mgcv_snapshot_parity.py
+black path/to/touched_file.py tests/parity/test_mgcv_snapshot_parity.py
+isort path/to/touched_file.py tests/parity/test_mgcv_snapshot_parity.py
+ruff check path/to/touched_file.py tests/parity/test_mgcv_snapshot_parity.py
 mypy nampy/gam
 ```
 
@@ -140,7 +140,9 @@ Prefer touched-file or subsystem-scoped checks over sweeping repo-wide passes.
 Primary parity-oriented tests live in `tests/`:
 - `test_mgcv_snapshot_parity.py`
 - `test_mgcv_output_parity.py`
-- `test_mgcv_trace_parity.py`
+- `optimization/test_mgcv_score_hist_trace_parity.py`
+- `optimization/test_mgcv_outer_optimization_parity.py`
+- `optimization/test_mgcv_inner_trace_parity.py`
 - `test_mgcv_pc_id_parity.py`
 - `test_mgcv_known_gaps.py`
 - helpers: `mgcv_parity_utils.py`, `mgcv_parity_structure_utils.py`

@@ -35,11 +35,23 @@ def compile_designs(model, X, feature_names):
     model.smoothing_params = resolve_smoothing_params(model, _n_smoothing_params(model))
 
     if needs_exact_gaussian_reparameterization(model):
-        build_gaussian_reparameterized_system(model)
-        model.sl_blocks_ = (
-            None
-            if model.reparam_state_ is None
-            else list(model.reparam_state_.sl_blocks or [])
+        from ..smoothing_selection.reparam import (
+            assign_exact_reparam_state,
+            build_estimate_gam_setup_state,
+            build_penalty_reparameterization_state,
+        )
+
+        # Exact Gaussian ML/REML mirrors mgcv's `gam.fit3()` canonical
+        # reparameterization state rather than the older mixed-model `Sl` view.
+        setup = build_estimate_gam_setup_state(model)
+        assign_exact_reparam_state(
+            model,
+            build_penalty_reparameterization_state(
+                model,
+                np.asarray(setup.X, dtype=np.float64),
+                np.asarray(model.smoothing_params, dtype=np.float64),
+                deriv=0,
+            ),
         )
     else:
         model.reparam_state_ = None

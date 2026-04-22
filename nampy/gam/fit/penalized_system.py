@@ -13,6 +13,7 @@ Provides three utilities used across all fitting backends:
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
+from ..linalg import symmetrize_matrix
 from .offsets import coerce_offset_array
 
 
@@ -66,7 +67,7 @@ def build_full_penalty_from_blocks(
                 f"Penalty block for term {pb.label!r} has shape {P.shape}, "
                 f"but its coefficient slice width is {width}."
             )
-        P = 0.5 * (P + P.T)
+        P = symmetrize_matrix(P)
 
         P_full[full_sl, full_sl] += lam * P
 

@@ -12,7 +12,6 @@ import warnings
 
 import numpy as np
 
-from ...constraints.transforms import null_space_basis_from_constraint_matrix
 from ...penalties import penalty_id_for_local_index, rescale_tensor_penalties_for_fit
 from ..algebra import t2_marginal_reparameterization
 from ..registry import register_smooth
@@ -28,54 +27,10 @@ from .marginals import (
     tensor_marginal_predict_matrix,
     validate_tensor_marginal_bases,
 )
-from .t2_basis import build_t2_basis_and_penalties, materialize_t2_newdata
-
-
-def _t2_marginal_feature_values(term, X):
-    X = np.asarray(X, dtype=np.float64)
-    idx = getattr(term, "_feature_index", None)
-    if idx is not None:
-        return np.asarray(X[:, int(idx)], dtype=np.float64).ravel()
-
-    idxs = getattr(term, "_feature_indices", None)
-    if idxs is None:
-        return None
-    idxs = np.asarray(idxs, dtype=np.int64).ravel()
-    if idxs.size != 1:
-        return None
-    return np.asarray(X[:, int(idxs[0])], dtype=np.float64).ravel()
-
-
-def _orient_t2_marginal_like_mgcv(dec, *, basis_name, feature_values):
-    x = (
-        None
-        if feature_values is None
-        else np.asarray(feature_values, dtype=np.float64).ravel()
-    )
-    if x is None or x.size == 0 or not np.all(np.isfinite(x)):
-        return dec
-
-    x_centered = x - np.mean(x)
-    if not np.any(np.abs(x_centered) > 0.0):
-        return dec
-
-    basis_key = str(basis_name).lower()
-
-    if basis_key in {"cr", "cs"} and dec["B_null"].shape[1] >= 2:
-        linear_col = np.asarray(dec["B_null"][:, -1], dtype=np.float64)
-        cov = float((linear_col - np.mean(linear_col)) @ x_centered)
-        if cov < 0.0:
-            dec["B_null"][:, -1] *= -1.0
-            dec["T_null"][:, -1] *= -1.0
-
-    if basis_key in {"tp", "ts"} and dec["B_range"].shape[1] > 2:
-        linear_col = np.asarray(dec["B_range"][:, 2], dtype=np.float64)
-        cov = float((linear_col - np.mean(linear_col)) @ x_centered)
-        if cov > 0.0:
-            dec["B_range"][:, 2] *= -1.0
-            dec["T_range"][:, 2] *= -1.0
-
-    return dec
+from .t2_basis import (
+    build_tensor_anova_basis_and_penalties,
+    materialize_tensor_anova_newdata,
+)
 
 
 @register_smooth("t2")
@@ -90,6 +45,7 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         k=10,
         basis="cr",
         m=None,
+        xt=None,
         label=None,
         term_id=None,
         smoothing_id=None,
@@ -136,6 +92,7 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             )
         self.basis = validate_tensor_marginal_bases(self.basis)
         self.m = m
+        self.xt = xt
 
         self.select = bool(select)
         self.full = bool(full)
@@ -150,9 +107,11 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         self._basis_train = None
         self._penalties = None
         self._t2_train = None
+        self._t2_raw_fit_transform = None
         self._marginal_decompositions = None
         self._penalized_specs = None
         self._by_state = None
+        self._prediction_constraint_transform = None
         self.fit_constraint_matrix = None
         self.predict_coefficient_map = None
 
@@ -164,6 +123,7 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             k=self.k,
             basis=self.basis,
             m=self.m,
+            xt=self.xt,
             knots=self.knots,
             centered=False,
             shared_basis_setups=marginal_shared_setups,
@@ -175,24 +135,20 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         )
         marginal_decompositions = []
         for basis_name, term in zip(self.basis, marginals):
-
             B_i, S_i, _ = tensor_marginal_fit_matrices(term, centered=False)
             dec = t2_marginal_reparameterization(B_i, S_i, basis_name=basis_name)
-            dec = _orient_t2_marginal_like_mgcv(
-                dec,
-                basis_name=basis_name,
-                feature_values=_t2_marginal_feature_values(term, X),
-            )
             marginal_decompositions.append(dec)
 
-        t2_obj = build_t2_basis_and_penalties(
+        absorb_null_constraint = bool(self._by_state.is_constant)
+        t2_obj = build_tensor_anova_basis_and_penalties(
             marginal_decompositions,
             full=self.full,
             ord=self.ord,
-            # mgcv::smooth.construct.t2.smooth.spec() keeps the raw t2 basis
-            # and exposes an explicit constraint matrix affecting only the
-            # final unpenalized null block.
-            remove_constant_from_null_block=False,
+            # Match smoothCon(absorb.cons=TRUE) for ordinary intercept-bearing
+            # t2 terms by applying the null-block constraint directly to the
+            # assembled t2 basis. The generic wrapper QR path rotates columns
+            # differently and breaks exact mgcv parity for tensor ANOVA terms.
+            remove_constant_from_null_block=absorb_null_constraint,
         )
         B_t2_setup = np.asarray(t2_obj["basis"], dtype=np.float64)
         pens_pre = [
@@ -239,14 +195,22 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
 
             marginal_fit.append({"B_range": B_r, "B_null": B_n})
 
-        B_t2 = materialize_t2_newdata(
+        B_t2_raw = materialize_tensor_anova_newdata(
             marginal_fit,
             allnull_specs=t2_obj["allnull_specs"],
-            allnull_transform=t2_obj["allnull_transform"],
+            allnull_transform=None,
             penalized_specs=t2_obj["penalized_specs"],
         )
-        B_t2 = self._apply_cached_by(np.asarray(B_t2, dtype=np.float64))
-        t2_obj = {**t2_obj, "basis": B_t2}
+        B_t2_raw = self._apply_cached_by(np.asarray(B_t2_raw, dtype=np.float64))
+        if full_transform is not None:
+            B_t2_fit = B_t2_raw @ np.asarray(full_transform, dtype=np.float64)
+        else:
+            B_t2_fit = B_t2_raw
+        t2_obj = {
+            **t2_obj,
+            "basis_raw": np.asarray(B_t2_raw, dtype=np.float64),
+            "basis": np.asarray(B_t2_fit, dtype=np.float64),
+        }
 
         self._marginals = marginals
         self._feature_indices = feature_indices
@@ -256,39 +220,35 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         self._basis_train = t2_obj["basis"]
         self._penalties = [] if self.fixed else t2_obj["penalties"]
         self._t2_train = t2_obj
+        self._t2_raw_fit_transform = (
+            None
+            if full_transform is None
+            else np.asarray(full_transform, dtype=np.float64)
+        )
         self._penalized_specs = [
             spec for spec in t2_obj["component_specs"] if spec["penalized"]
         ]
         n_pen = int(sum(spec["n_cols"] for spec in self._penalized_specs))
-        n_null = int(B_t2_setup.shape[1] - n_pen)
-        if n_null > 0 and self._by_state.is_constant:
-            Cp = np.sum(B_t2_setup, axis=0, keepdims=True)
-            if np.linalg.norm(Cp) > 0.0:
-                self.predict_coefficient_map, _ = (
-                    null_space_basis_from_constraint_matrix(
-                        Cp,
-                        d=B_t2_setup.shape[1],
-                        tol=self.null_penalty_tol,
-                    )
-                )
-            else:
-                self.predict_coefficient_map = None
-            if n_null == 1:
-                # mgcv::smooth.construct.t2.smooth.spec():
-                # ``if (object$null.space.dim==1) C <- ncol(X)``
-                # i.e. set final unpenalized coefficient to zero, rather than
-                # centering it by row sums.
-                C = np.zeros((1, B_t2_setup.shape[1]), dtype=np.float64)
-                C[0, -1] = 1.0
-                self.fit_constraint_matrix = C
-            else:
-                C = np.zeros((1, B_t2_setup.shape[1]), dtype=np.float64)
-                C[0, n_pen:] = np.sum(B_t2_setup[:, n_pen:], axis=0)
-                self.fit_constraint_matrix = C if np.linalg.norm(C) > 0.0 else None
-        else:
-            self.fit_constraint_matrix = None
-            self.predict_coefficient_map = None
-        self._record_constraint_result(None, None, absorbed_by=None)
+        n_null = int(B_pre.shape[1] - n_pen)
+        fit_transform = self._t2_raw_fit_transform
+        prediction_basis_map = None
+        if absorb_null_constraint and n_null > 0:
+            cp_vec = np.asarray(B_pre.mean(axis=0), dtype=np.float64).reshape(-1, 1)
+            q_cp, _ = np.linalg.qr(cp_vec, mode="complete")
+            prediction_basis_map = np.asarray(q_cp[:, 1:], dtype=np.float64)
+
+        self._prediction_constraint_transform = prediction_basis_map
+        self.fit_constraint_matrix = None
+        self.predict_coefficient_map = fit_transform
+        self.metadata["prediction_basis_map"] = prediction_basis_map
+        self.metadata["expose_raw_prediction_basis"] = prediction_basis_map is not None
+        self.metadata["prediction_parameterization_wider"] = False
+        self.metadata["prediction_replaces_intercept"] = False
+        self._record_constraint_result(
+            "sum_to_zero" if fit_transform is not None else None,
+            None,
+            absorbed_by=("runtime" if fit_transform is not None else None),
+        )
 
         suffix = "full" if self.full else "pars"
         self.basis_name = f"t2({','.join(self.basis)};{suffix})"
@@ -390,19 +350,16 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
                 }
             )
 
-        allnull_specs = self._t2_train["allnull_specs"]
-        allnull_transform = self._t2_train["allnull_transform"]
-
         penalized_specs = self._t2_train.get("penalized_specs", None)
         if penalized_specs is None:
             raise RuntimeError(
                 "Stored t2 fit object does not contain penalized component specifications."
             )
 
-        B_new = materialize_t2_newdata(
+        B_new = materialize_tensor_anova_newdata(
             marginal_new,
-            allnull_specs=allnull_specs,
-            allnull_transform=allnull_transform,
+            allnull_specs=self._t2_train["allnull_specs"],
+            allnull_transform=None,
             penalized_specs=penalized_specs,
         )
-        return self._apply_constraint_transform_and_by(B_new, X_new)
+        return self._apply_cached_by(np.asarray(B_new, dtype=np.float64))

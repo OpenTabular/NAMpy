@@ -24,12 +24,22 @@ from .general import build_general_lpmatrix
 def _build_prediction_matrices(model, X_new=None):
     _require_fitted(model)
     _require_design(model)
+    compiled_model = _compiled_model(model)
+    use_training_prediction_matrix = bool(
+        compiled_model is not None
+        and any(
+            bool(getattr(tb, "metadata", {}).get("expose_raw_prediction_basis"))
+            for tb in getattr(compiled_model, "compiled_terms", ())
+        )
+    )
 
     if X_new is None:
-        Z_new = np.asarray(_design_matrix(model), dtype=np.float64)
+        if use_training_prediction_matrix:
+            Z_new = np.asarray(compiled_model.build_new_matrix(model.X_), dtype=np.float64)
+        else:
+            Z_new = np.asarray(_design_matrix(model), dtype=np.float64)
     else:
         X_new = _coerce_feature_matrix(model, X_new, none_is_training=False)
-        compiled_model = _compiled_model(model)
         Z_new = compiled_model.build_new_matrix(X_new)
 
     if _fit_intercept(model):

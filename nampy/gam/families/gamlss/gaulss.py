@@ -7,7 +7,7 @@ import numpy as np
 from ..._mgcv_constants import FAMILY_EPS
 from ...fit.solvers.gamlss_utils import gamlss_etamu, gamlss_gH, trind_generator
 from .._function_maps import InverseLink, LogLink
-from ._base import GamlssFamily, _AdaptedLinkInfo, _IdentityLinkInfo
+from ._base import GamlssFamily, _AdaptedLinkInfo, _IdentityLinkInfo, _pen_reg
 
 
 class _LogBLinkInfo:
@@ -291,16 +291,14 @@ class GaulssFamily(GamlssFamily):
         E: Any = None,
     ) -> np.ndarray:
         """
-        Initialize coefficients for gaulss by two penalized LS fits.
+        Initialize coefficients for gaulss by two `pen.reg()` solves.
 
-        First regress y on the mean design block.
-        Then regress log|residuals| on the precision design block.
-
-        Mirrors mgcv ``gaulss$initialize`` expression (regular matrix path).
+        Mirrors the regular-matrix branch of mgcv `gaulss$initialize` in
+        `mgcv/R/gamlss.r`.
         """
         y = np.asarray(y, dtype=np.float64)
         X = np.asarray(X, dtype=np.float64)
-        n, p = X.shape
+        _n, p = X.shape
         start = np.zeros(p, dtype=np.float64)
 
         off1 = off2 = None
@@ -319,30 +317,22 @@ class GaulssFamily(GamlssFamily):
             else:
                 off1 = np.asarray(offset, dtype=np.float64)
 
-        # --- Fit mean predictor ---
-        X1 = X[:, jj[0]]
-        yt1 = y.copy()
+        E_arr = None if E is None else np.asarray(E, dtype=np.float64)
+
+        X1 = np.asarray(X[:, jj[0]], dtype=np.float64)
+        yt1 = np.asarray(y, dtype=np.float64).copy()
         if self.linfo[0].name != "identity":
-            yt1 = self.linfo[0].linkfun(np.abs(y) + np.max(np.abs(y)) * 1e-7)
+            yt1 = self.linfo[0].linkfun(np.abs(y) + np.max(y) * 1e-7)
         if off1 is not None:
             yt1 = yt1 - off1
-
-        if E is not None and E.shape[1] > 0:
-            E1 = E[:, jj[0]]
-            XE1 = np.vstack([X1, E1])
-            y1e = np.concatenate([yt1, np.zeros(E1.shape[0])])
-        else:
-            XE1 = X1
-            y1e = yt1
-
-        try:
-            start1 = np.linalg.lstsq(XE1, y1e, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start1 = np.zeros(X1.shape[1], dtype=np.float64)
-        start1 = np.where(np.isfinite(start1), start1, 0.0)
+        E1 = (
+            np.zeros((0, X1.shape[1]), dtype=np.float64)
+            if E_arr is None or E_arr.shape[1] == 0
+            else np.asarray(E_arr[:, jj[0]], dtype=np.float64)
+        )
+        start1 = _pen_reg(X1, E1, yt1)
         start[jj[0]] = start1
 
-        # --- Fit precision predictor ---
         mu_init = self.linfo[0].linkinv(
             X1 @ start1 + (off1 if off1 is not None else 0.0)
         )
@@ -350,20 +340,13 @@ class GaulssFamily(GamlssFamily):
         if off2 is not None:
             lres1 = lres1 - off2
 
-        X2 = X[:, jj[1]]
-        if E is not None and E.shape[1] > 0:
-            E2 = E[:, jj[1]]
-            XE2 = np.vstack([X2, E2])
-            y2e = np.concatenate([lres1, np.zeros(E2.shape[0])])
-        else:
-            XE2 = X2
-            y2e = lres1
-
-        try:
-            start2 = np.linalg.lstsq(XE2, y2e, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start2 = np.zeros(X2.shape[1], dtype=np.float64)
-        start2 = np.where(np.isfinite(start2), start2, 0.0)
+        X2 = np.asarray(X[:, jj[1]], dtype=np.float64)
+        E2 = (
+            np.zeros((0, X2.shape[1]), dtype=np.float64)
+            if E_arr is None or E_arr.shape[1] == 0
+            else np.asarray(E_arr[:, jj[1]], dtype=np.float64)
+        )
+        start2 = _pen_reg(X2, E2, lres1)
         start[jj[1]] = start2
 
         return start

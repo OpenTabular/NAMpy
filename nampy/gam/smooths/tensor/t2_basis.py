@@ -59,7 +59,7 @@ def _append_block(
     )
 
 
-def build_t2_basis_and_penalties(
+def build_tensor_anova_basis_and_penalties(
     marginal_decompositions,
     *,
     full=False,
@@ -346,7 +346,7 @@ def build_t2_basis_and_penalties(
     }
 
 
-def materialize_t2_newdata(
+def materialize_tensor_anova_newdata(
     marginal_new_range_null, *, allnull_specs, allnull_transform, penalized_specs
 ):
     def materialize_single_column(desc):
@@ -418,4 +418,4 @@ def materialize_t2_newdata(
     return np.column_stack(blocks)
 
 
-__all__ = ["build_t2_basis_and_penalties", "materialize_t2_newdata"]
+__all__ = ["build_tensor_anova_basis_and_penalties", "materialize_tensor_anova_newdata"]

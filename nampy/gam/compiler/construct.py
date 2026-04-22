@@ -160,13 +160,17 @@ def construct_smooth(
         by_variable_info=by_variable_info,
     )
 
-    raw_predict_n_coef = int(B.shape[1])
-    coefficient_maps: list[CoefficientMap] = []
     predict_coefficient_map_arr = (
         None
         if predict_coefficient_map is None
         else np.asarray(predict_coefficient_map, dtype=np.float64)
     )
+    raw_predict_n_coef = (
+        int(predict_coefficient_map_arr.shape[0])
+        if predict_coefficient_map_arr is not None
+        else int(B.shape[1])
+    )
+    coefficient_maps: list[CoefficientMap] = []
 
     if absorb_cons and (not runtime_transform_applied) and fit_constraint is not None:
         B, penalty_defs, T_fit, n_cons = absorb_explicit_constraints(

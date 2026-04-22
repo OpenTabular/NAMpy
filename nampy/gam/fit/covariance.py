@@ -17,6 +17,7 @@ Two covariance estimates are provided for each fitted model:
 import numpy as np
 
 from .._model_state import _cov_bayes, _cov_freq
+from ..linalg import symmetrize_matrix
 
 
 def build_bayes_and_freq_covariances(scale, A_inv, XWX):
@@ -49,7 +50,7 @@ def build_bayes_and_freq_covariances(scale, A_inv, XWX):
     Vp = scale * A_inv
     # mgcv enforces symmetry on the inverted penalized information matrix
     # before forming frequentist covariance (`vcov(..., freq=TRUE)` parity).
-    A_inv = 0.5 * (A_inv + A_inv.T)
+    A_inv = symmetrize_matrix(A_inv)
     Vf = scale * (A_inv @ XWX @ A_inv.T)
     return Vp, Vf, H_coef
 

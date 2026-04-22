@@ -11,7 +11,7 @@ from ...fit.model_ops import (
 from ..reparam import (
     _stable_penalty_logdet_derivatives,
     _static_penalty_null_dim,
-    build_gam_fit3_reparam_state,
+    build_penalty_reparameterization_state,
 )
 from .gaussian_reml_algebra import (
     gaussian_reml_saturation_terms_wrt_variance,
@@ -37,7 +37,7 @@ def _gaussian_penalty_quadratic_mgcv_style(model, sol, sp) -> float:
     beta = np.asarray(sol["coef_full"], dtype=np.float64).ravel()
     if beta.size == 0:
         return 0.0
-    state = build_gam_fit3_reparam_state(
+    state = build_penalty_reparameterization_state(
         model,
         np.asarray(sol["X"], dtype=np.float64),
         np.asarray(sp, dtype=np.float64),

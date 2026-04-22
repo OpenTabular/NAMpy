@@ -112,7 +112,12 @@ def _assert_mgcv_score_hist_exact(model, expected, *, atol=0.0, rtol=0.0):
 
 
 class TestMgcvNewtonParity:
+    """
+    Newton score-history parity checks against mgcv for representative Gaussian and non-
+    Gaussian REML fits.
+    """
     def test_newton_score_hist_gaussian_reml_matches_r_exact(self):
+        """Verify that newton score hist gaussian REML matches r exact."""
         data = _make_gaussian_data(seed=321)
         formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
         expected = _run_mgcv_trace(data, formula, "gaussian", "REML")
@@ -121,6 +126,7 @@ class TestMgcvNewtonParity:
 
     @pytest.mark.parametrize("family", ["binomial", "poisson"])
     def test_newton_score_hist_non_gaussian_reml_matches_r(self, family):
+        """Verify that newton score hist non gaussian REML matches r."""
         data = (
             _make_binomial_data(seed=456)
             if family == "binomial"

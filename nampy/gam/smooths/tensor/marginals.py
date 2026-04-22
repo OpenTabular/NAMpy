@@ -7,10 +7,10 @@ import numpy as np
 from ...penalties.tensor import normalize_tensor_marginal_penalty
 from ..algebra import rowwise_kronecker
 from ..smooth_base import column_as_float
-from ..univariate.cubic_regression import SplineTerm1D
+from ..univariate.cr import CubicSplineTerm
 from ..univariate.gp import GPSmoothTerm
-from ..univariate.pspline import PSplineTerm1D
-from ..univariate.thin_plate import ThinPlateSplineTerm
+from ..univariate.ps import PSplineTerm1D
+from ..univariate.tp import ThinPlateSplineTerm
 
 TENSOR_MARGINAL_BASES = frozenset({"cr", "cs", "cc", "ps", "tp", "ts", "gp"})
 
@@ -32,6 +32,7 @@ def make_tensor_marginal_term(
     basis,
     k,
     m=None,
+    xt=None,
     knots=None,
     centered=False,
     shared_basis_setup=None,
@@ -46,7 +47,7 @@ def make_tensor_marginal_term(
     )
 
     if basis in {"cr", "cs", "cc"}:
-        return SplineTerm1D(
+        return CubicSplineTerm(
             feature=feature,
             k=k,
             basis=basis,
@@ -83,6 +84,7 @@ def make_tensor_marginal_term(
             k=k,
             basis=basis,
             m=m,
+            xt=xt,
             label=str(feature),
             smoothing_id=None,
             by=None,
@@ -98,6 +100,7 @@ def make_tensor_marginal_term(
         k=k,
         basis=basis,
         m=m,
+        xt=xt,
         label=str(feature),
         smoothing_id=None,
         by=None,
@@ -115,6 +118,20 @@ def _normalize_bool_list(x, n: int):
     vals = [bool(v) for v in x]
     if len(vals) != n:
         raise ValueError(f"Expected {n} values, got {len(vals)}.")
+    return vals
+
+
+def normalize_tensor_fx_flags(fx, n: int, *, wrong_length_warning: str):
+    if fx is None:
+        return [False] * n
+    if np.isscalar(fx):
+        return [bool(fx)] * n
+    vals = [bool(v) for v in np.asarray(fx, dtype=object).ravel()]
+    if len(vals) == 1:
+        return vals * n
+    if len(vals) != n:
+        warnings.warn(wrong_length_warning, stacklevel=3)
+        return [False] * n
     return vals
 
 
@@ -158,12 +175,56 @@ def _normalize_tensor_m(m, n: int):
     return out
 
 
+def _normalize_tensor_xt(xt, n: int):
+    if xt is None:
+        return [None] * n
+
+    # mgcv expects tensor xt as an outer list of marginal xt payloads.
+    # A length-1 outer list is repeated across margins; a length-n outer
+    # list is used as-is. Python dict literals are ambiguous because
+    # they can mean either an outer named list or one marginal payload.
+    # For parity we only allow the unambiguous length-1 named-list form.
+    if isinstance(xt, dict):
+        if len(xt) == 1:
+            return [dict(xt)] * n
+        raise ValueError(
+            "Tensor xt dict form is only supported for a single named entry, "
+            "matching mgcv's length-1 outer list semantics. For multi-key "
+            "marginal xt specs, pass xt as a length-1 or length-n list of "
+            "dicts, e.g. xt=[{'max.knots': 10, 'seed': 2}]."
+        )
+
+    if isinstance(xt, np.ndarray):
+        vals = xt.tolist()
+    elif isinstance(xt, (list, tuple)):
+        vals = list(xt)
+    else:
+        return [xt] * n
+
+    if len(vals) == 1:
+        return [vals[0]] * n
+
+    if len(vals) != n:
+        raise ValueError(f"xt must have length 1 or {n}, got {len(vals)}.")
+
+    return vals
+
+
+def _validate_tensor_xt_support(basis_list, xt_list):
+    # Upstream `mgcv` supports GP tensor marginals with `xt['max.knots']`.
+    # NAMpy intentionally keeps this path enabled for parity.
+    _ = basis_list
+    _ = xt_list
+    return
+
+
 def build_tensor_marginal_terms(
     *,
     feature,
     k,
     basis,
     m=None,
+    xt=None,
     knots=None,
     centered=False,
     shared_basis_setups=None,
@@ -193,6 +254,8 @@ def build_tensor_marginal_terms(
             f"knots must have length {len(features)} for features={features}, got {knots_list!r}."
         )
     m_list = _normalize_tensor_m(m, len(features))
+    xt_list = _normalize_tensor_xt(xt, len(features))
+    _validate_tensor_xt_support(basis_list, xt_list)
     centered_flags = _normalize_bool_list(centered, len(features))
     if shared_basis_setups is None:
         shared_basis_setups = [None] * len(features)
@@ -207,11 +270,12 @@ def build_tensor_marginal_terms(
     marginals = []
     feature_ids = []
     feature_names = []
-    for feat, k_i, bs_i, m_i, knots_i, center_i, shared_i in zip(
+    for feat, k_i, bs_i, m_i, xt_i, knots_i, center_i, shared_i in zip(
         features,
         k_list,
         basis_list,
         m_list,
+        xt_list,
         knots_list,
         centered_flags,
         shared_basis_setups,
@@ -221,6 +285,7 @@ def build_tensor_marginal_terms(
             basis=bs_i,
             k=k_i,
             m=m_i,
+            xt=xt_i,
             knots=knots_i,
             centered=center_i,
             shared_basis_setup=shared_i,

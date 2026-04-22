@@ -1,7 +1,7 @@
 import numpy as np
-from scipy.linalg import eigh
 
 from .._mgcv_constants import EIG_TOL_POWER
+from ..linalg import symmetric_eigh
 from ..penalties.algebra import penalty_eigendecomposition
 
 
@@ -34,16 +34,6 @@ def _mgcv_ps_type3_null_eigenbasis(p, rank):
             dtype=np.float64,
         )
     return None
-
-
-def _t2_symmetric_eigh(matrix):
-    A = 0.5 * (
-        np.asarray(matrix, dtype=np.float64) + np.asarray(matrix, dtype=np.float64).T
-    )
-    evals, evecs = eigh(A, driver="evr")
-    idx = np.argsort(evals)[::-1]
-    return evals[idx], evecs[:, idx]
-
 
 def rowwise_kronecker(matrices):
     mats = [np.asarray(M, dtype=np.float64) for M in matrices]
@@ -106,7 +96,7 @@ def _eigen_split(
 
     p = int(X.shape[1])
     # Match mgcv::nat.param(type=3), which uses `eigen(..., symmetric=TRUE)`.
-    evals, U = _t2_symmetric_eigh(S)
+    evals, U = symmetric_eigh(S, descending=True, use_scipy=True)
 
     max_eval = float(np.max(evals)) if evals.size else 0.0
     tol_eff = float(max_eval * tol)
@@ -145,7 +135,7 @@ def _eigen_split(
         n = Xn.shape[0]
         one = np.ones(n, dtype=np.float64)
         Xn = Xn - (one[:, None] * (one[None, :] @ Xn)) / n
-        _, um_vecs = _t2_symmetric_eigh(Xn.T @ Xn)
+        _, um_vecs = symmetric_eigh(Xn.T @ Xn, descending=True, use_scipy=True)
         Xp[:, rind] = Xp[:, ind] @ um_vecs
         P[:, rind] = P[:, ind] @ um_vecs
 
@@ -197,7 +187,12 @@ def _apply_t2_mgcv_column_signs(dec, basis_name):
     # only up to per-column signs. For t2() those signs feed directly into the
     # tensor ANOVA block columns, so mirror mgcv's observed basis-family
     # conventions explicitly here.
-    if basis_name in {"cr", "cs"}:
+    if basis_name in {"cr", "cs"} and n_cols > 0:
+        # `mgcv::nat.param(..., type=3)` on cubic regression marginals matches our
+        # symmetric-eigen decomposition directly except for the final null-space
+        # basis column sign on the local parity platform. Flipping the leading
+        # column here was a regression: it preserved function-space parity but
+        # rotated the raw `t2()` prediction parameterization away from mgcv.
         sign_idx.append(n_cols - 1)
     elif basis_name == "ps":
         if n_cols > 0:
@@ -206,8 +201,6 @@ def _apply_t2_mgcv_column_signs(dec, basis_name):
             sign_idx.append(1)
     elif basis_name == "cc" and dec["range_dim"] > 0:
         sign_idx.append(int(dec["range_dim"]) - 1)
-    elif basis_name in {"tp", "ts"} and n_cols > 2:
-        sign_idx.append(2)
 
     if not sign_idx:
         return dec

@@ -49,6 +49,21 @@ def _make_gaussian_univariate_data(seed=301, n=150):
     return _make_gaussian_data(seed=seed, n=n)[["y", "x0"]].rename(columns={"x0": "x"})
 
 
+def _make_transformed_formula_data(seed=531, n=120):
+    rng = np.random.default_rng(seed)
+    x = rng.uniform(-1.75, 1.75, size=n)
+    z = rng.uniform(-1.25, 1.25, size=n)
+    o = rng.uniform(0.2, 1.4, size=n)
+    y = (
+        1.2
+        + 0.35 * x**2
+        + 0.45 * np.sin(1.3 * z)
+        + np.log1p(o)
+        + rng.normal(scale=0.05, size=n)
+    )
+    return pd.DataFrame({"y": y, "x": x, "z": z, "o": o})
+
+
 def _make_tp_ts_data(seed=111, n=180):
     rng = np.random.default_rng(seed)
     x0 = rng.uniform(-2.0, 2.0, size=n)
@@ -245,6 +260,75 @@ TERMS_PARITY_CASES = [
     },
 ]
 
+TRANSFORMED_SMOOTH_OUTPUT_CASES = [
+    {
+        "case_id": "transformed_cs",
+        "data_factory": lambda: _make_gaussian_univariate_data(seed=551, n=150),
+        "formula": 'y ~ s(I(x + 0.15 * x**2), bs="cs", k=8, sp=1.1)',
+        "smoothing_params": np.array([1.1]),
+        "pred_atol": 1e-10,
+        "pred_rtol": 1e-10,
+        "se_atol": 1e-10,
+        "se_rtol": 1e-10,
+    },
+    {
+        "case_id": "transformed_cc",
+        "data_factory": lambda: _make_cyclic_data(seed=556, n=170),
+        "formula": 'y ~ s(I(x / 6.283185307179586), bs="cc", k=9, sp=0.8)',
+        "smoothing_params": np.array([0.8]),
+        "pred_atol": 1e-10,
+        "pred_rtol": 1e-10,
+        "se_atol": 1e-10,
+        "se_rtol": 1e-10,
+    },
+    {
+        "case_id": "transformed_ps",
+        "data_factory": lambda: _make_ps_data(seed=552, n=170),
+        "formula": 'y ~ s(I(x + 0.2 * x**2), bs="ps", k=12, sp=0.5)',
+        "smoothing_params": np.array([0.5]),
+        "pred_atol": 1e-10,
+        "pred_rtol": 1e-10,
+        "se_atol": 1e-10,
+        "se_rtol": 1e-10,
+    },
+    {
+        "case_id": "transformed_gp",
+        "data_factory": lambda: _make_gp_data(seed=553, n=150),
+        "formula": 'y ~ s(I(x + 0.2 * x**2), bs="gp", k=10, sp=1.0)',
+        "smoothing_params": np.array([1.0]),
+        "pred_atol": 1e-8,
+        "pred_rtol": 1e-8,
+        "se_atol": 1e-8,
+        "se_rtol": 1e-8,
+    },
+    {
+        "case_id": "transformed_tp",
+        "data_factory": lambda: _make_tp_ts_data(seed=554, n=180),
+        "formula": (
+            'y ~ s(I(x0 + 0.2 * x0**2), I(x1 - 0.15 * x1**2), '
+            'bs="tp", k=15, sp=1.1)'
+        ),
+        "smoothing_params": np.array([1.1]),
+        "pred_atol": 1e-10,
+        "pred_rtol": 1e-10,
+        "se_atol": 1e-10,
+        "se_rtol": 1e-10,
+    },
+    {
+        "case_id": "transformed_ts",
+        "data_factory": lambda: _make_tp_ts_data(seed=555, n=180),
+        "formula": (
+            'y ~ s(I(x0 + 0.2 * x0**2), I(x1 - 0.15 * x1**2), '
+            'bs="ts", k=15, sp=1.1)'
+        ),
+        "smoothing_params": np.array([1.1]),
+        "pred_atol": 1e-10,
+        "pred_rtol": 1e-10,
+        "se_atol": 1e-10,
+        "se_rtol": 1e-10,
+    },
+]
+
 
 SE_SNAPSHOT_CASES = [
     (
@@ -356,6 +440,7 @@ SE_SNAPSHOT_CASES = [
     ],
 )
 def test_output_parity_anova_model_comparison(case_id, family):
+    """Verify that output parity anova model comparison."""
     data = make_parity_case_data(case_id)
     formulas = [
         'y ~ s(x0, bs="cr", k=8)',
@@ -425,6 +510,7 @@ def test_output_parity_anova_model_comparison(case_id, family):
 def test_output_parity_newdata_predictions_and_standard_errors(
     case_id, family, pred_type, sample_n, sample_seed, fixed_sp_override
 ):
+    """Verify that output parity new-data predictions and standard errors."""
     case = get_parity_case(case_id)
     train = make_parity_case_data(case_id)
     newdata = train.sample(n=min(sample_n, len(train)), random_state=sample_seed).copy()
@@ -460,6 +546,7 @@ def test_output_parity_newdata_predictions_and_standard_errors(
 
 
 def test_output_parity_newdata_terms_linked_id():
+    """Verify that output parity new-data terms linked id."""
     train = make_parity_case_data("gaussian_cr_uni_reml")
     formula = 'y ~ s(x0, bs="cr", k=8, id="shared") + s(x1, bs="cr", k=8, id="shared")'
     newdata = train.sample(n=min(30, len(train)), random_state=29).copy()
@@ -486,6 +573,7 @@ def test_output_parity_newdata_terms_linked_id():
 
 
 def test_output_parity_newdata_lpmatrix_gaussian():
+    """Verify that output parity new-data lpmatrix gaussian."""
     case = get_parity_case("gaussian_cr_uni_reml")
     train = make_parity_case_data(case.case_id)
     newdata = train.sample(n=min(25, len(train)), random_state=41).copy()
@@ -504,6 +592,224 @@ def test_output_parity_newdata_lpmatrix_gaussian():
     np.testing.assert_allclose(actual, expected, atol=1e-10, rtol=1e-10)
 
 
+@pytest.mark.parametrize("pred_type", ["link", "response", "lpmatrix"])
+def test_output_parity_newdata_transformed_formula_surfaces(pred_type):
+    """Verify that output parity new-data transformed formula surfaces."""
+    train = _make_transformed_formula_data(seed=541, n=140)
+    newdata = _make_transformed_formula_data(seed=542, n=40).drop(columns=["y"])
+    formula = (
+        'I(y**2) ~ I(x**2) + s(I(z**2), bs="cr", k=6, sp=0.9) + offset(log(o + 1))'
+    )
+
+    model = _fit_nampy_model_fixed_sp(
+        train,
+        formula,
+        "gaussian",
+        smoothing_params=np.array([0.9]),
+    )
+    r_result = _run_mgcv_predict_on_newdata(
+        train,
+        newdata,
+        formula,
+        family="gaussian",
+        method="fixed",
+        type=pred_type,
+        return_se=(pred_type != "lpmatrix"),
+    )
+
+    if pred_type == "lpmatrix":
+        actual = np.asarray(model.predict(X=newdata, type="lpmatrix"), dtype=np.float64)
+        expected = np.asarray(r_result["pred"], dtype=np.float64)
+        np.testing.assert_allclose(actual, expected, atol=1e-10, rtol=1e-10)
+        return
+
+    actual_pred, actual_se = model.predict(X=newdata, type=pred_type, return_se=True)
+    expected_pred = np.asarray(r_result["pred"], dtype=np.float64)
+    expected_se = np.asarray(r_result["se"], dtype=np.float64)
+    np.testing.assert_allclose(
+        np.asarray(actual_pred, dtype=np.float64),
+        expected_pred,
+        atol=1e-10,
+        rtol=1e-10,
+    )
+    np.testing.assert_allclose(
+        np.asarray(actual_se, dtype=np.float64),
+        expected_se,
+        atol=1e-10,
+        rtol=1e-10,
+    )
+
+
+@pytest.mark.parametrize(
+    "pred_type, iterms_type",
+    [("terms", None), ("iterms", None), ("iterms", 2)],
+    ids=["terms", "iterms", "iterms_type_2"],
+)
+def test_output_parity_newdata_transformed_formula_term_surfaces(
+    pred_type, iterms_type
+):
+    """Verify that output parity new-data transformed formula term surfaces."""
+    train = _make_transformed_formula_data(seed=543, n=140)
+    newdata = _make_transformed_formula_data(seed=544, n=40).drop(columns=["y"])
+    formula = 'I(y**2) ~ I(x**2) + s(I(z**2), bs="cr", k=6) + offset(log(o + 1))'
+
+    model = _fit_nampy_model(train, formula, "gaussian", "REML")
+    r_result = _run_mgcv_predict_on_newdata(
+        train,
+        newdata,
+        formula,
+        family="gaussian",
+        method="REML",
+        type=pred_type,
+        return_se=True,
+        iterms_type=iterms_type,
+    )
+
+    actual_pred, actual_se = model.predict(
+        X=newdata,
+        type=pred_type,
+        return_se=True,
+        iterms_type=iterms_type,
+    )
+    expected_pred = np.asarray(r_result["pred"], dtype=np.float64)
+    expected_se = np.asarray(r_result["se"], dtype=np.float64)
+    actual_pred = np.asarray(actual_pred, dtype=np.float64)
+    actual_se = np.asarray(actual_se, dtype=np.float64)
+
+    assert actual_pred.ndim == expected_pred.ndim == 2
+    assert actual_pred.shape == expected_pred.shape == actual_se.shape == expected_se.shape
+    assert np.atleast_1d(r_result["term_names"]).size == actual_pred.shape[1]
+
+    np.testing.assert_allclose(actual_pred, expected_pred, atol=1e-10, rtol=1e-10)
+    np.testing.assert_allclose(actual_se, expected_se, atol=1e-10, rtol=1e-10)
+
+
+def test_output_parity_transformed_formula_training_standard_errors_reml():
+    """Verify that output parity transformed formula training standard errors REML."""
+    data = _make_transformed_formula_data(seed=545, n=140)
+    formula = 'I(y**2) ~ I(x**2) + s(I(z**2), bs="cr", k=6) + offset(log(o + 1))'
+
+    model = _fit_nampy_model(data, formula, "gaussian", "REML")
+    actual_resp, actual_se_resp = model.predict(X=data, type="response", return_se=True)
+    actual_link, actual_se_link = model.predict(X=data, type="link", return_se=True)
+    expected = _run_mgcv_snapshot(
+        data,
+        formula,
+        "gaussian",
+        "REML",
+    )
+
+    np.testing.assert_allclose(
+        np.asarray(actual_resp, dtype=np.float64),
+        np.asarray(expected["predictions"]["response"], dtype=np.float64),
+        atol=1e-10,
+        rtol=1e-10,
+    )
+    np.testing.assert_allclose(
+        np.asarray(actual_link, dtype=np.float64),
+        np.asarray(expected["predictions"]["link"], dtype=np.float64),
+        atol=1e-10,
+        rtol=1e-10,
+    )
+    np.testing.assert_allclose(
+        np.asarray(actual_se_resp, dtype=np.float64),
+        np.asarray(expected["predictions"]["se_response"], dtype=np.float64),
+        atol=1e-10,
+        rtol=1e-10,
+    )
+    np.testing.assert_allclose(
+        np.asarray(actual_se_link, dtype=np.float64),
+        np.asarray(expected["predictions"]["se_link"], dtype=np.float64),
+        atol=1e-10,
+        rtol=1e-10,
+    )
+
+
+@pytest.mark.parametrize(
+    "case",
+    TRANSFORMED_SMOOTH_OUTPUT_CASES,
+    ids=[case["case_id"] for case in TRANSFORMED_SMOOTH_OUTPUT_CASES],
+)
+def test_output_parity_newdata_transformed_smooth_terms(case):
+    """Verify that output parity new-data transformed smooth terms."""
+    train = case["data_factory"]()
+    newdata = train.sample(n=min(25, len(train)), random_state=41).copy()
+    model = _fit_nampy_model_fixed_sp(
+        train,
+        case["formula"],
+        "gaussian",
+        smoothing_params=case["smoothing_params"],
+    )
+
+    actual_terms, actual_se = model.predict(X=newdata, type="terms", return_se=True)
+    r_result = _run_mgcv_predict_on_newdata(
+        train,
+        newdata,
+        case["formula"],
+        family="gaussian",
+        method="fixed",
+        type="terms",
+        return_se=True,
+    )
+
+    expected_terms = np.asarray(r_result["pred"], dtype=np.float64)
+    expected_se = np.asarray(r_result["se"], dtype=np.float64)
+    actual_terms = np.asarray(actual_terms, dtype=np.float64)
+    actual_se = np.asarray(actual_se, dtype=np.float64)
+
+    assert actual_terms.ndim == expected_terms.ndim == 2
+    assert actual_terms.shape == expected_terms.shape == actual_se.shape == expected_se.shape
+    assert np.atleast_1d(r_result["term_names"]).size == actual_terms.shape[1]
+
+    np.testing.assert_allclose(
+        actual_terms,
+        expected_terms,
+        atol=case["pred_atol"],
+        rtol=case["pred_rtol"],
+    )
+    np.testing.assert_allclose(
+        actual_se,
+        expected_se,
+        atol=case["se_atol"],
+        rtol=case["se_rtol"],
+    )
+
+
+@pytest.mark.parametrize(
+    "case",
+    TRANSFORMED_SMOOTH_OUTPUT_CASES,
+    ids=[case["case_id"] for case in TRANSFORMED_SMOOTH_OUTPUT_CASES],
+)
+def test_output_parity_newdata_transformed_smooth_lpmatrix(case):
+    """Verify that output parity new-data transformed smooth lpmatrix."""
+    train = case["data_factory"]()
+    newdata = train.sample(n=min(25, len(train)), random_state=43).copy()
+    model = _fit_nampy_model_fixed_sp(
+        train,
+        case["formula"],
+        "gaussian",
+        smoothing_params=case["smoothing_params"],
+    )
+
+    actual = np.asarray(model.predict(X=newdata, type="lpmatrix"), dtype=np.float64)
+    r_result = _run_mgcv_predict_on_newdata(
+        train,
+        newdata,
+        case["formula"],
+        family="gaussian",
+        method="fixed",
+        type="lpmatrix",
+    )
+    expected = np.asarray(r_result["pred"], dtype=np.float64)
+
+    np.testing.assert_allclose(
+        actual,
+        expected,
+        atol=case["pred_atol"],
+        rtol=case["pred_rtol"],
+    )
+
+
 @pytest.mark.parametrize("return_se", [False, True], ids=["no_se", "with_se"])
 @pytest.mark.parametrize(
     "case",
@@ -511,6 +817,7 @@ def test_output_parity_newdata_lpmatrix_gaussian():
     ids=[case["case_id"] for case in TERMS_PARITY_CASES],
 )
 def test_output_parity_terms(case, return_se):
+    """Verify that output parity terms."""
     train = case["data_factory"]()
     model = _fit_nampy_model(train, case["formula"], "gaussian", case["method"])
 
@@ -560,6 +867,7 @@ def test_output_parity_terms(case, return_se):
 
 
 def test_output_parity_fixed_sp_gaussian_offset_predictions():
+    """Verify that output parity fixed sp gaussian offset predictions."""
     rng = np.random.default_rng(91)
     n = 140
     x0 = rng.uniform(-2.0, 2.0, size=n)
@@ -611,6 +919,7 @@ def test_output_parity_fixed_sp_gaussian_offset_predictions():
 def test_output_parity_snapshot_link_and_response_standard_errors(
     case_id, data_factory, formula, family, method, pred_atol, se_atol
 ):
+    """Verify that output parity snapshot link and response standard errors."""
     del case_id
     data = data_factory()
     expected = _run_mgcv_snapshot(data, formula, family, method)

@@ -7,7 +7,7 @@ import numpy as np
 from ..._mgcv_constants import FAMILY_EPS
 from ...fit.solvers.gamlss_utils import gamlss_etamu, gamlss_gH, trind_generator
 from .._function_maps import LogLink
-from ._base import GamlssFamily, _AdaptedLinkInfo, _IdentityLinkInfo
+from ._base import GamlssFamily, _AdaptedLinkInfo, _IdentityLinkInfo, _pen_reg
 
 
 class _ShiftedLogitLinkInfo:
@@ -181,12 +181,14 @@ class GevlssFamily(GamlssFamily):
         ymu = y - mu
         sigma_inv = np.exp(-rho)  # = bb1 = 1/sigma
         aa0 = xi * ymu * sigma_inv  # = xi*(y-mu)/exp(rho)
-        log_aa1 = np.log1p(aa0)
         aa1 = 1.0 + aa0  # = cc3 in R
+        log_aa1 = np.zeros_like(aa1, dtype=np.float64)
+        valid = aa1 > 0.0
+        if np.any(valid):
+            log_aa1[valid] = np.log1p(aa0[valid])
         aa2 = 1.0 / xi  # = 1/xi
 
         # Check support: need aa1 > 0
-        valid = aa1 > 0.0
         if not np.all(valid):
             # Return -inf for out-of-support observations
             l0 = np.where(valid, 0.0, -np.inf)
@@ -800,16 +802,12 @@ class GevlssFamily(GamlssFamily):
         X1 = X[:, jj[0]]
         if E is not None and E.shape[1] > 0:
             E1 = E[:, jj[0]]
-            XE1 = np.vstack([X1, E1])
-            y1e = np.concatenate([yt1, np.zeros(E1.shape[0])])
+            start1 = _pen_reg(X1, E1, yt1)
         else:
-            XE1 = X1
-            y1e = yt1
-
-        try:
-            start1 = np.linalg.lstsq(XE1, y1e, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start1 = np.zeros(X1.shape[1], dtype=np.float64)
+            try:
+                start1 = np.linalg.lstsq(X1, yt1, rcond=None)[0]
+            except np.linalg.LinAlgError:
+                start1 = np.zeros(X1.shape[1], dtype=np.float64)
         start1 = np.where(np.isfinite(start1), start1, 0.0)
         start[jj[0]] = start1
 
@@ -824,30 +822,81 @@ class GevlssFamily(GamlssFamily):
         X2 = X[:, jj[1]]
         if E is not None and E.shape[1] > 0:
             E2 = E[:, jj[1]]
-            XE2 = np.vstack([X2, E2])
-            y2e = np.concatenate([lres1, np.zeros(E2.shape[0])])
+            start2 = _pen_reg(X2, E2, lres1)
         else:
-            XE2 = X2
-            y2e = lres1
-
-        try:
-            start2 = np.linalg.lstsq(XE2, y2e, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start2 = np.zeros(X2.shape[1], dtype=np.float64)
+            try:
+                start2 = np.linalg.lstsq(X2, lres1, rcond=None)[0]
+            except np.linalg.LinAlgError:
+                start2 = np.zeros(X2.shape[1], dtype=np.float64)
         start2 = np.where(np.isfinite(start2), start2, 0.0)
         start[jj[1]] = start2
 
-        # --- Initialize xi near 0 in link space ---
+        # Mirror mgcv gevlss$initialize(): regress a constant xi start,
+        # then search scalar rescalings that improve the initial log-likelihood.
         xi_init_val = 1e-3
         eta_xi0 = self.linfo[2].linkfun(np.full(1, xi_init_val))[0]
         X3 = X[:, jj[2]]
         yt3 = np.full(n, eta_xi0)
+
         try:
-            start3 = np.linalg.lstsq(X3, yt3, rcond=None)[0]
+            qrx_coef = np.linalg.lstsq(X3, yt3, rcond=None)[0]
         except np.linalg.LinAlgError:
-            start3 = np.zeros(X3.shape[1], dtype=np.float64)
-        start3 = np.where(np.isfinite(start3), start3, 0.0)
-        start[jj[2]] = start3
+            qrx_coef = np.zeros(X3.shape[1], dtype=np.float64)
+        qrx_coef = np.where(np.isfinite(qrx_coef), qrx_coef, 0.0)
+
+        weights_arr = (
+            np.ones(n, dtype=np.float64)
+            if weights is None
+            else np.asarray(weights, dtype=np.float64).ravel()
+        )
+
+        def _score_xi_scale(multiplier: float) -> tuple[float, np.ndarray]:
+            start3_local = np.where(
+                np.isfinite(qrx_coef * multiplier), qrx_coef * multiplier, 0.0
+            )
+            start_local = start.copy()
+            start_local[jj[2]] = start3_local
+            ll_val = float(
+                self.ll(
+                    y,
+                    X,
+                    jj,
+                    start_local,
+                    weights_arr,
+                    offset=offset,
+                    deriv=0,
+                )["l"]
+            )
+            return ll_val, start_local
+
+        best_ll, best_start = _score_xi_scale(1.0)
+        dm = 0.2
+        mm = 1.0
+        up = False
+        last_ll = best_ll
+
+        while -4.2 < mm < 4.2:
+            trial_ll, trial_start = _score_xi_scale(mm + dm)
+            last_ll = trial_ll
+            if np.isfinite(trial_ll) and trial_ll > best_ll:
+                up = True
+                best_ll = trial_ll
+                best_start = trial_start
+                mm += dm
+            elif up:
+                break
+            elif dm > 0.0:
+                dm = -dm
+            else:
+                break
+
+        if not np.isfinite(last_ll):
+            trial_ll, trial_start = _score_xi_scale(mm - dm)
+            if np.isfinite(trial_ll):
+                best_ll = trial_ll
+                best_start = trial_start
+
+        start = best_start
 
         return start
 

@@ -8,7 +8,10 @@ from scipy.special import gammaln
 from nampy.gam import GAM
 from nampy.gam.families.gamlss import ziplss
 from nampy.gam.families.gamlss.ziplss import _l1ee, _lde, _ldg, _lee1, _zipll
-from nampy.gam.fit.solvers.gam_fit5 import GamFit5Control, gam_fit5
+from nampy.gam.fit.solvers.general_newton_solver import (
+    GeneralNewtonControl,
+    solve_general_newton_fit,
+)
 
 # ======================================================================
 # ziplss
@@ -194,13 +197,13 @@ def test_ziplss_initialize():
 
 
 # ---------------------------------------------------------------------------
-# 8. gam_fit5 convergence on simulated ZIP data
+# 8. solve_general_newton_fit convergence on simulated ZIP data
 # ---------------------------------------------------------------------------
 
 
 def test_gam_fit5_ziplss_convergence():
     """
-    gam_fit5 with ziplss recovers approximate log-mean and presence intercepts.
+    solve_general_newton_fit with ziplss recovers approximate log-mean and presence intercepts.
     """
     rng = np.random.default_rng(55)
     n = 400
@@ -235,8 +238,8 @@ def test_gam_fit5_ziplss_convergence():
     lsp = np.array([], dtype=np.float64)
     S_blocks: list = []
 
-    ctl = GamFit5Control(maxit=100, epsilon=1e-8, trace=False)
-    fit = gam_fit5(
+    ctl = GeneralNewtonControl(maxit=100, epsilon=1e-8, trace=False)
+    fit = solve_general_newton_fit(
         X,
         y,
         jj,

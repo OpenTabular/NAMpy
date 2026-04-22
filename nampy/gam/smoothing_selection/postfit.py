@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 import numpy as np
 from scipy.stats import norm
 
@@ -11,6 +13,7 @@ from .._model_state import (
     _require_fitted,
 )
 from ..fit.model_ops import criterion_hessian as fit_criterion_hessian
+from ..linalg import symmetrize_matrix
 from .criteria.dispatch import criterion_gradient, criterion_hessian, criterion_value
 from .criteria.ml_reml import resolve_ml_reml_scoring_backend
 
@@ -85,6 +88,52 @@ def _mgcv_penalty_rescale_factors(model) -> np.ndarray:
     return factors
 
 
+def _normalize_vcomp_label(label) -> str | None:
+    if label is None:
+        return None
+    text = str(label)
+    text = re.sub(r",\s*bs\s*=\s*(\"[^\"]*\"|'[^']*'|[^,)]+)", "", text)
+    text = re.sub(r",\s*k\s*=\s*[^,)]+", "", text)
+    text = re.sub(
+        r"^([a-zA-Z0-9_]+\([^)]*?)(?:,\s*by\s*=\s*([^)]+))\)$",
+        lambda m: f"{m.group(1)}):{m.group(2).strip()}",
+        text,
+    )
+    return text
+
+
+def _vcomp_name_payload(names: list[str]):
+    if len(names) == 0:
+        return []
+    if len(names) == 1:
+        return names[0]
+    return names
+
+
+def _gam_vcomp_names(model) -> list[str]:
+    n_sp = int(_n_smoothing_params(model) or 0)
+    if n_sp == 0:
+        return []
+
+    names: list[str | None] = [None] * n_sp
+    for pb in _penalty_blocks_seq(model):
+        idx = int(getattr(pb, "smoothing_index", -1))
+        if idx < 0 or idx >= n_sp or names[idx] is not None:
+            continue
+        meta = dict(getattr(pb, "metadata", {}) or {})
+        label = meta.get("formula_term", None)
+        if label is None:
+            label = meta.get("label", None)
+        if label is None:
+            label = getattr(pb, "label", None)
+        names[idx] = _normalize_vcomp_label(label)
+
+    return [
+        name if name is not None else f"sp_{i}"
+        for i, name in enumerate(names)
+    ]
+
+
 def _postfit_hessian(model, method: str, *, edge_correct: bool) -> np.ndarray | None:
     backend = resolve_ml_reml_scoring_backend(model, method=method)
     result = getattr(model, "_optim_result", None)
@@ -114,6 +163,35 @@ def _postfit_hessian(model, method: str, *, edge_correct: bool) -> np.ndarray | 
     return H
 
 
+def _joint_gaussian_outer_hessian(
+    model, *, edge_correct: bool
+) -> np.ndarray | None:
+    result = getattr(model, "_optim_result", None)
+    if result is None or not bool(getattr(result, "joint_gaussian_reml_outer", False)):
+        return None
+
+    joint_x = getattr(result, "joint_x", None)
+    if joint_x is None:
+        return None
+    joint_x = np.asarray(joint_x, dtype=np.float64).ravel()
+    if joint_x.size == 0:
+        return None
+
+    outer_info = dict(getattr(result, "outer_info", {}) or {})
+    H = None
+    if edge_correct:
+        H = outer_info.get("hess1", None)
+    if H is None:
+        H = outer_info.get("hess", None)
+    if H is None:
+        return None
+
+    H = np.asarray(H, dtype=np.float64)
+    if H.shape != (joint_x.size, joint_x.size):
+        return None
+    return H
+
+
 def sp_vcov(model, edge_correct: bool = True, reg: float = 1e-3):
     _require_fitted(model)
 
@@ -121,13 +199,16 @@ def sp_vcov(model, edge_correct: bool = True, reg: float = 1e-3):
     if method not in {"ml", "reml", "laml"}:
         return None
 
-    H = _postfit_hessian(model, method, edge_correct=edge_correct)
+    H = _joint_gaussian_outer_hessian(model, edge_correct=edge_correct)
+    if H is None:
+        H = _postfit_hessian(model, method, edge_correct=edge_correct)
 
     if H.ndim != 2 or H.shape[0] != H.shape[1]:
         raise ValueError("Smoothing Hessian must be square.")
     if H.shape[0] == 0:
         return np.empty((0, 0), dtype=np.float64)
-    return np.linalg.solve(H + float(reg), np.eye(H.shape[0], dtype=np.float64))
+    eye = np.eye(H.shape[0], dtype=np.float64)
+    return np.linalg.solve(H + float(reg), eye)
 
 
 def gam_vcomp(model, *, rescale: bool = False, conf_lev: float = 0.95):
@@ -142,17 +223,25 @@ def gam_vcomp(model, *, rescale: bool = False, conf_lev: float = 0.95):
     scale = float(_fit_scale(model))
     vc = scale / sp
     sd = np.sqrt(vc)
-    names = [f"sp_{i}" for i in range(len(sp))]
+    names = _gam_vcomp_names(model)
     method = str(getattr(model, "_optim_method", "")).lower()
     if method not in {"ml", "reml", "laml"}:
-        return {"vc": sd, "names": names}
+        return {
+            "vc": sd,
+            "names": _vcomp_name_payload(names),
+            "all": sd[0] if sd.size == 1 else sd.copy(),
+            "all_names": None,
+            "rank": None,
+            "rank_hess": None,
+            "conf_lev": None,
+        }
 
     H = _postfit_hessian(model, method, edge_correct=False)
 
     if H.ndim != 2 or H.shape[0] != H.shape[1]:
-        return {"vc": sd, "names": names}
+        return {"vc": sd, "names": _vcomp_name_payload(names)}
     if H.shape[0] == 0:
-        return {"vc": sd, "names": names}
+        return {"vc": sd, "names": _vcomp_name_payload(names)}
 
     evals, evecs = np.linalg.eigh(H)
     keep = evals > np.max(evals) * np.finfo(np.float64).eps ** 0.75
@@ -174,14 +263,15 @@ def gam_vcomp(model, *, rescale: bool = False, conf_lev: float = 0.95):
         ]
     )
     free_idx = np.flatnonzero(_free_smoothing_mask(model))
+    all_names = None if sd.size == 1 else _vcomp_name_payload(names)
     return {
         "vc": ci,
-        "names": [names[i] for i in free_idx],
+        "names": _vcomp_name_payload([names[i] for i in free_idx]),
         "rank": rank,
         "rank_hess": int(H.shape[0]),
         "conf_lev": float(conf_lev),
         "all": sd,
-        "all_names": names,
+        "all_names": all_names,
     }
 
 
@@ -191,9 +281,25 @@ def one_se_rule(model, candidate_indices: list[int] | None = None) -> np.ndarray
     V = sp_vcov(model, edge_correct=False)
     if V is None:
         raise RuntimeError("one_se_rule requires ML/REML/LAML smoothing covariance.")
+    V = np.asarray(V, dtype=np.float64)
 
     free_idx = np.flatnonzero(_free_smoothing_mask(model))
+    sp = np.asarray(model.smoothing_params, dtype=np.float64).copy()
+    log_sp_free = np.log(np.clip(sp[free_idx], LOG_GUARD_MIN, None))
+    joint_gaussian = bool(
+        getattr(getattr(model, "_optim_result", None), "joint_gaussian_reml_outer", False)
+    )
+
     if candidate_indices is None:
+        if joint_gaussian and V.shape[0] > free_idx.size:
+            d = np.sqrt(np.clip(np.diag(V), 0.0, None))
+            if np.any(d <= 0.0):
+                raise RuntimeError(
+                    "one_se_rule requires positive smoothing-parameter standard errors."
+                )
+            alpha = float(np.sqrt(2.0 * len(d)) / (d @ np.linalg.solve(V, d)))
+            return np.exp(np.resize(log_sp_free, V.shape[0]) + alpha * d)
+
         sub_idx = np.arange(free_idx.size, dtype=int)
     else:
         candidate_indices = np.asarray(candidate_indices, dtype=int).ravel()
@@ -218,8 +324,7 @@ def one_se_rule(model, candidate_indices: list[int] | None = None) -> np.ndarray
     alpha = float(np.sqrt(2.0 * len(d)) / (d @ np.linalg.solve(V_sub, d)))
     step = alpha * d
 
-    sp = np.asarray(model.smoothing_params, dtype=np.float64).copy()
-    log_sp = np.log(np.clip(sp[free_idx], LOG_GUARD_MIN, None))
+    log_sp = log_sp_free.copy()
     log_sp[sub_idx] = log_sp[sub_idx] + step
     sp[free_idx] = np.exp(log_sp)
     return sp
@@ -304,7 +409,7 @@ def optimizer_endpoint_diagnostics(
     shared_curvature = None
     min_abs_eig = None
     if hess is not None:
-        hess_sym = 0.5 * (hess + hess.T)
+        hess_sym = symmetrize_matrix(hess)
         eigvals = np.linalg.eigvalsh(hess_sym)
         min_abs_eig = float(np.min(np.abs(eigvals))) if eigvals.size else 0.0
         u = np.full(n_free, 1.0 / np.sqrt(n_free), dtype=np.float64)

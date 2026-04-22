@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import itertools
 import re
 from dataclasses import dataclass, replace
@@ -57,6 +58,16 @@ _SMOOTH_SPEC_DEFAULTS: dict[str, object] = {
 }
 
 _FORMULA_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_FORMULA_NUMERIC_FUNCTIONS: dict[str, object] = {
+    "I": lambda x: x,
+    "abs": np.abs,
+    "sqrt": np.sqrt,
+    "exp": np.exp,
+    "log": np.log,
+    "sin": np.sin,
+    "cos": np.cos,
+    "tan": np.tan,
+}
 
 
 @dataclass(frozen=True)
@@ -67,7 +78,7 @@ class FormulaBuildResult:
     feature_names: list[str]
     used_columns: list[str]
     response: np.ndarray
-    offsets: np.ndarray | None
+    offsets: np.ndarray | list[np.ndarray | None] | None
     preprocess_state: dict
     response_name: str | None
 
@@ -76,6 +87,214 @@ def _is_bare_formula_name(expr: str | None) -> bool:
     if expr is None:
         return False
     return _FORMULA_NAME_RE.fullmatch(str(expr)) is not None
+
+
+def _evaluate_formula_numeric_expr_node(node, data: pd.DataFrame, *, expr: str):
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        return float(node.value)
+
+    if isinstance(node, ast.Name):
+        name = str(node.id)
+        if name not in data.columns:
+            raise KeyError(
+                f"Formula expression {expr!r} references variable {name!r}, "
+                "but it is not in `data`."
+            )
+        return numeric_1d_values(data[name], name=name)
+
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+        return -_evaluate_formula_numeric_expr_node(node.operand, data, expr=expr)
+
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.UAdd):
+        return _evaluate_formula_numeric_expr_node(node.operand, data, expr=expr)
+
+    if isinstance(node, ast.BinOp) and isinstance(
+        node.op, (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow)
+    ):
+        left = _evaluate_formula_numeric_expr_node(node.left, data, expr=expr)
+        right = _evaluate_formula_numeric_expr_node(node.right, data, expr=expr)
+        if isinstance(node.op, ast.Add):
+            return left + right
+        if isinstance(node.op, ast.Sub):
+            return left - right
+        if isinstance(node.op, ast.Mult):
+            return left * right
+        if isinstance(node.op, ast.Div):
+            return left / right
+        return left**right
+
+    if isinstance(node, ast.Call):
+        if not isinstance(node.func, ast.Name):
+            raise NotImplementedError(
+                f"Unsupported formula expression function in {expr!r}."
+            )
+        if any(kw.arg is None for kw in node.keywords) or node.keywords:
+            raise NotImplementedError(
+                f"Unsupported keyword arguments in formula expression {expr!r}."
+            )
+        func_name = str(node.func.id)
+        func = _FORMULA_NUMERIC_FUNCTIONS.get(func_name)
+        if func is None:
+            raise NotImplementedError(
+                f"Unsupported formula expression function {func_name!r} in {expr!r}."
+            )
+        args = [
+            _evaluate_formula_numeric_expr_node(arg, data, expr=expr)
+            for arg in node.args
+        ]
+        return func(*args)
+
+    raise NotImplementedError(f"Unsupported formula expression {expr!r}.")
+
+
+def _evaluate_formula_numeric_expression(expr: str, data: pd.DataFrame):
+    from ..formula.parse import all_vars1
+
+    parsed = ast.parse(str(expr), mode="eval")
+    values = _evaluate_formula_numeric_expr_node(parsed.body, data, expr=str(expr))
+    out = np.asarray(values, dtype=np.float64)
+    if out.ndim == 0:
+        out = np.full(len(data), float(out), dtype=np.float64)
+    else:
+        out = np.ravel(out)
+    if out.shape[0] != len(data):
+        raise ValueError(
+            f"Formula expression {expr!r} produced length {out.shape[0]}, "
+            f"expected {len(data)}."
+        )
+    if not np.isfinite(out).all():
+        raise ValueError(f"Formula expression {expr!r} produced NaN or Inf.")
+    return out, [str(name) for name in all_vars1(str(expr))]
+
+
+def _resolve_formula_offset_column(
+    data_work: pd.DataFrame, offset_name: str
+) -> np.ndarray:
+    if offset_name not in data_work.columns:
+        raise KeyError(f"Offset column {offset_name!r} not found in `data`.")
+    if not pd.api.types.is_numeric_dtype(data_work[offset_name]):
+        raise NotImplementedError(
+            "Current formula-based GAM fitting supports numeric offsets only. "
+            f"Offset column {offset_name!r} is non-numeric."
+        )
+    return np.asarray(data_work[offset_name], dtype=np.float64).ravel()
+
+
+def _materialize_formula_expression_column(
+    expr: str,
+    data_work: pd.DataFrame,
+    *,
+    pred_name: str,
+    hidden_counter: int,
+    state: dict,
+):
+    expr_key = str(expr)
+    cache = state.setdefault("_formula_expression_cache", {})
+    cached = cache.get(expr_key)
+    if cached is not None:
+        return (
+            str(cached["hidden_name"]),
+            hidden_counter,
+            list(cached["source_variables"]),
+        )
+
+    values, src_vars = _evaluate_formula_numeric_expression(expr_key, data_work)
+    hidden_col = f"__gam_formula__{pred_name}__{hidden_counter}"
+    hidden_counter += 1
+    data_work[hidden_col] = values
+
+    record = {
+        "hidden_name": hidden_col,
+        "expr": expr_key,
+        "source_variables": list(src_vars),
+    }
+    cache[expr_key] = dict(record)
+    state["formula_expression_columns"].append(dict(record))
+    return hidden_col, hidden_counter, list(src_vars)
+
+
+def _split_formula_text(formula: str) -> tuple[str | None, str]:
+    text = str(formula).strip()
+    if "~" not in text:
+        return None, text
+    lhs, rhs = text.split("~", 1)
+    lhs = lhs.strip()
+    rhs = rhs.strip()
+    return (lhs if lhs else None), rhs
+
+
+def _contains_standalone_dot(rhs: str) -> bool:
+    return re.search(r"(^|[~+\-(),\s])\.([~+\-(),\s]|$)", rhs) is not None
+
+
+def _build_formula_text(response_name: str | None, rhs: str) -> str:
+    rhs_txt = str(rhs).strip()
+    if response_name is None:
+        return f"~{rhs_txt}" if rhs_txt else "~"
+    return f"{response_name} ~ {rhs_txt}" if rhs_txt else f"{response_name} ~"
+
+
+def _expand_dot_shorthand_formula(raw_formula: str, data: pd.DataFrame) -> str:
+    response_name, rhs = _split_formula_text(raw_formula)
+    if not _contains_standalone_dot(rhs):
+        return raw_formula
+
+    dot_terms = [str(col) for col in data.columns if str(col) != response_name]
+    dot_rhs = " + ".join(dot_terms) if dot_terms else "1"
+    expanded_rhs = re.sub(
+        r"(^|[~+\-(),\s])\.([~+\-(),\s]|$)",
+        rf"\1{dot_rhs}\2",
+        rhs,
+    )
+    return _build_formula_text(response_name, expanded_rhs)
+
+
+def _expand_extracted_predictors_dot_shorthand(
+    extracted_predictors: list[ExtractedPredictor], data: pd.DataFrame
+) -> list[ExtractedPredictor]:
+    def _predictor_has_dot_term(pred: ExtractedPredictor) -> bool:
+        if _contains_standalone_dot(_split_formula_text(pred.raw_formula)[1]):
+            return True
+
+        for term in pred.terms:
+            if not isinstance(term, ExtractedParametricTerm):
+                continue
+            if term.raw_label == ".":
+                return True
+            if any(label == "." for label in getattr(term, "factor_labels", ())):
+                return True
+            if any(var == "." for var in getattr(term, "variables", ())):
+                return True
+        return False
+
+    dot_predictors = [
+        pred for pred in extracted_predictors if _predictor_has_dot_term(pred)
+    ]
+    if not dot_predictors:
+        return extracted_predictors
+
+    if len(extracted_predictors) != 1:
+        raise NotImplementedError(
+            "Data-aware '.' shorthand is unsupported for formula-list / "
+            "multi-predictor models. Upstream mgcv::gam(list(...), data=...) "
+            "rejects this surface too, so NAMpy keeps it closed for parity."
+        )
+
+    from ..formula import extract_formula_terms, parse_gam_formula
+
+    expanded_formula = _expand_dot_shorthand_formula(
+        dot_predictors[0].raw_formula, data
+    )
+    expanded_predictor = extract_formula_terms(parse_gam_formula(expanded_formula))[0]
+    original = extracted_predictors[0]
+    return [
+        replace(
+            expanded_predictor,
+            predictor_index=original.predictor_index,
+            predictor_name=original.predictor_name,
+            raw_formula=original.raw_formula,
+        )
+    ]
 
 
 def _build_s_cr(opts) -> CubicRegressionSmoothSpec:
@@ -250,6 +469,7 @@ def _build_te(opts) -> TensorProductSmoothSpec:
         fx=opts["fx"],
         select=opts["select"],
         m=opts["m"],
+        xt=opts["xt"],
         sp=opts["sp"],
         knots=opts["knots"],
     )
@@ -263,6 +483,7 @@ def _build_ti(opts) -> TensorInteractionSmoothSpec:
         fx=opts["fx"],
         select=opts["select"],
         m=opts["m"],
+        xt=opts["xt"],
         sp=opts["sp"],
         knots=opts["knots"],
         mc=opts["mc"],
@@ -277,6 +498,7 @@ def _build_t2(opts) -> TensorANOVASmoothSpec:
         fx=opts["fx"],
         select=opts["select"],
         m=opts["m"],
+        xt=opts["xt"],
         sp=opts["sp"],
         knots=opts["knots"],
         full=opts["full"],
@@ -311,7 +533,7 @@ def build_smooth_spec(
     special: str,
     bs,
     k=-1,
-    fx: bool = False,
+    fx=False,
     select: bool = False,
     m=None,
     xt=None,
@@ -332,17 +554,33 @@ def smooth_spec_from_basis_options(basis_options) -> SmoothSpec:
     if "ord_" not in raw and "ord" in raw:
         raw = {**raw, "ord_": raw["ord"]}
     merged = {**_SMOOTH_SPEC_DEFAULTS, **raw}
-    merged["fx"] = bool(merged.get("fx", False))
+    special_key = str(merged.get("special", "s")).lower()
+    fx_raw = merged.get("fx", False)
+    if special_key in {"te", "ti"} and isinstance(fx_raw, (list, tuple, np.ndarray)):
+        merged["fx"] = [bool(v) for v in np.asarray(fx_raw, dtype=object).ravel()]
+    else:
+        merged["fx"] = bool(fx_raw)
     merged["select"] = bool(merged.get("select", False))
     merged["full"] = bool(merged.get("full", False))
     merged["constraint_mode"] = str(merged.get("constraint_mode", "auto"))
     return _dispatch_smooth_spec_from_options(merged)
 
 
-def _coerce_fx(fx):
-    if isinstance(fx, (list, tuple)):
+def _coerce_fx(fx, *, kind, n_features):
+    kind_key = str(kind).lower()
+    if kind_key in {"te", "ti"} and isinstance(fx, (list, tuple, np.ndarray)):
+        vals = [bool(v) for v in np.asarray(fx, dtype=object).ravel()]
+        if len(vals) == 1:
+            return vals * int(n_features)
+        if len(vals) != int(n_features):
+            import warnings
+
+            warnings.warn("dimension of fx is wrong", stacklevel=3)
+            return [False] * int(n_features)
+        return vals
+    if isinstance(fx, (list, tuple, np.ndarray)):
         raise NotImplementedError(
-            "Vector-valued fx is not yet supported by the current formula builder."
+            "Vector-valued fx is currently supported only for te() and ti() terms."
         )
     return bool(fx)
 
@@ -352,6 +590,16 @@ def _default_k_for_basis(basis, default_k):
     if basis_key in {"mrf", "gp"}:
         return -1
     return default_k
+
+
+def _factor_smooth_base_basis_from_xt(xt):
+    if xt is None:
+        return "tp"
+    if isinstance(xt, str):
+        return str(xt).lower()
+    if isinstance(xt, dict):
+        return str(xt.get("bs", "tp")).lower()
+    return None
 
 
 def _default_k_for_smooth(kind, basis, features, default_k):
@@ -469,28 +717,63 @@ def _expand_parametric_term(
     hidden_counter,
     state,
 ):
+    factor_labels = list(
+        term.metadata.get(
+            "factor_labels",
+            [term.label],
+        )
+    )
     src_vars = list(
         term.metadata.get(
             "source_variables",
-            list(term.features) if getattr(term, "features", None) else [term.label],
+            list(factor_labels) if len(factor_labels) > 0 else [term.label],
         )
     )
-    if len(src_vars) == 0:
+    if len(factor_labels) == 0:
         raise ValueError(
-            f"Parametric term {term.label!r} does not define any source variables."
+            f"Parametric term {term.label!r} does not define any factor labels."
         )
 
     n = len(data_work)
     comp_lists = []
-    needs_expansion = len(src_vars) > 1
+    needs_expansion = len(factor_labels) > 1 or any(
+        not _is_bare_formula_name(label) for label in factor_labels
+    )
 
-    for var in src_vars:
-        if var not in data_work.columns:
+    for label in factor_labels:
+        if not _is_bare_formula_name(label):
+            hidden_expr_name, hidden_counter, expr_src_vars = (
+                _materialize_formula_expression_column(
+                    str(label),
+                    data_work,
+                    pred_name=pred_name,
+                    hidden_counter=hidden_counter,
+                    state=state,
+                )
+            )
+            vals = numeric_1d_values(data_work[hidden_expr_name], name=hidden_expr_name)
+            comp_lists.append(
+                [
+                    {
+                        "label": str(label),
+                        "values": vals,
+                        "recipe": {
+                            "var": hidden_expr_name,
+                            "type": "numeric",
+                            "expr": str(label),
+                            "source_variables": list(expr_src_vars),
+                        },
+                    }
+                ]
+            )
+            continue
+
+        if label not in data_work.columns:
             raise KeyError(
-                f"Formula references parametric variable {var!r}, but it is not in `data`."
+                f"Formula references parametric variable {label!r}, but it is not in `data`."
             )
 
-        s = data_work[var]
+        s = data_work[label]
 
         if is_factor_like_series(s):
             needs_expansion = True
@@ -501,12 +784,12 @@ def _expand_parametric_term(
             for lev in active_levels:
                 comps.append(
                     {
-                        "label": f"{var}[{lev}]",
+                        "label": f"{label}[{lev}]",
                         "values": np.asarray(
                             (cat == lev).astype(float), dtype=np.float64
                         ),
                         "recipe": {
-                            "var": var,
+                            "var": label,
                             "type": "factor",
                             "level": lev,
                             "levels": list(levels),
@@ -517,14 +800,14 @@ def _expand_parametric_term(
                 )
             comp_lists.append(comps)
         else:
-            vals = numeric_1d_values(s, name=var)
+            vals = numeric_1d_values(s, name=label)
             comp_lists.append(
                 [
                     {
-                        "label": var,
+                        "label": label,
                         "values": vals,
                         "recipe": {
-                            "var": var,
+                            "var": label,
                             "type": "numeric",
                         },
                     }
@@ -681,6 +964,54 @@ def _expand_factor_by_term(
     return out_terms, hidden_counter
 
 
+def _expand_transformed_smooth_term(
+    term,
+    data_work,
+    *,
+    pred_name,
+    hidden_counter,
+    state,
+):
+    if not isinstance(term, TermSpec) or term.kind != "smooth":
+        return [term], hidden_counter
+
+    if all(_is_bare_formula_name(feature) for feature in term.features):
+        return [term], hidden_counter
+
+    # Mirror mgcv::gam.setup model.frame-style handling by materializing
+    # transformed smooth covariates once, then reusing stable column names.
+    new_features = []
+    transforms = []
+
+    for feature in term.features:
+        feature_name = str(feature)
+        if _is_bare_formula_name(feature_name):
+            new_features.append(feature_name)
+            continue
+
+        hidden_col, hidden_counter, src_vars = _materialize_formula_expression_column(
+            feature_name,
+            data_work,
+            pred_name=pred_name,
+            hidden_counter=hidden_counter,
+            state=state,
+        )
+        transform = {
+            "hidden_name": hidden_col,
+            "expr": feature_name,
+            "source_variables": list(src_vars),
+        }
+        transforms.append(transform)
+        new_features.append(hidden_col)
+
+    new_meta = dict(term.metadata)
+    new_meta["formula_feature_expansions"] = [dict(item) for item in transforms]
+
+    return [
+        replace(term, features=tuple(new_features), metadata=new_meta)
+    ], hidden_counter
+
+
 def _collect_used_columns_from_predictor_specs(predictor_specs):
     used = set()
 
@@ -758,11 +1089,6 @@ def _build_predictor_spec(
                 if getattr(term, "factor_labels", None)
                 else [term.raw_label]
             )
-            if any(not _is_bare_formula_name(label) for label in factor_labels):
-                raise NotImplementedError(
-                    "Transformed parametric formula terms are parsed exactly, but "
-                    "downstream formula building does not yet support them."
-                )
             terms.append(
                 TermSpec(
                     kind="parametric",
@@ -773,6 +1099,7 @@ def _build_predictor_spec(
                     label=term.raw_label,
                     metadata={
                         "formula_term": term.raw_label,
+                        "factor_labels": list(factor_labels),
                         "source_variables": list(term.variables),
                         "parametric_interaction": len(term.variables) > 1,
                     },
@@ -787,12 +1114,6 @@ def _build_predictor_spec(
         features = list(term.features)
         kw = dict(term.kwargs)
 
-        if any(not _is_bare_formula_name(feature) for feature in features):
-            raise NotImplementedError(
-                "Transformed smooth covariates are parsed exactly, but downstream "
-                "formula building does not yet support them."
-            )
-
         basis = kw.pop(
             "bs",
             kw.pop("basis", _default_basis_for_kind(kind, default_basis)),
@@ -800,7 +1121,10 @@ def _build_predictor_spec(
         if "k" in kw:
             k = kw.pop("k")
         else:
-            k = _default_k_for_smooth(kind, basis, features, default_k)
+            k_basis = basis
+            if str(kind).lower() == "s" and str(basis).lower() in {"fs", "sz"}:
+                k_basis = _factor_smooth_base_basis_from_xt(kw.get("xt", None)) or basis
+            k = _default_k_for_smooth(kind, k_basis, features, default_k)
         by = kw.pop("by", None)
         if by is not None:
             by = str(by)
@@ -812,7 +1136,7 @@ def _build_predictor_spec(
             if available_column_names is not None and by not in available_column_names:
                 raise KeyError(f"by column {by!r} not found in available data columns.")
         smoothing_id = kw.pop("id", kw.pop("smoothing_id", None))
-        fixed = _coerce_fx(kw.pop("fx", False))
+        fixed = _coerce_fx(kw.pop("fx", False), kind=kind, n_features=len(features))
         select = bool(kw.pop("select", default_select))
 
         m = kw.pop("m", None)
@@ -858,14 +1182,6 @@ def _build_predictor_spec(
             )
         )
 
-    if extracted_predictor.offset_name is not None and not _is_bare_formula_name(
-        extracted_predictor.offset_name
-    ):
-        raise NotImplementedError(
-            "Transformed offset(...) expressions are parsed exactly, but downstream "
-            "formula building does not yet support them."
-        )
-
     return LinearPredictorSpec(
         name=extracted_predictor.predictor_name,
         terms=terms,
@@ -895,7 +1211,9 @@ def _preprocess_predictor_specs(extracted_predictors, predictor_specs, data):
     data_work = data.copy()
     state = {
         "factor_by_expansions": [],
+        "formula_expression_columns": [],
         "parametric_expansions": [],
+        "_formula_expression_cache": {},
     }
 
     out_specs = []
@@ -922,14 +1240,34 @@ def _preprocess_predictor_specs(extracted_predictors, predictor_specs, data):
                 out_terms.append(term)
                 continue
 
-            expanded, hidden_counter = _expand_factor_by_term(
+            transformed_terms, hidden_counter = _expand_transformed_smooth_term(
                 term,
                 data_work,
                 pred_name=pred.name,
                 hidden_counter=hidden_counter,
                 state=state,
             )
-            out_terms.extend(expanded)
+            for transformed_term in transformed_terms:
+                expanded, hidden_counter = _expand_factor_by_term(
+                    transformed_term,
+                    data_work,
+                    pred_name=pred.name,
+                    hidden_counter=hidden_counter,
+                    state=state,
+                )
+                out_terms.extend(expanded)
+
+        offset_name = pred.offset_name
+        if offset_name is not None and not _is_bare_formula_name(offset_name):
+            offset_name, hidden_counter, _src_vars = (
+                _materialize_formula_expression_column(
+                    str(offset_name),
+                    data_work,
+                    pred_name=pred.name,
+                    hidden_counter=hidden_counter,
+                    state=state,
+                )
+            )
 
         out_specs.append(
             LinearPredictorSpec(
@@ -937,11 +1275,12 @@ def _preprocess_predictor_specs(extracted_predictors, predictor_specs, data):
                 terms=out_terms,
                 has_intercept=bool(getattr(pred, "has_intercept", False)),
                 parameter_name=pred.parameter_name,
-                offset_name=pred.offset_name,
+                offset_name=offset_name,
                 metadata=dict(pred.metadata),
             )
         )
 
+    state.pop("_formula_expression_cache", None)
     return out_specs, data_work, state
 
 
@@ -960,6 +1299,10 @@ def build_formula_model(
             "Formula-based fitting currently requires `data` to be a pandas DataFrame."
         )
 
+    extracted_predictors = _expand_extracted_predictors_dot_shorthand(
+        extracted_predictors, data
+    )
+
     predictor_specs = [
         _build_predictor_spec(
             pred,
@@ -977,16 +1320,6 @@ def build_formula_model(
     )
 
     used = _collect_used_columns_from_predictor_specs(predictor_specs)
-    offset_names = sorted(
-        {pred.offset_name for pred in predictor_specs if pred.offset_name is not None}
-    )
-    if len(offset_names) > 1:
-        raise NotImplementedError(
-            "Current fitting core supports one active linear predictor only, so "
-            "multiple distinct predictor-specific offsets are not yet supported."
-        )
-    offset_name = offset_names[0] if offset_names else None
-
     used_cols = [c for c in data_work.columns if c in used]
     missing = sorted(used.difference(set(data_work.columns)))
     if missing:
@@ -1007,31 +1340,43 @@ def build_formula_model(
             raise ValueError(
                 "Formula does not specify a response, so `y` must be supplied explicitly."
             )
-        if not _is_bare_formula_name(response_name):
-            raise NotImplementedError(
-                "Transformed formula responses are parsed exactly, but downstream "
-                "formula building does not yet support them."
+        if _is_bare_formula_name(response_name):
+            if response_name not in data_work.columns:
+                raise KeyError(
+                    f"Response column {response_name!r} not found in `data`."
+                )
+            y_out = np.asarray(data_work[response_name]).ravel()
+        else:
+            y_out, _src_vars = _evaluate_formula_numeric_expression(
+                response_name, data_work
             )
-        if response_name not in data_work.columns:
-            raise KeyError(f"Response column {response_name!r} not found in `data`.")
-        y_out = np.asarray(data_work[response_name]).ravel()
     else:
         y_out = np.asarray(y).ravel()
 
-    offset_out = None
-    if offset_name is not None:
-        if offset_name not in data_work.columns:
-            raise KeyError(f"Offset column {offset_name!r} not found in `data`.")
-        if not pd.api.types.is_numeric_dtype(data_work[offset_name]):
-            raise NotImplementedError(
-                "Current formula-based GAM fitting supports numeric offsets only. "
-                f"Offset column {offset_name!r} is non-numeric."
-            )
-        offset_out = np.asarray(data_work[offset_name], dtype=np.float64).ravel()
+    offset_names = tuple(pred.offset_name for pred in predictor_specs)
+    offset_out: np.ndarray | list[np.ndarray | None] | None = None
+    if len(predictor_specs) <= 1:
+        offset_name = offset_names[0] if offset_names else None
+        if offset_name is not None:
+            offset_out = _resolve_formula_offset_column(data_work, offset_name)
+    else:
+        offset_list = []
+        has_offset = False
+        for offset_name in offset_names:
+            if offset_name is None:
+                offset_list.append(None)
+                continue
+            offset_list.append(_resolve_formula_offset_column(data_work, offset_name))
+            has_offset = True
+        if has_offset:
+            offset_out = offset_list
 
     preprocess_state = dict(preprocess_state)
     preprocess_state["used_columns"] = list(used_cols)
-    preprocess_state["offset_name"] = offset_name
+    preprocess_state["offset_names"] = offset_names
+    preprocess_state["offset_name"] = (
+        offset_names[0] if len(offset_names) == 1 else None
+    )
 
     return FormulaBuildResult(
         predictor_specs=predictor_specs,
@@ -1056,6 +1401,10 @@ def apply_formula_preprocess_to_new_data(data, preprocess_state):
         )
 
     out = data.copy()
+
+    for item in preprocess_state.get("formula_expression_columns", []):
+        values, _src_vars = _evaluate_formula_numeric_expression(item["expr"], out)
+        out[item["hidden_name"]] = values
 
     for item in preprocess_state.get("parametric_expansions", []):
         vals = np.ones(len(out), dtype=np.float64)

@@ -6,7 +6,10 @@ from numpy.testing import assert_allclose
 
 from nampy.gam import GAM
 from nampy.gam.families.gamlss import gaulss
-from nampy.gam.fit.solvers.gam_fit5 import GamFit5Control, gam_fit5
+from nampy.gam.fit.solvers.general_newton_solver import (
+    GeneralNewtonControl,
+    solve_general_newton_fit,
+)
 
 # ---------------------------------------------------------------------------
 # 4. gaulss ll: log-lik value and derivatives
@@ -118,13 +121,13 @@ def test_gaulss_initialize():
 
 
 # ---------------------------------------------------------------------------
-# 6. gam_fit5 end-to-end on simulated data
+# 6. solve_general_newton_fit end-to-end on simulated data
 # ---------------------------------------------------------------------------
 
 
 def test_gam_fit5_simple_convergence():
     """
-    gam_fit5 with gaulss should converge to sensible estimates on simulated data.
+    solve_general_newton_fit with gaulss should converge to sensible estimates on simulated data.
     Mean predictor recovers slope; precision predictor recovers constant.
     """
     rng = np.random.default_rng(99)
@@ -150,8 +153,8 @@ def test_gam_fit5_simple_convergence():
     lsp = np.array([], dtype=np.float64)
     S_blocks: list = []
 
-    ctl = GamFit5Control(maxit=100, epsilon=1e-8, trace=False)
-    fit = gam_fit5(
+    ctl = GeneralNewtonControl(maxit=100, epsilon=1e-8, trace=False)
+    fit = solve_general_newton_fit(
         X,
         y,
         jj,
