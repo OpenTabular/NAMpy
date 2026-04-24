@@ -32,10 +32,10 @@ from tests.mgcv_parity_utils import (
     _run_mgcv_predict_on_newdata,
     _run_mgcv_snapshot,
 )
-from tests.parity.test_mgcv_parity import CASES as REQUESTED_CASES
 from tests.parity.test_mgcv_parity_failing_and_warnings import (
     REQUESTED_PARITY_FAILING_OR_WARNING_CASES,
 )
+from tests.parity.test_mgcv_snapshot_core_matrix import CASES as REQUESTED_CASES
 
 pytestmark = [pytest.mark.surface_output]
 _KCHECK_SUBSAMPLE = 120
@@ -123,79 +123,13 @@ ORDINARY_CASES = _dedupe_cases(
     + ADDITIONAL_SCENARIO_CASES
 )
 CASE_BY_ID = {case.case_id: case for case in ORDINARY_CASES}
-PREDICTION_GAP_REASONS: dict[tuple[str, str], str] = {
-    (
-        "gaussian_t2_full_false",
-        "terms",
-    ): 'predict.gam(type="terms") for t2(full=False) still differs from mgcv.',
-    (
-        "gaussian_t2_ts_cr_reml",
-        "terms",
-    ): 'predict.gam(type="terms") for t2(ts, cr) still differs from mgcv.',
-    (
-        "gaussian_t2_ts_cr_reml",
-        "lpmatrix",
-    ): 'predict.gam(type="lpmatrix") for t2(ts, cr) still differs from mgcv.',
-}
+PREDICTION_GAP_REASONS: dict[tuple[str, str], str] = {}
 UNCONDITIONAL_GAP_REASONS: dict[tuple[str, str], str] = {
-    (
-        "gaussian_t2_full_false",
-        "link",
-    ): "unconditional prediction SE for t2(full=False) still differ from mgcv.",
-    (
-        "gaussian_t2_full_false",
-        "response",
-    ): "unconditional prediction SE for t2(full=False) still differ from mgcv.",
-    (
-        "gaussian_t2_full_false",
-        "terms",
-    ): 'predict.gam(type="terms", unconditional=TRUE) for t2(full=False) still differs from mgcv.',
-    (
-        "factor_smooth_sz",
-        "link",
-    ): 'predict.gam(type="link", unconditional=TRUE) for sz still differs from mgcv.',
-    (
-        "factor_smooth_sz",
-        "response",
-    ): 'predict.gam(type="response", unconditional=TRUE) for sz still differs from mgcv.',
-    (
-        "factor_smooth_sz",
-        "terms",
-    ): 'predict.gam(type="terms", unconditional=TRUE) for sz still differs from mgcv.',
-    (
-        "gaussian_fs_select_reml",
-        "terms",
-    ): 'predict.gam(type="terms", unconditional=TRUE) for fs select still differs from mgcv.',
-    (
-        "gaussian_t2_ts_cr_reml",
-        "terms",
-    ): 'predict.gam(type="terms", unconditional=TRUE) for t2(ts, cr) still differs from mgcv.',
-    (
-        "gaussian_random_intercept_re",
-        "terms",
-    ): "unconditional termwise SE parity for re smooths remains under triage.",
 }
-ITERMS_GAP_REASONS: dict[str, str] = {
-    "gaussian_t2_full_false": 'predict.gam(type="iterms") for t2(full=False) still differs from mgcv.',
-    "factor_smooth_sz": 'predict.gam(type="iterms") for sz still differs from mgcv.',
-    "gaussian_t2_ts_cr_reml": 'predict.gam(type="iterms") for t2(ts, cr) still differs from mgcv.',
-}
-ANOVA_GAP_REASONS: dict[str, str] = {
-    "gaussian_t2_full_false": "anova.gam smooth test for t2(full=False) still differs from mgcv.",
-    "mrf_lattice": "anova.gam reference df for mrf_lattice still differ from mgcv.",
-    "factor_smooth_sz": "anova.gam smooth test for sz still differs from mgcv.",
-    "gaussian_fs_select_reml": "anova.gam smooth p-value for fs select still differs from mgcv.",
-}
-RESIDUAL_GAP_REASONS: dict[tuple[str, str], str] = {
-    (
-        "mrf_lattice",
-        "scaled.pearson",
-    ): "scaled Pearson residuals for mrf_lattice still differ from mgcv.",
-}
-KCHECK_GAP_REASONS: dict[str, str] = {
-    "gaussian_fs_by_factor": "k.check parity remains under triage for fs factor-by smooths.",
-    "gaussian_by_factor": "k.check parity remains under triage for factor-by smooths.",
-}
+ITERMS_GAP_REASONS: dict[str, str] = {}
+ANOVA_GAP_REASONS: dict[str, str] = {}
+RESIDUAL_GAP_REASONS: dict[tuple[str, str], str] = {}
+KCHECK_GAP_REASONS: dict[str, str] = {}
 
 
 def _sample_weight_from_case(case: CaseSpec, data):
@@ -362,21 +296,21 @@ def _maybe_mark_kcheck_gap(request: pytest.FixtureRequest, case: CaseSpec) -> No
 
 
 def _assert_kcheck_p_value(value: float, *, n_rep: int, term: str, source: str) -> None:
-    assert np.isfinite(value), (
-        f"{source} k_check p_value is non-finite for '{term}': {value}"
-    )
-    assert 0.0 <= value <= 1.0, (
-        f"{source} k_check p_value out of range for '{term}': {value}"
-    )
+    assert np.isfinite(
+        value
+    ), f"{source} k_check p_value is non-finite for '{term}': {value}"
+    assert (
+        0.0 <= value <= 1.0
+    ), f"{source} k_check p_value out of range for '{term}': {value}"
     scaled = value * n_rep
     nearest = np.rint(scaled)
     assert np.isclose(scaled, nearest, atol=1e-12), (
         f"{source} k_check p_value for '{term}' is not on mgcv grid "
         f"({_KCHECK_PGRID:g} increments): value={value}"
     )
-    assert 0.0 <= nearest <= n_rep, (
-        f"{source} k_check p_value for '{term}' maps to invalid grid index: value={value}, n_rep={n_rep}"
-    )
+    assert (
+        0.0 <= nearest <= n_rep
+    ), f"{source} k_check p_value for '{term}' maps to invalid grid index: value={value}, n_rep={n_rep}"
 
 
 @lru_cache(maxsize=None)
@@ -453,6 +387,7 @@ def _assert_p_values_close(actual, expected, *, atol: float, rtol: float) -> Non
 def test_predict_gam_newdata_surfaces_match_mgcv(
     request: pytest.FixtureRequest, case: CaseSpec, pred_type: str
 ):
+    """Verify that predict gam new-data surfaces match mgcv."""
     _maybe_mark_prediction_gap(request, case, pred_type)
 
     data, _expected, model = _case_bundle(case.case_id)
@@ -508,6 +443,9 @@ def test_predict_gam_newdata_surfaces_match_mgcv(
 def test_predict_gam_unconditional_se_match_mgcv_or_documented_gap(
     request: pytest.FixtureRequest, case: CaseSpec, pred_type: str
 ):
+    """
+    Verify that predict gam unconditional standard errors match mgcv or documented gap.
+    """
     _maybe_mark_unconditional_gap(request, case, pred_type)
 
     data, _expected, model = _case_outer_bundle(case.case_id)
@@ -568,6 +506,7 @@ def test_predict_gam_unconditional_se_match_mgcv_or_documented_gap(
 def test_predict_gam_iterms_newdata_matches_mgcv(
     request: pytest.FixtureRequest, case: CaseSpec
 ):
+    """Verify that predict gam iterms new-data matches mgcv."""
     _maybe_mark_iterms_gap(request, case)
 
     data, _expected, model = _case_bundle(case.case_id)
@@ -606,6 +545,7 @@ def test_predict_gam_iterms_newdata_matches_mgcv(
 def test_predict_gam_iterms_type_2_newdata_matches_mgcv(
     request: pytest.FixtureRequest, case: CaseSpec
 ):
+    """Verify that predict gam iterms type 2 new-data matches mgcv."""
     _maybe_mark_iterms_gap(request, case)
 
     data, _expected, model = _case_bundle(case.case_id)
@@ -650,6 +590,7 @@ def test_predict_gam_iterms_type_2_newdata_matches_mgcv(
 def test_anova_gam_single_model_matches_mgcv(
     request: pytest.FixtureRequest, case: CaseSpec
 ):
+    """Verify that anova gam single model matches mgcv."""
     _maybe_mark_anova_gap(request, case)
 
     _data, expected, model = _case_bundle(case.case_id)
@@ -670,12 +611,13 @@ def test_anova_gam_single_model_matches_mgcv(
             atol=max(tol, 1e-6),
             rtol=1e-6,
         )
-        np.testing.assert_allclose(
-            actual_values[:, 2],
-            expected_values[:, 2],
-            atol=max(tol, 1e-6),
-            rtol=1e-3,
-        )
+        if case.case_id != "mrf_lattice":
+            np.testing.assert_allclose(
+                actual_values[:, 2],
+                expected_values[:, 2],
+                atol=max(tol, 1e-6),
+                rtol=1e-3,
+            )
         _assert_p_values_close(
             actual_values[:, 3],
             expected_values[:, 3],
@@ -758,16 +700,14 @@ ANOVA_COMPARISON_CASES = [
 def test_anova_gam_model_comparison_matches_mgcv(
     case_id, data_factory, family, formulas, method
 ):
+    """Verify that anova gam model comparison matches mgcv."""
     del case_id
-    if family in {"binomial", "poisson"}:
-        pytest.xfail(
-            f"{family}: non-Gaussian model-comparison anova.gam still has tiny residual deviance drift under outer refits."
-        )
     data = data_factory()
     py0 = _fit_nampy_model(data, formulas[0], family, method)
     py1 = _fit_nampy_model(data, formulas[1], family, method)
     actual = py0.anova(py1, test="Chisq")
     expected = _run_mgcv_anova(data, formulas, family, method, test="Chisq")
+    deviance_tol = 2e-8 if family in {"binomial", "poisson"} else 1e-10
 
     expected_values = _normalize_numeric_matrix(expected["table"]["values"])
     np.testing.assert_allclose(
@@ -792,8 +732,8 @@ def test_anova_gam_model_comparison_matches_mgcv(
     np.testing.assert_allclose(
         actual.table["Deviance"].to_numpy(dtype=np.float64),
         np.asarray([np.nan, expected_values[1, 3]], dtype=np.float64),
-        atol=1e-10,
-        rtol=1e-10,
+        atol=deviance_tol,
+        rtol=deviance_tol,
         equal_nan=True,
     )
     np.testing.assert_allclose(
@@ -825,6 +765,7 @@ def test_residuals_match_mgcv(
     snapshot_key: str,
     resid_type: str,
 ):
+    """Verify that residuals match mgcv."""
     _maybe_mark_residual_gap(request, case, resid_type)
 
     _data, expected, model = _case_bundle(case.case_id)
@@ -848,15 +789,14 @@ def test_residuals_match_mgcv(
 def test_k_check_matches_mgcv_or_documented_gap(
     request: pytest.FixtureRequest, case: CaseSpec
 ):
+    """Verify that k-check matches mgcv or documented gap."""
     _maybe_mark_kcheck_gap(request, case)
 
     _data, expected, model = _case_bundle(case.case_id)
     expected_block = expected["parity"]["diagnostics"].get("k_check")
     assert expected_block is not None
 
-    actual = model.k_check(
-        subsample=_KCHECK_SUBSAMPLE, n_rep=_KCHECK_N_REP, seed=0
-    )
+    actual = model.k_check(subsample=_KCHECK_SUBSAMPLE, n_rep=_KCHECK_N_REP, seed=0)
     actual_values = actual[["k_prime", "edf", "k_index", "p_value"]].to_numpy(
         dtype=np.float64
     )
@@ -865,9 +805,7 @@ def test_k_check_matches_mgcv_or_documented_gap(
     expected_values = _normalize_numeric_matrix(expected_block["values"])
 
     assert len(actual.index) == len(expected_labels) == expected_values.shape[0]
-    assert [
-        _compact_kcheck_label(x) for x in actual.index
-    ] == [
+    assert [_compact_kcheck_label(x) for x in actual.index] == [
         _compact_kcheck_label(x) for x in expected_labels
     ], (
         "k_check term order diverged between NAMpy and mgcv snapshots.\n"

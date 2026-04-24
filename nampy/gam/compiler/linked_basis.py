@@ -62,19 +62,23 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
                 and term.kind == "smooth"
                 and term.smoothing_id is not None
             ):
-                items_by_id.setdefault(str(term.smoothing_id), []).append(
+                items_by_id.setdefault((pi, str(term.smoothing_id)), []).append(
                     (pi, ti, term)
                 )
 
     replacements = {}
 
-    for id_key, items in items_by_id.items():
+    for (_pi_key, id_key), items in items_by_id.items():
         if len(items) < 2:
             continue
 
         base_term = items[0][2]
         if base_term.smooth_spec is None:
             raise ValueError(f"Smooth term {base_term.label!r} is missing smooth_spec.")
+
+        group_terms = [term for _, _, term in items]
+        for term in group_terms[1:]:
+            _clone_linked_smooth_spec(base_term, term)
 
         pooled_feature_values = []
         for pos in range(len(base_term.features)):
@@ -87,7 +91,6 @@ def attach_shared_basis_metadata(predictor_specs, X, feature_names):
                 )
             )
 
-        group_terms = [term for _, _, term in items]
         for pi, ti, term in items:
             cloned_spec = _clone_linked_smooth_spec(base_term, term)
             shared_basis_setup = _term_shared_basis_setup(

@@ -139,8 +139,24 @@ def refresh_gaussian_ml_reml_score_from_fit_state(model: Any, y: np.ndarray) -> 
     if reml_s2 is not None and np.isfinite(reml_s2) and float(reml_s2) > 0.0:
         fit_core_solution = _fit_core_solution(model)
         if fit_core_solution is not None:
+            fit_result = fit_core_solution.fit_result
+            old_scale = float(getattr(fit_result, "scale", np.nan))
+            scale_ratio = (
+                None
+                if (not np.isfinite(old_scale) or old_scale <= 0.0)
+                else float(reml_s2) / old_scale
+            )
+            fit_result_updates: dict[str, Any] = {"scale": float(reml_s2)}
+            if scale_ratio is not None:
+                for cov_name in ("cov_bayes", "cov_freq", "cov_unconditional"):
+                    cov_value = getattr(fit_result, cov_name, None)
+                    if cov_value is not None:
+                        fit_result_updates[cov_name] = (
+                            scale_ratio
+                            * np.asarray(cov_value, dtype=np.float64).copy()
+                        )
             fit_core_solution = fit_core_solution.with_fit_state(scale=float(reml_s2))
-            fit_core_solution = fit_core_solution.with_fit_result(scale=float(reml_s2))
+            fit_core_solution = fit_core_solution.with_fit_result(**fit_result_updates)
             model.fit_core_solution_ = fit_core_solution
             sync_gam_result(model)
 

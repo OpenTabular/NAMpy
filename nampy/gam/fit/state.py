@@ -1,12 +1,12 @@
 """
-Compatibility wrapper over stable fitted outputs and transient engine state.
+Compatibility wrapper over stable fitted outputs and transient fit state.
 
 `FitCoreSolution` remains the common solver return type during migration, but it
 now wraps:
 
 - `FitResult`: stable fitted outputs for consumers
 - `FitState`: transient numerical workspace
-- `PenalizedSystem`: engine-facing assembled system metadata
+- `PenalizedSystem`: assembled penalized-system metadata
 """
 
 from __future__ import annotations
@@ -14,393 +14,162 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 
 import numpy as np
-from scipy.linalg import cho_factor, cho_solve, solve_triangular
 
 from .._model_state import (
     _coef_column_offset,
-    _compiled_model,
     _fit_intercept,
     _fit_state,
-    _n_smoothing_params,
     _term_blocks_seq,
 )
-from ..engine.state import FitState, PenalizedSystem
+from ..linalg import numerical_rank
 from ..results import FitResult
-from .covariance import build_bayes_and_freq_covariances
-from .linalg.matrix_reindexing import permute_rows, restore_dropped_rows
+from .parameterization import (
+    FIT_PARAMETER_SPACE,
+    export_fit_result_to_prediction_space,
+    prediction_parameterization_map,
+)
+from .postprocess.unconditional_covariance import (
+    _gaussian_exact_unconditional_postfit as _gaussian_exact_unconditional_postfit_impl,
+)
+from .postprocess.unconditional_covariance import _mgcv_dchol as _mgcv_dchol_impl
+from .postprocess.unconditional_covariance import _mgcv_vcorr as _mgcv_vcorr_impl
+from .postprocess.unconditional_covariance import (
+    _pirls_exact_unconditional_postfit as _pirls_exact_unconditional_postfit_impl,
+)
+from .postprocess.unconditional_covariance import (
+    _restore_pirls_dbeta_to_original_parameterization as _restore_pirls_dbeta_impl,
+)
+from .postprocess.unconditional_covariance import (
+    _restore_pirls_rank_root_to_original_parameterization as _restore_pirls_rank_root_impl,
+)
+
+
+@dataclass(frozen=True)
+class PenalizedSystem:
+    X: np.ndarray | None = None
+    A: np.ndarray | None = None
+    XtWX: np.ndarray | None = None
+    P: np.ndarray | None = None
+    penalty_matrix: np.ndarray | None = None
+    offset: np.ndarray | None = None
+    log_det_XtWX_plus_penalty: float | None = None
+    penalized_system_rank: int | None = None
+    dropped_column_indices: np.ndarray | None = None
+
+
+@dataclass(frozen=True)
+class FitState:
+    X: np.ndarray | None = None
+    A: np.ndarray | None = None
+    A_inv: np.ndarray | None = None
+    XtWX: np.ndarray | None = None
+    P: np.ndarray | None = None
+    penalty_matrix: np.ndarray | None = None
+    working_weights: np.ndarray | None = None
+    fisher_weights: np.ndarray | None = None
+    working_response: np.ndarray | None = None
+    offset: np.ndarray | None = None
+    log_det_XtWX_plus_penalty: float | None = None
+    penalized_system_rank: int | None = None
+    dropped_column_indices: np.ndarray | None = None
+    scale: float | None = None
+
+    def to_penalized_system(self) -> PenalizedSystem:
+        return PenalizedSystem(
+            X=self.X,
+            A=self.A,
+            XtWX=self.XtWX,
+            P=self.P,
+            penalty_matrix=self.penalty_matrix,
+            offset=self.offset,
+            log_det_XtWX_plus_penalty=self.log_det_XtWX_plus_penalty,
+            penalized_system_rank=self.penalized_system_rank,
+            dropped_column_indices=self.dropped_column_indices,
+        )
 
 
 def _prediction_parameterization_map(model) -> np.ndarray | None:
-    compiled_model = _compiled_model(model)
-    if compiled_model is None:
-        return None
-    metadata = dict(getattr(compiled_model, "metadata", {}) or {})
-    P = metadata.get("fit_to_prediction_parameterization_map", None)
-    if P is None:
-        return None
-    return np.asarray(P, dtype=np.float64)
-
-
-def _transform_covariance_to_prediction_space(
-    cov: np.ndarray | None, P: np.ndarray
-) -> np.ndarray | None:
-    if cov is None:
-        return None
-    cov = np.asarray(cov, dtype=np.float64)
-    return 0.5 * (P @ cov @ P.T + (P @ cov @ P.T).T)
+    return prediction_parameterization_map(model)
 
 
 def _apply_prediction_parameterization_to_fit_result(model, fit_result, fit_state):
     del fit_state
-    P = _prediction_parameterization_map(model)
-    if P is None:
-        return fit_result
+    return export_fit_result_to_prediction_space(model, fit_result)
 
-    coef_full = np.asarray(
-        P @ np.asarray(fit_result.coef_full, dtype=np.float64),
-        dtype=np.float64,
-    )
-    cov_bayes = _transform_covariance_to_prediction_space(fit_result.cov_bayes, P)
-    cov_freq = _transform_covariance_to_prediction_space(fit_result.cov_freq, P)
-    cov_unconditional = _transform_covariance_to_prediction_space(
-        fit_result.cov_unconditional, P
-    )
 
-    beta = np.asarray(coef_full[_coef_column_offset(model) :], dtype=np.float64)
-    return replace(
-        fit_result,
-        coef_full=coef_full,
-        intercept=float(coef_full[0]) if _fit_intercept(model) else 0.0,
-        beta=beta,
-        cov_bayes=cov_bayes,
-        cov_freq=cov_freq,
-        cov_unconditional=cov_unconditional,
-        penalty_quadratic=fit_result.penalty_quadratic,
-    )
+def _restore_pirls_dbeta_to_original_parameterization(current, dbeta_rank):
+    return _restore_pirls_dbeta_impl(current, dbeta_rank)
+
+
+def _restore_pirls_rank_root_to_original_parameterization(current, rank_root):
+    return _restore_pirls_rank_root_impl(current, rank_root)
+
+
+def _pirls_exact_unconditional_postfit(model, sol, fit_result, fit_state):
+    return _pirls_exact_unconditional_postfit_impl(model, sol, fit_result, fit_state)
+
+
+def _gaussian_exact_unconditional_postfit(model, fit_result, fit_state):
+    return _gaussian_exact_unconditional_postfit_impl(model, fit_result, fit_state)
 
 
 def _mgcv_dchol(dA: np.ndarray, R: np.ndarray) -> np.ndarray:
-    """Mirror mgcv/src/mat.c::dchol() for upper-Cholesky factors."""
-    dA = np.asarray(dA, dtype=np.float64)
-    R = np.asarray(R, dtype=np.float64)
-    p = int(R.shape[0])
-    dR = np.zeros_like(R, dtype=np.float64)
-    for i in range(p):
-        for j in range(i, p):
-            x = 0.0
-            for k in range(i):
-                x += R[k, i] * dR[k, j] + R[k, j] * dR[k, i]
-            if j > i:
-                dR[i, j] = (dA[i, j] - x - R[i, j] * dR[i, i]) / R[i, i]
-            else:
-                dR[i, i] = 0.5 * (dA[i, i] - x) / R[i, i]
-    return dR
+    return _mgcv_dchol_impl(dA, R)
 
 
 def _mgcv_vcorr(
     dR_list: list[np.ndarray], Vr: np.ndarray, *, trans: bool
 ) -> np.ndarray:
-    """Mirror mgcv/R/misc.r::vcorr() for dense NumPy arrays."""
-    if len(dR_list) == 0:
-        return np.zeros((0, 0), dtype=np.float64)
-    out = np.zeros_like(np.asarray(dR_list[0], dtype=np.float64), dtype=np.float64)
-    Vr = np.asarray(Vr, dtype=np.float64)
-    for i, dRi in enumerate(dR_list):
-        dRi = np.asarray(dRi, dtype=np.float64)
-        for j, dRj in enumerate(dR_list):
-            w = float(Vr[i, j])
-            if w == 0.0:
-                continue
-            out += w * (dRi.T @ dRj if trans else dRi @ dRj.T)
-    return 0.5 * (out + out.T)
+    return _mgcv_vcorr_impl(dR_list, Vr, trans=trans)
 
 
-def _gaussian_exact_unconditional_postfit(
-    model,
-    fit_result: FitResult,
-    fit_state: FitState,
-) -> tuple[np.ndarray | None, np.ndarray | None]:
-    """
-    Mirror mgcv::gam.fit3.post.proc() EDF2 / unconditional covariance assembly.
-
-    This applies only to Gaussian ML/REML/LAML fits after the final solve, where
-    mgcv recomputes `edf2` from the fitted-model outer Hessian plus `Vb.corr()`.
-    """
-    if str(getattr(getattr(model, "family", None), "name", "")).lower() != "gaussian":
-        return None, None
-
-    method = str(getattr(model, "_optim_method", "")).lower()
-    if method not in {"ml", "reml", "laml"}:
-        return None, None
-
-    if (
-        fit_state.A is None
-        or fit_state.A_inv is None
-        or fit_state.XtWX is None
-        or fit_result.cov_bayes is None
-    ):
-        return None, None
-
-    n_sp = int(_n_smoothing_params(model) or 0)
-    if n_sp == 0:
-        return None, None
-
-    fixed_mask = (
-        np.zeros(n_sp, dtype=bool)
-        if model.smoothing_fixed_mask_ is None
-        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+def _apply_unconditional_postfit(model, sol, fit_result, fit_state):
+    cov_unconditional_post = (
+        None
+        if fit_result.cov_unconditional is None
+        else np.asarray(fit_result.cov_unconditional, dtype=np.float64).copy()
     )
-    free_mask = ~fixed_mask
-    free_idx = np.flatnonzero(free_mask)
-    if free_idx.size == 0:
-        return None, None
-
-    sp = np.asarray(model.smoothing_params, dtype=np.float64).ravel()
-    log_sp = np.log(np.maximum(sp[free_mask], np.finfo(np.float64).tiny))
-
-    from ..smoothing_selection.criteria.laplace import _penalty_derivative_matrices
-    from .model_ops import criterion_hessian
-
-    Hsp = np.asarray(
-        criterion_hessian(model, model.y_, log_sp, method=method), dtype=np.float64
+    edf2_post = (
+        None
+        if fit_result.edf2 is None
+        else np.asarray(fit_result.edf2, dtype=np.float64).copy()
     )
-    if Hsp.shape != (free_idx.size, free_idx.size) or not np.all(np.isfinite(Hsp)):
-        return None, None
-    Hsp = 0.5 * (Hsp + Hsp.T)
-
-    optim_result = getattr(model, "_optim_result", None)
-    if optim_result is not None:
-        optim_result.hess = Hsp.copy()
-
-    evals, evecs = np.linalg.eigh(Hsp)
-    inv_vals = np.zeros_like(evals)
-    pos = evals > 0.0
-    inv_vals[pos] = 1.0 / evals[pos]
-    Vsp = np.asarray(evecs @ (inv_vals[:, None] * evecs.T), dtype=np.float64)
-
-    reg_vals = np.where(evals <= 0.0, 0.0, evals)
-    d_reg = 1.0 / np.sqrt(reg_vals + 0.1)
-    Vr = np.asarray(evecs @ ((d_reg * d_reg)[:, None] * evecs.T), dtype=np.float64)
-
-    A = np.asarray(fit_state.A, dtype=np.float64)
-    A_inv = np.asarray(fit_state.A_inv, dtype=np.float64)
-    XtWX = np.asarray(fit_state.XtWX, dtype=np.float64)
-    beta = np.asarray(fit_result.coef_full, dtype=np.float64).ravel()
-    Vp = np.asarray(fit_result.cov_bayes, dtype=np.float64)
-    H_coef = np.asarray(fit_result.H_coef, dtype=np.float64)
-    scale = float(fit_result.scale)
-    if not (np.isfinite(scale) and scale > 0.0):
-        return None, None
-
-    P_derivs_full = _penalty_derivative_matrices(model, sp)
-    P_derivs = [
-        np.asarray(P_derivs_full[i], dtype=np.float64).copy() for i in free_idx.tolist()
-    ]
-    db_drho = np.column_stack([-(A_inv @ (Pj @ beta)) for Pj in P_derivs])
-    Vc1 = np.asarray(db_drho @ Vsp @ db_drho.T, dtype=np.float64)
-
-    Vc2 = np.zeros_like(Vp)
-    try:
-        R = np.linalg.cholesky(A).T
-        R_inv = solve_triangular(
-            R,
-            np.eye(R.shape[0], dtype=np.float64),
-            lower=False,
-            check_finite=False,
-        )
-        dR_inv = []
-        for Pj in P_derivs:
-            dRj = _mgcv_dchol(Pj, R)
-            dRj_inv = -(
-                solve_triangular(R, dRj, lower=False, check_finite=False) @ R_inv
-            )
-            dR_inv.append(np.asarray(dRj_inv, dtype=np.float64))
-        Vc2 = scale * _mgcv_vcorr(dR_inv, Vr, trans=False)
-    except np.linalg.LinAlgError:
-        Vc2 = np.zeros_like(Vp)
-
-    Vc = np.asarray(Vp + Vc1 + Vc2, dtype=np.float64)
-    Vc = 0.5 * (Vc + Vc.T)
-
-    edf1 = 2.0 * np.diag(H_coef) - np.sum(H_coef * H_coef.T, axis=1)
-    edf2 = np.sum(Vc * XtWX, axis=1) / scale
-    if float(np.sum(edf2)) > float(np.sum(edf1)):
-        edf2 = np.asarray(edf1, dtype=np.float64).copy()
-
-    return Vc, np.asarray(edf2, dtype=np.float64)
-
-
-def _restore_pirls_dbeta_to_original_parameterization(
-    current, dbeta_rank
-) -> np.ndarray:
-    """Undo rank drop/pivot + `T` reparameterization for `gam.fit3`-style `db.drho`."""
-    packed = np.asarray(dbeta_rank, dtype=np.float64).reshape(-1, 1)
-    pivot1 = np.asarray(current.pivot1, dtype=np.int64)
-    dropped = np.asarray(current.dropped_column_indices, dtype=np.int64)
-    canonical_T = np.asarray(current.canonical.T, dtype=np.float64)
-
-    unpermuted = permute_rows(packed, pivot1, reverse=True)
-    full_canonical = restore_dropped_rows(
-        unpermuted,
-        int(canonical_T.shape[1]),
-        dropped,
+    cov_unconditional_space = getattr(
+        fit_result,
+        "cov_unconditional_space",
+        FIT_PARAMETER_SPACE,
     )
-    return np.asarray(canonical_T @ full_canonical, dtype=np.float64).ravel()
 
+    pirls_out = _pirls_exact_unconditional_postfit(model, sol, fit_result, fit_state)
+    if len(pirls_out) == 3:
+        Vc_pirls, edf2_pirls, cov_space_pirls = pirls_out
+    else:
+        Vc_pirls, edf2_pirls = pirls_out
+        cov_space_pirls = FIT_PARAMETER_SPACE
+    if Vc_pirls is not None:
+        cov_unconditional_post = np.asarray(Vc_pirls, dtype=np.float64).copy()
+        cov_unconditional_space = cov_space_pirls
+    if edf2_pirls is not None:
+        edf2_post = np.asarray(edf2_pirls, dtype=np.float64).copy()
 
-def _pirls_exact_unconditional_postfit(
-    model,
-    sol: "FitCoreSolution",
-    fit_result: FitResult,
-    fit_state: FitState,
-) -> tuple[np.ndarray | None, np.ndarray | None]:
-    """
-    Mirror `mgcv::gam.fit3.post.proc()` unconditional `Vc` / `edf2` for
-    ordinary PIRLS fits with exact outer derivatives.
+    gauss_out = _gaussian_exact_unconditional_postfit(model, fit_result, fit_state)
+    if len(gauss_out) == 3:
+        Vc_gauss, edf2_gauss, cov_space_gauss = gauss_out
+    else:
+        Vc_gauss, edf2_gauss = gauss_out
+        cov_space_gauss = FIT_PARAMETER_SPACE
+    if Vc_gauss is not None:
+        cov_unconditional_post = np.asarray(Vc_gauss, dtype=np.float64).copy()
+        cov_unconditional_space = cov_space_gauss
+    if edf2_gauss is not None:
+        edf2_post = np.asarray(edf2_gauss, dtype=np.float64).copy()
 
-    Current strict support matches the implemented exact ordinary-family PIRLS
-    ML/REML/LAML path: binomial, poisson, and gamma.
-    """
-    family = getattr(model, "family", None)
-    family_name = str(getattr(family, "name", "")).lower()
-    if family_name not in {"binomial", "poisson", "gamma"}:
-        return None, None
-
-    method = str(getattr(model, "_optim_method", "")).lower()
-    if method not in {"ml", "reml", "laml"}:
-        return None, None
-
-    if (
-        fit_result.cov_bayes is None
-        or fit_result.H_coef is None
-        or fit_state.X is None
-        or fit_state.P is None
-    ):
-        return None, None
-
-    n_sp = int(_n_smoothing_params(model) or 0)
-    if n_sp == 0:
-        return None, None
-
-    from .model_ops import can_use_simple_ml_reml_structure, criterion_hessian
-
-    if not can_use_simple_ml_reml_structure(model):
-        return None, None
-    if not bool(getattr(family, "supports_exact_pirls_second_derivatives", False)):
-        return None, None
-
-    fixed_mask = (
-        np.zeros(n_sp, dtype=bool)
-        if model.smoothing_fixed_mask_ is None
-        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+    return replace(
+        fit_result,
+        cov_unconditional=cov_unconditional_post,
+        edf2=edf2_post,
+        cov_unconditional_space=cov_unconditional_space,
     )
-    free_mask = ~fixed_mask
-    free_idx = np.flatnonzero(free_mask)
-    if free_idx.size == 0:
-        return None, None
-
-    sp = np.asarray(model.smoothing_params, dtype=np.float64).ravel()
-    log_sp = np.log(np.maximum(sp[free_mask], np.finfo(np.float64).tiny))
-
-    try:
-        Hsp = np.asarray(
-            criterion_hessian(model, model.y_, log_sp, method=method),
-            dtype=np.float64,
-        )
-    except Exception:
-        return None, None
-    if Hsp.shape != (free_idx.size, free_idx.size) or not np.all(np.isfinite(Hsp)):
-        return None, None
-    Hsp = 0.5 * (Hsp + Hsp.T)
-
-    evals, evecs = np.linalg.eigh(Hsp)
-    inv_vals = np.zeros_like(evals)
-    pos = evals > 0.0
-    inv_vals[pos] = 1.0 / evals[pos]
-    Vsp = np.asarray(evecs @ (inv_vals[:, None] * evecs.T), dtype=np.float64)
-
-    reg_vals = np.zeros_like(evals)
-    reg_vals[pos] = 1.0 / (evals[pos] + 0.1)
-    Vr = np.asarray(evecs @ (reg_vals[:, None] * evecs.T), dtype=np.float64)
-
-    from ..smoothing_selection.criteria.laplace import _penalty_derivative_matrices
-    from ..smoothing_selection.criteria.pirls_deriv import _gdi1_kernel
-
-    try:
-        kernel = _gdi1_kernel(
-            model,
-            model.y_,
-            sol,
-            sp,
-            method=("REML" if method in {"reml", "laml"} else "ML"),
-        )
-    except Exception:
-        return None, None
-
-    db_cols = [
-        _restore_pirls_dbeta_to_original_parameterization(
-            kernel.current,
-            kernel.ift.dbeta[int(j)],
-        )
-        for j in free_idx.tolist()
-    ]
-    if len(db_cols) == 0:
-        return None, None
-    db_drho = np.column_stack(db_cols)
-
-    weights = fit_state.fisher_weights
-    if weights is None:
-        weights = fit_state.working_weights
-    if weights is None:
-        return None, None
-
-    X = np.asarray(fit_state.X, dtype=np.float64)
-    w = np.asarray(weights, dtype=np.float64).ravel()
-    if w.size != X.shape[0]:
-        return None, None
-    XtWX = np.asarray(X.T @ (w[:, None] * X), dtype=np.float64)
-    P = np.asarray(fit_state.P, dtype=np.float64)
-    A = np.asarray(XtWX + P, dtype=np.float64)
-
-    scale = float(fit_result.scale)
-    if not (np.isfinite(scale) and scale > 0.0):
-        return None, None
-
-    try:
-        R = np.linalg.cholesky(A).T
-        R_inv = solve_triangular(
-            R,
-            np.eye(R.shape[0], dtype=np.float64),
-            lower=False,
-            check_finite=False,
-        )
-    except np.linalg.LinAlgError:
-        return None, None
-
-    P_derivs_full = _penalty_derivative_matrices(model, sp)
-    dR_inv = []
-    for j in free_idx.tolist():
-        Pj = np.asarray(P_derivs_full[int(j)], dtype=np.float64)
-        dRj = _mgcv_dchol(Pj, R)
-        dR_inv.append(
-            -(solve_triangular(R, dRj, lower=False, check_finite=False) @ R_inv)
-        )
-    if len(dR_inv) == 0:
-        return None, None
-
-    Vp = np.asarray(fit_result.cov_bayes, dtype=np.float64)
-    Vc1 = np.asarray(db_drho @ Vsp @ db_drho.T, dtype=np.float64)
-    Vc2 = scale * _mgcv_vcorr(dR_inv, Vr, trans=False)
-    Vc = np.asarray(Vp + Vc1 + Vc2, dtype=np.float64)
-    Vc = 0.5 * (Vc + Vc.T)
-
-    H_coef = np.asarray(fit_result.H_coef, dtype=np.float64)
-    edf1 = 2.0 * np.diag(H_coef) - np.sum(H_coef * H_coef.T, axis=1)
-    edf2 = np.sum(Vc * XtWX, axis=1) / scale
-    if float(np.sum(edf2)) > float(np.sum(edf1)):
-        edf2 = np.asarray(edf1, dtype=np.float64).copy()
-
-    return Vc, np.asarray(edf2, dtype=np.float64)
 
 
 @dataclass(frozen=True)
@@ -481,6 +250,10 @@ class FitCoreSolution:
             failed_step=data.get("failed_step", None),
             failure_reason=data.get("failure_reason", None),
             inner_trace=data.get("inner_trace", None),
+            coef_space=str(data.get("coef_space", "fit")),
+            cov_bayes_space=str(data.get("cov_bayes_space", "fit")),
+            cov_freq_space=str(data.get("cov_freq_space", "fit")),
+            cov_unconditional_space=str(data.get("cov_unconditional_space", "fit")),
         )
         fit_state = FitState(
             X=(
@@ -599,7 +372,7 @@ def compute_edf_by_term(model, H_coef):
                         else np.empty((0,), dtype=np.float64)
                     )
                     if tb_sp.size > 0 and np.max(tb_sp) <= 1e-20:
-                        val = float(np.linalg.matrix_rank(Xt_eff_w))
+                        val = float(numerical_rank(Xt_eff_w))
                     elif A_inv is not None:
                         A_inv_arr = np.asarray(A_inv, dtype=np.float64)
                         val = float(
@@ -636,6 +409,10 @@ def assign_fit_solution(model, sol: FitCoreSolution):
     H_post = np.asarray(fit_result.H_coef, dtype=np.float64)
     trace_H_post = float(fit_result.trace_H)
     scale_post = float(fit_result.scale)
+    A_post = None
+    A_inv_post = None
+    XtWX_post = None
+    working_weights_post = None
     Vp_post = (
         None
         if fit_result.cov_bayes is None
@@ -646,73 +423,30 @@ def assign_fit_solution(model, sol: FitCoreSolution):
         if fit_result.cov_freq is None
         else np.asarray(fit_result.cov_freq, dtype=np.float64)
     )
-    if (
-        not bool(getattr(model.family, "canonical_link", False))
-        and fit_state.X is not None
-        and fit_state.P is not None
-        and fit_state.fisher_weights is not None
-    ):
-        try:
-            X = np.asarray(fit_state.X, dtype=np.float64)
-            P = np.asarray(fit_state.P, dtype=np.float64)
-            fisher_w = np.asarray(fit_state.fisher_weights, dtype=np.float64).ravel()
-            XtFX = X.T @ (fisher_w[:, None] * X)
-            cA_post, lower_post = cho_factor(
-                XtFX + P, overwrite_a=False, check_finite=False
-            )
-            A_inv_post = cho_solve(
-                (cA_post, lower_post),
-                np.eye(X.shape[1], dtype=np.float64),
-                check_finite=False,
-            )
-            if str(getattr(model.family, "name", "")).lower() == "gamma":
-                scale_post = float(
-                    model.family.estimate_dispersion(
-                        model.y_,
-                        fit_result.mu,
-                        edf=trace_H_post,
-                        weights=model.prior_weights_,
-                    )
-                )
-            Vp_post, Vf_post, H_post = build_bayes_and_freq_covariances(
-                scale_post, A_inv_post, XtFX
-            )
-            trace_H_post = float(np.trace(H_post))
-        except Exception:
-            pass
-    if (
-        str(getattr(model.family, "name", "")).lower() == "gamma"
-        and fit_state.X is not None
-        and fit_state.P is not None
-        and fit_state.fisher_weights is not None
-    ):
-        X = np.asarray(fit_state.X, dtype=np.float64)
-        P = np.asarray(fit_state.P, dtype=np.float64)
-        fisher_w = np.asarray(fit_state.fisher_weights, dtype=np.float64).ravel()
-        XtFX = X.T @ (fisher_w[:, None] * X)
-        cA_post, lower_post = cho_factor(
-            XtFX + P, overwrite_a=False, check_finite=False
-        )
-        A_inv_post = cho_solve(
-            (cA_post, lower_post),
-            np.eye(X.shape[1], dtype=np.float64),
-            check_finite=False,
-        )
-        H_post = A_inv_post @ XtFX
-        trace_H_post = float(np.trace(H_post))
-        scale_post = float(
-            model.family.estimate_dispersion(
-                model.y_,
-                fit_result.mu,
-                edf=trace_H_post,
-                weights=model.prior_weights_,
-            )
-        )
-        Vp_post, Vf_post, H_post = build_bayes_and_freq_covariances(
-            scale_post, A_inv_post, XtFX
-        )
-        trace_H_post = float(np.trace(H_post))
-    fit_state = replace(fit_state, scale=float(scale_post))
+    fit_state = replace(
+        fit_state,
+        scale=float(scale_post),
+        A=(
+            fit_state.A
+            if A_post is None
+            else np.asarray(A_post, dtype=np.float64).copy()
+        ),
+        A_inv=(
+            fit_state.A_inv
+            if A_inv_post is None
+            else np.asarray(A_inv_post, dtype=np.float64).copy()
+        ),
+        XtWX=(
+            fit_state.XtWX
+            if XtWX_post is None
+            else np.asarray(XtWX_post, dtype=np.float64).copy()
+        ),
+        working_weights=(
+            fit_state.working_weights
+            if working_weights_post is None
+            else np.asarray(working_weights_post, dtype=np.float64).copy()
+        ),
+    )
     penalized_system = fit_state.to_penalized_system()
     fit_result = replace(
         fit_result,
@@ -727,35 +461,7 @@ def assign_fit_solution(model, sol: FitCoreSolution):
         ),
         H_coef=np.asarray(H_post, dtype=np.float64).copy(),
     )
-    cov_unconditional_post = (
-        None
-        if fit_result.cov_unconditional is None
-        else np.asarray(fit_result.cov_unconditional, dtype=np.float64).copy()
-    )
-    edf2_post = (
-        None
-        if fit_result.edf2 is None
-        else np.asarray(fit_result.edf2, dtype=np.float64).copy()
-    )
-    Vc_pirls, edf2_pirls = _pirls_exact_unconditional_postfit(
-        model, sol, fit_result, fit_state
-    )
-    if Vc_pirls is not None:
-        cov_unconditional_post = np.asarray(Vc_pirls, dtype=np.float64).copy()
-    if edf2_pirls is not None:
-        edf2_post = np.asarray(edf2_pirls, dtype=np.float64).copy()
-    Vc_gauss, edf2_gauss = _gaussian_exact_unconditional_postfit(
-        model, fit_result, fit_state
-    )
-    if Vc_gauss is not None:
-        cov_unconditional_post = np.asarray(Vc_gauss, dtype=np.float64).copy()
-    if edf2_gauss is not None:
-        edf2_post = np.asarray(edf2_gauss, dtype=np.float64).copy()
-    fit_result = replace(
-        fit_result,
-        cov_unconditional=cov_unconditional_post,
-        edf2=edf2_post,
-    )
+    fit_result = _apply_unconditional_postfit(model, sol, fit_result, fit_state)
     fit_result = _apply_prediction_parameterization_to_fit_result(
         model, fit_result, fit_state
     )

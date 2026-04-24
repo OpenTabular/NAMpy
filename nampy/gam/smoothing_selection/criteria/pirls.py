@@ -183,12 +183,44 @@ def _solve_gamma_profile_scale(model, y, Dp, mp, *, method, init_scale):
     return phi
 
 
+def _mgcv_prior_weights(model, y):
+    weights = getattr(model, "prior_weights_", None)
+    if weights is None:
+        return np.ones_like(np.asarray(y, dtype=np.float64), dtype=np.float64)
+    return np.asarray(weights, dtype=np.float64)
+
+
+def _mgcv_saturated_loglik(model, y, *, scale):
+    y_arr = np.asarray(y, dtype=np.float64)
+    weights = _mgcv_prior_weights(model, y_arr)
+    nobs = float(len(y_arr))
+    n_true = getattr(model, "n_true_", None)
+    if n_true is None:
+        fac = 1.0
+    else:
+        n_true = float(n_true)
+        fac = (
+            n_true / nobs
+            if np.isfinite(n_true) and n_true > 0.0 and nobs > 0.0
+            else 1.0
+        )
+    return float(
+        fac
+        * model.family.saturated_loglik(
+            y_arr,
+            weights=weights,
+            n=len(y_arr),
+            scale=scale,
+        )
+    )
+
+
 def criterion_gcv_pirls(model, y, log_sp):
     sp = expand_smoothing_params_from_log(model, log_sp)
     sol = solve_pirls_given_smoothing(model, y, sp)
     n = model.n_samples_
     den = 1.0 - model.score_gamma * sol["trace_H"] / n
-    if den <= 1e-12 or not np.isfinite(den):
+    if not np.isfinite(den) or den == 0.0:
         return np.inf
     return (sol["deviance"] / n) / (den**2)
 
@@ -242,7 +274,7 @@ def _pirls_laplace_logdet_term(model, sol, sp, method):
     return det_term + 0.5 * logdet_XtKX
 
 
-def _pirls_tensor_coefficient_space_logdet_term(model, sol, sp):
+def _pirls_tensor_coefficient_space_logdet_term(model, y, sol, sp, method):
     """Coefficient-space REML/ML determinant term for tensor PIRLS fits.
 
     `mgcv` evaluates tensor-product REML penalties against the weighted coefficient-space
@@ -250,6 +282,11 @@ def _pirls_tensor_coefficient_space_logdet_term(model, sol, sp):
     decomposition used by the exact PIRLS Laplace path is not equivalent enough
     numerically, even though the fixed-sp fitted functions agree.
     """
+    if str(method).upper() == "ML":
+        from .pirls_deriv import _gdi1_kernel
+
+        return float(_gdi1_kernel(model, y, sol, sp, method="ML").K)
+
     X = np.asarray(sol["X"], dtype=np.float64)
     W = np.asarray(sol["working_weights"], dtype=np.float64)
     P = np.asarray(sol["P"], dtype=np.float64)
@@ -280,6 +317,7 @@ def criterion_ml_reml_pirls(model, y, log_sp, method):
 
 
 def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
+    method = str(method).upper()
     scale = float(sol["scale"])
     if not np.isfinite(scale) or scale <= 0:
         return np.inf
@@ -320,14 +358,18 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
                 1e-14,
                 None,
             )
+            weights = _mgcv_prior_weights(model, y)
             pearson = float(
                 np.sum(
-                    (
-                        np.asarray(y, dtype=np.float64)
-                        - np.asarray(sol["mu"], dtype=np.float64)
+                    weights
+                    * (
+                        (
+                            np.asarray(y, dtype=np.float64)
+                            - np.asarray(sol["mu"], dtype=np.float64)
+                        )
+                        ** 2
+                        / var
                     )
-                    ** 2
-                    / var
                 )
             )
             denom = n_obs - mp
@@ -337,14 +379,7 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
             if not np.isfinite(phi) or phi <= 0.0:
                 return np.inf
 
-            saturated_loglik = float(
-                model.family.saturated_loglik(
-                    y,
-                    weights=np.ones_like(y, dtype=np.float64),
-                    n=len(y),
-                    scale=phi,
-                )
-            )
+            saturated_loglik = _mgcv_saturated_loglik(model, y, scale=phi)
             base_objective = (float(sol["deviance"]) + penalty_quad) / (
                 2.0 * phi * gamma
             ) - saturated_loglik / gamma
@@ -355,7 +390,9 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
                 det_term = float(_gdi1_kernel(model, y, sol, sp, method=method).K)
             else:
                 det_term = (
-                    _pirls_tensor_coefficient_space_logdet_term(model, sol, sp)
+                    _pirls_tensor_coefficient_space_logdet_term(
+                        model, y, sol, sp, method
+                    )
                     if model._has_tensor_terms()
                     else _pirls_laplace_logdet_term(model, sol, sp, method)
                 )
@@ -368,20 +405,15 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
             objective -= 0.5 * mp * (np.log(2.0 * np.pi * phi) - np.log(gamma))
         return objective
 
-    saturated_loglik = float(
-        model.family.saturated_loglik(
-            y,
-            weights=np.ones_like(y, dtype=np.float64),
-            n=len(y),
-            scale=scale,
-        )
-    )
+    saturated_loglik = _mgcv_saturated_loglik(model, y, scale=scale)
     base_objective = (float(sol["deviance"]) + penalty_quad) / (
         2.0 * scale * gamma
     ) - saturated_loglik / gamma
 
     if model._has_tensor_terms():
-        det_term = _pirls_tensor_coefficient_space_logdet_term(model, sol, sp)
+        det_term = _pirls_tensor_coefficient_space_logdet_term(
+            model, y, sol, sp, method
+        )
         if not np.isfinite(det_term):
             return np.inf
         objective = base_objective + det_term
@@ -497,7 +529,7 @@ def criterion_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
             det_term = float(_gdi1_kernel(model, y, sol, sp, method=method).K)
         else:
             det_term = (
-                _pirls_tensor_coefficient_space_logdet_term(model, sol, sp)
+                _pirls_tensor_coefficient_space_logdet_term(model, y, sol, sp, method)
                 if model._has_tensor_terms()
                 else _pirls_laplace_logdet_term(model, sol, sp, method)
             )
@@ -551,14 +583,7 @@ def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):
     if not np.isfinite(gamma) or gamma <= 0.0:
         return np.inf
 
-    saturated_loglik = float(
-        model.family.saturated_loglik(
-            y,
-            weights=np.ones_like(y, dtype=np.float64),
-            n=len(y),
-            scale=scale,
-        )
-    )
+    saturated_loglik = _mgcv_saturated_loglik(model, y, scale=scale)
     base_objective = (
         float(sol["deviance"]) + float(sol["penalty_quadratic"] or 0.0)
     ) / (2.0 * scale * gamma) - saturated_loglik / gamma

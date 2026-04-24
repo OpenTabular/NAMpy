@@ -24,9 +24,7 @@ def solve_pirls_fit(model, y, smoothing_params, weights=None):
     if coef_start is not None:
         coef_start = np.asarray(coef_start, dtype=np.float64).ravel()
         Z = np.asarray(_design_matrix(model), dtype=np.float64)
-        if coef_start.shape != (
-            int(Z.shape[1] + _coef_column_offset(model)),
-        ):
+        if coef_start.shape != (int(Z.shape[1] + _coef_column_offset(model)),):
             coef_start = None
 
     etastart = getattr(model, "_pirls_eval_eta_start_", None)

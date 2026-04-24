@@ -35,7 +35,7 @@ def needs_exact_gaussian_reparameterization(model):
 
 
 def resolve_ml_reml_scoring_backend(model, method="reml"):
-    from ..selection import resolve_ml_reml_scoring_backend as _resolve
+    from ..smoothing_selection import resolve_ml_reml_scoring_backend as _resolve
 
     return _resolve(model, method=method)
 
@@ -66,18 +66,18 @@ def raise_ml_reml_backend_error(model, method):
 
 
 def supports_smoothing_method(model, method):
-    from ..selection import supports_smoothing_method as _supports
+    from ..smoothing_selection import supports_smoothing_method as _supports
 
     return _supports(model, method)
 
 
 def resolve_smoothing_method(model, method):
-    from ..selection import resolve_smoothing_method as _resolve
+    from ..smoothing_selection import resolve_smoothing_method as _resolve
 
     return _resolve(model, method)
 
 
 def n_free_smoothing_params(model):
-    from ..selection import n_free_smoothing_params as _count
+    from ..smoothing_selection import n_free_smoothing_params as _count
 
     return _count(model)

@@ -15,6 +15,8 @@ from .criteria import (
     criterion_hessian,
     criterion_ml_reml,
     criterion_ml_reml_exact,
+    criterion_ml_reml_gaussian_dynamic_joint,
+    criterion_ml_reml_pirls,
     criterion_ubre_pirls,
     criterion_value,
     gcv_score_gaussian,
@@ -27,7 +29,7 @@ from .optimize import (
     resolve_smoothing_method,
     supports_smoothing_method,
 )
-from .postfit import gam_vcomp, one_se_rule, sp_vcov
+from .postfit import gam_vcomp, one_se_rule, optimizer_endpoint_diagnostics, sp_vcov
 from .reparam import (
     SlBlock,
     build_gaussian_reparameterized_system,
@@ -42,6 +44,8 @@ __all__ = [
     "criterion_gcv_gaussian",
     "criterion_ml_reml_exact",
     "criterion_ml_reml",
+    "criterion_ml_reml_gaussian_dynamic_joint",
+    "criterion_ml_reml_pirls",
     "criterion_gcv_pirls",
     "criterion_ubre_pirls",
     "criterion_gradient",
@@ -56,6 +60,7 @@ __all__ = [
     "sp_vcov",
     "gam_vcomp",
     "one_se_rule",
+    "optimizer_endpoint_diagnostics",
     "SlBlock",
     "reparameterize_smooth",
     "can_use_simple_ml_reml_structure",

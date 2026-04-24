@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 import numpy as np
-from scipy.linalg import cho_factor, cho_solve, pinvh
 
 from ..._mgcv_constants import LOG_GUARD_MIN
 from ..._model_state import _fit_intercept
@@ -21,6 +20,7 @@ from ..linalg.stacked_qr import (
     _stacked_penalized_ls_nonneg_solution,
     build_penalized_qr_state_nonnegative,
     penalty_sqrt_rows,
+    solve_gaussian_penalized_ls_stacked_qr,
 )
 from ..penalized_system import stabilized_cholesky_solve
 
@@ -182,20 +182,26 @@ def irls_core(
     else:
         penalty_rank_rows = np.asarray(penalty_rank_rows, dtype=np.float64)
 
-    def _ill_conditioned_or_rank_deficient(A_curr):
-        rank_deficient = np.linalg.matrix_rank(A_curr) < A_curr.shape[0]
-        try:
-            cond_A = float(np.linalg.cond(A_curr))
-        except np.linalg.LinAlgError:
-            cond_A = np.inf
-        return rank_deficient or (not np.isfinite(cond_A)) or cond_A > 1e12
-
     last_stacked_qr_state = None
 
     def _stacked_qr_penalized_step(X_curr, w_curr, rhs_curr, *, rhs_is_weighted):
         nonlocal last_stacked_qr_state
         if penalty_sqrt.shape[0] == 0 or penalty_rank_rows.shape[0] == 0:
-            raise np.linalg.LinAlgError("stacked QR requires non-empty penalty rows.")
+            z_curr = np.asarray(rhs_curr, dtype=np.float64).ravel().copy()
+            if rhs_is_weighted:
+                positive = np.asarray(w_curr, dtype=np.float64) > 0.0
+                z_weighted = z_curr.copy()
+                z_curr.fill(0.0)
+                z_curr[positive] = (
+                    z_weighted[positive]
+                    / np.asarray(w_curr, dtype=np.float64)[positive]
+                )
+            XtW_curr = X_curr.T * np.asarray(w_curr, dtype=np.float64)
+            A_curr = XtW_curr @ X_curr + S
+            b_curr = XtW_curr @ z_curr
+            coef_curr, _, _, _ = stabilized_cholesky_solve(A_curr, b_curr)
+            last_stacked_qr_state = None
+            return np.asarray(coef_curr, dtype=np.float64)
         z_curr = np.asarray(rhs_curr, dtype=np.float64).ravel().copy()
         if rhs_is_weighted:
             positive = w_curr > 0.0
@@ -391,11 +397,14 @@ def irls_core(
         mu = mu0
         eta = family.link(mu)
     else:
-        eta = (
-            family.link(family.initialize_mu(y))
-            if coef_start is None
-            else offset + X @ beta
-        )
+        if coef_start is None:
+            try:
+                mu_init = family.initialize_mu(y, weights=weights)
+            except TypeError:
+                mu_init = family.initialize_mu(y)
+            eta = family.link(mu_init)
+        else:
+            eta = offset + X @ beta
         mu = family.inverse_link(eta)
 
     null_beta = np.zeros_like(beta)
@@ -452,15 +461,11 @@ def irls_core(
         XtW = X_g.T * W
         XtWX = XtW @ X_g
         A = XtWX + S
-        b = XtW @ z_work
 
         try:
-            if force_stacked_qr or _ill_conditioned_or_rank_deficient(A):
-                beta_prop = _stacked_qr_penalized_step(
-                    X_g, W, z_work, rhs_is_weighted=rhs_is_weighted
-                )
-            else:
-                beta_prop, _, _, _ = stabilized_cholesky_solve(A, b)
+            beta_prop = _stacked_qr_penalized_step(
+                X_g, W, z_work, rhs_is_weighted=rhs_is_weighted
+            )
         except (np.linalg.LinAlgError, ValueError):
             if _use_exact_extended_negbin_terms(family):
                 Deta2_full = np.asarray(work_terms["Deta2_full"], dtype=np.float64)
@@ -521,20 +526,15 @@ def irls_core(
                 break
             XtW = X_pos.T * W_pos
             XtWX = XtW @ X_pos
-            A = XtWX + S
-            b = XtW @ z_pos
             grad_good = np.zeros_like(good, dtype=bool)
             grad_good[np.flatnonzero(good)[good_pos]] = True
             grad_w = np.asarray(W_pos, dtype=np.float64)
             grad_z = np.asarray(z_pos, dtype=np.float64)
             grad_rhs_is_weighted = rhs_is_weighted
             try:
-                if force_stacked_qr or _ill_conditioned_or_rank_deficient(A):
-                    beta_prop = _stacked_qr_penalized_step(
-                        X_pos, W_pos, z_pos, rhs_is_weighted=rhs_is_weighted
-                    )
-                else:
-                    beta_prop, _, _, _ = stabilized_cholesky_solve(A, b)
+                beta_prop = _stacked_qr_penalized_step(
+                    X_pos, W_pos, z_pos, rhs_is_weighted=rhs_is_weighted
+                )
             except (np.linalg.LinAlgError, ValueError):
                 failed_step = True
                 failure_reason = "linear_solve_failed"
@@ -742,7 +742,13 @@ def irls_core(
     z_work = np.zeros_like(y, dtype=np.float64)
     z_work[good] = z_g
 
-    XtW = X_g.T * W_g
+    # Mirror `mgcv/src/gdi.c::gdi1()`: the reported post-fit covariance / EDF
+    # objects are built from the Fisher-weighted system (`wf`), even when the
+    # PIRLS coefficient updates used full-Newton working weights (`w`).
+    cov_W_g = np.asarray(fisher_W_g, dtype=np.float64)
+    cov_z_g = np.asarray((eta_g - off_g) + (y_g - mu_g) / mu_eta_g, dtype=np.float64)
+
+    XtW = X_g.T * cov_W_g
     XtWX = XtW @ X_g
     A = XtWX + S
     beta_report = np.asarray(beta, dtype=np.float64).copy()
@@ -758,14 +764,10 @@ def irls_core(
         and np.all(np.isfinite(W_g))
         and np.all(W_g >= 0.0)
     ):
-        b_report = XtW @ z_g
         try:
-            if force_stacked_qr or _ill_conditioned_or_rank_deficient(A):
-                beta_refresh = _stacked_qr_penalized_step(
-                    X_g, W_g, z_g, rhs_is_weighted=False
-                )
-            else:
-                beta_refresh, _, _, _ = stabilized_cholesky_solve(A, b_report)
+            beta_refresh = _stacked_qr_penalized_step(
+                X_g, W_g, z_g, rhs_is_weighted=False
+            )
         except (np.linalg.LinAlgError, ValueError):
             beta_refresh = None
         if beta_refresh is not None:
@@ -780,32 +782,42 @@ def irls_core(
                     eta_report = np.asarray(eta_refresh, dtype=np.float64)
                     mu_report = np.asarray(mu_refresh, dtype=np.float64)
 
-    _, cA, loA, jitter_A = stabilized_cholesky_solve(
-        A, np.zeros(X.shape[1], dtype=np.float64)
-    )
-    if float(jitter_A) == 0.0:
+    if penalty_sqrt.shape[0] == 0 or penalty_rank_rows.shape[0] == 0:
+        _, cA, loA, _ = stabilized_cholesky_solve(
+            A, np.zeros(X.shape[1], dtype=np.float64)
+        )
         log_det_xtwx_plus_penalty = 2.0 * float(np.sum(np.log(np.abs(np.diag(cA)))))
+        A_inv = stabilized_cholesky_solve(
+            A,
+            np.eye(A.shape[0], dtype=np.float64),
+        )[0]
+        H_coef = A_inv @ XtWX
+        trace_H = float(np.trace(H_coef))
+        stacked = None
+        penalized_system_rank = int(np.linalg.matrix_rank(A))
+        dropped_column_indices = np.zeros((0,), dtype=np.int64)
     else:
-        try:
-            cA0, _ = cho_factor(A, check_finite=False)
-            log_det_xtwx_plus_penalty = 2.0 * float(
-                np.sum(np.log(np.abs(np.diag(cA0))))
-            )
-        except np.linalg.LinAlgError:
-            log_det_xtwx_plus_penalty = float("nan")
-    try:
-        if float(jitter_A) == 0.0:
-            A_inv = cho_solve((cA, loA), np.eye(A.shape[0]), check_finite=False)
-        else:
-            cA0, loA0 = cho_factor(A, check_finite=False)
-            A_inv = cho_solve((cA0, loA0), np.eye(A.shape[0]), check_finite=False)
-    except np.linalg.LinAlgError:
-        # Do not propagate jitter from the solve path into the reported
-        # covariance matrix: mgcv tracks the near-singular system itself.
-        A_inv = pinvh(0.5 * (A + A.T), check_finite=False)
-
-    H_coef = A_inv @ XtWX
-    trace_H = float(np.trace(H_coef))
+        stacked = solve_gaussian_penalized_ls_stacked_qr(
+            X_g,
+            cov_z_g,
+            cov_W_g,
+            S,
+            penalty_rank_rows=penalty_rank_rows,
+            coef_method=coef_method,
+            near_singular_null_pin=near_singular_null_pin,
+        )
+        A = np.asarray(stacked["A"], dtype=np.float64)
+        XtWX = np.asarray(stacked["XtWX"], dtype=np.float64)
+        A_inv = np.asarray(stacked["A_inv"], dtype=np.float64)
+        H_coef = np.asarray(stacked["coef_hat_matrix"], dtype=np.float64)
+        log_det_xtwx_plus_penalty = float(stacked["log_det_XtWX_plus_penalty"])
+        cov_root = np.asarray(stacked["covariance_root"], dtype=np.float64)
+        WX_rV = np.asarray(stacked["WX_sqrt"], dtype=np.float64) @ cov_root
+        trace_H = float(np.sum(WX_rV * WX_rV))
+        penalized_system_rank = int(stacked["penalized_system_rank"])
+        dropped_column_indices = np.asarray(
+            stacked["dropped_column_indices"], dtype=np.int64
+        )
     edf = trace_H
 
     if hasattr(family, "estimate_dispersion"):
@@ -822,10 +834,11 @@ def irls_core(
     loglik = _weighted_loglik(mu, scale)
 
     Vp, Vf, H_coef = build_bayes_and_freq_covariances(scale, A_inv, XtWX)
-    if last_stacked_qr_state is None:
-        penalized_system_rank = int(np.linalg.matrix_rank(A))
-        dropped_column_indices = np.zeros((0,), dtype=np.int64)
-    else:
+    if stacked is not None:
+        cov_root = np.asarray(stacked["covariance_root"], dtype=np.float64)
+        Vp = np.asarray(scale * (cov_root @ cov_root.T), dtype=np.float64)
+        Vp = 0.5 * (Vp + Vp.T)
+    if last_stacked_qr_state is not None:
         penalized_system_rank = int(last_stacked_qr_state["penalized_system_rank"])
         dropped_column_indices = np.asarray(
             last_stacked_qr_state["dropped_column_indices"], dtype=np.int64

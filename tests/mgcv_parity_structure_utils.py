@@ -39,7 +39,9 @@ def design_structure(model: GAM) -> dict[str, Any]:
     blocks: list[dict[str, Any]] = []
     for tb in compiled.compiled_terms:
         B = np.asarray(design[:, tb.coef_slice], dtype=np.float64)
-        pbs = [pb for pb in compiled.compiled_penalties if pb.coef_slice == tb.coef_slice]
+        pbs = [
+            pb for pb in compiled.compiled_penalties if pb.coef_slice == tb.coef_slice
+        ]
         meta = dict(tb.metadata or {})
         cmeta = dict(getattr(tb, "constructor_metadata", {}) or {})
         blocks.append(

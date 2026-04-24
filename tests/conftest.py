@@ -7,6 +7,15 @@ import pandas as pd
 import pytest
 import torch
 
+from tests._taxonomy_registry import (
+    _DEFAULT_MARKS_BY_FILE,
+    _FAMILY_MARK_NAMES,
+    _METHOD_MARK_NAMES,
+    _SELECTION_CAPABLE_FILES,
+    _SMOOTH_MARK_NAMES,
+    _STATUS_MARKS_BY_FILE,
+)
+
 
 @pytest.fixture(autouse=True)
 def _set_seeds():
@@ -58,98 +67,6 @@ def mixed_data():
     y = (X["num1"] * 0.3 + rng.normal(scale=0.1, size=40)).to_numpy()
     return X, y
 
-
-_SMOOTH_MARK_NAMES = {
-    "cr": "smooth_cr",
-    "cs": "smooth_cs",
-    "cc": "smooth_cc",
-    "ps": "smooth_ps",
-    "tp": "smooth_tp",
-    "ts": "smooth_ts",
-    "te": "smooth_te",
-    "ti": "smooth_ti",
-    "t2": "smooth_t2",
-    "gp": "smooth_gp",
-    "fs": "smooth_fs",
-    "sz": "smooth_sz",
-    "mrf": "smooth_mrf",
-    "re": "smooth_re",
-}
-
-_FAMILY_MARK_NAMES = {
-    "gaussian": "family_gaussian",
-    "binomial": "family_binomial",
-    "poisson": "family_poisson",
-    "gamma": "family_gamma",
-    "negbin": "family_negbin",
-    "gaulss": "family_gaulss",
-    "gammals": "family_gammals",
-    "gevlss": "family_gevlss",
-    "shashlss": "family_shashlss",
-    "ziplss": "family_ziplss",
-    "general": "family_general",
-}
-
-_METHOD_MARK_NAMES = {
-    "fixed": "method_fixed",
-    "reml": "method_reml",
-    "ml": "method_ml",
-    "laml": "method_laml",
-}
-
-_STATUS_MARKS_BY_FILE = {
-    "test_mgcv_known_gaps.py": {"status_known_gap"},
-    "test_mgcv_parity_failing_and_warnings.py": {"status_failing_or_warning"},
-    "test_gam_mgcv_patch_regressions.py": {"status_regression"},
-}
-
-_DEFAULT_MARKS_BY_FILE = {
-    "test_mgcv_parity.py": {"surface_snapshot"},
-    "test_mgcv_snapshot_parity.py": {"surface_snapshot"},
-    "test_mgcv_additional_scenarios.py": {"surface_snapshot"},
-    "test_mgcv_pc_id_parity.py": {"surface_snapshot"},
-    "test_mgcv_known_gaps.py": {"surface_snapshot"},
-    "test_mgcv_parity_failing_and_warnings.py": {"surface_snapshot"},
-    "test_mgcv_output_parity.py": {"surface_output"},
-    "test_mgcv_smoothcon_parity.py": {"surface_smoothcon"},
-    "test_mgcv_raw_constructor_parity.py": {"surface_smoothcon"},
-    "test_mgcv_trace_parity.py": {"surface_trace"},
-    "test_mgcv_newton_parity.py": {"surface_trace"},
-    "test_mgcv_newton_exact_parity.py": {"surface_trace"},
-    "test_mgcv_k_check_parity.py": {"surface_kcheck"},
-    "test_mgcv_score_gamma_parity.py": {"surface_derivatives"},
-    "test_gam_gaussian_smoothness_postprocess_parity.py": {
-        "surface_derivatives",
-        "family_gaussian",
-    },
-    "test_general_family_mgcv_parity.py": {
-        "surface_derivatives",
-        "family_general",
-    },
-    "test_mgcv_gamlss_core.py": {"surface_derivatives", "family_general"},
-    "test_mgcv_gamlss_gaulss.py": {"surface_derivatives", "family_gaulss"},
-    "test_mgcv_gamlss_gammals.py": {"surface_derivatives", "family_gammals"},
-    "test_mgcv_gamlss_gevlss.py": {"surface_derivatives", "family_gevlss"},
-    "test_mgcv_gamlss_shashlss.py": {"surface_derivatives", "family_shashlss"},
-    "test_mgcv_gamlss_ziplss.py": {"surface_derivatives", "family_ziplss"},
-    "test_mgcv_gaussian_backend_selection.py": {
-        "surface_backend",
-        "family_gaussian",
-    },
-    "test_gam_mgcv_patch_regressions.py": {"surface_regression"},
-}
-
-_SELECTION_CAPABLE_FILES = {
-    "test_mgcv_parity.py",
-    "test_mgcv_snapshot_parity.py",
-    "test_mgcv_additional_scenarios.py",
-    "test_mgcv_pc_id_parity.py",
-    "test_mgcv_known_gaps.py",
-    "test_mgcv_output_parity.py",
-    "test_mgcv_trace_parity.py",
-    "test_mgcv_score_gamma_parity.py",
-    "test_general_family_mgcv_parity.py",
-}
 
 _SURFACE_HINTS = {
     "surface_output": ("anova", "predict", "prediction", "residual", "vcov", "terms"),

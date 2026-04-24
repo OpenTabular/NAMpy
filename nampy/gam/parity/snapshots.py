@@ -29,7 +29,8 @@ from .._model_state import (
     _summary_R,
     _term_blocks_seq,
 )
-from ..selection import (
+from ..predict.predictions import _prediction_term_groups
+from ..smoothing_selection import (
     criterion_ml_reml,
     criterion_ml_reml_gaussian_dynamic_joint,
     criterion_ml_reml_pirls,
@@ -246,6 +247,12 @@ def _normalize_mgcv_term_label(label):
     text = str(label)
     text = re.sub(r",\s*bs\s*=\s*(\"[^\"]*\"|'[^']*'|[^,)]+)", "", text)
     text = re.sub(r",\s*k\s*=\s*[^,)]+", "", text)
+    text = re.sub(r",\s*id\s*=\s*(\"[^\"]*\"|'[^']*'|[^,)]+)", "", text)
+    text = re.sub(
+        r"^([a-zA-Z0-9_]+\([^)]*?)(?:,\s*by\s*=\s*([^)]+))\)$",
+        lambda m: f"{m.group(1)}):{m.group(2).strip()}",
+        text,
+    )
     return text
 
 
@@ -405,7 +412,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
         response = core.predict(X=None, type="response")
         link = core.predict(X=None, type="link")
         terms = core.predict(X=None, type="terms")
-        lpmatrix = core.lpmatrix(core.X_)
+        lpmatrix = core.predict(X=None, type="lpmatrix")
         _, se_response = core.predict(X=None, type="response", return_se=True)
         _, se_link = core.predict(X=None, type="link", return_se=True)
     else:
@@ -415,10 +422,14 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
         lpmatrix = predict_api.lpmatrix(X)
         _, se_response = predict_api.predict(X=X, type="response", return_se=True)
         _, se_link = predict_api.predict(X=X, type="link", return_se=True)
+    terms = np.asarray(terms, dtype=np.float64)
+    if terms.ndim == 1:
+        terms = terms[:, None]
 
     diagnostics = {}
 
     smooth_labels = []
+    smooth_blocks = []
     smooth_cov_bayes = []
     smooth_cov_freq = []
     smooth_edf1_vals = []
@@ -433,6 +444,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
         for tb in _term_blocks_seq(core):
             if str(getattr(tb, "term_type", "")) == "parametric":
                 continue
+            smooth_blocks.append(tb)
             sl = tb.coef_slice
             # sl indexes coef_ (no intercept); Vp_, Vf_, H include the intercept column
             x_sl = slice(sl.start + x_off, sl.stop + x_off)
@@ -495,8 +507,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
             "labels": list(smooth_labels),
             "coef_blocks": [
                 np.asarray(_coef(core)[tb.coef_slice], dtype=np.float64).tolist()
-                for tb in _term_blocks_seq(core)
-                if str(getattr(tb, "term_type", "")) != "parametric"
+                for tb in smooth_blocks
             ],
             "r_blocks": [
                 np.asarray(
@@ -508,8 +519,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
                     ],
                     dtype=np.float64,
                 ).tolist()
-                for tb in _term_blocks_seq(core)
-                if str(getattr(tb, "term_type", "")) != "parametric"
+                for tb in smooth_blocks
             ],
             "edf": np.asarray(
                 [
@@ -524,12 +534,19 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
             - float(_coef_column_offset(core))
             - float(_edf_total(core)),
         }
+        if str(getattr(core.family, "family_class", "")).lower() == "general":
+            smooth_term_cols = list(range(len(smooth_blocks)))
+        else:
+            smooth_term_cols = [
+                i
+                for i, group in enumerate(_prediction_term_groups(core))
+                if str(group.get("term_type", "")) != "parametric"
+            ]
         diagnostics["smooth_function_space"] = {
             "labels": list(smooth_labels),
             "fitted": [
-                np.asarray(terms[:, i], dtype=np.float64).tolist()
-                for i, tb in enumerate(_term_blocks_seq(core))
-                if str(getattr(tb, "term_type", "")) != "parametric"
+                np.asarray(terms[:, term_col], dtype=np.float64).tolist()
+                for term_col in smooth_term_cols
             ],
             "variance_diag": [
                 np.asarray(
@@ -538,19 +555,36 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
                             np.asarray(
                                 lpmatrix[
                                     :,
-                                    int(tb.coef_slice.start) : int(tb.coef_slice.stop),
+                                    int(tb.coef_slice.start)
+                                    + _coef_column_offset(core) : int(
+                                        tb.coef_slice.stop
+                                    )
+                                    + _coef_column_offset(core),
                                 ],
                                 dtype=np.float64,
                             )
                             @ np.asarray(
-                                _cov_bayes(core)[tb.coef_slice, tb.coef_slice],
+                                _cov_bayes(core)[
+                                    int(tb.coef_slice.start)
+                                    + _coef_column_offset(core) : int(
+                                        tb.coef_slice.stop
+                                    )
+                                    + _coef_column_offset(core),
+                                    int(tb.coef_slice.start)
+                                    + _coef_column_offset(core) : int(
+                                        tb.coef_slice.stop
+                                    )
+                                    + _coef_column_offset(core),
+                                ],
                                 dtype=np.float64,
                             )
                         )
                         * np.asarray(
                             lpmatrix[
                                 :,
-                                int(tb.coef_slice.start) : int(tb.coef_slice.stop),
+                                int(tb.coef_slice.start)
+                                + _coef_column_offset(core) : int(tb.coef_slice.stop)
+                                + _coef_column_offset(core),
                             ],
                             dtype=np.float64,
                         ),
@@ -558,8 +592,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
                     ),
                     dtype=np.float64,
                 ).tolist()
-                for tb in _term_blocks_seq(core)
-                if str(getattr(tb, "term_type", "")) != "parametric"
+                for tb in smooth_blocks
             ],
         }
     else:
@@ -621,26 +654,21 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
     except Exception:
         diagnostics["one_se_rule"] = None
 
-    try:
-        diagnostics["residuals"] = {
-            "response": np.asarray(
-                predict_api.residuals(type="response"), dtype=np.float64
-            ).tolist(),
-            "working": np.asarray(
-                predict_api.residuals(type="working"), dtype=np.float64
-            ).tolist(),
-            "pearson": np.asarray(
-                predict_api.residuals(type="pearson"), dtype=np.float64
-            ).tolist(),
-            "scaled_pearson": np.asarray(
-                predict_api.residuals(type="scaled.pearson"), dtype=np.float64
-            ).tolist(),
-            "deviance": np.asarray(
-                predict_api.residuals(type="deviance"), dtype=np.float64
-            ).tolist(),
-        }
-    except Exception:
-        diagnostics["residuals"] = None
+    residuals_block = {}
+    for key, resid_type in (
+        ("response", "response"),
+        ("working", "working"),
+        ("pearson", "pearson"),
+        ("scaled_pearson", "scaled.pearson"),
+        ("deviance", "deviance"),
+    ):
+        try:
+            residuals_block[key] = np.asarray(
+                predict_api.residuals(type=resid_type), dtype=np.float64
+            ).tolist()
+        except Exception:
+            residuals_block[key] = None
+    diagnostics["residuals"] = residuals_block
 
     try:
         deviance_residuals = np.asarray(
@@ -704,10 +732,10 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
         "predictions": {
             "response": _as_pred_or_scalar_array(response),
             "link": _as_pred_or_scalar_array(link),
-            "terms": np.asarray(terms, dtype=np.float64).tolist(),
-            "lpmatrix": np.asarray(lpmatrix, dtype=np.float64).tolist(),
-            "se_response": np.asarray(se_response, dtype=np.float64).tolist(),
-            "se_link": np.asarray(se_link, dtype=np.float64).tolist(),
+            "terms": _as_pred_or_scalar_array(terms),
+            "lpmatrix": _as_pred_or_scalar_array(lpmatrix),
+            "se_response": _as_pred_or_scalar_array(se_response),
+            "se_link": _as_pred_or_scalar_array(se_link),
         },
         "parity": {
             "criterion_view": parity_view,

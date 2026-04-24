@@ -10,20 +10,22 @@ from ..._model_state import (
     _n_smoothing_params,
     _penalty_blocks_seq,
 )
+from ...fit.backends import GENERAL_FAMILY_BACKEND
 from ...fit.penalized_system import build_full_design
+from ...linalg.norms import r_matrix_norm_max_abs
 from ..criteria import resolve_ml_reml_scoring_backend
 
 
 def supports_criterion_gradient(model, method):
     method = str(method).lower()
-    if method in {"gcv", "ubre", "aic", "ubreaic"}:
+    if method in {"gcv", "ncv", "qncv", "ubre", "aic", "ubreaic"}:
         return True
     if method not in {"ml", "reml", "laml"}:
         return False
     backend = resolve_ml_reml_scoring_backend(model, method=method)
-    if backend in {"gaussian_exact", "gaussian_dynamic"} and method in {"reml", "laml"}:
+    if backend in {"gaussian_exact", "gaussian_dynamic"}:
         return True
-    if backend == "general_fit5":
+    if backend == GENERAL_FAMILY_BACKEND:
         return True
     if (
         backend == "pirls_laplace"
@@ -32,9 +34,7 @@ def supports_criterion_gradient(model, method):
             getattr(model.family, "known_scale", None) is not None
             or str(getattr(model.family, "name", "")).lower() == "gamma"
         )
-        and bool(
-            getattr(model.family, "supports_exact_pirls_first_derivatives", False)
-        )
+        and bool(getattr(model.family, "supports_exact_pirls_first_derivatives", False))
     ):
         return True
     return False
@@ -44,12 +44,14 @@ def supports_criterion_hessian(model, method):
     method = str(method).lower()
     if method in {"gcv", "ubre", "aic", "ubreaic"}:
         return True
+    if method in {"ncv", "qncv"}:
+        return False
     if method not in {"ml", "reml", "laml"}:
         return False
     backend = resolve_ml_reml_scoring_backend(model, method=method)
-    if backend in {"gaussian_exact", "gaussian_dynamic"} and method in {"reml", "laml"}:
+    if backend in {"gaussian_exact", "gaussian_dynamic"}:
         return True
-    if backend == "general_fit5":
+    if backend == GENERAL_FAMILY_BACKEND:
         return True
     if (
         backend == "pirls_laplace"
@@ -82,8 +84,21 @@ def _initial_smoothing_params_from_design_balance(model, y):
     X = build_full_design(_design_matrix(model), fit_intercept=_fit_intercept(model))
     y = np.asarray(y, dtype=np.float64).ravel()
 
+    prior_weights = getattr(model, "prior_weights_", None)
+    if prior_weights is None:
+        prior_w = np.ones(y.shape[0], dtype=np.float64)
+    else:
+        prior_w = np.asarray(prior_weights, dtype=np.float64).ravel()
+        if prior_w.shape != y.shape or np.any(~np.isfinite(prior_w)):
+            return None
+
     try:
-        mu0 = np.asarray(model.family.initialize_mu(y), dtype=np.float64)
+        try:
+            mu0 = np.asarray(
+                model.family.initialize_mu(y, weights=prior_w), dtype=np.float64
+            )
+        except TypeError:
+            mu0 = np.asarray(model.family.initialize_mu(y), dtype=np.float64)
         eta0 = np.asarray(model.family.link(mu0), dtype=np.float64)
         mu_eta = np.asarray(model.family.mu_eta(eta0), dtype=np.float64)
         var_mu = np.asarray(model.family.variance(mu0), dtype=np.float64)
@@ -93,7 +108,7 @@ def _initial_smoothing_params_from_design_balance(model, y):
     # Heuristic from weighted column norms vs penalty diagonals (Wood-style init):
     # w <- sqrt(weights * mu.eta(eta)^2 / variance(mu))
     w_used = np.asarray(
-        mu_eta * mu_eta / np.maximum(var_mu, 1e-12),
+        prior_w * mu_eta * mu_eta / np.maximum(var_mu, 1e-12),
         dtype=np.float64,
     )
 
@@ -168,18 +183,359 @@ def _initial_smoothing_params_from_design_balance(model, y):
     return def_sp
 
 
+def _mgcv_initial_sp_from_packed_penalties(
+    X_weighted: np.ndarray,
+    penalties: list[np.ndarray],
+    offsets_1based: np.ndarray,
+    *,
+    L: np.ndarray | None = None,
+    lsp0: np.ndarray | None = None,
+) -> np.ndarray | None:
+    """
+    Mirror `mgcv::initial.sp()` plus the linked-penalty regression in
+    `mgcv::initial.spg()` for ordinary families.
+
+    `penalties` and `offsets_1based` are the packed `estimate.gam` penalty
+    blocks (`G$S`, `G$off`), not full assembled penalty matrices.
+    """
+    X_weighted = np.asarray(X_weighted, dtype=np.float64)
+    if X_weighted.ndim != 2 or len(penalties) == 0:
+        return None
+
+    ldxx = np.sum(X_weighted * X_weighted, axis=0)
+    ldss = np.zeros_like(ldxx, dtype=np.float64)
+    penalized = np.zeros_like(ldxx, dtype=bool)
+    def_sp = np.zeros(len(penalties), dtype=np.float64)
+
+    for i, (S_i, off_i) in enumerate(zip(penalties, offsets_1based)):
+        S_i = np.asarray(S_i, dtype=np.float64)
+        if S_i.ndim != 2 or S_i.shape[0] != S_i.shape[1] or S_i.size == 0:
+            return None
+
+        maS = float(np.max(np.abs(S_i)))
+        if not np.isfinite(maS) or maS <= 0.0:
+            return None
+
+        rsS = np.mean(np.abs(S_i), axis=1)
+        csS = np.mean(np.abs(S_i), axis=0)
+        dS_abs = np.diag(np.abs(S_i))
+        thresh = np.finfo(np.float64).eps ** EIG_TOL_POWER * maS
+        active = (rsS > thresh) & (csS > thresh) & (dS_abs > thresh)
+        if not np.any(active):
+            return None
+
+        start = int(off_i) - 1
+        stop = start + int(S_i.shape[1])
+        if start < 0 or stop > ldxx.size:
+            return None
+
+        xx = np.asarray(ldxx[start:stop][active], dtype=np.float64)
+        ss = np.asarray(np.diag(S_i)[active], dtype=np.float64)
+        if xx.size == 0 or ss.size == 0:
+            return None
+
+        size_xx = float(np.mean(xx))
+        size_s = float(np.mean(ss))
+        if not np.isfinite(size_xx) or not np.isfinite(size_s) or size_s <= 0.0:
+            return None
+
+        def_sp[i] = size_xx / size_s
+        ldss[start:stop] += float(def_sp[i]) * np.diag(S_i)
+        penalized[start:stop] |= active
+
+    use = (ldss > 0.0) & penalized & (ldxx > 0.0)
+    if not np.any(use):
+        return None
+
+    xx = np.asarray(ldxx[use], dtype=np.float64)
+    ss = np.asarray(ldss[use], dtype=np.float64)
+    ratio = float(np.mean(xx / (xx + ss)))
+    while ratio > 0.4:
+        def_sp *= 10.0
+        ss *= 10.0
+        ratio = float(np.mean(xx / (xx + ss)))
+    while ratio < 0.4:
+        def_sp /= 10.0
+        ss /= 10.0
+        ratio = float(np.mean(xx / (xx + ss)))
+
+    if L is not None:
+        L = np.asarray(L, dtype=np.float64)
+        lsp = np.log(np.maximum(def_sp, 1e-300))
+        if lsp0 is None:
+            lsp0 = np.zeros(L.shape[0], dtype=np.float64)
+        else:
+            lsp0 = np.asarray(lsp0, dtype=np.float64).ravel()
+        if lsp0.shape != (L.shape[0],):
+            return None
+        rhs = np.asarray(lsp - lsp0, dtype=np.float64)
+        coef, *_ = np.linalg.lstsq(L, rhs, rcond=None)
+        def_sp = np.exp(np.asarray(coef, dtype=np.float64))
+
+    return np.maximum(np.asarray(def_sp, dtype=np.float64), 1e-12)
+
+
 def _initial_smoothing_params_mgcv_style(model, y):
     penalty_blocks = tuple(_penalty_blocks_seq(model))
     n_sp = _n_smoothing_params(model)
     if not penalty_blocks or n_sp == 0:
         return None
 
-    X = build_full_design(_design_matrix(model), fit_intercept=_fit_intercept(model))
-    y = np.asarray(y, dtype=np.float64).ravel()
-    nobs, q = X.shape
+    family_class = str(
+        getattr(getattr(model, "family", None), "family_class", "")
+    ).lower()
+    if family_class == "general":
+        try:
+            from scipy.linalg.lapack import get_lapack_funcs
 
+            from ...families.gamlss._base import (
+                _qr_coef_pivoted,
+                scipy_qr,
+            )
+            from ...fit.solvers.general_family_solver import (
+                _general_family_t2_db_drho_sign_map,
+                build_general_family_setup_state,
+            )
+            from ...linalg import upper_triangular_rrank
+            from ..reparam import build_estimate_gam_setup_state
+
+            def _r_default_matrix_norm(x):
+                x = np.asarray(x, dtype=np.float64)
+                if x.ndim != 2 or x.size == 0:
+                    return float(np.max(np.abs(x))) if x.size else 0.0
+                return float(np.max(np.sum(np.abs(x), axis=0)))
+
+            def _pen_reg_initial_spg(X, E, y):
+                # Mirror `mgcv/R/gamlss.r::pen.reg()` inside
+                # `mgcv::initial.spg()`. This path needs R's default
+                # `norm(R)`/`norm(E)` behavior (matrix type "O": maximum column
+                # sum), not the row-sum helper used elsewhere in NAMpy.
+                X = np.asarray(X, dtype=np.float64)
+                E = np.asarray(E, dtype=np.float64)
+                y = np.asarray(y, dtype=np.float64)
+
+                if float(np.sum(np.abs(E))) == 0.0:
+                    return _qr_coef_pivoted(X, y)
+
+                Qx, R_piv, piv = scipy_qr(
+                    X,
+                    mode="economic",
+                    pivoting=True,
+                    check_finite=False,
+                )
+                r = int(R_piv.shape[1])
+                rr = upper_triangular_rrank(R_piv)
+
+                R = np.zeros_like(R_piv)
+                R[:, np.asarray(piv, dtype=int)] = R_piv
+                Qy = np.asarray(Qx.T @ y, dtype=np.float64)[:r]
+
+                norm_R = _r_default_matrix_norm(R)
+                norm_E = _r_default_matrix_norm(E)
+                if not np.isfinite(norm_R) or norm_R <= 0.0:
+                    return np.zeros(r, dtype=np.float64)
+                if not np.isfinite(norm_E) or norm_E <= 0.0:
+                    return _qr_coef_pivoted(X, y)
+
+                k = 0.01 * norm_R / norm_E
+
+                def _qrr_stats(k_scale):
+                    A = np.vstack([R, E * float(k_scale)])
+                    Q, Rq, pivq = scipy_qr(
+                        A,
+                        mode="economic",
+                        pivoting=True,
+                        check_finite=False,
+                    )
+                    edf = float(np.sum(np.asarray(Q[:r, :], dtype=np.float64) ** 2))
+                    rank_q = upper_triangular_rrank(Rq)
+                    return A, Q, Rq, pivq, edf, rank_q
+
+                A, Qq, Rq, pivq, edf, rank_q = _qrr_stats(k)
+                re = (
+                    min(int(np.sum(np.sum(np.abs(E), axis=0) != 0.0)), int(E.shape[0]))
+                    - rank_q
+                    + rr
+                )
+
+                while edf > rr - 0.1 * re:
+                    k *= 10.0
+                    A, Qq, Rq, pivq, edf, rank_q = _qrr_stats(k)
+
+                while edf < 0.85 * rr:
+                    k /= 5.0
+                    A, Qq, Rq, pivq, edf, rank_q = _qrr_stats(k)
+
+                coef = _qr_coef_pivoted(
+                    A,
+                    np.concatenate([Qy, np.zeros(E.shape[0], dtype=np.float64)]),
+                )
+                coef[~np.isfinite(coef)] = 0.0
+                return coef
+
+            fit5_setup = build_general_family_setup_state(
+                model,
+                np.ones(n_sp, dtype=np.float64),
+                score_type="REML",
+            )
+            exact_setup = build_estimate_gam_setup_state(model)
+            X = np.asarray(fit5_setup.X_initial, dtype=np.float64).copy()
+            E_init = np.asarray(exact_setup.Eb, dtype=np.float64).copy()
+            # `mgcv::initial.spg()` evaluates the family initializer on the
+            # `Sl.initial.repara()` design, but the sign choices of the trailing
+            # low-eigenvalue directions in multi-penalty `Sl` blocks matter
+            # because `gaulss`/other general-family initializers use `E` only as a
+            # regularizer. The broader fit path is orientation-invariant, but the
+            # temporary `initial.spg` Hessian is not. This local sign correction
+            # is only needed for tensor-ANOVA `t2` blocks; ordinary multi-penalty
+            # smooths should keep the raw mgcv eigenvector signs.
+            for block in fit5_setup.Sl:
+                D_block = np.asarray(getattr(block, "D", None), dtype=np.float64)
+                if (
+                    D_block.ndim != 2
+                    or len(block.S) <= 1
+                    or str(getattr(block, "sign_mode", "raw")).lower() != "tensor_anova"
+                ):
+                    continue
+                n_tail = min(len(block.S), int(D_block.shape[1]))
+                if n_tail <= 0:
+                    continue
+                tail_cols = np.arange(block.start0, block.stop0, dtype=int)[-n_tail:]
+                tail_sums = np.sum(D_block[:, -n_tail:], axis=0)
+                for j, col in enumerate(tail_cols):
+                    if float(tail_sums[j]) > 0.0:
+                        X[:, col] *= -1.0
+                        if E_init.ndim == 2 and col < E_init.shape[1]:
+                            E_init[:, col] *= -1.0
+            sign_map = _general_family_t2_db_drho_sign_map(model, fit5_setup)
+            if sign_map is None and len(fit5_setup.jj) > 2:
+                sign_layout = type("_InitialSpgSignLayout", (), {})()
+                sign_layout.jj = list(fit5_setup.jj[:2])
+                sign_layout.X_full = fit5_setup.X_full
+                sign_layout.reduced_to_full_idx = fit5_setup.reduced_to_full_idx
+                sign_map = _general_family_t2_db_drho_sign_map(model, sign_layout)
+            if sign_map is not None and sign_map.shape == (X.shape[1],):
+                X = X * sign_map[None, :]
+                if E_init.ndim == 2 and E_init.shape[1] == sign_map.size:
+                    E_init = E_init * sign_map[None, :]
+            weights = (
+                np.ones_like(np.asarray(y, dtype=np.float64).ravel(), dtype=np.float64)
+                if getattr(model, "prior_weights_", None) is None
+                else np.asarray(model.prior_weights_, dtype=np.float64).ravel()
+            )
+            yv = np.asarray(y, dtype=np.float64).ravel()
+
+            if str(getattr(model.family, "name", "")).lower() == "gaulss":
+                start = np.zeros(X.shape[1], dtype=np.float64)
+                X1 = np.asarray(X[:, fit5_setup.jj[0]], dtype=np.float64)
+                E1 = np.asarray(E_init[:, fit5_setup.jj[0]], dtype=np.float64)
+                yt1 = yv.copy()
+                start1 = _pen_reg_initial_spg(X1, E1, yt1)
+                start[np.asarray(fit5_setup.jj[0], dtype=int)] = start1
+
+                mu_init = np.asarray(
+                    model.family.linfo[0].linkinv(X1 @ start1),
+                    dtype=np.float64,
+                )
+                lres1 = np.log(np.maximum(np.abs(yv - mu_init), 1e-300))
+                X2 = np.asarray(X[:, fit5_setup.jj[1]], dtype=np.float64)
+                E2 = np.asarray(E_init[:, fit5_setup.jj[1]], dtype=np.float64)
+                start2 = _pen_reg_initial_spg(X2, E2, lres1)
+                start[np.asarray(fit5_setup.jj[1], dtype=int)] = start2
+            else:
+                start = np.asarray(
+                    model.family.initialize(
+                        yv,
+                        X,
+                        fit5_setup.jj,
+                        offset=fit5_setup.offset_list,
+                        weights=weights,
+                        E=E_init,
+                    ),
+                    dtype=np.float64,
+                )
+            lbb = np.asarray(
+                model.family.ll(
+                    yv,
+                    X,
+                    fit5_setup.jj,
+                    start,
+                    weights,
+                    offset=fit5_setup.offset_list,
+                    deriv=1,
+                )["lbb"],
+                dtype=np.float64,
+            )
+            pstrf = get_lapack_funcs("pstrf", dtype=np.float64)
+            def_sp = np.zeros(len(exact_setup.S), dtype=np.float64)
+
+            for i, S_i in enumerate(exact_setup.S):
+                S_i = np.asarray(S_i, dtype=np.float64)
+                if S_i.size == 0:
+                    continue
+                start = int(exact_setup.off[i]) - 1
+                stop = start + int(S_i.shape[1])
+                if start < 0 or stop > lbb.shape[0]:
+                    continue
+                block_lbb = np.asarray(lbb[start:stop, start:stop], dtype=np.float64)
+                rank_i = int(exact_setup.rank[i])
+
+                if rank_i < S_i.shape[1]:
+                    _R, piv, _rank_p, _info = pstrf(S_i.copy(), lower=0)
+                    piv = np.asarray(piv, dtype=int).ravel() - 1
+                    Z = np.asarray(S_i[:, piv[:rank_i]], dtype=np.float64)
+                    zn = _r_default_matrix_norm(Z)
+                    if not np.isfinite(zn) or zn <= 0.0:
+                        continue
+                    Z = Z / zn
+                    ZHZ = -np.asarray(Z.T @ block_lbb @ Z, dtype=np.float64)
+                    ZSZ = np.asarray(Z.T @ S_i @ Z, dtype=np.float64)
+                else:
+                    ZHZ = -np.asarray(block_lbb, dtype=np.float64)
+                    ZSZ = np.asarray(S_i, dtype=np.float64)
+
+                num = r_matrix_norm_max_abs(ZHZ)
+                den = r_matrix_norm_max_abs(ZSZ)
+                if not np.isfinite(num) or not np.isfinite(den) or den <= 0.0:
+                    continue
+                def_sp[i] = 0.3 * num / den
+
+            ok = def_sp > 0.0
+            if not np.any(ok):
+                return None
+            def_sp[~ok] = 1.0
+            if exact_setup.L is not None:
+                L = np.asarray(exact_setup.L, dtype=np.float64)
+                lsp0 = np.asarray(exact_setup.lsp0, dtype=np.float64).ravel()
+                lsp = np.log(np.maximum(def_sp, 1e-300))
+                rhs = np.asarray(lsp - lsp0, dtype=np.float64)
+                coef, *_ = np.linalg.lstsq(L, rhs, rcond=None)
+                def_sp = np.exp(np.asarray(coef, dtype=np.float64))
+            return np.maximum(def_sp, 1e-12)
+        except Exception:
+            return None
+
+    from ..reparam import build_estimate_gam_setup_state
+
+    setup = build_estimate_gam_setup_state(model)
+    X = np.asarray(setup.X, dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64).ravel()
+    nobs, _q = X.shape
+
+    prior_weights = getattr(model, "prior_weights_", None)
+    if prior_weights is None:
+        prior_w = np.ones(nobs, dtype=np.float64)
+    else:
+        prior_w = np.asarray(prior_weights, dtype=np.float64).ravel()
+        if prior_w.shape != (nobs,) or np.any(~np.isfinite(prior_w)):
+            return None
     try:
-        mu0 = np.asarray(model.family.initialize_mu(y), dtype=np.float64)
+        try:
+            mu0 = np.asarray(
+                model.family.initialize_mu(y, weights=prior_w), dtype=np.float64
+            )
+        except TypeError:
+            mu0 = np.asarray(model.family.initialize_mu(y), dtype=np.float64)
         eta0 = np.asarray(model.family.link(mu0), dtype=np.float64)
         mu_eta = np.asarray(model.family.mu_eta(eta0), dtype=np.float64)
         var_mu = np.asarray(model.family.variance(mu0), dtype=np.float64)
@@ -188,73 +544,17 @@ def _initial_smoothing_params_mgcv_style(model, y):
 
     # mgcv::initial.spg for ordinary families:
     #   w <- sqrt(weights * mu.eta(eta)^2 / variance(mu))
-    w = np.sqrt(np.clip(mu_eta * mu_eta / np.maximum(var_mu, 1e-12), 1e-12, None))
-    Xw = w[:, None] * X
-
-    def_sp = np.zeros(n_sp, dtype=np.float64)
-    ldxx = np.sum(Xw * Xw, axis=0)
-    ldss = np.zeros(q, dtype=np.float64)
-    penalized = np.zeros(q, dtype=bool)
-
-    coef_offset = _coef_column_offset(model)
-    seen = np.zeros(n_sp, dtype=bool)
-
-    for pb in penalty_blocks:
-        j = int(pb.smoothing_index)
-        if seen[j]:
-            continue
-        seen[j] = True
-
-        S = np.asarray(pb.matrix, dtype=np.float64)
-        if S.size == 0:
-            continue
-
-        start = coef_offset + int(pb.coef_slice.start)
-        stop = coef_offset + int(pb.coef_slice.stop)
-        maS = float(np.max(np.abs(S)))
-        if not np.isfinite(maS) or maS <= 0.0:
-            continue
-
-        rsS = np.mean(np.abs(S), axis=1)
-        csS = np.mean(np.abs(S), axis=0)
-        dS = np.diag(np.abs(S))
-        thresh = np.finfo(np.float64).eps ** EIG_TOL_POWER * maS
-        ind = (rsS > thresh) & (csS > thresh) & (dS > thresh)
-        if not np.any(ind):
-            continue
-
-        xx = ldxx[start:stop][ind]
-        ss = np.diag(S)[ind]
-        if xx.size == 0 or ss.size == 0:
-            continue
-
-        size_xx = float(np.mean(xx))
-        size_s = float(np.mean(ss))
-        if not np.isfinite(size_xx) or not np.isfinite(size_s) or size_s <= 0.0:
-            continue
-
-        lam = size_xx / size_s
-        def_sp[j] = lam
-        ldss[start:stop] += lam * np.diag(S)
-        penalized[start:stop] |= ind
-
-    ok = def_sp > 0.0
-    if not np.any(ok):
-        return None
-    def_sp[~ok] = 1.0
-
-    use = (ldss > 0.0) & penalized & (ldxx > 0.0)
-    if np.any(use):
-        xx = ldxx[use]
-        ss = ldss[use]
-        ratio = float(np.mean(xx / (xx + ss)))
-        while ratio > 0.4:
-            def_sp *= 10.0
-            ss *= 10.0
-            ratio = float(np.mean(xx / (xx + ss)))
-        while ratio < 0.4:
-            def_sp /= 10.0
-            ss /= 10.0
-            ratio = float(np.mean(xx / (xx + ss)))
-
-    return np.maximum(def_sp, 1e-12)
+    w = np.sqrt(
+        np.clip(prior_w * mu_eta * mu_eta / np.maximum(var_mu, 1e-12), 1e-12, None)
+    )
+    return _mgcv_initial_sp_from_packed_penalties(
+        w[:, None] * X,
+        [np.asarray(S_i, dtype=np.float64) for S_i in list(setup.S)],
+        np.asarray(setup.off, dtype=np.int64),
+        L=(
+            None
+            if getattr(setup, "L", None) is None
+            else np.asarray(setup.L, dtype=np.float64)
+        ),
+        lsp0=np.asarray(setup.lsp0, dtype=np.float64),
+    )

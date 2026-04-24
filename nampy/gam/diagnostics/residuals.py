@@ -4,7 +4,6 @@ import warnings
 
 import numpy as np
 
-from .._mgcv_constants import LOG_GUARD_MIN
 from .._model_state import (
     _fit_scale,
     _fit_state,
@@ -26,7 +25,6 @@ def _deviance_residuals(model) -> np.ndarray:
     mu = np.asarray(_fitted_mu(model), dtype=np.float64).ravel()
     w = _prior_weights(model)
     sign = np.sign(y - mu)
-    sign[sign == 0.0] = 1.0
 
     # Per-observation deviance contributions (mgcv `family$dev.resids` analogue).
     dev_obs = model.family.deviance_obs(y, mu, w)
@@ -43,20 +41,24 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
     family_residuals = getattr(model.family, "residuals", None)
     if callable(family_residuals):
         try:
-            return np.asarray(
-                family_residuals(y, fitted, rtype=type, eta=eta_fitted),
-                dtype=np.float64,
-            ).ravel()
-        except TypeError:
             try:
                 return np.asarray(
-                    family_residuals(y, fitted, rtype=type),
+                    family_residuals(y, fitted, rtype=type, eta=eta_fitted),
                     dtype=np.float64,
                 ).ravel()
             except TypeError:
-                return np.asarray(
-                    family_residuals(model, type), dtype=np.float64
-                ).ravel()
+                try:
+                    return np.asarray(
+                        family_residuals(y, fitted, rtype=type),
+                        dtype=np.float64,
+                    ).ravel()
+                except TypeError:
+                    return np.asarray(
+                        family_residuals(model, type),
+                        dtype=np.float64,
+                    ).ravel()
+        except NotImplementedError:
+            raise
 
     mu = np.asarray(fitted, dtype=np.float64).ravel()
     eta = np.asarray(eta_fitted, dtype=np.float64).ravel()
@@ -90,7 +92,7 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
         mu_eta = getattr(model.family, "mu_eta", None)
         if callable(mu_eta):
             mu_eta_val = np.asarray(mu_eta(eta), dtype=np.float64)
-            return (y - mu) / np.clip(mu_eta_val, LOG_GUARD_MIN, None)
+            return (y - mu) / mu_eta_val
         if fitted.ndim == 1:
             return y - fitted
         return np.asarray(y.reshape(-1, 1) - fitted, dtype=np.float64).ravel()
@@ -110,9 +112,9 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
             )
             return residuals_gam(model)
         var = np.asarray(variance(mu), dtype=np.float64)
-        res = (y - mu) * np.sqrt(w) / np.sqrt(np.clip(var, LOG_GUARD_MIN, None))
+        res = (y - mu) * np.sqrt(w) / np.sqrt(var)
         if type == "scaled.pearson":
-            res = res / np.sqrt(max(float(_fit_scale(model)), LOG_GUARD_MIN))
+            res = res / np.sqrt(float(_fit_scale(model)))
         return res
 
     raise ValueError(

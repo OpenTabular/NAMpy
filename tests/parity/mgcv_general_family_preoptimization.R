@@ -1,5 +1,5 @@
 # Usage:
-#   Rscript mgcv_general_family_preoptimization.R <csv_path> <output_json> <formula> <family> <method> <select>
+#   Rscript mgcv_general_family_preoptimization.R <csv_path> <output_json> <formula> <family> <method> <select> [sp_json]
 #
 # Fits an mgcv general family, re-creates the exact pre-optimization
 # `Sl.setup` / `Sl.initial.repara` / `ldetS` state at the fitted smoothing
@@ -8,7 +8,7 @@
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 6) {
   stop(
-    "Usage: Rscript mgcv_general_family_preoptimization.R <csv_path> <output_json> <formula> <family> <method> <select>"
+    "Usage: Rscript mgcv_general_family_preoptimization.R <csv_path> <output_json> <formula> <family> <method> <select> [sp_json]"
   )
 }
 
@@ -79,6 +79,11 @@ formula_text <- normalize_formula_text(args[[3]])
 family_name <- tolower(args[[4]])
 method_name <- args[[5]]
 select_flag <- tolower(args[[6]]) %in% c("true", "1", "yes")
+sp_override <- if (length(args) >= 7 && nzchar(args[[7]]) && args[[7]] != "-") {
+  as.numeric(jsonlite::fromJSON(args[[7]]))
+} else {
+  NULL
+}
 
 mgcv_lib <- Sys.getenv("MGCV_LIB_PATH", "")
 if (nzchar(mgcv_lib)) {
@@ -112,13 +117,19 @@ family_obj <- switch(
   stop(sprintf("Unsupported family for general-family pre-optimization parity: %s", family_name))
 )
 
-fit <- gam(
-  formula = formula_obj,
-  data = data,
-  family = family_obj,
-  method = method_name,
-  select = select_flag
-)
+if (is.null(sp_override)) {
+  fit <- gam(
+    formula = formula_obj,
+    data = data,
+    family = family_obj,
+    method = method_name,
+    select = select_flag
+  )
+  fit_sp <- fit$sp
+} else {
+  fit <- NULL
+  fit_sp <- sp_override
+}
 
 prefit <- gam(
   formula = formula_obj,
@@ -126,7 +137,7 @@ prefit <- gam(
   family = family_obj,
   method = method_name,
   select = select_flag,
-  sp = fit$sp,
+  sp = fit_sp,
   fit = FALSE
 )
 
@@ -147,7 +158,7 @@ X_initial <- mgcv:::Sl.initial.repara(
   cov = FALSE
 )
 
-log_sp <- unname(as.numeric(log(pmax(fit$sp, 1e-300))))
+log_sp <- unname(as.numeric(log(pmax(fit_sp, 1e-300))))
 ld <- mgcv:::ldetS(
   prefit$Sl,
   rho = log_sp,
@@ -167,7 +178,7 @@ if (length(prefit$S) > 0) {
     ind <- prefit$off[i]:(prefit$off[i] + nrow(prefit$S[[i]]) - 1)
     Si_full[ind, ind] <- prefit$S[[i]]
     S_blocks[[i]] <- unname(Si_full)
-    St_full <- St_full + fit$sp[i] * Si_full
+    St_full <- St_full + fit_sp[i] * Si_full
   }
 }
 
@@ -180,7 +191,7 @@ payload <- list(
   X_initial = unname(X_initial),
   jj = lapply(lpi, function(v) unname(as.integer(v) - 1L)),
   offset_list = serialize_offset_list(prefit$offset),
-  smoothing_params = unname(as.numeric(fit$sp)),
+  smoothing_params = unname(as.numeric(fit_sp)),
   log_sp = log_sp,
   St = unname(St_full),
   S_blocks = S_blocks,

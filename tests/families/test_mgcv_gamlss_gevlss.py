@@ -7,7 +7,10 @@ from numpy.testing import assert_allclose
 from nampy.gam import GAM
 from nampy.gam.families.gamlss import gevlss
 from nampy.gam.families.gamlss.gevlss import _ShiftedLogitLinkInfo
-from nampy.gam.fit.solvers.gam_fit5 import GamFit5Control, gam_fit5
+from nampy.gam.fit.solvers.general_newton_solver import (
+    GeneralNewtonControl,
+    solve_general_newton_fit,
+)
 
 # ======================================================================
 # gevlss
@@ -19,6 +22,7 @@ from nampy.gam.fit.solvers.gam_fit5 import GamFit5Control, gam_fit5
 
 
 def test_shifted_logit_roundtrip():
+    """Verify that shifted logit roundtrip."""
     link = _ShiftedLogitLinkInfo()
     xi = np.linspace(-0.9, 0.45, 30)
     eta = link.linkfun(xi)
@@ -27,6 +31,7 @@ def test_shifted_logit_roundtrip():
 
 
 def test_shifted_logit_range():
+    """Verify that shifted logit range."""
     link = _ShiftedLogitLinkInfo()
     eta = np.linspace(-10.0, 10.0, 100)
     xi = link.linkinv(eta)
@@ -35,6 +40,7 @@ def test_shifted_logit_range():
 
 
 def test_shifted_logit_mu_eta_fd():
+    """Verify that shifted logit mu eta finite differences."""
     link = _ShiftedLogitLinkInfo()
     rng = np.random.default_rng(3)
     eta = rng.uniform(-3.0, 3.0, 30)
@@ -77,7 +83,6 @@ def test_gevlss_ll_loglik():
     assert np.isfinite(result["l"])
 
     # Direct GEV log-lik: Gumbel (xi→0) or GEV(xi≠0)
-    eps_xi = 1e-7
     aa = np.maximum(1.0 + xi * (y - mu) / sigma, 1e-300)
     l_ref = float(np.sum(-(1.0 / xi + 1.0) * np.log(aa) - aa ** (-1.0 / xi) - rho))
     assert_allclose(result["l"], l_ref, rtol=1e-10)
@@ -187,13 +192,13 @@ def test_gevlss_initialize():
 
 
 # ---------------------------------------------------------------------------
-# 6. gam_fit5 convergence on simulated GEV data
+# 6. solve_general_newton_fit convergence on simulated GEV data
 # ---------------------------------------------------------------------------
 
 
 def test_gam_fit5_gevlss_convergence():
     """
-    gam_fit5 with gevlss recovers approximate location and log-scale intercepts.
+    solve_general_newton_fit with gevlss recovers approximate location and log-scale intercepts.
     """
     rng = np.random.default_rng(77)
     n = 300
@@ -223,8 +228,8 @@ def test_gam_fit5_gevlss_convergence():
     lsp = np.array([], dtype=np.float64)
     S_blocks: list = []
 
-    ctl = GamFit5Control(maxit=200, epsilon=1e-7, trace=False)
-    fit = gam_fit5(
+    ctl = GeneralNewtonControl(maxit=200, epsilon=1e-7, trace=False)
+    fit = solve_general_newton_fit(
         X,
         y,
         jj,
@@ -385,18 +390,6 @@ def test_gevlss_l3_fd():
     # Simulate y from GEV
     U = rng.uniform(0.02, 0.98, n)
     y = mu0 + sigma * ((-np.log(U)) ** (-xi0) - 1.0) / xi0
-
-    # Build trivial design (intercept-only, identity link for all params)
-    p = 3
-    X = np.ones((n, p))
-    jj = [np.array([0]), np.array([1]), np.array([2])]
-    coef = np.array([mu0, rho0, 0.0])  # xi link is shifted logit; 0 → xi≈0
-
-    fam = gevlss(link=("identity", "identity", "identity"))
-    # With identity link on xi, coef[2] = xi directly
-    coef_xi = np.array([mu0, rho0, xi0])
-
-    weights = np.ones(n)
 
     # Get analytic l3 — call ll with deriv=2 and extract l3_val via a helper
     # We test at the raw (mu, rho, xi) parameter level using _gevlss_l2_raw.
@@ -752,8 +745,6 @@ def test_gevlss_l4_fd():
 
     mu_v = np.full(n, mu0)
     rho_v = np.full(n, rho0)
-    xi_v = np.full(n, xi0)
-
     h = 1e-4  # larger step for 4th deriv FD stability
 
     # Centered FD of l3 w.r.t. each parameter

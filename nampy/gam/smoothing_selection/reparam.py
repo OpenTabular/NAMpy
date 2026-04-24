@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import numpy as np
-from scipy.linalg import eigh as scipy_eigh
 from scipy.linalg import qr as scipy_qr
 from scipy.linalg import solve_triangular
 from scipy.linalg.lapack import get_lapack_funcs
@@ -35,6 +34,14 @@ from .._model_state import (
     _term_blocks_seq,
 )
 from ..fit.model_ops import uses_closed_form_solver
+from ..linalg import (
+    matrix_sqrt_psd,
+    numerical_rank,
+    positive_semidefinite_root,
+    symmetric_eigen_partition,
+    symmetric_eigh,
+    symmetric_eigvalsh,
+)
 
 
 @dataclass
@@ -59,7 +66,7 @@ class DynamicReparamDesign:
 
 
 @dataclass
-class GamFit3ReparamState:
+class PenaltyReparameterizationState:
     Y: np.ndarray
     Z: np.ndarray
     U1: np.ndarray
@@ -76,7 +83,7 @@ class GamFit3ReparamState:
 
 
 @dataclass
-class EstimateGamSetupState:
+class PreOptimizationSetupState:
     """
     Exact mgcv-style pre-optimization setup state.
 
@@ -137,6 +144,14 @@ def _assign_reparam_state(
 ) -> Optional[ReparamState]:
     model.reparam_state_ = state
     model.sl_blocks_ = None if state is None else list(state.sl_blocks or [])
+    return state
+
+
+def assign_exact_reparam_state(
+    model, state: Optional[PenaltyReparameterizationState]
+) -> Optional[PenaltyReparameterizationState]:
+    model.reparam_state_ = state
+    model.sl_blocks_ = None
     return state
 
 
@@ -206,17 +221,10 @@ def sl_penalty_rank_scaling_derivatives(
 
 
 def reparameterize_smooth(B, P, tol=1e-10):
-    P_sym = 0.5 * (P + P.T)
-    evals, U = np.linalg.eigh(P_sym)
-    idx = np.argsort(evals)
-    evals = evals[idx]
-    U = U[:, idx]
-    tol_eff = tol * max(1.0, np.max(np.abs(evals)))
-    null_mask = evals <= tol_eff
-    pos_mask = ~null_mask
-    U0 = U[:, null_mask]
-    U1 = U[:, pos_mask]
-    d_pos = evals[pos_mask]
+    dec = symmetric_eigen_partition(P, tol=tol)
+    U0 = np.asarray(dec["U0"], dtype=np.float64)
+    U1 = np.asarray(dec["U1"], dtype=np.float64)
+    d_pos = np.asarray(dec["d_pos"], dtype=np.float64)
     B0 = B @ U0
     B1 = B @ U1
     Zr = B1 / np.sqrt(d_pos)[np.newaxis, :] if d_pos.size else B1
@@ -227,42 +235,19 @@ def reparameterize_smooth(B, P, tol=1e-10):
             "U0": U0,
             "U1": U1,
             "d_pos": d_pos,
-            "n_null": int(null_mask.sum()),
-            "n_pen": int(pos_mask.sum()),
+            "n_null": int(dec["null_space_dim"]),
+            "n_pen": int(dec["rank"]),
         },
     )
 
 
 def _matrix_sqrt_psd(M, tol=1e-12):
-    M = np.asarray(M, dtype=np.float64)
-    if M.size == 0:
-        return np.empty((0, 0), dtype=np.float64)
-    M = 0.5 * (M + M.T)
-    evals, vecs = np.linalg.eigh(M)
-    evals = np.clip(evals, 0.0, None)
-    sqrt_evals = np.sqrt(evals)
-    return vecs @ np.diag(sqrt_evals)
+    del tol
+    return matrix_sqrt_psd(M)
 
 
 def _positive_semidefinite_root(P, *, rank=None, tol=1e-10):
-    P = np.asarray(P, dtype=np.float64)
-    if P.ndim != 2 or P.shape[0] != P.shape[1]:
-        raise ValueError("Penalty root requires a square matrix.")
-    if P.shape[0] == 0:
-        return np.empty((0, 0), dtype=np.float64)
-
-    P_sym = 0.5 * (P + P.T)
-    evals, U = np.linalg.eigh(P_sym)
-    idx = np.argsort(evals)[::-1]
-    evals = np.asarray(evals[idx], dtype=np.float64)
-    U = np.asarray(U[:, idx], dtype=np.float64)
-    tol_eff = float(tol) * max(1.0, float(np.max(np.abs(evals))))
-    keep = np.flatnonzero(evals > tol_eff)
-    if rank is not None and int(rank) >= 0:
-        keep = keep[: min(int(rank), keep.size)]
-    if keep.size == 0:
-        return np.empty((P.shape[0], 0), dtype=np.float64)
-    return U[:, keep] * np.sqrt(evals[keep])[np.newaxis, :]
+    return positive_semidefinite_root(P, rank=rank, tol=tol)
 
 
 def _mroot_chol(P, *, rank=None):
@@ -408,12 +393,9 @@ def _total_penalty_space_from_blocks(
         stop = start + int(S_i.shape[0])
         St[start:stop, start:stop] += S_i / frob
 
-    evals, evecs = scipy_eigh(0.5 * (St + St.T), driver="evr", check_finite=False)
-    idx = np.argsort(evals)[::-1]
-    evals = np.asarray(evals[idx], dtype=np.float64)
-    evecs = np.asarray(evecs[:, idx], dtype=np.float64)
+    evals, evecs = symmetric_eigh(St, descending=True, use_scipy=True)
     max_eval = float(np.max(evals)) if evals.size else 0.0
-    pos_mask = evals > max(max_eval, 1.0) * (np.finfo(np.float64).eps ** 0.66)
+    pos_mask = evals > max_eval * (np.finfo(np.float64).eps ** 0.66)
     Y = evecs[:, pos_mask]
     Z = evecs[:, ~pos_mask]
     if Y.shape[1] == 0:
@@ -519,7 +501,7 @@ def _mgcv_l_matrix_and_lsp0(
 
 def build_estimate_gam_setup_state(
     model, *, tol: float = 1e-10
-) -> EstimateGamSetupState:
+) -> PreOptimizationSetupState:
     """
     Reconstruct mgcv's exact pre-optimization block state from the compiled model.
 
@@ -548,7 +530,9 @@ def build_estimate_gam_setup_state(
             (
                 int(pb.rank)
                 if getattr(pb, "rank", None) is not None
-                else int(np.linalg.matrix_rank(np.asarray(pb.matrix, dtype=np.float64)))
+                else numerical_rank(
+                    np.asarray(pb.matrix, dtype=np.float64), hermitian=True
+                )
             )
             for pb in penalty_blocks
         ],
@@ -592,7 +576,7 @@ def build_estimate_gam_setup_state(
     if H_full is not None:
         UrS.append(np.asarray(Y.T @ _mroot_chol(H_full), dtype=np.float64))
 
-    return EstimateGamSetupState(
+    return PreOptimizationSetupState(
         X=np.asarray(X_full, dtype=np.float64),
         offset=(
             np.zeros(X_full.shape[0], dtype=np.float64)
@@ -618,7 +602,7 @@ def build_estimate_gam_setup_state(
 
 
 def _group_exact_setup_roots_by_smoothing_parameter(
-    model, setup: EstimateGamSetupState
+    model, setup: PreOptimizationSetupState
 ) -> tuple[list[np.ndarray], list[np.ndarray], list[np.ndarray], list[np.ndarray]]:
     penalty_blocks = list(_penalty_blocks_seq(model))
     n_sp = int(
@@ -732,11 +716,8 @@ def _total_penalty_space(grouped_penalties, p, *, H=None):
         if frob > 0.0:
             St += Sg / frob
 
-    evals, evecs = scipy_eigh(0.5 * (St + St.T), driver="evr", check_finite=False)
-    idx = np.argsort(evals)[::-1]
-    evals = np.asarray(evals[idx], dtype=np.float64)
-    evecs = np.asarray(evecs[:, idx], dtype=np.float64)
-    scale = max(float(np.max(evals)) if evals.size else 0.0, 1.0)
+    evals, evecs = symmetric_eigh(St, descending=True, use_scipy=True)
+    scale = float(np.max(evals)) if evals.size else 0.0
     pos_mask = evals > scale * (np.finfo(np.float64).eps ** 0.66)
     Y = evecs[:, pos_mask]
     Z = evecs[:, ~pos_mask]
@@ -751,7 +732,9 @@ def mini_roots(grouped_penalties, p, *, tol=1e-10):
     roots = []
     for grp in grouped_penalties:
         rank = (
-            int(np.linalg.matrix_rank(grp.matrix_full)) if grp.matrix_full.size else 0
+            numerical_rank(grp.matrix_full, hermitian=True)
+            if grp.matrix_full.size
+            else 0
         )
         roots.append(_mroot_chol(grp.matrix_full, rank=rank))
     return roots
@@ -770,8 +753,9 @@ def gam_reparam(range_roots, lsp, deriv=2):
         sp = np.exp(lsp)
     roots = [np.asarray(r, dtype=np.float64).copy() for r in range_roots]
     q = 0 if not roots else int(roots[0].shape[0])
-    fixed_penalty = len(roots) > M
-    if q == 0 or M == 0:
+    Mf = len(roots)
+    fixed_penalty = Mf > M
+    if q == 0 or Mf == 0:
         return {
             "S": np.empty((q, q), dtype=np.float64),
             "Qs": np.eye(q, dtype=np.float64),
@@ -783,7 +767,9 @@ def gam_reparam(range_roots, lsp, deriv=2):
             "fixed_penalty": fixed_penalty,
         }
 
-    Mf = len(roots)
+    for root in roots:
+        if int(root.shape[0]) != q:
+            raise ValueError("All range penalty roots must have the same row count.")
     spf = np.ones(Mf, dtype=np.float64)
     spf[:M] = sp
     Si = [r @ r.T for r in roots]
@@ -828,7 +814,7 @@ def gam_reparam(range_roots, lsp, deriv=2):
                 if alpha[i]:
                     Sb += A / float(frob[i])
             Sb = 0.5 * (Sb + Sb.T)
-            ev = scipy_eigh(Sb, eigvals_only=True, driver="evr", check_finite=False)
+            ev = symmetric_eigvalsh(Sb, use_scipy=True)
             if ev.size == 0 or ev[-1] <= 0.0:
                 r = 0
             else:
@@ -855,10 +841,7 @@ def gam_reparam(range_roots, lsp, deriv=2):
                 Sg += float(spf[i]) * A
 
         Sb = 0.5 * (Sb + Sb.T)
-        evals, U = scipy_eigh(Sb, driver="evr", check_finite=False)
-        idx = np.argsort(evals)[::-1]
-        evals = np.asarray(evals[idx], dtype=np.float64)
-        U = np.asarray(U[:, idx], dtype=np.float64)
+        evals, U = symmetric_eigh(Sb, descending=True, use_scipy=True)
 
         if iteration == 1:
             Qf[:, :Q] = U
@@ -875,7 +858,7 @@ def gam_reparam(range_roots, lsp, deriv=2):
             C[np.arange(r), np.arange(r)] += evals[:r]
         S_out[K : K + Q, K : K + Q] = C
 
-        for k in range(M):
+        for k in range(Mf):
             root = rS_work[k]
             cols = int(root.shape[1])
             if cols == 0:
@@ -957,10 +940,17 @@ def _canonical_penalty_space(model, *, tol=1e-10) -> dict[str, Any]:
         return cache
 
     setup = build_estimate_gam_setup_state(model, tol=tol)
+    penalty_blocks = list(_penalty_blocks_seq(model))
     grouped = _grouped_penalties(model)
-    roots, range_roots, range_roots_with_fixed, S_groups = (
-        _group_exact_setup_roots_by_smoothing_parameter(model, setup)
-    )
+    n_pen = len(penalty_blocks)
+    roots = [np.asarray(root, dtype=np.float64) for root in list(setup.rS)]
+    range_roots = [
+        np.asarray(root, dtype=np.float64) for root in list(setup.UrS[:n_pen])
+    ]
+    range_roots_with_fixed = [
+        np.asarray(root, dtype=np.float64) for root in list(setup.UrS)
+    ]
+    S_groups = [root @ root.T for root in range_roots]
 
     cache = {
         "estimate_setup": setup,
@@ -978,6 +968,71 @@ def _canonical_penalty_space(model, *, tol=1e-10) -> dict[str, Any]:
     return cache
 
 
+def _penalty_log_smoothing_map(
+    model,
+    setup: PreOptimizationSetupState,
+    sp: np.ndarray,
+) -> tuple[list[np.ndarray], np.ndarray, np.ndarray]:
+    """
+    Return mgcv-style per-penalty log smoothing parameters.
+
+    ``mgcv/R/mgcv.r::estimate.gam`` passes ``L %*% log(sp) + lsp0`` to
+    ``gam.reparam()``, where rows are in the same order as ``G$S``/``G$UrS``.
+    The public Python model stores the full smoothing vector, so this helper
+    also returns the full one-hot penalty-to-smoothing map used to lift
+    per-penalty derivatives back to the public smoothing-parameter indexing.
+    """
+
+    sp = np.asarray(sp, dtype=np.float64).ravel()
+    penalty_blocks = list(_penalty_blocks_seq(model))
+    n_pen = len(penalty_blocks)
+    n_sp = int(_n_smoothing_params(model) or sp.size)
+    if sp.shape != (n_sp,):
+        raise ValueError(f"Expected smoothing parameter vector of shape ({n_sp},).")
+    if len(setup.UrS) < n_pen:
+        raise RuntimeError("estimate.gam setup has fewer UrS roots than penalties.")
+
+    L_full = np.zeros((n_pen, n_sp), dtype=np.float64)
+    for i, pb in enumerate(penalty_blocks):
+        sp_idx = int(pb.smoothing_index)
+        if sp_idx < 0 or sp_idx >= n_sp:
+            raise ValueError(f"Invalid smoothing parameter index {sp_idx}.")
+        L_full[i, sp_idx] = 1.0
+
+    fixed_mask = (
+        np.zeros(n_sp, dtype=bool)
+        if getattr(model, "smoothing_fixed_mask_", None) is None
+        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+    )
+    if fixed_mask.shape != (n_sp,):
+        raise ValueError(f"Expected smoothing_fixed_mask_ with shape ({n_sp},).")
+
+    with np.errstate(divide="raise", invalid="raise"):
+        log_sp = np.log(sp)
+    free_log_sp = np.asarray(log_sp[~fixed_mask], dtype=np.float64)
+    lsp0 = np.asarray(setup.lsp0, dtype=np.float64).ravel()
+    if lsp0.shape != (n_pen,):
+        raise RuntimeError("estimate.gam lsp0 length does not match penalty count.")
+    if setup.L is None:
+        if free_log_sp.shape != (n_pen,):
+            raise RuntimeError(
+                "Identity smoothing-parameter map is inconsistent with "
+                "the number of penalty blocks."
+            )
+        lsp = free_log_sp + lsp0
+    else:
+        L = np.asarray(setup.L, dtype=np.float64)
+        if L.shape != (n_pen, free_log_sp.size):
+            raise RuntimeError("estimate.gam L shape is inconsistent with sp.")
+        lsp = np.asarray(L @ free_log_sp + lsp0, dtype=np.float64)
+
+    roots = [
+        np.asarray(root, dtype=np.float64)
+        for root in list(setup.UrS[:n_pen]) + list(setup.UrS[n_pen:])
+    ]
+    return roots, np.asarray(lsp, dtype=np.float64), L_full
+
+
 def _static_penalty_space(model, *, tol=1e-10):
     return _canonical_penalty_space(model, tol=tol)
 
@@ -993,9 +1048,9 @@ def _static_penalty_null_dim(model, *, tol=1e-10):
     )
 
 
-def build_gam_fit3_reparam_state(
+def build_penalty_reparameterization_state(
     model, X_full, sp, *, deriv=0, tol=1e-10
-) -> GamFit3ReparamState:
+) -> PenaltyReparameterizationState:
     """Mirror mgcv's `gam.fit3/gam.fit4` reparameterization on `estimate.gam` setup."""
     X_full = np.asarray(X_full, dtype=np.float64)
     sp = np.asarray(sp, dtype=np.float64).ravel()
@@ -1004,11 +1059,8 @@ def build_gam_fit3_reparam_state(
     setup = cache["estimate_setup"]
     Y = np.asarray(setup.Y, dtype=np.float64)
     Z = np.asarray(setup.Z, dtype=np.float64)
-    UrS = [
-        np.asarray(root, dtype=np.float64) for root in cache["range_roots_with_fixed"]
-    ]
-    with np.errstate(divide="raise", invalid="raise"):
-        rp = gam_reparam(UrS, np.log(sp), deriv=deriv)
+    UrS, lsp, _L_full = _penalty_log_smoothing_map(model, setup, sp)
+    rp = gam_reparam(UrS, lsp, deriv=deriv)
 
     q_range = int(Y.shape[1])
     q_full = int(X_full.shape[1])
@@ -1046,7 +1098,7 @@ def build_gam_fit3_reparam_state(
         except np.linalg.LinAlgError:
             Z_rand = np.full_like(X_range, np.nan)
 
-    return GamFit3ReparamState(
+    return PenaltyReparameterizationState(
         Y=Y,
         Z=Z,
         U1=U1,
@@ -1067,7 +1119,7 @@ def _static_fixed_and_random_designs(model, X_full, sp, *, tol=1e-10):
     X_full = np.asarray(X_full, dtype=np.float64)
     sp = np.asarray(sp, dtype=np.float64)
 
-    state = build_gam_fit3_reparam_state(model, X_full, sp, deriv=0, tol=tol)
+    state = build_penalty_reparameterization_state(model, X_full, sp, deriv=0, tol=tol)
     Xf = np.asarray(state.X_fix, dtype=np.float64)
     Zr = np.asarray(state.Z_rand, dtype=np.float64)
     logdet_plus = float(state.rp["det"])
@@ -1110,35 +1162,27 @@ def _stable_penalty_logdet_derivatives(model, sp, *, tol=1e-10, order=2):
     if Y.shape[1] == 0:
         return 0.0, grad, hess
 
-    with np.errstate(divide="raise", invalid="raise"):
-        rp = gam_reparam(
-            cache["range_roots_with_fixed"],
-            np.log(sp),
-            deriv=min(int(order), 2),
-        )
+    setup = cache["estimate_setup"]
+    UrS, lsp, L_full = _penalty_log_smoothing_map(model, setup, sp)
+    rp = gam_reparam(UrS, lsp, deriv=min(int(order), 2))
     logdet = float(rp["det"])
     if not np.isfinite(logdet):
         return np.inf, np.full(n_sp, np.nan), np.full((n_sp, n_sp), np.nan)
     if order <= 0:
         return logdet, grad, hess
 
-    grad[: min(n_sp, rp["det1"].shape[0])] = np.asarray(rp["det1"], dtype=np.float64)[
-        : min(n_sp, rp["det1"].shape[0])
-    ]
+    det1 = np.asarray(rp["det1"], dtype=np.float64)
+    if det1.shape != (L_full.shape[0],):
+        raise RuntimeError("gam.reparam determinant gradient length mismatch.")
+    grad = np.asarray(L_full.T @ det1, dtype=np.float64)
     if order <= 1:
         return logdet, grad, hess
 
-    m = min(n_sp, rp["det2"].shape[0])
-    hess[:m, :m] = np.asarray(rp["det2"], dtype=np.float64)[:m, :m]
+    det2 = np.asarray(rp["det2"], dtype=np.float64)
+    if det2.shape != (L_full.shape[0], L_full.shape[0]):
+        raise RuntimeError("gam.reparam determinant Hessian shape mismatch.")
+    hess = np.asarray(L_full.T @ det2 @ L_full, dtype=np.float64)
     return logdet, grad, hess
-
-
-# Backward-compatible aliases while the standard GAM path migrates to the
-# upstream-role names.
-CanonicalGamReparamState = GamFit3ReparamState
-MgcvPreOptimizationState = EstimateGamSetupState
-build_canonical_gam_reparam_state = build_gam_fit3_reparam_state
-build_mgcv_preoptimization_state = build_estimate_gam_setup_state
 
 
 def can_use_simple_ml_reml_structure(model):
@@ -1182,6 +1226,8 @@ def build_penalty_reparameterized_system(model):
     cache = _canonical_penalty_space(model)
     setup = cache["estimate_setup"]
     grouped = list(cache["grouped_penalties"])
+    penalty_blocks = list(_penalty_blocks_seq(model))
+    term_blocks = list(_term_blocks_seq(model))
     X_full = np.asarray(setup.X, dtype=np.float64)
     X_pen = np.asarray(_design_matrix(model), dtype=np.float64)
     p = int(X_pen.shape[1])
@@ -1197,7 +1243,7 @@ def build_penalty_reparameterized_system(model):
     sl_blocks: list[SlBlock] = []
     rand_start = 0
 
-    if Y.shape[1] > 0 and grouped:
+    if Y.shape[1] > 0 and penalty_blocks:
         B_range = X_full @ Y
         range_roots = list(cache["range_roots"])
         range_penalties = [
@@ -1216,8 +1262,8 @@ def build_penalty_reparameterized_system(model):
         _B0, Zr_main, meta = reparameterize_smooth(B_range, P_sum)
         U_range = np.asarray(meta["U1"], dtype=np.float64)
 
-        for grp in grouped:
-            Pk = np.asarray(range_penalties[int(grp.smoothing_index)], dtype=np.float64)
+        for pb, Pk in zip(penalty_blocks, range_penalties):
+            Pk = np.asarray(Pk, dtype=np.float64)
             if U_range.shape[1] == 0 or not np.any(Pk):
                 continue
             P_proj = U_range.T @ (np.asarray(Pk, dtype=np.float64) @ U_range)
@@ -1238,18 +1284,27 @@ def build_penalty_reparameterized_system(model):
             block_slice = slice(rand_start, rand_start + Z_block.shape[1])
             rand_blocks.append(Z_block)
             rand_start += Z_block.shape[1]
+            term_index = int(getattr(pb, "term_index", -1))
+            if term_index < 0:
+                coef_slice = getattr(pb, "coef_slice", None)
+                for i, tb in enumerate(term_blocks):
+                    if getattr(tb, "coef_slice", None) == coef_slice:
+                        term_index = i
+                        break
             sl_blocks.append(
                 SlBlock(
-                    term_index=int(grp.term_indices[0]) if grp.term_indices else -1,
+                    term_index=term_index,
                     repara=True,
-                    smoothing_index=int(grp.smoothing_index),
+                    smoothing_index=int(pb.smoothing_index),
                     start=int(block_slice.start),
                     stop=int(block_slice.stop),
                     ncol=int(p),
                     blockSize=int(Z_block.shape[1]),
                     lambda_scaling=float(norm_val),
-                    kind=str(grp.kind),
-                    is_null_space_penalty=bool(grp.is_null_space_penalty),
+                    kind=str(getattr(pb, "kind", "smooth")),
+                    is_null_space_penalty=bool(
+                        getattr(pb, "is_null_space_penalty", False)
+                    ),
                 )
             )
     if fix_blocks:

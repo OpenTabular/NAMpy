@@ -34,7 +34,7 @@ def gcv_score_gaussian(model, y, log_smoothing_params):
     sol = solve_gaussian_given_smoothing(model, y, sp)
     n = model.n_samples_
     den = 1.0 - model.score_gamma * sol["trace_H"] / n
-    if den <= 1e-12 or not np.isfinite(den):
+    if not np.isfinite(den) or den == 0.0:
         return np.inf
     return (sol["rss"] / n) / (den**2)
 
@@ -60,14 +60,15 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
             "components through null-space penalties."
         )
 
-    # `mgcv`'s fs constructor (`smooth.construct.fs.smooth.spec`) remains in the
-    # direct coefficient parameterization with replicated null-space penalties.
-    # Our current mixed-model Laplace port is not exact for that surface, while
-    # the Wood-style dynamic profile below matches mgcv on the audited parity
-    # slices. Fail closed here so `criterion_ml_reml()` falls back to the
-    # dynamic path instead of trusting a finite but wrong exact score.
+    # `mgcv`'s fs / sz constructors remain in the direct coefficient
+    # parameterization with replicated group penalties. Our current mixed-model
+    # Laplace port is not exact for those surfaces, while the Wood-style
+    # dynamic profile below matches mgcv on the audited parity slices. Fail
+    # closed here so `criterion_ml_reml()` falls back to the dynamic path
+    # instead of trusting a finite but wrong exact score.
     if any(
-        str(getattr(tb, "term_type", "")).lower() == "factor_smooth_fs"
+        str(getattr(tb, "term_type", "")).lower()
+        in {"factor_smooth_fs", "factor_smooth_sz"}
         for tb in _term_blocks_seq(model)
     ):
         return np.inf
@@ -119,8 +120,10 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
             return score
 
         logdet_XtX = 2.0 * float(np.sum(np.log(np.diag(cXtX))))
-        return score + logdet_XtX / 2.0 - reml_ind * p * (
-            np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0
+        return (
+            score
+            + logdet_XtX / 2.0
+            - reml_ind * p * (np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0)
         )
 
     M = design.ZtZ_rand + np.eye(q, dtype=np.float64)
@@ -167,8 +170,10 @@ def criterion_ml_reml_exact(model, y, log_sp, method):
         return score
 
     logdet_XtKX = 0.0 if p == 0 else 2.0 * float(np.sum(np.log(np.abs(np.diag(cXKX)))))
-    return score + logdet_XtKX / 2.0 - reml_ind * p * (
-        np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0
+    return (
+        score
+        + logdet_XtKX / 2.0
+        - reml_ind * p * (np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0)
     )
 
 
@@ -183,7 +188,7 @@ def criterion_ml_reml_exact_dynamic(model, y, log_sp, method):
     w = np.ones(int(y_eff.shape[0]), dtype=np.float64)
 
     sol = solve_gaussian_given_smoothing(model, y, sp)
-    if method in {"REML", "LAML"}:
+    if method in {"ML", "REML", "LAML"}:
         return criterion_ml_reml_gaussian_dynamic_profiled(
             model,
             y,
@@ -219,8 +224,10 @@ def criterion_ml_reml_exact_dynamic(model, y, log_sp, method):
         except np.linalg.LinAlgError:
             return np.inf
         logdet_fix = 2.0 * float(np.sum(np.log(np.abs(np.diag(cFix)))))
-        return score + logdet_fix / 2.0 - reml_ind * p * (
-            np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0
+        return (
+            score
+            + logdet_fix / 2.0
+            - reml_ind * p * (np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0)
         )
 
     M = Zr.T @ Zr + np.eye(q, dtype=np.float64)
@@ -266,6 +273,8 @@ def criterion_ml_reml_exact_dynamic(model, y, log_sp, method):
         return score
 
     logdet_XtKX = 0.0 if p == 0 else 2.0 * float(np.sum(np.log(np.abs(np.diag(cXKX)))))
-    return score + logdet_XtKX / 2.0 - reml_ind * p * (
-        np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0
+    return (
+        score
+        + logdet_XtKX / 2.0
+        - reml_ind * p * (np.log(2.0 * np.pi * scale) / 2.0 - np.log(gamma) / 2.0)
     )

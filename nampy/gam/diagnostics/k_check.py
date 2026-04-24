@@ -7,12 +7,12 @@ import pandas as pd
 
 from .._model_state import (
     _coef,
-    _coef_column_offset,
     _edf_by_term,
-    _n_coef,
+    _fit_state,
     _require_fitted,
     _term_blocks_seq,
 )
+from ..predict.linear_predictor_matrix import build_lpmatrix
 from .residuals import residuals_gam
 
 
@@ -20,10 +20,12 @@ def _feature_block_indices(tb) -> list[int] | None:
     feature_info = getattr(tb, "feature_info", None)
     if feature_info is None:
         return None
-    metric_idx = [int(v) for v in getattr(feature_info, "metric_feature_indices", ())]
     factor_idx = [int(v) for v in getattr(feature_info, "factor_feature_indices", ())]
     if factor_idx:
+        # Mirror `mgcv::k.check()`: if any extracted smooth variable is a factor,
+        # the nearest-neighbor basis-dimension diagnostic is not defined.
         return None
+    metric_idx = [int(v) for v in getattr(feature_info, "metric_feature_indices", ())]
     if metric_idx:
         return metric_idx
     feature_idx = [int(v) for v in getattr(feature_info, "feature_indices", ())]
@@ -102,6 +104,11 @@ def _tensor_rescale_data(model, tb, row_idx, X_term):
         return X_term
 
     X_rows = np.asarray(model.X_, dtype=object)[row_idx].copy()
+    by_info = getattr(tb, "by_variable_info", None)
+    by_name = None if by_info is None else getattr(by_info, "name", None)
+    feature_names = list(getattr(model, "feature_names", []) or [])
+    if by_name is not None and str(by_name) in feature_names:
+        X_rows[:, feature_names.index(str(by_name))] = 1.0
     beta_term = np.asarray(_coef(model)[tb.coef_slice], dtype=np.float64)
     f0 = np.asarray(tb.predict_matrix(X_rows), dtype=np.float64) @ beta_term
 
@@ -126,9 +133,10 @@ def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = N
     """Port of mgcv::k.check() basis-dimension diagnostic."""
     _require_fitted(model)
 
+    all_term_blocks = list(_term_blocks_seq(model))
     term_blocks = [
         tb
-        for tb in _term_blocks_seq(model)
+        for tb in all_term_blocks
         if str(getattr(tb, "term_type", "")) != "parametric"
     ]
     if len(term_blocks) == 0:
@@ -156,7 +164,18 @@ def k_check(model, subsample: int = 5000, n_rep: int = 400, seed: int | None = N
     rsd = rsd[row_idx]
 
     rows = []
-    edf_by_term = np.asarray(_edf_by_term(model), dtype=np.float64).ravel()
+    edf_all = np.asarray(_edf_by_term(model), dtype=np.float64).ravel()
+    if edf_all.size == len(all_term_blocks):
+        edf_by_term = np.asarray(
+            [
+                edf_all[i]
+                for i, tb in enumerate(all_term_blocks)
+                if str(getattr(tb, "term_type", "")) != "parametric"
+            ],
+            dtype=np.float64,
+        )
+    else:
+        edf_by_term = edf_all
     perm_col = 0
     for i, tb in enumerate(term_blocks):
         label = str(tb.label)
@@ -223,6 +242,12 @@ def gam_check(
     Callers should use the explicit nested blocks to distinguish parity-safe
     quantities from nampy-only diagnostics.
     """
+    allowed_types = {"deviance", "pearson", "response"}
+    if str(type) not in allowed_types:
+        raise ValueError(
+            "gam_check residual type must be one of {'deviance', 'pearson', 'response'}."
+        )
+
     resid = residuals_gam(model, type=type)
     k_table = k_check(model, subsample=k_sample, n_rep=k_rep, seed=seed)
 
@@ -236,6 +261,19 @@ def gam_check(
         "used_hessian": bool(getattr(model, "_optim_used_hessian", False)),
     }
 
+    fit_state = _fit_state(model)
+    model_rank = (
+        getattr(fit_state, "penalized_system_rank", None)
+        if fit_state is not None
+        else None
+    )
+    if model_rank is None and isinstance(fit_state, dict):
+        model_rank = fit_state.get("penalized_system_rank")
+    if model_rank is None:
+        model_rank = int(
+            np.linalg.matrix_rank(np.asarray(build_lpmatrix(model), dtype=np.float64))
+        )
+
     mgcv_comparable = {
         "residual_type": str(type),
         "residuals": np.asarray(resid, dtype=np.float64),
@@ -243,7 +281,7 @@ def gam_check(
     }
     nampy_specific = {
         "convergence": convergence,
-        "model_rank": int(_n_coef(model) + _coef_column_offset(model)),
+        "model_rank": int(model_rank),
     }
 
     return {

@@ -6,36 +6,36 @@ import numpy as np
 from scipy.special import gammaln
 
 from ...fit.solvers.gamlss_utils import gamlss_etamu, gamlss_gH, trind_generator
-from ._base import GamlssFamily, _IdentityLinkInfo
+from ._base import GamlssFamily, _IdentityLinkInfo, _pen_reg, _qr_coef_pivoted
 
 
 def _l1ee(x: np.ndarray) -> np.ndarray:
     """log(1 - exp(-exp(x))).  Mirrors mgcv ``l1ee``."""
     x = np.asarray(x, dtype=np.float64)
-    ex = np.exp(np.minimum(x, 500.0))
+    ex = np.exp(x)
     # lower tail: log(1-exp(-f)) ≈ log(f - f^2/2 + f^3/6)
     low = x < np.log(np.finfo(np.float64).eps) / 3.0
     very_low = x < -np.log(np.finfo(np.float64).max)
-    l = np.log1p(-np.exp(-ex))
+    ll = np.log1p(-np.exp(-ex))
     exi = ex[low]
-    l[low] = np.log(exi - exi**2 / 2.0 + exi**3 / 6.0)
-    l[very_low] = x[very_low]
-    return l
+    ll[low] = np.log(exi - exi**2 / 2.0 + exi**3 / 6.0)
+    ll[very_low] = x[very_low]
+    return ll
 
 
 def _lee1(x: np.ndarray) -> np.ndarray:
     """log(exp(exp(x)) - 1).  Mirrors mgcv ``lee1``."""
     x = np.asarray(x, dtype=np.float64)
-    ex = np.exp(np.minimum(x, 500.0))
+    ex = np.exp(x)
     low = x < np.log(np.finfo(np.float64).eps) / 3.0
     very_low = x < -np.log(np.finfo(np.float64).max)
     high = x > np.log(np.log(np.finfo(np.float64).max))
-    l = np.log(np.expm1(ex))
+    ll = np.log(np.expm1(ex))
     exi = ex[low]
-    l[low] = np.log(exi + exi**2 / 2.0 + exi**3 / 6.0)
-    l[very_low] = x[very_low]
-    l[high] = ex[high]
-    return l
+    ll[low] = np.log(exi + exi**2 / 2.0 + exi**3 / 6.0)
+    ll[very_low] = x[very_low]
+    ll[high] = ex[high]
+    return ll
 
 
 def _ldg(g: np.ndarray, deriv: int = 4) -> dict:
@@ -48,7 +48,7 @@ def _ldg(g: np.ndarray, deriv: int = 4) -> dict:
     g = np.asarray(g, dtype=np.float64)
 
     def alpha(g_v):
-        eg = np.exp(np.minimum(g_v, 500.0))
+        eg = np.exp(g_v)
         low = g_v < np.log(np.finfo(np.float64).eps) / 3.0
         a = eg / (1.0 - np.exp(-eg))
         a[low] = 1.0 + eg[low] / 2.0 + eg[low] ** 2 / 12.0
@@ -60,7 +60,7 @@ def _ldg(g: np.ndarray, deriv: int = 4) -> dict:
     low = g < np.log(np.finfo(np.float64).eps) / 3.0
     high = g > ghi_cap
     a = alpha(g)
-    eg = np.exp(np.minimum(g, 500.0))
+    eg = np.exp(g)
 
     l2 = a * (a - eg - 1.0)
     egi = eg[low]
@@ -99,7 +99,7 @@ def _ldg(g: np.ndarray, deriv: int = 4) -> dict:
     # clamp extreme g
     ii = g > ghi_max
     if np.any(ii):
-        cap = -np.exp(min(ghi_max, 500.0))
+        cap = -np.exp(ghi_max)
         l1[ii] = cap
         l2[ii] = cap
         if l3 is not None:
@@ -124,13 +124,13 @@ def _lde(eta: np.ndarray, deriv: int = 4) -> dict:
     low = eta < eps_log
     high = eta > max_log
 
-    et = np.exp(np.minimum(eta, 500.0))  # exp(eta)
+    et = np.exp(eta)  # exp(eta)
     eti = et[low]
 
     # l1 = exp(eta)/(exp(exp(eta))-1) = f/(exp(f)-1) where f=exp(eta)
     l1 = et.copy()
     safe_high = ~low & ~high
-    ef = np.exp(np.minimum(et[safe_high], 500.0))
+    ef = np.exp(et[safe_high])
     l1[safe_high] = et[safe_high] / (ef - 1.0)
     b = -eti * (1.0 + eti / 6.0) / 2.0
     l1[low] = 1.0 + b
@@ -199,10 +199,10 @@ def _zipll(y: np.ndarray, g: np.ndarray, eta: np.ndarray, deriv: int = 0) -> dic
     zind = y == 0
     yp = y[~zind]
 
-    et = np.exp(np.minimum(eta, 500.0))  # exp(eta)
-    l = et.copy()  # start with zeros shaped like et
-    l[zind] = -et[zind]  # log P(y=0) = log(exp(-exp(eta))) = -exp(eta)
-    l[~zind] = _l1ee(eta[~zind]) + yp * g[~zind] - _lee1(g[~zind]) - gammaln(yp + 1.0)
+    et = np.exp(eta)  # exp(eta)
+    ll = et.copy()  # start with zeros shaped like et
+    ll[zind] = -et[zind]  # log P(y=0) = log(exp(-exp(eta))) = -exp(eta)
+    ll[~zind] = _l1ee(eta[~zind]) + yp * g[~zind] - _lee1(g[~zind]) - gammaln(yp + 1.0)
 
     l1 = l2 = l3 = l4 = None
     if deriv:
@@ -211,30 +211,30 @@ def _zipll(y: np.ndarray, g: np.ndarray, eta: np.ndarray, deriv: int = 0) -> dic
         lg = _ldg(g, deriv)
 
         l1[~zind, 0] = yp + lg["l1"][~zind]  # l_g, y>0
-        l1[zind, 1] = l[zind]  # l_eta, y=0 = -exp(eta)
+        l1[zind, 1] = ll[zind]  # l_eta, y=0 = -exp(eta)
         l1[~zind, 1] = le["l1"][~zind]  # l_eta, y>0
 
         l2 = np.zeros((n, 3), dtype=np.float64)
         # order: gg, ge, ee
         l2[~zind, 0] = lg["l2"][~zind]  # l_gg, y>0
         l2[~zind, 2] = le["l2"][~zind]  # l_ee, y>0
-        l2[zind, 2] = l[zind]  # l_ee, y=0
+        l2[zind, 2] = ll[zind]  # l_ee, y=0
 
     if deriv > 1:
         l3 = np.zeros((n, 4), dtype=np.float64)
         # order: ggg, gge, gee, eee
         l3[~zind, 0] = lg["l3"][~zind]
         l3[~zind, 3] = le["l3"][~zind]
-        l3[zind, 3] = l[zind]
+        l3[zind, 3] = ll[zind]
 
     if deriv > 3:
         l4 = np.zeros((n, 5), dtype=np.float64)
         # order: gggg, ggge, ggee, geee, eeee
         l4[~zind, 0] = lg["l4"][~zind]
         l4[~zind, 4] = le["l4"][~zind]
-        l4[zind, 4] = l[zind]
+        l4[zind, 4] = ll[zind]
 
-    return {"l": l, "l1": l1, "l2": l2, "l3": l3, "l4": l4}
+    return {"l": ll, "l1": l1, "l2": l2, "l3": l3, "l4": l4}
 
 
 _ZIPLSS_SATURATED_LAMBDA = np.array(
@@ -263,11 +263,11 @@ _ZIPLSS_SATURATED_LAMBDA = np.array(
 def _ziplss_saturated_loglik(y: np.ndarray) -> np.ndarray:
     """Saturated log-likelihood for ziplss (mgcv ``zipll(log(g), 1e10)`` analogue)."""
     y = np.asarray(y, dtype=np.float64).ravel().copy()
-    l = y.copy()
-    if l.size == 0:
-        return l
+    ll = y.copy()
+    if ll.size == 0:
+        return ll
 
-    l[y < 2.0] = 0.0
+    ll[y < 2.0] = 0.0
     ind_mid = (y > 1.0) & (y < 18.0)
     if np.any(ind_mid):
         g = y.copy()
@@ -279,13 +279,13 @@ def _ziplss_saturated_loglik(y: np.ndarray) -> np.ndarray:
 
     ind = y > 1.0
     if np.any(ind):
-        l[ind] = _zipll(
+        ll[ind] = _zipll(
             y[ind],
             np.log(np.asarray(g, dtype=np.float64)[ind]),
             np.full(int(np.sum(ind)), 1.0e10, dtype=np.float64),
             deriv=0,
         )["l"]
-    return l
+    return ll
 
 
 # ---------------------------------------------------------------------------
@@ -337,6 +337,12 @@ class ZiplssFamily(GamlssFamily):
             raise ValueError("y contains NaN or Inf")
         if not np.all(y >= 0.0):
             raise ValueError("ziplss requires non-negative response y >= 0.")
+        if np.any(np.abs(y - np.round(y)) > 1e-12):
+            raise ValueError(
+                "Non-integer response variables are not allowed with ziplss"
+            )
+        if y.size and float(np.min(y)) == 0.0 and float(np.max(y)) == 1.0:
+            raise ValueError("Using ziplss for binary data makes no sense")
         return y
 
     def ll(
@@ -364,39 +370,25 @@ class ZiplssFamily(GamlssFamily):
         coef = np.asarray(coef, dtype=np.float64)
         sandwich = bool(kw.get("sandwich", False))
 
-        off1 = off2 = None
-        if offset is not None:
-            if isinstance(offset, (list, tuple)):
-                off1 = (
-                    np.asarray(offset[0], dtype=np.float64)
-                    if len(offset) > 0 and offset[0] is not None
-                    else None
-                )
-                off2 = (
-                    np.asarray(offset[1], dtype=np.float64)
-                    if len(offset) > 1 and offset[1] is not None
-                    else None
-                )
-            else:
-                off1 = np.asarray(offset, dtype=np.float64)
-
-        # Linear predictors (both identity links)
-        g = X[:, jj[0]] @ coef[jj[0]]  # log Poisson mean
-        if off1 is not None:
-            g = g + off1
-        eta = X[:, jj[1]] @ coef[jj[1]]  # loglog presence
-        if off2 is not None:
-            eta = eta + off2
+        eta_mat = self._eta_matrix_from_inputs(
+            X,
+            jj,
+            coef,
+            offset=offset,
+            eta=kw.get("eta", None),
+        )
+        g = np.asarray(eta_mat[:, 0], dtype=np.float64)
+        eta = np.asarray(eta_mat[:, 1], dtype=np.float64)
 
         # lambda and p are linkinv(eta_k) = identity = eta_k directly
         lam = self.linfo[0].linkinv(g)  # = g
         p = self.linfo[1].linkinv(eta)  # = eta
 
         zl = _zipll(y, lam, p, deriv)
-        l = float(np.sum(zl["l"]))
+        ll = float(np.sum(zl["l"]))
 
         if deriv == 0:
-            return {"l": l, "l0": zl["l"]}
+            return {"l": ll, "l0": zl["l"]}
 
         # Link derivatives for chain rule (both identity → trivial)
         ig1 = np.column_stack(
@@ -446,7 +438,6 @@ class ZiplssFamily(GamlssFamily):
             i4,
             deriv - 1,
         )
-
         ret = gamlss_gH(
             X,
             jj,
@@ -464,7 +455,11 @@ class ZiplssFamily(GamlssFamily):
             D=D,
             sandwich=sandwich,
         )
-        ret["l"] = l
+        if bool(kw.get("ncv", False)):
+            ret["l1"] = np.asarray(de["l1"], dtype=np.float64)
+            ret["l2"] = np.asarray(de["l2"], dtype=np.float64)
+            ret["l3"] = de["l3"]
+        ret["l"] = ll
         ret["l0"] = zl["l"]
         return ret
 
@@ -489,6 +484,7 @@ class ZiplssFamily(GamlssFamily):
         X = np.asarray(X, dtype=np.float64)
         n, p = X.shape
         start = np.zeros(p, dtype=np.float64)
+        use_unscaled = bool(E is not None and getattr(E, "use_unscaled", False))
 
         # --- Fit presence predictor on binarized y ---
         X2 = X[:, jj[1]]
@@ -496,16 +492,14 @@ class ZiplssFamily(GamlssFamily):
 
         if E is not None and E.shape[1] > 0:
             E2 = E[:, jj[1]]
-            XE2 = np.vstack([X2, E2])
-            y2e = np.concatenate([yt_bin, np.zeros(E2.shape[0])])
+            if use_unscaled:
+                XE2 = np.vstack([X2, E2])
+                y2e = np.concatenate([yt_bin, np.zeros(E2.shape[0])])
+                start2 = _qr_coef_pivoted(XE2, y2e)
+            else:
+                start2 = _pen_reg(X2, E2, yt_bin)
         else:
-            XE2 = X2
-            y2e = yt_bin
-
-        try:
-            start2 = np.linalg.lstsq(XE2, y2e, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start2 = np.zeros(X2.shape[1], dtype=np.float64)
+            start2 = _qr_coef_pivoted(X2, yt_bin)
         start2 = np.where(np.isfinite(start2), start2, 0.0)
         start[jj[1]] = start2
 
@@ -515,26 +509,67 @@ class ZiplssFamily(GamlssFamily):
         w[(y == 0) & (p_est < 0.5)] = 0.1
 
         # --- Fit log-mean predictor ---
-        yt_lam = np.log(np.maximum(y + 0.2, 1e-300)) * w
+        yt_lam = self.linfo[0].linkfun(np.log(np.abs(y) + (y == 0.0) * 0.2)) * w
         X1 = X[:, jj[0]]
         Xw1 = X1 * w[:, None]
 
         if E is not None and E.shape[1] > 0:
             E1 = E[:, jj[0]]
-            XE1 = np.vstack([Xw1, E1])
-            y1e = np.concatenate([yt_lam, np.zeros(E1.shape[0])])
+            if use_unscaled:
+                XE1 = np.vstack([Xw1, E1])
+                y1e = np.concatenate([yt_lam, np.zeros(E1.shape[0])])
+                start1 = _qr_coef_pivoted(XE1, y1e)
+            else:
+                start1 = _pen_reg(Xw1, E1, yt_lam)
         else:
-            XE1 = Xw1
-            y1e = yt_lam
-
-        try:
-            start1 = np.linalg.lstsq(XE1, y1e, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start1 = np.zeros(X1.shape[1], dtype=np.float64)
+            start1 = _qr_coef_pivoted(Xw1, yt_lam)
         start1 = np.where(np.isfinite(start1), start1, 0.0)
         start[jj[0]] = start1
 
         return start
+
+    def Dd(
+        self,
+        y: np.ndarray,
+        mu: np.ndarray,
+        theta,
+        wt=None,
+        level: int = 0,
+    ) -> dict[str, Any]:
+        del theta
+        y = np.asarray(y, dtype=np.float64).ravel()
+        mu = np.asarray(mu, dtype=np.float64)
+        if mu.ndim == 1:
+            mu = mu.reshape(-1, 1)
+        if mu.ndim != 2 or mu.shape[1] < 2:
+            raise ValueError(
+                "ziplss Dd expects mu with at least two predictor columns."
+            )
+        if mu.shape[0] != y.size:
+            raise ValueError(
+                f"ziplss Dd received {mu.shape[0]} rows, expected {y.size}."
+            )
+        if wt is None:
+            w = np.ones(y.size, dtype=np.float64)
+        else:
+            w = np.asarray(wt, dtype=np.float64).ravel()
+            if w.size != y.size:
+                raise ValueError(
+                    f"ziplss Dd received weights of length {w.size}, expected {y.size}."
+                )
+
+        deriv = int(level)
+        zz = _zipll(y, mu[:, 0], mu[:, 1], deriv=max(deriv + 1, 1))
+        out: dict[str, Any] = {
+            "Dmu": np.asarray(zz["l1"], dtype=np.float64) * w[:, None],
+        }
+        if deriv >= 1:
+            out["Dmu2"] = np.asarray(zz["l2"], dtype=np.float64) * w[:, None]
+        if deriv >= 2:
+            out["Dmu3"] = np.asarray(zz["l3"], dtype=np.float64) * w[:, None]
+        if deriv >= 3:
+            out["Dmu4"] = np.asarray(zz["l4"], dtype=np.float64) * w[:, None]
+        return out
 
     def residuals(
         self,
@@ -583,12 +618,91 @@ class ZiplssFamily(GamlssFamily):
         rsd = y - Ey
         if rtype == "response":
             return rsd
+        if rtype != "deviance":
+            raise ValueError("ziplss residual type must be 'deviance' or 'response'.")
 
         rsd_dev = 2.0 * (
             _ziplss_saturated_loglik(y) - _zipll(y, lam_pred, eta_pred, deriv=0)["l"]
         )
         rsd_dev = np.maximum(0.0, rsd_dev)
         return np.sqrt(rsd_dev) * np.sign(rsd)
+
+    def predict(
+        self,
+        *,
+        eta: np.ndarray | None = None,
+        X: np.ndarray | None = None,
+        jj: list[np.ndarray] | None = None,
+        coef: np.ndarray | None = None,
+        offset: Any = None,
+        se: bool = False,
+        Vb: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Response with ZIPLSS-specific uncertainty propagation.
+
+        This explicit Jacobian path accounts for cross-predictor covariance terms
+        that are otherwise dropped in the generic linear-response approximation.
+        """
+        if eta is None:
+            if X is None or jj is None or coef is None:
+                raise ValueError("Provide either eta or X/jj/coef for prediction.")
+            eta = self._stacked_eta(X, jj, coef, offset=offset)
+        eta = np.asarray(eta, dtype=np.float64)
+        if eta.ndim == 1:
+            eta = eta[:, None]
+        if eta.ndim != 2 or eta.shape[1] < 2:
+            raise ValueError("ziplss predict expects two linear predictors.")
+        eta = eta[:, :2]
+
+        fit = np.asarray(self._predict_response_from_eta(eta), dtype=np.float64)
+        if not se:
+            return fit
+
+        if Vb is None:
+            raise ValueError("Vb is required when se=True.")
+        if X is None or jj is None:
+            raise ValueError("X and jj are required when se=True.")
+        if len(jj) < 2:
+            raise ValueError(
+                "ziplss predict requires two predictor index blocks when se=True."
+            )
+
+        X = np.asarray(X, dtype=np.float64)
+        V = np.asarray(Vb, dtype=np.float64)
+        jj0 = np.asarray(jj[0], dtype=int)
+        jj1 = np.asarray(jj[1], dtype=int)
+        if jj0.size == 0 or jj1.size == 0:
+            raise ValueError("ziplss predict requires both predictor index blocks.")
+
+        g = eta[:, 0]
+        eta_p = eta[:, 1]
+        lam = np.exp(g)
+        et = np.exp(eta_p)
+        p = 1.0 - np.exp(-et)
+
+        q = 1.0 - np.exp(-lam)
+        q_safe = np.maximum(q, np.finfo(np.float64).eps)
+        mu_term = lam / q_safe
+        tiny = np.sqrt(np.finfo(np.float64).eps)
+        mu_term[lam <= tiny] = 1.0
+
+        dgd = p * lam * (q - lam * np.exp(-lam)) / (q_safe**2)
+        dgd[lam <= tiny] = p[lam <= tiny] * lam[lam <= tiny]
+        dpe = mu_term * (et * np.exp(-et))
+
+        Xg = X[:, jj0]
+        Xe = X[:, jj1]
+        Vgg = V[np.ix_(jj0, jj0)]
+        Vge = V[np.ix_(jj0, jj1)]
+
+        v_g = np.maximum(0.0, np.einsum("ij,jk,ik->i", Xg, Vgg, Xg))
+        # Mirror mgcv/R/gamlss.r ziplss predict() exactly, including its
+        # duplicated gamma-block variance expression for the eta component.
+        v_e = np.maximum(0.0, np.einsum("ij,jk,ik->i", Xg, Vgg, Xg))
+        v_eg = np.maximum(0.0, np.einsum("ij,jk,ik->i", Xg, Vge, Xe))
+        var = (dgd**2) * v_g + (dpe**2) * v_e + 2.0 * dgd * dpe * v_eg
+
+        return fit, np.sqrt(np.maximum(var, 0.0))[:, None]
 
     def _predict_response_from_eta(self, eta: np.ndarray) -> np.ndarray:
         eta = np.asarray(eta, dtype=np.float64)

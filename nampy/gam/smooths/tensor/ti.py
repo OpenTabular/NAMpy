@@ -7,8 +7,6 @@ separate ``s()`` terms for each marginal, decomposing the full interaction
 ``te(x1, x2)`` = ``s(x1) + s(x2) + ti(x1, x2)``.
 """
 
-import warnings
-
 import numpy as np
 
 from ...penalties import (
@@ -27,6 +25,7 @@ from ..smooth_base import (
 from .marginals import (
     build_tensor_marginal_terms,
     build_tensor_product_components,
+    normalize_tensor_fx_flags,
     resolve_tensor_marginal_features,
     tensor_predict_matrix,
     validate_tensor_marginal_bases,
@@ -45,6 +44,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         k=10,
         basis="cr",
         m=None,
+        xt=None,
         label=None,
         term_id=None,
         smoothing_id=None,
@@ -92,10 +92,16 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
             )
         self.basis = validate_tensor_marginal_bases(self.basis)
         self.m = m
+        self.xt = xt
 
         self.mc = mc
         self.select = bool(select)
-        self.fixed = bool(fixed)
+        self.fixed_flags = normalize_tensor_fx_flags(
+            fixed,
+            len(features),
+            wrong_length_warning="dimension of fx is wrong",
+        )
+        self.fixed = bool(all(self.fixed_flags))
         self.null_penalty_tol = float(null_penalty_tol)
         self.knots = _normalize_knots(knots, features)
 
@@ -121,6 +127,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
             k=self.k,
             basis=self.basis,
             m=self.m,
+            xt=self.xt,
             knots=self.knots,
             centered=self._mc,
             shared_basis_setups=marginal_shared_setups,
@@ -131,16 +138,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
             marginals
         )
 
-        if self.by is not None and not self._by_state.is_constant:
-            if self.mc is not None:
-                warnings.warn(
-                    f"{self.label}: ignoring mc={self.mc} because numeric by={self._by_state.feature_name!r} "
-                    "is non-constant, so automatic identifiability constraints are not applied.",
-                    stacklevel=2,
-                )
-            use_centered = [False] * len(marginals)
-        else:
-            use_centered = list(self._mc)
+        use_centered = list(self._mc)
 
         # Build marginal bases and penalties matching mgcv's ti construction.
         (
@@ -159,7 +157,9 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         S_ti = tensor_product_penalties(marginal_penalties, basis_dims=basis_dims)
 
         # Outer scale_penalty on the tensor product (matches smoothCon outer step).
-        S_ti = rescale_tensor_penalties_for_fit(B_ti_setup, S_ti)
+        S_ti, penalty_scales = rescale_tensor_penalties_for_fit(
+            B_ti_setup, S_ti, return_scales=True
+        )
 
         B_ti = self._apply_cached_by(B_ti_raw)
 
@@ -171,7 +171,19 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         self._basis_dims = basis_dims
         self._marginal_is_centered = list(use_centered)
         self._basis_train = np.asarray(B_ti, dtype=np.float64)
-        self._penalties = [] if self.fixed else S_ti
+        keep_penalties = [not flag for flag in self.fixed_flags]
+        self._penalties = [
+            np.asarray(S, dtype=np.float64)
+            for S, keep in zip(S_ti, keep_penalties)
+            if keep
+        ]
+        self._set_mgcv_penalty_rescale_factors(
+            [
+                float(scale)
+                for scale, keep in zip(penalty_scales, keep_penalties)
+                if keep
+            ]
+        )
         self._record_constraint_result(None, None, absorbed_by=None)
 
         self.basis_name = "ti(" + ",".join(self.basis) + ")"
@@ -202,6 +214,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
                     smoothing_id=sid,
                     sp_value_in=sp_j,
                     metadata_extra={"term_sp": sp_j, "is_selection_penalty": False},
+                    local_penalty_index=j,
                 )
             )
 

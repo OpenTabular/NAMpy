@@ -9,19 +9,17 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from nampy.gam import GAM
-from nampy.gam.compiler import compile_predictors
+from nampy.gam.compiler.compile_predictors import compile_predictors
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
 from nampy.gam.smooths.algebra import t2_marginal_reparameterization
-from nampy.gam.smooths.univariate.cubic_regression import SplineTerm1D
+from nampy.gam.smooths.univariate.cr import CubicSplineTerm
 from nampy.gam.specs.build import build_formula_model
 from tests._mgcv_snapshot_parity_shared import (
     TestPSplineSmooth as _SharedTestPSplineSmooth,
 )
 from tests.mgcv_parity_utils import (
-    R_SCRIPT,
     _assert_allclose_up_to_column_sign,
     _assert_basic_mgcv_parity,
     _fit_nampy_snapshot,
@@ -48,7 +46,12 @@ def _compile_formula_design(data, formula, **build_kwargs):
 
 
 class TestParitySnapshotAPI:
+    """
+    smoothCon and snapshot parity checks for basis construction, penalties, and
+    representative end-to-end fits.
+    """
     def test_parity_snapshot_supports_direct_gam_object(self):
+        """Verify that parity snapshot supports direct gam object."""
         data = _make_gaussian_data(n=80)
         formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
         gam = GAM(formula=formula, optimize_smoothing=True, smoothing_method="REML")
@@ -62,10 +65,11 @@ class TestParitySnapshotAPI:
         assert np.asarray(snap["predictions"]["response"]).shape == (len(data),)
 
     def test_cr_raw_basis_reproduces_constant_and_linear_functions_exactly(self):
+        """Verify that cr raw basis reproduces constant and linear functions exactly."""
         rng = np.random.default_rng(31)
         data = pd.DataFrame({"x": rng.uniform(-2.0, 2.0, size=120)})
 
-        term = SplineTerm1D(feature="x", k=5, basis="cr")
+        term = CubicSplineTerm(feature="x", k=5, basis="cr")
         term.fit(data[["x"]].to_numpy(dtype=np.float64), ["x"])
 
         raw_basis = np.asarray(term._spline.raw_basis, dtype=np.float64)
@@ -86,6 +90,7 @@ class TestParitySnapshotAPI:
         )
 
     def test_mgcv_snapshot_script_accepts_python_tensor_formula_syntax(self):
+        """Verify that mgcv snapshot script accepts python tensor formula syntax."""
         data = _make_gaussian_data(n=80)
         formula = 'y ~ te(x0, x1, bs=["cr", "cr"], k=[5, 5], sp=[0.7, 1.3])'
 
@@ -96,6 +101,7 @@ class TestParitySnapshotAPI:
         assert np.asarray(snap["predictions"]["response"]).shape == (len(data),)
 
     def test_te_smoothcon_basis_matches_mgcv(self):
+        """Verify that te smoothcon basis matches mgcv."""
         data = _make_gaussian_data(seed=7, n=80)
         smooth_expr_r = 'te(x0, x1, bs=c("cr", "cr"), k=c(5, 5), sp=c(0.7, 1.3))'
 
@@ -114,6 +120,7 @@ class TestParitySnapshotAPI:
         )
 
     def test_te_runtime_penalties_match_mgcv_scaled_smoothcon(self):
+        """Verify that te runtime penalties match mgcv scaled smoothcon."""
         data = _make_gaussian_data(seed=7, n=80)
         smooth_expr_r = 'te(x0, x1, bs=c("cr", "cr"), k=c(5, 5), sp=c(0.7, 1.3))'
 
@@ -139,6 +146,7 @@ class TestParitySnapshotAPI:
             np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
 
     def test_te_ps_nested_margin_orders_match_scalar_margin_orders(self):
+        """Verify that te ps nested margin orders match scalar margin orders."""
         data = _make_gaussian_data(seed=19, n=80)
 
         design_nested = _compile_formula_design(
@@ -170,6 +178,7 @@ class TestParitySnapshotAPI:
             np.testing.assert_allclose(got, want, atol=1e-12, rtol=1e-12)
 
     def test_te_ps_margin_orders_basis_matches_mgcv(self):
+        """Verify that te ps margin orders basis matches mgcv."""
         data = _make_gaussian_data(seed=20, n=80)
         smooth_expr_r = (
             'te(x0, x1, bs=c("ps", "ps"), k=c(6, 7), m=c(1, 3), sp=c(0.7, 1.3))'
@@ -190,6 +199,7 @@ class TestParitySnapshotAPI:
         )
 
     def test_te_ps_margin_orders_penalties_match_mgcv(self):
+        """Verify that te ps margin orders penalties match mgcv."""
         data = _make_gaussian_data(seed=20, n=80)
         smooth_expr_r = (
             'te(x0, x1, bs=c("ps", "ps"), k=c(6, 7), m=c(1, 3), sp=c(0.7, 1.3))'
@@ -217,6 +227,7 @@ class TestParitySnapshotAPI:
             np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
 
     def test_fs_smoothcon_basis_matches_mgcv(self):
+        """Verify that fs smoothcon basis matches mgcv."""
         data = _make_fs_data()
         smooth_expr_r = 's(f, x, bs="fs")'
 
@@ -232,6 +243,7 @@ class TestParitySnapshotAPI:
         )
 
     def test_fs_smoothcon_penalties_match_mgcv(self):
+        """Verify that fs smoothcon penalties match mgcv."""
         data = _make_fs_data()
         smooth_expr_r = 's(f, x, bs="fs")'
 
@@ -265,6 +277,7 @@ class TestParitySnapshotAPI:
         np.testing.assert_allclose(scales[0], 1.0, atol=5e-4, rtol=5e-4)
 
     def test_fs_smoothcon_ps_basis_matches_mgcv(self):
+        """Verify that fs smoothcon ps basis matches mgcv."""
         data = _make_fs_data()
         smooth_expr_r = 's(f, x, bs="fs", xt=list(bs="ps", m=2, k=7))'
 
@@ -282,6 +295,7 @@ class TestParitySnapshotAPI:
         )
 
     def test_fs_smoothcon_ps_penalties_match_mgcv(self):
+        """Verify that fs smoothcon ps penalties match mgcv."""
         data = _make_fs_data()
         smooth_expr_r = 's(f, x, bs="fs", xt=list(bs="ps", m=2, k=7))'
 
@@ -317,6 +331,7 @@ class TestParitySnapshotAPI:
         np.testing.assert_allclose(scales[0], 1.0, atol=3e-2, rtol=3e-2)
 
     def test_sz_smoothcon_basis_matches_mgcv(self):
+        """Verify that sz smoothcon basis matches mgcv."""
         data = _make_sz_data()
         smooth_expr_r = 's(f1, f2, x, bs="sz", k=6)'
 
@@ -332,6 +347,7 @@ class TestParitySnapshotAPI:
         )
 
     def test_sz_smoothcon_penalties_match_mgcv(self):
+        """Verify that sz smoothcon penalties match mgcv."""
         data = _make_sz_data()
         smooth_expr_r = 's(f1, f2, x, bs="sz", k=6)'
 
@@ -353,6 +369,7 @@ class TestParitySnapshotAPI:
             np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
 
     def test_sz_smoothcon_shared_id_penalty_matches_mgcv(self):
+        """Verify that sz smoothcon shared id penalty matches mgcv."""
         data = _make_sz_data()
         smooth_expr_r = 's(f1, f2, x, bs="sz", k=6, id="shared")'
 
@@ -375,6 +392,7 @@ class TestParitySnapshotAPI:
         np.testing.assert_allclose(actual[0], target[0], atol=1e-10, rtol=1e-10)
 
     def test_mrf_smoothcon_basis_matches_mgcv(self):
+        """Verify that MRF smoothcon basis matches mgcv."""
         data = _make_mrf_data()
         smooth_expr_r = (
             's(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
@@ -395,6 +413,7 @@ class TestParitySnapshotAPI:
         )
 
     def test_mrf_smoothcon_penalty_matches_mgcv(self):
+        """Verify that MRF smoothcon penalty matches mgcv."""
         data = _make_mrf_data()
         smooth_expr_r = (
             's(region, bs="mrf", xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
@@ -421,6 +440,7 @@ class TestParitySnapshotAPI:
             np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
 
     def test_re_smoothcon_factor_basis_matches_mgcv(self):
+        """Verify that re smoothcon factor basis matches mgcv."""
         data = _make_random_effect_data()
         smooth_expr_r = 's(f, bs="re")'
 
@@ -436,6 +456,7 @@ class TestParitySnapshotAPI:
         )
 
     def test_re_smoothcon_numeric_factor_basis_matches_mgcv(self):
+        """Verify that re smoothcon numeric factor basis matches mgcv."""
         data = pd.DataFrame({"x": [1.0, 2.0, 3.0, 4.0], "f": ["b", "a", "c", "a"]})
         smooth_expr_r = 's(x, f, bs="re")'
 
@@ -451,6 +472,7 @@ class TestParitySnapshotAPI:
         )
 
     def test_ti_smoothcon_basis_matches_mgcv(self):
+        """Verify that ti smoothcon basis matches mgcv."""
         data = _make_gaussian_data(seed=13, n=80)
         smooth_expr_r = 'ti(x0, x1, bs=c("cr", "cr"), k=c(5, 5), sp=c(0.7, 1.3))'
 
@@ -468,6 +490,7 @@ class TestParitySnapshotAPI:
         )
 
     def test_ti_runtime_penalties_match_mgcv_scaled_smoothcon(self):
+        """Verify that ti runtime penalties match mgcv scaled smoothcon."""
         data = _make_gaussian_data(seed=13, n=80)
         smooth_expr_r = 'ti(x0, x1, bs=c("cr", "cr"), k=c(5, 5), sp=c(0.7, 1.3))'
 
@@ -492,6 +515,7 @@ class TestParitySnapshotAPI:
             np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
 
     def test_ti_ps_margin_orders_basis_matches_mgcv(self):
+        """Verify that ti ps margin orders basis matches mgcv."""
         data = _make_gaussian_data(seed=21, n=80)
         smooth_expr_r = (
             'ti(x0, x1, bs=c("ps", "ps"), k=c(6, 7), m=c(1, 3), sp=c(0.7, 1.3))'
@@ -512,6 +536,7 @@ class TestParitySnapshotAPI:
         )
 
     def test_ti_ps_margin_orders_penalties_match_mgcv(self):
+        """Verify that ti ps margin orders penalties match mgcv."""
         data = _make_gaussian_data(seed=21, n=80)
         smooth_expr_r = (
             'ti(x0, x1, bs=c("ps", "ps"), k=c(6, 7), m=c(1, 3), sp=c(0.7, 1.3))'
@@ -539,6 +564,7 @@ class TestParitySnapshotAPI:
             np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
 
     def test_t2_ps_margin_orders_basis_matches_mgcv(self):
+        """Verify that t2 ps margin orders basis matches mgcv."""
         data = _make_gaussian_data(seed=22, n=80)
         smooth_expr_r = (
             't2(x0, x1, bs=c("ps", "ps"), k=c(6, 7), m=c(1, 3), ' "sp=c(0.7, 1.3, 0.9))"
@@ -560,6 +586,7 @@ class TestParitySnapshotAPI:
         )
 
     def test_t2_ps_margin_orders_penalties_match_mgcv(self):
+        """Verify that t2 ps margin orders penalties match mgcv."""
         data = _make_gaussian_data(seed=22, n=80)
         smooth_expr_r = (
             't2(x0, x1, bs=c("ps", "ps"), k=c(6, 7), m=c(1, 3), ' "sp=c(0.7, 1.3, 0.9))"
@@ -588,10 +615,11 @@ class TestParitySnapshotAPI:
             np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
 
     def test_t2_marginal_raw_cr_inputs_match_mgcv_before_natparam(self):
+        """Verify that t2 marginal raw cr inputs match mgcv before natparam."""
         rng = np.random.default_rng(31)
         data = pd.DataFrame({"x": rng.uniform(-2.0, 2.0, size=120)})
 
-        term = SplineTerm1D(feature="x", k=5, basis="cr")
+        term = CubicSplineTerm(feature="x", k=5, basis="cr")
         term.fit(data[["x"]].to_numpy(dtype=np.float64), ["x"])
 
         expected = _run_mgcv_natparam_cr(data, k=5)
@@ -610,10 +638,11 @@ class TestParitySnapshotAPI:
         )
 
     def test_t2_marginal_natparam_matches_mgcv_exactly(self):
+        """Verify that t2 marginal natparam matches mgcv exactly."""
         rng = np.random.default_rng(31)
         data = pd.DataFrame({"x": rng.uniform(-2.0, 2.0, size=120)})
 
-        term = SplineTerm1D(feature="x", k=5, basis="cr")
+        term = CubicSplineTerm(feature="x", k=5, basis="cr")
         term.fit(data[["x"]].to_numpy(dtype=np.float64), ["x"])
         expected = _run_mgcv_natparam_cr(data, k=5)
         actual = t2_marginal_reparameterization(
@@ -641,6 +670,7 @@ class TestParitySnapshotAPI:
         _assert_allclose_up_to_column_sign(got_P, want_P, atol=1e-12, rtol=1e-12)
 
     def test_t2_runtime_penalties_are_close_to_scaled_mgcv_smoothcon(self):
+        """Verify that t2 runtime penalties are close to scaled mgcv smoothcon."""
         data = _make_gaussian_data(seed=7, n=80)
         smooth_expr_r = 't2(x0, x1, bs=c("cr", "cr"), k=c(5, 5), sp=c(0.7, 1.3, 0.9))'
 
@@ -666,6 +696,9 @@ class TestParitySnapshotAPI:
             np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
 
     def test_t2_runtime_penalties_are_close_to_scaled_mgcv_smoothcon_full_false(self):
+        """
+        Verify that t2 runtime penalties are close to scaled mgcv smoothcon full false.
+        """
         data = _make_gaussian_data(seed=7, n=80)
         smooth_expr_r = (
             't2(x0, x1, bs=c("cr", "cr"), k=c(5, 5), full=FALSE, sp=c(0.7, 1.3, 0.9))'
@@ -694,6 +727,7 @@ class TestParitySnapshotAPI:
             np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
 
     def test_t2_transform_new_matches_training_basis(self):
+        """Verify that t2 transform new matches training basis."""
         data = _make_gaussian_data(seed=7, n=60)
         design = _compile_formula_design(
             data, 'y ~ t2(x0, x1, bs=["cr", "cr"], k=[5, 5], sp=[0.7, 1.3, 0.9])'
@@ -726,6 +760,7 @@ class TestCyclicCubicSmooth:
         return pd.DataFrame({"y": y, "x": x})
 
     def test_cc_smoothcon_basis_matches_mgcv(self):
+        """Verify that cc smoothcon basis matches mgcv."""
         data = self._make_cyclic_data()
         smooth_expr_r = 's(x, bs="cc", k=9)'
 
@@ -741,6 +776,7 @@ class TestCyclicCubicSmooth:
         )
 
     def test_cc_smoothcon_penalties_match_mgcv(self):
+        """Verify that cc smoothcon penalties match mgcv."""
         data = self._make_cyclic_data()
         smooth_expr_r = 's(x, bs="cc", k=9)'
 
@@ -758,6 +794,7 @@ class TestCyclicCubicSmooth:
         np.testing.assert_allclose(actual[0], target[0], atol=1e-10, rtol=1e-10)
 
     def test_cc_pc_smoothcon_basis_matches_mgcv(self):
+        """Verify that cc pc smoothcon basis matches mgcv."""
         data = self._make_cyclic_data()
         smooth_expr_r = 's(x, bs="cc", k=8, pc=0.5)'
 
@@ -776,6 +813,7 @@ class TestCyclicCubicSmooth:
         )
 
     def test_cc_pc_smoothcon_penalties_match_mgcv(self):
+        """Verify that cc pc smoothcon penalties match mgcv."""
         data = self._make_cyclic_data()
         smooth_expr_r = 's(x, bs="cc", k=8, pc=0.5)'
 
@@ -796,6 +834,7 @@ class TestCyclicCubicSmooth:
         np.testing.assert_allclose(actual[0], target[0], atol=1e-10, rtol=1e-10)
 
     def test_gaussian_cc_fixed_sp_matches_mgcv_exactly(self):
+        """Verify that gaussian cc fixed sp matches mgcv exactly."""
         data = self._make_cyclic_data(seed=78)
         formula = 'y ~ s(x, bs="cc", k=9, sp=0.8)'
 
@@ -816,6 +855,7 @@ class TestCyclicCubicSmooth:
         )
 
     def test_gaussian_cc_reml_matches_mgcv(self):
+        """Verify that gaussian cc REML matches mgcv."""
         data = self._make_cyclic_data(seed=79, n=200)
         formula = 'y ~ s(x, bs="cc", k=10)'
 
@@ -846,6 +886,7 @@ class TestPSplineSmooth(_SharedTestPSplineSmooth):
         return pd.DataFrame({"y": y, "x": x})
 
     def test_ps_smoothcon_basis_matches_mgcv(self):
+        """Verify that ps smoothcon basis matches mgcv."""
         data = self._make_ps_data()
         smooth_expr_r = 's(x, bs="ps", k=12)'
 
@@ -861,6 +902,7 @@ class TestPSplineSmooth(_SharedTestPSplineSmooth):
         )
 
     def test_ps_smoothcon_penalties_match_mgcv(self):
+        """Verify that ps smoothcon penalties match mgcv."""
         data = self._make_ps_data()
         smooth_expr_r = 's(x, bs="ps", k=12)'
 
@@ -878,6 +920,7 @@ class TestPSplineSmooth(_SharedTestPSplineSmooth):
         np.testing.assert_allclose(actual[0], target[0], atol=1e-10, rtol=1e-10)
 
     def test_ps_pc_smoothcon_basis_matches_mgcv(self):
+        """Verify that ps pc smoothcon basis matches mgcv."""
         data = self._make_ps_data()
         smooth_expr_r = 's(x, bs="ps", k=8, pc=0.0)'
 
@@ -896,6 +939,7 @@ class TestPSplineSmooth(_SharedTestPSplineSmooth):
         )
 
     def test_ps_pc_smoothcon_penalties_match_mgcv(self):
+        """Verify that ps pc smoothcon penalties match mgcv."""
         data = self._make_ps_data()
         smooth_expr_r = 's(x, bs="ps", k=8, pc=0.0)'
 
@@ -916,6 +960,7 @@ class TestPSplineSmooth(_SharedTestPSplineSmooth):
         np.testing.assert_allclose(actual[0], target[0], atol=1e-10, rtol=1e-10)
 
     def test_gaussian_ps_fixed_sp_matches_mgcv_exactly(self):
+        """Verify that gaussian ps fixed sp matches mgcv exactly."""
         data = self._make_ps_data(seed=82)
         formula = 'y ~ s(x, bs="ps", k=12, sp=0.5)'
 
@@ -936,6 +981,7 @@ class TestPSplineSmooth(_SharedTestPSplineSmooth):
         )
 
     def test_gaussian_ps_reml_matches_mgcv(self):
+        """Verify that gaussian ps REML matches mgcv."""
         data = self._make_ps_data(seed=83, n=200)
         formula = 'y ~ s(x, bs="ps", k=14)'
 
@@ -1002,6 +1048,7 @@ class TestGPSmooth:
         _assert_allclose_up_to_column_sign(actual_X, expected_X, atol=1e-8, rtol=1e-8)
 
     def test_gaussian_gp_fixed_sp_matches_mgcv(self):
+        """Verify that gaussian gp fixed sp matches mgcv."""
         data = self._make_gp_data(seed=92)
         formula = 'y ~ s(x, bs="gp", k=10, sp=1.0)'
 
@@ -1022,6 +1069,7 @@ class TestGPSmooth:
         )
 
     def test_gaussian_gp_reml_matches_mgcv(self):
+        """Verify that gaussian gp REML matches mgcv."""
         data = self._make_gp_data(seed=93, n=180)
         formula = 'y ~ s(x, bs="gp", k=12)'
 
@@ -1037,6 +1085,7 @@ class TestGPSmooth:
         )
 
     def test_gaussian_gp_two_smooths_reml_matches_mgcv(self):
+        """Verify that gaussian gp two smooths REML matches mgcv."""
         rng = np.random.default_rng(94)
         n = 180
         x0 = rng.uniform(-2.0, 2.0, size=n)

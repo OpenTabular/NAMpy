@@ -51,7 +51,12 @@ def _fit_single_smooth_model(seed: int, n: int, method: str):
 
 
 class TestGaussianSmoothnessPostprocess:
+    """
+    Parity coverage for Gaussian smoothness post-processing, including profiled
+    criteria, derivatives, and fit attachment.
+    """
     def test_profiled_reml_matches_dynamic_criterion(self):
+        """Verify that profiled REML matches dynamic criterion."""
         df, gam = _fit_single_smooth_model(seed=11, n=100, method="REML")
         sp = np.asarray(gam.smoothing_params, dtype=np.float64).ravel()
         log_sp = np.log(np.maximum(sp, np.finfo(np.float64).tiny))
@@ -67,6 +72,7 @@ class TestGaussianSmoothnessPostprocess:
         )
 
     def test_profiled_reml_matches_mgcv_snapshot_noisy_re(self):
+        """Verify that profiled REML matches mgcv snapshot noisy re."""
         data = _make_random_effect_data_noisy()
         formula = 'y ~ s(f, bs="re")'
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
@@ -88,6 +94,7 @@ class TestGaussianSmoothnessPostprocess:
         )
 
     def test_gcv_derivatives_match_finite_differences(self):
+        """Verify that GCV derivatives match finite differences."""
         df, gam = _fit_single_smooth_model(seed=21, n=95, method="GCV")
         sp0 = np.asarray(gam.smoothing_params, dtype=np.float64).ravel()
         y = gam.family.validate_y(np.asarray(df["y"], dtype=np.float64))
@@ -114,6 +121,7 @@ class TestGaussianSmoothnessPostprocess:
         )
 
     def test_reml_derivatives_match_dispatch(self):
+        """Verify that REML derivatives match dispatch."""
         df, gam = _fit_single_smooth_model(seed=33, n=88, method="REML")
         sp0 = np.asarray(gam.smoothing_params, dtype=np.float64).ravel()
         y = gam.family.validate_y(np.asarray(df["y"], dtype=np.float64))
@@ -133,6 +141,7 @@ class TestGaussianSmoothnessPostprocess:
         )
 
     def test_fit_irls_from_model_attaches_smoothness_postprocess(self):
+        """Verify that fit IRLS from model attaches smoothness postprocess."""
         df, gam = _fit_single_smooth_model(seed=7, n=60, method="REML")
         from nampy.gam.fit.solvers.irls_core import fit_irls_from_model
 

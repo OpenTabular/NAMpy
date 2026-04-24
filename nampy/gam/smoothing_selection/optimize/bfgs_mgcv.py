@@ -99,19 +99,50 @@ def _eval_objective_at(
     objective._last_hess = None
 
     try:
-        score = float(objective.fun(x_eval))
-        grad = (
-            np.asarray(objective.jac(x_eval), dtype=np.float64) if need_grad else None
-        )
+        score = None
+        grad = None
+        method_key = str(getattr(objective, "method", "")).lower()
+        if need_grad and not need_hess and method_key in {"ncv", "qncv"}:
+            from ..criteria.ncv import _criterion_ncv_full
+
+            score_val, _full_grad, free_grad = _criterion_ncv_full(
+                model,
+                getattr(objective, "y", None),
+                x_eval,
+                qapprox=(method_key == "qncv"),
+                need_gradient=True,
+            )
+            score = float(score_val)
+            grad = np.asarray(free_grad, dtype=np.float64)
+            objective.n_fun += 1
+            objective.n_jac += 1
+            objective._last_x = x_eval.copy()
+            objective._last_fun = float(score)
+            objective._last_grad = grad.copy()
+            objective._last_hess = None
+        else:
+            score = float(objective.fun(x_eval))
+            grad = (
+                np.asarray(objective.jac(x_eval), dtype=np.float64)
+                if need_grad
+                else None
+            )
         hess = (
             np.asarray(objective.hess(x_eval), dtype=np.float64) if need_hess else None
         )
+        if (
+            getattr(objective, "_last_fun", None) is not None
+            and hasattr(objective, "_same_x")
+            and bool(objective._same_x(x_eval))
+        ):
+            score = float(objective._last_fun)
         hess_for_dvkk = hess
         if need_grad and model is not None and hess_for_dvkk is None:
-            # `criterion_gradient()` does not currently refresh `dVkk`; force the
-            # current-point derivative kernel so BFGS rollback decisions use the
-            # same information as mgcv's `gam.fit3(..., deriv = 1)`.
-            hess_for_dvkk = np.asarray(objective.hess(x_eval), dtype=np.float64)
+            dvkk_now = _extract_dvkk_diag(model, x_eval, None)
+            if not np.all(np.isfinite(dvkk_now)):
+                hess_method = getattr(objective, "hess", None)
+                if hess_method is not None:
+                    hess_for_dvkk = np.asarray(hess_method(x_eval), dtype=np.float64)
 
         coef_eval = (
             getattr(model, "_pirls_last_coef_", None) if model is not None else None
@@ -222,7 +253,7 @@ def _optimize_outer_bfgs_mgcv(
     *,
     score_type="reml",
     conv_tol=1e-6,
-    max_nstep=5.0,
+    max_nstep=3.0,
     max_sstep=2.0,
     max_step=200,
 ):
@@ -296,6 +327,7 @@ def _optimize_outer_bfgs_mgcv(
             model=getattr(objective, "model", None),
         )
         initial_lsp = x0.copy()
+        lsp = x0.copy()
         ilsp = x0.copy()
         score_hist = np.full(int(max_step) + 1, np.nan, dtype=np.float64)
         score_hist[0] = float(initial["score"])
@@ -307,7 +339,7 @@ def _optimize_outer_bfgs_mgcv(
         def zoom(step, lo, hi):
             for _ in range(40):
                 alpha = 0.5 * (float(lo["alpha"]) + float(hi["alpha"]))
-                x_trial = _project_to_bounds(ilsp + step * alpha, bounds)
+                lsp_trial = _project_to_bounds(ilsp + step * alpha, bounds)
                 (
                     score_val,
                     _,
@@ -319,7 +351,7 @@ def _optimize_outer_bfgs_mgcv(
                     scale_trial,
                 ) = _eval_objective_at(
                     objective,
-                    x_trial,
+                    lsp_trial,
                     start_coef=initial["start"],
                     start_eta=initial["eta"],
                     start_mu=initial["mustart"],
@@ -350,7 +382,7 @@ def _optimize_outer_bfgs_mgcv(
                         scale_grad,
                     ) = _eval_objective_at(
                         objective,
-                        x_trial,
+                        lsp_trial,
                         start_coef=initial["start"],
                         start_eta=initial["eta"],
                         start_mu=initial["mustart"],
@@ -380,9 +412,12 @@ def _optimize_outer_bfgs_mgcv(
         for i in range(1, int(max_step) + 1):
             step = np.zeros(n, dtype=np.float64)
             if np.any(uconv):
-                step[np.asarray(uconv, dtype=bool)] = -(
+                step_u = -(
                     B[np.ix_(uconv, uconv)]
-                    @ np.asarray(initial["grad"], dtype=np.float64)[uconv]
+                    @ np.asarray(initial["grad"], dtype=np.float64)[uconv][:, None]
+                )
+                step[np.asarray(uconv, dtype=bool)] = np.asarray(
+                    step_u[:, 0], dtype=np.float64
                 )
             if float(step @ np.asarray(initial["grad"], dtype=np.float64)) >= 0.0:
                 step = -np.diag(B) * np.asarray(initial["grad"], dtype=np.float64)
@@ -405,7 +440,7 @@ def _optimize_outer_bfgs_mgcv(
                 prev = initial.copy()
                 deriv = 1
                 while True:
-                    x_trial = _project_to_bounds(ilsp + alpha * step, bounds)
+                    lsp = _project_to_bounds(ilsp + alpha * step, bounds)
                     (
                         score_val,
                         grad_val,
@@ -417,7 +452,7 @@ def _optimize_outer_bfgs_mgcv(
                         scale_trial,
                     ) = _eval_objective_at(
                         objective,
-                        x_trial,
+                        lsp,
                         start_coef=prev["start"],
                         start_eta=prev["eta"],
                         start_mu=prev["mustart"],
@@ -458,7 +493,7 @@ def _optimize_outer_bfgs_mgcv(
                             scale_now,
                         ) = _eval_objective_at(
                             objective,
-                            x_trial,
+                            lsp,
                             start_coef=trial["start"],
                             start_eta=trial["eta"],
                             start_mu=trial["mustart"],
@@ -484,6 +519,7 @@ def _optimize_outer_bfgs_mgcv(
                     alpha = min(float(prev["alpha"]) * 1.3, float(alpha_max))
 
                 if trial is None:
+                    lsp = ilsp.copy()
                     (
                         score_curr,
                         grad_curr,
@@ -533,14 +569,19 @@ def _optimize_outer_bfgs_mgcv(
                         if i == 1:
                             B = B * float(trial["alpha"])
                         rho = 1.0 / rho
-                        B = B - rho * np.outer(step, yg @ B)
-                        B = B - rho * np.outer(B @ yg, step) + rho * np.outer(
-                            step, step
+                        step_col = np.asarray(step[:, None], dtype=np.float64)
+                        yg_col = np.asarray(yg[:, None], dtype=np.float64)
+                        B = B - rho * (
+                            step_col @ (yg_col.T @ np.asarray(B, dtype=np.float64))
                         )
-                        B = 0.5 * (B + B.T)
+                        B = (
+                            B
+                            - rho * ((np.asarray(B, dtype=np.float64) @ yg_col) @ step_col.T)
+                            + rho * (step_col @ step_col.T)
+                        )
 
                     score_hist[i] = float(trial["score"])
-                    ilsp = ilsp + step
+                    lsp = ilsp = ilsp + step
                     converged = True
                     score_scale = _bfgs_score_scale(
                         score_type,
@@ -569,84 +610,77 @@ def _optimize_outer_bfgs_mgcv(
 
                 if converged:
                     if np.all(uconv) or rolled_back:
-                        pass
-                    else:
-                        rolled_back = True
-                        counter = 0
-                        uconv0 = uconv.copy()
-                        while np.any(~uconv0) and counter < 5:
-                            ilsp[~uconv0] = (
-                                ilsp[~uconv0] * 0.8 + initial_lsp[~uconv0] * 0.2
-                            )
-                            (
-                                score_rb,
-                                grad_rb,
-                                _,
-                                dvkk_rb,
-                                coef_rb,
-                                eta_rb,
-                                mu_rb,
-                                scale_rb,
-                            ) = _eval_objective_at(
-                                objective,
-                                ilsp,
-                                start_coef=trial["start"],
-                                start_eta=trial["eta"],
-                                start_mu=trial["mustart"],
-                                need_grad=True,
-                                commit_start=False,
-                            )
-                            trial["score"] = float(score_rb)
-                            trial["grad"] = np.asarray(grad_rb, dtype=np.float64)
-                            trial["dscore"] = float(trial["grad"] @ step)
-                            trial["dVkk"] = np.asarray(dvkk_rb, dtype=np.float64)
-                            trial["start"] = _copy_state_vector(coef_rb)
-                            trial["eta"] = _copy_state_vector(eta_rb)
-                            trial["mustart"] = _copy_state_vector(mu_rb)
-                            trial["scale_est"] = scale_rb
-                            counter += 1
-                            uconv0 = np.abs(
-                                np.asarray(trial["grad"], dtype=np.float64)
-                            ) > (score_scale * conv_tol * 20.0)
-                            uconv0 = uconv0 | (
-                                np.abs(np.asarray(trial["dVkk"], dtype=np.float64))
-                                > (score_scale * conv_tol * 20.0)
-                            )
-                            uconv0 = uconv0 | uconv
-                        uconv = np.ones_like(uconv, dtype=bool)
-                        ilsp = ilsp.copy()
-
-            if converged and (np.all(uconv) or rolled_back):
-                break
-            initial = trial.copy()
-            initial["alpha"] = 0.0
-            step_norm = float(
-                np.linalg.norm(
-                    ilsp - x0
-                    if len(iter_trace) == 0
-                    else ilsp - np.asarray(iter_trace[-1]["log_sp"], dtype=np.float64)
-                )
-            )
+                        break
+                    rolled_back = True
+                    counter = 0
+                    uconv0 = uconv.copy()
+                    while np.any(~uconv0) and counter < 5:
+                        lsp[~uconv0] = (
+                            lsp[~uconv0] * 0.8 + initial_lsp[~uconv0] * 0.2
+                        )
+                        (
+                            score_rb,
+                            grad_rb,
+                            _,
+                            dvkk_rb,
+                            coef_rb,
+                            eta_rb,
+                            mu_rb,
+                            scale_rb,
+                        ) = _eval_objective_at(
+                            objective,
+                            lsp,
+                            start_coef=trial["start"],
+                            start_eta=trial["eta"],
+                            start_mu=trial["mustart"],
+                            need_grad=True,
+                            commit_start=False,
+                        )
+                        trial["score"] = float(score_rb)
+                        trial["grad"] = np.asarray(grad_rb, dtype=np.float64)
+                        trial["dscore"] = float(trial["grad"] @ step)
+                        trial["dVkk"] = np.asarray(dvkk_rb, dtype=np.float64)
+                        trial["start"] = _copy_state_vector(coef_rb)
+                        trial["eta"] = _copy_state_vector(eta_rb)
+                        trial["mustart"] = _copy_state_vector(mu_rb)
+                        trial["scale_est"] = scale_rb
+                        counter += 1
+                        uconv0 = np.abs(np.asarray(trial["grad"], dtype=np.float64)) > (
+                            score_scale * conv_tol * 20.0
+                        )
+                        uconv0 = uconv0 | (
+                            np.abs(np.asarray(trial["dVkk"], dtype=np.float64))
+                            > (score_scale * conv_tol * 20.0)
+                        )
+                        uconv0 = uconv0 | uconv
+                    uconv = np.ones_like(uconv, dtype=bool)
+                    ilsp = lsp.copy()
+            step_norm = 0.0
+            if len(iter_trace) > 0:
+                prev_lsp = np.asarray(iter_trace[-1]["log_sp"], dtype=np.float64)
+                step_norm = float(np.linalg.norm(ilsp - prev_lsp))
             iter_trace.append(
                 {
                     "iter": int(i),
                     "log_sp": np.asarray(ilsp, dtype=np.float64).copy(),
-                    "criterion": float(initial["score"]),
-                    "gradient": np.asarray(initial["grad"], dtype=np.float64).copy(),
+                    "criterion": float(trial["score"]),
+                    "gradient": np.asarray(trial["grad"], dtype=np.float64).copy(),
                     "hessian": None,
                     "accepted_step_norm": step_norm,
                     "rank_info": {
-                        "source": "outer_bfgs_mgcv",
+                        "source": "mgcv_bfgs",
                         "line_search_alpha": float(trial["alpha"]),
                         "converged_here": bool(converged),
                         "rolled_back": bool(rolled_back),
                     },
                 }
             )
+            initial = trial.copy()
+            initial["alpha"] = 0.0
 
         if trial is None:
             ct = "step failed"
-            ilsp = ilsp.copy()
+            lsp = ilsp.copy()
             trial = initial.copy()
         elif i == int(max_step):
             ct = "iteration limit reached"
@@ -655,7 +689,7 @@ def _optimize_outer_bfgs_mgcv(
 
         score_f, grad_f, _, _, coef_f, eta_f, mu_f, _ = _eval_objective_at(
             objective,
-            ilsp,
+            lsp,
             start_coef=trial["start"],
             start_eta=trial["eta"],
             start_mu=trial["mustart"],
@@ -671,7 +705,7 @@ def _optimize_outer_bfgs_mgcv(
         hess_approx = _invert_inverse_hessian(B)
         success = ct == "full convergence"
         result = OptimizeResult(
-            x=np.asarray(ilsp, dtype=np.float64),
+            x=np.asarray(lsp, dtype=np.float64),
             fun=float(score_f),
             jac=np.asarray(grad_f, dtype=np.float64),
             hess=np.asarray(hess_approx, dtype=np.float64),
@@ -683,6 +717,10 @@ def _optimize_outer_bfgs_mgcv(
             njev=int(objective.n_jac),
             nhev=int(objective.n_hess),
         )
+        # `mgcv::bfgs()` returns the quasi-Newton Hessian approximation, not the
+        # exact outer criterion Hessian. Preserve that payload through driver
+        # post-processing instead of overwriting it with `criterion_hessian(...)`.
+        result.mgcv_exact_outer_derivatives = True
         result.mgcv_score_hist = [v for v in score_hist.tolist() if np.isfinite(v)]
         result.optim_trace = iter_trace
         result.outer_info = {
@@ -691,6 +729,12 @@ def _optimize_outer_bfgs_mgcv(
             "score_hist": result.mgcv_score_hist,
             "grad": np.asarray(grad_f, dtype=np.float64),
             "hess": np.asarray(hess_approx, dtype=np.float64),
+            "convergence": int(result.status),
+            "message": str(ct),
+            "counts": np.asarray(
+                [int(objective.n_fun), int(objective.n_jac)],
+                dtype=np.int64,
+            ),
         }
         return result
     finally:

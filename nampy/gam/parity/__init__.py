@@ -13,6 +13,14 @@ Typical workflow
 3. Compare with :func:`compare_parity_snapshots` and inspect tolerances.
 """
 
+from ..linalg.subspaces import (
+    column_space_projector,
+    covariance_standard_errors,
+    matrix_self_gram,
+    matrix_summary,
+    row_space_projector,
+    symmetric_spectrum,
+)
 from .compare import (
     assert_parity_snapshot_close,
     compare_parity_snapshots,
@@ -39,4 +47,10 @@ __all__ = [
     "compare_parity_snapshots",
     "assert_parity_snapshot_close",
     "compare",
+    "matrix_self_gram",
+    "column_space_projector",
+    "row_space_projector",
+    "symmetric_spectrum",
+    "matrix_summary",
+    "covariance_standard_errors",
 ]

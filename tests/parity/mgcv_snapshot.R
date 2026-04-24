@@ -1,5 +1,5 @@
 # Usage:
-#   Rscript mgcv_snapshot.R <csv_path> <output_json> <formula> <family> <method> <select>
+#   Rscript mgcv_snapshot.R <csv_path> <output_json> <formula> <family> <method> <select> [weights_column] [optimizer]
 #
 # Fits mgcv::gam at fixed linear smoothing parameters sp (JSON array) and writes
 # REML / GCV criterion value, sum(edf), and deviance scale for parity with
@@ -7,7 +7,9 @@
 
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 6) {
-  stop("Usage: Rscript mgcv_snapshot.R <csv_path> <output_json> <formula> <family> <method> <select>")
+  stop(
+    "Usage: Rscript mgcv_snapshot.R <csv_path> <output_json> <formula> <family> <method> <select> [weights_column] [optimizer]"
+  )
 }
 
 normalize_formula_text <- function(x) {
@@ -114,6 +116,13 @@ if (length(args) >= 7) {
     gam_args$weights <- data[[wcol]]
   }
 }
+if (length(args) >= 8) {
+  optimizer_name <- tolower(args[[8]])
+  if (nzchar(optimizer_name) && optimizer_name != "none" && optimizer_name != "-") {
+    optimizer_arg <- if (optimizer_name == "efs") "efs" else c("outer", optimizer_name)
+    gam_args$optimizer <- optimizer_arg
+  }
+}
 
 capture_warnings <- function(expr) {
   warnings <- character(0)
@@ -215,7 +224,12 @@ fixed_sp_derivatives <- function(sp_ref, eps_grad = 1e-6, eps_hess = 1e-4) {
   list(grad = grad, hess = hess)
 }
 
-fixed_outer <- fixed_sp_derivatives(fit$sp)
+fixed_outer <- tryCatch(
+  fixed_sp_derivatives(fit$sp),
+  error = function(e) {
+    list(grad = numeric(0), hess = matrix(numeric(0), 0, 0))
+  }
+)
 
 pred_response <- unname(as.numeric(predict(fit, type = "response")))
 pred_link <- unname(as.numeric(predict(fit, type = "link")))

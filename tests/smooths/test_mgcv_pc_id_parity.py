@@ -28,11 +28,9 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from nampy.gam._model_state import _n_coef, _n_smoothing_params
 from tests.mgcv_parity_utils import (
-    R_SCRIPT,
     _assert_basic_mgcv_parity,
     _assert_exact_mgcv_snapshot_parity,
     _fit_nampy_snapshot,
@@ -353,6 +351,7 @@ class TestPcParityREML:
     """
 
     def test_cr_pc_reml_matches_mgcv(self):
+        """Verify that cr pc REML matches mgcv."""
         data = _data_1d()
         formula = 'y ~ s(x, bs="cr", k=8, pc=0.0)'
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
@@ -455,6 +454,7 @@ class TestPcParityREML:
         _assert_exact_mgcv_snapshot_parity(actual, expected)
 
     def test_tp_numeric_by_pc_reml_matches_mgcv(self):
+        """Verify that tp numeric by pc REML matches mgcv."""
         data = _data_numeric_by_2d(seed=41)
         formula = 'y ~ s(x, w, bs="tp", k=15, pc=[0.2, -0.3], by=z)'
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
@@ -468,6 +468,7 @@ class TestPcParityREML:
         )
 
     def test_ts_numeric_by_pc_reml_matches_mgcv(self):
+        """Verify that ts numeric by pc REML matches mgcv."""
         data = _data_numeric_by_2d(seed=42)
         formula = 'y ~ s(x, w, bs="ts", k=15, pc=[0.2, -0.3], by=z)'
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
@@ -475,6 +476,7 @@ class TestPcParityREML:
         _assert_exact_mgcv_snapshot_parity(actual, expected)
 
     def test_gp_numeric_by_pc_reml_matches_mgcv(self):
+        """Verify that gp numeric by pc REML matches mgcv."""
         data = _data_numeric_by_2d(seed=43)
         formula = 'y ~ s(x, w, bs="gp", k=20, pc=[0.2, -0.3], by=z)'
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
@@ -725,6 +727,10 @@ class TestPcAndLinkedCombined:
 
 
 class TestBySelectAndMoreLinkedIdParity:
+    """
+    Parity checks for linked id and select=True smooth setups that extend the fixed and
+    REML baseline matrices.
+    """
     def test_cr_factor_by_select_reml_matches_mgcv(self):
         """Factor-by replicated cr smooths with select=True match mgcv under REML."""
         data = _data_factor_by()

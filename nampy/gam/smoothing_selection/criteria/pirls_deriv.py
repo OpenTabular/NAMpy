@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.linalg import cho_factor, cho_solve, solve_triangular
+from scipy.linalg import cho_factor, cho_solve
 from scipy.special import digamma, polygamma
 
 from ..._model_state import _coef_column_offset, _n_smoothing_params
@@ -12,10 +12,10 @@ from ...fit.linalg.matrix_reindexing import (
     drop_rows_dense,
     permute_columns,
     permute_rows,
+    restore_dropped_rows,
 )
 from ...fit.linalg.stacked_qr import (
     build_penalized_qr_state_nonnegative,
-    penalty_sqrt_rows,
 )
 from ...fit.model_ops import (
     can_use_simple_ml_reml_structure,
@@ -25,7 +25,7 @@ from ...fit.model_ops import (
 from ..reparam import (
     _stable_penalty_logdet_derivatives,
     _static_penalty_null_dim,
-    build_gam_fit3_reparam_state,
+    build_penalty_reparameterization_state,
 )
 from .pirls import _gamma_profile_objective_curvature, _solve_gamma_profile_scale
 from .pirls_reml_derivative_blocks import (
@@ -37,6 +37,9 @@ from .pirls_reml_derivative_blocks import (
     _quadratic_form_in_beta_directions,
     _working_weight_derivatives_wrt_linpred,
 )
+
+_MGCV_GAM_FIT3_RANK_TOL = float(np.finfo(np.float64).eps * 100.0)
+_MGCV_GAM_FIT4_RANK_TOL = float(np.finfo(np.float64).eps ** 0.75)
 
 
 @dataclass
@@ -50,6 +53,8 @@ class _GDI1CurrentSpState:
     XtWX: np.ndarray
     P: np.ndarray
     A: np.ndarray
+    R: np.ndarray
+    rank_root: np.ndarray
     A_inv: np.ndarray
     penalized_system_rank: int
     dropped_column_indices: np.ndarray
@@ -160,6 +165,18 @@ class _GDI2IFTState:
     ntheta: int
 
 
+def _apply_penalized_inverse_root(rank_root: np.ndarray, rhs: np.ndarray) -> np.ndarray:
+    """
+    Mirror `mgcv/src/gdi.c::applyP()` + `applyPt()` via the QR-state inverse root.
+
+    `rank_root` is the reduced-space `P` returned by `gdiPK()`-style setup, with
+    `PP' = (X'WX + S)^{-1}` in the pivoted rank-identified parameterization.
+    """
+    rank_root = np.asarray(rank_root, dtype=np.float64)
+    rhs = np.asarray(rhs, dtype=np.float64)
+    return np.asarray(rank_root @ (rank_root.T @ rhs), dtype=np.float64)
+
+
 def _gamma_saturated_loglik_scale_derivatives(y, phi, weights=None):
     """
     `mgcv`-style Gamma saturated log-likelihood derivatives w.r.t. scale `phi`.
@@ -205,6 +222,48 @@ def _drop_permute_symmetric(mat, drop, pivot1):
     out = drop_columns_dense(out, drop)
     out = permute_rows(out, pivot1, reverse=False)
     return permute_columns(out, pivot1, reverse=False)
+
+
+def _column_stack_or_empty(cols, nrow):
+    if len(cols) == 0:
+        return np.empty((int(nrow), 0), dtype=np.float64)
+    return np.column_stack([np.asarray(col, dtype=np.float64) for col in cols])
+
+
+def _restore_pirls_dbeta_to_fit_space(current, dbeta_rank):
+    packed = np.asarray(dbeta_rank, dtype=np.float64).reshape(-1, 1)
+    pivot1 = np.asarray(current.pivot1, dtype=np.int64)
+    dropped = np.asarray(current.dropped_column_indices, dtype=np.int64)
+    canonical_T = np.asarray(current.canonical.T, dtype=np.float64)
+
+    unpermuted = permute_rows(packed, pivot1, reverse=True)
+    full_canonical = restore_dropped_rows(
+        unpermuted,
+        int(canonical_T.shape[1]),
+        dropped,
+    )
+    return np.asarray(canonical_T @ full_canonical, dtype=np.float64).ravel()
+
+
+def _serialize_pirls_postproc_derivatives(kernel: _GDI1Kernel) -> dict[str, object]:
+    current = kernel.current
+    dbeta = _column_stack_or_empty(
+        [
+            _restore_pirls_dbeta_to_fit_space(current, col)
+            for col in list(kernel.ift.dbeta)
+        ],
+        int(np.asarray(current.canonical.T, dtype=np.float64).shape[0]),
+    )
+    dW_obs = (
+        None
+        if kernel.ift.dW_obs is None
+        else _column_stack_or_empty(list(kernel.ift.dW_obs), int(current.X.shape[0]))
+    )
+    return {
+        "dbeta": dbeta,
+        "dW_obs": dW_obs,
+        "rp": getattr(current.canonical, "rp", None),
+    }
 
 
 def _negbin_ddeta_logtheta(family, y, mu, weights, *, deriv):
@@ -261,24 +320,42 @@ def _negbin_ddeta_logtheta(family, y, mu, weights, *, deriv):
     return out
 
 
-def _gamma_joint_kernel_state(model, y, log_sp, method):
+def _gamma_joint_kernel_state(model, y, log_sp, method, *, phi):
     method = str(method).upper()
     sp = expand_smoothing_params_from_log(model, log_sp)
     sol = solve_pirls_given_smoothing(model, y, sp)
-    gdi2 = _gdi2_joint_kernel(model, y, sol, sp, method=method, need_hessian=True)
+    kernel = _gdi1_kernel(
+        model,
+        y,
+        sol,
+        sp,
+        method=method,
+        rank_tol=_MGCV_GAM_FIT4_RANK_TOL,
+    )
+    Dp = float(sol["deviance"]) + float(kernel.bSb)
+    Dp1 = np.asarray(kernel.D1 + kernel.bSb1, dtype=np.float64)
+    Dp2 = np.asarray(kernel.D2 + kernel.bSb2, dtype=np.float64)
+    mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
+    _ls0, _score_lphi, phi_curv = _gamma_profile_objective_curvature(
+        model,
+        y,
+        Dp,
+        float(phi),
+        mp,
+        method=method,
+    )
     state = {
-        "K": gdi2.gdi1.K,
-        "K1": gdi2.gdi1.K1,
-        "K2": gdi2.gdi1.K2,
-        "phi": gdi2.phi,
-        "phi_curv": gdi2.phi_curv,
+        "K": kernel.K,
+        "K1": kernel.K1,
+        "K2": kernel.K2,
+        "phi": float(phi),
+        "phi_curv": phi_curv,
         "scale_est": float(sol["scale"]),
-        "Dp": gdi2.Dp,
-        "Dp1": gdi2.Dp1,
-        "Dp2": gdi2.Dp2,
+        "Dp": Dp,
+        "Dp1": Dp1,
+        "Dp2": Dp2,
     }
     model._pirls_reml_gamma_state_ = state
-    mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     return state, mp
 
 
@@ -289,7 +366,6 @@ def criterion_gradient_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, meth
             "Joint PIRLS Gamma derivatives are implemented only for family='gamma'."
         )
 
-    state, mp = _gamma_joint_kernel_state(model, y, log_sp, method)
     phi = float(np.exp(float(log_phi)))
     if not np.isfinite(phi) or phi <= 0.0:
         n_free = (
@@ -298,6 +374,7 @@ def criterion_gradient_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, meth
             else int(_n_smoothing_params(model) or 0)
         )
         return np.full(n_free + 1, np.nan, dtype=np.float64)
+    state, mp = _gamma_joint_kernel_state(model, y, log_sp, method, phi=phi)
 
     _, score_lphi, _ = _gamma_profile_objective_curvature(
         model,
@@ -332,7 +409,6 @@ def criterion_hessian_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, metho
             "Joint PIRLS Gamma derivatives are implemented only for family='gamma'."
         )
 
-    state, mp = _gamma_joint_kernel_state(model, y, log_sp, method)
     phi = float(np.exp(float(log_phi)))
     if not np.isfinite(phi) or phi <= 0.0:
         n_free = (
@@ -341,6 +417,7 @@ def criterion_hessian_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, metho
             else int(_n_smoothing_params(model) or 0)
         )
         return np.full((n_free + 1, n_free + 1), np.nan, dtype=np.float64)
+    state, mp = _gamma_joint_kernel_state(model, y, log_sp, method, phi=phi)
 
     _, _, curv_lphi = _gamma_profile_objective_curvature(
         model,
@@ -461,28 +538,21 @@ def criterion_hessian_ml_reml_pirls_negbin_joint(model, y, log_sp, log_theta, me
     #   REML2 <- ((D2+bSb2)/(2*scale) - ls2)/gamma + ldet2/2
     # Only the theta-theta block (index 0 in H_full) gets the ls2 correction.
     H_full = H_full.copy()
-    lsth2 = float(state["lsth2"])
-    if np.isfinite(lsth2):
-        H_full[0, 0] -= lsth2 / gamma
+    H_full[0, 0] -= float(state["lsth2"]) / gamma
     sp_idx = 1 + np.flatnonzero(free_mask)
     keep = np.concatenate([sp_idx, np.array([0], dtype=np.int64)])
     return np.asarray(H_full[np.ix_(keep, keep)], dtype=np.float64)
 
 
-def _gdi_pk_setup(model, sol, sp, *, deriv):
+def _gdi_pk_setup(model, sol, sp, *, deriv, rank_tol=None):
     """
     Single `mgcv::gdiPK()`-shaped setup routine.
 
     Owns current-sp canonical reparameterization plus solver rank/drop metadata.
     """
-    canonical = build_gam_fit3_reparam_state(model, sol["X"], sp, deriv=deriv)
+    canonical = build_penalty_reparameterization_state(model, sol["X"], sp, deriv=deriv)
     X = np.asarray(sol["X"], dtype=np.float64) @ np.asarray(
         canonical.T, dtype=np.float64
-    )
-    beta = np.asarray(
-        np.asarray(canonical.T, dtype=np.float64).T
-        @ np.asarray(sol["coef_full"], dtype=np.float64),
-        dtype=np.float64,
     )
     W = np.asarray(sol["working_weights"], dtype=np.float64)
     XtWX = X.T @ (W[:, None] * X)
@@ -491,7 +561,11 @@ def _gdi_pk_setup(model, sol, sp, *, deriv):
     q_total_full = int(np.asarray(A, dtype=np.float64).shape[0])
     q_null_full = int(canonical.Mp)
     q_range_full = int(q_total_full - q_null_full)
-    penalty_sqrt, penalty_rank_rows = penalty_sqrt_rows(np.asarray(P, dtype=np.float64))
+    # Mirror `mgcv::gdiPK()` exactly here: use the canonical total-penalty roots
+    # produced by the current `gam.fit3/gam.fit4` reparameterization state,
+    # rather than rebuilding a fresh dense square root from `St`.
+    penalty_sqrt = np.asarray(canonical.Sr, dtype=np.float64)
+    penalty_rank_rows = np.asarray(canonical.Eb, dtype=np.float64)
     root_cols = []
     rSncol = []
     roots = list(canonical.rp.get("rS", []))
@@ -515,14 +589,16 @@ def _gdi_pk_setup(model, sol, sp, *, deriv):
         if root_cols
         else np.empty((q_total_full, 0), dtype=np.float64)
     )
+    if rank_tol is None:
+        rank_tol = _MGCV_GAM_FIT3_RANK_TOL
     qr_state = build_penalized_qr_state_nonnegative(
         np.asarray(X, dtype=np.float64),
-        np.asarray(X @ beta, dtype=np.float64),
-        np.abs(np.asarray(W, dtype=np.float64)),
+        np.asarray(sol["working_response"], dtype=np.float64),
+        np.asarray(W, dtype=np.float64),
         penalty_sqrt_E=np.asarray(penalty_sqrt, dtype=np.float64),
         penalty_rank_Es=np.asarray(penalty_rank_rows, dtype=np.float64),
         rS=np.asarray(rS, dtype=np.float64),
-        rank_tol=1e-10,
+        rank_tol=float(rank_tol),
         reml=True,
         Mp=int(q_null_full),
     )
@@ -540,14 +616,22 @@ def _gdi_pk_setup(model, sol, sp, *, deriv):
     rS_work = np.asarray(qr_state.rS_work, dtype=np.float64)
     ldet_xwxs = float(qr_state.ldet_XWX_plus_S)
     X_rank = _drop_permute_columns(X, dropped_idx, pivot1)
-    beta_rank = permute_rows(
-        drop_rows_dense(beta[:, None], dropped_idx), pivot1, reverse=False
-    ).ravel()
+    # Mirror `mgcv/src/gdi.c::gdiPK()` / `ift1()`: downstream derivative and
+    # `b'Sb` staging works on the pivoted rank-space coefficient representative
+    # `PK'z`, not on a transformed version of the final reported coefficients.
+    beta_rank = np.asarray(qr_state.PKtz, dtype=np.float64).ravel()
     P_rank = _drop_permute_symmetric(P, dropped_idx, pivot1)
     XtWX_rank = X_rank.T @ (W[:, None] * X_rank)
-    A_rank = XtWX_rank + P_rank
-    cA, loA = cho_factor(A_rank, check_finite=False)
-    A_inv_rank = cho_solve((cA, loA), np.eye(A_rank.shape[0]), check_finite=False)
+    # Mirror `mgcv/src/gdi.c::gdiPK()`: downstream `gdi1/gdi2` carry `Rh` with
+    # `Rh'Rh = X'WX + S` in the pivoted reduced parameterization rather than
+    # refactorizing a reconstructed normal-equation matrix.
+    A_rank = np.asarray(Rh.T @ Rh, dtype=np.float64)
+    A_rank = 0.5 * (A_rank + A_rank.T)
+    if rank > 0:
+        A_inv_rank = np.asarray(Pk @ Pk.T, dtype=np.float64)
+        A_inv_rank = 0.5 * (A_inv_rank + A_inv_rank.T)
+    else:
+        A_inv_rank = np.empty((0, 0), dtype=np.float64)
     nulli_full = np.concatenate(
         [
             -np.ones(q_range_full, dtype=np.float64),
@@ -568,6 +652,8 @@ def _gdi_pk_setup(model, sol, sp, *, deriv):
         XtWX=XtWX_rank,
         P=P_rank,
         A=A_rank,
+        R=np.asarray(Rh, dtype=np.float64),
+        rank_root=np.asarray(Pk, dtype=np.float64),
         A_inv=A_inv_rank,
         penalized_system_rank=rank,
         dropped_column_indices=dropped_idx,
@@ -659,7 +745,7 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
     beta = np.asarray(current.beta, dtype=np.float64)
     eta = np.asarray(sol["eta"], dtype=np.float64)
     W = np.asarray(current.W, dtype=np.float64)
-    Rh = np.asarray(pk_state.Rh, dtype=np.float64)
+    P_root = np.asarray(pk_state.P, dtype=np.float64)
     n_sp = int(_n_smoothing_params(model) or 0)
     rank = int(beta.size)
     roots = list(current.canonical.rp.get("rS", []))
@@ -710,10 +796,7 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
             work = root.T @ beta
             work *= -float(sp[j])
             work = root @ work
-            work = solve_triangular(
-                Rh, work, lower=False, trans="T", check_finite=False
-            )
-            dbeta_j = solve_triangular(Rh, work, lower=False, check_finite=False)
+            dbeta_j = _apply_penalized_inverse_root(P_root, work)
         else:
             dbeta_j = np.zeros_like(beta)
         deta_j = X @ dbeta_j
@@ -737,8 +820,7 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
                 work = root_k.T @ np.asarray(dbeta[j], dtype=np.float64)
                 work *= -float(sp[k])
                 Skb = Skb + root_k @ work
-            work = solve_triangular(Rh, Skb, lower=False, trans="T", check_finite=False)
-            d2beta_jk = solve_triangular(Rh, work, lower=False, check_finite=False)
+            d2beta_jk = _apply_penalized_inverse_root(P_root, Skb)
             if j == k:
                 d2beta_jk = d2beta_jk + np.asarray(dbeta[j], dtype=np.float64)
             d2eta_jk = X @ d2beta_jk
@@ -898,10 +980,12 @@ def _schur_logdet_terms(A_rr, A_rf, A_ff, dArr, dArf, dAff, d2Arr, d2Arf, d2Aff)
     Cinv = cho_solve((cC, loC), np.eye(p), check_finite=False)
     n_sp = len(dArr)
     dC = [None] * n_sp
+    dRinv = [None] * n_sp
     d1 = np.zeros(n_sp, dtype=np.float64)
     d2 = np.zeros((n_sp, n_sp), dtype=np.float64)
     for j in range(n_sp):
         dRinv_j = -Rinv @ dArr[j] @ Rinv
+        dRinv[j] = dRinv_j
         dC_j = (
             dAff[j]
             - dArf[j].T @ Rinv @ A_rf
@@ -912,7 +996,8 @@ def _schur_logdet_terms(A_rr, A_rf, A_ff, dArr, dArf, dAff, d2Arr, d2Arf, d2Aff)
         d1[j] = float(np.trace(Cinv @ dC_j))
     for j in range(n_sp):
         for k in range(j, n_sp):
-            dRinv_k = -Rinv @ dArr[k] @ Rinv
+            dRinv_j = np.asarray(dRinv[j], dtype=np.float64)
+            dRinv_k = np.asarray(dRinv[k], dtype=np.float64)
             d2Rinv_jk = (
                 Rinv @ dArr[k] @ Rinv @ dArr[j] @ Rinv
                 - Rinv @ d2Arr[j][k] @ Rinv
@@ -1015,7 +1100,9 @@ def _get_ddetXWXpS_qr_terms(model, sp, current, ift, pk_state):
         zero = np.zeros(n_sp, dtype=np.float64)
         return 0.0, zero, np.zeros((n_sp, n_sp), dtype=np.float64)
 
-    wabs = np.clip(np.abs(np.asarray(current.W, dtype=np.float64)), 1e-300, None)
+    wabs = np.abs(np.asarray(current.W, dtype=np.float64))
+    if np.any(~np.isfinite(wabs)) or np.any(wabs == 0.0):
+        return None
     Tk = [np.asarray(dw, dtype=np.float64) / wabs for dw in ift.dW_obs]
     Tkm = [
         [np.asarray(d2w, dtype=np.float64) / wabs for d2w in row]
@@ -1082,10 +1169,42 @@ def _ml_penalty1_terms(model, sp, current, ift, pk_state):
     """
     `mgcv::MLpenalty1()`-shaped penalty stage on canonical current-sp state.
 
-    On the current Python side, the canonical range-space block already plays the
-    role of the rank-truncated `R` factor used by upstream MLpenalty1.
+    Upstream drops pivoted null-space columns after rank detection, so the range
+    block is selected by `nulli` membership rather than by leading columns.
     """
-    return _gdi1_reml_penalty_terms(model, sp, current, ift, pk_state, method="ML")
+    range_idx = np.asarray(pk_state.range_idx, dtype=np.int64)
+    n_sp = len(ift.dA)
+    if range_idx.size == 0:
+        zero = np.zeros(n_sp, dtype=np.float64)
+        return 0.0, zero, np.zeros((n_sp, n_sp), dtype=np.float64)
+
+    A = np.asarray(current.A, dtype=np.float64)
+    Arr = A[np.ix_(range_idx, range_idx)]
+    dArr = [
+        np.asarray(dAj[np.ix_(range_idx, range_idx)], dtype=np.float64)
+        for dAj in ift.dA
+    ]
+    d2Arr = [
+        [np.asarray(d2A[np.ix_(range_idx, range_idx)], dtype=np.float64) for d2A in row]
+        for row in ift.d2A_mat
+    ]
+    cR, loR = cho_factor(Arr, check_finite=False)
+    logdet_R = 2.0 * float(np.sum(np.log(np.abs(np.diag(cR)))))
+    Rinv = cho_solve((cR, loR), np.eye(range_idx.size), check_finite=False)
+    detR1, detR2 = _logdet_penalized_system_derivatives(Rinv, dArr, d2Arr)
+
+    logdet_S, detS1, detS2 = _stable_penalty_logdet_derivatives(model, sp, order=2)
+    if not np.isfinite(logdet_S):
+        return (
+            np.inf,
+            np.full(n_sp, np.nan, dtype=np.float64),
+            np.full((n_sp, n_sp), np.nan, dtype=np.float64),
+        )
+    return (
+        0.5 * (logdet_R - logdet_S),
+        0.5 * (detR1 - detS1),
+        0.5 * (detR2 - detS2),
+    )
 
 
 def _get_ddetXWXpS_terms(model, sp, current, ift, pk_state):
@@ -1122,9 +1241,9 @@ def _gdi1_det_terms(model, sp, current, ift, pk_state, *, method):
     return det1, det2, trA, trA1, trA2, K, K1, K2, dVkk
 
 
-def _gdi1_kernel(model, y, sol, sp, *, method):
+def _gdi1_kernel(model, y, sol, sp, *, method, rank_tol=None):
     """Structured Python analogue of `mgcv::gdi1()` on canonical current-sp state."""
-    setup = _gdi_pk_setup(model, sol, sp, deriv=2)
+    setup = _gdi_pk_setup(model, sol, sp, deriv=2, rank_tol=rank_tol)
     current = setup.current
     pk_state = setup.pk
     ift = _gdi1_ift1_state(model, y, sol, sp, current, pk_state)
@@ -1163,15 +1282,21 @@ def _gdi2_penalty_terms(model, sp, current, dA, d2A_mat, pk_state, *, n_theta, m
         return 0.0, zero, np.zeros((ntot, ntot), dtype=np.float64)
 
     A = np.asarray(current.A, dtype=np.float64)
-    Arr = A[:q_range, :q_range]
-    dArr = [np.asarray(dAj[:q_range, :q_range], dtype=np.float64) for dAj in dA]
+    if str(method).upper() == "ML":
+        range_idx = np.asarray(pk_state.range_idx, dtype=np.int64)
+    else:
+        range_idx = np.arange(q_range, dtype=np.int64)
+    Arr = A[np.ix_(range_idx, range_idx)]
+    dArr = [
+        np.asarray(dAj[np.ix_(range_idx, range_idx)], dtype=np.float64) for dAj in dA
+    ]
     d2Arr = [
-        [np.asarray(d2A[:q_range, :q_range], dtype=np.float64) for d2A in row]
+        [np.asarray(d2A[np.ix_(range_idx, range_idx)], dtype=np.float64) for d2A in row]
         for row in d2A_mat
     ]
     cR, loR = cho_factor(Arr, check_finite=False)
     logdet_R = 2.0 * float(np.sum(np.log(np.abs(np.diag(cR)))))
-    Rinv = cho_solve((cR, loR), np.eye(q_range), check_finite=False)
+    Rinv = cho_solve((cR, loR), np.eye(range_idx.size), check_finite=False)
     detR1, detR2 = _logdet_penalized_system_derivatives(Rinv, dArr, d2Arr)
 
     logdet_S, detS1_sp, detS2_sp = _stable_penalty_logdet_derivatives(
@@ -1220,7 +1345,7 @@ def _gdi2_ift2_state_negbin(model, y, sol, sp, current, pk_state):
     X = np.asarray(current.X, dtype=np.float64)
     beta = np.asarray(current.beta, dtype=np.float64)
     mu = np.asarray(sol["mu"], dtype=np.float64)
-    A_inv = np.asarray(current.A_inv, dtype=np.float64)
+    P_root = np.asarray(pk_state.P, dtype=np.float64)
     weights = _prior_weights(model, y)
     dd = _negbin_ddeta_logtheta(model.family, y, mu, weights, deriv=2)
     P_sp = [
@@ -1248,7 +1373,7 @@ def _gdi2_ift2_state_negbin(model, y, sol, sp, current, pk_state):
             rhs = -0.5 * (X.T @ np.asarray(dd["Detath"], dtype=np.float64))
         else:
             rhs = -(P_derivs[i] @ beta)
-        dbeta_i = A_inv @ rhs
+        dbeta_i = _apply_penalized_inverse_root(P_root, rhs)
         deta_i = X @ dbeta_i
         if i == 0:
             dW_i = 0.5 * (
@@ -1297,7 +1422,7 @@ def _gdi2_ift2_state_negbin(model, y, sol, sp, current, pk_state):
                 rhs -= 0.5 * (X.T @ np.asarray(dd["Detath2"], dtype=np.float64))
             elif i == k and i > 0:
                 rhs -= P_derivs[i] @ beta
-            d2beta_ik = A_inv @ rhs
+            d2beta_ik = _apply_penalized_inverse_root(P_root, rhs)
             d2eta_ik = X @ d2beta_ik
             d2W_ik = 0.5 * (
                 np.asarray(dd["Deta4"], dtype=np.float64)
@@ -1341,7 +1466,13 @@ def _gdi2_ift2_state_negbin(model, y, sol, sp, current, pk_state):
 
 def _gdi2_negbin_joint_kernel(model, y, sol, sp, *, method, need_hessian):
     """Port of `mgcv::gdi2()` for negative-binomial `log(theta)` branch."""
-    setup = _gdi_pk_setup(model, sol, sp, deriv=2)
+    setup = _gdi_pk_setup(
+        model,
+        sol,
+        sp,
+        deriv=2,
+        rank_tol=_MGCV_GAM_FIT4_RANK_TOL,
+    )
     current = setup.current
     pk_state = setup.pk
     ift = _gdi2_ift2_state_negbin(model, y, sol, sp, current, pk_state)
@@ -1419,7 +1550,14 @@ def _gdi2_negbin_joint_kernel(model, y, sol, sp, *, method, need_hessian):
         method=method,
     )
 
-    gdi1 = _gdi1_kernel(model, y, sol, sp, method=method)
+    gdi1 = _gdi1_kernel(
+        model,
+        y,
+        sol,
+        sp,
+        method=method,
+        rank_tol=_MGCV_GAM_FIT4_RANK_TOL,
+    )
     Dp = float(sol["deviance"]) + float(bSb)
     Dp1 = np.asarray(D1 + bSb1, dtype=np.float64)
     Dp2 = None if D2 is None else np.asarray(D2 + bSb2, dtype=np.float64)
@@ -1445,7 +1583,14 @@ def _gdi2_gamma_joint_kernel(model, y, sol, sp, *, method, need_hessian):
     Current Gamma branch is Python analogue of `gdi2` extended-family staging:
     smoothing kernel + profiled extra parameter (`log(phi)` here).
     """
-    gdi1 = _gdi1_kernel(model, y, sol, sp, method=method)
+    gdi1 = _gdi1_kernel(
+        model,
+        y,
+        sol,
+        sp,
+        method=method,
+        rank_tol=_MGCV_GAM_FIT4_RANK_TOL,
+    )
     mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     Dp = float(sol["deviance"]) + float(gdi1.bSb)
     phi = _solve_gamma_profile_scale(
@@ -1492,6 +1637,83 @@ def _gdi2_gamma_joint_kernel(model, y, sol, sp, *, method, need_hessian):
     )
 
 
+def _gdi2_general_family_kernel(model, y, sol, sp, *, method, need_hessian):
+    """
+    Port-shaped `gam.fit5()` decomposition for theta-free general families.
+
+    Mirrors `mgcv/R/gam.fit4.r::gam.fit5` where the REML/ML score splits into
+    `Dp / (2 * gamma) + K`, with `Dp = -2 * ll + b'Sb`.
+    """
+    del sol
+    from ...fit.solvers.general_family_solver import run_general_family_fixed_smoothing
+    from ...fit.solvers.general_newton_solver import _sl_term_mult
+
+    gamma = float(model.score_gamma)
+    run = run_general_family_fixed_smoothing(
+        model,
+        y,
+        sp,
+        weights=_prior_weights(model, y),
+        deriv=2 if need_hessian else 1,
+        score_type=method,
+    )
+    fit = run["fit"]
+    setup = run["setup"]
+
+    coef = np.asarray(fit["coef"], dtype=np.float64)
+    St_full = np.asarray(fit["St_full"], dtype=np.float64)
+    ll_val = float(fit["l"])
+    penalty_full = float(coef @ (St_full @ coef))
+    Dp = float(-2.0 * ll_val + penalty_full)
+
+    Skb = _sl_term_mult(setup.Sl, coef, full=True)
+    Dp1 = np.asarray(
+        [float(np.sum(coef * np.asarray(Skb_i, dtype=np.float64))) for Skb_i in Skb],
+        dtype=np.float64,
+    )
+    score1 = np.asarray(fit.get("score1", np.zeros_like(Dp1)), dtype=np.float64)
+    K1 = np.asarray(score1 - Dp1 / (2.0 * gamma), dtype=np.float64)
+
+    Dp2 = None
+    K2 = None
+    if need_hessian:
+        db_drho = np.asarray(fit["db_drho"], dtype=np.float64)
+        llbb = np.asarray(fit["lbb"], dtype=np.float64)
+        n_sp = int(db_drho.shape[1])
+        d2pen = np.zeros((n_sp, n_sp), dtype=np.float64)
+        d2l = np.zeros((n_sp, n_sp), dtype=np.float64)
+        for i in range(n_sp):
+            Sd1b = St_full @ db_drho[:, i]
+            for j in range(i, n_sp):
+                val = 2.0 * float(
+                    np.sum(
+                        db_drho[:, i] * np.asarray(Skb[j], dtype=np.float64)
+                        + db_drho[:, j] * np.asarray(Skb[i], dtype=np.float64)
+                        + db_drho[:, j] * Sd1b
+                    )
+                )
+                if i == j:
+                    val += float(np.sum(coef * np.asarray(Skb[i], dtype=np.float64)))
+                d2pen[i, j] = d2pen[j, i] = val
+                d2l[i, j] = d2l[j, i] = float(db_drho[:, i] @ (llbb @ db_drho[:, j]))
+        Dp2 = np.asarray(d2pen - 2.0 * d2l, dtype=np.float64)
+        score2 = np.asarray(fit["score2"], dtype=np.float64)
+        K2 = np.asarray(score2 - Dp2 / (2.0 * gamma), dtype=np.float64)
+
+    return _GDI2Kernel(
+        gdi1=None,
+        phi=1.0,
+        phi_curv=np.inf,
+        Dp=Dp,
+        Dp1=Dp1,
+        Dp2=Dp2,
+        K1_full=K1,
+        K2_full=K2,
+        extra_name=None,
+        extra_value=None,
+    )
+
+
 def _gdi2_joint_kernel(model, y, sol, sp, *, method, need_hessian):
     """
     Generic extended-family entry mirroring `gdi2()` dispatch.
@@ -1506,6 +1728,16 @@ def _gdi2_joint_kernel(model, y, sol, sp, *, method, need_hessian):
         )
     if family_name == "negbin":
         return _gdi2_negbin_joint_kernel(
+            model, y, sol, sp, method=method, need_hessian=need_hessian
+        )
+    if str(getattr(model.family, "family_class", "")).lower() == "general":
+        n_theta = int(getattr(model.family, "n_theta", 0) or 0)
+        if n_theta != 0:
+            raise NotImplementedError(
+                "Generic `gdi2` current-sp extended-family port is implemented "
+                "only for theta-free general families."
+            )
+        return _gdi2_general_family_kernel(
             model, y, sol, sp, method=method, need_hessian=need_hessian
         )
     raise NotImplementedError(
@@ -1646,6 +1878,7 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
                 np.asarray(kernel.D2, dtype=np.float64)
                 + np.asarray(kernel.bSb2, dtype=np.float64)
             ) / (2.0 * scale * gamma) + kernel.K2
+        postproc_derivs = _serialize_pirls_postproc_derivatives(kernel)
         model._pirls_reml_derivative_kernel_state_ = {
             "bSb": kernel.bSb,
             "bSb1": kernel.bSb1,
@@ -1668,6 +1901,7 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
             "penalty_hess_raw": None,
             "detXWXS1": detXWXS1,
             "detXWXS2": detXWXS2,
+            **postproc_derivs,
         }
     except Exception:
         model._pirls_reml_derivative_kernel_state_ = None

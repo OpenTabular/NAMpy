@@ -6,7 +6,7 @@ import numpy as np
 from scipy.special import digamma, gammaln, polygamma
 
 from ...fit.solvers.gamlss_utils import gamlss_etamu, gamlss_gH, trind_generator
-from ._base import GamlssFamily, _IdentityLinkInfo
+from ._base import GamlssFamily, _IdentityLinkInfo, _pen_reg, _qr_coef_pivoted
 
 
 class _SoftplusBLinkInfo:
@@ -62,7 +62,7 @@ class _SoftplusBLinkInfo:
         """d^2 eta / d mu^2.  Mirrors mgcv d2link for softplus-b."""
         mu = np.asarray(mu, dtype=np.float64)
         mub = mu - self.b
-        mub_v = np.exp(-np.abs(mub) * np.sign(mub))  # exp(-|mu-b|*sign) = exp(-|mu-b|)
+        mub_v = np.exp(-mub * np.sign(mub))
         return -mub_v / (mub_v - 1.0) ** 2
 
     def d3link(self, mu: np.ndarray) -> np.ndarray:
@@ -182,29 +182,15 @@ class GammalsFamily(GamlssFamily):
         n = len(y)
         sandwich = bool(kw.get("sandwich", False))
 
-        off1 = off2 = None
-        if offset is not None:
-            if isinstance(offset, (list, tuple)):
-                off1 = (
-                    np.asarray(offset[0], dtype=np.float64)
-                    if len(offset) > 0 and offset[0] is not None
-                    else None
-                )
-                off2 = (
-                    np.asarray(offset[1], dtype=np.float64)
-                    if len(offset) > 1 and offset[1] is not None
-                    else None
-                )
-            else:
-                off1 = np.asarray(offset, dtype=np.float64)
-
-        # Linear predictors
-        eta = X[:, jj[0]] @ coef[jj[0]]
-        if off1 is not None:
-            eta = eta + off1
-        etat = X[:, jj[1]] @ coef[jj[1]]
-        if off2 is not None:
-            etat = etat + off2
+        eta_mat = self._eta_matrix_from_inputs(
+            X,
+            jj,
+            coef,
+            offset=offset,
+            eta=kw.get("eta", None),
+        )
+        eta = np.asarray(eta_mat[:, 0], dtype=np.float64)
+        etat = np.asarray(eta_mat[:, 1], dtype=np.float64)
 
         mu = self.linfo[0].linkinv(eta)  # log(mean)
         th = self.linfo[1].linkinv(etat)  # log(sigma)
@@ -219,10 +205,10 @@ class GammalsFamily(GamlssFamily):
         l0 = etlymt - logy - ethmuy - gammaln(eth)
         if not np.isfinite(np.sum(l0)):
             return {"l": float(np.sum(l0)), "l0": l0}
-        l = float(np.sum(l0))
+        ll = float(np.sum(l0))
 
         if deriv == 0:
-            return {"l": l, "l0": l0}
+            return {"l": ll, "l0": l0}
 
         # First derivatives w.r.t. mu and th
         l1 = np.empty((n, 2), dtype=np.float64)
@@ -311,7 +297,6 @@ class GammalsFamily(GamlssFamily):
         de = gamlss_etamu(
             l1, l2, l3_val, l4_val, ig1, g2, g3, g4, i2, i3, i4, deriv - 1
         )
-
         ret = gamlss_gH(
             X,
             jj,
@@ -329,7 +314,11 @@ class GammalsFamily(GamlssFamily):
             D=D,
             sandwich=sandwich,
         )
-        ret["l"] = l
+        if bool(kw.get("ncv", False)):
+            ret["l1"] = np.asarray(de["l1"], dtype=np.float64)
+            ret["l2"] = np.asarray(de["l2"], dtype=np.float64)
+            ret["l3"] = de["l3"]
+        ret["l"] = ll
         ret["l0"] = l0
         return ret
 
@@ -353,7 +342,7 @@ class GammalsFamily(GamlssFamily):
         """
         y = np.asarray(y, dtype=np.float64)
         X = np.asarray(X, dtype=np.float64)
-        n, p = X.shape
+        _n, p = X.shape
         start = np.zeros(p, dtype=np.float64)
 
         off1 = off2 = None
@@ -373,51 +362,45 @@ class GammalsFamily(GamlssFamily):
                 off1 = np.asarray(offset, dtype=np.float64)
 
         eps = np.max(y) * np.finfo(np.float64).eps ** 0.75
+        use_unscaled = bool(E is not None and getattr(E, "use_unscaled", False))
 
         # --- Fit log-mean predictor on log(y) ---
-        yt1 = np.log(np.maximum(y + eps, 1e-300))
+        yt1 = np.log(y + eps)
         if off1 is not None:
             yt1 = yt1 - off1
 
         X1 = X[:, jj[0]]
         if E is not None and E.shape[1] > 0:
             E1 = E[:, jj[0]]
-            XE1 = np.vstack([X1, E1])
-            y1e = np.concatenate([yt1, np.zeros(E1.shape[0])])
+            if use_unscaled:
+                XE1 = np.vstack([X1, E1])
+                y1e = np.concatenate([yt1, np.zeros(E1.shape[0])])
+                start1 = _qr_coef_pivoted(XE1, y1e)
+            else:
+                start1 = _pen_reg(X1, E1, yt1)
         else:
-            XE1 = X1
-            y1e = yt1
-
-        try:
-            start1 = np.linalg.lstsq(XE1, y1e, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start1 = np.zeros(X1.shape[1], dtype=np.float64)
+            start1 = _qr_coef_pivoted(X1, yt1)
         start1 = np.where(np.isfinite(start1), start1, 0.0)
         start[jj[0]] = start1
 
         # --- Fit log-sigma predictor on transformed residuals ---
-        mu_init = self.linfo[0].linkinv(
-            X1 @ start1 + (off1 if off1 is not None else 0.0)
+        lres1 = self.linfo[1].linkfun(
+            np.log(np.abs(y - self.linfo[0].linkinv(X1 @ start1)))
         )
-        # residuals from fitted log-mean: y/exp(mu_init) - 1
-        res = np.log(np.maximum(np.abs(y - np.exp(mu_init)), 1e-300))
-        lres1 = self.linfo[1].linkfun(res)
         if off2 is not None:
             lres1 = lres1 - off2
 
         X2 = X[:, jj[1]]
         if E is not None and E.shape[1] > 0:
             E2 = E[:, jj[1]]
-            XE2 = np.vstack([X2, E2])
-            y2e = np.concatenate([lres1, np.zeros(E2.shape[0])])
+            if use_unscaled:
+                XE2 = np.vstack([X2, E2])
+                y2e = np.concatenate([lres1, np.zeros(E2.shape[0])])
+                start2 = _qr_coef_pivoted(XE2, y2e)
+            else:
+                start2 = _pen_reg(X2, E2, lres1)
         else:
-            XE2 = X2
-            y2e = lres1
-
-        try:
-            start2 = np.linalg.lstsq(XE2, y2e, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start2 = np.zeros(X2.shape[1], dtype=np.float64)
+            start2 = _qr_coef_pivoted(X2, lres1)
         start2 = np.where(np.isfinite(start2), start2, 0.0)
         start[jj[1]] = start2
 
@@ -427,6 +410,11 @@ class GammalsFamily(GamlssFamily):
         self, y: np.ndarray, fitted: np.ndarray, rtype: str = "deviance"
     ) -> np.ndarray:
         """Residuals for gammals.  Mirrors mgcv ``gammals$residuals``."""
+        rtype = str(rtype).lower()
+        if rtype not in {"deviance", "pearson", "response"}:
+            raise ValueError(
+                "gammals residuals support only {'deviance', 'pearson', 'response'}."
+            )
         y = np.asarray(y, dtype=np.float64)
         mu = np.asarray(fitted[:, 0], dtype=np.float64)
         rho = np.asarray(fitted[:, 1], dtype=np.float64)  # log sigma

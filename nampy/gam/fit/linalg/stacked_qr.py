@@ -40,7 +40,10 @@ this for parity testing.
 
 from __future__ import annotations
 
+import ctypes
+import ctypes.util
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Iterable, Literal
 
 import numpy as np
@@ -49,11 +52,28 @@ from scipy.linalg import solve_triangular
 
 from ..._mgcv_constants import LOG_GUARD_MIN, QR_TOL_SCALE
 from ..._model_state import _fit_intercept, _term_blocks_seq
+from ...linalg import (
+    balanced_penalty_template_sqrt_for_rank as _balanced_penalty_template_sqrt_for_rank,
+)
+from ...linalg import (
+    matrix_is_rank_deficient,
+    svd_null_space_basis,
+    symmetric_eigh,
+    symmetric_eigvalsh,
+    symmetrize_matrix,
+)
+from ...linalg import (
+    project_coef_onto_row_space as _project_coef_onto_row_space,
+)
+from ...linalg import (
+    snap_coef_to_reference_null_space as _snap_coef_to_reference_null_space,
+)
 from .matrix_reindexing import (
     drop_columns_dense,
     drop_rows_dense,
     permute_columns,
     permute_rows,
+    restore_dropped_rows,
 )
 
 # Rank-detection threshold: condition number ratio above which a column is considered
@@ -72,6 +92,7 @@ class _StackedPlsNonnegOutcome:
     """Internal: one non-negative-weight stacked PLS solve + QR state for post-processing."""
 
     coef_full: np.ndarray
+    eta: np.ndarray
     penalty_quadratic: float
     X: np.ndarray
     w: np.ndarray
@@ -89,6 +110,8 @@ class _StackedPlsNonnegOutcome:
     n_wx_econ: int
     kept_original_indices: list[int]
     dropped_column_indices: np.ndarray
+    covariance_rank_root: np.ndarray | None
+    log_det_correction: float
 
 
 @dataclass(frozen=True)
@@ -107,7 +130,65 @@ class NonnegativePenalizedQRState:
     rS_work: np.ndarray
 
 
-def _stacked_penalized_ls_nonneg_solution(
+def _get_r_pqr_serial(qr_a: np.ndarray, *, rr: int, ncol: int) -> np.ndarray:
+    """Mirror ``mgcv/src/mat.c::getRpqr()`` for the serial QR case."""
+    qr_a = np.asfortranarray(np.asarray(qr_a, dtype=np.float64))
+    out = np.zeros((int(rr), int(ncol)), dtype=np.float64)
+    n = int(qr_a.shape[0])
+    rows = min(int(rr), int(ncol))
+    packed = np.ravel(qr_a, order="F")
+    for j in range(int(ncol)):
+        for i in range(min(rows, j + 1)):
+            idx = i + n * j
+            if idx < packed.size:
+                out[i, j] = packed[idx]
+    return out
+
+
+def _mgcv_apply_q_left_serial(
+    block: np.ndarray,
+    qr_a: np.ndarray,
+    tau: np.ndarray,
+    *,
+    r: int,
+    c: int,
+    transpose: bool,
+) -> np.ndarray:
+    """
+    Mirror serial ``mgcv_qrqy`` / ``mgcv_pqrqy`` left-application semantics.
+
+    When ``transpose`` is false, ``block`` is packed ``c x cb`` input and the
+    result is a full ``r x cb`` matrix. When ``transpose`` is true, ``block`` is
+    a full ``r x cb`` input and the result is the packed leading ``c x cb`` rows.
+    """
+    arr = np.asarray(block, dtype=np.float64)
+    if arr.ndim == 1:
+        arr = arr.reshape(-1, 1)
+    cb = int(arr.shape[1])
+    full = np.zeros((int(r), cb), dtype=np.float64, order="F")
+    if transpose:
+        n_copy = min(int(r), int(arr.shape[0]))
+        full[:n_copy, :] = arr[:n_copy, :]
+        out = _dormqr_apply(b"L", b"T", qr_a, tau, full)
+        return np.asarray(out[: int(c), :], dtype=np.float64)
+    n_copy = min(int(c), int(arr.shape[0]))
+    full[:n_copy, :] = arr[:n_copy, :]
+    return np.asarray(_dormqr_apply(b"L", b"N", qr_a, tau, full), dtype=np.float64)
+
+
+def _undrop_rows_vec(
+    v: np.ndarray, n_rows_full: int, drop_sorted: np.ndarray
+) -> np.ndarray:
+    """Mirror ``mgcv/src/gdi.c::undrop_rows()`` for a single packed column."""
+    restored = restore_dropped_rows(
+        np.asarray(v, dtype=np.float64).reshape(-1, 1),
+        int(n_rows_full),
+        np.asarray(drop_sorted, dtype=int),
+    )
+    return np.asarray(restored[:, 0], dtype=np.float64)
+
+
+def _stacked_penalized_ls_nonneg_solution_literal(
     X: np.ndarray,
     z: np.ndarray,
     w: np.ndarray,
@@ -120,18 +201,25 @@ def _stacked_penalized_ls_nonneg_solution(
     near_singular_null_pin: bool | Literal["auto"],
 ) -> _StackedPlsNonnegOutcome:
     """
-    Core stacked pivoted QR + Householder coefficient solve (non-negative weights).
+    Core non-negative-weight PLS solve mirroring ``mgcv/src/gdi.c::pls_fit1()``.
 
-    Used by :func:`pls_fit1_nonneg_w` and :func:`solve_gaussian_penalized_ls_stacked_qr`.
+    The coefficient path follows the serial `mgcv_pqr` / `mgcv_qr` control flow
+    directly, including the `eta` reconstruction and `use_wy` fallback test.
     """
+    del P_dense, near_singular_null_pin
+    cm = str(coef_method).lower().strip()
+    if cm not in {"householder", "lstsq"}:
+        raise ValueError(
+            f"Unknown coef_method {coef_method!r}; use 'householder' or 'lstsq'."
+        )
+
     X = np.asarray(X, dtype=np.float64)
     z = np.asarray(z, dtype=np.float64).ravel()
     w = np.asarray(w, dtype=np.float64).ravel()
     n_obs, n_coef_total = X.shape
     if z.shape[0] != n_obs or w.shape[0] != n_obs:
         raise ValueError("shape mismatch between X rows, z, and w.")
-    if np.any(w < 0):
-        raise ValueError("stacked PLS requires non-negative weights.")
+
     penalty_sqrt = np.asarray(penalty_sqrt, dtype=np.float64)
     penalty_rank_rows = np.asarray(penalty_rank_rows, dtype=np.float64)
     n_penalty_rows = int(penalty_sqrt.shape[0])
@@ -139,147 +227,271 @@ def _stacked_penalized_ls_nonneg_solution(
     if n_penalty_rows == 0 or n_rank_penalty_rows == 0:
         raise ValueError("penalty sqrt matrices must be non-empty.")
 
-    sqrt_w = np.sqrt(w)
-    weighted_X = sqrt_w[:, None] * X
+    raw_w = np.sqrt(np.abs(w))
+    neg_weight_mask = np.asarray(w < 0.0, dtype=bool)
+    weighted_X = raw_w[:, None] * X
     n_wx_econ = min(n_obs, n_coef_total)
+    n_augmented_rows = n_wx_econ + n_penalty_rows
 
-    qr_wx, tau_wx, pivot_wx, r_wx_econ = _dgeqp3_economic_r(weighted_X)
-    R_weighted_natural = np.zeros((n_wx_econ, n_coef_total), dtype=np.float64)
-    for j in range(n_coef_total):
-        R_weighted_natural[:, int(pivot_wx[j])] = r_wx_econ[:, j]
+    qr_wx, tau_wx, pivot_wx, _ = _dgeqp3_economic_r(weighted_X)
+    r_weighted = _get_r_pqr_serial(qr_wx, rr=n_wx_econ, ncol=n_coef_total)
+    r_weighted_natural = permute_columns(r_weighted, pivot_wx, reverse=True)
 
-    frob_Rw = _frob_norm(R_weighted_natural)
-    frob_Es = _frob_norm(penalty_rank_rows)
-    if frob_Rw <= 0.0:
-        frob_Rw = 1.0
-    if frob_Es <= 0.0:
-        frob_Es = 1.0
+    frob_rw = _frob_norm(r_weighted_natural)
+    frob_es = _frob_norm(penalty_rank_rows)
+    if frob_rw <= 0.0:
+        frob_rw = 1.0
+    if frob_es <= 0.0:
+        frob_es = 1.0
 
     n_stack_rows = n_wx_econ + n_rank_penalty_rows
     rank_stack = np.zeros((n_stack_rows, n_coef_total), dtype=np.float64)
-    rank_stack[:n_wx_econ, :] = R_weighted_natural / frob_Rw
-    rank_stack[n_wx_econ:, :] = penalty_rank_rows / frob_Es
+    rank_stack[:n_wx_econ, :] = r_weighted_natural / frob_rw
+    rank_stack[n_wx_econ:, :] = penalty_rank_rows / frob_es
 
-    _, _, pivot_rank_reveal, r_rank_econ = _dgeqp3_economic_r(rank_stack)
-
+    qr_rank, tau_rank, pivot_rank, _ = _dgeqp3_economic_r(rank_stack)
+    del tau_rank
     system_rank = min(n_coef_total, n_stack_rows)
-    rcond = _upper_r_condition_indicator(r_rank_econ, system_rank)
+    rcond = _upper_r_condition_indicator(
+        _get_r_pqr_serial(
+            qr_rank, rr=min(n_stack_rows, n_coef_total), ncol=n_coef_total
+        ),
+        system_rank,
+    )
     while system_rank > 0 and rank_tol * rcond > 1.0:
         system_rank -= 1
-        rcond = _upper_r_condition_indicator(r_rank_econ, system_rank)
+        rcond = _upper_r_condition_indicator(
+            _get_r_pqr_serial(
+                qr_rank, rr=min(n_stack_rows, n_coef_total), ncol=n_coef_total
+            ),
+            system_rank,
+        )
 
-    # Rank detection uses the balanced template rows (`penalty_rank_rows`) for
-    # numerical stability, but the actual coefficient solve uses the concrete
-    # penalty square root (`penalty_sqrt`). The carried rank cannot exceed the
-    # row count of that real augmented system.
-    system_rank = min(system_rank, n_wx_econ + n_penalty_rows)
-
+    system_rank = min(system_rank, n_augmented_rows)
     if n_coef_total > system_rank:
         dropped_column_indices = np.sort(
             np.asarray(
-                [int(pivot_rank_reveal[i]) for i in range(system_rank, n_coef_total)],
+                [int(pivot_rank[i]) for i in range(system_rank, n_coef_total)],
                 dtype=int,
             )
         )
     else:
         dropped_column_indices = np.zeros((0,), dtype=int)
 
-    R_weighted_kept = _drop_columns(R_weighted_natural, dropped_column_indices)
-    penalty_sqrt_kept = _drop_columns(penalty_sqrt, dropped_column_indices)
+    r_weighted_kept = drop_columns_dense(r_weighted_natural, dropped_column_indices)
+    penalty_sqrt_kept = drop_columns_dense(penalty_sqrt, dropped_column_indices)
     drop_set = {int(d) for d in dropped_column_indices}
     kept_original_indices = [k for k in range(n_coef_total) if k not in drop_set]
 
-    n_augmented_rows = n_wx_econ + n_penalty_rows
-    augmented_r_block = np.zeros((n_augmented_rows, system_rank), dtype=np.float64)
-    augmented_r_block[:n_wx_econ, :] = R_weighted_kept
-    augmented_r_block[n_wx_econ:, :] = penalty_sqrt_kept
+    augmented_r = np.zeros((n_augmented_rows, system_rank), dtype=np.float64)
+    augmented_r[:n_wx_econ, :] = r_weighted_kept
+    augmented_r[n_wx_econ:, :] = penalty_sqrt_kept
 
-    qr_aug, tau_aug, pivot_aug, r_aug_econ = _dgeqp3_economic_r(augmented_r_block)
+    # Mirror `mgcv/src/gdi.c::pls_fit1()`: the final QR reuses the incoming
+    # `pivot1` buffer from the rank-reveal QR, so `JPVT` is not reset here.
+    qr_aug, tau_aug, pivot_aug, _ = _dgeqp3_economic_r(
+        augmented_r,
+        jpvt_in=np.asarray(pivot_rank, dtype=np.int32),
+    )
+    pivot_aug = np.asarray(pivot_aug[:system_rank], dtype=np.int64)
     upper_r_final = np.triu(
-        np.asarray(r_aug_econ[:system_rank, :system_rank], dtype=np.float64)
+        np.asarray(qr_aug[:system_rank, :system_rank], dtype=np.float64)
     )
 
-    cm = str(coef_method).lower().strip()
-    if cm == "householder":
-        kept_arr = np.asarray(kept_original_indices, dtype=np.int64)
-        coef_full = _solve_coef_householder_chain_nonneg_weights(
-            y=z,
-            w=w,
-            X=X,
-            qr_weighted_x=qr_wx,
-            tau_weighted_x=tau_wx,
-            n_obs=n_obs,
-            n_coef=n_coef_total,
-            n_weighted_x_rows=n_wx_econ,
-            n_augmented_rows=n_augmented_rows,
-            system_rank=system_rank,
-            qr_augmented=qr_aug,
-            tau_augmented=tau_aug,
-            pivot_augmented=pivot_aug,
-            dropped_columns=dropped_column_indices,
-            kept_original_indices=kept_arr,
-            diagonal_stability_tol=STACKED_QR_RANK_TOLERANCE,
+    signed_correction = None
+    covariance_rank_root = None
+    log_det_correction = 0.0
+    if np.any(neg_weight_mask) and system_rank > 0:
+        q1_matrix, _qr_aug_f = _build_q1_from_qr_factors(
+            qr_wx,
+            tau_wx,
+            qr_aug,
+            tau_aug,
+            n_obs,
+            n_wx_econ,
+            system_rank,
         )
-        pin = near_singular_null_pin
-        if P_dense is not None:
-            p_frob = float(np.linalg.norm(P_dense, ord="fro"))
-            if pin is True or (
-                pin == "auto" and p_frob < NEAR_SINGULAR_PENALTY_FROB_TOL
-            ):
-                coef_full = _gauge_minimize_penalty_on_null_X(coef_full, X, P_dense)
-    elif cm == "lstsq":
-        design_kept = _drop_columns(X, dropped_column_indices)
-        aug_design = np.vstack([sqrt_w[:, None] * design_kept, penalty_sqrt_kept])
-        rhs_vec = np.concatenate(
-            [sqrt_w * z, np.zeros(penalty_sqrt_kept.shape[0], dtype=np.float64)]
+        signed_correction, vt_scaled, _rh_left, log_det_correction = (
+            _signed_weight_rank_correction(
+                q1_matrix[neg_weight_mask, :],
+                rank_tol=rank_tol,
+            )
         )
-        coef_sub, *_ = np.linalg.lstsq(aug_design, rhs_vec, rcond=None)
-        coef_full = np.zeros(n_coef_total, dtype=np.float64)
-        for j, kcol in enumerate(kept_original_indices):
-            coef_full[kcol] = coef_sub[j]
-        if P_dense is not None:
-            coef_full = _gauge_minimize_penalty_on_null_X(coef_full, X, P_dense)
-    else:
-        raise ValueError(
-            f"Unknown coef_method {coef_method!r}; use 'householder' or 'lstsq'."
+        covariance_rank_root = solve_triangular(
+            upper_r_final,
+            vt_scaled.T,
+            lower=False,
+            check_finite=False,
         )
 
-    pen_vec = penalty_sqrt @ coef_full
-    penalty_quadratic = float(pen_vec @ pen_vec)
+    nz = max(n_obs, n_augmented_rows)
+    z_buf = np.zeros(nz, dtype=np.float64)
+    z_buf[:n_obs] = z * raw_w
+    z_buf[:n_obs][neg_weight_mask] *= -1.0
+    qrz_rank_raw = np.zeros(system_rank, dtype=np.float64)
+    use_wy = False
+    penalty_quadratic = 0.0
+    eta = np.zeros(n_obs, dtype=np.float64)
+
+    if not use_wy:
+        z_qt = _mgcv_apply_q_left_serial(
+            z_buf[:n_obs],
+            qr_wx,
+            tau_wx,
+            r=n_obs,
+            c=n_wx_econ,
+            transpose=True,
+        )[:, 0]
+        z_buf.fill(0.0)
+        z_buf[:n_wx_econ] = z_qt
+        z_q1t = _mgcv_apply_q_left_serial(
+            z_buf[:n_augmented_rows],
+            qr_aug,
+            tau_aug,
+            r=n_augmented_rows,
+            c=system_rank,
+            transpose=True,
+        )[:, 0]
+        z_buf.fill(0.0)
+        z_buf[:system_rank] = z_q1t
+        qrz_rank_raw = np.asarray(z_q1t, dtype=np.float64).copy()
+        y_rank = qrz_rank_raw.copy()
+        if signed_correction is not None:
+            y_rank = np.asarray(signed_correction @ y_rank, dtype=np.float64)
+
+        z_q1 = _mgcv_apply_q_left_serial(
+            y_rank,
+            qr_aug,
+            tau_aug,
+            r=n_augmented_rows,
+            c=system_rank,
+            transpose=False,
+        )[:, 0]
+        penalty_quadratic = float(np.sum(z_q1[n_wx_econ:n_augmented_rows] ** 2))
+        z_buf.fill(0.0)
+        z_buf[:system_rank] = z_q1[:system_rank]
+        weighted_eta = _mgcv_apply_q_left_serial(
+            z_buf[:n_wx_econ],
+            qr_wx,
+            tau_wx,
+            r=n_obs,
+            c=n_wx_econ,
+            transpose=False,
+        )[:, 0]
+        eta = np.asarray(weighted_eta / raw_w, dtype=np.float64)
+    else:
+        y_rank = np.zeros(system_rank, dtype=np.float64)
+
+    xwz = X.T @ (w * z)
+    xwz_kept = _drop_rows_vec(xwz, dropped_column_indices)
+    xwz_pivoted = np.asarray(xwz_kept[pivot_aug], dtype=np.float64)
+
+    if not use_wy:
+        recon_error_sq = 0.0
+        target_norm_sq = 0.0
+        for i in range(system_rank):
+            xx = 0.0
+            for j in range(i + 1):
+                xx += qr_aug[j, i] * qrz_rank_raw[j]
+            xx -= xwz_pivoted[i]
+            recon_error_sq += xx * xx
+            target_norm_sq += xwz_pivoted[i] * xwz_pivoted[i]
+        if recon_error_sq > rank_tol * target_norm_sq:
+            use_wy = True
+
+    z_rank = np.zeros(system_rank, dtype=np.float64)
+    if use_wy:
+        for k in range(system_rank):
+            xx = 0.0
+            for j in range(k):
+                xx += qr_aug[j, k] * z_rank[j]
+            z_rank[k] = (
+                xwz_pivoted[k] / qr_aug[k, k]
+                if k == 0
+                else (xwz_pivoted[k] - xx) / qr_aug[k, k]
+            )
+        y_rank = z_rank.copy()
+        if signed_correction is not None:
+            y_rank = np.asarray(signed_correction @ y_rank, dtype=np.float64)
+
+    for k in range(system_rank - 1, -1, -1):
+        xx = 0.0
+        for j in range(k + 1, system_rank):
+            xx += qr_aug[k, j] * z_rank[j]
+        z_rank[k] = (y_rank[k] - xx) / qr_aug[k, k]
+
+    coef_kept = np.zeros(system_rank, dtype=np.float64)
+    coef_kept[pivot_aug] = z_rank
+    coef_full = _undrop_rows_vec(coef_kept, n_coef_total, dropped_column_indices)
+
+    if use_wy:
+        eta = np.asarray(X @ coef_full, dtype=np.float64)
+        pen_vec = penalty_sqrt @ coef_full
+        penalty_quadratic = float(pen_vec @ pen_vec)
 
     return _StackedPlsNonnegOutcome(
         coef_full=coef_full,
+        eta=eta,
         penalty_quadratic=penalty_quadratic,
         X=X,
         w=w,
-        P_dense=P_dense,
+        P_dense=None,
         penalty_sqrt=penalty_sqrt,
         weighted_X=weighted_X,
-        sqrt_w=sqrt_w,
+        sqrt_w=raw_w,
         system_rank=int(system_rank),
         upper_r_final=upper_r_final,
         qr_wx=qr_wx,
         tau_wx=tau_wx,
         qr_aug=qr_aug,
         tau_aug=tau_aug,
-        pivot_aug=pivot_aug.astype(np.int64),
+        pivot_aug=pivot_aug,
         n_wx_econ=int(n_wx_econ),
         kept_original_indices=kept_original_indices,
         dropped_column_indices=dropped_column_indices,
+        covariance_rank_root=(
+            None
+            if covariance_rank_root is None
+            else np.asarray(covariance_rank_root, dtype=np.float64)
+        ),
+        log_det_correction=float(log_det_correction),
+    )
+
+
+def _stacked_penalized_ls_nonneg_solution(
+    X: np.ndarray,
+    z: np.ndarray,
+    w: np.ndarray,
+    *,
+    penalty_sqrt: np.ndarray,
+    penalty_rank_rows: np.ndarray,
+    P_dense: np.ndarray | None,
+    rank_tol: float,
+    coef_method: str,
+    near_singular_null_pin: bool | Literal["auto"],
+) -> _StackedPlsNonnegOutcome:
+    return _stacked_penalized_ls_nonneg_solution_literal(
+        X,
+        z,
+        w,
+        penalty_sqrt=penalty_sqrt,
+        penalty_rank_rows=penalty_rank_rows,
+        P_dense=P_dense,
+        rank_tol=rank_tol,
+        coef_method=coef_method,
+        near_singular_null_pin=near_singular_null_pin,
     )
 
 
 def _validate_nonnegative_qr_inputs(X, z, w, penalty_sqrt_E, penalty_rank_Es, rS):
-    if np.any(np.asarray(w, dtype=np.float64) < 0):
-        raise ValueError(
-            "build_penalized_qr_state_nonnegative requires non-negative weights."
-        )
     X = np.asarray(X, dtype=np.float64, order="C")
     z = np.asarray(z, dtype=np.float64).ravel()
     w = np.asarray(w, dtype=np.float64).ravel()
     n, q = X.shape
     if z.shape[0] != n or w.shape[0] != n:
         raise ValueError("z and w must have length n (rows of X).")
+    if np.any(~np.isfinite(w)):
+        raise ValueError("w must be finite.")
     E = np.asarray(penalty_sqrt_E, dtype=np.float64, order="C")
     Es = np.asarray(penalty_rank_Es, dtype=np.float64, order="C")
     rS = np.asarray(rS, dtype=np.float64, order="C")
@@ -293,14 +505,86 @@ def _validate_nonnegative_qr_inputs(X, z, w, penalty_sqrt_E, penalty_rank_Es, rS
     return X, z, w, E, Es, rS
 
 
-def _build_nonnegative_q1_and_k(out, n, rr, rank):
-    qr_aug_f = np.asfortranarray(np.asarray(out.qr_aug, dtype=np.float64).copy())
-    Q_aug = _dorgqr_economic(qr_aug_f, out.tau_aug, rank)
+def _build_q1_from_qr_factors(qr_wx, tau_wx, qr_aug, tau_aug, n, rr, rank):
+    qr_aug_f = np.asfortranarray(np.asarray(qr_aug, dtype=np.float64).copy())
+    Q_aug = _dorgqr_economic(qr_aug_f, tau_aug, rank)
     Q_top = np.asarray(Q_aug[:rr, :], dtype=np.float64)
     Q1 = np.zeros((n, rank), dtype=np.float64, order="F")
     Q1[:rr, :] = Q_top
-    Q1 = _dormqr_apply(b"L", b"N", out.qr_wx, out.tau_wx, Q1)
+    Q1 = _dormqr_apply(b"L", b"N", qr_wx, tau_wx, Q1)
     return np.asarray(Q1, dtype=np.float64, order="C"), qr_aug_f
+
+
+def _build_nonnegative_q1_and_k(out, n, rr, rank):
+    return _build_q1_from_qr_factors(
+        out.qr_wx,
+        out.tau_wx,
+        out.qr_aug,
+        out.tau_aug,
+        n,
+        rr,
+        rank,
+    )
+
+
+def _signed_weight_rank_correction(
+    q1_negative_rows: np.ndarray,
+    *,
+    rank_tol: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+    """
+    Mirror `mgcv/src/gdi.c::pls_fit1()` signed-weight SVD correction.
+
+    Returns coefficient correction `V (I - 2 D^2)^-1 V'`, covariance/root
+    right factor `(I - 2 D^2)^-1/2 V'`, left factor `(I - 2 D^2)^1/2 V'`
+    for `Rh`, and the determinant correction.
+    """
+    q1_negative_rows = np.asarray(q1_negative_rows, dtype=np.float64)
+    if q1_negative_rows.ndim != 2:
+        raise ValueError("q1_negative_rows must be 2-D.")
+    rank = int(q1_negative_rows.shape[1])
+    if rank == 0:
+        z = np.zeros((0, 0), dtype=np.float64)
+        return z, z, z, 0.0
+
+    n_neg = int(q1_negative_rows.shape[0])
+    k = max(n_neg, rank + 1)
+    iq = np.zeros((k, rank), dtype=np.float64)
+    if n_neg:
+        iq[:n_neg, :] = q1_negative_rows
+
+    _u, sing_vals, vt = np.linalg.svd(iq, full_matrices=False)
+    delta = 1.0 - 2.0 * sing_vals * sing_vals
+    if np.any(delta < -rank_tol):
+        raise np.linalg.LinAlgError(
+            "signed-weight stacked QR system is not positive definite."
+        )
+
+    log_det_correction = 0.0
+    inv_sqrt = np.zeros(rank, dtype=np.float64)
+    delta_pos = np.zeros(rank, dtype=np.float64)
+    for i, di in enumerate(delta):
+        if di > 0.0:
+            log_det_correction += float(np.log(di))
+            inv_sqrt[i] = float(1.0 / np.sqrt(di))
+            delta_pos[i] = float(di)
+
+    vt_scaled = inv_sqrt[:, None] * np.asarray(vt, dtype=np.float64)
+    rh_left = delta_pos[:, None] * vt_scaled
+    correction = np.asarray(vt_scaled.T @ vt_scaled, dtype=np.float64)
+    return correction, vt_scaled, rh_left, float(log_det_correction)
+
+
+def _scatter_rank_root_to_full(rank_root, *, pivot1, kept_original_indices, q_total):
+    root_full = _scatter_pivoted_rank_matrix_to_full(
+        np.asarray(rank_root, dtype=np.float64),
+        kept_original_indices=kept_original_indices,
+        pivot1=np.asarray(pivot1, dtype=np.int64),
+        q_total=int(q_total),
+    )
+    cov = np.asarray(root_full @ root_full.T, dtype=np.float64)
+    cov = 0.5 * (cov + cov.T)
+    return root_full, cov
 
 
 def _compute_nonnegative_pk_rhs(Rh, R_nr_rank, K, X, z, w, drop, pivot1):
@@ -455,24 +739,78 @@ def build_penalized_qr_state_nonnegative(
     n_pen = int(E.shape[0])
     nr = rr + n_pen
 
-    K, qr_aug_f = _build_nonnegative_q1_and_k(out, X.shape[0], rr, rank)
+    q1_matrix, qr_aug_f = _build_nonnegative_q1_and_k(out, X.shape[0], rr, rank)
     R_nr_rank = np.triu(np.asarray(qr_aug_f[:nr, :rank], dtype=np.float64))
-    Rh = np.triu(np.asarray(out.upper_r_final, dtype=np.float64))
+    R = np.triu(np.asarray(out.upper_r_final, dtype=np.float64))
+    raw_w = np.sqrt(np.abs(w))
+    neg_weight_mask = np.asarray(w < 0.0, dtype=bool)
+    X_drop = drop_columns_dense(X, drop) if n_drop else X.copy()
+    X_piv = permute_columns(X_drop, pivot1, reverse=False)
 
-    P, ktz, xwz, norm1, norm2 = _compute_nonnegative_pk_rhs(
-        Rh, R_nr_rank, K, X, z, w, drop, pivot1
-    )
-    if norm1 > rank_tol * norm2:
-        tmp = solve_triangular(Rh, xwz, lower=False, trans="T")
-        PKtz = solve_triangular(Rh, tmp, lower=False)
-    else:
-        PKtz = solve_triangular(Rh, ktz, lower=False)
+    if np.any(neg_weight_mask):
+        _, vt_scaled, rh_left, log_det_correction = _signed_weight_rank_correction(
+            q1_matrix[neg_weight_mask, :],
+            rank_tol=rank_tol,
+        )
+        if rank == 0:
+            P = np.empty((0, 0), dtype=np.float64)
+        else:
+            P = solve_triangular(
+                R,
+                vt_scaled.T,
+                lower=False,
+                check_finite=False,
+            )
+        K = np.asarray((raw_w[:, None] * X_piv) @ P, dtype=np.float64)
+        Rh = np.asarray(rh_left @ R, dtype=np.float64)
 
-    if reml:
-        d = np.abs(np.diag(Rh))
-        ldet = float(2.0 * np.sum(np.log(np.maximum(d, np.finfo(np.float64).tiny))))
+        zz = z * raw_w
+        zz[neg_weight_mask] *= -1.0
+        q1tz = np.asarray(q1_matrix.T @ zz, dtype=np.float64)
+        ktz = np.asarray(K.T @ zz, dtype=np.float64)
+        xwz = np.asarray(X_piv.T @ (w * z), dtype=np.float64)
+
+        norm1 = 0.0
+        norm2 = 0.0
+        for i in range(rank):
+            s = 0.0
+            for j in range(i + 1):
+                s += R_nr_rank[j, i] * q1tz[j]
+            diff = s - xwz[i]
+            norm1 += diff * diff
+            norm2 += xwz[i] * xwz[i]
+
+        if norm1 > rank_tol * norm2:
+            tmp = solve_triangular(R, xwz, lower=False, trans="T", check_finite=False)
+            PKtz = np.asarray(P @ (vt_scaled @ tmp), dtype=np.float64)
+        else:
+            PKtz = np.asarray(P @ ktz, dtype=np.float64)
+
+        if reml:
+            d = np.abs(np.diag(R))
+            ldet = float(
+                2.0 * np.sum(np.log(np.maximum(d, np.finfo(np.float64).tiny)))
+                + log_det_correction
+            )
+        else:
+            ldet = 0.0
     else:
-        ldet = 0.0
+        K = q1_matrix
+        Rh = R
+        P, ktz, xwz, norm1, norm2 = _compute_nonnegative_pk_rhs(
+            Rh, R_nr_rank, K, X, z, w, drop, pivot1
+        )
+        if norm1 > rank_tol * norm2:
+            tmp = solve_triangular(Rh, xwz, lower=False, trans="T")
+            PKtz = solve_triangular(Rh, tmp, lower=False)
+        else:
+            PKtz = solve_triangular(Rh, ktz, lower=False)
+
+        if reml:
+            d = np.abs(np.diag(Rh))
+            ldet = float(2.0 * np.sum(np.log(np.maximum(d, np.finfo(np.float64).tiny))))
+        else:
+            ldet = 0.0
 
     beta_full = _scatter_nonnegative_coefficients(PKtz, kept, pivot1, q)
     rS_drop = drop_rows_dense(rS, drop) if n_drop else rS.copy()
@@ -550,17 +888,125 @@ def _drop_columns(A: np.ndarray, drop: np.ndarray) -> np.ndarray:
     return A[:, mask]
 
 
+@lru_cache(maxsize=1)
+def _lapack_ctypes_handles():
+    lib_path = ctypes.util.find_library("lapack")
+    if not lib_path:
+        return None
+    lib = ctypes.CDLL(lib_path)
+    dgeqp3 = getattr(lib, "dgeqp3_", None)
+    dormqr = getattr(lib, "dormqr_", None)
+    if dgeqp3 is None or dormqr is None:
+        return None
+    dgeqp3.argtypes = [
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_int),
+    ]
+    dormqr.argtypes = [
+        ctypes.c_char_p,
+        ctypes.c_char_p,
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_int),
+    ]
+    return dgeqp3, dormqr
+
+
+def _dgeqp3_f_with_jpvt(
+    a: np.ndarray,
+    *,
+    jpvt_in: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    LAPACK ``dgeqp3``; return (factor storage, ``jpvt`` 0-based, ``tau``).
+
+    `mgcv::pls_fit1()` reuses the previous `pivot1` buffer when calling the
+    final QR. SciPy's wrapper does not expose input `JPVT`, so use the raw
+    LAPACK symbol when those flags matter.
+    """
+    a_f = np.asfortranarray(np.asarray(a, dtype=np.float64), dtype=np.float64)
+    m, n = map(int, a_f.shape)
+    handles = _lapack_ctypes_handles()
+    if handles is None:
+        if jpvt_in is not None:
+            raise RuntimeError(
+                "LAPACK dgeqp3 with input JPVT is unavailable in this environment."
+            )
+        qr_a, jpvt, tau, _work, info = _lapack.dgeqp3(a_f)
+        if info != 0:
+            raise RuntimeError(f"dgeqp3 failed with info={info}")
+        return qr_a, jpvt.astype(np.int64) - 1, tau
+
+    dgeqp3, _dormqr = handles
+    m_c = ctypes.c_int(m)
+    n_c = ctypes.c_int(n)
+    lda_c = ctypes.c_int(max(1, m))
+    jpvt = (
+        np.zeros(n, dtype=np.int32)
+        if jpvt_in is None
+        else np.asarray(jpvt_in, dtype=np.int32).copy()
+    )
+    tau = np.zeros(min(m, n), dtype=np.float64)
+    info = ctypes.c_int(0)
+    work = np.zeros(1, dtype=np.float64)
+    lwork = ctypes.c_int(-1)
+
+    dgeqp3(
+        ctypes.byref(m_c),
+        ctypes.byref(n_c),
+        a_f.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        ctypes.byref(lda_c),
+        jpvt.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
+        tau.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        work.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        ctypes.byref(lwork),
+        ctypes.byref(info),
+    )
+    if info.value != 0:
+        raise RuntimeError(f"dgeqp3 workspace query failed with info={info.value}")
+
+    lwork = ctypes.c_int(max(int(work[0]), 1))
+    work = np.zeros(int(lwork.value), dtype=np.float64)
+    info = ctypes.c_int(0)
+    dgeqp3(
+        ctypes.byref(m_c),
+        ctypes.byref(n_c),
+        a_f.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        ctypes.byref(lda_c),
+        jpvt.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
+        tau.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        work.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        ctypes.byref(lwork),
+        ctypes.byref(info),
+    )
+    if info.value != 0:
+        raise RuntimeError(f"dgeqp3 failed with info={info.value}")
+    return a_f, jpvt.astype(np.int64) - 1, tau
+
+
 def _dgeqp3_f(a: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """LAPACK ``dgeqp3``; return (factor storage, ``jpvt`` 0-based, ``tau``)."""
-    a = np.asfortranarray(np.asarray(a, dtype=np.float64), dtype=np.float64)
-    qr_a, jpvt, tau, _work, info = _lapack.dgeqp3(a)
-    if info != 0:
-        raise RuntimeError(f"dgeqp3 failed with info={info}")
-    return qr_a, jpvt.astype(np.int64) - 1, tau
+    return _dgeqp3_f_with_jpvt(a)
 
 
 def _dgeqp3_economic_r(
     a: np.ndarray,
+    *,
+    jpvt_in: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Pivoted economic QR via ``dgeqp3`` only (same pivots / ``R`` as ``scipy.linalg.qr``).
@@ -574,7 +1020,7 @@ def _dgeqp3_economic_r(
     a = np.asarray(a, dtype=np.float64)
     m, n = int(a.shape[0]), int(a.shape[1])
     k = min(m, n)
-    qr_a, piv, tau = _dgeqp3_f(a.copy())
+    qr_a, piv, tau = _dgeqp3_f_with_jpvt(a.copy(), jpvt_in=jpvt_in)
     r0 = np.triu(np.asarray(qr_a[:k, :], dtype=np.float64))
     return qr_a, tau, piv, r0
 
@@ -619,13 +1065,65 @@ def _dormqr_apply(
     elif side == b"R" and qr_a.shape[0] != k:
         qr_a = np.asfortranarray(qr_a[:k, :], dtype=np.float64)
     c = np.asfortranarray(np.asarray(fortran_block, dtype=np.float64), dtype=np.float64)
-    m = int(qr_a.shape[0])
-    if lwork is None:
-        lwork = max(1, m * max(1, c.shape[1]) * 32)
-    cq, _wk, info = _lapack.dormqr(side, trans, qr_a, tau, c, lwork=lwork)
-    if info != 0:
-        raise RuntimeError(f"dormqr failed with info={info}")
-    return np.asarray(cq, dtype=np.float64)
+    handles = _lapack_ctypes_handles()
+    if handles is None:
+        m = int(qr_a.shape[0])
+        if lwork is None:
+            lwork = max(1, m * max(1, c.shape[1]) * 32)
+        cq, _wk, info = _lapack.dormqr(side, trans, qr_a, tau, c, lwork=lwork)
+        if info != 0:
+            raise RuntimeError(f"dormqr failed with info={info}")
+        return np.asarray(cq, dtype=np.float64)
+
+    _dgeqp3, dormqr = handles
+    m_c = ctypes.c_int(int(c.shape[0]))
+    n_c = ctypes.c_int(int(c.shape[1]))
+    k_c = ctypes.c_int(k)
+    lda_c = ctypes.c_int(max(1, int(qr_a.shape[0])))
+    ldc_c = ctypes.c_int(max(1, int(c.shape[0])))
+    info = ctypes.c_int(0)
+    work = np.zeros(1, dtype=np.float64)
+    lwork_c = ctypes.c_int(-1)
+
+    dormqr(
+        side,
+        trans,
+        ctypes.byref(m_c),
+        ctypes.byref(n_c),
+        ctypes.byref(k_c),
+        qr_a.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        ctypes.byref(lda_c),
+        tau.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        c.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        ctypes.byref(ldc_c),
+        work.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        ctypes.byref(lwork_c),
+        ctypes.byref(info),
+    )
+    if info.value != 0:
+        raise RuntimeError(f"dormqr workspace query failed with info={info.value}")
+
+    lwork_c = ctypes.c_int(max(int(work[0]), 1) if lwork is None else int(lwork))
+    work = np.zeros(int(lwork_c.value), dtype=np.float64)
+    info = ctypes.c_int(0)
+    dormqr(
+        side,
+        trans,
+        ctypes.byref(m_c),
+        ctypes.byref(n_c),
+        ctypes.byref(k_c),
+        qr_a.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        ctypes.byref(lda_c),
+        tau.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        c.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        ctypes.byref(ldc_c),
+        work.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        ctypes.byref(lwork_c),
+        ctypes.byref(info),
+    )
+    if info.value != 0:
+        raise RuntimeError(f"dormqr failed with info={info.value}")
+    return np.asarray(c, dtype=np.float64)
 
 
 def _drop_rows_vec(v: np.ndarray, drop_sorted: np.ndarray) -> np.ndarray:
@@ -653,23 +1151,7 @@ def project_coef_onto_row_space(
     ``coef(gam)`` may differ from nampy along ``null(X)`` in float64, but this
     projection matches mgcv to machine precision when ``X`` agrees (parity tests).
     """
-    X = np.asarray(X, dtype=np.float64)
-    b = np.asarray(coef_full, dtype=np.float64).ravel()
-    q = int(X.shape[1])
-    if b.shape[0] != q:
-        raise ValueError(f"coef_full has length {b.shape[0]}, expected {q}.")
-    if q == 0:
-        return b.copy()
-    _, s, Vt = np.linalg.svd(X, full_matrices=True)
-    if s.size == 0:
-        return b.copy()
-    smax = float(s[0])
-    tol = max(smax * sv_rel_tol, np.finfo(np.float64).eps * max(smax, 1.0))
-    rank_x = int(np.sum(s > tol))
-    if rank_x >= q:
-        return b.copy()
-    N = Vt[rank_x:q, :].T
-    return b - N @ (N.T @ b)
+    return _project_coef_onto_row_space(X, coef_full, sv_rel_tol=sv_rel_tol)
 
 
 def snap_coef_to_reference_null_space(
@@ -696,25 +1178,12 @@ def snap_coef_to_reference_null_space(
     with columns of ``N`` an orthonormal basis of ``\\mathrm{null}(X)``.  Then
     ``X\\beta' = X\\beta`` and ``N^{\\top}\\beta' = N^{\\top}\\beta^{\\mathrm{ref}}``.
     """
-    X = np.asarray(X, dtype=np.float64)
-    b = np.asarray(coef_full, dtype=np.float64).ravel()
-    ref = np.asarray(coef_reference, dtype=np.float64).ravel()
-    _, q = X.shape
-    if b.shape[0] != q or ref.shape[0] != q:
-        raise ValueError("coef vectors must have length q matching X.shape[1].")
-    if q == 0:
-        return b.copy()
-    _, s, Vt = np.linalg.svd(X, full_matrices=True)
-    if s.size == 0:
-        return b.copy()
-    smax = float(s[0])
-    tol = max(smax * sv_rel_tol, np.finfo(np.float64).eps * max(smax, 1.0))
-    rank_x = int(np.sum(s > tol))
-    if rank_x >= q:
-        return b.copy()
-    N = np.asarray(Vt[rank_x:q, :], dtype=np.float64).T
-    pn = N @ N.T
-    return b + pn @ (ref - b)
+    return _snap_coef_to_reference_null_space(
+        coef_full,
+        X,
+        coef_reference,
+        sv_rel_tol=sv_rel_tol,
+    )
 
 
 def _gauge_minimize_penalty_on_null_X(
@@ -733,24 +1202,18 @@ def _gauge_minimize_penalty_on_null_X(
     """
     X = np.asarray(X, dtype=np.float64)
     P = np.asarray(P, dtype=np.float64)
-    P = 0.5 * (P + P.T)
+    P = symmetrize_matrix(P)
     q = int(X.shape[1])
     if q == 0:
         return coef_full
-    _, s, Vt = np.linalg.svd(X, full_matrices=True)
-    if s.size == 0:
-        return coef_full
-    smax = float(s[0])
-    tol = max(smax * sv_rel_tol, np.finfo(np.float64).eps * max(smax, 1.0))
-    rank_x = int(np.sum(s > tol))
-    null_dim = q - rank_x
+    N, _rank_x = svd_null_space_basis(X, sv_rel_tol=sv_rel_tol)
+    null_dim = int(N.shape[1])
     if null_dim == 0:
         return coef_full
-    N = Vt[rank_x:q, :].T
     H = N.T @ P @ N
-    H = 0.5 * (H + H.T)
+    H = symmetrize_matrix(H)
     rhs = np.asarray(-(N.T @ (P @ coef_full)), dtype=np.float64).ravel()
-    h_evals = np.linalg.eigvalsh(H)
+    h_evals = symmetric_eigvalsh(H)
     h_max = float(np.max(h_evals)) if h_evals.size else 0.0
     p_frob = float(np.linalg.norm(P, ord="fro"))
     ridge = 0.0
@@ -899,7 +1362,7 @@ def penalty_sqrt_rows(P: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     Falls back to eigendecomposition when ``P`` has off-diagonal entries.
     """
     P = np.asarray(P, dtype=np.float64)
-    P = 0.5 * (P + P.T)
+    P = symmetrize_matrix(P)
     q = int(P.shape[0])
     d = np.diag(P)
     off = P - np.diag(d)
@@ -907,7 +1370,7 @@ def penalty_sqrt_rows(P: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     if scale <= 0.0:
         scale = 1.0
     if not np.allclose(off, 0.0, atol=1e-14 * max(scale, 1.0), rtol=0.0):
-        w, V = np.linalg.eigh(P)
+        w, V = symmetric_eigh(P)
         mask = w > max(np.max(w) * 1e-15, LOG_GUARD_MIN)
         if not np.any(mask):
             return np.zeros((0, P.shape[0])), np.zeros((0, P.shape[0]))
@@ -949,36 +1412,11 @@ def balanced_penalty_template_sqrt_for_rank(
     The resulting rows are used only for rank detection in the stacked QR; they
     are not used to compute coefficients.
     """
-    offset = 1 if fit_intercept else 0
-    q = offset + int(n_coef)
-    template_sum = np.zeros((q, q), dtype=np.float64)
-    for pb in penalty_blocks:
-        smooth_idx = int(getattr(pb, "smoothing_index", -1))
-        if smooth_idx < 0:
-            continue
-        template_block = np.asarray(pb.matrix, dtype=np.float64)
-        sl = pb.coef_slice
-        block_dim = int(sl.stop - sl.start)
-        if template_block.shape != (block_dim, block_dim):
-            continue
-        frob = float(np.linalg.norm(template_block, ord="fro"))
-        if frob <= 0.0:
-            continue
-        idx = np.arange(offset + sl.start, offset + sl.stop, dtype=np.int64)
-        template_sum[np.ix_(idx, idx)] += template_block / frob
-    template_sum = 0.5 * (template_sum + template_sum.T)
-    evals, evecs = np.linalg.eigh(template_sum)
-    emax = float(np.max(evals)) if evals.size else 0.0
-    if emax <= 0.0:
-        return np.zeros((0, q), dtype=np.float64)
-    thr = emax * (np.finfo(np.float64).eps ** 0.66)
-    mask = evals > thr
-    if not np.any(mask):
-        return np.zeros((0, q), dtype=np.float64)
-    vals = np.asarray(evals[mask], dtype=np.float64)
-    V_sel = np.asarray(evecs[:, mask], dtype=np.float64)
-    sqrt_evals = np.sqrt(np.maximum(vals, 0.0))
-    return (sqrt_evals[:, np.newaxis] * V_sel.T).astype(np.float64, copy=False)
+    return _balanced_penalty_template_sqrt_for_rank(
+        penalty_blocks,
+        fit_intercept=fit_intercept,
+        n_coef=n_coef,
+    )
 
 
 def _ridge_eps_for_upper_r(upper_r: np.ndarray) -> float:
@@ -1061,6 +1499,7 @@ def solve_gaussian_penalized_ls_stacked_qr(
     P: np.ndarray,
     *,
     penalty_blocks: Iterable[Any] | None = None,
+    penalty_rank_rows: np.ndarray | None = None,
     fit_intercept: bool = True,
     n_coef: int | None = None,
     rank_tol: float = STACKED_QR_RANK_TOLERANCE,
@@ -1106,10 +1545,6 @@ def solve_gaussian_penalized_ls_stacked_qr(
     n_obs, n_coef_total = X.shape
     if y.shape[0] != n_obs or w.shape[0] != n_obs:
         raise ValueError("shape mismatch between X, y, and w.")
-    if np.any(w < 0):
-        raise NotImplementedError(
-            "stacked QR PLS here supports only non-negative weights."
-        )
 
     P = np.asarray(P, dtype=np.float64)
     penalty_sqrt, penalty_rank_template = penalty_sqrt_rows(P)
@@ -1119,7 +1554,9 @@ def solve_gaussian_penalized_ls_stacked_qr(
             "penalty_sqrt_rows returned empty factor (zero penalty matrix)."
         )
 
-    if penalty_blocks is not None and n_coef is not None:
+    if penalty_rank_rows is not None:
+        penalty_rank_rows = np.asarray(penalty_rank_rows, dtype=np.float64)
+    elif penalty_blocks is not None and n_coef is not None:
         penalty_rank_rows = balanced_penalty_template_sqrt_for_rank(
             penalty_blocks, fit_intercept=fit_intercept, n_coef=int(n_coef)
         )
@@ -1141,6 +1578,7 @@ def solve_gaussian_penalized_ls_stacked_qr(
         near_singular_null_pin=near_singular_null_pin,
     )
     coef_full = outcome.coef_full
+    eta = np.asarray(outcome.eta, dtype=np.float64)
     weighted_X = outcome.weighted_X
     penalty_sqrt = outcome.penalty_sqrt
     system_rank = outcome.system_rank
@@ -1149,20 +1587,29 @@ def solve_gaussian_penalized_ls_stacked_qr(
     kept_original_indices = outcome.kept_original_indices
     dropped_column_indices = outcome.dropped_column_indices
     penalty_quadratic = outcome.penalty_quadratic
-
-    eta = X @ coef_full
+    covariance_rank_root = outcome.covariance_rank_root
+    log_det_correction = float(outcome.log_det_correction)
 
     XtWX = X.T @ (w[:, None] * X)
     A = XtWX + P
-    covariance_root, A_inv = stacked_qr_covariance_from_factor(
-        upper_r_final,
-        pivot1=pivot_aug,
-        kept_original_indices=kept_original_indices,
-        q_total=n_coef_total,
-    )
+    if covariance_rank_root is None:
+        covariance_root, A_inv = stacked_qr_covariance_from_factor(
+            upper_r_final,
+            pivot1=pivot_aug,
+            kept_original_indices=kept_original_indices,
+            q_total=n_coef_total,
+        )
+    else:
+        covariance_root, A_inv = _scatter_rank_root_to_full(
+            covariance_rank_root,
+            pivot1=pivot_aug,
+            kept_original_indices=kept_original_indices,
+            q_total=n_coef_total,
+        )
     diag_r = np.abs(np.diag(upper_r_final))
-    log_det_XtWX_plus_penalty = 2.0 * float(
-        np.sum(np.log(np.maximum(diag_r, np.finfo(np.float64).tiny)))
+    log_det_XtWX_plus_penalty = (
+        2.0 * float(np.sum(np.log(np.maximum(diag_r, np.finfo(np.float64).tiny))))
+        + log_det_correction
     )
 
     householder_mixing = np.zeros((n_obs, n_coef_total), dtype=np.float64)
@@ -1207,4 +1654,4 @@ def gaussian_design_needs_stacked_qr_fit(model) -> bool:
     )
     if X.ndim != 2 or X.shape[1] == 0:
         return False
-    return np.linalg.matrix_rank(X) < X.shape[1]
+    return matrix_is_rank_deficient(X)

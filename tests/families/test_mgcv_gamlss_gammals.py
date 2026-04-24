@@ -8,7 +8,10 @@ from scipy.special import gammaln
 from nampy.gam import GAM
 from nampy.gam.families.gamlss import gammals
 from nampy.gam.families.gamlss.gammals import _SoftplusBLinkInfo
-from nampy.gam.fit.solvers.gam_fit5 import GamFit5Control, gam_fit5
+from nampy.gam.fit.solvers.general_newton_solver import (
+    GeneralNewtonControl,
+    solve_general_newton_fit,
+)
 
 # ======================================================================
 # gammals
@@ -20,6 +23,7 @@ from nampy.gam.fit.solvers.gam_fit5 import GamFit5Control, gam_fit5
 
 
 def test_softplusb_roundtrip():
+    """Verify that softplusb roundtrip."""
     link = _SoftplusBLinkInfo(b=-7.0)
     rng = np.random.default_rng(0)
     # log(sigma) values well above b=-7
@@ -30,6 +34,7 @@ def test_softplusb_roundtrip():
 
 
 def test_softplusb_linkinv_lower_bound():
+    """Verify that softplusb linkinv lower bound."""
     link = _SoftplusBLinkInfo(b=-7.0)
     # linkinv must always be >= b
     eta = np.linspace(-20.0, 5.0, 200)
@@ -43,6 +48,7 @@ def test_softplusb_linkinv_lower_bound():
 
 
 def test_softplusb_mu_eta_fd():
+    """Verify that softplusb mu eta finite differences."""
     link = _SoftplusBLinkInfo(b=-7.0)
     rng = np.random.default_rng(1)
     eta = rng.uniform(-5.0, 3.0, 40)
@@ -58,6 +64,7 @@ def test_softplusb_mu_eta_fd():
 
 
 def test_softplusb_d2link_fd():
+    """Verify that softplusb d2link finite differences."""
     link = _SoftplusBLinkInfo(b=-7.0)
     rng = np.random.default_rng(2)
     # mu values close to b to get non-negligible d2link values
@@ -190,13 +197,13 @@ def test_gammals_initialize():
 
 
 # ---------------------------------------------------------------------------
-# 8. gam_fit5 end-to-end on simulated gamma data
+# 8. solve_general_newton_fit end-to-end on simulated gamma data
 # ---------------------------------------------------------------------------
 
 
 def test_gam_fit5_gammals_convergence():
     """
-    gam_fit5 with gammals recovers mean slope and log-sigma intercept.
+    solve_general_newton_fit with gammals recovers mean slope and log-sigma intercept.
 
     True model: log(mean) = 1.0 + 2.0*x, log(sigma) = -2.0 (constant).
     """
@@ -226,8 +233,8 @@ def test_gam_fit5_gammals_convergence():
     lsp = np.array([], dtype=np.float64)
     S_blocks: list = []
 
-    ctl = GamFit5Control(maxit=100, epsilon=1e-8, trace=False)
-    fit = gam_fit5(
+    ctl = GeneralNewtonControl(maxit=100, epsilon=1e-8, trace=False)
+    fit = solve_general_newton_fit(
         X,
         y,
         jj,

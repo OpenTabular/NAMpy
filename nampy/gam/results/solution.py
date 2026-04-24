@@ -31,6 +31,10 @@ class FitResult:
     failed_step: bool | None = None
     failure_reason: str | None = None
     inner_trace: list | None = None
+    coef_space: str = "fit"
+    cov_bayes_space: str = "fit"
+    cov_freq_space: str = "fit"
+    cov_unconditional_space: str = "fit"
 
 
 __all__ = ["FitResult"]

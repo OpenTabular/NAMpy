@@ -6,8 +6,14 @@ import numpy as np
 
 from ..._mgcv_constants import FAMILY_EPS
 from ...fit.solvers.gamlss_utils import gamlss_etamu, gamlss_gH, trind_generator
-from .._function_maps import InverseLink, LogLink
-from ._base import GamlssFamily, _AdaptedLinkInfo, _IdentityLinkInfo
+from .._function_maps import InverseLink, LogLink, SqrtLink
+from ._base import (
+    GamlssFamily,
+    _AdaptedLinkInfo,
+    _IdentityLinkInfo,
+    _pen_reg,
+    _qr_coef_pivoted,
+)
 
 
 class _LogBLinkInfo:
@@ -25,15 +31,15 @@ class _LogBLinkInfo:
 
     def linkfun(self, mu: np.ndarray) -> np.ndarray:
         mu = np.asarray(mu, dtype=np.float64)
-        return np.log(np.clip(1.0 / mu - self.b, 1e-300, None))
+        return np.log(1.0 / mu - self.b)
 
     def linkinv(self, eta: np.ndarray) -> np.ndarray:
         eta = np.asarray(eta, dtype=np.float64)
-        return 1.0 / (np.exp(np.clip(eta, -500.0, 500.0)) + self.b)
+        return 1.0 / (np.exp(eta) + self.b)
 
     def mu_eta(self, eta: np.ndarray) -> np.ndarray:
         eta = np.asarray(eta, dtype=np.float64)
-        ee = np.exp(np.clip(eta, -500.0, 500.0))
+        ee = np.exp(eta)
         return -ee / (ee + self.b) ** 2
 
     def d2link(self, mu: np.ndarray) -> np.ndarray:
@@ -86,8 +92,12 @@ class GaulssFamily(GamlssFamily):
         ok1 = ("identity", "log", "inverse", "sqrt")
         ok2 = ("logb",)
 
-        link1_name = link[0] if isinstance(link[0], str) else "identity"
-        link2_name = link[1] if isinstance(link[1], str) else "logb"
+        if not isinstance(link, (list, tuple)) or len(link) != 2:
+            raise ValueError("gaulss link must be a length-2 list/tuple.")
+        if not isinstance(link[0], str) or not isinstance(link[1], str):
+            raise ValueError("gaulss links must be strings.")
+        link1_name = link[0]
+        link2_name = link[1]
 
         if link1_name not in ok1:
             raise ValueError(f"Link {link1_name!r} not available for mu of gaulss.")
@@ -104,6 +114,9 @@ class GaulssFamily(GamlssFamily):
             linfo1 = _AdaptedLinkInfo(_lobj, link1_name)
         elif link1_name == "inverse":
             _lobj = InverseLink(eps=FAMILY_EPS)
+            linfo1 = _AdaptedLinkInfo(_lobj, link1_name)
+        elif link1_name == "sqrt":
+            _lobj = SqrtLink(eps=FAMILY_EPS)
             linfo1 = _AdaptedLinkInfo(_lobj, link1_name)
         else:
             raise ValueError(f"Unsupported link {link1_name!r}")
@@ -141,30 +154,15 @@ class GaulssFamily(GamlssFamily):
         n = len(y)
         sandwich = bool(kw.get("sandwich", False))
 
-        # offset handling: offset[[1]], offset[[2]], offset[[3]] in R
-        off1 = off2 = None
-        if offset is not None:
-            if isinstance(offset, (list, tuple)):
-                off1 = (
-                    np.asarray(offset[0], dtype=np.float64)
-                    if len(offset) > 0 and offset[0] is not None
-                    else None
-                )
-                off2 = (
-                    np.asarray(offset[1], dtype=np.float64)
-                    if len(offset) > 1 and offset[1] is not None
-                    else None
-                )
-            else:
-                off1 = np.asarray(offset, dtype=np.float64)
-
-        # Linear predictors
-        eta = X[:, jj[0]] @ coef[jj[0]]
-        if off1 is not None:
-            eta = eta + off1
-        eta1 = X[:, jj[1]] @ coef[jj[1]]
-        if off2 is not None:
-            eta1 = eta1 + off2
+        eta_mat = self._eta_matrix_from_inputs(
+            X,
+            jj,
+            coef,
+            offset=offset,
+            eta=kw.get("eta", None),
+        )
+        eta = np.asarray(eta_mat[:, 0], dtype=np.float64)
+        eta1 = np.asarray(eta_mat[:, 1], dtype=np.float64)
 
         mu = self.linfo[0].linkinv(eta)  # mean
         tau = self.linfo[1].linkinv(eta1)  # precision 1/sigma
@@ -175,16 +173,12 @@ class GaulssFamily(GamlssFamily):
 
         # log-likelihood: N(mu, sigma^2) with sigma = 1/tau
         # l = -0.5*(y-mu)^2 * tau^2 - 0.5*log(2pi) + log(tau)
-        l0 = (
-            -0.5 * ymu2 * tau2
-            - 0.5 * np.log(2.0 * np.pi)
-            + np.log(np.maximum(tau, 1e-300))
-        )
-        l = float(np.sum(l0))
+        l0 = -0.5 * ymu2 * tau2 - 0.5 * np.log(2.0 * np.pi) + np.log(tau)
+        ll = float(np.sum(l0))
 
         if deriv == 0:
             return {
-                "l": l,
+                "l": ll,
                 "l0": l0,
                 "lb": None,
                 "lbb": None,
@@ -270,7 +264,6 @@ class GaulssFamily(GamlssFamily):
         de = gamlss_etamu(
             l1, l2, l3_val, l4_val, ig1, g2, g3, g4, i2, i3, i4, deriv - 1
         )
-
         # Gradient and Hessian w.r.t. coefficients  (mgcv: gamlss.gH)
         ret = gamlss_gH(
             X,
@@ -289,7 +282,11 @@ class GaulssFamily(GamlssFamily):
             D=D,
             sandwich=sandwich,
         )
-        ret["l"] = l
+        if bool(kw.get("ncv", False)):
+            ret["l1"] = np.asarray(de["l1"], dtype=np.float64)
+            ret["l2"] = np.asarray(de["l2"], dtype=np.float64)
+            ret["l3"] = de["l3"]
+        ret["l"] = ll
         ret["l0"] = l0
         return ret
 
@@ -303,16 +300,14 @@ class GaulssFamily(GamlssFamily):
         E: Any = None,
     ) -> np.ndarray:
         """
-        Initialize coefficients for gaulss by two penalized LS fits.
+        Initialize coefficients for gaulss by two `pen.reg()` solves.
 
-        First regress y on the mean design block.
-        Then regress log|residuals| on the precision design block.
-
-        Mirrors mgcv ``gaulss$initialize`` expression (regular matrix path).
+        Mirrors the regular-matrix branch of mgcv `gaulss$initialize` in
+        `mgcv/R/gamlss.r`.
         """
         y = np.asarray(y, dtype=np.float64)
         X = np.asarray(X, dtype=np.float64)
-        n, p = X.shape
+        _n, p = X.shape
         start = np.zeros(p, dtype=np.float64)
 
         off1 = off2 = None
@@ -331,51 +326,47 @@ class GaulssFamily(GamlssFamily):
             else:
                 off1 = np.asarray(offset, dtype=np.float64)
 
-        # --- Fit mean predictor ---
-        X1 = X[:, jj[0]]
-        yt1 = y.copy()
+        use_unscaled = bool(E is not None and getattr(E, "use_unscaled", False))
+        E_arr = None if E is None else np.asarray(E, dtype=np.float64)
+
+        X1 = np.asarray(X[:, jj[0]], dtype=np.float64)
+        yt1 = np.asarray(y, dtype=np.float64).copy()
         if self.linfo[0].name != "identity":
-            yt1 = self.linfo[0].linkfun(np.abs(y) + np.max(np.abs(y)) * 1e-7)
+            yt1 = self.linfo[0].linkfun(np.abs(y) + np.max(y) * 1e-7)
         if off1 is not None:
             yt1 = yt1 - off1
-
-        if E is not None and E.shape[1] > 0:
-            E1 = E[:, jj[0]]
-            XE1 = np.vstack([X1, E1])
-            y1e = np.concatenate([yt1, np.zeros(E1.shape[0])])
+        E1 = (
+            np.zeros((0, X1.shape[1]), dtype=np.float64)
+            if E_arr is None or E_arr.shape[1] == 0
+            else np.asarray(E_arr[:, jj[0]], dtype=np.float64)
+        )
+        if use_unscaled and E1.shape[0] > 0:
+            start1 = _qr_coef_pivoted(
+                np.vstack([X1, E1]),
+                np.concatenate([yt1, np.zeros(E1.shape[0], dtype=np.float64)]),
+            )
         else:
-            XE1 = X1
-            y1e = yt1
-
-        try:
-            start1 = np.linalg.lstsq(XE1, y1e, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start1 = np.zeros(X1.shape[1], dtype=np.float64)
-        start1 = np.where(np.isfinite(start1), start1, 0.0)
+            start1 = _pen_reg(X1, E1, yt1)
         start[jj[0]] = start1
 
-        # --- Fit precision predictor ---
-        mu_init = self.linfo[0].linkinv(
-            X1 @ start1 + (off1 if off1 is not None else 0.0)
-        )
-        lres1 = np.log(np.maximum(np.abs(y - mu_init), 1e-300))
+        mu_init = self.linfo[0].linkinv(X1 @ start1)
+        lres1 = np.log(np.abs(y - mu_init))
         if off2 is not None:
             lres1 = lres1 - off2
 
-        X2 = X[:, jj[1]]
-        if E is not None and E.shape[1] > 0:
-            E2 = E[:, jj[1]]
-            XE2 = np.vstack([X2, E2])
-            y2e = np.concatenate([lres1, np.zeros(E2.shape[0])])
+        X2 = np.asarray(X[:, jj[1]], dtype=np.float64)
+        E2 = (
+            np.zeros((0, X2.shape[1]), dtype=np.float64)
+            if E_arr is None or E_arr.shape[1] == 0
+            else np.asarray(E_arr[:, jj[1]], dtype=np.float64)
+        )
+        if use_unscaled and E2.shape[0] > 0:
+            start2 = _qr_coef_pivoted(
+                np.vstack([X2, E2]),
+                np.concatenate([lres1, np.zeros(E2.shape[0], dtype=np.float64)]),
+            )
         else:
-            XE2 = X2
-            y2e = lres1
-
-        try:
-            start2 = np.linalg.lstsq(XE2, y2e, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start2 = np.zeros(X2.shape[1], dtype=np.float64)
-        start2 = np.where(np.isfinite(start2), start2, 0.0)
+            start2 = _pen_reg(X2, E2, lres1)
         start[jj[1]] = start2
 
         return start
@@ -387,6 +378,11 @@ class GaulssFamily(GamlssFamily):
 
         Mirrors mgcv ``gaulss$residuals``.
         """
+        rtype = str(rtype).lower()
+        if rtype not in {"deviance", "pearson", "response"}:
+            raise ValueError(
+                "gaulss residuals support only {'deviance', 'pearson', 'response'}."
+            )
         y = np.asarray(y, dtype=np.float64)
         mu = np.asarray(fitted[:, 0], dtype=np.float64)
         tau = np.asarray(fitted[:, 1], dtype=np.float64)
@@ -445,4 +441,3 @@ def gaulss(link=("identity", "logb"), b: float = 0.01) -> GaulssFamily:
 # ---------------------------------------------------------------------------
 # Adapter for existing LinkFunction objects
 # ---------------------------------------------------------------------------
-

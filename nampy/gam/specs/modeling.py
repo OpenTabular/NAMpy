@@ -9,7 +9,7 @@ import numpy as np
 from ..data import knots_for_feature, knots_for_features
 from ..formula import extract_formula_terms, parse_gam_formula
 from . import LinearPredictorSpec, TermSpec, build_smooth_spec
-from .build import FormulaBuildResult, build_formula_model
+from .build import FormulaBuildResult, _coerce_fx, build_formula_model
 
 
 def make_tensor_term(model, spec, *, knots=None):
@@ -52,6 +52,10 @@ def make_tensor_term(model, spec, *, knots=None):
         )
 
     kind = str(spec.get("kind", "te")).lower()
+    if kind == "t2" and ("fx" in spec or "fixed" in spec):
+        raise NotImplementedError(
+            "t2() does not support fx/fixed in mgcv; remove the argument."
+        )
     k = spec.get("k", model.k)
     basis = spec.get("basis", model.basis)
     label = spec.get("label", f"{kind}({', '.join(map(str, features))})")
@@ -61,7 +65,11 @@ def make_tensor_term(model, spec, *, knots=None):
     mc = spec.get("mc", None)
     full = bool(spec.get("full", False))
     ord_ = spec.get("ord", None)
-    fixed = bool(spec.get("fixed", spec.get("fx", False)))
+    fixed = _coerce_fx(
+        spec.get("fixed", spec.get("fx", False)),
+        kind=kind,
+        n_features=len(features),
+    )
     select = bool(spec.get("select", model.select))
     sp = spec.get("sp", None)
     term_knots = spec.get("knots", knots_for_features(model, features, knots=knots))
@@ -270,7 +278,9 @@ def make_predictor_specs(model, feature_names, *, knots=None):
     return [LinearPredictorSpec(name="eta", terms=terms)]
 
 
-def prepare_formula_inputs(model, data, formula, y=None, knots=None, drop_intercept=None):
+def prepare_formula_inputs(
+    model, data, formula, y=None, knots=None, drop_intercept=None
+):
     parsed = parse_gam_formula(formula)
     extracted = extract_formula_terms(parsed, drop_intercept=drop_intercept)
     build_result: FormulaBuildResult = build_formula_model(

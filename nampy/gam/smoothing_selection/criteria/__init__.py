@@ -41,6 +41,12 @@ from .gaussian_reml_algebra import (
 )
 from .laplace import _penalty_derivative_matrices
 from .ml_reml import criterion_ml_reml, resolve_ml_reml_scoring_backend
+from .ncv import (
+    criterion_gradient_ncv,
+    criterion_gradient_ncv_negbin_joint,
+    criterion_ncv,
+    criterion_ncv_negbin_joint,
+)
 from .pirls import (
     _pirls_ml_reml_objective_from_solution,
     criterion_gcv_pirls,
@@ -68,6 +74,8 @@ __all__ = [
     "criterion_gcv_pirls",
     "criterion_gradient",
     "criterion_gradient_ml_reml_gaussian_dynamic_joint",
+    "criterion_gradient_ncv",
+    "criterion_gradient_ncv_negbin_joint",
     "criterion_gradient_ml_reml_pirls_gamma_joint",
     "criterion_gradient_ml_reml_pirls_negbin_joint",
     "criterion_gradient_ml_reml_pirls_exact",
@@ -84,6 +92,8 @@ __all__ = [
     "criterion_ml_reml_exact_dynamic",
     "criterion_ml_reml_gaussian_dynamic_joint",
     "criterion_ml_reml_gaussian_dynamic_profiled",
+    "criterion_ncv",
+    "criterion_ncv_negbin_joint",
     "criterion_ml_reml_pirls_gamma_joint",
     "criterion_ml_reml_pirls_negbin_joint",
     "criterion_ml_reml_pirls",

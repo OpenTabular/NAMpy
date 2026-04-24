@@ -131,25 +131,66 @@ class BaseFamily(metaclass=_FamilyMeta):
         attr = attr_map[method]
         if attr is None:
             return True
+        if method in {"ubre", "aic", "ubreaic"} and self.known_scale is None:
+            return False
         return bool(getattr(self, attr, False))
 
     # ------------------------------------------------------------------
     # Future derivative contracts
     # ------------------------------------------------------------------
+    def _link_derivative_object(self):
+        link = getattr(self, "link", None)
+        if link is None or any(not hasattr(link, attr) for attr in ("d2", "d3", "d4")):
+            raise NotImplementedError(
+                f"{self.__class__.__name__} does not yet implement mgcv-style "
+                "higher-order link derivatives."
+            )
+        return link
+
+    def d2link(self, mu):
+        return self._link_derivative_object().d2(mu)
+
+    def d3link(self, mu):
+        return self._link_derivative_object().d3(mu)
+
+    def d4link(self, mu):
+        return self._link_derivative_object().d4(mu)
+
     def inverse_link_derivatives(self, eta, order=1):
         """
         Derivatives of inverse link mu(eta) w.r.t. eta.
 
-        Phase 1 only guarantees order=1 for GLM-style families via mu_eta().
-        Higher orders are intentionally deferred to later phases where they will
-        be hardcoded and tested carefully.
+        When raw link derivatives are available via `d2link`/`d3link`/`d4link`,
+        derive inverse-link orders 2-4 via inverse-function identities so
+        extended families can reuse the same exact PIRLS chain-rule surface as
+        ordinary GLM families.
         """
-        if int(order) != 1:
+        order = int(order)
+        mu_eta = np.asarray(self.mu_eta(eta), dtype=np.float64)
+        if order == 1:
+            return mu_eta
+
+        if order < 1 or order > 4:
             raise NotImplementedError(
                 f"{self.__class__.__name__} does not yet implement inverse-link "
                 f"derivatives of order {order}."
             )
-        return self.mu_eta(eta)
+
+        mu = np.asarray(self.inverse_link(eta), dtype=np.float64)
+        g2 = np.asarray(self.d2link(mu), dtype=np.float64)
+        if order == 2:
+            return -g2 * (mu_eta**3)
+
+        g3 = np.asarray(self.d3link(mu), dtype=np.float64)
+        if order == 3:
+            return 3.0 * (g2**2) * (mu_eta**5) - g3 * (mu_eta**4)
+
+        g4 = np.asarray(self.d4link(mu), dtype=np.float64)
+        return (
+            -15.0 * (g2**3) * (mu_eta**7)
+            + 10.0 * g2 * g3 * (mu_eta**6)
+            - g4 * (mu_eta**5)
+        )
 
     def deviance_derivatives_mu(self, y, mu, order=1):
         raise NotImplementedError(
@@ -270,6 +311,16 @@ class GLMFamily(BaseFamily):
 
 class _BinomialBase(GLMFamily):
     _variance_key = "binomial"
+    supports_ncv = True
+    supports_qncv = True
+
+    def valid_mu(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return bool(np.all(np.isfinite(mu) & (mu > 0.0) & (mu < 1.0)))
+
+    def valid_eta(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        return bool(np.all(np.isfinite(eta)))
 
     def deviance(self, y, mu, weights=None):
         y = np.asarray(y, dtype=np.float64)
@@ -295,16 +346,64 @@ class _BinomialBase(GLMFamily):
         term2[mask2] = (1.0 - y[mask2]) * np.log((1.0 - y[mask2]) / (1.0 - mu[mask2]))
         return 2.0 * weights * (term1 + term2)
 
-    def loglik_obs(self, y, mu, scale=1.0):
+    def loglik_obs(self, y, mu, scale=1.0, n=None):
         del scale
         y = np.asarray(y, dtype=np.float64)
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        if n is not None:
+            n_arr = np.asarray(n, dtype=np.float64)
+            successes = np.rint(n_arr * y)
+            failures = np.rint(n_arr) - successes
+            return (
+                gammaln(np.rint(n_arr) + 1.0)
+                - gammaln(successes + 1.0)
+                - gammaln(failures + 1.0)
+                + successes * np.log(mu)
+                + failures * np.log1p(-mu)
+            )
         return y * np.log(mu) + (1.0 - y) * np.log(1.0 - mu)
 
+    def loglik(self, y, mu, scale=1.0, n=None):
+        return float(np.sum(self.loglik_obs(y, mu, scale=scale, n=n)))
+
+    def aic(self, y, mu, *, edf=0.0, scale=1.0, weights=None, n=None):
+        if n is None:
+            loglik_obs = np.asarray(
+                self.loglik_obs(y, mu, scale=scale), dtype=np.float64
+            )
+            sample_weights = self._check_weights(loglik_obs, weights)
+            return float(-2.0 * np.sum(sample_weights * loglik_obs) + 2.0 * float(edf))
+
+        n_arr = np.asarray(n, dtype=np.float64)
+        loglik_obs = np.asarray(
+            self.loglik_obs(y, mu, scale=scale, n=n_arr), dtype=np.float64
+        )
+        if weights is None:
+            sample_weights = np.ones_like(loglik_obs, dtype=np.float64)
+        else:
+            m = np.rint(n_arr)
+            wt = self._check_weights(loglik_obs, weights)
+            sample_weights = np.where(m > 0.0, wt / np.maximum(m, 1.0), 0.0)
+        return float(-2.0 * np.sum(sample_weights * loglik_obs) + 2.0 * float(edf))
+
     def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
-        del scale, n
+        del scale
         y = np.asarray(y, dtype=np.float64)
         weights = self._check_weights(y, weights)
+        if n is not None:
+            n_arr = np.asarray(n, dtype=np.float64)
+            successes = n_arr * y
+            failures = n_arr - successes
+            term = (
+                gammaln(n_arr + 1.0)
+                - gammaln(successes + 1.0)
+                - gammaln(failures + 1.0)
+            )
+            mask1 = successes > 0.0
+            term[mask1] += successes[mask1] * np.log(y[mask1])
+            mask2 = failures > 0.0
+            term[mask2] += failures[mask2] * np.log1p(-y[mask2])
+            return float(np.sum(weights * term))
         term = np.zeros_like(y, dtype=np.float64)
         mask1 = y > 0.0
         term[mask1] += y[mask1] * np.log(y[mask1])
@@ -312,9 +411,35 @@ class _BinomialBase(GLMFamily):
         term[mask2] += (1.0 - y[mask2]) * np.log(1.0 - y[mask2])
         return float(np.sum(weights * term))
 
+    def working_weight_derivative_eta(self, eta, y=None):
+        del y
+        eta = np.asarray(eta, dtype=np.float64)
+        mu = np.asarray(self.inverse_link(eta), dtype=np.float64)
+        a = np.asarray(self.mu_eta(eta), dtype=np.float64)
+        b = np.asarray(self.inverse_link_derivatives(eta, order=2), dtype=np.float64)
+        v = mu * (1.0 - mu)
+        v1 = (1.0 - 2.0 * mu) * a
+        return (2.0 * a * b * v - a**2 * v1) / (v**2)
+
+    def working_weight_second_derivative_eta(self, eta, y=None):
+        del y
+        eta = np.asarray(eta, dtype=np.float64)
+        mu = np.asarray(self.inverse_link(eta), dtype=np.float64)
+        a = np.asarray(self.mu_eta(eta), dtype=np.float64)
+        b = np.asarray(self.inverse_link_derivatives(eta, order=2), dtype=np.float64)
+        c = np.asarray(self.inverse_link_derivatives(eta, order=3), dtype=np.float64)
+        v = mu * (1.0 - mu)
+        v1 = (1.0 - 2.0 * mu) * a
+        v2 = -2.0 * a**2 + (1.0 - 2.0 * mu) * b
+        n = 2.0 * a * b * v - a**2 * v1
+        n1 = 2.0 * (b**2 + a * c) * v - a**2 * v2
+        return n1 / (v**2) - (2.0 * n * v1 / (v**3))
+
 
 class _GammaBase(GLMFamily):
     _variance_key = "gamma"
+    supports_ncv = True
+    supports_qncv = True
 
     def deviance(self, y, mu, weights=None):
         y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
@@ -329,14 +454,16 @@ class _GammaBase(GLMFamily):
         return 2.0 * weights * ((y - mu) / mu - np.log(y / mu))
 
     def estimate_dispersion(self, y, mu, edf=None, weights=None):
+        if self.known_scale is not None:
+            return float(self.known_scale)
         y = np.asarray(y, dtype=np.float64)
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
         w = self._check_weights(y, weights)
         pearson = float(np.sum(w * (y - mu) ** 2 / self.variance(mu)))
-        w_sum = float(np.sum(w))
+        n = float(y.shape[0])
         if edf is None:
-            return pearson / max(w_sum, 1.0)
-        return pearson / max(w_sum - float(edf), 1.0)
+            return pearson / n
+        return pearson / (n - float(edf))
 
     def loglik_obs(self, y, mu, scale=1.0):
         y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)

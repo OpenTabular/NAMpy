@@ -2,21 +2,35 @@
 
 import numpy as np
 
-from ..._model_state import _coef_column_offset, _n_coef, _n_smoothing_params, _penalty_blocks_seq
+from ..._model_state import (
+    _n_smoothing_params,
+    _penalty_blocks_seq,
+)
 from ..reparam import (
+    build_estimate_gam_setup_state,
     ensure_penalty_reparameterization_state,
     sl_group_indices,
     sl_lambda_vector,
 )
 
 
-def _laplace_lambda_vector(model, sp):
+def _require_sl_reparam_state(model):
     state = ensure_penalty_reparameterization_state(model)
+    if not hasattr(state, "sl_blocks"):
+        raise RuntimeError(
+            "Laplace mixed-model Sl state is unavailable; exact UrS "
+            "reparameterization state cannot be used for Sl helpers."
+        )
+    return state
+
+
+def _laplace_lambda_vector(model, sp):
+    state = _require_sl_reparam_state(model)
     return sl_lambda_vector(state, sp)
 
 
 def _lambda_group_indices(model):
-    state = ensure_penalty_reparameterization_state(model)
+    state = _require_sl_reparam_state(model)
     groups = sl_group_indices(state)
     if groups is None:
         return {}
@@ -26,9 +40,8 @@ def _lambda_group_indices(model):
 
 
 def _penalty_derivative_matrices(model, sp):
-    off = _coef_column_offset(model)
-    n_full = int(_n_coef(model) + off)
-    offset0 = off
+    setup = build_estimate_gam_setup_state(model)
+    n_full = int(np.asarray(setup.X, dtype=np.float64).shape[1])
     mats = [
         np.zeros((n_full, n_full), dtype=np.float64)
         for _ in range(int(_n_smoothing_params(model) or 0))
@@ -36,11 +49,14 @@ def _penalty_derivative_matrices(model, sp):
     if not mats:
         return mats
 
-    for pb in _penalty_blocks_seq(model):
+    for pb, S_local, off_i in zip(
+        _penalty_blocks_seq(model),
+        list(setup.S),
+        np.asarray(setup.off, dtype=np.int64),
+    ):
         k = int(pb.smoothing_index)
-        sl = pb.coef_slice
-        full_sl = slice(offset0 + sl.start, offset0 + sl.stop)
-        mats[k][full_sl, full_sl] += float(sp[k]) * np.asarray(
-            pb.matrix, dtype=np.float64
-        )
+        S_local = np.asarray(S_local, dtype=np.float64)
+        start = int(off_i) - 1
+        stop = start + int(S_local.shape[0])
+        mats[k][start:stop, start:stop] += float(sp[k]) * S_local
     return mats

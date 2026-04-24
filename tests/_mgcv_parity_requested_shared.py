@@ -1,4 +1,4 @@
-"""Shared helpers for tests/parity/test_mgcv_parity.py matrix cases."""
+"""Shared helpers for tests/parity/test_mgcv_snapshot_core_matrix.py cases."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from nampy.gam import GAM
+from nampy.gam.parity import covariance_standard_errors
 
 
 @dataclass(frozen=True)
@@ -45,7 +46,9 @@ def _assert_requested_parity(
     expected_snapshot: dict,
 ) -> None:
     if case.skip_coef_comparison:
-        link_actual = np.asarray(actual_snapshot["predictions"]["link"], dtype=np.float64)
+        link_actual = np.asarray(
+            actual_snapshot["predictions"]["link"], dtype=np.float64
+        )
         link_expected = np.asarray(
             expected_snapshot["predictions"]["link"], dtype=np.float64
         )
@@ -68,15 +71,13 @@ def _assert_requested_parity(
 
     edf = float(actual_snapshot["fit"]["edf_total"])
     edf_mgcv = float(expected_snapshot["fit"]["edf_total"])
-    assert abs(edf - edf_mgcv) < 1e-4, (
-        f"{case.case_id}: |edf-edf_mgcv|={abs(edf - edf_mgcv):.3e} >= 1e-4"
-    )
+    assert (
+        abs(edf - edf_mgcv) < 1e-4
+    ), f"{case.case_id}: |edf-edf_mgcv|={abs(edf - edf_mgcv):.3e} >= 1e-4"
 
     reml = float(actual_snapshot["fit"]["criterion_value"])
     reml_mgcv = float(expected_snapshot["fit"]["criterion_value"])
-    assert (
-        abs(reml - reml_mgcv) < float(case.criterion_atol)
-    ), (
+    assert abs(reml - reml_mgcv) < float(case.criterion_atol), (
         f"{case.case_id}: |REML-REML_mgcv|={abs(reml - reml_mgcv):.3e} "
         f">= {float(case.criterion_atol):.3e}"
     )
@@ -84,8 +85,8 @@ def _assert_requested_parity(
     cov = np.asarray(actual_snapshot["fit"]["cov_bayes"], dtype=np.float64)
     cov_mgcv = np.asarray(expected_snapshot["fit"]["cov_bayes"], dtype=np.float64)
     assert cov.shape == cov_mgcv.shape, f"{case.case_id}: covariance shape mismatch"
-    se = np.sqrt(np.clip(np.diag(cov), 0.0, None))
-    se_mgcv = np.sqrt(np.clip(np.diag(cov_mgcv), 0.0, None))
+    se = covariance_standard_errors(cov)
+    se_mgcv = covariance_standard_errors(cov_mgcv)
     se_tol = float(case.se_tol_scale) * (1.0 + np.abs(se))
     se_err = np.abs(se - se_mgcv)
     assert np.all(se_err <= se_tol), (

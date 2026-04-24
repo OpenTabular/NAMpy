@@ -8,7 +8,11 @@ from scipy.special import gammaln
 from nampy.gam import GAM
 from nampy.gam.families.gamlss import ziplss
 from nampy.gam.families.gamlss.ziplss import _l1ee, _lde, _ldg, _lee1, _zipll
-from nampy.gam.fit.solvers.gam_fit5 import GamFit5Control, gam_fit5
+from nampy.gam.fit.solvers.general_newton_solver import (
+    GeneralNewtonControl,
+    _PenaltyRoot,
+    solve_general_newton_fit,
+)
 
 # ======================================================================
 # ziplss
@@ -83,7 +87,7 @@ def test_zipll_loglik():
     g = rng.uniform(0.5, 1.5, n)
     eta = rng.uniform(-0.5, 1.0, n)
     lam = np.exp(g)  # Poisson mean
-    p = 1.0 - np.exp(-np.exp(eta))  # presence prob
+    _p = 1.0 - np.exp(-np.exp(eta))  # presence prob
 
     y = np.zeros(n, dtype=np.float64)
     y[::3] = rng.poisson(lam[::3]) + 1  # some non-zeros
@@ -193,14 +197,73 @@ def test_ziplss_initialize():
     assert np.all(np.isfinite(start))
 
 
+def test_ziplss_validate_y_rejects_non_integer_and_binary_data():
+    """ziplss validate_y rejects non-integer counts and binary 0/1 responses."""
+    fam = ziplss()
+
+    with np.testing.assert_raises_regex(
+        ValueError, "Non-integer response variables are not allowed with ziplss"
+    ):
+        fam.validate_y(np.array([0.0, 1.5, 2.0], dtype=np.float64))
+
+    with np.testing.assert_raises_regex(
+        ValueError, "Using ziplss for binary data makes no sense"
+    ):
+        fam.validate_y(np.array([0.0, 1.0, 1.0, 0.0], dtype=np.float64))
+
+
+def test_ziplss_initialize_uses_unscaled_penalty_root_when_requested():
+    """ziplss initialize mirrors mgcv's unscaled penalty-root branch."""
+    rng = np.random.default_rng(71)
+    n, p1, p2 = 30, 2, 2
+    p = p1 + p2
+    X = rng.standard_normal((n, p))
+    jj = [np.arange(p1), np.arange(p1, p)]
+    y = np.where(rng.uniform(size=n) < 0.7, rng.poisson(2.5, n), 0).astype(np.float64)
+    fam = ziplss()
+
+    E_arr = rng.standard_normal((3, p))
+    E = _PenaltyRoot(E_arr, use_unscaled=True)
+    start = fam.initialize(y, X, jj, E=E)
+
+    yt_bin = (y > 0.0).astype(np.float64)
+    X2 = X[:, jj[1]]
+    E2 = np.asarray(E[:, jj[1]], dtype=np.float64)
+    expected2 = np.linalg.lstsq(
+        np.vstack([X2, E2]),
+        np.concatenate([yt_bin, np.zeros(E2.shape[0])]),
+        rcond=None,
+    )[0]
+    expected2 = np.where(np.isfinite(expected2), expected2, 0.0)
+
+    p_est = X2 @ expected2
+    w = np.ones(n, dtype=np.float64)
+    w[(y == 0.0) & (p_est < 0.5)] = 0.1
+
+    yt_lam = fam.linfo[0].linkfun(np.log(np.abs(y) + (y == 0.0) * 0.2)) * w
+    X1 = X[:, jj[0]] * w[:, None]
+    E1 = np.asarray(E[:, jj[0]], dtype=np.float64)
+    expected1 = np.linalg.lstsq(
+        np.vstack([X1, E1]),
+        np.concatenate([yt_lam, np.zeros(E1.shape[0])]),
+        rcond=None,
+    )[0]
+    expected1 = np.where(np.isfinite(expected1), expected1, 0.0)
+
+    expected = np.zeros(p, dtype=np.float64)
+    expected[jj[1]] = expected2
+    expected[jj[0]] = expected1
+    assert_allclose(start, expected, rtol=1e-12, atol=1e-12)
+
+
 # ---------------------------------------------------------------------------
-# 8. gam_fit5 convergence on simulated ZIP data
+# 8. solve_general_newton_fit convergence on simulated ZIP data
 # ---------------------------------------------------------------------------
 
 
 def test_gam_fit5_ziplss_convergence():
     """
-    gam_fit5 with ziplss recovers approximate log-mean and presence intercepts.
+    solve_general_newton_fit with ziplss recovers approximate log-mean and presence intercepts.
     """
     rng = np.random.default_rng(55)
     n = 400
@@ -235,8 +298,8 @@ def test_gam_fit5_ziplss_convergence():
     lsp = np.array([], dtype=np.float64)
     S_blocks: list = []
 
-    ctl = GamFit5Control(maxit=100, epsilon=1e-8, trace=False)
-    fit = gam_fit5(
+    ctl = GeneralNewtonControl(maxit=100, epsilon=1e-8, trace=False)
+    fit = solve_general_newton_fit(
         X,
         y,
         jj,

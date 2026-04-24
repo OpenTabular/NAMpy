@@ -199,6 +199,7 @@ def build_penalty_definition(
     null_space_dim=None,
     is_null_space_penalty=False,
     metadata_extra=None,
+    local_penalty_index=0,
 ):
     sp_mode, sp_value = _sp_mode_value(sp_value_in)
     return make_penalty_spec(
@@ -208,8 +209,11 @@ def build_penalty_definition(
         sp_mode=sp_mode,
         sp_value=sp_value,
         is_null_space_penalty=bool(is_null_space_penalty),
-        metadata=term_penalty_metadata(
-            term, extra=metadata_extra, is_selection_penalty=False
+        metadata=term._penalty_metadata_with_scale(
+            term_penalty_metadata(
+                term, extra=metadata_extra, is_selection_penalty=False
+            ),
+            penalty_index=int(local_penalty_index),
         ),
     )
 
@@ -234,7 +238,14 @@ def _normalize_knots(knots, features):
     if knots is None:
         return [None] * len(features)
     if isinstance(knots, dict):
-        return [knots.get(str(f), None) for f in features]
+        out = []
+        for f in features:
+            if isinstance(f, (list, tuple)):
+                vals = [knots.get(str(ff), None) for ff in f]
+                out.append(None if all(v is None for v in vals) else vals)
+            else:
+                out.append(knots.get(str(f), None))
+        return out
     if isinstance(knots, (list, tuple)):
         if len(knots) == len(features):
             return list(knots)
@@ -276,11 +287,12 @@ def _normalize_point_constraint(pc, feature_name):
             return float(pc[feature_name])
         if len(pc) == 1:
             return float(next(iter(pc.values())))
-        raise NotImplementedError("1D point constraint dict incompatible.")
+        # mgcv accepts pc containers with at least one value for 1D smooths.
+        return float(next(iter(pc.values())))
     if isinstance(pc, (list, tuple, np.ndarray)):
         vals = np.asarray(pc, dtype=np.float64).ravel()
-        if vals.size != 1:
-            raise NotImplementedError("Only 1D point constraints supported.")
+        if vals.size == 0:
+            raise ValueError("point-constraint sequence cannot be empty.")
         return float(vals[0])
     raise NotImplementedError(f"Unsupported pc type {type(pc)}.")
 
@@ -304,10 +316,12 @@ def _normalize_point_constraint_vector(pc, feature_names):
             )
         return np.asarray([float(pc[name]) for name in names], dtype=np.float64)
     vals = np.asarray(pc, dtype=np.float64).ravel()
-    if vals.size != n:
+    if vals.size < n:
         raise ValueError(
             f"pc must supply {n} values for features {names}, got {vals.size}."
         )
+    if vals.size > n:
+        vals = vals[:n]
     return vals.astype(np.float64, copy=False)
 
 
@@ -407,6 +421,7 @@ class BaseSmoothTerm(abc.ABC):
         self.prediction_offset = None
         self.basis_train_base = None
         self.knots = None
+        self._mgcv_penalty_rescale_factors = None
 
     def _set_resolved_features(self, resolved_feature_names):
         if resolved_feature_names is None:
@@ -429,6 +444,36 @@ class BaseSmoothTerm(abc.ABC):
             self.n_constraints_absorbed = int(
                 max(0, transform.shape[0] - transform.shape[1])
             )
+
+    def _set_mgcv_penalty_rescale_factors(self, factors):
+        if factors is None:
+            self._mgcv_penalty_rescale_factors = None
+            return
+        vals = np.asarray(factors, dtype=np.float64).ravel()
+        if vals.size == 0:
+            self._mgcv_penalty_rescale_factors = []
+            return
+        if not np.all(np.isfinite(vals)) or np.any(vals <= 0.0):
+            raise ValueError(
+                "mgcv penalty rescale factors must be finite and positive."
+            )
+        self._mgcv_penalty_rescale_factors = [float(v) for v in vals]
+
+    def _mgcv_penalty_scale(self, penalty_index: int) -> float:
+        factors = self._mgcv_penalty_rescale_factors
+        if not factors:
+            return 1.0
+        if penalty_index < 0 or penalty_index >= len(factors):
+            raise IndexError(
+                f"Penalty index {penalty_index} out of range for {len(factors)} mgcv "
+                "rescale factors."
+            )
+        return float(factors[penalty_index])
+
+    def _penalty_metadata_with_scale(self, metadata, *, penalty_index: int):
+        meta = dict(metadata or {})
+        meta.setdefault("mgcv_s_scale", self._mgcv_penalty_scale(penalty_index))
+        return meta
 
     def _apply_constraint_transform_and_by(self, B, X_new):
         """
@@ -683,6 +728,7 @@ class BaseSmoothTerm(abc.ABC):
             "term_sp": sp_main,
             "is_selection_penalty": False,
         }
+        meta_smooth = self._penalty_metadata_with_scale(meta_smooth, penalty_index=0)
         main_spec = normalize_penalty_spec(
             PenaltySpec(
                 matrix=main_matrix,
@@ -747,6 +793,7 @@ class BaseSmoothTerm(abc.ABC):
         else:
             meta = dict(selection_metadata)
         meta["is_selection_penalty"] = True
+        meta.setdefault("mgcv_s_scale", 1.0)
 
         if selection_via_subsystem:
             sel = build_null_space_selection_spec(
@@ -839,14 +886,17 @@ class BaseSmoothTerm(abc.ABC):
                     kind="smooth",
                     sp_mode=sp_mode,
                     sp_value=sp_value,
-                    metadata={
-                        "term_type": self.term_type,
-                        "basis_name": self.basis_name,
-                        "feature": self.feature,
-                        "label": self.label,
-                        "by": self.by,
-                        "term_sp": sp_j,
-                    },
+                    metadata=self._penalty_metadata_with_scale(
+                        {
+                            "term_type": self.term_type,
+                            "basis_name": self.basis_name,
+                            "feature": self.feature,
+                            "label": self.label,
+                            "by": self.by,
+                            "term_sp": sp_j,
+                        },
+                        penalty_index=j,
+                    ),
                 )
             )
         return defs

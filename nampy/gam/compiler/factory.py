@@ -4,16 +4,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..smooths.categorical.factor_smooth import (
+import numpy as np
+
+from ..smooths.categorical.fs import (
     FSmoothInteractionTerm,
     SZSmoothInteractionTerm,
 )
 from ..smooths.categorical.mrf import MarkovRandomFieldTerm
-from ..smooths.categorical.random_effect import RandomEffectTerm
+from ..smooths.categorical.re import RandomEffectTerm
 from ..smooths.registry import make_smooth_term
-from ..smooths.univariate.cubic_regression import SplineTerm1D
+from ..smooths.univariate.cr import CubicSplineTerm
 from ..smooths.univariate.gp import GPSmoothTerm
-from ..smooths.univariate.pspline import PSplineTerm1D
+from ..smooths.univariate.ps import PSplineTerm1D
 from ..specs import LinearPredictorSpec, PenaltyGroupSpec, TermSpec
 from ..specs.smooth import (
     CubicRegressionSmoothSpec,
@@ -44,6 +46,39 @@ def _as_list_or_repeat(value: Any, n: int):
             raise ValueError(f"Expected length {n}, got {len(out)}.")
         return out
     return [value] * n
+
+
+def _tensor_feature_groups(features, d):
+    features = [str(f) for f in features]
+    if d is None:
+        return list(features)
+    dims = [int(v) for v in (d if isinstance(d, (list, tuple)) else [d])]
+    if sum(dims) != len(features):
+        raise ValueError(
+            f"Tensor marginal dimensions {dims!r} do not sum to {len(features)} features."
+        )
+    out = []
+    pos = 0
+    for di in dims:
+        group = features[pos : pos + di]
+        out.append(group[0] if di == 1 else list(group))
+        pos += di
+    return out
+
+
+def _tensor_group_knots(knots, features, groups):
+    if knots is None or not isinstance(knots, (list, tuple)):
+        return knots
+    if len(knots) != len(features) or len(groups) == len(features):
+        return knots
+    out = []
+    pos = 0
+    for group in groups:
+        width = len(group) if isinstance(group, list) else 1
+        part = list(knots[pos : pos + width])
+        out.append(part[0] if width == 1 else part)
+        pos += width
+    return out
 
 
 def instantiate_term(term_like: TermSpec | Any):
@@ -98,7 +133,7 @@ def instantiate_term(term_like: TermSpec | Any):
             raise NotImplementedError(
                 f"Current runtime only materializes 1D s(..., bs={bs!r}) terms."
             )
-        return SplineTerm1D(
+        return CubicSplineTerm(
             feature=features[0],
             k=smooth_spec.k,
             basis=bs,
@@ -245,12 +280,14 @@ def instantiate_term(term_like: TermSpec | Any):
         smooth_spec,
         (TensorProductSmoothSpec, TensorInteractionSmoothSpec, TensorANOVASmoothSpec),
     ):
-        basis = [str(b).lower() for b in tensor_basis_list(smooth_spec, len(features))]
+        groups = _tensor_feature_groups(features, getattr(smooth_spec, "d", None))
+        basis = [str(b).lower() for b in tensor_basis_list(smooth_spec, len(groups))]
         kwargs = {
-            "feature": features,
+            "feature": groups,
             "k": smooth_spec.k,
             "basis": basis,
             "m": smooth_spec.m,
+            "xt": smooth_spec.xt,
             "label": label,
             "term_id": term_like.term_id,
             "smoothing_id": smoothing_id,
@@ -258,7 +295,7 @@ def instantiate_term(term_like: TermSpec | Any):
             "sp": smooth_spec.sp,
             "select": smooth_spec.select,
             "fixed": smooth_spec.fx,
-            "knots": smooth_spec.knots,
+            "knots": _tensor_group_knots(smooth_spec.knots, features, groups),
             "metadata": metadata,
         }
 
@@ -281,11 +318,15 @@ def _expected_penalty_group_size(runtime_term):
     if bool(getattr(runtime_term, "fixed", False)):
         return 0
 
-    term_type = str(getattr(runtime_term, "term_type", "smooth"))
-    if term_type in {"tensor_smooth", "tensor_interaction"}:
-        n_penalties = len(list(getattr(runtime_term, "feature", ()) or ()))
+    fixed_flags = getattr(runtime_term, "fixed_flags", None)
+    if fixed_flags is not None:
+        n_penalties = int(np.sum(~np.asarray(fixed_flags, dtype=bool)))
     else:
-        n_penalties = 1
+        term_type = str(getattr(runtime_term, "term_type", "smooth"))
+        if term_type in {"tensor_smooth", "tensor_interaction"}:
+            n_penalties = len(list(getattr(runtime_term, "feature", ()) or ()))
+        else:
+            n_penalties = 1
 
     if bool(getattr(runtime_term, "select", False)):
         n_penalties += 1

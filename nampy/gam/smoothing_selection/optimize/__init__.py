@@ -1,7 +1,7 @@
 """
-Outer optimization of log smoothing parameters (L-BFGS-B, Newton, indefinite-Hessian Newton for P-IRLS).
+Outer optimization of log smoothing parameters (L-BFGS-B and Newton variants).
 
-Submodules: ``basics``, ``objectives``, ``outer``, ``driver``.
+Submodules: ``basics``, ``objectives``, ``newton``, ``driver``.
 """
 
 from ..criteria import criterion_infinite_sp_signal

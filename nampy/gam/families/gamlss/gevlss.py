@@ -7,7 +7,13 @@ import numpy as np
 from ..._mgcv_constants import FAMILY_EPS
 from ...fit.solvers.gamlss_utils import gamlss_etamu, gamlss_gH, trind_generator
 from .._function_maps import LogLink
-from ._base import GamlssFamily, _AdaptedLinkInfo, _IdentityLinkInfo
+from ._base import (
+    GamlssFamily,
+    _AdaptedLinkInfo,
+    _IdentityLinkInfo,
+    _pen_reg,
+    _qr_coef_pivoted,
+)
 
 
 class _ShiftedLogitLinkInfo:
@@ -32,7 +38,7 @@ class _ShiftedLogitLinkInfo:
 
     def linkfun(self, xi: np.ndarray) -> np.ndarray:
         xi = np.asarray(xi, dtype=np.float64)
-        p = np.clip((xi + 1.0) / 1.5, 1e-15, 1.0 - 1e-15)
+        p = (xi + 1.0) / 1.5
         return np.log(p / (1.0 - p))
 
     def mu_eta(self, eta: np.ndarray) -> np.ndarray:
@@ -42,17 +48,17 @@ class _ShiftedLogitLinkInfo:
     def d2link(self, xi: np.ndarray) -> np.ndarray:
         """d^2 eta / d xi^2.  Mirrors mgcv d2link for shifted logit."""
         xi = np.asarray(xi, dtype=np.float64)
-        mu = np.clip((xi + 1.0) / 1.5, 1e-15, 1.0 - 1e-15)
+        mu = (xi + 1.0) / 1.5
         return (1.0 / (1.0 - mu) ** 2 - 1.0 / mu**2) / 1.5**2
 
     def d3link(self, xi: np.ndarray) -> np.ndarray:
         xi = np.asarray(xi, dtype=np.float64)
-        mu = np.clip((xi + 1.0) / 1.5, 1e-15, 1.0 - 1e-15)
+        mu = (xi + 1.0) / 1.5
         return (2.0 / (1.0 - mu) ** 3 + 2.0 / mu**3) / 1.5**3
 
     def d4link(self, xi: np.ndarray) -> np.ndarray:
         xi = np.asarray(xi, dtype=np.float64)
-        mu = np.clip((xi + 1.0) / 1.5, 1e-15, 1.0 - 1e-15)
+        mu = (xi + 1.0) / 1.5
         return (6.0 / (1.0 - mu) ** 4 - 6.0 / mu**4) / 1.5**4
 
 
@@ -158,36 +164,16 @@ class GevlssFamily(GamlssFamily):
         n = len(y)
         sandwich = bool(kw.get("sandwich", False))
 
-        off1 = off2 = off3 = None
-        if offset is not None:
-            if isinstance(offset, (list, tuple)):
-                off1 = (
-                    np.asarray(offset[0], dtype=np.float64)
-                    if len(offset) > 0 and offset[0] is not None
-                    else None
-                )
-                off2 = (
-                    np.asarray(offset[1], dtype=np.float64)
-                    if len(offset) > 1 and offset[1] is not None
-                    else None
-                )
-                off3 = (
-                    np.asarray(offset[2], dtype=np.float64)
-                    if len(offset) > 2 and offset[2] is not None
-                    else None
-                )
-            else:
-                off1 = np.asarray(offset, dtype=np.float64)
-
-        eta = X[:, jj[0]] @ coef[jj[0]]
-        if off1 is not None:
-            eta = eta + off1
-        etar = X[:, jj[1]] @ coef[jj[1]]
-        if off2 is not None:
-            etar = etar + off2
-        etax = X[:, jj[2]] @ coef[jj[2]]
-        if off3 is not None:
-            etax = etax + off3
+        eta_mat = self._eta_matrix_from_inputs(
+            X,
+            jj,
+            coef,
+            offset=offset,
+            eta=kw.get("eta", None),
+        )
+        eta = np.asarray(eta_mat[:, 0], dtype=np.float64)
+        etar = np.asarray(eta_mat[:, 1], dtype=np.float64)
+        etax = np.asarray(eta_mat[:, 2], dtype=np.float64)
 
         mu = self.linfo[0].linkinv(eta)  # location
         rho = self.linfo[1].linkinv(etar)  # log scale
@@ -201,37 +187,22 @@ class GevlssFamily(GamlssFamily):
         ymu = y - mu
         sigma_inv = np.exp(-rho)  # = bb1 = 1/sigma
         aa0 = xi * ymu * sigma_inv  # = xi*(y-mu)/exp(rho)
-        log_aa1 = np.log1p(aa0)
         aa1 = 1.0 + aa0  # = cc3 in R
+        log_aa1 = np.log1p(aa0)
         aa2 = 1.0 / xi  # = 1/xi
 
-        # Check support: need aa1 > 0
-        valid = aa1 > 0.0
-        if not np.all(valid):
-            # Return -inf for out-of-support observations
-            l0 = np.where(valid, 0.0, -np.inf)
-            l0[valid] = (
-                -(aa2[valid] * (1.0 + xi[valid]) * log_aa1[valid])
-                - aa1[valid] ** (-aa2[valid])
-                - rho[valid]
-            )
-            return {"l": float(np.sum(l0)), "l0": l0}
-
         l0 = -(aa2 * (1.0 + xi) * log_aa1) - aa1 ** (-aa2) - rho
-        l = float(np.sum(l0))
-
-        if not np.isfinite(l):
-            return {"l": l, "l0": l0}
+        ll = float(np.sum(l0))
 
         if deriv == 0:
-            return {"l": l, "l0": l0}
+            return {"l": ll, "l0": l0}
 
         # ---- First derivatives: dm, dr, dx ---
         # Precompute reused quantities (mirroring mgcv variable names)
         bb1 = sigma_inv
         bb2 = aa1  # bb1*xi*ymu+1 = aa1
         cc2 = ymu
-        cc0 = bb1 * xi * cc2  # = aa0
+        _cc0 = bb1 * xi * cc2  # = aa0
         log_cc3 = log_aa1
         cc3 = aa1
         dd3 = xi + 1.0
@@ -746,7 +717,6 @@ class GevlssFamily(GamlssFamily):
         de = gamlss_etamu(
             l1, l2, l3_val, l4_val, ig1, g2, g3, g4, i2, i3, i4, deriv - 1
         )
-
         ret = gamlss_gH(
             X,
             jj,
@@ -764,7 +734,11 @@ class GevlssFamily(GamlssFamily):
             D=D,
             sandwich=sandwich,
         )
-        ret["l"] = l
+        if bool(kw.get("ncv", False)):
+            ret["l1"] = np.asarray(de["l1"], dtype=np.float64)
+            ret["l2"] = np.asarray(de["l2"], dtype=np.float64)
+            ret["l3"] = de["l3"]
+        ret["l"] = ll
         ret["l0"] = l0
         return ret
 
@@ -790,81 +764,113 @@ class GevlssFamily(GamlssFamily):
         n, p = X.shape
         start = np.zeros(p, dtype=np.float64)
 
-        off1 = off2 = None
-        if offset is not None:
-            if isinstance(offset, (list, tuple)):
-                off1 = (
-                    np.asarray(offset[0], dtype=np.float64)
-                    if len(offset) > 0 and offset[0] is not None
-                    else None
-                )
-                off2 = (
-                    np.asarray(offset[1], dtype=np.float64)
-                    if len(offset) > 1 and offset[1] is not None
-                    else None
-                )
-            else:
-                off1 = np.asarray(offset, dtype=np.float64)
+        offset_for_ll = offset
+
+        use_unscaled = bool(E is not None and getattr(E, "use_unscaled", False))
 
         # --- Fit location predictor ---
         if self.link_names[0] == "identity":
             yt1 = y.copy()
         else:
-            yt1 = self.linfo[0].linkfun(np.abs(y) + np.max(np.abs(y)) * 1e-7)
-        if off1 is not None:
-            yt1 = yt1 - off1
+            yt1 = self.linfo[0].linkfun(np.abs(y) + np.max(y) * 1e-7)
 
         X1 = X[:, jj[0]]
-        if E is not None and E.shape[1] > 0:
+        if E is not None and E.shape[0] > 0:
             E1 = E[:, jj[0]]
-            XE1 = np.vstack([X1, E1])
-            y1e = np.concatenate([yt1, np.zeros(E1.shape[0])])
+            if use_unscaled:
+                X1_aug = np.vstack([X1, E1])
+                y1_aug = np.concatenate([yt1, np.zeros(E1.shape[0], dtype=np.float64)])
+                start1 = _qr_coef_pivoted(X1_aug, y1_aug)
+            else:
+                start1 = _pen_reg(X1, E1, yt1)
         else:
-            XE1 = X1
-            y1e = yt1
-
-        try:
-            start1 = np.linalg.lstsq(XE1, y1e, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start1 = np.zeros(X1.shape[1], dtype=np.float64)
+            start1 = _qr_coef_pivoted(X1, yt1)
         start1 = np.where(np.isfinite(start1), start1, 0.0)
         start[jj[0]] = start1
 
         # --- Fit log-scale predictor on log|residuals| ---
-        mu_init = self.linfo[0].linkinv(
-            X1 @ start1 + (off1 if off1 is not None else 0.0)
-        )
-        lres1 = np.log(np.maximum(np.abs(y - mu_init), 1e-300))
-        if off2 is not None:
-            lres1 = lres1 - off2
+        mu_init = self.linfo[0].linkinv(X1 @ start1)
+        lres1 = np.log(np.abs(y - mu_init))
 
         X2 = X[:, jj[1]]
-        if E is not None and E.shape[1] > 0:
+        if E is not None and E.shape[0] > 0:
             E2 = E[:, jj[1]]
-            XE2 = np.vstack([X2, E2])
-            y2e = np.concatenate([lres1, np.zeros(E2.shape[0])])
+            if use_unscaled:
+                X2_aug = np.vstack([X2, E2])
+                y2_aug = np.concatenate(
+                    [lres1, np.zeros(E2.shape[0], dtype=np.float64)]
+                )
+                start2 = _qr_coef_pivoted(X2_aug, y2_aug)
+            else:
+                start2 = _pen_reg(X2, E2, lres1)
         else:
-            XE2 = X2
-            y2e = lres1
-
-        try:
-            start2 = np.linalg.lstsq(XE2, y2e, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start2 = np.zeros(X2.shape[1], dtype=np.float64)
+            start2 = _qr_coef_pivoted(X2, lres1)
         start2 = np.where(np.isfinite(start2), start2, 0.0)
         start[jj[1]] = start2
 
-        # --- Initialize xi near 0 in link space ---
+        # Mirror mgcv gevlss$initialize(): regress a constant xi start,
+        # then search scalar rescalings that improve the initial log-likelihood.
         xi_init_val = 1e-3
         eta_xi0 = self.linfo[2].linkfun(np.full(1, xi_init_val))[0]
         X3 = X[:, jj[2]]
         yt3 = np.full(n, eta_xi0)
-        try:
-            start3 = np.linalg.lstsq(X3, yt3, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start3 = np.zeros(X3.shape[1], dtype=np.float64)
-        start3 = np.where(np.isfinite(start3), start3, 0.0)
-        start[jj[2]] = start3
+
+        qrx_coef = _qr_coef_pivoted(X3, yt3)
+        qrx_coef = np.where(np.isfinite(qrx_coef), qrx_coef, 0.0)
+
+        weights_arr = (
+            np.ones(n, dtype=np.float64)
+            if weights is None
+            else np.asarray(weights, dtype=np.float64).ravel()
+        )
+
+        def _score_xi_scale(multiplier: float) -> tuple[float, np.ndarray]:
+            start3_local = np.where(
+                np.isfinite(qrx_coef * multiplier), qrx_coef * multiplier, 0.0
+            )
+            start_local = start.copy()
+            start_local[jj[2]] = start3_local
+            ll_val = float(
+                self.ll(
+                    y,
+                    X,
+                    jj,
+                    start_local,
+                    weights_arr,
+                    offset=offset_for_ll,
+                    deriv=0,
+                )["l"]
+            )
+            return ll_val, start_local
+
+        best_ll, best_start = _score_xi_scale(1.0)
+        dm = 0.2
+        mm = 1.0
+        up = False
+        last_ll = best_ll
+
+        while -4.2 < mm < 4.2:
+            trial_ll, trial_start = _score_xi_scale(mm + dm)
+            last_ll = trial_ll
+            if np.isfinite(trial_ll) and trial_ll > best_ll:
+                up = True
+                best_ll = trial_ll
+                best_start = trial_start
+                mm += dm
+            elif up:
+                break
+            elif dm > 0.0:
+                dm = -dm
+            else:
+                break
+
+        if not np.isfinite(last_ll):
+            trial_ll, trial_start = _score_xi_scale(mm - dm)
+            if np.isfinite(trial_ll):
+                best_ll = trial_ll
+                best_start = trial_start
+
+        start = best_start
 
         return start
 
@@ -872,6 +878,11 @@ class GevlssFamily(GamlssFamily):
         self, y: np.ndarray, fitted: np.ndarray, rtype: str = "deviance"
     ) -> np.ndarray:
         """Residuals for gevlss.  Mirrors mgcv ``gevlss$residuals``."""
+        rtype = str(rtype).lower()
+        if rtype not in {"deviance", "pearson", "response"}:
+            raise ValueError(
+                "gevlss residuals support only {'deviance', 'pearson', 'response'}."
+            )
         y = np.asarray(y, dtype=np.float64)
         mu = np.asarray(fitted[:, 0], dtype=np.float64)
         rho = np.asarray(fitted[:, 1], dtype=np.float64)
@@ -880,30 +891,21 @@ class GevlssFamily(GamlssFamily):
         # GEV mean: mu + sigma*(Gamma(1-xi)-1)/xi for xi != 0
         from scipy.special import gamma as gamma_fn
 
-        eps_xi = 1e-7
-        xi_safe = np.where(np.abs(xi) < eps_xi, eps_xi, xi)
-        fv = mu + sigma * (gamma_fn(1.0 - xi_safe) - 1.0) / xi_safe
+        fv = mu + sigma * (gamma_fn(1.0 - xi) - 1.0) / xi
         rsd = y - fv
         if rtype == "response":
             return rsd
         if rtype == "pearson":
-            var = np.empty_like(rsd)
-            near_zero = np.abs(xi) < eps_xi
-            var[near_zero] = sigma[near_zero] ** 2 * (np.pi**2 / 6.0)
-            if np.any(~near_zero):
-                xi_nz = xi[~near_zero]
-                var[~near_zero] = (
-                    sigma[~near_zero] ** 2
-                    * (gamma_fn(1.0 - 2.0 * xi_nz) - gamma_fn(1.0 - xi_nz) ** 2)
-                    / (xi_nz**2)
-                )
-            return rsd / np.sqrt(np.maximum(var, 1e-300))
+            sd = (
+                sigma / xi * np.sqrt(gamma_fn(1.0 - 2.0 * xi) - gamma_fn(1.0 - xi) ** 2)
+            )
+            return rsd / sd
         # deviance residuals
         eps = 1e-7
         xi2 = xi.copy()
         xi2[(xi2 >= 0) & (xi2 < eps)] = eps
         xi2[(xi2 < 0) & (xi2 > -eps)] = -eps
-        aa = np.maximum(1.0 + (y - mu) * np.exp(-rho) * xi2, 1e-300)
+        aa = 1.0 + (y - mu) * np.exp(-rho) * xi2
         rsd_dev = (
             (xi2 + 1.0) / xi2 * np.log(aa)
             + aa ** (-1.0 / xi2)

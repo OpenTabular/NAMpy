@@ -116,6 +116,12 @@ def should_apply_identifiability_constraint(
     if mode == "never":
         return False
     if mode == "auto":
+        values = getattr(by_state, "values", None)
+        if values is not None:
+            z = np.asarray(values, dtype=np.float64).ravel()
+            sd = 0.0 if z.size < 2 else float(np.std(z, ddof=1))
+            threshold = float(np.mean(z)) * np.finfo(np.float64).eps * 1000.0
+            return bool(default_when_auto) and not bool(sd > threshold)
         return bool(default_when_auto) and bool(by_state.is_constant)
     if mode == "factor_by":
         return False

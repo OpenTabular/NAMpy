@@ -177,7 +177,7 @@ went wrong? Hit `/feedback` to report the issue.
 
   Tradeoff:
 
-  - Case no longer tests exact-separation behavior.
+  - ~~Case no longer tests exact-separation behavior.~~
   - It becomes a “hard binomial smooth” case instead of a true separation case.
 
   If you want, I can suggest a concrete replacement dataset that stays

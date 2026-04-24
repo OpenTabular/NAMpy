@@ -28,6 +28,7 @@ from ..smooth_base import (
 from .marginals import (
     build_tensor_marginal_terms,
     build_tensor_product_components,
+    normalize_tensor_fx_flags,
     resolve_tensor_marginal_features,
     tensor_predict_matrix,
     validate_tensor_marginal_bases,
@@ -47,6 +48,7 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         k=10,
         basis="cr",
         m=None,
+        xt=None,
         label=None,
         term_id=None,
         smoothing_id=None,
@@ -91,9 +93,15 @@ class TensorProductSplineTerm(BaseSmoothTerm):
             )
         self.basis = validate_tensor_marginal_bases(self.basis)
         self.m = m
+        self.xt = xt
 
         self.select = bool(select)
-        self.fixed = bool(fixed)
+        self.fixed_flags = normalize_tensor_fx_flags(
+            fixed,
+            len(features),
+            wrong_length_warning="dimension of fx is wrong",
+        )
+        self.fixed = bool(all(self.fixed_flags))
         self.null_penalty_tol = float(null_penalty_tol)
         self.knots = _normalize_knots(knots, features)
 
@@ -114,6 +122,7 @@ class TensorProductSplineTerm(BaseSmoothTerm):
             k=self.k,
             basis=self.basis,
             m=self.m,
+            xt=self.xt,
             knots=self.knots,
             centered=False,
             shared_basis_setups=marginal_shared_setups,
@@ -148,7 +157,9 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         S_raw = tensor_product_penalties(marginal_penalties, basis_dims=basis_dims)
 
         # Outer scale_penalty on the full tensor product (matches smoothCon outer step).
-        S_raw = rescale_tensor_penalties_for_fit(B_setup, S_raw)
+        S_raw, penalty_scales = rescale_tensor_penalties_for_fit(
+            B_setup, S_raw, return_scales=True
+        )
 
         if self._by_state.is_constant:
             if self._linked_id_setup() is None:
@@ -168,8 +179,18 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         self._set_resolved_features(feature_names_resolved)
         self._basis_dims = basis_dims
         self._basis_train = np.asarray(B_te, dtype=np.float64)
-        self._penalties = (
-            [] if self.fixed else [np.asarray(S, dtype=np.float64) for S in S_te]
+        keep_penalties = [not flag for flag in self.fixed_flags]
+        self._penalties = [
+            np.asarray(S, dtype=np.float64)
+            for S, keep in zip(S_te, keep_penalties)
+            if keep
+        ]
+        self._set_mgcv_penalty_rescale_factors(
+            [
+                float(scale)
+                for scale, keep in zip(penalty_scales, keep_penalties)
+                if keep
+            ]
         )
         self._record_constraint_result(
             "sum_to_zero" if C_te is not None else None,
@@ -205,6 +226,7 @@ class TensorProductSplineTerm(BaseSmoothTerm):
                     smoothing_id=sid,
                     sp_value_in=sp_j,
                     metadata_extra={"term_sp": sp_j, "is_selection_penalty": False},
+                    local_penalty_index=j,
                 )
             )
 

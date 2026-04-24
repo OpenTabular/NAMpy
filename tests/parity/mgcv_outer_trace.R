@@ -54,8 +54,27 @@ family_object <- function(family_name) {
       theta <- if (is.null(family_param) || family_param == "") 1.0 else as.numeric(family_param)
       mgcv::nb(theta = theta, link = "log")
     },
+    negbin_est = {
+      theta <- if (is.null(family_param) || family_param == "") 1.0 else as.numeric(family_param)
+      mgcv::nb(theta = -abs(theta), link = "log")
+    },
+    gaulss = mgcv::gaulss(),
+    gammals = mgcv::gammals(),
+    ziplss = mgcv::ziplss(),
+    gevlss = mgcv::gevlss(),
+    shash = mgcv::shash(),
+    shashlss = mgcv::shash(),
     stop(sprintf("Unsupported family for outer trace parity: %s", family_name))
   )
+}
+
+coerce_formula <- function(x) {
+  obj <- eval(parse(text = x))
+  if (is.character(obj)) {
+    if (length(obj) == 1) return(as.formula(obj))
+    return(lapply(obj, as.formula))
+  }
+  obj
 }
 
 find_paths <- function(expr, pattern, path = integer()) {
@@ -172,6 +191,7 @@ method_name <- method_token(args[[5]])
 optimizer_name <- tolower(args[[6]])
 select_flag <- tolower(args[[7]]) %in% c("true", "1", "yes")
 edge_correct_flag <- tolower(args[[8]]) %in% c("true", "1", "yes")
+family_key <- strsplit(tolower(family_name), ":", fixed = TRUE)[[1]][1]
 
 data <- read.csv(csv_path, stringsAsFactors = FALSE)
 for (nm in names(data)) {
@@ -281,7 +301,7 @@ optimizer_arg <- if (optimizer_name == "efs") {
 control_arg <- gam.control(edge.correct = edge_correct_flag)
 
 fit <- gam(
-  formula = as.formula(formula_text),
+  formula = coerce_formula(formula_text),
   data = data,
   family = family_obj,
   method = method_name,
@@ -290,7 +310,7 @@ fit <- gam(
   control = control_arg
 )
 
-split_scale_blocks <- function(log_sp_full, gradient, hessian, n_sp) {
+split_scale_blocks <- function(log_sp_full, gradient, hessian, n_sp, extra_kind = NULL) {
   log_sp_full <- as.numeric(log_sp_full)
   gradient <- if (is.null(gradient)) NULL else as.numeric(gradient)
   hessian <- if (is.null(hessian)) NULL else as.matrix(hessian)
@@ -298,6 +318,7 @@ split_scale_blocks <- function(log_sp_full, gradient, hessian, n_sp) {
   out <- list(
     log_sp = log_sp_full,
     log_scale = NULL,
+    log_theta = NULL,
     gradient = gradient,
     gradient_full = gradient,
     hessian = hessian,
@@ -305,8 +326,13 @@ split_scale_blocks <- function(log_sp_full, gradient, hessian, n_sp) {
   )
 
   if (length(log_sp_full) > n_sp) {
-    out$log_scale <- unname(as.numeric(log_sp_full[length(log_sp_full)]))
+    extra_val <- unname(as.numeric(log_sp_full[length(log_sp_full)]))
     out$log_sp <- log_sp_full[seq_len(n_sp)]
+    if (identical(extra_kind, "theta")) {
+      out$log_theta <- extra_val
+    } else {
+      out$log_scale <- extra_val
+    }
   }
   if (!is.null(gradient) && length(gradient) > n_sp) {
     out$gradient <- gradient[seq_len(n_sp)]
@@ -318,6 +344,7 @@ split_scale_blocks <- function(log_sp_full, gradient, hessian, n_sp) {
 }
 
 n_sp <- length(fit$sp)
+extra_kind <- if (family_key == "negbin_est") "theta" else if (family_key == "gamma") "scale" else NULL
 
 trace_rows <- list()
 if (optimizer_name == "optim") {
@@ -329,13 +356,15 @@ if (optimizer_name == "optim") {
       row$log_sp_full,
       row$gradient,
       row$hessian,
-      n_sp = n_sp
+      n_sp = n_sp,
+      extra_kind = extra_kind
     )
     step_norm <- if (is.null(prev_lsp)) 0.0 else sqrt(sum((as.numeric(split$log_sp) - prev_lsp)^2))
     trace_rows[[length(trace_rows) + 1L]] <- list(
       iter = as.integer(i - 1L),
       log_sp = unname(as.numeric(split$log_sp)),
       log_scale = split$log_scale,
+      log_theta = split$log_theta,
       criterion = if (is.null(row$criterion)) NULL else unname(as.numeric(row$criterion)),
       gradient = if (is.null(split$gradient)) NULL else unname(as.numeric(split$gradient)),
       gradient_full = if (is.null(split$gradient_full)) NULL else unname(as.numeric(split$gradient_full)),
@@ -356,12 +385,14 @@ if (optimizer_name == "optim") {
       row$log_sp_full,
       row$gradient,
       row$hessian,
-      n_sp = n_sp
+      n_sp = n_sp,
+      extra_kind = extra_kind
     )
     trace_rows[[length(trace_rows) + 1L]] <- list(
       iter = as.integer(row$iter),
       log_sp = unname(as.numeric(split$log_sp)),
       log_scale = split$log_scale,
+      log_theta = split$log_theta,
       criterion = if (is.null(row$criterion)) NULL else unname(as.numeric(row$criterion)),
       gradient = if (is.null(split$gradient)) NULL else unname(as.numeric(split$gradient)),
       gradient_full = if (is.null(split$gradient_full)) NULL else unname(as.numeric(split$gradient_full)),
@@ -380,7 +411,8 @@ outer_split <- split_scale_blocks(
   if (n_sp > 0) log(fit$sp) else numeric(0),
   outer_grad,
   outer_hess,
-  n_sp = n_sp
+  n_sp = n_sp,
+  extra_kind = extra_kind
 )
 
 payload <- list(
@@ -393,6 +425,8 @@ payload <- list(
       conv = if (!is.null(outer_info) && !is.null(outer_info$conv)) as.character(outer_info$conv) else NULL,
       iter = if (!is.null(outer_info) && !is.null(outer_info$iter)) as.integer(outer_info$iter) else NULL,
       score_hist = if (!is.null(outer_info) && !is.null(outer_info$score.hist)) unname(as.numeric(outer_info$score.hist)) else NULL,
+      log_scale = outer_split$log_scale,
+      log_theta = outer_split$log_theta,
       gradient = outer_split$gradient,
       gradient_full = outer_split$gradient_full,
       hessian = if (is.null(outer_split$hessian)) NULL else unname(as.matrix(outer_split$hessian)),

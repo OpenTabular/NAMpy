@@ -3,8 +3,8 @@ from itertools import combinations
 import torch
 import torch.nn as nn
 
-from ..configs.spline_nam_config import DefaultSplineNAMConfig
 from ..arch_utils.neural_splines import CubicSplineLayer
+from ..configs.spline_nam_config import DefaultSplineNAMConfig
 from .basemodel import BaseModel
 
 

@@ -36,6 +36,7 @@ jobs:
 
     - name: Run tests
       run: |
+        export MGCV_CACHE_ONLY=1
         pytest tests/ --cov=nampy --cov-report=xml --cov-report=term-missing
 
     - name: Upload coverage to Codecov
@@ -132,4 +133,3 @@ jobs:
       with:
         name: dist
         path: dist/
-

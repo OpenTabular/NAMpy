@@ -17,6 +17,8 @@ class NegativeBinomialLogFamily(ExtendedFamily):
     supports_pirls = True
 
     supports_gcv = False
+    supports_ncv = True
+    supports_qncv = True
     supports_ubre = True
     supports_ml = True
     supports_reml = True
@@ -29,8 +31,21 @@ class NegativeBinomialLogFamily(ExtendedFamily):
 
     _link_key = "log"
 
-    def __init__(self, theta=1.0, estimate_theta=False, eps: float = FAMILY_EPS):
+    def __init__(
+        self,
+        theta=1.0,
+        estimate_theta=False,
+        link: str = "log",
+        eps: float = FAMILY_EPS,
+    ):
         super().__init__(eps=eps)
+        link_key = str(link).lower()
+        if link_key not in {"log", "identity", "sqrt"}:
+            raise ValueError(
+                "Negative-binomial link must be one of 'identity', 'log', or 'sqrt'."
+            )
+        self._link_key = link_key
+        self.link_name = link_key
         self.link = LINK_REGISTRY[self._link_key](eps=self.eps)
         self.theta = float(theta)
         self.estimate_theta = bool(estimate_theta)
@@ -88,15 +103,6 @@ class NegativeBinomialLogFamily(ExtendedFamily):
     def d3var(self, mu):
         return self.variance.d3(mu)
 
-    def d2link(self, mu):
-        return self.link.d2(mu)
-
-    def d3link(self, mu):
-        return self.link.d3(mu)
-
-    def d4link(self, mu):
-        return self.link.d4(mu)
-
     def estimate_dispersion(self, y, mu, edf=None, weights=None):
         del y, mu, edf, weights
         return float(self.known_scale)
@@ -112,32 +118,42 @@ class NegativeBinomialLogFamily(ExtendedFamily):
         # Match common negative-binomial initialization (MASS-style).
         return np.clip(y + (y == 0.0).astype(np.float64) / 6.0, self.eps, None)
 
+    def valid_mu(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return bool(np.all(np.isfinite(mu)) and np.all(mu > 0.0))
+
+    def valid_eta(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        if self.link_name in {"identity", "sqrt"}:
+            return bool(np.all(np.isfinite(eta)) and np.all(eta > 0.0))
+        return bool(np.all(np.isfinite(eta)))
+
     def deviance(self, y, mu, weights=None):
         y = np.asarray(y, dtype=np.float64)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        mu = np.asarray(mu, dtype=np.float64)
         weights = self._check_weights(y, weights)
         th = self.theta
         term1 = np.zeros_like(y, dtype=np.float64)
         mask = y > 0
-        term1[mask] = y[mask] * np.log(y[mask] / mu[mask])
+        term1[mask] = y[mask] * np.log(np.maximum(1.0, y[mask]) / mu[mask])
         term2 = (y + th) * np.log((y + th) / (mu + th))
         return float(2.0 * np.sum(weights * (term1 - term2)))
 
     def deviance_obs(self, y, mu, weights=None):
         y = np.asarray(y, dtype=np.float64)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        mu = np.asarray(mu, dtype=np.float64)
         weights = self._check_weights(y, weights)
         th = self.theta
         term1 = np.zeros_like(y, dtype=np.float64)
         mask = y > 0
-        term1[mask] = y[mask] * np.log(y[mask] / mu[mask])
+        term1[mask] = y[mask] * np.log(np.maximum(1.0, y[mask]) / mu[mask])
         term2 = (y + th) * np.log((y + th) / (mu + th))
         return 2.0 * weights * (term1 - term2)
 
     def loglik_obs(self, y, mu, scale=1.0):
         del scale
         y = np.asarray(y, dtype=np.float64)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        mu = np.asarray(mu, dtype=np.float64)
         th = float(self.theta)
         return (
             gammaln(y + th)
@@ -174,7 +190,7 @@ class NegativeBinomialLogFamily(ExtendedFamily):
         `theta` is log(theta), matching upstream extended-family storage.
         """
         y = np.asarray(y, dtype=np.float64)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        mu = np.asarray(mu, dtype=np.float64)
         wt = self._check_weights(y, wt)
         ltheta = float(self.getTheta(False) if theta is None else theta)
         theta_val = float(np.exp(ltheta))
@@ -188,10 +204,7 @@ class NegativeBinomialLogFamily(ExtendedFamily):
         }
         if level > 0:
             out["Dth"] = (
-                -2.0
-                * wt
-                * theta_val
-                * (np.log(np.clip(yth / muth, self.eps, None)) + (1.0 - yth / muth))
+                -2.0 * wt * theta_val * (np.log(yth / muth) + (1.0 - yth / muth))
             )
             out["Dmuth"] = 2.0 * wt * theta_val * (1.0 - yth / muth) / muth
             out["Dmu3"] = 4.0 * wt * (yth / (muth**3) - y / (mu**3))
@@ -204,7 +217,7 @@ class NegativeBinomialLogFamily(ExtendedFamily):
                 * wt
                 * theta_val
                 * (
-                    np.log(np.clip(yth / muth, self.eps, None))
+                    np.log(yth / muth)
                     + theta_val * yth / (muth**2)
                     - yth / muth
                     - 2.0 * theta_val / muth
@@ -288,33 +301,73 @@ class NegativeBinomialLogFamily(ExtendedFamily):
 
     def working_weight_derivative_eta(self, eta, y=None):
         mu = np.clip(self.inverse_link(eta), self.eps, None)
-        th = float(self.theta)
-        denom = np.clip(th + mu, self.eps, None)
+        mu_eta = np.asarray(
+            self.inverse_link_derivatives(eta, order=1), dtype=np.float64
+        )
+        mu_eta2 = np.asarray(
+            self.inverse_link_derivatives(eta, order=2), dtype=np.float64
+        )
+        var = np.clip(np.asarray(self.variance(mu), dtype=np.float64), self.eps, None)
+        dvar = np.asarray(self.dvar(mu), dtype=np.float64)
         if y is None:
-            # Fisher-weight derivative fallback: d/deta [th*mu/(th+mu)].
-            return (th**2) * mu / np.clip(denom**2, self.eps, None)
+            return 2.0 * mu_eta * mu_eta2 / var - (mu_eta**3) * dvar / np.clip(
+                var**2, self.eps, None
+            )
+
         y = np.asarray(y, dtype=np.float64)
-        # Exact derivative of P-IRLS Newton working weights w.r.t. eta:
-        # w = wf * alpha, with wf = th*mu/(th+mu),
-        # alpha = 1 + (y-mu)/(th+mu).
-        num = mu * th * (th + y) * (th - mu)
-        return num / np.clip(denom**3, self.eps, None)
+        th = float(self.theta)
+        alpha = 1.0 + (y - mu) / np.clip(th + mu, self.eps, None)
+        fisher_deriv = 2.0 * mu_eta * mu_eta2 / var - (mu_eta**3) * dvar / np.clip(
+            var**2, self.eps, None
+        )
+        alpha_deriv = -mu_eta * (th + y) / np.clip((th + mu) ** 2, self.eps, None)
+        fisher_weight = (mu_eta**2) / var
+        return fisher_deriv * alpha + fisher_weight * alpha_deriv
 
     def working_weight_second_derivative_eta(self, eta, y=None):
         mu = np.clip(self.inverse_link(eta), self.eps, None)
+        mu_eta = np.asarray(
+            self.inverse_link_derivatives(eta, order=1), dtype=np.float64
+        )
+        mu_eta2 = np.asarray(
+            self.inverse_link_derivatives(eta, order=2), dtype=np.float64
+        )
+        mu_eta3 = np.asarray(
+            self.inverse_link_derivatives(eta, order=3), dtype=np.float64
+        )
+        var = np.clip(np.asarray(self.variance(mu), dtype=np.float64), self.eps, None)
+        dvar = np.asarray(self.dvar(mu), dtype=np.float64)
+        d2var = np.asarray(self.d2var(mu), dtype=np.float64)
+        fisher_second = (
+            2.0 * (mu_eta2**2 + mu_eta * mu_eta3) / var
+            - (5.0 * (mu_eta**2) * mu_eta2 * dvar + (mu_eta**4) * d2var)
+            / np.clip(var**2, self.eps, None)
+            + 2.0 * (mu_eta**4) * (dvar**2) / np.clip(var**3, self.eps, None)
+        )
+        if y is None:
+            return fisher_second
+
+        y = np.asarray(y, dtype=np.float64)
         th = float(self.theta)
         denom = np.clip(th + mu, self.eps, None)
-        if y is None:
-            # Fisher-weight second derivative fallback.
-            return (th**2) * mu * (th - mu) / np.clip(denom**3, self.eps, None)
-        y = np.asarray(y, dtype=np.float64)
-        # Exact second derivative of P-IRLS Newton working weights w.r.t. eta.
-        num = mu * th * (th + y) * (mu**2 - 4.0 * mu * th + th**2)
-        return num / np.clip(denom**4, self.eps, None)
+        alpha = 1.0 + (y - mu) / denom
+        alpha_deriv = -mu_eta * (th + y) / np.clip(denom**2, self.eps, None)
+        alpha_second = -(th + y) * mu_eta2 / np.clip(
+            denom**2, self.eps, None
+        ) + 2.0 * (th + y) * (mu_eta**2) / np.clip(denom**3, self.eps, None)
+        fisher_weight = (mu_eta**2) / var
+        fisher_deriv = 2.0 * mu_eta * mu_eta2 / var - (mu_eta**3) * dvar / np.clip(
+            var**2, self.eps, None
+        )
+        return (
+            fisher_second * alpha
+            + 2.0 * fisher_deriv * alpha_deriv
+            + fisher_weight * alpha_second
+        )
 
     def estimate_theta_mle(self, y, mu, weights=None, max_iter=50, tol=1e-7):
         y = np.asarray(y, dtype=np.float64)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        mu = np.asarray(mu, dtype=np.float64)
         w = (
             np.ones_like(y, dtype=np.float64)
             if weights is None

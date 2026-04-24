@@ -11,10 +11,21 @@ Offsets are additive constants on the link scale included in the linear predicto
 
 import numpy as np
 
+from ..data import coerce_optional_offset, copy_offset
+
 
 def coerce_offset_array(offset, n_rows, *, name="offset"):
     if offset is None:
         return None
+    if isinstance(offset, (list, tuple)):
+        return [
+            (
+                None
+                if off is None
+                else coerce_optional_offset(off, n_rows, name=f"{name}[{i}]")
+            )
+            for i, off in enumerate(offset)
+        ]
     out = np.asarray(offset, dtype=np.float64).ravel()
     if out.shape != (int(n_rows),):
         raise ValueError(f"{name} must have shape ({int(n_rows)},), got {out.shape}.")
@@ -36,11 +47,7 @@ def resolve_prediction_offset(model, X, offset):
     if X is None:
         if offset is None:
             default_offset = getattr(model, "offset_predict_default_", None)
-            return (
-                None
-                if default_offset is None
-                else np.asarray(default_offset, dtype=np.float64)
-            )
+            return copy_offset(default_offset)
         return coerce_offset_array(offset, model.n_samples_)
 
     return coerce_offset_array(offset, len(X)) if offset is not None else None

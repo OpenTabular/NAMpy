@@ -1,4 +1,4 @@
-"""Stable fit-result structures consumed outside the numerical engine."""
+"""Stable fit-result structures consumed outside the fit subsystem."""
 
 from dataclasses import dataclass, field
 from typing import Any

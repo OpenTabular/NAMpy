@@ -16,6 +16,8 @@ import warnings
 from dataclasses import dataclass, field
 from typing import Any
 
+_FORMULA_DOT_SENTINEL = "__GAM_DOT__"
+
 
 @dataclass
 class ParsedParametricTerm:
@@ -95,8 +97,19 @@ def _contains_standalone_dot(rhs: str) -> bool:
     return re.search(r"(^|[~+\-(),\s])\.([~+\-(),\s]|$)", rhs) is not None
 
 
+def _restore_formula_surface(expr: str) -> str:
+    return str(expr).replace("@", ":").replace(_FORMULA_DOT_SENTINEL, ".")
+
+
 def _replace_formula_colons(expr: str) -> str:
-    return expr.replace(":", "@")
+    out = expr.replace(":", "@")
+    if _contains_standalone_dot(out):
+        out = re.sub(
+            r"(^|[~+\-(),\s])\.([~+\-(),\s]|$)",
+            rf"\1{_FORMULA_DOT_SENTINEL}\2",
+            out,
+        )
+    return out
 
 
 def _parse_formula_expr(expr: str):
@@ -116,9 +129,9 @@ def _split_formula_text(formula: str) -> tuple[str | None, str]:
 def _source_segment(src: str, node, default: str):
     try:
         out = ast.get_source_segment(src, node)
-        return out if out is not None else default
+        return _restore_formula_surface(out if out is not None else default)
     except Exception:
-        return default
+        return _restore_formula_surface(default)
 
 
 def _call_name(node):
@@ -150,6 +163,9 @@ def _ordered_unique(items):
 
 def all_vars1(expr: str) -> tuple[str, ...]:
     """Mirror mgcv's all_vars1 on the supported Python formula surface."""
+
+    if _contains_standalone_dot(str(expr)):
+        return ()
 
     parsed = _parse_formula_expr(str(expr))
     names: list[str] = []
@@ -223,17 +239,43 @@ def _ast_to_value(node):
     if isinstance(node, ast.Call):
         func_name = _call_name(node.func)
         if func_name == "list":
-            if node.args and node.keywords:
-                raise NotImplementedError(
-                    "Mixed positional and keyword arguments to list(...) are not "
-                    "supported in formulas."
-                )
             if node.args:
-                return [_ast_to_value(arg) for arg in node.args]
+                if not node.keywords:
+                    return [_ast_to_value(arg) for arg in node.args]
+                # Mirror R's mixed list(...) shape while staying usable by current
+                # Python smooth builders: unnamed entries keep source order under
+                # integer keys, named entries keep their string keys.
+                out: dict[Any, Any] = {}
+                for i, arg in enumerate(node.args):
+                    out[i] = _ast_to_value(arg)
+                for kw in node.keywords:
+                    if kw.arg is None:
+                        expanded = _ast_to_value(kw.value)
+                        if not isinstance(expanded, dict):
+                            raise NotImplementedError(
+                                "**kwargs style list(...) specification requires "
+                                "a dictionary value."
+                            )
+                        for key, value in expanded.items():
+                            out[key] = value
+                        continue
+                    out[kw.arg] = _ast_to_value(kw.value)
+                return out
             if any(kw.arg is None for kw in node.keywords):
-                raise NotImplementedError(
-                    "**kwargs style list(...) specification is not supported."
-                )
+                out: dict[Any, Any] = {}
+                for kw in node.keywords:
+                    if kw.arg is None:
+                        expanded = _ast_to_value(kw.value)
+                        if not isinstance(expanded, dict):
+                            raise NotImplementedError(
+                                "**kwargs style list(...) specification requires "
+                                "a dictionary value."
+                            )
+                        for key, value in expanded.items():
+                            out[key] = value
+                    else:
+                        out[kw.arg] = _ast_to_value(kw.value)
+                return out
             return {kw.arg: _ast_to_value(kw.value) for kw in node.keywords}
         if func_name == "c":
             if node.keywords:
@@ -606,7 +648,10 @@ def _parse_smooth_call(node, rhs_src: str, textra: str | None):
             raise NotImplementedError(
                 "**kwargs style smooth specification is not supported."
             )
-        kwargs[kw.arg] = _ast_to_value(kw.value)
+        if kw.arg == "by":
+            kwargs[kw.arg] = _ast_to_expr_label(kw.value, rhs_src)
+        else:
+            kwargs[kw.arg] = _ast_to_value(kw.value)
 
     raw_label = _source_segment(rhs_src, node, f"{kind}({', '.join(features)})")
     by_value = kwargs.get("by", None)
@@ -710,26 +755,24 @@ def _parse_formula_component(
     if rhs == "":
         rhs = "1"
 
-    if _contains_standalone_dot(rhs):
-        raise ValueError("'.' in formula and no 'data' argument")
-
     expr = _parse_formula_expr(rhs)
+    rhs_src = _replace_formula_colons(rhs)
     factor_labels: list[str] = []
-    _collect_factor_order_labels(expr.body, rhs, factor_labels)
+    _collect_factor_order_labels(expr.body, rhs_src, factor_labels)
     factor_order = {label: idx for idx, label in enumerate(factor_labels)}
 
-    termsets = _expand_formula_terms(expr.body, rhs, factor_order)
+    termsets = _expand_formula_terms(expr.body, rhs_src, factor_order)
     intercept = _evaluate_intercept(expr.body, state=True, sign=1)
 
     offset_exprs: list[str] = []
-    _collect_offset_exprs(expr.body, rhs, offset_exprs)
+    _collect_offset_exprs(expr.body, rhs_src, offset_exprs)
     if len(offset_exprs) > 1:
         # Mirror mgcv::interpret.gam0's single-slot offset assignment, which
         # retains only the first deparsed offset term in pf/fake.names.
         offset_exprs = offset_exprs[:1]
 
     special_nodes: dict[str, ast.Call] = {}
-    _collect_special_nodes(expr.body, rhs, special_nodes)
+    _collect_special_nodes(expr.body, rhs_src, special_nodes)
 
     parametric_terms: list[ParsedParametricTerm] = []
     smooth_terms: list[ParsedSmoothTerm] = []
@@ -752,7 +795,10 @@ def _parse_formula_component(
         raw_label = ":".join(str(label) for label in term)
         src_vars: list[str] = []
         for label in term:
-            src_vars.extend(all_vars1(label))
+            if label == ".":
+                src_vars.append(".")
+            else:
+                src_vars.extend(all_vars1(label))
 
         parametric_terms.append(
             ParsedParametricTerm(

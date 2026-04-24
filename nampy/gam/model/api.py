@@ -4,6 +4,7 @@ import pickle
 
 import numpy as np
 import pandas as pd
+from scipy.special import gammaln
 
 from .._model_state import (
     _coef_full,
@@ -12,6 +13,7 @@ from .._model_state import (
     _cov_unconditional,
     _edf2,
     _edf_total,
+    _fit_result,
     _fit_scale,
     _fit_state,
     _fitted_eta,
@@ -25,10 +27,15 @@ from ..data import (
     coerce_optional_offset,
     coerce_X,
     combine_offsets,
+    copy_offset,
 )
 from ..families import make_gam_family
 from ..fit.model_ops import copy_fit_result
+from ..fit.offsets import coerce_offset_array
 from ..parity import build_parity_snapshot
+from ..smoothing_selection.criteria.gaussian_reml_algebra import (
+    gaussian_reml_weighted_degrees_and_log_weight_term,
+)
 from ..specs.modeling import make_predictor_specs, prepare_formula_inputs
 
 
@@ -63,7 +70,7 @@ class GAM:
             self.hparams.get("smoothing_method", "fixed")
         ).lower()
         self.smoothing_optimizer = str(
-            self.hparams.get("smoothing_optimizer", "lbfgsb")
+            self.hparams.get("smoothing_optimizer", "outer_newton")
         ).lower()
         self.sp_log_bounds = tuple(self.hparams.get("sp_log_bounds", (-80.0, 20.0)))
         self.score_gamma = float(self.hparams.get("score_gamma", 1.0))
@@ -74,6 +81,7 @@ class GAM:
         self.knots = self.hparams.get("knots", None)
         self.min_sp = self.hparams.get("min_sp", None)
         self.drop_intercept = self.hparams.get("drop_intercept", None)
+        self.nei = self.hparams.get("nei", None)
 
         self.family = make_gam_family(family)
 
@@ -147,9 +155,41 @@ class GAM:
 
     @property
     def formula_offset_name_(self):
+        offset_names = self.formula_offset_names_
+        if offset_names is None or len(offset_names) != 1:
+            return None
+        return offset_names[0]
+
+    @property
+    def formula_offset_names_(self):
         if self.formula_preprocess_state_ is None:
             return None
-        return self.formula_preprocess_state_.get("offset_name")
+        offset_names = self.formula_preprocess_state_.get("offset_names", None)
+        if offset_names is not None:
+            return tuple(offset_names)
+        offset_name = self.formula_preprocess_state_.get("offset_name", None)
+        return None if offset_name is None else (offset_name,)
+
+    def _coerce_api_offset(self, offset, n_rows):
+        if str(getattr(self.family, "family_class", "")).lower() == "general":
+            return coerce_offset_array(offset, n_rows, name="offset")
+        return coerce_optional_offset(offset, n_rows)
+
+    def _general_family_offset_list(self):
+        offset = getattr(self, "offset_train_", None)
+        if offset is None:
+            return None
+        n_pred = len(_predictor_full_slices(self))
+        if isinstance(offset, (list, tuple)):
+            out = [
+                None if off is None else np.asarray(off, dtype=np.float64)
+                for off in offset
+            ]
+        else:
+            out = [np.asarray(offset, dtype=np.float64)]
+        if len(out) < n_pred:
+            out.extend([None] * (n_pred - len(out)))
+        return out
 
     # ------------------------------------------------------------------
     # Fit / predict
@@ -168,6 +208,7 @@ class GAM:
         min_sp=None,
         knots=None,
         drop_intercept=None,
+        nei=None,
     ):
         formula = self.formula if formula is None else formula
         knots = self.knots if knots is None else knots
@@ -175,6 +216,7 @@ class GAM:
         drop_intercept = (
             self.drop_intercept if drop_intercept is None else drop_intercept
         )
+        self.nei = self.nei if nei is None else nei
 
         if formula is not None:
             if data is None:
@@ -214,15 +256,13 @@ class GAM:
             self.fit_intercept = fit_intercept
             y_use = y_out
 
-            offset_arg = coerce_optional_offset(offset, len(X_np))
+            offset_arg = self._coerce_api_offset(offset, len(X_np))
             offset_use = combine_offsets(offset_formula, offset_arg)
 
             # mgcv-like prediction semantics:
             # remember only formula offsets for default prediction.
             predict_offset_default = (
-                None
-                if offset_formula is None
-                else np.asarray(offset_formula, dtype=np.float64).copy()
+                None if offset_formula is None else copy_offset(offset_formula)
             )
         else:
             X_np, feature_names = coerce_X(self, X)
@@ -237,7 +277,7 @@ class GAM:
 
             # Separate fit-time offset is used in fitting, but not remembered by default
             # for prediction, matching mgcv's documented behaviour.
-            offset_use = coerce_optional_offset(offset, len(X_np))
+            offset_use = self._coerce_api_offset(offset, len(X_np))
             predict_offset_default = None
 
         if y_use is None:
@@ -274,7 +314,7 @@ class GAM:
         self.side_condition_reports_ = None
         self._edf_by_term_fit_ = None
 
-        from ..engine import fit_model_core
+        from ..fit import fit_model_core
 
         fit_model_core(
             X=X_np,
@@ -292,7 +332,7 @@ class GAM:
         self.offset_predict_default_ = (
             None
             if predict_offset_default is None
-            else np.asarray(predict_offset_default, dtype=np.float64).copy()
+            else copy_offset(predict_offset_default)
         )
         return self
 
@@ -309,7 +349,7 @@ class GAM:
         )
 
     def _select_cov(self, cov):
-        from ..engine import select_covariance_matrix
+        from ..fit import select_covariance_matrix
 
         return select_covariance_matrix(self, cov=cov)
 
@@ -355,7 +395,7 @@ class GAM:
         if X is None:
             offset_use = None
             if offset is not None:
-                offset_use = coerce_optional_offset(offset, self.X_.shape[0])
+                offset_use = self._coerce_api_offset(offset, self.X_.shape[0])
             return predict_values(
                 X=None,
                 return_se=return_se,
@@ -370,11 +410,11 @@ class GAM:
             X_np, _, offset_formula = coerce_formula_predict_inputs(self, X)
             offset_use = combine_offsets(
                 offset_formula,
-                coerce_optional_offset(offset, X_np.shape[0]),
+                self._coerce_api_offset(offset, X_np.shape[0]),
             )
         else:
             X_np, _ = coerce_X(self, X)
-            offset_use = coerce_optional_offset(offset, X_np.shape[0])
+            offset_use = self._coerce_api_offset(offset, X_np.shape[0])
 
         return predict_values(
             X=X_np,
@@ -394,18 +434,18 @@ class GAM:
         if X is None:
             offset_use = None
             if offset is not None:
-                offset_use = coerce_optional_offset(offset, self.X_.shape[0])
+                offset_use = self._coerce_api_offset(offset, self.X_.shape[0])
             X_use = None
         elif self.formula_mode_:
             X_np, _, offset_formula = coerce_formula_predict_inputs(self, X)
             offset_use = combine_offsets(
                 offset_formula,
-                coerce_optional_offset(offset, X_np.shape[0]),
+                self._coerce_api_offset(offset, X_np.shape[0]),
             )
             X_use = X_np
         else:
             X_np, _ = coerce_X(self, X)
-            offset_use = coerce_optional_offset(offset, X_np.shape[0])
+            offset_use = self._coerce_api_offset(offset, X_np.shape[0])
             X_use = X_np
 
         eta = predict_values(model=self, X=X_use, type="link", offset=offset_use)
@@ -485,7 +525,7 @@ class GAM:
         )
 
     def sp_vcov(self, edge_correct=True, reg=1e-3):
-        from ..selection import sp_vcov
+        from ..smoothing_selection import sp_vcov
 
         return sp_vcov(self, edge_correct=edge_correct, reg=reg)
 
@@ -534,12 +574,7 @@ class GAM:
                     np.arange(sl.start, sl.stop, dtype=int)
                     for sl in _predictor_full_slices(self)
                 ]
-                offset = (
-                    None
-                    if self.offset_train_ is None
-                    else [np.asarray(self.offset_train_, dtype=np.float64)]
-                    + [None] * (len(jj) - 1)
-                )
+                offset = self._general_family_offset_list()
                 fill = np.asarray(
                     self.family.sandwich(
                         np.asarray(self.y_, dtype=np.float64),
@@ -596,17 +631,163 @@ class GAM:
         Mirrors mgcv ``logLik.gam`` in mgcv/R/mgcv.r.
         """
         family_class = str(getattr(self.family, "family_class", "")).lower()
-        if family_class == "general":
-            sc_p = 0.0
-        else:
-            sc_p = 1.0 if getattr(self.family, "known_scale", None) is None else 0.0
+        sc_p = (
+            0.0
+            if family_class == "general"
+            else (1.0 if getattr(self.family, "known_scale", None) is None else 0.0)
+        )
+        p = float(_edf_total(self)) + sc_p
         edf2 = _edf2(self)
         if edf2 is not None:
             p = float(np.sum(np.asarray(edf2, dtype=np.float64))) + sc_p
-        else:
-            p = float(_edf_total(self)) + sc_p
         np_max = float(len(np.asarray(_coef_full(self), dtype=np.float64))) + sc_p
         return min(p, np_max)
+
+    def _mgcv_loglik_value_df(self) -> tuple[float, float]:
+        """
+        mgcv ``logLik.gam`` uses two df notions:
+
+        - value uses ``sum(edf) + scale.estimated``
+        - attr(df) uses ``sum(edf2) + scale.estimated`` when available
+        """
+        family_class = str(getattr(self.family, "family_class", "")).lower()
+        sc_p = (
+            0.0
+            if family_class == "general"
+            else (1.0 if getattr(self.family, "known_scale", None) is None else 0.0)
+        )
+        p_val = float(_edf_total(self)) + sc_p
+        p_df = p_val
+        edf2 = _edf2(self)
+        if edf2 is not None:
+            p_df = float(np.sum(np.asarray(edf2, dtype=np.float64))) + sc_p
+        np_max = float(len(np.asarray(_coef_full(self), dtype=np.float64))) + sc_p
+        if p_df > np_max:
+            p_df = np_max
+        n_theta = getattr(self.family, "n_theta", None)
+        if family_class == "extended" and n_theta is not None:
+            p_df += float(n_theta)
+        return p_val, p_df
+
+    def _mgcv_object_aic(self) -> float | None:
+        """
+        Final ``object$aic`` before ``logLik.gam`` post-processing.
+
+        For Gaussian fits, mirror ``gam.fit3.r`` raw-family AIC plus the later
+        ``mgcv.r`` `+ 2*sum(object$edf)` update exactly.
+        """
+        fit_result = _fit_result(self)
+        if fit_result is None:
+            return None
+
+        family_name = str(getattr(self.family, "name", "")).lower()
+        weights = (
+            np.ones_like(np.asarray(self.y_, dtype=np.float64), dtype=np.float64)
+            if self.prior_weights_ is None
+            else np.asarray(self.prior_weights_, dtype=np.float64)
+        )
+        positive = weights > 0.0
+        nobs = float(np.sum(weights[positive]))
+        if nobs <= 0.0:
+            return None
+
+        if family_name == "gaussian":
+            dev = float(getattr(fit_result, "deviance", np.nan))
+            if not np.isfinite(dev) or dev <= 0.0:
+                return None
+            n_row = float(len(weights))
+            n_true = getattr(self, "n_true_", None)
+            n_eff = (
+                None
+                if n_true is None
+                or not np.isfinite(float(n_true))
+                or float(n_true) <= 0.0
+                else float(n_true)
+            )
+            nobs, sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
+                weights,
+                n_row,
+                mp=0.0,
+                n_effective_total=n_eff,
+            )
+            if not np.isfinite(nobs) or nobs <= 0.0 or not np.isfinite(sum_log_scaled):
+                return None
+            raw_aic = (
+                nobs * (np.log(dev / nobs * 2.0 * np.pi) + 1.0)
+                + 2.0
+                - float(sum_log_scaled)
+            )
+            return float(raw_aic + 2.0 * float(_edf_total(self)))
+
+        y = np.asarray(self.y_, dtype=np.float64)
+        mu = np.asarray(self.predict(X=None, type="response"), dtype=np.float64)
+        raw_aic = None
+
+        if family_name == "poisson":
+            mu = np.clip(mu, np.finfo(np.float64).tiny, None)
+            raw_aic = -2.0 * float(
+                np.sum(weights * (y * np.log(mu) - mu - gammaln(y + 1.0)))
+            )
+        elif family_name == "binomial":
+            mu = np.clip(mu, np.finfo(np.float64).tiny, 1.0 - np.finfo(np.float64).eps)
+            n = weights
+            y_count = np.rint(n * y)
+            n_round = np.rint(n)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                log_comb = (
+                    gammaln(n_round + 1.0)
+                    - gammaln(y_count + 1.0)
+                    - gammaln(n_round - y_count + 1.0)
+                )
+                log_p = (
+                    log_comb
+                    + y_count * np.log(mu)
+                    + (n_round - y_count) * np.log(1.0 - mu)
+                )
+                scale = np.where(n > 0.0, weights / np.maximum(n, 1.0), 0.0)
+            raw_aic = -2.0 * float(np.sum(scale * log_p))
+        elif family_name == "gamma":
+            scale = None
+            optim_result = getattr(self, "_optim_result", None)
+            joint_log_phi = (
+                None
+                if optim_result is None
+                else getattr(optim_result, "joint_log_phi", None)
+            )
+            if (
+                joint_log_phi is not None
+                and np.isfinite(float(joint_log_phi))
+                and str(getattr(self, "_optim_method", "")).lower() in {"reml", "ml"}
+            ):
+                scale = float(np.exp(float(joint_log_phi)))
+            if scale is None:
+                scale = _fit_scale(self)
+            if scale is None or not np.isfinite(float(scale)) or float(scale) <= 0.0:
+                return None
+            disp = float(scale)
+            shape = 1.0 / disp
+            mu = np.clip(mu, np.finfo(np.float64).tiny, None)
+            y = np.clip(y, np.finfo(np.float64).tiny, None)
+            raw_aic = (
+                -2.0
+                * float(
+                    np.sum(
+                        weights
+                        * (
+                            (shape - 1.0) * np.log(y)
+                            - y / (mu * disp)
+                            - gammaln(shape)
+                            - shape * np.log(mu * disp)
+                        )
+                    )
+                )
+                + 2.0
+            )
+
+        if raw_aic is not None:
+            return float(raw_aic + 2.0 * float(_edf_total(self)))
+
+        return None
 
     def loglik(self) -> float:
         """
@@ -617,24 +798,37 @@ class GAM:
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
 
+        object_aic = self._mgcv_object_aic()
+        if object_aic is not None:
+            p_val, _p_df = self._mgcv_loglik_value_df()
+            return float(p_val - object_aic / 2.0)
+
         if getattr(self.family, "family_class", "") == "general":
+            fit_result = _fit_result(self)
+            if fit_result is not None and fit_result.loglik is not None:
+                # General-family fits already store the mgcv-shaped unpenalized
+                # log-likelihood in fit space. Recomputing from exported
+                # coefficients is wrong for paths such as `t2(full=FALSE)`,
+                # where public coefficients may have been mapped to prediction
+                # parameterization.
+                return float(fit_result.loglik)
             X = np.asarray(_fit_state(self).X, dtype=np.float64)
             jj = [
                 np.arange(sl.start, sl.stop, dtype=int)
                 for sl in _predictor_full_slices(self)
             ]
+            weights = (
+                np.ones_like(np.asarray(self.y_, dtype=np.float64), dtype=np.float64)
+                if self.prior_weights_ is None
+                else np.asarray(self.prior_weights_, dtype=np.float64)
+            )
             ll = self.family.ll(
                 np.asarray(self.y_, dtype=np.float64),
                 X,
                 jj,
                 np.asarray(_coef_full(self), dtype=np.float64),
-                np.asarray(self.prior_weights_, dtype=np.float64),
-                offset=(
-                    None
-                    if self.offset_train_ is None
-                    else [np.asarray(self.offset_train_, dtype=np.float64)]
-                    + [None] * (len(jj) - 1)
-                ),
+                weights,
+                offset=self._general_family_offset_list(),
                 deriv=0,
             )
             return float(ll["l"])
@@ -647,11 +841,23 @@ class GAM:
             else np.asarray(self.prior_weights_, dtype=np.float64)
         )
         dev = float(self.family.deviance(y, mu, weights=weights))
-        if getattr(self.family, "known_scale", None) is None:
-            n_obs = float(len(y))
-            scale = max(dev / n_obs, np.finfo(np.float64).tiny)
+        fit_scale = _fit_scale(self)
+        if (
+            fit_scale is not None
+            and np.isfinite(float(fit_scale))
+            and float(fit_scale) > 0.0
+        ):
+            scale = float(fit_scale)
+        elif getattr(self.family, "known_scale", None) is None:
+            scale_est = self.family.estimate_dispersion(
+                y,
+                mu,
+                edf=float(_edf_total(self)),
+                weights=weights,
+            )
+            scale = max(float(scale_est), np.finfo(np.float64).tiny)
         else:
-            scale = float(_fit_scale(self))
+            scale = float(self.family.known_scale)
         sat = float(
             self.family.saturated_loglik(
                 y,
@@ -664,6 +870,10 @@ class GAM:
 
     def aic(self) -> float:
         """mgcv-style conditional AIC based on effective df."""
+        object_aic = self._mgcv_object_aic()
+        if object_aic is not None:
+            p_val, p_df = self._mgcv_loglik_value_df()
+            return float(object_aic + 2.0 * (p_df - p_val))
         return float(-2.0 * self.loglik() + 2.0 * self._mgcv_loglik_df())
 
     def bic(self) -> float:
@@ -671,13 +881,13 @@ class GAM:
         n_obs = float(len(np.asarray(self.y_, dtype=np.float64)))
         return float(-2.0 * self.loglik() + np.log(n_obs) * self._mgcv_loglik_df())
 
-    def gam_vcomp(self, *, rescale=False, conf_lev=0.95):
-        from ..selection import gam_vcomp
+    def gam_vcomp(self, *, rescale=True, conf_lev=0.95):
+        from ..smoothing_selection import gam_vcomp
 
         return gam_vcomp(self, rescale=rescale, conf_lev=conf_lev)
 
     def one_se_rule(self, candidate_indices=None):
-        from ..selection import one_se_rule
+        from ..smoothing_selection import one_se_rule
 
         return one_se_rule(self, candidate_indices=candidate_indices)
 

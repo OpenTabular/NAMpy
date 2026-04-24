@@ -12,17 +12,20 @@ Top-level dispatch for smoothing-selection criterion value, gradient, and Hessia
 
 import numpy as np
 
+from ...fit.backends import GENERAL_FAMILY_BACKEND
 from ...fit.model_ops import uses_closed_form_solver
-from ...fit.solvers.general_fit5 import (
-    criterion_gradient_ml_reml_general_fit5,
-    criterion_hessian_ml_reml_general_fit5,
+from ...fit.solvers.general_family_solver import (
+    criterion_gradient_ml_reml_general_family,
+    criterion_hessian_ml_reml_general_family,
 )
+from ...linalg import symmetrize_matrix
 from .gaussian import criterion_gcv_gaussian
 from .gaussian_dyn import _gaussian_dynamic_reml_derivative_terms
 from .ml_reml import (
     criterion_ml_reml,
     resolve_ml_reml_scoring_backend,
 )
+from .ncv import criterion_gradient_ncv, criterion_ncv
 from .pirls import (
     _current_joint_negbin_eval_state,
     _is_joint_negbin_theta_model,
@@ -36,12 +39,36 @@ from .pirls_deriv import (
 )
 
 
-def criterion_value(model, y, log_sp, method="gcv"):
+def _normalize_criterion_method(model, method):
     method = str(method).lower()
+    if method not in {"gcv.cp", "gacv.cp"}:
+        return method
+
+    family = getattr(model, "family", None)
+    family_name = str(getattr(family, "name", "")).lower()
+    family_class = str(getattr(family, "family_class", "")).lower()
+
+    if family_class == "extended":
+        return "reml"
+    if family_name in {"binomial", "poisson"} and getattr(
+        family, "known_scale", None
+    ) is not None:
+        return "aic"
+    if family_name == "negbin":
+        return "reml"
+    return "gcv"
+
+
+def criterion_value(model, y, log_sp, method="gcv"):
+    method = _normalize_criterion_method(model, method)
     if method == "gcv":
         if uses_closed_form_solver(model):
             return criterion_gcv_gaussian(model, y, log_sp)
         return criterion_gcv_pirls(model, y, log_sp)
+    if method == "ncv":
+        return criterion_ncv(model, y, log_sp, qapprox=False)
+    if method == "qncv":
+        return criterion_ncv(model, y, log_sp, qapprox=True)
     if method in {"ubre", "aic", "ubreaic"}:
         return criterion_ubre_pirls(model, y, log_sp)
     if method == "ml":
@@ -54,7 +81,7 @@ def criterion_value(model, y, log_sp, method="gcv"):
         return criterion_ml_reml(model, y, log_sp, method)
     raise ValueError(
         "method must be one of "
-        "{'gcv', 'ubre', 'aic', 'ubreaic', 'ml', 'reml', 'laml'}"
+        "{'gcv', 'ncv', 'qncv', 'ubre', 'aic', 'ubreaic', 'ml', 'reml', 'laml'}"
     )
 
 
@@ -131,13 +158,14 @@ def criterion_gradient(
     eps_abs=1e-5,
     eps_rel=1e-4,
 ):
-    method = str(method).lower()
+    method = _normalize_criterion_method(model, method)
+    if method == "ncv":
+        return criterion_gradient_ncv(model, y, log_sp, qapprox=False)
+    if method == "qncv":
+        return criterion_gradient_ncv(model, y, log_sp, qapprox=True)
     if method in {"ml", "reml", "laml"}:
         backend = resolve_ml_reml_scoring_backend(model, method=method)
-        if backend in {"gaussian_exact", "gaussian_dynamic"} and method in {
-            "reml",
-            "laml",
-        }:
+        if backend in {"gaussian_exact", "gaussian_dynamic"}:
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
             out = _gaussian_dynamic_reml_derivative_terms(
                 model, y, log_sp, exact_method
@@ -145,12 +173,12 @@ def criterion_gradient(
             if bool(out.get("valid", False)):
                 return np.asarray(out["grad"], dtype=np.float64)
             raise NotImplementedError(
-                "Gaussian REML/LAML outer optimisation requires exact "
+                "Gaussian ML/REML/LAML outer optimisation requires exact "
                 "mgcv-parity derivatives; finite-difference fallback removed."
             )
-        if backend == "general_fit5":
+        if backend == GENERAL_FAMILY_BACKEND:
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
-            return criterion_gradient_ml_reml_general_fit5(
+            return criterion_gradient_ml_reml_general_family(
                 model, y, log_sp, exact_method
             )
         if (
@@ -252,7 +280,7 @@ def criterion_hessian_numerical(
             )
         H[:, j] = (g_plus - g_minus) / (2.0 * h)
 
-    return 0.5 * (H + H.T)
+    return symmetrize_matrix(H)
 
 
 def criterion_hessian(
@@ -263,7 +291,7 @@ def criterion_hessian(
     eps_abs=1e-4,
     eps_rel=1e-3,
 ):
-    method = str(method).lower()
+    method = _normalize_criterion_method(model, method)
     if method in {"ml", "reml", "laml"}:
         backend = resolve_ml_reml_scoring_backend(model, method=method)
         if (
@@ -277,13 +305,8 @@ def criterion_hessian(
                 getattr(model.family, "supports_exact_pirls_second_derivatives", False)
             )
         ):
-            return criterion_hessian_ml_reml_pirls_exact(
-                model, y, log_sp, "REML"
-            )
-        if backend in {"gaussian_exact", "gaussian_dynamic"} and method in {
-            "reml",
-            "laml",
-        }:
+            return criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, "REML")
+        if backend in {"gaussian_exact", "gaussian_dynamic"}:
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
             out = _gaussian_dynamic_reml_derivative_terms(
                 model, y, log_sp, exact_method
@@ -291,12 +314,12 @@ def criterion_hessian(
             if bool(out.get("valid", False)):
                 return np.asarray(out["hess"], dtype=np.float64)
             raise NotImplementedError(
-                "Gaussian REML/LAML outer optimisation requires exact "
+                "Gaussian ML/REML/LAML outer optimisation requires exact "
                 "mgcv-parity Hessians; finite-difference fallback removed."
             )
-        if backend == "general_fit5":
+        if backend == GENERAL_FAMILY_BACKEND:
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
-            return criterion_hessian_ml_reml_general_fit5(
+            return criterion_hessian_ml_reml_general_family(
                 model, y, log_sp, exact_method
             )
         raise NotImplementedError(
@@ -314,7 +337,7 @@ def criterion_hessian(
 
 
 def criterion_infinite_sp_signal(model, y, log_sp, method="reml"):
-    method = str(method).lower()
+    method = _normalize_criterion_method(model, method)
     x = np.asarray(log_sp, dtype=np.float64).ravel()
     n = x.size
     if n == 0:

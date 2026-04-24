@@ -12,10 +12,9 @@ Building blocks for the concentrated and joint Gaussian REML objectives:
 - **Joint (sp, log σ²) objective** uses an effective count ``ν`` and a
   ``sum(log w)`` correction when prior weights are not identically one.
 
-The joint outer loop matches standard GAM software that optimises ``log σ²``
-alongside log smoothing parameters; the profiled REML variance is
-``(deviance + penalty) / (n_row - Mp)`` for the derivative formulas in
-``_gaussian_dynamic_reml_derivative_terms``.
+The joint outer loop mirrors ``mgcv::gam.fit3()``: unknown-scale ML does not
+subtract the REML null-space dimension, while REML uses the
+``gamma * remlInd * Mp`` denominator adjustment.
 """
 
 from __future__ import annotations
@@ -112,22 +111,28 @@ def pearson_method_scale_estimate(
     tr_a: float,
     n_effective_rows: float,
     *,
-    pearson_extra: float = 0.0,
+    dev_extra: float = 0.0,
+    pearson_extra: float | None = None,
     fletcher: bool = False,
     y: np.ndarray | None = None,
     mu: np.ndarray | None = None,
     dvar_over_var: np.ndarray | None = None,
 ) -> float:
     """
-    Pearson (and optional Fletcher) scale ``(χ²_pearson + extra) / (n_eff - tr(A))``.
+    Pearson (and optional Fletcher) scale ``(χ²_pearson + dev_extra) / (n_eff - tr(A))``.
 
     If ``fletcher`` is True, pass ``y``, ``mu``, and ``dvar_over_var`` with
     ``dvar_over_var[i] = V'(μ_i)/V(μ_i)``.
+
+    ``mgcv::gam.fit3()`` uses ``dev.extra`` for ordinary Pearson/Fletcher scale
+    estimates. ``pearson_extra`` is accepted only for older callers and is not
+    part of this mgcv branch.
     """
+    del pearson_extra
     den = float(n_effective_rows) - float(tr_a)
     if not np.isfinite(den) or den <= 0.0:
         return float("nan")
-    scale = (float(pearson_chi2) + float(pearson_extra)) / den
+    scale = (float(pearson_chi2) + float(dev_extra)) / den
     if not fletcher:
         return float(scale)
     if y is None or mu is None or dvar_over_var is None:
@@ -139,20 +144,47 @@ def pearson_method_scale_estimate(
         raise ValueError("y, mu, dvar_over_var must have the same shape.")
     resid = y - mu
     s_bar = float(np.mean(dv * resid))
-    s_bar = max(-0.9, s_bar)
     if not np.isfinite(s_bar):
         return float(scale)
+    s_bar = max(-0.9, s_bar)
     return float(scale / (1.0 + s_bar))
 
 
 def profiled_gaussian_reml_variance(
-    dev: float, penalty_P: float, n_row: float, mp: float
+    dev: float,
+    penalty_P: float,
+    n_row: float,
+    mp: float,
+    *,
+    gamma: float = 1.0,
+    reml: bool = True,
+    weights: np.ndarray | None = None,
+    n_effective_total: float | None = None,
 ) -> float:
     """
-    Profiled Gaussian REML error variance ``(dev + P) / (n_row - Mp)`` for the
-    concentrated Laplace REML score (matches ``_gaussian_dynamic_reml_derivative_terms``).
+    Profiled Gaussian ML/REML variance from ``mgcv::gam.fit3()``.
+
+    The denominator is ``n_weighted - gamma * remlInd * Mp``. ``n_weighted`` is
+    the scaled positive-weight count used by mgcv's saturated likelihood; ML has
+    ``remlInd = 0`` and therefore does not subtract ``Mp``.
     """
-    den = float(n_row) - float(mp)
+    gamma = float(gamma)
+    if not np.isfinite(gamma) or gamma <= 0.0:
+        return float("nan")
+    if weights is None:
+        nobs = float(n_row)
+        nt = nobs if n_effective_total is None else float(n_effective_total)
+        n_weighted = nt
+    else:
+        w = np.asarray(weights, dtype=np.float64).ravel()
+        pos = w > 0.0
+        nobs = float(n_row)
+        if nobs <= 0.0 or not np.isfinite(nobs):
+            return float("nan")
+        nt = nobs if n_effective_total is None else float(n_effective_total)
+        n_weighted = float(nt / nobs) * float(np.sum(pos))
+    reml_ind = 1.0 if bool(reml) else 0.0
+    den = float(n_weighted) - gamma * reml_ind * float(mp)
     if not np.isfinite(den) or den <= 0.0:
         return float("nan")
     num = float(dev) + float(penalty_P)

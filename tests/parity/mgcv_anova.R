@@ -15,6 +15,28 @@ normalize_formula_text <- function(x) {
   x
 }
 
+coerce_formula_object <- function(txt) {
+  formula_raw <- NULL
+  if (grepl("^\\s*(c|list)\\s*\\(", txt)) {
+    formula_raw <- eval(parse(text = txt))
+  }
+  if (is.null(formula_raw)) {
+    return(as.formula(txt))
+  }
+  if (is.character(formula_raw)) {
+    return(lapply(as.list(formula_raw), as.formula))
+  }
+  if (inherits(formula_raw, "formula")) {
+    return(list(formula_raw))
+  }
+  if (is.list(formula_raw)) {
+    return(lapply(formula_raw, function(f) {
+      if (inherits(f, "formula")) f else as.formula(f)
+    }))
+  }
+  stop("Unsupported formula specification.")
+}
+
 csv_path <- args[[1]]
 output_json <- args[[2]]
 formulas_json <- args[[3]]
@@ -54,6 +76,11 @@ family_obj <- switch(
     theta <- if (is.null(family_param)) 1.0 else as.numeric(family_param)
     mgcv::nb(theta = theta, link = "log")
   },
+  gaulss = mgcv::gaulss(),
+  gammals = mgcv::gammals(),
+  ziplss = mgcv::ziplss(),
+  gevlss = mgcv::gevlss(),
+  shash = mgcv::shash(),
   stop(sprintf("Unsupported family for parity snapshot: %s", family_name))
 )
 
@@ -61,7 +88,7 @@ fits <- lapply(
   formula_texts,
   function(txt) {
     gam(
-      formula = as.formula(txt),
+      formula = coerce_formula_object(txt),
       data = data,
       family = family_obj,
       method = fit_method,

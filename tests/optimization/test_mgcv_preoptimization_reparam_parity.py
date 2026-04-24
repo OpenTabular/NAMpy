@@ -45,6 +45,7 @@ def _normalize_family_name(family):
 
 
 def test_reparam_case_matrix_covers_requested_surface():
+    """Verify that reparam case matrix covers requested surface."""
     ids = {case[0] for case in REPARAM_CASES}
     assert ids == REPARAM_CASE_IDS
 
@@ -251,6 +252,7 @@ def test_preoptimization_reparameterization_matches_mgcv(
     select,
     _compare_design_space_only,
 ):
+    """Verify that preoptimization reparameterization matches mgcv."""
     del case_id, _compare_design_space_only
     data = data_factory()
     expected = _run_mgcv_preoptimization_reparam(

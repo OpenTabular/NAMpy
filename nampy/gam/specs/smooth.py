@@ -9,7 +9,7 @@ class BaseSmoothSpec:
     special: str
     bs: Any
     k: Any = -1
-    fx: bool = False
+    fx: Any = False
     select: bool = False
     sp: Any = None
     knots: Any = None
@@ -108,6 +108,8 @@ class TensorProductSmoothSpec(BaseSmoothSpec):
     special: str = "te"
     bs: Any = "cr"
     m: Any = None
+    xt: Any = None
+    d: Any = None
 
 
 @dataclass(frozen=True)
@@ -115,7 +117,9 @@ class TensorInteractionSmoothSpec(BaseSmoothSpec):
     special: str = "ti"
     bs: Any = "cr"
     m: Any = None
+    xt: Any = None
     mc: Any = None
+    d: Any = None
 
 
 @dataclass(frozen=True)
@@ -123,8 +127,10 @@ class TensorANOVASmoothSpec(BaseSmoothSpec):
     special: str = "t2"
     bs: Any = "cr"
     m: Any = None
+    xt: Any = None
     full: bool = False
     ord: Any = None
+    d: Any = None
 
 
 SmoothSpec = Union[

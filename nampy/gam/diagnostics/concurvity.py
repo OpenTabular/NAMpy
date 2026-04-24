@@ -7,40 +7,62 @@ from .._model_state import (
     _coef,
     _coef_column_offset,
     _coef_full,
-    _design_matrix,
+    _compiled_model,
     _fit_intercept,
     _intercept,
     _require_fitted,
     _term_blocks_seq,
 )
+from ..predict.linear_predictor_matrix import build_lpmatrix
 
 
-def _term_blocks_for_concurvity(model, X):
+def _term_indices_for_concurvity(model, n_coef: int):
     offset = _coef_column_offset(model)
-    q = int(X.shape[1])
-    covered = np.zeros(q, dtype=bool)
+    compiled_model = _compiled_model(model)
+    reduced_to_full = (
+        None
+        if compiled_model is None
+        else getattr(compiled_model, "coef_reduced_to_full_idx", None)
+    )
+    reduced_to_full = (
+        None
+        if reduced_to_full is None
+        else np.asarray(reduced_to_full, dtype=int).ravel()
+    )
     blocks = []
+    smooth_starts = []
 
     for tb in _term_blocks_seq(model):
         if str(getattr(tb, "term_type", "")) == "parametric":
             continue
-        idx = np.arange(
-            int(tb.coef_slice.start) + offset,
-            int(tb.coef_slice.stop) + offset,
-            dtype=int,
-        )
+        if reduced_to_full is not None:
+            idx = reduced_to_full[
+                int(tb.coef_slice.start) : int(tb.coef_slice.stop)
+            ]
+        else:
+            idx = np.arange(
+                int(tb.coef_slice.start) + offset,
+                int(tb.coef_slice.stop) + offset,
+                dtype=int,
+            )
+        idx = np.asarray(idx, dtype=int).ravel()
+        idx = idx[(idx >= 0) & (idx < int(n_coef))]
         if idx.size == 0:
             continue
-        covered[idx] = True
+        smooth_starts.append(int(np.min(idx)))
         blocks.append((str(tb.label), idx))
-
-    para_idx = np.flatnonzero(~covered)
-    if para_idx.size > 0:
-        blocks.insert(0, ("para", para_idx))
 
     if len(blocks) == 0:
         raise ValueError("No smooth or parametric components available for concurvity.")
-    return blocks, para_idx
+
+    # mgcv/R/mgcv.r::concurvity labels only the contiguous parametric block
+    # before the first smooth. Later parametric columns remain in the full
+    # "rest of model" matrix, but are not pairwise concurvity components.
+    first_smooth = min(smooth_starts)
+    if first_smooth > 0:
+        blocks.insert(0, ("para", np.arange(first_smooth, dtype=int)))
+
+    return blocks
 
 
 def _full_coef_vector(model) -> np.ndarray:
@@ -56,63 +78,66 @@ def _full_coef_vector(model) -> np.ndarray:
 
 
 def _qr_R(X: np.ndarray) -> np.ndarray:
-    return np.linalg.qr(np.asarray(X, dtype=np.float64), mode="reduced")[1]
+    X = np.asarray(X, dtype=np.float64)
+    if X.ndim != 2:
+        raise ValueError("Concurvity QR input must be two-dimensional.")
+    if X.shape[1] == 0:
+        return np.zeros((0, 0), dtype=np.float64)
+    return np.linalg.qr(X, mode="reduced")[1]
 
 
-def _residualize_against(A: np.ndarray, B: np.ndarray) -> np.ndarray:
-    A = np.asarray(A, dtype=np.float64)
-    B = np.asarray(B, dtype=np.float64)
-    if A.size == 0 or B.size == 0:
-        return B
-    coef, *_ = np.linalg.lstsq(A, B, rcond=None)
-    return B - A @ coef
+def _concurvity_measures(
+    X_left: np.ndarray, X_right: np.ndarray, beta_right: np.ndarray
+) -> tuple[float, float, float]:
+    r = int(X_left.shape[1])
+    if r == 0:
+        return 0.0, 0.0, 0.0
+
+    R = _qr_R(np.column_stack([X_left, X_right]))[:, r:]
+    Rt = _qr_R(R)
+    if Rt.size == 0:
+        return 0.0, 0.0, 0.0
+
+    leading = np.asarray(R[:r, :], dtype=np.float64)
+    F = solve_triangular(Rt.T, leading.T, lower=True)
+    worst = float(np.linalg.svd(F, compute_uv=False)[0] ** 2)
+
+    beta_right = np.asarray(beta_right, dtype=np.float64).ravel()
+    denom = float(np.sum((Rt @ beta_right) ** 2))
+    observed = float(np.sum((leading @ beta_right) ** 2) / denom)
+
+    total = float(np.sum(R**2))
+    estimate = float(np.sum(leading**2) / total)
+    return worst, observed, estimate
 
 
 def concurvity(model, full: bool = True):
     _require_fitted(model)
 
-    Z = np.asarray(_design_matrix(model), dtype=np.float64)
-    if _fit_intercept(model):
-        X = np.column_stack([np.ones(Z.shape[0], dtype=np.float64), Z])
-    else:
-        X = Z
+    X = np.asarray(build_lpmatrix(model), dtype=np.float64)
     X = X[np.sum(np.isnan(X), axis=1) == 0, :]
-    blocks, para_idx = _term_blocks_for_concurvity(model, X)
+    X = _qr_R(X)
     beta_full = _full_coef_vector(model)
-    para_X = X[:, para_idx] if para_idx.size > 0 else None
+    if beta_full.size != X.shape[1]:
+        raise ValueError(
+            "Concurvity requires coefficient and design columns to align exactly."
+        )
 
-    block_mats = []
-    for lab, idx in blocks:
-        Xi = X[:, idx]
-        if (
-            lab != "para"
-            and str(lab).startswith("t2(")
-            and para_X is not None
-            and para_X.size > 0
-        ):
-            Xi = _residualize_against(para_X, Xi)
-        block_mats.append(Xi)
-
-    labels = [lab for lab, _ in blocks]
-    n_terms = len(blocks)
+    blocks = _term_indices_for_concurvity(model, X.shape[1])
+    labels = [lab for lab, _idx in blocks]
+    n_terms = len(labels)
     measure_names = ("worst", "observed", "estimate")
 
     if full:
         out = np.zeros((3, n_terms), dtype=np.float64)
-        for i, (_lab_i, idx_i) in enumerate(blocks):
-            Xi = np.column_stack([blk for j, blk in enumerate(block_mats) if j != i])
-            Xj = block_mats[i]
-            r = int(Xi.shape[1])
-            R = _qr_R(np.column_stack([Xi, Xj]))[:, r:]
-            Rt = _qr_R(R)
-            F = solve_triangular(Rt.T, R[:r, :].T, lower=True)
-            out[0, i] = float(np.linalg.svd(F, compute_uv=False)[0] ** 2)
+        for i in range(n_terms):
+            idx_i = np.asarray(blocks[i][1], dtype=int)
+            keep = np.ones(X.shape[1], dtype=bool)
+            keep[idx_i] = False
+            Xi = X[:, keep]
+            Xj = X[:, idx_i]
             beta = beta_full[idx_i]
-            denom = float(np.sum((Rt @ beta) ** 2))
-            out[1, i] = (
-                0.0 if denom <= 0.0 else float(np.sum((R[:r, :] @ beta) ** 2) / denom)
-            )
-            out[2, i] = float(np.sum(R[:r, :] ** 2) / np.sum(R**2))
+            out[:, i] = _concurvity_measures(Xi, Xj, beta)
         return {
             "measure_names": measure_names,
             "labels": labels,
@@ -120,23 +145,20 @@ def concurvity(model, full: bool = True):
         }
 
     mats = [np.ones((n_terms, n_terms), dtype=np.float64) for _ in range(3)]
-    for i, (_lab_i, _idx_i) in enumerate(blocks):
-        Xi = block_mats[i]
-        r = int(Xi.shape[1])
-        for j, (_lab_j, idx_j) in enumerate(blocks):
+    for i in range(n_terms):
+        idx_i = np.asarray(blocks[i][1], dtype=int)
+        Xi = X[:, idx_i]
+        for j in range(n_terms):
             if i == j:
                 continue
-            Xj = block_mats[j]
-            R = _qr_R(np.column_stack([Xi, Xj]))[:, r:]
-            Rt = _qr_R(R)
-            F = solve_triangular(Rt.T, R[:r, :].T, lower=True)
-            mats[0][i, j] = float(np.linalg.svd(F, compute_uv=False)[0] ** 2)
+            idx_j = np.asarray(blocks[j][1], dtype=int)
+            Xj = X[:, idx_j]
             beta = beta_full[idx_j]
-            denom = float(np.sum((Rt @ beta) ** 2))
-            mats[1][i, j] = (
-                0.0 if denom <= 0.0 else float(np.sum((R[:r, :] @ beta) ** 2) / denom)
+            mats[0][i, j], mats[1][i, j], mats[2][i, j] = _concurvity_measures(
+                Xi,
+                Xj,
+                beta,
             )
-            mats[2][i, j] = float(np.sum(R[:r, :] ** 2) / np.sum(R**2))
 
     return {
         "measure_names": measure_names,

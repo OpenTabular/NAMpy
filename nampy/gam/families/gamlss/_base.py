@@ -3,7 +3,10 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+from scipy.linalg import qr as scipy_qr
+from scipy.linalg import solve_triangular
 
+from ...linalg import upper_triangular_rrank
 from ..family_base import GeneralFamily
 
 
@@ -31,6 +34,109 @@ class _IdentityLinkInfo:
         return np.zeros(np.asarray(mu).shape, dtype=np.float64)
 
 
+def _qr_coef_pivoted(X: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Mirror ``qr.coef(qr(X), y)`` with pivoted QR."""
+    X = np.asarray(X, dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64)
+    ncol = int(X.shape[1])
+    coef = np.zeros(ncol, dtype=np.float64)
+    if ncol == 0:
+        return coef
+
+    Q, R, piv = scipy_qr(
+        X,
+        mode="economic",
+        pivoting=True,
+        check_finite=False,
+    )
+    rank = upper_triangular_rrank(R)
+    if rank > 0:
+        qty = np.asarray(Q.T @ y, dtype=np.float64)
+        sol = solve_triangular(
+            R[:rank, :rank],
+            qty[:rank],
+            lower=False,
+            check_finite=False,
+        )
+        coef[np.asarray(piv[:rank], dtype=int)] = sol
+    coef[~np.isfinite(coef)] = 0.0
+    return coef
+
+
+def _pen_reg(X: np.ndarray, E: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Port of ``mgcv/R/gamlss.r::pen.reg``."""
+    X = np.asarray(X, dtype=np.float64)
+    E = np.asarray(E, dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64)
+
+    def _r_default_matrix_norm(matrix: np.ndarray) -> float:
+        matrix = np.asarray(matrix, dtype=np.float64)
+        if matrix.size == 0:
+            return 0.0
+        if matrix.ndim == 1:
+            return float(np.sum(np.abs(matrix)))
+        return float(np.max(np.sum(np.abs(matrix), axis=0)))
+
+    if float(np.sum(np.abs(E))) == 0.0:
+        return _qr_coef_pivoted(X, y)
+
+    Qx, R_piv, piv = scipy_qr(
+        X,
+        mode="economic",
+        pivoting=True,
+        check_finite=False,
+    )
+    r = int(R_piv.shape[1])
+    rr = upper_triangular_rrank(R_piv)
+
+    R = np.zeros_like(R_piv)
+    R[:, np.asarray(piv, dtype=int)] = R_piv
+    Qy = np.asarray(Qx.T @ y, dtype=np.float64)[:r]
+
+    norm_R = _r_default_matrix_norm(R)
+    norm_E = _r_default_matrix_norm(E)
+    if not np.isfinite(norm_R) or norm_R <= 0.0:
+        return np.zeros(r, dtype=np.float64)
+    if not np.isfinite(norm_E) or norm_E <= 0.0:
+        return _qr_coef_pivoted(X, y)
+
+    k = 0.01 * norm_R / norm_E
+
+    def _qrr_stats(k_scale: float):
+        A = np.vstack([R, E * float(k_scale)])
+        Q, Rq, pivq = scipy_qr(
+            A,
+            mode="economic",
+            pivoting=True,
+            check_finite=False,
+        )
+        edf = float(np.sum(np.asarray(Q[:r, :], dtype=np.float64) ** 2))
+        rank_q = upper_triangular_rrank(Rq)
+        return A, Q, Rq, pivq, edf, rank_q
+
+    A, Qq, Rq, pivq, edf, rank_q = _qrr_stats(k)
+    re = (
+        min(int(np.sum(np.sum(np.abs(E), axis=0) != 0.0)), int(E.shape[0]))
+        - rank_q
+        + rr
+    )
+
+    while edf > rr - 0.1 * re:
+        k *= 10.0
+        A, Qq, Rq, pivq, edf, rank_q = _qrr_stats(k)
+
+    while edf < 0.85 * rr:
+        k /= 5.0
+        A, Qq, Rq, pivq, edf, rank_q = _qrr_stats(k)
+
+    coef = _qr_coef_pivoted(
+        A,
+        np.concatenate([Qy, np.zeros(E.shape[0], dtype=np.float64)]),
+    )
+    coef[~np.isfinite(coef)] = 0.0
+    return coef
+
+
 class GamlssFamily(GeneralFamily):
     """
     Base class for multi-predictor GAMLSS families.
@@ -54,6 +160,8 @@ class GamlssFamily(GeneralFamily):
     supports_laml = True
     supports_ml = True
     supports_reml = True
+    supports_ncv = True
+    supports_qncv = True
     supports_analytic_outer_derivatives = False
     supports_analytic_outer_gradient = False
     supports_analytic_outer_hessian = False
@@ -91,6 +199,34 @@ class GamlssFamily(GeneralFamily):
     ) -> np.ndarray:
         raise NotImplementedError
 
+    def residuals(
+        self,
+        y: np.ndarray,
+        fitted: np.ndarray,
+        rtype: str = "deviance",
+        *,
+        eta: np.ndarray | None = None,
+        **kwargs,
+    ) -> np.ndarray:
+        del y, fitted, rtype, eta, kwargs
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must implement mgcv family-specific residuals."
+        )
+
+    def influence(
+        self,
+        y: np.ndarray,
+        fitted: np.ndarray,
+        rtype: str = "deviance",
+        *,
+        eta: np.ndarray | None = None,
+        **kwargs,
+    ) -> np.ndarray:
+        del y, fitted, rtype, eta, kwargs
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement an mgcv-defined influence diagnostic."
+        )
+
     def _stacked_eta(
         self,
         X: np.ndarray,
@@ -114,6 +250,38 @@ class GamlssFamily(GeneralFamily):
             if eta_cols
             else np.empty((X.shape[0], 0), dtype=np.float64)
         )
+
+    def _offset_list(self, offset: Any = None) -> list[Any]:
+        if offset is None:
+            return [None] * int(self.nlp)
+        if isinstance(offset, (list, tuple)):
+            out = list(offset)
+        else:
+            out = [offset]
+        if len(out) < int(self.nlp):
+            out = out + [None] * (int(self.nlp) - len(out))
+        return out
+
+    def _eta_matrix_from_inputs(
+        self,
+        X: np.ndarray,
+        jj: list[np.ndarray],
+        coef: np.ndarray,
+        *,
+        offset: Any = None,
+        eta: np.ndarray | None = None,
+    ) -> np.ndarray:
+        if eta is not None:
+            eta_arr = np.asarray(eta, dtype=np.float64)
+            if eta_arr.ndim == 1:
+                eta_arr = eta_arr[:, None]
+            if eta_arr.shape[1] != int(self.nlp):
+                raise ValueError(
+                    f"{self.name!r} expected eta with {int(self.nlp)} columns, "
+                    f"got {eta_arr.shape}."
+                )
+            return eta_arr
+        return self._stacked_eta(X, jj, coef, offset=offset)
 
     def _predict_response_from_eta(self, eta: np.ndarray) -> np.ndarray:
         eta = np.asarray(eta, dtype=np.float64)
@@ -162,9 +330,13 @@ class GamlssFamily(GeneralFamily):
 
         se_fit = np.zeros_like(fit, dtype=np.float64)
         for k in range(min(fit.shape[1], eta.shape[1], len(self.linfo))):
-            se_fit[:, k] = np.abs(
-                np.asarray(self.linfo[k].mu_eta(eta[:, k]), dtype=np.float64)
-            ) * np.sqrt(ve[:, k])
+            if getattr(self, "name", "") == "gammals" and k == 0:
+                deriv = np.abs(np.exp(eta[:, k]))
+            else:
+                deriv = np.abs(
+                    np.asarray(self.linfo[k].mu_eta(eta[:, k]), dtype=np.float64)
+                )
+            se_fit[:, k] = deriv * np.sqrt(ve[:, k])
         return fit, se_fit
 
     def predict_fitted(
@@ -196,7 +368,7 @@ class GamlssFamily(GeneralFamily):
                 if weights is None
                 else np.asarray(weights, dtype=np.float64)
             ),
-            offset=offset,
+            offset=None,
             deriv=1,
             sandwich=True,
         )

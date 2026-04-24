@@ -13,17 +13,25 @@ import numpy as np
 def _working_weight_derivatives_wrt_linpred(model, y, eta, mu, w):
     family = model.family
     fisher = bool(getattr(family, "canonical_link", False))
+    eta = np.asarray(eta, dtype=np.float64)
+    mu = np.asarray(mu, dtype=np.float64)
+    w = np.asarray(w, dtype=np.float64)
     if fisher:
-        d1 = np.asarray(
-            family.working_weight_derivative_eta(eta, y=y), dtype=np.float64
-        )
-        d2 = np.asarray(
-            family.working_weight_second_derivative_eta(eta, y=y), dtype=np.float64
-        )
-        return d1, d2
+        g1 = 1.0 / np.asarray(family.mu_eta(eta), dtype=np.float64)
+        V = np.asarray(family.variance(mu), dtype=np.float64)
+        V1 = np.asarray(family.dvar(mu), dtype=np.float64) / V
+        V2 = np.asarray(family.d2var(mu), dtype=np.float64) / V
+        g2 = np.asarray(family.d2link(mu), dtype=np.float64) / g1
+        g3 = np.asarray(family.d3link(mu), dtype=np.float64) / g1
+        with np.errstate(divide="ignore", invalid="ignore"):
+            a1 = -w * (V1 + 2.0 * g2) / g1
+            a2 = a1 * (a1 / w - g2 / g1) - w * (
+                V2 - V1 * V1 + 2.0 * g3 - 2.0 * g2 * g2
+            ) / (g1 * g1)
+        return a1, a2
 
-    g1 = 1.0 / np.clip(np.asarray(family.mu_eta(eta), dtype=np.float64), 1e-14, None)
-    V = np.clip(np.asarray(family.variance(mu), dtype=np.float64), 1e-14, None)
+    g1 = 1.0 / np.asarray(family.mu_eta(eta), dtype=np.float64)
+    V = np.asarray(family.variance(mu), dtype=np.float64)
     V1 = np.asarray(family.dvar(mu), dtype=np.float64) / V
     V2 = np.asarray(family.d2var(mu), dtype=np.float64) / V
     V3 = np.asarray(family.d3var(mu), dtype=np.float64) / V
@@ -31,7 +39,7 @@ def _working_weight_derivatives_wrt_linpred(model, y, eta, mu, w):
     g3 = np.asarray(family.d3link(mu), dtype=np.float64) / g1
     g4 = np.asarray(family.d4link(mu), dtype=np.float64) / g1
 
-    c = np.asarray(y, dtype=np.float64) - np.asarray(mu, dtype=np.float64)
+    c = np.asarray(y, dtype=np.float64) - mu
     alpha = 1.0 + c * (V1 + g2)
     eps_alpha = np.finfo(np.float64).eps
     alpha = alpha.copy()
@@ -52,12 +60,11 @@ def _working_weight_derivatives_wrt_linpred(model, y, eta, mu, w):
         )
     ) / alpha
 
-    w = np.asarray(w, dtype=np.float64)
-    a1 = w * (alpha1 - V1 - 2.0 * g2) / g1
-    w_safe = np.clip(w, 1e-14, None)
-    a2 = a1 * (a1 / w_safe - g2 / g1) - w * (
-        alpha1 * alpha1 - alpha2 + V2 - V1 * V1 + 2.0 * g3 - 2.0 * g2 * g2
-    ) / (g1 * g1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        a1 = w * (alpha1 - V1 - 2.0 * g2) / g1
+        a2 = a1 * (a1 / w - g2 / g1) - w * (
+            alpha1 * alpha1 - alpha2 + V2 - V1 * V1 + 2.0 * g3 - 2.0 * g2 * g2
+        ) / (g1 * g1)
     return a1, a2
 
 
@@ -160,8 +167,8 @@ def _hat_matrix_trace_and_sp_derivatives(A_inv, XtWX, dA, d2A_mat, dXtWX, d2XtWX
 
 def _deviance_coefficient_derivatives(model, y, eta, mu, weights, X):
     family = model.family
-    mu1 = np.clip(np.asarray(family.mu_eta(eta), dtype=np.float64), 1e-14, None)
-    V = np.clip(np.asarray(family.variance(mu), dtype=np.float64), 1e-14, None)
+    mu1 = np.asarray(family.mu_eta(eta), dtype=np.float64)
+    V = np.asarray(family.variance(mu), dtype=np.float64)
     V1 = np.asarray(family.dvar(mu), dtype=np.float64)
     g2 = np.asarray(family.d2link(mu), dtype=np.float64)
     mu2 = -g2 * (mu1**3)
@@ -202,15 +209,18 @@ def _deviance_chained_to_smoothing(dev_grad, dev_hess, dbeta_cols, d2beta_mat):
     return D1, D2
 
 
-def _pearson_coefficient_derivatives(model, y, eta, mu, X):
+def _pearson_coefficient_derivatives(model, y, eta, mu, X, weights=None):
     family = model.family
     y = np.asarray(y, dtype=np.float64)
     eta = np.asarray(eta, dtype=np.float64)
     mu = np.asarray(mu, dtype=np.float64)
     X = np.asarray(X, dtype=np.float64)
-    weights = np.ones_like(y, dtype=np.float64)
-    g1 = 1.0 / np.clip(np.asarray(family.mu_eta(eta), dtype=np.float64), 1e-14, None)
-    V = np.clip(np.asarray(family.variance(mu), dtype=np.float64), 1e-14, None)
+    if weights is None:
+        weights = np.ones_like(y, dtype=np.float64)
+    else:
+        weights = np.asarray(weights, dtype=np.float64)
+    g1 = 1.0 / np.asarray(family.mu_eta(eta), dtype=np.float64)
+    V = np.asarray(family.variance(mu), dtype=np.float64)
     V1 = np.asarray(family.dvar(mu), dtype=np.float64) / V
     V2 = np.asarray(family.d2var(mu), dtype=np.float64) / V
     g2 = np.asarray(family.d2link(mu), dtype=np.float64) / g1

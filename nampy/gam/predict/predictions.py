@@ -69,15 +69,12 @@ def _prediction_term_groups(model):
     return groups
 
 
-def _tensor_anova_full_mode(tb):
-    metadata = getattr(tb, "metadata", None) or {}
-    term_spec = metadata.get("term_spec", {}) if isinstance(metadata, dict) else {}
-    basis_options = (
-        term_spec.get("basis_options", {}) if isinstance(term_spec, dict) else {}
+def _prediction_parameterization_wider(tb) -> bool:
+    metadata = dict(getattr(tb, "metadata", {}) or {})
+    expose_raw = bool(metadata.get("expose_raw_prediction_basis", False))
+    return expose_raw and bool(
+        metadata.get("prediction_parameterization_wider", expose_raw)
     )
-    if isinstance(basis_options, dict) and "full" in basis_options:
-        return bool(basis_options["full"])
-    return ";full)" in str(getattr(tb, "basis_name", ""))
 
 
 def _fs_term_penalty_adjustment(model, tb):
@@ -124,24 +121,7 @@ def _term_contribution_shift(model, tb):
             return 0.0
         return -float(adjust @ beta_term)
 
-    if str(getattr(tb, "term_type", "")) != "tensor_anova":
-        return 0.0
-
-    # mgcv::predict.gam() splits term contributions after the prediction
-    # matrix has already absorbed any fitted centering (`Xcentre`) and the
-    # t2() smooth's null-block handling from
-    # smooth.construct.t2.smooth.spec(). Our tensor-ANOVA port needs an
-    # extra prediction-time mean correction for the default `full=FALSE`
-    # decomposition, but not for `full=TRUE`.
-    if _tensor_anova_full_mode(tb):
-        return 0.0
-
-    beta = np.asarray(_coef(model), dtype=np.float64)
-    train_term = (
-        np.asarray(_design_matrix(model), dtype=np.float64)[:, tb.coef_slice]
-        @ beta[tb.coef_slice]
-    )
-    return -float(np.mean(np.asarray(train_term, dtype=np.float64)))
+    return 0.0
 
 
 def _term_contribution(model, Z_new, tb):
@@ -154,8 +134,14 @@ def _term_contribution(model, Z_new, tb):
 
 
 def _term_has_iterms_mean_uncertainty(model, tb) -> bool:
-    if str(getattr(tb, "term_type", "")) == "parametric":
+    term_type = str(getattr(tb, "term_type", ""))
+    if term_type == "parametric":
         return False
+    if term_type == "factor_smooth_sz":
+        # mgcv::predict.gam() treats sz smooths as constrained terms with
+        # `nCons > 0`, so `type="iterms"` standard errors must carry the
+        # overall mean uncertainty rather than using strictly centered-term SEs.
+        return True
 
     metadata = dict(getattr(tb, "metadata", {}) or {})
     if bool(metadata.get("absorbed_sum_to_zero_constraint", False)):
@@ -183,7 +169,7 @@ def _term_has_iterms_mean_uncertainty(model, tb) -> bool:
             and runtime_by_is_constant is not None
             and not bool(runtime_by_is_constant)
         )
-        or str(getattr(tb, "term_type", "")) in {"tensor_interaction", "tensor_anova"}
+        or term_type in {"tensor_interaction", "tensor_anova"}
     ):
         return False
 
@@ -322,6 +308,14 @@ def predict_values(
         return Xp
 
     if type in {"terms", "iterms"}:
+        if any(
+            _prediction_parameterization_wider(tb)
+            for tb in _term_blocks_seq(model)
+        ):
+            raise NotImplementedError(
+                "type='terms' is not supported for models whose prediction "
+                "parameterization is wider than the fitted coefficient space."
+            )
         groups = _prediction_term_groups(model)
         terms = np.column_stack(
             [_group_term_contribution(model, Z_new, group) for group in groups]

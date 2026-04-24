@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from typing import Any
-
 import numpy as np
+from scipy.special import kv
 
 from ...fit.solvers.gamlss_utils import gamlss_etamu, gamlss_gH, trind_generator
-from ._base import GamlssFamily, _IdentityLinkInfo
+from ._base import GamlssFamily, _IdentityLinkInfo, _pen_reg, _qr_coef_pivoted
 
 
 class _LogEBLinkInfo:
@@ -24,37 +23,37 @@ class _LogEBLinkInfo:
 
     def linkfun(self, mu: np.ndarray) -> np.ndarray:
         mu = np.asarray(mu, dtype=np.float64)
-        return np.log(np.maximum(np.exp(mu) - self.b, 1e-300))
+        return np.log(np.exp(mu) - self.b)
 
     def linkinv(self, eta: np.ndarray) -> np.ndarray:
         eta = np.asarray(eta, dtype=np.float64)
-        return np.log(np.exp(np.minimum(eta, 500.0)) + self.b)
+        return np.log(np.exp(eta) + self.b)
 
     def mu_eta(self, eta: np.ndarray) -> np.ndarray:
         eta = np.asarray(eta, dtype=np.float64)
-        ee = np.exp(np.minimum(eta, 500.0))
+        ee = np.exp(eta)
         return ee / (ee + self.b)
 
     def d2link(self, mu: np.ndarray) -> np.ndarray:
         # d^2 eta / d mu^2 = fr*(1-fr) where fr = exp(mu)/(exp(mu)-b)
         mu = np.asarray(mu, dtype=np.float64)
-        em = np.exp(np.minimum(mu, 500.0))
-        fr = em / np.maximum(em - self.b, 1e-300)
+        em = np.exp(mu)
+        fr = em / (em - self.b)
         return fr * (1.0 - fr)
 
     def d3link(self, mu: np.ndarray) -> np.ndarray:
         # d^3 eta / d mu^3 = oo - 2*oo*fr  (oo = fr*(1-fr))
         mu = np.asarray(mu, dtype=np.float64)
-        em = np.exp(np.minimum(mu, 500.0))
-        fr = em / np.maximum(em - self.b, 1e-300)
+        em = np.exp(mu)
+        fr = em / (em - self.b)
         oo = fr * (1.0 - fr)
         return oo - 2.0 * oo * fr
 
     def d4link(self, mu: np.ndarray) -> np.ndarray:
         # -b*em*(b^2 + 4*b*em + em^2) / (em - b)^4
         mu = np.asarray(mu, dtype=np.float64)
-        em = np.exp(np.minimum(mu, 500.0))
-        denom = np.maximum(em - self.b, 1e-300) ** 4
+        em = np.exp(mu)
+        denom = (em - self.b) ** 4
         return -self.b * em * (self.b**2 + 4.0 * self.b * em + em**2) / denom
 
 
@@ -121,8 +120,8 @@ class ShashlssFamily(GamlssFamily):
         pos = ~neg
         if np.any(pos):
             xp = x[pos]
-            sq_num = np.sqrt(np.maximum(a * xp**2 + m1, 0.0))
-            sq_den = np.sqrt(xp**2 + m2)
+            sq_num = ShashlssFamily._sqrtX2pm(np.sqrt(a) * xp, m1)
+            sq_den = ShashlssFamily._sqrtX2pm(xp, m2)
             out[pos] = (sq_num / sq_den / sq_den) ** 2
         return out
 
@@ -145,14 +144,27 @@ class ShashlssFamily(GamlssFamily):
         y = np.asarray(y, dtype=np.float64)
         coef = np.asarray(coef, dtype=np.float64)
         sandwich = bool(kw.get("sandwich", False))
+        offsets = self._offset_list(offset)
+        if any(
+            off is not None and np.sum(np.abs(np.asarray(off, dtype=np.float64))) != 0.0
+            for off in offsets
+        ):
+            raise NotImplementedError("mgcv shash does not support non-zero offsets.")
         if weights is None:
             weights = np.ones(len(y), dtype=np.float64)
         weights = np.asarray(weights, dtype=np.float64)
 
-        eta = X[:, jj[0]] @ coef[jj[0]]
-        eta1 = X[:, jj[1]] @ coef[jj[1]]
-        eta2 = X[:, jj[2]] @ coef[jj[2]]
-        eta3 = X[:, jj[3]] @ coef[jj[3]]
+        eta_mat = self._eta_matrix_from_inputs(
+            X,
+            jj,
+            coef,
+            offset=offset,
+            eta=kw.get("eta", None),
+        )
+        eta = np.asarray(eta_mat[:, 0], dtype=np.float64)
+        eta1 = np.asarray(eta_mat[:, 1], dtype=np.float64)
+        eta2 = np.asarray(eta_mat[:, 2], dtype=np.float64)
+        eta3 = np.asarray(eta_mat[:, 3], dtype=np.float64)
 
         mu = self.linfo[0].linkinv(eta)
         tau = self.linfo[1].linkinv(eta1)
@@ -168,8 +180,7 @@ class ShashlssFamily(GamlssFamily):
         CC = np.cosh(dTasMe)
         SS = np.sinh(dTasMe)
 
-        # Numerically stable -0.5*log(1+z^2) = -0.5*log1p(z^2)
-        log1pz2 = np.log1p(z**2)
+        log1pz2 = np.log1p(np.exp(2.0 * np.log(np.abs(z))))
         l0 = (
             -tau
             - 0.5 * np.log(2.0 * np.pi)
@@ -178,10 +189,10 @@ class ShashlssFamily(GamlssFamily):
             - 0.5 * SS**2
             - self.phi_pen * phi**2
         )
-        l = float(np.sum(l0 * weights))
+        ll = float(np.sum(l0))
 
         if not deriv:
-            return {"l": l, "l0": l0}
+            return {"l": ll, "l0": l0}
 
         # ----------------------------------------------------------------
         # First derivatives w.r.t. distribution parameters (mu,tau,eps,phi)
@@ -1458,9 +1469,68 @@ class ShashlssFamily(GamlssFamily):
             D=D,
             sandwich=sandwich,
         )
-        ret["l"] = l
+        if bool(kw.get("ncv", False)):
+            ret["l1"] = np.asarray(de["l1"], dtype=np.float64)
+            ret["l2"] = np.asarray(de["l2"], dtype=np.float64)
+            ret["l3"] = de["l3"]
+        ret["l"] = ll
         ret["l0"] = l0
         return ret
+
+    def residuals(
+        self, y: np.ndarray, fitted: np.ndarray, rtype: str = "deviance"
+    ) -> np.ndarray:
+        """Residuals for shashlss.  Mirrors ``mgcv`` ``shash$residuals``."""
+        y = np.asarray(y, dtype=np.float64).ravel()
+        fitted = np.asarray(fitted, dtype=np.float64)
+        if fitted.ndim != 2:
+            raise ValueError(
+                "shashlss residuals expect fitted values with shape (n, 4)."
+            )
+        if fitted.shape[1] != 4:
+            raise ValueError("shashlss residuals expect fitted values with 4 columns.")
+        if y.size != fitted.shape[0]:
+            raise ValueError("y and fitted must have the same number of observations.")
+
+        mu = np.asarray(fitted[:, 0], dtype=np.float64)
+        tau = np.asarray(fitted[:, 1], dtype=np.float64)
+        eps = np.asarray(fitted[:, 2], dtype=np.float64)
+        phi = np.asarray(fitted[:, 3], dtype=np.float64)
+
+        sig = np.exp(tau)
+        delta = np.exp(phi)
+        delinv = np.asarray(
+            1.0 / np.maximum(delta, np.finfo(np.float64).eps), dtype=np.float64
+        )
+
+        # mgcv::shash$residuals uses R's besselK(x, nu), where x=0.25 and
+        # nu depends on delta. scipy.special.kv reverses that order to kv(v, z).
+        rsd = (
+            y
+            - mu
+            - sig
+            * delta
+            * np.exp(0.25)
+            * (kv((delinv + 1.0) / 2.0, 0.25) + kv((delinv - 1.0) / 2.0, 0.25))
+            / np.sqrt(8.0 * np.pi)
+        )
+
+        if rtype == "response":
+            return rsd
+        if rtype != "deviance":
+            raise ValueError("`rtype` must be 'deviance' or 'response' for shashlss")
+
+        z = (y - mu) / np.maximum(sig * delta, np.finfo(np.float64).eps)
+        d_tas_me = delta * np.arcsinh(z) - eps
+        cc = np.cosh(d_tas_me)
+        loglik = (
+            -tau
+            - 0.5 * np.log(2.0 * np.pi)
+            + np.log(np.maximum(cc, np.finfo(np.float64).eps))
+            - 0.5 * np.log1p(z**2)
+            - 0.5 * np.sinh(d_tas_me) ** 2
+        )
+        return np.sign(rsd) * np.sqrt(np.maximum(0.0, -2.0 * loglik))
 
     def initialize(
         self,
@@ -1476,45 +1546,56 @@ class ShashlssFamily(GamlssFamily):
         n = len(y)
         p = X.shape[1]
         start = np.zeros(p, dtype=np.float64)
+        use_unscaled = bool(E is not None and getattr(E, "use_unscaled", False))
 
         # 1) Location: regress y on X1
         X1 = X[:, jj[0]]
-        try:
-            start1 = np.linalg.lstsq(X1, y, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start1 = np.zeros(X1.shape[1], dtype=np.float64)
+        if E is not None and E.shape[1] > 0:
+            E1 = E[:, jj[0]]
+            if use_unscaled:
+                start1 = _qr_coef_pivoted(
+                    np.vstack([X1, E1]),
+                    np.concatenate([y, np.zeros(E1.shape[0], dtype=np.float64)]),
+                )
+            else:
+                start1 = _pen_reg(X1, E1, y)
+        else:
+            start1 = _qr_coef_pivoted(X1, y)
         start1 = np.where(np.isfinite(start1), start1, 0.0)
         start[jj[0]] = start1
 
         # 2) Log-scale: regress log|residuals| on X2
         mu_hat = X1 @ start1
         res = y - mu_hat
-        log_abs_res = np.log(np.maximum(np.abs(res), 1e-7))
+        log_abs_res = np.log(np.abs(res))
         X2 = X[:, jj[1]]
-        try:
-            start2 = np.linalg.lstsq(X2, log_abs_res, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start2 = np.zeros(X2.shape[1], dtype=np.float64)
+        if E is not None and E.shape[1] > 0:
+            E2 = E[:, jj[1]]
+            if use_unscaled:
+                start2 = _qr_coef_pivoted(
+                    np.vstack([X2, E2]),
+                    np.concatenate(
+                        [log_abs_res, np.zeros(E2.shape[0], dtype=np.float64)]
+                    ),
+                )
+            else:
+                start2 = _pen_reg(X2, E2, log_abs_res)
+        else:
+            start2 = _qr_coef_pivoted(X2, log_abs_res)
         start2 = np.where(np.isfinite(start2), start2, 0.0)
         start[jj[1]] = start2
 
         # 3) Skewness: initialize eps near 0 (linkfun(0) = 0 for identity)
         X3 = X[:, jj[2]]
         yt3 = np.zeros(n, dtype=np.float64)
-        try:
-            start3 = np.linalg.lstsq(X3, yt3, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start3 = np.zeros(X3.shape[1], dtype=np.float64)
+        start3 = _qr_coef_pivoted(X3, yt3)
         start3 = np.where(np.isfinite(start3), start3, 0.0)
         start[jj[2]] = start3
 
         # 4) Log-kurtosis: initialize phi near 0 (linkfun(0) = 0 for identity)
         X4 = X[:, jj[3]]
         yt4 = np.zeros(n, dtype=np.float64)
-        try:
-            start4 = np.linalg.lstsq(X4, yt4, rcond=None)[0]
-        except np.linalg.LinAlgError:
-            start4 = np.zeros(X4.shape[1], dtype=np.float64)
+        start4 = _qr_coef_pivoted(X4, yt4)
         start4 = np.where(np.isfinite(start4), start4, 0.0)
         start[jj[3]] = start4
 

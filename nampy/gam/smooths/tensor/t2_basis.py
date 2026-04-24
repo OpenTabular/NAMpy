@@ -1,5 +1,6 @@
 import numpy as np
 
+from ...constraints.transforms import null_space_basis_from_constraint_matrix
 from ..algebra import rowwise_kronecker
 
 
@@ -15,9 +16,9 @@ def _mean_constraint_matrix(B):
     B = np.asarray(B, dtype=np.float64)
     if B.shape[1] == 0:
         return np.eye(0, dtype=np.float64)
-    c = B.mean(axis=0).reshape(-1, 1)
-    q, _ = np.linalg.qr(c, mode="complete")
-    return q[:, 1:]
+    c = B.mean(axis=0).reshape(1, -1)
+    T, _ = null_space_basis_from_constraint_matrix(c, d=B.shape[1])
+    return np.asarray(T, dtype=np.float64)
 
 
 def _rowwise_product(A, B):
@@ -50,14 +51,16 @@ def _append_block(
             "label": str(label),
             "penalized": bool(penalized),
             "col_names": None if col_names is None else list(col_names),
-            "col_descs": None
-            if col_descs is None
-            else [list(col_desc) for col_desc in col_descs],
+            "col_descs": (
+                None
+                if col_descs is None
+                else [list(col_desc) for col_desc in col_descs]
+            ),
         }
     )
 
 
-def build_t2_basis_and_penalties(
+def build_tensor_anova_basis_and_penalties(
     marginal_decompositions,
     *,
     full=False,
@@ -132,7 +135,10 @@ def build_t2_basis_and_penalties(
                                 col_names=None,
                             )
                 else:
-                    prior_names = prior["col_names"] or [prior["label"]] * prior["matrix"].shape[1]
+                    prior_names = (
+                        prior["col_names"]
+                        or [prior["label"]] * prior["matrix"].shape[1]
+                    )
                     prior_col_descs = prior.get("col_descs")
                     for j, col_name in enumerate(prior_names):
                         A = _rowwise_product(prior["matrix"][:, [j]], Zi)
@@ -161,9 +167,10 @@ def build_t2_basis_and_penalties(
                     if prior["matrix"].shape[1] > 0:
                         A = _rowwise_product(prior["matrix"], Xi)
                         if A.shape[1] > 0:
-                            prior_names = prior["col_names"] or [prior["label"]] * prior["matrix"].shape[
-                                1
-                            ]
+                            prior_names = (
+                                prior["col_names"]
+                                or [prior["label"]] * prior["matrix"].shape[1]
+                            )
                             prior_col_descs = prior.get("col_descs")
                             if full:
                                 col_names = [
@@ -185,7 +192,8 @@ def build_t2_basis_and_penalties(
                             _append_block(
                                 blocks=blocks,
                                 block_matrix=A,
-                                desc=prior["desc"] + [{"kind": "null", "cols": list(range(Xi.shape[1]))}],
+                                desc=prior["desc"]
+                                + [{"kind": "null", "cols": list(range(Xi.shape[1]))}],
                                 order_value=prior["order"],
                                 label=f"{prior['label']}n",
                                 penalized=bool(False if full else True),
@@ -194,7 +202,10 @@ def build_t2_basis_and_penalties(
                             )
                 else:
                     # full=TRUE only: split Xi by columns for a penalized prior block.
-                    prior_names = prior["col_names"] or [prior["label"]] * prior["matrix"].shape[1]
+                    prior_names = (
+                        prior["col_names"]
+                        or [prior["label"]] * prior["matrix"].shape[1]
+                    )
                     for j, cnxi in enumerate(xnames):
                         A = prior["matrix"] * Xi[:, [j]]
                         if A.shape[1] > 0:
@@ -268,9 +279,11 @@ def build_t2_basis_and_penalties(
                     "combo": tuple(block["desc"]),
                     "order": int(block["order"]),
                     "label": str(block["label"]),
-                    "col_descs": None
-                    if block.get("col_descs") is None
-                    else tuple(tuple(desc) for desc in block["col_descs"]),
+                    "col_descs": (
+                        None
+                        if block.get("col_descs") is None
+                        else tuple(tuple(desc) for desc in block["col_descs"])
+                    ),
                 }
             )
             start += block_n_cols
@@ -282,7 +295,11 @@ def build_t2_basis_and_penalties(
     full_constraint_transform = None
     basis = basis_pre
 
-    if allnull_block is not None and allnull_block["matrix"].shape[1] > 0 and remove_constant_from_null_block:
+    if (
+        allnull_block is not None
+        and allnull_block["matrix"].shape[1] > 0
+        and remove_constant_from_null_block
+    ):
         C0 = _mean_constraint_matrix(allnull_block["matrix"])
         allnull_transform = C0
         n_pen = basis_pre.shape[1] - allnull_block["matrix"].shape[1]
@@ -313,9 +330,11 @@ def build_t2_basis_and_penalties(
                     "combo": tuple(allnull_block["desc"]),
                     "order": 0,
                     "label": "null",
-                    "col_descs": None
-                    if allnull_block.get("col_descs") is None
-                    else tuple(tuple(desc) for desc in allnull_block["col_descs"]),
+                    "col_descs": (
+                        None
+                        if allnull_block.get("col_descs") is None
+                        else tuple(tuple(desc) for desc in allnull_block["col_descs"])
+                    ),
                 }
             ]
             if allnull_block is not None
@@ -328,7 +347,7 @@ def build_t2_basis_and_penalties(
     }
 
 
-def materialize_t2_newdata(
+def materialize_tensor_anova_newdata(
     marginal_new_range_null, *, allnull_specs, allnull_transform, penalized_specs
 ):
     def materialize_single_column(desc):
@@ -354,8 +373,13 @@ def materialize_t2_newdata(
         col_descs = spec.get("col_descs")
         if col_descs is not None:
             cols = [materialize_single_column(desc) for desc in col_descs]
-            return np.column_stack(cols) if cols else np.empty(
-                (marginal_new_range_null[0]["B_range"].shape[0], 0), dtype=np.float64
+            return (
+                np.column_stack(cols)
+                if cols
+                else np.empty(
+                    (marginal_new_range_null[0]["B_range"].shape[0], 0),
+                    dtype=np.float64,
+                )
             )
         mats = []
         for dec, choice in zip(marginal_new_range_null, spec["combo"]):
@@ -368,7 +392,10 @@ def materialize_t2_newdata(
                 else:
                     cols = np.asarray(cols, dtype=np.int64)
                     if cols.size == 0:
-                        return np.empty((marginal_new_range_null[0]["B_range"].shape[0], 0), dtype=np.float64)
+                        return np.empty(
+                            (marginal_new_range_null[0]["B_range"].shape[0], 0),
+                            dtype=np.float64,
+                        )
                     mats.append(np.asarray(dec["B_null"], dtype=np.float64)[:, cols])
         return rowwise_kronecker(mats)
 
@@ -379,9 +406,7 @@ def materialize_t2_newdata(
             blocks.append(B)
 
     if len(allnull_specs) > 0:
-        B0 = np.column_stack(
-            [materialize_component(spec) for spec in allnull_specs]
-        )
+        B0 = np.column_stack([materialize_component(spec) for spec in allnull_specs])
         if allnull_transform is not None and B0.shape[1] > 0:
             B0 = B0 @ allnull_transform
         if B0.shape[1] > 0:
@@ -394,4 +419,4 @@ def materialize_t2_newdata(
     return np.column_stack(blocks)
 
 
-__all__ = ["build_t2_basis_and_penalties", "materialize_t2_newdata"]
+__all__ = ["build_tensor_anova_basis_and_penalties", "materialize_tensor_anova_newdata"]

@@ -6,7 +6,10 @@ from numpy.testing import assert_allclose
 
 from nampy.gam import GAM
 from nampy.gam.families.gamlss import gaulss
-from nampy.gam.fit.solvers.gam_fit5 import GamFit5Control, gam_fit5
+from nampy.gam.fit.solvers.general_newton_solver import (
+    GeneralNewtonControl,
+    solve_general_newton_fit,
+)
 
 # ---------------------------------------------------------------------------
 # 4. gaulss ll: log-lik value and derivatives
@@ -117,14 +120,25 @@ def test_gaulss_initialize():
     assert np.all(np.isfinite(start))
 
 
+def test_gaulss_supports_sqrt_mean_link():
+    """gaulss supports mgcv's sqrt link for the mean predictor."""
+    fam = gaulss(link=("sqrt", "logb"))
+    eta = np.array([0.4, 0.8, 1.2], dtype=np.float64)
+    mu = fam.linfo[0].linkinv(eta)
+
+    assert_allclose(mu, eta**2, rtol=1e-12, atol=1e-12)
+    assert_allclose(fam.linfo[0].mu_eta(eta), 2.0 * eta, rtol=1e-12, atol=1e-12)
+    assert fam.link_names == ("sqrt", "logb")
+
+
 # ---------------------------------------------------------------------------
-# 6. gam_fit5 end-to-end on simulated data
+# 6. solve_general_newton_fit end-to-end on simulated data
 # ---------------------------------------------------------------------------
 
 
 def test_gam_fit5_simple_convergence():
     """
-    gam_fit5 with gaulss should converge to sensible estimates on simulated data.
+    solve_general_newton_fit with gaulss should converge to sensible estimates on simulated data.
     Mean predictor recovers slope; precision predictor recovers constant.
     """
     rng = np.random.default_rng(99)
@@ -150,8 +164,8 @@ def test_gam_fit5_simple_convergence():
     lsp = np.array([], dtype=np.float64)
     S_blocks: list = []
 
-    ctl = GamFit5Control(maxit=100, epsilon=1e-8, trace=False)
-    fit = gam_fit5(
+    ctl = GeneralNewtonControl(maxit=100, epsilon=1e-8, trace=False)
+    fit = solve_general_newton_fit(
         X,
         y,
         jj,

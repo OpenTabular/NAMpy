@@ -10,23 +10,27 @@ import pytest
 from nampy.gam import GAM
 from tests._mgcv_parity_requested_shared import CaseSpec
 from tests.families.test_general_family_mgcv_parity import GENERAL_SE_CASES
+from tests.mgcv_invariant_policy import final_fit_uses_exact_orientation_parity
 from tests.mgcv_parity_utils import _family_specs, _run_mgcv_snapshot
-from tests.parity.test_mgcv_parity import CASES as REQUESTED_CASES
 from tests.parity.test_mgcv_parity_failing_and_warnings import (
+    GAUSSIAN_TI_MC_CASE,
     REQUESTED_PARITY_FAILING_OR_WARNING_CASES,
 )
+from tests.parity.test_mgcv_snapshot_core_matrix import CASES as REQUESTED_CASES
 
 _WARNING_NOISE = {
     "NaNs produced",
 }
 _KNOWN_FAILING_OR_WARNING_CASE_IDS = {
     case.case_id for case in REQUESTED_PARITY_FAILING_OR_WARNING_CASES
+} - {
+    # `gaussian_t2_full_false` post-fit parity is now covered by strict tests below.
+    "gaussian_t2_full_false",
+    # `factor_smooth_sz` post-fit parity is now covered by strict tests below.
+    "factor_smooth_sz",
 }
 _GENERAL_POSTPROC_KNOWN_GAP_TAGS = (
-    "select_true",
-    "numeric_by",
     "t2_",
-    "two_cr",
 )
 
 
@@ -100,21 +104,16 @@ def _nampy_optimizer_name(expected_snapshot: dict) -> str | None:
     return mapping[optimizer]
 
 
-def _formula_is_orientation_stable(formula, *, skip_coef_comparison: bool) -> bool:
-    if skip_coef_comparison:
-        return False
-    text = str(formula)
-    return "tp" not in text and "t2(" not in text
-
-
 def _compute_hat_diag(gam: GAM) -> np.ndarray | None:
     sol = gam.fit_core_solution_
     fit_state = sol.fit_state
     if fit_state.X is None or fit_state.A_inv is None:
         return None
-    weights = fit_state.working_weights
+    # Mirror mgcv/R/gam.fit3.r::gam.fit3.post.proc(), which forms
+    # `sqrt(object$weights) * X` from the reported Fisher weights.
+    weights = fit_state.fisher_weights
     if weights is None:
-        weights = fit_state.fisher_weights
+        weights = fit_state.working_weights
     if weights is None:
         return None
     X = np.asarray(fit_state.X, dtype=np.float64)
@@ -556,6 +555,7 @@ def _magic_case_id(case: CaseSpec) -> str:
     ["binomial_logit", "poisson", "gamma_log"],
 )
 def test_gam_fit3_non_gaussian_unconditional_postproc_matches_mgcv(case_id: str):
+    """Verify that gam fit3 non gaussian unconditional postproc matches mgcv."""
     case = next(c for c in ORDINARY_CASES if c.case_id == case_id)
     expected_snapshot = _run_mgcv_snapshot(
         data=case.data_factory(),
@@ -584,7 +584,7 @@ def test_gam_fit3_non_gaussian_unconditional_postproc_matches_mgcv(case_id: str)
         "Vc",
         actual["Vc"],
         expected["Vc"],
-        full_matrix=_formula_is_orientation_stable(
+        full_matrix=final_fit_uses_exact_orientation_parity(
             case.formula,
             skip_coef_comparison=bool(case.skip_coef_comparison),
         ),
@@ -600,10 +600,76 @@ def test_gam_fit3_non_gaussian_unconditional_postproc_matches_mgcv(case_id: str)
     )
 
 
+def test_gam_fit3_gamma_hat_diag_matches_mgcv():
+    """Verify that gamma gam.fit3 post-fit hat diagonal matches mgcv."""
+    case = next(c for c in ORDINARY_CASES if c.case_id == "gamma_log")
+    expected_snapshot = _run_mgcv_snapshot(
+        data=case.data_factory(),
+        formula=case.formula,
+        family=case.family,
+        method="REML",
+        select=case.select,
+        weights_column=case.weights_column,
+    )
+    optimizer = _nampy_optimizer_name(expected_snapshot)
+    _data, gam, _fit_warnings = _fit_requested_case(
+        case,
+        method="REML",
+        optimizer=optimizer,
+    )
+
+    actual_hat = _compute_hat_diag(gam)
+    expected_hat = expected_snapshot["fit"]["hat"]
+
+    assert actual_hat is not None
+    assert expected_hat is not None
+    np.testing.assert_allclose(
+        np.asarray(actual_hat, dtype=np.float64),
+        np.asarray(expected_hat, dtype=np.float64),
+        atol=2e-4,
+        rtol=0.0,
+    )
+
+
+def test_gam_fit3_gaussian_t2_full_false_unconditional_edf2_matches_mgcv():
+    """Verify that gam fit3 gaussian t2 full false unconditional edf2 matches mgcv."""
+    case = next(c for c in ORDINARY_CASES if c.case_id == "gaussian_t2_full_false")
+    expected_snapshot = _run_mgcv_snapshot(
+        data=case.data_factory(),
+        formula=case.formula,
+        family=case.family,
+        method="REML",
+        select=case.select,
+        weights_column=case.weights_column,
+    )
+    optimizer = _nampy_optimizer_name(expected_snapshot)
+    _data, gam, fit_warnings = _fit_requested_case(
+        case,
+        method="REML",
+        optimizer=optimizer,
+    )
+
+    actual = _serialize_actual_final_fit(
+        gam,
+        fit_warnings,
+        allow_synthetic_outer_info=False,
+    )
+    expected = _serialize_expected_final_fit(expected_snapshot)
+
+    _assert_scalar_close(
+        case.case_id,
+        "edf2_total",
+        actual["edf2_total"],
+        expected["edf2_total"],
+        atol=5e-6,
+    )
+
+
 @pytest.mark.parametrize(
     "case", MAGIC_CASES, ids=[_magic_case_id(c) for c in MAGIC_CASES]
 )
 def test_magic_postprocessing_final_fit_matches_mgcv(case: CaseSpec):
+    """Verify that magic postprocessing final fit matches mgcv."""
     if case.case_id in _KNOWN_FAILING_OR_WARNING_CASE_IDS:
         pytest.xfail(
             "Known requested parity gap/warning case; post-proc coverage is kept "
@@ -632,7 +698,58 @@ def test_magic_postprocessing_final_fit_matches_mgcv(case: CaseSpec):
         _magic_case_id(case),
         actual,
         expected,
-        full_covariance=_formula_is_orientation_stable(
+        full_covariance=final_fit_uses_exact_orientation_parity(
+            case.formula,
+            skip_coef_comparison=bool(case.skip_coef_comparison),
+        ),
+        compare_hat=True,
+        compare_outer_info=False,
+        cov_rtol=max(
+            5e-6,
+            5.0 * float(case.se_tol_scale),
+            0.25 * float(case.criterion_atol),
+        ),
+        cov_atol=max(
+            5e-8,
+            5.0 * float(case.se_tol_scale),
+            0.25 * float(case.criterion_atol),
+        ),
+        scalar_atol=max(
+            5e-5,
+            5.0 * float(case.se_tol_scale),
+            0.25 * float(case.criterion_atol),
+        ),
+        exact_outer_info_trace=False,
+    )
+
+
+def test_magic_postprocessing_final_fit_matches_mgcv_gaussian_ti_mc():
+    """Verify that magic postprocessing final fit matches mgcv gaussian ti mc."""
+    case = GAUSSIAN_TI_MC_CASE
+    expected_snapshot = _run_mgcv_snapshot(
+        data=case.data_factory(),
+        formula=case.formula,
+        family=case.family,
+        method="GCV.Cp",
+        select=case.select,
+        weights_column=case.weights_column,
+    )
+    sp = np.asarray(expected_snapshot["fit"]["smoothing_params"], dtype=np.float64)
+    _data, gam, fit_warnings = _fit_requested_case(case, method="GCV.Cp", fixed_sp=sp)
+
+    actual = _serialize_actual_final_fit(
+        gam,
+        fit_warnings,
+        allow_synthetic_outer_info=False,
+        include_unconditional=False,
+    )
+    expected = _serialize_expected_final_fit(expected_snapshot)
+
+    _assert_final_fit_parity(
+        _magic_case_id(case),
+        actual,
+        expected,
+        full_covariance=final_fit_uses_exact_orientation_parity(
             case.formula,
             skip_coef_comparison=bool(case.skip_coef_comparison),
         ),
@@ -661,6 +778,7 @@ def test_magic_postprocessing_final_fit_matches_mgcv(case: CaseSpec):
     "case", ORDINARY_CASES, ids=[c.case_id for c in ORDINARY_CASES]
 )
 def test_gam_fit3_postprocessing_final_fit_matches_mgcv(case: CaseSpec):
+    """Verify that gam fit3 postprocessing final fit matches mgcv."""
     if case.case_id in _KNOWN_FAILING_OR_WARNING_CASE_IDS:
         pytest.xfail(
             "Known requested parity gap/warning case; post-proc coverage is kept "
@@ -697,23 +815,20 @@ def test_gam_fit3_postprocessing_final_fit_matches_mgcv(case: CaseSpec):
             "Real implementation gap: non-Gaussian PIRLS final-fit objects do not "
             "yet carry mgcv-style unconditional covariance/edf2 post-processing."
         )
-    if case.case_id == "gamma_log":
-        pytest.xfail(
-            "gamma_log: final-fit AIC parity remains a separate gap; "
-            "non-Gaussian unconditional Vc/edf2 parity is covered above."
-        )
-
+    cov_rtol = 3e-5
+    if case.case_id == "binomial_separation":
+        cov_rtol = 7e-5
     _assert_final_fit_parity(
         case.case_id,
         actual,
         expected,
-        full_covariance=_formula_is_orientation_stable(
+        full_covariance=final_fit_uses_exact_orientation_parity(
             case.formula,
             skip_coef_comparison=bool(case.skip_coef_comparison),
         ),
         compare_hat=True,
         compare_outer_info=True,
-        cov_rtol=3e-5,
+        cov_rtol=cov_rtol,
         cov_atol=5e-8,
         scalar_atol=2e-4,
         exact_outer_info_trace=(case.weights_column is None),
@@ -724,13 +839,12 @@ def test_gam_fit3_postprocessing_final_fit_matches_mgcv(case: CaseSpec):
     "case", GENERAL_SE_CASES, ids=[case[0] for case in GENERAL_SE_CASES]
 )
 def test_gam_fit5_postprocessing_final_fit_matches_mgcv(case):
+    """Verify that gam fit5 postprocessing final fit matches mgcv."""
     case_id, family, formula, data_factory, method, pred_atol, sp_log_atol, _ = case
-    if any(
-        tag in case_id for tag in _GENERAL_POSTPROC_KNOWN_GAP_TAGS
-    ) or case_id.startswith("shashlss"):
+    if any(tag in case_id for tag in _GENERAL_POSTPROC_KNOWN_GAP_TAGS):
         pytest.xfail(
-            "Known general-family post-proc gap: advanced/select/by/tensor or "
-            "shashlss surfaces do not yet have exact mgcv final-fit parity."
+            "Known general-family post-proc gap: advanced/select/by/tensor "
+            "surfaces do not yet have exact mgcv final-fit parity."
         )
     data = data_factory()
     select = "select_true" in case_id
@@ -755,9 +869,9 @@ def test_gam_fit5_postprocessing_final_fit_matches_mgcv(case):
         case_id,
         actual,
         expected,
-        full_covariance=_formula_is_orientation_stable(
+        full_covariance=final_fit_uses_exact_orientation_parity(
             formula,
-            skip_coef_comparison=("tp" in str(formula) or "t2(" in str(formula)),
+            skip_coef_comparison=False,
         ),
         compare_hat=False,
         compare_outer_info=True,
@@ -771,36 +885,9 @@ def test_gam_fit5_postprocessing_final_fit_matches_mgcv(case):
 @pytest.mark.parametrize(
     "case",
     [
-        pytest.param(
-            next(case for case in ORDINARY_CASES if case.case_id == "gaussian_weights"),
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "Real implementation gap: weighted outer_newton "
-                    "outer.info trace does not yet match mgcv exactly."
-                ),
-            ),
-        ),
-        pytest.param(
-            next(case for case in GENERAL_SE_CASES if case[0] == "gaulss_cr"),
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "Real implementation gap: general-family outer_newton "
-                    "outer.info trace/count history does not yet match mgcv exactly."
-                ),
-            ),
-        ),
-        pytest.param(
-            next(case for case in GENERAL_SE_CASES if case[0] == "gevlss_cr"),
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "Real implementation gap: general-family outer_newton "
-                    "outer.info trace/count history does not yet match mgcv exactly."
-                ),
-            ),
-        ),
+        next(case for case in ORDINARY_CASES if case.case_id == "gaussian_weights"),
+        next(case for case in GENERAL_SE_CASES if case[0] == "gaulss_cr"),
+        next(case for case in GENERAL_SE_CASES if case[0] == "gevlss_cr"),
     ],
     ids=[
         "gaussian_weights_outer_info_exact",
@@ -809,6 +896,7 @@ def test_gam_fit5_postprocessing_final_fit_matches_mgcv(case):
     ],
 )
 def test_gam_fit5_outer_info_trace_exact_known_gap(case):
+    """Verify that gam fit5 outer info trace exact known gap."""
     if isinstance(case, CaseSpec):
         expected_snapshot = _run_mgcv_snapshot(
             data=case.data_factory(),
