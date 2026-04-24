@@ -247,6 +247,7 @@ def _normalize_mgcv_term_label(label):
     text = str(label)
     text = re.sub(r",\s*bs\s*=\s*(\"[^\"]*\"|'[^']*'|[^,)]+)", "", text)
     text = re.sub(r",\s*k\s*=\s*[^,)]+", "", text)
+    text = re.sub(r",\s*id\s*=\s*(\"[^\"]*\"|'[^']*'|[^,)]+)", "", text)
     text = re.sub(
         r"^([a-zA-Z0-9_]+\([^)]*?)(?:,\s*by\s*=\s*([^)]+))\)$",
         lambda m: f"{m.group(1)}):{m.group(2).strip()}",
@@ -411,7 +412,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
         response = core.predict(X=None, type="response")
         link = core.predict(X=None, type="link")
         terms = core.predict(X=None, type="terms")
-        lpmatrix = core.lpmatrix(core.X_)
+        lpmatrix = core.predict(X=None, type="lpmatrix")
         _, se_response = core.predict(X=None, type="response", return_se=True)
         _, se_link = core.predict(X=None, type="link", return_se=True)
     else:
@@ -653,26 +654,21 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
     except Exception:
         diagnostics["one_se_rule"] = None
 
-    try:
-        diagnostics["residuals"] = {
-            "response": np.asarray(
-                predict_api.residuals(type="response"), dtype=np.float64
-            ).tolist(),
-            "working": np.asarray(
-                predict_api.residuals(type="working"), dtype=np.float64
-            ).tolist(),
-            "pearson": np.asarray(
-                predict_api.residuals(type="pearson"), dtype=np.float64
-            ).tolist(),
-            "scaled_pearson": np.asarray(
-                predict_api.residuals(type="scaled.pearson"), dtype=np.float64
-            ).tolist(),
-            "deviance": np.asarray(
-                predict_api.residuals(type="deviance"), dtype=np.float64
-            ).tolist(),
-        }
-    except Exception:
-        diagnostics["residuals"] = None
+    residuals_block = {}
+    for key, resid_type in (
+        ("response", "response"),
+        ("working", "working"),
+        ("pearson", "pearson"),
+        ("scaled_pearson", "scaled.pearson"),
+        ("deviance", "deviance"),
+    ):
+        try:
+            residuals_block[key] = np.asarray(
+                predict_api.residuals(type=resid_type), dtype=np.float64
+            ).tolist()
+        except Exception:
+            residuals_block[key] = None
+    diagnostics["residuals"] = residuals_block
 
     try:
         deviance_residuals = np.asarray(
@@ -736,10 +732,10 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
         "predictions": {
             "response": _as_pred_or_scalar_array(response),
             "link": _as_pred_or_scalar_array(link),
-            "terms": np.asarray(terms, dtype=np.float64).tolist(),
-            "lpmatrix": np.asarray(lpmatrix, dtype=np.float64).tolist(),
-            "se_response": np.asarray(se_response, dtype=np.float64).tolist(),
-            "se_link": np.asarray(se_link, dtype=np.float64).tolist(),
+            "terms": _as_pred_or_scalar_array(terms),
+            "lpmatrix": _as_pred_or_scalar_array(lpmatrix),
+            "se_response": _as_pred_or_scalar_array(se_response),
+            "se_link": _as_pred_or_scalar_array(se_link),
         },
         "parity": {
             "criterion_view": parity_view,

@@ -52,6 +52,10 @@ def make_tensor_term(model, spec, *, knots=None):
         )
 
     kind = str(spec.get("kind", "te")).lower()
+    if kind == "t2" and ("fx" in spec or "fixed" in spec):
+        raise NotImplementedError(
+            "t2() does not support fx/fixed in mgcv; remove the argument."
+        )
     k = spec.get("k", model.k)
     basis = spec.get("basis", model.basis)
     label = spec.get("label", f"{kind}({', '.join(map(str, features))})")

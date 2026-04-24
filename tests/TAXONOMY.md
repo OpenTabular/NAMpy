@@ -5,7 +5,7 @@ The GAM test suite is intentionally overlapping. The goal is fast subset runs an
 ## Directory Layout
 - `tests/parity/`: end-to-end mgcv parity matrix, output parity, additional scenarios, known gaps, and isolated failing/warning slices
 - `tests/smooths/`: smooth constructor, basis, penalty, `pc=`, linked-`id=`, and linked-`id` trace coverage
-- `tests/optimization/`: score-history traces, full outer optimization objects, inner traces, score-gamma checks, backend selection, and Gaussian smoothness post-processing
+- `tests/optimization/`: score-history traces, full outer optimization objects, lifecycle trace-plus-final-fit parity, inner traces, score-gamma checks, backend selection, and Gaussian smoothness post-processing
 - `tests/families/`: general-family and GAMLSS-specific derivative/value coverage
 - `tests/diagnostics/`: diagnostics such as `k_check`
 - `tests/regressions/`: targeted regression tests for previously fixed bugs and test-suite structure contracts

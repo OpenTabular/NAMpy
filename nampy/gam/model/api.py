@@ -70,7 +70,7 @@ class GAM:
             self.hparams.get("smoothing_method", "fixed")
         ).lower()
         self.smoothing_optimizer = str(
-            self.hparams.get("smoothing_optimizer", "lbfgsb")
+            self.hparams.get("smoothing_optimizer", "outer_newton")
         ).lower()
         self.sp_log_bounds = tuple(self.hparams.get("sp_log_bounds", (-80.0, 20.0)))
         self.score_gamma = float(self.hparams.get("score_gamma", 1.0))
@@ -314,7 +314,7 @@ class GAM:
         self.side_condition_reports_ = None
         self._edf_by_term_fit_ = None
 
-        from ..engine import fit_model_core
+        from ..fit import fit_model_core
 
         fit_model_core(
             X=X_np,
@@ -349,7 +349,7 @@ class GAM:
         )
 
     def _select_cov(self, cov):
-        from ..engine import select_covariance_matrix
+        from ..fit import select_covariance_matrix
 
         return select_covariance_matrix(self, cov=cov)
 
@@ -881,7 +881,7 @@ class GAM:
         n_obs = float(len(np.asarray(self.y_, dtype=np.float64)))
         return float(-2.0 * self.loglik() + np.log(n_obs) * self._mgcv_loglik_df())
 
-    def gam_vcomp(self, *, rescale=False, conf_lev=0.95):
+    def gam_vcomp(self, *, rescale=True, conf_lev=0.95):
         from ..smoothing_selection import gam_vcomp
 
         return gam_vcomp(self, rescale=rescale, conf_lev=conf_lev)

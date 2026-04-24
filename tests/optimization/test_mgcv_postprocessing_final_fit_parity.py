@@ -10,12 +10,13 @@ import pytest
 from nampy.gam import GAM
 from tests._mgcv_parity_requested_shared import CaseSpec
 from tests.families.test_general_family_mgcv_parity import GENERAL_SE_CASES
+from tests.mgcv_invariant_policy import final_fit_uses_exact_orientation_parity
 from tests.mgcv_parity_utils import _family_specs, _run_mgcv_snapshot
-from tests.parity.test_mgcv_parity import CASES as REQUESTED_CASES
 from tests.parity.test_mgcv_parity_failing_and_warnings import (
     GAUSSIAN_TI_MC_CASE,
     REQUESTED_PARITY_FAILING_OR_WARNING_CASES,
 )
+from tests.parity.test_mgcv_snapshot_core_matrix import CASES as REQUESTED_CASES
 
 _WARNING_NOISE = {
     "NaNs produced",
@@ -103,21 +104,16 @@ def _nampy_optimizer_name(expected_snapshot: dict) -> str | None:
     return mapping[optimizer]
 
 
-def _formula_is_orientation_stable(formula, *, skip_coef_comparison: bool) -> bool:
-    if skip_coef_comparison:
-        return False
-    text = str(formula)
-    return "tp" not in text and "t2(" not in text
-
-
 def _compute_hat_diag(gam: GAM) -> np.ndarray | None:
     sol = gam.fit_core_solution_
     fit_state = sol.fit_state
     if fit_state.X is None or fit_state.A_inv is None:
         return None
-    weights = fit_state.working_weights
+    # Mirror mgcv/R/gam.fit3.r::gam.fit3.post.proc(), which forms
+    # `sqrt(object$weights) * X` from the reported Fisher weights.
+    weights = fit_state.fisher_weights
     if weights is None:
-        weights = fit_state.fisher_weights
+        weights = fit_state.working_weights
     if weights is None:
         return None
     X = np.asarray(fit_state.X, dtype=np.float64)
@@ -588,7 +584,7 @@ def test_gam_fit3_non_gaussian_unconditional_postproc_matches_mgcv(case_id: str)
         "Vc",
         actual["Vc"],
         expected["Vc"],
-        full_matrix=_formula_is_orientation_stable(
+        full_matrix=final_fit_uses_exact_orientation_parity(
             case.formula,
             skip_coef_comparison=bool(case.skip_coef_comparison),
         ),
@@ -601,6 +597,37 @@ def test_gam_fit3_non_gaussian_unconditional_postproc_matches_mgcv(case_id: str)
         actual["edf2_total"],
         expected["edf2_total"],
         atol=5e-6,
+    )
+
+
+def test_gam_fit3_gamma_hat_diag_matches_mgcv():
+    """Verify that gamma gam.fit3 post-fit hat diagonal matches mgcv."""
+    case = next(c for c in ORDINARY_CASES if c.case_id == "gamma_log")
+    expected_snapshot = _run_mgcv_snapshot(
+        data=case.data_factory(),
+        formula=case.formula,
+        family=case.family,
+        method="REML",
+        select=case.select,
+        weights_column=case.weights_column,
+    )
+    optimizer = _nampy_optimizer_name(expected_snapshot)
+    _data, gam, _fit_warnings = _fit_requested_case(
+        case,
+        method="REML",
+        optimizer=optimizer,
+    )
+
+    actual_hat = _compute_hat_diag(gam)
+    expected_hat = expected_snapshot["fit"]["hat"]
+
+    assert actual_hat is not None
+    assert expected_hat is not None
+    np.testing.assert_allclose(
+        np.asarray(actual_hat, dtype=np.float64),
+        np.asarray(expected_hat, dtype=np.float64),
+        atol=2e-4,
+        rtol=0.0,
     )
 
 
@@ -671,7 +698,7 @@ def test_magic_postprocessing_final_fit_matches_mgcv(case: CaseSpec):
         _magic_case_id(case),
         actual,
         expected,
-        full_covariance=_formula_is_orientation_stable(
+        full_covariance=final_fit_uses_exact_orientation_parity(
             case.formula,
             skip_coef_comparison=bool(case.skip_coef_comparison),
         ),
@@ -722,7 +749,7 @@ def test_magic_postprocessing_final_fit_matches_mgcv_gaussian_ti_mc():
         _magic_case_id(case),
         actual,
         expected,
-        full_covariance=_formula_is_orientation_stable(
+        full_covariance=final_fit_uses_exact_orientation_parity(
             case.formula,
             skip_coef_comparison=bool(case.skip_coef_comparison),
         ),
@@ -795,7 +822,7 @@ def test_gam_fit3_postprocessing_final_fit_matches_mgcv(case: CaseSpec):
         case.case_id,
         actual,
         expected,
-        full_covariance=_formula_is_orientation_stable(
+        full_covariance=final_fit_uses_exact_orientation_parity(
             case.formula,
             skip_coef_comparison=bool(case.skip_coef_comparison),
         ),
@@ -842,9 +869,9 @@ def test_gam_fit5_postprocessing_final_fit_matches_mgcv(case):
         case_id,
         actual,
         expected,
-        full_covariance=_formula_is_orientation_stable(
+        full_covariance=final_fit_uses_exact_orientation_parity(
             formula,
-            skip_coef_comparison=("tp" in str(formula) or "t2(" in str(formula)),
+            skip_coef_comparison=False,
         ),
         compare_hat=False,
         compare_outer_info=True,

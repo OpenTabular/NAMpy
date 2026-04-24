@@ -1,5 +1,7 @@
 from .binomial import (
+    BinomialCauchitFamily,
     BinomialCloglogFamily,
+    BinomialLogFamily,
     BinomialLogitFamily,
     BinomialProbitFamily,
 )
@@ -10,9 +12,9 @@ from .gamlss.gevlss import GevlssFamily, gevlss
 from .gamlss.shashlss import ShashlssFamily, shashlss
 from .gamlss.ziplss import ZiplssFamily, ziplss
 from .gamma import GammaIdentityFamily, GammaInverseFamily, GammaLogFamily
-from .gaussian import GaussianIdentityFamily
+from .gaussian import GaussianIdentityFamily, GaussianInverseFamily, GaussianLogFamily
 from .negbin import NegativeBinomialLogFamily
-from .poisson import PoissonLogFamily
+from .poisson import PoissonIdentityFamily, PoissonLogFamily, PoissonSqrtFamily
 from .registry import make_gam_family
 
 __all__ = [
@@ -21,10 +23,16 @@ __all__ = [
     "ExtendedFamily",
     "GeneralFamily",
     "GaussianIdentityFamily",
+    "GaussianLogFamily",
+    "GaussianInverseFamily",
     "BinomialLogitFamily",
     "BinomialProbitFamily",
     "BinomialCloglogFamily",
+    "BinomialCauchitFamily",
+    "BinomialLogFamily",
     "PoissonLogFamily",
+    "PoissonIdentityFamily",
+    "PoissonSqrtFamily",
     "GammaIdentityFamily",
     "GammaLogFamily",
     "GammaInverseFamily",

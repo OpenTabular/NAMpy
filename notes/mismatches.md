@@ -1,0 +1,14 @@
+High. nampy/gam/inference/anova.py:645 uses stored _deviance(model) for multi-model comparison rows. Upstream mgcv/R/mgcv.r:4124 anova.gam rewrites extended-family deviance to -2*logLik(...), then rescales by dispersion before anova.glm. Extended-family ANOVA tables in NAMpy can therefore score wrong objective.  
+  2. High. nampy/gam/smoothing_selection/criteria/gaussian.py:76 and nampy/gam/smoothing_selection/criteria/gaussian.py:180 hardcode w = 1 and use raw row counts. Upstream mgcv/R/gam.fit3.r:614 builds ML/REML score from weighted likelihood pieces and n.true/nobs. Weighted Gaussian ML/REML path not mgcv-equivalent.  
+  3. High. nampy/gam/smoothing_selection/criteria/pirls.py:323, nampy/gam/smoothing_selection/criteria/pirls.py:340, nampy/gam/smoothing_selection/criteria/pirls.py:543 ignore prior weights in Pearson scale and call saturated_loglik(..., weights=np.ones_like(y), n=len(y)). Upstream mgcv/R/gam.fit3.r:606 and mgcv/R/gam.fit3.r:614 keep model weights and n.true. Weighted PIRLS ML/REML outer scores will drift from mgcv.  
+  4. High. nampy/splines/univariate/tp.py:543 silently shrinks k to xu_count. Upstream mgcv/src/tprs.c:363 uses covariate points when n_knots < k, then errors if unique locations still insufficient. NAMpy changes basis dimension, penalty rank, EDF instead of following mgcv branch/error behavior.  
+  5. High. nampy/gam/smooths/categorical/fs.py:699 applies extra data-dependent rotations after nat_param_type1, via nampy/gam/smooths/categorical/fs.py:573. Upstream mgcv/R/smooth.r:2067 uses rp <- nat.param(...) directly. For bs="fs", this changes null/range penalty decomposition, not only harmless basis orientation.  
+  6. High. nampy/gam/families/gamlss/ziplss.py:334 only enforces y >= 0. Upstream mgcv/R/gamlss.r:1888 rejects non-integer responses and binary {0,1} data. NAMpy silently broadens supported input instead of matching mgcv fail-closed behavior.  
+  7. Medium. nampy/gam/inference/anova.py:76 sends a term to reTest() whenever penalty rank is full. Upstream mgcv/R/mgcv.r:4019 only uses reTest()  
+  9. Medium. nampy/gam/constraints/identifiability.py:40, nampy/gam/constraints/identifiability.py:165, nampy/gam/constraints/identifiability.py:339  
+     diverge from upstream augment.smX / gam.side: no sm$C rows appended, and intercept detection uses fit_intercept boolean instead of checking  
+     endpoint as step failure at mgcv/R/gam.fit3.r:1657. Outer optimization trace/convergence semantics can diverge.
+
+  Other direct gaps from spawned-agent compare: nampy/gam/families/registry.py:37 ignores requested negbin link, nampy/gam/fit/covariance.py:58 has
+  no unconditional covariance selection unlike mgcv/R/mgcv.r:2735, tp/gp max.knots sampling order differs from sample() in smooth.r, and ziplss init
+  misses upstream use.unscaled branch.

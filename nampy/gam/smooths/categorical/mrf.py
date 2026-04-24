@@ -24,6 +24,7 @@ from ..smooth_base import (
 from .categorical_utils import (
     as_object_1d,
     factor_indicator_matrix,
+    factor_levels_from_metadata,
     stable_unique_levels,
 )
 
@@ -130,7 +131,9 @@ class MarkovRandomFieldTerm(BaseSmoothTerm):
             )
 
         if self.knots is None:
-            area_names = stable_unique_levels(x)
+            area_names = stable_unique_levels(
+                x, levels=factor_levels_from_metadata(self.metadata, fname)
+            )
         else:
             area_names = list(np.asarray(self.knots, dtype=object).ravel())
 

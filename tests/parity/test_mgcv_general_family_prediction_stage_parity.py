@@ -62,100 +62,37 @@ _TENSOR_PUBLIC_GAP_CASES = [
     pytest.param(
         "gaulss_t2_full_false",
         id="gaulss_t2_full_false",
-        marks=[
-            pytest.mark.status_known_gap,
-            pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "Known general-family t2 final-fit gap still blocks "
-                    "tensor-heavy public prediction parity."
-                ),
-            ),
-        ],
+        marks=[pytest.mark.status_known_gap],
     ),
     pytest.param(
         "gaulss_t2_full_true",
         id="gaulss_t2_full_true",
-        marks=[
-            pytest.mark.status_known_gap,
-            pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "Known general-family t2 final-fit gap still blocks "
-                    "tensor-heavy public prediction parity."
-                ),
-            ),
-        ],
+        marks=[pytest.mark.status_known_gap],
     ),
     pytest.param(
         "gammals_t2_full_false",
         id="gammals_t2_full_false",
-        marks=[
-            pytest.mark.status_known_gap,
-            pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "Known general-family t2 final-fit gap still blocks "
-                    "tensor-heavy public prediction parity."
-                ),
-            ),
-        ],
+        marks=[pytest.mark.status_known_gap],
     ),
     pytest.param(
         "gevlss_t2_full_false",
         id="gevlss_t2_full_false",
-        marks=[
-            pytest.mark.status_known_gap,
-            pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "Known general-family t2 final-fit gap still blocks "
-                    "tensor-heavy public prediction parity."
-                ),
-            ),
-        ],
+        marks=[pytest.mark.status_known_gap],
     ),
     pytest.param(
         "shashlss_t2_full_false",
         id="shashlss_t2_full_false",
-        marks=[
-            pytest.mark.status_known_gap,
-            pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "Known general-family t2 final-fit gap still blocks "
-                    "tensor-heavy public prediction parity."
-                ),
-            ),
-        ],
+        marks=[pytest.mark.status_known_gap],
     ),
     pytest.param(
         "ziplss_t2_full_false",
         id="ziplss_t2_full_false",
-        marks=[
-            pytest.mark.status_known_gap,
-            pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "Known general-family t2 final-fit gap still blocks "
-                    "tensor-heavy public prediction parity."
-                ),
-            ),
-        ],
+        marks=[pytest.mark.status_known_gap],
     ),
     pytest.param(
         "ziplss_t2_full_true",
         id="ziplss_t2_full_true",
-        marks=[
-            pytest.mark.status_known_gap,
-            pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "Known general-family t2 final-fit gap still blocks "
-                    "tensor-heavy public prediction parity."
-                ),
-            ),
-        ],
+        marks=[pytest.mark.status_known_gap],
     ),
 ]
 
@@ -191,9 +128,10 @@ def _assert_stage_prediction_surface(
         _assert_general_prediction_close(actual_se, expected["se"], atol=se_atol)
         return
     if pred_type == "response" and not check_response_se:
-        assert np.asarray(actual_se, dtype=np.float64).shape == np.asarray(
-            actual_pred, dtype=np.float64
-        ).shape
+        assert (
+            np.asarray(actual_se, dtype=np.float64).shape
+            == np.asarray(actual_pred, dtype=np.float64).shape
+        )
         return
     _assert_general_prediction_close(actual_se, expected["se"], atol=se_atol)
 
@@ -225,7 +163,9 @@ def test_general_family_select_true_newdata_prediction_surfaces_match_mgcv(pred_
 
     actual_pred, actual_se = gam.predict(newdata, type=pred_type, return_se=True)
 
-    _assert_general_prediction_close(actual_pred, expected["pred"], atol=_PREDICTION_ATOL)
+    _assert_general_prediction_close(
+        actual_pred, expected["pred"], atol=_PREDICTION_ATOL
+    )
     if pred_type == "terms":
         _assert_general_term_labels_match(gam, expected.get("term_names", []))
     _assert_general_prediction_close(actual_se, expected["se"], atol=_PREDICTION_ATOL)
@@ -268,7 +208,9 @@ def test_general_family_unconditional_standard_errors_match_mgcv_on_select_true_
         cov=actual_cov,
     )
 
-    _assert_general_prediction_close(actual_pred, expected["pred"], atol=_PREDICTION_ATOL)
+    _assert_general_prediction_close(
+        actual_pred, expected["pred"], atol=_PREDICTION_ATOL
+    )
     if pred_type == "terms":
         _assert_general_term_labels_match(gam, expected.get("term_names", []))
     _assert_general_prediction_close(actual_se, expected["se"], atol=_PREDICTION_ATOL)
@@ -430,6 +372,13 @@ def test_general_family_tensor_heavy_prediction_case_stays_localized_to_known_ga
     data = data_factory()
     newdata = _general_newdata(data)
     gam = _fit_nampy_model(data, formula, family, method)
+    if pred_type == "terms":
+        with pytest.raises(
+            NotImplementedError,
+            match="prediction parameterization is wider than the fitted coefficient space",
+        ):
+            gam.predict(newdata, type=pred_type, return_se=True)
+        return
     expected = _run_mgcv_predict_on_newdata(
         data,
         newdata,
@@ -484,7 +433,7 @@ def test_linked_id_public_prediction_surfaces_match_mgcv_on_supported_gaussian_c
 
 @pytest.mark.parametrize("iterms_type", [None, 2], ids=["default", "type_2"])
 def test_general_family_iterms_rejects_multi_predictor_public_surface(iterms_type):
-    """Verify that general family iterms rejects multi predictor public surface."""
+    """Verify that multi-predictor general-family iterms downgrades to terms like mgcv."""
     data = _gaulss_data(seed=17)
     newdata = _general_newdata(data)
     gam = _fit_nampy_model(
@@ -494,13 +443,22 @@ def test_general_family_iterms_rejects_multi_predictor_public_surface(iterms_typ
         _PREDICTION_METHOD,
     )
 
-    with pytest.raises(
-        ValueError,
-        match="type='iterms' is not supported for multi-predictor general-family models",
+    expected_pred, expected_se = gam.predict(
+        newdata,
+        type="terms",
+        return_se=True,
+    )
+
+    with pytest.warns(
+        UserWarning,
+        match="type='iterms' not available for multiple predictor cases; using type='terms' instead.",
     ):
-        gam.predict(
+        actual_pred, actual_se = gam.predict(
             newdata,
             type="iterms",
             return_se=True,
             iterms_type=iterms_type,
         )
+
+    _assert_general_prediction_close(actual_pred, expected_pred, atol=1e-7)
+    _assert_general_prediction_close(actual_se, expected_se, atol=1e-7)

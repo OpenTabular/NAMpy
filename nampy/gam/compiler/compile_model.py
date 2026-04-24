@@ -1,4 +1,4 @@
-"""Compile declarative predictor specs into an engine-facing compiled model."""
+"""Compile declarative predictor specs into a fit-facing compiled model."""
 
 from __future__ import annotations
 
@@ -39,7 +39,9 @@ def _full_predictor_matrix(predictor, X: np.ndarray) -> tuple[np.ndarray, np.nda
     for term in predictor.compiled_terms:
         use_raw = bool(getattr(term, "metadata", {}).get("expose_raw_prediction_basis"))
         if use_raw:
-            block = np.asarray(term.prediction_parameterization_matrix(X), dtype=np.float64)
+            block = np.asarray(
+                term.prediction_parameterization_matrix(X), dtype=np.float64
+            )
         else:
             block = np.asarray(term.predict_matrix(X), dtype=np.float64)
         pred_blocks.append(block)
@@ -54,9 +56,7 @@ def _full_predictor_matrix(predictor, X: np.ndarray) -> tuple[np.ndarray, np.nda
     if bool(predictor.has_intercept):
         ones = np.ones((Z_fit.shape[0], 1), dtype=np.float64)
         X_fit = np.column_stack([ones, Z_fit])
-        X_pred = (
-            np.column_stack([ones, Z_pred]) if predict_has_intercept else Z_pred
-        )
+        X_pred = np.column_stack([ones, Z_pred]) if predict_has_intercept else Z_pred
         return X_fit, X_pred
     return Z_fit, Z_pred
 
@@ -80,15 +80,9 @@ def _fit_to_prediction_parameterization_map(
         raise ValueError(
             "Prediction-parameterization matrix has zero width but fit matrix does not."
         )
-    if X_fit.shape == X_pred.shape and np.allclose(X_fit, X_pred, atol=tol, rtol=tol):
-        return None
-    # `mgcv` only needs a non-trivial fit->prediction map when the training
-    # and prediction matrices genuinely differ as parameterizations. Some
-    # smooths (notably `bs="fs"`) can differ only at ~1e-9 floating noise
-    # between constructor-time and Predict.matrix paths. Building the mgcv-style
-    # QR map in those aliased designs can collapse covariance rank even though
-    # the matrices are behaviorally identical, so keep the identity map here.
-    if X_fit.shape == X_pred.shape and np.allclose(X_fit, X_pred, atol=1e-8, rtol=1e-8):
+    if X_fit.shape == X_pred.shape and np.allclose(
+        X_fit, X_pred, atol=max(float(tol), 1e-8), rtol=max(float(tol), 1e-8)
+    ):
         return None
     # Mirror mgcv/R/mgcv.r construction of G$P:
     # qr(Xp, LAPACK=TRUE) -> Rrank(R) -> triangular solve on QtX -> restore pivots.
@@ -98,7 +92,7 @@ def _fit_to_prediction_parameterization_map(
     QtX = np.asarray(Q.T @ X_fit, dtype=np.float64)[:rank, :]
     if rank < p_pred:
         R1 = np.asarray(R[:rank, :], dtype=np.float64)
-        Qr, Rr = scipy_qr(R1.T, mode="full", pivoting=False)
+        Qr, Rr, _pivot_r = scipy_qr(R1.T, mode="full", pivoting=True)
         G0 = solve_triangular(
             np.asarray(Rr[:rank, :rank], dtype=np.float64).T,
             QtX,
@@ -126,6 +120,10 @@ def _fit_to_prediction_parameterization_map(
         raise RuntimeError(
             "Failed to recover mgcv-style fit->prediction parameterization transform."
         )
+    if P.shape[0] == P.shape[1] and np.allclose(
+        P, np.eye(P.shape[0], dtype=np.float64), atol=1e-12, rtol=1e-12
+    ):
+        return None
     return np.asarray(P, dtype=np.float64)
 
 
@@ -178,7 +176,7 @@ def compile_model(
         for predictor in compiled_predictors:
             predictor_adj, report = apply_global_side_conditions(
                 predictor,
-                fit_intercept=fit_intercept,
+                fit_intercept=bool(predictor.has_intercept),
                 tol=side_condition_tol,
                 warn=True,
             )

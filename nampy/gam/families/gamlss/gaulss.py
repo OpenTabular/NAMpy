@@ -6,8 +6,14 @@ import numpy as np
 
 from ..._mgcv_constants import FAMILY_EPS
 from ...fit.solvers.gamlss_utils import gamlss_etamu, gamlss_gH, trind_generator
-from .._function_maps import InverseLink, LogLink
-from ._base import GamlssFamily, _AdaptedLinkInfo, _IdentityLinkInfo, _pen_reg
+from .._function_maps import InverseLink, LogLink, SqrtLink
+from ._base import (
+    GamlssFamily,
+    _AdaptedLinkInfo,
+    _IdentityLinkInfo,
+    _pen_reg,
+    _qr_coef_pivoted,
+)
 
 
 class _LogBLinkInfo:
@@ -86,8 +92,12 @@ class GaulssFamily(GamlssFamily):
         ok1 = ("identity", "log", "inverse", "sqrt")
         ok2 = ("logb",)
 
-        link1_name = link[0] if isinstance(link[0], str) else "identity"
-        link2_name = link[1] if isinstance(link[1], str) else "logb"
+        if not isinstance(link, (list, tuple)) or len(link) != 2:
+            raise ValueError("gaulss link must be a length-2 list/tuple.")
+        if not isinstance(link[0], str) or not isinstance(link[1], str):
+            raise ValueError("gaulss links must be strings.")
+        link1_name = link[0]
+        link2_name = link[1]
 
         if link1_name not in ok1:
             raise ValueError(f"Link {link1_name!r} not available for mu of gaulss.")
@@ -104,6 +114,9 @@ class GaulssFamily(GamlssFamily):
             linfo1 = _AdaptedLinkInfo(_lobj, link1_name)
         elif link1_name == "inverse":
             _lobj = InverseLink(eps=FAMILY_EPS)
+            linfo1 = _AdaptedLinkInfo(_lobj, link1_name)
+        elif link1_name == "sqrt":
+            _lobj = SqrtLink(eps=FAMILY_EPS)
             linfo1 = _AdaptedLinkInfo(_lobj, link1_name)
         else:
             raise ValueError(f"Unsupported link {link1_name!r}")
@@ -160,11 +173,7 @@ class GaulssFamily(GamlssFamily):
 
         # log-likelihood: N(mu, sigma^2) with sigma = 1/tau
         # l = -0.5*(y-mu)^2 * tau^2 - 0.5*log(2pi) + log(tau)
-        l0 = (
-            -0.5 * ymu2 * tau2
-            - 0.5 * np.log(2.0 * np.pi)
-            + np.log(tau)
-        )
+        l0 = -0.5 * ymu2 * tau2 - 0.5 * np.log(2.0 * np.pi) + np.log(tau)
         ll = float(np.sum(l0))
 
         if deriv == 0:
@@ -317,6 +326,7 @@ class GaulssFamily(GamlssFamily):
             else:
                 off1 = np.asarray(offset, dtype=np.float64)
 
+        use_unscaled = bool(E is not None and getattr(E, "use_unscaled", False))
         E_arr = None if E is None else np.asarray(E, dtype=np.float64)
 
         X1 = np.asarray(X[:, jj[0]], dtype=np.float64)
@@ -330,12 +340,16 @@ class GaulssFamily(GamlssFamily):
             if E_arr is None or E_arr.shape[1] == 0
             else np.asarray(E_arr[:, jj[0]], dtype=np.float64)
         )
-        start1 = _pen_reg(X1, E1, yt1)
+        if use_unscaled and E1.shape[0] > 0:
+            start1 = _qr_coef_pivoted(
+                np.vstack([X1, E1]),
+                np.concatenate([yt1, np.zeros(E1.shape[0], dtype=np.float64)]),
+            )
+        else:
+            start1 = _pen_reg(X1, E1, yt1)
         start[jj[0]] = start1
 
-        mu_init = self.linfo[0].linkinv(
-            X1 @ start1 + (off1 if off1 is not None else 0.0)
-        )
+        mu_init = self.linfo[0].linkinv(X1 @ start1)
         lres1 = np.log(np.abs(y - mu_init))
         if off2 is not None:
             lres1 = lres1 - off2
@@ -346,7 +360,13 @@ class GaulssFamily(GamlssFamily):
             if E_arr is None or E_arr.shape[1] == 0
             else np.asarray(E_arr[:, jj[1]], dtype=np.float64)
         )
-        start2 = _pen_reg(X2, E2, lres1)
+        if use_unscaled and E2.shape[0] > 0:
+            start2 = _qr_coef_pivoted(
+                np.vstack([X2, E2]),
+                np.concatenate([lres1, np.zeros(E2.shape[0], dtype=np.float64)]),
+            )
+        else:
+            start2 = _pen_reg(X2, E2, lres1)
         start[jj[1]] = start2
 
         return start
@@ -358,6 +378,11 @@ class GaulssFamily(GamlssFamily):
 
         Mirrors mgcv ``gaulss$residuals``.
         """
+        rtype = str(rtype).lower()
+        if rtype not in {"deviance", "pearson", "response"}:
+            raise ValueError(
+                "gaulss residuals support only {'deviance', 'pearson', 'response'}."
+            )
         y = np.asarray(y, dtype=np.float64)
         mu = np.asarray(fitted[:, 0], dtype=np.float64)
         tau = np.asarray(fitted[:, 1], dtype=np.float64)

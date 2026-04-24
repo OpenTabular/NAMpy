@@ -318,6 +318,9 @@ def _fitted_mu(obj: Any):
 
 
 def _summary_R(obj: Any):
+    explicit = getattr(obj, "_summary_R_", None)
+    if explicit is not None:
+        return explicit
     fit_state = _fit_state(obj)
     if fit_state is None:
         return getattr(obj, "_summary_R_", None)

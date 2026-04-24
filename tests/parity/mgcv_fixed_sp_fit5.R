@@ -127,6 +127,30 @@ St_eig <- eigen((St_full + t(St_full)) / 2, symmetric = TRUE, only.values = TRUE
 St_tol <- max(max(St_eig), 0) * .Machine$double.eps^.75
 Mp <- ncol(St_full) - sum(St_eig > St_tol)
 
+rp_init <- mgcv:::ldetS(
+  prefit$Sl,
+  rho = log(pmax(unname(sp), 1e-300)),
+  fixed = rep(FALSE, length(sp)),
+  np = ncol(x_initial),
+  root = TRUE,
+  Stot = TRUE
+)
+x_fit <- mgcv:::Sl.repara(rp_init$rp, x_initial)
+E_fit <- rp_init$E
+attr(E_fit, "use.unscaled") <- TRUE
+E <- E_fit
+start <- NULL
+start0 <- start
+x <- x_fit
+y <- prefit$y
+weights <- prefit$w
+offset <- prefit$offset
+family <- prefit$family
+nobs <- length(y)
+eval(family$initialize)
+start_initial <- start
+if (!is.null(start0)) start <- start0
+
 fit <- mgcv:::gam.fit5(
   x = x_initial,
   y = prefit$y,
@@ -142,10 +166,11 @@ fit <- mgcv:::gam.fit5(
   gamma = 1
 )
 
-score_name <- if (score_type == "ML") "ML" else "REML"
-score_val <- fit[[score_name]]
-score1_val <- fit[[paste0(score_name, "1")]]
-score2_val <- fit[[paste0(score_name, "2")]]
+## mgcv:::gam.fit5() always returns the score in REML/REML1/REML2 slots,
+## even when scoreType="ML".
+score_val <- fit$REML
+score1_val <- fit$REML1
+score2_val <- fit$REML2
 
 payload <- list(
   coefficients = unname(as.numeric(fit$coefficients)),
@@ -168,7 +193,7 @@ payload <- list(
   penalty_quadratic = if (is.null(fit$St)) NULL else unname(
     as.numeric(drop(t(fit$coefficients) %*% fit$St %*% fit$coefficients) / 2)
   ),
-  score_type = score_name,
+  score_type = score_type,
   score = unname(as.numeric(score_val)),
   score1 = serialize_optional(score1_val),
   score2 = serialize_optional(score2_val),
@@ -195,6 +220,8 @@ payload <- list(
   rank = unname(as.integer(fit$rank)),
   iter = unname(as.integer(fit$iter)),
   offset_list = serialize_offset_list(prefit$offset)
+  ,
+  start_initial = serialize_optional(start_initial)
 )
 
 write_json(

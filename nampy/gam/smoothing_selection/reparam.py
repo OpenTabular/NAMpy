@@ -395,7 +395,7 @@ def _total_penalty_space_from_blocks(
 
     evals, evecs = symmetric_eigh(St, descending=True, use_scipy=True)
     max_eval = float(np.max(evals)) if evals.size else 0.0
-    pos_mask = evals > max(max_eval, 1.0) * (np.finfo(np.float64).eps ** 0.66)
+    pos_mask = evals > max_eval * (np.finfo(np.float64).eps ** 0.66)
     Y = evecs[:, pos_mask]
     Z = evecs[:, ~pos_mask]
     if Y.shape[1] == 0:
@@ -717,7 +717,7 @@ def _total_penalty_space(grouped_penalties, p, *, H=None):
             St += Sg / frob
 
     evals, evecs = symmetric_eigh(St, descending=True, use_scipy=True)
-    scale = max(float(np.max(evals)) if evals.size else 0.0, 1.0)
+    scale = float(np.max(evals)) if evals.size else 0.0
     pos_mask = evals > scale * (np.finfo(np.float64).eps ** 0.66)
     Y = evecs[:, pos_mask]
     Z = evecs[:, ~pos_mask]
@@ -753,8 +753,9 @@ def gam_reparam(range_roots, lsp, deriv=2):
         sp = np.exp(lsp)
     roots = [np.asarray(r, dtype=np.float64).copy() for r in range_roots]
     q = 0 if not roots else int(roots[0].shape[0])
-    fixed_penalty = len(roots) > M
-    if q == 0 or M == 0:
+    Mf = len(roots)
+    fixed_penalty = Mf > M
+    if q == 0 or Mf == 0:
         return {
             "S": np.empty((q, q), dtype=np.float64),
             "Qs": np.eye(q, dtype=np.float64),
@@ -766,7 +767,9 @@ def gam_reparam(range_roots, lsp, deriv=2):
             "fixed_penalty": fixed_penalty,
         }
 
-    Mf = len(roots)
+    for root in roots:
+        if int(root.shape[0]) != q:
+            raise ValueError("All range penalty roots must have the same row count.")
     spf = np.ones(Mf, dtype=np.float64)
     spf[:M] = sp
     Si = [r @ r.T for r in roots]
@@ -855,7 +858,7 @@ def gam_reparam(range_roots, lsp, deriv=2):
             C[np.arange(r), np.arange(r)] += evals[:r]
         S_out[K : K + Q, K : K + Q] = C
 
-        for k in range(M):
+        for k in range(Mf):
             root = rS_work[k]
             cols = int(root.shape[1])
             if cols == 0:
@@ -937,10 +940,17 @@ def _canonical_penalty_space(model, *, tol=1e-10) -> dict[str, Any]:
         return cache
 
     setup = build_estimate_gam_setup_state(model, tol=tol)
+    penalty_blocks = list(_penalty_blocks_seq(model))
     grouped = _grouped_penalties(model)
-    roots, range_roots, range_roots_with_fixed, S_groups = (
-        _group_exact_setup_roots_by_smoothing_parameter(model, setup)
-    )
+    n_pen = len(penalty_blocks)
+    roots = [np.asarray(root, dtype=np.float64) for root in list(setup.rS)]
+    range_roots = [
+        np.asarray(root, dtype=np.float64) for root in list(setup.UrS[:n_pen])
+    ]
+    range_roots_with_fixed = [
+        np.asarray(root, dtype=np.float64) for root in list(setup.UrS)
+    ]
+    S_groups = [root @ root.T for root in range_roots]
 
     cache = {
         "estimate_setup": setup,
@@ -956,6 +966,71 @@ def _canonical_penalty_space(model, *, tol=1e-10) -> dict[str, Any]:
     }
     model._penalty_subspace_cache_ = cache
     return cache
+
+
+def _penalty_log_smoothing_map(
+    model,
+    setup: PreOptimizationSetupState,
+    sp: np.ndarray,
+) -> tuple[list[np.ndarray], np.ndarray, np.ndarray]:
+    """
+    Return mgcv-style per-penalty log smoothing parameters.
+
+    ``mgcv/R/mgcv.r::estimate.gam`` passes ``L %*% log(sp) + lsp0`` to
+    ``gam.reparam()``, where rows are in the same order as ``G$S``/``G$UrS``.
+    The public Python model stores the full smoothing vector, so this helper
+    also returns the full one-hot penalty-to-smoothing map used to lift
+    per-penalty derivatives back to the public smoothing-parameter indexing.
+    """
+
+    sp = np.asarray(sp, dtype=np.float64).ravel()
+    penalty_blocks = list(_penalty_blocks_seq(model))
+    n_pen = len(penalty_blocks)
+    n_sp = int(_n_smoothing_params(model) or sp.size)
+    if sp.shape != (n_sp,):
+        raise ValueError(f"Expected smoothing parameter vector of shape ({n_sp},).")
+    if len(setup.UrS) < n_pen:
+        raise RuntimeError("estimate.gam setup has fewer UrS roots than penalties.")
+
+    L_full = np.zeros((n_pen, n_sp), dtype=np.float64)
+    for i, pb in enumerate(penalty_blocks):
+        sp_idx = int(pb.smoothing_index)
+        if sp_idx < 0 or sp_idx >= n_sp:
+            raise ValueError(f"Invalid smoothing parameter index {sp_idx}.")
+        L_full[i, sp_idx] = 1.0
+
+    fixed_mask = (
+        np.zeros(n_sp, dtype=bool)
+        if getattr(model, "smoothing_fixed_mask_", None) is None
+        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+    )
+    if fixed_mask.shape != (n_sp,):
+        raise ValueError(f"Expected smoothing_fixed_mask_ with shape ({n_sp},).")
+
+    with np.errstate(divide="raise", invalid="raise"):
+        log_sp = np.log(sp)
+    free_log_sp = np.asarray(log_sp[~fixed_mask], dtype=np.float64)
+    lsp0 = np.asarray(setup.lsp0, dtype=np.float64).ravel()
+    if lsp0.shape != (n_pen,):
+        raise RuntimeError("estimate.gam lsp0 length does not match penalty count.")
+    if setup.L is None:
+        if free_log_sp.shape != (n_pen,):
+            raise RuntimeError(
+                "Identity smoothing-parameter map is inconsistent with "
+                "the number of penalty blocks."
+            )
+        lsp = free_log_sp + lsp0
+    else:
+        L = np.asarray(setup.L, dtype=np.float64)
+        if L.shape != (n_pen, free_log_sp.size):
+            raise RuntimeError("estimate.gam L shape is inconsistent with sp.")
+        lsp = np.asarray(L @ free_log_sp + lsp0, dtype=np.float64)
+
+    roots = [
+        np.asarray(root, dtype=np.float64)
+        for root in list(setup.UrS[:n_pen]) + list(setup.UrS[n_pen:])
+    ]
+    return roots, np.asarray(lsp, dtype=np.float64), L_full
 
 
 def _static_penalty_space(model, *, tol=1e-10):
@@ -984,11 +1059,8 @@ def build_penalty_reparameterization_state(
     setup = cache["estimate_setup"]
     Y = np.asarray(setup.Y, dtype=np.float64)
     Z = np.asarray(setup.Z, dtype=np.float64)
-    UrS = [
-        np.asarray(root, dtype=np.float64) for root in cache["range_roots_with_fixed"]
-    ]
-    with np.errstate(divide="raise", invalid="raise"):
-        rp = gam_reparam(UrS, np.log(sp), deriv=deriv)
+    UrS, lsp, _L_full = _penalty_log_smoothing_map(model, setup, sp)
+    rp = gam_reparam(UrS, lsp, deriv=deriv)
 
     q_range = int(Y.shape[1])
     q_full = int(X_full.shape[1])
@@ -1090,26 +1162,26 @@ def _stable_penalty_logdet_derivatives(model, sp, *, tol=1e-10, order=2):
     if Y.shape[1] == 0:
         return 0.0, grad, hess
 
-    with np.errstate(divide="raise", invalid="raise"):
-        rp = gam_reparam(
-            cache["range_roots_with_fixed"],
-            np.log(sp),
-            deriv=min(int(order), 2),
-        )
+    setup = cache["estimate_setup"]
+    UrS, lsp, L_full = _penalty_log_smoothing_map(model, setup, sp)
+    rp = gam_reparam(UrS, lsp, deriv=min(int(order), 2))
     logdet = float(rp["det"])
     if not np.isfinite(logdet):
         return np.inf, np.full(n_sp, np.nan), np.full((n_sp, n_sp), np.nan)
     if order <= 0:
         return logdet, grad, hess
 
-    grad[: min(n_sp, rp["det1"].shape[0])] = np.asarray(rp["det1"], dtype=np.float64)[
-        : min(n_sp, rp["det1"].shape[0])
-    ]
+    det1 = np.asarray(rp["det1"], dtype=np.float64)
+    if det1.shape != (L_full.shape[0],):
+        raise RuntimeError("gam.reparam determinant gradient length mismatch.")
+    grad = np.asarray(L_full.T @ det1, dtype=np.float64)
     if order <= 1:
         return logdet, grad, hess
 
-    m = min(n_sp, rp["det2"].shape[0])
-    hess[:m, :m] = np.asarray(rp["det2"], dtype=np.float64)[:m, :m]
+    det2 = np.asarray(rp["det2"], dtype=np.float64)
+    if det2.shape != (L_full.shape[0], L_full.shape[0]):
+        raise RuntimeError("gam.reparam determinant Hessian shape mismatch.")
+    hess = np.asarray(L_full.T @ det2 @ L_full, dtype=np.float64)
     return logdet, grad, hess
 
 
@@ -1154,6 +1226,8 @@ def build_penalty_reparameterized_system(model):
     cache = _canonical_penalty_space(model)
     setup = cache["estimate_setup"]
     grouped = list(cache["grouped_penalties"])
+    penalty_blocks = list(_penalty_blocks_seq(model))
+    term_blocks = list(_term_blocks_seq(model))
     X_full = np.asarray(setup.X, dtype=np.float64)
     X_pen = np.asarray(_design_matrix(model), dtype=np.float64)
     p = int(X_pen.shape[1])
@@ -1169,7 +1243,7 @@ def build_penalty_reparameterized_system(model):
     sl_blocks: list[SlBlock] = []
     rand_start = 0
 
-    if Y.shape[1] > 0 and grouped:
+    if Y.shape[1] > 0 and penalty_blocks:
         B_range = X_full @ Y
         range_roots = list(cache["range_roots"])
         range_penalties = [
@@ -1188,8 +1262,8 @@ def build_penalty_reparameterized_system(model):
         _B0, Zr_main, meta = reparameterize_smooth(B_range, P_sum)
         U_range = np.asarray(meta["U1"], dtype=np.float64)
 
-        for grp in grouped:
-            Pk = np.asarray(range_penalties[int(grp.smoothing_index)], dtype=np.float64)
+        for pb, Pk in zip(penalty_blocks, range_penalties):
+            Pk = np.asarray(Pk, dtype=np.float64)
             if U_range.shape[1] == 0 or not np.any(Pk):
                 continue
             P_proj = U_range.T @ (np.asarray(Pk, dtype=np.float64) @ U_range)
@@ -1210,18 +1284,27 @@ def build_penalty_reparameterized_system(model):
             block_slice = slice(rand_start, rand_start + Z_block.shape[1])
             rand_blocks.append(Z_block)
             rand_start += Z_block.shape[1]
+            term_index = int(getattr(pb, "term_index", -1))
+            if term_index < 0:
+                coef_slice = getattr(pb, "coef_slice", None)
+                for i, tb in enumerate(term_blocks):
+                    if getattr(tb, "coef_slice", None) == coef_slice:
+                        term_index = i
+                        break
             sl_blocks.append(
                 SlBlock(
-                    term_index=int(grp.term_indices[0]) if grp.term_indices else -1,
+                    term_index=term_index,
                     repara=True,
-                    smoothing_index=int(grp.smoothing_index),
+                    smoothing_index=int(pb.smoothing_index),
                     start=int(block_slice.start),
                     stop=int(block_slice.stop),
                     ncol=int(p),
                     blockSize=int(Z_block.shape[1]),
                     lambda_scaling=float(norm_val),
-                    kind=str(grp.kind),
-                    is_null_space_penalty=bool(grp.is_null_space_penalty),
+                    kind=str(getattr(pb, "kind", "smooth")),
+                    is_null_space_penalty=bool(
+                        getattr(pb, "is_null_space_penalty", False)
+                    ),
                 )
             )
     if fix_blocks:

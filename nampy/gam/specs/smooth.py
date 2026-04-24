@@ -109,6 +109,7 @@ class TensorProductSmoothSpec(BaseSmoothSpec):
     bs: Any = "cr"
     m: Any = None
     xt: Any = None
+    d: Any = None
 
 
 @dataclass(frozen=True)
@@ -118,6 +119,7 @@ class TensorInteractionSmoothSpec(BaseSmoothSpec):
     m: Any = None
     xt: Any = None
     mc: Any = None
+    d: Any = None
 
 
 @dataclass(frozen=True)
@@ -128,6 +130,7 @@ class TensorANOVASmoothSpec(BaseSmoothSpec):
     xt: Any = None
     full: bool = False
     ord: Any = None
+    d: Any = None
 
 
 SmoothSpec = Union[

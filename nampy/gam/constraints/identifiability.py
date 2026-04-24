@@ -261,11 +261,6 @@ def apply_global_side_conditions(
                 )
             if d > 0:
                 design_blocks.append(B)
-                # Exempt terms still span the predictor space (invariant 6.6).
-                acc = np.column_stack([acc, B])
-                B_aug = np.zeros((n_obs + design.n_coef, d), dtype=np.float64)
-                B_aug[:n_obs, :] = B
-                acc_aug = np.column_stack([acc_aug, B_aug])
             term_reports.append(
                 {
                     "label": tb.label,
@@ -368,28 +363,29 @@ def apply_global_side_conditions(
 
         # Subset penalty matrices to the surviving columns and recompute their
         # canonical metadata in the new coefficient space.
-        pen_specs_final = []
+        pen_pairs_final = []
         for pb, S in zip(term_penalty_objs, pen_matrices):
             P_new = (
                 S[np.ix_(keep, keep)]
                 if keep.size > 0
                 else np.empty((0, 0), dtype=np.float64)
             )
-            pen_specs_final.append(
-                normalize_penalty_spec(
-                    PenaltySpec(
-                        matrix=P_new,
-                        smoothing_id=pb.smoothing_id,
-                        kind=pb.kind,
-                        rank=None,
-                        null_space_dim=None,
-                        is_null_space_penalty=pb.is_null_space_penalty,
-                        sp_mode=pb.sp_mode,
-                        sp_value=pb.sp_value,
-                        metadata=dict(pb.metadata),
-                    )
+            p_new = normalize_penalty_spec(
+                PenaltySpec(
+                    matrix=P_new,
+                    smoothing_id=pb.smoothing_id,
+                    kind=pb.kind,
+                    rank=None,
+                    null_space_dim=None,
+                    is_null_space_penalty=pb.is_null_space_penalty,
+                    sp_mode=pb.sp_mode,
+                    sp_value=pb.sp_value,
+                    metadata=dict(pb.metadata),
                 )
             )
+            if int(p_new.rank or 0) > 0:
+                pen_pairs_final.append((pb, p_new))
+        pen_specs_final = [p_new for _pb, p_new in pen_pairs_final]
 
         # Track surviving original coefficient indices for diagnostics / parity.
         # When centering was absorbed the mapping through T_con is non-trivial;
@@ -454,9 +450,11 @@ def apply_global_side_conditions(
                 side_condition_policy=tb.side_condition_policy,
                 kept_columns=kept_orig,
                 deleted_columns=deleted_orig,
-                smoothing_indices=list(tb.smoothing_indices),
-                smoothing_ids=list(tb.smoothing_ids),
-                n_penalties=tb.n_penalties,
+                smoothing_indices=[
+                    int(pb.smoothing_index) for pb, _p in pen_pairs_final
+                ],
+                smoothing_ids=[pb.smoothing_id for pb, _p in pen_pairs_final],
+                n_penalties=len(pen_pairs_final),
                 term_type=tb.term_type,
                 basis_name=tb.basis_name,
                 term_id=tb.term_id,
@@ -467,7 +465,7 @@ def apply_global_side_conditions(
             )
         )
 
-        for pb, pdef_new in zip(term_penalty_objs, pen_specs_final):
+        for pb, pdef_new in pen_pairs_final:
             new_penalty_blocks.append(
                 CompiledPenalty(
                     label=pb.label,
@@ -540,22 +538,13 @@ def apply_global_side_conditions(
 
         start += d_final
 
-    # ── Drop zero-width terms (invariant 6.7) ─────────────────────────────────
-    # Build a mapping: old position in new_term_blocks -> final position (-1 = dropped).
+    # mgcv::gam.side keeps smooth objects even if their design is reduced to zero
+    # columns; downstream term positions remain stable.
     old_to_final: dict[int, int] = {}
     final_term_blocks: list[CompiledTerm] = []
     for old_i, tb in enumerate(new_term_blocks):
-        if tb.basis_train.shape[1] > 0:
-            old_to_final[old_i] = len(final_term_blocks)
-            final_term_blocks.append(tb)
-        else:
-            old_to_final[old_i] = -1
-            if warn:
-                warnings.warn(
-                    f"Term {tb.label!r} was reduced to zero columns by side "
-                    f"conditions and has been dropped from the compiled predictor.",
-                    stacklevel=2,
-                )
+        old_to_final[old_i] = len(final_term_blocks)
+        final_term_blocks.append(tb)
 
     # Keep only penalties whose owning term survived; re-stamp term_index.
     final_penalty_blocks: list[CompiledPenalty] = []
@@ -564,6 +553,39 @@ def apply_global_side_conditions(
         if new_ti >= 0:
             pb.term_index = new_ti
             final_penalty_blocks.append(pb)
+
+    old_to_new_sp: dict[int, int] = {}
+    for pb in final_penalty_blocks:
+        old_idx = int(pb.smoothing_index)
+        if old_idx not in old_to_new_sp:
+            old_to_new_sp[old_idx] = len(old_to_new_sp)
+        pb.smoothing_index = old_to_new_sp[old_idx]
+
+    smoothing_parameter_map = {
+        sid: old_to_new_sp[int(old_idx)]
+        for sid, old_idx in dict(design.smoothing_parameter_map).items()
+        if int(old_idx) in old_to_new_sp
+    }
+    for pb in final_penalty_blocks:
+        if pb.smoothing_id is not None:
+            smoothing_parameter_map.setdefault(
+                str(pb.smoothing_id), int(pb.smoothing_index)
+            )
+
+    old_modes = list(design.smoothing_override_modes or [])
+    old_values = (
+        None
+        if design.smoothing_override_values is None
+        else np.asarray(design.smoothing_override_values, dtype=np.float64)
+    )
+    n_sp_final = len(old_to_new_sp)
+    override_modes = [None] * n_sp_final
+    override_values = np.full(n_sp_final, np.nan, dtype=np.float64)
+    for old_idx, new_idx in old_to_new_sp.items():
+        if old_idx < len(old_modes):
+            override_modes[new_idx] = old_modes[old_idx]
+        if old_values is not None and old_idx < old_values.size:
+            override_values[new_idx] = old_values[old_idx]
 
     # ── Assemble final CompiledPredictor ──────────────────────────────────────
     matrix_train = (
@@ -578,18 +600,14 @@ def apply_global_side_conditions(
         design_matrix=matrix_train,
         compiled_terms=tuple(final_term_blocks),
         compiled_penalties=tuple(final_penalty_blocks),
-        smoothing_parameter_map=dict(design.smoothing_parameter_map),
+        smoothing_parameter_map=smoothing_parameter_map,
         has_intercept=bool(fit_intercept),
         term_index_map=term_index_map,
         side_condition_Q=predictor_Q[:, :start].copy(),
         n_coef=start,
-        n_smoothing_params=design.n_smoothing_params,
-        smoothing_override_modes=list(design.smoothing_override_modes),
-        smoothing_override_values=(
-            None
-            if design.smoothing_override_values is None
-            else np.asarray(design.smoothing_override_values, dtype=np.float64).copy()
-        ),
+        n_smoothing_params=n_sp_final,
+        smoothing_override_modes=override_modes,
+        smoothing_override_values=override_values,
         metadata=dict(design.metadata),
     )
     report = {

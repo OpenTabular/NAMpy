@@ -30,7 +30,12 @@ def _mgcv_score_scale(
             scale = float(scale_est)
         score_scale_val = abs(np.log(abs(scale))) + abs(score_val)
     else:
-        score_scale_val = abs(score_val)
+        if scale_est is None:
+            scale_obj = _fit_scale(model)
+            scale = 1.0 if scale_obj is None else float(scale_obj)
+        else:
+            scale = float(scale_est)
+        score_scale_val = abs(scale) + abs(score_val)
 
     if score_scale_val <= 0.0:
         if abs(score_val) < abs(old_score_val):
@@ -192,6 +197,8 @@ def _optimize_outer_newton_mgcv(
 
         nstep = np.zeros_like(grad, dtype=np.float64)
         nstep[uconv] = -(U @ (d_inv * (U.T @ grad1)))
+        # mgcv/R/gam.fit3.r::newton uses `Sstep <- grad/max(abs(grad))` for
+        # the indefinite-Hessian steepest-descent fallback.
         sstep = grad / max(float(np.max(np.abs(grad))), 1e-12)
 
         ms = float(np.max(np.abs(nstep))) if nstep.size else 0.0
@@ -450,11 +457,6 @@ def _optimize_outer_newton_mgcv(
                 x = x1
 
         if not accepted:
-            if ii >= int(max_half) and trial_step_inf <= float(step_tol):
-                success = True
-                msg = "step tolerance satisfied"
-                ii_last = ii
-                break
             step_failed = True
             msg = "step failed"
             ii_last = ii
@@ -639,6 +641,7 @@ def _optimize_outer_newton_mgcv(
     result.mgcv_qerror_thresh = float(qerror_thresh)
     result.mgcv_edge_correct = bool(edge_correct)
     result.mgcv_edge_correct_applied = bool(edge_corrected)
+    result.mgcv_exact_outer_derivatives = True
     result.hess1 = None if hess1 is None else np.asarray(hess1, dtype=np.float64)
     result.db_drho1 = (
         None if db_drho1 is None else np.asarray(db_drho1, dtype=np.float64)

@@ -17,9 +17,13 @@ For parity-sensitive work, the upstream vendored `mgcv` source code in this repo
 - Do not add heuristic, approximate, or best-effort parity fallbacks in parity-sensitive code.
 - If a strict `mgcv` port is not yet possible, leave the surface unsupported or add a small explicit TODO rather than shipping heuristic behavior.
 - Do not make numerically meaningful algebraic rewrites unless parity tests demonstrate no regression.
+- Pin point bugs and divergence from mgcv upstream clearly before applying minimal and surgical changes while fixing bugs.
+- Allow for broad rewrites during code refactors.
 - Do not change ordering of penalties, constraints, pivots, side conditions, or block assembly casually.
 - Do not use matrix inverses where upstream logic uses solves/factorizations.
 - Do not silently broaden unsupported behavior.
+- Do not investigate parity-sensitive behavior with one-off shell or REPL snippets when the probe can be captured as a targeted test.
+- If an investigation cannot be expressed cleanly as a targeted test, put the probe in `debug/` as a small purpose-built script instead of running ephemeral commands.
 - Do not run the full test suite by default.
 
 ## Test policy: smallest sufficient slice only
@@ -51,6 +55,15 @@ python -m pytest
 
 If you believe a broader run is necessary, explain why.
 
+## Investigation policy: encode the probe
+
+When debugging a failing parity test or investigating a suspected mismatch:
+
+1. Prefer adding or tightening a targeted pytest slice that reproduces the issue directly.
+2. If raw representation is not uniquely identified, express the check in terms of `mgcv`-relevant invariants instead of arbitrary basis orientation.
+3. If a test would be disproportionately awkward for the specific probe, create a small script under `debug/` and run that script.
+4. Avoid ad hoc Python, shell, or notebook experiments that are not preserved in the repository.
+
 ## Expected workflow for GAM changes
 
 1. Identify the failing or relevant targeted test first.
@@ -77,6 +90,7 @@ Do not “improve” an algorithm just because a different Python implementation
 
 - Behavioral parity remains strict: fit, predict, scores, EDF, smoothing-parameter behavior, penalty structure, constraints, and block assembly should match `mgcv`.
 - Raw constructor parity should be strict only up to mathematically indeterminate eigenspace orientation. For eigendecomposition-based smooths, prefer canonicalized or invariant comparisons (for example row-space, projector, or penalty-spectrum comparisons) over exact column-by-column basis matching.
+- When writing new parity investigations or regression tests for representation-sensitive surfaces, prefer `mgcv`-aligned invariants unless the upstream representation is uniquely determined.
 - Do not add implementation-level `Rscript` probing, custom LAPACK library selection, or other platform-specific solver hooks solely to force raw basis orientation parity.
 
 ## Repository structure

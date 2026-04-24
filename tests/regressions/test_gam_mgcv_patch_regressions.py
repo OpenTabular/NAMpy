@@ -14,7 +14,6 @@ from nampy.gam._model_state import (
     _penalty_blocks_seq,
 )
 from nampy.gam.compiler.factory import instantiate_term
-from nampy.gam.engine.state import FitState
 from nampy.gam.families import BinomialLogitFamily, GaussianIdentityFamily
 from nampy.gam.fit.linalg.stacked_qr import (
     STACKED_QR_RANK_TOLERANCE,
@@ -33,11 +32,18 @@ from nampy.gam.fit.penalized_system import (
     build_full_penalty_from_blocks,
 )
 from nampy.gam.fit.solvers.irls_core import irls_core
-from nampy.gam.fit.state import FitCoreSolution, assign_fit_solution
+from nampy.gam.fit.state import FitCoreSolution, FitState, assign_fit_solution
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
 from nampy.gam.results import FitResult
 from nampy.gam.smoothing_selection.criteria import dispatch as criteria_dispatch
+from nampy.gam.smoothing_selection.criteria import gaussian as gaussian_criteria
+from nampy.gam.smoothing_selection.criteria import pirls as pirls_criteria
 from nampy.gam.smoothing_selection.criteria.gaussian import criterion_ml_reml_exact
+from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
+    pearson_method_scale_estimate,
+    profiled_gaussian_reml_variance,
+)
+from nampy.gam.smoothing_selection.criteria.ncv import _infer_index_base, _resolve_nei
 from nampy.gam.smoothing_selection.criteria.pirls_deriv import (
     criterion_gradient_ml_reml_pirls_exact,
 )
@@ -55,7 +61,100 @@ from nampy.gam.smoothing_selection.reparam import (
     sl_group_indices,
 )
 from nampy.gam.specs.build import build_formula_model
+from nampy.splines.univariate.tp import construct_tprs_basis
 from tests.mgcv_parity_utils import _make_gaussian_data, _make_mrf_data
+
+
+def test_gcv_scores_square_negative_denominator_like_mgcv(monkeypatch):
+    model = SimpleNamespace(n_samples_=10, score_gamma=2.0)
+    sol = {"trace_H": 10.0, "rss": 5.0, "deviance": 7.0}
+
+    monkeypatch.setattr(
+        gaussian_criteria,
+        "expand_smoothing_params_from_log",
+        lambda model, log_sp: np.array([1.0], dtype=np.float64),
+    )
+    monkeypatch.setattr(
+        gaussian_criteria,
+        "solve_gaussian_given_smoothing",
+        lambda model, y, sp: sol,
+    )
+    monkeypatch.setattr(
+        pirls_criteria,
+        "expand_smoothing_params_from_log",
+        lambda model, log_sp: np.array([1.0], dtype=np.float64),
+    )
+    monkeypatch.setattr(
+        pirls_criteria,
+        "solve_pirls_given_smoothing",
+        lambda model, y, sp: sol,
+    )
+
+    y = np.zeros(10, dtype=np.float64)
+    log_sp = np.zeros(1, dtype=np.float64)
+
+    assert gaussian_criteria.gcv_score_gaussian(model, y, log_sp) == pytest.approx(0.5)
+    assert pirls_criteria.criterion_gcv_pirls(model, y, log_sp) == pytest.approx(0.7)
+
+
+def test_pearson_fletcher_nan_correction_is_not_clamped_finite():
+    scale = pearson_method_scale_estimate(
+        12.0,
+        2.0,
+        8.0,
+        dev_extra=3.0,
+        fletcher=True,
+        y=np.array([1.0, 2.0], dtype=np.float64),
+        mu=np.array([1.0, 2.0], dtype=np.float64),
+        dvar_over_var=np.array([np.nan, np.nan], dtype=np.float64),
+    )
+
+    assert scale == pytest.approx((12.0 + 3.0) / (8.0 - 2.0))
+
+
+def test_profiled_gaussian_variance_uses_mgcv_ml_and_reml_denominators():
+    weights = np.array([1.0, 0.0, 2.0, 3.0], dtype=np.float64)
+
+    ml = profiled_gaussian_reml_variance(
+        10.0,
+        2.0,
+        4.0,
+        1.5,
+        gamma=1.25,
+        reml=False,
+        weights=weights,
+        n_effective_total=8.0,
+    )
+    reml = profiled_gaussian_reml_variance(
+        10.0,
+        2.0,
+        4.0,
+        1.5,
+        gamma=1.25,
+        reml=True,
+        weights=weights,
+        n_effective_total=8.0,
+    )
+
+    assert ml == pytest.approx(12.0 / 6.0)
+    assert reml == pytest.approx(12.0 / (6.0 - 1.25 * 1.5))
+
+
+def test_ncv_nei_infers_one_based_without_final_row_and_allows_partial_defaults():
+    assert _infer_index_base(np.array([1, 2], dtype=np.int64), n_obs=3) == 1
+
+    model = SimpleNamespace(
+        nei={
+            "a": np.array([1, 2], dtype=np.int64),
+            "ma": np.array([1, 2], dtype=np.int64),
+        }
+    )
+    nei = _resolve_nei(model, 2)
+
+    np.testing.assert_array_equal(nei["a"], np.array([0, 1], dtype=np.int64))
+    np.testing.assert_array_equal(nei["d"], np.array([0, 1], dtype=np.int64))
+    np.testing.assert_array_equal(nei["ma"], np.array([1, 2], dtype=np.int64))
+    np.testing.assert_array_equal(nei["md"], np.array([1, 2], dtype=np.int64))
 
 
 def _attach_compiled_model(
@@ -1124,6 +1223,7 @@ def test_gaussian_unconditional_postfit_augments_link_matrix_for_joint_scale(
 
 def test_outer_newton_result_sets_stable_metadata():
     """Regression coverage verifying that outer newton result sets stable metadata."""
+
     class _Obj:
         def __init__(self):
             self.n_fun = 0
@@ -1167,7 +1267,7 @@ def test_outer_newton_result_sets_stable_metadata():
 def test_mgcv_outer_newton_steepest_descent_fallback_uses_negative_gradient():
     """
     Regression coverage verifying that mgcv outer newton steepest descent fallback uses
-    negative gradient.
+    the negative-gradient direction required by the validated mgcv trace.
     """
     target = np.array([-0.09882118, -0.09882118], dtype=np.float64)
 
@@ -1233,8 +1333,88 @@ def test_mgcv_outer_newton_steepest_descent_fallback_uses_negative_gradient():
     )
 
     np.testing.assert_allclose(out.x, target, atol=1e-6, rtol=0.0)
-    assert bool(out.success)
     assert bool(out.optim_trace[0]["rank_info"]["used_steepest_descent"])
+
+
+def test_mgcv_outer_newton_step_failure_does_not_report_success():
+    """
+    Regression coverage verifying that mgcv outer newton preserves step-failure
+    semantics even when the trial step is tiny.
+    """
+
+    class _Obj:
+        def __init__(self):
+            self.n_fun = 0
+            self.n_jac = 0
+            self.n_hess = 0
+
+    objective = _Obj()
+
+    def _eval_at(
+        x_eval,
+        *,
+        start_coef,
+        start_eta,
+        start_mu,
+        need_grad,
+        need_hess,
+        commit_start=False,
+        ):
+            del start_coef, start_eta, start_mu, commit_start
+            x_eval = np.asarray(x_eval, dtype=np.float64).ravel()
+            score = 10.0 if np.linalg.norm(x_eval) < 1e-12 else 12.0
+            grad = np.array([1.0], dtype=np.float64)
+            hess = np.array([[-1.0]], dtype=np.float64)
+            objective.n_fun += 1
+            if need_grad:
+                objective.n_jac += 1
+            if need_hess:
+                objective.n_hess += 1
+            return (
+                float(score),
+                None if not need_grad else grad,
+                None if not need_hess else hess,
+                np.full(grad.shape, np.nan, dtype=np.float64),
+            None,
+            None,
+            None,
+            1.0,
+        )
+
+    out = _optimize_outer_newton_mgcv(
+        objective=objective,
+        x0=np.zeros(1, dtype=np.float64),
+        bounds=[(-1e-9, 1e-9)],
+        eval_at=_eval_at,
+        max_iter=5,
+        max_half=3,
+        step_tol=1.0,
+    )
+
+    assert bool(out.success) is False
+    assert str(out.message) == "step failed"
+
+
+def test_tp_constructor_uses_covariate_locations_when_supplied_knots_are_too_few():
+    """
+    Regression coverage verifying that tp setup falls back to covariate locations
+    instead of silently shrinking `k` when supplied knots are fewer than `k`.
+    """
+    data = pd.DataFrame(
+        {
+            "y": np.sin(np.linspace(0.0, 1.0, 24, dtype=np.float64)),
+            "x": np.linspace(0.0, 1.0, 24, dtype=np.float64),
+        }
+    )
+
+    out = construct_tprs_basis(
+        data[["x"]].to_numpy(dtype=np.float64),
+        k=6,
+        penalty_order=2,
+        setup_locations=np.linspace(0.0, 1.0, 4, dtype=np.float64).reshape(-1, 1),
+    )
+
+    assert out["X_raw"].shape[1] == 6
 
 
 def test_prediction_parameterization_respects_public_space_covariance_tags():
@@ -1316,6 +1496,7 @@ def test_disjoint_multi_penalty_term_is_accepted_and_reparameterized():
     Regression coverage verifying that disjoint multi penalty term is accepted and
     reparameterized.
     """
+
     class _Dummy:
         pass
 
@@ -1393,6 +1574,7 @@ def test_overlapping_null_space_penalties_on_one_term_are_accepted():
     Regression coverage verifying that overlapping null space penalties on one term are
     accepted.
     """
+
     class _Dummy:
         pass
 
@@ -1454,6 +1636,7 @@ def test_dynamic_reparam_design_depends_on_current_sp():
     """
     Regression coverage verifying that dynamic reparam design depends on current sp.
     """
+
     class _Dummy:
         pass
 

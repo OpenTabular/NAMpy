@@ -12,6 +12,8 @@ Do **not**:
 - use finite-difference outer-derivative fallbacks for parity-sensitive `ml` / `reml` / `laml` paths,
 - rewrite unsupported formula constructs into approximate fallback specs,
 - partially support linked `id=` groups by silently pooling only a compatible subset.
+- investigate parity-sensitive behavior with one-off shell or REPL snippets when the same check can be encoded as a targeted test,
+- rely on ephemeral exploratory commands when a small script under `debug/` would preserve the probe.
 
 If behavior differs between an apparent design preference and upstream `mgcv`, prefer upstream parity.
 
@@ -43,6 +45,15 @@ python -m pytest
 ```
 
 Run broader coverage only when clearly justified by the scope of the change.
+
+## Investigation policy
+
+When you need to inspect a failing parity case:
+
+1. prefer adding or refining a narrow pytest case that reproduces the mismatch,
+2. prefer invariant-based assertions when the `mgcv` representation is mathematically non-unique,
+3. if a test would be too awkward for the probe, create a small focused script under `debug/` and run that instead,
+4. avoid ad hoc experiments that are not captured in the repository.
 
 ## Architecture
 
@@ -102,7 +113,8 @@ When changing `nampy/gam/`:
 - mirror the upstream routine as directly as possible in Python,
 - preserve operation ordering when numerically relevant,
 - keep shape conventions, constraints, penalty ordering, and side-condition handling aligned with upstream,
-- add comments only where they clarify the mapping from upstream logic.
+- add comments only where they clarify the mapping from upstream logic,
+- compare parity up to `mgcv`-relevant invariants whenever raw representation is not uniquely determined.
 
 For any parity-sensitive change, your final summary should name:
 

@@ -569,3 +569,40 @@ class TestMGCVFormulaParseParity:
             ),
         ):
             build_formula_model(extracted, data=data)
+
+    @pytest.mark.parametrize(
+        ("formula", "error_type", "match"),
+        [
+            ("y ~ s(.)", NotImplementedError, r"s\(\.\) not supported"),
+            ("y ~ . + s(.)", NotImplementedError, r"s\(\.\) not supported"),
+            ("y ~ s(x, by=.)", ValueError, r"by=\. not allowed"),
+            (
+                "y ~ s(x, x)",
+                ValueError,
+                "Repeated variables as arguments of a smooth are not permitted",
+            ),
+            (
+                "y ~ t2(x, z, fx=True)",
+                NotImplementedError,
+                r"t2\(\) does not support fx",
+            ),
+        ],
+    )
+    def test_build_formula_model_rejects_mgcv_smooth_spec_errors(
+        self, formula, error_type, match
+    ):
+        """
+        Verify that formula build rejects smooth specs that upstream mgcv rejects.
+        """
+        data = pd.DataFrame(
+            {
+                "y": [1.0, 2.0, 3.0, 4.0],
+                "x": [0.0, 1.0, 2.0, 3.0],
+                "z": [3.0, 2.0, 1.0, 0.0],
+            }
+        )
+        parsed = parse_gam_formula(formula)
+        extracted = extract_formula_terms(parsed)
+
+        with pytest.raises(error_type, match=match):
+            build_formula_model(extracted, data=data)

@@ -255,6 +255,9 @@ def _sl_single_penalty_block(
             penalty_indices=tuple(int(v) for v in penalty_indices),
         )
 
+    # Match the raw `eigen(..., symmetric=TRUE)` orientation used by
+    # `mgcv::Sl.setup()` for singleton non-diagonal blocks. GAULSS
+    # `initial.spg()` is sensitive to these exact signs.
     values, vectors = scipy_eigh(
         S_local,
         check_finite=False,
@@ -1516,7 +1519,10 @@ def criterion_gradient_ml_reml_general_family(model, y, log_sp, method):
 
 def criterion_hessian_ml_reml_general_family(model, y, log_sp, method):
     if _supports_analytic_outer_hessian(model.family):
-        _record_outer_derivative_mode(model, hessian_source="analytic")
+        _record_outer_derivative_mode(
+            model,
+            hessian_source="analytic_fit5",
+        )
         run = _run_general_family_fixed_smoothing_cached(
             model,
             y,
@@ -1531,10 +1537,10 @@ def criterion_hessian_ml_reml_general_family(model, y, log_sp, method):
         else:
             info["db_drho"] = np.asarray(db_drho, dtype=np.float64).copy()
         model._general_family_outer_derivative_info = info
-        hess = run["fit"].get("score2", None)
-        if hess is None:
+        score2 = run["fit"].get("score2", None)
+        if score2 is None:
             return np.empty((0, 0), dtype=np.float64)
-        return np.asarray(hess, dtype=np.float64)
+        return np.asarray(score2, dtype=np.float64)
     raise NotImplementedError(
         "General-family ML/REML outer optimization requires analytic outer "
         "Hessians for strict mgcv parity; finite-difference fallback removed."
@@ -1564,6 +1570,9 @@ def solve_general_family_fit(model, y, smoothing_params, weights=None):
     outer_hess = None
     optim_result = getattr(model, "_optim_result", None)
     outer_info = None
+    has_nonlinear_sl = any(
+        not bool(getattr(block, "linear", True)) for block in setup.Sl
+    )
     if optim_result is not None and getattr(optim_result, "hess", None) is not None:
         outer_hess = np.asarray(optim_result.hess, dtype=np.float64)
     if optim_result is not None:
@@ -1579,8 +1588,8 @@ def solve_general_family_fit(model, y, smoothing_params, weights=None):
         outer_hess=outer_hess,
         outer_info=outer_info,
         smoothing_params=setup.smoothing_params,
-        penalty_matrix=setup.St,
-        penalty_derivatives=setup.penalty_derivatives,
+        penalty_matrix=setup.St if has_nonlinear_sl else None,
+        penalty_derivatives=setup.penalty_derivatives if has_nonlinear_sl else None,
         db_drho_sign_map=setup.db_drho_sign_map,
     )
 
@@ -1626,6 +1635,13 @@ def solve_general_family_fit(model, y, smoothing_params, weights=None):
     # Vp, and Ve are mapped to prediction parameterization, but Vc is left as
     # raw fit$Vc. Public parity therefore requires keeping general-family Vc in
     # that already-exported space instead of pushing it through P again.
+    #
+    # `summary.gam()` / `anova.gam()` also consume the post-proc `R` from
+    # `gam.fit5.post.proc()`. Keep the exact mgcv-shaped factor available on the
+    # fitted model whenever the public coefficients remain in fit space.
+    model._summary_R_ = None
+    if prediction_parameterization_map(model) is None:
+        model._summary_R_ = np.asarray(post["R"], dtype=np.float64).copy()
 
     beta = np.asarray(coef_full[setup.reduced_to_full_idx], dtype=np.float64)
     intercept = float(coef_full[0]) if setup.predictor_full_slices else 0.0

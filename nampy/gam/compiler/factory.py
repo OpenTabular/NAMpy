@@ -48,6 +48,39 @@ def _as_list_or_repeat(value: Any, n: int):
     return [value] * n
 
 
+def _tensor_feature_groups(features, d):
+    features = [str(f) for f in features]
+    if d is None:
+        return list(features)
+    dims = [int(v) for v in (d if isinstance(d, (list, tuple)) else [d])]
+    if sum(dims) != len(features):
+        raise ValueError(
+            f"Tensor marginal dimensions {dims!r} do not sum to {len(features)} features."
+        )
+    out = []
+    pos = 0
+    for di in dims:
+        group = features[pos : pos + di]
+        out.append(group[0] if di == 1 else list(group))
+        pos += di
+    return out
+
+
+def _tensor_group_knots(knots, features, groups):
+    if knots is None or not isinstance(knots, (list, tuple)):
+        return knots
+    if len(knots) != len(features) or len(groups) == len(features):
+        return knots
+    out = []
+    pos = 0
+    for group in groups:
+        width = len(group) if isinstance(group, list) else 1
+        part = list(knots[pos : pos + width])
+        out.append(part[0] if width == 1 else part)
+        pos += width
+    return out
+
+
 def instantiate_term(term_like: TermSpec | Any):
     if hasattr(term_like, "fit") and callable(term_like.fit):
         return term_like
@@ -247,9 +280,10 @@ def instantiate_term(term_like: TermSpec | Any):
         smooth_spec,
         (TensorProductSmoothSpec, TensorInteractionSmoothSpec, TensorANOVASmoothSpec),
     ):
-        basis = [str(b).lower() for b in tensor_basis_list(smooth_spec, len(features))]
+        groups = _tensor_feature_groups(features, getattr(smooth_spec, "d", None))
+        basis = [str(b).lower() for b in tensor_basis_list(smooth_spec, len(groups))]
         kwargs = {
-            "feature": features,
+            "feature": groups,
             "k": smooth_spec.k,
             "basis": basis,
             "m": smooth_spec.m,
@@ -261,7 +295,7 @@ def instantiate_term(term_like: TermSpec | Any):
             "sp": smooth_spec.sp,
             "select": smooth_spec.select,
             "fixed": smooth_spec.fx,
-            "knots": smooth_spec.knots,
+            "knots": _tensor_group_knots(smooth_spec.knots, features, groups),
             "metadata": metadata,
         }
 

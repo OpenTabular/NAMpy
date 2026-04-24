@@ -89,10 +89,7 @@ _UNCONDITIONAL_STAGE_CASES = [
 ]
 
 _GENERAL_GAP_REASONS = {
-    "gaulss_two_cr": "gaulss sp.vcov matrix still differs from mgcv on the public parameterization.",
-    "gammals_two_cr": "gammals sp.vcov matrix still differs from mgcv on the public parameterization.",
     "gevlss_two_cr": "gevlss sp.vcov matrix still differs from mgcv on the public parameterization.",
-    "shashlss_two_cr": "shashlss sp.vcov matrix still differs from mgcv on the public parameterization.",
     "ziplss_two_cr": "ziplss sp.vcov matrix still differs from mgcv on the public parameterization.",
 }
 
@@ -105,10 +102,14 @@ _GENERAL_STAGE_CASES = [
         method,
         max(1e-4, float(pred_atol)),
         id=case_id,
-        marks=[
-            pytest.mark.status_known_gap,
-            pytest.mark.xfail(strict=True, reason=_GENERAL_GAP_REASONS[case_id]),
-        ],
+        marks=(
+            [
+                pytest.mark.status_known_gap,
+                pytest.mark.xfail(strict=True, reason=_GENERAL_GAP_REASONS[case_id]),
+            ]
+            if case_id in _GENERAL_GAP_REASONS
+            else []
+        ),
     )
     for (
         case_id,

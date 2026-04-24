@@ -5,14 +5,15 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 from scipy.linalg import qr
-from scipy.stats import chi2, f, ncx2
+from scipy.stats import chi2, f
 
-from ...mgcv_utils.davies import DaviesAlgorithm
 from .._mgcv_constants import LOG_GUARD_MIN
 from .._model_state import (
     _coef,
     _coef_column_offset,
     _coef_full,
+    _cov_bayes,
+    _cov_unconditional,
     _deviance,
     _edf2,
     _edf_by_term,
@@ -24,13 +25,14 @@ from .._model_state import (
     _summary_R,
     _term_blocks_seq,
 )
-from ..engine import select_covariance_matrix
+from ..fit import select_covariance_matrix
 from ..linalg import (
     numerical_rank,
     symmetric_eigh,
     symmetric_eigvalsh,
     symmetrize_matrix,
 )
+from .chi_square_mixtures import psum_chisq
 
 
 def _scale_estimated(model) -> bool:
@@ -71,11 +73,40 @@ def _term_combined_penalty_matrix(tb) -> np.ndarray | None:
     return None if total is None else np.asarray(total, dtype=np.float64)
 
 
+def _term_fixed(tb) -> bool:
+    for spec in tuple(getattr(tb, "penalty_specs", ()) or ()):
+        if str(getattr(spec, "sp_mode", "")).lower() == "fixed":
+            return True
+    meta = dict(getattr(tb, "constructor_metadata", {}) or {})
+    if "fixed" in meta:
+        return bool(meta["fixed"])
+    meta = dict(getattr(tb, "metadata", {}) or {})
+    if "fixed" in meta:
+        return bool(meta["fixed"])
+    return False
+
+
+def _term_null_space_dim(tb) -> int | None:
+    for spec in tuple(getattr(tb, "penalty_specs", ()) or ()):
+        null_dim = getattr(spec, "null_space_dim", None)
+        if null_dim is not None:
+            return int(null_dim)
+    for meta_name in ("constructor_metadata", "metadata"):
+        meta = dict(getattr(tb, meta_name, {}) or {})
+        null_dim = meta.get("null_space_dim", None)
+        if null_dim is not None:
+            return int(null_dim)
+    return None
+
+
 def _term_uses_retest(tb, summary_R) -> bool:
     if summary_R is None or str(getattr(tb, "term_type", "")) == "parametric":
         return False
-    if str(getattr(tb, "term_type", "")) == "random_effect":
-        return True
+    if _term_fixed(tb):
+        return False
+    null_dim = _term_null_space_dim(tb)
+    if null_dim is not None and null_dim != 0:
+        return False
     total_penalty = _term_combined_penalty_matrix(tb)
     if total_penalty is None:
         return False
@@ -98,136 +129,6 @@ def _mroot_psd(A: np.ndarray) -> np.ndarray:
     if not np.any(keep):
         return np.zeros((A.shape[0], 0), dtype=np.float64)
     return np.asarray(evecs[:, keep] * np.sqrt(evals[keep]), dtype=np.float64)
-
-
-def _liu2(
-    x: float | np.ndarray,
-    lb: np.ndarray,
-    *,
-    df: np.ndarray | None = None,
-    lower_tail: bool = False,
-) -> float | np.ndarray:
-    """
-    Mirror mgcv/R/mgcv.r::liu2() for central chi-square mixtures.
-    """
-    q = np.asarray(x, dtype=np.float64)
-    scalar = q.ndim == 0
-    q = q.reshape(1) if scalar else q.copy()
-
-    lb = np.asarray(lb, dtype=np.float64).ravel()
-    if df is None:
-        h = np.ones(lb.size, dtype=np.float64)
-    else:
-        h = np.asarray(df, dtype=np.float64).ravel()
-        if h.size == 1:
-            h = np.repeat(h, lb.size)
-    if h.size != lb.size:
-        raise ValueError("lambda and h should have the same length.")
-
-    lh = lb * h
-    mu_q = float(np.sum(lh))
-
-    lh = lh * lb
-    c2 = float(np.sum(lh))
-
-    lh = lh * lb
-    c3 = float(np.sum(lh))
-
-    xpos = q > 0.0
-    out = np.ones_like(q, dtype=np.float64)
-    if (not np.any(xpos)) or c2 <= 0.0:
-        return float(out[0]) if scalar else out
-
-    s1 = c3 / np.power(c2, 1.5)
-    s2 = float(np.sum(lh * lb)) / (c2 * c2)
-    sig_q = np.sqrt(2.0 * c2)
-    t = (q[xpos] - mu_q) / sig_q
-
-    if s1 * s1 > s2:
-        a = 1.0 / (s1 - np.sqrt(s1 * s1 - s2))
-        delta = s1 * a * a * a - a * a
-        l_df = a * a - 2.0 * delta
-    else:
-        if c3 == 0.0:
-            return float(out[0]) if scalar else out
-        a = 1.0 / s1
-        delta = 0.0
-        l_df = (c2 * c2 * c2) / (c3 * c3)
-
-    mu_x = l_df + delta
-    sig_x = np.sqrt(2.0) * a
-    z = t * sig_x + mu_x
-    if lower_tail:
-        out[xpos] = ncx2.cdf(z, df=l_df, nc=delta)
-    else:
-        out[xpos] = ncx2.sf(z, df=l_df, nc=delta)
-    return float(out[0]) if scalar else out
-
-
-def _psum_chisq(
-    q: float | np.ndarray,
-    lb: np.ndarray,
-    *,
-    df: np.ndarray | None = None,
-    nc: np.ndarray | None = None,
-    sigz: float = 0.0,
-    lower_tail: bool = False,
-    tol: float = 2e-5,
-    nlim: int = 100000,
-) -> float | np.ndarray:
-    """
-    Mirror mgcv/R/mgcv.r::psum.chisq() using the existing Davies port.
-    """
-    x = np.asarray(q, dtype=np.float64)
-    scalar = x.ndim == 0
-    x = x.reshape(1) if scalar else x.copy()
-
-    lb = np.asarray(lb, dtype=np.float64).ravel()
-    r = int(lb.size)
-    if r <= 0 or np.all(lb == 0.0):
-        raise ValueError("at least one element of lb must be non-zero")
-
-    if df is None:
-        h = np.ones(r, dtype=np.int64)
-    else:
-        h = np.asarray(df, dtype=np.int64).ravel()
-        if h.size == 1:
-            h = np.repeat(h, r)
-    if nc is None:
-        delta = np.zeros(r, dtype=np.float64)
-    else:
-        delta = np.asarray(nc, dtype=np.float64).ravel()
-        if delta.size == 1:
-            delta = np.repeat(delta, r)
-    if h.size != r or delta.size != r:
-        raise ValueError("lengths of lb, df and nc must match")
-    if np.any(h < 1):
-        raise ValueError("df must be positive integers")
-
-    solver = DaviesAlgorithm()
-    out = np.empty_like(x, dtype=np.float64)
-    sigz = max(float(sigz), 0.0)
-    central = np.all(delta == 0.0)
-
-    for i, qi in enumerate(x):
-        cprob, _trace, ifault = solver.davies(
-            lb=lb,
-            nc=delta,
-            n=h,
-            r=r,
-            sigma=sigz,
-            c_val=float(qi),
-            lim=int(nlim),
-            acc=float(tol),
-        )
-        if ifault in (0, 2):
-            out[i] = float(cprob if lower_tail else 1.0 - cprob)
-        elif central:
-            out[i] = float(_liu2(qi, lb, df=h, lower_tail=lower_tail))
-        else:
-            out[i] = np.nan
-
-    return float(out[0]) if scalar else out
 
 
 def _retest_like_stat(
@@ -273,18 +174,15 @@ def _retest_like_stat(
     b_hat = coef_full[ind]
     stat = float(np.sum((Rm @ b_hat) ** 2) / scale)
 
-    # mgcv::reTest() forms `crossprod(Rm %*% B) / sig2` with
-    # `B <- mroot(Ve[ind, ind])`. Computing the invariant
-    # `Rm %*% Ve %*% t(Rm) / sig2` avoids square-root orientation drift here.
-    RBt = np.asarray((Rm @ Ve_i @ Rm.T) / scale, dtype=np.float64)
-    RBt = symmetrize_matrix(RBt)
-    ev = symmetric_eigvalsh(RBt)
+    B = _mroot_psd(Ve_i)
+    if B.shape[1] == 0:
+        return 0.0, 0.0, np.nan
+    RB = np.asarray(Rm @ B, dtype=np.float64)
+    ev = symmetric_eigvalsh((RB.T @ RB) / scale)
     ev = np.clip(np.asarray(ev, dtype=np.float64), 0.0, None)
-    # The direct `Ve` route needs a slightly stronger cutoff than the
-    # idealized `mroot()` path to mirror mgcv's pivoted-Cholesky rank drop.
     tol = (
         max(float(np.max(ev)) if ev.size else 0.0, 0.0)
-        * np.finfo(np.float64).eps ** 0.5
+        * np.finfo(np.float64).eps ** 0.8
     )
     ev = np.asarray(ev[ev > tol], dtype=np.float64)
     rank = int(ev.size)
@@ -294,7 +192,7 @@ def _retest_like_stat(
     if scale_estimated and residual_df > 0.0:
         k = max(1, int(np.round(residual_df)))
         p_value = float(
-            _psum_chisq(
+            psum_chisq(
                 0.0,
                 np.concatenate([ev, np.array([-stat / k], dtype=np.float64)]),
                 df=np.concatenate(
@@ -303,7 +201,7 @@ def _retest_like_stat(
             )
         )
     else:
-        p_value = float(_psum_chisq(stat, ev))
+        p_value = float(psum_chisq(stat, ev))
     return stat, float(rank), p_value
 
 
@@ -331,7 +229,45 @@ def _residual_df(model) -> float:
     return float(model.n_samples_) - float(_edf_total(model))
 
 
+def _summary_r_crossprod(model) -> tuple[np.ndarray, float] | None:
+    summary_R = _summary_R(model)
+    fit_scale = _fit_scale(model)
+    if summary_R is None or fit_scale is None:
+        return None
+
+    scale = float(fit_scale)
+    R = np.asarray(summary_R, dtype=np.float64)
+    if (
+        R.ndim != 2
+        or R.shape[0] != R.shape[1]
+        or not np.isfinite(scale)
+        or scale <= 0.0
+    ):
+        return None
+    return np.asarray(R.T @ R, dtype=np.float64), scale
+
+
+def _mgcv_f_matrix(model) -> np.ndarray | None:
+    r_info = _summary_r_crossprod(model)
+    Vp = _cov_bayes(model)
+    if r_info is None or Vp is None:
+        return None
+
+    RTR, scale = r_info
+    Vp = np.asarray(Vp, dtype=np.float64)
+    if Vp.shape != RTR.shape:
+        return None
+    return np.asarray((Vp @ RTR) / scale, dtype=np.float64)
+
+
 def _edf1_vector(model) -> np.ndarray:
+    F = _mgcv_f_matrix(model)
+    if F is not None:
+        return np.asarray(
+            2.0 * np.diag(F) - np.sum(F * F.T, axis=1),
+            dtype=np.float64,
+        )
+
     H = np.asarray(_H_coef(model), dtype=np.float64)
     if H.ndim != 2 or H.shape[0] != H.shape[1]:
         raise ValueError("Model does not expose a square coefficient hat matrix.")
@@ -347,11 +283,27 @@ def _term_edf1(model, tb) -> float:
 
 def _residual_df_approx_mgcv(model) -> float:
     dfc = 0.0
-    edf2 = _edf2(model)
+    edf_total = float(_edf_total(model))
+    F = _mgcv_f_matrix(model)
+    if F is not None:
+        edf_total = float(np.trace(F))
+    edf2 = None
+    r_info = _summary_r_crossprod(model)
+    Vc = _cov_unconditional(model)
+    if r_info is not None and Vc is not None:
+        RTR, scale = r_info
+        Vc = np.asarray(Vc, dtype=np.float64)
+        if Vc.shape == RTR.shape:
+            edf2 = np.asarray(np.sum(Vc * RTR, axis=1) / scale, dtype=np.float64)
+            edf1 = _edf1_vector(model)
+            if edf1.shape == edf2.shape and float(np.sum(edf2)) > float(np.sum(edf1)):
+                edf2 = np.asarray(edf1, dtype=np.float64).copy()
+    if edf2 is None:
+        stored = _edf2(model)
+        if stored is not None:
+            edf2 = np.asarray(stored, dtype=np.float64)
     if edf2 is not None:
-        dfc = float(np.sum(np.asarray(edf2, dtype=np.float64))) - float(
-            _edf_total(model)
-        )
+        dfc = float(np.sum(edf2)) - edf_total
     return float(model.n_samples_) - float(np.sum(_edf1_vector(model))) - dfc
 
 
@@ -468,7 +420,7 @@ def _smooth_test_stat(
             k0 = max(1, int(np.round(residual_df)))
             pval = 0.5 * (
                 float(
-                    _psum_chisq(
+                    psum_chisq(
                         0.0,
                         np.concatenate([val, np.array([-d / k0], dtype=np.float64)]),
                         df=np.concatenate(
@@ -480,7 +432,7 @@ def _smooth_test_stat(
                     )
                 )
                 + float(
-                    _psum_chisq(
+                    psum_chisq(
                         0.0,
                         np.concatenate([val, np.array([-d1 / k0], dtype=np.float64)]),
                         df=np.concatenate(
@@ -493,7 +445,7 @@ def _smooth_test_stat(
                 )
             )
         else:
-            pval = 0.5 * (float(_psum_chisq(d, val)) + float(_psum_chisq(d1, val)))
+            pval = 0.5 * (float(psum_chisq(d, val)) + float(psum_chisq(d1, val)))
     else:
         pval = 2.0
 
@@ -699,26 +651,40 @@ def _comparison_table(
     test_name = None if test is None else str(test).strip().lower()
     if test_name == "lrt":
         test_name = "chisq"
-    if test_name not in {None, "chisq", "f", "cp"}:
-        raise ValueError("test must be one of None, 'Chisq', 'LRT', 'F', or 'Cp'.")
+    if test_name not in {None, "chisq", "f"}:
+        raise ValueError("test must be one of None, 'Chisq', 'LRT', or 'F'.")
 
-    disp = float(_fit_scale(models[-1]) if dispersion is None else dispersion)
+    family_class = str(getattr(models[0].family, "family_class", "")).lower()
+    extended_like = family_class == "extended"
+    use_loglik_deviance = extended_like or family_class == "general"
+    if dispersion is None:
+        disp_model = (
+            min(models, key=_residual_df_approx_mgcv) if extended_like else models[-1]
+        )
+        disp_obj = _fit_scale(disp_model)
+        disp = 1.0 if disp_obj is None else float(disp_obj)
+    else:
+        disp = float(dispersion)
+    if not np.isfinite(disp) or disp <= 0.0:
+        disp = 1.0
     chosen_test = test_name
+    if extended_like and chosen_test is not None:
+        chosen_test = "chisq"
     extra_cols: list[str] = []
     if chosen_test == "f":
         extra_cols = ["F", "Pr(>F)"]
     elif chosen_test == "chisq":
         extra_cols = ["Pr(>Chi)"]
-    elif chosen_test == "cp":
-        extra_cols = ["Cp"]
-
     rows: list[dict[str, object]] = []
     prev = None
     for _idx, model in enumerate(models):
         resid_df = _residual_df_approx_mgcv(model)
+        resid_dev = float(_deviance(model))
+        if use_loglik_deviance:
+            resid_dev = float(-2.0 * float(model.loglik()) * disp)
         row: dict[str, object] = {
             "Resid. Df": resid_df,
-            "Resid. Dev": float(_deviance(model)),
+            "Resid. Dev": resid_dev,
             "Df": np.nan,
             "Deviance": np.nan,
         }
@@ -727,30 +693,20 @@ def _comparison_table(
 
         if prev is not None:
             df_diff = float(_residual_df_approx_mgcv(prev)) - float(resid_df)
-            dev_diff = float(_deviance(prev)) - float(_deviance(model))
+            prev_dev = float(_deviance(prev))
+            if use_loglik_deviance:
+                prev_dev = float(-2.0 * float(prev.loglik()) * disp)
+            dev_diff = prev_dev - resid_dev
             row["Df"] = df_diff
             row["Deviance"] = dev_diff
 
             if df_diff > 0.0 and dev_diff >= 0.0:
-                if chosen_test == "cp":
-                    row["Cp"] = float(
-                        (
-                            float(model.smoothing_score_)
-                            if model.smoothing_score_ is not None
-                            else _deviance(model)
-                        )
-                        - (
-                            float(prev.smoothing_score_)
-                            if prev.smoothing_score_ is not None
-                            else _deviance(prev)
-                        )
-                    )
-                elif chosen_test == "f":
+                if chosen_test == "f":
                     denom_df = max(
                         float(resid_df),
                         1.0,
                     )
-                    denom = float(_deviance(model)) / denom_df
+                    denom = float(resid_dev) / denom_df
                     stat = (
                         np.nan if denom <= 0.0 else float((dev_diff / df_diff) / denom)
                     )
@@ -771,7 +727,7 @@ def _comparison_table(
     columns = ["Resid. Df", "Resid. Dev", "Df", "Deviance"] + extra_cols
     return AnovaGAMComparison(
         family_name=family_name,
-        test=None if test_name is None else str(test).upper(),
+        test=None if chosen_test is None else str(chosen_test).upper(),
         table=pd.DataFrame(rows, columns=columns),
     )
 

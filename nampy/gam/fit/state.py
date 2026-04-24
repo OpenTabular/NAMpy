@@ -1,12 +1,12 @@
 """
-Compatibility wrapper over stable fitted outputs and transient engine state.
+Compatibility wrapper over stable fitted outputs and transient fit state.
 
 `FitCoreSolution` remains the common solver return type during migration, but it
 now wraps:
 
 - `FitResult`: stable fitted outputs for consumers
 - `FitState`: transient numerical workspace
-- `PenalizedSystem`: engine-facing assembled system metadata
+- `PenalizedSystem`: assembled penalized-system metadata
 """
 
 from __future__ import annotations
@@ -14,7 +14,6 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 
 import numpy as np
-from scipy.linalg import cho_factor, cho_solve
 
 from .._model_state import (
     _coef_column_offset,
@@ -22,10 +21,8 @@ from .._model_state import (
     _fit_state,
     _term_blocks_seq,
 )
-from ..engine.state import FitState, PenalizedSystem
 from ..linalg import numerical_rank
 from ..results import FitResult
-from .covariance import build_bayes_and_freq_covariances
 from .parameterization import (
     FIT_PARAMETER_SPACE,
     export_fit_result_to_prediction_space,
@@ -45,6 +42,50 @@ from .postprocess.unconditional_covariance import (
 from .postprocess.unconditional_covariance import (
     _restore_pirls_rank_root_to_original_parameterization as _restore_pirls_rank_root_impl,
 )
+
+
+@dataclass(frozen=True)
+class PenalizedSystem:
+    X: np.ndarray | None = None
+    A: np.ndarray | None = None
+    XtWX: np.ndarray | None = None
+    P: np.ndarray | None = None
+    penalty_matrix: np.ndarray | None = None
+    offset: np.ndarray | None = None
+    log_det_XtWX_plus_penalty: float | None = None
+    penalized_system_rank: int | None = None
+    dropped_column_indices: np.ndarray | None = None
+
+
+@dataclass(frozen=True)
+class FitState:
+    X: np.ndarray | None = None
+    A: np.ndarray | None = None
+    A_inv: np.ndarray | None = None
+    XtWX: np.ndarray | None = None
+    P: np.ndarray | None = None
+    penalty_matrix: np.ndarray | None = None
+    working_weights: np.ndarray | None = None
+    fisher_weights: np.ndarray | None = None
+    working_response: np.ndarray | None = None
+    offset: np.ndarray | None = None
+    log_det_XtWX_plus_penalty: float | None = None
+    penalized_system_rank: int | None = None
+    dropped_column_indices: np.ndarray | None = None
+    scale: float | None = None
+
+    def to_penalized_system(self) -> PenalizedSystem:
+        return PenalizedSystem(
+            X=self.X,
+            A=self.A,
+            XtWX=self.XtWX,
+            P=self.P,
+            penalty_matrix=self.penalty_matrix,
+            offset=self.offset,
+            log_det_XtWX_plus_penalty=self.log_det_XtWX_plus_penalty,
+            penalized_system_rank=self.penalized_system_rank,
+            dropped_column_indices=self.dropped_column_indices,
+        )
 
 
 def _prediction_parameterization_map(model) -> np.ndarray | None:
@@ -212,9 +253,7 @@ class FitCoreSolution:
             coef_space=str(data.get("coef_space", "fit")),
             cov_bayes_space=str(data.get("cov_bayes_space", "fit")),
             cov_freq_space=str(data.get("cov_freq_space", "fit")),
-            cov_unconditional_space=str(
-                data.get("cov_unconditional_space", "fit")
-            ),
+            cov_unconditional_space=str(data.get("cov_unconditional_space", "fit")),
         )
         fit_state = FitState(
             X=(
@@ -384,83 +423,6 @@ def assign_fit_solution(model, sol: FitCoreSolution):
         if fit_result.cov_freq is None
         else np.asarray(fit_result.cov_freq, dtype=np.float64)
     )
-    if (
-        str(getattr(model.family, "family_class", "")).lower() != "general"
-        and not bool(getattr(model.family, "canonical_link", False))
-        and fit_state.X is not None
-        and fit_state.P is not None
-        and fit_state.fisher_weights is not None
-    ):
-        try:
-            X = np.asarray(fit_state.X, dtype=np.float64)
-            P = np.asarray(fit_state.P, dtype=np.float64)
-            fisher_w = np.asarray(fit_state.fisher_weights, dtype=np.float64).ravel()
-            XtFX = X.T @ (fisher_w[:, None] * X)
-            A_now = XtFX + P
-            cA_post, lower_post = cho_factor(
-                A_now, overwrite_a=False, check_finite=False
-            )
-            A_inv_post = cho_solve(
-                (cA_post, lower_post),
-                np.eye(X.shape[1], dtype=np.float64),
-                check_finite=False,
-            )
-            A_post = np.asarray(A_now, dtype=np.float64)
-            XtWX_post = np.asarray(XtFX, dtype=np.float64)
-            # Preserve the PIRLS working weights on the exposed fit state.
-            # This post-fit Fisher rebuild is only for mgcv-style covariance /
-            # hat-matrix refresh on non-canonical links.
-            if str(getattr(model.family, "name", "")).lower() == "gamma":
-                scale_post = float(
-                    model.family.estimate_dispersion(
-                        model.y_,
-                        fit_result.mu,
-                        edf=trace_H_post,
-                        weights=model.prior_weights_,
-                    )
-                )
-            Vp_post, Vf_post, H_post = build_bayes_and_freq_covariances(
-                scale_post, A_inv_post, XtFX
-            )
-            trace_H_post = float(np.trace(H_post))
-        except Exception:
-            pass
-    if (
-        str(getattr(model.family, "name", "")).lower() == "gamma"
-        and fit_state.X is not None
-        and fit_state.P is not None
-        and fit_state.fisher_weights is not None
-    ):
-        X = np.asarray(fit_state.X, dtype=np.float64)
-        P = np.asarray(fit_state.P, dtype=np.float64)
-        fisher_w = np.asarray(fit_state.fisher_weights, dtype=np.float64).ravel()
-        XtFX = X.T @ (fisher_w[:, None] * X)
-        A_now = XtFX + P
-        cA_post, lower_post = cho_factor(A_now, overwrite_a=False, check_finite=False)
-        A_inv_post = cho_solve(
-            (cA_post, lower_post),
-            np.eye(X.shape[1], dtype=np.float64),
-            check_finite=False,
-        )
-        A_post = np.asarray(A_now, dtype=np.float64)
-        XtWX_post = np.asarray(XtFX, dtype=np.float64)
-        # Keep the original PIRLS working weights visible on `fit_state`;
-        # gamma-specific post-fit refresh should not collapse them onto the
-        # Fisher weights.
-        H_post = A_inv_post @ XtFX
-        trace_H_post = float(np.trace(H_post))
-        scale_post = float(
-            model.family.estimate_dispersion(
-                model.y_,
-                fit_result.mu,
-                edf=trace_H_post,
-                weights=model.prior_weights_,
-            )
-        )
-        Vp_post, Vf_post, H_post = build_bayes_and_freq_covariances(
-            scale_post, A_inv_post, XtFX
-        )
-        trace_H_post = float(np.trace(H_post))
     fit_state = replace(
         fit_state,
         scale=float(scale_post),

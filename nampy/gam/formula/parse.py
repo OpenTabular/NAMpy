@@ -648,7 +648,10 @@ def _parse_smooth_call(node, rhs_src: str, textra: str | None):
             raise NotImplementedError(
                 "**kwargs style smooth specification is not supported."
             )
-        kwargs[kw.arg] = _ast_to_value(kw.value)
+        if kw.arg == "by":
+            kwargs[kw.arg] = _ast_to_expr_label(kw.value, rhs_src)
+        else:
+            kwargs[kw.arg] = _ast_to_value(kw.value)
 
     raw_label = _source_segment(rhs_src, node, f"{kind}({', '.join(features)})")
     by_value = kwargs.get("by", None)

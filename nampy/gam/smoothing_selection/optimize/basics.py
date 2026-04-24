@@ -12,7 +12,7 @@ from ..._model_state import (
 )
 from ...fit.backends import GENERAL_FAMILY_BACKEND
 from ...fit.penalized_system import build_full_design
-from ...linalg.norms import r_matrix_norm_max_abs, r_matrix_norm_one
+from ...linalg.norms import r_matrix_norm_max_abs
 from ..criteria import resolve_ml_reml_scoring_backend
 
 
@@ -23,7 +23,7 @@ def supports_criterion_gradient(model, method):
     if method not in {"ml", "reml", "laml"}:
         return False
     backend = resolve_ml_reml_scoring_backend(model, method=method)
-    if backend in {"gaussian_exact", "gaussian_dynamic"} and method in {"reml", "laml"}:
+    if backend in {"gaussian_exact", "gaussian_dynamic"}:
         return True
     if backend == GENERAL_FAMILY_BACKEND:
         return True
@@ -49,7 +49,7 @@ def supports_criterion_hessian(model, method):
     if method not in {"ml", "reml", "laml"}:
         return False
     backend = resolve_ml_reml_scoring_backend(model, method=method)
-    if backend in {"gaussian_exact", "gaussian_dynamic"} and method in {"reml", "laml"}:
+    if backend in {"gaussian_exact", "gaussian_dynamic"}:
         return True
     if backend == GENERAL_FAMILY_BACKEND:
         return True
@@ -84,8 +84,21 @@ def _initial_smoothing_params_from_design_balance(model, y):
     X = build_full_design(_design_matrix(model), fit_intercept=_fit_intercept(model))
     y = np.asarray(y, dtype=np.float64).ravel()
 
+    prior_weights = getattr(model, "prior_weights_", None)
+    if prior_weights is None:
+        prior_w = np.ones(y.shape[0], dtype=np.float64)
+    else:
+        prior_w = np.asarray(prior_weights, dtype=np.float64).ravel()
+        if prior_w.shape != y.shape or np.any(~np.isfinite(prior_w)):
+            return None
+
     try:
-        mu0 = np.asarray(model.family.initialize_mu(y), dtype=np.float64)
+        try:
+            mu0 = np.asarray(
+                model.family.initialize_mu(y, weights=prior_w), dtype=np.float64
+            )
+        except TypeError:
+            mu0 = np.asarray(model.family.initialize_mu(y), dtype=np.float64)
         eta0 = np.asarray(model.family.link(mu0), dtype=np.float64)
         mu_eta = np.asarray(model.family.mu_eta(eta0), dtype=np.float64)
         var_mu = np.asarray(model.family.variance(mu0), dtype=np.float64)
@@ -95,7 +108,7 @@ def _initial_smoothing_params_from_design_balance(model, y):
     # Heuristic from weighted column norms vs penalty diagonals (Wood-style init):
     # w <- sqrt(weights * mu.eta(eta)^2 / variance(mu))
     w_used = np.asarray(
-        mu_eta * mu_eta / np.maximum(var_mu, 1e-12),
+        prior_w * mu_eta * mu_eta / np.maximum(var_mu, 1e-12),
         dtype=np.float64,
     )
 
@@ -381,8 +394,7 @@ def _initial_smoothing_params_mgcv_style(model, y):
                 if (
                     D_block.ndim != 2
                     or len(block.S) <= 1
-                    or str(getattr(block, "sign_mode", "raw")).lower()
-                    != "tensor_anova"
+                    or str(getattr(block, "sign_mode", "raw")).lower() != "tensor_anova"
                 ):
                     continue
                 n_tail = min(len(block.S), int(D_block.shape[1]))
@@ -510,8 +522,20 @@ def _initial_smoothing_params_mgcv_style(model, y):
     y = np.asarray(y, dtype=np.float64).ravel()
     nobs, _q = X.shape
 
+    prior_weights = getattr(model, "prior_weights_", None)
+    if prior_weights is None:
+        prior_w = np.ones(nobs, dtype=np.float64)
+    else:
+        prior_w = np.asarray(prior_weights, dtype=np.float64).ravel()
+        if prior_w.shape != (nobs,) or np.any(~np.isfinite(prior_w)):
+            return None
     try:
-        mu0 = np.asarray(model.family.initialize_mu(y), dtype=np.float64)
+        try:
+            mu0 = np.asarray(
+                model.family.initialize_mu(y, weights=prior_w), dtype=np.float64
+            )
+        except TypeError:
+            mu0 = np.asarray(model.family.initialize_mu(y), dtype=np.float64)
         eta0 = np.asarray(model.family.link(mu0), dtype=np.float64)
         mu_eta = np.asarray(model.family.mu_eta(eta0), dtype=np.float64)
         var_mu = np.asarray(model.family.variance(mu0), dtype=np.float64)
@@ -520,13 +544,6 @@ def _initial_smoothing_params_mgcv_style(model, y):
 
     # mgcv::initial.spg for ordinary families:
     #   w <- sqrt(weights * mu.eta(eta)^2 / variance(mu))
-    prior_weights = getattr(model, "prior_weights_", None)
-    if prior_weights is None:
-        prior_w = np.ones(nobs, dtype=np.float64)
-    else:
-        prior_w = np.asarray(prior_weights, dtype=np.float64).ravel()
-        if prior_w.shape != (nobs,) or np.any(~np.isfinite(prior_w)):
-            return None
     w = np.sqrt(
         np.clip(prior_w * mu_eta * mu_eta / np.maximum(var_mu, 1e-12), 1e-12, None)
     )

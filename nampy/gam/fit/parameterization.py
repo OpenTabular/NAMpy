@@ -70,12 +70,13 @@ def export_fit_result_to_prediction_space(model, fit_result):
         P,
         source_space=getattr(fit_result, "cov_freq_space", None),
     )
-    cov_unconditional, cov_unconditional_space = (
-        _transform_covariance_to_prediction_space(
-            fit_result.cov_unconditional,
-            P,
-            source_space=getattr(fit_result, "cov_unconditional_space", None),
-        )
+    cov_unconditional = (
+        None
+        if fit_result.cov_unconditional is None
+        else np.asarray(fit_result.cov_unconditional, dtype=np.float64).copy()
+    )
+    cov_unconditional_space = normalize_parameter_space(
+        getattr(fit_result, "cov_unconditional_space", None)
     )
 
     beta = np.asarray(coef_full[_coef_column_offset(model) :], dtype=np.float64)

@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy.linalg import solve_triangular
 
 from ..._model_state import _n_smoothing_params
-from ...engine.state import FitState
 from ...linalg import symmetrize_matrix
 from ...results import FitResult
 from ..linalg.matrix_reindexing import (
@@ -22,6 +22,9 @@ from ..parameterization import (
     PREDICTION_PARAMETER_SPACE,
     prediction_parameterization_map,
 )
+
+if TYPE_CHECKING:
+    from ..state import FitState
 
 
 def _mgcv_dchol(dA: np.ndarray, R: np.ndarray) -> np.ndarray:
@@ -437,6 +440,7 @@ def _pirls_exact_unconditional_postfit(
         setup_state,
         S_blocks_full,
         free_mask_arr,
+        vr_ridge,
     ):
         Hsp = np.asarray(Hsp, dtype=np.float64)
         if (
@@ -453,7 +457,9 @@ def _pirls_exact_unconditional_postfit(
         db_work = np.asarray(db_work, dtype=np.float64)
         if db_work.ndim != 2 or db_work.shape[0] != Vp.shape[0]:
             return None
-        if Hsp.shape[0] != db_work.shape[1]:
+        n_work = int(db_work.shape[1])
+        scale_est = bool(Hsp.shape[0] == n_work + 1)
+        if Hsp.shape[0] not in {n_work, n_work + 1}:
             return None
         rho = np.asarray(rho, dtype=np.float64).ravel()
         if rho.shape[0] != Hsp.shape[0]:
@@ -467,14 +473,12 @@ def _pirls_exact_unconditional_postfit(
 
         inv_sqrt = np.zeros_like(evals)
         inv_sqrt[pos] = 1.0 / np.sqrt(evals[pos])
-        rV = np.asarray(
-            (inv_sqrt[:, None] * evecs.T)[:, : db_work.shape[1]], dtype=np.float64
-        )
+        rV = np.asarray((inv_sqrt[:, None] * evecs.T)[:, :n_work], dtype=np.float64)
         Vc1 = np.asarray((rV @ db_work.T).T @ (rV @ db_work.T), dtype=np.float64)
 
         reg = np.asarray(evals, dtype=np.float64).copy()
         reg[~pos] = 0.0
-        reg = 1.0 / np.sqrt(reg + 0.1)
+        reg = 1.0 / np.sqrt(reg + float(vr_ridge))
         Vr = np.asarray(
             (reg[:, None] * evecs.T).T @ (reg[:, None] * evecs.T),
             dtype=np.float64,
@@ -482,19 +486,36 @@ def _pirls_exact_unconditional_postfit(
 
         from ..solvers.general_newton_solver import _vb_corr_root
 
+        rho_vcorr = np.asarray(rho, dtype=np.float64)
+        lsp0_vcorr = np.asarray(getattr(setup_state, "lsp0", []), dtype=np.float64)
+        L_vcorr = (
+            None
+            if getattr(setup_state, "L", None) is None
+            else np.asarray(setup_state.L, dtype=np.float64)
+        )
+        if scale_est:
+            lsp0_vcorr = np.concatenate([lsp0_vcorr, [0.0]])
+            if L_vcorr is not None:
+                # mgcv::gam.fit3.post.proc() / Vb.corr() carry an extra final
+                # row/column in `L` for the joint log-scale parameter and drop
+                # it internally when `scale.est=TRUE`.
+                L_aug = np.zeros(
+                    (L_vcorr.shape[0] + 1, L_vcorr.shape[1] + 1),
+                    dtype=np.float64,
+                )
+                L_aug[:-1, :-1] = L_vcorr
+                L_aug[-1, -1] = 1.0
+                L_vcorr = L_aug
+
         Vc2 = scale * _vb_corr_root(
             R_wx,
-            L=(
-                None
-                if getattr(setup_state, "L", None) is None
-                else np.asarray(setup_state.L, dtype=np.float64)
-            ),
-            lsp0=np.asarray(getattr(setup_state, "lsp0", []), dtype=np.float64),
+            L=L_vcorr,
+            lsp0=lsp0_vcorr,
             S_blocks=S_blocks_full,
             off=None,
-            rho=rho,
+            rho=rho_vcorr,
             Vr=Vr,
-            scale_est=False,
+            scale_est=scale_est,
         )
 
         Vc = symmetrize_matrix(np.asarray(Vp + Vc1 + Vc2, dtype=np.float64))
@@ -546,16 +567,36 @@ def _pirls_exact_unconditional_postfit(
     sp = np.asarray(model.smoothing_params, dtype=np.float64).ravel()
     log_sp = np.log(np.maximum(sp[free_mask], np.finfo(np.float64).tiny))
 
-    try:
-        Hsp_fit = np.asarray(
-            criterion_hessian(model, model.y_, log_sp, method=method),
-            dtype=np.float64,
-        )
-    except Exception:
-        return None, None, FIT_PARAMETER_SPACE
-    if Hsp_fit.shape != (free_idx.size, free_idx.size) or not np.all(
-        np.isfinite(Hsp_fit)
-    ):
+    optim_result = getattr(model, "_optim_result", None)
+    outer_info = dict(getattr(optim_result, "outer_info", {}) or {})
+    Hsp_fit = None
+    rho_fit = np.asarray(log_sp, dtype=np.float64)
+    Hsp_outer = outer_info.get("hess", None)
+    if Hsp_outer is not None:
+        Hsp_outer = np.asarray(Hsp_outer, dtype=np.float64)
+        if np.all(np.isfinite(Hsp_outer)):
+            if Hsp_outer.shape == (free_idx.size, free_idx.size):
+                Hsp_fit = Hsp_outer
+            elif (
+                Hsp_outer.shape == (free_idx.size + 1, free_idx.size + 1)
+                and getattr(optim_result, "joint_log_phi", None) is not None
+            ):
+                joint_log_phi = float(optim_result.joint_log_phi)
+                if np.isfinite(joint_log_phi):
+                    Hsp_fit = Hsp_outer
+                    rho_fit = np.concatenate([rho_fit, [joint_log_phi]])
+    if Hsp_fit is None:
+        try:
+            Hsp_fit = np.asarray(
+                criterion_hessian(model, model.y_, log_sp, method=method),
+                dtype=np.float64,
+            )
+        except Exception:
+            return None, None, FIT_PARAMETER_SPACE
+    if Hsp_fit.shape not in {
+        (free_idx.size, free_idx.size),
+        (free_idx.size + 1, free_idx.size + 1),
+    } or not np.all(np.isfinite(Hsp_fit)):
         return None, None, FIT_PARAMETER_SPACE
 
     try:
@@ -580,9 +621,12 @@ def _pirls_exact_unconditional_postfit(
         return None, None, FIT_PARAMETER_SPACE
     db_drho_fit = np.column_stack(db_cols)
 
-    weights = fit_state.working_weights
+    # Mirror mgcv/R/gam.fit3.r::gam.fit3.post.proc(), which forms
+    # `WX <- sqrt(object$weights) * X` using the reported Fisher weights,
+    # not the PIRLS working weights.
+    weights = fit_state.fisher_weights
     if weights is None:
-        weights = fit_state.fisher_weights
+        weights = fit_state.working_weights
     if weights is None:
         return None, None, FIT_PARAMETER_SPACE
 
@@ -620,7 +664,7 @@ def _pirls_exact_unconditional_postfit(
     fitted_out = _candidate_vc_and_edf2(
         Hsp=Hsp_fit,
         db_drho=db_drho_fit,
-        rho=log_sp,
+        rho=rho_fit,
         Vp=Vp,
         scale=scale,
         R_wx=R_wx,
@@ -629,6 +673,7 @@ def _pirls_exact_unconditional_postfit(
         setup_state=setup,
         S_blocks_full=S_blocks_full,
         free_mask_arr=free_mask,
+        vr_ridge=0.1,
     )
     if fitted_out is None:
         return None, None, FIT_PARAMETER_SPACE
@@ -637,9 +682,6 @@ def _pirls_exact_unconditional_postfit(
     Vc_final = np.asarray(Vc_fit, dtype=np.float64)
     edf2_final = np.asarray(edf2_fit, dtype=np.float64)
 
-    outer_info = dict(
-        getattr(getattr(model, "_optim_result", None), "outer_info", {}) or {}
-    )
     Hsp_edge = outer_info.get("hess1", None)
     db_drho_edge = outer_info.get("db_drho1", None)
     rho_edge = outer_info.get("lsp1", None)
@@ -656,6 +698,7 @@ def _pirls_exact_unconditional_postfit(
             setup_state=setup,
             S_blocks_full=S_blocks_full,
             free_mask_arr=free_mask,
+            vr_ridge=1e-7,
         )
         if edge_out is not None:
             Vc_final = np.asarray(edge_out[0], dtype=np.float64)

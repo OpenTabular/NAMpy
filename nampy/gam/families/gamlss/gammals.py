@@ -6,7 +6,7 @@ import numpy as np
 from scipy.special import digamma, gammaln, polygamma
 
 from ...fit.solvers.gamlss_utils import gamlss_etamu, gamlss_gH, trind_generator
-from ._base import GamlssFamily, _IdentityLinkInfo, _pen_reg
+from ._base import GamlssFamily, _IdentityLinkInfo, _pen_reg, _qr_coef_pivoted
 
 
 class _SoftplusBLinkInfo:
@@ -62,7 +62,7 @@ class _SoftplusBLinkInfo:
         """d^2 eta / d mu^2.  Mirrors mgcv d2link for softplus-b."""
         mu = np.asarray(mu, dtype=np.float64)
         mub = mu - self.b
-        mub_v = np.exp(-np.abs(mub) * np.sign(mub))  # exp(-|mu-b|*sign) = exp(-|mu-b|)
+        mub_v = np.exp(-mub * np.sign(mub))
         return -mub_v / (mub_v - 1.0) ** 2
 
     def d3link(self, mu: np.ndarray) -> np.ndarray:
@@ -365,7 +365,7 @@ class GammalsFamily(GamlssFamily):
         use_unscaled = bool(E is not None and getattr(E, "use_unscaled", False))
 
         # --- Fit log-mean predictor on log(y) ---
-        yt1 = np.log(np.maximum(y + eps, 1e-300))
+        yt1 = np.log(y + eps)
         if off1 is not None:
             yt1 = yt1 - off1
 
@@ -375,26 +375,17 @@ class GammalsFamily(GamlssFamily):
             if use_unscaled:
                 XE1 = np.vstack([X1, E1])
                 y1e = np.concatenate([yt1, np.zeros(E1.shape[0])])
-                try:
-                    start1 = np.linalg.lstsq(XE1, y1e, rcond=None)[0]
-                except np.linalg.LinAlgError:
-                    start1 = np.zeros(X1.shape[1], dtype=np.float64)
+                start1 = _qr_coef_pivoted(XE1, y1e)
             else:
                 start1 = _pen_reg(X1, E1, yt1)
         else:
-            try:
-                start1 = np.linalg.lstsq(X1, yt1, rcond=None)[0]
-            except np.linalg.LinAlgError:
-                start1 = np.zeros(X1.shape[1], dtype=np.float64)
+            start1 = _qr_coef_pivoted(X1, yt1)
         start1 = np.where(np.isfinite(start1), start1, 0.0)
         start[jj[0]] = start1
 
         # --- Fit log-sigma predictor on transformed residuals ---
-        mu_init = self.linfo[0].linkinv(
-            X1 @ start1 + (off1 if off1 is not None else 0.0)
-        )
         lres1 = self.linfo[1].linkfun(
-            np.log(np.maximum(np.abs(y - self.linfo[0].linkinv(X1 @ start1)), 1e-300))
+            np.log(np.abs(y - self.linfo[0].linkinv(X1 @ start1)))
         )
         if off2 is not None:
             lres1 = lres1 - off2
@@ -405,17 +396,11 @@ class GammalsFamily(GamlssFamily):
             if use_unscaled:
                 XE2 = np.vstack([X2, E2])
                 y2e = np.concatenate([lres1, np.zeros(E2.shape[0])])
-                try:
-                    start2 = np.linalg.lstsq(XE2, y2e, rcond=None)[0]
-                except np.linalg.LinAlgError:
-                    start2 = np.zeros(X2.shape[1], dtype=np.float64)
+                start2 = _qr_coef_pivoted(XE2, y2e)
             else:
                 start2 = _pen_reg(X2, E2, lres1)
         else:
-            try:
-                start2 = np.linalg.lstsq(X2, lres1, rcond=None)[0]
-            except np.linalg.LinAlgError:
-                start2 = np.zeros(X2.shape[1], dtype=np.float64)
+            start2 = _qr_coef_pivoted(X2, lres1)
         start2 = np.where(np.isfinite(start2), start2, 0.0)
         start[jj[1]] = start2
 
@@ -425,6 +410,11 @@ class GammalsFamily(GamlssFamily):
         self, y: np.ndarray, fitted: np.ndarray, rtype: str = "deviance"
     ) -> np.ndarray:
         """Residuals for gammals.  Mirrors mgcv ``gammals$residuals``."""
+        rtype = str(rtype).lower()
+        if rtype not in {"deviance", "pearson", "response"}:
+            raise ValueError(
+                "gammals residuals support only {'deviance', 'pearson', 'response'}."
+            )
         y = np.asarray(y, dtype=np.float64)
         mu = np.asarray(fitted[:, 0], dtype=np.float64)
         rho = np.asarray(fitted[:, 1], dtype=np.float64)  # log sigma

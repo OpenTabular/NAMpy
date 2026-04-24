@@ -22,9 +22,13 @@ def compile_predictors(
     feature_names: list[str],
     predictor_specs: list[LinearPredictorSpec],
 ):
-    predictor_specs = attach_shared_basis_metadata(
-        predictor_specs, X=X, feature_names=feature_names
-    )
+    predictor_specs = [
+        linked_spec
+        for pred_spec in predictor_specs
+        for linked_spec in attach_shared_basis_metadata(
+            [pred_spec], X=X, feature_names=feature_names
+        )
+    ]
     predictor_specs = instantiate_predictor_terms(predictor_specs)
 
     designs = []
@@ -138,21 +142,19 @@ def compile_predictors(
                             local_penalty_index=j,
                             n_penalties=len(penalty_defs),
                         )
-                elif raw_sid_counts.get(str(sid), 0) > 1:
-                    sid = penalty_id_for_local_index(
-                        sid, j, n_penalties=len(penalty_defs)
-                    )
                 sid = str(sid)
-                if sid not in smoothing_id_map:
+                first_smoothing_id_occurrence = sid not in smoothing_id_map
+                if first_smoothing_id_occurrence:
                     smoothing_id_map[sid] = len(smoothing_id_map)
                 sp_idx = smoothing_id_map[sid]
-                smoothing_override_by_id[sid] = merge_smoothing_override(
-                    smoothing_override_by_id.get(sid, None),
-                    pdef.sp_mode,
-                    pdef.sp_value,
-                    smoothing_id=sid,
-                    label=tb.label,
-                )
+                if first_smoothing_id_occurrence:
+                    smoothing_override_by_id[sid] = merge_smoothing_override(
+                        smoothing_override_by_id.get(sid, None),
+                        pdef.sp_mode,
+                        pdef.sp_value,
+                        smoothing_id=sid,
+                        label=tb.label,
+                    )
                 penalty_blocks.append(
                     CompiledPenalty(
                         label=tb.label,
@@ -189,14 +191,17 @@ def compile_predictors(
                     penalty_group_specs[group_id] = group
                 if group.sp_count is None:
                     group.sp_count = len(term_smoothing_indices)
-                elif group.sp_count != len(term_smoothing_indices):
+                elif group.sp_count < len(term_smoothing_indices):
                     raise ValueError(
-                        f"Linked smoothing id {group_id!r} expects {group.sp_count} "
-                        f"smoothing parameters, got {len(term_smoothing_indices)}."
+                        f"Linked smoothing id {group_id!r} cannot have more smoothing "
+                        f"parameters than its defining term ({group.sp_count}); got "
+                        f"{len(term_smoothing_indices)}."
                     )
                 if not group.sp_indices:
                     group.sp_indices = list(term_smoothing_indices)
-                elif group.sp_indices != list(term_smoothing_indices):
+                elif group.sp_indices[: len(term_smoothing_indices)] != list(
+                    term_smoothing_indices
+                ):
                     raise ValueError(
                         f"Linked smoothing id {group_id!r} resolved to inconsistent "
                         f"smoothing indices {group.sp_indices} and "

@@ -246,10 +246,10 @@ def test_ti_prediction_parameterization_matches_mgcv_and_preserves_penalty_order
     )
 
 
-def test_ti_numeric_by_prediction_parameterization_matches_mgcv_and_disables_centering():
+def test_ti_numeric_by_prediction_parameterization_matches_mgcv_and_keeps_mgcv_marginal_centering():
     """
-    Verify that ti numeric by prediction parameterization matches mgcv and disables
-    centering.
+    Verify that ti numeric by prediction parameterization matches mgcv and keeps
+    the upstream marginal centering.
     """
     data = _stage_tensor_by_data()
     term, actual, new_xyz = _ti_prediction_parameterization(data, by="z")
@@ -264,7 +264,7 @@ def test_ti_numeric_by_prediction_parameterization_matches_mgcv_and_disables_cen
     assert term._by_state is not None
     assert term._by_state.name == "z"
     assert term._by_state.is_constant is False
-    assert term._marginal_is_centered == [False, False]
+    assert term._marginal_is_centered == [True, True]
     np.testing.assert_allclose(
         actual,
         np.asarray(expected_predict["X"], dtype=np.float64),

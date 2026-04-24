@@ -5,8 +5,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-import nampy.gam.engine as engine_module
 from nampy.gam.fit import backends as backends_module
+from nampy.gam.fit import solve_ops as solve_ops_module
 from nampy.gam.fit.solve_ops import (
     solve_gaussian_given_smoothing,
     solve_pirls_given_smoothing,
@@ -60,9 +60,15 @@ def test_available_fit_backends_reports_all_supported_routes_in_priority_order()
 @pytest.mark.parametrize(
     ("model", "expected"),
     [
-        (_backend_model(use_stacked_qr=True, supports_closed_form_solve=True), "stacked_qr"),
+        (
+            _backend_model(use_stacked_qr=True, supports_closed_form_solve=True),
+            "stacked_qr",
+        ),
         (_backend_model(supports_closed_form_solve=True), "gaussian_exact"),
-        (_backend_model(family_class="general"), backends_module.GENERAL_FAMILY_BACKEND),
+        (
+            _backend_model(family_class="general"),
+            backends_module.GENERAL_FAMILY_BACKEND,
+        ),
         (_backend_model(supports_pirls=True), "pirls"),
     ],
     ids=["stacked_qr", "gaussian_exact", "general_family", "pirls"],
@@ -112,8 +118,14 @@ def test_solve_fit_dispatches_to_selected_solver(monkeypatch):
     sp = np.array([0.5], dtype=np.float64)
     w = np.array([2.0], dtype=np.float64)
 
-    assert backends_module.solve_fit(model, y, sp, backend="stacked_qr", weights=w) == "gaussian"
-    assert backends_module.solve_fit(model, y, sp, backend="gaussian_exact", weights=w) == "gaussian"
+    assert (
+        backends_module.solve_fit(model, y, sp, backend="stacked_qr", weights=w)
+        == "gaussian"
+    )
+    assert (
+        backends_module.solve_fit(model, y, sp, backend="gaussian_exact", weights=w)
+        == "gaussian"
+    )
     assert (
         backends_module.solve_fit(
             _backend_model(family_class="general"),
@@ -168,8 +180,8 @@ def test_fixed_smoothing_wrappers_forward_prior_weights(monkeypatch):
         calls.append(("pirls", np.asarray(weights, dtype=np.float64)))
         return "pirls-sol"
 
-    monkeypatch.setattr(engine_module, "solve_gaussian_fit", _gaussian)
-    monkeypatch.setattr(engine_module, "solve_pirls_fit", _pirls)
+    monkeypatch.setattr(solve_ops_module, "solve_gaussian_fit", _gaussian)
+    monkeypatch.setattr(solve_ops_module, "solve_pirls_fit", _pirls)
 
     model = SimpleNamespace(prior_weights_=np.array([1.5, 2.5], dtype=np.float64))
     y = np.array([1.0, 2.0], dtype=np.float64)

@@ -93,10 +93,10 @@ def test_residuals_pearson_warns_and_falls_back_to_deviance(monkeypatch):
     np.testing.assert_allclose(out, np.array([7.0, 8.0], dtype=np.float64))
 
 
-def test_residuals_general_family_falls_back_to_primary_predictor(monkeypatch):
+def test_residuals_general_family_requires_family_specific_residuals(monkeypatch):
     """
-    Owner-contract coverage verifying that residuals general family falls back to
-    primary predictor.
+    Owner-contract coverage verifying that general families do not use a generic
+    primary-predictor fallback for mgcv-specific residuals.
     """
     model = SimpleNamespace(
         y_=np.array([4.0, 8.0], dtype=np.float64),
@@ -125,9 +125,8 @@ def test_residuals_general_family_falls_back_to_primary_predictor(monkeypatch):
         lambda model: np.array([[3.0, 0.0], [7.0, 0.0]], dtype=np.float64),
     )
 
-    expected = np.array([0.5, 0.5], dtype=np.float64)
-    np.testing.assert_allclose(residuals_gam(model, type="deviance"), expected)
-    np.testing.assert_allclose(residuals_gam(model, type="pearson"), expected)
+    with pytest.raises(NotImplementedError, match="Residual type 'deviance'"):
+        residuals_gam(model, type="deviance")
 
 
 def test_concurvity_returns_pairwise_measure_matrices_with_parametric_block(
@@ -140,7 +139,7 @@ def test_concurvity_returns_pairwise_measure_matrices_with_parametric_block(
     monkeypatch.setattr(concurvity_module, "_require_fitted", lambda model: None)
     monkeypatch.setattr(
         concurvity_module,
-        "_design_matrix",
+        "build_lpmatrix",
         lambda model: np.array(
             [
                 [1.0, 0.0],
@@ -151,6 +150,8 @@ def test_concurvity_returns_pairwise_measure_matrices_with_parametric_block(
             dtype=np.float64,
         ),
     )
+    monkeypatch.setattr(concurvity_module, "_compiled_model", lambda model: None)
+    monkeypatch.setattr(concurvity_module, "_coef_column_offset", lambda model: 0)
     monkeypatch.setattr(concurvity_module, "_fit_intercept", lambda model: False)
     monkeypatch.setattr(
         concurvity_module,
@@ -187,10 +188,15 @@ def test_concurvity_raises_when_no_components_available(monkeypatch):
     monkeypatch.setattr(concurvity_module, "_require_fitted", lambda model: None)
     monkeypatch.setattr(
         concurvity_module,
-        "_design_matrix",
+        "build_lpmatrix",
         lambda model: np.ones((3, 0), dtype=np.float64),
     )
+    monkeypatch.setattr(concurvity_module, "_compiled_model", lambda model: None)
+    monkeypatch.setattr(concurvity_module, "_coef_column_offset", lambda model: 0)
     monkeypatch.setattr(concurvity_module, "_fit_intercept", lambda model: False)
+    monkeypatch.setattr(
+        concurvity_module, "_coef_full", lambda model: np.zeros(0, dtype=np.float64)
+    )
     monkeypatch.setattr(concurvity_module, "_term_blocks_seq", lambda model: ())
 
     with pytest.raises(ValueError, match="No smooth or parametric components available"):

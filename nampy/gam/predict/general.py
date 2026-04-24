@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
 
 from .._model_state import (
-    _coef,
     _coef_full,
     _predictor_designs,
     _predictor_full_slices,
@@ -29,9 +29,10 @@ class _GeneralPredictionLayout:
 def _prediction_parameterization_wider(tb) -> bool:
     metadata = dict(getattr(tb, "metadata", {}) or {})
     expose_raw = bool(metadata.get("expose_raw_prediction_basis", False))
-    return expose_raw and bool(
-        metadata.get("prediction_parameterization_wider", expose_raw)
-    )
+    wider = metadata.get("prediction_parameterization_wider", None)
+    if wider is None:
+        return expose_raw
+    return expose_raw or bool(wider)
 
 
 def general_family_prediction_offset(model, X_np, offset):
@@ -137,7 +138,13 @@ def predict_general_values(
         raise ValueError(
             "type must be one of {'response', 'link', 'terms', 'iterms', 'lpmatrix'}"
         )
-    del iterms_type
+    from .predictions import (
+        _group_standard_error_rows,
+        _group_term_contribution,
+        _iterms_mean_row,
+        _prediction_term_groups,
+    )
+
     if pred_type in {"terms", "iterms"} and any(
         _prediction_parameterization_wider(tb)
         for tb in _term_blocks_seq(model)
@@ -150,11 +157,10 @@ def predict_general_values(
     offset_list = general_family_prediction_offset(model, X, offset)
     layout = general_family_prediction_layout(model, X)
     if pred_type == "iterms" and len(layout.predictor_slices) > 1:
-        raise ValueError(
-            "type='iterms' is not supported for multi-predictor general-family models."
+        warnings.warn(
+            "type='iterms' not available for multiple predictor cases; using type='terms' instead.",
+            stacklevel=2,
         )
-    iterms_requested = pred_type == "iterms"
-    if iterms_requested:
         pred_type = "terms"
 
     eta = general_family_link_prediction_with_offset(model, layout, offset_list)
@@ -163,23 +169,35 @@ def predict_general_values(
     if pred_type == "lpmatrix":
         return layout.lpmatrix
     if pred_type == "terms":
-        beta = np.asarray(_coef(model), dtype=np.float64)
+        groups = _prediction_term_groups(model)
         terms = np.column_stack(
-            [
-                Z_new[:, tb.coef_slice] @ beta[tb.coef_slice]
-                for tb in _term_blocks_seq(model)
-            ]
+            [_group_term_contribution(model, Z_new, group) for group in groups]
         )
         if not return_se:
             return terms
         V = model._select_cov(cov)
+        iterms_mean_row = (
+            None
+            if pred_type != "iterms"
+            else _iterms_mean_row(model, iterms_type=iterms_type)
+        )
         ses = []
-        full_idx = np.asarray(model._coef_reduced_to_full_idx, dtype=int)
-        for tb in _term_blocks_seq(model):
-            idx = full_idx[tb.coef_slice]
-            Xi = np.zeros((Z_new.shape[0], V.shape[0]), dtype=np.float64)
-            Xi[:, idx] = Z_new[:, tb.coef_slice]
-            var = np.einsum("ij,jk,ik->i", Xi, V, Xi)
+        for group in groups:
+            Xi, sl_full = _group_standard_error_rows(
+                model,
+                layout.lpmatrix,
+                group,
+                type=pred_type,
+                iterms_mean_row=iterms_mean_row,
+            )
+            if sl_full is None:
+                var = np.einsum("ij,jk,ik->i", Xi, V, Xi)
+            elif isinstance(sl_full, np.ndarray):
+                Vi = V[np.ix_(sl_full, sl_full)]
+                var = np.einsum("ij,jk,ik->i", Xi, Vi, Xi)
+            else:
+                Vi = V[sl_full, sl_full]
+                var = np.einsum("ij,jk,ik->i", Xi, Vi, Xi)
             ses.append(np.sqrt(np.maximum(var, 0.0)))
         return terms, np.column_stack(ses)
     if pred_type == "link":

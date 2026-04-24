@@ -67,7 +67,12 @@ class ConstructedSmooth:
 
 
 def build_term_matrix(term: ConstructedSmooth, X_new, return_offset=False):
-    Xp = term.predict_matrix(X_new)
+    if bool(
+        getattr(term.compiled_term, "metadata", {}).get("expose_raw_prediction_basis")
+    ):
+        Xp = term.compiled_term.prediction_parameterization_matrix(X_new)
+    else:
+        Xp = term.predict_matrix(X_new)
     if return_offset:
         return Xp, term.prediction_offset
     return Xp
@@ -241,6 +246,19 @@ def construct_smooth(
             "Generic smoothCon-level null-space penalty insertion is not enabled yet in this wrapper."
         )
 
+    original_design_matrix = None
+    if not bool(apply_by):
+        original_design_matrix = np.asarray(B, dtype=np.float64)
+        if by_variable_info.is_active:
+            X_no_by = np.asarray(X, dtype=object).copy()
+            by_name = str(by_variable_info.name)
+            if by_name not in feature_names:
+                raise KeyError(f"by variable {by_name!r} not found in feature_names.")
+            X_no_by[:, feature_names.index(by_name)] = 1.0
+            original_design_matrix = np.asarray(
+                runtime.transform_new(X_no_by), dtype=np.float64
+            )
+
     compiled_term = CompiledTerm(
         label=str(getattr(runtime, "label", str(runtime))),
         coef_slice=slice(0, int(B.shape[1])),
@@ -287,7 +305,7 @@ def construct_smooth(
             if prediction_offset is None
             else np.asarray(prediction_offset, dtype=np.float64)
         ),
-        original_design_matrix=None,
+        original_design_matrix=original_design_matrix,
     )
 
 

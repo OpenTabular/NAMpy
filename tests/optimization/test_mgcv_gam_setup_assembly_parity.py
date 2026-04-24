@@ -13,6 +13,7 @@ from nampy.gam.smoothing_selection.reparam import (
     build_estimate_gam_setup_state,
 )
 from tests.mgcv_parity_utils import _run_mgcv_gam_setup_assembly
+from tests.mgcv_invariant_policy import gam_setup_uses_invariant_transform
 from tests.optimization.test_mgcv_general_family_preoptimization_parity import (
     GENERAL_PREOPT_CASES,
 )
@@ -440,28 +441,6 @@ def _fit_nampy_model(data, formula, family, method, *, select=False) -> GAM:
     return model
 
 
-def _use_invariant_transform(case_id: str) -> bool:
-    return case_id in {
-        "gaussian_tp_two_dim",
-        "gaussian_ts_two_dim",
-        "gaussian_gp_uni",
-        "gaussian_t2_full_false",
-        "gaussian_t2_full_true",
-        "gaussian_fs",
-        "gaussian_fs_numeric_by",
-        "gaulss_t2_full_false",
-        "gaulss_t2_full_true",
-        "gammals_t2_full_false",
-        "gammals_t2_full_true",
-        "gevlss_t2_full_false",
-        "gevlss_t2_full_true",
-        "shashlss_t2_full_false",
-        "shashlss_t2_full_true",
-        "ziplss_t2_full_false",
-        "ziplss_t2_full_true",
-    }
-
-
 def _penalty_atol(case_id: str) -> float:
     if case_id == "gaussian_fs":
         return 1e-8
@@ -498,7 +477,7 @@ def _assert_gam_setup_assembly_case(case_id, data, formula, family, method, *, s
         _canonical_expected_smooth_summary(item)
         for item in (expected.get("smooth", []) or [])
     ]
-    use_transform = _use_invariant_transform(case_id)
+    use_transform = gam_setup_uses_invariant_transform(case_id)
 
     actual_X = np.asarray(actual_setup.X, dtype=np.float64)
     actual_Xp = np.asarray(model.lpmatrix(data), dtype=np.float64)

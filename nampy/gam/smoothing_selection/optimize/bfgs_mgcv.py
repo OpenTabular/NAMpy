@@ -253,7 +253,7 @@ def _optimize_outer_bfgs_mgcv(
     *,
     score_type="reml",
     conv_tol=1e-6,
-    max_nstep=5.0,
+    max_nstep=3.0,
     max_sstep=2.0,
     max_step=200,
 ):
@@ -655,31 +655,28 @@ def _optimize_outer_bfgs_mgcv(
                         uconv0 = uconv0 | uconv
                     uconv = np.ones_like(uconv, dtype=bool)
                     ilsp = lsp.copy()
-            initial = trial.copy()
-            initial["alpha"] = 0.0
-            step_norm = float(
-                np.linalg.norm(
-                    lsp - x0
-                    if len(iter_trace) == 0
-                    else lsp - np.asarray(iter_trace[-1]["log_sp"], dtype=np.float64)
-                )
-            )
+            step_norm = 0.0
+            if len(iter_trace) > 0:
+                prev_lsp = np.asarray(iter_trace[-1]["log_sp"], dtype=np.float64)
+                step_norm = float(np.linalg.norm(ilsp - prev_lsp))
             iter_trace.append(
                 {
                     "iter": int(i),
-                    "log_sp": np.asarray(lsp, dtype=np.float64).copy(),
-                    "criterion": float(initial["score"]),
-                    "gradient": np.asarray(initial["grad"], dtype=np.float64).copy(),
+                    "log_sp": np.asarray(ilsp, dtype=np.float64).copy(),
+                    "criterion": float(trial["score"]),
+                    "gradient": np.asarray(trial["grad"], dtype=np.float64).copy(),
                     "hessian": None,
                     "accepted_step_norm": step_norm,
                     "rank_info": {
-                        "source": "outer_bfgs_mgcv",
+                        "source": "mgcv_bfgs",
                         "line_search_alpha": float(trial["alpha"]),
                         "converged_here": bool(converged),
                         "rolled_back": bool(rolled_back),
                     },
                 }
             )
+            initial = trial.copy()
+            initial["alpha"] = 0.0
 
         if trial is None:
             ct = "step failed"
@@ -720,6 +717,10 @@ def _optimize_outer_bfgs_mgcv(
             njev=int(objective.n_jac),
             nhev=int(objective.n_hess),
         )
+        # `mgcv::bfgs()` returns the quasi-Newton Hessian approximation, not the
+        # exact outer criterion Hessian. Preserve that payload through driver
+        # post-processing instead of overwriting it with `criterion_hessian(...)`.
+        result.mgcv_exact_outer_derivatives = True
         result.mgcv_score_hist = [v for v in score_hist.tolist() if np.isfinite(v)]
         result.optim_trace = iter_trace
         result.outer_info = {

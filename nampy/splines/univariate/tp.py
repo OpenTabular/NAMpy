@@ -185,10 +185,7 @@ def parse_tprs_m(m, d: int):
         m1 = default_tprs_penalty_order(d)
 
     if 2 * m1 <= d:
-        raise ValueError(
-            f"Thin plate spline penalty order m={m1} is invalid for dimension d={d}. "
-            "Need 2*m > d."
-        )
+        m1 = default_tprs_penalty_order(d)
 
     return m1, drop_null
 
@@ -292,7 +289,7 @@ def choose_tprs_setup_locations(X_shifted, knots=None, max_knots=2000, seed=1):
     if Xu.shape[0] > max_knots:
         rng = np.random.default_rng(seed)
         idx = rng.choice(Xu.shape[0], size=max_knots, replace=False)
-        Xu = Xu[np.sort(idx)]
+        Xu = Xu[idx]
 
     return np.asarray(Xu, dtype=np.float64)
 
@@ -526,6 +523,7 @@ def construct_tprs_basis(
         )
         k = M + 1
 
+    use_supplied_knots = setup_locations is not None
     Xu = choose_tprs_setup_locations(
         X_shifted,
         knots=setup_locations,
@@ -540,13 +538,16 @@ def construct_tprs_basis(
             f"tp/ts smooth needs at least M+1={M+1} unique locations, "
             f"got {xu_count}."
         )
+    if use_supplied_knots and xu_count < k:
+        Xu = np.asarray(X_unique_all, dtype=np.float64)
+        xu_count = int(Xu.shape[0])
+        use_supplied_knots = False
+
     if xu_count < k:
-        warnings.warn(
-            f"tp/ts basis dimension k={k} reduced to available "
-            f"{xu_count} unique basis-setup locations.",
-            stacklevel=2,
+        raise ValueError(
+            "A term has fewer unique covariate combinations than specified "
+            "maximum degrees of freedom"
         )
-        k = xu_count
 
     E = distance_matrix(Xu, Xu)
     E = eta(E, penalty_order, d)
@@ -571,7 +572,7 @@ def construct_tprs_basis(
     UZ_full[Xu.shape[0] :, k - M :] = np.eye(M, dtype=np.float64)
     UZ_full[: Xu.shape[0], k - M :] = 0.0
     no_knots_direct = (
-        setup_locations is None
+        not use_supplied_knots
         and X_unique_all.shape[0] <= int(max_knots)
         and not pure_knot
     )

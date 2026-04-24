@@ -186,11 +186,32 @@ def optimize_outer_newton_indefinite_hessian(
                 if need_grad
                 else None
             )
-            hess_eval = (
-                np.asarray(objective.hess(x_eval), dtype=np.float64)
-                if need_hess
-                else None
-            )
+            hess_eval = None
+            restore_general_fit5_hessian = None
+            if need_hess:
+                if (
+                    model is not None
+                    and str(getattr(getattr(model, "family", None), "family_class", ""))
+                    .lower()
+                    == "general"
+                    and str(getattr(objective, "method", "")).lower()
+                    in {"ml", "reml", "laml"}
+                ):
+                    restore_general_fit5_hessian = bool(
+                        getattr(
+                            model,
+                            "_general_family_outer_use_fit5_hessian_",
+                            False,
+                        )
+                    )
+                    model._general_family_outer_use_fit5_hessian_ = True
+                try:
+                    hess_eval = np.asarray(objective.hess(x_eval), dtype=np.float64)
+                finally:
+                    if restore_general_fit5_hessian is not None:
+                        model._general_family_outer_use_fit5_hessian_ = (
+                            restore_general_fit5_hessian
+                        )
             if (
                 getattr(objective, "_last_fun", None) is not None
                 and hasattr(objective, "_same_x")

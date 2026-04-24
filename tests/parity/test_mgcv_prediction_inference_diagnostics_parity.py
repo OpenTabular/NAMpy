@@ -32,10 +32,10 @@ from tests.mgcv_parity_utils import (
     _run_mgcv_predict_on_newdata,
     _run_mgcv_snapshot,
 )
-from tests.parity.test_mgcv_parity import CASES as REQUESTED_CASES
 from tests.parity.test_mgcv_parity_failing_and_warnings import (
     REQUESTED_PARITY_FAILING_OR_WARNING_CASES,
 )
+from tests.parity.test_mgcv_snapshot_core_matrix import CASES as REQUESTED_CASES
 
 pytestmark = [pytest.mark.surface_output]
 _KCHECK_SUBSAMPLE = 120

@@ -13,6 +13,7 @@ from ..linalg.stacked_qr import (
     balanced_penalty_template_sqrt_for_rank,
     build_penalized_qr_state_nonnegative,
     gaussian_design_needs_stacked_qr_fit,
+    pls_fit1_nonneg_w,
     solve_gaussian_penalized_ls_stacked_qr,
 )
 from ..penalized_system import (
@@ -123,6 +124,41 @@ def _gaussian_fit3_gdi_beta_full(model, X, smoothing_params, z_work, w):
     return coef_full, eta_fit
 
 
+def _gaussian_fit3_pls_current_eta(model, X, smoothing_params, z_work, w):
+    """
+    Mirror `mgcv::gam.fit3()` inner-loop `eta <- x %*% start` on current-sp state.
+
+    This is the Gaussian exact deviance retained on the fit object before the
+    later `gdi1()` overwrite of the reported coefficients / fitted values.
+    """
+    from scipy.linalg.blas import dgemv
+
+    from ...smoothing_selection.reparam import build_penalty_reparameterization_state
+
+    X = np.asarray(X, dtype=np.float64)
+    sp = np.asarray(smoothing_params, dtype=np.float64).ravel()
+    z_work = np.asarray(z_work, dtype=np.float64).ravel()
+    w = np.asarray(w, dtype=np.float64).ravel()
+
+    canonical = build_penalty_reparameterization_state(model, X, sp, deriv=0)
+    X_canon = np.asarray(
+        X @ np.asarray(canonical.T, dtype=np.float64), dtype=np.float64
+    )
+    coef_canon, _penalty = pls_fit1_nonneg_w(
+        X_canon,
+        z_work,
+        w,
+        w * z_work,
+        penalty_sqrt_E=np.asarray(canonical.Sr, dtype=np.float64),
+        penalty_rank_Es=np.asarray(canonical.Eb, dtype=np.float64),
+        rank_tol=np.finfo(np.float64).eps * 100.0,
+    )
+    return np.asarray(
+        dgemv(1.0, np.asfortranarray(X_canon), coef_canon),
+        dtype=np.float64,
+    )
+
+
 def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     y = model.family.validate_y(y)
     n = int(y.shape[0])
@@ -148,22 +184,8 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         bool(getattr(model, "_use_stacked_qr", False))
         or gaussian_design_needs_stacked_qr_fit(model)
         or _penalized_system_needs_stacked_qr(X, w, S)
-        or (
-            (
-                str(getattr(model, "_optim_method", "")).lower() == "fixed"
-                or getattr(model, "_optim_result", None) is not None
-            )
-            and any(
-                str(getattr(tb, "basis_name", "")).lower() == "mrf"
-                for tb in _term_blocks_seq(model)
-            )
-        )
     )
-    # Underdetermined design (n < p): Householder dormqr fails with tau dimension mismatch.
-    # Use lstsq path instead, matching the old explicit factor_smooth check.
-    coef_method = (
-        "lstsq" if (force_stacked_qr and X.shape[0] < X.shape[1]) else "householder"
-    )
+    coef_method = "householder"
 
     # Rank-deficient Gaussian designs (for example heavily penalized ti() terms at
     # the REML boundary) can share fitted values with multiple coefficient vectors.
@@ -175,6 +197,11 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         str(getattr(tb, "basis_name", "")).lower() == "mrf"
         for tb in _term_blocks_seq(model)
     )
+    if has_mrf_term:
+        # `mgcv::gam.fit3()` routes exact-Gaussian MRF fits through `pls_fit1()`
+        # throughout the inner/outer optimization, not only for the final fixed-sp
+        # postprocessing pass.
+        force_stacked_qr = True
 
     sol = irls_core(
         X,
@@ -192,31 +219,14 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         coef_method=coef_method,
         near_singular_null_pin=null_gauge,
     )
-    # mgcv/R/gam.fit3.r keeps `object$deviance` from the PIRLS step even when a
-    # later `gdi1()` overwrite changes the final reported coefficients / fitted
-    # values. `mrf` REML fits route through the stable stacked-QR/gdi endpoint
-    # here, but `AIC()` / `logLik()` still need the pre-gdi PIRLS deviance.
     reported_deviance = float(sol["deviance"])
-    if force_stacked_qr and has_mrf_term:
-        report_sol = irls_core(
-            X,
-            y,
-            model.family,
-            S,
-            offset=model.offset_train_,
-            weights=w,
-            fit_intercept=fi,
-            max_iter=1,
-            tol=float(getattr(model, "irls_tol", 1e-7)),
-            max_step_halving=int(getattr(model, "max_step_halving", 25)),
-            penalty_rank_rows=rank_rows,
-            force_stacked_qr=False,
-            coef_method="householder",
-            near_singular_null_pin=False,
-        )
-        reported_deviance = float(report_sol["deviance"])
 
     eta = np.asarray(sol["eta"], dtype=np.float64)
+    joint_scale = getattr(model, "_gaussian_reml_sigma2_opt_", None)
+    if joint_scale is not None:
+        joint_scale = float(joint_scale)
+        if not np.isfinite(joint_scale) or joint_scale <= 0.0:
+            joint_scale = None
 
     if force_stacked_qr:
         # Recompute EDF/covariance from stacked-QR rank-reduced factors. This mirrors
@@ -259,6 +269,12 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         )
         trace_H = float(np.sum(WX_rV * WX_rV))
         scale = model.family.estimate_dispersion(y, eta, edf=trace_H, weights=w)
+        # `mgcv::gam()` can carry a joint Gaussian outer log-scale state while
+        # still reporting `fit$sig2` from the final deviance-scale estimate for
+        # low-rank MRF exact fits. Keep the joint state for the outer score /
+        # Hessian, but do not overwrite the reported fit scale on this surface.
+        if joint_scale is not None and not has_mrf_term:
+            scale = joint_scale
         Vp, Vf, H_coef = build_bayes_and_freq_covariances(scale, A_inv, stacked["XtWX"])
         Vp = np.asarray(scale * (cov_root @ cov_root.T), dtype=np.float64)
         Vp = 0.5 * (Vp + Vp.T)
@@ -272,10 +288,17 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         sol["cov_freq"] = Vf
         sol["H_coef"] = H_coef
         # Mirror `mgcv/R/gam.fit3.r`: for stacked-QR Gaussian fits, the
-        # reported coefficient vector is the final `gdi1()` solve on the
-        # reparameterized system, not the raw Householder / least-squares
-        # coefficient buffer. This matters most in underdetermined designs
-        # (`n < p`) where multiple coefficient vectors share the same fit.
+        # current-sp `pls_fit1()` / post-loop `gdi1()` state is evaluated on the
+        # reparameterized system, and its `eta <- x %*% start` BLAS multiply is
+        # also the deviance path retained on the fit object for exact Gaussian
+        # REML/ML scoring.
+        eta_dev = _gaussian_fit3_pls_current_eta(
+            model,
+            X,
+            smoothing_params,
+            sol["working_response"],
+            w,
+        )
         coef_full, eta_fit = _gaussian_fit3_gdi_beta_full(
             model,
             X,
@@ -283,11 +306,19 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
             sol["working_response"],
             w,
         )
+        if model.offset_train_ is not None:
+            eta_dev = eta_dev + np.asarray(model.offset_train_, dtype=np.float64).ravel()
+        mu_dev = np.asarray(model.family.inverse_link(eta_dev), dtype=np.float64)
+        reported_deviance = float(
+            model.family.deviance(y, mu_dev, weights=w)
+        )
         eta = np.asarray(eta_fit, dtype=np.float64)
         if model.offset_train_ is not None:
             eta = eta + np.asarray(model.offset_train_, dtype=np.float64).ravel()
         mu = np.asarray(model.family.inverse_link(eta), dtype=np.float64)
         scale = model.family.estimate_dispersion(y, eta, edf=trace_H, weights=w)
+        if joint_scale is not None and not has_mrf_term:
+            scale = joint_scale
         Vp, Vf, H_coef = build_bayes_and_freq_covariances(scale, A_inv, XtWX)
         Vp = np.asarray(scale * (cov_root @ cov_root.T), dtype=np.float64)
         Vp = 0.5 * (Vp + Vp.T)
@@ -311,6 +342,8 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         )
     else:
         scale = model.family.estimate_dispersion(y, eta, edf=sol["trace_H"], weights=w)
+        if joint_scale is not None and not has_mrf_term:
+            scale = joint_scale
     resid = y - eta
     wrss = float(np.sum(w * resid * resid))
     sol["rss"] = wrss
@@ -321,6 +354,9 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     sol["working_response"] = (
         y.copy() if model.offset_train_ is None else (y - model.offset_train_).copy()
     )
+    sol["coef_space"] = "prediction"
+    sol["cov_bayes_space"] = "prediction"
+    sol["cov_freq_space"] = "prediction"
     sol["loglik"] = float(
         np.sum(
             w

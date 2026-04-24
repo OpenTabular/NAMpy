@@ -34,7 +34,7 @@ def gcv_score_gaussian(model, y, log_smoothing_params):
     sol = solve_gaussian_given_smoothing(model, y, sp)
     n = model.n_samples_
     den = 1.0 - model.score_gamma * sol["trace_H"] / n
-    if den <= 1e-12 or not np.isfinite(den):
+    if not np.isfinite(den) or den == 0.0:
         return np.inf
     return (sol["rss"] / n) / (den**2)
 
@@ -188,7 +188,7 @@ def criterion_ml_reml_exact_dynamic(model, y, log_sp, method):
     w = np.ones(int(y_eff.shape[0]), dtype=np.float64)
 
     sol = solve_gaussian_given_smoothing(model, y, sp)
-    if method in {"REML", "LAML"}:
+    if method in {"ML", "REML", "LAML"}:
         return criterion_ml_reml_gaussian_dynamic_profiled(
             model,
             y,

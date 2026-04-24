@@ -18,7 +18,7 @@ def dependent_column_indices(
     B,
     A=None,
     *,
-    tol: float = 1e-10,
+    tol: float = np.finfo(np.float64).eps ** 0.5,
     rank_def: int = 0,
     strict: bool = False,
 ):
@@ -85,7 +85,7 @@ def dependent_column_indices(
     return np.asarray(piv2[r0 - 1 : r_total], dtype=int)
 
 
-def independent_column_indices(B, A=None, tol: float = 1e-10):
+def independent_column_indices(B, A=None, tol: float = np.finfo(np.float64).eps ** 0.5):
     B = np.asarray(B, dtype=np.float64)
     if B.ndim != 2:
         raise ValueError("B must be a 2D matrix.")
@@ -118,15 +118,9 @@ def null_space_basis_from_constraint_matrix(
     # spans the same space but can rotate coefficients differently, which shows
     # up in parity-sensitive terms such as t2(full=FALSE).
     Qt, R = scipy_qr(C.T, mode="full", pivoting=False)
-    diag_R = np.abs(np.diag(R))
-    if diag_R.size == 0:
-        return np.eye(C.shape[1], dtype=np.float64), 0
-    tol_eff = max(
-        float(tol),
-        float(np.max(diag_R)) * max(C.shape) * np.finfo(float).eps,
-    )
-    rank = int(np.sum(diag_R > tol_eff))
-    return np.asarray(Qt[:, rank:], dtype=np.float64).copy(), rank
+    del R, tol
+    n_constraints = int(C.shape[0])
+    return np.asarray(Qt[:, n_constraints:], dtype=np.float64).copy(), n_constraints
 
 
 def _single_constraint_null_space_basis_r_qr(C, d: int | None = None):
@@ -196,7 +190,7 @@ def localized_null_space_basis_from_constraint_matrix(
     if C.size == 0:
         return np.eye(C.shape[1], dtype=np.float64), 0
 
-    active = np.any(np.abs(C) > float(tol), axis=0)
+    active = np.sum(C, axis=0) != 0.0
     if not np.any(active):
         return np.eye(C.shape[1], dtype=np.float64), 0
     if np.all(active):
@@ -237,7 +231,7 @@ def apply_coefficient_transform(B, penalties, T):
     out_penalties = []
     for S in penalties:
         S = np.asarray(S, dtype=np.float64)
-        S_new = 0.5 * (T.T @ S @ T + (T.T @ S @ T).T)
+        S_new = T.T @ S @ T
         out_penalties.append(S_new)
     return B_new, out_penalties
 

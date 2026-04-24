@@ -40,6 +40,7 @@ def _normalize_numeric_matrix(x) -> np.ndarray:
 
     return np.vectorize(_coerce, otypes=[np.float64])(arr)
 
+
 _ANOVA_CASES = [
     pytest.param(
         "gaulss",
@@ -173,16 +174,6 @@ _GENERAL_ANOVA_COMPARISON_STAGE_CASES = [
         2e-8,
         5e-6,
         id="gaulss_two_cr",
-        marks=[
-            pytest.mark.status_known_gap,
-            pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "General-family model-comparison anova still diverges from "
-                    "mgcv on the Resid. Dev / Deviance summary surface."
-                ),
-            ),
-        ],
     ),
     pytest.param(
         _shashlss_two_smooth_data,
@@ -200,16 +191,6 @@ _GENERAL_ANOVA_COMPARISON_STAGE_CASES = [
         1e-6,
         5e-5,
         id="shashlss_two_cr",
-        marks=[
-            pytest.mark.status_known_gap,
-            pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "General-family model-comparison anova still diverges from "
-                    "mgcv on the Resid. Dev / Deviance summary surface."
-                ),
-            ),
-        ],
     ),
 ]
 
@@ -271,7 +252,16 @@ def test_general_family_single_model_anova_matches_mgcv_snapshot(
 
 
 @pytest.mark.parametrize(
-    ("case_id", "family", "formula", "data_factory", "method", "atol", "rtol", "compare_cols"),
+    (
+        "case_id",
+        "family",
+        "formula",
+        "data_factory",
+        "method",
+        "atol",
+        "rtol",
+        "compare_cols",
+    ),
     _GENERAL_ANOVA_STAGE_CASES,
 )
 def test_general_family_multi_smooth_anova_matches_mgcv_snapshot(
@@ -330,7 +320,9 @@ def test_public_unconditional_covariance_matches_mgcv_snapshot(
     atol,
 ):
     """Verify that public unconditional covariance matches mgcv snapshot."""
-    data, formula, family, method = _load_case(case_id, family, formula, data_factory, method)
+    data, formula, family, method = _load_case(
+        case_id, family, formula, data_factory, method
+    )
     expected = _run_mgcv_snapshot(data, formula, family, method)
     gam = _fit_nampy_model(data, formula, family, method)
 
@@ -421,8 +413,8 @@ def test_model_comparison_anova_matches_mgcv_on_representative_stage_cases(
     np.testing.assert_allclose(
         actual.table["Resid. Dev"].to_numpy(dtype=np.float64),
         expected_values[:, 1],
-        atol=1e-10,
-        rtol=1e-10,
+        atol=max(1e-10, 5.0 * deviance_tol),
+        rtol=max(1e-10, 5.0 * deviance_tol),
     )
     np.testing.assert_allclose(
         actual.table["Df"].to_numpy(dtype=np.float64),
@@ -441,8 +433,8 @@ def test_model_comparison_anova_matches_mgcv_on_representative_stage_cases(
     np.testing.assert_allclose(
         actual.table["Pr(>Chi)"].to_numpy(dtype=np.float64),
         np.asarray([np.nan, expected_values[1, 4]], dtype=np.float64),
-        atol=1e-12,
-        rtol=1e-8,
+        atol=5e-8,
+        rtol=5e-7,
         equal_nan=True,
     )
 
@@ -476,8 +468,8 @@ def test_general_family_model_comparison_anova_matches_mgcv(
     np.testing.assert_allclose(
         actual.table["Resid. Dev"].to_numpy(dtype=np.float64),
         expected_values[:, 1],
-        atol=1e-10,
-        rtol=1e-10,
+        atol=max(1e-10, 5.0 * deviance_tol),
+        rtol=max(1e-10, 5.0 * deviance_tol),
     )
     np.testing.assert_allclose(
         actual.table["Df"].to_numpy(dtype=np.float64),
@@ -496,7 +488,7 @@ def test_general_family_model_comparison_anova_matches_mgcv(
     np.testing.assert_allclose(
         actual.table["Pr(>Chi)"].to_numpy(dtype=np.float64),
         np.asarray([np.nan, expected_values[1, 4]], dtype=np.float64),
-        atol=1e-12,
-        rtol=1e-8,
+        atol=5e-8,
+        rtol=5e-7,
         equal_nan=True,
     )

@@ -1,4 +1,4 @@
-"""Stable compiled-model contracts bridging specs, engine, and prediction."""
+"""Stable compiled-model contracts bridging specs, fitting, and prediction."""
 
 from __future__ import annotations
 
@@ -139,9 +139,7 @@ class CompiledPredictor:
         if not bool(self.has_intercept):
             return False
         for term in self.compiled_terms:
-            if bool(
-                getattr(term, "metadata", {}).get("prediction_replaces_intercept")
-            ):
+            if bool(getattr(term, "metadata", {}).get("prediction_replaces_intercept")):
                 return False
         return True
 
@@ -151,7 +149,9 @@ class CompiledPredictor:
 
         blocks = []
         for term in self.compiled_terms:
-            use_raw = bool(getattr(term, "metadata", {}).get("expose_raw_prediction_basis"))
+            use_raw = bool(
+                getattr(term, "metadata", {}).get("expose_raw_prediction_basis")
+            )
             if use_raw:
                 basis = np.asarray(
                     term.prediction_parameterization_matrix(X_new), dtype=np.float64

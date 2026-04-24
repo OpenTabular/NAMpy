@@ -33,7 +33,9 @@ from tests.optimization.test_mgcv_vcomp_parity import _assert_gam_vcomp_close
 pytestmark = [pytest.mark.surface_output, pytest.mark.surface_regression]
 
 _ONE_SE_CASES = [
-    pytest.param("poisson_cr_uni_reml", None, None, None, None, 1e-5, id="poisson_cr_uni_reml"),
+    pytest.param(
+        "poisson_cr_uni_reml", None, None, None, None, 1e-5, id="poisson_cr_uni_reml"
+    ),
     pytest.param(
         "gaulss_two_cr",
         "gaulss",
@@ -155,7 +157,9 @@ def test_one_se_rule_matches_mgcv_snapshot_on_stage_cases(
     atol,
 ):
     """Verify that one-standard-error rule matches mgcv snapshot on stage cases."""
-    data, formula, family, method = _load_case(case_id, family, formula, data_factory, method)
+    data, formula, family, method = _load_case(
+        case_id, family, formula, data_factory, method
+    )
     expected = _run_mgcv_snapshot(data, formula, family, method)
     gam = _fit_nampy_model(data, formula, family, method)
 
@@ -181,7 +185,9 @@ def test_gam_vcomp_matches_mgcv_on_representative_stage_cases(
     atol,
 ):
     """Verify that gam vcomp matches mgcv on representative stage cases."""
-    data, formula, family, method = _load_case(case_id, family, formula, data_factory, method)
+    data, formula, family, method = _load_case(
+        case_id, family, formula, data_factory, method
+    )
     expected = _run_mgcv_gam_vcomp(
         data,
         formula,
@@ -286,11 +292,17 @@ def test_general_family_additional_residual_types_match_mgcv_snapshot(
     expected_residuals = expected["parity"]["diagnostics"]["residuals"]
 
     for resid_type in residual_types:
-        actual = np.asarray(gam.residuals(type=resid_type), dtype=np.float64)
         snapshot_key = resid_type.replace(".", "_")
+        expected_values = expected_residuals[snapshot_key]
+        if expected_values is None:
+            with pytest.raises(ValueError):
+                gam.residuals(type=resid_type)
+            continue
+
+        actual = np.asarray(gam.residuals(type=resid_type), dtype=np.float64)
         np.testing.assert_allclose(
             actual,
-            np.asarray(expected_residuals[snapshot_key], dtype=np.float64),
+            np.asarray(expected_values, dtype=np.float64),
             atol=atol,
             rtol=atol,
         )

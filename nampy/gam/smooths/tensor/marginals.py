@@ -15,6 +15,12 @@ from ..univariate.tp import ThinPlateSplineTerm
 TENSOR_MARGINAL_BASES = frozenset({"cr", "cs", "cc", "ps", "tp", "ts", "gp"})
 
 
+def _as_marginal_features(feature):
+    if isinstance(feature, (str, int)):
+        return [feature]
+    return list(feature)
+
+
 def validate_tensor_marginal_bases(bases):
     bases = [str(b).lower() for b in bases]
     bad = [b for b in bases if b not in TENSOR_MARGINAL_BASES]
@@ -40,6 +46,7 @@ def make_tensor_marginal_term(
     basis = str(basis).lower()
     validate_tensor_marginal_bases([basis])
     constraint_mode = "always" if centered else "never"
+    marginal_features = _as_marginal_features(feature)
     metadata = (
         None
         if shared_basis_setup is None
@@ -47,8 +54,13 @@ def make_tensor_marginal_term(
     )
 
     if basis in {"cr", "cs", "cc"}:
+        if len(marginal_features) != 1:
+            raise ValueError(
+                f"Tensor marginal basis {basis!r} only handles one feature; "
+                "mgcv coerces multivariate cr/cs/ps/cp marginals to tp before construction."
+            )
         return CubicSplineTerm(
-            feature=feature,
+            feature=marginal_features[0],
             k=k,
             basis=basis,
             label=str(feature),
@@ -63,8 +75,13 @@ def make_tensor_marginal_term(
         )
 
     if basis == "ps":
+        if len(marginal_features) != 1:
+            raise ValueError(
+                "Tensor marginal basis 'ps' only handles one feature; mgcv coerces "
+                "multivariate ps marginals to tp before construction."
+            )
         return PSplineTerm1D(
-            feature=feature,
+            feature=marginal_features[0],
             k=k,
             basis=basis,
             m=m,
@@ -80,7 +97,7 @@ def make_tensor_marginal_term(
 
     if basis in {"tp", "ts"}:
         return ThinPlateSplineTerm(
-            feature=[feature],
+            feature=marginal_features,
             k=k,
             basis=basis,
             m=m,
@@ -96,7 +113,7 @@ def make_tensor_marginal_term(
         )
 
     return GPSmoothTerm(
-        feature=[feature],
+        feature=marginal_features,
         k=k,
         basis=basis,
         m=m,
@@ -292,7 +309,7 @@ def build_tensor_marginal_terms(
         )
         marginals.append(term)
         feature_ids.append(feat)
-        feature_names.append(str(feat))
+        feature_names.extend(str(v) for v in _as_marginal_features(feat))
     return marginals, feature_ids, feature_names
 
 
@@ -314,9 +331,16 @@ def build_tensor_product_components(
     marginal_np_transforms = []
     marginal_local_bases = []
     for m, center_i in zip(marginals, use_centered):
-        x_train = column_as_float(X, tensor_marginal_feature_index(m))
+        marginal_indices = tensor_marginal_feature_indices(m)
+        x_train = (
+            column_as_float(X, marginal_indices[0])
+            if len(marginal_indices) == 1
+            else None
+        )
         shared_setup = getattr(m, "shared_basis_setup", None)
         use_linked_id_predict_path = (
+            len(marginal_indices) == 1
+            and
             isinstance(shared_setup, dict)
             and str(shared_setup.get("mode", "")).lower() == "linked_id"
             and shared_setup.get("pooled_feature_values")
@@ -386,9 +410,17 @@ def resolve_tensor_marginal_features(marginals):
     feature_indices = []
     feature_names = []
     for term in marginals:
-        feature_indices.append(tensor_marginal_feature_index(term))
-        feature_names.append(tensor_marginal_feature_name(term))
+        feature_indices.extend(tensor_marginal_feature_indices(term))
+        feature_names.extend(tensor_marginal_feature_names(term))
     return feature_indices, feature_names
+
+
+def tensor_marginal_feature_indices(term):
+    return [int(v) for v in term.resolved_feature_indices()]
+
+
+def tensor_marginal_feature_names(term):
+    return [str(v) for v in term.resolved_feature_names_list()]
 
 
 def tensor_marginal_feature_index(term):
@@ -404,15 +436,20 @@ def tensor_marginal_feature_name(term):
     return str(term.resolved_feature_names_list()[0])
 
 
-def _tensor_marginal_eval_from_x(term, x):
+def _tensor_marginal_eval_from_x(term, x, *, centered=False):
     idx = tensor_marginal_feature_index(term)
     X_new = np.zeros((len(x), idx + 1), dtype=np.float64)
     X_new[:, idx] = np.asarray(x, dtype=np.float64)
-    return np.asarray(term.transform_new(X_new), dtype=np.float64)
+    return np.asarray(
+        term.tensor_marginal_predict_matrix(X_new, centered=centered),
+        dtype=np.float64,
+    )
 
 
-def _tensor_np_reparameterization(term, x_train, basis_dim):
+def _tensor_np_reparameterization(term, x_train, basis_dim, *, centered=False):
     if str(getattr(term, "basis_name", "")).lower() in {"cr", "cs", "cc"}:
+        return None
+    if x_train is None:
         return None
     x_train = np.asarray(x_train, dtype=np.float64).ravel()
     if x_train.size == 0:
@@ -420,7 +457,7 @@ def _tensor_np_reparameterization(term, x_train, basis_dim):
     x_eval = np.linspace(
         np.min(x_train), np.max(x_train), int(basis_dim), dtype=np.float64
     )
-    B_eval = _tensor_marginal_eval_from_x(term, x_eval)
+    B_eval = _tensor_marginal_eval_from_x(term, x_eval, centered=centered)
     U, d, Vt = np.linalg.svd(B_eval, full_matrices=False)
     if d.size == 0 or d[0] <= 0.0:
         return None
@@ -435,7 +472,13 @@ def tensor_marginal_fit_matrices(term, *, centered=False, apply_np=False, x_trai
         apply_np=False,
         x_train=x_train,
     )
-    XP = _tensor_np_reparameterization(term, x_train, B.shape[1]) if apply_np else None
+    XP = (
+        _tensor_np_reparameterization(
+            term, x_train, B.shape[1], centered=centered
+        )
+        if apply_np
+        else None
+    )
     if XP is not None:
         B = B @ XP
         S = XP.T @ S @ XP

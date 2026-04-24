@@ -11,10 +11,6 @@ import pytest
 from nampy.gam.compiler.factory import instantiate_term
 from nampy.gam.constraints.absorption import apply_linear_constraint
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
-from nampy.gam.linalg import matrix_self_gram as _matrix_self_gram
-from nampy.gam.linalg import matrix_summary as _matrix_summary
-from nampy.gam.linalg import row_space_projector as _row_space_projector
-from nampy.gam.linalg import symmetric_spectrum as _penalty_spectrum
 from nampy.gam.penalties import tensor_product_penalties
 from nampy.gam.penalties.tensor import normalize_tensor_marginal_penalty
 from nampy.gam.smooths.algebra import rowwise_kronecker, t2_marginal_reparameterization
@@ -67,6 +63,7 @@ from tests.mgcv_parity_utils import (
     _normalize_python_formula_text,
     _run_mgcv_raw_constructor,
 )
+from tests.mgcv_invariant_policy import canonicalize_raw_representation_state
 
 
 @dataclass(frozen=True)
@@ -1394,58 +1391,6 @@ def _serialize_term_raw(term, X):
         return _serialize_t2_raw(term)
     raise TypeError(f"Unsupported runtime term type {type(term).__name__}.")
 
-
-def _copy_raw_value(value):
-    if isinstance(value, np.ndarray):
-        return np.asarray(value).copy()
-    if isinstance(value, dict):
-        return {key: _copy_raw_value(val) for key, val in value.items()}
-    if isinstance(value, list):
-        return [_copy_raw_value(val) for val in value]
-    return value
-
-
-def _normalized_penalties(value):
-    if isinstance(value, dict):
-        values = list(value.values())
-    else:
-        values = list(value)
-    return [np.asarray(v, dtype=np.float64) for v in values]
-
-
-def _column_space_projector(matrix):
-    mat = np.asarray(matrix, dtype=np.float64)
-    if mat.ndim != 2:
-        raise ValueError("matrix must be 2D.")
-    if mat.shape[1] == 0:
-        return np.zeros((mat.shape[0], mat.shape[0]), dtype=np.float64)
-    if mat.shape[0] == 0:
-        return mat.reshape((0, 0), dtype=np.float64)
-
-    # Build an orthonormal basis with stable rank pruning and form
-    # the symmetric projector to avoid fragile pseudoinverse behavior.
-    U, s, _ = np.linalg.svd(mat, full_matrices=False)
-    if s.size == 0:
-        return np.zeros((mat.shape[0], mat.shape[0]), dtype=np.float64)
-    tol = np.finfo(np.float64).eps * max(float(mat.shape[0]), float(mat.shape[1]), 1.0) * float(s[0])
-    rank = int(np.sum(s > tol))
-    if rank == 0:
-        return np.zeros((mat.shape[0], mat.shape[0]), dtype=np.float64)
-    Uq = np.asarray(U[:, :rank], dtype=np.float64)
-    proj = Uq @ Uq.T
-    return np.asarray(0.5 * (proj + proj.T), dtype=np.float64)
-
-
-def _sorted_rows(matrix):
-    mat = np.asarray(matrix, dtype=np.float64)
-    if mat.ndim != 2:
-        raise ValueError("matrix must be 2D.")
-    if mat.shape[0] == 0:
-        return mat.copy()
-    order = np.lexsort(mat.T[::-1])
-    return np.asarray(mat[order, :], dtype=np.float64)
-
-
 def _mgcv_tensor_xp_payload(marginal_np_transforms):
     last = -1
     for i, xp in enumerate(marginal_np_transforms):
@@ -1457,184 +1402,6 @@ def _mgcv_tensor_xp_payload(marginal_np_transforms):
         None if xp is None else np.asarray(xp, dtype=np.float64)
         for xp in marginal_np_transforms[: last + 1]
     ]
-
-
-def _canonicalize_tprs_raw_state(state):
-    extra = state["extra"]
-    used_supplied_knots = bool(extra.pop("used_supplied_knots", False))
-    used_subsampling = bool(extra.pop("used_subsampling", False))
-    pure_knot = bool(extra.pop("pure_knot", False))
-    Xu = np.asarray(extra["Xu"], dtype=np.float64)
-
-    multivariate_knot_basis = (
-        (
-            used_supplied_knots
-            or (Xu.ndim == 2 and Xu.shape[1] > 1 and state["X"].shape[0] != Xu.shape[0])
-        )
-        and not pure_knot
-        and Xu.ndim == 2
-        and Xu.shape[1] > 1
-    )
-    if used_subsampling or multivariate_knot_basis:
-        # For multivariate user-knot and max.knots setups the exact knot/sample
-        # choice and Lanczos parameterization can differ while the same
-        # penalized subspace and fixed-sp behavior hold. Keep the raw check on
-        # structural invariants only.
-        state["S"] = [_column_space_projector(S) for S in state["S"]]
-        state["X"] = _matrix_summary(state["X"])
-        extra["UZ"] = _matrix_summary(extra["UZ"])
-        extra["Xu"] = _matrix_summary(Xu)
-        return state
-
-    state["S"] = [_penalty_spectrum(S) for S in state["S"]]
-    state["X"] = _matrix_self_gram(state["X"])
-    extra["UZ"] = _column_space_projector(extra["UZ"])
-    return state
-
-
-def _canonicalize_cs_raw_state(state):
-    state["S"] = [_penalty_spectrum(S) for S in state["S"]]
-    return state
-
-
-def _canonicalize_gp_raw_state(state):
-    # `mgcv/R/smooth.r::smooth.construct.gp.smooth.spec` builds the penalized
-    # block from `slanczos(E, k, -1)`. When kernel eigenvalues cluster near the
-    # truncation boundary, the raw `X` / `UZ` basis parameterization is not
-    # unique even though `knt`, `gp.defn`, null-space structure, and penalty
-    # spectrum agree. Treat those basis matrices as metadata-only here and rely
-    # on separate smoothcon/fixed-sp tests for behavioral parity.
-    extra = state["extra"]
-    used_subsampling = bool(extra.pop("used_subsampling", False))
-    knt = np.asarray(extra["knt"], dtype=np.float64)
-    if used_subsampling or (
-        knt.ndim == 2 and knt.shape[1] > 1 and state["X"].shape[0] != knt.shape[0]
-    ):
-        state["S"] = [_column_space_projector(S) for S in state["S"]]
-        state["X"] = _matrix_summary(state["X"])
-        extra["UZ"] = _matrix_summary(extra["UZ"])
-        extra["knt"] = _matrix_summary(knt)
-        extra["gp_defn"]["rho"] = None
-        return state
-
-    state["S"] = [_penalty_spectrum(S) for S in state["S"]]
-    state["X"] = _matrix_summary(state["X"])
-    extra["UZ"] = _matrix_summary(extra["UZ"])
-    extra["knt"] = _sorted_rows(extra["knt"])
-    return state
-
-
-def _canonicalize_mrf_raw_state(state):
-    extra = state["extra"]
-    if extra["P"] is None:
-        return state
-    extra["P"] = _matrix_self_gram(extra["P"])
-    state["X"] = _matrix_self_gram(state["X"])
-    return state
-
-
-def _canonicalize_fs_raw_state(state):
-    extra = state["extra"]
-    if extra["base"]["class_name"] == "gp.smooth":
-        state["S"] = [np.round(_penalty_spectrum(S), decimals=6) for S in state["S"]]
-        # `mgcv/R/smooth.r::smooth.construct.fs.smooth.spec` applies
-        # `nat.param(..., type=1)` to the base GP constructor output. The base
-        # GP range block already comes from `slanczos()`, so clustered
-        # eigenvalues leave an effectively equivalent but not unique raw
-        # reparameterization for the duplicated `X` / `Xb` matrices here.
-        state["X"] = _column_space_projector(state["X"])
-        extra["Xb"] = _matrix_summary(extra["Xb"])
-    else:
-        state["S"] = [_penalty_spectrum(S) for S in state["S"]]
-        state["X"] = _matrix_self_gram(state["X"])
-        extra["Xb"] = _matrix_self_gram(extra["Xb"])
-    extra["P"] = _column_space_projector(extra["P"])
-    return state
-
-
-def _canonicalize_sz_raw_state(state):
-    state["S"] = [_penalty_spectrum(S) for S in state["S"]]
-    state["X"] = _matrix_self_gram(state["X"])
-    extra = state["extra"]
-    extra["Xb"] = _matrix_self_gram(extra["Xb"])
-    return state
-
-
-def _canonicalize_tensor_raw_state(state):
-    extra = state["extra"]
-    mc = extra.get("mc", [])
-    if len(state["S"]) > 2:
-        state["S"] = [_column_space_projector(S) for S in state["S"]]
-    else:
-        state["S"] = [_penalty_spectrum(S) for S in state["S"]]
-    if len(state["S"]) <= 2 and any(bool(v) for v in mc):
-        # Centered `ti()` margins with `cs` shrinkage preserve the same tensor
-        # penalty subspaces and dominant spectrum, but the tiny shrinkage-floor
-        # eigenvalues can drift under absorb.cons-style reparameterization while
-        # fixed-sp fit parity still holds. Compare that floor invariantly.
-        for i, spec in enumerate(state["S"]):
-            spec = np.asarray(spec, dtype=np.float64).copy()
-            if spec.size == 0:
-                continue
-            tol = 1e-2 * max(float(np.max(np.abs(spec))), 1.0)
-            spec[np.abs(spec) < tol] = 0.0
-            state["S"][i] = spec
-    # mgcv's tensor `np=TRUE` reparameterization only fixes the function space,
-    # not a unique basis scaling for ill-conditioned marginal inverses. Compare
-    # the tensor column space invariantly instead of amplifying that scaling
-    # drift through `X @ X.T`.
-    state["X"] = _column_space_projector(state["X"])
-
-    XP = extra.get("XP", None)
-    if isinstance(XP, list):
-        extra["XP"] = [None if xp is None else _row_space_projector(xp) for xp in XP]
-
-    C = extra.get("C", None)
-    if isinstance(C, np.ndarray) and C.ndim == 2:
-        extra["C"] = _matrix_summary(C)
-
-    return state
-
-
-def _canonicalize_t2_raw_state(state):
-    state["S"] = [_penalty_spectrum(S) for S in state["S"]]
-    state["X"] = _column_space_projector(state["X"])
-    extra = state["extra"]
-    extra["P"] = [_column_space_projector(P) for P in extra["P"]]
-
-    Cp = extra["Cp"]
-    if isinstance(Cp, np.ndarray) and Cp.ndim == 2:
-        extra["Cp"] = _matrix_summary(Cp)
-
-    C = extra["C"]
-    if isinstance(C, np.ndarray) and C.ndim == 2:
-        extra["C"] = _matrix_summary(C)
-
-    return state
-
-
-def _canonicalize_raw_state(state):
-    state = _copy_raw_value(state)
-    state["S"] = _normalized_penalties(state["S"])
-    class_name = str(state["class_name"])
-
-    if class_name == "cs.smooth":
-        return _canonicalize_cs_raw_state(state)
-    if class_name in {"tprs.smooth", "ts.smooth"}:
-        return _canonicalize_tprs_raw_state(state)
-    if class_name == "gp.smooth":
-        return _canonicalize_gp_raw_state(state)
-    if class_name == "mrf.smooth":
-        return _canonicalize_mrf_raw_state(state)
-    if class_name == "fs.interaction":
-        return _canonicalize_fs_raw_state(state)
-    if class_name == "sz.interaction":
-        return _canonicalize_sz_raw_state(state)
-    if class_name == "tensor.smooth":
-        return _canonicalize_tensor_raw_state(state)
-    if class_name == "t2.smooth":
-        return _canonicalize_t2_raw_state(state)
-    return state
 
 
 def _assert_raw_state_equal(actual, expected, *, atol, path="state"):
@@ -1711,9 +1478,9 @@ def test_raw_constructor_matches_mgcv(case: RawConstructorCase):
     data = case.data_factory()
     knots = None if case.knots_factory is None else case.knots_factory(data)
     term, X, _feature_names = _build_runtime_term(data, case.formula, knots=knots)
-    actual = _canonicalize_raw_state(_serialize_term_raw(term, X))
+    actual = canonicalize_raw_representation_state(_serialize_term_raw(term, X))
     smooth_expr = _normalize_python_formula_text(case.formula.split("~", 1)[1].strip())
-    expected = _canonicalize_raw_state(
+    expected = canonicalize_raw_representation_state(
         _run_mgcv_raw_constructor(data, smooth_expr, knots=knots)
     )
     _assert_raw_state_equal(actual, expected, atol=case.atol)

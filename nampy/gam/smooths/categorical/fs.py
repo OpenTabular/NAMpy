@@ -9,7 +9,7 @@ from scipy.linalg import orthogonal_procrustes
 from ....splines.basis.mrf import nat_param_type1
 from ..._mgcv_constants import EIG_TOL_POWER
 from ...compiler.structures import PenaltySpec
-from ...penalties import rescale_tensor_penalties_for_fit
+from ...penalties import penalty_id_for_local_index, rescale_tensor_penalties_for_fit
 from ..algebra import rowwise_kronecker
 from ..registry import make_smooth_term
 from ..smooth_base import BaseSmoothTerm, by_values_from_new_data, column_as_object
@@ -18,6 +18,7 @@ from ..univariate.ps import PSplineTerm1D
 from .categorical_utils import (
     as_object_1d,
     factor_indicator_matrix,
+    factor_levels_from_metadata,
     is_factor_like_vector,
     stable_unique_levels,
 )
@@ -110,6 +111,9 @@ def _build_base_smooth_term(
 
     if len(metric_features) == 0:
         raise ValueError("At least one metric feature is required for the base smooth.")
+
+    if mode == "fs" and base_bs in {"cs", "ts"}:
+        raise NotImplementedError(_fs_full_rank_base_error(base_bs))
 
     if len(metric_features) > 1 and base_bs not in {"tp", "ts", "gp"}:
         raise NotImplementedError(
@@ -423,7 +427,10 @@ class _FactorSmoothBase(BaseSmoothTerm):
 
         for idx, fname in zip(feature_indices, feature_names_resolved):
             col = X[:, idx]
-            if is_factor_like_vector(col):
+            if factor_levels_from_metadata(self.metadata, fname) is not None:
+                factor_feature_indices.append(idx)
+                factor_feature_names.append(fname)
+            elif is_factor_like_vector(col):
                 factor_feature_indices.append(idx)
                 factor_feature_names.append(fname)
             else:
@@ -674,9 +681,11 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             raise NotImplementedError(_fs_full_rank_base_error(base_spec.bs))
 
         fac_idx = self._factor_feature_indices[0]
-        self._factor_feature_names[0]
+        fac_name = self._factor_feature_names[0]
         fac = as_object_1d(X[:, fac_idx])
-        levels = stable_unique_levels(fac)
+        levels = stable_unique_levels(
+            fac, levels=factor_levels_from_metadata(self.metadata, fac_name)
+        )
         self._levels = levels
 
         Ifac = factor_indicator_matrix(fac, levels)
@@ -739,14 +748,21 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         penalties = []
         smoothing_ids = []
         ranks = []
+        n_penalties = 1 + int(null_d)
+
+        def _fs_penalty_id(local_index: int) -> str | None:
+            if self.smoothing_id is None:
+                return None
+            if n_penalties <= 1:
+                return str(self.smoothing_id)
+            return penalty_id_for_local_index(
+                self.smoothing_id,
+                local_index,
+                n_penalties=n_penalties,
+            )
 
         penalties.append(0.5 * (P_range + P_range.T))
-        shared_sid = (
-            str(self.smoothing_id)
-            if self.smoothing_id is not None
-            else f"__fs__:{self.label}"
-        )
-        smoothing_ids.append(shared_sid)
+        smoothing_ids.append(_fs_penalty_id(0))
         ranks.append(int(n_levels * r))
 
         for i in range(null_d):
@@ -754,7 +770,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
             um[r + i] = 1.0
             P_null_i = np.diag(np.tile(um, n_levels))
             penalties.append(0.5 * (P_null_i + P_null_i.T))
-            smoothing_ids.append(shared_sid)
+            smoothing_ids.append(_fs_penalty_id(i + 1))
             ranks.append(int(n_levels))
 
         # Apply mgcv smoothCon scale_penalty step: normalise S relative to X.
@@ -939,8 +955,11 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         contrast_mats = []
 
         for idx in self._factor_feature_indices:
+            fname = self._feature_names[self._feature_indices.index(idx)]
             fac = as_object_1d(X[:, idx])
-            lev = stable_unique_levels(fac)
+            lev = stable_unique_levels(
+                fac, levels=factor_levels_from_metadata(self.metadata, fname)
+            )
             level_lists.append(lev)
             indicator_mats.append(factor_indicator_matrix(fac, lev))
             contrast_mats.append(_sum_to_zero_contrast(len(lev)))

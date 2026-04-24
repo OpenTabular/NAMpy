@@ -12,12 +12,14 @@ import warnings
 
 import numpy as np
 
+from ...constraints.transforms import null_space_basis_from_constraint_matrix
 from ...penalties import penalty_id_for_local_index, rescale_tensor_penalties_for_fit
 from ..algebra import t2_marginal_reparameterization
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
     _normalize_knots,
+    by_values_from_new_data,
     build_penalty_definition,
 )
 from .marginals import (
@@ -31,6 +33,23 @@ from .t2_basis import (
     build_tensor_anova_basis_and_penalties,
     materialize_tensor_anova_newdata,
 )
+
+
+def _normalize_t2_fx_flags(fx, n_penalties: int) -> list[bool]:
+    n_penalties = int(n_penalties)
+    if n_penalties <= 0:
+        return []
+    if fx is None:
+        return [False] * n_penalties
+    if np.isscalar(fx):
+        return [bool(fx)] * n_penalties
+    vals = [bool(v) for v in np.asarray(fx, dtype=object).ravel()]
+    if len(vals) == 1:
+        return vals * n_penalties
+    if len(vals) != n_penalties:
+        warnings.warn("fx length wrong from t2 term: ignored", stacklevel=3)
+        return [False] * n_penalties
+    return vals
 
 
 @register_smooth("t2")
@@ -97,7 +116,8 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         self.select = bool(select)
         self.full = bool(full)
         self.ord = ord
-        self.fixed = bool(fixed)
+        self.fixed = fixed
+        self.fixed_flags = None
         self.null_penalty_tol = float(null_penalty_tol)
         self.knots = _normalize_knots(knots, features)
 
@@ -218,7 +238,15 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         self._set_resolved_features(feature_names_resolved)
         self._marginal_decompositions = marginal_decompositions
         self._basis_train = t2_obj["basis"]
-        self._penalties = [] if self.fixed else t2_obj["penalties"]
+        self.fixed_flags = _normalize_t2_fx_flags(
+            self.fixed,
+            len(t2_obj["penalties"]),
+        )
+        self._penalties = [
+            np.asarray(S, dtype=np.float64)
+            for S, is_fixed in zip(t2_obj["penalties"], self.fixed_flags)
+            if not is_fixed
+        ]
         self._t2_train = t2_obj
         self._t2_raw_fit_transform = (
             None
@@ -233,26 +261,38 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
         fit_transform = self._t2_raw_fit_transform
         prediction_basis_map = None
         if absorb_null_constraint and n_null > 0:
-            cp_vec = np.asarray(B_pre.mean(axis=0), dtype=np.float64).reshape(-1, 1)
-            q_cp, _ = np.linalg.qr(cp_vec, mode="complete")
-            prediction_basis_map = np.asarray(q_cp[:, 1:], dtype=np.float64)
+            cp = np.asarray(B_pre.mean(axis=0), dtype=np.float64).reshape(1, -1)
+            prediction_basis_map, _ = null_space_basis_from_constraint_matrix(
+                cp,
+                d=B_pre.shape[1],
+            )
+            prediction_basis_map = np.asarray(
+                prediction_basis_map,
+                dtype=np.float64,
+            )
 
         self._prediction_constraint_transform = prediction_basis_map
         self.fit_constraint_matrix = None
-        self.predict_coefficient_map = fit_transform
+        self.predict_coefficient_map = None
         self.metadata["prediction_basis_map"] = prediction_basis_map
-        self.metadata["expose_raw_prediction_basis"] = prediction_basis_map is not None
+        self.metadata["expose_raw_prediction_basis"] = False
         self.metadata["prediction_parameterization_wider"] = False
         self.metadata["prediction_replaces_intercept"] = False
         self._record_constraint_result(
             "sum_to_zero" if fit_transform is not None else None,
-            None,
+            fit_transform,
             absorbed_by=("runtime" if fit_transform is not None else None),
         )
 
         suffix = "full" if self.full else "pars"
         self.basis_name = f"t2({','.join(self.basis)};{suffix})"
-        self._set_mgcv_penalty_rescale_factors([] if self.fixed else penalty_scales)
+        self._set_mgcv_penalty_rescale_factors(
+            [
+                float(scale)
+                for scale, is_fixed in zip(penalty_scales, self.fixed_flags)
+                if not is_fixed
+            ]
+        )
         return self
 
     def get_penalty_definitions(self):
@@ -362,4 +402,9 @@ class TensorANOVASplineTerm(BaseSmoothTerm):
             allnull_transform=None,
             penalized_specs=penalized_specs,
         )
-        return self._apply_cached_by(np.asarray(B_new, dtype=np.float64))
+        B_new = np.asarray(B_new, dtype=np.float64)
+        z = by_values_from_new_data(X_new, self._by_state)
+        B_new = self._apply_by_scale(B_new, z)
+        if self._t2_raw_fit_transform is not None:
+            B_new = B_new @ self._t2_raw_fit_transform
+        return np.asarray(B_new, dtype=np.float64)

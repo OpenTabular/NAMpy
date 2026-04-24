@@ -11,6 +11,7 @@ from nampy.gam.compiler.compile_predictors import compile_predictors
 from nampy.gam.constraints.identifiability import apply_global_side_conditions
 from nampy.gam.specs.modeling import prepare_formula_inputs
 from tests.families.test_general_family_mgcv_parity import _gaulss_tensor_data
+from tests.mgcv_invariant_policy import gam_side_uses_invariant_transform
 from tests.mgcv_parity_utils import _make_gaussian_data, _run_mgcv_gam_setup_assembly
 from tests.optimization.test_mgcv_general_family_preoptimization_parity import (
     GENERAL_PREOPT_CASES,
@@ -308,16 +309,6 @@ def _build_actual_side_surface(raw_predictors, adjusted_predictors, reports):
             )
 
     return {"X": full_X, "smooths": smooths}
-
-
-def _needs_invariant_transform(class_name: str) -> bool:
-    return class_name in {
-        "fs.interaction",
-        "gp.smooth",
-        "t2.smooth",
-        "tprs.smooth",
-        "ts.smooth",
-    }
 
 
 def _matrix_atol_for_class(class_name: str) -> float:
@@ -621,7 +612,7 @@ def _assert_gam_side_case(
         expected_block = np.asarray(expected_X[:, start:stop], dtype=np.float64)
 
         matrix_atol = _matrix_atol_for_class(expected_sm["class_name"])
-        if _needs_invariant_transform(expected_sm["class_name"]):
+        if gam_side_uses_invariant_transform(expected_sm["class_name"]):
             T = _solve_basis_change(actual_block, expected_block, atol=matrix_atol)
         else:
             T = np.eye(actual_block.shape[1], dtype=np.float64)

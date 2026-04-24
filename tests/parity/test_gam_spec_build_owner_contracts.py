@@ -9,6 +9,7 @@ import pytest
 from nampy.gam.data import coerce_formula_predict_inputs
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
 from nampy.gam.specs.build import build_formula_model
+from nampy.gam.specs.modeling import make_tensor_term
 
 pytestmark = [pytest.mark.surface_regression]
 
@@ -211,6 +212,113 @@ def test_build_formula_model_rejects_transformed_smooth_by_expressions():
         match="Transformed smooth `by` expressions are parsed exactly",
     ):
         _build_from_formula('y ~ s(x, by=log(z + 1), bs="cr", k=5)', data)
+
+
+def test_formula_smooth_args_mirror_mgcv_k_rounding_and_id_truncation():
+    """
+    Regression coverage for mgcv/R/smooth.r::s() argument normalization.
+    """
+    data = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, 3.0, 4.0, 5.0],
+            "x": [0.0, 0.25, 0.5, 0.75, 1.0],
+        }
+    )
+
+    with pytest.warns(UserWarning) as caught:
+        built = _build_from_formula('y ~ s(x, bs="cr", k=4.6, id=c("a", "b"))', data)
+
+    messages = [str(item.message) for item in caught]
+    assert "argument k of s() should be integer and has been rounded" in messages
+    assert "only first element of `id' used" in messages
+    term = built.predictor_specs[0].terms[0]
+    assert term.smooth_spec.k == 5
+    assert term.smoothing_id == "a"
+
+
+def test_formula_tensor_k_too_small_resets_to_mgcv_default():
+    """
+    Regression coverage for mgcv/R/smooth.r::te() tensor k validation.
+    """
+    data = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, 3.0, 4.0, 5.0],
+            "x": [0.0, 0.25, 0.5, 0.75, 1.0],
+            "z": [1.0, 0.75, 0.5, 0.25, 0.0],
+        }
+    )
+
+    with pytest.warns(
+        UserWarning,
+        match="one or more supplied k too small - reset to default",
+    ):
+        built = _build_from_formula('y ~ te(x, z, bs=["cr", "cr"], k=[2, 8])', data)
+
+    term = built.predictor_specs[0].terms[0]
+    assert term.smooth_spec.k == [5, 5]
+
+
+def test_formula_t2_ord_validation_mirrors_mgcv():
+    """
+    Regression coverage for mgcv/R/smooth.r::t2() ord validation.
+    """
+    data = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, 3.0, 4.0, 5.0],
+            "x": [0.0, 0.25, 0.5, 0.75, 1.0],
+            "z": [1.0, 0.75, 0.5, 0.25, 0.0],
+        }
+    )
+
+    with pytest.warns(UserWarning, match="ord is wrong. reset to NULL."):
+        built = _build_from_formula('y ~ t2(x, z, bs=["cr", "cr"], ord=[3, 4])', data)
+
+    term = built.predictor_specs[0].terms[0]
+    assert term.smooth_spec.ord is None
+
+
+def test_build_formula_model_rejects_ordered_parametric_factor_without_r_contrasts():
+    """
+    Owner-contract coverage verifying that ordered parametric factors stay unsupported
+    until mgcv/R ordered contrasts are mirrored.
+    """
+    data = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, 3.0, 4.0],
+            "f": pd.Categorical(
+                ["lo", "mid", "hi", "mid"],
+                categories=["lo", "mid", "hi"],
+                ordered=True,
+            ),
+        }
+    )
+
+    with pytest.raises(
+        NotImplementedError,
+        match="Ordered parametric factors require mgcv/R ordered contrasts",
+    ):
+        _build_from_formula("y ~ f", data)
+
+
+def test_make_tensor_term_rejects_t2_fixed_for_mgcv_parity():
+    """
+    Owner-contract coverage verifying that dict-based t2 specs do not silently
+    accept non-mgcv fixed/fx flags.
+    """
+    model = SimpleNamespace(basis="cr", k=5, select=False)
+
+    with pytest.raises(
+        NotImplementedError,
+        match=r"t2\(\) does not support fx/fixed",
+    ):
+        make_tensor_term(
+            model,
+            {
+                "kind": "t2",
+                "features": ("x", "z"),
+                "fixed": True,
+            },
+        )
 
 
 def test_formula_predict_inputs_rebuild_multi_predictor_offsets_in_declared_order():

@@ -1,39 +1,8 @@
 import numpy as np
 
-from .._mgcv_constants import EIG_TOL_POWER
 from ..linalg import symmetric_eigh
 from ..penalties.algebra import penalty_eigendecomposition
-
-
-def _mgcv_ps_type3_null_eigenbasis(p, rank):
-    """
-    Exact mgcv null-eigenspace basis for the audited ``ps`` ``m=3`` tensor case.
-
-    ``mgcv/R/smooth.r::nat.param(type=3)`` starts from ``eigen(S)``.  For the
-    ``ps`` marginal used by the failing ``t2(..., bs=["ps", "ps"], m=[1, 3])``
-    parity slice, the repeated-zero null block of
-    ``crossprod(diff(diag(7), differences=3))`` is not orientation-invariant:
-    it leaks into the final tensor block assembly and fixed-sp predictions.
-
-    R's null basis here is data-independent because the P-spline difference
-    penalty depends only on ``p`` and ``m``.  Mirroring that exact upstream
-    basis keeps the rest of ``nat.param(type=3)`` unchanged while restoring the
-    audited parity surface.
-    """
-    if int(p) == 7 and int(rank) == 4:
-        return np.array(
-            [
-                [0.872871560943972, 0.0, 0.0],
-                [0.4091585441924828, 0.20954040783147818, -0.2727570144183092],
-                [0.08183170883849433, 0.3614118707489852, -0.3852263189666262],
-                [-0.10910894511799586, 0.4556143887525208, -0.33740791364495076],
-                [-0.1636634176769917, 0.49214796184208465, -0.12930179845328377],
-                [-0.08183170883849492, 0.4710125900176762, 0.23909202660837275],
-                [0.1363861813974942, 0.39220827327929497, 0.7677735615400173],
-            ],
-            dtype=np.float64,
-        )
-    return None
+from .._mgcv_constants import EIG_TOL_POWER
 
 def rowwise_kronecker(matrices):
     mats = [np.asarray(M, dtype=np.float64) for M in matrices]
@@ -104,13 +73,6 @@ def _eigen_split(
         rank = int(np.sum(evals > tol_eff))
     rank = int(rank)
     null_exists = rank < p
-
-    basis_key = None if basis_name is None else str(basis_name).lower()
-    if basis_key == "ps" and null_exists:
-        null_basis = _mgcv_ps_type3_null_eigenbasis(p, rank)
-        if null_basis is not None and null_basis.shape == (p, p - rank):
-            U = np.asarray(U, dtype=np.float64).copy()
-            U[:, rank:] = null_basis
 
     E = np.ones(p, dtype=np.float64)
     if rank > 0:

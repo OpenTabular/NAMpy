@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from .solvers.gaussian_exact import solve_gaussian_fit
+from .solvers.pirls import solve_pirls_fit
+
 
 def solve_gaussian_given_smoothing(model, y, smoothing_params):
-    from ..engine import solve_gaussian_fit
-
     return solve_gaussian_fit(
         model,
         y,
@@ -25,8 +26,6 @@ def solve_pirls_given_smoothing(model, y, smoothing_params):
             smoothing_params,
             weights=model.prior_weights_,
         )
-
-    from ..engine import solve_pirls_fit
 
     return solve_pirls_fit(
         model,

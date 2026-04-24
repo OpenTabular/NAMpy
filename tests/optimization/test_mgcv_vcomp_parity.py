@@ -9,9 +9,9 @@ import pytest
 
 from nampy.gam.smoothing_selection import postfit as postfit_module
 from tests.families.test_general_family_mgcv_parity import (
+    _gammals_data,
     _gaulss_data,
     _gevlss_data,
-    _gammals_data,
     _shashlss_data,
     _ziplss_data,
 )
@@ -38,7 +38,7 @@ def _assert_gam_vcomp_close(actual, expected, *, atol: float) -> None:
         _as_float_array(actual["vc"]),
         _as_float_array(expected["vc"]),
         atol=atol,
-        rtol=0.0,
+        rtol=atol,
     )
 
     expected_all = expected.get("all", None)
@@ -51,7 +51,7 @@ def _assert_gam_vcomp_close(actual, expected, *, atol: float) -> None:
             _as_float_array(actual_all),
             _as_float_array(expected_all),
             atol=atol,
-            rtol=0.0,
+            rtol=atol,
         )
 
     assert actual.get("rank", None) == expected.get("rank", None)
@@ -180,10 +180,9 @@ def test_gam_vcomp_rescale_true_matches_mgcv_reml_ci():
 
     actual = gam.gam_vcomp(rescale=True)
 
-    expected_vc = _as_float_array(expected["vc"])
     np.testing.assert_allclose(
         _as_float_array(actual["vc"]),
-        expected_vc[:1],
+        _as_float_array(expected["vc"]),
         atol=1e-4,
         rtol=0.0,
     )

@@ -7,8 +7,6 @@ separate ``s()`` terms for each marginal, decomposing the full interaction
 ``te(x1, x2)`` = ``s(x1) + s(x2) + ti(x1, x2)``.
 """
 
-import warnings
-
 import numpy as np
 
 from ...penalties import (
@@ -140,16 +138,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
             marginals
         )
 
-        if self.by is not None and not self._by_state.is_constant:
-            if self.mc is not None:
-                warnings.warn(
-                    f"{self.label}: ignoring mc={self.mc} because numeric by={self._by_state.feature_name!r} "
-                    "is non-constant, so automatic identifiability constraints are not applied.",
-                    stacklevel=2,
-                )
-            use_centered = [False] * len(marginals)
-        else:
-            use_centered = list(self._mc)
+        use_centered = list(self._mc)
 
         # Build marginal bases and penalties matching mgcv's ti construction.
         (

@@ -445,6 +445,32 @@ def test_poisson_outer_newton_trace_matches_mgcv():
 
 @pytest.mark.method_reml
 @pytest.mark.family_poisson
+def test_poisson_outer_newton_indefinite_step_matches_mgcv():
+    """Verify that the indefinite-Hessian fallback matches mgcv's REML step."""
+    data = _make_poisson_data(seed=23, n=180)
+    formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
+
+    expected = _run_mgcv_outer_trace(data, formula, "poisson", "REML", "newton")
+    gam = GAM(
+        family="poisson",
+        formula=formula,
+        optimize_smoothing=True,
+        smoothing_method="REML",
+    )
+    gam.fit(data=data)
+
+    actual_trace = list(getattr(gam, "_optim_trace", []) or [])
+    expected_trace = list(expected["trace"])
+
+    _assert_trace_rows_close(actual_trace, expected_trace, atol=5e-7)
+
+    actual_serialized = build_optimizer_trace(gam)
+    assert actual_serialized["fit"]["converged"] is True
+    _assert_serialized_trace_matches_mgcv(actual_serialized, expected, atol=5e-7)
+
+
+@pytest.mark.method_reml
+@pytest.mark.family_poisson
 def test_poisson_outer_bfgs_trace_matches_mgcv():
     """Verify that poisson outer BFGS trace matches mgcv."""
     data = _make_poisson_data(seed=789, n=180)

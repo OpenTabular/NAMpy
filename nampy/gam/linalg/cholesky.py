@@ -13,9 +13,9 @@ def safe_pivoted_cholesky(
     matrix: np.ndarray,
     jitter: np.ndarray,
     *,
-    eigen_fix: bool = False,  # noqa: ARG001
+    eigen_fix: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, bool]:
-    """Try pivoted Cholesky with jitter and final eigenvalue floor fallback."""
+    """Try pivoted Cholesky with mgcv-style ridge inflation and optional eigen fix."""
 
     def _factor(arr: np.ndarray):
         pstrf = get_lapack_funcs("pstrf", dtype=np.float64)
@@ -34,33 +34,42 @@ def safe_pivoted_cholesky(
             int(rank_found) == int(arr.shape[0]) and int(info) == 0,
         )
 
+    last_factor = None
+
     try:
-        return _factor(matrix)
+        chol_arr, piv_arr, ipiv_arr, ok = _factor(matrix)
+        if ok:
+            return chol_arr, piv_arr, ipiv_arr, True
+        last_factor = (chol_arr, piv_arr, ipiv_arr)
     except np.linalg.LinAlgError:
-        pass
+        chol_arr = piv_arr = ipiv_arr = None
 
-    jitter_work = np.asarray(jitter, dtype=np.float64)
-    for _ in range(10):
-        jitter_work = jitter_work * 100.0
+    jitter_work = np.asarray(jitter, dtype=np.float64).copy()
+    for _ in range(100):
         try:
-            chol_arr, piv_arr, ipiv_arr, _ = _factor(matrix + jitter_work)
-            return chol_arr, piv_arr, ipiv_arr, False
+            chol_arr, piv_arr, ipiv_arr, ok = _factor(matrix + jitter_work)
+            if ok:
+                return chol_arr, piv_arr, ipiv_arr, False
+            last_factor = (chol_arr, piv_arr, ipiv_arr)
         except np.linalg.LinAlgError:
-            continue
+            pass
+        jitter_work = jitter_work * 100.0
 
-    evals, evecs = symmetric_eigh(np.asarray(matrix, dtype=np.float64))
-    evals = np.abs(evals)
-    eval_max = float(np.max(evals)) if evals.size else 0.0
-    if eval_max > 0.0:
-        evals = np.where(evals < eval_max * 1e-10, eval_max * 1e-10, evals)
-    matrix_fixed = evecs @ (evals[:, None] * evecs.T)
-    try:
+    if eigen_fix:
+        evals, evecs = symmetric_eigh(np.asarray(matrix, dtype=np.float64))
+        evals = np.abs(evals)
+        eval_max = float(np.max(evals)) if evals.size else 0.0
+        if eval_max > 0.0:
+            evals = np.where(evals < eval_max * 1e-10, eval_max * 1e-10, evals)
+        matrix_fixed = evecs @ (evals[:, None] * evecs.T)
         chol_arr, piv_arr, ipiv_arr, _ = _factor(matrix_fixed)
         return chol_arr, piv_arr, ipiv_arr, False
-    except np.linalg.LinAlgError:
-        n = int(matrix.shape[0])
-        ident = np.arange(n, dtype=int)
-        return np.eye(n, dtype=np.float64), ident, ident, False
+
+    if last_factor is not None:
+        chol_arr, piv_arr, ipiv_arr = last_factor
+        return chol_arr, piv_arr, ipiv_arr, False
+
+    raise np.linalg.LinAlgError("Pivoted Cholesky failed after ridge inflation.")
 
 
 def chol_solve_pivoted(

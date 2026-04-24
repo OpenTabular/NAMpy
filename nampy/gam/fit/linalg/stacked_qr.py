@@ -1499,6 +1499,7 @@ def solve_gaussian_penalized_ls_stacked_qr(
     P: np.ndarray,
     *,
     penalty_blocks: Iterable[Any] | None = None,
+    penalty_rank_rows: np.ndarray | None = None,
     fit_intercept: bool = True,
     n_coef: int | None = None,
     rank_tol: float = STACKED_QR_RANK_TOLERANCE,
@@ -1553,7 +1554,9 @@ def solve_gaussian_penalized_ls_stacked_qr(
             "penalty_sqrt_rows returned empty factor (zero penalty matrix)."
         )
 
-    if penalty_blocks is not None and n_coef is not None:
+    if penalty_rank_rows is not None:
+        penalty_rank_rows = np.asarray(penalty_rank_rows, dtype=np.float64)
+    elif penalty_blocks is not None and n_coef is not None:
         penalty_rank_rows = balanced_penalty_template_sqrt_for_rank(
             penalty_blocks, fit_intercept=fit_intercept, n_coef=int(n_coef)
         )

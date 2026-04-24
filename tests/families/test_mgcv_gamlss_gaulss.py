@@ -120,6 +120,17 @@ def test_gaulss_initialize():
     assert np.all(np.isfinite(start))
 
 
+def test_gaulss_supports_sqrt_mean_link():
+    """gaulss supports mgcv's sqrt link for the mean predictor."""
+    fam = gaulss(link=("sqrt", "logb"))
+    eta = np.array([0.4, 0.8, 1.2], dtype=np.float64)
+    mu = fam.linfo[0].linkinv(eta)
+
+    assert_allclose(mu, eta**2, rtol=1e-12, atol=1e-12)
+    assert_allclose(fam.linfo[0].mu_eta(eta), 2.0 * eta, rtol=1e-12, atol=1e-12)
+    assert fam.link_names == ("sqrt", "logb")
+
+
 # ---------------------------------------------------------------------------
 # 6. solve_general_newton_fit end-to-end on simulated data
 # ---------------------------------------------------------------------------

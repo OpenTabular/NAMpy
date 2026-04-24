@@ -38,30 +38,38 @@ class PoissonLogFamily(GLMFamily):
 
     def initialize_mu(self, y):
         y = np.asarray(y, dtype=np.float64)
-        return np.clip(y + 0.1, self.eps, None)
+        return y + 0.1
+
+    def valid_mu(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return bool(np.all(np.isfinite(mu)) and np.all(mu > 0.0))
+
+    def valid_eta(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        return bool(np.all(np.isfinite(eta)))
 
     def deviance(self, y, mu, weights=None):
         y = np.asarray(y, dtype=np.float64)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        mu = np.asarray(mu, dtype=np.float64)
         weights = self._check_weights(y, weights)
         term = np.zeros_like(y, dtype=np.float64)
         mask = y > 0
-        term[mask] = y[mask] * np.log(np.clip(y[mask], self.eps, None) / mu[mask])
+        term[mask] = y[mask] * np.log(y[mask] / mu[mask])
         return float(2.0 * np.sum(weights * (term - (y - mu))))
 
     def deviance_obs(self, y, mu, weights=None):
         y = np.asarray(y, dtype=np.float64)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        mu = np.asarray(mu, dtype=np.float64)
         weights = self._check_weights(y, weights)
         term = np.zeros_like(y, dtype=np.float64)
         mask = y > 0
-        term[mask] = y[mask] * np.log(np.clip(y[mask], self.eps, None) / mu[mask])
+        term[mask] = y[mask] * np.log(y[mask] / mu[mask])
         return 2.0 * weights * (term - (y - mu))
 
     def loglik_obs(self, y, mu, scale=1.0):
         del scale
         y = np.asarray(y, dtype=np.float64)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
+        mu = np.asarray(mu, dtype=np.float64)
         return y * np.log(mu) - mu - gammaln(y + 1.0)
 
     def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
@@ -77,3 +85,55 @@ class PoissonLogFamily(GLMFamily):
 
     def working_weight_second_derivative_eta(self, eta, y=None):
         return self.inverse_link(eta)
+
+
+class PoissonIdentityFamily(PoissonLogFamily):
+    """Poisson family with identity link. Matches mgcv::poisson(link="identity")."""
+
+    link_name = "identity"
+    canonical_link = False
+    _link_key = "identity"
+
+    def validate_y(self, y):
+        y = GLMFamily.validate_y(self, y)
+        if np.any(y < 0.0):
+            raise ValueError("PoissonIdentityFamily requires non-negative targets.")
+        return y
+
+    def valid_eta(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        return bool(np.all(np.isfinite(eta)) and np.all(eta > 0.0))
+
+    def working_weight_derivative_eta(self, eta, y=None):
+        eta = np.asarray(eta, dtype=np.float64)
+        return -1.0 / eta**2
+
+    def working_weight_second_derivative_eta(self, eta, y=None):
+        eta = np.asarray(eta, dtype=np.float64)
+        return 2.0 / eta**3
+
+
+class PoissonSqrtFamily(PoissonLogFamily):
+    """Poisson family with sqrt link. Matches mgcv::poisson(link="sqrt")."""
+
+    link_name = "sqrt"
+    canonical_link = False
+    _link_key = "sqrt"
+
+    def validate_y(self, y):
+        y = GLMFamily.validate_y(self, y)
+        if np.any(y < 0.0):
+            raise ValueError("PoissonSqrtFamily requires non-negative targets.")
+        return y
+
+    def valid_eta(self, eta):
+        eta = np.asarray(eta, dtype=np.float64)
+        return bool(np.all(np.isfinite(eta)) and np.all(eta > 0.0))
+
+    def working_weight_derivative_eta(self, eta, y=None):
+        eta = np.asarray(eta, dtype=np.float64)
+        return np.zeros_like(eta)
+
+    def working_weight_second_derivative_eta(self, eta, y=None):
+        eta = np.asarray(eta, dtype=np.float64)
+        return np.zeros_like(eta)

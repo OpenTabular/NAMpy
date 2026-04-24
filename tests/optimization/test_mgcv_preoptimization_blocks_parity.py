@@ -11,6 +11,10 @@ import pytest
 from nampy.gam import GAM
 from nampy.gam.smoothing_selection.reparam import build_estimate_gam_setup_state
 from tests._paths import PARITY_DIR, REPO_ROOT
+from tests.mgcv_invariant_policy import (
+    preoptimization_blocks_align_basis_columns,
+    preoptimization_blocks_compare_range_root_representation,
+)
 from tests.mgcv_parity_utils import (
     _family_specs,
     _make_binomial_data,
@@ -820,17 +824,10 @@ def test_preoptimization_blocks_match_mgcv(
         select=select,
     )
 
-    align_basis_columns = case_id in {
-        "gaussian_tp_two_dim",
-        "gaussian_ts_two_dim",
-        "gaussian_gp_uni",
-    }
-    compare_range_root_repr = case_id not in {
-        "gaussian_tp_two_dim",
-        "gaussian_ts_two_dim",
-        "gaussian_gp_uni",
-        "gaussian_fs",
-    }
+    align_basis_columns = preoptimization_blocks_align_basis_columns(case_id)
+    compare_range_root_repr = preoptimization_blocks_compare_range_root_representation(
+        case_id
+    )
     projector_atol = 1e-9 if case_id == "gaussian_fs" else 1e-10
     if case_id == "gaussian_fs":
         penalty_atol = 1e-8

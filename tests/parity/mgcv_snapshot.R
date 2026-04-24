@@ -1,5 +1,5 @@
 # Usage:
-#   Rscript mgcv_snapshot.R <csv_path> <output_json> <formula> <family> <method> <select>
+#   Rscript mgcv_snapshot.R <csv_path> <output_json> <formula> <family> <method> <select> [weights_column] [optimizer]
 #
 # Fits mgcv::gam at fixed linear smoothing parameters sp (JSON array) and writes
 # REML / GCV criterion value, sum(edf), and deviance scale for parity with
@@ -7,7 +7,9 @@
 
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 6) {
-  stop("Usage: Rscript mgcv_snapshot.R <csv_path> <output_json> <formula> <family> <method> <select>")
+  stop(
+    "Usage: Rscript mgcv_snapshot.R <csv_path> <output_json> <formula> <family> <method> <select> [weights_column] [optimizer]"
+  )
 }
 
 normalize_formula_text <- function(x) {
@@ -112,6 +114,13 @@ if (length(args) >= 7) {
       stop(sprintf("mgcv_snapshot.R: weights column %s not found in CSV.", wcol))
     }
     gam_args$weights <- data[[wcol]]
+  }
+}
+if (length(args) >= 8) {
+  optimizer_name <- tolower(args[[8]])
+  if (nzchar(optimizer_name) && optimizer_name != "none" && optimizer_name != "-") {
+    optimizer_arg <- if (optimizer_name == "efs") "efs" else c("outer", optimizer_name)
+    gam_args$optimizer <- optimizer_arg
   }
 }
 

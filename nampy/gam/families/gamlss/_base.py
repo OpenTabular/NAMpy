@@ -33,6 +33,7 @@ class _IdentityLinkInfo:
     def d4link(self, mu: np.ndarray) -> np.ndarray:
         return np.zeros(np.asarray(mu).shape, dtype=np.float64)
 
+
 def _qr_coef_pivoted(X: np.ndarray, y: np.ndarray) -> np.ndarray:
     """Mirror ``qr.coef(qr(X), y)`` with pivoted QR."""
     X = np.asarray(X, dtype=np.float64)
@@ -114,7 +115,11 @@ def _pen_reg(X: np.ndarray, E: np.ndarray, y: np.ndarray) -> np.ndarray:
         return A, Q, Rq, pivq, edf, rank_q
 
     A, Qq, Rq, pivq, edf, rank_q = _qrr_stats(k)
-    re = min(int(np.sum(np.sum(np.abs(E), axis=0) != 0.0)), int(E.shape[0])) - rank_q + rr
+    re = (
+        min(int(np.sum(np.sum(np.abs(E), axis=0) != 0.0)), int(E.shape[0]))
+        - rank_q
+        + rr
+    )
 
     while edf > rr - 0.1 * re:
         k *= 10.0
@@ -203,51 +208,10 @@ class GamlssFamily(GeneralFamily):
         eta: np.ndarray | None = None,
         **kwargs,
     ) -> np.ndarray:
-        """Conservative residual fallback for multi-predictor GAMLSS families.
-
-        Concrete families should override to provide distribution-specific residuals.
-        This base behavior keeps prediction/diagnostic pathways functional by
-        returning response residuals.
-        """
-        del kwargs
-        y = np.asarray(y, dtype=np.float64).ravel()
-        fitted = np.asarray(fitted, dtype=np.float64)
-
-        if fitted.ndim == 1:
-            if fitted.size != y.size:
-                raise ValueError(
-                    f"{self.__class__.__name__} fitted vector length {fitted.size} "
-                    f"does not match y length {y.size}."
-                )
-            mu = fitted
-        else:
-            if eta is not None:
-                eta_arr = np.asarray(eta, dtype=np.float64)
-                if eta_arr.ndim == 1:
-                    eta_arr = eta_arr[:, None]
-                if eta_arr.ndim != 2 or eta_arr.shape[0] != y.size:
-                    raise ValueError(
-                        f"{self.__class__.__name__} eta must be shape (n, k) with n={y.size}, "
-                        f"got {eta_arr.shape}."
-                    )
-                mu = np.asarray(self.linfo[0].linkinv(eta_arr[:, 0]), dtype=np.float64)
-            elif fitted.ndim == 2 and fitted.shape[1] >= 1:
-                if fitted.shape[0] != y.size:
-                    raise ValueError(
-                        f"{self.__class__.__name__} fitted has {fitted.shape[0]} rows, "
-                        f"but y has {y.size}."
-                    )
-                mu = np.asarray(fitted[:, 0], dtype=np.float64)
-            else:
-                raise ValueError(
-                    f"{self.__class__.__name__} fitted must have one predictor column "
-                    "for residual fallback."
-                )
-
-        rtype = str(rtype).lower()
-        if rtype in {"response", "deviance", "pearson", "scaled.pearson", "working"}:
-            return y - mu
-        raise ValueError(f"Unsupported residual type {rtype!r} for {self.__class__.__name__}.")
+        del y, fitted, rtype, eta, kwargs
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must implement mgcv family-specific residuals."
+        )
 
     def influence(
         self,
@@ -258,15 +222,9 @@ class GamlssFamily(GeneralFamily):
         eta: np.ndarray | None = None,
         **kwargs,
     ) -> np.ndarray:
-        """Conservative fallback influence proxy used by diagnostics.
-
-        Parity-critical custom influence diagnostics should be implemented by
-        concrete families. This fallback mirrors the response-scale residual
-        vector shape and remains explicit rather than missing.
-        """
-        return np.asarray(
-            self.residuals(y=y, fitted=fitted, eta=eta, rtype=rtype),
-            dtype=np.float64,
+        del y, fitted, rtype, eta, kwargs
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement an mgcv-defined influence diagnostic."
         )
 
     def _stacked_eta(
@@ -372,9 +330,13 @@ class GamlssFamily(GeneralFamily):
 
         se_fit = np.zeros_like(fit, dtype=np.float64)
         for k in range(min(fit.shape[1], eta.shape[1], len(self.linfo))):
-            se_fit[:, k] = np.abs(
-                np.asarray(self.linfo[k].mu_eta(eta[:, k]), dtype=np.float64)
-            ) * np.sqrt(ve[:, k])
+            if getattr(self, "name", "") == "gammals" and k == 0:
+                deriv = np.abs(np.exp(eta[:, k]))
+            else:
+                deriv = np.abs(
+                    np.asarray(self.linfo[k].mu_eta(eta[:, k]), dtype=np.float64)
+                )
+            se_fit[:, k] = deriv * np.sqrt(ve[:, k])
         return fit, se_fit
 
     def predict_fitted(
@@ -406,7 +368,7 @@ class GamlssFamily(GeneralFamily):
                 if weights is None
                 else np.asarray(weights, dtype=np.float64)
             ),
-            offset=offset,
+            offset=None,
             deriv=1,
             sandwich=True,
         )

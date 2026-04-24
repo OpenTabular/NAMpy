@@ -38,6 +38,7 @@ class TestGaussianRemlBackendSelection:
     Backend-selection checks for parity-sensitive Gaussian REML surfaces that must stay
     on the exact scoring path.
     """
+
     def test_fs_reml_uses_exact_backend(self):
         """Verify that fs REML uses exact backend."""
         model = _gaussian_model_with_term("factor_smooth_fs")
@@ -66,10 +67,10 @@ class TestGaussianRemlBackendSelection:
 def test_gaussian_reml_bfgs_uses_profiled_objective_without_joint_sigma2(
     monkeypatch,
 ):
-    """Verify that gaussian REML BFGS uses profiled objective without joint sigma2."""
+    """Verify that gaussian REML BFGS uses joint objective with sigma2."""
     from nampy.gam.smoothing_selection.optimize import driver as driver_module
     from nampy.gam.smoothing_selection.optimize.objectives import (
-        _GaussianRemlProfiledObjective,
+        _GaussianRemlJointObjective,
     )
 
     data = _make_gaussian_data(seed=44, n=80).rename(columns={"x0": "x"})
@@ -108,8 +109,8 @@ def test_gaussian_reml_bfgs_uses_profiled_objective_without_joint_sigma2(
     )
     model.fit(data=data)
 
-    assert captured["objective_type"] is _GaussianRemlProfiledObjective
+    assert captured["objective_type"] is _GaussianRemlJointObjective
     assert np.asarray(captured["x0"], dtype=np.float64).shape == (
-        int(model.compiled_model_.n_smoothing_params),
+        int(model.compiled_model_.n_smoothing_params) + 1,
     )
     assert captured["score_type"] == "reml"

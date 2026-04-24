@@ -1,6 +1,12 @@
+from __future__ import annotations
+
 import math
+import warnings
 
 import numpy as np
+from scipy.stats import ncx2
+
+__all__ = ["DaviesAlgorithm", "liu2", "psum_chisq"]
 
 
 class DaviesAlgorithm:
@@ -21,11 +27,11 @@ class DaviesAlgorithm:
 
     def _ln1(self, x, first):
         if first:
-            return math.log1p(x)  # log(1+x)
-        else:
-            return math.log1p(x) - x  # log(1+x)-x
+            return math.log1p(x)
+        return _log1pmx(x)
 
     def _errbd(self, u, sigsq, r, n, lb, nc):
+        self._counter(False)
         cx = u * sigsq
         sum1 = u * cx
         u2 = u * 2.0
@@ -46,7 +52,6 @@ class DaviesAlgorithm:
         c1 = mean
         rb = 2.0 * lmax if u2 > 0 else 2.0 * lmin
 
-        # Phase 1: Bracket the interval
         while True:
             err, c2 = self._errbd(u2 / (1.0 + u2 * rb), sigsq, r, n, lb, nc)
             if err <= accx:
@@ -55,7 +60,6 @@ class DaviesAlgorithm:
             c1 = c2
             u2 *= 2.0
 
-        # Phase 2: Refine via bisection
         while True:
             if (c2 - mean) == 0 or abs((c1 - mean) / (c2 - mean)) >= 0.9:
                 break
@@ -69,6 +73,7 @@ class DaviesAlgorithm:
         return c2, u2
 
     def _truncation(self, u, tausq, sigsq, r, n, lb, nc):
+        self._counter(False)
         pi = math.pi
         sum1 = prod2 = prod3 = 0.0
         s = 0
@@ -146,9 +151,6 @@ class DaviesAlgorithm:
                 sum1 += z
                 sum3 -= 0.5 * x * y_val
 
-            # Using absolute z sums for error bound calculation as per C code
-            # Note: sum2 logic in C is cumulative fabs(z), used for ersm
-            # Re-calculating sum2 locally for this term
             term_sum2 = abs(-2.0 * u * c)
             for j in range(r):
                 x = 2.0 * lb[j] * u
@@ -162,6 +164,7 @@ class DaviesAlgorithm:
             ersm[0] += 0.5 * term_sum2 * x_factor
 
     def _cfe(self, x, th, ln28, r, n, lb, nc):
+        self._counter(False)
         pi = math.pi
         axl = abs(x)
         sxl = -1 if x < 0 else 1
@@ -206,7 +209,7 @@ class DaviesAlgorithm:
         Main entry point.
         Returns (probability, trace, ifault)
         """
-        self._counter(True)  # Reset counter
+        self._counter(True)
         ln28 = math.log(2.0) / 8.0
         pi = math.pi
         trace = [0.0] * 7
@@ -218,7 +221,6 @@ class DaviesAlgorithm:
         nc = np.array(nc, dtype=float)
         n = np.array(n, dtype=int)
 
-        # Order indices by absolute value of lb (decreasing)
         th = np.argsort(np.abs(lb))[::-1]
 
         sd = sigma * sigma
@@ -337,7 +339,6 @@ class DaviesAlgorithm:
         result_c = 0.5 - intl[0]
         trace[0] = ersm[0]
 
-        # Round-off check
         x_err = ersm[0] + acc / 10.0
         j_fact = 1
         for _i in range(4):
@@ -349,6 +350,168 @@ class DaviesAlgorithm:
         return result_c, trace, ifault
 
 
-# Example usage:
-# solver = DaviesAlgorithm()
-# prob, trace, fault = solver.davies(lb=[1, 2], nc=[0.5, 0.1], n=[1, 1], r=2, sigma=0.0, c_val=2.0, lim=10000, acc=0.0001)
+def _log1pmx(x: float) -> float:
+    """Stable scalar `log1p(x) - x`, matching mgcv/src/davies.c::ln1()."""
+    if x == 0.0:
+        return -0.0
+    if abs(x) < 0.5:
+        term = -0.5 * x * x
+        total = term
+        power = x * x
+        sign = 1.0
+        for k in range(3, 1000):
+            power *= x
+            term = sign * power / k
+            total_next = total + term
+            if total_next == total or abs(term) <= np.finfo(float).eps * max(
+                1.0, abs(total_next)
+            ):
+                return total_next
+            total = total_next
+            sign = -sign
+        return total
+    return math.log1p(x) - x
+
+
+def liu2(
+    x: float | np.ndarray,
+    lb: np.ndarray,
+    *,
+    df: np.ndarray | None = None,
+    lower_tail: bool = False,
+) -> float | np.ndarray:
+    """
+    Mirror mgcv/R/mgcv.r::liu2() for central chi-square mixtures.
+    """
+    q = np.asarray(x, dtype=np.float64)
+    scalar = q.ndim == 0
+    q = q.reshape(1) if scalar else q.copy()
+
+    lb = np.asarray(lb, dtype=np.float64).ravel()
+    if df is None:
+        h = np.ones(lb.size, dtype=np.float64)
+    else:
+        h = np.asarray(df, dtype=np.float64).ravel()
+        if h.size == 1:
+            h = np.repeat(h, lb.size)
+    if h.size != lb.size:
+        raise ValueError("lambda and h should have the same length.")
+
+    lh = lb * h
+    mu_q = float(np.sum(lh))
+
+    lh = lh * lb
+    c2 = float(np.sum(lh))
+
+    lh = lh * lb
+    c3 = float(np.sum(lh))
+
+    xpos = q > 0.0
+    out = np.ones_like(q, dtype=np.float64)
+    if (not np.any(xpos)) or c2 <= 0.0:
+        return float(out[0]) if scalar else out
+
+    s1 = c3 / np.power(c2, 1.5)
+    s2 = float(np.sum(lh * lb)) / (c2 * c2)
+    sig_q = np.sqrt(2.0 * c2)
+    t = (q[xpos] - mu_q) / sig_q
+
+    if s1 * s1 > s2:
+        a = 1.0 / (s1 - np.sqrt(s1 * s1 - s2))
+        delta = s1 * a * a * a - a * a
+        l_df = a * a - 2.0 * delta
+    else:
+        if c3 == 0.0:
+            return float(out[0]) if scalar else out
+        a = 1.0 / s1
+        delta = 0.0
+        l_df = (c2 * c2 * c2) / (c3 * c3)
+
+    mu_x = l_df + delta
+    sig_x = np.sqrt(2.0) * a
+    z = t * sig_x + mu_x
+    if lower_tail:
+        out[xpos] = ncx2.cdf(z, df=l_df, nc=delta)
+    else:
+        out[xpos] = ncx2.sf(z, df=l_df, nc=delta)
+    return float(out[0]) if scalar else out
+
+
+def psum_chisq(
+    q: float | np.ndarray,
+    lb: np.ndarray,
+    *,
+    df: np.ndarray | None = None,
+    nc: np.ndarray | None = None,
+    sigz: float = 0.0,
+    lower_tail: bool = False,
+    tol: float = 2e-5,
+    nlim: int = 100000,
+) -> float | np.ndarray:
+    """
+    Mirror mgcv/R/mgcv.r::psum.chisq() using the local Davies port of
+    mgcv/src/davies.c together with the Liu fallback from mgcv/R/mgcv.r.
+    """
+    x = np.asarray(q, dtype=np.float64)
+    scalar = x.ndim == 0
+    x = x.reshape(1) if scalar else x.copy()
+
+    lb = np.asarray(lb, dtype=np.float64).ravel()
+    r = int(lb.size)
+    if r <= 0 or np.all(lb == 0.0):
+        raise ValueError("at least one element of lb must be non-zero")
+
+    if df is None:
+        h = np.ones(r, dtype=np.int64)
+    else:
+        h = np.rint(np.asarray(df, dtype=np.float64)).astype(np.int64).ravel()
+        if h.size == 1:
+            h = np.repeat(h, r)
+    if nc is None:
+        delta = np.zeros(r, dtype=np.float64)
+    else:
+        delta = np.asarray(nc, dtype=np.float64).ravel()
+        if delta.size == 1:
+            delta = np.repeat(delta, r)
+    if h.size != r or delta.size != r:
+        raise ValueError("lengths of lb, df and nc must match")
+    if np.any(h < 1):
+        raise ValueError("df must be positive integers")
+
+    solver = DaviesAlgorithm()
+    out = np.empty_like(x, dtype=np.float64)
+    sigz = max(float(sigz), 0.0)
+    central = np.all(delta == 0.0)
+
+    for i, qi in enumerate(x):
+        cprob, _trace, ifault = solver.davies(
+            lb=lb,
+            nc=delta,
+            n=h,
+            r=r,
+            sigma=sigz,
+            c_val=float(qi),
+            lim=int(nlim),
+            acc=float(tol),
+        )
+        if ifault == 0:
+            out[i] = float(cprob if lower_tail else 1.0 - cprob)
+        elif ifault == 2:
+            warnings.warn("danger of round-off error", RuntimeWarning, stacklevel=2)
+            out[i] = float(cprob if lower_tail else 1.0 - cprob)
+        elif central:
+            warnings.warn(
+                "failure of Davies method, falling back on Liu et al approximtion",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            out[i] = float(liu2(qi, lb, df=h))
+        else:
+            warnings.warn(
+                "failure of Davies method, falling back on Liu et al approximtion",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            out[i] = np.nan
+
+    return float(out[0]) if scalar else out

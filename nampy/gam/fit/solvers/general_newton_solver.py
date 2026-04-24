@@ -60,6 +60,22 @@ class _PivotedCholesky(np.ndarray):
         self.pivot = getattr(obj, "pivot", None)
 
 
+class _PenaltyRoot(np.ndarray):
+    """ndarray view carrying mgcv-style root-penalty metadata."""
+
+    use_unscaled: bool
+
+    def __new__(cls, array: np.ndarray, *, use_unscaled: bool):
+        obj = np.asarray(array, dtype=np.float64).view(cls)
+        obj.use_unscaled = bool(use_unscaled)
+        return obj
+
+    def __array_finalize__(self, obj):
+        if obj is None:
+            return
+        self.use_unscaled = bool(getattr(obj, "use_unscaled", False))
+
+
 # ---------------------------------------------------------------------------
 # Main Newton fitter  (mgcv: gam.fit5)
 # ---------------------------------------------------------------------------
@@ -154,7 +170,7 @@ def solve_general_newton_fit(
         )
         X = _sl_repara(rp_state["rp"], X)
         St = np.asarray(rp_state["S"], dtype=np.float64)
-        E = np.asarray(rp_state["E"], dtype=np.float64)
+        E = _PenaltyRoot(rp_state["E"], use_unscaled=True)
         Sb = _sl_repa(rp_state["rp"], _sl_total_penalty_matrix(Sl), l=-2, r=-1)
         if start is not None:
             start = _sl_repara(rp_state["rp"], np.asarray(start, dtype=np.float64))
@@ -180,7 +196,7 @@ def solve_general_newton_fit(
         ldetS2 = np.zeros((nSp, nSp), dtype=np.float64)
     else:
         St = np.asarray(St, dtype=np.float64)
-        E = _build_root_penalty(St).T
+        E = _PenaltyRoot(_build_root_penalty(St).T, use_unscaled=False)
         Sb = np.asarray(St, dtype=np.float64)
 
     if start is None:
@@ -264,10 +280,9 @@ def solve_general_newton_fit(
         # --- step halving ---
         coef1 = coef.copy()
         coef1[:rank] += step
-        ll_try = llf(y, X, jj, coef1, weights, offset=offset, deriv=0)
+        ll_try = llf(y, X, jj, coef1, weights, offset=offset, deriv=1)
         ll1 = float(ll_try["l"]) - 0.5 * float(coef1 @ St @ coef1)
-        ll_old = ll
-
+        ll_old = ll_try
         khalf = 0
         fac = 2.0
         no_change = 0
@@ -292,10 +307,10 @@ def solve_general_newton_fit(
         if not np.isfinite(ll1) or (ll1 <= ll0 and not iconv):
             gnorm = float(np.sqrt(np.sum(grad[:rank] ** 2))) + 1e-300
             step = grad[:rank] * s_norm / gnorm
+            khalf = 0
 
         no_change = 0
-        khalf_sa = 0
-        while (not np.isfinite(ll1) or (ll1 <= ll0 and not iconv)) and khalf_sa < 25:
+        while (not np.isfinite(ll1) or (ll1 <= ll0 and not iconv)) and khalf < 25:
             step /= 10.0
             coef1 = coef.copy()
             coef1[:rank] += step
@@ -307,14 +322,12 @@ def solve_general_newton_fit(
                 no_change += 1
             max_chg = np.max(np.abs(coef)) * np.finfo(np.float64).eps
             if np.max(np.abs(coef - coef1)) < max_chg or no_change > 1:
-                khalf_sa = 100
-            khalf_sa += 1
+                khalf = 100
+            khalf += 1
 
         step_ok = (
-            np.isfinite(ll1)
-            and ll1 >= ll0
-            and (khalf < 25 or indefinite or khalf_sa < 25)
-        )
+            np.isfinite(ll1) and ll1 >= ll0 and (khalf < 25 or indefinite)
+        ) or iter_ == control.maxit
 
         if step_ok:
             coef = coef1.copy()
@@ -506,6 +519,11 @@ def solve_general_newton_fit(
                         )
                         v = -dH_i_v + Si_r @ d1b[:, j] + Sj_r @ d1b[:, i]
                     d2b[:, kk] = -D * chol_solve_pivoted(L, D * v, piv=piv, ipiv=ipiv)
+                    if i == j and not use_exact_sl:
+                        # In the non-Sl path we build only `Si @ beta` / `Sj @ beta`
+                        # explicitly, so we must add the diagonal exp(rho) second
+                        # derivative here to mirror mgcv::gam.fit5.
+                        d2b[:, kk] = np.asarray(d2b[:, kk] + d1b[:, i], dtype=np.float64)
                     kk += 1
 
             # trHid2H via ll with deriv=4

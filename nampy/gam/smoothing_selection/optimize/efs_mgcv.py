@@ -503,11 +503,22 @@ def _optimize_outer_efs_mgcv(
         result.mgcv_score_hist = list(score_hist)
         result.optim_trace = trace_rows
         result.outer_info = {
+            "optimizer": "efs",
             "conv": result.message,
             "iter": int(iter_idx),
             "score_hist": list(score_hist),
+            "log_scale": None,
+            "log_theta": None,
+            "gradient": None,
+            "gradient_full": None,
+            "hessian": None,
+            "hessian_full": None,
+            "edge_correct": False,
+            "lsp1": None,
+            "hess1": None,
             "convergence": int(result.status),
             "message": str(result.message),
+            "counts": None,
         }
         return result
     finally:

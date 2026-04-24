@@ -238,7 +238,14 @@ def _normalize_knots(knots, features):
     if knots is None:
         return [None] * len(features)
     if isinstance(knots, dict):
-        return [knots.get(str(f), None) for f in features]
+        out = []
+        for f in features:
+            if isinstance(f, (list, tuple)):
+                vals = [knots.get(str(ff), None) for ff in f]
+                out.append(None if all(v is None for v in vals) else vals)
+            else:
+                out.append(knots.get(str(f), None))
+        return out
     if isinstance(knots, (list, tuple)):
         if len(knots) == len(features):
             return list(knots)

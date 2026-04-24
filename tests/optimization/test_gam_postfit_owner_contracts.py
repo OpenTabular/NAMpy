@@ -36,6 +36,7 @@ def test_postfit_hessian_prefers_edge_correct_result_block(monkeypatch):
         "resolve_ml_reml_scoring_backend",
         lambda model, method="reml": "gaussian_exact",
     )
+    monkeypatch.setattr(postfit_module, "_n_smoothing_params", lambda model: 1)
     monkeypatch.setattr(
         postfit_module,
         "fit_criterion_hessian",
@@ -72,6 +73,39 @@ def test_postfit_hessian_recomputes_for_pirls_backends(monkeypatch):
     H = _postfit_hessian(model, "reml", edge_correct=False)
 
     np.testing.assert_allclose(H, np.array([[3.0]], dtype=np.float64))
+
+
+def test_postfit_hessian_preserves_exact_pirls_optimizer_hessian(monkeypatch):
+    """
+    Owner-contract coverage verifying that an exact optimizer Hessian is reused
+    for PIRLS backends instead of being recomputed post hoc.
+    """
+    model = SimpleNamespace(
+        y_=np.array([1.0], dtype=np.float64),
+        smoothing_params=np.array([1.0], dtype=np.float64),
+        _optim_result=SimpleNamespace(
+            hess=np.array([[7.0]], dtype=np.float64),
+            mgcv_exact_outer_derivatives=True,
+        ),
+    )
+
+    monkeypatch.setattr(
+        postfit_module,
+        "resolve_ml_reml_scoring_backend",
+        lambda model, method="reml": "pirls_laplace",
+    )
+    monkeypatch.setattr(postfit_module, "_n_smoothing_params", lambda model: 1)
+    monkeypatch.setattr(
+        postfit_module,
+        "fit_criterion_hessian",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("exact PIRLS Hessian should be reused")
+        ),
+    )
+
+    H = _postfit_hessian(model, "reml", edge_correct=False)
+
+    np.testing.assert_allclose(H, np.array([[7.0]], dtype=np.float64))
 
 
 def test_optimizer_endpoint_diagnostics_recomputes_invalid_derivatives_and_projects_bounds(
@@ -127,4 +161,3 @@ def test_optimizer_endpoint_diagnostics_recomputes_invalid_derivatives_and_proje
     assert diag["boundary_limited"] is True
     assert diag["stationary_by_projected_gradient"] is True
     assert diag["stationary_by_raw_gradient"] is False
-

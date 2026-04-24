@@ -119,7 +119,7 @@ def _infer_index_base(values, n_obs):
         return 0
     if np.any(values == 0):
         return 0
-    if np.any(values == int(n_obs)):
+    if int(np.min(values)) >= 1 and int(np.max(values)) <= int(n_obs):
         return 1
     return 0
 
@@ -162,19 +162,40 @@ def _resolve_nei(model, n_obs):
     if not isinstance(nei, dict):
         raise TypeError("nei must be a dict mirroring mgcv's neighborhood structure.")
 
-    missing = [key for key in ("d", "md", "a", "ma") if key not in nei]
-    if missing:
-        raise ValueError(f"nei is missing required keys: {missing}.")
+    idx_default = np.arange(int(n_obs), dtype=np.int64)
+    cum_default = np.arange(1, int(n_obs) + 1, dtype=np.int64)
+
+    if "a" not in nei or "ma" not in nei:
+        jackknife = int(nei.get("jackknife", 0))
+        return {
+            "d": idx_default,
+            "md": cum_default,
+            "a": idx_default,
+            "ma": cum_default,
+            "jackknife": jackknife,
+        }
 
     index_base = nei.get("index_base", None)
     if index_base is None:
-        index_base = _infer_index_base(np.concatenate([nei["d"], nei["a"]]), n_obs)
+        vals = []
+        if "d" in nei:
+            vals.append(np.asarray(nei["d"], dtype=np.int64).ravel())
+        vals.append(np.asarray(nei["a"], dtype=np.int64).ravel())
+        index_base = _infer_index_base(np.concatenate(vals), n_obs)
     index_base = int(index_base)
 
-    d = _coerce_index_vector(nei["d"], n_obs, "nei['d']", index_base=index_base)
     a = _coerce_index_vector(nei["a"], n_obs, "nei['a']", index_base=index_base)
-    md = _coerce_cumulative(nei["md"], len(d), "nei['md']")
     ma = _coerce_cumulative(nei["ma"], len(a), "nei['ma']")
+    if "d" not in nei or "md" not in nei:
+        if np.asarray(nei["ma"], dtype=np.int64).ravel().size != int(n_obs):
+            raise ValueError(
+                "nei['ma'] must have length n_obs when nei['d'] or nei['md'] is omitted."
+            )
+        d = idx_default
+        md = cum_default
+    else:
+        d = _coerce_index_vector(nei["d"], n_obs, "nei['d']", index_base=index_base)
+        md = _coerce_cumulative(nei["md"], len(d), "nei['md']")
 
     if md.shape != ma.shape:
         raise ValueError("nei['md'] and nei['ma'] must have the same shape.")
@@ -1496,6 +1517,8 @@ def _general_ncv_score(model, y, state, fold, *, qapprox, need_gradient):
     score = gamma * score - (gamma - 1.0) * dev
     if not need_gradient or nsp == 0:
         return float(score), np.empty((0,), dtype=np.float64), None
+    if "l1" not in ll_cv:
+        return float(score), np.full(nsp, np.nan, dtype=np.float64), None
 
     ncv1 = np.zeros((nm, nsp), dtype=np.float64)
     dev1 = np.zeros((nm, nsp), dtype=np.float64)

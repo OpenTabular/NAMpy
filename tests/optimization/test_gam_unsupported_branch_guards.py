@@ -142,7 +142,7 @@ def test_general_family_public_iterms_guard_rejects_multi_predictor_models(
     iterms_type,
 ):
     """
-    Guard coverage verifying that general family public iterms guard rejects multi
+    Guard coverage verifying that general family public iterms downgrades multi
     predictor models.
     """
     data = _gaulss_data(seed=23)
@@ -154,16 +154,21 @@ def test_general_family_public_iterms_guard_rejects_multi_predictor_models(
         "ML",
     )
 
-    with pytest.raises(
-        ValueError,
-        match="type='iterms' is not supported for multi-predictor general-family models",
+    expected_pred, expected_se = gam.predict(newdata, type="terms", return_se=True)
+
+    with pytest.warns(
+        UserWarning,
+        match="type='iterms' not available for multiple predictor cases; using type='terms' instead.",
     ):
-        gam.predict(
+        actual_pred, actual_se = gam.predict(
             newdata,
             type="iterms",
             return_se=True,
             iterms_type=iterms_type,
         )
+
+    np.testing.assert_allclose(actual_pred, expected_pred)
+    np.testing.assert_allclose(actual_se, expected_se)
 
 
 def test_general_family_terms_guard_rejects_wider_prediction_parameterization():

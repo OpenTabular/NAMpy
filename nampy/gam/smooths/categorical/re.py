@@ -32,6 +32,7 @@ from .categorical_utils import (
     all_bool_like,
     as_object_1d,
     factor_indicator_matrix,
+    factor_levels_from_metadata,
     stable_unique_levels,
     try_numeric_1d,
 )
@@ -43,7 +44,7 @@ class _REComponentSpec:
     levels: list[Any] | None = None
 
 
-def _fit_re_component(x):
+def _fit_re_component(x, *, levels=None):
     """
     Build one component matrix contributing to model.matrix(~x - 1)-style random effects.
     """
@@ -52,6 +53,11 @@ def _fit_re_component(x):
     if any(pd.isna(v) for v in x_obj):
         raise ValueError(
             "Random-effect terms do not currently allow missing values in fitting."
+        )
+
+    if levels is not None:
+        return factor_indicator_matrix(x_obj, levels), _REComponentSpec(
+            kind="factor", levels=list(levels)
         )
 
     if all_bool_like(x_obj):
@@ -184,15 +190,15 @@ class RandomEffectTerm(BaseSmoothTerm):
             feature_indices.append(idx)
             feature_names_resolved.append(fname)
 
-            B_i, spec_i = _fit_re_component(X[:, idx])
+            levels = factor_levels_from_metadata(self.metadata, fname)
+            B_i, spec_i = _fit_re_component(X[:, idx], levels=levels)
             blocks.append(B_i)
             specs.append(spec_i)
 
         self._set_by_state(X, feature_names)
 
-        B = _combine_re_blocks_mgcv(blocks)
-
-        B = self._apply_cached_by(B, allow_missing=True)
+        B_raw = _combine_re_blocks_mgcv(blocks)
+        B = self._apply_cached_by(B_raw, allow_missing=True)
 
         self._feature_indices = feature_indices
         self._feature_names = feature_names_resolved
@@ -205,10 +211,10 @@ class RandomEffectTerm(BaseSmoothTerm):
 
         if self.xt is None or self.xt.get("S", None) is None:
             S_raw = np.eye(q, dtype=np.float64)
-            self._penalties = [scale_penalty(self._basis_train, S_raw)]
+            self._penalties = [scale_penalty(B_raw, S_raw)]
             self._ranks = [q]
             self._set_mgcv_penalty_rescale_factors(
-                [penalty_rescale_factor(self._basis_train, S_raw)]
+                [penalty_rescale_factor(B_raw, S_raw)]
             )
         else:
             S_in = self.xt["S"]
@@ -234,12 +240,12 @@ class RandomEffectTerm(BaseSmoothTerm):
 
             S_raw_list = [symmetrize_matrix(S) for S in S_list]
             self._penalties = [
-                scale_penalty(self._basis_train, S_raw) for S_raw in S_raw_list
+                scale_penalty(B_raw, S_raw) for S_raw in S_raw_list
             ]
             self._ranks = [int(r) for r in ranks.tolist()]
             self._set_mgcv_penalty_rescale_factors(
                 [
-                    penalty_rescale_factor(self._basis_train, S_raw)
+                    penalty_rescale_factor(B_raw, S_raw)
                     for S_raw in S_raw_list
                 ]
             )

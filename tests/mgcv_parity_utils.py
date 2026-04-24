@@ -174,6 +174,7 @@ def _run_mgcv_snapshot_single(
     *,
     select: bool = False,
     weights_column: str | None = None,
+    optimizer: str | None = None,
 ):
     """Run a single snapshot via subprocess call (legacy behavior)."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -193,6 +194,10 @@ def _run_mgcv_snapshot_single(
         )
         if weights_column is not None:
             cmd.append(str(weights_column))
+        elif optimizer is not None:
+            cmd.append("-")
+        if optimizer is not None:
+            cmd.append(str(optimizer))
 
         subprocess.run(
             cmd,
@@ -840,20 +845,60 @@ def _run_mgcv_snapshot(
     select: bool = False,
     weights_column: str | None = None,
     allow_live_run: bool = False,
+    optimizer: str | None = None,
 ):
+    def _normalize_snapshot_payload(payload):
+        if not isinstance(payload, dict):
+            return payload
+        parity = payload.get("parity", None)
+        if not isinstance(parity, dict):
+            return payload
+        diagnostics = parity.get("diagnostics", None)
+        if not isinstance(diagnostics, dict):
+            return payload
+        residuals = diagnostics.get("residuals", None)
+        if not isinstance(residuals, dict):
+            return payload
+
+        residuals = dict(residuals)
+        changed = False
+        for key in (
+            "response",
+            "working",
+            "pearson",
+            "scaled_pearson",
+            "deviance",
+        ):
+            if isinstance(residuals.get(key, None), dict) and len(residuals[key]) == 0:
+                residuals[key] = None
+                changed = True
+        if not changed:
+            return payload
+
+        diagnostics = dict(diagnostics)
+        diagnostics["residuals"] = residuals
+        parity = dict(parity)
+        parity["diagnostics"] = diagnostics
+        payload = dict(payload)
+        payload["parity"] = parity
+        return payload
+
     _family_nampy, family_token = _family_specs(family)
+    cache_parts = {
+        "version": _SNAPSHOT_CACHE_VERSION,
+        "data": _df_cache_repr(data),
+        "formula": str(formula),
+        "family_token": family_token,
+        "method": method,
+        "select": select,
+        "weights_column": weights_column,
+    }
+    if optimizer is not None:
+        cache_parts["optimizer"] = optimizer
 
     _cache_key = _mgcv_cache_key(
         "snapshot",
-        {
-            "version": _SNAPSHOT_CACHE_VERSION,
-            "data": _df_cache_repr(data),
-            "formula": str(formula),
-            "family_token": family_token,
-            "method": method,
-            "select": select,
-            "weights_column": weights_column,
-        },
+        cache_parts,
     )
     try:
         cached = _mgcv_cache_load(_cache_key)
@@ -862,18 +907,9 @@ def _run_mgcv_snapshot(
             raise
         cached = None
     if cached is not None:
-        return cached
+        return _normalize_snapshot_payload(cached)
 
-    try:
-        result = _run_mgcv_snapshot_batched(
-            data,
-            formula,
-            family_token,
-            method,
-            select=select,
-            weights_column=weights_column,
-        )
-    except Exception:
+    if optimizer is not None:
         result = _run_mgcv_snapshot_single(
             data,
             formula,
@@ -881,8 +917,29 @@ def _run_mgcv_snapshot(
             method,
             select=select,
             weights_column=weights_column,
+            optimizer=optimizer,
         )
+    else:
+        try:
+            result = _run_mgcv_snapshot_batched(
+                data,
+                formula,
+                family_token,
+                method,
+                select=select,
+                weights_column=weights_column,
+            )
+        except Exception:
+            result = _run_mgcv_snapshot_single(
+                data,
+                formula,
+                family_token,
+                method,
+                select=select,
+                weights_column=weights_column,
+            )
 
+    result = _normalize_snapshot_payload(result)
     _mgcv_cache_save(_cache_key, result)
     return result
 
@@ -967,6 +1024,7 @@ def _run_mgcv_gam_vcomp(
             "weights_column": weights_column,
         },
     )
+
     def _normalize_gam_vcomp_payload(payload):
         if payload is None:
             return None

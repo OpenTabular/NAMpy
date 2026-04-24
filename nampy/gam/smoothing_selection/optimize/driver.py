@@ -45,7 +45,7 @@ from .objectives import (
 
 
 def _optimize_negbin_reml_joint_native(model, y, x0, free_mask, method, sp_bounds):
-    """Native joint negbin REML/LAML outer optimization over (log sp, log theta)."""
+    """Native joint negbin REML/LAML outer optimization over (log theta, log sp)."""
     if str(method).lower() not in {"reml", "laml"}:
         return None
     if (
@@ -63,14 +63,13 @@ def _optimize_negbin_reml_joint_native(model, y, x0, free_mask, method, sp_bound
     x0 = np.asarray(x0, dtype=np.float64).ravel()
     free_mask = np.asarray(free_mask, dtype=bool)
     free_count = int(np.sum(free_mask))
-    if free_count <= 0 or x0.size != free_count:
+    if x0.size != free_count:
         return None
 
     theta0 = float(max(float(getattr(model.family, "theta", 1.0)), LOG_GUARD_MIN))
     log_theta0 = float(np.log(theta0))
-    x_joint0 = np.concatenate([x0, np.array([log_theta0], dtype=np.float64)])
-    joint_bounds = list(sp_bounds)
-    joint_bounds.append((float(np.log(LOG_GUARD_MIN)), np.inf))
+    x_joint0 = np.concatenate([np.array([log_theta0], dtype=np.float64), x0])
+    joint_bounds = [(float(np.log(LOG_GUARD_MIN)), np.inf)] + list(sp_bounds)
 
     branch_m = "LAML" if str(method).lower() == "laml" else "REML"
     j_obj = _JointNegbinPirlsRemlObjective(model, y, branch_m)
@@ -84,7 +83,7 @@ def _optimize_negbin_reml_joint_native(model, y, x0, free_mask, method, sp_bound
     x_joint = np.asarray(result_joint.x, dtype=np.float64).ravel()
     if x_joint.size != x_joint0.size:
         x_joint = x_joint0.copy()
-    log_theta_opt = float(x_joint[-1]) if x_joint.size else log_theta0
+    log_theta_opt = float(x_joint[0]) if x_joint.size else log_theta0
     if np.isfinite(log_theta_opt):
         theta_opt = float(np.exp(log_theta_opt))
     else:
@@ -93,7 +92,7 @@ def _optimize_negbin_reml_joint_native(model, y, x0, free_mask, method, sp_bound
         theta_opt = float(theta0)
         log_theta_opt = float(log_theta0)
 
-    x_sp_opt = x_joint[:-1]
+    x_sp_opt = x_joint[1:]
     result.x = x_sp_opt.copy()
     result.fun = float(
         result_joint.fun if np.isfinite(float(result_joint.fun)) else np.nan
@@ -138,8 +137,8 @@ def _optimize_negbin_reml_joint_native(model, y, x0, free_mask, method, sp_bound
         )
         if x_row.size == 0:
             continue
-        log_sp_hist.append(np.asarray(x_row[:-1], dtype=np.float64).tolist())
-        log_theta_hist.append(float(x_row[-1]))
+        log_theta_hist.append(float(x_row[0]))
+        log_sp_hist.append(np.asarray(x_row[1:], dtype=np.float64).tolist())
         score_hist.append(float(row.get("fun", np.nan)))
 
     if len(score_hist) == 0:
@@ -147,11 +146,24 @@ def _optimize_negbin_reml_joint_native(model, y, x0, free_mask, method, sp_bound
         log_theta_hist = [float(log_theta_opt)]
         log_sp_hist = [np.asarray(x_sp_opt, dtype=np.float64).tolist()]
 
-    result.outer_info = {
+    outer_info = {
         "score_hist": score_hist,
         "log_theta_hist": log_theta_hist,
         "log_sp_hist": log_sp_hist,
     }
+    joint_grad = getattr(result_joint, "jac", None)
+    if joint_grad is not None:
+        joint_grad = np.asarray(joint_grad, dtype=np.float64).ravel()
+        if joint_grad.shape == x_joint.shape and np.all(np.isfinite(joint_grad)):
+            outer_info["grad"] = joint_grad.copy()
+    joint_hess = getattr(result_joint, "hess", None)
+    if joint_hess is not None:
+        joint_hess = np.asarray(joint_hess, dtype=np.float64)
+        if joint_hess.shape == (x_joint.size, x_joint.size) and np.all(
+            np.isfinite(joint_hess)
+        ):
+            outer_info["hess"] = 0.5 * (joint_hess + joint_hess.T)
+    result.outer_info = outer_info
     result.joint_negbin_reml_outer = True
     return result
 
@@ -174,20 +186,47 @@ def _refresh_final_outer_derivatives(model, y, method, result, objective=None):
         return
 
     outer_info = dict(getattr(result, "outer_info", {}) or {})
-    try:
-        grad = np.asarray(
-            criterion_gradient(model, y, x, method=method),
-            dtype=np.float64,
-        )
-    except Exception:
-        grad = None
-    try:
-        hess = np.asarray(
-            criterion_hessian(model, y, x, method=method),
-            dtype=np.float64,
-        )
-    except Exception:
-        hess = None
+    preserve_exact = bool(getattr(result, "mgcv_exact_outer_derivatives", False))
+    keep_grad = (
+        preserve_exact
+        and getattr(result, "jac", None) is not None
+        and np.asarray(result.jac, dtype=np.float64).shape == x.shape
+        and np.all(np.isfinite(np.asarray(result.jac, dtype=np.float64)))
+    )
+    keep_hess = (
+        preserve_exact
+        and getattr(result, "hess", None) is not None
+        and np.asarray(result.hess, dtype=np.float64).shape == (x.size, x.size)
+        and np.all(np.isfinite(np.asarray(result.hess, dtype=np.float64)))
+    )
+    if keep_grad:
+        outer_info["grad"] = np.asarray(result.jac, dtype=np.float64).copy()
+    if keep_hess:
+        outer_info["hess"] = np.asarray(result.hess, dtype=np.float64).copy()
+    if keep_grad and keep_hess:
+        if outer_info:
+            result.outer_info = outer_info
+        return
+
+    grad = None
+    if not keep_grad:
+        try:
+            grad = np.asarray(
+                criterion_gradient(model, y, x, method=method),
+                dtype=np.float64,
+            )
+        except Exception:
+            grad = None
+
+    hess = None
+    if not keep_hess:
+        try:
+            hess = np.asarray(
+                criterion_hessian(model, y, x, method=method),
+                dtype=np.float64,
+            )
+        except Exception:
+            hess = None
 
     if grad is not None and grad.shape == x.shape and np.all(np.isfinite(grad)):
         result.jac = grad.copy()
@@ -208,6 +247,32 @@ def _optimize_outer_optim_mgcv(*, objective, x0, bounds):
     """Mirror `mgcv::gam.outer(..., optimizer[2] = "optim")` via L-BFGS-B."""
     x0 = np.asarray(x0, dtype=np.float64).ravel()
     fscale = 1.0
+    optim_rows = {}
+    optim_order = []
+
+    def _optim_trace_key(x):
+        return "|".join(format(float(val), ".17g") for val in np.asarray(x).ravel())
+
+    def _record_optim_eval(kind, x, value):
+        x = np.asarray(x, dtype=np.float64).ravel()
+        key = _optim_trace_key(x)
+        if key not in optim_rows:
+            optim_rows[key] = {
+                "log_sp": x.copy(),
+                "criterion": None,
+                "gradient": None,
+                "n_fun": 0,
+                "n_jac": 0,
+            }
+            optim_order.append(key)
+        row = optim_rows[key]
+        if kind == "fun":
+            row["criterion"] = float(value)
+            row["n_fun"] = int(row["n_fun"]) + 1
+        else:
+            row["gradient"] = np.asarray(value, dtype=np.float64).ravel().copy()
+            row["n_jac"] = int(row["n_jac"]) + 1
+
     model = getattr(objective, "model", None)
     y = np.asarray(
         getattr(objective, "y", np.array([], dtype=np.float64)), dtype=np.float64
@@ -228,11 +293,21 @@ def _optimize_outer_optim_mgcv(*, objective, x0, bounds):
         if np.isfinite(dev) and dev > 0.0 and n_rows > 0:
             fscale = float(dev / n_rows)
 
+    def _optim_fun(x):
+        val = float(objective.fun(x))
+        _record_optim_eval("fun", x, val)
+        return float(val / fscale)
+
+    def _optim_jac(x):
+        grad = np.asarray(objective.jac(x), dtype=np.float64)
+        _record_optim_eval("grad", x, grad)
+        return grad / fscale
+
     result = minimize(
-        fun=lambda x: float(objective.fun(x) / fscale),
+        fun=_optim_fun,
         x0=x0,
         method="L-BFGS-B",
-        jac=lambda x: np.asarray(objective.jac(x), dtype=np.float64) / fscale,
+        jac=_optim_jac,
         bounds=bounds,
         options={
             "ftol": float(np.finfo(np.float64).eps * 1e7),
@@ -240,6 +315,8 @@ def _optimize_outer_optim_mgcv(*, objective, x0, bounds):
             "maxcor": int(min(5, max(1, x0.size))),
         },
     )
+    result.optim_scaled_fun = float(result.fun)
+    result.fun = float(objective.fun(np.asarray(result.x, dtype=np.float64).ravel()))
     counts = []
     nfev = getattr(result, "nfev", None)
     njev = getattr(result, "njev", None)
@@ -247,6 +324,36 @@ def _optimize_outer_optim_mgcv(*, objective, x0, bounds):
         counts.append(int(nfev))
     if njev is not None:
         counts.append(int(njev))
+    trace_rows = []
+    prev_x = None
+    for i, key in enumerate(optim_order):
+        row = optim_rows[key]
+        x_row = np.asarray(row["log_sp"], dtype=np.float64)
+        step_norm = 0.0 if prev_x is None else float(np.linalg.norm(x_row - prev_x))
+        trace_rows.append(
+            {
+                "iter": int(i),
+                "log_sp": x_row.copy(),
+                "criterion": row["criterion"],
+                "gradient": (
+                    None
+                    if row["gradient"] is None
+                    else np.asarray(row["gradient"], dtype=np.float64).copy()
+                ),
+                "hessian": None,
+                "accepted_step_norm": step_norm,
+                "n_fun": int(row["n_fun"]),
+                "n_jac": int(row["n_jac"]),
+                "n_hess": None,
+                "rank_info": {
+                    "source": "mgcv_optim",
+                    "n_fun": int(row["n_fun"]),
+                    "n_jac": int(row["n_jac"]),
+                },
+            }
+        )
+        prev_x = x_row
+    result.optim_trace = trace_rows
     result.outer_info = {
         "optimizer": "optim",
         "conv": str(int(getattr(result, "status", 0))),
@@ -283,6 +390,12 @@ def supports_smoothing_method(model, method):
 
     base_ok = bool(getattr(model.family, attr, False))
     if not base_ok:
+        return False
+
+    if (
+        method in {"ubre", "aic", "ubreaic"}
+        and getattr(model.family, "known_scale", None) is None
+    ):
         return False
 
     if method in {"ml", "reml", "laml"}:
@@ -347,14 +460,18 @@ def expand_smoothing_params_from_log(model, log_free_sp):
 
 
 def optimize_smoothing_params(
-    model, y, initial_smoothing_params=None, method="gcv", optimizer="lbfgsb"
+    model, y, initial_smoothing_params=None, method="gcv", optimizer="outer_newton"
 ):
     method = resolve_smoothing_method(model, method)
     optimizer = str(optimizer).lower()
     if method in {"ncv", "qncv"}:
         optimizer = "bfgs"
-    if optimizer == "newton":
+    if optimizer in {"newton", "outer"}:
         optimizer = "outer_newton"
+    if optimizer == "efs":
+        # mgcv/R/mgcv.r::estimate.gam forces EFS onto REML regardless of the
+        # requested non-NCV criterion.
+        method = "reml"
     exact_gaussian = str(getattr(model.family, "name", "")).lower() == "gaussian"
 
     if method not in {
@@ -418,12 +535,6 @@ def optimize_smoothing_params(
             "Strict mgcv-parity optim smoothing optimisation requires an exact "
             "gradient path for this method/family."
         )
-    if optimizer == "efs" and method not in {"reml", "laml"}:
-        raise NotImplementedError(
-            "Strict mgcv-parity EFS smoothing optimisation is currently "
-            "implemented only for REML/LAML."
-        )
-
     fixed_mask = (
         np.zeros(_n_smoothing_params(model), dtype=bool)
         if model.smoothing_fixed_mask_ is None
@@ -445,8 +556,12 @@ def optimize_smoothing_params(
     family_class = str(
         getattr(getattr(model, "family", None), "family_class", "")
     ).lower()
+    has_mrf_term = any(
+        str(getattr(tb, "basis_name", "")).lower() == "mrf"
+        for tb in _term_blocks_seq(model)
+    )
     use_joint_gaussian_reml_scale = (
-        exact_gaussian and method == "reml" and optimizer != "bfgs"
+        exact_gaussian and method in {"reml", "ml"} and optimizer != "efs"
     )
     use_joint_negbin_reml_theta = (
         family_name == "negbin"
@@ -471,7 +586,13 @@ def optimize_smoothing_params(
         )
     model._pirls_disable_theta_efs_ = False
 
-    if n_free == 0 and not use_joint_negbin_ncv_theta:
+    has_joint_outer_params = (
+        use_joint_gaussian_reml_scale
+        or use_joint_gamma_reml_scale
+        or use_joint_negbin_reml_theta
+        or use_joint_negbin_ncv_theta
+    )
+    if n_free == 0 and not has_joint_outer_params:
         model._optim_method = method
         model._optim_result = None
         model._optim_trace = []
@@ -556,8 +677,8 @@ def optimize_smoothing_params(
 
     if use_joint_negbin_ncv_theta:
         theta0 = float(max(float(getattr(model.family, "theta", 1.0)), LOG_GUARD_MIN))
-        x0 = np.concatenate([x0, np.array([float(np.log(theta0))], dtype=np.float64)])
-        bounds = list(bounds) + [(float(np.log(LOG_GUARD_MIN)), np.inf)]
+        x0 = np.concatenate([np.array([float(np.log(theta0))], dtype=np.float64), x0])
+        bounds = [(float(np.log(LOG_GUARD_MIN)), np.inf)] + list(bounds)
 
     if use_joint_gaussian_reml_scale:
         # Mirror `mgcv/R/mgcv.r::get.null.coef` + `scale.as.sp` initialization:
@@ -683,14 +804,14 @@ def optimize_smoothing_params(
             "native upstream-supported joint optimizer path in this build."
         )
 
-    branch_m = "LAML" if method == "laml" else "REML"
+    branch_m = "LAML" if method == "laml" else str(method).upper()
     if use_joint_negbin_ncv_theta:
         objective = _JointNegbinNcvObjective(
             model=model,
             y=y,
             qapprox=(method == "qncv"),
         )
-    elif use_joint_gaussian_reml_scale and optimizer != "bfgs":
+    elif use_joint_gaussian_reml_scale:
         objective = _GaussianRemlJointObjective(
             model=model,
             y=y,
@@ -813,6 +934,8 @@ def optimize_smoothing_params(
             )
             result.joint_gamma_reml_outer = True
             result.joint_log_phi = float(x_joint[-1])
+            if np.isfinite(result.joint_log_phi):
+                model._gamma_reml_phi_opt_ = float(np.exp(result.joint_log_phi))
             result.joint_gamma_message = str(getattr(result_joint, "message", ""))
             outer_info_joint = dict(getattr(result_joint, "outer_info", {}) or {})
             if outer_info_joint:
@@ -826,6 +949,11 @@ def optimize_smoothing_params(
                 phi_opt is not None
                 and np.isfinite(float(phi_opt))
                 and float(phi_opt) > 0.0
+                and not (
+                    getattr(model, "_gamma_reml_phi_opt_", None) is not None
+                    and np.isfinite(float(model._gamma_reml_phi_opt_))
+                    and float(model._gamma_reml_phi_opt_) > 0.0
+                )
             ):
                 model._gamma_reml_phi_opt_ = float(phi_opt)
 
@@ -854,18 +982,18 @@ def optimize_smoothing_params(
     if use_joint_negbin_ncv_theta and result is not None and result.x is not None:
         x_joint = np.asarray(result.x, dtype=np.float64).ravel()
         if x_joint.size == n_free + 1:
-            joint_log_theta = float(x_joint[-1])
+            joint_log_theta = float(x_joint[0])
             theta_opt = float(np.exp(joint_log_theta))
             model.family.theta = float(theta_opt)
             model._pirls_disable_theta_efs_ = True
             result.joint_negbin_ncv_outer = True
             result.joint_log_theta = float(joint_log_theta)
             result.joint_x = x_joint.copy()
-            result.x = np.asarray(x_joint[:-1], dtype=np.float64).copy()
+            result.x = np.asarray(x_joint[1:], dtype=np.float64).copy()
             if getattr(result, "jac", None) is not None:
-                result.jac = np.asarray(result.jac, dtype=np.float64).ravel()[:-1]
+                result.jac = np.asarray(result.jac, dtype=np.float64).ravel()[1:]
             if getattr(result, "hess", None) is not None:
-                result.hess = np.asarray(result.hess, dtype=np.float64)[:-1, :-1]
+                result.hess = np.asarray(result.hess, dtype=np.float64)[1:, 1:]
 
     if (
         exact_gaussian
@@ -873,6 +1001,7 @@ def optimize_smoothing_params(
         and result is not None
         and result.x is not None
         and getattr(model, "_gaussian_reml_sigma2_opt_", None) is None
+        and not has_mrf_term
     ):
         branch_m = "LAML" if method == "laml" else "REML"
         try:
@@ -912,6 +1041,7 @@ def optimize_smoothing_params(
         trace_rows = []
         uses_joint_log_scale = bool(getattr(objective, "uses_joint_log_scale", False))
         uses_joint_log_theta = bool(getattr(objective, "uses_joint_log_theta", False))
+        joint_log_theta_first = bool(getattr(objective, "joint_log_theta_first", False))
         for row in list(getattr(result, "optim_trace", []) or []):
             row_dict = dict(row)
             log_sp_full = np.asarray(
@@ -940,12 +1070,20 @@ def optimize_smoothing_params(
                 if hessian is not None and hessian.shape[0] > 0:
                     hessian = hessian[:-1, :-1]
             if uses_joint_log_theta and log_sp.size > 0:
-                log_theta = float(log_sp[-1])
-                log_sp = log_sp[:-1]
-                if gradient is not None and gradient.size > 0:
-                    gradient = gradient[:-1]
-                if hessian is not None and hessian.shape[0] > 0:
-                    hessian = hessian[:-1, :-1]
+                if joint_log_theta_first:
+                    log_theta = float(log_sp[0])
+                    log_sp = log_sp[1:]
+                    if gradient is not None and gradient.size > 0:
+                        gradient = gradient[1:]
+                    if hessian is not None and hessian.shape[0] > 0:
+                        hessian = hessian[1:, 1:]
+                else:
+                    log_theta = float(log_sp[-1])
+                    log_sp = log_sp[:-1]
+                    if gradient is not None and gradient.size > 0:
+                        gradient = gradient[:-1]
+                    if hessian is not None and hessian.shape[0] > 0:
+                        hessian = hessian[:-1, :-1]
             trace_rows.append(
                 {
                     "iter": int(row_dict.get("iter", 0)),
@@ -1038,11 +1176,51 @@ def optimize_smoothing_params(
         and not bool(getattr(result, "joint_gamma_reml_outer", False))
     ):
         trace_rows = []
+        uses_joint_log_scale = bool(getattr(objective, "uses_joint_log_scale", False))
+        uses_joint_log_theta = bool(getattr(objective, "uses_joint_log_theta", False))
+        joint_log_theta_first = bool(getattr(objective, "joint_log_theta_first", False))
         prev_x = None
         prev_n_fun = 0
         prev_n_jac = 0
         for i, row in enumerate(objective.trace):
-            x_row = np.asarray(row["x"], dtype=np.float64)
+            x_row_full = np.asarray(row["x"], dtype=np.float64)
+            x_row = x_row_full.copy()
+            log_scale = None
+            log_theta = None
+            gradient_full = (
+                None
+                if row["grad"] is None
+                else np.asarray(row["grad"], dtype=np.float64)
+            )
+            hessian_full = (
+                None
+                if row["hess"] is None
+                else np.asarray(row["hess"], dtype=np.float64)
+            )
+            gradient = gradient_full
+            hessian = hessian_full
+            if uses_joint_log_scale and x_row.size > 0:
+                log_scale = float(x_row[-1])
+                x_row = x_row[:-1]
+                if gradient is not None and gradient.size > 0:
+                    gradient = gradient[:-1]
+                if hessian is not None and hessian.shape[0] > 0:
+                    hessian = hessian[:-1, :-1]
+            if uses_joint_log_theta and x_row.size > 0:
+                if joint_log_theta_first:
+                    log_theta = float(x_row[0])
+                    x_row = x_row[1:]
+                    if gradient is not None and gradient.size > 0:
+                        gradient = gradient[1:]
+                    if hessian is not None and hessian.shape[0] > 0:
+                        hessian = hessian[1:, 1:]
+                else:
+                    log_theta = float(x_row[-1])
+                    x_row = x_row[:-1]
+                    if gradient is not None and gradient.size > 0:
+                        gradient = gradient[:-1]
+                    if hessian is not None and hessian.shape[0] > 0:
+                        hessian = hessian[:-1, :-1]
             step_norm = (
                 0.0 if prev_x is None else float(np.linalg.norm(x_row - prev_x, ord=2))
             )
@@ -1060,27 +1238,28 @@ def optimize_smoothing_params(
                 {
                     "iter": int(i),
                     "log_sp": x_row.tolist(),
-                    "log_theta": None,
+                    "log_scale": log_scale,
+                    "log_theta": log_theta,
                     "criterion": None if row["fun"] is None else float(row["fun"]),
                     "gradient": (
                         None
-                        if row["grad"] is None
-                        else np.asarray(row["grad"], dtype=np.float64).tolist()
+                        if gradient is None
+                        else np.asarray(gradient, dtype=np.float64).tolist()
                     ),
                     "gradient_full": (
                         None
-                        if row["grad"] is None
-                        else np.asarray(row["grad"], dtype=np.float64).tolist()
+                        if gradient_full is None
+                        else np.asarray(gradient_full, dtype=np.float64).tolist()
                     ),
                     "hessian": (
                         None
-                        if row["hess"] is None
-                        else np.asarray(row["hess"], dtype=np.float64).tolist()
+                        if hessian is None
+                        else np.asarray(hessian, dtype=np.float64).tolist()
                     ),
                     "hessian_full": (
                         None
-                        if row["hess"] is None
-                        else np.asarray(row["hess"], dtype=np.float64).tolist()
+                        if hessian_full is None
+                        else np.asarray(hessian_full, dtype=np.float64).tolist()
                     ),
                     "accepted_step_norm": step_norm,
                     "n_fun": n_fun,
@@ -1106,16 +1285,23 @@ def optimize_smoothing_params(
         trace_rows = []
         uses_joint_log_scale = bool(getattr(objective, "uses_joint_log_scale", False))
         uses_joint_log_theta = bool(getattr(objective, "uses_joint_log_theta", False))
+        joint_log_theta_first = bool(getattr(objective, "joint_log_theta_first", False))
         prev_x = None
         for i, row in enumerate(objective.accepted_trace):
             x_row_full = np.asarray(row["x"], dtype=np.float64)
+            log_scale = None
             log_theta = None
             x_row = x_row_full
             if uses_joint_log_scale and x_row.size > 0:
+                log_scale = float(x_row[-1])
                 x_row = np.asarray(x_row[:-1], dtype=np.float64)
             if uses_joint_log_theta and x_row.size > 0:
-                log_theta = float(x_row[-1])
-                x_row = np.asarray(x_row[:-1], dtype=np.float64)
+                if joint_log_theta_first:
+                    log_theta = float(x_row[0])
+                    x_row = np.asarray(x_row[1:], dtype=np.float64)
+                else:
+                    log_theta = float(x_row[-1])
+                    x_row = np.asarray(x_row[:-1], dtype=np.float64)
             step_norm = float(row.get("accepted_step_norm", 0.0))
             if prev_x is not None and not np.isfinite(step_norm):
                 step_norm = float(np.linalg.norm(x_row - prev_x, ord=2))
@@ -1123,6 +1309,7 @@ def optimize_smoothing_params(
                 {
                     "iter": int(i + 1),
                     "log_sp": x_row.tolist(),
+                    "log_scale": log_scale,
                     "log_theta": log_theta,
                     "criterion": None if row.get("fun") is None else float(row["fun"]),
                     "gradient": None,

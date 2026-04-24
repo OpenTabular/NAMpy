@@ -45,10 +45,26 @@ def is_factor_like_vector(x):
     return True
 
 
-def stable_unique_levels(x):
+def factor_levels_from_metadata(metadata, feature_name):
+    meta = dict(metadata or {}).get("factor_levels_by_feature", {})
+    item = meta.get(str(feature_name), None)
+    if item is None:
+        return None
+    if isinstance(item, dict):
+        levels = item.get("levels", None)
+    else:
+        levels = item
+    if levels is None:
+        return None
+    return list(levels)
+
+
+def stable_unique_levels(x, levels=None):
     """
     Prefer sorted unique levels when possible, otherwise preserve first appearance.
     """
+    if levels is not None:
+        return list(levels)
     x = as_object_1d(x)
     try:
         return list(np.unique(x))

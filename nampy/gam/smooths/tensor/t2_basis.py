@@ -1,5 +1,6 @@
 import numpy as np
 
+from ...constraints.transforms import null_space_basis_from_constraint_matrix
 from ..algebra import rowwise_kronecker
 
 
@@ -15,9 +16,9 @@ def _mean_constraint_matrix(B):
     B = np.asarray(B, dtype=np.float64)
     if B.shape[1] == 0:
         return np.eye(0, dtype=np.float64)
-    c = B.mean(axis=0).reshape(-1, 1)
-    q, _ = np.linalg.qr(c, mode="complete")
-    return q[:, 1:]
+    c = B.mean(axis=0).reshape(1, -1)
+    T, _ = null_space_basis_from_constraint_matrix(c, d=B.shape[1])
+    return np.asarray(T, dtype=np.float64)
 
 
 def _rowwise_product(A, B):
