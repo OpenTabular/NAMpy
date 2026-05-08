@@ -38,7 +38,7 @@ class DefaultNodeGAMConfig:
         Dimension of the attention embedding (only used in GAMAtt).
     anneal_steps : int, default=2000
         Number of steps for temperature annealing.
-    interaction_degree : int, default=1
+    interaction_degree : int, default=2
         Degree of interactions to be modeled. If >= 2, enables GA2M.
     feature_dropout : float, default=0.0
         Dropout rate for feature regularization.
@@ -62,10 +62,17 @@ class DefaultNodeGAMConfig:
     l2_lambda: float = 0.0
     dim_att: int = 8
     anneal_steps: int = 2000
+    min_temp: float = 0.01
+    selectors_detach: bool = True
+    init_bias: bool = True
+    add_last_linear: bool = True
+    l2_interactions: float = 0.0
+    l1_interactions: float = 0.0
 
     # Model parameters
     interaction_degree: int = 2
     feature_dropout: float = 0.0
+    lss_head_mode: str = "independent"
     quantile_preprocessing: str = "feature"
     quantile_noise: float = 0.0
     quantile_output_distribution: str = "normal"
