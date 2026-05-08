@@ -51,6 +51,7 @@
       ~NAMformerRegressor.plot
       ~NAMformerRegressor.predict
       ~NAMformerRegressor.predict_feature_vals
+      ~NAMformerRegressor.score
       ~NAMformerRegressor.set_fit_request
       ~NAMformerRegressor.set_params
    .. rubric:: Attributes

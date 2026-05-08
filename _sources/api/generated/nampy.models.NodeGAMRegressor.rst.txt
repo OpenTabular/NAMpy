@@ -51,6 +51,7 @@
       ~NodeGAMRegressor.plot
       ~NodeGAMRegressor.predict
       ~NodeGAMRegressor.predict_feature_vals
+      ~NodeGAMRegressor.score
       ~NodeGAMRegressor.set_fit_request
       ~NodeGAMRegressor.set_params
    .. rubric:: Attributes

@@ -51,6 +51,7 @@
       ~SklearnBaseRegressor.plot
       ~SklearnBaseRegressor.predict
       ~SklearnBaseRegressor.predict_feature_vals
+      ~SklearnBaseRegressor.score
       ~SklearnBaseRegressor.set_fit_request
       ~SklearnBaseRegressor.set_params
    .. rubric:: Attributes

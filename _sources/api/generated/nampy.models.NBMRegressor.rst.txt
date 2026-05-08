@@ -51,6 +51,7 @@
       ~NBMRegressor.plot
       ~NBMRegressor.predict
       ~NBMRegressor.predict_feature_vals
+      ~NBMRegressor.score
       ~NBMRegressor.set_fit_request
       ~NBMRegressor.set_params
    .. rubric:: Attributes

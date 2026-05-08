@@ -39,6 +39,7 @@
       ~SklearnBaseLSS._get_params_html
       ~SklearnBaseLSS._html_repr
       ~SklearnBaseLSS._infer_distributional_kwargs
+      ~SklearnBaseLSS._normalize_family_name
       ~SklearnBaseLSS._plot_interaction_effects
       ~SklearnBaseLSS._plot_single_feature_effects
       ~SklearnBaseLSS._predict

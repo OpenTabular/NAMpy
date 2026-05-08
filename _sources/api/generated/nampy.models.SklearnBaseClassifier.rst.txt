@@ -52,6 +52,7 @@
       ~SklearnBaseClassifier.predict
       ~SklearnBaseClassifier.predict_feature_vals
       ~SklearnBaseClassifier.predict_proba
+      ~SklearnBaseClassifier.score
       ~SklearnBaseClassifier.set_fit_request
       ~SklearnBaseClassifier.set_params
    .. rubric:: Attributes

@@ -33,6 +33,7 @@
       ~NAMformer.__subclasshook__
       ~NAMformer._apply
       ~NAMformer._call_impl
+      ~NAMformer._create_subnetwork
       ~NAMformer._get_backward_hooks
       ~NAMformer._get_backward_pre_hooks
       ~NAMformer._get_name

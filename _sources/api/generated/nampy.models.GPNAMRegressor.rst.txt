@@ -51,6 +51,7 @@
       ~GPNAMRegressor.plot
       ~GPNAMRegressor.predict
       ~GPNAMRegressor.predict_feature_vals
+      ~GPNAMRegressor.score
       ~GPNAMRegressor.set_fit_request
       ~GPNAMRegressor.set_params
    .. rubric:: Attributes

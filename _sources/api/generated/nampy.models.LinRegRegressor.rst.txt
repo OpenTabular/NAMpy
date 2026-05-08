@@ -51,6 +51,7 @@
       ~LinRegRegressor.plot
       ~LinRegRegressor.predict
       ~LinRegRegressor.predict_feature_vals
+      ~LinRegRegressor.score
       ~LinRegRegressor.set_fit_request
       ~LinRegRegressor.set_params
    .. rubric:: Attributes

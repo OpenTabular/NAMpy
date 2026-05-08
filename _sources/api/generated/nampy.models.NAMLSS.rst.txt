@@ -39,6 +39,7 @@
       ~NAMLSS._get_params_html
       ~NAMLSS._html_repr
       ~NAMLSS._infer_distributional_kwargs
+      ~NAMLSS._normalize_family_name
       ~NAMLSS._plot_interaction_effects
       ~NAMLSS._plot_single_feature_effects
       ~NAMLSS._predict

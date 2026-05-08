@@ -52,6 +52,7 @@
       ~NBMClassifier.predict
       ~NBMClassifier.predict_feature_vals
       ~NBMClassifier.predict_proba
+      ~NBMClassifier.score
       ~NBMClassifier.set_fit_request
       ~NBMClassifier.set_params
    .. rubric:: Attributes

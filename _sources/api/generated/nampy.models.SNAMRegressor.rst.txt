@@ -51,6 +51,7 @@
       ~SNAMRegressor.plot
       ~SNAMRegressor.predict
       ~SNAMRegressor.predict_feature_vals
+      ~SNAMRegressor.score
       ~SNAMRegressor.set_fit_request
       ~SNAMRegressor.set_params
    .. rubric:: Attributes

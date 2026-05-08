@@ -51,6 +51,7 @@
       ~NATTRegressor.plot
       ~NATTRegressor.predict
       ~NATTRegressor.predict_feature_vals
+      ~NATTRegressor.score
       ~NATTRegressor.set_fit_request
       ~NATTRegressor.set_params
    .. rubric:: Attributes

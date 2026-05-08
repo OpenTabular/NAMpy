@@ -52,6 +52,7 @@
       ~LinRegClassifier.predict
       ~LinRegClassifier.predict_feature_vals
       ~LinRegClassifier.predict_proba
+      ~LinRegClassifier.score
       ~LinRegClassifier.set_fit_request
       ~LinRegClassifier.set_params
    .. rubric:: Attributes

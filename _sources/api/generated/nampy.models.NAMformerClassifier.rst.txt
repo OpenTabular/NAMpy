@@ -52,6 +52,7 @@
       ~NAMformerClassifier.predict
       ~NAMformerClassifier.predict_feature_vals
       ~NAMformerClassifier.predict_proba
+      ~NAMformerClassifier.score
       ~NAMformerClassifier.set_fit_request
       ~NAMformerClassifier.set_params
    .. rubric:: Attributes

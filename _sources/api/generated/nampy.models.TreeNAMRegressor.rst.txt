@@ -51,6 +51,7 @@
       ~TreeNAMRegressor.plot
       ~TreeNAMRegressor.predict
       ~TreeNAMRegressor.predict_feature_vals
+      ~TreeNAMRegressor.score
       ~TreeNAMRegressor.set_fit_request
       ~TreeNAMRegressor.set_params
    .. rubric:: Attributes

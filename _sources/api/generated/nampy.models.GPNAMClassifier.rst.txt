@@ -52,6 +52,7 @@
       ~GPNAMClassifier.predict
       ~GPNAMClassifier.predict_feature_vals
       ~GPNAMClassifier.predict_proba
+      ~GPNAMClassifier.score
       ~GPNAMClassifier.set_fit_request
       ~GPNAMClassifier.set_params
    .. rubric:: Attributes

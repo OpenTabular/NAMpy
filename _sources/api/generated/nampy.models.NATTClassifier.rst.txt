@@ -52,6 +52,7 @@
       ~NATTClassifier.predict
       ~NATTClassifier.predict_feature_vals
       ~NATTClassifier.predict_proba
+      ~NATTClassifier.score
       ~NATTClassifier.set_fit_request
       ~NATTClassifier.set_params
    .. rubric:: Attributes

@@ -52,6 +52,7 @@
       ~NodeGAMClassifier.predict
       ~NodeGAMClassifier.predict_feature_vals
       ~NodeGAMClassifier.predict_proba
+      ~NodeGAMClassifier.score
       ~NodeGAMClassifier.set_fit_request
       ~NodeGAMClassifier.set_params
    .. rubric:: Attributes
