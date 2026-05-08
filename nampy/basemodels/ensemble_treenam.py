@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 import torch.nn as nn
 
@@ -22,7 +24,7 @@ class EnsembleTreeNAM(BaseModel):
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: DefaultEnsembleTreeNAMConfig | None = None,
+        config: Optional[DefaultEnsembleTreeNAMConfig] = None,
         **kwargs,
     ):
         if config is None:

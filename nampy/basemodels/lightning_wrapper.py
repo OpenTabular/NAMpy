@@ -18,6 +18,7 @@ class TaskModel(pl.LightningModule):
         lss=False,
         family=None,
         loss_fct: Any = None,
+        lr_monitor: str = "val_loss",
         **kwargs,
     ):
         super().__init__()
@@ -76,6 +77,7 @@ class TaskModel(pl.LightningModule):
         self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
         self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
         self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
+        self.lr_monitor = self.hparams.get("lr_monitor", lr_monitor)
 
         model_kwargs = dict(
             config=config,
@@ -266,7 +268,7 @@ class TaskModel(pl.LightningModule):
                 factor=self.lr_factor,
                 patience=self.lr_patience,
             ),
-            "monitor": "val_loss",
+            "monitor": self.lr_monitor,
             "interval": "epoch",
             "frequency": 1,
         }

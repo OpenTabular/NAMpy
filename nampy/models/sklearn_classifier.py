@@ -6,10 +6,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
-from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
+from lightning.pytorch.callbacks import Callback, EarlyStopping
 from pretab.preprocessor import Preprocessor
 from sklearn.base import BaseEstimator
 from sklearn.metrics import accuracy_score
+from sklearn.preprocessing import LabelEncoder
 
 from ..basemodels.lightning_wrapper import TaskModel
 from ..data_utils.datamodule import NAMpyDataModule
@@ -17,6 +18,11 @@ from ..utils.plotting import (
     create_subplot_grid,
     plot_density_shading,
     prepare_plot_data,
+)
+from ._utils import (
+    checkpoint_callback_context,
+    prepare_fit_frames,
+    prepare_predict_frame,
 )
 
 
@@ -148,7 +154,7 @@ class SklearnBaseClassifier(BaseEstimator):
         lr_patience: int = 10,
         factor: float = 0.1,
         weight_decay: float = 1e-06,
-        checkpoint_path="model_checkpoints",
+        checkpoint_path=None,
         dataloader_kwargs=None,
         **trainer_kwargs,
     ):
@@ -189,8 +195,9 @@ class SklearnBaseClassifier(BaseEstimator):
             Factor by which the learning rate will be reduced.
         weight_decay : float, default=1e-06
             Weight decay (L2 penalty) coefficient.
-        checkpoint_path : str, default="model_checkpoints"
-            Path where the checkpoints are being saved.
+        checkpoint_path : str, None, or False, default=None
+            Directory for the best-model checkpoint. If None, a temporary
+            directory is used. If False, checkpointing is disabled.
         dataloader_kwargs: dict, default={}
             The kwargs for the pytorch dataloader class.
         **trainer_kwargs : Additional keyword arguments for PyTorch Lightning's Trainer class.
@@ -203,16 +210,33 @@ class SklearnBaseClassifier(BaseEstimator):
         """
         if dataloader_kwargs is None:
             dataloader_kwargs = {}
+        trainer_kwargs = dict(trainer_kwargs)
 
-        if not isinstance(X, pd.DataFrame):
-            X = pd.DataFrame(X)
+        X, X_val = prepare_fit_frames(self, X, X_val)
         if isinstance(y, pd.Series):
             y = y.values
+        y = np.asarray(y)
+        if y.ndim == 2 and y.shape[1] == 1:
+            y = y.ravel()
+        elif y.ndim != 1:
+            raise ValueError("Classifier targets must be a 1D array of labels.")
+
+        self.label_encoder_ = LabelEncoder()
+        y = self.label_encoder_.fit_transform(y)
+        self.classes_ = self.label_encoder_.classes_
+
         if X_val is not None:
-            if not isinstance(X_val, pd.DataFrame):
-                X_val = pd.DataFrame(X_val)
             if isinstance(y_val, pd.Series):
                 y_val = y_val.values
+            if y_val is not None:
+                y_val = np.asarray(y_val)
+                if y_val.ndim == 2 and y_val.shape[1] == 1:
+                    y_val = y_val.ravel()
+                elif y_val.ndim != 1:
+                    raise ValueError(
+                        "Classifier validation targets must be a 1D array of labels."
+                    )
+                y_val = self.label_encoder_.transform(y_val)
 
         self.data_module = NAMpyDataModule(
             preprocessor=self.preprocessor,
@@ -230,7 +254,7 @@ class SklearnBaseClassifier(BaseEstimator):
             X, y, X_val=X_val, y_val=y_val, val_size=val_size, random_state=random_state
         )
 
-        num_classes = len(np.unique(y))
+        num_classes = len(self.classes_)
 
         self.model = TaskModel(
             model_class=self.base_model,
@@ -241,6 +265,7 @@ class SklearnBaseClassifier(BaseEstimator):
             lr=lr,
             lr_patience=lr_patience,
             lr_factor=factor,
+            lr_monitor=monitor,
             weight_decay=weight_decay,
         )
 
@@ -248,26 +273,26 @@ class SklearnBaseClassifier(BaseEstimator):
             monitor=monitor, min_delta=0.00, patience=patience, verbose=False, mode=mode
         )
 
-        checkpoint_callback = ModelCheckpoint(
-            monitor="val_loss",  # Adjust according to your validation metric
-            mode="min",
-            save_top_k=1,
-            dirpath=checkpoint_path,  # Specify the directory to save checkpoints
-            filename="best_model",
-        )
+        with checkpoint_callback_context(
+            checkpoint_path, monitor, mode, trainer_kwargs
+        ) as checkpoint_callback:
+            callbacks: list[Callback] = [early_stop_callback]
+            if checkpoint_callback is not None:
+                callbacks.append(checkpoint_callback)
 
-        # Initialize the trainer and train the model
-        trainer = pl.Trainer(
-            max_epochs=max_epochs,
-            callbacks=[early_stop_callback, checkpoint_callback],
-            **trainer_kwargs,
-        )
-        trainer.fit(self.model, self.data_module)
+            # Initialize the trainer and train the model
+            trainer = pl.Trainer(
+                max_epochs=max_epochs,
+                callbacks=callbacks,
+                **trainer_kwargs,
+            )
+            trainer.fit(self.model, self.data_module)
 
-        best_model_path = checkpoint_callback.best_model_path
-        if best_model_path:
-            checkpoint = torch.load(best_model_path, weights_only=False)
-            self.model.load_state_dict(checkpoint["state_dict"])
+            if checkpoint_callback is not None:
+                best_model_path = checkpoint_callback.best_model_path
+                if best_model_path:
+                    checkpoint = torch.load(best_model_path, weights_only=False)
+                    self.model.load_state_dict(checkpoint["state_dict"])
 
         return self
 
@@ -275,9 +300,14 @@ class SklearnBaseClassifier(BaseEstimator):
         output = self._predict(X)["output"]
         if output.shape[1] == 1:
             probabilities = torch.sigmoid(output)
-            return (probabilities > 0.5).long().squeeze().cpu().numpy()
+            encoded = (probabilities > 0.5).long().view(-1).cpu().numpy()
+            return self.label_encoder_.inverse_transform(encoded)
         probabilities = torch.softmax(output, dim=1)
-        return torch.argmax(probabilities, dim=1).cpu().numpy()
+        encoded = torch.argmax(probabilities, dim=1).cpu().numpy()
+        return self.label_encoder_.inverse_transform(encoded)
+
+    def score(self, X, y):
+        return accuracy_score(y, self.predict(X))
 
     def predict_feature_vals(self, X):
         return self._predict(X)
@@ -300,6 +330,7 @@ class SklearnBaseClassifier(BaseEstimator):
         if self.model is None or self.data_module is None:
             raise ValueError("The model or data module has not been fitted yet.")
 
+        X = prepare_predict_frame(self, X)
         cat_tensor_dict, num_tensor_dict = self.data_module.preprocess_test_data(X)
 
         device = next(self.model.parameters()).device
@@ -563,6 +594,7 @@ class SklearnBaseClassifier(BaseEstimator):
         plot_interactions : bool, optional
             Whether to also plot pairwise feature interactions, by default False.
         """
+        X = prepare_predict_frame(self, X)
         X_prepared, num_feature_names = prepare_plot_data(
             X, self.data_module.num_feature_info, self.data_module.cat_feature_info
         )

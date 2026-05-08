@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 import torch.nn as nn
 
@@ -19,7 +21,7 @@ class LinReg(BaseModel):
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: DefaultLinRegConfig | None = None,
+        config: Optional[DefaultLinRegConfig] = None,
         **kwargs,
     ):
         if config is None:
@@ -36,6 +38,7 @@ class LinReg(BaseModel):
         self.num_feature_info = num_feature_info
         self.num_classes = num_classes
 
+        self.intercept: Optional[nn.Parameter]
         if self.hparams.get("intercept", getattr(config, "intercept", True)):
             self.intercept = nn.Parameter(torch.zeros(num_classes))
         else:

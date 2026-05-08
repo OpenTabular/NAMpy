@@ -161,6 +161,7 @@ module = [
     "matplotlib.*",
     "properscoring.*",
     "scipy.*",
+    "pretab.*",
     "tqdm.*",
 ]
 ignore_missing_imports = true

@@ -1,5 +1,5 @@
 import copy
-from typing import List, Optional
+from typing import List, Optional, cast
 
 import torch.nn as nn
 
@@ -13,7 +13,10 @@ from .normalization_layers import (
 
 def _make_activation(activation) -> nn.Module:
     """Instantiate an activation from a class or deep-copy an instance."""
-    return activation() if isinstance(activation, type) else copy.deepcopy(activation)
+    return cast(
+        nn.Module,
+        activation() if isinstance(activation, type) else copy.deepcopy(activation),
+    )
 
 
 def _make_norm(norm: Optional[str], size: int) -> Optional[nn.Module]:
@@ -89,7 +92,7 @@ class _ResidualBlock(nn.Module):
     ):
         super().__init__()
 
-        modules = [nn.Linear(n_input, n_output)]
+        modules: list[nn.Module] = [nn.Linear(n_input, n_output)]
 
         norm_layer = _make_norm(norm_name, n_output)
         if norm_layer is not None:

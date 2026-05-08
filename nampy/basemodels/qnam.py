@@ -1,11 +1,12 @@
 from itertools import combinations
+from typing import Optional
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from ..arch_utils.mlp_utils import MLP
-from ..configs.nam_config import DefaultNAMConfig
+from ..configs.qnam_config import DefaultQNAMConfig
 from .basemodel import BaseModel
 
 
@@ -30,11 +31,11 @@ class QNAMBase(BaseModel):
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: DefaultNAMConfig | None = None,
+        config: Optional[DefaultQNAMConfig] = None,
         **kwargs,
     ):
         if config is None:
-            config = DefaultNAMConfig()
+            config = DefaultQNAMConfig()
         super().__init__(**kwargs)
         self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
 
@@ -69,6 +70,7 @@ class QNAMBase(BaseModel):
         )
 
         # Raw intercept parameter; transformed to monotone quantile outputs in forward
+        self.raw_intercept: Optional[nn.Parameter]
         if self.hparams.get("intercept", config.intercept):
             self.raw_intercept = nn.Parameter(torch.zeros(num_classes))
         else:

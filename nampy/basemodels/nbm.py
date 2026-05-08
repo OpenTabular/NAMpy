@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from itertools import combinations
+from typing import Any, Optional
 
 import torch
 import torch.nn as nn
@@ -31,7 +32,7 @@ class NBM(BaseModel):
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: DefaultNBMConfig | None = None,
+        config: Optional[DefaultNBMConfig] = None,
         **kwargs,
     ):
         if config is None:
@@ -62,6 +63,7 @@ class NBM(BaseModel):
         )
 
         # Optional intercept (keep this; classifier bias is disabled below)
+        self.intercept: Optional[nn.Parameter]
         if self.hparams.get("intercept", config.intercept):
             self.intercept = nn.Parameter(torch.zeros(num_classes))
         else:
@@ -130,8 +132,8 @@ class NBM(BaseModel):
 
         # Build metadata for every channel (term x subnet)
         # Each channel gets its own coefficient vector over shared bases.
-        self.channel_specs = []
-        self.term_to_channel_indices = OrderedDict()
+        self.channel_specs: list[dict[str, Any]] = []
+        self.term_to_channel_indices: OrderedDict[str, list[int]] = OrderedDict()
 
         for order_key in self._sorted_order_keys():
             order = int(order_key)

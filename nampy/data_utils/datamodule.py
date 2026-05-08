@@ -1,6 +1,5 @@
 import lightning as pl
 import numpy as np
-import pandas as pd
 import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
@@ -138,15 +137,13 @@ class NAMpyDataModule(pl.LightningDataModule):
             self.X_val = X_val
             self.y_val = y_val
 
-        combined_X = pd.concat([self.X_train, self.X_val], axis=0).reset_index(
-            drop=True
-        )
-        combined_y = np.concatenate((self.y_train, self.y_val), axis=0)
+        self.y_train = np.asarray(self.y_train)
+        self.y_val = np.asarray(self.y_val)
 
         # Delegate to an external preprocessor (e.g. pretab) that
         # exposes get_feature_info(verbose=...) and returns
         # (num_feature_info, cat_feature_info, emb_feature_info).
-        self.preprocessor.fit(combined_X, combined_y)
+        self.preprocessor.fit(self.X_train, self.y_train)
         num_info, cat_info, _ = self.preprocessor.get_feature_info(verbose=False)
         self.num_feature_info = num_info
         self.cat_feature_info = cat_info

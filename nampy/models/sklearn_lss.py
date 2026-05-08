@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import properscoring as ps
 import torch
-from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
+from lightning.pytorch.callbacks import Callback, EarlyStopping
 from pretab.preprocessor import Preprocessor
 from sklearn.base import BaseEstimator
 from sklearn.metrics import accuracy_score, mean_squared_error
@@ -50,6 +50,11 @@ from ..utils.plotting import (
     create_subplot_grid,
     plot_density_shading,
     prepare_plot_data,
+)
+from ._utils import (
+    checkpoint_callback_context,
+    prepare_fit_frames,
+    prepare_predict_frame,
 )
 
 
@@ -182,7 +187,7 @@ class SklearnBaseLSS(BaseEstimator):
         lr_patience: int = 10,
         factor: float = 0.1,
         weight_decay: float = 1e-06,
-        checkpoint_path="model_checkpoints",
+        checkpoint_path=None,
         distributional_kwargs=None,
         dataloader_kwargs=None,
         **trainer_kwargs,
@@ -228,8 +233,9 @@ class SklearnBaseLSS(BaseEstimator):
             Weight decay (L2 penalty) coefficient.
         distributional_kwargs : dict, default=None
             Any arguments that are specific for a certain distribution.
-        checkpoint_path : str, default="model_checkpoints"
-            Path where the checkpoints are being saved.
+        checkpoint_path : str, None, or False, default=None
+            Directory for the best-model checkpoint. If None, a temporary
+            directory is used. If False, checkpointing is disabled.
         dataloader_kwargs: dict, default={}
             The kwargs for the pytorch dataloader class.
         **trainer_kwargs : Additional keyword arguments for PyTorch Lightning's Trainer class.
@@ -264,46 +270,25 @@ class SklearnBaseLSS(BaseEstimator):
             "mvnormdiag": MultivariateNormalDiagDistribution,
         }
 
-        if distributional_kwargs is None:
-            distributional_kwargs = {}
+        distributional_kwargs = self._infer_distributional_kwargs(
+            family, y, distributional_kwargs
+        )
 
-        # Infer distributional dimensions for families that require it, when not provided.
-        fam = str(family).lower()
-
-        if fam == "dirichlet":
-            y_arr = np.asarray(y)
-            if "n_dim" not in distributional_kwargs:
-                if y_arr.ndim != 2 or y_arr.shape[1] < 2:
-                    raise ValueError(
-                        "Dirichlet family requires y with shape (n_samples, K), K>=2."
-                    )
-                distributional_kwargs["n_dim"] = int(y_arr.shape[1])
-
-        if fam == "categorical":
-            y_arr = np.asarray(y)
-            if "num_classes" not in distributional_kwargs:
-                if y_arr.ndim == 2 and y_arr.shape[1] > 1:
-                    distributional_kwargs["num_classes"] = int(y_arr.shape[1])
-                else:
-                    distributional_kwargs["num_classes"] = int(
-                        len(np.unique(y_arr.reshape(-1)))
-                    )
+        fam = self._normalize_family_name(family)
 
         if dataloader_kwargs is None:
             dataloader_kwargs = {}
+        trainer_kwargs = dict(trainer_kwargs)
 
         if fam in distribution_classes:
             self.family = distribution_classes[fam](**distributional_kwargs)
         else:
             raise ValueError("Unsupported family: {}".format(family))
 
-        if not isinstance(X, pd.DataFrame):
-            X = pd.DataFrame(X)
+        X, X_val = prepare_fit_frames(self, X, X_val)
         if isinstance(y, pd.Series):
             y = y.values
         if X_val is not None:
-            if not isinstance(X_val, pd.DataFrame):
-                X_val = pd.DataFrame(X_val)
             if isinstance(y_val, pd.Series):
                 y_val = y_val.values
 
@@ -333,6 +318,7 @@ class SklearnBaseLSS(BaseEstimator):
             lr=lr,
             lr_patience=lr_patience,
             lr_factor=factor,
+            lr_monitor=monitor,
             weight_decay=weight_decay,
             lss=True,
         )
@@ -341,26 +327,26 @@ class SklearnBaseLSS(BaseEstimator):
             monitor=monitor, min_delta=0.00, patience=patience, verbose=False, mode=mode
         )
 
-        checkpoint_callback = ModelCheckpoint(
-            monitor="val_loss",  # Adjust according to your validation metric
-            mode="min",
-            save_top_k=1,
-            dirpath=checkpoint_path,  # Specify the directory to save checkpoints
-            filename="best_model",
-        )
+        with checkpoint_callback_context(
+            checkpoint_path, monitor, mode, trainer_kwargs
+        ) as checkpoint_callback:
+            callbacks: list[Callback] = [early_stop_callback]
+            if checkpoint_callback is not None:
+                callbacks.append(checkpoint_callback)
 
-        # Initialize the trainer and train the model
-        trainer = pl.Trainer(
-            max_epochs=max_epochs,
-            callbacks=[early_stop_callback, checkpoint_callback],
-            **trainer_kwargs,
-        )
-        trainer.fit(self.model, self.data_module)
+            # Initialize the trainer and train the model
+            trainer = pl.Trainer(
+                max_epochs=max_epochs,
+                callbacks=callbacks,
+                **trainer_kwargs,
+            )
+            trainer.fit(self.model, self.data_module)
 
-        best_model_path = checkpoint_callback.best_model_path
-        if best_model_path:
-            checkpoint = torch.load(best_model_path, weights_only=False)
-            self.model.load_state_dict(checkpoint["state_dict"])
+            if checkpoint_callback is not None:
+                best_model_path = checkpoint_callback.best_model_path
+                if best_model_path:
+                    checkpoint = torch.load(best_model_path, weights_only=False)
+                    self.model.load_state_dict(checkpoint["state_dict"])
 
         return self
 
@@ -394,6 +380,8 @@ class SklearnBaseLSS(BaseEstimator):
         # Ensure model and data module are initialized
         if self.model is None or self.data_module is None:
             raise ValueError("The model or data module has not been fitted yet.")
+
+        X = prepare_predict_frame(self, X)
 
         # Preprocess the data using the data module
         cat_tensor_dict, num_tensor_dict = self.data_module.preprocess_test_data(X)
@@ -606,6 +594,10 @@ class SklearnBaseLSS(BaseEstimator):
                 kwargs["n_dim"] = int(y_arr.shape[1])
 
         return kwargs
+
+    @staticmethod
+    def _normalize_family_name(family):
+        return str(family).lower().replace("_", "").replace("-", "")
 
     def get_default_metrics(self, distribution_family):
         """
@@ -928,6 +920,7 @@ class SklearnBaseLSS(BaseEstimator):
         plot_interactions : bool, optional
             Whether to also plot pairwise feature interactions, by default False.
         """
+        X = prepare_predict_frame(self, X)
         X_prepared, num_feature_names = prepare_plot_data(
             X, self.data_module.num_feature_info, self.data_module.cat_feature_info
         )
