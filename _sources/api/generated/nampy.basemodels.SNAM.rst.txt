@@ -34,10 +34,14 @@
       ~SNAM._apply
       ~SNAM._call_impl
       ~SNAM._create_interaction_networks
+      ~SNAM._create_subnetwork
       ~SNAM._get_backward_hooks
       ~SNAM._get_backward_pre_hooks
       ~SNAM._get_name
+      ~SNAM._group_lasso_penalty
+      ~SNAM._group_norm
       ~SNAM._interaction_forward
+      ~SNAM._iter_grouped_subnetworks
       ~SNAM._load_from_state_dict
       ~SNAM._maybe_warn_non_full_backward_hook
       ~SNAM._named_members
@@ -53,7 +57,6 @@
       ~SNAM.buffers
       ~SNAM.children
       ~SNAM.compile
-      ~SNAM.count_parameters
       ~SNAM.cpu
       ~SNAM.cuda
       ~SNAM.double
@@ -65,6 +68,7 @@
       ~SNAM.get_buffer
       ~SNAM.get_device
       ~SNAM.get_extra_state
+      ~SNAM.get_group_norms
       ~SNAM.get_parameter
       ~SNAM.get_submodule
       ~SNAM.half
@@ -78,7 +82,7 @@
       ~SNAM.named_children
       ~SNAM.named_modules
       ~SNAM.named_parameters
-      ~SNAM.parameter_count
+      ~SNAM.parameter_count_by_layer
       ~SNAM.parameters
       ~SNAM.print_summary
       ~SNAM.register_backward_hook
@@ -96,6 +100,7 @@
       ~SNAM.requires_grad_
       ~SNAM.save_hyperparameters
       ~SNAM.save_model
+      ~SNAM.selected_groups
       ~SNAM.set_extra_state
       ~SNAM.set_submodule
       ~SNAM.share_memory
@@ -103,6 +108,7 @@
       ~SNAM.to
       ~SNAM.to_device
       ~SNAM.to_empty
+      ~SNAM.total_parameters
       ~SNAM.train
       ~SNAM.type
       ~SNAM.unfreeze_parameters

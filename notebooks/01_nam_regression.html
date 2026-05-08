@@ -23,7 +23,9 @@
       <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
-    <link rel="search" title="Search" href="../search.html" /> 
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Classification with NAMpy" href="02_classification.html" />
+    <link rel="prev" title="Custom Model Examples" href="../examples/custom_model.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -46,7 +48,7 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul>
+<ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../installation.html#requirements">Requirements</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../installation.html#installation-methods">Installation Methods</a><ul>
@@ -240,6 +242,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NAMformer.html">nampy.basemodels.NAMformer</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.LinReg.html">nampy.basemodels.LinReg</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.QNAMBase.html">nampy.basemodels.QNAMBase</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.SNAM.html">nampy.basemodels.SNAM</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NodeGAM.html">nampy.basemodels.NodeGAM</a></li>
 </ul>
 </li>
@@ -256,6 +259,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNATTConfig.html">nampy.configs.DefaultNATTConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNAMformerConfig.html">nampy.configs.DefaultNAMformerConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultLinRegConfig.html">nampy.configs.DefaultLinRegConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultSNAMConfig.html">nampy.configs.DefaultSNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNodeGAMConfig.html">nampy.configs.DefaultNodeGAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/configs.html#using-configurations">Using Configurations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/configs.html#note">Note</a></li>
@@ -383,12 +387,18 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/index.html">Examples</a><ul>
+<li class="toctree-l1 current"><a class="reference internal" href="../examples/index.html">Examples</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="../examples/basic_regression.html">Basic Regression Examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../examples/basic_classification.html">Basic Classification Examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../examples/distributional_regression.html">Distributional Regression Examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../examples/custom_model.html">Custom Model Examples</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../examples/index.html#jupyter-notebook-examples">Jupyter Notebook Examples</a><ul>
+<li class="toctree-l2 current"><a class="reference internal" href="../examples/index.html#jupyter-notebook-examples">Jupyter Notebook Examples</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Basic Regression with NAMpy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#Setup">Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#1.-Synthetic-Data-Example">1. Synthetic Data Example</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#4.-Real-World-Dataset:-California-Housing">4. Real-World Dataset: California Housing</a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="02_classification.html">Classification with NAMpy</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="02_classification.html#Setup">Setup</a></li>
 <li class="toctree-l4"><a class="reference internal" href="02_classification.html#1.-Binary-Classification">1. Binary Classification</a></li>
@@ -537,6 +547,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../examples/index.html">Examples</a></li>
       <li class="breadcrumb-item active">Basic Regression with NAMpy</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/notebooks/01_nam_regression.ipynb.txt" rel="nofollow"> View page source</a>
@@ -1859,7 +1870,10 @@ forceTheme('sk-container-id-12');</script></body></div>
 
            </div>
           </div>
-          <footer>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../examples/custom_model.html" class="btn btn-neutral float-left" title="Custom Model Examples" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="02_classification.html" class="btn btn-neutral float-right" title="Classification with NAMpy" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
 
   <hr/>
 

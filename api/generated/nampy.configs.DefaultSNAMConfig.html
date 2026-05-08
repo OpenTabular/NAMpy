@@ -20,7 +20,9 @@
       <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
-    <link rel="search" title="Search" href="../../search.html" /> 
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="nampy.configs.DefaultNodeGAMConfig" href="nampy.configs.DefaultNodeGAMConfig.html" />
+    <link rel="prev" title="nampy.configs.DefaultLinRegConfig" href="nampy.configs.DefaultLinRegConfig.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -43,7 +45,7 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul>
+<ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../installation.html#requirements">Requirements</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../installation.html#installation-methods">Installation Methods</a><ul>
@@ -177,7 +179,7 @@
 <li class="toctree-l2"><a class="reference internal" href="../../user_guide.html#next-steps">Next Steps</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../index.html">API Reference</a><ul>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">API Reference</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="../models.html">Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../models.html#regression-models">Regression Models</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="nampy.models.NAMRegressor.html">nampy.models.NAMRegressor</a></li>
@@ -237,6 +239,7 @@
 <li class="toctree-l4"><a class="reference internal" href="nampy.basemodels.NAMformer.html">nampy.basemodels.NAMformer</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.basemodels.LinReg.html">nampy.basemodels.LinReg</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.basemodels.QNAMBase.html">nampy.basemodels.QNAMBase</a></li>
+<li class="toctree-l4"><a class="reference internal" href="nampy.basemodels.SNAM.html">nampy.basemodels.SNAM</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nampy.basemodels.NodeGAM.html">nampy.basemodels.NodeGAM</a></li>
 </ul>
 </li>
@@ -247,12 +250,13 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../preprocessing.html">Preprocessing (PreTab)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../configs.html">Configurations</a><ul>
+<li class="toctree-l2 current"><a class="reference internal" href="../configs.html">Configurations</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="nampy.configs.DefaultNAMConfig.html">nampy.configs.DefaultNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="nampy.configs.DefaultNBMConfig.html">nampy.configs.DefaultNBMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="nampy.configs.DefaultNATTConfig.html">nampy.configs.DefaultNATTConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="nampy.configs.DefaultNAMformerConfig.html">nampy.configs.DefaultNAMformerConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="nampy.configs.DefaultLinRegConfig.html">nampy.configs.DefaultLinRegConfig</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">nampy.configs.DefaultSNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="nampy.configs.DefaultNodeGAMConfig.html">nampy.configs.DefaultNodeGAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../configs.html#using-configurations">Using Configurations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../configs.html#note">Note</a></li>
@@ -386,6 +390,12 @@
 <li class="toctree-l2"><a class="reference internal" href="../../examples/distributional_regression.html">Distributional Regression Examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../examples/custom_model.html">Custom Model Examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../examples/index.html#jupyter-notebook-examples">Jupyter Notebook Examples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../notebooks/01_nam_regression.html">Basic Regression with NAMpy</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../notebooks/01_nam_regression.html#Setup">Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../notebooks/01_nam_regression.html#1.-Synthetic-Data-Example">1. Synthetic Data Example</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../notebooks/01_nam_regression.html#4.-Real-World-Dataset:-California-Housing">4. Real-World Dataset: California Housing</a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="../../notebooks/02_classification.html">Classification with NAMpy</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../notebooks/02_classification.html#Setup">Setup</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../notebooks/02_classification.html#1.-Binary-Classification">1. Binary Classification</a></li>
@@ -534,6 +544,8 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">API Reference</a></li>
+          <li class="breadcrumb-item"><a href="../configs.html">Configurations</a></li>
       <li class="breadcrumb-item active">nampy.configs.DefaultSNAMConfig</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../../_sources/api/generated/nampy.configs.DefaultSNAMConfig.rst.txt" rel="nofollow"> View page source</a>
@@ -551,7 +563,10 @@
 
            </div>
           </div>
-          <footer>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="nampy.configs.DefaultLinRegConfig.html" class="btn btn-neutral float-left" title="nampy.configs.DefaultLinRegConfig" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="nampy.configs.DefaultNodeGAMConfig.html" class="btn btn-neutral float-right" title="nampy.configs.DefaultNodeGAMConfig" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
 
   <hr/>
 
