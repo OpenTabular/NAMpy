@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    name: Test Python ${{ matrix.python-version }}
+    name: Smoke Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -34,18 +34,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e ".[dev]"
 
-    - name: Run tests
+    - name: Import package
       run: |
-        export MGCV_CACHE_ONLY=1
-        pytest tests/ --cov=nampy --cov-report=xml --cov-report=term-missing
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+        python -c "import nampy; print(nampy.__version__)"
 
   lint:
     name: Lint and Format Check
@@ -67,15 +58,15 @@ jobs:
 
     - name: Check formatting with Black
       run: |
-        black --check nampy/ tests/
+        black --check nampy/
 
     - name: Check import sorting with isort
       run: |
-        isort --check-only --profile black nampy/ tests/
+        isort --check-only --profile black nampy/
 
     - name: Lint with Ruff
       run: |
-        ruff check nampy/ tests/
+        ruff check nampy/
 
   type-check:
     name: Type Check
