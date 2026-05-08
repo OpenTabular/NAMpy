@@ -1,3 +1,4 @@
+import inspect
 from typing import Any, Type
 
 import lightning as pl
@@ -76,16 +77,25 @@ class TaskModel(pl.LightningModule):
         self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
         self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
 
-        self.model = model_class(
+        model_kwargs = dict(
             config=config,
             num_feature_info=num_feature_info,
             cat_feature_info=cat_feature_info,
             num_classes=self.output_dim,
             **kwargs,
         )
+        if "family" in inspect.signature(model_class).parameters:
+            model_kwargs["family"] = family
+        self.model = model_class(**model_kwargs)
+        self._model_accepts_return_terms = (
+            "return_terms" in inspect.signature(self.model.forward).parameters
+        )
 
-    def forward(self, num_features, cat_features):
-        return self.model(num_features=num_features, cat_features=cat_features)
+    def forward(self, num_features, cat_features, return_terms=True):
+        kwargs = {"num_features": num_features, "cat_features": cat_features}
+        if self._model_accepts_return_terms:
+            kwargs["return_terms"] = return_terms
+        return self.model(**kwargs)
 
     def _prepare_supervised_targets(self, preds: torch.Tensor, y_true: torch.Tensor):
         """Normalize target shapes/dtypes for regression/binary/multiclass."""
@@ -197,7 +207,9 @@ class TaskModel(pl.LightningModule):
 
     def _shared_step(self, batch, batch_idx, stage: str):
         cat_features, num_features, labels = batch
-        result = self(num_features=num_features, cat_features=cat_features)
+        result = self(
+            num_features=num_features, cat_features=cat_features, return_terms=False
+        )
         preds = result["output"]
         loss = self.compute_loss(preds, labels)
         for key, value in result.items():
@@ -227,7 +239,12 @@ class TaskModel(pl.LightningModule):
 
         return loss
 
+    def _step_temperature_schedulers(self):
+        if hasattr(self.model, "step_temperature_schedulers"):
+            self.model.step_temperature_schedulers(int(self.global_step))
+
     def training_step(self, batch, batch_idx):
+        self._step_temperature_schedulers()
         return self._shared_step(batch, batch_idx, "train")
 
     def validation_step(self, batch, batch_idx):

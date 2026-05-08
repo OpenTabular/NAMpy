@@ -34,12 +34,3 @@ Model Implementations
    QNAMBase
    SNAM
    NodeGAM
-
-Utilities
----------
-
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
-
-   MultiModelWrapper

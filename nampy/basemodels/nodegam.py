@@ -1,27 +1,192 @@
 import torch
 import torch.nn as nn
 
-from nampy.arch_utils.nn_utils import entmoid15
-
+from ..arch_utils.nn_utils import entmoid15
 from ..arch_utils.nodegam_utils import EM15Temp, GAMAttBlock, GAMBlock
 from ..configs.nodegam_config import DefaultNodeGAMConfig
 from .basemodel import BaseModel
 
 
+class NodeGAMBlockHead(nn.Module):
+    """One NODE-GAM head over the preprocessed feature matrix."""
+
+    def __init__(
+        self,
+        cat_feature_info,
+        num_feature_info,
+        num_classes: int,
+        config: DefaultNodeGAMConfig,
+        hparams: dict | None = None,
+    ):
+        super().__init__()
+        if hparams is None:
+            hparams = {}
+
+        self.cat_feature_info = cat_feature_info
+        self.num_feature_info = num_feature_info
+        self.num_classes = int(num_classes)
+
+        self.num_feature_keys = list(num_feature_info.keys())
+        self.cat_feature_keys = list(cat_feature_info.keys())
+        self.input_feature_names = self._build_input_feature_names()
+        self.total_input_dim = len(self.input_feature_names)
+        if self.total_input_dim == 0:
+            raise ValueError("NodeGAM requires at least one input feature.")
+
+        reserved = {"output", "intercept", "output_penalty"}
+        all_feature_names = set(self.input_feature_names)
+        if reserved & all_feature_names:
+            raise ValueError(
+                f"Feature names {sorted(reserved & all_feature_names)} are reserved."
+            )
+        if any(":" in name for name in all_feature_names):
+            bad = sorted(name for name in all_feature_names if ":" in name)
+            raise ValueError(
+                f"Feature names {bad} contain ':', which is reserved for interaction names."
+            )
+
+        self.interaction_degree = hparams.get(
+            "interaction_degree", config.interaction_degree
+        )
+        self.l2_lambda = hparams.get("l2_lambda", config.l2_lambda)
+        self.feature_dropout = nn.Dropout(
+            p=hparams.get("feature_dropout", config.feature_dropout)
+        )
+
+        self.choice_fn = EM15Temp(
+            max_temp=1.0,
+            min_temp=hparams.get("min_temp", config.min_temp),
+            steps=hparams.get("anneal_steps", config.anneal_steps),
+        )
+
+        arch = hparams.get("arch", config.arch)
+        if arch not in {"GAM", "GAMAtt"}:
+            raise ValueError("NodeGAM arch must be 'GAM' or 'GAMAtt'.")
+        the_arch = GAMBlock if arch == "GAM" else GAMAttBlock
+
+        block_kwargs = {
+            "in_features": self.total_input_dim,
+            "num_trees": hparams.get("num_trees", config.num_trees),
+            "num_layers": hparams.get("num_layers", config.num_layers),
+            "num_classes": self.num_classes,
+            "addi_tree_dim": hparams.get("addi_tree_dim", config.addi_tree_dim),
+            "depth": hparams.get("depth", config.depth),
+            "choice_function": self.choice_fn,
+            "bin_function": entmoid15,
+            "output_dropout": hparams.get("output_dropout", config.output_dropout),
+            "last_dropout": hparams.get("last_dropout", config.last_dropout),
+            "colsample_bytree": hparams.get(
+                "colsample_bytree", config.colsample_bytree
+            ),
+            "selectors_detach": hparams.get(
+                "selectors_detach", config.selectors_detach
+            ),
+            "init_bias": hparams.get("init_bias", config.init_bias),
+            "add_last_linear": hparams.get("add_last_linear", config.add_last_linear),
+            "ga2m": 1 if self.interaction_degree >= 2 else 0,
+            "l2_lambda": self.l2_lambda,
+            "l2_interactions": hparams.get("l2_interactions", config.l2_interactions),
+            "l1_interactions": hparams.get("l1_interactions", config.l1_interactions),
+        }
+        if arch == "GAMAtt":
+            block_kwargs["dim_att"] = hparams.get("dim_att", config.dim_att)
+
+        self.block = the_arch(**block_kwargs)
+
+    def _build_input_feature_names(self):
+        names = []
+        for feature_name in self.num_feature_keys:
+            dim = int(self.num_feature_info[feature_name]["dimension"])
+            if dim <= 0:
+                raise ValueError(
+                    f"Numerical feature '{feature_name}' has invalid dimension {dim}."
+                )
+            names.extend(self._expanded_names(feature_name, dim))
+
+        for feature_name in self.cat_feature_keys:
+            dim = int(self.cat_feature_info[feature_name]["dimension"])
+            if dim <= 0:
+                raise ValueError(
+                    f"Categorical feature '{feature_name}' has invalid dimension {dim}."
+                )
+            names.extend(self._expanded_names(feature_name, dim))
+        return names
+
+    @staticmethod
+    def _expanded_names(feature_name, dim):
+        return [feature_name for _ in range(dim)]
+
+    def _concat_features(self, num_features: dict, cat_features: dict):
+        tensors = []
+
+        for feature_name in self.num_feature_keys:
+            x = num_features[feature_name]
+            if x.ndim == 1:
+                x = x.unsqueeze(-1)
+            tensors.append(x.float())
+
+        for feature_name in self.cat_feature_keys:
+            x = cat_features[feature_name]
+            if x.ndim == 1:
+                x = x.unsqueeze(-1)
+            tensors.append(x.float())
+
+        if not tensors:
+            raise ValueError("NodeGAM received no input features.")
+        return torch.cat(tensors, dim=1)
+
+    def step_temperature_schedulers(self, step: int):
+        self.choice_fn.temp_step_callback(step)
+
+    def forward(
+        self, num_features: dict, cat_features: dict, return_terms: bool = True
+    ) -> dict:
+        x = self._concat_features(num_features, cat_features)
+        x = self.feature_dropout(x)
+
+        if self.l2_lambda and self.l2_lambda > 0:
+            output, penalty = self.block(x, return_outputs_penalty=True)
+        else:
+            output = self.block(x)
+            penalty = None
+
+        result = {"output": output}
+        if penalty is not None:
+            result["output_penalty"] = penalty
+
+        if return_terms:
+            result.update(self._additive_term_outputs(x))
+            result["intercept"] = self.block.bias
+
+        return result
+
+    def _additive_term_outputs(self, x: torch.Tensor):
+        term_outputs = self.block.run_with_additive_terms(x)
+        terms = self.block.get_additive_terms()
+
+        result = {}
+        for term_idx, term in enumerate(terms):
+            term_name = self._term_name(term)
+            value = term_outputs[:, term_idx, :]
+            if term_name in result:
+                result[term_name] = result[term_name] + value
+            else:
+                result[term_name] = value
+        return result
+
+    def _term_name(self, term):
+        if isinstance(term, tuple):
+            feature_names = []
+            for idx in term:
+                feature_name = self.input_feature_names[idx]
+                if feature_name not in feature_names:
+                    feature_names.append(feature_name)
+            return ":".join(feature_names)
+        return self.input_feature_names[term]
+
+
 class NodeGAM(BaseModel):
-    """
-    Neural Additive Model (NodeGAM) class using GAMBlock/GAMAttBlock architecture.
-
-    This class implements a Neural Additive Model (NodeGAM) with support for numerical and
-    categorical features, interaction terms, and various normalization layers.
-
-    Attributes
-    ----------
-    models : list of GAMBlock/GAMAttBlock
-        List of models for each parameter in the distribution family.
-    feature_dropout : nn.Dropout
-        Dropout layer for regularizing feature contributions.
-    """
+    """NODE-GAM base model for regression and classification."""
 
     def __init__(
         self,
@@ -31,22 +196,6 @@ class NodeGAM(BaseModel):
         config: DefaultNodeGAMConfig | None = None,
         **kwargs,
     ):
-        """
-        Initializes the Neural Additive Model (NodeGAM) with the given configuration.
-
-        Parameters
-        ----------
-        cat_feature_info : dict
-            Dictionary providing information about categorical features (e.g., input dimensions).
-        num_feature_info : dict
-            Dictionary providing information about numerical features (e.g., input dimensions).
-        num_classes : int, optional
-            Number of output classes for classification tasks, by default 1.
-        config : DefaultNodeGAMConfig, optional
-            Configuration dataclass containing hyperparameters for the model, by default DefaultNodeGAMConfig().
-        kwargs : dict
-            Additional keyword arguments.
-        """
         if config is None:
             config = DefaultNodeGAMConfig()
         super().__init__(**kwargs)
@@ -56,101 +205,126 @@ class NodeGAM(BaseModel):
         self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
         self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
         self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
-        self.l2_lambda = self.hparams.get("l2_lambda", config.l2_lambda)
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
-        self.num_classes = num_classes
-        self.interaction_degree = self.hparams.get(
-            "interaction_degree", config.interaction_degree
+        self.num_classes = int(num_classes)
+
+        self.head = NodeGAMBlockHead(
+            cat_feature_info=cat_feature_info,
+            num_feature_info=num_feature_info,
+            num_classes=self.num_classes,
+            config=config,
+            hparams=self.hparams,
         )
 
-        # Calculate total input dimension
-        total_input_dim = sum(
-            info["dimension"] for info in num_feature_info.values()
-        ) + sum(info["dimension"] for info in cat_feature_info.values())
+    def step_temperature_schedulers(self, step: int):
+        self.head.step_temperature_schedulers(step)
 
-        # Initialize choice function with temperature annealing
-        choice_fn = EM15Temp(max_temp=1.0, min_temp=0.01, steps=config.anneal_steps)
-
-        # Determine which architecture to use
-        the_arch = GAMBlock if config.arch == "GAM" else GAMAttBlock
-
-        # Create a single model
-        self.model = the_arch(
-            in_features=total_input_dim,
-            num_trees=config.num_trees,
-            num_layers=config.num_layers,
-            num_classes=num_classes,
-            addi_tree_dim=config.addi_tree_dim,
-            depth=config.depth,
-            choice_function=choice_fn,
-            bin_function=entmoid15,
-            output_dropout=config.output_dropout,
-            last_dropout=config.last_dropout,
-            colsample_bytree=config.colsample_bytree,
-            selectors_detach=True,
-            add_last_linear=True,
-            ga2m=1 if self.interaction_degree >= 2 else 0,
-            l2_lambda=config.l2_lambda,
-            **({} if config.arch == "GAM" else {"dim_att": config.dim_att}),
+    def forward(
+        self, num_features: dict, cat_features: dict, return_terms: bool = True
+    ) -> dict:
+        return self.head(
+            num_features=num_features,
+            cat_features=cat_features,
+            return_terms=return_terms,
         )
 
-        self.feature_dropout = nn.Dropout(
-            self.hparams.get("feature_dropout", config.feature_dropout)
+
+class NodeGAMLSSBase(BaseModel):
+    """Upstream-compatible NodeGAMLSS with one independent NodeGAM head per parameter."""
+
+    def __init__(
+        self,
+        cat_feature_info,
+        num_feature_info,
+        num_classes: int = 1,
+        family=None,
+        config: DefaultNodeGAMConfig | None = None,
+        **kwargs,
+    ):
+        if config is None:
+            config = DefaultNodeGAMConfig()
+        if family is None:
+            raise ValueError("NodeGAMLSSBase requires a distribution family.")
+        if config.lss_head_mode != "independent":
+            raise ValueError(
+                "NodeGAMLSS currently supports only independent LSS heads."
+            )
+
+        super().__init__(**kwargs)
+        self.save_hyperparameters(
+            ignore=["cat_feature_info", "num_feature_info", "family"]
         )
 
-    def forward(self, num_features: dict, cat_features: dict) -> dict:
-        """
-        Forward pass of the NodeGAM model.
+        self.lr = self.hparams.get("lr", config.lr)
+        self.lr_patience = self.hparams.get("lr_patience", config.lr_patience)
+        self.weight_decay = self.hparams.get("weight_decay", config.weight_decay)
+        self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
+        self.cat_feature_info = cat_feature_info
+        self.num_feature_info = num_feature_info
+        self.num_classes = int(num_classes)
+        if self.num_classes != int(family.param_count):
+            raise ValueError(
+                "NodeGAMLSS output dimension must match family.param_count."
+            )
 
-        Parameters
-        ----------
-        num_features : dict
-            Dictionary of numerical features with feature names as keys.
-        cat_features : dict
-            Dictionary of categorical features with feature names as keys.
+        self.param_names = list(getattr(family, "param_names", []))
+        if len(self.param_names) != self.num_classes:
+            self.param_names = [f"param_{idx}" for idx in range(self.num_classes)]
 
-        Returns
-        -------
-        dict
-            Dictionary containing the output tensor and the original feature values.
-        """
-        # Combine all features into a single tensor
-        all_features = []
-        feature_names = []
+        self.heads = nn.ModuleList(
+            [
+                NodeGAMBlockHead(
+                    cat_feature_info=cat_feature_info,
+                    num_feature_info=num_feature_info,
+                    num_classes=1,
+                    config=config,
+                    hparams=self.hparams,
+                )
+                for _ in range(self.num_classes)
+            ]
+        )
 
-        # Add numerical features
-        for feature_name, feature_tensor in num_features.items():
-            all_features.append(feature_tensor)
-            feature_names.append(feature_name)
+    def step_temperature_schedulers(self, step: int):
+        for head in self.heads:
+            head.step_temperature_schedulers(step)
 
-        # Add categorical features
-        for feature_name, feature_tensor in cat_features.items():
-            all_features.append(feature_tensor.float())
-            feature_names.append(feature_name)
+    def forward(
+        self, num_features: dict, cat_features: dict, return_terms: bool = True
+    ) -> dict:
+        head_results = [
+            head(
+                num_features=num_features,
+                cat_features=cat_features,
+                return_terms=return_terms,
+            )
+            for head in self.heads
+        ]
+        output = torch.cat([result["output"] for result in head_results], dim=1)
 
-        # Concatenate all features
-        x = torch.cat(all_features, dim=1)
-
-        # Apply feature dropout
-        x = self.feature_dropout(x)
-
-        # Get prediction (and optional regularization penalty) from the model
-        penalty = None
-        if self.l2_lambda and self.l2_lambda > 0:
-            output = self.model(x, return_outputs_penalty=True)
-            if isinstance(output, tuple):
-                output, penalty = output
-        else:
-            output = self.model(x)
-
-        # Create result dictionary
         result = {"output": output}
-        if penalty is not None:
-            result["penalty"] = penalty
+        penalties = [
+            head_result["output_penalty"]
+            for head_result in head_results
+            if "output_penalty" in head_result
+        ]
+        if penalties:
+            result["output_penalty"] = sum(penalties)
 
-        # Add individual feature outputs for interpretability
-        for i, feature_name in enumerate(feature_names):
-            result[feature_name] = all_features[i]
+        if return_terms:
+            intercepts = []
+            for param_name, head_result in zip(
+                self.param_names, head_results, strict=True
+            ):
+                if "intercept" in head_result:
+                    intercepts.append(head_result["intercept"].reshape(1))
+
+                for key, value in head_result.items():
+                    if key in {"output", "output_penalty", "intercept"}:
+                        continue
+                    result[f"{param_name}:{key}"] = value
+
+            if intercepts:
+                result["intercept"] = torch.cat(intercepts, dim=0)
 
         return result

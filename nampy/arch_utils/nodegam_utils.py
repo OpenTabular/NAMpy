@@ -852,13 +852,45 @@ class GAMAdditiveMixin(object):
                 }
             )
 
-            df = pd.DataFrame(results)
-            df["tmp"] = df.feat_idx.apply(
-                lambda x: x[0] * 1e10 + x[1] * 1e5 if isinstance(x, tuple) else int(x)
-            )
-            df = df.sort_values("tmp").drop("tmp", axis=1)
-            df = df.reset_index(drop=True)
+        df = pd.DataFrame(results)
+        df["tmp"] = df.feat_idx.apply(
+            lambda x: x[0] * 1e10 + x[1] * 1e5 if isinstance(x, tuple) else int(x)
+        )
+        df = df.sort_values("tmp").drop("tmp", axis=1)
+        df = df.reset_index(drop=True)
         return df
+
+    def run_with_additive_terms(self, x):
+        """Run the model and return outputs grouped by learned additive term."""
+        outputs = self.run_with_layers(x)
+        td = self.num_classes + self.addi_tree_dim
+        outputs = outputs.view(
+            *outputs.shape[:-1], self.num_layers * self.num_trees, td
+        )
+
+        terms, inv = self.get_additive_terms(return_inverse=True)
+
+        if self.last_w is not None:
+            inv = inv.unsqueeze(-1).expand(-1, td).reshape(-1)
+
+            new_w = inv.new_zeros(
+                inv.shape[0], len(terms), self.num_classes, dtype=torch.float32
+            )
+            val = self.last_w.unsqueeze(1).expand(-1, len(terms), -1)
+            idx = inv.unsqueeze(-1).unsqueeze(-1).expand(-1, 1, self.num_classes)
+            new_w.scatter_(1, idx, val)
+
+            result = torch.einsum(
+                "bd,duc->buc", outputs.reshape(outputs.shape[0], -1), new_w
+            )
+        else:
+            outputs = outputs[..., : self.num_classes]
+
+            new_w = inv.new_zeros(inv.shape[0], len(terms), dtype=torch.float32)
+            new_w.scatter_(1, inv.unsqueeze(-1), 1.0 / inv.shape[0])
+
+            result = torch.einsum("bdc,du->buc", outputs, new_w)
+        return result
 
     def _run_and_extract_vals_counts(
         self, X, device, batch_size, norm_fn=lambda x: x, y_mu=0.0, y_std=1.0

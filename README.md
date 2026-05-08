@@ -8,15 +8,6 @@ NAMpy provides interpretable additive neural models for tabular regression,
 classification, and distributional regression. Its high-level estimators follow
 the scikit-learn API and use PyTorch/Lightning internally.
 
-## Features
-
-- Scikit-learn-style `.fit`, `.predict`, `.predict_proba`, and `.score` APIs
-- Neural additive model families including NAM, GPNAM, NBM, NATT, NAMformer,
-  NodeGAM, SplineNAM, TreeNAM, SNAM, QNAM, and neural linear regression
-- Regression, classification, and distributional regression (`LSS`) workflows
-- PreTab-based tabular preprocessing
-- Feature-level effect inspection for additive models
-
 ## Installation
 
 ```bash
@@ -100,12 +91,6 @@ make docs
 ```
 
 The generated HTML is written to `docs/_build/html/index.html`.
-
-## Authors
-
-- Ananyapam De
-- Anton Thielmann
-- OpenTabular contributors
 
 ## Citation
 

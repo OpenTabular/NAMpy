@@ -2,12 +2,11 @@ from .basemodel import BaseModel
 from .gpnam import GPNAM
 from .lightning_wrapper import TaskModel
 from .linreg import LinReg
-from .multi_model import MultiModelWrapper
 from .nam import NAM
 from .namformer import NAMformer
 from .natt import NATT
 from .nbm import NBM
-from .nodegam import NodeGAM
+from .nodegam import NodeGAM, NodeGAMLSSBase
 from .qnam import QNAMBase
 from .snam import SNAM
 from .spline_nam import SplineNAM
@@ -27,5 +26,5 @@ __all__ = [
     "TreeNAM",
     "SplineNAM",
     "NodeGAM",
-    "MultiModelWrapper",
+    "NodeGAMLSSBase",
 ]
