@@ -53,6 +53,7 @@
       ~TaskModel._set_hparams
       ~TaskModel._shared_step
       ~TaskModel._slow_forward
+      ~TaskModel._step_temperature_schedulers
       ~TaskModel._to_hparams_dict
       ~TaskModel._verify_is_manual_optimization
       ~TaskModel._wrapped_call_impl

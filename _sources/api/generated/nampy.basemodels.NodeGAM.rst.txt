@@ -97,6 +97,7 @@
       ~NodeGAM.set_submodule
       ~NodeGAM.share_memory
       ~NodeGAM.state_dict
+      ~NodeGAM.step_temperature_schedulers
       ~NodeGAM.to
       ~NodeGAM.to_device
       ~NodeGAM.to_empty
