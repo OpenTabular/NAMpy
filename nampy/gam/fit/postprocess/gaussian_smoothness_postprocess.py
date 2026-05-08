@@ -20,7 +20,7 @@ Gradients / Hessians are delegated to ``nampy.gam.smoothing_selection.criteria``
 
 Not yet implemented
 -------------------
-- P-REML / Pearson-Laplace and NCV score paths.
+- P-REML / Pearson-Laplace score paths.
 - Non-Gaussian families (those use the full P-IRLS derivative chain).
 """
 
@@ -34,12 +34,10 @@ from scipy.linalg import cho_factor
 from nampy.gam._mgcv_constants import LOG_GUARD_MIN
 from nampy.gam._model_state import (
     _coef_column_offset,
-    _fit_core_solution,
     _fit_result,
     _fit_state,
     _n_smoothing_params,
 )
-from nampy.gam.fit.model_ops import sync_gam_result
 from nampy.gam.smoothing_selection.criteria.dispatch import (
     criterion_gradient,
     criterion_hessian,
@@ -135,35 +133,15 @@ def refresh_gaussian_ml_reml_score_from_fit_state(model: Any, y: np.ndarray) -> 
     except Exception:
         return
 
-    reml_s2 = getattr(model, "_gaussian_reml_sigma2_opt_", None)
-    if reml_s2 is not None and np.isfinite(reml_s2) and float(reml_s2) > 0.0:
-        fit_core_solution = _fit_core_solution(model)
-        if fit_core_solution is not None:
-            fit_result = fit_core_solution.fit_result
-            old_scale = float(getattr(fit_result, "scale", np.nan))
-            scale_ratio = (
-                None
-                if (not np.isfinite(old_scale) or old_scale <= 0.0)
-                else float(reml_s2) / old_scale
-            )
-            fit_result_updates: dict[str, Any] = {"scale": float(reml_s2)}
-            if scale_ratio is not None:
-                for cov_name in ("cov_bayes", "cov_freq", "cov_unconditional"):
-                    cov_value = getattr(fit_result, cov_name, None)
-                    if cov_value is not None:
-                        fit_result_updates[cov_name] = (
-                            scale_ratio
-                            * np.asarray(cov_value, dtype=np.float64).copy()
-                        )
-            fit_core_solution = fit_core_solution.with_fit_state(scale=float(reml_s2))
-            fit_core_solution = fit_core_solution.with_fit_result(**fit_result_updates)
-            model.fit_core_solution_ = fit_core_solution
-            sync_gam_result(model)
+    # Keep the private joint REML scale for criterion evaluation, but do not
+    # overwrite the public fit scale/covariances. mgcv reports the final
+    # deviance-based `sig2` on the fit object even when the outer optimiser
+    # carried a separate Gaussian scale parameter.
 
 
 def _score_type_bucket(score_type: str) -> str:
     st = str(score_type).upper().strip()
-    if st in {"REML", "P-REML", "NCV"}:
+    if st in {"REML", "P-REML"}:
         return "REML"
     if st in {"ML", "P-ML"}:
         return "ML"
@@ -231,7 +209,7 @@ def gaussian_smoothness_postprocess(
 
     y = fam.validate_y(y)
     sp = np.asarray(smoothing_params, dtype=np.float64).ravel()
-    from ..model_ops import solve_gaussian_given_smoothing
+    from ..backends import solve_gaussian_given_smoothing
 
     sol = solve_gaussian_given_smoothing(model, y, sp)
 

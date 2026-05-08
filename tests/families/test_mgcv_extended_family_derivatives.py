@@ -4,15 +4,9 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from nampy.gam import GAM
 from nampy.gam.families.family_base import BaseFamily
 from nampy.gam.families.negbin import NegativeBinomialLogFamily
 from nampy.gam.families.registry import make_gam_family
-from nampy.gam.smoothing_selection.criteria.pirls_deriv import (
-    criterion_gradient_ml_reml_pirls_exact,
-    criterion_hessian_ml_reml_pirls_exact,
-)
-from tests.mgcv_parity_utils import _make_negbin_data
 
 pytestmark = [
     pytest.mark.surface_derivatives,
@@ -42,30 +36,6 @@ def test_negbin_inherits_base_higher_order_link_derivatives():
             rtol=1e-12,
             atol=1e-12,
         )
-
-
-def test_negbin_exact_pirls_derivative_entrypoint_runs_with_inherited_link_derivatives():
-    """
-    Verify that negative-binomial exact PIRLS derivative entrypoint runs with inherited
-    link derivatives.
-    """
-    data = _make_negbin_data(seed=77, n=120, theta=1.3)
-    gam = GAM(
-        family={"name": "negbin", "theta": 1.3},
-        formula="y ~ s(x0, k=8)",
-        optimize_smoothing=False,
-        smoothing_method="fixed",
-    )
-    gam.fit(data=data)
-
-    log_sp = np.log(np.asarray(gam.smoothing_params, dtype=np.float64))
-    grad = criterion_gradient_ml_reml_pirls_exact(gam, gam.y_, log_sp, "REML")
-    hess = criterion_hessian_ml_reml_pirls_exact(gam, gam.y_, log_sp, "REML")
-
-    assert grad.shape == (1,)
-    assert hess.shape == (1, 1)
-    assert np.all(np.isfinite(grad))
-    assert np.all(np.isfinite(hess))
 
 
 @pytest.mark.parametrize("link", ["identity", "sqrt"])
@@ -108,3 +78,23 @@ def test_negbin_registry_preserves_requested_link():
 
     assert family.link_name == "sqrt"
     assert_allclose(family.inverse_link(eta), eta**2, rtol=1e-12, atol=1e-12)
+
+
+def test_negbin_registry_distinguishes_mgcv_negbin_and_nb_theta_semantics():
+    """mgcv::negbin requires theta; mgcv::nb estimates only for NULL/zero/negative theta."""
+    with pytest.raises(ValueError, match="requires explicit theta"):
+        make_gam_family("negbin")
+    with pytest.raises(ValueError, match="requires explicit theta"):
+        make_gam_family({"name": "negbin"})
+
+    fixed = make_gam_family({"name": "nb", "theta": 2.5})
+    assert fixed.theta == 2.5
+    assert fixed.estimate_theta is False
+
+    estimated_default = make_gam_family("nb")
+    assert estimated_default.theta == 1.0
+    assert estimated_default.estimate_theta is True
+
+    estimated_initial = make_gam_family(("nb", -3.0))
+    assert estimated_initial.theta == 3.0
+    assert estimated_initial.estimate_theta is True

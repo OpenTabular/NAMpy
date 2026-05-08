@@ -127,7 +127,6 @@ def test_covariance_standard_errors_and_spectrum_are_stable_helpers():
 def test_invariant_policy_centralizes_non_unique_representation_surfaces():
     """Verify shared policy marks the current non-unique surfaces consistently."""
     assert gam_setup_uses_invariant_transform("gaussian_tp_two_dim")
-    assert gam_setup_uses_invariant_transform("gaussian_t2_full_false")
     assert not gam_setup_uses_invariant_transform("gaussian_two_cr")
 
     assert gam_side_uses_invariant_transform("tprs.smooth")
@@ -149,10 +148,6 @@ def test_invariant_policy_centralizes_non_unique_representation_surfaces():
     )
     assert not final_fit_uses_exact_orientation_parity(
         'y ~ s(x0, x1, bs="tp", k=15)',
-        skip_coef_comparison=False,
-    )
-    assert not final_fit_uses_exact_orientation_parity(
-        'y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6])',
         skip_coef_comparison=False,
     )
     assert not final_fit_uses_exact_orientation_parity(

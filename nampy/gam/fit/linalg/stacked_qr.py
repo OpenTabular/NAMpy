@@ -145,7 +145,7 @@ def _get_r_pqr_serial(qr_a: np.ndarray, *, rr: int, ncol: int) -> np.ndarray:
     return out
 
 
-def _mgcv_apply_q_left_serial(
+def _apply_q_left_serial(
     block: np.ndarray,
     qr_a: np.ndarray,
     tau: np.ndarray,
@@ -206,7 +206,6 @@ def _stacked_penalized_ls_nonneg_solution_literal(
     The coefficient path follows the serial `mgcv_pqr` / `mgcv_qr` control flow
     directly, including the `eta` reconstruction and `use_wy` fallback test.
     """
-    del P_dense, near_singular_null_pin
     cm = str(coef_method).lower().strip()
     if cm not in {"householder", "lstsq"}:
         raise ValueError(
@@ -224,8 +223,10 @@ def _stacked_penalized_ls_nonneg_solution_literal(
     penalty_rank_rows = np.asarray(penalty_rank_rows, dtype=np.float64)
     n_penalty_rows = int(penalty_sqrt.shape[0])
     n_rank_penalty_rows = int(penalty_rank_rows.shape[0])
-    if n_penalty_rows == 0 or n_rank_penalty_rows == 0:
-        raise ValueError("penalty sqrt matrices must be non-empty.")
+    if penalty_sqrt.ndim != 2 or penalty_sqrt.shape[1] != n_coef_total:
+        raise ValueError("penalty_sqrt must have shape (r, ncol(X)).")
+    if penalty_rank_rows.ndim != 2 or penalty_rank_rows.shape[1] != n_coef_total:
+        raise ValueError("penalty_rank_rows must have shape (r, ncol(X)).")
 
     raw_w = np.sqrt(np.abs(w))
     neg_weight_mask = np.asarray(w < 0.0, dtype=bool)
@@ -334,7 +335,7 @@ def _stacked_penalized_ls_nonneg_solution_literal(
     eta = np.zeros(n_obs, dtype=np.float64)
 
     if not use_wy:
-        z_qt = _mgcv_apply_q_left_serial(
+        z_qt = _apply_q_left_serial(
             z_buf[:n_obs],
             qr_wx,
             tau_wx,
@@ -344,7 +345,7 @@ def _stacked_penalized_ls_nonneg_solution_literal(
         )[:, 0]
         z_buf.fill(0.0)
         z_buf[:n_wx_econ] = z_qt
-        z_q1t = _mgcv_apply_q_left_serial(
+        z_q1t = _apply_q_left_serial(
             z_buf[:n_augmented_rows],
             qr_aug,
             tau_aug,
@@ -359,7 +360,7 @@ def _stacked_penalized_ls_nonneg_solution_literal(
         if signed_correction is not None:
             y_rank = np.asarray(signed_correction @ y_rank, dtype=np.float64)
 
-        z_q1 = _mgcv_apply_q_left_serial(
+        z_q1 = _apply_q_left_serial(
             y_rank,
             qr_aug,
             tau_aug,
@@ -370,7 +371,7 @@ def _stacked_penalized_ls_nonneg_solution_literal(
         penalty_quadratic = float(np.sum(z_q1[n_wx_econ:n_augmented_rows] ** 2))
         z_buf.fill(0.0)
         z_buf[:system_rank] = z_q1[:system_rank]
-        weighted_eta = _mgcv_apply_q_left_serial(
+        weighted_eta = _apply_q_left_serial(
             z_buf[:n_wx_econ],
             qr_wx,
             tau_wx,
@@ -424,8 +425,24 @@ def _stacked_penalized_ls_nonneg_solution_literal(
     coef_kept[pivot_aug] = z_rank
     coef_full = _undrop_rows_vec(coef_kept, n_coef_total, dropped_column_indices)
 
+    gauge_requested = bool(near_singular_null_pin)
+    if gauge_requested and P_dense is not None:
+        should_gauge = near_singular_null_pin is True or (
+            str(near_singular_null_pin).lower() == "auto"
+            and int(dropped_column_indices.size) > 0
+        )
+        if should_gauge:
+            coef_full = _gauge_minimize_penalty_on_null_X(
+                coef_full,
+                X,
+                np.asarray(P_dense, dtype=np.float64),
+            )
+
     if use_wy:
         eta = np.asarray(X @ coef_full, dtype=np.float64)
+        pen_vec = penalty_sqrt @ coef_full
+        penalty_quadratic = float(pen_vec @ pen_vec)
+    elif gauge_requested and P_dense is not None:
         pen_vec = penalty_sqrt @ coef_full
         penalty_quadratic = float(pen_vec @ pen_vec)
 
@@ -435,7 +452,7 @@ def _stacked_penalized_ls_nonneg_solution_literal(
         penalty_quadratic=penalty_quadratic,
         X=X,
         w=w,
-        P_dense=None,
+        P_dense=None if P_dense is None else np.asarray(P_dense, dtype=np.float64),
         penalty_sqrt=penalty_sqrt,
         weighted_X=weighted_X,
         sqrt_w=raw_w,
@@ -1548,11 +1565,6 @@ def solve_gaussian_penalized_ls_stacked_qr(
 
     P = np.asarray(P, dtype=np.float64)
     penalty_sqrt, penalty_rank_template = penalty_sqrt_rows(P)
-    n_penalty_rows = int(penalty_sqrt.shape[0])
-    if n_penalty_rows == 0:
-        raise ValueError(
-            "penalty_sqrt_rows returned empty factor (zero penalty matrix)."
-        )
 
     if penalty_rank_rows is not None:
         penalty_rank_rows = np.asarray(penalty_rank_rows, dtype=np.float64)
@@ -1562,9 +1574,6 @@ def solve_gaussian_penalized_ls_stacked_qr(
         )
     else:
         penalty_rank_rows = np.asarray(penalty_rank_template, dtype=np.float64)
-    n_rank_penalty_rows = int(penalty_rank_rows.shape[0])
-    if n_rank_penalty_rows == 0:
-        raise ValueError("penalty rank sqrt has zero rows (empty penalty design).")
 
     outcome = _stacked_penalized_ls_nonneg_solution(
         X,

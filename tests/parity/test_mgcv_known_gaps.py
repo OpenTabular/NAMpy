@@ -12,22 +12,6 @@ from tests.mgcv_parity_utils import (
 )
 
 
-def test_strict_t2_fixed_sp_response_parity():
-    """Known-gap coverage verifying that strict t2 fixed sp response parity."""
-    data = make_parity_case_data("gaussian_cr_uni_reml")
-    formula = 'y ~ t2(x0, x1, bs=["cr", "cr"], k=[5, 5], sp=[0.7, 1.3, 0.9])'
-
-    actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
-    expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
-
-    np.testing.assert_allclose(
-        np.asarray(actual["predictions"]["response"], dtype=np.float64),
-        np.asarray(expected["predictions"]["response"], dtype=np.float64),
-        atol=1e-10,
-        rtol=1e-10,
-    )
-
-
 def test_strict_poisson_reml_residual_parity():
     """Known-gap coverage verifying that strict poisson REML residual parity."""
     case = get_parity_case("poisson_cr_uni_reml")
@@ -122,39 +106,6 @@ def test_tensor_ti_ps_ps_margin_orders_fixed_sp_response_parity():
     """
     data = make_parity_case_data("gaussian_cr_uni_reml")
     formula = 'y ~ ti(x0, x1, bs=["ps", "ps"], k=[6, 7], m=[1, 3], sp=[0.7, 1.3])'
-    actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
-    expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
-    np.testing.assert_allclose(
-        np.asarray(actual["predictions"]["response"], dtype=np.float64),
-        np.asarray(expected["predictions"]["response"], dtype=np.float64),
-        atol=1e-10,
-        rtol=1e-10,
-    )
-
-
-def test_tensor_t2_ps_ps_fixed_sp_response_parity():
-    """Known-gap coverage verifying that tensor t2 ps ps fixed sp response parity."""
-    data = make_parity_case_data("gaussian_cr_uni_reml")
-    formula = 'y ~ t2(x0, x1, bs=["ps", "ps"], k=[5, 5], sp=[0.7, 1.3, 0.9])'
-    actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
-    expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
-    np.testing.assert_allclose(
-        np.asarray(actual["predictions"]["response"], dtype=np.float64),
-        np.asarray(expected["predictions"]["response"], dtype=np.float64),
-        atol=1e-10,
-        rtol=1e-10,
-    )
-
-
-def test_tensor_t2_ps_ps_margin_orders_fixed_sp_response_parity():
-    """
-    Known-gap coverage verifying that tensor t2 ps ps margin orders fixed sp response
-    parity.
-    """
-    data = make_parity_case_data("gaussian_cr_uni_reml")
-    formula = (
-        'y ~ t2(x0, x1, bs=["ps", "ps"], k=[6, 7], m=[1, 3], ' "sp=[0.7, 1.3, 0.9])"
-    )
     actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
     expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
     np.testing.assert_allclose(

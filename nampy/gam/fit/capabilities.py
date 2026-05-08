@@ -65,6 +65,16 @@ def raise_ml_reml_backend_error(model, method):
     )
 
 
+def coerce_general_family_smoothing_method(model, method, optimizer=None):
+    """Mirror mgcv/R/mgcv.r::estimate.gam general.family method reset."""
+    method = str(method).lower()
+    optimizer = None if optimizer is None else str(optimizer).lower()
+    family_class = str(getattr(model.family, "family_class", "")).lower()
+    if family_class == "general" and (method != "reml" or optimizer == "efs"):
+        return "reml"
+    return method
+
+
 def supports_smoothing_method(model, method):
     from ..smoothing_selection import supports_smoothing_method as _supports
 

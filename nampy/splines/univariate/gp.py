@@ -184,7 +184,13 @@ def default_gp_bs_dim(d: int) -> int:
 
 
 def choose_gp_setup_locations(
-    X_shifted, knots=None, n_rows=None, max_knots=2000, seed=1, shift=None
+    X_shifted,
+    knots=None,
+    n_rows=None,
+    max_knots=2000,
+    seed=1,
+    shift=None,
+    allow_subsampling=True,
 ):
     """
     mgcv-like basis-setup location handling for bs='gp'.
@@ -194,7 +200,8 @@ def choose_gp_setup_locations(
       supplied locations than observations, in which case ignore them with a
       warning.
     - Otherwise use all unique shifted covariate locations.
-    - If unique locations exceed max.knots, sample max.knots with a fixed seed.
+    - If unique locations exceed max.knots, use a deterministic subsample
+      controlled by ``seed`` only when this surface explicitly allows it.
     """
     X_shifted = np.asarray(X_shifted, dtype=np.float64)
     if X_shifted.ndim == 1:
@@ -220,12 +227,16 @@ def choose_gp_setup_locations(
     Xu = np.unique(X_shifted, axis=0)
 
     max_knots = int(max_knots)
-    seed = int(seed)
 
     if n_rows > max_knots and Xu.shape[0] > max_knots:
-        rng = np.random.default_rng(seed)
-        idx = rng.choice(Xu.shape[0], size=max_knots, replace=False)
-        Xu = Xu[np.sort(idx)]
+        if not allow_subsampling:
+            raise NotImplementedError(
+                "gp knot subsampling is unsupported for this parity-sensitive "
+                "surface; provide explicit knots."
+            )
+        rng = np.random.default_rng(int(seed))
+        keep = np.sort(rng.choice(Xu.shape[0], size=max_knots, replace=False))
+        Xu = Xu[keep, :]
 
     return np.asarray(Xu, dtype=np.float64)
 
@@ -239,6 +250,7 @@ def gp_setup_from_data(
     max_knots=2000,
     seed=1,
     shift=None,
+    allow_subsampling=True,
 ):
     """
     Construct the low-rank gp smooth setup.
@@ -289,6 +301,7 @@ def gp_setup_from_data(
         max_knots=max_knots,
         seed=seed,
         shift=shift,
+        allow_subsampling=allow_subsampling,
     )
     nk = knt.shape[0]
 
@@ -391,6 +404,7 @@ def build_gp_term_setup(
     m=None,
     knots=None,
     xt=None,
+    allow_subsampling=True,
 ):
     """
     High-level Gaussian-process smooth setup for term classes.
@@ -412,6 +426,7 @@ def build_gp_term_setup(
         max_knots=max_knots,
         seed=seed,
         shift=shift,
+        allow_subsampling=allow_subsampling,
     )
 
     basis_train = gp_predict_matrix(

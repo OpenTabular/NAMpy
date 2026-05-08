@@ -1,9 +1,9 @@
 NAMpy: Interpretable (Additive) Tabular Deep Learning
 ======================================================
 
-.. image:: https://img.shields.io/badge/python-3.6+-blue.svg
+.. image:: https://img.shields.io/badge/python-3.10+-blue.svg
    :target: https://www.python.org/downloads/
-   :alt: Python 3.6+
+   :alt: Python 3.10+
 
 .. image:: https://img.shields.io/badge/License-MIT-yellow.svg
    :target: https://opensource.org/licenses/MIT

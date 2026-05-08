@@ -94,7 +94,6 @@ def _is_tensor_term(tb) -> bool:
     return str(getattr(tb, "term_type", "")) in {
         "tensor_smooth",
         "tensor_interaction",
-        "tensor_anova",
     }
 
 

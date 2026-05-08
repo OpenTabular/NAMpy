@@ -185,4 +185,3 @@ model_checkpoints/
 
 # Ruff
 .ruff_cache/XGBoostLSS/
-mgcv/

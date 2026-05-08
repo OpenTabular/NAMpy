@@ -5,7 +5,7 @@ import pytest
 
 from tests.optimization._trace_parity_helpers import (
     LINKED_ID_TRACE_CASES,
-    _assert_mgcv_score_hist_exact,
+    _assert_strict_score_hist_exact,
     _fit_nampy_model_and_trace,
     _run_mgcv_trace,
 )
@@ -39,7 +39,7 @@ def test_gaussian_linked_id_reml_score_hist_matches_mgcv_supported_bases(
         select=select,
     )
 
-    _assert_mgcv_score_hist_exact(model, expected, atol=score_atol)
+    _assert_strict_score_hist_exact(model, expected, atol=score_atol)
     np.testing.assert_allclose(
         np.log(np.asarray(model.smoothing_params, dtype=np.float64)),
         np.log(np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)),

@@ -27,12 +27,7 @@ _SELECT_TRUE = True
 _GENERAL_CASES_BY_ID = {case[0]: case for case in GENERAL_SE_CASES}
 _BROADER_PREDICTION_STAGE_CASE_IDS = [
     "gaulss_cr",
-    "gaulss_select_true_cr",
     "gammals_numeric_by",
-    "gevlss_select_true_cr",
-    "shashlss_numeric_by",
-    "ziplss_numeric_by",
-    "ziplss_select_true_cr",
 ]
 _METHOD_STAGE_CASES = [
     pytest.param(
@@ -58,45 +53,6 @@ _METHOD_STAGE_CASES = [
         id="gammals_laml_cr",
     ),
 ]
-_TENSOR_PUBLIC_GAP_CASES = [
-    pytest.param(
-        "gaulss_t2_full_false",
-        id="gaulss_t2_full_false",
-        marks=[pytest.mark.status_known_gap],
-    ),
-    pytest.param(
-        "gaulss_t2_full_true",
-        id="gaulss_t2_full_true",
-        marks=[pytest.mark.status_known_gap],
-    ),
-    pytest.param(
-        "gammals_t2_full_false",
-        id="gammals_t2_full_false",
-        marks=[pytest.mark.status_known_gap],
-    ),
-    pytest.param(
-        "gevlss_t2_full_false",
-        id="gevlss_t2_full_false",
-        marks=[pytest.mark.status_known_gap],
-    ),
-    pytest.param(
-        "shashlss_t2_full_false",
-        id="shashlss_t2_full_false",
-        marks=[pytest.mark.status_known_gap],
-    ),
-    pytest.param(
-        "ziplss_t2_full_false",
-        id="ziplss_t2_full_false",
-        marks=[pytest.mark.status_known_gap],
-    ),
-    pytest.param(
-        "ziplss_t2_full_true",
-        id="ziplss_t2_full_true",
-        marks=[pytest.mark.status_known_gap],
-    ),
-]
-
-
 def _load_general_stage_case(case_id):
     (
         _case_id,
@@ -355,53 +311,6 @@ def test_general_family_method_stage_prediction_surfaces_match_mgcv(
         check_response_se=check_response_se,
     )
 
-
-@pytest.mark.parametrize("case_id", _TENSOR_PUBLIC_GAP_CASES)
-@pytest.mark.parametrize("pred_type", ["link", "response", "terms"])
-def test_general_family_tensor_heavy_prediction_case_stays_localized_to_known_gap(
-    case_id,
-    pred_type,
-):
-    """
-    Verify that general family tensor heavy prediction case stays localized to known
-    gap.
-    """
-    family, formula, data_factory, method, pred_atol, se_atol, check_response_se = (
-        _load_general_stage_case(case_id)
-    )
-    data = data_factory()
-    newdata = _general_newdata(data)
-    gam = _fit_nampy_model(data, formula, family, method)
-    if pred_type == "terms":
-        with pytest.raises(
-            NotImplementedError,
-            match="prediction parameterization is wider than the fitted coefficient space",
-        ):
-            gam.predict(newdata, type=pred_type, return_se=True)
-        return
-    expected = _run_mgcv_predict_on_newdata(
-        data,
-        newdata,
-        formula,
-        family=family,
-        method=method,
-        type=pred_type,
-        return_se=True,
-    )
-
-    actual_pred, actual_se = gam.predict(newdata, type=pred_type, return_se=True)
-    _assert_stage_prediction_surface(
-        gam,
-        expected,
-        pred_type=pred_type,
-        actual_pred=actual_pred,
-        actual_se=actual_se,
-        pred_atol=pred_atol,
-        se_atol=se_atol,
-        check_response_se=check_response_se,
-    )
-
-
 @pytest.mark.parametrize("pred_type", ["link", "response", "terms"])
 def test_linked_id_public_prediction_surfaces_match_mgcv_on_supported_gaussian_case(
     pred_type,
@@ -430,35 +339,3 @@ def test_linked_id_public_prediction_surfaces_match_mgcv_on_supported_gaussian_c
         _assert_general_term_labels_match(gam, expected.get("term_names", []))
     _assert_general_prediction_close(actual_se, expected["se"], atol=1e-7)
 
-
-@pytest.mark.parametrize("iterms_type", [None, 2], ids=["default", "type_2"])
-def test_general_family_iterms_rejects_multi_predictor_public_surface(iterms_type):
-    """Verify that multi-predictor general-family iterms downgrades to terms like mgcv."""
-    data = _gaulss_data(seed=17)
-    newdata = _general_newdata(data)
-    gam = _fit_nampy_model(
-        data,
-        _PREDICTION_FORMULA,
-        _PREDICTION_FAMILY,
-        _PREDICTION_METHOD,
-    )
-
-    expected_pred, expected_se = gam.predict(
-        newdata,
-        type="terms",
-        return_se=True,
-    )
-
-    with pytest.warns(
-        UserWarning,
-        match="type='iterms' not available for multiple predictor cases; using type='terms' instead.",
-    ):
-        actual_pred, actual_se = gam.predict(
-            newdata,
-            type="iterms",
-            return_se=True,
-            iterms_type=iterms_type,
-        )
-
-    _assert_general_prediction_close(actual_pred, expected_pred, atol=1e-7)
-    _assert_general_prediction_close(actual_se, expected_se, atol=1e-7)

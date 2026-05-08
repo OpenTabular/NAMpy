@@ -7,19 +7,14 @@ import pandas as pd
 import pytest
 
 from nampy.gam import GAM
-from nampy.gam.fit.solvers.general_family_solver import (
+from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     _GeneralPredictorLayout,
     build_general_penalty_setup,
 )
-from nampy.gam.fit.solvers.general_newton_solver import _sl_ldetS
+from nampy.gam.fit.solvers.general_family.newton import _sl_ldetS
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
 from nampy.gam.specs.build import build_formula_model
-from tests.families.test_general_family_mgcv_parity import (
-    _gaulss_data,
-    _gaulss_tensor_data,
-    _general_newdata,
-)
-from tests.mgcv_parity_utils import _fit_nampy_model, _make_random_effect_data
+from tests.mgcv_parity_utils import _make_random_effect_data
 
 pytestmark = [pytest.mark.surface_output, pytest.mark.surface_regression]
 
@@ -137,61 +132,6 @@ def test_nonreparameterized_multi_penalty_sl_guard_raises_explicitly():
         )
 
 
-@pytest.mark.parametrize("iterms_type", [None, 2], ids=["default", "type_2"])
-def test_general_family_public_iterms_guard_rejects_multi_predictor_models(
-    iterms_type,
-):
-    """
-    Guard coverage verifying that general family public iterms downgrades multi
-    predictor models.
-    """
-    data = _gaulss_data(seed=23)
-    newdata = _general_newdata(data)
-    gam = _fit_nampy_model(
-        data,
-        ['y ~ s(x, bs="cr", k=6)', "~ 1"],
-        "gaulss",
-        "ML",
-    )
-
-    expected_pred, expected_se = gam.predict(newdata, type="terms", return_se=True)
-
-    with pytest.warns(
-        UserWarning,
-        match="type='iterms' not available for multiple predictor cases; using type='terms' instead.",
-    ):
-        actual_pred, actual_se = gam.predict(
-            newdata,
-            type="iterms",
-            return_se=True,
-            iterms_type=iterms_type,
-        )
-
-    np.testing.assert_allclose(actual_pred, expected_pred)
-    np.testing.assert_allclose(actual_se, expected_se)
-
-
-def test_general_family_terms_guard_rejects_wider_prediction_parameterization():
-    """
-    Guard coverage verifying that general family terms guard rejects wider prediction
-    parameterization.
-    """
-    data = _gaulss_tensor_data(seed=25)
-    newdata = _general_newdata(data)
-    gam = _fit_nampy_model(
-        data,
-        ['y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6], full=True)', "~ 1"],
-        "gaulss",
-        "ML",
-    )
-
-    with pytest.raises(
-        NotImplementedError,
-        match="type='terms' is not supported for general-family models whose prediction parameterization is wider than the fitted coefficient space",
-    ):
-        gam.predict(newdata, type="terms", return_se=True)
-
-
 def test_formula_unsupported_expression_function_guard_raises_explicitly():
     """
     Guard coverage verifying that formula unsupported expression function guard raises
@@ -224,6 +164,30 @@ def test_formula_list_data_aware_dot_shorthand_guard_raises_explicitly():
         match="Data-aware '\\.' shorthand is unsupported for formula-list / general-family models",
     ):
         _build_from_formula(["y ~ .", "~ 1"], data)
+
+
+def test_general_family_multi_smooth_fit_guard_raises_explicitly():
+    """
+    Guard coverage verifying that multi-smooth general-family fits are unsupported.
+    """
+    data = pd.DataFrame(
+        {
+            "y": [0.7, 1.0, 1.2, 1.5, 1.7, 1.9, 2.0, 2.2],
+            "x": [-1.0, -0.7, -0.4, -0.1, 0.2, 0.5, 0.8, 1.0],
+            "z": [1.0, 0.6, 0.3, 0.1, -0.2, -0.5, -0.7, -1.0],
+        }
+    )
+
+    with pytest.raises(
+        NotImplementedError,
+        match="Multi-smooth general-family models are not supported",
+    ):
+        GAM(
+            family="gaulss",
+            formula=['y ~ s(x, bs="cr", k=5) + s(z, bs="cr", k=5)', "~ 1"],
+            optimize_smoothing=False,
+            smoothing_method="fixed",
+        ).fit(data=data)
 
 
 @pytest.mark.parametrize(
@@ -270,27 +234,3 @@ def test_random_effect_linked_id_guard_raises_explicitly():
 
     with pytest.raises(NotImplementedError, match="random effects don't work with ids"):
         gam.fit(data=data)
-
-
-@pytest.mark.parametrize("pred_type", ["terms", "iterms"])
-def test_general_family_wider_prediction_parameterization_guard_rejects_terms_like_surfaces(
-    pred_type,
-):
-    """
-    Guard coverage verifying that general family wider prediction parameterization guard
-    rejects terms like surfaces.
-    """
-    data = _gaulss_tensor_data(seed=29)
-    newdata = _general_newdata(data)
-    gam = _fit_nampy_model(
-        data,
-        ['y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6], full=True)', "~ 1"],
-        "gaulss",
-        "ML",
-    )
-
-    with pytest.raises(
-        NotImplementedError,
-        match="type='terms' is not supported for general-family models whose prediction parameterization is wider than the fitted coefficient space",
-    ):
-        gam.predict(newdata, type=pred_type, return_se=True)

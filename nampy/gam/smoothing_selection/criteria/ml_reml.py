@@ -10,12 +10,14 @@ import numpy as np
 
 from ..._model_state import _term_blocks_seq
 from ...fit.backends import GENERAL_FAMILY_BACKEND
-from ...fit.model_ops import (
+from ...fit.capabilities import (
     can_use_exact_gaussian_ml_reml,
     can_use_simple_ml_reml_structure,
     raise_ml_reml_backend_error,
 )
-from ...fit.solvers.general_family_solver import criterion_ml_reml_general_family
+from ...fit.solvers.general_family.fixed_smoothing import (
+    criterion_ml_reml_general_family,
+)
 from .gaussian import criterion_ml_reml_exact, criterion_ml_reml_exact_dynamic
 from .pirls import criterion_ml_reml_pirls, criterion_ml_reml_pirls_dynamic
 

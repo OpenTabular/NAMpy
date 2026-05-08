@@ -16,7 +16,6 @@ from tests.mgcv_parity_utils import (
     _make_gamma_data,
     _make_gaussian_data,
     _make_gaussian_data_3col,
-    _make_mrf_data,
     _make_poisson_data,
     _make_random_effect_data_noisy,
     _run_mgcv_snapshot,
@@ -113,10 +112,6 @@ def _data_gaussian_offset() -> pd.DataFrame:
     return pd.DataFrame({"y": y, "x": x, "off": off})
 
 
-def _data_mrf_lattice() -> pd.DataFrame:
-    return _make_mrf_data().copy()
-
-
 CASES: list[CaseSpec] = [
     CaseSpec(
         case_id="gaussian_cr",
@@ -203,13 +198,6 @@ CASES: list[CaseSpec] = [
         formula='y ~ offset(off) + s(x, bs="cr", k=10)',
         family="gaussian",
         data_factory=_data_gaussian_offset,
-    ),
-    CaseSpec(
-        case_id="mrf_lattice",
-        formula='y ~ s(region, bs="mrf", k=3, xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))',
-        family="gaussian",
-        data_factory=_data_mrf_lattice,
-        criterion_atol=5e-1,
     ),
 ]
 

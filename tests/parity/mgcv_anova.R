@@ -71,16 +71,13 @@ family_obj <- switch(
   gaussian = gaussian(),
   binomial = binomial(link = "logit"),
   poisson = poisson(link = "log"),
-  gamma = Gamma(link = "log"),
+  gamma = Gamma(link = "inverse"),
   negbin = {
     theta <- if (is.null(family_param)) 1.0 else as.numeric(family_param)
     mgcv::nb(theta = theta, link = "log")
   },
   gaulss = mgcv::gaulss(),
   gammals = mgcv::gammals(),
-  ziplss = mgcv::ziplss(),
-  gevlss = mgcv::gevlss(),
-  shash = mgcv::shash(),
   stop(sprintf("Unsupported family for parity snapshot: %s", family_name))
 )
 

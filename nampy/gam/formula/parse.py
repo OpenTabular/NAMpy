@@ -16,6 +16,8 @@ import warnings
 from dataclasses import dataclass, field
 from typing import Any
 
+import numpy as np
+
 _FORMULA_DOT_SENTINEL = "__GAM_DOT__"
 
 
@@ -94,7 +96,7 @@ def strip_offset_wrapper(expr: str) -> str:
 
 
 def _contains_standalone_dot(rhs: str) -> bool:
-    return re.search(r"(^|[~+\-(),\s])\.([~+\-(),\s]|$)", rhs) is not None
+    return re.search(r"(^|[~+\-(),=\s])\.([~+\-(),=\s]|$)", rhs) is not None
 
 
 def _restore_formula_surface(expr: str) -> str:
@@ -105,7 +107,7 @@ def _replace_formula_colons(expr: str) -> str:
     out = expr.replace(":", "@")
     if _contains_standalone_dot(out):
         out = re.sub(
-            r"(^|[~+\-(),\s])\.([~+\-(),\s]|$)",
+            r"(^|[~+\-(),=\s])\.([~+\-(),=\s]|$)",
             rf"\1{_FORMULA_DOT_SENTINEL}\2",
             out,
         )
@@ -159,6 +161,75 @@ def _ordered_unique(items):
         if item not in out:
             out.append(item)
     return out
+
+
+def _as_r_vector(value):
+    if isinstance(value, np.ndarray):
+        return list(np.asarray(value).ravel(order="F"))
+    if isinstance(value, tuple):
+        return list(value)
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def _r_matrix_value(node: ast.Call):
+    args = [_ast_to_value(arg) for arg in node.args]
+    kwargs = {kw.arg: _ast_to_value(kw.value) for kw in node.keywords if kw.arg}
+
+    data = kwargs.pop("data", args[0] if args else np.nan)
+    nrow = kwargs.pop("nrow", args[1] if len(args) > 1 else None)
+    ncol = kwargs.pop("ncol", args[2] if len(args) > 2 else None)
+    byrow = bool(kwargs.pop("byrow", args[3] if len(args) > 3 else False))
+    kwargs.pop("dimnames", None)
+    if kwargs:
+        names = ", ".join(sorted(str(k) for k in kwargs))
+        raise NotImplementedError(f"Unsupported matrix(...) argument(s): {names}.")
+
+    values = np.asarray(_as_r_vector(data))
+    if nrow is None and ncol is None:
+        nrow = int(values.size)
+        ncol = 1
+    elif nrow is None:
+        ncol = int(ncol)
+        if ncol <= 0 or values.size % ncol != 0:
+            raise ValueError("matrix(...) ncol must divide the data length.")
+        nrow = int(values.size // ncol)
+    elif ncol is None:
+        nrow = int(nrow)
+        if nrow <= 0 or values.size % nrow != 0:
+            raise ValueError("matrix(...) nrow must divide the data length.")
+        ncol = int(values.size // nrow)
+    else:
+        nrow = int(nrow)
+        ncol = int(ncol)
+
+    if nrow <= 0 or ncol <= 0:
+        raise ValueError("matrix(...) dimensions must be positive.")
+    if values.size != nrow * ncol:
+        raise ValueError(
+            "matrix(...) data recycling is not supported; provide exactly "
+            "nrow * ncol values."
+        )
+
+    order = "C" if byrow else "F"
+    return values.reshape((nrow, ncol), order=order)
+
+
+def _r_diag_value(node: ast.Call):
+    args = [_ast_to_value(arg) for arg in node.args]
+    kwargs = {kw.arg: _ast_to_value(kw.value) for kw in node.keywords if kw.arg}
+    if kwargs:
+        names = ", ".join(sorted(str(k) for k in kwargs))
+        raise NotImplementedError(f"Unsupported diag(...) argument(s): {names}.")
+    if len(args) != 1:
+        raise NotImplementedError("Only diag(x) formula values are supported.")
+
+    x = args[0]
+    if isinstance(x, (int, np.integer)) and int(x) == x:
+        return np.eye(int(x), dtype=np.float64)
+    values = np.asarray(_as_r_vector(x))
+    return np.diag(values)
 
 
 def all_vars1(expr: str) -> tuple[str, ...]:
@@ -225,7 +296,12 @@ def get_numeric_response_labels(formula_or_lhs: str) -> tuple[int, ...]:
 
 def _ast_to_value(node):
     if isinstance(node, ast.Name):
-        return node.id
+        name = str(node.id)
+        if name == "TRUE":
+            return True
+        if name == "FALSE":
+            return False
+        return name
     if isinstance(node, ast.Constant):
         return node.value
     if isinstance(node, ast.Tuple):
@@ -283,6 +359,10 @@ def _ast_to_value(node):
                     "keyword arguments to c(...) are not supported."
                 )
             return [_ast_to_value(arg) for arg in node.args]
+        if func_name == "matrix":
+            return _r_matrix_value(node)
+        if func_name == "diag":
+            return _r_diag_value(node)
         raise NotImplementedError(
             "Unsupported formula value expression: "
             f"{ast.dump(node, include_attributes=False)}"
@@ -342,7 +422,6 @@ def _is_smooth_call(node) -> bool:
         "s",
         "te",
         "ti",
-        "t2",
     }
 
 
@@ -638,7 +717,7 @@ def _smooth_label(kind: str, features: tuple[str, ...], textra: str | None) -> s
 
 def _parse_smooth_call(node, rhs_src: str, textra: str | None):
     kind = _call_name(node.func)
-    if kind not in {"s", "te", "ti", "t2"}:
+    if kind not in {"s", "te", "ti"}:
         raise ValueError(f"Unknown smooth special {kind!r}.")
 
     features = tuple(_ast_to_expr_label(arg, rhs_src) for arg in node.args)
@@ -654,6 +733,14 @@ def _parse_smooth_call(node, rhs_src: str, textra: str | None):
             kwargs[kw.arg] = _ast_to_value(kw.value)
 
     raw_label = _source_segment(rhs_src, node, f"{kind}({', '.join(features)})")
+    if re.search(rf"^{kind}\s*\(\s*\.", str(raw_label)):
+        # The parser uses a temporary sentinel for formula dot shorthand. For
+        # unsupported smooth-dot inputs such as s(.), source offsets can include
+        # the closing parenthesis in the argument label; normalize it so the
+        # builder can raise the intended mgcv-style unsupported error.
+        features = tuple(
+            "." if str(f).rstrip().rstrip(")") == "." else f for f in features
+        )
     by_value = kwargs.get("by", None)
     by_variable = None if by_value is None else str(by_value)
     return ParsedSmoothTerm(
@@ -733,7 +820,10 @@ def _build_fake_formula_text(
 def _build_pred_names(fake_names: list[str]) -> tuple[str, ...]:
     pred_names: list[str] = []
     for item in fake_names:
-        pred_names.extend(all_vars1(strip_offset_wrapper(item)))
+        stripped = str(strip_offset_wrapper(item)).strip()
+        if stripped == "" or stripped.rstrip(")") == ".":
+            continue
+        pred_names.extend(all_vars1(stripped))
     return tuple(_ordered_unique(pred_names))
 
 

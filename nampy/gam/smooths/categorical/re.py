@@ -93,7 +93,7 @@ def _predict_re_component(x_new, spec: _REComponentSpec):
     return factor_indicator_matrix(x_obj, spec.levels or [])
 
 
-def _combine_re_blocks_mgcv(blocks):
+def _combine_random_effect_blocks(blocks):
     """
     Mirror `mgcv/R/smooth.r::smooth.construct.re.smooth.spec`, which builds
     `model.matrix(~ term1:term2:... - 1)`.
@@ -197,7 +197,7 @@ class RandomEffectTerm(BaseSmoothTerm):
 
         self._set_by_state(X, feature_names)
 
-        B_raw = _combine_re_blocks_mgcv(blocks)
+        B_raw = _combine_random_effect_blocks(blocks)
         B = self._apply_cached_by(B_raw, allow_missing=True)
 
         self._feature_indices = feature_indices
@@ -213,7 +213,7 @@ class RandomEffectTerm(BaseSmoothTerm):
             S_raw = np.eye(q, dtype=np.float64)
             self._penalties = [scale_penalty(B_raw, S_raw)]
             self._ranks = [q]
-            self._set_mgcv_penalty_rescale_factors(
+            self._set_penalty_rescale_factors(
                 [penalty_rescale_factor(B_raw, S_raw)]
             )
         else:
@@ -239,15 +239,10 @@ class RandomEffectTerm(BaseSmoothTerm):
                 )
 
             S_raw_list = [symmetrize_matrix(S) for S in S_list]
-            self._penalties = [
-                scale_penalty(B_raw, S_raw) for S_raw in S_raw_list
-            ]
+            self._penalties = [scale_penalty(B_raw, S_raw) for S_raw in S_raw_list]
             self._ranks = [int(r) for r in ranks.tolist()]
-            self._set_mgcv_penalty_rescale_factors(
-                [
-                    penalty_rescale_factor(B_raw, S_raw)
-                    for S_raw in S_raw_list
-                ]
+            self._set_penalty_rescale_factors(
+                [penalty_rescale_factor(B_raw, S_raw) for S_raw in S_raw_list]
             )
 
         return self
@@ -358,7 +353,7 @@ class RandomEffectTerm(BaseSmoothTerm):
         for idx, spec in zip(self._feature_indices, self._component_specs):
             blocks.append(_predict_re_component(column_as_object(X_new, idx), spec))
 
-        B = _combine_re_blocks_mgcv(blocks)
+        B = _combine_random_effect_blocks(blocks)
 
         z = by_values_from_new_data(X_new, self._by_state)
         return np.asarray(

@@ -131,14 +131,14 @@ def _make_negbin_cyclic_data(seed=2014, n=190, theta=2.0):
     return pd.DataFrame({"y": y, "x0": x0})
 
 
-def _make_gaussian_gp_like_data(seed=2015, n=200):
+def _make_gaussian_radial_data(seed=2015, n=200):
     rng = np.random.default_rng(seed)
     x0 = rng.normal(size=n)
     y = np.exp(-0.4 * x0**2) + 0.4 * np.sin(0.8 * x0) + rng.normal(0.0, 0.12, size=n)
     return pd.DataFrame({"y": y, "x0": x0})
 
 
-def _make_poisson_gp_data(seed=2016, n=200):
+def _make_poisson_radial_data(seed=2016, n=200):
     rng = np.random.default_rng(seed)
     x0 = rng.normal(size=n)
     mu = np.exp(-0.4 + 0.85 * np.exp(-0.4 * x0**2) + 0.35 * np.sin(0.8 * x0))
@@ -146,7 +146,7 @@ def _make_poisson_gp_data(seed=2016, n=200):
     return pd.DataFrame({"y": y, "x0": x0})
 
 
-def _make_gamma_gp_data(seed=2017, n=200):
+def _make_gamma_radial_data(seed=2017, n=200):
     rng = np.random.default_rng(seed)
     x0 = rng.normal(size=n)
     shape = 3.2
@@ -155,7 +155,7 @@ def _make_gamma_gp_data(seed=2017, n=200):
     return pd.DataFrame({"y": y, "x0": x0})
 
 
-def _make_negbin_gp_data(seed=2018, n=200, theta=2.0):
+def _make_negbin_radial_data(seed=2018, n=200, theta=2.0):
     rng = np.random.default_rng(seed)
     x0 = rng.normal(size=n)
     mu = np.exp(-0.2 + 0.9 * np.exp(-0.4 * x0**2) + 0.35 * np.sin(0.8 * x0))
@@ -164,7 +164,7 @@ def _make_negbin_gp_data(seed=2018, n=200, theta=2.0):
     return pd.DataFrame({"y": y, "x0": x0})
 
 
-def _make_binomial_gp_data(seed=2019, n=200):
+def _make_binomial_radial_data(seed=2019, n=200):
     rng = np.random.default_rng(seed)
     x0 = rng.normal(size=n)
     eta = 1.0 + 0.7 * np.exp(-0.4 * x0**2) + 0.6 * np.sin(0.8 * x0)
@@ -233,28 +233,6 @@ FIXED_SP_EXTENDED_CASES = [
         None,
     ),
     (
-        "binomial_t2_full_false",
-        "binomial",
-        'y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6])',
-        lambda: _make_binomial_data(seed=459, n=170),
-        "GCV.Cp",
-        False,
-        1e-3,
-        1e-2,
-        None,
-    ),
-    (
-        "binomial_t2_full_true",
-        "binomial",
-        'y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6], full=True)',
-        lambda: _make_binomial_data(seed=460, n=170),
-        "GCV.Cp",
-        False,
-        2e-3,
-        2e-2,
-        None,
-    ),
-    (
         "binomial_two_cr",
         "binomial",
         'y ~ s(x0, bs="cr", k=6) + s(x1, bs="cr", k=6)',
@@ -318,28 +296,6 @@ FIXED_SP_EXTENDED_CASES = [
         False,
         1e-3,
         1e-2,
-        None,
-    ),
-    (
-        "poisson_t2_full_false",
-        "poisson",
-        'y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6])',
-        lambda: _make_poisson_data(seed=791, n=180),
-        "GCV.Cp",
-        False,
-        1e-3,
-        1e-2,
-        None,
-    ),
-    (
-        "poisson_t2_full_true",
-        "poisson",
-        'y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6], full=True)',
-        lambda: _make_poisson_data(seed=792, n=180),
-        "GCV.Cp",
-        False,
-        2e-3,
-        2e-2,
         None,
     ),
     (
@@ -431,28 +387,6 @@ FIXED_SP_EXTENDED_CASES = [
         None,
     ),
     (
-        "gamma_t2_full_false",
-        "gamma",
-        'y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6])',
-        lambda: _make_gamma_data(seed=1705, n=180),
-        "GCV.Cp",
-        False,
-        2e-3,
-        2e-2,
-        None,
-    ),
-    (
-        "gamma_t2_full_true",
-        "gamma",
-        'y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6], full=True)',
-        lambda: _make_gamma_data(seed=1706, n=180),
-        "GCV.Cp",
-        False,
-        3e-3,
-        3e-2,
-        None,
-    ),
-    (
         "gamma_two_cr",
         "gamma",
         'y ~ s(x0, bs="cr", k=6) + s(x1, bs="cr", k=6)',
@@ -483,28 +417,6 @@ FIXED_SP_EXTENDED_CASES = [
         False,
         1e-3,
         1e-2,
-        None,
-    ),
-    (
-        "negbin_2_theta_t2_full_false",
-        {"name": "negbin", "theta": 2.0},
-        'y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6])',
-        lambda: _make_negbin_data(seed=79, n=170, theta=2.0),
-        "GCV.Cp",
-        False,
-        1e-3,
-        1e-2,
-        None,
-    ),
-    (
-        "negbin_2_theta_t2_full_true",
-        {"name": "negbin", "theta": 2.0},
-        'y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6], full=True)',
-        lambda: _make_negbin_data(seed=80, n=170, theta=2.0),
-        "GCV.Cp",
-        False,
-        2e-3,
-        2e-2,
         None,
     ),
     (
@@ -744,22 +656,11 @@ FIXED_SP_EXTENDED_CASES = [
         "gaussian_ts_single",
         "gaussian",
         'y ~ s(x0, bs="ts", k=8)',
-        lambda: _make_gaussian_gp_like_data(seed=2022, n=200),
+        lambda: _make_gaussian_radial_data(seed=2022, n=200),
         "GCV.Cp",
         False,
         5e-4,
         2e-3,
-        None,
-    ),
-    (
-        "gaussian_gp_single",
-        "gaussian",
-        'y ~ s(x0, bs="gp", k=10)',
-        lambda: _make_gaussian_gp_like_data(seed=2023, n=220),
-        "GCV.Cp",
-        False,
-        1e-3,
-        1e-2,
         None,
     ),
     (
@@ -820,17 +721,6 @@ FIXED_SP_EXTENDED_CASES = [
         None,
     ),
     (
-        "binomial_gp_single",
-        "binomial",
-        'y ~ s(x0, bs="gp", k=10)',
-        lambda: _make_binomial_gp_data(seed=2028, n=220),
-        "GCV.Cp",
-        False,
-        1e-3,
-        1e-2,
-        None,
-    ),
-    (
         "binomial_weighted",
         "binomial",
         'y ~ s(x0, bs="cr", k=8)',
@@ -867,18 +757,7 @@ FIXED_SP_EXTENDED_CASES = [
         "poisson_ts_single",
         "poisson",
         'y ~ s(x0, bs="ts", k=8)',
-        lambda: _make_poisson_gp_data(seed=2031, n=220),
-        "GCV.Cp",
-        False,
-        2e-3,
-        2e-2,
-        None,
-    ),
-    (
-        "poisson_gp_single",
-        "poisson",
-        'y ~ s(x0, bs="gp", k=10)',
-        lambda: _make_poisson_gp_data(seed=2032, n=220),
+        lambda: _make_poisson_radial_data(seed=2031, n=220),
         "GCV.Cp",
         False,
         2e-3,
@@ -911,22 +790,11 @@ FIXED_SP_EXTENDED_CASES = [
         "gamma_ts_single",
         "gamma",
         'y ~ s(x0, bs="ts", k=8)',
-        lambda: _make_gamma_gp_data(seed=2034, n=220),
+        lambda: _make_gamma_radial_data(seed=2034, n=220),
         "GCV.Cp",
         False,
         1e-3,
         1e-2,
-        None,
-    ),
-    (
-        "gamma_gp_single",
-        "gamma",
-        'y ~ s(x0, bs="gp", k=10)',
-        lambda: _make_gamma_gp_data(seed=2035, n=220),
-        "GCV.Cp",
-        False,
-        1e-3,
-        2e-2,
         None,
     ),
     (
@@ -944,18 +812,7 @@ FIXED_SP_EXTENDED_CASES = [
         "negbin_2_theta_ts",
         {"name": "negbin", "theta": 2.0},
         'y ~ s(x0, bs="ts", k=8)',
-        lambda: _make_negbin_gp_data(seed=2037, n=220, theta=2.0),
-        "GCV.Cp",
-        False,
-        2e-3,
-        3e-2,
-        None,
-    ),
-    (
-        "negbin_2_theta_gp",
-        {"name": "negbin", "theta": 2.0},
-        'y ~ s(x0, bs="gp", k=10)',
-        lambda: _make_negbin_gp_data(seed=2038, n=220, theta=2.0),
+        lambda: _make_negbin_radial_data(seed=2037, n=220, theta=2.0),
         "GCV.Cp",
         False,
         2e-3,
@@ -985,17 +842,6 @@ FIXED_SP_EXTENDED_CASES = [
         None,
     ),
     (
-        "gaussian_t2_cr",
-        "gaussian",
-        'y ~ t2(x0, x1, bs=["cr", "cr"], k=[6, 6])',
-        lambda: _make_gaussian_data(seed=4102, n=190),
-        "GCV.Cp",
-        False,
-        1e-3,
-        2e-2,
-        None,
-    ),
-    (
         "gaussian_ps_m11",
         "gaussian",
         'y ~ s(x0, bs="ps", k=6, xt=list(m=c(2,3)))',
@@ -1004,17 +850,6 @@ FIXED_SP_EXTENDED_CASES = [
         False,
         2e-3,
         3e-2,
-        None,
-    ),
-    (
-        "gaussian_gp_m",
-        "gaussian",
-        'y ~ s(x0, bs="gp", k=10, xt=list(m=c(2, 0.8, 1.2)))',
-        lambda: _make_gaussian_cyclic_data(seed=4104, n=200),
-        "GCV.Cp",
-        False,
-        3e-3,
-        5e-2,
         None,
     ),
     (
@@ -1037,28 +872,6 @@ FIXED_SP_EXTENDED_CASES = [
         False,
         5e-3,
         1e-2,
-        None,
-    ),
-    (
-        "poisson_t2_cr",
-        "poisson",
-        'y ~ t2(x0, x1, bs=["cr", "cr"], k=[6, 6])',
-        lambda: _make_poisson_data(seed=4107, n=190),
-        "GCV.Cp",
-        False,
-        2e-3,
-        3e-2,
-        None,
-    ),
-    (
-        "poisson_t2_cc",
-        "poisson",
-        'y ~ t2(x0, x1, bs=["cc", "cc"], k=[6, 6])',
-        lambda: _make_poisson_data(seed=4108, n=200),
-        "GCV.Cp",
-        False,
-        3e-3,
-        4e-2,
         None,
     ),
     (
@@ -1106,39 +919,6 @@ FIXED_SP_EXTENDED_CASES = [
         None,
     ),
     (
-        "gamma_t2_cr",
-        "gamma",
-        'y ~ t2(x0, x1, bs=["cr", "cr"], k=[6, 6])',
-        lambda: _make_gamma_data(seed=4113, n=180),
-        "GCV.Cp",
-        False,
-        3e-3,
-        5e-2,
-        None,
-    ),
-    (
-        "gamma_t2_cc",
-        "gamma",
-        'y ~ t2(x0, x1, bs=["cc", "cc"], k=[6, 6])',
-        lambda: _make_gamma_data(seed=4114, n=190),
-        "GCV.Cp",
-        False,
-        3e-3,
-        4e-2,
-        None,
-    ),
-    (
-        "gamma_t2_ts",
-        "gamma",
-        'y ~ t2(x0, x1, bs=["ts", "ts"], k=[6, 6])',
-        lambda: _make_gamma_data(seed=4115, n=190),
-        "GCV.Cp",
-        False,
-        2e-3,
-        3e-2,
-        None,
-    ),
-    (
         "gamma_ps_m11",
         "gamma",
         'y ~ s(x0, bs="ps", k=6, xt=list(m=c(2,3)))',
@@ -1147,17 +927,6 @@ FIXED_SP_EXTENDED_CASES = [
         False,
         1e-3,
         2e-2,
-        None,
-    ),
-    (
-        "gamma_gp_m",
-        "gamma",
-        'y ~ s(x0, bs="gp", k=10, xt=list(m=c(2, 0.8, 1.2)))',
-        lambda: _make_gamma_gp_data(seed=4117, n=200),
-        "GCV.Cp",
-        False,
-        2e-3,
-        4e-2,
         None,
     ),
     (
@@ -1183,28 +952,6 @@ FIXED_SP_EXTENDED_CASES = [
         None,
     ),
     (
-        "binomial_t2_cr",
-        "binomial",
-        'y ~ t2(x0, x1, bs=["cr", "cr"], k=[6, 6])',
-        lambda: _make_binomial_data(seed=4120, n=190),
-        "GCV.Cp",
-        False,
-        5e-3,
-        8e-2,
-        None,
-    ),
-    (
-        "binomial_t2_cc",
-        "binomial",
-        'y ~ t2(x0, x1, bs=["cc", "cc"], k=[6, 6])',
-        lambda: _make_binomial_data(seed=4121, n=190),
-        "GCV.Cp",
-        False,
-        5e-3,
-        8e-2,
-        None,
-    ),
-    (
         "binomial_ps_m11",
         "binomial",
         'y ~ s(x0, bs="ps", k=6, xt=list(m=c(2,3)))',
@@ -1213,17 +960,6 @@ FIXED_SP_EXTENDED_CASES = [
         False,
         2e-3,
         3e-2,
-        None,
-    ),
-    (
-        "binomial_gp_m",
-        "binomial",
-        'y ~ s(x0, bs="gp", k=10, xt=list(m=c(2, 0.8, 1.2)))',
-        lambda: _make_binomial_data(seed=4123, n=180),
-        "GCV.Cp",
-        False,
-        5e-3,
-        8e-2,
         None,
     ),
     (
@@ -1282,17 +1018,6 @@ FIXED_SP_EXTENDED_CASES = [
         None,
     ),
     (
-        "negbin_2_theta_t2_cc",
-        {"name": "negbin", "theta": 2.0},
-        'y ~ t2(x0, x1, bs=["cc", "cc"], k=[6, 6])',
-        lambda: _make_negbin_data(seed=4129, n=190, theta=2.0),
-        "GCV.Cp",
-        False,
-        3e-3,
-        4e-2,
-        None,
-    ),
-    (
         "negbin_2_theta_ps_m11",
         {"name": "negbin", "theta": 2.0},
         'y ~ s(x0, bs="ps", k=6, xt=list(m=c(2,3)))',
@@ -1301,17 +1026,6 @@ FIXED_SP_EXTENDED_CASES = [
         False,
         1e-3,
         2e-2,
-        None,
-    ),
-    (
-        "negbin_0p5_gp_m",
-        {"name": "negbin", "theta": 0.5},
-        'y ~ s(x0, bs="gp", k=10, xt=list(m=c(2, 0.8, 1.2)))',
-        lambda: _make_negbin_data(seed=4131, n=200, theta=0.5),
-        "GCV.Cp",
-        False,
-        5e-3,
-        8e-2,
         None,
     ),
 ]

@@ -85,7 +85,7 @@ def test_postfit_hessian_preserves_exact_pirls_optimizer_hessian(monkeypatch):
         smoothing_params=np.array([1.0], dtype=np.float64),
         _optim_result=SimpleNamespace(
             hess=np.array([[7.0]], dtype=np.float64),
-            mgcv_exact_outer_derivatives=True,
+            strict_outer_derivatives=True,
         ),
     )
 
@@ -120,7 +120,7 @@ def test_optimizer_endpoint_diagnostics_recomputes_invalid_derivatives_and_proje
         y_=np.array([1.0], dtype=np.float64),
         smoothing_params=np.array([1.0], dtype=np.float64),
         smoothing_fixed_mask_=None,
-        min_sp_=None,
+        min_sp_=np.array([1.0], dtype=np.float64),
         sp_log_bounds=(0.0, 5.0),
         _optim_result=SimpleNamespace(
             success=True,

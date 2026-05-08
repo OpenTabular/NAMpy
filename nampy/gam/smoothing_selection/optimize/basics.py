@@ -11,6 +11,7 @@ from ..._model_state import (
     _penalty_blocks_seq,
 )
 from ...fit.backends import GENERAL_FAMILY_BACKEND
+from ...fit.capabilities import uses_closed_form_solver
 from ...fit.penalized_system import build_full_design
 from ...linalg.norms import r_matrix_norm_max_abs
 from ..criteria import resolve_ml_reml_scoring_backend
@@ -18,8 +19,11 @@ from ..criteria import resolve_ml_reml_scoring_backend
 
 def supports_criterion_gradient(model, method):
     method = str(method).lower()
-    if method in {"gcv", "ncv", "qncv", "ubre", "aic", "ubreaic"}:
-        return True
+    if method in {"gcv", "ubre", "aic", "ubreaic"}:
+        return bool(
+            uses_closed_form_solver(model)
+            or getattr(model.family, "supports_exact_pirls_first_derivatives", False)
+        )
     if method not in {"ml", "reml", "laml"}:
         return False
     backend = resolve_ml_reml_scoring_backend(model, method=method)
@@ -43,9 +47,10 @@ def supports_criterion_gradient(model, method):
 def supports_criterion_hessian(model, method):
     method = str(method).lower()
     if method in {"gcv", "ubre", "aic", "ubreaic"}:
-        return True
-    if method in {"ncv", "qncv"}:
-        return False
+        return bool(
+            uses_closed_form_solver(model)
+            or getattr(model.family, "supports_exact_pirls_second_derivatives", False)
+        )
     if method not in {"ml", "reml", "laml"}:
         return False
     backend = resolve_ml_reml_scoring_backend(model, method=method)
@@ -183,7 +188,7 @@ def _initial_smoothing_params_from_design_balance(model, y):
     return def_sp
 
 
-def _mgcv_initial_sp_from_packed_penalties(
+def _initial_smoothing_params_from_packed_penalties(
     X_weighted: np.ndarray,
     penalties: list[np.ndarray],
     offsets_1based: np.ndarray,
@@ -275,7 +280,7 @@ def _mgcv_initial_sp_from_packed_penalties(
     return np.maximum(np.asarray(def_sp, dtype=np.float64), 1e-12)
 
 
-def _initial_smoothing_params_mgcv_style(model, y):
+def _initial_smoothing_params_from_design(model, y):
     penalty_blocks = tuple(_penalty_blocks_seq(model))
     n_sp = _n_smoothing_params(model)
     if not penalty_blocks or n_sp == 0:
@@ -292,8 +297,7 @@ def _initial_smoothing_params_mgcv_style(model, y):
                 _qr_coef_pivoted,
                 scipy_qr,
             )
-            from ...fit.solvers.general_family_solver import (
-                _general_family_t2_db_drho_sign_map,
+            from ...fit.solvers.general_family.fixed_smoothing import (
                 build_general_family_setup_state,
             )
             from ...linalg import upper_triangular_rrank
@@ -381,43 +385,6 @@ def _initial_smoothing_params_mgcv_style(model, y):
             exact_setup = build_estimate_gam_setup_state(model)
             X = np.asarray(fit5_setup.X_initial, dtype=np.float64).copy()
             E_init = np.asarray(exact_setup.Eb, dtype=np.float64).copy()
-            # `mgcv::initial.spg()` evaluates the family initializer on the
-            # `Sl.initial.repara()` design, but the sign choices of the trailing
-            # low-eigenvalue directions in multi-penalty `Sl` blocks matter
-            # because `gaulss`/other general-family initializers use `E` only as a
-            # regularizer. The broader fit path is orientation-invariant, but the
-            # temporary `initial.spg` Hessian is not. This local sign correction
-            # is only needed for tensor-ANOVA `t2` blocks; ordinary multi-penalty
-            # smooths should keep the raw mgcv eigenvector signs.
-            for block in fit5_setup.Sl:
-                D_block = np.asarray(getattr(block, "D", None), dtype=np.float64)
-                if (
-                    D_block.ndim != 2
-                    or len(block.S) <= 1
-                    or str(getattr(block, "sign_mode", "raw")).lower() != "tensor_anova"
-                ):
-                    continue
-                n_tail = min(len(block.S), int(D_block.shape[1]))
-                if n_tail <= 0:
-                    continue
-                tail_cols = np.arange(block.start0, block.stop0, dtype=int)[-n_tail:]
-                tail_sums = np.sum(D_block[:, -n_tail:], axis=0)
-                for j, col in enumerate(tail_cols):
-                    if float(tail_sums[j]) > 0.0:
-                        X[:, col] *= -1.0
-                        if E_init.ndim == 2 and col < E_init.shape[1]:
-                            E_init[:, col] *= -1.0
-            sign_map = _general_family_t2_db_drho_sign_map(model, fit5_setup)
-            if sign_map is None and len(fit5_setup.jj) > 2:
-                sign_layout = type("_InitialSpgSignLayout", (), {})()
-                sign_layout.jj = list(fit5_setup.jj[:2])
-                sign_layout.X_full = fit5_setup.X_full
-                sign_layout.reduced_to_full_idx = fit5_setup.reduced_to_full_idx
-                sign_map = _general_family_t2_db_drho_sign_map(model, sign_layout)
-            if sign_map is not None and sign_map.shape == (X.shape[1],):
-                X = X * sign_map[None, :]
-                if E_init.ndim == 2 and E_init.shape[1] == sign_map.size:
-                    E_init = E_init * sign_map[None, :]
             weights = (
                 np.ones_like(np.asarray(y, dtype=np.float64).ravel(), dtype=np.float64)
                 if getattr(model, "prior_weights_", None) is None
@@ -473,11 +440,13 @@ def _initial_smoothing_params_mgcv_style(model, y):
                 S_i = np.asarray(S_i, dtype=np.float64)
                 if S_i.size == 0:
                     continue
-                start = int(exact_setup.off[i]) - 1
-                stop = start + int(S_i.shape[1])
-                if start < 0 or stop > lbb.shape[0]:
+                start_idx = int(exact_setup.off[i]) - 1
+                stop = start_idx + int(S_i.shape[1])
+                if start_idx < 0 or stop > lbb.shape[0]:
                     continue
-                block_lbb = np.asarray(lbb[start:stop, start:stop], dtype=np.float64)
+                block_lbb = np.asarray(
+                    lbb[start_idx:stop, start_idx:stop], dtype=np.float64
+                )
                 rank_i = int(exact_setup.rank[i])
 
                 if rank_i < S_i.shape[1]:
@@ -547,7 +516,7 @@ def _initial_smoothing_params_mgcv_style(model, y):
     w = np.sqrt(
         np.clip(prior_w * mu_eta * mu_eta / np.maximum(var_mu, 1e-12), 1e-12, None)
     )
-    return _mgcv_initial_sp_from_packed_penalties(
+    return _initial_smoothing_params_from_packed_penalties(
         w[:, None] * X,
         [np.asarray(S_i, dtype=np.float64) for S_i in list(setup.S)],
         np.asarray(setup.off, dtype=np.int64),

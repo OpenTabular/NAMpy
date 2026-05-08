@@ -5,12 +5,12 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from nampy.gam.fit.solvers.general_family_solver import (
+from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     _general_family_term_start_stop,
     _GeneralPredictorLayout,
     build_general_penalty_setup,
 )
-from nampy.gam.fit.solvers.general_newton_solver import (
+from nampy.gam.fit.solvers.general_family.newton import (
     _sl_ldetS,
     postprocess_general_newton_fit,
 )
@@ -240,70 +240,6 @@ def test_predict_general_terms_rejects_raw_prediction_basis(monkeypatch):
         match="type='terms' is not supported for general-family models whose prediction parameterization is wider than the fitted coefficient space",
     ):
         general_predict_module.predict_general_values(SimpleNamespace(), type="terms")
-
-
-def test_predict_general_iterms_rejects_multi_predictor_layout(monkeypatch):
-    """
-    Owner-contract coverage verifying that predict general iterms downgrades multi
-    predictor layout.
-    """
-    from nampy.gam.predict import predictions as predictions_module
-
-    monkeypatch.setattr(general_predict_module, "_term_blocks_seq", lambda model: ())
-    monkeypatch.setattr(
-        general_predict_module,
-        "general_family_prediction_offset",
-        lambda model, X, offset: None,
-    )
-    monkeypatch.setattr(
-        general_predict_module,
-        "general_family_prediction_layout",
-        lambda model, X: SimpleNamespace(
-            predictor_slices=(slice(0, 1), slice(1, 2)),
-            lpmatrix=np.eye(2, dtype=np.float64),
-            Z_new=np.eye(2, dtype=np.float64),
-            Xp_blocks=[
-                np.array([[1.0], [0.0]], dtype=np.float64),
-                np.array([[0.0], [1.0]], dtype=np.float64),
-            ],
-            jj=[np.array([0], dtype=int), np.array([1], dtype=int)],
-        ),
-    )
-    monkeypatch.setattr(
-        general_predict_module,
-        "general_family_link_prediction_with_offset",
-        lambda model, layout, offset: np.zeros((2, 2), dtype=np.float64),
-    )
-    monkeypatch.setattr(
-        predictions_module,
-        "_prediction_term_groups",
-        lambda model: (SimpleNamespace(coef_slice=slice(0, 1)),),
-    )
-    monkeypatch.setattr(
-        predictions_module,
-        "_group_term_contribution",
-        lambda model, Z_new, group: np.ones(Z_new.shape[0], dtype=np.float64),
-    )
-    monkeypatch.setattr(
-        predictions_module,
-        "_group_standard_error_rows",
-        lambda model, lpmatrix, group, type, iterms_mean_row: (
-            np.ones((lpmatrix.shape[0], 1), dtype=np.float64),
-            slice(0, 1),
-        ),
-    )
-
-    model = SimpleNamespace(_select_cov=lambda cov=None: np.eye(2, dtype=np.float64))
-    with pytest.warns(
-        UserWarning,
-        match="type='iterms' not available for multiple predictor cases; using type='terms' instead.",
-    ):
-        values = general_predict_module.predict_general_values(
-            model,
-            type="iterms",
-        )
-
-    np.testing.assert_allclose(values, np.ones((2, 1), dtype=np.float64))
 
 
 def test_postprocess_general_newton_fit_uses_exact_penalty_derivatives_for_vb_corr():

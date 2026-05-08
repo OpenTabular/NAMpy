@@ -52,10 +52,6 @@ def make_tensor_term(model, spec, *, knots=None):
         )
 
     kind = str(spec.get("kind", "te")).lower()
-    if kind == "t2" and ("fx" in spec or "fixed" in spec):
-        raise NotImplementedError(
-            "t2() does not support fx/fixed in mgcv; remove the argument."
-        )
     k = spec.get("k", model.k)
     basis = spec.get("basis", model.basis)
     label = spec.get("label", f"{kind}({', '.join(map(str, features))})")
@@ -63,8 +59,6 @@ def make_tensor_term(model, spec, *, knots=None):
     metadata = spec.get("metadata", None)
     by = spec.get("by", None)
     mc = spec.get("mc", None)
-    full = bool(spec.get("full", False))
-    ord_ = spec.get("ord", None)
     fixed = _coerce_fx(
         spec.get("fixed", spec.get("fx", False)),
         kind=kind,
@@ -85,27 +79,6 @@ def make_tensor_term(model, spec, *, knots=None):
                 "of the model provides them.",
                 stacklevel=2,
             )
-
-    if kind == "t2":
-        return TermSpec(
-            kind="smooth",
-            features=tuple(str(f) for f in features),
-            by_variable=by,
-            smooth_spec=build_smooth_spec(
-                special=kind,
-                bs=basis,
-                k=k,
-                full=full,
-                ord_=ord_,
-                fx=fixed,
-                select=select,
-                sp=sp,
-                knots=term_knots,
-            ),
-            smoothing_id=(None if smoothing_id is None else str(smoothing_id)),
-            label=label,
-            metadata=dict(metadata or {}),
-        )
 
     return TermSpec(
         kind="smooth",
@@ -200,29 +173,6 @@ def make_predictor_specs(model, feature_names, *, knots=None):
                         metadata={},
                     )
                 )
-            elif basis == "gp":
-                main_terms.append(
-                    TermSpec(
-                        kind="smooth",
-                        features=(str(name),),
-                        by_variable=None,
-                        smooth_spec=build_smooth_spec(
-                            special="s",
-                            bs="gp",
-                            k=model.k,
-                            m=None,
-                            sp=None,
-                            fx=False,
-                            select=bool(model.select),
-                            pc=None,
-                            knots=term_knots,
-                            xt=None,
-                        ),
-                        smoothing_id=None,
-                        label=name,
-                        metadata={},
-                    )
-                )
             elif basis == "re":
                 main_terms.append(
                     TermSpec(
@@ -243,21 +193,18 @@ def make_predictor_specs(model, feature_names, *, knots=None):
             else:
                 raise NotImplementedError(
                     "Automatic main-effect construction currently supports "
-                    "{'cr','cs','cc','ps','tp','ts','gp','re'}, "
+                    "{'cr','cs','cc','ps','tp','ts','re'}, "
                     f"got {model.basis!r}."
                 )
 
         terms.extend(main_terms)
 
     has_full_te = False
-    has_t2 = False
     if model.tensor_terms is not None:
         for spec in model.tensor_terms:
             term = make_tensor_term(model, spec, knots=knots)
             if getattr(term, "term_type", None) == "tensor_smooth":
                 has_full_te = True
-            if getattr(term, "term_type", None) == "tensor_anova":
-                has_t2 = True
             terms.append(term)
 
     if model.main_effects and has_full_te:
@@ -267,14 +214,6 @@ def make_predictor_specs(model, feature_names, *, knots=None):
             "interpretable than a ti() ANOVA-style decomposition.",
             stacklevel=2,
         )
-    if model.main_effects and has_t2:
-        warnings.warn(
-            "Model contains both separate main-effect smooths and t2() terms. "
-            "t2() already contains ANOVA-style lower-order components, so this combination "
-            "can create strong overlap in the current framework.",
-            stacklevel=2,
-        )
-
     return [LinearPredictorSpec(name="eta", terms=terms)]
 
 

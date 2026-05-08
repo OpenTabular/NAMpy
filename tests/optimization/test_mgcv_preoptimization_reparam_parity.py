@@ -24,7 +24,6 @@ REPARAM_CASE_IDS = {
     "gaussian_linked_id_two_cr",
     "gaussian_select_true_two_cr",
     "gaussian_ti_two_dim",
-    "gaussian_t2_full_false",
     "gaussian_fs",
     "gaussian_random_effect",
     "gaussian_numeric_by_cr",
@@ -56,10 +55,7 @@ def test_reparam_case_matrix_covers_requested_surface():
     assert any('id="' in str(case[2]) for case in REPARAM_CASES)
     assert any("by=z" in str(case[2]) for case in REPARAM_CASES)
     assert any("by=f" in str(case[2]) for case in REPARAM_CASES)
-    assert any(
-        any(token in str(case[2]) for token in ("ti(", "t2(", 'bs="fs"'))
-        for case in REPARAM_CASES
-    )
+    assert any(any(token in str(case[2]) for token in ("ti(", 'bs="fs"')) for case in REPARAM_CASES)
     assert any('bs="re"' in str(case[2]) for case in REPARAM_CASES)
 
 

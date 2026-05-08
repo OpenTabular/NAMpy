@@ -55,12 +55,14 @@ def _term_indices_for_concurvity(model, n_coef: int):
     if len(blocks) == 0:
         raise ValueError("No smooth or parametric components available for concurvity.")
 
-    # mgcv/R/mgcv.r::concurvity labels only the contiguous parametric block
-    # before the first smooth. Later parametric columns remain in the full
-    # "rest of model" matrix, but are not pairwise concurvity components.
+    # mgcv/R/mgcv.r::concurvity prepends a "para" block via:
+    #   start <- c(1,start); stop <- c(min(start)-1,stop)
+    # Because stop is computed after prepending 1, the upstream block is
+    # effectively column 1 only, even when more parametric columns precede the
+    # first smooth.
     first_smooth = min(smooth_starts)
     if first_smooth > 0:
-        blocks.insert(0, ("para", np.arange(first_smooth, dtype=int)))
+        blocks.insert(0, ("para", np.array([0], dtype=int)))
 
     return blocks
 

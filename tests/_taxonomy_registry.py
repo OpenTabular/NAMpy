@@ -22,11 +22,8 @@ _SMOOTH_MARK_NAMES = {
     "ts": "smooth_ts",
     "te": "smooth_te",
     "ti": "smooth_ti",
-    "t2": "smooth_t2",
-    "gp": "smooth_gp",
     "fs": "smooth_fs",
     "sz": "smooth_sz",
-    "mrf": "smooth_mrf",
     "re": "smooth_re",
 }
 
@@ -38,9 +35,6 @@ _FAMILY_MARK_NAMES = {
     "negbin": "family_negbin",
     "gaulss": "family_gaulss",
     "gammals": "family_gammals",
-    "gevlss": "family_gevlss",
-    "shashlss": "family_shashlss",
-    "ziplss": "family_ziplss",
     "general": "family_general",
 }
 
@@ -86,9 +80,6 @@ _DEFAULT_MARKS_BY_FILE = {
     "test_mgcv_gamlss_core.py": {"surface_derivatives", "family_general"},
     "test_mgcv_gamlss_gaulss.py": {"surface_derivatives", "family_gaulss"},
     "test_mgcv_gamlss_gammals.py": {"surface_derivatives", "family_gammals"},
-    "test_mgcv_gamlss_gevlss.py": {"surface_derivatives", "family_gevlss"},
-    "test_mgcv_gamlss_shashlss.py": {"surface_derivatives", "family_shashlss"},
-    "test_mgcv_gamlss_ziplss.py": {"surface_derivatives", "family_ziplss"},
     "test_mgcv_gaussian_backend_selection.py": {
         "surface_backend",
         "family_gaussian",
@@ -147,14 +138,6 @@ _PRIMARY_COVERAGE_BY_MARK = {
         "tests/smooths/test_mgcv_ti_stage_parity.py",
         "tests/parity/test_mgcv_output_parity.py",
     ),
-    "smooth_t2": (
-        "tests/smooths/test_mgcv_t2_stage_parity.py",
-        "tests/parity/test_mgcv_output_parity.py",
-    ),
-    "smooth_gp": (
-        "tests/smooths/test_mgcv_raw_constructor_parity.py",
-        "tests/smooths/test_mgcv_linked_id_trace_parity.py",
-    ),
     "smooth_fs": (
         "tests/smooths/test_mgcv_smoothcon_parity.py",
         "tests/parity/test_mgcv_snapshot_extended_matrix.py",
@@ -162,10 +145,6 @@ _PRIMARY_COVERAGE_BY_MARK = {
     "smooth_sz": (
         "tests/smooths/test_mgcv_smoothcon_parity.py",
         "tests/parity/test_mgcv_snapshot_extended_matrix.py",
-    ),
-    "smooth_mrf": (
-        "tests/smooths/test_mgcv_smoothcon_parity.py",
-        "tests/parity/test_mgcv_snapshot_core_matrix.py",
     ),
     "smooth_re": (
         "tests/smooths/test_mgcv_smoothcon_parity.py",
@@ -198,9 +177,6 @@ _PRIMARY_COVERAGE_BY_MARK = {
         "tests/optimization/test_mgcv_outer_optimization_parity.py",
     ),
     "family_gammals": ("tests/families/test_mgcv_gamlss_gammals.py",),
-    "family_gevlss": ("tests/families/test_mgcv_gamlss_gevlss.py",),
-    "family_shashlss": ("tests/families/test_mgcv_gamlss_shashlss.py",),
-    "family_ziplss": ("tests/families/test_mgcv_gamlss_ziplss.py",),
     "family_general": (
         "tests/families/test_general_family_mgcv_parity.py",
         "tests/families/test_mgcv_gamlss_core.py",
@@ -218,7 +194,6 @@ _PRIMARY_COVERAGE_BY_MARK = {
         "tests/parity/test_mgcv_snapshot_parity.py",
     ),
     "method_laml": (
-        "tests/optimization/test_mgcv_ncv_qncv_parity.py",
         "tests/optimization/test_mgcv_joint_branch_trace_parity.py",
     ),
     "select_true": (
@@ -279,11 +254,6 @@ _DIRECT_SUPPORTED_LEAF_EXPECTATIONS = (
         "snapshot_extended_gaussian_sz_select_reml",
         "tests/parity/test_mgcv_snapshot_extended_matrix.py",
         "test_gaussian_sz_select_reml_matches_mgcv",
-    ),
-    _leaf(
-        "snapshot_extended_gaussian_mrf_select_reml",
-        "tests/parity/test_mgcv_snapshot_extended_matrix.py",
-        "test_gaussian_mrf_select_reml_matches_mgcv",
     ),
     _leaf(
         "snapshot_extended_weighted_poisson_fixed",
@@ -391,11 +361,6 @@ _DIRECT_SUPPORTED_LEAF_EXPECTATIONS = (
         "test_gaussian_ti_cc_cc_fixed_matches_mgcv",
     ),
     _leaf(
-        "snapshot_extended_gaussian_t2_cc_cc_reml",
-        "tests/parity/test_mgcv_snapshot_extended_matrix.py",
-        "test_gaussian_t2_cc_cc_reml_matches_mgcv",
-    ),
-    _leaf(
         "snapshot_extended_gaussian_te_ts_cr_fixed",
         "tests/parity/test_mgcv_snapshot_extended_matrix.py",
         "test_gaussian_te_ts_cr_fixed_matches_mgcv",
@@ -409,11 +374,6 @@ _DIRECT_SUPPORTED_LEAF_EXPECTATIONS = (
         "snapshot_extended_gaussian_te_tp_cr_fixed",
         "tests/parity/test_mgcv_snapshot_extended_matrix.py",
         "test_gaussian_te_tp_cr_fixed_matches_mgcv",
-    ),
-    _leaf(
-        "snapshot_extended_gaussian_ti_gp_cr_fixed",
-        "tests/parity/test_mgcv_snapshot_extended_matrix.py",
-        "test_gaussian_ti_gp_cr_fixed_matches_mgcv",
     ),
     _leaf(
         "snapshot_extended_gaussian_te_select_reml",
@@ -481,11 +441,6 @@ _DIRECT_SUPPORTED_LEAF_EXPECTATIONS = (
         "test_tp_multivariate_pc_fixed_sp_matches_mgcv",
     ),
     _leaf(
-        "pc_gp_multivariate_fixed",
-        "tests/smooths/test_mgcv_pc_id_parity.py",
-        "test_gp_multivariate_pc_fixed_sp_matches_mgcv",
-    ),
-    _leaf(
         "pc_ts_multivariate_fixed",
         "tests/smooths/test_mgcv_pc_id_parity.py",
         "test_ts_multivariate_pc_fixed_sp_matches_mgcv",
@@ -541,11 +496,6 @@ _DIRECT_SUPPORTED_LEAF_EXPECTATIONS = (
         "test_ts_numeric_by_pc_reml_matches_mgcv",
     ),
     _leaf(
-        "pc_gp_numeric_by_reml",
-        "tests/smooths/test_mgcv_pc_id_parity.py",
-        "test_gp_numeric_by_pc_reml_matches_mgcv",
-    ),
-    _leaf(
         "pc_ps_numeric_by_reml",
         "tests/smooths/test_mgcv_pc_id_parity.py",
         "test_ps_numeric_by_pc_reml_matches_mgcv",
@@ -569,11 +519,6 @@ _DIRECT_SUPPORTED_LEAF_EXPECTATIONS = (
         "linked_id_cr_incompatible_reml",
         "tests/smooths/test_mgcv_pc_id_parity.py",
         "test_linked_cr_incompatible_k_reml_matches_mgcv",
-    ),
-    _leaf(
-        "linked_id_pc_internal_consistency",
-        "tests/smooths/test_mgcv_pc_id_parity.py",
-        "test_linked_cr_with_pc_fits_and_enforces_constraint",
     ),
     _leaf(
         "pc_cr_factor_by_select_reml",
@@ -670,18 +615,6 @@ _DIRECT_SUPPORTED_LEAF_EXPECTATIONS = (
         "terms",
     ),
     _leaf(
-        "output_transformed_formula_iterms",
-        "tests/parity/test_mgcv_output_parity.py",
-        "test_output_parity_newdata_transformed_formula_term_surfaces",
-        "iterms",
-    ),
-    _leaf(
-        "output_transformed_formula_iterms_type_2",
-        "tests/parity/test_mgcv_output_parity.py",
-        "test_output_parity_newdata_transformed_formula_term_surfaces",
-        "iterms_type_2",
-    ),
-    _leaf(
         "output_transformed_formula_training_standard_errors",
         "tests/parity/test_mgcv_output_parity.py",
         "test_output_parity_transformed_formula_training_standard_errors_reml",
@@ -744,17 +677,5 @@ _DIRECT_SUPPORTED_LEAF_EXPECTATIONS = (
         "tests/parity/test_mgcv_general_family_prediction_stage_parity.py",
         "test_linked_id_public_prediction_surfaces_match_mgcv_on_supported_gaussian_case",
         "terms",
-    ),
-    _leaf(
-        "general_stage_iterms_rejection_default",
-        "tests/parity/test_mgcv_general_family_prediction_stage_parity.py",
-        "test_general_family_iterms_rejects_multi_predictor_public_surface",
-        "default",
-    ),
-    _leaf(
-        "general_stage_iterms_rejection_type_2",
-        "tests/parity/test_mgcv_general_family_prediction_stage_parity.py",
-        "test_general_family_iterms_rejects_multi_predictor_public_surface",
-        "type_2",
     ),
 )

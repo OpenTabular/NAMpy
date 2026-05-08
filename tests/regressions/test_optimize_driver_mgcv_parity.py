@@ -8,6 +8,7 @@ import pytest
 from scipy.optimize import OptimizeResult
 
 from nampy.gam import GAM
+from nampy.gam.fit import orchestrator as orchestrator_module
 from nampy.gam.fit import smoothing_params as fit_smoothing_params_module
 from nampy.gam.smoothing_selection.optimize import driver as driver_module
 from nampy.gam.smoothing_selection.optimize import objectives as objectives_module
@@ -44,8 +45,6 @@ def test_efs_forces_reml_before_fixed_sp_return(monkeypatch):
         supports_ml=True,
         supports_laml=True,
         supports_gcv=True,
-        supports_ncv=True,
-        supports_qncv=True,
         supports_ubre=False,
         known_scale=None,
     )
@@ -86,6 +85,131 @@ def test_efs_forces_reml_before_fixed_sp_return(monkeypatch):
     assert model.smoothing_score_ == pytest.approx(12.5, abs=0.0)
 
 
+@pytest.mark.parametrize("method", ["gcv", "ubre", "aic", "ubreaic"])
+def test_general_family_non_reml_methods_force_reml(monkeypatch, method):
+    captured = {}
+
+    family = SimpleNamespace(
+        name="gaulss",
+        family_class="general",
+        supports_closed_form_solve=False,
+        supports_pirls=False,
+        supports_reml=True,
+        supports_ml=True,
+        supports_laml=True,
+        supports_gcv=False,
+        supports_ubre=False,
+        known_scale=None,
+    )
+    model = SimpleNamespace(
+        family=family,
+        smoothing_fixed_mask_=None,
+        smoothing_params=np.empty((0,), dtype=np.float64),
+        min_sp_=None,
+        offset_train_=None,
+        prior_weights_=None,
+    )
+
+    monkeypatch.setattr(driver_module, "_n_smoothing_params", lambda model: 0)
+    monkeypatch.setattr(driver_module, "_term_blocks_seq", lambda model: [])
+    monkeypatch.setattr(
+        driver_module,
+        "resolve_ml_reml_scoring_backend",
+        lambda model, method: "general_family",
+    )
+
+    def _criterion_value(model, y, log_sp, method):
+        captured["method"] = method
+        captured["log_sp_shape"] = np.asarray(log_sp, dtype=np.float64).shape
+        return 8.75
+
+    monkeypatch.setattr(driver_module, "criterion_value", _criterion_value)
+
+    out = driver_module.optimize_smoothing_params(
+        model,
+        np.array([0.0, 1.0, 2.0], dtype=np.float64),
+        method=method,
+        optimizer="outer_newton",
+    )
+
+    assert out is model
+    assert model._optim_method == "reml"
+    assert captured == {"method": "reml", "log_sp_shape": (0,)}
+    assert model.smoothing_score_ == pytest.approx(8.75, abs=0.0)
+
+
+@pytest.mark.parametrize("method", ["gcv", "ubre", "aic", "ubreaic"])
+def test_public_fit_coerces_general_family_method_before_support_check(
+    monkeypatch, method
+):
+    calls = {}
+
+    family = SimpleNamespace(
+        name="gaulss",
+        family_class="general",
+        validate_y=lambda y: np.asarray(y, dtype=np.float64).ravel(),
+    )
+    model = SimpleNamespace(
+        family=family,
+        optimize_smoothing=True,
+        smoothing_method=method,
+        smoothing_optimizer="outer_newton",
+        smoothing_params=np.empty((0,), dtype=np.float64),
+        smoothing_fixed_mask_=None,
+        hparams={},
+    )
+
+    monkeypatch.setattr(orchestrator_module, "compile_designs", lambda *args: None)
+    monkeypatch.setattr(orchestrator_module, "_n_smoothing_params", lambda model: 0)
+
+    def _supports(model, method):
+        calls["support_method"] = method
+        return method == "reml"
+
+    def _optimize(model, y, initial_smoothing_params, method, optimizer):
+        calls["optimize_method"] = method
+        calls["optimizer"] = optimizer
+        model._optim_method = method
+        model._optim_result = None
+        model._optim_trace = []
+        model._optim_used_gradient = False
+        model._optim_used_hessian = False
+        model.smoothing_score_ = 2.5
+
+    monkeypatch.setattr(
+        orchestrator_module,
+        "supports_smoothing_method",
+        _supports,
+    )
+    monkeypatch.setattr(orchestrator_module, "optimize_smoothing_params", _optimize)
+    monkeypatch.setattr(
+        orchestrator_module,
+        "solve_fit",
+        lambda *args, **kwargs: SimpleNamespace(inner_trace=[]),
+    )
+    monkeypatch.setattr(orchestrator_module, "assign_fit_solution", lambda *args: None)
+    monkeypatch.setattr(
+        orchestrator_module,
+        "build_gam_result",
+        lambda model: SimpleNamespace(),
+    )
+
+    out = orchestrator_module.fit_model_core(
+        model,
+        X=np.zeros((3, 1), dtype=np.float64),
+        feature_names=["x"],
+        y=np.array([0.0, 1.0, 2.0], dtype=np.float64),
+    )
+
+    assert out is model
+    assert calls == {
+        "support_method": "reml",
+        "optimize_method": "reml",
+        "optimizer": "outer_newton",
+    }
+    assert model._optim_method == "reml"
+
+
 def test_all_fixed_smoothing_params_still_optimizes_unknown_gaussian_scale(
     monkeypatch,
 ):
@@ -104,8 +228,6 @@ def test_all_fixed_smoothing_params_still_optimizes_unknown_gaussian_scale(
         supports_ml=True,
         supports_laml=True,
         supports_gcv=True,
-        supports_ncv=True,
-        supports_qncv=True,
         supports_ubre=False,
         known_scale=None,
         deviance=_deviance,
@@ -202,7 +324,7 @@ def test_optim_result_fun_is_recomputed_unscaled(monkeypatch):
 
     monkeypatch.setattr(driver_module, "minimize", _fake_minimize)
 
-    result = driver_module._optimize_outer_optim_mgcv(
+    result = driver_module._optimize_outer_optim_strict(
         objective=Objective(),
         x0=np.array([0.0], dtype=np.float64),
         bounds=[(-10.0, 10.0)],
@@ -320,4 +442,4 @@ def test_negbin_reml_native_all_fixed_optimizes_theta_first(monkeypatch):
     assert len(captured["bounds"]) == 1
     assert result.x.shape == (0,)
     assert result.joint_log_theta == pytest.approx(np.log(2.0) + 0.25, abs=0.0)
-    assert result.mgcv_selected_full_sp.tolist() == [5.0]
+    assert result.selected_full_smoothing_params.tolist() == [5.0]

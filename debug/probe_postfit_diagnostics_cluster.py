@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import numpy as np
 
-from nampy.gam.inference.anova import _edf1_vector, _edf2, _edf_total, _residual_df_approx_mgcv
-from tests.families.test_general_family_mgcv_parity import (
-    _gevlss_data,
-    _shashlss_data,
+from nampy.gam.inference.anova import (
+    _edf1_vector,
+    _edf2,
+    _edf_total,
+    _residual_df_approx_mgcv,
 )
+from tests.families.test_general_family_mgcv_parity import _gevlss_data
 from tests.mgcv_parity_utils import _fit_nampy_model, _run_mgcv_gam_vcomp
 from tests.parity.test_mgcv_prediction_inference_diagnostics_parity import (
     _make_gamma_data,
@@ -90,12 +92,6 @@ def main() -> None:
         _gevlss_data(),
         ['y ~ s(x, bs="cr", k=6)', "~ 1", "~ 1"],
         "gevlss",
-        "ML",
-    )
-    _print_vcomp_probe(
-        _shashlss_data(),
-        ['y ~ s(x, bs="cr", k=6)', "~ 1", "~ 1", "~ 1"],
-        "shashlss",
         "ML",
     )
     _print_gamma_anova_probe()

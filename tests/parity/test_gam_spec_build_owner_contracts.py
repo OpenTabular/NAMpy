@@ -9,7 +9,6 @@ import pytest
 from nampy.gam.data import coerce_formula_predict_inputs
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
 from nampy.gam.specs.build import build_formula_model
-from nampy.gam.specs.modeling import make_tensor_term
 
 pytestmark = [pytest.mark.surface_regression]
 
@@ -258,25 +257,6 @@ def test_formula_tensor_k_too_small_resets_to_mgcv_default():
     assert term.smooth_spec.k == [5, 5]
 
 
-def test_formula_t2_ord_validation_mirrors_mgcv():
-    """
-    Regression coverage for mgcv/R/smooth.r::t2() ord validation.
-    """
-    data = pd.DataFrame(
-        {
-            "y": [1.0, 2.0, 3.0, 4.0, 5.0],
-            "x": [0.0, 0.25, 0.5, 0.75, 1.0],
-            "z": [1.0, 0.75, 0.5, 0.25, 0.0],
-        }
-    )
-
-    with pytest.warns(UserWarning, match="ord is wrong. reset to NULL."):
-        built = _build_from_formula('y ~ t2(x, z, bs=["cr", "cr"], ord=[3, 4])', data)
-
-    term = built.predictor_specs[0].terms[0]
-    assert term.smooth_spec.ord is None
-
-
 def test_build_formula_model_rejects_ordered_parametric_factor_without_r_contrasts():
     """
     Owner-contract coverage verifying that ordered parametric factors stay unsupported
@@ -300,25 +280,53 @@ def test_build_formula_model_rejects_ordered_parametric_factor_without_r_contras
         _build_from_formula("y ~ f", data)
 
 
-def test_make_tensor_term_rejects_t2_fixed_for_mgcv_parity():
-    """
-    Owner-contract coverage verifying that dict-based t2 specs do not silently
-    accept non-mgcv fixed/fx flags.
-    """
-    model = SimpleNamespace(basis="cr", k=5, select=False)
+@pytest.mark.parametrize(
+    "formula",
+    [
+        'y ~ te(x, z, bs=["cr", "cr"], k=[5, 5], fx=[True, False])',
+        'y ~ ti(x, z, bs=["cr", "cr"], k=[5, 5], fx=[True, False], mc=[True, False])',
+    ],
+    ids=["te_vector_fx", "ti_vector_fx"],
+)
+def test_build_formula_model_rejects_tensor_vector_fx(formula):
+    """Owner-contract coverage verifying that tensor vector fx stays unsupported."""
+    data = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, 3.0, 4.0],
+            "x": [0.0, 0.5, 1.0, 1.5],
+            "z": [1.5, 1.0, 0.5, 0.0],
+        }
+    )
 
     with pytest.raises(
         NotImplementedError,
-        match=r"t2\(\) does not support fx/fixed",
+        match="Tensor smooths do not support vector-valued fx",
     ):
-        make_tensor_term(
-            model,
-            {
-                "kind": "t2",
-                "features": ("x", "z"),
-                "fixed": True,
-            },
-        )
+        _build_from_formula(formula, data)
+
+
+@pytest.mark.parametrize(
+    "formula",
+    [
+        'y ~ te(x, z, bs=["cr", "cr"], k=[5, 5], fx=True)',
+        'y ~ ti(x, z, bs=["cr", "cr"], k=[5, 5], fx=True, mc=[True, False])',
+    ],
+    ids=["te_scalar_fx", "ti_scalar_fx"],
+)
+def test_build_formula_model_accepts_tensor_scalar_fx(formula):
+    """Owner-contract coverage verifying that scalar tensor fx remains supported."""
+    data = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, 3.0, 4.0],
+            "x": [0.0, 0.5, 1.0, 1.5],
+            "z": [1.5, 1.0, 0.5, 0.0],
+        }
+    )
+
+    built = _build_from_formula(formula, data)
+    smooth = built.predictor_specs[0].terms[0].smooth_spec
+    assert smooth is not None
+    assert smooth.fx is True
 
 
 def test_formula_predict_inputs_rebuild_multi_predictor_offsets_in_declared_order():

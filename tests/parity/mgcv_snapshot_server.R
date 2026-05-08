@@ -66,7 +66,7 @@ serve_loop <- function(snapshot_script_path) {
       snapshot_args <- c(snapshot_args, weights_column)
     }
 
-    env <- new.env(parent = baseenv())
+    env <- new.env(parent = globalenv())
     env$commandArgs <- function(trailingOnly = TRUE) {
       stopifnot(length(snapshot_args) >= 1L)
       snapshot_args

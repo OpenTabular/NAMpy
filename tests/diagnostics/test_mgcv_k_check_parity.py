@@ -19,7 +19,6 @@ from tests.mgcv_parity_utils import (
     _fit_nampy_model,
     _make_fs_data,
     _make_gaussian_data,
-    _make_mrf_data,
     _make_random_effect_data_noisy,
     _run_mgcv_snapshot,
 )
@@ -164,7 +163,7 @@ def _assert_k_check_parity(
       p_value  — finite-range check for supported terms.
 
     numeric_terms: set of substrings; a term is "numeric" if its label contains
-    any of them.  Factor-only terms (re, mrf) should yield NaN for k_index/p_value.
+    any of them.  Factor-only terms (re) should yield NaN for k_index/p_value.
     """
     r_labels, r_values = r_block
 
@@ -309,13 +308,8 @@ class TestKCheckParity:
                 'y ~ s(f, x, bs="fs", k=6)',
                 5e-5,
             ),
-            (
-                _make_mrf_data,
-                'y ~ s(region, bs="mrf", k=3, xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))',
-                1e-6,
-            ),
         ],
-        ids=["re", "fs", "mrf"],
+        ids=["re", "fs"],
     )
     def test_factor_like_terms_have_nan_k_diagnostics(
         self, data_factory, formula, edf_atol

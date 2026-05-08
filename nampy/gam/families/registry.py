@@ -8,9 +8,6 @@ from .binomial import (
 from .family_base import BaseFamily
 from .gamlss.gammals import gammals
 from .gamlss.gaulss import gaulss
-from .gamlss.gevlss import gevlss
-from .gamlss.shashlss import shashlss
-from .gamlss.ziplss import ziplss
 from .gamma import GammaIdentityFamily, GammaInverseFamily, GammaLogFamily
 from .gaussian import GaussianIdentityFamily, GaussianInverseFamily, GaussianLogFamily
 from .negbin import NegativeBinomialLogFamily
@@ -54,9 +51,18 @@ def make_gam_family(family):
         name = str(family.get("name", "")).lower()
         link = str(family.get("link", "")).lower() or None
         if name in {"nb"}:
+            theta = family.get("theta", 1.0)
+            estimate_theta = bool(
+                family.get(
+                    "estimate_theta",
+                    "theta" not in family or float(theta) <= 0.0,
+                )
+            )
+            if float(theta) <= 0.0:
+                theta = abs(float(theta)) if float(theta) < 0.0 else 1.0
             return NegativeBinomialLogFamily(
-                theta=family.get("theta", 1.0),
-                estimate_theta=bool(family.get("estimate_theta", True)),
+                theta=theta,
+                estimate_theta=estimate_theta,
                 link=link or "log",
             )
         if name in {"negbin", "negativebinomial", "negative_binomial"}:
@@ -169,12 +175,25 @@ def make_gam_family(family):
                 ) from None
         if key in {"nb"}:
             if isinstance(spec, dict):
+                theta = spec.get("theta", 1.0)
+                estimate_theta = bool(
+                    spec.get(
+                        "estimate_theta",
+                        "theta" not in spec or float(theta) <= 0.0,
+                    )
+                )
+                if float(theta) <= 0.0:
+                    theta = abs(float(theta)) if float(theta) < 0.0 else 1.0
                 return NegativeBinomialLogFamily(
-                    theta=spec.get("theta", 1.0),
-                    estimate_theta=bool(spec.get("estimate_theta", True)),
+                    theta=theta,
+                    estimate_theta=estimate_theta,
                     link=str(spec.get("link", "log")).lower(),
                 )
-            return NegativeBinomialLogFamily(theta=spec, estimate_theta=True)
+            theta = float(spec)
+            return NegativeBinomialLogFamily(
+                theta=abs(theta) if theta < 0.0 else (1.0 if theta == 0.0 else theta),
+                estimate_theta=theta <= 0.0,
+            )
         if key in {"negbin", "negativebinomial", "negative_binomial"}:
             if isinstance(spec, dict):
                 if "theta" not in spec:
@@ -204,14 +223,7 @@ def make_gam_family(family):
         return gaulss()
     if key in {"gammals"}:
         return gammals()
-    if key in {"ziplss"}:
-        return ziplss()
-    if key in {"gevlss"}:
-        return gevlss()
-    if key in {"shashlss", "shash"}:
-        return shashlss()
-
     raise ValueError(
         f"Unknown GAM family {family!r}. "
-        "Valid options: gaussian, binomial, poisson, gamma, nb, negbin, gaulss, gammals, ziplss, gevlss, shashlss."
+        "Valid options: gaussian, binomial, poisson, gamma, nb, negbin, gaulss, gammals."
     )

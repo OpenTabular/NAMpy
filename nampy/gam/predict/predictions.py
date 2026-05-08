@@ -7,7 +7,6 @@ output types controlled by the ``type`` argument:
 - ``"response"`` (default): predicted mean ``mu = g^{-1}(eta)``.
 - ``"link"``: linear predictor ``eta = X_new beta + offset``.
 - ``"terms"``: per-term linear predictor contributions.
-- ``"iterms"``: ``"terms"`` with mgcv-style mean-carrying smooth SEs.
 - ``"lpmatrix"``: the raw linear predictor matrix.
 
 Standard errors are optionally returned alongside predictions when
@@ -22,7 +21,6 @@ from .._model_state import (
     _coef_column_offset,
     _coef_full,
     _design_matrix,
-    _fit_intercept,
     _penalty_blocks_seq,
     _require_fitted,
     _term_blocks_seq,
@@ -133,110 +131,10 @@ def _term_contribution(model, Z_new, tb):
     return contrib
 
 
-def _term_has_iterms_mean_uncertainty(model, tb) -> bool:
-    term_type = str(getattr(tb, "term_type", ""))
-    if term_type == "parametric":
-        return False
-    if term_type == "factor_smooth_sz":
-        # mgcv::predict.gam() treats sz smooths as constrained terms with
-        # `nCons > 0`, so `type="iterms"` standard errors must carry the
-        # overall mean uncertainty rather than using strictly centered-term SEs.
-        return True
-
-    metadata = dict(getattr(tb, "metadata", {}) or {})
-    if bool(metadata.get("absorbed_sum_to_zero_constraint", False)):
-        return True
-
-    constructor_metadata = dict(getattr(tb, "constructor_metadata", {}) or {})
-    n_cons = constructor_metadata.get("n_constraints_absorbed", None)
-    if n_cons is not None and int(n_cons) > 0:
-        return True
-
-    runtime_constraint_kind = constructor_metadata.get("runtime_constraint_kind", None)
-    if runtime_constraint_kind is not None:
-        return True
-
-    runtime_skip_centering = bool(
-        constructor_metadata.get("runtime_skip_centering", False)
-    )
-    runtime_by_name = constructor_metadata.get("runtime_by_name", None)
-    runtime_by_is_constant = constructor_metadata.get("runtime_by_is_constant", None)
-    if (
-        not _fit_intercept(model)
-        or runtime_skip_centering
-        or (
-            runtime_by_name is not None
-            and runtime_by_is_constant is not None
-            and not bool(runtime_by_is_constant)
-        )
-        or term_type in {"tensor_interaction", "tensor_anova"}
-    ):
-        return False
-
-    B = np.asarray(getattr(tb, "basis_train", None), dtype=np.float64)
-    if B.size == 0:
-        return False
-    return bool(np.max(np.abs(np.mean(B, axis=0))) <= 1e-10)
-
-
-def _term_iterms_mean_scale(tb) -> float | None:
-    for container in (
-        getattr(tb, "metadata", None),
-        getattr(tb, "constructor_metadata", None),
-    ):
-        if not isinstance(container, dict):
-            continue
-        value = container.get("meanL1", None)
-        if value is None:
-            continue
-        value = float(value)
-        if np.isfinite(value) and value != 0.0:
-            return value
-    return None
-
-
-def _prediction_cmX(model) -> np.ndarray:
-    _, Xp_train = _build_prediction_matrices(model, X_new=None)
-    return np.asarray(np.mean(Xp_train, axis=0), dtype=np.float64)
-
-
-def _parametric_full_coef_indices(model) -> np.ndarray:
-    offset0 = _coef_column_offset(model)
-    indices = []
-    if _fit_intercept(model):
-        indices.append(0)
-    for tb in _term_blocks_seq(model):
-        if str(getattr(tb, "term_type", "")) != "parametric":
-            continue
-        indices.extend(
-            range(offset0 + tb.coef_slice.start, offset0 + tb.coef_slice.stop)
-        )
-    return np.asarray(indices, dtype=int)
-
-
-def _iterms_mean_row(model, *, iterms_type=None) -> np.ndarray:
-    cmX = _prediction_cmX(model)
-    if iterms_type == 2:
-        keep = _parametric_full_coef_indices(model)
-        restricted = np.zeros_like(cmX, dtype=np.float64)
-        if keep.size > 0:
-            restricted[keep] = cmX[keep]
-        return restricted
-    return cmX
-
-
-def _term_standard_error_rows(model, Xp, tb, *, type="terms", iterms_mean_row=None):
+def _term_standard_error_rows(model, Xp, tb, *, type="terms"):
     offset0 = _coef_column_offset(model)
     sl_full = slice(offset0 + tb.coef_slice.start, offset0 + tb.coef_slice.stop)
-    if type != "iterms" or not _term_has_iterms_mean_uncertainty(model, tb):
-        return np.asarray(Xp[:, sl_full], dtype=np.float64), sl_full
-
-    X1 = np.tile(np.asarray(iterms_mean_row, dtype=np.float64), (Xp.shape[0], 1))
-    meanL1 = _term_iterms_mean_scale(tb)
-    if meanL1 is not None:
-        X1 = X1 / meanL1
-    X1[:, sl_full] = Xp[:, sl_full]
-    return np.asarray(X1, dtype=np.float64), None
+    return np.asarray(Xp[:, sl_full], dtype=np.float64), sl_full
 
 
 def _group_term_contribution(model, Z_new, group):
@@ -248,14 +146,13 @@ def _group_term_contribution(model, Z_new, group):
     return np.asarray(contrib, dtype=np.float64)
 
 
-def _group_standard_error_rows(model, Xp, group, *, type="terms", iterms_mean_row=None):
+def _group_standard_error_rows(model, Xp, group, *, type="terms"):
     if len(group["blocks"]) == 1:
         return _term_standard_error_rows(
             model,
             Xp,
             group["blocks"][0],
             type=type,
-            iterms_mean_row=iterms_mean_row,
         )
 
     if group["term_type"] != "parametric":
@@ -279,7 +176,6 @@ def predict_values(
     cov=None,
     type="response",
     offset=None,
-    iterms_type=None,
 ):
     _require_fitted(model)
     if getattr(model.family, "family_class", "") == "general":
@@ -290,7 +186,6 @@ def predict_values(
             cov=cov,
             type=type,
             offset=offset,
-            iterms_type=iterms_type,
         )
 
     type = str(type).lower()
@@ -307,7 +202,7 @@ def predict_values(
     if type == "lpmatrix":
         return Xp
 
-    if type in {"terms", "iterms"}:
+    if type == "terms":
         if any(
             _prediction_parameterization_wider(tb)
             for tb in _term_blocks_seq(model)
@@ -324,11 +219,6 @@ def predict_values(
             return terms
 
         V = model._select_cov(cov)
-        iterms_mean_row = (
-            None
-            if type != "iterms"
-            else _iterms_mean_row(model, iterms_type=iterms_type)
-        )
         ses = []
         for group in groups:
             Xi, sl_full = _group_standard_error_rows(
@@ -336,7 +226,6 @@ def predict_values(
                 Xp,
                 group,
                 type=type,
-                iterms_mean_row=iterms_mean_row,
             )
             if sl_full is None:
                 var = np.einsum("ij,jk,ik->i", Xi, V, Xi)
@@ -359,7 +248,7 @@ def predict_values(
 
     if type != "response":
         raise ValueError(
-            "type must be one of {'response', 'link', 'terms', 'iterms', 'lpmatrix'}"
+            "type must be one of {'response', 'link', 'terms', 'lpmatrix'}"
         )
 
     if not return_se:

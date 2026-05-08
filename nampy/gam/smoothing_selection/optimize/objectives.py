@@ -9,7 +9,6 @@ from ..criteria import (
     criterion_gradient_ml_reml_gaussian_dynamic_joint,
     criterion_gradient_ml_reml_pirls_gamma_joint,
     criterion_gradient_ml_reml_pirls_negbin_joint,
-    criterion_gradient_ncv_negbin_joint,
     criterion_hessian,
     criterion_hessian_ml_reml_gaussian_dynamic_joint,
     criterion_hessian_ml_reml_pirls_gamma_joint,
@@ -18,7 +17,6 @@ from ..criteria import (
     criterion_ml_reml_gaussian_dynamic_profiled,
     criterion_ml_reml_pirls_gamma_joint,
     criterion_ml_reml_pirls_negbin_joint,
-    criterion_ncv_negbin_joint,
     criterion_value,
     resolve_ml_reml_scoring_backend,
 )
@@ -484,71 +482,3 @@ class _JointNegbinPirlsRemlObjective:
             }
         )
 
-
-class _JointNegbinNcvObjective:
-    """Joint `(log theta, log sp...)` NegBin NCV/QNCV outer objective."""
-
-    def __init__(self, model, y, *, qapprox: bool):
-        self.model = model
-        self.y = y
-        self.qapprox = bool(qapprox)
-        self.uses_joint_log_theta = True
-        self.joint_log_theta_first = True
-        self.n_fun = 0
-        self.n_jac = 0
-        self.n_hess = 0
-        self.accepted_trace = []
-
-    def _split_x(self, x):
-        x = np.asarray(x, dtype=np.float64).ravel()
-        if x.size == 0:
-            raise ValueError("Joint NegBin NCV objective requires log(theta).")
-        return np.asarray(x[1:], dtype=np.float64), float(x[0])
-
-    def _raw_fun(self, x):
-        log_sp, log_theta = self._split_x(x)
-        return float(
-            criterion_ncv_negbin_joint(
-                self.model,
-                self.y,
-                log_sp,
-                log_theta,
-                qapprox=self.qapprox,
-            )
-        )
-
-    def fun(self, x):
-        x = np.asarray(x, dtype=np.float64).ravel()
-        val = float(self._raw_fun(x))
-        self.n_fun += 1
-        if len(self.accepted_trace) == 0 or not np.array_equal(
-            self.accepted_trace[-1]["x"], x
-        ):
-            self.accepted_trace.append({"x": x.copy(), "fun": float(val)})
-        return val
-
-    def jac(self, x):
-        log_sp, log_theta = self._split_x(x)
-        self.n_jac += 1
-        grad = np.asarray(
-            criterion_gradient_ncv_negbin_joint(
-                self.model,
-                self.y,
-                log_sp,
-                log_theta,
-                qapprox=self.qapprox,
-            ),
-            dtype=np.float64,
-        )
-        return _JointNegbinPirlsRemlObjective._theta_last_to_theta_first_gradient(grad)
-
-    def record_iter(self, x, accepted_step_norm: float) -> None:
-        x = np.asarray(x, dtype=np.float64).ravel()
-        crit = float(self._raw_fun(x))
-        self.accepted_trace.append(
-            {
-                "x": x.copy(),
-                "fun": crit,
-                "accepted_step_norm": float(accepted_step_norm),
-            }
-        )

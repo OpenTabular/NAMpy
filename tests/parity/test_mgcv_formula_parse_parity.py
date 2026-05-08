@@ -243,6 +243,44 @@ class TestMGCVFormulaParseParity:
         assert isinstance(term, ParsedSmoothTerm)
         assert term.kwargs["xt"] == {0: {0: 1, "seed": 2}, "bs": "ps"}
 
+    def test_r_boolean_formula_values_parse_as_booleans(self):
+        """Verify that R TRUE/FALSE option values are parsed as booleans."""
+        parsed = parse_gam_formula(
+            'y ~ ti(x0, x1, bs=["cr", "ps"], k=[6, 6], mc=[TRUE, FALSE], fx=FALSE)'
+        )
+        term = parsed.components[0].terms[0]
+
+        assert isinstance(term, ParsedSmoothTerm)
+        assert term.kwargs["mc"] == [True, False]
+        assert term.kwargs["fx"] is False
+
+    def test_r_matrix_formula_values_preserve_r_fill_order(self):
+        """Verify that R matrix(...) values preserve column-major/byrow semantics."""
+        parsed = parse_gam_formula(
+            'y ~ s(x0, bs="cr", '
+            'xt=list(penalty=matrix(c(1,2,3,4),2,2), '
+            'polys=list(A=matrix(c(1,2,3,4),2,2,byrow=TRUE))))'
+        )
+        term = parsed.components[0].terms[0]
+
+        assert isinstance(term, ParsedSmoothTerm)
+        np.testing.assert_array_equal(
+            term.kwargs["xt"]["penalty"],
+            np.array([[1, 3], [2, 4]]),
+        )
+        np.testing.assert_array_equal(
+            term.kwargs["xt"]["polys"]["A"],
+            np.array([[1, 2], [3, 4]]),
+        )
+
+    def test_r_diag_formula_values_parse_as_identity_matrix(self):
+        """Verify that R diag(n) formula values parse as an identity matrix."""
+        parsed = parse_gam_formula('y ~ s(f, bs="re", xt=list(S=list(diag(4))))')
+        term = parsed.components[0].terms[0]
+
+        assert isinstance(term, ParsedSmoothTerm)
+        np.testing.assert_array_equal(term.kwargs["xt"]["S"][0], np.eye(4))
+
     def test_list_kwargs_expansion_supports_non_identifier_names(self):
         """Verify that list kwargs expansion supports non identifier names."""
         formula = 'y ~ s(x, bs="tp", k=5, xt=list(**{"max.knots": 10}, seed=2))'
@@ -580,11 +618,6 @@ class TestMGCVFormulaParseParity:
                 "y ~ s(x, x)",
                 ValueError,
                 "Repeated variables as arguments of a smooth are not permitted",
-            ),
-            (
-                "y ~ t2(x, z, fx=True)",
-                NotImplementedError,
-                r"t2\(\) does not support fx",
             ),
         ],
     )

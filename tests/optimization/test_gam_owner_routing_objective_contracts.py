@@ -16,7 +16,6 @@ from nampy.gam.smoothing_selection.optimize.objectives import (
     _GaussianRemlJointObjective,
     _GaussianRemlProfiledObjective,
     _JointGammaPirlsRemlObjective,
-    _JointNegbinNcvObjective,
 )
 from tests.mgcv_parity_utils import _make_gaussian_data
 
@@ -342,56 +341,6 @@ def test_joint_gamma_objective_splits_log_sp_and_log_scale(monkeypatch):
         np.testing.assert_allclose(log_sp, np.array([0.1, 0.2], dtype=np.float64))
         assert log_scale == pytest.approx(-0.4, abs=0.0)
         assert method == "REML"
-
-
-def test_joint_negbin_ncv_objective_splits_log_sp_and_log_theta(monkeypatch):
-    """Verify that joint negative-binomial NCV objective splits log sp and log theta."""
-    calls: dict[str, tuple[np.ndarray, float, bool]] = {}
-
-    def _ncv_fun(model, y, log_sp, log_theta, qapprox):
-        calls["fun"] = (
-            np.asarray(log_sp, dtype=np.float64).copy(),
-            float(log_theta),
-            qapprox,
-        )
-        return 3.0
-
-    def _ncv_jac(model, y, log_sp, log_theta, qapprox):
-        calls["jac"] = (
-            np.asarray(log_sp, dtype=np.float64).copy(),
-            float(log_theta),
-            qapprox,
-        )
-        return np.array([9.0, 8.0, 7.0], dtype=np.float64)
-
-    monkeypatch.setattr(
-        objectives_module,
-        "criterion_ncv_negbin_joint",
-        _ncv_fun,
-    )
-    monkeypatch.setattr(
-        objectives_module,
-        "criterion_gradient_ncv_negbin_joint",
-        _ncv_jac,
-    )
-
-    obj = _JointNegbinNcvObjective(
-        model=SimpleNamespace(),
-        y=np.array([1.0], dtype=np.float64),
-        qapprox=True,
-    )
-    x = np.array([0.2, -0.1, 0.6], dtype=np.float64)
-
-    assert obj.fun(x) == pytest.approx(3.0, abs=0.0)
-    np.testing.assert_allclose(obj.jac(x), np.array([9.0, 8.0, 7.0]))
-    obj.record_iter(x, accepted_step_norm=0.5)
-
-    for key in ("fun", "jac"):
-        log_sp, log_theta, qapprox = calls[key]
-        np.testing.assert_allclose(log_sp, np.array([0.2, -0.1], dtype=np.float64))
-        assert log_theta == pytest.approx(0.6, abs=0.0)
-        assert qapprox is True
-    assert obj.accepted_trace[-1]["accepted_step_norm"] == pytest.approx(0.5)
 
 
 def test_gaussian_reml_outer_newton_uses_joint_objective(monkeypatch):

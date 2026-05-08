@@ -43,13 +43,12 @@ from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
     pearson_method_scale_estimate,
     profiled_gaussian_reml_variance,
 )
-from nampy.gam.smoothing_selection.criteria.ncv import _infer_index_base, _resolve_nei
-from nampy.gam.smoothing_selection.criteria.pirls_deriv import (
+from nampy.gam.smoothing_selection.criteria.pirls.derivatives import (
     criterion_gradient_ml_reml_pirls_exact,
 )
 from nampy.gam.smoothing_selection.optimize.newton import _optimize_outer_newton
-from nampy.gam.smoothing_selection.optimize.newton_mgcv import (
-    _optimize_outer_newton_mgcv,
+from nampy.gam.smoothing_selection.optimize.newton_strict import (
+    _optimize_outer_newton_strict,
 )
 from nampy.gam.smoothing_selection.reparam import (
     SlBlock,
@@ -62,7 +61,7 @@ from nampy.gam.smoothing_selection.reparam import (
 )
 from nampy.gam.specs.build import build_formula_model
 from nampy.splines.univariate.tp import construct_tprs_basis
-from tests.mgcv_parity_utils import _make_gaussian_data, _make_mrf_data
+from tests.mgcv_parity_utils import _make_gaussian_data
 
 
 def test_gcv_scores_square_negative_denominator_like_mgcv(monkeypatch):
@@ -140,23 +139,6 @@ def test_profiled_gaussian_variance_uses_mgcv_ml_and_reml_denominators():
     assert reml == pytest.approx(12.0 / (6.0 - 1.25 * 1.5))
 
 
-def test_ncv_nei_infers_one_based_without_final_row_and_allows_partial_defaults():
-    assert _infer_index_base(np.array([1, 2], dtype=np.int64), n_obs=3) == 1
-
-    model = SimpleNamespace(
-        nei={
-            "a": np.array([1, 2], dtype=np.int64),
-            "ma": np.array([1, 2], dtype=np.int64),
-        }
-    )
-    nei = _resolve_nei(model, 2)
-
-    np.testing.assert_array_equal(nei["a"], np.array([0, 1], dtype=np.int64))
-    np.testing.assert_array_equal(nei["d"], np.array([0, 1], dtype=np.int64))
-    np.testing.assert_array_equal(nei["ma"], np.array([1, 2], dtype=np.int64))
-    np.testing.assert_array_equal(nei["md"], np.array([1, 2], dtype=np.int64))
-
-
 def _attach_compiled_model(
     model,
     *,
@@ -213,7 +195,12 @@ def test_gamma_newton_branch_exposes_distinct_working_and_fisher_weights():
     shape = 3.0
     y = rng.gamma(shape=shape, scale=mu / shape)
 
-    gam = GAM(k=8, family="gamma", optimize_smoothing=False, smoothing_method="fixed")
+    gam = GAM(
+        k=8,
+        family={"name": "gamma", "link": "log"},
+        optimize_smoothing=False,
+        smoothing_method="fixed",
+    )
     gam.fit(X=X, y=y)
 
     fit_state = _fit_state(gam)
@@ -419,6 +406,94 @@ def test_gaussian_stacked_qr_rank_deficient_signed_weights_match_reduced_problem
     )
 
 
+def test_stacked_qr_null_space_gauge_preserves_fit_and_minimizes_penalty():
+    """
+    Regression coverage for the explicit mgcv boundary tie-break used by exact
+    Gaussian stacked-QR fits: fitted values are invariant, while the coefficient
+    representative is selected by minimum penalty within null(X).
+    """
+    X = np.array(
+        [
+            [1.0, 1.0],
+            [2.0, 2.0],
+            [3.0, 3.0],
+        ],
+        dtype=np.float64,
+    )
+    y = np.array([1.5, 3.0, 4.5], dtype=np.float64)
+    w = np.ones(3, dtype=np.float64)
+    P = np.diag([1e-12, 1.0]).astype(np.float64)
+
+    ungauged = solve_gaussian_penalized_ls_stacked_qr(
+        X,
+        y,
+        w,
+        P,
+        fit_intercept=False,
+        n_coef=X.shape[1],
+        near_singular_null_pin=False,
+    )
+    gauged = solve_gaussian_penalized_ls_stacked_qr(
+        X,
+        y,
+        w,
+        P,
+        fit_intercept=False,
+        n_coef=X.shape[1],
+        near_singular_null_pin=True,
+    )
+
+    beta_g = np.asarray(gauged["coef_full"], dtype=np.float64)
+    null_dir = np.array([1.0, -1.0], dtype=np.float64) / np.sqrt(2.0)
+
+    np.testing.assert_allclose(
+        X @ beta_g,
+        X @ np.asarray(ungauged["coef_full"], dtype=np.float64),
+        atol=1e-10,
+        rtol=1e-10,
+    )
+    assert abs(float(null_dir @ (P @ beta_g))) < 1e-10
+    assert (
+        float(beta_g @ (P @ beta_g))
+        <= float(
+            np.asarray(ungauged["coef_full"], dtype=np.float64)
+            @ (P @ np.asarray(ungauged["coef_full"], dtype=np.float64))
+        )
+        + 1e-12
+    )
+
+
+def test_irls_zero_penalty_rank_deficient_design_uses_qr_drop():
+    """
+    Regression coverage for mgcv::pls_fit1 parity when the penalty has zero rows:
+    rank-deficient unpenalized working systems are rank-dropped by QR, not solved
+    by dense Cholesky normal equations.
+    """
+    X = np.array(
+        [
+            [1.0, 1.0],
+            [2.0, 2.0],
+            [3.0, 3.0],
+            [4.0, 4.0],
+        ],
+        dtype=np.float64,
+    )
+    y = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float64)
+
+    out = irls_core(
+        X,
+        y,
+        GaussianIdentityFamily(),
+        np.zeros((2, 2), dtype=np.float64),
+        fit_intercept=False,
+        max_iter=1,
+    )
+
+    assert int(out["penalized_system_rank"]) == 1
+    assert np.asarray(out["dropped_column_indices"], dtype=np.int64).size == 1
+    np.testing.assert_allclose(out["eta"], y, atol=1e-12, rtol=1e-12)
+
+
 def test_signed_weight_penalized_qr_state_matches_stacked_gaussian_solve():
     """
     Regression coverage verifying that signed weight penalized QR state matches stacked
@@ -491,7 +566,7 @@ def test_gdi_pk_setup_and_ift1_match_signed_weight_inverse_root(monkeypatch):
     root.
     """
     pirls_deriv_module = importlib.import_module(
-        "nampy.gam.smoothing_selection.criteria.pirls_deriv"
+        "nampy.gam.smoothing_selection.criteria.pirls.derivatives"
     )
 
     X = np.array(
@@ -709,7 +784,9 @@ def test_assign_fit_solution_transforms_gaussian_unconditional_covariance(
     Regression coverage verifying that assign fit solution transforms gaussian
     unconditional covariance.
     """
-    state_module = importlib.import_module("nampy.gam.fit.state")
+    uncond_module = importlib.import_module(
+        "nampy.gam.fit.postprocess.unconditional_covariance"
+    )
 
     P = np.array(
         [
@@ -745,14 +822,14 @@ def test_assign_fit_solution_transforms_gaussian_unconditional_covariance(
     )
 
     monkeypatch.setattr(
-        state_module,
+        uncond_module,
         "_pirls_exact_unconditional_postfit",
-        lambda *args, **kwargs: (None, None),
+        lambda *args, **kwargs: (None, None, "fit"),
     )
     monkeypatch.setattr(
-        state_module,
+        uncond_module,
         "_gaussian_exact_unconditional_postfit",
-        lambda *args, **kwargs: (cov_unconditional.copy(), None),
+        lambda *args, **kwargs: (cov_unconditional.copy(), None, "fit"),
     )
 
     fit_state = FitState(
@@ -790,6 +867,7 @@ def test_assign_fit_solution_transforms_gaussian_unconditional_covariance(
     model = SimpleNamespace(
         family=GaussianIdentityFamily(),
         fit_intercept=False,
+        n_samples_=3,
         compiled_model_=SimpleNamespace(
             metadata={"fit_to_prediction_parameterization_map": P},
             compiled_terms=(),
@@ -825,7 +903,9 @@ def test_assign_fit_solution_transforms_pirls_unconditional_covariance_and_edf2(
     Regression coverage verifying that assign fit solution transforms PIRLS
     unconditional covariance and edf2.
     """
-    state_module = importlib.import_module("nampy.gam.fit.state")
+    uncond_module = importlib.import_module(
+        "nampy.gam.fit.postprocess.unconditional_covariance"
+    )
 
     P = np.array(
         [
@@ -851,12 +931,12 @@ def test_assign_fit_solution_transforms_pirls_unconditional_covariance_and_edf2(
     edf2 = np.array([0.4, 0.3], dtype=np.float64)
 
     monkeypatch.setattr(
-        state_module,
+        uncond_module,
         "_pirls_exact_unconditional_postfit",
         lambda *args, **kwargs: (cov_unconditional.copy(), edf2.copy(), "fit"),
     )
     monkeypatch.setattr(
-        state_module,
+        uncond_module,
         "_gaussian_exact_unconditional_postfit",
         lambda *args, **kwargs: (None, None, "fit"),
     )
@@ -896,6 +976,7 @@ def test_assign_fit_solution_transforms_pirls_unconditional_covariance_and_edf2(
     model = SimpleNamespace(
         family=BinomialLogitFamily(),
         fit_intercept=False,
+        n_samples_=2,
         compiled_model_=SimpleNamespace(
             metadata={"fit_to_prediction_parameterization_map": P},
             compiled_terms=(),
@@ -929,14 +1010,19 @@ def test_pirls_unconditional_postfit_uses_edge_correct_vc_but_fitted_edf2(
     Regression coverage verifying that PIRLS unconditional postfit uses edge correct vc
     but fitted edf2.
     """
-    state_module = importlib.import_module("nampy.gam.fit.state")
-    model_ops_module = importlib.import_module("nampy.gam.fit.model_ops")
+    uncond_module = importlib.import_module(
+        "nampy.gam.fit.postprocess.unconditional_covariance"
+    )
+    capabilities_module = importlib.import_module("nampy.gam.fit.capabilities")
+    criteria_dispatch_module = importlib.import_module(
+        "nampy.gam.smoothing_selection.criteria.dispatch"
+    )
     pirls_deriv_module = importlib.import_module(
-        "nampy.gam.smoothing_selection.criteria.pirls_deriv"
+        "nampy.gam.smoothing_selection.criteria.pirls.derivatives"
     )
     reparam_module = importlib.import_module("nampy.gam.smoothing_selection.reparam")
     newton_solver_module = importlib.import_module(
-        "nampy.gam.fit.solvers.general_newton_solver"
+        "nampy.gam.fit.solvers.general_family.newton"
     )
 
     captured_rho = []
@@ -961,12 +1047,12 @@ def test_pirls_unconditional_postfit_uses_edge_correct_vc_but_fitted_edf2(
         return np.array([[0.03]], dtype=np.float64)
 
     monkeypatch.setattr(
-        model_ops_module,
+        capabilities_module,
         "can_use_simple_ml_reml_structure",
         lambda model: True,
     )
     monkeypatch.setattr(
-        model_ops_module,
+        criteria_dispatch_module,
         "criterion_hessian",
         lambda *args, **kwargs: np.array([[4.0]], dtype=np.float64),
     )
@@ -1044,7 +1130,7 @@ def test_pirls_unconditional_postfit_uses_edge_correct_vc_but_fitted_edf2(
         H_coef=np.array([[0.5]], dtype=np.float64),
     )
 
-    Vc, edf2, space = state_module._pirls_exact_unconditional_postfit(
+    Vc, edf2, space = uncond_module._pirls_exact_unconditional_postfit(
         model,
         SimpleNamespace(),
         fit_result,
@@ -1085,17 +1171,19 @@ def test_gaussian_unconditional_postfit_augments_link_matrix_for_joint_scale(
     Regression coverage verifying that gaussian unconditional postfit augments link
     matrix for joint scale.
     """
-    state_module = importlib.import_module("nampy.gam.fit.state")
-    model_ops_module = importlib.import_module("nampy.gam.fit.model_ops")
+    uncond_module = importlib.import_module(
+        "nampy.gam.fit.postprocess.unconditional_covariance"
+    )
+    backends_module = importlib.import_module("nampy.gam.fit.backends")
     gaussian_dyn_module = importlib.import_module(
         "nampy.gam.smoothing_selection.criteria.gaussian_dyn"
     )
     pirls_deriv_module = importlib.import_module(
-        "nampy.gam.smoothing_selection.criteria.pirls_deriv"
+        "nampy.gam.smoothing_selection.criteria.pirls.derivatives"
     )
     reparam_module = importlib.import_module("nampy.gam.smoothing_selection.reparam")
     newton_solver_module = importlib.import_module(
-        "nampy.gam.fit.solvers.general_newton_solver"
+        "nampy.gam.fit.solvers.general_family.newton"
     )
 
     captured = {}
@@ -1123,7 +1211,7 @@ def test_gaussian_unconditional_postfit_augments_link_matrix_for_joint_scale(
         lambda *args, **kwargs: np.array([[4.0, 0.0], [0.0, 9.0]], dtype=np.float64),
     )
     monkeypatch.setattr(
-        model_ops_module,
+        backends_module,
         "solve_gaussian_given_smoothing",
         lambda *args, **kwargs: SimpleNamespace(),
     )
@@ -1198,7 +1286,7 @@ def test_gaussian_unconditional_postfit_augments_link_matrix_for_joint_scale(
         H_coef=np.array([[0.25]], dtype=np.float64),
     )
 
-    state_module._gaussian_exact_unconditional_postfit(model, fit_result, fit_state)
+    uncond_module._gaussian_exact_unconditional_postfit(model, fit_result, fit_state)
 
     assert captured["scale_est"] is True
     np.testing.assert_allclose(
@@ -1323,7 +1411,7 @@ def test_mgcv_outer_newton_steepest_descent_fallback_uses_negative_gradient():
             1.0,
         )
 
-    out = _optimize_outer_newton_mgcv(
+    out = _optimize_outer_newton_strict(
         objective=objective,
         x0=np.zeros(2, dtype=np.float64),
         bounds=[(-2.0, 2.0), (-2.0, 2.0)],
@@ -1359,29 +1447,29 @@ def test_mgcv_outer_newton_step_failure_does_not_report_success():
         need_grad,
         need_hess,
         commit_start=False,
-        ):
-            del start_coef, start_eta, start_mu, commit_start
-            x_eval = np.asarray(x_eval, dtype=np.float64).ravel()
-            score = 10.0 if np.linalg.norm(x_eval) < 1e-12 else 12.0
-            grad = np.array([1.0], dtype=np.float64)
-            hess = np.array([[-1.0]], dtype=np.float64)
-            objective.n_fun += 1
-            if need_grad:
-                objective.n_jac += 1
-            if need_hess:
-                objective.n_hess += 1
-            return (
-                float(score),
-                None if not need_grad else grad,
-                None if not need_hess else hess,
-                np.full(grad.shape, np.nan, dtype=np.float64),
+    ):
+        del start_coef, start_eta, start_mu, commit_start
+        x_eval = np.asarray(x_eval, dtype=np.float64).ravel()
+        score = 10.0 if np.linalg.norm(x_eval) < 1e-12 else 12.0
+        grad = np.array([1.0], dtype=np.float64)
+        hess = np.array([[-1.0]], dtype=np.float64)
+        objective.n_fun += 1
+        if need_grad:
+            objective.n_jac += 1
+        if need_hess:
+            objective.n_hess += 1
+        return (
+            float(score),
+            None if not need_grad else grad,
+            None if not need_hess else hess,
+            np.full(grad.shape, np.nan, dtype=np.float64),
             None,
             None,
             None,
             1.0,
         )
 
-    out = _optimize_outer_newton_mgcv(
+    out = _optimize_outer_newton_strict(
         objective=objective,
         x0=np.zeros(1, dtype=np.float64),
         bounds=[(-1e-9, 1e-9)],
@@ -1786,99 +1874,16 @@ def test_gam_fit3_state_groups_shared_id_from_exact_estimate_setup():
     np.testing.assert_allclose(grouped_gram, exact_block_gram, rtol=0.0, atol=1e-12)
     np.testing.assert_allclose(state.X_fix, dynamic.X_fix, rtol=0.0, atol=1e-12)
     np.testing.assert_allclose(state.Z_rand, dynamic.Z_rand, rtol=0.0, atol=1e-12)
-
-
-def test_t2_term_emits_one_sl_block_per_penalty_slice():
+def test_mixed_list_xt_payload_survives_fit_for_tp_and_fs():
     """
-    Regression coverage verifying that t2 term emits one sl block per penalty slice.
-    """
-    rng = np.random.default_rng(123)
-    n = 80
-    x0 = rng.uniform(-2.0, 2.0, size=n)
-    x1 = rng.uniform(-1.5, 1.5, size=n)
-    y = np.sin(x0) + 0.3 * x1**2
-    data = pd.DataFrame({"y": y, "x0": x0, "x1": x1})
-
-    gam = GAM(
-        family="gaussian",
-        formula='y ~ t2(x0, x1, bs=["cr", "cr"], k=[5, 5], sp=[0.7, 1.3, 0.9])',
-        optimize_smoothing=False,
-        smoothing_method="fixed",
-    )
-    gam.fit(data=data)
-
-    state = gam.reparam_state_
-    assert state is not None
-    assert getattr(state, "sl_blocks", None) in (None, ())
-    assert gam.sl_blocks_ is None
-    assert state.T.shape[0] == state.T.shape[1]
-    assert state.T.shape == state.St.shape
-    assert state.T.shape[0] == state.U1.shape[0]
-    assert state.Sr.shape == (state.T.shape[0] - int(state.Mp), state.T.shape[0])
-    assert int(state.Mp) == 4
-
-
-def test_mrf_term_emits_single_sl_block():
-    """Regression coverage verifying that MRF term emits single sl block."""
-    data = _make_mrf_data()
-    gam = GAM(
-        family="gaussian",
-        formula=(
-            'y ~ s(region, bs="mrf", k=3, '
-            'xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
-        ),
-        optimize_smoothing=False,
-        smoothing_method="fixed",
-        smoothing_params=np.array([0.8]),
-    )
-    gam.fit(data=data)
-
-    state = gam.reparam_state_
-    assert state is not None
-    assert getattr(state, "sl_blocks", None) in (None, ())
-    assert gam.sl_blocks_ is None
-    assert state.T.shape[0] == state.T.shape[1]
-    assert state.T.shape == state.St.shape
-    assert state.T.shape[0] == state.U1.shape[0]
-    assert state.Sr.shape == (state.T.shape[0] - int(state.Mp), state.T.shape[0])
-    assert state.Z.shape[1] == int(state.Mp)
-    assert state.X_fix.shape[1] == int(state.Mp)
-
-
-def test_t2_ts_cr_predict_matrix_preserves_penalized_blocks():
-    """
-    Regression coverage verifying that t2 ts cr predict matrix preserves penalized
-    blocks.
-    """
-    data = _make_gaussian_data(seed=375, n=180)
-    gam = GAM(
-        family="gaussian",
-        formula='y ~ t2(x0, x1, bs=["ts", "cr"], k=[6, 6])',
-        optimize_smoothing=True,
-        smoothing_method="REML",
-    )
-    gam.fit(data=data)
-
-    term = gam.compiled_model_.compiled_terms[0]
-    X_new = np.asarray(data[["x0", "x1"]], dtype=np.float64)
-    B_new = term.predict_matrix(X_new)
-
-    assert B_new.ndim == 2
-    assert B_new.shape[0] == len(data)
-    assert B_new.shape[1] == term.basis_train.shape[1]
-
-
-def test_mixed_list_xt_payload_survives_fit_for_tp_gp_fs_and_mrf():
-    """
-    Regression coverage verifying that mixed list xt payload survives fit for tp gp fs
-    and MRF.
+    Regression coverage verifying that mixed list xt payload survives fit for tp and
+    fs terms.
     """
     data = pd.DataFrame(
         {
             "y": np.linspace(0.1, 4.0, 40, dtype=np.float64),
             "x": np.linspace(0.0, 1.0, 40, dtype=np.float64),
             "f": np.asarray(["a", "b"] * 20, dtype=object),
-            "region": np.asarray(["A", "B", "C", "D"] * 10, dtype=object),
         }
     )
     cases = [
@@ -1887,24 +1892,8 @@ def test_mixed_list_xt_payload_survives_fit_for_tp_gp_fs_and_mrf():
             {0: 1, "seed": 2},
         ),
         (
-            'y ~ s(x, bs="gp", k=5, xt=list(1, seed=2))',
-            {0: 1, "seed": 2},
-        ),
-        (
             'y ~ s(f, x, bs="fs", k=5, xt=list(1, bs="ps", m=2))',
             {0: 1, "bs": "ps", "m": 2},
-        ),
-        (
-            'y ~ s(region, bs="mrf", k=4, xt=list(1, nb=list(A="B", B=c("A","C"), C=c("B","D"), D="C")))',
-            {
-                0: 1,
-                "nb": {
-                    "A": "B",
-                    "B": ["A", "C"],
-                    "C": ["B", "D"],
-                    "D": "C",
-                },
-            },
         ),
     ]
 
@@ -1955,10 +1944,10 @@ def test_mixed_list_xt_payload_survives_fit_for_random_effect_penalties():
     assert len(xt["S"]) == 1
 
 
-def test_list_kwargs_expansion_supports_non_identifier_xt_keys_for_tp_and_gp():
+def test_list_kwargs_expansion_supports_non_identifier_xt_keys_for_tp():
     """
     Regression coverage verifying that list kwargs expansion supports non identifier xt
-    keys for tp and gp.
+    keys for tp.
     """
     data = pd.DataFrame(
         {
@@ -1966,66 +1955,17 @@ def test_list_kwargs_expansion_supports_non_identifier_xt_keys_for_tp_and_gp():
             "x": np.linspace(0.0, 1.0, 40, dtype=np.float64),
         }
     )
-    cases = [
-        'y ~ s(x, bs="tp", k=5, xt=list(**{"max.knots": 10}, seed=2))',
-        'y ~ s(x, bs="gp", k=5, xt=list(**{"max.knots": 10}, seed=2))',
-    ]
+    gam = GAM(
+        family="gaussian",
+        formula='y ~ s(x, bs="tp", k=5, xt=list(**{"max.knots": 10}, seed=2))',
+        optimize_smoothing=False,
+        smoothing_method="fixed",
+    )
+    gam.fit(data=data)
 
-    for formula in cases:
-        gam = GAM(
-            family="gaussian",
-            formula=formula,
-            optimize_smoothing=False,
-            smoothing_method="fixed",
-        )
-        gam.fit(data=data)
-
-        term = gam.compiled_model_.compiled_terms[0]
-        term_spec = term.metadata["term_spec"]
-        assert term_spec["basis_options"]["xt"] == {"max.knots": 10, "seed": 2}
-
-
-def test_tensor_xt_payload_survives_fit_for_te_ti_and_t2():
-    """
-    Regression coverage verifying that tensor xt payload survives fit for te ti and t2.
-    """
-    data = _make_gaussian_data(seed=901, n=90)
-    cases = [
-        (
-            'y ~ te(x0, x1, bs=["tp", "tp"], k=[8, 8], xt=[{"seed": 2}])',
-            [{"seed": 2}],
-            [{"seed": 2}, {"seed": 2}],
-        ),
-        (
-            'y ~ ti(x0, x1, bs=["tp", "gp"], k=[8, 8], xt=[{"seed": 2}, {"seed": 3}], mc=[True, False])',
-            [{"seed": 2}, {"seed": 3}],
-            [{"seed": 2}, {"seed": 3}],
-        ),
-        (
-            'y ~ t2(x0, x1, bs=["tp", "gp"], k=[8, 8], xt=[{"seed": 2}, {"seed": 3}])',
-            [{"seed": 2}, {"seed": 3}],
-            [{"seed": 2}, {"seed": 3}],
-        ),
-    ]
-
-    for formula, expected_metadata_xt, expected_marginal_xt in cases:
-        gam = GAM(
-            family="gaussian",
-            formula=formula,
-            optimize_smoothing=False,
-            smoothing_method="fixed",
-        )
-        gam.fit(data=data)
-
-        term = gam.compiled_model_.compiled_terms[0]
-        term_spec = term.metadata["term_spec"]
-        assert term_spec["basis_options"]["xt"] == expected_metadata_xt
-        runtime_term = _build_runtime_term(data, formula)
-        assert [
-            marginal.xt for marginal in runtime_term._marginals
-        ] == expected_marginal_xt
-
-
+    term = gam.compiled_model_.compiled_terms[0]
+    term_spec = term.metadata["term_spec"]
+    assert term_spec["basis_options"]["xt"] == {"max.knots": 10, "seed": 2}
 def test_tensor_xt_rejects_ambiguous_named_dict_surface():
     """
     Regression coverage verifying that tensor xt rejects ambiguous named dict surface.
@@ -2041,53 +1981,6 @@ def test_tensor_xt_rejects_ambiguous_named_dict_surface():
         ).fit(data=data)
 
 
-def test_tensor_gp_max_knots_xt_propagates_to_tensor_gp_marginals():
-    """
-    Regression coverage verifying that tensor gp max knots xt propagates to tensor gp
-    marginals.
-    """
-    data = _make_gaussian_data(seed=902, n=90)
-    cases = [
-        (
-            'y ~ te(x0, x1, bs=["tp", "gp"], k=[8, 8], xt=[{"seed": 2}, {"max.knots": 18}])',
-            [{"seed": 2}, {"max.knots": 18}],
-        ),
-        (
-            'y ~ ti(x0, x1, bs=["tp", "gp"], k=[8, 8], xt=[{"seed": 2}, {"max.knots": 18}], mc=[True, False])',
-            [{"seed": 2}, {"max.knots": 18}],
-        ),
-        (
-            'y ~ t2(x0, x1, bs=["tp", "gp"], k=[8, 8], xt=[{"seed": 2}, {"max.knots": 18}])',
-            [{"seed": 2}, {"max.knots": 18}],
-        ),
-    ]
-
-    for formula, expected_xt in cases:
-        gam = GAM(
-            family="gaussian",
-            formula=formula,
-            optimize_smoothing=False,
-            smoothing_method="fixed",
-        )
-        gam.fit(data=data)
-
-        term = gam.compiled_model_.compiled_terms[0]
-        term_spec = term.metadata["term_spec"]
-        assert term_spec["basis_options"]["xt"] == expected_xt
-
-        runtime_term = _build_runtime_term(data, formula)
-        gp_marginals = [
-            marginal
-            for marginal in runtime_term._marginals
-            if getattr(marginal, "basis_name", None) == "gp"
-        ]
-        assert len(gp_marginals) == 1
-        gp_marginal = gp_marginals[0]
-        assert gp_marginal.xt == {"max.knots": 18}
-        assert bool(gp_marginal._setup.used_subsampling) is True
-        assert int(gp_marginal._setup.knt.shape[0]) == 18
-
-
 def test_tensor_xt_length_mismatch_raises_explicit_error():
     """
     Regression coverage verifying that tensor xt length mismatch raises explicit error.
@@ -2097,7 +1990,7 @@ def test_tensor_xt_length_mismatch_raises_explicit_error():
     with pytest.raises(ValueError, match=r"xt must have length 1 or 2, got 3\."):
         GAM(
             family="gaussian",
-            formula='y ~ ti(x0, x1, bs=["tp", "gp"], k=[8, 8], xt=[{"seed": 2}, None, None])',
+            formula='y ~ ti(x0, x1, bs=["tp", "ts"], k=[8, 8], xt=[{"seed": 2}, None, None])',
             optimize_smoothing=False,
             smoothing_method="fixed",
         ).fit(data=data)
@@ -2109,12 +2002,16 @@ def test_pirls_laplace_reml_derivatives_dispatch_to_exact_backend(monkeypatch):
     backend.
     """
     x = np.linspace(-2.0, 2.0, 40, dtype=np.float64)
-    y = (x > 0.0).astype(np.float64)
+    data = pd.DataFrame({"x": x, "y": (x > 0.0).astype(np.float64)})
 
     gam = GAM(
-        k=8, family="binomial", optimize_smoothing=False, smoothing_method="fixed"
+        family="binomial",
+        formula='y ~ s(x, bs="cr", k=8)',
+        optimize_smoothing=False,
+        smoothing_method="fixed",
     )
-    gam.fit(X=x[:, None], y=y)
+    gam.fit(data=data)
+    y = gam.family.validate_y(gam.y_)
 
     seen = {"grad": 0, "hess": 0, "fd_grad": 0, "fd_hess": 0}
 
@@ -2157,6 +2054,54 @@ def test_pirls_laplace_reml_derivatives_dispatch_to_exact_backend(monkeypatch):
     np.testing.assert_array_equal(grad, np.array([123.0], dtype=np.float64))
     np.testing.assert_array_equal(hess, np.array([[456.0]], dtype=np.float64))
     assert seen == {"grad": 1, "hess": 1, "fd_grad": 0, "fd_hess": 0}
+
+
+def test_gcv_ubre_aic_derivatives_dispatch_to_exact_backend_not_finite_difference(
+    monkeypatch,
+):
+    """
+    Regression coverage verifying that mgcv gam.fit3 GCV/UBRE/AIC derivative ports
+    do not route through finite-difference fallbacks.
+    """
+    x = np.linspace(-2.0, 2.0, 40, dtype=np.float64)
+    data = pd.DataFrame({"x": x, "y": (x > 0.0).astype(np.float64)})
+
+    gam = GAM(
+        family="binomial",
+        formula='y ~ s(x, bs="cr", k=8)',
+        optimize_smoothing=False,
+        smoothing_method="fixed",
+    )
+    gam.fit(data=data)
+    y = gam.family.validate_y(gam.y_)
+
+    seen = {"fd_grad": 0, "fd_hess": 0}
+
+    def _fd_grad(*args, **kwargs):
+        del args, kwargs
+        seen["fd_grad"] += 1
+        return np.array([-1.0], dtype=np.float64)
+
+    def _fd_hess(*args, **kwargs):
+        del args, kwargs
+        seen["fd_hess"] += 1
+        return np.array([[-1.0]], dtype=np.float64)
+
+    monkeypatch.setattr(criteria_dispatch, "criterion_gradient_numerical", _fd_grad)
+    monkeypatch.setattr(criteria_dispatch, "criterion_hessian_numerical", _fd_hess)
+
+    grad = criteria_dispatch.criterion_gradient(
+        gam, y, np.log(gam.smoothing_params), method="ubre"
+    )
+    hess = criteria_dispatch.criterion_hessian(
+        gam, y, np.log(gam.smoothing_params), method="aic"
+    )
+
+    assert seen == {"fd_grad": 0, "fd_hess": 0}
+    assert np.asarray(grad, dtype=np.float64).shape == (1,)
+    assert np.asarray(hess, dtype=np.float64).shape == (1, 1)
+    assert np.all(np.isfinite(grad))
+    assert np.all(np.isfinite(hess))
 
 
 def test_direct_exact_pirls_derivative_entrypoint_runs_on_canonical_reparam_state():

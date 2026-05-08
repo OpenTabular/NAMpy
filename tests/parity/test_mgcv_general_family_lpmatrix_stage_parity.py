@@ -11,11 +11,7 @@ from nampy.gam.predict.general import (
 )
 from tests.families.test_general_family_mgcv_parity import (
     _gaulss_by_data,
-    _gaulss_two_smooth_data,
     _general_newdata,
-    _gevlss_tensor_data,
-    _shashlss_tensor_data,
-    _ziplss_tensor_data,
 )
 from tests.mgcv_parity_utils import _fit_nampy_model, _run_mgcv_predict_on_newdata
 
@@ -31,66 +27,9 @@ _LPMATRIX_STAGE_CASES = [
         5e-6,
         id="gaulss_numeric_by",
     ),
-    pytest.param(
-        "gevlss_t2_full_true",
-        "gevlss",
-        ['y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6], full=True)', "~ 1", "~ 1"],
-        _gevlss_tensor_data,
-        "ML",
-        5e-4,
-        id="gevlss_t2_full_true",
-    ),
-    pytest.param(
-        "shashlss_t2_full_true",
-        "shashlss",
-        ['y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6], full=True)', "~ 1", "~ 1", "~ 1"],
-        _shashlss_tensor_data,
-        "ML",
-        8e-4,
-        id="shashlss_t2_full_true",
-    ),
 ]
 
-_MGCV_LPMATRIX_STAGE_CASES = list(_LPMATRIX_STAGE_CASES) + [
-    pytest.param(
-        "ziplss_t2_full_false",
-        "ziplss",
-        ['y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6])', "~ 1"],
-        _ziplss_tensor_data,
-        "ML",
-        6e-4,
-        id="ziplss_t2_full_false",
-        marks=[
-            pytest.mark.status_known_gap,
-            pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "General-family lpmatrix stage still drifts for ziplss "
-                    "full=FALSE tp/cr tensor surface."
-                ),
-            ),
-        ],
-    ),
-    pytest.param(
-        "ziplss_t2_full_true",
-        "ziplss",
-        ['y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6], full=True)', "~ 1"],
-        _ziplss_tensor_data,
-        "ML",
-        6e-4,
-        id="ziplss_t2_full_true",
-        marks=[
-            pytest.mark.status_known_gap,
-            pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "General-family lpmatrix stage still drifts for ziplss "
-                    "full=TRUE tp/cr tensor surface."
-                ),
-            ),
-        ],
-    ),
-]
+_MGCV_LPMATRIX_STAGE_CASES = list(_LPMATRIX_STAGE_CASES)
 
 
 def _predictor_block_without_intercept(pred, X_new_np: np.ndarray) -> np.ndarray:
@@ -283,31 +222,6 @@ def test_general_family_factor_level_lpmatrix_matches_mgcv():
         atol=5e-6,
         rtol=5e-6,
     )
-
-
-def test_general_family_multi_term_lpmatrix_block_extraction_matches_predictor_slices():
-    """
-    Verify that general family multi term lpmatrix block extraction matches predictor
-    slices.
-    """
-    data = _gaulss_two_smooth_data(seed=243)
-    newdata = _general_newdata(data)
-    formula = ['y ~ s(x, bs="cr", k=6) + s(z, bs="cr", k=6)', "~ 1"]
-    gam = _fit_nampy_model(data, formula, "gaulss", "ML")
-    X_new_np = _coerce_feature_matrix(gam, newdata, none_is_training=False)
-    actual_lpmatrix = np.asarray(gam.predict(newdata, type="lpmatrix"), dtype=np.float64)
-
-    predictor = _predictor_designs(gam)[0]
-    predictor_block = _expected_predictor_block(
-        actual_lpmatrix,
-        predictor,
-        gam.compiled_model_.predictor_full_slices[0],
-    )
-    assert len(predictor.compiled_terms) == 2
-    for term in predictor.compiled_terms:
-        actual_term = _term_prediction_parameterization(term, X_new_np)
-        expected_term = predictor_block[:, term.coef_slice]
-        np.testing.assert_allclose(actual_term, expected_term, atol=1e-12, rtol=1e-12)
 
 
 def test_general_family_lpmatrix_rejects_numeric_na_newdata_explicitly():

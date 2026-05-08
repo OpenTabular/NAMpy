@@ -21,7 +21,6 @@ from tests.optimization._trace_parity_helpers import LINKED_ID_TRACE_CASES
 from tests.parity.test_mgcv_general_family_prediction_stage_parity import (
     _BROADER_PREDICTION_STAGE_CASE_IDS,
     _METHOD_STAGE_CASES,
-    _TENSOR_PUBLIC_GAP_CASES,
 )
 from tests.parity.test_mgcv_output_parity import (
     SE_SNAPSHOT_CASES,
@@ -251,19 +250,6 @@ def _general_stage_leaf_expectations() -> tuple[LeafCoverageExpectation, ...]:
                     nodeid_parts=(
                         "tests/parity/test_mgcv_general_family_prediction_stage_parity.py",
                         "test_general_family_method_stage_prediction_surfaces_match_mgcv",
-                        param.id,
-                        pred_type,
-                    ),
-                )
-            )
-    for param in _TENSOR_PUBLIC_GAP_CASES:
-        for pred_type in ("link", "response", "terms"):
-            expectations.append(
-                LeafCoverageExpectation(
-                    leaf_id=f"general_stage_tensor_gap_{param.id}_{pred_type}",
-                    nodeid_parts=(
-                        "tests/parity/test_mgcv_general_family_prediction_stage_parity.py",
-                        "test_general_family_tensor_heavy_prediction_case_stays_localized_to_known_gap",
                         param.id,
                         pred_type,
                     ),

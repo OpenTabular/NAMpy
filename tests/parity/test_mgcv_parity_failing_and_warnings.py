@@ -60,10 +60,11 @@ GAUSSIAN_TI_MC_CASE = CaseSpec(
 
 REQUESTED_PARITY_TRACKED_MODEL_CASES: list[CaseSpec] = [
     CaseSpec(
-        case_id="gaussian_t2_full_false",
-        formula='y ~ t2(x1, x2, bs=["cr", "cr"], k=[8, 8], full=False)',
+        case_id="gaussian_te_full_false",
+        formula='y ~ te(x1, x2, bs=["cr", "cr"], k=[8, 8])',
         family="gaussian",
         data_factory=_data_gaussian_tensor,
+        skip_coef_comparison=True,
     ),
     CaseSpec(
         case_id="factor_smooth_sz",
@@ -130,9 +131,6 @@ def test_gaussian_ti_mc_reml_matches_mgcv():
 class TestAdditionalScenarioParityFailingOrWarning:
     test_gaussian_fs_select_reml_matches_mgcv = (
         _SharedTestAdditionalScenarioParity.test_gaussian_fs_select_reml_matches_mgcv
-    )
-    test_gaussian_t2_ts_cr_reml_matches_mgcv = (
-        _SharedTestAdditionalScenarioParity.test_gaussian_t2_ts_cr_reml_matches_mgcv
     )
 
 

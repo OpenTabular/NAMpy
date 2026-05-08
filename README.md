@@ -1,6 +1,6 @@
 # NAMpy: Interpretable (Additive) Tabular Deep Learning
 
-[![Python 3.6+](https://img.shields.io/badge/python-3.6+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
@@ -59,12 +59,37 @@ pip install git+https://github.com/OpenTabular/NAMpy.git@main
 
 ### Requirements
 
-- Python >= 3.6
+- Python >= 3.10
 - PyTorch
 - Lightning
 - scikit-learn
 - pandas
 - numpy
+
+## Experimental `nampy.gam`
+
+The `nampy.gam` subpackage is an experimental Python reimplementation of core
+`mgcv` GAM behavior. The first release is intentionally scoped to common,
+tested surfaces instead of the full `mgcv` API.
+
+Supported first-release target:
+
+- families: `gaussian`, `poisson`, `binomial`, `gamma`, and fixed-theta
+  `negbin` where parity tests cover the surface
+- smooths: common `s(...)` bases such as `cr`, `cs`, `cc`, `ps`, `tp`, `ts`,
+  plus tested numeric `te(...)` and `ti(...)` tensor cases
+- prediction: `link`, `response`, `terms`, `lpmatrix`, and standard errors on
+  supported surfaces
+- smoothing: fixed smoothing parameters and tested ordinary-family automatic
+  REML/ML routes
+
+Out of first-release scope:
+
+- `t2`, Gaussian-process (`gp`), and Markov-random-field (`mrf`) smooths
+- NCV/QNCV and broad EFS optimizer support
+- full GAMLSS/general-family parity beyond the narrow tested `gaulss` and
+  `gammals` subset
+- exact `mgcv` parity for `summary.gam`, `plot.gam`, `gam.check`, and BIC
 
 ## Quick Start
 

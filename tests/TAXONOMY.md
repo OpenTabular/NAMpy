@@ -12,8 +12,8 @@ The GAM test suite is intentionally overlapping. The goal is fast subset runs an
 - `tests/`: shared helpers, marker inference, taxonomy registry, cache, and parity R scripts
 
 ## Taxonomy Axes
-- `smooth_<name>`: `cr`, `cs`, `cc`, `ps`, `tp`, `ts`, `te`, `ti`, `t2`, `gp`, `fs`, `sz`, `mrf`, `re`
-- `family_<name>`: `gaussian`, `binomial`, `poisson`, `gamma`, `negbin`, `gaulss`, `gammals`, `gevlss`, `shashlss`, `ziplss`, `general`
+- `smooth_<name>`: `cr`, `cs`, `cc`, `ps`, `tp`, `ts`, `te`, `ti`, `fs`, `sz`, `re`
+- `family_<name>`: `gaussian`, `binomial`, `poisson`, `gamma`, `negbin`, `gaulss`, `gammals`, `general`
 - `method_<name>`: `fixed`, `reml`, `ml`, `laml`
 - `select_true` / `select_false`
 - `surface_<name>`: `snapshot`, `output`, `smoothcon`, `trace`, `kcheck`, `derivatives`, `regression`, `backend`
@@ -25,7 +25,6 @@ pytest tests/smooths -v
 pytest tests/optimization -v
 pytest tests/families -v
 pytest -m "smooth_ps"
-pytest -m "smooth_t2 and method_reml"
 pytest -m "family_negbin and select_true"
 pytest -m "surface_trace or surface_derivatives"
 pytest -m "status_known_gap"

@@ -24,14 +24,13 @@ _WARNING_NOISE = {
 _KNOWN_FAILING_OR_WARNING_CASE_IDS = {
     case.case_id for case in REQUESTED_PARITY_FAILING_OR_WARNING_CASES
 } - {
-    # `gaussian_t2_full_false` post-fit parity is now covered by strict tests below.
-    "gaussian_t2_full_false",
     # `factor_smooth_sz` post-fit parity is now covered by strict tests below.
     "factor_smooth_sz",
+    # The model-level requested case remains tracked elsewhere; post-processing
+    # final-fit parity for this Gaussian tensor case is now strict here.
+    "gaussian_te_full_false",
 }
-_GENERAL_POSTPROC_KNOWN_GAP_TAGS = (
-    "t2_",
-)
+_GENERAL_POSTPROC_KNOWN_GAP_TAGS = ("gaulss_select_true_cr",)
 
 
 def _dedupe_requested_cases(cases: list[CaseSpec]) -> list[CaseSpec]:
@@ -631,40 +630,6 @@ def test_gam_fit3_gamma_hat_diag_matches_mgcv():
     )
 
 
-def test_gam_fit3_gaussian_t2_full_false_unconditional_edf2_matches_mgcv():
-    """Verify that gam fit3 gaussian t2 full false unconditional edf2 matches mgcv."""
-    case = next(c for c in ORDINARY_CASES if c.case_id == "gaussian_t2_full_false")
-    expected_snapshot = _run_mgcv_snapshot(
-        data=case.data_factory(),
-        formula=case.formula,
-        family=case.family,
-        method="REML",
-        select=case.select,
-        weights_column=case.weights_column,
-    )
-    optimizer = _nampy_optimizer_name(expected_snapshot)
-    _data, gam, fit_warnings = _fit_requested_case(
-        case,
-        method="REML",
-        optimizer=optimizer,
-    )
-
-    actual = _serialize_actual_final_fit(
-        gam,
-        fit_warnings,
-        allow_synthetic_outer_info=False,
-    )
-    expected = _serialize_expected_final_fit(expected_snapshot)
-
-    _assert_scalar_close(
-        case.case_id,
-        "edf2_total",
-        actual["edf2_total"],
-        expected["edf2_total"],
-        atol=5e-6,
-    )
-
-
 @pytest.mark.parametrize(
     "case", MAGIC_CASES, ids=[_magic_case_id(c) for c in MAGIC_CASES]
 )
@@ -886,50 +851,27 @@ def test_gam_fit5_postprocessing_final_fit_matches_mgcv(case):
     "case",
     [
         next(case for case in ORDINARY_CASES if case.case_id == "gaussian_weights"),
-        next(case for case in GENERAL_SE_CASES if case[0] == "gaulss_cr"),
-        next(case for case in GENERAL_SE_CASES if case[0] == "gevlss_cr"),
     ],
     ids=[
         "gaussian_weights_outer_info_exact",
-        "gaulss_cr_outer_info_exact",
-        "gevlss_cr_outer_info_exact",
     ],
 )
 def test_gam_fit5_outer_info_trace_exact_known_gap(case):
     """Verify that gam fit5 outer info trace exact known gap."""
-    if isinstance(case, CaseSpec):
-        expected_snapshot = _run_mgcv_snapshot(
-            data=case.data_factory(),
-            formula=case.formula,
-            family=case.family,
-            method="REML",
-            select=case.select,
-            weights_column=case.weights_column,
-        )
-        optimizer = _nampy_optimizer_name(expected_snapshot)
-        _data, gam, _fit_warnings = _fit_requested_case(
-            case,
-            method="REML",
-            optimizer=optimizer,
-        )
-        actual = _serialize_actual_outer_info(gam, allow_synthetic=False)
-        expected = _serialize_outer_info_block(
-            expected_snapshot["fit"].get("outer_info")
-        )
-        _assert_outer_info_trace_close(case.case_id, actual, expected, atol=5e-6)
-        return
-
-    case_id, family, formula, data_factory, method, _pred_atol, _sp_log_atol, _ = case
-    data = data_factory()
     expected_snapshot = _run_mgcv_snapshot(
-        data=data,
-        formula=formula,
-        family=family,
-        method=method,
-        select=False,
+        data=case.data_factory(),
+        formula=case.formula,
+        family=case.family,
+        method="REML",
+        select=case.select,
+        weights_column=case.weights_column,
     )
     optimizer = _nampy_optimizer_name(expected_snapshot)
-    _data, gam, _fit_warnings = _fit_general_case(case, optimizer=optimizer)
+    _data, gam, _fit_warnings = _fit_requested_case(
+        case,
+        method="REML",
+        optimizer=optimizer,
+    )
     actual = _serialize_actual_outer_info(gam, allow_synthetic=False)
     expected = _serialize_outer_info_block(expected_snapshot["fit"].get("outer_info"))
-    _assert_outer_info_trace_close(case_id, actual, expected, atol=5e-6)
+    _assert_outer_info_trace_close(case.case_id, actual, expected, atol=5e-6)

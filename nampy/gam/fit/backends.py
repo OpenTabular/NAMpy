@@ -9,7 +9,7 @@ The fitting backend is determined by the family:
 """
 
 from .solvers.gaussian_exact import solve_gaussian_fit
-from .solvers.general_family_solver import solve_general_family_fit
+from .solvers.general_family.fixed_smoothing import solve_general_family_fit
 from .solvers.pirls import solve_pirls_fit
 
 GENERAL_FAMILY_BACKEND = "general_family"
@@ -56,3 +56,30 @@ def solve_fit(model, y, smoothing_params, backend=None, weights=None):
         return solve_pirls_fit(model, y, smoothing_params, weights=weights)
 
     raise ValueError(f"Unknown fit backend {backend!r}.")
+
+
+def solve_gaussian_given_smoothing(model, y, smoothing_params):
+    return solve_gaussian_fit(
+        model,
+        y,
+        smoothing_params,
+        weights=model.prior_weights_,
+    )
+
+
+def solve_pirls_given_smoothing(model, y, smoothing_params):
+    family = getattr(model, "family", None)
+    if str(getattr(family, "family_class", "")).lower() == "general":
+        return solve_general_family_fit(
+            model,
+            y,
+            smoothing_params,
+            weights=model.prior_weights_,
+        )
+
+    return solve_pirls_fit(
+        model,
+        y,
+        smoothing_params,
+        weights=model.prior_weights_,
+    )

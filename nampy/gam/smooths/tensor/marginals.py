@@ -8,11 +8,10 @@ from ...penalties.tensor import normalize_tensor_marginal_penalty
 from ..algebra import rowwise_kronecker
 from ..smooth_base import column_as_float
 from ..univariate.cr import CubicSplineTerm
-from ..univariate.gp import GPSmoothTerm
 from ..univariate.ps import PSplineTerm1D
 from ..univariate.tp import ThinPlateSplineTerm
 
-TENSOR_MARGINAL_BASES = frozenset({"cr", "cs", "cc", "ps", "tp", "ts", "gp"})
+TENSOR_MARGINAL_BASES = frozenset({"cr", "cs", "cc", "ps", "tp", "ts"})
 
 
 def _as_marginal_features(feature):
@@ -52,7 +51,6 @@ def make_tensor_marginal_term(
         if shared_basis_setup is None
         else {"shared_basis_setup": shared_basis_setup}
     )
-
     if basis in {"cr", "cs", "cc"}:
         if len(marginal_features) != 1:
             raise ValueError(
@@ -112,21 +110,7 @@ def make_tensor_marginal_term(
             metadata=metadata,
         )
 
-    return GPSmoothTerm(
-        feature=marginal_features,
-        k=k,
-        basis=basis,
-        m=m,
-        xt=xt,
-        label=str(feature),
-        smoothing_id=None,
-        by=None,
-        select=False,
-        fixed=False,
-        constraint_mode=constraint_mode,
-        knots=knots,
-        metadata=metadata,
-    )
+    raise RuntimeError(f"Unexpected tensor marginal basis {basis!r}.")
 
 
 def _normalize_bool_list(x, n: int):
@@ -138,18 +122,12 @@ def _normalize_bool_list(x, n: int):
     return vals
 
 
-def normalize_tensor_fx_flags(fx, n: int, *, wrong_length_warning: str):
+def normalize_tensor_fx_flags(fx, n: int):
     if fx is None:
         return [False] * n
     if np.isscalar(fx):
         return [bool(fx)] * n
-    vals = [bool(v) for v in np.asarray(fx, dtype=object).ravel()]
-    if len(vals) == 1:
-        return vals * n
-    if len(vals) != n:
-        warnings.warn(wrong_length_warning, stacklevel=3)
-        return [False] * n
-    return vals
+    raise NotImplementedError("Tensor smooths do not support vector-valued fx.")
 
 
 def _normalize_tensor_m(m, n: int):
@@ -340,8 +318,7 @@ def build_tensor_product_components(
         shared_setup = getattr(m, "shared_basis_setup", None)
         use_linked_id_predict_path = (
             len(marginal_indices) == 1
-            and
-            isinstance(shared_setup, dict)
+            and isinstance(shared_setup, dict)
             and str(shared_setup.get("mode", "")).lower() == "linked_id"
             and shared_setup.get("pooled_feature_values")
         )
@@ -473,9 +450,7 @@ def tensor_marginal_fit_matrices(term, *, centered=False, apply_np=False, x_trai
         x_train=x_train,
     )
     XP = (
-        _tensor_np_reparameterization(
-            term, x_train, B.shape[1], centered=centered
-        )
+        _tensor_np_reparameterization(term, x_train, B.shape[1], centered=centered)
         if apply_np
         else None
     )

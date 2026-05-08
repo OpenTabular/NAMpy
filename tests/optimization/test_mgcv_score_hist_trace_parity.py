@@ -8,7 +8,7 @@ import pytest
 
 from nampy.gam.parity import load_optimizer_trace, save_optimizer_trace
 from tests.optimization._trace_parity_helpers import (
-    _assert_mgcv_score_hist_exact,
+    _assert_strict_score_hist_exact,
     _criterion_series,
     _fit_nampy_model_and_trace,
     _fit_nampy_trace,
@@ -114,7 +114,7 @@ class TestMgcvScoreHistTraceParity:
         model, _ = _fit_nampy_model_and_trace(data, formula, "gaussian", "REML")
         expected = _run_mgcv_trace(data, formula, "gaussian", "REML")
 
-        _assert_mgcv_score_hist_exact(model, expected)
+        _assert_strict_score_hist_exact(model, expected)
 
     @pytest.mark.parametrize(
         "family,seed",
@@ -134,7 +134,7 @@ class TestMgcvScoreHistTraceParity:
         model, _ = _fit_nampy_model_and_trace(data, formula, family, "REML")
         expected = _run_mgcv_trace(data, formula, family, "REML")
 
-        _assert_mgcv_score_hist_exact(model, expected, atol=1e-6)
+        _assert_strict_score_hist_exact(model, expected, atol=1e-6)
 
 
 @pytest.mark.parametrize(

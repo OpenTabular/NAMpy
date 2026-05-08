@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.linalg import lapack
 
 
 def get_FS(xk):
@@ -17,23 +18,59 @@ def get_FS(xk):
 
     k = len(xk)
     h = np.diff(xk)
-    h_shift_up = h[1:]
+    n2 = k - 2
 
-    D = np.zeros((k - 2, k), dtype=np.float64)
-    np.fill_diagonal(D, 1.0 / h[: k - 2])
-    np.fill_diagonal(D[:, 1:], (-1.0 / h[: k - 2] - 1.0 / h_shift_up))
-    np.fill_diagonal(D[:, 2:], 1.0 / h_shift_up)
+    # Port mgcv/src/mgcv.c::getFS: build D as an n2 x k RHS and solve the
+    # tridiagonal B system via LAPACK DPTSV, then assemble D'B^{-1}D with the
+    # same row loops. The tiny differences from dense solve + crossproduct
+    # determine the cs null-space eigenvector orientation in mgcv.
+    D = np.zeros((n2, k), dtype=np.float64, order="F")
+    for i in range(n2):
+        D[i, i] = 1.0 / h[i]
+        D[i, i + 2] = 1.0 / h[i + 1]
+        D[i, i + 1] = -D[i, i] - D[i, i + 2]
 
-    B = np.zeros((k - 2, k - 2), dtype=np.float64)
-    np.fill_diagonal(B, (h[: k - 2] + h_shift_up) / 3.0)
-    np.fill_diagonal(B[:, 1:], h_shift_up / 6.0)
-    np.fill_diagonal(B[1:, :], h_shift_up / 6.0)
+    ldB = np.asarray((h[:n2] + h[1:]) / 3.0, dtype=np.float64)
+    sdB = np.asarray(h[1:n2] / 6.0, dtype=np.float64)
+    _d, _du, F_minus, info = lapack.dptsv(
+        ldB,
+        sdB,
+        D,
+        overwrite_d=False,
+        overwrite_e=False,
+        overwrite_b=False,
+    )
+    if int(info) != 0:
+        raise np.linalg.LinAlgError(
+            f"LAPACK dptsv failed in cubic spline setup: {info}"
+        )
 
-    F_minus = np.linalg.solve(B, D)
     F = np.vstack(
         [np.zeros(k, dtype=np.float64), F_minus, np.zeros(k, dtype=np.float64)]
     )
-    S = D.T @ F_minus
+
+    S = np.zeros((k, k), dtype=np.float64)
+    a = 1.0 / h[0]
+    S[0, :] = F_minus[0, :] * a
+    if k > 3:
+        a = -1.0 / h[0] - 1.0 / h[1]
+        b = 1.0 / h[1]
+        S[1, :] = F_minus[0, :] * a + F_minus[1, :] * b
+        for j in range(2, n2):
+            a = 1.0 / h[j - 1]
+            c = 1.0 / h[j]
+            b = -a - c
+            S[j, :] = F_minus[j - 2, :] * a + F_minus[j - 1, :] * b + F_minus[j, :] * c
+        j = n2
+        a = 1.0 / h[j - 1]
+        b = -1.0 / h[j - 1] - 1.0 / h[j]
+        S[n2, :] = F_minus[n2 - 2, :] * a + F_minus[n2 - 1, :] * b
+    else:
+        a = -1.0 / h[0] - 1.0 / h[1]
+        S[1, :] = F_minus[0, :] * a
+    j = n2
+    a = 1.0 / h[j]
+    S[k - 1, :] = F_minus[n2 - 1, :] * a
     return F, S
 
 
@@ -162,7 +199,7 @@ def cr_spl_predict(x, knots, F):
 def cr_exact_null_basis_from_knots(knots):
     """
     Return the 2-column orthonormal null-space basis of the cubic regression
-    spline penalty from knot positions.  Used by t2 tensor reparameterization.
+    spline penalty from knot positions.  Used by tensor reparameterization.
     """
     knots = np.asarray(knots, dtype=np.float64).ravel()
     u1 = knots - knots[0]

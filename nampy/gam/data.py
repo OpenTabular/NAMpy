@@ -159,11 +159,14 @@ def coerce_formula_predict_inputs(model, X):
         )
 
     X_work = apply_formula_preprocess_to_new_data(X, model.formula_preprocess_state_)
-    missing = [c for c in model.formula_used_columns_ if c not in X_work.columns]
+    feature_columns = getattr(model, "formula_feature_columns_", None)
+    if feature_columns is None:
+        feature_columns = model.formula_used_columns_
+    missing = [c for c in feature_columns if c not in X_work.columns]
     if missing:
         raise KeyError(f"Prediction data is missing formula columns: {missing}")
 
-    X_df = X_work[model.formula_used_columns_]
+    X_df = X_work[feature_columns]
     X_np, _ = coerce_X(model, X_df, allow_missing_non_numeric=True)
 
     offset_names = getattr(model, "formula_offset_names_", None)

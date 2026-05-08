@@ -86,7 +86,6 @@ serialize_offset <- function(x) {
 }
 
 smooth_special <- function(sm) {
-  if (inherits(sm, "t2.smooth")) return("t2")
   if (inherits(sm, "tensor.smooth")) {
     if (isTRUE(sm[["inter", exact = TRUE]])) return("ti")
     return("te")
@@ -184,7 +183,7 @@ family_obj <- switch(
   gaussian = gaussian(),
   binomial = binomial(link = if (is.null(family_param)) "logit" else family_param),
   poisson = poisson(link = if (is.null(family_param)) "log" else family_param),
-  gamma = Gamma(link = if (is.null(family_param)) "log" else family_param),
+  gamma = Gamma(link = if (is.null(family_param)) "inverse" else family_param),
   negbin_est = {
     theta <- if (is.null(family_param)) 1.0 else as.numeric(family_param)
     mgcv::nb(theta = -abs(theta), link = "log")
@@ -195,10 +194,6 @@ family_obj <- switch(
   },
   gaulss = mgcv::gaulss(),
   gammals = mgcv::gammals(),
-  ziplss = mgcv::ziplss(),
-  gevlss = mgcv::gevlss(),
-  shash = mgcv::shash(),
-  shashlss = mgcv::shash(),
   stop(sprintf("Unsupported family token for gam.setup assembly parity: %s", family_name))
 )
 

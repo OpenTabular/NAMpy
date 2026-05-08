@@ -23,13 +23,10 @@ from .smooth import (
     CubicShrinkageSmoothSpec,
     CyclicCubicRegressionSmoothSpec,
     FactorSmoothInteractionSpec,
-    GPSmoothSpec,
-    MarkovRandomFieldSmoothSpec,
     PSplineSmoothSpec,
     RandomEffectSmoothSpec,
     SmoothSpec,
     SumToZeroFactorSmoothSpec,
-    TensorANOVASmoothSpec,
     TensorInteractionSmoothSpec,
     TensorProductSmoothSpec,
     ThinPlateShrinkageSmoothSpec,
@@ -226,7 +223,7 @@ def _split_formula_text(formula: str) -> tuple[str | None, str]:
 
 
 def _contains_standalone_dot(rhs: str) -> bool:
-    return re.search(r"(^|[~+\-(),\s])\.([~+\-(),\s]|$)", rhs) is not None
+    return re.search(r"(^|[~+\-(),=\s])\.([~+\-(),=\s]|$)", rhs) is not None
 
 
 def _expand_rhs_dot_outside_smooth_calls(rhs: str, dot_rhs: str) -> tuple[str, bool]:
@@ -235,7 +232,7 @@ def _expand_rhs_dot_outside_smooth_calls(rhs: str, dot_rhs: str) -> tuple[str, b
     paren_stack: list[bool] = []
     quote: str | None = None
     changed = False
-    smooth_names = {"s", "te", "ti", "t2"}
+    smooth_names = {"s", "te", "ti"}
     boundary = set("~+-(), \t\r\n")
 
     i = 0
@@ -337,7 +334,9 @@ def _expand_extracted_predictors_dot_shorthand(
     if len(extracted_predictors) != 1:
         raise NotImplementedError(
             "Data-aware '.' shorthand is unsupported for formula-list / "
-            "multi-predictor models. Upstream mgcv::gam(list(...), data=...) "
+            "general-family models. Data-aware '.' shorthand is unsupported for "
+            "formula-list / multi-predictor models. Upstream "
+            "mgcv::gam(list(...), data=...) "
             "rejects this surface too, so NAMpy keeps it closed for parity."
         )
 
@@ -444,33 +443,6 @@ def _build_s_ts(opts) -> ThinPlateShrinkageSmoothSpec:
     )
 
 
-def _build_s_gp(opts) -> GPSmoothSpec:
-    return GPSmoothSpec(
-        special="s",
-        k=opts["k"],
-        fx=opts["fx"],
-        select=opts["select"],
-        sp=opts["sp"],
-        knots=opts["knots"],
-        m=opts["m"],
-        xt=opts["xt"],
-        constraint_mode=opts["constraint_mode"],
-        pc=opts["pc"],
-    )
-
-
-def _build_s_mrf(opts) -> MarkovRandomFieldSmoothSpec:
-    return MarkovRandomFieldSmoothSpec(
-        special="s",
-        k=opts["k"],
-        fx=opts["fx"],
-        select=opts["select"],
-        sp=opts["sp"],
-        knots=opts["knots"],
-        xt=opts["xt"],
-    )
-
-
 def _build_s_re(opts) -> RandomEffectSmoothSpec:
     return RandomEffectSmoothSpec(
         special="s",
@@ -514,8 +486,6 @@ _S_BASIS_SPEC_BUILDERS: dict[str, object] = {
     "ps": _build_s_ps,
     "tp": _build_s_tp,
     "ts": _build_s_ts,
-    "gp": _build_s_gp,
-    "mrf": _build_s_mrf,
     "re": _build_s_re,
     "fs": _build_s_fs,
     "sz": _build_s_sz,
@@ -553,47 +523,21 @@ def _build_ti(opts) -> TensorInteractionSmoothSpec:
     )
 
 
-def _build_t2(opts) -> TensorANOVASmoothSpec:
-    return TensorANOVASmoothSpec(
-        special="t2",
-        bs=opts["bs"],
-        k=opts["k"],
-        fx=False,
-        select=opts["select"],
-        m=opts["m"],
-        xt=opts["xt"],
-        sp=opts["sp"],
-        knots=opts["knots"],
-        full=opts["full"],
-        ord=opts["ord_"],
-        d=opts["d"],
-    )
-
-
 _SPECIAL_SMOOTH_BUILDERS: dict[str, object] = {
     "te": _build_te,
     "ti": _build_ti,
-    "t2": _build_t2,
 }
 
 
-def _any_fx_true(fx) -> bool:
-    if fx is None:
-        return False
-    if isinstance(fx, (list, tuple, np.ndarray)):
-        vals = np.asarray(fx, dtype=object).ravel()
-        return any(bool(v) for v in vals)
-    return bool(fx)
+def _is_vector_fx(fx) -> bool:
+    return fx is not None and not np.isscalar(fx)
 
 
 def _dispatch_smooth_spec_from_options(opts) -> SmoothSpec:
     merged = {**_SMOOTH_SPEC_DEFAULTS, **dict(opts)}
     special_key = str(merged["special"]).lower()
-    if special_key == "t2":
-        if "fixed" in opts:
-            raise NotImplementedError(
-                "t2() does not support fixed= in mgcv; use fx= instead."
-            )
+    if special_key in {"te", "ti"} and _is_vector_fx(merged.get("fx", False)):
+        raise NotImplementedError("Tensor smooths do not support vector-valued fx.")
     if special_key == "s":
         bs_key = str(merged["bs"]).lower()
         builder = _S_BASIS_SPEC_BUILDERS.get(bs_key)
@@ -628,7 +572,7 @@ def build_smooth_spec(
     return _dispatch_smooth_spec_from_options(locals())
 
 
-def _mgcv_flatten_arg(value):
+def _flatten_formula_arg(value):
     if isinstance(value, np.ndarray):
         return list(np.asarray(value, dtype=object).ravel())
     if isinstance(value, (list, tuple)):
@@ -636,19 +580,19 @@ def _mgcv_flatten_arg(value):
     return [value]
 
 
-def _mgcv_round_value(value):
-    vals = _mgcv_flatten_arg(value)
+def _round_formula_arg(value):
+    vals = _flatten_formula_arg(value)
     rounded = [int(np.rint(float(v))) for v in vals]
     if len(rounded) == 1 and not isinstance(value, (list, tuple, np.ndarray)):
         return rounded[0]
     return rounded
 
 
-def _mgcv_normalize_s_k(k):
+def _normalize_univariate_smooth_k(k):
     # mgcv/R/smooth.r::s(): k.new <- round(k), with warning on change.
-    rounded = _mgcv_round_value(k)
-    old_vals = [float(v) for v in _mgcv_flatten_arg(k)]
-    new_vals = [float(v) for v in _mgcv_flatten_arg(rounded)]
+    rounded = _round_formula_arg(k)
+    old_vals = [float(v) for v in _flatten_formula_arg(k)]
+    new_vals = [float(v) for v in _flatten_formula_arg(rounded)]
     if old_vals != new_vals:
         warnings.warn(
             "argument k of s() should be integer and has been rounded",
@@ -657,10 +601,10 @@ def _mgcv_normalize_s_k(k):
     return rounded
 
 
-def _mgcv_normalize_tensor_d(d, n_features):
+def _normalize_tensor_dimensions(d, n_features):
     if d is None:
         return [1] * int(n_features)
-    vals = _mgcv_flatten_arg(d)
+    vals = _flatten_formula_arg(d)
     if any(pd.isna(v) for v in vals):
         return [1] * int(n_features)
     rounded = [int(np.rint(float(v))) for v in vals]
@@ -672,13 +616,13 @@ def _mgcv_normalize_tensor_d(d, n_features):
     return rounded
 
 
-def _mgcv_normalize_tensor_k(k, d):
-    # mgcv/R/smooth.r::te()/t2(): invalid tensor k resets to 5^d (d = 1 here).
+def _normalize_tensor_k(k, d):
+    # mgcv/R/smooth.r::te(): invalid tensor k resets to 5^d (d = 1 here).
     d = [int(v) for v in d]
     n_bases = len(d)
     if k is None:
         return [int(5**di) for di in d]
-    vals = _mgcv_flatten_arg(k)
+    vals = _flatten_formula_arg(k)
     if any(pd.isna(v) for v in vals):
         return [int(5**di) for di in d]
     rounded = [int(np.rint(float(v))) for v in vals]
@@ -698,54 +642,33 @@ def _mgcv_normalize_tensor_k(k, d):
     return rounded
 
 
-def _mgcv_normalize_tensor_basis(bs, d):
+def _normalize_tensor_basis(bs, d):
     d = [int(v) for v in d]
     if isinstance(bs, str):
         out = [str(bs)] * len(d)
     else:
-        out = [str(v) for v in _mgcv_flatten_arg(bs)]
+        out = [str(v) for v in _flatten_formula_arg(bs)]
     if len(out) != len(d):
         warnings.warn("bs wrong length and ignored.", stacklevel=3)
         out = ["cr"] * len(d)
     return [
-        "tp" if di > 1 and b in {"cr", "cs", "ps", "cp"} else b
-        for b, di in zip(out, d)
+        "tp" if di > 1 and b in {"cr", "cs", "ps", "cp"} else b for b, di in zip(out, d)
     ]
 
 
-def _mgcv_normalize_smooth_id(smoothing_id):
-    # mgcv/R/smooth.r::s()/te()/t2(): only first element of multi-element id used.
+def _normalize_smooth_id(smoothing_id):
+    # mgcv/R/smooth.r::s()/te(): only first element of multi-element id used.
     if smoothing_id is None:
         return None
     if isinstance(smoothing_id, str):
         return str(smoothing_id)
-    vals = _mgcv_flatten_arg(smoothing_id)
+    vals = _flatten_formula_arg(smoothing_id)
     if len(vals) > 1:
         warnings.warn("only first element of `id' used", stacklevel=3)
         vals = vals[:1]
     if len(vals) == 1:
         return str(vals[0])
     return str(smoothing_id)
-
-
-def _mgcv_normalize_t2_ord(ord_value, n_bases):
-    # mgcv/R/smooth.r::t2(): reject ord with no valid order, warn on out-of-range.
-    if ord_value is None:
-        return None
-    scalar = not isinstance(ord_value, (list, tuple, np.ndarray))
-    vals = [int(v) for v in _mgcv_flatten_arg(ord_value)]
-    valid = set(range(0, int(n_bases) + 1))
-    if not any(v in valid for v in vals):
-        warnings.warn("ord is wrong. reset to NULL.", stacklevel=3)
-        return None
-    if any(v < 0 or v > int(n_bases) for v in vals):
-        warnings.warn(
-            "ord contains out of range orders (which will be ignored)",
-            stacklevel=3,
-        )
-    if scalar:
-        return vals[0]
-    return vals
 
 
 def _tensor_feature_groups(features, d):
@@ -766,10 +689,15 @@ def smooth_spec_from_basis_options(basis_options) -> SmoothSpec:
     merged = {**_SMOOTH_SPEC_DEFAULTS, **raw}
     special_key = str(merged.get("special", "s")).lower()
     fx_raw = merged.get("fx", False)
-    if special_key in {"te", "ti"} and isinstance(fx_raw, (list, tuple, np.ndarray)):
-        merged["fx"] = [bool(v) for v in np.asarray(fx_raw, dtype=object).ravel()]
-    else:
-        merged["fx"] = bool(fx_raw)
+    if _is_vector_fx(fx_raw):
+        if special_key in {"te", "ti"}:
+            raise NotImplementedError(
+                "Tensor smooths do not support vector-valued fx."
+            )
+        raise NotImplementedError(
+            "Vector-valued fx is not supported; use a scalar boolean."
+        )
+    merged["fx"] = bool(fx_raw)
     merged["select"] = bool(merged.get("select", False))
     merged["full"] = bool(merged.get("full", False))
     merged["constraint_mode"] = str(merged.get("constraint_mode", "auto"))
@@ -779,26 +707,15 @@ def smooth_spec_from_basis_options(basis_options) -> SmoothSpec:
 def _coerce_fx(fx, *, kind, n_features):
     kind_key = str(kind).lower()
     if kind_key in {"te", "ti"} and isinstance(fx, (list, tuple, np.ndarray)):
-        vals = [bool(v) for v in np.asarray(fx, dtype=object).ravel()]
-        if len(vals) == 1:
-            return vals * int(n_features)
-        if len(vals) != int(n_features):
-            import warnings
-
-            warnings.warn("dimension of fx is wrong", stacklevel=3)
-            return [False] * int(n_features)
-        return vals
+        raise NotImplementedError("Tensor smooths do not support vector-valued fx.")
     if isinstance(fx, (list, tuple, np.ndarray)):
         raise NotImplementedError(
-            "Vector-valued fx is currently supported only for te() and ti() terms."
+            "Vector-valued fx is not supported; use a scalar boolean."
         )
     return bool(fx)
 
 
-def _default_k_for_basis(basis, default_k):
-    basis_key = str(basis).lower()
-    if basis_key in {"mrf", "gp"}:
-        return -1
+def _default_k_for_basis(_basis, default_k):
     return default_k
 
 
@@ -814,8 +731,8 @@ def _factor_smooth_base_basis_from_xt(xt):
 
 def _default_k_for_smooth(kind, basis, features, default_k):
     kind_key = str(kind).lower()
-    if kind_key in {"te", "ti", "t2"}:
-        # mgcv::te()/ti()/t2() default k to 5^d per marginal. The current
+    if kind_key in {"te", "ti"}:
+        # mgcv::te()/ti() default k to 5^d per marginal. The current
         # Python tensor surface supports one feature per marginal, so d = 1.
         return [5] * len(features)
     return _default_k_for_basis(basis, default_k)
@@ -934,7 +851,7 @@ def _fs_by_without_factor_feature_base_spec(smooth_spec: FactorSmoothInteraction
 
     if base_bs == "ps":
         kwargs["m"] = None if xt_rest is None else xt_rest.get("m", None)
-    elif base_bs in {"tp", "ts", "gp"}:
+    elif base_bs in {"tp", "ts"}:
         kwargs["xt"] = xt_rest
     elif xt_rest:
         raise NotImplementedError(
@@ -1139,9 +1056,10 @@ def _expand_factor_by_term(
     if smooth_spec is None:
         raise ValueError(f"Smooth term {term.label!r} is missing smooth_spec.")
 
-    if str(smooth_spec.special) != "s":
+    special_key = str(smooth_spec.special)
+    if special_key not in {"s", "te", "ti"}:
         raise NotImplementedError(
-            f"Factor `by` expansion is implemented for s(...) only in this step, "
+            f"Factor `by` expansion is implemented for s(...), te(...), and ti(...) only in this step, "
             f"not for {smooth_spec.special}(...)."
         )
 
@@ -1182,8 +1100,10 @@ def _expand_factor_by_term(
             replace(
                 term,
                 by_variable=hidden_col,
-                smooth_spec=replace_smooth_spec(
-                    smooth_spec, constraint_mode="factor_by"
+                smooth_spec=(
+                    replace_smooth_spec(smooth_spec, constraint_mode="factor_by")
+                    if special_key == "s"
+                    else smooth_spec
                 ),
                 label=new_label,
                 metadata=new_meta,
@@ -1227,6 +1147,8 @@ def _expand_transformed_smooth_term(
 
     for feature in term.features:
         feature_name = str(feature)
+        if feature_name.strip().rstrip(")") == ".":
+            raise NotImplementedError("s(.) not supported")
         if _is_bare_formula_name(feature_name):
             new_features.append(feature_name)
             continue
@@ -1279,6 +1201,46 @@ def _collect_used_columns_from_predictor_specs(predictor_specs):
                 continue
 
     return used
+
+
+def _formula_report_used_columns(
+    data: pd.DataFrame,
+    data_work: pd.DataFrame,
+    feature_columns,
+    offset_names,
+    preprocess_state: dict,
+):
+    used = set()
+    feature_set = {str(col) for col in feature_columns}
+    offset_set = {str(name) for name in offset_names if name is not None}
+    hidden_to_sources = {}
+
+    for item in preprocess_state.get("formula_expression_columns", []):
+        hidden_to_sources[str(item["hidden_name"])] = [
+            str(v) for v in item.get("source_variables", [])
+        ]
+
+    for item in preprocess_state.get("parametric_expansions", []):
+        hidden_to_sources[str(item["hidden_name"])] = [
+            str(v) for v in item.get("source_variables", [])
+        ]
+
+    for item in preprocess_state.get("factor_by_expansions", []):
+        hidden_to_sources[str(item["hidden_by"])] = [str(item["source_by"])]
+
+    for name in feature_set | offset_set:
+        if name in hidden_to_sources:
+            used.update(hidden_to_sources[name])
+        else:
+            used.add(name)
+
+    ordered = [str(col) for col in data.columns if str(col) in used]
+    extras = [
+        str(col)
+        for col in data_work.columns
+        if str(col) in used and str(col) not in ordered
+    ]
+    return ordered + extras
 
 
 def _dataframe_to_feature_matrix(X_df: pd.DataFrame):
@@ -1368,16 +1330,13 @@ def _build_predictor_spec(
         )
         kind_key = str(kind).lower()
         d = kw.pop("d", None)
-        if kind_key in {"te", "ti", "t2"}:
-            d = _mgcv_normalize_tensor_d(d, len(features))
-            n_bases = len(d)
-            basis = _mgcv_normalize_tensor_basis(basis, d)
-        else:
-            n_bases = len(features)
+        if kind_key in {"te", "ti"}:
+            d = _normalize_tensor_dimensions(d, len(features))
+            basis = _normalize_tensor_basis(basis, d)
         if "k" in kw:
             k = kw.pop("k")
         else:
-            if kind_key in {"te", "ti", "t2"}:
+            if kind_key in {"te", "ti"}:
                 k = [int(5**di) for di in d]
             else:
                 k_basis = basis
@@ -1389,7 +1348,7 @@ def _build_predictor_spec(
         by = kw.pop("by", None)
         if by is not None:
             by = str(by)
-            if by == ".":
+            if by.strip().rstrip(")") == ".":
                 raise ValueError("by=. not allowed")
             if not _is_bare_formula_name(by):
                 raise NotImplementedError(
@@ -1399,10 +1358,7 @@ def _build_predictor_spec(
             if available_column_names is not None and by not in available_column_names:
                 raise KeyError(f"by column {by!r} not found in available data columns.")
         smoothing_id = kw.pop("id", kw.pop("smoothing_id", None))
-        if str(kind).lower() == "t2":
-            fixed = _coerce_fx(kw.pop("fx", False), kind=kind, n_features=len(features))
-        else:
-            fixed = _coerce_fx(kw.pop("fx", False), kind=kind, n_features=len(features))
+        fixed = _coerce_fx(kw.pop("fx", False), kind=kind, n_features=len(features))
         select = bool(kw.pop("select", default_select))
 
         m = kw.pop("m", None)
@@ -1414,12 +1370,10 @@ def _build_predictor_spec(
         full = kw.pop("full", False)
         ord_ = kw.pop("ord", None)
         if kind_key == "s":
-            k = _mgcv_normalize_s_k(k)
-        elif kind_key in {"te", "ti", "t2"}:
-            k = _mgcv_normalize_tensor_k(k, d)
-        smoothing_id = _mgcv_normalize_smooth_id(smoothing_id)
-        if kind_key == "t2":
-            ord_ = _mgcv_normalize_t2_ord(ord_, n_bases)
+            k = _normalize_univariate_smooth_k(k)
+        elif kind_key in {"te", "ti"}:
+            k = _normalize_tensor_k(k, d)
+        smoothing_id = _normalize_smooth_id(smoothing_id)
 
         if kw:
             raise NotImplementedError(
@@ -1646,8 +1600,17 @@ def build_formula_model(
         if has_offset:
             offset_out = offset_list
 
+    report_used_cols = _formula_report_used_columns(
+        data,
+        data_work,
+        used_cols,
+        offset_names,
+        preprocess_state,
+    )
+
     preprocess_state = dict(preprocess_state)
-    preprocess_state["used_columns"] = list(used_cols)
+    preprocess_state["feature_columns"] = list(used_cols)
+    preprocess_state["used_columns"] = list(report_used_cols)
     preprocess_state["offset_names"] = offset_names
     preprocess_state["offset_name"] = (
         offset_names[0] if len(offset_names) == 1 else None

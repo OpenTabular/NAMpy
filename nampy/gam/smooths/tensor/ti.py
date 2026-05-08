@@ -99,7 +99,6 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
         self.fixed_flags = normalize_tensor_fx_flags(
             fixed,
             len(features),
-            wrong_length_warning="dimension of fx is wrong",
         )
         self.fixed = bool(all(self.fixed_flags))
         self.null_penalty_tol = float(null_penalty_tol)
@@ -177,7 +176,7 @@ class InteractionTensorProductSplineTerm(BaseSmoothTerm):
             for S, keep in zip(S_ti, keep_penalties)
             if keep
         ]
-        self._set_mgcv_penalty_rescale_factors(
+        self._set_penalty_rescale_factors(
             [
                 float(scale)
                 for scale, keep in zip(penalty_scales, keep_penalties)

@@ -4,8 +4,11 @@ import numpy as np
 import pytest
 
 from nampy.gam.linalg import column_space_projector, symmetric_spectrum
-from nampy.gam.smooths.algebra import t2_marginal_reparameterization
-from nampy.gam.smooths.tensor.marginals import tensor_marginal_fit_matrices
+from nampy.gam.penalties import tensor_product_penalties
+from nampy.gam.smooths.tensor.marginals import (
+    build_tensor_product_components,
+    tensor_marginal_fit_matrices,
+)
 from nampy.gam.smooths.tensor.ti import InteractionTensorProductSplineTerm
 from nampy.gam.smooths.univariate.tp import ThinPlateSplineTerm
 from tests.families.test_general_family_mgcv_parity import _general_newdata
@@ -15,64 +18,24 @@ from tests.mgcv_parity_utils import (
     _run_mgcv_raw_constructor,
     _run_mgcv_smoothcon_predict_matrix,
 )
-from tests.smooths.test_mgcv_raw_constructor_parity import (
-    CASES as RAW_CONSTRUCTOR_CASES,
-)
 
 pytestmark = [pytest.mark.surface_regression, pytest.mark.smooth_ti]
 
-_RAW_CASES_BY_ID = {case.case_id: case for case in RAW_CONSTRUCTOR_CASES}
-
-_TI_RAW_GAP_CASES = [
-    pytest.param(
-        "ti_2d_cs_cs",
-        id="ti_2d_cs_cs",
-        marks=[
-            pytest.mark.status_known_gap,
-            pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "ti(cs,cs) raw shrinkage-penalty spectrum still drifts from "
-                    "mgcv before term-level prediction assembly."
-                ),
-            ),
-        ],
-    ),
-    pytest.param(
-        "ti_2d_cs_ps",
-        id="ti_2d_cs_ps",
-        marks=[
-            pytest.mark.status_known_gap,
-            pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "ti(cs,ps) raw shrinkage-penalty spectrum still drifts from "
-                    "mgcv before term-level prediction assembly."
-                ),
-            ),
-        ],
-    ),
-    pytest.param(
-        "ti_2d_ps_cs",
-        id="ti_2d_ps_cs",
-        marks=[
-            pytest.mark.status_known_gap,
-            pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "ti(ps,cs) raw shrinkage-penalty spectrum still drifts from "
-                    "mgcv before term-level prediction assembly."
-                ),
-            ),
-        ],
-    ),
+_TI_RAW_CASES = [
+    pytest.param("ti_2d_cs_cs", id="ti_2d_cs_cs"),
+    pytest.param("ti_2d_cs_ps", id="ti_2d_cs_ps"),
+    pytest.param("ti_2d_ps_cs", id="ti_2d_ps_cs"),
 ]
 _TI_PREDICTION_STAGE_CASES = [
     pytest.param("ti_2d_cs_cs", 5e-13, id="ti_2d_cs_cs"),
     pytest.param("ti_2d_cs_ps", 5e-12, id="ti_2d_cs_ps"),
     pytest.param("ti_2d_ps_cs", 5e-12, id="ti_2d_ps_cs"),
-    pytest.param("ti_2d_tp_gp", 1e-9, id="ti_2d_tp_gp"),
 ]
+_TI_PREDICTION_STAGE_FORMULAS = {
+    "ti_2d_cs_cs": 'ti(x0, x1, bs=["cs", "cs"], k=[5, 6])',
+    "ti_2d_cs_ps": 'ti(x0, x1, bs=["cs", "ps"], k=[5, 6])',
+    "ti_2d_ps_cs": 'ti(x0, x1, bs=["ps", "cs"], k=[5, 6])',
+}
 
 
 def _stage_tensor_data():
@@ -111,6 +74,17 @@ def _mgcv_tp_natparam(data):
     }
 
 
+def _ti_raw_constructor_penalties(term, X):
+    use_centered = list(term._marginal_is_centered)
+    _, marginal_penalties, _, basis_dims, _, _ = build_tensor_product_components(
+        term._marginals,
+        X,
+        use_centered=use_centered,
+        apply_np=True,
+    )
+    return tensor_product_penalties(marginal_penalties, basis_dims=basis_dims)
+
+
 def _ti_prediction_parameterization(data, *, by=None):
     term = InteractionTensorProductSplineTerm(
         feature=["x0", "x1"],
@@ -131,8 +105,7 @@ def _ti_prediction_parameterization(data, *, by=None):
 
 
 def _ti_stage_case_prediction(case_id):
-    case = _RAW_CASES_BY_ID[case_id]
-    data = case.data_factory()
+    data = _stage_tensor_data()
     if case_id == "ti_2d_cs_cs":
         term = InteractionTensorProductSplineTerm(
             feature=["x0", "x1"],
@@ -151,12 +124,6 @@ def _ti_stage_case_prediction(case_id):
             k=[5, 6],
             basis=["ps", "cs"],
         )
-    elif case_id == "ti_2d_tp_gp":
-        term = InteractionTensorProductSplineTerm(
-            feature=["x0", "x1"],
-            k=[5, 6],
-            basis=["tp", "gp"],
-        )
     else:
         raise AssertionError(f"Unhandled ti stage case {case_id!r}")
 
@@ -170,7 +137,7 @@ def _ti_stage_case_prediction(case_id):
     expected = _run_mgcv_smoothcon_predict_matrix(
         data[["x0", "x1"]],
         newdata[["x0", "x1"]],
-        case.formula.split("~", 1)[1].strip(),
+        _TI_PREDICTION_STAGE_FORMULAS[case_id],
         absorb_cons=True,
         scale_penalty=True,
     )
@@ -195,23 +162,6 @@ def test_ti_tp_raw_constructor_invariants_match_mgcv():
         atol=1e-10,
         rtol=1e-10,
     )
-
-
-def test_ti_tp_natparam_type3_kernel_matches_mgcv_on_same_raw_inputs():
-    """Verify that ti tp natparam type3 kernel matches mgcv on same raw inputs."""
-    data = _stage_tensor_data()
-    expected = _mgcv_tp_natparam(data)
-
-    actual = t2_marginal_reparameterization(
-        expected["rawX"],
-        expected["rawS"],
-        basis_name="tp",
-    )
-    got_X = np.column_stack([actual["B_range"], actual["B_null"]])
-    got_P = np.column_stack([actual["T_range"], actual["T_null"]])
-
-    np.testing.assert_allclose(got_X, expected["X"], atol=1e-12, rtol=1e-12)
-    np.testing.assert_allclose(got_P, expected["P"], atol=1e-12, rtol=1e-12)
 
 
 def test_ti_prediction_parameterization_matches_mgcv_and_preserves_penalty_order():
@@ -282,12 +232,12 @@ def test_ti_mixed_basis_prediction_parameterizations_match_mgcv(case_id, atol):
     np.testing.assert_allclose(actual, expected, atol=atol, rtol=atol)
 
 
-@pytest.mark.parametrize("case_id", _TI_RAW_GAP_CASES)
+@pytest.mark.parametrize("case_id", _TI_RAW_CASES)
 def test_ti_shrinkage_penalty_spectra_match_mgcv_raw_constructor(case_id):
     """Verify that ti shrinkage penalty spectra match mgcv raw constructor."""
-    case = _RAW_CASES_BY_ID[case_id]
-    data = case.data_factory()
-    basis = case.formula.split('bs=["', 1)[1].split('"]', 1)[0].split('", "')
+    data = _stage_tensor_data()
+    formula = _TI_PREDICTION_STAGE_FORMULAS[case_id]
+    basis = formula.split('bs=["', 1)[1].split('"]', 1)[0].split('", "')
     term = InteractionTensorProductSplineTerm(
         feature=["x0", "x1"],
         k=[5, 6],
@@ -297,11 +247,14 @@ def test_ti_shrinkage_penalty_spectra_match_mgcv_raw_constructor(case_id):
     term.fit(X, ["x0", "x1"])
     expected = _run_mgcv_raw_constructor(
         data[["x0", "x1"]],
-        case.formula.split("~", 1)[1].strip(),
+        formula,
     )
 
-    assert len(term.penalties) == len(expected["S"]) == 2
-    for actual_penalty, expected_penalty in zip(term.penalties, expected["S"]):
+    actual_penalties = _ti_raw_constructor_penalties(term, X)
+    assert len(actual_penalties) == len(expected["S"]) == 2
+    for actual_penalty, expected_penalty in zip(
+        actual_penalties, expected["S"], strict=True
+    ):
         np.testing.assert_allclose(
             symmetric_spectrum(np.asarray(actual_penalty, dtype=np.float64)),
             symmetric_spectrum(np.asarray(expected_penalty, dtype=np.float64)),

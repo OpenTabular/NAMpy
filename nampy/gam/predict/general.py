@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -15,6 +14,8 @@ from .._model_state import (
 )
 from ..data import coerce_optional_offset
 from ..fit.offsets import resolve_prediction_offset
+from ..fit.parameterization import prediction_parameterization_map
+from ..linalg import symmetrize_matrix
 
 
 @dataclass(frozen=True)
@@ -124,6 +125,16 @@ def build_general_lpmatrix(model, X_new=None):
     return general_family_prediction_layout(model, X_new).lpmatrix
 
 
+def _general_family_covariance_for_prediction(model, cov):
+    V = model._select_cov(cov)
+    if V is None:
+        return None
+    P = prediction_parameterization_map(model)
+    if P is None:
+        return np.asarray(V, dtype=np.float64)
+    return symmetrize_matrix(np.asarray(P, dtype=np.float64) @ np.asarray(V, dtype=np.float64) @ np.asarray(P, dtype=np.float64).T)
+
+
 def predict_general_values(
     model,
     X=None,
@@ -131,21 +142,19 @@ def predict_general_values(
     cov=None,
     type="response",
     offset=None,
-    iterms_type=None,
 ):
     pred_type = str(type).lower()
-    if pred_type not in {"response", "link", "terms", "lpmatrix", "iterms"}:
+    if pred_type not in {"response", "link", "terms", "lpmatrix"}:
         raise ValueError(
-            "type must be one of {'response', 'link', 'terms', 'iterms', 'lpmatrix'}"
+            "type must be one of {'response', 'link', 'terms', 'lpmatrix'}"
         )
     from .predictions import (
         _group_standard_error_rows,
         _group_term_contribution,
-        _iterms_mean_row,
         _prediction_term_groups,
     )
 
-    if pred_type in {"terms", "iterms"} and any(
+    if pred_type == "terms" and any(
         _prediction_parameterization_wider(tb)
         for tb in _term_blocks_seq(model)
     ):
@@ -156,12 +165,6 @@ def predict_general_values(
 
     offset_list = general_family_prediction_offset(model, X, offset)
     layout = general_family_prediction_layout(model, X)
-    if pred_type == "iterms" and len(layout.predictor_slices) > 1:
-        warnings.warn(
-            "type='iterms' not available for multiple predictor cases; using type='terms' instead.",
-            stacklevel=2,
-        )
-        pred_type = "terms"
 
     eta = general_family_link_prediction_with_offset(model, layout, offset_list)
     Z_new = layout.Z_new
@@ -175,12 +178,7 @@ def predict_general_values(
         )
         if not return_se:
             return terms
-        V = model._select_cov(cov)
-        iterms_mean_row = (
-            None
-            if pred_type != "iterms"
-            else _iterms_mean_row(model, iterms_type=iterms_type)
-        )
+        V = _general_family_covariance_for_prediction(model, cov)
         ses = []
         for group in groups:
             Xi, sl_full = _group_standard_error_rows(
@@ -188,7 +186,6 @@ def predict_general_values(
                 layout.lpmatrix,
                 group,
                 type=pred_type,
-                iterms_mean_row=iterms_mean_row,
             )
             if sl_full is None:
                 var = np.einsum("ij,jk,ik->i", Xi, V, Xi)
@@ -203,7 +200,7 @@ def predict_general_values(
     if pred_type == "link":
         if not return_se:
             return eta
-        V = model._select_cov(cov)
+        V = _general_family_covariance_for_prediction(model, cov)
         se_cols = []
         for Xp, sl in zip(layout.Xp_blocks, layout.predictor_slices):
             Vk = V[sl, sl]
@@ -221,7 +218,11 @@ def predict_general_values(
             coef=coef_full,
             offset=offset_list,
             se=return_se,
-            Vb=None if not return_se else model._select_cov(cov),
+            Vb=(
+                None
+                if not return_se
+                else _general_family_covariance_for_prediction(model, cov)
+            ),
         )
         return out
 

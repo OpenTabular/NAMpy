@@ -4,13 +4,23 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from .._model_state import _coerce_feature_matrix, _require_fitted, _term_blocks_seq
+from ..data import coerce_formula_predict_inputs
 
 
 def plot_gam_terms(model, X=None, n_cols=2, figsize=None):
     _require_fitted(model)
 
-    X_plot = _coerce_feature_matrix(model, X, none_is_training=True)
-    contributions = model.predict_feature_vals(X_plot)
+    if X is None:
+        X_plot = _coerce_feature_matrix(model, None, none_is_training=True)
+        contribution_input = None
+    elif bool(getattr(model, "formula_mode_", False)):
+        X_plot, _, _ = coerce_formula_predict_inputs(model, X)
+        contribution_input = X
+    else:
+        X_plot = _coerce_feature_matrix(model, X, none_is_training=True)
+        contribution_input = X_plot
+
+    contributions = model.predict_feature_vals(contribution_input)
 
     term_blocks = tuple(_term_blocks_seq(model))
     n_terms = len(term_blocks)

@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 from scipy.linalg import orthogonal_procrustes
 
-from ....splines.basis.mrf import nat_param_type1
+from ....splines.basis.natparam import nat_param_type1
 from ..._mgcv_constants import EIG_TOL_POWER
 from ...compiler.structures import PenaltySpec
 from ...penalties import penalty_id_for_local_index, rescale_tensor_penalties_for_fit
@@ -104,7 +104,7 @@ def _build_base_smooth_term(
     Build the per-level base smooth used inside fs/sz.
 
     Supported base smooth classes in the current codebase:
-    cr, cs, cc, ps, tp, ts, gp
+    cr, cs, cc, ps, tp, ts
     """
     base_bs = str(base_bs).lower()
     metric_features = list(metric_features)
@@ -115,15 +115,15 @@ def _build_base_smooth_term(
     if mode == "fs" and base_bs in {"cs", "ts"}:
         raise NotImplementedError(_fs_full_rank_base_error(base_bs))
 
-    if len(metric_features) > 1 and base_bs not in {"tp", "ts", "gp"}:
+    if len(metric_features) > 1 and base_bs not in {"tp", "ts"}:
         raise NotImplementedError(
             f"Current {mode} implementation supports multivariate base smooths only "
-            f"for bs in {{'tp','ts','gp'}}, got base bs={base_bs!r}."
+            f"for bs in {{'tp','ts'}}, got base bs={base_bs!r}."
         )
 
-    if xt_rest is not None and base_bs not in {"tp", "ts", "gp", "ps"}:
+    if xt_rest is not None and base_bs not in {"tp", "ts", "ps"}:
         raise NotImplementedError(
-            f"Extra xt options are currently only supported for tp/ts/gp/ps base smooths, "
+            f"Extra xt options are currently only supported for tp/ts/ps base smooths, "
             f"got xt={xt_rest!r} with base bs={base_bs!r}."
         )
 
@@ -187,29 +187,9 @@ def _build_base_smooth_term(
             metadata=metadata,
         )
 
-    if base_bs == "gp":
-        return make_smooth_term(
-            "gp",
-            feature=metric_features,
-            k=k,
-            basis="gp",
-            m=None,
-            label=label,
-            smoothing_id=None,
-            by=by,
-            sp=None,
-            select=bool(select),
-            fixed=bool(fixed),
-            constraint_mode=str(constraint_mode),
-            pc=None,
-            knots=knots,
-            xt=xt_rest,
-            metadata=metadata,
-        )
-
     raise NotImplementedError(
         f"Current {mode} implementation supports base bs in "
-        f"{{'cr','cs','cc','ps','tp','ts','gp'}}, got {base_bs!r}."
+        f"{{'cr','cs','cc','ps','tp','ts'}}, got {base_bs!r}."
     )
 
 
@@ -249,7 +229,7 @@ def _kron_many(mats):
     return out
 
 
-def _xzkr_contrast_transform(level_sizes, block_dim):
+def _sum_to_zero_contrast_transform(level_sizes, block_dim):
     """
     Exact mgcv::XZKr() contrast transform.
 
@@ -425,7 +405,7 @@ class _FactorSmoothBase(BaseSmoothTerm):
         metric_feature_indices = []
         metric_feature_names = []
 
-        for idx, fname in zip(feature_indices, feature_names_resolved):
+        for idx, fname in zip(feature_indices, feature_names_resolved, strict=True):
             col = X[:, idx]
             if factor_levels_from_metadata(self.metadata, fname) is not None:
                 factor_feature_indices.append(idx)
@@ -620,16 +600,6 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
                 P_coef[:, range_rank:] = P_coef[:, range_rank:] @ R
                 return X_reparam, P_coef
 
-        if basis_key == "gp":
-            X_null = X_reparam[:, range_rank:].copy()
-            one = np.ones((X_null.shape[0], 1), dtype=np.float64)
-            X_centered = X_null - one @ (one.T @ X_null) / X_null.shape[0]
-            evals, vecs = np.linalg.eigh(X_centered.T @ X_centered)
-            idx = np.argsort(evals)[::-1]
-            R = vecs[:, idx][:, ::-1]
-            X_reparam[:, range_rank:] = X_reparam[:, range_rank:] @ R
-            P_coef[:, range_rank:] = P_coef[:, range_rank:] @ R
-
         return X_reparam, P_coef
 
     def fit(self, X, feature_names):
@@ -783,7 +753,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         self._penalties = penalties
         self._smoothing_ids = smoothing_ids
         self._ranks = ranks
-        self._set_mgcv_penalty_rescale_factors(penalty_scales)
+        self._set_penalty_rescale_factors(penalty_scales)
         self.skip_centering = True
         self._record_constraint_result(None, None, absorbed_by=None)
         return self
@@ -947,8 +917,10 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
                 'bs="sz" currently requires a singly penalized base smooth.'
             )
 
-        B0 = np.asarray(base_term.basis_train, dtype=np.float64)
         self._base_term = base_term
+        B0, S0, _ = self._base_constructor_fit_matrices()
+        B0 = np.asarray(B0, dtype=np.float64)
+        S0 = np.asarray(S0, dtype=np.float64)
 
         level_lists = []
         indicator_mats = []
@@ -972,7 +944,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         p0 = B0.shape[1]
         level_sizes = [len(lev) for lev in level_lists]
         self._n_groups = int(np.prod(level_sizes, dtype=np.int64))
-        T = _xzkr_contrast_transform(level_sizes, p0)
+        T = _sum_to_zero_contrast_transform(level_sizes, p0)
         self._factor_transform = T
 
         if T.shape[1] == 0:
@@ -986,7 +958,7 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
 
         X_con = X_raw @ T
 
-        if len(base_term.penalties) == 0:
+        if self.fixed or len(base_term.penalties) == 0:
             X_con = self._apply_cached_by(X_con)
             self._basis_train = np.asarray(X_con, dtype=np.float64)
             self._penalties = []
@@ -996,7 +968,6 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
             self._record_constraint_result(None, None, absorbed_by=None)
             return self
 
-        S0 = np.asarray(base_term.penalties[0], dtype=np.float64)
         penalties = []
         smoothing_ids = []
         ranks = []
@@ -1035,9 +1006,9 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
                 s_scale = maS0 / maXX
                 scale = maXX / maS0
                 penalties = [P * scale for P in penalties]
-            self._set_mgcv_penalty_rescale_factors([s_scale] * len(penalties))
+            self._set_penalty_rescale_factors([s_scale] * len(penalties))
         else:
-            self._set_mgcv_penalty_rescale_factors([])
+            self._set_penalty_rescale_factors([])
 
         X_con = self._apply_cached_by(X_con)
         self._basis_train = np.asarray(X_con, dtype=np.float64)
@@ -1055,7 +1026,11 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         self._require_fitted()
 
         indicator_mats = []
-        for idx, lev in zip(self._factor_feature_indices, self._factor_levels):
+        for idx, lev in zip(
+            self._factor_feature_indices,
+            self._factor_levels,
+            strict=True,
+        ):
             fac = as_object_1d(column_as_object(X_new, idx))
             indicator_mats.append(factor_indicator_matrix(fac, lev))
 

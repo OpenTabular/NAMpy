@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import numpy as np
@@ -164,6 +164,13 @@ def construct_smooth(
         runtime_skip_centering=runtime_skip_centering,
         by_variable_info=by_variable_info,
     )
+    runtime_metadata = getattr(runtime, "metadata", None)
+    if isinstance(runtime_metadata, dict) and runtime_metadata.get("factor_by", None):
+        side_condition_policy = replace(
+            side_condition_policy,
+            exempt_from_dependency_pruning=True,
+            allow_first_numeric_by_unpruned=False,
+        )
 
     predict_coefficient_map_arr = (
         None

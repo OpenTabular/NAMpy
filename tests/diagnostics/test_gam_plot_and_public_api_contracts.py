@@ -5,9 +5,12 @@ from types import SimpleNamespace
 
 import matplotlib
 import numpy as np
+import pandas as pd
 import pytest
 
 from nampy.gam import GAM
+from nampy.gam._model_state import _term_blocks_seq
+from tests.mgcv_parity_utils import _run_mgcv_snapshot
 
 matplotlib.use("Agg")
 
@@ -115,9 +118,14 @@ def test_gam_public_wrappers_delegate_to_underlying_modules(monkeypatch):
         calls["plot"] = (model, X.copy(), n_cols, figsize)
         return "plot-ok"
 
+    def _gam_check(model, *, type="deviance", k_sample=5000, k_rep=200, seed=None):
+        calls["gam_check"] = (model, type, k_sample, k_rep, seed)
+        return {"ok": True, "type": type}
+
     monkeypatch.setattr(diagnostics_pkg, "print_summary", _print_summary)
     monkeypatch.setattr(diagnostics_pkg, "concurvity", _concurvity)
     monkeypatch.setattr(diagnostics_pkg, "plot_gam_terms", _plot_gam_terms)
+    monkeypatch.setattr(diagnostics_pkg, "gam_check", _gam_check)
     monkeypatch.setattr(smoothing_pkg, "sp_vcov", _sp_vcov)
     monkeypatch.setattr(smoothing_pkg, "one_se_rule", _one_se_rule)
     monkeypatch.setattr(
@@ -132,6 +140,10 @@ def test_gam_public_wrappers_delegate_to_underlying_modules(monkeypatch):
 
     assert gam.summary() == "summary-ok"
     assert gam.concurvity(full=False) == {"ok": True, "full": False}
+    assert gam.gam_check(type="pearson", k_sample=12, k_rep=7, seed=123) == {
+        "ok": True,
+        "type": "pearson",
+    }
     np.testing.assert_allclose(
         gam.sp_vcov(edge_correct=False, reg=0.25),
         np.eye(1, dtype=np.float64),
@@ -147,6 +159,7 @@ def test_gam_public_wrappers_delegate_to_underlying_modules(monkeypatch):
 
     assert calls["summary"] is gam
     assert calls["concurvity"] == (gam, False)
+    assert calls["gam_check"] == (gam, "pearson", 12, 7, 123)
     assert calls["sp_vcov"] == (gam, False, 0.25)
     assert calls["one_se_rule"] == (gam, [0])
     plot_model, plot_X, plot_n_cols, plot_figsize = calls["plot"]
@@ -155,3 +168,271 @@ def test_gam_public_wrappers_delegate_to_underlying_modules(monkeypatch):
     assert plot_n_cols == 3
     assert plot_figsize == (4, 5)
 
+
+def _small_formula_offset_data(seed=702, n=48):
+    rng = np.random.default_rng(seed)
+    x = np.linspace(-1.5, 1.5, n)
+    off = 0.15 + 0.08 * np.cos(x)
+    y = 0.7 + off + np.sin(1.2 * x) + rng.normal(scale=0.04, size=n)
+    return pd.DataFrame(
+        {
+            "y": y,
+            "x": x,
+            "off": off,
+            "unused": rng.normal(size=n),
+        }
+    )
+
+
+def test_gam_bic_uses_public_loglik_and_effective_df_formula():
+    """Verify BIC follows the mgcv-style effective-df formula."""
+    gam = GAM(family="gaussian")
+    gam.y_ = np.zeros(9, dtype=np.float64)
+    gam.loglik = lambda: -3.25
+    gam._loglik_effective_df = lambda: 2.5
+
+    assert gam.bic() == pytest.approx(-2.0 * (-3.25) + np.log(9.0) * 2.5)
+
+
+def test_predict_feature_vals_matches_prediction_terms_response_intercept_and_offset():
+    """Verify predict_feature_vals decomposes the public prediction surfaces."""
+    data = _small_formula_offset_data(seed=704, n=54)
+    y_counts = np.maximum(
+        0,
+        np.round(np.exp(0.2 + 0.5 * np.sin(data["x"]) + data["off"])).astype(int),
+    )
+    data = data.assign(y=y_counts)
+    api_offset = np.full(len(data), 0.03, dtype=np.float64)
+    gam = GAM(
+        family="poisson",
+        formula='y ~ offset(off) + s(x, bs="cr", k=6, sp=0.6)',
+    )
+    gam.fit(data=data)
+
+    values = gam.predict_feature_vals(data, offset=api_offset)
+    terms = gam.predict(data, type="terms", offset=api_offset)
+
+    np.testing.assert_allclose(
+        values["output"],
+        gam.predict(data, type="link", offset=api_offset),
+        atol=1e-12,
+        rtol=1e-12,
+    )
+    np.testing.assert_allclose(
+        values["response"],
+        gam.predict(data, type="response", offset=api_offset),
+        atol=1e-12,
+        rtol=1e-12,
+    )
+    for j, term in enumerate(_term_blocks_seq(gam)):
+        np.testing.assert_allclose(
+            values[term.term_id],
+            terms[:, j],
+            atol=1e-12,
+            rtol=1e-12,
+        )
+    assert "intercept" in values
+    np.testing.assert_allclose(
+        values["offset"],
+        np.asarray(data["off"], dtype=np.float64) + api_offset,
+        atol=1e-12,
+        rtol=1e-12,
+    )
+
+
+def test_gam_lpmatrix_wrapper_matches_predict_lpmatrix_for_formula_newdata():
+    """Verify the direct lpmatrix wrapper follows the public prediction surface."""
+    data = _small_formula_offset_data(seed=706, n=50)
+    gam = GAM(
+        family="gaussian",
+        formula='y ~ offset(off) + s(x, bs="cr", k=6, sp=0.7)',
+    )
+    gam.fit(data=data)
+    newdata = data.iloc[:9].copy()
+
+    np.testing.assert_allclose(
+        gam.lpmatrix(newdata),
+        gam.predict(newdata, type="lpmatrix"),
+        atol=1e-12,
+        rtol=1e-12,
+    )
+
+
+def test_tensor_numeric_by_scalar_sp_is_invalid_for_mgcv_multi_penalty_te():
+    """mgcv requires one term-level sp per tensor penalty."""
+    rng = np.random.default_rng(713)
+    n = 72
+    x0 = rng.uniform(-1.2, 1.2, size=n)
+    x1 = rng.uniform(-1.0, 1.0, size=n)
+    z = rng.uniform(0.4, 1.5, size=n)
+    y = z * (np.sin(x0) + 0.25 * x1**2) + rng.normal(scale=0.04, size=n)
+    data = pd.DataFrame({"y": y, "x0": x0, "x1": x1, "z": z})
+    gam = GAM(
+        family="gaussian",
+        formula='y ~ te(x0, x1, by=z, bs=["cr", "cr"], k=[5, 5], sp=0.8)',
+    )
+    # mgcv/R/mgcv.r::gam.setup stops when length(spi) != ncol(Li).
+    with pytest.raises(NotImplementedError, match="one value per penalty"):
+        gam.fit(data=data)
+
+
+def test_formula_metadata_tracks_transformed_terms_offsets_and_ignores_unused_columns():
+    """Verify transformed formula preprocessing keeps only relevant source columns."""
+    data = _small_formula_offset_data(seed=715, n=52)
+    gam = GAM(
+        family="gaussian",
+        formula='y ~ I(x**2) + offset(off) + s(I(x + 0.2), bs="cr", k=6, sp=0.8)',
+    )
+    gam.fit(data=data)
+
+    used = gam.formula_used_columns_
+    assert used is not None
+    assert "x" in used
+    assert "off" in used
+    assert "unused" not in used
+    assert gam.formula_offset_name_ == "off"
+    assert gam.formula_offset_names_ == ("off",)
+
+
+def test_gam_check_report_contains_mgcv_comparable_and_local_blocks():
+    """Verify gam_check exposes comparable residual/k-check and local optimizer blocks."""
+    data = _small_formula_offset_data(seed=723, n=58)
+    gam = GAM(
+        family="gaussian",
+        formula='y ~ s(x, bs="cr", k=6, sp=0.7)',
+    )
+    gam.fit(data=data)
+
+    report = gam.gam_check(type="deviance", k_sample=30, k_rep=3, seed=42)
+
+    assert set(report) >= {"mgcv_comparable", "nampy_specific"}
+    assert report["mgcv_comparable"]["residual_type"] == "deviance"
+    assert len(report["mgcv_comparable"]["residuals"]) == len(data)
+    assert report["mgcv_comparable"]["k_check"] is not None
+    assert "convergence" in report["nampy_specific"]
+
+
+def test_gam_check_rejects_unknown_residual_type():
+    """Verify gam_check unsupported residual types fail explicitly."""
+    data = _small_formula_offset_data(seed=724, n=42)
+    gam = GAM(
+        family="gaussian",
+        formula='y ~ s(x, bs="cr", k=6, sp=0.7)',
+    )
+    gam.fit(data=data)
+
+    with pytest.raises(ValueError, match="residual type"):
+        gam.gam_check(type="working")
+
+
+def test_summary_contains_representative_family_term_and_fit_statistics():
+    """Verify summary text contains key fitted-model fields."""
+    data = _small_formula_offset_data(seed=725, n=46)
+    gam = GAM(
+        family="gaussian",
+        formula='y ~ offset(off) + s(x, bs="cr", k=6, sp=0.7)',
+    )
+    gam.fit(data=data)
+
+    text = gam.summary()
+
+    assert "General Smooth Model Summary" in text
+    assert "Family : gaussian" in text
+    assert "Link : identity" in text
+    assert "Offset : yes" in text
+    assert "EDF (total)" in text
+    assert "RSS" in text
+
+
+def test_predict_rejects_iterms_until_public_contract_is_supported():
+    """Verify unsupported iterms prediction is explicit rather than silent."""
+    data = _small_formula_offset_data(seed=727, n=42)
+    gam = GAM(
+        family="gaussian",
+        formula='y ~ s(x, bs="cr", k=6, sp=0.7)',
+    )
+    gam.fit(data=data)
+
+    with pytest.raises(ValueError, match="type must be one of"):
+        gam.predict(data, type="iterms")
+
+
+def test_predict_has_no_terms_or_exclude_keyword_until_contract_is_supported():
+    """Verify term filtering/exclusion is not accepted silently by public API."""
+    data = _small_formula_offset_data(seed=728, n=42)
+    gam = GAM(
+        family="gaussian",
+        formula='y ~ s(x, bs="cr", k=6, sp=0.7)',
+    )
+    gam.fit(data=data)
+
+    with pytest.raises(TypeError):
+        gam.predict(data, type="terms", terms=["s(x)"])
+    with pytest.raises(TypeError):
+        gam.predict(data, type="terms", exclude=["s(x)"])
+
+
+def test_predict_feature_vals_handles_factor_smooth_terms():
+    """Verify factor smooth term effects match mgcv predict(type="terms")."""
+    rng = np.random.default_rng(732)
+    n = 72
+    x = rng.uniform(-1.3, 1.3, size=n)
+    f = pd.Categorical(rng.choice(np.array(["a", "b", "c"], dtype=object), size=n))
+    y = np.sin(x) + np.array([{"a": 0.2, "b": -0.3, "c": 0.45}[str(v)] for v in f])
+    y = y + rng.normal(scale=0.05, size=n)
+    data = pd.DataFrame({"y": y, "x": x, "f": f})
+    formula = 'y ~ s(x, f, bs="fs", k=5, xt="cr", sp=[0.8, 0.8, 0.8])'
+    gam = GAM(family="gaussian", formula=formula)
+    gam.fit(data=data)
+
+    values = gam.predict_feature_vals(data)
+    expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
+    expected_terms = np.asarray(expected["predictions"]["terms"], dtype=np.float64)
+
+    for j, term in enumerate(_term_blocks_seq(gam)):
+        assert term.term_id in values
+        np.testing.assert_allclose(
+            values[term.term_id],
+            expected_terms[:, j],
+            atol=1e-8,
+            rtol=1e-8,
+        )
+
+
+def test_mixed_fixed_and_free_smoothing_parameters_fit_and_predict():
+    """Verify mixed fixed/free smoothing parameter formulas match mgcv."""
+    rng = np.random.default_rng(733)
+    n = 80
+    x0 = rng.uniform(-1.4, 1.4, size=n)
+    x1 = rng.uniform(-1.1, 1.1, size=n)
+    y = np.sin(x0) + 0.2 * x1**2 + rng.normal(scale=0.05, size=n)
+    data = pd.DataFrame({"y": y, "x0": x0, "x1": x1})
+    formula = 'y ~ s(x0, bs="cr", k=6, sp=0.7) + s(x1, bs="cr", k=6)'
+    gam = GAM(
+        family="gaussian",
+        formula=formula,
+        optimize_smoothing=True,
+        smoothing_method="REML",
+    )
+    gam.fit(data=data)
+    expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+    np.testing.assert_allclose(
+        gam.predict(data, type="link"),
+        np.asarray(expected["predictions"]["link"], dtype=np.float64),
+        atol=1e-6,
+        rtol=1e-6,
+    )
+    fixed_mask = np.asarray(gam.smoothing_fixed_mask_, dtype=bool)
+    np.testing.assert_allclose(
+        np.asarray(gam.smoothing_params, dtype=np.float64)[fixed_mask],
+        np.array([0.7], dtype=np.float64),
+        atol=1e-12,
+        rtol=0.0,
+    )
+    np.testing.assert_allclose(
+        np.asarray(gam.smoothing_params, dtype=np.float64)[~fixed_mask],
+        np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64),
+        atol=1e-6,
+        rtol=1e-6,
+    )

@@ -8,12 +8,10 @@ from .categorical_utils import (
     try_numeric_1d,
 )
 from .fs import FSmoothInteractionTerm, SZSmoothInteractionTerm
-from .mrf import MarkovRandomFieldTerm
 from .re import RandomEffectTerm
 
 fs = FSmoothInteractionTerm
 sz = SZSmoothInteractionTerm
-mrf = MarkovRandomFieldTerm
 re = RandomEffectTerm
 
 __all__ = [
@@ -27,9 +25,7 @@ __all__ = [
     "RandomEffectTerm",
     "FSmoothInteractionTerm",
     "SZSmoothInteractionTerm",
-    "MarkovRandomFieldTerm",
     "fs",
     "sz",
-    "mrf",
     "re",
 ]

@@ -30,8 +30,8 @@ from ..data import (
     copy_offset,
 )
 from ..families import make_gam_family
-from ..fit.model_ops import copy_fit_result
 from ..fit.offsets import coerce_offset_array
+from ..fit.result_builders import copy_fit_result
 from ..parity import build_parity_snapshot
 from ..smoothing_selection.criteria.gaussian_reml_algebra import (
     gaussian_reml_weighted_degrees_and_log_weight_term,
@@ -152,6 +152,17 @@ class GAM:
         if used_columns is None:
             return None
         return list(used_columns)
+
+    @property
+    def formula_feature_columns_(self):
+        if self.formula_preprocess_state_ is None:
+            return None
+        feature_columns = self.formula_preprocess_state_.get("feature_columns")
+        if feature_columns is None:
+            feature_columns = self.formula_preprocess_state_.get("used_columns")
+        if feature_columns is None:
+            return None
+        return list(feature_columns)
 
     @property
     def formula_offset_name_(self):
@@ -340,7 +351,7 @@ class GAM:
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
         if self.gam_result_ is None:
-            from ..fit.model_ops import build_gam_result
+            from ..fit.result_builders import build_gam_result
 
             self.gam_result_ = build_gam_result(self)
         return copy_fit_result(
@@ -354,12 +365,12 @@ class GAM:
         return select_covariance_matrix(self, cov=cov)
 
     def _resolve_ml_reml_scoring_backend(self, method="reml"):
-        from ..fit.model_ops import resolve_ml_reml_scoring_backend
+        from ..fit.capabilities import resolve_ml_reml_scoring_backend
 
         return resolve_ml_reml_scoring_backend(self, method=method)
 
     def _expand_smoothing_params_from_log(self, log_free_sp):
-        from ..fit.model_ops import expand_smoothing_params_from_log
+        from ..fit.smoothing_params import expand_smoothing_params_from_log
 
         return expand_smoothing_params_from_log(self, log_free_sp)
 
@@ -368,7 +379,6 @@ class GAM:
             if str(getattr(tb, "term_type", "")).lower() in {
                 "tensor_smooth",
                 "tensor_interaction",
-                "tensor_anova",
             }:
                 return True
         return False
@@ -385,7 +395,6 @@ class GAM:
         cov=None,
         type="response",
         offset=None,
-        iterms_type=None,
     ):
         from ..predict import predict_values
 
@@ -402,7 +411,6 @@ class GAM:
                 cov=cov,
                 type=type,
                 offset=offset_use,
-                iterms_type=iterms_type,
                 model=self,
             )
 
@@ -422,7 +430,6 @@ class GAM:
             cov=cov,
             type=type,
             offset=offset_use,
-            iterms_type=iterms_type,
             model=self,
         )
 
@@ -485,10 +492,9 @@ class GAM:
             return plot_gam_terms(self, X=None, n_cols=n_cols, figsize=figsize)
 
         if self.formula_mode_:
-            X_np, _, _ = coerce_formula_predict_inputs(self, X)
-        else:
-            X_np, _ = coerce_X(self, X)
+            return plot_gam_terms(self, X=X, n_cols=n_cols, figsize=figsize)
 
+        X_np, _ = coerce_X(self, X)
         return plot_gam_terms(self, X=X_np, n_cols=n_cols, figsize=figsize)
 
     def summary(self):
@@ -624,7 +630,7 @@ class GAM:
             vc *= float(dispersion) / fit_scale
         return vc
 
-    def _mgcv_loglik_df(self) -> float:
+    def _loglik_effective_df(self) -> float:
         """
         mgcv-style effective df used by ``logLik.gam`` / AIC / BIC.
 
@@ -641,9 +647,13 @@ class GAM:
         if edf2 is not None:
             p = float(np.sum(np.asarray(edf2, dtype=np.float64))) + sc_p
         np_max = float(len(np.asarray(_coef_full(self), dtype=np.float64))) + sc_p
-        return min(p, np_max)
+        p = min(p, np_max)
+        n_theta = getattr(self.family, "n_theta", None)
+        if family_class == "extended" and n_theta is not None:
+            p += float(n_theta)
+        return p
 
-    def _mgcv_loglik_value_df(self) -> tuple[float, float]:
+    def _loglik_value_and_effective_df(self) -> tuple[float, float]:
         """
         mgcv ``logLik.gam`` uses two df notions:
 
@@ -669,7 +679,7 @@ class GAM:
             p_df += float(n_theta)
         return p_val, p_df
 
-    def _mgcv_object_aic(self) -> float | None:
+    def _object_aic(self) -> float | None:
         """
         Final ``object$aic`` before ``logLik.gam`` post-processing.
 
@@ -761,7 +771,39 @@ class GAM:
             ):
                 scale = float(np.exp(float(joint_log_phi)))
             if scale is None:
-                scale = _fit_scale(self)
+                fit_method = str(getattr(self, "smoothing_method", "")).lower()
+                if fit_method == "fixed" and getattr(self.family, "known_scale", None) is None:
+                    from .._model_state import _coef_column_offset
+                    from ..smoothing_selection.criteria.pirls.value import (
+                        _solve_gamma_profile_scale,
+                    )
+                    from ..smoothing_selection.reparam import _static_penalty_null_dim
+
+                    penalty = float(
+                        getattr(fit_result, "penalty_quadratic", 0.0) or 0.0
+                    )
+                    mp = float(
+                        _static_penalty_null_dim(self) + _coef_column_offset(self)
+                    )
+                    init_scale = _fit_scale(self)
+                    if init_scale is None or not np.isfinite(float(init_scale)):
+                        init_scale = 1.0
+                    # mgcv/R/gam.fit3.r::gam.fit3 uses `reml.scale`
+                    # rather than the reported Pearson `sig2` in
+                    # stats::Gamma()$aic when fixed sp are fitted through
+                    # the REML path.
+                    scale = float(
+                        _solve_gamma_profile_scale(
+                            self,
+                            y,
+                            float(getattr(fit_result, "deviance", np.nan)) + penalty,
+                            mp=mp,
+                            method="REML",
+                            init_scale=float(init_scale),
+                        )
+                    )
+                if scale is None:
+                    scale = _fit_scale(self)
             if scale is None or not np.isfinite(float(scale)) or float(scale) <= 0.0:
                 return None
             disp = float(scale)
@@ -798,9 +840,9 @@ class GAM:
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
 
-        object_aic = self._mgcv_object_aic()
+        object_aic = self._object_aic()
         if object_aic is not None:
-            p_val, _p_df = self._mgcv_loglik_value_df()
+            p_val, _p_df = self._loglik_value_and_effective_df()
             return float(p_val - object_aic / 2.0)
 
         if getattr(self.family, "family_class", "") == "general":
@@ -808,9 +850,8 @@ class GAM:
             if fit_result is not None and fit_result.loglik is not None:
                 # General-family fits already store the mgcv-shaped unpenalized
                 # log-likelihood in fit space. Recomputing from exported
-                # coefficients is wrong for paths such as `t2(full=FALSE)`,
-                # where public coefficients may have been mapped to prediction
-                # parameterization.
+                # coefficients is wrong when public coefficients have been
+                # mapped to a prediction parameterization.
                 return float(fit_result.loglik)
             X = np.asarray(_fit_state(self).X, dtype=np.float64)
             jj = [
@@ -870,16 +911,16 @@ class GAM:
 
     def aic(self) -> float:
         """mgcv-style conditional AIC based on effective df."""
-        object_aic = self._mgcv_object_aic()
+        object_aic = self._object_aic()
         if object_aic is not None:
-            p_val, p_df = self._mgcv_loglik_value_df()
+            p_val, p_df = self._loglik_value_and_effective_df()
             return float(object_aic + 2.0 * (p_df - p_val))
-        return float(-2.0 * self.loglik() + 2.0 * self._mgcv_loglik_df())
+        return float(-2.0 * self.loglik() + 2.0 * self._loglik_effective_df())
 
     def bic(self) -> float:
         """BIC using mgcv-style effective df."""
         n_obs = float(len(np.asarray(self.y_, dtype=np.float64)))
-        return float(-2.0 * self.loglik() + np.log(n_obs) * self._mgcv_loglik_df())
+        return float(-2.0 * self.loglik() + np.log(n_obs) * self._loglik_effective_df())
 
     def gam_vcomp(self, *, rescale=True, conf_lev=0.95):
         from ..smoothing_selection import gam_vcomp

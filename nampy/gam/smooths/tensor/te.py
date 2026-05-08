@@ -6,9 +6,8 @@ product of marginal spline bases.  The penalty is a sum of Kronecker-product
 marginal penalties, each penalising the corresponding marginal function.
 
 The ``te`` smooth is the standard interaction smooth: it adds a penalty for
-each axis and does not impose an ANOVA decomposition.  Use ``ti`` for
-main-effects-removed interaction terms or ``t2`` for the alternative
-penalty parameterisation.
+each axis and does not impose an ANOVA decomposition. Use ``ti`` for
+main-effects-removed interaction terms.
 """
 
 import numpy as np
@@ -99,7 +98,6 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         self.fixed_flags = normalize_tensor_fx_flags(
             fixed,
             len(features),
-            wrong_length_warning="dimension of fx is wrong",
         )
         self.fixed = bool(all(self.fixed_flags))
         self.null_penalty_tol = float(null_penalty_tol)
@@ -161,7 +159,11 @@ class TensorProductSplineTerm(BaseSmoothTerm):
             B_setup, S_raw, return_scales=True
         )
 
-        if self._by_state.is_constant:
+        factor_by_meta = (
+            isinstance(self.metadata, dict)
+            and self.metadata.get("factor_by", None) is not None
+        )
+        if self._by_state.is_constant or factor_by_meta:
             if self._linked_id_setup() is None:
                 B_te, S_te, C_te = full_term_sum_to_zero_constraint(B_raw, S_raw)
             else:
@@ -185,7 +187,7 @@ class TensorProductSplineTerm(BaseSmoothTerm):
             for S, keep in zip(S_te, keep_penalties)
             if keep
         ]
-        self._set_mgcv_penalty_rescale_factors(
+        self._set_penalty_rescale_factors(
             [
                 float(scale)
                 for scale, keep in zip(penalty_scales, keep_penalties)

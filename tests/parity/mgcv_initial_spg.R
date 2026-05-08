@@ -68,7 +68,7 @@ family_obj <- switch(
   },
   poisson = poisson(link = "log"),
   gamma = {
-    link <- if (is.null(family_param) || family_param == "") "log" else family_param
+    link <- if (is.null(family_param) || family_param == "") "inverse" else family_param
     Gamma(link = link)
   },
   negbin = {
@@ -81,10 +81,6 @@ family_obj <- switch(
   },
   gaulss = mgcv::gaulss(),
   gammals = mgcv::gammals(),
-  ziplss = mgcv::ziplss(),
-  gevlss = mgcv::gevlss(),
-  shash = mgcv::shash(),
-  shashlss = mgcv::shash(),
   stop(sprintf("Unsupported family for initial.spg parity: %s", family_name))
 )
 
@@ -158,7 +154,21 @@ payload <- list(
   start = unname(as.numeric(start)),
   lbb = unname(lbb),
   X_initial = unname(G$X),
-  Eb = unname(G$Eb)
+  Eb = unname(G$Eb),
+  Sl_blocks = lapply(G$Sl, function(block) {
+    list(
+      start = as.integer(block$start),
+      stop = as.integer(block$stop),
+      rank = if (is.null(block$rank)) NULL else as.integer(block$rank),
+      repara = isTRUE(block$repara),
+      linear = if (is.null(block$linear)) TRUE else isTRUE(block$linear),
+      nS = length(block$S),
+      ind = if (is.null(block$ind)) NULL else unname(as.logical(block$ind)),
+      D = if (is.null(block$D)) NULL else unname(block$D),
+      Di = if (is.null(block$Di)) NULL else unname(block$Di),
+      S = lapply(block$S, function(Si) unname(Si))
+    )
+  })
 )
 
 write_json(payload, output_json, auto_unbox = TRUE, digits = 17, pretty = TRUE)

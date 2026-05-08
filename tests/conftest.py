@@ -160,11 +160,9 @@ def _infer_marks_from_text(texts: list[str]) -> set[str]:
         marks.add("smooth_te")
     if "ti(" in joined or _has_token(joined, "ti"):
         marks.add("smooth_ti")
-    if "t2(" in joined or _has_token(joined, "t2") or "tensor_anova" in joined:
-        marks.add("smooth_t2")
 
     for token, mark in _SMOOTH_MARK_NAMES.items():
-        if token in {"te", "ti", "t2"}:
+        if token in {"te", "ti"}:
             continue
         if (
             f'bs="{token}"' in joined

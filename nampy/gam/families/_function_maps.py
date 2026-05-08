@@ -10,11 +10,6 @@ from scipy.special import expit
 from scipy.stats import norm as _norm
 
 
-def _safe_pow(x, power, eps):
-    x = np.asarray(x, dtype=np.float64)
-    return np.clip(x**power, eps, None)
-
-
 @dataclass(frozen=True)
 class LinkFunction:
     def __call__(self, mu):
@@ -102,11 +97,13 @@ class InverseLink(LinkFunction):
 
     def inverse(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
-        return 1.0 / eta
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return 1.0 / eta
 
     def mu_eta(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
-        return -1.0 / eta**2
+        with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+            return -1.0 / eta**2
 
     def d2(self, mu):
         mu = np.asarray(mu, dtype=np.float64)
@@ -160,11 +157,15 @@ class LogitLink(LinkFunction):
 
     def inverse(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
-        return expit(eta)
+        eps = np.finfo(np.float64).eps
+        # stats::binomial(link="logit") uses C_logit_linkinv, which floors the
+        # inverse link away from exact 0/1 at machine epsilon.
+        return np.clip(expit(eta), eps, 1.0 - eps)
 
     def mu_eta(self, eta):
         mu = self.inverse(eta)
-        return mu * (1.0 - mu)
+        eps = np.finfo(np.float64).eps
+        return np.clip(mu * (1.0 - mu), eps, None)
 
     def d2(self, mu):
         mu = np.asarray(mu, dtype=np.float64)
@@ -188,28 +189,31 @@ class ProbitLink(LinkFunction):
         return _norm.ppf(mu)
 
     def inverse(self, eta):
-        return _norm.cdf(np.asarray(eta, dtype=np.float64))
+        eta = np.asarray(eta, dtype=np.float64)
+        eps = np.finfo(np.float64).eps
+        return np.clip(_norm.cdf(eta), eps, 1.0 - eps)
 
     def mu_eta(self, eta):
-        return _norm.pdf(np.asarray(eta, dtype=np.float64))
+        eps = np.finfo(np.float64).eps
+        return np.clip(_norm.pdf(np.asarray(eta, dtype=np.float64)), eps, None)
 
     def d2(self, mu):
         mu = np.asarray(mu, dtype=np.float64)
         eta = _norm.ppf(mu)
-        phi = np.clip(_norm.pdf(eta), self.eps, None)
-        return eta / _safe_pow(phi, 2, self.eps)
+        phi = np.clip(_norm.pdf(eta), np.finfo(np.float64).eps, None)
+        return eta / phi**2
 
     def d3(self, mu):
         mu = np.asarray(mu, dtype=np.float64)
         eta = _norm.ppf(mu)
-        phi = np.clip(_norm.pdf(eta), self.eps, None)
-        return (1.0 + 2.0 * eta**2) / np.clip(phi**3, self.eps, None)
+        phi = np.clip(_norm.pdf(eta), np.finfo(np.float64).eps, None)
+        return (1.0 + 2.0 * eta**2) / phi**3
 
     def d4(self, mu):
         mu = np.asarray(mu, dtype=np.float64)
         eta = _norm.ppf(mu)
-        phi = np.clip(_norm.pdf(eta), self.eps, None)
-        return eta * (7.0 + 6.0 * eta**2) / np.clip(phi**4, self.eps, None)
+        phi = np.clip(_norm.pdf(eta), np.finfo(np.float64).eps, None)
+        return eta * (7.0 + 6.0 * eta**2) / phi**4
 
 
 @dataclass(frozen=True)
@@ -223,12 +227,14 @@ class CloglogLink(LinkFunction):
     def inverse(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
         lam = np.exp(eta)
-        return 1.0 - np.exp(-lam)
+        eps = np.finfo(np.float64).eps
+        return np.clip(1.0 - np.exp(-lam), eps, 1.0 - eps)
 
     def mu_eta(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
         lam = np.exp(eta)
-        return lam * np.exp(-lam)
+        eps = np.finfo(np.float64).eps
+        return np.clip(lam * np.exp(-lam), eps, None)
 
     def d2(self, mu):
         mu = np.asarray(mu, dtype=np.float64)
@@ -238,9 +244,7 @@ class CloglogLink(LinkFunction):
     def d3(self, mu):
         mu = np.asarray(mu, dtype=np.float64)
         l1m = np.log1p(-mu)
-        return (-2.0 - 3.0 * l1m - 2.0 * l1m**2) / (
-            (1.0 - mu) ** 3 * l1m**3
-        )
+        return (-2.0 - 3.0 * l1m - 2.0 * l1m**2) / ((1.0 - mu) ** 3 * l1m**3)
 
     def d4(self, mu):
         mu = np.asarray(mu, dtype=np.float64)

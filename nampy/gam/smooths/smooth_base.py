@@ -421,7 +421,7 @@ class BaseSmoothTerm(abc.ABC):
         self.prediction_offset = None
         self.basis_train_base = None
         self.knots = None
-        self._mgcv_penalty_rescale_factors = None
+        self._penalty_rescale_factors = None
 
     def _set_resolved_features(self, resolved_feature_names):
         if resolved_feature_names is None:
@@ -445,22 +445,22 @@ class BaseSmoothTerm(abc.ABC):
                 max(0, transform.shape[0] - transform.shape[1])
             )
 
-    def _set_mgcv_penalty_rescale_factors(self, factors):
+    def _set_penalty_rescale_factors(self, factors):
         if factors is None:
-            self._mgcv_penalty_rescale_factors = None
+            self._penalty_rescale_factors = None
             return
         vals = np.asarray(factors, dtype=np.float64).ravel()
         if vals.size == 0:
-            self._mgcv_penalty_rescale_factors = []
+            self._penalty_rescale_factors = []
             return
         if not np.all(np.isfinite(vals)) or np.any(vals <= 0.0):
             raise ValueError(
                 "mgcv penalty rescale factors must be finite and positive."
             )
-        self._mgcv_penalty_rescale_factors = [float(v) for v in vals]
+        self._penalty_rescale_factors = [float(v) for v in vals]
 
-    def _mgcv_penalty_scale(self, penalty_index: int) -> float:
-        factors = self._mgcv_penalty_rescale_factors
+    def _penalty_rescale_factor(self, penalty_index: int) -> float:
+        factors = self._penalty_rescale_factors
         if not factors:
             return 1.0
         if penalty_index < 0 or penalty_index >= len(factors):
@@ -472,7 +472,7 @@ class BaseSmoothTerm(abc.ABC):
 
     def _penalty_metadata_with_scale(self, metadata, *, penalty_index: int):
         meta = dict(metadata or {})
-        meta.setdefault("mgcv_s_scale", self._mgcv_penalty_scale(penalty_index))
+        meta.setdefault("penalty_rescale_factor", self._penalty_rescale_factor(penalty_index))
         return meta
 
     def _apply_constraint_transform_and_by(self, B, X_new):
@@ -793,7 +793,7 @@ class BaseSmoothTerm(abc.ABC):
         else:
             meta = dict(selection_metadata)
         meta["is_selection_penalty"] = True
-        meta.setdefault("mgcv_s_scale", 1.0)
+        meta.setdefault("penalty_rescale_factor", 1.0)
 
         if selection_via_subsystem:
             sel = build_null_space_selection_spec(

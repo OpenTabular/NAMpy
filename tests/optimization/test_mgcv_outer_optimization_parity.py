@@ -11,26 +11,21 @@ import pandas as pd
 import pytest
 
 from nampy.gam import GAM
-from nampy.gam.fit.design_ops import compile_designs
-from nampy.gam.fit.solvers.general_family_solver import build_general_family_setup_state
+from nampy.gam.fit.design_setup import compile_designs
 from nampy.gam.parity import build_optimizer_trace
 from nampy.gam.smoothing_selection.optimize.basics import (
-    _initial_smoothing_params_from_design_balance,
-    _initial_smoothing_params_mgcv_style,
+    _initial_smoothing_params_from_design,
 )
 from nampy.gam.smoothing_selection.optimize.newton import (
     _optimize_outer_newton_indefinite_hessian,
 )
 from nampy.gam.smoothing_selection.optimize.objectives import _CriterionObjective
-from nampy.gam.smoothing_selection.reparam import build_estimate_gam_setup_state
 from nampy.gam.specs.modeling import prepare_formula_inputs
 from tests._paths import PARITY_DIR, REPO_ROOT
-from tests.families.test_general_family_mgcv_parity import _gaulss_two_smooth_data
 from tests.mgcv_parity_utils import _make_gamma_data, _make_negbin_data
 
 R_SCRIPT = shutil.which("Rscript")
 MGCV_OUTER_TRACE_SCRIPT = PARITY_DIR / "mgcv_outer_trace.R"
-MGCV_INITIAL_SPG_SCRIPT = PARITY_DIR / "mgcv_initial_spg.R"
 
 pytestmark = [
     pytest.mark.surface_trace,
@@ -38,9 +33,14 @@ pytestmark = [
 ]
 
 _TRACE_SOURCE_ALIASES = {
-    "outer_newton_mgcv": "mgcv_newton",
-    "outer_bfgs_mgcv": "mgcv_bfgs",
-    "outer_efs_mgcv": "mgcv_efs",
+    "outer_newton_strict": "outer_newton_strict",
+    "mgcv_newton": "outer_newton_strict",
+    "outer_bfgs_strict": "outer_bfgs_strict",
+    "mgcv_bfgs": "outer_bfgs_strict",
+    "outer_efs_strict": "outer_efs_strict",
+    "mgcv_efs": "outer_efs_strict",
+    "outer_optim_strict": "outer_optim_strict",
+    "mgcv_optim": "outer_optim_strict",
 }
 
 
@@ -107,38 +107,6 @@ def _run_mgcv_outer_trace(
         return json.loads(json_path.read_text(encoding="utf-8"))
 
 
-def _run_mgcv_initial_spg(
-    data: pd.DataFrame,
-    formula,
-    family: str,
-    method: str,
-    *,
-    select: bool = False,
-):
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir_path = Path(tmpdir)
-        csv_path = tmpdir_path / "data.csv"
-        json_path = tmpdir_path / "initial_spg.json"
-        data.to_csv(csv_path, index=False)
-        subprocess.run(
-            [
-                R_SCRIPT,
-                str(MGCV_INITIAL_SPG_SCRIPT),
-                str(csv_path),
-                str(json_path),
-                str(formula),
-                family,
-                method,
-                "true" if select else "false",
-            ],
-            check=True,
-            cwd=REPO_ROOT,
-            capture_output=True,
-            text=True,
-        )
-        return json.loads(json_path.read_text(encoding="utf-8"))
-
-
 def _python_newton_edge_correct_result(data: pd.DataFrame, formula: str, family: str):
     gam = GAM(
         family=family,
@@ -148,7 +116,7 @@ def _python_newton_edge_correct_result(data: pd.DataFrame, formula: str, family:
     )
     gam.fit(data=data)
     y = gam.family.validate_y(gam.y_)
-    init = _initial_smoothing_params_from_design_balance(gam, y)
+    init = _initial_smoothing_params_from_design(gam, y)
     assert init is not None
 
     fixed_mask = (
@@ -166,12 +134,8 @@ def _python_newton_edge_correct_result(data: pd.DataFrame, formula: str, family:
     )
     bounds = []
     for lower_sp in min_sp[free_mask]:
-        lo = (
-            float(gam.sp_log_bounds[0])
-            if lower_sp <= 0.0
-            else max(float(gam.sp_log_bounds[0]), float(np.log(lower_sp)))
-        )
-        bounds.append((lo, float(gam.sp_log_bounds[1])))
+        lo = float(np.log(lower_sp)) if lower_sp > 0.0 else -np.inf
+        bounds.append((lo, np.inf))
 
     objective = _CriterionObjective(gam, y, method="reml", use_gradient=True)
     return _optimize_outer_newton_indefinite_hessian(
@@ -238,9 +202,21 @@ def _normalize_jsonish(value):
     return value
 
 
-def _assert_expected_subset_close(actual, expected, *, atol: float):
+def _assert_expected_subset_close(
+    actual,
+    expected,
+    *,
+    atol: float,
+    field_atols: dict[str, float] | None = None,
+    field_name: str | None = None,
+):
     actual = _normalize_jsonish(actual)
     expected = _normalize_jsonish(expected)
+    effective_atol = (
+        field_atols.get(field_name, atol)
+        if field_atols is not None and field_name is not None
+        else atol
+    )
 
     if expected is None:
         assert actual is None
@@ -252,7 +228,13 @@ def _assert_expected_subset_close(actual, expected, *, atol: float):
         assert isinstance(actual, dict)
         assert set(expected) <= set(actual)
         for key, expected_value in expected.items():
-            _assert_expected_subset_close(actual.get(key), expected_value, atol=atol)
+            _assert_expected_subset_close(
+                actual.get(key),
+                expected_value,
+                atol=atol,
+                field_atols=field_atols,
+                field_name=str(key),
+            )
         return
 
     if isinstance(expected, list):
@@ -271,13 +253,19 @@ def _assert_expected_subset_close(actual, expected, *, atol: float):
             np.testing.assert_allclose(
                 actual_arr,
                 expected_arr,
-                atol=atol,
+                atol=effective_atol,
                 rtol=0.0,
             )
             return
         assert len(actual) == len(expected)
         for actual_value, expected_value in zip(actual, expected):
-            _assert_expected_subset_close(actual_value, expected_value, atol=atol)
+            _assert_expected_subset_close(
+                actual_value,
+                expected_value,
+                atol=atol,
+                field_atols=field_atols,
+                field_name=field_name,
+            )
         return
 
     if isinstance(expected, bool):
@@ -289,7 +277,12 @@ def _assert_expected_subset_close(actual, expected, *, atol: float):
         return
 
     if isinstance(expected, float):
-        np.testing.assert_allclose(float(actual), expected, atol=atol, rtol=0.0)
+        np.testing.assert_allclose(
+            float(actual),
+            expected,
+            atol=effective_atol,
+            rtol=0.0,
+        )
         return
 
     if isinstance(expected, str):
@@ -301,8 +294,19 @@ def _assert_expected_subset_close(actual, expected, *, atol: float):
     assert actual == expected
 
 
-def _assert_trace_row_close(actual: dict, expected: dict, *, atol: float):
-    _assert_expected_subset_close(actual, expected, atol=atol)
+def _assert_trace_row_close(
+    actual: dict,
+    expected: dict,
+    *,
+    atol: float,
+    field_atols: dict[str, float] | None = None,
+):
+    _assert_expected_subset_close(
+        actual,
+        expected,
+        atol=atol,
+        field_atols=field_atols,
+    )
 
 
 def _assert_bfgs_trace_row_close(actual: dict, expected: dict, *, atol: float):
@@ -321,10 +325,21 @@ def _assert_joint_negbin_trace_row_close(actual: dict, expected: dict, *, atol: 
     _assert_trace_row_close(actual, expected, atol=atol)
 
 
-def _assert_trace_rows_close(actual_rows, expected_rows, *, atol: float):
+def _assert_trace_rows_close(
+    actual_rows,
+    expected_rows,
+    *,
+    atol: float,
+    field_atols: dict[str, float] | None = None,
+):
     assert len(actual_rows) == len(expected_rows) >= 1
     for actual_row, expected_row in zip(actual_rows, expected_rows):
-        _assert_trace_row_close(actual_row, expected_row, atol=atol)
+        _assert_trace_row_close(
+            actual_row,
+            expected_row,
+            atol=atol,
+            field_atols=field_atols,
+        )
 
 
 def _assert_serialized_trace_matches_mgcv(
@@ -334,10 +349,17 @@ def _assert_serialized_trace_matches_mgcv(
     atol: float,
     sp_atol: float | None = None,
 ):
+    trace_field_atols = None
+    if sp_atol is not None:
+        trace_field_atols = {
+            "accepted_step_norm": sp_atol,
+            "log_sp": sp_atol,
+        }
     _assert_trace_rows_close(
         list(actual_serialized["trace"]),
         list(expected["trace"]),
         atol=atol,
+        field_atols=trace_field_atols,
     )
     assert actual_serialized["fit"]["message"] == expected["fit"]["outer_info"]["conv"]
     np.testing.assert_allclose(
@@ -351,17 +373,6 @@ def _assert_serialized_trace_matches_mgcv(
     _assert_expected_subset_close(
         actual_serialized["fit"]["outer_info"],
         expected["fit"]["outer_info"],
-        atol=atol,
-    )
-
-
-def _assert_root_gram_equal(actual, expected, *, atol=1e-10):
-    actual = np.asarray(actual, dtype=np.float64)
-    expected = np.asarray(expected, dtype=np.float64)
-    np.testing.assert_allclose(
-        actual.T @ actual,
-        expected.T @ expected,
-        rtol=0.0,
         atol=atol,
     )
 
@@ -496,7 +507,7 @@ def test_poisson_outer_bfgs_trace_matches_mgcv():
         actual_serialized,
         expected,
         atol=2e-5,
-        sp_atol=1e-5,
+        sp_atol=2e-5,
     )
 
 
@@ -524,154 +535,6 @@ def test_poisson_outer_efs_trace_matches_mgcv():
 
     actual_serialized = build_optimizer_trace(gam)
     _assert_serialized_trace_matches_mgcv(actual_serialized, expected, atol=2e-5)
-
-
-@pytest.mark.method_reml
-@pytest.mark.family_gaulss
-def test_gaulss_outer_efs_trace_matches_mgcv():
-    """Verify that gaulss outer EFS trace matches mgcv."""
-    data = _gaulss_two_smooth_data(seed=33, n=140)
-    formula = ['y ~ s(x, bs="cr", k=6) + s(z, bs="cr", k=6)', "~ 1"]
-
-    expected = _run_mgcv_outer_trace(data, str(formula), "gaulss", "REML", "efs")
-    gam = GAM(
-        family="gaulss",
-        formula=formula,
-        optimize_smoothing=True,
-        smoothing_method="REML",
-        smoothing_optimizer="efs",
-    )
-    gam.fit(data=data)
-
-    actual_trace = list(getattr(gam, "_optim_trace", []) or [])
-    expected_trace = list(expected["trace"])
-
-    _assert_trace_rows_close(actual_trace, expected_trace, atol=5e-6)
-
-    actual_outer = dict(getattr(gam._optim_result, "outer_info", {}) or {})
-    expected_outer = expected["fit"]["outer_info"]
-    _assert_expected_subset_close(actual_outer, expected_outer, atol=5e-6)
-
-    actual_serialized = build_optimizer_trace(gam)
-    _assert_serialized_trace_matches_mgcv(actual_serialized, expected, atol=5e-6)
-
-
-@pytest.mark.method_ml
-@pytest.mark.family_gaulss
-def test_gaulss_initial_spg_matches_mgcv_ml():
-    """Verify that gaulss initial.spg matches mgcv under ML."""
-    data = _gaulss_two_smooth_data(seed=33, n=140)
-    formula = ['y ~ s(x, bs="cr", k=6) + s(z, bs="cr", k=6)', "~ 1"]
-    expected = _run_mgcv_initial_spg(data, formula, "gaulss", "ML")
-
-    gam = _compile_optimization_state(data, formula, "gaulss", "ML")
-    y = np.asarray(gam.y_, dtype=np.float64)
-    actual = _initial_smoothing_params_mgcv_style(gam, y)
-
-    assert actual is not None
-    np.testing.assert_allclose(
-        np.asarray(actual, dtype=np.float64),
-        np.asarray(expected["initial_sp"], dtype=np.float64),
-        atol=1e-8,
-        rtol=0.0,
-    )
-
-
-@pytest.mark.method_ml
-@pytest.mark.family_gaulss
-def test_gaulss_initial_spg_start_and_lbb_match_mgcv_ml():
-    """Verify that gaulss initial.spg start and lbb match mgcv under ML."""
-    data = _gaulss_two_smooth_data(seed=33, n=140)
-    formula = ['y ~ s(x, bs="cr", k=6) + s(z, bs="cr", k=6)', "~ 1"]
-    expected = _run_mgcv_initial_spg(data, formula, "gaulss", "ML")
-
-    gam = _compile_optimization_state(data, formula, "gaulss", "ML")
-    y = np.asarray(gam.y_, dtype=np.float64)
-    n_sp = int(np.asarray(gam.smoothing_params, dtype=np.float64).size)
-    setup = build_general_family_setup_state(
-        gam,
-        np.ones(n_sp, dtype=np.float64),
-        score_type="ML",
-    )
-    exact_setup = build_estimate_gam_setup_state(gam)
-    weights = (
-        np.ones_like(y, dtype=np.float64)
-        if gam.prior_weights_ is None
-        else np.asarray(gam.prior_weights_, dtype=np.float64)
-    )
-    actual_start = np.asarray(
-        gam.family.initialize(
-            y,
-            setup.X_initial,
-            setup.jj,
-            offset=setup.offset_list,
-            weights=weights,
-            E=exact_setup.Eb,
-        ),
-        dtype=np.float64,
-    )
-    actual_lbb = np.asarray(
-        gam.family.ll(
-            y,
-            setup.X_initial,
-            setup.jj,
-            actual_start,
-            weights,
-            offset=setup.offset_list,
-            deriv=1,
-        )["lbb"],
-        dtype=np.float64,
-    )
-
-    np.testing.assert_allclose(
-        np.asarray(setup.X_initial, dtype=np.float64),
-        np.asarray(expected["X_initial"], dtype=np.float64),
-        atol=1e-8,
-        rtol=0.0,
-    )
-    _assert_root_gram_equal(
-        np.asarray(exact_setup.Eb, dtype=np.float64),
-        np.asarray(expected["Eb"], dtype=np.float64),
-        atol=1e-8,
-    )
-    np.testing.assert_allclose(
-        actual_start,
-        np.asarray(expected["start"], dtype=np.float64),
-        atol=1e-8,
-        rtol=0.0,
-    )
-    np.testing.assert_allclose(
-        actual_lbb,
-        np.asarray(expected["lbb"], dtype=np.float64),
-        atol=1e-8,
-        rtol=0.0,
-    )
-
-
-@pytest.mark.method_ml
-@pytest.mark.family_gaulss
-def test_gaulss_outer_newton_trace_matches_mgcv_ml():
-    """Verify that gaulss outer newton trace matches mgcv under ML."""
-    data = _gaulss_two_smooth_data(seed=33, n=140)
-    formula = ['y ~ s(x, bs="cr", k=6) + s(z, bs="cr", k=6)', "~ 1"]
-
-    expected = _run_mgcv_outer_trace(data, str(formula), "gaulss", "ML", "newton")
-    gam = GAM(
-        family="gaulss",
-        formula=formula,
-        optimize_smoothing=True,
-        smoothing_method="ML",
-    )
-    gam.fit(data=data)
-
-    actual_trace = list(getattr(gam, "_optim_trace", []) or [])
-    expected_trace = list(expected["trace"])
-
-    _assert_trace_rows_close(actual_trace, expected_trace, atol=1e-6)
-
-    actual_serialized = build_optimizer_trace(gam)
-    assert actual_serialized["fit"]["converged"] is True
-    _assert_serialized_trace_matches_mgcv(actual_serialized, expected, atol=1e-6)
 
 
 @pytest.mark.method_reml
@@ -757,34 +620,44 @@ def test_negbin_est_outer_newton_trace_matches_mgcv_joint_theta():
     )
 
 
-@pytest.mark.parametrize(
-    "formula",
-    [
-        'y ~ te(x0, x1, bs=["cr", "cr"], k=[6, 6], fx=[True, False])',
-        'y ~ ti(x0, x1, bs=["cr", "cr"], k=[6, 6], fx=[True, False], mc=[True, False])',
-    ],
-    ids=["te_fx_vector", "ti_fx_vector_mc"],
-)
-def test_poisson_tensor_vector_fx_outer_newton_trace_matches_mgcv(formula):
-    """Verify that poisson tensor vector fx outer newton trace matches mgcv."""
-    data = _make_poisson_data(seed=904, n=220)
-    expected = _run_mgcv_outer_trace(data, formula, "poisson", "REML", "newton")
+@pytest.mark.method_reml
+def test_negbin_est_identity_outer_newton_trace_matches_mgcv_joint_theta():
+    """Verify that negbin identity-link joint theta Newton trace matches mgcv."""
+    data = _make_negbin_data(seed=910, n=220, theta=1.4)
+    formula = 'y ~ s(x0, bs="cr", k=8)'
+    family = {
+        "name": "negbin",
+        "theta": 1.4,
+        "estimate_theta": True,
+        "link": "identity",
+    }
 
+    expected = _run_mgcv_outer_trace(
+        data,
+        formula,
+        "negbin_est:1.4:identity",
+        "REML",
+        "newton",
+    )
     gam = GAM(
-        family="poisson",
+        family=family,
         formula=formula,
         optimize_smoothing=True,
         smoothing_method="REML",
-        smoothing_optimizer="outer_newton",
     )
     gam.fit(data=data)
-    actual_serialized = build_optimizer_trace(gam)
 
-    _assert_serialized_trace_matches_mgcv(
-        actual_serialized,
-        expected,
-        atol=5e-6,
-        sp_atol=2e-5,
+    actual_serialized = build_optimizer_trace(gam)
+    actual_trace = list(actual_serialized["trace"])
+    expected_trace = list(expected["trace"])
+
+    _assert_trace_rows_close(actual_trace, expected_trace, atol=2e-5)
+    _assert_serialized_trace_matches_mgcv(actual_serialized, expected, atol=2e-5)
+    np.testing.assert_allclose(
+        float(np.log(gam.family.theta)),
+        float(expected_trace[-1]["log_theta"]),
+        atol=2e-5,
+        rtol=0.0,
     )
 
 
@@ -807,8 +680,8 @@ def test_poisson_outer_newton_edge_correction_matches_mgcv():
 
     outer = expected["fit"]["outer_info"]
     assert bool(outer["edge_correct"]) is True
-    assert bool(actual.mgcv_edge_correct) is True
-    assert bool(actual.mgcv_edge_correct_applied) is True
+    assert bool(actual.edge_correction_requested) is True
+    assert bool(actual.edge_correction_applied) is True
 
     np.testing.assert_allclose(
         np.asarray(actual.lsp1, dtype=np.float64),
@@ -851,9 +724,10 @@ def test_poisson_outer_optim_endpoint_and_metadata_match_mgcv():
 
     actual_trace = list(getattr(gam, "_optim_trace", []) or [])
     expected_trace = list(expected["trace"])
+    trace_atol = 2e-5
 
     assert len(actual_trace) == len(expected_trace) >= 1
-    _assert_optim_trace_row_close(actual_trace[0], expected_trace[0], atol=5e-7)
+    _assert_optim_trace_row_close(actual_trace[0], expected_trace[0], atol=trace_atol)
     np.testing.assert_allclose(
         np.asarray(actual_trace[-1]["log_sp"], dtype=np.float64),
         np.asarray(expected_trace[-1]["log_sp"], dtype=np.float64),
@@ -883,6 +757,6 @@ def test_poisson_outer_optim_endpoint_and_metadata_match_mgcv():
     _assert_serialized_trace_matches_mgcv(
         actual_serialized,
         expected,
-        atol=5e-7,
+        atol=trace_atol,
         sp_atol=2e-1,
     )

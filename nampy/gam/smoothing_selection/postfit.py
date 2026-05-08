@@ -16,6 +16,8 @@ from ..linalg import symmetrize_matrix
 from .criteria.dispatch import criterion_gradient, criterion_hessian, criterion_value
 from .criteria.ml_reml import resolve_ml_reml_scoring_backend
 
+fit_criterion_hessian = criterion_hessian
+
 
 def _free_smoothing_mask(model) -> np.ndarray:
     n_sp = int(_n_smoothing_params(model) or 0)
@@ -44,7 +46,7 @@ def _finite_square_matrix(value, *, size: int | None = None) -> np.ndarray | Non
     return arr
 
 
-def _mgcv_penalty_rescale_factors(model) -> np.ndarray:
+def _penalty_rescale_factors(model) -> np.ndarray:
     n_sp = int(_n_smoothing_params(model) or 0)
     if n_sp == 0:
         return np.empty((0,), dtype=np.float64)
@@ -57,7 +59,7 @@ def _mgcv_penalty_rescale_factors(model) -> np.ndarray:
         if idx < 0 or idx >= n_sp:
             continue
         meta = dict(getattr(pb, "metadata", {}) or {})
-        s_scale = meta.get("mgcv_s_scale", None)
+        s_scale = meta.get("penalty_rescale_factor", None)
         if s_scale is None and (
             bool(meta.get("is_selection_penalty", False))
             or bool(getattr(pb, "is_null_space_penalty", False))
@@ -169,8 +171,39 @@ def _stored_outer_hessian(
 
 
 def _postfit_hessian(model, method: str, *, edge_correct: bool) -> np.ndarray | None:
-    del method
-    H, _edge_used = _stored_outer_hessian(model, edge_correct=edge_correct)
+    method_key = str(method).lower()
+    H, edge_used = _stored_outer_hessian(model, edge_correct=edge_correct)
+    if edge_used:
+        return H
+
+    result = getattr(model, "_optim_result", None)
+    exact_outer = bool(getattr(result, "strict_outer_derivatives", False))
+    if H is not None and (
+        exact_outer or bool(getattr(result, "joint_negbin_reml_outer", False))
+    ):
+        return H
+
+    if method_key in {"ml", "reml", "laml"}:
+        try:
+            backend = resolve_ml_reml_scoring_backend(model, method=method_key)
+        except Exception:
+            backend = None
+        if backend in {"pirls_laplace", "pirls_laplace_dynamic"}:
+            x = _free_log_smoothing_params(model)
+            try:
+                H_recomputed = fit_criterion_hessian(
+                    model,
+                    model.y_,
+                    x,
+                    method=method_key,
+                )
+            except Exception:
+                H_recomputed = None
+            expected_size = int(x.size) if int(x.size) > 0 else None
+            H_recomputed = _finite_square_matrix(H_recomputed, size=expected_size)
+            if H_recomputed is not None:
+                return H_recomputed
+
     return H
 
 
@@ -231,10 +264,7 @@ def _gam_vcomp_ci_hessian(model, H: np.ndarray, n_free: int) -> np.ndarray | Non
     result = getattr(model, "_optim_result", None)
     family = getattr(model, "family", None)
     n_theta = int(getattr(family, "n_theta", 0) or 0)
-    if n_theta == 0 and (
-        bool(getattr(result, "joint_negbin_reml_outer", False))
-        or bool(getattr(result, "joint_negbin_ncv_outer", False))
-    ):
+    if n_theta == 0 and bool(getattr(result, "joint_negbin_reml_outer", False)):
         n_theta = 1
     if n_theta > 0:
         if H.shape[0] <= n_theta:
@@ -252,8 +282,14 @@ def gam_vcomp(model, *, rescale: bool = True, conf_lev: float = 0.95):
     sp = np.asarray(model.smoothing_params, dtype=np.float64).ravel()
     if sp.size == 0:
         return None
+    free_mask = _free_smoothing_mask(model)
+    if not np.any(free_mask):
+        # mgcv/R/mgcv.r::gam.vcomp returns immediately when x$sp has no
+        # free smoothing parameters. Fixed term-level sp values live in
+        # full.sp, not in x$sp.
+        return None
     if rescale:
-        sp = sp / _mgcv_penalty_rescale_factors(model)
+        sp = sp / _penalty_rescale_factors(model)
 
     scale = float(_fit_scale(model))
     vc = scale / sp
@@ -273,7 +309,6 @@ def gam_vcomp(model, *, rescale: bool = True, conf_lev: float = 0.95):
 
     H = _postfit_hessian(model, method, edge_correct=False)
 
-    free_mask = _free_smoothing_mask(model)
     free_idx = np.flatnonzero(free_mask)
     H = None if H is None else _gam_vcomp_ci_hessian(model, H, free_idx.size)
     if H is None:
@@ -415,10 +450,10 @@ def optimizer_endpoint_diagnostics(
     bounds = []
     for lower_sp in min_sp[free_mask]:
         if lower_sp > 0:
-            lo = max(float(model.sp_log_bounds[0]), float(np.log(lower_sp)))
+            lo = float(np.log(lower_sp))
         else:
-            lo = float(model.sp_log_bounds[0])
-        bounds.append((lo, float(model.sp_log_bounds[1])))
+            lo = -np.inf
+        bounds.append((lo, np.inf))
     bounds = np.asarray(bounds, dtype=np.float64)
 
     grad = None

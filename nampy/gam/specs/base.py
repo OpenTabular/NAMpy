@@ -46,3 +46,14 @@ class TermSpec:
             "basis_options",
             MappingProxyType(basis_options),
         )
+
+    def __getstate__(self) -> dict[str, Any]:
+        state = dict(self.__dict__)
+        state["basis_options"] = dict(self.basis_options)
+        return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        for key, value in state.items():
+            if key == "basis_options":
+                value = MappingProxyType(dict(value or {}))
+            object.__setattr__(self, key, value)

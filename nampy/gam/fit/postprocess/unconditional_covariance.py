@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from ..state import FitState
 
 
-def _mgcv_dchol(dA: np.ndarray, R: np.ndarray) -> np.ndarray:
+def _differentiate_cholesky_factor(dA: np.ndarray, R: np.ndarray) -> np.ndarray:
     """Mirror mgcv/src/mat.c::dchol() for upper-Cholesky factors."""
     dA = np.asarray(dA, dtype=np.float64)
     R = np.asarray(R, dtype=np.float64)
@@ -45,7 +45,7 @@ def _mgcv_dchol(dA: np.ndarray, R: np.ndarray) -> np.ndarray:
     return dR
 
 
-def _mgcv_vcorr(
+def _covariance_from_cholesky_derivatives(
     dR_list: list[np.ndarray], Vr: np.ndarray, *, trans: bool
 ) -> np.ndarray:
     """Mirror mgcv/R/misc.r::vcorr() for dense NumPy arrays."""
@@ -148,14 +148,14 @@ def _gaussian_exact_unconditional_postfit(
     sp = np.asarray(model.smoothing_params, dtype=np.float64).ravel()
     log_sp = np.log(np.maximum(sp[free_mask], np.finfo(np.float64).tiny))
 
-    from ...fit.model_ops import solve_gaussian_given_smoothing
+    from ...fit.backends import solve_gaussian_given_smoothing
+    from ...smoothing_selection.criteria.dispatch import criterion_hessian
     from ...smoothing_selection.criteria.gaussian_dyn import (
         criterion_hessian_ml_reml_gaussian_dynamic_joint,
     )
-    from ...smoothing_selection.criteria.pirls_deriv import _gdi1_kernel
+    from ...smoothing_selection.criteria.pirls.derivatives import _gdi1_kernel
     from ...smoothing_selection.reparam import build_estimate_gam_setup_state
-    from ..model_ops import criterion_hessian
-    from ..solvers.general_newton_solver import _vb_corr_root
+    from ..solvers.general_family.newton import _vb_corr_root
 
     optim_result = getattr(model, "_optim_result", None)
     joint_log_sigma2 = None
@@ -265,7 +265,11 @@ def _gaussian_exact_unconditional_postfit(
     setup = build_estimate_gam_setup_state(model)
     p_full = int(beta.size)
     S_blocks_full = []
-    for S_local, off_i in zip(list(setup.S), np.asarray(setup.off, dtype=np.int64)):
+    for S_local, off_i in zip(
+        list(setup.S),
+        np.asarray(setup.off, dtype=np.int64),
+        strict=True,
+    ):
         S_local = np.asarray(S_local, dtype=np.float64)
         S_full = np.zeros((p_full, p_full), dtype=np.float64)
         start = int(off_i) - 1
@@ -320,10 +324,15 @@ def _gaussian_exact_unconditional_postfit(
     if weights is None:
         return None, None, FIT_PARAMETER_SPACE
     weights = np.asarray(weights, dtype=np.float64).ravel()
+    # mgcv::gam.fit3.post.proc() receives `G$X` from the original setup and
+    # forms `R` from `sqrt(weights) * X`. For aliased parameterizations the
+    # fitted state can carry a transformed solve matrix, so prefer the setup
+    # matrix here.
+    setup_X = getattr(setup, "X", None)
     X_full = (
-        np.asarray(fit_state.X, dtype=np.float64)
-        if fit_state.X is not None
-        else np.asarray(setup.X, dtype=np.float64)
+        np.asarray(setup_X, dtype=np.float64)
+        if setup_X is not None
+        else np.asarray(fit_state.X, dtype=np.float64)
     )
     if weights.size == 1 and X_full.shape[0] > 1:
         weights = np.full(X_full.shape[0], float(weights[0]), dtype=np.float64)
@@ -355,8 +364,8 @@ def _gaussian_exact_unconditional_postfit(
     Vc = symmetrize_matrix(Vb + Vc1 + Vc2)
     # mgcv::gam.fit3.post.proc() uses `rowSums(Vc * crossprod(R)) / scale`,
     # where `R` is the weighted-QR factor of `WX`, not the assembled XtWX
-    # stored in the fit state. These differ on aliased parameterizations such as
-    # t2(full=FALSE), and the QR-based crossproduct is the parity-sensitive one.
+    # stored in the fit state. These differ on aliased parameterizations, and
+    # the QR-based crossproduct is the parity-sensitive one.
     RTR = np.asarray(R.T @ R, dtype=np.float64)
 
     edf1 = 2.0 * np.diag(H_coef) - np.sum(H_coef * H_coef.T, axis=1)
@@ -371,6 +380,85 @@ def _gaussian_exact_unconditional_postfit(
     )
 
 
+def _fixed_sp_edf2_from_qr(
+    model,
+    fit_result: FitResult,
+    fit_state: FitState,
+) -> np.ndarray | None:
+    """Mirror fixed-sp ``mgcv::gam.fit3.post.proc()`` EDF2 assembly."""
+    family_name = str(getattr(getattr(model, "family", None), "name", "")).lower()
+    if family_name not in {"gaussian", "binomial", "poisson", "gamma", "negbin"}:
+        return None
+
+    n_sp = int(_n_smoothing_params(model) or 0)
+    if n_sp == 0:
+        return None
+    fixed_mask = (
+        np.zeros(n_sp, dtype=bool)
+        if getattr(model, "smoothing_fixed_mask_", None) is None
+        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+    )
+    if fixed_mask.shape != (n_sp,) or not bool(np.all(fixed_mask)):
+        return None
+    optim_method = str(getattr(model, "_optim_method", "")).lower()
+    theta_only_fixed_reml = (
+        family_name == "negbin"
+        and bool(getattr(getattr(model, "family", None), "estimate_theta", False))
+        and optim_method in {"reml", "laml"}
+    )
+    if optim_method != "fixed" and not theta_only_fixed_reml:
+        return None
+    if fit_result.cov_bayes is None or fit_result.H_coef is None or fit_state.X is None:
+        return None
+
+    scale = float(fit_result.scale)
+    if not (np.isfinite(scale) and scale > 0.0):
+        return None
+
+    X = np.asarray(fit_state.X, dtype=np.float64)
+    weights = fit_state.fisher_weights
+    if weights is None:
+        weights = fit_state.working_weights
+    if weights is None:
+        weights = np.ones(X.shape[0], dtype=np.float64)
+    weights = np.asarray(weights, dtype=np.float64).ravel()
+    if weights.size == 1 and X.shape[0] > 1:
+        weights = np.full(X.shape[0], float(weights[0]), dtype=np.float64)
+    if weights.size != X.shape[0] or np.any(weights < 0.0):
+        return None
+
+    WX = np.sqrt(weights)[:, None] * X
+    qr_wx, _tau_wx, pivot_wx, _ = _dgeqp3_economic_r(WX)
+    R_wx = permute_columns(
+        _get_r_pqr_serial(
+            qr_wx,
+            rr=int(X.shape[1]),
+            ncol=int(X.shape[1]),
+        ),
+        np.asarray(pivot_wx, dtype=np.int64),
+        reverse=True,
+    )
+    RTR_wx = np.asarray(R_wx.T @ R_wx, dtype=np.float64)
+    Vb = np.asarray(fit_result.cov_bayes, dtype=np.float64)
+    edf2 = np.asarray(np.sum(Vb * RTR_wx, axis=1) / scale, dtype=np.float64)
+
+    H_coef = np.asarray(fit_result.H_coef, dtype=np.float64)
+    if H_coef.shape == Vb.shape:
+        edf1 = 2.0 * np.diag(H_coef) - np.sum(H_coef * H_coef.T, axis=1)
+        if float(np.sum(edf2)) > float(np.sum(edf1)):
+            edf2 = np.asarray(edf1, dtype=np.float64).copy()
+    return edf2
+
+
+def _gaussian_fixed_sp_edf2_from_qr(
+    model,
+    fit_result: FitResult,
+    fit_state: FitState,
+) -> np.ndarray | None:
+    """Backward-compatible alias for the generalized fixed-sp EDF2 path."""
+    return _fixed_sp_edf2_from_qr(model, fit_result, fit_state)
+
+
 def _pirls_exact_unconditional_postfit(
     model,
     sol,
@@ -382,7 +470,7 @@ def _pirls_exact_unconditional_postfit(
     ordinary PIRLS fits with exact outer derivatives.
 
     Current strict support matches the implemented exact ordinary-family PIRLS
-    ML/REML/LAML path: binomial, poisson, and gamma.
+    ML/REML/LAML path: binomial, poisson, gamma, and fixed-theta negbin.
     """
 
     def _embed_setup_penalties(setup_state, p_full: int) -> list[np.ndarray] | None:
@@ -390,6 +478,7 @@ def _pirls_exact_unconditional_postfit(
         for S_local, off_i in zip(
             list(getattr(setup_state, "S", [])),
             np.asarray(getattr(setup_state, "off", []), dtype=np.int64),
+            strict=True,
         ):
             S_local = np.asarray(S_local, dtype=np.float64)
             if S_local.ndim != 2 or S_local.shape[0] != S_local.shape[1]:
@@ -484,7 +573,7 @@ def _pirls_exact_unconditional_postfit(
             dtype=np.float64,
         )
 
-        from ..solvers.general_newton_solver import _vb_corr_root
+        from ..solvers.general_family.newton import _vb_corr_root
 
         rho_vcorr = np.asarray(rho, dtype=np.float64)
         lsp0_vcorr = np.asarray(getattr(setup_state, "lsp0", []), dtype=np.float64)
@@ -526,7 +615,7 @@ def _pirls_exact_unconditional_postfit(
 
     family = getattr(model, "family", None)
     family_name = str(getattr(family, "name", "")).lower()
-    if family_name not in {"binomial", "poisson", "gamma"}:
+    if family_name not in {"binomial", "poisson", "gamma", "negbin"}:
         return None, None, FIT_PARAMETER_SPACE
 
     method = str(getattr(model, "_optim_method", "")).lower()
@@ -545,9 +634,10 @@ def _pirls_exact_unconditional_postfit(
     if n_sp == 0:
         return None, None, FIT_PARAMETER_SPACE
 
-    from ...smoothing_selection.criteria.pirls_deriv import _gdi1_kernel
+    from ...smoothing_selection.criteria.dispatch import criterion_hessian
+    from ...smoothing_selection.criteria.pirls.derivatives import _gdi1_kernel
     from ...smoothing_selection.reparam import build_estimate_gam_setup_state
-    from ..model_ops import can_use_simple_ml_reml_structure, criterion_hessian
+    from ..capabilities import can_use_simple_ml_reml_structure
 
     if not can_use_simple_ml_reml_structure(model):
         return None, None, FIT_PARAMETER_SPACE
@@ -707,6 +797,9 @@ def _pirls_exact_unconditional_postfit(
 
 
 def apply_unconditional_postfit(model, sol, fit_result, fit_state):
+    if str(getattr(model, "smoothing_optimizer", "")).lower() in {"efs", "optim"}:
+        return replace(fit_result, cov_unconditional=None)
+
     cov_unconditional_post = (
         None
         if fit_result.cov_unconditional is None
@@ -741,6 +834,11 @@ def apply_unconditional_postfit(model, sol, fit_result, fit_state):
     if edf2_gauss is not None:
         edf2_post = np.asarray(edf2_gauss, dtype=np.float64).copy()
 
+    if edf2_post is None:
+        edf2_fixed = _fixed_sp_edf2_from_qr(model, fit_result, fit_state)
+        if edf2_fixed is not None:
+            edf2_post = np.asarray(edf2_fixed, dtype=np.float64).copy()
+
     return replace(
         fit_result,
         cov_unconditional=cov_unconditional_post,
@@ -751,8 +849,8 @@ def apply_unconditional_postfit(model, sol, fit_result, fit_state):
 
 __all__ = [
     "_gaussian_exact_unconditional_postfit",
-    "_mgcv_dchol",
-    "_mgcv_vcorr",
+    "_differentiate_cholesky_factor",
+    "_covariance_from_cholesky_derivatives",
     "_pirls_exact_unconditional_postfit",
     "_restore_pirls_dbeta_to_original_parameterization",
     "_restore_pirls_rank_root_to_original_parameterization",

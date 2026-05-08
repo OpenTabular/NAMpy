@@ -14,8 +14,6 @@ class GaussianIdentityFamily(GLMFamily):
     supports_pirls = True
 
     supports_gcv = True
-    supports_ncv = True
-    supports_qncv = True
     supports_ubre = True
     supports_ml = True
     supports_reml = True

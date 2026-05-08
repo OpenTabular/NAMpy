@@ -2,7 +2,7 @@ import numpy as np
 from scipy.interpolate import BSpline
 
 from ...gam.constraints.absorption import full_term_sum_to_zero_constraint
-from ...gam.linalg import geometric_null_space_shrinkage, symmetric_eigh
+from ...gam.linalg import geometric_null_space_shrinkage
 from ...gam.penalties.algebra import scale_penalty
 from ..basis.cr import cr_spl, cr_spl_predict
 
@@ -42,15 +42,15 @@ def add_full_rank_shrinkage(S, shrink=0.1, tol=1e-12, null_basis=None, knots=Non
     Make a symmetric penalty full rank by shrinking its null space.
 
     Mirror mgcv/R/smooth.r::smooth.construct.cr.smooth.spec(): eigen-decompose
-    the raw CR penalty, then replace the trailing zero eigenvalues by small
-    positive multiples of the smallest positive eigenvalue.
+    the explicitly symmetrized raw CR penalty, then replace the trailing zero
+    eigenvalues by small positive multiples of the smallest positive eigenvalue.
     """
     del knots, null_basis
     return geometric_null_space_shrinkage(
         S,
         shrink=shrink,
         tol=tol,
-        symmetrize_lower_triangle=True,
+        symmetrize_lower_triangle=False,
         use_scipy=True,
         descending=True,
     )

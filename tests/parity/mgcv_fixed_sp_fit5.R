@@ -89,10 +89,6 @@ family_obj <- switch(
   family_key,
   gaulss = mgcv::gaulss(),
   gammals = mgcv::gammals(),
-  ziplss = mgcv::ziplss(),
-  gevlss = mgcv::gevlss(),
-  shash = mgcv::shash(),
-  shashlss = mgcv::shash(),
   stop(sprintf("Unsupported family for gam.fit5 fixed-sp parity: %s", family_name))
 )
 

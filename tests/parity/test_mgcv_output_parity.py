@@ -11,7 +11,6 @@ from tests.mgcv_parity_utils import (
     _make_fs_data,
     _make_gamma_data,
     _make_gaussian_data,
-    _make_mrf_data,
     _make_negbin_data,
     _make_poisson_data,
     _make_random_effect_data,
@@ -22,6 +21,10 @@ from tests.mgcv_parity_utils import (
     get_parity_case,
     make_parity_case_data,
 )
+
+
+def _prediction_vector(x) -> np.ndarray:
+    return np.asarray(x, dtype=np.float64).reshape(-1)
 
 
 def _make_cyclic_data(seed=77, n=180):
@@ -35,13 +38,6 @@ def _make_ps_data(seed=81, n=180):
     rng = np.random.default_rng(seed)
     x = rng.uniform(-2.0, 2.0, size=n)
     y = np.sin(1.3 * x) + 0.2 * x**2 + rng.normal(scale=0.14, size=n)
-    return pd.DataFrame({"y": y, "x": x})
-
-
-def _make_gp_data(seed=91, n=160):
-    rng = np.random.default_rng(seed)
-    x = rng.uniform(-3.0, 3.0, size=n)
-    y = np.exp(-0.5 * x**2) + 0.4 * np.sin(x) + rng.normal(scale=0.1, size=n)
     return pd.DataFrame({"y": y, "x": x})
 
 
@@ -156,16 +152,6 @@ TERMS_PARITY_CASES = [
         "se_rtol": 1e-10,
     },
     {
-        "case_id": "gp",
-        "data_factory": lambda: _make_gp_data(seed=307, n=150),
-        "formula": 'y ~ s(x, bs="gp", k=10, sp=1.0)',
-        "method": "fixed",
-        "pred_atol": 1e-8,
-        "pred_rtol": 1e-8,
-        "se_atol": 1e-8,
-        "se_rtol": 1e-8,
-    },
-    {
         "case_id": "re",
         "data_factory": _make_random_effect_data,
         "formula": 'y ~ s(f, bs="re", sp=1.0)',
@@ -196,19 +182,6 @@ TERMS_PARITY_CASES = [
         "se_rtol": 2e-2,
     },
     {
-        "case_id": "mrf",
-        "data_factory": _make_mrf_data,
-        "formula": (
-            'y ~ s(region, bs="mrf", k=3, '
-            'xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B"))))'
-        ),
-        "method": "REML",
-        "pred_atol": 6e-3,
-        "pred_rtol": 6e-3,
-        "se_atol": 6e-3,
-        "se_rtol": 6e-3,
-    },
-    {
         "case_id": "numeric_by_cr",
         "data_factory": _make_numeric_by_data,
         "formula": 'y ~ s(x, by=z, bs="cr", k=8)',
@@ -237,26 +210,6 @@ TERMS_PARITY_CASES = [
         "pred_rtol": 1e-10,
         "se_atol": 1e-10,
         "se_rtol": 1e-10,
-    },
-    {
-        "case_id": "t2_full_false",
-        "data_factory": lambda: _make_gaussian_data(seed=310, n=180),
-        "formula": 'y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6], sp=[0.7, 1.3, 0.9])',
-        "method": "fixed",
-        "pred_atol": 5e-3,
-        "pred_rtol": 5e-3,
-        "se_atol": 5e-3,
-        "se_rtol": 5e-3,
-    },
-    {
-        "case_id": "t2_full_true",
-        "data_factory": lambda: _make_gaussian_data(seed=311, n=180),
-        "formula": 'y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6], full=True)',
-        "method": "REML",
-        "pred_atol": 5e-3,
-        "pred_rtol": 5e-3,
-        "se_atol": 5e-3,
-        "se_rtol": 5e-3,
     },
 ]
 
@@ -290,16 +243,6 @@ TRANSFORMED_SMOOTH_OUTPUT_CASES = [
         "pred_rtol": 1e-10,
         "se_atol": 1e-10,
         "se_rtol": 1e-10,
-    },
-    {
-        "case_id": "transformed_gp",
-        "data_factory": lambda: _make_gp_data(seed=553, n=150),
-        "formula": 'y ~ s(I(x + 0.2 * x**2), bs="gp", k=10, sp=1.0)',
-        "smoothing_params": np.array([1.0]),
-        "pred_atol": 1e-8,
-        "pred_rtol": 1e-8,
-        "se_atol": 1e-8,
-        "se_rtol": 1e-8,
     },
     {
         "case_id": "transformed_tp",
@@ -389,24 +332,6 @@ SE_SNAPSHOT_CASES = [
         "gaussian_factor_by_cr",
         _make_factor_by_data,
         'y ~ f + s(x, by=f, bs="cr", k=8)',
-        "gaussian",
-        "REML",
-        1e-8,
-        1e-8,
-    ),
-    (
-        "gaussian_t2_full_false",
-        lambda: _make_gaussian_data(seed=316, n=180),
-        'y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6])',
-        "gaussian",
-        "REML",
-        1e-8,
-        1e-8,
-    ),
-    (
-        "gaussian_t2_full_true",
-        lambda: _make_gaussian_data(seed=317, n=180),
-        'y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6], full=True)',
         "gaussian",
         "REML",
         1e-8,
@@ -535,13 +460,17 @@ def test_output_parity_newdata_predictions_and_standard_errors(
         type=pred_type,
         return_se=True,
     )
-    expected_pred = np.asarray(r_result["pred"], dtype=np.float64)
-    expected_se = np.asarray(r_result["se"], dtype=np.float64)
     np.testing.assert_allclose(
-        np.asarray(actual_pred, dtype=np.float64), expected_pred, atol=1e-7, rtol=1e-7
+        _prediction_vector(actual_pred),
+        _prediction_vector(r_result["pred"]),
+        atol=1e-7,
+        rtol=1e-7,
     )
     np.testing.assert_allclose(
-        np.asarray(actual_se, dtype=np.float64), expected_se, atol=1e-7, rtol=1e-7
+        _prediction_vector(actual_se),
+        _prediction_vector(r_result["se"]),
+        atol=1e-7,
+        rtol=1e-7,
     )
 
 
@@ -562,13 +491,17 @@ def test_output_parity_newdata_terms_linked_id():
         type="link",
         return_se=True,
     )
-    expected_pred = np.asarray(r_result["pred"], dtype=np.float64)
-    expected_se = np.asarray(r_result["se"], dtype=np.float64)
     np.testing.assert_allclose(
-        np.asarray(actual_pred, dtype=np.float64), expected_pred, atol=1e-7, rtol=1e-7
+        _prediction_vector(actual_pred),
+        _prediction_vector(r_result["pred"]),
+        atol=1e-7,
+        rtol=1e-7,
     )
     np.testing.assert_allclose(
-        np.asarray(actual_se, dtype=np.float64), expected_se, atol=1e-7, rtol=1e-7
+        _prediction_vector(actual_se),
+        _prediction_vector(r_result["se"]),
+        atol=1e-7,
+        rtol=1e-7,
     )
 
 
@@ -624,29 +557,27 @@ def test_output_parity_newdata_transformed_formula_surfaces(pred_type):
         return
 
     actual_pred, actual_se = model.predict(X=newdata, type=pred_type, return_se=True)
-    expected_pred = np.asarray(r_result["pred"], dtype=np.float64)
-    expected_se = np.asarray(r_result["se"], dtype=np.float64)
     np.testing.assert_allclose(
-        np.asarray(actual_pred, dtype=np.float64),
-        expected_pred,
+        _prediction_vector(actual_pred),
+        _prediction_vector(r_result["pred"]),
         atol=1e-10,
         rtol=1e-10,
     )
     np.testing.assert_allclose(
-        np.asarray(actual_se, dtype=np.float64),
-        expected_se,
+        _prediction_vector(actual_se),
+        _prediction_vector(r_result["se"]),
         atol=1e-10,
         rtol=1e-10,
     )
 
 
 @pytest.mark.parametrize(
-    "pred_type, iterms_type",
-    [("terms", None), ("iterms", None), ("iterms", 2)],
-    ids=["terms", "iterms", "iterms_type_2"],
+    "pred_type",
+    ["terms"],
+    ids=["terms"],
 )
 def test_output_parity_newdata_transformed_formula_term_surfaces(
-    pred_type, iterms_type
+    pred_type,
 ):
     """Verify that output parity new-data transformed formula term surfaces."""
     train = _make_transformed_formula_data(seed=543, n=140)
@@ -662,14 +593,12 @@ def test_output_parity_newdata_transformed_formula_term_surfaces(
         method="REML",
         type=pred_type,
         return_se=True,
-        iterms_type=iterms_type,
     )
 
     actual_pred, actual_se = model.predict(
         X=newdata,
         type=pred_type,
         return_se=True,
-        iterms_type=iterms_type,
     )
     expected_pred = np.asarray(r_result["pred"], dtype=np.float64)
     expected_se = np.asarray(r_result["se"], dtype=np.float64)

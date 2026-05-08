@@ -314,10 +314,6 @@ class GammalsFamily(GamlssFamily):
             D=D,
             sandwich=sandwich,
         )
-        if bool(kw.get("ncv", False)):
-            ret["l1"] = np.asarray(de["l1"], dtype=np.float64)
-            ret["l2"] = np.asarray(de["l2"], dtype=np.float64)
-            ret["l3"] = de["l3"]
         ret["l"] = ll
         ret["l0"] = l0
         return ret

@@ -266,8 +266,8 @@ def choose_tprs_setup_locations(X_shifted, knots=None, max_knots=2000, seed=1):
 
     - If knots are supplied, use them directly as basis-setup locations.
     - Otherwise use all unique shifted covariate locations.
-    - If those exceed max.knots, sample max.knots unique locations with a
-      fixed seed for repeatability.
+    - If those exceed max.knots, use a deterministic subsample controlled by
+      ``seed``.
     """
     X_shifted = np.asarray(X_shifted, dtype=np.float64)
     if X_shifted.ndim == 1:
@@ -284,12 +284,11 @@ def choose_tprs_setup_locations(X_shifted, knots=None, max_knots=2000, seed=1):
     Xu = _sorted_unique_rows(X_shifted)
 
     max_knots = int(max_knots)
-    seed = int(seed)
 
     if Xu.shape[0] > max_knots:
-        rng = np.random.default_rng(seed)
-        idx = rng.choice(Xu.shape[0], size=max_knots, replace=False)
-        Xu = Xu[idx]
+        rng = np.random.default_rng(int(seed))
+        keep = np.sort(rng.choice(Xu.shape[0], size=max_knots, replace=False))
+        Xu = Xu[keep, :]
 
     return np.asarray(Xu, dtype=np.float64)
 

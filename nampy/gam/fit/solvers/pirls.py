@@ -14,7 +14,12 @@ from ..._model_state import (
 from ..linalg.stacked_qr import balanced_penalty_template_sqrt_for_rank
 from ..penalized_system import build_full_design, build_full_penalty_from_blocks
 from ..state import FitCoreSolution
-from .irls_core import irls_core
+from .irls_core import (
+    _mgcv_effective_irls_tol,
+    _mgcv_null_coef,
+    _mgcv_poisson_identity_fisher_endpoint,
+    irls_core,
+)
 
 
 def solve_pirls_fit(model, y, smoothing_params, weights=None):
@@ -81,11 +86,15 @@ def solve_pirls_fit(model, y, smoothing_params, weights=None):
             weights=weights,
             fit_intercept=fi,
             max_iter=int(getattr(model, "max_irls_iter", 200)),
-            tol=float(getattr(model, "irls_tol", 1e-7)),
+            tol=_mgcv_effective_irls_tol(
+                model.family, float(getattr(model, "irls_tol", 1e-7))
+            ),
             max_step_halving=int(getattr(model, "max_step_halving", 25)),
             coef_start=coef_start,
+            null_coef=_mgcv_null_coef(X, y, model.family),
             etastart=etastart,
             mustart=mustart,
+            fisher_scoring_only=_mgcv_poisson_identity_fisher_endpoint(model.family),
             penalty_rank_rows=rank_rows,
             force_stacked_qr=force_stacked_qr,
             near_singular_null_pin=("auto" if force_stacked_qr else False),

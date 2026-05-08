@@ -5,13 +5,24 @@ import pytest
 from numpy.testing import assert_allclose
 from scipy.special import gammaln
 
-from nampy.gam.families.binomial import BinomialCauchitFamily
+from nampy.gam.families.binomial import BinomialCauchitFamily, BinomialLogFamily
 from nampy.gam.families.gamma import (
     GammaIdentityFamily,
     GammaInverseFamily,
     GammaLogFamily,
 )
+from nampy.gam.families.gaussian import (
+    GaussianIdentityFamily,
+    GaussianInverseFamily,
+    GaussianLogFamily,
+)
+from nampy.gam.families.poisson import (
+    PoissonIdentityFamily,
+    PoissonLogFamily,
+    PoissonSqrtFamily,
+)
 from nampy.gam.families.registry import make_gam_family
+from tests.mgcv_parity_utils import _family_specs
 
 pytestmark = [
     pytest.mark.surface_derivatives,
@@ -34,6 +45,16 @@ def test_binomial_cauchit_registry_and_weighted_initialization():
         rtol=1e-12,
         atol=1e-12,
     )
+
+
+def test_binomial_registry_rejects_unknown_link_and_supports_mgcv_log_link():
+    """mgcv accepts binomial log link, but not arbitrary fallback links."""
+    assert isinstance(
+        make_gam_family({"name": "binomial", "link": "log"}), BinomialLogFamily
+    )
+
+    with pytest.raises(ValueError, match="Unknown binomial link"):
+        make_gam_family({"name": "binomial", "link": "bad_link"})
 
 
 @pytest.mark.family_binomial
@@ -87,6 +108,47 @@ def test_gamma_registry_defaults_to_mgcv_inverse_link():
         make_gam_family({"name": "gamma", "link": "identity"}),
         GammaIdentityFamily,
     )
+
+
+@pytest.mark.family_gamma
+def test_gamma_mgcv_parity_helper_encodes_non_default_links():
+    """Bare gamma uses mgcv's inverse link; gamma-log is explicit."""
+    assert _family_specs("gamma")[1] == "gamma"
+    assert _family_specs({"name": "gamma"})[1] == "gamma"
+    assert _family_specs({"name": "gamma", "link": "inverse"})[1] == "gamma"
+    assert _family_specs({"name": "gamma", "link": "log"})[1] == "gamma:log"
+
+
+def test_gaussian_registry_supports_mgcv_ordinary_links():
+    """mgcv::gaussian supports identity, log, and inverse links."""
+    assert isinstance(make_gam_family("gaussian"), GaussianIdentityFamily)
+    assert isinstance(
+        make_gam_family({"name": "gaussian", "link": "identity"}),
+        GaussianIdentityFamily,
+    )
+    assert isinstance(
+        make_gam_family({"name": "gaussian", "link": "log"}), GaussianLogFamily
+    )
+    assert isinstance(
+        make_gam_family({"name": "gaussian", "link": "inverse"}), GaussianInverseFamily
+    )
+
+
+def test_poisson_registry_supports_mgcv_ordinary_links_and_noninteger_y():
+    """mgcv::poisson supports log, identity, sqrt and warns/continues for non-integer y."""
+    assert isinstance(make_gam_family("poisson"), PoissonLogFamily)
+    assert isinstance(
+        make_gam_family({"name": "poisson", "link": "identity"}), PoissonIdentityFamily
+    )
+    assert isinstance(
+        make_gam_family({"name": "poisson", "link": "sqrt"}), PoissonSqrtFamily
+    )
+
+    family = make_gam_family("poisson")
+    y = np.array([0.0, 1.25, 3.5], dtype=np.float64)
+    assert_allclose(family.validate_y(y), y)
+    with pytest.raises(ValueError, match="non-negative"):
+        family.validate_y(np.array([-0.1, 1.0], dtype=np.float64))
 
 
 @pytest.mark.parametrize("link", ["probit", "cloglog", "cauchit"])

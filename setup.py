@@ -12,7 +12,7 @@ HOMEPAGE = "tbd"
 DOCS = "tbd"
 EMAIL = "anton.thielmann@tu-clausthal.de"
 AUTHOR = "Anton Thielmann"
-REQUIRES_PYTHON = ">=3.6"
+REQUIRES_PYTHON = ">=3.10"
 
 # Load the package's verison file and its content.
 ROOT_DIR = Path(__file__).resolve().parent
@@ -49,11 +49,11 @@ setup(
     python_requires=REQUIRES_PYTHON,
     install_requires=install_reqs,
     # extras_require=extras_reqs,
-    license="Copyright (c) 2024 BASF SE",  # adapt based on your needs
+    license="MIT",
     packages=find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: Proprietary License",
+        "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
     include_package_data=True,

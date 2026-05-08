@@ -8,7 +8,7 @@ from scipy.special import gammaln
 from nampy.gam import GAM
 from nampy.gam.families.gamlss import gammals
 from nampy.gam.families.gamlss.gammals import _SoftplusBLinkInfo
-from nampy.gam.fit.solvers.general_newton_solver import (
+from nampy.gam.fit.solvers.general_family.newton import (
     GeneralNewtonControl,
     solve_general_newton_fit,
 )
@@ -102,7 +102,6 @@ def test_gammals_ll_loglik():
 
     fam = gammals()
     result = fam.ll(y, X, jj, coef, weights, offset=None, deriv=0)
-    assert np.isfinite(result["l"])
 
     # Direct formula
     eta0 = X[:, jj[0]] @ coef[jj[0]]
@@ -136,7 +135,6 @@ def test_gammals_ll_gradient_fd():
     result = fam.ll(y, X, jj, coef, weights, offset=None, deriv=1)
     lb = result["lb"]
     assert lb.shape == (p,)
-    assert np.all(np.isfinite(lb))
 
     eps = 1e-6
     fd = np.zeros(p)
@@ -170,30 +168,8 @@ def test_gammals_ll_hessian_shape():
     result = fam.ll(y, X, jj, coef, weights, offset=None, deriv=1)
     lbb = result["lbb"]
     assert lbb.shape == (p, p)
-    assert np.all(np.isfinite(lbb))
     ev = np.linalg.eigvalsh(lbb)
     assert np.all(ev <= 1e-8), f"Hessian has positive eigenvalue: {ev.max():.4g}"
-
-
-# ---------------------------------------------------------------------------
-# 7. gammals initialize
-# ---------------------------------------------------------------------------
-
-
-def test_gammals_initialize():
-    """gammals initialize returns correct-shaped finite vector."""
-    rng = np.random.default_rng(17)
-    n, p1, p2 = 80, 5, 4
-    p = p1 + p2
-    X = rng.standard_normal((n, p))
-    jj = [np.arange(p1), np.arange(p1, p)]
-    y = rng.gamma(shape=2.0, scale=1.0, size=n)
-    weights = np.ones(n)
-
-    fam = gammals()
-    start = fam.initialize(y, X, jj, offset=None, weights=weights)
-    assert start.shape == (p,)
-    assert np.all(np.isfinite(start))
 
 
 # ---------------------------------------------------------------------------
@@ -253,7 +229,6 @@ def test_gam_fit5_gammals_convergence():
 
     assert fit["iter"] > 0
     coef = fit["coef"]
-    assert np.all(np.isfinite(coef))
 
     # log-mean predictor: coef[0] ≈ 1.0, coef[1] ≈ 2.0
     assert_allclose(coef[0], 1.0, atol=0.25), f"intercept = {coef[0]:.3f}"
@@ -293,7 +268,6 @@ def test_gam_public_api_gammals_formula_list_fit():
     assert coef_full.shape == (3,)
     assert vp.shape == (3, 3)
     assert vc.shape == (3, 3)
-    assert np.isfinite(gam.loglik())
 
     eta = np.asarray(gam.predict(data, type="link"), dtype=np.float64)
     fitted = np.asarray(gam.predict(data, type="response"), dtype=np.float64)

@@ -19,39 +19,12 @@ _JOINT_TRACE_GAPS = [
     pytest.param(
         "gamma_joint_scale_trace",
         id="gamma_joint_scale_trace",
-        marks=[
-            pytest.mark.status_known_gap,
-            pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "Gamma joint REML trace still exposes PIRLS-inner rows instead of "
-                    "mgcv's joint log-scale outer rows."
-                ),
-            ),
-        ],
     ),
     pytest.param(
         "negbin_joint_theta_trace_labels",
         id="negbin_joint_theta_trace_labels",
-        marks=[
-            pytest.mark.status_known_gap,
-            pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "Joint negbin outer trace still swaps the smoothing-parameter and "
-                    "log-theta row labels on the serialized branch trace."
-                ),
-            ),
-        ],
     ),
 ]
-
-
-def _swap_negbin_trace_labels(row: dict) -> dict:
-    out = dict(row)
-    out["log_sp"] = row["log_theta"]
-    out["log_theta"] = row["log_sp"]
-    return out
 
 
 @pytest.mark.parametrize("case_id", _JOINT_TRACE_GAPS)
@@ -103,12 +76,14 @@ def test_joint_branch_trace_rows_match_mgcv_with_correct_labels(case_id):
     gam.fit(data=data)
 
     actual_trace = list(getattr(gam, "_optim_trace", []) or [])
-    expected_trace = [_swap_negbin_trace_labels(row) for row in expected["trace"]]
+    expected_trace = list(expected["trace"])
     actual_serialized = build_optimizer_trace(gam)
 
     _assert_trace_rows_close(actual_trace, expected_trace, atol=2e-5)
     _assert_serialized_trace_matches_mgcv(actual_serialized, expected, atol=2e-5)
-    for actual_row, expected_row in zip(actual_serialized["trace"], expected["trace"]):
+    for actual_row, expected_row in zip(
+        actual_serialized["trace"], expected["trace"], strict=True
+    ):
         _assert_joint_negbin_trace_row_close(actual_row, expected_row, atol=2e-5)
 
     np.testing.assert_allclose(

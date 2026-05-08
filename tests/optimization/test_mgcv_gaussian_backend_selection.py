@@ -55,15 +55,6 @@ class TestGaussianRemlBackendSelection:
 
         assert backend == "gaussian_exact"
 
-    def test_t2_reml_uses_exact_backend(self):
-        """Verify that t2 REML uses exact backend."""
-        model = _gaussian_model_with_term("tensor_anova")
-
-        backend = resolve_ml_reml_scoring_backend(model, method="reml")
-
-        assert backend == "gaussian_exact"
-
-
 def test_gaussian_reml_bfgs_uses_profiled_objective_without_joint_sigma2(
     monkeypatch,
 ):
@@ -95,7 +86,7 @@ def test_gaussian_reml_bfgs_uses_profiled_objective_without_joint_sigma2(
             nhev=0,
         )
 
-    monkeypatch.setattr(driver_module, "_optimize_outer_bfgs_mgcv", _fake_bfgs)
+    monkeypatch.setattr(driver_module, "_optimize_outer_bfgs_strict", _fake_bfgs)
     monkeypatch.setattr(
         driver_module, "_refresh_final_outer_derivatives", lambda *args, **kwargs: None
     )

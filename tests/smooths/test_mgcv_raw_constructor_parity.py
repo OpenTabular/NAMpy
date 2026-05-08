@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import itertools
 from dataclasses import dataclass
 from numbers import Number
 
@@ -9,11 +8,9 @@ import pandas as pd
 import pytest
 
 from nampy.gam.compiler.factory import instantiate_term
-from nampy.gam.constraints.absorption import apply_linear_constraint
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
 from nampy.gam.penalties import tensor_product_penalties
-from nampy.gam.penalties.tensor import normalize_tensor_marginal_penalty
-from nampy.gam.smooths.algebra import rowwise_kronecker, t2_marginal_reparameterization
+from nampy.gam.smooths.algebra import rowwise_kronecker
 from nampy.gam.smooths.categorical.categorical_utils import (
     as_object_1d,
     factor_indicator_matrix,
@@ -23,24 +20,18 @@ from nampy.gam.smooths.categorical.fs import (
     SZSmoothInteractionTerm,
     _block_penalty_for_group,
 )
-from nampy.gam.smooths.categorical.mrf import MarkovRandomFieldTerm
 from nampy.gam.smooths.categorical.re import RandomEffectTerm
 from nampy.gam.smooths.tensor.marginals import build_tensor_product_components
-from nampy.gam.smooths.tensor.t2 import TensorANOVASplineTerm
-from nampy.gam.smooths.tensor.t2_basis import (
-    build_tensor_anova_basis_and_penalties,
-)
 from nampy.gam.smooths.tensor.te import TensorProductSplineTerm
 from nampy.gam.smooths.tensor.ti import (
     InteractionTensorProductSplineTerm,
 )
 from nampy.gam.smooths.univariate.cr import CubicSplineTerm
-from nampy.gam.smooths.univariate.gp import GPSmoothTerm
 from nampy.gam.smooths.univariate.ps import PSplineTerm1D
 from nampy.gam.smooths.univariate.tp import ThinPlateSplineTerm
 from nampy.gam.specs.build import build_formula_model
 from nampy.splines.basis.cr import cr_exact_null_basis_from_knots
-from nampy.splines.basis.mrf import nat_param_type0, nat_param_type1
+from nampy.splines.basis.natparam import nat_param_type1
 from nampy.splines.univariate.cr import (
     add_full_rank_shrinkage,
     cyclic_cubic_bd,
@@ -49,13 +40,12 @@ from nampy.splines.univariate.cr import (
 from nampy.splines.univariate.ps import (
     pspline_knots,
 )
+from tests.mgcv_invariant_policy import canonicalize_raw_representation_state
 from tests.mgcv_parity_utils import (
     _make_fs_data,
     _make_fs_data_4levels,
     _make_gaussian_data,
     _make_gaussian_data_3col,
-    _make_mrf_data,
-    _make_mrf_low_rank_data,
     _make_random_effect_data,
     _make_random_effect_data_noisy,
     _make_sz_data,
@@ -63,7 +53,6 @@ from tests.mgcv_parity_utils import (
     _normalize_python_formula_text,
     _run_mgcv_raw_constructor,
 )
-from tests.mgcv_invariant_policy import canonicalize_raw_representation_state
 
 
 @dataclass(frozen=True)
@@ -86,13 +75,6 @@ def _make_cyclic_data(seed=77, n=160):
     rng = np.random.default_rng(seed)
     x = rng.uniform(0.0, 2 * np.pi, size=n)
     y = np.sin(x) + 0.25 * np.cos(2.0 * x) + rng.normal(scale=0.1, size=n)
-    return pd.DataFrame({"y": y, "x": x})
-
-
-def _make_gp_data(seed=91, n=150):
-    rng = np.random.default_rng(seed)
-    x = rng.uniform(-3.0, 3.0, size=n)
-    y = np.exp(-0.5 * x**2) + 0.35 * np.sin(x) + rng.normal(scale=0.1, size=n)
     return pd.DataFrame({"y": y, "x": x})
 
 
@@ -222,41 +204,6 @@ def _cyclic_endpoint_knots(column: str):
         return {str(column): [float(np.min(vals)), float(np.max(vals))]}
 
     return _build
-
-
-def _mrf_nb3():
-    return {"A": ["B"], "B": ["A", "C"], "C": ["B"]}
-
-
-def _mrf_nb4():
-    return {"A": ["B"], "B": ["A", "C"], "C": ["B", "D"], "D": ["C"]}
-
-
-def _mrf_penalty3():
-    return [[1.0, -1.0, 0.0], [-1.0, 2.0, -1.0], [0.0, -1.0, 1.0]]
-
-
-def _mrf_polys3():
-    return {
-        "A": [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 0.0]],
-        "B": [[1.0, 0.0], [2.0, 0.0], [2.0, 1.0], [1.0, 1.0], [1.0, 0.0]],
-        "C": [[2.0, 0.0], [3.0, 0.0], [3.0, 1.0], [2.0, 1.0], [2.0, 0.0]],
-    }
-
-
-def _mrf_region_knots(*levels):
-    return lambda _data: {"region": list(levels)}
-
-
-def _tensor_case_atol(special, bases):
-    basis_set = {str(b).lower() for b in bases}
-    if special == "ti" and basis_set == {"gp"}:
-        return 1e-4
-    if special == "ti" and basis_set.intersection({"ps", "tp", "ts", "gp"}):
-        return 1e-8
-    if basis_set.intersection({"tp", "ts", "gp"}):
-        return 1e-8
-    return 1e-10
 
 
 def _case(
@@ -456,104 +403,6 @@ def _build_tprs_case_matrix():
     return cases
 
 
-def _build_gp_case_matrix():
-    cases = [
-        _case(
-            "gp_default_k",
-            _factory(_make_gp_data, seed=90),
-            'y ~ s(x, bs="gp")',
-        ),
-        _case(
-            "gp_shared_id",
-            _factory(_make_gp_data, seed=91),
-            'y ~ s(x, bs="gp", k=9, id="shared")',
-        ),
-        _case(
-            "gp_supplied_knots",
-            _factory(_make_gp_data, seed=92),
-            'y ~ s(x, bs="gp", k=8)',
-            knots_factory=_equally_spaced_knots("x", 8),
-        ),
-        _case(
-            "gp_2d_default",
-            _factory(_make_gaussian_data, seed=93, n=120),
-            'y ~ s(x0, x1, bs="gp", k=12)',
-        ),
-        _case(
-            "gp_3d_default",
-            _factory(_make_gaussian_data_3col, seed=94, n=100),
-            'y ~ s(x0, x1, x2, bs="gp", k=14)',
-        ),
-        _case(
-            "gp_max_knots_xt",
-            _factory(_make_large_gaussian_data, seed=95, n=2205),
-            'y ~ s(x0, x1, bs="gp", k=12, xt={"max.knots": 60, "seed": 3})',
-        ),
-    ]
-    gp_m_specs = [
-        ("spherical", [1, 1.0], 1e-10),
-        ("stationary_spherical", [-1, 1.0], 1e-10),
-        ("powerexp", [2, 0.8, 1.2], 1e-8),
-        ("stationary_powerexp", [-2, 0.6, 1.7], 1e-10),
-        ("matern15", [3, 1.0], 1e-10),
-        ("stationary_matern15", [-3, 1.0], 1e-10),
-        ("matern25", [4, 1.0], 1e-10),
-        ("stationary_matern25", [-4, 1.0], 1e-10),
-        ("matern35", [5, 1.1], 1e-10),
-        ("stationary_matern35", [-5, 1.1], 1e-10),
-    ]
-    for idx, (label, m_spec, atol) in enumerate(gp_m_specs):
-        cases.append(
-            _case(
-                f"gp_{label}",
-                _factory(_make_gp_data, seed=100 + idx),
-                f'y ~ s(x, bs="gp", k=10, m={repr(m_spec)})',
-                atol=atol,
-            )
-        )
-    return cases
-
-
-def _build_mrf_case_matrix():
-    nb3 = _mrf_nb3()
-    nb4 = _mrf_nb4()
-    penalty3 = _mrf_penalty3()
-    polys3 = _mrf_polys3()
-    return [
-        _case(
-            "mrf_nb_full_rank",
-            _make_mrf_data,
-            f'y ~ s(region, bs="mrf", xt={repr({"nb": nb3})})',
-        ),
-        _case(
-            "mrf_penalty_full_rank",
-            _make_mrf_data,
-            f'y ~ s(region, bs="mrf", xt={repr({"penalty": penalty3})})',
-        ),
-        _case(
-            "mrf_nb_plus_penalty",
-            _make_mrf_data,
-            f'y ~ s(region, bs="mrf", xt={repr({"nb": nb3, "penalty": penalty3})})',
-        ),
-        _case(
-            "mrf_polys_full_rank",
-            _make_mrf_data,
-            f'y ~ s(region, bs="mrf", xt={repr({"polys": polys3})})',
-        ),
-        _case(
-            "mrf_knots_explicit",
-            _make_mrf_data,
-            f'y ~ s(region, bs="mrf", xt={repr({"nb": nb3})})',
-            knots_factory=_mrf_region_knots("A", "B", "C"),
-        ),
-        _case(
-            "mrf_low_rank",
-            _make_mrf_low_rank_data,
-            f'y ~ s(region, bs="mrf", k=3, xt={repr({"nb": nb4})})',
-        ),
-    ]
-
-
 def _build_re_case_matrix():
     penalty_multi = {
         "S": [
@@ -636,7 +485,6 @@ def _build_factor_smooth_case_matrix():
         ("cc", "cc"),
         ("ps", {"bs": "ps", "m": 2, "k": 7}),
         ("ts", "ts"),
-        ("gp", "gp"),
     ]
     for label, xt_spec in fs_xt_cases:
         cases.append(
@@ -644,7 +492,7 @@ def _build_factor_smooth_case_matrix():
                 f"fs_base_{label}",
                 _make_fs_data,
                 f'y ~ s(f, x, bs="fs", xt={repr(xt_spec)})',
-                atol=1e-8 if label in {"ps", "ts", "gp"} else 1e-10,
+                atol=1e-8 if label in {"ps", "ts"} else 1e-10,
             )
         )
         cases.append(
@@ -652,11 +500,11 @@ def _build_factor_smooth_case_matrix():
                 f"sz_base_{label}",
                 _make_sz_data,
                 f'y ~ s(f1, f2, x, bs="sz", k=6, xt={repr(xt_spec)})',
-                atol=1e-8 if label in {"ps", "ts", "gp"} else 1e-10,
+                atol=1e-8 if label in {"ps", "ts"} else 1e-10,
             )
         )
 
-    for base_bs in ["tp", "ts", "gp"]:
+    for base_bs in ["tp", "ts"]:
         cases.append(
             _case(
                 f"fs_2d_base_{base_bs}",
@@ -678,30 +526,7 @@ def _build_factor_smooth_case_matrix():
 
 
 def _build_tensor_case_matrix():
-    tensor_bases = ("cr", "cs", "cc", "ps", "tp", "ts", "gp")
     cases = []
-
-    for special in ("te", "ti", "t2"):
-        for b0, b1 in itertools.product(tensor_bases, repeat=2):
-            cases.append(
-                _case(
-                    f"{special}_2d_{b0}_{b1}",
-                    _factory(_make_gaussian_data, seed=200 + len(cases), n=90),
-                    f'y ~ {special}(x0, x1, bs=["{b0}", "{b1}"], k=[5, 6])',
-                    atol=_tensor_case_atol(special, (b0, b1)),
-                )
-            )
-
-    for special in ("te", "ti", "t2"):
-        for basis in tensor_bases:
-            cases.append(
-                _case(
-                    f"{special}_3d_{basis}",
-                    _factory(_make_gaussian_data_3col, seed=500 + len(cases), n=90),
-                    f'y ~ {special}(x0, x1, x2, bs=["{basis}", "{basis}", "{basis}"], k=[4, 4, 4])',
-                    atol=_tensor_case_atol(special, (basis, basis, basis)),
-                )
-            )
 
     cases.extend(
         [
@@ -716,11 +541,6 @@ def _build_tensor_case_matrix():
                 'y ~ ti(x0, x1, bs=["cr", "cr"])',
             ),
             _case(
-                "t2_default_k",
-                _factory(_make_gaussian_data, seed=802, n=90),
-                'y ~ t2(x0, x1, bs=["cr", "cr"])',
-            ),
-            _case(
                 "te_ps_ps_m",
                 _factory(_make_gaussian_data, seed=803, n=90),
                 'y ~ te(x0, x1, bs=["ps", "ps"], k=[6, 6], m=[[2, 2], [2, 3]])',
@@ -729,12 +549,6 @@ def _build_tensor_case_matrix():
                 "te_tp_ts_m",
                 _factory(_make_gaussian_data, seed=804, n=90),
                 'y ~ te(x0, x1, bs=["tp", "ts"], k=[10, 10], m=[3, 3])',
-                atol=1e-8,
-            ),
-            _case(
-                "te_gp_gp_m",
-                _factory(_make_gaussian_data, seed=805, n=90),
-                'y ~ te(x0, x1, bs=["gp", "gp"], k=[8, 8], m=[[2, 0.8, 1.2], [-3, 1.0]])',
                 atol=1e-8,
             ),
             _case(
@@ -756,16 +570,6 @@ def _build_tensor_case_matrix():
                 atol=1e-8,
             ),
             _case(
-                "t2_full_true",
-                _factory(_make_gaussian_data, seed=809, n=90),
-                'y ~ t2(x0, x1, bs=["cr", "cr"], k=[5, 6], full=True)',
-            ),
-            _case(
-                "t2_ord_1",
-                _factory(_make_gaussian_data, seed=810, n=90),
-                'y ~ t2(x0, x1, bs=["cr", "cr"], k=[5, 6], ord=[1])',
-            ),
-            _case(
                 "te_knots_cr_cs",
                 _factory(_make_gaussian_data, seed=811, n=90),
                 'y ~ te(x0, x1, bs=["cr", "cs"], k=[5, 6])',
@@ -773,37 +577,9 @@ def _build_tensor_case_matrix():
                 knots_factory=_feature_specific_knots({"x0": 5, "x1": 6}),
             ),
             _case(
-                "ti_knots_tp_gp",
-                _factory(_make_gaussian_data, seed=812, n=90),
-                'y ~ ti(x0, x1, bs=["tp", "gp"], k=[8, 8])',
-                atol=1e-8,
-                knots_factory=_paired_feature_knots(["x0", "x1"], 9),
-            ),
-            _case(
-                "t2_knots_ps_cc",
-                _factory(_make_gaussian_data, seed=813, n=90),
-                'y ~ t2(x0, x1, bs=["ps", "cc"], k=[6, 6])',
-                knots_factory=_merge_knots_factories(
-                    _pspline_supplied_knots("x0", bs_dim=6, basis_order=2),
-                    _equally_spaced_knots("x1", 6),
-                ),
-            ),
-            _case(
                 "te_tp_tp_xt_repeat_seed",
                 _factory(_make_gaussian_data, seed=814, n=90),
                 'y ~ te(x0, x1, bs=["tp", "tp"], k=[8, 8], xt=[{"seed": 2}])',
-                atol=1e-8,
-            ),
-            _case(
-                "ti_tp_gp_xt_per_margin",
-                _factory(_make_gaussian_data, seed=815, n=90),
-                'y ~ ti(x0, x1, bs=["tp", "gp"], k=[8, 8], xt=[{"seed": 2}, {"seed": 3}], mc=[True, False])',
-                atol=1e-8,
-            ),
-            _case(
-                "t2_tp_gp_xt_per_margin",
-                _factory(_make_gaussian_data, seed=816, n=90),
-                'y ~ t2(x0, x1, bs=["tp", "gp"], k=[8, 8], xt=[{"seed": 2}, {"seed": 3}])',
                 atol=1e-8,
             ),
         ]
@@ -816,8 +592,6 @@ CASES = [
     *_build_cubic_case_matrix(),
     *_build_ps_case_matrix(),
     *_build_tprs_case_matrix(),
-    *_build_gp_case_matrix(),
-    *_build_mrf_case_matrix(),
     *_build_re_case_matrix(),
     *_build_factor_smooth_case_matrix(),
     *_build_tensor_case_matrix(),
@@ -832,21 +606,17 @@ CASES = [
 ]
 
 # Triage categories from a fixed-sp fit parity sweep against mgcv REML
-# reference smoothing parameters. Upstream-rejected raw-constructor surfaces
-# live in dedicated unsupported tests; xfails here track only mismatches on
-# surfaces that mgcv itself constructs.
+# reference smoothing parameters. Keep only true mismatches here.
 _KNOWN_RAW_GAPS_MAX_KNOTS_SUBSAMPLED = set()
 
-_KNOWN_RAW_GAPS_FIXED_SP_RAW_ONLY = {
-}
+_KNOWN_RAW_GAPS_FIXED_SP_RAW_ONLY = {}
 
-_KNOWN_RAW_GAPS_FIXED_SP_BEHAVIOR = {
-}
+_KNOWN_RAW_GAPS_FIXED_SP_BEHAVIOR = {}
 
 KNOWN_GAP_REASONS = {
     **dict.fromkeys(
         sorted(_KNOWN_RAW_GAPS_MAX_KNOTS_SUBSAMPLED),
-        "Upstream mgcv supports this surface, but raw constructor max.knots subsampling still mismatches.",
+        "Upstream mgcv supports automatic max.knots subsampling, but NAMpy requires explicit knots for strict RNG parity.",
     ),
     **dict.fromkeys(
         sorted(_KNOWN_RAW_GAPS_FIXED_SP_RAW_ONLY),
@@ -1031,76 +801,6 @@ def _serialize_tprs_raw(term):
     )
 
 
-def _serialize_gp_raw(term):
-    setup = term._setup
-    return _common_raw_state(
-        "gp.smooth",
-        np.asarray(setup.basis_train, dtype=np.float64),
-        [np.asarray(setup.penalty, dtype=np.float64)],
-        rank=int(setup.rank),
-        null_space_dim=int(setup.null_space_dim),
-        extra={
-            "shift": np.asarray(setup.shift, dtype=np.float64),
-            "gp_defn": {
-                "type": int(setup.gp_defn["type"]),
-                "stationary": bool(setup.gp_defn["stationary"]),
-                "rho": float(setup.gp_defn["rho"]),
-                "power": float(setup.gp_defn["power"]),
-            },
-            "UZ": np.asarray(setup.UZ, dtype=np.float64),
-            "knt": np.asarray(setup.knt, dtype=np.float64),
-            "used_subsampling": bool(setup.used_subsampling),
-        },
-    )
-
-
-def _serialize_mrf_raw(term, X):
-    x = as_object_1d(X[:, term._feature_index])
-    area_names = list(term._area_names)
-    X_full = factor_indicator_matrix(x, area_names)
-    full_penalty = np.asarray(term._full_penalty, dtype=np.float64)
-    n_areas = len(area_names)
-    bs_dim = n_areas if term.k < 0 else int(term.k)
-
-    if bs_dim < n_areas:
-        miss = np.where(np.sum(X_full, axis=0) == 0.0)[0]
-        X_aug = X_full
-        if miss.size > 0:
-            X_aug = np.vstack([np.zeros((miss.size, n_areas), dtype=np.float64), X_aug])
-            for i, j in enumerate(miss):
-                X_aug[i, j] = 1.0
-        rp = nat_param_type0(X_aug, full_penalty, rank=None, tol=None, unit_fnorm=True)
-        ind = np.arange(n_areas - bs_dim, n_areas, dtype=int)
-        B = np.asarray(rp["X"][miss.size :, :][:, ind], dtype=np.float64)
-        P = np.asarray(rp["P"][:, ind], dtype=np.float64)
-        D_red = np.zeros(bs_dim, dtype=np.float64)
-        rank_full = int(rp["rank"])
-        penalized = ind[ind < rank_full]
-        if penalized.size > 0:
-            D_red[np.where(ind < rank_full)[0]] = rp["D"][penalized]
-        S = np.diag(D_red)
-    else:
-        B = np.asarray(X_full, dtype=np.float64)
-        S = np.asarray(full_penalty, dtype=np.float64)
-        P = None
-
-    rank = _sym_rank(S)
-    return _common_raw_state(
-        "mrf.smooth",
-        B,
-        [S],
-        rank=rank,
-        null_space_dim=int(B.shape[1] - rank),
-        extra={
-            "knots": _scalar_or_list(area_names),
-            "P": P,
-            "plot_me": bool(term._plot_polys is not None),
-            "te_ok": 2,
-            "noterp": True,
-        },
-    )
-
-
 def _serialize_re_raw(term):
     B = np.asarray(term._basis_train, dtype=np.float64)
     q = int(B.shape[1])
@@ -1206,7 +906,9 @@ def _serialize_sz_raw(term, X):
 
     indicator_mats = []
     level_sizes = []
-    for idx, lev in zip(term._factor_feature_indices, term._factor_levels):
+    for idx, lev in zip(
+        term._factor_feature_indices, term._factor_levels, strict=True
+    ):
         indicator_mats.append(factor_indicator_matrix(as_object_1d(X[:, idx]), lev))
         level_sizes.append(len(lev))
 
@@ -1257,9 +959,14 @@ def _serialize_te_raw(term, X):
     )
     penalties = tensor_product_penalties(marginal_penalties, basis_dims=basis_dims)
     marginal_ranks = [int(_sym_rank(S)) for S in marginal_penalties]
-    marginal_null = [int(d - r) for d, r in zip(basis_dims, marginal_ranks)]
+    marginal_null = [
+        int(d - r) for d, r in zip(basis_dims, marginal_ranks, strict=True)
+    ]
     total_dim = int(np.prod(basis_dims, dtype=np.int64))
-    ranks = [int(total_dim * r // d) for r, d in zip(marginal_ranks, basis_dims)]
+    ranks = [
+        int(total_dim * r // d)
+        for r, d in zip(marginal_ranks, basis_dims, strict=True)
+    ]
     null_dim = int(np.prod(marginal_null, dtype=np.int64))
     return _common_raw_state(
         "tensor.smooth",
@@ -1287,9 +994,14 @@ def _serialize_ti_raw(term, X):
     )
     penalties = tensor_product_penalties(marginal_penalties, basis_dims=basis_dims)
     marginal_ranks = [int(_sym_rank(S)) for S in marginal_penalties]
-    marginal_null = [int(d - r) for d, r in zip(basis_dims, marginal_ranks)]
+    marginal_null = [
+        int(d - r) for d, r in zip(basis_dims, marginal_ranks, strict=True)
+    ]
     total_dim = int(np.prod(basis_dims, dtype=np.int64))
-    ranks = [int(total_dim * r // d) for r, d in zip(marginal_ranks, basis_dims)]
+    ranks = [
+        int(total_dim * r // d)
+        for r, d in zip(marginal_ranks, basis_dims, strict=True)
+    ]
     null_dim = int(np.prod(marginal_null, dtype=np.int64))
     return _common_raw_state(
         "tensor.smooth",
@@ -1305,67 +1017,6 @@ def _serialize_ti_raw(term, X):
     )
 
 
-def _serialize_t2_raw(term):
-    marginal_decompositions = []
-    P_list = []
-    for basis_name, marginal in zip(term.basis, term._marginals):
-        B_i, S_i, _ = marginal.tensor_marginal_fit_matrices(centered=False)
-        dec = t2_marginal_reparameterization(B_i, S_i, basis_name=basis_name)
-        marginal_decompositions.append(dec)
-        P_list.append(
-            np.column_stack(
-                [
-                    np.asarray(dec["T_range"], dtype=np.float64),
-                    np.asarray(dec["T_null"], dtype=np.float64),
-                ]
-            )
-        )
-
-    t2_obj = build_tensor_anova_basis_and_penalties(
-        marginal_decompositions,
-        full=bool(term.full),
-        ord=term.ord,
-        remove_constant_from_null_block=False,
-    )
-    B = np.asarray(t2_obj["basis"], dtype=np.float64)
-    penalties = [np.asarray(S, dtype=np.float64) for S in t2_obj["penalties"]]
-    ranks = [int(np.linalg.matrix_rank(S)) for S in penalties]
-    nup = int(sum(ranks))
-    null_dim = int(B.shape[1] - nup)
-    if null_dim == 0:
-        C = np.zeros((0, 0), dtype=np.float64)
-        Cp = None
-    elif null_dim == 1:
-        C = int(B.shape[1])
-        Cp = np.sum(B, axis=0, keepdims=True)
-    else:
-        C = np.zeros((1, B.shape[1]), dtype=np.float64)
-        C[0, nup:] = np.sum(B[:, nup:], axis=0)
-        Cp = np.sum(B, axis=0, keepdims=True)
-
-    ord_value = None
-    if term.ord is not None:
-        ord_vals = [int(v) for v in np.asarray(term.ord).ravel().tolist()]
-        ord_value = _scalar_or_list(ord_vals)
-
-    labels = [str(spec["label"]) for spec in t2_obj["penalized_specs"]]
-    return _common_raw_state(
-        "t2.smooth",
-        B,
-        penalties,
-        rank=_scalar_or_list(ranks),
-        null_space_dim=null_dim,
-        extra={
-            "full": bool(term.full),
-            "ord": ord_value,
-            "C": C,
-            "Cp": None if Cp is None else np.asarray(Cp, dtype=np.float64),
-            "P": [np.asarray(P, dtype=np.float64) for P in P_list],
-            "penalty_labels": _scalar_or_list(labels),
-        },
-    )
-
-
 def _serialize_term_raw(term, X):
     if isinstance(term, CubicSplineTerm):
         return _serialize_cubic_raw(term, X)
@@ -1373,10 +1024,6 @@ def _serialize_term_raw(term, X):
         return _serialize_ps_raw(term)
     if isinstance(term, ThinPlateSplineTerm):
         return _serialize_tprs_raw(term)
-    if isinstance(term, GPSmoothTerm):
-        return _serialize_gp_raw(term)
-    if isinstance(term, MarkovRandomFieldTerm):
-        return _serialize_mrf_raw(term, X)
     if isinstance(term, RandomEffectTerm):
         return _serialize_re_raw(term)
     if isinstance(term, FSmoothInteractionTerm):
@@ -1387,9 +1034,8 @@ def _serialize_term_raw(term, X):
         return _serialize_te_raw(term, X)
     if isinstance(term, InteractionTensorProductSplineTerm):
         return _serialize_ti_raw(term, X)
-    if isinstance(term, TensorANOVASplineTerm):
-        return _serialize_t2_raw(term)
     raise TypeError(f"Unsupported runtime term type {type(term).__name__}.")
+
 
 def _mgcv_tensor_xp_payload(marginal_np_transforms):
     last = -1
@@ -1457,7 +1103,7 @@ def _assert_raw_state_equal(actual, expected, *, atol, path="state"):
         assert len(actual) == len(
             expected
         ), f"{path}: length mismatch {len(actual)} != {len(expected)}"
-        for idx, (got, want) in enumerate(zip(actual, expected)):
+        for idx, (got, want) in enumerate(zip(actual, expected, strict=True)):
             _assert_raw_state_equal(got, want, atol=atol, path=f"{path}[{idx}]")
         return
 

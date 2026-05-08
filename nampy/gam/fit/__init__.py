@@ -28,7 +28,13 @@ Lower-level components (exposed for testing and post-processing)
     Low-level stacked-QR penalized least-squares solvers.
 """
 
-from .backends import available_fit_backends, resolve_fit_backend, solve_fit
+from .backends import (
+    available_fit_backends,
+    resolve_fit_backend,
+    solve_fit,
+    solve_gaussian_given_smoothing,
+    solve_pirls_given_smoothing,
+)
 from .covariance import (
     build_bayes_and_freq_covariances,
     select_covariance_matrix,
@@ -66,6 +72,8 @@ __all__ = [
     "available_fit_backends",
     "resolve_fit_backend",
     "solve_fit",
+    "solve_gaussian_given_smoothing",
+    "solve_pirls_given_smoothing",
     "solve_gaussian_fit",
     "solve_pirls_fit",
     "build_bayes_and_freq_covariances",

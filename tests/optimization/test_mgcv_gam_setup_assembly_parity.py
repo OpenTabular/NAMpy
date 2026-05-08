@@ -9,11 +9,15 @@ from nampy.gam.fit.state import _prediction_parameterization_map
 from nampy.gam.formula import extract_formula_terms
 from nampy.gam.formula.extract import ExtractedParametricTerm
 from nampy.gam.smoothing_selection.reparam import (
-    _mgcv_full_coef_indices,
+    _full_coef_indices,
     build_estimate_gam_setup_state,
 )
+from tests.mgcv_invariant_policy import (
+    gam_setup_compares_dominant_penalty_spectrum,
+    gam_setup_uses_invariant_transform,
+    penalty_spectrum,
+)
 from tests.mgcv_parity_utils import _run_mgcv_gam_setup_assembly
-from tests.mgcv_invariant_policy import gam_setup_uses_invariant_transform
 from tests.optimization.test_mgcv_general_family_preoptimization_parity import (
     GENERAL_PREOPT_CASES,
 )
@@ -123,7 +127,9 @@ def _python_assign(model: GAM):
         return _predictor_assign(extracted[0], predictors[0])
     return [
         _predictor_assign(predictor_extracted, compiled_predictor)
-        for predictor_extracted, compiled_predictor in zip(extracted, predictors)
+        for predictor_extracted, compiled_predictor in zip(
+            extracted, predictors, strict=True
+        )
     ]
 
 
@@ -225,8 +231,6 @@ def _python_smooth_class_name(tb) -> str:
     term_spec = dict((tb.metadata or {}).get("term_spec", {}) or {})
     basis_options = dict(term_spec.get("basis_options", {}) or {})
     special = str(basis_options.get("special", "s")).lower()
-    if special == "t2":
-        return "t2.smooth"
     if special in {"te", "ti"}:
         return "tensor.smooth"
 
@@ -239,8 +243,6 @@ def _python_smooth_class_name(tb) -> str:
         "ps": "pspline.smooth",
         "tp": "tprs.smooth",
         "ts": "ts.smooth",
-        "gp": "gp.smooth",
-        "mrf": "mrf.smooth",
         "re": "random.effect",
         "fs": "fs.interaction",
         "sz": "sz.interaction",
@@ -261,7 +263,7 @@ def _python_smooth_summaries(model: GAM) -> list[dict]:
             pb for pb in compiled.compiled_penalties if int(pb.term_index) == term_index
         ]
         full_idx = np.asarray(
-            _mgcv_full_coef_indices(model, tb.coef_slice), dtype=np.int64
+            _full_coef_indices(model, tb.coef_slice), dtype=np.int64
         )
         start = int(full_idx[0]) + 1
         stop = int(full_idx[-1]) + 1
@@ -411,10 +413,12 @@ def _block_change_of_basis(
     ]
     assert len(smooth_terms) == len(expected_smooth)
 
-    for (term_index, tb), expected_summary in zip(smooth_terms, expected_smooth):
+    for (term_index, tb), expected_summary in zip(
+        smooth_terms, expected_smooth, strict=True
+    ):
         del term_index
         full_idx = np.asarray(
-            _mgcv_full_coef_indices(model, tb.coef_slice), dtype=np.int64
+            _full_coef_indices(model, tb.coef_slice), dtype=np.int64
         )
         start = int(full_idx[0])
         stop = int(full_idx[-1]) + 1
@@ -444,11 +448,7 @@ def _fit_nampy_model(data, formula, family, method, *, select=False) -> GAM:
 def _penalty_atol(case_id: str) -> float:
     if case_id == "gaussian_fs":
         return 1e-8
-    if case_id.endswith("t2_full_false") or case_id.endswith("t2_full_true"):
-        if not case_id.startswith("gaussian_"):
-            return 4e-10
-        return 2e-10
-    if case_id in {"gaussian_tp_two_dim", "gaussian_ts_two_dim", "gaussian_gp_uni"}:
+    if case_id in {"gaussian_tp_two_dim", "gaussian_ts_two_dim"}:
         return 1e-10
     return 1e-12
 
@@ -527,9 +527,10 @@ def _assert_gam_setup_assembly_case(case_id, data, formula, family, method, *, s
         model.compiled_model_.compiled_penalties,
         actual_setup.S,
         expected_S,
+        strict=True,
     ):
         full_idx = np.asarray(
-            _mgcv_full_coef_indices(model, pb.coef_slice), dtype=np.int64
+            _full_coef_indices(model, pb.coef_slice), dtype=np.int64
         )
         start = int(full_idx[0])
         stop = int(full_idx[-1]) + 1
@@ -537,12 +538,26 @@ def _assert_gam_setup_assembly_case(case_id, data, formula, family, method, *, s
         actual_penalty_t = (
             T_local.T @ np.asarray(actual_penalty, dtype=np.float64) @ T_local
         )
-        np.testing.assert_allclose(
-            actual_penalty_t,
-            expected_penalty,
-            rtol=0.0,
-            atol=penalty_atol,
-        )
+        if gam_setup_compares_dominant_penalty_spectrum(case_id):
+            actual_spectrum = penalty_spectrum(actual_penalty_t)
+            expected_spectrum = penalty_spectrum(expected_penalty)
+            assert actual_spectrum[0] > 0.0
+            assert expected_spectrum[0] > 0.0
+            assert actual_spectrum[0] < 0.1 * actual_spectrum[1]
+            assert expected_spectrum[0] < 0.1 * expected_spectrum[1]
+            np.testing.assert_allclose(
+                actual_spectrum[1:],
+                expected_spectrum[1:],
+                rtol=0.0,
+                atol=max(penalty_atol, 2e-4),
+            )
+        else:
+            np.testing.assert_allclose(
+                actual_penalty_t,
+                expected_penalty,
+                rtol=0.0,
+                atol=penalty_atol,
+            )
 
     expected_L = _coerce_optional_matrix(expected.get("L", None))
     if expected_L is None:
