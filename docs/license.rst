@@ -6,7 +6,7 @@ NAMpy is licensed under the MIT License.
 MIT License
 -----------
 
-Copyright (c) 2024 Anton Thielmann and OpenTabular Contributors
+Copyright (c) 2024 Ananyapam De, Anton Thielmann, and OpenTabular Contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -43,6 +43,5 @@ With the following conditions:
 * The software is provided "as is", without warranty
 
 For the complete license text, see the
-`LICENSE <https://github.com/OpenTabular/NAMpy/blob/main/LICENSE>`_
+`LICENSE <https://github.com/Ananyapam7/NAMpy/blob/main/LICENSE>`_
 file in the repository.
-

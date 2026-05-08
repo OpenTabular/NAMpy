@@ -24,7 +24,7 @@ Thank you for your interest in contributing to NAMpy! We welcome contributions f
    ```
 3. Add the upstream repository:
    ```bash
-   git remote add upstream https://github.com/OpenTabular/NAMpy.git
+   git remote add upstream https://github.com/Ananyapam7/NAMpy.git
    ```
 
 ## Development Setup
@@ -229,7 +229,7 @@ def function_name(param1, param2):
 
 ### Before Submitting a Bug Report
 
-- Check the [issue tracker](https://github.com/OpenTabular/NAMpy/issues) for existing reports
+- Check the [issue tracker](https://github.com/Ananyapam7/NAMpy/issues) for existing reports
 - Try the latest version from the main branch
 - Collect information about your environment
 

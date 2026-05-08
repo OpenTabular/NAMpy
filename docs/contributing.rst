@@ -3,16 +3,16 @@ Contributing
 
 We welcome contributions to NAMpy! This page provides a summary of our
 contribution guidelines. For complete details, please see our
-`CONTRIBUTING.md <https://github.com/OpenTabular/NAMpy/blob/main/CONTRIBUTING.md>`_
+`CONTRIBUTING.md <https://github.com/Ananyapam7/NAMpy/blob/main/CONTRIBUTING.md>`_
 file on GitHub.
 
 Quick Links
 -----------
 
-* `GitHub Repository <https://github.com/OpenTabular/NAMpy>`_
-* `Issue Tracker <https://github.com/OpenTabular/NAMpy/issues>`_
-* `Pull Requests <https://github.com/OpenTabular/NAMpy/pulls>`_
-* `Discussions <https://github.com/OpenTabular/NAMpy/discussions>`_
+* `GitHub Repository <https://github.com/Ananyapam7/NAMpy>`_
+* `Issue Tracker <https://github.com/Ananyapam7/NAMpy/issues>`_
+* `Pull Requests <https://github.com/Ananyapam7/NAMpy/pulls>`_
+* `Discussions <https://github.com/Ananyapam7/NAMpy/discussions>`_
 
 Ways to Contribute
 ------------------
@@ -36,7 +36,7 @@ Getting Started
 6. Submit a pull request
 
 For detailed instructions, see the
-`CONTRIBUTING.md <https://github.com/OpenTabular/NAMpy/blob/main/CONTRIBUTING.md>`_
+`CONTRIBUTING.md <https://github.com/Ananyapam7/NAMpy/blob/main/CONTRIBUTING.md>`_
 file.
 
 Development Setup
