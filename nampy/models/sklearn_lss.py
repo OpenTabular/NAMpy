@@ -948,7 +948,9 @@ class SklearnBaseLSS(BaseEstimator):
         # Create grid and plot
         fig, axes = create_subplot_grid(len(features_to_plot))
 
-        for ax, fname in zip(axes, features_to_plot):
+        for ax, fname in zip(
+            axes[: len(features_to_plot)], features_to_plot, strict=True
+        ):
             self._plot_single_feature_effects(
                 X_prepared[fname].values,
                 predictions[fname],
