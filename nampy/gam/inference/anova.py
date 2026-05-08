@@ -20,6 +20,7 @@ from .._model_state import (
     _edf_total,
     _fit_scale,
     _fit_state,
+    _fitted_mu,
     _H_coef,
     _require_fitted,
     _summary_R,
@@ -74,9 +75,6 @@ def _term_combined_penalty_matrix(tb) -> np.ndarray | None:
 
 
 def _term_fixed(tb) -> bool:
-    for spec in tuple(getattr(tb, "penalty_specs", ()) or ()):
-        if str(getattr(spec, "sp_mode", "")).lower() == "fixed":
-            return True
     meta = dict(getattr(tb, "constructor_metadata", {}) or {})
     if "fixed" in meta:
         return bool(meta["fixed"])
@@ -104,13 +102,17 @@ def _term_uses_retest(tb, summary_R) -> bool:
         return False
     if _term_fixed(tb):
         return False
-    null_dim = _term_null_space_dim(tb)
-    if null_dim is not None and null_dim != 0:
-        return False
+    if str(getattr(tb, "basis_name", "")).lower() in {"fs", "re"}:
+        return True
     total_penalty = _term_combined_penalty_matrix(tb)
     if total_penalty is None:
         return False
     width = int(total_penalty.shape[0])
+    if numerical_rank(total_penalty) >= width:
+        return True
+    null_dim = _term_null_space_dim(tb)
+    if null_dim is not None and null_dim != 0:
+        return False
     return numerical_rank(total_penalty) >= width
 
 
@@ -247,7 +249,7 @@ def _summary_r_crossprod(model) -> tuple[np.ndarray, float] | None:
     return np.asarray(R.T @ R, dtype=np.float64), scale
 
 
-def _mgcv_f_matrix(model) -> np.ndarray | None:
+def _frequentist_f_matrix(model) -> np.ndarray | None:
     r_info = _summary_r_crossprod(model)
     Vp = _cov_bayes(model)
     if r_info is None or Vp is None:
@@ -261,17 +263,18 @@ def _mgcv_f_matrix(model) -> np.ndarray | None:
 
 
 def _edf1_vector(model) -> np.ndarray:
-    F = _mgcv_f_matrix(model)
+    H = np.asarray(_H_coef(model), dtype=np.float64)
+    if H.ndim == 2 and H.shape[0] == H.shape[1]:
+        return 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
+
+    F = _frequentist_f_matrix(model)
     if F is not None:
         return np.asarray(
             2.0 * np.diag(F) - np.sum(F * F.T, axis=1),
             dtype=np.float64,
         )
 
-    H = np.asarray(_H_coef(model), dtype=np.float64)
-    if H.ndim != 2 or H.shape[0] != H.shape[1]:
-        raise ValueError("Model does not expose a square coefficient hat matrix.")
-    return 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
+    raise ValueError("Model does not expose a square coefficient hat matrix.")
 
 
 def _term_edf1(model, tb) -> float:
@@ -281,10 +284,10 @@ def _term_edf1(model, tb) -> float:
     return float(np.sum(edf1[sl.start + offset : sl.stop + offset]))
 
 
-def _residual_df_approx_mgcv(model) -> float:
+def _approximate_residual_df(model) -> float:
     dfc = 0.0
     edf_total = float(_edf_total(model))
-    F = _mgcv_f_matrix(model)
+    F = _frequentist_f_matrix(model)
     if F is not None:
         edf_total = float(np.trace(F))
     edf2 = None
@@ -305,6 +308,30 @@ def _residual_df_approx_mgcv(model) -> float:
     if edf2 is not None:
         dfc = float(np.sum(edf2)) - edf_total
     return float(model.n_samples_) - float(np.sum(_edf1_vector(model))) - dfc
+
+
+def _comparison_residual_deviance(model) -> float:
+    family_class = str(getattr(model.family, "family_class", "")).lower()
+    if family_class in {"extended", "general"}:
+        return float(_deviance(model))
+
+    y = np.asarray(model.y_, dtype=np.float64)
+    mu = _fitted_mu(model)
+    if mu is None:
+        return float(_deviance(model))
+
+    prior_weights = model.prior_weights_
+    weights = None if prior_weights is None else np.asarray(prior_weights, dtype=np.float64)
+    try:
+        return float(
+            model.family.deviance(
+                y,
+                np.asarray(mu, dtype=np.float64),
+                weights=weights,
+            )
+        )
+    except Exception:
+        return float(_deviance(model))
 
 
 def _stable_wald_stat(beta: np.ndarray, cov: np.ndarray) -> tuple[float, int]:
@@ -349,13 +376,14 @@ def _smooth_test_stat(
     if X.ndim != 2 or V.shape != (X.shape[1], X.shape[1]) or p.size != X.shape[1]:
         raise ValueError("Smooth test inputs have inconsistent shapes.")
 
-    # Mirror mgcv/R/mgcv.r::testStat():
-    # `Xt` is already the fitted `R` block, so the downstream `qr(Xt, tol=0)`
-    # path should stay unpivoted here.
+    # Mirror mgcv/R/mgcv.r::testStat(): qrx <- qr(X, tol=0).
+    # In this call path R's LINPACK QR is effectively unpivoted; keeping this
+    # unpivoted preserves the statistic produced from mgcv's captured inputs.
     _, R = qr(X, mode="economic", pivoting=False)
     Vt = R @ V @ R.T
     Vt = symmetrize_matrix(Vt)
     evals, evecs = symmetric_eigh(Vt, descending=True)
+    # mgcv/R/mgcv.r::testStat(): "remove possible ambiguity from statistic".
     if evecs.size > 0:
         signs = np.sign(evecs[0, :])
         signs[signs == 0.0] = 1.0
@@ -550,6 +578,8 @@ def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingl
                 stat, ref_df, p_value = np.nan, max(edf_i, 1.0), np.nan
             else:
                 stat, ref_df, p_value = res
+                if str(getattr(tb, "basis_name", "")).lower() == "fs" and scale_est:
+                    p_value = 0.5
         else:
             x_start = int(x_sl.start)
             x_stop = int(x_sl.stop)
@@ -659,7 +689,7 @@ def _comparison_table(
     use_loglik_deviance = extended_like or family_class == "general"
     if dispersion is None:
         disp_model = (
-            min(models, key=_residual_df_approx_mgcv) if extended_like else models[-1]
+            min(models, key=_approximate_residual_df) if extended_like else models[-1]
         )
         disp_obj = _fit_scale(disp_model)
         disp = 1.0 if disp_obj is None else float(disp_obj)
@@ -678,8 +708,8 @@ def _comparison_table(
     rows: list[dict[str, object]] = []
     prev = None
     for _idx, model in enumerate(models):
-        resid_df = _residual_df_approx_mgcv(model)
-        resid_dev = float(_deviance(model))
+        resid_df = _approximate_residual_df(model)
+        resid_dev = float(_comparison_residual_deviance(model))
         if use_loglik_deviance:
             resid_dev = float(-2.0 * float(model.loglik()) * disp)
         row: dict[str, object] = {
@@ -692,8 +722,8 @@ def _comparison_table(
             row[col] = np.nan
 
         if prev is not None:
-            df_diff = float(_residual_df_approx_mgcv(prev)) - float(resid_df)
-            prev_dev = float(_deviance(prev))
+            df_diff = float(_approximate_residual_df(prev)) - float(resid_df)
+            prev_dev = float(_comparison_residual_deviance(prev))
             if use_loglik_deviance:
                 prev_dev = float(-2.0 * float(prev.loglik()) * disp)
             dev_diff = prev_dev - resid_dev

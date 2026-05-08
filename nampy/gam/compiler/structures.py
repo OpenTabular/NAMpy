@@ -111,6 +111,8 @@ class CompiledTerm:
         pred_basis_map = dict(self.metadata or {}).get("prediction_basis_map", None)
         if pred_basis_map is not None:
             basis = basis @ np.asarray(pred_basis_map, dtype=np.float64)
+        if self.basis_transform is not None:
+            basis = basis @ np.asarray(self.basis_transform, dtype=np.float64)
         if basis.ndim != 2:
             raise ValueError(
                 f"Predict matrix for compiled term {self.label!r} must be 2D, got {basis.shape}."

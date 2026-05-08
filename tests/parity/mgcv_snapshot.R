@@ -71,32 +71,44 @@ response_name <- all.vars(if (is.list(formula_obj)) formula_obj[[1]] else formul
 family_parts <- strsplit(family_name, ":", fixed = TRUE)[[1]]
 family_key <- family_parts[[1]]
 family_param <- if (length(family_parts) >= 2) family_parts[[2]] else NULL
+family_link <- function(default, index = 2L) {
+  if (length(family_parts) >= index && nzchar(family_parts[[index]])) {
+    family_parts[[index]]
+  } else {
+    default
+  }
+}
 
 family_obj <- switch(
   family_key,
-  gaussian = gaussian(),
+  gaussian = {
+    link <- family_link("identity")
+    gaussian(link = link)
+  },
   binomial = {
-    link <- if (is.null(family_param) || family_param == "") "logit" else family_param
+    link <- family_link("logit")
     binomial(link = link)
   },
-  poisson = poisson(link = "log"),
+  poisson = {
+    link <- family_link("log")
+    poisson(link = link)
+  },
   gamma = {
-    link <- if (is.null(family_param) || family_param == "") "log" else family_param
+    link <- family_link("inverse")
     Gamma(link = link)
   },
   negbin = {
     theta <- if (is.null(family_param)) 1.0 else as.numeric(family_param)
-    mgcv::nb(theta = theta, link = "log")
+    link <- family_link("log", 3L)
+    do.call(mgcv::nb, list(theta = theta, link = link))
   },
   negbin_est = {
     theta <- if (is.null(family_param)) 1.0 else as.numeric(family_param)
-    mgcv::nb(theta = -abs(theta), link = "log")
+    link <- family_link("log", 3L)
+    do.call(mgcv::nb, list(theta = -abs(theta), link = link))
   },
   gaulss = mgcv::gaulss(),
   gammals = mgcv::gammals(),
-  ziplss = mgcv::ziplss(),
-  gevlss = mgcv::gevlss(),
-  shash = mgcv::shash(),
   stop(sprintf("Unsupported family for parity snapshot: %s", family_name))
 )
 
@@ -119,7 +131,13 @@ if (length(args) >= 7) {
 if (length(args) >= 8) {
   optimizer_name <- tolower(args[[8]])
   if (nzchar(optimizer_name) && optimizer_name != "none" && optimizer_name != "-") {
-    optimizer_arg <- if (optimizer_name == "efs") "efs" else c("outer", optimizer_name)
+    optimizer_arg <- if (optimizer_name == "efs") {
+      "efs"
+    } else if (optimizer_name %in% c("outer_newton", "newton")) {
+      c("outer", "newton")
+    } else {
+      c("outer", optimizer_name)
+    }
     gam_args$optimizer <- optimizer_arg
   }
 }
@@ -250,6 +268,7 @@ conc_pairwise <- tryCatch(concurvity(fit, full = FALSE), error = function(e) NUL
 sp_cov <- tryCatch(sp.vcov(fit, edge.correct = FALSE), error = function(e) NULL)
 vcov_sandwich_bayes <- tryCatch(vcov(fit, sandwich = TRUE, freq = FALSE), error = function(e) NULL)
 vcov_sandwich_freq <- tryCatch(vcov(fit, sandwich = TRUE, freq = TRUE), error = function(e) NULL)
+vcov_unconditional <- tryCatch(vcov(fit, unconditional = TRUE), error = function(e) NULL)
 gam_vc <- tryCatch(gam.vcomp(fit, rescale = FALSE), error = function(e) NULL)
 safe_residuals <- function(type) {
   tryCatch(unname(as.numeric(residuals(fit, type = type))), error = function(e) NULL)
@@ -263,7 +282,9 @@ residuals_block <- list(
 )
 safe_aic <- capture_warnings(tryCatch(AIC(fit), error = function(e) NULL))
 aic_val <- safe_aic$value
-fit_warnings <- unname(as.character(c(fit_warnings, safe_aic$warnings)))
+safe_bic <- capture_warnings(tryCatch(BIC(fit), error = function(e) NULL))
+bic_val <- safe_bic$value
+fit_warnings <- unname(as.character(c(fit_warnings, safe_aic$warnings, safe_bic$warnings)))
 safe_loglik <- tryCatch(logLik(fit), error = function(e) NULL)
 
 outer_info <- fit$outer.info
@@ -403,6 +424,9 @@ penalty_quadratic <- 0.0
 if (length(fit$smooth) > 0) {
   cf <- coef(fit)
   for (sm in fit$smooth) {
+    if (is.null(sm$first.sp) || is.null(sm$last.sp) || length(fit$sp) == 0) {
+      next
+    }
     beta <- cf[sm$first.para:sm$last.para]
     isp <- sm$first.sp:sm$last.sp
     lam <- fit$sp[isp]
@@ -446,6 +470,7 @@ snapshot <- list(
     cov_bayes = if (is.null(fit$Vp)) NULL else unname(fit$Vp),
     cov_freq = if (is.null(fit$Ve)) NULL else unname(fit$Ve),
     cov_unconditional = if (is.null(fit$Vc)) NULL else unname(fit$Vc),
+    vcov_unconditional = if (is.null(vcov_unconditional)) NULL else unname(vcov_unconditional),
     cov_sandwich_bayes = if (is.null(vcov_sandwich_bayes)) NULL else unname(vcov_sandwich_bayes),
     cov_sandwich_freq = if (is.null(vcov_sandwich_freq)) NULL else unname(vcov_sandwich_freq),
     dev_sum_dev_resids = unname(as.numeric(dev_sum_dev_resids)),
@@ -490,6 +515,7 @@ snapshot <- list(
       gam_vcomp = if (is.null(gam_vc) || is.null(gam_vc$vc)) NULL else unname(gam_vc$vc),
       gam_vcomp_names = if (is.null(gam_vc) || is.null(gam_vc$vc)) NULL else rownames(gam_vc$vc),
       one_se_rule = one_se,
+      bic = if (is.null(bic_val)) NULL else unname(as.numeric(bic_val)),
       residuals = residuals_block,
       k_check = k_check_table,
       anova_parametric = anova_parametric,

@@ -58,7 +58,7 @@ family_obj <- switch(
   gaussian = gaussian(),
   binomial = binomial(link = if (is.null(family_param)) "logit" else family_param),
   poisson = poisson(link = if (is.null(family_param)) "log" else family_param),
-  gamma = Gamma(link = if (is.null(family_param)) "log" else family_param),
+  gamma = Gamma(link = if (is.null(family_param)) "inverse" else family_param),
   negbin_est = {
     theta <- if (is.null(family_param)) 1.0 else as.numeric(family_param)
     mgcv::nb(theta = -abs(theta), link = "log")

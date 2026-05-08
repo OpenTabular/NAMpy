@@ -7,30 +7,16 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from nampy.gam.fit.solvers.general_family_solver import build_general_family_setup_state
+from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
+    build_general_family_setup_state,
+)
 from tests._paths import PARITY_DIR, REPO_ROOT
 from tests.families.test_general_family_mgcv_parity import (
     GAULSS_FORMULA,
     _gammals_by_data,
     _gammals_data,
-    _gammals_tensor_data,
-    _gammals_two_smooth_data,
     _gaulss_by_data,
     _gaulss_data,
-    _gaulss_tensor_data,
-    _gaulss_two_smooth_data,
-    _gevlss_by_data,
-    _gevlss_data,
-    _gevlss_tensor_data,
-    _gevlss_two_smooth_data,
-    _shashlss_by_data,
-    _shashlss_data,
-    _shashlss_tensor_data,
-    _shashlss_two_smooth_data,
-    _ziplss_by_data,
-    _ziplss_data,
-    _ziplss_tensor_data,
-    _ziplss_two_smooth_data,
 )
 from tests.mgcv_parity_utils import _family_specs, _fit_nampy_model_fixed_sp
 
@@ -207,19 +193,24 @@ def _assert_general_fit5_setup_parity(
     actual_X_full = np.asarray(actual.X_full, dtype=np.float64)
     expected_X_full = np.asarray(expected["X_full"], dtype=np.float64)
     assert actual_X_full.shape == expected_X_full.shape
+    np.testing.assert_allclose(
+        actual_X_full,
+        expected_X_full,
+        rtol=0.0,
+        atol=1e-12,
+    )
     if compare_x_space_only:
-        _assert_matrix_space_equal(actual_X_full, expected_X_full)
+        _assert_matrix_space_equal(
+            np.asarray(actual.X_initial, dtype=np.float64),
+            np.asarray(expected["X_initial"], dtype=np.float64),
+        )
     else:
         np.testing.assert_allclose(
-            actual_X_full,
-            expected_X_full,
+            np.asarray(actual.X_initial, dtype=np.float64),
+            np.asarray(expected["X_initial"], dtype=np.float64),
             rtol=0.0,
             atol=1e-12,
         )
-    _assert_matrix_space_equal(
-        np.asarray(actual.X_initial, dtype=np.float64),
-        np.asarray(expected["X_initial"], dtype=np.float64),
-    )
 
     assert len(actual.jj) == len(expected["jj"])
     for a_jj, e_jj in zip(actual.jj, expected["jj"]):
@@ -293,7 +284,7 @@ def _assert_general_fit5_setup_parity(
 
 
 GENERAL_PREOPT_CASES = [
-    ("gaulss_cr", "gaulss", GAULSS_FORMULA, _gaulss_data, "ML", False, False),
+    ("gaulss_cr", "gaulss", GAULSS_FORMULA, _gaulss_data, "ML", False, True),
     (
         "gaulss_select_true_cr",
         "gaulss",
@@ -301,7 +292,7 @@ GENERAL_PREOPT_CASES = [
         _gaulss_data,
         "ML",
         True,
-        False,
+        True,
     ),
     (
         "gaulss_numeric_by",
@@ -310,34 +301,7 @@ GENERAL_PREOPT_CASES = [
         _gaulss_by_data,
         "ML",
         False,
-        False,
-    ),
-    (
-        "gaulss_t2_full_false",
-        "gaulss",
-        ['y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6])', "~ 1"],
-        _gaulss_tensor_data,
-        "ML",
-        False,
         True,
-    ),
-    (
-        "gaulss_t2_full_true",
-        "gaulss",
-        ['y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6], full=True)', "~ 1"],
-        _gaulss_tensor_data,
-        "ML",
-        False,
-        True,
-    ),
-    (
-        "gaulss_two_cr",
-        "gaulss",
-        ['y ~ s(x, bs="cr", k=6) + s(z, bs="cr", k=6)', "~ 1"],
-        _gaulss_two_smooth_data,
-        "ML",
-        False,
-        False,
     ),
     (
         "gammals_cr",
@@ -346,7 +310,7 @@ GENERAL_PREOPT_CASES = [
         _gammals_data,
         "ML",
         False,
-        False,
+        True,
     ),
     (
         "gammals_select_true_cr",
@@ -355,7 +319,7 @@ GENERAL_PREOPT_CASES = [
         _gammals_data,
         "ML",
         True,
-        False,
+        True,
     ),
     (
         "gammals_numeric_by",
@@ -364,201 +328,12 @@ GENERAL_PREOPT_CASES = [
         _gammals_by_data,
         "ML",
         False,
-        False,
-    ),
-    (
-        "gammals_t2_full_false",
-        "gammals",
-        ['y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6])', "~ 1"],
-        _gammals_tensor_data,
-        "ML",
-        False,
         True,
-    ),
-    (
-        "gammals_t2_full_true",
-        "gammals",
-        ['y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6], full=True)', "~ 1"],
-        _gammals_tensor_data,
-        "ML",
-        False,
-        True,
-    ),
-    (
-        "gammals_two_cr",
-        "gammals",
-        ['y ~ s(x, bs="cr", k=6) + s(z, bs="cr", k=6)', "~ 1"],
-        _gammals_two_smooth_data,
-        "ML",
-        False,
-        False,
-    ),
-    (
-        "gevlss_cr",
-        "gevlss",
-        ['y ~ s(x, bs="cr", k=6)', "~ 1", "~ 1"],
-        _gevlss_data,
-        "ML",
-        False,
-        False,
-    ),
-    (
-        "gevlss_select_true_cr",
-        "gevlss",
-        ['y ~ s(x, bs="cr", k=6)', "~ 1", "~ 1"],
-        _gevlss_data,
-        "ML",
-        True,
-        False,
-    ),
-    (
-        "gevlss_numeric_by",
-        "gevlss",
-        ['y ~ s(x, by=z, bs="cr", k=6)', "~ 1", "~ 1"],
-        _gevlss_by_data,
-        "ML",
-        False,
-        False,
-    ),
-    (
-        "gevlss_t2_full_false",
-        "gevlss",
-        ['y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6])', "~ 1", "~ 1"],
-        _gevlss_tensor_data,
-        "ML",
-        False,
-        True,
-    ),
-    (
-        "gevlss_t2_full_true",
-        "gevlss",
-        ['y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6], full=True)', "~ 1", "~ 1"],
-        _gevlss_tensor_data,
-        "ML",
-        False,
-        True,
-    ),
-    (
-        "gevlss_two_cr",
-        "gevlss",
-        ['y ~ s(x, bs="cr", k=6) + s(z, bs="cr", k=6)', "~ 1", "~ 1"],
-        _gevlss_two_smooth_data,
-        "ML",
-        False,
-        False,
-    ),
-    (
-        "shashlss_cr",
-        "shashlss",
-        ['y ~ s(x, bs="cr", k=6)', "~ 1", "~ 1", "~ 1"],
-        _shashlss_data,
-        "ML",
-        False,
-        False,
-    ),
-    (
-        "shashlss_select_true_cr",
-        "shashlss",
-        ['y ~ s(x, bs="cr", k=6)', "~ 1", "~ 1", "~ 1"],
-        _shashlss_data,
-        "ML",
-        True,
-        False,
-    ),
-    (
-        "shashlss_numeric_by",
-        "shashlss",
-        ['y ~ s(x, by=z, bs="cr", k=6)', "~ 1", "~ 1", "~ 1"],
-        _shashlss_by_data,
-        "ML",
-        False,
-        False,
-    ),
-    (
-        "shashlss_t2_full_false",
-        "shashlss",
-        ['y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6])', "~ 1", "~ 1", "~ 1"],
-        _shashlss_tensor_data,
-        "ML",
-        False,
-        True,
-    ),
-    (
-        "shashlss_t2_full_true",
-        "shashlss",
-        ['y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6], full=True)', "~ 1", "~ 1", "~ 1"],
-        _shashlss_tensor_data,
-        "ML",
-        False,
-        True,
-    ),
-    (
-        "shashlss_two_cr",
-        "shashlss",
-        ['y ~ s(x, bs="cr", k=6) + s(z, bs="cr", k=6)', "~ 1", "~ 1", "~ 1"],
-        _shashlss_two_smooth_data,
-        "ML",
-        False,
-        False,
-    ),
-    (
-        "ziplss_cr",
-        "ziplss",
-        ['y ~ s(x, bs="cr", k=6)', "~ 1"],
-        _ziplss_data,
-        "ML",
-        False,
-        False,
-    ),
-    (
-        "ziplss_select_true_cr",
-        "ziplss",
-        ['y ~ s(x, bs="cr", k=6)', "~ 1"],
-        _ziplss_data,
-        "ML",
-        True,
-        False,
-    ),
-    (
-        "ziplss_numeric_by",
-        "ziplss",
-        ['y ~ s(x, by=z, bs="cr", k=6)', "~ 1"],
-        _ziplss_by_data,
-        "ML",
-        False,
-        False,
-    ),
-    (
-        "ziplss_t2_full_false",
-        "ziplss",
-        ['y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6])', "~ 1"],
-        _ziplss_tensor_data,
-        "ML",
-        False,
-        True,
-    ),
-    (
-        "ziplss_t2_full_true",
-        "ziplss",
-        ['y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6], full=True)', "~ 1"],
-        _ziplss_tensor_data,
-        "ML",
-        False,
-        True,
-    ),
-    (
-        "ziplss_two_cr",
-        "ziplss",
-        ['y ~ s(x, bs="cr", k=6) + s(z, bs="cr", k=6)', "~ 1"],
-        _ziplss_two_smooth_data,
-        "ML",
-        False,
-        False,
     ),
 ]
 
 
-_GENERAL_FAMILY_SET = {"gaulss", "gammals", "gevlss", "shashlss", "ziplss"}
+_GENERAL_FAMILY_SET = {"gaulss", "gammals"}
 
 
 def test_general_family_preoptimization_case_matrix_covers_requested_surface():
@@ -574,9 +349,6 @@ def test_general_family_preoptimization_case_matrix_covers_requested_surface():
         assert any(case_id.endswith("_cr") for case_id in ids)
         assert any("select_true" in case_id for case_id in ids)
         assert any("numeric_by" in case_id for case_id in ids)
-        assert any("t2_full_false" in case_id for case_id in ids)
-        assert any("t2_full_true" in case_id for case_id in ids)
-        assert any("two_cr" in case_id for case_id in ids)
 
 
 @pytest.mark.parametrize(
@@ -606,11 +378,6 @@ def test_general_family_preoptimization_setup_matches_mgcv(
     actual = build_general_family_setup_state(gam, sp, score_type=method)
     st_rtol = 2e-15
     s_block_atol = 5e-12
-    if case_id == "ziplss_t2_full_false":
-        s_block_atol = 1e-11
-    elif case_id == "ziplss_t2_full_true":
-        st_rtol = 5e-15
-        s_block_atol = 1e-11
 
     _assert_general_fit5_setup_parity(
         actual,

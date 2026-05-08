@@ -4,7 +4,7 @@ Installation
 Requirements
 ------------
 
-NAMpy requires Python 3.6 or higher and the following dependencies:
+NAMpy requires Python 3.10 or higher and the following dependencies:
 
 * PyTorch
 * Lightning

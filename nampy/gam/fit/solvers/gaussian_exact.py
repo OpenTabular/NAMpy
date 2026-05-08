@@ -6,9 +6,7 @@ from ..._model_state import (
     _n_coef,
     _n_smoothing_params,
     _penalty_blocks_seq,
-    _term_blocks_seq,
 )
-from ..covariance import build_bayes_and_freq_covariances
 from ..linalg.stacked_qr import (
     balanced_penalty_template_sqrt_for_rank,
     build_penalized_qr_state_nonnegative,
@@ -193,16 +191,6 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     # that null(X) coset; enable the same gauge automatically for stacked-QR fits.
     null_gauge = "auto" if force_stacked_qr else False
 
-    has_mrf_term = any(
-        str(getattr(tb, "basis_name", "")).lower() == "mrf"
-        for tb in _term_blocks_seq(model)
-    )
-    if has_mrf_term:
-        # `mgcv::gam.fit3()` routes exact-Gaussian MRF fits through `pls_fit1()`
-        # throughout the inner/outer optimization, not only for the final fixed-sp
-        # postprocessing pass.
-        force_stacked_qr = True
-
     sol = irls_core(
         X,
         y,
@@ -222,12 +210,6 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     reported_deviance = float(sol["deviance"])
 
     eta = np.asarray(sol["eta"], dtype=np.float64)
-    joint_scale = getattr(model, "_gaussian_reml_sigma2_opt_", None)
-    if joint_scale is not None:
-        joint_scale = float(joint_scale)
-        if not np.isfinite(joint_scale) or joint_scale <= 0.0:
-            joint_scale = None
-
     if force_stacked_qr:
         # Recompute EDF/covariance from stacked-QR rank-reduced factors. This mirrors
         # mgcv's `rV %*% t(rV)` post-processing for near-singular Gaussian REML fits
@@ -248,7 +230,7 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         A = np.asarray(stacked["A"], dtype=np.float64)
         A_inv = np.asarray(stacked["A_inv"], dtype=np.float64)
         XtWX = np.asarray(stacked["XtWX"], dtype=np.float64)
-        H_coef = np.asarray(stacked["coef_hat_matrix"], dtype=np.float64)
+        H_coef_stable = np.asarray(stacked["coef_hat_matrix"], dtype=np.float64)
         cov_root = np.asarray(stacked["covariance_root"], dtype=np.float64)
         coef_full = np.asarray(stacked["coef_full"], dtype=np.float64)
         # Mirror mgcv/R/gam.fit3.r: after the stable `pls_fit1()` / `gdi1()`
@@ -269,15 +251,10 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         )
         trace_H = float(np.sum(WX_rV * WX_rV))
         scale = model.family.estimate_dispersion(y, eta, edf=trace_H, weights=w)
-        # `mgcv::gam()` can carry a joint Gaussian outer log-scale state while
-        # still reporting `fit$sig2` from the final deviance-scale estimate for
-        # low-rank MRF exact fits. Keep the joint state for the outer score /
-        # Hessian, but do not overwrite the reported fit scale on this surface.
-        if joint_scale is not None and not has_mrf_term:
-            scale = joint_scale
-        Vp, Vf, H_coef = build_bayes_and_freq_covariances(scale, A_inv, stacked["XtWX"])
         Vp = np.asarray(scale * (cov_root @ cov_root.T), dtype=np.float64)
         Vp = 0.5 * (Vp + Vp.T)
+        H_coef = np.asarray(H_coef_stable, dtype=np.float64)
+        Vf = np.asarray(H_coef @ Vp, dtype=np.float64)
         sol["A"] = A
         sol["A_inv"] = A_inv
         sol["XtWX"] = XtWX
@@ -307,21 +284,20 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
             w,
         )
         if model.offset_train_ is not None:
-            eta_dev = eta_dev + np.asarray(model.offset_train_, dtype=np.float64).ravel()
+            eta_dev = (
+                eta_dev + np.asarray(model.offset_train_, dtype=np.float64).ravel()
+            )
         mu_dev = np.asarray(model.family.inverse_link(eta_dev), dtype=np.float64)
-        reported_deviance = float(
-            model.family.deviance(y, mu_dev, weights=w)
-        )
+        reported_deviance = float(model.family.deviance(y, mu_dev, weights=w))
         eta = np.asarray(eta_fit, dtype=np.float64)
         if model.offset_train_ is not None:
             eta = eta + np.asarray(model.offset_train_, dtype=np.float64).ravel()
         mu = np.asarray(model.family.inverse_link(eta), dtype=np.float64)
         scale = model.family.estimate_dispersion(y, eta, edf=trace_H, weights=w)
-        if joint_scale is not None and not has_mrf_term:
-            scale = joint_scale
-        Vp, Vf, H_coef = build_bayes_and_freq_covariances(scale, A_inv, XtWX)
         Vp = np.asarray(scale * (cov_root @ cov_root.T), dtype=np.float64)
         Vp = 0.5 * (Vp + Vp.T)
+        H_coef = np.asarray(H_coef_stable, dtype=np.float64)
+        Vf = np.asarray(H_coef @ Vp, dtype=np.float64)
         sol["cov_bayes"] = Vp
         sol["cov_freq"] = Vf
         sol["H_coef"] = H_coef
@@ -342,8 +318,6 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         )
     else:
         scale = model.family.estimate_dispersion(y, eta, edf=sol["trace_H"], weights=w)
-        if joint_scale is not None and not has_mrf_term:
-            scale = joint_scale
     resid = y - eta
     wrss = float(np.sum(w * resid * resid))
     sol["rss"] = wrss
@@ -354,9 +328,13 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     sol["working_response"] = (
         y.copy() if model.offset_train_ is None else (y - model.offset_train_).copy()
     )
-    sol["coef_space"] = "prediction"
-    sol["cov_bayes_space"] = "prediction"
-    sol["cov_freq_space"] = "prediction"
+    # The Gaussian exact solver operates on the fit matrix assembled by
+    # gam.setup. If setup also built a distinct prediction matrix, mgcv applies
+    # `G$P` after fitting (mgcv/R/mgcv.r) to move coefficients/covariances into
+    # the public prediction parameterization.
+    sol["coef_space"] = "fit"
+    sol["cov_bayes_space"] = "fit"
+    sol["cov_freq_space"] = "fit"
     sol["loglik"] = float(
         np.sum(
             w

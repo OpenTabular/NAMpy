@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from nampy.gam.parity.snapshots import _normalize_mgcv_term_label
+from nampy.gam.parity.snapshots import _normalize_reference_term_label
 from tests.mgcv_parity_utils import (
     _fit_nampy_model,
     _run_mgcv_snapshot,
@@ -12,6 +12,26 @@ from tests.mgcv_parity_utils import (
 )
 
 pytestmark = [pytest.mark.surface_output]
+
+
+def test_reference_term_label_normalization_drops_mgcv_constructor_options():
+    """Verify that mgcv-style diagnostic labels omit constructor-only options."""
+    assert (
+        _normalize_reference_term_label(
+            'ti(x0, x1, bs=["cr","ps"], k=[6,6], m=[2,3], mc=[TRUE,FALSE], fx=TRUE, xt=list(bs="ps"), sp=[1.0,1.2])'
+        )
+        == "ti(x0, x1)"
+    )
+
+
+def test_reference_term_label_normalization_preserves_factor_by_level_suffix():
+    """Verify that factor-by smooth labels retain mgcv level identity."""
+    assert (
+        _normalize_reference_term_label(
+            'te(x0, x1, by=f, bs=["cr","cr"], k=[5,5], sp=[1.0,1.2]):f=a'
+        )
+        == "te(x0, x1):fa"
+    )
 
 
 def test_concurvity_surfaces_match_mgcv_snapshot():
@@ -27,7 +47,7 @@ def test_concurvity_surfaces_match_mgcv_snapshot():
     expected_diag = expected["parity"]["diagnostics"]
 
     assert [
-        _normalize_mgcv_term_label(v) for v in actual_full["labels"]
+        _normalize_reference_term_label(v) for v in actual_full["labels"]
     ] == expected_diag["concurvity_labels"]
     np.testing.assert_allclose(
         np.asarray(actual_full["values"], dtype=np.float64),
@@ -37,7 +57,7 @@ def test_concurvity_surfaces_match_mgcv_snapshot():
     )
 
     assert [
-        _normalize_mgcv_term_label(v) for v in actual_pairwise["labels"]
+        _normalize_reference_term_label(v) for v in actual_pairwise["labels"]
     ] == expected_diag["concurvity_pairwise"]["labels"]
     for name in actual_pairwise["measure_names"]:
         np.testing.assert_allclose(

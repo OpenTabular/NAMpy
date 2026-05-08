@@ -3,8 +3,9 @@ Penalized system assembly and numerically stable solvers.
 
 Provides three utilities used across all fitting backends:
 
-- :func:`stabilized_cholesky_solve`: Cholesky solve with automatic jitter
-  schedule for near-singular systems.
+- :func:`stabilized_cholesky_solve`: Cholesky solve using the supplied system
+  by default. Callers that intentionally want ridge inflation must pass an
+  explicit jitter schedule.
 - :func:`build_full_design`: Prepend intercept column to term design matrix.
 - :func:`build_full_penalty_from_blocks`: Assemble the total penalty matrix
   ``sum_k lambda_k * S_k`` from per-term penalty blocks.
@@ -19,7 +20,7 @@ from .offsets import coerce_offset_array
 
 def stabilized_cholesky_solve(A, b, jitter_schedule=None):
     if jitter_schedule is None:
-        jitter_schedule = [0.0, 1e-10, 1e-8, 1e-6, 1e-4]
+        jitter_schedule = [0.0]
     last_err = None
     eye = np.eye(A.shape[0], dtype=np.float64)
     for jitter in jitter_schedule:

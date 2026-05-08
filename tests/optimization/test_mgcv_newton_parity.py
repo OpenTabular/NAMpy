@@ -91,16 +91,16 @@ def _fit_nampy_trace(
     return build_optimizer_trace(gam), gam
 
 
-def _assert_mgcv_score_hist_exact(model, expected, *, atol=0.0, rtol=0.0):
+def _assert_strict_score_hist_exact(model, expected, *, atol=0.0, rtol=0.0):
     expected_scores = np.asarray(
         expected["fit"]["outer_info"]["score_hist"], dtype=np.float64
     )
     actual_result = getattr(model, "_optim_result", None)
 
     assert actual_result is not None
-    assert hasattr(actual_result, "mgcv_score_hist")
+    assert hasattr(actual_result, "strict_score_hist")
 
-    actual_scores = np.asarray(actual_result.mgcv_score_hist, dtype=np.float64)
+    actual_scores = np.asarray(actual_result.strict_score_hist, dtype=np.float64)
 
     assert actual_scores.shape == expected_scores.shape
     np.testing.assert_allclose(
@@ -122,7 +122,7 @@ class TestMgcvNewtonParity:
         formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
         expected = _run_mgcv_trace(data, formula, "gaussian", "REML")
         _, gam = _fit_nampy_trace(data, formula, "gaussian", "REML")
-        _assert_mgcv_score_hist_exact(gam, expected, atol=1e-12)
+        _assert_strict_score_hist_exact(gam, expected, atol=1e-12)
 
     @pytest.mark.parametrize("family", ["binomial", "poisson"])
     def test_newton_score_hist_non_gaussian_reml_matches_r(self, family):
@@ -136,4 +136,4 @@ class TestMgcvNewtonParity:
         formula = 'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8)'
         expected = _run_mgcv_trace(data, formula, family, "REML")
         _, gam = _fit_nampy_trace(data, formula, family, "REML")
-        _assert_mgcv_score_hist_exact(gam, expected, atol=1e-6)
+        _assert_strict_score_hist_exact(gam, expected, atol=1e-6)

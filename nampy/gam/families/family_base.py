@@ -37,8 +37,6 @@ _CAPABILITY_FLAGS = (
     "supports_ml",
     "supports_reml",
     "supports_laml",
-    "supports_ncv",
-    "supports_qncv",
     "supports_exact_pirls_first_derivatives",
     "supports_exact_pirls_second_derivatives",
 )
@@ -79,8 +77,6 @@ class BaseFamily(metaclass=_FamilyMeta):
     supports_ml = False
     supports_reml = False
     supports_laml = False
-    supports_ncv = False
-    supports_qncv = False
     supports_exact_pirls_first_derivatives = False
     supports_exact_pirls_second_derivatives = False
 
@@ -120,13 +116,11 @@ class BaseFamily(metaclass=_FamilyMeta):
             "ml": "supports_ml",
             "reml": "supports_reml",
             "laml": "supports_laml",
-            "ncv": "supports_ncv",
-            "qncv": "supports_qncv",
         }
         if method not in attr_map:
             raise ValueError(
                 "method must be one of "
-                "{'fixed', 'gcv', 'ubre', 'aic', 'ubreaic', 'ml', 'reml', 'laml', 'ncv', 'qncv'}"
+                "{'fixed', 'gcv', 'ubre', 'aic', 'ubreaic', 'ml', 'reml', 'laml'}"
             )
         attr = attr_map[method]
         if attr is None:
@@ -311,8 +305,10 @@ class GLMFamily(BaseFamily):
 
 class _BinomialBase(GLMFamily):
     _variance_key = "binomial"
-    supports_ncv = True
-    supports_qncv = True
+
+    def _mgcv_probability_clip(self, mu):
+        eps = np.finfo(np.float64).eps
+        return np.clip(np.asarray(mu, dtype=np.float64), eps, 1.0 - eps)
 
     def valid_mu(self, mu):
         mu = np.asarray(mu, dtype=np.float64)
@@ -324,7 +320,7 @@ class _BinomialBase(GLMFamily):
 
     def deviance(self, y, mu, weights=None):
         y = np.asarray(y, dtype=np.float64)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        mu = self._mgcv_probability_clip(mu)
         weights = self._check_weights(y, weights)
         term1 = np.zeros_like(y, dtype=np.float64)
         mask1 = y > 0
@@ -336,7 +332,7 @@ class _BinomialBase(GLMFamily):
 
     def deviance_obs(self, y, mu, weights=None):
         y = np.asarray(y, dtype=np.float64)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        mu = self._mgcv_probability_clip(mu)
         weights = self._check_weights(y, weights)
         term1 = np.zeros_like(y, dtype=np.float64)
         mask1 = y > 0
@@ -349,7 +345,7 @@ class _BinomialBase(GLMFamily):
     def loglik_obs(self, y, mu, scale=1.0, n=None):
         del scale
         y = np.asarray(y, dtype=np.float64)
-        mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, 1.0 - self.eps)
+        mu = self._mgcv_probability_clip(mu)
         if n is not None:
             n_arr = np.asarray(n, dtype=np.float64)
             successes = np.rint(n_arr * y)
@@ -438,20 +434,21 @@ class _BinomialBase(GLMFamily):
 
 class _GammaBase(GLMFamily):
     _variance_key = "gamma"
-    supports_ncv = True
-    supports_qncv = True
 
     def deviance(self, y, mu, weights=None):
         y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
         weights = self._check_weights(y, weights)
-        return float(2.0 * np.sum(weights * ((y - mu) / mu - np.log(y / mu))))
+        with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+            dev = 2.0 * np.sum(weights * ((y - mu) / mu - np.log(y / mu)))
+        return float(dev)
 
     def deviance_obs(self, y, mu, weights=None):
         y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
         mu = np.clip(np.asarray(mu, dtype=np.float64), self.eps, None)
         weights = self._check_weights(y, weights)
-        return 2.0 * weights * ((y - mu) / mu - np.log(y / mu))
+        with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+            return 2.0 * weights * ((y - mu) / mu - np.log(y / mu))
 
     def estimate_dispersion(self, y, mu, edf=None, weights=None):
         if self.known_scale is not None:

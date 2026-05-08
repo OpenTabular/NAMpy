@@ -33,6 +33,65 @@ def _block_diagonal_matrix(blocks: list[np.ndarray]) -> np.ndarray:
     return out
 
 
+def _r_linpack_qr_no_pivot(a: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Mirror base R's non-LAPACK Householder QR for full-rank, unpivoted use."""
+
+    qr = np.asarray(a, dtype=np.float64, order="F").copy(order="F")
+    n, p = qr.shape
+    k = min(int(n), int(p))
+    qraux = np.zeros(k, dtype=np.float64)
+    for j in range(k):
+        x = qr[j:, j]
+        nrmxl = float(np.linalg.norm(x))
+        if nrmxl == 0.0:
+            qraux[j] = 0.0
+            continue
+        if qr[j, j] != 0.0:
+            nrmxl = float(np.copysign(nrmxl, qr[j, j]))
+        qr[j:, j] = qr[j:, j] / nrmxl
+        qr[j, j] = 1.0 + qr[j, j]
+        qraux[j] = qr[j, j]
+        if j + 1 < p:
+            v = qr[j:, j]
+            denom = float(v[0])
+            for col in range(j + 1, p):
+                t = -float(np.dot(v, qr[j:, col])) / denom
+                qr[j:, col] = qr[j:, col] + t * v
+        qr[j, j] = -nrmxl
+    return qr, qraux
+
+
+def _r_linpack_qr_R(qr: np.ndarray) -> np.ndarray:
+    qr = np.asarray(qr, dtype=np.float64)
+    n, p = qr.shape
+    k = min(int(n), int(p))
+    R = np.triu(qr[:k, :p])
+    if k < p:
+        R = np.vstack([R, np.zeros((p - k, p), dtype=np.float64)])
+    return np.asarray(R[:p, :p], dtype=np.float64)
+
+
+def _r_linpack_qy(qr: np.ndarray, qraux: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Apply Q y for the Householder representation produced by base R QR."""
+
+    qr = np.asarray(qr, dtype=np.float64)
+    qraux = np.asarray(qraux, dtype=np.float64)
+    out = np.asarray(y, dtype=np.float64).copy()
+    if out.ndim == 1:
+        out = out.reshape(-1, 1)
+    k = int(min(qraux.size, qr.shape[1]))
+    for j in range(k - 1, -1, -1):
+        if qraux[j] == 0.0:
+            continue
+        v = qr[j:, j].copy()
+        v[0] = qraux[j]
+        denom = float(v[0])
+        for col in range(out.shape[1]):
+            t = -float(np.dot(v, out[j:, col])) / denom
+            out[j:, col] = out[j:, col] + t * v
+    return np.asarray(out, dtype=np.float64)
+
+
 def _full_predictor_matrix(predictor, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     Z_fit = np.asarray(predictor.design_matrix, dtype=np.float64)
     pred_blocks = []
@@ -92,18 +151,27 @@ def _fit_to_prediction_parameterization_map(
     QtX = np.asarray(Q.T @ X_fit, dtype=np.float64)[:rank, :]
     if rank < p_pred:
         R1 = np.asarray(R[:rank, :], dtype=np.float64)
-        Qr, Rr, _pivot_r = scipy_qr(R1.T, mode="full", pivoting=True)
+        # mgcv/R/mgcv.r constructs G$P for rank-deficient Xp via
+        # qrr <- qr(t(R), tol=0), then qr.qy(qrr, ...). This second QR is not
+        # LAPACK QR; using base-R/LINPACK Householder signs is required for the
+        # same generalized inverse and out-of-sample prediction surface.
+        qrr, qraux = _r_linpack_qr_no_pivot(R1.T)
+        Rr = _r_linpack_qr_R(qrr)
         G0 = solve_triangular(
             np.asarray(Rr[:rank, :rank], dtype=np.float64).T,
             QtX,
             lower=True,
             check_finite=False,
         )
-        P_pivot = Qr @ np.vstack(
-            [
-                np.asarray(G0, dtype=np.float64),
-                np.zeros((p_pred - rank, X_fit.shape[1]), dtype=np.float64),
-            ]
+        P_pivot = _r_linpack_qy(
+            qrr,
+            qraux,
+            np.vstack(
+                [
+                    np.asarray(G0, dtype=np.float64),
+                    np.zeros((p_pred - rank, X_fit.shape[1]), dtype=np.float64),
+                ]
+            ),
         )
     else:
         P_pivot = solve_triangular(

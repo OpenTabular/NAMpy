@@ -18,13 +18,13 @@ from .snapshots import (
 )
 
 
-def _coerce_reference_snapshot(mgcv_fit: Any) -> dict[str, Any]:
-    if isinstance(mgcv_fit, (str, Path)):
-        return load_parity_snapshot(mgcv_fit)
-    if isinstance(mgcv_fit, dict):
-        return mgcv_fit
+def _coerce_reference_snapshot(reference_fit: Any) -> dict[str, Any]:
+    if isinstance(reference_fit, (str, Path)):
+        return load_parity_snapshot(reference_fit)
+    if isinstance(reference_fit, dict):
+        return reference_fit
     raise TypeError(
-        "mgcv_fit must be parity snapshot dict or path to saved parity snapshot."
+        "reference_fit must be parity snapshot dict or path to saved parity snapshot."
     )
 
 
@@ -56,12 +56,12 @@ def _default_compare_X(model):
     return X_df
 
 
-def compare(model, mgcv_fit, rtol=1e-6, atol=1e-8):
+def compare(model, reference_fit, rtol=1e-6, atol=1e-8):
     """Compare fitted model against mgcv parity snapshot."""
     actual = _coerce_snapshot_arrays(
         build_parity_snapshot(model, X=_default_compare_X(model))
     )
-    expected = _coerce_snapshot_arrays(_coerce_reference_snapshot(mgcv_fit))
+    expected = _coerce_snapshot_arrays(_coerce_reference_snapshot(reference_fit))
     return compare_parity_snapshots(actual, expected, atol=atol, rtol=rtol)
 
 

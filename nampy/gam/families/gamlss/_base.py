@@ -160,8 +160,6 @@ class GamlssFamily(GeneralFamily):
     supports_laml = True
     supports_ml = True
     supports_reml = True
-    supports_ncv = True
-    supports_qncv = True
     supports_analytic_outer_derivatives = False
     supports_analytic_outer_gradient = False
     supports_analytic_outer_hessian = False

@@ -6,8 +6,7 @@ import numpy as np
 import pytest
 
 from nampy.gam.fit import backends as backends_module
-from nampy.gam.fit import solve_ops as solve_ops_module
-from nampy.gam.fit.solve_ops import (
+from nampy.gam.fit.backends import (
     solve_gaussian_given_smoothing,
     solve_pirls_given_smoothing,
 )
@@ -180,8 +179,8 @@ def test_fixed_smoothing_wrappers_forward_prior_weights(monkeypatch):
         calls.append(("pirls", np.asarray(weights, dtype=np.float64)))
         return "pirls-sol"
 
-    monkeypatch.setattr(solve_ops_module, "solve_gaussian_fit", _gaussian)
-    monkeypatch.setattr(solve_ops_module, "solve_pirls_fit", _pirls)
+    monkeypatch.setattr(backends_module, "solve_gaussian_fit", _gaussian)
+    monkeypatch.setattr(backends_module, "solve_pirls_fit", _pirls)
 
     model = SimpleNamespace(prior_weights_=np.array([1.5, 2.5], dtype=np.float64))
     y = np.array([1.0, 2.0], dtype=np.float64)

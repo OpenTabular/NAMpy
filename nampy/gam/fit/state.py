@@ -1,5 +1,5 @@
 """
-Compatibility wrapper over stable fitted outputs and transient fit state.
+Stable fitted outputs and transient fit state.
 
 `FitCoreSolution` remains the common solver return type during migration, but it
 now wraps:
@@ -17,30 +17,23 @@ import numpy as np
 
 from .._model_state import (
     _coef_column_offset,
-    _fit_intercept,
     _fit_state,
     _term_blocks_seq,
 )
 from ..linalg import numerical_rank
 from ..results import FitResult
 from .parameterization import (
-    FIT_PARAMETER_SPACE,
     export_fit_result_to_prediction_space,
     prediction_parameterization_map,
-)
-from .postprocess.unconditional_covariance import (
-    _gaussian_exact_unconditional_postfit as _gaussian_exact_unconditional_postfit_impl,
-)
-from .postprocess.unconditional_covariance import _mgcv_dchol as _mgcv_dchol_impl
-from .postprocess.unconditional_covariance import _mgcv_vcorr as _mgcv_vcorr_impl
-from .postprocess.unconditional_covariance import (
-    _pirls_exact_unconditional_postfit as _pirls_exact_unconditional_postfit_impl,
 )
 from .postprocess.unconditional_covariance import (
     _restore_pirls_dbeta_to_original_parameterization as _restore_pirls_dbeta_impl,
 )
 from .postprocess.unconditional_covariance import (
     _restore_pirls_rank_root_to_original_parameterization as _restore_pirls_rank_root_impl,
+)
+from .postprocess.unconditional_covariance import (
+    apply_unconditional_postfit,
 )
 
 
@@ -105,71 +98,8 @@ def _restore_pirls_rank_root_to_original_parameterization(current, rank_root):
     return _restore_pirls_rank_root_impl(current, rank_root)
 
 
-def _pirls_exact_unconditional_postfit(model, sol, fit_result, fit_state):
-    return _pirls_exact_unconditional_postfit_impl(model, sol, fit_result, fit_state)
-
-
-def _gaussian_exact_unconditional_postfit(model, fit_result, fit_state):
-    return _gaussian_exact_unconditional_postfit_impl(model, fit_result, fit_state)
-
-
-def _mgcv_dchol(dA: np.ndarray, R: np.ndarray) -> np.ndarray:
-    return _mgcv_dchol_impl(dA, R)
-
-
-def _mgcv_vcorr(
-    dR_list: list[np.ndarray], Vr: np.ndarray, *, trans: bool
-) -> np.ndarray:
-    return _mgcv_vcorr_impl(dR_list, Vr, trans=trans)
-
-
 def _apply_unconditional_postfit(model, sol, fit_result, fit_state):
-    cov_unconditional_post = (
-        None
-        if fit_result.cov_unconditional is None
-        else np.asarray(fit_result.cov_unconditional, dtype=np.float64).copy()
-    )
-    edf2_post = (
-        None
-        if fit_result.edf2 is None
-        else np.asarray(fit_result.edf2, dtype=np.float64).copy()
-    )
-    cov_unconditional_space = getattr(
-        fit_result,
-        "cov_unconditional_space",
-        FIT_PARAMETER_SPACE,
-    )
-
-    pirls_out = _pirls_exact_unconditional_postfit(model, sol, fit_result, fit_state)
-    if len(pirls_out) == 3:
-        Vc_pirls, edf2_pirls, cov_space_pirls = pirls_out
-    else:
-        Vc_pirls, edf2_pirls = pirls_out
-        cov_space_pirls = FIT_PARAMETER_SPACE
-    if Vc_pirls is not None:
-        cov_unconditional_post = np.asarray(Vc_pirls, dtype=np.float64).copy()
-        cov_unconditional_space = cov_space_pirls
-    if edf2_pirls is not None:
-        edf2_post = np.asarray(edf2_pirls, dtype=np.float64).copy()
-
-    gauss_out = _gaussian_exact_unconditional_postfit(model, fit_result, fit_state)
-    if len(gauss_out) == 3:
-        Vc_gauss, edf2_gauss, cov_space_gauss = gauss_out
-    else:
-        Vc_gauss, edf2_gauss = gauss_out
-        cov_space_gauss = FIT_PARAMETER_SPACE
-    if Vc_gauss is not None:
-        cov_unconditional_post = np.asarray(Vc_gauss, dtype=np.float64).copy()
-        cov_unconditional_space = cov_space_gauss
-    if edf2_gauss is not None:
-        edf2_post = np.asarray(edf2_gauss, dtype=np.float64).copy()
-
-    return replace(
-        fit_result,
-        cov_unconditional=cov_unconditional_post,
-        edf2=edf2_post,
-        cov_unconditional_space=cov_unconditional_space,
-    )
+    return apply_unconditional_postfit(model, sol, fit_result, fit_state)
 
 
 @dataclass(frozen=True)
@@ -178,18 +108,27 @@ class FitCoreSolution:
     fit_state: FitState
     penalized_system: PenalizedSystem
 
+    def _delegate_objects(self):
+        state = object.__getattribute__(self, "__dict__")
+        return tuple(
+            state[name]
+            for name in ("fit_result", "fit_state", "penalized_system")
+            if name in state
+        )
+
     def __getitem__(self, key):
         return self.get(key)
 
     def get(self, key, default=None):
-        for obj in (self.fit_result, self.fit_state, self.penalized_system):
+        state = object.__getattribute__(self, "__dict__")
+        for obj in self._delegate_objects():
             if hasattr(obj, key):
                 value = getattr(obj, key)
-                return default if value is None and not hasattr(self, key) else value
+                return default if value is None and key not in state else value
         return default
 
     def __getattr__(self, key):
-        for obj in (self.fit_result, self.fit_state, self.penalized_system):
+        for obj in self._delegate_objects():
             if hasattr(obj, key):
                 return getattr(obj, key)
         raise AttributeError(key)
@@ -332,74 +271,47 @@ class FitCoreSolution:
 
 def compute_edf_by_term(model, H_coef):
     offset0 = _coef_column_offset(model)
-    fit_state = _fit_state(model)
-    X_full = None if fit_state is None else getattr(fit_state, "X", None)
-    A_inv = None if fit_state is None else getattr(fit_state, "A_inv", None)
-    w = None if fit_state is None else getattr(fit_state, "working_weights", None)
-
     edf = []
     for tb in _term_blocks_seq(model):
         sl = slice(
             offset0 + int(tb.coef_slice.start),
             offset0 + int(tb.coef_slice.stop),
         )
-        val = float(np.trace(H_coef[sl, sl]))
+        edf.append(float(np.trace(H_coef[sl, sl])))
+    return np.asarray(edf, dtype=np.float64)
 
-        if (
-            str(getattr(tb, "term_type", "")) == "random_effect"
-            and _fit_intercept(model)
-            and X_full is not None
-            and w is not None
-        ):
-            try:
-                X = np.asarray(X_full, dtype=np.float64)
-                w_arr = np.asarray(w, dtype=np.float64).ravel()
-                Xp = X[:, :offset0]
-                Xt = X[:, sl]
-                if Xp.shape[1] > 0 and Xt.shape[1] > 0 and w_arr.shape[0] == X.shape[0]:
-                    sqrt_w = np.sqrt(np.clip(w_arr, 0.0, None))
-                    Xp_w = sqrt_w[:, None] * Xp
-                    Xt_w = sqrt_w[:, None] * Xt
-                    coef = np.linalg.lstsq(Xp_w, Xt_w, rcond=None)[0]
-                    Xt_eff_w = Xt_w - Xp_w @ coef
-                    sp = np.asarray(
-                        getattr(model, "smoothing_params", np.empty((0,), dtype=float)),
-                        dtype=np.float64,
-                    ).ravel()
-                    tb_sp = (
-                        sp[np.asarray(tb.smoothing_indices, dtype=int)]
-                        if len(getattr(tb, "smoothing_indices", [])) > 0 and sp.size > 0
-                        else np.empty((0,), dtype=np.float64)
-                    )
-                    if tb_sp.size > 0 and np.max(tb_sp) <= 1e-20:
-                        val = float(numerical_rank(Xt_eff_w))
-                    elif A_inv is not None:
-                        A_inv_arr = np.asarray(A_inv, dtype=np.float64)
-                        val = float(
-                            np.trace(
-                                (Xt_eff_w.T @ (sqrt_w[:, None] * X) @ A_inv_arr)[:, sl]
-                            )
-                        )
-            except Exception:
-                pass
 
-        edf.append(val)
-    edf = np.asarray(edf, dtype=np.float64)
-    for i, tb in enumerate(_term_blocks_seq(model)):
-        by_info = getattr(tb, "by_variable_info", None)
-        runtime_by_name = getattr(by_info, "name", None)
-        runtime_by_is_constant = getattr(by_info, "is_constant", None)
-        deleted = getattr(tb, "deleted_columns", None)
-        n_deleted = int(0 if deleted is None else np.asarray(deleted, dtype=int).size)
-        if (
-            n_deleted > 0
-            and runtime_by_name is not None
-            and not bool(runtime_by_is_constant)
-        ):
-            edf[i] += float(n_deleted)
-            if i > 0:
-                edf[i - 1] -= float(n_deleted)
-    return edf
+def _fallback_single_smooth_edf(model, trace_H: float):
+    blocks = list(_term_blocks_seq(model))
+    smooth_blocks = [
+        tb
+        for tb in blocks
+        if str(getattr(tb, "term_type", "")) != "parametric"
+    ]
+    if len(smooth_blocks) != 1:
+        return None
+    smooth = smooth_blocks[0]
+    if str(getattr(smooth, "basis_name", "")).lower() == "re":
+        fit_state = _fit_state(model)
+        X = None if fit_state is None else getattr(fit_state, "X", None)
+        if X is not None:
+            X = np.asarray(X, dtype=np.float64)
+            offset0 = _coef_column_offset(model)
+            sl = slice(
+                offset0 + int(smooth.coef_slice.start),
+                offset0 + int(smooth.coef_slice.stop),
+            )
+            Xt = np.asarray(X[:, sl], dtype=np.float64)
+            if offset0 > 0:
+                Xp = np.asarray(X[:, :offset0], dtype=np.float64)
+                coef = np.linalg.lstsq(Xp, Xt, rcond=None)[0]
+                Xt = Xt - Xp @ coef
+            return np.asarray([float(numerical_rank(Xt))], dtype=np.float64)
+    nsdf = float(_coef_column_offset(model))
+    for tb in blocks:
+        if str(getattr(tb, "term_type", "")) == "parametric":
+            nsdf += float(int(tb.coef_slice.stop) - int(tb.coef_slice.start))
+    return np.asarray([max(float(trace_H) - nsdf, 0.0)], dtype=np.float64)
 
 
 def assign_fit_solution(model, sol: FitCoreSolution):
@@ -485,10 +397,19 @@ def assign_fit_solution(model, sol: FitCoreSolution):
             edf.append(float(np.trace(H_post[np.ix_(idx, idx)])))
         model._edf_by_term_fit_ = np.asarray(edf, dtype=np.float64)
     else:
-        model._edf_by_term_fit_ = compute_edf_by_term(model, H_post)
+        edf = compute_edf_by_term(model, H_post)
+        if (
+            not np.all(np.isfinite(edf))
+            or np.any(edf < -1e-7)
+            or float(np.sum(edf)) > max(float(trace_H_post) + 1.0, 10.0 * float(model.n_samples_))
+        ):
+            fallback = _fallback_single_smooth_edf(model, trace_H_post)
+            if fallback is not None:
+                edf = fallback
+        model._edf_by_term_fit_ = np.asarray(edf, dtype=np.float64)
 
     if bool(getattr(model, "_fitted", False)):
-        from .model_ops import sync_gam_result
+        from .result_builders import sync_gam_result
 
         sync_gam_result(model)
 

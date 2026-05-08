@@ -1,8 +1,8 @@
 import numpy as np
 
-from ..linalg import symmetric_eigh
-from ..penalties.algebra import penalty_eigendecomposition
 from .._mgcv_constants import EIG_TOL_POWER
+from ..penalties.algebra import penalty_eigendecomposition
+
 
 def rowwise_kronecker(matrices):
     mats = [np.asarray(M, dtype=np.float64) for M in matrices]
@@ -60,145 +60,14 @@ def _eigen_split(
             "tol_eff": dec["tol_eff"],
         }
 
-    if mode != "t2":
-        raise ValueError(f"Unknown eigen split mode {mode!r}.")
-
-    p = int(X.shape[1])
-    # Match mgcv::nat.param(type=3), which uses `eigen(..., symmetric=TRUE)`.
-    evals, U = symmetric_eigh(S, descending=True, use_scipy=True)
-
-    max_eval = float(np.max(evals)) if evals.size else 0.0
-    tol_eff = float(max_eval * tol)
-    if rank is None or int(rank) < 1 or int(rank) > p:
-        rank = int(np.sum(evals > tol_eff))
-    rank = int(rank)
-    null_exists = rank < p
-
-    E = np.ones(p, dtype=np.float64)
-    if rank > 0:
-        E[:rank] = np.sqrt(np.maximum(evals[:rank], 0.0))
-
-    Xp = X @ U
-    col_norm = np.sum(Xp**2, axis=0) / (E**2)
-    av_norm = float(np.mean(col_norm[:rank])) if rank > 0 else 1.0
-
-    if null_exists:
-        for i in range(rank, p):
-            if av_norm > 0.0 and col_norm[i] > 0.0:
-                E[i] = np.sqrt(col_norm[i] / av_norm)
-
-    P = U / E[np.newaxis, :]
-    Xp = Xp / E[np.newaxis, :]
-
-    if null_exists and rank < p - 1:
-        ind = list(range(rank, p))
-        rind = list(range(p - 1, rank - 1, -1))
-        Xn = Xp[:, ind].copy()
-        n = Xn.shape[0]
-        one = np.ones(n, dtype=np.float64)
-        Xn = Xn - (one[:, None] * (one[None, :] @ Xn)) / n
-        _, um_vecs = symmetric_eigh(Xn.T @ Xn, descending=True, use_scipy=True)
-        Xp[:, rind] = Xp[:, ind] @ um_vecs
-        P[:, rind] = P[:, ind] @ um_vecs
-
-    if rank > 0:
-        pen_idx = list(range(rank))
-        scale = 1.0 / np.sqrt(float(np.mean(Xp[:, pen_idx] ** 2)))
-        Xp[:, pen_idx] *= scale
-        P[pen_idx, :] *= scale
-
-    if null_exists:
-        null_idx = list(range(rank, p))
-        scale_f = 1.0 / np.sqrt(float(np.mean(Xp[:, null_idx] ** 2)))
-        Xp[:, null_idx] *= scale_f
-        P[null_idx, :] *= scale_f
-
-    B_r = Xp[:, :rank] if rank > 0 else np.empty((X.shape[0], 0), dtype=np.float64)
-    B_n = Xp[:, rank:] if null_exists else np.empty((X.shape[0], 0), dtype=np.float64)
-    T_r = P[:, :rank] if rank > 0 else np.empty((p, 0), dtype=np.float64)
-    T_n = P[:, rank:] if null_exists else np.empty((p, 0), dtype=np.float64)
-
-    return {
-        "B_range": B_r,
-        "B_null": B_n,
-        "T_range": T_r,
-        "T_null": T_n,
-        "range_dim": int(B_r.shape[1]),
-        "null_dim": int(B_n.shape[1]),
-        "rank": rank,
-        "null_space_dim": int(p - rank),
-        "tol_eff": tol_eff,
-    }
+    raise ValueError(f"Unknown eigen split mode {mode!r}.")
 
 
 def marginal_range_null_decomposition(raw_basis, raw_penalty, tol=1e-10):
     return _eigen_split(raw_basis, raw_penalty, tol=tol, mode="range_null")
 
 
-def _apply_t2_mgcv_column_signs(dec, basis_name):
-    basis_name = None if basis_name is None else str(basis_name).lower()
-    if basis_name is None:
-        return dec
-
-    sign_idx = []
-    n_cols = int(dec["range_dim"] + dec["null_dim"])
-    if n_cols <= 0:
-        return dec
-
-    # mgcv::nat.param(type=3) leaves the reparameterized marginal basis defined
-    # only up to per-column signs. For t2() those signs feed directly into the
-    # tensor ANOVA block columns, so mirror mgcv's observed basis-family
-    # conventions explicitly here.
-    if basis_name in {"cr", "cs"} and n_cols > 0:
-        # `mgcv::nat.param(..., type=3)` on cubic regression marginals matches our
-        # symmetric-eigen decomposition directly except for the final null-space
-        # basis column sign on the local parity platform. Flipping the leading
-        # column here was a regression: it preserved function-space parity but
-        # rotated the raw `t2()` prediction parameterization away from mgcv.
-        sign_idx.append(n_cols - 1)
-    elif basis_name == "ps":
-        if n_cols > 0:
-            sign_idx.append(0)
-        if n_cols > 1:
-            sign_idx.append(1)
-    elif basis_name == "cc" and dec["range_dim"] > 0:
-        sign_idx.append(int(dec["range_dim"]) - 1)
-
-    if not sign_idx:
-        return dec
-
-    full_X = np.column_stack([dec["B_range"], dec["B_null"]])
-    full_P = np.column_stack([dec["T_range"], dec["T_null"]])
-    for j in sorted({int(idx) for idx in sign_idx if 0 <= int(idx) < n_cols}):
-        full_X[:, j] *= -1.0
-        full_P[:, j] *= -1.0
-
-    n_range = int(dec["range_dim"])
-    return {
-        **dec,
-        "B_range": full_X[:, :n_range],
-        "B_null": full_X[:, n_range:],
-        "T_range": full_P[:, :n_range],
-        "T_null": full_P[:, n_range:],
-    }
-
-
-def t2_marginal_reparameterization(
-    raw_basis, raw_penalty, tol=1e-10, *, knots=None, basis_name=None
-):
-    del knots
-    dec = _eigen_split(
-        raw_basis,
-        raw_penalty,
-        tol=tol,
-        mode="t2",
-        basis_name=basis_name,
-    )
-    return _apply_t2_mgcv_column_signs(dec, basis_name)
-
-
 __all__ = [
     "rowwise_kronecker",
     "marginal_range_null_decomposition",
-    "t2_marginal_reparameterization",
 ]

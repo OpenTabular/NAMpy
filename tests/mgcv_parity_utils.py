@@ -91,12 +91,14 @@ _MGCV_CACHE_DIR = _TESTS_DIR / "mgcv_r_cache"
 _MGCV_SNAPSHOT_SERVER_PROCESS = None
 _MGCV_SNAPSHOT_SERVER_LOCK = threading.Lock()
 _MGCV_SNAPSHOT_SERVER_REQUEST_IDS = itertools.count(1)
-_SNAPSHOT_CACHE_VERSION = 2
+_SNAPSHOT_CACHE_VERSION = 6
 _RAW_CONSTRUCTOR_CACHE_VERSION = 5
-_GAM_SETUP_ASSEMBLY_CACHE_VERSION = 4
-_GAM_VCOMP_CACHE_VERSION = 2
+_GAM_SETUP_ASSEMBLY_CACHE_VERSION = 5
+_GAM_VCOMP_CACHE_VERSION = 3
 _NATPARAM_TYPE3_CACHE_VERSION = 1
 _SMOOTHCON_PREDICT_MATRIX_CACHE_VERSION = 1
+_FIXED_SP_SCORE_CACHE_VERSION = 2
+_PREDICT_ON_NEWDATA_CACHE_VERSION = 1
 
 
 def _env_flag_is_true(value: str) -> bool:
@@ -534,25 +536,6 @@ def _make_distributional_gaussian_data(seed=7, n=60):
     return pd.DataFrame({"y": y, "x0": x0, "x1": x1})
 
 
-def _make_mrf_data():
-    regions = np.array(["A", "B", "C", "A", "B", "C", "A", "B"], dtype=object)
-    vals = {"A": 1.0, "B": -0.5, "C": 0.3}
-    y = np.array([vals[r] for r in regions], dtype=np.float64)
-    return pd.DataFrame({"y": y, "region": regions})
-
-
-def _make_mrf_low_rank_data():
-    regions = np.array(
-        ["A"] * 8 + ["B"] * 7 + ["C"] * 9 + ["D"] * 6,
-        dtype=object,
-    )
-    vals = {"A": -1.0, "B": 0.5, "C": 1.25, "D": -0.25}
-    rng = np.random.default_rng(123)
-    y = np.array([vals[r] for r in regions], dtype=np.float64)
-    y = y + rng.normal(scale=0.05, size=regions.size)
-    return pd.DataFrame({"y": y, "region": regions})
-
-
 @dataclass(frozen=True)
 class ParityCaseSpec:
     case_id: str
@@ -605,13 +588,6 @@ PARITY_CASES: dict[str, ParityCaseSpec] = {
         family="poisson",
         method="REML",
     ),
-    "negbin_t2_reml": ParityCaseSpec(
-        case_id="negbin_t2_reml",
-        data_factory="negbin_theta_1",
-        formula='y ~ t2(x0, x1, bs=["cr", "cr"], k=[6, 6])',
-        family={"name": "negbin", "theta": 1.0},
-        method="REML",
-    ),
     "gaussian_re_reml": ParityCaseSpec(
         case_id="gaussian_re_reml",
         data_factory="random_effect_noisy",
@@ -648,8 +624,6 @@ def make_parity_case_data(case_id: str) -> pd.DataFrame:
         return _make_negbin_data(theta=1.0)
     if spec.data_factory == "random_effect_noisy":
         return _make_random_effect_data_noisy()
-    if spec.data_factory == "mrf":
-        return _make_mrf_data()
     if spec.data_factory == "fs":
         return _make_fs_data()
     raise ValueError(
@@ -660,19 +634,30 @@ def make_parity_case_data(case_id: str) -> pd.DataFrame:
 def _family_specs(family):
     if isinstance(family, dict):
         key = str(family.get("name", "")).lower()
+        key = {
+            "bernoulli": "binomial",
+            "logistic": "binomial",
+            "normal": "gaussian",
+        }.get(key, key)
         if key in {"negbin", "negativebinomial", "negative_binomial"}:
             theta = float(family.get("theta", 1.0))
+            link = str(family.get("link", "log") or "log").lower()
+            suffix = f":{link}" if link != "log" else ""
             if bool(family.get("estimate_theta", False)):
-                return family, f"negbin_est:{theta:.12g}"
-            return family, f"negbin:{theta:.12g}"
+                return family, f"negbin_est:{theta:.12g}{suffix}"
+            return family, f"negbin:{theta:.12g}{suffix}"
         link = str(family.get("link", "")).lower()
-        if link and link not in {"logit", "log"}:
+        default_links = {
+            "binomial": "logit",
+            "gamma": "inverse",
+            "gaussian": "identity",
+            "poisson": "log",
+        }
+        if link and link != default_links.get(key, link):
             # Non-default link: encode as "family:link" token for the R script.
             return family, f"{key}:{link}"
         return family, key
     key = str(family).lower()
-    if key == "shashlss":
-        return family, "shash"
     return family, key
 
 
@@ -748,7 +733,7 @@ def _emit_r_expr(
 
     if isinstance(node, ast.Dict):
         parts = []
-        for key_node, value_node in zip(node.keys, node.values):
+        for key_node, value_node in zip(node.keys, node.values, strict=True):
             if key_node is None:
                 parts.append(_emit_r_expr(value_node))
                 continue
@@ -772,7 +757,9 @@ def _emit_r_expr(
                     raise TypeError(
                         "**kwargs in formula text must expand a dictionary literal."
                     )
-                for key_node, value_node in zip(kw.value.keys, kw.value.values):
+                for key_node, value_node in zip(
+                    kw.value.keys, kw.value.values, strict=True
+                ):
                     if key_node is None:
                         raise TypeError(
                             "Nested **kwargs expansion is not supported in formula text."
@@ -1104,31 +1091,43 @@ if (tolower(method_name) == "gcv") fit_method <- "GCV.Cp"
 family_parts <- strsplit(family_name, ":", fixed = TRUE)[[1]]
 family_key <- family_parts[[1]]
 family_param <- if (length(family_parts) >= 2) family_parts[[2]] else NULL
+family_link <- function(default, index = 2L) {
+  if (length(family_parts) >= index && nzchar(family_parts[[index]])) {
+    family_parts[[index]]
+  } else {
+    default
+  }
+}
 family_obj <- switch(
   family_key,
-  gaussian = gaussian(),
+  gaussian = {
+    link <- family_link("identity")
+    gaussian(link = link)
+  },
   binomial = {
-    link <- if (is.null(family_param) || family_param == "") "logit" else family_param
+    link <- family_link("logit")
     binomial(link = link)
   },
-  poisson = poisson(link = "log"),
+  poisson = {
+    link <- family_link("log")
+    poisson(link = link)
+  },
   gamma = {
-    link <- if (is.null(family_param) || family_param == "") "log" else family_param
+    link <- family_link("inverse")
     Gamma(link = link)
   },
   negbin = {
     theta <- if (is.null(family_param)) 1.0 else as.numeric(family_param)
-    mgcv::nb(theta = theta, link = "log")
+    link <- family_link("log", 3L)
+    do.call(mgcv::nb, list(theta = theta, link = link))
   },
   negbin_est = {
     theta <- if (is.null(family_param)) 1.0 else as.numeric(family_param)
-    mgcv::nb(theta = -abs(theta), link = "log")
+    link <- family_link("log", 3L)
+    do.call(mgcv::nb, list(theta = -abs(theta), link = link))
   },
   gaulss = mgcv::gaulss(),
   gammals = mgcv::gammals(),
-  ziplss = mgcv::ziplss(),
-  gevlss = mgcv::gevlss(),
-  shash = mgcv::shash(),
   stop(sprintf("Unsupported family for gam_vcomp parity: %s", family_name))
 )
 
@@ -1489,17 +1488,6 @@ serialize_base_summary <- function(base) {
   out
 }
 
-serialize_gp_defn <- function(defn) {
-  if (is.null(defn)) return(NULL)
-  vals <- as.numeric(defn)
-  list(
-    type = as.integer(abs(vals[1])),
-    stationary = isTRUE(vals[1] < 0),
-    rho = if (length(vals) >= 2) as.numeric(vals[2]) else NULL,
-    power = if (length(vals) >= 3) as.numeric(vals[3]) else 1.0
-  )
-}
-
 pack_numeric_object <- function(x) {
   if (is.null(x)) return(NULL)
   if (is.null(dim(x))) return(pack_vector(x, "numeric"))
@@ -1549,19 +1537,6 @@ serialize_smooth <- function(sm) {
       shift = pack_vector(sm$shift, "numeric"),
       drop_null = isTRUE(sm$drop.null != 0)
     ),
-    "gp.smooth" = list(
-      shift = pack_vector(sm$shift, "numeric"),
-      gp_defn = serialize_gp_defn(sm$gp.defn),
-      UZ = pack_matrix(sm$UZ),
-      knt = pack_matrix(sm$knt)
-    ),
-    "mrf.smooth" = list(
-      knots = if (is.null(sm$knots)) NULL else pack_vector(as.character(sm$knots), "character"),
-      P = pack_matrix(sm$P),
-      plot_me = isTRUE(sm$plot.me),
-      te_ok = if (is.null(sm$te.ok)) NULL else as.integer(sm$te.ok),
-      noterp = isTRUE(sm$noterp)
-    ),
     "random.effect" = list(
       C = pack_constraint(sm$C),
       random = isTRUE(sm$random),
@@ -1590,14 +1565,6 @@ serialize_smooth <- function(sm) {
       mc = if (is.null(sm$mc)) NULL else pack_vector(sm$mc, "logical"),
       XP = if (is.null(sm$XP)) NULL else lapply(sm$XP, pack_matrix),
       C = pack_constraint(sm$C)
-    ),
-    "t2.smooth" = list(
-      full = isTRUE(sm$full),
-      ord = if (is.null(sm$ord)) NULL else pack_vector(sm$ord, "integer"),
-      C = pack_constraint(sm$C),
-      Cp = pack_constraint(sm$Cp),
-      P = if (is.null(sm$P)) NULL else lapply(sm$P, pack_matrix),
-      penalty_labels = if (is.null(names(sm$S))) NULL else pack_vector(names(sm$S), "character")
     ),
     list()
   )
@@ -1929,9 +1896,9 @@ def _run_mgcv_predict_on_newdata(
     type="link",
     return_se=False,
     unconditional=False,
-    iterms_type: int | None = None,
     select: bool = False,
     weights_column: str | None = None,
+    optimizer: str | None = None,
     allow_live_run: bool = False,
 ):
     _family_nampy_unused, family_token = _family_specs(family)
@@ -1941,6 +1908,7 @@ def _run_mgcv_predict_on_newdata(
     _cache_key = _mgcv_cache_key(
         "predict_on_newdata",
         {
+            "version": _PREDICT_ON_NEWDATA_CACHE_VERSION,
             "data": _df_cache_repr(data),
             "newdata": _df_cache_repr(newdata),
             "formula_r": formula_r,
@@ -1949,9 +1917,9 @@ def _run_mgcv_predict_on_newdata(
             "type": type,
             "return_se": return_se,
             "unconditional": unconditional,
-            "iterms_type": iterms_type,
             "select": select,
             "weights_column": weights_column,
+            "optimizer": optimizer,
         },
     )
     try:
@@ -1975,10 +1943,9 @@ method_name <- args[[5]]
 pred_type <- args[[6]]
 want_se <- identical(tolower(args[[7]]), "true")
 want_unconditional <- identical(tolower(args[[8]]), "true")
-iterms_type_text <- args[[9]]
-iterms_type <- if (tolower(iterms_type_text) %in% c("none", "null", "")) NULL else as.integer(iterms_type_text)
-select_flag <- identical(tolower(args[[10]]), "true")
-weights_column <- args[[11]]
+select_flag <- identical(tolower(args[[9]]), "true")
+weights_column <- args[[10]]
+optimizer_name <- tolower(args[[11]])
 coerce_formula <- function(x) {
   obj <- eval(parse(text = x))
   if (is.character(obj)) {
@@ -2003,33 +1970,40 @@ for (nm in names(newd)) {
 }
 family_obj <- switch(
   strsplit(family_name, ":", fixed = TRUE)[[1]][1],
-  gaussian = gaussian(),
+  gaussian = {
+    family_parts <- strsplit(family_name, ":", fixed = TRUE)[[1]]
+    link <- if (length(family_parts) >= 2 && nzchar(family_parts[[2]])) family_parts[[2]] else "identity"
+    gaussian(link = link)
+  },
   binomial = {
     family_parts <- strsplit(family_name, ":", fixed = TRUE)[[1]]
     link <- if (length(family_parts) >= 2) family_parts[[2]] else "logit"
     binomial(link = link)
   },
-  poisson = poisson(link = "log"),
+  poisson = {
+    family_parts <- strsplit(family_name, ":", fixed = TRUE)[[1]]
+    link <- if (length(family_parts) >= 2 && nzchar(family_parts[[2]])) family_parts[[2]] else "log"
+    poisson(link = link)
+  },
   gamma = {
     family_parts <- strsplit(family_name, ":", fixed = TRUE)[[1]]
-    link <- if (length(family_parts) >= 2) family_parts[[2]] else "log"
+    link <- if (length(family_parts) >= 2) family_parts[[2]] else "inverse"
     Gamma(link = link)
   },
   negbin = {
     family_parts <- strsplit(family_name, ":", fixed = TRUE)[[1]]
     theta <- if (length(family_parts) >= 2) as.numeric(family_parts[[2]]) else 1.0
-    mgcv::nb(theta = theta, link = "log")
+    link <- if (length(family_parts) >= 3 && nzchar(family_parts[[3]])) family_parts[[3]] else "log"
+    do.call(mgcv::nb, list(theta = theta, link = link))
   },
   negbin_est = {
     family_parts <- strsplit(family_name, ":", fixed = TRUE)[[1]]
     theta <- if (length(family_parts) >= 2) as.numeric(family_parts[[2]]) else 1.0
-    mgcv::nb(theta = -abs(theta), link = "log")
+    link <- if (length(family_parts) >= 3 && nzchar(family_parts[[3]])) family_parts[[3]] else "log"
+    do.call(mgcv::nb, list(theta = -abs(theta), link = link))
   },
   gaulss = mgcv::gaulss(),
   gammals = mgcv::gammals(),
-  ziplss = mgcv::ziplss(),
-  gevlss = mgcv::gevlss(),
-  shash = mgcv::shash(),
   stop(sprintf("Unsupported family for newdata parity: %s", family_name))
 )
 fit_method <- if (tolower(method_name) == "gcv") "GCV.Cp" else method_name
@@ -2043,17 +2017,25 @@ gam_args <- list(
 if (!(tolower(weights_column) %in% c("none", "null", ""))) {
   gam_args$weights <- train[[weights_column]]
 }
+if (!(optimizer_name %in% c("none", "null", ""))) {
+  if (optimizer_name == "efs") {
+    gam_args$optimizer <- "efs"
+  } else if (optimizer_name %in% c("outer_newton", "newton")) {
+    gam_args$optimizer <- c("outer", "newton")
+  } else {
+    gam_args$optimizer <- c("outer", optimizer_name)
+  }
+}
 fit <- do.call(gam, gam_args)
 pred <- predict(
   fit,
   newdata = newd,
   type = pred_type,
   se.fit = want_se,
-  unconditional = want_unconditional,
-  iterms.type = iterms_type
+  unconditional = want_unconditional
 )
 out <- list()
-if (pred_type == "terms" || pred_type == "iterms") {
+if (pred_type == "terms") {
   if (want_se) {
     out$pred <- unname(as.matrix(pred$fit))
     out$se <- unname(as.matrix(pred$se.fit))
@@ -2101,9 +2083,9 @@ write_json(
                 type,
                 "true" if return_se else "false",
                 "true" if unconditional else "false",
-                "NULL" if iterms_type is None else str(int(iterms_type)),
                 "true" if select else "false",
                 "NULL" if weights_column is None else str(weights_column),
+                "NULL" if optimizer is None else str(optimizer),
                 str(json_path),
             ),
             check=True,
@@ -2134,6 +2116,7 @@ def _run_mgcv_fixed_sp_score(
     _cache_key = _mgcv_cache_key(
         "fixed_sp_score",
         {
+            "version": _FIXED_SP_SCORE_CACHE_VERSION,
             "data": _df_cache_repr(data),
             "formula": formula_r,
             "family_token": family_token,
@@ -2168,31 +2151,43 @@ sp <- as.numeric(fromJSON(args[[6]]))
 family_parts <- strsplit(family_name, ":", fixed = TRUE)[[1]]
 family_key <- family_parts[[1]]
 family_param <- if (length(family_parts) >= 2) family_parts[[2]] else NULL
+family_link <- function(default, index = 2L) {
+  if (length(family_parts) >= index && nzchar(family_parts[[index]])) {
+    family_parts[[index]]
+  } else {
+    default
+  }
+}
 family_obj <- switch(
   family_key,
-  gaussian = gaussian(),
+  gaussian = {
+    link <- family_link("identity")
+    gaussian(link = link)
+  },
   binomial = {
-    link <- if (is.null(family_param) || family_param == "") "logit" else family_param
+    link <- family_link("logit")
     binomial(link = link)
   },
-  poisson = poisson(link = "log"),
+  poisson = {
+    link <- family_link("log")
+    poisson(link = link)
+  },
   gamma = {
-    link <- if (is.null(family_param) || family_param == "") "log" else family_param
+    link <- family_link("inverse")
     Gamma(link = link)
   },
   negbin = {
     theta <- if (is.null(family_param)) 1.0 else as.numeric(family_param)
-    mgcv::nb(theta = theta, link = "log")
+    link <- family_link("log", 3L)
+    do.call(mgcv::nb, list(theta = theta, link = link))
   },
   negbin_est = {
     theta <- if (is.null(family_param)) 1.0 else as.numeric(family_param)
-    mgcv::nb(theta = -abs(theta), link = "log")
+    link <- family_link("log", 3L)
+    do.call(mgcv::nb, list(theta = -abs(theta), link = link))
   },
   gaulss = mgcv::gaulss(),
   gammals = mgcv::gammals(),
-  ziplss = mgcv::ziplss(),
-  gevlss = mgcv::gevlss(),
-  shash = mgcv::shash(),
   stop(sprintf("Unsupported family for fixed-sp score: %s", family_name))
 )
 fit <- gam(
@@ -2525,8 +2520,6 @@ __all__ = [
     "_make_gamma_data",
     "_make_gaussian_data",
     "_make_gaussian_data_3col",
-    "_make_mrf_data",
-    "_make_mrf_low_rank_data",
     "_make_negbin_data",
     "_make_poisson_data",
     "_make_random_effect_data",

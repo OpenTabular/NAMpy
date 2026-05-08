@@ -69,21 +69,6 @@ class ThinPlateShrinkageSmoothSpec(BaseSmoothSpec):
 
 
 @dataclass(frozen=True)
-class GPSmoothSpec(BaseSmoothSpec):
-    bs: str = "gp"
-    m: Any = None
-    xt: Any = None
-    constraint_mode: str = "auto"
-    pc: Any = None
-
-
-@dataclass(frozen=True)
-class MarkovRandomFieldSmoothSpec(BaseSmoothSpec):
-    bs: str = "mrf"
-    xt: Any = None
-
-
-@dataclass(frozen=True)
 class RandomEffectSmoothSpec(BaseSmoothSpec):
     bs: str = "re"
     xt: Any = None
@@ -122,17 +107,6 @@ class TensorInteractionSmoothSpec(BaseSmoothSpec):
     d: Any = None
 
 
-@dataclass(frozen=True)
-class TensorANOVASmoothSpec(BaseSmoothSpec):
-    special: str = "t2"
-    bs: Any = "cr"
-    m: Any = None
-    xt: Any = None
-    full: bool = False
-    ord: Any = None
-    d: Any = None
-
-
 SmoothSpec = Union[
     CubicRegressionSmoothSpec,
     CyclicCubicRegressionSmoothSpec,
@@ -140,14 +114,11 @@ SmoothSpec = Union[
     PSplineSmoothSpec,
     ThinPlateSmoothSpec,
     ThinPlateShrinkageSmoothSpec,
-    GPSmoothSpec,
-    MarkovRandomFieldSmoothSpec,
     RandomEffectSmoothSpec,
     FactorSmoothInteractionSpec,
     SumToZeroFactorSmoothSpec,
     TensorProductSmoothSpec,
     TensorInteractionSmoothSpec,
-    TensorANOVASmoothSpec,
 ]
 
 
@@ -164,9 +135,7 @@ def is_s_type(spec: SmoothSpec) -> bool:
 
 
 def tensor_basis_list(
-    spec: Union[
-        TensorProductSmoothSpec, TensorInteractionSmoothSpec, TensorANOVASmoothSpec
-    ],
+    spec: Union[TensorProductSmoothSpec, TensorInteractionSmoothSpec],
     n_features: int,
 ) -> list[Any]:
     basis = spec.bs

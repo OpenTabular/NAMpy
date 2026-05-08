@@ -98,15 +98,6 @@ LINKED_ID_TRACE_CASES = [
         id="linked_ts",
     ),
     pytest.param(
-        _make_linked_id_univariate_data,
-        'y ~ s(x0, bs="gp", k=8, m=[2, 0.8, 1.2], id="g")'
-        ' + s(x1, bs="gp", k=8, m=[2, 0.8, 1.2], id="g")',
-        False,
-        1e-8,
-        1e-5,
-        id="linked_gp_m",
-    ),
-    pytest.param(
         _make_linked_id_cyclic_data,
         'y ~ s(x0, bs="cc", k=6, id="g") + s(x1, bs="cc", k=6, id="g")',
         False,
@@ -258,16 +249,16 @@ def _tail_criterion_series(trace_obj, n_tail: int):
     return crit[-int(n_tail) :]
 
 
-def _assert_mgcv_score_hist_exact(model, expected, *, atol=1e-12, rtol=0.0):
+def _assert_strict_score_hist_exact(model, expected, *, atol=1e-12, rtol=0.0):
     expected_scores = np.asarray(
         expected["fit"]["outer_info"]["score_hist"], dtype=np.float64
     )
     actual_result = getattr(model, "_optim_result", None)
 
     assert actual_result is not None
-    assert hasattr(actual_result, "mgcv_score_hist")
+    assert hasattr(actual_result, "strict_score_hist")
 
-    actual_scores = np.asarray(actual_result.mgcv_score_hist, dtype=np.float64)
+    actual_scores = np.asarray(actual_result.strict_score_hist, dtype=np.float64)
 
     assert actual_scores.shape == expected_scores.shape
     np.testing.assert_allclose(

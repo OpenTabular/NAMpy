@@ -8,6 +8,8 @@ parameters, and goodness-of-fit statistics.
 
 from __future__ import annotations
 
+import numpy as np
+
 from .._model_state import (
     _deviance,
     _edf_by_term,
@@ -20,6 +22,7 @@ from .._model_state import (
     _rss,
     _term_blocks_seq,
 )
+from .residuals import residuals_gam
 
 TERM_COL_WIDTH = 20
 EDF_COL_WIDTH = 8
@@ -29,8 +32,14 @@ SUMMARY_WIDTH = TERM_COL_WIDTH + EDF_COL_WIDTH + K_COL_WIDTH + SP_COL_WIDTH + 3
 
 
 def _format_term_cell(tb) -> str:
+    label = str(getattr(tb, "label", "") or "")
+    if label:
+        return label
     prefix = _term_prefix(tb)
-    return f"{prefix}({tb.label})"
+    feature = getattr(tb, "feature", "term")
+    if isinstance(feature, (list, tuple)):
+        feature = ", ".join(str(v) for v in feature)
+    return f"{prefix}({feature})"
 
 
 def _format_summary_row(term: str, edf: float, k: int, sp_txt: str) -> str:
@@ -43,8 +52,6 @@ def _format_summary_row(term: str, edf: float, k: int, sp_txt: str) -> str:
 
 
 def _term_prefix(tb) -> str:
-    if tb.basis_name == "mrf":
-        return "mrf"
     if tb.term_type == "random_effect":
         return "re"
     if tb.term_type == "parametric":
@@ -58,6 +65,23 @@ def _format_sp_values(values) -> str:
     if len(values) == 1:
         return f"{values[0]:.4g}"
     return "[" + ", ".join(f"{v:.3g}" for v in values) + "]"
+
+
+def _summary_deviance(model, fit_summary) -> float:
+    if str(getattr(model.family, "family_class", "")).lower() == "general":
+        try:
+            resid = np.asarray(residuals_gam(model, type="deviance"), dtype=np.float64)
+        except Exception:
+            resid = None
+        if (
+            resid is not None
+            and resid.size == int(getattr(model, "n_samples_", resid.size))
+            and np.isfinite(resid).all()
+        ):
+            # mgcv/R/mgcv.r::gam fills missing general-family object$deviance
+            # from sum(residuals(object, "deviance")^2) after gam.fit5().
+            return float(np.sum(resid.ravel() ** 2))
+    return float(fit_summary.deviance if fit_summary is not None else _deviance(model))
 
 
 def build_summary_lines(model) -> list[str]:
@@ -117,7 +141,7 @@ def build_summary_lines(model) -> list[str]:
         rss = fit_summary.rss if fit_summary is not None else _rss(model)
         lines.append(f"RSS : {rss:.6g}")
     else:
-        deviance = fit_summary.deviance if fit_summary is not None else _deviance(model)
+        deviance = _summary_deviance(model, fit_summary)
         lines.append(f"Deviance : {deviance:.6g}")
 
     return lines

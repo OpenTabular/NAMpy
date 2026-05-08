@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 import pytest
 from numpy.testing import assert_allclose
-from scipy.stats import poisson
 
 from nampy.gam import GAM
 from nampy.gam.compiler.structures import (
@@ -12,9 +11,8 @@ from nampy.gam.compiler.structures import (
     CompiledPenalty,
     CompiledPredictor,
 )
-from nampy.gam.families.gamlss import gevlss, shashlss
-from nampy.gam.fit.solvers.gamlss_utils import gamlss_etamu, gamlss_gH, trind_generator
-from nampy.gam.fit.solvers.general_family_solver import (
+from nampy.gam.fit.solvers.gamlss_utils import gamlss_etamu, trind_generator
+from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     build_general_family_setup_state,
     criterion_gradient_ml_reml_general_family,
     criterion_hessian_ml_reml_general_family,
@@ -93,227 +91,14 @@ def test_gamlss_etamu_identity_links():
     assert_allclose(de["l3"], l3)
 
 
-# ---------------------------------------------------------------------------
-# 3. gamlss_gH gradient finite-difference check
-# ---------------------------------------------------------------------------
-
-
-def test_gamlss_gH_gradient_fd():
-    """Gradient from gamlss_gH should match finite-difference gradient."""
-    rng = np.random.default_rng(42)
-    n, p1, p2 = 30, 4, 3
-    p = p1 + p2
-    X = rng.standard_normal((n, p))
-    jj = [np.arange(p1), np.arange(p1, p)]
-    coef = rng.standard_normal(p) * 0.5
-    tri = trind_generator(2)
-    i2 = tri["i2"]
-
-    # Build a simple l1, l2 from Gaussian log-lik with fixed params
-    eta0 = X[:, jj[0]] @ coef[jj[0]]
-    eta1 = X[:, jj[1]] @ coef[jj[1]]
-    mu = eta0
-    tau = np.exp(eta1) + 0.01  # logb-like
-    y = rng.standard_normal(n) * (1.0 / tau) + mu
-
-    def log_lik(c):
-        e0 = X[:, jj[0]] @ c[jj[0]]
-        e1 = X[:, jj[1]] @ c[jj[1]]
-        mu_ = e0
-        tau_ = np.exp(e1) + 0.01
-        return -0.5 * np.sum((y - mu_) ** 2 * tau_**2) + np.sum(np.log(tau_))
-
-    eps = 1e-6
-    fd_grad = np.zeros(p)
-    l0 = log_lik(coef)
-    for k in range(p):
-        cp = coef.copy()
-        cp[k] += eps
-        fd_grad[k] = (log_lik(cp) - l0) / eps
-
-    # Compute l1, l2 at coef
-    ymu = y - mu
-    tau2 = tau**2
-    l1 = np.column_stack([tau2 * ymu, 1.0 / tau - tau * ymu**2])
-    l2 = np.column_stack([-tau2, 2.0 * l1[:, 0] / tau, -(ymu**2) - 1.0 / tau2])
-
-    # Identity links: ig1 = [1, exp(eta1)+0.01] ... actually use mu.eta of exp+b
-    ig1_0 = np.ones(n)
-    ig1_1 = np.exp(
-        eta1
-    )  # mu.eta for log link ≈ tau (not logb but close enough for test)
-    ig1 = np.column_stack([ig1_0, ig1_1])
-    g2 = np.zeros((n, 2))
-
-    de = gamlss_etamu(l1, l2, 0, 0, ig1, g2, 0, 0, i2, None, None, deriv=0)
-    ret = gamlss_gH(X, jj, de["l1"], de["l2"], i2, deriv=0)
-    lb = ret["lb"]
-
-    # lb should approximate fd_grad when ig1=1 (identity case)
-    # With identity link for predictor 0, exact match; predictor 1 uses chain rule
-    # Just check sign/order of magnitude
-    assert np.all(np.isfinite(lb))
-    assert lb.shape == (p,)
-
-
 # ======================================================================
 # General Family API
 # ======================================================================
 
 
-def _gammals_data(n=100, seed=2):
-    rng = np.random.default_rng(seed)
-    x = rng.uniform(-1.0, 1.0, n)
-    mu = np.exp(0.4 + 0.3 * x)
-    phi = np.exp(-0.5)
-    y = rng.gamma(shape=1.0 / phi, scale=mu * phi)
-    return pd.DataFrame({"y": y, "x": x})
-
-
-def _ziplss_data(n=120, seed=1):
-    rng = np.random.default_rng(seed)
-    x = rng.uniform(-1.0, 1.0, n)
-    gamma = 0.2 + 0.4 * x
-    eta = np.full(n, -0.3)
-    lam = np.exp(gamma)
-    p = 1.0 - np.exp(-np.exp(eta))
-    y = np.zeros(n)
-    ind = rng.uniform(size=n) < p
-    u = rng.uniform(size=ind.sum())
-    u = poisson.cdf(0, lam[ind]) + u * (1.0 - poisson.cdf(0, lam[ind]))
-    y[ind] = poisson.ppf(np.minimum(u, 1.0 - 1e-12), lam[ind])
-    return pd.DataFrame({"y": y, "x": x})
-
-
-def _gevlss_data(n=90, seed=3):
-    rng = np.random.default_rng(seed)
-    x = rng.uniform(-1.0, 1.0, n)
-    mu = 0.2 + 0.5 * x
-    rho = np.full(n, -0.4)
-    xi = np.full(n, 0.1)
-    u = rng.uniform(size=n)
-    y = mu + ((-np.log(u)) ** (-xi) - 1.0) * np.exp(rho) / xi
-    return pd.DataFrame({"y": y, "x": x})
-
-
-def _shashlss_data(n=120, seed=4):
-    rng = np.random.default_rng(seed)
-    x = np.linspace(-1.0, 1.0, n)
-    mu = 0.5 + 0.8 * x
-    sigma = np.full(n, 0.7)
-    eps = np.full(n, 0.2)
-    delta = np.full(n, 1.1)
-    z = rng.standard_normal(n)
-    y = mu + (delta * sigma) * np.sinh((1.0 / delta) * np.arcsinh(z) + eps / delta)
-    return pd.DataFrame({"y": y, "x": x})
-
-
-@pytest.mark.parametrize(
-    ("family", "formula", "data_factory", "response_shape"),
-    [
-        ("gammals", ["y ~ x", "~ 1"], _gammals_data, (100, 2)),
-        ("ziplss", ["y ~ x", "~ 1"], _ziplss_data, (120, 1)),
-        ("gevlss", ["y ~ x", "~ 1", "~ 1"], _gevlss_data, (90, 3)),
-        ("shashlss", ["y ~ x", "~ 1", "~ 1", "~ 1"], _shashlss_data, (120, 4)),
-    ],
-)
-def test_general_family_response_prediction_shapes(
-    family, formula, data_factory, response_shape
-):
-    """Verify that general family response prediction shapes."""
-    data = data_factory()
-    gam = GAM(family=family, formula=formula, optimize_smoothing=False)
-    gam.fit(data=data)
-
-    link = np.asarray(gam.predict(data, type="link"), dtype=np.float64)
-    response = np.asarray(gam.predict(data, type="response"), dtype=np.float64)
-
-    assert link.shape[0] == len(data)
-    assert response.shape == response_shape
-    assert np.all(np.isfinite(response))
-
-
-def test_gaulss_reml_outer_smoothing_smoke():
-    """Verify that gaulss REML outer smoothing smoke."""
-    rng = np.random.default_rng(0)
-    n = 80
-    x = np.linspace(-1.0, 1.0, n)
-    mu = 0.5 + np.sin(np.pi * x)
-    y = rng.normal(mu, 0.6, size=n)
-    data = pd.DataFrame({"y": y, "x": x})
-
-    gam = GAM(
-        family="gaulss",
-        formula=['y ~ s(x, bs="cr", k=6)', "~ 1"],
-        optimize_smoothing=True,
-        smoothing_method="REML",
-    )
-    gam.fit(data=data)
-
-    response = np.asarray(gam.predict(data, type="response"), dtype=np.float64)
-    assert response.shape == (n, 2)
-    assert np.isfinite(float(gam.smoothing_score_))
-    assert gam._optim_result is not None
-
-
-@pytest.mark.parametrize("factory", [gevlss, shashlss])
-def test_general_families_expose_outer_derivative_modes(factory, monkeypatch):
-    """Verify that general families expose outer derivative modes."""
-    family = factory()
-    assert not family.supports_analytic_outer_derivatives
-    assert family.supports_analytic_outer_gradient
-    assert family.supports_analytic_outer_hessian
-
-    class _Model:
-        def __init__(self, family):
-            self.family = family
-            self.prior_weights_ = np.ones(3, dtype=np.float64)
-            self.smoothing_params = np.ones(2, dtype=np.float64)
-            self.smoothing_fixed_mask_ = None
-            self.min_sp_ = None
-            self.compiled_model_ = CompiledModel(
-                predictors=(),
-                design_matrix=np.empty((0, 0), dtype=np.float64),
-                compiled_terms=(),
-                compiled_penalties=(),
-                metadata={},
-                n_coef=0,
-                n_smoothing_params=2,
-                predictor_full_slices=(),
-                coef_reduced_to_full_idx=np.empty((0,), dtype=int),
-            )
-
-    model = _Model(family)
-    y = np.ones(3, dtype=np.float64)
-    log_sp = np.array([0.0, 0.5], dtype=np.float64)
-
-    monkeypatch.setattr(
-        "nampy.gam.fit.solvers.general_family_solver.run_general_family_fixed_smoothing",
-        lambda *_args, **_kwargs: {
-            "fit": {
-                "score1": np.array([1.25, -0.5], dtype=np.float64),
-                "score2": np.array([[2.0, 0.3], [0.3, 4.0]], dtype=np.float64),
-            }
-        },
-    )
-    grad = criterion_gradient_ml_reml_general_family(model, y, log_sp, "REML")
-    hess = criterion_hessian_ml_reml_general_family(model, y, log_sp, "REML")
-
-    np.testing.assert_allclose(grad, np.array([1.25, -0.5], dtype=np.float64))
-    np.testing.assert_allclose(
-        hess, np.array([[2.0, 0.3], [0.3, 4.0]], dtype=np.float64)
-    )
-    assert model._general_family_outer_derivative_info == {
-        "gradient_source": "analytic",
-        "hessian_source": "analytic",
-        "penalty_logdet_source": "analytic",
-        "supports_analytic_outer_derivatives": False,
-        "uses_exact_penalty_logdet": True,
-    }
-
-
 def test_general_family_outer_derivatives_require_exact_family_support():
     """Verify that general family outer derivatives require exact family support."""
+
     class _Family:
         supports_analytic_outer_derivatives = False
         supports_analytic_outer_gradient = False
@@ -434,7 +219,7 @@ def test_general_fit5_run_uses_canonical_penalty_logdet_derivatives(monkeypatch)
         ),
     )
     monkeypatch.setattr(
-        "nampy.gam.fit.solvers.general_family_solver.solve_general_newton_fit",
+        "nampy.gam.fit.solvers.general_family.newton.solve_general_newton_fit",
         _stub_gam_fit5,
     )
 

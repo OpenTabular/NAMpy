@@ -4,13 +4,10 @@ from pathlib import Path
 import numpy as np
 
 _SOURCE_TO_OUTER_OPTIMIZER = {
-    "mgcv_newton": "newton",
-    "outer_newton_mgcv": "newton",
-    "mgcv_bfgs": "bfgs",
-    "outer_bfgs_mgcv": "bfgs",
-    "mgcv_efs": "efs",
-    "outer_efs_mgcv": "efs",
-    "mgcv_optim": "optim",
+    "outer_newton_strict": "newton",
+    "outer_bfgs_strict": "bfgs",
+    "outer_efs_strict": "efs",
+    "outer_optim_strict": "optim",
 }
 
 
@@ -34,6 +31,17 @@ def _normalize_trace_value(value):
     if isinstance(value, float):
         return float(value)
     return value
+
+
+def _normalize_trace_vector(value):
+    if value is None:
+        return None
+    arr = np.asarray(value, dtype=np.float64)
+    if arr.ndim == 0:
+        return float(arr)
+    if arr.ndim == 1 and arr.size == 1:
+        return float(arr[0])
+    return _normalize_trace_value(value)
 
 
 def _normalize_outer_info(raw_outer_info, *, optim_result, trace_rows):
@@ -61,9 +69,9 @@ def _normalize_outer_info(raw_outer_info, *, optim_result, trace_rows):
         )
 
     if "edge_correct" not in out:
-        edge_correct = getattr(optim_result, "mgcv_edge_correct_applied", None)
+        edge_correct = getattr(optim_result, "edge_correction_applied", None)
         if edge_correct is None:
-            edge_correct = getattr(optim_result, "mgcv_edge_correct", None)
+            edge_correct = getattr(optim_result, "edge_correction_requested", None)
         out["edge_correct"] = _normalize_trace_value(edge_correct)
 
     if "lsp1" not in out:
@@ -93,6 +101,10 @@ def _normalize_outer_info(raw_outer_info, *, optim_result, trace_rows):
             source = rank_info.get("source", None)
         out["optimizer"] = _SOURCE_TO_OUTER_OPTIMIZER.get(source, None)
 
+    for key in ("grad", "gradient", "gradient_full", "lsp1"):
+        if key in out:
+            out[key] = _normalize_trace_vector(out[key])
+
     return out
 
 
@@ -116,12 +128,12 @@ def build_optimizer_trace(model):
         out_rows.append(
             {
                 "iter": int(row.get("iter", 0)),
-                "log_sp": _normalize_trace_value(row.get("log_sp", [])),
+                "log_sp": _normalize_trace_vector(row.get("log_sp", [])),
                 "log_scale": _normalize_trace_value(row.get("log_scale", None)),
                 "log_theta": _normalize_trace_value(row.get("log_theta", None)),
                 "criterion": _normalize_trace_value(row.get("criterion", None)),
-                "gradient": _normalize_trace_value(row.get("gradient", None)),
-                "gradient_full": _normalize_trace_value(
+                "gradient": _normalize_trace_vector(row.get("gradient", None)),
+                "gradient_full": _normalize_trace_vector(
                     row.get("gradient_full", row.get("gradient", None))
                 ),
                 "hessian": _normalize_trace_value(row.get("hessian", None)),
@@ -144,18 +156,18 @@ def build_optimizer_trace(model):
     edge_correct = (
         None
         if optim_result is None
-        else getattr(optim_result, "mgcv_edge_correct", None)
+        else getattr(optim_result, "edge_correction_requested", None)
     )
     edge_correct_applied = (
         None
         if optim_result is None
-        else getattr(optim_result, "mgcv_edge_correct_applied", None)
+        else getattr(optim_result, "edge_correction_applied", None)
     )
     fit = {
         "criterion_name": getattr(core, "_optim_method", None),
-        "smoothing_params": np.asarray(
-            getattr(core, "smoothing_params", []), dtype=np.float64
-        ).tolist(),
+        "smoothing_params": _normalize_trace_vector(
+            np.asarray(getattr(core, "smoothing_params", []), dtype=np.float64)
+        ),
         "converged": None if optim_success is None else bool(optim_success),
         "message": (
             None if optim_result is None else str(getattr(optim_result, "message", ""))

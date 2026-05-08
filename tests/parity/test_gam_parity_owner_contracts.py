@@ -5,7 +5,6 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from nampy.gam.parity import load_optimizer_trace, save_optimizer_trace
 from nampy.gam.parity import snapshots as snapshots_module
 from nampy.gam.parity.snapshots import _build_parity_criterion_view
 from nampy.gam.parity.trace import build_optimizer_trace
@@ -46,8 +45,8 @@ def test_build_optimizer_trace_serializes_core_rows_and_optimizer_metadata():
             success=True,
             message="ok",
             nit=4,
-            mgcv_edge_correct=True,
-            mgcv_edge_correct_applied=False,
+            edge_correction_requested=True,
+            edge_correction_applied=False,
             outer_info={
                 "conv": "ok",
                 "iter": 4,
@@ -85,20 +84,6 @@ def test_build_optimizer_trace_serializes_core_rows_and_optimizer_metadata():
     assert trace["trace"][0]["n_jac"] == 7
     assert trace["trace"][0]["n_hess"] == 3
     assert trace["trace"][0]["rank_info"] == {"step_halving_count": 1}
-
-
-def test_optimizer_trace_save_load_roundtrip(tmp_path):
-    """Owner-contract coverage verifying that optimizer trace save load roundtrip."""
-    trace = {
-        "fit": {"criterion_name": "REML", "smoothing_params": [0.5], "converged": True},
-        "trace": [{"iter": 1, "log_sp": [0.0], "criterion": 1.0}],
-    }
-    path = tmp_path / "trace.json"
-
-    save_optimizer_trace(trace, path)
-    loaded = load_optimizer_trace(path)
-
-    assert loaded == trace
 
 
 def test_build_parity_criterion_view_prefers_smoothing_score_source(monkeypatch):

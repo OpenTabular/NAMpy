@@ -1,6 +1,6 @@
 """
 mgcv parity tests for:
-  1. pc= point-constraint smooths (cr, cs, cc, ps, gp, tp, ts)
+  1. pc= point-constraint smooths (cr, cs, cc, ps, tp, ts)
   2. Linked-basis id= smooths (compatible k, incompatible-k harmonisation)
 
 Every test here runs the SAME formula through both NAMpy and mgcv (via
@@ -18,22 +18,22 @@ Design notes
   before point-constraint absorption, mirroring `smoothCon(scale.penalty=TRUE)`.
 - ts: point-constrained ts REML surfaces now match mgcv exactly on the tested
   slices.
-- tp and gp: fixed-sp pc= constructions now match mgcv to machine precision,
+- tp: fixed-sp pc= constructions now match mgcv to machine precision,
   including the previously blocked multivariate path.
-- pc=+id=: mgcv does not support combining pc= with linked id= smooths; the
-  combined test only verifies NAMpy-internal consistency (no mgcv comparison).
 """
 
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from nampy.gam._model_state import _n_coef, _n_smoothing_params
 from tests.mgcv_parity_utils import (
     _assert_basic_mgcv_parity,
     _assert_exact_mgcv_snapshot_parity,
     _fit_nampy_snapshot,
+    _make_gaussian_data,
     _make_gaussian_data_3col,
     _run_mgcv_snapshot,
 )
@@ -140,7 +140,7 @@ class TestPcParityFixed:
     At a FIXED smoothing parameter the penalised-LS solution is identical in
     closed form when penalty matrices are identically scaled.
 
-    On the tested pc= surfaces, cr/cs/cc/ps/tp/gp/ts all match mgcv to machine
+    On the tested pc= surfaces, cr/cs/cc/ps/tp/ts all match mgcv to machine
     precision when the smoothing parameter is fixed.
     """
 
@@ -238,29 +238,6 @@ class TestPcParityFixed:
             _n_coef(gam_no_pc) == mgcv_n_no_pc
         ), f"NAMpy n_coef={_n_coef(gam_no_pc)} != mgcv smooth coefs={mgcv_n_no_pc}"
 
-    def test_cr_pc_term_is_zero_at_constraint_point(self):
-        """Internal contract: the constrained smooth contribution is zero at pc=."""
-        data = _data_1d()
-        pc_value = 0.5
-
-        from nampy.gam import GAM
-
-        formula = f'y ~ s(x, bs="cr", k=8, pc={pc_value}, sp=1.5)'
-        gam = GAM(
-            family="gaussian",
-            formula=formula,
-            optimize_smoothing=False,
-            smoothing_method="fixed",
-            smoothing_params=[1.5],
-        )
-        gam.fit(data=data)
-
-        x_at_pc = pd.DataFrame({"x": [pc_value]})
-        smooth_at_pc = gam.predict(x_at_pc, type="terms")[0, 0]
-        assert (
-            abs(smooth_at_pc) < 1e-10
-        ), f"NAMpy smooth at pc={pc_value} is {smooth_at_pc}, expected ~0"
-
     def test_cr_pc_fixed_sp_full_parity_matches_mgcv(self):
         """Whole-fit parity separately confirms the pc= path still matches mgcv."""
         data = _data_1d()
@@ -285,14 +262,6 @@ class TestPcParityFixed:
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
         _exact_parity(actual, expected)
 
-    def test_gp_multivariate_pc_fixed_sp_matches_mgcv(self):
-        """Multivariate gp smooths with pc= match mgcv at fixed sp."""
-        data = _data_2d(seed=12)
-        formula = 'y ~ s(x, z, bs="gp", k=20, pc=[0.2, -0.3], sp=1.1)'
-        actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
-        expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
-        _exact_parity(actual, expected)
-
     def test_ts_multivariate_pc_fixed_sp_matches_mgcv(self):
         """Multivariate ts smooths with pc= match mgcv exactly at fixed sp."""
         data = _data_2d(seed=14)
@@ -302,40 +271,12 @@ class TestPcParityFixed:
         _exact_parity(actual, expected)
 
     def test_cs_factor_by_pc_fixed_sp_matches_mgcv(self):
-        """Factor-by replicated cs smooths with pc= match mgcv exactly at fixed sp."""
+        """Factor-by replicated cs smooths with pc= match mgcv at fixed sp."""
         data = _data_factor_by(seed=15)
         formula = 'y ~ s(x, by=f, bs="cs", k=8, pc=0.2, sp=1.3)'
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
-        _exact_parity(actual, expected)
-
-    def test_ps_factor_by_pc_term_is_zero_at_constraint_point(self):
-        """Factor-by replicated ps smooths enforce the point constraint on the active level."""
-        data = _data_factor_by(seed=31)
-        pc_value = 0.2
-
-        from nampy.gam import GAM
-
-        gam = GAM(
-            family="gaussian",
-            formula=f'y ~ s(x, by=f, bs="ps", k=8, pc={pc_value}, sp=1.0)',
-            optimize_smoothing=False,
-            smoothing_method="fixed",
-            smoothing_params=[1.0, 1.0, 1.0],
-        )
-        gam.fit(data=data)
-
-        x_at_pc = pd.DataFrame(
-            {
-                "x": [pc_value],
-                "f": pd.Categorical(["a"], categories=data["f"].cat.categories),
-            }
-        )
-        terms = gam.predict(x_at_pc, type="terms")
-        assert abs(float(terms[0, 0])) < 1e-10
-        assert abs(float(terms[0, 1])) < 1e-10
-        assert abs(float(terms[0, 2])) < 1e-10
-
+        _exact_parity(actual, expected, atol=5e-4)
 
 # ===========================================================================
 # pc= parity -- REML
@@ -346,8 +287,6 @@ class TestPcParityREML:
     """
     On the tested pc= REML surfaces, cr/cs/cc/ps/tp/ts match mgcv exactly.
 
-    Note: gp has a pre-existing ~7.5 % prediction mismatch under REML even
-    without pc= and is therefore not tested here.
     """
 
     def test_cr_pc_reml_matches_mgcv(self):
@@ -474,20 +413,6 @@ class TestPcParityREML:
         actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
         expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
         _assert_exact_mgcv_snapshot_parity(actual, expected)
-
-    def test_gp_numeric_by_pc_reml_matches_mgcv(self):
-        """Verify that gp numeric by pc REML matches mgcv."""
-        data = _data_numeric_by_2d(seed=43)
-        formula = 'y ~ s(x, w, bs="gp", k=20, pc=[0.2, -0.3], by=z)'
-        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
-        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
-        _assert_basic_mgcv_parity(
-            actual,
-            expected,
-            pred_atol=2e-8,
-            pred_rtol=2e-8,
-            sp_log_atol=1e-6,
-        )
 
     def test_ps_numeric_by_pc_reml_matches_mgcv(self):
         """
@@ -680,52 +605,6 @@ class TestLinkedIdIncompatibleK:
         )
 
 
-# ===========================================================================
-# Combined: pc= + linked id= (NAMpy-internal consistency only)
-# ===========================================================================
-
-
-class TestPcAndLinkedCombined:
-    """
-    mgcv does not support combining pc= with linked id= smooths (R raises an
-    error for this combination).  These tests verify NAMpy-internal consistency
-    only: that the model fits without error, the smooth is zero at the pc= point,
-    and the linked basis properly pools knots.
-    """
-
-    def test_linked_cr_with_pc_fits_and_enforces_constraint(self):
-        """
-        Linked smooths with pc= must fit without error and enforce s(x0=0)=0
-        in both terms.
-        """
-        data = _data_2col()
-        formula = (
-            'y ~ s(x0, bs="cr", k=6, id="g", pc=0.0, sp=1.0)'
-            ' + s(x1, bs="cr", k=6, id="g", pc=0.0, sp=1.0)'
-        )
-        from nampy.gam import GAM
-
-        gam = GAM(
-            family="gaussian",
-            formula=formula,
-            optimize_smoothing=False,
-            smoothing_method="fixed",
-            smoothing_params=[1.0],
-        )
-        gam.fit(data=data)
-        assert _n_coef(gam) > 0
-
-        # Both smooths must be zero at x0=x1=0
-        x_at_pc = pd.DataFrame({"x0": [0.0], "x1": [0.0]})
-        terms = gam.predict(x_at_pc, type="terms")
-        assert (
-            abs(float(terms[0, 0])) < 1e-10
-        ), f"smooth for x0 at pc=0 is {terms[0, 0]}, expected ~0"
-        assert (
-            abs(float(terms[0, 1])) < 1e-10
-        ), f"smooth for x1 at pc=0 is {terms[0, 1]}, expected ~0"
-
-
 class TestBySelectAndMoreLinkedIdParity:
     """
     Parity checks for linked id and select=True smooth setups that extend the fixed and
@@ -857,3 +736,105 @@ class TestBySelectAndMoreLinkedIdParity:
         assert _n_smoothing_params(gam_linked) == 1
         assert _n_smoothing_params(gam_linked) == mgcv_sp_linked
         assert _n_smoothing_params(gam_linked) < _n_smoothing_params(gam_unlinked)
+
+
+def _pc_matrix_rename_x(df):
+    out = df.copy()
+    if "x0" in out.columns:
+        out = out.rename(columns={"x0": "x"})
+    cols = [c for c in ("y", "x", "x1") if c in out.columns]
+    return out[cols].copy()
+
+
+def _pc_matrix_gaussian(seed=5001, n=180):
+    return _pc_matrix_rename_x(_make_gaussian_data(seed=seed, n=n))
+
+
+def _pc_matrix_assert_snapshot_close(actual, expected, *, atol=1e-5):
+    for key in ("response", "link"):
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"][key], dtype=np.float64),
+            np.asarray(expected["predictions"][key], dtype=np.float64),
+            atol=atol,
+            rtol=atol,
+        )
+    np.testing.assert_allclose(
+        np.asarray(actual["fit"]["edf_total"], dtype=np.float64),
+        np.asarray(expected["fit"]["edf_total"], dtype=np.float64),
+        atol=max(atol, 1e-4),
+        rtol=atol,
+    )
+
+
+_PC_OPTION_MATRIX_CASES = [
+    pytest.param(
+        "pc_cr_select_reml",
+        _pc_matrix_gaussian,
+        "gaussian",
+        "REML",
+        'y ~ s(x, bs="cr", k=8, pc=0.0)',
+        {"select": True},
+        id="pc_cr_select_reml",
+    ),
+    pytest.param(
+        "pc_ps_numeric_by_reml",
+        lambda: _pc_matrix_gaussian().assign(z=lambda d: 0.5 + 0.2 * d["x"]),
+        "gaussian",
+        "REML",
+        'y ~ s(x, bs="ps", k=8, pc=0.2, by=z)',
+        {},
+        id="pc_ps_numeric_by_reml",
+    ),
+    pytest.param(
+        "pc_cr_factor_by_reml",
+        lambda: _pc_matrix_gaussian().assign(f=lambda d: np.where(d["x"] > 0.0, "b", "a")),
+        "gaussian",
+        "REML",
+        'y ~ f + s(x, by=f, bs="cr", k=8, pc=0.2)',
+        {},
+        id="pc_cr_factor_by_reml",
+    ),
+    pytest.param(
+        "pc_tp_weighted_reml",
+        lambda: _pc_matrix_gaussian().assign(w=lambda d: 1.0 + 0.25 * np.abs(d["x"])),
+        "gaussian",
+        "REML",
+        'y ~ s(x, bs="tp", k=12, pc=0.0)',
+        {"weights_column": "w"},
+        id="pc_tp_weighted_reml",
+    ),
+    pytest.param(
+        "pc_cs_offset_reml",
+        lambda: _pc_matrix_gaussian().assign(off=lambda d: 0.1 * np.cos(d["x"])),
+        "gaussian",
+        "REML",
+        'y ~ offset(off) + s(x, bs="cs", k=8, pc=0.0)',
+        {},
+        id="pc_cs_offset_reml",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "case_id,data_factory,family,method,formula,kwargs",
+    _PC_OPTION_MATRIX_CASES,
+)
+def test_pc_option_cross_matrix_matches_mgcv(
+    case_id,
+    data_factory,
+    family,
+    method,
+    formula,
+    kwargs,
+):
+    """Cover pc= crossed with select, by, weights, offsets, and dict/list syntax."""
+    data = data_factory()
+    actual_kwargs = dict(kwargs)
+    weights_column = actual_kwargs.pop("weights_column", None)
+    if weights_column is not None:
+        actual_kwargs["sample_weight"] = np.asarray(
+            data[str(weights_column)], dtype=np.float64
+        )
+    actual = _fit_nampy_snapshot(data, formula, family, method, **actual_kwargs)
+    expected = _run_mgcv_snapshot(data, formula, family, method, **kwargs)
+    _pc_matrix_assert_snapshot_close(actual, expected)

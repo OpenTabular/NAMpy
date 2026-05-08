@@ -1,5 +1,5 @@
 # Usage:
-#   Rscript mgcv_fixed_sp_fit3.R <csv_path> <output_json> <formula> <family> <sp_json>
+#   Rscript mgcv_fixed_sp_fit3.R <csv_path> <output_json> <formula> <family> <sp_json> [score_type]
 #
 # Builds mgcv's `estimate.gam` setup, then calls low-level `gam.fit3()` at fixed
 # smoothing parameters and writes exposed coefficient/PIRLS/derivative state.
@@ -7,7 +7,7 @@
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 5) {
   stop(
-    "Usage: Rscript mgcv_fixed_sp_fit3.R <csv_path> <output_json> <formula> <family> <sp_json>"
+    "Usage: Rscript mgcv_fixed_sp_fit3.R <csv_path> <output_json> <formula> <family> <sp_json> [score_type]"
   )
 }
 
@@ -25,6 +25,7 @@ output_json <- args[[2]]
 formula_text <- normalize_formula_text(args[[3]])
 family_name <- tolower(args[[4]])
 sp <- as.numeric(jsonlite::fromJSON(args[[5]]))
+score_type <- if (length(args) >= 6) toupper(args[[6]]) else "REML"
 
 mgcv_lib <- Sys.getenv("MGCV_LIB_PATH", "")
 if (nzchar(mgcv_lib)) {
@@ -47,8 +48,8 @@ family_obj <- switch(
   gaussian = gaussian(),
   poisson = poisson(link = "log"),
   binomial = binomial(link = "logit"),
-  Gamma = Gamma(link = "log"),
-  gamma = Gamma(link = "log"),
+  Gamma = Gamma(link = "inverse"),
+  gamma = Gamma(link = "inverse"),
   stop(sprintf("Unsupported family for gam.fit3 fixed-sp parity: %s", family_name))
 )
 family_obj <- mgcv:::fix.family.link(family_obj)
@@ -93,12 +94,22 @@ fit <- mgcv:::gam.fit3(
   deriv = 2,
   gamma = 1,
   scale = 1,
-  scoreType = "REML",
+  scoreType = score_type,
   null.coef = rep(0, ncol(G$X)),
   pearson.extra = G$pearson.extra,
   dev.extra = G$dev.extra,
   n.true = G$n.true
 )
+
+num_or_null <- function(x) {
+  if (is.null(x)) return(NULL)
+  unname(as.numeric(x))
+}
+
+mat_or_null <- function(x) {
+  if (is.null(x)) return(NULL)
+  unname(as.matrix(x))
+}
 
 payload <- list(
   coefficients = unname(as.numeric(fit$coefficients)),
@@ -113,20 +124,26 @@ payload <- list(
   working_weights = unname(as.numeric(fit$working.weights)),
   prior_weights = unname(as.numeric(fit$prior.weights)),
   working_response = unname(as.numeric(fit$z)),
-  REML = unname(as.numeric(fit$REML)),
-  REML1 = unname(as.numeric(fit$REML1)),
-  REML2 = unname(as.matrix(fit$REML2)),
-  D1 = unname(as.numeric(fit$D1)),
-  D2 = unname(as.matrix(fit$D2)),
-  P = unname(as.numeric(fit$P)),
-  P1 = unname(as.numeric(fit$P1)),
-  P2 = unname(as.matrix(fit$P2)),
-  trA = unname(as.numeric(fit$trA)),
-  trA1 = unname(as.numeric(fit$trA1)),
-  trA2 = unname(as.matrix(fit$trA2)),
-  db_drho = unname(as.matrix(fit$db.drho)),
-  dVkk = unname(as.matrix(fit$dVkk)),
-  ldetS1 = unname(as.numeric(fit$ldetS1))
+  REML = num_or_null(fit$REML),
+  REML1 = num_or_null(fit$REML1),
+  REML2 = mat_or_null(fit$REML2),
+  GCV = num_or_null(fit$GCV),
+  GCV1 = num_or_null(fit$GCV1),
+  GCV2 = mat_or_null(fit$GCV2),
+  UBRE = num_or_null(fit$UBRE),
+  UBRE1 = num_or_null(fit$UBRE1),
+  UBRE2 = mat_or_null(fit$UBRE2),
+  D1 = num_or_null(fit$D1),
+  D2 = mat_or_null(fit$D2),
+  P = num_or_null(fit$P),
+  P1 = num_or_null(fit$P1),
+  P2 = mat_or_null(fit$P2),
+  trA = num_or_null(fit$trA),
+  trA1 = num_or_null(fit$trA1),
+  trA2 = mat_or_null(fit$trA2),
+  db_drho = mat_or_null(fit$db.drho),
+  dVkk = mat_or_null(fit$dVkk),
+  ldetS1 = num_or_null(fit$ldetS1)
 )
 
 write_json(

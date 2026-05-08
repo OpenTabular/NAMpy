@@ -18,12 +18,10 @@ import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
 from ..._model_state import _design_matrix, _term_blocks_seq
-from ...fit.model_ops import (
-    can_use_exact_gaussian_ml_reml,
-    expand_smoothing_params_from_log,
-    solve_gaussian_given_smoothing,
-)
+from ...fit.backends import solve_gaussian_given_smoothing
+from ...fit.capabilities import can_use_exact_gaussian_ml_reml
 from ...fit.penalized_system import build_full_design
+from ...fit.smoothing_params import expand_smoothing_params_from_log
 from ..reparam import _static_fixed_and_random_designs, dynamic_reparam_design
 from .gaussian_dyn import criterion_ml_reml_gaussian_dynamic_profiled
 from .gaussian_reml_algebra import gaussian_reml_saturation_terms_wrt_variance

@@ -10,11 +10,9 @@ from ..smooths.categorical.fs import (
     FSmoothInteractionTerm,
     SZSmoothInteractionTerm,
 )
-from ..smooths.categorical.mrf import MarkovRandomFieldTerm
 from ..smooths.categorical.re import RandomEffectTerm
 from ..smooths.registry import make_smooth_term
 from ..smooths.univariate.cr import CubicSplineTerm
-from ..smooths.univariate.gp import GPSmoothTerm
 from ..smooths.univariate.ps import PSplineTerm1D
 from ..specs import LinearPredictorSpec, PenaltyGroupSpec, TermSpec
 from ..specs.smooth import (
@@ -22,12 +20,9 @@ from ..specs.smooth import (
     CubicShrinkageSmoothSpec,
     CyclicCubicRegressionSmoothSpec,
     FactorSmoothInteractionSpec,
-    GPSmoothSpec,
-    MarkovRandomFieldSmoothSpec,
     PSplineSmoothSpec,
     RandomEffectSmoothSpec,
     SumToZeroFactorSmoothSpec,
-    TensorANOVASmoothSpec,
     TensorInteractionSmoothSpec,
     TensorProductSmoothSpec,
     ThinPlateShrinkageSmoothSpec,
@@ -195,42 +190,6 @@ def instantiate_term(term_like: TermSpec | Any):
             metadata=metadata,
         )
 
-    if isinstance(smooth_spec, GPSmoothSpec):
-        return GPSmoothTerm(
-            feature=features,
-            k=smooth_spec.k,
-            basis="gp",
-            m=smooth_spec.m,
-            label=label,
-            term_id=term_like.term_id,
-            smoothing_id=smoothing_id,
-            by=by,
-            sp=smooth_spec.sp,
-            select=smooth_spec.select,
-            fixed=smooth_spec.fx,
-            constraint_mode=smooth_spec.constraint_mode,
-            pc=smooth_spec.pc,
-            knots=smooth_spec.knots,
-            xt=smooth_spec.xt,
-            metadata=metadata,
-        )
-
-    if isinstance(smooth_spec, MarkovRandomFieldSmoothSpec):
-        return MarkovRandomFieldTerm(
-            feature=features,
-            k=smooth_spec.k,
-            basis="mrf",
-            label=label,
-            term_id=term_like.term_id,
-            smoothing_id=smoothing_id,
-            by=by,
-            sp=smooth_spec.sp,
-            select=smooth_spec.select,
-            xt=smooth_spec.xt,
-            knots=smooth_spec.knots,
-            metadata=metadata,
-        )
-
     if isinstance(smooth_spec, RandomEffectSmoothSpec):
         return RandomEffectTerm(
             feature=features,
@@ -278,7 +237,7 @@ def instantiate_term(term_like: TermSpec | Any):
 
     if isinstance(
         smooth_spec,
-        (TensorProductSmoothSpec, TensorInteractionSmoothSpec, TensorANOVASmoothSpec),
+        (TensorProductSmoothSpec, TensorInteractionSmoothSpec),
     ):
         groups = _tensor_feature_groups(features, getattr(smooth_spec, "d", None))
         basis = [str(b).lower() for b in tensor_basis_list(smooth_spec, len(groups))]
@@ -301,9 +260,6 @@ def instantiate_term(term_like: TermSpec | Any):
 
         if isinstance(smooth_spec, TensorInteractionSmoothSpec):
             kwargs["mc"] = smooth_spec.mc
-        elif isinstance(smooth_spec, TensorANOVASmoothSpec):
-            kwargs["full"] = smooth_spec.full
-            kwargs["ord"] = smooth_spec.ord
 
         return make_smooth_term(smooth_spec.special, **kwargs)
 

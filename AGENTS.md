@@ -19,6 +19,7 @@ For parity-sensitive work, the upstream vendored `mgcv` source code in this repo
 - Do not make numerically meaningful algebraic rewrites unless parity tests demonstrate no regression.
 - Pin point bugs and divergence from mgcv upstream clearly before applying minimal and surgical changes while fixing bugs.
 - Allow for broad rewrites during code refactors.
+- Do not run black and black --check for checking formatting. It is quite time consuming.
 - Do not change ordering of penalties, constraints, pivots, side conditions, or block assembly casually.
 - Do not use matrix inverses where upstream logic uses solves/factorizations.
 - Do not silently broaden unsupported behavior.

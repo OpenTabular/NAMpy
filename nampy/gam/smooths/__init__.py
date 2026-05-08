@@ -1,5 +1,4 @@
 from .categorical.fs import FSmoothInteractionTerm, SZSmoothInteractionTerm
-from .categorical.mrf import MarkovRandomFieldTerm
 from .categorical.re import RandomEffectTerm
 from .registry import available_smooths, make_smooth_term, register_smooth
 from .smooth_base import (
@@ -23,11 +22,9 @@ from .smooth_base import (
     resolve_feature_matrix_state,
     sync_by_state_attributes,
 )
-from .tensor.t2 import TensorANOVASplineTerm
 from .tensor.te import TensorProductSplineTerm
 from .tensor.ti import InteractionTensorProductSplineTerm
 from .univariate.cr import CubicSplineTerm
-from .univariate.gp import GPSmoothTerm
 from .univariate.ps import PSplineTerm1D
 from .univariate.tp import ThinPlateSplineTerm
 
@@ -35,15 +32,12 @@ from .univariate.tp import ThinPlateSplineTerm
 # the old module-level compatibility facades.
 te = TensorProductSplineTerm
 ti = InteractionTensorProductSplineTerm
-t2 = TensorANOVASplineTerm
 
 cr = cs = cc = CubicSplineTerm
 ps = PSplineTerm1D
 tp = ts = ThinPlateSplineTerm
-gp = GPSmoothTerm
 fs = FSmoothInteractionTerm
 sz = SZSmoothInteractionTerm
-mrf = MarkovRandomFieldTerm
 re = RandomEffectTerm
 
 __all__ = [
@@ -72,26 +66,20 @@ __all__ = [
     "CubicSplineTerm",
     "PSplineTerm1D",
     "ThinPlateSplineTerm",
-    "GPSmoothTerm",
     "TensorProductSplineTerm",
     "InteractionTensorProductSplineTerm",
-    "TensorANOVASplineTerm",
     "FSmoothInteractionTerm",
     "SZSmoothInteractionTerm",
-    "MarkovRandomFieldTerm",
     "RandomEffectTerm",
     "te",
     "ti",
-    "t2",
     "cr",
     "cs",
     "cc",
     "ps",
     "tp",
     "ts",
-    "gp",
     "fs",
     "sz",
-    "mrf",
     "re",
 ]

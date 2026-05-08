@@ -180,6 +180,40 @@ def test_concurvity_returns_pairwise_measure_matrices_with_parametric_block(
         np.testing.assert_allclose(np.diag(mat), np.ones(2, dtype=np.float64))
 
 
+def test_concurvity_parametric_block_uses_mgcv_first_column_indexing(monkeypatch):
+    """
+    Verify the upstream mgcv/R/mgcv.r::concurvity parametric block indexing.
+    """
+    monkeypatch.setattr(concurvity_module, "_compiled_model", lambda model: None)
+    monkeypatch.setattr(concurvity_module, "_coef_column_offset", lambda model: 0)
+    monkeypatch.setattr(
+        concurvity_module,
+        "_term_blocks_seq",
+        lambda model: (
+            SimpleNamespace(
+                term_type="parametric",
+                label="f[b]",
+                coef_slice=slice(0, 1),
+            ),
+            SimpleNamespace(
+                term_type="parametric",
+                label="f[c]",
+                coef_slice=slice(1, 2),
+            ),
+            SimpleNamespace(
+                term_type="smooth",
+                label="s(x)",
+                coef_slice=slice(2, 5),
+            ),
+        ),
+    )
+
+    blocks = concurvity_module._term_indices_for_concurvity(SimpleNamespace(), 5)
+
+    assert blocks[0][0] == "para"
+    np.testing.assert_array_equal(blocks[0][1], np.array([0], dtype=int))
+
+
 def test_concurvity_raises_when_no_components_available(monkeypatch):
     """
     Owner-contract coverage verifying that concurvity raises when no components
@@ -225,9 +259,9 @@ def test_summary_text_includes_offset_and_gaussian_rss(monkeypatch):
             smoothing_indices=[0],
         ),
         SimpleNamespace(
-            basis_name="mrf",
+            basis_name="re",
             term_type="random_effect",
-            label='region',
+            label='s(region)',
             coef_slice=slice(4, 6),
             smoothing_indices=[1, 2],
         ),
@@ -253,8 +287,9 @@ def test_summary_text_includes_offset_and_gaussian_rss(monkeypatch):
     assert "Smoothing method : REML" in text
     assert "Offset : yes" in text
     assert "RSS : 1.25" in text
-    assert "s(s(x0))" in text
-    assert "mrf(region)" in text
+    assert "s(x0)" in text
+    assert "s(s(x0))" not in text
+    assert "s(region)" in text
     assert "[2, 3]" in text
 
 

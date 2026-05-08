@@ -14,19 +14,19 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from nampy.gam._mgcv_constants import EIG_TOL_POWER
-from nampy.gam.linalg import symmetric_eigh
-from nampy.gam.smooths.tensor.marginals import tensor_marginal_fit_matrices
-from nampy.gam.smooths.tensor.t2 import TensorANOVASplineTerm
-from tests.families.test_general_family_mgcv_parity import (
-    GENERAL_SE_CASES,
-    _gaulss_tensor_data,
-    _gammals_tensor_data,
-    _gevlss_tensor_data,
-    _shashlss_tensor_data,
-    _ziplss_tensor_data,
+from nampy.gam._mgcv_constants import EIG_TOL_POWER  # noqa: E402
+from nampy.gam.linalg import symmetric_eigh  # noqa: E402
+from nampy.gam.smooths.tensor.marginals import (  # noqa: E402
+    tensor_marginal_fit_matrices,
 )
-from tests.mgcv_parity_utils import _build_r_command
+from nampy.gam.smooths.tensor.t2 import TensorANOVASplineTerm  # noqa: E402
+from tests.families.test_general_family_mgcv_parity import (  # noqa: E402
+    GENERAL_SE_CASES,
+    _gammals_tensor_data,
+    _gaulss_tensor_data,
+    _gevlss_tensor_data,
+)
+from tests.mgcv_parity_utils import _build_r_command  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -46,8 +46,6 @@ def _synthetic_seed_sweep_cases(seed_count: int) -> list[_ProbeCase]:
         ("gaulss", _gaulss_tensor_data),
         ("gammals", _gammals_tensor_data),
         ("gevlss", _gevlss_tensor_data),
-        ("shashlss", _shashlss_tensor_data),
-        ("ziplss", _ziplss_tensor_data),
     ]
     cases: list[_ProbeCase] = []
     for family, factory in families:

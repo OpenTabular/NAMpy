@@ -65,6 +65,8 @@ def _coerce_snapshot_arrays(snapshot):
         "edf_by_term",
         "cov_bayes",
         "cov_freq",
+        "cov_unconditional",
+        "vcov_unconditional",
         "outer_grad",
         "outer_hess",
     ):
@@ -241,16 +243,79 @@ def _get_core(model):
     )
 
 
-def _normalize_mgcv_term_label(label):
+def _normalize_reference_term_label(label):
     if label is None:
         return None
     text = str(label)
-    text = re.sub(r",\s*bs\s*=\s*(\"[^\"]*\"|'[^']*'|[^,)]+)", "", text)
-    text = re.sub(r",\s*k\s*=\s*[^,)]+", "", text)
-    text = re.sub(r",\s*id\s*=\s*(\"[^\"]*\"|'[^']*'|[^,)]+)", "", text)
+    open_idx = text.find("(")
+    close_idx = text.rfind(")")
+    if 0 <= open_idx < close_idx:
+        fn = text[:open_idx].strip()
+        inner = text[open_idx + 1 : close_idx]
+        suffix = text[close_idx + 1 :].strip()
+        suffix_has_factor_level = re.match(r"^:\s*[^=:\s]+\s*=", suffix) is not None
+        args = []
+        current = []
+        depth = 0
+        quote = None
+        escape = False
+        for ch in inner:
+            if quote is not None:
+                current.append(ch)
+                if escape:
+                    escape = False
+                elif ch == "\\":
+                    escape = True
+                elif ch == quote:
+                    quote = None
+                continue
+            if ch in {"'", '"'}:
+                quote = ch
+                current.append(ch)
+                continue
+            if ch in "([{":
+                depth += 1
+                current.append(ch)
+                continue
+            if ch in ")]}":
+                depth = max(0, depth - 1)
+                current.append(ch)
+                continue
+            if ch == "," and depth == 0:
+                part = "".join(current).strip()
+                if part:
+                    args.append(part)
+                current = []
+                continue
+            current.append(ch)
+        part = "".join(current).strip()
+        if part:
+            args.append(part)
+
+        kept = []
+        for arg in args:
+            name = arg.split("=", 1)[0].strip().lower() if "=" in arg else ""
+            if name in {"bs", "k", "m", "sp", "id", "mc", "fx", "xt"}:
+                continue
+            if suffix_has_factor_level and name == "by":
+                continue
+            kept.append(arg)
+        text = f"{fn}({', '.join(kept)}){suffix}"
+    else:
+        text = re.sub(r",\s*bs\s*=\s*(\"[^\"]*\"|'[^']*'|[^,)]+)", "", text)
+        text = re.sub(r",\s*k\s*=\s*[^,)]+", "", text)
+        text = re.sub(r",\s*m\s*=\s*[^,)]+", "", text)
+        text = re.sub(r",\s*sp\s*=\s*[^,)]+", "", text)
+        text = re.sub(r",\s*id\s*=\s*(\"[^\"]*\"|'[^']*'|[^,)]+)", "", text)
+        text = re.sub(r",\s*xt\s*=\s*(\"[^\"]*\"|'[^']*'|[^,)]+)", "", text)
     text = re.sub(
         r"^([a-zA-Z0-9_]+\([^)]*?)(?:,\s*by\s*=\s*([^)]+))\)$",
         lambda m: f"{m.group(1)}):{m.group(2).strip()}",
+        text,
+    )
+    text = re.sub(
+        r":\s*([A-Za-z_.][A-Za-z0-9_.]*)\s*=\s*([^:\s]+)$",
+        lambda m: f":{m.group(1)}{m.group(2)}",
         text,
     )
     return text
@@ -448,7 +513,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
             sl = tb.coef_slice
             # sl indexes coef_ (no intercept); Vp_, Vf_, H include the intercept column
             x_sl = slice(sl.start + x_off, sl.stop + x_off)
-            smooth_labels.append(_normalize_mgcv_term_label(tb.label))
+            smooth_labels.append(_normalize_reference_term_label(tb.label))
             if _cov_bayes(core) is not None:
                 smooth_cov_bayes.append(
                     np.asarray(_cov_bayes(core)[x_sl, x_sl], dtype=np.float64)
@@ -601,7 +666,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
     try:
         conc = predict_api.concurvity(full=True)
         diagnostics["concurvity_labels"] = [
-            _normalize_mgcv_term_label(v) for v in conc["labels"]
+            _normalize_reference_term_label(v) for v in conc["labels"]
         ]
         diagnostics["concurvity_full"] = np.asarray(
             conc["values"], dtype=np.float64
@@ -613,7 +678,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
     try:
         conc = predict_api.concurvity(full=False)
         diagnostics["concurvity_pairwise"] = {
-            "labels": [_normalize_mgcv_term_label(v) for v in conc["labels"]],
+            "labels": [_normalize_reference_term_label(v) for v in conc["labels"]],
             **{
                 name: np.asarray(mat, dtype=np.float64).tolist()
                 for name, mat in conc["values"].items()
@@ -694,7 +759,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
             None
             if k_tab is None
             else {
-                "labels": [_normalize_mgcv_term_label(v) for v in k_tab.index.tolist()],
+                "labels": [_normalize_reference_term_label(v) for v in k_tab.index.tolist()],
                 "values": k_tab[["k_prime", "edf", "k_index", "p_value"]]
                 .to_numpy(dtype=np.float64)
                 .tolist(),
@@ -707,7 +772,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
         anova_res = predict_api.anova(freq=False)
         diagnostics["anova_parametric"] = {
             "labels": [
-                _normalize_mgcv_term_label(v)
+                _normalize_reference_term_label(v)
                 for v in anova_res.parametric_table["label"].tolist()
             ],
             "values": anova_res.parametric_table[["df", "wald_stat", "p_value"]]
@@ -716,7 +781,7 @@ def build_parity_snapshot(model, X=None, include_covariances=False):
         }
         diagnostics["anova_smooth"] = {
             "labels": [
-                _normalize_mgcv_term_label(v)
+                _normalize_reference_term_label(v)
                 for v in anova_res.smooth_table["label"].tolist()
             ],
             "values": anova_res.smooth_table[["edf", "ref_df", "wald_stat", "p_value"]]

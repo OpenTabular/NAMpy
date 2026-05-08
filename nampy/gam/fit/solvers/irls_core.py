@@ -22,7 +22,6 @@ from ..linalg.stacked_qr import (
     penalty_sqrt_rows,
     solve_gaussian_penalized_ls_stacked_qr,
 )
-from ..penalized_system import stabilized_cholesky_solve
 
 
 @dataclass
@@ -62,6 +61,35 @@ def _validate_extended_family_pirls_hooks(family: Any) -> None:
         )
 
 
+def _mgcv_null_coef(X: np.ndarray, y: np.ndarray, family: Any) -> np.ndarray:
+    """
+    Mirror mgcv/R/mgcv.r::get.null.coef().
+
+    The resulting coefficients are used only as the feasible anchor for
+    gam.fit3's immediate-divergence step-halving checks.
+    """
+
+    X = np.asarray(X, dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64).ravel()
+    if X.ndim != 2:
+        raise ValueError("X must be a 2D array.")
+    if y.ndim != 1 or y.shape[0] != X.shape[0]:
+        raise ValueError("y must match nrow(X).")
+    if X.shape[1] == 0:
+        return np.zeros(0, dtype=np.float64)
+
+    mu_mean = np.full(y.shape[0], float(np.mean(y)), dtype=np.float64)
+    eta_mean = np.asarray(family.link(mu_mean), dtype=np.float64).ravel()
+    coef, *_ = np.linalg.lstsq(X, eta_mean, rcond=None)
+    coef = np.asarray(coef, dtype=np.float64).ravel()
+    if coef.shape != (X.shape[1],):
+        out = np.zeros(X.shape[1], dtype=np.float64)
+        out[: min(out.size, coef.size)] = coef[: min(out.size, coef.size)]
+        coef = out
+    coef[~np.isfinite(coef)] = 0.0
+    return coef
+
+
 def _strictly_additive_gaussian_identity(family: Any) -> bool:
     return (
         str(getattr(family, "name", "")).lower() == "gaussian"
@@ -77,6 +105,30 @@ def _use_exact_extended_negbin_terms(family: Any) -> bool:
     )
 
 
+def _mgcv_poisson_identity_fisher_endpoint(family: Any) -> bool:
+    """
+    Match the mgcv endpoint for poisson(link="identity") fixed-SP PIRLS fits.
+
+    In mgcv/R/gam.fit3.r this family is a noncanonical full-Newton case, but
+    y == 0 rows set alpha to .Machine$double.eps and make the C pls_fit1()
+    pseudo-data path numerically platform-sensitive. The reported gam() endpoint
+    for these boundary fits agrees with Fisher scoring, so keep the stabilization
+    scoped to this family/link pair.
+    """
+
+    return (
+        str(getattr(family, "family_class", "")).lower() == "glm"
+        and str(getattr(family, "name", "")).lower() == "poisson"
+        and str(getattr(family, "link_name", "")).lower() == "identity"
+    )
+
+
+def _mgcv_effective_irls_tol(family: Any, tol: float) -> float:
+    if _mgcv_poisson_identity_fisher_endpoint(family):
+        return min(float(tol), 1e-11)
+    return float(tol)
+
+
 def irls_core(
     X: np.ndarray,
     y: np.ndarray,
@@ -90,6 +142,7 @@ def irls_core(
     tol: float = 1e-7,
     max_step_halving: int = 25,
     coef_start: np.ndarray | None = None,
+    null_coef: np.ndarray | None = None,
     etastart: np.ndarray | None = None,
     mustart: np.ndarray | None = None,
     fisher_scoring_only: bool = False,
@@ -186,22 +239,6 @@ def irls_core(
 
     def _stacked_qr_penalized_step(X_curr, w_curr, rhs_curr, *, rhs_is_weighted):
         nonlocal last_stacked_qr_state
-        if penalty_sqrt.shape[0] == 0 or penalty_rank_rows.shape[0] == 0:
-            z_curr = np.asarray(rhs_curr, dtype=np.float64).ravel().copy()
-            if rhs_is_weighted:
-                positive = np.asarray(w_curr, dtype=np.float64) > 0.0
-                z_weighted = z_curr.copy()
-                z_curr.fill(0.0)
-                z_curr[positive] = (
-                    z_weighted[positive]
-                    / np.asarray(w_curr, dtype=np.float64)[positive]
-                )
-            XtW_curr = X_curr.T * np.asarray(w_curr, dtype=np.float64)
-            A_curr = XtW_curr @ X_curr + S
-            b_curr = XtW_curr @ z_curr
-            coef_curr, _, _, _ = stabilized_cholesky_solve(A_curr, b_curr)
-            last_stacked_qr_state = None
-            return np.asarray(coef_curr, dtype=np.float64)
         z_curr = np.asarray(rhs_curr, dtype=np.float64).ravel().copy()
         if rhs_is_weighted:
             positive = w_curr > 0.0
@@ -223,7 +260,11 @@ def irls_core(
         # Under-determined stacked fits use the lstsq branch because the
         # Householder reconstruction path can fail on q > n systems even when
         # the penalized least-squares solution itself is well-defined.
-        if str(coef_method).lower().strip() != "lstsq":
+        if (
+            str(coef_method).lower().strip() != "lstsq"
+            and penalty_sqrt.shape[0] > 0
+            and penalty_rank_rows.shape[0] > 0
+        ):
             qr_state = build_penalized_qr_state_nonnegative(
                 X_curr,
                 z_curr,
@@ -370,6 +411,43 @@ def irls_core(
             return float(family.loglik(y, mu_curr, scale=scale_curr))
         return None
 
+    def _estimate_gam_fit3_scale(
+        mu_curr: np.ndarray,
+        edf_curr: float,
+    ) -> float:
+        # Mirrors mgcv/R/gam.fit3.r::gam.fit3 default
+        # gam.control(scale.est="fletcher") scale calculation.
+        known_scale = getattr(family, "known_scale", None)
+        if known_scale is not None:
+            return float(known_scale)
+        if hasattr(family, "estimate_dispersion"):
+            scale_curr = float(
+                family.estimate_dispersion(y, mu_curr, edf=edf_curr, weights=weights)
+            )
+        else:
+            w_sum = float(np.sum(weights))
+            denom = max(w_sum - float(edf_curr), np.finfo(np.float64).eps)
+            scale_curr = float(_weighted_deviance(mu_curr) / denom)
+
+        dvar = getattr(family, "dvar", None)
+        if not callable(dvar):
+            return scale_curr
+        try:
+            var = np.asarray(family.variance(mu_curr), dtype=np.float64)
+            with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+                s_terms = (
+                    np.asarray(dvar(mu_curr), dtype=np.float64)
+                    * (y - mu_curr)
+                    / var
+                )
+                s_bar_raw = float(np.mean(s_terms))
+        except Exception:
+            return scale_curr
+        if np.isfinite(s_bar_raw):
+            s_bar = max(-0.9, s_bar_raw)
+            scale_curr = scale_curr / (1.0 + s_bar)
+        return float(scale_curr)
+
     def _recompute_step(beta_curr: np.ndarray):
         eta_curr = offset + X @ beta_curr
         mu_curr = family.inverse_link(eta_curr)
@@ -407,7 +485,13 @@ def irls_core(
             eta = offset + X @ beta
         mu = family.inverse_link(eta)
 
-    null_beta = np.zeros_like(beta)
+    if null_coef is not None:
+        null_arr = np.asarray(null_coef, dtype=np.float64).ravel()
+        if null_arr.shape != (q,):
+            raise ValueError(f"null_coef must have shape ({q},), got {null_arr.shape}.")
+        null_beta = np.where(np.isfinite(null_arr), null_arr, 0.0)
+    else:
+        null_beta = np.zeros_like(beta)
     null_eta = offset + X @ null_beta
     old_pdev = float(
         _weighted_deviance(family.inverse_link(null_eta)) + null_beta @ (S @ null_beta)
@@ -436,6 +520,7 @@ def irls_core(
     failure_reason = None
     n_iter = 0
     inner_trace = []
+    inner_halving_limit = max(int(max_iter), 100)
 
     for it in range(max_iter):
         n_iter = it + 1
@@ -464,7 +549,10 @@ def irls_core(
 
         try:
             beta_prop = _stacked_qr_penalized_step(
-                X_g, W, z_work, rhs_is_weighted=rhs_is_weighted
+                X_g,
+                W,
+                z_work,
+                rhs_is_weighted=rhs_is_weighted,
             )
         except (np.linalg.LinAlgError, ValueError):
             if _use_exact_extended_negbin_terms(family):
@@ -533,7 +621,10 @@ def irls_core(
             grad_rhs_is_weighted = rhs_is_weighted
             try:
                 beta_prop = _stacked_qr_penalized_step(
-                    X_pos, W_pos, z_pos, rhs_is_weighted=rhs_is_weighted
+                    X_pos,
+                    W_pos,
+                    z_pos,
+                    rhs_is_weighted=rhs_is_weighted,
                 )
             except (np.linalg.LinAlgError, ValueError):
                 failed_step = True
@@ -561,7 +652,7 @@ def irls_core(
             warnings_list.append("irls_core: step size truncated due to divergence")
             ii_h = 1
             while not np.isfinite(dev_new):
-                if ii_h > max_iter:
+                if ii_h > inner_halving_limit:
                     failed_step = True
                     failure_reason = "step_halving_exhausted"
                     warnings_list.append(
@@ -578,7 +669,7 @@ def irls_core(
             warnings_list.append("irls_core: step size truncated: out of bounds")
             ii_h = 1
             while not _eta_mu_valid(eta_new, mu_new):
-                if ii_h > max_iter:
+                if ii_h > inner_halving_limit:
                     failed_step = True
                     failure_reason = "step_halving_exhausted"
                     warnings_list.append(
@@ -766,7 +857,10 @@ def irls_core(
     ):
         try:
             beta_refresh = _stacked_qr_penalized_step(
-                X_g, W_g, z_g, rhs_is_weighted=False
+                X_g,
+                W_g,
+                z_g,
+                rhs_is_weighted=False,
             )
         except (np.linalg.LinAlgError, ValueError):
             beta_refresh = None
@@ -782,52 +876,30 @@ def irls_core(
                     eta_report = np.asarray(eta_refresh, dtype=np.float64)
                     mu_report = np.asarray(mu_refresh, dtype=np.float64)
 
-    if penalty_sqrt.shape[0] == 0 or penalty_rank_rows.shape[0] == 0:
-        _, cA, loA, _ = stabilized_cholesky_solve(
-            A, np.zeros(X.shape[1], dtype=np.float64)
-        )
-        log_det_xtwx_plus_penalty = 2.0 * float(np.sum(np.log(np.abs(np.diag(cA)))))
-        A_inv = stabilized_cholesky_solve(
-            A,
-            np.eye(A.shape[0], dtype=np.float64),
-        )[0]
-        H_coef = A_inv @ XtWX
-        trace_H = float(np.trace(H_coef))
-        stacked = None
-        penalized_system_rank = int(np.linalg.matrix_rank(A))
-        dropped_column_indices = np.zeros((0,), dtype=np.int64)
-    else:
-        stacked = solve_gaussian_penalized_ls_stacked_qr(
-            X_g,
-            cov_z_g,
-            cov_W_g,
-            S,
-            penalty_rank_rows=penalty_rank_rows,
-            coef_method=coef_method,
-            near_singular_null_pin=near_singular_null_pin,
-        )
-        A = np.asarray(stacked["A"], dtype=np.float64)
-        XtWX = np.asarray(stacked["XtWX"], dtype=np.float64)
-        A_inv = np.asarray(stacked["A_inv"], dtype=np.float64)
-        H_coef = np.asarray(stacked["coef_hat_matrix"], dtype=np.float64)
-        log_det_xtwx_plus_penalty = float(stacked["log_det_XtWX_plus_penalty"])
-        cov_root = np.asarray(stacked["covariance_root"], dtype=np.float64)
-        WX_rV = np.asarray(stacked["WX_sqrt"], dtype=np.float64) @ cov_root
-        trace_H = float(np.sum(WX_rV * WX_rV))
-        penalized_system_rank = int(stacked["penalized_system_rank"])
-        dropped_column_indices = np.asarray(
-            stacked["dropped_column_indices"], dtype=np.int64
-        )
+    stacked = solve_gaussian_penalized_ls_stacked_qr(
+        X_g,
+        cov_z_g,
+        cov_W_g,
+        S,
+        penalty_rank_rows=penalty_rank_rows,
+        coef_method=coef_method,
+        near_singular_null_pin=near_singular_null_pin,
+    )
+    A = np.asarray(stacked["A"], dtype=np.float64)
+    XtWX = np.asarray(stacked["XtWX"], dtype=np.float64)
+    A_inv = np.asarray(stacked["A_inv"], dtype=np.float64)
+    H_coef = np.asarray(stacked["coef_hat_matrix"], dtype=np.float64)
+    log_det_xtwx_plus_penalty = float(stacked["log_det_XtWX_plus_penalty"])
+    cov_root = np.asarray(stacked["covariance_root"], dtype=np.float64)
+    WX_rV = np.asarray(stacked["WX_sqrt"], dtype=np.float64) @ cov_root
+    trace_H = float(np.sum(WX_rV * WX_rV))
+    penalized_system_rank = int(stacked["penalized_system_rank"])
+    dropped_column_indices = np.asarray(
+        stacked["dropped_column_indices"], dtype=np.int64
+    )
     edf = trace_H
 
-    if hasattr(family, "estimate_dispersion"):
-        scale = float(family.estimate_dispersion(y, mu, edf=edf, weights=weights))
-    elif getattr(family, "known_scale", None) is not None:
-        scale = float(family.known_scale)
-    else:
-        w_sum = float(np.sum(weights))
-        denom = max(w_sum - edf, np.finfo(np.float64).eps)
-        scale = float(_weighted_deviance(mu) / denom)
+    scale = _estimate_gam_fit3_scale(mu, edf)
     deviance = _weighted_deviance(mu)
     rss = float(np.sum((y - mu) ** 2))
     penalty_quadratic = float(beta @ (S @ beta))
@@ -946,8 +1018,12 @@ def fit_irls_from_model(
         weights=weights,
         fit_intercept=fi,
         max_iter=int(getattr(model, "max_irls_iter", 200)),
-        tol=float(getattr(model, "irls_tol", 1e-7)),
+        tol=_mgcv_effective_irls_tol(
+            model.family, float(getattr(model, "irls_tol", 1e-7))
+        ),
         max_step_halving=int(getattr(model, "max_step_halving", 25)),
+        null_coef=_mgcv_null_coef(X, y, model.family),
+        fisher_scoring_only=_mgcv_poisson_identity_fisher_endpoint(model.family),
         penalty_rank_rows=rank_rows,
     )
     if (

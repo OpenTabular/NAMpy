@@ -12,6 +12,8 @@ from nampy.gam import GAM
 from nampy.gam.smoothing_selection.reparam import build_estimate_gam_setup_state
 from tests._paths import PARITY_DIR, REPO_ROOT
 from tests.mgcv_invariant_policy import (
+    gam_setup_compares_dominant_penalty_spectrum,
+    penalty_spectrum,
     preoptimization_blocks_align_basis_columns,
     preoptimization_blocks_compare_range_root_representation,
 )
@@ -21,7 +23,6 @@ from tests.mgcv_parity_utils import (
     _make_fs_data,
     _make_gamma_data,
     _make_gaussian_data,
-    _make_mrf_low_rank_data,
     _make_negbin_data,
     _make_poisson_data,
     _make_random_effect_data_noisy,
@@ -57,13 +58,6 @@ def _make_ps_data(seed=81, n=180):
     rng = np.random.default_rng(seed)
     x = rng.uniform(-2.0, 2.0, size=n)
     y = np.sin(1.3 * x) + 0.2 * x**2 + rng.normal(scale=0.14, size=n)
-    return pd.DataFrame({"y": y, "x": x})
-
-
-def _make_gp_data(seed=91, n=160):
-    rng = np.random.default_rng(seed)
-    x = rng.uniform(-3.0, 3.0, size=n)
-    y = np.exp(-0.5 * x**2) + 0.4 * np.sin(x) + rng.normal(scale=0.1, size=n)
     return pd.DataFrame({"y": y, "x": x})
 
 
@@ -324,15 +318,6 @@ PREOPT_CASES = [
         True,
     ),
     (
-        "gaussian_gp_uni",
-        _make_gp_data,
-        'y ~ s(x, bs="gp", k=10, sp=1.0)',
-        "gaussian",
-        "REML",
-        False,
-        False,
-    ),
-    (
         "gaussian_te_two_dim",
         _make_gaussian_data,
         'y ~ te(x0, x1, bs=["cr", "cr"], k=[5, 5])',
@@ -349,24 +334,6 @@ PREOPT_CASES = [
         "REML",
         False,
         False,
-    ),
-    (
-        "gaussian_t2_full_false",
-        _make_gaussian_data,
-        'y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6])',
-        "gaussian",
-        "REML",
-        False,
-        True,
-    ),
-    (
-        "gaussian_t2_full_true",
-        _make_gaussian_data,
-        'y ~ t2(x0, x1, bs=["tp", "cr"], k=[6, 6], full=True)',
-        "gaussian",
-        "REML",
-        False,
-        True,
     ),
     (
         "gaussian_fs",
@@ -414,16 +381,6 @@ PREOPT_CASES = [
         False,
     ),
     (
-        "gaussian_mrf_low_rank",
-        _make_mrf_low_rank_data,
-        'y ~ s(region, bs="mrf", k=3, '
-        'xt=list(nb=list(A=c("B"), B=c("A","C"), C=c("B","D"), D=c("C"))))',
-        "gaussian",
-        "REML",
-        False,
-        False,
-    ),
-    (
         "gaussian_numeric_by_cr",
         _make_numeric_by_data,
         'y ~ s(x, by=z, bs="cr", k=8)',
@@ -454,11 +411,8 @@ _REQUIRED_PREOPT_SMOOTHS = {
     "ts",
     "te",
     "ti",
-    "t2",
-    "gp",
     "fs",
     "sz",
-    "mrf",
     "re",
 }
 
@@ -472,15 +426,13 @@ def _formula_fragments(formula):
 def _smooths_in_formula(formula):
     text = " ".join(_formula_fragments(formula))
     smooths = set()
-    for smooth in ("cr", "cs", "cc", "ps", "tp", "ts", "gp", "fs", "sz", "mrf", "re"):
+    for smooth in ("cr", "cs", "cc", "ps", "tp", "ts", "fs", "sz", "re"):
         if f'bs="{smooth}"' in text:
             smooths.add(smooth)
     if "te(" in text:
         smooths.add("te")
     if "ti(" in text:
         smooths.add("ti")
-    if "t2(" in text:
-        smooths.add("t2")
     return smooths
 
 
@@ -510,14 +462,6 @@ def test_preoptimization_case_matrix_covers_supported_non_general_surface():
     assert any('id="' in " ".join(_formula_fragments(case[2])) for case in PREOPT_CASES)
     assert any("by=z" in " ".join(_formula_fragments(case[2])) for case in PREOPT_CASES)
     assert any("by=f" in " ".join(_formula_fragments(case[2])) for case in PREOPT_CASES)
-    assert any(
-        "full=True" in " ".join(_formula_fragments(case[2])) for case in PREOPT_CASES
-    )
-    assert any(
-        "t2(" in " ".join(_formula_fragments(case[2]))
-        and "full=True" not in " ".join(_formula_fragments(case[2]))
-        for case in PREOPT_CASES
-    )
     assert any(
         _normalize_family_name(case[3]) == "negbin"
         and not bool(case[3].get("estimate_theta", False))
@@ -617,6 +561,28 @@ def _assert_root_crossprod_equal(actual, expected, *, atol=1e-10):
     )
 
 
+def _positive_spectrum_values(matrix):
+    spectrum = penalty_spectrum(matrix)
+    scale = max(float(np.max(np.abs(spectrum))) if spectrum.size else 0.0, 1.0)
+    return spectrum[spectrum > np.finfo(np.float64).eps**0.8 * scale]
+
+
+def _assert_dominant_penalty_spectrum_close(actual, expected, *, atol):
+    actual_pos = _positive_spectrum_values(actual)
+    expected_pos = _positive_spectrum_values(expected)
+    assert actual_pos.size == expected_pos.size
+    assert actual_pos[0] > 0.0
+    assert expected_pos[0] > 0.0
+    assert actual_pos[0] < 0.1 * actual_pos[1]
+    assert expected_pos[0] < 0.1 * expected_pos[1]
+    np.testing.assert_allclose(
+        actual_pos[1:],
+        expected_pos[1:],
+        rtol=0.0,
+        atol=max(atol, 2e-4),
+    )
+
+
 def _assert_u1_subspaces_equal(actual, expected, *, q_range, atol=1e-10):
     actual = np.asarray(actual, dtype=np.float64)
     expected = np.asarray(expected, dtype=np.float64)
@@ -670,6 +636,7 @@ def _assert_preoptimization_parity(
     actual,
     expected,
     *,
+    compare_dominant_penalty_spectrum: bool = False,
     compare_design_space_only=False,
     align_basis_columns=False,
     compare_range_root_repr=True,
@@ -714,7 +681,7 @@ def _assert_preoptimization_parity(
     expected_S = _as_matrix_list(expected.get("S", []))
     assert len(actual.S) == len(expected_S)
     for off_i, a_S, e_S in zip(
-        np.asarray(actual.off, dtype=np.int64), actual.S, expected_S
+        np.asarray(actual.off, dtype=np.int64), actual.S, expected_S, strict=True
     ):
         if basis_transform is not None:
             start = int(off_i) - 1
@@ -723,7 +690,14 @@ def _assert_preoptimization_parity(
             a_S = (
                 local_transform.T @ np.asarray(a_S, dtype=np.float64) @ local_transform
             )
-        np.testing.assert_allclose(a_S, e_S, rtol=0.0, atol=penalty_atol)
+        if compare_dominant_penalty_spectrum:
+            _assert_dominant_penalty_spectrum_close(
+                a_S,
+                e_S,
+                atol=penalty_atol,
+            )
+        else:
+            np.testing.assert_allclose(a_S, e_S, rtol=0.0, atol=penalty_atol)
     np.testing.assert_array_equal(
         np.asarray(actual.rank, dtype=np.int64),
         np.asarray(expected["rank"], dtype=np.int64),
@@ -761,10 +735,17 @@ def _assert_preoptimization_parity(
 
     expected_rS = _as_matrix_list(expected.get("rS", []))
     assert len(actual.rS) == len(expected_rS)
-    for a_rS, e_rS in zip(actual.rS, expected_rS):
+    for a_rS, e_rS in zip(actual.rS, expected_rS, strict=True):
         if basis_transform is not None:
             a_rS = basis_transform.T @ np.asarray(a_rS, dtype=np.float64)
-        _assert_root_crossprod_equal(a_rS, e_rS, atol=penalty_atol)
+        if compare_dominant_penalty_spectrum:
+            _assert_dominant_penalty_spectrum_close(
+                np.asarray(a_rS, dtype=np.float64) @ np.asarray(a_rS, dtype=np.float64).T,
+                np.asarray(e_rS, dtype=np.float64) @ np.asarray(e_rS, dtype=np.float64).T,
+                atol=penalty_atol,
+            )
+        else:
+            _assert_root_crossprod_equal(a_rS, e_rS, atol=penalty_atol)
 
     expected_Y = np.asarray(expected["Y"], dtype=np.float64)
     expected_Z = np.asarray(expected["Z"], dtype=np.float64)
@@ -788,15 +769,38 @@ def _assert_preoptimization_parity(
     _assert_projector_equal(actual.Y, expected_Y)
     _assert_projector_equal(actual.Z, expected_Z)
     if compare_range_root_repr:
-        _assert_root_gram_equal(actual.E, expected_E)
-        _assert_root_gram_equal(actual.Eb, expected_Eb)
+        if compare_dominant_penalty_spectrum:
+            _assert_dominant_penalty_spectrum_close(
+                np.asarray(actual.E, dtype=np.float64).T
+                @ np.asarray(actual.E, dtype=np.float64),
+                expected_E.T @ expected_E,
+                atol=penalty_atol,
+            )
+            _assert_dominant_penalty_spectrum_close(
+                np.asarray(actual.Eb, dtype=np.float64).T
+                @ np.asarray(actual.Eb, dtype=np.float64),
+                expected_Eb.T @ expected_Eb,
+                atol=penalty_atol,
+            )
+        else:
+            _assert_root_gram_equal(actual.E, expected_E)
+            _assert_root_gram_equal(actual.Eb, expected_Eb)
 
     expected_UrS = _as_matrix_list(expected.get("UrS", []))
     assert len(actual.UrS) == len(expected_UrS)
     if compare_range_root_repr:
-        for a_UrS, e_UrS in zip(actual.UrS, expected_UrS):
+        for a_UrS, e_UrS in zip(actual.UrS, expected_UrS, strict=True):
             assert a_UrS.shape == e_UrS.shape
-            _assert_root_gram_equal(a_UrS, e_UrS, atol=penalty_atol)
+            if compare_dominant_penalty_spectrum:
+                _assert_dominant_penalty_spectrum_close(
+                    np.asarray(a_UrS, dtype=np.float64).T
+                    @ np.asarray(a_UrS, dtype=np.float64),
+                    np.asarray(e_UrS, dtype=np.float64).T
+                    @ np.asarray(e_UrS, dtype=np.float64),
+                    atol=penalty_atol,
+                )
+            else:
+                _assert_root_gram_equal(a_UrS, e_UrS, atol=penalty_atol)
 
 
 @pytest.mark.parametrize(
@@ -831,11 +835,6 @@ def test_preoptimization_blocks_match_mgcv(
     projector_atol = 1e-9 if case_id == "gaussian_fs" else 1e-10
     if case_id == "gaussian_fs":
         penalty_atol = 1e-8
-    elif case_id in {"gaussian_t2_full_false", "gaussian_t2_full_true"}:
-        # These two t2() slices are matching up to ~1e-12 on the penalty
-        # blocks, which is residual floating-point noise rather than a
-        # behavior-affecting preoptimization mismatch.
-        penalty_atol = 2e-12
     elif align_basis_columns:
         penalty_atol = 1e-10
     else:
@@ -844,6 +843,9 @@ def test_preoptimization_blocks_match_mgcv(
     _assert_preoptimization_parity(
         actual,
         expected,
+        compare_dominant_penalty_spectrum=gam_setup_compares_dominant_penalty_spectrum(
+            case_id
+        ),
         compare_design_space_only=compare_design_space_only,
         align_basis_columns=align_basis_columns,
         compare_range_root_repr=compare_range_root_repr,

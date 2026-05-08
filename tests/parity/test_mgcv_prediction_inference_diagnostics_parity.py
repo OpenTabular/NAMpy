@@ -21,6 +21,10 @@ import pytest
 
 from tests._mgcv_parity_requested_shared import CaseSpec
 from tests._mgcv_snapshot_parity_shared import _make_fs_data, _make_gaussian_data
+from tests.mgcv_invariant_policy import (
+    gam_setup_uses_invariant_transform,
+    stable_column_space_projector,
+)
 from tests.mgcv_parity_utils import (
     _family_specs,
     _fit_nampy_model,
@@ -107,13 +111,6 @@ ADDITIONAL_SCENARIO_CASES = [
         skip_coef_comparison=True,
         criterion_atol=1e-3,
     ),
-    CaseSpec(
-        case_id="gaussian_t2_ts_cr_reml",
-        formula='y ~ t2(x0, x1, bs=["ts", "cr"], k=[6, 6])',
-        family="gaussian",
-        data_factory=lambda: _make_gaussian_data(seed=375, n=180),
-        skip_coef_comparison=True,
-    ),
 ]
 
 
@@ -124,9 +121,7 @@ ORDINARY_CASES = _dedupe_cases(
 )
 CASE_BY_ID = {case.case_id: case for case in ORDINARY_CASES}
 PREDICTION_GAP_REASONS: dict[tuple[str, str], str] = {}
-UNCONDITIONAL_GAP_REASONS: dict[tuple[str, str], str] = {
-}
-ITERMS_GAP_REASONS: dict[str, str] = {}
+UNCONDITIONAL_GAP_REASONS: dict[tuple[str, str], str] = {}
 ANOVA_GAP_REASONS: dict[str, str] = {}
 RESIDUAL_GAP_REASONS: dict[tuple[str, str], str] = {}
 KCHECK_GAP_REASONS: dict[str, str] = {}
@@ -147,8 +142,6 @@ def _is_gaussian_case(case: CaseSpec) -> bool:
 
 
 def _prediction_tol(case: CaseSpec) -> float:
-    if case.case_id == "gaussian_t2_ts_cr_reml":
-        return 1e-5
     if case.case_id == "gaussian_fs_select_reml":
         return 1e-6
     if not _is_gaussian_case(case):
@@ -159,8 +152,6 @@ def _prediction_tol(case: CaseSpec) -> float:
 
 
 def _anova_tol(case: CaseSpec) -> float:
-    if case.case_id == "gaussian_t2_ts_cr_reml":
-        return 1e-4
     if case.case_id == "gaussian_fs_select_reml":
         return 2e-5
     if not _is_gaussian_case(case):
@@ -169,8 +160,6 @@ def _anova_tol(case: CaseSpec) -> float:
 
 
 def _residual_tol(case: CaseSpec) -> float:
-    if case.case_id == "gaussian_t2_ts_cr_reml":
-        return 1e-5
     if case.case_id == "gaussian_fs_select_reml":
         return 1e-6
     if case.case_id == "factor_smooth_sz":
@@ -183,8 +172,6 @@ def _residual_tol(case: CaseSpec) -> float:
 def _unconditional_tol(case: CaseSpec) -> float:
     if case.case_id == "binomial_separation":
         return 1e-6
-    if case.case_id == "gaussian_t2_ts_cr_reml":
-        return 1e-5
     if case.case_id == "gaussian_fs_select_reml":
         return 1e-6
     return max(_prediction_tol(case), 1e-7)
@@ -262,13 +249,6 @@ def _maybe_mark_unconditional_gap(
     _mark_expected_gap(
         request,
         UNCONDITIONAL_GAP_REASONS.get((case.case_id, pred_type)),
-    )
-
-
-def _maybe_mark_iterms_gap(request: pytest.FixtureRequest, case: CaseSpec) -> None:
-    _mark_expected_gap(
-        request,
-        ITERMS_GAP_REASONS.get(case.case_id),
     )
 
 
@@ -408,6 +388,14 @@ def test_predict_gam_newdata_surfaces_match_mgcv(
     if pred_type == "lpmatrix":
         actual = np.asarray(model.predict(X=newdata, type="lpmatrix"), dtype=np.float64)
         expected = np.asarray(r_result["pred"], dtype=np.float64)
+        if gam_setup_uses_invariant_transform(case.case_id):
+            np.testing.assert_allclose(
+                stable_column_space_projector(actual),
+                stable_column_space_projector(expected),
+                atol=tol,
+                rtol=0.0,
+            )
+            return
         np.testing.assert_allclose(actual, expected, atol=tol, rtol=tol)
         return
 
@@ -503,90 +491,6 @@ def test_predict_gam_unconditional_se_match_mgcv_or_documented_gap(
 @pytest.mark.parametrize(
     "case", ORDINARY_CASES, ids=[case.case_id for case in ORDINARY_CASES]
 )
-def test_predict_gam_iterms_newdata_matches_mgcv(
-    request: pytest.FixtureRequest, case: CaseSpec
-):
-    """Verify that predict gam iterms new-data matches mgcv."""
-    _maybe_mark_iterms_gap(request, case)
-
-    data, _expected, model = _case_bundle(case.case_id)
-    newdata = _newdata_for_case(case.case_id)
-    r_result = _run_mgcv_predict_on_newdata(
-        data,
-        newdata,
-        case.formula,
-        family=case.family,
-        method="REML",
-        type="iterms",
-        return_se=True,
-        select=case.select,
-        weights_column=case.weights_column,
-    )
-    actual_pred, actual_se = model.predict(X=newdata, type="iterms", return_se=True)
-
-    tol = _prediction_tol(case)
-    np.testing.assert_allclose(
-        _normalize_matrix(actual_pred),
-        _normalize_matrix(r_result["pred"]),
-        atol=tol,
-        rtol=tol,
-    )
-    np.testing.assert_allclose(
-        _normalize_matrix(actual_se),
-        _normalize_matrix(r_result["se"]),
-        atol=tol,
-        rtol=tol,
-    )
-
-
-@pytest.mark.parametrize(
-    "case", ORDINARY_CASES, ids=[case.case_id for case in ORDINARY_CASES]
-)
-def test_predict_gam_iterms_type_2_newdata_matches_mgcv(
-    request: pytest.FixtureRequest, case: CaseSpec
-):
-    """Verify that predict gam iterms type 2 new-data matches mgcv."""
-    _maybe_mark_iterms_gap(request, case)
-
-    data, _expected, model = _case_bundle(case.case_id)
-    newdata = _newdata_for_case(case.case_id)
-    r_result = _run_mgcv_predict_on_newdata(
-        data,
-        newdata,
-        case.formula,
-        family=case.family,
-        method="REML",
-        type="iterms",
-        return_se=True,
-        iterms_type=2,
-        select=case.select,
-        weights_column=case.weights_column,
-    )
-    actual_pred, actual_se = model.predict(
-        X=newdata,
-        type="iterms",
-        return_se=True,
-        iterms_type=2,
-    )
-
-    tol = _prediction_tol(case)
-    np.testing.assert_allclose(
-        _normalize_matrix(actual_pred),
-        _normalize_matrix(r_result["pred"]),
-        atol=tol,
-        rtol=tol,
-    )
-    np.testing.assert_allclose(
-        _normalize_matrix(actual_se),
-        _normalize_matrix(r_result["se"]),
-        atol=tol,
-        rtol=tol,
-    )
-
-
-@pytest.mark.parametrize(
-    "case", ORDINARY_CASES, ids=[case.case_id for case in ORDINARY_CASES]
-)
 def test_anova_gam_single_model_matches_mgcv(
     request: pytest.FixtureRequest, case: CaseSpec
 ):
@@ -611,13 +515,12 @@ def test_anova_gam_single_model_matches_mgcv(
             atol=max(tol, 1e-6),
             rtol=1e-6,
         )
-        if case.case_id != "mrf_lattice":
-            np.testing.assert_allclose(
-                actual_values[:, 2],
-                expected_values[:, 2],
-                atol=max(tol, 1e-6),
-                rtol=1e-3,
-            )
+        np.testing.assert_allclose(
+            actual_values[:, 2],
+            expected_values[:, 2],
+            atol=max(tol, 1e-6),
+            rtol=1e-3,
+        )
         _assert_p_values_close(
             actual_values[:, 3],
             expected_values[:, 3],

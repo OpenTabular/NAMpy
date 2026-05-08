@@ -17,7 +17,6 @@ normalize_formula_text <- function(x) {
 }
 
 kind_from_spec <- function(spec) {
-  if (inherits(spec, "t2.smooth.spec")) return("t2")
   if (inherits(spec, "tensor.smooth.spec")) {
     if (isTRUE(spec$inter)) return("ti")
     return("te")
@@ -27,7 +26,7 @@ kind_from_spec <- function(spec) {
 
 serialize_smooth <- function(spec) {
   k_val <- NULL
-  if (inherits(spec, c("tensor.smooth.spec", "t2.smooth.spec"))) {
+  if (inherits(spec, "tensor.smooth.spec")) {
     k_val <- lapply(spec$margin, function(m) unname(as.numeric(m$bs.dim)))
     k_val <- unname(as.numeric(unlist(k_val)))
   } else if (!is.null(spec$bs.dim)) {

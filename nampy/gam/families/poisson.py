@@ -15,8 +15,6 @@ class PoissonLogFamily(GLMFamily):
     supports_pirls = True
 
     supports_gcv = False
-    supports_ncv = True
-    supports_qncv = True
     supports_ubre = True
     supports_ml = True
     supports_reml = True
@@ -102,7 +100,7 @@ class PoissonIdentityFamily(PoissonLogFamily):
 
     def valid_eta(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
-        return bool(np.all(np.isfinite(eta)) and np.all(eta > 0.0))
+        return bool(np.all(np.isfinite(eta)))
 
     def working_weight_derivative_eta(self, eta, y=None):
         eta = np.asarray(eta, dtype=np.float64)

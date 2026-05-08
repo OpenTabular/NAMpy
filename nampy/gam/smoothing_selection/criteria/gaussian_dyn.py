@@ -4,10 +4,8 @@ import numpy as np
 
 from ..._mgcv_constants import LOG_GUARD_MIN
 from ..._model_state import _coef_column_offset, _n_smoothing_params
-from ...fit.model_ops import (
-    expand_smoothing_params_from_log,
-    solve_gaussian_given_smoothing,
-)
+from ...fit.backends import solve_gaussian_given_smoothing
+from ...fit.smoothing_params import expand_smoothing_params_from_log
 from ..reparam import (
     _static_penalty_null_dim,
     build_penalty_reparameterization_state,
@@ -18,7 +16,7 @@ from .gaussian_reml_algebra import (
     gaussian_weighted_residual_sum_squares,
     prior_weights_diagonal_from_fit,
 )
-from .pirls_deriv import _gdi1_kernel
+from .pirls.derivatives import _gdi1_kernel
 
 
 def _cache_gaussian_reml_scale_est(model, sol) -> None:
@@ -30,7 +28,7 @@ def _cache_gaussian_reml_scale_est(model, sol) -> None:
     model._gaussian_reml_last_scale_est_ = scale
 
 
-def _gaussian_dynamic_deviance_mgcv_style(
+def _gaussian_dynamic_deviance(
     sol,
     y: np.ndarray,
     prior_weights: np.ndarray,
@@ -59,7 +57,7 @@ def _gaussian_dynamic_deviance_mgcv_style(
     )
 
 
-def _gaussian_penalty_quadratic_mgcv_style(model, sol, sp) -> float:
+def _gaussian_penalty_quadratic(model, sol, sp) -> float:
     beta = np.asarray(sol["coef_full"], dtype=np.float64).ravel()
     if beta.size == 0:
         return 0.0
@@ -90,7 +88,7 @@ def _gaussian_dynamic_reml_derivative_terms(model, y, log_sp, method):
 
     n_s = int(model.n_samples_)
     w1 = prior_weights_diagonal_from_fit(sol, n_s)
-    dev = _gaussian_dynamic_deviance_mgcv_style(sol, y, w1)
+    dev = _gaussian_dynamic_deviance(sol, y, w1)
     kernel = _gdi1_kernel(model, y, sol, sp, method=method_u)
     Pq = float(kernel.bSb)
     F = float(dev) + float(Pq)
@@ -194,7 +192,7 @@ def criterion_ml_reml_gaussian_dynamic_joint(
     gamma = float(model.score_gamma)
     if not np.isfinite(gamma) or gamma <= 0.0:
         return np.inf
-    dev = _gaussian_dynamic_deviance_mgcv_style(sol, y, w1)
+    dev = _gaussian_dynamic_deviance(sol, y, w1)
     kernel = _gdi1_kernel(model, y, sol, sp, method=method_u)
     Pq = float(kernel.bSb)
     rss_bSb = float(dev) + float(Pq)
@@ -263,7 +261,7 @@ def criterion_ml_reml_gaussian_dynamic_profiled(model, y, log_sp_free, method="R
     ):
         return np.inf
 
-    dev = _gaussian_dynamic_deviance_mgcv_style(sol, y, w1)
+    dev = _gaussian_dynamic_deviance(sol, y, w1)
     kernel = _gdi1_kernel(model, y, sol, sp, method=method_u)
     Pq = float(kernel.bSb)
     F = float(dev) + float(Pq)
@@ -299,7 +297,7 @@ def criterion_gradient_ml_reml_gaussian_dynamic_joint(
     kernel = _gdi1_kernel(model, y, sol, sp, method=method_u)
     nobs = float(model.n_samples_)
     w1 = prior_weights_diagonal_from_fit(sol, int(nobs))
-    dev = _gaussian_dynamic_deviance_mgcv_style(sol, y, w1)
+    dev = _gaussian_dynamic_deviance(sol, y, w1)
     F = float(dev) + float(kernel.bSb)
     Mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     n_eff = getattr(model, "n_true_", None)
@@ -357,7 +355,7 @@ def criterion_hessian_ml_reml_gaussian_dynamic_joint(
 
     nobs = float(model.n_samples_)
     w1 = prior_weights_diagonal_from_fit(sol, int(nobs))
-    dev = _gaussian_dynamic_deviance_mgcv_style(sol, y, w1)
+    dev = _gaussian_dynamic_deviance(sol, y, w1)
     F = float(dev) + float(kernel.bSb)
     Mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     n_eff = getattr(model, "n_true_", None)

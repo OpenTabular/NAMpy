@@ -19,7 +19,9 @@ class CaseSpec:
     data_factory: callable
     select: bool = False
     weights_column: str | None = None
-    # tp eigenvector signs are LAPACK-implementation-dependent; compare predictions instead.
+    # Some smooths inherit non-unique eigensystem representatives from
+    # mgcv::eigen(..., symmetric=TRUE); compare prediction-space behavior instead
+    # of raw coefficients/covariance diagonals.
     skip_coef_comparison: bool = False
     criterion_atol: float = 1e-4
     se_tol_scale: float = 1e-6
@@ -58,6 +60,18 @@ def _assert_requested_parity(
             f"{case.case_id}: |link-link_mgcv| exceeded tolerance; "
             f"max_err={link_err.max():.3e}, max_tol={link_tol.max():.3e}"
         )
+        se_actual = np.asarray(
+            actual_snapshot["predictions"]["se_link"], dtype=np.float64
+        )
+        se_expected = np.asarray(
+            expected_snapshot["predictions"]["se_link"], dtype=np.float64
+        )
+        se_tol = float(case.se_tol_scale) * (1.0 + np.abs(se_actual))
+        se_err = np.abs(se_actual - se_expected)
+        assert np.all(se_err <= se_tol), (
+            f"{case.case_id}: |se_link-se_link_mgcv| exceeded tolerance; "
+            f"max_err={se_err.max():.3e}, max_tol={se_tol.max():.3e}"
+        )
     else:
         beta = np.asarray(actual_snapshot["fit"]["coef_full"], dtype=np.float64)
         beta_mgcv = np.asarray(expected_snapshot["fit"]["coef_full"], dtype=np.float64)
@@ -82,14 +96,15 @@ def _assert_requested_parity(
         f">= {float(case.criterion_atol):.3e}"
     )
 
-    cov = np.asarray(actual_snapshot["fit"]["cov_bayes"], dtype=np.float64)
-    cov_mgcv = np.asarray(expected_snapshot["fit"]["cov_bayes"], dtype=np.float64)
-    assert cov.shape == cov_mgcv.shape, f"{case.case_id}: covariance shape mismatch"
-    se = covariance_standard_errors(cov)
-    se_mgcv = covariance_standard_errors(cov_mgcv)
-    se_tol = float(case.se_tol_scale) * (1.0 + np.abs(se))
-    se_err = np.abs(se - se_mgcv)
-    assert np.all(se_err <= se_tol), (
-        f"{case.case_id}: |se-se_mgcv| exceeded tolerance; max_err={se_err.max():.3e}, "
-        f"max_tol={se_tol.max():.3e}"
-    )
+    if not case.skip_coef_comparison:
+        cov = np.asarray(actual_snapshot["fit"]["cov_bayes"], dtype=np.float64)
+        cov_mgcv = np.asarray(expected_snapshot["fit"]["cov_bayes"], dtype=np.float64)
+        assert cov.shape == cov_mgcv.shape, f"{case.case_id}: covariance shape mismatch"
+        se = covariance_standard_errors(cov)
+        se_mgcv = covariance_standard_errors(cov_mgcv)
+        se_tol = float(case.se_tol_scale) * (1.0 + np.abs(se))
+        se_err = np.abs(se - se_mgcv)
+        assert np.all(se_err <= se_tol), (
+            f"{case.case_id}: |se-se_mgcv| exceeded tolerance; max_err={se_err.max():.3e}, "
+            f"max_tol={se_tol.max():.3e}"
+        )

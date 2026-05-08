@@ -300,7 +300,7 @@ def apply_global_side_conditions(
             fit_intercept
             and not runtime_skip_centering
             and (runtime_by_name is None or bool(runtime_by_is_constant))
-            and not bool(tb.term_type in {"tensor_interaction", "tensor_anova"})
+            and not bool(tb.term_type in {"tensor_interaction"})
         ):
             centering = np.sum(B, axis=0, keepdims=True)
             if np.linalg.norm(centering) > tol:
@@ -316,7 +316,9 @@ def apply_global_side_conditions(
                     absorbed_centering = True
 
         # Step (b): drop columns linearly dependent on the accumulator.
-        if policy is not None and policy.allow_first_numeric_by_unpruned:
+        if policy is not None and policy.exempt_from_dependency_pruning:
+            keep = np.arange(d, dtype=int)
+        elif policy is not None and policy.allow_first_numeric_by_unpruned:
             # Ordinary non-constant numeric by-variable smooths should keep their
             # raw term basis for the first occurrence, but later terms still need
             # ordinary cross-term redundancy removal against the accumulated

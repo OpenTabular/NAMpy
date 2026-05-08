@@ -136,9 +136,7 @@ class BinomialCloglogFamily(_BinomialBase):
         M = lam * np.exp(-lam)
         V = mu * (1.0 - mu)
         # d/deta [M^2/V] = M^2 * [2*(1-lam)*V - (1-2*mu)*M] / V^2
-        return M**2 * (2.0 * (1.0 - lam) * V - (1.0 - 2.0 * mu) * M) / (
-            V**2
-        )
+        return M**2 * (2.0 * (1.0 - lam) * V - (1.0 - 2.0 * mu) * M) / (V**2)
 
 
 class BinomialCauchitFamily(_BinomialBase):

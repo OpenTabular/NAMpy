@@ -7,7 +7,7 @@ from scipy.optimize import OptimizeResult
 
 from ..._mgcv_constants import PENALTY_RIDGE_REL
 from .basics import _project_to_bounds
-from .newton_mgcv import _optimize_outer_newton_mgcv
+from .newton_strict import _optimize_outer_newton_strict
 
 
 def optimize_outer_newton_generic(
@@ -15,7 +15,7 @@ def optimize_outer_newton_generic(
     x0,
     bounds,
     max_iter=50,
-    grad_tol=1e-6,
+    grad_tol=1e-8,
     step_tol=1e-8,
 ):
     """Generic safeguarded Newton solve for non-mgcv outer criteria."""
@@ -173,7 +173,10 @@ def optimize_outer_newton_indefinite_hessian(
                     if start_mu is None
                     else np.asarray(start_mu, dtype=np.float64).copy()
                 )
-                model._pirls_lock_start_ = not bool(commit_start)
+                # Keep the PIRLS warm start fixed across score/gradient/Hessian
+                # evaluations at the same outer point. mgcv only advances
+                # `start`/`mustart` after the point is accepted.
+                model._pirls_lock_start_ = True
 
             objective._last_x = None
             objective._last_fun = None
@@ -191,8 +194,9 @@ def optimize_outer_newton_indefinite_hessian(
             if need_hess:
                 if (
                     model is not None
-                    and str(getattr(getattr(model, "family", None), "family_class", ""))
-                    .lower()
+                    and str(
+                        getattr(getattr(model, "family", None), "family_class", "")
+                    ).lower()
                     == "general"
                     and str(getattr(objective, "method", "")).lower()
                     in {"ml", "reml", "laml"}
@@ -287,6 +291,13 @@ def optimize_outer_newton_indefinite_hessian(
                     scale_est = float(phi)
 
             if model is not None:
+                if commit_start:
+                    if coef_eval is not None:
+                        model._pirls_coef_start_ = np.asarray(
+                            coef_eval, dtype=np.float64
+                        ).copy()
+                    if mu_eval is not None:
+                        model._pirls_mu_start_ = np.asarray(mu_eval, dtype=np.float64).copy()
                 model._pirls_eval_start_ = None
                 model._pirls_eval_eta_start_ = None
                 model._pirls_eval_mu_start_ = None
@@ -303,7 +314,7 @@ def optimize_outer_newton_indefinite_hessian(
                 scale_est,
             )
 
-        return _optimize_outer_newton_mgcv(
+        return _optimize_outer_newton_strict(
             objective=objective,
             x0=x0,
             bounds=bounds,
@@ -323,9 +334,9 @@ def optimize_outer_newton_indefinite_hessian(
             model.irls_tol = prev_irls_tol
 
 
-def optimize_outer_newton_mgcv(*args, **kwargs):
+def optimize_outer_newton_strict(*args, **kwargs):
     """Public alias for direct mgcv-style Newton calls."""
-    return _optimize_outer_newton_mgcv(*args, **kwargs)
+    return _optimize_outer_newton_strict(*args, **kwargs)
 
 
 _optimize_outer_newton = optimize_outer_newton_generic
@@ -335,7 +346,7 @@ _optimize_outer_newton_indefinite_hessian = optimize_outer_newton_indefinite_hes
 __all__ = [
     "optimize_outer_newton_generic",
     "optimize_outer_newton_indefinite_hessian",
-    "optimize_outer_newton_mgcv",
+    "optimize_outer_newton_strict",
     "_optimize_outer_newton",
     "_optimize_outer_newton_indefinite_hessian",
 ]

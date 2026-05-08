@@ -97,8 +97,8 @@ def test_newton_score_hist_matches_r_exact(family, seed, atol):
 
     result = getattr(gam, "_optim_result", None)
     assert result is not None
-    assert hasattr(result, "mgcv_score_hist")
-    actual = np.asarray(result.mgcv_score_hist, dtype=np.float64)
+    assert hasattr(result, "strict_score_hist")
+    actual = np.asarray(result.strict_score_hist, dtype=np.float64)
     expected_hist = np.asarray(
         expected["fit"]["outer_info"]["score_hist"], dtype=np.float64
     )

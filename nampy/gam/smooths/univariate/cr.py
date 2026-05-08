@@ -228,7 +228,7 @@ class CubicSplineTerm(BaseSmoothTerm):
                 S_for_scale = np.asarray(
                     self._spline.raw_penalty_unscaled, dtype=np.float64
                 )
-            self._set_mgcv_penalty_rescale_factors(
+            self._set_penalty_rescale_factors(
                 [penalty_rescale_factor(self._spline.raw_basis, S_for_scale)]
             )
 
@@ -387,7 +387,7 @@ class CubicSplineTerm(BaseSmoothTerm):
 
         S_raw = D.T @ BD
         S_sym = 0.5 * (S_raw + S_raw.T)
-        self._set_mgcv_penalty_rescale_factors(
+        self._set_penalty_rescale_factors(
             [penalty_rescale_factor(setup_base, S_sym)]
         )
         main_penalty = scale_penalty(setup_base, S_sym)

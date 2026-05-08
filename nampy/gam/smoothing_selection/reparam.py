@@ -33,7 +33,7 @@ from .._model_state import (
     _penalty_blocks_seq,
     _term_blocks_seq,
 )
-from ..fit.model_ops import uses_closed_form_solver
+from ..fit.capabilities import uses_closed_form_solver
 from ..linalg import (
     matrix_sqrt_psd,
     numerical_rank,
@@ -288,7 +288,7 @@ def _mroot_chol(P, *, rank=None):
     return np.asarray(R[:rank_use, :].T, dtype=np.float64)
 
 
-def _mgcv_full_design_matrix(model) -> np.ndarray:
+def _full_design_matrix(model) -> np.ndarray:
     compiled = _compiled_model(model)
     if compiled is None:
         raise RuntimeError("Compiled model is unavailable.")
@@ -315,7 +315,7 @@ def _mgcv_full_design_matrix(model) -> np.ndarray:
     return X_red
 
 
-def _mgcv_full_coef_indices(model, coef_slice: slice) -> np.ndarray:
+def _full_coef_indices(model, coef_slice: slice) -> np.ndarray:
     compiled = _compiled_model(model)
     if compiled is None:
         raise RuntimeError("Compiled model is unavailable.")
@@ -405,7 +405,7 @@ def _total_penalty_space_from_blocks(
     return Y, Z, E
 
 
-def _mgcv_l_matrix_and_lsp0(
+def _build_log_smoothing_parameter_map(
     model,
     X_full: np.ndarray,
     penalties: list[np.ndarray],
@@ -513,14 +513,14 @@ def build_estimate_gam_setup_state(
     if compiled is None:
         raise RuntimeError("Compiled model is unavailable.")
 
-    X_full = _mgcv_full_design_matrix(model)
+    X_full = _full_design_matrix(model)
     p_full = int(X_full.shape[1])
     penalty_blocks = list(_penalty_blocks_seq(model))
 
     penalties = [np.asarray(pb.matrix, dtype=np.float64) for pb in penalty_blocks]
     offsets = np.asarray(
         [
-            int(_mgcv_full_coef_indices(model, pb.coef_slice)[0]) + 1
+            int(_full_coef_indices(model, pb.coef_slice)[0]) + 1
             for pb in penalty_blocks
         ],
         dtype=np.int64,
@@ -539,7 +539,7 @@ def build_estimate_gam_setup_state(
         dtype=np.int64,
     )
 
-    L, lsp0, sp_free, log_sp_full = _mgcv_l_matrix_and_lsp0(
+    L, lsp0, sp_free, log_sp_full = _build_log_smoothing_parameter_map(
         model,
         X_full,
         penalties,
@@ -1061,6 +1061,14 @@ def build_penalty_reparameterization_state(
     Z = np.asarray(setup.Z, dtype=np.float64)
     UrS, lsp, _L_full = _penalty_log_smoothing_map(model, setup, sp)
     rp = gam_reparam(UrS, lsp, deriv=deriv)
+    _roots_grouped, UrS_grouped, UrS_grouped_with_fixed, _S_groups = (
+        _group_exact_setup_roots_by_smoothing_parameter(model, setup)
+    )
+    UrS_public = (
+        UrS_grouped_with_fixed
+        if len(UrS_grouped_with_fixed) != len(UrS_grouped)
+        else UrS_grouped
+    )
 
     q_range = int(Y.shape[1])
     q_full = int(X_full.shape[1])
@@ -1102,7 +1110,7 @@ def build_penalty_reparameterization_state(
         Y=Y,
         Z=Z,
         U1=U1,
-        UrS=UrS,
+        UrS=UrS_public,
         rp=rp,
         T=T,
         St=St,

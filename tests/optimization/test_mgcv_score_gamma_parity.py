@@ -59,7 +59,7 @@ family_obj <- switch(
   gaussian = gaussian(),
   poisson = poisson(link = "log"),
   gamma = {
-    link <- if (is.null(family_param) || family_param == "") "log" else family_param
+    link <- if (is.null(family_param) || family_param == "") "inverse" else family_param
     Gamma(link = link)
   },
   stop(sprintf("Unsupported family: %s", family_name))
@@ -237,6 +237,7 @@ class TestMgcvScoreGammaParity:
     Fixed-smoothing score and derivative parity checks against mgcv across exact and
     PIRLS-backed families.
     """
+
     def test_gaussian_exact_reml_fixed_sp_matches_mgcv(self):
         """Verify that gaussian exact REML fixed sp matches mgcv."""
         data = _make_gaussian_data(seed=1401, n=180)

@@ -115,8 +115,7 @@ def null_space_basis_from_constraint_matrix(
         return _single_constraint_null_space_basis_r_qr(C, d=d)
     # Mirror mgcv smoothCon(absorb.cons=TRUE), which forms qr(t(C)) and takes
     # the trailing columns of Q as a constraint null-space basis. An SVD basis
-    # spans the same space but can rotate coefficients differently, which shows
-    # up in parity-sensitive terms such as t2(full=FALSE).
+    # spans the same space but can rotate coefficients differently.
     Qt, R = scipy_qr(C.T, mode="full", pivoting=False)
     del R, tol
     n_constraints = int(C.shape[0])
@@ -128,9 +127,7 @@ def _single_constraint_null_space_basis_r_qr(C, d: int | None = None):
     Mirror base R default ``qr(t(C))`` / ``qr.qty`` for a single dense constraint.
 
     `mgcv::smoothCon(absorb.cons=TRUE)` uses base R's default `qr`, which for this
-    one-column case follows the LINPACK reflector path rather than LAPACK. That
-    differs by 1 ulp from `dgeqrf`/SciPy QR on some smooths (notably `bs="mrf"`),
-    and those last-bit differences propagate into exact-fit Gaussian residual parity.
+    one-column case follows the LINPACK reflector path rather than LAPACK.
     """
     C = np.asarray(C, dtype=np.float64)
     if C.ndim != 2 or C.shape[0] != 1:
@@ -176,9 +173,8 @@ def localized_null_space_basis_from_constraint_matrix(
     When a constraint matrix has support on only a strict subset of coefficient
     coordinates, a generic SVD null-space basis can arbitrarily rotate the full
     coefficient space. That is mathematically valid, but it destroys block-local
-    penalty structure such as t2's separate identity penalties. This helper
-    keeps inactive coordinates as explicit identity columns and reparameterizes
-    only the active block.
+    penalty structure. This helper keeps inactive coordinates as explicit
+    identity columns and reparameterizes only the active block.
     """
     C = np.asarray(C, dtype=np.float64)
     if C.ndim == 1:

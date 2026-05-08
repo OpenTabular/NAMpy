@@ -10,7 +10,7 @@ from nampy.gam._model_state import (
     _summary_R,
     _term_blocks_seq,
 )
-from nampy.gam.inference.anova import _edf1_vector, _residual_df_approx_mgcv
+from nampy.gam.inference.anova import _edf1_vector, _approximate_residual_df
 from tests.mgcv_parity_utils import _fit_nampy_model, _make_gamma_data, _run_mgcv_snapshot
 
 pytestmark = [pytest.mark.surface_output, pytest.mark.surface_regression]
@@ -105,7 +105,7 @@ def test_gamma_anova_residual_df_stage_matches_mgcv_snapshot_components(formula:
         - float(expected["fit"]["edf_total"])
     )
     np.testing.assert_allclose(
-        np.asarray([_residual_df_approx_mgcv(gam)], dtype=np.float64),
+        np.asarray([_approximate_residual_df(gam)], dtype=np.float64),
         np.asarray([expected_resid_df], dtype=np.float64),
         atol=5e-6,
         rtol=5e-6,

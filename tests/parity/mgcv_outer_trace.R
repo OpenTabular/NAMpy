@@ -47,23 +47,21 @@ family_object <- function(family_name) {
     },
     poisson = poisson(link = "log"),
     gamma = {
-      link <- if (is.null(family_param) || family_param == "") "log" else family_param
+      link <- if (is.null(family_param) || family_param == "") "inverse" else family_param
       Gamma(link = link)
     },
     negbin = {
       theta <- if (is.null(family_param) || family_param == "") 1.0 else as.numeric(family_param)
-      mgcv::nb(theta = theta, link = "log")
+      link <- if (length(family_parts) >= 3 && nzchar(family_parts[[3]])) family_parts[[3]] else "log"
+      do.call(mgcv::nb, list(theta = theta, link = link))
     },
     negbin_est = {
       theta <- if (is.null(family_param) || family_param == "") 1.0 else as.numeric(family_param)
-      mgcv::nb(theta = -abs(theta), link = "log")
+      link <- if (length(family_parts) >= 3 && nzchar(family_parts[[3]])) family_parts[[3]] else "log"
+      do.call(mgcv::nb, list(theta = -abs(theta), link = link))
     },
     gaulss = mgcv::gaulss(),
     gammals = mgcv::gammals(),
-    ziplss = mgcv::ziplss(),
-    gevlss = mgcv::gevlss(),
-    shash = mgcv::shash(),
-    shashlss = mgcv::shash(),
     stop(sprintf("Unsupported family for outer trace parity: %s", family_name))
   )
 }
@@ -326,19 +324,31 @@ split_scale_blocks <- function(log_sp_full, gradient, hessian, n_sp, extra_kind 
   )
 
   if (length(log_sp_full) > n_sp) {
-    extra_val <- unname(as.numeric(log_sp_full[length(log_sp_full)]))
-    out$log_sp <- log_sp_full[seq_len(n_sp)]
     if (identical(extra_kind, "theta")) {
+      ## mgcv/R/mgcv.r prepends extended-family theta: `lsp <- c(th0, lsp)`.
+      extra_val <- unname(as.numeric(log_sp_full[1]))
+      out$log_sp <- log_sp_full[seq_len(n_sp) + 1]
       out$log_theta <- extra_val
     } else {
+      extra_val <- unname(as.numeric(log_sp_full[length(log_sp_full)]))
+      out$log_sp <- log_sp_full[seq_len(n_sp)]
       out$log_scale <- extra_val
     }
   }
   if (!is.null(gradient) && length(gradient) > n_sp) {
-    out$gradient <- gradient[seq_len(n_sp)]
+    if (identical(extra_kind, "theta")) {
+      out$gradient <- gradient[seq_len(n_sp) + 1]
+    } else {
+      out$gradient <- gradient[seq_len(n_sp)]
+    }
   }
   if (!is.null(hessian) && nrow(hessian) > n_sp) {
-    out$hessian <- hessian[seq_len(n_sp), seq_len(n_sp), drop = FALSE]
+    if (identical(extra_kind, "theta")) {
+      ind <- seq_len(n_sp) + 1
+    } else {
+      ind <- seq_len(n_sp)
+    }
+    out$hessian <- hessian[ind, ind, drop = FALSE]
   }
   out
 }

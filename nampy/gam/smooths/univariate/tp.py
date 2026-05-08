@@ -152,7 +152,7 @@ class ThinPlateSplineTerm(BaseSmoothTerm):
                 base,
                 np.asarray(self._setup.penalty, dtype=np.float64),
             )
-        self._set_mgcv_penalty_rescale_factors(
+        self._set_penalty_rescale_factors(
             [
                 penalty_rescale_factor(
                     setup_base, np.asarray(self._setup.penalty, dtype=np.float64)

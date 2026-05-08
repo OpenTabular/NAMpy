@@ -13,8 +13,8 @@ Top-level dispatch for smoothing-selection criterion value, gradient, and Hessia
 import numpy as np
 
 from ...fit.backends import GENERAL_FAMILY_BACKEND
-from ...fit.model_ops import uses_closed_form_solver
-from ...fit.solvers.general_family_solver import (
+from ...fit.capabilities import uses_closed_form_solver
+from ...fit.solvers.general_family.fixed_smoothing import (
     criterion_gradient_ml_reml_general_family,
     criterion_hessian_ml_reml_general_family,
 )
@@ -25,15 +25,16 @@ from .ml_reml import (
     criterion_ml_reml,
     resolve_ml_reml_scoring_backend,
 )
-from .ncv import criterion_gradient_ncv, criterion_ncv
 from .pirls import (
     _current_joint_negbin_eval_state,
     _is_joint_negbin_theta_model,
     criterion_gcv_pirls,
+    criterion_gradient_gcv_ubre_pirls_exact,
+    criterion_hessian_gcv_ubre_pirls_exact,
     criterion_ml_reml_pirls_frozen_negbin,
     criterion_ubre_pirls,
 )
-from .pirls_deriv import (
+from .pirls.derivatives import (
     criterion_gradient_ml_reml_pirls_exact,
     criterion_hessian_ml_reml_pirls_exact,
 )
@@ -50,9 +51,10 @@ def _normalize_criterion_method(model, method):
 
     if family_class == "extended":
         return "reml"
-    if family_name in {"binomial", "poisson"} and getattr(
-        family, "known_scale", None
-    ) is not None:
+    if (
+        family_name in {"binomial", "poisson"}
+        and getattr(family, "known_scale", None) is not None
+    ):
         return "aic"
     if family_name == "negbin":
         return "reml"
@@ -65,10 +67,6 @@ def criterion_value(model, y, log_sp, method="gcv"):
         if uses_closed_form_solver(model):
             return criterion_gcv_gaussian(model, y, log_sp)
         return criterion_gcv_pirls(model, y, log_sp)
-    if method == "ncv":
-        return criterion_ncv(model, y, log_sp, qapprox=False)
-    if method == "qncv":
-        return criterion_ncv(model, y, log_sp, qapprox=True)
     if method in {"ubre", "aic", "ubreaic"}:
         return criterion_ubre_pirls(model, y, log_sp)
     if method == "ml":
@@ -81,7 +79,7 @@ def criterion_value(model, y, log_sp, method="gcv"):
         return criterion_ml_reml(model, y, log_sp, method)
     raise ValueError(
         "method must be one of "
-        "{'gcv', 'ncv', 'qncv', 'ubre', 'aic', 'ubreaic', 'ml', 'reml', 'laml'}"
+        "{'gcv', 'ubre', 'aic', 'ubreaic', 'ml', 'reml', 'laml'}"
     )
 
 
@@ -159,10 +157,8 @@ def criterion_gradient(
     eps_rel=1e-4,
 ):
     method = _normalize_criterion_method(model, method)
-    if method == "ncv":
-        return criterion_gradient_ncv(model, y, log_sp, qapprox=False)
-    if method == "qncv":
-        return criterion_gradient_ncv(model, y, log_sp, qapprox=True)
+    if method in {"gcv", "ubre", "aic", "ubreaic"}:
+        return criterion_gradient_gcv_ubre_pirls_exact(model, y, log_sp, method)
     if method in {"ml", "reml", "laml"}:
         backend = resolve_ml_reml_scoring_backend(model, method=method)
         if backend in {"gaussian_exact", "gaussian_dynamic"}:
@@ -292,6 +288,8 @@ def criterion_hessian(
     eps_rel=1e-3,
 ):
     method = _normalize_criterion_method(model, method)
+    if method in {"gcv", "ubre", "aic", "ubreaic"}:
+        return criterion_hessian_gcv_ubre_pirls_exact(model, y, log_sp, method)
     if method in {"ml", "reml", "laml"}:
         backend = resolve_ml_reml_scoring_backend(model, method=method)
         if (

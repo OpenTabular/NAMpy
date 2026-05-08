@@ -5,8 +5,6 @@ import pytest
 
 from nampy.gam._model_state import _term_blocks_seq
 from nampy.gam.parity import build_optimizer_trace
-from nampy.gam.parity.snapshots import _normalize_mgcv_term_label
-from tests.families.test_general_family_mgcv_parity import _gaulss_two_smooth_data
 from tests.mgcv_parity_utils import (
     _fit_nampy_model,
     _make_gamma_data,
@@ -101,128 +99,6 @@ def test_fit_result_public_schema_tracks_term_results_without_duplicate_owners()
         assert item["smoothing_indices"] == [int(v) for v in tb.smoothing_indices]
         assert item["smoothing_ids"] == list(tb.smoothing_ids)
         _assert_metadata_equal(item["metadata"], dict(tb.metadata or {}))
-
-
-def test_general_family_parity_snapshot_diagnostic_labels_follow_public_apis():
-    """
-    Owner-contract coverage verifying that general family parity snapshot diagnostic
-    labels follow public apis.
-    """
-    data = _gaulss_two_smooth_data(seed=49)
-    formula = ['y ~ s(x, bs="cr", k=6) + s(z, bs="cr", k=6)', "~ 1"]
-    gam = _fit_nampy_model(data, formula, "gaulss", "ML")
-
-    snapshot = gam.parity_snapshot(include_covariances=True)
-    diagnostics = snapshot["parity"]["diagnostics"]
-    concurvity_full = gam.concurvity(full=True)
-    k_check = gam.k_check(subsample=120, n_rep=8, seed=0)
-    anova = gam.anova(freq=False)
-    gam_vcomp = gam.gam_vcomp(rescale=False)
-
-    assert set(snapshot) == {"fit", "predictions", "parity"}
-    assert set(snapshot["predictions"]) == {
-        "response",
-        "link",
-        "terms",
-        "lpmatrix",
-        "se_response",
-        "se_link",
-    }
-    assert diagnostics["concurvity_labels"] == [
-        _normalize_mgcv_term_label(v) for v in concurvity_full["labels"]
-    ]
-    assert diagnostics["k_check"]["labels"] == [
-        _normalize_mgcv_term_label(v) for v in k_check.index.tolist()
-    ]
-    assert diagnostics["anova_smooth"]["labels"] == [
-        _normalize_mgcv_term_label(v) for v in anova.smooth_table["label"].tolist()
-    ]
-    assert diagnostics["gam_vcomp_names"] == list(gam_vcomp.get("names", []))
-    np.testing.assert_allclose(
-        np.asarray(diagnostics["gam_vcomp"], dtype=np.float64),
-        np.asarray(gam_vcomp["vc"], dtype=np.float64),
-        atol=1e-12,
-        rtol=0.0,
-    )
-
-
-def test_parity_snapshot_prediction_arrays_track_public_prediction_surfaces():
-    """
-    Owner-contract coverage verifying that parity snapshot prediction arrays track
-    public prediction surfaces.
-    """
-    data = _gaulss_two_smooth_data(seed=53)
-    formula = ['y ~ s(x, bs="cr", k=6) + s(z, bs="cr", k=6)', "~ 1"]
-    gam = _fit_nampy_model(data, formula, "gaulss", "ML")
-
-    snapshot = gam.parity_snapshot(X=data, include_covariances=True)
-    expected_shapes = {
-        "response": np.asarray(gam.predict(data, type="response"), dtype=np.float64),
-        "link": np.asarray(gam.predict(data, type="link"), dtype=np.float64),
-        "terms": np.asarray(gam.predict(data, type="terms"), dtype=np.float64),
-        "lpmatrix": np.asarray(gam.predict(data, type="lpmatrix"), dtype=np.float64),
-    }
-
-    for key, value in expected_shapes.items():
-        snap_arr = np.asarray(snapshot["predictions"][key], dtype=np.float64)
-        expected = value.reshape(-1, order="F") if value.ndim == 2 else value
-        np.testing.assert_allclose(snap_arr, expected, atol=1e-12, rtol=0.0)
-
-
-def test_general_family_snapshot_schema_includes_smooth_covariance_and_function_space_blocks():
-    """
-    Owner-contract coverage verifying that general family snapshot schema includes
-    smooth covariance and function space blocks.
-    """
-    data = _gaulss_two_smooth_data(seed=57)
-    formula = ['y ~ s(x, bs="cr", k=6) + s(z, bs="cr", k=6)', "~ 1"]
-    gam = _fit_nampy_model(data, formula, "gaulss", "ML")
-
-    snapshot = gam.parity_snapshot(X=data, include_covariances=True)
-    diagnostics = snapshot["parity"]["diagnostics"]
-
-    for key in ("smooth_cov_bayes", "smooth_test_inputs", "smooth_function_space"):
-        assert diagnostics[key] is not None
-    assert (
-        diagnostics["smooth_cov_bayes"]["labels"]
-        == diagnostics["smooth_function_space"]["labels"]
-    )
-    assert (
-        diagnostics["smooth_test_inputs"]["labels"]
-        == diagnostics["smooth_function_space"]["labels"]
-    )
-
-
-def test_general_family_snapshot_term_order_preserves_predictor_partition_mapping():
-    """
-    Owner-contract coverage verifying that general family snapshot term order preserves
-    predictor partition mapping.
-    """
-    import pandas as pd
-
-    rng = np.random.default_rng(61)
-    n = 120
-    x = np.linspace(-1.0, 1.0, n)
-    z = rng.uniform(-1.2, 1.2, size=n)
-    mu = 0.25 + 0.3 * x - 0.2 * np.cos(1.3 * z)
-    sigma = np.exp(-0.35 + 0.15 * x + 0.1 * z)
-    y = rng.normal(mu, sigma, size=n)
-    data = pd.DataFrame({"y": y, "x": x, "z": z})
-    formula = [
-        'y ~ x + s(z, bs="cr", k=6)',
-        '~ z + s(x, bs="cr", k=6)',
-    ]
-    gam = _fit_nampy_model(data, formula, "gaulss", "ML")
-
-    snapshot = gam.parity_snapshot(X=data, include_covariances=True)
-    term_labels = [item["label"] for item in snapshot["fit"]["term_results"]]
-    expected_term_labels = [tb.label for tb in _term_blocks_seq(gam)]
-    assert term_labels == expected_term_labels
-    assert snapshot["parity"]["diagnostics"]["smooth_function_space"]["labels"] == [
-        _normalize_mgcv_term_label(tb.label)
-        for tb in _term_blocks_seq(gam)
-        if str(getattr(tb, "term_type", "")) != "parametric"
-    ]
 
 
 def test_optimizer_trace_schema_preserves_internal_joint_gamma_rows():

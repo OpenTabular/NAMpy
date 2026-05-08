@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 
 from nampy.gam.linalg import column_space_projector, symmetric_spectrum
-from nampy.gam.smooths.algebra import t2_marginal_reparameterization
 from nampy.gam.smooths.tensor.marginals import tensor_marginal_fit_matrices
 from nampy.gam.smooths.tensor.te import TensorProductSplineTerm
 from nampy.gam.smooths.univariate.tp import ThinPlateSplineTerm
@@ -26,6 +25,10 @@ _TE_MIXED_BASIS_STAGE_CASES = [
     pytest.param("te_2d_cr_cs", 2e-3, id="te_2d_cr_cs"),
     pytest.param("te_2d_tp_ts", 5e-8, id="te_2d_tp_ts"),
 ]
+_TE_MIXED_BASIS_FORMULAS = {
+    "te_2d_cr_cs": 'te(x0, x1, bs=["cr", "cs"], k=[5, 6])',
+    "te_2d_tp_ts": 'te(x0, x1, bs=["tp", "ts"], k=[5, 6])',
+}
 
 
 def _stage_tensor_data():
@@ -84,8 +87,7 @@ def _te_prediction_parameterization(data, *, by=None):
 
 
 def _te_stage_case_prediction(case_id):
-    case = _RAW_CASES_BY_ID[case_id]
-    data = case.data_factory()
+    data = _stage_tensor_data()
     if case_id == "te_2d_cr_cs":
         term = TensorProductSplineTerm(
             feature=["x0", "x1"],
@@ -112,7 +114,7 @@ def _te_stage_case_prediction(case_id):
     expected = _run_mgcv_smoothcon_predict_matrix(
         data[["x0", "x1"]],
         newdata[["x0", "x1"]],
-        case.formula.split("~", 1)[1].strip(),
+        _TE_MIXED_BASIS_FORMULAS[case_id],
         absorb_cons=True,
         scale_penalty=True,
     )
@@ -137,23 +139,6 @@ def test_te_tp_raw_constructor_invariants_match_mgcv():
         atol=1e-10,
         rtol=1e-10,
     )
-
-
-def test_te_tp_natparam_type3_kernel_matches_mgcv_on_same_raw_inputs():
-    """Verify that te tp natparam type3 kernel matches mgcv on same raw inputs."""
-    data = _stage_tensor_data()
-    expected = _mgcv_tp_natparam(data)
-
-    actual = t2_marginal_reparameterization(
-        expected["rawX"],
-        expected["rawS"],
-        basis_name="tp",
-    )
-    got_X = np.column_stack([actual["B_range"], actual["B_null"]])
-    got_P = np.column_stack([actual["T_range"], actual["T_null"]])
-
-    np.testing.assert_allclose(got_X, expected["X"], atol=1e-12, rtol=1e-12)
-    np.testing.assert_allclose(got_P, expected["P"], atol=1e-12, rtol=1e-12)
 
 
 def test_te_prediction_parameterization_matches_mgcv_predict_matrix():

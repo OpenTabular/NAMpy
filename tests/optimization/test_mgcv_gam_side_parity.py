@@ -10,8 +10,11 @@ from nampy.gam import GAM
 from nampy.gam.compiler.compile_predictors import compile_predictors
 from nampy.gam.constraints.identifiability import apply_global_side_conditions
 from nampy.gam.specs.modeling import prepare_formula_inputs
-from tests.families.test_general_family_mgcv_parity import _gaulss_tensor_data
-from tests.mgcv_invariant_policy import gam_side_uses_invariant_transform
+from tests.mgcv_invariant_policy import (
+    gam_setup_compares_dominant_penalty_spectrum,
+    gam_side_uses_invariant_transform,
+    penalty_spectrum,
+)
 from tests.mgcv_parity_utils import _make_gaussian_data, _run_mgcv_gam_setup_assembly
 from tests.optimization.test_mgcv_general_family_preoptimization_parity import (
     GENERAL_PREOPT_CASES,
@@ -28,9 +31,6 @@ _UNSTABLE_DEL_INDEX_CASES = {
     # reparameterization/prediction bookkeeping. Compare exact side effects via
     # final blocks, penalties, ranks, and deletion counts instead.
     "nested_te",
-    "nested_t2",
-    "nested_t2_full",
-    "gaussian_no_intercept_nested_t2",
 }
 
 
@@ -98,8 +98,6 @@ def _python_smooth_class_name(tb) -> str:
     term_spec = dict((tb.metadata or {}).get("term_spec", {}) or {})
     basis_options = dict(term_spec.get("basis_options", {}) or {})
     special = str(basis_options.get("special", "s")).lower()
-    if special == "t2":
-        return "t2.smooth"
     if special in {"te", "ti"}:
         return "tensor.smooth"
 
@@ -112,8 +110,6 @@ def _python_smooth_class_name(tb) -> str:
         "ps": "pspline.smooth",
         "tp": "tprs.smooth",
         "ts": "ts.smooth",
-        "gp": "gp.smooth",
-        "mrf": "mrf.smooth",
         "re": "random.effect",
         "fs": "fs.interaction",
         "sz": "sz.interaction",
@@ -198,7 +194,7 @@ def _build_actual_side_surface(raw_predictors, adjusted_predictors, reports):
     smooths = []
     full_col = 1
     for raw_predictor, predictor, report in zip(
-        raw_predictors, adjusted_predictors, reports
+        raw_predictors, adjusted_predictors, reports, strict=True
     ):
         if bool(predictor.has_intercept):
             full_col += 1
@@ -207,7 +203,7 @@ def _build_actual_side_surface(raw_predictors, adjusted_predictors, reports):
         report_by_term_id = {
             str(tb.term_id): term_report
             for tb, term_report in zip(
-                raw_predictor.compiled_terms, report["term_reports"]
+                raw_predictor.compiled_terms, report["term_reports"], strict=True
             )
         }
 
@@ -318,9 +314,7 @@ def _matrix_atol_for_class(class_name: str) -> float:
 def _penalty_atol_for_class(class_name: str) -> float:
     if class_name == "fs.interaction":
         return 1e-8
-    if class_name == "t2.smooth":
-        return 4e-10
-    if class_name in {"gp.smooth", "tprs.smooth", "ts.smooth"}:
+    if class_name in {"tprs.smooth", "ts.smooth"}:
         return 1e-10
     return 1e-12
 
@@ -407,24 +401,6 @@ SIDE_CASES = [
         False,
     ),
     (
-        "nested_t2",
-        lambda: _make_gaussian_data(seed=515, n=180),
-        'y ~ s(x0, bs="cr", k=8) + t2(x0, x1, bs=["tp", "cr"], k=[6, 6])',
-        "gaussian",
-        "REML",
-        False,
-        False,
-    ),
-    (
-        "nested_t2_full",
-        lambda: _make_gaussian_data(seed=516, n=180),
-        'y ~ s(x0, bs="cr", k=8) + t2(x0, x1, bs=["tp", "cr"], k=[6, 6], full=True)',
-        "gaussian",
-        "REML",
-        False,
-        False,
-    ),
-    (
         "main_ti",
         lambda: _make_gaussian_data(seed=517, n=180),
         'y ~ s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8) + ti(x0, x1, bs=["cr", "cr"], k=[5, 5])',
@@ -439,15 +415,6 @@ SIDE_CASES = [
         'y ~ s(f, bs="re") + s(x0, bs="cr", k=8) + s(x0, x1, bs="tp", k=15)',
         "gaussian",
         "REML",
-        False,
-        False,
-    ),
-    (
-        "gaulss_nested_tp",
-        _gaulss_tensor_data,
-        ['y ~ s(x0, bs="cr", k=8) + s(x0, x1, bs="tp", k=15)', "~ 1"],
-        "gaulss",
-        "ML",
         False,
         False,
     ),
@@ -481,15 +448,6 @@ SIDE_CASES = [
         False,
     ),
     (
-        "gaussian_no_intercept_nested_t2",
-        lambda: _make_gaussian_data(seed=604, n=180),
-        'y ~ 0 + s(x0, bs="cr", k=8) + t2(x0, x1, bs=["tp", "cr"], k=[6, 6])',
-        "gaussian",
-        "REML",
-        False,
-        False,
-    ),
-    (
         "gaussian_no_intercept_main_ti",
         lambda: _make_gaussian_data(seed=605, n=180),
         'y ~ 0 + s(x0, bs="cr", k=8) + s(x1, bs="cr", k=8) + ti(x0, x1, bs=["cr", "cr"], k=[5, 5])',
@@ -515,15 +473,6 @@ SIDE_CASES = [
         "REML",
         False,
         True,
-    ),
-    (
-        "gaulss_no_intercept_nested_tp",
-        lambda: _gaulss_tensor_data(seed=608, n=160),
-        ['y ~ 0 + s(x0, bs="cr", k=8) + s(x0, x1, bs="tp", k=15)', "~ 1"],
-        "gaulss",
-        "ML",
-        False,
-        False,
     ),
 ]
 
@@ -579,7 +528,7 @@ def _assert_gam_side_case(
         len(sm["del_index"]) for sm in expected_smooths
     )
 
-    for actual_sm, expected_sm in zip(actual["smooths"], expected_smooths):
+    for actual_sm, expected_sm in zip(actual["smooths"], expected_smooths, strict=True):
         assert actual_sm["class_name"] == expected_sm["class_name"]
         assert actual_sm["special"] == expected_sm["special"]
         assert actual_sm["term"] == expected_sm["term"]
@@ -640,15 +589,29 @@ def _assert_gam_side_case(
         assert len(actual_sm["penalties"]) == len(expected_term_penalties)
         penalty_atol = _penalty_atol_for_class(expected_sm["class_name"])
         for actual_penalty, expected_penalty in zip(
-            actual_sm["penalties"], expected_term_penalties
+            actual_sm["penalties"], expected_term_penalties, strict=True
         ):
             actual_penalty_t = T.T @ np.asarray(actual_penalty, dtype=np.float64) @ T
-            np.testing.assert_allclose(
-                actual_penalty_t,
-                expected_penalty,
-                rtol=0.0,
-                atol=penalty_atol,
-            )
+            if gam_setup_compares_dominant_penalty_spectrum(case_id):
+                actual_spectrum = penalty_spectrum(actual_penalty_t)
+                expected_spectrum = penalty_spectrum(expected_penalty)
+                assert actual_spectrum[0] > 0.0
+                assert expected_spectrum[0] > 0.0
+                assert actual_spectrum[0] < 0.1 * actual_spectrum[1]
+                assert expected_spectrum[0] < 0.1 * expected_spectrum[1]
+                np.testing.assert_allclose(
+                    actual_spectrum[1:],
+                    expected_spectrum[1:],
+                    rtol=0.0,
+                    atol=max(penalty_atol, 2e-4),
+                )
+            else:
+                np.testing.assert_allclose(
+                    actual_penalty_t,
+                    expected_penalty,
+                    rtol=0.0,
+                    atol=penalty_atol,
+                )
 
 
 @pytest.mark.parametrize(

@@ -11,9 +11,6 @@ from nampy.gam.smoothing_selection import postfit as postfit_module
 from tests.families.test_general_family_mgcv_parity import (
     _gammals_data,
     _gaulss_data,
-    _gevlss_data,
-    _shashlss_data,
-    _ziplss_data,
 )
 from tests.mgcv_parity_utils import (
     _fit_nampy_model,
@@ -98,12 +95,12 @@ def _fake_gam_vcomp_model(*, compiled_penalties, n_smoothing_params: int):
             (
                 SimpleNamespace(
                     smoothing_index=0,
-                    metadata={"mgcv_s_scale": 2.0},
+                    metadata={"penalty_rescale_factor": 2.0},
                     is_null_space_penalty=False,
                 ),
                 SimpleNamespace(
                     smoothing_index=0,
-                    metadata={"mgcv_s_scale": 3.0},
+                    metadata={"penalty_rescale_factor": 3.0},
                     is_null_space_penalty=False,
                 ),
             ),
@@ -115,7 +112,7 @@ def _fake_gam_vcomp_model(*, compiled_penalties, n_smoothing_params: int):
             (
                 SimpleNamespace(
                     smoothing_index=0,
-                    metadata={"mgcv_s_scale": 2.0},
+                    metadata={"penalty_rescale_factor": 2.0},
                     is_null_space_penalty=False,
                 ),
             ),
@@ -231,30 +228,6 @@ def test_gam_vcomp_rescale_true_matches_mgcv_reml_ci():
             False,
             2e-5,
         ),
-        (
-            _gevlss_data,
-            ['y ~ s(x, bs="cr", k=6)', "~ 1", "~ 1"],
-            "gevlss",
-            "ML",
-            False,
-            3e-5,
-        ),
-        (
-            _shashlss_data,
-            ['y ~ s(x, bs="cr", k=6)', "~ 1", "~ 1", "~ 1"],
-            "shashlss",
-            "ML",
-            False,
-            8e-5,
-        ),
-        (
-            _ziplss_data,
-            ['y ~ s(x, bs="cr", k=6)', "~ 1"],
-            "ziplss",
-            "ML",
-            False,
-            5e-5,
-        ),
     ],
     ids=[
         "gaussian_gcv_rescale_false",
@@ -262,9 +235,6 @@ def test_gam_vcomp_rescale_true_matches_mgcv_reml_ci():
         "negbin_est_reml_rescale_false",
         "gaulss_ml_rescale_false",
         "gammals_ml_rescale_false",
-        "gevlss_ml_rescale_false",
-        "shashlss_ml_rescale_false",
-        "ziplss_ml_rescale_false",
     ],
 )
 def test_gam_vcomp_matches_mgcv_requested_surface(

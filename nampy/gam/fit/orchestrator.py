@@ -19,16 +19,16 @@ from .._mgcv_constants import LOG_GUARD_MIN
 from .._model_state import _n_smoothing_params
 from ..data import coerce_feature_matrix
 from .backends import solve_fit
-from .model_ops import (
-    build_gam_result,
-    compile_designs,
-    criterion_value,
-    optimize_smoothing_params,
+from .capabilities import (
+    coerce_general_family_smoothing_method,
     raise_ml_reml_backend_error,
     resolve_smoothing_method,
     supports_smoothing_method,
 )
+from .design_setup import compile_designs
 from .offsets import coerce_offset_array
+from .result_builders import build_gam_result
+from .smoothing_params import optimize_smoothing_params
 from .state import assign_fit_solution
 
 
@@ -99,6 +99,24 @@ def fit_model_core(
     method = resolve_smoothing_method(
         model, model.smoothing_method if smoothing_method is None else smoothing_method
     )
+    method = coerce_general_family_smoothing_method(
+        model,
+        method,
+        optimizer=getattr(model, "smoothing_optimizer", None),
+    )
+
+    fixed_mask_for_theta = (
+        np.zeros(_n_smoothing_params(model), dtype=bool)
+        if model.smoothing_fixed_mask_ is None
+        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+    )
+    theta_only_fixed_reml = (
+        method == "fixed"
+        and str(getattr(model.family, "name", "")).lower() == "negbin"
+        and bool(getattr(model.family, "estimate_theta", False))
+        and fixed_mask_for_theta.shape == (_n_smoothing_params(model),)
+        and bool(np.all(fixed_mask_for_theta))
+    )
 
     if optimize_smoothing and method != "fixed":
         if not supports_smoothing_method(model, method):
@@ -120,6 +138,17 @@ def fit_model_core(
             method=method,
             optimizer=model.smoothing_optimizer,
         )
+    elif theta_only_fixed_reml:
+        # mgcv/R/gam.fit4.r::gam.fit4 keeps user-supplied sp fixed and updates
+        # nb() theta inside the EFS PIRLS loop when no outer smoothing
+        # optimization is requested.
+        model._optim_method = "fixed"
+        model._optim_result = None
+        model._optim_trace = None
+        model._optim_used_gradient = False
+        model._optim_used_hessian = False
+        model.smoothing_score_ = None
+        model._pirls_disable_theta_efs_ = False
     else:
         model._optim_method = "fixed"
         model._optim_result = None
@@ -172,6 +201,8 @@ def fit_model_core(
             ]
 
     if model.smoothing_score_ is None and model._optim_method not in {None, "fixed"}:
+        from ..smoothing_selection.criteria.dispatch import criterion_value
+
         fixed_mask = (
             np.zeros(_n_smoothing_params(model), dtype=bool)
             if model.smoothing_fixed_mask_ is None
