@@ -51,7 +51,6 @@
       ~NAMformer.buffers
       ~NAMformer.children
       ~NAMformer.compile
-      ~NAMformer.count_parameters
       ~NAMformer.cpu
       ~NAMformer.cuda
       ~NAMformer.double
@@ -76,7 +75,7 @@
       ~NAMformer.named_children
       ~NAMformer.named_modules
       ~NAMformer.named_parameters
-      ~NAMformer.parameter_count
+      ~NAMformer.parameter_count_by_layer
       ~NAMformer.parameters
       ~NAMformer.print_summary
       ~NAMformer.register_backward_hook
@@ -101,6 +100,7 @@
       ~NAMformer.to
       ~NAMformer.to_device
       ~NAMformer.to_empty
+      ~NAMformer.total_parameters
       ~NAMformer.train
       ~NAMformer.type
       ~NAMformer.unfreeze_parameters

@@ -7,6 +7,9 @@ import os
 import sys
 from datetime import datetime
 
+# Keep Matplotlib cache writes out of user home directories during local and CI docs builds.
+os.environ.setdefault("MPLCONFIGDIR", "/tmp/nampy-matplotlib")
+
 # Add the project root to the path
 sys.path.insert(0, os.path.abspath(".."))
 

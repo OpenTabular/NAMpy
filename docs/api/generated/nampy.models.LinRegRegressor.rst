@@ -37,6 +37,7 @@
       ~LinRegRegressor._get_param_names
       ~LinRegRegressor._get_params_html
       ~LinRegRegressor._html_repr
+      ~LinRegRegressor._plot_interaction_effects
       ~LinRegRegressor._plot_single_feature_effects
       ~LinRegRegressor._predict
       ~LinRegRegressor._repr_html_inner

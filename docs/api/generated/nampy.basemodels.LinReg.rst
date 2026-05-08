@@ -52,7 +52,6 @@
       ~LinReg.buffers
       ~LinReg.children
       ~LinReg.compile
-      ~LinReg.count_parameters
       ~LinReg.cpu
       ~LinReg.cuda
       ~LinReg.double
@@ -77,7 +76,7 @@
       ~LinReg.named_children
       ~LinReg.named_modules
       ~LinReg.named_parameters
-      ~LinReg.parameter_count
+      ~LinReg.parameter_count_by_layer
       ~LinReg.parameters
       ~LinReg.print_summary
       ~LinReg.register_backward_hook
@@ -102,6 +101,7 @@
       ~LinReg.to
       ~LinReg.to_device
       ~LinReg.to_empty
+      ~LinReg.total_parameters
       ~LinReg.train
       ~LinReg.type
       ~LinReg.unfreeze_parameters

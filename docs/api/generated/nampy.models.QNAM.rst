@@ -37,6 +37,8 @@
       ~QNAM._get_param_names
       ~QNAM._get_params_html
       ~QNAM._html_repr
+      ~QNAM._infer_distributional_kwargs
+      ~QNAM._plot_interaction_effects
       ~QNAM._plot_single_feature_effects
       ~QNAM._predict
       ~QNAM._repr_html_inner

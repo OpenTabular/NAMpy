@@ -37,6 +37,7 @@
       ~NBMRegressor._get_param_names
       ~NBMRegressor._get_params_html
       ~NBMRegressor._html_repr
+      ~NBMRegressor._plot_interaction_effects
       ~NBMRegressor._plot_single_feature_effects
       ~NBMRegressor._predict
       ~NBMRegressor._repr_html_inner

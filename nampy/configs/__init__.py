@@ -10,6 +10,7 @@ from .namformer_config import DefaultNAMformerConfig
 from .natt_config import DefaultNATTConfig
 from .nbm_config import DefaultNBMConfig
 from .nodegam_config import DefaultNodeGAMConfig
+from .snam_config import DefaultSNAMConfig
 from .spline_nam_config import DefaultSplineNAMConfig
 
 # Note: GPNAM and QNAM use DefaultNAMConfig, so they don't have separate configs
@@ -21,6 +22,7 @@ __all__ = [
     "DefaultNATTConfig",
     "DefaultNAMformerConfig",
     "DefaultLinRegConfig",
+    "DefaultSNAMConfig",
     "DefaultSplineNAMConfig",
     "DefaultNodeGAMConfig",
 ]

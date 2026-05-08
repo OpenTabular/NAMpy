@@ -37,6 +37,8 @@
       ~LinRegLSS._get_param_names
       ~LinRegLSS._get_params_html
       ~LinRegLSS._html_repr
+      ~LinRegLSS._infer_distributional_kwargs
+      ~LinRegLSS._plot_interaction_effects
       ~LinRegLSS._plot_single_feature_effects
       ~LinRegLSS._predict
       ~LinRegLSS._repr_html_inner

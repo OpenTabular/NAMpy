@@ -4,7 +4,7 @@ Preprocessing (PreTab)
 NAMpy does not implement its own tabular preprocessing. All preprocessing is done by the **PreTab** library. You pass a PreTab preprocessor instance into the data module or into the sklearn-style models (e.g. :class:`nampy.models.nam.NAMRegressor`).
 
 Using PreTab with NAMpy
-----------------------
+-----------------------
 
 1. Create a PreTab preprocessor with the options you need (task, n_bins, numerical/categorical strategies, etc.). See the `PreTab documentation <https://pypi.org/project/pretab/>`_ for full options.
 

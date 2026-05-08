@@ -39,16 +39,20 @@
       ~DefaultSNAMConfig.__match_args__
       ~DefaultSNAMConfig.__module__
       ~DefaultSNAMConfig.__weakref__
+      ~DefaultSNAMConfig.batch_norm
       ~DefaultSNAMConfig.dropout
       ~DefaultSNAMConfig.feature_dropout
-      ~DefaultSNAMConfig.identify
+      ~DefaultSNAMConfig.group_lasso_include_interactions
+      ~DefaultSNAMConfig.group_lasso_lambda
       ~DefaultSNAMConfig.interaction_degree
       ~DefaultSNAMConfig.intercept
-      ~DefaultSNAMConfig.learn_knots
+      ~DefaultSNAMConfig.layer_norm
       ~DefaultSNAMConfig.lr
       ~DefaultSNAMConfig.lr_factor
       ~DefaultSNAMConfig.lr_patience
-      ~DefaultSNAMConfig.n_knots
-      ~DefaultSNAMConfig.smoothing
+      ~DefaultSNAMConfig.norm
+      ~DefaultSNAMConfig.skip_connections
+      ~DefaultSNAMConfig.use_glu
       ~DefaultSNAMConfig.weight_decay
+      ~DefaultSNAMConfig.layer_sizes
    

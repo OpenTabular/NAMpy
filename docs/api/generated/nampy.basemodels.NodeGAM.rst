@@ -51,7 +51,6 @@
       ~NodeGAM.buffers
       ~NodeGAM.children
       ~NodeGAM.compile
-      ~NodeGAM.count_parameters
       ~NodeGAM.cpu
       ~NodeGAM.cuda
       ~NodeGAM.double
@@ -76,7 +75,7 @@
       ~NodeGAM.named_children
       ~NodeGAM.named_modules
       ~NodeGAM.named_parameters
-      ~NodeGAM.parameter_count
+      ~NodeGAM.parameter_count_by_layer
       ~NodeGAM.parameters
       ~NodeGAM.print_summary
       ~NodeGAM.register_backward_hook
@@ -101,6 +100,7 @@
       ~NodeGAM.to
       ~NodeGAM.to_device
       ~NodeGAM.to_empty
+      ~NodeGAM.total_parameters
       ~NodeGAM.train
       ~NodeGAM.type
       ~NodeGAM.unfreeze_parameters

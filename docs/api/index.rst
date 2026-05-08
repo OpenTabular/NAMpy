@@ -66,7 +66,7 @@ For advanced users who want direct access to PyTorch models:
    )
 
 Preprocessing (PreTab)
-~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
 
 NAMpy uses the PreTab library for preprocessing. Pass a PreTab preprocessor into the data module or sklearn-style models:
 
@@ -84,4 +84,3 @@ Version Information
 
 .. autodata:: nampy.__version__
    :annotation:
-

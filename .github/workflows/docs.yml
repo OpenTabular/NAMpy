@@ -2,9 +2,9 @@ name: Documentation
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
 
 permissions:
   contents: write
@@ -39,10 +39,11 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e ".[docs]"
 
-    - name: Build documentation
+    - name: Generate Sphinx autodoc HTML
+      env:
+        MPLCONFIGDIR: /tmp/nampy-matplotlib
       run: |
-        cd docs
-        make html
+        sphinx-build -b html -j auto docs docs/_build/html
 
     - name: Check for build warnings
       run: |
@@ -62,4 +63,3 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./docs/_build/html
         cname: nampy.readthedocs.io  # Optional: if you have a custom domain
-
