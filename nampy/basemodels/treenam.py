@@ -1,4 +1,5 @@
 from itertools import combinations
+from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -20,7 +21,7 @@ class TreeNAM(BaseModel):
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: DefaultTreeNAMConfig | None = None,
+        config: Optional[DefaultTreeNAMConfig] = None,
         **kwargs,
     ):
         if config is None:
@@ -52,6 +53,7 @@ class TreeNAM(BaseModel):
             "interaction_degree", config.interaction_degree
         )
 
+        self.intercept: Optional[nn.Parameter]
         if self.hparams.get("intercept", config.intercept):
             self.intercept = nn.Parameter(torch.zeros(num_classes))
         else:

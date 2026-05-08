@@ -1,4 +1,5 @@
 from itertools import combinations
+from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -17,7 +18,7 @@ class NAMformer(BaseModel):
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: DefaultNAMformerConfig | None = None,
+        config: Optional[DefaultNAMformerConfig] = None,
         **kwargs,
     ):
         """
@@ -49,6 +50,7 @@ class NAMformer(BaseModel):
         self.interaction_degree = self.hparams.get(
             "interaction_degree", config.interaction_degree
         )
+        self.intercept: Optional[nn.Parameter]
         if self.hparams.get("intercept", config.intercept):
             self.intercept = nn.Parameter(
                 torch.zeros(
@@ -142,6 +144,23 @@ class NAMformer(BaseModel):
                     self.interaction_networks[interaction_name] = (
                         self._create_subnetwork(input_dim, config)
                     )
+
+    def _create_subnetwork(self, input_dim: int, config: DefaultNAMformerConfig) -> MLP:
+        return MLP(
+            input_dim,
+            hidden_units_list=self.hparams.get(
+                "head_layer_sizes", config.head_layer_sizes
+            ),
+            dropout=self.hparams.get("head_dropout", config.head_dropout),
+            use_skip_layers=self.hparams.get(
+                "head_skip_layers", config.head_skip_layers
+            ),
+            activation=self.hparams.get("head_activation", config.head_activation),
+            use_batch_norm=self.hparams.get(
+                "head_use_batch_norm", config.head_use_batch_norm
+            ),
+            n_output_units=self.num_classes,
+        )
 
     def forward(self, num_features: dict, cat_features: dict) -> dict:
         """

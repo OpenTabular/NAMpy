@@ -1,3 +1,5 @@
+from typing import Any, Optional, cast
+
 import torch
 import torch.nn as nn
 
@@ -16,7 +18,7 @@ class NodeGAMBlockHead(nn.Module):
         num_feature_info,
         num_classes: int,
         config: DefaultNodeGAMConfig,
-        hparams: dict | None = None,
+        hparams: Optional[dict] = None,
     ):
         super().__init__()
         if hparams is None:
@@ -164,7 +166,7 @@ class NodeGAMBlockHead(nn.Module):
         term_outputs = self.block.run_with_additive_terms(x)
         terms = self.block.get_additive_terms()
 
-        result = {}
+        result: dict[str, torch.Tensor] = {}
         for term_idx, term in enumerate(terms):
             term_name = self._term_name(term)
             value = term_outputs[:, term_idx, :]
@@ -193,7 +195,7 @@ class NodeGAM(BaseModel):
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: DefaultNodeGAMConfig | None = None,
+        config: Optional[DefaultNodeGAMConfig] = None,
         **kwargs,
     ):
         if config is None:
@@ -223,10 +225,13 @@ class NodeGAM(BaseModel):
     def forward(
         self, num_features: dict, cat_features: dict, return_terms: bool = True
     ) -> dict:
-        return self.head(
-            num_features=num_features,
-            cat_features=cat_features,
-            return_terms=return_terms,
+        return cast(
+            dict[Any, Any],
+            self.head(
+                num_features=num_features,
+                cat_features=cat_features,
+                return_terms=return_terms,
+            ),
         )
 
 
@@ -239,7 +244,7 @@ class NodeGAMLSSBase(BaseModel):
         num_feature_info,
         num_classes: int = 1,
         family=None,
-        config: DefaultNodeGAMConfig | None = None,
+        config: Optional[DefaultNodeGAMConfig] = None,
         **kwargs,
     ):
         if config is None:
@@ -287,13 +292,13 @@ class NodeGAMLSSBase(BaseModel):
 
     def step_temperature_schedulers(self, step: int):
         for head in self.heads:
-            head.step_temperature_schedulers(step)
+            cast(NodeGAMBlockHead, head).step_temperature_schedulers(step)
 
     def forward(
         self, num_features: dict, cat_features: dict, return_terms: bool = True
     ) -> dict:
         head_results = [
-            head(
+            cast(NodeGAMBlockHead, head)(
                 num_features=num_features,
                 cat_features=cat_features,
                 return_terms=return_terms,

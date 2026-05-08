@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Optional, Union, cast
 
 import torch
 import torch.nn as nn
@@ -25,7 +25,7 @@ class _ResidualBlockNary(nn.Module):
     ) -> None:
         super().__init__()
 
-        modules = [nn.Linear(n_input, n_output)]
+        modules: list[nn.Module] = [nn.Linear(n_input, n_output)]
 
         norm_layer = _make_norm(norm_name, n_output)
         if norm_layer is not None:
@@ -48,7 +48,7 @@ class _ResidualBlockNary(nn.Module):
         out = self.block(x)
         if self.use_skip:
             out = out + x
-        return out
+        return cast(torch.Tensor, out)
 
 
 class ConceptNNBasesNary(nn.Module):

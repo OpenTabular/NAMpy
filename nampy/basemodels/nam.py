@@ -1,5 +1,6 @@
 # basemodels/nam.py
 from itertools import combinations
+from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -37,7 +38,7 @@ class NAM(BaseModel):
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: DefaultNAMConfig | None = None,
+        config: Optional[DefaultNAMConfig] = None,
         **kwargs,
     ):
         """
@@ -71,6 +72,7 @@ class NAM(BaseModel):
         self.interaction_degree = self.hparams.get(
             "interaction_degree", config.interaction_degree
         )
+        self.intercept: Optional[nn.Parameter]
         if self.hparams.get("intercept", config.intercept):
             self.intercept = nn.Parameter(
                 torch.zeros(

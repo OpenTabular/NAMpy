@@ -35,7 +35,7 @@ class GPNAM(BaseModel):
         num_classes: int = 1,
         kernel_width: float = 0.2,
         rff_num_feat: int = 100,
-        config: DefaultGPNAMConfig | None = None,
+        config: Optional[DefaultGPNAMConfig] = None,
         **kwargs,
     ):
         if config is None:
@@ -119,6 +119,7 @@ class GPNAM(BaseModel):
             if torch.any(kernel_widths <= 0):
                 raise ValueError("All kernel_widths must be positive.")
 
+        self.kernel_widths: torch.Tensor
         self.register_buffer("kernel_widths", kernel_widths, persistent=True)
 
         # Shared RFF parameters z_s, c_s across all scalar dimensions
@@ -126,6 +127,8 @@ class GPNAM(BaseModel):
             num_rff=self.rff_num_feat,
             deterministic=self.use_deterministic_rff_grid,
         )
+        self.z: torch.Tensor
+        self.c: torch.Tensor
         self.register_buffer("z", z, persistent=True)  # [S]
         self.register_buffer("c", c, persistent=True)  # [S]
 
@@ -135,6 +138,7 @@ class GPNAM(BaseModel):
             torch.zeros(self.input_dim, self.rff_num_feat, self.num_classes)
         )
 
+        self.intercept: Optional[nn.Parameter]
         if self.hparams.get("intercept", getattr(config, "intercept", True)):
             self.intercept = nn.Parameter(torch.zeros(self.num_classes))
         else:

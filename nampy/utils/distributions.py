@@ -1446,6 +1446,7 @@ class OrdinalCumulativeLogitDistribution(BaseDistribution):
         init_cuts = torch.linspace(-(k - 2) / 2.0, (k - 2) / 2.0, k - 1)
         self.first_cutpoint = torch.nn.Parameter(init_cuts[:1].clone())
 
+        self.raw_cutpoint_increments: Optional[torch.nn.Parameter]
         if k > 2:
             init_diffs = init_cuts[1:] - init_cuts[:-1]
             self.raw_cutpoint_increments = torch.nn.Parameter(

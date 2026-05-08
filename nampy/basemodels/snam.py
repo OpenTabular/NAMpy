@@ -1,3 +1,5 @@
+from typing import Optional, cast
+
 import torch
 
 from ..configs.snam_config import DefaultSNAMConfig
@@ -25,7 +27,7 @@ class SNAM(NAM):
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: DefaultSNAMConfig | None = None,
+        config: Optional[DefaultSNAMConfig] = None,
         **kwargs,
     ):
         if config is None:
@@ -71,7 +73,7 @@ class SNAM(NAM):
         if not params:
             return next(self.parameters()).new_zeros(())
         theta_j = torch.cat(params)
-        return torch.norm(theta_j, p=2)
+        return cast(torch.Tensor, torch.norm(theta_j, p=2))
 
     def _group_lasso_penalty(self) -> torch.Tensor:
         """Sum of L2 norms over all subnet groups."""
