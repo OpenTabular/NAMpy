@@ -64,5 +64,5 @@ No breaking changes. This release adds features and improves documentation.
 
 ---
 
-For more details, see the [GitHub releases page](https://github.com/OpenTabular/NAMpy/releases).
+For more details, see the [GitHub releases page](https://github.com/Ananyapam7/NAMpy/releases).
 

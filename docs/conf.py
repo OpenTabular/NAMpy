@@ -20,8 +20,11 @@ import nampy
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "nampy"
-copyright = f"{datetime.now().year}, Anton Thielmann and OpenTabular Contributors"
-author = "Anton Thielmann"
+copyright = (
+    f"{datetime.now().year}, "
+    "Ananyapam De, Anton Thielmann, and OpenTabular Contributors"
+)
+author = "Ananyapam De, Anton Thielmann"
 release = nampy.__version__
 version = nampy.__version__
 
@@ -178,7 +181,7 @@ latex_documents = [
         master_doc,
         "NAMpy.tex",
         "NAMpy Documentation",
-        "Anton Thielmann",
+        author,
         "manual",
     ),
 ]

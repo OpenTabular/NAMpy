@@ -94,5 +94,5 @@ For More Information
 
 * :doc:`../models/index` - Model comparison
 * :doc:`../examples/index` - Practical examples
-* GitHub: https://github.com/OpenTabular/NAMpy
+* GitHub: https://github.com/Ananyapam7/NAMpy
 

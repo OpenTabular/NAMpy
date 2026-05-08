@@ -4,7 +4,7 @@
 
 ```bash
 # Clone and enter directory
-git clone https://github.com/OpenTabular/NAMpy.git
+git clone https://github.com/Ananyapam7/NAMpy.git
 cd NAMpy
 
 # Create virtual environment
@@ -216,8 +216,8 @@ pre-commit clean
 
 ## Resources
 
-- **GitHub**: https://github.com/OpenTabular/NAMpy
-- **Issues**: https://github.com/OpenTabular/NAMpy/issues
+- **GitHub**: https://github.com/Ananyapam7/NAMpy
+- **Issues**: https://github.com/Ananyapam7/NAMpy/issues
 - **Contributing**: See CONTRIBUTING.md
 - **Release Process**: See RELEASE_CHECKLIST.md
 
@@ -240,4 +240,3 @@ pre-commit clean
 ---
 
 Happy coding! 🚀
-
