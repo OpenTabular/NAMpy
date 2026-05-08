@@ -1,5 +1,5 @@
 Preprocessing (PreTab)
-=====================
+======================
 
 NAMpy does not ship its own preprocessor. All tabular preprocessing is delegated to the **PreTab** library.
 

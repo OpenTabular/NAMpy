@@ -37,6 +37,8 @@
       ~NAMLSS._get_param_names
       ~NAMLSS._get_params_html
       ~NAMLSS._html_repr
+      ~NAMLSS._infer_distributional_kwargs
+      ~NAMLSS._plot_interaction_effects
       ~NAMLSS._plot_single_feature_effects
       ~NAMLSS._predict
       ~NAMLSS._repr_html_inner

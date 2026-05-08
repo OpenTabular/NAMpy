@@ -37,7 +37,9 @@
       ~NATTClassifier._get_param_names
       ~NATTClassifier._get_params_html
       ~NATTClassifier._html_repr
+      ~NATTClassifier._plot_interaction_effects
       ~NATTClassifier._plot_single_feature_effects
+      ~NATTClassifier._predict
       ~NATTClassifier._repr_html_inner
       ~NATTClassifier._repr_mimebundle_
       ~NATTClassifier._validate_params

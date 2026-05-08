@@ -37,6 +37,8 @@
       ~NAMformerLSS._get_param_names
       ~NAMformerLSS._get_params_html
       ~NAMformerLSS._html_repr
+      ~NAMformerLSS._infer_distributional_kwargs
+      ~NAMformerLSS._plot_interaction_effects
       ~NAMformerLSS._plot_single_feature_effects
       ~NAMformerLSS._predict
       ~NAMformerLSS._repr_html_inner

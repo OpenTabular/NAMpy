@@ -54,7 +54,6 @@
       ~NATT.buffers
       ~NATT.children
       ~NATT.compile
-      ~NATT.count_parameters
       ~NATT.cpu
       ~NATT.cuda
       ~NATT.double
@@ -79,7 +78,7 @@
       ~NATT.named_children
       ~NATT.named_modules
       ~NATT.named_parameters
-      ~NATT.parameter_count
+      ~NATT.parameter_count_by_layer
       ~NATT.parameters
       ~NATT.print_summary
       ~NATT.register_backward_hook
@@ -104,6 +103,7 @@
       ~NATT.to
       ~NATT.to_device
       ~NATT.to_empty
+      ~NATT.total_parameters
       ~NATT.train
       ~NATT.type
       ~NATT.unfreeze_parameters

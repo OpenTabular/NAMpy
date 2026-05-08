@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,7 @@ name = "nampy"
 version = "0.1.0"
 description = "Interpretable (Additive) Tabular Deep Learning with Neural Additive Models"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Ananyapam De", email = "ananyapam7@tu-clausthal.de"},
     {name = "Anton Thielmann", email = "anton.thielmann@tu-clausthal.de"},
@@ -30,12 +30,7 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -44,7 +39,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Operating System :: OS Independent",
 ]
-requires-python = ">=3.6"
+requires-python = ">=3.10"
 dependencies = [
     "numpy<=1.26.4",
     "pandas",
@@ -84,14 +79,19 @@ Repository = "https://github.com/OpenTabular/NAMpy"
 "Bug Tracker" = "https://github.com/OpenTabular/NAMpy/issues"
 
 [tool.setuptools]
-packages = ["nampy"]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["nampy*"]
+exclude = ["tests*", "debug*", "docs*", "mgcv*"]
 
 [tool.setuptools.package-data]
 nampy = ["py.typed"]
 
 [tool.black]
 line-length = 88
-target-version = ['py36', 'py37', 'py38', 'py39', 'py310', 'py311', 'py312', 'py313']
+target-version = ['py310', 'py311', 'py312', 'py313']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -118,7 +118,7 @@ ensure_newline_before_comments = true
 
 [tool.ruff]
 line-length = 88
-target-version = "py37"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [
@@ -164,64 +164,6 @@ module = [
     "tqdm.*",
 ]
 ignore_missing_imports = true
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = [
-    "test_mgcv_*.py",
-    "test_gam_*.py",
-    "test_general_family_mgcv_parity.py",
-]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = [
-    "--verbose",
-]
-markers = [
-    "smooth_cr: tests covering cubic regression smooths",
-    "smooth_cs: tests covering shrinkage cubic regression smooths",
-    "smooth_cc: tests covering cyclic cubic smooths",
-    "smooth_ps: tests covering P-spline smooths",
-    "smooth_tp: tests covering thin plate smooths",
-    "smooth_ts: tests covering shrinkage thin plate smooths",
-    "smooth_te: tests covering tensor-product smooths via te()",
-    "smooth_ti: tests covering tensor interaction smooths via ti()",
-    "smooth_t2: tests covering tensor ANOVA smooths via t2()",
-    "smooth_gp: tests covering Gaussian process smooths",
-    "smooth_fs: tests covering factor-smooth interaction smooths",
-    "smooth_sz: tests covering sz factor smooths",
-    "smooth_mrf: tests covering Markov random field smooths",
-    "smooth_re: tests covering random-effect smooths",
-    "family_gaussian: tests for Gaussian family behavior",
-    "family_binomial: tests for binomial family behavior",
-    "family_poisson: tests for Poisson family behavior",
-    "family_gamma: tests for gamma family behavior",
-    "family_negbin: tests for negative-binomial family behavior",
-    "family_gaulss: tests for gaulss general family behavior",
-    "family_gammals: tests for gammals general family behavior",
-    "family_gevlss: tests for gevlss general family behavior",
-    "family_shashlss: tests for shashlss general family behavior",
-    "family_ziplss: tests for ziplss general family behavior",
-    "family_general: tests spanning multiple general/distributional families",
-    "method_fixed: tests using fixed smoothing parameters",
-    "method_reml: tests using REML smoothing selection",
-    "method_ml: tests using ML smoothing selection",
-    "method_laml: tests using LAML smoothing selection",
-    "select_true: tests exercising select=True behavior",
-    "select_false: tests exercising default/non-select behavior",
-    "surface_snapshot: tests focused on snapshot/end-to-end parity surfaces",
-    "surface_output: tests focused on prediction/anova/vcov/output surfaces",
-    "surface_smoothcon: tests focused on smoothCon/basis/penalty surfaces",
-    "surface_trace: tests focused on optimizer trace surfaces",
-    "surface_kcheck: tests focused on k_check diagnostics",
-    "surface_derivatives: tests focused on gradients/Hessians/criterion derivatives",
-    "surface_regression: tests focused on explicit bug-regression coverage",
-    "surface_backend: tests focused on backend-selection behavior",
-    "status_stable: stable parity/regression coverage",
-    "status_known_gap: tracked known-gap coverage",
-    "status_failing_or_warning: tests currently isolated due to failures or warnings",
-    "status_regression: bug-regression tests that guard past failures",
-]
 
 [tool.coverage.run]
 source = ["nampy"]

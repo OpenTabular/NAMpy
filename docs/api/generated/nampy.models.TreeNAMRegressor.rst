@@ -37,6 +37,7 @@
       ~TreeNAMRegressor._get_param_names
       ~TreeNAMRegressor._get_params_html
       ~TreeNAMRegressor._html_repr
+      ~TreeNAMRegressor._plot_interaction_effects
       ~TreeNAMRegressor._plot_single_feature_effects
       ~TreeNAMRegressor._predict
       ~TreeNAMRegressor._repr_html_inner

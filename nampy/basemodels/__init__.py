@@ -9,6 +9,7 @@ from .natt import NATT
 from .nbm import NBM
 from .nodegam import NodeGAM
 from .qnam import QNAMBase
+from .snam import SNAM
 from .spline_nam import SplineNAM
 from .treenam import TreeNAM
 
@@ -22,6 +23,7 @@ __all__ = [
     "NBM",
     "NATT",
     "NAMformer",
+    "SNAM",
     "TreeNAM",
     "SplineNAM",
     "NodeGAM",

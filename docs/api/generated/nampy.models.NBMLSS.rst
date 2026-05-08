@@ -37,6 +37,8 @@
       ~NBMLSS._get_param_names
       ~NBMLSS._get_params_html
       ~NBMLSS._html_repr
+      ~NBMLSS._infer_distributional_kwargs
+      ~NBMLSS._plot_interaction_effects
       ~NBMLSS._plot_single_feature_effects
       ~NBMLSS._predict
       ~NBMLSS._repr_html_inner

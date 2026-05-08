@@ -39,12 +39,12 @@
       ~DefaultNBMConfig.__match_args__
       ~DefaultNBMConfig.__module__
       ~DefaultNBMConfig.__weakref__
-      ~DefaultNBMConfig.activation
       ~DefaultNBMConfig.bases_dropout
       ~DefaultNBMConfig.batch_norm
       ~DefaultNBMConfig.dropout
-      ~DefaultNBMConfig.layer_sizes
+      ~DefaultNBMConfig.feature_dropout
       ~DefaultNBMConfig.interaction_degree
+      ~DefaultNBMConfig.intercept
       ~DefaultNBMConfig.layer_norm
       ~DefaultNBMConfig.lr
       ~DefaultNBMConfig.lr_factor
@@ -54,5 +54,9 @@
       ~DefaultNBMConfig.num_bases
       ~DefaultNBMConfig.num_subnets
       ~DefaultNBMConfig.order
+      ~DefaultNBMConfig.output_penalty
+      ~DefaultNBMConfig.skip_connections
+      ~DefaultNBMConfig.use_glu
       ~DefaultNBMConfig.weight_decay
+      ~DefaultNBMConfig.layer_sizes
    

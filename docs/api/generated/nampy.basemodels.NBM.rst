@@ -32,18 +32,24 @@
       ~NBM.__str__
       ~NBM.__subclasshook__
       ~NBM._apply
+      ~NBM._apply_term_dropout
+      ~NBM._build_atomic_feature_names
       ~NBM._call_impl
+      ~NBM._concat_all_features
       ~NBM._get_backward_hooks
       ~NBM._get_backward_pre_hooks
       ~NBM._get_name
       ~NBM._load_from_state_dict
       ~NBM._maybe_warn_non_full_backward_hook
       ~NBM._named_members
+      ~NBM._normalize_nary
       ~NBM._register_load_state_dict_pre_hook
       ~NBM._register_state_dict_hook
       ~NBM._replicate_for_data_parallel
       ~NBM._save_to_state_dict
       ~NBM._slow_forward
+      ~NBM._sorted_order_keys
+      ~NBM._validate_nary
       ~NBM._wrapped_call_impl
       ~NBM.add_module
       ~NBM.apply
@@ -51,7 +57,6 @@
       ~NBM.buffers
       ~NBM.children
       ~NBM.compile
-      ~NBM.count_parameters
       ~NBM.cpu
       ~NBM.cuda
       ~NBM.double
@@ -67,7 +72,6 @@
       ~NBM.get_parameter
       ~NBM.get_submodule
       ~NBM.half
-      ~NBM.infer_input_dim
       ~NBM.ipu
       ~NBM.load_model
       ~NBM.load_state_dict
@@ -78,7 +82,7 @@
       ~NBM.named_children
       ~NBM.named_modules
       ~NBM.named_parameters
-      ~NBM.parameter_count
+      ~NBM.parameter_count_by_layer
       ~NBM.parameters
       ~NBM.print_summary
       ~NBM.register_backward_hook
@@ -103,6 +107,7 @@
       ~NBM.to
       ~NBM.to_device
       ~NBM.to_empty
+      ~NBM.total_parameters
       ~NBM.train
       ~NBM.type
       ~NBM.unfreeze_parameters

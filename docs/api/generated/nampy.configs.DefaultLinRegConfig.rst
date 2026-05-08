@@ -39,6 +39,7 @@
       ~DefaultLinRegConfig.__match_args__
       ~DefaultLinRegConfig.__module__
       ~DefaultLinRegConfig.__weakref__
+      ~DefaultLinRegConfig.intercept
       ~DefaultLinRegConfig.lr
       ~DefaultLinRegConfig.lr_factor
       ~DefaultLinRegConfig.lr_patience

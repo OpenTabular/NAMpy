@@ -37,7 +37,9 @@
       ~NAMClassifier._get_param_names
       ~NAMClassifier._get_params_html
       ~NAMClassifier._html_repr
+      ~NAMClassifier._plot_interaction_effects
       ~NAMClassifier._plot_single_feature_effects
+      ~NAMClassifier._predict
       ~NAMClassifier._repr_html_inner
       ~NAMClassifier._repr_mimebundle_
       ~NAMClassifier._validate_params

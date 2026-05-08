@@ -37,6 +37,7 @@
       ~SNAMRegressor._get_param_names
       ~SNAMRegressor._get_params_html
       ~SNAMRegressor._html_repr
+      ~SNAMRegressor._plot_interaction_effects
       ~SNAMRegressor._plot_single_feature_effects
       ~SNAMRegressor._predict
       ~SNAMRegressor._repr_html_inner

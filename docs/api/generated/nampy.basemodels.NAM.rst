@@ -54,7 +54,6 @@
       ~NAM.buffers
       ~NAM.children
       ~NAM.compile
-      ~NAM.count_parameters
       ~NAM.cpu
       ~NAM.cuda
       ~NAM.double
@@ -79,7 +78,7 @@
       ~NAM.named_children
       ~NAM.named_modules
       ~NAM.named_parameters
-      ~NAM.parameter_count
+      ~NAM.parameter_count_by_layer
       ~NAM.parameters
       ~NAM.print_summary
       ~NAM.register_backward_hook
@@ -104,6 +103,7 @@
       ~NAM.to
       ~NAM.to_device
       ~NAM.to_empty
+      ~NAM.total_parameters
       ~NAM.train
       ~NAM.type
       ~NAM.unfreeze_parameters

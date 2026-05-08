@@ -37,6 +37,8 @@
       ~NodeGAMLSS._get_param_names
       ~NodeGAMLSS._get_params_html
       ~NodeGAMLSS._html_repr
+      ~NodeGAMLSS._infer_distributional_kwargs
+      ~NodeGAMLSS._plot_interaction_effects
       ~NodeGAMLSS._plot_single_feature_effects
       ~NodeGAMLSS._predict
       ~NodeGAMLSS._repr_html_inner

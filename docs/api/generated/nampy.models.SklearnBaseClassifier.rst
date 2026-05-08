@@ -37,7 +37,9 @@
       ~SklearnBaseClassifier._get_param_names
       ~SklearnBaseClassifier._get_params_html
       ~SklearnBaseClassifier._html_repr
+      ~SklearnBaseClassifier._plot_interaction_effects
       ~SklearnBaseClassifier._plot_single_feature_effects
+      ~SklearnBaseClassifier._predict
       ~SklearnBaseClassifier._repr_html_inner
       ~SklearnBaseClassifier._repr_mimebundle_
       ~SklearnBaseClassifier._validate_params

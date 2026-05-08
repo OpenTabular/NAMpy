@@ -14,11 +14,21 @@
       CategoricalDistribution
       DirichletDistribution
       GammaDistribution
+      HurdleNegativeBinomialDistribution
+      HurdlePoissonDistribution
       InverseGammaDistribution
+      LogLogisticDistribution
+      LogNormalDistribution
+      MultivariateNormalDiagDistribution
       NegativeBinomialDistribution
       NormalDistribution
+      OrdinalCumulativeLogitDistribution
       PoissonDistribution
       Quantile
       RobustNormalDistribution
       StudentTDistribution
+      TweedieDistribution
+      WeibullDistribution
+      ZeroInflatedNegativeBinomialDistribution
+      ZeroInflatedPoissonDistribution
    

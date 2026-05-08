@@ -37,6 +37,7 @@
       ~GPNAMRegressor._get_param_names
       ~GPNAMRegressor._get_params_html
       ~GPNAMRegressor._html_repr
+      ~GPNAMRegressor._plot_interaction_effects
       ~GPNAMRegressor._plot_single_feature_effects
       ~GPNAMRegressor._predict
       ~GPNAMRegressor._repr_html_inner

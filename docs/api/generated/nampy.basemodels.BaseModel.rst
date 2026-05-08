@@ -51,7 +51,6 @@
       ~BaseModel.buffers
       ~BaseModel.children
       ~BaseModel.compile
-      ~BaseModel.count_parameters
       ~BaseModel.cpu
       ~BaseModel.cuda
       ~BaseModel.double
@@ -76,7 +75,7 @@
       ~BaseModel.named_children
       ~BaseModel.named_modules
       ~BaseModel.named_parameters
-      ~BaseModel.parameter_count
+      ~BaseModel.parameter_count_by_layer
       ~BaseModel.parameters
       ~BaseModel.print_summary
       ~BaseModel.register_backward_hook
@@ -101,6 +100,7 @@
       ~BaseModel.to
       ~BaseModel.to_device
       ~BaseModel.to_empty
+      ~BaseModel.total_parameters
       ~BaseModel.train
       ~BaseModel.type
       ~BaseModel.unfreeze_parameters
