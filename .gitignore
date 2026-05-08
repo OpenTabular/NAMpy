@@ -1,6 +1,20 @@
 # mgcv R result cache (generated, not committed)
 tests/mgcv_r_cache/
 
+# Local agent/editor metadata and one-off repository notes
+.agents/
+.claude/
+.cursor/
+.codex
+.codexignore
+AGENTS.md
+CLAUDE.md
+DOCS_SETUP_COMPLETE.md
+PUBLISHING_CHECKLIST.md
+PUBLISHING_SUMMARY.md
+RELEASE_CHECKLIST.md
+note*.md
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
