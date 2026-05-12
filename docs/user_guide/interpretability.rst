@@ -1,11 +1,8 @@
 Interpretability
 ================
 
-One of NAMpy's key strengths is model interpretability, especially for additive models like NAM.
-
-.. note::
-   This feature is under active development. More comprehensive interpretability
-   tools and visualizations will be added in future releases.
+One of NAMpy's key strengths is model interpretability, especially for additive
+models like NAM, NodeGAM, SplineNAM, and SparseNAM.
 
 Understanding Additive Models
 ------------------------------
@@ -24,8 +21,8 @@ Where:
 Feature-Level Predictions
 --------------------------
 
-For interpretable models (NAM, GPNAM, etc.), you can extract feature
-contributions:
+For interpretable models, you can extract per-term contributions on the raw
+additive scale:
 
 .. code-block:: python
 
@@ -34,9 +31,68 @@ contributions:
    model = NAMRegressor()
    model.fit(X_train, y_train, max_epochs=100)
    
-   # Get feature-level predictions
-   # (Implementation depends on model internals)
-   # This is an area for future development
+   terms = model.predict_terms(X_test)
+   terms_frame = model.predict_terms(X_test, as_frame=True)
+   raw = model.predict_feature_vals(X_test)
+   prediction = raw["prediction"]
+   regularization = raw["regularization"]
+
+The same method works for regression, classification, and LSS wrappers. For
+classification, contributions are logits. For LSS models, contributions are raw
+distribution-parameter outputs.
+
+The raw model output uses a nested dictionary: ``"prediction"`` stores the final
+tensor, ``"terms"`` stores per-term contributions, ``"intercept"`` stores the
+optional intercept, and ``"regularization"`` stores loss penalties.
+
+Feature Importance
+------------------
+
+Feature importance can be computed from the variation in term contributions:
+
+.. code-block:: python
+
+   importance = model.feature_importance(X_test, method="variance")
+
+Supported methods are ``"variance"``, ``"range"``, ``"mean_abs"``, and
+``"max_abs"``.
+
+Visualization
+-------------
+
+Use the generic plotting helpers for main effects and pairwise interactions:
+
+.. code-block:: python
+
+   model.plot_terms(X_test)
+   model.plot_interactions(X_test)
+
+The helper functions are also available from :mod:`nampy.utils`:
+
+.. code-block:: python
+
+   from nampy.utils import predict_terms, feature_importance
+
+   terms = predict_terms(model, X_test)
+   importance = feature_importance(model, X_test)
+
+Summaries and Diagnostics
+-------------------------
+
+All sklearn-style estimators expose a compact summary:
+
+.. code-block:: python
+
+   info = model.summary()
+
+For model-specific diagnostics, use:
+
+.. code-block:: python
+
+   diagnostics = model.diagnostics()
+
+SplineNAM diagnostics include knot locations and regularization penalties.
+SparseNAM diagnostics include group norms and selected groups.
 
 Model Comparison
 ----------------
@@ -72,27 +128,9 @@ Compare interpretable vs. black-box models:
      - Best
      - Pure performance
 
-Visualization (Future)
-----------------------
-
-Future releases will include:
-
-* Feature importance plots
-* Shape functions for individual features
-* Partial dependence plots
-* Individual prediction explanations
-* Interactive visualization tools
-
-Contributing
-------------
-
-Interpretability tools are an active area of development. Contributions
-are welcome! See :doc:`../contributing` for details.
-
 For More Information
 --------------------
 
 * :doc:`../models/index` - Model comparison
 * :doc:`../examples/index` - Practical examples
 * GitHub: https://github.com/Ananyapam7/NAMpy
-

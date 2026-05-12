@@ -4,9 +4,9 @@ from .nam_config import DefaultNAMConfig
 
 
 @dataclass
-class DefaultSNAMConfig(DefaultNAMConfig):
+class DefaultSparseNAMConfig(DefaultNAMConfig):
     """
-    Default config for Sparse Neural Additive Models (SNAM).
+    Default config for SparseNAM models.
 
     This reuses NAM's architecture/configuration and adds the group-lasso controls.
     """

@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from ..arch_utils.mlp_utils import MLP
 from ..configs.qnam_config import DefaultQNAMConfig
 from .basemodel import BaseModel
+from .model_output import make_model_output, merge_terms, validate_feature_names
 
 
 class QNAMBase(BaseModel):
@@ -76,17 +77,8 @@ class QNAMBase(BaseModel):
         else:
             self.raw_intercept = None
 
-        reserved = {"output", "intercept", "output_penalty"}
         all_feature_names = set(num_feature_info) | set(cat_feature_info)
-        if reserved & all_feature_names:
-            raise ValueError(
-                f"Feature names {sorted(reserved.intersection(all_feature_names))} are reserved."
-            )
-        if any(":" in name for name in all_feature_names):
-            bad = sorted(name for name in all_feature_names if ":" in name)
-            raise ValueError(
-                f"Feature names {bad} contain ':', which is reserved for interaction names."
-            )
+        validate_feature_names(all_feature_names)
 
         # Main-effect subnetworks
         self.num_feature_networks = nn.ModuleDict()
@@ -205,7 +197,9 @@ class QNAMBase(BaseModel):
             return None
         return self._monotone_transform(self.raw_intercept.unsqueeze(0)).squeeze(0)
 
-    def forward(self, num_features: dict, cat_features: dict) -> dict:
+    def forward(
+        self, num_features: dict, cat_features: dict, return_terms: bool = True
+    ) -> dict:
         """
         Forward pass of QNAM.
 
@@ -220,10 +214,7 @@ class QNAMBase(BaseModel):
         -------
         dict
             Dictionary containing:
-            - "output": final quantile predictions [batch, num_classes]
-            - one entry per feature contribution [batch, num_classes]
-            - one entry per interaction contribution [batch, num_classes], if enabled
-            - "intercept": transformed monotone intercept [num_classes], if enabled
+            Canonical NAMpy model output dictionary.
         """
         num_outputs = {}
         for feature_name, feature_network in self.num_feature_networks.items():
@@ -272,12 +263,13 @@ class QNAMBase(BaseModel):
         if intercept is not None:
             x = x + intercept
 
-        result = {"output": x}
-        result.update(num_outputs)
-        result.update(cat_outputs)
-        result.update(interaction_outputs)
-
-        if intercept is not None:
-            result["intercept"] = intercept
-
-        return result
+        terms = (
+            merge_terms(num_outputs, cat_outputs, interaction_outputs)
+            if return_terms
+            else {}
+        )
+        return make_model_output(
+            prediction=x,
+            terms=terms,
+            intercept=intercept,
+        )

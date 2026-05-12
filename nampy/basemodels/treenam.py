@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from ..arch_utils.neural_tree import NeuralDecisionTree
 from ..configs.treenam_config import DefaultTreeNAMConfig
 from .basemodel import BaseModel
+from .model_output import make_model_output, merge_terms, validate_feature_names
 
 
 class TreeNAM(BaseModel):
@@ -59,17 +60,8 @@ class TreeNAM(BaseModel):
         else:
             self.intercept = None
 
-        reserved = {"output", "intercept", "output_penalty"}
         all_feature_names = set(num_feature_info) | set(cat_feature_info)
-        if reserved & all_feature_names:
-            raise ValueError(
-                f"Feature names {sorted(reserved.intersection(all_feature_names))} are reserved."
-            )
-        if any(":" in name for name in all_feature_names):
-            bad = sorted(name for name in all_feature_names if ":" in name)
-            raise ValueError(
-                f"Feature names {bad} contain ':', which is reserved for interaction names."
-            )
+        validate_feature_names(all_feature_names)
 
         self.num_feature_models = nn.ModuleDict()
         for feature_name, info in num_feature_info.items():
@@ -139,7 +131,9 @@ class TreeNAM(BaseModel):
 
         return interaction_outputs, penalty
 
-    def forward(self, num_features: dict, cat_features: dict) -> dict:
+    def forward(
+        self, num_features: dict, cat_features: dict, return_terms: bool = True
+    ) -> dict:
         num_outputs = {}
         total_penalty = next(self.parameters()).new_zeros(())
 
@@ -193,16 +187,18 @@ class TreeNAM(BaseModel):
         if self.intercept is not None:
             x = x + self.intercept
 
-        result = {"output": x}
-        result.update(num_outputs)
-        result.update(cat_outputs)
-        result.update(interaction_outputs)
-
-        if self.intercept is not None:
-            result["intercept"] = self.intercept
-
-        # Reuse the existing wrapper convention so no lightning changes are required
+        terms = (
+            merge_terms(num_outputs, cat_outputs, interaction_outputs)
+            if return_terms
+            else {}
+        )
+        regularization = {}
         if self.tree_lamda > 0.0:
-            result["output_penalty"] = total_penalty
+            regularization["tree"] = total_penalty
 
-        return result
+        return make_model_output(
+            prediction=x,
+            terms=terms,
+            intercept=self.intercept,
+            regularization=regularization,
+        )

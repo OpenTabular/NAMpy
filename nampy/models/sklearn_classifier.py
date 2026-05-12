@@ -14,6 +14,12 @@ from sklearn.preprocessing import LabelEncoder
 
 from ..basemodels.lightning_wrapper import TaskModel
 from ..data_utils.datamodule import NAMpyDataModule
+from ..utils._summary import _diagnostics, _summary
+from ..utils.interpretability import feature_importance as _feature_importance
+from ..utils.interpretability import plot_interactions as _plot_interactions
+from ..utils.interpretability import plot_terms as _plot_terms
+from ..utils.interpretability import predict_terms as _predict_terms
+from ..utils.interpretability import term_contributions as _term_contributions
 from ..utils.plotting import (
     create_subplot_grid,
     plot_density_shading,
@@ -297,7 +303,7 @@ class SklearnBaseClassifier(BaseEstimator):
         return self
 
     def predict(self, X):
-        output = self._predict(X)["output"]
+        output = self._predict(X)["prediction"]
         if output.shape[1] == 1:
             probabilities = torch.sigmoid(output)
             encoded = (probabilities > 0.5).long().view(-1).cpu().numpy()
@@ -311,6 +317,27 @@ class SklearnBaseClassifier(BaseEstimator):
 
     def predict_feature_vals(self, X):
         return self._predict(X)
+
+    def predict_terms(self, X, **kwargs):
+        return _predict_terms(self, X, **kwargs)
+
+    def term_contributions(self, X, **kwargs):
+        return _term_contributions(self, X, **kwargs)
+
+    def feature_importance(self, X, **kwargs):
+        return _feature_importance(self, X, **kwargs)
+
+    def plot_terms(self, X, **kwargs):
+        return _plot_terms(self, X, **kwargs)
+
+    def plot_interactions(self, X, **kwargs):
+        return _plot_interactions(self, X, **kwargs)
+
+    def diagnostics(self):
+        return _diagnostics(self)
+
+    def summary(self, *, print_fn=print):
+        return _summary(self, print_fn=print_fn)
 
     def _predict(self, X):
         """
@@ -387,7 +414,7 @@ class SklearnBaseClassifier(BaseEstimator):
             Predicted class probabilities for each input sample.
 
         """
-        output = self._predict(X)["output"]
+        output = self._predict(X)["prediction"]
         if output.shape[1] == 1:
             p1 = torch.sigmoid(output)
             probabilities = torch.cat([1.0 - p1, p1], dim=1)
@@ -606,9 +633,10 @@ class SklearnBaseClassifier(BaseEstimator):
 
         features_to_plot = [feature_name] if feature_name else num_feature_names
         predictions = self._predict(X_prepared)
+        terms = predictions["terms"]
 
         # Filter to features with predictions
-        features_to_plot = [f for f in features_to_plot if f in predictions]
+        features_to_plot = [f for f in features_to_plot if f in terms]
         if not features_to_plot:
             raise ValueError("No features found with predictions to plot.")
 
@@ -620,7 +648,7 @@ class SklearnBaseClassifier(BaseEstimator):
         ):
             self._plot_single_feature_effects(
                 X_prepared[fname].values,
-                predictions[fname],
+                terms[fname],
                 y_true,
                 ax,
                 feature_name=fname,
@@ -635,10 +663,10 @@ class SklearnBaseClassifier(BaseEstimator):
 
         # Plot interactions if requested
         if plot_interactions:
-            for interaction_name in predictions.keys():
+            for interaction_name in terms.keys():
                 if ":" in interaction_name:
                     self._plot_interaction_effects(
                         interaction_name,
-                        predictions[interaction_name],
+                        terms[interaction_name],
                         X_train_scaled=X_prepared,
                     )

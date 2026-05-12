@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Breaking: base model `forward()`, estimator `_predict()`, and
+  `predict_feature_vals()` now return a nested output dictionary with
+  `prediction`, `terms`, `intercept`, `regularization`, and `extras` keys.
+- Per-feature contributions moved from top-level result keys into `terms`.
+- Training regularizers moved from `*_penalty` top-level keys into
+  `regularization`.
+
 ### Added
 - Comprehensive documentation improvements
 - Modern packaging with pyproject.toml
@@ -25,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NAMformer (Transformer-based NAM) implementation
 - QNAM (Quantile NAM) implementation
 - TreeNAM (Tree-based NAM) implementation
-- SNAM (Sparse NAM) implementation
+- SparseNAM implementation
 - NodeGAM (Node-based GAM) implementation
 - Linear Regression (Neural) implementation
 - Support for regression, classification, and distributional regression (LSS)
@@ -65,4 +73,3 @@ No breaking changes. This release adds features and improves documentation.
 ---
 
 For more details, see the [GitHub releases page](https://github.com/Ananyapam7/NAMpy/releases).
-

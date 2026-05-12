@@ -93,7 +93,7 @@ Create your model by inheriting from `BaseModel`:
            Returns
            -------
            dict
-               Dictionary containing the output tensor.
+               Dictionary containing the prediction tensor.
            """
            # Concatenate all numerical features
            num_features_tensor = torch.cat(
@@ -113,8 +113,8 @@ Create your model by inheriting from `BaseModel`:
            # Forward pass
            output = self.mlp(input_tensor)
            
-           # MUST return a dictionary with "output" key
-           return {"output": output}
+           # MUST return a dictionary with "prediction" key
+           return {"prediction": output}
 
 3. Create Wrapper Classes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -258,7 +258,7 @@ Here's a complete working example:
            x = x.squeeze(1)  # Remove sequence dimension
            output = self.output_layer(x)
            
-           return {"output": output}
+           return {"prediction": output}
    
    # 3. Wrapper Class
    class AttentiveMLPRegressor(SklearnBaseRegressor):
@@ -284,7 +284,7 @@ Forward Pass Requirements
 The `forward()` method MUST:
 
 * Accept `num_features` and `cat_features` as dictionaries
-* Return a dictionary with at least an ``"output"`` key
+* Return a dictionary with at least a ``"prediction"`` key
 * The output shape should be (batch_size, num_classes)
 
 For Interpretable Models
@@ -305,8 +305,8 @@ If you want feature-level predictions (like NAM):
        output = sum(feature_outputs.values())
        
        return {
-           "output": output,
-           "feature_outputs": feature_outputs  # For interpretability
+           "prediction": output,
+           "terms": feature_outputs  # For interpretability
        }
 
 Configuration Best Practices

@@ -8,6 +8,7 @@ import torch.nn as nn
 from ..arch_utils.nbm_utils import ConceptNNBasesNary
 from ..configs.nbm_config import DefaultNBMConfig
 from .basemodel import BaseModel
+from .model_output import make_model_output, validate_feature_names
 
 
 class NBM(BaseModel):
@@ -20,11 +21,7 @@ class NBM(BaseModel):
       If an original feature expands to multiple columns (e.g. one-hot / binning / splines),
       each column becomes its own unary term, which is the cleanest way to stay faithful
       to the paper's NBM decomposition.
-    - The returned dictionary contains:
-        * "output": final prediction tensor of shape [batch, num_classes]
-        * one entry per main effect / interaction term, each of shape [batch, num_classes]
-        * optionally "intercept"
-        * optionally "output_penalty"
+    - The returned dictionary follows NAMpy's nested model output contract.
     """
 
     def __init__(
@@ -88,17 +85,8 @@ class NBM(BaseModel):
         self.num_feature_keys = list(num_feature_info.keys())
         self.cat_feature_keys = list(cat_feature_info.keys())
 
-        reserved = {"output", "intercept", "output_penalty"}
         all_feature_names = set(self.num_feature_keys) | set(self.cat_feature_keys)
-        if reserved & all_feature_names:
-            raise ValueError(
-                f"Feature names {sorted(reserved & all_feature_names)} are reserved."
-            )
-        if any(":" in name for name in all_feature_names):
-            bad = sorted(name for name in all_feature_names if ":" in name)
-            raise ValueError(
-                f"Feature names {bad} contain ':', which is reserved for interaction names."
-            )
+        validate_feature_names(all_feature_names)
 
         # Atomic features: each scalar post-preprocessing column becomes one feature
         self.atomic_feature_names = self._build_atomic_feature_names(
@@ -379,7 +367,9 @@ class NBM(BaseModel):
 
         return term_scores * channel_mask
 
-    def forward(self, num_features: dict, cat_features: dict) -> dict:
+    def forward(
+        self, num_features: dict, cat_features: dict, return_terms: bool = True
+    ) -> dict:
         """
         Forward pass of the Neural Basis Model.
 
@@ -393,11 +383,7 @@ class NBM(BaseModel):
         Returns
         -------
         dict
-            A dictionary containing:
-            - "output": final prediction tensor [batch, num_classes]
-            - one entry per main-effect / interaction term [batch, num_classes]
-            - optionally "intercept"
-            - optionally "output_penalty"
+            Canonical NAMpy model output dictionary.
         """
         all_features = self._concat_all_features(num_features, cat_features)
         batch_size = all_features.shape[0]
@@ -454,17 +440,22 @@ class NBM(BaseModel):
         if self.intercept is not None:
             output = output + self.intercept
 
-        result = {"output": output}
-
+        terms = {}
         # Aggregate channels that correspond to the same logical term
         # (e.g. across multiple subnets).
-        for term_name, channel_indices in self.term_to_channel_indices.items():
-            result[term_name] = term_contribs[:, channel_indices, :].sum(dim=1)
+        if return_terms:
+            for term_name, channel_indices in self.term_to_channel_indices.items():
+                terms[term_name] = term_contribs[:, channel_indices, :].sum(dim=1)
 
-        if self.intercept is not None:
-            result["intercept"] = self.intercept
-
+        regularization = {}
         if self.output_penalty > 0.0:
-            result["output_penalty"] = self.output_penalty * term_scores.pow(2).mean()
+            regularization["output_penalty"] = (
+                self.output_penalty * term_scores.pow(2).mean()
+            )
 
-        return result
+        return make_model_output(
+            prediction=output,
+            terms=terms,
+            intercept=self.intercept,
+            regularization=regularization,
+        )

@@ -67,7 +67,7 @@ How do I choose which model to use?
 
 * **Maximum interpretability**: NAM, NodeGAM
 * **Uncertainty quantification**: GPNAM
-* **Feature selection**: SNAM
+* **Feature selection**: SparseNAM
 * **Complex interactions**: NATT, NAMformer
 * **Baseline**: LinReg
 

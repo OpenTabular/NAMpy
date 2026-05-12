@@ -57,7 +57,11 @@ Specialized Models
    Integrates tree-based methods with NAM. Good for tabular data
    with categorical features.
 
-**SNAM (Sparse NAM)**
+**SplineNAM**
+   Uses cubic spline basis functions for smooth additive shape functions,
+   including smoothness penalties, learned knots, and spline diagnostics.
+
+**SparseNAM**
    Applies sparsity constraints for feature selection. Useful when
    you have many features and want automatic selection.
 
@@ -81,7 +85,7 @@ For predicting continuous values:
    predictions = model.predict(X_test)
 
 Most models have a `*Regressor` variant (e.g., `GPNAMRegressor`, `NBMRegressor`). Some
-specialized models are regression-only, such as `TreeNAMRegressor` and `SNAMRegressor`.
+specialized models are regression-only, such as `TreeNAMRegressor` and `SparseNAMRegressor`.
 
 Classification
 ~~~~~~~~~~~~~~
@@ -133,7 +137,7 @@ Available distribution families:
 * ``robustnormal`` - Robust normal distribution
 
 Most models have an `*LSS` variant (e.g., `GPNAMLSS`, `NBMLSS`). `QNAM` is
-distributional-only, while `TreeNAM` and `SNAM` do not currently provide LSS variants.
+distributional-only, while `TreeNAM` and `SparseNAM` do not currently provide LSS variants.
 
 Hyperparameter Configuration
 -----------------------------

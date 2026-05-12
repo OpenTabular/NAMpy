@@ -17,6 +17,7 @@ from ..arch_utils.normalization_layers import (
 from ..arch_utils.transformer_utils import CustomTransformerEncoderLayer
 from ..configs.natt_config import DefaultNATTConfig
 from .basemodel import BaseModel
+from .model_output import make_model_output, merge_terms, validate_feature_names
 
 
 class NATT(BaseModel):
@@ -69,6 +70,11 @@ class NATT(BaseModel):
 
         self.feature_dropout = nn.Dropout(
             self.hparams.get("feature_dropout", config.feature_dropout)
+        )
+        reserved_terms = {"categorical_block"} if cat_feature_info else set()
+        validate_feature_names(
+            set(num_feature_info) | set(cat_feature_info),
+            reserved_terms=reserved_terms,
         )
 
         # Initialize sub-networks for each feature
@@ -288,7 +294,9 @@ class NATT(BaseModel):
         )
         return layers
 
-    def forward(self, num_features: dict, cat_features: dict) -> dict:
+    def forward(
+        self, num_features: dict, cat_features: dict, return_terms: bool = True
+    ) -> dict:
         """
         Forward pass of the NAM model.
 
@@ -316,7 +324,7 @@ class NATT(BaseModel):
             )
             cat_vals = self.encoder(cat_embeddings)
             cat_vals = self.tabular_head(cat_vals)
-            cat_outputs = {"cat_output": cat_vals}
+            cat_outputs = {"categorical_block": cat_vals}
 
         interaction_outputs = self._interaction_forward(
             num_features=num_features, cat_features=cat_features
@@ -334,6 +342,8 @@ class NATT(BaseModel):
             output.unsqueeze(-1) if output.dim() == 2 else output
             for output in all_outputs
         ]
+        if not all_outputs:
+            raise ValueError("NATT received no feature contributions to sum.")
 
         # Concatenate all feature outputs: [batch_size, num_features, num_classes]
         concatenated = torch.cat(all_outputs, dim=1)
@@ -353,12 +363,13 @@ class NATT(BaseModel):
         if self.intercept is not None:
             x += self.intercept
 
-        # Combine the output tensor with the original feature values
-        result = {"output": x}
-        result.update(num_outputs)
-        result.update(cat_outputs)
-        result.update(interaction_outputs)
-        if self.intercept is not None:
-            result["intercept"] = self.intercept
-
-        return result
+        terms = (
+            merge_terms(num_outputs, cat_outputs, interaction_outputs)
+            if return_terms
+            else {}
+        )
+        return make_model_output(
+            prediction=x,
+            terms=terms,
+            intercept=self.intercept,
+        )

@@ -8,6 +8,7 @@ import torch.nn as nn
 from ..arch_utils.mlp_utils import MLP
 from ..configs.nam_config import DefaultNAMConfig
 from .basemodel import BaseModel
+from .model_output import make_model_output, merge_terms, validate_feature_names
 
 
 class NAM(BaseModel):
@@ -111,12 +112,8 @@ class NAM(BaseModel):
                 info["dimension"]
             )  # Categorical features are typically encoded as single values
 
-        reserved = {"output", "intercept"}
         all_feature_names = set(num_feature_info) | set(cat_feature_info)
-        if reserved & all_feature_names:
-            raise ValueError(
-                f"Feature names {sorted(reserved.intersection(all_feature_names))} are reserved."
-            )
+        validate_feature_names(all_feature_names)
 
         self.interaction_networks = nn.ModuleDict()
         if self.interaction_degree is not None and self.interaction_degree >= 2:
@@ -210,7 +207,9 @@ class NAM(BaseModel):
 
         return interaction_outputs
 
-    def forward(self, num_features: dict, cat_features: dict) -> dict:
+    def forward(
+        self, num_features: dict, cat_features: dict, return_terms: bool = True
+    ) -> dict:
         """
         Forward pass of the NAM model.
 
@@ -245,6 +244,9 @@ class NAM(BaseModel):
             + list(cat_outputs.values())
             + list(interaction_outputs.values())
         )
+        if not all_outputs:
+            raise ValueError("NAM received no feature contributions to sum.")
+
         concatenated = torch.cat(all_outputs, dim=1)
         num_features_total = len(all_outputs)
 
@@ -268,12 +270,13 @@ class NAM(BaseModel):
         if self.intercept is not None:
             x += self.intercept
 
-        # Combine the output tensor with the original feature values
-        result = {"output": x}
-        result.update(num_outputs)
-        result.update(cat_outputs)
-        result.update(interaction_outputs)
-        if self.intercept is not None:
-            result["intercept"] = self.intercept
-
-        return result
+        terms = (
+            merge_terms(num_outputs, cat_outputs, interaction_outputs)
+            if return_terms
+            else {}
+        )
+        return make_model_output(
+            prediction=x,
+            terms=terms,
+            intercept=self.intercept,
+        )

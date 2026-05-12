@@ -65,13 +65,31 @@ Regressor
 
 .. autoclass:: TreeNAMRegressor
 
-SNAM
-~~~~
+SplineNAM
+~~~~~~~~~
 
 Regressor
 ^^^^^^^^^
 
-.. autoclass:: SNAMRegressor
+.. autoclass:: SplineNAMRegressor
+
+Classifier
+^^^^^^^^^^
+
+.. autoclass:: SplineNAMClassifier
+
+Distributional Regression (LSS)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: SplineNAMLSS
+
+SparseNAM
+~~~~~~~~~
+
+Regressor
+^^^^^^^^^
+
+.. autoclass:: SparseNAMRegressor
 
 NodeGAM
 ~~~~~~~
