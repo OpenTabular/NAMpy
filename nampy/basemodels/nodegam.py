@@ -7,6 +7,7 @@ from ..arch_utils.nn_utils import entmoid15
 from ..arch_utils.nodegam_utils import EM15Temp, GAMAttBlock, GAMBlock
 from ..configs.nodegam_config import DefaultNodeGAMConfig
 from .basemodel import BaseModel
+from .model_output import make_model_output, validate_feature_names
 
 
 class NodeGAMBlockHead(nn.Module):
@@ -35,17 +36,8 @@ class NodeGAMBlockHead(nn.Module):
         if self.total_input_dim == 0:
             raise ValueError("NodeGAM requires at least one input feature.")
 
-        reserved = {"output", "intercept", "output_penalty"}
         all_feature_names = set(self.input_feature_names)
-        if reserved & all_feature_names:
-            raise ValueError(
-                f"Feature names {sorted(reserved & all_feature_names)} are reserved."
-            )
-        if any(":" in name for name in all_feature_names):
-            bad = sorted(name for name in all_feature_names if ":" in name)
-            raise ValueError(
-                f"Feature names {bad} contain ':', which is reserved for interaction names."
-            )
+        validate_feature_names(all_feature_names)
 
         self.interaction_degree = hparams.get(
             "interaction_degree", config.interaction_degree
@@ -152,15 +144,20 @@ class NodeGAMBlockHead(nn.Module):
             output = self.block(x)
             penalty = None
 
-        result = {"output": output}
+        regularization = {}
         if penalty is not None:
-            result["output_penalty"] = penalty
+            regularization["output_penalty"] = penalty
 
+        terms = {}
         if return_terms:
-            result.update(self._additive_term_outputs(x))
-            result["intercept"] = self.block.bias
+            terms = self._additive_term_outputs(x)
 
-        return result
+        return make_model_output(
+            prediction=output,
+            terms=terms,
+            intercept=self.block.bias,
+            regularization=regularization,
+        )
 
     def _additive_term_outputs(self, x: torch.Tensor):
         term_outputs = self.block.run_with_additive_terms(x)
@@ -305,31 +302,38 @@ class NodeGAMLSSBase(BaseModel):
             )
             for head in self.heads
         ]
-        output = torch.cat([result["output"] for result in head_results], dim=1)
+        output = torch.cat([result["prediction"] for result in head_results], dim=1)
 
-        result = {"output": output}
         penalties = [
-            head_result["output_penalty"]
+            head_result["regularization"]["output_penalty"]
             for head_result in head_results
-            if "output_penalty" in head_result
+            if "output_penalty" in head_result["regularization"]
         ]
+        regularization = {}
         if penalties:
-            result["output_penalty"] = sum(penalties)
+            regularization["output_penalty"] = sum(penalties)
 
+        terms = {}
+        intercept = None
         if return_terms:
-            intercepts = []
-            for param_name, head_result in zip(
-                self.param_names, head_results, strict=True
-            ):
-                if "intercept" in head_result:
-                    intercepts.append(head_result["intercept"].reshape(1))
+            term_names = head_results[0]["terms"].keys()
+            for term_name in term_names:
+                terms[term_name] = torch.cat(
+                    [head_result["terms"][term_name] for head_result in head_results],
+                    dim=1,
+                )
 
-                for key, value in head_result.items():
-                    if key in {"output", "output_penalty", "intercept"}:
-                        continue
-                    result[f"{param_name}:{key}"] = value
-
+            intercepts = [
+                head_result["intercept"].reshape(1)
+                for head_result in head_results
+                if head_result["intercept"] is not None
+            ]
             if intercepts:
-                result["intercept"] = torch.cat(intercepts, dim=0)
+                intercept = torch.cat(intercepts, dim=0)
 
-        return result
+        return make_model_output(
+            prediction=output,
+            terms=terms,
+            intercept=intercept,
+            regularization=regularization,
+        )

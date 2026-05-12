@@ -5,6 +5,7 @@ import torch.nn as nn
 
 from ..configs.linreg_config import DefaultLinRegConfig
 from .basemodel import BaseModel
+from .model_output import make_model_output, merge_terms, validate_feature_names
 
 
 class LinReg(BaseModel):
@@ -44,12 +45,8 @@ class LinReg(BaseModel):
         else:
             self.intercept = None
 
-        reserved = {"output", "intercept"}
         all_feature_names = set(num_feature_info) | set(cat_feature_info)
-        if reserved & all_feature_names:
-            raise ValueError(
-                f"Feature names {sorted(reserved.intersection(all_feature_names))} are reserved."
-            )
+        validate_feature_names(all_feature_names)
 
         self.num_feature_networks = nn.ModuleDict()
         for feature_name, info in num_feature_info.items():
@@ -66,7 +63,9 @@ class LinReg(BaseModel):
     def _create_subnetwork(self, input_dim: int) -> nn.Module:
         return nn.Linear(input_dim, self.num_classes)
 
-    def forward(self, num_features: dict, cat_features: dict) -> dict:
+    def forward(
+        self, num_features: dict, cat_features: dict, return_terms: bool = True
+    ) -> dict:
         num_outputs = {}
         for feature_name, feature_network in self.num_feature_networks.items():
             num_outputs[feature_name] = feature_network(
@@ -88,11 +87,9 @@ class LinReg(BaseModel):
         if self.intercept is not None:
             x = x + self.intercept
 
-        result = {"output": x}
-        result.update(num_outputs)
-        result.update(cat_outputs)
-
-        if self.intercept is not None:
-            result["intercept"] = self.intercept
-
-        return result
+        terms = merge_terms(num_outputs, cat_outputs) if return_terms else {}
+        return make_model_output(
+            prediction=x,
+            terms=terms,
+            intercept=self.intercept,
+        )

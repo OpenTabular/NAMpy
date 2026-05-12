@@ -32,5 +32,6 @@ Model Implementations
    NAMformer
    LinReg
    QNAMBase
-   SNAM
+   SparseNAM
+   SplineNAM
    NodeGAM

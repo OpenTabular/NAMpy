@@ -212,11 +212,11 @@ class TaskModel(pl.LightningModule):
         result = self(
             num_features=num_features, cat_features=cat_features, return_terms=False
         )
-        preds = result["output"]
-        loss = self.compute_loss(preds, labels)
-        for key, value in result.items():
-            if key.endswith("_penalty") or key.endswith("_regularizer"):
-                loss = loss + value
+        preds = result["prediction"]
+        data_loss = self.compute_loss(preds, labels)
+        loss = data_loss
+        for value in result.get("regularization", {}).values():
+            loss = loss + value
 
         self.log(
             f"{stage}_loss",
@@ -232,7 +232,7 @@ class TaskModel(pl.LightningModule):
         if stage == "test" and (not self.lss) and self.task_kind == "regression":
             self.log(
                 "test_rmse",
-                torch.sqrt(loss),
+                torch.sqrt(data_loss),
                 on_step=False,
                 on_epoch=True,
                 prog_bar=True,

@@ -19,7 +19,8 @@ Regression Models
    NAMformerRegressor
    LinRegRegressor
    TreeNAMRegressor
-   SNAMRegressor
+   SplineNAMRegressor
+   SparseNAMRegressor
    NodeGAMRegressor
 
 Classification Models
@@ -35,6 +36,7 @@ Classification Models
    NATTClassifier
    NAMformerClassifier
    LinRegClassifier
+   SplineNAMClassifier
    NodeGAMClassifier
 
 Distributional Regression Models (LSS)
@@ -50,6 +52,7 @@ Distributional Regression Models (LSS)
    NATTLSS
    NAMformerLSS
    LinRegLSS
+   SplineNAMLSS
    NodeGAMLSS
 
 Other Models

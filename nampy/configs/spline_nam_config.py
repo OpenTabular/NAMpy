@@ -16,3 +16,5 @@ class DefaultSplineNAMConfig:
     identify: bool = True
     learn_knots: bool = False
     n_knots: int = 12
+    spline_n_knots: Optional[int] = None
+    knot_distance_penalty: float = 0.0

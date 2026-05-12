@@ -5,6 +5,7 @@ import torch.nn as nn
 
 from ..configs.ensemble_treenam_config import DefaultEnsembleTreeNAMConfig
 from .basemodel import BaseModel
+from .model_output import make_model_output
 from .treenam import TreeNAM
 
 
@@ -67,29 +68,48 @@ class EnsembleTreeNAM(BaseModel):
             ]
         )
 
-    def forward(self, num_features: dict, cat_features: dict) -> dict:
+    def forward(
+        self, num_features: dict, cat_features: dict, return_terms: bool = True
+    ) -> dict:
         learner_results = [
-            learner(num_features=num_features, cat_features=cat_features)
+            learner(
+                num_features=num_features,
+                cat_features=cat_features,
+                return_terms=return_terms,
+            )
             for learner in self.learners
         ]
 
         if not learner_results:
             raise RuntimeError("EnsembleTreeNAM has no learners.")
 
-        # Aggregate all non-penalty outputs by averaging.
-        template_keys = [k for k in learner_results[0].keys() if k != "output_penalty"]
-        result = {}
+        prediction = torch.stack(
+            [result["prediction"] for result in learner_results], dim=0
+        ).mean(dim=0)
 
-        for key in template_keys:
-            stacked = torch.stack([res[key] for res in learner_results], dim=0)
-            result[key] = stacked.mean(dim=0)
+        terms = {}
+        for key in learner_results[0]["terms"]:
+            stacked = torch.stack(
+                [result["terms"][key] for result in learner_results], dim=0
+            )
+            terms[key] = stacked.mean(dim=0)
 
-        # Aggregate penalties by averaging so penalty scale stays roughly
-        # comparable as num_estimators changes.
-        penalties = [
-            res["output_penalty"] for res in learner_results if "output_penalty" in res
-        ]
-        if penalties:
-            result["output_penalty"] = torch.stack(penalties, dim=0).mean(dim=0)
+        intercept = None
+        if learner_results[0]["intercept"] is not None:
+            intercept = torch.stack(
+                [result["intercept"] for result in learner_results], dim=0
+            ).mean(dim=0)
 
-        return result
+        regularization = {}
+        for key in learner_results[0]["regularization"]:
+            stacked = torch.stack(
+                [result["regularization"][key] for result in learner_results], dim=0
+            )
+            regularization[key] = stacked.mean(dim=0)
+
+        return make_model_output(
+            prediction=prediction,
+            terms=terms,
+            intercept=intercept,
+            regularization=regularization,
+        )

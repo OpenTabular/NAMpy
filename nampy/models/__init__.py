@@ -10,8 +10,8 @@ from .qnam import QNAM
 from .sklearn_classifier import SklearnBaseClassifier
 from .sklearn_lss import SklearnBaseLSS
 from .sklearn_regressor import SklearnBaseRegressor
-from .snam import SNAMRegressor
-from .spline_nam import SplineNAMRegressor
+from .sparse_nam import SparseNAMRegressor
+from .spline_nam import SplineNAMClassifier, SplineNAMLSS, SplineNAMRegressor
 from .treenam import TreeNAMRegressor
 
 __all__ = [
@@ -40,7 +40,9 @@ __all__ = [
     "TreeNAMRegressor",
     "EnsembleTreeNAMRegressor",
     "SplineNAMRegressor",
-    "SNAMRegressor",
+    "SplineNAMClassifier",
+    "SplineNAMLSS",
+    "SparseNAMRegressor",
     "NodeGAMRegressor",
     "NodeGAMClassifier",
     "NodeGAMLSS",

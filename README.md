@@ -74,13 +74,28 @@ distribution_parameters = model.predict(X_test)
 
 - Regression: `NAMRegressor`, `GPNAMRegressor`, `NBMRegressor`,
   `NATTRegressor`, `NAMformerRegressor`, `NodeGAMRegressor`,
-  `SplineNAMRegressor`, `TreeNAMRegressor`, `SNAMRegressor`,
+  `SplineNAMRegressor`, `TreeNAMRegressor`, `SparseNAMRegressor`,
   `LinRegRegressor`
 - Classification: `NAMClassifier`, `GPNAMClassifier`, `NBMClassifier`,
   `NATTClassifier`, `NAMformerClassifier`, `NodeGAMClassifier`,
+  `SplineNAMClassifier`,
   `LinRegClassifier`
 - Distributional regression: `NAMLSS`, `GPNAMLSS`, `NBMLSS`, `NATTLSS`,
-  `NAMformerLSS`, `NodeGAMLSS`, `LinRegLSS`, `QNAM`
+  `NAMformerLSS`, `NodeGAMLSS`, `SplineNAMLSS`, `LinRegLSS`, `QNAM`
+
+## Interpretability and Diagnostics
+
+Fitted sklearn-style wrappers expose generic additive-model helpers:
+
+```python
+terms = model.predict_terms(X_test)
+raw = model.predict_feature_vals(X_test)
+prediction = raw["prediction"]
+regularization = raw["regularization"]
+importance = model.feature_importance(X_test)
+model.plot_terms(X_test)
+info = model.summary()
+```
 
 ## Documentation
 

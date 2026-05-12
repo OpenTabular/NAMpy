@@ -4,7 +4,7 @@ Models
 NAMpy provides a comprehensive suite of interpretable and high-performance models
 for tabular data. Most models are available in three variants: regression, classification,
 and distributional regression (LSS). Some models are specialized (for example, QNAM is
-distributional-only, while TreeNAM and SNAM are currently regression-only).
+distributional-only, while TreeNAM and SparseNAM are currently regression-only).
 
 Model Overview
 --------------
@@ -45,8 +45,12 @@ Model Overview
      - Tree-based NAM
      - ✓ Yes
      - Categorical Features
-   * - SNAM
-     - Sparse NAM
+   * - SplineNAM
+     - Cubic spline NAM
+     - ✓ Yes
+     - Smooth shape functions
+   * - SparseNAM
+     - Sparse neural additive model
      - ✓ Yes
      - Feature Selection
    * - NodeGAM
@@ -124,22 +128,41 @@ learning rate :math:`\eta`.
    
    model = TreeNAMRegressor()
 
-**SNAM (Sparse NAM)**
+**SparseNAM**
 
 Applies sparsity constraints for automatic feature selection.
+
+.. math::
+
+   f(x) = \beta_0 + \sum_{i=1}^{d} f_i(x_i) + \sum_{S \in \mathcal{I}} f_S(x_S)
+   + \lambda \sum_j \|\theta_j\|_2
+
+Here :math:`\theta_j` is the parameter vector of one feature or interaction
+subnetwork. The group penalty encourages whole feature terms to drop out.
+
+.. code-block:: python
+
+   from nampy.models import SparseNAMRegressor
+   
+   model = SparseNAMRegressor()
+
+**SplineNAM**
+
+Uses cubic spline basis functions for smooth additive shape functions,
+optional smoothness regularization, and tensor-product spline interactions
+for scalar feature pairs. The fitted base model exposes
+``get_spline_diagnostics()`` for knot locations and per-term penalties.
 
 .. math::
 
    f(x) = \beta_0 + \sum_{i=1}^{d} \sum_{k=1}^{K} w_{i,k} B_k(x_i)
    + \sum_{S \in \mathcal{I}} f_S(x_S)
 
-Here :math:`B_k` are cubic spline basis functions with learnable knots.
-
 .. code-block:: python
 
-   from nampy.models import SNAMRegressor
+   from nampy.models import SplineNAMRegressor
    
-   model = SNAMRegressor()
+   model = SplineNAMRegressor(smoothing=1e-4, n_knots=12)
 
 **NodeGAM**
 

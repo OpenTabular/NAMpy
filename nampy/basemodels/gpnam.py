@@ -6,6 +6,7 @@ import torch.nn as nn
 
 from ..configs.gpnam_config import DefaultGPNAMConfig
 from .basemodel import BaseModel
+from .model_output import make_model_output, merge_terms, validate_feature_names
 
 
 class GPNAM(BaseModel):
@@ -57,17 +58,8 @@ class GPNAM(BaseModel):
         self.num_feature_keys = list(num_feature_info.keys())
         self.cat_feature_keys = list(cat_feature_info.keys())
 
-        reserved = {"output", "intercept", "feature_contribution"}
         all_feature_names = set(self.num_feature_keys) | set(self.cat_feature_keys)
-        if reserved & all_feature_names:
-            raise ValueError(
-                f"Feature names {sorted(reserved.intersection(all_feature_names))} are reserved."
-            )
-        if any(":" in name for name in all_feature_names):
-            bad = sorted(name for name in all_feature_names if ":" in name)
-            raise ValueError(
-                f"Feature names {bad} contain ':', which is reserved for interaction names."
-            )
+        validate_feature_names(all_feature_names)
 
         # Scalar post-preprocessing dimensions
         self.atomic_feature_names = self._build_atomic_feature_names(
@@ -245,6 +237,7 @@ class GPNAM(BaseModel):
         num_features: dict,
         cat_features: dict,
         feature_of_interest: Optional[str] = None,
+        return_terms: bool = True,
     ) -> dict:
         """
         Forward pass of GP-NAM.
@@ -252,11 +245,7 @@ class GPNAM(BaseModel):
         Returns
         -------
         dict
-            Contains:
-            - "output": [B, C]
-            - one exact additive contribution per scalar dimension, each [B, C]
-            - optionally "intercept": [C]
-            - optionally "feature_contribution" if feature_of_interest is requested
+            Canonical NAMpy model output dictionary.
         """
         x = self._concat_all_features(num_features, cat_features)  # [B, D]
         if x.shape[1] != self.input_dim:
@@ -274,20 +263,22 @@ class GPNAM(BaseModel):
         if self.intercept is not None:
             output = output + self.intercept
 
-        result = {"output": output}
-
-        for d, name in enumerate(self.atomic_feature_names):
-            result[name] = contribs[:, d, :]
-
-        if self.intercept is not None:
-            result["intercept"] = self.intercept
-
+        all_terms = merge_terms(
+            (name, contribs[:, d, :])
+            for d, name in enumerate(self.atomic_feature_names)
+        )
+        extras = {}
         if feature_of_interest is not None:
-            if feature_of_interest not in result:
+            if feature_of_interest not in all_terms:
                 raise KeyError(
                     f"Unknown feature_of_interest={feature_of_interest!r}. "
                     f"Available feature keys: {self.atomic_feature_names}"
                 )
-            result["feature_contribution"] = result[feature_of_interest]
+            extras["feature_contribution"] = all_terms[feature_of_interest]
 
-        return result
+        return make_model_output(
+            prediction=output,
+            terms=all_terms if return_terms else {},
+            intercept=self.intercept,
+            extras=extras,
+        )

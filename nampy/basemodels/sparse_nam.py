@@ -2,13 +2,13 @@ from typing import Optional, cast
 
 import torch
 
-from ..configs.snam_config import DefaultSNAMConfig
+from ..configs.sparse_nam_config import DefaultSparseNAMConfig
 from .nam import NAM
 
 
-class SNAM(NAM):
+class SparseNAM(NAM):
     """
-    Sparse Neural Additive Model (SNAM).
+    Sparse Neural Additive Model.
 
     This directly reuses NAM's architecture and forward structure, and adds a
     group-lasso penalty over each feature subnetwork's full parameter vector.
@@ -27,11 +27,11 @@ class SNAM(NAM):
         cat_feature_info,
         num_feature_info,
         num_classes: int = 1,
-        config: Optional[DefaultSNAMConfig] = None,
+        config: Optional[DefaultSparseNAMConfig] = None,
         **kwargs,
     ):
         if config is None:
-            config = DefaultSNAMConfig()
+            config = DefaultSparseNAMConfig()
         super().__init__(
             cat_feature_info=cat_feature_info,
             num_feature_info=num_feature_info,
@@ -40,7 +40,7 @@ class SNAM(NAM):
             **kwargs,
         )
 
-        # Pull SNAM-specific args from kwargs first, then hparams/config.
+        # Pull SparseNAM-specific args from kwargs first, then hparams/config.
         self.group_lasso_lambda = kwargs.get(
             "group_lasso_lambda",
             self.hparams.get("group_lasso_lambda", config.group_lasso_lambda),
@@ -98,11 +98,17 @@ class SNAM(NAM):
         norms = self.get_group_norms()
         return [name for name, value in norms.items() if value > threshold]
 
-    def forward(self, num_features: dict, cat_features: dict) -> dict:
-        result = super().forward(num_features=num_features, cat_features=cat_features)
+    def forward(
+        self, num_features: dict, cat_features: dict, return_terms: bool = True
+    ) -> dict:
+        result = super().forward(
+            num_features=num_features,
+            cat_features=cat_features,
+            return_terms=return_terms,
+        )
 
         if self.group_lasso_lambda > 0.0:
-            result["group_lasso_penalty"] = (
+            result["regularization"]["group_lasso"] = (
                 self.group_lasso_lambda * self._group_lasso_penalty()
             )
 

@@ -10,6 +10,7 @@ from ..arch_utils.normalization_layers import LayerNorm
 from ..arch_utils.transformer_utils import CustomTransformerEncoderLayer
 from ..configs.namformer_config import DefaultNAMformerConfig
 from .basemodel import BaseModel
+from .model_output import make_model_output, merge_terms, validate_feature_names
 
 
 class NAMformer(BaseModel):
@@ -62,6 +63,10 @@ class NAMformer(BaseModel):
 
         self.feature_dropout = nn.Dropout(
             self.hparams.get("feature_dropout", config.feature_dropout)
+        )
+        validate_feature_names(
+            set(num_feature_info) | set(cat_feature_info),
+            reserved_terms={"transformer_context"},
         )
 
         # Initialize sub-networks for each feature
@@ -162,7 +167,9 @@ class NAMformer(BaseModel):
             n_output_units=self.num_classes,
         )
 
-    def forward(self, num_features: dict, cat_features: dict) -> dict:
+    def forward(
+        self, num_features: dict, cat_features: dict, return_terms: bool = True
+    ) -> dict:
         """
         Forward pass of the NAM model.
 
@@ -188,6 +195,7 @@ class NAMformer(BaseModel):
         x = self.encoder(embeddings)
         x = self.tabular_head(x)
         x = x[:, 0]
+        context_output = x
 
         # Create a dictionary for feature values, using keys from num_features and cat_features
         nam_outputs = {}
@@ -232,9 +240,10 @@ class NAMformer(BaseModel):
 
         # Sum all feature outputs (main effects) and interaction outputs
 
-        all_outputs = (
-            [x] + list(nam_outputs.values()) + list(interaction_outputs.values())
-        )
+        context_outputs = {"transformer_context": context_output}
+        all_outputs = list(context_outputs.values()) + list(
+            nam_outputs.values()
+        ) + list(interaction_outputs.values())
 
         # Make sure all tensors have the same number of dimensions
         all_outputs = [
@@ -260,11 +269,13 @@ class NAMformer(BaseModel):
         if self.intercept is not None:
             x += self.intercept
 
-        # Combine the output tensor with the original feature values
-        result = {"output": x}
-        result.update(nam_outputs)
-        result.update(interaction_outputs)
-        if self.intercept is not None:
-            result["intercept"] = self.intercept
-
-        return result
+        terms = (
+            merge_terms(context_outputs, nam_outputs, interaction_outputs)
+            if return_terms
+            else {}
+        )
+        return make_model_output(
+            prediction=x,
+            terms=terms,
+            intercept=self.intercept,
+        )
