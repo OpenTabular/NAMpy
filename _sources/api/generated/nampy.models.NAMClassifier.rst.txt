@@ -44,17 +44,24 @@
       ~NAMClassifier._repr_html_inner
       ~NAMClassifier._repr_mimebundle_
       ~NAMClassifier._validate_params
+      ~NAMClassifier.diagnostics
       ~NAMClassifier.evaluate
+      ~NAMClassifier.feature_importance
       ~NAMClassifier.fit
       ~NAMClassifier.get_metadata_routing
       ~NAMClassifier.get_params
       ~NAMClassifier.plot
+      ~NAMClassifier.plot_interactions
+      ~NAMClassifier.plot_terms
       ~NAMClassifier.predict
       ~NAMClassifier.predict_feature_vals
       ~NAMClassifier.predict_proba
+      ~NAMClassifier.predict_terms
       ~NAMClassifier.score
       ~NAMClassifier.set_fit_request
       ~NAMClassifier.set_params
+      ~NAMClassifier.summary
+      ~NAMClassifier.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

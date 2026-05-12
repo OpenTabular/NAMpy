@@ -44,16 +44,23 @@
       ~NodeGAMRegressor._repr_html_inner
       ~NodeGAMRegressor._repr_mimebundle_
       ~NodeGAMRegressor._validate_params
+      ~NodeGAMRegressor.diagnostics
       ~NodeGAMRegressor.evaluate
+      ~NodeGAMRegressor.feature_importance
       ~NodeGAMRegressor.fit
       ~NodeGAMRegressor.get_metadata_routing
       ~NodeGAMRegressor.get_params
       ~NodeGAMRegressor.plot
+      ~NodeGAMRegressor.plot_interactions
+      ~NodeGAMRegressor.plot_terms
       ~NodeGAMRegressor.predict
       ~NodeGAMRegressor.predict_feature_vals
+      ~NodeGAMRegressor.predict_terms
       ~NodeGAMRegressor.score
       ~NodeGAMRegressor.set_fit_request
       ~NodeGAMRegressor.set_params
+      ~NodeGAMRegressor.summary
+      ~NodeGAMRegressor.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

@@ -46,17 +46,24 @@
       ~NBMLSS._repr_html_inner
       ~NBMLSS._repr_mimebundle_
       ~NBMLSS._validate_params
+      ~NBMLSS.diagnostics
       ~NBMLSS.evaluate
+      ~NBMLSS.feature_importance
       ~NBMLSS.fit
       ~NBMLSS.get_default_metrics
       ~NBMLSS.get_metadata_routing
       ~NBMLSS.get_params
       ~NBMLSS.plot
+      ~NBMLSS.plot_interactions
+      ~NBMLSS.plot_terms
       ~NBMLSS.predict
       ~NBMLSS.predict_feature_vals
+      ~NBMLSS.predict_terms
       ~NBMLSS.set_fit_request
       ~NBMLSS.set_params
       ~NBMLSS.set_predict_request
+      ~NBMLSS.summary
+      ~NBMLSS.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

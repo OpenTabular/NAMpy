@@ -44,17 +44,24 @@
       ~GPNAMClassifier._repr_html_inner
       ~GPNAMClassifier._repr_mimebundle_
       ~GPNAMClassifier._validate_params
+      ~GPNAMClassifier.diagnostics
       ~GPNAMClassifier.evaluate
+      ~GPNAMClassifier.feature_importance
       ~GPNAMClassifier.fit
       ~GPNAMClassifier.get_metadata_routing
       ~GPNAMClassifier.get_params
       ~GPNAMClassifier.plot
+      ~GPNAMClassifier.plot_interactions
+      ~GPNAMClassifier.plot_terms
       ~GPNAMClassifier.predict
       ~GPNAMClassifier.predict_feature_vals
       ~GPNAMClassifier.predict_proba
+      ~GPNAMClassifier.predict_terms
       ~GPNAMClassifier.score
       ~GPNAMClassifier.set_fit_request
       ~GPNAMClassifier.set_params
+      ~GPNAMClassifier.summary
+      ~GPNAMClassifier.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

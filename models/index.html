@@ -24,7 +24,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Model Reference" href="reference.html" />
-    <link rel="prev" title="nampy.utils.distributions" href="../api/generated/nampy.utils.distributions.html" /> 
+    <link rel="prev" title="nampy.utils.interpretability" href="../api/generated/nampy.utils.interpretability.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -142,9 +142,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../user_guide/interpretability.html">Interpretability</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#understanding-additive-models">Understanding Additive Models</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#feature-level-predictions">Feature-Level Predictions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#feature-importance">Feature Importance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#visualization">Visualization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#summaries-and-diagnostics">Summaries and Diagnostics</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#model-comparison">Model Comparison</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#visualization-future">Visualization (Future)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#contributing">Contributing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#for-more-information">For More Information</a></li>
 </ul>
 </li>
@@ -191,7 +192,8 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerRegressor.html">nampy.models.NAMformerRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegRegressor.html">nampy.models.LinRegRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.TreeNAMRegressor.html">nampy.models.TreeNAMRegressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SNAMRegressor.html">nampy.models.SNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SplineNAMRegressor.html">nampy.models.SplineNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SparseNAMRegressor.html">nampy.models.SparseNAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMRegressor.html">nampy.models.NodeGAMRegressor</a></li>
 </ul>
 </li>
@@ -202,6 +204,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NATTClassifier.html">nampy.models.NATTClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerClassifier.html">nampy.models.NAMformerClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegClassifier.html">nampy.models.LinRegClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SplineNAMClassifier.html">nampy.models.SplineNAMClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMClassifier.html">nampy.models.NodeGAMClassifier</a></li>
 </ul>
 </li>
@@ -212,6 +215,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NATTLSS.html">nampy.models.NATTLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerLSS.html">nampy.models.NAMformerLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegLSS.html">nampy.models.LinRegLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SplineNAMLSS.html">nampy.models.SplineNAMLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMLSS.html">nampy.models.NodeGAMLSS</a></li>
 </ul>
 </li>
@@ -241,7 +245,8 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NAMformer.html">nampy.basemodels.NAMformer</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.LinReg.html">nampy.basemodels.LinReg</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.QNAMBase.html">nampy.basemodels.QNAMBase</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.SNAM.html">nampy.basemodels.SNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.SparseNAM.html">nampy.basemodels.SparseNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.SplineNAM.html">nampy.basemodels.SplineNAM</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NodeGAM.html">nampy.basemodels.NodeGAM</a></li>
 </ul>
 </li>
@@ -254,16 +259,26 @@
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNATTConfig.html">nampy.configs.DefaultNATTConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNAMformerConfig.html">nampy.configs.DefaultNAMformerConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultLinRegConfig.html">nampy.configs.DefaultLinRegConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultSNAMConfig.html">nampy.configs.DefaultSNAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultSparseNAMConfig.html">nampy.configs.DefaultSparseNAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultSplineNAMConfig.html">nampy.configs.DefaultSplineNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNodeGAMConfig.html">nampy.configs.DefaultNodeGAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/configs.html#using-configurations">Using Configurations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/configs.html#note">Note</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../api/utils.html">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/utils.html#interpretability">Interpretability</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.predict_terms.html">nampy.utils.predict_terms</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.term_contributions.html">nampy.utils.term_contributions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.feature_importance.html">nampy.utils.feature_importance</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.plot_terms.html">nampy.utils.plot_terms</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.plot_interactions.html">nampy.utils.plot_interactions</a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="../api/utils.html#modules">Modules</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.distributional_metrics.html">nampy.utils.distributional_metrics</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.distributions.html">nampy.utils.distributions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.interpretability.html">nampy.utils.interpretability</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/utils.html#available-distributions">Available Distributions</a></li>
@@ -331,20 +346,17 @@
 <li class="toctree-l4"><a class="reference internal" href="reference.html#id4">Regressor</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="reference.html#snam">SNAM</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="reference.html#splinenam">SplineNAM</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="reference.html#id5">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference.html#id6">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference.html#id7">Distributional Regression (LSS)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="reference.html#sparsenam">SparseNAM</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="reference.html#id8">Regressor</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="reference.html#nodegam">NodeGAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id6">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id7">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id8">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="reference.html#basis-function-models">Basis Function Models</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="reference.html#nbm">NBM</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="reference.html#id9">Regressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="reference.html#id10">Classifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="reference.html#id11">Distributional Regression (LSS)</a></li>
@@ -352,30 +364,39 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="reference.html#attention-based-models">Attention-Based Models</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="reference.html#natt">NATT</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="reference.html#basis-function-models">Basis Function Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="reference.html#nbm">NBM</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="reference.html#id12">Regressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="reference.html#id13">Classifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="reference.html#id14">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="reference.html#namformer">NAMformer</a><ul>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="reference.html#attention-based-models">Attention-Based Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="reference.html#natt">NATT</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="reference.html#id15">Regressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="reference.html#id16">Classifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="reference.html#id17">Distributional Regression (LSS)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="reference.html#namformer">NAMformer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="reference.html#id18">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference.html#id19">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference.html#id20">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="reference.html#specialized-models">Specialized Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="reference.html#qnam-quantile-nam">QNAM (Quantile NAM)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id18">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference.html#id21">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="reference.html#linreg-neural-linear-regression">LinReg (Neural Linear Regression)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id19">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id20">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="reference.html#id21">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference.html#id22">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference.html#id23">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="reference.html#id24">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 </ul>
@@ -462,6 +483,7 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../changelog.html#latest-release">Latest Release</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../changelog.html#unreleased">Unreleased</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../changelog.html#version-0-1-0-2024-01-07">Version 0.1.0 (2024-01-07)</a></li>
 </ul>
 </li>
@@ -557,7 +579,7 @@
 <p>NAMpy provides a comprehensive suite of interpretable and high-performance models
 for tabular data. Most models are available in three variants: regression, classification,
 and distributional regression (LSS). Some models are specialized (for example, QNAM is
-distributional-only, while TreeNAM and SNAM are currently regression-only).</p>
+distributional-only, while TreeNAM and SparseNAM are currently regression-only).</p>
 <section id="model-overview">
 <h2>Model Overview<a class="headerlink" href="#model-overview" title="Link to this heading"></a></h2>
 <table class="docutils align-default">
@@ -610,17 +632,22 @@ distributional-only, while TreeNAM and SNAM are currently regression-only).</p>
 <td><p>✓ Yes</p></td>
 <td><p>Categorical Features</p></td>
 </tr>
-<tr class="row-odd"><td><p>SNAM</p></td>
-<td><p>Sparse NAM</p></td>
+<tr class="row-odd"><td><p>SplineNAM</p></td>
+<td><p>Cubic spline NAM</p></td>
+<td><p>✓ Yes</p></td>
+<td><p>Smooth shape functions</p></td>
+</tr>
+<tr class="row-even"><td><p>SparseNAM</p></td>
+<td><p>Sparse neural additive model</p></td>
 <td><p>✓ Yes</p></td>
 <td><p>Feature Selection</p></td>
 </tr>
-<tr class="row-even"><td><p>NodeGAM</p></td>
+<tr class="row-odd"><td><p>NodeGAM</p></td>
 <td><p>Node-based GAM</p></td>
 <td><p>✓ Yes</p></td>
 <td><p>Large Datasets</p></td>
 </tr>
-<tr class="row-odd"><td><p>LinReg</p></td>
+<tr class="row-even"><td><p>LinReg</p></td>
 <td><p>Neural Linear Regression</p></td>
 <td><p>✓ Yes</p></td>
 <td><p>Linear Relationships</p></td>
@@ -673,15 +700,29 @@ learning rate <span class="math notranslate nohighlight">\(\eta\)</span>.</p>
 <span class="n">model</span> <span class="o">=</span> <span class="n">TreeNAMRegressor</span><span class="p">()</span>
 </pre></div>
 </div>
-<p><strong>SNAM (Sparse NAM)</strong></p>
+<p><strong>SparseNAM</strong></p>
 <p>Applies sparsity constraints for automatic feature selection.</p>
+<div class="math notranslate nohighlight">
+\[f(x) = \beta_0 + \sum_{i=1}^{d} f_i(x_i) + \sum_{S \in \mathcal{I}} f_S(x_S)
++ \lambda \sum_j \|\theta_j\|_2\]</div>
+<p>Here <span class="math notranslate nohighlight">\(\theta_j\)</span> is the parameter vector of one feature or interaction
+subnetwork. The group penalty encourages whole feature terms to drop out.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">SparseNAMRegressor</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">SparseNAMRegressor</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><strong>SplineNAM</strong></p>
+<p>Uses cubic spline basis functions for smooth additive shape functions,
+optional smoothness regularization, and tensor-product spline interactions
+for scalar feature pairs. The fitted base model exposes
+<code class="docutils literal notranslate"><span class="pre">get_spline_diagnostics()</span></code> for knot locations and per-term penalties.</p>
 <div class="math notranslate nohighlight">
 \[f(x) = \beta_0 + \sum_{i=1}^{d} \sum_{k=1}^{K} w_{i,k} B_k(x_i)
 + \sum_{S \in \mathcal{I}} f_S(x_S)\]</div>
-<p>Here <span class="math notranslate nohighlight">\(B_k\)</span> are cubic spline basis functions with learnable knots.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">SNAMRegressor</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">nampy.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">SplineNAMRegressor</span>
 
-<span class="n">model</span> <span class="o">=</span> <span class="n">SNAMRegressor</span><span class="p">()</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">SplineNAMRegressor</span><span class="p">(</span><span class="n">smoothing</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span> <span class="n">n_knots</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
 </pre></div>
 </div>
 <p><strong>NodeGAM</strong></p>
@@ -818,7 +859,7 @@ class, see the reference page.</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="../api/generated/nampy.utils.distributions.html" class="btn btn-neutral float-left" title="nampy.utils.distributions" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../api/generated/nampy.utils.interpretability.html" class="btn btn-neutral float-left" title="nampy.utils.interpretability" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="reference.html" class="btn btn-neutral float-right" title="Model Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

@@ -44,16 +44,23 @@
       ~NATTRegressor._repr_html_inner
       ~NATTRegressor._repr_mimebundle_
       ~NATTRegressor._validate_params
+      ~NATTRegressor.diagnostics
       ~NATTRegressor.evaluate
+      ~NATTRegressor.feature_importance
       ~NATTRegressor.fit
       ~NATTRegressor.get_metadata_routing
       ~NATTRegressor.get_params
       ~NATTRegressor.plot
+      ~NATTRegressor.plot_interactions
+      ~NATTRegressor.plot_terms
       ~NATTRegressor.predict
       ~NATTRegressor.predict_feature_vals
+      ~NATTRegressor.predict_terms
       ~NATTRegressor.score
       ~NATTRegressor.set_fit_request
       ~NATTRegressor.set_params
+      ~NATTRegressor.summary
+      ~NATTRegressor.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

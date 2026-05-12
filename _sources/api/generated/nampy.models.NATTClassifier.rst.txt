@@ -44,17 +44,24 @@
       ~NATTClassifier._repr_html_inner
       ~NATTClassifier._repr_mimebundle_
       ~NATTClassifier._validate_params
+      ~NATTClassifier.diagnostics
       ~NATTClassifier.evaluate
+      ~NATTClassifier.feature_importance
       ~NATTClassifier.fit
       ~NATTClassifier.get_metadata_routing
       ~NATTClassifier.get_params
       ~NATTClassifier.plot
+      ~NATTClassifier.plot_interactions
+      ~NATTClassifier.plot_terms
       ~NATTClassifier.predict
       ~NATTClassifier.predict_feature_vals
       ~NATTClassifier.predict_proba
+      ~NATTClassifier.predict_terms
       ~NATTClassifier.score
       ~NATTClassifier.set_fit_request
       ~NATTClassifier.set_params
+      ~NATTClassifier.summary
+      ~NATTClassifier.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

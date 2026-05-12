@@ -1,0 +1,79 @@
+﻿nampy.models.SplineNAMLSS
+=========================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: SplineNAMLSS
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~SplineNAMLSS.__delattr__
+      ~SplineNAMLSS.__dir__
+      ~SplineNAMLSS.__eq__
+      ~SplineNAMLSS.__format__
+      ~SplineNAMLSS.__ge__
+      ~SplineNAMLSS.__getattribute__
+      ~SplineNAMLSS.__getstate__
+      ~SplineNAMLSS.__gt__
+      ~SplineNAMLSS.__hash__
+      ~SplineNAMLSS.__init_subclass__
+      ~SplineNAMLSS.__le__
+      ~SplineNAMLSS.__lt__
+      ~SplineNAMLSS.__ne__
+      ~SplineNAMLSS.__new__
+      ~SplineNAMLSS.__reduce__
+      ~SplineNAMLSS.__reduce_ex__
+      ~SplineNAMLSS.__repr__
+      ~SplineNAMLSS.__setattr__
+      ~SplineNAMLSS.__setstate__
+      ~SplineNAMLSS.__sizeof__
+      ~SplineNAMLSS.__sklearn_clone__
+      ~SplineNAMLSS.__sklearn_tags__
+      ~SplineNAMLSS.__str__
+      ~SplineNAMLSS.__subclasshook__
+      ~SplineNAMLSS._build_request_for_signature
+      ~SplineNAMLSS._get_default_requests
+      ~SplineNAMLSS._get_doc_link
+      ~SplineNAMLSS._get_metadata_request
+      ~SplineNAMLSS._get_param_names
+      ~SplineNAMLSS._get_params_html
+      ~SplineNAMLSS._html_repr
+      ~SplineNAMLSS._infer_distributional_kwargs
+      ~SplineNAMLSS._normalize_family_name
+      ~SplineNAMLSS._plot_interaction_effects
+      ~SplineNAMLSS._plot_single_feature_effects
+      ~SplineNAMLSS._predict
+      ~SplineNAMLSS._repr_html_inner
+      ~SplineNAMLSS._repr_mimebundle_
+      ~SplineNAMLSS._validate_params
+      ~SplineNAMLSS.diagnostics
+      ~SplineNAMLSS.evaluate
+      ~SplineNAMLSS.feature_importance
+      ~SplineNAMLSS.fit
+      ~SplineNAMLSS.get_default_metrics
+      ~SplineNAMLSS.get_metadata_routing
+      ~SplineNAMLSS.get_params
+      ~SplineNAMLSS.plot
+      ~SplineNAMLSS.plot_interactions
+      ~SplineNAMLSS.plot_terms
+      ~SplineNAMLSS.predict
+      ~SplineNAMLSS.predict_feature_vals
+      ~SplineNAMLSS.predict_terms
+      ~SplineNAMLSS.set_fit_request
+      ~SplineNAMLSS.set_params
+      ~SplineNAMLSS.set_predict_request
+      ~SplineNAMLSS.summary
+      ~SplineNAMLSS.term_contributions
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~SplineNAMLSS.__annotations__
+      ~SplineNAMLSS.__dict__
+      ~SplineNAMLSS.__doc__
+      ~SplineNAMLSS.__module__
+      ~SplineNAMLSS.__weakref__
+      ~SplineNAMLSS._doc_link_module
+      ~SplineNAMLSS._doc_link_template
+      ~SplineNAMLSS._doc_link_url_param_generator
+      ~SplineNAMLSS._repr_html_
+   

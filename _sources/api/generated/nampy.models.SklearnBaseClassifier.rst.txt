@@ -44,17 +44,24 @@
       ~SklearnBaseClassifier._repr_html_inner
       ~SklearnBaseClassifier._repr_mimebundle_
       ~SklearnBaseClassifier._validate_params
+      ~SklearnBaseClassifier.diagnostics
       ~SklearnBaseClassifier.evaluate
+      ~SklearnBaseClassifier.feature_importance
       ~SklearnBaseClassifier.fit
       ~SklearnBaseClassifier.get_metadata_routing
       ~SklearnBaseClassifier.get_params
       ~SklearnBaseClassifier.plot
+      ~SklearnBaseClassifier.plot_interactions
+      ~SklearnBaseClassifier.plot_terms
       ~SklearnBaseClassifier.predict
       ~SklearnBaseClassifier.predict_feature_vals
       ~SklearnBaseClassifier.predict_proba
+      ~SklearnBaseClassifier.predict_terms
       ~SklearnBaseClassifier.score
       ~SklearnBaseClassifier.set_fit_request
       ~SklearnBaseClassifier.set_params
+      ~SklearnBaseClassifier.summary
+      ~SklearnBaseClassifier.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

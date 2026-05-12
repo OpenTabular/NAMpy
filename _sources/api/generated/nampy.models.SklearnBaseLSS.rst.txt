@@ -46,17 +46,24 @@
       ~SklearnBaseLSS._repr_html_inner
       ~SklearnBaseLSS._repr_mimebundle_
       ~SklearnBaseLSS._validate_params
+      ~SklearnBaseLSS.diagnostics
       ~SklearnBaseLSS.evaluate
+      ~SklearnBaseLSS.feature_importance
       ~SklearnBaseLSS.fit
       ~SklearnBaseLSS.get_default_metrics
       ~SklearnBaseLSS.get_metadata_routing
       ~SklearnBaseLSS.get_params
       ~SklearnBaseLSS.plot
+      ~SklearnBaseLSS.plot_interactions
+      ~SklearnBaseLSS.plot_terms
       ~SklearnBaseLSS.predict
       ~SklearnBaseLSS.predict_feature_vals
+      ~SklearnBaseLSS.predict_terms
       ~SklearnBaseLSS.set_fit_request
       ~SklearnBaseLSS.set_params
       ~SklearnBaseLSS.set_predict_request
+      ~SklearnBaseLSS.summary
+      ~SklearnBaseLSS.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

@@ -46,17 +46,24 @@
       ~QNAM._repr_html_inner
       ~QNAM._repr_mimebundle_
       ~QNAM._validate_params
+      ~QNAM.diagnostics
       ~QNAM.evaluate
+      ~QNAM.feature_importance
       ~QNAM.fit
       ~QNAM.get_default_metrics
       ~QNAM.get_metadata_routing
       ~QNAM.get_params
       ~QNAM.plot
+      ~QNAM.plot_interactions
+      ~QNAM.plot_terms
       ~QNAM.predict
       ~QNAM.predict_feature_vals
+      ~QNAM.predict_terms
       ~QNAM.set_fit_request
       ~QNAM.set_params
       ~QNAM.set_predict_request
+      ~QNAM.summary
+      ~QNAM.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

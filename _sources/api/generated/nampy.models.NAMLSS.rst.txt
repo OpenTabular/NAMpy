@@ -46,17 +46,24 @@
       ~NAMLSS._repr_html_inner
       ~NAMLSS._repr_mimebundle_
       ~NAMLSS._validate_params
+      ~NAMLSS.diagnostics
       ~NAMLSS.evaluate
+      ~NAMLSS.feature_importance
       ~NAMLSS.fit
       ~NAMLSS.get_default_metrics
       ~NAMLSS.get_metadata_routing
       ~NAMLSS.get_params
       ~NAMLSS.plot
+      ~NAMLSS.plot_interactions
+      ~NAMLSS.plot_terms
       ~NAMLSS.predict
       ~NAMLSS.predict_feature_vals
+      ~NAMLSS.predict_terms
       ~NAMLSS.set_fit_request
       ~NAMLSS.set_params
       ~NAMLSS.set_predict_request
+      ~NAMLSS.summary
+      ~NAMLSS.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

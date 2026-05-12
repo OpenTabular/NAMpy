@@ -44,17 +44,24 @@
       ~NAMformerClassifier._repr_html_inner
       ~NAMformerClassifier._repr_mimebundle_
       ~NAMformerClassifier._validate_params
+      ~NAMformerClassifier.diagnostics
       ~NAMformerClassifier.evaluate
+      ~NAMformerClassifier.feature_importance
       ~NAMformerClassifier.fit
       ~NAMformerClassifier.get_metadata_routing
       ~NAMformerClassifier.get_params
       ~NAMformerClassifier.plot
+      ~NAMformerClassifier.plot_interactions
+      ~NAMformerClassifier.plot_terms
       ~NAMformerClassifier.predict
       ~NAMformerClassifier.predict_feature_vals
       ~NAMformerClassifier.predict_proba
+      ~NAMformerClassifier.predict_terms
       ~NAMformerClassifier.score
       ~NAMformerClassifier.set_fit_request
       ~NAMformerClassifier.set_params
+      ~NAMformerClassifier.summary
+      ~NAMformerClassifier.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

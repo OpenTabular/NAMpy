@@ -44,16 +44,23 @@
       ~NAMRegressor._repr_html_inner
       ~NAMRegressor._repr_mimebundle_
       ~NAMRegressor._validate_params
+      ~NAMRegressor.diagnostics
       ~NAMRegressor.evaluate
+      ~NAMRegressor.feature_importance
       ~NAMRegressor.fit
       ~NAMRegressor.get_metadata_routing
       ~NAMRegressor.get_params
       ~NAMRegressor.plot
+      ~NAMRegressor.plot_interactions
+      ~NAMRegressor.plot_terms
       ~NAMRegressor.predict
       ~NAMRegressor.predict_feature_vals
+      ~NAMRegressor.predict_terms
       ~NAMRegressor.score
       ~NAMRegressor.set_fit_request
       ~NAMRegressor.set_params
+      ~NAMRegressor.summary
+      ~NAMRegressor.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

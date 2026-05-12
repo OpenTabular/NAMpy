@@ -44,17 +44,24 @@
       ~NodeGAMClassifier._repr_html_inner
       ~NodeGAMClassifier._repr_mimebundle_
       ~NodeGAMClassifier._validate_params
+      ~NodeGAMClassifier.diagnostics
       ~NodeGAMClassifier.evaluate
+      ~NodeGAMClassifier.feature_importance
       ~NodeGAMClassifier.fit
       ~NodeGAMClassifier.get_metadata_routing
       ~NodeGAMClassifier.get_params
       ~NodeGAMClassifier.plot
+      ~NodeGAMClassifier.plot_interactions
+      ~NodeGAMClassifier.plot_terms
       ~NodeGAMClassifier.predict
       ~NodeGAMClassifier.predict_feature_vals
       ~NodeGAMClassifier.predict_proba
+      ~NodeGAMClassifier.predict_terms
       ~NodeGAMClassifier.score
       ~NodeGAMClassifier.set_fit_request
       ~NodeGAMClassifier.set_params
+      ~NodeGAMClassifier.summary
+      ~NodeGAMClassifier.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

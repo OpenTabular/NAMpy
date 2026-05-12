@@ -1,0 +1,55 @@
+﻿nampy.configs.DefaultSplineNAMConfig
+====================================
+
+.. currentmodule:: nampy.configs
+
+.. autoclass:: DefaultSplineNAMConfig
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~DefaultSplineNAMConfig.__delattr__
+      ~DefaultSplineNAMConfig.__dir__
+      ~DefaultSplineNAMConfig.__eq__
+      ~DefaultSplineNAMConfig.__format__
+      ~DefaultSplineNAMConfig.__ge__
+      ~DefaultSplineNAMConfig.__getattribute__
+      ~DefaultSplineNAMConfig.__gt__
+      ~DefaultSplineNAMConfig.__init_subclass__
+      ~DefaultSplineNAMConfig.__le__
+      ~DefaultSplineNAMConfig.__lt__
+      ~DefaultSplineNAMConfig.__ne__
+      ~DefaultSplineNAMConfig.__new__
+      ~DefaultSplineNAMConfig.__reduce__
+      ~DefaultSplineNAMConfig.__reduce_ex__
+      ~DefaultSplineNAMConfig.__repr__
+      ~DefaultSplineNAMConfig.__setattr__
+      ~DefaultSplineNAMConfig.__sizeof__
+      ~DefaultSplineNAMConfig.__str__
+      ~DefaultSplineNAMConfig.__subclasshook__
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~DefaultSplineNAMConfig.__annotations__
+      ~DefaultSplineNAMConfig.__dataclass_fields__
+      ~DefaultSplineNAMConfig.__dataclass_params__
+      ~DefaultSplineNAMConfig.__dict__
+      ~DefaultSplineNAMConfig.__doc__
+      ~DefaultSplineNAMConfig.__hash__
+      ~DefaultSplineNAMConfig.__match_args__
+      ~DefaultSplineNAMConfig.__module__
+      ~DefaultSplineNAMConfig.__weakref__
+      ~DefaultSplineNAMConfig.dropout
+      ~DefaultSplineNAMConfig.feature_dropout
+      ~DefaultSplineNAMConfig.identify
+      ~DefaultSplineNAMConfig.interaction_degree
+      ~DefaultSplineNAMConfig.intercept
+      ~DefaultSplineNAMConfig.knot_distance_penalty
+      ~DefaultSplineNAMConfig.learn_knots
+      ~DefaultSplineNAMConfig.lr
+      ~DefaultSplineNAMConfig.lr_factor
+      ~DefaultSplineNAMConfig.lr_patience
+      ~DefaultSplineNAMConfig.n_knots
+      ~DefaultSplineNAMConfig.smoothing
+      ~DefaultSplineNAMConfig.spline_n_knots
+      ~DefaultSplineNAMConfig.weight_decay
+   

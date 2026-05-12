@@ -1,0 +1,6 @@
+﻿nampy.utils.term\_contributions
+===============================
+
+.. currentmodule:: nampy.utils
+
+.. autofunction:: term_contributions

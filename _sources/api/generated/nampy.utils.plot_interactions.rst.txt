@@ -1,0 +1,6 @@
+﻿nampy.utils.plot\_interactions
+==============================
+
+.. currentmodule:: nampy.utils
+
+.. autofunction:: plot_interactions

@@ -44,16 +44,23 @@
       ~LinRegRegressor._repr_html_inner
       ~LinRegRegressor._repr_mimebundle_
       ~LinRegRegressor._validate_params
+      ~LinRegRegressor.diagnostics
       ~LinRegRegressor.evaluate
+      ~LinRegRegressor.feature_importance
       ~LinRegRegressor.fit
       ~LinRegRegressor.get_metadata_routing
       ~LinRegRegressor.get_params
       ~LinRegRegressor.plot
+      ~LinRegRegressor.plot_interactions
+      ~LinRegRegressor.plot_terms
       ~LinRegRegressor.predict
       ~LinRegRegressor.predict_feature_vals
+      ~LinRegRegressor.predict_terms
       ~LinRegRegressor.score
       ~LinRegRegressor.set_fit_request
       ~LinRegRegressor.set_params
+      ~LinRegRegressor.summary
+      ~LinRegRegressor.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

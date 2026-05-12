@@ -44,16 +44,23 @@
       ~GPNAMRegressor._repr_html_inner
       ~GPNAMRegressor._repr_mimebundle_
       ~GPNAMRegressor._validate_params
+      ~GPNAMRegressor.diagnostics
       ~GPNAMRegressor.evaluate
+      ~GPNAMRegressor.feature_importance
       ~GPNAMRegressor.fit
       ~GPNAMRegressor.get_metadata_routing
       ~GPNAMRegressor.get_params
       ~GPNAMRegressor.plot
+      ~GPNAMRegressor.plot_interactions
+      ~GPNAMRegressor.plot_terms
       ~GPNAMRegressor.predict
       ~GPNAMRegressor.predict_feature_vals
+      ~GPNAMRegressor.predict_terms
       ~GPNAMRegressor.score
       ~GPNAMRegressor.set_fit_request
       ~GPNAMRegressor.set_params
+      ~GPNAMRegressor.summary
+      ~GPNAMRegressor.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

@@ -46,17 +46,24 @@
       ~NATTLSS._repr_html_inner
       ~NATTLSS._repr_mimebundle_
       ~NATTLSS._validate_params
+      ~NATTLSS.diagnostics
       ~NATTLSS.evaluate
+      ~NATTLSS.feature_importance
       ~NATTLSS.fit
       ~NATTLSS.get_default_metrics
       ~NATTLSS.get_metadata_routing
       ~NATTLSS.get_params
       ~NATTLSS.plot
+      ~NATTLSS.plot_interactions
+      ~NATTLSS.plot_terms
       ~NATTLSS.predict
       ~NATTLSS.predict_feature_vals
+      ~NATTLSS.predict_terms
       ~NATTLSS.set_fit_request
       ~NATTLSS.set_params
       ~NATTLSS.set_predict_request
+      ~NATTLSS.summary
+      ~NATTLSS.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

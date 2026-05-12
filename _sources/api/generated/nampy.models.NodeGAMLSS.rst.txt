@@ -46,17 +46,24 @@
       ~NodeGAMLSS._repr_html_inner
       ~NodeGAMLSS._repr_mimebundle_
       ~NodeGAMLSS._validate_params
+      ~NodeGAMLSS.diagnostics
       ~NodeGAMLSS.evaluate
+      ~NodeGAMLSS.feature_importance
       ~NodeGAMLSS.fit
       ~NodeGAMLSS.get_default_metrics
       ~NodeGAMLSS.get_metadata_routing
       ~NodeGAMLSS.get_params
       ~NodeGAMLSS.plot
+      ~NodeGAMLSS.plot_interactions
+      ~NodeGAMLSS.plot_terms
       ~NodeGAMLSS.predict
       ~NodeGAMLSS.predict_feature_vals
+      ~NodeGAMLSS.predict_terms
       ~NodeGAMLSS.set_fit_request
       ~NodeGAMLSS.set_params
       ~NodeGAMLSS.set_predict_request
+      ~NodeGAMLSS.summary
+      ~NodeGAMLSS.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

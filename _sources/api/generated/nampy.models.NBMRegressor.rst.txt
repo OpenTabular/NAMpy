@@ -44,16 +44,23 @@
       ~NBMRegressor._repr_html_inner
       ~NBMRegressor._repr_mimebundle_
       ~NBMRegressor._validate_params
+      ~NBMRegressor.diagnostics
       ~NBMRegressor.evaluate
+      ~NBMRegressor.feature_importance
       ~NBMRegressor.fit
       ~NBMRegressor.get_metadata_routing
       ~NBMRegressor.get_params
       ~NBMRegressor.plot
+      ~NBMRegressor.plot_interactions
+      ~NBMRegressor.plot_terms
       ~NBMRegressor.predict
       ~NBMRegressor.predict_feature_vals
+      ~NBMRegressor.predict_terms
       ~NBMRegressor.score
       ~NBMRegressor.set_fit_request
       ~NBMRegressor.set_params
+      ~NBMRegressor.summary
+      ~NBMRegressor.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

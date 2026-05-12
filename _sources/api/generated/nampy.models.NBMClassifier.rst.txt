@@ -44,17 +44,24 @@
       ~NBMClassifier._repr_html_inner
       ~NBMClassifier._repr_mimebundle_
       ~NBMClassifier._validate_params
+      ~NBMClassifier.diagnostics
       ~NBMClassifier.evaluate
+      ~NBMClassifier.feature_importance
       ~NBMClassifier.fit
       ~NBMClassifier.get_metadata_routing
       ~NBMClassifier.get_params
       ~NBMClassifier.plot
+      ~NBMClassifier.plot_interactions
+      ~NBMClassifier.plot_terms
       ~NBMClassifier.predict
       ~NBMClassifier.predict_feature_vals
       ~NBMClassifier.predict_proba
+      ~NBMClassifier.predict_terms
       ~NBMClassifier.score
       ~NBMClassifier.set_fit_request
       ~NBMClassifier.set_params
+      ~NBMClassifier.summary
+      ~NBMClassifier.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

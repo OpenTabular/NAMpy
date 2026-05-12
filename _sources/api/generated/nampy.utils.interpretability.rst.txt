@@ -1,0 +1,12 @@
+﻿nampy.utils.interpretability
+============================
+
+.. automodule:: nampy.utils.interpretability
+   :no-members:
+   :no-inherited-members:
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   

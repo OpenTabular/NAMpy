@@ -46,17 +46,24 @@
       ~GPNAMLSS._repr_html_inner
       ~GPNAMLSS._repr_mimebundle_
       ~GPNAMLSS._validate_params
+      ~GPNAMLSS.diagnostics
       ~GPNAMLSS.evaluate
+      ~GPNAMLSS.feature_importance
       ~GPNAMLSS.fit
       ~GPNAMLSS.get_default_metrics
       ~GPNAMLSS.get_metadata_routing
       ~GPNAMLSS.get_params
       ~GPNAMLSS.plot
+      ~GPNAMLSS.plot_interactions
+      ~GPNAMLSS.plot_terms
       ~GPNAMLSS.predict
       ~GPNAMLSS.predict_feature_vals
+      ~GPNAMLSS.predict_terms
       ~GPNAMLSS.set_fit_request
       ~GPNAMLSS.set_params
       ~GPNAMLSS.set_predict_request
+      ~GPNAMLSS.summary
+      ~GPNAMLSS.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

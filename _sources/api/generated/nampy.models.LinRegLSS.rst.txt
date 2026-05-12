@@ -46,17 +46,24 @@
       ~LinRegLSS._repr_html_inner
       ~LinRegLSS._repr_mimebundle_
       ~LinRegLSS._validate_params
+      ~LinRegLSS.diagnostics
       ~LinRegLSS.evaluate
+      ~LinRegLSS.feature_importance
       ~LinRegLSS.fit
       ~LinRegLSS.get_default_metrics
       ~LinRegLSS.get_metadata_routing
       ~LinRegLSS.get_params
       ~LinRegLSS.plot
+      ~LinRegLSS.plot_interactions
+      ~LinRegLSS.plot_terms
       ~LinRegLSS.predict
       ~LinRegLSS.predict_feature_vals
+      ~LinRegLSS.predict_terms
       ~LinRegLSS.set_fit_request
       ~LinRegLSS.set_params
       ~LinRegLSS.set_predict_request
+      ~LinRegLSS.summary
+      ~LinRegLSS.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

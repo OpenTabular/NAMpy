@@ -1,0 +1,147 @@
+﻿nampy.basemodels.SparseNAM
+==========================
+
+.. currentmodule:: nampy.basemodels
+
+.. autoclass:: SparseNAM
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~SparseNAM.__call__
+      ~SparseNAM.__delattr__
+      ~SparseNAM.__dir__
+      ~SparseNAM.__eq__
+      ~SparseNAM.__format__
+      ~SparseNAM.__ge__
+      ~SparseNAM.__getattr__
+      ~SparseNAM.__getattribute__
+      ~SparseNAM.__getstate__
+      ~SparseNAM.__gt__
+      ~SparseNAM.__hash__
+      ~SparseNAM.__init_subclass__
+      ~SparseNAM.__le__
+      ~SparseNAM.__lt__
+      ~SparseNAM.__ne__
+      ~SparseNAM.__new__
+      ~SparseNAM.__reduce__
+      ~SparseNAM.__reduce_ex__
+      ~SparseNAM.__repr__
+      ~SparseNAM.__setattr__
+      ~SparseNAM.__setstate__
+      ~SparseNAM.__sizeof__
+      ~SparseNAM.__str__
+      ~SparseNAM.__subclasshook__
+      ~SparseNAM._apply
+      ~SparseNAM._call_impl
+      ~SparseNAM._create_interaction_networks
+      ~SparseNAM._create_subnetwork
+      ~SparseNAM._get_backward_hooks
+      ~SparseNAM._get_backward_pre_hooks
+      ~SparseNAM._get_name
+      ~SparseNAM._group_lasso_penalty
+      ~SparseNAM._group_norm
+      ~SparseNAM._interaction_forward
+      ~SparseNAM._iter_grouped_subnetworks
+      ~SparseNAM._load_from_state_dict
+      ~SparseNAM._maybe_warn_non_full_backward_hook
+      ~SparseNAM._named_members
+      ~SparseNAM._register_load_state_dict_pre_hook
+      ~SparseNAM._register_state_dict_hook
+      ~SparseNAM._replicate_for_data_parallel
+      ~SparseNAM._save_to_state_dict
+      ~SparseNAM._slow_forward
+      ~SparseNAM._wrapped_call_impl
+      ~SparseNAM.add_module
+      ~SparseNAM.apply
+      ~SparseNAM.bfloat16
+      ~SparseNAM.buffers
+      ~SparseNAM.children
+      ~SparseNAM.compile
+      ~SparseNAM.cpu
+      ~SparseNAM.cuda
+      ~SparseNAM.double
+      ~SparseNAM.eval
+      ~SparseNAM.extra_repr
+      ~SparseNAM.float
+      ~SparseNAM.forward
+      ~SparseNAM.freeze_parameters
+      ~SparseNAM.get_buffer
+      ~SparseNAM.get_device
+      ~SparseNAM.get_extra_state
+      ~SparseNAM.get_group_norms
+      ~SparseNAM.get_parameter
+      ~SparseNAM.get_submodule
+      ~SparseNAM.half
+      ~SparseNAM.ipu
+      ~SparseNAM.load_model
+      ~SparseNAM.load_state_dict
+      ~SparseNAM.log_parameters
+      ~SparseNAM.modules
+      ~SparseNAM.mtia
+      ~SparseNAM.named_buffers
+      ~SparseNAM.named_children
+      ~SparseNAM.named_modules
+      ~SparseNAM.named_parameters
+      ~SparseNAM.parameter_count_by_layer
+      ~SparseNAM.parameters
+      ~SparseNAM.print_summary
+      ~SparseNAM.register_backward_hook
+      ~SparseNAM.register_buffer
+      ~SparseNAM.register_forward_hook
+      ~SparseNAM.register_forward_pre_hook
+      ~SparseNAM.register_full_backward_hook
+      ~SparseNAM.register_full_backward_pre_hook
+      ~SparseNAM.register_load_state_dict_post_hook
+      ~SparseNAM.register_load_state_dict_pre_hook
+      ~SparseNAM.register_module
+      ~SparseNAM.register_parameter
+      ~SparseNAM.register_state_dict_post_hook
+      ~SparseNAM.register_state_dict_pre_hook
+      ~SparseNAM.requires_grad_
+      ~SparseNAM.save_hyperparameters
+      ~SparseNAM.save_model
+      ~SparseNAM.selected_groups
+      ~SparseNAM.set_extra_state
+      ~SparseNAM.set_submodule
+      ~SparseNAM.share_memory
+      ~SparseNAM.state_dict
+      ~SparseNAM.to
+      ~SparseNAM.to_device
+      ~SparseNAM.to_empty
+      ~SparseNAM.total_parameters
+      ~SparseNAM.train
+      ~SparseNAM.type
+      ~SparseNAM.unfreeze_parameters
+      ~SparseNAM.xpu
+      ~SparseNAM.zero_grad
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~SparseNAM.T_destination
+      ~SparseNAM.__annotations__
+      ~SparseNAM.__dict__
+      ~SparseNAM.__doc__
+      ~SparseNAM.__module__
+      ~SparseNAM.__weakref__
+      ~SparseNAM._compiled_call_impl
+      ~SparseNAM._version
+      ~SparseNAM.call_super_init
+      ~SparseNAM.dump_patches
+      ~SparseNAM.training
+      ~SparseNAM._parameters
+      ~SparseNAM._buffers
+      ~SparseNAM._non_persistent_buffers_set
+      ~SparseNAM._backward_pre_hooks
+      ~SparseNAM._backward_hooks
+      ~SparseNAM._is_full_backward_hook
+      ~SparseNAM._forward_hooks
+      ~SparseNAM._forward_hooks_with_kwargs
+      ~SparseNAM._forward_hooks_always_called
+      ~SparseNAM._forward_pre_hooks
+      ~SparseNAM._forward_pre_hooks_with_kwargs
+      ~SparseNAM._state_dict_hooks
+      ~SparseNAM._load_state_dict_pre_hooks
+      ~SparseNAM._state_dict_pre_hooks
+      ~SparseNAM._load_state_dict_post_hooks
+      ~SparseNAM._modules
+   

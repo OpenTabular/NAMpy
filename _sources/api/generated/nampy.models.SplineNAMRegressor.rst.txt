@@ -1,0 +1,76 @@
+﻿nampy.models.SplineNAMRegressor
+===============================
+
+.. currentmodule:: nampy.models
+
+.. autoclass:: SplineNAMRegressor
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~SplineNAMRegressor.__delattr__
+      ~SplineNAMRegressor.__dir__
+      ~SplineNAMRegressor.__eq__
+      ~SplineNAMRegressor.__format__
+      ~SplineNAMRegressor.__ge__
+      ~SplineNAMRegressor.__getattribute__
+      ~SplineNAMRegressor.__getstate__
+      ~SplineNAMRegressor.__gt__
+      ~SplineNAMRegressor.__hash__
+      ~SplineNAMRegressor.__init_subclass__
+      ~SplineNAMRegressor.__le__
+      ~SplineNAMRegressor.__lt__
+      ~SplineNAMRegressor.__ne__
+      ~SplineNAMRegressor.__new__
+      ~SplineNAMRegressor.__reduce__
+      ~SplineNAMRegressor.__reduce_ex__
+      ~SplineNAMRegressor.__repr__
+      ~SplineNAMRegressor.__setattr__
+      ~SplineNAMRegressor.__setstate__
+      ~SplineNAMRegressor.__sizeof__
+      ~SplineNAMRegressor.__sklearn_clone__
+      ~SplineNAMRegressor.__sklearn_tags__
+      ~SplineNAMRegressor.__str__
+      ~SplineNAMRegressor.__subclasshook__
+      ~SplineNAMRegressor._build_request_for_signature
+      ~SplineNAMRegressor._get_default_requests
+      ~SplineNAMRegressor._get_doc_link
+      ~SplineNAMRegressor._get_metadata_request
+      ~SplineNAMRegressor._get_param_names
+      ~SplineNAMRegressor._get_params_html
+      ~SplineNAMRegressor._html_repr
+      ~SplineNAMRegressor._plot_interaction_effects
+      ~SplineNAMRegressor._plot_single_feature_effects
+      ~SplineNAMRegressor._predict
+      ~SplineNAMRegressor._repr_html_inner
+      ~SplineNAMRegressor._repr_mimebundle_
+      ~SplineNAMRegressor._validate_params
+      ~SplineNAMRegressor.diagnostics
+      ~SplineNAMRegressor.evaluate
+      ~SplineNAMRegressor.feature_importance
+      ~SplineNAMRegressor.fit
+      ~SplineNAMRegressor.get_metadata_routing
+      ~SplineNAMRegressor.get_params
+      ~SplineNAMRegressor.plot
+      ~SplineNAMRegressor.plot_interactions
+      ~SplineNAMRegressor.plot_terms
+      ~SplineNAMRegressor.predict
+      ~SplineNAMRegressor.predict_feature_vals
+      ~SplineNAMRegressor.predict_terms
+      ~SplineNAMRegressor.score
+      ~SplineNAMRegressor.set_fit_request
+      ~SplineNAMRegressor.set_params
+      ~SplineNAMRegressor.summary
+      ~SplineNAMRegressor.term_contributions
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~SplineNAMRegressor.__annotations__
+      ~SplineNAMRegressor.__dict__
+      ~SplineNAMRegressor.__doc__
+      ~SplineNAMRegressor.__module__
+      ~SplineNAMRegressor.__weakref__
+      ~SplineNAMRegressor._doc_link_module
+      ~SplineNAMRegressor._doc_link_template
+      ~SplineNAMRegressor._doc_link_url_param_generator
+      ~SplineNAMRegressor._repr_html_
+   

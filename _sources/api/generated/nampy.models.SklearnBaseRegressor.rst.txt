@@ -44,16 +44,23 @@
       ~SklearnBaseRegressor._repr_html_inner
       ~SklearnBaseRegressor._repr_mimebundle_
       ~SklearnBaseRegressor._validate_params
+      ~SklearnBaseRegressor.diagnostics
       ~SklearnBaseRegressor.evaluate
+      ~SklearnBaseRegressor.feature_importance
       ~SklearnBaseRegressor.fit
       ~SklearnBaseRegressor.get_metadata_routing
       ~SklearnBaseRegressor.get_params
       ~SklearnBaseRegressor.plot
+      ~SklearnBaseRegressor.plot_interactions
+      ~SklearnBaseRegressor.plot_terms
       ~SklearnBaseRegressor.predict
       ~SklearnBaseRegressor.predict_feature_vals
+      ~SklearnBaseRegressor.predict_terms
       ~SklearnBaseRegressor.score
       ~SklearnBaseRegressor.set_fit_request
       ~SklearnBaseRegressor.set_params
+      ~SklearnBaseRegressor.summary
+      ~SklearnBaseRegressor.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

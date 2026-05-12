@@ -140,9 +140,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../user_guide/interpretability.html">Interpretability</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#understanding-additive-models">Understanding Additive Models</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#feature-level-predictions">Feature-Level Predictions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#feature-importance">Feature Importance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#visualization">Visualization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#summaries-and-diagnostics">Summaries and Diagnostics</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#model-comparison">Model Comparison</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#visualization-future">Visualization (Future)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#contributing">Contributing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../user_guide/interpretability.html#for-more-information">For More Information</a></li>
 </ul>
 </li>
@@ -189,7 +190,8 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerRegressor.html">nampy.models.NAMformerRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegRegressor.html">nampy.models.LinRegRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.TreeNAMRegressor.html">nampy.models.TreeNAMRegressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SNAMRegressor.html">nampy.models.SNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SplineNAMRegressor.html">nampy.models.SplineNAMRegressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SparseNAMRegressor.html">nampy.models.SparseNAMRegressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMRegressor.html">nampy.models.NodeGAMRegressor</a></li>
 </ul>
 </li>
@@ -200,6 +202,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NATTClassifier.html">nampy.models.NATTClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerClassifier.html">nampy.models.NAMformerClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegClassifier.html">nampy.models.LinRegClassifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SplineNAMClassifier.html">nampy.models.SplineNAMClassifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMClassifier.html">nampy.models.NodeGAMClassifier</a></li>
 </ul>
 </li>
@@ -210,6 +213,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NATTLSS.html">nampy.models.NATTLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NAMformerLSS.html">nampy.models.NAMformerLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.LinRegLSS.html">nampy.models.LinRegLSS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.SplineNAMLSS.html">nampy.models.SplineNAMLSS</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.models.NodeGAMLSS.html">nampy.models.NodeGAMLSS</a></li>
 </ul>
 </li>
@@ -239,7 +243,8 @@
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NAMformer.html">nampy.basemodels.NAMformer</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.LinReg.html">nampy.basemodels.LinReg</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.QNAMBase.html">nampy.basemodels.QNAMBase</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.SNAM.html">nampy.basemodels.SNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.SparseNAM.html">nampy.basemodels.SparseNAM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.SplineNAM.html">nampy.basemodels.SplineNAM</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.basemodels.NodeGAM.html">nampy.basemodels.NodeGAM</a></li>
 </ul>
 </li>
@@ -252,16 +257,26 @@
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNATTConfig.html">nampy.configs.DefaultNATTConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNAMformerConfig.html">nampy.configs.DefaultNAMformerConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultLinRegConfig.html">nampy.configs.DefaultLinRegConfig</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultSNAMConfig.html">nampy.configs.DefaultSNAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultSparseNAMConfig.html">nampy.configs.DefaultSparseNAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultSplineNAMConfig.html">nampy.configs.DefaultSplineNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/nampy.configs.DefaultNodeGAMConfig.html">nampy.configs.DefaultNodeGAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/configs.html#using-configurations">Using Configurations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../api/configs.html#note">Note</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../api/utils.html">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/utils.html#interpretability">Interpretability</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.predict_terms.html">nampy.utils.predict_terms</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.term_contributions.html">nampy.utils.term_contributions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.feature_importance.html">nampy.utils.feature_importance</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.plot_terms.html">nampy.utils.plot_terms</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.plot_interactions.html">nampy.utils.plot_interactions</a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="../api/utils.html#modules">Modules</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.distributional_metrics.html">nampy.utils.distributional_metrics</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.distributions.html">nampy.utils.distributions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/nampy.utils.interpretability.html">nampy.utils.interpretability</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../api/utils.html#available-distributions">Available Distributions</a></li>
@@ -329,20 +344,17 @@
 <li class="toctree-l4"><a class="reference internal" href="#id4">Regressor</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#snam">SNAM</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#splinenam">SplineNAM</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id5">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id6">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id7">Distributional Regression (LSS)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#sparsenam">SparseNAM</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id8">Regressor</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#nodegam">NodeGAM</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#id6">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id7">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id8">Distributional Regression (LSS)</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="#basis-function-models">Basis Function Models</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#nbm">NBM</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id9">Regressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#id10">Classifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#id11">Distributional Regression (LSS)</a></li>
@@ -350,30 +362,39 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#attention-based-models">Attention-Based Models</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#natt">NATT</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#basis-function-models">Basis Function Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#nbm">NBM</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id12">Regressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#id13">Classifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#id14">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#namformer">NAMformer</a><ul>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#attention-based-models">Attention-Based Models</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#natt">NATT</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id15">Regressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#id16">Classifier</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#id17">Distributional Regression (LSS)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#namformer">NAMformer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id18">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id19">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id20">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#specialized-models">Specialized Models</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#qnam-quantile-nam">QNAM (Quantile NAM)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#id18">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id21">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#linreg-neural-linear-regression">LinReg (Neural Linear Regression)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#id19">Regressor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id20">Classifier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id21">Distributional Regression (LSS)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id22">Regressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id23">Classifier</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id24">Distributional Regression (LSS)</a></li>
 </ul>
 </li>
 </ul>
@@ -460,6 +481,7 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../changelog.html#latest-release">Latest Release</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../changelog.html#unreleased">Unreleased</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../changelog.html#version-0-1-0-2024-01-07">Version 0.1.0 (2024-01-07)</a></li>
 </ul>
 </li>
@@ -866,16 +888,58 @@ classification focus.</p>
 
 </section>
 </section>
-<section id="snam">
-<h3>SNAM<a class="headerlink" href="#snam" title="Link to this heading"></a></h3>
+<section id="splinenam">
+<h3>SplineNAM<a class="headerlink" href="#splinenam" title="Link to this heading"></a></h3>
 <section id="id5">
 <h4>Regressor<a class="headerlink" href="#id5" title="Link to this heading"></a></h4>
 <dl class="py class">
-<dt class="sig sig-object py" id="nampy.models.SNAMRegressor">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">SNAMRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/snam.html#SNAMRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.SNAMRegressor" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="nampy.models.SplineNAMRegressor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">SplineNAMRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/spline_nam.html#SplineNAMRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.SplineNAMRegressor" title="Link to this definition"></a></dt>
 <dd><dl class="py method">
-<dt class="sig sig-object py" id="nampy.models.SNAMRegressor.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/snam.html#SNAMRegressor.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.SNAMRegressor.__init__" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="nampy.models.SplineNAMRegressor.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/spline_nam.html#SplineNAMRegressor.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.SplineNAMRegressor.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="id6">
+<h4>Classifier<a class="headerlink" href="#id6" title="Link to this heading"></a></h4>
+<dl class="py class">
+<dt class="sig sig-object py" id="nampy.models.SplineNAMClassifier">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">SplineNAMClassifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/spline_nam.html#SplineNAMClassifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.SplineNAMClassifier" title="Link to this definition"></a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.SplineNAMClassifier.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/spline_nam.html#SplineNAMClassifier.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.SplineNAMClassifier.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="id7">
+<h4>Distributional Regression (LSS)<a class="headerlink" href="#id7" title="Link to this heading"></a></h4>
+<dl class="py class">
+<dt class="sig sig-object py" id="nampy.models.SplineNAMLSS">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">SplineNAMLSS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/spline_nam.html#SplineNAMLSS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.SplineNAMLSS" title="Link to this definition"></a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.SplineNAMLSS.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/spline_nam.html#SplineNAMLSS.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.SplineNAMLSS.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+<section id="sparsenam">
+<h3>SparseNAM<a class="headerlink" href="#sparsenam" title="Link to this heading"></a></h3>
+<section id="id8">
+<h4>Regressor<a class="headerlink" href="#id8" title="Link to this heading"></a></h4>
+<dl class="py class">
+<dt class="sig sig-object py" id="nampy.models.SparseNAMRegressor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">SparseNAMRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/sparse_nam.html#SparseNAMRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.SparseNAMRegressor" title="Link to this definition"></a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="nampy.models.SparseNAMRegressor.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/sparse_nam.html#SparseNAMRegressor.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.SparseNAMRegressor.__init__" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -884,8 +948,8 @@ classification focus.</p>
 </section>
 <section id="nodegam">
 <h3>NodeGAM<a class="headerlink" href="#nodegam" title="Link to this heading"></a></h3>
-<section id="id6">
-<h4>Regressor<a class="headerlink" href="#id6" title="Link to this heading"></a></h4>
+<section id="id9">
+<h4>Regressor<a class="headerlink" href="#id9" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NodeGAMRegressor">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NodeGAMRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/nodegam.html#NodeGAMRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NodeGAMRegressor" title="Link to this definition"></a></dt>
@@ -901,8 +965,8 @@ are inherited from SklearnBaseRegressor.</p>
 </dd></dl>
 
 </section>
-<section id="id7">
-<h4>Classifier<a class="headerlink" href="#id7" title="Link to this heading"></a></h4>
+<section id="id10">
+<h4>Classifier<a class="headerlink" href="#id10" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NodeGAMClassifier">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NodeGAMClassifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/nodegam.html#NodeGAMClassifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NodeGAMClassifier" title="Link to this definition"></a></dt>
@@ -918,8 +982,8 @@ SklearnBaseClassifier and TaskModel.</p>
 </dd></dl>
 
 </section>
-<section id="id8">
-<h4>Distributional Regression (LSS)<a class="headerlink" href="#id8" title="Link to this heading"></a></h4>
+<section id="id11">
+<h4>Distributional Regression (LSS)<a class="headerlink" href="#id11" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NodeGAMLSS">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NodeGAMLSS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/nodegam.html#NodeGAMLSS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NodeGAMLSS" title="Link to this definition"></a></dt>
@@ -940,8 +1004,8 @@ distribution parameter, with family selection handled by SklearnBaseLSS.fit.</p>
 <h2>Basis Function Models<a class="headerlink" href="#basis-function-models" title="Link to this heading"></a></h2>
 <section id="nbm">
 <h3>NBM<a class="headerlink" href="#nbm" title="Link to this heading"></a></h3>
-<section id="id9">
-<h4>Regressor<a class="headerlink" href="#id9" title="Link to this heading"></a></h4>
+<section id="id12">
+<h4>Regressor<a class="headerlink" href="#id12" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NBMRegressor">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NBMRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/nbm.html#NBMRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NBMRegressor" title="Link to this definition"></a></dt>
@@ -1017,8 +1081,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id10">
-<h4>Classifier<a class="headerlink" href="#id10" title="Link to this heading"></a></h4>
+<section id="id13">
+<h4>Classifier<a class="headerlink" href="#id13" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NBMClassifier">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NBMClassifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/nbm.html#NBMClassifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NBMClassifier" title="Link to this definition"></a></dt>
@@ -1094,8 +1158,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id11">
-<h4>Distributional Regression (LSS)<a class="headerlink" href="#id11" title="Link to this heading"></a></h4>
+<section id="id14">
+<h4>Distributional Regression (LSS)<a class="headerlink" href="#id14" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NBMLSS">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NBMLSS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/nbm.html#NBMLSS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NBMLSS" title="Link to this definition"></a></dt>
@@ -1179,8 +1243,8 @@ of their unique value count or proportion.</p></li>
 <h2>Attention-Based Models<a class="headerlink" href="#attention-based-models" title="Link to this heading"></a></h2>
 <section id="natt">
 <h3>NATT<a class="headerlink" href="#natt" title="Link to this heading"></a></h3>
-<section id="id12">
-<h4>Regressor<a class="headerlink" href="#id12" title="Link to this heading"></a></h4>
+<section id="id15">
+<h4>Regressor<a class="headerlink" href="#id15" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NATTRegressor">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NATTRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/natt.html#NATTRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NATTRegressor" title="Link to this definition"></a></dt>
@@ -1255,8 +1319,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id13">
-<h4>Classifier<a class="headerlink" href="#id13" title="Link to this heading"></a></h4>
+<section id="id16">
+<h4>Classifier<a class="headerlink" href="#id16" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NATTClassifier">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NATTClassifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/natt.html#NATTClassifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NATTClassifier" title="Link to this definition"></a></dt>
@@ -1331,8 +1395,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id14">
-<h4>Distributional Regression (LSS)<a class="headerlink" href="#id14" title="Link to this heading"></a></h4>
+<section id="id17">
+<h4>Distributional Regression (LSS)<a class="headerlink" href="#id17" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NATTLSS">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NATTLSS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/natt.html#NATTLSS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NATTLSS" title="Link to this definition"></a></dt>
@@ -1412,8 +1476,8 @@ of their unique value count or proportion.</p></li>
 </section>
 <section id="namformer">
 <h3>NAMformer<a class="headerlink" href="#namformer" title="Link to this heading"></a></h3>
-<section id="id15">
-<h4>Regressor<a class="headerlink" href="#id15" title="Link to this heading"></a></h4>
+<section id="id18">
+<h4>Regressor<a class="headerlink" href="#id18" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NAMformerRegressor">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NAMformerRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/namformer.html#NAMformerRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NAMformerRegressor" title="Link to this definition"></a></dt>
@@ -1488,8 +1552,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id16">
-<h4>Classifier<a class="headerlink" href="#id16" title="Link to this heading"></a></h4>
+<section id="id19">
+<h4>Classifier<a class="headerlink" href="#id19" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NAMformerClassifier">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NAMformerClassifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/namformer.html#NAMformerClassifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NAMformerClassifier" title="Link to this definition"></a></dt>
@@ -1564,8 +1628,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id17">
-<h4>Distributional Regression (LSS)<a class="headerlink" href="#id17" title="Link to this heading"></a></h4>
+<section id="id20">
+<h4>Distributional Regression (LSS)<a class="headerlink" href="#id20" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.NAMformerLSS">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">NAMformerLSS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/namformer.html#NAMformerLSS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.NAMformerLSS" title="Link to this definition"></a></dt>
@@ -1648,8 +1712,8 @@ of their unique value count or proportion.</p></li>
 <h2>Specialized Models<a class="headerlink" href="#specialized-models" title="Link to this heading"></a></h2>
 <section id="qnam-quantile-nam">
 <h3>QNAM (Quantile NAM)<a class="headerlink" href="#qnam-quantile-nam" title="Link to this heading"></a></h3>
-<section id="id18">
-<h4>Distributional Regression (LSS)<a class="headerlink" href="#id18" title="Link to this heading"></a></h4>
+<section id="id21">
+<h4>Distributional Regression (LSS)<a class="headerlink" href="#id21" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.QNAM">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">QNAM</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/qnam.html#QNAM"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.QNAM" title="Link to this definition"></a></dt>
@@ -1734,8 +1798,8 @@ of their unique value count or proportion.</p></li>
 </section>
 <section id="linreg-neural-linear-regression">
 <h3>LinReg (Neural Linear Regression)<a class="headerlink" href="#linreg-neural-linear-regression" title="Link to this heading"></a></h3>
-<section id="id19">
-<h4>Regressor<a class="headerlink" href="#id19" title="Link to this heading"></a></h4>
+<section id="id22">
+<h4>Regressor<a class="headerlink" href="#id22" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.LinRegRegressor">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">LinRegRegressor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/linreg.html#LinRegRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.LinRegRegressor" title="Link to this definition"></a></dt>
@@ -1801,8 +1865,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id20">
-<h4>Classifier<a class="headerlink" href="#id20" title="Link to this heading"></a></h4>
+<section id="id23">
+<h4>Classifier<a class="headerlink" href="#id23" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.LinRegClassifier">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">LinRegClassifier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/linreg.html#LinRegClassifier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.LinRegClassifier" title="Link to this definition"></a></dt>
@@ -1868,8 +1932,8 @@ of their unique value count or proportion.</p></li>
 </dd></dl>
 
 </section>
-<section id="id21">
-<h4>Distributional Regression (LSS)<a class="headerlink" href="#id21" title="Link to this heading"></a></h4>
+<section id="id24">
+<h4>Distributional Regression (LSS)<a class="headerlink" href="#id24" title="Link to this heading"></a></h4>
 <dl class="py class">
 <dt class="sig sig-object py" id="nampy.models.LinRegLSS">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nampy.models.</span></span><span class="sig-name descname"><span class="pre">LinRegLSS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nampy/models/linreg.html#LinRegLSS"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nampy.models.LinRegLSS" title="Link to this definition"></a></dt>

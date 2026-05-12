@@ -44,16 +44,23 @@
       ~TreeNAMRegressor._repr_html_inner
       ~TreeNAMRegressor._repr_mimebundle_
       ~TreeNAMRegressor._validate_params
+      ~TreeNAMRegressor.diagnostics
       ~TreeNAMRegressor.evaluate
+      ~TreeNAMRegressor.feature_importance
       ~TreeNAMRegressor.fit
       ~TreeNAMRegressor.get_metadata_routing
       ~TreeNAMRegressor.get_params
       ~TreeNAMRegressor.plot
+      ~TreeNAMRegressor.plot_interactions
+      ~TreeNAMRegressor.plot_terms
       ~TreeNAMRegressor.predict
       ~TreeNAMRegressor.predict_feature_vals
+      ~TreeNAMRegressor.predict_terms
       ~TreeNAMRegressor.score
       ~TreeNAMRegressor.set_fit_request
       ~TreeNAMRegressor.set_params
+      ~TreeNAMRegressor.summary
+      ~TreeNAMRegressor.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

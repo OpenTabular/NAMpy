@@ -44,17 +44,24 @@
       ~LinRegClassifier._repr_html_inner
       ~LinRegClassifier._repr_mimebundle_
       ~LinRegClassifier._validate_params
+      ~LinRegClassifier.diagnostics
       ~LinRegClassifier.evaluate
+      ~LinRegClassifier.feature_importance
       ~LinRegClassifier.fit
       ~LinRegClassifier.get_metadata_routing
       ~LinRegClassifier.get_params
       ~LinRegClassifier.plot
+      ~LinRegClassifier.plot_interactions
+      ~LinRegClassifier.plot_terms
       ~LinRegClassifier.predict
       ~LinRegClassifier.predict_feature_vals
       ~LinRegClassifier.predict_proba
+      ~LinRegClassifier.predict_terms
       ~LinRegClassifier.score
       ~LinRegClassifier.set_fit_request
       ~LinRegClassifier.set_params
+      ~LinRegClassifier.summary
+      ~LinRegClassifier.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

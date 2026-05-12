@@ -46,17 +46,24 @@
       ~NAMformerLSS._repr_html_inner
       ~NAMformerLSS._repr_mimebundle_
       ~NAMformerLSS._validate_params
+      ~NAMformerLSS.diagnostics
       ~NAMformerLSS.evaluate
+      ~NAMformerLSS.feature_importance
       ~NAMformerLSS.fit
       ~NAMformerLSS.get_default_metrics
       ~NAMformerLSS.get_metadata_routing
       ~NAMformerLSS.get_params
       ~NAMformerLSS.plot
+      ~NAMformerLSS.plot_interactions
+      ~NAMformerLSS.plot_terms
       ~NAMformerLSS.predict
       ~NAMformerLSS.predict_feature_vals
+      ~NAMformerLSS.predict_terms
       ~NAMformerLSS.set_fit_request
       ~NAMformerLSS.set_params
       ~NAMformerLSS.set_predict_request
+      ~NAMformerLSS.summary
+      ~NAMformerLSS.term_contributions
    .. rubric:: Attributes
 
    .. autosummary::

@@ -5,8 +5,21 @@ Utility functions and distribution classes.
 
 .. currentmodule:: nampy.utils
 
-The utils module contains helper functions for distributional metrics
-and various probability distributions used in LSS models.
+The utils module contains interpretability helpers, summary utilities,
+distributional metrics, and probability distributions used in LSS models.
+
+Interpretability
+----------------
+
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   predict_terms
+   term_contributions
+   feature_importance
+   plot_terms
+   plot_interactions
 
 Modules
 -------
@@ -16,6 +29,7 @@ Modules
 
    distributional_metrics
    distributions
+   interpretability
 
 Available Distributions
 -----------------------
