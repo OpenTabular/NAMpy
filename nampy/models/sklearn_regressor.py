@@ -31,6 +31,25 @@ from ._utils import (
 )
 
 
+def _coerce_single_output_regression_target(y, name: str):
+    """Return a 1D regression target and reject unsupported multi-output data."""
+    if isinstance(y, (pd.Series, pd.DataFrame)):
+        y = y.values
+
+    y = np.asarray(y)
+    if y.ndim == 1:
+        return y
+    if y.ndim == 2 and y.shape[1] == 1:
+        return y.ravel()
+
+    raise ValueError(
+        f"{name} must be a 1D array or a 2D array with one target column. "
+        "Multi-output regression is not supported by NAMpy regressors; "
+        "train one regressor per target or use an LSS model for supported "
+        "multivariate distributional targets."
+    )
+
+
 class SklearnBaseRegressor(BaseEstimator):
     def __init__(self, model, config, **kwargs):
         preprocessor_arg_names = [
@@ -170,14 +189,14 @@ class SklearnBaseRegressor(BaseEstimator):
         ----------
         X : DataFrame or array-like, shape (n_samples, n_features)
             The training input samples.
-        y : array-like, shape (n_samples,) or (n_samples, n_targets)
-            The target values (real numbers).
+        y : array-like, shape (n_samples,) or (n_samples, 1)
+            The single-output target values (real numbers).
         val_size : float, default=0.2
             The proportion of the dataset to include in the validation split if `X_val` is None. Ignored if `X_val` is provided.
         X_val : DataFrame or array-like, shape (n_samples, n_features), optional
             The validation input samples. If provided, `X` and `y` are not split and this data is used for validation.
-        y_val : array-like, shape (n_samples,) or (n_samples, n_targets), optional
-            The validation target values. Required if `X_val` is provided.
+        y_val : array-like, shape (n_samples,) or (n_samples, 1), optional
+            The single-output validation target values. Required if `X_val` is provided.
         max_epochs : int, default=100
             Maximum number of epochs for training.
         random_state : int, default=101
@@ -218,11 +237,9 @@ class SklearnBaseRegressor(BaseEstimator):
         trainer_kwargs = dict(trainer_kwargs)
 
         X, X_val = prepare_fit_frames(self, X, X_val)
-        if isinstance(y, pd.Series):
-            y = y.values
-        if X_val is not None:
-            if isinstance(y_val, pd.Series):
-                y_val = y_val.values
+        y = _coerce_single_output_regression_target(y, "y")
+        if X_val is not None and y_val is not None:
+            y_val = _coerce_single_output_regression_target(y_val, "y_val")
 
         self.data_module = NAMpyDataModule(
             preprocessor=self.preprocessor,
@@ -361,7 +378,7 @@ class SklearnBaseRegressor(BaseEstimator):
         ----------
         X : array-like or pd.DataFrame of shape (n_samples, n_features)
             The input samples to predict.
-        y_true : array-like of shape (n_samples,) or (n_samples, n_outputs)
+        y_true : array-like of shape (n_samples,)
             The true target values against which to evaluate the predictions.
         metrics : dict
             A dictionary where keys are metric names and values are the metric functions.

@@ -96,7 +96,7 @@ class QNAM(SklearnBaseLSS):
         if distributional_kwargs is None:
             distributional_kwargs = {"quantiles": [0.25, 0.5, 0.75]}
 
-        super().fit(
+        return super().fit(
             X,
             y,
             family="quantile",

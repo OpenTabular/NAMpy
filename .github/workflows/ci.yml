@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    name: Smoke Python ${{ matrix.python-version }}
+    name: Tests Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -37,6 +37,10 @@ jobs:
     - name: Import package
       run: |
         python -c "import nampy; print(nampy.__version__)"
+
+    - name: Run tests
+      run: |
+        pytest tests/
 
   lint:
     name: Lint and Format Check
@@ -93,7 +97,7 @@ jobs:
 
     - name: Type check with mypy
       run: |
-        mypy nampy/ || true  # Don't fail on type errors for now
+        mypy nampy/
 
   docs:
     name: Generate Documentation
@@ -138,7 +142,7 @@ jobs:
   build:
     name: Build Distribution
     runs-on: ubuntu-latest
-    needs: [test, lint, docs]
+    needs: [test, lint, type-check, docs]
 
     steps:
     - uses: actions/checkout@v4

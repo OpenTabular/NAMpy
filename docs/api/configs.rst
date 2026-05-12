@@ -10,10 +10,14 @@ Configuration classes for nampy models.
    :nosignatures:
 
    DefaultNAMConfig
+   DefaultGPNAMConfig
    DefaultNBMConfig
    DefaultNATTConfig
    DefaultNAMformerConfig
    DefaultLinRegConfig
+   DefaultQNAMConfig
+   DefaultTreeNAMConfig
+   DefaultEnsembleTreeNAMConfig
    DefaultSparseNAMConfig
    DefaultSplineNAMConfig
    DefaultNodeGAMConfig
@@ -43,8 +47,8 @@ Configurations can be passed to models or used to create custom settings:
    config.lr = 1e-3
    config.dropout = 0.3
 
-Note
-----
+Available Configs
+-----------------
 
-Some models (like GPNAM and QNAM) use ``DefaultNAMConfig`` instead of having
-their own dedicated configuration classes.
+Each model family with dedicated hyperparameters exposes its corresponding
+``Default*Config`` class from ``nampy.configs``.
