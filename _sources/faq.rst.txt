@@ -48,7 +48,7 @@ For development installation:
 What are the requirements?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* Python 3.10 or higher
+* Python 3.10 through 3.12
 * PyTorch
 * Lightning
 * scikit-learn

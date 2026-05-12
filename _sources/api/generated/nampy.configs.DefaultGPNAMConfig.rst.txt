@@ -1,0 +1,50 @@
+﻿nampy.configs.DefaultGPNAMConfig
+================================
+
+.. currentmodule:: nampy.configs
+
+.. autoclass:: DefaultGPNAMConfig
+   .. rubric:: Methods
+
+   .. autosummary::
+      ~DefaultGPNAMConfig.__delattr__
+      ~DefaultGPNAMConfig.__dir__
+      ~DefaultGPNAMConfig.__eq__
+      ~DefaultGPNAMConfig.__format__
+      ~DefaultGPNAMConfig.__ge__
+      ~DefaultGPNAMConfig.__getattribute__
+      ~DefaultGPNAMConfig.__gt__
+      ~DefaultGPNAMConfig.__init_subclass__
+      ~DefaultGPNAMConfig.__le__
+      ~DefaultGPNAMConfig.__lt__
+      ~DefaultGPNAMConfig.__ne__
+      ~DefaultGPNAMConfig.__new__
+      ~DefaultGPNAMConfig.__reduce__
+      ~DefaultGPNAMConfig.__reduce_ex__
+      ~DefaultGPNAMConfig.__repr__
+      ~DefaultGPNAMConfig.__setattr__
+      ~DefaultGPNAMConfig.__sizeof__
+      ~DefaultGPNAMConfig.__str__
+      ~DefaultGPNAMConfig.__subclasshook__
+   .. rubric:: Attributes
+
+   .. autosummary::
+      ~DefaultGPNAMConfig.__annotations__
+      ~DefaultGPNAMConfig.__dataclass_fields__
+      ~DefaultGPNAMConfig.__dataclass_params__
+      ~DefaultGPNAMConfig.__dict__
+      ~DefaultGPNAMConfig.__doc__
+      ~DefaultGPNAMConfig.__hash__
+      ~DefaultGPNAMConfig.__match_args__
+      ~DefaultGPNAMConfig.__module__
+      ~DefaultGPNAMConfig.__weakref__
+      ~DefaultGPNAMConfig.intercept
+      ~DefaultGPNAMConfig.kernel_width
+      ~DefaultGPNAMConfig.kernel_widths
+      ~DefaultGPNAMConfig.lr
+      ~DefaultGPNAMConfig.lr_factor
+      ~DefaultGPNAMConfig.lr_patience
+      ~DefaultGPNAMConfig.rff_num_feat
+      ~DefaultGPNAMConfig.use_deterministic_rff_grid
+      ~DefaultGPNAMConfig.weight_decay
+   

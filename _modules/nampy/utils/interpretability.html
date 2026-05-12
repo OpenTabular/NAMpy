@@ -250,15 +250,19 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../api/preprocessing.html">Preprocessing (PreTab)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/configs.html">Configurations</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultNAMConfig.html">nampy.configs.DefaultNAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultGPNAMConfig.html">nampy.configs.DefaultGPNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultNBMConfig.html">nampy.configs.DefaultNBMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultNATTConfig.html">nampy.configs.DefaultNATTConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultNAMformerConfig.html">nampy.configs.DefaultNAMformerConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultLinRegConfig.html">nampy.configs.DefaultLinRegConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultQNAMConfig.html">nampy.configs.DefaultQNAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultTreeNAMConfig.html">nampy.configs.DefaultTreeNAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultEnsembleTreeNAMConfig.html">nampy.configs.DefaultEnsembleTreeNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultSparseNAMConfig.html">nampy.configs.DefaultSparseNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultSplineNAMConfig.html">nampy.configs.DefaultSplineNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/generated/nampy.configs.DefaultNodeGAMConfig.html">nampy.configs.DefaultNodeGAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/configs.html#using-configurations">Using Configurations</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../api/configs.html#note">Note</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../api/configs.html#available-configs">Available Configs</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/utils.html">Utilities</a><ul>
@@ -652,6 +656,7 @@
             <span class="sa">f</span><span class="s2">&quot;Missing: </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2">; extra: </span><span class="si">{</span><span class="n">extra</span><span class="si">}</span><span class="s2">.&quot;</span>
         <span class="p">)</span>
     <span class="k">return</span> <span class="n">frame</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">feature_names</span><span class="p">]</span>
+
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_normalize_terms</span><span class="p">(</span><span class="n">terms</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span> <span class="n">available_terms</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">terms</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>

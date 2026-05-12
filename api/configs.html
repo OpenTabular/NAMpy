@@ -253,15 +253,19 @@
 <li class="toctree-l2"><a class="reference internal" href="preprocessing.html">Preprocessing (PreTab)</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Configurations</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="generated/nampy.configs.DefaultNAMConfig.html">nampy.configs.DefaultNAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/nampy.configs.DefaultGPNAMConfig.html">nampy.configs.DefaultGPNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/nampy.configs.DefaultNBMConfig.html">nampy.configs.DefaultNBMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/nampy.configs.DefaultNATTConfig.html">nampy.configs.DefaultNATTConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/nampy.configs.DefaultNAMformerConfig.html">nampy.configs.DefaultNAMformerConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/nampy.configs.DefaultLinRegConfig.html">nampy.configs.DefaultLinRegConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/nampy.configs.DefaultQNAMConfig.html">nampy.configs.DefaultQNAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/nampy.configs.DefaultTreeNAMConfig.html">nampy.configs.DefaultTreeNAMConfig</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/nampy.configs.DefaultEnsembleTreeNAMConfig.html">nampy.configs.DefaultEnsembleTreeNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/nampy.configs.DefaultSparseNAMConfig.html">nampy.configs.DefaultSparseNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/nampy.configs.DefaultSplineNAMConfig.html">nampy.configs.DefaultSplineNAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/nampy.configs.DefaultNodeGAMConfig.html">nampy.configs.DefaultNodeGAMConfig</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#using-configurations">Using Configurations</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#note">Note</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#available-configs">Available Configs</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="utils.html">Utilities</a><ul>
@@ -581,17 +585,29 @@
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">DefaultNAMConfig</span></code></p></td>
 <td><p>Configuration class for the default NAM with predefined hyperparameters.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">DefaultNBMConfig</span></code></p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">DefaultGPNAMConfig</span></code></p></td>
+<td><p>Default config for Gaussian Process Neural Additive Models (GP-NAM).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">DefaultNBMConfig</span></code></p></td>
 <td><p>Configuration class for the default NBM with predefined hyperparameters.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">DefaultNATTConfig</span></code></p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">DefaultNATTConfig</span></code></p></td>
 <td><p>Configuration class for the default NATT model with predefined hyperparameters.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">DefaultNAMformerConfig</span></code></p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">DefaultNAMformerConfig</span></code></p></td>
 <td><p>Configuration class for the default NATT model with predefined hyperparameters.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">DefaultLinRegConfig</span></code></p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">DefaultLinRegConfig</span></code></p></td>
 <td><p>Configuration class for the default LinReg with predefined hyperparameters.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">DefaultQNAMConfig</span></code></p></td>
+<td><p>Configuration for Quantile Neural Additive Models (QNAM).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">DefaultTreeNAMConfig</span></code></p></td>
+<td><p>Configuration for TreeNAM.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">DefaultEnsembleTreeNAMConfig</span></code></p></td>
+<td><p>Configuration for an ensemble of TreeNAM learners.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">DefaultSparseNAMConfig</span></code></p></td>
 <td><p>Default config for SparseNAM models.</p></td>
@@ -627,10 +643,10 @@
 </pre></div>
 </div>
 </section>
-<section id="note">
-<h2>Note<a class="headerlink" href="#note" title="Link to this heading"></a></h2>
-<p>Some models (like GPNAM and QNAM) use <code class="docutils literal notranslate"><span class="pre">DefaultNAMConfig</span></code> instead of having
-their own dedicated configuration classes.</p>
+<section id="available-configs">
+<h2>Available Configs<a class="headerlink" href="#available-configs" title="Link to this heading"></a></h2>
+<p>Each model family with dedicated hyperparameters exposes its corresponding
+<code class="docutils literal notranslate"><span class="pre">Default*Config</span></code> class from <code class="docutils literal notranslate"><span class="pre">nampy.configs</span></code>.</p>
 </section>
 </section>
 
