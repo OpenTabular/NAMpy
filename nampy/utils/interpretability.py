@@ -81,6 +81,7 @@ def _prepare_frame(estimator, X):
         )
     return frame.loc[:, feature_names]
 
+
 def _normalize_terms(terms: Optional[Iterable[str]], available_terms):
     if terms is None:
         return list(available_terms)

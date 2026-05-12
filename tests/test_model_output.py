@@ -14,7 +14,9 @@ def test_validate_feature_names_rejects_colon_separator():
 
 def test_validate_feature_names_rejects_generated_term_collisions():
     with pytest.raises(ValueError, match="generated model term names"):
-        validate_feature_names(["transformer_context"], reserved_terms=["transformer_context"])
+        validate_feature_names(
+            ["transformer_context"], reserved_terms=["transformer_context"]
+        )
 
 
 def test_merge_terms_rejects_duplicate_term_names():

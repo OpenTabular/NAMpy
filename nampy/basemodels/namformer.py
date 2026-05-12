@@ -241,9 +241,11 @@ class NAMformer(BaseModel):
         # Sum all feature outputs (main effects) and interaction outputs
 
         context_outputs = {"transformer_context": context_output}
-        all_outputs = list(context_outputs.values()) + list(
-            nam_outputs.values()
-        ) + list(interaction_outputs.values())
+        all_outputs = (
+            list(context_outputs.values())
+            + list(nam_outputs.values())
+            + list(interaction_outputs.values())
+        )
 
         # Make sure all tensors have the same number of dimensions
         all_outputs = [

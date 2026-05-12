@@ -21,8 +21,7 @@ def validate_feature_names(
     collisions = sorted(set(feature_names) & reserved)
     if collisions:
         raise ValueError(
-            "Feature names collide with generated model term names: "
-            f"{collisions}."
+            f"Feature names collide with generated model term names: {collisions}."
         )
 
 

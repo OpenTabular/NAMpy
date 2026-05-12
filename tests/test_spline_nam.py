@@ -123,7 +123,9 @@ def test_spline_nam_rejects_colon_feature_names():
     except ValueError as exc:
         assert "cannot contain ':'" in str(exc)
     else:
-        raise AssertionError("Expected a ValueError for colon-containing feature names.")
+        raise AssertionError(
+            "Expected a ValueError for colon-containing feature names."
+        )
 
 
 def test_spline_nam_reports_knot_and_penalty_diagnostics():
