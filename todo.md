@@ -234,6 +234,19 @@ Do not run the full suite by default.
 
 ## P1 — Resolve remaining parity gaps
 
+### Side conditions
+
+- [ ] Align side-condition scope with upstream `gam.side` for exactly aliased
+  parametric columns (found 2026-08-15 via
+  `debug/rank_deficient_gaussian_probe.py`): NAMpy deletes the aliased
+  parametric column before fitting, upstream leaves it to the solver drop
+  (coef 0, zero Vp row, rank < np), which changes Mp bookkeeping and hence
+  sp/edf. With `apply_side_conditions=False` the solver path is
+  upstream-exact (strict drop-gauge regression in
+  `tests/regressions/test_gam_mgcv_patch_regressions.py`). Before restricting
+  the scope, check whether factor-interaction hidden-column dedup relies on
+  parametric deletion, then add a default-path parity case.
+
 ### Optimizers and endpoints
 
 - [ ] Port the exact estimated-theta negative-binomial ML `optim`/L-BFGS-B boundary
