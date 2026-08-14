@@ -38,6 +38,35 @@ from ..smoothing_selection.criteria.gaussian_reml_algebra import (
 )
 from ..specs.modeling import make_predictor_specs, prepare_formula_inputs
 
+_GAM_HPARAM_KEYS = frozenset(
+    {
+        "k",
+        "basis",
+        "fit_intercept",
+        "max_irls_iter",
+        "irls_tol",
+        "max_step_halving",
+        "smoothing_params",
+        "optimize_smoothing",
+        "smoothing_method",
+        "smoothing_optimizer",
+        "sp_log_bounds",
+        "score_gamma",
+        "covariance",
+        "select",
+        "main_effects",
+        "tensor_terms",
+        "knots",
+        "min_sp",
+        "drop_intercept",
+        "formula",
+        # Read from hparams outside the constructor:
+        "apply_side_conditions",  # fit/design_setup.py
+        "side_condition_tol",  # fit/design_setup.py
+        "trace",  # fit/solvers/general_family/fixed_smoothing.py
+    }
+)
+
 
 class GAM:
     """
@@ -57,6 +86,12 @@ class GAM:
             for k, v in kwargs.items()
             if k not in ("cat_feature_info", "num_feature_info")
         }
+        unknown = sorted(set(self.hparams) - _GAM_HPARAM_KEYS)
+        if unknown:
+            # Unknown arguments must fail loudly: silently swallowing them
+            # previously made unported mgcv arguments (paraPen=, absorb.cons=,
+            # H=, gamma=, ...) no-ops instead of errors.
+            raise TypeError(f"Unknown GAM argument(s): {unknown}")
 
         self.k = int(self.hparams.get("k", 10))
         self.basis = self.hparams.get("basis", "tp")
@@ -81,7 +116,6 @@ class GAM:
         self.knots = self.hparams.get("knots", None)
         self.min_sp = self.hparams.get("min_sp", None)
         self.drop_intercept = self.hparams.get("drop_intercept", None)
-        self.nei = self.hparams.get("nei", None)
 
         self.family = make_gam_family(family)
 
@@ -219,7 +253,6 @@ class GAM:
         min_sp=None,
         knots=None,
         drop_intercept=None,
-        nei=None,
     ):
         formula = self.formula if formula is None else formula
         knots = self.knots if knots is None else knots
@@ -227,7 +260,6 @@ class GAM:
         drop_intercept = (
             self.drop_intercept if drop_intercept is None else drop_intercept
         )
-        self.nei = self.nei if nei is None else nei
 
         if formula is not None:
             if data is None:
@@ -395,6 +427,8 @@ class GAM:
         cov=None,
         type="response",
         offset=None,
+        terms=None,
+        exclude=None,
     ):
         from ..predict import predict_values
 
@@ -412,6 +446,8 @@ class GAM:
                 type=type,
                 offset=offset_use,
                 model=self,
+                terms=terms,
+                exclude=exclude,
             )
 
         if self.formula_mode_:
@@ -431,6 +467,8 @@ class GAM:
             type=type,
             offset=offset_use,
             model=self,
+            terms=terms,
+            exclude=exclude,
         )
 
     def predict_feature_vals(self, X=None, offset=None):
@@ -497,12 +535,21 @@ class GAM:
         X_np, _ = coerce_X(self, X)
         return plot_gam_terms(self, X=X_np, n_cols=n_cols, figsize=figsize)
 
-    def summary(self):
+    def summary(self, *, dispersion=None, freq=False, re_test=True):
+        """
+        mgcv ``summary.gam``-shaped summary.
+
+        Prints the ``print.summary.gam`` layout and returns the structured
+        :class:`~nampy.gam.inference.summary.GAMSummary` object
+        (mgcv/R/mgcv.r:3858-4068).
+        """
         from ..diagnostics import print_summary
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
-        return print_summary(self)
+        return print_summary(
+            self, dispersion=dispersion, freq=freq, re_test=re_test
+        )
 
     def residuals(self, type="deviance"):
         from ..diagnostics import residuals_gam
@@ -921,6 +968,19 @@ class GAM:
         """BIC using mgcv-style effective df."""
         n_obs = float(len(np.asarray(self.y_, dtype=np.float64)))
         return float(-2.0 * self.loglik() + np.log(n_obs) * self._loglik_effective_df())
+
+    def edf1(self) -> np.ndarray:
+        """
+        Per-coefficient upper-bound EDF ``2*diag(F) - rowSums(F*F')``.
+
+        Mirrors mgcv ``object$edf1`` (mgcv/R/gam.fit3.r:1022 /
+        mgcv/R/gam.fit4.r:1713).
+        """
+        if not self._fitted:
+            raise RuntimeError("Model is not fitted.")
+        from ..inference.anova import _edf1_vector
+
+        return np.asarray(_edf1_vector(self), dtype=np.float64)
 
     def gam_vcomp(self, *, rescale=True, conf_lev=0.95):
         from ..smoothing_selection import gam_vcomp

@@ -387,6 +387,19 @@ class GaulssFamily(GamlssFamily):
             return rsd
         return rsd * tau
 
+    def null_deviance(
+        self, y: np.ndarray, fitted: np.ndarray, prior_weights: np.ndarray
+    ) -> float:
+        """
+        Mirror the gaulss ``postproc`` expression (mgcv/R/gamlss.r:910-918):
+        ``sum(((y - mean(y)) * fitted[,2])^2)`` with ``fitted[,2] = tau``.
+        Prior weights deliberately do not enter, as upstream.
+        """
+        del prior_weights
+        y = np.asarray(y, dtype=np.float64)
+        tau = np.asarray(fitted[:, 1], dtype=np.float64)
+        return float(np.sum(((y - float(np.mean(y))) * tau) ** 2))
+
     def predict_fitted(
         self, X: np.ndarray, jj: list[np.ndarray], coef: np.ndarray, offset: Any = None
     ) -> np.ndarray:

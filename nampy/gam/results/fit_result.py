@@ -55,6 +55,9 @@ class GAMFitResult:
     deviance: float
     cov_bayes: np.ndarray | None = None
     cov_freq: np.ndarray | None = None
+    cov_unconditional: np.ndarray | None = None
+    cov_unconditional_space: str | None = None
+    edf2: np.ndarray | None = None
     side_condition_reports: list[dict[str, Any]] | None = None
     term_results: list[TermFitResult] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -78,6 +81,11 @@ class GAMFitResult:
             "scale": float(self.scale),
             "rss": None if self.rss is None else float(self.rss),
             "deviance": float(self.deviance),
+            "edf2": (
+                None
+                if self.edf2 is None
+                else np.asarray(self.edf2, dtype=np.float64).tolist()
+            ),
             "side_condition_reports": (
                 None
                 if self.side_condition_reports is None
@@ -98,6 +106,12 @@ class GAMFitResult:
                 if self.cov_freq is None
                 else np.asarray(self.cov_freq, dtype=np.float64).tolist()
             )
+            out["cov_unconditional"] = (
+                None
+                if self.cov_unconditional is None
+                else np.asarray(self.cov_unconditional, dtype=np.float64).tolist()
+            )
+            out["cov_unconditional_space"] = self.cov_unconditional_space
 
         return out
 

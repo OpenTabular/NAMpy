@@ -422,6 +422,23 @@ class GammalsFamily(GamlssFamily):
         else:
             return y - mu
 
+    def null_deviance(
+        self, y: np.ndarray, fitted: np.ndarray, prior_weights: np.ndarray
+    ) -> float:
+        """
+        Mirror the gammals ``postproc`` expression (mgcv/R/gamlss.r:2737-2742):
+        ``2 * sum(((y - my)/my - log(y/my)) * exp(-fitted[,2]))`` with
+        ``my = mean(y)`` and ``fitted[,2] = rho`` (log sigma). NAMpy already
+        stores ``fitted[,1]`` exponentiated, matching the post-postproc state.
+        """
+        del prior_weights
+        y = np.asarray(y, dtype=np.float64)
+        rho = np.asarray(fitted[:, 1], dtype=np.float64)
+        my = float(np.mean(y))
+        return float(
+            2.0 * np.sum(((y - my) / my - np.log(y / my)) * np.exp(-rho))
+        )
+
     def _predict_response_from_eta(self, eta: np.ndarray) -> np.ndarray:
         eta = np.asarray(eta, dtype=np.float64)
         out = np.empty((eta.shape[0], 2), dtype=np.float64)
