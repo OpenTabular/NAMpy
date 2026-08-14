@@ -7,7 +7,6 @@ from .cr import (
     cyclic_cubic_predict_matrix,
     place_knots_through_values,
 )
-from .gp import build_gp_term_setup, predict_gp_term
 from .ps import (
     PSplineBasisSetup,
     bspline_design_matrix,
@@ -29,8 +28,6 @@ __all__ = [
     "pspline_knots",
     "pspline_predict_matrix",
     "CubicSplines",
-    "build_gp_term_setup",
-    "predict_gp_term",
     "PSplineBasisSetup",
     "build_pspline_term_setup",
     "predict_pspline_term",

@@ -51,8 +51,6 @@ _SMOOTH_SPEC_DEFAULTS: dict[str, object] = {
     "constraint_mode": "auto",
     "shared_basis_setup": None,
     "mc": None,
-    "full": False,
-    "ord_": None,
     "d": None,
 }
 
@@ -134,6 +132,11 @@ def _evaluate_formula_numeric_expr_node(node, data: pd.DataFrame, *, expr: str):
         func_name = str(node.func.id)
         func = _FORMULA_NUMERIC_FUNCTIONS.get(func_name)
         if func is None:
+            if func_name == "t2":
+                raise NotImplementedError(
+                    "t2(...) tensor product smooths are not supported; "
+                    "use te(...) or ti(...)."
+                )
             raise NotImplementedError(
                 f"Unsupported formula expression function {func_name!r} in {expr!r}."
             )
@@ -533,17 +536,29 @@ def _is_vector_fx(fx) -> bool:
     return fx is not None and not np.isscalar(fx)
 
 
+_PC_SUPPORTED_S_BASES = {"cc", "cr", "cs", "ps", "tp", "ts"}
+
+
 def _dispatch_smooth_spec_from_options(opts) -> SmoothSpec:
     merged = {**_SMOOTH_SPEC_DEFAULTS, **dict(opts)}
     special_key = str(merged["special"]).lower()
-    if special_key in {"te", "ti"} and _is_vector_fx(merged.get("fx", False)):
-        raise NotImplementedError("Tensor smooths do not support vector-valued fx.")
+    has_pc = merged.get("pc") is not None
     if special_key == "s":
         bs_key = str(merged["bs"]).lower()
         builder = _S_BASIS_SPEC_BUILDERS.get(bs_key)
         if builder is None:
             raise NotImplementedError(f"Unsupported s() basis {merged['bs']!r}.")
+        if has_pc and bs_key not in _PC_SUPPORTED_S_BASES:
+            raise NotImplementedError(
+                f"pc= is not supported for s(..., bs={merged['bs']!r}); "
+                "point constraints are only supported for bs in "
+                "{'cc', 'cr', 'cs', 'ps', 'tp', 'ts'}."
+            )
         return builder(merged)
+    if has_pc:
+        raise NotImplementedError(
+            f"pc= is not supported for {special_key}(...) smooths."
+        )
     builder = _SPECIAL_SMOOTH_BUILDERS.get(special_key)
     if builder is None:
         raise NotImplementedError(f"Unsupported smooth special {merged['special']!r}.")
@@ -565,8 +580,6 @@ def build_smooth_spec(
     constraint_mode: str = "auto",
     shared_basis_setup=None,
     mc=None,
-    full: bool = False,
-    ord_=None,
     d=None,
 ) -> SmoothSpec:
     return _dispatch_smooth_spec_from_options(locals())
@@ -652,7 +665,8 @@ def _normalize_tensor_basis(bs, d):
         warnings.warn("bs wrong length and ignored.", stacklevel=3)
         out = ["cr"] * len(d)
     return [
-        "tp" if di > 1 and b in {"cr", "cs", "ps", "cp"} else b for b, di in zip(out, d)
+        "tp" if di > 1 and b in {"cr", "cs", "ps", "cp"} else b
+        for b, di in zip(out, d, strict=True)
     ]
 
 
@@ -684,22 +698,19 @@ def _tensor_feature_groups(features, d):
 
 def smooth_spec_from_basis_options(basis_options) -> SmoothSpec:
     raw = dict(basis_options or {})
-    if "ord_" not in raw and "ord" in raw:
-        raw = {**raw, "ord_": raw["ord"]}
     merged = {**_SMOOTH_SPEC_DEFAULTS, **raw}
     special_key = str(merged.get("special", "s")).lower()
     fx_raw = merged.get("fx", False)
     if _is_vector_fx(fx_raw):
         if special_key in {"te", "ti"}:
+            merged["fx"] = [bool(value) for value in _flatten_formula_arg(fx_raw)]
+        else:
             raise NotImplementedError(
-                "Tensor smooths do not support vector-valued fx."
+                "Vector-valued fx is not supported; use a scalar boolean."
             )
-        raise NotImplementedError(
-            "Vector-valued fx is not supported; use a scalar boolean."
-        )
-    merged["fx"] = bool(fx_raw)
+    else:
+        merged["fx"] = bool(fx_raw)
     merged["select"] = bool(merged.get("select", False))
-    merged["full"] = bool(merged.get("full", False))
     merged["constraint_mode"] = str(merged.get("constraint_mode", "auto"))
     return _dispatch_smooth_spec_from_options(merged)
 
@@ -707,7 +718,11 @@ def smooth_spec_from_basis_options(basis_options) -> SmoothSpec:
 def _coerce_fx(fx, *, kind, n_features):
     kind_key = str(kind).lower()
     if kind_key in {"te", "ti"} and isinstance(fx, (list, tuple, np.ndarray)):
-        raise NotImplementedError("Tensor smooths do not support vector-valued fx.")
+        values = [bool(value) for value in _flatten_formula_arg(fx)]
+        if len(values) != int(n_features):
+            warnings.warn("dimension of fx is wrong", stacklevel=3)
+            return [False] * int(n_features)
+        return values
     if isinstance(fx, (list, tuple, np.ndarray)):
         raise NotImplementedError(
             "Vector-valued fx is not supported; use a scalar boolean."
@@ -735,6 +750,12 @@ def _default_k_for_smooth(kind, basis, features, default_k):
         # mgcv::te()/ti() default k to 5^d per marginal. The current
         # Python tensor surface supports one feature per marginal, so d = 1.
         return [5] * len(features)
+    if str(basis).lower() in {"tp", "ts"}:
+        # mgcv/R/smooth.r::s() leaves k = -1; smooth.construct.tp.smooth.spec
+        # resolves the d-dependent default M + c(8, 27, 100)[min(d, 3)] at
+        # construction time (mgcv/R/smooth.r:1316-1318). A flat default here
+        # would wrongly give k = 10 for d > 1.
+        return -1
     return _default_k_for_basis(basis, default_k)
 
 
@@ -1176,6 +1197,37 @@ def _expand_transformed_smooth_term(
     ], hidden_counter
 
 
+def _expand_transformed_smooth_by_term(
+    term,
+    data_work,
+    *,
+    pred_name,
+    hidden_counter,
+    state,
+):
+    if not isinstance(term, TermSpec) or term.kind != "smooth":
+        return term, hidden_counter
+
+    by_name = term.by_variable
+    if by_name is None or _is_bare_formula_name(by_name):
+        return term, hidden_counter
+
+    hidden_col, hidden_counter, src_vars = _materialize_formula_expression_column(
+        str(by_name),
+        data_work,
+        pred_name=pred_name,
+        hidden_counter=hidden_counter,
+        state=state,
+    )
+    new_meta = dict(term.metadata)
+    new_meta["formula_by_expansion"] = {
+        "hidden_name": hidden_col,
+        "expr": str(by_name),
+        "source_variables": list(src_vars),
+    }
+    return replace(term, by_variable=hidden_col, metadata=new_meta), hidden_counter
+
+
 def _collect_used_columns_from_predictor_specs(predictor_specs):
     used = set()
 
@@ -1350,15 +1402,18 @@ def _build_predictor_spec(
             by = str(by)
             if by.strip().rstrip(")") == ".":
                 raise ValueError("by=. not allowed")
-            if not _is_bare_formula_name(by):
-                raise NotImplementedError(
-                    "Transformed smooth `by` expressions are parsed exactly, but "
-                    "downstream formula building does not yet support them."
-                )
-            if available_column_names is not None and by not in available_column_names:
+            if (
+                _is_bare_formula_name(by)
+                and available_column_names is not None
+                and by not in available_column_names
+            ):
                 raise KeyError(f"by column {by!r} not found in available data columns.")
         smoothing_id = kw.pop("id", kw.pop("smoothing_id", None))
-        fixed = _coerce_fx(kw.pop("fx", False), kind=kind, n_features=len(features))
+        fixed = _coerce_fx(
+            kw.pop("fx", False),
+            kind=kind,
+            n_features=(len(d) if kind_key in {"te", "ti"} else len(features)),
+        )
         select = bool(kw.pop("select", default_select))
 
         m = kw.pop("m", None)
@@ -1367,8 +1422,6 @@ def _build_predictor_spec(
         pc = kw.pop("pc", None)
 
         mc = kw.pop("mc", None)
-        full = kw.pop("full", False)
-        ord_ = kw.pop("ord", None)
         if kind_key == "s":
             k = _normalize_univariate_smooth_k(k)
         elif kind_key in {"te", "ti"}:
@@ -1400,8 +1453,6 @@ def _build_predictor_spec(
                     constraint_mode="auto",
                     shared_basis_setup=None,
                     mc=mc,
-                    full=full,
-                    ord_=ord_,
                     d=d,
                 ),
                 smoothing_id=smoothing_id,
@@ -1447,7 +1498,9 @@ def _preprocess_predictor_specs(extracted_predictors, predictor_specs, data):
     out_specs = []
     hidden_counter = 0
 
-    for extracted_pred, pred in zip(extracted_predictors, predictor_specs):
+    for extracted_pred, pred in zip(
+        extracted_predictors, predictor_specs, strict=True
+    ):
         out_terms = []
         include_intercept = bool(extracted_pred.intercept)
 
@@ -1476,6 +1529,15 @@ def _preprocess_predictor_specs(extracted_predictors, predictor_specs, data):
                 state=state,
             )
             for transformed_term in transformed_terms:
+                transformed_term, hidden_counter = (
+                    _expand_transformed_smooth_by_term(
+                        transformed_term,
+                        data_work,
+                        pred_name=pred.name,
+                        hidden_counter=hidden_counter,
+                        state=state,
+                    )
+                )
                 transformed_term = _annotate_factor_levels(transformed_term, data_work)
                 expanded, hidden_counter = _expand_factor_by_term(
                     transformed_term,

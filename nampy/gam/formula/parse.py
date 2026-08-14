@@ -310,7 +310,8 @@ def _ast_to_value(node):
         return [_ast_to_value(elt) for elt in node.elts]
     if isinstance(node, ast.Dict):
         return {
-            _ast_to_value(k): _ast_to_value(v) for k, v in zip(node.keys, node.values)
+            _ast_to_value(k): _ast_to_value(v)
+            for k, v in zip(node.keys, node.values, strict=True)
         }
     if isinstance(node, ast.Call):
         func_name = _call_name(node.func)
@@ -559,6 +560,12 @@ def _collect_special_nodes(node, rhs_src: str, out: dict[str, ast.Call]) -> None
         if value is None:
             _collect_special_nodes(node.operand, rhs_src, out)
         return
+
+    if isinstance(node, ast.Call) and _call_name(node.func) == "t2":
+        raise NotImplementedError(
+            "t2(...) tensor product smooths are not supported; "
+            "use te(...) or ti(...)."
+        )
 
     if _is_smooth_call(node):
         label = _ast_to_expr_label(node, rhs_src)
@@ -857,8 +864,15 @@ def _parse_formula_component(
     offset_exprs: list[str] = []
     _collect_offset_exprs(expr.body, rhs_src, offset_exprs)
     if len(offset_exprs) > 1:
-        # Mirror mgcv::interpret.gam0's single-slot offset assignment, which
-        # retains only the first deparsed offset term in pf/fake.names.
+        # Mirror mgcv::interpret.gam0 (mgcv/R/mgcv.r:387-389): every offset
+        # label is assigned into the single slot av[kp], so base R keeps only
+        # the first offset and raises this warning; model.offset() then never
+        # sees the later terms. Verified against mgcv 1.9-4 in
+        # debug/multi_offset_probe.R.
+        warnings.warn(
+            "number of items to replace is not a multiple of replacement length",
+            stacklevel=2,
+        )
         offset_exprs = offset_exprs[:1]
 
     special_nodes: dict[str, ast.Call] = {}

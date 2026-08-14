@@ -50,7 +50,12 @@ def add_full_rank_shrinkage(S, shrink=0.1, tol=1e-12, null_basis=None, knots=Non
         S,
         shrink=shrink,
         tol=tol,
-        symmetrize_lower_triangle=False,
+        # `mgcv/R/smooth.r::smooth.construct.cs.smooth.spec()` applies R's
+        # symmetric eigen path to the operation-ordered getFS penalty.  Its
+        # lower triangle selects the same two nominally-null eigenvectors;
+        # averaging the roundoff-distinct triangles here rotates them and
+        # changes the unequal 0.1/0.01 cs shrinkage floor.
+        symmetrize_lower_triangle=True,
         use_scipy=True,
         descending=True,
     )

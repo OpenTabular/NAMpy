@@ -2,6 +2,27 @@ import numpy as np
 from scipy.linalg import lapack
 
 
+def _r_quantile_type7_sorted(values, probs):
+    """Evaluate R's default type-7 quantile on sorted values."""
+    values = np.asarray(values, dtype=np.float64).ravel()
+    probs = np.asarray(probs, dtype=np.float64).ravel()
+
+    # Mirror stats::quantile.default(type = 7).  The weighted expression is
+    # deliberately kept in R's operand order: np.quantile's alternative lerp
+    # ordering can move an automatic CR knot by one ULP, which changes mgcv's
+    # numerically selected cs null-space eigenvectors.
+    index = 1.0 + (values.size - 1) * probs
+    lo = np.floor(index).astype(np.intp)
+    hi = np.ceil(index).astype(np.intp)
+    quantiles = values[lo - 1].copy()
+    interpolate = (index > lo) & (values[hi - 1] != quantiles)
+    h = index[interpolate] - lo[interpolate]
+    quantiles[interpolate] = (
+        (1.0 - h) * quantiles[interpolate] + h * values[hi[interpolate] - 1]
+    )
+    return quantiles
+
+
 def get_FS(xk):
     """
     Create matrix F required to build spline basis and penalizing matrix S.
@@ -94,7 +115,7 @@ def cr_spl(x, n_knots, knots=None):
                 "Insufficient unique values to support the requested number of knots."
             )
         probs = np.linspace(0.0, 1.0, n_knots, dtype=np.float64)
-        xk = np.quantile(xu, probs)
+        xk = _r_quantile_type7_sorted(xu, probs)
     else:
         xk = np.asarray(knots, dtype=np.float64).ravel()
         if xk.ndim != 1:
