@@ -18,6 +18,8 @@ class GaussianIdentityFamily(GLMFamily):
     supports_ml = True
     supports_reml = True
     supports_laml = False
+    supports_exact_pirls_first_derivatives = True
+    supports_exact_pirls_second_derivatives = True
     known_scale = None
     max_derivative_order = 1
 
@@ -68,6 +70,23 @@ class GaussianIdentityFamily(GLMFamily):
         return float(
             -0.5 * nobs * np.log(2.0 * np.pi * scale)
             + 0.5 * np.sum(np.log(weights[mask]))
+        )
+
+    def ls(self, y, weights, n=None, scale=1.0):
+        """Port of ``mgcv/R/gam.fit3.r::fix.family.ls`` for Gaussian data."""
+        y = np.asarray(y, dtype=np.float64)
+        weights = self._check_weights(y, weights)
+        scale = float(scale)
+        mask = weights > 0.0
+        nobs = float(np.sum(mask))
+        return np.array(
+            [
+                -0.5 * nobs * np.log(2.0 * np.pi * scale)
+                + 0.5 * np.sum(np.log(weights[mask])),
+                -nobs / (2.0 * scale),
+                nobs / (2.0 * scale * scale),
+            ],
+            dtype=np.float64,
         )
 
     def working_weight_derivative_eta(self, eta, y=None):

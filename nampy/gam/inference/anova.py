@@ -488,10 +488,13 @@ def _smooth_test_stat(
     return d, rank1, min(max(pval, 0.0), 1.0)
 
 
-def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingle:
+def _term_table(
+    model, *, freq: bool, dispersion: float | None, re_test: bool = True
+) -> AnovaGAMSingle:
     scale_est = _scale_estimated(model)
     resid_df = _residual_df(model)
-    disp = float(_fit_scale(model) if dispersion is None else dispersion)
+    fit_scale = float(_fit_scale(model))
+    disp = float(fit_scale if dispersion is None else dispersion)
 
     V_para = select_covariance_matrix(model, cov=("freq" if freq else "bayes"))
     V_smooth = select_covariance_matrix(model, cov="bayes")
@@ -499,6 +502,18 @@ def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingl
         V_freq = select_covariance_matrix(model, cov="freq")
     except Exception:
         V_freq = None
+
+    if dispersion is not None:
+        # mgcv/R/mgcv.r:3895-3900: a supplied dispersion rescales every
+        # covariance through covmat.unscaled and forces est.disp <- FALSE
+        # (z / Chi.sq columns).
+        factor = disp / fit_scale
+        scale_est = False
+        V_para = None if V_para is None else np.asarray(V_para, np.float64) * factor
+        V_smooth = (
+            None if V_smooth is None else np.asarray(V_smooth, np.float64) * factor
+        )
+        V_freq = None if V_freq is None else np.asarray(V_freq, np.float64) * factor
 
     beta = np.asarray(_coef(model), dtype=np.float64).ravel()
     edf_by_term = np.asarray(_edf_by_term(model), dtype=np.float64).ravel()
@@ -567,6 +582,10 @@ def _term_table(model, *, freq: bool, dispersion: float | None) -> AnovaGAMSingl
         if cov_i is None:
             stat, ref_df, p_value = np.nan, max(edf_i, 1.0), np.nan
         elif _term_uses_retest(tb, summary_R):
+            if not re_test:
+                # mgcv/R/mgcv.r:4021-4022: with re.test=FALSE the reTest-eligible
+                # smooth produces no row in the s.table.
+                continue
             res = _retest_like_stat(
                 model,
                 tb,

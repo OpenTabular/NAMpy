@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -113,7 +114,9 @@ def general_family_link_prediction_with_offset(model, layout, offset):
     eta_cols = []
     off_list = None if offset is None else list(offset)
     coef_full = np.asarray(_coef_full(model), dtype=np.float64)
-    for k, (Xp, sl) in enumerate(zip(layout.Xp_blocks, layout.predictor_slices)):
+    for k, (Xp, sl) in enumerate(
+        zip(layout.Xp_blocks, layout.predictor_slices, strict=True)
+    ):
         eta_k = Xp @ np.asarray(coef_full[sl], dtype=np.float64)
         if off_list is not None and k < len(off_list) and off_list[k] is not None:
             eta_k = eta_k + np.asarray(off_list[k], dtype=np.float64)
@@ -142,12 +145,25 @@ def predict_general_values(
     cov=None,
     type="response",
     offset=None,
+    terms=None,
+    exclude=None,
 ):
-    pred_type = str(type).lower()
-    if pred_type not in {"response", "link", "terms", "lpmatrix"}:
-        raise ValueError(
-            "type must be one of {'response', 'link', 'terms', 'lpmatrix'}"
+    if terms is not None or exclude is not None:
+        raise NotImplementedError(
+            "terms/exclude prediction filters are not yet supported for "
+            "multi-predictor general-family models."
         )
+    pred_type = str(type).lower()
+    if pred_type not in {"response", "link", "terms", "iterms", "lpmatrix"}:
+        raise ValueError(
+            "type must be one of {'response', 'link', 'terms', 'iterms', 'lpmatrix'}"
+        )
+    if pred_type == "iterms":
+        warnings.warn(
+            "type iterms not available for multiple predictor cases; reset to terms",
+            stacklevel=2,
+        )
+        pred_type = "terms"
     from .predictions import (
         _group_standard_error_rows,
         _group_term_contribution,
@@ -202,7 +218,9 @@ def predict_general_values(
             return eta
         V = _general_family_covariance_for_prediction(model, cov)
         se_cols = []
-        for Xp, sl in zip(layout.Xp_blocks, layout.predictor_slices):
+        for Xp, sl in zip(
+            layout.Xp_blocks, layout.predictor_slices, strict=True
+        ):
             Vk = V[sl, sl]
             var = np.einsum("ij,jk,ik->i", Xp, Vk, Xp)
             se_cols.append(np.sqrt(np.maximum(var, 0.0)))
