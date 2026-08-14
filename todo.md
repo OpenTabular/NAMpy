@@ -1,6 +1,8 @@
 # NAMpy TODO
 
-- Snapshot date: 2026-08-14
+- Snapshot date: 2026-08-15 (post release-fix commits 913ff3e..e8c9b21; audit
+  reconciliation in [REVIEW.md](REVIEW.md), current-state summary in
+  [tldr.md](tldr.md))
 - Status report: [PROJECT_STATUS.md](PROJECT_STATUS.md)
 
 ## Verification rule
@@ -233,6 +235,64 @@ Do not run the full suite by default.
   interpreter; avoid ambiguous bare `pytest` commands.
 
 ## P1 — Resolve remaining parity gaps
+
+### Factor-smooth penalty ordering (highest priority)
+
+- [ ] Fix the fs null-space penalty identity/order:
+  `gaussian_reml_newton_fs_xt_ps` fails strict lifecycle parity (last two
+  null-space log smoothing parameters swapped: NAMpy
+  [-3.8134, -5.6009, -5.4225] vs mgcv [-3.8134, -5.4225, -5.6009]); the
+  optimized fs + `select=True` endpoint is also off by several log units
+  (REVIEW.md finding 1, re-confirmed 2026-08-15 on the committed tree).
+  Owner: `nampy/gam/smooths/categorical/fs.py` penalty append order (~:712).
+  Until fixed, either mark the registry case `known_gap` (and update
+  `tests/regressions/test_gam_optimization_lifecycle_contracts.py`) or fix
+  directly — the strict suite currently has one known-failing unmarked case.
+
+  ```bash
+  /home/ad32/miniconda3/envs/nampy/bin/pytest \
+    'tests/optimization/test_mgcv_optimization_lifecycle_parity.py::test_supported_optimization_lifecycle_matches_mgcv[gaussian_reml_newton_fs_xt_ps]' -v
+  ```
+
+### cs shrinkage parity (unmasked by the cache bump)
+
+- [ ] Fix the cs shrinkage divergence: after `_SNAPSHOT_CACHE_VERSION` 7
+  forced fresh live-R references, three cases fail in
+  `tests/parity/test_mgcv_output_parity.py -k cs` (terms max diff ~8.6e-5;
+  the audit's live-R run saw the same defect as ~3e-6 GCV/Cp score
+  differences). Bisected 2026-08-15: the plain `cs`/`cs-with_se` failures
+  are introduced by the `symmetrize_lower_triangle=True` change in
+  `nampy/splines/univariate/cr.py::add_full_rank_shrinkage` (its comment
+  claims upstream parity, but live mgcv disagrees — re-derive from
+  `mgcv/R/smooth.r::smooth.construct.cs.smooth.spec` before choosing);
+  `transformed_cs` fails for a second, not-yet-localized reason inside the
+  same prior-session constructor changes (all three passed at base
+  `97a2530`). Note: stale v6 cache entries had been masking this — treat
+  pre-bump green runs of R-cached suites with suspicion if
+  `mgcv_snapshot.R` changed without a version bump.
+
+### Contract drift and audit follow-ups
+
+- [ ] Repair the two stale unit tests in
+  `tests/regressions/test_optimize_driver_mgcv_parity.py`
+  (`test_all_fixed_smoothing_params_still_optimizes_unknown_gaussian_scale`:
+  mock lacks the strict initial.spg design state;
+  `test_negbin_reml_native_all_fixed_optimizes_theta_first`: missing the
+  keyword-only `optimizer` argument).
+- [ ] Remove or explicitly guard `_fallback_single_smooth_edf`
+  (`nampy/gam/fit/state.py:296`, used at `:418`) — heuristic EDF substitution
+  conflicts with the no-fallback policy.
+- [ ] Give `_fs_term_penalty_adjustment`
+  (`nampy/gam/predict/predictions.py`) a direct upstream `predict.gam`
+  citation or replace it with the exact upstream transformation.
+- [ ] Verify the gammals `select=True` optimized-prediction gap
+  (link/response/terms ~2e-5..5.5e-5, REVIEW.md finding 3) with the
+  mirrored-basis method used for the edf2/gaulss endpoints, then tag it in
+  the appropriate known-gap registry with evidence.
+- [ ] Decide the public-export surface: CLAUDE.md declares
+  `fit_model_core`/`solve_fit`/`FitCoreSolution` only, while
+  `nampy/gam/__init__.py` also exports `GAM`, `families`, `parity` — align
+  code or documentation.
 
 ### Side conditions
 

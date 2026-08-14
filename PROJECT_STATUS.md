@@ -630,3 +630,28 @@ Touched files passed `ruff check`, `isort --check-only`, `py_compile`.
   test suite.
 - Tests/debug/docs/packaging land as the commit that contains this ledger
   entry (the fifth, HEAD of this sequence on branch `mgcv`).
+
+### Addendum (2026-08-15, later): audit reconciliation
+
+REVIEW.md (independent pre-commit audit) reconciled against the committed
+tree; full status table prepended there. Verification runs:
+
+- `gaussian_reml_newton_fs_xt_ps` lifecycle: **FAILED** (confirmed audit
+  finding 1 — fs null-space sp order swapped; registry still marks it
+  stable). Highest-priority open defect (todo P1).
+- `tests/parity/test_mgcv_output_parity.py -k cs`: **3 FAILED, 1 passed**
+  (terms max diff 8.6e-5 vs fresh live-R references). Bisect vs base
+  `97a2530` (which passes): plain-cs failures introduced by the
+  prior-session `symmetrize_lower_triangle=True` change in
+  `nampy/splines/univariate/cr.py`; `transformed_cs` has a second
+  unlocalized cause in the same constructor changes. This session's fixes
+  exonerated by consistent-group bisect. The defect was previously masked
+  by stale v6 snapshot-cache entries (mgcv_snapshot.R had been modified
+  without a cache version bump); the v7 bump exposed it.
+- `tests/regressions/test_optimize_driver_mgcv_parity.py`: **2 FAILED,
+  12 passed** (stale mocks/contract drift; todo P1).
+- `_fallback_single_smooth_edf` (fit/state.py:296) and
+  `_fs_term_penalty_adjustment` (predict/predictions.py) confirmed present;
+  tracked as policy items in todo P1.
+
+REVIEW.md, tldr.md, and todo.md updated accordingly.
