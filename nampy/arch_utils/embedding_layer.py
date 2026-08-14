@@ -2,6 +2,8 @@
 import torch
 import torch.nn as nn
 
+from .mlp_utils import _make_activation
+
 
 class EmbeddingLayer(nn.Module):
     def __init__(
@@ -9,7 +11,7 @@ class EmbeddingLayer(nn.Module):
         num_feature_info,
         cat_feature_info,
         d_model,
-        embedding_activation=nn.Identity(),
+        embedding_activation=None,
         layer_norm_after_embedding=False,
         use_cls=False,
         cls_position=0,
@@ -42,16 +44,16 @@ class EmbeddingLayer(nn.Module):
         super(EmbeddingLayer, self).__init__()
 
         self.d_model = d_model
-        self.embedding_activation = embedding_activation
         self.layer_norm_after_embedding = layer_norm_after_embedding
         self.use_cls = use_cls
         self.cls_position = cls_position
+        activation = nn.Identity if embedding_activation is None else embedding_activation
 
         self.num_embeddings = nn.ModuleList(
             [
                 nn.Sequential(
                     nn.Linear(info["dimension"], d_model, bias=False),
-                    self.embedding_activation,
+                    _make_activation(activation),
                 )
                 for feature_name, info in num_feature_info.items()
             ]
@@ -59,19 +61,39 @@ class EmbeddingLayer(nn.Module):
 
         self.cat_embeddings = nn.ModuleList()
         for _feature_name, info in cat_feature_info.items():
-            if info["encoding"] == "ordinal":
+            encoding = str(info.get("encoding", "")).lower()
+            preprocessing = str(info.get("preprocessing", "")).lower()
+            is_ordinal = encoding == "ordinal" or "ordinal" in preprocessing
+            is_dense = (
+                encoding in {"one-hot", "one_hot", "onehot"}
+                or "onehot" in preprocessing
+                or int(info.get("dimension", 1)) > 1
+            )
+
+            if is_ordinal:
+                num_embeddings = info.get("categories", info.get("dimension"))
+                if num_embeddings is None or int(num_embeddings) < 1:
+                    raise ValueError(
+                        f"Categorical feature {_feature_name!r} requires a positive "
+                        "'categories' value for ordinal embedding."
+                    )
                 self.cat_embeddings.append(
                     nn.Sequential(
-                        nn.Embedding(info["dimension"], d_model),
-                        self.embedding_activation,
+                        nn.Embedding(int(num_embeddings), d_model),
+                        _make_activation(activation),
                     )
                 )
-            elif info["encoding"] == "one-hot":
+            elif is_dense:
                 self.cat_embeddings.append(
                     nn.Sequential(
                         nn.Linear(info["dimension"], d_model, bias=False),
-                        self.embedding_activation,
+                        _make_activation(activation),
                     )
+                )
+            else:
+                raise ValueError(
+                    f"Unsupported categorical metadata for feature "
+                    f"{_feature_name!r}: {info!r}."
                 )
 
         if self.use_cls:

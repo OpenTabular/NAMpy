@@ -123,8 +123,8 @@ class NAMformer(BaseModel):
             norm=self.norm_embedding,
         )
 
+        self.interaction_networks = nn.ModuleDict()
         if self.interaction_degree is not None and self.interaction_degree >= 2:
-            self.interaction_networks = nn.ModuleDict()
             all_feature_names = list(num_feature_info.keys()) + list(
                 cat_feature_info.keys()
             )
@@ -135,13 +135,31 @@ class NAMformer(BaseModel):
                     interaction_name = ":".join(
                         interaction
                     )  # e.g., "feature1_feature2"
-                    input_dim = self.interaction_degree * self.hparams.get(
+                    input_dim = degree * self.hparams.get(
                         "d_model", config.d_model
                     )
 
                     self.interaction_networks[interaction_name] = (
-                        self._create_subnetwork(input_dim, config)
+                        self._create_interaction_subnetwork(input_dim, config)
                     )
+
+    def _create_interaction_subnetwork(self, input_dim, config):
+        return MLP(
+            n_input_units=input_dim,
+            hidden_units_list=self.hparams.get(
+                "head_layer_sizes", config.head_layer_sizes
+            ),
+            n_output_units=self.num_classes,
+            dropout=self.hparams.get("dropout", config.dropout),
+            use_skip_layers=self.hparams.get(
+                "skip_connections", config.skip_connections
+            ),
+            activation=self.hparams.get("activation", config.activation),
+            use_batch_norm=self.hparams.get("batch_norm", config.batch_norm),
+            use_layer_norm=self.hparams.get("layer_norm", config.layer_norm),
+            norm=self.hparams.get("norm", config.norm),
+            use_glu=self.hparams.get("use_glu", config.use_glu),
+        )
 
     def forward(self, num_features: dict, cat_features: dict) -> dict:
         """
@@ -173,20 +191,35 @@ class NAMformer(BaseModel):
         # Create a dictionary for feature values, using keys from num_features and cat_features
         nam_outputs = {}
 
+        # EmbeddingLayer places CLS first, then categorical, then numerical tokens.
+        cls_offset = 1
+        numerical_offset = cls_offset + len(cat_features)
+
         # Handle numerical features
         for i, feature_name in enumerate(num_features.keys()):
-            nam_outputs[feature_name] = self.feature_networks[i](embeddings[:, i])
+            network_idx = i
+            embedding_idx = numerical_offset + i
+            nam_outputs[feature_name] = self.feature_networks[network_idx](
+                embeddings[:, embedding_idx]
+            )
 
         # Handle categorical features
-        for j, feature_name in enumerate(cat_features.keys(), start=len(num_features)):
-            nam_outputs[feature_name] = self.feature_networks[j](embeddings[:, j])
+        for j, feature_name in enumerate(cat_features.keys()):
+            network_idx = len(num_features) + j
+            embedding_idx = cls_offset + j
+            nam_outputs[feature_name] = self.feature_networks[network_idx](
+                embeddings[:, embedding_idx]
+            )
 
         # Handle interaction networks
         # Create a dictionary for the embeddings of each feature (numerical + categorical)
         all_embeddings = {
-            **{key: embeddings[:, i] for i, key in enumerate(num_features.keys())},
             **{
-                key: embeddings[:, i + len(num_features)]
+                key: embeddings[:, numerical_offset + i]
+                for i, key in enumerate(num_features.keys())
+            },
+            **{
+                key: embeddings[:, cls_offset + i]
                 for i, key in enumerate(cat_features.keys())
             },
         }
@@ -202,7 +235,7 @@ class NAMformer(BaseModel):
 
                 # Use the corresponding embeddings for the input to the interaction network
                 input_features = torch.cat(
-                    [all_embeddings[fn].unsqueeze(-1) for fn in feature_names], dim=-1
+                    [all_embeddings[fn] for fn in feature_names], dim=-1
                 )
 
                 # Pass the concatenated embeddings through the interaction network

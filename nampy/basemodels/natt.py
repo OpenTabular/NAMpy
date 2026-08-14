@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 from ..arch_utils.embedding_layer import EmbeddingLayer
-from ..arch_utils.mlp_utils import MLP
+from ..arch_utils.mlp_utils import MLP, _make_activation
 from ..arch_utils.normalization_layers import (
     BatchNorm,
     GroupNorm,
@@ -205,9 +205,7 @@ class NATT(BaseModel):
                 input_features = torch.cat(
                     [all_features[fn] for fn in feature_names], dim=-1
                 )
-                interaction_output = interaction_network(
-                    torch.tensor(input_features, dtype=torch.float32)
-                )
+                interaction_output = interaction_network(input_features.float())
                 interaction_outputs[interaction_name] = interaction_output
 
         return interaction_outputs
@@ -252,7 +250,8 @@ class NATT(BaseModel):
             layers.add_module("glu", nn.GLU())
         else:
             layers.add_module(
-                "activation", self.hparams.get("activation", config.activation)
+                "activation",
+                _make_activation(self.hparams.get("activation", config.activation)),
             )
 
         if config.dropout > 0.0:
@@ -275,14 +274,17 @@ class NATT(BaseModel):
                 layers.add_module(f"glu_{i}", nn.GLU())
             else:
                 layers.add_module(
-                    f"activation_{i}", self.hparams.get("activation", config.activation)
+                    f"activation_{i}",
+                    _make_activation(
+                        self.hparams.get("activation", config.activation)
+                    ),
                 )
             if config.dropout > 0.0:
                 layers.add_module(f"dropout_{i}", nn.Dropout(config.dropout))
 
         layers.add_module(
-            f"linear_{i+1}",
-            nn.Linear(config.layer_sizes[i], self.num_classes),
+            "output",
+            nn.Linear(config.layer_sizes[-1], self.num_classes),
         )
         return layers
 
@@ -310,11 +312,14 @@ class NATT(BaseModel):
         cat_outputs = {}
         if cat_features:
             cat_embeddings = self.embedding_layer(
-                None, [vals for key, vals in cat_features.items()]
+                None, list(cat_features.values())
             )
             cat_vals = self.encoder(cat_embeddings)
-            cat_vals = self.tabular_head(cat_vals)
-            cat_outputs = {"cat_output": cat_vals}
+            cat_vals = self.tabular_head(cat_vals[:, 1:])
+            cat_outputs = {
+                feature_name: cat_vals[:, index]
+                for index, feature_name in enumerate(cat_features)
+            }
 
         interaction_outputs = self._interaction_forward(
             num_features=num_features, cat_features=cat_features

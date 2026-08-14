@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Optional
 
 import torch.nn as nn
@@ -72,24 +72,24 @@ class DefaultNAMformerConfig:
     n_heads: int = 4
     attn_dropout: float = 0.2
     ff_dropout: float = 0.1
-    activation: Any = nn.ReLU()
+    activation: Any = field(default_factory=nn.ReLU)
     dropout: float = 0.1
     norm: str = "LayerNorm"
     use_glu: bool = False
     skip_connections: bool = False
     batch_norm: bool = False
     layer_norm: bool = False
-    embedding_activation: Any = nn.Identity()
+    embedding_activation: Any = field(default_factory=nn.Identity)
     head_layer_sizes: tuple = ()
     head_dropout: float = 0.5
     head_skip_layers: bool = False
-    head_activation: Any = nn.SELU()
+    head_activation: Any = field(default_factory=nn.SELU)
     head_use_batch_norm: bool = False
     layer_norm_after_embedding: bool = False
     pooling_method: str = "avg"
     norm_first: bool = True
     bias: bool = True
-    transformer_activation: Any = nn.ReLU()
+    transformer_activation: Any = field(default_factory=nn.ReLU)
     layer_norm_eps: float = 1e-05
     transformer_dim_feedforward: int = 256
     cat_encoding: str = "int"
