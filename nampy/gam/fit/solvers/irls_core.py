@@ -16,7 +16,6 @@ from ..._mgcv_constants import LOG_GUARD_MIN
 from ..._model_state import _fit_intercept
 from ..covariance import build_bayes_and_freq_covariances
 from ..linalg.stacked_qr import (
-    STACKED_QR_RANK_TOLERANCE,
     _stacked_penalized_ls_nonneg_solution,
     build_penalized_qr_state_nonnegative,
     penalty_sqrt_rows,
@@ -147,7 +146,11 @@ def irls_core(
     mustart: np.ndarray | None = None,
     fisher_scoring_only: bool = False,
     penalty_rank_rows: np.ndarray | None = None,
-    rank_tol: float = STACKED_QR_RANK_TOLERANCE,
+    # mgcv/R/gam.fit3.r:131: rank.tol <- .Machine$double.eps*100; the PIRLS
+    # inner solve must use the same drop threshold as the gdiPK derivative
+    # kernel (_MGCV_GAM_FIT3_RANK_TOL), not the looser eps**0.66 stacked-QR
+    # default.
+    rank_tol: float = float(np.finfo(np.float64).eps) * 100.0,
     coef_method: str = "householder",
     near_singular_null_pin: bool | Literal["auto"] = False,
     force_stacked_qr: bool = False,
@@ -845,6 +848,12 @@ def irls_core(
     beta_report = np.asarray(beta, dtype=np.float64).copy()
     eta_report = np.asarray(eta, dtype=np.float64).copy()
     mu_report = np.asarray(mu, dtype=np.float64).copy()
+    # `mgcv::gdi1()` receives these pre-refresh PIRLS arrays. Its internal
+    # `gdiPK()` then refreshes the coefficient representative returned to R,
+    # but the deviance/link/variance derivative arrays remain tied to this
+    # state for the current call.
+    gdi1_eta = np.asarray(eta, dtype=np.float64).copy()
+    gdi1_mu = np.asarray(mu, dtype=np.float64).copy()
 
     # Mirror mgcv::gam.fit3(): the post-loop gdi1() call solves the current
     # weighted penalized least-squares system one more time and reports
@@ -941,6 +950,8 @@ def irls_core(
         "eta": eta_report,
         "linear_predictor": eta_report,
         "mu": mu_report,
+        "gdi1_eta": gdi1_eta,
+        "gdi1_mu": gdi1_mu,
         "rss": rss,
         "deviance": deviance,
         "edf": edf,

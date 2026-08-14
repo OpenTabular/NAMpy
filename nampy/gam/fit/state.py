@@ -61,6 +61,8 @@ class FitState:
     working_weights: np.ndarray | None = None
     fisher_weights: np.ndarray | None = None
     working_response: np.ndarray | None = None
+    gdi1_eta: np.ndarray | None = None
+    gdi1_mu: np.ndarray | None = None
     offset: np.ndarray | None = None
     log_det_XtWX_plus_penalty: float | None = None
     penalized_system_rank: int | None = None
@@ -239,6 +241,16 @@ class FitCoreSolution:
                 None
                 if data.get("working_response", None) is None
                 else np.asarray(data["working_response"], dtype=np.float64)
+            ),
+            gdi1_eta=(
+                None
+                if data.get("gdi1_eta", None) is None
+                else np.asarray(data["gdi1_eta"], dtype=np.float64)
+            ),
+            gdi1_mu=(
+                None
+                if data.get("gdi1_mu", None) is None
+                else np.asarray(data["gdi1_mu"], dtype=np.float64)
             ),
             offset=(
                 None

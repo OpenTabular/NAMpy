@@ -4,32 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from .._model_state import _n_smoothing_params, _predictor_designs, _term_blocks_seq
+from .._model_state import _n_smoothing_params, _predictor_designs
 from .capabilities import needs_exact_gaussian_reparameterization
 from .smoothing_params import resolve_min_sp, resolve_smoothing_params
-
-
-def _reject_unsupported_general_family_multi_smooths(model) -> None:
-    family_class = str(getattr(model.family, "family_class", "")).lower()
-    if family_class != "general":
-        return
-
-    smooth_terms = [
-        term
-        for term in _term_blocks_seq(model)
-        if str(getattr(term, "term_type", "")).lower() != "parametric"
-        and int(getattr(term, "n_penalties", 0)) > 0
-    ]
-    if len(smooth_terms) <= 1:
-        return
-
-    labels = ", ".join(str(getattr(term, "label", "")) for term in smooth_terms)
-    raise NotImplementedError(
-        "Multi-smooth general-family models are not supported. "
-        "Use at most one penalized smooth term across the general-family "
-        f"linear predictors; got {len(smooth_terms)} smooth terms"
-        f" ({labels})."
-    )
 
 
 def compile_designs(model, X, feature_names):
@@ -50,7 +27,6 @@ def compile_designs(model, X, feature_names):
         else list(compiled_model.side_condition_reports)
     )
     model.family.validate_predictor_count(len(_predictor_designs(model)))
-    _reject_unsupported_general_family_multi_smooths(model)
     model._coef_reduced_to_full_idx = np.asarray(
         compiled_model.coef_reduced_to_full_idx,
         dtype=int,

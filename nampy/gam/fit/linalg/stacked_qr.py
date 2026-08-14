@@ -19,8 +19,10 @@ Algorithm outline
 Rank detection
 --------------
 Rank is revealed by an upper-triangular condition number estimate on the stacked
-R factor.  The threshold is :data:`STACKED_QR_RANK_TOLERANCE` (eps**0.66),
-matching `mgcv`'s stacked-QR rank-drop tolerance.
+R factor.  The default threshold here is :data:`STACKED_QR_RANK_TOLERANCE`
+(eps**0.66), but the `gam.fit3`-mirroring PIRLS and Gaussian exact paths pass
+mgcv's ``rank.tol = .Machine$double.eps*100`` (mgcv/R/gam.fit3.r:131)
+explicitly.
 When ``penalty_blocks`` are provided, a Frobenius-normalised aggregate of the
 unscaled penalty templates is used for rank detection (more numerically stable
 than row-normalised ``sqrt(P)`` for mixed-scale penalties).
@@ -50,23 +52,15 @@ import numpy as np
 from scipy.linalg import lapack as _lapack
 from scipy.linalg import solve_triangular
 
+from ... import linalg as _gam_linalg
 from ..._mgcv_constants import LOG_GUARD_MIN, QR_TOL_SCALE
 from ..._model_state import _fit_intercept, _term_blocks_seq
-from ...linalg import (
-    balanced_penalty_template_sqrt_for_rank as _balanced_penalty_template_sqrt_for_rank,
-)
 from ...linalg import (
     matrix_is_rank_deficient,
     svd_null_space_basis,
     symmetric_eigh,
     symmetric_eigvalsh,
     symmetrize_matrix,
-)
-from ...linalg import (
-    project_coef_onto_row_space as _project_coef_onto_row_space,
-)
-from ...linalg import (
-    snap_coef_to_reference_null_space as _snap_coef_to_reference_null_space,
 )
 from .matrix_reindexing import (
     drop_columns_dense,
@@ -123,6 +117,9 @@ class NonnegativePenalizedQRState:
     kept_original_indices: tuple[int, ...]
     P: np.ndarray
     K: np.ndarray
+    R: np.ndarray
+    Vt: np.ndarray | None
+    neg_w: int
     Rh: np.ndarray
     PKtz: np.ndarray
     ldet_XWX_plus_S: float
@@ -725,7 +722,6 @@ def build_penalized_qr_state_nonnegative(
     rS: np.ndarray,
     rank_tol: float,
     reml: bool,
-    Mp: int = 0,
 ) -> NonnegativePenalizedQRState:
     X, z, w, E, Es, rS = _validate_nonnegative_qr_inputs(
         X, z, w, penalty_sqrt_E, penalty_rank_Es, rS
@@ -764,6 +760,7 @@ def build_penalized_qr_state_nonnegative(
     X_drop = drop_columns_dense(X, drop) if n_drop else X.copy()
     X_piv = permute_columns(X_drop, pivot1, reverse=False)
 
+    Vt = None
     if np.any(neg_weight_mask):
         _, vt_scaled, rh_left, log_det_correction = _signed_weight_rank_correction(
             q1_matrix[neg_weight_mask, :],
@@ -780,6 +777,7 @@ def build_penalized_qr_state_nonnegative(
             )
         K = np.asarray((raw_w[:, None] * X_piv) @ P, dtype=np.float64)
         Rh = np.asarray(rh_left @ R, dtype=np.float64)
+        Vt = np.asarray(vt_scaled, dtype=np.float64)
 
         zz = z * raw_w
         zz[neg_weight_mask] *= -1.0
@@ -833,7 +831,6 @@ def build_penalized_qr_state_nonnegative(
     rS_drop = drop_rows_dense(rS, drop) if n_drop else rS.copy()
     rS_work = permute_rows(rS_drop, pivot1, reverse=False)
 
-    _ = Mp
     return NonnegativePenalizedQRState(
         rank=rank,
         n_drop=n_drop,
@@ -842,6 +839,9 @@ def build_penalized_qr_state_nonnegative(
         kept_original_indices=kept,
         P=P,
         K=K,
+        R=R,
+        Vt=Vt,
+        neg_w=int(np.sum(neg_weight_mask)),
         Rh=Rh,
         PKtz=np.asarray(PKtz, dtype=np.float64).ravel().copy(),
         ldet_XWX_plus_S=ldet,
@@ -851,7 +851,14 @@ def build_penalized_qr_state_nonnegative(
 
 
 def _frob_norm(A: np.ndarray) -> float:
-    return float(np.linalg.norm(A, ord="fro"))
+    # Mirror mgcv/src/gdi.c::frobenius_norm() literally. The serial C loop
+    # accumulates down the column-major buffer; a BLAS-backed norm can round
+    # differently enough to change the final pivot in an exactly aliased
+    # rank-reveal problem.
+    total = np.float64(0.0)
+    for value in np.ravel(np.asarray(A, dtype=np.float64), order="F"):
+        total = np.float64(total + value * value)
+    return float(np.sqrt(total))
 
 
 def _upper_r_condition_indicator(upper_r: np.ndarray, n_leading_cols: int) -> float:
@@ -1168,7 +1175,11 @@ def project_coef_onto_row_space(
     ``coef(gam)`` may differ from nampy along ``null(X)`` in float64, but this
     projection matches mgcv to machine precision when ``X`` agrees (parity tests).
     """
-    return _project_coef_onto_row_space(X, coef_full, sv_rel_tol=sv_rel_tol)
+    return _gam_linalg.project_coef_onto_row_space(
+        X,
+        coef_full,
+        sv_rel_tol=sv_rel_tol,
+    )
 
 
 def snap_coef_to_reference_null_space(
@@ -1195,7 +1206,7 @@ def snap_coef_to_reference_null_space(
     with columns of ``N`` an orthonormal basis of ``\\mathrm{null}(X)``.  Then
     ``X\\beta' = X\\beta`` and ``N^{\\top}\\beta' = N^{\\top}\\beta^{\\mathrm{ref}}``.
     """
-    return _snap_coef_to_reference_null_space(
+    return _gam_linalg.snap_coef_to_reference_null_space(
         coef_full,
         X,
         coef_reference,
@@ -1429,7 +1440,7 @@ def balanced_penalty_template_sqrt_for_rank(
     The resulting rows are used only for rank detection in the stacked QR; they
     are not used to compute coefficients.
     """
-    return _balanced_penalty_template_sqrt_for_rank(
+    return _gam_linalg.balanced_penalty_template_sqrt_for_rank(
         penalty_blocks,
         fit_intercept=fit_intercept,
         n_coef=n_coef,

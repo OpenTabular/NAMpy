@@ -334,6 +334,51 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
     )
 
     if getattr(model.family, "known_scale", None) is None:
+        if family_name == "gaussian":
+            # mgcv::gam.fit3 treats the gaussian scale as an extra joint
+            # coordinate (mgcv/R/mgcv.r:2025-2033); at the profiled optimum
+            # dlr.dlphi = 0 (mgcv/R/gam.fit3.r:628-630 with the gaussian ls
+            # from gam.fit3.r:2503-2508) gives the closed form
+            # phi = Dp / (n - gamma*Mp*remlInd). Evaluate the joint gam.fit3
+            # score there instead of the Pearson/(n - Mp) plug-in, which is
+            # mgcv's P-REML scale, not the (P)REML criterion scale.
+            try:
+                from .derivatives import _gdi1_kernel
+
+                kernel = _gdi1_kernel(model, y, sol, sp, method=method)
+            except np.linalg.LinAlgError:
+                return np.inf
+            Dp = float(sol["deviance"]) + float(kernel.bSb)
+            y_arr = np.asarray(y, dtype=np.float64)
+            weights = _prior_weights(model, y_arr)
+            nobs = float(len(y_arr))
+            n_eff = nobs
+            n_true = getattr(model, "n_true_", None)
+            if n_true is not None:
+                n_true = float(n_true)
+                if np.isfinite(n_true) and n_true > 0.0:
+                    n_eff = n_true
+            reml_ind = 1.0 if method == "REML" else 0.0
+            denom = n_eff - gamma * mp * reml_ind
+            if not np.isfinite(denom) or denom <= 0.0:
+                return np.inf
+            phi = Dp / denom
+            if not np.isfinite(phi) or phi <= 0.0:
+                return np.inf
+            ls = np.asarray(
+                model.family.ls(y_arr, weights, len(y_arr), phi),
+                dtype=np.float64,
+            )
+            if n_eff != nobs and nobs > 0.0:
+                ls *= n_eff / nobs
+            objective = (Dp / (2.0 * phi) - float(ls[0])) / gamma + float(
+                kernel.K
+            )
+            if method == "REML":
+                objective -= 0.5 * mp * (
+                    np.log(2.0 * np.pi * phi) - np.log(gamma)
+                )
+            return float(objective)
         if family_name == "gamma":
             Dp = float(sol["deviance"]) + penalty_quad
             phi = _solve_gamma_profile_scale(
@@ -498,12 +543,12 @@ def criterion_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
             "Joint PIRLS Gamma outer objective is implemented only for family='gamma'."
         )
 
-    sp = expand_smoothing_params_from_log(model, log_sp)
-    sol = solve_pirls_given_smoothing(model, y, sp)
-
     phi = float(np.exp(float(log_phi)))
     if not np.isfinite(phi) or phi <= 0.0:
         return np.inf
+
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp, scale_reference=phi)
 
     mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
     gamma = float(model.score_gamma)
@@ -541,6 +586,61 @@ def criterion_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
     objective = base_objective + det_term
     if method == "REML":
         objective -= 0.5 * mp * (np.log(2.0 * np.pi * phi) - np.log(gamma))
+    return float(objective)
+
+
+def criterion_ml_reml_pirls_gaussian_joint(model, y, log_sp, log_phi, method):
+    """Joint Gaussian PIRLS ML/REML criterion from ``mgcv::gam.fit3``."""
+    method = str(method).upper()
+    family_name = str(getattr(model.family, "name", "")).lower()
+    if family_name != "gaussian":
+        raise NotImplementedError(
+            "Joint PIRLS Gaussian outer objective is implemented only for "
+            "family='gaussian'."
+        )
+    if bool(getattr(model.family, "supports_closed_form_solve", False)):
+        raise NotImplementedError(
+            "The PIRLS Gaussian joint objective is only for noncanonical links."
+        )
+
+    phi = float(np.exp(float(log_phi)))
+    gamma = float(model.score_gamma)
+    if (
+        not np.isfinite(phi)
+        or phi <= 0.0
+        or not np.isfinite(gamma)
+        or gamma <= 0.0
+    ):
+        return np.inf
+
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp, scale_reference=phi)
+    try:
+        from .derivatives import _gdi1_kernel
+
+        kernel = _gdi1_kernel(model, y, sol, sp, method=method)
+    except np.linalg.LinAlgError:
+        return np.inf
+
+    y_arr = np.asarray(y, dtype=np.float64)
+    weights = _prior_weights(model, y_arr)
+    ls = np.asarray(
+        model.family.ls(y_arr, weights, len(y_arr), phi), dtype=np.float64
+    )
+    nobs = float(len(y_arr))
+    n_true = getattr(model, "n_true_", None)
+    if n_true is not None:
+        n_true = float(n_true)
+        if np.isfinite(n_true) and n_true > 0.0 and nobs > 0.0:
+            ls *= n_true / nobs
+
+    dp = float(sol["deviance"]) + float(kernel.bSb)
+    mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
+    reml_ind = 1.0 if method == "REML" else 0.0
+    objective = (dp / (2.0 * phi) - float(ls[0])) / gamma + float(kernel.K)
+    objective -= reml_ind * 0.5 * mp * (
+        np.log(2.0 * np.pi * phi) - np.log(gamma)
+    )
     return float(objective)
 
 

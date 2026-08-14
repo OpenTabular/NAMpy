@@ -118,6 +118,8 @@ def _gaussian_exact_unconditional_postfit(
     """
     if str(getattr(getattr(model, "family", None), "name", "")).lower() != "gaussian":
         return None, None, FIT_PARAMETER_SPACE
+    if not bool(getattr(model.family, "supports_closed_form_solve", False)):
+        return None, None, FIT_PARAMETER_SPACE
 
     method = str(getattr(model, "_optim_method", "")).lower()
     if method not in {"ml", "reml", "laml"}:
@@ -470,7 +472,8 @@ def _pirls_exact_unconditional_postfit(
     ordinary PIRLS fits with exact outer derivatives.
 
     Current strict support matches the implemented exact ordinary-family PIRLS
-    ML/REML/LAML path: binomial, poisson, gamma, and fixed-theta negbin.
+    ML/REML/LAML path: noncanonical Gaussian, binomial, poisson, gamma, and
+    fixed-theta negbin.
     """
 
     def _embed_setup_penalties(setup_state, p_full: int) -> list[np.ndarray] | None:
@@ -615,7 +618,7 @@ def _pirls_exact_unconditional_postfit(
 
     family = getattr(model, "family", None)
     family_name = str(getattr(family, "name", "")).lower()
-    if family_name not in {"binomial", "poisson", "gamma", "negbin"}:
+    if family_name not in {"gaussian", "binomial", "poisson", "gamma", "negbin"}:
         return None, None, FIT_PARAMETER_SPACE
 
     method = str(getattr(model, "_optim_method", "")).lower()
@@ -669,12 +672,17 @@ def _pirls_exact_unconditional_postfit(
                 Hsp_fit = Hsp_outer
             elif (
                 Hsp_outer.shape == (free_idx.size + 1, free_idx.size + 1)
-                and getattr(optim_result, "joint_log_phi", None) is not None
             ):
-                joint_log_phi = float(optim_result.joint_log_phi)
-                if np.isfinite(joint_log_phi):
+                joint_log_scale = getattr(optim_result, "joint_log_phi", None)
+                if joint_log_scale is None:
+                    joint_log_scale = getattr(
+                        optim_result, "joint_log_sigma2", None
+                    )
+                if joint_log_scale is not None and np.isfinite(
+                    float(joint_log_scale)
+                ):
                     Hsp_fit = Hsp_outer
-                    rho_fit = np.concatenate([rho_fit, [joint_log_phi]])
+                    rho_fit = np.concatenate([rho_fit, [float(joint_log_scale)]])
     if Hsp_fit is None:
         try:
             Hsp_fit = np.asarray(
@@ -798,7 +806,20 @@ def _pirls_exact_unconditional_postfit(
 
 def apply_unconditional_postfit(model, sol, fit_result, fit_state):
     if str(getattr(model, "smoothing_optimizer", "")).lower() in {"efs", "optim"}:
-        return replace(fit_result, cov_unconditional=None)
+        family_class = str(
+            getattr(getattr(model, "family", None), "family_class", "")
+        ).lower()
+        if family_class == "general":
+            # mgcv::gam.fit5.post.proc() always returns Vc: with no derivative
+            # state (efsud/optim final fits run at deriv=0) the correction is
+            # zero and Vc == Vb (mgcv/R/gam.fit4.r:1685-1690), with edf2 from
+            # rowSums(Vc * crossprod(R)) capped at edf1 (gam.fit4.r:1714-1715).
+            # The general-family solver already produced exactly that state.
+            return fit_result
+        # mgcv::gam.fit3.post.proc(): without db.drho (efsudr and the
+        # optim/nlm gam2objective final fits run at deriv=0),
+        # `V.sp <- edf2 <- Vc <- NULL` (mgcv/R/gam.fit3.r:1053).
+        return replace(fit_result, cov_unconditional=None, edf2=None)
 
     cov_unconditional_post = (
         None

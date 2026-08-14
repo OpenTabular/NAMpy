@@ -242,7 +242,9 @@ def _optimize_outer_bfgs_strict(
     *,
     score_type="reml",
     conv_tol=1e-6,
-    max_nstep=3.0,
+    # `mgcv::gam()` passes `gam.control()$newton$maxNstep`, whose public
+    # default is 5, overriding the standalone `mgcv:::bfgs()` default of 3.
+    max_nstep=5.0,
     max_sstep=2.0,
     max_step=200,
 ):

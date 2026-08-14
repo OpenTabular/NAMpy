@@ -8,6 +8,7 @@ from ..._model_state import (
     _penalty_blocks_seq,
 )
 from ..linalg.stacked_qr import (
+    _scatter_pivoted_rank_matrix_to_full,
     balanced_penalty_template_sqrt_for_rank,
     build_penalized_qr_state_nonnegative,
     gaussian_design_needs_stacked_qr_fit,
@@ -108,7 +109,6 @@ def _gaussian_fit3_gdi_beta_full(model, X, smoothing_params, z_work, w):
         rS=rS,
         rank_tol=np.finfo(np.float64).eps * 100.0,
         reml=True,
-        Mp=int(canonical.Mp),
     )
     coef_canon = np.asarray(qr_state.beta_full, dtype=np.float64)
     coef_full = np.asarray(
@@ -119,7 +119,21 @@ def _gaussian_fit3_gdi_beta_full(model, X, smoothing_params, z_work, w):
         dgemv(1.0, np.asfortranarray(X_canon), coef_canon),
         dtype=np.float64,
     )
-    return coef_full, eta_fit
+    # mgcv/src/gdi.c:2262-2292: the covariance root `rV` is built from the SAME
+    # canonical factorization as the coefficients, with zero rows at dropped
+    # canonical coordinates, then mapped back through `T`
+    # (mgcv/R/gam.fit3.r:813-815). Building Vp from a separate natural-design
+    # solve would put the drop gauge on a different column.
+    rV_canon = _scatter_pivoted_rank_matrix_to_full(
+        np.asarray(qr_state.P, dtype=np.float64),
+        qr_state.kept_original_indices,
+        qr_state.pivot1,
+        q_full,
+    )
+    rV_full = np.asarray(
+        np.asarray(canonical.T, dtype=np.float64) @ rV_canon, dtype=np.float64
+    )
+    return coef_full, eta_fit, rV_full
 
 
 def _gaussian_fit3_pls_current_eta(model, X, smoothing_params, z_work, w):
@@ -185,11 +199,11 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
     )
     coef_method = "householder"
 
-    # Rank-deficient Gaussian designs (for example heavily penalized ti() terms at
-    # the REML boundary) can share fitted values with multiple coefficient vectors.
-    # mgcv's `magic` path implicitly picks a penalty-minimizing representative in
-    # that null(X) coset; enable the same gauge automatically for stacked-QR fits.
-    null_gauge = "auto" if force_stacked_qr else False
+    # No null-space gauge pin: the coefficient and covariance representatives
+    # are overwritten below from the canonical `gdi1` factorization, whose
+    # dropped-coordinate zero-fill IS mgcv's rank-deficiency gauge
+    # (mgcv/src/gdi.c:2253-2292). Upstream has no penalty-minimizing pin.
+    null_gauge = False
 
     sol = irls_core(
         X,
@@ -276,7 +290,7 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
             sol["working_response"],
             w,
         )
-        coef_full, eta_fit = _gaussian_fit3_gdi_beta_full(
+        coef_full, eta_fit, gdi_rank_root = _gaussian_fit3_gdi_beta_full(
             model,
             X,
             smoothing_params,
@@ -294,7 +308,13 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
             eta = eta + np.asarray(model.offset_train_, dtype=np.float64).ravel()
         mu = np.asarray(model.family.inverse_link(eta), dtype=np.float64)
         scale = model.family.estimate_dispersion(y, eta, edf=trace_H, weights=w)
-        Vp = np.asarray(scale * (cov_root @ cov_root.T), dtype=np.float64)
+        # mgcv/R/gam.fit3.r:959 `Vb <- rV %*% t(rV) * scale` with `rV` from the
+        # same canonical gdi1 factorization as the coefficients, so the
+        # rank-deficiency gauge (zero row at dropped canonical coordinates)
+        # lands on the same position in coef and Vp.
+        Vp = np.asarray(
+            scale * (gdi_rank_root @ gdi_rank_root.T), dtype=np.float64
+        )
         Vp = 0.5 * (Vp + Vp.T)
         H_coef = np.asarray(H_coef_stable, dtype=np.float64)
         Vf = np.asarray(H_coef @ Vp, dtype=np.float64)
