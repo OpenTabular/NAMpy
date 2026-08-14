@@ -80,6 +80,7 @@ def _run_mgcv_outer_trace(
     *,
     select: bool = False,
     edge_correct: bool = False,
+    weights_column: str | None = None,
 ):
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
@@ -98,6 +99,7 @@ def _run_mgcv_outer_trace(
                 optimizer,
                 "true" if select else "false",
                 "true" if edge_correct else "false",
+                weights_column or "",
             ],
             check=True,
             cwd=REPO_ROOT,
@@ -258,7 +260,7 @@ def _assert_expected_subset_close(
             )
             return
         assert len(actual) == len(expected)
-        for actual_value, expected_value in zip(actual, expected):
+        for actual_value, expected_value in zip(actual, expected, strict=True):
             _assert_expected_subset_close(
                 actual_value,
                 expected_value,
@@ -333,7 +335,7 @@ def _assert_trace_rows_close(
     field_atols: dict[str, float] | None = None,
 ):
     assert len(actual_rows) == len(expected_rows) >= 1
-    for actual_row, expected_row in zip(actual_rows, expected_rows):
+    for actual_row, expected_row in zip(actual_rows, expected_rows, strict=True):
         _assert_trace_row_close(
             actual_row,
             expected_row,

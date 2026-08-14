@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from tests._mgcv_snapshot_parity_shared import (
     TestAdditionalScenarioParity as _SharedTestAdditionalScenarioParity,
@@ -620,13 +619,6 @@ def _assert_optimized_link_snapshot_close(actual, expected, *, atol=2e-5, rtol=2
         )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Optimized non-default Gaussian links need exact mgcv first/second "
-        "derivative support before this extended surface can be active."
-    ),
-)
 def test_gaussian_log_and_inverse_links_reml_and_ml_match_mgcv():
     """Verify optimized Gaussian non-default links against mgcv."""
     cases = [
@@ -655,12 +647,8 @@ def test_poisson_identity_and_sqrt_links_reml_match_mgcv():
         _assert_optimized_link_snapshot_close(actual, expected, atol=5e-5, rtol=5e-5)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Poisson ML non-default links need exact PIRLS Hessian parity support.",
-)
 def test_poisson_identity_and_sqrt_links_ml_match_mgcv():
-    """Track optimized Poisson ML non-default links until exact Hessian parity lands."""
+    """Verify optimized Poisson ML non-default links against mgcv."""
     cases = [
         (_make_positive_count_link_data(seed=803), {"name": "poisson", "link": "identity"}, "ML"),
         (_make_positive_count_link_data(seed=804), {"name": "poisson", "link": "sqrt"}, "ML"),
@@ -688,12 +676,8 @@ def test_binomial_all_links_reml_match_mgcv():
         _assert_optimized_link_snapshot_close(actual, expected, atol=8e-5, rtol=8e-5)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Binomial ML non-default links need exact PIRLS Hessian parity support.",
-)
 def test_binomial_all_links_ml_match_mgcv():
-    """Track optimized Binomial ML non-default links until exact Hessian parity lands."""
+    """Verify optimized Binomial ML non-default links against mgcv."""
     cases = [
         (_make_binomial_data(seed=816, n=240), {"name": "binomial", "link": "probit"}, "ML"),
         (_make_binomial_data(seed=817, n=240), {"name": "binomial", "link": "cloglog"}, "ML"),
@@ -720,12 +704,8 @@ def test_gamma_links_fixed_match_mgcv():
         _assert_fixed_link_snapshot_close(actual, expected, atol=7e-5, rtol=7e-5)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Optimized Gamma non-default links remain an extended parity gap.",
-)
 def test_gamma_links_reml_and_ml_match_mgcv():
-    """Track Gamma identity/log/inverse optimized surfaces until parity lands."""
+    """Verify Gamma identity/log/inverse optimized surfaces against mgcv."""
     cases = [
         (_make_gamma_data(seed=824, n=220), {"name": "gamma", "link": "log"}, "REML", 'y ~ s(x0, bs="cr", k=7)'),
         (_make_gamma_data(seed=825, n=220), {"name": "gamma", "link": "identity"}, "REML", 'y ~ s(x0, bs="cr", k=7)'),
@@ -740,10 +720,6 @@ def test_gamma_links_reml_and_ml_match_mgcv():
         _assert_optimized_link_snapshot_close(actual, expected, atol=7e-5, rtol=7e-5)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Optimized fixed-theta NegativeBinomial link matrix remains an extended parity gap.",
-)
 def test_negbin_fixed_theta_links_reml_and_ml_match_mgcv():
     """Verify fixed-theta NegativeBinomial links on optimized surfaces."""
     cases = [
@@ -781,10 +757,6 @@ def _coverage_gammals_data(seed=843, n=140):
     return pd.DataFrame({"y": y, "x0": x0, "x1": x1})
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Multi-smooth general-family ML optimization is intentionally unsupported.",
-)
 def test_general_family_gaulss_and_gammals_tensor_multi_smooth_predictions_match_mgcv():
     """Verify general families with tensor and multiple smooths reach snapshot parity."""
 

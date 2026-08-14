@@ -40,7 +40,10 @@ family_object <- function(family_name) {
   family_param <- if (length(family_parts) >= 2) family_parts[[2]] else NULL
   switch(
     family_key,
-    gaussian = gaussian(),
+    gaussian = {
+      link <- if (is.null(family_param) || family_param == "") "identity" else family_param
+      gaussian(link = link)
+    },
     binomial = {
       link <- if (is.null(family_param) || family_param == "") "logit" else family_param
       binomial(link = link)
@@ -189,6 +192,7 @@ method_name <- method_token(args[[5]])
 optimizer_name <- tolower(args[[6]])
 select_flag <- tolower(args[[7]]) %in% c("true", "1", "yes")
 edge_correct_flag <- tolower(args[[8]]) %in% c("true", "1", "yes")
+weights_column <- if (length(args) >= 9 && nzchar(args[[9]])) args[[9]] else NULL
 family_key <- strsplit(tolower(family_name), ":", fixed = TRUE)[[1]][1]
 
 data <- read.csv(csv_path, stringsAsFactors = FALSE)
@@ -298,7 +302,7 @@ optimizer_arg <- if (optimizer_name == "efs") {
 
 control_arg <- gam.control(edge.correct = edge_correct_flag)
 
-fit <- gam(
+gam_args <- list(
   formula = coerce_formula(formula_text),
   data = data,
   family = family_obj,
@@ -307,6 +311,10 @@ fit <- gam(
   select = select_flag,
   control = control_arg
 )
+if (!is.null(weights_column)) {
+  gam_args$weights <- data[[weights_column]]
+}
+fit <- do.call(gam, gam_args)
 
 split_scale_blocks <- function(log_sp_full, gradient, hessian, n_sp, extra_kind = NULL) {
   log_sp_full <- as.numeric(log_sp_full)

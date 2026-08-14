@@ -10,7 +10,10 @@ import pytest
 
 from nampy.gam import GAM
 from nampy.gam._model_state import _term_blocks_seq
-from tests.mgcv_parity_utils import _run_mgcv_snapshot
+from tests.mgcv_parity_utils import (
+    _run_mgcv_predict_on_newdata,
+    _run_mgcv_snapshot,
+)
 
 matplotlib.use("Agg")
 
@@ -98,7 +101,7 @@ def test_gam_public_wrappers_delegate_to_underlying_modules(monkeypatch):
     """Verify that gam public wrappers delegate to underlying modules."""
     calls: dict[str, object] = {}
 
-    def _print_summary(model):
+    def _print_summary(model, *, dispersion=None, freq=False, re_test=True):
         calls["summary"] = model
         return "summary-ok"
 
@@ -326,7 +329,7 @@ def test_gam_check_rejects_unknown_residual_type():
 
 
 def test_summary_contains_representative_family_term_and_fit_statistics():
-    """Verify summary text contains key fitted-model fields."""
+    """Verify the print.summary.gam-shaped text and returned GAMSummary."""
     data = _small_formula_offset_data(seed=725, n=46)
     gam = GAM(
         family="gaussian",
@@ -334,18 +337,23 @@ def test_summary_contains_representative_family_term_and_fit_statistics():
     )
     gam.fit(data=data)
 
-    text = gam.summary()
+    summary = gam.summary()
+    text = str(summary)
 
-    assert "General Smooth Model Summary" in text
-    assert "Family : gaussian" in text
-    assert "Link : identity" in text
-    assert "Offset : yes" in text
-    assert "EDF (total)" in text
-    assert "RSS" in text
+    assert "Family: gaussian" in text
+    assert "Link function: identity" in text
+    assert "Formula:" in text
+    assert "offset(off)" in text
+    assert "Approximate significance of smooth terms:" in text
+    assert "Scale est. =" in text
+    assert f"n = {gam.n_samples_}" in text
+    assert summary.r_sq is not None
+    assert summary.dev_expl is not None
+    assert summary.null_deviance is not None
 
 
-def test_predict_rejects_iterms_until_public_contract_is_supported():
-    """Verify unsupported iterms prediction is explicit rather than silent."""
+def test_predict_iterms_preserves_term_contributions_and_returns_distinct_se():
+    """Verify iterms differs from terms only through mean-uncertainty SE rows."""
     data = _small_formula_offset_data(seed=727, n=42)
     gam = GAM(
         family="gaussian",
@@ -353,23 +361,100 @@ def test_predict_rejects_iterms_until_public_contract_is_supported():
     )
     gam.fit(data=data)
 
-    with pytest.raises(ValueError, match="type must be one of"):
-        gam.predict(data, type="iterms")
+    terms, terms_se = gam.predict(data, type="terms", return_se=True)
+    iterms, iterms_se = gam.predict(data, type="iterms", return_se=True)
+
+    np.testing.assert_allclose(iterms, terms, rtol=0.0, atol=0.0)
+    assert iterms_se.shape == terms_se.shape
+    assert np.all(np.isfinite(iterms_se))
+    assert not np.allclose(iterms_se, terms_se, rtol=0.0, atol=1e-14)
 
 
-def test_predict_has_no_terms_or_exclude_keyword_until_contract_is_supported():
-    """Verify term filtering/exclusion is not accepted silently by public API."""
+@pytest.mark.parametrize(
+    ("pred_type", "terms", "exclude", "return_se"),
+    [
+        ("link", None, ["s(x)"], True),
+        ("response", ["(Intercept)", "s(x)"], None, True),
+        ("terms", ["s(x)"], None, True),
+        ("iterms", ["s(x)"], None, True),
+        ("lpmatrix", None, ["unused"], False),
+    ],
+)
+def test_predict_terms_and_exclude_filters_match_mgcv(
+    pred_type, terms, exclude, return_se
+):
+    """Verify predict.gam term filters across values, SEs, and lpmatrix blocks."""
     data = _small_formula_offset_data(seed=728, n=42)
+    formula = 'y ~ unused + s(x, bs="cr", k=6, sp=0.7)'
     gam = GAM(
         family="gaussian",
-        formula='y ~ s(x, bs="cr", k=6, sp=0.7)',
+        formula=formula,
+    )
+    gam.fit(data=data)
+    newdata = data.iloc[::3].copy()
+
+    expected = _run_mgcv_predict_on_newdata(
+        data,
+        newdata,
+        formula,
+        family="gaussian",
+        method="fixed",
+        type=pred_type,
+        return_se=return_se,
+        terms=terms,
+        exclude=exclude,
+        allow_live_run=True,
+    )
+    actual = gam.predict(
+        newdata,
+        type=pred_type,
+        return_se=return_se,
+        terms=terms,
+        exclude=exclude,
+    )
+
+    if return_se:
+        actual_fit, actual_se = actual
+        expected_fit = np.asarray(expected["pred"], dtype=np.float64)
+        expected_se = np.asarray(expected["se"], dtype=np.float64)
+        if pred_type not in {"terms", "iterms"}:
+            expected_fit = expected_fit.ravel()
+            expected_se = expected_se.ravel()
+        np.testing.assert_allclose(
+            np.asarray(actual_fit, dtype=np.float64),
+            expected_fit,
+            atol=2e-10,
+            rtol=2e-10,
+        )
+        np.testing.assert_allclose(
+            np.asarray(actual_se, dtype=np.float64),
+            expected_se,
+            atol=2e-10,
+            rtol=2e-10,
+        )
+    else:
+        np.testing.assert_allclose(
+            np.asarray(actual, dtype=np.float64),
+            np.asarray(expected["pred"], dtype=np.float64),
+            atol=2e-10,
+            rtol=2e-10,
+        )
+
+
+def test_predict_unknown_term_filter_mirrors_mgcv_warning_and_zeroing_order():
+    """Verify unknown terms warn after upstream-style design-block filtering."""
+    data = _small_formula_offset_data(seed=729, n=42)
+    gam = GAM(
+        family="gaussian",
+        formula='y ~ unused + s(x, bs="cr", k=6, sp=0.7)',
     )
     gam.fit(data=data)
 
-    with pytest.raises(TypeError):
-        gam.predict(data, type="terms", terms=["s(x)"])
-    with pytest.raises(TypeError):
-        gam.predict(data, type="terms", exclude=["s(x)"])
+    with pytest.warns(UserWarning, match="non-existent terms requested - ignoring"):
+        values = gam.predict(data, type="terms", terms=["missing"])
+
+    assert values.shape == (len(data), 2)
+    np.testing.assert_allclose(values, 0.0, atol=0.0, rtol=0.0)
 
 
 def test_predict_feature_vals_handles_factor_smooth_terms():

@@ -703,7 +703,7 @@ def test_gaussian_fit3_gdi_beta_full_matches_signed_weight_stacked_qr(monkeypatc
     )
 
     model = SimpleNamespace(compiled_model_=SimpleNamespace(n_smoothing_params=1))
-    coef_full, eta_fit = gaussian_exact_module._gaussian_fit3_gdi_beta_full(
+    coef_full, eta_fit, _rank_root = gaussian_exact_module._gaussian_fit3_gdi_beta_full(
         model,
         X,
         sp,
@@ -2186,4 +2186,156 @@ def test_tensor_id_smoothing_param_mapping_accepts_id_keyed_values():
         np.array([0.7, 1.3], dtype=np.float64),
         rtol=0.0,
         atol=0.0,
+    )
+
+
+def test_negbin_estimated_theta_joint_path_accepts_arrays_offset_and_weights():
+    """
+    Regression coverage: the negbin estimated-theta joint (log theta, log sp)
+    path used stale guards from a removed Rscript shim that rejected offsets,
+    prior weights, and non-formula construction. Upstream gam.fit4 threads
+    weights and offset through the extended-family PIRLS with no special-casing
+    (mgcv/R/gam.fit4.r:240-244), and theta initialization is formula-free
+    (mgcv/R/efam.r:183-193).
+    """
+    rng = np.random.default_rng(2024)
+    n = 240
+    x0 = rng.normal(size=n)
+    mu = np.exp(0.2 + 0.55 * np.sin(x0))
+    theta_true = 1.0
+    y = rng.negative_binomial(theta_true, theta_true / (theta_true + mu), size=n)
+    offset = rng.uniform(-0.1, 0.1, size=n)
+    weights = rng.uniform(0.5, 1.5, size=n)
+
+    gam = GAM(
+        family={"name": "negbin", "theta": 1.8, "estimate_theta": True},
+        basis="cr",
+        k=8,
+        optimize_smoothing=True,
+        smoothing_method="REML",
+        smoothing_optimizer="outer_newton",
+    )
+    gam.fit(X=x0.reshape(-1, 1), y=y, offset=offset, sample_weight=weights)
+
+    assert gam.fit_result() is not None
+    theta_hat = float(np.asarray(gam.family.theta, dtype=np.float64))
+    assert np.isfinite(theta_hat) and theta_hat > 0.0
+    assert theta_hat != 1.8
+
+
+def test_rank_deficient_gaussian_fit_matches_mgcv_drop_gauge():
+    """
+    Exactly aliased parametric columns must reproduce mgcv's rank-deficiency
+    gauge: dropped canonical coordinates give an exactly-zero coefficient AND
+    an exactly-zero Vp row/column at the same position
+    (mgcv/src/gdi.c:2253-2292 zero-fill + rV scatter). Side conditions are
+    disabled so the alias reaches the solver drop path as it does upstream.
+    """
+    from tests.mgcv_parity_utils import _run_mgcv_snapshot
+
+    rng = np.random.default_rng(42)
+    n = 90
+    x0 = rng.uniform(size=n)
+    x1 = rng.uniform(size=n)
+    data = pd.DataFrame({"x0": x0, "x1": x1, "z": x1})
+    data["y"] = (
+        np.sin(2.0 * np.pi * x0) + 0.5 * x1 + 0.1 * rng.standard_normal(n)
+    )
+    formula = 'y ~ x1 + z + s(x0, bs="cr", k=8)'
+
+    expected = _run_mgcv_snapshot(
+        data=data, formula=formula, family="gaussian", method="REML"
+    )
+    exp_coef = np.asarray(expected["fit"]["coef_full"], dtype=np.float64)
+    exp_vp = np.asarray(expected["fit"]["cov_bayes"], dtype=np.float64)
+
+    gam = GAM(
+        formula=formula,
+        family="gaussian",
+        optimize_smoothing=True,
+        smoothing_method="REML",
+        smoothing_optimizer="outer_newton",
+        apply_side_conditions=False,
+    )
+    gam.fit(data=data)
+    fr = gam.fit_result()
+    coef = np.asarray(fr.coef_full, dtype=np.float64)
+    vp = np.asarray(fr.cov_bayes, dtype=np.float64)
+
+    assert coef.shape == exp_coef.shape
+    dropped = np.flatnonzero(np.diag(exp_vp) == 0.0)
+    assert dropped.size == 1
+
+    np.testing.assert_allclose(coef, exp_coef, rtol=0.0, atol=1e-8)
+    assert coef[dropped[0]] == 0.0
+    # The dropped coordinate must be zeroed in Vp at the SAME position as
+    # mgcv (previously the covariance came from a second natural-design QR
+    # whose drop landed on a different column).
+    assert np.all(vp[dropped[0], :] == 0.0)
+    assert np.all(vp[:, dropped[0]] == 0.0)
+    np.testing.assert_allclose(vp, exp_vp, rtol=1e-6, atol=1e-9)
+
+    np.testing.assert_allclose(
+        np.asarray(gam.predict(data), dtype=np.float64),
+        np.asarray(expected["predictions"]["response"], dtype=np.float64),
+        rtol=0.0,
+        atol=1e-8,
+    )
+
+
+@pytest.mark.parametrize(
+    ("family_name", "seed"),
+    [("poisson", 43), ("binomial", 44), ("gamma", 45)],
+)
+def test_rank_deficient_pirls_fit_matches_mgcv_drop_gauge(family_name, seed):
+    """PIRLS must use gdi1's dropped-coordinate gauge for coef and Vp."""
+    from tests.mgcv_parity_utils import _run_mgcv_snapshot
+
+    rng = np.random.default_rng(seed)
+    n = 110
+    x0 = rng.uniform(size=n)
+    x1 = rng.uniform(size=n)
+    data = pd.DataFrame({"x0": x0, "x1": x1, "z": x1})
+    eta = 0.15 + 0.55 * np.sin(2.0 * np.pi * x0) + 0.4 * x1
+    mu = np.exp(eta)
+    if family_name == "poisson":
+        data["y"] = rng.poisson(mu)
+    elif family_name == "binomial":
+        data["y"] = rng.binomial(1, 1.0 / (1.0 + np.exp(-eta)))
+    else:
+        data["y"] = rng.gamma(shape=4.0, scale=mu / 4.0)
+    formula = 'y ~ x1 + z + s(x0, bs="cr", k=8)'
+
+    expected = _run_mgcv_snapshot(
+        data=data, formula=formula, family=family_name, method="REML"
+    )
+    exp_coef = np.asarray(expected["fit"]["coef_full"], dtype=np.float64)
+    exp_vp = np.asarray(expected["fit"]["cov_bayes"], dtype=np.float64)
+
+    gam = GAM(
+        formula=formula,
+        family=family_name,
+        optimize_smoothing=True,
+        smoothing_method="REML",
+        smoothing_optimizer="outer_newton",
+        apply_side_conditions=False,
+    )
+    gam.fit(data=data)
+    fr = gam.fit_result()
+    coef = np.asarray(fr.coef_full, dtype=np.float64)
+    vp = np.asarray(fr.cov_bayes, dtype=np.float64)
+
+    dropped = np.flatnonzero(np.diag(exp_vp) == 0.0)
+    assert dropped.size == 1
+    np.testing.assert_array_equal(np.flatnonzero(np.diag(vp) == 0.0), dropped)
+    np.testing.assert_allclose(coef, exp_coef, rtol=0.0, atol=1e-8)
+    assert coef[dropped[0]] == 0.0
+    assert np.all(vp[dropped[0], :] == 0.0)
+    assert np.all(vp[:, dropped[0]] == 0.0)
+    np.testing.assert_allclose(vp, exp_vp, rtol=2e-6, atol=1e-9)
+    np.testing.assert_allclose(
+        np.asarray(gam.predict(data), dtype=np.float64),
+        np.asarray(expected["predictions"]["response"], dtype=np.float64),
+        rtol=0.0,
+        atol=1e-8,
     )

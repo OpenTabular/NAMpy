@@ -182,14 +182,6 @@ def _outer_case_tolerances(case_id: str, family: str):
     return deriv, endpoint
 
 
-_GENERAL_KNOWN_GAP_TAGS = ()
-
-
-def _maybe_xfail_known_general_gap(case_id: str, *, surface: str) -> None:
-    if any(tag in case_id for tag in _GENERAL_KNOWN_GAP_TAGS):
-        pytest.xfail(f"Known general-family gap; {surface} parity is unavailable.")
-
-
 def _general_newdata(data: pd.DataFrame, *, n: int = 31) -> pd.DataFrame:
     cols: dict[str, np.ndarray | pd.Series] = {}
     for col in data.columns:
@@ -860,9 +852,6 @@ def test_general_family_newdata_prediction_surfaces_match_mgcv(
     pred_type,
 ):
     """Verify that general family new-data prediction surfaces match mgcv."""
-    if pred_type != "lpmatrix":
-        _maybe_xfail_known_general_gap(case_id, surface=f"newdata {pred_type}")
-
     select = "select_true" in case_id
     data = data_factory()
     newdata = _general_newdata(data)
@@ -933,8 +922,6 @@ def test_general_family_newdata_unconditional_standard_errors_match_mgcv(
     pred_type,
 ):
     """Verify that general family new-data unconditional standard errors match mgcv."""
-    _maybe_xfail_known_general_gap(case_id, surface=f"{pred_type} unconditional SE")
-
     select = "select_true" in case_id
     data = data_factory()
     newdata = _general_newdata(data)

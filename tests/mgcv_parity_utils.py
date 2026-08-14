@@ -91,14 +91,17 @@ _MGCV_CACHE_DIR = _TESTS_DIR / "mgcv_r_cache"
 _MGCV_SNAPSHOT_SERVER_PROCESS = None
 _MGCV_SNAPSHOT_SERVER_LOCK = threading.Lock()
 _MGCV_SNAPSHOT_SERVER_REQUEST_IDS = itertools.count(1)
-_SNAPSHOT_CACHE_VERSION = 6
+# Version 7: mgcv_snapshot.R gained the summary block (p.table, r.sq,
+# dev.expl, residual.df, method, ...) plus fit-level null_deviance / rank /
+# scale_estimated for the summary.gam port.
+_SNAPSHOT_CACHE_VERSION = 7
 _RAW_CONSTRUCTOR_CACHE_VERSION = 5
 _GAM_SETUP_ASSEMBLY_CACHE_VERSION = 5
 _GAM_VCOMP_CACHE_VERSION = 3
 _NATPARAM_TYPE3_CACHE_VERSION = 1
 _SMOOTHCON_PREDICT_MATRIX_CACHE_VERSION = 1
 _FIXED_SP_SCORE_CACHE_VERSION = 2
-_PREDICT_ON_NEWDATA_CACHE_VERSION = 1
+_PREDICT_ON_NEWDATA_CACHE_VERSION = 2
 
 
 def _env_flag_is_true(value: str) -> bool:
@@ -428,6 +431,16 @@ def _make_gamma_data(seed=1701, n=220):
     return pd.DataFrame({"y": y, "x0": x0, "x1": x1})
 
 
+def _make_gaussian_link_data(seed=7, n=150):
+    """Positive-response gaussian data for noncanonical (log/inverse) links."""
+    rng = np.random.default_rng(seed)
+    x0 = rng.uniform(size=n)
+    mu = np.exp(0.4 + np.sin(2.0 * np.pi * x0))
+    y = mu + 0.15 * mu * rng.standard_normal(n)
+    y = np.maximum(y, 1e-3)
+    return pd.DataFrame({"y": y, "x0": x0})
+
+
 def _make_negbin_data(seed=2024, n=240, theta=1.0):
     rng = np.random.default_rng(seed)
     x0 = rng.normal(size=n)
@@ -436,7 +449,8 @@ def _make_negbin_data(seed=2024, n=240, theta=1.0):
     mu = np.exp(eta)
     p = theta / (theta + mu)
     y = rng.negative_binomial(theta, p, size=n)
-    return pd.DataFrame({"y": y, "x0": x0, "x1": x1})
+    w = rng.uniform(0.5, 1.5, size=n)
+    return pd.DataFrame({"y": y, "x0": x0, "x1": x1, "w": w})
 
 
 def _make_random_effect_data():
@@ -1899,6 +1913,8 @@ def _run_mgcv_predict_on_newdata(
     select: bool = False,
     weights_column: str | None = None,
     optimizer: str | None = None,
+    terms=None,
+    exclude=None,
     allow_live_run: bool = False,
 ):
     _family_nampy_unused, family_token = _family_specs(family)
@@ -1920,6 +1936,8 @@ def _run_mgcv_predict_on_newdata(
             "select": select,
             "weights_column": weights_column,
             "optimizer": optimizer,
+            "terms": terms,
+            "exclude": exclude,
         },
     )
     try:
@@ -1946,6 +1964,8 @@ want_unconditional <- identical(tolower(args[[8]]), "true")
 select_flag <- identical(tolower(args[[9]]), "true")
 weights_column <- args[[10]]
 optimizer_name <- tolower(args[[11]])
+terms_filter <- fromJSON(args[[12]])
+exclude_filter <- fromJSON(args[[13]])
 coerce_formula <- function(x) {
   obj <- eval(parse(text = x))
   if (is.character(obj)) {
@@ -2027,15 +2047,20 @@ if (!(optimizer_name %in% c("none", "null", ""))) {
   }
 }
 fit <- do.call(gam, gam_args)
-pred <- predict(
-  fit,
-  newdata = newd,
-  type = pred_type,
-  se.fit = want_se,
-  unconditional = want_unconditional
+pred <- do.call(
+  predict,
+  list(
+    object = fit,
+    newdata = newd,
+    type = pred_type,
+    se.fit = want_se,
+    unconditional = want_unconditional,
+    terms = terms_filter,
+    exclude = exclude_filter
+  )
 )
 out <- list()
-if (pred_type == "terms") {
+if (pred_type %in% c("terms", "iterms")) {
   if (want_se) {
     out$pred <- unname(as.matrix(pred$fit))
     out$se <- unname(as.matrix(pred$se.fit))
@@ -2057,7 +2082,7 @@ if (pred_type == "terms") {
 }
 write_json(
   out,
-  args[[12]],
+  args[[14]],
   auto_unbox = TRUE,
   digits = 17
 )
@@ -2086,6 +2111,8 @@ write_json(
                 "true" if select else "false",
                 "NULL" if weights_column is None else str(weights_column),
                 "NULL" if optimizer is None else str(optimizer),
+                json.dumps(terms),
+                json.dumps(exclude),
                 str(json_path),
             ),
             check=True,

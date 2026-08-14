@@ -74,6 +74,7 @@ def test_supported_optimization_lifecycle_matches_mgcv(case: OptimizationLifecyc
         case.method,
         case.optimizer,
         select=case.select,
+        weights_column=case.weights_column,
     )
     actual_trace = build_optimizer_trace(gam)
     _assert_serialized_trace_matches_mgcv(

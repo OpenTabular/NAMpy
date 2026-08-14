@@ -45,7 +45,7 @@ dependencies = [
     "pandas",
     "lightning",
     "scikit-learn",
-    "scipy",
+    "scipy>=1.16",
     "torch",
     "torchmetrics",
     "setuptools",
@@ -171,6 +171,7 @@ python_files = [
     "test_mgcv_*.py",
     "test_gam_*.py",
     "test_general_family_mgcv_parity.py",
+    "test_neural_*.py",
 ]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

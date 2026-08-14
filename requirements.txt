@@ -2,7 +2,7 @@ numpy<=1.26.4
 pandas
 lightning
 scikit-learn
-scipy
+scipy>=1.16
 torch
 torchmetrics
 setuptools

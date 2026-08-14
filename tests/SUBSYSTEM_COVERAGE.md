@@ -33,22 +33,24 @@ the remaining parity planning in this single document.
 
 ## Stage-Local Backlog
 
-The following stage-local files exist now. Because this pass intentionally
-skipped `pytest`, treat newly added slices as localized checkpoints but not
-stage-status promotions.
+The following stage-local files exist now. Verification state as of
+2026-08-14 is recorded in `PROJECT_STATUS.md`; the only live expected
+failures are the two `select=True` general-family optimized-endpoint cases
+(`gaulss_select_true_cr`, `gammals_select_true_cr`), verified as mgcv-internal
+`initial.spg` orientation indeterminacy with strict fixed-endpoint coverage.
 
 | Stage | Direct file | Remaining or still-unvalidated backlog |
 | --- | --- | --- |
-| Stage 6-7 tensor marginal / tensor prediction | `tests/smooths/test_mgcv_te_stage_parity.py`, `tests/smooths/test_mgcv_ti_stage_parity.py` | mixed-basis term-level checkpoints are local now; strict raw-stage `ti_2d_cs_cs`, `ti_2d_cs_ps`, and `ti_2d_ps_cs` remain explicit known gaps |
+| Stage 6-7 tensor marginal / tensor prediction | `tests/smooths/test_mgcv_te_stage_parity.py`, `tests/smooths/test_mgcv_ti_stage_parity.py` | mixed-basis term-level checkpoints are local; the formerly tracked `ti_2d_cs_cs`, `ti_2d_cs_ps`, and `ti_2d_ps_cs` raw-stage cases are now strict passing params (tolerances 5e-13/5e-12/5e-12) |
 | Stage 8 term wrapping | `tests/optimization/test_gam_term_wrapping_owner_contracts.py` | ordinary wrapped-block parity remains localized here; multi-smooth general-family wrapped-block parity is no longer a supported surface |
-| Stage 14 optimizer trace | `tests/optimization/test_mgcv_joint_branch_trace_parity.py` | `gamma_joint_scale_trace` and `negbin_joint_theta_trace_labels` remain the explicit joint-branch known gaps |
+| Stage 14 optimizer trace | `tests/optimization/test_mgcv_joint_branch_trace_parity.py` | `gamma_joint_scale_trace` and `negbin_joint_theta_trace_labels` are now strict unmarked params (atol 5e-7); the lifecycle registry carries 31 strict branch cases including weighted negbin estimated-theta and Gaussian log/inverse joint-scale branches |
 | Stage 15 post-fit covariance / `sp.vcov` | `tests/optimization/test_mgcv_sp_vcov_stage_parity.py` | ordinary public-parameterization `sp.vcov`, one-standard-error, and `gam.vcomp(rescale=False)` slices are direct; multi-smooth general-family `sp.vcov` parity is no longer a supported surface |
 | Stage 16 general-family `lpmatrix` | `tests/parity/test_mgcv_general_family_lpmatrix_stage_parity.py` | factor-level and NA-newdata behavior are now local |
 | Stage 17 public prediction | `tests/parity/test_mgcv_general_family_prediction_stage_parity.py` | broader family/method and linked-`id=` coverage is now local |
 | Stage 18 inference | `tests/parity/test_mgcv_inference_stage_parity.py` | ordinary model-comparison and general-family single-model slices are local; multi-smooth general-family inference parity is no longer a supported surface |
 | Stage 19 diagnostics / summary | `tests/diagnostics/test_mgcv_general_family_secondary_diagnostics_parity.py` | summary scalars and extra supported residual branches are now local; multi-smooth general-family diagnostics parity is no longer a supported surface |
 | Stage 20 results API / parity tooling | `tests/parity/test_gam_results_api_stage_owner_contracts.py` | fit-result and optimizer trace schema ownership is now local, pending targeted pytest validation |
-| Stage 21 unsupported / guarded branches | `tests/optimization/test_gam_unsupported_branch_guards.py` | formula-list, multi-smooth general-family, fs-shrinkage, and wider-than-fit `terms` guards are now localized; keep adding new public-surface guards here instead of downstream parity files |
+| Stage 21 unsupported / guarded branches | `tests/optimization/test_gam_unsupported_branch_guards.py` | formula-list, multi-smooth general-family, fs-shrinkage, `pc=`/`t2`/GACV, unknown-kwarg, and negbin-optim guards are localized here; the wider-than-fit `terms` guard lives in `tests/families/test_gam_general_family_owner_contracts.py`; keep adding new public-surface guards here instead of downstream parity files |
 
 ## Sweep Rules
 

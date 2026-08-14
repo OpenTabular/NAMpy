@@ -71,13 +71,10 @@ REQUESTED_PARITY_TRACKED_MODEL_CASES: list[CaseSpec] = [
         formula='y ~ s(f1, f2, x, bs="sz", k=6)',
         family="gaussian",
         data_factory=_data_sz_interaction,
-        # Exact `sz` 3x3 fit is underdetermined (`n < p`): constructor surface,
-        # predictions and criterion match mgcv tightly, but the raw
-        # coefficient/covariance representative still drifts on the covariance
-        # surface that also drives the explicit unconditional-SE xfails tracked
-        # elsewhere.
-        skip_coef_comparison=True,
-        se_tol_scale=2e-3,
+        # Although n < p, the balanced penalty fills null(X), so both mgcv's
+        # pls_fit1/gdi1 and NAMpy's stacked-QR mirror keep the augmented system
+        # at full rank (rank 25, no dropped columns) and the raw coefficient
+        # and covariance representatives agree strictly.
     ),
 ]
 

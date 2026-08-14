@@ -9,7 +9,11 @@ def test_optimization_lifecycle_registry_tracks_current_supported_branch_matrix(
         "binomial_ml_efs_cr",
         "binomial_reml_bfgs_cr",
         "binomial_reml_newton_cr",
-        "gamma_reml_bfgs_cr_known_gap",
+        "gamma_reml_bfgs_joint_scale_cr",
+        "gamma_ml_newton_joint_scale_cr",
+        "gamma_ml_bfgs_joint_scale_cr",
+        "gamma_ml_optim_joint_scale_cr",
+        "gamma_reml_optim_joint_scale_cr",
         "poisson_reml_newton_two_cr",
         "poisson_reml_bfgs_two_cr",
         "poisson_reml_efs_two_cr",
@@ -22,7 +26,16 @@ def test_optimization_lifecycle_registry_tracks_current_supported_branch_matrix(
         "gaussian_reml_newton_re_custom_xt",
         "gaussian_reml_newton_two_cr",
         "gamma_reml_newton_joint_scale_cr",
+        "gaussian_log_reml_newton_joint_scale_cr",
+        "gaussian_log_ml_newton_joint_scale_cr",
+        "gaussian_log_reml_bfgs_joint_scale_cr",
+        "gaussian_inverse_reml_newton_joint_scale_cr",
         "negbin_est_reml_newton_joint_theta_cr",
+        "negbin_est_reml_newton_joint_theta_weighted_cr",
+        "negbin_est_ml_newton_joint_theta_cr",
+        "negbin_est_ml_bfgs_joint_theta_cr",
+        "negbin_est_reml_bfgs_joint_theta_cr",
+        "negbin_est_reml_optim_joint_theta_cr",
         "negbin_fixed_theta_reml_newton_cr",
     }
 
@@ -34,10 +47,7 @@ def test_optimization_lifecycle_registry_marks_only_joint_trace_gaps():
         for case in OPTIMIZATION_LIFECYCLE_CASES
         if case.status == "known_gap"
     }
-    assert gap_ids == {
-        "gamma_reml_bfgs_cr_known_gap",
-        "gamma_reml_newton_joint_scale_cr",
-    }
+    assert gap_ids == set()
 
 
 def test_optimization_lifecycle_registry_case_ids_are_unique():

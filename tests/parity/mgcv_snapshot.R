@@ -312,6 +312,28 @@ if (!is.null(sp_cov) && length(fit$sp) > 0) {
 anova_single <- tryCatch(anova(fit, freq = FALSE), error = function(e) NULL)
 anova_parametric <- NULL
 anova_smooth <- NULL
+summary_block <- NULL
+if (!is.null(anova_single)) {
+  # anova.gam single-model IS summary.gam (mgcv/R/mgcv.r:4153), so every
+  # summary field is available on the same object.
+  summary_block <- list(
+    p_table = if (is.null(anova_single$p.table)) NULL else list(
+      labels = unname(as.character(rownames(anova_single$p.table))),
+      columns = unname(as.character(colnames(anova_single$p.table))),
+      values = unname(as.matrix(anova_single$p.table))
+    ),
+    se = unname(as.numeric(anova_single$se)),
+    residual_df = unname(as.numeric(anova_single$residual.df)),
+    r_sq = if (is.null(anova_single$r.sq)) NULL else unname(as.numeric(anova_single$r.sq)),
+    dev_expl = if (is.null(anova_single$dev.expl)) NULL else unname(as.numeric(anova_single$dev.expl)),
+    scale = unname(as.numeric(anova_single$scale)),
+    n = unname(as.integer(anova_single$n)),
+    np = unname(as.integer(anova_single$np)),
+    rank = if (is.null(anova_single$rank)) NULL else unname(as.integer(anova_single$rank)),
+    method = as.character(anova_single$method),
+    sp_criterion = if (is.null(anova_single$sp.criterion) || all(is.na(anova_single$sp.criterion))) NULL else unname(as.numeric(anova_single$sp.criterion))
+  )
+}
 if (!is.null(anova_single)) {
   if (!is.null(anova_single$pTerms.table)) {
     anova_parametric <- list(
@@ -477,6 +499,9 @@ snapshot <- list(
     penalty_quadratic = unname(as.numeric(penalty_quadratic)),
     loglik = if (is.null(safe_loglik)) NULL else unname(as.numeric(safe_loglik)),
     aic = if (is.null(aic_val)) NULL else unname(as.numeric(aic_val)),
+    null_deviance = if (is.null(fit$null.deviance)) NULL else unname(as.numeric(fit$null.deviance)),
+    rank = if (is.null(fit$rank)) NULL else as.integer(fit$rank),
+    scale_estimated = isTRUE(fit$scale.estimated),
     n_obs = nrow(data),
     outer_grad = unname(as.numeric(fixed_outer$grad)),
     outer_hess = unname(as.matrix(fixed_outer$hess)),
@@ -524,7 +549,8 @@ snapshot <- list(
       smooth_cov_freq = smooth_cov_freq,
       smooth_edf1 = smooth_edf1,
       smooth_test_inputs = smooth_test_inputs,
-      smooth_function_space = smooth_function_space
+      smooth_function_space = smooth_function_space,
+      summary = summary_block
     )
   )
 )
