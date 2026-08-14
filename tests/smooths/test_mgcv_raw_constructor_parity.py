@@ -447,6 +447,23 @@ def _build_re_case_matrix():
     ]
 
 
+def _make_fs_unbalanced(seed=732, n=72):
+    rng = np.random.default_rng(seed)
+    x = rng.uniform(-1.3, 1.3, size=n)
+    z = rng.uniform(0.5, 1.5, size=n)
+    f = pd.Categorical(
+        rng.choice(np.array(["a", "b", "c"], dtype=object), size=n)
+    )
+    return pd.DataFrame(
+        {
+            "y": rng.normal(size=n),
+            "x": x,
+            "z": z,
+            "f": f,
+        }
+    )
+
+
 def _build_factor_smooth_case_matrix():
     cases = [
         _case("fs_default_tp", _make_fs_data, 'y ~ s(f, x, bs="fs")'),
@@ -503,6 +520,23 @@ def _build_factor_smooth_case_matrix():
                 atol=1e-8 if label in {"ps", "ts"} else 1e-10,
             )
         )
+
+    cases.append(
+        _case(
+            "fs_base_cr_metric_first_unbalanced",
+            _make_fs_unbalanced,
+            'y ~ s(x, f, bs="fs", k=5, xt="cr")',
+            atol=1e-10,
+        )
+    )
+    cases.append(
+        _case(
+            "fs_base_cr_numeric_by_unbalanced",
+            _factory(_make_fs_unbalanced, seed=381, n=120),
+            'y ~ s(f, x, by=z, bs="fs", k=5, xt="cr", sp=[0.9, 0.7, 0.5])',
+            atol=1e-10,
+        )
+    )
 
     for base_bs in ["tp", "ts"]:
         cases.append(
@@ -605,47 +639,10 @@ CASES = [
     case for case in CASES if case.case_id not in _RAW_CONSTRUCTOR_UNSUPPORTED_UPSTREAM
 ]
 
-# Triage categories from a fixed-sp fit parity sweep against mgcv REML
-# reference smoothing parameters. Keep only true mismatches here.
-_KNOWN_RAW_GAPS_MAX_KNOTS_SUBSAMPLED = set()
-
-_KNOWN_RAW_GAPS_FIXED_SP_RAW_ONLY = {}
-
-_KNOWN_RAW_GAPS_FIXED_SP_BEHAVIOR = {}
-
-KNOWN_GAP_REASONS = {
-    **dict.fromkeys(
-        sorted(_KNOWN_RAW_GAPS_MAX_KNOTS_SUBSAMPLED),
-        "Upstream mgcv supports automatic max.knots subsampling, but NAMpy requires explicit knots for strict RNG parity.",
-    ),
-    **dict.fromkeys(
-        sorted(_KNOWN_RAW_GAPS_FIXED_SP_RAW_ONLY),
-        "raw constructor mismatch is present, but fixed-sp fit parity holds; representation-only or optimizer-only de-prioritized gap.",
-    ),
-    **dict.fromkeys(
-        sorted(_KNOWN_RAW_GAPS_FIXED_SP_BEHAVIOR),
-        "raw constructor mismatch already leaks into fixed-sp fit parity; priority behavior-affecting gap.",
-    ),
-}
-
-CASE_PARAMS = [
-    pytest.param(
-        case,
-        id=case.case_id,
-        marks=(
-            [
-                pytest.mark.status_known_gap,
-                pytest.mark.xfail(
-                    strict=True,
-                    reason=KNOWN_GAP_REASONS[case.case_id],
-                ),
-            ]
-            if case.case_id in KNOWN_GAP_REASONS
-            else []
-        ),
-    )
-    for case in CASES
-]
+# The raw-constructor known-gap registry is empty: every previously tracked
+# triage bucket has been promoted to a strict case. New gaps should be added
+# back as explicit strict xfail marks with an evidence-backed reason.
+CASE_PARAMS = [pytest.param(case, id=case.case_id) for case in CASES]
 
 
 def _scalar_or_list(values):

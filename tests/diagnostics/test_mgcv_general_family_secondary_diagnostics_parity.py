@@ -211,13 +211,23 @@ def test_general_family_summary_text_reports_public_term_labels_and_fit_scalars(
     expected = _run_mgcv_snapshot(data, formula, "gaulss", "ML")
     gam = _fit_nampy_model(data, formula, "gaulss", "ML")
 
-    text = summary_text(gam)
-    assert f"Family : {gam.family.name}" in text
-    assert f"Link : {gam.family.link_name}" in text
-    assert f"Smoothing method : {gam._optim_method}" in text
-    assert f"EDF (total) : {float(expected['fit']['edf_total']):.3f}" in text
-    assert f"Scale : {float(expected['fit']['scale']):.6g}" in text
-    assert f"Deviance : {float(expected['fit']['deviance']):.6g}" in text
+    from nampy.gam.inference.summary import summary_gam
+
+    summary = summary_gam(gam)
+    text = summary_text(summary)
+    assert f"Family: {gam.family.name}" in text
+    assert f"Link function: {gam.family.link_name}" in text
+    assert "Scale est. =" in text
+    # r.sq is suppressed for general families (mgcv/R/mgcv.r:4055).
+    assert summary.r_sq is None
+    assert "R-sq.(adj)" not in text
+    assert summary.edf_total == pytest.approx(
+        float(expected["fit"]["edf_total"]), rel=1e-6
+    )
+    assert summary.scale == pytest.approx(float(expected["fit"]["scale"]), rel=1e-6)
+    assert summary.deviance == pytest.approx(
+        float(expected["fit"]["deviance"]), rel=1e-6
+    )
     for tb in _term_blocks_seq(gam):
         if str(getattr(tb, "term_type", "")) == "parametric":
             continue

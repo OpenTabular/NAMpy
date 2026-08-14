@@ -21,16 +21,10 @@ from tests.parity.test_mgcv_snapshot_core_matrix import CASES as REQUESTED_CASES
 _WARNING_NOISE = {
     "NaNs produced",
 }
-_KNOWN_FAILING_OR_WARNING_CASE_IDS = {
-    case.case_id for case in REQUESTED_PARITY_FAILING_OR_WARNING_CASES
-} - {
-    # `factor_smooth_sz` post-fit parity is now covered by strict tests below.
-    "factor_smooth_sz",
-    # The model-level requested case remains tracked elsewhere; post-processing
-    # final-fit parity for this Gaussian tensor case is now strict here.
-    "gaussian_te_full_false",
-}
-_GENERAL_POSTPROC_KNOWN_GAP_TAGS = ("gaulss_select_true_cr",)
+_GENERAL_OPTIMIZED_ENDPOINT_KNOWN_GAP_TAGS = (
+    "gaulss_select_true_cr",
+    "gammals_select_true_cr",
+)
 
 
 def _dedupe_requested_cases(cases: list[CaseSpec]) -> list[CaseSpec]:
@@ -635,11 +629,6 @@ def test_gam_fit3_gamma_hat_diag_matches_mgcv():
 )
 def test_magic_postprocessing_final_fit_matches_mgcv(case: CaseSpec):
     """Verify that magic postprocessing final fit matches mgcv."""
-    if case.case_id in _KNOWN_FAILING_OR_WARNING_CASE_IDS:
-        pytest.xfail(
-            "Known requested parity gap/warning case; post-proc coverage is kept "
-            "visible without treating the existing model-level mismatch as fixed."
-        )
     expected_snapshot = _run_mgcv_snapshot(
         data=case.data_factory(),
         formula=case.formula,
@@ -744,11 +733,6 @@ def test_magic_postprocessing_final_fit_matches_mgcv_gaussian_ti_mc():
 )
 def test_gam_fit3_postprocessing_final_fit_matches_mgcv(case: CaseSpec):
     """Verify that gam fit3 postprocessing final fit matches mgcv."""
-    if case.case_id in _KNOWN_FAILING_OR_WARNING_CASE_IDS:
-        pytest.xfail(
-            "Known requested parity gap/warning case; post-proc coverage is kept "
-            "visible without treating the existing model-level mismatch as fixed."
-        )
     expected_snapshot = _run_mgcv_snapshot(
         data=case.data_factory(),
         formula=case.formula,
@@ -770,16 +754,6 @@ def test_gam_fit3_postprocessing_final_fit_matches_mgcv(case: CaseSpec):
         allow_synthetic_outer_info=False,
     )
     expected = _serialize_expected_final_fit(expected_snapshot)
-    family_name = str(case.family).lower()
-    if (
-        family_name != "gaussian"
-        and expected["Vc"] is not None
-        and actual["Vc"] is None
-    ):
-        pytest.xfail(
-            "Real implementation gap: non-Gaussian PIRLS final-fit objects do not "
-            "yet carry mgcv-style unconditional covariance/edf2 post-processing."
-        )
     cov_rtol = 3e-5
     if case.case_id == "binomial_separation":
         cov_rtol = 7e-5
@@ -806,10 +780,21 @@ def test_gam_fit3_postprocessing_final_fit_matches_mgcv(case: CaseSpec):
 def test_gam_fit5_postprocessing_final_fit_matches_mgcv(case):
     """Verify that gam fit5 postprocessing final fit matches mgcv."""
     case_id, family, formula, data_factory, method, pred_atol, sp_log_atol, _ = case
-    if any(tag in case_id for tag in _GENERAL_POSTPROC_KNOWN_GAP_TAGS):
+    if any(tag in case_id for tag in _GENERAL_OPTIMIZED_ENDPOINT_KNOWN_GAP_TAGS):
         pytest.xfail(
-            "Known general-family post-proc gap: advanced/select/by/tensor "
-            "surfaces do not yet have exact mgcv final-fit parity."
+            "select=True general-family endpoints inherit an R/LAPACK "
+            "eigenspace-sign difference in mgcv::initial.spg(); post-processing "
+            "at the same endpoint is covered strictly below. Verified 2026-08-14 "
+            "via debug/gaulss_select_initial_spg_probe.py and "
+            "debug/gammals_select_edf2_probe.py: mgcv fitted on the mirrored "
+            "basis (x -> -x, mathematically identical) lands exactly on NAMpy's "
+            "endpoint in both cases (gaulss: log sp 11.79338762 vs 11.91107097, "
+            "scores agree to 5e-6; gammals: sp 1387.5727 vs 1385.9021 with "
+            "edf1/edf2 sums reproducing NAMpy's 3.690821 to 2.3e-7, criterion "
+            "difference 7e-8, NAMpy gradient 3.8e-7 vs mgcv 1.3e-4), so these "
+            "select-penalty endpoints are orientation-indeterminate inside mgcv "
+            "itself. The endpoint-sensitive edf/edf1/edf2 scalars are the only "
+            "quantities that exceed tolerance."
         )
     data = data_factory()
     select = "select_true" in case_id
@@ -844,6 +829,52 @@ def test_gam_fit5_postprocessing_final_fit_matches_mgcv(case):
         cov_atol=max(5e-8, 10.0 * float(pred_atol)),
         scalar_atol=max(5e-4, 10.0 * float(pred_atol), float(sp_log_atol)),
         exact_outer_info_trace=False,
+    )
+
+
+@pytest.mark.parametrize(
+    "select_case_id",
+    list(_GENERAL_OPTIMIZED_ENDPOINT_KNOWN_GAP_TAGS),
+)
+def test_gam_fit5_select_true_postprocessing_at_mgcv_endpoint_matches_mgcv(
+    select_case_id,
+):
+    """Verify gam.fit5 post-processing independently of the initial.spg endpoint."""
+    case = next(case for case in GENERAL_SE_CASES if case[0] == select_case_id)
+    case_id, family, formula, data_factory, method, pred_atol, *_ = case
+    data = data_factory()
+    expected_snapshot = _run_mgcv_snapshot(
+        data=data,
+        formula=formula,
+        family=family,
+        method=method,
+        select=True,
+    )
+    sp = np.asarray(expected_snapshot["fit"]["smoothing_params"], dtype=np.float64)
+    _data, gam, fit_warnings = _fit_general_case(case, fixed_sp=sp)
+
+    actual = _serialize_actual_final_fit(
+        gam,
+        fit_warnings,
+        allow_synthetic_outer_info=False,
+    )
+    expected = _serialize_expected_final_fit(expected_snapshot)
+
+    _assert_covariance_close(
+        case_id,
+        "Vc",
+        actual["Vc"],
+        expected["Vc"],
+        full_matrix=True,
+        rtol=max(5e-5, 10.0 * float(pred_atol)),
+        atol=max(5e-8, 10.0 * float(pred_atol)),
+    )
+    _assert_scalar_close(
+        case_id,
+        "edf2_total",
+        actual["edf2_total"],
+        expected["edf2_total"],
+        atol=5e-6,
     )
 
 

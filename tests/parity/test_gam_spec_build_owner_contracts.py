@@ -172,6 +172,57 @@ def test_build_formula_model_expands_shared_component_into_matching_predictor_sp
     ]
 
 
+def test_single_formula_multiple_offsets_keep_first_with_mgcv_warning():
+    """
+    mgcv::interpret.gam0 (mgcv/R/mgcv.r:387-389) assigns all offset labels into
+    one slot, so base R keeps only the first offset and warns; verified against
+    mgcv 1.9-4 in debug/multi_offset_probe.R.
+    """
+    data = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, 3.0, 4.0],
+            "x": [0.0, 0.5, 1.0, 1.5],
+            "a": [0.2, 0.4, 0.6, 0.8],
+            "b": [1.0, 1.5, 2.0, 2.5],
+        }
+    )
+
+    with pytest.warns(
+        UserWarning,
+        match="number of items to replace is not a multiple of replacement length",
+    ):
+        built = _build_from_formula(
+            'y ~ offset(a) + offset(b) + s(x, bs="cr", k=4)', data
+        )
+
+    assert built.predictor_specs[0].offset_name == "a"
+    assert built.preprocess_state["offset_names"] == ("a",)
+
+
+def test_formula_multivariate_tp_default_k_defers_to_mgcv_constructor_rule():
+    """
+    mgcv::s() leaves k = -1 and smooth.construct.tp.smooth.spec resolves the
+    d-dependent default M + c(8, 27, 100)[min(d, 3)] (mgcv/R/smooth.r:1316-1318).
+    A flat spec-level default of 10 silently changed d > 1 models.
+    """
+    data = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, 3.0, 4.0],
+            "x": [0.0, 0.5, 1.0, 1.5],
+            "z": [1.5, 1.0, 0.5, 0.0],
+        }
+    )
+
+    built = _build_from_formula("y ~ s(x, z)", data)
+    assert built.predictor_specs[0].terms[0].smooth_spec.k == -1
+
+    built_1d = _build_from_formula("y ~ s(x)", data)
+    assert built_1d.predictor_specs[0].terms[0].smooth_spec.k == -1
+
+    built_explicit = _build_from_formula("y ~ s(x, z, k=20)", data)
+    assert built_explicit.predictor_specs[0].terms[0].smooth_spec.k == 20
+
+
 def test_extract_formula_terms_rejects_multiple_offsets_for_one_predictor():
     """
     Owner-contract coverage verifying that extract formula terms rejects multiple
@@ -193,11 +244,8 @@ def test_extract_formula_terms_rejects_multiple_offsets_for_one_predictor():
         extract_formula_terms(parsed)
 
 
-def test_build_formula_model_rejects_transformed_smooth_by_expressions():
-    """
-    Owner-contract coverage verifying that build formula model rejects transformed
-    smooth by expressions.
-    """
+def test_build_formula_model_materializes_transformed_smooth_by_expressions():
+    """Verify transformed smooth by-expressions use a paired fit/predict recipe."""
     data = pd.DataFrame(
         {
             "y": [1.0, 2.0, 3.0, 4.0],
@@ -206,11 +254,27 @@ def test_build_formula_model_rejects_transformed_smooth_by_expressions():
         }
     )
 
-    with pytest.raises(
-        NotImplementedError,
-        match="Transformed smooth `by` expressions are parsed exactly",
-    ):
-        _build_from_formula('y ~ s(x, by=log(z + 1), bs="cr", k=5)', data)
+    built = _build_from_formula('y ~ s(x, by=log(z + 1), bs="cr", k=5)', data)
+
+    term = built.predictor_specs[0].terms[0]
+    hidden = term.by_variable
+    assert hidden in built.working_data
+    np.testing.assert_allclose(
+        built.working_data[hidden].to_numpy(dtype=np.float64),
+        np.log(data["z"].to_numpy(dtype=np.float64) + 1.0),
+    )
+    assert term.metadata["formula_by_expansion"] == {
+        "hidden_name": hidden,
+        "expr": "log(z + 1)",
+        "source_variables": ["z"],
+    }
+    assert built.preprocess_state["formula_expression_columns"] == [
+        {
+            "hidden_name": hidden,
+            "expr": "log(z + 1)",
+            "source_variables": ["z"],
+        }
+    ]
 
 
 def test_formula_smooth_args_mirror_mgcv_k_rounding_and_id_truncation():
@@ -288,8 +352,8 @@ def test_build_formula_model_rejects_ordered_parametric_factor_without_r_contras
     ],
     ids=["te_vector_fx", "ti_vector_fx"],
 )
-def test_build_formula_model_rejects_tensor_vector_fx(formula):
-    """Owner-contract coverage verifying that tensor vector fx stays unsupported."""
+def test_build_formula_model_preserves_tensor_vector_fx(formula):
+    """Verify te/ti retain mgcv's one fixed flag per marginal basis."""
     data = pd.DataFrame(
         {
             "y": [1.0, 2.0, 3.0, 4.0],
@@ -298,11 +362,29 @@ def test_build_formula_model_rejects_tensor_vector_fx(formula):
         }
     )
 
-    with pytest.raises(
-        NotImplementedError,
-        match="Tensor smooths do not support vector-valued fx",
-    ):
-        _build_from_formula(formula, data)
+    built = _build_from_formula(formula, data)
+
+    term = built.predictor_specs[0].terms[0]
+    assert term.smooth_spec.fx == [True, False]
+
+
+def test_build_formula_model_resets_wrong_length_tensor_fx_like_mgcv():
+    """Mirror mgcv::te() warning and all-penalized fallback for malformed fx."""
+    data = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, 3.0, 4.0],
+            "x": [0.0, 0.5, 1.0, 1.5],
+            "z": [1.5, 1.0, 0.5, 0.0],
+        }
+    )
+
+    with pytest.warns(UserWarning, match="dimension of fx is wrong"):
+        built = _build_from_formula(
+            'y ~ te(x, z, bs=["cr", "cr"], k=[5, 5], fx=[True, False, True])',
+            data,
+        )
+
+    assert built.predictor_specs[0].terms[0].smooth_spec.fx == [False, False]
 
 
 @pytest.mark.parametrize(

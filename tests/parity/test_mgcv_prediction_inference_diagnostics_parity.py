@@ -120,11 +120,6 @@ ORDINARY_CASES = _dedupe_cases(
     + ADDITIONAL_SCENARIO_CASES
 )
 CASE_BY_ID = {case.case_id: case for case in ORDINARY_CASES}
-PREDICTION_GAP_REASONS: dict[tuple[str, str], str] = {}
-UNCONDITIONAL_GAP_REASONS: dict[tuple[str, str], str] = {}
-ANOVA_GAP_REASONS: dict[str, str] = {}
-RESIDUAL_GAP_REASONS: dict[tuple[str, str], str] = {}
-KCHECK_GAP_REASONS: dict[str, str] = {}
 
 
 def _sample_weight_from_case(case: CaseSpec, data):
@@ -228,53 +223,6 @@ def _extract_parametric_triplet(values) -> np.ndarray:
     raise AssertionError("Unexpected mgcv anova parametric table shape.")
 
 
-def _mark_expected_gap(request: pytest.FixtureRequest, reason: str | None) -> None:
-    if reason is None:
-        return
-    request.node.add_marker(pytest.mark.xfail(reason=reason, strict=True))
-
-
-def _maybe_mark_prediction_gap(
-    request: pytest.FixtureRequest, case: CaseSpec, pred_type: str
-) -> None:
-    _mark_expected_gap(
-        request,
-        PREDICTION_GAP_REASONS.get((case.case_id, pred_type)),
-    )
-
-
-def _maybe_mark_unconditional_gap(
-    request: pytest.FixtureRequest, case: CaseSpec, pred_type: str
-) -> None:
-    _mark_expected_gap(
-        request,
-        UNCONDITIONAL_GAP_REASONS.get((case.case_id, pred_type)),
-    )
-
-
-def _maybe_mark_anova_gap(request: pytest.FixtureRequest, case: CaseSpec) -> None:
-    _mark_expected_gap(
-        request,
-        ANOVA_GAP_REASONS.get(case.case_id),
-    )
-
-
-def _maybe_mark_residual_gap(
-    request: pytest.FixtureRequest, case: CaseSpec, resid_type: str
-) -> None:
-    _mark_expected_gap(
-        request,
-        RESIDUAL_GAP_REASONS.get((case.case_id, resid_type)),
-    )
-
-
-def _maybe_mark_kcheck_gap(request: pytest.FixtureRequest, case: CaseSpec) -> None:
-    _mark_expected_gap(
-        request,
-        KCHECK_GAP_REASONS.get(case.case_id),
-    )
-
-
 def _assert_kcheck_p_value(value: float, *, n_rep: int, term: str, source: str) -> None:
     assert np.isfinite(
         value
@@ -364,12 +312,8 @@ def _assert_p_values_close(actual, expected, *, atol: float, rtol: float) -> Non
     ["link", "response", "terms", "lpmatrix"],
     ids=["link", "response", "terms", "lpmatrix"],
 )
-def test_predict_gam_newdata_surfaces_match_mgcv(
-    request: pytest.FixtureRequest, case: CaseSpec, pred_type: str
-):
+def test_predict_gam_newdata_surfaces_match_mgcv(case: CaseSpec, pred_type: str):
     """Verify that predict gam new-data surfaces match mgcv."""
-    _maybe_mark_prediction_gap(request, case, pred_type)
-
     data, _expected, model = _case_bundle(case.case_id)
     newdata = _newdata_for_case(case.case_id)
     r_result = _run_mgcv_predict_on_newdata(
@@ -429,13 +373,11 @@ def test_predict_gam_newdata_surfaces_match_mgcv(
     ids=["link", "response", "terms"],
 )
 def test_predict_gam_unconditional_se_match_mgcv_or_documented_gap(
-    request: pytest.FixtureRequest, case: CaseSpec, pred_type: str
+    case: CaseSpec, pred_type: str
 ):
     """
     Verify that predict gam unconditional standard errors match mgcv or documented gap.
     """
-    _maybe_mark_unconditional_gap(request, case, pred_type)
-
     data, _expected, model = _case_outer_bundle(case.case_id)
     newdata = _newdata_for_case(case.case_id)
     r_result = _run_mgcv_predict_on_newdata(
@@ -491,12 +433,8 @@ def test_predict_gam_unconditional_se_match_mgcv_or_documented_gap(
 @pytest.mark.parametrize(
     "case", ORDINARY_CASES, ids=[case.case_id for case in ORDINARY_CASES]
 )
-def test_anova_gam_single_model_matches_mgcv(
-    request: pytest.FixtureRequest, case: CaseSpec
-):
+def test_anova_gam_single_model_matches_mgcv(case: CaseSpec):
     """Verify that anova gam single model matches mgcv."""
-    _maybe_mark_anova_gap(request, case)
-
     _data, expected, model = _case_bundle(case.case_id)
     actual = model.anova(freq=False)
     tol = _anova_tol(case)
@@ -663,14 +601,11 @@ def test_anova_gam_model_comparison_matches_mgcv(
     ids=["response", "working", "pearson", "scaled_pearson", "deviance"],
 )
 def test_residuals_match_mgcv(
-    request: pytest.FixtureRequest,
     case: CaseSpec,
     snapshot_key: str,
     resid_type: str,
 ):
     """Verify that residuals match mgcv."""
-    _maybe_mark_residual_gap(request, case, resid_type)
-
     _data, expected, model = _case_bundle(case.case_id)
     expected_values = expected["parity"]["diagnostics"]["residuals"][snapshot_key]
     actual = np.asarray(model.residuals(type=resid_type), dtype=np.float64)
@@ -689,12 +624,8 @@ def test_residuals_match_mgcv(
 @pytest.mark.parametrize(
     "case", ORDINARY_CASES, ids=[case.case_id for case in ORDINARY_CASES]
 )
-def test_k_check_matches_mgcv_or_documented_gap(
-    request: pytest.FixtureRequest, case: CaseSpec
-):
+def test_k_check_matches_mgcv_or_documented_gap(case: CaseSpec):
     """Verify that k-check matches mgcv or documented gap."""
-    _maybe_mark_kcheck_gap(request, case)
-
     _data, expected, model = _case_bundle(case.case_id)
     expected_block = expected["parity"]["diagnostics"].get("k_check")
     assert expected_block is not None

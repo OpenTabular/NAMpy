@@ -4,8 +4,10 @@ import importlib
 from types import SimpleNamespace
 
 import numpy as np
+import pandas as pd
 import pytest
 
+from nampy.gam import GAM
 from nampy.gam.diagnostics.concurvity import concurvity
 from nampy.gam.diagnostics.residuals import residuals_gam
 from nampy.gam.diagnostics.summary import summary_text
@@ -237,60 +239,36 @@ def test_concurvity_raises_when_no_components_available(monkeypatch):
         concurvity(SimpleNamespace(), full=True)
 
 
-def test_summary_text_includes_offset_and_gaussian_rss(monkeypatch):
+def test_summary_text_renders_print_summary_gam_layout():
     """
-    Owner-contract coverage verifying that summary text includes offset and gaussian
-    RSS.
+    Owner-contract coverage verifying the print.summary.gam layout: family and
+    link lines, the smooth significance block with term labels, the -REML
+    score line, and the trailing scale/n line (mgcv/R/mgcv.r:4070-4099).
     """
-    fit_summary = SimpleNamespace(
-        edf_by_term=np.array([2.5, 1.0], dtype=np.float64),
-        intercept=0.75,
-        edf_total=3.5,
-        scale=0.8,
-        rss=1.25,
-        deviance=99.0,
+    rng = np.random.default_rng(31)
+    n = 90
+    x0 = rng.uniform(size=n)
+    data = pd.DataFrame({"x0": x0})
+    data["y"] = np.sin(2.0 * np.pi * x0) + 0.15 * rng.standard_normal(n)
+    gam = GAM(
+        family="gaussian",
+        formula='y ~ s(x0, bs="cr", k=8)',
+        optimize_smoothing=True,
+        smoothing_method="REML",
     )
-    term_blocks = (
-        SimpleNamespace(
-            basis_name="cr",
-            term_type="smooth",
-            label='s(x0)',
-            coef_slice=slice(0, 4),
-            smoothing_indices=[0],
-        ),
-        SimpleNamespace(
-            basis_name="re",
-            term_type="random_effect",
-            label='s(region)',
-            coef_slice=slice(4, 6),
-            smoothing_indices=[1, 2],
-        ),
-    )
-    model = SimpleNamespace(
-        family=SimpleNamespace(name="gaussian", link_name="identity"),
-        _optim_method="REML",
-        n_samples_=123,
-        smoothing_score_=4.2,
-        offset_train_=np.array([1.0], dtype=np.float64),
-        smoothing_params=np.array([0.4, 2.0, 3.0], dtype=np.float64),
-    )
+    gam.fit(data=data)
 
-    monkeypatch.setattr(summary_module, "_require_fitted", lambda model: None)
-    monkeypatch.setattr(summary_module, "_fit_summary", lambda model: fit_summary)
-    monkeypatch.setattr(summary_module, "_term_blocks_seq", lambda model: term_blocks)
-    monkeypatch.setattr(summary_module, "_fit_intercept", lambda model: True)
+    text = summary_text(gam)
 
-    text = summary_text(model)
-
-    assert "Family : gaussian" in text
-    assert "Link : identity" in text
-    assert "Smoothing method : REML" in text
-    assert "Offset : yes" in text
-    assert "RSS : 1.25" in text
-    assert "s(x0)" in text
-    assert "s(s(x0))" not in text
-    assert "s(region)" in text
-    assert "[2, 3]" in text
+    assert "Family: gaussian" in text
+    assert "Link function: identity" in text
+    assert "Approximate significance of smooth terms:" in text
+    assert 's(x0, bs="cr", k=8)' in text
+    assert "-REML =" in text
+    assert "R-sq.(adj) =" in text
+    assert "Deviance explained =" in text
+    assert "Scale est. =" in text
+    assert f"n = {n}" in text
 
 
 def test_sp_vcov_returns_none_outside_ml_reml_family(monkeypatch):

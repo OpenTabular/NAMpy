@@ -13,8 +13,9 @@ from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
 )
 from nampy.gam.fit.solvers.general_family.newton import _sl_ldetS
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
+from nampy.gam.predict.predictions import predict_values
 from nampy.gam.specs.build import build_formula_model
-from tests.mgcv_parity_utils import _make_random_effect_data
+from tests.mgcv_parity_utils import _make_negbin_data, _make_random_effect_data
 
 pytestmark = [pytest.mark.surface_output, pytest.mark.surface_regression]
 
@@ -166,30 +167,6 @@ def test_formula_list_data_aware_dot_shorthand_guard_raises_explicitly():
         _build_from_formula(["y ~ .", "~ 1"], data)
 
 
-def test_general_family_multi_smooth_fit_guard_raises_explicitly():
-    """
-    Guard coverage verifying that multi-smooth general-family fits are unsupported.
-    """
-    data = pd.DataFrame(
-        {
-            "y": [0.7, 1.0, 1.2, 1.5, 1.7, 1.9, 2.0, 2.2],
-            "x": [-1.0, -0.7, -0.4, -0.1, 0.2, 0.5, 0.8, 1.0],
-            "z": [1.0, 0.6, 0.3, 0.1, -0.2, -0.5, -0.7, -1.0],
-        }
-    )
-
-    with pytest.raises(
-        NotImplementedError,
-        match="Multi-smooth general-family models are not supported",
-    ):
-        GAM(
-            family="gaulss",
-            formula=['y ~ s(x, bs="cr", k=5) + s(z, bs="cr", k=5)', "~ 1"],
-            optimize_smoothing=False,
-            smoothing_method="fixed",
-        ).fit(data=data)
-
-
 @pytest.mark.parametrize(
     "formula",
     [
@@ -234,3 +211,109 @@ def test_random_effect_linked_id_guard_raises_explicitly():
 
     with pytest.raises(NotImplementedError, match="random effects don't work with ids"):
         gam.fit(data=data)
+
+
+def test_negbin_estimated_theta_ml_optim_guard_raises_explicitly():
+    """Guard the R/SciPy L-BFGS-B mismatch at the flat joint-ML boundary."""
+    data = _make_negbin_data()
+    gam = GAM(
+        family={"name": "negbin", "theta": 1.8, "estimate_theta": True},
+        formula='y ~ s(x0, bs="cr", k=8)',
+        optimize_smoothing=True,
+        smoothing_method="ML",
+        smoothing_optimizer="optim",
+    )
+
+    with pytest.raises(
+        NotImplementedError,
+        match=r"exact R stats::optim L-BFGS-B boundary behavior is ported",
+    ):
+        gam.fit(data=data)
+
+
+def test_t2_smooth_guard_raises_explicitly():
+    """Guard coverage verifying that t2(...) smooths raise a clear error."""
+    data = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, 3.0, 4.0],
+            "x": [0.0, 0.5, 1.0, 1.5],
+            "z": [1.5, 1.0, 0.5, 0.0],
+        }
+    )
+
+    with pytest.raises(
+        NotImplementedError,
+        match=r"t2\(\.\.\.\) tensor product smooths are not supported",
+    ):
+        _build_from_formula("y ~ t2(x, z)", data)
+
+
+@pytest.mark.parametrize(
+    ("formula", "match"),
+    [
+        ("y ~ te(x, z, pc=c(0, 0))", r"pc= is not supported for te\(\.\.\.\) smooths"),
+        ("y ~ ti(x, z, pc=c(0, 0))", r"pc= is not supported for ti\(\.\.\.\) smooths"),
+        ('y ~ s(f, bs="re", pc=0)', r"pc= is not supported for s\(\.\.\., bs='re'\)"),
+        ('y ~ s(x, f, bs="fs", pc=0)', r"pc= is not supported for s\(\.\.\., bs='fs'\)"),
+        ('y ~ s(x, f, bs="sz", pc=0)', r"pc= is not supported for s\(\.\.\., bs='sz'\)"),
+    ],
+)
+def test_pc_guard_raises_explicitly_outside_supported_univariate_bases(formula, match):
+    """pc= must fail loudly wherever the point constraint is not implemented."""
+    data = pd.DataFrame(
+        {
+            "y": [0.4, 0.9, 1.2, 1.8, 2.1, 2.4],
+            "x": [-1.0, -0.6, -0.2, 0.2, 0.6, 1.0],
+            "z": [0.0, 0.4, 0.8, 1.2, 1.6, 2.0],
+            "f": ["a", "b", "c", "a", "b", "c"],
+        }
+    )
+
+    with pytest.raises(NotImplementedError, match=match):
+        _build_from_formula(formula, data)
+
+
+def test_gam_unknown_constructor_arguments_raise_explicitly():
+    """Unknown GAM kwargs (e.g. unported mgcv arguments) must fail loudly."""
+    with pytest.raises(TypeError, match=r"Unknown GAM argument\(s\): \['paraPen'\]"):
+        GAM(family="gaussian", formula="y ~ s(x)", paraPen={"X": [np.eye(2)]})
+
+    with pytest.raises(
+        TypeError, match=r"Unknown GAM argument\(s\): \['absorb_cons', 'gamma'\]"
+    ):
+        GAM(family="gaussian", absorb_cons=False, gamma=1.4)
+
+    data = pd.DataFrame({"y": [0.1, 0.5, 0.9, 1.4], "x": [0.0, 0.4, 0.8, 1.2]})
+    gam = GAM(
+        family="gaussian",
+        formula='y ~ s(x, bs="cr", k=4)',
+        optimize_smoothing=False,
+        smoothing_method="fixed",
+        apply_side_conditions=True,
+    )
+    gam.fit(data=data)
+    assert gam.fit_result() is not None
+
+
+def test_gacv_cp_method_guard_raises_explicitly():
+    """mgcv maps GACV.Cp to the GACV criterion, which NAMpy does not implement."""
+    from nampy.gam.smoothing_selection.criteria.dispatch import criterion_value
+
+    with pytest.raises(ValueError, match="method must be one of"):
+        criterion_value(
+            SimpleNamespace(family=None), np.zeros(1), np.zeros(1), method="gacv.cp"
+        )
+
+
+def test_general_family_prediction_term_filter_guard_raises_explicitly():
+    """Guard filters until multi-predictor coefficient blocks mirror predict.gam."""
+    model = SimpleNamespace(
+        _fitted=True,
+        family=SimpleNamespace(family_class="general"),
+    )
+
+    with pytest.raises(
+        NotImplementedError,
+        match="multi-predictor general-family models",
+    ):
+        predict_values(model, type="link", terms=["s(x)"])

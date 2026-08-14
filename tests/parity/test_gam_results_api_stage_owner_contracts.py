@@ -27,7 +27,7 @@ def _assert_metadata_equal(actual, expected):
             isinstance(v, np.ndarray) for v in want
         ):
             assert len(got) == len(want)
-            for got_i, want_i in zip(got, want):
+            for got_i, want_i in zip(got, want, strict=True):
                 if isinstance(want_i, np.ndarray):
                     np.testing.assert_array_equal(np.asarray(got_i), want_i)
                 else:
@@ -63,12 +63,22 @@ def test_fit_result_public_schema_tracks_term_results_without_duplicate_owners()
         "scale",
         "rss",
         "deviance",
+        "edf2",
         "side_condition_reports",
         "term_results",
         "metadata",
         "cov_bayes",
         "cov_freq",
+        "cov_unconditional",
+        "cov_unconditional_space",
     }
+    # ML/REML newton fits carry the smoothing-uncertainty state, so the
+    # unconditional covariance and edf2 must survive into the public schema.
+    assert payload["cov_unconditional"] is not None
+    assert payload["edf2"] is not None
+    assert np.asarray(gam.edf1(), dtype=np.float64).shape == (
+        len(payload["coef_full"]),
+    )
     assert payload["metadata"] == {
         "n_samples": int(gam.n_samples_),
         "n_coef": int(gam.compiled_model_.n_coef),
@@ -76,7 +86,7 @@ def test_fit_result_public_schema_tracks_term_results_without_duplicate_owners()
     }
     assert len(payload["term_results"]) == len(term_blocks)
 
-    for item, tb in zip(payload["term_results"], term_blocks):
+    for item, tb in zip(payload["term_results"], term_blocks, strict=True):
         assert set(item) == {
             "label",
             "term_type",
@@ -130,7 +140,7 @@ def test_optimizer_trace_schema_preserves_internal_joint_gamma_rows():
         rtol=0.0,
     )
     assert len(trace["trace"]) == len(internal_rows)
-    for serialized, internal in zip(trace["trace"], internal_rows):
+    for serialized, internal in zip(trace["trace"], internal_rows, strict=True):
         assert set(serialized) >= {
             "iter",
             "log_sp",
@@ -199,7 +209,7 @@ def test_optimizer_trace_schema_preserves_internal_joint_negbin_rows():
     internal_rows = list(getattr(gam, "_optim_trace", []) or [])
 
     assert len(trace["trace"]) == len(internal_rows)
-    for serialized, internal in zip(trace["trace"], internal_rows):
+    for serialized, internal in zip(trace["trace"], internal_rows, strict=True):
         assert set(serialized) >= {
             "iter",
             "log_sp",

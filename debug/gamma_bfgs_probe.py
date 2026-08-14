@@ -1,4 +1,4 @@
-"""Probe the Gamma joint-scale BFGS lifecycle trace mismatch."""
+"""Probe Gamma joint-scale BFGS ``gdi1`` initialization parity."""
 
 from __future__ import annotations
 
@@ -11,6 +11,10 @@ import numpy as np
 
 from nampy.gam import GAM
 from nampy.gam.parity import build_optimizer_trace
+from nampy.gam.smoothing_selection.criteria.pirls import (
+    derivatives as derivatives_module,
+)
+from nampy.gam.smoothing_selection.optimize import bfgs_strict as bfgs_strict_module
 from nampy.gam.smoothing_selection.optimize.basics import (
     _initial_smoothing_params_from_design,
 )
@@ -18,17 +22,19 @@ from nampy.gam.smoothing_selection.optimize.bfgs_strict import (
     _eval_objective_at,
     _finite_difference_initial_inverse_hessian,
 )
-from nampy.gam.smoothing_selection.optimize.objectives import _JointGammaPirlsRemlObjective
-from tests._paths import REPO_ROOT
+from nampy.gam.smoothing_selection.optimize.objectives import (
+    _JointGammaPirlsRemlObjective,
+)
 from tests._optimization_lifecycle_registry import OPTIMIZATION_LIFECYCLE_CASES
+from tests._paths import REPO_ROOT
 from tests.optimization.test_mgcv_outer_optimization_parity import _run_mgcv_outer_trace
 
 
 def _case():
     for item in OPTIMIZATION_LIFECYCLE_CASES:
-        if item.case_id == "gamma_reml_bfgs_cr_known_gap":
+        if item.case_id == "gamma_reml_bfgs_joint_scale_cr":
             return item
-    raise RuntimeError("gamma_reml_bfgs_cr_known_gap not found")
+    raise RuntimeError("gamma_reml_bfgs_joint_scale_cr not found")
 
 
 def _arr(value):
@@ -38,6 +44,7 @@ def _arr(value):
 
 
 def main() -> None:
+    np.set_printoptions(precision=17)
     case = _case()
     data = case.data_factory()
     rscript = shutil.which("Rscript")
@@ -70,6 +77,67 @@ def main() -> None:
         case.optimizer,
         select=case.select,
     )
+    actual_initial_capture = {}
+    original_initial_hessian = bfgs_strict_module._finite_difference_initial_inverse_hessian
+    original_gdi1_kernel = derivatives_module._gdi1_kernel
+
+    def _capture_gdi1_kernel(*args, **kwargs):
+        result = original_gdi1_kernel(*args, **kwargs)
+        if "kernel" not in actual_initial_capture:
+            sp = np.asarray(args[3], dtype=np.float64)
+            beta = np.asarray(result.current.beta, dtype=np.float64)
+            dbeta = np.column_stack(result.ift.dbeta)
+            E = derivatives_module._drop_permute_columns(
+                np.asarray(result.current.canonical.Sr, dtype=np.float64),
+                result.current.dropped_column_indices,
+                result.current.pivot1,
+            )
+            root = result.ift.root_blocks[0]
+            root_work = root.T @ beta * sp[0]
+            Skb = root @ root_work
+            Sb = E.T @ (E @ beta)
+            actual_initial_capture["kernel"] = {
+                "D1": np.asarray(result.D1, dtype=np.float64).copy(),
+                "bSb1": np.asarray(result.bSb1, dtype=np.float64).copy(),
+                "Dp1": np.asarray(result.D1 + result.bSb1, dtype=np.float64).copy(),
+                "dbeta": np.column_stack(result.ift.dbeta),
+                "direct_bSb1": float(beta @ Skb),
+                "indirect_bSb1": float(2.0 * dbeta[:, 0] @ Sb),
+                "beta": np.asarray(result.current.beta, dtype=np.float64).copy(),
+                "E": np.asarray(result.current.canonical.Sr, dtype=np.float64).copy(),
+                "rS": [
+                    np.asarray(root, dtype=np.float64).copy()
+                    for root in result.ift.root_blocks
+                ],
+            }
+        return result
+
+    def _capture_initial_hessian(objective, x0, grad0, **kwargs):
+        gamma_state = getattr(objective.model, "_pirls_reml_gamma_state_", None)
+        actual_initial_capture["x0"] = np.asarray(x0, dtype=np.float64).copy()
+        actual_initial_capture["grad0"] = np.asarray(grad0, dtype=np.float64).copy()
+        actual_initial_capture["inner_trace"] = list(
+            getattr(objective.model, "_pirls_last_inner_trace_", []) or []
+        )
+        if isinstance(gamma_state, dict):
+            actual_initial_capture["Dp1"] = np.asarray(
+                gamma_state.get("Dp1"), dtype=np.float64
+            ).copy()
+            actual_initial_capture["K1"] = np.asarray(
+                gamma_state.get("K1"), dtype=np.float64
+            ).copy()
+        result = original_initial_hessian(objective, x0, grad0, **kwargs)
+        actual_initial_capture["B"] = np.asarray(result, dtype=np.float64).copy()
+        start_coef = kwargs.get("start_coef")
+        actual_initial_capture["start_coef"] = (
+            None
+            if start_coef is None
+            else np.asarray(start_coef, dtype=np.float64).copy()
+        )
+        return result
+
+    bfgs_strict_module._finite_difference_initial_inverse_hessian = _capture_initial_hessian
+    derivatives_module._gdi1_kernel = _capture_gdi1_kernel
     gam = GAM(
         family=case.family,
         formula=case.formula,
@@ -79,8 +147,13 @@ def main() -> None:
         smoothing_optimizer=case.smoothing_optimizer or "outer_newton",
         **dict(case.gam_kwargs),
     )
-    gam.fit(data=data)
+    try:
+        gam.fit(data=data)
+    finally:
+        bfgs_strict_module._finite_difference_initial_inverse_hessian = original_initial_hessian
+        derivatives_module._gdi1_kernel = original_gdi1_kernel
     actual = build_optimizer_trace(gam)
+    print("actual_optimizer_initial_capture", actual_initial_capture)
 
     gam0 = GAM(
         family=case.family,
@@ -105,6 +178,22 @@ def main() -> None:
         need_grad=True,
         commit_start=True,
     )
+    raw_hessian0 = np.zeros((x0.size, x0.size), dtype=np.float64)
+    fdgrad0 = np.zeros(x0.size, dtype=np.float64)
+    for i in range(x0.size):
+        x1 = x0.copy()
+        x1[i] += 1e-4
+        score1, grad1, _, _, _, _, _, _ = _eval_objective_at(
+            obj0,
+            x1,
+            start_coef=coef0,
+            start_eta=eta0,
+            start_mu=mu0,
+            need_grad=True,
+            commit_start=False,
+        )
+        raw_hessian0[i, :] = (np.asarray(grad1) - np.asarray(grad0)) / 1e-4
+        fdgrad0[i] = (float(score1) - float(score0)) / 1e-4
     B0 = _finite_difference_initial_inverse_hessian(
         obj0,
         x0,
@@ -116,6 +205,9 @@ def main() -> None:
     print("actual_initial_x0", x0)
     print("actual_initial_score", score0)
     print("actual_initial_grad", grad0)
+    print("actual_initial_inner_trace", gam0._pirls_last_inner_trace_)
+    print("actual_initial_raw_hessian", raw_hessian0)
+    print("actual_initial_fdgrad", fdgrad0)
     print("actual_initial_B", B0)
 
     print("expected_fit", expected["fit"])

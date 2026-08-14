@@ -1,11 +1,7 @@
-"""Strict xfail registry for remaining concrete mgcv parity gaps.
+"""Strict regressions promoted from the former mgcv known-gap registry.
 
-This file intentionally tracks only genuine failing or explicitly unsupported
-surfaces. Do not add xfails for behavior that is already green.
-
-Other remaining gap buckets already live elsewhere:
-- post-fit / final-fit gaps: ``tests/optimization/test_mgcv_postprocessing_final_fit_parity.py``
-- raw constructor gaps: ``tests/smooths/test_mgcv_raw_constructor_parity.py``
+Genuine remaining gaps live beside their owning surfaces, such as post-fit
+coverage in ``tests/optimization/test_mgcv_postprocessing_final_fit_parity.py``.
 """
 
 from __future__ import annotations
@@ -29,33 +25,21 @@ from nampy.gam.specs.build import build_formula_model
 from tests._paths import REPO_ROOT
 from tests.families.test_general_family_mgcv_parity import GAULSS_FORMULA, _gaulss_data
 from tests.mgcv_parity_utils import (
+    _fit_nampy_model,
     _fit_nampy_model_fixed_sp,
     _make_random_effect_data,
+    _run_mgcv_predict_on_newdata,
 )
-from tests.mgcv_parity_utils import (
-    _fit_nampy_snapshot as _coverage_fit_nampy_snapshot,
-)
-from tests.mgcv_parity_utils import (
-    _make_binomial_data as _coverage_make_binomial_data,
-)
-from tests.mgcv_parity_utils import (
-    _make_gamma_data as _coverage_make_gamma_data,
-)
-from tests.mgcv_parity_utils import (
-    _make_gaussian_data as _coverage_make_gaussian_data,
-)
+from tests.mgcv_parity_utils import _fit_nampy_snapshot as _coverage_fit_nampy_snapshot
+from tests.mgcv_parity_utils import _make_binomial_data as _coverage_make_binomial_data
+from tests.mgcv_parity_utils import _make_gamma_data as _coverage_make_gamma_data
+from tests.mgcv_parity_utils import _make_gaussian_data as _coverage_make_gaussian_data
 from tests.mgcv_parity_utils import (
     _make_gaussian_data_3col as _coverage_make_gaussian_data_3col,
 )
-from tests.mgcv_parity_utils import (
-    _make_negbin_data as _coverage_make_negbin_data,
-)
-from tests.mgcv_parity_utils import (
-    _make_poisson_data as _coverage_make_poisson_data,
-)
-from tests.mgcv_parity_utils import (
-    _run_mgcv_snapshot as _coverage_run_mgcv_snapshot,
-)
+from tests.mgcv_parity_utils import _make_negbin_data as _coverage_make_negbin_data
+from tests.mgcv_parity_utils import _make_poisson_data as _coverage_make_poisson_data
+from tests.mgcv_parity_utils import _run_mgcv_snapshot as _coverage_run_mgcv_snapshot
 
 R_SCRIPT = shutil.which("Rscript")
 
@@ -287,7 +271,23 @@ def _coverage_random_slope_data(seed=904, n=160):
     return pd.DataFrame({"y": y, "x": x, "f": f})
 
 
-_REMAINING_SNAPSHOT_GAP_CASES = [
+_REGRESSION_SNAPSHOT_CASES = [
+    pytest.param(
+        "tensor_te_vector_fx",
+        _coverage_make_gaussian_data,
+        'y ~ te(x0, x1, bs=["cr", "cr"], k=[6, 6], fx=[True, False])',
+        "gaussian",
+        "REML",
+        id="tensor_te_vector_fx",
+    ),
+    pytest.param(
+        "tensor_ti_vector_fx",
+        _coverage_make_gaussian_data,
+        'y ~ ti(x0, x1, bs=["cr", "cr"], k=[6, 6], fx=[True, False], mc=[True, False])',
+        "gaussian",
+        "REML",
+        id="tensor_ti_vector_fx",
+    ),
     pytest.param(
         "tensor_te_ps_ps_optimized",
         _coverage_make_gaussian_data,
@@ -389,10 +389,12 @@ _REMAINING_SNAPSHOT_GAP_CASES = [
 
 @pytest.mark.parametrize(
     "case_id,data_factory,formula,family,method",
-    _REMAINING_SNAPSHOT_GAP_CASES,
+    _REGRESSION_SNAPSHOT_CASES,
 )
-def test_remaining_snapshot_gap_surface_matches_mgcv(case_id, data_factory, formula, family, method):
-    """Strict xfail registry for remaining full-fit/snapshot parity surfaces."""
+def test_promoted_snapshot_surface_matches_mgcv(
+    case_id, data_factory, formula, family, method
+):
+    """Verify formerly tracked full-fit surfaces remain green against mgcv."""
     data = data_factory()
     actual = _coverage_fit_nampy_snapshot(data, formula, family, method)
     expected = _coverage_run_mgcv_snapshot(data, formula, family, method)
@@ -405,65 +407,125 @@ def test_remaining_snapshot_gap_surface_matches_mgcv(case_id, data_factory, form
         )
 
 
-def test_transformed_by_smooth_is_rejected_explicitly_until_supported():
-    """Verify transformed by-variable smooths are explicit unsupported behavior."""
+def test_transformed_numeric_by_smooth_matches_mgcv():
+    """Verify transformed numeric by-variables match mgcv at fit and prediction."""
     rng = np.random.default_rng(962)
     n = 60
     x = rng.uniform(-1.0, 1.0, size=n)
     z = rng.uniform(-1.0, 1.0, size=n)
-    y = np.sin(x) * (z > 0.0) + rng.normal(scale=0.05, size=n)
+    by = np.log(z + 2.0)
+    y = np.sin(x) * by + rng.normal(scale=0.05, size=n)
     data = pd.DataFrame({"y": y, "x": x, "z": z})
-    gam = GAM(
-        family="gaussian",
-        formula='y ~ s(x, by=I(z > 0), bs="cr", k=6)',
+    formula = 'y ~ s(x, by=log(z + 2), bs="cr", k=6)'
+    actual = _coverage_fit_nampy_snapshot(
+        data,
+        formula,
+        "gaussian",
+        "REML",
+    )
+    expected = _coverage_run_mgcv_snapshot(
+        data,
+        formula,
+        "gaussian",
+        "REML",
     )
 
-    with pytest.raises((NotImplementedError, ValueError)):
+    for key in ("response", "link"):
+        assert_allclose(
+            np.asarray(actual["predictions"][key], dtype=np.float64),
+            np.asarray(expected["predictions"][key], dtype=np.float64),
+            atol=2e-7,
+            rtol=2e-7,
+        )
+    assert_allclose(
+        np.asarray(actual["fit"]["log_smoothing_params"], dtype=np.float64),
+        np.asarray(expected["fit"]["log_smoothing_params"], dtype=np.float64),
+        atol=2e-6,
+        rtol=0.0,
+    )
+
+    newdata = pd.DataFrame(
+        {
+            "x": np.linspace(-0.8, 0.8, 17),
+            "z": np.linspace(-0.7, 0.7, 17),
+        }
+    )
+    gam = _fit_nampy_model(data, formula, "gaussian", "REML")
+    for pred_type in ("link", "response"):
+        expected_new = _run_mgcv_predict_on_newdata(
+            data,
+            newdata,
+            formula,
+            family="gaussian",
+            method="REML",
+            type=pred_type,
+        )
+        assert_allclose(
+            np.asarray(gam.predict(newdata, type=pred_type), dtype=np.float64).ravel(),
+            np.asarray(expected_new["pred"], dtype=np.float64).ravel(),
+            atol=2e-7,
+            rtol=2e-7,
+        )
+
+
+def test_logical_transformed_by_smooth_is_rejected_explicitly():
+    """Mirror mgcv::get.var(), which rejects non-numeric logical by results."""
+    data = pd.DataFrame(
+        {
+            "y": [0.1, 0.3, 0.2, 0.5, 0.4, 0.7],
+            "x": [-1.0, -0.6, -0.2, 0.2, 0.6, 1.0],
+            "z": [-1.0, 0.5, -0.3, 0.8, -0.7, 1.0],
+        }
+    )
+    gam = GAM(
+        family="gaussian",
+        formula='y ~ s(x, by=I(z > 0), bs="cr", k=5)',
+    )
+
+    with pytest.raises(NotImplementedError, match="Unsupported formula expression"):
         gam.fit(data=data)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Exact gam.check diagnostic parity remains a tracked gap.",
-)
-def test_exact_gam_check_mgcv_parity_gap_is_tracked():
-    """Strict xfail for exact gam_check parity beyond local report shape."""
-    data = _coverage_make_gaussian_data(seed=970, n=120)
-    gam = GAM(
+def test_predict_iterms_matches_mgcv_on_newdata():
+    """Verify constrained-term SEs include mgcv's uncertainty about the mean."""
+    data = _coverage_make_gaussian_data(seed=963, n=140)
+    formula = 'y ~ x1 + s(x0, bs="cr", k=7)'
+    snapshot = _coverage_run_mgcv_snapshot(data, formula, "gaussian", "REML")
+    sp = np.asarray(snapshot["fit"]["smoothing_params"], dtype=np.float64)
+    gam = _fit_nampy_model_fixed_sp(data, formula, "gaussian", sp)
+    newdata = pd.DataFrame(
+        {
+            "x0": np.linspace(-1.0, 1.0, 19),
+            "x1": np.linspace(0.8, -0.8, 19),
+        }
+    )
+
+    actual_fit, actual_se = gam.predict(newdata, type="iterms", return_se=True)
+    expected = _run_mgcv_predict_on_newdata(
+        data,
+        newdata,
+        formula,
         family="gaussian",
-        formula='y ~ s(x0, bs="cr", k=6) + s(x1, bs="cr", k=6)',
-        optimize_smoothing=True,
-        smoothing_method="REML",
+        method="REML",
+        type="iterms",
+        return_se=True,
     )
-    gam.fit(data=data)
-    report = gam.gam_check(type="deviance", k_sample=80, k_rep=8, seed=7)
-    expected = _coverage_run_mgcv_snapshot(data, gam.formula, "gaussian", "REML")
+
     assert_allclose(
-        np.asarray(report["mgcv_comparable"]["k_check"], dtype=np.float64),
-        np.asarray(expected["parity"]["diagnostics"]["gam_check"], dtype=np.float64),
+        np.asarray(actual_fit, dtype=np.float64),
+        np.asarray(expected["pred"], dtype=np.float64),
+        atol=2e-8,
+        rtol=2e-8,
+    )
+    assert_allclose(
+        np.asarray(actual_se, dtype=np.float64),
+        np.asarray(expected["se"], dtype=np.float64),
+        atol=2e-8,
+        rtol=2e-8,
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Exact summary.gam text/statistic parity remains a tracked gap.",
-)
-def test_exact_summary_mgcv_parity_gap_is_tracked():
-    """Strict xfail for full summary.gam text/statistic parity."""
-    data = _coverage_make_poisson_data(seed=971, n=140)
-    gam = GAM(
-        family="poisson",
-        formula='y ~ s(x0, bs="cr", k=6) + s(x1, bs="cr", k=6)',
-        optimize_smoothing=True,
-        smoothing_method="REML",
-    )
-    gam.fit(data=data)
-    expected = _coverage_run_mgcv_snapshot(data, gam.formula, "poisson", "REML")
-    text = gam.summary()
-    assert str(expected["parity"]["diagnostics"]["summary_text"]) == text
-
-
-def test_exact_bic_mgcv_parity_gap_is_tracked():
+def test_bic_matches_mgcv():
     """Verify direct BIC parity against mgcv."""
     data = _coverage_make_gaussian_data(seed=972, n=120)
     formula = 'y ~ s(x0, bs="cr", k=6) + s(x1, bs="cr", k=6)'
@@ -471,3 +533,65 @@ def test_exact_bic_mgcv_parity_gap_is_tracked():
     gam.fit(data=data)
     expected = _coverage_run_mgcv_snapshot(data, formula, "gaussian", "REML")
     assert gam.bic() == pytest.approx(float(expected["parity"]["diagnostics"]["bic"]))
+
+
+@pytest.mark.parametrize(
+    ("case_id", "family", "formula", "data_factory", "method"),
+    [
+        (
+            "poisson_reml",
+            "poisson",
+            'y ~ s(x0, bs="cr", k=8)',
+            _coverage_make_poisson_data,
+            "REML",
+        ),
+        (
+            "negbin_fixed_theta_reml",
+            {"name": "negbin", "theta": 1.8},
+            'y ~ s(x0, bs="cr", k=8)',
+            _coverage_make_negbin_data,
+            "REML",
+        ),
+        (
+            "negbin_est_theta_reml",
+            {"name": "negbin", "theta": 1.8, "estimate_theta": True},
+            'y ~ s(x0, bs="cr", k=8)',
+            _coverage_make_negbin_data,
+            "REML",
+        ),
+        (
+            "gaulss_ml",
+            "gaulss",
+            GAULSS_FORMULA,
+            _gaulss_data,
+            "ML",
+        ),
+    ],
+    ids=[
+        "poisson_reml",
+        "negbin_fixed_theta_reml",
+        "negbin_est_theta_reml",
+        "gaulss_ml",
+    ],
+)
+def test_loglik_aic_bic_match_mgcv(case_id, family, formula, data_factory, method):
+    """
+    logLik/AIC/BIC must follow mgcv's `logLik.gam` semantics for the
+    non-`object$aic` families too (negbin, general families take the
+    fallback path in `GAM.loglik()`/`aic()`/`bic()`).
+    """
+    data = data_factory()
+    gam = GAM(
+        family=family,
+        formula=formula,
+        optimize_smoothing=True,
+        smoothing_method=method,
+    )
+    gam.fit(data=data)
+    expected = _coverage_run_mgcv_snapshot(data, formula, family, method)
+
+    assert gam.loglik() == pytest.approx(float(expected["fit"]["loglik"]), rel=1e-6)
+    assert gam.aic() == pytest.approx(float(expected["fit"]["aic"]), rel=1e-6)
+    assert gam.bic() == pytest.approx(
+        float(expected["parity"]["diagnostics"]["bic"]), rel=1e-6
+    )
