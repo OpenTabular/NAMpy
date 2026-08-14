@@ -11,10 +11,13 @@ from .._model_state import (
     _compiled_model,
     _cov_bayes,
     _cov_freq,
+    _cov_unconditional,
     _deviance,
+    _edf2,
     _edf_by_term,
     _edf_total,
     _fit_core_solution,
+    _fit_result,
     _fit_scale,
     _fit_summary,
     _intercept,
@@ -96,6 +99,19 @@ def build_fit_result(model):
             if _cov_freq(model) is None
             else np.asarray(_cov_freq(model), dtype=np.float64).copy()
         ),
+        cov_unconditional=(
+            None
+            if _cov_unconditional(model) is None
+            else np.asarray(_cov_unconditional(model), dtype=np.float64).copy()
+        ),
+        cov_unconditional_space=getattr(
+            _fit_result(model), "cov_unconditional_space", None
+        ),
+        edf2=(
+            None
+            if _edf2(model) is None
+            else np.asarray(_edf2(model), dtype=np.float64).copy()
+        ),
         side_condition_reports=(
             None
             if model.side_condition_reports_ is None
@@ -138,6 +154,15 @@ def copy_fit_result(result, *, include_covariances=True):
         )
         for term in result.term_results
     ]
+    cov_unconditional = result.cov_unconditional
+    if include_covariances:
+        cov_unconditional = (
+            None
+            if cov_unconditional is None
+            else np.asarray(cov_unconditional, dtype=np.float64).copy()
+        )
+    else:
+        cov_unconditional = None
     return replace(
         result,
         coef_full=np.asarray(result.coef_full, dtype=np.float64).copy(),
@@ -145,6 +170,12 @@ def copy_fit_result(result, *, include_covariances=True):
         edf_by_term=np.asarray(result.edf_by_term, dtype=np.float64).copy(),
         cov_bayes=cov_bayes,
         cov_freq=cov_freq,
+        cov_unconditional=cov_unconditional,
+        edf2=(
+            None
+            if result.edf2 is None
+            else np.asarray(result.edf2, dtype=np.float64).copy()
+        ),
         side_condition_reports=(
             None
             if result.side_condition_reports is None

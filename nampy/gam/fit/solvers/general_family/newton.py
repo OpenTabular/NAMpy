@@ -865,6 +865,7 @@ def postprocess_general_newton_fit(
     smoothing_params: np.ndarray | None = None,
     penalty_matrix: np.ndarray | None = None,
     penalty_derivatives: list[np.ndarray] | None = None,
+    suppress_smoothing_uncertainty: bool = False,
 ) -> dict:
     """
     Compute Bayesian and frequentist covariance matrices and EDF.
@@ -951,7 +952,17 @@ def postprocess_general_newton_fit(
         work_lsp = np.log(
             np.maximum(np.asarray(smoothing_params, dtype=np.float64).ravel(), 1e-300)
         )
-    if Hsp is not None and db_drho is not None and db_drho.size > 0:
+    # mgcv/R/gam.fit4.r:1648 gates the smoothing-uncertainty correction on
+    # `!is.null(object$outer.info$hess) && !is.null(object$db.drho)`. The
+    # efs/optim outer optimizers run their final gam.fit5 at deriv=0 upstream,
+    # so neither input exists and the correction is exactly zero
+    # (gam.fit4.r:1685-1690); `suppress_smoothing_uncertainty` mirrors that.
+    if (
+        not suppress_smoothing_uncertainty
+        and Hsp is not None
+        and db_drho is not None
+        and db_drho.size > 0
+    ):
         K = 2 if edge_correct else 1
         for k in range(K):
             if k == 0:

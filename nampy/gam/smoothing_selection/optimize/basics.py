@@ -36,7 +36,8 @@ def supports_criterion_gradient(model, method):
         and method in {"reml", "laml", "ml"}
         and (
             getattr(model.family, "known_scale", None) is not None
-            or str(getattr(model.family, "name", "")).lower() == "gamma"
+            or str(getattr(model.family, "name", "")).lower()
+            in {"gamma", "gaussian"}
         )
         and bool(getattr(model.family, "supports_exact_pirls_first_derivatives", False))
     ):
@@ -63,7 +64,8 @@ def supports_criterion_hessian(model, method):
         and method in {"reml", "laml", "ml"}
         and (
             getattr(model.family, "known_scale", None) is not None
-            or str(getattr(model.family, "name", "")).lower() == "gamma"
+            or str(getattr(model.family, "name", "")).lower()
+            in {"gamma", "gaussian"}
         )
         and bool(
             getattr(model.family, "supports_exact_pirls_second_derivatives", False)
@@ -212,7 +214,9 @@ def _initial_smoothing_params_from_packed_penalties(
     penalized = np.zeros_like(ldxx, dtype=bool)
     def_sp = np.zeros(len(penalties), dtype=np.float64)
 
-    for i, (S_i, off_i) in enumerate(zip(penalties, offsets_1based)):
+    for i, (S_i, off_i) in enumerate(
+        zip(penalties, offsets_1based, strict=True)
+    ):
         S_i = np.asarray(S_i, dtype=np.float64)
         if S_i.ndim != 2 or S_i.shape[0] != S_i.shape[1] or S_i.size == 0:
             return None

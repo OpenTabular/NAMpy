@@ -36,6 +36,7 @@ from .newton import (
 )
 from .objectives import (
     _CriterionObjective,
+    _GaussianPirlsRemlJointObjective,
     _GaussianRemlJointObjective,
     _GaussianRemlProfiledObjective,
     _JointGammaPirlsRemlObjective,
@@ -43,21 +44,29 @@ from .objectives import (
 )
 
 
-def _optimize_negbin_reml_joint_native(model, y, x0, free_mask, method, sp_bounds):
-    """Native joint negbin REML/LAML outer optimization over (log theta, log sp)."""
-    if str(method).lower() not in {"reml", "laml"}:
-        return None
-    if (
-        model.offset_train_ is not None
-        or getattr(model, "prior_weights_", None) is not None
-    ):
-        return None
-    if not isinstance(getattr(model, "formula", None), str):
+def _optimize_negbin_reml_joint_native(
+    model, y, x0, free_mask, method, sp_bounds, *, optimizer
+):
+    """Native joint negbin ML/REML/LAML optimization over (log theta, log sp)."""
+    method_lower = str(method).lower()
+    if method_lower not in {"ml", "reml", "laml"}:
         return None
     if str(getattr(model.family, "name", "")).lower() != "negbin" or not bool(
         getattr(model.family, "estimate_theta", False)
     ):
         return None
+    optimizer = str(optimizer).lower()
+    if method_lower == "ml" and optimizer == "optim":
+        # `mgcv/R/mgcv.r::gam.outer()` delegates this joint vector to R's
+        # `stats::optim(..., method="L-BFGS-B")`.  SciPy's L-BFGS-B follows
+        # the same early path but selects a materially different smoothing
+        # parameter at the flat ML boundary, so do not expose approximate
+        # parity until that exact R optimizer path is ported.
+        raise NotImplementedError(
+            "Negative-binomial ML with estimate_theta=True and optimizer='optim' "
+            "is unsupported until the exact R stats::optim L-BFGS-B boundary "
+            "behavior is ported. Use outer_newton or bfgs."
+        )
 
     x0 = np.asarray(x0, dtype=np.float64).ravel()
     free_mask = np.asarray(free_mask, dtype=bool)
@@ -68,16 +77,35 @@ def _optimize_negbin_reml_joint_native(model, y, x0, free_mask, method, sp_bound
     theta0 = float(max(float(getattr(model.family, "theta", 1.0)), LOG_GUARD_MIN))
     log_theta0 = float(np.log(theta0))
     x_joint0 = np.concatenate([np.array([log_theta0], dtype=np.float64), x0])
-    joint_bounds = [(float(np.log(LOG_GUARD_MIN)), np.inf)] + list(sp_bounds)
-
-    branch_m = "LAML" if str(method).lower() == "laml" else "REML"
+    branch_m = "LAML" if method_lower == "laml" else method_lower.upper()
     j_obj = _JointNegbinPirlsRemlObjective(model, y, branch_m)
-    result_joint = optimize_outer_newton_indefinite_hessian(
-        objective=j_obj,
-        x0=x_joint0,
-        bounds=joint_bounds,
-        conv_tol=1e-6,
-    )
+    if optimizer == "outer_newton":
+        result_joint = optimize_outer_newton_indefinite_hessian(
+            objective=j_obj,
+            x0=x_joint0,
+            bounds=[(float(np.log(LOG_GUARD_MIN)), np.inf)] + list(sp_bounds),
+            conv_tol=1e-6,
+        )
+    elif optimizer == "bfgs":
+        # `mgcv/R/mgcv.r::gam.outer()` sends the prepended transformed
+        # theta and smoothing parameters through `mgcv::bfgs()` together.
+        result_joint = _optimize_outer_bfgs_strict(
+            objective=j_obj,
+            x0=x_joint0,
+            bounds=[(float(np.log(LOG_GUARD_MIN)), np.inf)] + list(sp_bounds),
+            score_type=str(method).lower(),
+        )
+    elif optimizer == "optim":
+        # `mgcv/R/mgcv.r::estimate.gam()` prepends transformed theta to
+        # `lsp`; `gam.outer()` then passes the complete unbounded vector to
+        # `optim(..., method="L-BFGS-B")`.
+        result_joint = _optimize_outer_optim_strict(
+            objective=j_obj,
+            x0=x_joint0,
+            bounds=[(-np.inf, np.inf)] + list(sp_bounds),
+        )
+    else:
+        return None
     result = OptimizeResult()
     x_joint = np.asarray(result_joint.x, dtype=np.float64).ravel()
     if x_joint.size != x_joint0.size:
@@ -145,11 +173,11 @@ def _optimize_negbin_reml_joint_native(model, y, x0, free_mask, method, sp_bound
         log_theta_hist = [float(log_theta_opt)]
         log_sp_hist = [np.asarray(x_sp_opt, dtype=np.float64).tolist()]
 
-    outer_info = {
-        "score_hist": score_hist,
-        "log_theta_hist": log_theta_hist,
-        "log_sp_hist": log_sp_hist,
-    }
+    outer_info = dict(getattr(result_joint, "outer_info", {}) or {})
+    if optimizer != "bfgs":
+        outer_info["score_hist"] = score_hist
+    outer_info["log_theta_hist"] = log_theta_hist
+    outer_info["log_sp_hist"] = log_sp_hist
     joint_grad = getattr(result_joint, "jac", None)
     if joint_grad is not None:
         joint_grad = np.asarray(joint_grad, dtype=np.float64).ravel()
@@ -583,7 +611,7 @@ def optimize_smoothing_params(
     family_name = str(getattr(model.family, "name", "")).lower()
     use_joint_gamma_reml_scale = (
         family_name == "gamma"
-        and method in {"reml", "laml"}
+        and method in {"ml", "reml", "laml"}
         and ml_reml_backend == "pirls_laplace"
     )
     family_class = str(
@@ -594,20 +622,10 @@ def optimize_smoothing_params(
     )
     use_joint_negbin_reml_theta = (
         family_name == "negbin"
-        and method in {"reml", "laml"}
+        and method in {"ml", "reml", "laml"}
         and ml_reml_backend == "pirls_laplace"
         and bool(getattr(model.family, "estimate_theta", False))
     )
-    if optimizer == "optim" and use_joint_gamma_reml_scale:
-        raise NotImplementedError(
-            "Strict mgcv-parity smoothing_optimizer='optim' is not yet "
-            "implemented for Gamma REML/LAML joint-scale optimisation."
-        )
-    if optimizer == "optim" and use_joint_negbin_reml_theta:
-        raise NotImplementedError(
-            "Strict mgcv-parity smoothing_optimizer='optim' is not available "
-            "for negative-binomial REML/LAML with estimate_theta=True."
-        )
     model._pirls_disable_theta_efs_ = False
 
     has_joint_outer_params = (
@@ -721,7 +739,13 @@ def optimize_smoothing_params(
 
     if use_joint_negbin_reml_theta:
         mgcv_result = _optimize_negbin_reml_joint_native(
-            model, y, x0, free_mask, method, bounds
+            model,
+            y,
+            x0,
+            free_mask,
+            method,
+            bounds,
+            optimizer=optimizer,
         )
         if mgcv_result is not None:
             model.family.theta = float(np.exp(float(mgcv_result.joint_log_theta)))
@@ -732,6 +756,7 @@ def optimize_smoothing_params(
             model._optim_method = method
             model._optim_result = mgcv_result
             trace_rows = []
+            prev_log_sp = None
 
             def _trace_vector_payload(values):
                 arr = np.asarray(values, dtype=np.float64).ravel()
@@ -770,6 +795,15 @@ def optimize_smoothing_params(
                         hess_full[1 : 1 + n_free, 1 : 1 + n_free],
                         dtype=np.float64,
                     )
+                accepted_step_norm = (
+                    (
+                        0.0
+                        if prev_log_sp is None
+                        else float(np.linalg.norm(log_sp - prev_log_sp, ord=2))
+                    )
+                    if optimizer == "optim"
+                    else float(row_dict.get("accepted_step_norm", 0.0))
+                )
                 trace_rows.append(
                     {
                         "iter": int(row_dict.get("iter", 0)),
@@ -801,23 +835,23 @@ def optimize_smoothing_params(
                             if hess_full is None
                             else np.asarray(hess_full, dtype=np.float64).tolist()
                         ),
-                        "accepted_step_norm": float(
-                            row_dict.get("accepted_step_norm", 0.0)
-                        ),
+                        "accepted_step_norm": accepted_step_norm,
                         "n_fun": row_dict.get("n_fun", None),
                         "n_jac": row_dict.get("n_jac", None),
                         "n_hess": row_dict.get("n_hess", None),
                         "rank_info": row_dict.get("rank_info", None),
                     }
                 )
+                prev_log_sp = log_sp.copy()
             outer_info = dict(getattr(mgcv_result, "outer_info", {}) or {})
             if trace_rows:
-                outer_info["score_hist"] = [
-                    float(row["criterion"])
-                    for row in trace_rows
-                    if row.get("criterion", None) is not None
-                ]
-                outer_info["iter"] = int(len(outer_info["score_hist"]))
+                if optimizer != "bfgs":
+                    outer_info["score_hist"] = [
+                        float(row["criterion"])
+                        for row in trace_rows
+                        if row.get("criterion", None) is not None
+                    ]
+                    outer_info["iter"] = int(len(outer_info["score_hist"]))
             grad_full = outer_info.get("grad", None)
             if grad_full is not None:
                 grad_full = np.asarray(grad_full, dtype=np.float64).ravel()
@@ -844,13 +878,18 @@ def optimize_smoothing_params(
             model.smoothing_score_ = float(mgcv_result.fun)
             return model
         raise NotImplementedError(
-            "Negative-binomial REML/LAML with estimate_theta=True has no "
+            "Negative-binomial ML/REML/LAML with estimate_theta=True has no "
             "native upstream-supported joint optimizer path in this build."
         )
 
     branch_m = "LAML" if method == "laml" else str(method).upper()
     if use_joint_gaussian_reml_scale:
-        objective = _GaussianRemlJointObjective(
+        objective_class = (
+            _GaussianPirlsRemlJointObjective
+            if ml_reml_backend == "pirls_laplace"
+            else _GaussianRemlJointObjective
+        )
+        objective = objective_class(
             model=model,
             y=y,
             branch_method=branch_m,
@@ -956,6 +995,18 @@ def optimize_smoothing_params(
                     bounds=joint_bounds,
                     score_type=method,
                 )
+            elif optimizer == "optim":
+                # `mgcv/R/mgcv.r::gam.outer()` passes the complete `lsp`
+                # vector, including the appended log scale, to
+                # `optim(..., method="L-BFGS-B")` without finite scale
+                # bounds. Preserve that unbounded scale coordinate: even a
+                # distant finite bound changes L-BFGS-B's generalized Cauchy
+                # point in more than one dimension.
+                result_joint = _optimize_outer_optim_strict(
+                    objective=j_obj,
+                    x0=x_joint0,
+                    bounds=list(bounds) + [(-np.inf, np.inf)],
+                )
             elif optimizer == "outer_newton":
                 result_joint = optimize_outer_newton_indefinite_hessian(
                     objective=j_obj,
@@ -1002,6 +1053,7 @@ def optimize_smoothing_params(
             result.joint_gamma_message = str(getattr(result_joint, "message", ""))
             outer_info_joint = dict(getattr(result_joint, "outer_info", {}) or {})
             trace_rows = []
+            prev_log_sp = None
 
             def _trace_vector_payload(values):
                 arr = np.asarray(values, dtype=np.float64).ravel()
@@ -1038,6 +1090,15 @@ def optimize_smoothing_params(
                     if hessian_full is None
                     else np.asarray(hessian_full[:n_free, :n_free], dtype=np.float64)
                 )
+                accepted_step_norm = (
+                    (
+                        0.0
+                        if prev_log_sp is None
+                        else float(np.linalg.norm(log_sp - prev_log_sp, ord=2))
+                    )
+                    if optimizer == "optim"
+                    else float(row_dict.get("accepted_step_norm", 0.0))
+                )
                 trace_rows.append(
                     {
                         "iter": int(row_dict.get("iter", 0)),
@@ -1069,15 +1130,17 @@ def optimize_smoothing_params(
                             if hessian_full is None
                             else np.asarray(hessian_full, dtype=np.float64).tolist()
                         ),
-                        "accepted_step_norm": float(
-                            row_dict.get("accepted_step_norm", 0.0)
-                        ),
+                        # The optim trace reports movement in smoothing
+                        # parameters only; Newton/BFGS report movement in the
+                        # complete joint vector before it is split for output.
+                        "accepted_step_norm": accepted_step_norm,
                         "n_fun": row_dict.get("n_fun", None),
                         "n_jac": row_dict.get("n_jac", None),
                         "n_hess": row_dict.get("n_hess", None),
                         "rank_info": row_dict.get("rank_info", None),
                     }
                 )
+                prev_log_sp = log_sp.copy()
             if trace_rows:
                 model._optim_trace = trace_rows
                 result.optim_trace = trace_rows

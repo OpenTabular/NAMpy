@@ -18,7 +18,6 @@ from ...._model_state import _penalty_blocks_seq, _predictor_designs, _term_bloc
 from ....linalg.matrix import symmetrize_matrix
 from ....linalg.norms import r_matrix_norm_one
 from ...parameterization import (
-    FIT_PARAMETER_SPACE,
     PREDICTION_PARAMETER_SPACE,
     prediction_parameterization_map,
 )
@@ -1410,6 +1409,14 @@ def solve_general_family_fit(model, y, smoothing_params, weights=None):
         smoothing_params=setup.smoothing_params,
         penalty_matrix=setup.St if has_nonlinear_sl else None,
         penalty_derivatives=setup.penalty_derivatives if has_nonlinear_sl else None,
+        # Upstream efsud/optim run the final gam.fit5 at deriv=0, so
+        # gam.fit5.post.proc's correction gate (gam.fit4.r:1648) never fires
+        # for those optimizers; the local inner fit still carries REML2 /
+        # db_drho, so suppress explicitly instead of relying on absent state.
+        suppress_smoothing_uncertainty=(
+            str(getattr(model, "smoothing_optimizer", "")).lower()
+            in {"efs", "optim"}
+        ),
     )
 
     coef_full = np.asarray(fit["coef"], dtype=np.float64)

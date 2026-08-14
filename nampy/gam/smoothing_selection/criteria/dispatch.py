@@ -42,7 +42,9 @@ from .pirls.derivatives import (
 
 def _normalize_criterion_method(model, method):
     method = str(method).lower()
-    if method not in {"gcv.cp", "gacv.cp"}:
+    if method != "gcv.cp":
+        # "gacv.cp" is intentionally not accepted: mgcv maps it to the GACV
+        # criterion, which NAMpy does not implement; it must fail loudly.
         return method
 
     family = getattr(model, "family", None)
@@ -181,7 +183,8 @@ def criterion_gradient(
             backend == "pirls_laplace"
             and (
                 getattr(model.family, "known_scale", None) is not None
-                or str(getattr(model.family, "name", "")).lower() == "gamma"
+                or str(getattr(model.family, "name", "")).lower()
+                in {"gamma", "gaussian"}
             )
             and bool(
                 getattr(model.family, "supports_exact_pirls_first_derivatives", False)
@@ -294,16 +297,20 @@ def criterion_hessian(
         backend = resolve_ml_reml_scoring_backend(model, method=method)
         if (
             backend == "pirls_laplace"
-            and method in {"reml", "laml"}
+            and method in {"ml", "reml", "laml"}
             and (
                 getattr(model.family, "known_scale", None) is not None
-                or str(getattr(model.family, "name", "")).lower() == "gamma"
+                or str(getattr(model.family, "name", "")).lower()
+                in {"gamma", "gaussian"}
             )
             and bool(
                 getattr(model.family, "supports_exact_pirls_second_derivatives", False)
             )
         ):
-            return criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, "REML")
+            exact_method = "REML" if method in {"reml", "laml"} else "ML"
+            return criterion_hessian_ml_reml_pirls_exact(
+                model, y, log_sp, exact_method
+            )
         if backend in {"gaussian_exact", "gaussian_dynamic"}:
             exact_method = "REML" if method in {"reml", "laml"} else "ML"
             out = _gaussian_dynamic_reml_derivative_terms(

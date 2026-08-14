@@ -8,14 +8,17 @@ from ..criteria import (
     criterion_gradient,
     criterion_gradient_ml_reml_gaussian_dynamic_joint,
     criterion_gradient_ml_reml_pirls_gamma_joint,
+    criterion_gradient_ml_reml_pirls_gaussian_joint,
     criterion_gradient_ml_reml_pirls_negbin_joint,
     criterion_hessian,
     criterion_hessian_ml_reml_gaussian_dynamic_joint,
     criterion_hessian_ml_reml_pirls_gamma_joint,
+    criterion_hessian_ml_reml_pirls_gaussian_joint,
     criterion_hessian_ml_reml_pirls_negbin_joint,
     criterion_ml_reml_gaussian_dynamic_joint,
     criterion_ml_reml_gaussian_dynamic_profiled,
     criterion_ml_reml_pirls_gamma_joint,
+    criterion_ml_reml_pirls_gaussian_joint,
     criterion_ml_reml_pirls_negbin_joint,
     criterion_value,
     resolve_ml_reml_scoring_backend,
@@ -380,6 +383,79 @@ class _JointGammaPirlsRemlObjective:
         )
 
 
+class _GaussianPirlsRemlJointObjective:
+    """Joint Gaussian ``gam.fit3`` objective for noncanonical PIRLS links."""
+
+    def __init__(self, model, y, branch_method: str):
+        self.model = model
+        self.y = y
+        self.branch_method = str(branch_method).upper()
+        self.method = self.branch_method
+        self.uses_joint_log_scale = True
+        self.n_fun = 0
+        self.n_jac = 0
+        self.n_hess = 0
+        self.accepted_trace = []
+
+    def _raw_fun(self, x):
+        x = np.asarray(x, dtype=np.float64).ravel()
+        return float(
+            criterion_ml_reml_pirls_gaussian_joint(
+                self.model,
+                self.y,
+                x[:-1],
+                float(x[-1]),
+                method=self.branch_method,
+            )
+        )
+
+    def fun(self, x):
+        self.n_fun += 1
+        return self._raw_fun(x)
+
+    def jac(self, x):
+        x = np.asarray(x, dtype=np.float64).ravel()
+        self.n_jac += 1
+        return np.asarray(
+            criterion_gradient_ml_reml_pirls_gaussian_joint(
+                self.model,
+                self.y,
+                x[:-1],
+                float(x[-1]),
+                method=self.branch_method,
+            ),
+            dtype=np.float64,
+        )
+
+    def hess(self, x):
+        x = np.asarray(x, dtype=np.float64).ravel()
+        self.n_hess += 1
+        return np.asarray(
+            criterion_hessian_ml_reml_pirls_gaussian_joint(
+                self.model,
+                self.y,
+                x[:-1],
+                float(x[-1]),
+                method=self.branch_method,
+            ),
+            dtype=np.float64,
+        )
+
+    def record_iter(self, x, accepted_step_norm: float) -> None:
+        x = np.asarray(x, dtype=np.float64).ravel()
+        crit = float(self._raw_fun(x))
+        if len(self.accepted_trace) == 0 or not np.array_equal(
+            self.accepted_trace[-1]["x"], x
+        ):
+            self.accepted_trace.append(
+                {
+                    "x": x.copy(),
+                    "fun": crit,
+                    "accepted_step_norm": float(accepted_step_norm),
+                }
+            )
+
+
 class _JointNegbinPirlsRemlObjective:
     """Joint `(log theta, log sp...)` NegBin PIRLS REML/LAML objective."""
 
@@ -481,4 +557,3 @@ class _JointNegbinPirlsRemlObjective:
                 "accepted_step_norm": float(accepted_step_norm),
             }
         )
-

@@ -67,7 +67,9 @@ def solve_gaussian_given_smoothing(model, y, smoothing_params):
     )
 
 
-def solve_pirls_given_smoothing(model, y, smoothing_params):
+def solve_pirls_given_smoothing(
+    model, y, smoothing_params, *, scale_reference: float | None = None
+):
     family = getattr(model, "family", None)
     if str(getattr(family, "family_class", "")).lower() == "general":
         return solve_general_family_fit(
@@ -82,4 +84,5 @@ def solve_pirls_given_smoothing(model, y, smoothing_params):
         y,
         smoothing_params,
         weights=model.prior_weights_,
+        scale_reference=scale_reference,
     )

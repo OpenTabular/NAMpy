@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
+from scipy.linalg.blas import dgemm, dtrsm
 from scipy.special import digamma, polygamma
 
 from ...._model_state import (
@@ -203,6 +204,7 @@ class _GDI1IFTState:
     d2beta_mat: list[list[np.ndarray]]
     d2A_mat: list[list[np.ndarray]]
     d2XtWX_mat: list[list[np.ndarray]]
+    root_blocks: list[np.ndarray] | None = None
     dW_obs: list[np.ndarray] | None = None
     d2W_obs_mat: list[list[np.ndarray]] | None = None
 
@@ -248,6 +250,9 @@ class _GDIPKState:
     PKtz: np.ndarray
     K: np.ndarray | None
     P: np.ndarray | None
+    R: np.ndarray | None
+    Vt: np.ndarray | None
+    neg_w: int
     Rh: np.ndarray | None
     rS_work: np.ndarray | None
     root_col_counts: tuple[int, ...]
@@ -296,16 +301,83 @@ class _GDI2IFTState:
     ntheta: int
 
 
-def _apply_penalized_inverse_root(rank_root: np.ndarray, rhs: np.ndarray) -> np.ndarray:
-    """
-    Mirror `mgcv/src/gdi.c::applyP()` + `applyPt()` via the QR-state inverse root.
+def _mgcv_dgemm(left, right, *, transpose_left=False, transpose_right=False):
+    """Call the same BLAS matrix-multiply shape as ``mgcv_mmult()``."""
+    left = np.asarray(left, dtype=np.float64)
+    right = np.asarray(right, dtype=np.float64)
+    left_was_vector = left.ndim == 1
+    right_was_vector = right.ndim == 1
+    if left_was_vector:
+        left = left.reshape(-1, 1)
+    if right_was_vector:
+        right = right.reshape(-1, 1)
+    out = dgemm(
+        1.0,
+        np.asfortranarray(left),
+        np.asfortranarray(right),
+        trans_a=bool(transpose_left),
+        trans_b=bool(transpose_right),
+    )
+    out = np.asarray(out, dtype=np.float64)
+    if (left_was_vector or right_was_vector) and out.shape[1] == 1:
+        return out[:, 0].copy()
+    if (left_was_vector or right_was_vector) and out.shape[0] == 1:
+        return out[0, :].copy()
+    return out
 
-    `rank_root` is the reduced-space `P` returned by `gdiPK()`-style setup, with
-    `PP' = (X'WX + S)^{-1}` in the pivoted rank-identified parameterization.
-    """
+
+def _mgcv_triangular_solve(R, rhs, *, transpose=False):
+    """Mirror ``mgcv_forwardsolve()``/``mgcv_backsolve()`` via BLAS ``dtrsm``."""
+    rhs = np.asarray(rhs, dtype=np.float64)
+    rhs_was_vector = rhs.ndim == 1
+    if rhs_was_vector:
+        rhs = rhs.reshape(-1, 1)
+    out = dtrsm(
+        1.0,
+        np.asfortranarray(np.asarray(R, dtype=np.float64)),
+        np.asfortranarray(rhs),
+        side=0,
+        lower=0,
+        trans_a=1 if transpose else 0,
+        diag=0,
+        overwrite_b=0,
+    )
+    out = np.asarray(out, dtype=np.float64)
+    return out[:, 0].copy() if rhs_was_vector else out
+
+
+def _apply_pt(pk_state, rhs):
+    """Operation-for-operation port of ``mgcv/src/gdi.c::applyPt()``."""
+    work = _mgcv_triangular_solve(pk_state.R, rhs, transpose=True)
+    if int(pk_state.neg_w) > 0:
+        work = _mgcv_dgemm(pk_state.Vt, work)
+    return np.asarray(work, dtype=np.float64)
+
+
+def _apply_p(pk_state, rhs):
+    """Operation-for-operation port of ``mgcv/src/gdi.c::applyP()``."""
+    work = np.asarray(rhs, dtype=np.float64)
+    if int(pk_state.neg_w) > 0:
+        work = _mgcv_dgemm(pk_state.Vt, work, transpose_left=True)
+    return _mgcv_triangular_solve(pk_state.R, work, transpose=False)
+
+
+def _apply_penalized_inverse(pk_state, rhs):
+    """Apply ``P'`` and then ``P`` exactly as ``mgcv::ift1()`` does."""
+    return _apply_p(pk_state, _apply_pt(pk_state, rhs))
+
+
+def _apply_penalized_inverse_root(rank_root, rhs):
+    """Dense-root inverse application retained for the separate ``gdi2`` port."""
     rank_root = np.asarray(rank_root, dtype=np.float64)
     rhs = np.asarray(rhs, dtype=np.float64)
     return np.asarray(rank_root @ (rank_root.T @ rhs), dtype=np.float64)
+
+
+def _mult_sk(root, x):
+    """Operation-for-operation port of ``mgcv/src/gdi.c::multSk()``."""
+    work = _mgcv_dgemm(root, x, transpose_left=True)
+    return _mgcv_dgemm(root, work)
 
 
 def _gamma_saturated_loglik_scale_derivatives(y, phi, weights=None):
@@ -486,7 +558,7 @@ def _negbin_ddeta_logtheta(family, y, mu, weights, *, deriv):
 def _gamma_joint_kernel_state(model, y, log_sp, method, *, phi):
     method = str(method).upper()
     sp = expand_smoothing_params_from_log(model, log_sp)
-    sol = solve_pirls_given_smoothing(model, y, sp)
+    sol = solve_pirls_given_smoothing(model, y, sp, scale_reference=phi)
     kernel = _gdi1_kernel(
         model,
         y,
@@ -611,6 +683,111 @@ def criterion_hessian_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, metho
     out[:-1, -1] = cross_free
     out[-1, :-1] = cross_free
     out[-1, -1] = float(curv_lphi)
+    return out
+
+
+def _gaussian_joint_kernel_state(model, y, log_sp, method, *, phi):
+    """Build the ``gam.fit3`` joint smoothing/scale derivative state."""
+    method = str(method).upper()
+    sp = expand_smoothing_params_from_log(model, log_sp)
+    sol = solve_pirls_given_smoothing(model, y, sp, scale_reference=phi)
+    kernel = _gdi1_kernel(
+        model,
+        y,
+        sol,
+        sp,
+        method=method,
+        rank_tol=_MGCV_GAM_FIT3_RANK_TOL,
+    )
+    y_arr = np.asarray(y, dtype=np.float64)
+    weights = _prior_weights(model, y_arr)
+    ls = np.asarray(
+        model.family.ls(y_arr, weights, len(y_arr), float(phi)), dtype=np.float64
+    )
+    nobs = float(len(y_arr))
+    n_true = getattr(model, "n_true_", None)
+    if n_true is not None:
+        n_true = float(n_true)
+        if np.isfinite(n_true) and n_true > 0.0 and nobs > 0.0:
+            ls *= n_true / nobs
+
+    state = {
+        "Dp": float(sol["deviance"]) + float(kernel.bSb),
+        "Dp1": np.asarray(kernel.D1 + kernel.bSb1, dtype=np.float64),
+        "Dp2": np.asarray(kernel.D2 + kernel.bSb2, dtype=np.float64),
+        "K1": np.asarray(kernel.K1, dtype=np.float64),
+        "K2": np.asarray(kernel.K2, dtype=np.float64),
+        "ls": ls,
+        "phi": float(phi),
+    }
+    model._pirls_reml_gaussian_state_ = state
+    return state
+
+
+def criterion_gradient_ml_reml_pirls_gaussian_joint(
+    model, y, log_sp, log_phi, method
+):
+    """Joint ``(log sp, log scale)`` gradient from ``mgcv::gam.fit3``."""
+    family_name = str(getattr(model.family, "name", "")).lower()
+    if family_name != "gaussian":
+        raise NotImplementedError(
+            "Joint PIRLS Gaussian derivatives require family='gaussian'."
+        )
+    phi = float(np.exp(float(log_phi)))
+    if not np.isfinite(phi) or phi <= 0.0:
+        return np.full(int(np.sum(_free_smoothing_mask(model))) + 1, np.nan)
+
+    method = str(method).upper()
+    state = _gaussian_joint_kernel_state(model, y, log_sp, method, phi=phi)
+    gamma = float(model.score_gamma)
+    free_mask = _free_smoothing_mask(model)
+    grad_sp = state["Dp1"] / (2.0 * phi * gamma) + state["K1"]
+    mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
+    reml_ind = 1.0 if method == "REML" else 0.0
+    ls = state["ls"]
+    grad_phi = (
+        -state["Dp"] / (2.0 * phi) - float(ls[1]) * phi
+    ) / gamma - 0.5 * mp * reml_ind
+    return np.concatenate(
+        [
+            np.asarray(grad_sp[free_mask], dtype=np.float64),
+            np.array([float(grad_phi)], dtype=np.float64),
+        ]
+    )
+
+
+def criterion_hessian_ml_reml_pirls_gaussian_joint(
+    model, y, log_sp, log_phi, method
+):
+    """Joint ``(log sp, log scale)`` Hessian from ``mgcv::gam.fit3``."""
+    family_name = str(getattr(model.family, "name", "")).lower()
+    if family_name != "gaussian":
+        raise NotImplementedError(
+            "Joint PIRLS Gaussian derivatives require family='gaussian'."
+        )
+    phi = float(np.exp(float(log_phi)))
+    n_free = int(np.sum(_free_smoothing_mask(model)))
+    if not np.isfinite(phi) or phi <= 0.0:
+        return np.full((n_free + 1, n_free + 1), np.nan)
+
+    method = str(method).upper()
+    state = _gaussian_joint_kernel_state(model, y, log_sp, method, phi=phi)
+    gamma = float(model.score_gamma)
+    free_mask = _free_smoothing_mask(model)
+    hess_sp = state["Dp2"] / (2.0 * phi * gamma) + state["K2"]
+    cross = -state["Dp1"] / (2.0 * phi * gamma)
+    ls = state["ls"]
+    hess_phi = (
+        state["Dp"] / (2.0 * phi)
+        - float(ls[2]) * phi * phi
+        - float(ls[1]) * phi
+    ) / gamma
+
+    out = np.zeros((n_free + 1, n_free + 1), dtype=np.float64)
+    out[:-1, :-1] = hess_sp[np.ix_(free_mask, free_mask)]
+    out[:-1, -1] = cross[free_mask]
+    out[-1, :-1] = cross[free_mask]
+    out[-1, -1] = float(hess_phi)
     return out
 
 
@@ -786,7 +963,6 @@ def _gdi_pk_setup(model, sol, sp, *, deriv, rank_tol=None):
         rS=np.asarray(rS, dtype=np.float64),
         rank_tol=float(rank_tol),
         reml=True,
-        Mp=int(q_null_full),
     )
     rank = int(qr_state.rank)
     dropped_idx = np.asarray(qr_state.drop, dtype=np.int64)
@@ -799,6 +975,8 @@ def _gdi_pk_setup(model, sol, sp, *, deriv, rank_tol=None):
     K = np.asarray(qr_state.K, dtype=np.float64)
     Pk = np.asarray(qr_state.P, dtype=np.float64)
     Rh = np.asarray(qr_state.Rh, dtype=np.float64)
+    R = np.asarray(qr_state.R, dtype=np.float64)
+    Vt = None if qr_state.Vt is None else np.asarray(qr_state.Vt, dtype=np.float64)
     rS_work = np.asarray(qr_state.rS_work, dtype=np.float64)
     ldet_xwxs = float(qr_state.ldet_XWX_plus_S)
     X_rank = _drop_permute_columns(X, dropped_idx, pivot1)
@@ -865,6 +1043,9 @@ def _gdi_pk_setup(model, sol, sp, *, deriv, rank_tol=None):
             PKtz=pk_tz,
             K=K,
             P=Pk,
+            R=R,
+            Vt=Vt,
+            neg_w=int(qr_state.neg_w),
             Rh=Rh,
             rS_work=rS_work,
             root_col_counts=tuple(int(v) for v in rSncol),
@@ -962,9 +1143,9 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
     """
     X = np.asarray(current.X, dtype=np.float64)
     beta = np.asarray(current.beta, dtype=np.float64)
-    eta = np.asarray(sol["eta"], dtype=np.float64)
+    eta = np.asarray(sol.get("gdi1_eta", sol["eta"]), dtype=np.float64)
+    mu = np.asarray(sol.get("gdi1_mu", sol["mu"]), dtype=np.float64)
     W = np.asarray(current.W, dtype=np.float64)
-    P_root = np.asarray(pk_state.P, dtype=np.float64)
     n_sp = int(_n_smoothing_params(model) or 0)
     rank = int(beta.size)
     root_blocks = []
@@ -977,21 +1158,23 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
         )
         root_blocks.append(root)
         col_off += ncol
-    P_derivs = [
-        (
-            float(sp[j]) * (root @ root.T)
-            if root.size
-            else np.zeros((rank, rank), dtype=np.float64)
-        )
-        for j, root in enumerate(root_blocks)
-    ]
+    P_derivs = []
+    for j, root in enumerate(root_blocks):
+        if root.size:
+            Pj = _mgcv_dgemm(root, root, transpose_right=True)
+            for col in range(Pj.shape[1]):
+                for row in range(Pj.shape[0]):
+                    Pj[row, col] *= float(sp[j])
+        else:
+            Pj = np.zeros((rank, rank), dtype=np.float64)
+        P_derivs.append(np.asarray(Pj, dtype=np.float64))
 
     family_name = str(getattr(model.family, "name", "")).lower()
     if family_name == "negbin":
         dd = _negbin_ddeta_logtheta(
             model.family,
             y,
-            np.asarray(sol["mu"], dtype=np.float64),
+            mu,
             _prior_weights(model, y),
             deriv=2,
         )
@@ -999,59 +1182,86 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
         d2W_eta = 0.5 * np.asarray(dd["Deta4"], dtype=np.float64)
     else:
         dW_eta, d2W_eta = _working_weight_derivatives_wrt_linpred(
-            model, y, eta, sol["mu"], W
+            model, y, eta, mu, W
         )
 
-    dbeta = [None] * n_sp
-    deta = [None] * n_sp
+    dbeta_matrix = np.zeros((rank, n_sp), dtype=np.float64, order="F")
+    for j, root in enumerate(root_blocks):
+        if root.size:
+            Skb = np.asarray(_mult_sk(root, beta), dtype=np.float64)
+            for row in range(rank):
+                Skb[row] *= -float(sp[j])
+            work = _apply_pt(pk_state, Skb)
+            dbeta_matrix[:, j] = _apply_p(pk_state, work)
+
+    if n_sp:
+        eta1_matrix = np.asarray(_mgcv_dgemm(X, dbeta_matrix), dtype=np.float64)
+        if n_sp == 1:
+            eta1_matrix = eta1_matrix.reshape(-1, 1)
+    else:
+        eta1_matrix = np.empty((X.shape[0], 0), dtype=np.float64)
+    dbeta = [np.asarray(dbeta_matrix[:, j], dtype=np.float64) for j in range(n_sp)]
+    deta = [np.asarray(eta1_matrix[:, j], dtype=np.float64) for j in range(n_sp)]
     dA = [None] * n_sp
     dXtWX = [None] * n_sp
     d2beta_mat = [[None] * n_sp for _ in range(n_sp)]
     d2A_mat = [[None] * n_sp for _ in range(n_sp)]
     d2XtWX_mat = [[None] * n_sp for _ in range(n_sp)]
 
-    for j, root in enumerate(root_blocks):
-        if root.size:
-            work = root.T @ beta
-            work *= -float(sp[j])
-            work = root @ work
-            dbeta_j = _apply_penalized_inverse_root(P_root, work)
-        else:
-            dbeta_j = np.zeros_like(beta)
-        deta_j = X @ dbeta_j
+    for j in range(n_sp):
+        deta_j = deta[j]
         dW_j = dW_eta * deta_j
         dXtWX_j = X.T @ (dW_j[:, None] * X)
-        dbeta[j] = dbeta_j
-        deta[j] = deta_j
         dXtWX[j] = dXtWX_j
         dA[j] = dXtWX_j + P_derivs[j]
 
+    d2beta_columns = []
+    second_pairs = []
     for j, root_j in enumerate(root_blocks):
         for k in range(j, n_sp):
-            work = -(deta[j] * deta[k] * dW_eta)
-            Skb = X.T @ work
+            work = np.empty(X.shape[0], dtype=np.float64)
+            for row in range(X.shape[0]):
+                work[row] = -deta[j][row] * deta[k][row] * dW_eta[row]
+            Skb = np.asarray(
+                _mgcv_dgemm(X, work, transpose_left=True), dtype=np.float64
+            )
             if root_j.size:
-                work = root_j.T @ np.asarray(dbeta[k], dtype=np.float64)
-                work *= -float(sp[j])
-                Skb = Skb + root_j @ work
+                penalty_work = np.asarray(_mult_sk(root_j, dbeta[k]), dtype=np.float64)
+                for row in range(rank):
+                    Skb[row] += -float(sp[j]) * penalty_work[row]
             root_k = root_blocks[k]
             if root_k.size:
-                work = root_k.T @ np.asarray(dbeta[j], dtype=np.float64)
-                work *= -float(sp[k])
-                Skb = Skb + root_k @ work
-            d2beta_jk = _apply_penalized_inverse_root(P_root, Skb)
+                penalty_work = np.asarray(_mult_sk(root_k, dbeta[j]), dtype=np.float64)
+                for row in range(rank):
+                    Skb[row] += -float(sp[k]) * penalty_work[row]
+            solve_work = _apply_pt(pk_state, Skb)
+            d2beta_jk = np.asarray(_apply_p(pk_state, solve_work), dtype=np.float64)
             if j == k:
-                d2beta_jk = d2beta_jk + np.asarray(dbeta[j], dtype=np.float64)
-            d2eta_jk = X @ d2beta_jk
-            d2W_jk = d2W_eta * deta[j] * deta[k] + dW_eta * d2eta_jk
-            d2XtWX_jk = X.T @ (d2W_jk[:, None] * X)
-            d2A_jk = d2XtWX_jk + (P_derivs[j] if j == k else 0.0)
+                for row in range(rank):
+                    d2beta_jk[row] += dbeta[j][row]
+            d2beta_columns.append(d2beta_jk)
+            second_pairs.append((j, k))
             d2beta_mat[j][k] = d2beta_jk
             d2beta_mat[k][j] = d2beta_jk
-            d2XtWX_mat[j][k] = d2XtWX_jk
-            d2XtWX_mat[k][j] = d2XtWX_jk
-            d2A_mat[j][k] = d2A_jk
-            d2A_mat[k][j] = d2A_jk
+
+    if d2beta_columns:
+        d2beta_packed = np.asfortranarray(np.column_stack(d2beta_columns))
+        eta2_packed = np.asarray(_mgcv_dgemm(X, d2beta_packed), dtype=np.float64)
+        if len(d2beta_columns) == 1:
+            eta2_packed = eta2_packed.reshape(-1, 1)
+    else:
+        eta2_packed = np.empty((X.shape[0], 0), dtype=np.float64)
+
+    for pair_col, (j, k) in enumerate(second_pairs):
+        d2beta_jk = d2beta_mat[j][k]
+        d2eta_jk = eta2_packed[:, pair_col]
+        d2W_jk = d2W_eta * deta[j] * deta[k] + dW_eta * d2eta_jk
+        d2XtWX_jk = X.T @ (d2W_jk[:, None] * X)
+        d2A_jk = d2XtWX_jk + (P_derivs[j] if j == k else 0.0)
+        d2XtWX_mat[j][k] = d2XtWX_jk
+        d2XtWX_mat[k][j] = d2XtWX_jk
+        d2A_mat[j][k] = d2A_jk
+        d2A_mat[k][j] = d2A_jk
 
     return _GDI1IFTState(
         P_derivs=P_derivs,
@@ -1062,6 +1272,7 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
         d2beta_mat=d2beta_mat,
         d2A_mat=d2A_mat,
         d2XtWX_mat=d2XtWX_mat,
+        root_blocks=root_blocks,
         dW_obs=[dW_eta * np.asarray(v, dtype=np.float64) for v in deta],
         d2W_obs_mat=[
             [
@@ -1077,11 +1288,13 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
 
 
 def _gdi1_deviance_terms(model, y, sol, current, ift):
+    eta = np.asarray(sol.get("gdi1_eta", sol["eta"]), dtype=np.float64)
+    mu = np.asarray(sol.get("gdi1_mu", sol["mu"]), dtype=np.float64)
     if str(getattr(model.family, "name", "")).lower() == "negbin":
         dd = _negbin_ddeta_logtheta(
             model.family,
             y,
-            np.asarray(sol["mu"], dtype=np.float64),
+            mu,
             _prior_weights(model, y),
             deriv=0,
         )
@@ -1109,24 +1322,27 @@ def _gdi1_deviance_terms(model, y, sol, current, ift):
     dev_grad, dev_hess = _deviance_coefficient_derivatives(
         model,
         y,
-        np.asarray(sol["eta"], dtype=np.float64),
-        sol["mu"],
+        eta,
+        mu,
         _prior_weights(model, y),
         np.asarray(current.X, dtype=np.float64),
     )
     return _deviance_chained_to_smoothing(dev_grad, dev_hess, ift.dbeta, ift.d2beta_mat)
 
 
-def _gdi1_bsb_terms(current, ift):
+def _gdi1_bsb_terms(current, ift, sp):
+    """Operation-for-operation port of ``mgcv/src/gdi.c::get_bSb()``."""
     beta = np.asarray(current.beta, dtype=np.float64)
     E = _drop_permute_columns(
         np.asarray(current.canonical.Sr, dtype=np.float64),
         current.dropped_column_indices,
         current.pivot1,
     )
-    work = E @ beta
-    Sb = E.T @ work
-    bSb = float(beta @ Sb)
+    work = np.asarray(_mgcv_dgemm(E, beta), dtype=np.float64)
+    Sb = np.asarray(_mgcv_dgemm(E, work, transpose_left=True), dtype=np.float64)
+    bSb = 0.0
+    for row in range(beta.size):
+        bSb += beta[row] * Sb[row]
 
     n_sp = len(ift.dbeta)
     if n_sp == 0:
@@ -1134,28 +1350,59 @@ def _gdi1_bsb_terms(current, ift):
 
     bSb1 = np.zeros(n_sp, dtype=np.float64)
     bSb2 = np.zeros((n_sp, n_sp), dtype=np.float64)
-    Skb = [np.asarray(Pj @ beta, dtype=np.float64) for Pj in ift.P_derivs]
-    for j in range(n_sp):
-        bSb1[j] = float(beta @ Skb[j])
+    root_blocks = list(ift.root_blocks or [])
+    if len(root_blocks) != n_sp:
+        raise RuntimeError("internal: ift1 penalty-root blocks are incomplete.")
+    Skb = []
+    for j, root in enumerate(root_blocks):
+        if root.size:
+            root_work = np.asarray(
+                _mgcv_dgemm(root, beta, transpose_left=True), dtype=np.float64
+            )
+            for col in range(root_work.size):
+                root_work[col] *= float(sp[j])
+            Skb_j = np.asarray(_mgcv_dgemm(root, root_work), dtype=np.float64)
+        else:
+            Skb_j = np.zeros_like(beta)
+        Skb.append(Skb_j)
+        xx = 0.0
+        for row in range(beta.size):
+            xx += beta[row] * Skb_j[row]
+        bSb1[j] = xx
 
     for m in range(n_sp):
-        work1 = E @ np.asarray(ift.dbeta[m], dtype=np.float64)
-        work = E.T @ work1
+        work1 = np.asarray(_mgcv_dgemm(E, ift.dbeta[m]), dtype=np.float64)
+        work = np.asarray(
+            _mgcv_dgemm(E, work1, transpose_left=True), dtype=np.float64
+        )
         for k in range(m, n_sp):
-            val = 2.0 * float(np.asarray(ift.d2beta_mat[m][k], dtype=np.float64) @ Sb)
-            val += 2.0 * float(np.asarray(ift.dbeta[k], dtype=np.float64) @ work)
-            val += 2.0 * float(np.asarray(ift.dbeta[m], dtype=np.float64) @ Skb[k])
-            val += 2.0 * float(np.asarray(ift.dbeta[k], dtype=np.float64) @ Skb[m])
+            xx = 0.0
+            for row in range(beta.size):
+                xx += ift.d2beta_mat[m][k][row] * Sb[row]
+            val = 2.0 * xx
+            xx = 0.0
+            for row in range(beta.size):
+                xx += ift.dbeta[k][row] * work[row]
+            val += 2.0 * xx
+            xx = 0.0
+            for row in range(beta.size):
+                xx += ift.dbeta[m][row] * Skb[k][row]
+            val += 2.0 * xx
+            xx = 0.0
+            for row in range(beta.size):
+                xx += ift.dbeta[k][row] * Skb[m][row]
+            val += 2.0 * xx
             if k == m:
                 val += float(bSb1[k])
             bSb2[k, m] = val
             bSb2[m, k] = val
 
-    work = np.array(
-        [float(np.asarray(ift.dbeta[j], dtype=np.float64) @ Sb) for j in range(n_sp)],
-        dtype=np.float64,
+    b1_matrix = np.asfortranarray(np.column_stack(ift.dbeta))
+    work = np.asarray(
+        _mgcv_dgemm(b1_matrix, Sb, transpose_left=True), dtype=np.float64
     )
-    bSb1 = bSb1 + 2.0 * work
+    for j in range(n_sp):
+        bSb1[j] += 2.0 * work[j]
     return bSb, bSb1, bSb2
 
 
@@ -1467,7 +1714,7 @@ def _gdi1_kernel(model, y, sol, sp, *, method, rank_tol=None):
     pk_state = setup.pk
     ift = _gdi1_ift1_state(model, y, sol, sp, current, pk_state)
     D1, D2 = _gdi1_deviance_terms(model, y, sol, current, ift)
-    bSb, bSb1, bSb2 = _gdi1_bsb_terms(current, ift)
+    bSb, bSb1, bSb2 = _gdi1_bsb_terms(current, ift, sp)
     det1, det2, trA, trA1, trA2, K, K1, K2, dVkk = _gdi1_det_terms(
         model, sp, current, ift, pk_state, method=method
     )
@@ -1856,6 +2103,68 @@ def _gdi2_gamma_joint_kernel(model, y, sol, sp, *, method, need_hessian):
     )
 
 
+def _gdi2_gaussian_joint_kernel(model, y, sol, sp, *, method, need_hessian):
+    """
+    Gaussian profiled-scale branch of the joint staging.
+
+    mgcv/R/gam.fit3.r:628-637 borders the REML/ML derivatives with the
+    log-scale block. With the gaussian `ls` from mgcv/R/gam.fit3.r:2503-2508
+    (`ls[2] = -n/(2*phi)`, `ls[3] = n/(2*phi^2)`), solving `dlr.dlphi = 0`
+    gives the closed-form profile scale `phi = Dp / (n - gamma*Mp*remlInd)`
+    and the curvature at that point collapses to `Dp / (2*phi*gamma)`.
+    """
+    method_u = str(method).upper()
+    gdi1 = _gdi1_kernel(
+        model,
+        y,
+        sol,
+        sp,
+        method=method,
+        rank_tol=_MGCV_GAM_FIT3_RANK_TOL,
+    )
+    gamma = float(model.score_gamma)
+    mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
+    Dp = float(sol["deviance"]) + float(gdi1.bSb)
+    nobs = float(len(np.asarray(y)))
+    n_eff = nobs
+    n_true = getattr(model, "n_true_", None)
+    if n_true is not None:
+        n_true = float(n_true)
+        if np.isfinite(n_true) and n_true > 0.0:
+            n_eff = n_true
+    reml_ind = 1.0 if method_u == "REML" else 0.0
+    denom = n_eff - gamma * mp * reml_ind
+    if not np.isfinite(denom) or denom <= 0.0 or not np.isfinite(Dp) or Dp <= 0.0:
+        raise RuntimeError(
+            "Gaussian exact PIRLS derivatives require positive profile scale."
+        )
+    phi = Dp / denom
+    Dp1 = np.asarray(gdi1.D1 + gdi1.bSb1, dtype=np.float64)
+    if not need_hessian:
+        return _GDI2Kernel(
+            gdi1=gdi1,
+            phi=float(phi),
+            phi_curv=None,
+            Dp=float(Dp),
+            Dp1=Dp1,
+            Dp2=None,
+            extra_name="log_phi",
+            extra_value=float(np.log(phi)),
+        )
+    phi_curv = denom / (2.0 * gamma)
+    Dp2 = np.asarray(gdi1.D2 + gdi1.bSb2, dtype=np.float64)
+    return _GDI2Kernel(
+        gdi1=gdi1,
+        phi=float(phi),
+        phi_curv=float(phi_curv),
+        Dp=float(Dp),
+        Dp1=Dp1,
+        Dp2=Dp2,
+        extra_name="log_phi",
+        extra_value=float(np.log(phi)),
+    )
+
+
 def _gdi2_general_family_kernel(model, y, sol, sp, *, method, need_hessian):
     """
     Port-shaped `gam.fit5()` decomposition for theta-free general families.
@@ -1947,6 +2256,10 @@ def _gdi2_joint_kernel(model, y, sol, sp, *, method, need_hessian):
         return _gdi2_gamma_joint_kernel(
             model, y, sol, sp, method=method, need_hessian=need_hessian
         )
+    if family_name == "gaussian":
+        return _gdi2_gaussian_joint_kernel(
+            model, y, sol, sp, method=method, need_hessian=need_hessian
+        )
     if family_name == "negbin":
         return _gdi2_negbin_joint_kernel(
             model, y, sol, sp, method=method, need_hessian=need_hessian
@@ -1983,10 +2296,14 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
     gamma = float(model.score_gamma)
     if not np.isfinite(gamma) or gamma <= 0.0:
         raise ValueError("score_gamma must be finite and positive.")
-    if getattr(model.family, "known_scale", None) is None and family_name != "gamma":
+    if getattr(model.family, "known_scale", None) is None and family_name not in {
+        "gamma",
+        "gaussian",
+    }:
         raise NotImplementedError(
             "Exact PIRLS ML/REML gradients are currently implemented only for "
-            "fixed-scale families, plus Gamma via the profiled scale branch."
+            "fixed-scale families, plus Gamma and Gaussian via the profiled "
+            "scale branch."
         )
     free_mask = (
         np.zeros(_n_smoothing_params(model), dtype=bool)
@@ -2002,7 +2319,10 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
     kernel = _gdi1_kernel(model, y, sol, sp, method=method)
     scale = float(sol["scale"])
 
-    if getattr(model.family, "known_scale", None) is None and family_name == "gamma":
+    if getattr(model.family, "known_scale", None) is None and family_name in {
+        "gamma",
+        "gaussian",
+    }:
         gdi2 = _gdi2_joint_kernel(model, y, sol, sp, method=method, need_hessian=False)
         model._pirls_reml_gamma_state_ = {
             "K": float(kernel.K),
@@ -2040,10 +2360,14 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
     gamma = float(model.score_gamma)
     if not np.isfinite(gamma) or gamma <= 0.0:
         raise ValueError("score_gamma must be finite and positive.")
-    if getattr(model.family, "known_scale", None) is None and family_name != "gamma":
+    if getattr(model.family, "known_scale", None) is None and family_name not in {
+        "gamma",
+        "gaussian",
+    }:
         raise NotImplementedError(
-            "Exact PIRLS ML/REML Hessians are currently implemented only for fixed-scale families, "
-            "plus Gamma via the profiled scale branch."
+            "Exact PIRLS ML/REML Hessians are currently implemented only for "
+            "fixed-scale families, plus Gamma and Gaussian via the profiled "
+            "scale branch."
         )
 
     free_mask = (
