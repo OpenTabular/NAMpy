@@ -127,7 +127,11 @@ def normalize_tensor_fx_flags(fx, n: int):
         return [False] * n
     if np.isscalar(fx):
         return [bool(fx)] * n
-    raise NotImplementedError("Tensor smooths do not support vector-valued fx.")
+    values = [bool(value) for value in fx]
+    if len(values) != int(n):
+        warnings.warn("dimension of fx is wrong", stacklevel=3)
+        return [False] * int(n)
+    return values
 
 
 def _normalize_tensor_m(m, n: int):
@@ -274,6 +278,7 @@ def build_tensor_marginal_terms(
         knots_list,
         centered_flags,
         shared_basis_setups,
+        strict=True,
     ):
         term = make_tensor_marginal_term(
             feature=feat,
@@ -308,7 +313,7 @@ def build_tensor_product_components(
     marginal_penalties = []
     marginal_np_transforms = []
     marginal_local_bases = []
-    for m, center_i in zip(marginals, use_centered):
+    for m, center_i in zip(marginals, use_centered, strict=True):
         marginal_indices = tensor_marginal_feature_indices(m)
         x_train = (
             column_as_float(X, marginal_indices[0])
@@ -376,7 +381,9 @@ def tensor_predict_matrix(
         )
     centered = _normalize_bool_list(centered, len(marginals))
     blocks = []
-    for m, center_i, xp in zip(marginals, centered, np_transforms):
+    for m, center_i, xp in zip(
+        marginals, centered, np_transforms, strict=True
+    ):
         blocks.append(
             tensor_marginal_predict_matrix(m, X_new, centered=center_i, np_transform=xp)
         )
