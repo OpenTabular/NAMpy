@@ -50,10 +50,13 @@ class MultiModelWrapper(nn.Module):
             if output.dim() == 1:
                 output = output.unsqueeze(1)
             outputs.append(output)
-            if "penalty" in result:
-                penalties.append(result["penalty"])
+            penalties.extend(
+                value
+                for name, value in result.items()
+                if name.endswith("_penalty") or name.endswith("_regularizer")
+            )
 
         out = {"output": torch.cat(outputs, dim=1)}
         if penalties:
-            out["penalty"] = sum(penalties)
+            out["output_penalty"] = sum(penalties)
         return out

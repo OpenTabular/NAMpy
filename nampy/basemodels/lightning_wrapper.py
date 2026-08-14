@@ -14,6 +14,7 @@ class TaskModel(pl.LightningModule):
         cat_feature_info,
         num_feature_info,
         num_classes=1,  # semantic class count for classification, output dim for regression/LSS
+        task: str | None = None,
         lss=False,
         family=None,
         loss_fct: Any = None,
@@ -28,16 +29,24 @@ class TaskModel(pl.LightningModule):
         # Keep task semantics separate from model output width
         self.n_classes = int(num_classes)
 
+        requested_task = None if task is None else str(task).lower()
         if self.lss:
             self.task_kind = "lss"
             self.output_dim = int(num_classes)  # usually family.param_count
         else:
-            if self.n_classes == 1:
+            if requested_task is None:
+                requested_task = (
+                    "regression" if self.n_classes == 1 else "classification"
+                )
+
+            if requested_task == "regression":
+                if self.n_classes < 1:
+                    raise ValueError("Regression output width must be at least one.")
                 self.task_kind = "regression"
-                self.output_dim = 1
+                self.output_dim = self.n_classes
                 if self.loss_fct is None:
                     self.loss_fct = nn.MSELoss()
-            elif self.n_classes == 2:
+            elif requested_task == "classification" and self.n_classes == 2:
                 self.task_kind = "binary"
                 self.output_dim = 1  # BCE-with-logits style
                 if self.loss_fct is None:
@@ -46,7 +55,7 @@ class TaskModel(pl.LightningModule):
                 # Optional: keep AUROC/precision, but log on_epoch only (see below)
                 self.auroc = torchmetrics.AUROC(task="binary")
                 self.precision = torchmetrics.Precision(task="binary")
-            else:
+            elif requested_task == "classification" and self.n_classes > 2:
                 self.task_kind = "multiclass"
                 self.output_dim = self.n_classes
                 if self.loss_fct is None:
@@ -59,6 +68,13 @@ class TaskModel(pl.LightningModule):
                 )
                 self.precision = torchmetrics.Precision(
                     task="multiclass", num_classes=self.n_classes
+                )
+            elif requested_task == "classification":
+                raise ValueError("Classification requires at least two classes.")
+            else:
+                raise ValueError(
+                    f"Unsupported supervised task {task!r}; expected "
+                    "'regression' or 'classification'."
                 )
 
         # Avoid checkpoint bloat / pickle issues
@@ -93,6 +109,11 @@ class TaskModel(pl.LightningModule):
             y = y_true.to(dtype=preds.dtype)
             if y.ndim == 1:
                 y = y.unsqueeze(-1)
+            if y.shape != preds.shape:
+                raise ValueError(
+                    f"Regression predictions have shape {tuple(preds.shape)}, but "
+                    f"targets have shape {tuple(y.shape)}."
+                )
             return preds, y
 
         if self.task_kind == "binary":
@@ -199,7 +220,8 @@ class TaskModel(pl.LightningModule):
         cat_features, num_features, labels = batch
         result = self(num_features=num_features, cat_features=cat_features)
         preds = result["output"]
-        loss = self.compute_loss(preds, labels)
+        data_loss = self.compute_loss(preds, labels)
+        loss = data_loss
         for key, value in result.items():
             if key.endswith("_penalty") or key.endswith("_regularizer"):
                 loss = loss + value
@@ -218,7 +240,7 @@ class TaskModel(pl.LightningModule):
         if stage == "test" and (not self.lss) and self.task_kind == "regression":
             self.log(
                 "test_rmse",
-                torch.sqrt(loss),
+                torch.sqrt(data_loss),
                 on_step=False,
                 on_epoch=True,
                 prog_bar=True,

@@ -8,7 +8,6 @@ import pandas as pd
 import properscoring as ps
 import torch
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
-from pretab.preprocessor import Preprocessor
 from sklearn.base import BaseEstimator
 from sklearn.metrics import accuracy_score, mean_squared_error
 
@@ -51,46 +50,17 @@ from ..utils.plotting import (
     plot_density_shading,
     prepare_plot_data,
 )
+from ._sklearn_data import prepare_fit_features, prepare_predict_features
+from ._sklearn_params import NeuralEstimatorParameterMixin
 
 
-class SklearnBaseLSS(BaseEstimator):
+class SklearnBaseLSS(NeuralEstimatorParameterMixin, BaseEstimator):
     def __init__(self, model, config, **kwargs):
-        preprocessor_arg_names = [
-            "n_bins",
-            "numerical_preprocessing",
-            "categorical_preprocessing",
-            "use_decision_tree_bins",
-            "binning_strategy",
-            "task",
-            "cat_cutoff",
-            "treat_all_integers_as_numerical",
-            "degree",
-            "n_knots",
-            "scaling_strategy",
-            "feature_preprocessing",
-        ]
-
-        self.config_kwargs = {
-            k: v for k, v in kwargs.items() if k not in preprocessor_arg_names
-        }
-        self.config = config(**self.config_kwargs)
-
-        preprocessor_kwargs = {
-            k: v for k, v in kwargs.items() if k in preprocessor_arg_names
-        }
-        if preprocessor_kwargs.get("categorical_preprocessing") in (
-            "one_hot",
-            "one-hot",
-        ):
-            preprocessor_kwargs["categorical_preprocessing"] = "one-hot"
-        if preprocessor_kwargs.get("numerical_preprocessing") == "normalization":
-            preprocessor_kwargs["numerical_preprocessing"] = "minmax"
-
-        self.preprocessor = Preprocessor(**preprocessor_kwargs)
+        self._initialize_estimator_parameters(config, kwargs)
         self.model = None
 
         # Raise a warning if task is set to 'classification'
-        if preprocessor_kwargs.get("task") == "classification":
+        if self._provided_preprocessor_kwargs.get("task") == "classification":
             warnings.warn(
                 "The task is set to 'classification'. Be aware of your preferred distribution, that this might lead to unsatisfactory results.",
                 UserWarning,
@@ -98,70 +68,6 @@ class SklearnBaseLSS(BaseEstimator):
             )
 
         self.base_model = model
-
-    def get_params(self, deep=True):
-        """
-        Get parameters for this estimator. Overrides the BaseEstimator method.
-
-        Parameters
-        ----------
-        deep : bool, default=True
-            If True, returns the parameters for this estimator and contained sub-objects that are estimators.
-
-        Returns
-        -------
-        params : dict
-            Parameter names mapped to their values.
-        """
-        params = dict(self.config_kwargs)  # copy to avoid mutating estimator state
-
-        # If deep=True, include parameters from nested components like preprocessor
-        if deep:
-            # Assuming Preprocessor has a get_params method
-            preprocessor_params = {
-                "preprocessor__" + key: value
-                for key, value in self.preprocessor.get_params().items()
-            }
-            params.update(preprocessor_params)
-
-        return params
-
-    def set_params(self, **parameters):
-        """
-        Set the parameters of this estimator. Overrides the BaseEstimator method.
-
-        Parameters
-        ----------
-        **parameters : dict
-            Estimator parameters to be set.
-
-        Returns
-        -------
-        self : object
-            The instance with updated parameters.
-        """
-        config_updates = {}
-        preprocessor_params = {}
-
-        for key, value in parameters.items():
-            if key.startswith("preprocessor__"):
-                preprocessor_params[key.split("__", 1)[1]] = value
-            elif key in self.config_kwargs:
-                config_updates[key] = value
-            else:
-                raise ValueError(
-                    f"Invalid parameter '{key}' for {self.__class__.__name__}. "
-                    f"Valid parameters: {sorted(self.config_kwargs.keys())}."
-                )
-
-        self.config_kwargs.update(config_updates)
-        for key, value in config_updates.items():
-            setattr(self.config, key, value)
-
-        if preprocessor_params:
-            self.preprocessor.set_params(**preprocessor_params)
-
-        return self
 
     def fit(
         self,
@@ -297,13 +203,11 @@ class SklearnBaseLSS(BaseEstimator):
         else:
             raise ValueError("Unsupported family: {}".format(family))
 
-        if not isinstance(X, pd.DataFrame):
-            X = pd.DataFrame(X)
+        X = prepare_fit_features(self, X)
         if isinstance(y, pd.Series):
             y = y.values
         if X_val is not None:
-            if not isinstance(X_val, pd.DataFrame):
-                X_val = pd.DataFrame(X_val)
+            X_val = prepare_predict_features(self, X_val)
             if isinstance(y_val, pd.Series):
                 y_val = y_val.values
 
@@ -394,6 +298,8 @@ class SklearnBaseLSS(BaseEstimator):
         # Ensure model and data module are initialized
         if self.model is None or self.data_module is None:
             raise ValueError("The model or data module has not been fitted yet.")
+
+        X = prepare_predict_features(self, X)
 
         # Preprocess the data using the data module
         cat_tensor_dict, num_tensor_dict = self.data_module.preprocess_test_data(X)
@@ -948,7 +854,7 @@ class SklearnBaseLSS(BaseEstimator):
         # Create grid and plot
         fig, axes = create_subplot_grid(len(features_to_plot))
 
-        for ax, fname in zip(axes, features_to_plot):
+        for ax, fname in zip(axes, features_to_plot, strict=False):
             self._plot_single_feature_effects(
                 X_prepared[fname].values,
                 predictions[fname],

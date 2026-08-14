@@ -147,7 +147,7 @@ class NodeGAM(BaseModel):
         # Create result dictionary
         result = {"output": output}
         if penalty is not None:
-            result["penalty"] = penalty
+            result["output_penalty"] = penalty
 
         # Add individual feature outputs for interpretability
         for i, feature_name in enumerate(feature_names):
