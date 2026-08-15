@@ -238,21 +238,27 @@ Do not run the full suite by default.
 
 ### Factor-smooth penalty ordering (highest priority)
 
-- [ ] Fix the fs null-space penalty identity/order:
-  `gaussian_reml_newton_fs_xt_ps` fails strict lifecycle parity (last two
-  null-space log smoothing parameters swapped: NAMpy
-  [-3.8134, -5.6009, -5.4225] vs mgcv [-3.8134, -5.4225, -5.6009]); the
-  optimized fs + `select=True` endpoint is also off by several log units
-  (REVIEW.md finding 1, re-confirmed 2026-08-15 on the committed tree).
-  Owner: `nampy/gam/smooths/categorical/fs.py` penalty append order (~:712).
-  Until fixed, either mark the registry case `known_gap` (and update
-  `tests/regressions/test_gam_optimization_lifecycle_contracts.py`) or fix
-  directly — the strict suite currently has one known-failing unmarked case.
-
-  ```bash
-  /home/ad32/miniconda3/envs/nampy/bin/pytest \
-    'tests/optimization/test_mgcv_optimization_lifecycle_parity.py::test_supported_optimization_lifecycle_matches_mgcv[gaussian_reml_newton_fs_xt_ps]' -v
-  ```
+- [x] Resolved 2026-08-15. Investigation (debug/fs_null_order_probe.py,
+  debug/fs_null_order_stability_probe.py) proved the "swap" is mgcv-internal
+  indeterminacy, not a NAMpy ordering bug: upstream assigns one sp per
+  nat.param(type=1) null column (mgcv/R/smooth.r:2067-2075), and R's eigen
+  orders those numerically-zero RSR eigenvalues by roundoff — mgcv itself
+  flips the order under a row permutation of the same data, and the two null
+  directions are identical between NAMpy and mgcv (cross-correlation is an
+  exact permutation matrix). There is no deterministic upstream rule to port;
+  forcing one would require platform-specific LAPACK behavior, which policy
+  forbids. Treatment: the lifecycle registry gained declared
+  `exchangeable_sp_groups` (+ coefficient-column mapping), and the harness
+  canonicalizes each side independently by descending final log-sp inside the
+  group before the otherwise-strict comparison — the full Newton trace, sp
+  endpoint, Vp, Ve, EDF, scale, hat, and outer info all match strictly after
+  alignment. Vc / edf2_total / AIC are excluded for this case with recorded
+  evidence: mgcv's own row-permuted fit moves them by the same amounts, and
+  NAMpy's values equal mgcv's other branch to 7 digits (Vc[0,0] 0.0695778077,
+  edf2_total 15.9940558; AIC diff = exactly 2x edf2 spread).
+  `gaussian_reml_newton_fs_xt_ps` passes; the fs+select snapshot case
+  (test_gaussian_fs_ps_marginal_select_reml_matches_mgcv) already documents
+  its flat-ridge tolerances and passes.
 
 ### cs shrinkage parity (unmasked by the cache bump)
 
@@ -296,19 +302,24 @@ Do not run the full suite by default.
 
 ### Side conditions
 
-- [ ] Align side-condition scope with upstream `gam.side` for exactly aliased
-  parametric columns (found 2026-08-15 via
-  `debug/rank_deficient_gaussian_probe.py`): NAMpy deletes the aliased
-  parametric column before fitting, upstream leaves it to the solver drop
-  (coef 0, zero Vp row, rank < np), which changes Mp bookkeeping and hence
-  sp/edf. With `apply_side_conditions=False` the solver path is
-  upstream-exact (strict drop-gauge regression in
-  `tests/regressions/test_gam_mgcv_patch_regressions.py`). Before restricting
-  the scope, check whether factor-interaction hidden-column dedup relies on
-  parametric deletion, then add a default-path parity case.
+- [x] Align side-condition scope with upstream `gam.side` for exactly aliased
+  parametric columns. Done 2026-08-15: parametric terms now pass through
+  untouched and are used only for upstream's intercept-equivalence check;
+  one-smooth/no-nesting designs preserve their compiled matrices byte-for-byte.
+  Default and direct solver regressions cover Gaussian, Poisson, binomial, and
+  Gamma rank drops. Factor-by/no-intercept nesting and linked factor-by parity
+  remain strict. `debug/rank_deficient_side_condition_probe.py` records that
+  mgcv itself switches the zeroed member of an exact alias under a 2.6e-12
+  log-sp endpoint shift, while matching NAMpy at each shared endpoint.
 
 ### Optimizers and endpoints
 
+- [ ] Diagnose the near-singular Gaussian random-effect REML runtime separately
+  from correctness. The exact
+  `test_gaussian_re_reml_intercept_edf_attribution_matches_mgcv` slice still
+  exceeded three minutes on 2026-08-15 and was interrupted; the noisy fixed-SP
+  random-effect post-process parity case passes without the removed EDF
+  heuristic.
 - [ ] Port the exact estimated-theta negative-binomial ML `optim`/L-BFGS-B boundary
   behavior from R before removing its explicit guard. Add a targeted lifecycle case
   first.

@@ -578,9 +578,9 @@ worktree commit split. All commands via `/home/ad32/miniconda3/envs/nampy/bin/py
    (same factorization as coefficients); NAMpy-only gauge pin disarmed on the
    gaussian path; dead `Mp` parameter removed. New strict drop-gauge
    regression vs live mgcv (exact zero coef AND zero Vp row at mgcv's dropped
-   position). NEW FINDING: default side conditions delete aliased parametric
-   columns (upstream gam.side does not) — tracked as an open item; with
-   `apply_side_conditions=False` the solver path is upstream-exact.
+   position). Resolved follow-up: default side conditions now leave aliased
+   parametric columns to the solver, matching `mgcv::gam.side`; direct and
+   default paths are covered across Gaussian, Poisson, binomial, and Gamma.
 5. **PIRLS rank tolerance**: `irls_core` default now `eps*100`
    (gam.fit3.r:131), consistent with the gdiPK kernel; stale docstring fixed.
    Re-validated: gdi1 six-test command (6 passed), Gamma+negbin lifecycle
@@ -604,6 +604,12 @@ worktree commit split. All commands via `/home/ad32/miniconda3/envs/nampy/bin/py
 - `tests/optimization/test_mgcv_optimization_lifecycle_parity.py` A1+A2 slice: 7 passed (twice: baseline + post rank-tol).
 - B1/B2 prediction slices: 9 passed; B3 guard + C1/C2 xfails file slice: 5 passed; D1: 4 passed (twice).
 - `tests/regressions/test_gam_mgcv_patch_regressions.py::test_rank_deficient_gaussian_fit_matches_mgcv_drop_gauge`: passed (after fix; failed before, as designed).
+- `tests/regressions/test_gam_mgcv_patch_regressions.py::test_rank_deficient_pirls_fit_matches_mgcv_drop_gauge`: 6 passed (direct + default side conditions across Poisson/binomial/Gamma).
+- `tests/optimization/test_mgcv_gam_side_parity.py::test_gam_side_matches_mgcv_nested_side_condition_cases`: 12 passed.
+- Current non-general `gam.side` one-smooth/no-op slice (`-k 'uni or random_effect or random_slope_re or numeric_by_cr or factor_by_cr'`): 9 passed, 20 deselected.
+- `tests/parity/test_mgcv_parity_failing_and_warnings.py::test_strict_factor_by_link_parity`: passed.
+- Gaussian smoothness post-process owner checks (single CR + noisy random effect): 2 passed after removal of the single-smooth EDF heuristic.
+- `test_gaussian_re_reml_intercept_edf_attribution_matches_mgcv` was interrupted after exceeding three minutes; tracked as a separate near-singular optimizer performance item, not counted as passing correctness evidence.
 - `tests/parity/test_gam_results_api_stage_owner_contracts.py`: 3 passed (schema).
 - `tests/parity/test_mgcv_remaining_gap_xfails.py -k 'loglik_aic_bic or bic_matches'`: 5 passed.
 - `tests/diagnostics/test_gam_summary_owner_contracts.py`: 5 passed (null-deviance branches + dispersion/freq/re_test contracts).
@@ -655,3 +661,34 @@ tree; full status table prepended there. Verification runs:
   tracked as policy items in todo P1.
 
 REVIEW.md, tldr.md, and todo.md updated accordingly.
+
+### Addendum (2026-08-15, later): fs null-space penalty ordering resolved
+
+Investigated `gaussian_reml_newton_fs_xt_ps` (audit finding 1). Probes
+(`debug/fs_null_order_probe.py`, `debug/fs_null_order_stability_probe.py`):
+
+- The two nat.param null directions are IDENTICAL between NAMpy and mgcv
+  (cross-correlation is an exact permutation matrix); only the ordering of
+  the numerically-zero RSR eigenvalues differs (NAMpy [2.2e-14, 3.8e-16] vs
+  R [1.9e-15, -6.7e-15], both descending-sorted roundoff).
+- mgcv's own order is NOT deterministic: row-permuting the data (identical
+  model) flips it (seeds 1711/1 flip; seed set shows no consistent rule).
+  No deterministic upstream rule exists to port.
+- Treatment per invariant policy: lifecycle registry gained
+  `exchangeable_sp_groups`/`exchangeable_sp_coef_cols`/`compare_unconditional`;
+  the harness canonicalizes each side independently (descending final log-sp
+  within declared groups, extended with identity over trailing joint
+  scale/theta coordinates, and the induced coefficient permutation for
+  covariance diagonals) before the otherwise-strict comparison.
+- Post-alignment: full Newton trace, endpoint, Vp, Ve, EDF, scale, hat,
+  outer_info all strict. Vc/edf2_total/AIC excluded for this case with
+  evidence: mgcv row-permuted moves Vc[0,0] 0.0696214->0.0695778 and
+  edf2_total 15.9964324->15.9940558, and NAMpy equals the row-permuted
+  branch to 7 digits in both; AIC diff = exactly 2x the edf2 spread.
+
+Runs: `[gaussian_reml_newton_fs_xt_ps]` PASSED; registry contracts 3 passed;
+neighbors `gaussian_reml_newton_random_effect`, `gaussian_reml_newton_two_cr`,
+`gamma_reml_newton_joint_scale_cr`, `negbin_est_reml_newton_joint_theta_weighted_cr`,
+`gaussian_log_reml_newton_joint_scale_cr` all PASSED (canonicalization is a
+no-op without declared groups). smoothCon fs slice 4 passed. The fs+select
+snapshot case passes under its documented flat-ridge tolerances.

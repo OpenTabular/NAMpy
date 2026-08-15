@@ -42,6 +42,22 @@ class OptimizationLifecycleCase:
     gam_kwargs: dict[str, Any] = field(default_factory=dict)
     status: str = "stable"
     known_gap_reason: str | None = None
+    # Smoothing-parameter index groups whose assignment order is
+    # mgcv-indeterminate (e.g. fs null-space penalties: upstream assigns one
+    # sp per nat.param null column, and R's eigen orders those numerically-zero
+    # eigenvalues by roundoff — mgcv itself flips the order under row
+    # permutation of the same data; debug/fs_null_order_stability_probe.py).
+    # The harness canonicalizes each side independently by descending final
+    # log-sp inside each group before the strict comparison.
+    exchangeable_sp_groups: tuple[tuple[int, ...], ...] = ()
+    # Parallel to exchangeable_sp_groups: for each sp in a group, the public
+    # coefficient columns tied to that sp, so coefficient-indexed surfaces
+    # (covariance diagonals) can be permuted consistently.
+    exchangeable_sp_coef_cols: tuple[tuple[tuple[int, ...], ...], ...] = ()
+    # Set False when the unconditional covariance inherits more than
+    # tolerance-level spread from an mgcv-internal indeterminacy (evidence
+    # required in the case comment); Vp/Ve stay strict.
+    compare_unconditional: bool = True
 
 
 OPTIMIZATION_LIFECYCLE_CASES: list[OptimizationLifecycleCase] = [
@@ -454,6 +470,21 @@ OPTIMIZATION_LIFECYCLE_CASES.extend(
             data_factory=_coverage_make_random_effect_data_noisy,
             skip_coef_comparison=True,
             trace_atol=5e-5,
+            # The two fs null-space penalties (sp indices 1, 2) are assigned to
+            # nat.param null columns whose order is roundoff-indeterminate in
+            # mgcv itself (see registry field docs). The base ps ignores k=/m=
+            # inside xt exactly as upstream, so p0=10, range rank 8: null sp j
+            # owns public coefficient columns 1 + level*10 + 8 + j.
+            exchangeable_sp_groups=((1, 2),),
+            exchangeable_sp_coef_cols=(((9, 19, 29), (10, 20, 30)),),
+            # Vc's smoothing-uncertainty correction runs through the inverse
+            # outer Hessian of the flat null directions, so it inherits the
+            # branch of the null-order indeterminacy: mgcv on row-permuted
+            # data (identical model) moves its own Vc intercept diagonal by
+            # rel 6.3e-4, and NAMpy's value equals mgcv's other branch to 7
+            # digits (0.06957781 vs 0.0695778077; Vp branch-invariant at
+            # 2e-12). Verified 2026-08-15 in the fs null-order probes.
+            compare_unconditional=False,
         ),
         OptimizationLifecycleCase(
             case_id="gaussian_reml_newton_re_custom_xt",
