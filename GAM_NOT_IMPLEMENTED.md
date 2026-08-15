@@ -84,6 +84,18 @@ its extended families are ported.
 
 ## Known numeric deviations (documented, evidence-backed)
 
+- **fs null-space penalty assignment order** — upstream assigns one sp per
+  `nat.param(type=1)` null column (`mgcv/R/smooth.r:2067-2075`), whose order
+  is a descending sort of numerically-zero eigenvalues: mgcv itself flips it
+  under a row permutation of the same data
+  (`debug/fs_null_order_stability_probe.py`), while the null directions are
+  identical between NAMpy and mgcv. The lifecycle harness declares the block
+  exchangeable and canonicalizes both sides by final log-sp before an
+  otherwise-strict comparison (trace, endpoint, Vp/Ve, EDF, scale strict);
+  Vc/edf2/AIC inherit the branch (NAMpy equals mgcv's row-permuted branch to
+  7 digits) and are excluded for the affected case with the evidence in the
+  registry comment.
+
 - **`select=True` general-family optimized endpoints**
   (`gaulss_select_true_cr`, `gammals_select_true_cr`) — the only live xfails.
   Both verified 2026-08-14 (`debug/gaulss_select_initial_spg_probe.py`,
@@ -98,17 +110,3 @@ its extended families are ported.
   edf/edf1/edf2 scalars exceed tolerance; post-processing (Vc and edf2
   assembly) is tested strictly at a shared endpoint for both cases and
   matches at 5e-6.
-- **Parametric-alias side conditions** — NAMpy's `gam.side` analogue also
-  deletes exactly aliased *parametric* columns before fitting, while upstream
-  `gam.side` only constrains smooths and leaves parametric aliasing to the
-  solver drop (coefficient 0, zero `Vp` row, `rank < np`). With
-  `apply_side_conditions=False` the solver drop path is upstream-exact
-  (verified 2026-08-15, `debug/rank_deficient_gaussian_probe.py` and the
-  strict drop-gauge regression); the default path's column deletion changes
-  the `Mp` bookkeeping so sp/edf differ slightly from mgcv for such models.
-  Open item: restrict side-condition deletion to smooth-involved
-  dependencies after checking factor-interaction reliance.
-- **Non-Gaussian PIRLS gauge pin** — `pirls.py` still arms the NAMpy-only
-  `near_singular_null_pin="auto"` gauge for the non-Gaussian PIRLS path
-  (fires only when columns actually drop). The Gaussian exact path no longer
-  uses it (the canonical `gdi1` drop IS mgcv's gauge, fixed 2026-08-15).
