@@ -15,20 +15,19 @@ from nampy.gam._model_state import (  # noqa: E402
     _n_coef,
     _penalty_blocks_seq,
 )
-from nampy.gam.fit.linalg.stacked_qr import (  # noqa: E402
-    balanced_penalty_template_sqrt_for_rank,
-)
 from nampy.gam.fit.penalized_system import (  # noqa: E402
     build_full_design,
     build_full_penalty_from_blocks,
 )
 from nampy.gam.fit.solvers.irls_core import _mgcv_null_coef, irls_core  # noqa: E402
+from nampy.gam.linalg import (  # noqa: E402
+    balanced_penalty_template_sqrt_for_rank,
+)
 from tests.gam_cartesian_matrix import MatrixCase, fit_model, make_data  # noqa: E402
 from tests.mgcv_parity_utils import (  # noqa: E402
     _run_mgcv_gam_setup_assembly,
     _run_mgcv_snapshot,
 )
-
 
 FORMULA = 'y ~ te(x0, x1, bs=["cr","cr"], k=[6,6], fx=TRUE)'
 FAMILY = "binomial"

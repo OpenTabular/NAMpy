@@ -1,8 +1,13 @@
-"""Decompose the gammals_select_true_cr edf2_total mismatch.
+"""Decompose the gammals_select_true_cr optimized-endpoint mismatch.
 
 Prints, for both NAMpy and mgcv: sum(edf), sum(edf1), the raw
 rowSums(Vc * crossprod(R)) sum before the cap, and whether the
 `sum(edf2) > sum(edf1) -> edf2 <- edf1` replacement (gam.fit4.r:1715) fired.
+
+It also compares optimized new-data predictions against mgcv on the original
+and mirrored (``x -> -x``) representations of the same model.  The mirrored
+newdata is transformed with the training data so both fits are evaluated at
+the same physical covariate locations.
 """
 
 import json
@@ -16,11 +21,116 @@ sys.path.insert(0, "/home/ad32/projects/package/NAMpy")
 import numpy as np
 
 import nampy.gam.fit.solvers.general_family.newton as gnewton
+from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
+    build_general_family_setup_state,
+)
 from nampy.gam.model.api import GAM
-from tests.families.test_general_family_mgcv_parity import _gammals_data
+from nampy.gam.smoothing_selection.optimize.basics import (
+    _initial_smoothing_params_from_design,
+)
+from nampy.gam.smoothing_selection.reparam import build_estimate_gam_setup_state
+from tests.families.test_general_family_mgcv_parity import (
+    _gammals_data,
+    _general_newdata,
+)
+from tests.mgcv_parity_utils import _run_mgcv_predict_on_newdata
+
+FORMULA = ['y ~ s(x, bs="cr", k=6)', "~ 1"]
+
+
+def _run_mgcv_initial_spg(frame):
+    with tempfile.TemporaryDirectory() as tmp:
+        csv = Path(tmp) / "d.csv"
+        output = Path(tmp) / "initial.json"
+        frame.to_csv(csv, index=False)
+        res = subprocess.run(
+            [
+                "Rscript",
+                "tests/parity/mgcv_initial_spg.R",
+                str(csv),
+                str(output),
+                str(FORMULA),
+                "gammals",
+                "ML",
+                "true",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if res.returncode != 0:
+            raise RuntimeError(res.stderr[-1000:])
+        return json.loads(output.read_text(encoding="utf-8"))
 
 data = _gammals_data()
 captured = {}
+
+compiled = GAM(
+    formula=FORMULA,
+    family="gammals",
+    select=True,
+    optimize_smoothing=False,
+    smoothing_method="ML",
+)
+compiled.fit(data=data)
+compiled_setup = build_estimate_gam_setup_state(compiled)
+compiled_fit5_setup = build_general_family_setup_state(
+    compiled,
+    np.ones(np.asarray(compiled.smoothing_params).size, dtype=np.float64),
+    score_type="ML",
+)
+nampy_initial_sp = _initial_smoothing_params_from_design(compiled, compiled.y_)
+mgcv_initial = _run_mgcv_initial_spg(data)
+mirrored_initial_data = data.copy()
+mirrored_initial_data["x"] = -mirrored_initial_data["x"]
+mgcv_mirrored_initial = _run_mgcv_initial_spg(mirrored_initial_data)
+
+print("initial.spg:")
+print(f"  model sp count : {np.asarray(compiled.smoothing_params).size}")
+print(f"  penalty count  : {len(compiled_setup.S)}")
+print(f"  ranks / offsets: {compiled_setup.rank} / {compiled_setup.off}")
+print(f"  L / lsp0      : {compiled_setup.L} / {compiled_setup.lsp0}")
+for label, expected in (
+    ("mgcv original", mgcv_initial),
+    ("mgcv mirrored", mgcv_mirrored_initial),
+):
+    x_diff = np.max(
+        np.abs(
+            np.asarray(compiled_fit5_setup.X_initial, dtype=np.float64)
+            - np.asarray(expected["X_initial"], dtype=np.float64)
+        )
+    )
+    s_diffs = [
+        np.max(np.abs(np.asarray(actual) - np.asarray(reference)))
+        for actual, reference in zip(compiled_setup.S, expected["S"], strict=True)
+    ]
+    print(f"  setup vs {label}: X={x_diff:.3e}, S={s_diffs}")
+print(f"  NAMpy          : {np.asarray(nampy_initial_sp, dtype=float)}")
+print(f"  mgcv original  : {np.asarray(mgcv_initial['initial_sp'], dtype=float)}")
+print(
+    "  mgcv mirrored  : "
+    f"{np.asarray(mgcv_mirrored_initial['initial_sp'], dtype=float)}"
+)
+
+
+def _fit_from_initial_sp(initial_sp):
+    model = GAM(
+        formula=FORMULA,
+        family="gammals",
+        select=True,
+        optimize_smoothing=True,
+        smoothing_params=np.asarray(initial_sp, dtype=np.float64),
+        smoothing_method="ML",
+        smoothing_optimizer="outer_newton",
+    )
+    model.fit(data=data)
+    return model
+
+
+gam_from_mgcv_initial = _fit_from_initial_sp(mgcv_initial["initial_sp"])
+print(
+    "  endpoint from ordinary mgcv start: "
+    f"{np.asarray(gam_from_mgcv_initial.smoothing_params, dtype=float)}"
+)
 
 _orig = gnewton.postprocess_general_newton_fit
 
@@ -42,7 +152,7 @@ def _wrapped(fit, **kw):
 gnewton.postprocess_general_newton_fit = _wrapped
 try:
     gam = GAM(
-        formula=['y ~ s(x, bs="cr", k=6)', "~ 1"],
+        formula=FORMULA,
         family="gammals",
         select=True,
         optimize_smoothing=True,
@@ -129,3 +239,50 @@ with tempfile.TemporaryDirectory() as tmp:
         print(f"  sp      : {np.asarray(out2['sp'], dtype=float)}")
         print(f"  edf1_sum: {out2['edf1_sum']}")
         print(f"  edf2_sum: {out2['edf2_sum']}")
+
+
+def _max_abs_difference(actual, expected):
+    actual = np.asarray(actual, dtype=np.float64)
+    expected = np.asarray(expected, dtype=np.float64)
+    if actual.shape != expected.shape and actual.size == expected.size:
+        expected = expected.reshape(actual.shape, order="F")
+    return float(np.max(np.abs(actual - expected)))
+
+
+newdata = _general_newdata(data)
+mirrored_data = data.copy()
+mirrored_data["x"] = -mirrored_data["x"]
+mirrored_newdata = newdata.copy()
+mirrored_newdata["x"] = -mirrored_newdata["x"]
+
+print("optimized new-data prediction max-absolute differences:")
+for pred_type in ("link", "response", "terms"):
+    actual_pred, actual_se = gam.predict(newdata, type=pred_type, return_se=True)
+    original = _run_mgcv_predict_on_newdata(
+        data,
+        newdata,
+        FORMULA,
+        family="gammals",
+        method="ML",
+        type=pred_type,
+        return_se=True,
+        select=True,
+    )
+    mirrored = _run_mgcv_predict_on_newdata(
+        mirrored_data,
+        mirrored_newdata,
+        FORMULA,
+        family="gammals",
+        method="ML",
+        type=pred_type,
+        return_se=True,
+        select=True,
+    )
+    print(
+        f"  {pred_type:8s} pred original={_max_abs_difference(actual_pred, original['pred']):.3e} "
+        f"mirrored={_max_abs_difference(actual_pred, mirrored['pred']):.3e}"
+    )
+    print(
+        f"  {pred_type:8s} se   original={_max_abs_difference(actual_se, original['se']):.3e} "
+        f"mirrored={_max_abs_difference(actual_se, mirrored['se']):.3e}"
+    )

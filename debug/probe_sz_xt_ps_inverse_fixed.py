@@ -7,7 +7,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from nampy.gam import GAM
+from nampy.gam.model.api import GAM
 from tests.gam_cartesian_matrix import make_data
 from tests.mgcv_parity_utils import (
     _run_mgcv_smoothcon_matrix,
@@ -15,7 +15,6 @@ from tests.mgcv_parity_utils import (
     _run_mgcv_snapshot,
 )
 from tests.smooths.test_mgcv_smoothcon_parity import _compile_formula_design
-
 
 FORMULA = (
     'y ~ s(f, x0, bs="sz", k=7, m=2, xt=list(bs="ps"), '

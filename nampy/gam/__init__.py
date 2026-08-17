@@ -1,20 +1,12 @@
-"""mgcv-aligned GAM subsystem for formula parsing, fitting, and prediction."""
+"""Public fit-core entry points for the mgcv-aligned GAM subsystem."""
 
-from . import families, parity
-
-# Stable user-facing entry points only.  Internal fit-subsystem symbols are
-# accessible via `nampy.gam.fit.*` and are not re-exported here.
 from .fit import (
     FitCoreSolution,
     fit_model_core,
     solve_fit,
 )
-from .model.api import GAM
 
 __all__ = [
-    "families",
-    "parity",
-    "GAM",
     "fit_model_core",
     "solve_fit",
     "FitCoreSolution",

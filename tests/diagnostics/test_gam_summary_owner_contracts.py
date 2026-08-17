@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.gam import GAM
 from nampy.gam.inference.null_deviance import compute_null_deviance, null_deviance
+from nampy.gam.model.api import GAM
 
 pytestmark = [pytest.mark.surface_output, pytest.mark.surface_regression]
 

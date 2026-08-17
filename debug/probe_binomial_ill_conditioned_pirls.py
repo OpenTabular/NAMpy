@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-# ruff: noqa: E402, I001
-
 import importlib
 import json
 import sys
@@ -10,20 +8,28 @@ from unittest.mock import patch
 
 import numpy as np
 
+# ruff: noqa: E402, I001
+
+
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from nampy.gam._model_state import _design_matrix, _n_coef, _penalty_blocks_seq  # noqa: E402
-from nampy.gam.families import BinomialLogitFamily  # noqa: E402
-from nampy.gam.fit.linalg.stacked_qr import (  # noqa: E402
-    balanced_penalty_template_sqrt_for_rank,
+from nampy.gam._model_state import (  # noqa: E402
+    _design_matrix,
+    _n_coef,
+    _penalty_blocks_seq,
 )
+from nampy.gam.families import BinomialLogitFamily  # noqa: E402
 from nampy.gam.fit.penalized_system import (  # noqa: E402
     build_full_design,
     build_full_penalty_from_blocks,
 )
 from nampy.gam.fit.solvers.irls_core import irls_core  # noqa: E402
+from nampy.gam.linalg import (  # noqa: E402
+    balanced_penalty_template_sqrt_for_rank,
+)
 from nampy.gam.model.api import GAM  # noqa: E402
 
 
