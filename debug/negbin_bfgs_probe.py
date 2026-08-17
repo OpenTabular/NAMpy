@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
-from nampy.gam import GAM
+from nampy.gam.model.api import GAM
 from nampy.gam.parity import build_optimizer_trace
 from nampy.gam.smoothing_selection.optimize import bfgs_strict as bfgs_module
 from tests._optimization_lifecycle_registry import OPTIMIZATION_LIFECYCLE_CASES

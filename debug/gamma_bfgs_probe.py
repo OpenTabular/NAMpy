@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
-from nampy.gam import GAM
+from nampy.gam.model.api import GAM
 from nampy.gam.parity import build_optimizer_trace
 from nampy.gam.smoothing_selection.criteria.pirls import (
     derivatives as derivatives_module,

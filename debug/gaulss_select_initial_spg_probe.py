@@ -1,4 +1,4 @@
-"""Verify the gaulss_select_true_cr endpoint gap is LAPACK-orientation only.
+"""Classify the gaulss_select_true_cr endpoint as eigen-sign-sensitive.
 
 Evidence chain:
 1. The NAMpy-vs-mgcv trace divergence must already be present in the
@@ -8,8 +8,10 @@ Evidence chain:
    surface: NAMpy's REML/LAML objective evaluated at each endpoint agrees, and
    the criterion gradient is ~0 at both.
 3. The initial.spg output must be orientation-sensitive inside R itself: a
-   pure row permutation of the data (mathematically a no-op for the fit)
-   changes mgcv's own initial/optimized sp by a comparable magnitude.
+   pure row permutation or mirrored basis (mathematically equivalent fits)
+   changes mgcv's own initial/optimized sp. Base R leaves the real signs of
+   the DSYEVR eigenvectors used by Sl.setup unspecified, so the probe is
+   evidence for retaining an explicit xfail, not for forcing one build's sign.
 """
 
 import json

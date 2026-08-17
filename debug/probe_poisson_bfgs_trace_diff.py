@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
-# ruff: noqa: E402, I001
-
 import sys
 from pathlib import Path
 
 import numpy as np
 
+# ruff: noqa: E402, I001
+
+
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from nampy.gam import GAM
+from nampy.gam.model.api import GAM
 from nampy.gam.parity import build_optimizer_trace
 from tests.optimization.test_mgcv_outer_optimization_parity import (
     _make_poisson_data,

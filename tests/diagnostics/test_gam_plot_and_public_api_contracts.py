@@ -8,8 +8,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.gam import GAM
+import nampy
+import nampy.gam as gam_package
 from nampy.gam._model_state import _term_blocks_seq
+from nampy.gam.model.api import GAM
 from tests.mgcv_parity_utils import (
     _run_mgcv_predict_on_newdata,
     _run_mgcv_snapshot,
@@ -21,6 +23,18 @@ plots_module = importlib.import_module("nampy.gam.diagnostics.plots")
 diagnostics_pkg = importlib.import_module("nampy.gam.diagnostics")
 smoothing_pkg = importlib.import_module("nampy.gam.smoothing_selection")
 model_api_module = importlib.import_module("nampy.gam.model.api")
+
+
+def test_public_gam_package_exports_only_fit_core_contract():
+    """Keep package exports aligned with the repository public-API rule."""
+    assert gam_package.__all__ == [
+        "fit_model_core",
+        "solve_fit",
+        "FitCoreSolution",
+    ]
+    assert not hasattr(gam_package, "GAM")
+    assert not hasattr(nampy, "GAM")
+
 
 pytestmark = [
     pytest.mark.surface_output,

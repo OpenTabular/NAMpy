@@ -7,7 +7,6 @@ with a scikit-learn compatible interface.
 
 from . import basemodels, configs, data_utils, models, preprocessing, utils
 from .__version__ import __version__
-from .gam import GAM
 
 # Import key classes for convenience
 from .models import (
@@ -46,7 +45,6 @@ __all__ = [
     "utils",
     "configs",
     # Main model classes
-    "GAM",
     "NAMRegressor",
     "NAMClassifier",
     "NAMLSS",

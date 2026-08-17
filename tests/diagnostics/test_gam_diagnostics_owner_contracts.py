@@ -7,10 +7,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.gam import GAM
 from nampy.gam.diagnostics.concurvity import concurvity
 from nampy.gam.diagnostics.residuals import residuals_gam
 from nampy.gam.diagnostics.summary import summary_text
+from nampy.gam.model.api import GAM
 from nampy.gam.smoothing_selection.postfit import one_se_rule, sp_vcov
 
 concurvity_module = importlib.import_module("nampy.gam.diagnostics.concurvity")

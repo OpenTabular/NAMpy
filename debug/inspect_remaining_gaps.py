@@ -2,15 +2,17 @@ from __future__ import annotations
 
 import numpy as np
 
-from nampy.gam import GAM
 from nampy.gam._model_state import _fit_intercept, _n_coef, _penalty_blocks_seq
-from nampy.gam.fit.linalg.stacked_qr import solve_gaussian_penalized_ls_stacked_qr
-from nampy.gam.fit.linalg.stacked_qr import _stacked_penalized_ls_nonneg_solution
+from nampy.gam.fit.linalg.stacked_qr import (
+    _stacked_penalized_ls_nonneg_solution,
+    solve_gaussian_penalized_ls_stacked_qr,
+)
 from nampy.gam.fit.solve_ops import solve_gaussian_given_smoothing
 from nampy.gam.fit.state import (
     _restore_pirls_dbeta_to_original_parameterization,
     _restore_pirls_rank_root_to_original_parameterization,
 )
+from nampy.gam.model.api import GAM
 from nampy.gam.smoothing_selection.criteria.gaussian import (
     criterion_ml_reml_exact,
     criterion_ml_reml_exact_dynamic,
@@ -25,20 +27,22 @@ from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
     quadratic_form_penalty,
 )
 from nampy.gam.smoothing_selection.criteria.pirls_deriv import _gdi1_kernel
-from nampy.gam.smoothing_selection.reparam import build_penalty_reparameterization_state
-from nampy.gam.smoothing_selection.reparam import _stable_penalty_logdet_derivatives
-from tests.mgcv_parity_utils import _make_mrf_data, _run_mgcv_snapshot
-from tests.optimization.test_mgcv_postprocessing_final_fit_parity import (
-    ORDINARY_CASES,
-    _fit_requested_case,
-    _nampy_optimizer_name,
+from nampy.gam.smoothing_selection.reparam import (
+    _stable_penalty_logdet_derivatives,
+    build_penalty_reparameterization_state,
 )
+from tests.mgcv_parity_utils import _make_mrf_data, _run_mgcv_snapshot
 from tests.optimization.test_mgcv_fixed_inner_fit_parity import (
     _run_mgcv_fit3_fixed_sp,
     _run_mgcv_magic_fixed_sp,
 )
 from tests.optimization.test_mgcv_outer_optimization_parity import (
     _run_mgcv_outer_trace,
+)
+from tests.optimization.test_mgcv_postprocessing_final_fit_parity import (
+    ORDINARY_CASES,
+    _fit_requested_case,
+    _nampy_optimizer_name,
 )
 
 
@@ -237,10 +241,7 @@ def inspect_mrf() -> None:
         np.asarray(sol_actual["working_weights"], dtype=np.float64),
         penalty_sqrt=np.asarray(canon_actual.Sr, dtype=np.float64),
         penalty_rank_rows=np.asarray(canon_actual.Eb, dtype=np.float64),
-        P_dense=None,
         rank_tol=np.finfo(np.float64).eps * 100.0,
-        coef_method="householder",
-        near_singular_null_pin=False,
     )
     canon_expected = build_penalty_reparameterization_state(
         gam,
@@ -259,10 +260,7 @@ def inspect_mrf() -> None:
         np.asarray(sol_expected["working_weights"], dtype=np.float64),
         penalty_sqrt=np.asarray(canon_expected.Sr, dtype=np.float64),
         penalty_rank_rows=np.asarray(canon_expected.Eb, dtype=np.float64),
-        P_dense=None,
         rank_tol=np.finfo(np.float64).eps * 100.0,
-        coef_method="householder",
-        near_singular_null_pin=False,
     )
     kernel_actual = _gdi1_kernel(gam, gam.y_, sol_actual, sp_actual, method="REML")
     kernel_expected = _gdi1_kernel(gam, gam.y_, sol_expected, sp_expected, method="REML")
