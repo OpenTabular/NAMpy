@@ -1,8 +1,9 @@
 # NAMpy Project Status and Verification Ledger
 
-- Snapshot date: 2026-08-14
+- Snapshot date: 2026-08-17
 - Branch: `mgcv`
-- Base commit: `97a253021c4ddb655725358962c0bb1db873d271`
+- Implementation snapshot: `e750f6d`
+- Reviewable implementation commits: `46bacbc`, `c25af71`, `e750f6d`
 
 ## Purpose of this document
 
@@ -41,15 +42,18 @@ NAMpy currently has two active development streams:
 2. The neural-model subsystem is undergoing a substantial behavioral and
    scikit-learn-contract cleanup, with new architecture, wrapper, and fit-smoke tests.
 
-The most recently completed GAM issue was the strict port of the relevant
-`mgcv::gdi1()` path. The Gamma REML and ML BFGS lifecycle cases that previously
-diverged now pass strict lifecycle parity. The cause was an incorrect state boundary
-around `gdiPK()`, not an absent BLAS package.
+The later GAM work has also resolved the fs/cs audit findings, rank-deficient and
+near-singular REML behavior, current-SP PIRLS coordinates, and the remaining
+known heuristics/silent fallbacks. Stacked QR now uses supported public SciPy
+interfaces, with no direct native-library plumbing. The only visible GAM xfail
+is the separate `gaulss(select=True)` optimized endpoint; gammals select=True
+now passes initialization, optimized fit, prediction, SE, and post-processing
+parity strictly.
 
-The current working tree is large and uncommitted: it includes changes across GAM,
-neural models, tests, and debug probes. Consequently, the verification entries below
-apply to this exact snapshot. A later edit to an owning subsystem invalidates only the
-related entries, as described under [When to rerun](#when-to-rerun).
+The GAM parity, portability, tests, CI, API, and retained-probe changes are split
+across the three implementation commits listed above. The verification entries
+below apply to that snapshot. A later edit to an owning subsystem invalidates
+only the related entries, as described under [When to rerun](#when-to-rerun).
 
 No full test suite was run as part of this recorded workstream, in accordance with
 the repository policy requiring the smallest sufficient pytest slice.
@@ -67,11 +71,8 @@ The vendored sources under `mgcv/` are the behavioral specification. Raw constru
 representations are compared through `mgcv`-relevant invariants when eigenspace
 orientation is mathematically indeterminate; behavioral surfaces remain strict.
 
-The primary owner map remains [tests/SUBSYSTEM_COVERAGE.md](tests/SUBSYSTEM_COVERAGE.md),
-but its Stage 6–7 and Stage 14 backlog text is stale relative to the current working
-tree. In particular, the current raw-constructor known-gap sets are empty and the
-joint trace test is strict rather than marked as an expected failure. Updating that
-document is an explicit TODO.
+The primary owner map remains [tests/SUBSYSTEM_COVERAGE.md](tests/SUBSYSTEM_COVERAGE.md)
+and has been reconciled with the current stage-local coverage and explicit guards.
 
 ### Neural-model subsystem
 
@@ -82,9 +83,9 @@ The neural models retain the layered structure:
 - `nampy/configs/`: configuration dataclasses,
 - `nampy/arch_utils/`: shared embeddings, splines, attention, and architecture helpers.
 
-New focused tests live under `tests/neural/`. They are included in pytest discovery by
-the current `pyproject.toml`, but they have not yet been promoted to **Verified** in
-this ledger.
+The five focused files under `tests/neural/` are tracked and **Verified** as of
+2026-08-17: 148 tests pass across architecture, task/multi-output, sklearn,
+SplineNAM, and public estimator fit/predict contracts.
 
 ## Implemented work in the current tree
 
@@ -109,8 +110,9 @@ Implemented details:
 
 - The penalized QR state retains `R`, `Vt`, and the negative-weight count so
   `applyP`/`applyPt` can follow the upstream factor path.
-- Matrix multiplication and triangular solves use SciPy's low-level `dgemm` and
-  `dtrsm` wrappers.
+- Matrix multiplication preserves upstream operand order through a small NumPy
+  wrapper, while triangular solves use SciPy's supported public
+  `solve_triangular` interface; no direct BLAS/LAPACK wrapper is selected.
 - `ift1` first- and second-derivative blocks preserve upstream packing and operation
   order.
 - `get_bSb` uses the upstream accumulation structure instead of algebraically
@@ -135,7 +137,7 @@ was primarily a state-staging error.
 
 ### 2. Joint scale and family-parameter optimization
 
-Status: **partly verified; broader branch matrix not yet revalidated**.
+Status: **Verified for the registered supported lifecycle branches**.
 
 The current tree contains:
 
@@ -156,23 +158,17 @@ Verified within this stream:
 - Binomial REML BFGS,
 - and a Poisson fixed-smoothing `gam.fit3` inner-state comparison.
 
-Not yet verified by a retained run:
-
-- Gamma ML Newton,
-- Gamma ML `optim`,
-- Gamma REML `optim`,
-- estimated-theta negative-binomial ML Newton,
-- estimated-theta negative-binomial ML BFGS,
-- estimated-theta negative-binomial REML BFGS,
-- estimated-theta negative-binomial REML `optim`,
-- and the new Gaussian noncanonical joint-scale branches.
+Later retained runs cover Gamma ML Newton/`optim`, Gamma REML `optim`, the
+supported estimated-theta negative-binomial Newton/BFGS/`optim` combinations,
+and the Gaussian log/inverse joint-scale branches. The lifecycle registry now
+contains 31 strict supported cases.
 
 Estimated-theta negative-binomial ML `optim` is explicitly guarded because the exact
 R `stats::optim` L-BFGS-B behavior at its flat joint boundary has not been ported.
 
 ### 3. GAM prediction, term labeling, and public API work
 
-Status: **implemented, not revalidated as a group**.
+Status: **Verified through focused owner/public-surface slices**.
 
 The current tree contains:
 
@@ -185,16 +181,18 @@ The current tree contains:
 - and unconditional covariance assembly that includes an optimized joint scale when
   the upstream parameterization does so.
 
-The prediction/inference/diagnostics test module currently has empty explicit gap
-dictionaries for prediction, unconditional prediction, ANOVA, residuals, and
-`k.check`. This is test-metadata state, not a retained full-module passing result.
+Retained focused runs cover ordinary `terms=`/`exclude=`, `iterms`, factor-smooth
+contributions, mixed fixed/free smoothing, `lpmatrix`, summary/BIC/formula
+metadata/gam_check, and general-family guard behavior. The empty explicit gap
+dictionaries are therefore accompanied by execution evidence for the changed
+owners rather than inferred from metadata alone.
 
 Multi-predictor general-family `terms=`/`exclude=` filtering remains explicitly
 unsupported until coefficient-block selection can mirror `predict.gam` exactly.
 
 ### 4. Formula, tensor, and natural-parameter constructor work
 
-Status: **implemented, not revalidated as a group**.
+Status: **Verified for the changed constructor/formula owners**.
 
 The current tree contains:
 
@@ -206,14 +204,14 @@ The current tree contains:
 - explicit Netlib-style triangular-solve operation order,
 - and preserved eigenspace-invariant handling where raw orientation is not unique.
 
-The current raw-constructor registry has no active `KNOWN_GAP_REASONS`. Three
-factor-smooth full-rank shrinkage bases are excluded because upstream `mgcv` rejects
-them as well. The empty registry should not be interpreted as a recorded pass of the
-entire raw-constructor matrix in this snapshot.
+Retained runs cover transformed numeric `by=`, vector-valued tensor `fx=`, the
+natural-parameterization owner tests, and the affected raw-constructor fs/sz and
+tp/cr slices. Three factor-smooth full-rank shrinkage bases remain excluded because
+upstream `mgcv` rejects them as well.
 
 ### 5. Neural task and architecture work
 
-Status: **implemented, not yet verified**.
+Status: **Verified for the focused first-validation matrix (2026-08-17)**.
 
 The current tree contains:
 
@@ -234,8 +232,10 @@ The current tree contains:
 - and new architecture, wrapper, task, spline, and estimator fit-smoke tests under
   `tests/neural/`.
 
-These test files are new and currently untracked. They need their first focused run
-before any neural behavior is marked **Verified**.
+All five test files are tracked. Their exact focused runs produced 25, 2, 41, 7,
+and 73 passes respectively (148 total); warnings were limited to expected
+Lightning logging/worker notices, transformer nested-tensor notices, small-batch
+NodeGAM initialization, and small smoke-sample metric notices.
 
 ## Current test-metadata state
 
@@ -243,13 +243,13 @@ The following describes the current source registries, not execution evidence:
 
 | Registry/surface | Current metadata state |
 | --- | --- |
-| Optimization lifecycle registry | 26 cases; zero `status="known_gap"` entries |
+| Optimization lifecycle registry | 31 cases; zero `status="known_gap"` entries; fs exchangeable block declared as an invariant |
 | Raw constructor registry | Empty active known-gap sets |
 | General-family parity registry | Empty `_GENERAL_KNOWN_GAP_TAGS` |
 | Prediction/inference/diagnostics gaps | All five explicit gap dictionaries are empty |
 | Joint branch trace tests | Strict tests; no `xfail` marker in the file |
-| Post-fit general-family endpoint | `gaulss_select_true_cr` optimized endpoint still has a local `xfail`; fixed-endpoint post-processing is tested strictly |
-| Tracked underdetermined fit | `factor_smooth_sz` retains relaxed/representation-aware handling because its coefficient/covariance representative is underdetermined |
+| General-family optimized endpoint | Only `gaulss_select_true_cr` retains a local xfail; `gammals_select_true_cr` is strict after the upstream `Sl.setup` lower-triangle correction |
+| Factor smooth | `factor_smooth_sz` uses strict coefficient/SE comparison; fs zero-eigenspace smoothing-parameter order is compared through its declared exchangeable invariant |
 
 ## Verification ledger: tests that have passed
 
@@ -371,44 +371,36 @@ Rerun only the smallest affected slice when one of these conditions occurs:
 5. Changes limited to neural code do not invalidate the retained GAM results.
 6. Documentation-only changes do not invalidate any test entry.
 
-## Implemented surfaces still awaiting first validation
+## Implemented surfaces still awaiting additional validation
 
-The following work must not be reported as passing yet:
+The first-validation GAM and neural owner slices listed in `todo.md` are now
+recorded. Remaining validation work is narrower:
 
-- all new `tests/neural/` architecture, sklearn, task, spline, and fit-smoke coverage,
-- Gaussian joint-scale lifecycle branches,
-- the newly registered Gamma ML Newton/`optim` and Gamma REML `optim` branches,
-- the newly registered estimated-theta negative-binomial lifecycle branches,
-- transformed numeric smooth `by=` parity,
-- vector-valued tensor `fx=` parity,
-- the new base-R/LINPACK natural-parameterization path,
-- factor-smooth term contribution filtering,
-- `terms=`/`exclude=`/`iterms` public prediction behavior,
-- new public plotting/summary/BIC contracts,
-- and the broadened post-fit/unconditional covariance slices.
+- optionally automate the now-passing built-wheel install/import smoke in CI
+  (the manual temporary-venv check imported mandatory `pretab` and instantiated
+  `LinRegRegressor`),
+- exercise multi-output fitting beyond LinReg only if that is intended as a
+  contract for every public neural regressor,
+- and obtain the configured Linux/macOS/Windows CI results for the new
+  portability job after the guard and workflow are committed.
 
-Targeted commands for these are maintained in [todo.md](todo.md).
+Targeted commands and commit hygiene remain in [todo.md](todo.md).
 
 ## Known gaps and deliberate unsupported behavior
 
-### Genuine remaining parity work
+### Supported-surface deviations
 
-- **Estimated-theta negative-binomial ML `optim`**: guarded until the exact R
-  L-BFGS-B flat-boundary behavior is ported.
-- **`gaulss_select_true_cr` optimized endpoint**: the current local `xfail` attributes
-  the difference to `mgcv::initial.spg()` eigenspace/solver orientation. Fixed-endpoint
-  post-processing is strict, so the remaining issue is endpoint selection rather than
-  downstream assembly.
-- **`factor_smooth_sz` covariance representative**: fit/prediction/criterion behavior
-  is covered with invariant or relaxed comparisons, but the underdetermined raw
-  coefficient/covariance representative remains a sensitive surface.
-- **General-family term filters**: `terms=` and `exclude=` remain unsupported for
-  multi-predictor general-family models.
-- **General-family `Sl` variants**: several non-reparameterized single/multi-penalty
-  and nonlinear reparameterized blocks still raise explicitly.
-- **Formula-list dot shorthand**: data-aware `.` is supported for ordinary formulas
-  but remains explicitly unsupported for formula-list/general-family models.
-- **Multiple offsets in one predictor**: still explicitly unsupported.
+- **`gaulss(select=True)` optimized endpoint**: this is the only remaining
+  visible GAM xfail; fixed/shared-endpoint post-processing is strict. The
+  former gammals endpoint/prediction gap was a real multi-penalty `Sl.setup`
+  triangle-convention defect and is now fixed. The gaulss start has now been
+  localized to an upstream sign indeterminacy: `estimate.gam` transforms
+  `G$X` using `Sl.setup`'s arbitrary-sign symmetric-eigen vectors, then passes
+  unreparameterized `G$Eb` to `initial.spg`. No platform/sign-forcing fix is
+  permitted, so this evidence-backed xfail remains explicit.
+
+No unclassified algorithmic defect in the currently declared GAM surface is
+left by this audit.
 
 ### Deliberate non-backlog behavior
 
@@ -418,23 +410,26 @@ Targeted commands for these are maintained in [todo.md](todo.md).
   rejects the same construction.
 - Repeated-eigenspace raw orientation should continue to be tested with invariant
   comparisons rather than platform-specific solver hooks.
-- A separate `pyblas` dependency is not currently warranted; the port uses SciPy BLAS
-  wrappers where operation order matters.
+- Stacked penalized QR uses SciPy's supported high-level pivoted-QR and triangular-solve
+  interfaces. Raw LAPACK work arrays, input-`JPVT` reuse, `ctypes` library loading, and
+  BLAS-specific accumulation order are deliberately outside the behavioral parity
+  contract.
+- Estimated-theta negative-binomial ML + `optim`, general-family term filters,
+  formula-list data-aware dot shorthand, unported `Sl` layouts, plot.gam, and
+  absent bases/families remain explicit unsupported scope, not active parity
+  bugs.
 
 ## Worktree and release readiness
 
-The project is not release-ready from this snapshot because:
+The parity/portability work is committed in reviewable units, the portability
+guard and six evidence probes are tracked, and the local Linux slices pass. The
+remaining release evidence is the hosted macOS/Windows (and clean hosted Linux)
+CI result. The public-export contract, manual built-wheel smoke, and neural
+first-validation matrix pass; all five neural files are tracked.
 
-- the worktree contains a broad mixture of uncommitted GAM and neural changes,
-- several new source files and all `tests/neural/` files are untracked,
-- only a narrow subset of the changed surfaces has retained passing evidence,
-- the system Python environment is incomplete relative to project dependencies,
-- and the existing subsystem coverage backlog needs reconciliation with current test
-  metadata.
-
-The next work should follow [todo.md](todo.md), starting with first-time targeted
-validation of the new neural and unverified GAM surfaces, then resolving the explicit
-parity gaps, and finally splitting the working tree into reviewable commits.
+The next work should follow [todo.md](todo.md): obtain hosted CI results, finish
+the listed user documentation, and optionally automate the passing wheel-install
+smoke.
 
 ---
 
@@ -489,10 +484,13 @@ Companion documents produced by this workstream:
 ### Verification evidence
 
 - `gaulss_select_true_cr` — endpoint verified orientation-indeterminate inside
-  mgcv itself (`debug/gaulss_select_initial_spg_probe.py`): mgcv on the
-  mirrored basis reproduces NAMpy's endpoint exactly; criteria at both
-  endpoints agree to 4.7e-6 with gradients ~4e-5. The xfail stays, now with
-  quantitative evidence in its reason.
+  mgcv itself (`debug/gaulss_select_initial_spg_probe.py`): a mirrored input
+  moves mgcv's endpoint to second log-sp `11.79338762`, versus NAMpy
+  `11.81049973` and ordinary mgcv `11.91107097`. Criteria at the NAMpy and
+  ordinary-mgcv endpoints agree to `3.98e-6`, with gradients about `4e-5`.
+  Source tracing localizes the sensitivity to arbitrary `DSYEVR` signs in the
+  `Sl.setup` transform of `G$X` combined with unreparameterized `G$Eb` in
+  `initial.spg`; the xfail stays because sign/platform forcing is out of scope.
 - Gaussian noncanonical probe (`debug/gaussian_noncanonical_reml_probe.py`):
   newton REML/ML scores match mgcv to 8 decimals; EFS sp matches to 1e-7.
 
@@ -515,12 +513,13 @@ pytest tests/optimization/test_mgcv_postprocessing_final_fit_parity.py -k gam_fi
 All commands used `/home/ad32/miniconda3/envs/nampy/bin/pytest`. Touched files
 passed `ruff check`, `isort --check-only`, and `py_compile`.
 
-### New failure surfaced by first validation (pre-existing, not caused here)
+### Historical failure surfaced by first validation (now fixed)
 
 `test_gam_fit5_postprocessing_final_fit_matches_mgcv[gammals_select_true_cr]`:
 `edf2_total` 3.690821 vs mgcv 3.691378 at tolerance 5e-4 (diff 5.6e-4).
 Verified independent of the new efs/optim Vc gate by disabling the gate and
-re-running (identical numbers). Tracked in todo.md P1.
+re-running (identical numbers). The 2026-08-17 strict `initial.spg` regression
+later localized and fixed its actual `Sl.setup` cause.
 
 ### Registry state after this workstream
 
@@ -529,24 +528,14 @@ re-running (identical numbers). Tracked in todo.md P1.
 `_make_negbin_data` factory gained a `w` column (y draws unchanged; cached
 negbin snapshots regenerate).
 
-### Addendum (2026-08-14, later): `gammals_select_true_cr` edf2_total resolved
+### Addendum (2026-08-14, superseded 2026-08-17): gammals endpoint
 
-Localized via `debug/gammals_select_edf2_probe.py`. The edf2 assembly is
-exact — the 5.6e-4 difference is entirely the optimized endpoint:
-
-- Both sides fire the `sum(edf2) > sum(edf1)` cap (`mgcv/R/gam.fit4.r:1715`),
-  so `edf2 == edf1`, and edf1 is the endpoint-sensitive scalar.
-- Endpoints differ in the select-penalty direction (sp 1387.572 vs 1385.902).
-  mgcv refit on the mirrored basis (`x -> -x`) lands on NAMpy's endpoint and
-  reproduces NAMpy's edf1/edf2 sums to 2.3e-7. NAMpy's endpoint is the
-  better-converged optimum (|grad| 3.8e-7 vs 1.3e-4; criterion diff 7e-8).
-- Classification: same `initial.spg` orientation-indeterminacy as
-  `gaulss_select_true_cr`. Added `gammals_select_true_cr` to
-  `_GENERAL_OPTIMIZED_ENDPOINT_KNOWN_GAP_TAGS` with the evidence in the xfail
-  reason, and generalized the strict fixed-endpoint post-processing test to
-  cover both select cases
-  (`test_gam_fit5_select_true_postprocessing_at_mgcv_endpoint_matches_mgcv`),
-  asserting Vc at covariance tolerance and `edf2_total` at 5e-6.
+The original probe correctly localized EDF2 to the optimized endpoint, but the
+orientation-only classification was incomplete. The later strict
+`initial.spg` regression found that `_sl_multi_penalty_block` used the upper
+triangle while `mgcv/R/fast-REML.r::Sl.setup` uses the lower triangle. After
+that correction the initial/final smoothing parameters, EDF2, predictions, and
+post-processing match ordinary mgcv and the gammals xfail was removed.
 
 Retained run:
 
@@ -609,7 +598,9 @@ worktree commit split. All commands via `/home/ad32/miniconda3/envs/nampy/bin/py
 - Current non-general `gam.side` one-smooth/no-op slice (`-k 'uni or random_effect or random_slope_re or numeric_by_cr or factor_by_cr'`): 9 passed, 20 deselected.
 - `tests/parity/test_mgcv_parity_failing_and_warnings.py::test_strict_factor_by_link_parity`: passed.
 - Gaussian smoothness post-process owner checks (single CR + noisy random effect): 2 passed after removal of the single-smooth EDF heuristic.
-- `test_gaussian_re_reml_intercept_edf_attribution_matches_mgcv` was interrupted after exceeding three minutes; tracked as a separate near-singular optimizer performance item, not counted as passing correctness evidence.
+- The 2026-08-15 `test_gaussian_re_reml_intercept_edf_attribution_matches_mgcv`
+  failure (EDF `2.03125` versus mgcv `2.00010681`) is superseded by the
+  2026-08-16 strict `gdiPK`/`gdi1` Hessian port recorded in the latest addendum.
 - `tests/parity/test_gam_results_api_stage_owner_contracts.py`: 3 passed (schema).
 - `tests/parity/test_mgcv_remaining_gap_xfails.py -k 'loglik_aic_bic or bic_matches'`: 5 passed.
 - `tests/diagnostics/test_gam_summary_owner_contracts.py`: 5 passed (null-deviance branches + dispersion/freq/re_test contracts).
@@ -624,8 +615,6 @@ worktree commit split. All commands via `/home/ad32/miniconda3/envs/nampy/bin/py
 Touched files passed `ruff check`, `isort --check-only`, `py_compile`.
 
 ### Commits
-
-(Hashes recorded below after the split.)
 - `913ff3e` — gam/fit+smoothing: gdi1 state boundary, joint outer
   optimization, upstream Vc and rank handling.
 - `21291a0` — gam/constructors: mgcv-exact defaults and guards for formula
@@ -634,8 +623,9 @@ Touched files passed `ruff check`, `isort --check-only`, `py_compile`.
   filters, schema.
 - `70ac3e1` — neural: task semantics, sklearn contracts, first-validation
   test suite.
-- Tests/debug/docs/packaging land as the commit that contains this ledger
-  entry (the fifth, HEAD of this sequence on branch `mgcv`).
+- `46bacbc` — GAM: upstream fitting/parity behavior and heuristic removal.
+- `c25af71` — GAM: portable numerical boundary and stacked-QR simplification.
+- `e750f6d` — tests/API/CI: retained portability and parity evidence.
 
 ### Addendum (2026-08-15, later): audit reconciliation
 
@@ -654,11 +644,13 @@ tree; full status table prepended there. Verification runs:
   exonerated by consistent-group bisect. The defect was previously masked
   by stale v6 snapshot-cache entries (mgcv_snapshot.R had been modified
   without a cache version bump); the v7 bump exposed it.
-- `tests/regressions/test_optimize_driver_mgcv_parity.py`: **2 FAILED,
-  12 passed** (stale mocks/contract drift; todo P1).
+- At this audit point,
+  `tests/regressions/test_optimize_driver_mgcv_parity.py` had **2 FAILED,
+  12 passed** from stale mock/contract drift. Both tests were repaired and
+  pass as of 2026-08-16.
 - `_fallback_single_smooth_edf` (fit/state.py:296) and
-  `_fs_term_penalty_adjustment` (predict/predictions.py) confirmed present;
-  tracked as policy items in todo P1.
+  `_fs_term_penalty_adjustment` (predict/predictions.py) were confirmed present
+  at this audit point. Both have since been removed.
 
 REVIEW.md, tldr.md, and todo.md updated accordingly.
 
@@ -692,3 +684,170 @@ neighbors `gaussian_reml_newton_random_effect`, `gaussian_reml_newton_two_cr`,
 `gaussian_log_reml_newton_joint_scale_cr` all PASSED (canonicalization is a
 no-op without declared groups). smoothCon fs slice 4 passed. The fs+select
 snapshot case passes under its documented flat-ridge tolerances.
+
+### Addendum (2026-08-16): cs and near-singular Gaussian REML
+
+- `cs` shrinkage now directly mirrors
+  `mgcv/R/smooth.r::smooth.construct.cr.smooth.spec` and
+  `smooth.construct.cs.smooth.spec`: explicit `(S+t(S))/2`, descending
+  symmetric eigensystem, and the two ordered `.1` shrinkage assignments.
+  Ordinary `cs` term output passes with and without SEs; transformed raw `cr`
+  and `cs` constructor cases pass.
+- The residual transformed-terms and representative Gaussian GCV differences
+  are confined to LAPACK selection of a basis inside the repeated
+  two-dimensional zero eigenspace. `debug/transformed_cs_penalty_probe.py` and
+  `debug/gaussian_cs_gcv_probe.py` show raw CR penalties agreeing at
+  `1.4e-14`, while all SciPy symmetric eigensolver drivers select a different
+  zero-space orientation from R before the unequal `.1`/`.01` penalties are
+  assigned. No platform hook, heuristic, or tolerance relaxation was added.
+- Near-singular Gaussian REML now uses the upstream numerical path from
+  `mgcv/src/gdi.c::gdiPK`/`gdi1` and `mgcv/src/mat.c::getXtX`/`getXtMX`:
+  the deviance Hessian comes from the unpenalized weighted QR factor (including
+  signed-weight correction), and its smoothing-derivative contraction follows
+  upstream scalar accumulation order. The former `X'WX` reconstruction was
+  removed from this path.
+- Exact regression:
+  `test_gaussian_re_reml_intercept_edf_attribution_matches_mgcv` passes with
+  the expected iteration-limit warning. The preserved endpoint probe gives
+  NAMpy `log(sp)=-66.50440143`, EDF `2.00036621`, against mgcv `-64.52515079`,
+  EDF `2.00010681`, within the declared near-boundary tolerances.
+
+### Addendum (2026-08-17): stacked-QR implementation boundary
+
+- `nampy/gam/fit/linalg/stacked_qr.py` no longer loads BLAS/LAPACK symbols via
+  `ctypes`, manages compact Householder buffers, or reuses the raw `JPVT`
+  workspace from an earlier factorization. Weighted-design, rank-reveal, and
+  augmented-system factorizations now use SciPy's supported economic pivoted-QR
+  interface and explicit `Q`/`R` factors.
+- The behavioral port remains anchored to `mgcv/src/gdi.c::pls_fit1` and
+  `gdiPK`: rank dropping and zero restoration, signed-weight correction,
+  coefficient solves, deviance-Hessian construction, covariance roots, and
+  determinant corrections are unchanged. Pivot/gauge choices that depend on a
+  particular LAPACK build are treated as representation details.
+- Fixed-endpoint Gaussian and non-Gaussian, rank-deficient, signed-weight,
+  near-singular REML, unconditional-covariance, and outer-Newton neighboring
+  tests pass with the supported QR interface.
+
+### Addendum (2026-08-16): removal of parity heuristics and silent fallbacks
+
+- Factor-smooth term contributions now use the direct `PredictMat` coefficient
+  block product from `mgcv/R/mgcv.r::predict.gam`; the least-squares constant
+  shift was removed and the strict `fs-no_se` output-parity case passes.
+- Gaussian fits no longer switch algebraic backends based on condition numbers,
+  rank estimates, or term types. The supported exact path always follows the
+  `gam.fit3` current-sp `pls_fit1` state and `gdi1` coefficient/covariance
+  overwrite.
+- Dormant coefficient-method and null-space gauge controls, the unused
+  design-balance initializer, and their public exports were removed.
+- Exact derivative, Gaussian score-refresh, and unconditional-covariance paths
+  no longer catch arbitrary exceptions and substitute alternate state. Missing
+  canonical state now raises explicitly; targeted regression guards cover the
+  `gdiPK` design owner and stored `gam.fit3` deviance requirements.
+
+### Addendum (2026-08-17): canonical PIRLS working system
+
+- Every supported `gam.fit3`/PIRLS inner solve now uses the current smoothing-
+  parameter reparameterization before iteration: coefficients and warm starts
+  are mapped by `t(T)`, the design is `X %*% T`, and `St`, `Sr`, and `Eb` are
+  passed directly to the `pls_fit1` mirror. The dense public-coordinate penalty
+  root reconstruction is no longer used by model-level PIRLS fits.
+- The Poisson-identity forced-Fisher endpoint and tightened-tolerance helpers
+  were removed. Noncanonical GLMs follow `gam.fit3`: full Newton by default,
+  with Fisher scoring only for the local indefinite-system retry.
+- Final coefficients, covariance, penalty, and design are restored to public
+  coordinates together. Invalid final working systems now raise explicitly
+  instead of returning a partially canonical solution.
+- Targeted validation passed for the canonical-state regression, all six
+  rank-deficient Poisson/binomial/Gamma variants, fixed-SP inner parity (13
+  cases), Poisson identity/sqrt ML and REML, outer Newton and negative-binomial
+  traces, GLM prediction covariance, and fit-result ownership contracts.
+
+### Addendum (2026-08-17): remaining-issue investigation and neural validation
+
+- `gammals_select_true_cr` optimized new-data prediction was reproduced with:
+
+  ```bash
+  /home/ad32/miniconda3/envs/nampy/bin/pytest \
+    tests/families/test_general_family_mgcv_parity.py \
+    -k 'gammals_select_true_cr and newdata_prediction_surfaces' -v
+  ```
+
+  Before the fix: 3 failed (link/response/terms) and `lpmatrix` passed.
+  `debug/gammals_select_edf2_probe.py` was extended to evaluate mgcv on the
+  original and mirrored representations at the same physical newdata. Original
+  mgcv maximum prediction differences were `3.937e-5`, `5.497e-5`, and
+  `3.707e-5`; mirrored mgcv differences were `1.492e-8`, `2.083e-8`, and
+  `1.537e-8`, with all mirrored SE differences below `9.7e-9`.
+
+  A strict follow-up compared `initial.spg` itself and found the real cause:
+  `_sl_multi_penalty_block` passed the upper triangle to the symmetric
+  eigensolver, unlike `mgcv/R/fast-REML.r::Sl.setup` and NAMpy's singleton
+  branch. With the lower-triangle convention, both sides start at
+  `[3.62377581, 4.48603160]` and finish at
+  `[1385.90211256, 11.26504219]`. Maximum link/response/terms prediction
+  differences are now `3.19e-9`, `3.90e-9`, and `2.44e-10`; all SE differences
+  are below `8.2e-10`. The prediction rerun is **4 passed**, the full gammals
+  select slice is **10 passed**, and the optimized fit5 post-processing test
+  passes. All gammals xfails were removed.
+
+  Strict retained commands:
+
+  ```bash
+  /home/ad32/miniconda3/envs/nampy/bin/pytest \
+    tests/optimization/test_mgcv_general_family_preoptimization_parity.py -v
+  /home/ad32/miniconda3/envs/nampy/bin/pytest \
+    tests/families/test_general_family_mgcv_parity.py \
+    -k 'gammals_select_true_cr' -v
+  /home/ad32/miniconda3/envs/nampy/bin/pytest \
+    tests/optimization/test_mgcv_postprocessing_final_fit_parity.py \
+    -k 'gammals_select_true_cr' -v
+  ```
+
+  Results: **8 passed**, **10 passed**, and **1 passed**, respectively.
+
+- Production portability guard:
+
+  ```bash
+  /home/ad32/miniconda3/envs/nampy/bin/pytest \
+    tests/regressions/test_no_platform_numeric_bindings.py -v
+  ```
+
+  Result: **1 passed**. The guard covers direct `ctypes`/CFFI,
+  BLAS/LAPACK-module imports, `get_lapack_funcs`, and explicit driver keywords.
+
+  The exact local Linux CI slices were also executed with `MGCV_CACHE_ONLY=1`.
+  The guard plus GAM linalg exports, parity invariants, natural-parameter, and
+  chi-square-mixture tests passed **17/17**; the focused `cr`, `cs`, `tp`, `fs`,
+  and `ti` raw-constructor matrix passed **5/5**. Hosted macOS and Windows results
+  remain unverified until the workflow is committed and run on those systems.
+
+- Neural first-validation files:
+
+  ```text
+  tests/neural/test_neural_architecture_smoke.py       25 passed
+  tests/neural/test_neural_task_model.py                2 passed
+  tests/neural/test_neural_sklearn_contracts.py        41 passed
+  tests/neural/test_neural_spline_nam.py                7 passed
+  tests/neural/test_neural_estimator_fit_smoke.py      73 passed
+  total                                                148 passed
+  ```
+
+  No architecture-specific failure required a reduced rerun. All five files are
+  tracked.
+
+- Packaging inspection confirms `pretab` is mandatory in both
+  `pyproject.toml` and `requirements.txt`, installed as version `0.0.3` in the
+  verified environment, and exercised by the editable-install neural tests. A
+  no-isolation wheel build also succeeded; the wheel was installed with
+  `--no-deps` into a temporary venv, imported `nampy` and `pretab` from outside
+  the source tree, instantiated `LinRegRegressor`, and verified the installed
+  three-symbol GAM API with no top-level `GAM` alias. Only optional CI automation
+  of that artifact smoke remains. (The first isolated build attempt could not
+  download its build requirement because the environment had no network access;
+  that was not a package failure.)
+
+- Public exports now follow the repository contract: `nampy.gam.__all__`
+  contains only `fit_model_core`, `solve_fit`, and `FitCoreSolution`; neither
+  `nampy.gam` nor top-level `nampy` re-exports `GAM`. Internal tests and probes
+  import `GAM` explicitly from `nampy.gam.model.api`, and the direct contract
+  regression passes.

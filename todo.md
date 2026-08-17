@@ -1,8 +1,8 @@
 # NAMpy TODO
 
-- Snapshot date: 2026-08-15 (post release-fix commits 913ff3e..e8c9b21; audit
-  reconciliation in [REVIEW.md](REVIEW.md), current-state summary in
-  [tldr.md](tldr.md))
+- Snapshot date: 2026-08-17 (branch `mgcv`, implementation snapshot through
+  `e750f6d`; audit reconciliation in
+  [REVIEW.md](REVIEW.md), current-state summary in [tldr.md](tldr.md))
 - Status report: [PROJECT_STATUS.md](PROJECT_STATUS.md)
 
 ## Verification rule
@@ -59,45 +59,45 @@ Do not run the full suite by default.
 
 ## P0 — Stabilize and validate the current working tree
 
-### Neural subsystem: first validation
+### Neural subsystem: first validation — complete 2026-08-17
 
-- [ ] Run the architecture forward/backward and penalty contracts.
+- [x] Run the architecture forward/backward and penalty contracts (25 passed).
 
   ```bash
   /home/ad32/miniconda3/envs/nampy/bin/pytest tests/neural/test_neural_architecture_smoke.py -v
   ```
 
-- [ ] Run task semantics, multi-output regression, and metric contracts.
+- [x] Run task semantics, multi-output regression, and metric contracts (2 passed).
 
   ```bash
   /home/ad32/miniconda3/envs/nampy/bin/pytest tests/neural/test_neural_task_model.py -v
   ```
 
-- [ ] Run scikit-learn constructor, clone, parameter, QNAM, and positional-data
-  contracts.
+- [x] Run scikit-learn constructor, clone, parameter, QNAM, and positional-data
+  contracts (41 passed).
 
   ```bash
   /home/ad32/miniconda3/envs/nampy/bin/pytest tests/neural/test_neural_sklearn_contracts.py -v
   ```
 
-- [ ] Run focused SplineNAM basis, interaction, gradient, naming, and public-fit
-  coverage.
+- [x] Run focused SplineNAM basis, interaction, gradient, naming, and public-fit
+  coverage (7 passed).
 
   ```bash
   /home/ad32/miniconda3/envs/nampy/bin/pytest tests/neural/test_neural_spline_nam.py -v
   ```
 
-- [ ] Run the public estimator fit/predict smoke matrix last because it is the most
-  expensive neural slice.
+- [x] Run the public estimator fit/predict smoke matrix last because it is the most
+  expensive neural slice (73 passed).
 
   ```bash
   /home/ad32/miniconda3/envs/nampy/bin/pytest tests/neural/test_neural_estimator_fit_smoke.py -v
   ```
 
-- [ ] If one architecture fails, reduce to its exact parameter ID before debugging;
-  do not repeatedly rerun the entire estimator matrix.
+- [x] No architecture failed; no parameter-ID reduction or repeat matrix run was
+  needed. Total retained first-validation result: 148 passed.
 
-### GAM joint optimizer branches not yet in the verification ledger
+### GAM joint optimizer branch validation — complete
 
 - [x] Validate the newly added Gamma Newton/`optim` cases (2026-08-15: 3 passed,
   rerun after the PIRLS rank-tol change: 7 passed with negbin cases).
@@ -131,7 +131,7 @@ Do not run the full suite by default.
     tests/optimization/test_gam_unsupported_branch_guards.py::test_negbin_estimated_theta_ml_optim_guard_raises_explicitly -v
   ```
 
-### GAM prediction and public surfaces
+### GAM prediction and public-surface validation — complete
 
 - [x] Validate ordinary `terms=`/`exclude=` filtering and unknown-term behavior
   (2026-08-15: passed).
@@ -167,7 +167,7 @@ Do not run the full suite by default.
     -k 'bic or formula_metadata or gam_check or lpmatrix or summary' -v
   ```
 
-### GAM constructors and formula preprocessing
+### GAM constructor and formula-preprocessing validation — complete
 
 - [x] Validate transformed numeric smooth `by=` behavior and logical-expression
   rejection (2026-08-15: passed).
@@ -198,7 +198,7 @@ Do not run the full suite by default.
   `-k 'tp or cr'` (31 passed) after the nat-param and factor-smooth cases
   passed independently.
 
-### GAM post-fit and covariance
+### GAM post-fit and covariance validation — complete
 
 - [x] Run the new non-Gaussian unconditional covariance tests (2026-08-15:
   4 passed; re-run after the rank-tol change).
@@ -218,25 +218,26 @@ Do not run the full suite by default.
 
 - [x] Update `tests/SUBSYSTEM_COVERAGE.md` (done 2026-08-15: Stage 6-7/14 claims
   corrected, Stage 21 guard attribution fixed).
-- [ ] Add the new untracked source, test, and debug files intentionally or remove them
-  if obsolete. Do not leave `tests/neural/` outside version control after validation.
-- [ ] Split the dirty tree into reviewable commits by concern:
+- [x] Retain the portability test and evidence probes. The production guard is in
+  `c25af71`; the six cited cs, near-singular REML, and rank-deficiency probes and
+  the CI portability job are in `e750f6d`. All five `tests/neural/` files were
+  already tracked.
+- [x] Split the dirty tree into reviewable commits by concern:
 
-  1. `gdi1`/PIRLS/QR state and Gamma lifecycle,
-  2. joint Gaussian/Gamma/negative-binomial optimization,
-  3. GAM prediction/formula/natural-parameterization work,
-  4. neural estimator and architecture contracts,
-  5. tests/debug/documentation.
+  1. `46bacbc` — upstream parity and heuristic-removal changes,
+  2. `c25af71` — portable numerical/stacked-QR simplification,
+  3. `e750f6d` — regression/API tests, retained debug evidence, and CI.
 
-- [ ] Record each commit hash in `PROJECT_STATUS.md`; the current base hash alone is
-  insufficient for reproducing uncommitted changes.
-- [ ] Standardize the documented developer environment. Either activate the `nampy`
-  conda environment or install the project plus dev dependencies into the system
-  interpreter; avoid ambiguous bare `pytest` commands.
+- [x] Record the implementation commit hashes in `PROJECT_STATUS.md`.
+- [ ] Standardize the documented developer environment. The verified
+  `/home/ad32/miniconda3/envs/nampy` environment contains `pretab 0.0.3`, and
+  `pretab` is mandatory in both `pyproject.toml` and `requirements.txt`; retain
+  explicit environment-qualified commands until a reproducible setup section is
+  added for contributors.
 
-## P1 — Resolve remaining parity gaps
+## P1 — Reconciled GAM parity findings and API policy
 
-### Factor-smooth penalty ordering (highest priority)
+### Factor-smooth penalty ordering (resolved)
 
 - [x] Resolved 2026-08-15. Investigation (debug/fs_null_order_probe.py,
   debug/fs_null_order_stability_probe.py) proved the "swap" is mgcv-internal
@@ -262,43 +263,59 @@ Do not run the full suite by default.
 
 ### cs shrinkage parity (unmasked by the cache bump)
 
-- [ ] Fix the cs shrinkage divergence: after `_SNAPSHOT_CACHE_VERSION` 7
-  forced fresh live-R references, three cases fail in
-  `tests/parity/test_mgcv_output_parity.py -k cs` (terms max diff ~8.6e-5;
-  the audit's live-R run saw the same defect as ~3e-6 GCV/Cp score
-  differences). Bisected 2026-08-15: the plain `cs`/`cs-with_se` failures
-  are introduced by the `symmetrize_lower_triangle=True` change in
-  `nampy/splines/univariate/cr.py::add_full_rank_shrinkage` (its comment
-  claims upstream parity, but live mgcv disagrees — re-derive from
-  `mgcv/R/smooth.r::smooth.construct.cs.smooth.spec` before choosing);
-  `transformed_cs` fails for a second, not-yet-localized reason inside the
-  same prior-session constructor changes (all three passed at base
-  `97a2530`). Note: stale v6 cache entries had been masking this — treat
-  pre-bump green runs of R-cached suites with suspicion if
-  `mgcv_snapshot.R` changed without a version bump.
+- [x] Fixed 2026-08-16 from the upstream constructor, without a fallback.
+  `add_full_rank_shrinkage` now mirrors
+  `mgcv/R/smooth.r::smooth.construct.cr.smooth.spec` exactly: form
+  `(S + t(S))/2`, take the descending symmetric eigensystem, then replace
+  eigenvalues `nk-1` and `nk` successively by `.1` times the preceding value
+  (`smooth.construct.cs.smooth.spec` sets `shrink=.1` and delegates). The
+  ordinary `cs` terms tests now pass with and without SEs; added transformed
+  `cr`/`cs` raw-constructor cases pass. The one remaining transformed-terms
+  numeric difference is not a second constructor bug: preserved probes show
+  the raw CR penalty agrees to `1.4e-14`, while R and every SciPy symmetric
+  eigensolver driver choose different orientations for the repeated
+  two-dimensional zero eigenspace before upstream assigns unequal `.1`/`.01`
+  shrinkage. Per project policy this is left as platform/LAPACK orientation,
+  with no solver hook, heuristic canonicalization, or tolerance change.
 
 ### Contract drift and audit follow-ups
 
-- [ ] Repair the two stale unit tests in
+- [x] Simplified stacked QR (2026-08-17): removed raw `ctypes` BLAS/LAPACK
+  loading, compact Householder work-buffer helpers, `JPVT` reuse, and `dsyrk`
+  accumulation. The supported implementation now uses explicit factors from
+  SciPy's public pivoted-QR interface while preserving `pls_fit1`/`gdiPK`
+  rank, signed-weight, coefficient, Hessian, and covariance behavior.
+- [x] Audit the production package for direct native numeric bindings. The AST
+  regression forbids `ctypes`, CFFI, direct SciPy BLAS/LAPACK modules,
+  `get_lapack_funcs`, and explicit solver-driver selection; its exact test passes
+  on 2026-08-17. The CI portability job runs the guard and focused numerical
+  slices on Linux, macOS, and Windows.
+- [x] Repaired the two stale unit tests in
   `tests/regressions/test_optimize_driver_mgcv_parity.py`
   (`test_all_fixed_smoothing_params_still_optimizes_unknown_gaussian_scale`:
-  mock lacks the strict initial.spg design state;
+  mock now supplies the strict initial.spg design state;
   `test_negbin_reml_native_all_fixed_optimizes_theta_first`: missing the
-  keyword-only `optimizer` argument).
-- [ ] Remove or explicitly guard `_fallback_single_smooth_edf`
-  (`nampy/gam/fit/state.py:296`, used at `:418`) — heuristic EDF substitution
-  conflicts with the no-fallback policy.
-- [ ] Give `_fs_term_penalty_adjustment`
-  (`nampy/gam/predict/predictions.py`) a direct upstream `predict.gam`
-  citation or replace it with the exact upstream transformation.
-- [ ] Verify the gammals `select=True` optimized-prediction gap
-  (link/response/terms ~2e-5..5.5e-5, REVIEW.md finding 3) with the
-  mirrored-basis method used for the edf2/gaulss endpoints, then tag it in
-  the appropriate known-gap registry with evidence.
-- [ ] Decide the public-export surface: CLAUDE.md declares
-  `fit_model_core`/`solve_fit`/`FitCoreSolution` only, while
-  `nampy/gam/__init__.py` also exports `GAM`, `families`, `parity` — align
-  code or documentation.
+  keyword-only `optimizer` argument is now supplied). Both pass (2026-08-16).
+- [x] Removed `_fallback_single_smooth_edf`; Gaussian post-fit EDF now comes
+  only from the upstream `gdi1` `rV`/`K` construction.
+- [x] Removed `_fs_term_penalty_adjustment` and the associated least-squares
+  contribution shift (2026-08-16). `predict.gam` forms term contributions as
+  the direct prediction-matrix coefficient block product; NAMpy now does the
+  same. The strict `test_output_parity_terms[fs-no_se]` case passes.
+- [x] Fix the gammals `select=True` optimized-prediction gap (2026-08-17).
+  The mirrored-basis probe localized the path but the strict `initial.spg`
+  regression found the defect: `_sl_multi_penalty_block` consumed the upper
+  triangle, whereas `mgcv/R/fast-REML.r::Sl.setup` uses the lower-triangle
+  convention. With `lower=True`, initial and final smoothing parameters match
+  mgcv, optimized link/response/terms differences are at most `3.9e-9`, SE
+  differences are at most `8.2e-10`, and every gammals xfail is now a strict
+  pass. No tolerance, heuristic, or solver-driver selection was added.
+- [x] Resolve the public-export mismatch (2026-08-17). Following the repository
+  contract, `nampy.gam.__all__` now contains only `fit_model_core`, `solve_fit`,
+  and `FitCoreSolution`; `GAM` is no longer re-exported from `nampy.gam` or
+  top-level `nampy`. Tests and retained probes import the implementation from
+  `nampy.gam.model.api`. The direct export-contract regression and the strict
+  gammals initialization neighbor both pass.
 
 ### Side conditions
 
@@ -314,31 +331,43 @@ Do not run the full suite by default.
 
 ### Optimizers and endpoints
 
-- [ ] Diagnose the near-singular Gaussian random-effect REML runtime separately
-  from correctness. The exact
-  `test_gaussian_re_reml_intercept_edf_attribution_matches_mgcv` slice still
-  exceeded three minutes on 2026-08-15 and was interrupted; the noisy fixed-SP
-  random-effect post-process parity case passes without the removed EDF
-  heuristic.
-- [ ] Port the exact estimated-theta negative-binomial ML `optim`/L-BFGS-B boundary
-  behavior from R before removing its explicit guard. Add a targeted lifecycle case
-  first.
-- [x] Resolve the `gaulss_select_true_cr` optimized-endpoint attribution. Verified
-  2026-08-14 pm (`debug/gaulss_select_initial_spg_probe.py`): the endpoint is
-  orientation-indeterminate inside mgcv itself — mgcv refit on the mirrored basis
-  (`x -> -x`) reproduces NAMpy's endpoint exactly (log sp 11.79338762, score
-  159.6076681047); both orientations' criteria agree to 5e-6 with near-zero
-  gradients. The endpoint will never "match" a single arbitrary orientation, so
-  the local `xfail` stays with this evidence recorded in its reason string.
-- [x] Investigate the `gammals_select_true_cr` `edf2_total` borderline failure.
-  Resolved 2026-08-14 pm (`debug/gammals_select_edf2_probe.py`): same
-  orientation-indeterminate `initial.spg` endpoint class as
-  `gaulss_select_true_cr` — mgcv on the mirrored basis reproduces NAMpy's
-  endpoint and edf1/edf2 sums to 2.3e-7; the sum-cap (`gam.fit4.r:1715`)
-  fires on both sides so `edf2 == edf1`, making edf2 the endpoint-sensitive
-  scalar. Tagged in `_GENERAL_OPTIMIZED_ENDPOINT_KNOWN_GAP_TAGS`; a strict
-  fixed-endpoint post-processing test now covers gammals alongside gaulss
-  (Vc + `edf2_total` at 5e-6).
+- [x] Route every supported model-level PIRLS iteration through the current-SP
+  `gam.reparam` state from `mgcv/R/gam.fit3.r`: transform starts with `t(T)`,
+  solve on `X %*% T` with exact `St`, `Sr`, and `Eb`, then restore the public
+  coefficient/covariance gauge together. Removed the Poisson-identity
+  forced-Fisher endpoint and tightened-tolerance helpers; noncanonical GLMs now
+  use upstream full Newton with only the local indefinite-system Fisher retry
+  (2026-08-17).
+- [x] Ported the remaining near-singular Gaussian joint REML Hessian behavior
+  on 2026-08-16. The divergence was caused by reconstructing the coefficient
+  deviance Hessian as `X'WX`, which is algebraically equivalent but does not
+  preserve upstream cancellation at this boundary. The strict port now mirrors
+  `mgcv/src/gdi.c::gdiPK` and `gdi1`: build the first Hessian half from the
+  unpenalized weighted QR factor with `mat.c::getXtX`, include the signed-weight
+  correction, double it in `gdi1`, and accumulate the smoothing Hessian with
+  `mat.c::getXtMX` ordering. The exact random-effect regression passes in
+  87.20s (EDF within its boundary tolerance; NAMpy endpoint `log(sp)=-66.5044`,
+  EDF `2.0003662`, versus mgcv `-64.5252` and `2.0001068`). Fixed-endpoint
+  Gaussian, Poisson, Gamma, and signed-weight neighbor tests also pass. See
+  `debug/near_singular_reml_endpoint_probe.py` and
+  `debug/near_singular_reml_derivatives_probe.py`.
+- [x] Keep estimated-theta negative-binomial ML + `optim` outside the declared
+  surface. The explicit guard is covered and preferable to approximating R's
+  flat-boundary L-BFGS-B behavior; a port becomes backlog only if scope expands.
+- [x] Classify the remaining `gaulss_select_true_cr` optimized endpoint
+  (2026-08-17). `mgcv/R/mgcv.r::estimate.gam` reparameterizes `G$X` with
+  `Sl.setup`'s symmetric-eigen vectors but calls `initial.spg` with the
+  separately constructed, unreparameterized `G$Eb`. Base R leaves real
+  `DSYEVR` eigenvector signs arbitrary; NAMpy and this R build differ by one
+  legal column sign, which changes this flat-boundary start. A strict
+  `pen.reg` QR experiment did not change the result and was removed. Matching
+  one R build would require forbidden sign forcing/platform selection, so the
+  evidence-backed local xfail and strict shared-endpoint test remain visible.
+- [x] Fix the `gammals_select_true_cr` `edf2_total` failure. It shared the same
+  incorrect upper-triangle `Sl.setup` start as the optimized predictions, not
+  the remaining gaulss endpoint class. At the corrected mgcv endpoint the
+  optimized fit5 post-processing test passes strictly and gammals was removed
+  from `_GENERAL_OPTIMIZED_ENDPOINT_KNOWN_GAP_TAGS`.
 
 ### Underdetermined factor-smooth covariance
 
@@ -351,8 +380,9 @@ Do not run the full suite by default.
 
 ### General-family unsupported surfaces
 
-- [ ] Port multi-predictor general-family `terms=`/`exclude=` coefficient-block
-  selection from `predict.gam` before enabling the public surface.
+- [x] Keep multi-predictor general-family `terms=`/`exclude=` outside the declared
+  surface. The public path raises explicitly and has an owner guard; port exact
+  `predict.gam` coefficient-block selection only if scope expands.
 - [x] Port or explicitly scope the remaining general-family `Sl` branches.
   Scoped 2026-08-14 (second pass): non-reparameterized single-/multi-penalty
   blocks stay explicitly guarded (`NotImplementedError`); the nonlinear
@@ -362,9 +392,9 @@ Do not run the full suite by default.
   emits `general_family_nonlinear_sl`, so no real fit reaches it (documented
   in `GAM_NOT_IMPLEMENTED.md`).
 
-- [ ] Decide whether formula-list/general-family data-aware `.` shorthand is in the
-  intended supported surface. If yes, port it exactly; otherwise retain the explicit
-  guard and document it publicly.
+- [x] Keep formula-list/general-family data-aware `.` shorthand outside the
+  declared surface. The explicit guard and documentation are retained; there is
+  no heuristic expansion.
 - [x] Decide whether multiple `offset(...)` terms per predictor should be ported or
   remain explicitly unsupported. Resolved 2026-08-14: upstream keeps only the
   first offset (interpret.gam0 single-slot assignment, verified in
@@ -374,12 +404,21 @@ Do not run the full suite by default.
 
 - [ ] Run touched-file `ruff`, `isort --check-only`, and `py_compile` for every logical
   commit. Do not run Black as a check; format only the files that actually need it.
-- [ ] Add neural owner tests for any architecture-specific failure discovered by the
-  smoke matrix rather than growing one monolithic test.
+  The five Python files changed by the completed 2026-08-17 gammals fix pass all
+  three checks; the remaining dirty-tree files still need commit-scoped checks.
+- [x] No architecture-specific failure was discovered by the 148-test neural
+  validation, so no additional owner regression is required from this run.
 - [ ] Add explicit multi-output regression coverage beyond LinReg if multi-output is
   intended for every public regressor.
-- [ ] Add packaging/install smoke coverage ensuring `pretab` and neural optional
-  dependencies are present in the documented environment.
+- [x] Run an installed-wheel import/one-estimator smoke (2026-08-17). With the
+  network unavailable, `python -m build --wheel --no-isolation` built
+  `nampy-0.1.0-py3-none-any.whl`; installation with `pip install --no-deps` into a
+  temporary venv succeeded, `nampy` imported from that venv rather than the source
+  tree, mandatory `pretab 0.0.3` imported, `LinRegRegressor()` instantiated, and
+  the installed package exposed exactly `fit_model_core`, `solve_fit`, and
+  `FitCoreSolution` from `nampy.gam` with no top-level `GAM` alias.
+- [ ] Optionally automate that built-artifact installation/import smoke in the
+  build CI job. The package itself has now passed the manual clean-artifact check.
 - [ ] Update user documentation for:
 
   - supported GAM optimizers/families,

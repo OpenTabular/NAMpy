@@ -1,6 +1,6 @@
 # GAM subsystem — not implemented / known deviations
 
-Snapshot date: 2026-08-14. Companion to [GAM_IMPLEMENTED.md](GAM_IMPLEMENTED.md).
+Snapshot date: 2026-08-17. Companion to [GAM_IMPLEMENTED.md](GAM_IMPLEMENTED.md).
 Policy: every unsupported surface must fail loudly (explicit
 `NotImplementedError`/`ValueError`), never silently approximate. Items marked
 **guarded** raise an explicit error today; items marked **absent** fail
@@ -45,7 +45,7 @@ its extended families are ported.
 | Surface | Status |
 | --- | --- |
 | GACV (`GACV.Cp`) | absent; `gacv.cp` is rejected (no silent aliasing to GCV) |
-| P-ML / P-REML as selectable criteria | absent (string literals appear only in score-scale heuristics) |
+| P-ML / P-REML as selectable criteria | absent (string literals appear only in the ML/REML-like score classification used by the upstream-mirrored optimizer convergence rules) |
 | NCV / QNCV (`nei=`) | absent; the `nei=` parameter was removed |
 | `nlm` optimizer | guarded |
 | `magic` / performance iteration as a distinct optimizer identity | absent — Gaussian+GCV routes through outer optimization, so the reported optimizer name never equals `"magic"` |
@@ -96,17 +96,18 @@ its extended families are ported.
   7 digits) and are excluded for the affected case with the evidence in the
   registry comment.
 
-- **`select=True` general-family optimized endpoints**
-  (`gaulss_select_true_cr`, `gammals_select_true_cr`) — the only live xfails.
-  Both verified 2026-08-14 (`debug/gaulss_select_initial_spg_probe.py`,
-  `debug/gammals_select_edf2_probe.py`): the divergence originates in
-  `mgcv::initial.spg()` and the select-penalty endpoint is
-  orientation-indeterminate inside mgcv itself — refitting mgcv on the
-  mirrored basis (`x -> -x`) reproduces NAMpy's endpoint exactly in both
-  cases (gaulss: log sp 11.79338762 vs 11.91107097 with scores agreeing to
-  5e-6; gammals: sp 1387.5727 vs 1385.9021 with edf1/edf2 sums reproducing
-  NAMpy's 3.690821 to 2.3e-7, criterion difference 7e-8, and NAMpy's endpoint
-  the better-converged of the two). Only the endpoint-sensitive
-  edf/edf1/edf2 scalars exceed tolerance; post-processing (Vc and edf2
-  assembly) is tested strictly at a shared endpoint for both cases and
-  matches at 5e-6.
+- **`gaulss(select=True)` optimized endpoint** — the only live GAM xfail.
+  After correcting the multi-penalty `Sl.setup` triangle convention, the
+  retained probe gives second log-sp `11.81049973` versus mgcv `11.91107097`;
+  the optimized final-fit covariance remains outside tolerance. Fixed/shared-
+  endpoint post-processing remains strict. Upstream `estimate.gam` transforms
+  `G$X` with arbitrary-sign symmetric-eigen vectors but passes
+  unreparameterized `G$Eb` into `initial.spg`, making this start dependent on
+  a legal `DSYEVR` sign choice. This is separate from gammals and must not be
+  hidden by a heuristic, sign canonicalizer, or platform-specific solver hook.
+
+  The former `gammals_select_true_cr` endpoint, prediction, and EDF2 xfails are
+  fixed. They were caused by `_sl_multi_penalty_block` using the upper triangle
+  where `mgcv/R/fast-REML.r::Sl.setup` uses the lower-triangle symmetric-eigen
+  convention. Gammals initialization, final smoothing parameters, predictions,
+  SEs, and fit5 post-processing now pass ordinary mgcv strictly.
