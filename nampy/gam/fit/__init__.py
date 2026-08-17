@@ -41,9 +41,7 @@ from .covariance import (
 )
 from .linalg.stacked_qr import (
     STACKED_QR_RANK_TOLERANCE,
-    gaussian_design_needs_stacked_qr_fit,
     pls_fit1_nonneg_w,
-    snap_coef_to_reference_null_space,
     solve_gaussian_penalized_ls_stacked_qr,
 )
 from .offsets import (
@@ -92,8 +90,6 @@ __all__ = [
     "gaussian_smoothness_postprocess",
     "merge_gaussian_smoothness_into_fit_result",
     "STACKED_QR_RANK_TOLERANCE",
-    "gaussian_design_needs_stacked_qr_fit",
     "pls_fit1_nonneg_w",
-    "snap_coef_to_reference_null_space",
     "solve_gaussian_penalized_ls_stacked_qr",
 ]

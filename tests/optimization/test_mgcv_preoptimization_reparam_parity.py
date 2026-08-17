@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from nampy.gam import GAM
+from nampy.gam.model.api import GAM
 from nampy.gam.smoothing_selection.reparam import (
     build_estimate_gam_setup_state,
     gam_reparam,

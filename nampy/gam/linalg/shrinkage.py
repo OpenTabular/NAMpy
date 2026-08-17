@@ -20,7 +20,6 @@ def geometric_null_space_shrinkage(
     shrink: float = 0.1,
     tol: float = 1e-12,
     symmetrize_lower_triangle: bool = False,
-    use_scipy: bool = False,
     descending: bool = False,
 ) -> np.ndarray:
     """Replace null eigenvalues by a geometric sequence from the smallest positive one."""
@@ -34,7 +33,6 @@ def geometric_null_space_shrinkage(
     evals, evecs = symmetric_eigh(
         mat,
         descending=descending,
-        use_scipy=use_scipy,
     )
     tol_eff = float(tol) * max(1.0, float(np.max(np.abs(evals))) if evals.size else 1.0)
     pos_mask = evals > tol_eff

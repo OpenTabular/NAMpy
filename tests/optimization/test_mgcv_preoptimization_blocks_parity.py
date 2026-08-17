@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.gam import GAM
+from nampy.gam.model.api import GAM
 from nampy.gam.smoothing_selection.reparam import build_estimate_gam_setup_state
 from tests._paths import PARITY_DIR, REPO_ROOT
 from tests.mgcv_invariant_policy import (

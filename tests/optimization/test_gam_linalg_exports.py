@@ -14,6 +14,7 @@ from nampy.gam.linalg import (
     matrix_self_gram,
     matrix_sqrt_psd,
     numerical_rank,
+    pivoted_cholesky,
     positive_semidefinite_root,
     project_coef_onto_row_space,
     r_matrix_norm_max_abs,
@@ -24,6 +25,7 @@ from nampy.gam.linalg import (
     symmetric_eigh,
     symmetrize_from_lower_triangle,
     symmetrize_matrix,
+    upper_triangular_condition_indicator,
     upper_triangular_rrank,
 )
 
@@ -71,6 +73,19 @@ def test_linalg_pivoted_cholesky_helpers_solve_spd_system():
         ),
         np.linalg.inv(A),
         atol=1e-12,
+    )
+
+    singular = np.array([[1.0, 1.0], [1.0, 1.0]], dtype=np.float64)
+    ridge = np.eye(2, dtype=np.float64) * 1e-8
+    singular_factor, singular_piv, _singular_ipiv, initially_full = (
+        safe_pivoted_cholesky(singular, ridge)
+    )
+    assert not initially_full
+    np.testing.assert_allclose(
+        singular_factor.T @ singular_factor,
+        (singular + ridge)[np.ix_(singular_piv, singular_piv)],
+        atol=1e-14,
+        rtol=1e-14,
     )
 
 
@@ -129,6 +144,23 @@ def test_linalg_eigen_and_rank_exports_match_expected_behavior():
     assert upper_triangular_rrank(
         np.array([[2.0, 1.0], [0.0, 0.0]], dtype=np.float64)
     ) == 1
+    R_condition = np.array([[2.0, 1.0], [0.0, 4.0]], dtype=np.float64)
+    np.testing.assert_allclose(
+        upper_triangular_condition_indicator(R_condition),
+        2.5,
+        atol=0.0,
+        rtol=0.0,
+    )
+
+    pivot_source = np.array([[1.0, 0.5], [0.5, 4.0]], dtype=np.float64)
+    pivot_factor, pivot, pivot_rank = pivoted_cholesky(pivot_source)
+    assert pivot_rank == 2
+    np.testing.assert_allclose(
+        pivot_factor.T @ pivot_factor,
+        pivot_source[np.ix_(pivot, pivot)],
+        atol=1e-14,
+        rtol=1e-14,
+    )
 
     lower_sym = symmetrize_from_lower_triangle(
         np.array([[1.0, 9.0], [2.0, 3.0]], dtype=np.float64)

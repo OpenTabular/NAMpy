@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 import numpy as np
-from scipy.linalg.lapack import get_lapack_funcs
 
 from .eigen import symmetric_eigh, symmetric_eigvalsh
 
@@ -160,16 +159,57 @@ def upper_triangular_rrank(
     rank = min(m, int(R.shape[1]))
     if tol is None:
         tol = float(np.finfo(np.float64).eps ** 0.9)
-    trcon = get_lapack_funcs("trcon", (np.asfortranarray(R),))
-    while rank > 0:
-        block = np.asfortranarray(R[:rank, :rank], dtype=np.float64)
-        rcond, info = trcon(block, norm="1", uplo="U", diag="N")
-        if info != 0 or not np.isfinite(rcond):
-            rcond = 0.0
-        if float(rcond) > float(tol):
-            break
+    condition = upper_triangular_condition_indicator(R, rank)
+    while rank > 0 and float(tol) * condition > 1.0:
         rank -= 1
+        condition = upper_triangular_condition_indicator(R, rank)
     return int(rank)
+
+
+def upper_triangular_condition_indicator(
+    matrix: np.ndarray,
+    n_leading_cols: int | None = None,
+) -> float:
+    """Port ``mgcv/src/gdi.c::R_cond`` without a platform LAPACK binding.
+
+    This is the Cline--Moler--Stewart--Wilkinson condition indicator used by
+    upstream ``mgcv::Rrank``. Only the leading square upper triangle is read.
+    """
+    R = np.asarray(matrix, dtype=np.float64)
+    if R.ndim != 2:
+        raise ValueError("matrix must be 2D.")
+    columns = min(R.shape) if n_leading_cols is None else int(n_leading_cols)
+    if columns < 0 or columns > min(R.shape):
+        raise ValueError("n_leading_cols is outside the matrix dimensions.")
+    if columns == 0:
+        return 0.0
+
+    pp = np.zeros(columns, dtype=np.float64)
+    pm = np.zeros(columns, dtype=np.float64)
+    y = np.zeros(columns, dtype=np.float64)
+    p = np.zeros(columns, dtype=np.float64)
+    y_inf = 0.0
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        for k in range(columns - 1, -1, -1):
+            yp = (1.0 - p[k]) / R[k, k]
+            ym = (-1.0 - p[k]) / R[k, k]
+            for i in range(k):
+                pp[i] = p[i] + R[i, k] * yp
+                pm[i] = p[i] + R[i, k] * ym
+            pp_norm = float(np.sum(np.abs(pp[:k])))
+            pm_norm = float(np.sum(np.abs(pm[:k])))
+            if abs(yp) + pp_norm >= abs(ym) + pm_norm:
+                y[k] = yp
+                p[:k] = pp[:k]
+            else:
+                y[k] = ym
+                p[:k] = pm[:k]
+            y_inf = max(y_inf, abs(float(y[k])))
+
+    r_inf = 0.0
+    for i in range(columns):
+        r_inf = max(r_inf, float(np.sum(np.abs(R[i, i:columns]))))
+    return float(r_inf * y_inf)
 
 
 __all__ = [
@@ -180,5 +220,6 @@ __all__ = [
     "snap_coef_to_reference_null_space",
     "balanced_penalty_template_sqrt_for_rank",
     "symmetric_penalty_rank",
+    "upper_triangular_condition_indicator",
     "upper_triangular_rrank",
 ]

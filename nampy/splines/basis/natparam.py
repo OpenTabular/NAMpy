@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 from scipy.linalg import eigh as scipy_eigh
-from scipy.linalg.blas import daxpy, ddot, dnrm2, dscal
 
 from ...gam.linalg import matrix_is_rank_deficient
 
@@ -21,7 +20,6 @@ def _r_symmetric_eigh_descending(
     """
     values, vectors = scipy_eigh(
         matrix,
-        driver="evr",
         lower=True,
         check_finite=False,
     )
@@ -85,7 +83,7 @@ def _r_linpack_qr(X: np.ndarray, tol: float) -> tuple[np.ndarray, np.ndarray]:
 
     # R/src/appl/dqrdc2.f: initial column norms.
     for column in range(p):
-        norm = float(dnrm2(qr[:, column])) if n else 0.0
+        norm = float(np.linalg.norm(qr[:, column])) if n else 0.0
         qraux[column] = norm
         work_original[column] = norm
         work_scale[column] = norm if norm != 0.0 else 1.0
@@ -119,19 +117,19 @@ def _r_linpack_qr(X: np.ndarray, tol: float) -> tuple[np.ndarray, np.ndarray]:
             continue
 
         tail = qr[column:, column]
-        norm = float(dnrm2(tail))
+        norm = float(np.linalg.norm(tail))
         if norm == 0.0:
             continue
         if qr[column, column] != 0.0:
             norm = float(np.copysign(norm, qr[column, column]))
-        qr[column:, column] = dscal(1.0 / norm, tail)
+        qr[column:, column] = tail * (1.0 / norm)
         qr[column, column] += 1.0
 
         for following in range(column + 1, p):
             vector = qr[column:, column]
             target = qr[column:, following]
-            multiplier = -float(ddot(vector, target)) / qr[column, column]
-            qr[column:, following] = daxpy(vector, target, a=multiplier)
+            multiplier = -float(vector @ target) / qr[column, column]
+            qr[column:, following] = target + multiplier * vector
             if qraux[following] != 0.0:
                 reduction = 1.0 - (
                     abs(qr[column, following]) / qraux[following]
@@ -141,7 +139,7 @@ def _r_linpack_qr(X: np.ndarray, tol: float) -> tuple[np.ndarray, np.ndarray]:
                     qraux[following] *= np.sqrt(reduction)
                 else:
                     qraux[following] = float(
-                        dnrm2(qr[column + 1 :, following])
+                        np.linalg.norm(qr[column + 1 :, following])
                     )
                     work_original[following] = qraux[following]
 
@@ -166,8 +164,8 @@ def _r_linpack_qr(X: np.ndarray, tol: float) -> tuple[np.ndarray, np.ndarray]:
         vector[0] = qraux[column]
         for q_column in range(p):
             target = Q[column:, q_column]
-            multiplier = -float(ddot(vector, target)) / vector[0]
-            Q[column:, q_column] = daxpy(vector, target, a=multiplier)
+            multiplier = -float(vector @ target) / vector[0]
+            Q[column:, q_column] = target + multiplier * vector
 
     return Q, R
 

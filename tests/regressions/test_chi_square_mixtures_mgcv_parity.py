@@ -64,3 +64,9 @@ def test_log1pmx_is_stable_for_small_x():
 
     assert math.log1p(x) - x == 0.0
     assert csm._log1pmx(x) == pytest.approx(-0.5e-32)
+
+
+def test_davies_rounding_does_not_emulate_c_integer_overflow():
+    """Integration counts remain mathematical integers beyond a C ``int`` range."""
+    solver = csm.DaviesAlgorithm()
+    assert solver._c_round_int(float(2**40) + 0.75) == 2**40 + 1

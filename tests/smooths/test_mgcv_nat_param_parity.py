@@ -52,7 +52,7 @@ def _run_r(script: str, temp: Path) -> None:
 
 
 def test_nat_param_type1_matches_mgcv_up_to_column_sign():
-    """Distinct eigenvalues: X/P columns match up to sign, D exactly."""
+    """Simple penalized directions match by sign; the repeated null block by span."""
     rng = np.random.default_rng(732)
     X = rng.normal(size=(72, 5))
     root = rng.normal(size=(3, 5))
@@ -86,10 +86,29 @@ write.table(matrix(rp$D, nrow=1), file.path(d, "D.csv"),
     np.testing.assert_allclose(
         np.asarray(actual["D"], dtype=np.float64), expected_D, rtol=1e-10, atol=1e-12
     )
-    aligned_X = _align_column_signs(np.asarray(actual["X"], np.float64), expected_X)
-    np.testing.assert_allclose(aligned_X, expected_X, rtol=1e-8, atol=1e-10)
-    aligned_P = _align_column_signs(np.asarray(actual["P"], np.float64), expected_P)
-    np.testing.assert_allclose(aligned_P, expected_P, rtol=1e-8, atol=1e-10)
+    rank = 3
+    actual_X = np.asarray(actual["X"], np.float64)
+    actual_P = np.asarray(actual["P"], np.float64)
+    aligned_X = _align_column_signs(actual_X[:, :rank], expected_X[:, :rank])
+    np.testing.assert_allclose(
+        aligned_X, expected_X[:, :rank], rtol=1e-8, atol=1e-10
+    )
+    aligned_P = _align_column_signs(actual_P[:, :rank], expected_P[:, :rank])
+    np.testing.assert_allclose(
+        aligned_P, expected_P[:, :rank], rtol=1e-8, atol=1e-10
+    )
+    np.testing.assert_allclose(
+        _projector(actual_X[:, rank:]),
+        _projector(expected_X[:, rank:]),
+        rtol=0.0,
+        atol=1e-10,
+    )
+    np.testing.assert_allclose(
+        _projector(actual_P[:, rank:]),
+        _projector(expected_P[:, rank:]),
+        rtol=0.0,
+        atol=1e-10,
+    )
 
 
 def test_nat_param_type1_fs_base_matches_mgcv_subspace_invariants():

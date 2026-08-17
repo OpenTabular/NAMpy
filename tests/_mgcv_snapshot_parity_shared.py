@@ -7,13 +7,10 @@ import pandas as pd
 import pytest
 from scipy.linalg import cho_factor
 
-from nampy.gam import GAM
 from nampy.gam._model_state import _design_matrix, _n_coef, _penalty_blocks_seq
 from nampy.gam.compiler.compile_predictors import compile_predictors
 from nampy.gam.fit.linalg.stacked_qr import (
     penalty_sqrt_rows,
-    project_coef_onto_row_space,
-    snap_coef_to_reference_null_space,
     solve_gaussian_penalized_ls_stacked_qr,
 )
 from nampy.gam.fit.penalized_system import (
@@ -22,6 +19,11 @@ from nampy.gam.fit.penalized_system import (
 )
 from nampy.gam.fit.solvers.gaussian_exact import solve_gaussian_fit
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
+from nampy.gam.linalg import (
+    project_coef_onto_row_space,
+    snap_coef_to_reference_null_space,
+)
+from nampy.gam.model.api import GAM
 from nampy.gam.parity.snapshots import _get_core
 from nampy.gam.smoothing_selection.criteria import criterion_value
 from nampy.gam.smoothing_selection.criteria.gaussian import criterion_ml_reml_exact
@@ -608,6 +610,17 @@ class TestMgcvParity:
             np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64)
         ).ravel()
         gam = _fit_nampy_model_fixed_sp(data, formula, "gaussian", sp)
+
+        # ``mgcv::gam.fit3.post.proc`` forms per-coefficient EDF through the
+        # retained gdi1 Householder chain, ``(rV %*% t(K)) %*% (sqrt(w) * X)``.
+        # At this near-singular endpoint, the algebraically equivalent normal-
+        # equation product loses the null-space cancellation catastrophically.
+        np.testing.assert_allclose(
+            np.asarray(gam._edf_by_term_fit_, dtype=np.float64),
+            np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
+            atol=5e-3,
+            rtol=5e-3,
+        )
 
         y = np.asarray(data["y"], dtype=np.float64)
         y = gam.family.validate_y(y)

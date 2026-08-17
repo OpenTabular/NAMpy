@@ -10,9 +10,6 @@ __all__ = ["DaviesAlgorithm", "liu2", "psum_chisq"]
 
 
 class DaviesAlgorithm:
-    _C_INT_MIN = -(2**31)
-    _C_INT_MAX = 2**31 - 1
-
     def __init__(self):
         self._count = 0
 
@@ -196,12 +193,6 @@ class DaviesAlgorithm:
         base = math.floor(x)
         if x - base > 0.5:
             base += 1
-        # Mirror the platform behavior of mgcv/src/davies.c assigning an
-        # out-of-range rounded double into a C `int` (`nt`, `ntm`).
-        # On the target toolchain this yields INT_MIN, and mgcv parity tests
-        # depend on reproducing that exact overflow path.
-        if base < self._C_INT_MIN or base > self._C_INT_MAX:
-            return self._C_INT_MIN
         return int(base)
 
     def davies(self, lb, nc, n, r, sigma, c_val, lim, acc):

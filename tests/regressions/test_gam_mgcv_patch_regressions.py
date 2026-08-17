@@ -6,9 +6,9 @@ import pandas as pd
 import pytest
 from scipy.optimize import OptimizeResult
 
-from nampy.gam import GAM
 from nampy.gam._model_state import (
     _design_matrix,
+    _fit_intercept,
     _fit_state,
     _n_coef,
     _penalty_blocks_seq,
@@ -17,11 +17,9 @@ from nampy.gam.compiler.factory import instantiate_term
 from nampy.gam.families import BinomialLogitFamily, GaussianIdentityFamily
 from nampy.gam.fit.linalg.stacked_qr import (
     STACKED_QR_RANK_TOLERANCE,
-    _dgeqp3_economic_r,
-    _get_r_pqr_serial,
+    _pivoted_economic_qr,
     _scatter_pivoted_rank_matrix_to_full,
     _stacked_penalized_ls_nonneg_solution,
-    balanced_penalty_template_sqrt_for_rank,
     build_penalized_qr_state_nonnegative,
     penalty_sqrt_rows,
     solve_gaussian_penalized_ls_stacked_qr,
@@ -34,6 +32,8 @@ from nampy.gam.fit.penalized_system import (
 from nampy.gam.fit.solvers.irls_core import irls_core
 from nampy.gam.fit.state import FitCoreSolution, FitState, assign_fit_solution
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
+from nampy.gam.linalg import balanced_penalty_template_sqrt_for_rank
+from nampy.gam.model.api import GAM
 from nampy.gam.results import FitResult
 from nampy.gam.smoothing_selection.criteria import dispatch as criteria_dispatch
 from nampy.gam.smoothing_selection.criteria import gaussian as gaussian_criteria
@@ -316,16 +316,14 @@ def test_binomial_pirls_uses_stacked_qr_when_system_is_ill_conditioned(monkeypat
     assert np.all(np.isfinite(sol["coef_full"]))
 
 
-def test_get_r_pqr_serial_handles_wide_qr_storage():
-    """Regression coverage verifying that get r pqr serial handles wide QR storage."""
+def test_pivoted_economic_qr_reconstructs_wide_matrix():
+    """The supported SciPy QR wrapper must handle wide matrices directly."""
     rng = np.random.default_rng(123)
     X = rng.normal(size=(4, 7))
 
-    qr_a, _tau, _pivot, _ = _dgeqp3_economic_r(X)
-    got = _get_r_pqr_serial(qr_a, rr=min(X.shape), ncol=X.shape[1])
+    q_mat, r_mat, pivot = _pivoted_economic_qr(X)
 
-    want = np.triu(np.asarray(qr_a[: min(X.shape), :], dtype=np.float64))
-    np.testing.assert_allclose(got, want, atol=1e-12, rtol=1e-12)
+    np.testing.assert_allclose(q_mat @ r_mat, X[:, pivot], atol=1e-12, rtol=1e-12)
 
 
 def test_stacked_qr_covariance_root_scatter_matches_covariance():
@@ -406,12 +404,8 @@ def test_gaussian_stacked_qr_rank_deficient_signed_weights_match_reduced_problem
     )
 
 
-def test_stacked_qr_null_space_gauge_preserves_fit_and_minimizes_penalty():
-    """
-    Regression coverage for the explicit mgcv boundary tie-break used by exact
-    Gaussian stacked-QR fits: fitted values are invariant, while the coefficient
-    representative is selected by minimum penalty within null(X).
-    """
+def test_stacked_qr_rank_drop_uses_upstream_zero_fill_gauge():
+    """Rank-deficient PLS zero-fills the coordinate dropped by ``pls_fit1``."""
     X = np.array(
         [
             [1.0, 1.0],
@@ -422,45 +416,27 @@ def test_stacked_qr_null_space_gauge_preserves_fit_and_minimizes_penalty():
     )
     y = np.array([1.5, 3.0, 4.5], dtype=np.float64)
     w = np.ones(3, dtype=np.float64)
-    P = np.diag([1e-12, 1.0]).astype(np.float64)
+    P = np.zeros((2, 2), dtype=np.float64)
 
-    ungauged = solve_gaussian_penalized_ls_stacked_qr(
+    out = solve_gaussian_penalized_ls_stacked_qr(
         X,
         y,
         w,
         P,
         fit_intercept=False,
         n_coef=X.shape[1],
-        near_singular_null_pin=False,
     )
-    gauged = solve_gaussian_penalized_ls_stacked_qr(
-        X,
-        y,
-        w,
-        P,
-        fit_intercept=False,
-        n_coef=X.shape[1],
-        near_singular_null_pin=True,
-    )
-
-    beta_g = np.asarray(gauged["coef_full"], dtype=np.float64)
-    null_dir = np.array([1.0, -1.0], dtype=np.float64) / np.sqrt(2.0)
+    beta = np.asarray(out["coef_full"], dtype=np.float64)
+    dropped = np.asarray(out["dropped_column_indices"], dtype=np.int64)
 
     np.testing.assert_allclose(
-        X @ beta_g,
-        X @ np.asarray(ungauged["coef_full"], dtype=np.float64),
+        X @ beta,
+        y,
         atol=1e-10,
         rtol=1e-10,
     )
-    assert abs(float(null_dir @ (P @ beta_g))) < 1e-10
-    assert (
-        float(beta_g @ (P @ beta_g))
-        <= float(
-            np.asarray(ungauged["coef_full"], dtype=np.float64)
-            @ (P @ np.asarray(ungauged["coef_full"], dtype=np.float64))
-        )
-        + 1e-12
-    )
+    assert dropped.shape == (1,)
+    assert beta[int(dropped[0])] == 0.0
 
 
 def test_irls_zero_penalty_rank_deficient_design_uses_qr_drop():
@@ -608,7 +584,11 @@ def test_gdi_pk_setup_and_ift1_match_signed_weight_inverse_root(monkeypatch):
 
     model = SimpleNamespace(
         family=GaussianIdentityFamily(),
-        compiled_model_=SimpleNamespace(n_smoothing_params=1),
+        compiled_model_=SimpleNamespace(
+            n_smoothing_params=1,
+            predictors=(),
+            design_matrix=X,
+        ),
     )
     sol = {
         "X": X,
@@ -664,6 +644,27 @@ def test_gdi_pk_setup_and_ift1_match_signed_weight_inverse_root(monkeypatch):
     )
 
 
+def test_gdi_pk_setup_requires_the_canonical_compiled_design():
+    """The mgcv gdiPK port must not fall back to a solution-local design matrix."""
+    pirls_deriv_module = importlib.import_module(
+        "nampy.gam.smoothing_selection.criteria.pirls.derivatives"
+    )
+    model = SimpleNamespace(compiled_model_=None)
+    sol = {
+        "X": np.eye(2, dtype=np.float64),
+        "working_weights": np.ones(2, dtype=np.float64),
+        "eta": np.zeros(2, dtype=np.float64),
+    }
+
+    with pytest.raises(RuntimeError, match="Compiled model is unavailable"):
+        pirls_deriv_module._gdi_pk_setup(
+            model,
+            sol,
+            np.empty(0, dtype=np.float64),
+            deriv=0,
+        )
+
+
 def test_gaussian_fit3_gdi_beta_full_matches_signed_weight_stacked_qr(monkeypatch):
     """
     Regression coverage verifying that gaussian fit3 GDI beta full matches signed weight
@@ -703,12 +704,8 @@ def test_gaussian_fit3_gdi_beta_full_matches_signed_weight_stacked_qr(monkeypatc
     )
 
     model = SimpleNamespace(compiled_model_=SimpleNamespace(n_smoothing_params=1))
-    coef_full, eta_fit, _rank_root = gaussian_exact_module._gaussian_fit3_gdi_beta_full(
-        model,
-        X,
-        sp,
-        y,
-        w,
+    coef_full, eta_fit, _rank_root = (
+        gaussian_exact_module._gaussian_fit3_gdi_beta_full(model, X, sp, y, w)
     )
     out = solve_gaussian_penalized_ls_stacked_qr(
         X,
@@ -1307,6 +1304,20 @@ def test_gaussian_unconditional_postfit_augments_link_matrix_for_joint_scale(
         atol=1e-12,
         rtol=1e-12,
     )
+
+
+def test_gaussian_dynamic_deviance_requires_gam_fit3_state():
+    """Dynamic Gaussian REML must not substitute a recomputed weighted RSS."""
+    gaussian_dyn_module = importlib.import_module(
+        "nampy.gam.smoothing_selection.criteria.gaussian_dyn"
+    )
+
+    with pytest.raises(RuntimeError, match="gam.fit3 deviance state"):
+        gaussian_dyn_module._gaussian_dynamic_deviance(
+            {"mu": np.zeros(2, dtype=np.float64)},
+            np.ones(2, dtype=np.float64),
+            np.ones(2, dtype=np.float64),
+        )
 
 
 def test_outer_newton_result_sets_stable_metadata():
@@ -2124,6 +2135,68 @@ def test_direct_exact_pirls_derivative_entrypoint_runs_on_canonical_reparam_stat
     assert np.all(np.isfinite(grad))
 
 
+def test_pirls_iterations_use_current_sp_canonical_reparameterization(monkeypatch):
+    """Every gam.fit3 PIRLS step must use the current-SP ``T``, ``Sr``, and ``Eb``."""
+    pirls_module = importlib.import_module("nampy.gam.fit.solvers.pirls")
+    original_irls_core = pirls_module.irls_core
+    seen = {"calls": 0}
+
+    rng = np.random.default_rng(20260817)
+    x = np.linspace(-1.0, 1.0, 120, dtype=np.float64)
+    mu = 3.0 + 0.6 * np.sin(np.pi * x)
+    data = pd.DataFrame({"y": rng.poisson(mu), "x": x})
+    gam = GAM(
+        family={"name": "poisson", "link": "identity"},
+        formula='y ~ s(x, bs="cr", k=7, sp=3)',
+        optimize_smoothing=False,
+        smoothing_method="fixed",
+    )
+
+    def _capture_irls_core(X, y, family, S, *args, **kwargs):
+        del y, family, args
+        X_public = build_full_design(
+            _design_matrix(gam), fit_intercept=_fit_intercept(gam)
+        )
+        canonical = build_penalty_reparameterization_state(
+            gam,
+            X_public,
+            np.asarray(gam.smoothing_params, dtype=np.float64),
+            deriv=0,
+        )
+        np.testing.assert_allclose(
+            np.asarray(X, dtype=np.float64),
+            X_public @ np.asarray(canonical.T, dtype=np.float64),
+            rtol=0.0,
+            atol=1e-13,
+        )
+        np.testing.assert_allclose(
+            np.asarray(S, dtype=np.float64),
+            np.asarray(canonical.St, dtype=np.float64),
+            rtol=0.0,
+            atol=1e-13,
+        )
+        np.testing.assert_allclose(
+            np.asarray(kwargs["penalty_sqrt_E"], dtype=np.float64),
+            np.asarray(canonical.Sr, dtype=np.float64),
+            rtol=0.0,
+            atol=1e-13,
+        )
+        np.testing.assert_allclose(
+            np.asarray(kwargs["penalty_rank_rows"], dtype=np.float64),
+            np.asarray(canonical.Eb, dtype=np.float64),
+            rtol=0.0,
+            atol=1e-13,
+        )
+        assert "fisher_scoring_only" not in kwargs
+        seen["calls"] += 1
+        return original_irls_core(X, gam.y_, gam.family, S, **kwargs)
+
+    monkeypatch.setattr(pirls_module, "irls_core", _capture_irls_core)
+    gam.fit(data=data)
+
+    assert seen["calls"] == 1
+
+
 def test_tensor_id_metadata_maps_one_smoothing_id_to_multiple_sp_indices():
     """
     Regression coverage verifying that tensor id metadata maps one smoothing id to
@@ -2223,13 +2296,21 @@ def test_negbin_estimated_theta_joint_path_accepts_arrays_offset_and_weights():
     assert theta_hat != 1.8
 
 
-def test_rank_deficient_gaussian_fit_matches_mgcv_drop_gauge():
+@pytest.mark.parametrize(
+    "apply_side_conditions",
+    [False, True],
+    ids=["direct_solver", "default_gam_side"],
+)
+def test_rank_deficient_gaussian_fit_matches_mgcv_drop_gauge(
+    apply_side_conditions,
+):
     """
     Exactly aliased parametric columns must reproduce mgcv's rank-deficiency
     gauge: dropped canonical coordinates give an exactly-zero coefficient AND
     an exactly-zero Vp row/column at the same position
-    (mgcv/src/gdi.c:2253-2292 zero-fill + rV scatter). Side conditions are
-    disabled so the alias reaches the solver drop path as it does upstream.
+    (mgcv/src/gdi.c:2253-2292 zero-fill + rV scatter). Upstream gam.side only
+    mutates smooth objects (mgcv/R/mgcv.r:564-728), so the alias must reach the
+    solver both directly and through NAMpy's default side-condition path.
     """
     from tests.mgcv_parity_utils import _run_mgcv_snapshot
 
@@ -2255,7 +2336,7 @@ def test_rank_deficient_gaussian_fit_matches_mgcv_drop_gauge():
         optimize_smoothing=True,
         smoothing_method="REML",
         smoothing_optimizer="outer_newton",
-        apply_side_conditions=False,
+        apply_side_conditions=apply_side_conditions,
     )
     gam.fit(data=data)
     fr = gam.fit_result()
@@ -2275,6 +2356,48 @@ def test_rank_deficient_gaussian_fit_matches_mgcv_drop_gauge():
     assert np.all(vp[:, dropped[0]] == 0.0)
     np.testing.assert_allclose(vp, exp_vp, rtol=1e-6, atol=1e-9)
 
+    fit_state = gam.fit_core_solution_.fit_state
+    assert int(fit_state.penalized_system_rank) == int(expected["fit"]["rank"])
+    assert (
+        np.asarray(fit_state.dropped_column_indices, dtype=np.int64).size
+        == dropped.size
+    )
+    np.testing.assert_allclose(
+        np.log(np.asarray(gam.smoothing_params, dtype=np.float64)),
+        np.asarray(expected["fit"]["log_smoothing_params"], dtype=np.float64),
+        rtol=0.0,
+        atol=1e-7,
+    )
+    expected_smooth_edf = np.asarray(
+        expected["fit"]["edf_by_term"], dtype=np.float64
+    ).ravel()
+    np.testing.assert_allclose(
+        np.asarray(gam._edf_by_term_fit_, dtype=np.float64)[
+            -expected_smooth_edf.size :
+        ],
+        expected_smooth_edf,
+        rtol=0.0,
+        atol=1e-7,
+    )
+
+    if apply_side_conditions:
+        parametric_reports = [
+            report
+            for predictor, side_report in zip(
+                gam.compiled_model_.predictors,
+                gam.side_condition_reports_,
+                strict=True,
+            )
+            for term, report in zip(
+                predictor.compiled_terms,
+                side_report["term_reports"],
+                strict=True,
+            )
+            if str(term.term_type) == "parametric"
+        ]
+        assert len(parametric_reports) == 2
+        assert all(int(report["n_deleted"]) == 0 for report in parametric_reports)
+
     np.testing.assert_allclose(
         np.asarray(gam.predict(data), dtype=np.float64),
         np.asarray(expected["predictions"]["response"], dtype=np.float64),
@@ -2287,8 +2410,17 @@ def test_rank_deficient_gaussian_fit_matches_mgcv_drop_gauge():
     ("family_name", "seed"),
     [("poisson", 43), ("binomial", 44), ("gamma", 45)],
 )
-def test_rank_deficient_pirls_fit_matches_mgcv_drop_gauge(family_name, seed):
-    """PIRLS must use gdi1's dropped-coordinate gauge for coef and Vp."""
+@pytest.mark.parametrize(
+    "apply_side_conditions",
+    [False, True],
+    ids=["direct_solver", "default_gam_side"],
+)
+def test_rank_deficient_pirls_fit_matches_mgcv_drop_gauge(
+    family_name,
+    seed,
+    apply_side_conditions,
+):
+    """PIRLS must preserve aliases through gam.side and use gdi1's drop gauge."""
     from tests.mgcv_parity_utils import _run_mgcv_snapshot
 
     rng = np.random.default_rng(seed)
@@ -2318,7 +2450,7 @@ def test_rank_deficient_pirls_fit_matches_mgcv_drop_gauge(family_name, seed):
         optimize_smoothing=True,
         smoothing_method="REML",
         smoothing_optimizer="outer_newton",
-        apply_side_conditions=False,
+        apply_side_conditions=apply_side_conditions,
     )
     gam.fit(data=data)
     fr = gam.fit_result()
@@ -2327,12 +2459,60 @@ def test_rank_deficient_pirls_fit_matches_mgcv_drop_gauge(family_name, seed):
 
     dropped = np.flatnonzero(np.diag(exp_vp) == 0.0)
     assert dropped.size == 1
-    np.testing.assert_array_equal(np.flatnonzero(np.diag(vp) == 0.0), dropped)
-    np.testing.assert_allclose(coef, exp_coef, rtol=0.0, atol=1e-8)
-    assert coef[dropped[0]] == 0.0
-    assert np.all(vp[dropped[0], :] == 0.0)
-    assert np.all(vp[:, dropped[0]] == 0.0)
-    np.testing.assert_allclose(vp, exp_vp, rtol=2e-6, atol=1e-9)
+    actual_dropped = np.flatnonzero(np.diag(vp) == 0.0)
+    assert actual_dropped.size == 1
+    assert coef[actual_dropped[0]] == 0.0
+    assert np.all(vp[actual_dropped[0], :] == 0.0)
+    assert np.all(vp[:, actual_dropped[0]] == 0.0)
+
+    if not apply_side_conditions and np.array_equal(actual_dropped, dropped):
+        np.testing.assert_array_equal(actual_dropped, dropped)
+        np.testing.assert_allclose(coef, exp_coef, rtol=0.0, atol=1e-8)
+        np.testing.assert_allclose(vp, exp_vp, rtol=2e-6, atol=1e-9)
+    else:
+        # The exact alias representative is endpoint-sensitive: changing
+        # log(sp) by a few e-12 can make mgcv itself switch the zero between
+        # x1 and z. Compare identified behavior at separately optimized
+        # endpoints, then require the direct path to match mgcv strictly at
+        # NAMpy's shared fixed-SP endpoint.
+        np.testing.assert_allclose(coef[1] + coef[2], exp_coef[1] + exp_coef[2])
+        np.testing.assert_allclose(coef[3:], exp_coef[3:], rtol=0.0, atol=1e-8)
+        np.testing.assert_allclose(
+            np.log(np.asarray(gam.smoothing_params, dtype=np.float64)),
+            np.asarray(expected["fit"]["log_smoothing_params"], dtype=np.float64),
+            rtol=0.0,
+            atol=1e-7,
+        )
+        actual_snapshot = gam.parity_snapshot(X=data, include_covariances=True)
+        np.testing.assert_allclose(
+            np.asarray(actual_snapshot["predictions"]["se_link"], dtype=np.float64),
+            np.asarray(expected["predictions"]["se_link"], dtype=np.float64),
+            rtol=2e-6,
+            atol=1e-8,
+        )
+        if not apply_side_conditions:
+            shared_formula = (
+                'y ~ x1 + z + s(x0, bs="cr", k=8, sp='
+                f"{float(gam.smoothing_params[0]):.17g})"
+            )
+            expected_shared = _run_mgcv_snapshot(
+                data=data,
+                formula=shared_formula,
+                family=family_name,
+                method="fixed",
+            )
+            np.testing.assert_allclose(
+                coef,
+                np.asarray(expected_shared["fit"]["coef_full"], dtype=np.float64),
+                rtol=0.0,
+                atol=1e-8,
+            )
+            np.testing.assert_allclose(
+                vp,
+                np.asarray(expected_shared["fit"]["cov_bayes"], dtype=np.float64),
+                rtol=2e-6,
+                atol=1e-9,
+            )
     np.testing.assert_allclose(
         np.asarray(gam.predict(data), dtype=np.float64),
         np.asarray(expected["predictions"]["response"], dtype=np.float64),

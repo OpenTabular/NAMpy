@@ -241,6 +241,11 @@ def _build_cubic_case_matrix():
                     f'y ~ s(x, bs="{basis}", k=8)',
                 ),
                 _case(
+                    f"{basis}_transformed_k8",
+                    _factory(_make_univariate_data, seed=seed_default + 200),
+                    f'y ~ s(I(x + 0.15 * x**2), bs="{basis}", k=8)',
+                ),
+                _case(
                     f"{basis}_shared_id",
                     _factory(_make_univariate_data, seed=seed_shared),
                     f'y ~ s(x, bs="{basis}", k=8, id="shared")',

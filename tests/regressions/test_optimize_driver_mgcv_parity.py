@@ -7,9 +7,9 @@ import numpy as np
 import pytest
 from scipy.optimize import OptimizeResult
 
-from nampy.gam import GAM
 from nampy.gam.fit import orchestrator as orchestrator_module
 from nampy.gam.fit import smoothing_params as fit_smoothing_params_module
+from nampy.gam.model.api import GAM
 from nampy.gam.smoothing_selection.optimize import driver as driver_module
 from nampy.gam.smoothing_selection.optimize import objectives as objectives_module
 from nampy.gam.smoothing_selection.optimize.objectives import (
@@ -258,6 +258,11 @@ def test_all_fixed_smoothing_params_still_optimizes_unknown_gaussian_scale(
     monkeypatch.setattr(
         driver_module, "supports_criterion_hessian", lambda model, method: True
     )
+    monkeypatch.setattr(
+        driver_module,
+        "_initial_smoothing_params_from_design",
+        lambda model, y: np.array([2.0], dtype=np.float64),
+    )
 
     def _fake_newton(*, objective, x0, bounds, **kwargs):
         del objective, kwargs
@@ -435,6 +440,7 @@ def test_negbin_reml_native_all_fixed_optimizes_theta_first(monkeypatch):
         np.array([False], dtype=bool),
         "reml",
         [],
+        optimizer="outer_newton",
     )
 
     assert result is not None
