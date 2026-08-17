@@ -83,7 +83,9 @@ Remaining decisions and release work
    installed artifact. Automating the same artifact check in CI remains optional
    release hardening.
 3. Add multi-output fitting coverage beyond LinReg only if every public neural
-   regressor is intended to guarantee it, then finish the listed user docs.
+   regressor is intended to guarantee it. The user-facing GAM support matrix,
+   estimator parameter/clone contract, current multi-output evidence boundary,
+   and SplineNAM preprocessing requirements are now documented in `README.md`.
 
 The public-export conflict is resolved: `nampy.gam` exposes only
 `fit_model_core`, `solve_fit`, and `FitCoreSolution`. The non-public `GAM`

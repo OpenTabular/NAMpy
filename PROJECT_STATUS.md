@@ -427,9 +427,10 @@ remaining release evidence is the hosted macOS/Windows (and clean hosted Linux)
 CI result. The public-export contract, manual built-wheel smoke, and neural
 first-validation matrix pass; all five neural files are tracked.
 
-The next work should follow [todo.md](todo.md): obtain hosted CI results, finish
-the listed user documentation, and optionally automate the passing wheel-install
-smoke.
+The next work should follow [todo.md](todo.md): obtain hosted CI results and
+optionally automate the passing wheel-install smoke. The user-facing GAM support
+matrix and neural estimator/preprocessing contracts are now documented in
+`README.md`.
 
 ---
 

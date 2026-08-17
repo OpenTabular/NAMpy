@@ -68,28 +68,42 @@ pip install git+https://github.com/OpenTabular/NAMpy.git@main
 
 ## Experimental `nampy.gam`
 
-The `nampy.gam` subpackage is an experimental Python reimplementation of core
-`mgcv` GAM behavior. The first release is intentionally scoped to common,
-tested surfaces instead of the full `mgcv` API.
+The `nampy.gam` subpackage is an experimental, strict behavioral port of
+`mgcv`, not a loosely compatible GAM implementation. Its supported surface is
+broad but deliberately smaller than `mgcv`; unsupported inputs raise instead
+of selecting an approximate fallback.
 
-Supported first-release target:
+The stable package-level integration surface currently consists of
+`fit_model_core`, `solve_fit`, and `FitCoreSolution`. The high-level `GAM`
+implementation used by the parity suite remains internal and is not a stable
+top-level import contract.
 
-- families: `gaussian`, `poisson`, `binomial`, `gamma`, and fixed-theta
-  `negbin` where parity tests cover the surface
-- smooths: common `s(...)` bases such as `cr`, `cs`, `cc`, `ps`, `tp`, `ts`,
-  plus tested numeric `te(...)` and `ti(...)` tensor cases
-- prediction: `link`, `response`, `terms`, `lpmatrix`, and standard errors on
-  supported surfaces
-- smoothing: fixed smoothing parameters and tested ordinary-family automatic
-  REML/ML routes
+Supported families and fitting routes:
 
-Out of first-release scope:
+- ordinary families: `gaussian`, `binomial`, `poisson`, and `gamma`, including
+  the documented noncanonical links
+- negative binomial with fixed or estimated theta
+- the multi-predictor `gaulss` and `gammals` general families
+- fixed smoothing and automatic GCV/Cp, ML, REML, or general-family LAML where
+  the selected family/backend supports that criterion
+- `outer_newton`, `bfgs`, and `efs` ports; `optim` uses SciPy L-BFGS-B and has
+  explicitly guarded combinations where exact R endpoint behavior is not yet
+  available; `lbfgsb` is a NAMpy extension
 
-- `t2`, Gaussian-process (`gp`), and Markov-random-field (`mrf`) smooths
-- NCV/QNCV and broad EFS optimizer support
-- full GAMLSS/general-family parity beyond the narrow tested `gaulss` and
-  `gammals` subset
-- exact `mgcv` parity for `summary.gam`, `plot.gam`, `gam.check`, and BIC
+Supported smooths include `s(...)` with `cr`, `cs`, `cc`, `ps`, `tp`, `ts`,
+`re`, `fs`, and `sz`, plus `te(...)` and `ti(...)` over the supported numeric
+marginals. Prediction supports `link`, `response`, `terms`, `iterms`, and
+`lpmatrix`, standard errors, and ordinary-family `terms=` / `exclude=`
+filtering. For `iterms`, uncertainty includes the model-mean component as in
+`mgcv`; multi-predictor `terms=` / `exclude=` filters remain unsupported.
+
+Important intentional exclusions include `t2`, `gp`, `mrf`, adaptive and soap
+smooths, matrix covariates, `paraPen`, NCV/QNCV, many extended/general
+families, exact R parity for the `optim` backend, and `plot.gam` graphics.
+`summary()` is a tested `summary.gam` port; `plot()` and the no-plot
+`gam_check()` interface are NAMpy-specific. See [the complete implemented
+surface](GAM_IMPLEMENTED.md) and [the guarded/unsupported
+surface](GAM_NOT_IMPLEMENTED.md) before relying on an advanced branch.
 
 ## Quick Start
 
@@ -142,6 +156,31 @@ score = model.score(X_test, y_test)
 print(f"R² Score: {score:.4f}")
 
 ```
+
+### Estimator Parameters, Cloning, and Multi-output Regression
+
+Neural estimators expose both architecture/config fields and preprocessing
+fields through scikit-learn's `get_params()` / `set_params()` contract. This
+allows `sklearn.base.clone`, pipelines, and parameter search to reconstruct an
+estimator without fitted state. Unknown constructor or `set_params` names raise
+instead of being silently ignored. If a config field and a preprocessing field
+share a name, use the `preprocessor__<name>` form to address the preprocessing
+value explicitly.
+
+The shared regression wrapper accepts targets shaped `(n_samples,)` or
+`(n_samples, n_outputs)` and preserves two-dimensional predictions for
+multi-output fits. End-to-end multi-output fitting is currently verified for
+`LinRegRegressor`; treat other neural architectures as needing their own
+end-to-end validation before depending on that contract in production.
+
+### SplineNAM Preprocessing
+
+`SplineNAMRegressor` requires every transformed input feature to remain scalar.
+Its defaults are therefore `numerical_preprocessing="minmax"` and
+`categorical_preprocessing="int"`. Preprocessors that expand a feature into
+multiple columns, such as one-hot, binning, or PLE-style encodings, are not
+valid SplineNAM inputs. The model checks this requirement and raises a clear
+error rather than changing the architecture implicitly.
 
 ## Distributional Regression with NAMLSS
 
