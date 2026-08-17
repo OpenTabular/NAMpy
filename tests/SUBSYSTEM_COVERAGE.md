@@ -33,11 +33,16 @@ the remaining parity planning in this single document.
 
 ## Stage-Local Backlog
 
-The following stage-local files exist now. Verification state as of
-2026-08-14 is recorded in `PROJECT_STATUS.md`; the only live expected
-failures are the two `select=True` general-family optimized-endpoint cases
-(`gaulss_select_true_cr`, `gammals_select_true_cr`), verified as mgcv-internal
-`initial.spg` orientation indeterminacy with strict fixed-endpoint coverage.
+The following stage-local files exist now. Verification state through
+2026-08-17 is recorded in `PROJECT_STATUS.md`; the only live expected GAM
+failure is `gaulss_select_true_cr`, with strict fixed-endpoint coverage. The
+former gammals endpoint and prediction xfails were fixed by matching
+`mgcv/R/fast-REML.r::Sl.setup`'s lower-triangle convention for multi-penalty
+blocks. A strict `initial.spg` regression, optimized final-fit comparison, and
+all gammals prediction/SE surfaces now pass. The remaining gaulss start is
+localized to upstream's arbitrary symmetric-eigen sign in the reparameterized
+`G$X` combined with unreparameterized `G$Eb`; no platform/sign-forcing behavior
+is admitted to make that endpoint raw-equal to one R build.
 
 | Stage | Direct file | Remaining or still-unvalidated backlog |
 | --- | --- | --- |

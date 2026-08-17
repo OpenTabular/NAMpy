@@ -1,6 +1,6 @@
 # GAM subsystem — implemented surface
 
-Snapshot date: 2026-08-14. This documents what `nampy/gam/` implements as a
+Snapshot date: 2026-08-17. This documents what `nampy/gam/` implements as a
 strict-parity port of R's `mgcv` (the vendored sources under `mgcv/` are the
 specification). Everything listed here is expected to match `mgcv` to the
 tolerances used by the parity suite; the only excluded class of differences is
@@ -54,8 +54,9 @@ subspaces. Whatever is *not* listed here is documented in
 Sum-to-zero constraints, QR constraint absorption byte-matching base R's
 `qr`/`qr.qty`, localized absorption, `pc=` point constraints, the `gam.side`
 analogue with `augment.smX` penalty-aware dependence testing, exemption
-policies for random-effect/factor smooths, zero-width term retention, and
-per-term `select=TRUE` null-space penalties.
+policies for random-effect/factor smooths, upstream's parametric-span
+intercept-equivalence check (without pruning parametric aliases), zero-width
+term retention, and per-term `select=TRUE` null-space penalties.
 
 ## Families
 
@@ -106,13 +107,28 @@ per-term `select=TRUE` null-space penalties.
 - `gam.fit3` PIRLS with the exact pre-refresh `eta`/`mu` state boundary around
   `gdiPK`, signed/negative-weight stacked QR (`pls_fit1` mirror with mgcv's
   `rank.tol = eps*100`, pivoted-QR column dropping, and zero-fill restore),
-  and `gam.fit4` extended-family hooks (theta EFS).
-- Gaussian exact/stacked-QR backend (the `magic`/`pls_fit1`-style linear
-  algebra path).
+  current-SP `gam.reparam` coordinates (`X %*% T`, `St`, `Sr`, and `Eb`) for
+  every inner iteration, QR-factor `getXtX` deviance-Hessian construction plus
+  signed-weight correction, `gdi1`/`getXtMX` smoothing-Hessian accumulation,
+  and `gam.fit4` extended-family hooks (theta EFS). Noncanonical links use
+  upstream's full-Newton weights and switch to Fisher only when the current
+  `pls_fit1` system is indefinite; there is no family-specific forced-Fisher
+  endpoint or convergence-tolerance override.
+- Gaussian exact/stacked-QR backend: every supported fit follows the
+  `gam.fit3` current-SP `pls_fit1` state and subsequent `gdi1`
+  coefficient/covariance overwrite. There is no condition-number, rank, or
+  term-type backend selection. Pivoted QR uses SciPy's supported high-level
+  factorization interface; raw `dgeqp3` work arrays, `JPVT` reuse, `ctypes`,
+  and BLAS-specific accumulation are not part of the parity contract. The
+  retained `rV`/`K` post-fit hat construction matches upstream at
+  near-singular REML boundaries.
 - `gam.fit5` general-family Newton with reparameterized single- and
   multi-penalty `Sl` blocks, `ldetS`, `Sl.repara`, and `gam.fit5.post.proc`
   (including the deriv=0 behavior for efs/optim: no smoothing-uncertainty
-  correction, `Vc = Vb`).
+  correction, `Vc = Vb`). The multi-penalty `Sl.setup` eigensystem uses
+  upstream's lower-triangle convention; the `gammals(select=True)`
+  `initial.spg` start, optimized endpoint, predictions, SEs, and final
+  post-processing are strict passes.
 
 ## summary.gam (added 2026-08-15)
 
@@ -183,3 +199,9 @@ inner PIRLS traces, predictions, SEs, residuals, `k.check`, `anova` tables,
 content-hashed references (`tests/mgcv_r_cache/`). The optimization lifecycle
 registry pins 31 strict optimizer branch cases (including weighted negbin
 estimated-theta and Gaussian log/inverse joint-scale branches).
+
+Production numerical code uses NumPy and SciPy's supported public interfaces;
+there are no direct `ctypes`/CFFI, BLAS/LAPACK-module, explicit solver-driver,
+or custom native-library bindings. A focused AST regression enforces that
+boundary, and CI carries portable numerical slices on Linux, macOS, and
+Windows.

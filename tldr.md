@@ -1,4 +1,5 @@
-TL;DR — nampy/gam status (2026-08-15, branch mgcv @ e8c9b21)
+TL;DR — NAMpy status (2026-08-17, branch `mgcv`, implementation snapshot
+through `e750f6d`)
 
 The GAM subsystem is a strict-parity port of mgcv 1.9-4 whose supported
 surface is documented in GAM_IMPLEMENTED.md / GAM_NOT_IMPLEMENTED.md and
@@ -27,32 +28,70 @@ What is solid (verified against live R at strict tolerances)
   terms=/exclude=), logLik/AIC/BIC (parity-tested for poisson, negbin,
   gaulss), and a full summary.gam port (GAMSummary + print layout +
   null.deviance for all family classes) at machine-precision parity.
-- The only intended xfails are the two select=True general-family optimized
-  endpoints, both proven to be mgcv-internal initial.spg orientation
-  indeterminacy (mirrored basis reproduces NAMpy's endpoint exactly), with
-  strict fixed-endpoint coverage.
+- The only intended GAM xfail is now `gaulss_select_true_cr`. The former
+  gammals endpoint/prediction xfails were a real `Sl.setup` triangle-convention
+  bug and are fixed; gammals select=True initialization, optimized fit,
+  predictions, SEs, and fit5 post-processing all pass strictly. The remaining
+  gaulss start is upstream-sign-indeterminate: `estimate.gam` reparameterizes
+  `G$X` with arbitrary-sign `DSYEVR` eigenvectors while passing an
+  unreparameterized `G$Eb` to `initial.spg`. Matching one R build would require
+  the platform/sign forcing that this project deliberately excludes.
+- Neural first validation is complete: all five focused files pass (148 tests
+  across architecture, task/multi-output, sklearn, SplineNAM, and public
+  estimator fit/predict contracts).
 
-Known open defects (todo.md P1, in priority order)
+Resolved after the audit
 
-1. fs null-space penalty ordering: gaussian_reml_newton_fs_xt_ps lifecycle
-   fails (last two log-sp swapped); the fs+select optimized endpoint is also
-   off. Registry still marks the case stable — fix or mark first.
-2. cs shrinkage parity: three cs cases in test_mgcv_output_parity.py fail at
-   ~8.6e-5 against fresh live-R references (previously masked by a stale
-   snapshot cache). Plain-cs cause bisected to the prior-session
-   symmetrize_lower_triangle=True change in
-   nampy/splines/univariate/cr.py::add_full_rank_shrinkage; transformed_cs
-   has a second unlocalized cause in the same constructor changes.
-3. Side-condition scope: aliased parametric columns are deleted pre-fit
-   (upstream gam.side is smooths-only), shifting Mp/sp for such designs.
-4. Two policy heuristics to remove/justify: _fallback_single_smooth_edf
-   (fit/state.py:296) and the fs prediction shift
-   (predict/predictions.py::_fs_term_penalty_adjustment).
-5. Two stale unit tests failing in test_optimize_driver_mgcv_parity.py
-   (mock/contract drift); gammals select=True optimized-prediction surface
-   needs the mirrored-basis verification before tagging; public-exports
-   doc/code mismatch needs a decision.
+1. fs null-space ordering was proved exchangeable inside an mgcv-internal
+   repeated eigenspace and is now compared by the declared invariant.
+2. cs shrinkage now directly ports `(S+t(S))/2` and upstream's two ordered
+   eigenvalue replacements. Ordinary cs output passes. Residual transformed
+   and Gaussian-GCV differences are confined to R/SciPy orientation of the
+   repeated zero eigenspace; no platform hook or heuristic was added.
+3. `gam.side` no longer deletes aliased parametric columns, and the
+   single-smooth EDF fallback heuristic was removed.
+4. Near-singular Gaussian REML now follows `gdiPK`/`gdi1` QR-based deviance
+   Hessian construction and `getXtMX` accumulation; the exact random-effect
+   regression passes.
+5. The fs prediction contribution heuristic, condition/model-selected Gaussian
+   backend, dormant null-space/lstsq controls, and silent derivative/post-fit
+   exception fallbacks were removed. Supported paths now follow the cited
+   `predict.gam`, `gam.fit3`, `pls_fit1`, `gdiPK`, and `gdi1` state directly.
+6. PIRLS now iterates in `gam.fit3`'s exact current-SP `T`/`St`/`Sr`/`Eb`
+   coordinates. The Poisson-identity forced-Fisher and tolerance overrides were
+   removed; noncanonical links use full Newton with only the upstream local
+   indefinite-system Fisher retry.
+7. Stacked QR no longer contains raw `ctypes`, LAPACK work-buffer/`JPVT`, or
+   BLAS-accumulation plumbing. It uses SciPy's supported pivoted-QR interface
+   while retaining the upstream `pls_fit1`/`gdiPK` behavioral algorithm.
+8. The production package passes an AST guard against direct native numerical
+   bindings and explicit solver-driver selection. Focused portability slices
+   are configured on Linux, macOS, and Windows.
+9. `gammals(select=True)` now matches ordinary mgcv directly. The multi-penalty
+   `Sl.setup` path uses upstream's lower-triangle symmetric-eigen convention;
+   final smoothing parameters match and optimized prediction differences are
+   at most `3.9e-9`. No gammals xfail remains.
+
+Remaining decisions and release work
+
+1. Obtain the configured hosted Linux/macOS/Windows portability results. The
+   guard, CI job, and retained evidence are committed; only the local Linux
+   slices have been executed so far.
+2. The manual built-wheel install/import smoke passes: the wheel installed into
+   a temporary venv, imported `nampy` and mandatory `pretab 0.0.3`, instantiated
+   `LinRegRegressor`, and exposed exactly the three-symbol GAM API from the
+   installed artifact. Automating the same artifact check in CI remains optional
+   release hardening.
+3. Add multi-output fitting coverage beyond LinReg only if every public neural
+   regressor is intended to guarantee it, then finish the listed user docs.
+
+The public-export conflict is resolved: `nampy.gam` exposes only
+`fit_model_core`, `solve_fit`, and `FitCoreSolution`. The non-public `GAM`
+implementation remains available to internal parity tests at
+`nampy.gam.model.api`.
 
 Deliberately out of scope: optim exact R L-BFGS-B behavior (negbin ML+optim
-guarded), plot.gam port, absent bases/families (documented), BLAS/LAPACK
-orientation inside indeterminate eigenspaces.
+guarded), general-family term filters and formula-list dot shorthand, plot.gam
+port, absent bases/families (documented), and BLAS/LAPACK orientation inside
+indeterminate eigenspaces. These are not correctness defects in the declared
+surface and must not acquire heuristic fallbacks.
