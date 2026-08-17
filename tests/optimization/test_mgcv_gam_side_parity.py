@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.gam import GAM
 from nampy.gam.compiler.compile_predictors import compile_predictors
 from nampy.gam.constraints.identifiability import apply_global_side_conditions
+from nampy.gam.model.api import GAM
 from nampy.gam.specs.modeling import prepare_formula_inputs
 from tests.mgcv_invariant_policy import (
     gam_setup_compares_dominant_penalty_spectrum,

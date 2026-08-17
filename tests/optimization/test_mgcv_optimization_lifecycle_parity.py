@@ -3,7 +3,7 @@ import warnings
 import numpy as np
 import pytest
 
-from nampy.gam import GAM
+from nampy.gam.model.api import GAM
 from nampy.gam.parity import build_optimizer_trace
 from tests._optimization_lifecycle_registry import (
     OPTIMIZATION_LIFECYCLE_CASES,
@@ -243,7 +243,7 @@ def test_supported_optimization_lifecycle_matches_mgcv(case: OptimizationLifecyc
         actual_final,
         expected_final,
         full_covariance=final_fit_uses_exact_orientation_parity(
-            case.formula,
+            gam,
             skip_coef_comparison=case.skip_coef_comparison,
         ),
         compare_hat=case.compare_hat,

@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.linalg import lapack
+from scipy.linalg import solveh_banded
 
 
 def _r_quantile_type7_sorted(values, probs):
@@ -41,10 +41,9 @@ def get_FS(xk):
     h = np.diff(xk)
     n2 = k - 2
 
-    # Port mgcv/src/mgcv.c::getFS: build D as an n2 x k RHS and solve the
-    # tridiagonal B system via LAPACK DPTSV, then assemble D'B^{-1}D with the
-    # same row loops. The tiny differences from dense solve + crossproduct
-    # determine the cs null-space eigenvector orientation in mgcv.
+    # Port mgcv/src/mgcv.c::getFS: build D as an n2 x k RHS, solve the
+    # symmetric tridiagonal B system, then assemble D'B^{-1}D with the same
+    # row loops.
     D = np.zeros((n2, k), dtype=np.float64, order="F")
     for i in range(n2):
         D[i, i] = 1.0 / h[i]
@@ -53,18 +52,16 @@ def get_FS(xk):
 
     ldB = np.asarray((h[:n2] + h[1:]) / 3.0, dtype=np.float64)
     sdB = np.asarray(h[1:n2] / 6.0, dtype=np.float64)
-    _d, _du, F_minus, info = lapack.dptsv(
-        ldB,
-        sdB,
+    banded_B = np.zeros((2, n2), dtype=np.float64)
+    banded_B[0, 1:] = sdB
+    banded_B[1, :] = ldB
+    F_minus = solveh_banded(
+        banded_B,
         D,
-        overwrite_d=False,
-        overwrite_e=False,
         overwrite_b=False,
+        lower=False,
+        check_finite=False,
     )
-    if int(info) != 0:
-        raise np.linalg.LinAlgError(
-            f"LAPACK dptsv failed in cubic spline setup: {info}"
-        )
 
     F = np.vstack(
         [np.zeros(k, dtype=np.float64), F_minus, np.zeros(k, dtype=np.float64)]

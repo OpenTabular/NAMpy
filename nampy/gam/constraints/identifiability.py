@@ -88,6 +88,71 @@ def _augment_term_matrix(
     return Xa
 
 
+def _parametric_span_contains_constant(
+    design: CompiledPredictor,
+    *,
+    fit_intercept: bool,
+) -> bool:
+    """Mirror the intercept-equivalence check at the start of ``mgcv::gam.side``."""
+    if fit_intercept:
+        return True
+
+    parametric_blocks = [
+        np.asarray(tb.basis_train, dtype=np.float64)
+        for tb in design.compiled_terms
+        if str(tb.term_type) == "parametric"
+    ]
+    if not parametric_blocks:
+        return False
+
+    Xp = np.column_stack(parametric_blocks)
+    constant_tol = np.finfo(np.float64).eps**0.75
+    if Xp.shape[0] > 1 and np.any(np.std(Xp, axis=0, ddof=1) < constant_tol):
+        return True
+
+    ones = np.ones(Xp.shape[0], dtype=np.float64)
+    coef, *_ = np.linalg.lstsq(Xp, ones, rcond=None)
+    return bool(np.max(np.abs(Xp @ coef - ones)) < constant_tol)
+
+
+def _term_is_side_condition_passthrough(tb: CompiledTerm) -> bool:
+    policy = getattr(tb, "side_condition_policy", None)
+    return bool(
+        str(tb.term_type) == "parametric"
+        or (
+            policy is not None
+            and policy.exempt_from_predictor_side_conditions
+        )
+    )
+
+
+def _unchanged_side_condition_report(design: CompiledPredictor) -> dict:
+    term_reports = []
+    for tb in design.compiled_terms:
+        width = int(np.asarray(tb.basis_train).shape[1])
+        kept = (
+            np.asarray(tb.kept_columns, dtype=int).tolist()
+            if tb.kept_columns is not None
+            else list(range(width))
+        )
+        term_reports.append(
+            {
+                "label": tb.label,
+                "exempt": _term_is_side_condition_passthrough(tb),
+                "deleted_columns": [],
+                "kept_columns": kept,
+                "n_deleted": 0,
+                "absorbed_centering": False,
+            }
+        )
+    return {
+        "predictor": design.name,
+        "n_deleted_total": 0,
+        "n_terms_dropped": 0,
+        "term_reports": term_reports,
+    }
+
+
 def apply_global_side_conditions(
     design: CompiledPredictor,
     *,
@@ -100,11 +165,11 @@ def apply_global_side_conditions(
 
     It walks each compiled term in order and performs three operations:
 
-    1. **Exempt terms** (random effects, factor smooths):
+    1. **Passthrough terms** (parametric terms, random effects, factor smooths):
        Preserve their basis and penalties unchanged.  Still add their columns to
-       the span accumulator so that later terms correctly detect linear dependence
-       on their subspace (architecture invariant 6.6: exempt terms still span
-       predictor space).
+       the compiled design, but not to the smooth-nesting accumulator.  In
+       particular, ``mgcv::gam.side`` receives the parametric matrix separately
+       and never deletes parametric columns.
 
     2. **Non-exempt terms** — two sub-steps:
 
@@ -135,9 +200,9 @@ def apply_global_side_conditions(
     design : CompiledPredictor
         Output of ``compile_predictors``.
     fit_intercept : bool
-        Whether the model has an intercept.  Controls whether the constant
-        column is seeded into the span accumulator and whether sum-to-zero
-        centering is applied to eligible terms.
+        Whether the model has a literal intercept.  As in ``mgcv::gam.side``, a
+        constant contained in the parametric span also seeds the smooth-nesting
+        accumulator and triggers eligible sum-to-zero constraints.
     tol : float
         Numerical rank tolerance passed to ``independent_column_indices`` and
         ``null_space_basis_from_constraint_matrix``.
@@ -160,11 +225,43 @@ def apply_global_side_conditions(
 
     n_obs = design.design_matrix.shape[0]
 
-    # Span accumulator.  Seeded with a constant column when fit_intercept=True
-    # so that sum-to-zero centering removes the intercept-collinear component.
+    # mgcv/R/mgcv.r::gam.side() only uses Xp to determine whether it contains a
+    # constant (or an equivalent span). It never includes other parametric
+    # columns in smooth-dependence testing.
+    intercept_equivalent = _parametric_span_contains_constant(
+        design,
+        fit_intercept=fit_intercept,
+    )
+
+    # mgcv::gam.side returns immediately when there is no repeated smooth
+    # variable (`lv == length(unique(v.names))`). The one-smooth case is
+    # unambiguous here. Preserve the compiler's matrices byte-for-byte when
+    # the runtime has already absorbed its ordinary centering constraint.
+    smooth_terms = [
+        tb for tb in design.compiled_terms if str(tb.term_type) != "parametric"
+    ]
+    if len(smooth_terms) <= 1:
+        requires_centering = False
+        if smooth_terms:
+            smooth = smooth_terms[0]
+            policy = getattr(smooth, "side_condition_policy", None)
+            requires_centering = bool(
+                intercept_equivalent
+                and not _term_is_side_condition_passthrough(smooth)
+                and not bool(policy is not None and policy.skip_centering)
+                and (
+                    smooth.by_variable_info.name is None
+                    or bool(smooth.by_variable_info.is_constant)
+                )
+                and str(smooth.term_type) != "tensor_interaction"
+            )
+        if not requires_centering:
+            return design, _unchanged_side_condition_report(design)
+
+    # Smooth-nesting accumulator, seeded only by an intercept-equivalent column.
     acc = (
         np.ones((n_obs, 1), dtype=np.float64)
-        if fit_intercept
+        if intercept_equivalent
         else np.empty((n_obs, 0), dtype=np.float64)
     )
     acc_aug = np.zeros((n_obs + design.n_coef, acc.shape[1]), dtype=np.float64)
@@ -193,11 +290,11 @@ def apply_global_side_conditions(
             np.asarray(pb.matrix, dtype=np.float64) for pb in term_penalty_objs
         ]
 
-        # ── Exempt terms ──────────────────────────────────────────────────────
+        # ── Passthrough terms ─────────────────────────────────────────────────
+        # mgcv::gam.side(sm, Xp, ...) mutates only `sm`. Parametric aliasing is
+        # deliberately left for the fitting backend's rank-deficiency handling.
         policy = getattr(tb, "side_condition_policy", None)
-        exempt = bool(
-            policy is not None and policy.exempt_from_predictor_side_conditions
-        )
+        exempt = _term_is_side_condition_passthrough(tb)
         if exempt:
             sl_new = slice(start, start + d)
             new_idx = len(new_term_blocks)
@@ -241,7 +338,7 @@ def apply_global_side_conditions(
                     metadata=dict(tb.metadata),
                 )
             )
-            for pb, P in zip(term_penalty_objs, pen_matrices):
+            for pb, P in zip(term_penalty_objs, pen_matrices, strict=True):
                 new_penalty_blocks.append(
                     CompiledPenalty(
                         label=pb.label,
@@ -297,7 +394,7 @@ def apply_global_side_conditions(
 
         # Step (a): optionally absorb a sum-to-zero centering constraint.
         if (
-            fit_intercept
+            intercept_equivalent
             and not runtime_skip_centering
             and (runtime_by_name is None or bool(runtime_by_is_constant))
             and not bool(tb.term_type in {"tensor_interaction"})
@@ -323,7 +420,7 @@ def apply_global_side_conditions(
             # raw term basis for the first occurrence, but later terms still need
             # ordinary cross-term redundancy removal against the accumulated
             # design to match mgcv's side-condition allocation.
-            if acc.shape[1] <= int(bool(fit_intercept)):
+            if acc.shape[1] <= int(intercept_equivalent):
                 keep = np.arange(d, dtype=int)
             else:
                 keep = np.asarray(
@@ -366,7 +463,7 @@ def apply_global_side_conditions(
         # Subset penalty matrices to the surviving columns and recompute their
         # canonical metadata in the new coefficient space.
         pen_pairs_final = []
-        for pb, S in zip(term_penalty_objs, pen_matrices):
+        for pb, S in zip(term_penalty_objs, pen_matrices, strict=True):
             P_new = (
                 S[np.ix_(keep, keep)]
                 if keep.size > 0

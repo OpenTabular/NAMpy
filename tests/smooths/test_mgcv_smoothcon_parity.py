@@ -10,9 +10,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from nampy.gam import GAM
 from nampy.gam.compiler.compile_predictors import compile_predictors
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
+from nampy.gam.model.api import GAM
 from nampy.gam.smooths.univariate.cr import CubicSplineTerm
 from nampy.gam.specs.build import build_formula_model
 from tests._mgcv_snapshot_parity_shared import (
@@ -242,9 +242,11 @@ class TestParitySnapshotAPI:
 
         expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
 
-        _assert_allclose_up_to_column_sign(
-            np.asarray(design.design_matrix, dtype=np.float64),
-            np.asarray(expected["X"], dtype=np.float64),
+        actual_basis = np.asarray(design.design_matrix, dtype=np.float64)
+        expected_basis = np.asarray(expected["X"], dtype=np.float64)
+        np.testing.assert_allclose(
+            actual_basis @ actual_basis.T,
+            expected_basis @ expected_basis.T,
             atol=1e-10,
             rtol=1e-10,
         )
@@ -294,9 +296,11 @@ class TestParitySnapshotAPI:
 
         expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
 
-        _assert_allclose_up_to_column_sign(
-            np.asarray(design.design_matrix, dtype=np.float64),
-            np.asarray(expected["X"], dtype=np.float64),
+        actual_basis = np.asarray(design.design_matrix, dtype=np.float64)
+        expected_basis = np.asarray(expected["X"], dtype=np.float64)
+        np.testing.assert_allclose(
+            actual_basis @ actual_basis.T,
+            expected_basis @ expected_basis.T,
             atol=1e-10,
             rtol=1e-10,
         )

@@ -3,7 +3,7 @@ import warnings
 from dataclasses import dataclass
 
 import numpy as np
-import scipy.linalg
+from scipy.linalg import eigh_tridiagonal
 from scipy.spatial import distance_matrix
 
 from ...gam.linalg import constant_null_space_shrinkage
@@ -368,15 +368,12 @@ def _top_eigensystem(E, k):
             q.append(z / b[j])
 
         if ((j >= k) and (j % f_check == 0)) or (j == n - 1):
-            d_asc, vecs_asc, info = scipy.linalg.lapack.dstevd(
+            d_asc, vecs_asc = eigh_tridiagonal(
                 a[: j + 1].copy(),
                 b[:j].copy(),
-                compute_v=1,
+                eigvals_only=False,
+                check_finite=False,
             )
-            if info != 0:
-                raise np.linalg.LinAlgError(
-                    f"dstevd failed in thin-plate eigensystem with info={info}."
-                )
 
             # mgcv/src/mat.c::mgcv_trisymeig returns descending order.
             d = np.asarray(d_asc[::-1], dtype=np.float64)

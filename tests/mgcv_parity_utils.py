@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from nampy.gam import GAM
+from nampy.gam.model.api import GAM
 from tests._paths import PARITY_DIR, REPO_ROOT, TESTS_DIR
 
 _REPO_ROOT = REPO_ROOT
@@ -2490,42 +2490,16 @@ def _assert_exact_mgcv_snapshot_parity(
 
 
 def _assert_allclose_up_to_column_sign(actual, expected, *, atol, rtol):
-    """Compare two matrices up to per-column sign flips or 2D subspace rotations.
-
-    For columns that don't match under a sign flip (e.g. degenerate null-space
-    subspaces where any 2D rotation is equally valid), falls back to a Procrustes
-    alignment of the column pair before asserting.
-    """
+    """Compare matrices up to independent, explicitly identified column signs."""
     actual = np.asarray(actual, dtype=np.float64)
     expected = np.asarray(expected, dtype=np.float64)
     assert actual.shape == expected.shape
     aligned = actual.copy()
-    j = 0
-    while j < actual.shape[1]:
-        # Try sign flip for column j.
+    for j in range(actual.shape[1]):
         if np.linalg.norm(actual[:, j] - expected[:, j]) > np.linalg.norm(
             -actual[:, j] - expected[:, j]
         ):
             aligned[:, j] *= -1.0
-
-        # If still doesn't match and a next column exists, try a 2D Procrustes
-        # rotation for the pair (j, j+1).  This handles degenerate null-space
-        # subspaces where different LAPACK implementations produce different (but
-        # equally valid) orthonormal bases for the same 2D subspace.
-        if (
-            np.max(np.abs(aligned[:, j] - expected[:, j])) > atol
-            and j + 1 < actual.shape[1]
-        ):
-            A2 = actual[:, j : j + 2]
-            B2 = expected[:, j : j + 2]
-            U_svd, _, Vt = np.linalg.svd(A2.T @ B2)
-            M = U_svd @ Vt
-            rotated = A2 @ M
-            if np.max(np.abs(rotated - B2)) <= atol:
-                aligned[:, j : j + 2] = rotated
-                j += 2
-                continue
-        j += 1
     np.testing.assert_allclose(aligned, expected, atol=atol, rtol=rtol)
 
 

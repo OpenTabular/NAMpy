@@ -214,7 +214,7 @@ def test_unconditional_covariance_efs_gate_mirrors_mgcv_postproc_split():
     """
     import pandas as pd
 
-    from nampy.gam import GAM
+    from nampy.gam.model.api import GAM
 
     rng = np.random.default_rng(5)
     n = 80

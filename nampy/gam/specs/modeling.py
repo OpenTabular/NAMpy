@@ -214,7 +214,13 @@ def make_predictor_specs(model, feature_names, *, knots=None):
             "interpretable than a ti() ANOVA-style decomposition.",
             stacklevel=2,
         )
-    return [LinearPredictorSpec(name="eta", terms=terms)]
+    return [
+        LinearPredictorSpec(
+            name="eta",
+            terms=terms,
+            has_intercept=bool(model.fit_intercept),
+        )
+    ]
 
 
 def prepare_formula_inputs(

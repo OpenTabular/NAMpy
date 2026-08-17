@@ -4,15 +4,12 @@ import numpy as np
 
 from ..._mgcv_constants import EIG_TOL_POWER
 from ..._model_state import (
-    _coef_column_offset,
-    _design_matrix,
-    _fit_intercept,
     _n_smoothing_params,
     _penalty_blocks_seq,
 )
 from ...fit.backends import GENERAL_FAMILY_BACKEND
 from ...fit.capabilities import uses_closed_form_solver
-from ...fit.penalized_system import build_full_design
+from ...linalg import pivoted_cholesky
 from ...linalg.norms import r_matrix_norm_max_abs
 from ..criteria import resolve_ml_reml_scoring_backend
 
@@ -80,114 +77,6 @@ def _project_to_bounds(x, bounds):
     for i, (lo, hi) in enumerate(bounds):
         x[i] = min(max(x[i], lo), hi)
     return x
-
-
-def _initial_smoothing_params_from_design_balance(model, y):
-    penalty_blocks = tuple(_penalty_blocks_seq(model))
-    n_sp = _n_smoothing_params(model)
-    if not penalty_blocks or n_sp == 0:
-        return None
-
-    X = build_full_design(_design_matrix(model), fit_intercept=_fit_intercept(model))
-    y = np.asarray(y, dtype=np.float64).ravel()
-
-    prior_weights = getattr(model, "prior_weights_", None)
-    if prior_weights is None:
-        prior_w = np.ones(y.shape[0], dtype=np.float64)
-    else:
-        prior_w = np.asarray(prior_weights, dtype=np.float64).ravel()
-        if prior_w.shape != y.shape or np.any(~np.isfinite(prior_w)):
-            return None
-
-    try:
-        try:
-            mu0 = np.asarray(
-                model.family.initialize_mu(y, weights=prior_w), dtype=np.float64
-            )
-        except TypeError:
-            mu0 = np.asarray(model.family.initialize_mu(y), dtype=np.float64)
-        eta0 = np.asarray(model.family.link(mu0), dtype=np.float64)
-        mu_eta = np.asarray(model.family.mu_eta(eta0), dtype=np.float64)
-        var_mu = np.asarray(model.family.variance(mu0), dtype=np.float64)
-    except Exception:
-        return None
-
-    # Heuristic from weighted column norms vs penalty diagonals (Wood-style init):
-    # w <- sqrt(weights * mu.eta(eta)^2 / variance(mu))
-    w_used = np.asarray(
-        prior_w * mu_eta * mu_eta / np.maximum(var_mu, 1e-12),
-        dtype=np.float64,
-    )
-
-    weights = np.sqrt(np.clip(w_used, 1e-12, None))
-    Xw = weights[:, None] * X
-    ldxx = np.sum(Xw * Xw, axis=0)
-    ldss = np.zeros_like(ldxx)
-    def_sp = np.zeros(n_sp, dtype=np.float64)
-    counts = np.zeros(n_sp, dtype=np.int64)
-    penalized = np.zeros_like(ldxx, dtype=bool)
-
-    coef_offset = _coef_column_offset(model)
-
-    for pb in penalty_blocks:
-        S = np.asarray(pb.matrix, dtype=np.float64)
-        if S.size == 0:
-            continue
-        start = coef_offset + int(pb.coef_slice.start)
-        stop = coef_offset + int(pb.coef_slice.stop)
-        dS = np.diag(np.abs(S))
-        if dS.size == 0:
-            continue
-
-        maS = float(np.max(np.abs(S)))
-        if not np.isfinite(maS) or maS <= 0.0:
-            continue
-        thresh = np.finfo(np.float64).eps ** EIG_TOL_POWER * maS
-        rsS = np.mean(np.abs(S), axis=1)
-        csS = np.mean(np.abs(S), axis=0)
-        ind = (rsS > thresh) & (csS > thresh) & (dS > thresh)
-        if not np.any(ind):
-            continue
-
-        xx = ldxx[start:stop][ind]
-        ss = dS[ind]
-        if xx.size == 0 or ss.size == 0:
-            continue
-
-        sizeXX = float(np.mean(xx))
-        sizeS = float(np.mean(ss))
-        if not np.isfinite(sizeXX) or not np.isfinite(sizeS) or sizeS <= 0.0:
-            continue
-
-        lam = sizeXX / sizeS
-        j = int(pb.smoothing_index)
-        def_sp[j] += lam
-        counts[j] += 1
-        ldss[start:stop] += lam * np.diag(S)
-        penalized[start:stop] |= ind
-
-    ok = counts > 0
-    if not np.any(ok):
-        return None
-    def_sp[ok] /= counts[ok]
-    def_sp[~ok] = 1.0
-
-    use = (ldss > 0.0) & penalized & (ldxx > 0.0)
-    if np.any(use):
-        xx = ldxx[use]
-        ss = ldss[use]
-        ratio = float(np.mean(xx / (xx + ss)))
-        while ratio > 0.4:
-            def_sp *= 10.0
-            ss *= 10.0
-            ratio = float(np.mean(xx / (xx + ss)))
-        while ratio < 0.4:
-            def_sp /= 10.0
-            ss /= 10.0
-            ratio = float(np.mean(xx / (xx + ss)))
-
-    def_sp = np.maximum(def_sp, 1e-12)
-    return def_sp
 
 
 def _initial_smoothing_params_from_packed_penalties(
@@ -295,8 +184,6 @@ def _initial_smoothing_params_from_design(model, y):
     ).lower()
     if family_class == "general":
         try:
-            from scipy.linalg.lapack import get_lapack_funcs
-
             from ...families.gamlss._base import (
                 _qr_coef_pivoted,
                 scipy_qr,
@@ -437,7 +324,6 @@ def _initial_smoothing_params_from_design(model, y):
                 )["lbb"],
                 dtype=np.float64,
             )
-            pstrf = get_lapack_funcs("pstrf", dtype=np.float64)
             def_sp = np.zeros(len(exact_setup.S), dtype=np.float64)
 
             for i, S_i in enumerate(exact_setup.S):
@@ -454,8 +340,7 @@ def _initial_smoothing_params_from_design(model, y):
                 rank_i = int(exact_setup.rank[i])
 
                 if rank_i < S_i.shape[1]:
-                    _R, piv, _rank_p, _info = pstrf(S_i.copy(), lower=0)
-                    piv = np.asarray(piv, dtype=int).ravel() - 1
+                    _R, piv, _rank_p = pivoted_cholesky(S_i)
                     Z = np.asarray(S_i[:, piv[:rank_i]], dtype=np.float64)
                     zn = _r_default_matrix_norm(Z)
                     if not np.isfinite(zn) or zn <= 0.0:

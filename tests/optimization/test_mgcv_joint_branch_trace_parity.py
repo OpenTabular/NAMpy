@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from nampy.gam import GAM
+from nampy.gam.model.api import GAM
 from nampy.gam.parity import build_optimizer_trace
 from tests.mgcv_parity_utils import _make_gamma_data, _make_negbin_data
 from tests.optimization.test_mgcv_outer_optimization_parity import (

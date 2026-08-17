@@ -4,10 +4,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.gam import GAM
 from nampy.gam.fit.state import _prediction_parameterization_map
 from nampy.gam.formula import extract_formula_terms
 from nampy.gam.formula.extract import ExtractedParametricTerm
+from nampy.gam.model.api import GAM
 from nampy.gam.smoothing_selection.reparam import (
     _full_coef_indices,
     build_estimate_gam_setup_state,

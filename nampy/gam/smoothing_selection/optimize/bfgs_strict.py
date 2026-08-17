@@ -213,7 +213,7 @@ def _finite_difference_initial_inverse_hessian(
         B[i, :] = (np.asarray(grad1, dtype=np.float64) - grad0) / float(feps)
 
     B = 0.5 * (B + B.T)
-    evals, evecs = scipy_eigh(B, check_finite=False, driver="ev")
+    evals, evecs = scipy_eigh(B, check_finite=False)
     evals = np.abs(evals)
     thresh = float(np.max(evals)) * 1e-4 if evals.size else 1.0
     if thresh <= 0.0:
@@ -226,7 +226,7 @@ def _invert_inverse_hessian(B_inv):
     B_inv = 0.5 * (
         np.asarray(B_inv, dtype=np.float64) + np.asarray(B_inv, dtype=np.float64).T
     )
-    evals, evecs = scipy_eigh(B_inv, check_finite=False, driver="ev")
+    evals, evecs = scipy_eigh(B_inv, check_finite=False)
     if evals.size == 0:
         return np.empty((0, 0), dtype=np.float64)
     keep = evals > float(np.max(evals)) * (np.finfo(np.float64).eps ** 0.9)

@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
-from scipy.linalg import orthogonal_procrustes
 
 from ....splines.basis.natparam import nat_param_type1
 from ..._mgcv_constants import EIG_TOL_POWER
@@ -537,71 +536,6 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         self._range_rank = None
         self._null_dim = None
 
-    def _align_multivariate_base_reparameterization(
-        self,
-        X,
-        X_reparam,
-        P_coef,
-        *,
-        range_rank,
-        null_dim,
-    ):
-        base_term = self._base_term
-        basis_key = str(getattr(base_term, "basis_name", "")).lower()
-        if null_dim <= 1:
-            return X_reparam, P_coef
-
-        X_reparam = np.asarray(X_reparam, dtype=np.float64).copy()
-        P_coef = np.asarray(P_coef, dtype=np.float64).copy()
-
-        if basis_key == "tp":
-            n_metric = len(self._metric_feature_names)
-            metric = np.column_stack(
-                [
-                    np.asarray(X[:, idx], dtype=np.float64)
-                    for idx in base_term.resolved_feature_indices()
-                ]
-            )
-            metric = metric - metric.mean(axis=0, keepdims=True)
-
-            # 1D tp bases used by `bs="fs"` retain a 2D null block spanning the
-            # centred linear function and the constant. For >=4 factor levels the
-            # repeated-zero eigenspace in `nat.param(type=1)` can land in the
-            # opposite linear/constant order from mgcv. Align that 2D block to the
-            # corresponding model-space span before duplicating by level so the
-            # later smoothCon scaling sees the same orientation.
-            if n_metric == 1 and null_dim == 2 and len(self._levels or []) >= 4:
-                X_null = X_reparam[:, range_rank:].copy()
-                centered_norm = np.linalg.norm(
-                    X_null - X_null.mean(axis=0, keepdims=True),
-                    axis=0,
-                )
-                if float(centered_norm[0]) > float(centered_norm[1]):
-                    target = np.column_stack(
-                        [metric[:, 0], np.ones(metric.shape[0], dtype=np.float64)]
-                    )
-                else:
-                    target = np.column_stack(
-                        [np.ones(metric.shape[0], dtype=np.float64), metric[:, 0]]
-                    )
-                R, _ = orthogonal_procrustes(X_null, target)
-                X_reparam[:, range_rank:] = X_null @ R
-                P_coef[:, range_rank:] = P_coef[:, range_rank:] @ R
-                return X_reparam, P_coef
-
-            if n_metric > 1:
-                target = np.column_stack(
-                    [metric, np.ones(metric.shape[0], dtype=np.float64)]
-                )
-                if target.shape[1] != null_dim:
-                    return X_reparam, P_coef
-                R, _ = orthogonal_procrustes(X_reparam[:, range_rank:], target)
-                X_reparam[:, range_rank:] = X_reparam[:, range_rank:] @ R
-                P_coef[:, range_rank:] = P_coef[:, range_rank:] @ R
-                return X_reparam, P_coef
-
-        return X_reparam, P_coef
-
     def fit(self, X, feature_names):
         if self._build_delegate_base_or_re(
             X, feature_names, default_bs="tp", mode="fs"
@@ -685,14 +619,6 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         r = rp["rank"]  # penalty rank
         D = rp["D"]  # scale^2 * ones(r) after type=1 + unit_fnorm
         null_d = B0.shape[1] - r
-
-        X_reparam, P_coef = self._align_multivariate_base_reparameterization(
-            X,
-            X_reparam,
-            P_coef,
-            range_rank=r,
-            null_dim=null_d,
-        )
 
         self._base_transform = P_coef
         self._base_range_penalty_diag = np.concatenate(

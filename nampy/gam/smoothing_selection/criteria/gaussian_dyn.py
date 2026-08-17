@@ -13,7 +13,6 @@ from ..reparam import (
 from .gaussian_reml_algebra import (
     gaussian_reml_saturation_terms_wrt_variance,
     gaussian_reml_weighted_degrees_and_log_weight_term,
-    gaussian_weighted_residual_sum_squares,
     prior_weights_diagonal_from_fit,
 )
 from .pirls.derivatives import _gdi1_kernel
@@ -21,11 +20,7 @@ from .pirls.derivatives import _gdi1_kernel
 
 def _cache_gaussian_reml_scale_est(model, sol) -> None:
     """Cache the current fixed-fit Gaussian scale estimate for outer-Newton scaling."""
-    try:
-        scale = float(sol["scale"])
-    except Exception:
-        scale = np.nan
-    model._gaussian_reml_last_scale_est_ = scale
+    model._gaussian_reml_last_scale_est_ = float(sol["scale"])
 
 
 def _gaussian_dynamic_deviance(
@@ -38,23 +33,19 @@ def _gaussian_dynamic_deviance(
 
     For Gaussian `gam.fit3` fits, the final `gdi1()` overwrite can change the
     reported coefficients / fitted values while the outer REML score continues to
-    use the PIRLS-step deviance stored on the fit object. Fall back to the raw
-    weighted RSS only when that stored deviance is unavailable.
+    use the PIRLS-step deviance stored on the fit object. That state is required
+    for a supported Gaussian dynamic objective.
     """
     dev = None
     if isinstance(sol, dict):
         dev = sol.get("deviance", None)
     else:
         dev = getattr(sol, "deviance", None)
-    if dev is not None:
-        dev = float(dev)
-        if np.isfinite(dev):
-            return dev
-    return gaussian_weighted_residual_sum_squares(
-        np.asarray(y, dtype=np.float64).ravel(),
-        np.asarray(sol["mu"], dtype=np.float64).ravel(),
-        np.asarray(prior_weights, dtype=np.float64).ravel(),
-    )
+    if dev is None or not np.isfinite(float(dev)):
+        raise RuntimeError(
+            "Gaussian dynamic ML/REML requires the gam.fit3 deviance state."
+        )
+    return float(dev)
 
 
 def _gaussian_penalty_quadratic(model, sol, sp) -> float:

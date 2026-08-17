@@ -6,13 +6,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.gam import GAM
 from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     _GeneralPredictorLayout,
     build_general_penalty_setup,
 )
 from nampy.gam.fit.solvers.general_family.newton import _sl_ldetS
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
+from nampy.gam.model.api import GAM
 from nampy.gam.predict.predictions import predict_values
 from nampy.gam.specs.build import build_formula_model
 from tests.mgcv_parity_utils import _make_negbin_data, _make_random_effect_data

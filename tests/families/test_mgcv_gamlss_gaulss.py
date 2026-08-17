@@ -4,12 +4,12 @@ import numpy as np
 import pandas as pd
 from numpy.testing import assert_allclose
 
-from nampy.gam import GAM
 from nampy.gam.families.gamlss import gaulss
 from nampy.gam.fit.solvers.general_family.newton import (
     GeneralNewtonControl,
     solve_general_newton_fit,
 )
+from nampy.gam.model.api import GAM
 
 # ---------------------------------------------------------------------------
 # 4. gaulss ll: log-lik value and derivatives

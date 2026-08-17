@@ -55,14 +55,31 @@ def gam_side_uses_invariant_transform(class_name: str) -> bool:
     return class_name in _GAM_SIDE_INVARIANT_CLASS_NAMES
 
 
-def final_fit_uses_exact_orientation_parity(
-    formula, *, skip_coef_comparison: bool
-) -> bool:
-    """Return whether full final-fit matrices are stable enough for exact checks."""
+def final_fit_uses_exact_orientation_parity(model, *, skip_coef_comparison: bool) -> bool:
+    """Return whether compiled terms have uniquely identified coefficient bases."""
     if skip_coef_comparison:
         return False
-    text = str(formula)
-    return "tp" not in text
+    result = getattr(model, "gam_result_", None)
+    compiled = (
+        getattr(result, "compiled_model", None)
+        if result is not None
+        else getattr(model, "compiled_model_", None)
+    )
+    if compiled is None:
+        raise ValueError("A compiled GAM model is required for representation policy.")
+    basis_names = [
+        str(getattr(term, "basis_name", "unknown")).lower()
+        for term in (getattr(compiled, "compiled_terms", ()) or ())
+    ]
+    for basis_name in basis_names:
+        components = {basis_name}
+        if "(" in basis_name and basis_name.endswith(")"):
+            components.update(
+                part.strip() for part in basis_name.split("(", 1)[1][:-1].split(",")
+            )
+        if components & {"tp", "ts", "fs"}:
+            return False
+    return True
 
 
 def preoptimization_blocks_align_basis_columns(case_id: str) -> bool:
@@ -195,22 +212,10 @@ def _canonicalize_sz_raw_state(state):
 
 def _canonicalize_tensor_raw_state(state):
     extra = state["extra"]
-    mc = extra.get("mc", [])
     if len(state["S"]) > 2:
         state["S"] = [stable_column_space_projector(S) for S in state["S"]]
     else:
         state["S"] = [penalty_spectrum(S) for S in state["S"]]
-    if len(state["S"]) <= 2 and any(bool(v) for v in mc):
-        # Centered `ti()` margins with `cs` shrinkage preserve the same tensor
-        # penalty subspaces and dominant spectrum, but the tiny shrinkage-floor
-        # eigenvalues can drift under absorb.cons-style reparameterization.
-        for i, spec in enumerate(state["S"]):
-            spec = np.asarray(spec, dtype=np.float64).copy()
-            if spec.size == 0:
-                continue
-            tol = 5e-2 * max(float(np.max(np.abs(spec))), 1.0)
-            spec[np.abs(spec) < tol] = 0.0
-            state["S"][i] = np.round(spec, decimals=4)
 
     # `np=TRUE` tensor reparameterization fixes the represented function space,
     # not a unique basis scaling for ill-conditioned marginal inverses.

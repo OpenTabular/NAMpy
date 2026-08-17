@@ -5,7 +5,6 @@ import pandas as pd
 import pytest
 from numpy.testing import assert_allclose
 
-from nampy.gam import GAM
 from nampy.gam.compiler.structures import (
     CompiledModel,
     CompiledPenalty,
@@ -18,6 +17,7 @@ from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     criterion_hessian_ml_reml_general_family,
     run_general_family_fixed_smoothing,
 )
+from nampy.gam.model.api import GAM
 from nampy.gam.smoothing_selection.reparam import _stable_penalty_logdet_derivatives
 
 # ======================================================================

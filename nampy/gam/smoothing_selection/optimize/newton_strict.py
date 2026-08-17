@@ -169,7 +169,6 @@ def _optimize_outer_newton_strict(
             d_full, U_full = scipy_eigh(
                 hess1,
                 check_finite=False,
-                driver="evr",
             )
             d = d_full[::-1].copy()
             U = U_full[:, ::-1].copy()

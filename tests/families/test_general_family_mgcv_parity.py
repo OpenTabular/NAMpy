@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.gam import GAM
 from nampy.gam._model_state import _term_blocks_seq
+from nampy.gam.model.api import GAM
 from nampy.gam.parity.snapshots import _normalize_reference_term_label
 from nampy.gam.smoothing_selection.criteria import (
     criterion_gradient,
