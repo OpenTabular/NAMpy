@@ -376,9 +376,8 @@ Rerun only the smallest affected slice when one of these conditions occurs:
 The first-validation GAM and neural owner slices listed in `todo.md` are now
 recorded. Remaining validation work is narrower:
 
-- optionally automate the now-passing built-wheel install/import smoke in CI
-  (the manual temporary-venv check imported mandatory `pretab` and instantiated
-  `LinRegRegressor`),
+- obtain a hosted result for the now-automated built-wheel install/import smoke
+  (the equivalent manual temporary-venv check already passed),
 - exercise multi-output fitting beyond LinReg only if that is intended as a
   contract for every public neural regressor,
 - and obtain the configured Linux/macOS/Windows CI results for the new
@@ -427,9 +426,9 @@ remaining release evidence is the hosted macOS/Windows (and clean hosted Linux)
 CI result. The public-export contract, manual built-wheel smoke, and neural
 first-validation matrix pass; all five neural files are tracked.
 
-The next work should follow [todo.md](todo.md): obtain hosted CI results and
-optionally automate the passing wheel-install smoke. The user-facing GAM support
-matrix and neural estimator/preprocessing contracts are now documented in
+The next work should follow [todo.md](todo.md): obtain hosted CI results. The
+build job now automates the passing wheel-install smoke, and the user-facing GAM
+support matrix and neural estimator/preprocessing contracts are documented in
 `README.md`.
 
 ---
@@ -842,8 +841,8 @@ snapshot case passes under its documented flat-ridge tolerances.
   no-isolation wheel build also succeeded; the wheel was installed with
   `--no-deps` into a temporary venv, imported `nampy` and `pretab` from outside
   the source tree, instantiated `LinRegRegressor`, and verified the installed
-  three-symbol GAM API with no top-level `GAM` alias. Only optional CI automation
-  of that artifact smoke remains. (The first isolated build attempt could not
+  three-symbol GAM API with no top-level `GAM` alias. The build CI job now repeats
+  the same installed-artifact checks. (The first isolated build attempt could not
   download its build requirement because the environment had no network access;
   that was not a package failure.)
 

@@ -417,8 +417,10 @@ Do not run the full suite by default.
   tree, mandatory `pretab 0.0.3` imported, `LinRegRegressor()` instantiated, and
   the installed package exposed exactly `fit_model_core`, `solve_fit`, and
   `FitCoreSolution` from `nampy.gam` with no top-level `GAM` alias.
-- [ ] Optionally automate that built-artifact installation/import smoke in the
-  build CI job. The package itself has now passed the manual clean-artifact check.
+- [x] Automate the built-artifact installation/import smoke in the build CI job
+  (2026-08-17). It installs the built wheel with its declared dependencies,
+  changes out of the source tree, checks the installed package path, imports
+  `pretab`, instantiates `LinRegRegressor`, and verifies the GAM export contract.
 - [x] Update user documentation for (2026-08-17, `README.md`):
 
   - supported GAM optimizers/families,

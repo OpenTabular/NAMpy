@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main, develop ]
   pull_request:
@@ -171,6 +172,12 @@ jobs:
 
     - name: Check package
       run: twine check dist/*
+
+    - name: Smoke-test installed wheel
+      run: |
+        python -m pip install --no-cache-dir dist/*.whl
+        cd "${RUNNER_TEMP}"
+        python -c "import pathlib, nampy, pretab; import nampy.gam as gam; from nampy.models.linreg import LinRegRegressor; package_path = pathlib.Path(nampy.__file__).resolve(); assert 'site-packages' in package_path.parts, package_path; assert gam.__all__ == ['fit_model_core', 'solve_fit', 'FitCoreSolution']; assert not hasattr(nampy, 'GAM'); LinRegRegressor(); print(package_path); print(pretab.__version__)"
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4

@@ -28,8 +28,8 @@
 > | Neural first-validation matrix | **VERIFIED (2026-08-17).** The five focused files pass: 25 architecture, 2 task/multi-output, 41 sklearn-contract, 7 SplineNAM, and 73 estimator-smoke tests (148 total). |
 >
 > No confirmed algorithmic defect remains in the currently declared GAM
-> surface from this audit. Remaining work is hosted CI evidence, optional
-> packaging-smoke automation, and deliberately unsupported feature scope recorded in
+> surface from this audit. Remaining work is hosted CI evidence and deliberately
+> unsupported feature scope recorded in
 > `GAM_NOT_IMPLEMENTED.md`.
 
 
@@ -307,11 +307,7 @@
 
   1. Obtain the configured hosted Linux/macOS/Windows portability results; the
      guard and CI matrix are now committed.
-  2. Optionally automate the passing manual installed-wheel smoke in CI. The
-     built wheel imports `nampy` and mandatory `pretab` from a temporary venv and
-     can instantiate `LinRegRegressor`; the installed artifact also satisfies the
-     three-symbol GAM export contract.
-  3. Add multi-output fit coverage beyond LinReg only if every public neural
+  2. Add multi-output fit coverage beyond LinReg only if every public neural
      regressor is intended to promise that contract.
 
   Ordinary GAMs and the declared constructor/optimizer surface have strong

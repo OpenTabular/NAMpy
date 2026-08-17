@@ -80,8 +80,8 @@ Remaining decisions and release work
 2. The manual built-wheel install/import smoke passes: the wheel installed into
    a temporary venv, imported `nampy` and mandatory `pretab 0.0.3`, instantiated
    `LinRegRegressor`, and exposed exactly the three-symbol GAM API from the
-   installed artifact. Automating the same artifact check in CI remains optional
-   release hardening.
+   installed artifact. The build job now repeats that installed-artifact smoke
+   automatically.
 3. Add multi-output fitting coverage beyond LinReg only if every public neural
    regressor is intended to guarantee it. The user-facing GAM support matrix,
    estimator parameter/clone contract, current multi-output evidence boundary,
