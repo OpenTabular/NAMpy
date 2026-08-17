@@ -28,9 +28,8 @@
 > | Neural first-validation matrix | **VERIFIED (2026-08-17).** The five focused files pass: 25 architecture, 2 task/multi-output, 41 sklearn-contract, 7 SplineNAM, and 73 estimator-smoke tests (148 total). |
 >
 > No confirmed algorithmic defect remains in the currently declared GAM
-> surface from this audit. Remaining work is retained-test/CI integration,
-> optional packaging-smoke automation,
-> documentation, and deliberately unsupported feature scope recorded in
+> surface from this audit. Remaining work is hosted CI evidence, optional
+> packaging-smoke automation, and deliberately unsupported feature scope recorded in
 > `GAM_NOT_IMPLEMENTED.md`.
 
 

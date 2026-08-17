@@ -419,7 +419,7 @@ Do not run the full suite by default.
   `FitCoreSolution` from `nampy.gam` with no top-level `GAM` alias.
 - [ ] Optionally automate that built-artifact installation/import smoke in the
   build CI job. The package itself has now passed the manual clean-artifact check.
-- [ ] Update user documentation for:
+- [x] Update user documentation for (2026-08-17, `README.md`):
 
   - supported GAM optimizers/families,
   - intentional unsupported GAM branches,
@@ -427,6 +427,10 @@ Do not run the full suite by default.
   - neural estimator clone/parameter behavior,
   - multi-output regression,
   - and SplineNAM preprocessing requirements.
+
+  The multi-output section states the precise evidence boundary: the shared
+  wrapper accepts multi-output targets, but only `LinRegRegressor` currently has
+  an end-to-end multi-output fit regression.
 
 - [ ] Only after all affected owner-level slices pass, run a justified broader
   subsystem grouping. Record the exact command and result in `PROJECT_STATUS.md`.
