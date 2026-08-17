@@ -135,7 +135,7 @@ def _python_natparam_type3_debug(raw_basis, raw_penalty, *, tol=None, basis_name
     if tol is None:
         tol = float(np.finfo(np.float64).eps ** EIG_TOL_POWER)
 
-    evals, U = symmetric_eigh(S, descending=True, use_scipy=True)
+    evals, U = symmetric_eigh(S, descending=True)
     max_eval = float(np.max(evals)) if evals.size else 0.0
     tol_eff = float(max_eval * tol)
     rank = int(np.sum(evals > tol_eff))
@@ -175,7 +175,6 @@ def _python_natparam_type3_debug(raw_basis, raw_penalty, *, tol=None, basis_name
         null_evals, null_vecs = symmetric_eigh(
             null_gram,
             descending=True,
-            use_scipy=True,
         )
         X_rot[:, rind] = X_pre[:, null_idx] @ null_vecs
         P_rot[:, rind] = P_pre[:, null_idx] @ null_vecs

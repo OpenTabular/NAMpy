@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-from scipy.linalg import eigh as scipy_eigh
 
 from .matrix import symmetrize_matrix
 
@@ -14,16 +13,10 @@ def symmetric_eigh(
     matrix: np.ndarray,
     *,
     descending: bool = False,
-    use_scipy: bool = False,
-    driver: str = "evr",
-    check_finite: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Eigenpairs of a symmetric matrix after explicit symmetrization."""
     mat = symmetrize_matrix(matrix)
-    if use_scipy:
-        evals, evecs = scipy_eigh(mat, driver=driver, check_finite=check_finite)
-    else:
-        evals, evecs = np.linalg.eigh(mat)
+    evals, evecs = np.linalg.eigh(mat)
     if descending and evals.size:
         order = np.argsort(evals)[::-1]
         evals = np.asarray(evals[order], dtype=np.float64)
@@ -36,23 +29,9 @@ def symmetric_eigh(
 
 def symmetric_eigvalsh(
     matrix: np.ndarray,
-    *,
-    use_scipy: bool = False,
-    driver: str = "evr",
-    check_finite: bool = False,
 ) -> np.ndarray:
     """Eigenvalues of a symmetric matrix after explicit symmetrization."""
     mat = symmetrize_matrix(matrix)
-    if use_scipy:
-        return np.asarray(
-            scipy_eigh(
-                mat,
-                eigvals_only=True,
-                driver=driver,
-                check_finite=check_finite,
-            ),
-            dtype=np.float64,
-        )
     return np.asarray(np.linalg.eigvalsh(mat), dtype=np.float64)
 
 

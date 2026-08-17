@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import numpy as np
-from scipy.linalg import blas
 from scipy.linalg import qr as scipy_qr
 
 
@@ -144,12 +143,12 @@ def _single_constraint_null_space_basis_r_qr(C, d: int | None = None):
     x = np.asarray(C.T.copy(), dtype=np.float64, order="F")
     qraux = np.zeros(1, dtype=np.float64)
 
-    nrmxl = float(blas.dnrm2(x[:, 0]))
+    nrmxl = float(np.linalg.norm(x[:, 0]))
     if nrmxl == 0.0:
         return np.eye(q, dtype=np.float64), 0
     if x[0, 0] != 0.0:
         nrmxl = float(np.copysign(nrmxl, x[0, 0]))
-    x[:, 0] = blas.dscal(1.0 / nrmxl, x[:, 0])
+    x[:, 0] *= 1.0 / nrmxl
     x[0, 0] = 1.0 + x[0, 0]
     qraux[0] = x[0, 0]
     x[0, 0] = -nrmxl
@@ -158,8 +157,8 @@ def _single_constraint_null_space_basis_r_qr(C, d: int | None = None):
     temp = float(x[0, 0])
     x[0, 0] = qraux[0]
     for col in range(q):
-        t = -float(blas.ddot(x[:, 0], q_full[:, col])) / float(x[0, 0])
-        q_full[:, col] = blas.daxpy(x[:, 0], q_full[:, col], a=t)
+        t = -float(x[:, 0] @ q_full[:, col]) / float(x[0, 0])
+        q_full[:, col] += t * x[:, 0]
     x[0, 0] = temp
     return np.asarray(q_full[:, 1:], dtype=np.float64), 1
 

@@ -142,15 +142,27 @@ def test_invariant_policy_centralizes_non_unique_representation_surfaces():
         "gaussian_two_cr"
     )
 
+    class _Term:
+        def __init__(self, basis_name):
+            self.basis_name = basis_name
+
+    class _Compiled:
+        def __init__(self, *basis_names):
+            self.compiled_terms = [_Term(name) for name in basis_names]
+
+    class _Model:
+        def __init__(self, *basis_names):
+            self.compiled_model_ = _Compiled(*basis_names)
+
     assert final_fit_uses_exact_orientation_parity(
-        'y ~ s(x, bs="cr", k=8)',
-        skip_coef_comparison=False,
+        _Model("cr"), skip_coef_comparison=False
     )
     assert not final_fit_uses_exact_orientation_parity(
-        'y ~ s(x0, x1, bs="tp", k=15)',
-        skip_coef_comparison=False,
+        _Model("tp"), skip_coef_comparison=False
     )
     assert not final_fit_uses_exact_orientation_parity(
-        'y ~ s(x, bs="cr", k=8)',
-        skip_coef_comparison=True,
+        _Model("fs"), skip_coef_comparison=False
+    )
+    assert not final_fit_uses_exact_orientation_parity(
+        _Model("cr"), skip_coef_comparison=True
     )

@@ -21,7 +21,6 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 from scipy.linalg import qr as scipy_qr
 from scipy.linalg import solve_triangular
-from scipy.linalg.lapack import get_lapack_funcs
 
 from .._model_state import (
     _coef_column_offset,
@@ -37,6 +36,7 @@ from ..fit.capabilities import uses_closed_form_solver
 from ..linalg import (
     matrix_sqrt_psd,
     numerical_rank,
+    pivoted_cholesky,
     positive_semidefinite_root,
     symmetric_eigen_partition,
     symmetric_eigh,
@@ -262,20 +262,11 @@ def _mroot_chol(P, *, rank=None):
         return np.empty((0, 0), dtype=np.float64)
 
     P_sym = 0.5 * (P + P.T)
-    pstrf = get_lapack_funcs("pstrf", dtype=np.float64)
-    chol, piv, rank_found, info = pstrf(
-        np.array(P_sym, dtype=np.float64, order="F", copy=True),
-        lower=0,
-        tol=0.0,
-    )
-    if info < 0:
-        raise np.linalg.LinAlgError(f"dpstrf failed with info={info}.")
-
-    R = np.triu(np.asarray(chol, dtype=np.float64))
+    R, piv, rank_found = pivoted_cholesky(P_sym, tol=0.0)
     if int(rank_found) < n:
         R[int(rank_found) :, int(rank_found) :] = 0.0
 
-    piv = np.asarray(piv, dtype=np.int64).ravel() - 1
+    piv = np.asarray(piv, dtype=np.int64).ravel()
     unpivot = np.argsort(piv)
     R = R[:, unpivot]
 
@@ -393,7 +384,7 @@ def _total_penalty_space_from_blocks(
         stop = start + int(S_i.shape[0])
         St[start:stop, start:stop] += S_i / frob
 
-    evals, evecs = symmetric_eigh(St, descending=True, use_scipy=True)
+    evals, evecs = symmetric_eigh(St, descending=True)
     max_eval = float(np.max(evals)) if evals.size else 0.0
     pos_mask = evals > max_eval * (np.finfo(np.float64).eps ** 0.66)
     Y = evecs[:, pos_mask]
@@ -716,7 +707,7 @@ def _total_penalty_space(grouped_penalties, p, *, H=None):
         if frob > 0.0:
             St += Sg / frob
 
-    evals, evecs = symmetric_eigh(St, descending=True, use_scipy=True)
+    evals, evecs = symmetric_eigh(St, descending=True)
     scale = float(np.max(evals)) if evals.size else 0.0
     pos_mask = evals > scale * (np.finfo(np.float64).eps ** 0.66)
     Y = evecs[:, pos_mask]
@@ -814,7 +805,7 @@ def gam_reparam(range_roots, lsp, deriv=2):
                 if alpha[i]:
                     Sb += A / float(frob[i])
             Sb = 0.5 * (Sb + Sb.T)
-            ev = symmetric_eigvalsh(Sb, use_scipy=True)
+            ev = symmetric_eigvalsh(Sb)
             if ev.size == 0 or ev[-1] <= 0.0:
                 r = 0
             else:
@@ -841,7 +832,7 @@ def gam_reparam(range_roots, lsp, deriv=2):
                 Sg += float(spf[i]) * A
 
         Sb = 0.5 * (Sb + Sb.T)
-        evals, U = symmetric_eigh(Sb, descending=True, use_scipy=True)
+        evals, U = symmetric_eigh(Sb, descending=True)
 
         if iteration == 1:
             Qf[:, :Q] = U
