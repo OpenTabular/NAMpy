@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 
-from nampy.gam import GAM
+from nampy.gam.model.api import GAM
 from nampy.gam.parity import (
     build_parity_snapshot,
     load_parity_snapshot,
@@ -16,7 +16,7 @@ from nampy.gam.parity import (
 
 
 def fit_gaussian_formula(data, formula: str, **gam_kwargs) -> GAM:
-    """Fit :class:`~nampy.gam.GAM` with a formula (Gaussian family)."""
+    """Fit :class:`~nampy.gam.model.api.GAM` with a formula (Gaussian family)."""
     kw = {
         "family": "gaussian",
         "formula": formula,

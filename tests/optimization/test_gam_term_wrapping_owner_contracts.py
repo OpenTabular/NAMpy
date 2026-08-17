@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.gam import GAM
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
+from nampy.gam.model.api import GAM
 from nampy.gam.specs.build import build_formula_model
 from tests.mgcv_parity_utils import (
     _make_gaussian_data,
@@ -227,4 +227,3 @@ def test_tensor_numeric_by_wrapped_predictor_block_matches_mgcv_lpmatrix_slice()
     assert len(predictor.compiled_terms) == 1
     assert predictor.compiled_terms[0].by_variable_info.name == "z"
     np.testing.assert_allclose(actual, expected_block, atol=1e-12, rtol=0.0)
-

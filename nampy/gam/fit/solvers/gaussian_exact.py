@@ -7,13 +7,11 @@ from ..._model_state import (
     _n_smoothing_params,
     _penalty_blocks_seq,
 )
+from ...linalg import balanced_penalty_template_sqrt_for_rank
 from ..linalg.stacked_qr import (
     _scatter_pivoted_rank_matrix_to_full,
-    balanced_penalty_template_sqrt_for_rank,
     build_penalized_qr_state_nonnegative,
-    gaussian_design_needs_stacked_qr_fit,
     pls_fit1_nonneg_w,
-    solve_gaussian_penalized_ls_stacked_qr,
 )
 from ..penalized_system import (
     build_full_design,
@@ -36,40 +34,21 @@ def _prior_weights_vector(weights, n: int) -> np.ndarray:
     return w
 
 
-def _penalized_system_needs_stacked_qr(
-    X: np.ndarray,
-    w: np.ndarray,
-    S: np.ndarray,
+def _gaussian_fit3_gdi_beta_full(
+    model,
+    X,
+    smoothing_params,
+    z_work,
+    w,
     *,
-    cond_tol: float = 1e12,
-) -> bool:
-    """
-    Detect numerically singular Gaussian penalized systems.
-
-    Mirror the cases where mgcv's `magic`/`gam.fit3` covariance root drops
-    effectively infinite-smoothing directions even though the raw design matrix
-    itself is full rank.
-    """
-    XtWX = np.asarray(X.T @ (np.asarray(w, dtype=np.float64)[:, None] * X))
-    A = np.asarray(XtWX + S, dtype=np.float64)
-    if np.linalg.matrix_rank(A) < A.shape[0]:
-        return True
-    try:
-        cond_A = float(np.linalg.cond(A))
-    except np.linalg.LinAlgError:
-        return True
-    return (not np.isfinite(cond_A)) or cond_A > float(cond_tol)
-
-
-def _gaussian_fit3_gdi_beta_full(model, X, smoothing_params, z_work, w):
+    return_hat_matrix=False,
+):
     """
     Mirror `mgcv::gam.fit3()` post-loop `gdi1()` coefficient overwrite for Gaussian.
 
     `gdi1()` works on the current `gam.fit3` reparameterized system, not on the
     raw prediction-parameterization `sqrt(P)` solve.
     """
-    from scipy.linalg.blas import dgemv
-
     from ...smoothing_selection.reparam import build_penalty_reparameterization_state
 
     X = np.asarray(X, dtype=np.float64)
@@ -115,10 +94,7 @@ def _gaussian_fit3_gdi_beta_full(model, X, smoothing_params, z_work, w):
         np.asarray(canonical.T, dtype=np.float64) @ coef_canon,
         dtype=np.float64,
     )
-    eta_fit = np.asarray(
-        dgemv(1.0, np.asfortranarray(X_canon), coef_canon),
-        dtype=np.float64,
-    )
+    eta_fit = np.asarray(X_canon @ coef_canon, dtype=np.float64)
     # mgcv/src/gdi.c:2262-2292: the covariance root `rV` is built from the SAME
     # canonical factorization as the coefficients, with zero rows at dropped
     # canonical coordinates, then mapped back through `T`
@@ -133,7 +109,22 @@ def _gaussian_fit3_gdi_beta_full(model, X, smoothing_params, z_work, w):
     rV_full = np.asarray(
         np.asarray(canonical.T, dtype=np.float64) @ rV_canon, dtype=np.float64
     )
-    return coef_full, eta_fit, rV_full
+    if not return_hat_matrix:
+        return coef_full, eta_fit, rV_full
+    if np.any(w < 0.0):
+        raise ValueError("Gaussian post-fit weights must be non-negative.")
+
+    # mgcv/R/gam.fit3.r::gam.fit3.post.proc (lines 961-965): retain the
+    # Householder ``K`` returned by gdi1 and form
+    #
+    #   F <- (rV %*% t(K)) %*% (sqrt(weights) * X)
+    #
+    # in that operand order.  ``rV rV' X'WX`` is algebraically equivalent,
+    # but catastrophically loses the null-space cancellation for intercept +
+    # ``bs="re"`` when lambda is at the near-zero REML boundary.
+    PKt = np.asarray(rV_full @ np.asarray(qr_state.K, dtype=np.float64).T)
+    H_coef = np.asarray(PKt @ (np.sqrt(w)[:, None] * X), dtype=np.float64)
+    return coef_full, eta_fit, rV_full, H_coef
 
 
 def _gaussian_fit3_pls_current_eta(model, X, smoothing_params, z_work, w):
@@ -143,8 +134,6 @@ def _gaussian_fit3_pls_current_eta(model, X, smoothing_params, z_work, w):
     This is the Gaussian exact deviance retained on the fit object before the
     later `gdi1()` overwrite of the reported coefficients / fitted values.
     """
-    from scipy.linalg.blas import dgemv
-
     from ...smoothing_selection.reparam import build_penalty_reparameterization_state
 
     X = np.asarray(X, dtype=np.float64)
@@ -165,10 +154,7 @@ def _gaussian_fit3_pls_current_eta(model, X, smoothing_params, z_work, w):
         penalty_rank_Es=np.asarray(canonical.Eb, dtype=np.float64),
         rank_tol=np.finfo(np.float64).eps * 100.0,
     )
-    return np.asarray(
-        dgemv(1.0, np.asfortranarray(X_canon), coef_canon),
-        dtype=np.float64,
-    )
+    return np.asarray(X_canon @ coef_canon, dtype=np.float64)
 
 
 def solve_gaussian_fit(model, y, smoothing_params, weights=None):
@@ -192,19 +178,6 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         n_coef=int(n_coef),
     )
 
-    force_stacked_qr = (
-        bool(getattr(model, "_use_stacked_qr", False))
-        or gaussian_design_needs_stacked_qr_fit(model)
-        or _penalized_system_needs_stacked_qr(X, w, S)
-    )
-    coef_method = "householder"
-
-    # No null-space gauge pin: the coefficient and covariance representatives
-    # are overwritten below from the canonical `gdi1` factorization, whose
-    # dropped-coordinate zero-fill IS mgcv's rank-deficiency gauge
-    # (mgcv/src/gdi.c:2253-2292). Upstream has no penalty-minimizing pin.
-    null_gauge = False
-
     sol = irls_core(
         X,
         y,
@@ -217,127 +190,59 @@ def solve_gaussian_fit(model, y, smoothing_params, weights=None):
         tol=float(getattr(model, "irls_tol", 1e-7)),
         max_step_halving=int(getattr(model, "max_step_halving", 25)),
         penalty_rank_rows=rank_rows,
-        force_stacked_qr=force_stacked_qr,
-        coef_method=coef_method,
-        near_singular_null_pin=null_gauge,
     )
-    reported_deviance = float(sol["deviance"])
 
-    eta = np.asarray(sol["eta"], dtype=np.float64)
-    if force_stacked_qr:
-        # Recompute EDF/covariance from stacked-QR rank-reduced factors. This mirrors
-        # mgcv's `rV %*% t(rV)` post-processing for near-singular Gaussian REML fits
-        # (for example `bs="re"` at the lambda boundary), instead of inverting the
-        # singular full `X'WX + S`.
-        y_eff = y if model.offset_train_ is None else (y - model.offset_train_)
-        stacked = solve_gaussian_penalized_ls_stacked_qr(
-            X,
-            y_eff,
-            w,
-            S,
-            penalty_blocks=penalty_blocks,
-            fit_intercept=fi,
-            n_coef=int(n_coef),
-            coef_method=coef_method,
-            near_singular_null_pin=null_gauge,
-        )
-        A = np.asarray(stacked["A"], dtype=np.float64)
-        A_inv = np.asarray(stacked["A_inv"], dtype=np.float64)
-        XtWX = np.asarray(stacked["XtWX"], dtype=np.float64)
-        H_coef_stable = np.asarray(stacked["coef_hat_matrix"], dtype=np.float64)
-        cov_root = np.asarray(stacked["covariance_root"], dtype=np.float64)
-        coef_full = np.asarray(stacked["coef_full"], dtype=np.float64)
-        # Mirror mgcv/R/gam.fit3.r: after the stable `pls_fit1()` / `gdi1()`
-        # solve, the reported Gaussian linear predictor is recomputed as
-        # `x %*% coef + offset`, not taken from the raw Householder eta buffer.
-        eta = np.asarray(X @ coef_full, dtype=np.float64)
-        if model.offset_train_ is not None:
-            eta = eta + np.asarray(model.offset_train_, dtype=np.float64).ravel()
-        mu = np.asarray(model.family.inverse_link(eta), dtype=np.float64)
-        # Mirror mgcv's post-fit EDF trace from the stacked-QR covariance root
-        # (`rV`) rather than from an explicit `A^{-1} X'WX` product. The two are
-        # algebraically identical, but the root-based Frobenius form is
-        # materially more stable in nearly saturated aliased designs such as
-        # intercept + `bs="fs"`, where tiny EDF differences feed directly into
-        # the Gaussian scale estimate.
-        WX_rV = np.asarray(stacked["WX_sqrt"], dtype=np.float64) @ np.asarray(
-            stacked["covariance_root"], dtype=np.float64
-        )
-        trace_H = float(np.sum(WX_rV * WX_rV))
-        scale = model.family.estimate_dispersion(y, eta, edf=trace_H, weights=w)
-        Vp = np.asarray(scale * (cov_root @ cov_root.T), dtype=np.float64)
-        Vp = 0.5 * (Vp + Vp.T)
-        H_coef = np.asarray(H_coef_stable, dtype=np.float64)
-        Vf = np.asarray(H_coef @ Vp, dtype=np.float64)
-        sol["A"] = A
-        sol["A_inv"] = A_inv
-        sol["XtWX"] = XtWX
-        sol["log_det_XtWX_plus_penalty"] = float(stacked["log_det_XtWX_plus_penalty"])
-        sol["trace_H"] = trace_H
-        sol["edf"] = trace_H
-        sol["cov_bayes"] = Vp
-        sol["cov_freq"] = Vf
-        sol["H_coef"] = H_coef
-        # Mirror `mgcv/R/gam.fit3.r`: for stacked-QR Gaussian fits, the
-        # current-sp `pls_fit1()` / post-loop `gdi1()` state is evaluated on the
-        # reparameterized system, and its `eta <- x %*% start` BLAS multiply is
-        # also the deviance path retained on the fit object for exact Gaussian
-        # REML/ML scoring.
-        eta_dev = _gaussian_fit3_pls_current_eta(
-            model,
-            X,
-            smoothing_params,
-            sol["working_response"],
-            w,
-        )
-        coef_full, eta_fit, gdi_rank_root = _gaussian_fit3_gdi_beta_full(
-            model,
-            X,
-            smoothing_params,
-            sol["working_response"],
-            w,
-        )
-        if model.offset_train_ is not None:
-            eta_dev = (
-                eta_dev + np.asarray(model.offset_train_, dtype=np.float64).ravel()
-            )
-        mu_dev = np.asarray(model.family.inverse_link(eta_dev), dtype=np.float64)
-        reported_deviance = float(model.family.deviance(y, mu_dev, weights=w))
-        eta = np.asarray(eta_fit, dtype=np.float64)
-        if model.offset_train_ is not None:
-            eta = eta + np.asarray(model.offset_train_, dtype=np.float64).ravel()
-        mu = np.asarray(model.family.inverse_link(eta), dtype=np.float64)
-        scale = model.family.estimate_dispersion(y, eta, edf=trace_H, weights=w)
-        # mgcv/R/gam.fit3.r:959 `Vb <- rV %*% t(rV) * scale` with `rV` from the
-        # same canonical gdi1 factorization as the coefficients, so the
-        # rank-deficiency gauge (zero row at dropped canonical coordinates)
-        # lands on the same position in coef and Vp.
-        Vp = np.asarray(
-            scale * (gdi_rank_root @ gdi_rank_root.T), dtype=np.float64
-        )
-        Vp = 0.5 * (Vp + Vp.T)
-        H_coef = np.asarray(H_coef_stable, dtype=np.float64)
-        Vf = np.asarray(H_coef @ Vp, dtype=np.float64)
-        sol["cov_bayes"] = Vp
-        sol["cov_freq"] = Vf
-        sol["H_coef"] = H_coef
-        sol["penalty_quadratic"] = float(coef_full @ (S @ coef_full))
-        sol["coef_full"] = coef_full.copy()
-        sol["coef"] = coef_full.copy()
-        sol["eta"] = eta.copy()
-        sol["linear_predictor"] = eta.copy()
-        sol["mu"] = mu.copy()
-        if fi and coef_full.size:
-            sol["intercept"] = float(coef_full[0])
-            sol["beta"] = np.asarray(coef_full[1:], dtype=np.float64).copy()
-        else:
-            sol["intercept"] = 0.0
-            sol["beta"] = coef_full.copy()
-        sol["penalty_quadratic"] = float(
-            sol.get("penalty_quadratic", stacked["penalty_quadratic"])
-        )
+    # Mirror gam.fit3's unconditional current-sp `pls_fit1()` state followed by
+    # the post-loop `gdi1()` coefficient/covariance overwrite. Upstream does not
+    # select this path from a condition number or from the model's term types.
+    eta_dev = _gaussian_fit3_pls_current_eta(
+        model,
+        X,
+        smoothing_params,
+        sol["working_response"],
+        w,
+    )
+    coef_full, eta_fit, gdi_rank_root, H_coef = _gaussian_fit3_gdi_beta_full(
+        model,
+        X,
+        smoothing_params,
+        sol["working_response"],
+        w,
+        return_hat_matrix=True,
+    )
+    if model.offset_train_ is not None:
+        train_offset = np.asarray(model.offset_train_, dtype=np.float64).ravel()
+        eta_dev = eta_dev + train_offset
+        eta_fit = eta_fit + train_offset
+    mu_dev = np.asarray(model.family.inverse_link(eta_dev), dtype=np.float64)
+    reported_deviance = float(model.family.deviance(y, mu_dev, weights=w))
+    eta = np.asarray(eta_fit, dtype=np.float64)
+    mu = np.asarray(model.family.inverse_link(eta), dtype=np.float64)
+    H_coef = np.asarray(H_coef, dtype=np.float64)
+    trace_H = float(np.trace(H_coef))
+    scale = model.family.estimate_dispersion(y, eta, edf=trace_H, weights=w)
+    # mgcv/R/gam.fit3.r::gam.fit3.post.proc forms Vb from the `rV` returned by
+    # this same gdi1 factorization, retaining its dropped-coordinate zero fill.
+    Vp = np.asarray(scale * (gdi_rank_root @ gdi_rank_root.T), dtype=np.float64)
+    Vp = 0.5 * (Vp + Vp.T)
+    Vf = np.asarray(H_coef @ Vp, dtype=np.float64)
+    sol["cov_bayes"] = Vp
+    sol["cov_freq"] = Vf
+    sol["H_coef"] = H_coef
+    sol["trace_H"] = trace_H
+    sol["edf"] = trace_H
+    sol["penalty_quadratic"] = float(coef_full @ (S @ coef_full))
+    sol["coef_full"] = coef_full.copy()
+    sol["coef"] = coef_full.copy()
+    sol["eta"] = eta.copy()
+    sol["linear_predictor"] = eta.copy()
+    sol["mu"] = mu.copy()
+    if fi and coef_full.size:
+        sol["intercept"] = float(coef_full[0])
+        sol["beta"] = np.asarray(coef_full[1:], dtype=np.float64).copy()
     else:
-        scale = model.family.estimate_dispersion(y, eta, edf=sol["trace_H"], weights=w)
+        sol["intercept"] = 0.0
+        sol["beta"] = coef_full.copy()
     resid = y - eta
     wrss = float(np.sum(w * resid * resid))
     sol["rss"] = wrss

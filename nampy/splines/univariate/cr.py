@@ -2,7 +2,7 @@ import numpy as np
 from scipy.interpolate import BSpline
 
 from ...gam.constraints.absorption import full_term_sum_to_zero_constraint
-from ...gam.linalg import geometric_null_space_shrinkage
+from ...gam.linalg import symmetric_eigh
 from ...gam.penalties.algebra import scale_penalty
 from ..basis.cr import cr_spl, cr_spl_predict
 
@@ -45,20 +45,23 @@ def add_full_rank_shrinkage(S, shrink=0.1, tol=1e-12, null_basis=None, knots=Non
     the explicitly symmetrized raw CR penalty, then replace the trailing zero
     eigenvalues by small positive multiples of the smallest positive eigenvalue.
     """
-    del knots, null_basis
-    return geometric_null_space_shrinkage(
-        S,
-        shrink=shrink,
-        tol=tol,
-        # `mgcv/R/smooth.r::smooth.construct.cs.smooth.spec()` applies R's
-        # symmetric eigen path to the operation-ordered getFS penalty.  Its
-        # lower triangle selects the same two nominally-null eigenvectors;
-        # averaging the roundoff-distinct triangles here rotates them and
-        # changes the unequal 0.1/0.01 cs shrinkage floor.
-        symmetrize_lower_triangle=True,
-        use_scipy=True,
+    del tol, knots, null_basis
+    penalty = np.asarray(S, dtype=np.float64)
+    penalty = 0.5 * (penalty + penalty.T)
+    values, vectors = symmetric_eigh(
+        penalty,
         descending=True,
     )
+    nk = int(values.size)
+    if nk < 3:
+        raise ValueError("cubic regression spline penalty requires k >= 3.")
+
+    # Operation-for-operation port of smooth.construct.cr.smooth.spec(): for
+    # a cs smooth, smooth.construct.cs.smooth.spec() sets shrink=.1 before
+    # delegating here, and the final two eigenvalues are replaced in order.
+    values[nk - 2] = values[nk - 3] * float(shrink)
+    values[nk - 1] = values[nk - 2] * float(shrink)
+    return np.asarray(vectors @ (values[:, None] * vectors.T), dtype=np.float64)
 
 
 def cyclic_wrap(x0, x1, x):

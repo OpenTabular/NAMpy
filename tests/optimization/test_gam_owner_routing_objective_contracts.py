@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from scipy.optimize import OptimizeResult
 
-from nampy.gam import GAM
+from nampy.gam.model.api import GAM
 from nampy.gam.smoothing_selection.criteria import ml_reml as ml_reml_module
 from nampy.gam.smoothing_selection.optimize import driver as driver_module
 from nampy.gam.smoothing_selection.optimize import objectives as objectives_module

@@ -14,17 +14,14 @@ from ..._model_state import (
     _penalty_blocks_seq,
 )
 from ..linalg.stacked_qr import (
-    _dgeqp3_economic_r,
+    _pivoted_economic_qr,
     _scatter_pivoted_rank_matrix_to_full,
-    balanced_penalty_template_sqrt_for_rank,
     build_penalized_qr_state_nonnegative,
 )
 from ..penalized_system import build_full_design, build_full_penalty_from_blocks
 from ..state import FitCoreSolution
 from .irls_core import (
-    _mgcv_effective_irls_tol,
     _mgcv_null_coef,
-    _mgcv_poisson_identity_fisher_endpoint,
     irls_core,
 )
 
@@ -49,13 +46,22 @@ def _canonical_penalty_root_stack(model, canonical, q_full):
     return np.concatenate(roots, axis=1)
 
 
-def _pirls_gdi_report_state(model, X, smoothing_params, sol):
+def _pirls_gdi_report_state(
+    model,
+    X,
+    smoothing_params,
+    sol,
+    *,
+    canonical=None,
+    public_penalty=None,
+):
     """Apply gam.fit3/gam.fit4's final canonical coefficient and rV gauge."""
     from ...smoothing_selection.reparam import build_penalty_reparameterization_state
 
     X = np.asarray(X, dtype=np.float64)
     sp = np.asarray(smoothing_params, dtype=np.float64).ravel()
-    canonical = build_penalty_reparameterization_state(model, X, sp, deriv=0)
+    if canonical is None:
+        canonical = build_penalty_reparameterization_state(model, X, sp, deriv=0)
     transform = np.asarray(canonical.T, dtype=np.float64)
     X_canonical = np.asarray(X @ transform, dtype=np.float64)
     q_full = int(X_canonical.shape[1])
@@ -68,7 +74,10 @@ def _pirls_gdi_report_state(model, X, smoothing_params, sol):
         & np.isfinite(working_response)
     )
     if not np.any(good):
-        return sol
+        raise RuntimeError(
+            "PIRLS finalization has no informative observations in the "
+            "current mgcv working system."
+        )
 
     rank_tol = (
         _MGCV_GAM_FIT4_RANK_TOL
@@ -100,15 +109,18 @@ def _pirls_gdi_report_state(model, X, smoothing_params, sol):
     fisher_weights = np.asarray(sol["fisher_weights"], dtype=np.float64)
     fisher_good = np.asarray(fisher_weights[good], dtype=np.float64)
     if np.any(~np.isfinite(fisher_good)) or np.any(fisher_good <= 0.0):
-        return sol
+        raise RuntimeError(
+            "PIRLS finalization requires finite positive Fisher weights for "
+            "the informative observations."
+        )
 
     X_rank = np.asarray(X_canonical[good, :][:, ordered], dtype=np.float64)
     E_rank = np.asarray(canonical.Sr, dtype=np.float64)[:, ordered]
     augmented = np.vstack(
         [np.sqrt(fisher_good)[:, None] * X_rank, E_rank]
     )
-    qr_cov, _tau_cov, pivot_cov, _ = _dgeqp3_economic_r(augmented)
-    upper_r = np.triu(np.asarray(qr_cov[:rank, :rank], dtype=np.float64))
+    _q_cov, r_cov, pivot_cov = _pivoted_economic_qr(augmented)
+    upper_r = np.triu(np.asarray(r_cov[:rank, :rank], dtype=np.float64))
     inverse_r = solve_triangular(
         upper_r,
         np.eye(rank, dtype=np.float64),
@@ -157,13 +169,20 @@ def _pirls_gdi_report_state(model, X, smoothing_params, sol):
     sol["cov_freq"] = Vf
     sol["A_inv"] = A_inv
     sol["XtWX"] = XtWX
+    if public_penalty is None:
+        public_penalty = np.asarray(sol["P"], dtype=np.float64)
+    public_penalty = np.asarray(public_penalty, dtype=np.float64)
+    sol["A"] = np.asarray(XtWX + public_penalty, dtype=np.float64)
+    sol["P"] = public_penalty.copy()
+    sol["penalty_matrix"] = public_penalty.copy()
+    sol["X"] = X.copy()
     sol["H_coef"] = H_coef
     sol["trace_H"] = trace_H
     sol["edf"] = trace_H
     sol["penalized_system_rank"] = rank
     sol["dropped_column_indices"] = np.asarray(qr_state.drop, dtype=np.int64)
     sol["penalty_quadratic"] = float(
-        coef_full @ (np.asarray(sol["P"], dtype=np.float64) @ coef_full)
+        coef_full @ (public_penalty @ coef_full)
     )
     if _fit_intercept(model) and coef_full.size:
         sol["intercept"] = float(coef_full[0])
@@ -218,10 +237,26 @@ def solve_pirls_fit(
         fit_intercept=fi,
         n_coef=n_coef,
     )
-    rank_rows = balanced_penalty_template_sqrt_for_rank(
-        penalty_blocks,
-        fit_intercept=fi,
-        n_coef=int(n_coef),
+    from ...smoothing_selection.reparam import (
+        build_penalty_reparameterization_state,
+    )
+
+    canonical = build_penalty_reparameterization_state(
+        model,
+        X,
+        np.asarray(smoothing_params, dtype=np.float64),
+        deriv=0,
+    )
+    transform = np.asarray(canonical.T, dtype=np.float64)
+    X_canonical = np.asarray(X @ transform, dtype=np.float64)
+    S_canonical = np.asarray(canonical.St, dtype=np.float64)
+
+    if coef_start is not None:
+        # mgcv/R/gam.fit3.r:169: start <- t(T) %*% start.
+        coef_start = np.asarray(transform.T @ coef_start, dtype=np.float64)
+    null_coef = np.asarray(
+        transform.T @ _mgcv_null_coef(X, y, model.family),
+        dtype=np.float64,
     )
 
     disable_theta_efs = bool(getattr(model, "_pirls_disable_theta_efs_", False))
@@ -229,36 +264,24 @@ def solve_pirls_fit(
     if disable_theta_efs:
         model.family._disable_theta_efs = True
 
-    force_stacked_qr = (
-        str(getattr(model.family, "family_class", "")).lower() == "extended"
-        and str(getattr(model.family, "name", "")).lower() == "negbin"
-        and str(getattr(model.family, "link_name", "")).lower() == "log"
-    )
-
     try:
         sol = irls_core(
-            X,
+            X_canonical,
             y,
             model.family,
-            S,
+            S_canonical,
             offset=model.offset_train_,
             weights=weights,
             fit_intercept=fi,
             max_iter=int(getattr(model, "max_irls_iter", 200)),
-            tol=_mgcv_effective_irls_tol(
-                model.family, float(getattr(model, "irls_tol", 1e-7))
-            ),
+            tol=float(getattr(model, "irls_tol", 1e-7)),
             max_step_halving=int(getattr(model, "max_step_halving", 25)),
             coef_start=coef_start,
-            null_coef=_mgcv_null_coef(X, y, model.family),
+            null_coef=null_coef,
             etastart=etastart,
             mustart=mustart,
-            fisher_scoring_only=_mgcv_poisson_identity_fisher_endpoint(model.family),
-            penalty_rank_rows=rank_rows,
-            force_stacked_qr=force_stacked_qr,
-            # Upstream pls_fit1/gdi1 zero-fill dropped canonical coordinates;
-            # it has no penalty-minimizing null-space pin.
-            near_singular_null_pin=False,
+            penalty_sqrt_E=np.asarray(canonical.Sr, dtype=np.float64),
+            penalty_rank_rows=np.asarray(canonical.Eb, dtype=np.float64),
             # `mgcv/R/gam.fit3.r::gam.fit3` uses its `scale` argument in the
             # PIRLS convergence test. Joint scale objectives must therefore
             # supply the current outer scale, rather than using an estimated
@@ -268,7 +291,14 @@ def solve_pirls_fit(
     finally:
         model.family._disable_theta_efs = bool(prev_disable_theta_efs)
 
-    sol = _pirls_gdi_report_state(model, X, smoothing_params, sol)
+    sol = _pirls_gdi_report_state(
+        model,
+        X,
+        smoothing_params,
+        sol,
+        canonical=canonical,
+        public_penalty=S,
+    )
 
     coef_out = np.asarray(sol["coef_full"], dtype=np.float64).copy()
     model._pirls_last_coef_ = coef_out

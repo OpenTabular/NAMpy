@@ -7,7 +7,7 @@ import warnings
 import numpy as np
 import pytest
 
-from nampy.gam import GAM
+from nampy.gam.model.api import GAM
 from tests._mgcv_parity_requested_shared import CaseSpec
 from tests.families.test_general_family_mgcv_parity import GENERAL_SE_CASES
 from tests.mgcv_invariant_policy import final_fit_uses_exact_orientation_parity
@@ -23,7 +23,6 @@ _WARNING_NOISE = {
 }
 _GENERAL_OPTIMIZED_ENDPOINT_KNOWN_GAP_TAGS = (
     "gaulss_select_true_cr",
-    "gammals_select_true_cr",
 )
 
 
@@ -578,7 +577,7 @@ def test_gam_fit3_non_gaussian_unconditional_postproc_matches_mgcv(case_id: str)
         actual["Vc"],
         expected["Vc"],
         full_matrix=final_fit_uses_exact_orientation_parity(
-            case.formula,
+            gam,
             skip_coef_comparison=bool(case.skip_coef_comparison),
         ),
         rtol=3e-5,
@@ -653,7 +652,7 @@ def test_magic_postprocessing_final_fit_matches_mgcv(case: CaseSpec):
         actual,
         expected,
         full_covariance=final_fit_uses_exact_orientation_parity(
-            case.formula,
+            gam,
             skip_coef_comparison=bool(case.skip_coef_comparison),
         ),
         compare_hat=True,
@@ -704,7 +703,7 @@ def test_magic_postprocessing_final_fit_matches_mgcv_gaussian_ti_mc():
         actual,
         expected,
         full_covariance=final_fit_uses_exact_orientation_parity(
-            case.formula,
+            gam,
             skip_coef_comparison=bool(case.skip_coef_comparison),
         ),
         compare_hat=True,
@@ -762,7 +761,7 @@ def test_gam_fit3_postprocessing_final_fit_matches_mgcv(case: CaseSpec):
         actual,
         expected,
         full_covariance=final_fit_uses_exact_orientation_parity(
-            case.formula,
+            gam,
             skip_coef_comparison=bool(case.skip_coef_comparison),
         ),
         compare_hat=True,
@@ -780,21 +779,14 @@ def test_gam_fit3_postprocessing_final_fit_matches_mgcv(case: CaseSpec):
 def test_gam_fit5_postprocessing_final_fit_matches_mgcv(case):
     """Verify that gam fit5 postprocessing final fit matches mgcv."""
     case_id, family, formula, data_factory, method, pred_atol, sp_log_atol, _ = case
-    if any(tag in case_id for tag in _GENERAL_OPTIMIZED_ENDPOINT_KNOWN_GAP_TAGS):
+    if case_id in _GENERAL_OPTIMIZED_ENDPOINT_KNOWN_GAP_TAGS:
         pytest.xfail(
-            "select=True general-family endpoints inherit an R/LAPACK "
-            "eigenspace-sign difference in mgcv::initial.spg(); post-processing "
-            "at the same endpoint is covered strictly below. Verified 2026-08-14 "
-            "via debug/gaulss_select_initial_spg_probe.py and "
-            "debug/gammals_select_edf2_probe.py: mgcv fitted on the mirrored "
-            "basis (x -> -x, mathematically identical) lands exactly on NAMpy's "
-            "endpoint in both cases (gaulss: log sp 11.79338762 vs 11.91107097, "
-            "scores agree to 5e-6; gammals: sp 1387.5727 vs 1385.9021 with "
-            "edf1/edf2 sums reproducing NAMpy's 3.690821 to 2.3e-7, criterion "
-            "difference 7e-8, NAMpy gradient 3.8e-7 vs mgcv 1.3e-4), so these "
-            "select-penalty endpoints are orientation-indeterminate inside mgcv "
-            "itself. The endpoint-sensitive edf/edf1/edf2 scalars are the only "
-            "quantities that exceed tolerance."
+            "gaulss select=True retains a basis-sensitive initial.spg endpoint: "
+            "debug/gaulss_select_initial_spg_probe.py gives ordinary mgcv "
+            "log(sp)[2]=11.91107097 and NAMpy 11.81049973 after the strict "
+            "Sl.setup triangle fix. Shared-endpoint post-processing remains "
+            "strict below. This does not apply to gammals, whose optimized "
+            "endpoint and final fit now pass strictly."
         )
     data = data_factory()
     select = "select_true" in case_id
@@ -820,7 +812,7 @@ def test_gam_fit5_postprocessing_final_fit_matches_mgcv(case):
         actual,
         expected,
         full_covariance=final_fit_uses_exact_orientation_parity(
-            formula,
+            gam,
             skip_coef_comparison=False,
         ),
         compare_hat=False,

@@ -10,8 +10,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.gam import GAM
 from nampy.gam.fit.design_setup import compile_designs
+from nampy.gam.model.api import GAM
 from nampy.gam.parity import build_optimizer_trace
 from nampy.gam.smoothing_selection.optimize.basics import (
     _initial_smoothing_params_from_design,

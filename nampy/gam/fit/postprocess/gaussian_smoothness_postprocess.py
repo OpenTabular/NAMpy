@@ -82,56 +82,53 @@ def refresh_gaussian_ml_reml_score_from_fit_state(model: Any, y: np.ndarray) -> 
     if fit_state is None:
         return
 
-    try:
-        backend = resolve_ml_reml_scoring_backend(model, method=method)
-        if backend != "gaussian_exact":
-            return
-
-        fixed_mask = (
-            np.zeros(_n_smoothing_params(model), dtype=bool)
-            if model.smoothing_fixed_mask_ is None
-            else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
-        )
-        free_vals = np.asarray(model.smoothing_params[~fixed_mask], dtype=np.float64)
-        log_free = (
-            np.log(np.maximum(free_vals, LOG_GUARD_MIN))
-            if free_vals.size > 0
-            else np.empty((0,), dtype=np.float64)
-        )
-
-        n_s = int(model.n_samples_)
-        yv = np.asarray(y, dtype=np.float64).ravel()
-        mu_v = np.asarray(fit_result.mu, dtype=np.float64).ravel()
-        w = prior_weights_diagonal_from_fit(fit_state, n_s)
-        dev = gaussian_weighted_residual_sum_squares(yv, mu_v, w)
-        p_pen = (
-            float(fit_state.penalty_quadratic)
-            if fit_state.penalty_quadratic is not None
-            else quadratic_form_penalty(
-                np.asarray(fit_result.coef_full, dtype=np.float64),
-                np.asarray(fit_state.penalty_matrix, dtype=np.float64),
-            )
-        )
-        mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
-        nu = float(n_s) - mp
-        if not (np.isfinite(nu) and nu > 0.0):
-            return
-
-        sigma2_prof = (dev + p_pen) / nu
-        if not (np.isfinite(sigma2_prof) and sigma2_prof > 0.0):
-            return
-
-        log_s2 = float(np.log(sigma2_prof))
-        branch_m = "REML" if method == "reml" else "ML"
-        wood = float(
-            criterion_ml_reml_gaussian_dynamic_joint(
-                model, yv, log_free, log_s2, method=branch_m
-            )
-        )
-        if np.isfinite(wood):
-            model.smoothing_score_ = wood
-    except Exception:
+    backend = resolve_ml_reml_scoring_backend(model, method=method)
+    if backend != "gaussian_exact":
         return
+
+    fixed_mask = (
+        np.zeros(_n_smoothing_params(model), dtype=bool)
+        if model.smoothing_fixed_mask_ is None
+        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
+    )
+    free_vals = np.asarray(model.smoothing_params[~fixed_mask], dtype=np.float64)
+    log_free = (
+        np.log(np.maximum(free_vals, LOG_GUARD_MIN))
+        if free_vals.size > 0
+        else np.empty((0,), dtype=np.float64)
+    )
+
+    n_s = int(model.n_samples_)
+    yv = np.asarray(y, dtype=np.float64).ravel()
+    mu_v = np.asarray(fit_result.mu, dtype=np.float64).ravel()
+    w = prior_weights_diagonal_from_fit(fit_state, n_s)
+    dev = gaussian_weighted_residual_sum_squares(yv, mu_v, w)
+    p_pen = (
+        float(fit_state.penalty_quadratic)
+        if fit_state.penalty_quadratic is not None
+        else quadratic_form_penalty(
+            np.asarray(fit_result.coef_full, dtype=np.float64),
+            np.asarray(fit_state.penalty_matrix, dtype=np.float64),
+        )
+    )
+    mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
+    nu = float(n_s) - mp
+    if not (np.isfinite(nu) and nu > 0.0):
+        return
+
+    sigma2_prof = (dev + p_pen) / nu
+    if not (np.isfinite(sigma2_prof) and sigma2_prof > 0.0):
+        return
+
+    log_s2 = float(np.log(sigma2_prof))
+    branch_m = "REML" if method == "reml" else "ML"
+    wood = float(
+        criterion_ml_reml_gaussian_dynamic_joint(
+            model, yv, log_free, log_s2, method=branch_m
+        )
+    )
+    if np.isfinite(wood):
+        model.smoothing_score_ = wood
 
     # Keep the private joint REML scale for criterion evaluation, but do not
     # overwrite the public fit scale/covariances. mgcv reports the final

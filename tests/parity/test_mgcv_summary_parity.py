@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.gam import GAM
 from nampy.gam.inference.summary import summary_gam
+from nampy.gam.model.api import GAM
 from tests.families.test_general_family_mgcv_parity import GAULSS_FORMULA, _gaulss_data
 from tests.mgcv_parity_utils import (
     _make_gamma_data,

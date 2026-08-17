@@ -16,7 +16,7 @@ from ..linalg.matrix_reindexing import (
     permute_rows,
     restore_dropped_rows,
 )
-from ..linalg.stacked_qr import _dgeqp3_economic_r, _get_r_pqr_serial
+from ..linalg.stacked_qr import _pivoted_economic_qr
 from ..parameterization import (
     FIT_PARAMETER_SPACE,
     PREDICTION_PARAMETER_SPACE,
@@ -212,16 +212,13 @@ def _gaussian_exact_unconditional_postfit(
     if not (np.isfinite(scale) and scale > 0.0):
         return None, None, FIT_PARAMETER_SPACE
 
-    try:
-        kernel = _gdi1_kernel(
-            model,
-            model.y_,
-            solve_gaussian_given_smoothing(model, model.y_, sp),
-            sp,
-            method=method.upper(),
-        )
-    except Exception:
-        return None, None, FIT_PARAMETER_SPACE
+    kernel = _gdi1_kernel(
+        model,
+        model.y_,
+        solve_gaussian_given_smoothing(model, model.y_, sp),
+        sp,
+        method=method.upper(),
+    )
 
     db_cols = [
         _restore_pirls_dbeta_to_original_parameterization(
@@ -341,13 +338,9 @@ def _gaussian_exact_unconditional_postfit(
     if weights.size != X_full.shape[0]:
         return None, None, FIT_PARAMETER_SPACE
     WX = np.sqrt(weights)[:, None] * X_full
-    qr_wx, _tau_wx, pivot_wx, _ = _dgeqp3_economic_r(WX)
+    _q_wx, r_wx_pivoted, pivot_wx = _pivoted_economic_qr(WX)
     R = permute_columns(
-        _get_r_pqr_serial(
-            qr_wx,
-            rr=int(X_full.shape[1]),
-            ncol=int(X_full.shape[1]),
-        ),
+        r_wx_pivoted,
         np.asarray(pivot_wx, dtype=np.int64),
         reverse=True,
     )
@@ -430,13 +423,9 @@ def _fixed_sp_edf2_from_qr(
         return None
 
     WX = np.sqrt(weights)[:, None] * X
-    qr_wx, _tau_wx, pivot_wx, _ = _dgeqp3_economic_r(WX)
+    _q_wx, r_wx_pivoted, pivot_wx = _pivoted_economic_qr(WX)
     R_wx = permute_columns(
-        _get_r_pqr_serial(
-            qr_wx,
-            rr=int(X.shape[1]),
-            ncol=int(X.shape[1]),
-        ),
+        r_wx_pivoted,
         np.asarray(pivot_wx, dtype=np.int64),
         reverse=True,
     )
@@ -684,29 +673,23 @@ def _pirls_exact_unconditional_postfit(
                     Hsp_fit = Hsp_outer
                     rho_fit = np.concatenate([rho_fit, [float(joint_log_scale)]])
     if Hsp_fit is None:
-        try:
-            Hsp_fit = np.asarray(
-                criterion_hessian(model, model.y_, log_sp, method=method),
-                dtype=np.float64,
-            )
-        except Exception:
-            return None, None, FIT_PARAMETER_SPACE
+        Hsp_fit = np.asarray(
+            criterion_hessian(model, model.y_, log_sp, method=method),
+            dtype=np.float64,
+        )
     if Hsp_fit.shape not in {
         (free_idx.size, free_idx.size),
         (free_idx.size + 1, free_idx.size + 1),
     } or not np.all(np.isfinite(Hsp_fit)):
         return None, None, FIT_PARAMETER_SPACE
 
-    try:
-        kernel = _gdi1_kernel(
-            model,
-            model.y_,
-            sol,
-            sp,
-            method=("REML" if method in {"reml", "laml"} else "ML"),
-        )
-    except Exception:
-        return None, None, FIT_PARAMETER_SPACE
+    kernel = _gdi1_kernel(
+        model,
+        model.y_,
+        sol,
+        sp,
+        method=("REML" if method in {"reml", "laml"} else "ML"),
+    )
 
     db_cols = [
         _restore_pirls_dbeta_to_original_parameterization(
@@ -738,13 +721,9 @@ def _pirls_exact_unconditional_postfit(
         return None, None, FIT_PARAMETER_SPACE
 
     WX = np.sqrt(w)[:, None] * X
-    qr_wx, _tau_wx, pivot_wx, _ = _dgeqp3_economic_r(WX)
+    _q_wx, r_wx_pivoted, pivot_wx = _pivoted_economic_qr(WX)
     R_wx = permute_columns(
-        _get_r_pqr_serial(
-            qr_wx,
-            rr=int(X.shape[1]),
-            ncol=int(X.shape[1]),
-        ),
+        r_wx_pivoted,
         np.asarray(pivot_wx, dtype=np.int64),
         reverse=True,
     )

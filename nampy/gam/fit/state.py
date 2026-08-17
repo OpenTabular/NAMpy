@@ -17,10 +17,8 @@ import numpy as np
 
 from .._model_state import (
     _coef_column_offset,
-    _fit_state,
     _term_blocks_seq,
 )
-from ..linalg import numerical_rank
 from ..results import FitResult
 from .parameterization import (
     export_fit_result_to_prediction_space,
@@ -293,39 +291,6 @@ def compute_edf_by_term(model, H_coef):
     return np.asarray(edf, dtype=np.float64)
 
 
-def _fallback_single_smooth_edf(model, trace_H: float):
-    blocks = list(_term_blocks_seq(model))
-    smooth_blocks = [
-        tb
-        for tb in blocks
-        if str(getattr(tb, "term_type", "")) != "parametric"
-    ]
-    if len(smooth_blocks) != 1:
-        return None
-    smooth = smooth_blocks[0]
-    if str(getattr(smooth, "basis_name", "")).lower() == "re":
-        fit_state = _fit_state(model)
-        X = None if fit_state is None else getattr(fit_state, "X", None)
-        if X is not None:
-            X = np.asarray(X, dtype=np.float64)
-            offset0 = _coef_column_offset(model)
-            sl = slice(
-                offset0 + int(smooth.coef_slice.start),
-                offset0 + int(smooth.coef_slice.stop),
-            )
-            Xt = np.asarray(X[:, sl], dtype=np.float64)
-            if offset0 > 0:
-                Xp = np.asarray(X[:, :offset0], dtype=np.float64)
-                coef = np.linalg.lstsq(Xp, Xt, rcond=None)[0]
-                Xt = Xt - Xp @ coef
-            return np.asarray([float(numerical_rank(Xt))], dtype=np.float64)
-    nsdf = float(_coef_column_offset(model))
-    for tb in blocks:
-        if str(getattr(tb, "term_type", "")) == "parametric":
-            nsdf += float(int(tb.coef_slice.stop) - int(tb.coef_slice.start))
-    return np.asarray([max(float(trace_H) - nsdf, 0.0)], dtype=np.float64)
-
-
 def assign_fit_solution(model, sol: FitCoreSolution):
     fit_result = sol.fit_result
     fit_state = sol.fit_state
@@ -409,16 +374,12 @@ def assign_fit_solution(model, sol: FitCoreSolution):
             edf.append(float(np.trace(H_post[np.ix_(idx, idx)])))
         model._edf_by_term_fit_ = np.asarray(edf, dtype=np.float64)
     else:
-        edf = compute_edf_by_term(model, H_post)
-        if (
-            not np.all(np.isfinite(edf))
-            or np.any(edf < -1e-7)
-            or float(np.sum(edf)) > max(float(trace_H_post) + 1.0, 10.0 * float(model.n_samples_))
-        ):
-            fallback = _fallback_single_smooth_edf(model, trace_H_post)
-            if fallback is not None:
-                edf = fallback
-        model._edf_by_term_fit_ = np.asarray(edf, dtype=np.float64)
+        # Keep the EDF implied by the fitted coefficient-space hat matrix.
+        # mgcv has no single-smooth numerical-rank / trace(H)-nsdf substitute;
+        # parity-sensitive callers must see the actual post-fit result.
+        model._edf_by_term_fit_ = np.asarray(
+            compute_edf_by_term(model, H_post), dtype=np.float64
+        )
 
     if bool(getattr(model, "_fitted", False)):
         from .result_builders import sync_gam_result

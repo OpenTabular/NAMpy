@@ -3,8 +3,7 @@
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.linalg import cho_factor, cho_solve
-from scipy.linalg.blas import dgemm, dtrsm
+from scipy.linalg import cho_factor, cho_solve, solve_triangular
 from scipy.special import digamma, polygamma
 
 from ...._model_state import (
@@ -39,7 +38,6 @@ from ...reparam import (
 )
 from .reml_blocks import (
     _deviance_chained_to_smoothing,
-    _deviance_coefficient_derivatives,
     _hat_matrix_trace_and_sp_derivatives,
     _logdet_penalized_system_derivatives,
     _penalty_quadratic_and_sp_derivatives,
@@ -190,6 +188,7 @@ class _GDI1CurrentSpState:
     penalized_system_rank: int
     dropped_column_indices: np.ndarray
     pivot1: np.ndarray
+    deviance_hessian_half: np.ndarray
 
 
 @dataclass
@@ -302,7 +301,7 @@ class _GDI2IFTState:
 
 
 def _mgcv_dgemm(left, right, *, transpose_left=False, transpose_right=False):
-    """Call the same BLAS matrix-multiply shape as ``mgcv_mmult()``."""
+    """Preserve the matrix-multiply operand order used by ``mgcv_mmult()``."""
     left = np.asarray(left, dtype=np.float64)
     right = np.asarray(right, dtype=np.float64)
     left_was_vector = left.ndim == 1
@@ -311,13 +310,9 @@ def _mgcv_dgemm(left, right, *, transpose_left=False, transpose_right=False):
         left = left.reshape(-1, 1)
     if right_was_vector:
         right = right.reshape(-1, 1)
-    out = dgemm(
-        1.0,
-        np.asfortranarray(left),
-        np.asfortranarray(right),
-        trans_a=bool(transpose_left),
-        trans_b=bool(transpose_right),
-    )
+    left_op = left.T if transpose_left else left
+    right_op = right.T if transpose_right else right
+    out = left_op @ right_op
     out = np.asarray(out, dtype=np.float64)
     if (left_was_vector or right_was_vector) and out.shape[1] == 1:
         return out[:, 0].copy()
@@ -327,20 +322,17 @@ def _mgcv_dgemm(left, right, *, transpose_left=False, transpose_right=False):
 
 
 def _mgcv_triangular_solve(R, rhs, *, transpose=False):
-    """Mirror ``mgcv_forwardsolve()``/``mgcv_backsolve()`` via BLAS ``dtrsm``."""
+    """Apply the triangular solve used by ``mgcv_forwardsolve/backsolve``."""
     rhs = np.asarray(rhs, dtype=np.float64)
     rhs_was_vector = rhs.ndim == 1
     if rhs_was_vector:
         rhs = rhs.reshape(-1, 1)
-    out = dtrsm(
-        1.0,
-        np.asfortranarray(np.asarray(R, dtype=np.float64)),
-        np.asfortranarray(rhs),
-        side=0,
-        lower=0,
-        trans_a=1 if transpose else 0,
-        diag=0,
-        overwrite_b=0,
+    out = solve_triangular(
+        np.asarray(R, dtype=np.float64),
+        rhs,
+        lower=False,
+        trans="T" if transpose else "N",
+        check_finite=False,
     )
     out = np.asarray(out, dtype=np.float64)
     return out[:, 0].copy() if rhs_was_vector else out
@@ -890,24 +882,12 @@ def _gdi_pk_setup(model, sol, sp, *, deriv, rank_tol=None):
 
     Owns current-sp canonical reparameterization plus solver rank/drop metadata.
     """
-    try:
-        X_source = _full_design_matrix(model)
-        X_source = np.asarray(X_source, dtype=np.float64)
-        if X_source.ndim != 2:
-            raise ValueError("mgcv setup design matrix must be two-dimensional.")
-    except Exception:
-        X_source = np.asarray(sol["X"], dtype=np.float64)
-    try:
-        canonical = build_penalty_reparameterization_state(
-            model, X_source, sp, deriv=deriv
-        )
-    except ValueError as exc:
-        if "Full design width does not match" not in str(exc):
-            raise
-        X_source = np.asarray(sol["X"], dtype=np.float64)
-        canonical = build_penalty_reparameterization_state(
-            model, X_source, sp, deriv=deriv
-        )
+    X_source = np.asarray(_full_design_matrix(model), dtype=np.float64)
+    if X_source.ndim != 2:
+        raise ValueError("mgcv setup design matrix must be two-dimensional.")
+    canonical = build_penalty_reparameterization_state(
+        model, X_source, sp, deriv=deriv
+    )
     X = np.asarray(X_source, dtype=np.float64) @ np.asarray(
         canonical.T, dtype=np.float64
     )
@@ -1022,6 +1002,9 @@ def _gdi_pk_setup(model, sol, sp, *, deriv, rank_tol=None):
         penalized_system_rank=rank,
         dropped_column_indices=dropped_idx,
         pivot1=pivot1,
+        deviance_hessian_half=np.asarray(
+            qr_state.deviance_hessian_half, dtype=np.float64
+        ),
     )
     range_idx = np.flatnonzero(nulli_rank <= 0.0).astype(np.int64, copy=False)
     null_idx = np.flatnonzero(nulli_rank > 0.0).astype(np.int64, copy=False)
@@ -1319,13 +1302,31 @@ def _gdi1_deviance_terms(model, y, sol, current, ift):
                 D2[j, k] = D2[k, j] = val
         return D1, D2
 
-    dev_grad, dev_hess = _deviance_coefficient_derivatives(
-        model,
-        y,
-        eta,
-        mu,
-        _prior_weights(model, y),
-        np.asarray(current.X, dtype=np.float64),
+    family = model.family
+    mu1 = np.asarray(family.mu_eta(eta), dtype=np.float64)
+    variance = np.asarray(family.variance(mu), dtype=np.float64)
+    prior_weights = _prior_weights(model, y)
+    residual = np.asarray(y, dtype=np.float64) - mu
+    v1 = np.empty_like(residual, dtype=np.float64)
+    for row in range(residual.size):
+        v1[row] = (
+            -2.0
+            * prior_weights[row]
+            * residual[row]
+            * mu1[row]
+            / variance[row]
+        )
+    dev_grad = np.asarray(
+        _mgcv_dgemm(current.X, v1, transpose_left=True),
+        dtype=np.float64,
+    )
+    # gdi.c::gdiPK() forms X'WX from the unpenalized weighted-design QR factor;
+    # gdi1() then doubles it to obtain the coefficient-scale deviance Hessian.
+    # Preserve that upstream path instead of reconstructing the same matrix
+    # from X, since the two forms cease to be numerically interchangeable when
+    # the penalized deviance derivatives are nearly singular.
+    dev_hess = 2.0 * np.asarray(
+        current.deviance_hessian_half, dtype=np.float64
     )
     return _deviance_chained_to_smoothing(dev_grad, dev_hess, ift.dbeta, ift.d2beta_mat)
 
@@ -2390,66 +2391,63 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
     P1 = P2 = phi1 = phi2 = None
     full_grad = full_hess = None
 
-    try:
-        if getattr(model.family, "known_scale", None) is None:
-            gdi2 = _gdi2_joint_kernel(
-                model, y, sol, sp, method=method, need_hessian=True
-            )
-            joint_grad = kernel.K1 + gdi2.Dp1 / (2.0 * gdi2.phi * gamma)
-            cross = -gdi2.Dp1 / (2.0 * gdi2.phi * gamma)
-            full_grad = joint_grad
-            full_hess = (
-                kernel.K2
-                + gdi2.Dp2 / (2.0 * gdi2.phi * gamma)
-                - np.outer(cross, cross) / gdi2.phi_curv
-            )
-            model._pirls_reml_gamma_state_ = {
-                "K": float(kernel.K),
-                "K1": np.asarray(kernel.K1, dtype=np.float64),
-                "K2": np.asarray(kernel.K2, dtype=np.float64),
-                "phi": float(gdi2.phi),
-                "scale_est": float(sol["scale"]),
-                "phi_curv": float(gdi2.phi_curv),
-                "Dp": float(gdi2.Dp),
-                "Dp1": np.asarray(gdi2.Dp1, dtype=np.float64),
-                "Dp2": np.asarray(gdi2.Dp2, dtype=np.float64),
-            }
-        else:
-            full_grad = (
-                np.asarray(kernel.D1, dtype=np.float64)
-                + np.asarray(kernel.bSb1, dtype=np.float64)
-            ) / (2.0 * scale * gamma) + kernel.K1
-            full_hess = (
-                np.asarray(kernel.D2, dtype=np.float64)
-                + np.asarray(kernel.bSb2, dtype=np.float64)
-            ) / (2.0 * scale * gamma) + kernel.K2
-        postproc_derivs = _serialize_pirls_postproc_derivatives(kernel)
-        model._pirls_reml_derivative_kernel_state_ = {
-            "bSb": kernel.bSb,
-            "bSb1": kernel.bSb1,
-            "bSb2": kernel.bSb2,
-            "dVkk": kernel.dVkk,
-            "det1": kernel.det1,
-            "det2": kernel.det2,
-            "trA": kernel.trA,
-            "trA1": kernel.trA1,
-            "trA2": kernel.trA2,
-            "D1": kernel.D1,
-            "D2": kernel.D2,
-            "P1": P1,
-            "P2": P2,
-            "phi1": phi1,
-            "phi2": phi2,
-            "full_grad": full_grad,
-            "full_hess": full_hess,
-            "penalty_grad_raw": None,
-            "penalty_hess_raw": None,
-            "detXWXS1": detXWXS1,
-            "detXWXS2": detXWXS2,
-            **postproc_derivs,
+    if getattr(model.family, "known_scale", None) is None:
+        gdi2 = _gdi2_joint_kernel(
+            model, y, sol, sp, method=method, need_hessian=True
+        )
+        joint_grad = kernel.K1 + gdi2.Dp1 / (2.0 * gdi2.phi * gamma)
+        cross = -gdi2.Dp1 / (2.0 * gdi2.phi * gamma)
+        full_grad = joint_grad
+        full_hess = (
+            kernel.K2
+            + gdi2.Dp2 / (2.0 * gdi2.phi * gamma)
+            - np.outer(cross, cross) / gdi2.phi_curv
+        )
+        model._pirls_reml_gamma_state_ = {
+            "K": float(kernel.K),
+            "K1": np.asarray(kernel.K1, dtype=np.float64),
+            "K2": np.asarray(kernel.K2, dtype=np.float64),
+            "phi": float(gdi2.phi),
+            "scale_est": float(sol["scale"]),
+            "phi_curv": float(gdi2.phi_curv),
+            "Dp": float(gdi2.Dp),
+            "Dp1": np.asarray(gdi2.Dp1, dtype=np.float64),
+            "Dp2": np.asarray(gdi2.Dp2, dtype=np.float64),
         }
-    except Exception:
-        model._pirls_reml_derivative_kernel_state_ = None
+    else:
+        full_grad = (
+            np.asarray(kernel.D1, dtype=np.float64)
+            + np.asarray(kernel.bSb1, dtype=np.float64)
+        ) / (2.0 * scale * gamma) + kernel.K1
+        full_hess = (
+            np.asarray(kernel.D2, dtype=np.float64)
+            + np.asarray(kernel.bSb2, dtype=np.float64)
+        ) / (2.0 * scale * gamma) + kernel.K2
+    postproc_derivs = _serialize_pirls_postproc_derivatives(kernel)
+    model._pirls_reml_derivative_kernel_state_ = {
+        "bSb": kernel.bSb,
+        "bSb1": kernel.bSb1,
+        "bSb2": kernel.bSb2,
+        "dVkk": kernel.dVkk,
+        "det1": kernel.det1,
+        "det2": kernel.det2,
+        "trA": kernel.trA,
+        "trA1": kernel.trA1,
+        "trA2": kernel.trA2,
+        "D1": kernel.D1,
+        "D2": kernel.D2,
+        "P1": P1,
+        "P2": P2,
+        "phi1": phi1,
+        "phi2": phi2,
+        "full_grad": full_grad,
+        "full_hess": full_hess,
+        "penalty_grad_raw": None,
+        "penalty_hess_raw": None,
+        "detXWXS1": detXWXS1,
+        "detXWXS2": detXWXS2,
+        **postproc_derivs,
+    }
 
     if full_hess is None:
         raise RuntimeError("Exact PIRLS Hessian assembly did not produce a result.")

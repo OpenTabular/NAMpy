@@ -236,7 +236,6 @@ def _sl_single_penalty_block(
         S_local,
         lower=True,
         check_finite=False,
-        driver="evr",
     )
     order = np.argsort(values)[::-1]
     values = np.asarray(values[order], dtype=np.float64)
@@ -282,29 +281,18 @@ def _sl_multi_penalty_block(
     for Si in S_work:
         St_sum += Si
 
-    # Same R `eigen(..., symmetric=TRUE)` convention as the singleton Sl path.
+    # `mgcv/R/fast-REML.r::Sl.setup` calls `eigen(St, symmetric=TRUE)` using
+    # the lower-triangle convention. Keep the same convention as the singleton
+    # Sl path above.
     values, vectors = scipy_eigh(
         St_sum,
-        lower=False,
+        lower=True,
         check_finite=False,
-        driver="evr",
     )
     order = np.argsort(values)[::-1]
     values = np.asarray(values[order], dtype=np.float64)
     vectors = np.asarray(vectors[:, order], dtype=np.float64)
     rank_use = _sl_rank_from_eigenvalues(values) if rank is None else int(rank)
-    if rank_use == vectors.shape[1] and len(S_work) > 1:
-        # `mgcv/R/fast-REML.r::Sl.setup()` keeps R/LAPACK's raw eigenvector
-        # signs.  General-family `initial.spg()` is sign-sensitive because it
-        # evaluates the initial likelihood Hessian after `Sl.initial.repara`.
-        # SciPy returns the same eigenspace here but can flip low-penalty tail
-        # columns, so orient that tail to match R's dominant-component signs.
-        tail_start = max(0, int(rank_use) - len(S_work))
-        for col_idx in range(tail_start, int(rank_use)):
-            col = np.asarray(vectors[:, col_idx], dtype=np.float64)
-            pivot = int(np.argmax(np.abs(col)))
-            if col[pivot] > 0.0:
-                vectors[:, col_idx] *= -1.0
     ind = np.zeros(vectors.shape[1], dtype=bool)
     ind[: min(rank_use, ind.size)] = True
     Ur = np.asarray(vectors[:, ind], dtype=np.float64)

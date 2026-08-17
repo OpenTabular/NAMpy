@@ -154,6 +154,9 @@ payload <- list(
   start = unname(as.numeric(start)),
   lbb = unname(lbb),
   X_initial = unname(G$X),
+  S = lapply(G$S, function(Si) unname(Si)),
+  rank = unname(as.integer(G$rank)),
+  off = unname(as.integer(G$off)),
   Eb = unname(G$Eb),
   Sl_blocks = lapply(G$Sl, function(block) {
     list(

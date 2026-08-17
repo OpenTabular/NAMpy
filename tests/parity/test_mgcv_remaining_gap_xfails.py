@@ -17,9 +17,9 @@ import pandas as pd
 import pytest
 from numpy.testing import assert_allclose
 
-from nampy.gam import GAM
 from nampy.gam.fit.backends import solve_pirls_given_smoothing
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
+from nampy.gam.model.api import GAM
 from nampy.gam.smoothing_selection.criteria.pirls.derivatives import _gdi2_joint_kernel
 from nampy.gam.specs.build import build_formula_model
 from tests._paths import REPO_ROOT
@@ -27,8 +27,6 @@ from tests.families.test_general_family_mgcv_parity import GAULSS_FORMULA, _gaul
 from tests.mgcv_parity_utils import (
     _fit_nampy_model,
     _fit_nampy_model_fixed_sp,
-    _make_random_effect_data,
-    _run_mgcv_predict_on_newdata,
 )
 from tests.mgcv_parity_utils import _fit_nampy_snapshot as _coverage_fit_nampy_snapshot
 from tests.mgcv_parity_utils import _make_binomial_data as _coverage_make_binomial_data
@@ -39,6 +37,10 @@ from tests.mgcv_parity_utils import (
 )
 from tests.mgcv_parity_utils import _make_negbin_data as _coverage_make_negbin_data
 from tests.mgcv_parity_utils import _make_poisson_data as _coverage_make_poisson_data
+from tests.mgcv_parity_utils import (
+    _make_random_effect_data,
+    _run_mgcv_predict_on_newdata,
+)
 from tests.mgcv_parity_utils import _run_mgcv_snapshot as _coverage_run_mgcv_snapshot
 
 R_SCRIPT = shutil.which("Rscript")

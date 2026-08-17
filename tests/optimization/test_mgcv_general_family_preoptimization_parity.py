@@ -10,6 +10,10 @@ import pytest
 from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     build_general_family_setup_state,
 )
+from nampy.gam.model.api import GAM
+from nampy.gam.smoothing_selection.optimize.basics import (
+    _initial_smoothing_params_from_design,
+)
 from tests._paths import PARITY_DIR, REPO_ROOT
 from tests.families.test_general_family_mgcv_parity import (
     GAULSS_FORMULA,
@@ -22,6 +26,7 @@ from tests.mgcv_parity_utils import _family_specs, _fit_nampy_model_fixed_sp
 
 R_SCRIPT = shutil.which("Rscript")
 MGCV_GENERAL_PREOPT_SCRIPT = PARITY_DIR / "mgcv_general_family_preoptimization.R"
+MGCV_INITIAL_SPG_SCRIPT = PARITY_DIR / "mgcv_initial_spg.R"
 
 
 def _run_mgcv_general_preoptimization(data, formula, family, method, *, select=False):
@@ -37,6 +42,34 @@ def _run_mgcv_general_preoptimization(data, formula, family, method, *, select=F
             [
                 R_SCRIPT,
                 str(MGCV_GENERAL_PREOPT_SCRIPT),
+                str(csv_path),
+                str(json_path),
+                str(formula),
+                family_token,
+                method,
+                "true" if select else "false",
+            ],
+            check=True,
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        return json.loads(json_path.read_text(encoding="utf-8"))
+
+
+def _run_mgcv_initial_spg(data, formula, family, method, *, select=False):
+    family_nampy, family_token = _family_specs(family)
+    del family_nampy
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        csv_path = tmpdir_path / "data.csv"
+        json_path = tmpdir_path / "initial_spg.json"
+        data.to_csv(csv_path, index=False)
+        subprocess.run(
+            [
+                R_SCRIPT,
+                str(MGCV_INITIAL_SPG_SCRIPT),
                 str(csv_path),
                 str(json_path),
                 str(formula),
@@ -111,7 +144,7 @@ def _assert_sl_block_parity(actual, expected, *, s_atol=5e-12):
 
     expected_S = _as_matrix_list(expected.get("S", []))
     assert len(actual.S) == len(expected_S)
-    for a_S, e_S in zip(actual.S, expected_S):
+    for a_S, e_S in zip(actual.S, expected_S, strict=True):
         np.testing.assert_allclose(
             np.asarray(a_S, dtype=np.float64),
             e_S,
@@ -143,7 +176,7 @@ def _assert_sl_block_parity(actual, expected, *, s_atol=5e-12):
 
     expected_rS = _as_matrix_list(expected.get("rS", []))
     assert len(actual.rS) == len(expected_rS)
-    for a_rS, e_rS in zip(actual.rS, expected_rS):
+    for a_rS, e_rS in zip(actual.rS, expected_rS, strict=True):
         _assert_root_gram_equal(np.asarray(a_rS, dtype=np.float64), e_rS)
 
     expected_St = expected.get("St", None)
@@ -160,7 +193,9 @@ def _assert_sl_block_parity(actual, expected, *, s_atol=5e-12):
 
 def _assert_sl_setup_parity(actual, expected, *, s_atol=5e-12):
     assert len(actual) == len(expected["blocks"])
-    for a_block, e_block in zip(list(actual), list(expected["blocks"])):
+    for a_block, e_block in zip(
+        list(actual), list(expected["blocks"]), strict=True
+    ):
         _assert_sl_block_parity(a_block, e_block, s_atol=s_atol)
 
     _assert_root_gram_equal(
@@ -213,7 +248,7 @@ def _assert_general_fit5_setup_parity(
         )
 
     assert len(actual.jj) == len(expected["jj"])
-    for a_jj, e_jj in zip(actual.jj, expected["jj"]):
+    for a_jj, e_jj in zip(actual.jj, expected["jj"], strict=True):
         np.testing.assert_array_equal(
             np.asarray(a_jj, dtype=np.int64),
             np.asarray(e_jj, dtype=np.int64),
@@ -225,7 +260,9 @@ def _assert_general_fit5_setup_parity(
     else:
         assert actual.offset_list is not None
         assert len(actual.offset_list) == len(expected_offsets)
-        for a_off, e_off in zip(actual.offset_list, expected_offsets):
+        for a_off, e_off in zip(
+            actual.offset_list, expected_offsets, strict=True
+        ):
             if e_off is None:
                 assert a_off is None
             else:
@@ -257,7 +294,7 @@ def _assert_general_fit5_setup_parity(
 
     expected_S_blocks = _as_matrix_list(expected.get("S_blocks", []))
     assert len(actual.S_blocks) == len(expected_S_blocks)
-    for a_S, e_S in zip(actual.S_blocks, expected_S_blocks):
+    for a_S, e_S in zip(actual.S_blocks, expected_S_blocks, strict=True):
         np.testing.assert_allclose(
             np.asarray(a_S, dtype=np.float64),
             e_S,
@@ -385,4 +422,34 @@ def test_general_family_preoptimization_setup_matches_mgcv(
         compare_x_space_only=compare_x_space_only,
         st_rtol=st_rtol,
         s_block_atol=s_block_atol,
+    )
+
+
+def test_gammals_select_true_initial_spg_matches_mgcv():
+    """Keep the optimized select=True path on mgcv's two-penalty start."""
+    data = _gammals_data()
+    formula = ['y ~ s(x, bs="cr", k=6)', "~ 1"]
+    expected = _run_mgcv_initial_spg(
+        data,
+        formula,
+        "gammals",
+        "ML",
+        select=True,
+    )
+
+    gam = GAM(
+        formula=formula,
+        family="gammals",
+        select=True,
+        optimize_smoothing=False,
+        smoothing_method="ML",
+    )
+    gam.fit(data=data)
+    actual = _initial_smoothing_params_from_design(gam, gam.y_)
+
+    np.testing.assert_allclose(
+        np.asarray(actual, dtype=np.float64),
+        np.asarray(expected["initial_sp"], dtype=np.float64),
+        rtol=1e-10,
+        atol=1e-10,
     )

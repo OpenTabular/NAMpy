@@ -190,22 +190,56 @@ def _deviance_coefficient_derivatives(model, y, eta, mu, weights, X):
 
 
 def _deviance_chained_to_smoothing(dev_grad, dev_hess, dbeta_cols, d2beta_mat):
+    """Mirror ``gdi.c::gdi1``'s deviance derivative accumulation.
+
+    In particular, upstream forms the quadratic Hessian block with the
+    BLAS-free ``mat.c::getXtMX`` loop before adding ``dev_grad' d2beta``.
+    Keeping that accumulation order matters when the penalized deviance is the
+    difference of nearly cancelling terms at a REML boundary.
+    """
     M = len(dbeta_cols)
     D1 = np.zeros(M, dtype=np.float64)
     D2 = np.zeros((M, M), dtype=np.float64)
+    if M == 0:
+        return D1, D2
     dev_grad = np.asarray(dev_grad, dtype=np.float64)
     dev_hess = np.asarray(dev_hess, dtype=np.float64)
+    dbeta = np.asfortranarray(
+        np.column_stack([np.asarray(col, dtype=np.float64) for col in dbeta_cols])
+    )
     for j in range(M):
-        dbj = np.asarray(dbeta_cols[j], dtype=np.float64)
-        D1[j] = float(dbj @ dev_grad)
-    for j in range(M):
-        dbj = np.asarray(dbeta_cols[j], dtype=np.float64)
-        for k in range(j, M):
-            dbk = np.asarray(dbeta_cols[k], dtype=np.float64)
-            d2b = np.asarray(d2beta_mat[j][k], dtype=np.float64)
-            val = float(dbk @ dev_hess @ dbj) + float(dev_grad @ d2b)
-            D2[j, k] = val
-            D2[k, j] = val
+        D1[j] = float(np.dot(dbeta[:, j], dev_grad))
+
+    # Operation-for-operation port of mgcv/src/mat.c::getXtMX(). `work`
+    # receives M %*% dbeta[, i], one source coefficient at a time, and the
+    # lower triangle is accumulated in row order before being mirrored.
+    rank = int(dbeta.shape[0])
+    if rank == 0:
+        return D1, D2
+    work = np.empty(rank, dtype=np.float64)
+    for i in range(M):
+        for row in range(rank):
+            value = dbeta[0, i] * dev_hess[row, 0]
+            for col in range(1, rank):
+                value += dbeta[col, i] * dev_hess[row, col]
+            work[row] = value
+        for j in range(i + 1):
+            value = 0.0
+            for row in range(rank):
+                value += work[row] * dbeta[row, j]
+            D2[i, j] = value
+            D2[j, i] = value
+
+    # gdi.c::gdi1() then advances through packed d2beta columns and adds the
+    # coefficient-gradient contraction to the already formed X'MX block.
+    for m in range(M):
+        for k in range(m, M):
+            d2b = np.asarray(d2beta_mat[m][k], dtype=np.float64)
+            value = 0.0
+            for row in range(rank):
+                value += dev_grad[row] * d2b[row]
+            D2[k, m] += value
+            D2[m, k] = D2[k, m]
     return D1, D2
 
 

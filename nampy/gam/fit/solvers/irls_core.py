@@ -8,7 +8,7 @@ solver over the full design matrix ``X`` and full penalty matrix ``S``.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 import numpy as np
 
@@ -104,30 +104,6 @@ def _use_exact_extended_negbin_terms(family: Any) -> bool:
     )
 
 
-def _mgcv_poisson_identity_fisher_endpoint(family: Any) -> bool:
-    """
-    Match the mgcv endpoint for poisson(link="identity") fixed-SP PIRLS fits.
-
-    In mgcv/R/gam.fit3.r this family is a noncanonical full-Newton case, but
-    y == 0 rows set alpha to .Machine$double.eps and make the C pls_fit1()
-    pseudo-data path numerically platform-sensitive. The reported gam() endpoint
-    for these boundary fits agrees with Fisher scoring, so keep the stabilization
-    scoped to this family/link pair.
-    """
-
-    return (
-        str(getattr(family, "family_class", "")).lower() == "glm"
-        and str(getattr(family, "name", "")).lower() == "poisson"
-        and str(getattr(family, "link_name", "")).lower() == "identity"
-    )
-
-
-def _mgcv_effective_irls_tol(family: Any, tol: float) -> float:
-    if _mgcv_poisson_identity_fisher_endpoint(family):
-        return min(float(tol), 1e-11)
-    return float(tol)
-
-
 def irls_core(
     X: np.ndarray,
     y: np.ndarray,
@@ -144,16 +120,13 @@ def irls_core(
     null_coef: np.ndarray | None = None,
     etastart: np.ndarray | None = None,
     mustart: np.ndarray | None = None,
-    fisher_scoring_only: bool = False,
+    penalty_sqrt_E: np.ndarray | None = None,
     penalty_rank_rows: np.ndarray | None = None,
     # mgcv/R/gam.fit3.r:131: rank.tol <- .Machine$double.eps*100; the PIRLS
     # inner solve must use the same drop threshold as the gdiPK derivative
     # kernel (_MGCV_GAM_FIT3_RANK_TOL), not the looser eps**0.66 stacked-QR
     # default.
     rank_tol: float = float(np.finfo(np.float64).eps) * 100.0,
-    coef_method: str = "householder",
-    near_singular_null_pin: bool | Literal["auto"] = False,
-    force_stacked_qr: bool = False,
     scale_reference: float | None = None,
     trace: bool = False,
 ) -> dict[str, Any]:
@@ -232,7 +205,16 @@ def irls_core(
             "warnings": warnings_list,
         }
 
-    penalty_sqrt, penalty_rank_template = penalty_sqrt_rows(S)
+    if penalty_sqrt_E is None:
+        penalty_sqrt, penalty_rank_template = penalty_sqrt_rows(S)
+    else:
+        penalty_sqrt = np.asarray(penalty_sqrt_E, dtype=np.float64)
+        if penalty_sqrt.ndim != 2 or penalty_sqrt.shape[1] != q:
+            raise ValueError(
+                "penalty_sqrt_E must be a two-dimensional current-SP root "
+                f"with {q} columns."
+            )
+        penalty_rank_template = np.asarray(penalty_sqrt, dtype=np.float64)
     if penalty_rank_rows is None:
         penalty_rank_rows = penalty_rank_template
     else:
@@ -254,18 +236,11 @@ def irls_core(
             w_curr,
             penalty_sqrt=np.asarray(penalty_sqrt, dtype=np.float64),
             penalty_rank_rows=np.asarray(penalty_rank_rows, dtype=np.float64),
-            P_dense=S,
             rank_tol=rank_tol,
-            coef_method=coef_method,
-            near_singular_null_pin=near_singular_null_pin,
         )
         qr_state = None
-        # Under-determined stacked fits use the lstsq branch because the
-        # Householder reconstruction path can fail on q > n systems even when
-        # the penalized least-squares solution itself is well-defined.
         if (
-            str(coef_method).lower().strip() != "lstsq"
-            and penalty_sqrt.shape[0] > 0
+            penalty_sqrt.shape[0] > 0
             and penalty_rank_rows.shape[0] > 0
         ):
             qr_state = build_penalized_qr_state_nonnegative(
@@ -348,32 +323,27 @@ def irls_core(
         off_g_curr = offset[good_curr]
 
         fisher_W_curr = weights_g_curr * (mu_eta_g_curr**2) / var_g_curr
-        use_fisher_curr = bool(
-            fisher_scoring_only or bool(getattr(family, "canonical_link", False))
-        )
+        use_fisher_curr = bool(getattr(family, "canonical_link", False))
         if (
             not use_fisher_curr
             and hasattr(family, "dvar")
             and hasattr(family, "d2link")
         ):
-            try:
-                dvar_curr = np.asarray(family.dvar(mu_g_curr), dtype=np.float64)
-                d2link_curr = np.asarray(family.d2link(mu_g_curr), dtype=np.float64)
-                alpha_curr = 1.0 + (y_g_curr - mu_g_curr) * (
-                    dvar_curr / var_g_curr + d2link_curr * mu_eta_g_curr
-                )
-                eps_alpha_curr = np.finfo(np.float64).eps
-                zero_curr = alpha_curr == 0.0
-                if np.any(zero_curr):
-                    alpha_curr = alpha_curr.copy()
-                    alpha_curr[zero_curr] = eps_alpha_curr
-                w_curr = fisher_W_curr * alpha_curr
-                z_curr = (eta_g_curr - off_g_curr) + (y_g_curr - mu_g_curr) / (
-                    mu_eta_g_curr * alpha_curr
-                )
-                if np.any(~np.isfinite(w_curr)) or np.any(~np.isfinite(z_curr)):
-                    use_fisher_curr = True
-            except Exception:
+            dvar_curr = np.asarray(family.dvar(mu_g_curr), dtype=np.float64)
+            d2link_curr = np.asarray(family.d2link(mu_g_curr), dtype=np.float64)
+            alpha_curr = 1.0 + (y_g_curr - mu_g_curr) * (
+                dvar_curr / var_g_curr + d2link_curr * mu_eta_g_curr
+            )
+            eps_alpha_curr = np.finfo(np.float64).eps
+            zero_curr = alpha_curr == 0.0
+            if np.any(zero_curr):
+                alpha_curr = alpha_curr.copy()
+                alpha_curr[zero_curr] = eps_alpha_curr
+            w_curr = fisher_W_curr * alpha_curr
+            z_curr = (eta_g_curr - off_g_curr) + (y_g_curr - mu_g_curr) / (
+                mu_eta_g_curr * alpha_curr
+            )
+            if np.any(~np.isfinite(w_curr)) or np.any(~np.isfinite(z_curr)):
                 use_fisher_curr = True
         if use_fisher_curr:
             w_curr = fisher_W_curr
@@ -435,17 +405,12 @@ def irls_core(
         dvar = getattr(family, "dvar", None)
         if not callable(dvar):
             return scale_curr
-        try:
-            var = np.asarray(family.variance(mu_curr), dtype=np.float64)
-            with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
-                s_terms = (
-                    np.asarray(dvar(mu_curr), dtype=np.float64)
-                    * (y - mu_curr)
-                    / var
-                )
-                s_bar_raw = float(np.mean(s_terms))
-        except Exception:
-            return scale_curr
+        var = np.asarray(family.variance(mu_curr), dtype=np.float64)
+        with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+            s_terms = (
+                np.asarray(dvar(mu_curr), dtype=np.float64) * (y - mu_curr) / var
+            )
+            s_bar_raw = float(np.mean(s_terms))
         if np.isfinite(s_bar_raw):
             s_bar = max(-0.9, s_bar_raw)
             scale_curr = scale_curr / (1.0 + s_bar)
@@ -570,10 +535,7 @@ def irls_core(
                 z_pos = np.asarray(wz_pos_full[good_rhs], dtype=np.float64)
                 rhs_is_weighted = True
             else:
-                use_fisher = bool(
-                    fisher_scoring_only
-                    or bool(getattr(family, "canonical_link", False))
-                )
+                use_fisher = bool(getattr(family, "canonical_link", False))
                 if use_fisher:
                     failed_step = True
                     failure_reason = "linear_solve_failed"
@@ -806,24 +768,19 @@ def irls_core(
     off_g = offset[good]
 
     fisher_W_g = weights_g * (mu_eta_g**2) / var_g
-    use_fisher = bool(
-        fisher_scoring_only or bool(getattr(family, "canonical_link", False))
-    )
+    use_fisher = bool(getattr(family, "canonical_link", False))
     if not use_fisher and hasattr(family, "dvar") and hasattr(family, "d2link"):
-        try:
-            dvar = np.asarray(family.dvar(mu_g), dtype=np.float64)
-            d2link = np.asarray(family.d2link(mu_g), dtype=np.float64)
-            alpha = 1.0 + (y_g - mu_g) * (dvar / var_g + d2link * mu_eta_g)
-            eps_alpha = np.finfo(np.float64).eps
-            zero = alpha == 0.0
-            if np.any(zero):
-                alpha = alpha.copy()
-                alpha[zero] = eps_alpha
-            W_g = fisher_W_g * alpha
-            z_g = (eta_g - off_g) + (y_g - mu_g) / (mu_eta_g * alpha)
-            if np.any(~np.isfinite(W_g)) or np.any(~np.isfinite(z_g)):
-                use_fisher = True
-        except Exception:
+        dvar = np.asarray(family.dvar(mu_g), dtype=np.float64)
+        d2link = np.asarray(family.d2link(mu_g), dtype=np.float64)
+        alpha = 1.0 + (y_g - mu_g) * (dvar / var_g + d2link * mu_eta_g)
+        eps_alpha = np.finfo(np.float64).eps
+        zero = alpha == 0.0
+        if np.any(zero):
+            alpha = alpha.copy()
+            alpha[zero] = eps_alpha
+        W_g = fisher_W_g * alpha
+        z_g = (eta_g - off_g) + (y_g - mu_g) / (mu_eta_g * alpha)
+        if np.any(~np.isfinite(W_g)) or np.any(~np.isfinite(z_g)):
             use_fisher = True
     if use_fisher:
         W_g = fisher_W_g
@@ -890,9 +847,8 @@ def irls_core(
         cov_z_g,
         cov_W_g,
         S,
+        penalty_sqrt_E=penalty_sqrt,
         penalty_rank_rows=penalty_rank_rows,
-        coef_method=coef_method,
-        near_singular_null_pin=near_singular_null_pin,
     )
     A = np.asarray(stacked["A"], dtype=np.float64)
     XtWX = np.asarray(stacked["XtWX"], dtype=np.float64)
@@ -994,11 +950,14 @@ def fit_irls_from_model(
     attach_smoothness_postprocess: bool = True,
     weights: np.ndarray | None = None,
 ) -> dict[str, Any]:
-    from ..linalg.stacked_qr import balanced_penalty_template_sqrt_for_rank
+    from ...smoothing_selection.reparam import (
+        build_penalty_reparameterization_state,
+    )
     from ..penalized_system import build_full_design, build_full_penalty_from_blocks
     from ..postprocess.gaussian_smoothness_postprocess import (
         merge_gaussian_smoothness_into_fit_result,
     )
+    from .pirls import _pirls_gdi_report_state
 
     y = model.family.validate_y(y)
     fi = _fit_intercept(model)
@@ -1014,34 +973,47 @@ def fit_irls_from_model(
         fit_intercept=fi,
         n_coef=n_coef,
     )
-    rank_rows = balanced_penalty_template_sqrt_for_rank(
-        penalty_blocks,
-        fit_intercept=fi,
-        n_coef=int(n_coef),
+    sp_lin = np.asarray(smoothing_params, dtype=np.float64).ravel()
+    canonical = build_penalty_reparameterization_state(
+        model,
+        X,
+        sp_lin,
+        deriv=0,
+    )
+    transform = np.asarray(canonical.T, dtype=np.float64)
+    X_canonical = np.asarray(X @ transform, dtype=np.float64)
+    null_coef = np.asarray(
+        transform.T @ _mgcv_null_coef(X, y, model.family),
+        dtype=np.float64,
     )
 
     out = irls_core(
-        X,
+        X_canonical,
         y,
         model.family,
-        S,
+        np.asarray(canonical.St, dtype=np.float64),
         offset=model.offset_train_,
         weights=weights,
         fit_intercept=fi,
         max_iter=int(getattr(model, "max_irls_iter", 200)),
-        tol=_mgcv_effective_irls_tol(
-            model.family, float(getattr(model, "irls_tol", 1e-7))
-        ),
+        tol=float(getattr(model, "irls_tol", 1e-7)),
         max_step_halving=int(getattr(model, "max_step_halving", 25)),
-        null_coef=_mgcv_null_coef(X, y, model.family),
-        fisher_scoring_only=_mgcv_poisson_identity_fisher_endpoint(model.family),
-        penalty_rank_rows=rank_rows,
+        null_coef=null_coef,
+        penalty_sqrt_E=np.asarray(canonical.Sr, dtype=np.float64),
+        penalty_rank_rows=np.asarray(canonical.Eb, dtype=np.float64),
+    )
+    out = _pirls_gdi_report_state(
+        model,
+        X,
+        sp_lin,
+        out,
+        canonical=canonical,
+        public_penalty=S,
     )
     if (
         attach_smoothness_postprocess
         and str(getattr(model.family, "name", "")).lower() == "gaussian"
     ):
-        sp_lin = np.asarray(smoothing_params, dtype=np.float64).ravel()
         score_type = str(getattr(model, "smoothing_method", "REML")).upper()
         out = merge_gaussian_smoothness_into_fit_result(
             out,
