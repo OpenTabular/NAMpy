@@ -43,7 +43,7 @@ Create your model by inheriting from `BaseModel`:
 
 .. code-block:: python
 
-   from nampy.basemodels import BaseModel
+   from nampy.neural.modules import BaseModel
    import torch
    import torch.nn as nn
    
@@ -179,7 +179,7 @@ Here's a complete working example:
 .. code-block:: python
 
    from dataclasses import dataclass
-   from nampy.basemodels import BaseModel
+   from nampy.neural.modules import BaseModel
    from nampy.models import SklearnBaseRegressor
    import torch
    import torch.nn as nn
@@ -349,7 +349,7 @@ See :doc:`../contributing` for guidelines.
 Resources
 ---------
 
-* :class:`nampy.basemodels.BaseModel` - Base model class
+* :class:`nampy.neural.modules.BaseModel` - Base model class
 * :class:`nampy.models.SklearnBaseRegressor` - Regression wrapper
 * :class:`nampy.models.SklearnBaseClassifier` - Classification wrapper
 * :class:`nampy.models.SklearnBaseLSS` - LSS wrapper

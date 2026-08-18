@@ -1,7 +1,21 @@
 Custom Model Examples
 ======================
 
-This page demonstrates implementing custom models in NAMpy.
+Custom neural architectures inherit :class:`nampy.neural.modules.BaseModel` and
+return a dictionary containing an ``"output"`` tensor. A thin sklearn wrapper
+then selects the task contract.
 
-*See the complete guide at :doc:`../user_guide/custom_models` for detailed instructions.*
+.. code-block:: python
 
+   from nampy.models import SklearnBaseRegressor
+
+   class MyRegressor(SklearnBaseRegressor):
+       def __init__(self, **kwargs):
+           super().__init__(
+               model=MyCustomModel,
+               config=MyModelConfig,
+               **kwargs,
+           )
+
+The complete architecture and configuration example is in
+:doc:`../user_guide/custom_models`.

@@ -3,7 +3,7 @@ Configurations
 
 Configuration classes for nampy models.
 
-.. currentmodule:: nampy.configs
+.. currentmodule:: nampy.neural.configs
 
 .. autosummary::
    :toctree: generated/
@@ -14,7 +14,12 @@ Configuration classes for nampy models.
    DefaultNATTConfig
    DefaultNAMformerConfig
    DefaultLinRegConfig
+   DefaultGPNAMConfig
+   DefaultQNAMConfig
    DefaultSNAMConfig
+   DefaultSplineNAMConfig
+   DefaultTreeNAMConfig
+   DefaultEnsembleTreeNAMConfig
    DefaultNodeGAMConfig
 
 Using Configurations
@@ -25,7 +30,7 @@ Configurations can be passed to models or used to create custom settings:
 .. code-block:: python
 
    from nampy.models import NAMRegressor
-   from nampy.configs import DefaultNAMConfig
+   from nampy.neural.configs import DefaultNAMConfig
    
    # Use default config (implicit)
    model = NAMRegressor()
@@ -42,8 +47,4 @@ Configurations can be passed to models or used to create custom settings:
    config.lr = 1e-3
    config.dropout = 0.3
 
-Note
-----
-
-Some models (like GPNAM and QNAM) use ``DefaultNAMConfig`` instead of having
-their own dedicated configuration classes.
+Each architecture-specific configuration is exported from :mod:`nampy.neural.configs`.

@@ -3,7 +3,7 @@ Base Models
 
 Low-level PyTorch model implementations.
 
-.. currentmodule:: nampy.basemodels
+.. currentmodule:: nampy.neural.modules
 
 These are the underlying PyTorch models. Most users should use the high-level
 :mod:`nampy.models` instead, which provide a scikit-learn compatible interface.
@@ -16,7 +16,7 @@ Base Classes
    :nosignatures:
 
    BaseModel
-   TaskModel
+   ~nampy.neural.training.TaskModel
 
 Model Implementations
 ---------------------
@@ -33,6 +33,9 @@ Model Implementations
    LinReg
    QNAMBase
    SNAM
+   TreeNAM
+   EnsembleTreeNAM
+   SplineNAM
    NodeGAM
 
 Utilities

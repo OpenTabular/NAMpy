@@ -3,8 +3,8 @@ Models
 
 NAMpy provides a comprehensive suite of interpretable and high-performance models
 for tabular data. Most models are available in three variants: regression, classification,
-and distributional regression (LSS). Some models are specialized (for example, QNAM is
-distributional-only, while TreeNAM and SNAM are currently regression-only).
+and distributional regression (LSS). QNAM is specialized for distributional
+regression; TreeNAM, EnsembleTreeNAM, and SNAM support all three task types.
 
 Model Overview
 --------------
@@ -108,15 +108,16 @@ learns a linear predictor over the RFF mapping.
 
 **TreeNAM**
 
-Combines tree-based methods with additive modeling.
+Uses one differentiable neural decision tree per feature, with optional
+interaction trees.
 
 .. math::
 
    f(x) = \sum_{i=1}^{d} f_i(x_i), \quad
    f_i(x_i) = \sum_{m=1}^{M} \eta \, T_{i,m}(x_i)
 
-Each feature has a boosted ensemble of neural decision trees :math:`T_{i,m}` with
-learning rate :math:`\eta`.
+Each feature contribution is produced by a soft neural decision tree; routing
+can be made hard during evaluation.
 
 .. code-block:: python
 
@@ -130,10 +131,12 @@ Applies sparsity constraints for automatic feature selection.
 
 .. math::
 
-   f(x) = \beta_0 + \sum_{i=1}^{d} \sum_{k=1}^{K} w_{i,k} B_k(x_i)
-   + \sum_{S \in \mathcal{I}} f_S(x_S)
+   f(x) = \beta_0 + \sum_{i=1}^{d} f_i(x_i)
+   + \sum_{S \in \mathcal{I}} f_S(x_S), \qquad
+   \Omega(\theta) = \lambda \sum_j \lVert\theta_j\rVert_2
 
-Here :math:`B_k` are cubic spline basis functions with learnable knots.
+SNAM reuses NAM feature subnetworks and applies a group-lasso penalty to each
+subnetwork's trainable parameter vector.
 
 .. code-block:: python
 
@@ -299,13 +302,8 @@ For modeling full probability distributions:
 Model Reference
 ---------------
 
-For full constructor arguments, keyword arguments, and hyperparameters for each model
-class, see the reference page.
-
-.. toctree::
-   :maxdepth: 1
-
-   reference
+For full constructor arguments, keyword arguments, and hyperparameters for each
+model class, see the :doc:`../api/models` page.
 
 Complete API Reference
 ----------------------

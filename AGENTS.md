@@ -96,27 +96,37 @@ Do not “improve” an algorithm just because a different Python implementation
 
 ## Repository structure
 
-### Neural Additive Models
+### Neural backend
 
-- `nampy/basemodels/<model>.py` — PyTorch `nn.Module` + Lightning harness
-- `nampy/models/<model>.py` — sklearn-style wrappers
-- `nampy/configs/<model>_config.py` — config dataclasses
-- `nampy/arch_utils/` — shared neural architecture utilities
+- `nampy/neural/modules/<model>.py` — PyTorch `nn.Module` architectures
+- `nampy/neural/layers/` — shared neural building blocks
+- `nampy/neural/training/` — `TaskModel` harness, training engine, output contract
+- `nampy/neural/data/` — PreTab-to-Torch data module/dataset
+- `nampy/neural/distributions/` — Torch LSS families and metrics
+- `nampy/neural/configs/<model>_config.py` — config dataclasses
+- `nampy/models/<model>.py` — sklearn-style wrappers (no sklearn mixins;
+  hand-written `score()`/`__sklearn_tags__`); `nampy/models/gam.py` — GAM adapters
+
+### Shared and hybrid surfaces
+
+- `nampy/api/` — backend-neutral contracts; `nampy/plotting/` — shared renderer
+- `nampy/hybrid/` — GAM+neural composition (NOT mgcv fits; never parity-compared)
 
 ### GAM subsystem
 
 - `nampy/gam/formula/`, `nampy/gam/specs/` — formula/spec parsing
-- `nampy/gam/smooths/`, `nampy/gam/runtime/` — runtime terms, bases, penalties
-- `nampy/gam/design/constructors.py` — constructed terms
-- `nampy/gam/design/compiler.py` — predictor compilation
+- `nampy/gam/smooths/`, `nampy/gam/splines/` — runtime terms and low-level bases
+- `nampy/gam/compiler/construct.py` — compiled-term construction
+- `nampy/gam/compiler/compile_predictors.py`, `compile_model.py` — predictor and model compilation
 - `nampy/gam/constraints/identifiability.py` — side conditions
 - `nampy/gam/fit/orchestrator.py` — fitting orchestration
 - `nampy/gam/predict/`, `nampy/gam/parity/`, `nampy/gam/diagnostics/` — prediction and diagnostics
-- `nampy/splines/` — low-level spline primitives
+- `nampy/gam/splines/` — low-level spline primitives
 
 ### Public GAM API
 
 Treat `nampy/gam/__init__.py` exports as the intended public surface:
+- `GAM`
 - `fit_model_core`
 - `solve_fit`
 - `FitCoreSolution`
