@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 
 from ..configs.gpnam_config import DefaultGPNAMConfig
+from ..training.output_contract import validate_feature_names
 from .basemodel import BaseModel
 
 
@@ -57,17 +58,10 @@ class GPNAM(BaseModel):
         self.num_feature_keys = list(num_feature_info.keys())
         self.cat_feature_keys = list(cat_feature_info.keys())
 
-        reserved = {"output", "intercept", "feature_contribution"}
         all_feature_names = set(self.num_feature_keys) | set(self.cat_feature_keys)
-        if reserved & all_feature_names:
-            raise ValueError(
-                f"Feature names {sorted(reserved.intersection(all_feature_names))} are reserved."
-            )
-        if any(":" in name for name in all_feature_names):
-            bad = sorted(name for name in all_feature_names if ":" in name)
-            raise ValueError(
-                f"Feature names {bad} contain ':', which is reserved for interaction names."
-            )
+        validate_feature_names(
+            all_feature_names, owner="GPNAM", extra_reserved=("feature_contribution",)
+        )
 
         # Scalar post-preprocessing dimensions
         self.atomic_feature_names = self._build_atomic_feature_names(

@@ -5,10 +5,10 @@ import pandas as pd
 import pytest
 import torch
 
+from nampy.models.spline_nam import SplineNAMRegressor
+from nampy.neural.configs.spline_nam_config import DefaultSplineNAMConfig
 from nampy.neural.modules.neural_splines import CubicSplineLayer
 from nampy.neural.modules.spline_nam import SplineNAM
-from nampy.neural.configs.spline_nam_config import DefaultSplineNAMConfig
-from nampy.models.spline_nam import SplineNAMRegressor
 
 
 def test_cubic_spline_basis_handles_both_boundary_knots():

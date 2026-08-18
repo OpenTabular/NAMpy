@@ -8,8 +8,8 @@ import pytest
 import torch
 import torch.nn as nn
 
-from nampy.neural.training.lightning_wrapper import TaskModel
 from nampy.models.linreg import LinRegRegressor
+from nampy.neural.training.lightning_wrapper import TaskModel
 
 
 class _PenalizedTwoOutputModel(nn.Module):

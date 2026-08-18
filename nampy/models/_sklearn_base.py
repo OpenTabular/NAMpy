@@ -7,6 +7,11 @@ from typing import Any, TypeVar
 
 from pretab.preprocessor import Preprocessor
 from sklearn.base import BaseEstimator
+from sklearn.exceptions import NotFittedError
+
+from ..neural.training.engine import predict_raw as _engine_predict_raw
+from ..neural.training.engine import run_training
+from ._sklearn_data import prepare_fit_features, prepare_predict_features
 
 EstimatorT = TypeVar("EstimatorT", bound="NeuralEstimatorBase")
 
@@ -31,6 +36,150 @@ def _normalize_preprocessor_params(params: dict[str, Any]) -> dict[str, Any]:
 
 class NeuralEstimatorBase(BaseEstimator):
     """Base class for shared NAMpy sklearn estimator behavior."""
+
+    def fit(
+        self,
+        X,
+        y,
+        val_size: float = 0.2,
+        X_val=None,
+        y_val=None,
+        max_epochs: int = 100,
+        random_state: int = 101,
+        batch_size: int = 128,
+        shuffle: bool = True,
+        patience: int = 15,
+        monitor: str = "val_loss",
+        mode: str = "min",
+        lr: float = 1e-4,
+        lr_patience: int = 10,
+        factor: float = 0.1,
+        weight_decay: float = 1e-06,
+        checkpoint_path="model_checkpoints",
+        dataloader_kwargs=None,
+        **trainer_kwargs,
+    ):
+        """Train the model on ``X``/``y``; optionally validate on a held-out set.
+
+        Parameters
+        ----------
+        X : DataFrame or array-like, shape (n_samples, n_features)
+            The training input samples.
+        y : array-like
+            The target values; task-specific shape and dtype rules apply.
+        val_size : float, default=0.2
+            Proportion for the automatic validation split when ``X_val`` is
+            None; ignored otherwise.
+        X_val, y_val : optional
+            Explicit validation data; must be provided together.
+        max_epochs : int, default=100
+            Maximum number of training epochs.
+        random_state : int, default=101
+            Seed for the automatic train/validation split.
+        batch_size : int, default=128
+            Samples per gradient update.
+        shuffle : bool, default=True
+            Whether to shuffle the training data each epoch.
+        patience : int, default=15
+            Early-stopping patience on the monitored metric.
+        monitor : str, default="val_loss"
+            Metric monitored by early stopping and checkpoint selection.
+        mode : str, default="min"
+            Whether the monitored metric is minimized or maximized.
+        lr, lr_patience, factor, weight_decay
+            Optimizer and LR-scheduler settings.
+        checkpoint_path : str, default="model_checkpoints"
+            Root directory for per-fit checkpoint subdirectories.
+        dataloader_kwargs : dict, optional
+            Extra kwargs for the torch DataLoader.
+        **trainer_kwargs
+            Additional kwargs for PyTorch Lightning's Trainer.
+
+        Returns
+        -------
+        self : object
+            The fitted estimator.
+        """
+        X = prepare_fit_features(self, X)
+        if (X_val is None) ^ (y_val is None):
+            raise ValueError("X_val and y_val must be provided together.")
+        if X_val is not None:
+            X_val = prepare_predict_features(self, X_val)
+
+        y, y_val, plan = self._build_training_plan(y, y_val)
+
+        run_training(
+            self,
+            X,
+            y,
+            plan,
+            val_size=val_size,
+            X_val=X_val,
+            y_val=y_val,
+            max_epochs=max_epochs,
+            random_state=random_state,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            patience=patience,
+            monitor=monitor,
+            mode=mode,
+            lr=lr,
+            lr_patience=lr_patience,
+            factor=factor,
+            weight_decay=weight_decay,
+            checkpoint_path=checkpoint_path,
+            dataloader_kwargs=dataloader_kwargs,
+            trainer_kwargs=trainer_kwargs,
+        )
+        return self
+
+    def _build_training_plan(self, y, y_val):
+        """Return ``(y, y_val, TrainingPlan)`` for this task. Task-specific."""
+        raise NotImplementedError
+
+    def _predict(self, X):
+        """Run inference and return the raw forward-output dict."""
+        if getattr(self, "model", None) is None or (
+            getattr(self, "data_module", None) is None
+        ):
+            raise NotFittedError(
+                f"This {type(self).__name__} instance is not fitted yet. "
+                "Call 'fit' before using this method."
+            )
+        X = prepare_predict_features(self, X)
+        return _engine_predict_raw(self, X)
+
+    def predict_feature_vals(self, X):
+        """Return the raw forward-output dict (per-feature contributions)."""
+        return self._predict(X)
+
+    def _plot_series_labels(self, n_series: int):
+        """Labels for the per-output plot lines; None means a single line."""
+        return None
+
+    def plot(self, X, y_true, feature_name=None, plot_interactions=False):
+        """Plot per-feature effects (and optionally interaction heatmaps).
+
+        Parameters
+        ----------
+        X : pd.DataFrame or np.ndarray
+            Input data for generating predictions.
+        y_true : np.ndarray
+            True target values shown as scatter behind the curves.
+        feature_name : str, optional
+            Specific feature to plot; all numerical features when None.
+        plot_interactions : bool, optional
+            Whether to also plot pairwise feature interactions.
+        """
+        from ._plotting import plot_feature_effects
+
+        plot_feature_effects(
+            self,
+            X,
+            y_true,
+            feature_name=feature_name,
+            plot_interactions=plot_interactions,
+        )
 
     def save_model(self, path: str | Path) -> Path:
         """Persist this estimator, including fitted state, to ``path``.

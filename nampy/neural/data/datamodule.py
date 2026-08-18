@@ -1,6 +1,5 @@
 import lightning as pl
 import numpy as np
-import pandas as pd
 import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
@@ -101,6 +100,7 @@ class NAMpyDataModule(pl.LightningDataModule):
         y_val=None,
         val_size=0.2,
         random_state=101,
+        stratify=None,
     ):
         """
         Sets up the training and validation data: splits, fits the preprocessor, and stores feature info.
@@ -119,6 +119,9 @@ class NAMpyDataModule(pl.LightningDataModule):
             Proportion of data to include in the validation split if `X_val` and `y_val` are None.
         random_state : int, optional
             Random seed for reproducibility in data splitting.
+        stratify : array-like, optional
+            Class labels used to stratify the automatic train/validation
+            split. Ignored when an explicit validation set is provided.
 
         Returns
         -------
@@ -130,7 +133,11 @@ class NAMpyDataModule(pl.LightningDataModule):
 
         if X_val is None and y_val is None:
             self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
-                X_train, y_train, test_size=val_size, random_state=random_state
+                X_train,
+                y_train,
+                test_size=val_size,
+                random_state=random_state,
+                stratify=stratify,
             )
         else:
             self.X_train = X_train
@@ -138,15 +145,18 @@ class NAMpyDataModule(pl.LightningDataModule):
             self.X_val = X_val
             self.y_val = y_val
 
-        combined_X = pd.concat([self.X_train, self.X_val], axis=0).reset_index(
-            drop=True
+        # Fit the preprocessor on training rows only; validation rows must not
+        # influence fitted statistics (supervised binning uses y).
+        X_fit = (
+            self.X_train.reset_index(drop=True)
+            if hasattr(self.X_train, "reset_index")
+            else self.X_train
         )
-        combined_y = np.concatenate((self.y_train, self.y_val), axis=0)
 
         # Delegate to an external preprocessor (e.g. pretab) that
         # exposes get_feature_info(verbose=...) and returns
         # (num_feature_info, cat_feature_info, emb_feature_info).
-        self.preprocessor.fit(combined_X, combined_y)
+        self.preprocessor.fit(X_fit, np.asarray(self.y_train))
         num_info, cat_info, _ = self.preprocessor.get_feature_info(verbose=False)
         self.num_feature_info = num_info
         self.cat_feature_info = cat_info
