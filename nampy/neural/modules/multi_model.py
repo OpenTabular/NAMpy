@@ -40,8 +40,8 @@ class MultiModelWrapper(nn.Module):
         )
 
     def forward(self, num_features: dict, cat_features: dict) -> dict:
-        outputs = []
-        penalties = []
+        outputs: list[torch.Tensor] = []
+        penalties: list[torch.Tensor] = []
         for model in self.models:
             result = model(num_features=num_features, cat_features=cat_features)
             output = result.get("output")
@@ -58,5 +58,8 @@ class MultiModelWrapper(nn.Module):
 
         out = {"output": torch.cat(outputs, dim=1)}
         if penalties:
-            out["output_penalty"] = sum(penalties)
+            total_penalty = penalties[0]
+            for penalty in penalties[1:]:
+                total_penalty = total_penalty + penalty
+            out["output_penalty"] = total_penalty
         return out

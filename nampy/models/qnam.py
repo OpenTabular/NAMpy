@@ -1,5 +1,5 @@
-from ..basemodels.qnam import QNAMBase
-from ..configs.qnam_config import DefaultQNAMConfig
+from ..neural.configs.qnam_config import DefaultQNAMConfig
+from ..neural.modules.qnam import QNAMBase
 from .sklearn_lss import SklearnBaseLSS
 
 

@@ -8,7 +8,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from nampy.basemodels.lightning_wrapper import TaskModel
+from nampy.neural.training.lightning_wrapper import TaskModel
 from nampy.models.linreg import LinRegRegressor
 
 

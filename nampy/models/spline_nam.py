@@ -1,5 +1,5 @@
-from ..basemodels.spline_nam import SplineNAM
-from ..configs.spline_nam_config import DefaultSplineNAMConfig
+from ..neural.configs.spline_nam_config import DefaultSplineNAMConfig
+from ..neural.modules.spline_nam import SplineNAM
 from .sklearn_regressor import SklearnBaseRegressor
 
 

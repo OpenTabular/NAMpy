@@ -6,31 +6,31 @@ import pytest
 import torch
 import torch.nn as nn
 
-from nampy.basemodels.ensemble_treenam import EnsembleTreeNAM
-from nampy.basemodels.gpnam import GPNAM
-from nampy.basemodels.linreg import LinReg
-from nampy.basemodels.multi_model import MultiModelWrapper
-from nampy.basemodels.nam import NAM
-from nampy.basemodels.namformer import NAMformer
-from nampy.basemodels.natt import NATT
-from nampy.basemodels.nbm import NBM
-from nampy.basemodels.nodegam import NodeGAM
-from nampy.basemodels.qnam import QNAMBase
-from nampy.basemodels.snam import SNAM
-from nampy.basemodels.spline_nam import SplineNAM
-from nampy.basemodels.treenam import TreeNAM
-from nampy.configs.ensemble_treenam_config import DefaultEnsembleTreeNAMConfig
-from nampy.configs.gpnam_config import DefaultGPNAMConfig
-from nampy.configs.linreg_config import DefaultLinRegConfig
-from nampy.configs.nam_config import DefaultNAMConfig
-from nampy.configs.namformer_config import DefaultNAMformerConfig
-from nampy.configs.natt_config import DefaultNATTConfig
-from nampy.configs.nbm_config import DefaultNBMConfig
-from nampy.configs.nodegam_config import DefaultNodeGAMConfig
-from nampy.configs.qnam_config import DefaultQNAMConfig
-from nampy.configs.snam_config import DefaultSNAMConfig
-from nampy.configs.spline_nam_config import DefaultSplineNAMConfig
-from nampy.configs.treenam_config import DefaultTreeNAMConfig
+from nampy.neural.modules.ensemble_treenam import EnsembleTreeNAM
+from nampy.neural.modules.gpnam import GPNAM
+from nampy.neural.modules.linreg import LinReg
+from nampy.neural.modules.multi_model import MultiModelWrapper
+from nampy.neural.modules.nam import NAM
+from nampy.neural.modules.namformer import NAMformer
+from nampy.neural.modules.natt import NATT
+from nampy.neural.modules.nbm import NBM
+from nampy.neural.modules.nodegam import NodeGAM
+from nampy.neural.modules.qnam import QNAMBase
+from nampy.neural.modules.snam import SNAM
+from nampy.neural.modules.spline_nam import SplineNAM
+from nampy.neural.modules.treenam import TreeNAM
+from nampy.neural.configs.ensemble_treenam_config import DefaultEnsembleTreeNAMConfig
+from nampy.neural.configs.gpnam_config import DefaultGPNAMConfig
+from nampy.neural.configs.linreg_config import DefaultLinRegConfig
+from nampy.neural.configs.nam_config import DefaultNAMConfig
+from nampy.neural.configs.namformer_config import DefaultNAMformerConfig
+from nampy.neural.configs.natt_config import DefaultNATTConfig
+from nampy.neural.configs.nbm_config import DefaultNBMConfig
+from nampy.neural.configs.nodegam_config import DefaultNodeGAMConfig
+from nampy.neural.configs.qnam_config import DefaultQNAMConfig
+from nampy.neural.configs.snam_config import DefaultSNAMConfig
+from nampy.neural.configs.spline_nam_config import DefaultSplineNAMConfig
+from nampy.neural.configs.treenam_config import DefaultTreeNAMConfig
 
 
 @dataclass(frozen=True)

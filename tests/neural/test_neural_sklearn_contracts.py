@@ -6,6 +6,9 @@ import pytest
 from sklearn.base import clone
 from sklearn.metrics import accuracy_score
 
+import nampy
+from nampy import models
+from nampy.neural import configs, modules
 from nampy.models.ensemble_treenam import (
     EnsembleTreeNAMClassifier,
     EnsembleTreeNAMLSS,
@@ -66,6 +69,27 @@ ALL_NEURAL_ESTIMATORS = (
     QNAM,
     SplineNAMRegressor,
 )
+
+
+def test_public_packages_export_supported_neural_surfaces():
+    for estimator_class in ALL_NEURAL_ESTIMATORS:
+        assert getattr(models, estimator_class.__name__) is estimator_class
+        assert getattr(nampy, estimator_class.__name__) is estimator_class
+
+    expected_base_models = {
+        "SNAM": modules.SNAM,
+        "EnsembleTreeNAM": modules.EnsembleTreeNAM,
+    }
+    expected_configs = {
+        "DefaultSNAMConfig": configs.DefaultSNAMConfig,
+        "DefaultGPNAMConfig": configs.DefaultGPNAMConfig,
+        "DefaultQNAMConfig": configs.DefaultQNAMConfig,
+        "DefaultTreeNAMConfig": configs.DefaultTreeNAMConfig,
+        "DefaultEnsembleTreeNAMConfig": configs.DefaultEnsembleTreeNAMConfig,
+    }
+
+    assert expected_base_models.keys() <= set(modules.__all__)
+    assert expected_configs.keys() <= set(configs.__all__)
 
 
 @pytest.mark.parametrize("estimator_class", ALL_NEURAL_ESTIMATORS)
@@ -164,3 +188,31 @@ def test_classifier_evaluate_accepts_positional_array_after_dataframe_fit(tmp_pa
 
     assert predictions.shape == labels.shape
     assert scores["Accuracy"] == pytest.approx(accuracy_score(labels, predictions))
+
+
+def test_fitted_neural_estimator_persistence_round_trip(tmp_path):
+    x = np.linspace(-1.0, 1.0, 24)
+    data = pd.DataFrame({"first": x, "second": np.cos(2.0 * x)})
+    labels = (x > 0.0).astype(int)
+    estimator = LinRegClassifier(numerical_preprocessing="standardization")
+    estimator.fit(
+        data,
+        labels,
+        max_epochs=1,
+        batch_size=len(data),
+        checkpoint_path=tmp_path / "checkpoints",
+        logger=False,
+        enable_progress_bar=False,
+        enable_model_summary=False,
+        num_sanity_val_steps=0,
+        fast_dev_run=True,
+    )
+    expected = estimator.predict_proba(data)
+
+    model_path = estimator.save_model(tmp_path / "classifier.nampy")
+    restored = LinRegClassifier.load_model(model_path)
+
+    assert model_path.is_file()
+    np.testing.assert_allclose(restored.predict_proba(data), expected)
+    with pytest.raises(TypeError, match="not LinRegRegressor"):
+        LinRegRegressor.load_model(model_path)

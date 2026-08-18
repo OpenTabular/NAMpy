@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any
+import pickle
+from pathlib import Path
+from typing import Any, TypeVar
 
 from pretab.preprocessor import Preprocessor
+from sklearn.base import BaseEstimator
+
+EstimatorT = TypeVar("EstimatorT", bound="NeuralEstimatorBase")
 
 
 def _preprocessor_defaults() -> dict[str, Any]:
@@ -24,8 +29,31 @@ def _normalize_preprocessor_params(params: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-class NeuralEstimatorParameterMixin:
-    """Own config and preprocessing parameters for NAMpy sklearn wrappers."""
+class NeuralEstimatorBase(BaseEstimator):
+    """Base class for shared NAMpy sklearn estimator behavior."""
+
+    def save_model(self, path: str | Path) -> Path:
+        """Persist this estimator, including fitted state, to ``path``.
+
+        The file uses Python's pickle protocol and must only be loaded from a
+        trusted source.
+        """
+        destination = Path(path)
+        with destination.open("wb") as handle:
+            pickle.dump(self, handle)
+        return destination
+
+    @classmethod
+    def load_model(cls: type[EstimatorT], path: str | Path) -> EstimatorT:
+        """Load an estimator previously written by :meth:`save_model`."""
+        source = Path(path)
+        with source.open("rb") as handle:
+            loaded: object = pickle.load(handle)
+        if not isinstance(loaded, cls):
+            raise TypeError(
+                f"{source} contains {type(loaded).__name__}, not {cls.__name__}."
+            )
+        return loaded
 
     def _initialize_estimator_parameters(self, config_class, kwargs):
         config_names = set(getattr(config_class, "__dataclass_fields__", {}))

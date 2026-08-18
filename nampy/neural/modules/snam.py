@@ -71,7 +71,8 @@ class SNAM(NAM):
         if not params:
             return next(self.parameters()).new_zeros(())
         theta_j = torch.cat(params)
-        return torch.norm(theta_j, p=2)
+        result: torch.Tensor = torch.norm(theta_j, p=2)
+        return result
 
     def _group_lasso_penalty(self) -> torch.Tensor:
         """Sum of L2 norms over all subnet groups."""

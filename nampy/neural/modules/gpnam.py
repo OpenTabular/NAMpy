@@ -1,5 +1,5 @@
 import math
-from typing import Optional
+from typing import Optional, cast
 
 import torch
 import torch.nn as nn
@@ -135,6 +135,7 @@ class GPNAM(BaseModel):
             torch.zeros(self.input_dim, self.rff_num_feat, self.num_classes)
         )
 
+        self.intercept: nn.Parameter | None
         if self.hparams.get("intercept", getattr(config, "intercept", True)):
             self.intercept = nn.Parameter(torch.zeros(self.num_classes))
         else:
@@ -228,11 +229,14 @@ class GPNAM(BaseModel):
         Tensor of shape [B, D, S]
         """
         # scaled_x: [B, D, 1]
-        scaled_x = (x / self.kernel_widths.unsqueeze(0)).unsqueeze(-1)
+        kernel_widths = cast(torch.Tensor, self.kernel_widths)
+        z = cast(torch.Tensor, self.z)
+        c = cast(torch.Tensor, self.c)
+        scaled_x = (x / kernel_widths[None, :])[:, :, None]
 
         # z, c shared across dimensions: [1, 1, S]
         phi = math.sqrt(2.0 / self.rff_num_feat) * torch.cos(
-            scaled_x * self.z.view(1, 1, -1) + self.c.view(1, 1, -1)
+            scaled_x * z[None, None, :] + c[None, None, :]
         )
         return phi
 

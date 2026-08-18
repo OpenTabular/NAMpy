@@ -1,5 +1,5 @@
-from ..basemodels.gpnam import GPNAM
-from ..configs.gpnam_config import DefaultGPNAMConfig
+from ..neural.configs.gpnam_config import DefaultGPNAMConfig
+from ..neural.modules.gpnam import GPNAM
 from .sklearn_classifier import SklearnBaseClassifier
 from .sklearn_lss import SklearnBaseLSS
 from .sklearn_regressor import SklearnBaseRegressor

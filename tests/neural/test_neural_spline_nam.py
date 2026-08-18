@@ -5,9 +5,9 @@ import pandas as pd
 import pytest
 import torch
 
-from nampy.arch_utils.neural_splines import CubicSplineLayer
-from nampy.basemodels.spline_nam import SplineNAM
-from nampy.configs.spline_nam_config import DefaultSplineNAMConfig
+from nampy.neural.modules.neural_splines import CubicSplineLayer
+from nampy.neural.modules.spline_nam import SplineNAM
+from nampy.neural.configs.spline_nam_config import DefaultSplineNAMConfig
 from nampy.models.spline_nam import SplineNAMRegressor
 
 

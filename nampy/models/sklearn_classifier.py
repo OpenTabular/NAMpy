@@ -7,21 +7,20 @@ import numpy as np
 import pandas as pd
 import torch
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
-from sklearn.base import BaseEstimator
 from sklearn.metrics import accuracy_score
 
-from ..basemodels.lightning_wrapper import TaskModel
-from ..data_utils.datamodule import NAMpyDataModule
-from ..utils.plotting import (
+from ..neural.data.datamodule import NAMpyDataModule
+from ..neural.plotting import (
     create_subplot_grid,
     plot_density_shading,
     prepare_plot_data,
 )
+from ..neural.training.lightning_wrapper import TaskModel
+from ._sklearn_base import NeuralEstimatorBase
 from ._sklearn_data import prepare_fit_features, prepare_predict_features
-from ._sklearn_params import NeuralEstimatorParameterMixin
 
 
-class SklearnBaseClassifier(NeuralEstimatorParameterMixin, BaseEstimator):
+class SklearnBaseClassifier(NeuralEstimatorBase):
     def __init__(self, model, config, **kwargs):
         requested_task = kwargs.get("task")
         kwargs.setdefault("task", "classification")

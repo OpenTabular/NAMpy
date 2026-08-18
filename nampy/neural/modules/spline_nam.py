@@ -3,9 +3,9 @@ from itertools import combinations
 import torch
 import torch.nn as nn
 
-from ..arch_utils.neural_splines import CubicSplineLayer
 from ..configs.spline_nam_config import DefaultSplineNAMConfig
 from .basemodel import BaseModel
+from .neural_splines import CubicSplineLayer
 
 
 class SplineNAM(BaseModel):
@@ -45,6 +45,7 @@ class SplineNAM(BaseModel):
         self.interaction_degree = self.hparams.get(
             "interaction_degree", config.interaction_degree
         )
+        self.intercept: nn.Parameter | None
         if self.hparams.get("intercept", config.intercept):
             self.intercept = nn.Parameter(
                 torch.zeros(
@@ -204,7 +205,7 @@ class SplineNAM(BaseModel):
                 + list(self.cat_feature_networks.values())
                 + list(self.interaction_networks.values())
             ):
-                smoothness = smoothness + network.get_smooth_penalty()
+                smoothness = smoothness + network.get_smooth_penalty()  # type: ignore[attr-defined,operator]
             result["smoothness_penalty"] = self.smoothing * smoothness
 
         return result

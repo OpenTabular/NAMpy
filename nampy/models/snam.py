@@ -1,5 +1,5 @@
-from ..basemodels.snam import SNAM
-from ..configs.snam_config import DefaultSNAMConfig
+from ..neural.configs.snam_config import DefaultSNAMConfig
+from ..neural.modules.snam import SNAM
 from .sklearn_classifier import SklearnBaseClassifier
 from .sklearn_lss import SklearnBaseLSS
 from .sklearn_regressor import SklearnBaseRegressor

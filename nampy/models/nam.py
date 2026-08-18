@@ -1,6 +1,6 @@
 # models/nam.py
-from ..basemodels.nam import NAM
-from ..configs.nam_config import DefaultNAMConfig
+from ..neural.configs.nam_config import DefaultNAMConfig
+from ..neural.modules.nam import NAM
 from .sklearn_classifier import SklearnBaseClassifier
 from .sklearn_lss import SklearnBaseLSS
 from .sklearn_regressor import SklearnBaseRegressor
