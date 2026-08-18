@@ -247,3 +247,56 @@ def render_term_plots(prepared, *, rug=None, pages=0, theta=30, phi=30,
     for fig in figures:
         fig.tight_layout()
     return figures
+
+
+def prepared_from_contributions(frame, terms, *, ylab_format="f({name})"):
+    """Build a prepared dict (1-d entries) from per-term contribution arrays.
+
+    ``frame`` supplies the raw x values by column name; ``terms`` maps term
+    name -> (n,) or (n, 1) contribution array. Interaction names (containing
+    ':'), names absent from ``frame``, non-numeric columns, and multi-column
+    contributions are skipped.
+    """
+    pd_list = []
+    n_rows = None
+    for name, values in terms.items():
+        if ":" in name or name not in getattr(frame, "columns", ()):
+            continue
+        try:
+            x_raw = np.asarray(frame[name], dtype=np.float64)
+        except (TypeError, ValueError):
+            continue
+        contrib = np.asarray(values, dtype=np.float64).reshape(len(x_raw), -1)
+        if contrib.shape[1] != 1:
+            continue
+        order = np.argsort(x_raw)
+        n_rows = x_raw.size
+        pd_list.append(
+            {
+                "kind": "1d",
+                "plot_me": True,
+                "x": x_raw[order],
+                "fit": contrib[order, 0],
+                "raw": x_raw,
+                "xlab": name,
+                "ylab": ylab_format.format(name=name),
+                "main": "",
+                "scheme": 0,
+            }
+        )
+
+    if not pd_list:
+        raise ValueError("No numeric 1-d terms available to plot.")
+
+    return {
+        "pd": pd_list,
+        "ylim": None,
+        "partial_resids": False,
+        "by_resids": False,
+        "shift": 0.0,
+        "trans": lambda values: values,
+        "jit": False,
+        "select": None,
+        "scale": False,
+        "rug_default": bool(n_rows is None or n_rows <= 10000),
+    }

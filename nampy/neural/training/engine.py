@@ -87,6 +87,8 @@ def run_training(
     checkpoint_path,
     dataloader_kwargs,
     trainer_kwargs,
+    offset=None,
+    offset_val=None,
 ) -> None:
     """Fit ``estimator`` in place: data module, TaskModel, Trainer, reload."""
     if dataloader_kwargs is None:
@@ -111,6 +113,8 @@ def run_training(
         val_size=val_size,
         random_state=random_state,
         stratify=plan.stratify,
+        offset=offset,
+        offset_val=offset_val,
     )
 
     estimator.model = TaskModel(

@@ -1,5 +1,5 @@
 """Backend-neutral rendering of prepared term-plot data."""
 
-from .render import render_term_plots
+from .render import prepared_from_contributions, render_term_plots
 
-__all__ = ["render_term_plots"]
+__all__ = ["prepared_from_contributions", "render_term_plots"]
