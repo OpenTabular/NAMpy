@@ -3,6 +3,7 @@ from .ensemble_treenam import (
     EnsembleTreeNAMLSS,
     EnsembleTreeNAMRegressor,
 )
+from .gam import GAMClassifier, GAMRegressor
 from .gpnam import GPNAMLSS, GPNAMClassifier, GPNAMRegressor
 from .linreg import LinRegClassifier, LinRegLSS, LinRegRegressor
 from .nam import NAMLSS, NAMClassifier, NAMRegressor
@@ -19,6 +20,8 @@ from .spline_nam import SplineNAMRegressor
 from .treenam import TreeNAMClassifier, TreeNAMLSS, TreeNAMRegressor
 
 __all__ = [
+    "GAMClassifier",
+    "GAMRegressor",
     "NAMClassifier",
     "NAMLSS",
     "NAMRegressor",

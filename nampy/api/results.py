@@ -16,9 +16,9 @@ class AdditivePrediction:
     link: np.ndarray
     terms: dict[str, np.ndarray]
     intercept: float | np.ndarray
-    backend: Literal["gam", "neural"]
+    backend: Literal["gam", "neural", "hybrid"]
     offset: np.ndarray | None = None
 
     def __post_init__(self) -> None:
-        if self.backend not in {"gam", "neural"}:
-            raise ValueError("backend must be either 'gam' or 'neural'.")
+        if self.backend not in {"gam", "neural", "hybrid"}:
+            raise ValueError("backend must be 'gam', 'neural', or 'hybrid'.")

@@ -7,6 +7,7 @@ import properscoring as ps
 import torch
 from sklearn.metrics import accuracy_score, mean_squared_error
 
+from ..api import Capabilities
 from ..neural.distributions.distributions import (
     BetaDistribution,
     CategoricalDistribution,
@@ -236,6 +237,21 @@ class SklearnBaseLSS(NeuralEstimatorBase):
         if param_names is not None:
             return list(param_names)[:n_series]
         return [f"Param {i + 1}" for i in range(n_series)]
+
+    def predict_components(self, X):
+        """Not supported: LSS outputs are distribution parameters, not a link."""
+        raise NotImplementedError(
+            "predict_components is not defined for distributional (LSS) "
+            "estimators; use predict_feature_vals for raw per-term outputs."
+        )
+
+    def capabilities(self) -> Capabilities:
+        return Capabilities(
+            supports_predict_proba=False,
+            supports_standard_errors=False,
+            supports_lpmatrix=False,
+            supports_term_contributions=True,
+        )
 
     def evaluate(self, X, y_true, metrics=None, distribution_family=None):
         """
