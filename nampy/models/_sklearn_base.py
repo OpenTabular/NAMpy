@@ -57,6 +57,8 @@ class NeuralEstimatorBase(BaseEstimator):
         weight_decay: float = 1e-06,
         checkpoint_path="model_checkpoints",
         dataloader_kwargs=None,
+        offset=None,
+        offset_val=None,
         **trainer_kwargs,
     ):
         """Train the model on ``X``/``y``; optionally validate on a held-out set.
@@ -92,6 +94,11 @@ class NeuralEstimatorBase(BaseEstimator):
             Root directory for per-fit checkpoint subdirectories.
         dataloader_kwargs : dict, optional
             Extra kwargs for the torch DataLoader.
+        offset, offset_val : array-like, optional
+            Per-sample additive offsets on the prediction (link) scale for
+            the training and explicit-validation rows. Not supported for
+            LSS tasks. Note that ``predict`` does NOT apply a stored offset;
+            callers composing models must add offsets themselves.
         **trainer_kwargs
             Additional kwargs for PyTorch Lightning's Trainer.
 
@@ -130,6 +137,8 @@ class NeuralEstimatorBase(BaseEstimator):
             checkpoint_path=checkpoint_path,
             dataloader_kwargs=dataloader_kwargs,
             trainer_kwargs=trainer_kwargs,
+            offset=offset,
+            offset_val=offset_val,
         )
         return self
 
@@ -203,56 +212,10 @@ class NeuralEstimatorBase(BaseEstimator):
         single-column numeric main effects are drawn; interaction terms use
         :meth:`plot` with ``plot_interactions=True``.
         """
-        import numpy as np
-
-        from ..plotting import render_term_plots
+        from ..plotting import prepared_from_contributions, render_term_plots
 
         components = self.predict_components(X)
-        frame = X if hasattr(X, "columns") else None
-
-        pd_list = []
-        for name, values in components.terms.items():
-            if ":" in name:
-                continue
-            if frame is None or name not in frame.columns:
-                continue
-            try:
-                x_raw = np.asarray(frame[name], dtype=np.float64)
-            except (TypeError, ValueError):
-                continue
-            contrib = np.asarray(values, dtype=np.float64).reshape(len(x_raw), -1)
-            if contrib.shape[1] != 1:
-                continue
-            order = np.argsort(x_raw)
-            pd_list.append(
-                {
-                    "kind": "1d",
-                    "plot_me": True,
-                    "x": x_raw[order],
-                    "fit": contrib[order, 0],
-                    "raw": x_raw,
-                    "xlab": name,
-                    "ylab": f"f({name})",
-                    "main": "",
-                    "scheme": 0,
-                }
-            )
-
-        if not pd_list:
-            raise ValueError("No numeric 1-d terms available to plot.")
-
-        prepared = {
-            "pd": pd_list,
-            "ylim": None,
-            "partial_resids": False,
-            "by_resids": False,
-            "shift": 0.0,
-            "trans": lambda values: values,
-            "jit": False,
-            "select": None,
-            "scale": False,
-            "rug_default": len(pd_list[0]["raw"]) <= 10000,
-        }
+        prepared = prepared_from_contributions(X, components.terms)
         return render_term_plots(prepared, rug=rug, pages=pages, figsize=figsize)
 
     def save_model(self, path: str | Path) -> Path:

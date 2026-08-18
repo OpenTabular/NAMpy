@@ -5,7 +5,7 @@ offering regression, classification, and distributional regression capabilities
 with a scikit-learn compatible interface.
 """
 
-from . import api, models, neural
+from . import api, hybrid, models, neural
 from .__version__ import __version__
 
 # Import key classes for convenience
@@ -49,6 +49,7 @@ from .models import (
 __all__ = [
     # Submodules
     "api",
+    "hybrid",
     "models",
     "neural",
     # Main model classes

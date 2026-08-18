@@ -56,6 +56,7 @@ def test_task_model_keeps_regression_width_and_reports_unregularized_rmse():
         {},
         {"x": torch.tensor([[0.0], [1.0], [2.0]])},
         torch.ones((3, 2)),
+        torch.zeros((3, 1)),
     )
 
     objective = task_model.test_step(batch, batch_idx=0)

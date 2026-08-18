@@ -219,9 +219,17 @@ class TaskModel(pl.LightningModule):
             )
 
     def _shared_step(self, batch, batch_idx, stage: str):
-        cat_features, num_features, labels = batch
+        cat_features, num_features, labels, offset = batch
         result = self(num_features=num_features, cat_features=cat_features)
         preds = result["output"]
+        if torch.any(offset != 0):
+            if self.lss:
+                raise RuntimeError(
+                    "Per-sample offsets are not supported for LSS tasks: the "
+                    "outputs are distribution parameters, not a single "
+                    "linear predictor."
+                )
+            preds = preds + offset
         data_loss = self.compute_loss(preds, labels)
         loss = data_loss
         penalty = harvest_penalties(result)

@@ -23,6 +23,7 @@ class NAMpyDataset(Dataset):
         regression=True,
         cat_keys=None,
         num_keys=None,
+        offsets=None,
     ):
         self.cat_features_list = cat_features_list  # Categorical features tensors
         self.num_features_list = num_features_list  # Numerical features tensors
@@ -30,6 +31,10 @@ class NAMpyDataset(Dataset):
         self.regression = regression
         self.cat_keys = cat_keys
         self.num_keys = num_keys
+        # Per-sample additive offsets on the prediction scale ([N, 1] float32
+        # tensor, or None for a zero offset). Batches always carry an offset
+        # entry so the batch arity is uniform.
+        self.offsets = offsets
         if not self.regression:
             self.num_classes = len(np.unique(labels))
             if self.num_classes > 2:
@@ -76,5 +81,10 @@ class NAMpyDataset(Dataset):
         else:
             label = label.clone().detach().to(torch.long)
 
+        if self.offsets is None:
+            offset = torch.zeros(1, dtype=torch.float32)
+        else:
+            offset = self.offsets[idx].clone().detach().to(torch.float32)
+
         # Keep categorical and numerical features separate
-        return cat_features, num_features, label
+        return cat_features, num_features, label, offset

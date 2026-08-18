@@ -78,8 +78,18 @@ class NAMpyDataModule(pl.LightningDataModule):
         # Initialize placeholders for data
         self.X_train = None
         self.y_train = None
+        self.offset_train = None
+        self.offset_val = None
         self.test_preprocessor_fitted = False
         self.dataloader_kwargs = dataloader_kwargs
+
+    def _to_offset_tensor(self, offset):
+        if offset is None:
+            return None
+        t = torch.tensor(np.asarray(offset, dtype=np.float32))
+        if t.ndim == 1:
+            t = t.unsqueeze(1)
+        return t
 
     def _to_label_tensor(self, y):
         y_arr = np.asarray(y)
@@ -101,6 +111,8 @@ class NAMpyDataModule(pl.LightningDataModule):
         val_size=0.2,
         random_state=101,
         stratify=None,
+        offset=None,
+        offset_val=None,
     ):
         """
         Sets up the training and validation data: splits, fits the preprocessor, and stores feature info.
@@ -122,6 +134,12 @@ class NAMpyDataModule(pl.LightningDataModule):
         stratify : array-like, optional
             Class labels used to stratify the automatic train/validation
             split. Ignored when an explicit validation set is provided.
+        offset : array-like, optional
+            Per-sample additive offsets on the prediction scale, aligned with
+            ``X_train``. Split alongside the features for the automatic
+            train/validation split.
+        offset_val : array-like, optional
+            Offsets for an explicitly provided validation set.
 
         Returns
         -------
@@ -132,18 +150,44 @@ class NAMpyDataModule(pl.LightningDataModule):
             raise ValueError("X_val and y_val must be provided together; got only one.")
 
         if X_val is None and y_val is None:
-            self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
-                X_train,
-                y_train,
-                test_size=val_size,
-                random_state=random_state,
-                stratify=stratify,
-            )
+            if offset is not None:
+                (
+                    self.X_train,
+                    self.X_val,
+                    self.y_train,
+                    self.y_val,
+                    self.offset_train,
+                    self.offset_val,
+                ) = train_test_split(
+                    X_train,
+                    y_train,
+                    np.asarray(offset),
+                    test_size=val_size,
+                    random_state=random_state,
+                    stratify=stratify,
+                )
+            else:
+                self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
+                    X_train,
+                    y_train,
+                    test_size=val_size,
+                    random_state=random_state,
+                    stratify=stratify,
+                )
+                self.offset_train = None
+                self.offset_val = None
         else:
+            if offset is not None and offset_val is None:
+                raise ValueError(
+                    "offset_val is required when an explicit validation set "
+                    "is used together with offsets."
+                )
             self.X_train = X_train
             self.y_train = y_train
             self.X_val = X_val
             self.y_val = y_val
+            self.offset_train = offset
+            self.offset_val = offset_val
 
         # Fit the preprocessor on training rows only; validation rows must not
         # influence fitted statistics (supervised binning uses y).
@@ -225,6 +269,7 @@ class NAMpyDataModule(pl.LightningDataModule):
                 regression=self.regression,
                 cat_keys=cat_keys,
                 num_keys=num_keys,
+                offsets=self._to_offset_tensor(self.offset_train),
             )
             self.val_dataset = NAMpyDataset(
                 val_cat_tensors,
@@ -233,6 +278,7 @@ class NAMpyDataModule(pl.LightningDataModule):
                 regression=self.regression,
                 cat_keys=cat_keys,
                 num_keys=num_keys,
+                offsets=self._to_offset_tensor(self.offset_val),
             )
         elif stage == "test":
             if not self.test_preprocessor_fitted:
