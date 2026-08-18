@@ -57,11 +57,15 @@ class NAMpyDataset(Dataset):
         """
         cat_features = {
             key: feature_tensor[idx]
-            for key, feature_tensor in zip(self.cat_keys, self.cat_features_list)
+            for key, feature_tensor in zip(
+                self.cat_keys, self.cat_features_list, strict=True
+            )
         }
         num_features = {
             key: torch.as_tensor(feature_tensor[idx]).clone().detach().to(torch.float32)
-            for key, feature_tensor in zip(self.num_keys, self.num_features_list)
+            for key, feature_tensor in zip(
+                self.num_keys, self.num_features_list, strict=True
+            )
         }
 
         label = self.labels[idx]

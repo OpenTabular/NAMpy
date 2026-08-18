@@ -4,9 +4,9 @@ from itertools import combinations
 import torch
 import torch.nn as nn
 
-from ..arch_utils.nbm_utils import ConceptNNBasesNary
 from ..configs.nbm_config import DefaultNBMConfig
 from .basemodel import BaseModel
+from .nbm_utils import ConceptNNBasesNary
 
 
 class NBM(BaseModel):
@@ -62,6 +62,7 @@ class NBM(BaseModel):
         )
 
         # Optional intercept (keep this; classifier bias is disabled below)
+        self.intercept: nn.Parameter | None
         if self.hparams.get("intercept", config.intercept):
             self.intercept = nn.Parameter(torch.zeros(num_classes))
         else:
@@ -130,8 +131,8 @@ class NBM(BaseModel):
 
         # Build metadata for every channel (term x subnet)
         # Each channel gets its own coefficient vector over shared bases.
-        self.channel_specs = []
-        self.term_to_channel_indices = OrderedDict()
+        self.channel_specs: list[dict[str, object]] = []
+        self.term_to_channel_indices: OrderedDict[str, list[int]] = OrderedDict()
 
         for order_key in self._sorted_order_keys():
             order = int(order_key)

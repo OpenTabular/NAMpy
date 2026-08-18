@@ -185,6 +185,18 @@ ESTIMATOR_CASES += tuple(
     for case in ESTIMATOR_CASES
     if case.estimator_class is not SplineNAMRegressor
 )
+
+MULTIOUTPUT_REGRESSION_CASES = tuple(
+    _EstimatorCase(f"{name}_multioutput", regressor, "regression", model_kwargs)
+    for name, regressor, _classifier, _lss, model_kwargs in _ARCHITECTURES
+) + (
+    _EstimatorCase(
+        "spline_nam_multioutput",
+        SplineNAMRegressor,
+        "regression",
+        {"n_knots": 5, "smoothing": 0.01},
+    ),
+)
 ESTIMATOR_CASES += tuple(
     _EstimatorCase(
         f"{case.name}_multiclass",
@@ -261,3 +273,39 @@ def test_public_neural_estimator_fits_and_predicts(case, tmp_path):
         expected_shape = (len(data), expected_width) if expected_width else (len(data),)
         assert predictions.shape == expected_shape
         assert np.isfinite(predictions).all()
+
+
+@pytest.mark.parametrize(
+    "case", MULTIOUTPUT_REGRESSION_CASES, ids=lambda case: case.name
+)
+def test_public_neural_regressors_support_multioutput_targets(case, tmp_path):
+    x = np.linspace(0.05, 0.95, 20)
+    data = pd.DataFrame({"x": x, "z": np.cos(2.0 * np.pi * x)})
+    targets = np.column_stack(
+        (
+            np.sin(2.0 * np.pi * x) + 0.25 * x,
+            np.cos(np.pi * x) - 0.1 * x,
+        )
+    )
+    estimator = case.estimator_class(
+        numerical_preprocessing="minmax", **case.model_kwargs
+    )
+
+    estimator.fit(
+        data,
+        targets,
+        max_epochs=1,
+        batch_size=len(data),
+        shuffle=False,
+        checkpoint_path=tmp_path / case.name,
+        logger=False,
+        enable_progress_bar=False,
+        enable_model_summary=False,
+        num_sanity_val_steps=0,
+        fast_dev_run=True,
+    )
+
+    predictions = estimator.predict(data)
+    assert estimator.n_outputs_ == 2
+    assert predictions.shape == targets.shape
+    assert np.isfinite(predictions).all()

@@ -1,6 +1,6 @@
 # models/nbm.py
-from ..basemodels.nbm import NBM
-from ..configs.nbm_config import DefaultNBMConfig
+from ..neural.configs.nbm_config import DefaultNBMConfig
+from ..neural.modules.nbm import NBM
 from .sklearn_classifier import SklearnBaseClassifier
 from .sklearn_lss import SklearnBaseLSS
 from .sklearn_regressor import SklearnBaseRegressor

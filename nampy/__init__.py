@@ -5,7 +5,7 @@ offering regression, classification, and distributional regression capabilities
 with a scikit-learn compatible interface.
 """
 
-from . import basemodels, configs, data_utils, models, preprocessing, utils
+from . import api, models, neural
 from .__version__ import __version__
 
 # Import key classes for convenience
@@ -15,6 +15,10 @@ from .models import (
     NATTLSS,
     NBMLSS,
     QNAM,
+    SNAMLSS,
+    EnsembleTreeNAMClassifier,
+    EnsembleTreeNAMLSS,
+    EnsembleTreeNAMRegressor,
     GPNAMClassifier,
     GPNAMRegressor,
     LinRegClassifier,
@@ -32,18 +36,19 @@ from .models import (
     NodeGAMClassifier,
     NodeGAMLSS,
     NodeGAMRegressor,
+    SNAMClassifier,
+    SNAMRegressor,
     SplineNAMRegressor,
+    TreeNAMClassifier,
+    TreeNAMLSS,
     TreeNAMRegressor,
 )
 
 __all__ = [
     # Submodules
-    "basemodels",
+    "api",
     "models",
-    "data_utils",
-    "preprocessing",
-    "utils",
-    "configs",
+    "neural",
     # Main model classes
     "NAMRegressor",
     "NAMClassifier",
@@ -64,6 +69,14 @@ __all__ = [
     "LinRegClassifier",
     "LinRegLSS",
     "TreeNAMRegressor",
+    "TreeNAMClassifier",
+    "TreeNAMLSS",
+    "EnsembleTreeNAMRegressor",
+    "EnsembleTreeNAMClassifier",
+    "EnsembleTreeNAMLSS",
+    "SNAMRegressor",
+    "SNAMClassifier",
+    "SNAMLSS",
     "SplineNAMRegressor",
     "NodeGAMRegressor",
     "NodeGAMClassifier",

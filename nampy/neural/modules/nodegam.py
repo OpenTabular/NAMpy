@@ -1,11 +1,10 @@
 import torch
 import torch.nn as nn
 
-from nampy.arch_utils.nn_utils import entmoid15
-
-from ..arch_utils.nodegam_utils import EM15Temp, GAMAttBlock, GAMBlock
 from ..configs.nodegam_config import DefaultNodeGAMConfig
 from .basemodel import BaseModel
+from .nn_utils import entmoid15
+from .nodegam_utils import EM15Temp, GAMAttBlock, GAMBlock
 
 
 class NodeGAM(BaseModel):

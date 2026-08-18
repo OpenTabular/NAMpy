@@ -3,9 +3,10 @@ from itertools import combinations
 import torch
 import torch.nn as nn
 
-from ..arch_utils.embedding_layer import EmbeddingLayer
-from ..arch_utils.mlp_utils import MLP, _make_activation
-from ..arch_utils.normalization_layers import (
+from ..configs.natt_config import DefaultNATTConfig
+from ..layers.embedding_layer import EmbeddingLayer
+from ..layers.mlp_utils import MLP, _make_activation
+from ..layers.normalization_layers import (
     BatchNorm,
     GroupNorm,
     InstanceNorm,
@@ -13,8 +14,7 @@ from ..arch_utils.normalization_layers import (
     LearnableLayerScaling,
     RMSNorm,
 )
-from ..arch_utils.transformer_utils import CustomTransformerEncoderLayer
-from ..configs.natt_config import DefaultNATTConfig
+from ..layers.transformer_utils import CustomTransformerEncoderLayer
 from .basemodel import BaseModel
 
 
@@ -56,6 +56,7 @@ class NATT(BaseModel):
         self.interaction_degree = self.hparams.get(
             "interaction_degree", config.interaction_degree
         )
+        self.intercept: nn.Parameter | None
         if self.hparams.get("intercept", config.intercept):
             self.intercept = nn.Parameter(
                 torch.zeros(

@@ -3,7 +3,7 @@ from typing import List, Optional, Union
 import torch
 import torch.nn as nn
 
-from .mlp_utils import _make_activation, _make_norm, _resolve_norm_name
+from ..layers.mlp_utils import _make_activation, _make_norm, _resolve_norm_name
 
 
 class _ResidualBlockNary(nn.Module):
@@ -25,7 +25,7 @@ class _ResidualBlockNary(nn.Module):
     ) -> None:
         super().__init__()
 
-        modules = [nn.Linear(n_input, n_output)]
+        modules: list[nn.Module] = [nn.Linear(n_input, n_output)]
 
         norm_layer = _make_norm(norm_name, n_output)
         if norm_layer is not None:
@@ -48,7 +48,8 @@ class _ResidualBlockNary(nn.Module):
         out = self.block(x)
         if self.use_skip:
             out = out + x
-        return out
+        result: torch.Tensor = out
+        return result
 
 
 class ConceptNNBasesNary(nn.Module):

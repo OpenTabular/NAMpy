@@ -8,21 +8,10 @@ import pandas as pd
 import properscoring as ps
 import torch
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
-from sklearn.base import BaseEstimator
 from sklearn.metrics import accuracy_score, mean_squared_error
 
-from ..basemodels.lightning_wrapper import TaskModel
-from ..data_utils.datamodule import NAMpyDataModule
-from ..utils.distributional_metrics import (
-    beta_mean_mse,
-    dirichlet_error,
-    gamma_deviance,
-    inverse_gamma_loss,
-    negative_binomial_deviance,
-    poisson_deviance,
-    student_t_loss,
-)
-from ..utils.distributions import (
+from ..neural.data.datamodule import NAMpyDataModule
+from ..neural.distributions.distributions import (
     BetaDistribution,
     CategoricalDistribution,
     DirichletDistribution,
@@ -45,16 +34,26 @@ from ..utils.distributions import (
     ZeroInflatedNegativeBinomialDistribution,
     ZeroInflatedPoissonDistribution,
 )
-from ..utils.plotting import (
+from ..neural.distributions.metrics import (
+    beta_mean_mse,
+    dirichlet_error,
+    gamma_deviance,
+    inverse_gamma_loss,
+    negative_binomial_deviance,
+    poisson_deviance,
+    student_t_loss,
+)
+from ..neural.plotting import (
     create_subplot_grid,
     plot_density_shading,
     prepare_plot_data,
 )
+from ..neural.training.lightning_wrapper import TaskModel
+from ._sklearn_base import NeuralEstimatorBase
 from ._sklearn_data import prepare_fit_features, prepare_predict_features
-from ._sklearn_params import NeuralEstimatorParameterMixin
 
 
-class SklearnBaseLSS(NeuralEstimatorParameterMixin, BaseEstimator):
+class SklearnBaseLSS(NeuralEstimatorBase):
     def __init__(self, model, config, **kwargs):
         self._initialize_estimator_parameters(config, kwargs)
         self.model = None
@@ -328,11 +327,8 @@ class SklearnBaseLSS(NeuralEstimatorParameterMixin, BaseEstimator):
         """
         Evaluate the fitted distributional model.
 
-        This implementation is consistent with the production-ready distribution
-        classes and metrics:
-        - NLL is computed from RAW network outputs via family.compute_loss(...)
-        - all other metrics are computed from TRANSFORMED distribution parameters
-            via family(raw_predictions)
+        NLL is computed from raw network outputs with ``family.compute_loss``.
+        Other metrics use transformed parameters from ``family(raw_predictions)``.
 
         Parameters
         ----------
@@ -517,22 +513,11 @@ class SklearnBaseLSS(NeuralEstimatorParameterMixin, BaseEstimator):
         """
         Provide sensible default metrics for each supported distribution family.
 
-        Metrics are computed from TRANSFORMED distribution parameters returned by:
-            self.family(raw_predictions)
-
-        Expected transformed outputs by family
-        -------------------------------------
-        normal        -> [mean, scale]
-        robustnormal  -> [mean, scale]
-        poisson       -> [rate]
-        gamma         -> [shape, rate]
-        beta          -> [alpha, beta]
-        dirichlet     -> simplex mean/probabilities OR concentrations (metric handles both)
-        studentt      -> [df, loc, scale]
-        negativebinom -> [mean, dispersion]
-        inversegamma  -> [shape, scale]
-        categorical   -> class probabilities
-        quantile      -> quantile predictions (shape [n, Q])
+        Metrics use transformed distribution parameters returned by
+        ``self.family(raw_predictions)``. For example, normal and robust-normal
+        families return ``[mean, scale]``; count families return their rate or
+        mean/dispersion parameters; and categorical families return class
+        probabilities.
 
         Parameters
         ----------

@@ -1,5 +1,5 @@
-from ..basemodels.treenam import TreeNAM
-from ..configs.treenam_config import DefaultTreeNAMConfig
+from ..neural.configs.treenam_config import DefaultTreeNAMConfig
+from ..neural.modules.treenam import TreeNAM
 from .sklearn_classifier import SklearnBaseClassifier
 from .sklearn_lss import SklearnBaseLSS
 from .sklearn_regressor import SklearnBaseRegressor

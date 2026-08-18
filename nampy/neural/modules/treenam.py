@@ -4,9 +4,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ..arch_utils.neural_tree import NeuralDecisionTree
 from ..configs.treenam_config import DefaultTreeNAMConfig
 from .basemodel import BaseModel
+from .neural_tree import NeuralDecisionTree
 
 
 class TreeNAM(BaseModel):
@@ -52,6 +52,7 @@ class TreeNAM(BaseModel):
             "interaction_degree", config.interaction_degree
         )
 
+        self.intercept: nn.Parameter | None
         if self.hparams.get("intercept", config.intercept):
             self.intercept = nn.Parameter(torch.zeros(num_classes))
         else:

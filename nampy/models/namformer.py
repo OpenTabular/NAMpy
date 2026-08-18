@@ -1,5 +1,5 @@
-from ..basemodels.namformer import NAMformer
-from ..configs.namformer_config import DefaultNAMformerConfig
+from ..neural.configs.namformer_config import DefaultNAMformerConfig
+from ..neural.modules.namformer import NAMformer
 from .sklearn_classifier import SklearnBaseClassifier
 from .sklearn_lss import SklearnBaseLSS
 from .sklearn_regressor import SklearnBaseRegressor

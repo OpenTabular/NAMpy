@@ -1,5 +1,5 @@
-from ..basemodels.natt import NATT
-from ..configs.natt_config import DefaultNATTConfig
+from ..neural.configs.natt_config import DefaultNATTConfig
+from ..neural.modules.natt import NATT
 from .sklearn_classifier import SklearnBaseClassifier
 from .sklearn_lss import SklearnBaseLSS
 from .sklearn_regressor import SklearnBaseRegressor

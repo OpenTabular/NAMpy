@@ -4,8 +4,8 @@ from itertools import combinations
 import torch
 import torch.nn as nn
 
-from ..arch_utils.mlp_utils import MLP
 from ..configs.nam_config import DefaultNAMConfig
+from ..layers.mlp_utils import MLP
 from .basemodel import BaseModel
 
 
@@ -71,6 +71,7 @@ class NAM(BaseModel):
         self.interaction_degree = self.hparams.get(
             "interaction_degree", config.interaction_degree
         )
+        self.intercept: nn.Parameter | None
         if self.hparams.get("intercept", config.intercept):
             self.intercept = nn.Parameter(
                 torch.zeros(

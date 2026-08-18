@@ -805,7 +805,7 @@ class RobustNormalDistribution(BaseDistribution):
 
 
 # ----------------------------------------------------------------------
-# Additional drop-in families for nampy/utils/distributions.py
+# Additional drop-in families for the neural distribution families
 # ----------------------------------------------------------------------
 
 
@@ -1252,7 +1252,7 @@ class HurdleNegativeBinomialDistribution(BaseDistribution):
 
 
 # ----------------------------------------------------------------------
-# Additional advanced families for nampy/utils/distributions.py
+# Additional advanced families for the neural distribution families
 # ----------------------------------------------------------------------
 
 
@@ -1446,6 +1446,7 @@ class OrdinalCumulativeLogitDistribution(BaseDistribution):
         init_cuts = torch.linspace(-(k - 2) / 2.0, (k - 2) / 2.0, k - 1)
         self.first_cutpoint = torch.nn.Parameter(init_cuts[:1].clone())
 
+        self.raw_cutpoint_increments: torch.nn.Parameter | None
         if k > 2:
             init_diffs = init_cuts[1:] - init_cuts[:-1]
             self.raw_cutpoint_increments = torch.nn.Parameter(
