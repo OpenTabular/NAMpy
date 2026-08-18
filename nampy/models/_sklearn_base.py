@@ -153,6 +153,20 @@ class NeuralEstimatorBase(BaseEstimator):
         """Return the raw forward-output dict (per-feature contributions)."""
         return self._predict(X)
 
+    def _split_output_components(self, pred_dict):
+        """Split a forward-output dict into (terms, intercept) numpy parts."""
+        terms: dict[str, Any] = {}
+        intercept: float | Any = 0.0
+        for key, value in pred_dict.items():
+            if key == "output":
+                continue
+            array = value.detach().cpu().numpy()
+            if key == "intercept":
+                intercept = float(array[0]) if array.size == 1 else array
+            else:
+                terms[key] = array
+        return terms, intercept
+
     def _plot_series_labels(self, n_series: int):
         """Labels for the per-output plot lines; None means a single line."""
         return None

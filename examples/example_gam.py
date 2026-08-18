@@ -74,16 +74,11 @@ def main():
     )
 
     # ------------------------------------------------------------------
-    # GAM classifier
-    #
-    # Phase-1 note:
-    # - no automatic smoothing selection for binomial yet
-    # - use fixed smoothing parameters
+    # GAM classifier: automatic REML smoothing selection (the default)
     # ------------------------------------------------------------------
     model = GAMClassifier(
         family="binomial",
         k=12,
-        smoothing_params=[0.5, 0.5],
         fit_intercept=True,
     )
 
@@ -274,7 +269,6 @@ def main():
     print("  - sigmoid(output) should match the returned response probabilities.")
     print("  - Accuracy / AUROC should be clearly better than chance.")
     print("  - age and income effect correlations should be clearly positive.")
-    print("  - This phase-1 GAM classifier currently tests numeric features only.")
 
 
 if __name__ == "__main__":

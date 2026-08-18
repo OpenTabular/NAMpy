@@ -7,6 +7,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils import ClassifierTags
 
+from ..api import AdditivePrediction, Capabilities
 from ..neural.training.engine import TrainingPlan
 from ._sklearn_base import NeuralEstimatorBase
 
@@ -99,6 +100,34 @@ class SklearnBaseClassifier(NeuralEstimatorBase):
         """Return the mean accuracy on the given test data and labels."""
         return float(
             accuracy_score(y, self.predict(X), sample_weight=sample_weight)
+        )
+
+    def predict_components(self, X) -> AdditivePrediction:
+        """Return per-term logit-scale contributions (binary tasks only)."""
+        pred_dict = self._predict(X)
+        output = pred_dict["output"]
+        if output.shape[1] != 1:
+            raise NotImplementedError(
+                "predict_components supports binary classifiers only; "
+                "multiclass outputs have one logit column per class."
+            )
+        link = output.squeeze(-1).cpu().numpy()
+        response = torch.sigmoid(output).squeeze(-1).cpu().numpy()
+        terms, intercept = self._split_output_components(pred_dict)
+        return AdditivePrediction(
+            response=response,
+            link=link,
+            terms=terms,
+            intercept=intercept,
+            backend="neural",
+        )
+
+    def capabilities(self) -> Capabilities:
+        return Capabilities(
+            supports_predict_proba=True,
+            supports_standard_errors=False,
+            supports_lpmatrix=False,
+            supports_term_contributions=True,
         )
 
     def _plot_series_labels(self, n_series: int):

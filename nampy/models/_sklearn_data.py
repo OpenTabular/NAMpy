@@ -3,6 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from ..api import FeatureSchema
+
 
 def _as_2d_array(X) -> np.ndarray:
     array = np.asarray(X)
@@ -35,6 +37,7 @@ def prepare_fit_features(estimator, X) -> pd.DataFrame:
     estimator.n_features_in_ = int(frame.shape[1])
     estimator.feature_names_in_ = np.asarray(frame.columns, dtype=object)
     estimator._input_feature_names = list(frame.columns)
+    estimator.schema_ = FeatureSchema.from_data(frame)
     return frame
 
 

@@ -19,6 +19,8 @@ from .models import (
     EnsembleTreeNAMClassifier,
     EnsembleTreeNAMLSS,
     EnsembleTreeNAMRegressor,
+    GAMClassifier,
+    GAMRegressor,
     GPNAMClassifier,
     GPNAMRegressor,
     LinRegClassifier,
@@ -50,6 +52,8 @@ __all__ = [
     "models",
     "neural",
     # Main model classes
+    "GAMRegressor",
+    "GAMClassifier",
     "NAMRegressor",
     "NAMClassifier",
     "NAMLSS",
