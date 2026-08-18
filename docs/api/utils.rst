@@ -1,12 +1,9 @@
-Utilities
-=========
+Distributions
+=============
 
-Utility functions and distribution classes.
+Torch distribution families and metrics for LSS models.
 
-.. currentmodule:: nampy.utils
-
-The utils module contains helper functions for distributional metrics
-and various probability distributions used in LSS models.
+.. currentmodule:: nampy.neural.distributions
 
 Modules
 -------
@@ -14,8 +11,8 @@ Modules
 .. autosummary::
    :toctree: generated/
 
-   distributional_metrics
    distributions
+   metrics
 
 Available Distributions
 -----------------------

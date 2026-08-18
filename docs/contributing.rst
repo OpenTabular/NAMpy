@@ -1,55 +1,30 @@
 Contributing
 ============
 
-We welcome contributions to NAMpy! This page provides a summary of our
-contribution guidelines. For complete details, please see our
-`CONTRIBUTING.md <https://github.com/OpenTabular/NAMpy/blob/main/CONTRIBUTING.md>`_
-file on GitHub.
-
-Quick Links
------------
-
-* `GitHub Repository <https://github.com/OpenTabular/NAMpy>`_
-* `Issue Tracker <https://github.com/OpenTabular/NAMpy/issues>`_
-* `Pull Requests <https://github.com/OpenTabular/NAMpy/pulls>`_
-* `Discussions <https://github.com/OpenTabular/NAMpy/discussions>`_
-
-Ways to Contribute
-------------------
-
-* **Report bugs** - Help us identify issues
-* **Suggest features** - Propose new functionality
-* **Fix bugs** - Submit pull requests
-* **Add features** - Implement new models or functionality
-* **Improve documentation** - Enhance guides and examples
-* **Write tests** - Increase test coverage
-* **Review pull requests** - Help review others' contributions
-
-Getting Started
----------------
-
-1. Fork the repository on GitHub
-2. Clone your fork locally
-3. Create a branch for your changes
-4. Make your changes
-5. Run tests and quality checks
-6. Submit a pull request
-
-For detailed instructions, see the
-`CONTRIBUTING.md <https://github.com/OpenTabular/NAMpy/blob/main/CONTRIBUTING.md>`_
-file.
-
-Development Setup
------------------
+NAMpy supports development on Python 3.11 and 3.12. Install the editable package
+and development tools with:
 
 .. code-block:: bash
 
-   git clone https://github.com/YOUR_USERNAME/NAMpy.git
-   cd NAMpy
-   
-   # Install with dev dependencies
-   pip install -e ".[dev]"
-   
-   # Install pre-commit hooks
-   pip install pre-commit
+   python3.11 -m venv .venv
+   source .venv/bin/activate
+   python -m pip install -e ".[dev]"
    pre-commit install
+
+Run the static gates with ``ruff check nampy tests`` and ``mypy nampy``. Tests
+should use the smallest relevant pytest slice; the full suite is not the default
+development command.
+
+Work under ``nampy/gam/`` must reproduce the vendored upstream ``mgcv`` behavior.
+Start from a targeted parity test and the corresponding vendored R/C routine, and
+do not introduce approximate or heuristic fallbacks for unsupported behavior.
+
+The complete workflow, test policy, and pull-request checklist are in
+`CONTRIBUTING.md <https://github.com/OpenTabular/NAMpy/blob/main/CONTRIBUTING.md>`_.
+
+Useful links
+------------
+
+* `Issue tracker <https://github.com/OpenTabular/NAMpy/issues>`_
+* `Pull requests <https://github.com/OpenTabular/NAMpy/pulls>`_
+* `Discussions <https://github.com/OpenTabular/NAMpy/discussions>`_

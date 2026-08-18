@@ -20,7 +20,7 @@ Interactive Jupyter notebooks are available with step-by-step tutorials:
    :maxdepth: 1
    :caption: Interactive Tutorials
 
-   ../notebooks/01_basic_regression
+   ../notebooks/01_nam_regression
    ../notebooks/02_classification
    ../notebooks/03_distributional_regression
    ../notebooks/04_model_comparison
@@ -242,9 +242,8 @@ To run the example notebooks locally:
 
 The notebooks cover:
 
-* **01_basic_regression** - Complete regression workflow with NAMRegressor
+* **01_nam_regression** - Complete regression workflow with NAMRegressor
 * **02_classification** - Binary and multi-class classification examples
 * **03_distributional_regression** - Modeling uncertainty with NAMLSS
 * **04_model_comparison** - Comparing different NAMpy model architectures
 * **05_interpretability** - Visualizing and understanding model predictions
-

@@ -4,7 +4,7 @@ Installation
 Requirements
 ------------
 
-NAMpy requires Python 3.10 or higher and the following dependencies:
+NAMpy supports Python 3.11 and 3.12 and requires the following dependencies:
 
 * PyTorch
 * Lightning
@@ -58,8 +58,7 @@ If you want to contribute to NAMpy, install with development dependencies:
    cd NAMpy
    pip install -e ".[dev]"
    
-   # Optional: Install pre-commit hooks
-   pip install pre-commit
+   # Optional: install the repository's local quality hooks
    pre-commit install
 
 Verifying Installation

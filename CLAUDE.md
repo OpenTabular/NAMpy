@@ -57,18 +57,26 @@ When you need to inspect a failing parity case:
 
 ## Architecture
 
-NAMpy has two distinct subsystems:
+NAMpy has two numerical backends plus shared surfaces:
 
-### 1. Neural Additive Models (`nampy/basemodels/`, `nampy/models/`)
+- `nampy/api/` — backend-neutral contracts (`FeatureSchema`, `AdditivePrediction`, `Capabilities`, `PersistableModel`); imports neither backend.
+- `nampy/plotting/` — backend-neutral term-plot renderer consuming prepared plot-data dicts.
+- `nampy/hybrid/` — experimental GAM+neural composition backends; the ONLY package allowed to import both backends. Hybrid results are NOT mgcv fits and never enter parity suites.
+- Ownership rules: `nampy/gam` imports nothing from `neural/`, `models/`, or `hybrid/`, and contains zero torch. PreTab appears only under `neural/` and `models/`.
+
+### 1. Neural backend (`nampy/neural/`, `nampy/models/`)
 
 Each model (NAM, GPNAM, NBM, NATT, NAMformer, NodeGAM, SplineNAM, QNAM, SNAM, TreeNAM, LinReg) follows a layered pattern:
 
-- `**nampy/basemodels/<model>.py**` — PyTorch `nn.Module` + Lightning harness (`TaskModel`)
-- `**nampy/models/<model>.py**` — scikit-learn-compatible wrappers (`<Model>Regressor`, `<Model>Classifier`, `<Model>LSS`)
-- `**nampy/configs/<model>_config.py**` — hyperparameter dataclasses
-- `**nampy/arch_utils/**` — shared building blocks (MLP layers, normalization, attention, embeddings)
+- `**nampy/neural/modules/<model>.py**` — PyTorch `nn.Module` architectures (plus single-architecture utilities)
+- `**nampy/neural/layers/**` — shared building blocks (MLP layers, normalization, attention, embeddings)
+- `**nampy/neural/training/**` — `TaskModel` Lightning harness, the shared training engine (`engine.py`), and the forward-output dict grammar (`output_contract.py`)
+- `**nampy/neural/data/**` — `NAMpyDataModule`/`NAMpyDataset` (PreTab-to-Torch; preprocessor fit on training rows only; offset and passthrough channels)
+- `**nampy/neural/distributions/**` — Torch LSS families and metrics
+- `**nampy/neural/configs/<model>_config.py**` — hyperparameter dataclasses
+- `**nampy/models/<model>.py**` — scikit-learn-style wrappers (`<Model>Regressor`, `<Model>Classifier`, `<Model>LSS`); `nampy/models/gam.py` holds the `GAMRegressor`/`GAMClassifier` adapters
 
-Three task flavors per model: regression, classification, distributional regression (LSS). All expose `.fit(X, y)`, `.predict(X)`, `.score(X, y)`.
+Three task flavors per model: regression, classification, distributional regression (LSS). All expose `.fit(X, y)`, `.predict(X)`, `.score(X, y)`. Estimators use hand-written `score()` and `__sklearn_tags__` (no sklearn mixin classes — keep it that way).
 
 ### 2. GAM subsystem (`nampy/gam/`)
 
@@ -80,17 +88,17 @@ The fit pipeline has 7 stages:
 | Stage                     | Location                                          | Role                                         |
 | ------------------------- | ------------------------------------------------- | -------------------------------------------- |
 | 1. Formula/spec           | `gam/formula/`, `gam/specs/`                      | Parse `TermSpec` objects                     |
-| 2. Runtime terms          | `gam/smooths/`, `gam/runtime/`                    | Fit basis & penalties; own basis semantics   |
-| 3. Term wrapper           | `gam/design/constructors.py`                      | `ConstructedTerm` (constraints, by-variable) |
-| 4. Predictor compilation  | `gam/design/compiler.py`                          | Assemble `CompiledPredictor`                 |
+| 2. Runtime terms          | `gam/smooths/`, `gam/splines/`                    | Fit basis and penalties; own basis semantics |
+| 3. Term construction      | `gam/compiler/construct.py`                       | Build `CompiledTerm` objects and maps        |
+| 4. Predictor compilation  | `gam/compiler/compile_predictors.py`, `compile_model.py` | Assemble predictors and the compiled model |
 | 5. Side conditions        | `gam/constraints/identifiability.py`              | Column deletion, centering                   |
 | 6. Model fitting          | `gam/fit/orchestrator.py`                         | Solve coefficients, optimize smoothing       |
 | 7. Prediction/diagnostics | `gam/predict/`, `gam/parity/`, `gam/diagnostics/` | Inference, parity checks                     |
 
 
-**Public API** (`nampy/gam/__init__.py` exports only): `fit_model_core`, `solve_fit`, `FitCoreSolution`
+**Public API** (`nampy/gam/__init__.py` exports only): `GAM`, `fit_model_core`, `solve_fit`, `FitCoreSolution`
 
-**Low-level basis primitives** live in `nampy/splines/` and are consumed by runtime terms in `gam/smooths/`.
+**Low-level basis primitives** live in `gam/splines/` and are consumed by runtime terms in `gam/smooths/`.
 
 ### Key design rules
 
@@ -103,7 +111,9 @@ The fit pipeline has 7 stages:
 
 ### Key data flow (GAM)
 
-`TermSpec` → `RuntimeTerm` (fitted basis, penalties) → `ConstructedTerm` → `CompiledPredictor` → `fit_model_core()` → `FitCoreSolution` (coefficients, smoothing params, covariance, EDF)
+`TermSpec` → `BaseSmoothTerm` (fitted basis, penalties) → `CompiledTerm` →
+`CompiledPredictor` / `CompiledModel` → `fit_model_core()` →
+`FitCoreSolution` (coefficients, smoothing parameters, covariance, EDF)
 
 ## Working rules for `mgcv` parity changes
 

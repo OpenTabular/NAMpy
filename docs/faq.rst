@@ -22,10 +22,10 @@ additive models. It offers:
 * Multiple model architectures for different use cases
 
 Is NAMpy production-ready?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Yes! NAMpy v0.1.0 is stable and production-ready with comprehensive testing,
-documentation, and CI/CD pipelines.
+NAMpy 0.1 is a beta release. Validate the estimator, data preprocessing, and
+deployment path against your own requirements before production use.
 
 Installation & Setup
 --------------------
@@ -48,7 +48,7 @@ For development installation:
 What are the requirements?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* Python 3.10 or higher
+* Python 3.11 or 3.12
 * PyTorch
 * Lightning
 * scikit-learn
@@ -167,15 +167,15 @@ How do I save and load models?
 
 .. code-block:: python
 
-   import pickle
-   
-   # Save
-   with open("model.pkl", "wb") as f:
-       pickle.dump(model, f)
-   
-   # Load
-   with open("model.pkl", "rb") as f:
-       model = pickle.load(f)
+   from nampy.models import NAMRegressor
+
+   path = model.save_model("nam_model.nampy")
+   restored = NAMRegressor.load_model(path)
+
+The file contains the estimator, its fitted neural network, and preprocessing
+state. It uses Python's pickle protocol, so only load files from trusted sources.
+Recreate persisted files when moving between incompatible Python, PyTorch, or
+NAMpy versions.
 
 Can I implement custom models?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -191,8 +191,9 @@ from the model's forward pass. The exact method depends on the model architectur
 Does NAMpy support multi-output regression?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Currently, NAMpy focuses on single-output tasks. For multi-output, you can train
-separate models for each output.
+The regression estimators accept a two-dimensional target and return one column
+per output. This is tested for every public neural regressor. Classification and
+LSS targets retain their task-specific shapes.
 
 Integration Questions
 ---------------------

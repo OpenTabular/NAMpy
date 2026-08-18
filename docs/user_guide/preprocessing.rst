@@ -4,7 +4,7 @@ Preprocessing (PreTab)
 NAMpy does not implement its own tabular preprocessing. All preprocessing is done by the **PreTab** library. You pass a PreTab preprocessor instance into the data module or into the sklearn-style models (e.g. :class:`nampy.models.nam.NAMRegressor`).
 
 Using PreTab with NAMpy
-----------------------
+-----------------------
 
 1. Create a PreTab preprocessor with the options you need (task, n_bins, numerical/categorical strategies, etc.). See the `PreTab documentation <https://pypi.org/project/pretab/>`_ for full options.
 
@@ -24,12 +24,12 @@ Using PreTab with NAMpy
       model.fit(X_train, y_train, max_epochs=100)
       predictions = model.predict(X_test)
 
-   * **With the data module directly** — build a PreTab preprocessor yourself and pass it to :class:`nampy.data_utils.datamodule.NAMpyDataModule`:
+   * **With the data module directly** — build a PreTab preprocessor yourself and pass it to :class:`nampy.neural.data.datamodule.NAMpyDataModule`:
 
    .. code-block:: python
 
       from pretab.preprocessor import Preprocessor
-      from nampy.data_utils.datamodule import NAMpyDataModule
+      from nampy.neural.data.datamodule import NAMpyDataModule
 
       preprocessor = Preprocessor(task="regression", n_bins=50)
       data_module = NAMpyDataModule(

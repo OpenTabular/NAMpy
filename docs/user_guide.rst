@@ -80,8 +80,8 @@ For predicting continuous values:
    model.fit(X_train, y_train, max_epochs=100)
    predictions = model.predict(X_test)
 
-Most models have a `*Regressor` variant (e.g., `GPNAMRegressor`, `NBMRegressor`). Some
-specialized models are regression-only, such as `TreeNAMRegressor` and `SNAMRegressor`.
+Most models have a `*Regressor` variant (for example, `GPNAMRegressor`,
+`TreeNAMRegressor`, and `SNAMRegressor`).
 
 Classification
 ~~~~~~~~~~~~~~
@@ -132,8 +132,8 @@ Available distribution families:
 * ``quantile`` - Quantile regression
 * ``robustnormal`` - Robust normal distribution
 
-Most models have an `*LSS` variant (e.g., `GPNAMLSS`, `NBMLSS`). `QNAM` is
-distributional-only, while `TreeNAM` and `SNAM` do not currently provide LSS variants.
+Most models have an `*LSS` variant (for example, `GPNAMLSS`, `TreeNAMLSS`, and
+`SNAMLSS`). `QNAM` is distributional-only.
 
 Hyperparameter Configuration
 -----------------------------

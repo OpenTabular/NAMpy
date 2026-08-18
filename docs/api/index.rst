@@ -7,8 +7,9 @@ This section contains the complete API documentation for NAMpy.
    :maxdepth: 2
 
    models
+   gam
+   hybrid
    basemodels
-   preprocessing
    configs
    utils
 
@@ -17,11 +18,14 @@ Package Overview
 
 The NAMpy package is organized into several main modules:
 
-* :mod:`nampy.models` - High-level model classes (scikit-learn compatible)
-* :mod:`nampy.basemodels` - Low-level PyTorch model implementations
-* :mod:`nampy.preprocessing` - Preprocessing is delegated to PreTab (see :doc:`preprocessing`)
-* :mod:`nampy.configs` - Configuration classes for models
-* :mod:`nampy.utils` - Utility functions and distributions
+* :mod:`nampy.models` - High-level estimator classes (scikit-learn style),
+  including the ``GAMRegressor``/``GAMClassifier`` adapters
+* :mod:`nampy.gam` - mgcv-parity GAM backend (``GAM`` and the fit core)
+* :mod:`nampy.api` - Shared backend-neutral contracts (feature schema,
+  additive predictions, capabilities, persistence)
+* :mod:`nampy.hybrid` - Experimental GAM + neural composition backends
+* :mod:`nampy.neural` - Torch backend internals (modules, layers, training,
+  data, distributions, configs)
 
 Quick API Reference
 -------------------
@@ -54,8 +58,8 @@ For advanced users who want direct access to PyTorch models:
 
 .. code-block:: python
 
-   from nampy.basemodels import NAM
-   from nampy.configs import DefaultNAMConfig
+   from nampy.neural.modules import NAM
+   from nampy.neural.configs import DefaultNAMConfig
    
    config = DefaultNAMConfig()
    model = NAM(
@@ -66,7 +70,7 @@ For advanced users who want direct access to PyTorch models:
    )
 
 Preprocessing (PreTab)
-~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
 
 NAMpy uses the PreTab library for preprocessing. Pass a PreTab preprocessor into the data module or sklearn-style models:
 
@@ -84,4 +88,3 @@ Version Information
 
 .. autodata:: nampy.__version__
    :annotation:
-
