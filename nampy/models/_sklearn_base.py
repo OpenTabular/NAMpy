@@ -195,6 +195,66 @@ class NeuralEstimatorBase(BaseEstimator):
             plot_interactions=plot_interactions,
         )
 
+    def plot_terms(self, X, *, rug=None, pages=0, figsize=None):
+        """Render 1-d term-contribution curves via the shared renderer.
+
+        Builds the same prepared-data schema the GAM plotting pipeline uses,
+        so GAM, neural, and hybrid term plots share one renderer. Only
+        single-column numeric main effects are drawn; interaction terms use
+        :meth:`plot` with ``plot_interactions=True``.
+        """
+        import numpy as np
+
+        from ..plotting import render_term_plots
+
+        components = self.predict_components(X)
+        frame = X if hasattr(X, "columns") else None
+
+        pd_list = []
+        for name, values in components.terms.items():
+            if ":" in name:
+                continue
+            if frame is None or name not in frame.columns:
+                continue
+            try:
+                x_raw = np.asarray(frame[name], dtype=np.float64)
+            except (TypeError, ValueError):
+                continue
+            contrib = np.asarray(values, dtype=np.float64).reshape(len(x_raw), -1)
+            if contrib.shape[1] != 1:
+                continue
+            order = np.argsort(x_raw)
+            pd_list.append(
+                {
+                    "kind": "1d",
+                    "plot_me": True,
+                    "x": x_raw[order],
+                    "fit": contrib[order, 0],
+                    "raw": x_raw,
+                    "xlab": name,
+                    "ylab": f"f({name})",
+                    "main": "",
+                    "scheme": 0,
+                }
+            )
+
+        if not pd_list:
+            raise ValueError("No numeric 1-d terms available to plot.")
+
+        prepared = {
+            "pd": pd_list,
+            "ylim": None,
+            "partial_resids": False,
+            "by_resids": False,
+            "shift": 0.0,
+            "trans": lambda values: values,
+            "jit": False,
+            "select": None,
+            "scale": False,
+            "rug_default": len(pd_list[0]["raw"]) <= 10000,
+        }
+        return render_term_plots(prepared, rug=rug, pages=pages, figsize=figsize)
+
     def save_model(self, path: str | Path) -> Path:
         """Persist this estimator, including fitted state, to ``path``.
 

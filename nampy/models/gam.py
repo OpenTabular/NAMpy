@@ -223,6 +223,11 @@ class _GAMAdapterBase(BaseEstimator):
         self._check_fitted()
         return self.gam_.summary(**kwargs)
 
+    def plot(self, **kwargs):
+        """mgcv-style term plots (delegates to ``GAM.plot``)."""
+        self._check_fitted()
+        return self.gam_.plot(**kwargs)
+
     def capabilities(self) -> Capabilities:
         return Capabilities(
             supports_predict_proba=isinstance(self, GAMClassifier),
