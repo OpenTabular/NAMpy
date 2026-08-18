@@ -86,6 +86,8 @@ class TaskModel(pl.LightningModule):
             "family",
             "cat_feature_info",
             "num_feature_info",
+            "base_model_class",
+            "gam_payload",
         ]
         self.save_hyperparameters(ignore=ignore_list)
 

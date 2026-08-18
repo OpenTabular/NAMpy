@@ -41,6 +41,7 @@ class TrainingPlan:
     datamodule_regression: bool
     taskmodel_kwargs: dict[str, Any] = field(default_factory=dict)
     stratify: Any = None
+    passthrough: dict[str, Any] | None = None
 
 
 def build_callbacks(estimator, *, monitor, mode, patience, checkpoint_path):
@@ -115,6 +116,7 @@ def run_training(
         stratify=plan.stratify,
         offset=offset,
         offset_val=offset_val,
+        passthrough_arrays=plan.passthrough,
     )
 
     estimator.model = TaskModel(

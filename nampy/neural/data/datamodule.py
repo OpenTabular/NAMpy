@@ -80,6 +80,8 @@ class NAMpyDataModule(pl.LightningDataModule):
         self.y_train = None
         self.offset_train = None
         self.offset_val = None
+        self.passthrough_train = {}
+        self.passthrough_val = {}
         self.test_preprocessor_fitted = False
         self.dataloader_kwargs = dataloader_kwargs
 
@@ -113,6 +115,8 @@ class NAMpyDataModule(pl.LightningDataModule):
         stratify=None,
         offset=None,
         offset_val=None,
+        passthrough_arrays=None,
+        passthrough_arrays_val=None,
     ):
         """
         Sets up the training and validation data: splits, fits the preprocessor, and stores feature info.
@@ -140,6 +144,12 @@ class NAMpyDataModule(pl.LightningDataModule):
             train/validation split.
         offset_val : array-like, optional
             Offsets for an explicitly provided validation set.
+        passthrough_arrays : dict of str -> array-like, optional
+            Extra per-sample arrays delivered to the model inside
+            ``num_features`` under their given keys, bypassing the
+            preprocessor entirely. Split alongside the features.
+        passthrough_arrays_val : dict, optional
+            Passthrough arrays for an explicitly provided validation set.
 
         Returns
         -------
@@ -149,38 +159,48 @@ class NAMpyDataModule(pl.LightningDataModule):
         if (X_val is None) ^ (y_val is None):
             raise ValueError("X_val and y_val must be provided together; got only one.")
 
+        passthrough_arrays = {
+            key: np.asarray(value)
+            for key, value in (passthrough_arrays or {}).items()
+        }
+
         if X_val is None and y_val is None:
+            extras = []
             if offset is not None:
-                (
-                    self.X_train,
-                    self.X_val,
-                    self.y_train,
-                    self.y_val,
-                    self.offset_train,
-                    self.offset_val,
-                ) = train_test_split(
-                    X_train,
-                    y_train,
-                    np.asarray(offset),
-                    test_size=val_size,
-                    random_state=random_state,
-                    stratify=stratify,
-                )
+                extras.append(np.asarray(offset))
+            extras.extend(passthrough_arrays.values())
+
+            splits = train_test_split(
+                X_train,
+                y_train,
+                *extras,
+                test_size=val_size,
+                random_state=random_state,
+                stratify=stratify,
+            )
+            self.X_train, self.X_val, self.y_train, self.y_val = splits[:4]
+            rest = splits[4:]
+            if offset is not None:
+                self.offset_train, self.offset_val = rest[0], rest[1]
+                rest = rest[2:]
             else:
-                self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
-                    X_train,
-                    y_train,
-                    test_size=val_size,
-                    random_state=random_state,
-                    stratify=stratify,
-                )
                 self.offset_train = None
                 self.offset_val = None
+            self.passthrough_train = {}
+            self.passthrough_val = {}
+            for index, key in enumerate(passthrough_arrays):
+                self.passthrough_train[key] = rest[2 * index]
+                self.passthrough_val[key] = rest[2 * index + 1]
         else:
             if offset is not None and offset_val is None:
                 raise ValueError(
                     "offset_val is required when an explicit validation set "
                     "is used together with offsets."
+                )
+            if passthrough_arrays and passthrough_arrays_val is None:
+                raise ValueError(
+                    "passthrough_arrays_val is required when an explicit "
+                    "validation set is used together with passthrough arrays."
                 )
             self.X_train = X_train
             self.y_train = y_train
@@ -188,6 +208,11 @@ class NAMpyDataModule(pl.LightningDataModule):
             self.y_val = y_val
             self.offset_train = offset
             self.offset_val = offset_val
+            self.passthrough_train = passthrough_arrays
+            self.passthrough_val = {
+                key: np.asarray(value)
+                for key, value in (passthrough_arrays_val or {}).items()
+            }
 
         # Fit the preprocessor on training rows only; validation rows must not
         # influence fitted statistics (supervised binning uses y).
@@ -257,6 +282,18 @@ class NAMpyDataModule(pl.LightningDataModule):
                             val_preprocessed_data[num_key], dtype=torch.float32
                         )
                     )
+
+            # Passthrough arrays bypass the preprocessor and ride along as
+            # numerical features under their reserved keys.
+            for key, array in self.passthrough_train.items():
+                train_num_tensors.append(
+                    torch.tensor(np.asarray(array), dtype=torch.float32)
+                )
+                num_keys.append(key)
+            for array in self.passthrough_val.values():
+                val_num_tensors.append(
+                    torch.tensor(np.asarray(array), dtype=torch.float32)
+                )
 
             train_labels = self._to_label_tensor(self.y_train)
             val_labels = self._to_label_tensor(self.y_val)
