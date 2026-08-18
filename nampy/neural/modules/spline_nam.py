@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 
 from ..configs.spline_nam_config import DefaultSplineNAMConfig
+from ..training.output_contract import validate_feature_names
 from .basemodel import BaseModel
 from .neural_splines import CubicSplineLayer
 
@@ -59,14 +60,8 @@ class SplineNAM(BaseModel):
             self.hparams.get("feature_dropout", config.feature_dropout)
         )
 
-        reserved = {"output", "intercept", "smoothness_penalty"}
         all_feature_names = set(num_feature_info) | set(cat_feature_info)
-        invalid_names = reserved & all_feature_names
-        invalid_names.update(name for name in all_feature_names if ":" in name)
-        if invalid_names:
-            raise ValueError(
-                f"Feature names {sorted(invalid_names)} are reserved by SplineNAM."
-            )
+        validate_feature_names(all_feature_names, owner="SplineNAM")
         if not all_feature_names:
             raise ValueError("SplineNAM requires at least one input feature.")
 

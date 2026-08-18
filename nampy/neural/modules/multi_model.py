@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from ..training.output_contract import harvest_penalties
+
 
 class MultiModelWrapper(nn.Module):
     """
@@ -41,7 +43,7 @@ class MultiModelWrapper(nn.Module):
 
     def forward(self, num_features: dict, cat_features: dict) -> dict:
         outputs: list[torch.Tensor] = []
-        penalties: list[torch.Tensor] = []
+        total_penalty: torch.Tensor | None = None
         for model in self.models:
             result = model(num_features=num_features, cat_features=cat_features)
             output = result.get("output")
@@ -50,16 +52,13 @@ class MultiModelWrapper(nn.Module):
             if output.dim() == 1:
                 output = output.unsqueeze(1)
             outputs.append(output)
-            penalties.extend(
-                value
-                for name, value in result.items()
-                if name.endswith("_penalty") or name.endswith("_regularizer")
-            )
+            penalty = harvest_penalties(result)
+            if penalty is not None:
+                total_penalty = (
+                    penalty if total_penalty is None else total_penalty + penalty
+                )
 
         out = {"output": torch.cat(outputs, dim=1)}
-        if penalties:
-            total_penalty = penalties[0]
-            for penalty in penalties[1:]:
-                total_penalty = total_penalty + penalty
+        if total_penalty is not None:
             out["output_penalty"] = total_penalty
         return out

@@ -8,7 +8,6 @@ from sklearn.metrics import accuracy_score
 
 import nampy
 from nampy import models
-from nampy.neural import configs, modules
 from nampy.models.ensemble_treenam import (
     EnsembleTreeNAMClassifier,
     EnsembleTreeNAMLSS,
@@ -34,6 +33,7 @@ from nampy.models.sklearn_lss import SklearnBaseLSS
 from nampy.models.snam import SNAMLSS, SNAMClassifier, SNAMRegressor
 from nampy.models.spline_nam import SplineNAMRegressor
 from nampy.models.treenam import TreeNAMClassifier, TreeNAMLSS, TreeNAMRegressor
+from nampy.neural import configs, modules
 
 ALL_NEURAL_ESTIMATORS = (
     NAMRegressor,

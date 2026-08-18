@@ -6,6 +6,18 @@ import pytest
 import torch
 import torch.nn as nn
 
+from nampy.neural.configs.ensemble_treenam_config import DefaultEnsembleTreeNAMConfig
+from nampy.neural.configs.gpnam_config import DefaultGPNAMConfig
+from nampy.neural.configs.linreg_config import DefaultLinRegConfig
+from nampy.neural.configs.nam_config import DefaultNAMConfig
+from nampy.neural.configs.namformer_config import DefaultNAMformerConfig
+from nampy.neural.configs.natt_config import DefaultNATTConfig
+from nampy.neural.configs.nbm_config import DefaultNBMConfig
+from nampy.neural.configs.nodegam_config import DefaultNodeGAMConfig
+from nampy.neural.configs.qnam_config import DefaultQNAMConfig
+from nampy.neural.configs.snam_config import DefaultSNAMConfig
+from nampy.neural.configs.spline_nam_config import DefaultSplineNAMConfig
+from nampy.neural.configs.treenam_config import DefaultTreeNAMConfig
 from nampy.neural.modules.ensemble_treenam import EnsembleTreeNAM
 from nampy.neural.modules.gpnam import GPNAM
 from nampy.neural.modules.linreg import LinReg
@@ -19,18 +31,6 @@ from nampy.neural.modules.qnam import QNAMBase
 from nampy.neural.modules.snam import SNAM
 from nampy.neural.modules.spline_nam import SplineNAM
 from nampy.neural.modules.treenam import TreeNAM
-from nampy.neural.configs.ensemble_treenam_config import DefaultEnsembleTreeNAMConfig
-from nampy.neural.configs.gpnam_config import DefaultGPNAMConfig
-from nampy.neural.configs.linreg_config import DefaultLinRegConfig
-from nampy.neural.configs.nam_config import DefaultNAMConfig
-from nampy.neural.configs.namformer_config import DefaultNAMformerConfig
-from nampy.neural.configs.natt_config import DefaultNATTConfig
-from nampy.neural.configs.nbm_config import DefaultNBMConfig
-from nampy.neural.configs.nodegam_config import DefaultNodeGAMConfig
-from nampy.neural.configs.qnam_config import DefaultQNAMConfig
-from nampy.neural.configs.snam_config import DefaultSNAMConfig
-from nampy.neural.configs.spline_nam_config import DefaultSplineNAMConfig
-from nampy.neural.configs.treenam_config import DefaultTreeNAMConfig
 
 
 @dataclass(frozen=True)

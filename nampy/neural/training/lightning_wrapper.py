@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torchmetrics
 
+from .output_contract import harvest_penalties
+
 
 class TaskModel(pl.LightningModule):
     def __init__(
@@ -222,9 +224,9 @@ class TaskModel(pl.LightningModule):
         preds = result["output"]
         data_loss = self.compute_loss(preds, labels)
         loss = data_loss
-        for key, value in result.items():
-            if key.endswith("_penalty") or key.endswith("_regularizer"):
-                loss = loss + value
+        penalty = harvest_penalties(result)
+        if penalty is not None:
+            loss = loss + penalty
 
         self.log(
             f"{stage}_loss",

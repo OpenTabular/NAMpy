@@ -6,6 +6,7 @@ import torch.nn.functional as F
 
 from ..configs.qnam_config import DefaultQNAMConfig
 from ..layers.mlp_utils import MLP
+from ..training.output_contract import validate_feature_names
 from .basemodel import BaseModel
 
 
@@ -75,17 +76,8 @@ class QNAMBase(BaseModel):
         else:
             self.raw_intercept = None
 
-        reserved = {"output", "intercept", "output_penalty"}
         all_feature_names = set(num_feature_info) | set(cat_feature_info)
-        if reserved & all_feature_names:
-            raise ValueError(
-                f"Feature names {sorted(reserved.intersection(all_feature_names))} are reserved."
-            )
-        if any(":" in name for name in all_feature_names):
-            bad = sorted(name for name in all_feature_names if ":" in name)
-            raise ValueError(
-                f"Feature names {bad} contain ':', which is reserved for interaction names."
-            )
+        validate_feature_names(all_feature_names, owner="QNAM")
 
         # Main-effect subnetworks
         self.num_feature_networks = nn.ModuleDict()
