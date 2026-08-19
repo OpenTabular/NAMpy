@@ -8,7 +8,7 @@ module: coefficients as ``nn.Parameter``, penalty matrices as buffers, and
 ``sum(lam_k * beta_k' S_k beta_k)`` emitted through the ``*_penalty`` loss
 seam.
 
-EXPERIMENTAL, and NOT an mgcv fit: smoothing parameters are FIXED (supplied
+NOT an mgcv fit: smoothing parameters are FIXED (supplied
 or lifted from a fitted GAM) and optimization happens through Torch. Results
 will not and should not match mgcv; never compare them in parity suites.
 """

@@ -17,7 +17,7 @@ from nampy.gam import GAM
 from nampy.hybrid import (
     CompiledGAMTerms,
     CompiledGAMTermsModule,
-    HybridJointRegressor,
+    GAMNetRegressor,
 )
 from nampy.neural.configs.linreg_config import DefaultLinRegConfig
 from nampy.neural.modules.linreg import LinReg
@@ -195,7 +195,7 @@ def test_adam_converges_to_penalized_least_squares():
 
 def test_hybrid_joint_regressor_end_to_end(tmp_path):
     data = _data()
-    estimator = HybridJointRegressor(
+    estimator = GAMNetRegressor(
         "y ~ s(x0, k=6)",
         LinReg,
         DefaultLinRegConfig,
@@ -213,7 +213,7 @@ def test_hybrid_joint_regressor_end_to_end(tmp_path):
 
     path = estimator.save_model(tmp_path / "joint.nampy")
     assert path.stat().st_size < 5_000_000  # no design/checkpoint bloat
-    restored = HybridJointRegressor.load_model(path)
+    restored = GAMNetRegressor.load_model(path)
     np.testing.assert_allclose(
         restored.predict(data), estimator.predict(data), atol=1e-6
     )
