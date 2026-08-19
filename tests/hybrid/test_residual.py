@@ -1,4 +1,4 @@
-"""GAMPlusNeural: frozen mgcv-parity baseline + neural correction.
+"""GAMResidual estimators: frozen mgcv-parity baseline + neural correction.
 
 The composite is NOT an mgcv model and is never parity-compared; these tests
 pin the composition contract instead: the GAM stage must equal a standalone
@@ -12,7 +12,7 @@ import pandas as pd
 import pytest
 
 from nampy.gam import GAM
-from nampy.hybrid import GAMPlusNeural
+from nampy.hybrid import GAMResidualClassifier, GAMResidualRegressor
 from nampy.models.linreg import LinRegClassifier, LinRegRegressor
 
 _NEURAL_FIT_KWARGS = {
@@ -45,7 +45,7 @@ def _regressor():
 
 
 def _fit_gaussian(data, tmp_path):
-    hybrid = GAMPlusNeural("y ~ s(x0, k=6)", _regressor())
+    hybrid = GAMResidualRegressor("y ~ s(x0, k=6)", _regressor())
     kwargs = dict(_NEURAL_FIT_KWARGS, checkpoint_path=str(tmp_path))
     hybrid.fit(data, neural_features=["x3"], neural_fit_kwargs=kwargs)
     return hybrid
@@ -105,11 +105,11 @@ def test_link_scale_composition_is_exact(tmp_path):
         .numpy()
     )
     np.testing.assert_allclose(
-        hybrid.predict(data, type="link"), eta_gam + eta_nn, atol=1e-10
+        hybrid.predict_link(data), eta_gam + eta_nn, atol=1e-10
     )
     # Gaussian identity link: response == link.
     np.testing.assert_allclose(
-        hybrid.predict(data), hybrid.predict(data, type="link"), atol=1e-10
+        hybrid.predict(data), hybrid.predict_link(data), atol=1e-10
     )
 
 
@@ -120,23 +120,21 @@ def test_binomial_composition_matches_sigmoid(tmp_path):
     eta = np.sin(3.0 * data["x0"]) + 1.5 * data["x3"]
     data["y"] = rng.binomial(1, 1.0 / (1.0 + np.exp(-eta)))
 
-    hybrid = GAMPlusNeural(
+    hybrid = GAMResidualClassifier(
         "y ~ s(x0, k=6)",
         LinRegClassifier(numerical_preprocessing="standardization"),
-        family="binomial",
     )
     kwargs = dict(_NEURAL_FIT_KWARGS, checkpoint_path=str(tmp_path))
     hybrid.fit(data, neural_features=["x3"], neural_fit_kwargs=kwargs)
 
-    eta_composite = hybrid.predict(data, type="link")
-    response = hybrid.predict(data, type="response")
-    np.testing.assert_allclose(
-        response, 1.0 / (1.0 + np.exp(-eta_composite)), atol=1e-10
-    )
-
+    eta_composite = hybrid.predict_link(data)
     proba = hybrid.predict_proba(data)
+    np.testing.assert_allclose(
+        proba[:, 1], 1.0 / (1.0 + np.exp(-eta_composite)), atol=1e-10
+    )
     assert proba.shape == (n, 2)
     np.testing.assert_allclose(proba.sum(axis=1), 1.0, atol=1e-12)
+    assert list(hybrid.classes_) == [0, 1]
     assert hybrid.score(data, data["y"]) > 0.5
 
 
@@ -149,7 +147,7 @@ def test_predict_components_merges_backends(tmp_path):
     assert "gam:s(x0, k=6)" in components.terms
     assert "nn:x3" in components.terms
     np.testing.assert_allclose(
-        components.link, hybrid.predict(data, type="link"), atol=1e-10
+        components.link, hybrid.predict_link(data), atol=1e-10
     )
 
 
@@ -159,26 +157,49 @@ def test_persistence_round_trip(tmp_path):
     expected = hybrid.predict(data)
 
     path = hybrid.save_model(tmp_path / "hybrid.nampy")
-    restored = GAMPlusNeural.load_model(path)
+    restored = GAMResidualRegressor.load_model(path)
     np.testing.assert_allclose(restored.predict(data), expected, atol=1e-10)
 
 
-def test_constructor_guards():
+def test_configuration_guards_raise_at_fit(tmp_path):
+    data = _gaussian_data(n=60)
     with pytest.raises(ValueError, match="offset"):
-        GAMPlusNeural("y ~ s(x0) + offset(o)", _regressor())
+        GAMResidualRegressor("y ~ s(x0) + offset(o)", _regressor()).fit(
+            data, neural_features=["x3"]
+        )
     with pytest.raises(ValueError, match="supports families"):
-        GAMPlusNeural("y ~ s(x0)", _regressor(), family="poisson")
+        GAMResidualRegressor("y ~ s(x0)", _regressor(), family="gamma").fit(
+            data, neural_features=["x3"]
+        )
     with pytest.raises(TypeError, match="requires an unfitted"):
-        GAMPlusNeural(
+        GAMResidualRegressor(
             "y ~ s(x0)",
             LinRegClassifier(numerical_preprocessing="standardization"),
             family="gaussian",
-        )
+        ).fit(data, neural_features=["x3"])
+    with pytest.raises(ValueError, match="supports families"):
+        GAMResidualClassifier(
+            "y ~ s(x0)",
+            LinRegClassifier(numerical_preprocessing="standardization"),
+            family="gaussian",
+        ).fit(data, neural_features=["x3"])
+
+
+def test_clone_does_not_mutate_template(tmp_path):
+    data = _gaussian_data(n=80)
+    template = _regressor()
+    hybrid = GAMResidualRegressor("y ~ s(x0, k=5)", template)
+    kwargs = dict(_NEURAL_FIT_KWARGS, max_epochs=2, checkpoint_path=str(tmp_path))
+    hybrid.fit(data, neural_features=["x3"], neural_fit_kwargs=kwargs)
+
+    assert template.model is None
+    assert hybrid.neural_ is not template
+    assert hybrid.neural_.model is not None
 
 
 def test_fit_guards(tmp_path):
     data = _gaussian_data(n=60)
-    hybrid = GAMPlusNeural("y ~ s(x0, k=5)", _regressor())
+    hybrid = GAMResidualRegressor("y ~ s(x0, k=5)", _regressor())
     with pytest.raises(ValueError, match="at least one column"):
         hybrid.fit(data, neural_features=[])
     with pytest.raises(ValueError, match="not found in data"):

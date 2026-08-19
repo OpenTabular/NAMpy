@@ -7,6 +7,12 @@ with a scikit-learn compatible interface.
 
 from . import api, hybrid, models, neural
 from .__version__ import __version__
+from .hybrid import (
+    GAMNetClassifier,
+    GAMNetRegressor,
+    GAMResidualClassifier,
+    GAMResidualRegressor,
+)
 
 # Import key classes for convenience
 from .models import (
@@ -55,6 +61,10 @@ __all__ = [
     # Main model classes
     "GAMRegressor",
     "GAMClassifier",
+    "GAMResidualRegressor",
+    "GAMResidualClassifier",
+    "GAMNetRegressor",
+    "GAMNetClassifier",
     "NAMRegressor",
     "NAMClassifier",
     "NAMLSS",

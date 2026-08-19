@@ -1,94 +1,96 @@
-"""Frozen-GAM baseline plus neural correction, composed on the link scale.
+"""Frozen-GAM baseline plus a neural residual correction, on the link scale.
 
 Two-stage fit: an mgcv-parity GAM is fitted first (exact mgcv semantics),
 then a neural additive model is trained on the SAME response with the GAM's
-link-scale prediction as a fixed per-sample offset — so the network learns
-only what the smooth additive baseline missed. Predictions compose as
+link-scale prediction as a fixed per-sample offset — the network learns only
+what the smooth additive baseline missed. Predictions compose as
 
     response = inverse_link(eta_gam + eta_neural)
 
-This composite is NOT an mgcv model. The GAM stage alone is mgcv-exact; the
+The composite is NOT an mgcv model: the GAM stage alone is mgcv-exact, the
 correction stage is a neural fit, and the sum has no mgcv counterpart. It
-must never be compared in parity suites.
+never enters the parity test suites.
 
-v1 scope: gaussian (identity link) and binomial (logit link) families;
-formulas with ``offset(...)`` terms are rejected (predict-time offsets with
-explicit new data would silently drop them, see gam/fit/offsets.py).
+Supported families: gaussian (identity link), poisson (log link, Poisson NLL
+on the composed linear predictor), binomial (logit link, classifier stage).
+Formulas with ``offset(...)`` terms are rejected: stored formula offsets
+apply only when predicting on training rows, so composite predictions on new
+data would silently drop them (see ``gam/fit/offsets.py``).
 """
 
 from __future__ import annotations
 
 import pickle
 from pathlib import Path
+from typing import TypeVar
 
 import numpy as np
+import torch.nn as nn
+from sklearn.base import BaseEstimator, clone
+from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
+from sklearn.utils import ClassifierTags, RegressorTags
 
 from ..api import AdditivePrediction, Capabilities
 from ..gam import GAM
 from ..models.classifier import NeuralClassifier
 from ..models.regressor import NeuralRegressor
 
-_SUPPORTED_FAMILIES = {
-    "gaussian": NeuralRegressor,
-    "binomial": NeuralClassifier,
+ResidualT = TypeVar("ResidualT", bound="_GAMResidualBase")
+
+
+def _poisson_loss():
+    return nn.PoissonNLLLoss(log_input=True)
+
+
+# family -> (required neural base class, loss factory for the neural stage)
+_REGRESSOR_FAMILIES = {
+    "gaussian": (NeuralRegressor, None),
+    "poisson": (NeuralRegressor, _poisson_loss),
+}
+_CLASSIFIER_FAMILIES = {
+    "binomial": (NeuralClassifier, None),
 }
 
 
-class GAMPlusNeural:
-    """Frozen GAM baseline with an offset-trained neural correction.
+class _GAMResidualBase(BaseEstimator):
+    """Shared two-stage machinery. Not part of the public API."""
 
-    Parameters
-    ----------
-    formula : str
-        mgcv-style formula for the GAM stage, including the response
-        (e.g. ``"y ~ s(x0) + s(x1)"``). ``offset(...)`` terms are rejected.
-    neural : estimator
-        An UNFITTED NAMpy neural estimator: a regressor subclass for
-        ``family="gaussian"``, a classifier subclass for
-        ``family="binomial"``.
-    family : str, default "gaussian"
-        ``"gaussian"`` (identity link) or ``"binomial"`` (logit link).
-    gam_kwargs : dict, optional
-        Extra hyperparameters for the GAM stage (defaults: automatic REML
-        smoothing selection).
-    """
+    _family_table: dict = {}
 
-    def __init__(self, formula, neural, *, family="gaussian", gam_kwargs=None):
-        family = str(family).lower()
-        if family not in _SUPPORTED_FAMILIES:
-            raise ValueError(
-                "GAMPlusNeural supports families "
-                f"{sorted(_SUPPORTED_FAMILIES)}; got {family!r}."
-            )
-        expected_base = _SUPPORTED_FAMILIES[family]
-        if not isinstance(neural, expected_base):
-            raise TypeError(
-                f"family={family!r} requires an unfitted "
-                f"{expected_base.__name__} subclass; got "
-                f"{type(neural).__name__}."
-            )
-        if getattr(neural, "model", None) is not None:
-            raise ValueError("The neural estimator must be unfitted.")
-        if "offset(" in str(formula):
-            raise ValueError(
-                "Formulas with offset(...) terms are not supported by "
-                "GAMPlusNeural: stored formula offsets apply only when "
-                "predicting on training rows, so composite predictions on "
-                "new data would silently drop them."
-            )
-
-        self.formula = str(formula)
+    def __init__(self, formula, neural, *, family, gam_kwargs=None):
+        self.formula = formula
+        self.neural = neural
         self.family = family
-        self.neural_ = neural
-        self.gam_kwargs = dict(gam_kwargs or {})
-        self.gam_ = None
-        self.neural_features_ = None
+        self.gam_kwargs = gam_kwargs
 
     # ------------------------------------------------------------------
     # Fitting
     # ------------------------------------------------------------------
 
-    def fit(self, data, *, neural_features, neural_fit_kwargs=None):
+    def _validate_configuration(self):
+        family = str(self.family).lower()
+        if family not in self._family_table:
+            raise ValueError(
+                f"{type(self).__name__} supports families "
+                f"{sorted(self._family_table)}; got {family!r}."
+            )
+        expected_base, loss_factory = self._family_table[family]
+        if not isinstance(self.neural, expected_base):
+            raise TypeError(
+                f"family={family!r} requires an unfitted "
+                f"{expected_base.__name__} subclass; got "
+                f"{type(self.neural).__name__}."
+            )
+        if "offset(" in str(self.formula):
+            raise ValueError(
+                "Formulas with offset(...) terms are not supported: stored "
+                "formula offsets apply only when predicting on training "
+                "rows, so composite predictions on new data would silently "
+                "drop them."
+            )
+        return family, loss_factory
+
+    def fit(self, data, *, neural_features, val_data=None, neural_fit_kwargs=None):
         """Fit the GAM on ``data`` via the formula, then the correction.
 
         Parameters
@@ -97,12 +99,16 @@ class GAMPlusNeural:
             Training table for the formula-mode GAM fit (must contain the
             response and every formula column).
         neural_features : sequence of str
-            Columns of ``data`` fed to the neural correction. Required and
-            explicit — the correction sees only these features.
+            Columns of ``data`` fed to the neural correction stage.
+        val_data : pandas.DataFrame, optional
+            Explicit validation rows (same columns as ``data``); the GAM
+            link prediction on these rows becomes the validation offset.
         neural_fit_kwargs : dict, optional
-            Extra keyword arguments for the neural estimator's ``fit``
-            (epochs, batch size, trainer flags, ...).
+            Extra keyword arguments for the neural stage's ``fit`` (epochs,
+            batch size, trainer flags, ...).
         """
+        family, loss_factory = self._validate_configuration()
+
         neural_features = list(neural_features)
         if not neural_features:
             raise ValueError("neural_features must name at least one column.")
@@ -114,8 +120,8 @@ class GAMPlusNeural:
             "optimize_smoothing": True,
             "smoothing_method": "reml",
         }
-        gam_params.update(self.gam_kwargs)
-        self.gam_ = GAM(formula=self.formula, family=self.family, **gam_params)
+        gam_params.update(dict(self.gam_kwargs or {}))
+        self.gam_ = GAM(formula=self.formula, family=family, **gam_params)
         self.gam_.fit(data=data)
 
         # Link-scale baseline on the training rows (X=None applies any
@@ -123,15 +129,36 @@ class GAMPlusNeural:
         eta = np.asarray(self.gam_.predict(None, type="link"), dtype=np.float64)
         y = np.asarray(self.gam_.y_)
 
-        self.neural_features_ = neural_features
         fit_kwargs = dict(neural_fit_kwargs or {})
+        if val_data is not None:
+            response_name = self.gam_.formula_response_name_
+            if response_name is None or response_name not in val_data.columns:
+                raise ValueError(
+                    "val_data must contain the formula response column "
+                    f"{response_name!r}."
+                )
+            fit_kwargs["X_val"] = val_data[neural_features]
+            fit_kwargs["y_val"] = np.asarray(val_data[response_name])
+            fit_kwargs["offset_val"] = np.asarray(
+                self.gam_.predict(val_data, type="link"), dtype=np.float64
+            )
+        if loss_factory is not None:
+            fit_kwargs["loss_fct"] = loss_factory()
+
+        # Clone: the passed estimator is a hyperparameter template and is
+        # never mutated (required for cross-validation).
+        self.neural_ = clone(self.neural)
+        self.neural_features_ = neural_features
         self.neural_.fit(data[neural_features], y, offset=eta, **fit_kwargs)
         return self
 
     def _check_fitted(self):
-        if self.gam_ is None or getattr(self.neural_, "model", None) is None:
+        neural_fitted = (
+            getattr(getattr(self, "neural_", None), "model", None) is not None
+        )
+        if getattr(self, "gam_", None) is None or not neural_fitted:
             raise ValueError(
-                "This GAMPlusNeural instance is not fitted yet. "
+                f"This {type(self).__name__} instance is not fitted yet. "
                 "Call 'fit' before using this method."
             )
 
@@ -149,23 +176,9 @@ class GAMPlusNeural:
         eta_gam = np.asarray(self.gam_.predict(X, type="link"), dtype=np.float64)
         return eta_gam + self._neural_link(X)
 
-    def predict(self, X, *, type="response"):
-        """Composite prediction on the response (default) or link scale."""
-        if type not in {"response", "link"}:
-            raise ValueError("type must be 'response' or 'link'.")
+    def _predict_response(self, X) -> np.ndarray:
         eta = self.predict_link(X)
-        if type == "link":
-            return eta
         return np.asarray(self.gam_.family.inverse_link(eta), dtype=np.float64)
-
-    def predict_proba(self, X) -> np.ndarray:
-        """Class probabilities (binomial family only)."""
-        if self.family != "binomial":
-            raise AttributeError(
-                "predict_proba is only available for family='binomial'."
-            )
-        p1 = self.predict(X, type="response")
-        return np.column_stack([1.0 - p1, p1])
 
     def _gam_label_map(self) -> dict[str, str]:
         compiled_model = getattr(self.gam_, "compiled_model_", None)
@@ -214,41 +227,60 @@ class GAMPlusNeural:
         )
 
     # ------------------------------------------------------------------
-    # Scoring / capabilities / plotting / persistence
+    # Plotting / capabilities / persistence
     # ------------------------------------------------------------------
 
-    def score(self, X, y):
-        """R^2 for gaussian; accuracy against 0/1 labels for binomial."""
-        from sklearn.metrics import accuracy_score, r2_score
+    def _gam_term_features(self) -> dict[str, str]:
+        """Map prefixed 1-d gam term names to their raw feature column."""
+        compiled_model = getattr(self.gam_, "compiled_model_", None)
+        if compiled_model is None:
+            return {}
+        feature_names = getattr(self.gam_, "formula_feature_columns_", None)
+        if not feature_names:
+            n = int(np.asarray(self.gam_.X_).shape[1])
+            feature_names = [f"x{index}" for index in range(n)]
 
-        if self.family == "binomial":
-            p1 = self.predict(X, type="response")
-            return float(accuracy_score(np.asarray(y), (p1 >= 0.5).astype(int)))
-        return float(r2_score(np.asarray(y), self.predict(X)))
-
-    def capabilities(self) -> Capabilities:
-        return Capabilities(
-            supports_predict_proba=self.family == "binomial",
-            supports_standard_errors=False,
-            supports_lpmatrix=False,
-            supports_term_contributions=True,
-        )
+        mapping: dict[str, str] = {}
+        for term in compiled_model.compiled_terms:
+            indices = list(term.feature_info.feature_indices)
+            if len(indices) != 1:
+                continue
+            mapping[f"gam:{term.label}"] = str(feature_names[int(indices[0])])
+        return mapping
 
     def plot(self, X, *, rug=None, pages=0, figsize=None):
         """Plot merged 1-d term contributions via the shared renderer."""
         from ..plotting import prepared_from_contributions, render_term_plots
 
         components = self.predict_components(X)
-        # Strip the backend prefixes for frame-column lookup, keeping the
-        # prefixed name as the axis label via disambiguation when both
-        # backends contribute a term for the same column.
-        terms = {}
-        for name, values in components.terms.items():
-            bare = name.split(":", 1)[1]
-            key = bare if bare not in terms else name
-            terms[key] = values
-        prepared = prepared_from_contributions(X, terms)
+        term_features = self._gam_term_features()
+        for name in components.terms:
+            if name.startswith("nn:"):
+                column = name.split(":", 1)[1]
+                if column in getattr(X, "columns", ()):
+                    term_features[name] = column
+        prepared = prepared_from_contributions(
+            X, components.terms, term_features=term_features
+        )
         return render_term_plots(prepared, rug=rug, pages=pages, figsize=figsize)
+
+    def evaluate(self, X, y_true, metrics=None):
+        """Evaluate with a ``{name: metric_fn}`` dict on composite predictions."""
+        if metrics is None:
+            metrics = self._default_metrics()
+        predictions = self.predict(X)
+        return {
+            metric_name: metric_func(y_true, predictions)
+            for metric_name, metric_func in metrics.items()
+        }
+
+    def capabilities(self) -> Capabilities:
+        return Capabilities(
+            supports_predict_proba=isinstance(self, GAMResidualClassifier),
+            supports_standard_errors=False,
+            supports_lpmatrix=False,
+            supports_term_contributions=True,
+        )
 
     def save_model(self, path: str | Path) -> Path:
         """Persist the composite (GAM stage + neural stage) to one file."""
@@ -258,7 +290,7 @@ class GAMPlusNeural:
         return destination
 
     @classmethod
-    def load_model(cls, path: str | Path) -> GAMPlusNeural:
+    def load_model(cls: type[ResidualT], path: str | Path) -> ResidualT:
         """Load a composite previously written by :meth:`save_model`."""
         source = Path(path)
         with source.open("rb") as handle:
@@ -268,3 +300,91 @@ class GAMPlusNeural:
                 f"{source} contains {type(loaded).__name__}, not {cls.__name__}."
             )
         return loaded
+
+
+class GAMResidualRegressor(_GAMResidualBase):
+    """mgcv-parity GAM baseline plus a neural residual correction.
+
+    ``family="gaussian"`` (identity link) or ``"poisson"`` (log link; the
+    neural stage trains with a Poisson NLL on the composed linear
+    predictor). The composite is NOT an mgcv model; the GAM stage alone is
+    mgcv-exact and available as ``gam_``.
+    """
+
+    _estimator_type = "regressor"
+    _family_table = _REGRESSOR_FAMILIES
+
+    def __init__(self, formula, neural, *, family="gaussian", gam_kwargs=None):
+        super().__init__(formula, neural, family=family, gam_kwargs=gam_kwargs)
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.estimator_type = "regressor"
+        tags.regressor_tags = RegressorTags()
+        tags.target_tags.required = True
+        return tags
+
+    def predict(self, X):
+        """Response-scale composite prediction."""
+        return self._predict_response(X)
+
+    def score(self, X, y, sample_weight=None):
+        """Return the coefficient of determination R^2 of the prediction."""
+        return float(r2_score(y, self.predict(X), sample_weight=sample_weight))
+
+    def _default_metrics(self):
+        return {"Mean Squared Error": mean_squared_error}
+
+
+class GAMResidualClassifier(_GAMResidualBase):
+    """Binary GAM baseline plus a neural logit-scale correction.
+
+    The formula response must be binary 0/1 (binomial GAM stage);
+    ``classes_`` is ``[0, 1]``. The composite is NOT an mgcv model.
+    """
+
+    _estimator_type = "classifier"
+    _family_table = _CLASSIFIER_FAMILIES
+
+    def __init__(self, formula, neural, *, family="binomial", gam_kwargs=None):
+        super().__init__(formula, neural, family=family, gam_kwargs=gam_kwargs)
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.estimator_type = "classifier"
+        tags.classifier_tags = ClassifierTags()
+        tags.target_tags.required = True
+        return tags
+
+    def fit(self, data, *, neural_features, val_data=None, neural_fit_kwargs=None):
+        super().fit(
+            data,
+            neural_features=neural_features,
+            val_data=val_data,
+            neural_fit_kwargs=neural_fit_kwargs,
+        )
+        self.classes_ = np.array([0, 1])
+        return self
+
+    def predict_proba(self, X) -> np.ndarray:
+        """Class probabilities; columns follow ``self.classes_``."""
+        p1 = self._predict_response(X)
+        return np.column_stack([1.0 - p1, p1])
+
+    def predict(self, X):
+        """Predicted 0/1 labels."""
+        p1 = self._predict_response(X)
+        return self.classes_[(p1 >= 0.5).astype(int)]
+
+    def decision_function(self, X) -> np.ndarray:
+        """Composite link-scale (logit) decision values."""
+        return self.predict_link(X)
+
+    def score(self, X, y, sample_weight=None):
+        """Return the mean accuracy on the given test data and labels."""
+        return float(
+            accuracy_score(y, self.predict(X), sample_weight=sample_weight)
+        )
+
+    def _default_metrics(self):
+        return {"Accuracy": accuracy_score}

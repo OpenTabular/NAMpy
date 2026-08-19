@@ -16,10 +16,10 @@ from .compiled_terms import CompiledGAMTerms, CompiledGAMTermsModule
 GAM_DESIGN_KEY = "__gam_design__"
 
 
-class HybridAdditiveNet(nn.Module):
+class GAMNet(nn.Module):
     """Compiled-GAM terms plus an arbitrary NAMpy architecture, additively.
 
-    Constructed by :class:`~nampy.hybrid.joint.HybridJointRegressor` through
+    Constructed by the joint estimators (:class:`~nampy.hybrid.joint.GAMNetRegressor`, :class:`~nampy.hybrid.joint.GAMNetClassifier`) through
     the TaskModule harness; ``base_model_class`` and ``gam_payload`` arrive as
     extra TaskModule kwargs (excluded from checkpoint hyperparameters).
     """
@@ -38,7 +38,7 @@ class HybridAdditiveNet(nn.Module):
         super().__init__()
         if base_model_class is None or gam_payload is None:
             raise ValueError(
-                "HybridAdditiveNet requires base_model_class and gam_payload."
+                "GAMNet requires base_model_class and gam_payload."
             )
         if GAM_DESIGN_KEY in num_feature_info or GAM_DESIGN_KEY in cat_feature_info:
             raise ValueError(

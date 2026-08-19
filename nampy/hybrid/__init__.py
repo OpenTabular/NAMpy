@@ -7,14 +7,16 @@ mgcv counterpart and must never enter the parity suites.
 """
 
 from .compiled_terms import CompiledGAMTerms, CompiledGAMTermsModule
-from .joint import HybridJointRegressor
-from .net import HybridAdditiveNet
-from .residual import GAMPlusNeural
+from .joint import GAMNetClassifier, GAMNetRegressor
+from .net import GAMNet
+from .residual import GAMResidualClassifier, GAMResidualRegressor
 
 __all__ = [
-    "GAMPlusNeural",
+    "GAMResidualRegressor",
+    "GAMResidualClassifier",
+    "GAMNetRegressor",
+    "GAMNetClassifier",
+    "GAMNet",
     "CompiledGAMTerms",
     "CompiledGAMTermsModule",
-    "HybridAdditiveNet",
-    "HybridJointRegressor",
 ]
