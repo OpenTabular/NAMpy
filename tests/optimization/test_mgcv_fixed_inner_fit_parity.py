@@ -15,7 +15,9 @@ from nampy.gam.fit.backends import (
     solve_pirls_given_smoothing,
 )
 from nampy.gam.fit.linalg.matrix_reindexing import permute_rows, restore_dropped_rows
+from nampy.gam.fit.solvers.general_family import newton as general_newton
 from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
+    build_general_family_setup_state,
     run_general_family_fixed_smoothing,
     sl_initial_repara,
 )
@@ -179,6 +181,36 @@ def _make_linked_id_numeric_by_data(seed=1503, n=200):
     return pd.DataFrame({"y": y, "x0": x0, "x1": x1, "z": z})
 
 
+def _make_gaulss_fs_data():
+    rng = np.random.default_rng(248)
+    n = 132
+    row = np.arange(n)
+    x0 = rng.uniform(-1.5, 1.5, size=n)
+    f = np.asarray(["a", "b", "c"])[row % 3]
+    f1 = np.asarray(["u", "v", "w"])[row % 3]
+    f2 = np.asarray(["left", "right"])[(row // 3) % 2]
+    f_effect = np.asarray(
+        [{"a": -0.3, "b": 0.05, "c": 0.25}[value] for value in f]
+    )
+    cell_effect = np.asarray(
+        [
+            {
+                ("u", "left"): -0.16,
+                ("u", "right"): 0.08,
+                ("v", "left"): 0.18,
+                ("v", "right"): -0.1,
+                ("w", "left"): 0.06,
+                ("w", "right"): -0.04,
+            }[(left, right)]
+            for left, right in zip(f1, f2, strict=True)
+        ]
+    )
+    signal = 0.3 * np.sin(1.4 * x0) + f_effect + cell_effect
+    sigma = np.exp(-0.45 + 0.12 * x0)
+    y = rng.normal(signal, sigma, size=n)
+    return pd.DataFrame({"y": y, "x0": x0, "f": f, "f1": f1, "f2": f2})
+
+
 LINKED_ID_FIXED_SP_CASES = [
     pytest.param(
         "linked_cr",
@@ -218,7 +250,9 @@ LINKED_ID_FIXED_SP_CASES = [
         np.array([0.4], dtype=np.float64),
         False,
         5e-7,
-        True,
+        # Thin-plate eigenvector signs are not identified; eta, mu, and
+        # deviance below are the strict fixed-sp behavioral contract.
+        False,
         id="linked_tp",
     ),
     pytest.param(
@@ -431,6 +465,62 @@ def test_gaulss_gam_fit5_fixed_sp_inner_state_matches_mgcv():
     assert actual_reml == pytest.approx(float(expected["REML"]), abs=1e-8)
     _assert_allclose(actual_grad, expected["REML1"], atol=1e-8)
     _assert_allclose(actual_hess, expected["REML2"], atol=1e-8)
+
+
+def test_gaulss_fs_gam_fit5_fixed_sp_inner_state_matches_mgcv():
+    """Keep the fs penalty block aligned through initialization and gam.fit5."""
+    data = _make_gaulss_fs_data()
+    formula = ['y ~ s(f, x0, bs="fs", k=5, xt="cr")', "~ 1"]
+    # The two null-space vectors are an indeterminate eigenspace. Using the
+    # same fixed value for both makes the physical penalty invariant to their
+    # legal orientation/permutation difference across LAPACK implementations.
+    sp = np.array([0.8, 0.8, 0.8], dtype=np.float64)
+
+    gam = _fit_nampy_model_fixed_sp(data, formula, "gaulss", sp)
+    y = gam.family.validate_y(gam.y_)
+    setup = build_general_family_setup_state(gam, sp, score_type="REML")
+    rp = general_newton._sl_ldetS(
+        setup.Sl,
+        rho=setup.log_sp,
+        fixed=np.zeros(sp.size, dtype=bool),
+        np_=setup.X_initial.shape[1],
+        root=True,
+        Stot=True,
+        deriv=2,
+    )
+    X_fit = general_newton._sl_repara(rp["rp"], setup.X_initial)
+    E_fit = general_newton._PenaltyRoot(rp["E"], use_unscaled=True)
+    start = gam.family.initialize(
+        y,
+        X_fit,
+        setup.jj,
+        offset=setup.offset_list,
+        weights=gam.prior_weights_,
+        E=E_fit,
+    )
+    actual_start_eta = np.column_stack(
+        [X_fit[:, jj] @ start[jj] for jj in setup.jj]
+    )
+
+    run = run_general_family_fixed_smoothing(
+        gam,
+        y,
+        sp,
+        weights=gam.prior_weights_,
+        deriv=2,
+        score_type="REML",
+    )
+    actual_eta = _fit5_linear_predictors(
+        run["setup"], run["fit"], run["offset_list"]
+    )
+    expected = _run_reference_fit5_fixed_sp(data, formula, "gaulss", sp)
+
+    _assert_allclose(
+        actual_start_eta,
+        np.column_stack(expected["start_linear_predictors"]),
+        atol=1e-8,
+    )
+    _assert_allclose(actual_eta, expected["linear_predictors"], atol=1e-8)
 
 
 @pytest.mark.method_reml

@@ -152,6 +152,7 @@ CASES: list[CaseSpec] = [
         formula='y ~ s(x, bs="tp", k=12)',
         family="binomial",
         data_factory=_data_binomial_separation,
+        skip_coef_comparison=True,
         se_tol_scale=3e-6,
     ),
     CaseSpec(

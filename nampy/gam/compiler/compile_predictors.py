@@ -35,7 +35,7 @@ def compile_predictors(
     for pred_spec in predictor_specs:
         pred_metadata = dict(getattr(pred_spec, "metadata", {}) or {})
         raw_group_specs = pred_metadata.get("penalty_group_specs", []) or []
-        penalty_group_specs = {}
+        penalty_group_specs: dict[str, PenaltyGroupSpec] = {}
         for spec in raw_group_specs:
             if isinstance(spec, PenaltyGroupSpec):
                 group = PenaltyGroupSpec(
@@ -58,8 +58,8 @@ def compile_predictors(
         term_blocks = []
         penalty_blocks = []
         design_blocks = []
-        smoothing_id_map = {}
-        smoothing_override_by_id = {}
+        smoothing_id_map: dict[str, int] = {}
+        smoothing_override_by_id: dict[str, dict | None] = {}
         start = 0
 
         for term_like in pred_spec.terms:
@@ -119,8 +119,8 @@ def compile_predictors(
                     continue
                 sid_key = str(sid_raw)
                 raw_sid_counts[sid_key] = raw_sid_counts.get(sid_key, 0) + 1
-            term_smoothing_indices = []
-            term_smoothing_ids = []
+            term_smoothing_indices: list[int] = []
+            term_smoothing_ids: list[str | None] = []
             for j, pdef in enumerate(penalty_defs):
                 P = np.asarray(pdef.matrix, dtype=np.float64)
                 sid = pdef.smoothing_id
@@ -185,32 +185,32 @@ def compile_predictors(
                 else str(tb.smoothing_group_id)
             )
             if group_id is not None:
-                group = penalty_group_specs.get(group_id)
-                if group is None:
-                    group = PenaltyGroupSpec(smoothing_id=group_id)
-                    penalty_group_specs[group_id] = group
-                if group.sp_count is None:
-                    group.sp_count = len(term_smoothing_indices)
-                elif group.sp_count < len(term_smoothing_indices):
+                linked_group = penalty_group_specs.get(group_id)
+                if linked_group is None:
+                    linked_group = PenaltyGroupSpec(smoothing_id=group_id)
+                    penalty_group_specs[group_id] = linked_group
+                if linked_group.sp_count is None:
+                    linked_group.sp_count = len(term_smoothing_indices)
+                elif linked_group.sp_count < len(term_smoothing_indices):
                     raise ValueError(
                         f"Linked smoothing id {group_id!r} cannot have more smoothing "
-                        f"parameters than its defining term ({group.sp_count}); got "
+                        f"parameters than its defining term ({linked_group.sp_count}); got "
                         f"{len(term_smoothing_indices)}."
                     )
-                if not group.sp_indices:
-                    group.sp_indices = list(term_smoothing_indices)
-                elif group.sp_indices[: len(term_smoothing_indices)] != list(
+                if not linked_group.sp_indices:
+                    linked_group.sp_indices = list(term_smoothing_indices)
+                elif linked_group.sp_indices[: len(term_smoothing_indices)] != list(
                     term_smoothing_indices
                 ):
                     raise ValueError(
                         f"Linked smoothing id {group_id!r} resolved to inconsistent "
-                        f"smoothing indices {group.sp_indices} and "
+                        f"smoothing indices {linked_group.sp_indices} and "
                         f"{term_smoothing_indices}."
                     )
-                if tb.term_id not in group.term_ids:
-                    group.term_ids.append(str(tb.term_id))
-                if tb.label not in group.labels:
-                    group.labels.append(str(tb.label))
+                if tb.term_id not in linked_group.term_ids:
+                    linked_group.term_ids.append(str(tb.term_id))
+                if tb.label not in linked_group.labels:
+                    linked_group.labels.append(str(tb.label))
 
         matrix_train = (
             np.column_stack(design_blocks)
@@ -218,7 +218,7 @@ def compile_predictors(
             else np.empty((X.shape[0], 0), dtype=np.float64)
         )
         n_sp = len(smoothing_id_map)
-        override_modes = [None] * n_sp
+        override_modes: list[str | None] = [None] * n_sp
         override_values = np.full(n_sp, np.nan, dtype=np.float64)
         for sid, spec in smoothing_override_by_id.items():
             if spec is None:

@@ -79,7 +79,7 @@ def rescale_tensor_penalties_for_fit(
     )
     out = [
         S.copy() if float(scale) <= tol else S / float(scale)
-        for S, scale in zip(penalties, scales)
+        for S, scale in zip(penalties, scales, strict=True)
     ]
     if return_scales:
         return out, scales

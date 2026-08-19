@@ -128,7 +128,14 @@ def build_null_space_selection_spec(
     )
 
 
-def merge_smoothing_override(existing, mode, value, *, smoothing_id: str, label: str):
+def merge_smoothing_override(
+    existing: dict[str, Any] | None,
+    mode: str | None,
+    value: float | None,
+    *,
+    smoothing_id: str,
+    label: str,
+) -> dict[str, Any] | None:
     if mode is None:
         return existing
     candidate = {
@@ -144,7 +151,19 @@ def merge_smoothing_override(existing, mode, value, *, smoothing_id: str, label:
             f"got both {existing['mode']!r} and {candidate['mode']!r}."
         )
     if candidate["mode"] == "fixed":
-        if not np.isclose(existing["value"], candidate["value"], atol=0.0, rtol=0.0):
+        existing_value = existing.get("value")
+        candidate_value = candidate.get("value")
+        if existing_value is None or candidate_value is None:
+            raise RuntimeError("Fixed smoothing overrides require numeric values.")
+        existing_float = float(
+            np.asarray(existing_value, dtype=np.float64).reshape(()).item()
+        )
+        candidate_float = float(
+            np.asarray(candidate_value, dtype=np.float64).reshape(()).item()
+        )
+        if not np.isclose(
+            existing_float, candidate_float, atol=0.0, rtol=0.0
+        ):
             raise ValueError(
                 f"Conflicting fixed term-level sp overrides for smoothing_id={smoothing_id!r}: "
                 f"{existing['value']} vs {candidate['value']}."
@@ -164,9 +183,12 @@ def default_penalty_id(
     base_id = getattr(term, "smoothing_id", None)
     if base_id is not None:
         base_id = str(base_id)
-        return penalty_id_for_local_index(
+        penalty_id = penalty_id_for_local_index(
             base_id, local_penalty_index, n_penalties=n_penalties
         )
+        if penalty_id is None:
+            raise RuntimeError("A non-null base smoothing id must produce a penalty id.")
+        return penalty_id
     return f"__auto__:{pred_name}:{term_label}:{coef_start}:{local_penalty_index}"
 
 

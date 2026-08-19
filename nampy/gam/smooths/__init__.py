@@ -1,6 +1,6 @@
 from .categorical.fs import FSmoothInteractionTerm, SZSmoothInteractionTerm
 from .categorical.re import RandomEffectTerm
-from .registry import available_smooths, make_smooth_term, register_smooth
+from .registry import make_smooth_term, register_smooth
 from .smooth_base import (
     RUNTIME_TERM_INTERFACE_CHECKLIST,
     BaseSmoothTerm,
@@ -13,13 +13,11 @@ from .smooth_base import (
     _resolve_numeric_by,
     apply_numeric_by,
     build_penalty_definition,
-    build_selection_penalty_definition,
     by_values_from_new_data,
     column_as_float,
     column_as_object,
     columns_as_float_matrix,
     resolve_by_state,
-    resolve_feature_matrix_state,
     sync_by_state_attributes,
 )
 from .tensor.te import TensorProductSplineTerm
@@ -42,7 +40,6 @@ re = RandomEffectTerm
 
 __all__ = [
     "register_smooth",
-    "available_smooths",
     "make_smooth_term",
     "BaseSmoothTerm",
     "ByState",
@@ -59,10 +56,8 @@ __all__ = [
     "column_as_object",
     "columns_as_float_matrix",
     "resolve_by_state",
-    "resolve_feature_matrix_state",
     "sync_by_state_attributes",
     "build_penalty_definition",
-    "build_selection_penalty_definition",
     "CubicSplineTerm",
     "PSplineTerm1D",
     "ThinPlateSplineTerm",

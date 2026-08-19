@@ -161,6 +161,7 @@ def solve_general_newton_fit(
 
     use_exact_sl = Sl is not None and _sl_length(Sl) > 0
     rp_state: dict[str, Any] | None = None
+    E: _PenaltyRoot | np.ndarray
 
     if use_exact_sl:
         rp_state = _sl_ldetS(
@@ -990,6 +991,12 @@ def postprocess_general_newton_fit(
                     db_drho_k @ np.asarray(L_map, dtype=np.float64),
                     dtype=np.float64,
                 )
+            # mgcv/R/gam.fit4.r::gam.fit5.post.proc only enters this branch
+            # when an outer-fit Hessian and matching free-SP derivatives exist.
+            # A fully fixed fit has an empty working-SP map, even though the
+            # inner gam.fit5 result still carries full-space REML derivatives.
+            if db_drho_k.shape[1] == 0:
+                continue
             if db_drho_k.shape[0] == p and np.any(bdrop):
                 db_full = np.zeros((q, db_drho_k.shape[1]), dtype=np.float64)
                 db_full[keep, :] = db_drho_k
@@ -1057,13 +1064,16 @@ def postprocess_general_newton_fit(
                 "postprocess_general_newton_fit requires working log smoothing parameters for "
                 "Vb.corr parity."
             )
+        if Vr is None:
+            raise RuntimeError("Vb.corr requires the smoothing covariance root.")
+        S_blocks_vcorr = [] if S_blocks is None else S_blocks
         Vc = np.asarray(
             Vc
             + _vb_corr_root(
                 R,
                 L=L_map,
                 lsp0=lsp0,
-                S_blocks=S_blocks,
+                S_blocks=S_blocks_vcorr,
                 off=off,
                 rho=work_lsp,
                 Vr=Vr,
@@ -1073,13 +1083,17 @@ def postprocess_general_newton_fit(
             dtype=np.float64,
         )
         if Vc1 is not None:
+            if work_lsp1 is None or Vr1 is None:
+                raise RuntimeError(
+                    "Vb.corr first-order correction requires its working state."
+                )
             Vc1 = np.asarray(
                 Vc1
                 + _vb_corr_root(
                     R,
                     L=L_map,
                     lsp0=lsp0,
-                    S_blocks=S_blocks,
+                    S_blocks=S_blocks_vcorr,
                     off=off,
                     rho=work_lsp1,
                     Vr=Vr1,
@@ -1693,6 +1707,8 @@ def _sl_second_mult(
     block_i, local_i = _sl_param_location(sl_blocks, i)
     block_j, local_j = _sl_param_location(sl_blocks, j)
     if block_i is None or block_j is None:
+        return np.zeros_like(A_arr)
+    if local_i is None or local_j is None:
         return np.zeros_like(A_arr)
 
     if block_i is not block_j:

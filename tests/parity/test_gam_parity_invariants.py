@@ -13,6 +13,8 @@ from tests.mgcv_invariant_policy import (
     final_fit_uses_exact_orientation_parity,
     gam_setup_uses_invariant_transform,
     gam_side_uses_invariant_transform,
+    lpmatrix_uses_invariant_comparison,
+    penalized_response_operator,
     preoptimization_blocks_align_basis_columns,
     preoptimization_blocks_compare_range_root_representation,
     stable_column_space_projector,
@@ -63,7 +65,14 @@ def test_matrix_space_invariants_ignore_orthogonal_basis_rotation():
         dtype=np.float64,
     )
     X_rotated = X @ rotation
+    penalty = np.array([[3.0, 0.4], [0.4, 1.0]], dtype=np.float64)
+    penalty_rotated = rotation.T @ penalty @ rotation
 
+    np.testing.assert_allclose(
+        matrix_self_gram(X),
+        matrix_self_gram(X_rotated),
+        atol=1e-12,
+    )
     np.testing.assert_allclose(
         column_space_projector(X),
         column_space_projector(X_rotated),
@@ -72,6 +81,11 @@ def test_matrix_space_invariants_ignore_orthogonal_basis_rotation():
     np.testing.assert_allclose(
         row_space_projector(X),
         row_space_projector(X_rotated),
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        penalized_response_operator(X, [penalty]),
+        penalized_response_operator(X_rotated, [penalty_rotated]),
         atol=1e-12,
     )
 
@@ -127,13 +141,16 @@ def test_covariance_standard_errors_and_spectrum_are_stable_helpers():
 def test_invariant_policy_centralizes_non_unique_representation_surfaces():
     """Verify shared policy marks the current non-unique surfaces consistently."""
     assert gam_setup_uses_invariant_transform("gaussian_tp_two_dim")
+    assert gam_setup_uses_invariant_transform("gaussian_sz")
     assert not gam_setup_uses_invariant_transform("gaussian_two_cr")
 
     assert gam_side_uses_invariant_transform("tprs.smooth")
     assert gam_side_uses_invariant_transform("fs.interaction")
+    assert gam_side_uses_invariant_transform("sz.interaction")
     assert not gam_side_uses_invariant_transform("cr.smooth")
 
     assert preoptimization_blocks_align_basis_columns("gaussian_tp_two_dim")
+    assert preoptimization_blocks_align_basis_columns("gaussian_sz")
     assert not preoptimization_blocks_align_basis_columns("gaussian_two_cr")
     assert not preoptimization_blocks_compare_range_root_representation(
         "gaussian_fs"
@@ -141,6 +158,9 @@ def test_invariant_policy_centralizes_non_unique_representation_surfaces():
     assert preoptimization_blocks_compare_range_root_representation(
         "gaussian_two_cr"
     )
+    assert lpmatrix_uses_invariant_comparison("gaussian_tp_k20")
+    assert lpmatrix_uses_invariant_comparison("factor_smooth_sz")
+    assert not lpmatrix_uses_invariant_comparison("gaussian_cr")
 
     class _Term:
         def __init__(self, basis_name):
@@ -162,6 +182,9 @@ def test_invariant_policy_centralizes_non_unique_representation_surfaces():
     )
     assert not final_fit_uses_exact_orientation_parity(
         _Model("fs"), skip_coef_comparison=False
+    )
+    assert not final_fit_uses_exact_orientation_parity(
+        _Model("sz"), skip_coef_comparison=False
     )
     assert not final_fit_uses_exact_orientation_parity(
         _Model("cr"), skip_coef_comparison=True

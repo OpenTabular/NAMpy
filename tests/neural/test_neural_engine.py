@@ -54,7 +54,7 @@ def test_unfitted_predict_raises_not_fitted_error():
     with pytest.raises(NotFittedError):
         estimator.predict(X)
     with pytest.raises(NotFittedError):
-        estimator.predict_feature_vals(X)
+        estimator.predict_components(X)
 
 
 def test_predict_restores_module_training_flag(tmp_path):
@@ -95,3 +95,33 @@ def test_successive_fits_do_not_clobber_checkpoints(tmp_path):
 
     checkpoints = list(tmp_path.rglob("*.ckpt"))
     assert len(checkpoints) == 2
+
+
+def test_training_plan_passthrough_val_reaches_datamodule(tmp_path, monkeypatch):
+    import nampy.neural.training.engine as engine_module
+
+    captured = {}
+    original_setup = engine_module.NAMpyDataModule.setup_data
+
+    def spy_setup(self, *args, **kwargs):
+        captured.update(kwargs)
+        return original_setup(self, *args, **kwargs)
+
+    monkeypatch.setattr(engine_module.NAMpyDataModule, "setup_data", spy_setup)
+
+    X, y = _make_regression_frame(n=40)
+    estimator = LinRegRegressor(numerical_preprocessing="standardization")
+    estimator.fit(
+        X,
+        y,
+        max_epochs=1,
+        patience=1,
+        checkpoint_path=str(tmp_path),
+        logger=False,
+        enable_progress_bar=False,
+        enable_model_summary=False,
+        num_sanity_val_steps=0,
+    )
+
+    assert "passthrough_arrays_val" in captured
+    assert captured["passthrough_arrays_val"] is None

@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from nampy.gam.model.api import GAM
+from nampy.gam import GAM
 from tests.mgcv_parity_utils import _make_fs_data, _make_gaussian_data
 
 

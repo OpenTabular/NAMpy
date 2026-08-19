@@ -6,9 +6,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from nampy.gam.compiler.compile_model import compile_model
 from nampy.gam.data import coerce_formula_predict_inputs
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
 from nampy.gam.specs.build import build_formula_model
+from nampy.gam.specs.modeling import prepare_formula_inputs
 
 pytestmark = [pytest.mark.surface_regression]
 
@@ -17,6 +19,31 @@ def _build_from_formula(formula, data: pd.DataFrame):
     parsed = parse_gam_formula(formula)
     extracted = extract_formula_terms(parsed)
     return build_formula_model(extracted, data=data)
+
+
+def _compile_from_formula(formula, data: pd.DataFrame):
+    model_like = SimpleNamespace(k=10, basis="tp", select=False)
+    (
+        _parsed,
+        predictor_specs,
+        X,
+        feature_names,
+        _response,
+        _used_columns,
+        _offsets,
+        _preprocess_state,
+    ) = prepare_formula_inputs(
+        model_like,
+        data=data,
+        formula=formula,
+        y=np.zeros(len(data), dtype=np.float64),
+    )
+    return compile_model(
+        X=X,
+        feature_names=feature_names,
+        predictor_specs=predictor_specs,
+        fit_intercept=bool(predictor_specs[0].has_intercept),
+    )
 
 
 def test_build_formula_model_routes_multi_predictor_offsets_in_declared_order():
@@ -116,10 +143,14 @@ def test_build_formula_model_reuses_transformed_offset_columns_across_predictors
         np.testing.assert_allclose(np.asarray(off, dtype=np.float64), expected)
 
 
-def test_build_formula_model_expands_shared_component_into_matching_predictor_specs():
+def test_build_formula_model_rejects_shared_component_pending_port():
     """
-    Owner-contract coverage verifying that build formula model expands shared component
-    into matching predictor specs.
+    Owner-contract coverage: shared '1 + 2 ~ ...' components fail loudly.
+
+    mgcv shares one coefficient block across the labelled predictors; the
+    former NAMpy expansion duplicated the terms with independent coefficients,
+    which is a different model. Guarded at extraction until the
+    overlapping-coefficient sharing is ported.
     """
     data = pd.DataFrame(
         {
@@ -130,46 +161,18 @@ def test_build_formula_model_expands_shared_component_into_matching_predictor_sp
         }
     )
 
-    built = _build_from_formula(
-        [
-            "y1 ~ -1",
-            "y2 ~ -1",
-            '1 + 2 ~ s(x, k=5, bs="cr") + I(z**2)',
-        ],
-        data,
-    )
-
-    assert len(built.predictor_specs) == 2
-    assert [pred.has_intercept for pred in built.predictor_specs] == [False, False]
-
-    first_labels = [term.label for term in built.predictor_specs[0].terms]
-    second_labels = [term.label for term in built.predictor_specs[1].terms]
-    assert first_labels == second_labels
-
-    first_hidden = built.predictor_specs[0].terms[0].features[0]
-    second_hidden = built.predictor_specs[1].terms[0].features[0]
-    assert first_hidden != second_hidden
-    assert first_hidden in built.working_data.columns
-    assert second_hidden in built.working_data.columns
-
-    expected = data["z"].to_numpy(dtype=np.float64) ** 2
-    np.testing.assert_allclose(
-        built.working_data[first_hidden].to_numpy(dtype=np.float64),
-        expected,
-    )
-    np.testing.assert_allclose(
-        built.working_data[second_hidden].to_numpy(dtype=np.float64),
-        expected,
-    )
-    assert built.preprocess_state["formula_expression_columns"] == [
-        {
-            "hidden_name": built.preprocess_state["formula_expression_columns"][0][
-                "hidden_name"
+    with pytest.raises(
+        NotImplementedError,
+        match="Shared linear-predictor components",
+    ):
+        _build_from_formula(
+            [
+                "y1 ~ -1",
+                "y2 ~ -1",
+                '1 + 2 ~ s(x, k=5, bs="cr") + I(z**2)',
             ],
-            "expr": "I(z**2)",
-            "source_variables": ["z"],
-        }
-    ]
+            data,
+        )
 
 
 def test_single_formula_multiple_offsets_keep_first_with_mgcv_warning():
@@ -492,3 +495,197 @@ def test_formula_predict_inputs_reject_non_numeric_formula_offset_columns():
         match="Current formula-based prediction supports numeric offsets only",
     ):
         coerce_formula_predict_inputs(model, new_data)
+
+
+@pytest.mark.parametrize(
+    ("formula", "exc_type", "match"),
+    [
+        (
+            'y ~ s(x, bs="cr", k=matrix(c(1,2,3), nrow=2))',
+            ValueError,
+            r"matrix\(\.\.\.\) nrow must divide",
+        ),
+        (
+            'y ~ s(x, k=matrix(c(1,2,3,4), ncol=3))',
+            ValueError,
+            r"matrix\(\.\.\.\) ncol must divide",
+        ),
+        (
+            'y ~ te(x, z, k=matrix(c(1,2,3,4), foo=2))',
+            NotImplementedError,
+            r"Unsupported matrix\(\.\.\.\) argument",
+        ),
+        (
+            'y ~ s(x, xt=diag(2, 3))',
+            NotImplementedError,
+            r"Only diag\(x\) formula values are supported",
+        ),
+        (
+            'y ~ s(x, k=c(a=5))',
+            NotImplementedError,
+            r"keyword arguments to c\(\.\.\.\) are not supported",
+        ),
+        (
+            "y ~ x:s(z)",
+            NotImplementedError,
+            "Interactions involving smooth specials",
+        ),
+        (
+            "y ~ offset(x, z)",
+            NotImplementedError,
+            r"offset\(\.\.\.\) currently supports one expression",
+        ),
+        ("y ~ x**0", ValueError, "invalid power in formula"),
+        ("y ~ x**1", ValueError, "invalid power in formula"),
+        ("y ~ x**z", ValueError, "invalid power in formula"),
+        ("y ~ 2", ValueError, "invalid model formula in ExtractVars"),
+        (
+            "y ~ s(x, k=set())",
+            NotImplementedError,
+            "Unsupported formula value expression",
+        ),
+    ],
+    ids=[
+        "matrix_nrow",
+        "matrix_ncol",
+        "matrix_kwarg",
+        "diag_args",
+        "c_kwargs",
+        "smooth_interaction",
+        "offset_multi_expr",
+        "power_zero",
+        "power_one",
+        "power_symbol",
+        "bare_numeric",
+        "unsupported_value_expr",
+    ],
+)
+def test_formula_error_branches_fail_loudly(formula, exc_type, match):
+    """Every user-reachable parse/build rejection raises its documented error.
+
+    These branches existed with zero coverage; each is the loud-failure
+    counterpart of an mgcv-side R error or an explicitly unsupported literal.
+    """
+    data = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, 3.0, 4.0],
+            "x": [0.0, 1.0, 2.0, 3.0],
+            "z": [1.0, 2.0, 1.0, 2.0],
+        }
+    )
+    with pytest.raises(exc_type, match=match):
+        _build_from_formula(formula, data)
+
+
+def test_formula_warning_branches_recover_like_mgcv():
+    """Warned-and-recovered branches keep mgcv's fallback behavior."""
+    data = pd.DataFrame(
+        {
+            "y": np.linspace(0.0, 1.0, 12),
+            "x": np.linspace(-1.0, 1.0, 12),
+            "z": np.linspace(0.5, 1.5, 12),
+            "w": np.linspace(-0.5, 0.5, 12),
+        }
+    )
+
+    # mgcv warns "bs wrong length and ignored." and falls back to defaults.
+    with pytest.warns(UserWarning, match="bs wrong length and ignored"):
+        built = _build_from_formula(
+            'y ~ te(x, z, bs=["cr","cr","cr"], k=[5,5])', data
+        )
+    spec = built.predictor_specs[0].terms[0].smooth_spec
+    assert spec is not None
+
+    # mgcv warns "something wrong with argument d." and resets to all-1D
+    # marginals (specs/build.py mirror of smooth.construct dispatch).
+    with pytest.warns(UserWarning, match=r"something wrong with argument d\."):
+        built = _build_from_formula(
+            'y ~ te(x, z, w, d=[2,2], bs=["cr","cr","cr"], k=[5,5,5])', data
+        )
+    spec = built.predictor_specs[0].terms[0].smooth_spec
+    assert list(spec.d) == [1, 1, 1]
+
+    # "single linear predictor indices are ignored" (parse.py) for a
+    # one-element label list.
+    with pytest.warns(UserWarning, match="single linear predictor indices"):
+        parse_gam_formula(["y ~ x", "~ 1", "1 ~ z"])
+
+
+def test_tensor_m_wrong_length_warns_and_uses_mgcv_zero_fallback():
+    """``te()`` wrong-length ``m`` warns and resets every margin to zero.
+
+    This mirrors ``mgcv/R/smooth.r::te`` lines 442-448.  Comparing the compiled
+    design and penalties against an explicit ``m=[0, 0]`` contract verifies
+    that the formula path reaches the upstream fallback, not just the private
+    normalization helper.
+    """
+    x = np.linspace(-1.0, 1.0, 48)
+    data = pd.DataFrame(
+        {
+            "y": np.sin(2.0 * x),
+            "x": x,
+            "z": np.cos(1.3 * x),
+        }
+    )
+    common = 'y ~ te(x, z, bs=["tp", "tp"], k=[6, 6], sp=[0.7, 1.1]'
+
+    with pytest.warns(UserWarning, match="m wrong length and ignored"):
+        wrong_length = _compile_from_formula(f"{common}, m=[1, 2, 3])", data)
+    explicit_fallback = _compile_from_formula(f"{common}, m=[0, 0])", data)
+
+    np.testing.assert_array_equal(
+        np.asarray(wrong_length.design_matrix, dtype=np.float64),
+        np.asarray(explicit_fallback.design_matrix, dtype=np.float64),
+    )
+    assert len(wrong_length.compiled_penalties) == len(
+        explicit_fallback.compiled_penalties
+    )
+    for actual_penalty, expected_penalty in zip(
+        wrong_length.compiled_penalties,
+        explicit_fallback.compiled_penalties,
+        strict=True,
+    ):
+        np.testing.assert_array_equal(
+            np.asarray(actual_penalty.matrix, dtype=np.float64),
+            np.asarray(expected_penalty.matrix, dtype=np.float64),
+        )
+
+
+def test_m_argument_is_silently_ignored_on_cubic_bases_like_mgcv():
+    """s(..., m=) on cr is accepted and ignored, exactly like upstream.
+
+    mgcv documents m as ps/tp-only; smooth.construct.cr.smooth.spec never
+    reads it. The fit with m supplied must be byte-identical to the fit
+    without it.
+    """
+    rng = np.random.default_rng(31)
+    data = pd.DataFrame({"x": np.linspace(-1, 1, 60)})
+    data["y"] = np.sin(2.0 * data["x"]) + rng.normal(scale=0.1, size=60)
+
+    from nampy.gam import GAM
+
+    def _fit(formula):
+        return GAM(
+            family="gaussian",
+            formula=formula,
+            optimize_smoothing=False,
+            smoothing_method="fixed",
+            smoothing_params=[1.0],
+        ).fit(data=data)
+
+    plain = _fit('y ~ s(x, bs="cr", k=6)')
+    with_m = _fit('y ~ s(x, bs="cr", k=6, m=3)')
+    np.testing.assert_array_equal(
+        np.asarray(plain.fit_result().coef_full, dtype=np.float64),
+        np.asarray(with_m.fit_result().coef_full, dtype=np.float64),
+    )
+
+
+def test_drop_intercept_list_routes_per_predictor_and_validates_length():
+    """List-valued drop_intercept maps per predictor; wrong length raises."""
+    parsed = parse_gam_formula(['y ~ s(x, bs="cr", k=5)', "~ z"])
+    extracted = extract_formula_terms(parsed, drop_intercept=[True, False])
+    assert [pred.intercept for pred in extracted] == [False, True]
+
+    with pytest.raises(ValueError, match="drop_intercept must have length 2"):
+        extract_formula_terms(parsed, drop_intercept=[True, False, True])

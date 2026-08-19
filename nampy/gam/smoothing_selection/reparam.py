@@ -16,7 +16,7 @@ which simplifies REML score computation.
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 import numpy as np
 from scipy.linalg import qr as scipy_qr
@@ -35,8 +35,8 @@ from .._model_state import (
 from ..fit.capabilities import uses_closed_form_solver
 from ..linalg import (
     matrix_sqrt_psd,
+    mgcv_mroot_chol,
     numerical_rank,
-    pivoted_cholesky,
     positive_semidefinite_root,
     symmetric_eigen_partition,
     symmetric_eigh,
@@ -161,7 +161,7 @@ def ensure_penalty_reparameterization_state(model) -> ReparamState:
         state = model._build_penalty_reparameterized_system()
     if state is None:
         raise RuntimeError("Penalty reparameterization state is unavailable.")
-    return state
+    return cast(ReparamState, state)
 
 
 def iter_sl_random_blocks(state: ReparamState):
@@ -203,23 +203,6 @@ def sl_lambda_vector(state: ReparamState, sp: np.ndarray) -> np.ndarray:
     return np.concatenate(lam_parts) if lam_parts else np.empty((0,), dtype=np.float64)
 
 
-def sl_penalty_rank_scaling_derivatives(
-    state: ReparamState, n_smoothing_params: int
-) -> tuple[np.ndarray, np.ndarray]:
-    detS1 = np.zeros(int(n_smoothing_params), dtype=np.float64)
-    detS2 = np.zeros(
-        (int(n_smoothing_params), int(n_smoothing_params)), dtype=np.float64
-    )
-    if not state.sl_blocks:
-        return detS1, detS2
-    for sl_block in iter_sl_random_blocks(state):
-        j = -1 if sl_block.smoothing_index is None else int(sl_block.smoothing_index)
-        n_pen = int(sl_block.blockSize)
-        if 0 <= j < int(n_smoothing_params) and n_pen > 0:
-            detS1[j] += float(n_pen)
-    return detS1, detS2
-
-
 def reparameterize_smooth(B, P, tol=1e-10):
     dec = symmetric_eigen_partition(P, tol=tol)
     U0 = np.asarray(dec["U0"], dtype=np.float64)
@@ -254,29 +237,7 @@ def _mroot_chol(P, *, rank=None):
     """
     Port of `mgcv::mroot(..., method="chol")` returning `B` with `B B' = P`.
     """
-    P = np.asarray(P, dtype=np.float64)
-    if P.ndim != 2 or P.shape[0] != P.shape[1]:
-        raise ValueError("mroot requires a square matrix.")
-    n = int(P.shape[0])
-    if n == 0:
-        return np.empty((0, 0), dtype=np.float64)
-
-    P_sym = 0.5 * (P + P.T)
-    R, piv, rank_found = pivoted_cholesky(P_sym, tol=0.0)
-    if int(rank_found) < n:
-        R[int(rank_found) :, int(rank_found) :] = 0.0
-
-    piv = np.asarray(piv, dtype=np.int64).ravel()
-    unpivot = np.argsort(piv)
-    R = R[:, unpivot]
-
-    if rank is None or int(rank) < 1:
-        rank_use = int(rank_found)
-    else:
-        rank_use = min(int(rank), n)
-    if rank_use == 0:
-        return np.empty((n, 0), dtype=np.float64)
-    return np.asarray(R[:rank_use, :].T, dtype=np.float64)
+    return mgcv_mroot_chol(P, rank=rank)
 
 
 def _full_design_matrix(model) -> np.ndarray:
@@ -375,7 +336,7 @@ def _total_penalty_space_from_blocks(
     else:
         St = H / float(np.sqrt(np.sum(H * H)))
 
-    for S_i, off_i in zip(penalties, offsets_1based):
+    for S_i, off_i in zip(penalties, offsets_1based, strict=True):
         S_i = np.asarray(S_i, dtype=np.float64)
         frob = float(np.sqrt(np.sum(S_i * S_i)))
         if frob <= 0.0:
@@ -548,7 +509,7 @@ def build_estimate_gam_setup_state(
         )
 
     roots = []
-    for S_i, off_i, rank_i in zip(penalties, offsets, ranks):
+    for S_i, off_i, rank_i in zip(penalties, offsets, ranks, strict=True):
         root_local = _mroot_chol(S_i, rank=int(rank_i))
         root_full = np.zeros((p_full, root_local.shape[1]), dtype=np.float64)
         start = int(off_i) - 1
@@ -615,6 +576,7 @@ def _group_exact_setup_roots_by_smoothing_parameter(
         penalty_blocks,
         list(setup.rS),
         list(setup.UrS[: len(penalty_blocks)]),
+        strict=True,
     ):
         sp_idx = int(pb.smoothing_index)
         root_parts[sp_idx].append(np.asarray(root_full, dtype=np.float64))
@@ -649,7 +611,7 @@ def _grouped_penalties(model) -> list[_GroupedPenalty]:
     if p == 0 or n_sp == 0:
         return []
 
-    grouped = {}
+    grouped: dict[int, dict[str, Any]] = {}
     for pb in penalty_blocks:
         k = int(pb.smoothing_index)
         entry = grouped.get(k)
@@ -717,18 +679,6 @@ def _total_penalty_space(grouped_penalties, p, *, H=None):
     else:
         E = np.sqrt(np.asarray(evals[pos_mask], dtype=np.float64))[:, np.newaxis] * Y.T
     return Y, Z, E
-
-
-def mini_roots(grouped_penalties, p, *, tol=1e-10):
-    roots = []
-    for grp in grouped_penalties:
-        rank = (
-            numerical_rank(grp.matrix_full, hermitian=True)
-            if grp.matrix_full.size
-            else 0
-        )
-        roots.append(_mroot_chol(grp.matrix_full, rank=rank))
-    return roots
 
 
 def gam_reparam(range_roots, lsp, deriv=2):
@@ -928,7 +878,7 @@ def gam_reparam(range_roots, lsp, deriv=2):
 def _canonical_penalty_space(model, *, tol=1e-10) -> dict[str, Any]:
     cache = getattr(model, "_penalty_subspace_cache_", None)
     if cache is not None:
-        return cache
+        return cast(dict[str, Any], cache)
 
     setup = build_estimate_gam_setup_state(model, tol=tol)
     penalty_blocks = list(_penalty_blocks_seq(model))
@@ -1261,7 +1211,7 @@ def build_penalty_reparameterized_system(model):
         _B0, Zr_main, meta = reparameterize_smooth(B_range, P_sum)
         U_range = np.asarray(meta["U1"], dtype=np.float64)
 
-        for pb, Pk in zip(penalty_blocks, range_penalties):
+        for pb, Pk in zip(penalty_blocks, range_penalties, strict=True):
             Pk = np.asarray(Pk, dtype=np.float64)
             if U_range.shape[1] == 0 or not np.any(Pk):
                 continue

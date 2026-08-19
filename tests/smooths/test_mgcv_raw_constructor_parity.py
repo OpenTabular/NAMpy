@@ -30,14 +30,14 @@ from nampy.gam.smooths.univariate.cr import CubicSplineTerm
 from nampy.gam.smooths.univariate.ps import PSplineTerm1D
 from nampy.gam.smooths.univariate.tp import ThinPlateSplineTerm
 from nampy.gam.specs.build import build_formula_model
-from nampy.splines.basis.cr import cr_exact_null_basis_from_knots
-from nampy.splines.basis.natparam import nat_param_type1
-from nampy.splines.univariate.cr import (
+from nampy.gam.splines.basis.cr import cr_exact_null_basis_from_knots
+from nampy.gam.splines.basis.natparam import nat_param_type1
+from nampy.gam.splines.univariate.cr import (
     add_full_rank_shrinkage,
     cyclic_cubic_bd,
     cyclic_cubic_predict_matrix,
 )
-from nampy.splines.univariate.ps import (
+from nampy.gam.splines.univariate.ps import (
     pspline_knots,
 )
 from tests.mgcv_invariant_policy import canonicalize_raw_representation_state
@@ -370,6 +370,23 @@ def _build_tprs_case_matrix():
                     f'y ~ s(x0, x1, bs="{basis}", k=10)',
                     atol=1e-7,
                 ),
+                # Omitted k for d=2/3 exercises the remaining branches of
+                # smooth.construct.tp.smooth.spec's default rule
+                # M + c(8, 27, 100)[min(d, 3)]; only d=1 was covered before.
+                _case(
+                    f"{basis}_2d_default_k",
+                    _factory(_make_gaussian_data, seed=seed_base + 9, n=140),
+                    f'y ~ s(x0, x1, bs="{basis}")',
+                    atol=1e-7,
+                ),
+                _case(
+                    f"{basis}_3d_default_k",
+                    _factory(_make_gaussian_data_3col, seed=seed_base + 10, n=160),
+                    f'y ~ s(x0, x1, x2, bs="{basis}")',
+                    # d=3 defaults to k = M + 100, giving penalty entries of
+                    # order 1e5; 5e-6 absolute is ~1e-10 relative here.
+                    atol=5e-6,
+                ),
                 _case(
                     f"{basis}_2d_m3",
                     _factory(_make_gaussian_data, seed=seed_base + 5, n=120),
@@ -612,6 +629,23 @@ def _build_tensor_case_matrix():
                 "te_knots_cr_cs",
                 _factory(_make_gaussian_data, seed=811, n=90),
                 'y ~ te(x0, x1, bs=["cr", "cs"], k=[5, 6])',
+                atol=2e-3,
+                knots_factory=_feature_specific_knots({"x0": 5, "x1": 6}),
+            ),
+            # d= grouping with a multivariate first marginal (coerced cr->tp,
+            # smooth.construct.tensor.smooth.spec) was never compared to live
+            # mgcv, only structurally asserted.
+            _case(
+                "te_d_multivariate_margin",
+                _factory(_make_gaussian_data_3col, seed=816, n=110),
+                'y ~ te(x0, x1, x2, d=[2, 1], bs=["cr", "cr"], k=[10, 5])',
+                atol=1e-7,
+            ),
+            # Supplied knots on ti() (only te had a knots case before).
+            _case(
+                "ti_knots_cr_cs",
+                _factory(_make_gaussian_data, seed=817, n=90),
+                'y ~ ti(x0, x1, bs=["cr", "cs"], k=[5, 6])',
                 atol=2e-3,
                 knots_factory=_feature_specific_knots({"x0": 5, "x1": 6}),
             ),

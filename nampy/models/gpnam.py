@@ -1,25 +1,25 @@
 from ..neural.configs.gpnam_config import DefaultGPNAMConfig
 from ..neural.modules.gpnam import GPNAM
-from .sklearn_classifier import SklearnBaseClassifier
-from .sklearn_lss import SklearnBaseLSS
-from .sklearn_regressor import SklearnBaseRegressor
+from .classifier import NeuralClassifier
+from .lss import NeuralLSS
+from .regressor import NeuralRegressor
 
 
-class GPNAMRegressor(SklearnBaseRegressor):
+class GPNAMRegressor(NeuralRegressor):
     """Gaussian Process Neural Additive Model regressor."""
 
     def __init__(self, **kwargs):
         super().__init__(model=GPNAM, config=DefaultGPNAMConfig, **kwargs)
 
 
-class GPNAMClassifier(SklearnBaseClassifier):
+class GPNAMClassifier(NeuralClassifier):
     """Gaussian Process Neural Additive Model classifier."""
 
     def __init__(self, **kwargs):
         super().__init__(model=GPNAM, config=DefaultGPNAMConfig, **kwargs)
 
 
-class GPNAMLSS(SklearnBaseLSS):
+class GPNAMLSS(NeuralLSS):
     """
     GP-NAM wrapped for LSS-style output heads.
 

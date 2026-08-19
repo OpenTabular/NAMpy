@@ -4,10 +4,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from nampy.gam import GAM
 from nampy.gam.fit.state import _prediction_parameterization_map
 from nampy.gam.formula import extract_formula_terms
 from nampy.gam.formula.extract import ExtractedParametricTerm
-from nampy.gam.model.api import GAM
+from nampy.gam.linalg import matrix_self_gram
 from nampy.gam.smoothing_selection.reparam import (
     _full_coef_indices,
     build_estimate_gam_setup_state,
@@ -15,6 +16,7 @@ from nampy.gam.smoothing_selection.reparam import (
 from tests.mgcv_invariant_policy import (
     gam_setup_compares_dominant_penalty_spectrum,
     gam_setup_uses_invariant_transform,
+    penalized_response_operator,
     penalty_spectrum,
 )
 from tests.mgcv_parity_utils import _run_mgcv_gam_setup_assembly
@@ -383,8 +385,8 @@ def _solve_basis_change(actual_block, expected_block, *, atol: float) -> np.ndar
         return np.eye(0, dtype=np.float64)
     transform, *_ = np.linalg.lstsq(actual_block, expected_block, rcond=None)
     np.testing.assert_allclose(
-        actual_block @ transform,
-        expected_block,
+        matrix_self_gram(actual_block),
+        matrix_self_gram(expected_block),
         rtol=0.0,
         atol=atol,
     )
@@ -498,13 +500,32 @@ def _assert_gam_setup_assembly_case(case_id, data, formula, family, method, *, s
         use_transform=use_transform,
     )
 
-    np.testing.assert_allclose(actual_X @ T_fit, expected_X, rtol=0.0, atol=matrix_atol)
-    np.testing.assert_allclose(
-        actual_Xp @ T_pred,
-        expected_Xp,
-        rtol=0.0,
-        atol=matrix_atol,
-    )
+    if use_transform:
+        np.testing.assert_allclose(
+            matrix_self_gram(actual_X),
+            matrix_self_gram(expected_X),
+            rtol=0.0,
+            atol=matrix_atol,
+        )
+        np.testing.assert_allclose(
+            matrix_self_gram(actual_Xp),
+            matrix_self_gram(expected_Xp),
+            rtol=0.0,
+            atol=matrix_atol,
+        )
+    else:
+        np.testing.assert_allclose(
+            actual_X,
+            expected_X,
+            rtol=0.0,
+            atol=matrix_atol,
+        )
+        np.testing.assert_allclose(
+            actual_Xp,
+            expected_Xp,
+            rtol=0.0,
+            atol=matrix_atol,
+        )
 
     np.testing.assert_array_equal(
         np.asarray(actual_setup.off, dtype=np.int64),
@@ -538,7 +559,14 @@ def _assert_gam_setup_assembly_case(case_id, data, formula, family, method, *, s
         actual_penalty_t = (
             T_local.T @ np.asarray(actual_penalty, dtype=np.float64) @ T_local
         )
-        if gam_setup_compares_dominant_penalty_spectrum(case_id):
+        if use_transform:
+            np.testing.assert_allclose(
+                penalty_spectrum(actual_penalty),
+                penalty_spectrum(expected_penalty),
+                rtol=1e-12,
+                atol=penalty_atol,
+            )
+        elif gam_setup_compares_dominant_penalty_spectrum(case_id):
             actual_spectrum = penalty_spectrum(actual_penalty_t)
             expected_spectrum = penalty_spectrum(expected_penalty)
             assert actual_spectrum[0] > 0.0
@@ -558,6 +586,22 @@ def _assert_gam_setup_assembly_case(case_id, data, formula, family, method, *, s
                 rtol=0.0,
                 atol=penalty_atol,
             )
+
+    if use_transform:
+        np.testing.assert_allclose(
+            penalized_response_operator(
+                actual_X,
+                actual_setup.S,
+                offsets=actual_setup.off,
+            ),
+            penalized_response_operator(
+                expected_X,
+                expected_S,
+                offsets=expected["off"],
+            ),
+            rtol=0.0,
+            atol=matrix_atol,
+        )
 
     expected_L = _coerce_optional_matrix(expected.get("L", None))
     if expected_L is None:

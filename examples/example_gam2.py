@@ -45,7 +45,15 @@ def summarize_model(name, model, X_val, y_val, true_x1, true_x2, true_total):
         },
     )
 
-    feat_vals = model.predict_feature_vals(X_val)
+    components = model.predict_components(X_val)
+
+    feat_vals = dict(components.terms)
+
+    feat_vals["output"] = components.link
+
+    feat_vals["response"] = components.response
+
+    feat_vals["intercept"] = components.intercept
 
     def to_numpy(v):
         arr = np.asarray(v)

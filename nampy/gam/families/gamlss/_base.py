@@ -300,7 +300,7 @@ class GamlssFamily(GeneralFamily):
         offset: Any = None,
         se: bool = False,
         Vb: np.ndarray | None = None,
-    ) -> np.ndarray:
+    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
         if eta is None:
             if X is None or jj is None or coef is None:
                 raise ValueError("Provide either eta or X/jj/coef for prediction.")
@@ -344,7 +344,10 @@ class GamlssFamily(GeneralFamily):
         coef: np.ndarray,
         offset: Any = None,
     ) -> np.ndarray:
-        return self.predict(X=X, jj=jj, coef=coef, offset=offset)
+        result = self.predict(X=X, jj=jj, coef=coef, offset=offset)
+        if isinstance(result, tuple):
+            raise RuntimeError("predict_fitted requested a response without standard errors.")
+        return result
 
     def sandwich(
         self,

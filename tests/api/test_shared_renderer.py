@@ -90,3 +90,31 @@ def test_neural_plot_terms_uses_shared_renderer(tmp_path):
         assert len(figures[0].axes) >= 2
     finally:
         plt.close("all")
+
+
+def test_prepared_from_contributions_term_features_mapping():
+    from nampy.plotting import prepared_from_contributions
+
+    rng = np.random.default_rng(0)
+    frame = pd.DataFrame({"x0": rng.uniform(size=30), "x3": rng.normal(size=30)})
+    terms = {
+        "gam:s(x0, k=6)": np.sin(frame["x0"].to_numpy()),
+        "nn:x3": frame["x3"].to_numpy() * 0.5,
+        "gam:unmappable": np.zeros(30),
+    }
+
+    prepared = prepared_from_contributions(
+        frame,
+        terms,
+        term_features={"gam:s(x0, k=6)": "x0", "nn:x3": "x3"},
+    )
+
+    labels = [entry["xlab"] for entry in prepared["pd"]]
+    assert "gam:s(x0, k=6)" in labels
+    assert "nn:x3" in labels
+    assert "gam:unmappable" not in labels
+
+    mapped = next(
+        entry for entry in prepared["pd"] if entry["xlab"] == "gam:s(x0, k=6)"
+    )
+    np.testing.assert_array_equal(mapped["raw"], frame["x0"].to_numpy())

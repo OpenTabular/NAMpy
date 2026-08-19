@@ -6,13 +6,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from nampy.gam import GAM
 from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     _GeneralPredictorLayout,
     build_general_penalty_setup,
 )
 from nampy.gam.fit.solvers.general_family.newton import _sl_ldetS
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
-from nampy.gam.model.api import GAM
 from nampy.gam.predict.predictions import predict_values
 from nampy.gam.specs.build import build_formula_model
 from tests.mgcv_parity_utils import _make_negbin_data, _make_random_effect_data
@@ -317,3 +317,36 @@ def test_general_family_prediction_term_filter_guard_raises_explicitly():
         match="multi-predictor general-family models",
     ):
         predict_values(model, type="link", terms=["s(x)"])
+
+
+def test_shared_lpi_component_guard_raises_explicitly():
+    """Shared '1 + 2 ~ ...' formula-list components fail loudly at fit.
+
+    mgcv shares one coefficient block across the labelled predictors
+    (?mgcv::formula.gam: "with the same coefficients"); NAMpy's former
+    expansion cloned the terms with independent coefficients — a different
+    model — so the surface is guarded until coefficient sharing is ported.
+    """
+    rng = np.random.default_rng(31)
+    n = 80
+    x = np.linspace(-1.0, 1.0, n)
+    z = rng.uniform(-1.0, 1.0, size=n)
+    y = rng.normal(0.3 * x, np.exp(-0.2), size=n)
+    data = pd.DataFrame({"y": y, "x": x, "z": z})
+
+    gam = GAM(
+        family="gaulss",
+        formula=[
+            'y ~ s(x, bs="cr", k=6)',
+            "~ 1",
+            '1 + 2 ~ s(z, bs="cr", k=5)',
+        ],
+        optimize_smoothing=False,
+        smoothing_method="fixed",
+        smoothing_params=[1.0, 1.0, 1.0],
+    )
+    with pytest.raises(
+        NotImplementedError,
+        match="Shared linear-predictor components",
+    ):
+        gam.fit(data=data)

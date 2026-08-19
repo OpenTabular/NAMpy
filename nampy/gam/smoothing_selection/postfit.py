@@ -30,7 +30,8 @@ def _free_smoothing_mask(model) -> np.ndarray:
 def _free_log_smoothing_params(model) -> np.ndarray:
     sp = np.asarray(model.smoothing_params, dtype=np.float64).ravel()
     free_mask = _free_smoothing_mask(model)
-    return np.log(np.clip(sp[free_mask], LOG_GUARD_MIN, None))
+    result: np.ndarray = np.log(np.clip(sp[free_mask], LOG_GUARD_MIN, None))
+    return result
 
 
 def _finite_square_matrix(value, *, size: int | None = None) -> np.ndarray | None:
@@ -257,9 +258,10 @@ def sp_vcov(model, edge_correct: bool = True, reg: float = 1e-3):
 def _gam_vcomp_ci_hessian(model, H: np.ndarray, n_free: int) -> np.ndarray | None:
     """Select the Hessian block used by ``mgcv::gam.vcomp`` CIs."""
 
-    H = _finite_square_matrix(H)
-    if H is None:
+    H_checked = _finite_square_matrix(H)
+    if H_checked is None:
         return None
+    H = H_checked
 
     result = getattr(model, "_optim_result", None)
     family = getattr(model, "family", None)
@@ -393,13 +395,16 @@ def one_se_rule(model, candidate_indices: list[int] | None = None) -> np.ndarray
                     "one_se_rule requires positive smoothing-parameter standard errors."
                 )
             alpha = float(np.sqrt(2.0 * len(d)) / (d @ np.linalg.solve(V, d)))
-            return np.exp(np.resize(log_sp_free, V.shape[0]) + alpha * d)
+            result: np.ndarray = np.exp(
+                np.resize(log_sp_free, V.shape[0]) + alpha * d
+            )
+            return result
 
         sub_idx = np.arange(free_idx.size, dtype=int)
     else:
-        candidate_indices = np.asarray(candidate_indices, dtype=int).ravel()
+        candidate_array = np.asarray(candidate_indices, dtype=int).ravel()
         pos = []
-        for idx in candidate_indices:
+        for idx in candidate_array:
             hit = np.flatnonzero(free_idx == int(idx))
             if hit.size == 0:
                 continue
@@ -447,14 +452,14 @@ def optimizer_endpoint_diagnostics(
         if getattr(model, "min_sp_", None) is None
         else np.asarray(model.min_sp_, dtype=np.float64)
     )
-    bounds = []
+    bounds_list: list[tuple[float, float]] = []
     for lower_sp in min_sp[free_mask]:
         if lower_sp > 0:
             lo = float(np.log(lower_sp))
         else:
             lo = -np.inf
-        bounds.append((lo, np.inf))
-    bounds = np.asarray(bounds, dtype=np.float64)
+        bounds_list.append((lo, np.inf))
+    bounds = np.asarray(bounds_list, dtype=np.float64)
 
     grad = None
     if result is not None and getattr(result, "jac", None) is not None:

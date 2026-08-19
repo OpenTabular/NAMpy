@@ -5,7 +5,9 @@ from __future__ import annotations
 import numpy as np
 
 from .._model_state import _n_smoothing_params, _predictor_designs
-from .capabilities import needs_exact_gaussian_reparameterization
+from .capabilities import (
+    needs_exact_gaussian_reparameterization,
+)
 from .smoothing_params import resolve_min_sp, resolve_smoothing_params
 
 
@@ -18,7 +20,9 @@ def compile_designs(model, X, feature_names):
         predictor_specs=model.predictor_specs,
         fit_intercept=model.fit_intercept,
         apply_side_conditions=bool(model.hparams.get("apply_side_conditions", True)),
-        side_condition_tol=float(model.hparams.get("side_condition_tol", 1e-10)),
+        # Fixed internal tolerance: upstream gam.side has no user-facing
+        # knob either (mgcv/R/mgcv.r:1266 hard-codes its call-site tol).
+        side_condition_tol=1e-10,
     )
     model.compiled_model_ = compiled_model
     model.side_condition_reports_ = (

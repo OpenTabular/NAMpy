@@ -13,12 +13,10 @@ from .transforms import (
     apply_coefficient_transform,
     independent_column_indices,
     null_space_basis_from_constraint_matrix,
-    orthogonal_residual,
 )
 
 __all__ = [
     "ConstraintFitResult",
-    "orthogonal_residual",
     "independent_column_indices",
     "null_space_basis_from_constraint_matrix",
     "apply_coefficient_transform",

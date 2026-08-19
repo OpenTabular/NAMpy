@@ -178,7 +178,7 @@ def _assert_k_check_parity(
         f"R labels: {list(r_labels)}"
     )
 
-    for i, (py_lbl, _r_lbl) in enumerate(zip(py_labels, r_labels)):
+    for i, (py_lbl, _r_lbl) in enumerate(zip(py_labels, r_labels, strict=True)):
         # ---- k_prime (col 0) — exact ----------------------------------------
         py_kp = int(py_values[i, 0])
         r_kp = int(round(r_values[i, 0]))

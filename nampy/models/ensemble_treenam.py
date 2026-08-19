@@ -1,11 +1,11 @@
 from ..neural.configs.ensemble_treenam_config import DefaultEnsembleTreeNAMConfig
 from ..neural.modules.ensemble_treenam import EnsembleTreeNAM
-from .sklearn_classifier import SklearnBaseClassifier
-from .sklearn_lss import SklearnBaseLSS
-from .sklearn_regressor import SklearnBaseRegressor
+from .classifier import NeuralClassifier
+from .lss import NeuralLSS
+from .regressor import NeuralRegressor
 
 
-class EnsembleTreeNAMRegressor(SklearnBaseRegressor):
+class EnsembleTreeNAMRegressor(NeuralRegressor):
     """Simple ensemble of TreeNAM learners for regression."""
 
     def __init__(self, **kwargs):
@@ -16,7 +16,7 @@ class EnsembleTreeNAMRegressor(SklearnBaseRegressor):
         )
 
 
-class EnsembleTreeNAMClassifier(SklearnBaseClassifier):
+class EnsembleTreeNAMClassifier(NeuralClassifier):
     """Simple ensemble of TreeNAM learners for classification."""
 
     def __init__(self, **kwargs):
@@ -27,7 +27,7 @@ class EnsembleTreeNAMClassifier(SklearnBaseClassifier):
         )
 
 
-class EnsembleTreeNAMLSS(SklearnBaseLSS):
+class EnsembleTreeNAMLSS(NeuralLSS):
     """Simple ensemble of TreeNAM learners for distributional regression."""
 
     def __init__(self, **kwargs):

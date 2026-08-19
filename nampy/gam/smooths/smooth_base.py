@@ -18,7 +18,7 @@ Runtime smooth term base class and shared helpers.
           basis and lets the wrapper apply sum-to-zero or factor-by absorption.
 
 Supporting helpers:
-    :func:`_resolve_feature`, :class:`ByState`, :class:`FeatureMatrixState`
+    :func:`_resolve_feature` and :class:`ByState`
     provide feature-index resolution and by-variable state.
 """
 
@@ -84,32 +84,11 @@ class ByState:
         return self.feature_name
 
 
-@dataclass
-class FeatureMatrixState:
-    indices: list[int]
-    names: list[str]
-    matrix: np.ndarray
-
-
 def resolve_by_state(by, X, feature_names):
     if by is None:
         return ByState(None, None, None, False, True)
     idx, name, z = _resolve_numeric_by(by, X, feature_names)
     return ByState(idx, name, z, True, _is_effectively_constant(z))
-
-
-def resolve_feature_matrix_state(features, X, feature_names):
-    feats = list(features) if not isinstance(features, (str, int)) else [features]
-    indices, names = [], []
-    for feat in feats:
-        idx, fname = _resolve_feature(feat, feature_names)
-        indices.append(idx)
-        names.append(fname)
-    X_arr = np.asarray(X)
-    Xf = np.column_stack(
-        [np.asarray(X_arr[:, idx], dtype=np.float64) for idx in indices]
-    )
-    return FeatureMatrixState(indices=indices, names=names, matrix=Xf)
 
 
 def sync_by_state_attributes(term, by_state: ByState):
@@ -214,22 +193,6 @@ def build_penalty_definition(
                 term, extra=metadata_extra, is_selection_penalty=False
             ),
             penalty_index=int(local_penalty_index),
-        ),
-    )
-
-
-def build_selection_penalty_definition(
-    term, matrix, *, rank, null_space_dim, smoothing_id, metadata_extra=None
-):
-    return make_penalty_spec(
-        matrix=np.asarray(matrix, dtype=np.float64),
-        smoothing_id=smoothing_id,
-        kind="null_space",
-        is_null_space_penalty=True,
-        sp_mode=None,
-        sp_value=None,
-        metadata=term_penalty_metadata(
-            term, extra=metadata_extra, is_selection_penalty=True
         ),
     )
 
@@ -392,6 +355,7 @@ class BaseSmoothTerm(abc.ABC):
     term_type = "smooth"
     basis_name = "unknown"
     supports_tensor_marginal = False
+    select: bool
 
     def __init__(
         self,
@@ -561,7 +525,7 @@ class BaseSmoothTerm(abc.ABC):
             )
         X_shared = np.empty((cols[0].shape[0], len(feature_names)), dtype=object)
         X_shared[:] = 0.0
-        for name, col in zip(pooled_feature_names, cols):
+        for name, col in zip(pooled_feature_names, cols, strict=True):
             if str(name) not in feature_names:
                 raise KeyError(
                     f"Feature {name!r} from linked `id` pooled setup not found in "
@@ -584,7 +548,9 @@ class BaseSmoothTerm(abc.ABC):
                 "n_linked_terms": int(setup.get("n_linked_terms", 0)),
                 "linked_term_labels": list(setup.get("linked_term_labels", [])),
             }
-            for name, col in zip(setup.get("pooled_feature_names", []), cols)
+            for name, col in zip(
+                setup.get("pooled_feature_names", []), cols, strict=True
+            )
         ]
 
     @abc.abstractmethod
@@ -784,7 +750,9 @@ class BaseSmoothTerm(abc.ABC):
         if not penalty_terms:
             return []
 
-        combined = sum(np.asarray(P, dtype=np.float64) for P in penalty_terms)
+        combined = np.asarray(penalty_terms[0], dtype=np.float64).copy()
+        for penalty in penalty_terms[1:]:
+            combined = combined + np.asarray(penalty, dtype=np.float64)
         select_sid = selection_penalty_id(
             self.smoothing_id, fallback=fallback_selection_smoothing_id
         )

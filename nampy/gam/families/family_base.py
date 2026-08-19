@@ -81,7 +81,7 @@ class BaseFamily(metaclass=_FamilyMeta):
     supports_exact_pirls_second_derivatives = False
 
     n_linear_predictors = 1
-    known_scale = None  # None -> unknown; numeric -> fixed/known scale
+    known_scale: float | None = None  # None -> unknown; numeric -> fixed/known scale
     max_derivative_order = 0
 
     def __init__(self, eps: float = FAMILY_EPS):
@@ -226,9 +226,13 @@ class GLMFamily(BaseFamily):
         from ._function_maps import LINK_REGISTRY, VARIANCE_REGISTRY
 
         if self._link_key is not None:
-            self.link = LINK_REGISTRY[self._link_key](eps=self.eps)
+            self.link = LINK_REGISTRY[self._link_key](  # type: ignore[method-assign]
+                eps=self.eps
+            )
         if self._variance_key is not None:
-            self.variance = VARIANCE_REGISTRY[self._variance_key](eps=self.eps)
+            self.variance = VARIANCE_REGISTRY[self._variance_key](  # type: ignore[method-assign]
+                eps=self.eps
+            )
 
     def initialize_mu(self, y):
         raise NotImplementedError
@@ -363,24 +367,42 @@ class _BinomialBase(GLMFamily):
         return float(np.sum(self.loglik_obs(y, mu, scale=scale, n=n)))
 
     def aic(self, y, mu, *, edf=0.0, scale=1.0, weights=None, n=None):
-        if n is None:
-            loglik_obs = np.asarray(
-                self.loglik_obs(y, mu, scale=scale), dtype=np.float64
-            )
-            sample_weights = self._check_weights(loglik_obs, weights)
-            return float(-2.0 * np.sum(sample_weights * loglik_obs) + 2.0 * float(edf))
+        """Port of ``stats::binomial()$aic``.
 
-        n_arr = np.asarray(n, dtype=np.float64)
-        loglik_obs = np.asarray(
-            self.loglik_obs(y, mu, scale=scale, n=n_arr), dtype=np.float64
+        Upstream: ``m <- if (any(n > 1)) n else wt`` reinterprets non-unit
+        prior weights as binomial denominators for 0/1 responses, then
+        ``-2 * sum(ifelse(m > 0, wt/m, 0) *
+        dbinom(round(m*y), round(m), mu, log = TRUE))``.
+
+        ``weights`` follows R's post-``initialize`` convention (already
+        multiplied by ``n`` for grouped responses); when omitted it defaults
+        to ``n`` for grouped data and to ones for 0/1 responses.
+        """
+        del scale
+        y = np.asarray(y, dtype=np.float64)
+        mu = self._mgcv_probability_clip(mu)
+        n_arr = (
+            np.ones_like(y, dtype=np.float64)
+            if n is None
+            else np.asarray(n, dtype=np.float64)
         )
+        grouped = bool(np.any(n_arr > 1.0))
         if weights is None:
-            sample_weights = np.ones_like(loglik_obs, dtype=np.float64)
+            wt = n_arr.copy() if grouped else np.ones_like(y, dtype=np.float64)
         else:
-            m = np.rint(n_arr)
-            wt = self._check_weights(loglik_obs, weights)
-            sample_weights = np.where(m > 0.0, wt / np.maximum(m, 1.0), 0.0)
-        return float(-2.0 * np.sum(sample_weights * loglik_obs) + 2.0 * float(edf))
+            wt = np.asarray(weights, dtype=np.float64)
+        m = n_arr if grouped else wt
+        trials = np.rint(m)
+        successes = np.rint(m * y)
+        log_density = (
+            gammaln(trials + 1.0)
+            - gammaln(successes + 1.0)
+            - gammaln(trials - successes + 1.0)
+            + successes * np.log(mu)
+            + (trials - successes) * np.log1p(-mu)
+        )
+        coeff = np.where(m > 0.0, wt / np.where(m > 0.0, m, 1.0), 0.0)
+        return float(-2.0 * np.sum(coeff * log_density) + 2.0 * float(edf))
 
     def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
         del scale

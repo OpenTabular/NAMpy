@@ -6,9 +6,9 @@ Compared here:
   anova.gam single-model tables and representative model-comparison tables.
   residuals() and k.check() against mgcv snapshot outputs.
 
-Tracked known gaps stay visible as strict, surface-specific ``xfail``:
-  only the exact failing surface is marked, so stale expectations turn into
-  loud XPASS failures as soon as parity lands.
+There are currently no active expected failures in this surface. If a new
+upstream-localized gap is admitted, mark only its exact failing parameter so a
+stale expectation becomes a loud XPASS.
 """
 
 from __future__ import annotations
@@ -19,12 +19,10 @@ from functools import lru_cache
 import numpy as np
 import pytest
 
+from nampy.gam.linalg import matrix_self_gram
 from tests._mgcv_parity_requested_shared import CaseSpec
 from tests._mgcv_snapshot_parity_shared import _make_fs_data, _make_gaussian_data
-from tests.mgcv_invariant_policy import (
-    gam_setup_uses_invariant_transform,
-    stable_column_space_projector,
-)
+from tests.mgcv_invariant_policy import lpmatrix_uses_invariant_comparison
 from tests.mgcv_parity_utils import (
     _family_specs,
     _fit_nampy_model,
@@ -110,6 +108,17 @@ ADDITIONAL_SCENARIO_CASES = [
         select=True,
         skip_coef_comparison=True,
         criterion_atol=1e-3,
+    ),
+    CaseSpec(
+        case_id="gaussian_ti_cs_ps_reml",
+        formula='y ~ ti(x0, x1, bs=["cs", "ps"], k=[5, 6])',
+        family="gaussian",
+        data_factory=_make_gaussian_data,
+        # The centered cs null-space representative is not uniquely oriented.
+        # Prediction, inference, ANOVA, residuals, and k-check stay strict.
+        skip_coef_comparison=True,
+        criterion_atol=3e-3,
+        se_tol_scale=5e-5,
     ),
 ]
 
@@ -332,10 +341,10 @@ def test_predict_gam_newdata_surfaces_match_mgcv(case: CaseSpec, pred_type: str)
     if pred_type == "lpmatrix":
         actual = np.asarray(model.predict(X=newdata, type="lpmatrix"), dtype=np.float64)
         expected = np.asarray(r_result["pred"], dtype=np.float64)
-        if gam_setup_uses_invariant_transform(case.case_id):
+        if lpmatrix_uses_invariant_comparison(case.case_id):
             np.testing.assert_allclose(
-                stable_column_space_projector(actual),
-                stable_column_space_projector(expected),
+                matrix_self_gram(actual),
+                matrix_self_gram(expected),
                 atol=tol,
                 rtol=0.0,
             )
@@ -459,12 +468,22 @@ def test_anova_gam_single_model_matches_mgcv(case: CaseSpec):
             atol=max(tol, 1e-6),
             rtol=1e-3,
         )
+        # mgcv computes smooth p-values through the Davies (1980) qfc routine
+        # at tol=2e-5 (psum.chisq, mgcv/R/mgcv.r:3466-3498). For effectively
+        # saturated fits the statistic explodes (gaussian_fs_select_reml:
+        # F ~ 6e9 with residual df ~ 3e-5) and the C routine's return value is
+        # a numerical artifact that flips between 0.5 and 0.0 under last-bit
+        # input changes — not a reproducible parity target. NAMpy's port
+        # resolves the tail correctly (~1e-5), so for such rows only require a
+        # small p-value instead of matching the artifact.
+        davies_resolvable = np.abs(expected_values[:, 2]) < 1e8
         _assert_p_values_close(
-            actual_values[:, 3],
-            expected_values[:, 3],
+            actual_values[davies_resolvable, 3],
+            expected_values[davies_resolvable, 3],
             atol=max(tol, 1e-12),
             rtol=_anova_p_value_rtol(case),
         )
+        assert np.all(actual_values[~davies_resolvable, 3] <= 1e-3)
 
     expected_parametric = expected["parity"]["diagnostics"].get("anova_parametric")
     if expected_parametric and "values" in expected_parametric:

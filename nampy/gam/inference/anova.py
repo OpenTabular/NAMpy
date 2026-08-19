@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-from scipy.linalg import qr
 from scipy.stats import chi2, f
 
 from .._mgcv_constants import LOG_GUARD_MIN
@@ -28,11 +27,13 @@ from .._model_state import (
 )
 from ..fit import select_covariance_matrix
 from ..linalg import (
+    mgcv_mroot_chol,
     numerical_rank,
     symmetric_eigh,
     symmetric_eigvalsh,
     symmetrize_matrix,
 )
+from ..linalg.qr import r_linpack_qr_no_pivot, r_linpack_qr_r
 from .chi_square_mixtures import psum_chisq
 
 
@@ -104,6 +105,14 @@ def _term_uses_retest(tb, summary_R) -> bool:
         return False
     if str(getattr(tb, "basis_name", "")).lower() in {"fs", "re"}:
         return True
+    if any(
+        bool(getattr(spec, "is_null_space_penalty", False))
+        for spec in tuple(getattr(tb, "penalty_specs", ()) or ())
+    ):
+        # mgcv/R/smooth.r::smoothCon(null.space.penalty=TRUE) adds the
+        # selection penalty and sets smooth$null.space.dim <- 0. summary.gam
+        # consequently routes the fully penalized term through reTest().
+        return True
     total_penalty = _term_combined_penalty_matrix(tb)
     if total_penalty is None:
         return False
@@ -117,20 +126,7 @@ def _term_uses_retest(tb, summary_R) -> bool:
 
 
 def _mroot_psd(A: np.ndarray) -> np.ndarray:
-    A = symmetrize_matrix(A)
-    if A.size == 0:
-        return np.zeros((A.shape[0], 0), dtype=np.float64)
-    evals, evecs = symmetric_eigh(A)
-    # Keep the cutoff relative to the matrix scale only. mgcv::mroot() with
-    # `chol(..., tol=0)` preserves tiny positive directions for exact-fit
-    # cases like low-rank MRFs, and absolute `1.0 * eps` flooring drops them.
-    tol = (
-        max(float(np.max(evals)) if evals.size else 0.0, 0.0) * np.finfo(np.float64).eps
-    )
-    keep = evals > tol
-    if not np.any(keep):
-        return np.zeros((A.shape[0], 0), dtype=np.float64)
-    return np.asarray(evecs[:, keep] * np.sqrt(evals[keep]), dtype=np.float64)
+    return mgcv_mroot_chol(A)
 
 
 def _retest_like_stat(
@@ -165,7 +161,8 @@ def _retest_like_stat(
     keep = np.setdiff1d(np.arange(q, dtype=int), ind, assume_unique=True)
     perm = np.concatenate([keep, ind])
     LRB = np.asarray(LRB[:, perm], dtype=np.float64)
-    Rm_full = qr(LRB, mode="economic", pivoting=False)[1]
+    packed_qr, _qraux = r_linpack_qr_no_pivot(LRB)
+    Rm_full = r_linpack_qr_r(packed_qr)
     block = np.arange(q - ind.size, q, dtype=int)
     Rm = np.asarray(Rm_full[np.ix_(block, block)], dtype=np.float64)
 
@@ -259,13 +256,15 @@ def _frequentist_f_matrix(model) -> np.ndarray | None:
     Vp = np.asarray(Vp, dtype=np.float64)
     if Vp.shape != RTR.shape:
         return None
-    return np.asarray((Vp @ RTR) / scale, dtype=np.float64)
+    result: np.ndarray = np.asarray((Vp @ RTR) / scale, dtype=np.float64)
+    return result
 
 
 def _edf1_vector(model) -> np.ndarray:
     H = np.asarray(_H_coef(model), dtype=np.float64)
     if H.ndim == 2 and H.shape[0] == H.shape[1]:
-        return 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
+        result: np.ndarray = 2.0 * np.diag(H) - np.sum(H * H.T, axis=1)
+        return result
 
     F = _frequentist_f_matrix(model)
     if F is not None:
@@ -376,10 +375,12 @@ def _smooth_test_stat(
     if X.ndim != 2 or V.shape != (X.shape[1], X.shape[1]) or p.size != X.shape[1]:
         raise ValueError("Smooth test inputs have inconsistent shapes.")
 
-    # Mirror mgcv/R/mgcv.r::testStat(): qrx <- qr(X, tol=0).
-    # In this call path R's LINPACK QR is effectively unpivoted; keeping this
-    # unpivoted preserves the statistic produced from mgcv's captured inputs.
-    _, R = qr(X, mode="economic", pivoting=False)
+    # Mirror mgcv/R/mgcv.r::testStat(): qrx <- qr(X, tol=0). This is base R's
+    # non-LAPACK dqrdc2 Householder path; at tol=0 its limited near-zero-column
+    # pivot is disabled. A LAPACK QR spans the same space but is not an
+    # equivalent representation for this ill-conditioned statistic.
+    packed_qr, _qraux = r_linpack_qr_no_pivot(X)
+    R = r_linpack_qr_r(packed_qr)
     Vt = R @ V @ R.T
     Vt = symmetrize_matrix(Vt)
     evals, evecs = symmetric_eigh(Vt, descending=True)
@@ -525,19 +526,21 @@ def _term_table(
 
     x_offset = _coef_column_offset(model)
     for group in _parametric_term_groups(model):
-        beta_cols = []
-        full_cols = []
+        beta_cols: list[int] = []
+        full_cols: list[int] = []
         for tb in group["blocks"]:
             beta_cols.extend(range(tb.coef_slice.start, tb.coef_slice.stop))
             full_cols.extend(
                 range(tb.coef_slice.start + x_offset, tb.coef_slice.stop + x_offset)
             )
 
-        beta_i = np.asarray(beta[np.asarray(beta_cols, dtype=int)], dtype=np.float64)
+        beta_idx = np.asarray(beta_cols, dtype=np.int64)
+        full_idx = np.asarray(full_cols, dtype=np.int64)
+        beta_i = np.asarray(beta[beta_idx], dtype=np.float64)
         cov_i = (
             None
             if V_para is None
-            else np.asarray(V_para[np.ix_(full_cols, full_cols)], dtype=np.float64)
+            else np.asarray(V_para[np.ix_(full_idx, full_idx)], dtype=np.float64)
         )
         stat, rank = (
             (np.nan, int(beta_i.size))
@@ -597,8 +600,6 @@ def _term_table(
                 stat, ref_df, p_value = np.nan, max(edf_i, 1.0), np.nan
             else:
                 stat, ref_df, p_value = res
-                if str(getattr(tb, "basis_name", "")).lower() == "fs" and scale_est:
-                    p_value = 0.5
         else:
             x_start = int(x_sl.start)
             x_stop = int(x_sl.stop)
@@ -706,17 +707,45 @@ def _comparison_table(
     family_class = str(getattr(models[0].family, "family_class", "")).lower()
     extended_like = family_class == "extended"
     use_loglik_deviance = extended_like or family_class == "general"
+    resid_dfs = [float(_approximate_residual_df(model)) for model in models]
+    # mgcv::anova.gam (mgcv/R/mgcv.r:4148) delegates to stats::anova.glmlist,
+    # which takes the reference dispersion from the model with the smallest
+    # residual df ("bigmodel"); mgcv.r:4136-4140 uses the same model for
+    # extended families.
+    big_index = int(np.argmin(np.asarray(resid_dfs, dtype=np.float64)))
     if dispersion is None:
-        disp_model = (
-            min(models, key=_approximate_residual_df) if extended_like else models[-1]
-        )
-        disp_obj = _fit_scale(disp_model)
+        disp_obj = _fit_scale(models[big_index])
         disp = 1.0 if disp_obj is None else float(disp_obj)
     else:
         disp = float(dispersion)
     if not np.isfinite(disp) or disp <= 0.0:
         disp = 1.0
+    # stats::anova.glmlist (R >= 4.4): df.dispersion is the residual df of the
+    # biggest model for estimated-dispersion families (family$dispersion NA),
+    # Inf for known-dispersion families, and falls back to the dispersion==1
+    # check when the family carries no dispersion field (mgcv extended and
+    # general families).
+    known_scale = getattr(models[0].family, "known_scale", None)
+    if use_loglik_deviance:
+        df_scale = np.inf if disp == 1.0 else float(min(resid_dfs))
+    elif known_scale is None:
+        df_scale = float(min(resid_dfs))
+    else:
+        df_scale = np.inf
     chosen_test = test_name
+    if test is None:
+        # stats::anova.glmlist (R >= 4.4) applies a family-based default test
+        # when test is NULL: "Chisq" with an explicit dispersion, "F" for
+        # estimated-dispersion families, "Chisq" for known-dispersion ones,
+        # and no test when family$dispersion is absent (extended/general).
+        if dispersion is not None:
+            chosen_test = "chisq"
+        elif use_loglik_deviance:
+            chosen_test = None
+        elif known_scale is None:
+            chosen_test = "f"
+        else:
+            chosen_test = "chisq"
     if extended_like and chosen_test is not None:
         chosen_test = "chisq"
     extra_cols: list[str] = []
@@ -726,8 +755,10 @@ def _comparison_table(
         extra_cols = ["Pr(>Chi)"]
     rows: list[dict[str, object]] = []
     prev = None
-    for _idx, model in enumerate(models):
-        resid_df = _approximate_residual_df(model)
+    prev_resid_df = np.nan
+    prev_dev = np.nan
+    for idx, model in enumerate(models):
+        resid_df = resid_dfs[idx]
         resid_dev = float(_comparison_residual_deviance(model))
         if use_loglik_deviance:
             resid_dev = float(-2.0 * float(model.loglik()) * disp)
@@ -741,37 +772,45 @@ def _comparison_table(
             row[col] = np.nan
 
         if prev is not None:
-            df_diff = float(_approximate_residual_df(prev)) - float(resid_df)
-            prev_dev = float(_comparison_residual_deviance(prev))
-            if use_loglik_deviance:
-                prev_dev = float(-2.0 * float(prev.loglik()) * disp)
+            df_diff = prev_resid_df - resid_df
             dev_diff = prev_dev - resid_dev
             row["Df"] = df_diff
             row["Deviance"] = dev_diff
 
-            if df_diff > 0.0 and dev_diff >= 0.0:
-                if chosen_test == "f":
-                    denom_df = max(
-                        float(resid_df),
-                        1.0,
-                    )
-                    denom = float(resid_dev) / denom_df
-                    stat = (
-                        np.nan if denom <= 0.0 else float((dev_diff / df_diff) / denom)
-                    )
-                    row["F"] = stat
-                    row["Pr(>F)"] = (
-                        float(f.sf(stat, df_diff, denom_df))
-                        if np.isfinite(stat)
-                        else np.nan
-                    )
-                elif chosen_test == "chisq":
-                    stat = float(dev_diff / disp) if disp > 0.0 else np.nan
-                    row["Pr(>Chi)"] = (
-                        float(chi2.sf(stat, df_diff)) if np.isfinite(stat) else np.nan
-                    )
+            if chosen_test == "f":
+                # stats::stat.anova "F": Fvalue <- (Deviance/Df)/scale, NA when
+                # Df == 0 or the statistic is negative; p = pf(F, |Df|,
+                # df.scale) with the chi-square limit at df.scale == Inf.
+                if df_diff == 0.0 or not np.isfinite(df_diff):
+                    stat = np.nan
+                else:
+                    stat = float((dev_diff / df_diff) / disp)
+                    if stat < 0.0:
+                        stat = np.nan
+                row["F"] = stat
+                if np.isfinite(stat):
+                    if np.isinf(df_scale):
+                        row["Pr(>F)"] = float(
+                            chi2.sf(stat * abs(df_diff), abs(df_diff))
+                        )
+                    else:
+                        row["Pr(>F)"] = float(f.sf(stat, abs(df_diff), df_scale))
+            elif chosen_test == "chisq":
+                # stats::stat.anova "Chisq": vals <- Deviance/scale * sign(Df),
+                # NA when Df == 0 or vals < 0; p = pchisq(vals, |Df|).
+                if df_diff == 0.0 or not np.isfinite(df_diff):
+                    stat = np.nan
+                else:
+                    stat = float(dev_diff / disp) * float(np.sign(df_diff))
+                    if stat < 0.0:
+                        stat = np.nan
+                row["Pr(>Chi)"] = (
+                    float(chi2.sf(stat, abs(df_diff))) if np.isfinite(stat) else np.nan
+                )
         rows.append(row)
         prev = model
+        prev_resid_df = resid_df
+        prev_dev = resid_dev
 
     columns = ["Resid. Df", "Resid. Dev", "Df", "Deviance"] + extra_cols
     return AnovaGAMComparison(

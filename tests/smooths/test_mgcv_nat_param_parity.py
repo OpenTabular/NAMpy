@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from nampy.splines.basis.natparam import nat_param_type1
+from nampy.gam.splines.basis.natparam import nat_param_type1
 from tests.mgcv_parity_utils import _make_fs_data_4levels
 from tests.smooths.test_mgcv_raw_constructor_parity import _build_runtime_term
 

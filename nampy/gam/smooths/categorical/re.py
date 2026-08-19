@@ -350,7 +350,9 @@ class RandomEffectTerm(BaseSmoothTerm):
         self._require_fitted()
 
         blocks = []
-        for idx, spec in zip(self._feature_indices, self._component_specs):
+        for idx, spec in zip(
+            self._feature_indices, self._component_specs, strict=True
+        ):
             blocks.append(_predict_re_component(column_as_object(X_new, idx), spec))
 
         B = _combine_random_effect_blocks(blocks)

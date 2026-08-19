@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import OptimizeResult
 
+from nampy.gam import GAM
 from nampy.gam.compiler.structures import CompiledModel
-from nampy.gam.model.api import GAM
 from nampy.gam.smoothing_selection.criteria.ml_reml import (
     resolve_ml_reml_scoring_backend,
 )

@@ -10,6 +10,11 @@ from scipy.linalg import solve_triangular
 
 from ..constraints.identifiability import apply_global_side_conditions
 from ..linalg import upper_triangular_rrank
+from ..linalg.qr import (
+    r_linpack_qr_no_pivot as _r_linpack_qr_no_pivot,
+)
+from ..linalg.qr import r_linpack_qr_r as _r_linpack_qr_R
+from ..linalg.qr import r_linpack_qy as _r_linpack_qy
 from .compile_predictors import compile_predictors
 from .structures import CompiledModel
 
@@ -31,65 +36,6 @@ def _block_diagonal_matrix(blocks: list[np.ndarray]) -> np.ndarray:
         row_start = row_stop
         col_start = col_stop
     return out
-
-
-def _r_linpack_qr_no_pivot(a: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Mirror base R's non-LAPACK Householder QR for full-rank, unpivoted use."""
-
-    qr = np.asarray(a, dtype=np.float64, order="F").copy(order="F")
-    n, p = qr.shape
-    k = min(int(n), int(p))
-    qraux = np.zeros(k, dtype=np.float64)
-    for j in range(k):
-        x = qr[j:, j]
-        nrmxl = float(np.linalg.norm(x))
-        if nrmxl == 0.0:
-            qraux[j] = 0.0
-            continue
-        if qr[j, j] != 0.0:
-            nrmxl = float(np.copysign(nrmxl, qr[j, j]))
-        qr[j:, j] = qr[j:, j] / nrmxl
-        qr[j, j] = 1.0 + qr[j, j]
-        qraux[j] = qr[j, j]
-        if j + 1 < p:
-            v = qr[j:, j]
-            denom = float(v[0])
-            for col in range(j + 1, p):
-                t = -float(np.dot(v, qr[j:, col])) / denom
-                qr[j:, col] = qr[j:, col] + t * v
-        qr[j, j] = -nrmxl
-    return qr, qraux
-
-
-def _r_linpack_qr_R(qr: np.ndarray) -> np.ndarray:
-    qr = np.asarray(qr, dtype=np.float64)
-    n, p = qr.shape
-    k = min(int(n), int(p))
-    R = np.triu(qr[:k, :p])
-    if k < p:
-        R = np.vstack([R, np.zeros((p - k, p), dtype=np.float64)])
-    return np.asarray(R[:p, :p], dtype=np.float64)
-
-
-def _r_linpack_qy(qr: np.ndarray, qraux: np.ndarray, y: np.ndarray) -> np.ndarray:
-    """Apply Q y for the Householder representation produced by base R QR."""
-
-    qr = np.asarray(qr, dtype=np.float64)
-    qraux = np.asarray(qraux, dtype=np.float64)
-    out = np.asarray(y, dtype=np.float64).copy()
-    if out.ndim == 1:
-        out = out.reshape(-1, 1)
-    k = int(min(qraux.size, qr.shape[1]))
-    for j in range(k - 1, -1, -1):
-        if qraux[j] == 0.0:
-            continue
-        v = qr[j:, j].copy()
-        v[0] = qraux[j]
-        denom = float(v[0])
-        for col in range(out.shape[1]):
-            t = -float(np.dot(v, out[j:, col])) / denom
-            out[j:, col] = out[j:, col] + t * v
-    return np.asarray(out, dtype=np.float64)
 
 
 def _full_predictor_matrix(predictor, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -147,7 +93,7 @@ def _fit_to_prediction_parameterization_map(
     # qr(Xp, LAPACK=TRUE) -> Rrank(R) -> triangular solve on QtX -> restore pivots.
     Q, R, piv = scipy_qr(X_pred, mode="economic", pivoting=True)
     p_pred = int(R.shape[1])
-    rank = upper_triangular_rrank(R, tol=np.finfo(np.float64).eps ** 0.9)
+    rank = upper_triangular_rrank(R, tol=float(np.finfo(np.float64).eps**0.9))
     QtX = np.asarray(Q.T @ X_fit, dtype=np.float64)[:rank, :]
     if rank < p_pred:
         R1 = np.asarray(R[:rank, :], dtype=np.float64)

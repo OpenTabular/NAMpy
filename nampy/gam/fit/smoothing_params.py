@@ -33,7 +33,7 @@ def resolve_min_sp(model, min_sp):
         return arr.copy()
     if arr.shape == (len(penalty_blocks),):
         out = np.zeros(n_smoothing_params, dtype=np.float64)
-        for val, pb in zip(arr, penalty_blocks):
+        for val, pb in zip(arr, penalty_blocks, strict=True):
             out[pb.smoothing_index] = max(out[pb.smoothing_index], float(val))
         return out
     raise ValueError(

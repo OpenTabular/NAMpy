@@ -14,7 +14,7 @@ import json
 import re
 import warnings
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 
@@ -212,7 +212,7 @@ def _r_matrix_value(node: ast.Call):
             "nrow * ncol values."
         )
 
-    order = "C" if byrow else "F"
+    order: Literal["C", "F"] = "C" if byrow else "F"
     return values.reshape((nrow, ncol), order=order)
 
 

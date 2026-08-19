@@ -11,7 +11,7 @@ from sklearn.exceptions import NotFittedError
 
 from ..neural.training.engine import predict_raw as _engine_predict_raw
 from ..neural.training.engine import run_training
-from ._sklearn_data import prepare_fit_features, prepare_predict_features
+from ._data import prepare_fit_features, prepare_predict_features
 
 EstimatorT = TypeVar("EstimatorT", bound="NeuralEstimatorBase")
 
@@ -59,6 +59,7 @@ class NeuralEstimatorBase(BaseEstimator):
         dataloader_kwargs=None,
         offset=None,
         offset_val=None,
+        loss_fct=None,
         **trainer_kwargs,
     ):
         """Train the model on ``X``/``y``; optionally validate on a held-out set.
@@ -99,6 +100,10 @@ class NeuralEstimatorBase(BaseEstimator):
             the training and explicit-validation rows. Not supported for
             LSS tasks. Note that ``predict`` does NOT apply a stored offset;
             callers composing models must add offsets themselves.
+        loss_fct : callable, optional
+            Custom loss ``fn(preds, targets)`` replacing the task default
+            (regression tasks only; e.g. ``nn.PoissonNLLLoss(log_input=True)``
+            for count responses composed on the log-link scale).
         **trainer_kwargs
             Additional kwargs for PyTorch Lightning's Trainer.
 
@@ -113,6 +118,7 @@ class NeuralEstimatorBase(BaseEstimator):
         if X_val is not None:
             X_val = prepare_predict_features(self, X_val)
 
+        self._fit_loss_fct = loss_fct
         y, y_val, plan = self._build_training_plan(y, y_val)
 
         run_training(
@@ -158,16 +164,14 @@ class NeuralEstimatorBase(BaseEstimator):
         X = prepare_predict_features(self, X)
         return _engine_predict_raw(self, X)
 
-    def predict_feature_vals(self, X):
-        """Return the raw forward-output dict (per-feature contributions)."""
-        return self._predict(X)
-
     def _split_output_components(self, pred_dict):
         """Split a forward-output dict into (terms, intercept) numpy parts."""
+        from ..neural.training.output_contract import is_penalty_key
+
         terms: dict[str, Any] = {}
         intercept: float | Any = 0.0
         for key, value in pred_dict.items():
-            if key == "output":
+            if key == "output" or is_penalty_key(key):
                 continue
             array = value.detach().cpu().numpy()
             if key == "intercept":

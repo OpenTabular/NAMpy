@@ -184,13 +184,15 @@ class TensorProductSplineTerm(BaseSmoothTerm):
         keep_penalties = [not flag for flag in self.fixed_flags]
         self._penalties = [
             np.asarray(S, dtype=np.float64)
-            for S, keep in zip(S_te, keep_penalties)
+            for S, keep in zip(S_te, keep_penalties, strict=True)
             if keep
         ]
         self._set_penalty_rescale_factors(
             [
                 float(scale)
-                for scale, keep in zip(penalty_scales, keep_penalties)
+                for scale, keep in zip(
+                    penalty_scales, keep_penalties, strict=True
+                )
                 if keep
             ]
         )

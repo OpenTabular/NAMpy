@@ -25,12 +25,12 @@ import numpy as np
 
 from ..api import AdditivePrediction, Capabilities
 from ..gam import GAM
-from ..models.sklearn_classifier import SklearnBaseClassifier
-from ..models.sklearn_regressor import SklearnBaseRegressor
+from ..models.classifier import NeuralClassifier
+from ..models.regressor import NeuralRegressor
 
 _SUPPORTED_FAMILIES = {
-    "gaussian": SklearnBaseRegressor,
-    "binomial": SklearnBaseClassifier,
+    "gaussian": NeuralRegressor,
+    "binomial": NeuralClassifier,
 }
 
 
@@ -180,7 +180,7 @@ class GAMPlusNeural:
     def predict_components(self, X) -> AdditivePrediction:
         """Merged per-term contributions with ``gam:``/``nn:`` prefixes."""
         self._check_fitted()
-        gam_components = self.gam_.predict_feature_vals(X)
+        gam_components = self.gam_.predict_terms(X)
         neural_dict = self.neural_._predict(X[self.neural_features_])
 
         reserved = {"output", "response", "intercept", "offset"}

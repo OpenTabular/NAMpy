@@ -124,20 +124,20 @@ Create sklearn-compatible wrappers:
 .. code-block:: python
 
    from nampy.models import (
-       SklearnBaseRegressor,
-       SklearnBaseClassifier,
-       SklearnBaseLSS
+       NeuralRegressor,
+       NeuralClassifier,
+       NeuralLSS
    )
    
-   class MyRegressor(SklearnBaseRegressor):
+   class MyRegressor(NeuralRegressor):
        def __init__(self, **kwargs):
            super().__init__(model=MyCustomModel, config=MyModelConfig, **kwargs)
    
-   class MyClassifier(SklearnBaseClassifier):
+   class MyClassifier(NeuralClassifier):
        def __init__(self, **kwargs):
            super().__init__(model=MyCustomModel, config=MyModelConfig, **kwargs)
    
-   class MyLSS(SklearnBaseLSS):
+   class MyLSS(NeuralLSS):
        def __init__(self, **kwargs):
            super().__init__(model=MyCustomModel, config=MyModelConfig, **kwargs)
 
@@ -180,7 +180,7 @@ Here's a complete working example:
 
    from dataclasses import dataclass
    from nampy.neural.modules import BaseModel
-   from nampy.models import SklearnBaseRegressor
+   from nampy.models import NeuralRegressor
    import torch
    import torch.nn as nn
    
@@ -261,7 +261,7 @@ Here's a complete working example:
            return {"output": output}
    
    # 3. Wrapper Class
-   class AttentiveMLPRegressor(SklearnBaseRegressor):
+   class AttentiveMLPRegressor(NeuralRegressor):
        def __init__(self, **kwargs):
            super().__init__(model=AttentiveMLP, config=AttentiveMLPConfig, **kwargs)
    
@@ -350,7 +350,7 @@ Resources
 ---------
 
 * :class:`nampy.neural.modules.BaseModel` - Base model class
-* :class:`nampy.models.SklearnBaseRegressor` - Regression wrapper
-* :class:`nampy.models.SklearnBaseClassifier` - Classification wrapper
-* :class:`nampy.models.SklearnBaseLSS` - LSS wrapper
+* :class:`nampy.models.NeuralRegressor` - Regression wrapper
+* :class:`nampy.models.NeuralClassifier` - Classification wrapper
+* :class:`nampy.models.NeuralLSS` - LSS wrapper
 * Existing models in `nampy/basemodels/` for reference

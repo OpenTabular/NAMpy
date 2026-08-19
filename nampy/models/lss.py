@@ -1,4 +1,4 @@
-# sklearn_lss.py
+# lss.py
 import warnings
 
 import numpy as np
@@ -41,7 +41,7 @@ from ..neural.distributions.metrics import (
     student_t_loss,
 )
 from ..neural.training.engine import TrainingPlan
-from ._sklearn_base import NeuralEstimatorBase
+from ._base import NeuralEstimatorBase
 
 _DISTRIBUTION_CLASSES = {
     "normal": NormalDistribution,
@@ -68,7 +68,7 @@ _DISTRIBUTION_CLASSES = {
 }
 
 
-class SklearnBaseLSS(NeuralEstimatorBase):
+class NeuralLSS(NeuralEstimatorBase):
     def __init__(self, model, config, **kwargs):
         self._initialize_estimator_parameters(config, kwargs)
         self.model = None
@@ -188,6 +188,11 @@ class SklearnBaseLSS(NeuralEstimatorBase):
         )
 
     def _build_training_plan(self, y, y_val):
+        if getattr(self, "_fit_loss_fct", None) is not None:
+            raise ValueError(
+                "Custom loss_fct is only supported for regression tasks; "
+                "LSS losses come from the distribution family."
+            )
         if isinstance(y, pd.Series):
             y = y.values
         if isinstance(y_val, pd.Series):
@@ -239,10 +244,31 @@ class SklearnBaseLSS(NeuralEstimatorBase):
         return [f"Param {i + 1}" for i in range(n_series)]
 
     def predict_components(self, X):
-        """Not supported: LSS outputs are distribution parameters, not a link."""
-        raise NotImplementedError(
-            "predict_components is not defined for distributional (LSS) "
-            "estimators; use predict_feature_vals for raw per-term outputs."
+        """Per-term contributions on the raw parameter scale.
+
+        ``link`` holds the raw multi-column network output (one column per
+        distribution parameter), ``response`` the family-transformed
+        parameters, and each term a matching multi-column contribution;
+        additivity holds on the raw (link) scale.
+        """
+        from ..api import AdditivePrediction
+
+        pred_dict = self._predict(X)
+        raw = pred_dict["output"]
+        family = (
+            self.model.family
+            if getattr(self.model, "family", None) is not None
+            else self.family
+        )
+        with torch.no_grad():
+            response = family(raw).cpu().numpy()
+        terms, intercept = self._split_output_components(pred_dict)
+        return AdditivePrediction(
+            response=response,
+            link=raw.cpu().numpy(),
+            terms=terms,
+            intercept=intercept,
+            backend="neural",
         )
 
     def capabilities(self) -> Capabilities:

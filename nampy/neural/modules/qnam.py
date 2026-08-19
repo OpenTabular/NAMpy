@@ -10,7 +10,7 @@ from ..training.output_contract import validate_feature_names
 from .basemodel import BaseModel
 
 
-class QNAMBase(BaseModel):
+class QNAM(BaseModel):
     """
     Quantile Neural Additive Model (QNAM).
 

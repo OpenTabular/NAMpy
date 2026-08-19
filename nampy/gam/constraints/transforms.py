@@ -17,7 +17,7 @@ def dependent_column_indices(
     B,
     A=None,
     *,
-    tol: float = np.finfo(np.float64).eps ** 0.5,
+    tol: float = float(np.finfo(np.float64).eps**0.5),
     rank_def: int = 0,
     strict: bool = False,
 ):
@@ -84,7 +84,9 @@ def dependent_column_indices(
     return np.asarray(piv2[r0 - 1 : r_total], dtype=int)
 
 
-def independent_column_indices(B, A=None, tol: float = np.finfo(np.float64).eps ** 0.5):
+def independent_column_indices(
+    B, A=None, tol: float = float(np.finfo(np.float64).eps**0.5)
+):
     B = np.asarray(B, dtype=np.float64)
     if B.ndim != 2:
         raise ValueError("B must be a 2D matrix.")
@@ -233,7 +235,6 @@ def apply_coefficient_transform(B, penalties, T):
 
 __all__ = [
     "dependent_column_indices",
-    "orthogonal_residual",
     "independent_column_indices",
     "null_space_basis_from_constraint_matrix",
     "localized_null_space_basis_from_constraint_matrix",

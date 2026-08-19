@@ -295,9 +295,15 @@ class TestMGCVFormulaParseParity:
         expected_component = _normalize_mgcv_component(expected["components"][0])
         assert actual_component == expected_component
 
-    def test_extract_formula_terms_expands_shared_component_by_linear_predictor(self):
+    def test_extract_formula_terms_rejects_shared_component_pending_port(self):
         """
-        Verify that extract formula terms expands shared component by linear predictor.
+        Shared '1 + 2 ~ ...' components must fail loudly at extraction.
+
+        mgcv shares a single coefficient block across the labelled predictors
+        ("with the same coefficients", ?mgcv::formula.gam). NAMpy's old
+        expansion duplicated the terms with independent coefficients — a
+        different model — so building is guarded until coefficient sharing is
+        ported. Parsing itself stays interpret.gam-parity-tested above.
         """
         parsed = parse_gam_formula(
             [
@@ -307,22 +313,11 @@ class TestMGCVFormulaParseParity:
             ]
         )
 
-        extracted = extract_formula_terms(parsed)
-
-        assert len(extracted) == 2
-        assert [pred.response_name for pred in extracted] == ["y1", "y2"]
-        assert [pred.intercept for pred in extracted] == [False, False]
-        assert [len(pred.terms) for pred in extracted] == [1, 1]
-
-        first_term = extracted[0].terms[0]
-        second_term = extracted[1].terms[0]
-
-        assert first_term.kind == "s"
-        assert second_term.kind == "s"
-        assert first_term.features == ("x",)
-        assert second_term.features == ("x",)
-        assert first_term.raw_label == 's(x, k=5, bs="cr")'
-        assert second_term.raw_label == 's(x, k=5, bs="cr")'
+        with pytest.raises(
+            NotImplementedError,
+            match="Shared linear-predictor components",
+        ):
+            extract_formula_terms(parsed)
 
     def test_build_formula_model_accepts_transformed_parametric_terms(self):
         """Verify that build formula model accepts transformed parametric terms."""
@@ -597,15 +592,17 @@ class TestMGCVFormulaParseParity:
             }
         )
         parsed = parse_gam_formula(formula)
-        extracted = extract_formula_terms(parsed)
 
+        # The shared-label variant trips the shared-component guard at
+        # extraction; the others reach build_formula_model's dot rejection.
         with pytest.raises(
             NotImplementedError,
             match=(
                 "Data-aware '\\.' shorthand is unsupported for formula-list / "
-                "multi-predictor models"
+                "multi-predictor models|Shared linear-predictor components"
             ),
         ):
+            extracted = extract_formula_terms(parsed)
             build_formula_model(extracted, data=data)
 
     @pytest.mark.parametrize(

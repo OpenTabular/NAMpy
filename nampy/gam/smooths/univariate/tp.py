@@ -13,15 +13,15 @@ top of the main penalty.
 
 import numpy as np
 
-from ....splines.univariate.tp import (
-    build_tprs_term_setup,
-    predict_tprs_term,
-)
 from ...constraints.absorption import (
     fit_single_penalty_with_constraint_policy,
     fit_single_penalty_with_setup_basis,
 )
 from ...penalties.algebra import penalty_rescale_factor, scale_penalty
+from ...splines.univariate.tp import (
+    build_tprs_term_setup,
+    predict_tprs_term,
+)
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,

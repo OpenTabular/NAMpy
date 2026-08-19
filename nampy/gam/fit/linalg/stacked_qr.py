@@ -65,7 +65,9 @@ from .matrix_reindexing import (
 
 # Rank-detection threshold: condition number ratio above which a column is considered
 # linearly dependent. Match mgcv's stacked-QR tolerance at eps**0.66.
-STACKED_QR_RANK_TOLERANCE = np.finfo(np.float64).eps ** 0.66 * QR_TOL_SCALE
+STACKED_QR_RANK_TOLERANCE: float = float(
+    np.finfo(np.float64).eps**0.66 * QR_TOL_SCALE
+)
 
 
 @dataclass(frozen=True)
@@ -277,7 +279,12 @@ def _stacked_penalized_ls_nonneg_solution(
     z_buf[:n_obs] = z * raw_w
     z_buf[:n_obs][neg_weight_mask] *= -1.0
     qrz_rank_raw = np.zeros(system_rank, dtype=np.float64)
-    use_wy = False
+    # `pls_fit1` requires zero-weight observations to have been removed before
+    # entering its fast eta-reconstruction path.  Its documented alternative
+    # for reciprocal/zero working weights is the direct X'Wz path (`use_wy`).
+    # Our callers retain the original row layout, so select that upstream path
+    # whenever a zero weight is present instead of dividing by sqrt(w).
+    use_wy = bool(np.any(raw_w == 0.0))
     penalty_quadratic = 0.0
     eta = np.zeros(n_obs, dtype=np.float64)
 
@@ -734,7 +741,8 @@ def _drop_rows_vec(v: np.ndarray, drop_sorted: np.ndarray) -> np.ndarray:
     q = int(v.shape[0])
     mask = np.ones(q, dtype=bool)
     mask[drop_sorted.astype(int)] = False
-    return np.asarray(v, dtype=np.float64)[mask].copy()
+    out: np.ndarray = np.array(v, dtype=np.float64, copy=True)[mask]
+    return out
 
 
 def penalty_sqrt_rows(P: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -825,7 +833,9 @@ def pls_fit1_nonneg_w(
     if z.shape[0] != n_obs or w.shape[0] != n_obs or wy.shape[0] != n_obs:
         raise ValueError("shape mismatch among X rows, z, w, and wy.")
     exp_wy = w * z
-    if not np.allclose(wy, exp_wy, rtol=0.0, atol=np.finfo(np.float64).eps * 8):
+    if not np.allclose(
+        wy, exp_wy, rtol=0.0, atol=float(np.finfo(np.float64).eps * 8)
+    ):
         raise ValueError("wy must equal w * z elementwise (mgcv pls_fit1 contract).")
     out = _stacked_penalized_ls_nonneg_solution(
         X,

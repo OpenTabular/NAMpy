@@ -104,7 +104,7 @@ def _feature_info_from_runtime(runtime) -> TermFeatureInfo:
     if len(feature_names) == 0 and getattr(runtime, "_feature_name", None) is not None:
         feature_names = (str(runtime._feature_name),)
 
-    feature_indices = ()
+    feature_indices: tuple[int, ...] = ()
     if getattr(runtime, "_feature_indices", None) is not None:
         feature_indices = tuple(int(v) for v in runtime._feature_indices)
     elif getattr(runtime, "_feature_index", None) is not None:

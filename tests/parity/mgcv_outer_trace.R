@@ -105,6 +105,8 @@ trace_env <- new.env(parent = emptyenv())
 trace_env$trace_rows <- list()
 trace_env$optim_rows <- new.env(hash = TRUE, parent = emptyenv())
 trace_env$optim_order <- character()
+trace_env$vb_corr_calls <- list()
+trace_env$postproc_calls <- list()
 
 append_trace_row <- function(row) {
   prev <- if (length(trace_env$trace_rows) == 0L) NULL else trace_env$trace_rows[[length(trace_env$trace_rows)]]
@@ -183,6 +185,44 @@ on.exit(cleanup(), add = TRUE)
 
 suppressPackageStartupMessages(library(mgcv))
 suppressPackageStartupMessages(library(jsonlite))
+
+## Observe the actual post-processing inputs and Vb.corr outputs used by the
+## fitted model.  This avoids rebuilding the covariance correction in the R
+## harness and gives the Python tests independent component-level oracles for
+## mgcv/R/gam.fit3.r::gam.fit3.post.proc() and Vb.corr().
+wrapped_funs[["Vb.corr"]] <- wrap_ns_fun("Vb.corr", function(orig) {
+  function(X, L, lsp0, S, off, dw, w, rho, Vr, nth = 0, scale.est = FALSE) {
+    value <- orig(X, L, lsp0, S, off, dw, w, rho, Vr, nth, scale.est)
+    value_matrix <- if (length(value) == 1L && is.numeric(value) && value == 0) {
+      matrix(0, ncol(X), ncol(X))
+    } else {
+      as.matrix(value)
+    }
+    trace_env$vb_corr_calls[[length(trace_env$vb_corr_calls) + 1L]] <- list(
+      rho = unname(as.numeric(rho)),
+      Vr = unname(as.matrix(Vr)),
+      nth = as.integer(nth),
+      scale_estimated = isTRUE(scale.est),
+      correction_unscaled = unname(value_matrix)
+    )
+    value
+  }
+})
+
+wrapped_funs[["gam.fit3.post.proc"]] <- wrap_ns_fun("gam.fit3.post.proc", function(orig) {
+  function(X, L, lsp0, S, off, object, gamma) {
+    value <- orig(X, L, lsp0, S, off, object, gamma)
+    trace_env$postproc_calls[[length(trace_env$postproc_calls) + 1L]] <- list(
+      db_drho = if (is.null(object$db.drho)) NULL else unname(as.matrix(object$db.drho)),
+      dw_drho = if (is.null(object$dw.drho)) NULL else unname(as.matrix(object$dw.drho)),
+      scale_estimated = isTRUE(object$scale.estimated),
+      Vp = if (is.null(value$Vp)) NULL else unname(as.matrix(value$Vp)),
+      Vc = if (is.null(value$Vc)) NULL else unname(as.matrix(value$Vc)),
+      edf2 = if (is.null(value$edf2)) NULL else unname(as.numeric(value$edf2))
+    )
+    value
+  }
+})
 
 csv_path <- args[[1]]
 output_json <- args[[2]]
@@ -456,10 +496,18 @@ payload <- list(
         if (nrow(h1) > n_sp) h1 <- h1[seq_len(n_sp), seq_len(n_sp), drop = FALSE]
         unname(h1)
       } else NULL,
+      db_drho1 = if (!is.null(outer_info) && !is.null(outer_info$hess) && !is.null(attr(outer_info$hess, "db.drho1"))) unname(as.matrix(attr(outer_info$hess, "db.drho1"))) else NULL,
+      dw_drho1 = if (!is.null(outer_info) && !is.null(outer_info$hess) && !is.null(attr(outer_info$hess, "dw.drho1"))) unname(as.matrix(attr(outer_info$hess, "dw.drho1"))) else NULL,
       convergence = if (!is.null(outer_info) && !is.null(outer_info$convergence)) as.integer(outer_info$convergence) else NULL,
       message = if (!is.null(outer_info) && !is.null(outer_info$message)) as.character(outer_info$message) else NULL,
       counts = if (!is.null(outer_info) && !is.null(outer_info$counts)) unname(as.integer(outer_info$counts)) else NULL
-    )
+    ),
+    scale = unname(as.numeric(fit$sig2)),
+    Vp = if (is.null(fit$Vp)) NULL else unname(as.matrix(fit$Vp)),
+    Vc = if (is.null(fit$Vc)) NULL else unname(as.matrix(fit$Vc)),
+    edf2 = if (is.null(fit$edf2)) NULL else unname(as.numeric(fit$edf2)),
+    vb_corr_calls = trace_env$vb_corr_calls,
+    postproc_calls = trace_env$postproc_calls
   ),
   trace = trace_rows
 )

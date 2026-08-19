@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.interpolate import BSpline
 
-from ...gam.linalg import numerical_rank, symmetrize_matrix
+from ...linalg import numerical_rank, symmetrize_matrix
 
 
 def bspline_design_matrix(x, knots, degree, deriv=0, extrapolate=True):

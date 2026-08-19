@@ -1,4 +1,4 @@
-# sklearn_classifier.py
+# classifier.py
 import warnings
 
 import numpy as np
@@ -9,10 +9,10 @@ from sklearn.utils import ClassifierTags
 
 from ..api import AdditivePrediction, Capabilities
 from ..neural.training.engine import TrainingPlan
-from ._sklearn_base import NeuralEstimatorBase
+from ._base import NeuralEstimatorBase
 
 
-class SklearnBaseClassifier(NeuralEstimatorBase):
+class NeuralClassifier(NeuralEstimatorBase):
     _estimator_type = "classifier"
 
     def __init__(self, model, config, **kwargs):
@@ -39,6 +39,10 @@ class SklearnBaseClassifier(NeuralEstimatorBase):
         return tags
 
     def _build_training_plan(self, y, y_val):
+        if getattr(self, "_fit_loss_fct", None) is not None:
+            raise ValueError(
+                "Custom loss_fct is only supported for regression tasks."
+            )
         y = np.asarray(y).ravel()
         self._label_encoder = LabelEncoder().fit(y)
         self.classes_ = self._label_encoder.classes_

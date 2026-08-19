@@ -17,11 +17,11 @@ import torch
 from sklearn.metrics import r2_score
 from sklearn.utils import RegressorTags
 
-from ..models._sklearn_base import NeuralEstimatorBase
-from ..models._sklearn_data import prepare_predict_features
+from ..models._base import NeuralEstimatorBase
+from ..models._data import prepare_predict_features
 from ..neural.training.engine import TrainingPlan
-from .additive_net import GAM_DESIGN_KEY, HybridAdditiveNet
 from .compiled_terms import CompiledGAMTerms
+from .net import GAM_DESIGN_KEY, HybridAdditiveNet
 
 
 class HybridJointRegressor(NeuralEstimatorBase):

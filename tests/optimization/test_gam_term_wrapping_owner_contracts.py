@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from nampy.gam import GAM
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
-from nampy.gam.model.api import GAM
 from nampy.gam.specs.build import build_formula_model
 from tests.mgcv_parity_utils import (
     _make_gaussian_data,
@@ -64,7 +64,7 @@ def _assert_offset_payload_equal(actual, expected):
         actual_list = [] if actual is None else list(actual)
         expected_list = [] if expected is None else list(expected)
         assert len(actual_list) == len(expected_list)
-        for got, want in zip(actual_list, expected_list):
+        for got, want in zip(actual_list, expected_list, strict=True):
             if got is None or want is None:
                 assert got is None and want is None
                 continue

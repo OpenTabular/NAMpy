@@ -1,20 +1,20 @@
 from ..neural.configs.snam_config import DefaultSNAMConfig
 from ..neural.modules.snam import SNAM
-from .sklearn_classifier import SklearnBaseClassifier
-from .sklearn_lss import SklearnBaseLSS
-from .sklearn_regressor import SklearnBaseRegressor
+from .classifier import NeuralClassifier
+from .lss import NeuralLSS
+from .regressor import NeuralRegressor
 
 
-class SNAMRegressor(SklearnBaseRegressor):
+class SNAMRegressor(NeuralRegressor):
     def __init__(self, **kwargs):
         super().__init__(model=SNAM, config=DefaultSNAMConfig, **kwargs)
 
 
-class SNAMClassifier(SklearnBaseClassifier):
+class SNAMClassifier(NeuralClassifier):
     def __init__(self, **kwargs):
         super().__init__(model=SNAM, config=DefaultSNAMConfig, **kwargs)
 
 
-class SNAMLSS(SklearnBaseLSS):
+class SNAMLSS(NeuralLSS):
     def __init__(self, **kwargs):
         super().__init__(model=SNAM, config=DefaultSNAMConfig, **kwargs)

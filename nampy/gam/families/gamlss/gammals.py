@@ -30,7 +30,12 @@ class _SoftplusBLinkInfo:
         eta = np.asarray(eta, dtype=np.float64)
         x = eta - self.b
         # for x > 500 the log1p(exp(x)) ≈ x, so linkinv ≈ eta
-        return np.where(x > 500.0, eta, self.b + np.log1p(np.exp(np.minimum(x, 500.0))))
+        result: np.ndarray = np.where(
+            x > 500.0,
+            eta,
+            self.b + np.log1p(np.exp(np.minimum(x, 500.0))),
+        )
+        return result
 
     def linkfun(self, mu: np.ndarray) -> np.ndarray:
         mu = np.asarray(mu, dtype=np.float64)
@@ -46,7 +51,8 @@ class _SoftplusBLinkInfo:
                 np.log(np.expm1(np.clip(mub, eps, 500.0))) + self.b,
             ),
         )
-        return eta
+        result: np.ndarray = eta
+        return result
 
     def mu_eta(self, eta: np.ndarray) -> np.ndarray:
         """d linkinv / d eta = sigmoid(eta - b)."""
@@ -56,14 +62,16 @@ class _SoftplusBLinkInfo:
         pos = x >= 0.0
         ex = np.exp(-np.abs(x))
         result = np.where(pos, 1.0 / (1.0 + ex), ex / (1.0 + ex))
-        return result
+        output: np.ndarray = result
+        return output
 
     def d2link(self, mu: np.ndarray) -> np.ndarray:
         """d^2 eta / d mu^2.  Mirrors mgcv d2link for softplus-b."""
         mu = np.asarray(mu, dtype=np.float64)
         mub = mu - self.b
         mub_v = np.exp(-mub * np.sign(mub))
-        return -mub_v / (mub_v - 1.0) ** 2
+        result: np.ndarray = -mub_v / (mub_v - 1.0) ** 2
+        return result
 
     def d3link(self, mu: np.ndarray) -> np.ndarray:
         """d^3 eta / d mu^3.  Mirrors mgcv d3link for softplus-b."""
@@ -71,7 +79,8 @@ class _SoftplusBLinkInfo:
         mub_raw = mu - self.b
         sm = -np.sign(mub_raw)
         mub_v = np.exp(mub_raw * sm)  # = exp(-|mu-b|)
-        return sm * (mub_v + mub_v**2) / (mub_v - 1.0) ** 3
+        result: np.ndarray = sm * (mub_v + mub_v**2) / (mub_v - 1.0) ** 3
+        return result
 
     def d4link(self, mu: np.ndarray) -> np.ndarray:
         """d^4 eta / d mu^4.  Mirrors mgcv d4link for softplus-b."""
@@ -79,7 +88,10 @@ class _SoftplusBLinkInfo:
         mub_raw = mu - self.b
         sm = -np.sign(mub_raw)
         mub_v = np.exp(mub_raw * sm)
-        return sm * (mub_v + 4.0 * mub_v**2 + mub_v**3) / (mub_v - 1.0) ** 4
+        result: np.ndarray = (
+            sm * (mub_v + 4.0 * mub_v**2 + mub_v**3) / (mub_v - 1.0) ** 4
+        )
+        return result
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +143,8 @@ class GammalsFamily(GamlssFamily):
         if link2_name not in ok2:
             raise ValueError(f"Link {link2_name!r} not available for sigma of gammals.")
 
-        linfo1 = _IdentityLinkInfo()
+        linfo1: Any = _IdentityLinkInfo()
+        linfo2: Any
         if link2_name == "log":
             linfo2 = _SoftplusBLinkInfo(b=b)
         else:
@@ -403,9 +416,16 @@ class GammalsFamily(GamlssFamily):
         return start
 
     def residuals(
-        self, y: np.ndarray, fitted: np.ndarray, rtype: str = "deviance"
+        self,
+        y: np.ndarray,
+        fitted: np.ndarray,
+        rtype: str = "deviance",
+        *,
+        eta: np.ndarray | None = None,
+        **kwargs: Any,
     ) -> np.ndarray:
         """Residuals for gammals.  Mirrors mgcv ``gammals$residuals``."""
+        del eta, kwargs
         rtype = str(rtype).lower()
         if rtype not in {"deviance", "pearson", "response"}:
             raise ValueError(
@@ -416,9 +436,11 @@ class GammalsFamily(GamlssFamily):
         rho = np.asarray(fitted[:, 1], dtype=np.float64)  # log sigma
         if rtype == "deviance":
             rsd = 2.0 * ((y - mu) / mu - np.log(y / mu)) * np.exp(-rho)
-            return np.sqrt(np.maximum(0.0, rsd)) * np.sign(y - mu)
+            result: np.ndarray = np.sqrt(np.maximum(0.0, rsd)) * np.sign(y - mu)
+            return result
         elif rtype == "pearson":
-            return (y - mu) / (np.exp(rho * 0.5) * mu)
+            result = (y - mu) / (np.exp(rho * 0.5) * mu)
+            return result
         else:
             return y - mu
 

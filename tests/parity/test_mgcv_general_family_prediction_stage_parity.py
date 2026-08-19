@@ -339,3 +339,62 @@ def test_linked_id_public_prediction_surfaces_match_mgcv_on_supported_gaussian_c
         _assert_general_term_labels_match(gam, expected.get("term_names", []))
     _assert_general_prediction_close(actual_se, expected["se"], atol=1e-7)
 
+
+
+def test_general_family_iterms_downgrades_to_terms_with_mgcv_warning():
+    """Multi-predictor type="iterms" downgrades to "terms" like predict.gam.
+
+    Upstream predict.gam warns "iterms reset to terms" for multi-linear-
+    predictor families; NAMpy mirrors the warning and the downgraded output
+    must equal an explicit type="terms" call and mgcv's own type="iterms"
+    result on the same newdata.
+    """
+    import warnings
+
+    data = _gaulss_data()
+    gam = _fit_nampy_model(data, _PREDICTION_FORMULA, _PREDICTION_FAMILY, "ML")
+    newdata = _general_newdata(data)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        iterms_pred, iterms_se = gam.predict(
+            newdata, type="iterms", return_se=True
+        )
+    messages = [str(w.message) for w in caught]
+    assert any(
+        "type iterms not available for multiple predictor cases" in message
+        for message in messages
+    )
+
+    terms_pred, terms_se = gam.predict(newdata, type="terms", return_se=True)
+    np.testing.assert_array_equal(
+        np.asarray(iterms_pred, dtype=np.float64),
+        np.asarray(terms_pred, dtype=np.float64),
+    )
+    np.testing.assert_array_equal(
+        np.asarray(iterms_se, dtype=np.float64),
+        np.asarray(terms_se, dtype=np.float64),
+    )
+
+    expected = _run_mgcv_predict_on_newdata(
+        data,
+        newdata,
+        _PREDICTION_FORMULA,
+        family=_PREDICTION_FAMILY,
+        method="ML",
+        type="iterms",
+        return_se=True,
+        allow_live_run=True,
+    )
+    np.testing.assert_allclose(
+        np.asarray(iterms_pred, dtype=np.float64),
+        np.asarray(expected["pred"], dtype=np.float64),
+        atol=_PREDICTION_ATOL,
+        rtol=_PREDICTION_ATOL,
+    )
+    np.testing.assert_allclose(
+        np.asarray(iterms_se, dtype=np.float64),
+        np.asarray(expected["se"], dtype=np.float64),
+        atol=_PREDICTION_ATOL,
+        rtol=_PREDICTION_ATOL,
+    )

@@ -145,6 +145,12 @@ family <- prefit$family
 nobs <- length(y)
 eval(family$initialize)
 start_initial <- start
+start_lpi <- attr(x_fit, "lpi")
+start_linear_predictors <- if (is.null(start_lpi)) {
+  NULL
+} else {
+  lapply(start_lpi, function(j) unname(as.numeric(x_fit[, j, drop = FALSE] %*% start_initial[j])))
+}
 if (!is.null(start0)) start <- start0
 
 fit <- mgcv:::gam.fit5(
@@ -217,7 +223,8 @@ payload <- list(
   iter = unname(as.integer(fit$iter)),
   offset_list = serialize_offset_list(prefit$offset)
   ,
-  start_initial = serialize_optional(start_initial)
+  start_initial = serialize_optional(start_initial),
+  start_linear_predictors = start_linear_predictors
 )
 
 write_json(

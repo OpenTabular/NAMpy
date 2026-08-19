@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.gam.model.api import GAM
+from nampy.gam import GAM
 from tests._paths import PARITY_DIR, REPO_ROOT
 
 R_SCRIPT = shutil.which("Rscript")

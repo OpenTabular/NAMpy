@@ -1,11 +1,11 @@
 from ..neural.configs.qnam_config import DefaultQNAMConfig
-from ..neural.modules.qnam import QNAMBase
-from .sklearn_lss import SklearnBaseLSS
+from ..neural.modules.qnam import QNAM
+from .lss import NeuralLSS
 
 
-class QNAM(SklearnBaseLSS):
+class QNAMLSS(NeuralLSS):
     """
-    Multi-Layer Perceptron for distributional regression. This class extends the SklearnBaseLSS class and uses the NAM model
+    Multi-Layer Perceptron for distributional regression. This class extends the NeuralLSS class and uses the NAM model
     with the default QNAM configuration.
 
     The accepted arguments to the QNAM class include both the attributes in the DefaultQNAMConfig dataclass
@@ -70,11 +70,11 @@ class QNAM(SklearnBaseLSS):
     Notes
     -----
     - The accepted arguments to the NAMLSS class are the same as the attributes in the DefaultNAMConfig dataclass.
-    - NAMLSS uses SklearnBaseLSS as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - NAMLSS uses NeuralLSS as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    nampy.models.SklearnBaseLSS : The parent class for NAMLSS.
+    nampy.models.NeuralLSS : The parent class for NAMLSS.
 
     Examples
     --------
@@ -87,7 +87,7 @@ class QNAM(SklearnBaseLSS):
 
     def __init__(self, **kwargs):
         super().__init__(
-            model=QNAMBase,
+            model=QNAM,
             config=DefaultQNAMConfig,
             **kwargs,
         )

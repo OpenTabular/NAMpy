@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from nampy.gam import GAM
 from nampy.gam.inference.null_deviance import compute_null_deviance, null_deviance
-from nampy.gam.model.api import GAM
 
 pytestmark = [pytest.mark.surface_output, pytest.mark.surface_regression]
 
@@ -64,14 +64,20 @@ def test_null_deviance_offset_triggers_intercept_only_refit():
     assert nd != pytest.approx(naive, rel=1e-8)
 
 
-def test_null_deviance_without_intercept_uses_linkinv_offset():
-    """gam.fit3.r:841: no intercept -> wtdmu = linkinv(offset)."""
+def test_null_deviance_without_intercept_stays_mean_based_like_mgcv():
+    """gam.outer hardcodes intercept=TRUE into gam.fit3 (mgcv/R/mgcv.r:1667).
+
+    The gam.fit3.r:841 "no intercept -> wtdmu = linkinv(offset)" branch is
+    therefore unreachable through gam(); observed mgcv null.deviance for a
+    no-intercept fit is the weighted-mean one (verified live in
+    debug/no_intercept_null_deviance_probe.R and
+    tests/parity/test_mgcv_summary_parity.py::gaussian_no_intercept_reml).
+    """
     data = _gaussian_data(seed=7)
     gam = _fit('y ~ s(x0, bs="cr", k=6) - 1', data)
     assert not bool(gam.fit_intercept)
     y = np.asarray(gam.y_, dtype=np.float64)
-    # gaussian identity with zero offset: mu0 = 0.
-    expected = float(np.sum(y**2.0))
+    expected = float(np.sum((y - float(np.mean(y))) ** 2.0))
     assert compute_null_deviance(gam) == pytest.approx(expected, rel=1e-12)
 
 

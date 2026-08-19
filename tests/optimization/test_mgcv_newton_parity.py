@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.gam.model.api import GAM
+from nampy.gam import GAM
 from nampy.gam.parity import build_optimizer_trace
 from tests._paths import PARITY_DIR, REPO_ROOT
 

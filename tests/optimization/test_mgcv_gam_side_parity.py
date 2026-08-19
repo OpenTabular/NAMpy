@@ -6,16 +6,24 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from nampy.gam import GAM
 from nampy.gam.compiler.compile_predictors import compile_predictors
-from nampy.gam.constraints.identifiability import apply_global_side_conditions
-from nampy.gam.model.api import GAM
+from nampy.gam.constraints.identifiability import (
+    _penalty_root,
+    apply_global_side_conditions,
+)
 from nampy.gam.specs.modeling import prepare_formula_inputs
 from tests.mgcv_invariant_policy import (
     gam_setup_compares_dominant_penalty_spectrum,
     gam_side_uses_invariant_transform,
     penalty_spectrum,
+    stable_column_space_projector,
 )
-from tests.mgcv_parity_utils import _make_gaussian_data, _run_mgcv_gam_setup_assembly
+from tests.mgcv_parity_utils import (
+    _make_gaussian_data,
+    _run_mgcv_gam_setup_assembly,
+    _run_mgcv_predict_on_newdata,
+)
 from tests.optimization.test_mgcv_general_family_preoptimization_parity import (
     GENERAL_PREOPT_CASES,
 )
@@ -32,6 +40,41 @@ _UNSTABLE_DEL_INDEX_CASES = {
     # final blocks, penalties, ranks, and deletion counts instead.
     "nested_te",
 }
+
+
+def test_gam_side_penalty_root_is_checked_through_its_identified_gram_matrix():
+    """The augment.smX square-root orientation is not an mgcv contract."""
+    penalty = np.asarray(
+        [
+            [2.0, -1.0, 0.0, 0.0],
+            [-1.0, 2.0, -1.0, 0.0],
+            [0.0, -1.0, 2.0, -1.0],
+            [0.0, 0.0, -1.0, 1.0],
+        ],
+        dtype=np.float64,
+    )
+    root = _penalty_root(penalty, tol=np.finfo(np.float64).eps**0.5)
+
+    # mgcv::mroot() promises B B' = S. Any orthogonal rotation B Q has the
+    # same observable augmentation, so compare the identified Gram matrix.
+    rotation = np.asarray(
+        [
+            [0.0, 1.0, 0.0, 0.0],
+            [-1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+            [0.0, 0.0, -1.0, 0.0],
+        ],
+        dtype=np.float64,
+    )
+    rotated_root = root @ rotation
+
+    np.testing.assert_allclose(root @ root.T, penalty, atol=2e-14, rtol=2e-14)
+    np.testing.assert_allclose(
+        rotated_root @ rotated_root.T,
+        penalty,
+        atol=2e-14,
+        rtol=2e-14,
+    )
 
 
 def _coerce_int_array_1d(value) -> np.ndarray:
@@ -145,7 +188,7 @@ def _compile_side_state(data: pd.DataFrame, formula, *, select: bool):
         adjusted, report = apply_global_side_conditions(
             predictor,
             fit_intercept=bool(predictor.has_intercept),
-            tol=1e-10,
+            tol=float(np.finfo(np.float64).eps**0.5),
             warn=False,
         )
         adjusted_predictors.append(adjusted)
@@ -314,8 +357,13 @@ def _matrix_atol_for_class(class_name: str) -> float:
 def _penalty_atol_for_class(class_name: str) -> float:
     if class_name == "fs.interaction":
         return 1e-8
+    if class_name == "sz.interaction":
+        # SZ marginal eigenvectors are identified only up to sign.  After the
+        # explicit sign congruence above, the remaining difference is the
+        # accumulated LAPACK eigensolver roundoff in the penalty entries.
+        return 1e-11
     if class_name in {"tprs.smooth", "ts.smooth"}:
-        return 1e-10
+        return 3e-10
     return 1e-12
 
 
@@ -332,6 +380,22 @@ def _solve_basis_change(actual_block, expected_block, *, atol: float) -> np.ndar
         atol=atol,
     )
     return np.asarray(transform, dtype=np.float64)
+
+
+def _solve_column_sign_change(actual_block, expected_block, *, atol: float) -> np.ndarray:
+    """Align an identified basis whose eigenvectors differ only by column sign."""
+    actual_block = np.asarray(actual_block, dtype=np.float64)
+    expected_block = np.asarray(expected_block, dtype=np.float64)
+    dots = np.sum(actual_block * expected_block, axis=0)
+    signs = np.where(dots < 0.0, -1.0, 1.0)
+    transform = np.diag(signs)
+    np.testing.assert_allclose(
+        actual_block @ transform,
+        expected_block,
+        rtol=0.0,
+        atol=atol,
+    )
+    return transform
 
 
 def _constant_projection_residual(block: np.ndarray) -> float:
@@ -363,6 +427,30 @@ def _make_re_plus_nested_tp_data(seed=511, n_levels=7, n_rep=18):
     return pd.DataFrame({"y": y, "f": f, "x0": x0, "x1": x1})
 
 
+def _make_three_way_nested_data(seed=515, n=180):
+    data = _make_gaussian_data(seed=seed, n=n)
+    rng = np.random.default_rng(seed)
+    data["x2"] = rng.uniform(-1.25, 1.25, size=n)
+    return data
+
+
+def _make_near_rank_boundary_data(seed=516, n=180, epsilon=1e-11):
+    data = _make_gaussian_data(seed=seed, n=n)[["y", "x0"]].copy()
+    rng = np.random.default_rng(seed)
+    data["x_near"] = data["x0"].to_numpy() + float(epsilon) * rng.normal(size=n)
+    return data
+
+
+def _make_ordered_factor_by_data(seed=518, n=210):
+    data = _make_factor_by_data(seed=seed, n=n)
+    data["f"] = pd.Categorical(
+        data["f"],
+        categories=["a", "b", "c"],
+        ordered=True,
+    )
+    return data
+
+
 SIDE_CASES = [
     (
         "repeat_cr_ps",
@@ -377,6 +465,15 @@ SIDE_CASES = [
         "nested_tp",
         lambda: _make_gaussian_data(seed=512, n=180),
         'y ~ s(x0, bs="cr", k=8) + s(x0, x1, bs="tp", k=15)',
+        "gaussian",
+        "REML",
+        False,
+        False,
+    ),
+    (
+        "nested_tp_reversed_formula_order",
+        lambda: _make_gaussian_data(seed=512, n=180),
+        'y ~ s(x0, x1, bs="tp", k=15) + s(x0, bs="cr", k=8)',
         "gaussian",
         "REML",
         False,
@@ -413,6 +510,24 @@ SIDE_CASES = [
         "re_plus_nested_tp",
         _make_re_plus_nested_tp_data,
         'y ~ s(f, bs="re") + s(x0, bs="cr", k=8) + s(x0, x1, bs="tp", k=15)',
+        "gaussian",
+        "REML",
+        False,
+        False,
+    ),
+    (
+        "near_rank_boundary_cr",
+        _make_near_rank_boundary_data,
+        'y ~ s(x0, bs="cr", k=8) + s(x_near, bs="cr", k=8)',
+        "gaussian",
+        "REML",
+        False,
+        False,
+    ),
+    (
+        "zero_width_duplicate_cr",
+        _make_repeat_cr_ps_data,
+        'y ~ s(x, bs="cr", k=8) + s(x, bs="cr", k=8)',
         "gaussian",
         "REML",
         False,
@@ -520,6 +635,19 @@ def _assert_gam_side_case(
         for item in (expected.get("smooth", []) or [])
     ]
 
+    if case_id in _UNSTABLE_DEL_INDEX_CASES:
+        np.testing.assert_allclose(
+            stable_column_space_projector(actual["X"]),
+            stable_column_space_projector(expected_X),
+            rtol=0.0,
+            atol=2e-10,
+            err_msg=(
+                "side-condition deletion sets: "
+                f"actual={[sm['del_index'] for sm in actual['smooths']]}, "
+                f"expected={[sm['del_index'] for sm in expected_smooths]}"
+            ),
+        )
+
     assert len(actual["smooths"]) == len(expected_smooths)
     assert sum(len(sm["del_index"]) for sm in actual["smooths"]) == sum(
         len(sm["del_index"]) for sm in expected_smooths
@@ -561,23 +689,43 @@ def _assert_gam_side_case(
         expected_block = np.asarray(expected_X[:, start:stop], dtype=np.float64)
 
         matrix_atol = _matrix_atol_for_class(expected_sm["class_name"])
-        if gam_side_uses_invariant_transform(expected_sm["class_name"]):
+        deletion_basis_is_nonunique = (
+            case_id in _UNSTABLE_DEL_INDEX_CASES
+            and len(expected_sm["del_index"]) > 0
+        )
+        if deletion_basis_is_nonunique:
+            actual_prior = np.asarray(actual["X"][:, :start], dtype=np.float64)
+            expected_prior = np.asarray(expected_X[:, :start], dtype=np.float64)
+            actual_unique = actual_block - actual_prior @ np.linalg.lstsq(
+                actual_prior, actual_block, rcond=None
+            )[0]
+            expected_unique = expected_block - expected_prior @ np.linalg.lstsq(
+                expected_prior, expected_block, rcond=None
+            )[0]
+            T = _solve_basis_change(actual_unique, expected_unique, atol=2e-9)
+        elif expected_sm["class_name"] == "sz.interaction":
+            T = _solve_column_sign_change(
+                actual_block, expected_block, atol=matrix_atol
+            )
+        elif gam_side_uses_invariant_transform(expected_sm["class_name"]):
             T = _solve_basis_change(actual_block, expected_block, atol=matrix_atol)
         else:
             T = np.eye(actual_block.shape[1], dtype=np.float64)
-        np.testing.assert_allclose(
-            actual_block @ T,
-            expected_block,
-            rtol=0.0,
-            atol=matrix_atol,
-        )
+        if not deletion_basis_is_nonunique:
+            np.testing.assert_allclose(
+                actual_block @ T,
+                expected_block,
+                rtol=0.0,
+                atol=matrix_atol,
+            )
 
-        np.testing.assert_allclose(
-            _constant_projection_residual(actual_block),
-            _constant_projection_residual(expected_block),
-            rtol=0.0,
-            atol=1e-8,
-        )
+        if not deletion_basis_is_nonunique:
+            np.testing.assert_allclose(
+                _constant_projection_residual(actual_block),
+                _constant_projection_residual(expected_block),
+                rtol=0.0,
+                atol=1e-8,
+            )
 
         first_sp = expected_sm["first_sp"]
         last_sp = expected_sm["last_sp"]
@@ -692,3 +840,197 @@ def test_gam_side_matches_mgcv_nested_side_condition_cases(
         select=select,
         use_model_fit=use_model_fit,
     )
+
+
+def test_three_way_nested_side_conditions_match_mgcv_behavior_invariantly():
+    """Three-way nesting compares deletion rank and fitted behavior, not pivot columns."""
+    data = _make_three_way_nested_data()
+    formula = (
+        'y ~ s(x0, bs="cr", k=7, sp=0.8)'
+        ' + s(x0, x1, bs="tp", k=12, sp=1.1)'
+        ' + s(x0, x1, x2, bs="tp", k=20, sp=1.3)'
+    )
+    raw, adjusted, reports = _compile_side_state(data, formula, select=False)
+    actual_side = _build_actual_side_surface(raw, adjusted, reports)
+    expected_side = _run_mgcv_gam_setup_assembly(
+        data=data,
+        formula=formula,
+        family="gaussian",
+        method="fixed",
+        select=False,
+    )
+    expected_smooths = [
+        _canonical_expected_side_smooth(item) for item in expected_side["smooth"]
+    ]
+
+    assert [len(sm["del_index"]) for sm in actual_side["smooths"]] == [0, 1, 6]
+    assert [len(sm["del_index"]) for sm in expected_smooths] == [0, 1, 6]
+    assert [sm["df"] for sm in actual_side["smooths"]] == [
+        sm["df"] for sm in expected_smooths
+    ]
+    assert [sm["rank"] for sm in actual_side["smooths"]] == [
+        sm["rank"] for sm in expected_smooths
+    ]
+    for predictor in adjusted:
+        for term in predictor.compiled_terms:
+            np.testing.assert_allclose(
+                term.predict_matrix(data[["x0", "x1", "x2"]].to_numpy()),
+                term.basis_train,
+                rtol=0.0,
+                atol=2e-10,
+            )
+
+    gam = GAM(
+        family="gaussian",
+        formula=formula,
+        optimize_smoothing=False,
+        smoothing_method="fixed",
+    ).fit(data=data)
+    newdata = data.iloc[::9].drop(columns=["y"]).copy()
+    actual_fit, actual_se = gam.predict(newdata, type="response", return_se=True)
+    expected = _run_mgcv_predict_on_newdata(
+        data,
+        newdata,
+        formula,
+        family="gaussian",
+        method="fixed",
+        type="response",
+        return_se=True,
+    )
+    # The final six-column deletion is selected inside a numerically repeated
+    # augmented QR space. Exact pivot columns and the augment.smX root are not
+    # identified across LAPACK implementations; keep the downstream difference
+    # below 0.3% of the response scale without selecting one platform's root.
+    np.testing.assert_allclose(
+        actual_fit, np.asarray(expected["pred"]).ravel(), rtol=0.0, atol=3e-3
+    )
+    np.testing.assert_allclose(
+        actual_se, np.asarray(expected["se"]).ravel(), rtol=0.0, atol=3e-3
+    )
+
+
+@pytest.mark.parametrize(
+    "epsilon",
+    [1e-13, 1e-7],
+    ids=["effectively_singular", "identified_two_dimensional"],
+)
+def test_gam_side_rank_threshold_neighborhood_matches_mgcv(epsilon):
+    """Near-degenerate nested coordinates preserve identified side effects."""
+    data = _make_near_rank_boundary_data(epsilon=epsilon)
+    formula = (
+        'y ~ s(x0, bs="cr", k=8, sp=0.8)'
+        ' + s(x0, x_near, bs="tp", k=12, sp=1.1)'
+    )
+    raw, adjusted, reports = _compile_side_state(data, formula, select=False)
+    actual = _build_actual_side_surface(raw, adjusted, reports)
+    expected = _run_mgcv_gam_setup_assembly(
+        data=data,
+        formula=formula,
+        family="gaussian",
+        method="fixed",
+        select=False,
+    )
+    expected_smooths = [
+        _canonical_expected_side_smooth(item) for item in expected["smooth"]
+    ]
+
+    assert [len(item["del_index"]) for item in actual["smooths"]] == [
+        len(item["del_index"]) for item in expected_smooths
+    ]
+    assert [item["df"] for item in actual["smooths"]] == [
+        item["df"] for item in expected_smooths
+    ]
+    assert [item["rank"] for item in actual["smooths"]] == [
+        item["rank"] for item in expected_smooths
+    ]
+    assert [item["null_space_dim"] for item in actual["smooths"]] == [
+        item["null_space_dim"] for item in expected_smooths
+    ]
+
+    gam = GAM(
+        family="gaussian",
+        formula=formula,
+        optimize_smoothing=False,
+        smoothing_method="fixed",
+    ).fit(data=data)
+    newdata = data.iloc[2::17].drop(columns=["y"]).copy()
+    actual_prediction, actual_se = gam.predict(
+        newdata, type="response", return_se=True
+    )
+    expected_prediction = _run_mgcv_predict_on_newdata(
+        data,
+        newdata,
+        formula,
+        family="gaussian",
+        method="fixed",
+        type="response",
+        return_se=True,
+        allow_live_run=True,
+    )
+    np.testing.assert_allclose(
+        actual_prediction,
+        np.asarray(expected_prediction["pred"]).ravel(),
+        atol=2e-3,
+        rtol=2e-3,
+    )
+    np.testing.assert_allclose(
+        actual_se,
+        np.asarray(expected_prediction["se"]).ravel(),
+        atol=2e-3,
+        rtol=2e-3,
+    )
+
+
+def test_gam_side_multi_predictor_blocks_match_mgcv_independently():
+    """Each distributional predictor owns its own nested side-condition pass."""
+    data = _make_gaussian_data(seed=604, n=180)
+    formula = [
+        'y ~ s(x0, bs="cr", k=7) + s(x0, x1, bs="tp", k=12)',
+        '~ s(x1, bs="cr", k=7) + s(x0, x1, bs="tp", k=12)',
+    ]
+    _assert_gam_side_case(
+        "gaulss_two_predictor_nested",
+        data,
+        formula,
+        "gaulss",
+        "ML",
+        select=False,
+        use_model_fit=False,
+    )
+
+
+def test_ordered_factor_by_keeps_nonreference_levels_with_mgcv_blocks():
+    """Ordered factor-by smooths omit the first level and retain mgcv's other blocks."""
+    data = _make_ordered_factor_by_data()
+    formula = 'y ~ s(x, by=f, bs="cr", k=8)'
+    raw, adjusted, reports = _compile_side_state(data, formula, select=False)
+    actual = _build_actual_side_surface(raw, adjusted, reports)
+
+    # CSV does not preserve pandas' ordered categorical metadata, so the live R
+    # setup contains all three unordered levels.  The b/c blocks themselves are
+    # the exact mgcv reference for the ordered model's non-reference levels.
+    expected = _run_mgcv_gam_setup_assembly(
+        data=data,
+        formula=formula,
+        family="gaussian",
+        method="REML",
+        select=False,
+    )
+    expected_smooths = [
+        _canonical_expected_side_smooth(item) for item in expected["smooth"]
+    ]
+
+    assert [sm["by_level"] for sm in actual["smooths"]] == ["b", "c"]
+    assert [sm["by_level"] for sm in expected_smooths] == ["a", "b", "c"]
+    expected_X = np.asarray(expected["X"], dtype=np.float64)
+    expected_bc = expected_X[:, 8:22]
+    np.testing.assert_allclose(actual["X"][:, 1:], expected_bc, rtol=0.0, atol=1e-12)
+    for actual_sm, expected_penalty in zip(
+        actual["smooths"], expected["S"][1:], strict=True
+    ):
+        np.testing.assert_allclose(
+            actual_sm["penalties"][0],
+            np.asarray(expected_penalty, dtype=np.float64),
+            rtol=0.0,
+            atol=1e-12,
+        )

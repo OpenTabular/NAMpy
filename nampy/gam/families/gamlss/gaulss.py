@@ -31,31 +31,39 @@ class _LogBLinkInfo:
 
     def linkfun(self, mu: np.ndarray) -> np.ndarray:
         mu = np.asarray(mu, dtype=np.float64)
-        return np.log(1.0 / mu - self.b)
+        result: np.ndarray = np.log(1.0 / mu - self.b)
+        return result
 
     def linkinv(self, eta: np.ndarray) -> np.ndarray:
         eta = np.asarray(eta, dtype=np.float64)
-        return 1.0 / (np.exp(eta) + self.b)
+        result: np.ndarray = 1.0 / (np.exp(eta) + self.b)
+        return result
 
     def mu_eta(self, eta: np.ndarray) -> np.ndarray:
         eta = np.asarray(eta, dtype=np.float64)
         ee = np.exp(eta)
-        return -ee / (ee + self.b) ** 2
+        result: np.ndarray = -ee / (ee + self.b) ** 2
+        return result
 
     def d2link(self, mu: np.ndarray) -> np.ndarray:
         mu = np.asarray(mu, dtype=np.float64)
         mub = np.maximum(1.0 - mu * self.b, np.finfo(np.float64).eps)
-        return (2.0 * mub - 1.0) / (mub * mu) ** 2
+        result: np.ndarray = (2.0 * mub - 1.0) / (mub * mu) ** 2
+        return result
 
     def d3link(self, mu: np.ndarray) -> np.ndarray:
         mu = np.asarray(mu, dtype=np.float64)
         mub = np.maximum(1.0 - mu * self.b, np.finfo(np.float64).eps)
-        return ((1.0 - mub) * mub * 6.0 - 2.0) / (mub * mu) ** 3
+        result: np.ndarray = ((1.0 - mub) * mub * 6.0 - 2.0) / (mub * mu) ** 3
+        return result
 
     def d4link(self, mu: np.ndarray) -> np.ndarray:
         mu = np.asarray(mu, dtype=np.float64)
         mub = np.maximum(1.0 - mu * self.b, np.finfo(np.float64).eps)
-        return (((24.0 * mub - 36.0) * mub + 24.0) * mub - 6.0) / (mub * mu) ** 4
+        result: np.ndarray = (
+            ((24.0 * mub - 36.0) * mub + 24.0) * mub - 6.0
+        ) / (mub * mu) ** 4
+        return result
 
 
 class GaulssFamily(GamlssFamily):
@@ -107,6 +115,8 @@ class GaulssFamily(GamlssFamily):
             )
 
         # Build link info objects
+        linfo1: Any
+        _lobj: Any
         if link1_name == "identity":
             linfo1 = _IdentityLinkInfo()
         elif link1_name == "log":
@@ -368,12 +378,19 @@ class GaulssFamily(GamlssFamily):
         return start
 
     def residuals(
-        self, y: np.ndarray, fitted: np.ndarray, rtype: str = "deviance"
+        self,
+        y: np.ndarray,
+        fitted: np.ndarray,
+        rtype: str = "deviance",
+        *,
+        eta: np.ndarray | None = None,
+        **kwargs: Any,
     ) -> np.ndarray:
         """Standardized residuals (y - mu) / sigma = (y - mu) * tau.
 
         Mirrors mgcv ``gaulss$residuals``.
         """
+        del eta, kwargs
         rtype = str(rtype).lower()
         if rtype not in {"deviance", "pearson", "response"}:
             raise ValueError(

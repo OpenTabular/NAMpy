@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.linalg import eigh as scipy_eigh
 
-from ...gam.linalg import matrix_is_rank_deficient
+from ...linalg import matrix_is_rank_deficient
 
 
 def _r_symmetric_eigh_descending(
@@ -170,63 +170,14 @@ def _r_linpack_qr(X: np.ndarray, tol: float) -> tuple[np.ndarray, np.ndarray]:
     return Q, R
 
 
-def nat_param_type0(X, S, rank=None, tol=None, unit_fnorm=True):
-    """
-    Python implementation of ``mgcv::nat.param(X, S, type=0)``.
-
-    Returns a dict with transformed model matrix ``X``, positive diagonal
-    penalty entries ``D``, coefficient back-transform ``P``, and penalty rank.
-    """
-    X = np.asarray(X, dtype=np.float64)
-    S = np.asarray(S, dtype=np.float64)
-    tol = np.finfo(float).eps**0.8 if tol is None else float(tol)
-
-    Q, R = _r_linpack_qr(X, tol)
-    if matrix_is_rank_deficient(R):
-        raise ValueError(
-            "Model matrix is not full rank in natural-parameter construction."
-        )
-
-    tmp = _r_triangular_solve(R.T, S.T, lower=True)
-    RSR = _r_triangular_solve(R.T, tmp.T, lower=True)
-
-    evals, U = _r_symmetric_eigh_descending(RSR)
-
-    if rank is None or rank < 1 or rank > S.shape[0]:
-        rank = int(np.sum(evals > np.max(evals) * tol))
-
-    D = evals[:rank].copy()
-    Xn = Q @ U
-    P = _r_triangular_solve(R, U, lower=False)
-
-    if unit_fnorm:
-        if rank > 0:
-            ind = np.arange(rank)
-            scale = 1.0 / np.sqrt(np.mean(Xn[:, ind] ** 2))
-            Xn[:, ind] *= scale
-            P[:, ind] *= scale
-            D *= scale**2
-
-        if rank < Xn.shape[1]:
-            ind = np.arange(rank, Xn.shape[1])
-            scalef = 1.0 / np.sqrt(np.mean(Xn[:, ind] ** 2))
-            Xn[:, ind] *= scalef
-            P[:, ind] *= scalef
-
-    return {
-        "X": Xn,
-        "D": D,
-        "P": P,
-        "rank": int(rank),
-    }
-
-
 def nat_param_type1(X, S, rank=None, tol=None, unit_fnorm=True):
     """
     Python implementation of ``mgcv::nat.param(X, S, type=1)``.
 
     This reparameterizes so that the penalty in the penalized columns is the
-    identity. Returns the same dictionary structure as :func:`nat_param_type0`.
+    identity. Returns a dict with transformed model matrix ``X``, positive
+    diagonal penalty entries ``D``, coefficient back-transform ``P``, and
+    penalty rank.
     """
     X = np.asarray(X, dtype=np.float64)
     S = np.asarray(S, dtype=np.float64)
@@ -286,4 +237,4 @@ def nat_param_type1(X, S, rank=None, tol=None, unit_fnorm=True):
     }
 
 
-__all__ = ["nat_param_type0", "nat_param_type1"]
+__all__ = ["nat_param_type1"]

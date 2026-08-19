@@ -140,14 +140,6 @@ def balanced_penalty_template_sqrt_for_rank(
     return np.asarray(sqrt_evals[:, np.newaxis] * v_sel.T, dtype=np.float64)
 
 
-def symmetric_penalty_rank(matrix: np.ndarray, *, tol: float = 1e-10) -> int:
-    """Rank of a symmetric penalty matrix using mgcv-style relative thresholding."""
-    evals = symmetric_eigvalsh(matrix)
-    scale = float(np.max(np.abs(evals))) if evals.size else 1.0
-    tol_eff = float(tol) * max(1.0, scale)
-    return int(np.sum(evals > tol_eff))
-
-
 def upper_triangular_rrank(
     matrix: np.ndarray,
     *,
@@ -219,7 +211,6 @@ __all__ = [
     "project_coef_onto_row_space",
     "snap_coef_to_reference_null_space",
     "balanced_penalty_template_sqrt_for_rank",
-    "symmetric_penalty_rank",
     "upper_triangular_condition_indicator",
     "upper_triangular_rrank",
 ]

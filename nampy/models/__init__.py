@@ -1,3 +1,4 @@
+from .classifier import NeuralClassifier
 from .ensemble_treenam import (
     EnsembleTreeNAMClassifier,
     EnsembleTreeNAMLSS,
@@ -6,15 +7,14 @@ from .ensemble_treenam import (
 from .gam import GAMClassifier, GAMRegressor
 from .gpnam import GPNAMLSS, GPNAMClassifier, GPNAMRegressor
 from .linreg import LinRegClassifier, LinRegLSS, LinRegRegressor
+from .lss import NeuralLSS
 from .nam import NAMLSS, NAMClassifier, NAMRegressor
 from .namformer import NAMformerClassifier, NAMformerLSS, NAMformerRegressor
 from .natt import NATTLSS, NATTClassifier, NATTRegressor
 from .nbm import NBMLSS, NBMClassifier, NBMRegressor
 from .nodegam import NodeGAMClassifier, NodeGAMLSS, NodeGAMRegressor
-from .qnam import QNAM
-from .sklearn_classifier import SklearnBaseClassifier
-from .sklearn_lss import SklearnBaseLSS
-from .sklearn_regressor import SklearnBaseRegressor
+from .qnam import QNAMLSS
+from .regressor import NeuralRegressor
 from .snam import SNAMLSS, SNAMClassifier, SNAMRegressor
 from .spline_nam import SplineNAMRegressor
 from .treenam import TreeNAMClassifier, TreeNAMLSS, TreeNAMRegressor
@@ -25,13 +25,13 @@ __all__ = [
     "NAMClassifier",
     "NAMLSS",
     "NAMRegressor",
-    "SklearnBaseClassifier",
-    "SklearnBaseLSS",
-    "SklearnBaseRegressor",
+    "NeuralClassifier",
+    "NeuralLSS",
+    "NeuralRegressor",
     "LinRegClassifier",
     "LinRegLSS",
     "LinRegRegressor",
-    "QNAM",
+    "QNAMLSS",
     "GPNAMClassifier",
     "GPNAMLSS",
     "GPNAMRegressor",

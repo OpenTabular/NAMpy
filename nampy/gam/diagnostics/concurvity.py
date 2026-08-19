@@ -165,7 +165,7 @@ def concurvity(model, full: bool = True):
     return {
         "measure_names": measure_names,
         "labels": labels,
-        "values": dict(zip(measure_names, mats)),
+        "values": dict(zip(measure_names, mats, strict=True)),
     }
 
 

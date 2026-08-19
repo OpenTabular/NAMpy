@@ -15,6 +15,7 @@ from nampy.models.ensemble_treenam import (
 )
 from nampy.models.gpnam import GPNAMLSS, GPNAMClassifier, GPNAMRegressor
 from nampy.models.linreg import LinRegClassifier, LinRegLSS, LinRegRegressor
+from nampy.models.lss import NeuralLSS
 from nampy.models.nam import NAMLSS, NAMClassifier, NAMRegressor
 from nampy.models.namformer import (
     NAMformerClassifier,
@@ -28,8 +29,7 @@ from nampy.models.nodegam import (
     NodeGAMLSS,
     NodeGAMRegressor,
 )
-from nampy.models.qnam import QNAM
-from nampy.models.sklearn_lss import SklearnBaseLSS
+from nampy.models.qnam import QNAMLSS
 from nampy.models.snam import SNAMLSS, SNAMClassifier, SNAMRegressor
 from nampy.models.spline_nam import SplineNAMRegressor
 from nampy.models.treenam import TreeNAMClassifier, TreeNAMLSS, TreeNAMRegressor
@@ -66,7 +66,7 @@ ALL_NEURAL_ESTIMATORS = (
     NodeGAMRegressor,
     NodeGAMClassifier,
     NodeGAMLSS,
-    QNAM,
+    QNAMLSS,
     SplineNAMRegressor,
 )
 
@@ -154,8 +154,8 @@ def test_qnam_fit_returns_self_and_owns_quantile_family(monkeypatch):
         captured.update(kwargs)
         return self
 
-    monkeypatch.setattr(SklearnBaseLSS, "fit", fake_fit)
-    estimator = QNAM()
+    monkeypatch.setattr(NeuralLSS, "fit", fake_fit)
+    estimator = QNAMLSS()
 
     returned = estimator.fit([[0.0], [1.0]], [0.0, 1.0])
 

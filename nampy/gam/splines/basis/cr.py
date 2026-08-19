@@ -55,13 +55,19 @@ def get_FS(xk):
     banded_B = np.zeros((2, n2), dtype=np.float64)
     banded_B[0, 1:] = sdB
     banded_B[1, :] = ldB
-    F_minus = solveh_banded(
-        banded_B,
-        D,
-        overwrite_b=False,
-        lower=False,
-        check_finite=False,
-    )
+    if n2 == 1:
+        # mgcv/src/mgcv.c::getFS passes the 1x1 system to DPTSV when k=3.
+        # scipy.linalg.solveh_banded cannot dispatch that zero-off-diagonal
+        # case, so perform the identical scalar solve directly.
+        F_minus = D / ldB[0]
+    else:
+        F_minus = solveh_banded(
+            banded_B,
+            D,
+            overwrite_b=False,
+            lower=False,
+            check_finite=False,
+        )
 
     F = np.vstack(
         [np.zeros(k, dtype=np.float64), F_minus, np.zeros(k, dtype=np.float64)]

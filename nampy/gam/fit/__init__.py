@@ -54,7 +54,7 @@ from .postprocess.gaussian_smoothness_postprocess import (
     merge_gaussian_smoothness_into_fit_result,
 )
 from .solvers.gaussian_exact import solve_gaussian_fit
-from .solvers.irls_core import PenalizedIrlsControl, fit_irls_from_model, irls_core
+from .solvers.irls_core import fit_irls_from_model, irls_core
 from .solvers.pirls import solve_pirls_fit
 from .state import (
     FitCoreSolution,
@@ -84,7 +84,6 @@ __all__ = [
     "PenalizedSystem",
     "assign_fit_solution",
     "compute_edf_by_term",
-    "PenalizedIrlsControl",
     "irls_core",
     "fit_irls_from_model",
     "gaussian_smoothness_postprocess",

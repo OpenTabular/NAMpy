@@ -7,6 +7,7 @@ surfaces and solver code can share one canonical implementation.
 from .cholesky import (
     chol_solve_pivoted,
     compute_preconditioned_inverse,
+    mgcv_mroot_chol,
     pivoted_cholesky,
     safe_pivoted_cholesky,
 )
@@ -26,7 +27,6 @@ from .rank import (
     project_coef_onto_row_space,
     snap_coef_to_reference_null_space,
     svd_null_space_basis,
-    symmetric_penalty_rank,
     upper_triangular_condition_indicator,
     upper_triangular_rrank,
 )
@@ -56,6 +56,7 @@ __all__ = [
     "symmetric_eigvalsh",
     "symmetric_eigen_partition",
     "matrix_sqrt_psd",
+    "mgcv_mroot_chol",
     "positive_semidefinite_root",
     "numerical_rank",
     "matrix_is_rank_deficient",
@@ -63,7 +64,6 @@ __all__ = [
     "project_coef_onto_row_space",
     "snap_coef_to_reference_null_space",
     "balanced_penalty_template_sqrt_for_rank",
-    "symmetric_penalty_rank",
     "upper_triangular_condition_indicator",
     "upper_triangular_rrank",
     "symmetrize_from_lower_triangle",

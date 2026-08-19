@@ -27,7 +27,7 @@ from nampy.neural.modules.namformer import NAMformer
 from nampy.neural.modules.natt import NATT
 from nampy.neural.modules.nbm import NBM
 from nampy.neural.modules.nodegam import NodeGAM
-from nampy.neural.modules.qnam import QNAMBase
+from nampy.neural.modules.qnam import QNAM
 from nampy.neural.modules.snam import SNAM
 from nampy.neural.modules.spline_nam import SplineNAM
 from nampy.neural.modules.treenam import TreeNAM
@@ -157,7 +157,7 @@ ARCHITECTURE_CASES = (
     ),
     _ArchitectureCase(
         "qnam",
-        QNAMBase,
+        QNAM,
         DefaultQNAMConfig(layer_sizes=[8], dropout=0.0),
         output_dim=3,
         monotone_output=True,
@@ -280,7 +280,7 @@ ARCHITECTURE_CASES = (
     ),
     _ArchitectureCase(
         "qnam_interaction",
-        QNAMBase,
+        QNAM,
         DefaultQNAMConfig(
             layer_sizes=[8],
             dropout=0.0,

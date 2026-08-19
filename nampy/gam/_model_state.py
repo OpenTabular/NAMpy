@@ -5,7 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-from scipy.linalg import qr
+
+from .linalg.qr import mgcv_pqr_r
 
 
 def _require_fitted(obj: Any) -> None:
@@ -346,30 +347,7 @@ def _summary_R(obj: Any):
         return getattr(obj, "_summary_R_", None)
     # Mirror mgcv/R/gam.fit3.r post-processing:
     #   qrx <- pqr(WX); R <- pqr.R(qrx); R[, qrx$pivot] <- R
-    _, R_piv, pivot = qr(
-        np.sqrt(np.clip(w, 0.0, None))[:, None] * X,
-        mode="economic",
-        pivoting=True,
-    )
-    n_rows, n_cols = R_piv.shape
-    # Mirror mgcv/R/misc.r::pqr.R calling mgcv/src/mat.c::getRpqr().
-    # The source storage is read with the compact QR row count as leading
-    # dimension, which yields a square c x c upper-triangular view even when
-    # the weighted design is wide (n < p).
-    flat = np.concatenate(
-        [
-            np.asarray(R_piv, dtype=np.float64, order="F").ravel(order="F"),
-            np.zeros(n_cols * n_cols, dtype=np.float64),
-        ]
-    )
-    R_sq = np.zeros((n_cols, n_cols), dtype=np.float64)
-    for j in range(n_cols):
-        stop = j + 1
-        base = n_rows * j
-        R_sq[:stop, j] = flat[base : base + stop]
-    R_nat = np.zeros_like(R_sq)
-    R_nat[:, np.asarray(pivot, dtype=np.intp)] = R_sq
-    return R_nat
+    return mgcv_pqr_r(np.sqrt(np.clip(w, 0.0, None))[:, None] * X)
 
 
 def _coerce_feature_matrix(model: Any, X, *, none_is_training: bool = False):

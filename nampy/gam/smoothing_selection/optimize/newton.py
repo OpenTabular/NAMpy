@@ -334,11 +334,6 @@ def optimize_outer_newton_indefinite_hessian(
             model.irls_tol = prev_irls_tol
 
 
-def optimize_outer_newton_strict(*args, **kwargs):
-    """Public alias for direct mgcv-style Newton calls."""
-    return _optimize_outer_newton_strict(*args, **kwargs)
-
-
 _optimize_outer_newton = optimize_outer_newton_generic
 _optimize_outer_newton_indefinite_hessian = optimize_outer_newton_indefinite_hessian
 
@@ -346,7 +341,6 @@ _optimize_outer_newton_indefinite_hessian = optimize_outer_newton_indefinite_hes
 __all__ = [
     "optimize_outer_newton_generic",
     "optimize_outer_newton_indefinite_hessian",
-    "optimize_outer_newton_strict",
     "_optimize_outer_newton",
     "_optimize_outer_newton_indefinite_hessian",
 ]

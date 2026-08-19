@@ -69,6 +69,8 @@ def test_build_optimizer_trace_serializes_core_rows_and_optimizer_metadata():
     assert trace["fit"]["edge_correct_applied"] is False
     assert trace["fit"]["outer_info"]["conv"] == "ok"
     assert trace["fit"]["outer_info"]["counts"] == [11, 7]
+    assert trace["fit"]["outer_info"]["db_drho1"] is None
+    assert trace["fit"]["outer_info"]["dw_drho1"] is None
     assert trace["fit"]["smoothing_params"] == [1.5, 0.5]
     assert trace["trace"][0]["iter"] == 3
     assert trace["trace"][0]["log_sp"] == [0.1, -0.2]

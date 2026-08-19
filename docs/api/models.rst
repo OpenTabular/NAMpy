@@ -67,7 +67,7 @@ Other Models
    :toctree: generated/
    :nosignatures:
 
-   QNAM
+   QNAMLSS
 
 Base Classes
 ------------
@@ -76,6 +76,6 @@ Base Classes
    :toctree: generated/
    :nosignatures:
 
-   SklearnBaseRegressor
-   SklearnBaseClassifier
-   SklearnBaseLSS
+   NeuralRegressor
+   NeuralClassifier
+   NeuralLSS

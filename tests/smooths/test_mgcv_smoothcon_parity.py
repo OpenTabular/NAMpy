@@ -10,14 +10,17 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from nampy.gam import GAM
 from nampy.gam.compiler.compile_predictors import compile_predictors
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
-from nampy.gam.model.api import GAM
+from nampy.gam.linalg import matrix_self_gram
+from nampy.gam.linalg import symmetric_spectrum as penalty_spectrum
 from nampy.gam.smooths.univariate.cr import CubicSplineTerm
 from nampy.gam.specs.build import build_formula_model
 from tests._mgcv_snapshot_parity_shared import (
     TestPSplineSmooth as _SharedTestPSplineSmooth,
 )
+from tests.mgcv_invariant_policy import penalized_response_operator
 from tests.mgcv_parity_utils import (
     _assert_allclose_up_to_column_sign,
     _assert_basic_mgcv_parity,
@@ -40,6 +43,36 @@ def _sym_rank(S: np.ndarray) -> int:
     ev = np.linalg.eigvalsh(0.5 * (S + S.T))
     tol = np.finfo(np.float64).eps ** 0.8 * max(float(np.max(np.abs(ev))), 1.0)
     return int(np.sum(ev > tol))
+
+
+def _assert_sz_penalty_invariants(
+    actual_design: np.ndarray,
+    expected_design: np.ndarray,
+    actual_penalties: list[np.ndarray],
+    expected_penalties: list[np.ndarray],
+) -> None:
+    """Compare SZ penalties without depending on TP eigenvector orientation."""
+    assert len(actual_penalties) == len(expected_penalties)
+    for got, want in zip(actual_penalties, expected_penalties, strict=True):
+        np.testing.assert_allclose(
+            penalty_spectrum(got),
+            penalty_spectrum(want),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+        np.testing.assert_allclose(
+            penalized_response_operator(actual_design, [got]),
+            penalized_response_operator(expected_design, [want]),
+            atol=1e-10,
+            rtol=1e-10,
+        )
+
+    np.testing.assert_allclose(
+        penalized_response_operator(actual_design, actual_penalties),
+        penalized_response_operator(expected_design, expected_penalties),
+        atol=1e-10,
+        rtol=1e-10,
+    )
 
 
 def _compile_formula_design(data, formula, **build_kwargs):
@@ -149,7 +182,7 @@ class TestParitySnapshotAPI:
         target = [np.asarray(S, dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target) == 2
-        for got, want in zip(actual, target):
+        for got, want in zip(actual, target, strict=True):
             np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
 
     def test_te_ps_nested_margin_orders_match_scalar_margin_orders(self):
@@ -181,7 +214,7 @@ class TestParitySnapshotAPI:
             for block in design_scalar.compiled_penalties
         ]
         assert len(nested_penalties) == len(scalar_penalties) == 2
-        for got, want in zip(nested_penalties, scalar_penalties):
+        for got, want in zip(nested_penalties, scalar_penalties, strict=True):
             np.testing.assert_allclose(got, want, atol=1e-12, rtol=1e-12)
 
     def test_te_ps_margin_orders_basis_matches_mgcv(self):
@@ -230,7 +263,7 @@ class TestParitySnapshotAPI:
         target = [np.asarray(S, dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target) == 2
-        for got, want in zip(actual, target):
+        for got, want in zip(actual, target, strict=True):
             np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
 
     def test_fs_smoothcon_basis_matches_mgcv(self):
@@ -271,7 +304,7 @@ class TestParitySnapshotAPI:
 
         assert len(actual) == len(target)
         scales = []
-        for got, want in zip(actual, target):
+        for got, want in zip(actual, target, strict=True):
             mask = np.abs(want) > 0
             scale = float(np.median(got[mask] / want[mask])) if np.any(mask) else 1.0
             scales.append(scale)
@@ -327,7 +360,7 @@ class TestParitySnapshotAPI:
 
         assert len(actual) == len(target)
         scales = []
-        for got, want in zip(actual, target):
+        for got, want in zip(actual, target, strict=True):
             mask = np.abs(want) > 0
             scale = float(np.median(got[mask] / want[mask])) if np.any(mask) else 1.0
             scales.append(scale)
@@ -351,8 +384,8 @@ class TestParitySnapshotAPI:
         expected = _run_mgcv_smoothcon_matrix(data, smooth_expr_r)
 
         np.testing.assert_allclose(
-            np.asarray(design.design_matrix, dtype=np.float64),
-            np.asarray(expected["X"], dtype=np.float64),
+            matrix_self_gram(design.design_matrix),
+            matrix_self_gram(expected["X"]),
             atol=1e-10,
             rtol=1e-10,
         )
@@ -374,10 +407,17 @@ class TestParitySnapshotAPI:
             np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties
         ]
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
+        expected_design = np.asarray(
+            _run_mgcv_smoothcon_matrix(data, smooth_expr_r)["X"],
+            dtype=np.float64,
+        )
 
-        assert len(actual) == len(target)
-        for got, want in zip(actual, target):
-            np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
+        _assert_sz_penalty_invariants(
+            np.asarray(design.design_matrix, dtype=np.float64),
+            expected_design,
+            actual,
+            target,
+        )
 
     def test_sz_ps_smoothcon_penalties_match_mgcv(self):
         """Verify that sz with a ps base uses mgcv's raw-base penalty scaling."""
@@ -400,7 +440,7 @@ class TestParitySnapshotAPI:
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target)
-        for got, want in zip(actual, target):
+        for got, want in zip(actual, target, strict=True):
             np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
 
     def test_sz_smoothcon_shared_id_penalty_matches_mgcv(self):
@@ -422,9 +462,18 @@ class TestParitySnapshotAPI:
             np.asarray(pb.matrix, dtype=np.float64) for pb in design.compiled_penalties
         ]
         target = [np.asarray(np.array(S), dtype=np.float64) for S in expected["S"]]
+        expected_design = np.asarray(
+            _run_mgcv_smoothcon_matrix(data, smooth_expr_r)["X"],
+            dtype=np.float64,
+        )
 
         assert len(actual) == len(target) == 1
-        np.testing.assert_allclose(actual[0], target[0], atol=1e-10, rtol=1e-10)
+        _assert_sz_penalty_invariants(
+            np.asarray(design.design_matrix, dtype=np.float64),
+            expected_design,
+            actual,
+            target,
+        )
 
     def test_re_smoothcon_factor_basis_matches_mgcv(self):
         """Verify that re smoothcon factor basis matches mgcv."""
@@ -498,7 +547,7 @@ class TestParitySnapshotAPI:
         target = [np.asarray(S, dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target) == 2
-        for got, want in zip(actual, target):
+        for got, want in zip(actual, target, strict=True):
             np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
 
     def test_ti_ps_margin_orders_basis_matches_mgcv(self):
@@ -547,7 +596,7 @@ class TestParitySnapshotAPI:
         target = [np.asarray(S, dtype=np.float64) for S in expected["S"]]
 
         assert len(actual) == len(target) == 2
-        for got, want in zip(actual, target):
+        for got, want in zip(actual, target, strict=True):
             np.testing.assert_allclose(got, want, atol=1e-10, rtol=1e-10)
 
 # ---------------------------------------------------------------------------

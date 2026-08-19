@@ -254,3 +254,67 @@ def test_optimizer_trace_schema_preserves_internal_joint_negbin_rows():
                 atol=0.0,
                 rtol=0.0,
             )
+
+
+def test_fit_result_fields_carry_owner_values_not_just_keys():
+    """Value-level contracts for the fields that were only key-asserted.
+
+    family/link identity, the unconditional-covariance space tag, side
+    condition reports, per-term edf attribution, per-term smoothing values,
+    kept/deleted column bookkeeping, and the public edf1() vector all have
+    canonical owners; the payload must reproduce them, not merely carry keys.
+    """
+    data = _make_gaussian_data(seed=417, n=160)
+    formula = 'y ~ x0 + s(x1, bs="cr", k=8)'
+    gam = _fit_nampy_model(data, formula, "gaussian", "REML")
+
+    payload = gam.fit_result(include_covariances=True).to_dict(
+        include_covariances=True
+    )
+    term_blocks = tuple(_term_blocks_seq(gam))
+
+    assert payload["family_name"] == gam.family.name
+    assert payload["link_name"] == gam.family.link_name
+    assert payload["cov_unconditional_space"] in {"fit", "prediction"}
+    assert payload["side_condition_reports"] == gam.side_condition_reports_
+
+    edfs = [float(item["edf"]) for item in payload["term_results"]]
+    np.testing.assert_allclose(
+        edfs, np.asarray(payload["edf_by_term"], dtype=np.float64), atol=1e-12
+    )
+    intercept_edf = 1.0 if payload["intercept"] is not None else 0.0
+    np.testing.assert_allclose(
+        float(np.sum(edfs)) + intercept_edf,
+        float(payload["edf_total"]),
+        atol=1e-8,
+    )
+
+    sp = np.asarray(payload["smoothing_params"], dtype=np.float64)
+    report_by_label = {
+        str(tr["label"]): tr
+        for rep in payload["side_condition_reports"]
+        for tr in rep["term_reports"]
+    }
+    for item, tb in zip(payload["term_results"], term_blocks, strict=True):
+        np.testing.assert_allclose(
+            np.asarray(item["smoothing_values"], dtype=np.float64),
+            sp[[int(v) for v in tb.smoothing_indices]],
+            atol=0.0,
+            rtol=0.0,
+        )
+        report = report_by_label.get(str(item["label"]))
+        assert report is not None, item["label"]
+        assert item["kept_columns"] == report["kept_columns"]
+        assert item["deleted_columns"] == report["deleted_columns"]
+
+    from nampy.gam.inference.anova import _edf1_vector
+
+    np.testing.assert_allclose(
+        np.asarray(gam.edf1(), dtype=np.float64),
+        np.asarray(_edf1_vector(gam), dtype=np.float64),
+        atol=0.0,
+        rtol=0.0,
+    )
+    # edf1 upper-bounds edf coefficientwise in mgcv's construction; its sum
+    # must be at least the fitted total.
+    assert float(np.sum(np.asarray(gam.edf1()))) >= float(payload["edf_total"]) - 1e-8

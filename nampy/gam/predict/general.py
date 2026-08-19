@@ -105,11 +105,6 @@ def general_family_prediction_layout(model, X_np):
     )
 
 
-def general_family_prediction_blocks(model, X_np):
-    layout = general_family_prediction_layout(model, X_np)
-    return layout.Z_new, layout.Xp_blocks
-
-
 def general_family_link_prediction_with_offset(model, layout, offset):
     eta_cols = []
     off_list = None if offset is None else list(offset)

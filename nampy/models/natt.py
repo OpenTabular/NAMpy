@@ -1,13 +1,13 @@
 from ..neural.configs.natt_config import DefaultNATTConfig
 from ..neural.modules.natt import NATT
-from .sklearn_classifier import SklearnBaseClassifier
-from .sklearn_lss import SklearnBaseLSS
-from .sklearn_regressor import SklearnBaseRegressor
+from .classifier import NeuralClassifier
+from .lss import NeuralLSS
+from .regressor import NeuralRegressor
 
 
-class NATTRegressor(SklearnBaseRegressor):
+class NATTRegressor(NeuralRegressor):
     """
-    Multi-Layer Perceptron regressor. This class extends the SklearnBaseRegressor class and uses the NATT model
+    Multi-Layer Perceptron regressor. This class extends the NeuralRegressor class and uses the NATT model
     with the default NATT configuration.
 
     The accepted arguments to the NATTRegressor class include both the attributes in the DefaultNATTConfig dataclass
@@ -69,11 +69,11 @@ class NATTRegressor(SklearnBaseRegressor):
     Notes
     -----
     - The accepted arguments to the NATTRegressor class are the same as the attributes in the DefaultNATTConfig dataclass.
-    - NATTRegressor uses SklearnBaseRegressor as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - NATTRegressor uses NeuralRegressor as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    nampy.models.SklearnBaseRegressor : The parent class for NATTRegressor.
+    nampy.models.NeuralRegressor : The parent class for NATTRegressor.
 
     Examples
     --------
@@ -88,9 +88,9 @@ class NATTRegressor(SklearnBaseRegressor):
         super().__init__(model=NATT, config=DefaultNATTConfig, **kwargs)
 
 
-class NATTClassifier(SklearnBaseClassifier):
+class NATTClassifier(NeuralClassifier):
     """
-    Multi-Layer Perceptron classifier. This class extends the SklearnBaseClassifier class and uses the NATT model
+    Multi-Layer Perceptron classifier. This class extends the NeuralClassifier class and uses the NATT model
     with the default NATT configuration.
 
     The accepted arguments to the NATTClassifier class include both the attributes in the DefaultNATTConfig dataclass
@@ -152,11 +152,11 @@ class NATTClassifier(SklearnBaseClassifier):
     Notes
     -----
     - The accepted arguments to the NATTClassifier class are the same as the attributes in the DefaultNATTConfig dataclass.
-    - NATTClassifier uses SklearnBaseClassifieras the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - NATTClassifier uses NeuralClassifieras the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    nampy.models.SklearnBaseRegressor : The parent class for NATTClassifier.
+    nampy.models.NeuralRegressor : The parent class for NATTClassifier.
 
     Examples
     --------
@@ -171,9 +171,9 @@ class NATTClassifier(SklearnBaseClassifier):
         super().__init__(model=NATT, config=DefaultNATTConfig, **kwargs)
 
 
-class NATTLSS(SklearnBaseLSS):
+class NATTLSS(NeuralLSS):
     """
-    Multi-Layer Perceptron for distributional regression. This class extends the SklearnBaseLSS class and uses the NATT model
+    Multi-Layer Perceptron for distributional regression. This class extends the NeuralLSS class and uses the NATT model
     with the default NATT configuration.
 
     The accepted arguments to the NATTLSS class include both the attributes in the DefaultNATTConfig dataclass
@@ -238,11 +238,11 @@ class NATTLSS(SklearnBaseLSS):
     Notes
     -----
     - The accepted arguments to the NATTLSS class are the same as the attributes in the DefaultNATTConfig dataclass.
-    - NATTLSS uses SklearnBaseLSS as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - NATTLSS uses NeuralLSS as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    nampy.models.SklearnBaseLSS : The parent class for NATTLSS.
+    nampy.models.NeuralLSS : The parent class for NATTLSS.
 
     Examples
     --------

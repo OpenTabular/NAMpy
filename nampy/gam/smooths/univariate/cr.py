@@ -15,20 +15,20 @@ identifiability in some settings).
 
 import numpy as np
 
-from ....splines.basis.cr import cr_exact_null_basis_from_knots
-from ....splines.univariate.cr import (
-    CubicSplines,
-    add_full_rank_shrinkage,
-    cyclic_cubic_bd,
-    cyclic_cubic_predict_matrix,
-    place_knots_through_values,
-)
 from ...constraints.absorption import (
     apply_linear_constraint,
     fit_single_penalty_with_setup_basis,
 )
 from ...linalg import symmetrize_matrix
 from ...penalties.algebra import penalty_rescale_factor, scale_penalty
+from ...splines.basis.cr import cr_exact_null_basis_from_knots
+from ...splines.univariate.cr import (
+    CubicSplines,
+    add_full_rank_shrinkage,
+    cyclic_cubic_bd,
+    cyclic_cubic_predict_matrix,
+    place_knots_through_values,
+)
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,

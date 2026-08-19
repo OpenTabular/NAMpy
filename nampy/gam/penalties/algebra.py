@@ -1,8 +1,8 @@
 import numpy as np
 
 from ..linalg import (
-    r_matrix_norm_one,
     numerical_rank,
+    r_matrix_norm_one,
     symmetric_eigen_partition,
     symmetrize_matrix,
 )

@@ -11,7 +11,6 @@ from .dispatch import (
     criterion_gradient_numerical,
     criterion_hessian,
     criterion_hessian_numerical,
-    criterion_infinite_sp_signal,
     criterion_value,
 )
 from .gaussian import (
@@ -83,7 +82,6 @@ __all__ = [
     "criterion_hessian_ml_reml_pirls_negbin_joint",
     "criterion_hessian_ml_reml_pirls_exact",
     "criterion_hessian_numerical",
-    "criterion_infinite_sp_signal",
     "criterion_ml_reml",
     "criterion_ml_reml_exact",
     "criterion_ml_reml_exact_dynamic",

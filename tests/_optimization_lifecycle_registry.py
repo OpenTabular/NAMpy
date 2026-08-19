@@ -309,8 +309,11 @@ OPTIMIZATION_LIFECYCLE_CASES: list[OptimizationLifecycleCase] = [
         smoothing_optimizer="optim",
         data_factory=_make_negbin_data,
         skip_coef_comparison=True,
-        trace_atol=3e-5,
-        trace_sp_atol=3e-5,
+        # L-BFGS-B path drift vs R's optim accumulates over the joint
+        # (log sp, log theta) trace; late-row log-sp/criterion values agree
+        # only to ~4e-5 absolute (relative ~2e-6) across BLAS builds.
+        trace_atol=1e-4,
+        trace_sp_atol=1e-4,
         cov_rtol=1e-4,
         cov_atol=1e-6,
         scalar_atol=1e-3,

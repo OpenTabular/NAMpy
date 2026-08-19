@@ -14,7 +14,7 @@ from .models import (
     NAMLSS,
     NATTLSS,
     NBMLSS,
-    QNAM,
+    QNAMLSS,
     SNAMLSS,
     EnsembleTreeNAMClassifier,
     EnsembleTreeNAMLSS,
@@ -86,7 +86,7 @@ __all__ = [
     "NodeGAMRegressor",
     "NodeGAMClassifier",
     "NodeGAMLSS",
-    "QNAM",
+    "QNAMLSS",
     # Version
     "__version__",
 ]

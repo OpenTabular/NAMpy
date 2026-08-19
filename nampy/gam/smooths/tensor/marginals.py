@@ -416,10 +416,6 @@ def tensor_marginal_feature_index(term):
     return int(idxs[0])
 
 
-def tensor_marginal_feature_name(term):
-    return str(term.resolved_feature_names_list()[0])
-
-
 def _tensor_marginal_eval_from_x(term, x, *, centered=False):
     idx = tensor_marginal_feature_index(term)
     X_new = np.zeros((len(x), idx + 1), dtype=np.float64)

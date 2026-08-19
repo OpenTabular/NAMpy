@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from nampy.gam.parity.snapshots import _normalize_reference_term_label
@@ -118,3 +119,56 @@ def test_gaussian_sp_vcov_and_one_se_rule_match_mgcv_snapshot():
         atol=1e-8,
         rtol=0.0,
     )
+
+
+def test_concurvity_with_multi_column_parametric_block_matches_mgcv():
+    """concurvity on a model whose parametric block spans several columns.
+
+    mgcv's concurvity treats the parametric block via its first-column-only
+    indexing quirk; the previous sole parity case had no multi-column
+    parametric block, so the quirk was only unit-asserted on a synthetic term
+    list. A factor plus a numeric covariate exercises it on a real fit.
+    """
+    rng = np.random.default_rng(517)
+    n = 170
+    data = pd.DataFrame(
+        {
+            "x0": rng.uniform(-2.0, 2.0, n),
+            "z": rng.uniform(-1.0, 1.0, n),
+            "f": rng.choice(np.array(["a", "b", "c"], dtype=object), n),
+        }
+    )
+    level_effect = data["f"].map({"a": 0.4, "b": -0.3, "c": 0.1}).astype(float)
+    data["y"] = (
+        np.sin(1.3 * data["x0"])
+        + 0.25 * data["z"]
+        + level_effect
+        + rng.normal(0.0, 0.2, n)
+    )
+    formula = 'y ~ z + f + s(x0, bs="cr", k=8)'
+
+    expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+    gam = _fit_nampy_model(data, formula, "gaussian", "REML")
+
+    actual_full = gam.concurvity(full=True)
+    actual_pairwise = gam.concurvity(full=False)
+    expected_diag = expected["parity"]["diagnostics"]
+
+    assert [
+        _normalize_reference_term_label(v) for v in actual_full["labels"]
+    ] == expected_diag["concurvity_labels"]
+    np.testing.assert_allclose(
+        np.asarray(actual_full["values"], dtype=np.float64),
+        np.asarray(expected_diag["concurvity_full"], dtype=np.float64),
+        atol=1e-8,
+        rtol=0.0,
+    )
+    for name in actual_pairwise["measure_names"]:
+        np.testing.assert_allclose(
+            np.asarray(actual_pairwise["values"][name], dtype=np.float64),
+            np.asarray(
+                expected_diag["concurvity_pairwise"][name], dtype=np.float64
+            ),
+            atol=1e-8,
+            rtol=0.0,
+        )

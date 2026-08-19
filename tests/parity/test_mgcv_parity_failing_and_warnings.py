@@ -71,10 +71,9 @@ REQUESTED_PARITY_TRACKED_MODEL_CASES: list[CaseSpec] = [
         formula='y ~ s(f1, f2, x, bs="sz", k=6)',
         family="gaussian",
         data_factory=_data_sz_interaction,
-        # Although n < p, the balanced penalty fills null(X), so both mgcv's
-        # pls_fit1/gdi1 and NAMpy's stacked-QR mirror keep the augmented system
-        # at full rank (rank 25, no dropped columns) and the raw coefficient
-        # and covariance representatives agree strictly.
+        # The TP base of an SZ smooth inherits non-unique eigenvector signs.
+        # Compare fitted behavior and prediction uncertainty, not raw gauges.
+        skip_coef_comparison=True,
     ),
 ]
 

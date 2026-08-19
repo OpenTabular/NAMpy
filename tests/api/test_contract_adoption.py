@@ -93,13 +93,24 @@ def test_neural_binary_classifier_predict_components(tmp_path):
     )
 
 
-def test_lss_predict_components_not_implemented(tmp_path):
+def test_lss_predict_components_multicolumn(tmp_path):
     X, y = _regression_data()
     estimator = LinRegLSS(numerical_preprocessing="standardization")
     _fit(estimator, X, y, tmp_path, family="normal")
 
-    with pytest.raises(NotImplementedError):
-        estimator.predict_components(X)
+    components = estimator.predict_components(X)
+    assert components.backend == "neural"
+    # One column per distribution parameter, on both scales.
+    assert components.link.shape == (len(X), 2)
+    assert components.response.shape == (len(X), 2)
+    for value in components.terms.values():
+        assert np.asarray(value).shape[0] == len(X)
+    # Additivity holds on the raw (link) scale.
+    reconstruction = np.zeros_like(components.link)
+    for value in components.terms.values():
+        reconstruction = reconstruction + np.asarray(value).reshape(len(X), -1)
+    reconstruction = reconstruction + np.asarray(components.intercept)
+    np.testing.assert_allclose(reconstruction, components.link, atol=1e-4)
 
 
 def test_neural_capabilities_are_truthful(tmp_path):

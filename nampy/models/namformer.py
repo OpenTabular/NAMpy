@@ -1,13 +1,13 @@
 from ..neural.configs.namformer_config import DefaultNAMformerConfig
 from ..neural.modules.namformer import NAMformer
-from .sklearn_classifier import SklearnBaseClassifier
-from .sklearn_lss import SklearnBaseLSS
-from .sklearn_regressor import SklearnBaseRegressor
+from .classifier import NeuralClassifier
+from .lss import NeuralLSS
+from .regressor import NeuralRegressor
 
 
-class NAMformerRegressor(SklearnBaseRegressor):
+class NAMformerRegressor(NeuralRegressor):
     """
-    Multi-Layer Perceptron regressor. This class extends the SklearnBaseRegressor class and uses the NAMformer model
+    Multi-Layer Perceptron regressor. This class extends the NeuralRegressor class and uses the NAMformer model
     with the default NAMformer configuration.
 
     The accepted arguments to the NAMformerRegressor class include both the attributes in the DefaultNAMformerConfig dataclass
@@ -69,11 +69,11 @@ class NAMformerRegressor(SklearnBaseRegressor):
     Notes
     -----
     - The accepted arguments to the NAMformerRegressor class are the same as the attributes in the DefaultNAMformerConfig dataclass.
-    - NAMformerRegressor uses SklearnBaseRegressor as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - NAMformerRegressor uses NeuralRegressor as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    nampy.models.SklearnBaseRegressor : The parent class for NAMformerRegressor.
+    nampy.models.NeuralRegressor : The parent class for NAMformerRegressor.
 
     Examples
     --------
@@ -88,9 +88,9 @@ class NAMformerRegressor(SklearnBaseRegressor):
         super().__init__(model=NAMformer, config=DefaultNAMformerConfig, **kwargs)
 
 
-class NAMformerClassifier(SklearnBaseClassifier):
+class NAMformerClassifier(NeuralClassifier):
     """
-    Multi-Layer Perceptron classifier. This class extends the SklearnBaseClassifier class and uses the NAMformer model
+    Multi-Layer Perceptron classifier. This class extends the NeuralClassifier class and uses the NAMformer model
     with the default NAMformer configuration.
 
     The accepted arguments to the NAMformerClassifier class include both the attributes in the DefaultNAMformerConfig dataclass
@@ -152,11 +152,11 @@ class NAMformerClassifier(SklearnBaseClassifier):
     Notes
     -----
     - The accepted arguments to the NAMformerClassifier class are the same as the attributes in the DefaultNAMformerConfig dataclass.
-    - NAMformerClassifier uses SklearnBaseClassifieras the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - NAMformerClassifier uses NeuralClassifieras the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    nampy.models.SklearnBaseRegressor : The parent class for NAMformerClassifier.
+    nampy.models.NeuralRegressor : The parent class for NAMformerClassifier.
 
     Examples
     --------
@@ -171,9 +171,9 @@ class NAMformerClassifier(SklearnBaseClassifier):
         super().__init__(model=NAMformer, config=DefaultNAMformerConfig, **kwargs)
 
 
-class NAMformerLSS(SklearnBaseLSS):
+class NAMformerLSS(NeuralLSS):
     """
-    Multi-Layer Perceptron for distributional regression. This class extends the SklearnBaseLSS class and uses the NAMformer model
+    Multi-Layer Perceptron for distributional regression. This class extends the NeuralLSS class and uses the NAMformer model
     with the default NAMformer configuration.
 
     The accepted arguments to the NAMformerLSS class include both the attributes in the DefaultNAMformerConfig dataclass
@@ -238,11 +238,11 @@ class NAMformerLSS(SklearnBaseLSS):
     Notes
     -----
     - The accepted arguments to the NAMformerLSS class are the same as the attributes in the DefaultNAMformerConfig dataclass.
-    - NAMformerLSS uses SklearnBaseLSS as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - NAMformerLSS uses NeuralLSS as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    nampy.models.SklearnBaseLSS : The parent class for NAMformerLSS.
+    nampy.models.NeuralLSS : The parent class for NAMformerLSS.
 
     Examples
     --------

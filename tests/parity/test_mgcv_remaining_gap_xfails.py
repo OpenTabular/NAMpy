@@ -1,7 +1,7 @@
 """Strict regressions promoted from the former mgcv known-gap registry.
 
-Genuine remaining gaps live beside their owning surfaces, such as post-fit
-coverage in ``tests/optimization/test_mgcv_postprocessing_final_fit_parity.py``.
+There are currently no active expected failures on the targeted GAM slices;
+future upstream-localized gaps belong beside their exact owning surface.
 """
 
 from __future__ import annotations
@@ -17,16 +17,27 @@ import pandas as pd
 import pytest
 from numpy.testing import assert_allclose
 
+from nampy.gam import GAM
 from nampy.gam.fit.backends import solve_pirls_given_smoothing
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
-from nampy.gam.model.api import GAM
+from nampy.gam.smoothing_selection.criteria.dispatch import (
+    criterion_gradient,
+    criterion_hessian,
+    criterion_value,
+)
 from nampy.gam.smoothing_selection.criteria.pirls.derivatives import _gdi2_joint_kernel
 from nampy.gam.specs.build import build_formula_model
 from tests._paths import REPO_ROOT
-from tests.families.test_general_family_mgcv_parity import GAULSS_FORMULA, _gaulss_data
+from tests.families.test_general_family_mgcv_parity import (
+    GAULSS_FORMULA,
+    _gammals_data,
+    _gaulss_data,
+)
 from tests.mgcv_parity_utils import (
     _fit_nampy_model,
     _fit_nampy_model_fixed_sp,
+    _make_random_effect_data,
+    _run_mgcv_predict_on_newdata,
 )
 from tests.mgcv_parity_utils import _fit_nampy_snapshot as _coverage_fit_nampy_snapshot
 from tests.mgcv_parity_utils import _make_binomial_data as _coverage_make_binomial_data
@@ -37,10 +48,6 @@ from tests.mgcv_parity_utils import (
 )
 from tests.mgcv_parity_utils import _make_negbin_data as _coverage_make_negbin_data
 from tests.mgcv_parity_utils import _make_poisson_data as _coverage_make_poisson_data
-from tests.mgcv_parity_utils import (
-    _make_random_effect_data,
-    _run_mgcv_predict_on_newdata,
-)
 from tests.mgcv_parity_utils import _run_mgcv_snapshot as _coverage_run_mgcv_snapshot
 
 R_SCRIPT = shutil.which("Rscript")
@@ -222,16 +229,59 @@ def test_random_effect_id_linkage_is_explicitly_unsupported_like_mgcv():
 
 def test_general_family_generic_gdi2_kernel_available_for_gaulss():
     """
-    Known-gap coverage verifying that general family generic GDI2 kernel available for
-    gaulss.
+    The generic gdi2 kernel must decompose the gaulss REML score consistently.
+
+    Beyond mere availability, the kernel's ``Dp/(2*gamma) + K`` split
+    (mgcv/R/gam.fit4.r::gam.fit5) must recombine to the parity-tested
+    criterion derivatives, and the exact gradient must agree with central
+    finite differences of the criterion itself.
     """
     data = _gaulss_data()
     gam = _fit_nampy_model_fixed_sp(data, GAULSS_FORMULA, "gaulss", [1.0])
     y = data["y"].to_numpy(dtype=float)
     sp = gam.smoothing_params
+    log_sp = np.log(np.asarray(sp, dtype=np.float64))
     sol = solve_pirls_given_smoothing(gam, y, sp)
 
-    _gdi2_joint_kernel(gam, y, sol, sp, method="REML", need_hessian=True)
+    kernel = _gdi2_joint_kernel(gam, y, sol, sp, method="REML", need_hessian=True)
+
+    gamma = float(gam.score_gamma)
+    assert np.isfinite(float(kernel.Dp))
+    grad_kernel = np.asarray(kernel.Dp1, dtype=np.float64) / (
+        2.0 * gamma
+    ) + np.asarray(kernel.K1_full, dtype=np.float64)
+    hess_kernel = np.asarray(kernel.Dp2, dtype=np.float64) / (
+        2.0 * gamma
+    ) + np.asarray(kernel.K2_full, dtype=np.float64)
+    assert grad_kernel.shape == log_sp.shape
+    assert hess_kernel.shape == (log_sp.size, log_sp.size)
+    assert np.all(np.isfinite(grad_kernel))
+    assert np.all(np.isfinite(hess_kernel))
+    assert_allclose(hess_kernel, hess_kernel.T, atol=1e-10, rtol=0.0)
+
+    grad_dispatch = np.asarray(
+        criterion_gradient(gam, y, log_sp, method="reml"), dtype=np.float64
+    )
+    hess_dispatch = np.asarray(
+        criterion_hessian(gam, y, log_sp, method="reml"), dtype=np.float64
+    )
+    assert_allclose(grad_kernel, grad_dispatch, atol=1e-8, rtol=1e-8)
+    assert_allclose(hess_kernel, hess_dispatch, atol=1e-8, rtol=1e-8)
+
+    # Independent derivative check: central finite differences of the
+    # criterion value itself.
+    step = 1e-4
+    fd_grad = np.empty_like(log_sp)
+    for i in range(log_sp.size):
+        lo = log_sp.copy()
+        hi = log_sp.copy()
+        lo[i] -= step
+        hi[i] += step
+        fd_grad[i] = (
+            float(criterion_value(gam, y, hi, method="reml"))
+            - float(criterion_value(gam, y, lo, method="reml"))
+        ) / (2.0 * step)
+    assert_allclose(grad_kernel, fd_grad, atol=5e-5, rtol=5e-5)
 
 
 def _coverage_factor_by_data(seed=901, n=180):
@@ -568,12 +618,38 @@ def test_bic_matches_mgcv():
             _gaulss_data,
             "ML",
         ),
+        # gamma, non-identity-link gaussian, and gammals were the remaining
+        # implemented loglik/bic surfaces without parity coverage.
+        (
+            "gamma_log_reml",
+            {"name": "gamma", "link": "log"},
+            'y ~ s(x0, bs="cr", k=8)',
+            _coverage_make_gamma_data,
+            "REML",
+        ),
+        (
+            "gaussian_log_reml",
+            {"name": "gaussian", "link": "log"},
+            'y ~ s(x0, bs="cr", k=8)',
+            _coverage_make_gamma_data,
+            "REML",
+        ),
+        (
+            "gammals_ml",
+            "gammals",
+            ['y ~ s(x, bs="cr", k=6)', "~ 1"],
+            _gammals_data,
+            "ML",
+        ),
     ],
     ids=[
         "poisson_reml",
         "negbin_fixed_theta_reml",
         "negbin_est_theta_reml",
         "gaulss_ml",
+        "gamma_log_reml",
+        "gaussian_log_reml",
+        "gammals_ml",
     ],
 )
 def test_loglik_aic_bic_match_mgcv(case_id, family, formula, data_factory, method):

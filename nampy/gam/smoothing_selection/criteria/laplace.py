@@ -53,6 +53,7 @@ def _penalty_derivative_matrices(model, sp):
         _penalty_blocks_seq(model),
         list(setup.S),
         np.asarray(setup.off, dtype=np.int64),
+        strict=True,
     ):
         k = int(pb.smoothing_index)
         S_local = np.asarray(S_local, dtype=np.float64)

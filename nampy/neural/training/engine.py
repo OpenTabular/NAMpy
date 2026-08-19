@@ -2,7 +2,7 @@
 
 The three public wrappers (regressor, classifier, LSS) differ only in target
 preparation and output post-processing; everything between — data module,
-TaskModel, callbacks, Trainer, best-checkpoint reload, and raw inference —
+TaskModule, callbacks, Trainer, best-checkpoint reload, and raw inference —
 lives here exactly once. Wrappers describe their task with a
 :class:`TrainingPlan` and delegate.
 """
@@ -20,7 +20,7 @@ from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from sklearn.exceptions import NotFittedError
 
 from ..data.datamodule import NAMpyDataModule
-from .lightning_wrapper import TaskModel
+from .task_module import TaskModule
 
 
 @dataclass
@@ -32,7 +32,7 @@ class TrainingPlan:
     datamodule_regression : bool
         Label dtype switch for :class:`NAMpyDataModule` (float32 vs long).
     taskmodel_kwargs : dict
-        Task wiring forwarded to :class:`TaskModel` (``num_classes``,
+        Task wiring forwarded to :class:`TaskModule` (``num_classes``,
         ``task`` or ``lss``/``family``).
     stratify : array-like or None
         Stratification labels for the automatic train/validation split.
@@ -42,6 +42,7 @@ class TrainingPlan:
     taskmodel_kwargs: dict[str, Any] = field(default_factory=dict)
     stratify: Any = None
     passthrough: dict[str, Any] | None = None
+    passthrough_val: dict[str, Any] | None = None
 
 
 def build_callbacks(estimator, *, monitor, mode, patience, checkpoint_path):
@@ -91,7 +92,7 @@ def run_training(
     offset=None,
     offset_val=None,
 ) -> None:
-    """Fit ``estimator`` in place: data module, TaskModel, Trainer, reload."""
+    """Fit ``estimator`` in place: data module, TaskModule, Trainer, reload."""
     if dataloader_kwargs is None:
         dataloader_kwargs = {}
 
@@ -117,9 +118,10 @@ def run_training(
         offset=offset,
         offset_val=offset_val,
         passthrough_arrays=plan.passthrough,
+        passthrough_arrays_val=plan.passthrough_val,
     )
 
-    estimator.model = TaskModel(
+    estimator.model = TaskModule(
         model_class=estimator.base_model,
         config=estimator.config,
         cat_feature_info=estimator.data_module.cat_feature_info,

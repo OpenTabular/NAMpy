@@ -5,10 +5,10 @@ from typing import Any
 
 import numpy as np
 
-from ....splines.basis.natparam import nat_param_type1
 from ..._mgcv_constants import EIG_TOL_POWER
 from ...compiler.structures import PenaltySpec
 from ...penalties import penalty_id_for_local_index, rescale_tensor_penalties_for_fit
+from ...splines.basis.natparam import nat_param_type1
 from ..algebra import rowwise_kronecker
 from ..registry import make_smooth_term
 from ..smooth_base import BaseSmoothTerm, by_values_from_new_data, column_as_object
@@ -693,6 +693,7 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
         fac_idx = self._factor_feature_indices[0]
         fac = as_object_1d(column_as_object(X_new, fac_idx))
         Ifac = factor_indicator_matrix(fac, self._levels)
+        invalid_factor_row = np.sum(Ifac, axis=1) == 0.0
 
         B0_new = np.asarray(
             self._base_constructor_predict_matrix(X_new), dtype=np.float64
@@ -702,9 +703,15 @@ class FSmoothInteractionTerm(_FactorSmoothBase):
 
         B_new = rowwise_kronecker([Ifac, B0_new])
         z = by_values_from_new_data(X_new, self._by_state)
-        return np.asarray(
+        B_new = np.asarray(
             self._apply_by_scale(B_new, z, allow_missing=True), dtype=np.float64
         )
+        # mgcv/R/smooth.r::Predict.matrix.fs.interaction compares the
+        # prediction factor directly with each fitted level. Missing or new
+        # levels therefore propagate NA across the smooth row (unlike bs="re",
+        # whose predictor explicitly replaces such rows by zero).
+        B_new[invalid_factor_row, :] = np.nan
+        return B_new
 
     def get_penalty_definitions(self):
         if self._delegate_term is not None:
@@ -952,13 +959,16 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
         self._require_fitted()
 
         indicator_mats = []
+        invalid_factor_row = np.zeros(len(X_new), dtype=bool)
         for idx, lev in zip(
             self._factor_feature_indices,
             self._factor_levels,
             strict=True,
         ):
             fac = as_object_1d(column_as_object(X_new, idx))
-            indicator_mats.append(factor_indicator_matrix(fac, lev))
+            indicator = factor_indicator_matrix(fac, lev)
+            invalid_factor_row |= np.sum(indicator, axis=1) == 0.0
+            indicator_mats.append(indicator)
 
         B0_new = np.asarray(self._base_term.transform_new(X_new), dtype=np.float64)
         X_raw = rowwise_kronecker(indicator_mats + [B0_new])
@@ -968,9 +978,13 @@ class SZSmoothInteractionTerm(_FactorSmoothBase):
 
         B_new = X_raw @ self._factor_transform
         z = by_values_from_new_data(X_new, self._by_state)
-        return np.asarray(
+        B_new = np.asarray(
             self._apply_by_scale(B_new, z, allow_missing=True), dtype=np.float64
         )
+        # Mirror mgcv/R/smooth.r::Predict.matrix.sz.interaction: an unknown
+        # factor level makes its interaction row NA, not an all-zero effect.
+        B_new[invalid_factor_row, :] = np.nan
+        return B_new
 
     def get_penalty_definitions(self):
         if self._delegate_term is not None:

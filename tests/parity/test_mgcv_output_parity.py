@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from nampy.gam.linalg import matrix_self_gram
+from tests.mgcv_invariant_policy import lpmatrix_uses_invariant_comparison
 from tests.mgcv_parity_utils import (
     _fit_nampy_model,
     _fit_nampy_model_fixed_sp,
@@ -219,10 +221,23 @@ TRANSFORMED_SMOOTH_OUTPUT_CASES = [
         "data_factory": lambda: _make_gaussian_univariate_data(seed=551, n=150),
         "formula": 'y ~ s(I(x + 0.15 * x**2), bs="cs", k=8, sp=1.1)',
         "smoothing_params": np.array([1.1]),
-        "pred_atol": 1e-10,
-        "pred_rtol": 1e-10,
-        "se_atol": 1e-10,
-        "se_rtol": 1e-10,
+        # The cs shrinkage penalty assigns two *different* shrunk eigenvalues
+        # (0.1*lambda, 0.01*lambda; mgcv/R/smooth.r:1490-1499) to the cr
+        # penalty's two near-zero eigenvectors, whose orientation is chaotic in
+        # the last bits of the eigensolver input: a 1-ulp knot perturbation
+        # moves the shrunk penalty by ~4e-5 relative — for mgcv's own eigen()
+        # just as for scipy (debug/cs_shrinkage_null_space_probe.py). Fitted
+        # values at fixed sp therefore only reproduce to ~1e-4 across
+        # LAPACK/BLAS builds; the basis itself stays exact (lpmatrix_atol).
+        # Note ts/tp shrinkage uses one constant shrink across the whole null
+        # space (smooth.r:1343-1348), which is rotation-invariant — hence the
+        # 1e-10 tolerance of transformed_ts is legitimate.
+        "pred_atol": 3e-4,
+        "pred_rtol": 3e-4,
+        "se_atol": 3e-4,
+        "se_rtol": 3e-4,
+        "lpmatrix_atol": 1e-10,
+        "lpmatrix_rtol": 1e-10,
     },
     {
         "case_id": "transformed_cc",
@@ -731,12 +746,22 @@ def test_output_parity_newdata_transformed_smooth_lpmatrix(case):
     )
     expected = np.asarray(r_result["pred"], dtype=np.float64)
 
-    np.testing.assert_allclose(
-        actual,
-        expected,
-        atol=case["pred_atol"],
-        rtol=case["pred_rtol"],
-    )
+    lp_atol = case.get("lpmatrix_atol", case["pred_atol"])
+    lp_rtol = case.get("lpmatrix_rtol", case["pred_rtol"])
+    if lpmatrix_uses_invariant_comparison(case["case_id"]):
+        np.testing.assert_allclose(
+            matrix_self_gram(actual),
+            matrix_self_gram(expected),
+            atol=lp_atol,
+            rtol=lp_rtol,
+        )
+    else:
+        np.testing.assert_allclose(
+            actual,
+            expected,
+            atol=lp_atol,
+            rtol=lp_rtol,
+        )
 
 
 @pytest.mark.parametrize("return_se", [False, True], ids=["no_se", "with_se"])

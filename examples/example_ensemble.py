@@ -163,7 +163,11 @@ def main():
     # ------------------------------------------------------------------
     # Ensemble contributions
     # ------------------------------------------------------------------
-    feat_vals = ensemble_model.predict_feature_vals(X_val)
+    components = ensemble_model.predict_components(X_val)
+    feat_vals = dict(components.terms)
+    feat_vals["output"] = components.link
+    feat_vals["response"] = components.response
+    feat_vals["intercept"] = components.intercept
     print("\nReturned contribution keys:")
     print(list(feat_vals.keys()))
 

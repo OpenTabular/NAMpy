@@ -7,9 +7,9 @@ then selects the task contract.
 
 .. code-block:: python
 
-   from nampy.models import SklearnBaseRegressor
+   from nampy.models import NeuralRegressor
 
-   class MyRegressor(SklearnBaseRegressor):
+   class MyRegressor(NeuralRegressor):
        def __init__(self, **kwargs):
            super().__init__(
                model=MyCustomModel,
