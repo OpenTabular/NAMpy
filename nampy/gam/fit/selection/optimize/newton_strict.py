@@ -6,7 +6,7 @@ import numpy as np
 from scipy.linalg import eigh as scipy_eigh
 from scipy.optimize import OptimizeResult
 
-from ...._model_state import _fit_scale
+from ....model_state import _fit_scale, _fit_workspace
 from .basics import _project_to_bounds
 
 
@@ -611,9 +611,9 @@ def _optimize_outer_newton_strict(
             edge_corrected = True
             model = getattr(objective, "model", None)
             if model is not None and isinstance(
-                getattr(model, "_pirls_reml_derivative_kernel_state_", None), dict
+                _fit_workspace(model).get("pirls_reml_derivative_kernel_state", None), dict
             ):
-                drv = model._pirls_reml_derivative_kernel_state_
+                drv = _fit_workspace(model).pirls_reml_derivative_kernel_state
                 # `db.drho`/`dw.drho`/`rp` are not yet carried through Python's
                 # PIRLS exact path in the same raw form as mgcv.
                 db_drho1 = drv.get("dbeta")

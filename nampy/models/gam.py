@@ -20,7 +20,7 @@ from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils import ClassifierTags, RegressorTags
 
-from .._contracts import AdditivePrediction, FeatureSchema
+from ..contracts import AdditivePrediction, FeatureSchema
 from ..gam import GAM
 
 AdapterT = TypeVar("AdapterT", bound="_GAMAdapterBase")
@@ -217,7 +217,11 @@ class _GAMAdapterBase(BaseEstimator):
         return self.gam_.summary(**kwargs)
 
     def plot(self, **kwargs):
-        """mgcv-style term plots (delegates to ``GAM.plot``)."""
+        """Render mgcv-style term plots (delegates to ``GAM.plot``).
+
+        Same family of term-contribution plots as the neural wrappers'
+        ``plot_terms``; both go through the shared renderer.
+        """
         self._check_fitted()
         return self.gam_.plot(**kwargs)
 

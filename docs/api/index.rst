@@ -20,7 +20,7 @@ The NAMpy package is organized into several main modules:
 * :mod:`nampy.models` - High-level estimator classes (scikit-learn style),
   including the ``GAMRegressor``/``GAMClassifier`` adapters
 * :mod:`nampy.gam` - mgcv-parity GAM backend (``GAM`` and the fit core)
-* :mod:`nampy._contracts` - Shared backend-neutral contracts (feature schema,
+* :mod:`nampy.contracts` - Shared backend-neutral contracts (feature schema,
   additive predictions, capabilities, persistence)
 * :mod:`nampy.neural` - Torch backend internals (modules, task, contracts,
   data, distributions, configs)

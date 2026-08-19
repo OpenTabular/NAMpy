@@ -3,14 +3,14 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from nampy.gam._model_state import (
+from nampy.gam.inference.anova import _approximate_residual_df, _edf1_vector
+from nampy.gam.model_state import (
     _coef_column_offset,
     _edf2,
     _edf_total,
     _summary_R,
     _term_blocks_seq,
 )
-from nampy.gam.inference.anova import _approximate_residual_df, _edf1_vector
 from tests.mgcv_parity_utils import (
     _fit_nampy_model,
     _make_gamma_data,

@@ -5,16 +5,43 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy.special import gammaln
 
-from .._model_state import (
+from ..data import (
+    coerce_formula_predict_inputs,
+    coerce_optional_offset,
+    coerce_X,
+    combine_offsets,
+    copy_offset,
+)
+from ..diagnostics import (
+    concurvity,
+    gam_check,
+    k_check,
+    plot_gam,
+    print_summary,
+    residuals_gam,
+)
+from ..families import make_gam_family
+from ..fit import fit_model_core, select_covariance_matrix
+from ..fit.offsets import coerce_offset_array
+from ..fit.result_builders import build_gam_result, copy_fit_result
+from ..fit.selection import gam_vcomp, one_se_rule, sp_vcov
+from ..fit.selection.criteria.ml_reml import resolve_ml_reml_scoring_backend
+from ..fit.smoothing_params import expand_smoothing_params_from_log
+from ..inference import anova_gam
+from ..inference.anova import _edf1_vector
+from ..inference.loglik import (
+    loglik_effective_df,
+    loglik_gam,
+    loglik_value_and_effective_df,
+    object_aic,
+)
+from ..model_state import (
     _coef_full,
     _cov_bayes,
     _cov_freq,
     _cov_unconditional,
-    _edf2,
     _edf_total,
-    _fit_result,
     _fit_scale,
     _fit_state,
     _fitted_eta,
@@ -23,19 +50,7 @@ from .._model_state import (
     _predictor_full_slices,
     _term_blocks_seq,
 )
-from ..data import (
-    coerce_formula_predict_inputs,
-    coerce_optional_offset,
-    coerce_X,
-    combine_offsets,
-    copy_offset,
-)
-from ..families import make_gam_family
-from ..fit.offsets import coerce_offset_array
-from ..fit.result_builders import copy_fit_result
-from ..fit.selection.criteria.gaussian_reml_algebra import (
-    gaussian_reml_weighted_degrees_and_log_weight_term,
-)
+from ..predict import build_lpmatrix, predict_values
 from ..results.snapshots import build_snapshot
 from ..specs.modeling import make_predictor_specs, prepare_formula_inputs
 
@@ -151,25 +166,11 @@ class GAM:
     # Persistence
     # ------------------------------------------------------------------
 
-    #: Transient solver scratch: warm-start vectors and evaluation caches
-    #: written during smoothing optimization. All readers use
-    #: ``getattr(model, name, default)``, so dropping them from pickles is
-    #: safe and keeps saved models free of stale cached kernel state.
-    _TRANSIENT_STATE_PREFIXES = ("_pirls_",)
-    _TRANSIENT_STATE_NAMES = frozenset(
-        {
-            "_general_family_outer_eval_cache",
-            "_penalty_subspace_cache_",
-        }
-    )
-
     def __getstate__(self):
+        # The solver workspace (warm starts, evaluation caches) is transient:
+        # never pickle it, so saved models carry no stale cached kernel state.
         state = dict(self.__dict__)
-        for name in list(state):
-            if name in self._TRANSIENT_STATE_NAMES or any(
-                name.startswith(prefix) for prefix in self._TRANSIENT_STATE_PREFIXES
-            ):
-                del state[name]
+        state.pop("_ws", None)
         return state
 
     def save_model(self, path):
@@ -377,7 +378,6 @@ class GAM:
         self.min_sp = min_sp
         self.gam_result_ = None
 
-        from ..fit import fit_model_core
 
         fit_model_core(
             X=X_np,
@@ -403,7 +403,6 @@ class GAM:
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
         if self.gam_result_ is None or self.gam_result_.fit_summary is None:
-            from ..fit.result_builders import build_gam_result
 
             self.gam_result_ = build_gam_result(self, prefer_cached_summary=False)
         return copy_fit_result(
@@ -412,17 +411,14 @@ class GAM:
         )
 
     def _select_cov(self, cov):
-        from ..fit import select_covariance_matrix
 
         return select_covariance_matrix(self, cov=cov)
 
     def _resolve_ml_reml_scoring_backend(self, method="reml"):
-        from ..fit.selection.criteria.ml_reml import resolve_ml_reml_scoring_backend
 
         return resolve_ml_reml_scoring_backend(self, method=method)
 
     def _expand_smoothing_params_from_log(self, log_free_sp):
-        from ..fit.smoothing_params import expand_smoothing_params_from_log
 
         return expand_smoothing_params_from_log(self, log_free_sp)
 
@@ -450,7 +446,6 @@ class GAM:
         terms=None,
         exclude=None,
     ):
-        from ..predict import predict_values
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
@@ -492,7 +487,6 @@ class GAM:
         )
 
     def predict_terms(self, X=None, offset=None):
-        from ..predict import predict_values
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
@@ -529,7 +523,6 @@ class GAM:
         return out
 
     def lpmatrix(self, X):
-        from ..predict import build_lpmatrix
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
@@ -552,7 +545,6 @@ class GAM:
         the prepared plot-data list with the matplotlib figures attached,
         mirroring upstream's invisible ``pd`` return.
         """
-        from ..diagnostics import plot_gam
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
@@ -566,7 +558,6 @@ class GAM:
         :class:`~nampy.gam.inference.summary.GAMSummary` object
         (mgcv/R/mgcv.r:3858-4068).
         """
-        from ..diagnostics import print_summary
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
@@ -575,22 +566,18 @@ class GAM:
         )
 
     def residuals(self, type="deviance"):
-        from ..diagnostics import residuals_gam
 
         return residuals_gam(self, type=type)
 
     def concurvity(self, full=True):
-        from ..diagnostics import concurvity
 
         return concurvity(self, full=full)
 
     def k_check(self, subsample=5000, n_rep=400, seed=None):
-        from ..diagnostics import k_check
 
         return k_check(self, subsample=subsample, n_rep=n_rep, seed=seed)
 
     def gam_check(self, *, type="deviance", k_sample=5000, k_rep=200, seed=None):
-        from ..diagnostics import gam_check
 
         return gam_check(
             self,
@@ -601,7 +588,6 @@ class GAM:
         )
 
     def sp_vcov(self, edge_correct=True, reg=1e-3):
-        from ..fit.selection import sp_vcov
 
         return sp_vcov(self, edge_correct=edge_correct, reg=reg)
 
@@ -707,278 +693,18 @@ class GAM:
         return vc
 
     def _loglik_effective_df(self) -> float:
-        """
-        mgcv-style effective df used by ``logLik.gam`` / AIC / BIC.
-
-        Mirrors mgcv ``logLik.gam`` in mgcv/R/mgcv.r.
-        """
-        family_class = str(getattr(self.family, "family_class", "")).lower()
-        sc_p = (
-            0.0
-            if family_class == "general"
-            else (1.0 if getattr(self.family, "known_scale", None) is None else 0.0)
-        )
-        p = float(_edf_total(self)) + sc_p
-        edf2 = _edf2(self)
-        if edf2 is not None:
-            p = float(np.sum(np.asarray(edf2, dtype=np.float64))) + sc_p
-        np_max = float(len(np.asarray(_coef_full(self), dtype=np.float64))) + sc_p
-        p = min(p, np_max)
-        n_theta = getattr(self.family, "n_theta", None)
-        if family_class == "extended" and n_theta is not None:
-            p += float(n_theta)
-        return p
+        return loglik_effective_df(self)
 
     def _loglik_value_and_effective_df(self) -> tuple[float, float]:
-        """
-        mgcv ``logLik.gam`` uses two df notions:
-
-        - value uses ``sum(edf) + scale.estimated``
-        - attr(df) uses ``sum(edf2) + scale.estimated`` when available
-        """
-        family_class = str(getattr(self.family, "family_class", "")).lower()
-        sc_p = (
-            0.0
-            if family_class == "general"
-            else (1.0 if getattr(self.family, "known_scale", None) is None else 0.0)
-        )
-        p_val = float(_edf_total(self)) + sc_p
-        p_df = p_val
-        edf2 = _edf2(self)
-        if edf2 is not None:
-            p_df = float(np.sum(np.asarray(edf2, dtype=np.float64))) + sc_p
-        np_max = float(len(np.asarray(_coef_full(self), dtype=np.float64))) + sc_p
-        if p_df > np_max:
-            p_df = np_max
-        n_theta = getattr(self.family, "n_theta", None)
-        if family_class == "extended" and n_theta is not None:
-            p_df += float(n_theta)
-        return p_val, p_df
+        return loglik_value_and_effective_df(self)
 
     def _object_aic(self) -> float | None:
-        """
-        Final ``object$aic`` before ``logLik.gam`` post-processing.
-
-        For Gaussian fits, mirror ``gam.fit3.r`` raw-family AIC plus the later
-        ``mgcv.r`` `+ 2*sum(object$edf)` update exactly.
-        """
-        fit_result = _fit_result(self)
-        if fit_result is None:
-            return None
-
-        family_name = str(getattr(self.family, "name", "")).lower()
-        weights = (
-            np.ones_like(np.asarray(self.y_, dtype=np.float64), dtype=np.float64)
-            if self.prior_weights_ is None
-            else np.asarray(self.prior_weights_, dtype=np.float64)
-        )
-        positive = weights > 0.0
-        nobs = float(np.sum(weights[positive]))
-        if nobs <= 0.0:
-            return None
-
-        if family_name == "gaussian":
-            dev = float(getattr(fit_result, "deviance", np.nan))
-            if not np.isfinite(dev) or dev <= 0.0:
-                return None
-            n_row = float(len(weights))
-            n_true = getattr(self, "n_true_", None)
-            n_eff = (
-                None
-                if n_true is None
-                or not np.isfinite(float(n_true))
-                or float(n_true) <= 0.0
-                else float(n_true)
-            )
-            nobs, sum_log_scaled = gaussian_reml_weighted_degrees_and_log_weight_term(
-                weights,
-                n_row,
-                mp=0.0,
-                n_effective_total=n_eff,
-            )
-            if not np.isfinite(nobs) or nobs <= 0.0 or not np.isfinite(sum_log_scaled):
-                return None
-            raw_aic = (
-                nobs * (np.log(dev / nobs * 2.0 * np.pi) + 1.0)
-                + 2.0
-                - float(sum_log_scaled)
-            )
-            return float(raw_aic + 2.0 * float(_edf_total(self)))
-
-        y = np.asarray(self.y_, dtype=np.float64)
-        mu = np.asarray(self.predict(X=None, type="response"), dtype=np.float64)
-        raw_aic = None
-
-        if family_name == "poisson":
-            mu = np.clip(mu, np.finfo(np.float64).tiny, None)
-            raw_aic = -2.0 * float(
-                np.sum(weights * (y * np.log(mu) - mu - gammaln(y + 1.0)))
-            )
-        elif family_name == "binomial":
-            # stats::binomial()$aic owns the m <- wt reinterpretation of
-            # non-unit prior weights as binomial denominators.
-            raw_aic = float(self.family.aic(y, mu, edf=0.0, weights=weights))
-        elif family_name == "gamma":
-            dispersion_scale: float | None = None
-            optim_result = getattr(self, "_optim_result", None)
-            joint_log_phi = (
-                None
-                if optim_result is None
-                else getattr(optim_result, "joint_log_phi", None)
-            )
-            if (
-                joint_log_phi is not None
-                and np.isfinite(float(joint_log_phi))
-                and str(getattr(self, "_optim_method", "")).lower() in {"reml", "ml"}
-            ):
-                dispersion_scale = float(np.exp(float(joint_log_phi)))
-            if dispersion_scale is None:
-                fit_method = str(getattr(self, "smoothing_method", "")).lower()
-                if fit_method == "fixed" and getattr(self.family, "known_scale", None) is None:
-                    from .._model_state import _coef_column_offset
-                    from ..fit.selection.criteria.pirls.value import (
-                        _solve_gamma_profile_scale,
-                    )
-                    from ..fit.selection.reparam import _static_penalty_null_dim
-
-                    penalty = float(
-                        getattr(fit_result, "penalty_quadratic", 0.0) or 0.0
-                    )
-                    mp = float(
-                        _static_penalty_null_dim(self) + _coef_column_offset(self)
-                    )
-                    init_scale = _fit_scale(self)
-                    if init_scale is None or not np.isfinite(float(init_scale)):
-                        init_scale = 1.0
-                    # mgcv/R/gam.fit3.r::gam.fit3 uses `reml.scale`
-                    # rather than the reported Pearson `sig2` in
-                    # stats::Gamma()$aic when fixed sp are fitted through
-                    # the REML path.
-                    dispersion_scale = float(
-                        _solve_gamma_profile_scale(
-                            self,
-                            y,
-                            float(getattr(fit_result, "deviance", np.nan)) + penalty,
-                            mp=mp,
-                            method="REML",
-                            init_scale=float(init_scale),
-                        )
-                    )
-                if dispersion_scale is None:
-                    fit_scale_value = _fit_scale(self)
-                    dispersion_scale = (
-                        None
-                        if fit_scale_value is None
-                        else float(fit_scale_value)
-                    )
-            if (
-                dispersion_scale is None
-                or not np.isfinite(dispersion_scale)
-                or dispersion_scale <= 0.0
-            ):
-                return None
-            disp = dispersion_scale
-            shape = 1.0 / disp
-            mu = np.clip(mu, np.finfo(np.float64).tiny, None)
-            y = np.clip(y, np.finfo(np.float64).tiny, None)
-            raw_aic = (
-                -2.0
-                * float(
-                    np.sum(
-                        weights
-                        * (
-                            (shape - 1.0) * np.log(y)
-                            - y / (mu * disp)
-                            - gammaln(shape)
-                            - shape * np.log(mu * disp)
-                        )
-                    )
-                )
-                + 2.0
-            )
-
-        if raw_aic is not None:
-            return float(raw_aic + 2.0 * float(_edf_total(self)))
-
-        return None
+        return object_aic(self)
 
     def loglik(self) -> float:
-        """
-        Unpenalized fitted log-likelihood at penalized MLE.
+        """Unpenalized fitted log-likelihood at penalized MLE (mgcv logLik.gam)."""
+        return loglik_gam(self)
 
-        Mirrors mgcv ``logLik.gam`` value semantics.
-        """
-        if not self._fitted:
-            raise RuntimeError("Model is not fitted.")
-
-        object_aic = self._object_aic()
-        if object_aic is not None:
-            p_val, _p_df = self._loglik_value_and_effective_df()
-            return float(p_val - object_aic / 2.0)
-
-        if getattr(self.family, "family_class", "") == "general":
-            fit_result = _fit_result(self)
-            if fit_result is not None and fit_result.loglik is not None:
-                # General-family fits already store the mgcv-shaped unpenalized
-                # log-likelihood in fit space. Recomputing from exported
-                # coefficients is wrong when public coefficients have been
-                # mapped to a prediction parameterization.
-                return float(fit_result.loglik)
-            X = np.asarray(_fit_state(self).X, dtype=np.float64)
-            jj = [
-                np.arange(sl.start, sl.stop, dtype=int)
-                for sl in _predictor_full_slices(self)
-            ]
-            weights = (
-                np.ones_like(np.asarray(self.y_, dtype=np.float64), dtype=np.float64)
-                if self.prior_weights_ is None
-                else np.asarray(self.prior_weights_, dtype=np.float64)
-            )
-            ll = self.family.ll(
-                np.asarray(self.y_, dtype=np.float64),
-                X,
-                jj,
-                np.asarray(_coef_full(self), dtype=np.float64),
-                weights,
-                offset=self._general_family_offset_list(),
-                deriv=0,
-            )
-            return float(ll["l"])
-
-        y = np.asarray(self.y_, dtype=np.float64)
-        mu = np.asarray(self.predict(X=None, type="response"), dtype=np.float64)
-        glm_weights = (
-            None
-            if self.prior_weights_ is None
-            else np.asarray(self.prior_weights_, dtype=np.float64)
-        )
-        dev = float(self.family.deviance(y, mu, weights=glm_weights))
-        fit_scale = _fit_scale(self)
-        if (
-            fit_scale is not None
-            and np.isfinite(float(fit_scale))
-            and float(fit_scale) > 0.0
-        ):
-            scale = float(fit_scale)
-        elif getattr(self.family, "known_scale", None) is None:
-            scale_est = self.family.estimate_dispersion(
-                y,
-                mu,
-                edf=float(_edf_total(self)),
-                weights=glm_weights,
-            )
-            scale = max(float(scale_est), float(np.finfo(np.float64).tiny))
-        else:
-            scale = float(self.family.known_scale)
-        sat = float(
-            self.family.saturated_loglik(
-                y,
-                weights=glm_weights,
-                n=len(y),
-                scale=scale,
-            )
-        )
-        return float(sat - dev / (2.0 * scale))
 
     def aic(self) -> float:
         """mgcv-style conditional AIC based on effective df."""
@@ -1002,22 +728,18 @@ class GAM:
         """
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
-        from ..inference.anova import _edf1_vector
 
         return np.asarray(_edf1_vector(self), dtype=np.float64)
 
     def gam_vcomp(self, *, rescale=True, conf_lev=0.95):
-        from ..fit.selection import gam_vcomp
 
         return gam_vcomp(self, rescale=rescale, conf_lev=conf_lev)
 
     def one_se_rule(self, candidate_indices=None):
-        from ..fit.selection import one_se_rule
 
         return one_se_rule(self, candidate_indices=candidate_indices)
 
     def anova(self, *models, dispersion=None, test=None, freq=False):
-        from ..inference import anova_gam
 
         return anova_gam(
             self,

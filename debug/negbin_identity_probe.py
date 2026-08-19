@@ -6,15 +6,6 @@ import subprocess
 
 import numpy as np
 
-from tests.mgcv_parity_utils import (
-    _fit_nampy_model,
-    _fit_nampy_model_fixed_sp,
-    _fit_nampy_snapshot,
-    _make_negbin_data,
-    _run_mgcv_snapshot,
-)
-from tests.optimization.test_mgcv_outer_optimization_parity import _run_mgcv_outer_trace
-from nampy.gam.parity import build_optimizer_trace
 from nampy.gam.fit.selection.criteria.pirls.derivatives import (
     criterion_gradient_ml_reml_pirls_negbin_joint,
     criterion_hessian_ml_reml_pirls_negbin_joint,
@@ -22,6 +13,14 @@ from nampy.gam.fit.selection.criteria.pirls.derivatives import (
 from nampy.gam.fit.selection.criteria.pirls.value import (
     criterion_ml_reml_pirls_negbin_joint,
 )
+from nampy.gam.parity import build_optimizer_trace
+from tests.mgcv_parity_utils import (
+    _fit_nampy_model,
+    _fit_nampy_model_fixed_sp,
+    _make_negbin_data,
+    _run_mgcv_snapshot,
+)
+from tests.optimization.test_mgcv_outer_optimization_parity import _run_mgcv_outer_trace
 
 
 def _max_abs(actual, expected) -> float:

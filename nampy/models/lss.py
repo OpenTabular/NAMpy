@@ -185,7 +185,7 @@ class NeuralLSS(NeuralEstimatorBase):
         parameters, and each term a matching multi-column contribution;
         additivity holds on the raw (link) scale.
         """
-        from .._contracts import AdditivePrediction
+        from ..contracts import AdditivePrediction
 
         pred_dict = self._predict(X)
         raw = pred_dict["output"]

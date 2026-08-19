@@ -10,13 +10,16 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from nampy.gam.fit.solvers.general_family_solver import run_general_family_fixed_smoothing
+from nampy.gam.fit.solvers.general_family_solver import (
+    run_general_family_fixed_smoothing,
+)
 from nampy.gam.fit.solvers.general_newton_solver import (
+    _sl_ldetS,
     _sl_mult,
     _sl_second_mult,
-    _sl_ldetS,
     chol_solve_pivoted,
 )
+
 from tests.families.test_general_family_mgcv_parity import GENERAL_SE_CASES
 from tests.mgcv_parity_utils import _fit_nampy_model_fixed_sp, _run_mgcv_snapshot
 

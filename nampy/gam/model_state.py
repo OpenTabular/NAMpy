@@ -2,11 +2,60 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 
 from .linalg.qr import mgcv_pqr_r
+
+_UNSET = object()
+
+
+@dataclass
+class FitWorkspace:
+    """Transient solver scratch attached to a model as ``_ws``.
+
+    Warm-start vectors and evaluation caches written during smoothing
+    optimization and P-IRLS solving. Never pickled (``GAM.__getstate__``
+    drops it) and never part of the fitted result contract.
+
+    Fields default to the ``_UNSET`` sentinel so :meth:`get` reproduces
+    ``getattr(model, name, default)`` semantics exactly, including the
+    distinction between "never written" and "explicitly set to None".
+    """
+
+    pirls_coef_start: Any = _UNSET
+    pirls_eta_start: Any = _UNSET
+    pirls_mu_start: Any = _UNSET
+    pirls_eval_start: Any = _UNSET
+    pirls_eval_eta_start: Any = _UNSET
+    pirls_eval_mu_start: Any = _UNSET
+    pirls_lock_start: Any = _UNSET
+    pirls_last_coef: Any = _UNSET
+    pirls_last_eta: Any = _UNSET
+    pirls_last_mu: Any = _UNSET
+    pirls_last_inner_trace: Any = _UNSET
+    pirls_reml_gamma_state: Any = _UNSET
+    pirls_reml_gaussian_state: Any = _UNSET
+    pirls_reml_negbin_state: Any = _UNSET
+    pirls_reml_derivative_kernel_state: Any = _UNSET
+    pirls_disable_theta_efs: Any = _UNSET
+    general_family_outer_eval_cache: Any = _UNSET
+    penalty_subspace_cache: Any = _UNSET
+
+    def get(self, name: str, default: Any = None) -> Any:
+        value = getattr(self, name)
+        return default if value is _UNSET else value
+
+
+def _fit_workspace(obj: Any) -> FitWorkspace:
+    """Get-or-create the transient solver workspace on ``obj``."""
+    ws = getattr(obj, "_ws", None)
+    if ws is None:
+        ws = FitWorkspace()
+        obj._ws = ws
+    return ws
 
 
 def _require_fitted(obj: Any) -> None:

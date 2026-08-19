@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from nampy.gam import GAM
+from nampy.gam.model_state import _fit_workspace
 from tests.mgcv_parity_utils import _make_negbin_data
 from tests.optimization._trace_parity_helpers import (
     _fit_nampy_negbin_inner_trace,
@@ -53,7 +54,7 @@ def test_pirls_fixed_sp_reml_inner_trace_populates_optim_trace():
     )
     gam.fit(data=data)
 
-    inner_trace = list(getattr(gam, "_pirls_last_inner_trace_", []) or [])
+    inner_trace = list(_fit_workspace(gam).get("pirls_last_inner_trace", []) or [])
     optim_trace = list(getattr(gam, "_optim_trace", []) or [])
 
     assert len(inner_trace) >= 1

@@ -67,6 +67,10 @@ class NATT(BaseModel):
         else:
             self.intercept = None
 
+        # TODO: this is plain elementwise nn.Dropout over concatenated term
+        # outputs, unlike the term-mask feature dropout in
+        # modules/interactions.py used by NAM/QNAM/TreeNAM/SplineNAM.
+        # The semantics differ; do not unify without an explicit decision.
         self.feature_dropout = nn.Dropout(
             self.hparams.get("feature_dropout", config.feature_dropout)
         )
@@ -227,6 +231,16 @@ class NATT(BaseModel):
         -------
         nn.Sequential
             Subnetwork for the feature.
+
+        Notes
+        -----
+        Deliberately hand-rolled rather than ``mlp_utils.MLP``: the layer
+        sequence is not expressible via MLP parameters. The named ``norm``
+        is applied after the first linear layer only (MLP applies it to every
+        hidden block), ``batch_norm`` can coexist with a named norm (MLP
+        forbids that combination), hidden layers use native ``nn.LayerNorm``
+        while the named norm uses the custom normalization_layers classes,
+        and the GLU path here does not halve the running width as MLP does.
         """
         layers = nn.Sequential()
         layers.add_module("input", nn.Linear(input_dim, config.layer_sizes[0]))

@@ -7,8 +7,8 @@ from pathlib import Path
 import numpy as np
 from scipy.linalg import qr as scipy_qr
 
-from nampy.gam._model_state import _coef_full, _term_blocks_seq
 from nampy.gam.diagnostics.concurvity import _concurvity_measures, _qr_R
+from nampy.gam.model_state import _coef_full, _term_blocks_seq
 from tests.families.test_general_family_mgcv_parity import (
     GAULSS_FORMULA,
     _gaulss_data,

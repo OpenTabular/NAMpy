@@ -6,7 +6,7 @@ import numpy as np
 from scipy.linalg import eigh as scipy_eigh
 from scipy.optimize import OptimizeResult
 
-from ...._model_state import _fit_scale
+from ....model_state import _fit_scale, _fit_workspace
 from .basics import _project_to_bounds
 
 
@@ -17,7 +17,7 @@ def _copy_state_vector(x):
 
 
 def _extract_scale_estimate(model, objective=None):
-    gamma_state = getattr(model, "_pirls_reml_gamma_state_", None)
+    gamma_state = _fit_workspace(model).get("pirls_reml_gamma_state", None)
     if isinstance(gamma_state, dict):
         scale_est = gamma_state.get("scale_est", None)
         if scale_est is not None and np.isfinite(scale_est) and float(scale_est) > 0.0:
@@ -43,7 +43,7 @@ def _extract_scale_estimate(model, objective=None):
 
 
 def _extract_dvkk_diag(model, x_eval, hess):
-    kernel_state = getattr(model, "_pirls_reml_derivative_kernel_state_", None)
+    kernel_state = _fit_workspace(model).get("pirls_reml_derivative_kernel_state", None)
     if isinstance(kernel_state, dict):
         dvkk = kernel_state.get("dVkk", None)
         if dvkk is not None:
@@ -83,22 +83,22 @@ def _eval_objective_at(
     prev_eta_start = None
     prev_mu_start = None
     if model is not None:
-        prev_coef_start = _copy_state_vector(getattr(model, "_pirls_coef_start_", None))
-        prev_eta_start = _copy_state_vector(getattr(model, "_pirls_eta_start_", None))
-        prev_mu_start = _copy_state_vector(getattr(model, "_pirls_mu_start_", None))
+        prev_coef_start = _copy_state_vector(_fit_workspace(model).get("pirls_coef_start", None))
+        prev_eta_start = _copy_state_vector(_fit_workspace(model).get("pirls_eta_start", None))
+        prev_mu_start = _copy_state_vector(_fit_workspace(model).get("pirls_mu_start", None))
         if start_coef is None:
-            start_coef = getattr(model, "_pirls_coef_start_", None)
+            start_coef = _fit_workspace(model).get("pirls_coef_start", None)
         if start_mu is None:
-            start_mu = getattr(model, "_pirls_mu_start_", None)
-        model._pirls_eval_start_ = _copy_state_vector(start_coef)
+            start_mu = _fit_workspace(model).get("pirls_mu_start", None)
+        _fit_workspace(model).pirls_eval_start = _copy_state_vector(start_coef)
         # mgcv::bfgs carries coefficient and working-response starts, but not
         # etastart, between outer evaluations.
-        model._pirls_eval_eta_start_ = None
-        model._pirls_eval_mu_start_ = _copy_state_vector(start_mu)
-        model._pirls_coef_start_ = _copy_state_vector(start_coef)
-        model._pirls_eta_start_ = None
-        model._pirls_mu_start_ = _copy_state_vector(start_mu)
-        model._pirls_lock_start_ = True
+        _fit_workspace(model).pirls_eval_eta_start = None
+        _fit_workspace(model).pirls_eval_mu_start = _copy_state_vector(start_mu)
+        _fit_workspace(model).pirls_coef_start = _copy_state_vector(start_coef)
+        _fit_workspace(model).pirls_eta_start = None
+        _fit_workspace(model).pirls_mu_start = _copy_state_vector(start_mu)
+        _fit_workspace(model).pirls_lock_start = True
 
     objective._last_x = None
     objective._last_fun = None
@@ -133,22 +133,22 @@ def _eval_objective_at(
                     hess_for_dvkk = np.asarray(hess_method(x_eval), dtype=np.float64)
 
         coef_eval = (
-            getattr(model, "_pirls_last_coef_", None) if model is not None else None
+            _fit_workspace(model).get("pirls_last_coef", None) if model is not None else None
         )
         eta_eval = (
-            getattr(model, "_pirls_last_eta_", None) if model is not None else None
+            _fit_workspace(model).get("pirls_last_eta", None) if model is not None else None
         )
-        mu_eval = getattr(model, "_pirls_last_mu_", None) if model is not None else None
+        mu_eval = _fit_workspace(model).get("pirls_last_mu", None) if model is not None else None
         if coef_eval is not None:
             coef_eval = np.asarray(coef_eval, dtype=np.float64).copy()
             if commit_start:
-                model._pirls_coef_start_ = coef_eval.copy()
+                _fit_workspace(model).pirls_coef_start = coef_eval.copy()
         if eta_eval is not None:
             eta_eval = np.asarray(eta_eval, dtype=np.float64).copy()
         if mu_eval is not None:
             mu_eval = np.asarray(mu_eval, dtype=np.float64).copy()
             if commit_start:
-                model._pirls_mu_start_ = mu_eval.copy()
+                _fit_workspace(model).pirls_mu_start = mu_eval.copy()
 
         scale_est = None if model is None else _extract_scale_estimate(model, objective)
         dvkk = (
@@ -158,16 +158,16 @@ def _eval_objective_at(
         )
     finally:
         if model is not None:
-            model._pirls_eval_start_ = None
-            model._pirls_eval_eta_start_ = None
-            model._pirls_eval_mu_start_ = None
-            model._pirls_lock_start_ = False
+            _fit_workspace(model).pirls_eval_start = None
+            _fit_workspace(model).pirls_eval_eta_start = None
+            _fit_workspace(model).pirls_eval_mu_start = None
+            _fit_workspace(model).pirls_lock_start = False
             if not commit_start:
-                model._pirls_coef_start_ = prev_coef_start
-                model._pirls_eta_start_ = prev_eta_start
-                model._pirls_mu_start_ = prev_mu_start
+                _fit_workspace(model).pirls_coef_start = prev_coef_start
+                _fit_workspace(model).pirls_eta_start = prev_eta_start
+                _fit_workspace(model).pirls_mu_start = prev_mu_start
             else:
-                model._pirls_eta_start_ = None
+                _fit_workspace(model).pirls_eta_start = None
 
     return score, grad, hess, dvkk, coef_eval, eta_eval, mu_eval, scale_est
 

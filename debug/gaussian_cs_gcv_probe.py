@@ -8,8 +8,8 @@ import numpy as np
 from scipy.linalg import eigh
 
 from nampy.gam.fit.backends import solve_gaussian_given_smoothing
-from nampy.gam.penalties.algebra import penalty_rescale_factor
 from nampy.gam.fit.selection.criteria.dispatch import criterion_value
+from nampy.gam.penalties.algebra import penalty_rescale_factor
 from nampy.gam.splines.univariate.cr import add_full_rank_shrinkage
 from tests.mgcv_parity_utils import (
     _fit_nampy_model_fixed_sp,

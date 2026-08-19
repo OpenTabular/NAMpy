@@ -32,12 +32,6 @@ import numpy as np
 from scipy.linalg import cho_factor
 
 from nampy.gam._mgcv_constants import LOG_GUARD_MIN
-from nampy.gam._model_state import (
-    _coef_column_offset,
-    _fit_result,
-    _fit_state,
-    _n_smoothing_params,
-)
 from nampy.gam.fit.selection.criteria.dispatch import (
     criterion_gradient,
     criterion_hessian,
@@ -60,6 +54,12 @@ from nampy.gam.fit.selection.criteria.pirls import criterion_ubre_pirls
 from nampy.gam.fit.selection.reparam import (
     _stable_penalty_logdet,
     _static_penalty_null_dim,
+)
+from nampy.gam.model_state import (
+    _coef_column_offset,
+    _fit_result,
+    _fit_state,
+    _n_smoothing_params,
 )
 
 

@@ -10,7 +10,7 @@ from contextlib import contextmanager
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
-from ....._model_state import _coef_column_offset
+from .....model_state import _coef_column_offset, _fit_workspace
 from ....backends import solve_pirls_given_smoothing
 from ....smoothing_params import expand_smoothing_params_from_log
 from ...reparam import (
@@ -58,17 +58,13 @@ def _current_joint_negbin_eval_state(model):
 
     return {
         "coef": _copy_state_vector(
-            getattr(
-                model, "_pirls_coef_start_", getattr(model, "_pirls_last_coef_", None)
-            )
+            _fit_workspace(model).get("pirls_coef_start", _fit_workspace(model).get("pirls_last_coef", None))
         ),
         "eta": _copy_state_vector(
-            getattr(
-                model, "_pirls_eta_start_", getattr(model, "_pirls_last_eta_", None)
-            )
+            _fit_workspace(model).get("pirls_eta_start", _fit_workspace(model).get("pirls_last_eta", None))
         ),
         "mu": _copy_state_vector(
-            getattr(model, "_pirls_mu_start_", getattr(model, "_pirls_last_mu_", None))
+            _fit_workspace(model).get("pirls_mu_start", _fit_workspace(model).get("pirls_last_mu", None))
         ),
         "theta": float(model.family.getTheta(True)),
     }
@@ -77,16 +73,16 @@ def _current_joint_negbin_eval_state(model):
 @contextmanager
 def _frozen_joint_negbin_eval_state(model, baseline_state=None):
     prev = {
-        "eval_coef": _copy_state_vector(getattr(model, "_pirls_eval_start_", None)),
-        "eval_eta": _copy_state_vector(getattr(model, "_pirls_eval_eta_start_", None)),
-        "eval_mu": _copy_state_vector(getattr(model, "_pirls_eval_mu_start_", None)),
-        "lock": bool(getattr(model, "_pirls_lock_start_", False)),
-        "coef": _copy_state_vector(getattr(model, "_pirls_coef_start_", None)),
-        "eta": _copy_state_vector(getattr(model, "_pirls_eta_start_", None)),
-        "mu": _copy_state_vector(getattr(model, "_pirls_mu_start_", None)),
-        "last_coef": _copy_state_vector(getattr(model, "_pirls_last_coef_", None)),
-        "last_eta": _copy_state_vector(getattr(model, "_pirls_last_eta_", None)),
-        "last_mu": _copy_state_vector(getattr(model, "_pirls_last_mu_", None)),
+        "eval_coef": _copy_state_vector(_fit_workspace(model).get("pirls_eval_start", None)),
+        "eval_eta": _copy_state_vector(_fit_workspace(model).get("pirls_eval_eta_start", None)),
+        "eval_mu": _copy_state_vector(_fit_workspace(model).get("pirls_eval_mu_start", None)),
+        "lock": bool(_fit_workspace(model).get("pirls_lock_start", False)),
+        "coef": _copy_state_vector(_fit_workspace(model).get("pirls_coef_start", None)),
+        "eta": _copy_state_vector(_fit_workspace(model).get("pirls_eta_start", None)),
+        "mu": _copy_state_vector(_fit_workspace(model).get("pirls_mu_start", None)),
+        "last_coef": _copy_state_vector(_fit_workspace(model).get("pirls_last_coef", None)),
+        "last_eta": _copy_state_vector(_fit_workspace(model).get("pirls_last_eta", None)),
+        "last_mu": _copy_state_vector(_fit_workspace(model).get("pirls_last_mu", None)),
         "theta": float(model.family.getTheta(True)),
     }
     state = (
@@ -99,24 +95,24 @@ def _frozen_joint_negbin_eval_state(model, baseline_state=None):
             "theta": float(baseline_state.get("theta", model.family.getTheta(True))),
         }
     )
-    model._pirls_eval_start_ = _copy_state_vector(state.get("coef", None))
-    model._pirls_eval_eta_start_ = _copy_state_vector(state.get("eta", None))
-    model._pirls_eval_mu_start_ = _copy_state_vector(state.get("mu", None))
-    model._pirls_lock_start_ = True
+    _fit_workspace(model).pirls_eval_start = _copy_state_vector(state.get("coef", None))
+    _fit_workspace(model).pirls_eval_eta_start = _copy_state_vector(state.get("eta", None))
+    _fit_workspace(model).pirls_eval_mu_start = _copy_state_vector(state.get("mu", None))
+    _fit_workspace(model).pirls_lock_start = True
     model.family.putTheta(float(np.log(state["theta"])))
     try:
         yield state
     finally:
-        model._pirls_eval_start_ = prev["eval_coef"]
-        model._pirls_eval_eta_start_ = prev["eval_eta"]
-        model._pirls_eval_mu_start_ = prev["eval_mu"]
-        model._pirls_lock_start_ = prev["lock"]
-        model._pirls_coef_start_ = prev["coef"]
-        model._pirls_eta_start_ = prev["eta"]
-        model._pirls_mu_start_ = prev["mu"]
-        model._pirls_last_coef_ = prev["last_coef"]
-        model._pirls_last_eta_ = prev["last_eta"]
-        model._pirls_last_mu_ = prev["last_mu"]
+        _fit_workspace(model).pirls_eval_start = prev["eval_coef"]
+        _fit_workspace(model).pirls_eval_eta_start = prev["eval_eta"]
+        _fit_workspace(model).pirls_eval_mu_start = prev["eval_mu"]
+        _fit_workspace(model).pirls_lock_start = prev["lock"]
+        _fit_workspace(model).pirls_coef_start = prev["coef"]
+        _fit_workspace(model).pirls_eta_start = prev["eta"]
+        _fit_workspace(model).pirls_mu_start = prev["mu"]
+        _fit_workspace(model).pirls_last_coef = prev["last_coef"]
+        _fit_workspace(model).pirls_last_eta = prev["last_eta"]
+        _fit_workspace(model).pirls_last_mu = prev["last_mu"]
         model.family.putTheta(float(np.log(prev["theta"])))
 
 

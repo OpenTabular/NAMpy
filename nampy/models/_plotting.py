@@ -10,12 +10,110 @@ from __future__ import annotations
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
-from ..neural.plotting import (
-    create_subplot_grid,
-    plot_density_shading,
-    prepare_plot_data,
-)
+
+def create_subplot_grid(n_plots, max_cols=4, subplot_size=(5, 4)):
+    """
+    Create a figure with a grid of subplots.
+
+    Parameters
+    ----------
+    n_plots : int
+        Number of subplots to create.
+    max_cols : int, optional
+        Maximum number of columns, by default 4.
+    subplot_size : tuple, optional
+        (width, height) of each subplot in inches, by default (5, 4).
+
+    Returns
+    -------
+    tuple
+        (fig, axes) where axes is a flattened array of Axes objects.
+    """
+    ncols = min(n_plots, max_cols)
+    nrows = int(np.ceil(n_plots / ncols))
+    fig, axes = plt.subplots(
+        nrows,
+        ncols,
+        figsize=(subplot_size[0] * ncols, subplot_size[1] * nrows),
+        squeeze=False,  # Always return 2D array for consistent handling
+    )
+    return fig, axes.flatten()
+
+
+def prepare_plot_data(X, num_feature_info, cat_feature_info):
+    """
+    Prepare and validate input data for plotting.
+
+    Parameters
+    ----------
+    X : pd.DataFrame or np.ndarray
+        Input data to prepare.
+    num_feature_info : dict
+        Dictionary of numerical feature information.
+    cat_feature_info : dict
+        Dictionary of categorical feature information.
+
+    Returns
+    -------
+    tuple
+        (X_prepared, num_feature_names) where X_prepared is the processed DataFrame.
+
+    Raises
+    ------
+    ValueError
+        If the input data has incorrect number of columns.
+    """
+    num_feature_names = list(num_feature_info.keys())
+    cat_feature_names = list(cat_feature_info.keys())
+    all_feature_names = num_feature_names + cat_feature_names
+
+    X_df = pd.DataFrame(X)
+
+    # Assign column names if needed
+    if not all(col in all_feature_names for col in X_df.columns):
+        if len(X_df.columns) != len(all_feature_names):
+            raise ValueError(
+                f"Input has {len(X_df.columns)} columns but model expects {len(all_feature_names)} features."
+            )
+        X_df.columns = all_feature_names
+
+    # Sort numerical columns for smooth plotting
+    for fname in num_feature_names:
+        if fname in X_df.columns:
+            X_df[fname] = X_df[fname].sort_values().values
+
+    return X_df, num_feature_names
+
+
+def plot_density_shading(ax, x_values, y_range, num_bins=30):
+    """
+    Add density-based background shading to a plot.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        The axes to add shading to.
+    x_values : np.ndarray
+        The x values to compute density from.
+    y_range : tuple
+        (y_min, y_max) range for the shading bars.
+    num_bins : int, optional
+        Number of bins for density computation, by default 30.
+    """
+    counts, bin_edges = np.histogram(x_values, bins=num_bins)
+    max_count = counts.max() if counts.size else 1
+    norm_counts = counts / max_count
+
+    for i in range(num_bins):
+        ax.bar(
+            bin_edges[i],
+            y_range,
+            width=bin_edges[i + 1] - bin_edges[i],
+            color=plt.cm.Reds(norm_counts[i]),
+            alpha=0.6,
+        )
 
 
 def _as_2d_numpy(values) -> np.ndarray:
@@ -196,3 +294,30 @@ def plot_feature_effects(
                     X_train_scaled=X_prepared,
                     series_labels=estimator._plot_series_labels(contribs.shape[1]),
                 )
+
+
+def plot_interaction_heatmaps(estimator, X):
+    """Shared body of the wrappers' ``plot_interactions`` method.
+
+    Renders one binned heatmap (per output series) for every fitted pairwise
+    interaction term in the estimator's forward output.
+    """
+    X_prepared, _ = prepare_plot_data(
+        X,
+        estimator.data_module.num_feature_info,
+        estimator.data_module.cat_feature_info,
+    )
+    predictions = estimator._predict(X_prepared)
+
+    interaction_names = [name for name in predictions if ":" in name]
+    if not interaction_names:
+        raise ValueError("No interaction terms found with predictions to plot.")
+
+    for interaction_name in interaction_names:
+        contribs = _as_2d_numpy(predictions[interaction_name])
+        plot_interaction_effects(
+            interaction_name,
+            contribs,
+            X_train_scaled=X_prepared,
+            series_labels=estimator._plot_series_labels(contribs.shape[1]),
+        )

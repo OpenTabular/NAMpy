@@ -11,8 +11,9 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-import nampy.gam.fit.solvers.stacked_qr as stacked_qr  # noqa: E402
 from tests.gam_cartesian_matrix import MatrixCase, fit_model, make_data  # noqa: E402
+
+import nampy.gam.fit.solvers.stacked_qr as stacked_qr  # noqa: E402
 from tests.mgcv_parity_utils import (  # noqa: E402
     R_SCRIPT,
     _normalize_python_formula_text,

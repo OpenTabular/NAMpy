@@ -22,16 +22,6 @@ import numpy as np
 from scipy.linalg import qr as scipy_qr
 from scipy.linalg import solve_triangular
 
-from ..._model_state import (
-    _coef_column_offset,
-    _compiled_model,
-    _design_matrix,
-    _fit_intercept,
-    _n_coef,
-    _n_smoothing_params,
-    _penalty_blocks_seq,
-    _term_blocks_seq,
-)
 from ...linalg import (
     matrix_sqrt_psd,
     mgcv_mroot_chol,
@@ -40,6 +30,17 @@ from ...linalg import (
     symmetric_eigen_partition,
     symmetric_eigh,
     symmetric_eigvalsh,
+)
+from ...model_state import (
+    _coef_column_offset,
+    _compiled_model,
+    _design_matrix,
+    _fit_intercept,
+    _fit_workspace,
+    _n_coef,
+    _n_smoothing_params,
+    _penalty_blocks_seq,
+    _term_blocks_seq,
 )
 from ..capabilities import uses_closed_form_solver
 
@@ -876,7 +877,7 @@ def gam_reparam(range_roots, lsp, deriv=2):
 
 
 def _canonical_penalty_space(model, *, tol=1e-10) -> dict[str, Any]:
-    cache = getattr(model, "_penalty_subspace_cache_", None)
+    cache = _fit_workspace(model).get("penalty_subspace_cache", None)
     if cache is not None:
         return cast(dict[str, Any], cache)
 
@@ -905,7 +906,7 @@ def _canonical_penalty_space(model, *, tol=1e-10) -> dict[str, Any]:
         "range_roots_with_fixed": range_roots_with_fixed,
         "S_groups": S_groups,
     }
-    model._penalty_subspace_cache_ = cache
+    _fit_workspace(model).penalty_subspace_cache = cache
     return cache
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .._model_state import _n_smoothing_params, _predictor_designs
+from ..model_state import _n_smoothing_params, _predictor_designs
 from .capabilities import (
     needs_exact_gaussian_reparameterization,
 )

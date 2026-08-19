@@ -8,7 +8,7 @@ then evaluates the appropriate criterion value.
 
 import numpy as np
 
-from ...._model_state import _term_blocks_seq
+from ....model_state import _term_blocks_seq
 from ...backends import GENERAL_FAMILY_BACKEND
 from ...capabilities import raise_ml_reml_backend_error
 from ...solvers.general_family.fixed_smoothing import (

@@ -6,7 +6,7 @@ from collections.abc import Mapping
 
 import numpy as np
 
-from .._model_state import (
+from ..model_state import (
     _compiled_metadata,
     _compiled_model,
     _n_smoothing_params,

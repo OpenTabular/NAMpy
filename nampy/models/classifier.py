@@ -7,7 +7,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils import ClassifierTags
 
-from .._contracts import AdditivePrediction
+from ..contracts import AdditivePrediction
 from ._base import NeuralEstimatorBase, TrainingPlan
 
 

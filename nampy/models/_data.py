@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .._contracts import FeatureSchema
+from ..contracts import FeatureSchema
 
 
 def _as_2d_array(X) -> np.ndarray:

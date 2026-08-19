@@ -154,6 +154,10 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "F403", "F405"]
+# Debug probes and examples are standalone scripts: sys.path setup precedes
+# imports (E402), and probe-local zip/closure looseness is acceptable there.
+"debug/*" = ["E402", "B905", "B023", "F841"]
+"examples/*" = ["E402", "B905"]
 
 [tool.mypy]
 python_version = "3.11"

@@ -7,14 +7,6 @@ import pytest
 from scipy.optimize import OptimizeResult
 
 from nampy.gam import GAM
-from nampy.gam._model_state import (
-    _design_matrix,
-    _edf_by_term,
-    _fit_intercept,
-    _fit_state,
-    _n_coef,
-    _penalty_blocks_seq,
-)
 from nampy.gam.compiler.factory import instantiate_term
 from nampy.gam.families import BinomialLogitFamily, GaussianIdentityFamily
 from nampy.gam.fit.penalized_system import (
@@ -60,6 +52,14 @@ from nampy.gam.fit.state import FitCoreSolution, FitState, assign_fit_solution
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
 from nampy.gam.linalg import balanced_penalty_template_sqrt_for_rank
 from nampy.gam.linalg.qr import mgcv_pqr_r
+from nampy.gam.model_state import (
+    _design_matrix,
+    _edf_by_term,
+    _fit_intercept,
+    _fit_state,
+    _n_coef,
+    _penalty_blocks_seq,
+)
 from nampy.gam.results import FitResult, GAMResult
 from nampy.gam.specs.build import build_formula_model
 from nampy.gam.splines.univariate.tp import construct_tprs_basis

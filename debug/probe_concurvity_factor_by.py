@@ -1,19 +1,20 @@
 from __future__ import annotations
 
-import sys
+import json
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
-import json
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from nampy.gam._model_state import _coef_full, _term_blocks_seq
-from nampy.gam.diagnostics.concurvity import _term_indices_for_concurvity
-from nampy.gam.predict.linear_predictor_matrix import build_lpmatrix
 from tests.gam_cartesian_matrix import MatrixCase, fit_model, make_data
+
+from nampy.gam.diagnostics.concurvity import _term_indices_for_concurvity
+from nampy.gam.model_state import _coef_full, _term_blocks_seq
+from nampy.gam.predict.linear_predictor_matrix import build_lpmatrix
 from tests.mgcv_parity_utils import _run_mgcv_snapshot
 
 

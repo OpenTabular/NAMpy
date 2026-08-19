@@ -11,6 +11,7 @@ import pandas as pd
 import pytest
 
 from nampy.gam import GAM
+from nampy.gam.model_state import _fit_workspace
 from nampy.gam.parity import build_optimizer_trace
 from tests._paths import PARITY_DIR, REPO_ROOT
 from tests.mgcv_parity_utils import _family_specs
@@ -230,7 +231,7 @@ def _fit_nampy_negbin_inner_trace(data: pd.DataFrame, formula: str, family):
         smoothing_method="fixed",
     )
     gam.fit(data=data)
-    return list(getattr(gam, "_pirls_last_inner_trace_", []) or []), gam
+    return list(_fit_workspace(gam).get("pirls_last_inner_trace", []) or []), gam
 
 
 def _criterion_series(trace_obj):

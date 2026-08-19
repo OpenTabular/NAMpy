@@ -8,13 +8,8 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from nampy.gam._model_state import (  # noqa: E402
-    _design_matrix,
-    _fit_intercept,
-    _fit_result,
-    _n_coef,
-    _penalty_blocks_seq,
-)
+from tests.gam_cartesian_matrix import MatrixCase, fit_model, make_data  # noqa: E402
+
 from nampy.gam.fit.penalized_system import (  # noqa: E402
     build_full_design,
     build_full_penalty_from_blocks,
@@ -23,7 +18,13 @@ from nampy.gam.fit.solvers.irls_core import _mgcv_null_coef, irls_core  # noqa: 
 from nampy.gam.linalg import (  # noqa: E402
     balanced_penalty_template_sqrt_for_rank,
 )
-from tests.gam_cartesian_matrix import MatrixCase, fit_model, make_data  # noqa: E402
+from nampy.gam.model_state import (  # noqa: E402
+    _design_matrix,
+    _fit_intercept,
+    _fit_result,
+    _n_coef,
+    _penalty_blocks_seq,
+)
 from tests.mgcv_parity_utils import (  # noqa: E402
     _run_mgcv_gam_setup_assembly,
     _run_mgcv_snapshot,

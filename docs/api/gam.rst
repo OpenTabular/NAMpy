@@ -73,7 +73,7 @@ Low-level entry points for the solver stage:
 Shared contracts
 ----------------
 
-.. currentmodule:: nampy._contracts
+.. currentmodule:: nampy.contracts
 
 Backend-neutral feature and prediction contracts used by the GAM adapters
 and neural estimators:

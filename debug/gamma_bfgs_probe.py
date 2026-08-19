@@ -10,7 +10,6 @@ from pathlib import Path
 import numpy as np
 
 from nampy.gam import GAM
-from nampy.gam.parity import build_optimizer_trace
 from nampy.gam.fit.selection.criteria.pirls import (
     derivatives as derivatives_module,
 )
@@ -25,6 +24,8 @@ from nampy.gam.fit.selection.optimize.bfgs_strict import (
 from nampy.gam.fit.selection.optimize.objectives import (
     _JointGammaPirlsRemlObjective,
 )
+from nampy.gam.model_state import _fit_workspace
+from nampy.gam.parity import build_optimizer_trace
 from tests._optimization_lifecycle_registry import OPTIMIZATION_LIFECYCLE_CASES
 from tests._paths import REPO_ROOT
 from tests.optimization.test_mgcv_outer_optimization_parity import _run_mgcv_outer_trace
@@ -113,11 +114,11 @@ def main() -> None:
         return result
 
     def _capture_initial_hessian(objective, x0, grad0, **kwargs):
-        gamma_state = getattr(objective.model, "_pirls_reml_gamma_state_", None)
+        gamma_state = _fit_workspace(objective.model).get("pirls_reml_gamma_state")
         actual_initial_capture["x0"] = np.asarray(x0, dtype=np.float64).copy()
         actual_initial_capture["grad0"] = np.asarray(grad0, dtype=np.float64).copy()
         actual_initial_capture["inner_trace"] = list(
-            getattr(objective.model, "_pirls_last_inner_trace_", []) or []
+            _fit_workspace(objective.model).get("pirls_last_inner_trace", []) or []
         )
         if isinstance(gamma_state, dict):
             actual_initial_capture["Dp1"] = np.asarray(
@@ -205,7 +206,7 @@ def main() -> None:
     print("actual_initial_x0", x0)
     print("actual_initial_score", score0)
     print("actual_initial_grad", grad0)
-    print("actual_initial_inner_trace", gam0._pirls_last_inner_trace_)
+    print("actual_initial_inner_trace", _fit_workspace(gam0).pirls_last_inner_trace)
     print("actual_initial_raw_hessian", raw_hessian0)
     print("actual_initial_fdgrad", fdgrad0)
     print("actual_initial_B", B0)

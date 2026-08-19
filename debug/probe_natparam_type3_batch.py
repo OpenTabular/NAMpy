@@ -14,12 +14,13 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from nampy.gam.smooths.tensor.t2 import TensorANOVASplineTerm  # noqa: E402
+
 from nampy.gam._mgcv_constants import EIG_TOL_POWER  # noqa: E402
 from nampy.gam.linalg import symmetric_eigh  # noqa: E402
 from nampy.gam.smooths.tensor.marginals import (  # noqa: E402
     tensor_marginal_fit_matrices,
 )
-from nampy.gam.smooths.tensor.t2 import TensorANOVASplineTerm  # noqa: E402
 from tests.families.test_general_family_mgcv_parity import (  # noqa: E402
     GENERAL_SE_CASES,
     _gammals_tensor_data,

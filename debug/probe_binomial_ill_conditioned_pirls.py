@@ -16,7 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from nampy.gam._model_state import (  # noqa: E402
+from nampy.gam.model_state import (  # noqa: E402
     _design_matrix,
     _n_coef,
     _penalty_blocks_seq,

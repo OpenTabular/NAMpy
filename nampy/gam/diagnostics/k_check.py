@@ -5,7 +5,7 @@ from functools import lru_cache
 import numpy as np
 import pandas as pd
 
-from .._model_state import (
+from ..model_state import (
     _coef,
     _edf_by_term,
     _fit_state,

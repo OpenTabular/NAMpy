@@ -7,16 +7,16 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .._model_state import (
+from ..data import coerce_optional_offset
+from ..fit.offsets import resolve_prediction_offset
+from ..fit.parameterization import prediction_parameterization_map
+from ..linalg import symmetrize_matrix
+from ..model_state import (
     _coef_full,
     _predictor_designs,
     _predictor_full_slices,
     _term_blocks_seq,
 )
-from ..data import coerce_optional_offset
-from ..fit.offsets import resolve_prediction_offset
-from ..fit.parameterization import prediction_parameterization_map
-from ..linalg import symmetrize_matrix
 
 
 @dataclass(frozen=True)

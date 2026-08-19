@@ -8,21 +8,21 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from nampy.gam._model_state import (  # noqa: E402
+from tests.gam_cartesian_matrix import MatrixCase, fit_model, make_data  # noqa: E402
+
+from nampy.gam.fit import select_covariance_matrix  # noqa: E402
+from nampy.gam.inference.anova import _smooth_test_stat, _term_edf1  # noqa: E402
+from nampy.gam.model_state import (  # noqa: E402
     _coef,
     _coef_column_offset,
     _fit_state,
     _summary_R,
     _term_blocks_seq,
 )
-from nampy.gam.fit import select_covariance_matrix  # noqa: E402
-from nampy.gam.inference.anova import _smooth_test_stat, _term_edf1  # noqa: E402
-from tests.gam_cartesian_matrix import MatrixCase, fit_model, make_data  # noqa: E402
 from tests.mgcv_parity_utils import (  # noqa: E402
     _run_mgcv_gam_setup_assembly,
     _run_mgcv_snapshot,
 )
-
 
 FORMULA = 'y ~ s(x0, bs="cr", k=8, sp=1.1)'
 FAMILY = {"name": "binomial", "link": "probit"}

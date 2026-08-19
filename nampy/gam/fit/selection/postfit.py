@@ -6,13 +6,13 @@ import numpy as np
 from scipy.stats import norm
 
 from ..._mgcv_constants import LOG_GUARD_MIN
-from ..._model_state import (
+from ...linalg import symmetrize_matrix
+from ...model_state import (
     _fit_scale,
     _n_smoothing_params,
     _penalty_blocks_seq,
     _require_fitted,
 )
-from ...linalg import symmetrize_matrix
 from .criteria.dispatch import criterion_gradient, criterion_hessian, criterion_value
 from .criteria.ml_reml import resolve_ml_reml_scoring_backend
 

@@ -2,7 +2,7 @@
 Outer optimization of log smoothing parameters (L-BFGS-B and Newton variants).
 
 Submodules: ``basics``, ``objectives``, ``newton``, ``newton_strict``,
-``bfgs_strict``, ``efs_strict``, and ``driver``.
+``bfgs_strict``, ``efs_strict``, ``trace``, and ``driver``.
 """
 
 from ...smoothing_params import expand_smoothing_params_from_log

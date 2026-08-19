@@ -16,8 +16,8 @@ Everything below this layer is stateless with respect to the model object.
 import numpy as np
 
 from .._mgcv_constants import LOG_GUARD_MIN
-from .._model_state import _n_smoothing_params
 from ..data import coerce_feature_matrix
+from ..model_state import _fit_workspace, _n_smoothing_params
 from .backends import solve_fit
 from .capabilities import (
     coerce_general_family_smoothing_method,
@@ -150,7 +150,7 @@ def fit_model_core(
         model._optim_used_gradient = False
         model._optim_used_hessian = False
         model.smoothing_score_ = None
-        model._pirls_disable_theta_efs_ = False
+        _fit_workspace(model).pirls_disable_theta_efs = False
     else:
         model._optim_method = "fixed"
         model._optim_result = None

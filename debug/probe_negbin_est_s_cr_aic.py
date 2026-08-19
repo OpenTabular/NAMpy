@@ -7,8 +7,9 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from nampy.gam._model_state import _edf2, _edf_total, _fit_result
 from tests.gam_cartesian_matrix import MatrixCase, fit_model, make_data
+
+from nampy.gam.model_state import _edf2, _edf_total, _fit_result
 from tests.mgcv_parity_utils import _run_mgcv_snapshot
 
 

@@ -5,10 +5,11 @@ Model-level entry point for PIRLS fits.
 import numpy as np
 from scipy.linalg import solve_triangular
 
-from ..._model_state import (
+from ...model_state import (
     _coef_column_offset,
     _design_matrix,
     _fit_intercept,
+    _fit_workspace,
     _n_coef,
     _n_smoothing_params,
     _penalty_blocks_seq,
@@ -201,26 +202,26 @@ def solve_pirls_fit(
     *,
     scale_reference: float | None = None,
 ):
-    coef_start = getattr(model, "_pirls_eval_start_", None)
+    coef_start = _fit_workspace(model).get("pirls_eval_start", None)
     if coef_start is None:
-        coef_start = getattr(model, "_pirls_coef_start_", None)
+        coef_start = _fit_workspace(model).get("pirls_coef_start", None)
     if coef_start is not None:
         coef_start = np.asarray(coef_start, dtype=np.float64).ravel()
         Z = np.asarray(_design_matrix(model), dtype=np.float64)
         if coef_start.shape != (int(Z.shape[1] + _coef_column_offset(model)),):
             coef_start = None
 
-    etastart = getattr(model, "_pirls_eval_eta_start_", None)
+    etastart = _fit_workspace(model).get("pirls_eval_eta_start", None)
     if etastart is None:
-        etastart = getattr(model, "_pirls_eta_start_", None)
+        etastart = _fit_workspace(model).get("pirls_eta_start", None)
     if etastart is not None:
         etastart = np.asarray(etastart, dtype=np.float64).ravel()
         if etastart.shape != (int(model.n_samples_),):
             etastart = None
 
-    mustart = getattr(model, "_pirls_eval_mu_start_", None)
+    mustart = _fit_workspace(model).get("pirls_eval_mu_start", None)
     if mustart is None:
-        mustart = getattr(model, "_pirls_mu_start_", None)
+        mustart = _fit_workspace(model).get("pirls_mu_start", None)
     if mustart is not None:
         mustart = np.asarray(mustart, dtype=np.float64).ravel()
         if mustart.shape != (int(model.n_samples_),):
@@ -259,7 +260,7 @@ def solve_pirls_fit(
         dtype=np.float64,
     )
 
-    disable_theta_efs = bool(getattr(model, "_pirls_disable_theta_efs_", False))
+    disable_theta_efs = bool(_fit_workspace(model).get("pirls_disable_theta_efs", False))
     prev_disable_theta_efs = bool(getattr(model.family, "_disable_theta_efs", False))
     if disable_theta_efs:
         model.family._disable_theta_efs = True
@@ -301,12 +302,12 @@ def solve_pirls_fit(
     )
 
     coef_out = np.asarray(sol["coef_full"], dtype=np.float64).copy()
-    model._pirls_last_coef_ = coef_out
-    model._pirls_last_eta_ = np.asarray(sol["eta"], dtype=np.float64).copy()
-    model._pirls_last_mu_ = np.asarray(sol["mu"], dtype=np.float64).copy()
-    model._pirls_last_inner_trace_ = list(sol.get("inner_trace", []) or [])
-    if not bool(getattr(model, "_pirls_lock_start_", False)):
-        model._pirls_coef_start_ = coef_out.copy()
-        model._pirls_eta_start_ = np.asarray(sol["eta"], dtype=np.float64).copy()
-        model._pirls_mu_start_ = np.asarray(sol["mu"], dtype=np.float64).copy()
+    _fit_workspace(model).pirls_last_coef = coef_out
+    _fit_workspace(model).pirls_last_eta = np.asarray(sol["eta"], dtype=np.float64).copy()
+    _fit_workspace(model).pirls_last_mu = np.asarray(sol["mu"], dtype=np.float64).copy()
+    _fit_workspace(model).pirls_last_inner_trace = list(sol.get("inner_trace", []) or [])
+    if not bool(_fit_workspace(model).get("pirls_lock_start", False)):
+        _fit_workspace(model).pirls_coef_start = coef_out.copy()
+        _fit_workspace(model).pirls_eta_start = np.asarray(sol["eta"], dtype=np.float64).copy()
+        _fit_workspace(model).pirls_mu_start = np.asarray(sol["mu"], dtype=np.float64).copy()
     return FitCoreSolution.from_dict(sol)
