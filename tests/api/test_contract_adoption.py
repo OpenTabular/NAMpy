@@ -128,3 +128,47 @@ def test_neural_capabilities_are_truthful(tmp_path):
 
     assert clf.capabilities().supports_predict_proba is True
     assert reg.capabilities().supports_predict_proba is False
+
+
+def test_hybrid_estimators_satisfy_shared_protocols():
+    from nampy.hybrid import (
+        GAMNetClassifier,
+        GAMNetRegressor,
+        GAMResidualClassifier,
+        GAMResidualRegressor,
+    )
+    from nampy.models.linreg import LinRegClassifier, LinRegRegressor
+    from nampy.neural.configs.linreg_config import DefaultLinRegConfig
+    from nampy.neural.modules.linreg import LinReg
+
+    residual_reg = GAMResidualRegressor(
+        "y ~ s(x0)", LinRegRegressor(numerical_preprocessing="standardization")
+    )
+    residual_clf = GAMResidualClassifier(
+        "y ~ s(x0)", LinRegClassifier(numerical_preprocessing="standardization")
+    )
+    joint_reg = GAMNetRegressor(
+        "y ~ s(x0)", LinReg, DefaultLinRegConfig, lam=[1.0]
+    )
+    joint_clf = GAMNetClassifier(
+        "y ~ s(x0)", LinReg, DefaultLinRegConfig, lam=[1.0]
+    )
+
+    for estimator in (residual_reg, residual_clf, joint_reg, joint_clf):
+        assert isinstance(estimator, PersistableModel)
+    for estimator in (residual_reg, residual_clf):
+        assert isinstance(estimator, SupportsCapabilities)
+
+
+def test_regressor_predict_components_multioutput(tmp_path):
+    rng = np.random.default_rng(0)
+    X = pd.DataFrame({"x": rng.normal(size=50), "z": rng.normal(size=50)})
+    Y = np.column_stack([2.0 * X["x"], -1.0 * X["z"]])
+
+    estimator = LinRegRegressor(numerical_preprocessing="standardization")
+    _fit(estimator, X, Y, tmp_path)
+
+    components = estimator.predict_components(X)
+    assert components.link.shape == (50, 2)
+    for value in components.terms.values():
+        assert np.asarray(value).shape == (50, 2)

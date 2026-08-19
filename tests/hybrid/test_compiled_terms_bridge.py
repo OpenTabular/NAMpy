@@ -217,3 +217,19 @@ def test_hybrid_joint_regressor_end_to_end(tmp_path):
     np.testing.assert_allclose(
         restored.predict(data), estimator.predict(data), atol=1e-6
     )
+
+
+@pytest.mark.parametrize("lam", [1e-4, 1.0, 1e4])
+def test_penalty_exact_across_lambda_scales(lam):
+    terms = _terms(_data(), lam=lam)
+    module = CompiledGAMTermsModule(terms)
+    torch.manual_seed(2)
+    with torch.no_grad():
+        module.beta.copy_(torch.randn(terms.n_coef, 1))
+
+    beta = module.beta.detach().numpy()[:, 0]
+    expected = sum(
+        lam_value * beta[coef_slice] @ matrix @ beta[coef_slice]
+        for coef_slice, matrix, lam_value in terms.penalty_payload()
+    )
+    assert float(module.penalty().detach()) == pytest.approx(expected, rel=1e-4)

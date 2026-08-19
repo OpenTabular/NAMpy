@@ -1,8 +1,7 @@
 # NAMpy: Interpretable (Additive) Tabular Deep Learning
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11 | 3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 NAMpy provides interpretable additive neural models for tabular data, with support for **regression**, **classification**, and **distributional regression** tasks. Models implement scikit-learn's `BaseEstimator` interface, so they integrate with standard scikit-learn workflows for fitting, prediction, and evaluation.
 
@@ -16,7 +15,8 @@ NAMpy provides interpretable additive neural models for tabular data, with suppo
 - **Extensible**: Interfaces for custom model implementations
 
 Most models are available for `regression`, `classification` and distributional regression, denoted by `LSS`.
-Some models are specialized: `QNAM` is distributional-only, while `TreeNAM` and `SNAM` are currently regression-only.
+`QNAMLSS` is distributional-only. TreeNAM, EnsembleTreeNAM, and SNAM provide
+regression, classification, and distributional-regression variants.
 
 ## Integrated Models:
 
@@ -25,11 +25,12 @@ Some models are specialized: `QNAM` is distributional-only, while `TreeNAM` and 
 3. NBM
 4. NATT
 5. NAMformer
-6. QNAM
+6. QNAM (QNAMLSS)
 7. Linear Regression (Neural)
 8. NodeGAM
-9. TreeNAM (Regressor)
-10. SNAM (Regressor)
+9. TreeNAM and EnsembleTreeNAM
+10. SNAM
+11. SplineNAM (Regressor)
 
 ## Installation
 
@@ -59,7 +60,7 @@ pip install git+https://github.com/OpenTabular/NAMpy.git@main
 
 ### Requirements
 
-- Python >= 3.10
+- Python 3.11 or 3.12
 - PyTorch
 - Lightning
 - scikit-learn
@@ -73,10 +74,9 @@ The `nampy.gam` subpackage is an experimental, strict behavioral port of
 broad but deliberately smaller than `mgcv`; unsupported inputs raise instead
 of selecting an approximate fallback.
 
-The stable package-level integration surface currently consists of
-`fit_model_core`, `solve_fit`, and `FitCoreSolution`. The high-level `GAM`
-implementation used by the parity suite remains internal and is not a stable
-top-level import contract.
+The stable package-level integration surface consists of `GAM`,
+`fit_model_core`, `solve_fit`, and `FitCoreSolution`, all exported from
+`nampy.gam`.
 
 Supported families and fitting routes:
 
@@ -99,9 +99,10 @@ filtering. For `iterms`, uncertainty includes the model-mean component as in
 
 Important intentional exclusions include `t2`, `gp`, `mrf`, adaptive and soap
 smooths, matrix covariates, `paraPen`, NCV/QNCV, many extended/general
-families, exact R parity for the `optim` backend, and `plot.gam` graphics.
-`summary()` is a tested `summary.gam` port; `plot()` and the no-plot
-`gam_check()` interface are NAMpy-specific. See [the complete implemented
+families, exact R parity for the `optim` backend, and R graphics-device state.
+`summary()` is a tested `summary.gam` port. `plot()` ports the `plot.gam` data
+phase and renders it with matplotlib; `gam_check()` returns diagnostic data
+without reproducing R's plots. See [the complete implemented
 surface](GAM_IMPLEMENTED.md) and [the guarded/unsupported
 surface](GAM_NOT_IMPLEMENTED.md) before relying on an advanced branch.
 
@@ -169,9 +170,19 @@ value explicitly.
 
 The shared regression wrapper accepts targets shaped `(n_samples,)` or
 `(n_samples, n_outputs)` and preserves two-dimensional predictions for
-multi-output fits. End-to-end multi-output fitting is currently verified for
-`LinRegRegressor`; treat other neural architectures as needing their own
-end-to-end validation before depending on that contract in production.
+multi-output fits. This contract is exercised end to end for every public
+neural regressor.
+
+Fitted neural estimators can be persisted together with preprocessing state:
+
+```python
+path = model.save_model("nam_model.nampy")
+restored = NAMRegressor.load_model(path)
+```
+
+The format uses Python pickle internally. Only load estimator files from
+trusted sources, and recreate artifacts when Python or core dependency versions
+change.
 
 ### SplineNAM Preprocessing
 
@@ -331,15 +342,15 @@ class MyCustomModel(BaseModel):
 You can build a regression, classification or distributional regression model that can leverage all of NAMpy's built-in methods, by using the following:
 
 ```python
-from nampy.models import SklearnBaseRegressor
+from nampy.models import NeuralRegressor
 
-class MyRegressor(SklearnBaseRegressor):
+class MyRegressor(NeuralRegressor):
     def __init__(self, **kwargs):
         super().__init__(model=MyCustomModel, config=MyConfig, **kwargs)
 ```
 
 4. Train and evaluate your model:
-You can now fit, evaluate, and predict with your custom model using the same APIs as other NAMpy models. For classification or distributional regression, inherit from `SklearnBaseClassifier` or `SklearnBaseLSS` respectively.
+You can now fit, evaluate, and predict with your custom model using the same APIs as other NAMpy models. For classification or distributional regression, inherit from `NeuralClassifier` or `NeuralLSS` respectively.
 
 ```python
 regressor = MyRegressor(numerical_preprocessing="ple")
