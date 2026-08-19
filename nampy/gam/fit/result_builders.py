@@ -7,24 +7,12 @@ from dataclasses import replace
 import numpy as np
 
 from .._model_state import (
-    _coef_full,
     _compiled_model,
-    _cov_bayes,
-    _cov_freq,
-    _cov_unconditional,
-    _deviance,
-    _edf2,
     _edf_by_term,
-    _edf_total,
     _fit_core_solution,
-    _fit_result,
-    _fit_scale,
     _fit_summary,
-    _intercept,
     _require_fitted,
-    _rss,
     _term_blocks_seq,
-    _trace_H,
 )
 from ..results import GAMResult
 
@@ -80,42 +68,12 @@ def build_fit_result(model):
         link_name=model.family.link_name,
         criterion_name=model._optim_method,
         criterion_value=model.smoothing_score_,
-        coef_full=np.asarray(_coef_full(model), dtype=np.float64).copy(),
-        intercept=float(_intercept(model)),
+        core=fit_core_solution.fit_result,
         smoothing_params=np.asarray(model.smoothing_params, dtype=np.float64).copy(),
-        edf_total=float(_edf_total(model)),
-        edf_by_term=edf_by_term,
-        trace_H=float(_trace_H(model)),
-        scale=float(_fit_scale(model)),
-        rss=None if _rss(model) is None else float(_rss(model)),
-        deviance=float(_deviance(model)),
-        cov_bayes=(
-            None
-            if _cov_bayes(model) is None
-            else np.asarray(_cov_bayes(model), dtype=np.float64).copy()
-        ),
-        cov_freq=(
-            None
-            if _cov_freq(model) is None
-            else np.asarray(_cov_freq(model), dtype=np.float64).copy()
-        ),
-        cov_unconditional=(
-            None
-            if _cov_unconditional(model) is None
-            else np.asarray(_cov_unconditional(model), dtype=np.float64).copy()
-        ),
-        cov_unconditional_space=getattr(
-            _fit_result(model), "cov_unconditional_space", None
-        ),
-        edf2=(
-            None
-            if _edf2(model) is None
-            else np.asarray(_edf2(model), dtype=np.float64).copy()
-        ),
         side_condition_reports=(
             None
-            if model.side_condition_reports_ is None
-            else list(model.side_condition_reports_)
+            if compiled_model.side_condition_reports is None
+            else list(compiled_model.side_condition_reports)
         ),
         term_results=term_results,
         metadata={
@@ -127,20 +85,21 @@ def build_fit_result(model):
 
 
 def copy_fit_result(result, *, include_covariances=True):
-    cov_bayes = result.cov_bayes
-    cov_freq = result.cov_freq
-    if include_covariances:
-        cov_bayes = (
-            None
-            if cov_bayes is None
-            else np.asarray(cov_bayes, dtype=np.float64).copy()
-        )
-        cov_freq = (
-            None if cov_freq is None else np.asarray(cov_freq, dtype=np.float64).copy()
-        )
-    else:
-        cov_bayes = None
-        cov_freq = None
+    def _copy_or_none(value):
+        return None if value is None else np.asarray(value, dtype=np.float64).copy()
+
+    core = result.core
+    core_copy = replace(
+        core,
+        coef_full=np.asarray(core.coef_full, dtype=np.float64).copy(),
+        edf_by_term=np.asarray(core.edf_by_term, dtype=np.float64).copy(),
+        cov_bayes=_copy_or_none(core.cov_bayes) if include_covariances else None,
+        cov_freq=_copy_or_none(core.cov_freq) if include_covariances else None,
+        cov_unconditional=(
+            _copy_or_none(core.cov_unconditional) if include_covariances else None
+        ),
+        edf2=_copy_or_none(core.edf2),
+    )
 
     term_results = [
         replace(
@@ -154,28 +113,10 @@ def copy_fit_result(result, *, include_covariances=True):
         )
         for term in result.term_results
     ]
-    cov_unconditional = result.cov_unconditional
-    if include_covariances:
-        cov_unconditional = (
-            None
-            if cov_unconditional is None
-            else np.asarray(cov_unconditional, dtype=np.float64).copy()
-        )
-    else:
-        cov_unconditional = None
     return replace(
         result,
-        coef_full=np.asarray(result.coef_full, dtype=np.float64).copy(),
+        core=core_copy,
         smoothing_params=np.asarray(result.smoothing_params, dtype=np.float64).copy(),
-        edf_by_term=np.asarray(result.edf_by_term, dtype=np.float64).copy(),
-        cov_bayes=cov_bayes,
-        cov_freq=cov_freq,
-        cov_unconditional=cov_unconditional,
-        edf2=(
-            None
-            if result.edf2 is None
-            else np.asarray(result.edf2, dtype=np.float64).copy()
-        ),
         side_condition_reports=(
             None
             if result.side_condition_reports is None
@@ -207,6 +148,7 @@ def sync_gam_result(model):
     if _compiled_model(model) is None or _fit_core_solution(model) is None:
         model.gam_result_ = None
         return None
-    model.gam_result_ = None
-    model.gam_result_ = build_gam_result(model, prefer_cached_summary=False)
+    current = model.gam_result_
+    summary = build_fit_result(model)
+    model.gam_result_ = replace(current, fit_summary=summary)
     return model.gam_result_

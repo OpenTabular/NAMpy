@@ -9,8 +9,8 @@ from scipy.linalg import eigh
 
 from nampy.gam.fit.backends import solve_gaussian_given_smoothing
 from nampy.gam.penalties.algebra import penalty_rescale_factor
-from nampy.gam.smoothing_selection.criteria.dispatch import criterion_value
-from nampy.splines.univariate.cr import add_full_rank_shrinkage
+from nampy.gam.fit.selection.criteria.dispatch import criterion_value
+from nampy.gam.splines.univariate.cr import add_full_rank_shrinkage
 from tests.mgcv_parity_utils import (
     _fit_nampy_model_fixed_sp,
     _make_gaussian_data,
@@ -49,7 +49,7 @@ def main() -> None:
         scale_penalty=True,
     )
     actual_penalty = np.asarray(
-        model.compiled_model_.compiled_penalties[0].matrix,
+        model.gam_result_.compiled_model.compiled_penalties[0].matrix,
         dtype=np.float64,
     )
     expected_penalty = np.asarray(expected_penalties["S"][0], dtype=np.float64)

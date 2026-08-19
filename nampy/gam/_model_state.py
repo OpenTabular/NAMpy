@@ -25,23 +25,17 @@ def _gam_result(obj: Any):
 
 def _compiled_model(obj: Any):
     result = _gam_result(obj)
-    if result is not None:
-        return result.compiled_model
-    return getattr(obj, "compiled_model_", None)
+    return None if result is None else result.compiled_model
 
 
 def _fit_summary(obj: Any):
     result = _gam_result(obj)
-    if result is not None:
-        return result.fit_summary
-    return None
+    return None if result is None else result.fit_summary
 
 
 def _fit_core_solution(obj: Any):
     result = _gam_result(obj)
-    if result is not None:
-        return result.fit_core_solution
-    return getattr(obj, "fit_core_solution_", None)
+    return None if result is None else result.fit_core_solution
 
 
 def _fit_state(obj: Any):
@@ -55,13 +49,6 @@ def _fit_result(obj: Any):
     fit_core_solution = _fit_core_solution(obj)
     if fit_core_solution is not None:
         return fit_core_solution.fit_result
-    return None
-
-
-def _penalized_system(obj: Any):
-    fit_core_solution = _fit_core_solution(obj)
-    if fit_core_solution is not None:
-        return fit_core_solution.penalized_system
     return None
 
 
@@ -152,7 +139,7 @@ def _coef_full(obj: Any):
         coef_full = getattr(fit_summary, "coef_full", None)
         if coef_full is not None:
             return coef_full
-    return getattr(obj, "coef_full_", None)
+    return None
 
 
 def _coef(obj: Any):
@@ -163,7 +150,7 @@ def _coef(obj: Any):
             return coef
     coef_full = _coef_full(obj)
     if coef_full is None:
-        return getattr(obj, "coef_", None)
+        return None
     coef_full = np.asarray(coef_full, dtype=np.float64).ravel()
     return coef_full[_coef_column_offset(obj) :]
 
@@ -179,105 +166,105 @@ def _intercept(obj: Any):
         intercept = getattr(fit_summary, "intercept", None)
         if intercept is not None:
             return intercept
-    return getattr(obj, "intercept_", None)
+    return None
 
 
 def _fit_scale(obj: Any):
-    fit_summary = _fit_summary(obj)
-    if fit_summary is not None:
-        scale = getattr(fit_summary, "scale", None)
-        if scale is not None:
-            return scale
     fit_result = _fit_result(obj)
     if fit_result is not None:
         scale = getattr(fit_result, "scale", None)
         if scale is not None:
             return scale
-    return getattr(obj, "scale_", None)
+    fit_summary = _fit_summary(obj)
+    if fit_summary is not None:
+        scale = getattr(fit_summary, "scale", None)
+        if scale is not None:
+            return scale
+    return None
 
 
 def _edf_total(obj: Any):
-    fit_summary = _fit_summary(obj)
-    if fit_summary is not None:
-        edf_total = getattr(fit_summary, "edf_total", None)
-        if edf_total is not None:
-            return edf_total
     fit_result = _fit_result(obj)
     if fit_result is not None:
         edf_total = getattr(fit_result, "edf", None)
         if edf_total is not None:
             return edf_total
-    return getattr(obj, "edf_", None)
+    fit_summary = _fit_summary(obj)
+    if fit_summary is not None:
+        edf_total = getattr(fit_summary, "edf_total", None)
+        if edf_total is not None:
+            return edf_total
+    return None
 
 
 def _edf_by_term(obj: Any):
+    fit_result = _fit_result(obj)
+    if fit_result is not None and fit_result.edf_by_term is not None:
+        return fit_result.edf_by_term
     fit_summary = _fit_summary(obj)
     if fit_summary is not None:
         edf = getattr(fit_summary, "edf_by_term", None)
         if edf is not None:
             return edf
-    edf = getattr(obj, "_edf_by_term_fit_", None)
-    if edf is not None:
-        return edf
-    return getattr(obj, "edf_by_term_", None)
+    return None
 
 
 def _trace_H(obj: Any):
-    fit_summary = _fit_summary(obj)
-    if fit_summary is not None:
-        trace_H = getattr(fit_summary, "trace_H", None)
-        if trace_H is not None:
-            return trace_H
     fit_result = _fit_result(obj)
     if fit_result is not None:
         trace_H = getattr(fit_result, "trace_H", None)
         if trace_H is not None:
             return trace_H
-    return getattr(obj, "trace_H_", None)
+    fit_summary = _fit_summary(obj)
+    if fit_summary is not None:
+        trace_H = getattr(fit_summary, "trace_H", None)
+        if trace_H is not None:
+            return trace_H
+    return None
 
 
 def _rss(obj: Any):
-    fit_summary = _fit_summary(obj)
-    if fit_summary is not None:
-        return getattr(fit_summary, "rss", None)
     fit_result = _fit_result(obj)
     if fit_result is not None:
         return getattr(fit_result, "rss", None)
-    return getattr(obj, "rss_", None)
+    fit_summary = _fit_summary(obj)
+    if fit_summary is not None:
+        return getattr(fit_summary, "rss", None)
+    return None
 
 
 def _deviance(obj: Any):
-    fit_summary = _fit_summary(obj)
-    if fit_summary is not None:
-        deviance = getattr(fit_summary, "deviance", None)
-        if deviance is not None:
-            return deviance
     fit_result = _fit_result(obj)
     if fit_result is not None:
         deviance = getattr(fit_result, "deviance", None)
         if deviance is not None:
             return deviance
-    return getattr(obj, "deviance_", None)
+    fit_summary = _fit_summary(obj)
+    if fit_summary is not None:
+        deviance = getattr(fit_summary, "deviance", None)
+        if deviance is not None:
+            return deviance
+    return None
 
 
 def _cov_bayes(obj: Any):
-    fit_summary = _fit_summary(obj)
-    if fit_summary is not None and getattr(fit_summary, "cov_bayes", None) is not None:
-        return fit_summary.cov_bayes
     fit_result = _fit_result(obj)
     if fit_result is not None and getattr(fit_result, "cov_bayes", None) is not None:
         return fit_result.cov_bayes
-    return getattr(obj, "Vp_", None)
+    fit_summary = _fit_summary(obj)
+    if fit_summary is not None and getattr(fit_summary, "cov_bayes", None) is not None:
+        return fit_summary.cov_bayes
+    return None
 
 
 def _cov_freq(obj: Any):
-    fit_summary = _fit_summary(obj)
-    if fit_summary is not None and getattr(fit_summary, "cov_freq", None) is not None:
-        return fit_summary.cov_freq
     fit_result = _fit_result(obj)
     if fit_result is not None and getattr(fit_result, "cov_freq", None) is not None:
         return fit_result.cov_freq
-    return getattr(obj, "Vf_", None)
+    fit_summary = _fit_summary(obj)
+    if fit_summary is not None and getattr(fit_summary, "cov_freq", None) is not None:
+        return fit_summary.cov_freq
+    return None
 
 
 def _cov_unconditional(obj: Any):
@@ -287,35 +274,35 @@ def _cov_unconditional(obj: Any):
         and getattr(fit_result, "cov_unconditional", None) is not None
     ):
         return fit_result.cov_unconditional
-    return getattr(obj, "Vc_", None)
+    return None
 
 
 def _edf2(obj: Any):
     fit_result = _fit_result(obj)
     if fit_result is not None and getattr(fit_result, "edf2", None) is not None:
         return fit_result.edf2
-    return getattr(obj, "edf2_", None)
+    return None
 
 
 def _H_coef(obj: Any):
     fit_result = _fit_result(obj)
     if fit_result is not None and getattr(fit_result, "H_coef", None) is not None:
         return fit_result.H_coef
-    return getattr(obj, "_H_coef", None)
+    return None
 
 
 def _fitted_eta(obj: Any):
     fit_result = _fit_result(obj)
     if fit_result is not None and getattr(fit_result, "eta", None) is not None:
         return fit_result.eta
-    return getattr(obj, "_fitted_eta", None)
+    return None
 
 
 def _fitted_mu(obj: Any):
     fit_result = _fit_result(obj)
     if fit_result is not None and getattr(fit_result, "mu", None) is not None:
         return fit_result.mu
-    return getattr(obj, "_fitted_mu", None)
+    return None
 
 
 def _summary_R(obj: Any):

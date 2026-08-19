@@ -14,22 +14,22 @@ from nampy.gam.fit.backends import (
     solve_gaussian_given_smoothing,
     solve_pirls_given_smoothing,
 )
-from nampy.gam.fit.linalg.matrix_reindexing import permute_rows, restore_dropped_rows
+from nampy.gam.fit.selection.criteria.dispatch import (
+    criterion_gradient,
+    criterion_hessian,
+    criterion_value,
+)
+from nampy.gam.fit.selection.criteria.gaussian_dyn import (
+    criterion_ml_reml_gaussian_dynamic_profiled,
+)
+from nampy.gam.fit.selection.criteria.pirls.derivatives import _gdi1_kernel
 from nampy.gam.fit.solvers.general_family import newton as general_newton
 from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     build_general_family_setup_state,
     run_general_family_fixed_smoothing,
     sl_initial_repara,
 )
-from nampy.gam.smoothing_selection.criteria.dispatch import (
-    criterion_gradient,
-    criterion_hessian,
-    criterion_value,
-)
-from nampy.gam.smoothing_selection.criteria.gaussian_dyn import (
-    criterion_ml_reml_gaussian_dynamic_profiled,
-)
-from nampy.gam.smoothing_selection.criteria.pirls.derivatives import _gdi1_kernel
+from nampy.gam.linalg.reindexing import permute_rows, restore_dropped_rows
 from tests._paths import PARITY_DIR, REPO_ROOT
 from tests.families.test_general_family_mgcv_parity import (
     GAULSS_FORMULA,

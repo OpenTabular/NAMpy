@@ -9,7 +9,7 @@ This directory contains the Sphinx documentation for NAMpy.
 Install documentation dependencies:
 
 ```bash
-pip install -e ".[docs]"
+pip install -e ".[all,docs]"
 ```
 
 Or install from documentation requirements:
@@ -59,7 +59,6 @@ docs/
 │   ├── index.rst
 │   ├── models.rst
 │   ├── basemodels.rst
-│   ├── preprocessing.rst
 │   ├── configs.rst
 │   └── utils.rst
 ├── models/              # Model documentation

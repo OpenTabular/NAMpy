@@ -9,20 +9,20 @@ from pathlib import Path
 
 import numpy as np
 
-from nampy.gam.model.api import GAM
+from nampy.gam import GAM
 from nampy.gam.parity import build_optimizer_trace
-from nampy.gam.smoothing_selection.criteria.pirls import (
+from nampy.gam.fit.selection.criteria.pirls import (
     derivatives as derivatives_module,
 )
-from nampy.gam.smoothing_selection.optimize import bfgs_strict as bfgs_strict_module
-from nampy.gam.smoothing_selection.optimize.basics import (
+from nampy.gam.fit.selection.optimize import bfgs_strict as bfgs_strict_module
+from nampy.gam.fit.selection.optimize.basics import (
     _initial_smoothing_params_from_design,
 )
-from nampy.gam.smoothing_selection.optimize.bfgs_strict import (
+from nampy.gam.fit.selection.optimize.bfgs_strict import (
     _eval_objective_at,
     _finite_difference_initial_inverse_hessian,
 )
-from nampy.gam.smoothing_selection.optimize.objectives import (
+from nampy.gam.fit.selection.optimize.objectives import (
     _JointGammaPirlsRemlObjective,
 )
 from tests._optimization_lifecycle_registry import OPTIMIZATION_LIFECYCLE_CASES

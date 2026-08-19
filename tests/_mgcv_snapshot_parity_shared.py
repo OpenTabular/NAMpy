@@ -8,38 +8,43 @@ import pytest
 from scipy.linalg import cho_factor
 
 from nampy.gam import GAM
-from nampy.gam._model_state import _design_matrix, _n_coef, _penalty_blocks_seq
-from nampy.gam.compiler.compile_predictors import compile_predictors
-from nampy.gam.fit.linalg.stacked_qr import (
-    penalty_sqrt_rows,
-    solve_gaussian_penalized_ls_stacked_qr,
+from nampy.gam._model_state import (
+    _design_matrix,
+    _edf_by_term,
+    _n_coef,
+    _penalty_blocks_seq,
 )
+from nampy.gam.compiler.compile_predictors import compile_predictors
 from nampy.gam.fit.penalized_system import (
     build_full_design,
     build_full_penalty_from_blocks,
 )
-from nampy.gam.fit.solvers.gaussian_exact import solve_gaussian_fit
-from nampy.gam.formula import extract_formula_terms, parse_gam_formula
-from nampy.gam.linalg import (
-    project_coef_onto_row_space,
-    snap_coef_to_reference_null_space,
-)
-from nampy.gam.parity.snapshots import _get_core
-from nampy.gam.smoothing_selection.criteria import criterion_value
-from nampy.gam.smoothing_selection.criteria.gaussian import criterion_ml_reml_exact
-from nampy.gam.smoothing_selection.criteria.gaussian_dyn import (
+from nampy.gam.fit.selection.criteria import criterion_value
+from nampy.gam.fit.selection.criteria.gaussian import criterion_ml_reml_exact
+from nampy.gam.fit.selection.criteria.gaussian_dyn import (
     criterion_ml_reml_gaussian_dynamic_joint,
 )
-from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
+from nampy.gam.fit.selection.criteria.gaussian_reml_algebra import (
     deviance_method_scale_estimate,
     gaussian_reml_laplace_score,
     gaussian_weighted_residual_sum_squares,
     quadratic_form_penalty,
 )
-from nampy.gam.smoothing_selection.reparam import (
+from nampy.gam.fit.selection.reparam import (
     _stable_penalty_logdet,
     _static_penalty_null_dim,
 )
+from nampy.gam.fit.solvers.gaussian_exact import solve_gaussian_fit
+from nampy.gam.fit.solvers.stacked_qr import (
+    penalty_sqrt_rows,
+    solve_gaussian_penalized_ls_stacked_qr,
+)
+from nampy.gam.formula import extract_formula_terms, parse_gam_formula
+from nampy.gam.linalg import (
+    project_coef_onto_row_space,
+    snap_coef_to_reference_null_space,
+)
+from nampy.gam.results.snapshots import _get_core
 from nampy.gam.specs.build import build_formula_model
 from tests.mgcv_parity_utils import (
     _assert_allclose_up_to_column_sign,
@@ -237,7 +242,7 @@ class TestMgcvParity:
         # At this near-singular endpoint, the algebraically equivalent normal-
         # equation product loses the null-space cancellation catastrophically.
         np.testing.assert_allclose(
-            np.asarray(gam._edf_by_term_fit_, dtype=np.float64),
+            np.asarray(_edf_by_term(gam), dtype=np.float64),
             np.asarray(expected["fit"]["edf_by_term"], dtype=np.float64),
             atol=5e-3,
             rtol=5e-3,

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from nampy.gam.smoothing_selection import postfit as postfit_module
+from nampy.gam.fit.selection import postfit as postfit_module
 from tests.families.test_general_family_mgcv_parity import (
     _gammals_data,
     _gaulss_data,
@@ -68,9 +68,13 @@ def _fake_gam_vcomp_model(*, compiled_penalties, n_smoothing_params: int):
     return SimpleNamespace(
         _fitted=True,
         smoothing_params=np.ones(n_smoothing_params, dtype=np.float64),
-        compiled_model_=SimpleNamespace(
-            compiled_penalties=tuple(compiled_penalties),
-            n_smoothing_params=n_smoothing_params,
+        gam_result_=SimpleNamespace(
+            compiled_model=SimpleNamespace(
+                compiled_penalties=tuple(compiled_penalties),
+                n_smoothing_params=n_smoothing_params,
+            ),
+            fit_core_solution=None,
+            fit_summary=None,
         ),
     )
 

@@ -154,20 +154,27 @@ def resolve_smoothing_params(model, n_smoothing_params):
 
 
 def expand_smoothing_params_from_log(model, log_free_sp):
-    from ..smoothing_selection.optimize import expand_smoothing_params_from_log
+    n_smoothing_params = _n_smoothing_params(model)
+    if n_smoothing_params == 0 and _compiled_model(model) is None:
+        raise RuntimeError("Design has not been compiled yet.")
 
-    return expand_smoothing_params_from_log(model, log_free_sp)
-
-
-def optimize_smoothing_params(
-    model, y, initial_smoothing_params=None, method="gcv", optimizer="outer_newton"
-):
-    from ..smoothing_selection import optimize_smoothing_params as _optimize
-
-    return _optimize(
-        model,
-        y=y,
-        initial_smoothing_params=initial_smoothing_params,
-        method=method,
-        optimizer=optimizer,
+    fixed_mask = (
+        np.zeros(n_smoothing_params, dtype=bool)
+        if model.smoothing_fixed_mask_ is None
+        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
     )
+
+    log_free_sp = np.asarray(log_free_sp, dtype=np.float64).ravel()
+    n_free = int(np.sum(~fixed_mask))
+    if log_free_sp.shape != (n_free,):
+        raise ValueError(
+            f"Expected {n_free} free log smoothing parameters, got shape {log_free_sp.shape}."
+        )
+
+    sp = np.asarray(model.smoothing_params, dtype=np.float64).copy()
+    if n_free > 0:
+        sp[~fixed_mask] = np.exp(log_free_sp)
+
+    if model.min_sp_ is not None:
+        sp = np.maximum(sp, np.asarray(model.min_sp_, dtype=np.float64))
+    return sp

@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from nampy.gam import GAM
-from nampy.gam.smoothing_selection.criteria import criterion_gradient, criterion_value
+from nampy.gam.fit.selection.criteria import criterion_gradient, criterion_value
 from tests._mgcv_parity_requested_shared import CaseSpec
 from tests.families.test_general_family_mgcv_parity import GENERAL_SE_CASES
 from tests.mgcv_invariant_policy import final_fit_uses_exact_orientation_parity
@@ -98,7 +98,7 @@ def _nampy_optimizer_name(expected_snapshot: dict) -> str | None:
 
 
 def _compute_hat_diag(gam: GAM) -> np.ndarray | None:
-    sol = gam.fit_core_solution_
+    sol = gam.gam_result_.fit_core_solution
     fit_state = sol.fit_state
     if fit_state.X is None or fit_state.A_inv is None:
         return None
@@ -259,7 +259,7 @@ def _serialize_actual_final_fit(
     allow_synthetic_outer_info: bool,
     include_unconditional: bool = True,
 ):
-    fit_result = gam.fit_core_solution_.fit_result
+    fit_result = gam.gam_result_.fit_core_solution.fit_result
     fit_summary = gam.fit_result(include_covariances=True)
     aic = None
     try:

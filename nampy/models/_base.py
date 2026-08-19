@@ -2,18 +2,64 @@ from __future__ import annotations
 
 import inspect
 import pickle
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, TypeVar
+from uuid import uuid4
 
+import lightning as pl
+import torch
+from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from pretab.preprocessor import Preprocessor
 from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
 
-from ..neural.training.engine import predict_raw as _engine_predict_raw
-from ..neural.training.engine import run_training
+from ..neural.data.datamodule import NAMpyDataModule
+from ..neural.task import TaskModule
 from ._data import prepare_fit_features, prepare_predict_features
 
 EstimatorT = TypeVar("EstimatorT", bound="NeuralEstimatorBase")
+
+
+@dataclass
+class TrainingPlan:
+    """Task-specific wiring for the shared neural training engine.
+
+    Attributes
+    ----------
+    datamodule_regression : bool
+        Label dtype switch for :class:`NAMpyDataModule` (float32 vs long).
+    taskmodel_kwargs : dict
+        Task wiring forwarded to :class:`TaskModule` (``num_classes``,
+        ``task`` or ``lss``/``family``).
+    stratify : array-like or None
+        Stratification labels for the automatic train/validation split.
+    """
+
+    datamodule_regression: bool
+    taskmodel_kwargs: dict[str, Any] = field(default_factory=dict)
+    stratify: Any = None
+
+
+def build_callbacks(name: str, *, monitor, mode, patience, checkpoint_path):
+    """Build the EarlyStopping/ModelCheckpoint pair for one fit.
+
+    Both callbacks honour the user's ``monitor``/``mode``. Each fit writes into
+    its own subdirectory so concurrent or successive fits never clobber each
+    other's checkpoints.
+    """
+    early_stop_callback = EarlyStopping(
+        monitor=monitor, min_delta=0.00, patience=patience, verbose=False, mode=mode
+    )
+    run_dir = Path(checkpoint_path) / f"{name}-{uuid4().hex[:8]}"
+    checkpoint_callback = ModelCheckpoint(
+        monitor=monitor,
+        mode=mode,
+        save_top_k=1,
+        dirpath=str(run_dir),
+        filename="best_model",
+    )
+    return early_stop_callback, checkpoint_callback
 
 
 def _preprocessor_defaults() -> dict[str, Any]:
@@ -51,10 +97,10 @@ class NeuralEstimatorBase(BaseEstimator):
         patience: int = 15,
         monitor: str = "val_loss",
         mode: str = "min",
-        lr: float = 1e-4,
-        lr_patience: int = 10,
-        factor: float = 0.1,
-        weight_decay: float = 1e-06,
+        lr: float | None = None,
+        lr_patience: int | None = None,
+        lr_factor: float | None = None,
+        weight_decay: float | None = None,
         checkpoint_path="model_checkpoints",
         dataloader_kwargs=None,
         offset=None,
@@ -89,8 +135,10 @@ class NeuralEstimatorBase(BaseEstimator):
             Metric monitored by early stopping and checkpoint selection.
         mode : str, default="min"
             Whether the monitored metric is minimized or maximized.
-        lr, lr_patience, factor, weight_decay
-            Optimizer and LR-scheduler settings.
+        lr, lr_patience, lr_factor, weight_decay
+            Optional fit-time overrides for the estimator's optimizer and
+            LR-scheduler configuration. ``None`` uses the corresponding
+            constructor/config value.
         checkpoint_path : str, default="model_checkpoints"
             Root directory for per-fit checkpoint subdirectories.
         dataloader_kwargs : dict, optional
@@ -112,6 +160,11 @@ class NeuralEstimatorBase(BaseEstimator):
         self : object
             The fitted estimator.
         """
+        if "factor" in trainer_kwargs:
+            raise TypeError(
+                "fit() uses 'lr_factor'; the ambiguous 'factor' name is not "
+                "forwarded to the Lightning Trainer."
+            )
         X = prepare_fit_features(self, X)
         if (X_val is None) ^ (y_val is None):
             raise ValueError("X_val and y_val must be provided together.")
@@ -121,8 +174,14 @@ class NeuralEstimatorBase(BaseEstimator):
         self._fit_loss_fct = loss_fct
         y, y_val, plan = self._build_training_plan(y, y_val)
 
-        run_training(
-            self,
+        lr = self.config.lr if lr is None else lr
+        lr_patience = self.config.lr_patience if lr_patience is None else lr_patience
+        lr_factor = self.config.lr_factor if lr_factor is None else lr_factor
+        weight_decay = (
+            self.config.weight_decay if weight_decay is None else weight_decay
+        )
+
+        self._run_training(
             X,
             y,
             plan,
@@ -138,7 +197,7 @@ class NeuralEstimatorBase(BaseEstimator):
             mode=mode,
             lr=lr,
             lr_patience=lr_patience,
-            factor=factor,
+            lr_factor=lr_factor,
             weight_decay=weight_decay,
             checkpoint_path=checkpoint_path,
             dataloader_kwargs=dataloader_kwargs,
@@ -152,6 +211,117 @@ class NeuralEstimatorBase(BaseEstimator):
         """Return ``(y, y_val, TrainingPlan)`` for this task. Task-specific."""
         raise NotImplementedError
 
+    def _run_training(
+        self,
+        X,
+        y,
+        plan: TrainingPlan,
+        *,
+        val_size,
+        X_val,
+        y_val,
+        max_epochs,
+        random_state,
+        batch_size,
+        shuffle,
+        patience,
+        monitor,
+        mode,
+        lr,
+        lr_patience,
+        lr_factor,
+        weight_decay,
+        checkpoint_path,
+        dataloader_kwargs,
+        trainer_kwargs,
+        offset=None,
+        offset_val=None,
+    ) -> None:
+        """Fit this estimator in place: data module, TaskModule, Trainer, reload."""
+        if dataloader_kwargs is None:
+            dataloader_kwargs = {}
+
+        self.data_module = NAMpyDataModule(
+            preprocessor=self.preprocessor,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            X_val=X_val,
+            y_val=y_val,
+            val_size=val_size,
+            random_state=random_state,
+            regression=plan.datamodule_regression,
+            **dataloader_kwargs,
+        )
+        self.data_module.setup_data(
+            X,
+            y,
+            X_val=X_val,
+            y_val=y_val,
+            val_size=val_size,
+            random_state=random_state,
+            stratify=plan.stratify,
+            offset=offset,
+            offset_val=offset_val,
+        )
+
+        self.model = TaskModule(
+            model_class=self.base_model,
+            config=self.config,
+            cat_feature_info=self.data_module.cat_feature_info,
+            num_feature_info=self.data_module.num_feature_info,
+            lr=lr,
+            lr_patience=lr_patience,
+            lr_factor=lr_factor,
+            weight_decay=weight_decay,
+            **plan.taskmodel_kwargs,
+        )
+
+        early_stop_callback, checkpoint_callback = build_callbacks(
+            type(self).__name__,
+            monitor=monitor,
+            mode=mode,
+            patience=patience,
+            checkpoint_path=checkpoint_path,
+        )
+
+        trainer = pl.Trainer(
+            max_epochs=max_epochs,
+            callbacks=[early_stop_callback, checkpoint_callback],
+            **trainer_kwargs,
+        )
+        trainer.fit(self.model, self.data_module)
+
+        best_model_path = checkpoint_callback.best_model_path
+        if best_model_path:
+            checkpoint = torch.load(best_model_path, weights_only=False)
+            self.model.load_state_dict(checkpoint["state_dict"])
+
+    def _predict_raw(self, X) -> dict[str, torch.Tensor]:
+        """Run inference on prepared features and return the forward-output dict.
+
+        ``X`` must already have passed through the estimator's feature
+        preparation. The model's train/eval state is restored afterwards.
+        """
+        cat_tensor_dict, num_tensor_dict = self.data_module.preprocess_test_data(X)
+
+        device = next(self.model.parameters()).device
+        cat_tensor_dict = {
+            key: tensor.to(device) for key, tensor in cat_tensor_dict.items()
+        }
+        num_tensor_dict = {
+            key: tensor.to(device) for key, tensor in num_tensor_dict.items()
+        }
+
+        was_training = self.model.training
+        self.model.eval()
+        try:
+            with torch.no_grad():
+                return self.model(
+                    num_features=num_tensor_dict, cat_features=cat_tensor_dict
+                )
+        finally:
+            self.model.train(was_training)
+
     def _predict(self, X):
         """Run inference and return the raw forward-output dict."""
         if getattr(self, "model", None) is None or (
@@ -162,11 +332,11 @@ class NeuralEstimatorBase(BaseEstimator):
                 "Call 'fit' before using this method."
             )
         X = prepare_predict_features(self, X)
-        return _engine_predict_raw(self, X)
+        return self._predict_raw(X)
 
     def _split_output_components(self, pred_dict):
         """Split a forward-output dict into (terms, intercept) numpy parts."""
-        from ..neural.training.output_contract import is_penalty_key
+        from ..neural.contracts import is_penalty_key
 
         terms: dict[str, Any] = {}
         intercept: float | Any = 0.0
@@ -212,9 +382,9 @@ class NeuralEstimatorBase(BaseEstimator):
         """Render 1-d term-contribution curves via the shared renderer.
 
         Builds the same prepared-data schema the GAM plotting pipeline uses,
-        so GAM, neural, and hybrid term plots share one renderer. Only
-        single-column numeric main effects are drawn; interaction terms use
-        :meth:`plot` with ``plot_interactions=True``.
+        so GAM and neural term plots share one renderer. Only single-column
+        numeric main effects are drawn; interaction terms use :meth:`plot`
+        with ``plot_interactions=True``.
         """
         from ..plotting import prepared_from_contributions, render_term_plots
 
@@ -223,27 +393,41 @@ class NeuralEstimatorBase(BaseEstimator):
         return render_term_plots(prepared, rug=rug, pages=pages, figsize=figsize)
 
     def save_model(self, path: str | Path) -> Path:
-        """Persist this estimator, including fitted state, to ``path``.
+        """Persist this estimator in the versioned NAMpy pickle format.
 
-        The file uses Python's pickle protocol and must only be loaded from a
-        trusted source.
+        Pickle artifacts are executable Python objects and must only be loaded
+        from trusted sources. The envelope makes incompatible formats fail
+        explicitly instead of producing obscure unpickle errors.
         """
         destination = Path(path)
+        payload = {
+            "format": "nampy-estimator",
+            "version": 1,
+            "estimator_class": type(self).__name__,
+            "estimator": self,
+        }
         with destination.open("wb") as handle:
-            pickle.dump(self, handle)
+            pickle.dump(payload, handle)
         return destination
 
     @classmethod
     def load_model(cls: type[EstimatorT], path: str | Path) -> EstimatorT:
-        """Load an estimator previously written by :meth:`save_model`."""
+        """Load a version-1 estimator artifact written by :meth:`save_model`."""
         source = Path(path)
         with source.open("rb") as handle:
-            loaded: object = pickle.load(handle)
-        if not isinstance(loaded, cls):
+            loaded = pickle.load(handle)
+        if (
+            not isinstance(loaded, dict)
+            or loaded.get("format") != "nampy-estimator"
+            or loaded.get("version") != 1
+        ):
+            raise ValueError(f"{source} is not a supported NAMpy estimator artifact.")
+        estimator = loaded.get("estimator")
+        if not isinstance(estimator, cls):
             raise TypeError(
-                f"{source} contains {type(loaded).__name__}, not {cls.__name__}."
+                f"{source} contains {type(estimator).__name__}, not {cls.__name__}."
             )
-        return loaded
+        return estimator
 
     def _initialize_estimator_parameters(self, config_class, kwargs):
         config_names = set(getattr(config_class, "__dataclass_fields__", {}))

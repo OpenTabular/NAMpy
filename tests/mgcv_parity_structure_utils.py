@@ -32,7 +32,7 @@ def fit_gaussian_formula(data, formula: str, **gam_kwargs) -> GAM:
 def design_structure(model: GAM) -> dict[str, Any]:
     """Structural summary of the training design (no full numeric dumps)."""
     assert getattr(model, "_fitted", False)
-    compiled = model.compiled_model_
+    compiled = model.gam_result_.compiled_model
     assert compiled is not None
     design = np.asarray(compiled.design_matrix, dtype=np.float64)
     n = int(design.shape[0])
@@ -72,7 +72,7 @@ def design_structure(model: GAM) -> dict[str, Any]:
 
 def smoothing_parameter_map_structure(model: GAM) -> dict[str, Any]:
     """How penalties map to global smoothing indices (linked ids share an index)."""
-    compiled = model.compiled_model_
+    compiled = model.gam_result_.compiled_model
     assert compiled is not None
     if len(compiled.predictors) == 1:
         pmap = dict(compiled.predictors[0].smoothing_parameter_map)

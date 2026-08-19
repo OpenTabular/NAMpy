@@ -8,17 +8,17 @@ from ..._model_state import (
     _penalty_blocks_seq,
 )
 from ...linalg import balanced_penalty_template_sqrt_for_rank
-from ..linalg.stacked_qr import (
-    _scatter_pivoted_rank_matrix_to_full,
-    build_penalized_qr_state_nonnegative,
-    pls_fit1_nonneg_w,
-)
 from ..penalized_system import (
     build_full_design,
     build_full_penalty_from_blocks,
 )
 from ..state import FitCoreSolution
 from .irls_core import irls_core
+from .stacked_qr import (
+    _scatter_pivoted_rank_matrix_to_full,
+    build_penalized_qr_state_nonnegative,
+    pls_fit1_nonneg_w,
+)
 
 
 def _prior_weights_vector(weights, n: int) -> np.ndarray:
@@ -49,7 +49,7 @@ def _gaussian_fit3_gdi_beta_full(
     `gdi1()` works on the current `gam.fit3` reparameterized system, not on the
     raw prediction-parameterization `sqrt(P)` solve.
     """
-    from ...smoothing_selection.reparam import build_penalty_reparameterization_state
+    from ..selection.reparam import build_penalty_reparameterization_state
 
     X = np.asarray(X, dtype=np.float64)
     sp = np.asarray(smoothing_params, dtype=np.float64).ravel()
@@ -134,7 +134,7 @@ def _gaussian_fit3_pls_current_eta(model, X, smoothing_params, z_work, w):
     This is the Gaussian exact deviance retained on the fit object before the
     later `gdi1()` overwrite of the reported coefficients / fitted values.
     """
-    from ...smoothing_selection.reparam import build_penalty_reparameterization_state
+    from ..selection.reparam import build_penalty_reparameterization_state
 
     X = np.asarray(X, dtype=np.float64)
     sp = np.asarray(smoothing_params, dtype=np.float64).ravel()

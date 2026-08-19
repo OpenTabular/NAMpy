@@ -29,7 +29,7 @@ import pytest
 
 from nampy.gam import GAM
 from nampy.gam.inference.summary import summary_gam
-from nampy.gam.parity.snapshots import _normalize_reference_term_label
+from nampy.gam.results.snapshots import _normalize_reference_term_label
 from tests.mgcv_parity_utils import (
     _run_mgcv_predict_on_newdata,
     _run_mgcv_snapshot,
@@ -390,7 +390,7 @@ def _assert_invariant_parity(case: _InferenceCase) -> None:
         optimizer="outer_newton" if case.method.lower() != "fixed" else None,
     )
 
-    fit_state = gam.fit_core_solution_.fit_state
+    fit_state = gam.gam_result_.fit_core_solution.fit_state
     assert fit_state.X is not None
     if case.expect_wide:
         assert fit_state.X.shape[1] > fit_state.X.shape[0]
@@ -410,7 +410,7 @@ def _assert_invariant_parity(case: _InferenceCase) -> None:
         rtol=case.rtol,
     )
 
-    fit_result = gam.fit_core_solution_.fit_result
+    fit_result = gam.gam_result_.fit_core_solution.fit_result
     np.testing.assert_allclose(
         float(np.sum(np.asarray(fit_result.edf, dtype=np.float64))),
         float(snapshot["fit"]["edf_total"]),

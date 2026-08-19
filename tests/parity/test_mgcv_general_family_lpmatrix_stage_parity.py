@@ -164,7 +164,7 @@ def test_general_family_single_term_predictor_blocks_match_mgcv_lpmatrix_slices(
     )
 
     predictors = _predictor_designs(gam)
-    predictor_slices = tuple(gam.compiled_model_.predictor_full_slices)
+    predictor_slices = tuple(gam.gam_result_.compiled_model.predictor_full_slices)
     first_pred = predictors[0]
     first_slice = predictor_slices[0]
     assert len(first_pred.compiled_terms) == 1

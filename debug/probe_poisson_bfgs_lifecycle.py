@@ -49,7 +49,7 @@ def main() -> None:
     print("actual raw trace len:", len(getattr(gam._optim_result, "optim_trace", []) or []))
     if getattr(gam._optim_result, "optim_trace", None):
         print("actual raw last trace row:", gam._optim_result.optim_trace[-1])
-    print("actual final Vc is None:", gam.fit_core_solution_.fit_result.cov_unconditional is None)
+    print("actual final Vc is None:", gam.gam_result_.fit_core_solution.fit_result.cov_unconditional is None)
     print("expected final Vc is None:", expected_snapshot["fit"].get("cov_unconditional", None) is None)
     print("actual outer_info:", actual_trace["fit"]["outer_info"])
     print("expected outer_info:", expected_trace["fit"]["outer_info"])

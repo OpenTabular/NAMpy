@@ -11,11 +11,11 @@ from scipy.linalg import solve_triangular
 from ..._model_state import _n_smoothing_params
 from ...linalg import symmetrize_matrix
 from ...linalg.qr import mgcv_pqr_r
-from ...results import FitResult
-from ..linalg.matrix_reindexing import (
+from ...linalg.reindexing import (
     permute_rows,
     restore_dropped_rows,
 )
+from ...results import FitResult
 from ..parameterization import (
     FIT_PARAMETER_SPACE,
     PREDICTION_PARAMETER_SPACE,
@@ -150,12 +150,12 @@ def _gaussian_exact_unconditional_postfit(
     log_sp = np.log(np.maximum(sp[free_mask], np.finfo(np.float64).tiny))
 
     from ...fit.backends import solve_gaussian_given_smoothing
-    from ...smoothing_selection.criteria.dispatch import criterion_hessian
-    from ...smoothing_selection.criteria.gaussian_dyn import (
+    from ..selection.criteria.dispatch import criterion_hessian
+    from ..selection.criteria.gaussian_dyn import (
         criterion_hessian_ml_reml_gaussian_dynamic_joint,
     )
-    from ...smoothing_selection.criteria.pirls.derivatives import _gdi1_kernel
-    from ...smoothing_selection.reparam import build_estimate_gam_setup_state
+    from ..selection.criteria.pirls.derivatives import _gdi1_kernel
+    from ..selection.reparam import build_estimate_gam_setup_state
     from ..solvers.general_family.newton import _vb_corr_root
 
     optim_result = getattr(model, "_optim_result", None)
@@ -615,10 +615,12 @@ def _pirls_exact_unconditional_postfit(
     if n_sp == 0:
         return None, None, FIT_PARAMETER_SPACE
 
-    from ...smoothing_selection.criteria.dispatch import criterion_hessian
-    from ...smoothing_selection.criteria.pirls.derivatives import _gdi1_kernel
-    from ...smoothing_selection.reparam import build_estimate_gam_setup_state
-    from ..capabilities import can_use_simple_ml_reml_structure
+    from ..selection.criteria.dispatch import criterion_hessian
+    from ..selection.criteria.pirls.derivatives import _gdi1_kernel
+    from ..selection.reparam import (
+        build_estimate_gam_setup_state,
+        can_use_simple_ml_reml_structure,
+    )
 
     if not can_use_simple_ml_reml_structure(model):
         return None, None, FIT_PARAMETER_SPACE

@@ -18,7 +18,7 @@ sys.path.insert(0, "/home/ad32/projects/package/NAMpy")
 import numpy as np
 
 from nampy.gam.smooths.categorical.fs import _penalty_rank_from_base_term
-from nampy.splines.basis.natparam import (
+from nampy.gam.splines.basis.natparam import (
     _r_linpack_qr,
     _r_symmetric_eigh_descending,
     _r_triangular_solve,

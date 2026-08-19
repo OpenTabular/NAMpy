@@ -20,7 +20,7 @@ from nampy.gam.smooths.tensor.marginals import tensor_marginal_fit_matrices
 from nampy.gam.smooths.tensor.t2 import TensorANOVASplineTerm
 from nampy.gam.smooths.univariate.cr import CubicSplineTerm
 from nampy.gam.smooths.univariate.tp import ThinPlateSplineTerm
-from nampy.gam.smoothing_selection.criteria import (
+from nampy.gam.fit.selection.criteria import (
     criterion_gradient_numerical,
     criterion_hessian_numerical,
 )
@@ -187,7 +187,7 @@ def _maybe_t2_lpmatrix_diagnostics(case_id, family, formula, data, gam):
     )
     expected_term = np.asarray(expected_term["X"], dtype=np.float64)
 
-    predictor0 = gam.compiled_model_.predictors[0]
+    predictor0 = gam.gam_result_.compiled_model.predictors[0]
     compiled_term = predictor0.compiled_terms[0]
     compiled_term_basis = np.asarray(
         compiled_term.prediction_parameterization_matrix(X_new),

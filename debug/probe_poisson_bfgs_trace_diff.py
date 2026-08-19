@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from nampy.gam.model.api import GAM
+from nampy.gam import GAM
 from nampy.gam.parity import build_optimizer_trace
 from tests.optimization.test_mgcv_outer_optimization_parity import (
     _make_poisson_data,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from nampy.gam.smoothing_selection.postfit import (
+from nampy.gam.fit.selection.postfit import (
     _fit_scale,
     _mgcv_penalty_rescale_factors,
 )

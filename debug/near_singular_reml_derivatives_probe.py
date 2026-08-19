@@ -12,10 +12,10 @@ import json
 
 import numpy as np
 
-from nampy.gam.smoothing_selection.criteria.gaussian_dyn import (
+from nampy.gam.fit.selection.criteria.gaussian_dyn import (
     _gaussian_dynamic_reml_derivative_terms,
 )
-from nampy.gam.smoothing_selection.optimize.objectives import (
+from nampy.gam.fit.selection.optimize.objectives import (
     _GaussianRemlJointObjective,
 )
 from tests.mgcv_parity_utils import _make_random_effect_data

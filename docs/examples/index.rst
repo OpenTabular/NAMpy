@@ -99,8 +99,8 @@ Modeling the full distribution:
    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
    
    # Train model
-   model = NAMLSS()
-   model.fit(X_train, y_train, max_epochs=150, lr=1e-4, family="normal")
+   model = NAMLSS(family="normal")
+   model.fit(X_train, y_train, max_epochs=150, lr=1e-4)
    
    # Predict distribution parameters
    params = model.predict(X_test)

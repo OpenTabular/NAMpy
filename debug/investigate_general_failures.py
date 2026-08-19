@@ -10,8 +10,8 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from nampy.gam.diagnostics.summary import summary_text
-from nampy.gam.smoothing_selection import sp_vcov
-from nampy.gam.smoothing_selection.criteria.dispatch import (
+from nampy.gam.fit.selection import sp_vcov
+from nampy.gam.fit.selection.criteria.dispatch import (
     criterion_gradient,
     criterion_hessian,
     criterion_value,
@@ -53,7 +53,7 @@ def gevlss_cr_endpoint() -> None:
     _show("mgcv log_sp", expected["fit"]["log_smoothing_params"])
     _show("actual score", gam.smoothing_score_)
     _show("mgcv score", expected["fit"]["criterion_value"])
-    _show("actual coef head", gam.fit_core_solution_.fit_result.coef_full[:8])
+    _show("actual coef head", gam.gam_result_.fit_core_solution.fit_result.coef_full[:8])
     _show("mgcv coef head", np.asarray(expected["fit"]["coef_full"])[:8])
     newdata = _general_newdata(data)
     for pred_type in ("link", "response", "terms", "lpmatrix"):
@@ -111,7 +111,7 @@ def gaulss_two_cr_diagnostics() -> None:
         "gam_vcomp mgcv",
         _run_mgcv_gam_vcomp(data, formula, "gaulss", "ML", rescale=False),
     )
-    _show("fit_result deviance", gam.fit_core_solution_.fit_result.deviance)
+    _show("fit_result deviance", gam.gam_result_.fit_core_solution.fit_result.deviance)
     _show("fit_summary deviance", gam.fit_result().deviance)
     _show("mgcv deviance", expected["fit"]["deviance"])
     print(summary_text(gam))

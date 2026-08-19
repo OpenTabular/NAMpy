@@ -9,11 +9,11 @@ import pandas as pd
 import pytest
 
 from nampy.gam import GAM
+from nampy.gam.fit.selection.optimize.basics import (
+    _initial_smoothing_params_from_design,
+)
 from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     build_general_family_setup_state,
-)
-from nampy.gam.smoothing_selection.optimize.basics import (
-    _initial_smoothing_params_from_design,
 )
 from tests._paths import PARITY_DIR, REPO_ROOT
 from tests.families.test_general_family_mgcv_parity import (

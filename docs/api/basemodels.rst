@@ -16,7 +16,7 @@ Base Classes
    :nosignatures:
 
    BaseModel
-   ~nampy.neural.training.TaskModule
+   ~nampy.neural.task.TaskModule
 
 Model Implementations
 ---------------------
@@ -37,12 +37,3 @@ Model Implementations
    EnsembleTreeNAM
    SplineNAM
    NodeGAM
-
-Utilities
----------
-
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
-
-   MultiModelWrapper

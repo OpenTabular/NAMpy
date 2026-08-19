@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -11,6 +13,7 @@ from nampy.gam.compiler.structures import (
     CompiledPenalty,
     CompiledPredictor,
 )
+from nampy.gam.fit.selection.reparam import _stable_penalty_logdet_derivatives
 from nampy.gam.fit.solvers.gamlss_utils import gamlss_etamu, trind_generator
 from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     build_general_family_setup_state,
@@ -18,7 +21,6 @@ from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     criterion_hessian_ml_reml_general_family,
     run_general_family_fixed_smoothing,
 )
-from nampy.gam.smoothing_selection.reparam import _stable_penalty_logdet_derivatives
 
 # ======================================================================
 # gaulss
@@ -110,7 +112,7 @@ def test_general_family_outer_derivatives_require_exact_family_support():
         smoothing_params = np.ones(2, dtype=np.float64)
         smoothing_fixed_mask_ = None
         min_sp_ = None
-        compiled_model_ = CompiledModel(
+        compiled_model = CompiledModel(
             predictors=(),
             design_matrix=np.empty((0, 0), dtype=np.float64),
             compiled_terms=(),
@@ -120,6 +122,11 @@ def test_general_family_outer_derivatives_require_exact_family_support():
             n_smoothing_params=2,
             predictor_full_slices=(),
             coef_reduced_to_full_idx=np.empty((0,), dtype=int),
+        )
+        gam_result_ = SimpleNamespace(
+            compiled_model=compiled_model,
+            fit_core_solution=None,
+            fit_summary=None,
         )
 
     model = _Model()
@@ -175,7 +182,7 @@ def test_general_fit5_run_uses_canonical_penalty_logdet_derivatives(monkeypatch)
         irls_tol = 1e-7
         hparams = {}
         prior_weights_ = np.ones(4, dtype=np.float64)
-        compiled_model_ = CompiledModel(
+        compiled_model = CompiledModel(
             predictors=(
                 CompiledPredictor(
                     name="eta1",
@@ -204,6 +211,11 @@ def test_general_fit5_run_uses_canonical_penalty_logdet_derivatives(monkeypatch)
             predictor_full_slices=(slice(0, 3),),
             coef_reduced_to_full_idx=np.arange(3, dtype=int),
         )
+        gam_result_ = SimpleNamespace(
+            compiled_model=compiled_model,
+            fit_core_solution=None,
+            fit_summary=None,
+        )
         family = object()
         _optim_method = "REML"
         smoothing_params = np.ones(1, dtype=np.float64)
@@ -211,7 +223,7 @@ def test_general_fit5_run_uses_canonical_penalty_logdet_derivatives(monkeypatch)
         min_sp_ = None
 
     monkeypatch.setattr(
-        "nampy.gam.smoothing_selection.reparam._stable_penalty_logdet_derivatives",
+        "nampy.gam.fit.selection.reparam._stable_penalty_logdet_derivatives",
         lambda *_args, **_kwargs: (
             3.5,
             np.array([1.0], dtype=np.float64),

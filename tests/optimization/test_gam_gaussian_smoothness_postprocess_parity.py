@@ -10,11 +10,11 @@ from nampy.gam import GAM
 from nampy.gam.fit.postprocess.gaussian_smoothness_postprocess import (
     gaussian_smoothness_postprocess,
 )
-from nampy.gam.smoothing_selection.criteria.dispatch import (
+from nampy.gam.fit.selection.criteria.dispatch import (
     criterion_gradient,
     criterion_hessian,
 )
-from nampy.gam.smoothing_selection.criteria.gaussian import (
+from nampy.gam.fit.selection.criteria.gaussian import (
     criterion_ml_reml_exact_dynamic,
 )
 from tests._mgcv_snapshot_parity_shared import (

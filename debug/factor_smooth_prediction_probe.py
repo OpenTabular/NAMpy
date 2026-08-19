@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from nampy.gam import GAM
 from nampy.gam._model_state import _coef, _coef_full, _term_blocks_seq
-from nampy.gam.model.api import GAM
 from nampy.gam.predict.linear_predictor_matrix import _build_prediction_matrices
 from nampy.gam.predict.predictions import (
     _prediction_term_groups,

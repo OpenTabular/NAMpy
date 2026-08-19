@@ -61,8 +61,8 @@ Create your model by inheriting from `BaseModel`:
            
            # Calculate input size
            total_input_size = (
-               sum([input_shape for input_shape in num_feature_info.values()]) 
-               + len(cat_feature_info)
+               sum(int(info.get("dimension", 1)) for info in num_feature_info.values())
+               + sum(int(info.get("dimension", 1)) for info in cat_feature_info.values())
            )
            
            # Define your architecture
@@ -209,7 +209,7 @@ Here's a complete working example:
            self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
            
            total_input_size = (
-               sum([input_shape for input_shape in num_feature_info.values()]) 
+               sum(int(info.get("dimension", 1)) for info in num_feature_info.values())
                + len(cat_feature_info)
            )
            
@@ -353,4 +353,4 @@ Resources
 * :class:`nampy.models.NeuralRegressor` - Regression wrapper
 * :class:`nampy.models.NeuralClassifier` - Classification wrapper
 * :class:`nampy.models.NeuralLSS` - LSS wrapper
-* Existing models in `nampy/basemodels/` for reference
+* Existing models in `nampy/neural/modules/` for reference

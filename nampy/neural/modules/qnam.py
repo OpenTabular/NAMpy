@@ -5,9 +5,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from ..configs.qnam_config import DefaultQNAMConfig
-from ..layers.mlp_utils import MLP
-from ..training.output_contract import validate_feature_names
 from .basemodel import BaseModel
+from .mlp_utils import MLP
 
 
 class QNAM(BaseModel):
@@ -48,6 +47,7 @@ class QNAM(BaseModel):
         # Data / task metadata
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
+        self._validate_features(num_feature_info, cat_feature_info)
         self.num_classes = num_classes
         self.interaction_degree = self.hparams.get(
             "interaction_degree", config.interaction_degree
@@ -75,9 +75,6 @@ class QNAM(BaseModel):
             self.raw_intercept = nn.Parameter(torch.zeros(num_classes))
         else:
             self.raw_intercept = None
-
-        all_feature_names = set(num_feature_info) | set(cat_feature_info)
-        validate_feature_names(all_feature_names, owner="QNAM")
 
         # Main-effect subnetworks
         self.num_feature_networks = nn.ModuleDict()

@@ -45,8 +45,8 @@ def _fit_fixed_model(data: pd.DataFrame, formula, family="gaussian") -> GAM:
 
 
 def _expected_predictor_block(gam: GAM, expected_lpmatrix: np.ndarray, index: int = 0):
-    predictor = gam.compiled_model_.predictors[index]
-    sl = gam.compiled_model_.predictor_full_slices[index]
+    predictor = gam.gam_result_.compiled_model.predictors[index]
+    sl = gam.gam_result_.compiled_model.predictor_full_slices[index]
     block = np.asarray(expected_lpmatrix[:, sl], dtype=np.float64)
     if getattr(predictor, "prediction_has_intercept", predictor.has_intercept):
         np.testing.assert_allclose(
@@ -107,7 +107,7 @@ def test_numeric_by_wrapped_predictor_block_matches_mgcv_lpmatrix_slice():
         return_se=False,
     )
 
-    predictor = gam.compiled_model_.predictors[0]
+    predictor = gam.gam_result_.compiled_model.predictors[0]
     actual = np.asarray(predictor.build_new_matrix(gam.X_), dtype=np.float64)
     expected_block = _expected_predictor_block(gam, np.asarray(expected["pred"]))
 
@@ -135,7 +135,7 @@ def test_factor_by_wrapped_predictor_preserves_level_ownership_and_matches_mgcv(
         return_se=False,
     )
 
-    predictor = gam.compiled_model_.predictors[0]
+    predictor = gam.gam_result_.compiled_model.predictors[0]
     actual = np.asarray(predictor.build_new_matrix(gam.X_), dtype=np.float64)
     expected_block = _expected_predictor_block(gam, np.asarray(expected["pred"]))
 
@@ -190,7 +190,7 @@ def test_transformed_formula_offset_is_resolved_before_wrapping_and_matches_mgcv
         return_se=False,
     )
 
-    predictor = gam.compiled_model_.predictors[0]
+    predictor = gam.gam_result_.compiled_model.predictors[0]
     actual = np.asarray(predictor.build_new_matrix(gam.X_), dtype=np.float64)
     expected_block = _expected_predictor_block(gam, np.asarray(expected["pred"]))
 
@@ -220,7 +220,7 @@ def test_tensor_numeric_by_wrapped_predictor_block_matches_mgcv_lpmatrix_slice()
         return_se=False,
     )
 
-    predictor = gam.compiled_model_.predictors[0]
+    predictor = gam.gam_result_.compiled_model.predictors[0]
     actual = np.asarray(predictor.build_new_matrix(gam.X_), dtype=np.float64)
     expected_block = _expected_predictor_block(gam, np.asarray(expected["pred"]))
 

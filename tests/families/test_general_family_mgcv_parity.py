@@ -8,12 +8,12 @@ import pytest
 
 from nampy.gam import GAM
 from nampy.gam._model_state import _term_blocks_seq
-from nampy.gam.parity.snapshots import _normalize_reference_term_label
-from nampy.gam.smoothing_selection.criteria import (
+from nampy.gam.fit.selection.criteria import (
     criterion_gradient,
     criterion_hessian,
     criterion_value,
 )
+from nampy.gam.results.snapshots import _normalize_reference_term_label
 from tests.mgcv_parity_utils import (
     _assert_basic_mgcv_parity,
     _fit_nampy_model,

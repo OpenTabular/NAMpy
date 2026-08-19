@@ -94,7 +94,7 @@ NAMpy also supports distributional regression for modeling the full distribution
    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
    # Initialize model
-   model = NAMLSS()
+   model = NAMLSS(family="normal")
 
    # Train model with distribution family
    model.fit(
@@ -103,7 +103,6 @@ NAMpy also supports distributional regression for modeling the full distribution
        max_epochs=150, 
        lr=1e-4,
        patience=10,
-       family="normal"  # Available: normal, poisson, gamma, beta, dirichlet, studentt, negativebinom, inversegamma, categorical, quantile, robustnormal
    )
 
    # Predict distribution parameters

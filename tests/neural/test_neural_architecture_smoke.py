@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 import pytest
 import torch
-import torch.nn as nn
 
 from nampy.neural.configs.ensemble_treenam_config import DefaultEnsembleTreeNAMConfig
 from nampy.neural.configs.gpnam_config import DefaultGPNAMConfig
@@ -21,7 +20,6 @@ from nampy.neural.configs.treenam_config import DefaultTreeNAMConfig
 from nampy.neural.modules.ensemble_treenam import EnsembleTreeNAM
 from nampy.neural.modules.gpnam import GPNAM
 from nampy.neural.modules.linreg import LinReg
-from nampy.neural.modules.multi_model import MultiModelWrapper
 from nampy.neural.modules.nam import NAM
 from nampy.neural.modules.namformer import NAMformer
 from nampy.neural.modules.natt import NATT
@@ -42,19 +40,6 @@ class _ArchitectureCase:
     expects_penalty: bool = False
     monotone_output: bool = False
     expected_keys: tuple[str, ...] = ()
-
-
-class _PenalizedScalarModel(nn.Module):
-    def __init__(self, **kwargs):
-        super().__init__()
-        self.weight = nn.Parameter(torch.ones(()))
-
-    def forward(self, num_features, cat_features):
-        output = next(iter(num_features.values())) * self.weight
-        return {
-            "output": output,
-            "toy_regularizer": self.weight.square(),
-        }
 
 
 ARCHITECTURE_CASES = (
@@ -345,23 +330,6 @@ def test_neural_architecture_forward_backward_contract(case):
 
     if case.monotone_output:
         assert torch.all(torch.diff(result["output"], dim=1) >= 0.0)
-
-
-def test_multi_model_wrapper_aggregates_canonical_penalties():
-    wrapper = MultiModelWrapper(
-        base_model_class=_PenalizedScalarModel,
-        num_models=2,
-    )
-    result = wrapper(
-        num_features={"x": torch.arange(4.0).unsqueeze(-1)},
-        cat_features={},
-    )
-
-    assert result["output"].shape == (4, 2)
-    torch.testing.assert_close(result["output_penalty"], torch.tensor(2.0))
-
-    (result["output"].mean() + result["output_penalty"]).backward()
-    assert all(model.weight.grad is not None for model in wrapper.models)
 
 
 @pytest.mark.parametrize(

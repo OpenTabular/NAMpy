@@ -17,7 +17,7 @@ sys.path.insert(0, "/home/ad32/projects/package/NAMpy")
 import numpy as np
 import pandas as pd
 
-from nampy.gam.model.api import GAM
+from nampy.gam import GAM
 
 rng = np.random.default_rng(42)
 n = 90

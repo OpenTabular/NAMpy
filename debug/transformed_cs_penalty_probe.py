@@ -8,7 +8,7 @@ import numpy as np
 from scipy.linalg import eigh
 
 from nampy.gam.penalties.algebra import penalty_rescale_factor
-from nampy.splines.univariate.cr import add_full_rank_shrinkage
+from nampy.gam.splines.univariate.cr import add_full_rank_shrinkage
 from tests.mgcv_parity_utils import (
     _run_mgcv_raw_constructor,
     _run_mgcv_smoothcon_penalties,

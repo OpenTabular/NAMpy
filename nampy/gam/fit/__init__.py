@@ -39,11 +39,6 @@ from .covariance import (
     build_bayes_and_freq_covariances,
     select_covariance_matrix,
 )
-from .linalg.stacked_qr import (
-    STACKED_QR_RANK_TOLERANCE,
-    pls_fit1_nonneg_w,
-    solve_gaussian_penalized_ls_stacked_qr,
-)
 from .offsets import (
     coerce_offset_array,
     resolve_prediction_offset,
@@ -56,11 +51,15 @@ from .postprocess.gaussian_smoothness_postprocess import (
 from .solvers.gaussian_exact import solve_gaussian_fit
 from .solvers.irls_core import fit_irls_from_model, irls_core
 from .solvers.pirls import solve_pirls_fit
+from .solvers.stacked_qr import (
+    STACKED_QR_RANK_TOLERANCE,
+    pls_fit1_nonneg_w,
+    solve_gaussian_penalized_ls_stacked_qr,
+)
 from .state import (
     FitCoreSolution,
     FitResult,
     FitState,
-    PenalizedSystem,
     assign_fit_solution,
     compute_edf_by_term,
 )
@@ -81,7 +80,6 @@ __all__ = [
     "FitCoreSolution",
     "FitResult",
     "FitState",
-    "PenalizedSystem",
     "assign_fit_solution",
     "compute_edf_by_term",
     "irls_core",

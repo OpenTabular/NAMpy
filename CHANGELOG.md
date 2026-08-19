@@ -23,15 +23,6 @@ All notable changes are recorded here following
   `plot.gam` port; neural estimators gain `plot_terms()`.
 - Per-sample link-scale offsets through the neural training stack
   (`fit(..., offset=)`), plus stratified automatic classification splits.
-- `nampy.hybrid` (explicitly non-mgcv, never parity-compared):
-  `GAMResidualRegressor`/`GAMResidualClassifier` (frozen GAM baseline +
-  offset-trained neural correction composed on the link scale; gaussian,
-  poisson, and binomial families; explicit validation via `val_data=`;
-  cross-validation-safe — the neural template is cloned, never mutated)
-  and `GAMNetRegressor`/`GAMNetClassifier`/`CompiledGAMTerms` (compiled
-  mgcv-parity bases and penalties trained jointly with a neural net in
-  Torch under fixed smoothing parameters; `gam_source=` lifts
-  REML-selected lambdas from a fitted GAM).
 - Public classifier, regressor, and distributional-regression exports for the
   supported neural architectures, with matching base-model and config exports.
 - Multi-output fitting coverage for every public neural regressor.
@@ -41,6 +32,13 @@ All notable changes are recorded here following
 
 ### Changed
 
+- **Breaking:** LSS response families and distribution-specific keyword
+  arguments are estimator constructor parameters (`family` and
+  `distributional_kwargs`). LSS estimators now expose the conventional
+  `fit(X, y)` contract required by sklearn model selection.
+- Public package and estimator exports are resolved lazily. Backend dependency
+  profiles are available as `nampy[gam]`, `nampy[neural]`, and `nampy[all]`;
+  importing the GAM backend no longer initializes Torch or Lightning.
 - **Breaking (naming sweep, no aliases):**
   `SklearnBaseRegressor`/`SklearnBaseClassifier`/`SklearnBaseLSS` →
   `NeuralRegressor`/`NeuralClassifier`/`NeuralLSS`
@@ -87,6 +85,9 @@ All notable changes are recorded here following
 
 ### Fixed
 
+- Neural optimizer settings from estimator constructors and `set_params()` now
+  control training. Optional fit-time overrides use the same `lr`,
+  `lr_patience`, `lr_factor`, and `weight_decay` names.
 - `QNAMBase` now owns `DefaultQNAMConfig` rather than the unrelated NAM config.
 - Public API documentation and examples now match the implemented model/task
   surface.

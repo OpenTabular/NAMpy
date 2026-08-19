@@ -11,12 +11,12 @@ from nampy.gam import GAM
 from nampy.gam.diagnostics.concurvity import concurvity
 from nampy.gam.diagnostics.residuals import residuals_gam
 from nampy.gam.diagnostics.summary import summary_text
-from nampy.gam.smoothing_selection.postfit import one_se_rule, sp_vcov
+from nampy.gam.fit.selection.postfit import one_se_rule, sp_vcov
 
 concurvity_module = importlib.import_module("nampy.gam.diagnostics.concurvity")
 residuals_module = importlib.import_module("nampy.gam.diagnostics.residuals")
 summary_module = importlib.import_module("nampy.gam.diagnostics.summary")
-postfit_module = importlib.import_module("nampy.gam.smoothing_selection.postfit")
+postfit_module = importlib.import_module("nampy.gam.fit.selection.postfit")
 
 pytestmark = [
     pytest.mark.surface_output,

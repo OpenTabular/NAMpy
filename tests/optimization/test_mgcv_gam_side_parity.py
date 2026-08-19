@@ -205,7 +205,7 @@ def _fit_side_state(data: pd.DataFrame, formula, family, method, *, select: bool
         select=select,
     )
     model.fit(data=data)
-    return list(model.compiled_model_.predictors), list(model.side_condition_reports_)
+    return list(model.gam_result_.compiled_model.predictors), list(model.gam_result_.compiled_model.side_condition_reports)
 
 
 def _predictor_full_matrix(predictor) -> np.ndarray:

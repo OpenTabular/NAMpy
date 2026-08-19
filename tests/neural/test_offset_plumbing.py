@@ -13,7 +13,7 @@ from pretab.preprocessor import Preprocessor
 
 from nampy.models.linreg import LinRegRegressor
 from nampy.neural.data.datamodule import NAMpyDataModule
-from nampy.neural.training.task_module import TaskModule
+from nampy.neural.task import TaskModule
 
 
 class _ZeroOutputModel(nn.Module):

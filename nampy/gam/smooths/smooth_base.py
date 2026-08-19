@@ -28,9 +28,9 @@ from typing import Any
 
 import numpy as np
 
-from ..compiler.structures import PenaltySpec
 from ..constraints.absorption import apply_linear_constraint
 from ..penalties import (
+    PenaltySpec,
     build_null_space_selection_spec,
     make_penalty_spec,
     normalize_penalty_spec,
@@ -659,7 +659,7 @@ class BaseSmoothTerm(abc.ABC):
         Subclasses supply ``matrix`` (the main penalty, usually
         ``self.penalties[0]`` after fit) and term-specific ``smooth_metadata``.
         Optional ``rank`` / ``null_space_dim`` are forwarded to the main
-        :class:`~nampy.gam.compiler.structures.PenaltySpec` before normalization
+        :class:`~nampy.gam.penalties.PenaltySpec` before normalization
         (e.g. TPRS passes a stored rank).
         """
         self._require_fitted()

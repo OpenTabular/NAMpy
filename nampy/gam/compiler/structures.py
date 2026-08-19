@@ -1,4 +1,9 @@
-"""Stable compiled-model contracts bridging specs, fitting, and prediction."""
+"""Internal mutable compilation state bridging specs, fitting, and prediction.
+
+Compiled objects contain NumPy arrays, mutable metadata, callbacks, and terms
+that are completed across compiler stages. They are not public immutable
+results; fitted public artifacts live under :mod:`nampy.gam.results`.
+"""
 
 from __future__ import annotations
 
@@ -13,19 +18,6 @@ from .contracts import (
     SideConditionPolicy,
     TermFeatureInfo,
 )
-
-
-@dataclass
-class PenaltySpec:
-    matrix: np.ndarray
-    smoothing_id: str | None = None
-    kind: str = "smooth"
-    rank: int | None = None
-    null_space_dim: int | None = None
-    is_null_space_penalty: bool = False
-    sp_mode: str | None = None
-    sp_value: float | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -120,7 +112,7 @@ class CompiledTerm:
         return basis
 
 
-@dataclass(frozen=True)
+@dataclass
 class CompiledPredictor:
     name: str
     design_matrix: np.ndarray
@@ -165,7 +157,7 @@ class CompiledPredictor:
         return np.column_stack(blocks)
 
 
-@dataclass(frozen=True)
+@dataclass
 class CompiledModel:
     predictors: tuple[CompiledPredictor, ...]
     design_matrix: np.ndarray
@@ -197,7 +189,6 @@ class CompiledModel:
 
 
 __all__ = [
-    "PenaltySpec",
     "CompiledPenalty",
     "CompiledPredictor",
     "CompiledTerm",

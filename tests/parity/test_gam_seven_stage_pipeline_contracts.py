@@ -54,7 +54,7 @@ def pipeline_case() -> _PipelineCase:
 def _smooth_term(case: _PipelineCase):
     return next(
         term
-        for term in case.gam.compiled_model_.compiled_terms
+        for term in case.gam.gam_result_.compiled_model.compiled_terms
         if term.term_type == "smooth"
     )
 
@@ -108,7 +108,7 @@ def test_stage_2_runtime_term_owns_basis_semantics(pipeline_case):
 def test_stage_3_constructed_term_pairs_basis_penalty_and_prediction(pipeline_case):
     """Stage 3 keeps each wrapped basis paired with its penalty and predictor."""
     gam = pipeline_case.gam
-    compiled = gam.compiled_model_
+    compiled = gam.gam_result_.compiled_model
     term = _smooth_term(pipeline_case)
     term_index = compiled.compiled_terms.index(term)
     penalties = [
@@ -137,7 +137,7 @@ def test_stage_3_constructed_term_pairs_basis_penalty_and_prediction(pipeline_ca
 
 def test_stage_4_compiler_preserves_block_and_smoothing_order(pipeline_case):
     """Stage 4 assembles terms, slices, penalties, and smoothing indices once."""
-    compiled = pipeline_case.gam.compiled_model_
+    compiled = pipeline_case.gam.gam_result_.compiled_model
     predictor = compiled.predictors[0]
     term_blocks = [
         np.asarray(term.basis_train, dtype=np.float64)
@@ -160,9 +160,9 @@ def test_stage_4_compiler_preserves_block_and_smoothing_order(pipeline_case):
 def test_stage_5_side_conditions_pair_fit_and_prediction_transforms(pipeline_case):
     """Stage 5 reports identifiability work and preserves train/predict pairing."""
     gam = pipeline_case.gam
-    compiled = gam.compiled_model_
+    compiled = gam.gam_result_.compiled_model
     predictor = compiled.predictors[0]
-    reports = gam.side_condition_reports_
+    reports = gam.gam_result_.compiled_model.side_condition_reports
 
     assert reports is not None and len(reports) == 1
     assert reports[0]["predictor"] == "eta1"
@@ -191,7 +191,7 @@ def test_stage_5_side_conditions_pair_fit_and_prediction_transforms(pipeline_cas
 def test_stage_6_fit_solution_is_consistent_with_compiled_design(pipeline_case):
     """Stage 6 returns the stable fit contract in the public parameterization."""
     gam = pipeline_case.gam
-    solution = gam.fit_core_solution_
+    solution = gam.gam_result_.fit_core_solution
     result = solution.fit_result
     lpmatrix = gam.lpmatrix(pipeline_case.data)
     expected_eta = (
@@ -200,17 +200,13 @@ def test_stage_6_fit_solution_is_consistent_with_compiled_design(pipeline_case):
     )
 
     assert isinstance(solution, FitCoreSolution)
-    assert solution.penalized_system.X is not None
     assert solution.fit_state.X is not None
-    np.testing.assert_allclose(
-        solution.penalized_system.X, solution.fit_state.X, rtol=0.0, atol=0.0
-    )
     assert result.coef_full.shape == (lpmatrix.shape[1],)
     np.testing.assert_allclose(result.eta, expected_eta, rtol=0.0, atol=2e-11)
     np.testing.assert_allclose(result.mu, expected_eta, rtol=0.0, atol=2e-11)
     np.testing.assert_allclose(
         solution.fit_state.X[:, 1:],
-        gam.compiled_model_.design_matrix,
+        gam.gam_result_.compiled_model.design_matrix,
         rtol=0.0,
         atol=0.0,
     )
@@ -229,7 +225,7 @@ def test_stage_7_prediction_and_diagnostics_match_mgcv_and_fitted_state(
     link = np.asarray(gam.predict(newdata, type="link"), dtype=np.float64)
     response = np.asarray(gam.predict(newdata, type="response"), dtype=np.float64)
     terms = np.asarray(gam.predict(newdata, type="terms"), dtype=np.float64)
-    coef = np.asarray(gam.fit_core_solution_.fit_result.coef_full, dtype=np.float64)
+    coef = np.asarray(gam.gam_result_.fit_core_solution.fit_result.coef_full, dtype=np.float64)
     offset = newdata["off"].to_numpy(dtype=np.float64)
 
     np.testing.assert_allclose(link, lpmatrix @ coef + offset, rtol=0.0, atol=1e-12)

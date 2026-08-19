@@ -5,14 +5,14 @@ import pandas as pd
 import pytest
 
 from nampy.gam import GAM
-from nampy.gam.fit.state import _prediction_parameterization_map
-from nampy.gam.formula import extract_formula_terms
-from nampy.gam.formula.extract import ExtractedParametricTerm
-from nampy.gam.linalg import matrix_self_gram
-from nampy.gam.smoothing_selection.reparam import (
+from nampy.gam.fit.parameterization import prediction_parameterization_map
+from nampy.gam.fit.selection.reparam import (
     _full_coef_indices,
     build_estimate_gam_setup_state,
 )
+from nampy.gam.formula import extract_formula_terms
+from nampy.gam.formula.extract import ExtractedParametricTerm
+from nampy.gam.linalg import matrix_self_gram
 from tests.mgcv_invariant_policy import (
     gam_setup_compares_dominant_penalty_spectrum,
     gam_setup_uses_invariant_transform,
@@ -123,7 +123,7 @@ def _predictor_assign(predictor_extracted, compiled_predictor) -> np.ndarray:
 
 def _python_assign(model: GAM):
     extracted = list(extract_formula_terms(model.formula_))
-    predictors = list(model.compiled_model_.predictors)
+    predictors = list(model.gam_result_.require_compiled_model().predictors)
     assert len(extracted) == len(predictors)
     if len(extracted) == 1:
         return _predictor_assign(extracted[0], predictors[0])
@@ -215,7 +215,7 @@ def _is_nested_offset_list(value) -> bool:
 
 
 def _setup_sp_vector(model: GAM) -> np.ndarray:
-    n_sp = int(model.compiled_model_.n_smoothing_params)
+    n_sp = int(model.gam_result_.require_compiled_model().n_smoothing_params)
     if n_sp == 0:
         return np.empty((0,), dtype=np.float64)
     sp_all = np.asarray(model.smoothing_params, dtype=np.float64).ravel()
@@ -253,7 +253,7 @@ def _python_smooth_class_name(tb) -> str:
 
 
 def _python_smooth_summaries(model: GAM) -> list[dict]:
-    compiled = model.compiled_model_
+    compiled = model.gam_result_.require_compiled_model()
     sp_setup = _setup_sp_vector(model)
     out = []
     penalty_order = {id(pb): i + 1 for i, pb in enumerate(compiled.compiled_penalties)}
@@ -410,7 +410,9 @@ def _block_change_of_basis(
 
     smooth_terms = [
         (term_index, tb)
-        for term_index, tb in enumerate(model.compiled_model_.compiled_terms)
+        for term_index, tb in enumerate(
+            model.gam_result_.require_compiled_model().compiled_terms
+        )
         if str(tb.term_type) != "parametric"
     ]
     assert len(smooth_terms) == len(expected_smooth)
@@ -542,10 +544,10 @@ def _assert_gam_setup_assembly_case(case_id, data, formula, family, method, *, s
     assert (
         len(actual_setup.S)
         == len(expected_S)
-        == len(model.compiled_model_.compiled_penalties)
+        == len(model.gam_result_.require_compiled_model().compiled_penalties)
     )
     for pb, actual_penalty, expected_penalty in zip(
-        model.compiled_model_.compiled_penalties,
+        model.gam_result_.require_compiled_model().compiled_penalties,
         actual_setup.S,
         expected_S,
         strict=True,
@@ -628,7 +630,7 @@ def _assert_gam_setup_assembly_case(case_id, data, formula, family, method, *, s
     )
 
     expected_P = _coerce_optional_matrix(expected.get("P", None))
-    actual_P = _prediction_parameterization_map(model)
+    actual_P = prediction_parameterization_map(model)
     if expected_P is None:
         assert actual_P is None
     else:

@@ -37,8 +37,8 @@ Example Usage
    from nampy.models import NAMLSS
    
    # Use a specific distribution family
-   model = NAMLSS()
-   model.fit(X, y, family="normal", max_epochs=150)
+   model = NAMLSS(family="normal")
+   model.fit(X, y, max_epochs=150)
    
    # Predict distribution parameters
    params = model.predict(X_test)

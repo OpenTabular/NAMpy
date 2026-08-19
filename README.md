@@ -37,7 +37,12 @@ regression, classification, and distributional-regression variants.
 ### From PyPI (recommended)
 
 ```bash
-pip install nampy
+# Complete package: GAM and neural backends
+pip install "nampy[all]"
+
+# Or install only one backend's dependencies
+pip install "nampy[gam]"
+pip install "nampy[neural]"
 ```
 
 ### From Source
@@ -47,7 +52,7 @@ Clone the repository and install in development mode:
 ```bash
 git clone https://github.com/OpenTabular/NAMpy.git
 cd NAMpy
-pip install -e .
+pip install -e ".[all]"
 ```
 
 ### From GitHub
@@ -55,17 +60,18 @@ pip install -e .
 Install directly from a specific branch or tag:
 
 ```bash
-pip install git+https://github.com/OpenTabular/NAMpy.git@main
+pip install "nampy[all] @ git+https://github.com/OpenTabular/NAMpy.git@main"
 ```
 
 ### Requirements
 
 - Python 3.11 or 3.12
-- PyTorch
-- Lightning
 - scikit-learn
 - pandas
 - numpy
+
+The ``gam`` extra adds SciPy and Matplotlib. The ``neural`` extra adds the
+Torch, Lightning, PreTab, distributional-metric, and plotting dependencies.
 
 ## Experimental `nampy.gam`
 
@@ -232,8 +238,8 @@ To integrate distributional regression into your workflow with `NAMLSS`, initial
 ```python
 from nampy.models import NAMLSS
 
-# Initialize the NAMLSS model
-model = NAMLSS()
+# Configure the response distribution on the estimator so sklearn can clone it
+model = NAMLSS(family="normal")
 
 # Fit the model to your data
 model.fit(
@@ -241,8 +247,7 @@ model.fit(
     y, 
     max_epochs=150, 
     lr=1e-04, 
-    patience=10,     
-    family="normal"  # define your distribution
+    patience=10,
 )
 
 # Predict distribution parameters
@@ -277,7 +282,7 @@ class MyConfig:
 Define your custom model as you would for an `nn.Module`. The main difference is that you will inherit from `BaseModel` and use the provided feature information to construct your layers. To integrate your model into the existing API, define the architecture and the forward pass. Note that the forward pass must return a dictionary with the key "output" for the final model prediction. This can be multi-dimensional, for example for classification or distributional regression. Beyond that, the dictionary can contain anything but often includes single feature/variable predictions for further processing or plotting.
 
 ```python
-from nampy.basemodels import BaseModel
+from nampy.neural.modules import BaseModel
 import torch
 import torch.nn as nn
 
@@ -293,7 +298,10 @@ class MyCustomModel(BaseModel):
         super().__init__(**kwargs)
         self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
 
-        total_input_size = sum([input_shape for input_shape in num_feature_info.values()]) + len(cat_feature_info)
+        total_input_size = (
+            sum(int(info.get("dimension", 1)) for info in num_feature_info.values())
+            + sum(int(info.get("dimension", 1)) for info in cat_feature_info.values())
+        )
         
         # Define a simple MLP layer
         self.mlp = nn.Sequential(

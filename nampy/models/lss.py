@@ -3,73 +3,29 @@ import warnings
 
 import numpy as np
 import pandas as pd
-import properscoring as ps
 import torch
-from sklearn.metrics import accuracy_score, mean_squared_error
 
-from ..api import Capabilities
-from ..neural.distributions.distributions import (
-    BetaDistribution,
-    CategoricalDistribution,
-    DirichletDistribution,
-    GammaDistribution,
-    HurdleNegativeBinomialDistribution,
-    HurdlePoissonDistribution,
-    InverseGammaDistribution,
-    LogLogisticDistribution,
-    LogNormalDistribution,
-    MultivariateNormalDiagDistribution,
-    NegativeBinomialDistribution,
-    NormalDistribution,
-    OrdinalCumulativeLogitDistribution,
-    PoissonDistribution,
-    Quantile,
-    RobustNormalDistribution,
-    StudentTDistribution,
-    TweedieDistribution,
-    WeibullDistribution,
-    ZeroInflatedNegativeBinomialDistribution,
-    ZeroInflatedPoissonDistribution,
+from ..neural.distributions.registry import (
+    FAMILY_REGISTRY,
+    family_name_for_instance,
+    resolve_family,
 )
-from ..neural.distributions.metrics import (
-    beta_mean_mse,
-    dirichlet_error,
-    gamma_deviance,
-    inverse_gamma_loss,
-    negative_binomial_deviance,
-    poisson_deviance,
-    student_t_loss,
-)
-from ..neural.training.engine import TrainingPlan
-from ._base import NeuralEstimatorBase
-
-_DISTRIBUTION_CLASSES = {
-    "normal": NormalDistribution,
-    "poisson": PoissonDistribution,
-    "gamma": GammaDistribution,
-    "beta": BetaDistribution,
-    "dirichlet": DirichletDistribution,
-    "studentt": StudentTDistribution,
-    "negativebinom": NegativeBinomialDistribution,
-    "inversegamma": InverseGammaDistribution,
-    "categorical": CategoricalDistribution,
-    "quantile": Quantile,
-    "robustnormal": RobustNormalDistribution,
-    "lognormal": LogNormalDistribution,
-    "weibull": WeibullDistribution,
-    "loglogistic": LogLogisticDistribution,
-    "zip": ZeroInflatedPoissonDistribution,
-    "zinb": ZeroInflatedNegativeBinomialDistribution,
-    "hurdlepoisson": HurdlePoissonDistribution,
-    "hurdlenegativebinom": HurdleNegativeBinomialDistribution,
-    "tweedie": TweedieDistribution,
-    "ordinal": OrdinalCumulativeLogitDistribution,
-    "mvnormdiag": MultivariateNormalDiagDistribution,
-}
+from ._base import NeuralEstimatorBase, TrainingPlan
 
 
 class NeuralLSS(NeuralEstimatorBase):
-    def __init__(self, model, config, **kwargs):
+    def __init__(
+        self,
+        model,
+        config,
+        family="normal",
+        distributional_kwargs=None,
+        **kwargs,
+    ):
+        self.family = family
+        self.distributional_kwargs = distributional_kwargs
+        self.family_ = None
+        self.distributional_kwargs_ = None
         self._initialize_estimator_parameters(config, kwargs)
         self.model = None
         self.data_module = None
@@ -84,38 +40,30 @@ class NeuralLSS(NeuralEstimatorBase):
 
         self.base_model = model
 
+    def get_params(self, deep=True):
+        params = super().get_params(deep=deep)
+        params["family"] = self.family
+        params["distributional_kwargs"] = self.distributional_kwargs
+        return params
+
+    def set_params(self, **parameters):
+        if "family" in parameters:
+            self.family = parameters.pop("family")
+            self.family_ = None
+        if "distributional_kwargs" in parameters:
+            self.distributional_kwargs = parameters.pop("distributional_kwargs")
+            self.distributional_kwargs_ = None
+        return super().set_params(**parameters)
+
     def __sklearn_tags__(self):
         # Distribution-parameter output: neither a classifier nor a regressor.
         tags = super().__sklearn_tags__()
         tags.target_tags.required = True
         return tags
 
-    def fit(
-        self,
-        X,
-        y,
-        family,
-        val_size: float = 0.2,
-        X_val=None,
-        y_val=None,
-        max_epochs: int = 100,
-        random_state: int = 101,
-        batch_size: int = 128,
-        shuffle: bool = True,
-        patience: int = 15,
-        monitor: str = "val_loss",
-        mode: str = "min",
-        lr: float = 1e-4,
-        lr_patience: int = 10,
-        factor: float = 0.1,
-        weight_decay: float = 1e-06,
-        checkpoint_path="model_checkpoints",
-        distributional_kwargs=None,
-        dataloader_kwargs=None,
-        **trainer_kwargs,
-    ):
+    def fit(self, X, y, **fit_params):
         """
-        Trains the distributional regression model using the provided training data.
+        Train the configured distributional regression model.
 
         Parameters
         ----------
@@ -123,23 +71,28 @@ class NeuralLSS(NeuralEstimatorBase):
             The training input samples.
         y : array-like, shape (n_samples,) or (n_samples, n_targets)
             The target values.
-        family : str
-            The name of the distribution family to use for the loss function.
-        distributional_kwargs : dict, default=None
-            Any arguments that are specific for a certain distribution.
-
-        The remaining parameters match :meth:`NeuralEstimatorBase.fit`.
+        **fit_params
+            Training parameters accepted by :meth:`NeuralEstimatorBase.fit`.
+            ``family`` and ``distributional_kwargs`` are estimator constructor
+            parameters so sklearn can clone and tune them.
 
         Returns
         -------
         self : object
             The fitted model.
         """
-        if distributional_kwargs is None:
-            distributional_kwargs = {}
+        moved = {"family", "distributional_kwargs"} & set(fit_params)
+        if moved:
+            names = ", ".join(sorted(moved))
+            raise TypeError(
+                f"{names} must be configured on the LSS estimator constructor, "
+                "not passed to fit()."
+            )
+
+        distributional_kwargs = dict(self.distributional_kwargs or {})
 
         # Infer distributional dimensions for families that require it, when not provided.
-        fam = str(family).lower()
+        fam = str(self.family).lower()
 
         if fam == "dirichlet":
             y_arr = np.asarray(y)
@@ -160,32 +113,13 @@ class NeuralLSS(NeuralEstimatorBase):
                         len(np.unique(y_arr.reshape(-1)))
                     )
 
-        if fam in _DISTRIBUTION_CLASSES:
-            self.family = _DISTRIBUTION_CLASSES[fam](**distributional_kwargs)
+        if fam in FAMILY_REGISTRY:
+            self.family_ = resolve_family(fam).distribution(**distributional_kwargs)
+            self.distributional_kwargs_ = distributional_kwargs
         else:
-            raise ValueError("Unsupported family: {}".format(family))
+            raise ValueError(f"Unsupported family: {self.family}")
 
-        return super().fit(
-            X,
-            y,
-            val_size=val_size,
-            X_val=X_val,
-            y_val=y_val,
-            max_epochs=max_epochs,
-            random_state=random_state,
-            batch_size=batch_size,
-            shuffle=shuffle,
-            patience=patience,
-            monitor=monitor,
-            mode=mode,
-            lr=lr,
-            lr_patience=lr_patience,
-            factor=factor,
-            weight_decay=weight_decay,
-            checkpoint_path=checkpoint_path,
-            dataloader_kwargs=dataloader_kwargs,
-            **trainer_kwargs,
-        )
+        return super().fit(X, y, **fit_params)
 
     def _build_training_plan(self, y, y_val):
         if getattr(self, "_fit_loss_fct", None) is not None:
@@ -201,8 +135,8 @@ class NeuralLSS(NeuralEstimatorBase):
         plan = TrainingPlan(
             datamodule_regression=True,
             taskmodel_kwargs={
-                "num_classes": self.family.param_count,
-                "family": self.family,
+                "num_classes": self.family_.param_count,
+                "family": self.family_,
                 "lss": True,
             },
         )
@@ -227,7 +161,7 @@ class NeuralLSS(NeuralEstimatorBase):
         family = (
             self.model.family
             if getattr(self.model, "family", None) is not None
-            else self.family
+            else self.family_
         )
         with torch.no_grad():
             target_dtype = getattr(family, "target_dtype", torch.float32)
@@ -238,7 +172,7 @@ class NeuralLSS(NeuralEstimatorBase):
         return -float(nll.detach().cpu().item())
 
     def _plot_series_labels(self, n_series: int):
-        param_names = getattr(getattr(self, "family", None), "param_names", None)
+        param_names = getattr(getattr(self, "family_", None), "param_names", None)
         if param_names is not None:
             return list(param_names)[:n_series]
         return [f"Param {i + 1}" for i in range(n_series)]
@@ -251,14 +185,14 @@ class NeuralLSS(NeuralEstimatorBase):
         parameters, and each term a matching multi-column contribution;
         additivity holds on the raw (link) scale.
         """
-        from ..api import AdditivePrediction
+        from .._contracts import AdditivePrediction
 
         pred_dict = self._predict(X)
         raw = pred_dict["output"]
         family = (
             self.model.family
             if getattr(self.model, "family", None) is not None
-            else self.family
+            else self.family_
         )
         with torch.no_grad():
             response = family(raw).cpu().numpy()
@@ -269,14 +203,6 @@ class NeuralLSS(NeuralEstimatorBase):
             terms=terms,
             intercept=intercept,
             backend="neural",
-        )
-
-    def capabilities(self) -> Capabilities:
-        return Capabilities(
-            supports_predict_proba=False,
-            supports_standard_errors=False,
-            supports_lpmatrix=False,
-            supports_term_contributions=True,
         )
 
     def evaluate(self, X, y_true, metrics=None, distribution_family=None):
@@ -297,7 +223,7 @@ class NeuralLSS(NeuralEstimatorBase):
             Mapping metric_name -> callable(y_true, transformed_predictions).
             If None, uses `get_default_metrics(...)`.
         distribution_family : str, optional
-            Family name override. If None, inferred from `self.family`.
+            Family name override. If None, inferred from ``self.family_``.
 
         Returns
         -------
@@ -307,32 +233,14 @@ class NeuralLSS(NeuralEstimatorBase):
         # Basic fitted check
         if self.model is None or self.data_module is None:
             raise ValueError("The model or data module has not been fitted yet.")
-        if getattr(self, "family", None) is None:
+        if getattr(self, "family_", None) is None:
             raise ValueError(
                 "No distribution family found. Fit the model with a valid family first."
             )
 
         # Infer family name if not provided
         if distribution_family is None:
-            fam_obj = self.family
-            cls_name = fam_obj.__class__.__name__.lower()
-            # Normalize class names to your public family keys
-            family_map = {
-                "normaldistribution": "normal",
-                "poissondistribution": "poisson",
-                "gammadistribution": "gamma",
-                "betadistribution": "beta",
-                "dirichletdistribution": "dirichlet",
-                "studenttdistribution": "studentt",
-                "negativebinomialdistribution": "negativebinom",
-                "inversegammadistribution": "inversegamma",
-                "categoricaldistribution": "categorical",
-                "quantile": "quantile",
-                "robustnormaldistribution": "robustnormal",
-            }
-            distribution_family = family_map.get(
-                cls_name, cls_name.replace("distribution", "")
-            )
+            distribution_family = family_name_for_instance(self.family_)
 
         distribution_family = str(distribution_family).lower()
 
@@ -351,7 +259,7 @@ class NeuralLSS(NeuralEstimatorBase):
         fam_for_loss = (
             self.model.family
             if hasattr(self.model, "family") and self.model.family is not None
-            else self.family
+            else self.family_
         )
 
         with torch.no_grad():
@@ -383,156 +291,8 @@ class NeuralLSS(NeuralEstimatorBase):
         return scores
 
     def get_default_metrics(self, distribution_family):
-        """
-        Provide sensible default metrics for each supported distribution family.
+        """Return metrics declared by the resolved distribution family."""
+        from ..neural.distributions.default_metrics import default_metrics_for
 
-        Metrics use transformed distribution parameters returned by
-        ``self.family(raw_predictions)``. For example, normal and robust-normal
-        families return ``[mean, scale]``; count families return their rate or
-        mean/dispersion parameters; and categorical families return class
-        probabilities.
-
-        Parameters
-        ----------
-        distribution_family : str
-            Family identifier.
-
-        Returns
-        -------
-        metrics : dict
-            Mapping of metric_name -> callable(y_true, transformed_predictions)
-        """
-        family = str(distribution_family).lower()
-
-        def _y_1d(y):
-            y = np.asarray(y)
-            if y.ndim == 2 and y.shape[1] == 1:
-                y = y[:, 0]
-            return y.reshape(-1) if y.ndim == 1 else y
-
-        def _categorical_labels(y):
-            y = np.asarray(y)
-            # Accept labels [N], [N,1], or one-hot/probs [N,K]
-            if y.ndim == 2 and y.shape[1] == 1:
-                return y[:, 0].astype(int)
-            if y.ndim == 2:
-                return np.argmax(y, axis=1).astype(int)
-            return y.reshape(-1).astype(int)
-
-        def _normal_crps(y, pred):
-            # pred = [mean, scale]
-            y = _y_1d(y).astype(float)
-            pred = np.asarray(pred, dtype=float)
-            mu = pred[:, 0]
-            scale = np.clip(pred[:, 1], 1e-9, None)  # std, not variance
-            return float(
-                np.mean(
-                    [
-                        ps.crps_gaussian(y[i], mu=mu[i], sig=scale[i])
-                        for i in range(len(y))
-                    ]
-                )
-            )
-
-        def _normal_mse(y, pred):
-            y = _y_1d(y).astype(float)
-            pred = np.asarray(pred, dtype=float)
-            return float(mean_squared_error(y, pred[:, 0]))
-
-        def _normal_mae(y, pred):
-            y = _y_1d(y).astype(float)
-            pred = np.asarray(pred, dtype=float)
-            return float(np.mean(np.abs(y - pred[:, 0])))
-
-        def _quantile_pinball(y, pred):
-            # pred shape [N, Q], uses family.quantiles if available
-            y = _y_1d(y).astype(float)
-            pred = np.asarray(pred, dtype=float)
-            if pred.ndim != 2:
-                raise ValueError(
-                    "Quantile predictions must be 2D (n_samples, n_quantiles)."
-                )
-
-            quantiles = getattr(self.family, "quantiles", None)
-            if quantiles is None:
-                raise ValueError(
-                    "Quantile default metric requires `self.family.quantiles`."
-                )
-            q = np.asarray(quantiles, dtype=float)
-            if pred.shape[1] != len(q):
-                raise ValueError(
-                    f"Predictions have {pred.shape[1]} quantiles but family.quantiles has {len(q)} entries."
-                )
-
-            y2 = y[:, None]
-            e = y2 - pred
-            loss = np.maximum((q[None, :] - 1.0) * e, q[None, :] * e)
-            return float(np.mean(np.sum(loss, axis=1)))
-
-        def _quantile_median_mae(y, pred):
-            y = _y_1d(y).astype(float)
-            pred = np.asarray(pred, dtype=float)
-            quantiles = getattr(self.family, "quantiles", None)
-            if quantiles is None:
-                # fallback: use center column
-                median_pred = pred[:, pred.shape[1] // 2]
-                return float(np.mean(np.abs(y - median_pred)))
-
-            q = list(map(float, quantiles))
-            if 0.5 in q:
-                idx = q.index(0.5)
-            else:
-                idx = int(np.argmin(np.abs(np.asarray(q) - 0.5)))
-            return float(np.mean(np.abs(y - pred[:, idx])))
-
-        default_metrics = {
-            "normal": {
-                "MSE": _normal_mse,
-                "MAE": _normal_mae,
-                "CRPS": _normal_crps,
-            },
-            "robustnormal": {
-                "MSE": _normal_mse,
-                "MAE": _normal_mae,
-                "CRPS": _normal_crps,
-            },
-            "poisson": {
-                # poisson_deviance accepts [rate] or 1D mean/rate
-                "Poisson Deviance": poisson_deviance,
-            },
-            "gamma": {
-                # gamma_deviance accepts transformed [shape, rate] directly
-                "Gamma Deviance": gamma_deviance,
-            },
-            "beta": {
-                "Beta Mean MSE": beta_mean_mse,
-            },
-            "dirichlet": {
-                "Dirichlet Error": dirichlet_error,
-            },
-            "studentt": {
-                # student_t_loss expects transformed [df, loc, scale]
-                "Student-T NLL": student_t_loss,
-            },
-            "negativebinom": {
-                # negative_binomial_deviance accepts transformed [mean,dispersion] directly
-                "Negative Binomial Deviance": negative_binomial_deviance,
-            },
-            "inversegamma": {
-                # inverse_gamma_loss expects transformed [shape, rate]
-                "Inverse Gamma NLL": inverse_gamma_loss,
-            },
-            "categorical": {
-                "Accuracy": lambda y, p: float(
-                    accuracy_score(
-                        _categorical_labels(y), np.argmax(np.asarray(p), axis=1)
-                    )
-                ),
-            },
-            "quantile": {
-                "Pinball Loss": _quantile_pinball,
-                "Median MAE": _quantile_median_mae,
-            },
-        }
-
-        return default_metrics.get(family, {})
+        metadata = resolve_family(distribution_family)
+        return default_metrics_for(metadata.metric_profile, self.family_)

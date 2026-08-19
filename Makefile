@@ -1,16 +1,16 @@
-.PHONY: help install install-dev test test-cov lint format clean build publish docs
+.PHONY: help install install-dev test test-cov lint type-check hygiene quality docs docs-serve docs-clean clean build publish publish-test
 
 help:
 	@echo "NAMpy Development Commands"
 	@echo "=========================="
 	@echo "install          Install package"
 	@echo "install-dev      Install package with dev dependencies"
-	@echo "test             Run tests"
-	@echo "test-cov         Run tests with coverage"
+	@echo "test             Run a targeted test slice: make test TEST=..."
+	@echo "test-cov         Run a targeted slice with coverage: make test-cov TEST=..."
 	@echo "lint             Run linters (ruff)"
-	@echo "format           Format code (black, isort)"
 	@echo "type-check       Run type checking (mypy)"
-	@echo "quality          Run all quality checks"
+	@echo "hygiene          Check release-sensitive repository state"
+	@echo "quality          Run static quality checks"
 	@echo "docs             Build documentation"
 	@echo "docs-serve       Build and serve documentation locally"
 	@echo "docs-clean       Clean documentation build"
@@ -19,34 +19,34 @@ help:
 	@echo "publish          Publish to PyPI (use with caution)"
 
 install:
-	pip install -e .
+	pip install -e ".[all]"
 
 install-dev:
-	pip install -e ".[dev]"
-	pip install pre-commit
+	pip install -e ".[all,dev]"
 	pre-commit install
 
 test:
-	pytest tests/
+	@test -n "$(TEST)" || (echo "Specify the smallest relevant slice, for example: make test TEST=tests/neural/test_neural_sklearn_contracts.py"; exit 2)
+	pytest $(TEST)
 
 test-cov:
-	pytest --cov=nampy --cov-report=term-missing --cov-report=html tests/
+	@test -n "$(TEST)" || (echo "Specify the smallest relevant slice with TEST=..."; exit 2)
+	pytest --cov=nampy --cov-report=term-missing --cov-report=html $(TEST)
 
 lint:
-	ruff check nampy/ tests/
-
-format:
-	black nampy/ tests/
-	isort nampy/ tests/
+	ruff check nampy tests scripts
 
 type-check:
-	mypy nampy/
+	mypy nampy
 
-quality: format lint type-check test
-	@echo "All quality checks passed!"
+hygiene:
+	python scripts/check_repository_hygiene.py
+
+quality: lint type-check hygiene
+	@echo "Static quality checks passed!"
 
 docs:
-	cd docs && make html
+	NAMPY_DOCS_SKIP_NOTEBOOKS=1 sphinx-build -E -W --keep-going -b html docs docs/_build/html
 	@echo "Documentation built successfully!"
 	@echo "Open docs/_build/html/index.html in your browser"
 
@@ -77,4 +77,3 @@ publish: build
 
 publish-test: build
 	twine upload --repository testpypi dist/*
-

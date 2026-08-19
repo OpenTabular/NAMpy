@@ -14,7 +14,7 @@ import numpy as np
 from ..._mgcv_constants import LOG_GUARD_MIN
 from ..._model_state import _fit_intercept
 from ..covariance import build_bayes_and_freq_covariances
-from ..linalg.stacked_qr import (
+from .stacked_qr import (
     _stacked_penalized_ls_nonneg_solution,
     build_penalized_qr_state_nonnegative,
     penalty_sqrt_rows,
@@ -942,12 +942,12 @@ def fit_irls_from_model(
     attach_smoothness_postprocess: bool = True,
     weights: np.ndarray | None = None,
 ) -> dict[str, Any]:
-    from ...smoothing_selection.reparam import (
-        build_penalty_reparameterization_state,
-    )
     from ..penalized_system import build_full_design, build_full_penalty_from_blocks
     from ..postprocess.gaussian_smoothness_postprocess import (
         merge_gaussian_smoothness_into_fit_result,
+    )
+    from ..selection.reparam import (
+        build_penalty_reparameterization_state,
     )
     from .pirls import _pirls_gdi_report_state
 

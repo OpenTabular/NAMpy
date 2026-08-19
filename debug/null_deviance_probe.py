@@ -11,8 +11,8 @@ sys.path.insert(0, "/home/ad32/projects/package/NAMpy")
 import numpy as np
 import pandas as pd
 
+from nampy.gam import GAM
 from nampy.gam.inference.null_deviance import null_deviance
-from nampy.gam.model.api import GAM
 
 rng = np.random.default_rng(3)
 n = 120

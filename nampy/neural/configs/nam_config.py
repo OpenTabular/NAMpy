@@ -12,29 +12,29 @@ class DefaultNAMConfig:
 
     Parameters
     ----------
-    lr : float, default=1e-04
+    lr : float
         Learning rate for the optimizer.
-    lr_patience : int, default=10
+    lr_patience : int
         Number of epochs with no improvement after which learning rate will be reduced.
-    weight_decay : float, default=1e-06
+    weight_decay : float
         Weight decay (L2 penalty) for the optimizer.
-    lr_factor : float, default=0.1
+    lr_factor : float
         Factor by which the learning rate will be reduced.
-    layer_sizes : list of int, default=[128, 128, 32]
+    layer_sizes : list of int
         Sizes of the layers in the MLP.
-    activation : type, default=nn.ReLU
+    activation : type
         Activation class for the MLP layers (e.g. nn.ReLU); a new instance is used per layer.
-    dropout : float, default=0.1
+    dropout : float
         Dropout rate for regularization.
-    norm : str, default=None
+    norm : str
         Normalization method to be used, if any.
-    use_glu : bool, default=False
+    use_glu : bool
         Whether to use Gated Linear Units (GLU) in the MLP.
-    skip_connections : bool, default=False
+    skip_connections : bool
         Whether to use skip connections in the MLP.
-    batch_norm : bool, default=False
+    batch_norm : bool
         Whether to use batch normalization in the MLP layers.
-    layer_norm : bool, default=False
+    layer_norm : bool
         Whether to use layer normalization in the MLP layers.
     """
 

@@ -13,8 +13,8 @@ import json
 import numpy as np
 import pandas as pd
 
-from nampy.gam.model.api import GAM
-from nampy.gam.smoothing_selection.optimize import driver as driver_module
+from nampy.gam import GAM
+from nampy.gam.fit.selection.optimize import driver as driver_module
 from tests.mgcv_parity_utils import _run_mgcv_snapshot
 from tests.optimization.test_mgcv_outer_optimization_parity import (
     _run_mgcv_outer_trace,
@@ -97,7 +97,7 @@ def main() -> None:
             "message": str(result.message),
             "nit": int(result.nit),
             "log_sp": np.log(np.asarray(gam.smoothing_params, dtype=np.float64)),
-            "edf_by_term": np.asarray(gam._edf_by_term_fit_, dtype=np.float64),
+            "edf_by_term": np.asarray(gam.fit_result().edf_by_term, dtype=np.float64),
             "trace": _focused_trace(gam._optim_trace),
         },
     }

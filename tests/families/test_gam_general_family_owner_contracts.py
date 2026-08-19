@@ -40,9 +40,13 @@ def _simple_general_fit_dict(*, reml2: float | None):
 
 def _simple_general_model(*, terms=(), penalties=()):
     return SimpleNamespace(
-        compiled_model_=SimpleNamespace(
-            compiled_terms=tuple(terms),
-            compiled_penalties=tuple(penalties),
+        gam_result_=SimpleNamespace(
+            compiled_model=SimpleNamespace(
+                compiled_terms=tuple(terms),
+                compiled_penalties=tuple(penalties),
+            ),
+            fit_core_solution=None,
+            fit_summary=None,
         )
     )
 

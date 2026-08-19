@@ -11,6 +11,7 @@ from ..smooths.categorical.fs import (
     SZSmoothInteractionTerm,
 )
 from ..smooths.categorical.re import RandomEffectTerm
+from ..smooths.parametric import LinearTerm
 from ..smooths.registry import make_smooth_term
 from ..smooths.univariate.cr import CubicSplineTerm
 from ..smooths.univariate.ps import PSplineTerm1D
@@ -29,7 +30,6 @@ from ..specs.smooth import (
     ThinPlateSmoothSpec,
     tensor_basis_list,
 )
-from ..terms.linear import LinearTerm
 
 
 def _as_list_or_repeat(value: Any, n: int):

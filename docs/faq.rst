@@ -35,7 +35,7 @@ How do I install NAMpy?
 
 .. code-block:: bash
 
-   pip install nampy
+   pip install "nampy[all]"
 
 For development installation:
 
@@ -43,16 +43,15 @@ For development installation:
 
    git clone https://github.com/OpenTabular/NAMpy.git
    cd NAMpy
-   pip install -e ".[dev]"
+   pip install -e ".[all,dev]"
 
 What are the requirements?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * Python 3.11 or 3.12
-* PyTorch
-* Lightning
-* scikit-learn
-* pandas, numpy
+The core package requires NumPy, pandas, and scikit-learn. Install
+``nampy[gam]`` for the GAM backend, ``nampy[neural]`` for the neural backend,
+or ``nampy[all]`` for both.
 
 Do I need a GPU?
 ~~~~~~~~~~~~~~~~

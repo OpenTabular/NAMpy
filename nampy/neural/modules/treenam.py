@@ -35,6 +35,7 @@ class TreeNAM(BaseModel):
 
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
+        self._validate_features(num_feature_info, cat_feature_info)
         self.num_classes = num_classes
 
         self.tree_depth = self.hparams.get("tree_depth", config.tree_depth)
@@ -57,18 +58,6 @@ class TreeNAM(BaseModel):
             self.intercept = nn.Parameter(torch.zeros(num_classes))
         else:
             self.intercept = None
-
-        reserved = {"output", "intercept", "output_penalty"}
-        all_feature_names = set(num_feature_info) | set(cat_feature_info)
-        if reserved & all_feature_names:
-            raise ValueError(
-                f"Feature names {sorted(reserved.intersection(all_feature_names))} are reserved."
-            )
-        if any(":" in name for name in all_feature_names):
-            bad = sorted(name for name in all_feature_names if ":" in name)
-            raise ValueError(
-                f"Feature names {bad} contain ':', which is reserved for interaction names."
-            )
 
         self.num_feature_models = nn.ModuleDict()
         for feature_name, info in num_feature_info.items():

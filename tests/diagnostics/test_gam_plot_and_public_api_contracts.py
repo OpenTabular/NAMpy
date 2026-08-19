@@ -20,7 +20,7 @@ matplotlib.use("Agg")
 
 plots_module = importlib.import_module("nampy.gam.diagnostics.plots")
 diagnostics_pkg = importlib.import_module("nampy.gam.diagnostics")
-smoothing_pkg = importlib.import_module("nampy.gam.smoothing_selection")
+smoothing_pkg = importlib.import_module("nampy.gam.fit.selection")
 model_api_module = importlib.import_module("nampy.gam.model.api")
 
 

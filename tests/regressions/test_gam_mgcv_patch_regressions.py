@@ -9,6 +9,7 @@ from scipy.optimize import OptimizeResult
 from nampy.gam import GAM
 from nampy.gam._model_state import (
     _design_matrix,
+    _edf_by_term,
     _fit_intercept,
     _fit_state,
     _n_coef,
@@ -16,7 +17,36 @@ from nampy.gam._model_state import (
 )
 from nampy.gam.compiler.factory import instantiate_term
 from nampy.gam.families import BinomialLogitFamily, GaussianIdentityFamily
-from nampy.gam.fit.linalg.stacked_qr import (
+from nampy.gam.fit.penalized_system import (
+    build_full_design,
+    build_full_penalty_from_blocks,
+)
+from nampy.gam.fit.selection.criteria import dispatch as criteria_dispatch
+from nampy.gam.fit.selection.criteria import gaussian as gaussian_criteria
+from nampy.gam.fit.selection.criteria import pirls as pirls_criteria
+from nampy.gam.fit.selection.criteria.gaussian import criterion_ml_reml_exact
+from nampy.gam.fit.selection.criteria.gaussian_reml_algebra import (
+    pearson_method_scale_estimate,
+    profiled_gaussian_reml_variance,
+)
+from nampy.gam.fit.selection.criteria.pirls.derivatives import (
+    criterion_gradient_ml_reml_pirls_exact,
+)
+from nampy.gam.fit.selection.optimize.newton import _optimize_outer_newton
+from nampy.gam.fit.selection.optimize.newton_strict import (
+    _optimize_outer_newton_strict,
+)
+from nampy.gam.fit.selection.reparam import (
+    SlBlock,
+    build_estimate_gam_setup_state,
+    build_penalty_reparameterization_state,
+    build_penalty_reparameterized_system,
+    can_use_simple_ml_reml_structure,
+    dynamic_reparam_design,
+    sl_group_indices,
+)
+from nampy.gam.fit.solvers.irls_core import irls_core
+from nampy.gam.fit.solvers.stacked_qr import (
     STACKED_QR_RANK_TOLERANCE,
     _pivoted_economic_qr,
     _scatter_pivoted_rank_matrix_to_full,
@@ -26,40 +56,11 @@ from nampy.gam.fit.linalg.stacked_qr import (
     solve_gaussian_penalized_ls_stacked_qr,
     stacked_qr_covariance_from_factor,
 )
-from nampy.gam.fit.penalized_system import (
-    build_full_design,
-    build_full_penalty_from_blocks,
-)
-from nampy.gam.fit.solvers.irls_core import irls_core
 from nampy.gam.fit.state import FitCoreSolution, FitState, assign_fit_solution
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
 from nampy.gam.linalg import balanced_penalty_template_sqrt_for_rank
 from nampy.gam.linalg.qr import mgcv_pqr_r
-from nampy.gam.results import FitResult
-from nampy.gam.smoothing_selection.criteria import dispatch as criteria_dispatch
-from nampy.gam.smoothing_selection.criteria import gaussian as gaussian_criteria
-from nampy.gam.smoothing_selection.criteria import pirls as pirls_criteria
-from nampy.gam.smoothing_selection.criteria.gaussian import criterion_ml_reml_exact
-from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
-    pearson_method_scale_estimate,
-    profiled_gaussian_reml_variance,
-)
-from nampy.gam.smoothing_selection.criteria.pirls.derivatives import (
-    criterion_gradient_ml_reml_pirls_exact,
-)
-from nampy.gam.smoothing_selection.optimize.newton import _optimize_outer_newton
-from nampy.gam.smoothing_selection.optimize.newton_strict import (
-    _optimize_outer_newton_strict,
-)
-from nampy.gam.smoothing_selection.reparam import (
-    SlBlock,
-    build_estimate_gam_setup_state,
-    build_penalty_reparameterization_state,
-    build_penalty_reparameterized_system,
-    can_use_simple_ml_reml_structure,
-    dynamic_reparam_design,
-    sl_group_indices,
-)
+from nampy.gam.results import FitResult, GAMResult
 from nampy.gam.specs.build import build_formula_model
 from nampy.gam.splines.univariate.tp import construct_tprs_basis
 from tests.mgcv_parity_utils import _make_gaussian_data
@@ -160,7 +161,11 @@ def _attach_compiled_model(
             )
             + 1
         )
-    model.compiled_model_ = SimpleNamespace(
+    model.gam_result_ = SimpleNamespace(
+        fit_core_solution=None,
+        fit_summary=None,
+    )
+    model.gam_result_.compiled_model = SimpleNamespace(
         design_matrix=np.asarray(design_matrix, dtype=np.float64),
         compiled_terms=tuple(compiled_terms),
         compiled_penalties=tuple(compiled_penalties),
@@ -575,7 +580,7 @@ def test_gdi_pk_setup_and_ift1_match_signed_weight_inverse_root(monkeypatch):
     root.
     """
     pirls_deriv_module = importlib.import_module(
-        "nampy.gam.smoothing_selection.criteria.pirls.derivatives"
+        "nampy.gam.fit.selection.criteria.pirls.derivatives"
     )
 
     X = np.array(
@@ -617,10 +622,14 @@ def test_gdi_pk_setup_and_ift1_match_signed_weight_inverse_root(monkeypatch):
 
     model = SimpleNamespace(
         family=GaussianIdentityFamily(),
-        compiled_model_=SimpleNamespace(
-            n_smoothing_params=1,
-            predictors=(),
-            design_matrix=X,
+        gam_result_=SimpleNamespace(
+            compiled_model=SimpleNamespace(
+                n_smoothing_params=1,
+                predictors=(),
+                design_matrix=X,
+            ),
+            fit_core_solution=None,
+            fit_summary=None,
         ),
     )
     sol = {
@@ -680,9 +689,9 @@ def test_gdi_pk_setup_and_ift1_match_signed_weight_inverse_root(monkeypatch):
 def test_gdi_pk_setup_requires_the_canonical_compiled_design():
     """The mgcv gdiPK port must not fall back to a solution-local design matrix."""
     pirls_deriv_module = importlib.import_module(
-        "nampy.gam.smoothing_selection.criteria.pirls.derivatives"
+        "nampy.gam.fit.selection.criteria.pirls.derivatives"
     )
-    model = SimpleNamespace(compiled_model_=None)
+    model = SimpleNamespace(gam_result_=None)
     sol = {
         "X": np.eye(2, dtype=np.float64),
         "working_weights": np.ones(2, dtype=np.float64),
@@ -706,7 +715,7 @@ def test_gaussian_fit3_gdi_beta_full_matches_signed_weight_stacked_qr(monkeypatc
     gaussian_exact_module = importlib.import_module(
         "nampy.gam.fit.solvers.gaussian_exact"
     )
-    reparam_module = importlib.import_module("nampy.gam.smoothing_selection.reparam")
+    reparam_module = importlib.import_module("nampy.gam.fit.selection.reparam")
 
     X = np.array(
         [
@@ -736,7 +745,13 @@ def test_gaussian_fit3_gdi_beta_full_matches_signed_weight_stacked_qr(monkeypatc
         lambda *args, **kwargs: canonical,
     )
 
-    model = SimpleNamespace(compiled_model_=SimpleNamespace(n_smoothing_params=1))
+    model = SimpleNamespace(
+        gam_result_=SimpleNamespace(
+            compiled_model=SimpleNamespace(n_smoothing_params=1),
+            fit_core_solution=None,
+            fit_summary=None,
+        )
+    )
     coef_full, eta_fit, _rank_root = (
         gaussian_exact_module._gaussian_fit3_gdi_beta_full(model, X, sp, y, w)
     )
@@ -888,32 +903,28 @@ def test_assign_fit_solution_transforms_gaussian_unconditional_covariance(
         cov_unconditional=None,
         H_coef=np.zeros((3, 3), dtype=np.float64),
     )
-    sol = FitCoreSolution(
-        fit_result=fit_result,
-        fit_state=fit_state,
-        penalized_system=fit_state.to_penalized_system(),
-    )
+    sol = FitCoreSolution(fit_result=fit_result, fit_state=fit_state)
 
     model = SimpleNamespace(
         family=GaussianIdentityFamily(),
         fit_intercept=False,
         n_samples_=3,
-        compiled_model_=SimpleNamespace(
-            metadata={"fit_to_prediction_parameterization_map": P},
-            compiled_terms=(),
-            compiled_penalties=(),
-            predictors=(),
-            predictor_full_slices=(),
-            n_coef=3,
-            n_smoothing_params=1,
+        gam_result_=GAMResult(
+            compiled_model=SimpleNamespace(
+                metadata={"fit_to_prediction_parameterization_map": P},
+                compiled_terms=(),
+                compiled_penalties=(),
+                predictors=(),
+                predictor_full_slices=(),
+                n_coef=3,
+                n_smoothing_params=1,
+            )
         ),
-        fit_core_solution_=None,
-        gam_result_=None,
     )
 
     assign_fit_solution(model, sol)
 
-    got = model.fit_core_solution_.fit_result
+    got = model.gam_result_.fit_core_solution.fit_result
     np.testing.assert_allclose(
         got.cov_bayes, P @ cov_bayes @ P.T, atol=1e-12, rtol=1e-12
     )
@@ -997,32 +1008,28 @@ def test_assign_fit_solution_transforms_pirls_unconditional_covariance_and_edf2(
         cov_unconditional=None,
         H_coef=np.eye(2, dtype=np.float64),
     )
-    sol = FitCoreSolution(
-        fit_result=fit_result,
-        fit_state=fit_state,
-        penalized_system=fit_state.to_penalized_system(),
-    )
+    sol = FitCoreSolution(fit_result=fit_result, fit_state=fit_state)
 
     model = SimpleNamespace(
         family=BinomialLogitFamily(),
         fit_intercept=False,
         n_samples_=2,
-        compiled_model_=SimpleNamespace(
-            metadata={"fit_to_prediction_parameterization_map": P},
-            compiled_terms=(),
-            compiled_penalties=(),
-            predictors=(),
-            predictor_full_slices=(),
-            n_coef=2,
-            n_smoothing_params=1,
+        gam_result_=GAMResult(
+            compiled_model=SimpleNamespace(
+                metadata={"fit_to_prediction_parameterization_map": P},
+                compiled_terms=(),
+                compiled_penalties=(),
+                predictors=(),
+                predictor_full_slices=(),
+                n_coef=2,
+                n_smoothing_params=1,
+            )
         ),
-        fit_core_solution_=None,
-        gam_result_=None,
     )
 
     assign_fit_solution(model, sol)
 
-    got = model.fit_core_solution_.fit_result
+    got = model.gam_result_.fit_core_solution.fit_result
     np.testing.assert_allclose(
         got.cov_unconditional,
         P @ cov_unconditional @ P.T,
@@ -1043,14 +1050,14 @@ def test_pirls_unconditional_postfit_uses_edge_correct_vc_but_fitted_edf2(
     uncond_module = importlib.import_module(
         "nampy.gam.fit.postprocess.unconditional_covariance"
     )
-    capabilities_module = importlib.import_module("nampy.gam.fit.capabilities")
+    reparam_module = importlib.import_module("nampy.gam.fit.selection.reparam")
     criteria_dispatch_module = importlib.import_module(
-        "nampy.gam.smoothing_selection.criteria.dispatch"
+        "nampy.gam.fit.selection.criteria.dispatch"
     )
     pirls_deriv_module = importlib.import_module(
-        "nampy.gam.smoothing_selection.criteria.pirls.derivatives"
+        "nampy.gam.fit.selection.criteria.pirls.derivatives"
     )
-    reparam_module = importlib.import_module("nampy.gam.smoothing_selection.reparam")
+    reparam_module = importlib.import_module("nampy.gam.fit.selection.reparam")
     newton_solver_module = importlib.import_module(
         "nampy.gam.fit.solvers.general_family.newton"
     )
@@ -1077,7 +1084,7 @@ def test_pirls_unconditional_postfit_uses_edge_correct_vc_but_fitted_edf2(
         return np.array([[0.03]], dtype=np.float64)
 
     monkeypatch.setattr(
-        capabilities_module,
+        reparam_module,
         "can_use_simple_ml_reml_structure",
         lambda model: True,
     )
@@ -1123,14 +1130,16 @@ def test_pirls_unconditional_postfit_uses_edge_correct_vc_but_fitted_edf2(
         smoothing_fixed_mask_=None,
         smoothing_params=np.array([0.5], dtype=np.float64),
         y_=np.array([0.0], dtype=np.float64),
-        compiled_model_=SimpleNamespace(
-            n_smoothing_params=1,
-            metadata={},
-            compiled_terms=(),
-            compiled_penalties=(),
-            predictors=(),
-            predictor_full_slices=(),
-            n_coef=1,
+        gam_result_=GAMResult(
+            compiled_model=SimpleNamespace(
+                n_smoothing_params=1,
+                metadata={},
+                compiled_terms=(),
+                compiled_penalties=(),
+                predictors=(),
+                predictor_full_slices=(),
+                n_coef=1,
+            )
         ),
     )
     fit_state = FitState(
@@ -1206,12 +1215,12 @@ def test_gaussian_unconditional_postfit_augments_link_matrix_for_joint_scale(
     )
     backends_module = importlib.import_module("nampy.gam.fit.backends")
     gaussian_dyn_module = importlib.import_module(
-        "nampy.gam.smoothing_selection.criteria.gaussian_dyn"
+        "nampy.gam.fit.selection.criteria.gaussian_dyn"
     )
     pirls_deriv_module = importlib.import_module(
-        "nampy.gam.smoothing_selection.criteria.pirls.derivatives"
+        "nampy.gam.fit.selection.criteria.pirls.derivatives"
     )
-    reparam_module = importlib.import_module("nampy.gam.smoothing_selection.reparam")
+    reparam_module = importlib.import_module("nampy.gam.fit.selection.reparam")
     newton_solver_module = importlib.import_module(
         "nampy.gam.fit.solvers.general_family.newton"
     )
@@ -1279,14 +1288,16 @@ def test_gaussian_unconditional_postfit_augments_link_matrix_for_joint_scale(
         smoothing_params=np.array([0.75], dtype=np.float64),
         score_gamma=1.0,
         y_=np.array([0.0], dtype=np.float64),
-        compiled_model_=SimpleNamespace(
-            n_smoothing_params=1,
-            metadata={},
-            compiled_terms=(),
-            compiled_penalties=(),
-            predictors=(),
-            predictor_full_slices=(),
-            n_coef=1,
+        gam_result_=GAMResult(
+            compiled_model=SimpleNamespace(
+                n_smoothing_params=1,
+                metadata={},
+                compiled_terms=(),
+                compiled_penalties=(),
+                predictors=(),
+                predictor_full_slices=(),
+                n_coef=1,
+            )
         ),
     )
     fit_state = FitState(
@@ -1342,7 +1353,7 @@ def test_gaussian_unconditional_postfit_augments_link_matrix_for_joint_scale(
 def test_gaussian_dynamic_deviance_requires_gam_fit3_state():
     """Dynamic Gaussian REML must not substitute a recomputed weighted RSS."""
     gaussian_dyn_module = importlib.import_module(
-        "nampy.gam.smoothing_selection.criteria.gaussian_dyn"
+        "nampy.gam.fit.selection.criteria.gaussian_dyn"
     )
 
     with pytest.raises(RuntimeError, match="gam.fit3 deviance state"):
@@ -1554,7 +1565,9 @@ def test_prediction_parameterization_respects_public_space_covariance_tags():
     Regression coverage verifying that prediction parameterization respects public space
     covariance tags.
     """
-    state_module = importlib.import_module("nampy.gam.fit.state")
+    from nampy.gam.fit.parameterization import (
+        export_fit_result_to_prediction_space,
+    )
 
     P = np.array(
         [
@@ -1597,17 +1610,15 @@ def test_prediction_parameterization_respects_public_space_covariance_tags():
     )
     model = SimpleNamespace(
         family=GaussianIdentityFamily(),
-        compiled_model_=SimpleNamespace(
-            metadata={"fit_to_prediction_parameterization_map": P},
-            compiled_terms=(),
+        gam_result_=GAMResult(
+            compiled_model=SimpleNamespace(
+                metadata={"fit_to_prediction_parameterization_map": P},
+                compiled_terms=(),
+            )
         ),
     )
 
-    out = state_module._apply_prediction_parameterization_to_fit_result(
-        model,
-        fit_result,
-        None,
-    )
+    out = export_fit_result_to_prediction_space(model, fit_result)
 
     np.testing.assert_allclose(
         out.cov_bayes,
@@ -1950,7 +1961,7 @@ def test_mixed_list_xt_payload_survives_fit_for_tp_and_fs():
         )
         gam.fit(data=data)
 
-        term = gam.compiled_model_.compiled_terms[0]
+        term = gam.gam_result_.compiled_model.compiled_terms[0]
         term_spec = term.metadata["term_spec"]
         assert term_spec["basis_options"]["xt"] == expected_xt
 
@@ -1980,7 +1991,7 @@ def test_mixed_list_xt_payload_survives_fit_for_random_effect_penalties():
     )
     gam.fit(data=data)
 
-    term = gam.compiled_model_.compiled_terms[0]
+    term = gam.gam_result_.compiled_model.compiled_terms[0]
     term_spec = term.metadata["term_spec"]
     xt = term_spec["basis_options"]["xt"]
     assert xt[0] == 1
@@ -2007,7 +2018,7 @@ def test_list_kwargs_expansion_supports_non_identifier_xt_keys_for_tp():
     )
     gam.fit(data=data)
 
-    term = gam.compiled_model_.compiled_terms[0]
+    term = gam.gam_result_.compiled_model.compiled_terms[0]
     term_spec = term.metadata["term_spec"]
     assert term_spec["basis_options"]["xt"] == {"max.knots": 10, "seed": 2}
 def test_tensor_xt_rejects_ambiguous_named_dict_surface():
@@ -2251,7 +2262,7 @@ def test_tensor_id_metadata_maps_one_smoothing_id_to_multiple_sp_indices():
     )
     gam.fit(data=data)
 
-    compiled = gam.compiled_model_
+    compiled = gam.gam_result_.compiled_model
     assert compiled is not None
 
     mapping = compiled.metadata.get("s_id_to_sp_indices", {})
@@ -2389,7 +2400,7 @@ def test_rank_deficient_gaussian_fit_matches_mgcv_drop_gauge(
     assert np.all(vp[:, dropped[0]] == 0.0)
     np.testing.assert_allclose(vp, exp_vp, rtol=1e-6, atol=1e-9)
 
-    fit_state = gam.fit_core_solution_.fit_state
+    fit_state = gam.gam_result_.fit_core_solution.fit_state
     assert int(fit_state.penalized_system_rank) == int(expected["fit"]["rank"])
     assert (
         np.asarray(fit_state.dropped_column_indices, dtype=np.int64).size
@@ -2405,7 +2416,7 @@ def test_rank_deficient_gaussian_fit_matches_mgcv_drop_gauge(
         expected["fit"]["edf_by_term"], dtype=np.float64
     ).ravel()
     np.testing.assert_allclose(
-        np.asarray(gam._edf_by_term_fit_, dtype=np.float64)[
+        np.asarray(_edf_by_term(gam), dtype=np.float64)[
             -expected_smooth_edf.size :
         ],
         expected_smooth_edf,
@@ -2417,8 +2428,8 @@ def test_rank_deficient_gaussian_fit_matches_mgcv_drop_gauge(
         parametric_reports = [
             report
             for predictor, side_report in zip(
-                gam.compiled_model_.predictors,
-                gam.side_condition_reports_,
+                gam.gam_result_.compiled_model.predictors,
+                gam.gam_result_.compiled_model.side_condition_reports,
                 strict=True,
             )
             for term, report in zip(

@@ -4,16 +4,14 @@ Installation
 Requirements
 ------------
 
-NAMpy supports Python 3.11 and 3.12 and requires the following dependencies:
+NAMpy supports Python 3.11 and 3.12. The core package requires:
 
-* PyTorch
-* Lightning
 * scikit-learn
 * pandas
 * numpy (<=1.26.4)
-* torchmetrics
-* properscoring
-* matplotlib
+
+Backend dependencies are grouped into ``gam`` and ``neural`` installation
+extras. The ``all`` extra installs both.
 
 Installation Methods
 --------------------
@@ -21,11 +19,18 @@ Installation Methods
 From PyPI (Recommended)
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The recommended way to install NAMpy is using pip:
+Install both supported backends with:
 
 .. code-block:: bash
 
-   pip install nampy
+   pip install "nampy[all]"
+
+Install one backend when a smaller environment is preferable:
+
+.. code-block:: bash
+
+   pip install "nampy[gam]"
+   pip install "nampy[neural]"
 
 From Source
 ~~~~~~~~~~~
@@ -36,7 +41,7 @@ To install the latest development version from source:
 
    git clone https://github.com/OpenTabular/NAMpy.git
    cd NAMpy
-   pip install -e .
+   pip install -e ".[all]"
 
 From GitHub
 ~~~~~~~~~~~
@@ -45,7 +50,7 @@ You can also install directly from Github:
 
 .. code-block:: bash
 
-   pip install git+https://github.com/OpenTabular/NAMpy.git@main
+   pip install "nampy[all] @ git+https://github.com/OpenTabular/NAMpy.git@main"
 
 Development Installation
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -56,7 +61,7 @@ If you want to contribute to NAMpy, install with development dependencies:
 
    git clone https://github.com/OpenTabular/NAMpy.git
    cd NAMpy
-   pip install -e ".[dev]"
+   pip install -e ".[all,dev]"
    
    # Optional: install the repository's local quality hooks
    pre-commit install

@@ -7,19 +7,9 @@ def uses_closed_form_solver(model):
     return bool(getattr(model.family, "supports_closed_form_solve", False))
 
 
-def can_use_exact_gaussian_ml_reml(model):
-    from ..smoothing_selection.reparam import can_use_exact_gaussian_ml_reml
-
-    return can_use_exact_gaussian_ml_reml(model)
-
-
-def can_use_simple_ml_reml_structure(model):
-    from ..smoothing_selection.reparam import can_use_simple_ml_reml_structure
-
-    return can_use_simple_ml_reml_structure(model)
-
-
 def needs_exact_gaussian_reparameterization(model):
+    from .selection.reparam import can_use_exact_gaussian_ml_reml
+
     return (
         uses_closed_form_solver(model)
         and can_use_exact_gaussian_ml_reml(model)
@@ -30,13 +20,10 @@ def needs_exact_gaussian_reparameterization(model):
     )
 
 
-def resolve_ml_reml_scoring_backend(model, method="reml"):
-    from ..smoothing_selection import resolve_ml_reml_scoring_backend as _resolve
-
-    return _resolve(model, method=method)
-
-
 def raise_ml_reml_backend_error(model, method):
+    from .selection.criteria.ml_reml import resolve_ml_reml_scoring_backend
+    from .selection.reparam import can_use_simple_ml_reml_structure
+
     method = str(method).lower()
     backend = resolve_ml_reml_scoring_backend(model, method=method)
     if backend is not None:
@@ -69,21 +56,3 @@ def coerce_general_family_smoothing_method(model, method, optimizer=None):
     if family_class == "general" and (method != "reml" or optimizer == "efs"):
         return "reml"
     return method
-
-
-def supports_smoothing_method(model, method):
-    from ..smoothing_selection import supports_smoothing_method as _supports
-
-    return _supports(model, method)
-
-
-def resolve_smoothing_method(model, method):
-    from ..smoothing_selection import resolve_smoothing_method as _resolve
-
-    return _resolve(model, method)
-
-
-def n_free_smoothing_params(model):
-    from ..smoothing_selection import n_free_smoothing_params as _count
-
-    return _count(model)

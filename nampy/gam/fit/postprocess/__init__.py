@@ -1,4 +1,10 @@
-"""Post-fit diagnostics and score/derivative computation."""
+"""Post-fit diagnostics and score/derivative computation.
+
+The lazy ``__getattr__`` below is cycle-breaking, not decorative:
+``fit.state`` imports this package while ``fit.backends`` is still
+initializing, and ``gaussian_smoothness_postprocess`` imports
+``selection.criteria.dispatch`` which imports ``fit.backends`` back.
+"""
 
 from __future__ import annotations
 

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.gam.smoothing_selection.criteria import (
+from nampy.gam.fit.selection.criteria import (
     criterion_gradient,
     criterion_hessian,
     criterion_value,

@@ -47,7 +47,7 @@ def main() -> None:
     print("expected trace rows:", len(expected_trace["trace"]))
     print("actual fit outer_info:", actual_trace["fit"]["outer_info"])
     print("expected fit outer_info:", expected_trace["fit"]["outer_info"])
-    print("actual final Vc is None:", gam.fit_core_solution_.fit_result.cov_unconditional is None)
+    print("actual final Vc is None:", gam.gam_result_.fit_core_solution.fit_result.cov_unconditional is None)
     print("expected final Vc is None:", expected_snapshot["fit"].get("cov_unconditional", None) is None)
     print("actual smoothing params:", np.asarray(gam.smoothing_params))
     print(

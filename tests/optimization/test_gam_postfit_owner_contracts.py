@@ -5,8 +5,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from nampy.gam.smoothing_selection import postfit as postfit_module
-from nampy.gam.smoothing_selection.postfit import (
+from nampy.gam.fit.selection import postfit as postfit_module
+from nampy.gam.fit.selection.postfit import (
     _postfit_hessian,
     optimizer_endpoint_diagnostics,
 )

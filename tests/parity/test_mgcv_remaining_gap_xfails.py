@@ -19,13 +19,13 @@ from numpy.testing import assert_allclose
 
 from nampy.gam import GAM
 from nampy.gam.fit.backends import solve_pirls_given_smoothing
-from nampy.gam.formula import extract_formula_terms, parse_gam_formula
-from nampy.gam.smoothing_selection.criteria.dispatch import (
+from nampy.gam.fit.selection.criteria.dispatch import (
     criterion_gradient,
     criterion_hessian,
     criterion_value,
 )
-from nampy.gam.smoothing_selection.criteria.pirls.derivatives import _gdi2_joint_kernel
+from nampy.gam.fit.selection.criteria.pirls.derivatives import _gdi2_joint_kernel
+from nampy.gam.formula import extract_formula_terms, parse_gam_formula
 from nampy.gam.specs.build import build_formula_model
 from tests._paths import REPO_ROOT
 from tests.families.test_general_family_mgcv_parity import (

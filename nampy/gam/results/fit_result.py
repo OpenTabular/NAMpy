@@ -5,6 +5,8 @@ from typing import Any
 
 import numpy as np
 
+from .solution import FitResult
+
 
 @dataclass
 class TermFitResult:
@@ -40,27 +42,73 @@ class TermFitResult:
 
 @dataclass
 class GAMFitResult:
+    """Presentation-level fit summary.
+
+    The numeric record is held once, by reference, in ``core`` (the solver's
+    :class:`FitResult`); this class adds only derived presentation data.
+    """
+
     family_name: str
     link_name: str
     criterion_name: str | None
     criterion_value: float | None
-    coef_full: np.ndarray
-    intercept: float
+    core: FitResult
     smoothing_params: np.ndarray
-    edf_total: float
-    edf_by_term: np.ndarray
-    trace_H: float
-    scale: float
-    rss: float | None
-    deviance: float
-    cov_bayes: np.ndarray | None = None
-    cov_freq: np.ndarray | None = None
-    cov_unconditional: np.ndarray | None = None
-    cov_unconditional_space: str | None = None
-    edf2: np.ndarray | None = None
     side_condition_reports: list[dict[str, Any]] | None = None
     term_results: list[TermFitResult] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def coef_full(self) -> np.ndarray:
+        return self.core.coef_full
+
+    @property
+    def intercept(self) -> float:
+        return self.core.intercept
+
+    @property
+    def edf_total(self) -> float:
+        return self.core.edf
+
+    @property
+    def edf_by_term(self) -> np.ndarray | None:
+        return self.core.edf_by_term
+
+    @property
+    def trace_H(self) -> float:
+        return self.core.trace_H
+
+    @property
+    def scale(self) -> float:
+        return self.core.scale
+
+    @property
+    def rss(self) -> float | None:
+        return self.core.rss
+
+    @property
+    def deviance(self) -> float:
+        return self.core.deviance
+
+    @property
+    def cov_bayes(self) -> np.ndarray | None:
+        return self.core.cov_bayes
+
+    @property
+    def cov_freq(self) -> np.ndarray | None:
+        return self.core.cov_freq
+
+    @property
+    def cov_unconditional(self) -> np.ndarray | None:
+        return self.core.cov_unconditional
+
+    @property
+    def cov_unconditional_space(self) -> str | None:
+        return self.core.cov_unconditional_space
+
+    @property
+    def edf2(self) -> np.ndarray | None:
+        return self.core.edf2
 
     def to_dict(self, include_covariances=False):
         out = {

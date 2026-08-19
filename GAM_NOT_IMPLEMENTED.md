@@ -1,6 +1,6 @@
 # GAM subsystem — not implemented / known deviations
 
-Snapshot date: 2026-08-17. Companion to [GAM_IMPLEMENTED.md](GAM_IMPLEMENTED.md).
+Snapshot date: 2026-08-18. Companion to [GAM_IMPLEMENTED.md](GAM_IMPLEMENTED.md).
 Policy: every unsupported surface must fail loudly (explicit
 `NotImplementedError`/`ValueError`), never silently approximate. Items marked
 **guarded** raise an explicit error today; items marked **absent** fail
@@ -29,6 +29,10 @@ through a generic guard (unknown basis/function/method).
 | Ordered parametric factors (R ordered contrasts) | guarded |
 | `%in%`, R's `^` operator (write `**`) | absent (parse error) |
 | Data-aware `.` shorthand for formula lists | guarded (upstream rejects this too) |
+| Shared linear-predictor components (`1 + 2 ~ ...`) | guarded (2026-08-18): mgcv shares ONE coefficient block across the labelled predictors; the former NAMpy expansion cloned terms with independent coefficients — a different model. Parsing keeps `interpret.gam` parity; building raises until coefficient sharing is ported |
+| Per-term `select=` inside `s()/te()/ti()` | removed (2026-08-18): mgcv's `s()` has no `select` argument (smooth.r:614); use model-level `select` |
+| Constructor `tensor_terms=`/`main_effects=` (non-formula tensor specs) | removed (2026-08-18): tensor terms are formula-only (`te()`/`ti()`); the array path builds one main-effect smooth per column |
+| Constructor `side_condition_tol=` | removed (2026-08-18): upstream `gam.side` has no user-facing tolerance either (mgcv.r:1266) |
 | Multiple `offset()` terms summing | intentionally NOT summed — upstream `interpret.gam0` keeps only the first offset (verified: `debug/multi_offset_probe.R`); NAMpy mirrors that including the R warning |
 
 ## Families absent entirely
@@ -50,6 +54,7 @@ its extended families are ported.
 | `nlm` optimizer | guarded |
 | `magic` / performance iteration as a distinct optimizer identity | absent — Gaussian+GCV routes through outer optimization, so the reported optimizer name never equals `"magic"` |
 | `scale=` argument (known-scale Gaussian/Gamma UBRE/Cp workflow) | absent — UBRE/AIC is blocked whenever `known_scale is None` |
+| Parametric-only formulas with `optimize_smoothing=True` | guarded — the current smoothing-selection driver requires at least one smooth parameter; fixed fitting remains available |
 | `optim` exact parity | partial — SciPy L-BFGS-B stands in for R `stats::optim`; the negbin estimated-theta **ML + optim** combination is guarded until the exact R L-BFGS-B flat-boundary behavior is ported |
 | LAML for GLM/extended families | absent (flag off); only general families accept it, folded into REML as upstream |
 
@@ -72,10 +77,13 @@ its extended families are ported.
 
 ## Public-surface shape differences (not mgcv ports)
 
-- `plot()` is bespoke matplotlib, not `plot.gam`: no confidence bands,
-  `seWithMean`, partial residuals, rug, `scheme`/`pages`/`select`, no
-  `vis.gam`. (`summary()` IS a `summary.gam` port as of 2026-08-15 — see
-  `GAM_IMPLEMENTED.md`; only the coefficient display names differ from R's
+- `plot()` is a `plot.gam` port as of 2026-08-18 (see `GAM_IMPLEMENTED.md`):
+  the data phase (grids, fits, CIs incl. `seWithMean`, partial residuals,
+  too-far exclusion, re/fs/sz methods) is parity-tested against `plot.gam`'s
+  returned data; rendering is matplotlib, so pure R graphics state (character
+  expansion, contour-legend layout, device asking) is not mirrored. `vis.gam`
+  and `deriv=TRUE` plots are still absent. (`summary()` IS a `summary.gam`
+  port as of 2026-08-15; only the coefficient display names differ from R's
   contrast naming, e.g. `fac[b]` vs `facb`.)
 - `gam_check()` returns data (mgcv-comparable vs NAMpy-specific split), no
   plots.
@@ -83,6 +91,25 @@ its extended families are ported.
   `gamm`, `jagam`.
 
 ## Known numeric deviations (documented, evidence-backed)
+
+- **`cs` repeated-zero eigenspace orientation** — the raw cubic-shrinkage
+  penalty can differ slightly because base R and SciPy may choose different
+  bases inside the repeated zero eigenspace before the two unequal shrinkage
+  eigenvalues are assigned. Constructor and fitted behavior are compared with
+  the documented invariant/tolerance; production code must not select a LAPACK
+  driver solely to force one platform's raw representation.
+
+- **Flat Poisson smoothing endpoints and `optim` traces** — a single-smooth
+  UBRE optimum can differ from `mgcv` at approximately `1e-5` in log-SP on a
+  flat objective. L-BFGS-B may also take a small number of extra trailing line
+  searches after the smoothing coordinate has reached an effective infinite
+  boundary. Tests constrain the common trace, endpoint class, score, and fitted
+  behavior instead of requiring a platform-specific evaluation count.
+
+- **Binomial AIC with non-unit prior weights** — the current binomial AIC
+  kernel does not reproduce R `binomial()$aic`'s convention of interpreting
+  non-unit prior weights as trial counts. Unit-weight AIC is within the
+  supported parity surface; the weighted convention remains backlog work.
 
 - **fs null-space penalty assignment order** — upstream assigns one sp per
   `nat.param(type=1)` null column (`mgcv/R/smooth.r:2067-2075`), whose order
@@ -95,16 +122,22 @@ its extended families are ported.
   Vc/edf2/AIC inherit the branch (NAMpy equals mgcv's row-permuted branch to
   7 digits) and are excluded for the affected case with the evidence in the
   registry comment.
+  General-family fixed-`fs` parity therefore uses a common value for these
+  exchangeable null penalties; optimized `gaulss`+`fs` behavior passes without
+  comparing their raw order.
 
-- **`gaulss(select=True)` optimized endpoint** — the only live GAM xfail.
-  After correcting the multi-penalty `Sl.setup` triangle convention, the
-  retained probe gives second log-sp `11.81049973` versus mgcv `11.91107097`;
-  the optimized final-fit covariance remains outside tolerance. Fixed/shared-
-  endpoint post-processing remains strict. Upstream `estimate.gam` transforms
-  `G$X` with arbitrary-sign symmetric-eigen vectors but passes
-  unreparameterized `G$Eb` into `initial.spg`, making this start dependent on
-  a legal `DSYEVR` sign choice. This is separate from gammals and must not be
-  hidden by a heuristic, sign canonicalizer, or platform-specific solver hook.
+- **`gaulss(select=True)` optimized endpoint invariant** — passing, not an
+  xfail. After correcting the multi-penalty `Sl.setup` triangle convention, the
+  retained probe gives second log-sp `11.81049973` versus mgcv `11.91107097`.
+  Both are above 10 on the same saturated high-penalty tail: the ML criteria
+  differ by `3.98e-6`, both gradients are below `4.2e-5`, and the identified
+  log-SP plus conditional covariance, EDF, trace, scale, AIC, predictions, and
+  SEs pass. Unconditional covariance and EDF2 pass strictly when evaluated at
+  mgcv's exact endpoint. Upstream `estimate.gam` transforms `G$X` with
+  arbitrary-sign symmetric-eigen vectors but passes unreparameterized `G$Eb`
+  into `initial.spg`, making the raw tail coordinate depend on a legal `DSYEVR`
+  sign choice. This must not be hidden by a heuristic, sign canonicalizer, or
+  platform-specific solver hook.
 
   The former `gammals_select_true_cr` endpoint, prediction, and EDF2 xfails are
   fixed. They were caused by `_sl_multi_penalty_block` using the upper triangle

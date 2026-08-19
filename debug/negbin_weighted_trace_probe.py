@@ -10,8 +10,8 @@ sys.path.insert(0, "/home/ad32/projects/package/NAMpy")
 
 import numpy as np
 
-from nampy.gam.model.api import GAM
-from nampy.gam.parity.trace import build_optimizer_trace
+from nampy.gam import GAM
+from nampy.gam.results.traces import build_optimizer_trace
 from tests.mgcv_parity_utils import _make_negbin_data
 from tests.optimization.test_mgcv_outer_optimization_parity import (
     _run_mgcv_outer_trace,

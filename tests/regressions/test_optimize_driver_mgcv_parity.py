@@ -9,10 +9,9 @@ from scipy.optimize import OptimizeResult
 
 from nampy.gam import GAM
 from nampy.gam.fit import orchestrator as orchestrator_module
-from nampy.gam.fit import smoothing_params as fit_smoothing_params_module
-from nampy.gam.smoothing_selection.optimize import driver as driver_module
-from nampy.gam.smoothing_selection.optimize import objectives as objectives_module
-from nampy.gam.smoothing_selection.optimize.objectives import (
+from nampy.gam.fit.selection.optimize import driver as driver_module
+from nampy.gam.fit.selection.optimize import objectives as objectives_module
+from nampy.gam.fit.selection.optimize.objectives import (
     _JointNegbinPirlsRemlObjective,
 )
 
@@ -25,7 +24,7 @@ def test_defaults_use_mgcv_outer_newton_optimizer():
         == "outer_newton"
     )
     assert (
-        inspect.signature(fit_smoothing_params_module.optimize_smoothing_params)
+        inspect.signature(orchestrator_module.optimize_smoothing_params)
         .parameters["optimizer"]
         .default
         == "outer_newton"

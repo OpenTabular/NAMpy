@@ -14,47 +14,47 @@ class DefaultNBMConfig:
 
     Parameters
     ----------
-    lr : float, default=1e-04
+    lr : float
         Learning rate for the optimizer.
-    lr_patience : int, default=10
+    lr_patience : int
         Number of epochs with no improvement after which learning rate will be reduced.
-    weight_decay : float, default=1e-06
+    weight_decay : float
         Weight decay (L2 penalty) for the optimizer.
-    lr_factor : float, default=0.1
+    lr_factor : float
         Factor by which the learning rate will be reduced.
-    layer_sizes : list of int, default=[128, 128, 32]
+    layer_sizes : list of int
         Sizes of the layers in the basis MLP.
-    activation : type, default=nn.ReLU
+    activation : type
         Activation class for the basis MLP layers (e.g. nn.ReLU); a new instance is used per layer.
-    dropout : float, default=0.1
+    dropout : float
         Dropout rate for regularization.
-    bases_dropout : float, default=0.1
+    bases_dropout : float
         Dropout rate for entire basis function outputs.
-    norm : str, default=None
+    norm : str
         Normalization method (e.g. BatchNorm, LayerNorm, RMSNorm, GroupNorm).
-    use_glu : bool, default=False
+    use_glu : bool
         Whether to use Gated Linear Units (GLU) in the basis MLP.
-    skip_connections : bool, default=False
+    skip_connections : bool
         Whether to use skip connections in the basis MLP.
-    num_subnets : int, default=1
+    num_subnets : int
         Number of sub-networks to learn basis functions.
-    batch_norm : bool, default=False
+    batch_norm : bool
         Whether to use batch normalization in the basis MLP layers.
-    layer_norm : bool, default=False
+    layer_norm : bool
         Whether to use layer normalization in the basis MLP layers.
-    intercept : bool, default=True
+    intercept : bool
         Whether to use a learnable intercept parameter.
-    feature_dropout : float, default=0.0
+    feature_dropout : float
         Probability for feature-level dropout (drops whole feature outputs).
     interaction_degree : int, optional
         Degree of feature interactions to model; if None, no interactions are added.
-    num_bases : int, default=100
+    num_bases : int
         Number of shared basis functions.
     nary : dict, optional
         N-ary interaction index sets; if None, unary (order 1) is used.
-    order : int, default=1
+    order : int
         Order of N-ary concept interactions when nary is not provided.
-    output_penalty : float, default=0.0
+    output_penalty : float
         Coefficient for L2 penalty on term scores (added to task loss when > 0).
     """
 

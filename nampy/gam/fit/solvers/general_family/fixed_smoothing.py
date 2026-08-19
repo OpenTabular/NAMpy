@@ -180,7 +180,7 @@ def _build_general_predictor_layout(model) -> _GeneralPredictorLayout:
 
 
 def _mroot_chol_local(P: np.ndarray, *, rank: int | None = None) -> np.ndarray:
-    from ....smoothing_selection.reparam import _mroot_chol
+    from ...selection.reparam import _mroot_chol
 
     root: np.ndarray = _mroot_chol(P, rank=rank)
     return root
@@ -1218,7 +1218,7 @@ def run_general_family_fixed_smoothing(
         ldetS1 = np.asarray(setup.ldetS1, dtype=np.float64)
         ldetS2 = np.asarray(setup.ldetS2, dtype=np.float64)
     else:
-        from ....smoothing_selection.reparam import _stable_penalty_logdet_derivatives
+        from ...selection.reparam import _stable_penalty_logdet_derivatives
 
         ldetS, ldetS1, ldetS2 = _stable_penalty_logdet_derivatives(
             model,
@@ -1387,7 +1387,7 @@ def solve_general_family_fit(model, y, smoothing_params, weights=None):
         if outer_hess_raw is not None:
             outer_hess = np.asarray(outer_hess_raw, dtype=np.float64)
 
-    from ....smoothing_selection.reparam import build_estimate_gam_setup_state
+    from ...selection.reparam import build_estimate_gam_setup_state
 
     exact_setup = build_estimate_gam_setup_state(model)
 

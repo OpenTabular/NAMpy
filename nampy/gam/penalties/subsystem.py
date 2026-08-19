@@ -20,9 +20,9 @@ from typing import Any
 
 import numpy as np
 
-from ..compiler.structures import PenaltySpec
-from ..linalg import symmetric_eigvalsh
-from .algebra import null_space_penalty_from_penalty, symmetrize_penalty
+from ..linalg import symmetric_eigvalsh, symmetrize_matrix
+from .algebra import null_space_penalty_from_penalty
+from .spec import PenaltySpec
 
 PENALTY_ID_SEPARATOR = "::"
 
@@ -54,7 +54,7 @@ def normalize_penalty_spec(
         raise ValueError(
             f"Penalty matrices must be square 2D arrays, got shape={P.shape}."
         )
-    P = symmetrize_penalty(P)
+    P = symmetrize_matrix(P)
     rank, null_dim = penalty_rank_null_dim(P)
 
     if spec.sp_mode not in {None, "fixed", "estimate"}:

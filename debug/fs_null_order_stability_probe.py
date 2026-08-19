@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 from nampy.gam.smooths.categorical.fs import _penalty_rank_from_base_term
-from nampy.splines.basis.natparam import nat_param_type1
+from nampy.gam.splines.basis.natparam import nat_param_type1
 from tests.smooths.test_mgcv_raw_constructor_parity import _build_runtime_term
 
 R_CODE = """

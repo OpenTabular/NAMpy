@@ -15,7 +15,6 @@ from nampy.models.ensemble_treenam import (
 )
 from nampy.models.gpnam import GPNAMLSS, GPNAMClassifier, GPNAMRegressor
 from nampy.models.linreg import LinRegClassifier, LinRegLSS, LinRegRegressor
-from nampy.models.lss import NeuralLSS
 from nampy.models.nam import NAMLSS, NAMClassifier, NAMRegressor
 from nampy.models.namformer import (
     NAMformerClassifier,
@@ -147,23 +146,37 @@ def test_spline_nam_clone_preserves_overlapping_n_knots_parameter():
     assert cloned.preprocessor.n_bins == 13
 
 
-def test_qnam_fit_returns_self_and_owns_quantile_family(monkeypatch):
-    captured = {}
+def test_lss_family_configuration_is_cloneable():
+    estimator = NAMLSS(
+        family="poisson",
+        distributional_kwargs={"eps": 1e-5},
+        numerical_preprocessing="standardization",
+    )
 
-    def fake_fit(self, X, y, **kwargs):
-        captured.update(kwargs)
-        return self
+    cloned = clone(estimator)
 
-    monkeypatch.setattr(NeuralLSS, "fit", fake_fit)
+    assert cloned.family == "poisson"
+    assert cloned.distributional_kwargs == {"eps": 1e-5}
+    assert cloned.get_params(deep=False)["family"] == "poisson"
+
+
+def test_qnam_constructor_owns_quantile_family():
     estimator = QNAMLSS()
 
-    returned = estimator.fit([[0.0], [1.0]], [0.0, 1.0])
-
-    assert returned is estimator
-    assert captured["family"] == "quantile"
-    assert captured["distributional_kwargs"] == {
+    assert estimator.family == "quantile"
+    assert estimator.distributional_kwargs == {
         "quantiles": [0.25, 0.5, 0.75]
     }
+    cloned = clone(estimator)
+    assert cloned.family == "quantile"
+    assert cloned.distributional_kwargs == {"quantiles": [0.25, 0.5, 0.75]}
+
+
+def test_lss_rejects_fit_time_family_configuration():
+    estimator = NAMLSS()
+
+    with pytest.raises(TypeError, match="constructor"):
+        estimator.fit([[0.0], [1.0]], [0.0, 1.0], family="normal")
 
 
 def test_classifier_evaluate_accepts_positional_array_after_dataframe_fit(tmp_path):
@@ -220,16 +233,27 @@ def test_fitted_neural_estimator_persistence_round_trip(tmp_path):
 
 def test_pre_release_names_are_gone():
     """The v0.1.0 naming sweep left no aliases behind."""
-    import nampy.hybrid
+    from importlib.util import find_spec
+
     import nampy.models
+    import nampy.neural
     import nampy.neural.modules
-    import nampy.neural.training
 
     for name in ("SklearnBaseRegressor", "SklearnBaseClassifier", "SklearnBaseLSS"):
         assert not hasattr(nampy.models, name)
     assert not hasattr(nampy.models, "QNAM")
     assert not hasattr(nampy.neural.modules, "QNAMBase")
-    assert not hasattr(nampy.neural.training, "TaskModel")
-    for name in ("GAMPlusNeural", "HybridJointRegressor", "HybridAdditiveNet"):
-        assert not hasattr(nampy.hybrid, name)
+    assert not hasattr(nampy.neural, "TaskModel")
+    assert find_spec("nampy.hybrid") is None
+    assert find_spec("nampy.api") is None
+    assert find_spec("nampy.neural.layers") is None
+    assert find_spec("nampy.neural.training") is None
+    assert find_spec("nampy.gam.smoothing_selection") is None
+    for name in (
+        "GAMNetClassifier",
+        "GAMNetRegressor",
+        "GAMResidualClassifier",
+        "GAMResidualRegressor",
+    ):
+        assert not hasattr(nampy, name)
     assert not hasattr(LinRegRegressor, "predict_feature_vals")

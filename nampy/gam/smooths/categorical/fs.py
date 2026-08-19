@@ -6,8 +6,11 @@ from typing import Any
 import numpy as np
 
 from ..._mgcv_constants import EIG_TOL_POWER
-from ...compiler.structures import PenaltySpec
-from ...penalties import penalty_id_for_local_index, rescale_tensor_penalties_for_fit
+from ...penalties import (
+    PenaltySpec,
+    penalty_id_for_local_index,
+    rescale_tensor_penalties_for_fit,
+)
 from ...splines.basis.natparam import nat_param_type1
 from ..algebra import rowwise_kronecker
 from ..registry import make_smooth_term

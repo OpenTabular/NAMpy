@@ -1,6 +1,6 @@
 # GAM subsystem — implemented surface
 
-Snapshot date: 2026-08-17. This documents what `nampy/gam/` implements as a
+Snapshot date: 2026-08-18. This documents what `nampy/gam/` implements as a
 strict-parity port of R's `mgcv` (the vendored sources under `mgcv/` are the
 specification). Everything listed here is expected to match `mgcv` to the
 tolerances used by the parity suite; the only excluded class of differences is
@@ -21,13 +21,16 @@ subspaces. Whatever is *not* listed here is documented in
   (wrong length warns and resets), `sp`, `m` (`ps`/`tp`/`ts`; silently ignored
   elsewhere as upstream does), `xt` (`tp`/`ts`/`re`/`fs`/`sz`), `d=` tensor
   marginal dimensions with mgcv's coercion of multivariate `cr/cs/ps/cp`
-  marginals to `tp`, `mc=` for `ti`, per-term and model-level `select`.
+  marginals to `tp`, `mc=` for `ti`, and model-level `select`. Per-term
+  `select=` is not an `mgcv` smooth-special argument and is rejected.
 - `offset()` with mgcv's remember-for-prediction semantics. Multiple
   `offset()` terms in one formula keep only the first offset, matching
   `interpret.gam0`'s single-slot assignment, including R's
   "number of items to replace…" warning (verified against mgcv 1.9-4 in
   `debug/multi_offset_probe.R`).
-- Formula lists for multi-predictor (gamlss) models with `lpi` numeric labels;
+- Formula lists for multi-predictor (gamlss) models (numeric `lpi` shared
+  labels parse with `interpret.gam` parity but are guarded at build — see
+  GAM_NOT_IMPLEMENTED.md);
   `.` shorthand for single formulas; transformed responses; interactions
   `:`/`*`/`/`/`**` and intercept control `+1/-1/+0`; factor parametric terms
   with treatment contrasts; `I()` and `abs/sqrt/exp/log/sin/cos/tan`
@@ -56,7 +59,8 @@ Sum-to-zero constraints, QR constraint absorption byte-matching base R's
 analogue with `augment.smX` penalty-aware dependence testing, exemption
 policies for random-effect/factor smooths, upstream's parametric-span
 intercept-equivalence check (without pruning parametric aliases), zero-width
-term retention, and per-term `select=TRUE` null-space penalties.
+term retention, and the per-term null-space penalties produced by model-level
+`select=TRUE`.
 
 ## Families
 
@@ -128,7 +132,11 @@ term retention, and per-term `select=TRUE` null-space penalties.
   correction, `Vc = Vb`). The multi-penalty `Sl.setup` eigensystem uses
   upstream's lower-triangle convention; the `gammals(select=True)`
   `initial.spg` start, optimized endpoint, predictions, SEs, and final
-  post-processing are strict passes.
+  post-processing are strict passes. Structured general-family coverage
+  includes `re`, `fs`, and linked `sz` terms. The `fs` fixed-fit contract uses
+  a shared value across its indeterminate null-space penalty directions, while
+  optimized parity is asserted on fitted behavior rather than the legally
+  permutable raw null-space SP coordinates.
 
 ## summary.gam (added 2026-08-15)
 
@@ -148,6 +156,24 @@ poisson, gamma joint-scale, negbin estimated-theta, and gaulss
 (`tests/parity/test_mgcv_summary_parity.py`). Coefficient display names are
 synthesized from term labels and intentionally differ from R's contrast
 naming.
+
+## plot.gam (added 2026-08-18)
+
+`GAM.plot(**kwargs)` is a port of `mgcv::plot.gam` (`mgcv/R/plots.r:1271-1565`)
+split into a parity-testable data phase (`prepare_plot_gam_data`) and a
+matplotlib renderer (`render_plot_gam`). Ported: 1-D/2-D/3-4-D
+`plot.mgcv.smooth` prepare semantics (grids `n`/`n2`/`n3`, `exclude.too.far`,
+`by` set to 1 / the block's factor level), `plot.random.effect` (identity `X`,
+normal QQ), `plot.fs.interaction` / `plot.sz.interaction` level curves, CIs
+with `-qnorm((1-clev)/2)` multipliers, `seWithMean` via `cmX` (with the
+general-family `lpi` restriction branch), partial residuals from weighted
+working residuals plus the term's `type="terms"` column, `residuals`, `rug`,
+`jit`, `se`, `select`, `pages`, `scale=-1` common y-limits, `shift`/`trans`,
+`unconditional` (Vc), `by_resids`, and per-term `scheme`. The prepared data is
+compared against `plot.gam`'s invisibly returned list in
+`tests/diagnostics/test_mgcv_plot_gam_parity.py` (x grids, fits, SEs with and
+without `seWithMean`, partial residuals, re effects, and the 2-D NA exclusion
+pattern).
 
 ## Post-fit and inference
 
