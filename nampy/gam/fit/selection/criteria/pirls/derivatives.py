@@ -6,17 +6,18 @@ import numpy as np
 from scipy.linalg import cho_factor, cho_solve, solve_triangular
 from scipy.special import digamma, polygamma
 
-from ....._model_state import (
-    _coef_column_offset,
-    _n_smoothing_params,
-    _penalty_blocks_seq,
-)
 from .....linalg.reindexing import (
     drop_columns_dense,
     drop_rows_dense,
     permute_columns,
     permute_rows,
     restore_dropped_rows,
+)
+from .....model_state import (
+    _coef_column_offset,
+    _fit_workspace,
+    _n_smoothing_params,
+    _penalty_blocks_seq,
 )
 from ....backends import (
     solve_gaussian_given_smoothing,
@@ -585,7 +586,7 @@ def _gamma_joint_kernel_state(model, y, log_sp, method, *, phi):
         "Dp1": Dp1,
         "Dp2": Dp2,
     }
-    model._pirls_reml_gamma_state_ = state
+    _fit_workspace(model).pirls_reml_gamma_state = state
     return state, mp
 
 
@@ -715,7 +716,7 @@ def _gaussian_joint_kernel_state(model, y, log_sp, method, *, phi):
         "ls": ls,
         "phi": float(phi),
     }
-    model._pirls_reml_gaussian_state_ = state
+    _fit_workspace(model).pirls_reml_gaussian_state = state
     return state
 
 
@@ -825,7 +826,7 @@ def _negbin_joint_kernel_state(model, y, log_sp, log_theta, method):
             "lsth1": float(ls_result["lsth1"]),
             "lsth2": float(ls_result["lsth2"]),
         }
-        model._pirls_reml_negbin_state_ = state
+        _fit_workspace(model).pirls_reml_negbin_state = state
         return state
     finally:
         model.family.putTheta(prev_log_theta)
@@ -2328,7 +2329,7 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
         "gaussian",
     }:
         gdi2 = _gdi2_joint_kernel(model, y, sol, sp, method=method, need_hessian=False)
-        model._pirls_reml_gamma_state_ = {
+        _fit_workspace(model).pirls_reml_gamma_state = {
             "K": float(kernel.K),
             "K1": np.asarray(kernel.K1, dtype=np.float64),
             "phi": float(gdi2.phi),
@@ -2406,7 +2407,7 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
             + gdi2.Dp2 / (2.0 * gdi2.phi * gamma)
             - np.outer(cross, cross) / gdi2.phi_curv
         )
-        model._pirls_reml_gamma_state_ = {
+        _fit_workspace(model).pirls_reml_gamma_state = {
             "K": float(kernel.K),
             "K1": np.asarray(kernel.K1, dtype=np.float64),
             "K2": np.asarray(kernel.K2, dtype=np.float64),
@@ -2427,7 +2428,7 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
             + np.asarray(kernel.bSb2, dtype=np.float64)
         ) / (2.0 * scale * gamma) + kernel.K2
     postproc_derivs = _serialize_pirls_postproc_derivatives(kernel)
-    model._pirls_reml_derivative_kernel_state_ = {
+    _fit_workspace(model).pirls_reml_derivative_kernel_state = {
         "bSb": kernel.bSb,
         "bSb1": kernel.bSb1,
         "bSb2": kernel.bSb2,

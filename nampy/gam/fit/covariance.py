@@ -16,8 +16,8 @@ Two covariance estimates are provided for each fitted model:
 
 import numpy as np
 
-from .._model_state import _cov_bayes, _cov_freq
 from ..linalg import symmetrize_matrix
+from ..model_state import _cov_bayes, _cov_freq
 
 
 def build_bayes_and_freq_covariances(scale, A_inv, XWX):

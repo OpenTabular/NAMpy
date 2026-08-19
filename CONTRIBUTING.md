@@ -17,9 +17,14 @@ pre-commit install
 The configured static checks are:
 
 ```bash
-ruff check nampy tests
+ruff check nampy tests scripts debug examples
 mypy nampy
 ```
+
+Common Make targets: `make format` (black + isort), `make lint` (ruff),
+`make test TEST=...` (targeted slice), `make type-check` (mypy),
+`make quality` (all checks), `make docs` / `make docs-serve`, `make build`.
+Release steps live in `RELEASE_CHECKLIST.md`.
 
 Do not run Black as a routine validation step. Keep formatting changes scoped to
 the files you are deliberately changing.

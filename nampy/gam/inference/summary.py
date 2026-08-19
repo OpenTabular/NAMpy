@@ -17,7 +17,8 @@ import pandas as pd
 from scipy.stats import norm
 from scipy.stats import t as student_t
 
-from .._model_state import (
+from ..fit import select_covariance_matrix
+from ..model_state import (
     _coef_column_offset,
     _coef_full,
     _deviance,
@@ -30,7 +31,6 @@ from .._model_state import (
     _require_fitted,
     _term_blocks_seq,
 )
-from ..fit import select_covariance_matrix
 from .anova import (
     _parametric_term_groups,
     _residual_df,

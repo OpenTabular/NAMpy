@@ -28,7 +28,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.gam._model_state import _n_coef, _n_smoothing_params
+from nampy.gam.model_state import _n_coef, _n_smoothing_params
 from tests.mgcv_parity_utils import (
     _assert_basic_mgcv_parity,
     _assert_exact_mgcv_snapshot_parity,

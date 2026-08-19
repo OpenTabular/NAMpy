@@ -1,19 +1,10 @@
 from __future__ import annotations
 
 import numpy as np
-from nampy.gam.fit.solve_ops import solve_gaussian_given_smoothing
 from nampy.gam.fit.selection.criteria.pirls_deriv import _gdi1_kernel
+from nampy.gam.fit.solve_ops import solve_gaussian_given_smoothing
 
 from nampy.gam import GAM
-from nampy.gam._model_state import _fit_intercept, _n_coef, _penalty_blocks_seq
-from nampy.gam.fit.solvers.stacked_qr import (
-    _stacked_penalized_ls_nonneg_solution,
-    solve_gaussian_penalized_ls_stacked_qr,
-)
-from nampy.gam.fit.state import (
-    _restore_pirls_dbeta_to_original_parameterization,
-    _restore_pirls_rank_root_to_original_parameterization,
-)
 from nampy.gam.fit.selection.criteria.gaussian import (
     criterion_ml_reml_exact,
     criterion_ml_reml_exact_dynamic,
@@ -31,6 +22,15 @@ from nampy.gam.fit.selection.reparam import (
     _stable_penalty_logdet_derivatives,
     build_penalty_reparameterization_state,
 )
+from nampy.gam.fit.solvers.stacked_qr import (
+    _stacked_penalized_ls_nonneg_solution,
+    solve_gaussian_penalized_ls_stacked_qr,
+)
+from nampy.gam.fit.state import (
+    _restore_pirls_dbeta_to_original_parameterization,
+    _restore_pirls_rank_root_to_original_parameterization,
+)
+from nampy.gam.model_state import _fit_intercept, _n_coef, _penalty_blocks_seq
 from tests.mgcv_parity_utils import _make_mrf_data, _run_mgcv_snapshot
 from tests.optimization.test_mgcv_fixed_inner_fit_parity import (
     _run_mgcv_fit3_fixed_sp,

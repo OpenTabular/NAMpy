@@ -13,7 +13,7 @@ from dataclasses import dataclass, replace
 
 import numpy as np
 
-from .._model_state import (
+from ..model_state import (
     _coef_column_offset,
     _term_blocks_seq,
 )

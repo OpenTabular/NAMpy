@@ -13,7 +13,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from nampy.gam._model_state import (
+from nampy.gam.inference.anova import _smooth_test_stat, _term_edf1
+from nampy.gam.model_state import (
     _coef_column_offset,
     _coef_full,
     _cov_bayes,
@@ -21,7 +22,6 @@ from nampy.gam._model_state import (
     _summary_R,
     _term_blocks_seq,
 )
-from nampy.gam.inference.anova import _smooth_test_stat, _term_edf1
 from tests.parity.test_mgcv_prediction_inference_diagnostics_parity import (
     _case_bundle,
 )

@@ -5,6 +5,8 @@ from __future__ import annotations
 import numpy as np
 from scipy.optimize import OptimizeResult
 
+from nampy.gam.model_state import _fit_workspace
+
 from ...._mgcv_constants import PENALTY_RIDGE_REL
 from .basics import _project_to_bounds
 from .newton_strict import _optimize_outer_newton_strict
@@ -152,14 +154,14 @@ def optimize_outer_newton_indefinite_hessian(
         ):
             if model is not None:
                 if start_coef is None:
-                    start_coef = getattr(model, "_pirls_coef_start_", None)
+                    start_coef = _fit_workspace(model).get("pirls_coef_start", None)
                 if start_mu is None:
-                    start_mu = getattr(model, "_pirls_mu_start_", None)
+                    start_mu = _fit_workspace(model).get("pirls_mu_start", None)
 
             x_eval = np.asarray(x_eval, dtype=np.float64).ravel()
 
             if model is not None:
-                model._pirls_eval_start_ = (
+                _fit_workspace(model).pirls_eval_start = (
                     None
                     if start_coef is None
                     else np.asarray(start_coef, dtype=np.float64).copy()
@@ -167,8 +169,8 @@ def optimize_outer_newton_indefinite_hessian(
                 # Mirror `mgcv/R/gam.fit3.r::newton()`: outer Newton carries
                 # `start` and `mustart`, but does not pass `etastart` between
                 # outer evaluations.
-                model._pirls_eval_eta_start_ = None
-                model._pirls_eval_mu_start_ = (
+                _fit_workspace(model).pirls_eval_eta_start = None
+                _fit_workspace(model).pirls_eval_mu_start = (
                     None
                     if start_mu is None
                     else np.asarray(start_mu, dtype=np.float64).copy()
@@ -176,7 +178,7 @@ def optimize_outer_newton_indefinite_hessian(
                 # Keep the PIRLS warm start fixed across score/gradient/Hessian
                 # evaluations at the same outer point. mgcv only advances
                 # `start`/`mustart` after the point is accepted.
-                model._pirls_lock_start_ = True
+                _fit_workspace(model).pirls_lock_start = True
 
             objective._last_x = None
             objective._last_fun = None
@@ -224,29 +226,29 @@ def optimize_outer_newton_indefinite_hessian(
                 score_eval = float(objective._last_fun)
 
             coef_eval = (
-                getattr(model, "_pirls_last_coef_", None) if model is not None else None
+                _fit_workspace(model).get("pirls_last_coef", None) if model is not None else None
             )
             eta_eval = (
-                getattr(model, "_pirls_last_eta_", None) if model is not None else None
+                _fit_workspace(model).get("pirls_last_eta", None) if model is not None else None
             )
             mu_eval = (
-                getattr(model, "_pirls_last_mu_", None) if model is not None else None
+                _fit_workspace(model).get("pirls_last_mu", None) if model is not None else None
             )
             if model is not None:
                 if coef_eval is not None:
                     coef_eval = np.asarray(coef_eval, dtype=np.float64).copy()
                     if commit_start:
-                        model._pirls_coef_start_ = coef_eval.copy()
+                        _fit_workspace(model).pirls_coef_start = coef_eval.copy()
                 if eta_eval is not None:
                     eta_eval = np.asarray(eta_eval, dtype=np.float64).copy()
                 if mu_eval is not None:
                     mu_eval = np.asarray(mu_eval, dtype=np.float64).copy()
                     if commit_start:
-                        model._pirls_mu_start_ = mu_eval.copy()
+                        _fit_workspace(model).pirls_mu_start = mu_eval.copy()
 
             dvkk_diag = np.full(x_eval.shape, np.nan, dtype=np.float64)
             gamma_state = (
-                getattr(model, "_pirls_reml_gamma_state_", None)
+                _fit_workspace(model).get("pirls_reml_gamma_state", None)
                 if model is not None
                 else None
             )
@@ -293,15 +295,15 @@ def optimize_outer_newton_indefinite_hessian(
             if model is not None:
                 if commit_start:
                     if coef_eval is not None:
-                        model._pirls_coef_start_ = np.asarray(
+                        _fit_workspace(model).pirls_coef_start = np.asarray(
                             coef_eval, dtype=np.float64
                         ).copy()
                     if mu_eval is not None:
-                        model._pirls_mu_start_ = np.asarray(mu_eval, dtype=np.float64).copy()
-                model._pirls_eval_start_ = None
-                model._pirls_eval_eta_start_ = None
-                model._pirls_eval_mu_start_ = None
-                model._pirls_lock_start_ = False
+                        _fit_workspace(model).pirls_mu_start = np.asarray(mu_eval, dtype=np.float64).copy()
+                _fit_workspace(model).pirls_eval_start = None
+                _fit_workspace(model).pirls_eval_eta_start = None
+                _fit_workspace(model).pirls_eval_mu_start = None
+                _fit_workspace(model).pirls_lock_start = False
 
             return (
                 score_eval,

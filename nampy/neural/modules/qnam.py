@@ -1,11 +1,15 @@
-from itertools import combinations
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from ..configs.qnam_config import DefaultQNAMConfig
 from .basemodel import BaseModel
+from .interactions import (
+    apply_feature_dropout,
+    create_interaction_networks,
+    interaction_forward,
+    sum_feature_dims,
+)
 from .mlp_utils import MLP
 
 
@@ -90,12 +94,13 @@ class QNAM(BaseModel):
             )
 
         # Interaction subnetworks
-        self.interaction_networks = nn.ModuleDict()
-        if self.interaction_degree is not None and self.interaction_degree >= 2:
-            self._create_interaction_networks(
-                num_feature_info=num_feature_info,
-                cat_feature_info=cat_feature_info,
-            )
+        self.interaction_networks = create_interaction_networks(
+            list(num_feature_info.keys()) + list(cat_feature_info.keys()),
+            self.interaction_degree,
+            lambda interaction: self._create_subnetwork(
+                sum_feature_dims(interaction, num_feature_info, cat_feature_info)
+            ),
+        )
 
         # Monotone transform function
         self.monotone_transform = self.hparams.get(
@@ -117,27 +122,6 @@ class QNAM(BaseModel):
             norm=self.norm,
             use_glu=self.use_glu,
         )
-
-    def _create_interaction_networks(self, num_feature_info, cat_feature_info):
-        """Create interaction subnetworks up to the specified interaction degree."""
-        all_feature_names = list(num_feature_info.keys()) + list(
-            cat_feature_info.keys()
-        )
-
-        for degree in range(2, self.interaction_degree + 1):
-            for interaction in combinations(all_feature_names, degree):
-                interaction_name = ":".join(interaction)
-                input_dim = 0
-
-                for feature in interaction:
-                    if feature in num_feature_info:
-                        input_dim += num_feature_info[feature]["dimension"]
-                    elif feature in cat_feature_info:
-                        input_dim += cat_feature_info[feature]["dimension"]
-
-                self.interaction_networks[interaction_name] = self._create_subnetwork(
-                    input_dim
-                )
 
     def _monotone_transform(
         self, x: torch.Tensor, min_increment: float = 0.00
@@ -166,26 +150,6 @@ class QNAM(BaseModel):
             [first, first + torch.cumsum(increments, dim=-1)],
             dim=-1,
         )
-
-    def _interaction_forward(self, num_features: dict, cat_features: dict) -> dict:
-        """Forward pass through interaction subnetworks."""
-        interaction_outputs = {}
-        if self.interaction_degree is not None and self.interaction_degree >= 2:
-            all_features = {**num_features, **cat_features}
-            for (
-                interaction_name,
-                interaction_network,
-            ) in self.interaction_networks.items():
-                feature_names = interaction_name.split(":")
-                input_features = torch.cat(
-                    [all_features[fn] for fn in feature_names], dim=-1
-                ).float()
-                raw_output = interaction_network(input_features)
-                interaction_outputs[interaction_name] = self._monotone_transform(
-                    raw_output
-                )
-
-        return interaction_outputs
 
     def _get_intercept(self):
         """Return the transformed monotone intercept actually used by the model."""
@@ -223,9 +187,14 @@ class QNAM(BaseModel):
             raw_output = feature_network(cat_features[feature_name].float())
             cat_outputs[feature_name] = self._monotone_transform(raw_output)
 
-        interaction_outputs = self._interaction_forward(
-            num_features=num_features,
-            cat_features=cat_features,
+        interaction_outputs = interaction_forward(
+            self.interaction_networks,
+            self.interaction_degree,
+            num_features,
+            cat_features,
+            lambda network, input_features: self._monotone_transform(
+                network(input_features)
+            ),
         )
 
         all_outputs = (
@@ -237,22 +206,11 @@ class QNAM(BaseModel):
         if not all_outputs:
             raise ValueError("QNAM received no feature contributions to sum.")
 
-        # [B, T, Q]
+        # [B, T, Q]; feature-level dropout drops whole term contributions
+        # consistently across all quantiles, preserving monotonicity within
+        # each kept term.
         stacked = torch.stack(all_outputs, dim=1)
-        num_terms = stacked.shape[1]
-
-        # Proper feature-level dropout: drop whole term contributions consistently
-        # across all quantiles, preserving monotonicity within each kept term.
-        if self.feature_dropout_p > 0.0 and self.training:
-            mask = torch.ones(
-                stacked.shape[0],
-                num_terms,
-                1,
-                device=stacked.device,
-                dtype=stacked.dtype,
-            )
-            mask = F.dropout(mask, p=self.feature_dropout_p, training=True)
-            stacked = stacked * mask
+        stacked = apply_feature_dropout(stacked, self.feature_dropout_p, self.training)
 
         x = stacked.sum(dim=1)  # [B, Q]
 

@@ -8,13 +8,13 @@ from typing import TYPE_CHECKING
 import numpy as np
 from scipy.linalg import solve_triangular
 
-from ..._model_state import _n_smoothing_params
 from ...linalg import symmetrize_matrix
 from ...linalg.qr import mgcv_pqr_r
 from ...linalg.reindexing import (
     permute_rows,
     restore_dropped_rows,
 )
+from ...model_state import _n_smoothing_params
 from ...results import FitResult
 from ..parameterization import (
     FIT_PARAMETER_SPACE,

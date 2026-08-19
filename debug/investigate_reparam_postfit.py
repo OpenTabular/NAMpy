@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
 
 from nampy.gam.fit.solvers.general_family_solver import build_general_family_setup_state
+
 from nampy.gam.fit.selection.criteria import (
     criterion_gradient,
     criterion_hessian,

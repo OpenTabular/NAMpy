@@ -60,6 +60,10 @@ class NAMformer(BaseModel):
         else:
             self.intercept = None
 
+        # TODO: this is plain elementwise nn.Dropout over concatenated term
+        # outputs, unlike the term-mask feature dropout in
+        # modules/interactions.py used by NAM/QNAM/TreeNAM/SplineNAM.
+        # The semantics differ; do not unify without an explicit decision.
         self.feature_dropout = nn.Dropout(
             self.hparams.get("feature_dropout", config.feature_dropout)
         )

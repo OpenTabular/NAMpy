@@ -14,7 +14,14 @@ import numpy as np
 from scipy.linalg import qr
 
 from .._mgcv_constants import LOG_GUARD_MIN
-from .._model_state import (
+from ..fit.selection import (
+    criterion_ml_reml,
+    criterion_ml_reml_gaussian_dynamic_joint,
+    criterion_ml_reml_pirls,
+    optimizer_endpoint_diagnostics,
+    resolve_ml_reml_scoring_backend,
+)
+from ..model_state import (
     _coef,
     _coef_column_offset,
     _cov_bayes,
@@ -27,13 +34,6 @@ from .._model_state import (
     _require_fitted,
     _summary_R,
     _term_blocks_seq,
-)
-from ..fit.selection import (
-    criterion_ml_reml,
-    criterion_ml_reml_gaussian_dynamic_joint,
-    criterion_ml_reml_pirls,
-    optimizer_endpoint_diagnostics,
-    resolve_ml_reml_scoring_backend,
 )
 from ..predict.predictions import _prediction_term_groups
 from ..term_labels import normalize_mgcv_term_label

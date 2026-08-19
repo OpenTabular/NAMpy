@@ -11,15 +11,15 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from nampy.gam.parity import build_optimizer_trace
 from tests._optimization_lifecycle_registry import OPTIMIZATION_LIFECYCLE_CASES
+from tests.mgcv_parity_utils import _run_mgcv_snapshot
 from tests.optimization.test_mgcv_optimization_lifecycle_parity import (
     _fit_lifecycle_case,
 )
-from tests.mgcv_parity_utils import _run_mgcv_snapshot
 from tests.optimization.test_mgcv_outer_optimization_parity import (
     _run_mgcv_outer_trace,
 )
-from nampy.gam.parity import build_optimizer_trace
 
 
 def main() -> None:

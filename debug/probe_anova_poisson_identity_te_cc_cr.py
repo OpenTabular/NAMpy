@@ -9,12 +9,12 @@ from scipy.linalg import qr
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from tests.gam_cartesian_matrix import MatrixCase, fit_model, make_data  # noqa: E402
+
 from nampy.gam._mgcv_constants import LOG_GUARD_MIN  # noqa: E402
 from nampy.gam.inference.anova import _smooth_test_stat  # noqa: E402
 from nampy.gam.linalg import symmetric_eigh, symmetrize_matrix  # noqa: E402
-from tests.gam_cartesian_matrix import MatrixCase, fit_model, make_data  # noqa: E402
 from tests.mgcv_parity_utils import _run_mgcv_snapshot  # noqa: E402
-
 
 FORMULA = 'y ~ te(x0, x1, bs=["cc","cr"], k=[8,6], sp=[1.0,1.2])'
 FAMILY = {"name": "poisson", "link": "identity"}

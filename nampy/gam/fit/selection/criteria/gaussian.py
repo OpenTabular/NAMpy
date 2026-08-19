@@ -17,7 +17,7 @@ Provides two code paths:
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
-from ...._model_state import _design_matrix, _term_blocks_seq
+from ....model_state import _design_matrix, _term_blocks_seq
 from ...backends import solve_gaussian_given_smoothing
 from ...penalized_system import build_full_design
 from ...smoothing_params import expand_smoothing_params_from_log

@@ -3,8 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from nampy.gam._model_state import _term_blocks_seq
 from nampy.gam.diagnostics.summary import summary_text
+from nampy.gam.model_state import _term_blocks_seq
 from tests.families.test_general_family_mgcv_parity import (
     _gammals_data,
     _gaulss_data,

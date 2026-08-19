@@ -7,7 +7,16 @@ import pandas as pd
 from scipy.stats import chi2, f
 
 from .._mgcv_constants import LOG_GUARD_MIN
-from .._model_state import (
+from ..fit import select_covariance_matrix
+from ..linalg import (
+    mgcv_mroot_chol,
+    numerical_rank,
+    symmetric_eigh,
+    symmetric_eigvalsh,
+    symmetrize_matrix,
+)
+from ..linalg.qr import r_linpack_qr_no_pivot, r_linpack_qr_r
+from ..model_state import (
     _coef,
     _coef_column_offset,
     _coef_full,
@@ -25,15 +34,6 @@ from .._model_state import (
     _summary_R,
     _term_blocks_seq,
 )
-from ..fit import select_covariance_matrix
-from ..linalg import (
-    mgcv_mroot_chol,
-    numerical_rank,
-    symmetric_eigh,
-    symmetric_eigvalsh,
-    symmetrize_matrix,
-)
-from ..linalg.qr import r_linpack_qr_no_pivot, r_linpack_qr_r
 from .chi_square_mixtures import psum_chisq
 
 

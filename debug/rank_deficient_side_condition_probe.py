@@ -14,6 +14,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from nampy.gam import GAM
+from nampy.gam.model_state import _fit_workspace
 
 
 def _fit(*, apply_side_conditions: bool, smoothing_params=None):
@@ -58,13 +59,13 @@ for name, lhs, rhs in (
     ("smoothing_params", direct.smoothing_params, default.smoothing_params),
     (
         "setup_U1",
-        direct._penalty_subspace_cache_["estimate_setup"].U1,
-        default._penalty_subspace_cache_["estimate_setup"].U1,
+        _fit_workspace(direct).penalty_subspace_cache["estimate_setup"].U1,
+        _fit_workspace(default).penalty_subspace_cache["estimate_setup"].U1,
     ),
     (
         "setup_Eb",
-        direct._penalty_subspace_cache_["estimate_setup"].Eb,
-        default._penalty_subspace_cache_["estimate_setup"].Eb,
+        _fit_workspace(direct).penalty_subspace_cache["estimate_setup"].Eb,
+        _fit_workspace(default).penalty_subspace_cache["estimate_setup"].Eb,
     ),
     (
         "fit_coef",

@@ -23,14 +23,14 @@ import warnings
 
 import numpy as np
 
-from .._model_state import (
+from ..fit.offsets import resolve_prediction_offset
+from ..model_state import (
     _coef,
     _coef_column_offset,
     _coef_full,
     _require_fitted,
     _term_blocks_seq,
 )
-from ..fit.offsets import resolve_prediction_offset
 from ..term_labels import normalize_mgcv_term_label
 from .general import predict_general_values
 from .linear_predictor_matrix import _build_prediction_matrices

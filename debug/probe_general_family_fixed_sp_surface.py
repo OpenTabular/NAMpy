@@ -15,7 +15,19 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from nampy.gam.fit.solvers.general_family_solver import (
+    build_general_family_setup_state,
+    run_general_family_fixed_smoothing,
+)
+from nampy.gam.fit.solvers.general_newton_solver import (
+    _PenaltyRoot,
+    _sl_ldetS,
+    _sl_repara,
+)
+
 from nampy.gam.fit.selection.criteria import criterion_value
+from nampy.gam.model_state import _fit_workspace
+from tests._paths import PARITY_DIR
 from tests.families.test_general_family_mgcv_parity import GENERAL_SE_CASES
 from tests.mgcv_parity_utils import (
     _family_specs,
@@ -24,10 +36,6 @@ from tests.mgcv_parity_utils import (
     _run_mgcv_snapshot,
 )
 from tests.optimization.test_mgcv_fixed_inner_fit_parity import _run_mgcv_fit5_fixed_sp
-from tests._paths import PARITY_DIR
-from nampy.gam.fit.solvers.general_family_solver import run_general_family_fixed_smoothing
-from nampy.gam.fit.solvers.general_family_solver import build_general_family_setup_state
-from nampy.gam.fit.solvers.general_newton_solver import _PenaltyRoot, _sl_ldetS, _sl_repara
 
 R_SCRIPT = shutil.which("Rscript")
 MGCV_GENERAL_PREOPT_SCRIPT = PARITY_DIR / "mgcv_general_family_preoptimization.R"
@@ -49,20 +57,21 @@ def _copy_attr(obj, name):
 @contextmanager
 def _temporary_model_state(model, *, clear_starts=False, irls_tol=None, max_irls_iter=None):
     names = (
-        "_pirls_eval_start_",
-        "_pirls_coef_start_",
-        "_pirls_last_coef_",
-        "_pirls_last_eta_",
-        "_pirls_last_mu_",
-        "_general_family_outer_eval_cache",
+        "pirls_eval_start",
+        "pirls_coef_start",
+        "pirls_last_coef",
+        "pirls_last_eta",
+        "pirls_last_mu",
+        "general_family_outer_eval_cache",
     )
-    prev = {name: _copy_attr(model, name) for name in names}
+    ws = _fit_workspace(model)
+    prev = {name: _copy_attr(ws, name) for name in names}
     prev_tol = getattr(model, "irls_tol", None)
     prev_maxit = getattr(model, "max_irls_iter", None)
     try:
         if clear_starts:
             for name in names:
-                setattr(model, name, None)
+                setattr(ws, name, None)
         if irls_tol is not None:
             model.irls_tol = float(irls_tol)
         if max_irls_iter is not None:
@@ -70,7 +79,7 @@ def _temporary_model_state(model, *, clear_starts=False, irls_tol=None, max_irls
         yield
     finally:
         for name, value in prev.items():
-            setattr(model, name, value)
+            setattr(ws, name, value)
         if prev_tol is None:
             if hasattr(model, "irls_tol"):
                 delattr(model, "irls_tol")
@@ -240,7 +249,7 @@ def main() -> None:
                     gam, point, method
                 )
             with _temporary_model_state(gam, clear_starts=True):
-                gam._pirls_eval_start_ = np.asarray(
+                _fit_workspace(gam).pirls_eval_start = np.asarray(
                     mgcv_fit5["coefficients_full"], dtype=np.float64
                 )
                 row["existing_score_mgcv_start"] = _score_from_existing_model(

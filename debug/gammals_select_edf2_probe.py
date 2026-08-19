@@ -22,13 +22,13 @@ import numpy as np
 
 import nampy.gam.fit.solvers.general_family.newton as gnewton
 from nampy.gam import GAM
-from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
-    build_general_family_setup_state,
-)
 from nampy.gam.fit.selection.optimize.basics import (
     _initial_smoothing_params_from_design,
 )
 from nampy.gam.fit.selection.reparam import build_estimate_gam_setup_state
+from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
+    build_general_family_setup_state,
+)
 from tests.families.test_general_family_mgcv_parity import (
     _gammals_data,
     _general_newdata,

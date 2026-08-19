@@ -1,13 +1,13 @@
 import numpy as np
 
-from ..._model_state import (
+from ...linalg import balanced_penalty_template_sqrt_for_rank
+from ...model_state import (
     _design_matrix,
     _fit_intercept,
     _n_coef,
     _n_smoothing_params,
     _penalty_blocks_seq,
 )
-from ...linalg import balanced_penalty_template_sqrt_for_rank
 from ..penalized_system import (
     build_full_design,
     build_full_penalty_from_blocks,

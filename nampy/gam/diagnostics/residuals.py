@@ -4,7 +4,7 @@ import warnings
 
 import numpy as np
 
-from .._model_state import (
+from ..model_state import (
     _fit_scale,
     _fit_state,
     _fitted_eta,

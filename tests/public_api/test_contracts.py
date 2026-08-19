@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy._contracts import (
+from nampy.contracts import (
     AdditivePrediction,
     FeatureSchema,
 )

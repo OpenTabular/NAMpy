@@ -9,7 +9,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tests.gam_cartesian_matrix import make_data
 
-
 FORMULA = (
     'y ~ s(f, x0, bs="sz", k=7, m=2, xt=list(bs="ps"), '
     "sp=c(1.0,1.2,1.4,1.6))"

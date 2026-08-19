@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from nampy.gam._model_state import _term_blocks_seq
+from nampy.gam.model_state import _term_blocks_seq
 from nampy.gam.parity import build_optimizer_trace
 from tests.mgcv_parity_utils import (
     _fit_nampy_model,

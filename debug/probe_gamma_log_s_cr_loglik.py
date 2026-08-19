@@ -8,14 +8,15 @@ from scipy.special import gammaln
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from nampy.gam._model_state import _coef_column_offset, _fit_result
-from nampy.gam.linalg.reindexing import permute_columns
-from nampy.gam.fit.solvers.stacked_qr import _pivoted_economic_qr
+from tests.gam_cartesian_matrix import MatrixCase, fit_model, make_data
+
 from nampy.gam.fit.selection.criteria.pirls.value import (
     _solve_gamma_profile_scale,
 )
 from nampy.gam.fit.selection.reparam import _static_penalty_null_dim
-from tests.gam_cartesian_matrix import MatrixCase, fit_model, make_data
+from nampy.gam.fit.solvers.stacked_qr import _pivoted_economic_qr
+from nampy.gam.linalg.reindexing import permute_columns
+from nampy.gam.model_state import _coef_column_offset, _fit_result
 from tests.mgcv_parity_utils import _run_mgcv_snapshot
 
 

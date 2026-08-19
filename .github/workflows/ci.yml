@@ -144,7 +144,7 @@ jobs:
 
     - name: Lint with Ruff
       run: |
-        ruff check nampy tests scripts
+        ruff check nampy tests scripts debug examples
 
     - name: Check repository hygiene
       run: python scripts/check_repository_hygiene.py

@@ -10,7 +10,7 @@ import pytest
 import nampy
 import nampy.gam as gam_package
 from nampy.gam import GAM
-from nampy.gam._model_state import _term_blocks_seq
+from nampy.gam.model_state import _term_blocks_seq
 from tests.mgcv_parity_utils import (
     _run_mgcv_predict_on_newdata,
     _run_mgcv_snapshot,
@@ -108,12 +108,14 @@ def test_gam_public_wrappers_delegate_to_underlying_modules(monkeypatch):
         calls["gam_check"] = (model, type, k_sample, k_rep, seed)
         return {"ok": True, "type": type}
 
-    monkeypatch.setattr(diagnostics_pkg, "print_summary", _print_summary)
-    monkeypatch.setattr(diagnostics_pkg, "concurvity", _concurvity)
-    monkeypatch.setattr(diagnostics_pkg, "plot_gam", _plot_gam)
-    monkeypatch.setattr(diagnostics_pkg, "gam_check", _gam_check)
-    monkeypatch.setattr(smoothing_pkg, "sp_vcov", _sp_vcov)
-    monkeypatch.setattr(smoothing_pkg, "one_se_rule", _one_se_rule)
+    # GAM's wrappers bind these at import time in nampy.gam.model.api, so the
+    # delegation contract is asserted against the facade's own bindings.
+    monkeypatch.setattr(model_api_module, "print_summary", _print_summary)
+    monkeypatch.setattr(model_api_module, "concurvity", _concurvity)
+    monkeypatch.setattr(model_api_module, "plot_gam", _plot_gam)
+    monkeypatch.setattr(model_api_module, "gam_check", _gam_check)
+    monkeypatch.setattr(model_api_module, "sp_vcov", _sp_vcov)
+    monkeypatch.setattr(model_api_module, "one_se_rule", _one_se_rule)
     monkeypatch.setattr(
         model_api_module,
         "coerce_X",

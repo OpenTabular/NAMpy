@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from tests.gam_cartesian_matrix import MatrixCase, fit_model, make_data  # noqa: E402
+
 from tests.mgcv_parity_utils import _run_mgcv_snapshot  # noqa: E402
 
 FORMULA = 'y ~ te(x0, x1, bs=["cr","cr"], k=[6,6], fx=TRUE)'

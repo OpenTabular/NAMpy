@@ -25,7 +25,7 @@ import warnings
 import numpy as np
 from scipy.stats import norm as _norm
 
-from .._model_state import (
+from ..model_state import (
     _coef_column_offset,
     _coef_full,
     _coerce_feature_matrix,

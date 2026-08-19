@@ -14,21 +14,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from nampy.gam.fit.backends import solve_gaussian_given_smoothing
 from nampy.gam.fit.postprocess.unconditional_covariance import (
-    _mgcv_vcorr,
     _restore_pirls_dbeta_to_original_parameterization,
     _restore_pirls_rank_root_to_original_parameterization,
 )
-from nampy.gam.linalg import symmetrize_matrix
 from nampy.gam.fit.selection.criteria.gaussian_dyn import (
     criterion_hessian_ml_reml_gaussian_dynamic_joint,
 )
 from nampy.gam.fit.selection.criteria.pirls.derivatives import _gdi1_kernel
+from tests.mgcv_parity_utils import _run_mgcv_predict_on_newdata
 from tests.parity.test_mgcv_prediction_inference_diagnostics_parity import (
     CASE_BY_ID,
     _case_outer_bundle,
     _newdata_for_case,
 )
-from tests.mgcv_parity_utils import _run_mgcv_predict_on_newdata
 
 ROOT = Path(__file__).resolve().parents[1]
 R_SCRIPT = ROOT / "debug" / "mgcv_t2_vc_breakdown.R"

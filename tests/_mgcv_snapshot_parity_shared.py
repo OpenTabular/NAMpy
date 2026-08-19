@@ -8,12 +8,6 @@ import pytest
 from scipy.linalg import cho_factor
 
 from nampy.gam import GAM
-from nampy.gam._model_state import (
-    _design_matrix,
-    _edf_by_term,
-    _n_coef,
-    _penalty_blocks_seq,
-)
 from nampy.gam.compiler.compile_predictors import compile_predictors
 from nampy.gam.fit.penalized_system import (
     build_full_design,
@@ -43,6 +37,12 @@ from nampy.gam.formula import extract_formula_terms, parse_gam_formula
 from nampy.gam.linalg import (
     project_coef_onto_row_space,
     snap_coef_to_reference_null_space,
+)
+from nampy.gam.model_state import (
+    _design_matrix,
+    _edf_by_term,
+    _n_coef,
+    _penalty_blocks_seq,
 )
 from nampy.gam.results.snapshots import _get_core
 from nampy.gam.specs.build import build_formula_model

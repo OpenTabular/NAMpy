@@ -10,7 +10,7 @@ It is built by running new data through the compiled predictor's
 
 import numpy as np
 
-from .._model_state import (
+from ..model_state import (
     _coerce_feature_matrix,
     _compiled_model,
     _design_matrix,

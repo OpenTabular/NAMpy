@@ -355,7 +355,13 @@ class NeuralEstimatorBase(BaseEstimator):
         return None
 
     def plot(self, X, y_true, feature_name=None, plot_interactions=False):
-        """Plot per-feature effects (and optionally interaction heatmaps).
+        """Legacy density-style view of per-feature effects.
+
+        Draws each feature's contribution curve over a density-shaded
+        background with the (centered) targets scattered behind it. Kept for
+        back-compat; prefer :meth:`plot_terms` for term-contribution curves
+        via the shared renderer, and :meth:`plot_interactions` for pairwise
+        interaction heatmaps.
 
         Parameters
         ----------
@@ -378,13 +384,28 @@ class NeuralEstimatorBase(BaseEstimator):
             plot_interactions=plot_interactions,
         )
 
+    def plot_interactions(self, X):
+        """Plot binned heatmaps for the fitted pairwise interaction terms.
+
+        Renders one heatmap (per output series) for every ``":"``-keyed
+        interaction term in the model's forward output.
+
+        Parameters
+        ----------
+        X : pd.DataFrame or np.ndarray
+            Input data for generating predictions.
+        """
+        from ._plotting import plot_interaction_heatmaps
+
+        plot_interaction_heatmaps(self, X)
+
     def plot_terms(self, X, *, rug=None, pages=0, figsize=None):
         """Render 1-d term-contribution curves via the shared renderer.
 
         Builds the same prepared-data schema the GAM plotting pipeline uses,
         so GAM and neural term plots share one renderer. Only single-column
-        numeric main effects are drawn; interaction terms use :meth:`plot`
-        with ``plot_interactions=True``.
+        numeric main effects are drawn; interaction terms use
+        :meth:`plot_interactions`.
         """
         from ..plotting import prepared_from_contributions, render_term_plots
 

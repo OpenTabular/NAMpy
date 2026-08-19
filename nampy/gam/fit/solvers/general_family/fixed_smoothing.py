@@ -14,9 +14,14 @@ from typing import Any
 import numpy as np
 from scipy.linalg import eigh as scipy_eigh
 
-from ...._model_state import _penalty_blocks_seq, _predictor_designs, _term_blocks_seq
 from ....linalg.matrix import symmetrize_matrix
 from ....linalg.norms import r_matrix_norm_one
+from ....model_state import (
+    _fit_workspace,
+    _penalty_blocks_seq,
+    _predictor_designs,
+    _term_blocks_seq,
+)
 from ...parameterization import (
     PREDICTION_PARAMETER_SPACE,
     prediction_parameterization_map,
@@ -1167,7 +1172,7 @@ def _run_general_family_fixed_smoothing_cached(
     log_sp = np.asarray(log_sp, dtype=np.float64).ravel()
     method_name = str(method).upper()
     weights = _copy_optional_float_array(getattr(model, "prior_weights_", None))
-    cache = getattr(model, "_general_family_outer_eval_cache", None)
+    cache = _fit_workspace(model).get("general_family_outer_eval_cache", None)
     if (
         isinstance(cache, dict)
         and str(cache.get("method", "")).upper() == method_name
@@ -1189,7 +1194,7 @@ def _run_general_family_fixed_smoothing_cached(
         deriv=int(deriv),
         score_type=method_name,
     )
-    model._general_family_outer_eval_cache = {
+    _fit_workspace(model).general_family_outer_eval_cache = {
         "method": method_name,
         "deriv": int(deriv),
         "log_sp": log_sp.copy(),
@@ -1230,9 +1235,9 @@ def run_general_family_fixed_smoothing(
         epsilon=float(getattr(model, "irls_tol", 1e-7)),
         trace=bool(getattr(model, "hparams", {}).get("trace", False)),
     )
-    start_coef = getattr(model, "_pirls_eval_start_", None)
+    start_coef = _fit_workspace(model).get("pirls_eval_start", None)
     if start_coef is None:
-        start_coef = getattr(model, "_pirls_coef_start_", None)
+        start_coef = _fit_workspace(model).get("pirls_coef_start", None)
     if start_coef is not None:
         start_coef = np.asarray(start_coef, dtype=np.float64).copy()
     fit = general_newton.solve_general_newton_fit(
@@ -1258,12 +1263,12 @@ def run_general_family_fixed_smoothing(
     coef_fit = fit.get("coef", None)
     if coef_fit is not None:
         coef_fit = np.asarray(coef_fit, dtype=np.float64).copy()
-        model._pirls_last_coef_ = coef_fit
+        _fit_workspace(model).pirls_last_coef = coef_fit
     offset_list = setup.offset_list
     if hasattr(model.family, "_offset_list"):
         offset_list = model.family._offset_list(offset_list)
     if coef_fit is not None and hasattr(model.family, "_stacked_eta"):
-        model._pirls_last_eta_ = np.asarray(
+        _fit_workspace(model).pirls_last_eta = np.asarray(
             model.family._stacked_eta(
                 setup.X_initial,
                 setup.jj,
@@ -1273,7 +1278,7 @@ def run_general_family_fixed_smoothing(
             dtype=np.float64,
         )
     if coef_fit is not None and hasattr(model.family, "predict_fitted"):
-        model._pirls_last_mu_ = np.asarray(
+        _fit_workspace(model).pirls_last_mu = np.asarray(
             model.family.predict_fitted(
                 setup.X_initial,
                 setup.jj,

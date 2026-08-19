@@ -6,7 +6,7 @@ from dataclasses import replace
 
 import numpy as np
 
-from .._model_state import (
+from ..model_state import (
     _compiled_model,
     _edf_by_term,
     _fit_core_solution,

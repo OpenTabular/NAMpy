@@ -1,10 +1,13 @@
-from itertools import combinations
-
 import torch
 import torch.nn as nn
 
 from ..configs.spline_nam_config import DefaultSplineNAMConfig
 from .basemodel import BaseModel
+from .interactions import (
+    apply_feature_dropout,
+    create_interaction_networks,
+    interaction_forward,
+)
 from .neural_splines import CubicSplineLayer
 
 
@@ -100,54 +103,25 @@ class SplineNAM(BaseModel):
                 n_outputs=self.num_classes,
             )
 
-        self.interaction_networks = nn.ModuleDict()
-        if self.interaction_degree is not None and self.interaction_degree >= 2:
-            self._create_interaction_networks(
-                num_feature_info=num_feature_info,
-                cat_feature_info=cat_feature_info,
-            )
-
-    def _create_interaction_networks(self, num_feature_info, cat_feature_info):
-        all_feature_names = list(num_feature_info.keys()) + list(
-            cat_feature_info.keys()
+        self.interaction_networks = create_interaction_networks(
+            list(num_feature_info.keys()) + list(cat_feature_info.keys()),
+            self.interaction_degree,
+            self._make_interaction_network,
         )
 
-        for degree in range(2, self.interaction_degree + 1):
-            for interaction in combinations(all_feature_names, degree):
-                interaction_name = ":".join(interaction)
-                min_val = sum(self._feature_ranges[name][0] for name in interaction)
-                max_val = sum(self._feature_ranges[name][1] for name in interaction)
-
-                self.interaction_networks[interaction_name] = CubicSplineLayer(
-                    n_bases=self.n_knots,
-                    min_val=min_val,
-                    max_val=max_val,
-                    learn_knots=self.learn_knots,
-                    identify=self.identify,
-                    n_outputs=self.num_classes,
-                )
-
-    def _interaction_forward(self, num_features: dict, cat_features: dict):
-        interaction_outputs = {}
-        if self.interaction_degree is not None and self.interaction_degree >= 2:
-            all_features = {
-                **num_features,
-                **cat_features,
-            }
-            for (
-                interaction_name,
-                interaction_network,
-            ) in self.interaction_networks.items():
-                feature_names = interaction_name.split(":")
-                input_features = torch.cat(
-                    [all_features[fn] for fn in feature_names], dim=-1
-                )
-                interaction_output = interaction_network(
-                    input_features.float().sum(dim=-1, keepdim=True)
-                )
-                interaction_outputs[interaction_name] = interaction_output
-
-        return interaction_outputs
+    def _make_interaction_network(self, interaction) -> CubicSplineLayer:
+        # Interaction inputs are summed member features, so the spline range is
+        # the sum of the member feature ranges.
+        min_val = sum(self._feature_ranges[name][0] for name in interaction)
+        max_val = sum(self._feature_ranges[name][1] for name in interaction)
+        return CubicSplineLayer(
+            n_bases=self.n_knots,
+            min_val=min_val,
+            max_val=max_val,
+            learn_knots=self.learn_knots,
+            identify=self.identify,
+            n_outputs=self.num_classes,
+        )
 
     def forward(self, num_features: dict, cat_features: dict) -> dict:
         num_outputs = {}
@@ -160,8 +134,14 @@ class SplineNAM(BaseModel):
             feature_output = feature_network(cat_features[feature_name].float())
             cat_outputs[feature_name] = feature_output
 
-        interaction_outputs = self._interaction_forward(
-            num_features=num_features, cat_features=cat_features
+        interaction_outputs = interaction_forward(
+            self.interaction_networks,
+            self.interaction_degree,
+            num_features,
+            cat_features,
+            lambda network, input_features: network(
+                input_features.sum(dim=-1, keepdim=True)
+            ),
         )
 
         all_outputs = (
@@ -170,16 +150,9 @@ class SplineNAM(BaseModel):
             + list(interaction_outputs.values())
         )
         term_outputs = torch.stack(all_outputs, dim=1)
-        if self.feature_dropout_p > 0.0 and self.training:
-            mask = term_outputs.new_ones(
-                term_outputs.shape[0], term_outputs.shape[1], 1
-            )
-            mask = nn.functional.dropout(
-                mask,
-                p=self.feature_dropout_p,
-                training=True,
-            )
-            term_outputs = term_outputs * mask
+        term_outputs = apply_feature_dropout(
+            term_outputs, self.feature_dropout_p, self.training
+        )
         x = term_outputs.sum(dim=1)
 
         if self.intercept is not None:

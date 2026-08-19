@@ -1,11 +1,15 @@
 # basemodels/nam.py
-from itertools import combinations
-
 import torch
 import torch.nn as nn
 
 from ..configs.nam_config import DefaultNAMConfig
 from .basemodel import BaseModel
+from .interactions import (
+    apply_feature_dropout,
+    create_interaction_networks,
+    interaction_forward,
+    sum_feature_dims,
+)
 from .mlp_utils import MLP
 
 
@@ -111,12 +115,13 @@ class NAM(BaseModel):
                 info["dimension"]
             )  # Categorical features are typically encoded as single values
 
-        self.interaction_networks = nn.ModuleDict()
-        if self.interaction_degree is not None and self.interaction_degree >= 2:
-            self._create_interaction_networks(
-                num_feature_info=num_feature_info,
-                cat_feature_info=cat_feature_info,
-            )
+        self.interaction_networks = create_interaction_networks(
+            list(num_feature_info.keys()) + list(cat_feature_info.keys()),
+            self.interaction_degree,
+            lambda interaction: self._create_subnetwork(
+                sum_feature_dims(interaction, num_feature_info, cat_feature_info)
+            ),
+        )
 
     def _create_subnetwork(self, input_dim: int) -> MLP:
         """Create a subnetwork for a single feature using MLP from mlp_utils."""
@@ -132,76 +137,6 @@ class NAM(BaseModel):
             norm=self.norm,
             use_glu=self.use_glu,
         )
-
-    def _create_interaction_networks(self, num_feature_info, cat_feature_info):
-        """
-        Creates networks for modeling feature interactions.
-
-        Parameters
-        ----------
-        num_feature_info : dict
-            Information about numerical features.
-        cat_feature_info : dict
-            Information about categorical features.
-        """
-        all_feature_names = list(num_feature_info.keys()) + list(
-            cat_feature_info.keys()
-        )
-
-        # Add pairwise and higher interactions up to the specified degree
-        for degree in range(2, self.interaction_degree + 1):
-            for interaction in combinations(all_feature_names, degree):
-                interaction_name = ":".join(interaction)  # e.g., "feature1_feature2"
-                input_dim = 0
-
-                # Calculate input dimension for the interaction
-                for feature in interaction:
-                    if feature in num_feature_info:
-                        input_dim += num_feature_info[feature][
-                            "dimension"
-                        ]  # Numerical features
-                    elif feature in cat_feature_info:
-                        input_dim += cat_feature_info[feature]["dimension"]
-
-                self.interaction_networks[interaction_name] = self._create_subnetwork(
-                    input_dim
-                )
-
-    def _interaction_forward(self, num_features: dict, cat_features: dict):
-        """
-        Forward pass for the interaction networks.
-
-        Parameters
-        ----------
-        num_features : dict
-            Dictionary of numerical features with feature names as keys.
-        cat_features : dict
-            Dictionary of categorical features with feature names as keys.
-
-        Returns
-        -------
-        dict
-            Outputs from the interaction networks, keyed by interaction names.
-        """
-        # Handle interaction networks
-        interaction_outputs = {}
-        if self.interaction_degree is not None and self.interaction_degree >= 2:
-            all_features = {
-                **num_features,
-                **cat_features,
-            }  # Combine numerical and categorical features
-            for (
-                interaction_name,
-                interaction_network,
-            ) in self.interaction_networks.items():
-                feature_names = interaction_name.split(":")
-                input_features = torch.cat(
-                    [all_features[fn] for fn in feature_names], dim=-1
-                )
-                interaction_output = interaction_network(input_features.float())
-                interaction_outputs[interaction_name] = interaction_output
-
-        return interaction_outputs
 
     def forward(self, num_features: dict, cat_features: dict) -> dict:
         """
@@ -229,8 +164,12 @@ class NAM(BaseModel):
             feature_output = feature_network(cat_features[feature_name].float())
             cat_outputs[feature_name] = feature_output
 
-        interaction_outputs = self._interaction_forward(
-            num_features=num_features, cat_features=cat_features
+        interaction_outputs = interaction_forward(
+            self.interaction_networks,
+            self.interaction_degree,
+            num_features,
+            cat_features,
+            lambda network, input_features: network(input_features),
         )
 
         all_outputs = (
@@ -241,19 +180,8 @@ class NAM(BaseModel):
         concatenated = torch.cat(all_outputs, dim=1)
         num_features_total = len(all_outputs)
 
-        if self.feature_dropout_p > 0.0 and self.training:
-            shaped = concatenated.view(-1, num_features_total, self.num_classes)
-            mask = torch.ones(
-                shaped.shape[0],
-                num_features_total,
-                1,
-                device=shaped.device,
-                dtype=shaped.dtype,
-            )
-            mask = nn.functional.dropout(mask, p=self.feature_dropout_p, training=True)
-            shaped = shaped * mask
-        else:
-            shaped = concatenated.view(-1, num_features_total, self.num_classes)
+        shaped = concatenated.view(-1, num_features_total, self.num_classes)
+        shaped = apply_feature_dropout(shaped, self.feature_dropout_p, self.training)
 
         x = shaped.sum(dim=1)  # [batch, num_classes]
 

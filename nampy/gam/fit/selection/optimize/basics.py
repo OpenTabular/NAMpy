@@ -3,12 +3,12 @@
 import numpy as np
 
 from ...._mgcv_constants import EIG_TOL_POWER, LOG_GUARD_MIN
-from ...._model_state import (
+from ....linalg import pivoted_cholesky
+from ....linalg.norms import r_matrix_norm_max_abs
+from ....model_state import (
     _n_smoothing_params,
     _penalty_blocks_seq,
 )
-from ....linalg import pivoted_cholesky
-from ....linalg.norms import r_matrix_norm_max_abs
 from ...backends import GENERAL_FAMILY_BACKEND
 from ...capabilities import uses_closed_form_solver
 from ..criteria import resolve_ml_reml_scoring_backend

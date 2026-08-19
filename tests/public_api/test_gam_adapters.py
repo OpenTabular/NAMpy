@@ -14,7 +14,7 @@ from sklearn.base import clone, is_classifier, is_regressor
 from sklearn.metrics import r2_score
 from sklearn.model_selection import cross_val_score
 
-from nampy._contracts import (
+from nampy.contracts import (
     AdditivePrediction,
 )
 from nampy.gam import GAM

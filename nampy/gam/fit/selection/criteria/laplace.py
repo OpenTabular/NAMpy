@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from ...._model_state import (
+from ....model_state import (
     _n_smoothing_params,
     _penalty_blocks_seq,
 )

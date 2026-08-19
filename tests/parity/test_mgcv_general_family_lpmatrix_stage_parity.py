@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.gam._model_state import _coerce_feature_matrix, _predictor_designs
+from nampy.gam.model_state import _coerce_feature_matrix, _predictor_designs
 from nampy.gam.predict.general import (
     build_general_lpmatrix,
     general_family_prediction_layout,

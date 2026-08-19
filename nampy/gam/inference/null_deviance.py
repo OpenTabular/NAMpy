@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .._model_state import _fitted_eta, _fitted_mu, _require_fitted
+from ..model_state import _fitted_eta, _fitted_mu, _require_fitted
 
 
 def _prior_weights_vector(model, y: np.ndarray) -> np.ndarray:

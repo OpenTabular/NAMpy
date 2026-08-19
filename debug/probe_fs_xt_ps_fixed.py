@@ -8,7 +8,8 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tests.diagnostics.test_mgcv_diagnostics_cartesian_matrix import _make_case
-from tests.gam_cartesian_matrix import SPECIAL_TERMS, FAMILIES, fit_model, make_data
+from tests.gam_cartesian_matrix import FAMILIES, SPECIAL_TERMS, fit_model, make_data
+
 from tests.mgcv_parity_utils import (
     _run_mgcv_raw_constructor,
     _run_mgcv_smoothcon_matrix,

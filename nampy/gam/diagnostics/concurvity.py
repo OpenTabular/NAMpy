@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.linalg import solve_triangular
 
-from .._model_state import (
+from ..model_state import (
     _coef,
     _coef_column_offset,
     _coef_full,

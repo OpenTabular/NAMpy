@@ -186,3 +186,9 @@ model_checkpoints/
 
 # Ruff
 .ruff_cache/XGBoostLSS/
+
+# Agent/planning scratch notes
+plan_claude.md
+claude_review*.md
+nampy_review.md
+neural_review.md

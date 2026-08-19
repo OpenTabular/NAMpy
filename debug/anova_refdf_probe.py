@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from nampy.gam._model_state import _coef_column_offset, _H_coef, _term_blocks_seq
 from nampy.gam.inference.anova import _edf1_vector, _term_edf1
+from nampy.gam.model_state import _coef_column_offset, _H_coef, _term_blocks_seq
 from tests.parity.test_mgcv_prediction_inference_diagnostics_parity import _case_bundle
 
 

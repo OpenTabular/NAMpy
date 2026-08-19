@@ -12,7 +12,7 @@ from typing import Any
 import numpy as np
 
 from ..._mgcv_constants import LOG_GUARD_MIN
-from ..._model_state import _fit_intercept
+from ...model_state import _fit_intercept
 from ..covariance import build_bayes_and_freq_covariances
 from .stacked_qr import (
     _stacked_penalized_ls_nonneg_solution,
@@ -953,7 +953,7 @@ def fit_irls_from_model(
 
     y = model.family.validate_y(y)
     fi = _fit_intercept(model)
-    from ..._model_state import _design_matrix, _n_coef, _penalty_blocks_seq
+    from ...model_state import _design_matrix, _n_coef, _penalty_blocks_seq
 
     Z = np.asarray(_design_matrix(model), dtype=np.float64)
     penalty_blocks = tuple(_penalty_blocks_seq(model))

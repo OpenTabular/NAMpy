@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
-import subprocess
 
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scipy.linalg import qr
+from tests.gam_cartesian_matrix import MatrixCase, fit_model, make_data
 
-from nampy.gam._model_state import (
+from nampy.gam.fit.parameterization import prediction_parameterization_map
+from nampy.gam.fit.selection.reparam import build_estimate_gam_setup_state
+from nampy.gam.model_state import (
     _cov_bayes,
     _cov_freq,
     _cov_unconditional,
@@ -18,14 +21,11 @@ from nampy.gam._model_state import (
     _fit_scale,
     _fit_state,
     _H_coef,
+    _penalty_blocks_seq,
     _summary_R,
     _term_blocks_seq,
-    _penalty_blocks_seq,
 )
-from tests.gam_cartesian_matrix import MatrixCase, fit_model, make_data
 from tests.mgcv_parity_utils import _run_mgcv_gam_setup_assembly, _run_mgcv_snapshot
-from nampy.gam.fit.parameterization import prediction_parameterization_map
-from nampy.gam.fit.selection.reparam import build_estimate_gam_setup_state
 
 
 def _arr(value):

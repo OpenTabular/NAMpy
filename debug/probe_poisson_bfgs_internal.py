@@ -12,13 +12,17 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import nampy.gam.fit.selection.optimize.bfgs_mgcv as bfgs_mod
+from nampy.gam.fit.selection.optimize.bfgs_mgcv import _optimize_outer_bfgs_mgcv
+
 from nampy.gam.fit.selection.optimize.basics import (
     _initial_smoothing_params_mgcv_style,
 )
 from nampy.gam.fit.selection.optimize.objectives import _CriterionObjective
-from nampy.gam.fit.selection.optimize.bfgs_mgcv import _optimize_outer_bfgs_mgcv
+from nampy.gam.model_state import _fit_workspace
 from tests._optimization_lifecycle_registry import OPTIMIZATION_LIFECYCLE_CASES
-from tests.optimization.test_mgcv_optimization_lifecycle_parity import _fit_lifecycle_case
+from tests.optimization.test_mgcv_optimization_lifecycle_parity import (
+    _fit_lifecycle_case,
+)
 
 
 def main() -> None:
@@ -39,7 +43,7 @@ def main() -> None:
         x_eval = np.asarray(args[1], dtype=np.float64).ravel()
         out = original_eval(*args, **kwargs)
         score, grad, hess, dvkk, coef, eta, mu, scale = out
-        kernel_state = getattr(objective.model, "_pirls_reml_derivative_kernel_state_", None)
+        kernel_state = _fit_workspace(objective.model).get("pirls_reml_derivative_kernel_state")
         raw_dvkk = None
         raw_dvkk_shape = None
         if isinstance(kernel_state, dict) and kernel_state.get("dVkk", None) is not None:

@@ -6,8 +6,8 @@ from dataclasses import replace
 
 import numpy as np
 
-from .._model_state import _coef_column_offset, _compiled_model, _fit_intercept
 from ..linalg import symmetrize_matrix
+from ..model_state import _coef_column_offset, _compiled_model, _fit_intercept
 
 FIT_PARAMETER_SPACE = "fit"
 PREDICTION_PARAMETER_SPACE = "prediction"

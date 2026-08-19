@@ -15,15 +15,16 @@ from nampy.gam.fit.solvers.general_family_solver import (
     run_general_family_fixed_smoothing,
     sl_initial_repara,
 )
-from nampy.gam.smooths.algebra import t2_marginal_reparameterization
-from nampy.gam.smooths.tensor.marginals import tensor_marginal_fit_matrices
 from nampy.gam.smooths.tensor.t2 import TensorANOVASplineTerm
-from nampy.gam.smooths.univariate.cr import CubicSplineTerm
-from nampy.gam.smooths.univariate.tp import ThinPlateSplineTerm
+
 from nampy.gam.fit.selection.criteria import (
     criterion_gradient_numerical,
     criterion_hessian_numerical,
 )
+from nampy.gam.smooths.algebra import t2_marginal_reparameterization
+from nampy.gam.smooths.tensor.marginals import tensor_marginal_fit_matrices
+from nampy.gam.smooths.univariate.cr import CubicSplineTerm
+from nampy.gam.smooths.univariate.tp import ThinPlateSplineTerm
 from tests.families.test_general_family_mgcv_parity import (
     GENERAL_SE_CASES,
     _general_newdata,
@@ -32,8 +33,8 @@ from tests.mgcv_parity_utils import (
     _fit_nampy_model_fixed_sp,
     _run_mgcv_natparam_type3,
     _run_mgcv_predict_on_newdata,
-    _run_mgcv_snapshot,
     _run_mgcv_smoothcon_predict_matrix,
+    _run_mgcv_snapshot,
 )
 from tests.optimization.test_mgcv_fixed_inner_fit_parity import (
     _run_mgcv_fit5_fixed_sp,

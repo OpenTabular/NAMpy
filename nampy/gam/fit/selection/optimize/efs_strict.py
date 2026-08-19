@@ -6,13 +6,14 @@ import numpy as np
 from scipy.optimize import OptimizeResult
 
 from ...._mgcv_constants import LOG_GUARD_MIN
-from ...._model_state import (
+from ....linalg.cholesky import compute_preconditioned_inverse
+from ....model_state import (
     _coef_column_offset,
+    _fit_workspace,
     _n_coef,
     _n_smoothing_params,
     _penalty_blocks_seq,
 )
-from ....linalg.cholesky import compute_preconditioned_inverse
 from ...backends import solve_fit
 from ...solvers.general_family.fixed_smoothing import (
     run_general_family_fixed_smoothing,
@@ -225,22 +226,22 @@ def _general_family_b_sb_from_run(run):
 
 def _solve_efs_step(model, y, sp, *, coef_start):
     prev = {
-        "eval_coef": _copy_state_vector(getattr(model, "_pirls_eval_start_", None)),
-        "eval_eta": _copy_state_vector(getattr(model, "_pirls_eval_eta_start_", None)),
-        "eval_mu": _copy_state_vector(getattr(model, "_pirls_eval_mu_start_", None)),
-        "lock": bool(getattr(model, "_pirls_lock_start_", False)),
-        "coef": _copy_state_vector(getattr(model, "_pirls_coef_start_", None)),
-        "eta": _copy_state_vector(getattr(model, "_pirls_eta_start_", None)),
-        "mu": _copy_state_vector(getattr(model, "_pirls_mu_start_", None)),
+        "eval_coef": _copy_state_vector(_fit_workspace(model).get("pirls_eval_start", None)),
+        "eval_eta": _copy_state_vector(_fit_workspace(model).get("pirls_eval_eta_start", None)),
+        "eval_mu": _copy_state_vector(_fit_workspace(model).get("pirls_eval_mu_start", None)),
+        "lock": bool(_fit_workspace(model).get("pirls_lock_start", False)),
+        "coef": _copy_state_vector(_fit_workspace(model).get("pirls_coef_start", None)),
+        "eta": _copy_state_vector(_fit_workspace(model).get("pirls_eta_start", None)),
+        "mu": _copy_state_vector(_fit_workspace(model).get("pirls_mu_start", None)),
     }
     try:
-        model._pirls_eval_start_ = _copy_state_vector(coef_start)
-        model._pirls_eval_eta_start_ = None
-        model._pirls_eval_mu_start_ = None
-        model._pirls_coef_start_ = _copy_state_vector(coef_start)
-        model._pirls_eta_start_ = None
-        model._pirls_mu_start_ = None
-        model._pirls_lock_start_ = True
+        _fit_workspace(model).pirls_eval_start = _copy_state_vector(coef_start)
+        _fit_workspace(model).pirls_eval_eta_start = None
+        _fit_workspace(model).pirls_eval_mu_start = None
+        _fit_workspace(model).pirls_coef_start = _copy_state_vector(coef_start)
+        _fit_workspace(model).pirls_eta_start = None
+        _fit_workspace(model).pirls_mu_start = None
+        _fit_workspace(model).pirls_lock_start = True
         if _is_general_family(model):
             fit = run_general_family_fixed_smoothing(
                 model,
@@ -255,15 +256,15 @@ def _solve_efs_step(model, y, sp, *, coef_start):
             fit = solve_fit(
                 model, np.asarray(y, dtype=np.float64), sp, weights=model.prior_weights_
             )
-            coef_out = _copy_state_vector(getattr(model, "_pirls_last_coef_", None))
+            coef_out = _copy_state_vector(_fit_workspace(model).get("pirls_last_coef", None))
     finally:
-        model._pirls_eval_start_ = prev["eval_coef"]
-        model._pirls_eval_eta_start_ = prev["eval_eta"]
-        model._pirls_eval_mu_start_ = prev["eval_mu"]
-        model._pirls_lock_start_ = prev["lock"]
-        model._pirls_coef_start_ = prev["coef"]
-        model._pirls_eta_start_ = prev["eta"]
-        model._pirls_mu_start_ = prev["mu"]
+        _fit_workspace(model).pirls_eval_start = prev["eval_coef"]
+        _fit_workspace(model).pirls_eval_eta_start = prev["eval_eta"]
+        _fit_workspace(model).pirls_eval_mu_start = prev["eval_mu"]
+        _fit_workspace(model).pirls_lock_start = prev["lock"]
+        _fit_workspace(model).pirls_coef_start = prev["coef"]
+        _fit_workspace(model).pirls_eta_start = prev["eta"]
+        _fit_workspace(model).pirls_mu_start = prev["mu"]
     return fit, coef_out
 
 
@@ -333,7 +334,7 @@ def _optimize_outer_efs_strict(
             model,
             np.asarray(y, dtype=np.float64),
             sp,
-            coef_start=getattr(model, "_pirls_coef_start_", None),
+            coef_start=_fit_workspace(model).get("pirls_coef_start", None),
         )
         score = _criterion_from_solution(
             model,
@@ -559,9 +560,9 @@ def _optimize_outer_efs_strict(
         else:
             iter_idx = 200
 
-        model._pirls_coef_start_ = _copy_state_vector(current_start)
-        model._pirls_eta_start_ = None
-        model._pirls_mu_start_ = None
+        _fit_workspace(model).pirls_coef_start = _copy_state_vector(current_start)
+        _fit_workspace(model).pirls_eta_start = None
+        _fit_workspace(model).pirls_mu_start = None
 
         result = OptimizeResult(
             x=np.asarray(x, dtype=np.float64),

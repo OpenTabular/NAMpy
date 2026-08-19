@@ -3,7 +3,7 @@
 import numpy as np
 
 from ...._mgcv_constants import LOG_GUARD_MIN
-from ...._model_state import _coef_column_offset, _n_smoothing_params
+from ....model_state import _coef_column_offset, _n_smoothing_params
 from ...backends import solve_gaussian_given_smoothing
 from ...smoothing_params import expand_smoothing_params_from_log
 from ..reparam import (

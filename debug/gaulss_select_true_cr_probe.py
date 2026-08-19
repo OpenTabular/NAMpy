@@ -7,6 +7,10 @@ from pathlib import Path
 
 import numpy as np
 
+from nampy.gam.fit.selection.optimize.basics import (
+    _initial_smoothing_params_from_design,
+)
+from nampy.gam.fit.selection.reparam import build_estimate_gam_setup_state
 from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     build_general_family_setup_state,
     criterion_gradient_ml_reml_general_family,
@@ -15,10 +19,6 @@ from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     run_general_family_fixed_smoothing,
 )
 from nampy.gam.linalg.cholesky import safe_pivoted_cholesky
-from nampy.gam.fit.selection.optimize.basics import (
-    _initial_smoothing_params_from_design,
-)
-from nampy.gam.fit.selection.reparam import build_estimate_gam_setup_state
 from tests.families.test_general_family_mgcv_parity import (
     GENERAL_SE_CASES,
     _gaulss_data,

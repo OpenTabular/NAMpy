@@ -1,11 +1,14 @@
-from itertools import combinations
-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from ..configs.treenam_config import DefaultTreeNAMConfig
 from .basemodel import BaseModel
+from .interactions import (
+    apply_feature_dropout,
+    create_interaction_networks,
+    interaction_forward,
+    sum_feature_dims,
+)
 from .neural_tree import NeuralDecisionTree
 
 
@@ -71,12 +74,15 @@ class TreeNAM(BaseModel):
                 input_dim=info["dimension"]
             )
 
-        self.interaction_models = nn.ModuleDict()
-        if self.interaction_degree is not None and self.interaction_degree >= 2:
-            self._create_interaction_trees(
-                num_feature_info=num_feature_info,
-                cat_feature_info=cat_feature_info,
-            )
+        self.interaction_models = create_interaction_networks(
+            list(num_feature_info.keys()) + list(cat_feature_info.keys()),
+            self.interaction_degree,
+            lambda interaction: self._create_tree(
+                input_dim=sum_feature_dims(
+                    interaction, num_feature_info, cat_feature_info
+                )
+            ),
+        )
 
     def _create_tree(self, input_dim: int) -> NeuralDecisionTree:
         return NeuralDecisionTree(
@@ -88,43 +94,23 @@ class TreeNAM(BaseModel):
             use_hard_routing_in_eval=self.use_hard_routing_in_eval,
         )
 
-    def _create_interaction_trees(self, num_feature_info, cat_feature_info):
-        all_feature_names = list(num_feature_info.keys()) + list(
-            cat_feature_info.keys()
-        )
-
-        for degree in range(2, self.interaction_degree + 1):
-            for interaction in combinations(all_feature_names, degree):
-                interaction_name = ":".join(interaction)
-                input_dim = 0
-
-                for feature in interaction:
-                    if feature in num_feature_info:
-                        input_dim += num_feature_info[feature]["dimension"]
-                    elif feature in cat_feature_info:
-                        input_dim += cat_feature_info[feature]["dimension"]
-
-                self.interaction_models[interaction_name] = self._create_tree(
-                    input_dim=input_dim
-                )
-
     def _interaction_forward(self, num_features: dict, cat_features: dict):
-        interaction_outputs = {}
+        """Interaction forward preserving the (outputs, penalty) tuple contract."""
         penalty = next(self.parameters()).new_zeros(())
 
-        if self.interaction_degree is not None and self.interaction_degree >= 2:
-            all_features = {**num_features, **cat_features}
+        def run_tree(tree, input_features):
+            nonlocal penalty
+            output, tree_penalty = tree(input_features, return_penalty=True)
+            penalty = penalty + tree_penalty
+            return output
 
-            for interaction_name, tree in self.interaction_models.items():
-                feature_names = interaction_name.split(":")
-                input_features = torch.cat(
-                    [all_features[fn] for fn in feature_names], dim=-1
-                ).float()
-
-                output, tree_penalty = tree(input_features, return_penalty=True)
-                interaction_outputs[interaction_name] = output
-                penalty = penalty + tree_penalty
-
+        interaction_outputs = interaction_forward(
+            self.interaction_models,
+            self.interaction_degree,
+            num_features,
+            cat_features,
+            run_tree,
+        )
         return interaction_outputs, penalty
 
     def forward(self, num_features: dict, cat_features: dict) -> dict:
@@ -164,17 +150,7 @@ class TreeNAM(BaseModel):
         concatenated = torch.cat(all_outputs, dim=1)
         num_terms = len(all_outputs)
         shaped = concatenated.view(-1, num_terms, self.num_classes)
-
-        if self.feature_dropout_p > 0.0 and self.training:
-            mask = torch.ones(
-                shaped.shape[0],
-                num_terms,
-                1,
-                device=shaped.device,
-                dtype=shaped.dtype,
-            )
-            mask = F.dropout(mask, p=self.feature_dropout_p, training=True)
-            shaped = shaped * mask
+        shaped = apply_feature_dropout(shaped, self.feature_dropout_p, self.training)
 
         x = shaped.sum(dim=1)
 
