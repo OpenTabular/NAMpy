@@ -75,8 +75,11 @@ of these surfaces through a heuristic fallback.
   score contract mirroring the neural LSS negative-mean-NLL; do in one
   dedicated change.
 - `sample_weight` support in the neural training stack (dataset/datamodule/
-  TaskModel loss), then in `GAMPlusNeural`.
-- Hybrid LSS composition (per-parameter offsets) — out of scope for the v1
-  hybrid backends.
-- `HybridJointRegressor`: explicit validation sets (passthrough_arrays_val
-  plumbing exists in the datamodule), classification, and lam-from-CV.
+  TaskModule loss), then in the `GAMResidual*` composers.
+- `GAMResidualRegressor`: gamma family (needs a gamma NLL loss for the
+  neural stage plus a dispersion story).
+- Hybrid LSS composition (per-parameter offsets) — out of scope for the
+  current hybrid backends.
+- `GAMNetClassifier`: multiclass targets (`CompiledGAMTermsModule` already
+  generalizes over `num_classes`); a lam grid-search helper (currently
+  `gam_source=` REML lift is the documented path).

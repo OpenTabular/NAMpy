@@ -23,11 +23,15 @@ All notable changes are recorded here following
   `plot.gam` port; neural estimators gain `plot_terms()`.
 - Per-sample link-scale offsets through the neural training stack
   (`fit(..., offset=)`), plus stratified automatic classification splits.
-- `nampy.hybrid` (experimental, explicitly non-mgcv): `GAMPlusNeural`
-  (frozen GAM baseline + offset-trained neural correction composed on the
-  link scale) and `HybridJointRegressor`/`CompiledGAMTerms` (compiled
+- `nampy.hybrid` (explicitly non-mgcv, never parity-compared):
+  `GAMResidualRegressor`/`GAMResidualClassifier` (frozen GAM baseline +
+  offset-trained neural correction composed on the link scale; gaussian,
+  poisson, and binomial families; explicit validation via `val_data=`;
+  cross-validation-safe — the neural template is cloned, never mutated)
+  and `GAMNetRegressor`/`GAMNetClassifier`/`CompiledGAMTerms` (compiled
   mgcv-parity bases and penalties trained jointly with a neural net in
-  Torch under fixed smoothing parameters).
+  Torch under fixed smoothing parameters; `gam_source=` lifts
+  REML-selected lambdas from a fitted GAM).
 - Public classifier, regressor, and distributional-regression exports for the
   supported neural architectures, with matching base-model and config exports.
 - Multi-output fitting coverage for every public neural regressor.
@@ -37,6 +41,17 @@ All notable changes are recorded here following
 
 ### Changed
 
+- **Breaking (naming sweep, no aliases):**
+  `SklearnBaseRegressor`/`SklearnBaseClassifier`/`SklearnBaseLSS` →
+  `NeuralRegressor`/`NeuralClassifier`/`NeuralLSS`
+  (`nampy/models/{regressor,classifier,lss}.py`); `TaskModel` →
+  `TaskModule` (`nampy/neural/training/task_module.py`); estimator
+  `QNAM` → `QNAMLSS` and torch module `QNAMBase` → `QNAM`;
+  `GAM.predict_feature_vals` → `GAM.predict_terms`; the raw-dict
+  `predict_feature_vals` is removed from all estimators —
+  `predict_components` (typed `AdditivePrediction`) is the one public
+  term-contribution surface, now also implemented for LSS
+  (multi-column, additive on the raw parameter scale).
 - **Breaking:** the torch backend moved under `nampy/neural/` —
   `nampy.basemodels` → `nampy.neural.modules` (TaskModel:
   `nampy.neural.training`), `nampy.data_utils` → `nampy.neural.data`,

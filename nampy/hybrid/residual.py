@@ -90,7 +90,9 @@ class _GAMResidualBase(BaseEstimator):
             )
         return family, loss_factory
 
-    def fit(self, data, *, neural_features, val_data=None, neural_fit_kwargs=None):
+    def fit(
+        self, data, y=None, *, neural_features, val_data=None, neural_fit_kwargs=None
+    ):
         """Fit the GAM on ``data`` via the formula, then the correction.
 
         Parameters
@@ -98,6 +100,9 @@ class _GAMResidualBase(BaseEstimator):
         data : pandas.DataFrame
             Training table for the formula-mode GAM fit (must contain the
             response and every formula column).
+        y : ignored
+            Present for sklearn tooling (cross-validation) compatibility;
+            the response always comes from the formula column in ``data``.
         neural_features : sequence of str
             Columns of ``data`` fed to the neural correction stage.
         val_data : pandas.DataFrame, optional
@@ -356,7 +361,9 @@ class GAMResidualClassifier(_GAMResidualBase):
         tags.target_tags.required = True
         return tags
 
-    def fit(self, data, *, neural_features, val_data=None, neural_fit_kwargs=None):
+    def fit(
+        self, data, y=None, *, neural_features, val_data=None, neural_fit_kwargs=None
+    ):
         super().fit(
             data,
             neural_features=neural_features,

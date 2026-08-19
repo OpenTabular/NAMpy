@@ -61,7 +61,7 @@ NAMpy has two numerical backends plus shared surfaces:
 
 - `nampy/api/` — backend-neutral contracts (`FeatureSchema`, `AdditivePrediction`, `Capabilities`, `PersistableModel`); imports neither backend.
 - `nampy/plotting/` — backend-neutral term-plot renderer consuming prepared plot-data dicts.
-- `nampy/hybrid/` — experimental GAM+neural composition backends; the ONLY package allowed to import both backends. Hybrid results are NOT mgcv fits and never enter parity suites.
+- `nampy/hybrid/` — GAM+neural composition backends (`GAMResidualRegressor`/`GAMResidualClassifier` frozen-baseline composers; `GAMNetRegressor`/`GAMNetClassifier` joint fixed-lambda Torch training over `CompiledGAMTerms`); the ONLY package allowed to import both backends. Hybrid results are NOT mgcv fits and never enter parity suites.
 - Ownership rules: `nampy/gam` imports nothing from `neural/`, `models/`, or `hybrid/`, and contains zero torch. PreTab appears only under `neural/` and `models/`.
 
 ### 1. Neural backend (`nampy/neural/`, `nampy/models/`)

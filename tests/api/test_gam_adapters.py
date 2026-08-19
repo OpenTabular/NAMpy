@@ -179,3 +179,49 @@ def test_cross_val_score_runs_on_gam_regressor():
     scores = cross_val_score(_fixed_regressor(), X, y, cv=2)
     assert scores.shape == (2,)
     assert np.all(np.isfinite(scores))
+
+
+@pytest.mark.parametrize("family", ["poisson", "gamma"])
+def test_adapter_matches_raw_gam_for_glm_families(family):
+    rng = np.random.default_rng(3)
+    n = 120
+    X = pd.DataFrame({"x0": rng.uniform(size=n), "x1": rng.uniform(size=n)})
+    eta = 0.5 * np.sin(3.0 * X["x0"].to_numpy()) + 0.4 * X["x1"].to_numpy()
+    mu = np.exp(eta)
+    if family == "poisson":
+        y = rng.poisson(mu).astype(float)
+    else:
+        y = rng.gamma(shape=4.0, scale=mu / 4.0)
+
+    params = {
+        "family": family,
+        "k": 6,
+        "optimize_smoothing": False,
+        "smoothing_method": "fixed",
+        "smoothing_params": [1.0, 1.0],
+    }
+    adapter = GAMRegressor(**params).fit(X, y)
+    raw = GAM(
+        basis="tp",
+        fit_intercept=True,
+        covariance="bayes",
+        score_gamma=1.0,
+        max_irls_iter=200,
+        irls_tol=1e-7,
+        sp_log_bounds=(-80.0, 20.0),
+        **{key: value for key, value in params.items() if key != "family"},
+        family=family,
+    )
+    raw.fit(X, y)
+
+    np.testing.assert_array_equal(adapter.predict(X), raw.predict(X))
+    np.testing.assert_array_equal(
+        adapter.gam_.fit_result().coef_full, raw.fit_result().coef_full
+    )
+    # Components respect the family link on the response scale.
+    components = adapter.predict_components(X)
+    np.testing.assert_allclose(
+        components.response,
+        adapter.gam_.family.inverse_link(components.link),
+        atol=1e-10,
+    )

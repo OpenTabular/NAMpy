@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""GAMPlusNeural: frozen mgcv-parity baseline + neural correction.
+"""GAMResidualRegressor: frozen mgcv-parity baseline + neural correction.
 
 The GAM stage sees only s(x0); the 2*x3 signal is invisible to it. The
 neural correction is trained with the GAM link prediction as a fixed
@@ -7,7 +7,7 @@ offset, so it learns exactly what the baseline missed. This composite is
 NOT an mgcv model.
 
 Run:
-    python examples/example_gam_plus_neural.py
+    python examples/example_gam_residual.py
 """
 
 import numpy as np
@@ -15,7 +15,7 @@ import pandas as pd
 from sklearn.metrics import r2_score
 
 from nampy.gam import GAM
-from nampy.hybrid import GAMPlusNeural
+from nampy.hybrid import GAMResidualRegressor
 from nampy.models import LinRegRegressor
 
 
@@ -31,7 +31,7 @@ def main():
         + rng.normal(scale=0.1, size=n)
     )
 
-    hybrid = GAMPlusNeural(
+    hybrid = GAMResidualRegressor(
         "y ~ s(x0, k=8)",
         LinRegRegressor(numerical_preprocessing="standardization"),
         family="gaussian",
