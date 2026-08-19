@@ -145,7 +145,7 @@ def test_stage_1_api_routes_weights_knots_min_sp_drop_intercept_and_fit_offset()
     )
     gam.fit(data=data, sample_weight="w", offset=fit_offset)
 
-    runtime = gam.compiled_model_.compiled_terms[0].predict_fn.__self__
+    runtime = gam.gam_result_.compiled_model.compiled_terms[0].predict_fn.__self__
     assert gam.fit_intercept is False
     np.testing.assert_allclose(gam.prior_weights_, data["w"].to_numpy())
     np.testing.assert_allclose(gam.offset_train_, fit_offset)
@@ -212,7 +212,7 @@ def test_stage_2_univariate_runtime_boundary_predictions_and_se_match_mgcv(basis
         smoothing_method="fixed",
     ).fit(data=data)
 
-    term = gam.compiled_model_.compiled_terms[0]
+    term = gam.gam_result_.compiled_model.compiled_terms[0]
     np.testing.assert_allclose(
         term.predict_matrix(gam.X_), term.basis_train, rtol=0.0, atol=2e-12
     )

@@ -33,10 +33,10 @@ from ..data import (
 from ..families import make_gam_family
 from ..fit.offsets import coerce_offset_array
 from ..fit.result_builders import copy_fit_result
-from ..parity import build_parity_snapshot
-from ..smoothing_selection.criteria.gaussian_reml_algebra import (
+from ..fit.selection.criteria.gaussian_reml_algebra import (
     gaussian_reml_weighted_degrees_and_log_weight_term,
 )
+from ..results.snapshots import build_snapshot
 from ..specs.modeling import make_predictor_specs, prepare_formula_inputs
 
 _GAM_HPARAM_KEYS = frozenset(
@@ -146,15 +146,31 @@ class GAM:
         self._optim_used_hessian = None
         self.smoothing_score_ = None
         self.gam_result_ = None
-        self.fit_core_solution_ = None
-        self.side_condition_reports_ = None
-        self._coef_reduced_to_full_idx = None
-        self.compiled_model_ = None
-        self._edf_by_term_fit_ = None
 
     # ------------------------------------------------------------------
     # Persistence
     # ------------------------------------------------------------------
+
+    #: Transient solver scratch: warm-start vectors and evaluation caches
+    #: written during smoothing optimization. All readers use
+    #: ``getattr(model, name, default)``, so dropping them from pickles is
+    #: safe and keeps saved models free of stale cached kernel state.
+    _TRANSIENT_STATE_PREFIXES = ("_pirls_",)
+    _TRANSIENT_STATE_NAMES = frozenset(
+        {
+            "_general_family_outer_eval_cache",
+            "_penalty_subspace_cache_",
+        }
+    )
+
+    def __getstate__(self):
+        state = dict(self.__dict__)
+        for name in list(state):
+            if name in self._TRANSIENT_STATE_NAMES or any(
+                name.startswith(prefix) for prefix in self._TRANSIENT_STATE_PREFIXES
+            ):
+                del state[name]
+        return state
 
     def save_model(self, path):
         destination = Path(path)
@@ -360,8 +376,6 @@ class GAM:
         self.fit_intercept = fit_intercept
         self.min_sp = min_sp
         self.gam_result_ = None
-        self.side_condition_reports_ = None
-        self._edf_by_term_fit_ = None
 
         from ..fit import fit_model_core
 
@@ -388,12 +402,12 @@ class GAM:
     def fit_result(self, include_covariances=True):
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
-        if self.gam_result_ is None:
+        if self.gam_result_ is None or self.gam_result_.fit_summary is None:
             from ..fit.result_builders import build_gam_result
 
-            self.gam_result_ = build_gam_result(self)
+            self.gam_result_ = build_gam_result(self, prefer_cached_summary=False)
         return copy_fit_result(
-            self.gam_result_.fit_summary,
+            self.gam_result_.require_fit_summary(),
             include_covariances=include_covariances,
         )
 
@@ -403,7 +417,7 @@ class GAM:
         return select_covariance_matrix(self, cov=cov)
 
     def _resolve_ml_reml_scoring_backend(self, method="reml"):
-        from ..fit.capabilities import resolve_ml_reml_scoring_backend
+        from ..fit.selection.criteria.ml_reml import resolve_ml_reml_scoring_backend
 
         return resolve_ml_reml_scoring_backend(self, method=method)
 
@@ -424,7 +438,7 @@ class GAM:
     def parity_snapshot(self, X=None, include_covariances=False):
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
-        return build_parity_snapshot(self, X=X, include_covariances=include_covariances)
+        return build_snapshot(self, X=X, include_covariances=include_covariances)
 
     def predict(
         self,
@@ -587,7 +601,7 @@ class GAM:
         )
 
     def sp_vcov(self, edge_correct=True, reg=1e-3):
-        from ..smoothing_selection import sp_vcov
+        from ..fit.selection import sp_vcov
 
         return sp_vcov(self, edge_correct=edge_correct, reg=reg)
 
@@ -822,10 +836,10 @@ class GAM:
                 fit_method = str(getattr(self, "smoothing_method", "")).lower()
                 if fit_method == "fixed" and getattr(self.family, "known_scale", None) is None:
                     from .._model_state import _coef_column_offset
-                    from ..smoothing_selection.criteria.pirls.value import (
+                    from ..fit.selection.criteria.pirls.value import (
                         _solve_gamma_profile_scale,
                     )
-                    from ..smoothing_selection.reparam import _static_penalty_null_dim
+                    from ..fit.selection.reparam import _static_penalty_null_dim
 
                     penalty = float(
                         getattr(fit_result, "penalty_quadratic", 0.0) or 0.0
@@ -993,12 +1007,12 @@ class GAM:
         return np.asarray(_edf1_vector(self), dtype=np.float64)
 
     def gam_vcomp(self, *, rescale=True, conf_lev=0.95):
-        from ..smoothing_selection import gam_vcomp
+        from ..fit.selection import gam_vcomp
 
         return gam_vcomp(self, rescale=rescale, conf_lev=conf_lev)
 
     def one_se_rule(self, candidate_indices=None):
-        from ..smoothing_selection import one_se_rule
+        from ..fit.selection import one_se_rule
 
         return one_se_rule(self, candidate_indices=candidate_indices)
 

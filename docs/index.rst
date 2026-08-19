@@ -29,7 +29,7 @@ Installation
 
 .. code-block:: bash
 
-   pip install nampy
+   pip install "nampy[all]"
 
 Basic Example
 ~~~~~~~~~~~~~

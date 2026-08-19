@@ -13,7 +13,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from nampy.gam.model.api import GAM
+from nampy.gam import GAM
 
 
 def _fit(*, apply_side_conditions: bool, smoothing_params=None):
@@ -49,11 +49,11 @@ fixed_default = _fit(
 )
 
 for name, lhs, rhs in (
-    ("design", direct.compiled_model_.design_matrix, default.compiled_model_.design_matrix),
+    ("design", direct.gam_result_.compiled_model.design_matrix, default.gam_result_.compiled_model.design_matrix),
     (
         "prediction_map",
-        direct.compiled_model_.fit_to_prediction_parameterization_map,
-        default.compiled_model_.fit_to_prediction_parameterization_map,
+        direct.gam_result_.compiled_model.fit_to_prediction_parameterization_map,
+        default.gam_result_.compiled_model.fit_to_prediction_parameterization_map,
     ),
     ("smoothing_params", direct.smoothing_params, default.smoothing_params),
     (
@@ -68,18 +68,18 @@ for name, lhs, rhs in (
     ),
     (
         "fit_coef",
-        direct.fit_core_solution_.fit_result.coef_full,
-        default.fit_core_solution_.fit_result.coef_full,
+        direct.gam_result_.fit_core_solution.fit_result.coef_full,
+        default.gam_result_.fit_core_solution.fit_result.coef_full,
     ),
     (
         "fit_vp_diag",
-        np.diag(direct.fit_core_solution_.fit_result.cov_bayes),
-        np.diag(default.fit_core_solution_.fit_result.cov_bayes),
+        np.diag(direct.gam_result_.fit_core_solution.fit_result.cov_bayes),
+        np.diag(default.gam_result_.fit_core_solution.fit_result.cov_bayes),
     ),
     (
         "state_drop",
-        direct.fit_core_solution_.fit_state.dropped_column_indices,
-        default.fit_core_solution_.fit_state.dropped_column_indices,
+        direct.gam_result_.fit_core_solution.fit_state.dropped_column_indices,
+        default.gam_result_.fit_core_solution.fit_state.dropped_column_indices,
     ),
 ):
     lhs = None if lhs is None else np.asarray(lhs)
@@ -97,13 +97,13 @@ for name, lhs, rhs in (
 
 print(
     "fixed_coef",
-    np.asarray(fixed_direct.fit_core_solution_.fit_result.coef_full),
-    np.asarray(fixed_default.fit_core_solution_.fit_result.coef_full),
+    np.asarray(fixed_direct.gam_result_.fit_core_solution.fit_result.coef_full),
+    np.asarray(fixed_default.gam_result_.fit_core_solution.fit_result.coef_full),
 )
 print(
     "fixed_state_drop",
-    fixed_direct.fit_core_solution_.fit_state.dropped_column_indices,
-    fixed_default.fit_core_solution_.fit_state.dropped_column_indices,
+    fixed_direct.gam_result_.fit_core_solution.fit_state.dropped_column_indices,
+    fixed_default.gam_result_.fit_core_solution.fit_state.dropped_column_indices,
 )
 
 

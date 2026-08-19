@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 
 from nampy.gam.linalg import (
@@ -172,7 +174,11 @@ def test_invariant_policy_centralizes_non_unique_representation_surfaces():
 
     class _Model:
         def __init__(self, *basis_names):
-            self.compiled_model_ = _Compiled(*basis_names)
+            self.gam_result_ = SimpleNamespace(
+                compiled_model=_Compiled(*basis_names),
+                fit_core_solution=None,
+                fit_summary=None,
+            )
 
     assert final_fit_uses_exact_orientation_parity(
         _Model("cr"), skip_coef_comparison=False

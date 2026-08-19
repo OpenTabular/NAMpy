@@ -11,12 +11,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import nampy.gam.smoothing_selection.optimize.bfgs_mgcv as bfgs_mod
-from nampy.gam.smoothing_selection.optimize.basics import (
+import nampy.gam.fit.selection.optimize.bfgs_mgcv as bfgs_mod
+from nampy.gam.fit.selection.optimize.basics import (
     _initial_smoothing_params_mgcv_style,
 )
-from nampy.gam.smoothing_selection.optimize.objectives import _CriterionObjective
-from nampy.gam.smoothing_selection.optimize.bfgs_mgcv import _optimize_outer_bfgs_mgcv
+from nampy.gam.fit.selection.optimize.objectives import _CriterionObjective
+from nampy.gam.fit.selection.optimize.bfgs_mgcv import _optimize_outer_bfgs_mgcv
 from tests._optimization_lifecycle_registry import OPTIMIZATION_LIFECYCLE_CASES
 from tests.optimization.test_mgcv_optimization_lifecycle_parity import _fit_lifecycle_case
 

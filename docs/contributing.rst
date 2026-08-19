@@ -8,7 +8,7 @@ and development tools with:
 
    python3.11 -m venv .venv
    source .venv/bin/activate
-   python -m pip install -e ".[dev]"
+   python -m pip install -e ".[all,dev]"
    pre-commit install
 
 Run the static gates with ``ruff check nampy tests`` and ``mypy nampy``. Tests

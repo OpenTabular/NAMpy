@@ -13,16 +13,16 @@ from ..._model_state import (
     _n_smoothing_params,
     _penalty_blocks_seq,
 )
-from ..linalg.stacked_qr import (
-    _pivoted_economic_qr,
-    _scatter_pivoted_rank_matrix_to_full,
-    build_penalized_qr_state_nonnegative,
-)
 from ..penalized_system import build_full_design, build_full_penalty_from_blocks
 from ..state import FitCoreSolution
 from .irls_core import (
     _mgcv_null_coef,
     irls_core,
+)
+from .stacked_qr import (
+    _pivoted_economic_qr,
+    _scatter_pivoted_rank_matrix_to_full,
+    build_penalized_qr_state_nonnegative,
 )
 
 _MGCV_GAM_FIT3_RANK_TOL = float(np.finfo(np.float64).eps * 100.0)
@@ -56,7 +56,7 @@ def _pirls_gdi_report_state(
     public_penalty=None,
 ):
     """Apply gam.fit3/gam.fit4's final canonical coefficient and rV gauge."""
-    from ...smoothing_selection.reparam import build_penalty_reparameterization_state
+    from ..selection.reparam import build_penalty_reparameterization_state
 
     X = np.asarray(X, dtype=np.float64)
     sp = np.asarray(smoothing_params, dtype=np.float64).ravel()
@@ -237,7 +237,7 @@ def solve_pirls_fit(
         fit_intercept=fi,
         n_coef=n_coef,
     )
-    from ...smoothing_selection.reparam import (
+    from ..selection.reparam import (
         build_penalty_reparameterization_state,
     )
 

@@ -20,7 +20,7 @@ from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils import ClassifierTags, RegressorTags
 
-from ..api import AdditivePrediction, Capabilities, FeatureSchema
+from .._contracts import AdditivePrediction, FeatureSchema
 from ..gam import GAM
 
 AdapterT = TypeVar("AdapterT", bound="_GAMAdapterBase")
@@ -188,7 +188,8 @@ class _GAMAdapterBase(BaseEstimator):
 
     def _term_label_map(self) -> dict[str, str]:
         """Map opaque term ids to human-readable term labels when unique."""
-        compiled_model = getattr(self.gam_, "compiled_model_", None)
+        gam_result = getattr(self.gam_, "gam_result_", None)
+        compiled_model = None if gam_result is None else gam_result.compiled_model
         if compiled_model is None:
             return {}
         ids = [term.term_id for term in compiled_model.compiled_terms]
@@ -220,40 +221,45 @@ class _GAMAdapterBase(BaseEstimator):
         self._check_fitted()
         return self.gam_.plot(**kwargs)
 
-    def capabilities(self) -> Capabilities:
-        return Capabilities(
-            supports_predict_proba=isinstance(self, GAMClassifier),
-            supports_standard_errors=True,
-            supports_lpmatrix=True,
-            supports_term_contributions=True,
-        )
-
     # ------------------------------------------------------------------
     # Persistence
     # ------------------------------------------------------------------
 
     def save_model(self, path: str | Path) -> Path:
-        """Persist this adapter, including the fitted GAM, to ``path``.
+        """Persist this adapter in the versioned NAMpy pickle format.
 
-        The file uses Python's pickle protocol and must only be loaded from
-        a trusted source.
+        Pickle artifacts are executable Python objects and must only be loaded
+        from trusted sources.
         """
         destination = Path(path)
+        payload = {
+            "format": "nampy-estimator",
+            "version": 1,
+            "estimator_class": type(self).__name__,
+            "estimator": self,
+        }
         with destination.open("wb") as handle:
-            pickle.dump(self, handle)
+            pickle.dump(payload, handle)
         return destination
 
     @classmethod
     def load_model(cls: type[AdapterT], path: str | Path) -> AdapterT:
-        """Load an adapter previously written by :meth:`save_model`."""
+        """Load a version-1 adapter artifact written by :meth:`save_model`."""
         source = Path(path)
         with source.open("rb") as handle:
             loaded: object = pickle.load(handle)
-        if not isinstance(loaded, cls):
+        if (
+            not isinstance(loaded, dict)
+            or loaded.get("format") != "nampy-estimator"
+            or loaded.get("version") != 1
+        ):
+            raise ValueError(f"{source} is not a supported NAMpy estimator artifact.")
+        adapter = loaded.get("estimator")
+        if not isinstance(adapter, cls):
             raise TypeError(
-                f"{source} contains {type(loaded).__name__}, not {cls.__name__}."
+                f"{source} contains {type(adapter).__name__}, not {cls.__name__}."
             )
-        return loaded
+        return adapter
 
 
 class GAMRegressor(_GAMAdapterBase):

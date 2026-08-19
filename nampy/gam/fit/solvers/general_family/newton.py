@@ -1738,7 +1738,7 @@ def _sl_ldetS(
     Stot: bool = False,
     deriv: int = 2,
 ) -> dict[str, Any]:
-    from ....smoothing_selection.reparam import gam_reparam
+    from ...selection.reparam import gam_reparam
 
     rho = np.asarray(rho, dtype=np.float64).ravel()
     fixed = np.asarray(fixed, dtype=bool).ravel()

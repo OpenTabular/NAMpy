@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 
-from .nn_utils import (
+from .nodegam_ops import (
     EM15Temp,
     ModuleWithInit,
     check_numpy,

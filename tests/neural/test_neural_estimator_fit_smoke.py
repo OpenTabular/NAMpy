@@ -228,11 +228,14 @@ def test_public_neural_estimator_fits_and_predicts(case, tmp_path):
     )
     classification_target = np.resize(np.arange(case.n_classes), x.size)
 
-    estimator = case.estimator_class(
-        numerical_preprocessing="minmax",
-        categorical_preprocessing=case.categorical_preprocessing,
+    estimator_kwargs = {
+        "numerical_preprocessing": "minmax",
+        "categorical_preprocessing": case.categorical_preprocessing,
         **case.model_kwargs,
-    )
+    }
+    if case.task == "lss":
+        estimator_kwargs["family"] = "normal"
+    estimator = case.estimator_class(**estimator_kwargs)
     target = (
         classification_target
         if case.task == "classification"
@@ -249,9 +252,6 @@ def test_public_neural_estimator_fits_and_predicts(case, tmp_path):
         "num_sanity_val_steps": 0,
         "fast_dev_run": True,
     }
-    if case.task == "lss":
-        fit_kwargs["family"] = "normal"
-
     returned = estimator.fit(data, target, **fit_kwargs)
     assert returned is estimator
     contributions = estimator._predict(data)

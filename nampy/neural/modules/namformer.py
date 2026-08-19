@@ -4,11 +4,11 @@ import torch
 import torch.nn as nn
 
 from ..configs.namformer_config import DefaultNAMformerConfig
-from ..layers.embedding_layer import EmbeddingLayer
-from ..layers.mlp_utils import MLP
-from ..layers.normalization_layers import LayerNorm
-from ..layers.transformer_utils import CustomTransformerEncoderLayer
 from .basemodel import BaseModel
+from .embedding_layer import EmbeddingLayer
+from .mlp_utils import MLP
+from .normalization_layers import LayerNorm
+from .transformer_utils import CustomTransformerEncoderLayer
 
 
 class NAMformer(BaseModel):
@@ -45,6 +45,7 @@ class NAMformer(BaseModel):
         self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
+        self._validate_features(num_feature_info, cat_feature_info)
         self.num_classes = num_classes
         self.interaction_degree = self.hparams.get(
             "interaction_degree", config.interaction_degree

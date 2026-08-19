@@ -3,7 +3,7 @@ from typing import List, Optional, Union
 import torch
 import torch.nn as nn
 
-from ..layers.mlp_utils import _make_activation, _make_norm, _resolve_norm_name
+from .mlp_utils import _make_activation, _make_norm, _resolve_norm_name
 
 
 class _ResidualBlockNary(nn.Module):

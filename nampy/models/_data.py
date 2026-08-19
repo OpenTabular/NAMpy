@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from ..api import FeatureSchema
+from .._contracts import FeatureSchema
 
 
 def _as_2d_array(X) -> np.ndarray:
@@ -48,13 +48,8 @@ def prepare_predict_features(estimator, X) -> pd.DataFrame:
 
     if isinstance(X, pd.DataFrame):
         frame = _stringify_columns(X)
-        actual = list(frame.columns)
-        if set(actual) != set(expected) or len(actual) != len(expected):
-            raise ValueError(
-                f"Feature names do not match fitted data. Expected {expected}, "
-                f"received {actual}."
-            )
-        return frame.loc[:, expected]
+        estimator.schema_.validate(frame)
+        return frame
 
     array = _as_2d_array(X)
     if array.shape[1] != len(expected):
@@ -62,4 +57,5 @@ def prepare_predict_features(estimator, X) -> pd.DataFrame:
             f"X has {array.shape[1]} features, but the estimator was fitted with "
             f"{len(expected)} features."
         )
+    estimator.schema_.validate(array)
     return pd.DataFrame(array, columns=expected)

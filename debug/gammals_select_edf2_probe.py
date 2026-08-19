@@ -21,14 +21,14 @@ sys.path.insert(0, "/home/ad32/projects/package/NAMpy")
 import numpy as np
 
 import nampy.gam.fit.solvers.general_family.newton as gnewton
+from nampy.gam import GAM
 from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     build_general_family_setup_state,
 )
-from nampy.gam.model.api import GAM
-from nampy.gam.smoothing_selection.optimize.basics import (
+from nampy.gam.fit.selection.optimize.basics import (
     _initial_smoothing_params_from_design,
 )
-from nampy.gam.smoothing_selection.reparam import build_estimate_gam_setup_state
+from nampy.gam.fit.selection.reparam import build_estimate_gam_setup_state
 from tests.families.test_general_family_mgcv_parity import (
     _gammals_data,
     _general_newdata,
@@ -199,7 +199,7 @@ with tempfile.TemporaryDirectory() as tmp:
             print(f"  {k:14s}: {out[k]}")
 
 # Flatness + orientation checks (same method as gaulss_select probe).
-from nampy.gam.smoothing_selection.criteria.dispatch import (  # noqa: E402
+from nampy.gam.fit.selection.criteria.dispatch import (  # noqa: E402
     criterion_gradient,
     criterion_value,
 )

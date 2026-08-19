@@ -16,7 +16,7 @@ here.  Non-Gaussian families require the full penalized IRLS derivative chain.
 
 Derivative computation
 ----------------------
-Gradients / Hessians are delegated to ``nampy.gam.smoothing_selection.criteria``.
+Gradients / Hessians are delegated to ``nampy.gam.fit.selection.criteria``.
 
 Not yet implemented
 -------------------
@@ -38,26 +38,26 @@ from nampy.gam._model_state import (
     _fit_state,
     _n_smoothing_params,
 )
-from nampy.gam.smoothing_selection.criteria.dispatch import (
+from nampy.gam.fit.selection.criteria.dispatch import (
     criterion_gradient,
     criterion_hessian,
 )
-from nampy.gam.smoothing_selection.criteria.gaussian import criterion_gcv_gaussian
-from nampy.gam.smoothing_selection.criteria.gaussian_dyn import (
+from nampy.gam.fit.selection.criteria.gaussian import criterion_gcv_gaussian
+from nampy.gam.fit.selection.criteria.gaussian_dyn import (
     criterion_ml_reml_gaussian_dynamic_joint,
     criterion_ml_reml_gaussian_dynamic_profiled,
 )
-from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
+from nampy.gam.fit.selection.criteria.gaussian_reml_algebra import (
     gaussian_weighted_residual_sum_squares,
     prior_weights_diagonal_from_fit,
     quadratic_form_penalty,
 )
-from nampy.gam.smoothing_selection.criteria.ml_reml import (
+from nampy.gam.fit.selection.criteria.ml_reml import (
     criterion_ml_reml,
     resolve_ml_reml_scoring_backend,
 )
-from nampy.gam.smoothing_selection.criteria.pirls import criterion_ubre_pirls
-from nampy.gam.smoothing_selection.reparam import (
+from nampy.gam.fit.selection.criteria.pirls import criterion_ubre_pirls
+from nampy.gam.fit.selection.reparam import (
     _stable_penalty_logdet,
     _static_penalty_null_dim,
 )

@@ -25,57 +25,13 @@ from .structures import CompiledTerm
 
 @dataclass(frozen=True)
 class ConstructedSmooth:
+    """Construction output: the compiled term plus fit-only construction state."""
+
     compiled_term: CompiledTerm
     penalty_specs: tuple = field(default_factory=tuple)
     fit_constraint_operator: np.ndarray | None = None
     prediction_offset: np.ndarray | None = None
     original_design_matrix: np.ndarray | None = None
-
-    def __getattr__(self, name: str):
-        return getattr(self.compiled_term, name)
-
-    @property
-    def n_coef(self) -> int:
-        return int(self.compiled_term.basis_train.shape[1])
-
-    @property
-    def basis_train(self) -> np.ndarray:
-        return np.asarray(self.compiled_term.basis_train, dtype=np.float64)
-
-    @property
-    def fit_coefficient_map(self) -> np.ndarray | None:
-        for cmap in self.compiled_term.coefficient_maps:
-            if cmap.reason == "local_constraint_absorption":
-                return np.asarray(cmap.matrix, dtype=np.float64)
-        return None
-
-    @property
-    def predict_coefficient_map(self) -> np.ndarray | None:
-        return compose_coefficient_maps(self.compiled_term.coefficient_maps)
-
-    @property
-    def transform_applied(self) -> bool:
-        return len(self.compiled_term.coefficient_maps) > 0
-
-    @property
-    def skip_centering(self) -> bool:
-        policy = self.compiled_term.side_condition_policy
-        return bool(policy is not None and policy.skip_centering)
-
-    def predict_matrix(self, X_new):
-        return self.compiled_term.predict_matrix(X_new)
-
-
-def build_term_matrix(term: ConstructedSmooth, X_new, return_offset=False):
-    if bool(
-        getattr(term.compiled_term, "metadata", {}).get("expose_raw_prediction_basis")
-    ):
-        Xp = term.compiled_term.prediction_parameterization_matrix(X_new)
-    else:
-        Xp = term.predict_matrix(X_new)
-    if return_offset:
-        return Xp, term.prediction_offset
-    return Xp
 
 
 def _copy_penalty_defs(penalty_defs):
@@ -316,4 +272,4 @@ def construct_smooth(
     )
 
 
-__all__ = ["ConstructedSmooth", "build_term_matrix", "construct_smooth"]
+__all__ = ["ConstructedSmooth", "construct_smooth"]

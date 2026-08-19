@@ -1,33 +1,33 @@
 from __future__ import annotations
 
 import numpy as np
+from nampy.gam.fit.solve_ops import solve_gaussian_given_smoothing
+from nampy.gam.fit.selection.criteria.pirls_deriv import _gdi1_kernel
 
+from nampy.gam import GAM
 from nampy.gam._model_state import _fit_intercept, _n_coef, _penalty_blocks_seq
-from nampy.gam.fit.linalg.stacked_qr import (
+from nampy.gam.fit.solvers.stacked_qr import (
     _stacked_penalized_ls_nonneg_solution,
     solve_gaussian_penalized_ls_stacked_qr,
 )
-from nampy.gam.fit.solve_ops import solve_gaussian_given_smoothing
 from nampy.gam.fit.state import (
     _restore_pirls_dbeta_to_original_parameterization,
     _restore_pirls_rank_root_to_original_parameterization,
 )
-from nampy.gam.model.api import GAM
-from nampy.gam.smoothing_selection.criteria.gaussian import (
+from nampy.gam.fit.selection.criteria.gaussian import (
     criterion_ml_reml_exact,
     criterion_ml_reml_exact_dynamic,
 )
-from nampy.gam.smoothing_selection.criteria.gaussian_dyn import (
+from nampy.gam.fit.selection.criteria.gaussian_dyn import (
     _gaussian_penalty_quadratic_mgcv_style,
     criterion_gradient_ml_reml_gaussian_dynamic_joint,
     criterion_hessian_ml_reml_gaussian_dynamic_joint,
     criterion_ml_reml_gaussian_dynamic_joint,
 )
-from nampy.gam.smoothing_selection.criteria.gaussian_reml_algebra import (
+from nampy.gam.fit.selection.criteria.gaussian_reml_algebra import (
     quadratic_form_penalty,
 )
-from nampy.gam.smoothing_selection.criteria.pirls_deriv import _gdi1_kernel
-from nampy.gam.smoothing_selection.reparam import (
+from nampy.gam.fit.selection.reparam import (
     _stable_penalty_logdet_derivatives,
     build_penalty_reparameterization_state,
 )
@@ -62,7 +62,7 @@ def inspect_gamma() -> None:
         method="REML",
         optimizer=optimizer,
     )
-    sol = gam.fit_core_solution_
+    sol = gam.gam_result_.fit_core_solution
     fit = sol.fit_result
     sp = np.asarray(gam.smoothing_params, dtype=np.float64)
     sp_expected = np.atleast_1d(

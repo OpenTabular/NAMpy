@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.gam.parity.snapshots import _normalize_reference_term_label
+from nampy.gam.results.snapshots import _normalize_reference_term_label
 from tests.mgcv_parity_utils import (
     _fit_nampy_model,
     _run_mgcv_snapshot,

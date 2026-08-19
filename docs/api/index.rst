@@ -8,7 +8,6 @@ This section contains the complete API documentation for NAMpy.
 
    models
    gam
-   hybrid
    basemodels
    configs
    utils
@@ -21,10 +20,9 @@ The NAMpy package is organized into several main modules:
 * :mod:`nampy.models` - High-level estimator classes (scikit-learn style),
   including the ``GAMRegressor``/``GAMClassifier`` adapters
 * :mod:`nampy.gam` - mgcv-parity GAM backend (``GAM`` and the fit core)
-* :mod:`nampy.api` - Shared backend-neutral contracts (feature schema,
+* :mod:`nampy._contracts` - Shared backend-neutral contracts (feature schema,
   additive predictions, capabilities, persistence)
-* :mod:`nampy.hybrid` - Experimental GAM + neural composition backends
-* :mod:`nampy.neural` - Torch backend internals (modules, layers, training,
+* :mod:`nampy.neural` - Torch backend internals (modules, task, contracts,
   data, distributions, configs)
 
 Quick API Reference

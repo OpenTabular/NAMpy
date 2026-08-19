@@ -23,7 +23,7 @@ def _print_vcomp_probe(data, formula, family, method) -> None:
     outer_info = {} if result is None else dict(getattr(result, "outer_info", {}) or {})
     fit_summary = getattr(gam, "fit_summary_", None)
     fit_result = getattr(gam, "fit_result_", None)
-    fit_core = getattr(gam, "fit_core_solution_", None)
+    fit_core = getattr(getattr(gam, "gam_result_", None), "fit_core_solution", None)
     fit_state = None if fit_core is None else getattr(fit_core, "fit_state", None)
 
     print("== vcomp probe ==")

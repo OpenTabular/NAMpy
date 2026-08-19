@@ -34,6 +34,7 @@ class LinReg(BaseModel):
 
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
+        self._validate_features(num_feature_info, cat_feature_info)
         self.num_classes = num_classes
 
         self.intercept: nn.Parameter | None
@@ -41,13 +42,6 @@ class LinReg(BaseModel):
             self.intercept = nn.Parameter(torch.zeros(num_classes))
         else:
             self.intercept = None
-
-        reserved = {"output", "intercept"}
-        all_feature_names = set(num_feature_info) | set(cat_feature_info)
-        if reserved & all_feature_names:
-            raise ValueError(
-                f"Feature names {sorted(reserved.intersection(all_feature_names))} are reserved."
-            )
 
         self.num_feature_networks = nn.ModuleDict()
         for feature_name, info in num_feature_info.items():

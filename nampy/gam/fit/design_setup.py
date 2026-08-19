@@ -24,22 +24,18 @@ def compile_designs(model, X, feature_names):
         # knob either (mgcv/R/mgcv.r:1266 hard-codes its call-site tol).
         side_condition_tol=1e-10,
     )
-    model.compiled_model_ = compiled_model
-    model.side_condition_reports_ = (
-        None
-        if compiled_model.side_condition_reports is None
-        else list(compiled_model.side_condition_reports)
+    from ..results import GAMResult
+
+    current = model.gam_result_ or GAMResult()
+    model.gam_result_ = current.with_compiled_model(
+        compiled_model
     )
     model.family.validate_predictor_count(len(_predictor_designs(model)))
-    model._coef_reduced_to_full_idx = np.asarray(
-        compiled_model.coef_reduced_to_full_idx,
-        dtype=int,
-    )
     model.min_sp_ = resolve_min_sp(model, model.min_sp)
     model.smoothing_params = resolve_smoothing_params(model, _n_smoothing_params(model))
 
     if needs_exact_gaussian_reparameterization(model):
-        from ..smoothing_selection.reparam import (
+        from .selection.reparam import (
             assign_exact_reparam_state,
             build_estimate_gam_setup_state,
             build_penalty_reparameterization_state,
@@ -60,15 +56,3 @@ def compile_designs(model, X, feature_names):
     else:
         model.reparam_state_ = None
         model.sl_blocks_ = None
-
-
-def build_gaussian_reparameterized_system(model):
-    from ..smoothing_selection.reparam import build_gaussian_reparameterized_system
-
-    return build_gaussian_reparameterized_system(model)
-
-
-def build_penalty_reparameterized_system(model):
-    from ..smoothing_selection.reparam import build_penalty_reparameterized_system
-
-    return build_penalty_reparameterized_system(model)

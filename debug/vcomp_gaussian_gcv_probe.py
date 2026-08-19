@@ -10,12 +10,12 @@ from pathlib import Path
 import numpy as np
 
 from nampy.gam._model_state import _fit_scale
-from nampy.gam.smoothing_selection.criteria.dispatch import (
+from nampy.gam.fit.selection.criteria.dispatch import (
     criterion_gradient,
     criterion_hessian,
     criterion_value,
 )
-from nampy.gam.smoothing_selection.postfit import _mgcv_penalty_rescale_factors
+from nampy.gam.fit.selection.postfit import _mgcv_penalty_rescale_factors
 from tests.mgcv_parity_utils import (
     _REPO_ROOT,
     _build_r_command,

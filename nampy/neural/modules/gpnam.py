@@ -5,11 +5,11 @@ import torch
 import torch.nn as nn
 
 from ..configs.gpnam_config import DefaultGPNAMConfig
-from ..training.output_contract import validate_feature_names
 from .basemodel import BaseModel
 
 
 class GPNAM(BaseModel):
+    extra_reserved_feature_names = ("feature_contribution",)
     """
     Gaussian Process Neural Additive Model (GP-NAM).
 
@@ -53,15 +53,11 @@ class GPNAM(BaseModel):
         # Metadata
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
+        self._validate_features(num_feature_info, cat_feature_info)
         self.num_classes = num_classes
 
         self.num_feature_keys = list(num_feature_info.keys())
         self.cat_feature_keys = list(cat_feature_info.keys())
-
-        all_feature_names = set(self.num_feature_keys) | set(self.cat_feature_keys)
-        validate_feature_names(
-            all_feature_names, owner="GPNAM", extra_reserved=("feature_contribution",)
-        )
 
         # Scalar post-preprocessing dimensions
         self.atomic_feature_names = self._build_atomic_feature_names(

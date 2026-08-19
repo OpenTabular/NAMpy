@@ -17,11 +17,12 @@ LSS estimators predict the parameters of a chosen response distribution.
        X, y, test_size=0.2, random_state=13
    )
 
-   model = TreeNAMLSS(numerical_preprocessing="standardization")
+   model = TreeNAMLSS(
+       family="normal", numerical_preprocessing="standardization"
+   )
    model.fit(
        X_train,
        y_train,
-       family="normal",
        max_epochs=20,
        batch_size=64,
    )

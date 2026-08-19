@@ -25,7 +25,7 @@ from nampy.gam._model_state import (
 from tests.gam_cartesian_matrix import MatrixCase, fit_model, make_data
 from tests.mgcv_parity_utils import _run_mgcv_gam_setup_assembly, _run_mgcv_snapshot
 from nampy.gam.fit.parameterization import prediction_parameterization_map
-from nampy.gam.smoothing_selection.reparam import build_estimate_gam_setup_state
+from nampy.gam.fit.selection.reparam import build_estimate_gam_setup_state
 
 
 def _arr(value):

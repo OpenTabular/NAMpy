@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 from scipy.linalg import orthogonal_procrustes
 
-from nampy.splines.basis.natparam import (
+from nampy.gam.splines.basis.natparam import (
     _r_linpack_qr,
     _r_triangular_solve,
     nat_param_type1,

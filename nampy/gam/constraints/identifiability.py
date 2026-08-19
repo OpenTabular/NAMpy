@@ -12,9 +12,8 @@ from ..compiler.structures import (
     CompiledPenalty,
     CompiledPredictor,
     CompiledTerm,
-    PenaltySpec,
 )
-from ..penalties import normalize_penalty_spec
+from ..penalties import PenaltySpec, normalize_penalty_spec
 from .transforms import (
     independent_column_indices,
     null_space_basis_from_constraint_matrix,

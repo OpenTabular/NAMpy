@@ -296,8 +296,8 @@ For modeling full probability distributions:
    from nampy.models import NAMLSS, GPNAMLSS, NBMLSS, NodeGAMLSS
    # etc.
    
-   model = NAMLSS()
-   model.fit(X, y, family="normal", max_epochs=150)
+   model = NAMLSS(family="normal")
+   model.fit(X, y, max_epochs=150)
 
 Model Reference
 ---------------

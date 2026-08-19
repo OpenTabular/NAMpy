@@ -19,10 +19,10 @@ from nampy.gam.fit.postprocess.unconditional_covariance import (
     _restore_pirls_rank_root_to_original_parameterization,
 )
 from nampy.gam.linalg import symmetrize_matrix
-from nampy.gam.smoothing_selection.criteria.gaussian_dyn import (
+from nampy.gam.fit.selection.criteria.gaussian_dyn import (
     criterion_hessian_ml_reml_gaussian_dynamic_joint,
 )
-from nampy.gam.smoothing_selection.criteria.pirls.derivatives import _gdi1_kernel
+from nampy.gam.fit.selection.criteria.pirls.derivatives import _gdi1_kernel
 from tests.parity.test_mgcv_prediction_inference_diagnostics_parity import (
     CASE_BY_ID,
     _case_outer_bundle,
@@ -84,8 +84,8 @@ def _nampy_vc1(gam, sp, hess):
 
 
 def _nampy_vb(gam):
-    fit_result = gam.fit_core_solution_.fit_result
-    fit_state = gam.fit_core_solution_.fit_state
+    fit_result = gam.gam_result_.fit_core_solution.fit_result
+    fit_state = gam.gam_result_.fit_core_solution.fit_state
     scale = float(fit_result.scale)
     rank_root = getattr(fit_state, "rank_root", None)
     if rank_root is None:
@@ -122,8 +122,8 @@ def main() -> None:
     )
     _max("stored Vc raw", gam.vcov(unconditional=True), r["final_Vc"])
     _max("stored Vc sign-aligned", D @ gam.vcov(unconditional=True) @ D, r["final_Vc"])
-    _max("R X root", gam.fit_core_solution_.fit_state.X, r["X"])
-    _max("R X root sign-aligned", gam.fit_core_solution_.fit_state.X * P_sign, r["X"])
+    _max("R X root", gam.gam_result_.fit_core_solution.fit_state.X, r["X"])
+    _max("R X root sign-aligned", gam.gam_result_.fit_core_solution.fit_state.X * P_sign, r["X"])
 
     joint_log_sigma2 = getattr(gam._optim_result, "joint_log_sigma2", None)
     hess = criterion_hessian_ml_reml_gaussian_dynamic_joint(
@@ -147,7 +147,7 @@ def main() -> None:
         _max("Vb sign-aligned", D @ Vb @ D, r["Vb"])
 
     stored = np.asarray(gam.vcov(unconditional=True), dtype=np.float64)
-    vc2_est = stored - np.asarray(gam.fit_core_solution_.fit_result.cov_bayes)
+    vc2_est = stored - np.asarray(gam.gam_result_.fit_core_solution.fit_result.cov_bayes)
     print("stored Vc eigen min", np.linalg.eigvalsh(stored).min())
     newdata = _newdata_for_case(case.case_id)
     Xp = np.asarray(gam.predict(X=newdata, type="lpmatrix"), dtype=np.float64)

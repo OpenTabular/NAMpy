@@ -13,10 +13,10 @@ All items from the publishing checklist have been completed! Here's what was don
 - Added `__all__` exports to all modules:
   - `nampy/__init__.py` - Main package exports
   - `nampy/models/__init__.py` - Model classes
-  - `nampy/basemodels/__init__.py` - Base model classes
+  - `nampy/neural/modules/__init__.py` - PyTorch architectures
   - `nampy/preprocessing/__init__.py` - Preprocessing utilities
   - `nampy/utils/__init__.py` - Utility functions
-  - `nampy/configs/__init__.py` - Configuration classes
+  - `nampy/neural/configs/__init__.py` - Configuration dataclasses
   - `nampy/data_utils/__init__.py` - Data utilities
   - `nampy/arch_utils/__init__.py` - Architecture utilities (internal)
   - `nampy/splines/__init__.py` - Spline implementations (internal)
@@ -138,7 +138,7 @@ Makefile
 .github/workflows/ci.yml
 .github/workflows/publish.yml
 .github/workflows/docs.yml
-nampy/configs/__init__.py
+nampy/neural/configs/__init__.py
 nampy/data_utils/__init__.py
 nampy/arch_utils/__init__.py
 nampy/splines/__init__.py

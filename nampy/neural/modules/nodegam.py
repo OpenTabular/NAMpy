@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from ..configs.nodegam_config import DefaultNodeGAMConfig
 from .basemodel import BaseModel
-from .nn_utils import entmoid15
+from .nodegam_ops import entmoid15
 from .nodegam_utils import EM15Temp, GAMAttBlock, GAMBlock
 
 
@@ -58,6 +58,7 @@ class NodeGAM(BaseModel):
         self.l2_lambda = self.hparams.get("l2_lambda", config.l2_lambda)
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
+        self._validate_features(num_feature_info, cat_feature_info)
         self.num_classes = num_classes
         self.interaction_degree = self.hparams.get(
             "interaction_degree", config.interaction_degree

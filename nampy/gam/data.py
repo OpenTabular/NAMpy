@@ -147,7 +147,7 @@ def dataframe_to_feature_matrix(
 
 
 def coerce_formula_predict_inputs(model, X):
-    from .specs.build import apply_formula_preprocess_to_new_data
+    from .specs.preprocess import apply_formula_preprocess_to_new_data
 
     if not model.formula_mode_:
         X_np, feature_names = coerce_X(model, X)

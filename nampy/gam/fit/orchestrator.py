@@ -22,13 +22,15 @@ from .backends import solve_fit
 from .capabilities import (
     coerce_general_family_smoothing_method,
     raise_ml_reml_backend_error,
-    resolve_smoothing_method,
-    supports_smoothing_method,
 )
 from .design_setup import compile_designs
 from .offsets import coerce_offset_array
 from .result_builders import build_gam_result
-from .smoothing_params import optimize_smoothing_params
+from .selection.optimize.driver import (
+    optimize_smoothing_params,
+    resolve_smoothing_method,
+    supports_smoothing_method,
+)
 from .state import assign_fit_solution
 
 
@@ -201,7 +203,7 @@ def fit_model_core(
             ]
 
     if model.smoothing_score_ is None and model._optim_method not in {None, "fixed"}:
-        from ..smoothing_selection.criteria.dispatch import criterion_value
+        from .selection.criteria.dispatch import criterion_value
 
         fixed_mask = (
             np.zeros(_n_smoothing_params(model), dtype=bool)

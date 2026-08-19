@@ -11,7 +11,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-import nampy.gam.fit.linalg.stacked_qr as stacked_qr  # noqa: E402
+import nampy.gam.fit.solvers.stacked_qr as stacked_qr  # noqa: E402
 from tests.gam_cartesian_matrix import MatrixCase, fit_model, make_data  # noqa: E402
 from tests.mgcv_parity_utils import (  # noqa: E402
     R_SCRIPT,
@@ -119,7 +119,7 @@ def main() -> None:
     print("coef max abs", float(np.max(np.abs(beta - beta_ref))))
     print("fitted max abs", float(np.max(np.abs(fitted - fitted_ref))))
     print("fitted min", float(np.min(fitted)), float(np.min(fitted_ref)))
-    fit_result = gam.fit_core_solution_.fit_result
+    fit_result = gam.gam_result_.fit_core_solution.fit_result
     print(
         "fit flags",
         {
@@ -129,7 +129,7 @@ def main() -> None:
         },
     )
     print("actual inner trace")
-    trace = list(gam.fit_core_solution_.fit_result.inner_trace or [])
+    trace = list(gam.gam_result_.fit_core_solution.fit_result.inner_trace or [])
     print("trace_len", len(trace))
     print(json.dumps(trace[:12], indent=2))
     print("...")

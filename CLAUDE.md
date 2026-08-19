@@ -59,19 +59,17 @@ When you need to inspect a failing parity case:
 
 NAMpy has two numerical backends plus shared surfaces:
 
-- `nampy/api/` — backend-neutral contracts (`FeatureSchema`, `AdditivePrediction`, `Capabilities`, `PersistableModel`); imports neither backend.
+- `nampy/_contracts.py` — the small backend-neutral contracts (`FeatureSchema`, `AdditivePrediction`); imports neither backend.
 - `nampy/plotting/` — backend-neutral term-plot renderer consuming prepared plot-data dicts.
-- `nampy/hybrid/` — GAM+neural composition backends (`GAMResidualRegressor`/`GAMResidualClassifier` frozen-baseline composers; `GAMNetRegressor`/`GAMNetClassifier` joint fixed-lambda Torch training over `CompiledGAMTerms`); the ONLY package allowed to import both backends. Hybrid results are NOT mgcv fits and never enter parity suites.
-- Ownership rules: `nampy/gam` imports nothing from `neural/`, `models/`, or `hybrid/`, and contains zero torch. PreTab appears only under `neural/` and `models/`.
+- Ownership rules: `nampy/gam` imports nothing from `neural/` or `models/`, and contains zero torch. PreTab appears only under `neural/` and `models/`.
 
 ### 1. Neural backend (`nampy/neural/`, `nampy/models/`)
 
 Each model (NAM, GPNAM, NBM, NATT, NAMformer, NodeGAM, SplineNAM, QNAM, SNAM, TreeNAM, LinReg) follows a layered pattern:
 
-- `**nampy/neural/modules/<model>.py**` — PyTorch `nn.Module` architectures (plus single-architecture utilities)
-- `**nampy/neural/layers/**` — shared building blocks (MLP layers, normalization, attention, embeddings)
-- `**nampy/neural/training/**` — `TaskModel` Lightning harness, the shared training engine (`engine.py`), and the forward-output dict grammar (`output_contract.py`)
-- `**nampy/neural/data/**` — `NAMpyDataModule`/`NAMpyDataset` (PreTab-to-Torch; preprocessor fit on training rows only; offset and passthrough channels)
+- `**nampy/neural/modules/**` — PyTorch architectures and shared building blocks (MLPs, normalization, attention, embeddings)
+- `**nampy/neural/task.py**` — Lightning task harness; `**nampy/neural/contracts.py**` — forward-output key grammar and feature-name validation (training/inference orchestration lives on `NeuralEstimatorBase` in `nampy/models/_base.py`)
+- `**nampy/neural/data/**` — `NAMpyDataModule`/`NAMpyDataset` (PreTab-to-Torch; preprocessor fit on training rows only; offset channel)
 - `**nampy/neural/distributions/**` — Torch LSS families and metrics
 - `**nampy/neural/configs/<model>_config.py**` — hyperparameter dataclasses
 - `**nampy/models/<model>.py**` — scikit-learn-style wrappers (`<Model>Regressor`, `<Model>Classifier`, `<Model>LSS`); `nampy/models/gam.py` holds the `GAMRegressor`/`GAMClassifier` adapters

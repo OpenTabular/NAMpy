@@ -18,8 +18,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ...compiler.structures import PenaltySpec
 from ...linalg import symmetrize_matrix
+from ...penalties import PenaltySpec
 from ...penalties.algebra import penalty_rescale_factor, scale_penalty
 from ..algebra import rowwise_kronecker
 from ..smooth_base import (

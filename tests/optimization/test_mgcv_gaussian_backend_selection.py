@@ -8,7 +8,7 @@ from scipy.optimize import OptimizeResult
 
 from nampy.gam import GAM
 from nampy.gam.compiler.structures import CompiledModel
-from nampy.gam.smoothing_selection.criteria.ml_reml import (
+from nampy.gam.fit.selection.criteria.ml_reml import (
     resolve_ml_reml_scoring_backend,
 )
 from tests.mgcv_parity_utils import _make_gaussian_data
@@ -29,7 +29,11 @@ def _gaussian_model_with_term(term_type: str):
     )
     return SimpleNamespace(
         family=family,
-        compiled_model_=compiled_model,
+        gam_result_=SimpleNamespace(
+            compiled_model=compiled_model,
+            fit_core_solution=None,
+            fit_summary=None,
+        ),
     )
 
 
@@ -59,8 +63,8 @@ def test_gaussian_reml_bfgs_uses_profiled_objective_without_joint_sigma2(
     monkeypatch,
 ):
     """Verify that gaussian REML BFGS uses joint objective with sigma2."""
-    from nampy.gam.smoothing_selection.optimize import driver as driver_module
-    from nampy.gam.smoothing_selection.optimize.objectives import (
+    from nampy.gam.fit.selection.optimize import driver as driver_module
+    from nampy.gam.fit.selection.optimize.objectives import (
         _GaussianRemlJointObjective,
     )
 
@@ -102,6 +106,6 @@ def test_gaussian_reml_bfgs_uses_profiled_objective_without_joint_sigma2(
 
     assert captured["objective_type"] is _GaussianRemlJointObjective
     assert np.asarray(captured["x0"], dtype=np.float64).shape == (
-        int(model.compiled_model_.n_smoothing_params) + 1,
+        int(model.gam_result_.compiled_model.n_smoothing_params) + 1,
     )
     assert captured["score_type"] == "reml"

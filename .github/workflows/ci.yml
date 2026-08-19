@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11"]
+        python-version: ["3.11", "3.12"]
 
     steps:
     - uses: actions/checkout@v4
@@ -30,17 +30,33 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
 
+    - name: Set up R
+      uses: r-lib/actions/setup-r@v2
+      with:
+        r-version: "4.5.3"
+        use-public-rspm: true
+
+    - name: Install R test dependencies
+      uses: r-lib/actions/setup-r-dependencies@v2
+      with:
+        packages: any::jsonlite
+
+    - name: Install vendored mgcv
+      run: R CMD INSTALL ./mgcv
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e ".[dev]"
+        pip install -e ".[all,dev]"
 
     - name: Run tests
+      env:
+        MGCV_CACHE_ONLY: "0"
       run: |
-        export MGCV_CACHE_ONLY=1
         pytest tests/ --cov=nampy --cov-report=xml --cov-report=term-missing
 
     - name: Upload coverage to Codecov
+      if: matrix.python-version == '3.11'
       uses: codecov/codecov-action@v4
       with:
         file: ./coverage.xml
@@ -56,7 +72,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     env:
-      MGCV_CACHE_ONLY: "1"
+      MGCV_CACHE_ONLY: "0"
 
     steps:
     - uses: actions/checkout@v4
@@ -67,16 +83,31 @@ jobs:
         python-version: "3.11"
         cache: 'pip'
 
+    - name: Set up R
+      uses: r-lib/actions/setup-r@v2
+      with:
+        r-version: "4.5.3"
+        use-public-rspm: true
+
+    - name: Install R test dependencies
+      uses: r-lib/actions/setup-r-dependencies@v2
+      with:
+        packages: any::jsonlite
+
+    - name: Install vendored mgcv
+      run: R CMD INSTALL ./mgcv
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e ".[dev]"
+        pip install -e ".[all,dev]"
 
     - name: Run portable numerical slices
       run: >-
         pytest
         tests/regressions/test_no_platform_numeric_bindings.py
         tests/optimization/test_gam_linalg_exports.py
+        tests/optimization/test_mgcv_gam_side_parity.py::test_gam_side_penalty_root_is_checked_through_its_identified_gram_matrix
         tests/parity/test_gam_parity_invariants.py
         tests/smooths/test_mgcv_nat_param_parity.py
         tests/regressions/test_chi_square_mixtures_mgcv_parity.py
@@ -90,10 +121,11 @@ jobs:
         'tests/smooths/test_mgcv_raw_constructor_parity.py::test_raw_constructor_matches_mgcv[tp_max_knots_xt]'
         'tests/smooths/test_mgcv_raw_constructor_parity.py::test_raw_constructor_matches_mgcv[fs_default_tp]'
         'tests/smooths/test_mgcv_raw_constructor_parity.py::test_raw_constructor_matches_mgcv[ti_mc_true_false]'
+        'tests/smooths/test_mgcv_ti_stage_parity.py::test_ti_shrinkage_penalty_invariants_match_mgcv_raw_constructor'
         -v
 
   lint:
-    name: Lint and Format Check
+    name: Lint
     runs-on: ubuntu-latest
 
     steps:
@@ -102,25 +134,20 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: "3.10"
+        python-version: "3.11"
         cache: 'pip'
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install black ruff isort
-
-    - name: Check formatting with Black
-      run: |
-        black --check nampy/ tests/
-
-    - name: Check import sorting with isort
-      run: |
-        isort --check-only --profile black nampy/ tests/
+        pip install -e ".[all,dev]"
 
     - name: Lint with Ruff
       run: |
-        ruff check nampy/ tests/
+        ruff check nampy tests scripts
+
+    - name: Check repository hygiene
+      run: python scripts/check_repository_hygiene.py
 
   type-check:
     name: Type Check
@@ -137,22 +164,21 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: "3.10"
+        python-version: "3.11"
         cache: 'pip'
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e ".[dev]"
+        pip install -e ".[all,dev]"
 
     - name: Type check with mypy
-      run: |
-        mypy nampy/ || true  # Don't fail on type errors for now
+      run: mypy nampy/
 
   build:
     name: Build Distribution
     runs-on: ubuntu-latest
-    needs: [test, portability, lint]
+    needs: [test, portability, lint, type-check]
 
     steps:
     - uses: actions/checkout@v4
@@ -160,7 +186,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: "3.10"
+        python-version: "3.11"
 
     - name: Install build dependencies
       run: |
@@ -175,9 +201,10 @@ jobs:
 
     - name: Smoke-test installed wheel
       run: |
-        python -m pip install --no-cache-dir dist/*.whl
+        wheel_paths=(dist/*.whl)
+        python -m pip install --no-cache-dir "${wheel_paths[0]}[all]"
         cd "${RUNNER_TEMP}"
-        python -c "import pathlib, nampy, pretab; import nampy.gam as gam; from nampy.models.linreg import LinRegRegressor; package_path = pathlib.Path(nampy.__file__).resolve(); assert 'site-packages' in package_path.parts, package_path; assert gam.__all__ == ['fit_model_core', 'solve_fit', 'FitCoreSolution']; assert not hasattr(nampy, 'GAM'); LinRegRegressor(); print(package_path); print(pretab.__version__)"
+        python "${GITHUB_WORKSPACE}/scripts/check_installed_package.py"
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4

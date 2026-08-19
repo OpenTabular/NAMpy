@@ -7,9 +7,8 @@ from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils import ClassifierTags
 
-from ..api import AdditivePrediction, Capabilities
-from ..neural.training.engine import TrainingPlan
-from ._base import NeuralEstimatorBase
+from .._contracts import AdditivePrediction
+from ._base import NeuralEstimatorBase, TrainingPlan
 
 
 class NeuralClassifier(NeuralEstimatorBase):
@@ -124,14 +123,6 @@ class NeuralClassifier(NeuralEstimatorBase):
             terms=terms,
             intercept=intercept,
             backend="neural",
-        )
-
-    def capabilities(self) -> Capabilities:
-        return Capabilities(
-            supports_predict_proba=True,
-            supports_standard_errors=False,
-            supports_lpmatrix=False,
-            supports_term_contributions=True,
         )
 
     def _plot_series_labels(self, n_series: int):

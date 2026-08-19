@@ -24,6 +24,7 @@ class FitResult:
     cov_unconditional: np.ndarray | None
     H_coef: np.ndarray
     edf2: np.ndarray | None = None
+    edf_by_term: np.ndarray | None = None
     penalty_quadratic: float | None = None
     loglik: float | None = None
     converged: bool | None = None

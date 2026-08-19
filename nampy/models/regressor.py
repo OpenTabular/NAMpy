@@ -5,9 +5,8 @@ import numpy as np
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.utils import RegressorTags
 
-from ..api import AdditivePrediction, Capabilities
-from ..neural.training.engine import TrainingPlan
-from ._base import NeuralEstimatorBase
+from .._contracts import AdditivePrediction
+from ._base import NeuralEstimatorBase, TrainingPlan
 
 
 class NeuralRegressor(NeuralEstimatorBase):
@@ -97,14 +96,6 @@ class NeuralRegressor(NeuralEstimatorBase):
             terms=terms,
             intercept=intercept,
             backend="neural",
-        )
-
-    def capabilities(self) -> Capabilities:
-        return Capabilities(
-            supports_predict_proba=False,
-            supports_standard_errors=False,
-            supports_lpmatrix=False,
-            supports_term_contributions=True,
         )
 
     def evaluate(self, X, y_true, metrics=None):

@@ -9,12 +9,12 @@ from scipy.special import gammaln
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from nampy.gam._model_state import _coef_column_offset, _fit_result
-from nampy.gam.fit.linalg import permute_columns
-from nampy.gam.fit.linalg.stacked_qr import _pivoted_economic_qr
-from nampy.gam.smoothing_selection.criteria.pirls.value import (
+from nampy.gam.linalg.reindexing import permute_columns
+from nampy.gam.fit.solvers.stacked_qr import _pivoted_economic_qr
+from nampy.gam.fit.selection.criteria.pirls.value import (
     _solve_gamma_profile_scale,
 )
-from nampy.gam.smoothing_selection.reparam import _static_penalty_null_dim
+from nampy.gam.fit.selection.reparam import _static_penalty_null_dim
 from tests.gam_cartesian_matrix import MatrixCase, fit_model, make_data
 from tests.mgcv_parity_utils import _run_mgcv_snapshot
 
@@ -92,10 +92,10 @@ def main() -> None:
     loglik_from_aic = float(np.sum(fit_result.edf) + 1.0 - object_aic / 2.0)
     object_aic_reml = gamma_aic_reml_scale + 2.0 * float(np.sum(fit_result.edf))
     edf2 = None if fit_result.edf2 is None else float(np.sum(fit_result.edf2))
-    weights_qr = gam.fit_core_solution_.fit_state.fisher_weights
+    weights_qr = gam.gam_result_.fit_core_solution.fit_state.fisher_weights
     if weights_qr is None:
-        weights_qr = gam.fit_core_solution_.fit_state.working_weights
-    X_qr = np.asarray(gam.fit_core_solution_.fit_state.X, dtype=np.float64)
+        weights_qr = gam.gam_result_.fit_core_solution.fit_state.working_weights
+    X_qr = np.asarray(gam.gam_result_.fit_core_solution.fit_state.X, dtype=np.float64)
     weights_qr = np.asarray(weights_qr, dtype=np.float64)
     WX = np.sqrt(weights_qr)[:, None] * X_qr
     _q_wx, r_wx_pivoted, pivot_wx = _pivoted_economic_qr(WX)

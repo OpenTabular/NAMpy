@@ -10,12 +10,12 @@ from typing import Any
 
 import pandas as pd
 
-from .compare import compare_parity_snapshots
-from .snapshots import (
+from ..results.snapshots import (
     _coerce_snapshot_arrays,
     build_parity_snapshot,
     load_parity_snapshot,
 )
+from .compare import compare_parity_snapshots
 
 
 def _coerce_reference_snapshot(reference_fit: Any) -> dict[str, Any]:

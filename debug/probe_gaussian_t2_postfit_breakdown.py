@@ -17,8 +17,8 @@ from nampy.gam.fit.backends import solve_gaussian_given_smoothing
 from nampy.gam.fit.postprocess.unconditional_covariance import (
     _restore_pirls_dbeta_to_original_parameterization,
 )
-from nampy.gam.smoothing_selection.criteria.pirls.derivatives import _gdi1_kernel
-from nampy.gam.smoothing_selection.reparam import build_estimate_gam_setup_state
+from nampy.gam.fit.selection.criteria.pirls.derivatives import _gdi1_kernel
+from nampy.gam.fit.selection.reparam import build_estimate_gam_setup_state
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -48,7 +48,7 @@ def main() -> None:
     )
     optimizer = _nampy_optimizer_name(expected)
     _, gam, _warnings = _fit_requested_case(case, method="REML", optimizer=optimizer)
-    term = gam.compiled_model_.compiled_terms[0]
+    term = gam.gam_result_.compiled_model.compiled_terms[0]
     expected_smooth = _run_mgcv_smoothcon_predict_matrix(
         data[["x1", "x2"]],
         data[["x1", "x2"]],
@@ -108,7 +108,7 @@ def main() -> None:
         )
         mgcv = json.loads(json_path.read_text())
 
-    fit_result = gam.fit_core_solution_.fit_result
+    fit_result = gam.gam_result_.fit_core_solution.fit_result
     actual_vc = np.asarray(fit_result.cov_unconditional, dtype=np.float64)
     p_map = prediction_parameterization_map(gam)
     transformed_actual_vc = (
@@ -153,7 +153,7 @@ def main() -> None:
     pivot1 = np.asarray(kernel.current.pivot1, dtype=np.int64)
     dropped = np.asarray(kernel.current.dropped_column_indices, dtype=np.int64)
     T = np.asarray(kernel.current.canonical.T, dtype=np.float64)
-    from nampy.gam.fit.linalg.matrix_reindexing import (
+    from nampy.gam.linalg.reindexing import (
         permute_rows,
         restore_dropped_rows,
     )
@@ -176,7 +176,7 @@ def main() -> None:
     except Exception:
         pass
     setup = build_estimate_gam_setup_state(gam)
-    beta = np.asarray(gam.fit_core_solution_.fit_result.coef_full, dtype=np.float64)
+    beta = np.asarray(gam.gam_result_.fit_core_solution.fit_result.coef_full, dtype=np.float64)
     p_full = int(beta.size)
     S_blocks_full = []
     for S_local, off_i in zip(list(setup.S), np.asarray(setup.off, dtype=np.int64)):
@@ -199,12 +199,12 @@ def main() -> None:
             for i, Si in enumerate(S_blocks_full):
                 Pj += float(lam[i]) * float(L[i, j]) * Si
             P_derivs.append(Pj)
-    A_inv = np.asarray(gam.fit_core_solution_.fit_state.A_inv, dtype=np.float64)
+    A_inv = np.asarray(gam.gam_result_.fit_core_solution.fit_state.A_inv, dtype=np.float64)
     db_direct = np.column_stack([-A_inv @ (Pj @ beta) for Pj in P_derivs])
     debug_db = np.asarray(mgcv["db_drho"], dtype=np.float64)
     fit3_coef = np.asarray(mgcv["fit3_coef"], dtype=np.float64)
     final_coef = np.asarray(mgcv["final_coef"], dtype=np.float64)
-    actual_coef = np.asarray(gam.fit_core_solution_.fit_result.coef_full, dtype=np.float64)
+    actual_coef = np.asarray(gam.gam_result_.fit_core_solution.fit_result.coef_full, dtype=np.float64)
 
     print("sp max abs", np.max(np.abs(np.asarray(gam.smoothing_params) - mgcv["sp"])))
     print("sp actual", np.asarray(gam.smoothing_params, dtype=np.float64))

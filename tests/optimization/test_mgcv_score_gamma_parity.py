@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 from nampy.gam import GAM
-from nampy.gam.smoothing_selection.criteria.dispatch import (
+from nampy.gam.fit.selection.criteria.dispatch import (
     criterion_gradient,
     criterion_hessian,
     criterion_value,

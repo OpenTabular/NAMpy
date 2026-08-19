@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 
 from nampy.models.linreg import LinRegRegressor
-from nampy.neural.training.task_module import TaskModule
+from nampy.neural.task import TaskModule
 
 
 class _PenalizedTwoOutputModel(nn.Module):

@@ -78,7 +78,7 @@ def test_gaussian_exact_covariance_assembly_matches_mgcv_snapshot():
 
     expected = _run_mgcv_snapshot(data, formula, case.family, case.method)
     gam = _fit_nampy_model(data, formula, case.family, case.method)
-    fit_result = gam.fit_core_solution_.fit_result
+    fit_result = gam.gam_result_.fit_core_solution.fit_result
 
     np.testing.assert_allclose(
         np.asarray(fit_result.cov_bayes, dtype=np.float64),
@@ -118,7 +118,7 @@ def test_gaussian_stacked_qr_covariance_assembly_matches_mgcv_snapshot():
 
     expected = _run_mgcv_snapshot(data, formula, case.family, case.method)
     gam = _fit_nampy_model(data, formula, case.family, case.method)
-    fit_result = gam.fit_core_solution_.fit_result
+    fit_result = gam.gam_result_.fit_core_solution.fit_result
 
     np.testing.assert_allclose(
         np.asarray(fit_result.cov_bayes, dtype=np.float64),

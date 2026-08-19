@@ -81,7 +81,7 @@ def test_fit_result_public_schema_tracks_term_results_without_duplicate_owners()
     )
     assert payload["metadata"] == {
         "n_samples": int(gam.n_samples_),
-        "n_coef": int(gam.compiled_model_.n_coef),
+        "n_coef": int(gam.gam_result_.require_compiled_model().n_coef),
         "fit_intercept": bool(gam.fit_intercept),
     }
     assert len(payload["term_results"]) == len(term_blocks)
@@ -276,7 +276,9 @@ def test_fit_result_fields_carry_owner_values_not_just_keys():
     assert payload["family_name"] == gam.family.name
     assert payload["link_name"] == gam.family.link_name
     assert payload["cov_unconditional_space"] in {"fit", "prediction"}
-    assert payload["side_condition_reports"] == gam.side_condition_reports_
+    assert payload["side_condition_reports"] == (
+        list(gam.gam_result_.require_compiled_model().side_condition_reports or ())
+    )
 
     edfs = [float(item["edf"]) for item in payload["term_results"]]
     np.testing.assert_allclose(

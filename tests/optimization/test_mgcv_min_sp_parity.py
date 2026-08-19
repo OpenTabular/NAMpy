@@ -4,7 +4,7 @@ Upstream reference: mgcv/R/mgcv.r::gam.setup (min.sp builds the fixed offset
 penalty H, mgcv.r:1465-1508), so mgcv's reported ``fit$sp`` is the *free*
 multiplier and the identified quantity is the total penalty multiplier
 ``fit$sp + min.sp``.  nampy parameterizes the same total directly with a lower
-bound (nampy/gam/smoothing_selection/optimize/driver.py), so parity is asserted
+bound (nampy/gam/fit/selection/optimize/driver.py), so parity is asserted
 on total smoothing parameters, criterion, EDF, fit and covariance.
 """
 

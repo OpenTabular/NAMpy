@@ -229,7 +229,7 @@ def test_unconditional_covariance_efs_gate_mirrors_mgcv_postproc_split():
         smoothing_method="REML",
         smoothing_optimizer="efs",
     ).fit(data=data)
-    glm_result = glm_fit.fit_core_solution_.fit_result
+    glm_result = glm_fit.gam_result_.fit_core_solution.fit_result
     assert glm_result.cov_unconditional is None
     assert glm_result.edf2 is None
 
@@ -242,7 +242,7 @@ def test_unconditional_covariance_efs_gate_mirrors_mgcv_postproc_split():
         smoothing_method="REML",
         smoothing_optimizer="efs",
     ).fit(data=data_g)
-    general_result = general_fit.fit_core_solution_.fit_result
+    general_result = general_fit.gam_result_.fit_core_solution.fit_result
     assert general_result.cov_unconditional is not None
     assert general_result.edf2 is not None
     # Vc == Vb + 0 when the deriv=0 correction is suppressed; compare through

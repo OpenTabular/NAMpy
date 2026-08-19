@@ -10,8 +10,9 @@ Evidence chain:
 3. The initial.spg output must be orientation-sensitive inside R itself: a
    pure row permutation or mirrored basis (mathematically equivalent fits)
    changes mgcv's own initial/optimized sp. Base R leaves the real signs of
-   the DSYEVR eigenvectors used by Sl.setup unspecified, so the probe is
-   evidence for retaining an explicit xfail, not for forcing one build's sign.
+   the DSYEVR eigenvectors used by Sl.setup unspecified, so the optimized
+   endpoint must be checked by its flat-tail invariant rather than by one
+   build's raw smoothing parameter.
 """
 
 import json
@@ -24,8 +25,8 @@ sys.path.insert(0, "/home/ad32/projects/package/NAMpy")
 
 import numpy as np
 
-from nampy.gam.model.api import GAM
-from nampy.gam.smoothing_selection.criteria.dispatch import (
+from nampy.gam import GAM
+from nampy.gam.fit.selection.criteria.dispatch import (
     criterion_gradient,
     criterion_value,
 )
@@ -33,8 +34,13 @@ from tests.families.test_general_family_mgcv_parity import (
     GAULSS_FORMULA,
     _gaulss_data,
 )
+from tests.mgcv_parity_utils import _run_mgcv_snapshot
 from tests.optimization.test_mgcv_outer_optimization_parity import (
     _run_mgcv_outer_trace,
+)
+from tests.optimization.test_mgcv_postprocessing_final_fit_parity import (
+    _serialize_actual_final_fit,
+    _serialize_expected_final_fit,
 )
 
 data = _gaulss_data()
@@ -74,6 +80,59 @@ grad_mg = criterion_gradient(gam, gam.y_, mg_end, method="reml")
 print(f"   criterion at nampy end: {val_nam:.10f} |grad| {np.max(np.abs(grad_nam)):.2e}")
 print(f"   criterion at mgcv end : {val_mg:.10f} |grad| {np.max(np.abs(grad_mg)):.2e}")
 print(f"   criterion difference  : {abs(val_nam - val_mg):.3e}")
+
+actual_vc = np.asarray(gam.vcov(unconditional=True), dtype=np.float64)
+expected_snapshot = _run_mgcv_snapshot(
+    data,
+    GAULSS_FORMULA,
+    "gaulss",
+    "ML",
+    select=True,
+)
+expected_vc = np.asarray(expected_snapshot["fit"]["cov_unconditional"], dtype=np.float64)
+lpmatrix = np.asarray(gam.predict(data, type="lpmatrix"), dtype=np.float64)
+actual_var = np.sum((lpmatrix @ actual_vc) * lpmatrix, axis=1)
+expected_var = np.sum((lpmatrix @ expected_vc) * lpmatrix, axis=1)
+print("   max|Vc diagonal diff|:", float(np.max(np.abs(np.diag(actual_vc) - np.diag(expected_vc)))))
+print("   max|fitted variance diff|:", float(np.max(np.abs(actual_var - expected_var))))
+print("   max relative fitted variance diff:", float(np.max(np.abs(actual_var - expected_var) / np.maximum(np.abs(expected_var), 1e-15))))
+
+actual_final = _serialize_actual_final_fit(
+    gam,
+    [],
+    allow_synthetic_outer_info=False,
+)
+expected_final = _serialize_expected_final_fit(expected_snapshot)
+for key in ("Vp", "Ve"):
+    print(
+        f"   max|{key} diagonal diff|:",
+        float(
+            np.max(
+                np.abs(
+                    np.diag(np.asarray(actual_final[key], dtype=np.float64))
+                    - np.diag(np.asarray(expected_final[key], dtype=np.float64))
+                )
+            )
+        ),
+    )
+for key in ("edf_by_term", "edf_total", "edf2_total", "trace_H", "scale", "aic"):
+    actual_value = np.asarray(actual_final[key], dtype=np.float64)
+    expected_value = np.asarray(expected_final[key], dtype=np.float64)
+    print(f"   max|{key} diff|:", float(np.max(np.abs(actual_value - expected_value))))
+actual_outer = actual_final["outer_info"]
+expected_outer = expected_final["outer_info"]
+for key in ("grad", "hess"):
+    print(
+        f"   max|outer_info {key} diff|:",
+        float(
+            np.max(
+                np.abs(
+                    np.asarray(actual_outer[key], dtype=np.float64)
+                    - np.asarray(expected_outer[key], dtype=np.float64)
+                )
+            )
+        ),
+    )
 
 r_code = """
 library(mgcv)

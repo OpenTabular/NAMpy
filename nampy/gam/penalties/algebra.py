@@ -32,16 +32,8 @@ def scale_penalty(basis, penalty):
     return penalty / norm
 
 
-def symmetrize_penalty(P):
-    return symmetrize_matrix(P)
-
-
-def penalty_eigendecomposition(P, tol=1e-10):
-    return symmetric_eigen_partition(P, tol=tol, descending=False)
-
-
 def null_space_penalty_from_penalty(P, tol=1e-10):
-    dec = penalty_eigendecomposition(P, tol=tol)
+    dec = symmetric_eigen_partition(P, tol=tol, descending=False)
     U0 = dec["U0"]
 
     if U0.shape[1] == 0:
@@ -50,7 +42,7 @@ def null_space_penalty_from_penalty(P, tol=1e-10):
         null_dim = 0
     else:
         S0 = U0 @ U0.T
-        S0 = symmetrize_penalty(S0)
+        S0 = symmetrize_matrix(S0)
         rank = numerical_rank(S0, hermitian=True)
         null_dim = U0.shape[1]
 
@@ -64,7 +56,5 @@ def null_space_penalty_from_penalty(P, tol=1e-10):
 __all__ = [
     "penalty_rescale_factor",
     "scale_penalty",
-    "symmetrize_penalty",
-    "penalty_eigendecomposition",
     "null_space_penalty_from_penalty",
 ]

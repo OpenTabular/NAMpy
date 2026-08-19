@@ -19,10 +19,8 @@ from nampy.gam.formula import (
     extract_formula_terms,
     parse_gam_formula,
 )
-from nampy.gam.specs.build import (
-    apply_formula_preprocess_to_new_data,
-    build_formula_model,
-)
+from nampy.gam.specs.build import build_formula_model
+from nampy.gam.specs.preprocess import apply_formula_preprocess_to_new_data
 from tests._paths import PARITY_DIR, REPO_ROOT
 from tests.mgcv_parity_utils import _normalize_python_formula_text
 

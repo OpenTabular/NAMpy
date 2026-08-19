@@ -355,7 +355,11 @@ def _compiled_general_family_model_with_nonlinear_sl(*, family=None):
         irls_tol=1e-12,
         hparams={},
         prior_weights_=np.ones(2, dtype=np.float64),
-        compiled_model_=compiled_model,
+        gam_result_=SimpleNamespace(
+            compiled_model=compiled_model,
+            fit_core_solution=None,
+            fit_summary=None,
+        ),
         family=_QuadraticFamily() if family is None else family,
         _optim_method="REML",
     )
@@ -415,7 +419,11 @@ def _compiled_general_family_model_with_coupled_nonlinear_sl():
         irls_tol=1e-12,
         hparams={},
         prior_weights_=np.ones(design.shape[0], dtype=np.float64),
-        compiled_model_=compiled_model,
+        gam_result_=SimpleNamespace(
+            compiled_model=compiled_model,
+            fit_core_solution=None,
+            fit_summary=None,
+        ),
         family=_QuadraticFamily(),
         _optim_method="REML",
     )

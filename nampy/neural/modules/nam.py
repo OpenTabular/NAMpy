@@ -5,8 +5,8 @@ import torch
 import torch.nn as nn
 
 from ..configs.nam_config import DefaultNAMConfig
-from ..layers.mlp_utils import MLP
 from .basemodel import BaseModel
+from .mlp_utils import MLP
 
 
 class NAM(BaseModel):
@@ -67,6 +67,7 @@ class NAM(BaseModel):
         self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
+        self._validate_features(num_feature_info, cat_feature_info)
         self.num_classes = num_classes
         self.interaction_degree = self.hparams.get(
             "interaction_degree", config.interaction_degree
@@ -109,13 +110,6 @@ class NAM(BaseModel):
             self.cat_feature_networks[feature_name] = self._create_subnetwork(
                 info["dimension"]
             )  # Categorical features are typically encoded as single values
-
-        reserved = {"output", "intercept"}
-        all_feature_names = set(num_feature_info) | set(cat_feature_info)
-        if reserved & all_feature_names:
-            raise ValueError(
-                f"Feature names {sorted(reserved.intersection(all_feature_names))} are reserved."
-            )
 
         self.interaction_networks = nn.ModuleDict()
         if self.interaction_degree is not None and self.interaction_degree >= 2:

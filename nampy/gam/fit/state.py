@@ -1,12 +1,10 @@
 """
 Stable fitted outputs and transient fit state.
 
-`FitCoreSolution` remains the common solver return type during migration, but it
-now wraps:
+`FitCoreSolution` is the common solver return type. It wraps:
 
 - `FitResult`: stable fitted outputs for consumers
-- `FitState`: transient numerical workspace
-- `PenalizedSystem`: assembled penalized-system metadata
+- `FitState`: transient numerical workspace (design, weights, penalized system)
 """
 
 from __future__ import annotations
@@ -20,32 +18,8 @@ from .._model_state import (
     _term_blocks_seq,
 )
 from ..results import FitResult
-from .parameterization import (
-    export_fit_result_to_prediction_space,
-    prediction_parameterization_map,
-)
-from .postprocess.unconditional_covariance import (
-    _restore_pirls_dbeta_to_original_parameterization as _restore_pirls_dbeta_impl,
-)
-from .postprocess.unconditional_covariance import (
-    _restore_pirls_rank_root_to_original_parameterization as _restore_pirls_rank_root_impl,
-)
-from .postprocess.unconditional_covariance import (
-    apply_unconditional_postfit,
-)
-
-
-@dataclass(frozen=True)
-class PenalizedSystem:
-    X: np.ndarray | None = None
-    A: np.ndarray | None = None
-    XtWX: np.ndarray | None = None
-    P: np.ndarray | None = None
-    penalty_matrix: np.ndarray | None = None
-    offset: np.ndarray | None = None
-    log_det_XtWX_plus_penalty: float | None = None
-    penalized_system_rank: int | None = None
-    dropped_column_indices: np.ndarray | None = None
+from .parameterization import export_fit_result_to_prediction_space
+from .postprocess.unconditional_covariance import apply_unconditional_postfit
 
 
 @dataclass(frozen=True)
@@ -67,53 +41,16 @@ class FitState:
     dropped_column_indices: np.ndarray | None = None
     scale: float | None = None
 
-    def to_penalized_system(self) -> PenalizedSystem:
-        return PenalizedSystem(
-            X=self.X,
-            A=self.A,
-            XtWX=self.XtWX,
-            P=self.P,
-            penalty_matrix=self.penalty_matrix,
-            offset=self.offset,
-            log_det_XtWX_plus_penalty=self.log_det_XtWX_plus_penalty,
-            penalized_system_rank=self.penalized_system_rank,
-            dropped_column_indices=self.dropped_column_indices,
-        )
-
-
-def _prediction_parameterization_map(model) -> np.ndarray | None:
-    return prediction_parameterization_map(model)
-
-
-def _apply_prediction_parameterization_to_fit_result(model, fit_result, fit_state):
-    del fit_state
-    return export_fit_result_to_prediction_space(model, fit_result)
-
-
-def _restore_pirls_dbeta_to_original_parameterization(current, dbeta_rank):
-    return _restore_pirls_dbeta_impl(current, dbeta_rank)
-
-
-def _restore_pirls_rank_root_to_original_parameterization(current, rank_root):
-    return _restore_pirls_rank_root_impl(current, rank_root)
-
-
-def _apply_unconditional_postfit(model, sol, fit_result, fit_state):
-    return apply_unconditional_postfit(model, sol, fit_result, fit_state)
-
 
 @dataclass(frozen=True)
 class FitCoreSolution:
     fit_result: FitResult
     fit_state: FitState
-    penalized_system: PenalizedSystem
 
     def _delegate_objects(self):
         state = object.__getattribute__(self, "__dict__")
         return tuple(
-            state[name]
-            for name in ("fit_result", "fit_state", "penalized_system")
-            if name in state
+            state[name] for name in ("fit_result", "fit_state") if name in state
         )
 
     def __getitem__(self, key):
@@ -137,10 +74,7 @@ class FitCoreSolution:
         return replace(self, fit_result=replace(self.fit_result, **changes))
 
     def with_fit_state(self, **changes) -> "FitCoreSolution":
-        new_state = replace(self.fit_state, **changes)
-        return replace(
-            self, fit_state=new_state, penalized_system=new_state.to_penalized_system()
-        )
+        return replace(self, fit_state=replace(self.fit_state, **changes))
 
     @classmethod
     def from_dict(cls, data: dict) -> "FitCoreSolution":
@@ -272,11 +206,7 @@ class FitCoreSolution:
             ),
             scale=float(data["scale"]),
         )
-        return cls(
-            fit_result=fit_result,
-            fit_state=fit_state,
-            penalized_system=fit_state.to_penalized_system(),
-        )
+        return cls(fit_result=fit_result, fit_state=fit_state)
 
 
 def compute_edf_by_term(model, H_coef):
@@ -336,7 +266,6 @@ def assign_fit_solution(model, sol: FitCoreSolution):
             else np.asarray(working_weights_post, dtype=np.float64).copy()
         ),
     )
-    penalized_system = fit_state.to_penalized_system()
     fit_result = replace(
         fit_result,
         trace_H=float(trace_H_post),
@@ -350,36 +279,38 @@ def assign_fit_solution(model, sol: FitCoreSolution):
         ),
         H_coef=np.asarray(H_post, dtype=np.float64).copy(),
     )
-    fit_result = _apply_unconditional_postfit(model, sol, fit_result, fit_state)
-    fit_result = _apply_prediction_parameterization_to_fit_result(
-        model, fit_result, fit_state
-    )
-    sol = replace(
-        sol,
-        fit_result=fit_result,
-        fit_state=fit_state,
-        penalized_system=penalized_system,
-    )
+    fit_result = apply_unconditional_postfit(model, sol, fit_result, fit_state)
+    fit_result = export_fit_result_to_prediction_space(model, fit_result)
+    sol = replace(sol, fit_result=fit_result, fit_state=fit_state)
 
-    model.fit_core_solution_ = sol
-    model.gam_result_ = None
+    result = model.gam_result_
+    if result is None:
+        raise RuntimeError("Cannot assign a fit solution before design compilation.")
     if (
         getattr(model.family, "family_class", "") == "general"
-        and getattr(model, "_coef_reduced_to_full_idx", None) is not None
+        and result.compiled_model.coef_reduced_to_full_idx is not None
     ):
-        full_idx = np.asarray(model._coef_reduced_to_full_idx, dtype=int)
+        full_idx = np.asarray(
+            result.compiled_model.coef_reduced_to_full_idx, dtype=int
+        )
         edf = []
         for tb in _term_blocks_seq(model):
             idx = full_idx[tb.coef_slice]
             edf.append(float(np.trace(H_post[np.ix_(idx, idx)])))
-        model._edf_by_term_fit_ = np.asarray(edf, dtype=np.float64)
+        edf_by_term = np.asarray(edf, dtype=np.float64)
     else:
         # Keep the EDF implied by the fitted coefficient-space hat matrix.
         # mgcv has no single-smooth numerical-rank / trace(H)-nsdf substitute;
         # parity-sensitive callers must see the actual post-fit result.
-        model._edf_by_term_fit_ = np.asarray(
+        edf_by_term = np.asarray(
             compute_edf_by_term(model, H_post), dtype=np.float64
         )
+
+    sol = replace(sol, fit_result=replace(sol.fit_result, edf_by_term=edf_by_term))
+
+    model.gam_result_ = result.with_fit_solution(
+        sol,
+    )
 
     if bool(getattr(model, "_fitted", False)):
         from .result_builders import sync_gam_result
@@ -390,7 +321,6 @@ def assign_fit_solution(model, sol: FitCoreSolution):
 __all__ = [
     "FitCoreSolution",
     "FitState",
-    "PenalizedSystem",
     "FitResult",
     "assign_fit_solution",
     "compute_edf_by_term",

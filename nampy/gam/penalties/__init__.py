@@ -1,8 +1,4 @@
-from .algebra import (
-    null_space_penalty_from_penalty,
-    penalty_eigendecomposition,
-    symmetrize_penalty,
-)
+from .algebra import null_space_penalty_from_penalty
 from .subsystem import (
     build_null_space_selection_spec,
     default_penalty_id,
@@ -22,8 +18,7 @@ from .tensor import (
 )
 
 __all__ = [
-    "symmetrize_penalty",
-    "penalty_eigendecomposition",
+    "PenaltySpec",
     "null_space_penalty_from_penalty",
     "penalty_rank_null_dim",
     "normalize_penalty_spec",
@@ -39,3 +34,4 @@ __all__ = [
     "normalize_tensor_marginal_penalty",
     "rescale_tensor_penalties_for_fit",
 ]
+from .spec import PenaltySpec

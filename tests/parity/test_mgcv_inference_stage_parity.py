@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from nampy.gam.parity.snapshots import _normalize_reference_term_label
+from nampy.gam.results.snapshots import _normalize_reference_term_label
 from tests.families.test_general_family_mgcv_parity import (
     _gaulss_data,
 )
@@ -172,7 +172,7 @@ def test_public_unconditional_covariance_matches_mgcv_snapshot(
     expected_cov = expected["fit"]["cov_unconditional"]
     assert expected_cov is not None
 
-    actual_fit_cov = gam.fit_core_solution_.fit_result.cov_unconditional
+    actual_fit_cov = gam.gam_result_.fit_core_solution.fit_result.cov_unconditional
     actual_public_cov = gam.vcov(unconditional=True)
 
     np.testing.assert_allclose(

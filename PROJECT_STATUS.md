@@ -103,7 +103,3 @@ The active work is GAM-only:
    owner tests.
 
 Neural-model status and release work are intentionally outside this page.
-The `nampy/hybrid` backends (GAM+neural composition, compiled-terms Torch
-bridge) are experimental non-parity surfaces: their GAM stages reuse the
-mgcv-parity machinery, but composed or jointly trained results are not mgcv
-fits and never enter the parity suites.

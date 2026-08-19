@@ -15,11 +15,11 @@ from tests.mgcv_parity_utils import (
 )
 from tests.optimization.test_mgcv_outer_optimization_parity import _run_mgcv_outer_trace
 from nampy.gam.parity import build_optimizer_trace
-from nampy.gam.smoothing_selection.criteria.pirls.derivatives import (
+from nampy.gam.fit.selection.criteria.pirls.derivatives import (
     criterion_gradient_ml_reml_pirls_negbin_joint,
     criterion_hessian_ml_reml_pirls_negbin_joint,
 )
-from nampy.gam.smoothing_selection.criteria.pirls.value import (
+from nampy.gam.fit.selection.criteria.pirls.value import (
     criterion_ml_reml_pirls_negbin_joint,
 )
 

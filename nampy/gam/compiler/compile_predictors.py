@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 
 from ..penalties import (
@@ -14,7 +16,7 @@ from ..specs import LinearPredictorSpec, PenaltyGroupSpec
 from .construct import construct_smooth
 from .factory import instantiate_predictor_terms
 from .linked_basis import attach_shared_basis_metadata
-from .structures import CompiledPenalty, CompiledPredictor, CompiledTerm
+from .structures import CompiledPenalty, CompiledPredictor
 
 
 def compile_predictors(
@@ -72,32 +74,13 @@ def compile_predictors(
                 null_space_penalty=False,
             )
             base_term = smooth.compiled_term
-            B = np.asarray(base_term.basis_train, dtype=np.float64)
-            d = B.shape[1]
-            sl = slice(start, start + d)
+            d = np.asarray(base_term.basis_train, dtype=np.float64).shape[1]
             term_meta = dict(base_term.metadata)
             term_meta["constructor_metadata"] = dict(base_term.constructor_metadata)
             term_blocks.append(
-                CompiledTerm(
-                    label=base_term.label,
-                    coef_slice=sl,
-                    basis_train=B,
-                    predict_fn=base_term.predict_fn,
-                    predict_coefficient_map=base_term.predict_coefficient_map,
-                    basis_transform=base_term.basis_transform,
-                    coefficient_maps=tuple(base_term.coefficient_maps),
-                    feature_info=base_term.feature_info,
-                    by_variable_info=base_term.by_variable_info,
-                    side_condition_policy=base_term.side_condition_policy,
-                    kept_columns=np.arange(d, dtype=int),
-                    deleted_columns=np.array([], dtype=int),
-                    smoothing_indices=[],
-                    smoothing_ids=[],
-                    n_penalties=0,
-                    term_type=str(base_term.term_type),
-                    basis_name=str(base_term.basis_name),
-                    term_id=base_term.term_id,
-                    smoothing_group_id=base_term.smoothing_group_id,
+                replace(
+                    base_term,
+                    coef_slice=slice(start, start + d),
                     penalty_specs=tuple(smooth.penalty_specs),
                     constructor_metadata=dict(base_term.constructor_metadata),
                     metadata=term_meta,

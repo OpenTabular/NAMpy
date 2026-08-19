@@ -15,8 +15,8 @@ sys.path.insert(0, "/home/ad32/projects/package/NAMpy")
 import numpy as np
 import pandas as pd
 
-from nampy.gam.model.api import GAM
-from nampy.gam.smoothing_selection.criteria.dispatch import (
+from nampy.gam import GAM
+from nampy.gam.fit.selection.criteria.dispatch import (
     criterion_gradient,
     criterion_hessian,
     criterion_value,

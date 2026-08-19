@@ -21,18 +21,18 @@ from ..linalg.subspaces import (
     row_space_projector,
     symmetric_spectrum,
 )
-from .compare import (
-    compare_parity_snapshots,
-)
-from .snapshots import (
+from ..results.snapshots import (
     build_parity_snapshot,
     load_parity_snapshot,
     save_parity_snapshot,
 )
-from .trace import (
+from ..results.traces import (
     build_optimizer_trace,
     load_optimizer_trace,
     save_optimizer_trace,
+)
+from .compare import (
+    compare_parity_snapshots,
 )
 from .validator import compare
 

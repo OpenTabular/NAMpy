@@ -98,19 +98,17 @@ Do not “improve” an algorithm just because a different Python implementation
 
 ### Neural backend
 
-- `nampy/neural/modules/<model>.py` — PyTorch `nn.Module` architectures
-- `nampy/neural/layers/` — shared neural building blocks
-- `nampy/neural/training/` — `TaskModel` harness, training engine, output contract
+- `nampy/neural/modules/<model>.py` — PyTorch `nn.Module` architectures and shared building blocks
+- `nampy/neural/task.py`, `nampy/neural/contracts.py` — Lightning task harness and output contract
 - `nampy/neural/data/` — PreTab-to-Torch data module/dataset
 - `nampy/neural/distributions/` — Torch LSS families and metrics
 - `nampy/neural/configs/<model>_config.py` — config dataclasses
 - `nampy/models/<model>.py` — sklearn-style wrappers (no sklearn mixins;
   hand-written `score()`/`__sklearn_tags__`); `nampy/models/gam.py` — GAM adapters
 
-### Shared and hybrid surfaces
+### Shared surfaces
 
-- `nampy/api/` — backend-neutral contracts; `nampy/plotting/` — shared renderer
-- `nampy/hybrid/` — GAM+neural composition (NOT mgcv fits; never parity-compared)
+- `nampy/_contracts.py` — backend-neutral contracts; `nampy/plotting/` — shared renderer
 
 ### GAM subsystem
 
@@ -120,6 +118,7 @@ Do not “improve” an algorithm just because a different Python implementation
 - `nampy/gam/compiler/compile_predictors.py`, `compile_model.py` — predictor and model compilation
 - `nampy/gam/constraints/identifiability.py` — side conditions
 - `nampy/gam/fit/orchestrator.py` — fitting orchestration
+- `nampy/gam/fit/selection/` — smoothing-parameter selection (criteria, outer optimizers, reparameterization)
 - `nampy/gam/predict/`, `nampy/gam/parity/`, `nampy/gam/diagnostics/` — prediction and diagnostics
 - `nampy/gam/splines/` — low-level spline primitives
 

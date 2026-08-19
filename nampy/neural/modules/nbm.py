@@ -48,6 +48,7 @@ class NBM(BaseModel):
         # Data / task metadata
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
+        self._validate_features(num_feature_info, cat_feature_info)
         self.num_classes = num_classes
 
         # NBM hyperparameters
@@ -86,18 +87,6 @@ class NBM(BaseModel):
         # Preserve deterministic feature order between init and forward
         self.num_feature_keys = list(num_feature_info.keys())
         self.cat_feature_keys = list(cat_feature_info.keys())
-
-        reserved = {"output", "intercept", "output_penalty"}
-        all_feature_names = set(self.num_feature_keys) | set(self.cat_feature_keys)
-        if reserved & all_feature_names:
-            raise ValueError(
-                f"Feature names {sorted(reserved & all_feature_names)} are reserved."
-            )
-        if any(":" in name for name in all_feature_names):
-            bad = sorted(name for name in all_feature_names if ":" in name)
-            raise ValueError(
-                f"Feature names {bad} contain ':', which is reserved for interaction names."
-            )
 
         # Atomic features: each scalar post-preprocessing column becomes one feature
         self.atomic_feature_names = self._build_atomic_feature_names(

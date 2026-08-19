@@ -25,7 +25,7 @@ docs/
 ├── api/                             # API Reference
 │   ├── index.rst
 │   ├── models.rst                   # High-level models
-│   ├── basemodels.rst               # PyTorch models
+│   ├── basemodels.rst               # PyTorch architectures (nampy.neural.modules)
 │   ├── preprocessing.rst            # Preprocessing
 │   ├── configs.rst                  # Configurations
 │   └── utils.rst                    # Utilities

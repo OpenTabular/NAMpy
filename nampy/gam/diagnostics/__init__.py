@@ -1,4 +1,4 @@
-from ..parity.trace import (
+from ..results.traces import (
     build_optimizer_trace,
     load_optimizer_trace,
     save_optimizer_trace,

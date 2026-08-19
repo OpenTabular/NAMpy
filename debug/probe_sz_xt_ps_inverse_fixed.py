@@ -7,8 +7,9 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from nampy.gam.model.api import GAM
 from tests.gam_cartesian_matrix import make_data
+
+from nampy.gam import GAM
 from tests.mgcv_parity_utils import (
     _run_mgcv_smoothcon_matrix,
     _run_mgcv_smoothcon_penalties,
@@ -66,7 +67,7 @@ def main() -> None:
     print("deviance", actual["fit"]["deviance"], expected["fit"]["deviance"])
     print("penalty", actual["fit"].get("penalty_quadratic"), expected["fit"].get("penalty_quadratic"))
     print("edf", actual["fit"]["edf_total"], expected["fit"]["edf_total"])
-    fit_result = gam.fit_core_solution_.fit_result
+    fit_result = gam.gam_result_.fit_core_solution.fit_result
     print("inner trace", fit_result.inner_trace)
     print("iter", fit_result.iter, fit_result.converged, fit_result.failure_reason)
     print("coef max abs", np.max(np.abs(np.asarray(actual["fit"]["coef_full"], dtype=float) - np.asarray(expected["fit"]["coef_full"], dtype=float))))

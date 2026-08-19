@@ -37,6 +37,7 @@ class EnsembleTreeNAM(BaseModel):
 
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
+        self._validate_features(num_feature_info, cat_feature_info)
         self.num_classes = num_classes
 
         self.num_estimators = int(

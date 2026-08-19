@@ -5,9 +5,9 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from nampy.gam.parity import snapshots as snapshots_module
-from nampy.gam.parity.snapshots import _build_parity_criterion_view
-from nampy.gam.parity.trace import build_optimizer_trace
+from nampy.gam.results import snapshots as snapshots_module
+from nampy.gam.results.snapshots import _build_parity_criterion_view
+from nampy.gam.results.traces import build_optimizer_trace
 
 pytestmark = [
     pytest.mark.surface_output,

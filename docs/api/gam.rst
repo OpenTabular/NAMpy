@@ -73,10 +73,10 @@ Low-level entry points for the solver stage:
 Shared contracts
 ----------------
 
-.. currentmodule:: nampy.api
+.. currentmodule:: nampy._contracts
 
-Backend-neutral result and capability types implemented by the GAM
-adapters, the neural estimators, and the hybrid backends:
+Backend-neutral feature and prediction contracts used by the GAM adapters
+and neural estimators:
 
 .. autosummary::
    :toctree: generated/
@@ -84,5 +84,3 @@ adapters, the neural estimators, and the hybrid backends:
 
    FeatureSchema
    AdditivePrediction
-   Capabilities
-   PersistableModel

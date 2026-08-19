@@ -22,9 +22,13 @@ pytestmark = [pytest.mark.surface_output, pytest.mark.surface_regression]
 
 def _simple_general_model(*, terms=(), penalties=()):
     return SimpleNamespace(
-        compiled_model_=SimpleNamespace(
-            compiled_terms=tuple(terms),
-            compiled_penalties=tuple(penalties),
+        gam_result_=SimpleNamespace(
+            compiled_model=SimpleNamespace(
+                compiled_terms=tuple(terms),
+                compiled_penalties=tuple(penalties),
+            ),
+            fit_core_solution=None,
+            fit_summary=None,
         )
     )
 
@@ -297,7 +301,7 @@ def test_gam_unknown_constructor_arguments_raise_explicitly():
 
 def test_gacv_cp_method_guard_raises_explicitly():
     """mgcv maps GACV.Cp to the GACV criterion, which NAMpy does not implement."""
-    from nampy.gam.smoothing_selection.criteria.dispatch import criterion_value
+    from nampy.gam.fit.selection.criteria.dispatch import criterion_value
 
     with pytest.raises(ValueError, match="method must be one of"):
         criterion_value(

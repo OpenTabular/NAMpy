@@ -71,7 +71,7 @@ def main() -> None:
         print("raw S", idx, _max_abs(pa, pe))
 
     sm_x = np.asarray(_run_mgcv_smoothcon_matrix(data, smooth_expr)["X"], dtype=np.float64)
-    term_block = next(tb for tb in gam.compiled_model_.compiled_terms if tb.basis_name == "fs")
+    term_block = next(tb for tb in gam.gam_result_.compiled_model.compiled_terms if tb.basis_name == "fs")
     print("smoothCon X max_abs", _max_abs(term_block.basis_train, sm_x))
     sm_s = _run_mgcv_smoothcon_penalties(
         data,
@@ -81,7 +81,7 @@ def main() -> None:
     )["S"]
     local_s = [
         p.matrix
-        for p in gam.compiled_model_.compiled_penalties
+        for p in gam.gam_result_.compiled_model.compiled_penalties
         if p.label == term_block.label
     ]
     for idx, (pa, pe) in enumerate(zip(local_s, sm_s)):

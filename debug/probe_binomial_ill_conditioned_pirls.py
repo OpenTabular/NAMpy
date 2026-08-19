@@ -30,7 +30,7 @@ from nampy.gam.fit.solvers.irls_core import irls_core  # noqa: E402
 from nampy.gam.linalg import (  # noqa: E402
     balanced_penalty_template_sqrt_for_rank,
 )
-from nampy.gam.model.api import GAM  # noqa: E402
+from nampy.gam import GAM  # noqa: E402
 
 
 def main() -> None:

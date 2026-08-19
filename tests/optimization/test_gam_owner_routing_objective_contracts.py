@@ -8,10 +8,10 @@ import pytest
 from scipy.optimize import OptimizeResult
 
 from nampy.gam import GAM
-from nampy.gam.smoothing_selection.criteria import ml_reml as ml_reml_module
-from nampy.gam.smoothing_selection.optimize import driver as driver_module
-from nampy.gam.smoothing_selection.optimize import objectives as objectives_module
-from nampy.gam.smoothing_selection.optimize.objectives import (
+from nampy.gam.fit.selection.criteria import ml_reml as ml_reml_module
+from nampy.gam.fit.selection.optimize import driver as driver_module
+from nampy.gam.fit.selection.optimize import objectives as objectives_module
+from nampy.gam.fit.selection.optimize.objectives import (
     _CriterionObjective,
     _GaussianRemlJointObjective,
     _GaussianRemlProfiledObjective,
@@ -394,7 +394,7 @@ def test_gaussian_reml_outer_newton_uses_joint_objective(monkeypatch):
 
     assert captured["objective_type"] is _GaussianRemlJointObjective
     assert np.asarray(captured["x0"], dtype=np.float64).shape == (
-        int(model.compiled_model_.n_smoothing_params) + 1,
+        int(model.gam_result_.compiled_model.n_smoothing_params) + 1,
     )
 
 
@@ -455,11 +455,11 @@ def test_public_optim_alias_uses_lbfgsb_branch_for_reml(monkeypatch):
 
     assert captured["method"] == "L-BFGS-B"
     assert np.asarray(captured["x0"], dtype=np.float64).shape == (
-        int(model.compiled_model_.n_smoothing_params),
+        int(model.gam_result_.compiled_model.n_smoothing_params),
     )
     assert callable(captured["jac"])
     assert int(captured["options"]["maxcor"]) == min(
-        5, int(model.compiled_model_.n_smoothing_params)
+        5, int(model.gam_result_.compiled_model.n_smoothing_params)
     )
     assert float(captured["options"]["ftol"]) == pytest.approx(
         float(np.finfo(np.float64).eps * 1e7),

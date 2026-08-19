@@ -13,20 +13,20 @@ import pytest
 from nampy.gam import GAM
 from nampy.gam.fit.backends import solve_fit
 from nampy.gam.fit.design_setup import compile_designs
-from nampy.gam.fit.solvers.general_family import newton as general_newton
-from nampy.gam.fit.state import assign_fit_solution
-from nampy.gam.parity import build_optimizer_trace
-from nampy.gam.smoothing_selection.criteria.pirls.derivatives import (
+from nampy.gam.fit.selection.criteria.pirls.derivatives import (
     _gdi1_kernel,
     _serialize_pirls_postproc_derivatives,
 )
-from nampy.gam.smoothing_selection.optimize.basics import (
+from nampy.gam.fit.selection.optimize.basics import (
     _initial_smoothing_params_from_design,
 )
-from nampy.gam.smoothing_selection.optimize.newton import (
+from nampy.gam.fit.selection.optimize.newton import (
     _optimize_outer_newton_indefinite_hessian,
 )
-from nampy.gam.smoothing_selection.optimize.objectives import _CriterionObjective
+from nampy.gam.fit.selection.optimize.objectives import _CriterionObjective
+from nampy.gam.fit.solvers.general_family import newton as general_newton
+from nampy.gam.fit.state import assign_fit_solution
+from nampy.gam.parity import build_optimizer_trace
 from nampy.gam.specs.modeling import prepare_formula_inputs
 from tests._paths import PARITY_DIR, REPO_ROOT
 from tests.mgcv_parity_utils import (
@@ -925,7 +925,7 @@ def test_poisson_unconditional_covariance_components_match_mgcv(monkeypatch):
         expected_call["scale_estimated"]
     )
 
-    fit_result = gam.fit_core_solution_.fit_result
+    fit_result = gam.gam_result_.fit_core_solution.fit_result
     actual_vb = np.asarray(fit_result.cov_bayes, dtype=np.float64)
     actual_vc = np.asarray(fit_result.cov_unconditional, dtype=np.float64)
     actual_vc2 = float(fit_result.scale) * np.asarray(
@@ -956,7 +956,7 @@ def test_poisson_unconditional_covariance_components_match_mgcv(monkeypatch):
     kernel = _gdi1_kernel(
         gam,
         gam.y_,
-        gam.fit_core_solution_,
+        gam.gam_result_.fit_core_solution,
         np.asarray(gam.smoothing_params, dtype=np.float64),
         method="REML",
     )
@@ -1052,7 +1052,7 @@ def test_poisson_edge_corrected_final_vc_and_fitted_edf2_match_mgcv(monkeypatch)
     assert bool(result.edge_correction_applied) is True
     assert len(actual_calls) == len(expected_calls) == 2
 
-    fit_result = gam.fit_core_solution_.fit_result
+    fit_result = gam.gam_result_.fit_core_solution.fit_result
     actual_vc = np.asarray(fit_result.cov_unconditional, dtype=np.float64)
     actual_edf2 = np.asarray(fit_result.edf2, dtype=np.float64)
     np.testing.assert_allclose(

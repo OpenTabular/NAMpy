@@ -19,15 +19,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
 
 from nampy.gam.fit.solvers.general_family_solver import build_general_family_setup_state
-from nampy.gam.smoothing_selection.criteria import (
+from nampy.gam.fit.selection.criteria import (
     criterion_gradient,
     criterion_hessian,
     criterion_value,
 )
-from nampy.gam.smoothing_selection.optimize.basics import (
+from nampy.gam.fit.selection.optimize.basics import (
     _initial_smoothing_params_mgcv_style,
 )
-from nampy.gam.smoothing_selection.reparam import build_estimate_gam_setup_state
+from nampy.gam.fit.selection.reparam import build_estimate_gam_setup_state
 from tests.families.test_general_family_mgcv_parity import (
     _gevlss_data,
     _gevlss_two_smooth_data,
@@ -88,7 +88,7 @@ def _case_fs() -> dict:
     except Exception as exc:  # noqa: BLE001 - debug probe records exact failure.
         out["nampy_fit_error"] = repr(exc)
         gam = _fit_nampy_model(data, formula, "gaussian", "fixed")
-    cm = gam.compiled_model_
+    cm = gam.gam_result_.compiled_model
     out["nampy_n_smoothing_params"] = int(cm.n_smoothing_params)
     out["nampy_smoothing_params"] = _arr(gam.smoothing_params)
     out["nampy_penalties"] = [
@@ -229,7 +229,7 @@ def _case_gevlss(*, two_cr: bool = False) -> dict:
         "mgcv_scale": mgcv_snapshot["fit"].get("scale", None),
         "nampy_gam_vcomp": _jsonable(gam.gam_vcomp(rescale=False)),
         "nampy_sp": nampy_sp,
-        "nampy_scale": float(gam.fit_core_solution_.fit_result.scale),
+        "nampy_scale": float(gam.gam_result_.fit_core_solution.fit_result.scale),
         "nampy_score": float(gam.smoothing_score_),
         "nampy_optim_result": {
             "success": None if result is None else bool(getattr(result, "success", False)),

@@ -81,7 +81,7 @@ def final_fit_uses_exact_orientation_parity(model, *, skip_coef_comparison: bool
     compiled = (
         getattr(result, "compiled_model", None)
         if result is not None
-        else getattr(model, "compiled_model_", None)
+        else getattr(getattr(model, "gam_result_", None), "compiled_model", None)
     )
     if compiled is None:
         raise ValueError("A compiled GAM model is required for representation policy.")

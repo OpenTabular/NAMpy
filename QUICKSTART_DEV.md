@@ -95,8 +95,8 @@ NAMpy/
 │   ├── __init__.py       # Public API
 │   ├── __version__.py    # Version info
 │   ├── models/           # Model implementations
-│   ├── basemodels/       # Base model classes
-│   ├── configs/          # Configuration classes
+│   ├── neural/modules/   # PyTorch architectures
+│   ├── neural/configs/   # Configuration dataclasses
 │   ├── preprocessing/    # Data preprocessing
 │   ├── utils/            # Utilities
 │   └── ...

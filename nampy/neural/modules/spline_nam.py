@@ -4,7 +4,6 @@ import torch
 import torch.nn as nn
 
 from ..configs.spline_nam_config import DefaultSplineNAMConfig
-from ..training.output_contract import validate_feature_names
 from .basemodel import BaseModel
 from .neural_splines import CubicSplineLayer
 
@@ -36,6 +35,7 @@ class SplineNAM(BaseModel):
         self.lr_factor = self.hparams.get("lr_factor", config.lr_factor)
         self.cat_feature_info = cat_feature_info
         self.num_feature_info = num_feature_info
+        self._validate_features(num_feature_info, cat_feature_info)
         self.num_classes = num_classes
         self.n_knots = int(self.hparams.get("n_knots", config.n_knots))
         self.learn_knots = bool(
@@ -60,9 +60,7 @@ class SplineNAM(BaseModel):
             self.hparams.get("feature_dropout", config.feature_dropout)
         )
 
-        all_feature_names = set(num_feature_info) | set(cat_feature_info)
-        validate_feature_names(all_feature_names, owner="SplineNAM")
-        if not all_feature_names:
+        if not set(num_feature_info) | set(cat_feature_info):
             raise ValueError("SplineNAM requires at least one input feature.")
 
         for feature_name, info in {**num_feature_info, **cat_feature_info}.items():

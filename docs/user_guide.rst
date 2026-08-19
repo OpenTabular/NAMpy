@@ -112,8 +112,8 @@ For modeling the full distribution of the target:
 
    from nampy.models import NAMLSS
    
-   model = NAMLSS()
-   model.fit(X_train, y_train, max_epochs=150, family="normal")
+   model = NAMLSS(family="normal")
+   model.fit(X_train, y_train, max_epochs=150)
    
    # Distribution parameters
    params = model.predict(X_test)

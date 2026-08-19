@@ -8,39 +8,39 @@ class DefaultNodeGAMConfig:
 
     Parameters
     ----------
-    lr : float, default=1e-04
+    lr : float
         Learning rate for the optimizer.
-    lr_patience : int, default=10
+    lr_patience : int
         Number of epochs with no improvement after which learning rate will be reduced.
-    weight_decay : float, default=1e-06
+    weight_decay : float
         Weight decay (L2 penalty) for the optimizer.
-    lr_factor : float, default=0.1
+    lr_factor : float
         Factor by which the learning rate will be reduced.
-    arch : str, default="GAM"
+    arch : str
         Architecture type. Choose between "GAM" or "GAMAtt".
-    num_trees : int, default=200
+    num_trees : int
         Number of trees in each layer.
-    num_layers : int, default=2
+    num_layers : int
         Number of layers of trees.
-    depth : int, default=3
+    depth : int
         Depth of each tree.
-    addi_tree_dim : int, default=0
+    addi_tree_dim : int
         Additional dimension for the outputs of each tree.
-    output_dropout : float, default=0.0
+    output_dropout : float
         Dropout rate on the output of each tree.
-    last_dropout : float, default=0.3
+    last_dropout : float
         Dropout rate on the weight of the last linear layer.
-    colsample_bytree : float, default=0.5
+    colsample_bytree : float
         The random proportion of features allowed in each tree.
-    l2_lambda : float, default=0.0
+    l2_lambda : float
         L2 penalty coefficient on the outputs of trees.
-    dim_att : int, default=8
+    dim_att : int
         Dimension of the attention embedding (only used in GAMAtt).
-    anneal_steps : int, default=2000
+    anneal_steps : int
         Number of steps for temperature annealing.
-    interaction_degree : int, default=1
+    interaction_degree : int
         Degree of interactions to be modeled. If >= 2, enables GA2M.
-    feature_dropout : float, default=0.0
+    feature_dropout : float
         Dropout rate for feature regularization.
     """
 

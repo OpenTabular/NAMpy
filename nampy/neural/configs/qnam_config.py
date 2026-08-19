@@ -11,57 +11,57 @@ class DefaultQNAMConfig:
 
     Parameters
     ----------
-    lr : float, default=1e-4
+    lr : float
         Learning rate for the optimizer.
-    lr_patience : int, default=10
+    lr_patience : int
         Number of epochs with no validation improvement before reducing the learning rate.
-    weight_decay : float, default=1e-6
+    weight_decay : float
         Weight decay (L2 penalty) for the optimizer.
-    lr_factor : float, default=0.1
+    lr_factor : float
         Multiplicative factor used by the learning-rate scheduler.
 
-    layer_sizes : list of int, default=[128, 128, 32]
+    layer_sizes : list of int
         Hidden-layer widths for each feature subnet.
 
-    activation : type, default=nn.ReLU
+    activation : type
         Activation class used in the hidden layers.
 
-    dropout : float, default=0.1
+    dropout : float
         Dropout rate inside each feature subnet.
 
-    norm : str or None, default=None
+    norm : str or None
         Optional normalization layer name.
         Valid values depend on `mlp_utils._make_norm`, e.g.
         "BatchNorm", "LayerNorm", "RMSNorm", "LearnableLayerScaling".
 
-    use_glu : bool, default=False
+    use_glu : bool
         Whether to use GLU in hidden layers. If True, all hidden sizes must be even.
 
-    skip_connections : bool, default=False
+    skip_connections : bool
         Whether to use residual connections when layer dimensions match.
 
-    batch_norm : bool, default=False
+    batch_norm : bool
         Convenience flag for batch normalization. Mutually exclusive with `norm`
         and `layer_norm` in the cleaned-up MLP utilities.
 
-    layer_norm : bool, default=False
+    layer_norm : bool
         Convenience flag for layer normalization. Mutually exclusive with `norm`
         and `batch_norm` in the cleaned-up MLP utilities.
 
-    intercept : bool, default=True
+    intercept : bool
         Whether to include a learnable monotone intercept across quantiles.
 
-    feature_dropout : float, default=0.0
+    feature_dropout : float
         Dropout probability applied at the whole-feature contribution level.
 
-    interaction_degree : int or None, default=None
+    interaction_degree : int or None
         Maximum interaction degree. If None or < 2, only main effects are used.
         If 2, pairwise interactions are included, etc.
 
-    monotone_transform : str, default="softplus"
+    monotone_transform : str
         Transformation function to enforce monotonicity. Options: "softplus", "exponential".
 
-    min_increment : float, default=0.01
+    min_increment : float
         Minimum increment for the monotone transform. Only used if `monotone_transform` is "softplus".
     """
 

@@ -95,9 +95,11 @@ def test_classifier_rejects_single_class():
 
 def test_lss_score_is_negative_mean_nll(tmp_path):
     X, y = _regression_data()
-    estimator = LinRegLSS(numerical_preprocessing="standardization")
+    estimator = LinRegLSS(
+        family="normal", numerical_preprocessing="standardization"
+    )
     estimator.fit(
-        X, y, family="normal", max_epochs=3, patience=2, checkpoint_path=str(tmp_path)
+        X, y, max_epochs=3, patience=2, checkpoint_path=str(tmp_path)
     )
 
     score = estimator.score(X, y)
@@ -115,5 +117,23 @@ def test_cross_val_score_runs_on_neural_estimators(tmp_path):
         cv=2,
         params={"max_epochs": 2, "patience": 1, "checkpoint_path": str(tmp_path)},
     )
+    assert scores.shape == (2,)
+    assert np.all(np.isfinite(scores))
+
+
+def test_cross_val_score_runs_on_lss_with_constructor_family(tmp_path):
+    X, y = _regression_data(n=60)
+    estimator = LinRegLSS(
+        family="normal", numerical_preprocessing="standardization"
+    )
+
+    scores = cross_val_score(
+        estimator,
+        X,
+        y,
+        cv=2,
+        params={"max_epochs": 2, "patience": 1, "checkpoint_path": str(tmp_path)},
+    )
+
     assert scores.shape == (2,)
     assert np.all(np.isfinite(scores))
