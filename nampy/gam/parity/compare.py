@@ -6,7 +6,6 @@ saved reference (typically produced by the R mgcv package) and returns a
 structured report of which quantities agree within tolerance.
 """
 
-import json
 
 import numpy as np
 
@@ -106,11 +105,4 @@ def compare_parity_snapshots(actual, expected, atol=1e-6, rtol=1e-6):
         }
         report["passed"] = report["passed"] and bool(ok)
 
-    return report
-
-
-def assert_parity_snapshot_close(actual, expected, atol=1e-6, rtol=1e-6):
-    report = compare_parity_snapshots(actual, expected, atol=atol, rtol=rtol)
-    if not report["passed"]:
-        raise AssertionError(json.dumps(report, indent=2))
     return report

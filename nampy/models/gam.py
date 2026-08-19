@@ -152,7 +152,7 @@ class _GAMAdapterBase(BaseEstimator):
         """Per-term link-scale contributions as a backend-neutral result."""
         self._check_fitted()
         self._validate_X(X)
-        vals = self.gam_.predict_feature_vals(X, offset=offset)
+        vals = self.gam_.predict_terms(X, offset=offset)
 
         link = np.asarray(vals["output"], dtype=np.float64)
         response = vals.get("response")
@@ -196,14 +196,6 @@ class _GAMAdapterBase(BaseEstimator):
         if len(set(labels)) != len(labels):
             return {}
         return dict(zip(ids, labels, strict=True))
-
-    def predict_feature_vals(self, X=None, offset=None):
-        """Raw contribution dict keyed by term label (mirrors neural API)."""
-        self._check_fitted()
-        self._validate_X(X)
-        vals = self.gam_.predict_feature_vals(X, offset=offset)
-        label_map = self._term_label_map()
-        return {label_map.get(key, key): value for key, value in vals.items()}
 
     def standard_errors(self, X=None, type="response", offset=None):
         """Pointwise prediction standard errors."""

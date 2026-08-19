@@ -7,7 +7,6 @@ solver over the full design matrix ``X`` and full penalty matrix ``S``.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -21,13 +20,6 @@ from ..linalg.stacked_qr import (
     penalty_sqrt_rows,
     solve_gaussian_penalized_ls_stacked_qr,
 )
-
-
-@dataclass
-class PenalizedIrlsControl:
-    maxit: int = 100
-    epsilon: float = 1e-7
-    trace: bool = False
 
 
 def _family_is_general(family: Any) -> bool:
@@ -399,7 +391,7 @@ def irls_core(
             )
         else:
             w_sum = float(np.sum(weights))
-            denom = max(w_sum - float(edf_curr), np.finfo(np.float64).eps)
+            denom = max(w_sum - float(edf_curr), float(np.finfo(np.float64).eps))
             scale_curr = float(_weighted_deviance(mu_curr) / denom)
 
         dvar = getattr(family, "dvar", None)

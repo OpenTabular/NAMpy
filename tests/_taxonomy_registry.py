@@ -43,6 +43,27 @@ _METHOD_MARK_NAMES = {
     "reml": "method_reml",
     "ml": "method_ml",
     "laml": "method_laml",
+    "gcv": "method_gcv",
+    "ubre": "method_ubre",
+}
+
+_LINK_MARK_NAMES = {
+    "identity": "link_identity",
+    "log": "link_log",
+    "inverse": "link_inverse",
+    "logit": "link_logit",
+    "probit": "link_probit",
+    "cloglog": "link_cloglog",
+    "cauchit": "link_cauchit",
+    "sqrt": "link_sqrt",
+}
+
+_OPTIMIZER_MARK_NAMES = {
+    "outer_newton": "optimizer_newton",
+    "newton": "optimizer_newton",
+    "bfgs": "optimizer_bfgs",
+    "efs": "optimizer_efs",
+    "optim": "optimizer_optim",
 }
 
 _STATUS_MARKS_BY_FILE = {
@@ -87,6 +108,7 @@ _DEFAULT_MARKS_BY_FILE = {
     "test_gam_mgcv_patch_regressions.py": {"surface_regression"},
     "test_gam_optimization_lifecycle_contracts.py": {"surface_regression"},
     "test_gam_test_suite_contracts.py": {"surface_regression"},
+    "test_mgcv_under_tested_supported_combinations.py": {"surface_regression"},
 }
 
 _SELECTION_CAPABLE_FILES = {
@@ -195,6 +217,61 @@ _PRIMARY_COVERAGE_BY_MARK = {
     ),
     "method_laml": (
         "tests/optimization/test_mgcv_joint_branch_trace_parity.py",
+    ),
+    "method_gcv": (
+        "tests/optimization/test_mgcv_criterion_optimizer_endpoint_parity.py",
+        "tests/parity/test_mgcv_under_tested_supported_combinations.py",
+    ),
+    "method_ubre": (
+        "tests/optimization/test_mgcv_criterion_optimizer_endpoint_parity.py",
+    ),
+    "link_identity": (
+        "tests/parity/test_mgcv_snapshot_extended_matrix.py",
+        "tests/parity/test_mgcv_under_tested_supported_combinations.py",
+    ),
+    "link_log": (
+        "tests/parity/test_mgcv_snapshot_extended_matrix.py",
+        "tests/parity/test_mgcv_under_tested_supported_combinations.py",
+    ),
+    "link_inverse": (
+        "tests/parity/test_mgcv_snapshot_extended_matrix.py",
+        "tests/parity/test_mgcv_under_tested_supported_combinations.py",
+    ),
+    "link_logit": (
+        "tests/parity/test_mgcv_snapshot_extended_matrix.py",
+        "tests/parity/test_mgcv_under_tested_supported_combinations.py",
+    ),
+    "link_probit": (
+        "tests/parity/test_mgcv_snapshot_extended_matrix.py",
+        "tests/parity/test_mgcv_under_tested_supported_combinations.py",
+    ),
+    "link_cloglog": (
+        "tests/parity/test_mgcv_snapshot_extended_matrix.py",
+        "tests/parity/test_mgcv_under_tested_supported_combinations.py",
+    ),
+    "link_cauchit": (
+        "tests/parity/test_mgcv_snapshot_extended_matrix.py",
+        "tests/parity/test_mgcv_under_tested_supported_combinations.py",
+    ),
+    "link_sqrt": (
+        "tests/parity/test_mgcv_snapshot_extended_matrix.py",
+        "tests/parity/test_mgcv_under_tested_supported_combinations.py",
+    ),
+    "optimizer_newton": (
+        "tests/optimization/test_mgcv_criterion_optimizer_endpoint_parity.py",
+        "tests/parity/test_mgcv_under_tested_supported_combinations.py",
+    ),
+    "optimizer_bfgs": (
+        "tests/optimization/test_mgcv_criterion_optimizer_endpoint_parity.py",
+        "tests/parity/test_mgcv_under_tested_supported_combinations.py",
+    ),
+    "optimizer_efs": (
+        "tests/optimization/test_mgcv_optimization_lifecycle_parity.py",
+        "tests/parity/test_mgcv_under_tested_supported_combinations.py",
+    ),
+    "optimizer_optim": (
+        "tests/optimization/test_mgcv_optimization_lifecycle_parity.py",
+        "tests/parity/test_mgcv_under_tested_supported_combinations.py",
     ),
     "select_true": (
         "tests/parity/test_mgcv_snapshot_core_matrix.py",

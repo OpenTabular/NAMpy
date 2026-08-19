@@ -8,7 +8,7 @@ import torchmetrics
 from .output_contract import harvest_penalties
 
 
-class TaskModel(pl.LightningModule):
+class TaskModule(pl.LightningModule):
     def __init__(
         self,
         model_class: Type[nn.Module],

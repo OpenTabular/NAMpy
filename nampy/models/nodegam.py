@@ -1,13 +1,13 @@
 from ..neural.configs.nodegam_config import DefaultNodeGAMConfig
 from ..neural.modules.nodegam import NodeGAM
-from .sklearn_classifier import SklearnBaseClassifier
-from .sklearn_lss import SklearnBaseLSS
-from .sklearn_regressor import SklearnBaseRegressor
+from .classifier import NeuralClassifier
+from .lss import NeuralLSS
+from .regressor import NeuralRegressor
 
 
-class NodeGAMRegressor(SklearnBaseRegressor):
+class NodeGAMRegressor(NeuralRegressor):
     """
-    Multi-Layer Perceptron regressor. This class extends the SklearnBaseRegressor class and uses the NodeGAM model
+    Multi-Layer Perceptron regressor. This class extends the NeuralRegressor class and uses the NodeGAM model
     with the default NodeGAM configuration.
 
     The accepted arguments to the NodeGAMRegressor class include both the attributes in the DefaultNodeGAMConfig dataclass
@@ -69,11 +69,11 @@ class NodeGAMRegressor(SklearnBaseRegressor):
     Notes
     -----
     - The accepted arguments to the NodeGAMRegressor class are the same as the attributes in the DefaultNodeGAMConfig dataclass.
-    - NodeGAMRegressor uses SklearnBaseRegressor as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to
+    - NodeGAMRegressor uses NeuralRegressor as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to
 
     See Also
     --------
-    nampy.models.SklearnBaseRegressor : The parent class for NAMRegressor.
+    nampy.models.NeuralRegressor : The parent class for NAMRegressor.
 
     Examples
     --------
@@ -88,9 +88,9 @@ class NodeGAMRegressor(SklearnBaseRegressor):
         super().__init__(model=NodeGAM, config=DefaultNodeGAMConfig, **kwargs)
 
 
-class NodeGAMClassifier(SklearnBaseClassifier):
+class NodeGAMClassifier(NeuralClassifier):
     """
-    Multi-Layer Perceptron classifier. This class extends the SklearnBaseClassifier class and uses the NodeGAM model
+    Multi-Layer Perceptron classifier. This class extends the NeuralClassifier class and uses the NodeGAM model
     with the default NodeGAM configuration.
 
     The accepted arguments to the NodeGAMClassifier class include both the attributes in the DefaultNodeGAMConfig dataclass
@@ -152,11 +152,11 @@ class NodeGAMClassifier(SklearnBaseClassifier):
     Notes
     -----
     - The accepted arguments to the NodeGAMClassifier class are the same as the attributes in the DefaultNodeGAMConfig dataclass.
-    - NodeGAMClassifier uses SklearnBaseClassifieras the parent class. The methods for fitting, predicting, and
+    - NodeGAMClassifier uses NeuralClassifieras the parent class. The methods for fitting, predicting, and
 
     See Also
     --------
-    nampy.models.SklearnBaseRegressor : The parent class for NAMClassifier.
+    nampy.models.NeuralRegressor : The parent class for NAMClassifier.
 
     Examples
     --------
@@ -171,9 +171,9 @@ class NodeGAMClassifier(SklearnBaseClassifier):
         super().__init__(model=NodeGAM, config=DefaultNodeGAMConfig, **kwargs)
 
 
-class NodeGAMLSS(SklearnBaseLSS):
+class NodeGAMLSS(NeuralLSS):
     """
-    Multi-Layer Perceptron for distributional regression. This class extends the SklearnBaseLSS class and uses the NodeGAM model
+    Multi-Layer Perceptron for distributional regression. This class extends the NeuralLSS class and uses the NodeGAM model
     with the default NodeGAM configuration.
 
     The accepted arguments to the NodeGAMLSS class include both the attributes in the DefaultNodeGAMConfig dataclass
@@ -238,11 +238,11 @@ class NodeGAMLSS(SklearnBaseLSS):
     Notes
     -----
     - The accepted arguments to the NodeGAMLSS class are the same as the attributes in the DefaultNodeGAMConfig dataclass.
-    - NodeGAMLSS uses SklearnBaseLSS as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - NodeGAMLSS uses NeuralLSS as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    nampy.models.SklearnBaseLSS : The parent class for NodeGAMLSS.
+    nampy.models.NeuralLSS : The parent class for NodeGAMLSS.
 
     Examples
     --------

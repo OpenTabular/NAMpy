@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from nampy.gam import GAM
 from nampy.gam._model_state import _term_blocks_seq
-from nampy.gam.model.api import GAM
 from nampy.gam.parity.snapshots import _normalize_reference_term_label
 from nampy.gam.smoothing_selection.criteria import (
     criterion_gradient,
@@ -18,6 +18,7 @@ from tests.mgcv_parity_utils import (
     _assert_basic_mgcv_parity,
     _fit_nampy_model,
     _fit_nampy_model_fixed_sp,
+    _fit_nampy_snapshot,
     _run_mgcv_predict_on_newdata,
     _run_mgcv_snapshot,
 )
@@ -1002,4 +1003,95 @@ def test_general_family_fixed_sp_snapshot_parity_matches_mgcv(
         pred_rtol=0.0,
         sp_log_atol=sp_log_atol,
         check_criterion=False,
+    )
+
+
+def test_gammals_reml_outer_fit_matches_mgcv():
+    """gammals x REML was the last never-fitted general-family method cell.
+
+    GENERAL_SE_CASES is all-ML; the REML route (folded LAML) goes through the
+    same gam.fit5 machinery but was previously unexercised end-to-end.
+    """
+    data = _gammals_data()
+    formula = ['y ~ s(x, bs="cr", k=6)', "~ 1"]
+
+    actual = _fit_nampy_snapshot(data, formula, "gammals", "REML")
+    expected = _run_mgcv_snapshot(data, formula, "gammals", "REML")
+
+    np.testing.assert_allclose(
+        np.asarray(actual["fit"]["log_smoothing_params"], dtype=np.float64),
+        np.asarray(expected["fit"]["log_smoothing_params"], dtype=np.float64),
+        atol=1e-6,
+        rtol=0.0,
+    )
+    np.testing.assert_allclose(
+        float(np.asarray(actual["fit"]["criterion_value"], dtype=np.float64)),
+        float(np.asarray(expected["fit"]["criterion_value"], dtype=np.float64)),
+        atol=1e-9,
+        rtol=1e-9,
+    )
+    np.testing.assert_allclose(
+        float(np.asarray(actual["fit"]["edf_total"], dtype=np.float64)),
+        float(np.asarray(expected["fit"]["edf_total"], dtype=np.float64)),
+        atol=1e-6,
+        rtol=0.0,
+    )
+    np.testing.assert_allclose(
+        np.asarray(actual["predictions"]["response"], dtype=np.float64),
+        np.asarray(expected["predictions"]["response"], dtype=np.float64),
+        atol=1e-6,
+        rtol=1e-6,
+    )
+
+
+def test_gaulss_efs_endpoint_matches_mgcv_with_vc_degenerating_to_vb():
+    """General-family EFS: mgcv endpoint parity plus the deriv=0 post-proc.
+
+    Upstream gam.fit5.post.proc with efs/optim runs at deriv=0: no
+    smoothing-uncertainty correction, so Vc == Vb exactly. EFS is a
+    fixed-point iteration, so the endpoint is compared at the level the two
+    iteration paths support rather than Newton-strict.
+    """
+    data = _gaulss_data()
+    formula = ['y ~ s(x, bs="cr", k=6)', "~ 1"]
+
+    from nampy.gam import GAM
+
+    gam = GAM(
+        family="gaulss",
+        formula=formula,
+        optimize_smoothing=True,
+        smoothing_method="REML",
+        smoothing_optimizer="efs",
+    ).fit(data=data)
+    actual = gam.parity_snapshot(X=data, include_covariances=True)
+    expected = _run_mgcv_snapshot(
+        data, formula, "gaulss", "REML", optimizer="efs"
+    )
+
+    np.testing.assert_allclose(
+        np.asarray(actual["fit"]["log_smoothing_params"], dtype=np.float64),
+        np.asarray(expected["fit"]["log_smoothing_params"], dtype=np.float64),
+        atol=2e-2,
+        rtol=0.0,
+    )
+    np.testing.assert_allclose(
+        float(np.asarray(actual["fit"]["criterion_value"], dtype=np.float64)),
+        float(np.asarray(expected["fit"]["criterion_value"], dtype=np.float64)),
+        atol=1e-4,
+        rtol=1e-6,
+    )
+    np.testing.assert_allclose(
+        np.asarray(actual["predictions"]["response"], dtype=np.float64),
+        np.asarray(expected["predictions"]["response"], dtype=np.float64),
+        atol=1e-3,
+        rtol=1e-3,
+    )
+    np.testing.assert_allclose(
+        np.asarray(gam.vcov(unconditional=True), dtype=np.float64),
+        np.asarray(gam.vcov(), dtype=np.float64),
+        # Vc is literally Vb under deriv=0 post-processing; the export path
+        # symmetrizes one copy, so allow last-ulp noise only.
+        atol=1e-15,
+        rtol=0.0,
     )

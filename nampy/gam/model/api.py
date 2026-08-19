@@ -1,6 +1,7 @@
 """User-facing mgcv-aligned GAM model."""
 
 import pickle
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -54,15 +55,12 @@ _GAM_HPARAM_KEYS = frozenset(
         "score_gamma",
         "covariance",
         "select",
-        "main_effects",
-        "tensor_terms",
         "knots",
         "min_sp",
         "drop_intercept",
         "formula",
         # Read from hparams outside the constructor:
         "apply_side_conditions",  # fit/design_setup.py
-        "side_condition_tol",  # fit/design_setup.py
         "trace",  # fit/solvers/general_family/fixed_smoothing.py
     }
 )
@@ -111,8 +109,6 @@ class GAM:
         self.score_gamma = float(self.hparams.get("score_gamma", 1.0))
         self.covariance = str(self.hparams.get("covariance", "bayes")).lower()
         self.select = bool(self.hparams.get("select", False))
-        self.main_effects = bool(self.hparams.get("main_effects", True))
-        self.tensor_terms = self.hparams.get("tensor_terms", None)
         self.knots = self.hparams.get("knots", None)
         self.min_sp = self.hparams.get("min_sp", None)
         self.drop_intercept = self.hparams.get("drop_intercept", None)
@@ -161,15 +157,22 @@ class GAM:
     # ------------------------------------------------------------------
 
     def save_model(self, path):
-        with open(path, "wb") as f:
-            pickle.dump(self, f)
+        destination = Path(path)
+        with destination.open("wb") as handle:
+            pickle.dump(self, handle)
+        return destination
 
-    def load_model(self, path, device="cpu"):
-        with open(path, "rb") as f:
-            other = pickle.load(f)
-        self.__dict__.update(other.__dict__)
-        self._device = device
-        return self
+    @classmethod
+    def load_model(cls, path, device="cpu"):
+        source = Path(path)
+        with source.open("rb") as handle:
+            loaded = pickle.load(handle)
+        if not isinstance(loaded, cls):
+            raise TypeError(
+                f"{source} contains {type(loaded).__name__}, not {cls.__name__}."
+            )
+        loaded._device = device
+        return loaded
 
     def get_device(self):
         return self._device
@@ -295,7 +298,10 @@ class GAM:
             self.formula_response_name_ = parsed.response_name
             self.formula_preprocess_state_ = preprocess_state
 
-            fit_intercept = bool(parsed.predictors[0].intercept)
+            # `drop_intercept` is applied during formula intent extraction, so
+            # the resolved predictor spec -- not the raw parsed formula -- is
+            # the canonical owner of the intercept policy.
+            fit_intercept = bool(predictor_specs[0].has_intercept)
             self.fit_intercept = fit_intercept
             y_use = y_out
 
@@ -471,7 +477,7 @@ class GAM:
             exclude=exclude,
         )
 
-    def predict_feature_vals(self, X=None, offset=None):
+    def predict_terms(self, X=None, offset=None):
         from ..predict import predict_values
 
         if not self._fitted:
@@ -521,19 +527,22 @@ class GAM:
 
         return build_lpmatrix(self, X_new=X_np)
 
-    def plot(self, X=None, y=None, n_cols=2, figsize=None):
-        from ..diagnostics import plot_gam_terms
+    def plot(self, **kwargs):
+        """mgcv ``plot.gam``-shaped term plots (mgcv/R/plots.r:1271-1565).
+
+        Accepts the ported plot.gam arguments (``residuals``, ``rug``, ``se``,
+        ``pages``, ``select``, ``scale``, ``n``, ``n2``, ``n3``, ``theta``,
+        ``phi``, ``jit``, ``xlab``, ``ylab``, ``main``, ``ylim``, ``xlim``,
+        ``too_far``, ``shade_col``, ``shift``, ``trans``, ``se_with_mean``,
+        ``unconditional``, ``by_resids``, ``scheme``, ``figsize``) and returns
+        the prepared plot-data list with the matplotlib figures attached,
+        mirroring upstream's invisible ``pd`` return.
+        """
+        from ..diagnostics import plot_gam
 
         if not self._fitted:
             raise RuntimeError("Model is not fitted.")
-        if X is None:
-            return plot_gam_terms(self, X=None, n_cols=n_cols, figsize=figsize)
-
-        if self.formula_mode_:
-            return plot_gam_terms(self, X=X, n_cols=n_cols, figsize=figsize)
-
-        X_np, _ = coerce_X(self, X)
-        return plot_gam_terms(self, X=X_np, n_cols=n_cols, figsize=figsize)
+        return plot_gam(self, **kwargs)
 
     def summary(self, *, dispersion=None, freq=False, re_test=True):
         """
@@ -612,7 +621,13 @@ class GAM:
         coef_full = np.asarray(_coef_full(self), dtype=np.float64)
         edf_total = float(_edf_total(self))
         if sandwich:
+            if Vp is None or Vf is None:
+                raise RuntimeError(
+                    "Sandwich covariance requires Bayesian and frequentist covariance."
+                )
             B2 = np.zeros_like(Vp) if freq else (Vp - Vf)
+            if fit_state is None:
+                raise RuntimeError("Sandwich covariance requires fitted solver state.")
             X = np.asarray(fit_state.X, dtype=np.float64)
             m = float(X.shape[0])
             m = m / (m - edf_total)
@@ -665,14 +680,14 @@ class GAM:
             return vc
 
         if freq:
-            vc = Vf
+            selected_vc = Vf
         else:
-            vc = Vc if unconditional and Vc is not None else Vp
+            selected_vc = Vc if unconditional and Vc is not None else Vp
 
-        if vc is None:
+        if selected_vc is None:
             raise RuntimeError("Requested covariance matrix is not available.")
 
-        vc = np.asarray(vc, dtype=np.float64).copy()
+        vc = np.asarray(selected_vc, dtype=np.float64).copy()
         if dispersion is not None:
             vc *= float(dispersion) / fit_scale
         return vc
@@ -786,25 +801,11 @@ class GAM:
                 np.sum(weights * (y * np.log(mu) - mu - gammaln(y + 1.0)))
             )
         elif family_name == "binomial":
-            mu = np.clip(mu, np.finfo(np.float64).tiny, 1.0 - np.finfo(np.float64).eps)
-            n = weights
-            y_count = np.rint(n * y)
-            n_round = np.rint(n)
-            with np.errstate(divide="ignore", invalid="ignore"):
-                log_comb = (
-                    gammaln(n_round + 1.0)
-                    - gammaln(y_count + 1.0)
-                    - gammaln(n_round - y_count + 1.0)
-                )
-                log_p = (
-                    log_comb
-                    + y_count * np.log(mu)
-                    + (n_round - y_count) * np.log(1.0 - mu)
-                )
-                scale = np.where(n > 0.0, weights / np.maximum(n, 1.0), 0.0)
-            raw_aic = -2.0 * float(np.sum(scale * log_p))
+            # stats::binomial()$aic owns the m <- wt reinterpretation of
+            # non-unit prior weights as binomial denominators.
+            raw_aic = float(self.family.aic(y, mu, edf=0.0, weights=weights))
         elif family_name == "gamma":
-            scale = None
+            dispersion_scale: float | None = None
             optim_result = getattr(self, "_optim_result", None)
             joint_log_phi = (
                 None
@@ -816,8 +817,8 @@ class GAM:
                 and np.isfinite(float(joint_log_phi))
                 and str(getattr(self, "_optim_method", "")).lower() in {"reml", "ml"}
             ):
-                scale = float(np.exp(float(joint_log_phi)))
-            if scale is None:
+                dispersion_scale = float(np.exp(float(joint_log_phi)))
+            if dispersion_scale is None:
                 fit_method = str(getattr(self, "smoothing_method", "")).lower()
                 if fit_method == "fixed" and getattr(self.family, "known_scale", None) is None:
                     from .._model_state import _coef_column_offset
@@ -839,7 +840,7 @@ class GAM:
                     # rather than the reported Pearson `sig2` in
                     # stats::Gamma()$aic when fixed sp are fitted through
                     # the REML path.
-                    scale = float(
+                    dispersion_scale = float(
                         _solve_gamma_profile_scale(
                             self,
                             y,
@@ -849,11 +850,20 @@ class GAM:
                             init_scale=float(init_scale),
                         )
                     )
-                if scale is None:
-                    scale = _fit_scale(self)
-            if scale is None or not np.isfinite(float(scale)) or float(scale) <= 0.0:
+                if dispersion_scale is None:
+                    fit_scale_value = _fit_scale(self)
+                    dispersion_scale = (
+                        None
+                        if fit_scale_value is None
+                        else float(fit_scale_value)
+                    )
+            if (
+                dispersion_scale is None
+                or not np.isfinite(dispersion_scale)
+                or dispersion_scale <= 0.0
+            ):
                 return None
-            disp = float(scale)
+            disp = dispersion_scale
             shape = 1.0 / disp
             mu = np.clip(mu, np.finfo(np.float64).tiny, None)
             y = np.clip(y, np.finfo(np.float64).tiny, None)
@@ -923,12 +933,12 @@ class GAM:
 
         y = np.asarray(self.y_, dtype=np.float64)
         mu = np.asarray(self.predict(X=None, type="response"), dtype=np.float64)
-        weights = (
+        glm_weights = (
             None
             if self.prior_weights_ is None
             else np.asarray(self.prior_weights_, dtype=np.float64)
         )
-        dev = float(self.family.deviance(y, mu, weights=weights))
+        dev = float(self.family.deviance(y, mu, weights=glm_weights))
         fit_scale = _fit_scale(self)
         if (
             fit_scale is not None
@@ -941,15 +951,15 @@ class GAM:
                 y,
                 mu,
                 edf=float(_edf_total(self)),
-                weights=weights,
+                weights=glm_weights,
             )
-            scale = max(float(scale_est), np.finfo(np.float64).tiny)
+            scale = max(float(scale_est), float(np.finfo(np.float64).tiny))
         else:
             scale = float(self.family.known_scale)
         sat = float(
             self.family.saturated_loglik(
                 y,
-                weights=weights,
+                weights=glm_weights,
                 n=len(y),
                 scale=scale,
             )

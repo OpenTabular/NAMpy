@@ -1,14 +1,14 @@
 # models/nbm.py
 from ..neural.configs.nbm_config import DefaultNBMConfig
 from ..neural.modules.nbm import NBM
-from .sklearn_classifier import SklearnBaseClassifier
-from .sklearn_lss import SklearnBaseLSS
-from .sklearn_regressor import SklearnBaseRegressor
+from .classifier import NeuralClassifier
+from .lss import NeuralLSS
+from .regressor import NeuralRegressor
 
 
-class NBMRegressor(SklearnBaseRegressor):
+class NBMRegressor(NeuralRegressor):
     """
-    Multi-Layer Perceptron regressor. This class extends the SklearnBaseRegressor class and uses the NBM model
+    Multi-Layer Perceptron regressor. This class extends the NeuralRegressor class and uses the NBM model
     with the default NBM configuration.
 
     The accepted arguments to the NBMRegressor class include both the attributes in the DefaultNBMConfig dataclass
@@ -72,11 +72,11 @@ class NBMRegressor(SklearnBaseRegressor):
     Notes
     -----
     - The accepted arguments to the NBMRegressor class are the same as the attributes in the DefaultNBMConfig dataclass.
-    - NBMRegressor uses SklearnBaseRegressor as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - NBMRegressor uses NeuralRegressor as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    nampy.models.SklearnBaseRegressor : The parent class for NBMRegressor.
+    nampy.models.NeuralRegressor : The parent class for NBMRegressor.
 
     Examples
     --------
@@ -91,9 +91,9 @@ class NBMRegressor(SklearnBaseRegressor):
         super().__init__(model=NBM, config=DefaultNBMConfig, **kwargs)
 
 
-class NBMClassifier(SklearnBaseClassifier):
+class NBMClassifier(NeuralClassifier):
     """
-    Multi-Layer Perceptron classifier. This class extends the SklearnBaseClassifier class and uses the NBM model
+    Multi-Layer Perceptron classifier. This class extends the NeuralClassifier class and uses the NBM model
     with the default NBM configuration.
 
     The accepted arguments to the NBMClassifier class include both the attributes in the DefaultNBMConfig dataclass
@@ -157,11 +157,11 @@ class NBMClassifier(SklearnBaseClassifier):
     Notes
     -----
     - The accepted arguments to the NBMClassifier class are the same as the attributes in the DefaultNBMConfig dataclass.
-    - NBMClassifier uses SklearnBaseClassifieras the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - NBMClassifier uses NeuralClassifieras the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    nampy.models.SklearnBaseRegressor : The parent class for NBMClassifier.
+    nampy.models.NeuralRegressor : The parent class for NBMClassifier.
 
     Examples
     --------
@@ -176,9 +176,9 @@ class NBMClassifier(SklearnBaseClassifier):
         super().__init__(model=NBM, config=DefaultNBMConfig, **kwargs)
 
 
-class NBMLSS(SklearnBaseLSS):
+class NBMLSS(NeuralLSS):
     """
-    Multi-Layer Perceptron for distributional regression. This class extends the SklearnBaseLSS class and uses the NBM model
+    Multi-Layer Perceptron for distributional regression. This class extends the NeuralLSS class and uses the NBM model
     with the default NBM configuration.
 
     The accepted arguments to the NBMLSS class include both the attributes in the DefaultNBMConfig dataclass
@@ -245,11 +245,11 @@ class NBMLSS(SklearnBaseLSS):
     Notes
     -----
     - The accepted arguments to the NBMLSS class are the same as the attributes in the DefaultNBMConfig dataclass.
-    - NBMLSS uses SklearnBaseLSS as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - NBMLSS uses NeuralLSS as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    nampy.models.SklearnBaseLSS : The parent class for NBMLSS.
+    nampy.models.NeuralLSS : The parent class for NBMLSS.
 
     Examples
     --------

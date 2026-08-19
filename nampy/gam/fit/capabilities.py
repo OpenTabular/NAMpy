@@ -7,10 +7,6 @@ def uses_closed_form_solver(model):
     return bool(getattr(model.family, "supports_closed_form_solve", False))
 
 
-def uses_pirls_solver(model):
-    return bool(getattr(model.family, "supports_pirls", False))
-
-
 def can_use_exact_gaussian_ml_reml(model):
     from ..smoothing_selection.reparam import can_use_exact_gaussian_ml_reml
 

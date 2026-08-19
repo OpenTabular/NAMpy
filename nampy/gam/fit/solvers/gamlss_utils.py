@@ -308,7 +308,7 @@ def gamlss_etamu(
                                 * ig1[:, k3_idx] ** 3
                             )
                         else:
-                            counts = {}
+                            counts: dict[int, int] = {}
                             for idx in ii:
                                 counts[idx] = counts.get(idx, 0) + 1
                             if len(counts) == 2:  # 2,2

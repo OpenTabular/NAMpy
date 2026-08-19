@@ -5,12 +5,13 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 
+from nampy.gam import GAM
 from nampy.gam.fit.solvers.general_family.fixed_smoothing import (
     build_general_family_setup_state,
 )
-from nampy.gam.model.api import GAM
 from nampy.gam.smoothing_selection.optimize.basics import (
     _initial_smoothing_params_from_design,
 )
@@ -29,7 +30,9 @@ MGCV_GENERAL_PREOPT_SCRIPT = PARITY_DIR / "mgcv_general_family_preoptimization.R
 MGCV_INITIAL_SPG_SCRIPT = PARITY_DIR / "mgcv_initial_spg.R"
 
 
-def _run_mgcv_general_preoptimization(data, formula, family, method, *, select=False):
+def _run_mgcv_general_preoptimization(
+    data, formula, family, method, *, select=False, sp=None
+):
     family_nampy, family_token = _family_specs(family)
     del family_nampy
 
@@ -38,17 +41,20 @@ def _run_mgcv_general_preoptimization(data, formula, family, method, *, select=F
         csv_path = tmpdir_path / "data.csv"
         json_path = tmpdir_path / "general_preopt.json"
         data.to_csv(csv_path, index=False)
+        command = [
+            R_SCRIPT,
+            str(MGCV_GENERAL_PREOPT_SCRIPT),
+            str(csv_path),
+            str(json_path),
+            str(formula),
+            family_token,
+            method,
+            "true" if select else "false",
+        ]
+        if sp is not None:
+            command.append(json.dumps(np.asarray(sp, dtype=np.float64).tolist()))
         subprocess.run(
-            [
-                R_SCRIPT,
-                str(MGCV_GENERAL_PREOPT_SCRIPT),
-                str(csv_path),
-                str(json_path),
-                str(formula),
-                family_token,
-                method,
-                "true" if select else "false",
-            ],
+            command,
             check=True,
             cwd=REPO_ROOT,
             capture_output=True,
@@ -91,6 +97,36 @@ def _as_matrix(value):
 
 def _as_matrix_list(value):
     return [np.asarray(item, dtype=np.float64) for item in (value or [])]
+
+
+def _gaulss_fs_data():
+    rng = np.random.default_rng(248)
+    n = 132
+    row = np.arange(n)
+    x0 = rng.uniform(-1.5, 1.5, size=n)
+    f = np.asarray(["a", "b", "c"])[row % 3]
+    f1 = np.asarray(["u", "v", "w"])[row % 3]
+    f2 = np.asarray(["left", "right"])[(row // 3) % 2]
+    f_effect = np.asarray(
+        [{"a": -0.3, "b": 0.05, "c": 0.25}[value] for value in f]
+    )
+    cell_effect = np.asarray(
+        [
+            {
+                ("u", "left"): -0.16,
+                ("u", "right"): 0.08,
+                ("v", "left"): 0.18,
+                ("v", "right"): -0.1,
+                ("w", "left"): 0.06,
+                ("w", "right"): -0.04,
+            }[(left, right)]
+            for left, right in zip(f1, f2, strict=True)
+        ]
+    )
+    signal = 0.3 * np.sin(1.4 * x0) + f_effect + cell_effect
+    sigma = np.exp(-0.45 + 0.12 * x0)
+    y = rng.normal(signal, sigma, size=n)
+    return pd.DataFrame({"y": y, "x0": x0, "f": f, "f1": f1, "f2": f2})
 
 
 def _assert_root_gram_equal(actual, expected, *, atol=1e-10):
@@ -228,18 +264,19 @@ def _assert_general_fit5_setup_parity(
     actual_X_full = np.asarray(actual.X_full, dtype=np.float64)
     expected_X_full = np.asarray(expected["X_full"], dtype=np.float64)
     assert actual_X_full.shape == expected_X_full.shape
-    np.testing.assert_allclose(
-        actual_X_full,
-        expected_X_full,
-        rtol=0.0,
-        atol=1e-12,
-    )
     if compare_x_space_only:
+        _assert_matrix_space_equal(actual_X_full, expected_X_full)
         _assert_matrix_space_equal(
             np.asarray(actual.X_initial, dtype=np.float64),
             np.asarray(expected["X_initial"], dtype=np.float64),
         )
     else:
+        np.testing.assert_allclose(
+            actual_X_full,
+            expected_X_full,
+            rtol=0.0,
+            atol=1e-12,
+        )
         np.testing.assert_allclose(
             np.asarray(actual.X_initial, dtype=np.float64),
             np.asarray(expected["X_initial"], dtype=np.float64),
@@ -322,6 +359,15 @@ def _assert_general_fit5_setup_parity(
 
 GENERAL_PREOPT_CASES = [
     ("gaulss_cr", "gaulss", GAULSS_FORMULA, _gaulss_data, "ML", False, True),
+    (
+        "gaulss_fs",
+        "gaulss",
+        ['y ~ s(f, x0, bs="fs", k=5, xt="cr")', "~ 1"],
+        _gaulss_fs_data,
+        "ML",
+        False,
+        True,
+    ),
     (
         "gaulss_select_true_cr",
         "gaulss",
@@ -422,6 +468,28 @@ def test_general_family_preoptimization_setup_matches_mgcv(
         compare_x_space_only=compare_x_space_only,
         st_rtol=st_rtol,
         s_block_atol=s_block_atol,
+    )
+
+
+def test_gaulss_fs_fixed_sp_preoptimization_setup_matches_mgcv():
+    """Keep unequal fs penalties aligned before gaulss initialization."""
+    data = _gaulss_fs_data()
+    formula = ['y ~ s(f, x0, bs="fs", k=5, xt="cr")', "~ 1"]
+    sp = np.array([0.7, 0.9, 1.1], dtype=np.float64)
+    expected = _run_mgcv_general_preoptimization(
+        data,
+        formula,
+        "gaulss",
+        "REML",
+        sp=sp,
+    )
+    gam = _fit_nampy_model_fixed_sp(data, formula, "gaulss", sp)
+    actual = build_general_family_setup_state(gam, sp, score_type="REML")
+
+    _assert_general_fit5_setup_parity(
+        actual,
+        expected,
+        compare_x_space_only=True,
     )
 
 

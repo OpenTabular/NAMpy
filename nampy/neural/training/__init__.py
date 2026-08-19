@@ -1,3 +1,3 @@
-from .lightning_wrapper import TaskModel
+from .task_module import TaskModule
 
-__all__ = ["TaskModel"]
+__all__ = ["TaskModule"]

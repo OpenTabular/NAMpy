@@ -22,6 +22,7 @@ from .transforms import (
 
 
 def _penalty_root(S: np.ndarray, tol: float) -> np.ndarray:
+    """Return a public-API PSD root for mgcv's ``augment.smX`` invariant."""
     S = 0.5 * (np.asarray(S, dtype=np.float64) + np.asarray(S, dtype=np.float64).T)
     if S.size == 0:
         return np.empty((0, 0), dtype=np.float64)
@@ -34,6 +35,8 @@ def _penalty_root(S: np.ndarray, tol: float) -> np.ndarray:
     if not np.any(keep):
         return np.zeros_like(S)
     root = evecs[:, keep] * np.sqrt(evals[keep])[None, :]
+    # mgcv::mroot()/augment.smX only identify root @ root.T. The particular root
+    # orientation is not unique and is deliberately not part of the contract.
     return root @ evecs[:, keep].T
 
 
@@ -126,6 +129,28 @@ def _term_is_side_condition_passthrough(tb: CompiledTerm) -> bool:
     )
 
 
+def _smooth_variable_tokens(tb: CompiledTerm) -> tuple[str, ...]:
+    """Mirror the variable-name gate at the start of ``mgcv::gam.side``."""
+    metadata = dict(tb.metadata or {})
+    factor_by = dict(metadata.get("factor_by", {}) or {})
+    by_name = factor_by.get("source_by", None)
+    by_level = factor_by.get("level", None)
+    if by_name is None:
+        runtime_by = getattr(tb.by_variable_info, "name", None)
+        if runtime_by is not None and not str(runtime_by).startswith("__gam_by__"):
+            by_name = runtime_by
+
+    tokens = []
+    for feature in tb.feature_info.feature_names:
+        token = str(feature)
+        if by_name is not None:
+            token += str(by_name)
+        if by_level is not None:
+            token += str(by_level)
+        tokens.append(token)
+    return tuple(tokens)
+
+
 def _unchanged_side_condition_report(design: CompiledPredictor) -> dict:
     term_reports = []
     for tb in design.compiled_terms:
@@ -157,7 +182,7 @@ def apply_global_side_conditions(
     design: CompiledPredictor,
     *,
     fit_intercept: bool = True,
-    tol: float = 1e-10,
+    tol: float = float(np.finfo(np.float64).eps**0.5),
     warn: bool = True,
 ):
     """
@@ -240,43 +265,57 @@ def apply_global_side_conditions(
     smooth_terms = [
         tb for tb in design.compiled_terms if str(tb.term_type) != "parametric"
     ]
-    if len(smooth_terms) <= 1:
-        requires_centering = False
-        if smooth_terms:
-            smooth = smooth_terms[0]
-            policy = getattr(smooth, "side_condition_policy", None)
-            requires_centering = bool(
-                intercept_equivalent
-                and not _term_is_side_condition_passthrough(smooth)
-                and not bool(policy is not None and policy.skip_centering)
-                and (
-                    smooth.by_variable_info.name is None
-                    or bool(smooth.by_variable_info.is_constant)
-                )
-                and str(smooth.term_type) != "tensor_interaction"
+    requires_centering = False
+    for smooth in smooth_terms:
+        policy = getattr(smooth, "side_condition_policy", None)
+        requires_centering = requires_centering or bool(
+            intercept_equivalent
+            and not _term_is_side_condition_passthrough(smooth)
+            and not bool(policy is not None and policy.skip_centering)
+            and (
+                smooth.by_variable_info.name is None
+                or bool(smooth.by_variable_info.is_constant)
             )
+            and str(smooth.term_type) != "tensor_interaction"
+        )
+    variable_tokens = [
+        token for smooth in smooth_terms for token in _smooth_variable_tokens(smooth)
+    ]
+    if len(variable_tokens) == len(set(variable_tokens)) and not requires_centering:
+        return design, _unchanged_side_condition_report(design)
+    if len(smooth_terms) <= 1:
         if not requires_centering:
             return design, _unchanged_side_condition_report(design)
 
-    # Smooth-nesting accumulator, seeded only by an intercept-equivalent column.
-    acc = (
-        np.ones((n_obs, 1), dtype=np.float64)
-        if intercept_equivalent
-        else np.empty((n_obs, 0), dtype=np.float64)
-    )
-    acc_aug = np.zeros((n_obs + design.n_coef, acc.shape[1]), dtype=np.float64)
-    if acc.shape[1] > 0:
-        acc_aug[:n_obs, :] = acc
+    # ``mgcv::gam.side`` builds X1 afresh for each smooth from earlier eligible
+    # smooths attached to the *same variable token*. Retain both the final
+    # observational basis and the pre-deletion augmented basis for that lookup.
+    # A predictor-wide accumulator would incorrectly treat two distinct, merely
+    # collinear covariates as a nested smooth pair.
+    nesting_records: list[dict[str, object]] = []
 
-    new_term_blocks: list[CompiledTerm] = []
+    processed_terms: dict[int, CompiledTerm] = {}
     new_penalty_blocks: list[CompiledPenalty] = []
-    design_blocks: list[np.ndarray] = []
+    design_blocks: dict[int, np.ndarray] = {}
+    predictor_transforms: dict[int, np.ndarray] = {}
     deleted_total = 0
-    term_reports = []
-    start = 0
-    predictor_Q = np.zeros((design.n_coef, design.n_coef), dtype=np.float64)
+    term_reports_by_index: dict[int, dict] = {}
 
-    for term_idx, tb in enumerate(design.compiled_terms):
+    # ``gam.side`` traverses smooths by increasing dimension, retaining formula
+    # order only as the tie-breaker. The reconstructed predictor is restored to
+    # formula order after the side-condition transforms have been computed.
+    processing_order = sorted(
+        range(len(design.compiled_terms)),
+        key=lambda idx: (
+            0
+            if _term_is_side_condition_passthrough(design.compiled_terms[idx])
+            else len(design.compiled_terms[idx].feature_info.feature_names),
+            idx,
+        ),
+    )
+
+    for term_idx in processing_order:
+        tb = design.compiled_terms[term_idx]
         B = np.asarray(tb.basis_train, dtype=np.float64)
         d = B.shape[1]
         d_in = d
@@ -296,12 +335,8 @@ def apply_global_side_conditions(
         policy = getattr(tb, "side_condition_policy", None)
         exempt = _term_is_side_condition_passthrough(tb)
         if exempt:
-            sl_new = slice(start, start + d)
-            new_idx = len(new_term_blocks)
-            if d > 0:
-                predictor_Q[tb.coef_slice, sl_new] = np.eye(d, dtype=np.float64)
-            new_term_blocks.append(
-                CompiledTerm(
+            sl_new = slice(0, d)
+            processed_terms[term_idx] = CompiledTerm(
                     label=tb.label,
                     coef_slice=sl_new,
                     basis_train=B,
@@ -337,7 +372,7 @@ def apply_global_side_conditions(
                     constructor_metadata=dict(tb.constructor_metadata),
                     metadata=dict(tb.metadata),
                 )
-            )
+            predictor_transforms[term_idx] = np.eye(d, dtype=np.float64)
             for pb, P in zip(term_penalty_objs, pen_matrices, strict=True):
                 new_penalty_blocks.append(
                     CompiledPenalty(
@@ -345,7 +380,7 @@ def apply_global_side_conditions(
                         coef_slice=sl_new,
                         matrix=P.copy(),
                         smoothing_index=pb.smoothing_index,
-                        term_index=new_idx,
+                        term_index=term_idx,
                         smoothing_id=pb.smoothing_id,
                         kind=pb.kind,
                         rank=pb.rank,
@@ -357,22 +392,19 @@ def apply_global_side_conditions(
                     )
                 )
             if d > 0:
-                design_blocks.append(B)
-            term_reports.append(
-                {
-                    "label": tb.label,
-                    "exempt": True,
-                    "deleted_columns": [],
-                    "kept_columns": (
-                        list(np.asarray(tb.kept_columns, dtype=int))
-                        if tb.kept_columns is not None
-                        else list(range(d))
-                    ),
-                    "n_deleted": 0,
-                    "absorbed_centering": False,
-                }
-            )
-            start += d
+                design_blocks[term_idx] = B
+            term_reports_by_index[term_idx] = {
+                "label": tb.label,
+                "exempt": True,
+                "deleted_columns": [],
+                "kept_columns": (
+                    list(np.asarray(tb.kept_columns, dtype=int))
+                    if tb.kept_columns is not None
+                    else list(range(d))
+                ),
+                "n_deleted": 0,
+                "absorbed_centering": False,
+            }
             continue
 
         # ── Non-exempt: centering + column selection ──────────────────────────
@@ -391,6 +423,38 @@ def apply_global_side_conditions(
         runtime_by_name = tb.by_variable_info.name
         runtime_by_is_constant = tb.by_variable_info.is_constant
         absorbed_centering = False
+
+        current_tokens = frozenset(_smooth_variable_tokens(tb))
+        current_dim = len(tb.feature_info.feature_names)
+        prior_nested = [
+            record
+            for record in nesting_records
+            if int(record["dim"]) <= current_dim
+            and bool(current_tokens.intersection(record["tokens"]))
+        ]
+        acc_blocks = [
+            np.asarray(record["basis"], dtype=np.float64)
+            for record in prior_nested
+        ]
+        acc_aug_blocks = [
+            np.asarray(record["augmented_basis"], dtype=np.float64)
+            for record in prior_nested
+        ]
+        if intercept_equivalent:
+            acc_blocks.insert(0, np.ones((n_obs, 1), dtype=np.float64))
+            intercept_aug = np.zeros((n_obs + design.n_coef, 1), dtype=np.float64)
+            intercept_aug[:n_obs, 0] = 1.0
+            acc_aug_blocks.insert(0, intercept_aug)
+        acc = (
+            np.column_stack(acc_blocks)
+            if acc_blocks
+            else np.empty((n_obs, 0), dtype=np.float64)
+        )
+        acc_aug = (
+            np.column_stack(acc_aug_blocks)
+            if acc_aug_blocks
+            else np.empty((n_obs + design.n_coef, 0), dtype=np.float64)
+        )
 
         # Step (a): optionally absorb a sum-to-zero centering constraint.
         if (
@@ -526,13 +590,10 @@ def apply_global_side_conditions(
                 )
             )
 
-        sl_new = slice(start, start + d_final)
-        new_idx = len(new_term_blocks)
-        if d_final > 0:
-            predictor_Q[tb.coef_slice, sl_new] = Q_term_final
+        sl_new = slice(0, d_final)
+        predictor_transforms[term_idx] = Q_term_final
 
-        new_term_blocks.append(
-            CompiledTerm(
+        processed_terms[term_idx] = CompiledTerm(
                 label=tb.label,
                 coef_slice=sl_new,
                 basis_train=B_final,
@@ -562,7 +623,6 @@ def apply_global_side_conditions(
                 constructor_metadata=dict(tb.constructor_metadata),
                 metadata=tb_meta,
             )
-        )
 
         for pb, pdef_new in pen_pairs_final:
             new_penalty_blocks.append(
@@ -571,7 +631,7 @@ def apply_global_side_conditions(
                     coef_slice=sl_new,
                     matrix=np.asarray(pdef_new.matrix, dtype=np.float64),
                     smoothing_index=pb.smoothing_index,
-                    term_index=new_idx,
+                    term_index=term_idx,
                     smoothing_id=pb.smoothing_id,
                     kind=str(pdef_new.kind),
                     rank=pdef_new.rank,
@@ -587,35 +647,41 @@ def apply_global_side_conditions(
         deleted_total += n_deleted
 
         if d_final > 0:
-            design_blocks.append(B_final)
-            acc = np.column_stack([acc, B_final])
-            if pen_matrices:
-                B_aug_final = _augment_term_matrix(
-                    B_final,
-                    [np.asarray(p.matrix, dtype=np.float64) for p in pen_specs_final],
-                    coef_slice=tb.coef_slice,
-                    total_coef=design.n_coef,
-                    tol=tol,
-                )
-            else:
-                B_aug_final = np.zeros(
-                    (n_obs + design.n_coef, d_final), dtype=np.float64
-                )
-                B_aug_final[:n_obs, :] = B_final
-            acc_aug = np.column_stack([acc_aug, B_aug_final])
+            design_blocks[term_idx] = B_final
 
-        term_reports.append(
+        if pen_matrices:
+            # `mgcv::gam.side` caches `sm[[i]]$Xa` before deleting columns from
+            # the current smooth and reuses that original augmented matrix when
+            # testing higher-dimensional nested terms.
+            B_aug_for_later = _augment_term_matrix(
+                B,
+                pen_matrices,
+                coef_slice=tb.coef_slice,
+                total_coef=design.n_coef,
+                tol=tol,
+            )
+        else:
+            B_aug_for_later = np.zeros(
+                (n_obs + design.n_coef, B.shape[1]), dtype=np.float64
+            )
+            B_aug_for_later[:n_obs, :] = B
+        nesting_records.append(
             {
-                "label": tb.label,
-                "exempt": False,
-                "deleted_columns": (
-                    [] if deleted_orig is None else deleted_orig.tolist()
-                ),
-                "kept_columns": [] if kept_orig is None else kept_orig.tolist(),
-                "n_deleted": n_deleted,
-                "absorbed_centering": absorbed_centering,
+                "tokens": current_tokens,
+                "dim": current_dim,
+                "basis": B_final,
+                "augmented_basis": B_aug_for_later,
             }
         )
+
+        term_reports_by_index[term_idx] = {
+            "label": tb.label,
+            "exempt": False,
+            "deleted_columns": [] if deleted_orig is None else deleted_orig.tolist(),
+            "kept_columns": [] if kept_orig is None else kept_orig.tolist(),
+            "n_deleted": n_deleted,
+            "absorbed_centering": absorbed_centering,
+        }
 
         # Suppress the warning for non-constant numeric by-variable terms: the
         # cross-term column deletion there is expected orthogonalization (matching
@@ -635,23 +701,34 @@ def apply_global_side_conditions(
                 stacklevel=2,
             )
 
-        start += d_final
-
-    # mgcv::gam.side keeps smooth objects even if their design is reduced to zero
-    # columns; downstream term positions remain stable.
-    old_to_final: dict[int, int] = {}
+    # Restore formula order after the dimension-ordered traversal. mgcv keeps
+    # the original smooth list order while mutating each smooth in place.
+    predictor_Q = np.zeros((design.n_coef, design.n_coef), dtype=np.float64)
     final_term_blocks: list[CompiledTerm] = []
-    for old_i, tb in enumerate(new_term_blocks):
-        old_to_final[old_i] = len(final_term_blocks)
-        final_term_blocks.append(tb)
-
-    # Keep only penalties whose owning term survived; re-stamp term_index.
     final_penalty_blocks: list[CompiledPenalty] = []
-    for pb in new_penalty_blocks:
-        new_ti = old_to_final.get(pb.term_index, -1)
-        if new_ti >= 0:
-            pb.term_index = new_ti
+    final_design_blocks: list[np.ndarray] = []
+    term_reports: list[dict] = []
+    start = 0
+    for term_idx in range(len(design.compiled_terms)):
+        tb = processed_terms[term_idx]
+        width = int(tb.basis_train.shape[1])
+        sl_new = slice(start, start + width)
+        tb.coef_slice = sl_new
+        final_idx = len(final_term_blocks)
+        final_term_blocks.append(tb)
+        term_reports.append(term_reports_by_index[term_idx])
+        if width > 0:
+            final_design_blocks.append(design_blocks[term_idx])
+            predictor_Q[design.compiled_terms[term_idx].coef_slice, sl_new] = (
+                predictor_transforms[term_idx]
+            )
+        for pb in new_penalty_blocks:
+            if int(pb.term_index) != term_idx:
+                continue
+            pb.term_index = final_idx
+            pb.coef_slice = sl_new
             final_penalty_blocks.append(pb)
+        start += width
 
     old_to_new_sp: dict[int, int] = {}
     for pb in final_penalty_blocks:
@@ -678,7 +755,7 @@ def apply_global_side_conditions(
         else np.asarray(design.smoothing_override_values, dtype=np.float64)
     )
     n_sp_final = len(old_to_new_sp)
-    override_modes = [None] * n_sp_final
+    override_modes: list[str | None] = [None] * n_sp_final
     override_values = np.full(n_sp_final, np.nan, dtype=np.float64)
     for old_idx, new_idx in old_to_new_sp.items():
         if old_idx < len(old_modes):
@@ -688,8 +765,8 @@ def apply_global_side_conditions(
 
     # ── Assemble final CompiledPredictor ──────────────────────────────────────
     matrix_train = (
-        np.column_stack(design_blocks)
-        if design_blocks
+        np.column_stack(final_design_blocks)
+        if final_design_blocks
         else np.empty((n_obs, 0), dtype=np.float64)
     )
     term_index_map = {tb.term_id: i for i, tb in enumerate(final_term_blocks)}
@@ -712,7 +789,7 @@ def apply_global_side_conditions(
     report = {
         "predictor": design.name,
         "n_deleted_total": deleted_total,
-        "n_terms_dropped": len(new_term_blocks) - len(final_term_blocks),
+        "n_terms_dropped": 0,
         "term_reports": term_reports,
     }
     return new_design, report

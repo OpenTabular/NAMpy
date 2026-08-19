@@ -108,12 +108,14 @@ def compute_null_deviance(model) -> float:
         eta = np.asarray(_fitted_eta(model), dtype=np.float64)
         return _find_null_dev(family, y, eta, offset, w)
 
-    # GLM path: mgcv/R/gam.fit3.r:838-842.
-    if bool(model.fit_intercept):
-        wtdmu = float(np.sum(w * y) / np.sum(w))
-        mu0 = np.full_like(y, wtdmu, dtype=np.float64)
-    else:
-        mu0 = np.asarray(family.inverse_link(offset), dtype=np.float64)
+    # GLM path: mgcv/R/gam.fit3.r:838-842.  gam.outer hardcodes
+    # ``intercept = TRUE`` into gam.fit3 (mgcv/R/mgcv.r:1667) regardless of
+    # the formula, so the stored null deviance is always the weighted-mean
+    # one — even for no-intercept models (the offset refit below is mgcv's
+    # only correction, see the "Why not correct calc in gam.fit/3???" comment
+    # at mgcv.r:2072).
+    wtdmu = float(np.sum(w * y) / np.sum(w))
+    mu0 = np.full_like(y, wtdmu, dtype=np.float64)
     nulldev = float(family.deviance(y, mu0, weights=w))
 
     # mgcv/R/mgcv.r:2072-2075: with an intercept and a nonzero offset the

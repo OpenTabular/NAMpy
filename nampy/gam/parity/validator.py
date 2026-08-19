@@ -20,7 +20,8 @@ from .snapshots import (
 
 def _coerce_reference_snapshot(reference_fit: Any) -> dict[str, Any]:
     if isinstance(reference_fit, (str, Path)):
-        return load_parity_snapshot(reference_fit)
+        snapshot: dict[str, Any] = load_parity_snapshot(reference_fit)
+        return snapshot
     if isinstance(reference_fit, dict):
         return reference_fit
     raise TypeError(

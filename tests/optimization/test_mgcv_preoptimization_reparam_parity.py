@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from nampy.gam.model.api import GAM
+from nampy.gam import GAM
 from nampy.gam.smoothing_selection.reparam import (
     build_estimate_gam_setup_state,
     gam_reparam,
@@ -205,7 +205,7 @@ def _assert_setup_reparam_surface(actual, expected, *, atol=1e-10):
     )
     _assert_root_gram_equal(actual.E, expected_E, atol=atol)
     _assert_root_gram_equal(actual.Eb, expected_Eb, atol=atol)
-    for a_root, e_root in zip(actual.UrS, expected_UrS):
+    for a_root, e_root in zip(actual.UrS, expected_UrS, strict=True):
         _assert_root_gram_equal(a_root, e_root, atol=atol)
 
 
@@ -230,7 +230,7 @@ def _assert_gam_reparam_invariants(actual, expected, *, atol=1e-10):
 
     expected_rS = _as_matrix_list(expected.get("rS", []))
     assert len(actual["rS"]) == len(expected_rS)
-    for a_root, e_root in zip(actual["rS"], expected_rS):
+    for a_root, e_root in zip(actual["rS"], expected_rS, strict=True):
         _assert_root_gram_equal(a_root, e_root, atol=atol)
 
 

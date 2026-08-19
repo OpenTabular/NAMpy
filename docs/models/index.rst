@@ -37,7 +37,7 @@ Model Overview
      - Transformer-based NAM
      - ✓ Partial
      - Balance of Both
-   * - QNAM
+   * - QNAMLSS
      - Quantile NAM (distributional-only)
      - ✓ Yes
      - Quantile Regression
@@ -240,9 +240,9 @@ quantile levels :math:`\tau_k`.
 
 .. code-block:: python
 
-   from nampy.models import QNAM
+   from nampy.models import QNAMLSS
    
-   model = QNAM()
+   model = QNAMLSS()
    model.fit(X, y, distributional_kwargs={"quantiles": [0.1, 0.5, 0.9]})
 
 **LinReg (Neural Linear Regression)**

@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from nampy.gam.model.api import GAM
+from nampy.gam import GAM
 from tests._paths import PARITY_DIR, REPO_ROOT, TESTS_DIR
 
 _REPO_ROOT = REPO_ROOT
@@ -97,11 +97,11 @@ _MGCV_SNAPSHOT_SERVER_REQUEST_IDS = itertools.count(1)
 _SNAPSHOT_CACHE_VERSION = 7
 _RAW_CONSTRUCTOR_CACHE_VERSION = 5
 _GAM_SETUP_ASSEMBLY_CACHE_VERSION = 5
-_GAM_VCOMP_CACHE_VERSION = 3
+_GAM_VCOMP_CACHE_VERSION = 4
 _NATPARAM_TYPE3_CACHE_VERSION = 1
 _SMOOTHCON_PREDICT_MATRIX_CACHE_VERSION = 1
 _FIXED_SP_SCORE_CACHE_VERSION = 2
-_PREDICT_ON_NEWDATA_CACHE_VERSION = 2
+_PREDICT_ON_NEWDATA_CACHE_VERSION = 3
 
 
 def _env_flag_is_true(value: str) -> bool:
@@ -1009,6 +1009,7 @@ def _run_mgcv_gam_vcomp(
     select: bool = False,
     rescale: bool = True,
     weights_column: str | None = None,
+    conf_lev: float = 0.95,
 ):
     _family_nampy, family_token = _family_specs(family)
 
@@ -1023,6 +1024,7 @@ def _run_mgcv_gam_vcomp(
             "select": bool(select),
             "rescale": bool(rescale),
             "weights_column": weights_column,
+            "conf_lev": float(conf_lev),
         },
     )
 
@@ -1099,6 +1101,7 @@ method_name <- args[[5]]
 select_flag <- tolower(args[[6]]) %in% c("true", "1", "yes")
 rescale_flag <- tolower(args[[7]]) %in% c("true", "1", "yes")
 weights_column <- if (length(args) >= 8 && nzchar(args[[8]]) && args[[8]] != "NULL") args[[8]] else NULL
+conf_lev <- if (length(args) >= 9) as.numeric(args[[9]]) else 0.95
 fit_method <- if (tolower(method_name) == "fixed") "REML" else method_name
 if (tolower(method_name) == "gcv") fit_method <- "GCV.Cp"
 
@@ -1154,7 +1157,7 @@ gam_args <- list(
 )
 if (!is.null(weights_column)) gam_args$weights <- d[[weights_column]]
 fit <- do.call(gam, gam_args)
-vc <- gam.vcomp(fit, rescale = rescale_flag)
+vc <- gam.vcomp(fit, rescale = rescale_flag, conf.lev = conf_lev)
 write_json(serialize_gam_vcomp(vc), out, auto_unbox = TRUE, digits = 17)
 """
 
@@ -1176,6 +1179,7 @@ write_json(serialize_gam_vcomp(vc), out, auto_unbox = TRUE, digits = 17)
                 "true" if select else "false",
                 "true" if rescale else "false",
                 "NULL" if weights_column is None else str(weights_column),
+                f"{float(conf_lev):.12g}",
             ),
             check=True,
             cwd=_REPO_ROOT,
@@ -1982,9 +1986,12 @@ serialize_numeric_object <- function(x) {
 }
 for (nm in names(train)) if (is.character(train[[nm]])) train[[nm]] <- factor(train[[nm]])
 for (nm in names(newd)) {
-  if (is.character(newd[[nm]]) && nm %in% names(train) && is.factor(train[[nm]])) {
-    newd[[nm]] <- factor(newd[[nm]], levels = levels(train[[nm]]))
-  } else if (is.character(newd[[nm]])) {
+  # Leave predictors that were factors at fit time as character here.
+  # predict.gam performs its own level check and annotates genuinely new
+  # levels before coercing to the training levels. Pre-coercing here turns
+  # them into ordinary NA values and bypasses Predict.matrix.* xlev handling.
+  if (is.character(newd[[nm]]) &&
+      !(nm %in% names(train) && is.factor(train[[nm]]))) {
     newd[[nm]] <- factor(newd[[nm]])
   }
 }
@@ -2362,6 +2369,8 @@ def _assert_basic_mgcv_parity(
     pred_rtol,
     sp_log_atol,
     check_sp=True,
+    check_sp_count=True,
+    check_edf_by_term=True,
     check_criterion=True,
     criterion_atol=0.5,
 ):
@@ -2373,7 +2382,8 @@ def _assert_basic_mgcv_parity(
     a_sp = np.atleast_1d(np.asarray(a_fit["smoothing_params"], dtype=np.float64))
     e_sp = np.atleast_1d(np.asarray(e_fit["smoothing_params"], dtype=np.float64))
 
-    assert len(a_sp) == len(e_sp)
+    if check_sp_count:
+        assert len(a_sp) == len(e_sp)
     if check_sp:
         np.testing.assert_allclose(
             np.log(a_sp),
@@ -2388,12 +2398,13 @@ def _assert_basic_mgcv_parity(
         atol=0.15,
         rtol=0.06,
     )
-    np.testing.assert_allclose(
-        np.asarray(a_fit["edf_by_term"], dtype=np.float64),
-        np.asarray(e_fit["edf_by_term"], dtype=np.float64),
-        atol=0.15,
-        rtol=0.08,
-    )
+    if check_edf_by_term:
+        np.testing.assert_allclose(
+            np.asarray(a_fit["edf_by_term"], dtype=np.float64),
+            np.asarray(e_fit["edf_by_term"], dtype=np.float64),
+            atol=0.15,
+            rtol=0.08,
+        )
     np.testing.assert_allclose(
         np.asarray(a_fit["deviance"], dtype=np.float64),
         np.asarray(e_fit["deviance"], dtype=np.float64),

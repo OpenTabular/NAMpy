@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from nampy.gam.compiler.factory import instantiate_term
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
@@ -48,9 +49,17 @@ def test_categorical_metadata_preserves_unused_factor_levels_for_re_and_fs():
     assert fs.basis_train.shape[1] == 3 * fs._range_rank + 3 * fs._null_dim
 
 
-def test_tensor_d_groups_multivariate_margin_and_coerces_cr_to_tp():
+@pytest.mark.parametrize("multi_basis", ["cr", "cs", "ps"])
+def test_tensor_d_groups_multivariate_margin_and_coerces_to_tp(multi_basis):
+    """d= grouping coerces every cr/cs/ps multivariate marginal to tp.
+
+    Mirrors smooth.construct's coercion of multivariate cr/cs/ps/cp marginals
+    (previously only the cr token was exercised).
+    """
     data = _numeric_tensor_data(n=70)
-    formula = 'y ~ te(x0, x1, x2, d=[2, 1], bs=["cr", "cr"], k=[6, 5])'
+    formula = (
+        f'y ~ te(x0, x1, x2, d=[2, 1], bs=["{multi_basis}", "cr"], k=[6, 5])'
+    )
     extracted = extract_formula_terms(parse_gam_formula(formula))
     built = build_formula_model(extracted, data)
     spec = built.predictor_specs[0].terms[0]

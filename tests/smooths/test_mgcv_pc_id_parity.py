@@ -209,7 +209,7 @@ class TestPcParityFixed:
         )
 
         # NAMpy should match
-        from nampy.gam.model.api import GAM
+        from nampy.gam import GAM
 
         gam_no_pc = GAM(
             family="gaussian",
@@ -469,7 +469,7 @@ class TestLinkedIdParityFixed:
             f"unlinked ({mgcv_sp_unlinked})"
         )
 
-        from nampy.gam.model.api import GAM
+        from nampy.gam import GAM
 
         gam_linked = GAM(family="gaussian", formula=formula_linked)
         gam_unlinked = GAM(family="gaussian", formula=formula_unlinked)
@@ -525,7 +525,7 @@ class TestLinkedIdIncompatibleK:
             f"expected {expected_total}"
         )
 
-        from nampy.gam.model.api import GAM
+        from nampy.gam import GAM
 
         gam = GAM(
             family="gaussian",
@@ -578,7 +578,7 @@ class TestLinkedIdIncompatibleK:
             f"got {mgcv_n_coef}"
         )
 
-        from nampy.gam.model.api import GAM
+        from nampy.gam import GAM
 
         gam = GAM(
             family="gaussian",
@@ -726,7 +726,7 @@ class TestBySelectAndMoreLinkedIdParity:
         assert mgcv_sp_linked == 1
         assert mgcv_sp_linked < mgcv_sp_unlinked
 
-        from nampy.gam.model.api import GAM
+        from nampy.gam import GAM
 
         gam_linked = GAM(family="gaussian", formula=formula_linked)
         gam_unlinked = GAM(family="gaussian", formula=formula_unlinked)

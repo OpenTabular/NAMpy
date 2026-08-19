@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 from scipy.optimize import OptimizeResult
 
+from nampy.gam import GAM
 from nampy.gam._model_state import (
     _design_matrix,
     _fit_intercept,
@@ -33,7 +34,7 @@ from nampy.gam.fit.solvers.irls_core import irls_core
 from nampy.gam.fit.state import FitCoreSolution, FitState, assign_fit_solution
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
 from nampy.gam.linalg import balanced_penalty_template_sqrt_for_rank
-from nampy.gam.model.api import GAM
+from nampy.gam.linalg.qr import mgcv_pqr_r
 from nampy.gam.results import FitResult
 from nampy.gam.smoothing_selection.criteria import dispatch as criteria_dispatch
 from nampy.gam.smoothing_selection.criteria import gaussian as gaussian_criteria
@@ -60,7 +61,7 @@ from nampy.gam.smoothing_selection.reparam import (
     sl_group_indices,
 )
 from nampy.gam.specs.build import build_formula_model
-from nampy.splines.univariate.tp import construct_tprs_basis
+from nampy.gam.splines.univariate.tp import construct_tprs_basis
 from tests.mgcv_parity_utils import _make_gaussian_data
 
 
@@ -324,6 +325,38 @@ def test_pivoted_economic_qr_reconstructs_wide_matrix():
     q_mat, r_mat, pivot = _pivoted_economic_qr(X)
 
     np.testing.assert_allclose(q_mat @ r_mat, X[:, pivot], atol=1e-12, rtol=1e-12)
+
+
+def test_mgcv_pqr_r_preserves_getrpqr_source_stride_for_wide_matrix():
+    """Mirror ``mgcv/src/mat.c::getRpqr()`` when the design has more columns."""
+    rng = np.random.default_rng(20260818)
+    X = rng.normal(size=(4, 7))
+    _q_mat, r_economy, pivot = _pivoted_economic_qr(X)
+
+    # getRpqr() indexes the packed QR source with the original row count, even
+    # while filling a square p by p result. For n < p this can read into the
+    # next packed column, so ordinary zero-padding is not equivalent.
+    n_rows, n_cols = r_economy.shape
+    packed = np.concatenate(
+        [
+            np.asarray(r_economy, dtype=np.float64, order="F").ravel(order="F"),
+            np.zeros(n_cols * n_cols, dtype=np.float64),
+        ]
+    )
+    expected_pivoted = np.zeros((n_cols, n_cols), dtype=np.float64)
+    for j in range(n_cols):
+        expected_pivoted[: j + 1, j] = packed[
+            n_rows * j : n_rows * j + j + 1
+        ]
+    expected = np.zeros_like(expected_pivoted)
+    expected[:, np.asarray(pivot, dtype=np.intp)] = expected_pivoted
+
+    economy_padded = np.zeros_like(expected_pivoted)
+    economy_padded[:n_rows, np.asarray(pivot, dtype=np.intp)] = r_economy
+
+    actual = mgcv_pqr_r(X)
+    np.testing.assert_allclose(actual, expected, atol=0.0, rtol=0.0)
+    assert not np.allclose(actual, economy_padded, atol=1e-12, rtol=1e-12)
 
 
 def test_stacked_qr_covariance_root_scatter_matches_covariance():

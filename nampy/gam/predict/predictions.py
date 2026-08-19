@@ -18,6 +18,7 @@ Standard errors are optionally returned alongside predictions when
 or the frequentist sandwich covariance.
 """
 
+import re
 import warnings
 
 import numpy as np
@@ -91,13 +92,24 @@ def _coerce_prediction_term_filter(values, *, name):
     return out
 
 
+def _term_filter_key(value):
+    """Canonicalize inconsequential deparse spacing in mgcv term filters."""
+    normalized = str(normalize_mgcv_term_label(value))
+    return re.sub(r",\s*", ",", normalized)
+
+
 def _prediction_group_selection(groups, *, terms, exclude):
     labels = tuple(str(group["label"]) for group in groups)
+    label_keys = tuple(_term_filter_key(label) for label in labels)
+    term_keys = None if terms is None else {_term_filter_key(term) for term in terms}
+    exclude_keys = (
+        None if exclude is None else {_term_filter_key(term) for term in exclude}
+    )
     selected = np.ones(len(groups), dtype=bool)
-    if terms is not None:
-        selected &= np.asarray([label in terms for label in labels], dtype=bool)
-    if exclude is not None:
-        selected &= np.asarray([label not in exclude for label in labels], dtype=bool)
+    if term_keys is not None:
+        selected &= np.asarray([key in term_keys for key in label_keys], dtype=bool)
+    if exclude_keys is not None:
+        selected &= np.asarray([key not in exclude_keys for key in label_keys], dtype=bool)
     return labels, selected
 
 
@@ -123,24 +135,37 @@ def _filtered_prediction_matrix(model, Xp, groups, selected, *, terms, exclude):
 
 def _filtered_term_output_indices(labels, *, terms, exclude):
     indices = list(range(len(labels)))
+    label_keys = [_term_filter_key(label) for label in labels]
     if terms is not None:
-        missing = [label for label in terms if label not in labels]
+        term_keys = [_term_filter_key(label) for label in terms]
+        missing = [
+            label
+            for label, key in zip(terms, term_keys, strict=True)
+            if key not in label_keys
+        ]
         if missing:
             warnings.warn(
                 "non-existent terms requested - ignoring",
                 stacklevel=3,
             )
         else:
-            indices = [labels.index(label) for label in terms]
+            indices = [label_keys.index(key) for key in term_keys]
     if exclude is not None:
-        missing = [label for label in exclude if label not in labels]
+        exclude_keys = [_term_filter_key(label) for label in exclude]
+        missing = [
+            label
+            for label, key in zip(exclude, exclude_keys, strict=True)
+            if key not in label_keys
+        ]
         if missing:
             warnings.warn(
                 "non-existent exclude terms requested - ignoring",
                 stacklevel=3,
             )
         else:
-            indices = [index for index in indices if labels[index] not in exclude]
+            indices = [
+                index for index in indices if label_keys[index] not in exclude_keys
+            ]
     return np.asarray(indices, dtype=int)
 
 

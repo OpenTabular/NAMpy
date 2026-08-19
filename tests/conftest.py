@@ -10,7 +10,9 @@ import torch
 from tests._taxonomy_registry import (
     _DEFAULT_MARKS_BY_FILE,
     _FAMILY_MARK_NAMES,
+    _LINK_MARK_NAMES,
     _METHOD_MARK_NAMES,
+    _OPTIMIZER_MARK_NAMES,
     _SELECTION_CAPABLE_FILES,
     _SMOOTH_MARK_NAMES,
     _STATUS_MARKS_BY_FILE,
@@ -94,7 +96,17 @@ def _extract_case_like_fields(value: Any) -> dict[str, Any]:
     if isinstance(value, dict):
         return value
     out = {}
-    for attr in ("case_id", "formula", "family", "method", "select", "weights_column"):
+    for attr in (
+        "case_id",
+        "formula",
+        "family",
+        "link",
+        "method",
+        "optimizer",
+        "smoothing_optimizer",
+        "select",
+        "weights_column",
+    ):
         if hasattr(value, attr):
             out[attr] = getattr(value, attr)
     return out
@@ -112,6 +124,47 @@ def _normalize_family_name(value: Any) -> str | None:
     if name in {"negativebinomial", "negative_binomial"}:
         return "negbin"
     return name
+
+
+_DEFAULT_LINK_BY_FAMILY = {
+    "gaussian": "identity",
+    "binomial": "logit",
+    "poisson": "log",
+    "gamma": "inverse",
+    "negbin": "log",
+}
+
+
+def _normalize_link_name(value: Any, *, family_name: str | None = None) -> str | None:
+    if isinstance(value, dict):
+        explicit = value.get("link", None)
+        if explicit is not None:
+            return str(explicit).lower()
+        family_name = _normalize_family_name(value)
+    elif value is not None:
+        text = str(value).lower()
+        if text in _LINK_MARK_NAMES:
+            return text
+    if family_name is None:
+        return None
+    return _DEFAULT_LINK_BY_FAMILY.get(family_name)
+
+
+def _add_family_and_link_marks(marks: set[str], value: Any) -> None:
+    family_name = _normalize_family_name(value)
+    if family_name in _FAMILY_MARK_NAMES:
+        marks.add(_FAMILY_MARK_NAMES[family_name])
+    link_name = _normalize_link_name(value, family_name=family_name)
+    if link_name in _LINK_MARK_NAMES:
+        marks.add(_LINK_MARK_NAMES[link_name])
+
+
+def _add_optimizer_mark(marks: set[str], value: Any) -> None:
+    if value is None:
+        return
+    optimizer_name = str(value).lower()
+    if optimizer_name in _OPTIMIZER_MARK_NAMES:
+        marks.add(_OPTIMIZER_MARK_NAMES[optimizer_name])
 
 
 def _collect_text_fragments(item: pytest.Item) -> list[str]:
@@ -195,9 +248,12 @@ def _infer_marks_from_callspec(item: pytest.Item) -> set[str]:
 
     params = callspec.params
     family_value = params.get("family")
-    family_name = _normalize_family_name(family_value)
-    if family_name in _FAMILY_MARK_NAMES:
-        marks.add(_FAMILY_MARK_NAMES[family_name])
+    _add_family_and_link_marks(marks, family_value)
+
+    link_value = params.get("link")
+    link_name = _normalize_link_name(link_value)
+    if link_name in _LINK_MARK_NAMES:
+        marks.add(_LINK_MARK_NAMES[link_name])
 
     method_value = params.get("method")
     if method_value is not None:
@@ -205,19 +261,47 @@ def _infer_marks_from_callspec(item: pytest.Item) -> set[str]:
         if method_name in _METHOD_MARK_NAMES:
             marks.add(_METHOD_MARK_NAMES[method_name])
 
+    _add_optimizer_mark(marks, params.get("optimizer"))
+    _add_optimizer_mark(marks, params.get("smoothing_optimizer"))
+
     case_value = params.get("case")
     if case_value is not None:
         case_fields = _extract_case_like_fields(case_value)
-        case_family = _normalize_family_name(case_fields.get("family"))
-        if case_family in _FAMILY_MARK_NAMES:
-            marks.add(_FAMILY_MARK_NAMES[case_family])
+        _add_family_and_link_marks(marks, case_fields.get("family"))
+        case_link = _normalize_link_name(case_fields.get("link"))
+        if case_link in _LINK_MARK_NAMES:
+            marks.add(_LINK_MARK_NAMES[case_link])
         case_method = case_fields.get("method")
         if case_method is not None:
             case_method_name = str(case_method).lower()
             if case_method_name in _METHOD_MARK_NAMES:
                 marks.add(_METHOD_MARK_NAMES[case_method_name])
+        _add_optimizer_mark(
+            marks,
+            case_fields.get("optimizer", case_fields.get("smoothing_optimizer")),
+        )
         if "select" in case_fields:
             marks.add("select_true" if case_fields["select"] else "select_false")
+
+    for param_name, value in params.items():
+        if param_name == "case":
+            continue
+        fields = _extract_case_like_fields(value)
+        if not fields:
+            continue
+        _add_family_and_link_marks(marks, fields.get("family"))
+        value_link = _normalize_link_name(fields.get("link"))
+        if value_link in _LINK_MARK_NAMES:
+            marks.add(_LINK_MARK_NAMES[value_link])
+        value_method = fields.get("method")
+        if value_method is not None:
+            method_name = str(value_method).lower()
+            if method_name in _METHOD_MARK_NAMES:
+                marks.add(_METHOD_MARK_NAMES[method_name])
+        _add_optimizer_mark(
+            marks,
+            fields.get("optimizer", fields.get("smoothing_optimizer")),
+        )
 
     if "fixed_sp_override" in params and params["fixed_sp_override"] is not None:
         marks.add("method_fixed")

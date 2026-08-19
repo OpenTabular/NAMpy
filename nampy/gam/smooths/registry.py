@@ -11,10 +11,6 @@ def register_smooth(name: str):
     return decorator
 
 
-def available_smooths():
-    return dict(_SMOOTH_REGISTRY)
-
-
 def make_smooth_term(kind: str, *args, **kwargs):
     key = str(kind).lower()
     if key not in _SMOOTH_REGISTRY:

@@ -24,6 +24,7 @@ from ..criteria import (
     resolve_ml_reml_scoring_backend,
 )
 from .basics import (
+    _initial_gaussian_scale_as_sp,
     _initial_smoothing_params_from_design,
     supports_criterion_gradient,
     supports_criterion_hessian,
@@ -195,7 +196,9 @@ def _optimize_negbin_reml_joint_native(
     return result
 
 
-def _refresh_final_outer_derivatives(model, y, method, result, objective=None):
+def _refresh_final_outer_derivatives(
+    model, y, method, result, objective=None, min_sp_free=None
+):
     """Populate mgcv-style outer_info grad/hess at the selected free log-sp."""
     if result is None or getattr(result, "x", None) is None:
         return
@@ -211,6 +214,21 @@ def _refresh_final_outer_derivatives(model, y, method, result, objective=None):
     x = np.asarray(result.x, dtype=np.float64).ravel()
     if x.size == 0:
         return
+
+    # Under mgcv's min.sp H-offset reparameterization the outer coordinates
+    # are log free multipliers; exact derivatives are evaluated at the total
+    # log sp and chain-transformed back to the free coordinates.
+    offset_active = min_sp_free is not None and bool(
+        np.any(np.asarray(min_sp_free, dtype=np.float64) > 0.0)
+    )
+    if offset_active:
+        min_sp_free = np.asarray(min_sp_free, dtype=np.float64).ravel()
+        lam = min_sp_free + np.exp(x)
+        x_eval = np.log(lam)
+        j_chain = np.exp(x) / lam
+    else:
+        x_eval = x
+        j_chain = None
 
     outer_info = dict(getattr(result, "outer_info", {}) or {})
     preserve_exact = bool(getattr(result, "strict_outer_derivatives", False))
@@ -236,22 +254,33 @@ def _refresh_final_outer_derivatives(model, y, method, result, objective=None):
         return
 
     grad = None
+    grad_eval = None
     if not keep_grad:
         try:
-            grad = np.asarray(
-                criterion_gradient(model, y, x, method=method),
+            grad_eval = np.asarray(
+                criterion_gradient(model, y, x_eval, method=method),
                 dtype=np.float64,
+            )
+            grad = (
+                grad_eval * j_chain if offset_active else grad_eval
             )
         except Exception:
             grad = None
+            grad_eval = None
 
     hess = None
     if not keep_hess:
         try:
             hess = np.asarray(
-                criterion_hessian(model, y, x, method=method),
+                criterion_hessian(model, y, x_eval, method=method),
                 dtype=np.float64,
             )
+            if offset_active:
+                hess = hess * np.outer(j_chain, j_chain)
+                if grad_eval is not None and grad_eval.shape == x.shape:
+                    hess[np.diag_indices_from(hess)] += grad_eval * (
+                        j_chain * (1.0 - j_chain)
+                    )
         except Exception:
             hess = None
 
@@ -453,6 +482,25 @@ def supports_smoothing_method(model, method):
 
 def resolve_smoothing_method(model, method):
     method = "auto" if method is None else str(method).lower()
+    if method == "gcv.cp":
+        # Mirror upstream mgcv's family-dependent resolution of its default
+        # method string: extended families force REML (mgcv/R/mgcv.r:1891-1893)
+        # and otherwise known scale selects UBRE/Cp while unknown scale selects
+        # GCV (mgcv.r:1952-1966). The canonical table lives in
+        # criteria/dispatch so the criterion kernels and the public fit
+        # surface cannot drift apart.
+        from ..criteria.dispatch import _normalize_criterion_method
+
+        return _normalize_criterion_method(model, method)
+    if (
+        method in {"gcv", "ubre", "aic", "ubreaic"}
+        and str(getattr(model.family, "family_class", "")).lower() == "extended"
+    ):
+        # mgcv/R/mgcv.r:1891-1892: extended families silently reset ANY
+        # method outside {REML, ML, NCV} to REML, including an explicitly
+        # requested GCV.Cp/GACV.Cp. GCV/UBRE criteria are undefined for the
+        # extended-family estimation path.
+        return "reml"
     if method != "auto":
         return method
 
@@ -516,6 +564,60 @@ def expand_smoothing_params_from_log(model, log_free_sp):
     if model.min_sp_ is not None:
         sp = np.maximum(sp, np.asarray(model.min_sp_, dtype=np.float64))
     return sp
+
+
+class _MinSpOffsetObjective:
+    """mgcv-style min.sp reparameterization of a log-total-sp objective.
+
+    mgcv absorbs min.sp into the fixed offset penalty H
+    (mgcv/R/mgcv.r::gam.setup, mgcv.r:1465-1508) and optimizes the *free*
+    multiplier unconstrained, so the outer coordinates are rho = log(sp_free)
+    with total sp = min.sp + exp(rho).  Wrapping the total-log-sp objective
+    with the exact chain rule reproduces that optimization geometry.  Trailing
+    non-sp coordinates (joint log scale / log phi) pass through unchanged.
+    """
+
+    def __init__(self, base, min_sp_free):
+        self._base = base
+        self._min_sp_free = np.asarray(min_sp_free, dtype=np.float64).ravel()
+
+    def _split(self, x):
+        x = np.asarray(x, dtype=np.float64).ravel()
+        k = self._min_sp_free.size
+        return x[:k], x[k:]
+
+    def _mapped(self, x):
+        rho, rest = self._split(x)
+        lam = self._min_sp_free + np.exp(rho)
+        return np.concatenate([np.log(lam), rest])
+
+    def _jac_diag(self, x):
+        rho, rest = self._split(x)
+        lam = self._min_sp_free + np.exp(rho)
+        return np.concatenate([np.exp(rho) / lam, np.ones_like(rest)])
+
+    def fun(self, x):
+        return self._base.fun(self._mapped(x))
+
+    def jac(self, x):
+        grad = np.asarray(self._base.jac(self._mapped(x)), dtype=np.float64).ravel()
+        return grad * self._jac_diag(x)
+
+    def hess(self, x):
+        mapped = self._mapped(x)
+        grad = np.asarray(self._base.jac(mapped), dtype=np.float64).ravel()
+        hess = np.asarray(self._base.hess(mapped), dtype=np.float64)
+        j = self._jac_diag(x)
+        out = hess * np.outer(j, j)
+        k = self._min_sp_free.size
+        # d^2 log(min.sp + e^rho)/d rho^2 = j (1 - j) on sp coordinates.
+        curvature = np.zeros_like(j)
+        curvature[:k] = j[:k] * (1.0 - j[:k])
+        out[np.diag_indices_from(out)] += grad * curvature
+        return out
+
+    def __getattr__(self, name):
+        return getattr(self._base, name)
 
 
 def optimize_smoothing_params(
@@ -698,31 +800,34 @@ def optimize_smoothing_params(
         else np.asarray(model.min_sp_, dtype=np.float64)
     )
 
-    init_free = np.maximum(init_free, min_sp[free_mask])
-    x0 = np.log(np.maximum(init_free, LOG_GUARD_MIN))
+    min_sp_free = np.asarray(min_sp[free_mask], dtype=np.float64)
+    min_sp_offset_active = bool(np.any(min_sp_free > 0.0))
+    if min_sp_offset_active:
+        # mgcv absorbs min.sp into the fixed offset penalty H
+        # (mgcv/R/mgcv.r::gam.setup, mgcv.r:1465-1508) and optimizes the free
+        # multiplier unconstrained: total sp_i = min.sp_i + exp(rho_i).
+        # initial.spg (mgcv.r:4528) is H-blind, so the unclamped initial value
+        # seeds the free multiplier directly.  Box-bounding log total sp
+        # instead stalls Newton on the floor.
+        x0 = np.log(np.maximum(init_free, LOG_GUARD_MIN))
+    else:
+        init_free = np.maximum(init_free, min_sp[free_mask])
+        x0 = np.log(np.maximum(init_free, LOG_GUARD_MIN))
+    bounds = [(-np.inf, np.inf) for _ in range(int(n_free))]
 
-    bounds = []
-    for lower_sp in min_sp[free_mask]:
-        if lower_sp > 0:
-            lo = float(np.log(lower_sp))
-        else:
-            lo = -np.inf
-        bounds.append((lo, np.inf))
+    def _free_x_to_total_log_sp(x):
+        """Map outer coordinates to log total sp (identity without min.sp)."""
+        x = np.asarray(x, dtype=np.float64).ravel()
+        if not min_sp_offset_active:
+            return x
+        return np.log(min_sp_free + np.exp(x))
 
     if use_joint_gaussian_reml_scale:
         # Mirror `mgcv/R/mgcv.r::get.null.coef` + `scale.as.sp` initialization:
         # `log.scale <- log(null.scale / 10)`, where
         # `null.scale <- sum(dev.resids(y, mum, weights)) / nrow(X)`.
         yv = np.asarray(y, dtype=np.float64).ravel()
-        mu_null = np.repeat(float(np.mean(yv)), model.n_samples_)
-        null_scale = float(
-            model.family.deviance(
-                yv,
-                mu_null,
-                weights=getattr(model, "prior_weights_", None),
-            )
-        ) / float(model.n_samples_)
-        sigma20 = max(null_scale / 10.0, LOG_GUARD_MIN)
+        sigma20 = _initial_gaussian_scale_as_sp(model, yv)
         y_scale = (
             float(np.var(yv))
             if yv.size > 1
@@ -738,6 +843,13 @@ def optimize_smoothing_params(
     model._gaussian_reml_last_scale_est_ = None
 
     if use_joint_negbin_reml_theta:
+        if min_sp_offset_active:
+            raise NotImplementedError(
+                "min_sp with joint negative-binomial theta estimation is not "
+                "supported yet: the native joint optimizer orders log(theta) "
+                "before log(sp), which the mgcv min.sp H-offset "
+                "reparameterization does not cover."
+            )
         mgcv_result = _optimize_negbin_reml_joint_native(
             model,
             y,
@@ -904,6 +1016,13 @@ def optimize_smoothing_params(
         objective = _CriterionObjective(
             model, y, method=method, use_gradient=use_gradient
         )
+    if min_sp_offset_active:
+        if optimizer == "efs":
+            raise NotImplementedError(
+                "min_sp is not supported with the EFS optimizer yet; use "
+                "outer_newton, bfgs or optim."
+            )
+        objective = _MinSpOffsetObjective(objective, min_sp_free)
     if bool(getattr(model.family, "supports_pirls", False)):
         # Carry P-IRLS coefficient warm-starts between outer criterion evaluations.
         model._pirls_coef_start_ = None
@@ -988,6 +1107,8 @@ def optimize_smoothing_params(
                 [x0.copy(), np.array([np.log(phi0)], dtype=np.float64)]
             )
             j_obj = _JointGammaPirlsRemlObjective(model, y, branch_m)
+            if min_sp_offset_active:
+                j_obj = _MinSpOffsetObjective(j_obj, min_sp_free)
             if optimizer == "bfgs":
                 result_joint = _optimize_outer_bfgs_strict(
                     objective=j_obj,
@@ -1161,7 +1282,9 @@ def optimize_smoothing_params(
                 outer_info_joint.setdefault("log_theta", None)
                 outer_info_joint.setdefault("edge_correct", False)
                 result.outer_info = outer_info_joint
-            _ = criterion_hessian_ml_reml_pirls_exact(model, y, result.x, branch_m)
+            _ = criterion_hessian_ml_reml_pirls_exact(
+                model, y, _free_x_to_total_log_sp(result.x), branch_m
+            )
             gamma_state = getattr(model, "_pirls_reml_gamma_state_", None)
             phi_opt = None
             if isinstance(gamma_state, dict):
@@ -1229,7 +1352,7 @@ def optimize_smoothing_params(
         branch_m = "LAML" if method == "laml" else "REML"
         try:
             scale_out = _gaussian_dynamic_reml_derivative_terms(
-                model, y, np.asarray(result.x, dtype=np.float64).ravel(), branch_m
+                model, y, _free_x_to_total_log_sp(result.x), branch_m
             )
             if isinstance(scale_out, dict) and bool(scale_out.get("valid", False)):
                 F = float(scale_out.get("F", np.nan))
@@ -1251,13 +1374,25 @@ def optimize_smoothing_params(
             pass
 
     model.smoothing_params = np.asarray(model.smoothing_params, dtype=np.float64).copy()
-    model.smoothing_params[free_mask] = np.exp(result.x)
+    free_sp = np.exp(np.asarray(result.x, dtype=np.float64).ravel())
+    if min_sp_offset_active:
+        # result.x holds log free multipliers; the reported sp is the total
+        # multiplier min.sp + sp_free (mgcv's fit$sp + min.sp).
+        free_sp = min_sp_free + free_sp
+    model.smoothing_params[free_mask] = free_sp
     model.smoothing_params = np.maximum(model.smoothing_params, min_sp)
 
     model._optim_method = method
     model._optim_result = result
     if optimizer != "optim":
-        _refresh_final_outer_derivatives(model, y, method, result, objective=objective)
+        _refresh_final_outer_derivatives(
+            model,
+            y,
+            method,
+            result,
+            objective=objective,
+            min_sp_free=min_sp_free if min_sp_offset_active else None,
+        )
     if getattr(result, "optim_trace", None) is not None and not bool(
         getattr(result, "joint_gamma_reml_outer", False)
     ):
@@ -1271,7 +1406,9 @@ def optimize_smoothing_params(
                 row_dict.get("log_sp", []), dtype=np.float64
             ).ravel()
             log_sp = log_sp_full.copy()
-            log_scale = None
+            log_scale = row_dict.get("log_scale", None)
+            if log_scale is not None:
+                log_scale = float(log_scale)
             log_theta = row_dict.get("log_theta", None)
             gradient_full = (
                 None

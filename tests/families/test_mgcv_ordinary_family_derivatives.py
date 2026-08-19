@@ -151,11 +151,15 @@ def test_poisson_registry_supports_mgcv_ordinary_links_and_noninteger_y():
         family.validate_y(np.array([-0.1, 1.0], dtype=np.float64))
 
 
-@pytest.mark.parametrize("link", ["probit", "cloglog", "cauchit"])
+@pytest.mark.parametrize("link", ["probit", "cloglog", "cauchit", "log"])
 def test_binomial_nonlogit_working_weight_second_derivative_fd(link):
     """Verify non-logit binomial W'' implementations match finite differences."""
     family = make_gam_family({"name": "binomial", "link": link})
-    eta = np.linspace(-1.0, 1.0, 11, dtype=np.float64)
+    eta = (
+        np.linspace(-2.5, -0.2, 11, dtype=np.float64)
+        if link == "log"
+        else np.linspace(-1.0, 1.0, 11, dtype=np.float64)
+    )
     eps = 1e-5
 
     def _fisher_weight(eta_val):

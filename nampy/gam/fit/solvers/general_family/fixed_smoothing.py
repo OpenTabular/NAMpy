@@ -182,7 +182,8 @@ def _build_general_predictor_layout(model) -> _GeneralPredictorLayout:
 def _mroot_chol_local(P: np.ndarray, *, rank: int | None = None) -> np.ndarray:
     from ....smoothing_selection.reparam import _mroot_chol
 
-    return _mroot_chol(P, rank=rank)
+    root: np.ndarray = _mroot_chol(P, rank=rank)
+    return root
 
 
 def _sl_rank_from_eigenvalues(values: np.ndarray) -> int:
@@ -824,7 +825,11 @@ def sl_inirep(
 
     is_matrix = X_arr.ndim == 2
 
-    def _r_recycle_matrix_assign(rhs: np.ndarray, shape: tuple[int, int]) -> np.ndarray:
+    def _r_recycle_matrix_assign(
+        rhs: np.ndarray, shape: tuple[int, ...]
+    ) -> np.ndarray:
+        if len(shape) != 2:
+            raise ValueError("R-style matrix recycling requires a 2D target shape.")
         rhs_arr = np.asarray(rhs, dtype=np.float64)
         if rhs_arr.shape == shape:
             return rhs_arr
@@ -837,7 +842,8 @@ def sl_inirep(
         ind = np.arange(block.start0, block.stop0, dtype=int)
         D = np.asarray(block.D, dtype=np.float64)
         Di = None if block.Di is None else np.asarray(block.Di, dtype=np.float64)
-        no_Di = Di is None
+        Di_left = D.T if Di is None else Di
+        Di_right = D if Di is None else Di.T
         if l:
             if is_matrix:
                 target = X_arr[ind, :]
@@ -847,12 +853,12 @@ def sl_inirep(
                     X_arr[ind, :] = _r_recycle_matrix_assign(D.T @ target, target.shape)
                 elif l == -1:
                     X_arr[ind, :] = _r_recycle_matrix_assign(
-                        (D.T if no_Di else Di) @ target,
+                        Di_left @ target,
                         target.shape,
                     )
                 else:
                     X_arr[ind, :] = _r_recycle_matrix_assign(
-                        (D if no_Di else Di.T) @ target,
+                        Di_right @ target,
                         target.shape,
                     )
             else:
@@ -861,9 +867,9 @@ def sl_inirep(
                 elif l == 2:
                     X_arr[ind] = D.T @ X_arr[ind]
                 elif l == -1:
-                    X_arr[ind] = (D.T if no_Di else Di) @ X_arr[ind]
+                    X_arr[ind] = Di_left @ X_arr[ind]
                 else:
-                    X_arr[ind] = (D if no_Di else Di.T) @ X_arr[ind]
+                    X_arr[ind] = Di_right @ X_arr[ind]
 
         if r:
             if is_matrix:
@@ -874,12 +880,12 @@ def sl_inirep(
                     X_arr[:, ind] = _r_recycle_matrix_assign(target @ D.T, target.shape)
                 elif l == -1:
                     X_arr[:, ind] = _r_recycle_matrix_assign(
-                        target @ (D.T if no_Di else Di),
+                        target @ Di_left,
                         target.shape,
                     )
                 else:
                     X_arr[:, ind] = _r_recycle_matrix_assign(
-                        target @ (D if no_Di else Di.T),
+                        target @ Di_right,
                         target.shape,
                     )
             else:
@@ -888,9 +894,9 @@ def sl_inirep(
                 elif l == 2:
                     X_arr[ind] = X_arr[ind] @ D.T
                 elif l == -1:
-                    X_arr[ind] = X_arr[ind] @ (D.T if no_Di else Di)
+                    X_arr[ind] = X_arr[ind] @ Di_left
                 else:
-                    X_arr[ind] = X_arr[ind] @ (D if no_Di else Di.T)
+                    X_arr[ind] = X_arr[ind] @ Di_right
 
     return np.asarray(X_arr, dtype=np.float64)
 

@@ -28,7 +28,8 @@ def _deviance_residuals(model) -> np.ndarray:
 
     # Per-observation deviance contributions (mgcv `family$dev.resids` analogue).
     dev_obs = model.family.deviance_obs(y, mu, w)
-    return sign * np.sqrt(np.clip(dev_obs, 0.0, None))
+    result: np.ndarray = sign * np.sqrt(np.clip(dev_obs, 0.0, None))
+    return result
 
 
 def residuals_gam(model, type: str = "deviance") -> np.ndarray:
@@ -85,14 +86,18 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
                 # residual series. Our Gaussian exact-fit state keeps
                 # `working_response = y - offset` for inner-state parity, so restore
                 # the fit-time offset before forming the user-facing residuals.
-                return z_work + np.asarray(offset, dtype=np.float64).ravel() - eta
+                offset_result: np.ndarray = (
+                    z_work + np.asarray(offset, dtype=np.float64).ravel() - eta
+                )
+                return offset_result
             # mgcv::residuals.gam() returns the stored working residual series,
             # equivalent to z - eta in the fitted parameterization.
             return z_work - eta
         mu_eta = getattr(model.family, "mu_eta", None)
         if callable(mu_eta):
             mu_eta_val = np.asarray(mu_eta(eta), dtype=np.float64)
-            return (y - mu) / mu_eta_val
+            result: np.ndarray = (y - mu) / mu_eta_val
+            return result
         if fitted.ndim == 1:
             return y - fitted
         return np.asarray(y.reshape(-1, 1) - fitted, dtype=np.float64).ravel()
@@ -115,7 +120,8 @@ def residuals_gam(model, type: str = "deviance") -> np.ndarray:
         res = (y - mu) * np.sqrt(w) / np.sqrt(var)
         if type == "scaled.pearson":
             res = res / np.sqrt(float(_fit_scale(model)))
-        return res
+        result = res
+        return result
 
     raise ValueError(
         "type must be one of {'deviance', 'pearson', 'scaled.pearson', 'working', 'response'}."

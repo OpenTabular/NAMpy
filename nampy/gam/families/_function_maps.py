@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 from scipy.special import expit
@@ -260,7 +260,15 @@ class CauchitLink(LinkFunction):
 
     def __call__(self, mu):
         mu = np.asarray(mu, dtype=np.float64)
-        return np.tan(np.pi * (mu - 0.5))
+        # Stable stats::qcauchy form -cot(pi*mu) with exact complement
+        # reduction for the upper tail, matching R's tanpi-based argument
+        # handling: the direct tan(pi*(mu-0.5)) is ill-conditioned near both
+        # tails (argument lands next to pi/2).
+        upper = mu > 0.5
+        out = np.empty_like(mu)
+        out[~upper] = -1.0 / np.tan(np.pi * mu[~upper])
+        out[upper] = 1.0 / np.tan(np.pi * (1.0 - mu[upper]))
+        return out
 
     def inverse(self, eta):
         eta = np.asarray(eta, dtype=np.float64)
@@ -271,19 +279,16 @@ class CauchitLink(LinkFunction):
         return 1.0 / (np.pi * (1.0 + eta**2))
 
     def d2(self, mu):
-        mu = np.asarray(mu, dtype=np.float64)
-        eta = np.tan(np.pi * (mu - 0.5))
+        eta = self(mu)
         return 2.0 * np.pi**2 * eta * (1.0 + eta**2)
 
     def d3(self, mu):
-        mu = np.asarray(mu, dtype=np.float64)
-        eta = np.tan(np.pi * (mu - 0.5))
+        eta = self(mu)
         eta2 = eta**2
         return 2.0 * np.pi**3 * (1.0 + 3.0 * eta2) * (1.0 + eta2)
 
     def d4(self, mu):
-        mu = np.asarray(mu, dtype=np.float64)
-        eta = np.tan(np.pi * (mu - 0.5))
+        eta = self(mu)
         eta2 = eta**2
         return 2.0 * np.pi**4 * (8.0 * eta + 12.0 * eta2 * eta) * (1.0 + eta2)
 
@@ -405,7 +410,7 @@ class NegativeBinomialVariance(VarianceFunction):
         return np.zeros_like(mu)
 
 
-LINK_REGISTRY: dict[str, type[LinkFunction]] = {
+LINK_REGISTRY: dict[str, Callable[..., LinkFunction]] = {
     "identity": IdentityLink,
     "log": LogLink,
     "inverse": InverseLink,

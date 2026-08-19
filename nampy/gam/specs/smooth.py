@@ -126,14 +126,6 @@ def replace_smooth_spec(spec: SmoothSpec, **changes: Any) -> SmoothSpec:
     return replace(spec, **changes)
 
 
-def smooth_spec_basis_name(spec: SmoothSpec) -> Any:
-    return spec.bs
-
-
-def is_s_type(spec: SmoothSpec) -> bool:
-    return spec.special == "s"
-
-
 def tensor_basis_list(
     spec: Union[TensorProductSmoothSpec, TensorInteractionSmoothSpec],
     n_features: int,

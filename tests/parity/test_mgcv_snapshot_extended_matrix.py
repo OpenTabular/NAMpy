@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from tests._mgcv_snapshot_parity_shared import (
     TestAdditionalScenarioParity as _SharedTestAdditionalScenarioParity,
@@ -816,4 +817,118 @@ def _snapshot_matrix_assert(actual, expected, *, atol=1e-5):
             np.asarray(expected["fit"][key], dtype=np.float64),
             atol=max(atol, 1e-4),
             rtol=atol,
+        )
+
+
+class TestFixedDfRegressionSplines:
+    """s(..., fx=TRUE): unpenalized fixed-d.f. regression splines.
+
+    mgcv/R/smooth.r drops the penalty entirely when fx=TRUE (object$fixed),
+    so the term contributes k-1 exact degrees of freedom and no smoothing
+    parameter. Scalar fx on univariate s() previously appeared in no tested
+    formula (only te/ti vector fx was covered).
+    """
+
+    def test_gaussian_cr_fx_true_beside_free_smooth_matches_mgcv_exactly(self):
+        data = _make_gaussian_data(seed=641, n=170)
+        formula = 'y ~ s(x0, bs="cr", k=8, fx=True) + s(x1, bs="cr", k=8)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        # Only the free x1 smooth carries a smoothing parameter.
+        assert (
+            np.atleast_1d(
+                np.asarray(actual["fit"]["smoothing_params"], dtype=np.float64)
+            ).size
+            == 1
+        )
+        _assert_exact_mgcv_snapshot_parity(
+            actual,
+            expected,
+            pred_atol=1e-10,
+            pred_rtol=1e-10,
+            edf_atol=1e-9,
+            criterion_atol=1e-10,
+            criterion_rtol=1e-10,
+            sp_atol=1e-8,
+            sp_rtol=1e-9,
+            log_sp_atol=1e-9,
+        )
+
+    def test_gaussian_tp_fx_true_beside_free_smooth_matches_mgcv_exactly(self):
+        data = _make_gaussian_data(seed=642, n=170)
+        formula = 'y ~ s(x0, bs="tp", k=12, fx=True) + s(x1, bs="cr", k=8)'
+
+        actual = _fit_nampy_snapshot(data, formula, "gaussian", "REML")
+        expected = _run_mgcv_snapshot(data, formula, "gaussian", "REML")
+
+        assert (
+            np.atleast_1d(
+                np.asarray(actual["fit"]["smoothing_params"], dtype=np.float64)
+            ).size
+            == 1
+        )
+        _assert_exact_mgcv_snapshot_parity(
+            actual,
+            expected,
+            pred_atol=1e-9,
+            pred_rtol=1e-9,
+            edf_atol=1e-8,
+            criterion_atol=1e-10,
+            criterion_rtol=1e-10,
+            sp_atol=1e-7,
+            sp_rtol=1e-8,
+            log_sp_atol=1e-8,
+        )
+
+
+@pytest.mark.parametrize(
+    "transform",
+    ["abs", "sqrt", "exp", "log", "sin", "cos", "tan"],
+)
+def test_whitelisted_formula_transforms_match_mgcv_exactly(transform):
+    """Every whitelisted expression function fits identically to mgcv.
+
+    The whitelist (nampy/gam/specs/build.py) admits abs/sqrt/exp/log/sin/cos/
+    tan, but only log ever appeared in a tested formula. Each function shares
+    the same hidden-column materialization path, asserted per function here
+    with a fixed-sp exact snapshot.
+    """
+    rng = np.random.default_rng(823)
+    n = 130
+    x = rng.uniform(0.4, 2.4, size=n)  # positive domain for sqrt/log
+    y = np.sin(1.1 * x) + 0.3 * np.log(x) + rng.normal(scale=0.1, size=n)
+    data = pd.DataFrame({"y": y, "x": x})
+    formula = f'y ~ s({transform}(x), bs="cr", k=6, sp=1.0)'
+
+    actual = _fit_nampy_snapshot(data, formula, "gaussian", "fixed")
+    expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
+
+    # Formula-fixed sps are absent from mgcv's fit$sp, so parity is asserted
+    # on coefficients, EDF, deviance and predictions instead of the sp vector.
+    np.testing.assert_allclose(
+        np.asarray(actual["fit"]["coef_full"], dtype=np.float64),
+        np.asarray(expected["fit"]["coef_full"], dtype=np.float64),
+        atol=1e-10,
+        rtol=1e-10,
+    )
+    np.testing.assert_allclose(
+        float(np.asarray(actual["fit"]["edf_total"], dtype=np.float64)),
+        float(np.asarray(expected["fit"]["edf_total"], dtype=np.float64)),
+        atol=1e-10,
+        rtol=0.0,
+    )
+    np.testing.assert_allclose(
+        float(np.asarray(actual["fit"]["deviance"], dtype=np.float64)),
+        float(np.asarray(expected["fit"]["deviance"], dtype=np.float64)),
+        atol=1e-10,
+        rtol=1e-10,
+    )
+    for surface in ("response", "link", "se_link"):
+        np.testing.assert_allclose(
+            np.asarray(actual["predictions"][surface], dtype=np.float64),
+            np.asarray(expected["predictions"][surface], dtype=np.float64),
+            atol=1e-10,
+            rtol=1e-10,
         )

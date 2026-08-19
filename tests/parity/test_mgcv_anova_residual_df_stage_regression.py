@@ -10,8 +10,12 @@ from nampy.gam._model_state import (
     _summary_R,
     _term_blocks_seq,
 )
-from nampy.gam.inference.anova import _edf1_vector, _approximate_residual_df
-from tests.mgcv_parity_utils import _fit_nampy_model, _make_gamma_data, _run_mgcv_snapshot
+from nampy.gam.inference.anova import _approximate_residual_df, _edf1_vector
+from tests.mgcv_parity_utils import (
+    _fit_nampy_model,
+    _make_gamma_data,
+    _run_mgcv_snapshot,
+)
 
 pytestmark = [pytest.mark.surface_output, pytest.mark.surface_regression]
 
@@ -71,7 +75,9 @@ def test_gamma_anova_residual_df_stage_matches_mgcv_snapshot_components(formula:
                 dtype=np.float64,
             )
         )
-    for actual_block, expected_block in zip(actual_r_blocks, expected_r_blocks):
+    for actual_block, expected_block in zip(
+        actual_r_blocks, expected_r_blocks, strict=True
+    ):
         np.testing.assert_allclose(
             actual_block,
             np.asarray(expected_block, dtype=np.float64),

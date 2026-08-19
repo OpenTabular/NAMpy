@@ -1,4 +1,4 @@
-"""Per-sample offset plumbing through dataset, datamodule, and TaskModel."""
+"""Per-sample offset plumbing through dataset, datamodule, and TaskModule."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from pretab.preprocessor import Preprocessor
 
 from nampy.models.linreg import LinRegRegressor
 from nampy.neural.data.datamodule import NAMpyDataModule
-from nampy.neural.training.lightning_wrapper import TaskModel
+from nampy.neural.training.task_module import TaskModule
 
 
 class _ZeroOutputModel(nn.Module):
@@ -34,7 +34,7 @@ def _task_config():
 
 
 def _regression_task_model():
-    task_model = TaskModel(
+    task_model = TaskModule(
         model_class=_ZeroOutputModel,
         config=_task_config(),
         cat_feature_info={},
@@ -71,7 +71,7 @@ def test_lss_rejects_nonzero_offsets():
     family = SimpleNamespace(
         param_count=2, compute_loss=lambda preds, y: preds.sum() * 0.0
     )
-    task_model = TaskModel(
+    task_model = TaskModule(
         model_class=_ZeroOutputModel,
         config=_task_config(),
         cat_feature_info={},
@@ -163,3 +163,36 @@ def test_gaussian_offset_shifts_fitted_solution(tmp_path):
 
     assert mean_without_offset > 2.0
     assert abs(mean_with_offset) < 1.0
+
+
+def test_custom_loss_fct_reaches_task_module(tmp_path):
+    X = pd.DataFrame({"x": np.linspace(-1.0, 1.0, 40)})
+    y = np.exp(0.5 * X["x"].to_numpy())
+
+    loss = nn.PoissonNLLLoss(log_input=True)
+    estimator = LinRegRegressor(numerical_preprocessing="standardization")
+    estimator.fit(
+        X,
+        y,
+        loss_fct=loss,
+        max_epochs=1,
+        patience=1,
+        checkpoint_path=str(tmp_path),
+        logger=False,
+        enable_progress_bar=False,
+        enable_model_summary=False,
+        num_sanity_val_steps=0,
+    )
+
+    assert estimator.model.loss_fct is loss
+
+
+def test_custom_loss_fct_rejected_outside_regression():
+    from nampy.models.classifier import NeuralClassifier
+    from nampy.models.linreg import LinRegClassifier
+
+    assert issubclass(LinRegClassifier, NeuralClassifier)
+    estimator = LinRegClassifier(numerical_preprocessing="standardization")
+    estimator._fit_loss_fct = nn.MSELoss()
+    with pytest.raises(ValueError, match="only supported for regression"):
+        estimator._build_training_plan(np.array([0, 1, 0, 1]), None)

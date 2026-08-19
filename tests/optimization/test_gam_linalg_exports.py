@@ -13,6 +13,7 @@ from nampy.gam.linalg import (
     geometric_null_space_shrinkage,
     matrix_self_gram,
     matrix_sqrt_psd,
+    mgcv_mroot_chol,
     numerical_rank,
     pivoted_cholesky,
     positive_semidefinite_root,
@@ -86,6 +87,27 @@ def test_linalg_pivoted_cholesky_helpers_solve_spd_system():
         (singular + ridge)[np.ix_(singular_piv, singular_piv)],
         atol=1e-14,
         rtol=1e-14,
+    )
+
+
+def test_mgcv_mroot_chol_is_checked_only_by_its_identified_gram_matrix():
+    """``mgcv::mroot`` identifies ``B B'``, not a LAPACK-specific root."""
+
+    penalty = np.array(
+        [
+            [2.0, -1.0, 0.0],
+            [-1.0, 2.0, -1.0],
+            [0.0, -1.0, 1.0],
+        ],
+        dtype=np.float64,
+    )
+    root = mgcv_mroot_chol(penalty)
+
+    np.testing.assert_allclose(
+        root @ root.T,
+        penalty,
+        atol=2e-14,
+        rtol=2e-14,
     )
 
 

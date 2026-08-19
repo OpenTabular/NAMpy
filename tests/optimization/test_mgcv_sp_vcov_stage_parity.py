@@ -141,3 +141,46 @@ def test_gam_vcomp_rescale_false_matches_mgcv_on_stage_cases(
     actual = gam.gam_vcomp(rescale=rescale)
 
     _assert_gam_vcomp_close(actual, expected, atol=atol)
+
+
+def test_sp_vcov_edge_correct_default_uses_hess1_and_matches_mgcv():
+    """The default sp_vcov() path (edge_correct=True) mirrors mgcv exactly.
+
+    Upstream mgcv/R/mgcv.r:4221-4233 (sp.vcov): with an edge-corrected fit,
+    the covariance is solve(hess1 + diag(p)*reg) anchored at lsp1; without
+    hess1 it falls back to solve(hess + reg) where the scalar reg is added to
+    every element (R recycling) — an intentional asymmetry. Both branches are
+    reproduced here from mgcv's own hess/hess1 payloads on the same
+    edge-corrected fit, and the two results are asserted to genuinely differ
+    so the branch selection itself is observable.
+    """
+    from tests.optimization.test_mgcv_outer_optimization_parity import (
+        _finalize_python_edge_correct_fit,
+        _run_mgcv_outer_trace,
+    )
+
+    data = make_parity_case_data("poisson_cr_uni_reml")
+    spec = get_parity_case("poisson_cr_uni_reml")
+    expected = _run_mgcv_outer_trace(
+        data, spec.formula, "poisson", "REML", "newton", edge_correct=True
+    )
+    gam, _result = _finalize_python_edge_correct_fit(
+        data, spec.formula, "poisson"
+    )
+
+    outer = expected["fit"]["outer_info"]
+    hess1_r = np.asarray(outer["hess1"], dtype=np.float64)
+    hess_r = np.asarray(outer["hessian"], dtype=np.float64)
+    p = hess1_r.shape[0]
+    reg = 1e-3
+    v_expected_edge = np.linalg.solve(
+        hess1_r + np.eye(p) * reg, np.eye(p)
+    )
+    v_expected_plain = np.linalg.solve(hess_r + reg, np.eye(p))
+
+    v_edge = np.asarray(gam.sp_vcov(), dtype=np.float64)
+    v_plain = np.asarray(gam.sp_vcov(edge_correct=False), dtype=np.float64)
+
+    np.testing.assert_allclose(v_edge, v_expected_edge, atol=1e-5, rtol=1e-5)
+    np.testing.assert_allclose(v_plain, v_expected_plain, atol=1e-5, rtol=1e-5)
+    assert not np.allclose(v_edge, v_plain, atol=1e-8, rtol=1e-8)

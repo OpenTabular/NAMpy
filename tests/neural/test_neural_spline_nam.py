@@ -121,7 +121,7 @@ def test_spline_nam_regressor_fits_and_predicts_with_default_preprocessing(tmp_p
         num_sanity_val_steps=0,
     )
     predictions = fitted.predict(data)
-    terms = fitted.predict_feature_vals(data)
+    terms = fitted.predict_components(data).terms
 
     assert fitted is model
     assert model.config.n_knots == 6

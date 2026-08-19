@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib
-from types import SimpleNamespace
 
 import matplotlib
 import numpy as np
@@ -10,8 +9,8 @@ import pytest
 
 import nampy
 import nampy.gam as gam_package
+from nampy.gam import GAM
 from nampy.gam._model_state import _term_blocks_seq
-from nampy.gam.model.api import GAM
 from tests.mgcv_parity_utils import (
     _run_mgcv_predict_on_newdata,
     _run_mgcv_snapshot,
@@ -25,14 +24,15 @@ smoothing_pkg = importlib.import_module("nampy.gam.smoothing_selection")
 model_api_module = importlib.import_module("nampy.gam.model.api")
 
 
-def test_public_gam_package_exports_only_fit_core_contract():
+def test_public_gam_package_exports_contract():
     """Keep package exports aligned with the repository public-API rule."""
     assert gam_package.__all__ == [
+        "GAM",
         "fit_model_core",
         "solve_fit",
         "FitCoreSolution",
     ]
-    assert not hasattr(gam_package, "GAM")
+    assert gam_package.GAM is GAM
     assert not hasattr(nampy, "GAM")
 
 
@@ -42,72 +42,41 @@ pytestmark = [
 ]
 
 
-def test_plot_gam_terms_handles_uni_bi_and_high_dim_terms(monkeypatch):
-    """Verify that plot gam terms handles uni bi and high dim terms."""
-    monkeypatch.setattr(plots_module, "_require_fitted", lambda model: None)
+def test_plot_gam_port_prepares_and_renders_real_model_terms():
+    """The plot.gam port prepares per-term data and renders on a real fit."""
+    import matplotlib
 
-    X_plot = np.array(
-        [
-            [0.0, 0.0, 0.0],
-            [1.0, 0.5, 0.2],
-            [2.0, 1.0, 0.4],
-            [3.0, 1.5, 0.6],
-        ],
-        dtype=np.float64,
-    )
-    monkeypatch.setattr(
-        plots_module,
-        "_coerce_feature_matrix",
-        lambda model, X, none_is_training=True: X_plot,
-    )
-    monkeypatch.setattr(
-        plots_module,
-        "_term_blocks_seq",
-        lambda model: (
-            SimpleNamespace(
-                term_id="u",
-                label="s(x0)",
-                feature_info=SimpleNamespace(
-                    feature_indices=[0],
-                    feature_names=["x0"],
-                ),
-            ),
-            SimpleNamespace(
-                term_id="b",
-                label="te(x0,x1)",
-                feature_info=SimpleNamespace(
-                    feature_indices=[0, 1],
-                    feature_names=["x0", "x1"],
-                ),
-            ),
-            SimpleNamespace(
-                term_id="h",
-                label="t3(x0,x1,x2)",
-                feature_info=SimpleNamespace(
-                    feature_indices=[0, 1, 2],
-                    feature_names=["x0", "x1", "x2"],
-                ),
-            ),
-        ),
-    )
-
-    model = SimpleNamespace(
-        predict_feature_vals=lambda X: {
-            "u": np.array([0.0, 1.0, 0.5, 1.5], dtype=np.float64),
-            "b": np.array([0.0, 0.4, 0.8, 1.2], dtype=np.float64),
-            "h": np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float64),
+    matplotlib.use("Agg", force=True)
+    rng = np.random.default_rng(41)
+    n = 70
+    data = pd.DataFrame(
+        {
+            "x0": rng.uniform(-1.5, 1.5, n),
+            "x1": rng.uniform(-1.0, 1.0, n),
         }
     )
+    data["y"] = (
+        np.sin(1.3 * data["x0"]) + 0.3 * data["x1"] ** 2 + rng.normal(0, 0.1, n)
+    )
+    gam = GAM(
+        family="gaussian",
+        formula='y ~ s(x0, bs="cr", k=6) + s(x1, bs="cr", k=6)',
+        optimize_smoothing=False,
+        smoothing_method="fixed",
+        smoothing_params=[1.0, 1.0],
+    ).fit(data=data)
 
-    fig = plots_module.plot_gam_terms(model, X=None, n_cols=2)
-
-    assert fig.axes[0].get_title() == "s(x0)"
+    out = gam.plot(residuals=True)
+    assert [P["kind"] for P in out["pd"]] == ["1d", "1d"]
+    for P in out["pd"]:
+        assert P["plot_me"] and P["plot_ci"]
+        assert np.asarray(P["fit"]).shape == (100,)
+        assert np.asarray(P["se"]).shape == (100,)
+        assert "p_resid" in P
+    fig = out["figures"][0]
     assert fig.axes[0].get_xlabel() == "x0"
-    assert fig.axes[0].get_ylabel() == "term effect"
-    assert fig.axes[1].get_title() == "te(x0,x1)"
-    assert "Plot not implemented" in fig.axes[2].texts[0].get_text()
-    assert fig.axes[2].axison is False
-    assert fig.axes[3].axison is False
+    assert fig.axes[1].get_xlabel() == "x1"
+    plots_module.plt = __import__("matplotlib.pyplot", fromlist=["pyplot"])
     plots_module.plt.close(fig)
 
 
@@ -131,8 +100,8 @@ def test_gam_public_wrappers_delegate_to_underlying_modules(monkeypatch):
         calls["one_se_rule"] = (model, candidate_indices)
         return np.array([2.0], dtype=np.float64)
 
-    def _plot_gam_terms(model, X=None, n_cols=2, figsize=None):
-        calls["plot"] = (model, X.copy(), n_cols, figsize)
+    def _plot_gam(model, **kwargs):
+        calls["plot"] = (model, dict(kwargs))
         return "plot-ok"
 
     def _gam_check(model, *, type="deviance", k_sample=5000, k_rep=200, seed=None):
@@ -141,7 +110,7 @@ def test_gam_public_wrappers_delegate_to_underlying_modules(monkeypatch):
 
     monkeypatch.setattr(diagnostics_pkg, "print_summary", _print_summary)
     monkeypatch.setattr(diagnostics_pkg, "concurvity", _concurvity)
-    monkeypatch.setattr(diagnostics_pkg, "plot_gam_terms", _plot_gam_terms)
+    monkeypatch.setattr(diagnostics_pkg, "plot_gam", _plot_gam)
     monkeypatch.setattr(diagnostics_pkg, "gam_check", _gam_check)
     monkeypatch.setattr(smoothing_pkg, "sp_vcov", _sp_vcov)
     monkeypatch.setattr(smoothing_pkg, "one_se_rule", _one_se_rule)
@@ -169,21 +138,16 @@ def test_gam_public_wrappers_delegate_to_underlying_modules(monkeypatch):
         gam.one_se_rule(candidate_indices=[0]),
         np.array([2.0], dtype=np.float64),
     )
-    assert (
-        gam.plot(X=np.array([[1.0], [2.0]], dtype=np.float64), n_cols=3, figsize=(4, 5))
-        == "plot-ok"
-    )
+    assert gam.plot(select=1, se_with_mean=True) == "plot-ok"
 
     assert calls["summary"] is gam
     assert calls["concurvity"] == (gam, False)
     assert calls["gam_check"] == (gam, "pearson", 12, 7, 123)
     assert calls["sp_vcov"] == (gam, False, 0.25)
     assert calls["one_se_rule"] == (gam, [0])
-    plot_model, plot_X, plot_n_cols, plot_figsize = calls["plot"]
+    plot_model, plot_kwargs = calls["plot"]
     assert plot_model is gam
-    np.testing.assert_allclose(plot_X, np.array([[11.0], [12.0]], dtype=np.float64))
-    assert plot_n_cols == 3
-    assert plot_figsize == (4, 5)
+    assert plot_kwargs == {"select": 1, "se_with_mean": True}
 
 
 def _small_formula_offset_data(seed=702, n=48):
@@ -211,8 +175,8 @@ def test_gam_bic_uses_public_loglik_and_effective_df_formula():
     assert gam.bic() == pytest.approx(-2.0 * (-3.25) + np.log(9.0) * 2.5)
 
 
-def test_predict_feature_vals_matches_prediction_terms_response_intercept_and_offset():
-    """Verify predict_feature_vals decomposes the public prediction surfaces."""
+def test_predict_terms_matches_prediction_terms_response_intercept_and_offset():
+    """Verify predict_terms decomposes the public prediction surfaces."""
     data = _small_formula_offset_data(seed=704, n=54)
     y_counts = np.maximum(
         0,
@@ -226,7 +190,7 @@ def test_predict_feature_vals_matches_prediction_terms_response_intercept_and_of
     )
     gam.fit(data=data)
 
-    values = gam.predict_feature_vals(data, offset=api_offset)
+    values = gam.predict_terms(data, offset=api_offset)
     terms = gam.predict(data, type="terms", offset=api_offset)
 
     np.testing.assert_allclose(
@@ -471,7 +435,7 @@ def test_predict_unknown_term_filter_mirrors_mgcv_warning_and_zeroing_order():
     np.testing.assert_allclose(values, 0.0, atol=0.0, rtol=0.0)
 
 
-def test_predict_feature_vals_handles_factor_smooth_terms():
+def test_predict_terms_handles_factor_smooth_terms():
     """Verify factor smooth term effects match mgcv predict(type="terms")."""
     rng = np.random.default_rng(732)
     n = 72
@@ -484,7 +448,7 @@ def test_predict_feature_vals_handles_factor_smooth_terms():
     gam = GAM(family="gaussian", formula=formula)
     gam.fit(data=data)
 
-    values = gam.predict_feature_vals(data)
+    values = gam.predict_terms(data)
     expected = _run_mgcv_snapshot(data, formula, "gaussian", "fixed")
     expected_terms = np.asarray(expected["predictions"]["terms"], dtype=np.float64)
 
@@ -534,4 +498,26 @@ def test_mixed_fixed_and_free_smoothing_parameters_fit_and_predict():
         np.asarray(expected["fit"]["smoothing_params"], dtype=np.float64),
         atol=1e-6,
         rtol=1e-6,
+    )
+
+
+def test_predict_unknown_exclude_filter_mirrors_mgcv_warning_and_is_ignored():
+    """Unknown exclude= labels warn and leave the prediction untouched.
+
+    Companion to the terms= branch above; the exclude branch
+    (predict/predictions.py) previously had no test reaching its warning.
+    """
+    data = _small_formula_offset_data(seed=731, n=42)
+    gam = GAM(
+        family="gaussian",
+        formula='y ~ s(x, bs="cr", k=6, sp=0.7)',
+    )
+    gam.fit(data=data)
+
+    baseline = gam.predict(data, type="terms")
+    with pytest.warns(UserWarning, match="non-existent exclude terms requested"):
+        values = gam.predict(data, type="terms", exclude=["missing"])
+    np.testing.assert_array_equal(
+        np.asarray(values, dtype=np.float64),
+        np.asarray(baseline, dtype=np.float64),
     )

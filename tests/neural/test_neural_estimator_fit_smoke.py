@@ -26,7 +26,7 @@ from nampy.models.nodegam import (
     NodeGAMLSS,
     NodeGAMRegressor,
 )
-from nampy.models.qnam import QNAM
+from nampy.models.qnam import QNAMLSS
 from nampy.models.snam import SNAMLSS, SNAMClassifier, SNAMRegressor
 from nampy.models.spline_nam import SplineNAMRegressor
 from nampy.models.treenam import TreeNAMClassifier, TreeNAMLSS, TreeNAMRegressor
@@ -169,7 +169,7 @@ ESTIMATOR_CASES = tuple(
     ),
     _EstimatorCase(
         "qnam_lss",
-        QNAM,
+        QNAMLSS,
         "quantile",
         {"layer_sizes": [8], "dropout": 0.0},
     ),
@@ -254,7 +254,7 @@ def test_public_neural_estimator_fits_and_predicts(case, tmp_path):
 
     returned = estimator.fit(data, target, **fit_kwargs)
     assert returned is estimator
-    contributions = estimator.predict_feature_vals(data)
+    contributions = estimator._predict(data)
     assert {"output", "x", "z"} <= set(contributions)
     assert "group" in contributions or any(
         name.startswith("group[") for name in contributions

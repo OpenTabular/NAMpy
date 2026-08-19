@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 
 from nampy.models.linreg import LinRegRegressor
-from nampy.neural.training.lightning_wrapper import TaskModel
+from nampy.neural.training.task_module import TaskModule
 
 
 class _PenalizedTwoOutputModel(nn.Module):
@@ -38,7 +38,7 @@ def _task_config():
 
 
 def test_task_model_keeps_regression_width_and_reports_unregularized_rmse():
-    task_model = TaskModel(
+    task_model = TaskModule(
         model_class=_PenalizedTwoOutputModel,
         config=_task_config(),
         cat_feature_info={},

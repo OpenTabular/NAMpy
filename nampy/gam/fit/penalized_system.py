@@ -1,39 +1,17 @@
 """
-Penalized system assembly and numerically stable solvers.
+Penalized system assembly.
 
-Provides three utilities used across all fitting backends:
+Provides two utilities used across all fitting backends:
 
-- :func:`stabilized_cholesky_solve`: Cholesky solve using the supplied system
-  by default. Callers that intentionally want ridge inflation must pass an
-  explicit jitter schedule.
 - :func:`build_full_design`: Prepend intercept column to term design matrix.
 - :func:`build_full_penalty_from_blocks`: Assemble the total penalty matrix
   ``sum_k lambda_k * S_k`` from per-term penalty blocks.
 """
 
 import numpy as np
-from scipy.linalg import cho_factor, cho_solve
 
 from ..linalg import symmetrize_matrix
 from .offsets import coerce_offset_array
-
-
-def stabilized_cholesky_solve(A, b, jitter_schedule=None):
-    if jitter_schedule is None:
-        jitter_schedule = [0.0]
-    last_err = None
-    eye = np.eye(A.shape[0], dtype=np.float64)
-    for jitter in jitter_schedule:
-        try:
-            A_work = A if jitter == 0.0 else A + jitter * eye
-            cA, loA = cho_factor(A_work, check_finite=False)
-            x = cho_solve((cA, loA), b, check_finite=False)
-            return x, cA, loA, jitter
-        except np.linalg.LinAlgError as err:
-            last_err = err
-    raise np.linalg.LinAlgError(
-        f"Unable to Cholesky-solve penalized system. Last error: {last_err}"
-    )
 
 
 def build_full_design(Z, fit_intercept):

@@ -7,6 +7,7 @@ import itertools
 import re
 import warnings
 from dataclasses import dataclass, replace
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -55,7 +56,7 @@ _SMOOTH_SPEC_DEFAULTS: dict[str, object] = {
 }
 
 _FORMULA_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-_FORMULA_NUMERIC_FUNCTIONS: dict[str, object] = {
+_FORMULA_NUMERIC_FUNCTIONS: dict[str, Callable[..., Any]] = {
     "I": lambda x: x,
     "abs": np.abs,
     "sqrt": np.sqrt,
@@ -482,7 +483,7 @@ def _build_s_sz(opts) -> SumToZeroFactorSmoothSpec:
     )
 
 
-_S_BASIS_SPEC_BUILDERS: dict[str, object] = {
+_S_BASIS_SPEC_BUILDERS: dict[str, Callable[[dict[str, Any]], SmoothSpec]] = {
     "cr": _build_s_cr,
     "cs": _build_s_cs,
     "cc": _build_s_cc,
@@ -526,7 +527,7 @@ def _build_ti(opts) -> TensorInteractionSmoothSpec:
     )
 
 
-_SPECIAL_SMOOTH_BUILDERS: dict[str, object] = {
+_SPECIAL_SMOOTH_BUILDERS: dict[str, Callable[[dict[str, Any]], SmoothSpec]] = {
     "te": _build_te,
     "ti": _build_ti,
 }
@@ -1414,7 +1415,11 @@ def _build_predictor_spec(
             kind=kind,
             n_features=(len(d) if kind_key in {"te", "ti"} else len(features)),
         )
-        select = bool(kw.pop("select", default_select))
+        # mgcv's s()/te()/ti() take no select argument (mgcv/R/smooth.r:614);
+        # per-term select therefore falls through to the unsupported-argument
+        # guard below. Selection penalties come only from the model-level
+        # select flag, exactly as gam(select=TRUE).
+        select = bool(default_select)
 
         m = kw.pop("m", None)
         xt = kw.pop("xt", None)
@@ -1651,7 +1656,7 @@ def build_formula_model(
         if offset_name is not None:
             offset_out = _resolve_formula_offset_column(data_work, offset_name)
     else:
-        offset_list = []
+        offset_list: list[np.ndarray | None] = []
         has_offset = False
         for offset_name in offset_names:
             if offset_name is None:
@@ -1702,6 +1707,24 @@ def apply_formula_preprocess_to_new_data(data, preprocess_state):
 
     out = data.copy()
 
+    def validate_factor_levels(source, allowed_levels):
+        values = out[source]
+        if values.isna().any():
+            raise ValueError(
+                f"Prediction factor column {source!r} contains missing values."
+            )
+        observed = list(pd.unique(values))
+        unseen = [
+            value
+            for value in observed
+            if not any(value == level for level in allowed_levels)
+        ]
+        if unseen:
+            raise ValueError(
+                f"Prediction factor column {source!r} contains unseen levels: "
+                f"{unseen}. Training levels are {list(allowed_levels)}."
+            )
+
     for item in preprocess_state.get("formula_expression_columns", []):
         values, _src_vars = _evaluate_formula_numeric_expression(item["expr"], out)
         out[item["hidden_name"]] = values
@@ -1719,6 +1742,7 @@ def apply_formula_preprocess_to_new_data(data, preprocess_state):
             if comp["type"] == "numeric":
                 vals = vals * numeric_1d_values(out[src], name=src)
             elif comp["type"] == "factor":
+                validate_factor_levels(src, comp["levels"])
                 vals = vals * np.asarray(
                     (out[src] == comp["level"]).astype(float), dtype=np.float64
                 )
@@ -1734,6 +1758,8 @@ def apply_formula_preprocess_to_new_data(data, preprocess_state):
                 f"Prediction data is missing factor by-variable {src!r} "
                 f"needed to rebuild formula columns."
             )
+
+        validate_factor_levels(src, item["all_levels"])
 
         out[item["hidden_by"]] = np.asarray(
             (out[src] == item["level"]).astype(float), dtype=np.float64

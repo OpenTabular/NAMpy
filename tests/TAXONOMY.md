@@ -14,7 +14,9 @@ The GAM test suite is intentionally overlapping. The goal is fast subset runs an
 ## Taxonomy Axes
 - `smooth_<name>`: `cr`, `cs`, `cc`, `ps`, `tp`, `ts`, `te`, `ti`, `fs`, `sz`, `re`
 - `family_<name>`: `gaussian`, `binomial`, `poisson`, `gamma`, `negbin`, `gaulss`, `gammals`, `general`
-- `method_<name>`: `fixed`, `reml`, `ml`, `laml`
+- `method_<name>`: `fixed`, `reml`, `ml`, `laml`, `gcv`, `ubre`
+- `link_<name>`: `identity`, `log`, `inverse`, `logit`, `probit`, `cloglog`, `cauchit`, `sqrt`
+- `optimizer_<name>`: `newton`, `bfgs`, `efs`, `optim`
 - `select_true` / `select_false`
 - `surface_<name>`: `snapshot`, `output`, `smoothcon`, `trace`, `kcheck`, `derivatives`, `regression`, `backend`
 - `status_<name>`: `stable`, `known_gap`, `failing_or_warning`, `regression`

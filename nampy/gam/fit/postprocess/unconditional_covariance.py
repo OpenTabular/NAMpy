@@ -10,13 +10,12 @@ from scipy.linalg import solve_triangular
 
 from ..._model_state import _n_smoothing_params
 from ...linalg import symmetrize_matrix
+from ...linalg.qr import mgcv_pqr_r
 from ...results import FitResult
 from ..linalg.matrix_reindexing import (
-    permute_columns,
     permute_rows,
     restore_dropped_rows,
 )
-from ..linalg.stacked_qr import _pivoted_economic_qr
 from ..parameterization import (
     FIT_PARAMETER_SPACE,
     PREDICTION_PARAMETER_SPACE,
@@ -303,7 +302,7 @@ def _gaussian_exact_unconditional_postfit(
     L_vcorr = None if setup.L is None else np.asarray(setup.L, dtype=np.float64)
     if scale_est:
         rho_full = np.concatenate(
-            [rho_full, [float(np.log(max(scale, np.finfo(np.float64).tiny)))]]
+            [rho_full, [float(np.log(max(scale, float(np.finfo(np.float64).tiny))))]]
         )
         lsp0_full = np.concatenate([lsp0_full, [0.0]])
         if L_vcorr is not None:
@@ -338,12 +337,7 @@ def _gaussian_exact_unconditional_postfit(
     if weights.size != X_full.shape[0]:
         return None, None, FIT_PARAMETER_SPACE
     WX = np.sqrt(weights)[:, None] * X_full
-    _q_wx, r_wx_pivoted, pivot_wx = _pivoted_economic_qr(WX)
-    R = permute_columns(
-        r_wx_pivoted,
-        np.asarray(pivot_wx, dtype=np.int64),
-        reverse=True,
-    )
+    R = mgcv_pqr_r(WX)
 
     Vc2 = scale * _vb_corr_root(
         R,
@@ -423,12 +417,7 @@ def _fixed_sp_edf2_from_qr(
         return None
 
     WX = np.sqrt(weights)[:, None] * X
-    _q_wx, r_wx_pivoted, pivot_wx = _pivoted_economic_qr(WX)
-    R_wx = permute_columns(
-        r_wx_pivoted,
-        np.asarray(pivot_wx, dtype=np.int64),
-        reverse=True,
-    )
+    R_wx = mgcv_pqr_r(WX)
     RTR_wx = np.asarray(R_wx.T @ R_wx, dtype=np.float64)
     Vb = np.asarray(fit_result.cov_bayes, dtype=np.float64)
     edf2 = np.asarray(np.sum(Vb * RTR_wx, axis=1) / scale, dtype=np.float64)
@@ -721,12 +710,7 @@ def _pirls_exact_unconditional_postfit(
         return None, None, FIT_PARAMETER_SPACE
 
     WX = np.sqrt(w)[:, None] * X
-    _q_wx, r_wx_pivoted, pivot_wx = _pivoted_economic_qr(WX)
-    R_wx = permute_columns(
-        r_wx_pivoted,
-        np.asarray(pivot_wx, dtype=np.int64),
-        reverse=True,
-    )
+    R_wx = mgcv_pqr_r(WX)
     RTR_wx = np.asarray(R_wx.T @ R_wx, dtype=np.float64)
 
     setup = build_estimate_gam_setup_state(model)

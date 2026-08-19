@@ -95,7 +95,9 @@ def test_general_family_lpmatrix_layout_matches_public_prediction_surface(
     np.testing.assert_allclose(layout.lpmatrix, actual, atol=1e-12, rtol=1e-12)
     np.testing.assert_allclose(direct, actual, atol=1e-12, rtol=1e-12)
 
-    for pred, sl in zip(_predictor_designs(gam), layout.predictor_slices):
+    for pred, sl in zip(
+        _predictor_designs(gam), layout.predictor_slices, strict=True
+    ):
         expected_block = np.asarray(actual[:, sl], dtype=np.float64)
         actual_block = _predictor_block_without_intercept(pred, X_new_np)
         if getattr(pred, "prediction_has_intercept", pred.has_intercept):
@@ -183,7 +185,7 @@ def test_general_family_single_term_predictor_blocks_match_mgcv_lpmatrix_slices(
         rtol=tol,
     )
 
-    for pred, sl in zip(predictors[1:], predictor_slices[1:]):
+    for pred, sl in zip(predictors[1:], predictor_slices[1:], strict=True):
         assert len(pred.compiled_terms) == 0
         expected_block = np.asarray(expected_lpmatrix[:, sl], dtype=np.float64)
         assert getattr(pred, "prediction_has_intercept", pred.has_intercept)

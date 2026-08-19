@@ -1,9 +1,9 @@
 import numpy as np
 from scipy.interpolate import BSpline
+from scipy.linalg import eigh as scipy_eigh
 
-from ...gam.constraints.absorption import full_term_sum_to_zero_constraint
-from ...gam.linalg import symmetric_eigh
-from ...gam.penalties.algebra import scale_penalty
+from ...constraints.absorption import full_term_sum_to_zero_constraint
+from ...penalties.algebra import scale_penalty
 from ..basis.cr import cr_spl, cr_spl_predict
 
 
@@ -48,10 +48,16 @@ def add_full_rank_shrinkage(S, shrink=0.1, tol=1e-12, null_basis=None, knots=Non
     del tol, knots, null_basis
     penalty = np.asarray(S, dtype=np.float64)
     penalty = 0.5 * (penalty + penalty.T)
-    values, vectors = symmetric_eigh(
+    # Mirror smooth.construct.cr.smooth.spec() through SciPy's public symmetric
+    # eigensolver API. The nominally-null eigenvectors remain platform-dependent
+    # upstream too, so their exact orientation is not a parity contract.
+    values, vectors = scipy_eigh(
         penalty,
-        descending=True,
+        lower=True,
+        check_finite=False,
     )
+    values = np.asarray(values[::-1], dtype=np.float64)
+    vectors = np.asarray(vectors[:, ::-1], dtype=np.float64)
     nk = int(values.size)
     if nk < 3:
         raise ValueError("cubic regression spline penalty requires k >= 3.")

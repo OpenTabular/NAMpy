@@ -254,3 +254,31 @@ def test_gam_vcomp_matches_mgcv_requested_surface(
     actual = gam.gam_vcomp(rescale=rescale)
 
     _assert_gam_vcomp_close(actual, expected, atol=atol)
+
+
+def test_gam_vcomp_non_default_conf_lev_matches_mgcv():
+    """gam.vcomp(conf.lev=0.9) CIs match mgcv (previously only the 0.95 default)."""
+    data = _make_gaussian_data(seed=42, n=140)
+    formula = 'y ~ s(x0, bs="cr", k=8)'
+
+    expected = _run_mgcv_gam_vcomp(
+        data,
+        formula,
+        "gaussian",
+        "REML",
+        rescale=True,
+        conf_lev=0.9,
+    )
+    gam = _fit_nampy_model(data, formula, "gaussian", "REML")
+    actual = gam.gam_vcomp(rescale=True, conf_lev=0.9)
+    _assert_gam_vcomp_close(actual, expected, atol=1e-4)
+
+    # The interval half-widths must genuinely narrow relative to 0.95.
+    default = gam.gam_vcomp(rescale=True)
+    vc_narrow = _as_float_array(actual["vc"])
+    vc_default = _as_float_array(default["vc"])
+    if vc_narrow.ndim == 2 and vc_narrow.shape[1] >= 3:
+        assert np.all(
+            (vc_narrow[:, 2] - vc_narrow[:, 1])
+            < (vc_default[:, 2] - vc_default[:, 1])
+        )

@@ -78,6 +78,9 @@ def _normalize_outer_info(raw_outer_info, *, optim_result, trace_rows):
         out["lsp1"] = _normalize_trace_value(getattr(optim_result, "lsp1", None))
     if "hess1" not in out:
         out["hess1"] = _normalize_trace_value(getattr(optim_result, "hess1", None))
+    for key in ("db_drho1", "dw_drho1"):
+        if key not in out:
+            out[key] = _normalize_trace_value(getattr(optim_result, key, None))
 
     if "convergence" not in out:
         out["convergence"] = _normalize_trace_value(getattr(optim_result, "status", None))

@@ -429,7 +429,7 @@ def _restore_pirls_dbeta_to_fit_space(current, dbeta_rank):
     packed = np.asarray(dbeta_rank, dtype=np.float64).reshape(-1, 1)
     pivot1 = np.asarray(current.pivot1, dtype=np.int64)
     dropped = np.asarray(current.dropped_column_indices, dtype=np.int64)
-    canonical_T = np.asarray(current.canonical.T, dtype=np.float64)
+    canonical_T = np.asarray(current.canonical.T, dtype=np.float64)  # type: ignore[attr-defined]
 
     unpermuted = permute_rows(packed, pivot1, reverse=True)
     full_canonical = restore_dropped_rows(
@@ -447,7 +447,12 @@ def _serialize_pirls_postproc_derivatives(kernel: _GDI1Kernel) -> dict[str, obje
             _restore_pirls_dbeta_to_fit_space(current, col)
             for col in list(kernel.ift.dbeta)
         ],
-        int(np.asarray(current.canonical.T, dtype=np.float64).shape[0]),
+        int(
+            np.asarray(
+                current.canonical.T,  # type: ignore[attr-defined]
+                dtype=np.float64,
+            ).shape[0]
+        ),
     )
     dW_obs = (
         None

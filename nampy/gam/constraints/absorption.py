@@ -100,7 +100,7 @@ def absorb_explicit_constraints(B, penalty_specs, C, tol: float = 1e-12):
     mats = [np.asarray(p.matrix, dtype=np.float64) for p in penalty_specs]
     B_new, mats_new = apply_coefficient_transform(B, mats, T)
     out_specs = []
-    for p, S_new in zip(penalty_specs, mats_new):
+    for p, S_new in zip(penalty_specs, mats_new, strict=True):
         p_new = copy.copy(p)
         p_new.matrix = S_new
         out_specs.append(normalize_penalty_spec(p_new))

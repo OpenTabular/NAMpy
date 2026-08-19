@@ -19,12 +19,14 @@ _GAM_SETUP_INVARIANT_CASE_IDS = frozenset(
         "gaussian_ts_two_dim",
         "gaussian_fs",
         "gaussian_fs_numeric_by",
+        "gaussian_sz",
     }
 )
 _GAM_SETUP_DOMINANT_PENALTY_SPECTRUM_CASE_IDS = frozenset({"gaussian_cs_uni"})
 _GAM_SIDE_INVARIANT_CLASS_NAMES = frozenset(
     {
         "fs.interaction",
+        "sz.interaction",
         "tprs.smooth",
         "ts.smooth",
     }
@@ -33,15 +35,31 @@ _PREOPT_BLOCKS_ALIGN_BASIS_CASE_IDS = frozenset(
     {
         "gaussian_tp_two_dim",
         "gaussian_ts_two_dim",
+        "gaussian_sz",
     }
 )
 _PREOPT_BLOCKS_SKIP_RANGE_ROOT_REPR_CASE_IDS = (
     _PREOPT_BLOCKS_ALIGN_BASIS_CASE_IDS | frozenset({"gaussian_fs"})
 )
+_LPMATRIX_INVARIANT_CASE_IDS = frozenset(
+    {
+        "gaussian_tp_k20",
+        "binomial_logit",
+        "poisson",
+        "gamma_log",
+        "binomial_separation",
+        "gaussian_fs_by_factor",
+        "gaussian_fs_select_reml",
+        "gaussian_ti_cs_ps_reml",
+        "factor_smooth_sz",
+        "transformed_tp",
+        "transformed_ts",
+    }
+)
 
 
 def gam_setup_uses_invariant_transform(case_id: str) -> bool:
-    """Return whether ``gam.setup`` assembly should compare basis spans only."""
+    """Return whether ``gam.setup`` should compare basis-orientation invariants."""
     return case_id in _GAM_SETUP_INVARIANT_CASE_IDS
 
 
@@ -77,13 +95,18 @@ def final_fit_uses_exact_orientation_parity(model, *, skip_coef_comparison: bool
             components.update(
                 part.strip() for part in basis_name.split("(", 1)[1][:-1].split(",")
             )
-        if components & {"tp", "ts", "fs"}:
+        if components & {"tp", "ts", "fs", "sz"}:
             return False
     return True
 
 
+def lpmatrix_uses_invariant_comparison(case_id: str) -> bool:
+    """Return whether an lpmatrix is identified only up to basis orientation."""
+    return case_id in _LPMATRIX_INVARIANT_CASE_IDS
+
+
 def preoptimization_blocks_align_basis_columns(case_id: str) -> bool:
-    """Return whether preoptimization block bases should be aligned up to span."""
+    """Return whether preoptimization blocks have non-unique basis orientation."""
     return case_id in _PREOPT_BLOCKS_ALIGN_BASIS_CASE_IDS
 
 
@@ -116,6 +139,26 @@ def stable_column_space_projector(matrix):
     Uq = np.asarray(U[:, :rank], dtype=np.float64)
     proj = Uq @ Uq.T
     return np.asarray(0.5 * (proj + proj.T), dtype=np.float64)
+
+
+def penalized_response_operator(design, penalties, *, offsets=None) -> np.ndarray:
+    """Return the unit-weight penalized fit operator in observation space."""
+    X = np.asarray(design, dtype=np.float64)
+    penalty_list = [np.asarray(S, dtype=np.float64) for S in penalties]
+    precision = X.T @ X
+    if offsets is None:
+        for penalty in penalty_list:
+            if penalty.shape != precision.shape:
+                raise ValueError("Full penalties must match the design width.")
+            precision = precision + penalty
+    else:
+        offset_values = np.asarray(offsets, dtype=np.int64).reshape(-1)
+        for penalty, offset in zip(penalty_list, offset_values, strict=True):
+            start = int(offset) - 1
+            stop = start + penalty.shape[0]
+            precision[start:stop, start:stop] += penalty
+    precision = 0.5 * (precision + precision.T)
+    return np.asarray(X @ np.linalg.pinv(precision, hermitian=True) @ X.T)
 
 
 def _copy_raw_value(value):
@@ -258,6 +301,8 @@ __all__ = [
     "final_fit_uses_exact_orientation_parity",
     "gam_setup_uses_invariant_transform",
     "gam_side_uses_invariant_transform",
+    "lpmatrix_uses_invariant_comparison",
+    "penalized_response_operator",
     "preoptimization_blocks_align_basis_columns",
     "preoptimization_blocks_compare_range_root_representation",
     "stable_column_space_projector",

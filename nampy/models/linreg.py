@@ -1,13 +1,13 @@
 from ..neural.configs.linreg_config import DefaultLinRegConfig
 from ..neural.modules.linreg import LinReg
-from .sklearn_classifier import SklearnBaseClassifier
-from .sklearn_lss import SklearnBaseLSS
-from .sklearn_regressor import SklearnBaseRegressor
+from .classifier import NeuralClassifier
+from .lss import NeuralLSS
+from .regressor import NeuralRegressor
 
 
-class LinRegRegressor(SklearnBaseRegressor):
+class LinRegRegressor(NeuralRegressor):
     """
-    Multi-Layer Perceptron regressor. This class extends the SklearnBaseRegressor class and uses the LinReg model
+    Multi-Layer Perceptron regressor. This class extends the NeuralRegressor class and uses the LinReg model
     with the default LinReg configuration.
 
     The accepted arguments to the LinRegRegressor class include both the attributes in the DefaultLinRegConfig dataclass
@@ -51,11 +51,11 @@ class LinRegRegressor(SklearnBaseRegressor):
     Notes
     -----
     - The accepted arguments to the LinRegRegressor class are the same as the attributes in the DefaultLinRegConfig dataclass.
-    - LinRegRegressor uses SklearnBaseRegressor as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - LinRegRegressor uses NeuralRegressor as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    nampy.models.SklearnBaseRegressor : The parent class for LinRegRegressor.
+    nampy.models.NeuralRegressor : The parent class for LinRegRegressor.
 
     Examples
     --------
@@ -70,9 +70,9 @@ class LinRegRegressor(SklearnBaseRegressor):
         super().__init__(model=LinReg, config=DefaultLinRegConfig, **kwargs)
 
 
-class LinRegClassifier(SklearnBaseClassifier):
+class LinRegClassifier(NeuralClassifier):
     """
-    Multi-Layer Perceptron classifier. This class extends the SklearnBaseClassifier class and uses the LinReg model
+    Multi-Layer Perceptron classifier. This class extends the NeuralClassifier class and uses the LinReg model
     with the default LinReg configuration.
 
     The accepted arguments to the LinRegClassifier class include both the attributes in the DefaultLinRegConfig dataclass
@@ -116,11 +116,11 @@ class LinRegClassifier(SklearnBaseClassifier):
     Notes
     -----
     - The accepted arguments to the LinRegClassifier class are the same as the attributes in the DefaultLinRegConfig dataclass.
-    - LinRegClassifier uses SklearnBaseClassifieras the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - LinRegClassifier uses NeuralClassifieras the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    nampy.models.SklearnBaseRegressor : The parent class for LinRegClassifier.
+    nampy.models.NeuralRegressor : The parent class for LinRegClassifier.
 
     Examples
     --------
@@ -135,9 +135,9 @@ class LinRegClassifier(SklearnBaseClassifier):
         super().__init__(model=LinReg, config=DefaultLinRegConfig, **kwargs)
 
 
-class LinRegLSS(SklearnBaseLSS):
+class LinRegLSS(NeuralLSS):
     """
-    Multi-Layer Perceptron for distributional regression. This class extends the SklearnBaseLSS class and uses the LinReg model
+    Multi-Layer Perceptron for distributional regression. This class extends the NeuralLSS class and uses the LinReg model
     with the default LinReg configuration.
 
     The accepted arguments to the LinRegLSS class include both the attributes in the DefaultLinRegConfig dataclass
@@ -186,11 +186,11 @@ class LinRegLSS(SklearnBaseLSS):
     Notes
     -----
     - The accepted arguments to the LinRegLSS class are the same as the attributes in the DefaultLinRegConfig dataclass.
-    - LinRegLSS uses SklearnBaseLSS as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - LinRegLSS uses NeuralLSS as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    nampy.models.SklearnBaseLSS : The parent class for LinRegLSS.
+    nampy.models.NeuralLSS : The parent class for LinRegLSS.
 
     Examples
     --------

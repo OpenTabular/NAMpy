@@ -70,6 +70,42 @@ def pivoted_cholesky(
     return np.asarray(factor, dtype=np.float64), piv, int(rank)
 
 
+def mgcv_mroot_chol(
+    matrix: np.ndarray,
+    *,
+    rank: int | None = None,
+) -> np.ndarray:
+    """Port ``mgcv::mroot(..., method="chol")`` as ``B`` with ``B B' = A``.
+
+    The particular root is not identified and must not be compared directly.
+    This representation is nevertheless needed internally where upstream feeds
+    the root into a subsequent QR factorization, as in ``mgcv::recov``.
+    """
+
+    source = np.asarray(matrix, dtype=np.float64)
+    if source.ndim != 2 or source.shape[0] != source.shape[1]:
+        raise ValueError("mroot requires a square matrix.")
+    n = int(source.shape[0])
+    if n == 0:
+        return np.empty((0, 0), dtype=np.float64)
+
+    factor, pivot, rank_found = pivoted_cholesky(
+        0.5 * (source + source.T), tol=0.0
+    )
+    if rank_found < n:
+        factor[rank_found:, rank_found:] = 0.0
+
+    factor = factor[:, np.argsort(np.asarray(pivot, dtype=np.int64))]
+    rank_use = (
+        int(rank_found)
+        if rank is None or int(rank) < 1
+        else min(int(rank), n)
+    )
+    if rank_use == 0:
+        return np.empty((n, 0), dtype=np.float64)
+    return np.asarray(factor[:rank_use, :].T, dtype=np.float64)
+
+
 def safe_pivoted_cholesky(
     matrix: np.ndarray,
     jitter: np.ndarray,
@@ -153,10 +189,16 @@ def compute_preconditioned_inverse(
     """Return ``D * (R^{-1} R^{-T}) * D`` for upper-Cholesky ``R`` and diagonal ``D``."""
     eye = np.eye(size, dtype=np.float64)
     sol = chol_solve_pivoted(chol_upper, eye, piv=piv, ipiv=ipiv)
-    return diagonal_preconditioner[:, None] * sol * diagonal_preconditioner[None, :]
+    return np.asarray(
+        diagonal_preconditioner[:, None]
+        * sol
+        * diagonal_preconditioner[None, :],
+        dtype=np.float64,
+    )
 
 
 __all__ = [
+    "mgcv_mroot_chol",
     "pivoted_cholesky",
     "safe_pivoted_cholesky",
     "chol_solve_pivoted",

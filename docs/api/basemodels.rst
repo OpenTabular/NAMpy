@@ -16,7 +16,7 @@ Base Classes
    :nosignatures:
 
    BaseModel
-   ~nampy.neural.training.TaskModel
+   ~nampy.neural.training.TaskModule
 
 Model Implementations
 ---------------------
@@ -31,7 +31,7 @@ Model Implementations
    NATT
    NAMformer
    LinReg
-   QNAMBase
+   QNAM
    SNAM
    TreeNAM
    EnsembleTreeNAM

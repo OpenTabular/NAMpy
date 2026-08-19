@@ -6,10 +6,10 @@ stage is exact mgcv parity, but any composed or jointly trained result has no
 mgcv counterpart and must never enter the parity suites.
 """
 
-from .additive_net import HybridAdditiveNet
 from .compiled_terms import CompiledGAMTerms, CompiledGAMTermsModule
-from .gam_plus_neural import GAMPlusNeural
 from .joint import HybridJointRegressor
+from .net import HybridAdditiveNet
+from .residual import GAMPlusNeural
 
 __all__ = [
     "GAMPlusNeural",

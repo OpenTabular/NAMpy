@@ -1,14 +1,14 @@
 # models/nam.py
 from ..neural.configs.nam_config import DefaultNAMConfig
 from ..neural.modules.nam import NAM
-from .sklearn_classifier import SklearnBaseClassifier
-from .sklearn_lss import SklearnBaseLSS
-from .sklearn_regressor import SklearnBaseRegressor
+from .classifier import NeuralClassifier
+from .lss import NeuralLSS
+from .regressor import NeuralRegressor
 
 
-class NAMRegressor(SklearnBaseRegressor):
+class NAMRegressor(NeuralRegressor):
     """
-    Neural Additive Model regressor. This class extends the SklearnBaseRegressor class and uses the NAM model
+    Neural Additive Model regressor. This class extends the NeuralRegressor class and uses the NAM model
     with the default NAM configuration.
 
     The accepted arguments to the NAMRegressor class include both the attributes in the DefaultNAMConfig dataclass
@@ -70,11 +70,11 @@ class NAMRegressor(SklearnBaseRegressor):
     Notes
     -----
     - The accepted arguments to the NAMRegressor class are the same as the attributes in the DefaultNAMConfig dataclass.
-    - NAMRegressor uses SklearnBaseRegressor as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - NAMRegressor uses NeuralRegressor as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    nampy.models.SklearnBaseRegressor : The parent class for NAMRegressor.
+    nampy.models.NeuralRegressor : The parent class for NAMRegressor.
 
     Examples
     --------
@@ -89,9 +89,9 @@ class NAMRegressor(SklearnBaseRegressor):
         super().__init__(model=NAM, config=DefaultNAMConfig, **kwargs)
 
 
-class NAMClassifier(SklearnBaseClassifier):
+class NAMClassifier(NeuralClassifier):
     """
-    Neural Additive Model classifier. This class extends the SklearnBaseClassifier class and uses the NAM model
+    Neural Additive Model classifier. This class extends the NeuralClassifier class and uses the NAM model
     with the default NAM configuration.
 
     The accepted arguments to the NAMClassifier class include both the attributes in the DefaultNAMConfig dataclass
@@ -153,11 +153,11 @@ class NAMClassifier(SklearnBaseClassifier):
     Notes
     -----
     - The accepted arguments to the NAMClassifier class are the same as the attributes in the DefaultNAMConfig dataclass.
-    - NAMClassifier uses SklearnBaseClassifieras the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - NAMClassifier uses NeuralClassifieras the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    nampy.models.SklearnBaseRegressor : The parent class for NAMClassifier.
+    nampy.models.NeuralRegressor : The parent class for NAMClassifier.
 
     Examples
     --------
@@ -172,9 +172,9 @@ class NAMClassifier(SklearnBaseClassifier):
         super().__init__(model=NAM, config=DefaultNAMConfig, **kwargs)
 
 
-class NAMLSS(SklearnBaseLSS):
+class NAMLSS(NeuralLSS):
     """
-    Neural Additive Model for distributional regression. This class extends the SklearnBaseLSS class and uses the NAM model
+    Neural Additive Model for distributional regression. This class extends the NeuralLSS class and uses the NAM model
     with the default NAM configuration.
 
     The accepted arguments to the NAMLSS class include both the attributes in the DefaultNAMConfig dataclass
@@ -239,11 +239,11 @@ class NAMLSS(SklearnBaseLSS):
     Notes
     -----
     - The accepted arguments to the NAMLSS class are the same as the attributes in the DefaultNAMConfig dataclass.
-    - NAMLSS uses SklearnBaseLSS as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
+    - NAMLSS uses NeuralLSS as the parent class. The methods for fitting, predicting, and evaluating the model are inherited from the parent class. Please refer to the parent class for more information.
 
     See Also
     --------
-    nampy.models.SklearnBaseLSS : The parent class for NAMLSS.
+    nampy.models.NeuralLSS : The parent class for NAMLSS.
 
     Examples
     --------

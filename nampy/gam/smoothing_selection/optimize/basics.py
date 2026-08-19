@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from ..._mgcv_constants import EIG_TOL_POWER
+from ..._mgcv_constants import EIG_TOL_POWER, LOG_GUARD_MIN
 from ..._model_state import (
     _n_smoothing_params,
     _penalty_blocks_seq,
@@ -12,6 +12,20 @@ from ...fit.capabilities import uses_closed_form_solver
 from ...linalg import pivoted_cholesky
 from ...linalg.norms import r_matrix_norm_max_abs
 from ..criteria import resolve_ml_reml_scoring_backend
+
+
+def _initial_gaussian_scale_as_sp(model, y) -> float:
+    """Mirror ``mgcv::get.null.coef`` / ``scale.as.sp`` initialization."""
+    yv = np.asarray(y, dtype=np.float64).ravel()
+    mu_null = np.repeat(float(np.mean(yv)), int(model.n_samples_))
+    null_scale = float(
+        model.family.deviance(
+            yv,
+            mu_null,
+            weights=getattr(model, "prior_weights_", None),
+        )
+    ) / float(model.n_samples_)
+    return float(max(null_scale / 10.0, LOG_GUARD_MIN))
 
 
 def supports_criterion_gradient(model, method):

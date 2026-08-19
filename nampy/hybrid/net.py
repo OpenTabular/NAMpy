@@ -1,4 +1,4 @@
-"""TaskModel-compatible container combining compiled GAM terms and a net.
+"""TaskModule-compatible container combining compiled GAM terms and a net.
 
 The compiled design matrix reaches ``forward`` through the datamodule's
 passthrough channel under :data:`GAM_DESIGN_KEY` — it never touches the
@@ -20,8 +20,8 @@ class HybridAdditiveNet(nn.Module):
     """Compiled-GAM terms plus an arbitrary NAMpy architecture, additively.
 
     Constructed by :class:`~nampy.hybrid.joint.HybridJointRegressor` through
-    the TaskModel harness; ``base_model_class`` and ``gam_payload`` arrive as
-    extra TaskModel kwargs (excluded from checkpoint hyperparameters).
+    the TaskModule harness; ``base_model_class`` and ``gam_payload`` arrive as
+    extra TaskModule kwargs (excluded from checkpoint hyperparameters).
     """
 
     def __init__(

@@ -3,10 +3,9 @@ import warnings
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.linalg import eigh_tridiagonal
 from scipy.spatial import distance_matrix
 
-from ...gam.linalg import constant_null_space_shrinkage
+from ...linalg import constant_null_space_shrinkage
 from ..basis.tp import eta, tp_T
 
 
@@ -172,7 +171,7 @@ def parse_tprs_m(m, d: int):
         return default_tprs_penalty_order(d), False
 
     if np.isscalar(m):
-        m1 = int(m)
+        m1 = int(np.asarray(m).item())
         drop_null = False
     else:
         vals = [int(v) for v in np.asarray(m).ravel().tolist()]
@@ -368,12 +367,17 @@ def _top_eigensystem(E, k):
             q.append(z / b[j])
 
         if ((j >= k) and (j % f_check == 0)) or (j == n - 1):
-            d_asc, vecs_asc = eigh_tridiagonal(
-                a[: j + 1].copy(),
-                b[:j].copy(),
-                eigvals_only=False,
-                check_finite=False,
-            )
+            # mgcv/src/mat.c::mgcv_trisymeig() uses the divide-and-conquer
+            # tridiagonal solver DSTEDC. SciPy's tridiagonal convenience path
+            # selects DSTEMR instead; its different basis for clustered Ritz
+            # values changes the independent null-space penalties of an `fs`
+            # smooth and therefore changes fitted behavior. A dense symmetric
+            # solve stays in the divide-and-conquer family used by mgcv.
+            Tj = np.diag(a[: j + 1].copy())
+            if j > 0:
+                off_diag = b[:j].copy()
+                Tj += np.diag(off_diag, 1) + np.diag(off_diag, -1)
+            d_asc, vecs_asc = np.linalg.eigh(Tj)
 
             # mgcv/src/mat.c::mgcv_trisymeig returns descending order.
             d = np.asarray(d_asc[::-1], dtype=np.float64)

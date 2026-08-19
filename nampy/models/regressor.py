@@ -1,4 +1,4 @@
-# sklearn_regressor.py
+# regressor.py
 import warnings
 
 import numpy as np
@@ -7,10 +7,10 @@ from sklearn.utils import RegressorTags
 
 from ..api import AdditivePrediction, Capabilities
 from ..neural.training.engine import TrainingPlan
-from ._sklearn_base import NeuralEstimatorBase
+from ._base import NeuralEstimatorBase
 
 
-class SklearnBaseRegressor(NeuralEstimatorBase):
+class NeuralRegressor(NeuralEstimatorBase):
     _estimator_type = "regressor"
 
     def __init__(self, model, config, **kwargs):
@@ -64,9 +64,13 @@ class SklearnBaseRegressor(NeuralEstimatorBase):
                     "Training and validation targets must have the same output width."
                 )
 
+        taskmodel_kwargs = {"num_classes": n_outputs, "task": "regression"}
+        if getattr(self, "_fit_loss_fct", None) is not None:
+            taskmodel_kwargs["loss_fct"] = self._fit_loss_fct
+
         plan = TrainingPlan(
             datamodule_regression=True,
-            taskmodel_kwargs={"num_classes": n_outputs, "task": "regression"},
+            taskmodel_kwargs=taskmodel_kwargs,
         )
         return y, y_val, plan
 

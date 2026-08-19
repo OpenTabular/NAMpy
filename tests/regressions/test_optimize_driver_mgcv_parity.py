@@ -7,9 +7,9 @@ import numpy as np
 import pytest
 from scipy.optimize import OptimizeResult
 
+from nampy.gam import GAM
 from nampy.gam.fit import orchestrator as orchestrator_module
 from nampy.gam.fit import smoothing_params as fit_smoothing_params_module
-from nampy.gam.model.api import GAM
 from nampy.gam.smoothing_selection.optimize import driver as driver_module
 from nampy.gam.smoothing_selection.optimize import objectives as objectives_module
 from nampy.gam.smoothing_selection.optimize.objectives import (

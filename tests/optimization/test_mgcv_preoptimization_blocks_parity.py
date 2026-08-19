@@ -8,11 +8,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nampy.gam.model.api import GAM
+from nampy.gam import GAM
 from nampy.gam.smoothing_selection.reparam import build_estimate_gam_setup_state
 from tests._paths import PARITY_DIR, REPO_ROOT
 from tests.mgcv_invariant_policy import (
     gam_setup_compares_dominant_penalty_spectrum,
+    penalized_response_operator,
     penalty_spectrum,
     preoptimization_blocks_align_basis_columns,
     preoptimization_blocks_compare_range_root_representation,
@@ -648,10 +649,10 @@ def _assert_preoptimization_parity(
     assert actual_X.shape == expected_X.shape
     basis_transform = None
     if align_basis_columns:
-        _, basis_transform = _align_columns_with_transform(
+        _assert_projector_equal(
             actual_X,
             expected_X,
-            atol=1e-10,
+            atol=projector_atol,
         )
     elif compare_design_space_only:
         _assert_projector_equal(actual_X, expected_X, atol=projector_atol)
@@ -690,7 +691,14 @@ def _assert_preoptimization_parity(
             a_S = (
                 local_transform.T @ np.asarray(a_S, dtype=np.float64) @ local_transform
             )
-        if compare_dominant_penalty_spectrum:
+        if align_basis_columns:
+            np.testing.assert_allclose(
+                penalty_spectrum(a_S),
+                penalty_spectrum(e_S),
+                rtol=1e-12,
+                atol=penalty_atol,
+            )
+        elif compare_dominant_penalty_spectrum:
             _assert_dominant_penalty_spectrum_close(
                 a_S,
                 e_S,
@@ -698,6 +706,18 @@ def _assert_preoptimization_parity(
             )
         else:
             np.testing.assert_allclose(a_S, e_S, rtol=0.0, atol=penalty_atol)
+
+    if align_basis_columns:
+        np.testing.assert_allclose(
+            penalized_response_operator(actual_X, actual.S, offsets=actual.off),
+            penalized_response_operator(
+                expected_X,
+                expected_S,
+                offsets=expected["off"],
+            ),
+            rtol=0.0,
+            atol=projector_atol,
+        )
     np.testing.assert_array_equal(
         np.asarray(actual.rank, dtype=np.int64),
         np.asarray(expected["rank"], dtype=np.int64),
@@ -738,7 +758,20 @@ def _assert_preoptimization_parity(
     for a_rS, e_rS in zip(actual.rS, expected_rS, strict=True):
         if basis_transform is not None:
             a_rS = basis_transform.T @ np.asarray(a_rS, dtype=np.float64)
-        if compare_dominant_penalty_spectrum:
+        if align_basis_columns:
+            actual_root_penalty = np.asarray(a_rS, dtype=np.float64) @ np.asarray(
+                a_rS, dtype=np.float64
+            ).T
+            expected_root_penalty = np.asarray(e_rS, dtype=np.float64) @ np.asarray(
+                e_rS, dtype=np.float64
+            ).T
+            np.testing.assert_allclose(
+                penalty_spectrum(actual_root_penalty),
+                penalty_spectrum(expected_root_penalty),
+                rtol=1e-12,
+                atol=penalty_atol,
+            )
+        elif compare_dominant_penalty_spectrum:
             _assert_dominant_penalty_spectrum_close(
                 np.asarray(a_rS, dtype=np.float64) @ np.asarray(a_rS, dtype=np.float64).T,
                 np.asarray(e_rS, dtype=np.float64) @ np.asarray(e_rS, dtype=np.float64).T,

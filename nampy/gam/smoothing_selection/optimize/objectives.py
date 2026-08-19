@@ -1,5 +1,7 @@
 """Objective wrappers for smoothing selection (trace + Gaussian REML)."""
 
+from typing import Any
+
 import numpy as np
 
 from ...fit.backends import GENERAL_FAMILY_BACKEND
@@ -190,7 +192,7 @@ class _GaussianRemlProfiledObjective:
         self.n_fun = 0
         self.n_jac = 0
         self.n_hess = 0
-        self.accepted_trace = []
+        self.accepted_trace: list[dict[str, Any]] = []
 
     def _raw_fun(self, x):
         x = np.asarray(x, dtype=np.float64).ravel()
@@ -264,7 +266,7 @@ class _GaussianRemlJointObjective:
         self.n_fun = 0
         self.n_jac = 0
         self.n_hess = 0
-        self.accepted_trace = []
+        self.accepted_trace: list[dict[str, Any]] = []
 
     def _raw_fun(self, x):
         x = np.asarray(x, dtype=np.float64).ravel()
@@ -395,7 +397,7 @@ class _GaussianPirlsRemlJointObjective:
         self.n_fun = 0
         self.n_jac = 0
         self.n_hess = 0
-        self.accepted_trace = []
+        self.accepted_trace: list[dict[str, Any]] = []
 
     def _raw_fun(self, x):
         x = np.asarray(x, dtype=np.float64).ravel()
@@ -469,7 +471,7 @@ class _JointNegbinPirlsRemlObjective:
         self.n_fun = 0
         self.n_jac = 0
         self.n_hess = 0
-        self.accepted_trace = []
+        self.accepted_trace: list[dict[str, Any]] = []
 
     def _split_x(self, x):
         x = np.asarray(x, dtype=np.float64).ravel()

@@ -3,7 +3,7 @@ import warnings
 import numpy as np
 import pytest
 
-from nampy.gam.model.api import GAM
+from nampy.gam import GAM
 from nampy.gam.parity import build_optimizer_trace
 from tests._optimization_lifecycle_registry import (
     OPTIMIZATION_LIFECYCLE_CASES,

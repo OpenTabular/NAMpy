@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.optimize import OptimizeResult
 
+from ..._mgcv_constants import LOG_GUARD_MIN
 from ..._model_state import (
     _coef_column_offset,
     _n_coef,
@@ -21,9 +22,10 @@ from ...fit.solvers.general_family.newton import (
     _sl_term_mult,
 )
 from ...linalg.cholesky import compute_preconditioned_inverse
-from ..criteria.dispatch import criterion_value
+from ..criteria.gaussian_dyn import criterion_ml_reml_gaussian_dynamic_joint
 from ..criteria.ml_reml import resolve_ml_reml_scoring_backend
 from ..reparam import _stable_penalty_logdet_derivatives
+from .basics import _initial_gaussian_scale_as_sp
 
 _EFS_LSPMAX = 15.0
 _EFS_TOL = 0.1
@@ -79,7 +81,9 @@ def _expand_smoothing_params_from_log(model, log_free_sp):
     return sp
 
 
-def _criterion_from_solution(model, y, sol, sp, log_sp_free, method):
+def _criterion_from_solution(
+    model, y, sol, sp, log_sp_free, method, *, gaussian_log_scale=None
+):
     if _is_general_family(model):
         fit = sol["fit"]
         if method in {"reml", "laml"}:
@@ -104,11 +108,16 @@ def _criterion_from_solution(model, y, sol, sp, log_sp_free, method):
             )
         )
     if backend in {"gaussian_exact", "gaussian_dynamic"}:
+        if gaussian_log_scale is None:
+            raise RuntimeError(
+                "Gaussian EFS REML scoring requires the explicit log-scale state."
+            )
         return float(
-            criterion_value(
+            criterion_ml_reml_gaussian_dynamic_joint(
                 model,
                 np.asarray(y, dtype=np.float64),
                 np.asarray(log_sp_free, dtype=np.float64),
+                float(gaussian_log_scale),
                 method=method,
             )
         )
@@ -199,7 +208,7 @@ def _general_family_trace_vs_from_run(run):
     SVb = _sl_term_mult(setup.Sl, Vb, full=False)
     term_indices = _general_family_term_active_indices(setup.Sl)
     out = np.zeros(len(SVb), dtype=np.float64)
-    for i, (SVb_i, ind) in enumerate(zip(SVb, term_indices)):
+    for i, (SVb_i, ind) in enumerate(zip(SVb, term_indices, strict=True)):
         out[i] = float(np.trace(np.asarray(SVb_i, dtype=np.float64)[:, ind]))
     return out
 
@@ -303,6 +312,20 @@ def _optimize_outer_efs_strict(
         )
 
     sp = _expand_smoothing_params_from_log(model, x)
+    scoring_backend = resolve_ml_reml_scoring_backend(model, method=method)
+    gaussian_scale_estimated = (
+        scoring_backend in {"gaussian_exact", "gaussian_dynamic"}
+        and getattr(model.family, "known_scale", None) is None
+    )
+    if scoring_backend in {"gaussian_exact", "gaussian_dynamic"}:
+        initial_scale = (
+            _initial_gaussian_scale_as_sp(model, y)
+            if gaussian_scale_estimated
+            else float(model.family.known_scale)
+        )
+        gaussian_log_scale = float(np.log(max(initial_scale, LOG_GUARD_MIN)))
+    else:
+        gaussian_log_scale = None
     prev_method = getattr(model, "_optim_method", None)
     model._optim_method = "REML" if method in {"reml", "laml"} else method.upper()
     try:
@@ -312,11 +335,23 @@ def _optimize_outer_efs_strict(
             sp,
             coef_start=getattr(model, "_pirls_coef_start_", None),
         )
-        score = _criterion_from_solution(model, y, fit, sp, x, method)
+        score = _criterion_from_solution(
+            model,
+            y,
+            fit,
+            sp,
+            x,
+            method,
+            gaussian_log_scale=gaussian_log_scale,
+        )
+        if gaussian_scale_estimated:
+            gaussian_log_scale = float(
+                np.log(max(float(fit.fit_result.scale), LOG_GUARD_MIN))
+            )
         mult = 1.0
         score_hist = []
         trace_rows = []
-        prev_x = None
+        prev_trace_state = None
         old_dev = None
         eps_stop = float(getattr(model, "irls_tol", _EFS_EPS))
         if not np.isfinite(eps_stop) or eps_stop <= 0.0:
@@ -366,6 +401,7 @@ def _optimize_outer_efs_strict(
             )
             max_step = float(np.max(np.abs(x1 - x))) if x.size else 0.0
             old_score = float(score)
+            criterion_log_scale = gaussian_log_scale
             sp1 = _expand_smoothing_params_from_log(model, x1)
             fit1, coef1 = _solve_efs_step(
                 model,
@@ -373,7 +409,15 @@ def _optimize_outer_efs_strict(
                 sp1,
                 coef_start=iter_start,
             )
-            score1 = _criterion_from_solution(model, y, fit1, sp1, x1, method)
+            score1 = _criterion_from_solution(
+                model,
+                y,
+                fit1,
+                sp1,
+                x1,
+                method,
+                gaussian_log_scale=criterion_log_scale,
+            )
 
             if score1 <= old_score:
                 if max_step < 0.05:
@@ -393,7 +437,15 @@ def _optimize_outer_efs_strict(
                         sp2,
                         coef_start=iter_start,
                     )
-                    score2 = _criterion_from_solution(model, y, fit2, sp2, x2, method)
+                    score2 = _criterion_from_solution(
+                        model,
+                        y,
+                        fit2,
+                        sp2,
+                        x2,
+                        method,
+                        gaussian_log_scale=criterion_log_scale,
+                    )
                     if score2 < score1:
                         fit = fit2
                         current_start = _copy_state_vector(coef2)
@@ -428,7 +480,15 @@ def _optimize_outer_efs_strict(
                         sp1,
                         coef_start=iter_start,
                     )
-                    score1 = _criterion_from_solution(model, y, fit1, sp1, x1, method)
+                    score1 = _criterion_from_solution(
+                        model,
+                        y,
+                        fit1,
+                        sp1,
+                        x1,
+                        method,
+                        gaussian_log_scale=criterion_log_scale,
+                    )
                 fit = fit1
                 current_start = _copy_state_vector(coef1)
                 score = float(score1)
@@ -437,16 +497,30 @@ def _optimize_outer_efs_strict(
                 if float(mult) < 1.0:
                     mult = 1.0
 
+            if gaussian_scale_estimated:
+                # `mgcv::efsudr()` carries the scale estimate from `fit1` into
+                # the next iteration.  This remains `fit1` even when the
+                # optional doubled step (`fit2`) is accepted.
+                gaussian_log_scale = float(
+                    np.log(max(float(fit1.fit_result.scale), LOG_GUARD_MIN))
+                )
+
             score_hist.append(float(score))
+            trace_state = np.asarray(x, dtype=np.float64)
+            if gaussian_log_scale is not None:
+                trace_state = np.concatenate(
+                    [trace_state, np.array([gaussian_log_scale], dtype=np.float64)]
+                )
             step_norm = (
                 0.0
-                if prev_x is None
-                else float(np.linalg.norm(np.asarray(x, dtype=np.float64) - prev_x))
+                if prev_trace_state is None
+                else float(np.linalg.norm(trace_state - prev_trace_state))
             )
             trace_rows.append(
                 {
                     "iter": int(iter_idx),
                     "log_sp": np.asarray(x, dtype=np.float64).copy(),
+                    "log_scale": gaussian_log_scale,
                     "criterion": float(score),
                     "gradient": None,
                     "hessian": None,
@@ -458,7 +532,7 @@ def _optimize_outer_efs_strict(
                     },
                 }
             )
-            prev_x = np.asarray(x, dtype=np.float64).copy()
+            prev_trace_state = trace_state.copy()
 
             dev_next = (
                 float(fit["fit"]["l"])

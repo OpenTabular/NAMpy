@@ -249,21 +249,30 @@ def render_term_plots(prepared, *, rug=None, pages=0, theta=30, phi=30,
     return figures
 
 
-def prepared_from_contributions(frame, terms, *, ylab_format="f({name})"):
+def prepared_from_contributions(
+    frame, terms, *, ylab_format="f({name})", term_features=None
+):
     """Build a prepared dict (1-d entries) from per-term contribution arrays.
 
     ``frame`` supplies the raw x values by column name; ``terms`` maps term
-    name -> (n,) or (n, 1) contribution array. Interaction names (containing
-    ':'), names absent from ``frame``, non-numeric columns, and multi-column
-    contributions are skipped.
+    name -> (n,) or (n, 1) contribution array. ``term_features`` optionally
+    maps a term name to the frame column carrying its x values — labeled
+    terms such as ``"gam:s(x0)"`` then render against that column while
+    keeping the term name as the axis label. Unmapped interaction names
+    (containing ':'), names absent from ``frame``, non-numeric columns, and
+    multi-column contributions are skipped.
     """
+    term_features = dict(term_features or {})
+    columns = getattr(frame, "columns", ())
+
     pd_list = []
     n_rows = None
     for name, values in terms.items():
-        if ":" in name or name not in getattr(frame, "columns", ()):
+        column = term_features.get(name, name)
+        if column not in columns or (":" in name and name not in term_features):
             continue
         try:
-            x_raw = np.asarray(frame[name], dtype=np.float64)
+            x_raw = np.asarray(frame[column], dtype=np.float64)
         except (TypeError, ValueError):
             continue
         contrib = np.asarray(values, dtype=np.float64).reshape(len(x_raw), -1)

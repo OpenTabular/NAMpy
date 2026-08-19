@@ -122,7 +122,7 @@ class BaseDistribution(torch.nn.Module):
         Notes
         -----
         This method assumes `y_pred` is in the same format used by `compute_loss`.
-        In your codebase, `SklearnBaseLSS.evaluate()` already computes NLL directly
+        In your codebase, `NeuralLSS.evaluate()` already computes NLL directly
         via `compute_loss` on raw predictions, so this method is mostly a utility.
         """
         y_true_tensor = torch.as_tensor(y_true, dtype=self.target_dtype)

@@ -22,7 +22,6 @@ from ..linalg.subspaces import (
     symmetric_spectrum,
 )
 from .compare import (
-    assert_parity_snapshot_close,
     compare_parity_snapshots,
 )
 from .snapshots import (
@@ -45,7 +44,6 @@ __all__ = [
     "load_parity_snapshot",
     "load_optimizer_trace",
     "compare_parity_snapshots",
-    "assert_parity_snapshot_close",
     "compare",
     "matrix_self_gram",
     "column_space_projector",

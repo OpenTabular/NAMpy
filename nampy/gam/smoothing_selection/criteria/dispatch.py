@@ -6,8 +6,6 @@ Top-level dispatch for smoothing-selection criterion value, gradient, and Hessia
     the upstream-mirrored derivative path exists.
 :func:`criterion_hessian` — exact Hessian when the upstream-mirrored derivative
     path exists.
-:func:`criterion_infinite_sp_signal` — gradient and curvature signal used by the
-    outer optimiser to detect and roll back infinite-smoothing-parameter solutions.
 """
 
 import numpy as np
@@ -340,21 +338,3 @@ def criterion_hessian(
         eps_rel=eps_rel,
     )
 
-
-def criterion_infinite_sp_signal(model, y, log_sp, method="reml"):
-    method = _normalize_criterion_method(model, method)
-    x = np.asarray(log_sp, dtype=np.float64).ravel()
-    n = x.size
-    if n == 0:
-        return (
-            np.empty((0,), dtype=np.float64),
-            np.empty((0,), dtype=np.float64),
-        )
-
-    grad = np.asarray(criterion_gradient(model, y, x, method=method), dtype=np.float64)
-    hess = np.asarray(criterion_hessian(model, y, x, method=method), dtype=np.float64)
-    if hess.ndim != 2 or hess.shape[0] != hess.shape[1] or hess.shape[0] != n:
-        dvkk = np.full(n, np.nan, dtype=np.float64)
-    else:
-        dvkk = np.diag(hess).astype(np.float64, copy=True)
-    return grad, dvkk

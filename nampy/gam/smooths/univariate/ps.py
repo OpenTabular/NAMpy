@@ -10,12 +10,12 @@ is controlled entirely by the penalty order and the smoothing parameter.
 
 import numpy as np
 
-from ....splines.univariate.ps import (
+from ...constraints.absorption import fit_single_penalty_with_setup_basis
+from ...penalties.algebra import penalty_rescale_factor, scale_penalty
+from ...splines.univariate.ps import (
     build_pspline_term_setup,
     predict_pspline_term,
 )
-from ...constraints.absorption import fit_single_penalty_with_setup_basis
-from ...penalties.algebra import penalty_rescale_factor, scale_penalty
 from ..registry import register_smooth
 from ..smooth_base import (
     BaseSmoothTerm,
