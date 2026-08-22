@@ -1,8 +1,8 @@
 """
 Smoothing-parameter selection criteria (REML/GCV/PIRLS).
 
-Submodules: ``laplace``, ``gaussian``, ``gaussian_dyn``, ``gaussian_reml_algebra``,
-``pirls``, ``ml_reml``, and ``dispatch``.
+Submodules: ``gaussian``, ``gaussian_dyn``, ``gaussian_reml_algebra``, ``pirls``,
+``ml_reml``, and ``dispatch``.
 """
 
 from .dispatch import (
@@ -39,21 +39,32 @@ from .gaussian_reml_algebra import (
 from .ml_reml import criterion_ml_reml, resolve_ml_reml_scoring_backend
 from .pirls import (
     criterion_gcv_pirls,
-    criterion_ml_reml_pirls,
-    criterion_ml_reml_pirls_gamma_joint,
-    criterion_ml_reml_pirls_gaussian_joint,
-    criterion_ml_reml_pirls_negbin_joint,
-    criterion_ubre_pirls,
-)
-from .pirls.derivatives import (
+    criterion_gradient_ml_reml_pirls_betar_joint,
     criterion_gradient_ml_reml_pirls_exact,
     criterion_gradient_ml_reml_pirls_gamma_joint,
     criterion_gradient_ml_reml_pirls_gaussian_joint,
     criterion_gradient_ml_reml_pirls_negbin_joint,
+    criterion_gradient_ml_reml_pirls_ocat_joint,
+    criterion_gradient_ml_reml_pirls_tweedie_joint,
+    criterion_hessian_ml_reml_pirls_betar_joint,
     criterion_hessian_ml_reml_pirls_exact,
     criterion_hessian_ml_reml_pirls_gamma_joint,
     criterion_hessian_ml_reml_pirls_gaussian_joint,
     criterion_hessian_ml_reml_pirls_negbin_joint,
+    criterion_hessian_ml_reml_pirls_ocat_joint,
+    criterion_hessian_ml_reml_pirls_tweedie_joint,
+    criterion_ml_reml_pirls,
+    criterion_ml_reml_pirls_betar,
+    criterion_ml_reml_pirls_betar_joint,
+    criterion_ml_reml_pirls_frozen_betar,
+    criterion_ml_reml_pirls_frozen_ocat,
+    criterion_ml_reml_pirls_gamma_joint,
+    criterion_ml_reml_pirls_gaussian_joint,
+    criterion_ml_reml_pirls_negbin_joint,
+    criterion_ml_reml_pirls_ocat,
+    criterion_ml_reml_pirls_ocat_joint,
+    criterion_ml_reml_pirls_tweedie_joint,
+    criterion_ubre_pirls,
 )
 
 __all__ = [
@@ -64,6 +75,9 @@ __all__ = [
     "criterion_gradient_ml_reml_pirls_gaussian_joint",
     "criterion_gradient_ml_reml_pirls_gamma_joint",
     "criterion_gradient_ml_reml_pirls_negbin_joint",
+    "criterion_gradient_ml_reml_pirls_ocat_joint",
+    "criterion_gradient_ml_reml_pirls_betar_joint",
+    "criterion_gradient_ml_reml_pirls_tweedie_joint",
     "criterion_gradient_ml_reml_pirls_exact",
     "criterion_gradient_numerical",
     "criterion_hessian",
@@ -71,6 +85,9 @@ __all__ = [
     "criterion_hessian_ml_reml_pirls_gaussian_joint",
     "criterion_hessian_ml_reml_pirls_gamma_joint",
     "criterion_hessian_ml_reml_pirls_negbin_joint",
+    "criterion_hessian_ml_reml_pirls_ocat_joint",
+    "criterion_hessian_ml_reml_pirls_betar_joint",
+    "criterion_hessian_ml_reml_pirls_tweedie_joint",
     "criterion_hessian_ml_reml_pirls_exact",
     "criterion_hessian_numerical",
     "criterion_ml_reml",
@@ -81,6 +98,13 @@ __all__ = [
     "criterion_ml_reml_pirls_gaussian_joint",
     "criterion_ml_reml_pirls_gamma_joint",
     "criterion_ml_reml_pirls_negbin_joint",
+    "criterion_ml_reml_pirls_frozen_ocat",
+    "criterion_ml_reml_pirls_ocat",
+    "criterion_ml_reml_pirls_ocat_joint",
+    "criterion_ml_reml_pirls_betar",
+    "criterion_ml_reml_pirls_betar_joint",
+    "criterion_ml_reml_pirls_frozen_betar",
+    "criterion_ml_reml_pirls_tweedie_joint",
     "criterion_ml_reml_pirls",
     "criterion_ubre_pirls",
     "criterion_value",

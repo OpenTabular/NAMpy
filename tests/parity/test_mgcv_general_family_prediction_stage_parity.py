@@ -398,3 +398,84 @@ def test_general_family_iterms_downgrades_to_terms_with_mgcv_warning():
         atol=_PREDICTION_ATOL,
         rtol=_PREDICTION_ATOL,
     )
+
+
+def test_repeated_term_labels_keep_predictor_identity_and_match_mgcv_terms():
+    """Equal labels in separate predictors must remain separate coefficient blocks."""
+    data = _gaulss_data(seed=29, n=110)
+    formula = [
+        'y ~ s(x, bs="cr", k=6, sp=0.8)',
+        '~ s(x, bs="cr", k=6, sp=0.8)',
+    ]
+    gam = _fit_nampy_model(data, formula, "gaulss", "fixed")
+    compiled = gam.gam_result_.compiled_model
+    terms = tuple(compiled.compiled_terms)
+
+    assert [term.predictor_index for term in terms] == [0, 1]
+    assert terms[0].predictor_name != terms[1].predictor_name
+    assert terms[0].label == terms[1].label
+    assert set(terms[0].full_coef_indices).isdisjoint(terms[1].full_coef_indices)
+    for term in terms:
+        mapped = compiled.coef_reduced_to_full_idx[
+            term.coef_slice.start : term.coef_slice.stop
+        ]
+        np.testing.assert_array_equal(term.full_coef_indices, mapped)
+
+    newdata = _general_newdata(data)
+    actual, actual_se = gam.predict(newdata, type="terms", return_se=True)
+    expected = _run_mgcv_predict_on_newdata(
+        data,
+        newdata,
+        formula,
+        family="gaulss",
+        method="fixed",
+        type="terms",
+        return_se=True,
+        allow_live_run=True,
+    )
+    np.testing.assert_allclose(actual, expected["pred"], atol=5e-6, rtol=5e-6)
+    np.testing.assert_allclose(actual_se, expected["se"], atol=5e-6, rtol=5e-6)
+
+    decomposition = gam.predict_terms(newdata)
+    assert set(decomposition["intercept"]) == {"eta1", "eta2"}
+    term_keys = [key for key in decomposition if key.startswith("eta") and ":" in key]
+    assert len(term_keys) == 2
+    np.testing.assert_allclose(decomposition[term_keys[0]], actual[:, 0])
+    np.testing.assert_allclose(decomposition[term_keys[1]], actual[:, 1])
+    np.testing.assert_allclose(decomposition["output"], gam.predict(newdata, type="link"))
+    np.testing.assert_allclose(
+        decomposition["response"], gam.predict(newdata, type="response")
+    )
+
+
+def test_later_predictor_term_with_no_intercept_matches_mgcv_terms():
+    data = _gaulss_data(seed=30, n=110)
+    formula = [
+        'y ~ s(x, bs="cr", k=6, sp=0.8)',
+        '~ 0 + s(x, bs="cr", k=6, sp=0.8)',
+    ]
+    gam = _fit_nampy_model(data, formula, "gaulss", "fixed")
+    compiled = gam.gam_result_.compiled_model
+    assert [predictor.has_intercept for predictor in compiled.predictors] == [
+        True,
+        False,
+    ]
+    second_term = compiled.compiled_terms[1]
+    second_slice = compiled.predictor_full_slices[1]
+    assert np.all(second_term.full_coef_indices >= second_slice.start)
+    assert np.all(second_term.full_coef_indices < second_slice.stop)
+
+    newdata = _general_newdata(data)
+    actual, actual_se = gam.predict(newdata, type="terms", return_se=True)
+    expected = _run_mgcv_predict_on_newdata(
+        data,
+        newdata,
+        formula,
+        family="gaulss",
+        method="fixed",
+        type="terms",
+        return_se=True,
+        allow_live_run=True,
+    )
+    np.testing.assert_allclose(actual, expected["pred"], atol=5e-6, rtol=5e-6)
+    np.testing.assert_allclose(actual_se, expected["se"], atol=5e-6, rtol=5e-6)

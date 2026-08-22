@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 import torch.nn as nn
 
@@ -31,7 +31,7 @@ class DefaultQNAMConfig:
 
     norm : str or None
         Optional normalization layer name.
-        Valid values depend on `mlp_utils._make_norm`, e.g.
+        Valid values depend on `components.mlp.make_norm`, e.g.
         "BatchNorm", "LayerNorm", "RMSNorm", "LearnableLayerScaling".
 
     use_glu : bool
@@ -83,6 +83,7 @@ class DefaultQNAMConfig:
     intercept: bool = True
     feature_dropout: float = 0.0
     interaction_degree: Optional[int] = None
+    interactions: Optional[Sequence[tuple[str, ...]]] = None
 
     monotone_transform: str = "softplus"
     min_increment: float = 0.00

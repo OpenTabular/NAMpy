@@ -363,7 +363,28 @@ def _expand_extracted_predictors_dot_shorthand(
     ]
 
 
+def is_numeric_array_valued_series(s: pd.Series) -> bool:
+    """Whether an object column contains finite, equal-width numeric arrays."""
+    if not pd.api.types.is_object_dtype(s.dtype) or len(s) == 0:
+        return False
+    widths = set()
+    for value in s:
+        array = np.asarray(value)
+        if array.ndim == 0:
+            return False
+        try:
+            numeric = np.asarray(value, dtype=np.float64).reshape(-1)
+        except (TypeError, ValueError):
+            return False
+        if numeric.size == 0 or not np.all(np.isfinite(numeric)):
+            return False
+        widths.add(int(numeric.size))
+    return len(widths) == 1
+
+
 def is_factor_like_series(s: pd.Series) -> bool:
+    if is_numeric_array_valued_series(s):
+        return False
     dtype = s.dtype
     return (
         isinstance(dtype, pd.CategoricalDtype)
@@ -896,6 +917,8 @@ def _dataframe_to_feature_matrix(X_df: pd.DataFrame):
                 raise ValueError(
                     f"Referenced numeric column {c!r} contains NaN or Inf."
                 )
+        elif is_numeric_array_valued_series(s):
+            continue
         else:
             if s.isna().any():
                 raise ValueError(

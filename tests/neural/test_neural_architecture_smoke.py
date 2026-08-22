@@ -5,30 +5,38 @@ from dataclasses import dataclass
 import pytest
 import torch
 
+from nampy.neural.architectures.ensemble_treenam import EnsembleTreeNAM
+from nampy.neural.architectures.gpnam import GPNAM
+from nampy.neural.architectures.igann import IGANN
+from nampy.neural.architectures.linreg import LinReg
+from nampy.neural.architectures.nam import NAM
+from nampy.neural.architectures.namformer import NAMformer
+from nampy.neural.architectures.natt import NATT
+from nampy.neural.architectures.nbm import NBM
+from nampy.neural.architectures.nbm_spam import NBMSPAM
+from nampy.neural.architectures.nodegam import NodeGAM
+from nampy.neural.architectures.qnam import QNAM
+from nampy.neural.architectures.sian import SIAN
+from nampy.neural.architectures.snam import SNAM
+from nampy.neural.architectures.spam import SPAM
+from nampy.neural.architectures.spline_nam import SplineNAM
+from nampy.neural.architectures.treenam import TreeNAM
 from nampy.neural.configs.ensemble_treenam_config import DefaultEnsembleTreeNAMConfig
 from nampy.neural.configs.gpnam_config import DefaultGPNAMConfig
+from nampy.neural.configs.igann_config import DefaultIGANNConfig
 from nampy.neural.configs.linreg_config import DefaultLinRegConfig
 from nampy.neural.configs.nam_config import DefaultNAMConfig
 from nampy.neural.configs.namformer_config import DefaultNAMformerConfig
 from nampy.neural.configs.natt_config import DefaultNATTConfig
 from nampy.neural.configs.nbm_config import DefaultNBMConfig
+from nampy.neural.configs.nbm_spam_config import DefaultNBMSPAMConfig
 from nampy.neural.configs.nodegam_config import DefaultNodeGAMConfig
 from nampy.neural.configs.qnam_config import DefaultQNAMConfig
+from nampy.neural.configs.sian_config import DefaultSIANConfig
 from nampy.neural.configs.snam_config import DefaultSNAMConfig
+from nampy.neural.configs.spam_config import DefaultSPAMConfig
 from nampy.neural.configs.spline_nam_config import DefaultSplineNAMConfig
 from nampy.neural.configs.treenam_config import DefaultTreeNAMConfig
-from nampy.neural.modules.ensemble_treenam import EnsembleTreeNAM
-from nampy.neural.modules.gpnam import GPNAM
-from nampy.neural.modules.linreg import LinReg
-from nampy.neural.modules.nam import NAM
-from nampy.neural.modules.namformer import NAMformer
-from nampy.neural.modules.natt import NATT
-from nampy.neural.modules.nbm import NBM
-from nampy.neural.modules.nodegam import NodeGAM
-from nampy.neural.modules.qnam import QNAM
-from nampy.neural.modules.snam import SNAM
-from nampy.neural.modules.spline_nam import SplineNAM
-from nampy.neural.modules.treenam import TreeNAM
 
 
 @dataclass(frozen=True)
@@ -39,6 +47,7 @@ class _ArchitectureCase:
     output_dim: int = 2
     expects_penalty: bool = False
     monotone_output: bool = False
+    expects_gradients: bool = True
     expected_keys: tuple[str, ...] = ()
 
 
@@ -48,6 +57,16 @@ ARCHITECTURE_CASES = (
         "nam",
         NAM,
         DefaultNAMConfig(layer_sizes=[8], dropout=0.0),
+    ),
+    _ArchitectureCase(
+        "sian",
+        SIAN,
+        DefaultSIANConfig(
+            layer_sizes=[8],
+            interactions=(),
+            l1_regularization=0.1,
+        ),
+        expects_penalty=True,
     ),
     _ArchitectureCase(
         "snam",
@@ -62,7 +81,13 @@ ARCHITECTURE_CASES = (
     _ArchitectureCase(
         "gpnam",
         GPNAM,
-        DefaultGPNAMConfig(rff_num_feat=8),
+        DefaultGPNAMConfig(rff_num_feat=8, kernel_width=0.2),
+    ),
+    _ArchitectureCase(
+        "igann",
+        IGANN,
+        DefaultIGANNConfig(n_hid=4, n_estimators=2),
+        expects_gradients=False,
     ),
     _ArchitectureCase(
         "nbm",
@@ -72,6 +97,28 @@ ARCHITECTURE_CASES = (
             dropout=0.0,
             bases_dropout=0.0,
             num_bases=4,
+            output_penalty=0.1,
+        ),
+        expects_penalty=True,
+    ),
+    _ArchitectureCase(
+        "spam",
+        SPAM,
+        DefaultSPAMConfig(
+            ranks=[4],
+            regularization_scale=0.1,
+            basis_l1_regularization=0.1,
+        ),
+        expects_penalty=True,
+    ),
+    _ArchitectureCase(
+        "nbm_spam",
+        NBMSPAM,
+        DefaultNBMSPAMConfig(
+            layer_sizes=[8],
+            num_bases=4,
+            ranks=[4],
+            batch_norm=False,
             output_penalty=0.1,
         ),
         expects_penalty=True,
@@ -130,7 +177,6 @@ ARCHITECTURE_CASES = (
             l2_lambda=0.1,
             anneal_steps=10,
             interaction_degree=1,
-            quantile_n_quantiles=16,
         ),
         expects_penalty=True,
     ),
@@ -248,7 +294,6 @@ ARCHITECTURE_CASES = (
             l2_lambda=0.1,
             anneal_steps=10,
             interaction_degree=2,
-            quantile_n_quantiles=16,
         ),
         expects_penalty=True,
     ),
@@ -318,15 +363,18 @@ def test_neural_architecture_forward_backward_contract(case):
     objective = result["output"].square().mean()
     for name in penalty_names:
         objective = objective + result[name]
-    objective.backward()
+    if case.expects_gradients:
+        objective.backward()
 
-    gradients = [
-        parameter.grad
-        for parameter in model.parameters()
-        if parameter.requires_grad and parameter.grad is not None
-    ]
-    assert gradients
-    assert all(torch.isfinite(gradient).all() for gradient in gradients)
+        gradients = [
+            parameter.grad
+            for parameter in model.parameters()
+            if parameter.requires_grad and parameter.grad is not None
+        ]
+        assert gradients
+        assert all(torch.isfinite(gradient).all() for gradient in gradients)
+    else:
+        assert not objective.requires_grad
 
     if case.monotone_output:
         assert torch.all(torch.diff(result["output"], dim=1) >= 0.0)

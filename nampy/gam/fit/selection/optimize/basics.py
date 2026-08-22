@@ -6,12 +6,18 @@ from ...._mgcv_constants import EIG_TOL_POWER, LOG_GUARD_MIN
 from ....linalg import pivoted_cholesky
 from ....linalg.norms import r_matrix_norm_max_abs
 from ....model_state import (
+    _coefficient_slice_full_indices,
+    _fit_intercept,
+    _n_coef,
     _n_smoothing_params,
     _penalty_blocks_seq,
 )
 from ...backends import GENERAL_FAMILY_BACKEND
 from ...capabilities import uses_closed_form_solver
+from ...penalized_system import build_full_penalty_from_blocks
+from ...solvers.shape_constrained import solve_transformed_coefficient_fit
 from ..criteria import resolve_ml_reml_scoring_backend
+from ..criteria.shape import is_transformed_coefficient_model
 
 
 def _initial_gaussian_scale_as_sp(model, y) -> float:
@@ -31,6 +37,8 @@ def _initial_gaussian_scale_as_sp(model, y) -> float:
 def supports_criterion_gradient(model, method):
     method = str(method).lower()
     if method in {"gcv", "ubre", "aic", "ubreaic"}:
+        if is_transformed_coefficient_model(model):
+            return True
         return bool(
             uses_closed_form_solver(model)
             or getattr(model.family, "supports_exact_pirls_first_derivatives", False)
@@ -48,7 +56,7 @@ def supports_criterion_gradient(model, method):
         and (
             getattr(model.family, "known_scale", None) is not None
             or str(getattr(model.family, "name", "")).lower()
-            in {"gamma", "gaussian"}
+            in {"gamma", "gaussian", "tw"}
         )
         and bool(getattr(model.family, "supports_exact_pirls_first_derivatives", False))
     ):
@@ -59,6 +67,8 @@ def supports_criterion_gradient(model, method):
 def supports_criterion_hessian(model, method):
     method = str(method).lower()
     if method in {"gcv", "ubre", "aic", "ubreaic"}:
+        if is_transformed_coefficient_model(model):
+            return False
         return bool(
             uses_closed_form_solver(model)
             or getattr(model.family, "supports_exact_pirls_second_derivatives", False)
@@ -76,7 +86,7 @@ def supports_criterion_hessian(model, method):
         and (
             getattr(model.family, "known_scale", None) is not None
             or str(getattr(model.family, "name", "")).lower()
-            in {"gamma", "gaussian"}
+            in {"gamma", "gaussian", "tw"}
         )
         and bool(
             getattr(model.family, "supports_exact_pirls_second_derivatives", False)
@@ -192,6 +202,49 @@ def _initial_smoothing_params_from_design(model, y):
     n_sp = _n_smoothing_params(model)
     if not penalty_blocks or n_sp == 0:
         return None
+
+    if is_transformed_coefficient_model(model):
+        # scam/R/scam.r::initial.sp.scam: fit once at sp=.05 using the
+        # deliberately loose inner tolerance, remove that trial penalty from
+        # the observed Hessian, then Frobenius-balance each penalty block.
+        trial_sp = np.full(n_sp, 0.05, dtype=np.float64)
+        trial = solve_transformed_coefficient_fit(
+            model,
+            y,
+            trial_sp,
+            weights=getattr(model, "prior_weights_", None),
+            initial_coefficients=None,
+            tolerance=1e-4,
+        )
+        full_trial_penalty = build_full_penalty_from_blocks(
+            penalty_blocks,
+            trial_sp,
+            _fit_intercept(model),
+            _n_coef(model),
+        )
+        data_hessian = np.asarray(trial["A"], dtype=np.float64) - full_trial_penalty
+        initial = np.zeros(n_sp, dtype=np.float64)
+        seen = np.zeros(n_sp, dtype=bool)
+        for block in penalty_blocks:
+            index = int(block.smoothing_index)
+            if seen[index]:
+                raise NotImplementedError(
+                    "Transformed-coefficient initial smoothing currently requires "
+                    "one penalty block "
+                    "per smoothing parameter."
+                )
+            full_indices = _coefficient_slice_full_indices(model, block.coef_slice)
+            H_block = data_hessian[np.ix_(full_indices, full_indices)]
+            S_block = np.asarray(block.matrix, dtype=np.float64)
+            denominator = float(np.sum(S_block * S_block))
+            if denominator <= 0.0 or not np.isfinite(denominator):
+                return None
+            initial[index] = np.sqrt(float(np.sum(H_block * H_block)) / denominator)
+            seen[index] = True
+        if not np.all(seen) or np.any(~np.isfinite(initial)):
+            return None
+        # scam() starts bfgs_gcv.ubre at log(def.sp + 1e-4).
+        return initial + 1e-4
 
     family_class = str(
         getattr(getattr(model, "family", None), "family_class", "")

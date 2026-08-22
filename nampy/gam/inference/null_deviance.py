@@ -102,6 +102,18 @@ def compute_null_deviance(model) -> float:
         fitted = np.asarray(_fitted_mu(model), dtype=np.float64)
         return float(hook(y, fitted, w))
 
+    hook = getattr(family, "null_deviance", None)
+    if callable(hook):
+        return float(
+            hook(
+                y,
+                np.asarray(_fitted_mu(model), dtype=np.float64),
+                weights=w,
+                offset=offset,
+                intercept=bool(model.fit_intercept),
+            )
+        )
+
     if family_class == "extended":
         # mgcv/R/efam.r:283-289 (nb postproc): find.null.dev on the fitted
         # linear predictor.

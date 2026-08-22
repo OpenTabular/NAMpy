@@ -46,6 +46,7 @@ dependencies = [
     "numpy<=1.26.4",
     "pandas",
     "scikit-learn",
+    "joblib",
 ]
 
 [project.optional-dependencies]
@@ -60,7 +61,10 @@ neural = [
     "torch",
     "torchmetrics",
     "properscoring",
-    "pretab",
+    "pretab>=1.0.0rc2",
+]
+igann-sparse = [
+    "abess>=0.4.5",
 ]
 all = [
     "scipy>=1.16",
@@ -69,7 +73,8 @@ all = [
     "torch",
     "torchmetrics",
     "properscoring",
-    "pretab",
+    "pretab>=1.0.0rc2",
+    "abess>=0.4.5",
 ]
 dev = [
     "pytest>=7.0",
@@ -104,7 +109,7 @@ version = {attr = "nampy.__version__.__version__"}
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["nampy*"]
-exclude = ["tests*", "debug*", "docs*", "mgcv*"]
+exclude = ["tests*", "debug*", "docs*", "mgcv*", "upstreams*"]
 
 [tool.black]
 line-length = 88

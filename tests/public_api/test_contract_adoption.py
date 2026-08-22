@@ -53,7 +53,7 @@ def test_additive_prediction_backend_literals():
 
 def test_neural_estimators_record_feature_schema(tmp_path):
     X, y = _regression_data()
-    estimator = LinRegRegressor(numerical_preprocessing="standardization")
+    estimator = LinRegRegressor(numerical_method="standardization")
     _fit(estimator, X, y, tmp_path)
 
     assert isinstance(estimator.schema_, FeatureSchema)
@@ -62,7 +62,7 @@ def test_neural_estimators_record_feature_schema(tmp_path):
 
 def test_neural_regressor_predict_components_additivity(tmp_path):
     X, y = _regression_data()
-    estimator = LinRegRegressor(numerical_preprocessing="standardization")
+    estimator = LinRegRegressor(numerical_method="standardization")
     _fit(estimator, X, y, tmp_path)
 
     components = estimator.predict_components(X)
@@ -81,7 +81,7 @@ def test_neural_regressor_predict_components_additivity(tmp_path):
 def test_neural_binary_classifier_predict_components(tmp_path):
     X, y = _regression_data()
     labels = (y > np.median(y)).astype(int)
-    estimator = LinRegClassifier(numerical_preprocessing="standardization")
+    estimator = LinRegClassifier(numerical_method="standardization")
     _fit(estimator, X, labels, tmp_path)
 
     components = estimator.predict_components(X)
@@ -94,7 +94,7 @@ def test_neural_binary_classifier_predict_components(tmp_path):
 def test_lss_predict_components_multicolumn(tmp_path):
     X, y = _regression_data()
     estimator = LinRegLSS(
-        family="normal", numerical_preprocessing="standardization"
+        family="normal", numerical_method="standardization"
     )
     _fit(estimator, X, y, tmp_path)
 
@@ -114,9 +114,9 @@ def test_lss_predict_components_multicolumn(tmp_path):
 
 
 def test_neural_interfaces_are_explicit(tmp_path):
-    reg = LinRegRegressor(numerical_preprocessing="standardization")
-    clf = LinRegClassifier(numerical_preprocessing="standardization")
-    lss = LinRegLSS(numerical_preprocessing="standardization")
+    reg = LinRegRegressor(numerical_method="standardization")
+    clf = LinRegClassifier(numerical_method="standardization")
+    lss = LinRegLSS(numerical_method="standardization")
 
     for estimator in (reg, clf, lss):
         assert hasattr(estimator, "predict_components")
@@ -130,7 +130,7 @@ def test_regressor_predict_components_multioutput(tmp_path):
     X = pd.DataFrame({"x": rng.normal(size=50), "z": rng.normal(size=50)})
     Y = np.column_stack([2.0 * X["x"], -1.0 * X["z"]])
 
-    estimator = LinRegRegressor(numerical_preprocessing="standardization")
+    estimator = LinRegRegressor(numerical_method="standardization")
     _fit(estimator, X, Y, tmp_path)
 
     components = estimator.predict_components(X)

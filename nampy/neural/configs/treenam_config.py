@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Sequence
 
 
 @dataclass
@@ -20,4 +20,5 @@ class DefaultTreeNAMConfig:
 
     feature_dropout: float = 0.0
     interaction_degree: Optional[int] = None
+    interactions: Optional[Sequence[tuple[str, ...]]] = None
     intercept: bool = True

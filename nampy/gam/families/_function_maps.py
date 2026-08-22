@@ -410,6 +410,59 @@ class NegativeBinomialVariance(VarianceFunction):
         return np.zeros_like(mu)
 
 
+@dataclass(frozen=True)
+class TweedieVariance(VarianceFunction):
+    """`mgcv::tw()$variance`: V(mu) = mu^p with p from the family's theta."""
+
+    family: Any
+
+    def __call__(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        p = float(self.family.getTheta(True))
+        return mu**p
+
+    def d1(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        p = float(self.family.getTheta(True))
+        return p * mu ** (p - 1.0)
+
+    def d2(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        p = float(self.family.getTheta(True))
+        return p * (p - 1.0) * mu ** (p - 2.0)
+
+    def d3(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        p = float(self.family.getTheta(True))
+        return p * (p - 1.0) * (p - 2.0) * mu ** (p - 3.0)
+
+
+@dataclass(frozen=True)
+class BetaVariance(VarianceFunction):
+    """``mgcv::betar`` variance: ``mu * (1 - mu) / (1 + theta)``."""
+
+    family: Any
+
+    def __call__(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        theta = float(self.family.getTheta(trans=True))
+        return mu * (1.0 - mu) / (1.0 + theta)
+
+    def d1(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        theta = float(self.family.getTheta(trans=True))
+        return (1.0 - 2.0 * mu) / (1.0 + theta)
+
+    def d2(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        theta = float(self.family.getTheta(trans=True))
+        return -2.0 * np.ones_like(mu) / (1.0 + theta)
+
+    def d3(self, mu):
+        mu = np.asarray(mu, dtype=np.float64)
+        return np.zeros_like(mu)
+
+
 LINK_REGISTRY: dict[str, Callable[..., LinkFunction]] = {
     "identity": IdentityLink,
     "log": LogLink,

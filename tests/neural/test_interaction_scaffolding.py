@@ -6,7 +6,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from nampy.neural.modules.interactions import (
+from nampy.neural.architectures.components.interactions import (
     apply_feature_dropout,
     create_interaction_networks,
     interaction_forward,
@@ -21,6 +21,24 @@ def test_create_interaction_networks_key_grammar():
     )
     # ":"-joined keys in combinations order, degrees 2 then 3.
     assert list(networks.keys()) == ["a:b", "a:c", "b:c", "a:b:c"]
+
+
+def test_create_interaction_networks_accepts_an_explicit_sparse_set():
+    networks = create_interaction_networks(
+        ["a", "b", "c"],
+        None,
+        lambda interaction: nn.Linear(len(interaction), 1),
+        interactions=(("c", "a"),),
+    )
+    assert list(networks) == ["a:c"]
+
+    with pytest.raises(ValueError, match="either interactions"):
+        create_interaction_networks(
+            ["a", "b", "c"],
+            2,
+            lambda interaction: nn.Linear(len(interaction), 1),
+            interactions=(("a", "c"),),
+        )
 
 
 @pytest.mark.parametrize("degree", [None, 0, 1])

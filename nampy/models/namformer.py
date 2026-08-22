@@ -1,38 +1,10 @@
-from ..neural.configs.namformer_config import DefaultNAMformerConfig
-from ..neural.modules.namformer import NAMformer
-from .classifier import NeuralClassifier
-from .lss import NeuralLSS
-from .regressor import NeuralRegressor
+"""Public estimator family generated from the NAMformer declaration."""
 
+from ._registered import estimator_family
 
-class NAMformerRegressor(NeuralRegressor):
-    """NAMformer (transformer-augmented neural additive model) regressor.
+_family = estimator_family("namformer", module_name=__name__)
+NAMformerRegressor = _family.regressor
+NAMformerClassifier = _family.classifier
+NAMformerLSS = _family.lss
 
-    Hyperparameters: see :class:`nampy.neural.configs.DefaultNAMformerConfig` plus
-    shared preprocessing options in :class:`NeuralEstimatorBase`.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(model=NAMformer, config=DefaultNAMformerConfig, **kwargs)
-
-
-class NAMformerClassifier(NeuralClassifier):
-    """NAMformer (transformer-augmented neural additive model) classifier.
-
-    Hyperparameters: see :class:`nampy.neural.configs.DefaultNAMformerConfig` plus
-    shared preprocessing options in :class:`NeuralEstimatorBase`.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(model=NAMformer, config=DefaultNAMformerConfig, **kwargs)
-
-
-class NAMformerLSS(NeuralLSS):
-    """NAMformer (transformer-augmented neural additive model) for distributional regression.
-
-    Hyperparameters: see :class:`nampy.neural.configs.DefaultNAMformerConfig` plus
-    shared preprocessing options in :class:`NeuralEstimatorBase`.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(model=NAMformer, config=DefaultNAMformerConfig, **kwargs)
+__all__ = ["NAMformerRegressor", "NAMformerClassifier", "NAMformerLSS"]

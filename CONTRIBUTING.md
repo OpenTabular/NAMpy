@@ -75,7 +75,7 @@ small script under `debug/`.
 - Call out remaining uncertainty or deliberately unsupported surfaces.
 
 Use NumPy-style docstrings for public Python APIs. Public neural models belong in
-`nampy/models/`, their PyTorch implementations in `nampy/neural/modules/`, and their
+`nampy/models/`, their PyTorch implementations in `nampy/neural/architectures/` (shared building blocks in `nampy/neural/architectures/components/`), and their
 configuration dataclasses in `nampy/neural/configs/`.
 
 Please use the issue tracker for bug reports and include a minimal reproducer,

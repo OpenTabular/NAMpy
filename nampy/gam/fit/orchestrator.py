@@ -18,6 +18,7 @@ import numpy as np
 from .._mgcv_constants import LOG_GUARD_MIN
 from ..data import coerce_feature_matrix
 from ..model_state import _fit_workspace, _n_smoothing_params
+from ..specs.modeling import make_predictor_specs
 from .backends import solve_fit
 from .capabilities import (
     coerce_general_family_smoothing_method,
@@ -93,6 +94,17 @@ def fit_model_core(
         if float(np.sum(sw)) <= 0.0:
             raise ValueError("sample_weight must sum to a positive value.")
         model.prior_weights_ = sw.copy()
+
+    # ``fit_model_core`` is a public array-facing integration surface as well
+    # as the facade's internal entry point.  A directly constructed GAM has no
+    # predictor specs until feature names are known, so create the same specs
+    # that ``GAM.fit(X=..., y=...)`` would create.
+    if getattr(model, "predictor_specs", None) is None:
+        model.predictor_specs = make_predictor_specs(
+            model,
+            model.feature_names,
+            knots=getattr(model, "knots", None),
+        )
 
     compile_designs(model, X, model.feature_names)
 

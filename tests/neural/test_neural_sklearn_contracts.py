@@ -14,6 +14,7 @@ from nampy.models.ensemble_treenam import (
     EnsembleTreeNAMRegressor,
 )
 from nampy.models.gpnam import GPNAMLSS, GPNAMClassifier, GPNAMRegressor
+from nampy.models.igann import IGANNLSS, IGANNClassifier, IGANNRegressor
 from nampy.models.linreg import LinRegClassifier, LinRegLSS, LinRegRegressor
 from nampy.models.nam import NAMLSS, NAMClassifier, NAMRegressor
 from nampy.models.namformer import (
@@ -23,21 +24,27 @@ from nampy.models.namformer import (
 )
 from nampy.models.natt import NATTLSS, NATTClassifier, NATTRegressor
 from nampy.models.nbm import NBMLSS, NBMClassifier, NBMRegressor
+from nampy.models.nbm_spam import NBMSPAMLSS, NBMSPAMClassifier, NBMSPAMRegressor
 from nampy.models.nodegam import (
     NodeGAMClassifier,
     NodeGAMLSS,
     NodeGAMRegressor,
 )
 from nampy.models.qnam import QNAMLSS
+from nampy.models.sian import SIANLSS, SIANClassifier, SIANRegressor
 from nampy.models.snam import SNAMLSS, SNAMClassifier, SNAMRegressor
+from nampy.models.spam import SPAMLSS, SPAMClassifier, SPAMRegressor
 from nampy.models.spline_nam import SplineNAMRegressor
 from nampy.models.treenam import TreeNAMClassifier, TreeNAMLSS, TreeNAMRegressor
-from nampy.neural import configs, modules
+from nampy.neural import architectures, configs
 
 ALL_NEURAL_ESTIMATORS = (
     NAMRegressor,
     NAMClassifier,
     NAMLSS,
+    SIANRegressor,
+    SIANClassifier,
+    SIANLSS,
     SNAMRegressor,
     SNAMClassifier,
     SNAMLSS,
@@ -47,9 +54,18 @@ ALL_NEURAL_ESTIMATORS = (
     GPNAMRegressor,
     GPNAMClassifier,
     GPNAMLSS,
+    IGANNRegressor,
+    IGANNClassifier,
+    IGANNLSS,
     NBMRegressor,
     NBMClassifier,
     NBMLSS,
+    NBMSPAMRegressor,
+    NBMSPAMClassifier,
+    NBMSPAMLSS,
+    SPAMRegressor,
+    SPAMClassifier,
+    SPAMLSS,
     NATTRegressor,
     NATTClassifier,
     NATTLSS,
@@ -76,18 +92,25 @@ def test_public_packages_export_supported_neural_surfaces():
         assert getattr(nampy, estimator_class.__name__) is estimator_class
 
     expected_base_models = {
-        "SNAM": modules.SNAM,
-        "EnsembleTreeNAM": modules.EnsembleTreeNAM,
+        "SIAN": architectures.SIAN,
+        "SNAM": architectures.SNAM,
+        "EnsembleTreeNAM": architectures.EnsembleTreeNAM,
+        "NBMSPAM": architectures.NBMSPAM,
+        "SPAM": architectures.SPAM,
     }
     expected_configs = {
+        "DefaultSIANConfig": configs.DefaultSIANConfig,
         "DefaultSNAMConfig": configs.DefaultSNAMConfig,
         "DefaultGPNAMConfig": configs.DefaultGPNAMConfig,
+        "DefaultIGANNConfig": configs.DefaultIGANNConfig,
+        "DefaultNBMSPAMConfig": configs.DefaultNBMSPAMConfig,
+        "DefaultSPAMConfig": configs.DefaultSPAMConfig,
         "DefaultQNAMConfig": configs.DefaultQNAMConfig,
         "DefaultTreeNAMConfig": configs.DefaultTreeNAMConfig,
         "DefaultEnsembleTreeNAMConfig": configs.DefaultEnsembleTreeNAMConfig,
     }
 
-    assert expected_base_models.keys() <= set(modules.__all__)
+    assert expected_base_models.keys() <= set(architectures.__all__)
     assert expected_configs.keys() <= set(configs.__all__)
 
 
@@ -106,19 +129,19 @@ def test_all_neural_estimators_satisfy_constructor_clone_contract(estimator_clas
 def test_neural_estimators_clone_config_and_preprocessor_parameters(estimator_class):
     estimator = estimator_class(
         dropout=0.23,
-        n_bins=17,
-        numerical_preprocessing="standardization",
+        output_dim=17,
+        numerical_method="standardization",
     )
 
     params = estimator.get_params(deep=False)
     cloned = clone(estimator)
 
     assert params["dropout"] == pytest.approx(0.23)
-    assert params["n_bins"] == 17
-    assert params["numerical_preprocessing"] == "standardization"
+    assert params["output_dim"] == 17
+    assert params["numerical_method"] == "standardization"
     assert cloned.get_params(deep=False)["dropout"] == pytest.approx(0.23)
-    assert cloned.get_params(deep=False)["n_bins"] == 17
-    assert cloned.preprocessor.numerical_preprocessing == "standardization"
+    assert cloned.get_params(deep=False)["output_dim"] == 17
+    assert cloned.preprocessor.numerical_method == "standardization"
 
 
 @pytest.mark.parametrize("estimator_class", [NAMRegressor, NAMClassifier, NAMLSS])
@@ -127,30 +150,29 @@ def test_neural_estimators_set_default_config_and_preprocessor_parameters(
 ):
     estimator = estimator_class()
 
-    returned = estimator.set_params(dropout=0.31, n_bins=19)
+    returned = estimator.set_params(dropout=0.31, output_dim=19)
 
     assert returned is estimator
     assert estimator.config.dropout == pytest.approx(0.31)
-    assert estimator.preprocessor.n_bins == 19
+    assert estimator.preprocessor.output_dim == 19
     assert estimator.get_params(deep=False)["dropout"] == pytest.approx(0.31)
-    assert estimator.get_params(deep=False)["n_bins"] == 19
+    assert estimator.get_params(deep=False)["output_dim"] == 19
 
 
-def test_spline_nam_clone_preserves_overlapping_n_knots_parameter():
-    estimator = SplineNAMRegressor(n_knots=7, n_bins=13)
+def test_spline_nam_clone_separates_architecture_and_preprocessor_widths():
+    estimator = SplineNAMRegressor(n_knots=7, preprocessor__output_dim=13)
 
     cloned = clone(estimator)
 
     assert cloned.config.n_knots == 7
-    assert cloned.preprocessor.n_knots == 7
-    assert cloned.preprocessor.n_bins == 13
+    assert cloned.preprocessor.output_dim == 13
 
 
 def test_lss_family_configuration_is_cloneable():
     estimator = NAMLSS(
         family="poisson",
         distributional_kwargs={"eps": 1e-5},
-        numerical_preprocessing="standardization",
+        numerical_method="standardization",
     )
 
     cloned = clone(estimator)
@@ -165,11 +187,15 @@ def test_qnam_constructor_owns_quantile_family():
 
     assert estimator.family == "quantile"
     assert estimator.distributional_kwargs == {
-        "quantiles": [0.25, 0.5, 0.75]
+        "quantiles": [0.25, 0.5, 0.75],
+        "enforce_monotonic": False,
     }
     cloned = clone(estimator)
     assert cloned.family == "quantile"
-    assert cloned.distributional_kwargs == {"quantiles": [0.25, 0.5, 0.75]}
+    assert cloned.distributional_kwargs == {
+        "quantiles": [0.25, 0.5, 0.75],
+        "enforce_monotonic": False,
+    }
 
 
 def test_lss_rejects_fit_time_family_configuration():
@@ -183,7 +209,7 @@ def test_classifier_evaluate_accepts_positional_array_after_dataframe_fit(tmp_pa
     x = np.linspace(-1.0, 1.0, 36)
     data = pd.DataFrame({"first": x, "second": np.cos(2.0 * x)})
     labels = (x > 0.0).astype(int)
-    estimator = LinRegClassifier(numerical_preprocessing="standardization")
+    estimator = LinRegClassifier(numerical_method="standardization")
     estimator.fit(
         data,
         labels,
@@ -207,7 +233,7 @@ def test_fitted_neural_estimator_persistence_round_trip(tmp_path):
     x = np.linspace(-1.0, 1.0, 24)
     data = pd.DataFrame({"first": x, "second": np.cos(2.0 * x)})
     labels = (x > 0.0).astype(int)
-    estimator = LinRegClassifier(numerical_preprocessing="standardization")
+    estimator = LinRegClassifier(numerical_method="standardization")
     estimator.fit(
         data,
         labels,
@@ -237,12 +263,12 @@ def test_pre_release_names_are_gone():
 
     import nampy.models
     import nampy.neural
-    import nampy.neural.modules
+    import nampy.neural.architectures
 
     for name in ("SklearnBaseRegressor", "SklearnBaseClassifier", "SklearnBaseLSS"):
         assert not hasattr(nampy.models, name)
     assert not hasattr(nampy.models, "QNAM")
-    assert not hasattr(nampy.neural.modules, "QNAMBase")
+    assert not hasattr(nampy.neural.architectures, "QNAMBase")
     assert not hasattr(nampy.neural, "TaskModel")
     assert find_spec("nampy.hybrid") is None
     assert find_spec("nampy.api") is None

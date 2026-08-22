@@ -26,17 +26,15 @@ import numpy as np
 from scipy.stats import norm as _norm
 
 from ..model_state import (
-    _coef_column_offset,
     _coef_full,
     _coerce_feature_matrix,
     _require_fitted,
     _term_blocks_seq,
+    _term_full_coefficient_indices,
 )
 from ..predict.linear_predictor_matrix import build_lpmatrix
-from ..predict.predictions import (
-    _prediction_term_groups,
-    _term_has_absorbed_constraint,
-)
+from ..predict.predictions import _term_has_absorbed_constraint
+from ..predict.terms import _prediction_term_groups
 from ..smooths.categorical import factor_levels_from_metadata
 from ..term_labels import normalize_mgcv_term_label
 from .residuals import _prior_weights
@@ -459,7 +457,6 @@ def prepare_plot_gam_data(
         schemes = [schemes[0]] * m
 
     coef_full = np.asarray(_coef_full(model), dtype=np.float64).ravel()
-    offset0 = _coef_column_offset(model)
     edf_map = _smooth_edf_by_block(model)
     cmX = None
 
@@ -486,8 +483,8 @@ def prepare_plot_gam_data(
             pd_list.append({"plot_me": False, "label": str(tb.label)})
             continue
 
-        sl = slice(offset0 + tb.coef_slice.start, offset0 + tb.coef_slice.stop)
-        p_coef = coef_full[sl]
+        full_idx = _term_full_coefficient_indices(model, tb)
+        p_coef = coef_full[full_idx]
         X = P.pop("X")
         fit = X @ p_coef
         exclude = P.get("exclude", None)
@@ -505,14 +502,14 @@ def prepare_plot_gam_data(
                 cm_row = np.zeros(Vp.shape[1], dtype=np.float64)
                 cm_row[: cmX.size] = cmX
                 X1 = np.broadcast_to(cm_row, (X.shape[0], Vp.shape[1])).copy()
-                X1[:, sl] = X
+                X1[:, full_idx] = X
                 se_fit = np.sqrt(
                     np.maximum(0.0, np.sum((X1 @ Vp) * X1, axis=1))
                 )
             else:
                 if se_with_mean and not _term_has_absorbed_constraint(tb):
                     warnings.warn("seWithMean unavailable", stacklevel=2)
-                V_block = Vp[sl, sl]
+                V_block = Vp[np.ix_(full_idx, full_idx)]
                 se_fit = np.sqrt(
                     np.maximum(0.0, np.sum((X @ V_block) * X, axis=1))
                 )

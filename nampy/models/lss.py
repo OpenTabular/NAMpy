@@ -1,7 +1,6 @@
 # lss.py
 import warnings
 
-import numpy as np
 import pandas as pd
 import torch
 
@@ -10,6 +9,7 @@ from ..neural.distributions.registry import (
     family_name_for_instance,
     resolve_family,
 )
+from ..neural.objectives import DistributionObjective
 from ._base import NeuralEstimatorBase, TrainingPlan
 
 
@@ -89,35 +89,12 @@ class NeuralLSS(NeuralEstimatorBase):
                 "not passed to fit()."
             )
 
-        distributional_kwargs = dict(self.distributional_kwargs or {})
-
-        # Infer distributional dimensions for families that require it, when not provided.
         fam = str(self.family).lower()
-
-        if fam == "dirichlet":
-            y_arr = np.asarray(y)
-            if "n_dim" not in distributional_kwargs:
-                if y_arr.ndim != 2 or y_arr.shape[1] < 2:
-                    raise ValueError(
-                        "Dirichlet family requires y with shape (n_samples, K), K>=2."
-                    )
-                distributional_kwargs["n_dim"] = int(y_arr.shape[1])
-
-        if fam == "categorical":
-            y_arr = np.asarray(y)
-            if "num_classes" not in distributional_kwargs:
-                if y_arr.ndim == 2 and y_arr.shape[1] > 1:
-                    distributional_kwargs["num_classes"] = int(y_arr.shape[1])
-                else:
-                    distributional_kwargs["num_classes"] = int(
-                        len(np.unique(y_arr.reshape(-1)))
-                    )
-
-        if fam in FAMILY_REGISTRY:
-            self.family_ = resolve_family(fam).distribution(**distributional_kwargs)
-            self.distributional_kwargs_ = distributional_kwargs
-        else:
+        if fam not in FAMILY_REGISTRY:
             raise ValueError(f"Unsupported family: {self.family}")
+        self.family_, self.distributional_kwargs_ = resolve_family(fam).instantiate(
+            y, self.distributional_kwargs
+        )
 
         return super().fit(X, y, **fit_params)
 
@@ -132,43 +109,35 @@ class NeuralLSS(NeuralEstimatorBase):
         if isinstance(y_val, pd.Series):
             y_val = y_val.values
 
-        plan = TrainingPlan(
-            datamodule_regression=True,
-            taskmodel_kwargs={
-                "num_classes": self.family_.param_count,
-                "family": self.family_,
-                "lss": True,
-            },
-        )
+        plan = TrainingPlan(objective=DistributionObjective(self.family_))
         return y, y_val, plan
 
-    def predict(self, X, raw=False):
-        predictions = self._predict(X)["output"]
+    def predict(self, X, raw=False, *, batch_size=None):
+        predictions = self._predict(X, batch_size=batch_size)["output"]
 
         if not raw:
-            return self.model.family(predictions).cpu().numpy()
+            return self.model.objective.transform(predictions).cpu().numpy()
 
         # Convert predictions to NumPy array and return
         else:
             return predictions.cpu().numpy()
 
-    def score(self, X, y):
+    def score(self, X, y, sample_weight=None):
         """Return the negative mean NLL of ``y`` under the predicted parameters.
 
         Higher is better, so sklearn model-selection utilities can rank fits.
         """
         raw_pred = self._predict(X)["output"]
-        family = (
-            self.model.family
-            if getattr(self.model, "family", None) is not None
-            else self.family_
-        )
         with torch.no_grad():
-            target_dtype = getattr(family, "target_dtype", torch.float32)
-            y_tensor = torch.as_tensor(y, dtype=target_dtype, device=raw_pred.device)
-            if y_tensor.ndim == 2 and y_tensor.shape[1] == 1:
-                y_tensor = y_tensor[:, 0]
-            nll = family.compute_loss(raw_pred, y_tensor)
+            y_tensor = torch.as_tensor(y, device=raw_pred.device)
+            weight_tensor = (
+                None
+                if sample_weight is None
+                else torch.as_tensor(sample_weight, device=raw_pred.device)
+            )
+            nll = self.model.objective.compute_loss(
+                raw_pred, y_tensor, sample_weight=weight_tensor
+            )
         return -float(nll.detach().cpu().item())
 
     def _plot_series_labels(self, n_series: int):
@@ -177,7 +146,15 @@ class NeuralLSS(NeuralEstimatorBase):
             return list(param_names)[:n_series]
         return [f"Param {i + 1}" for i in range(n_series)]
 
-    def predict_components(self, X):
+    def predict_components(
+        self,
+        X,
+        *,
+        center: bool = False,
+        reference_X=None,
+        reference_weight=None,
+        batch_size=None,
+    ):
         """Per-term contributions on the raw parameter scale.
 
         ``link`` holds the raw multi-column network output (one column per
@@ -187,22 +164,23 @@ class NeuralLSS(NeuralEstimatorBase):
         """
         from ..contracts import AdditivePrediction
 
-        pred_dict = self._predict(X)
+        pred_dict = self._predict(X, batch_size=batch_size)
         raw = pred_dict["output"]
-        family = (
-            self.model.family
-            if getattr(self.model, "family", None) is not None
-            else self.family_
-        )
         with torch.no_grad():
-            response = family(raw).cpu().numpy()
+            response = self.model.objective.transform(raw).cpu().numpy()
         terms, intercept = self._split_output_components(pred_dict)
-        return AdditivePrediction(
+        prediction = AdditivePrediction(
             response=response,
             link=raw.cpu().numpy(),
             terms=terms,
             intercept=intercept,
             backend="neural",
+        )
+        return self._maybe_center_components(
+            prediction,
+            center=center,
+            reference_X=reference_X,
+            reference_weight=reference_weight,
         )
 
     def evaluate(self, X, y_true, metrics=None, distribution_family=None):
@@ -256,29 +234,13 @@ class NeuralLSS(NeuralEstimatorBase):
 
         # Compute NLL from raw outputs
         scores = {}
-        fam_for_loss = (
-            self.model.family
-            if hasattr(self.model, "family") and self.model.family is not None
-            else self.family_
-        )
-
         with torch.no_grad():
-            target_dtype = getattr(fam_for_loss, "target_dtype", torch.float32)
-            y_tensor = torch.as_tensor(
-                y_true, dtype=target_dtype, device=raw_pred.device
-            )
-
-            # Keep multi-output LSS targets intact; only squeeze [N,1] -> [N]
-            if y_tensor.ndim == 2 and y_tensor.shape[1] == 1:
-                y_for_loss = y_tensor[:, 0]
-            else:
-                y_for_loss = y_tensor
-
-            nll = fam_for_loss.compute_loss(raw_pred, y_for_loss)
+            y_tensor = torch.as_tensor(y_true, device=raw_pred.device)
+            nll = self.model.objective.compute_loss(raw_pred, y_tensor)
             scores["NLL"] = float(nll.detach().cpu().item())
 
             # Transformed predictions for all other metrics
-            transformed_pred = fam_for_loss(raw_pred)
+            transformed_pred = self.model.objective.transform(raw_pred)
 
         predictions_transformed = transformed_pred.detach().cpu().numpy()
 

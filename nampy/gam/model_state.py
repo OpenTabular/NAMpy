@@ -2,60 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 
 from .linalg.qr import mgcv_pqr_r
-
-_UNSET = object()
-
-
-@dataclass
-class FitWorkspace:
-    """Transient solver scratch attached to a model as ``_ws``.
-
-    Warm-start vectors and evaluation caches written during smoothing
-    optimization and P-IRLS solving. Never pickled (``GAM.__getstate__``
-    drops it) and never part of the fitted result contract.
-
-    Fields default to the ``_UNSET`` sentinel so :meth:`get` reproduces
-    ``getattr(model, name, default)`` semantics exactly, including the
-    distinction between "never written" and "explicitly set to None".
-    """
-
-    pirls_coef_start: Any = _UNSET
-    pirls_eta_start: Any = _UNSET
-    pirls_mu_start: Any = _UNSET
-    pirls_eval_start: Any = _UNSET
-    pirls_eval_eta_start: Any = _UNSET
-    pirls_eval_mu_start: Any = _UNSET
-    pirls_lock_start: Any = _UNSET
-    pirls_last_coef: Any = _UNSET
-    pirls_last_eta: Any = _UNSET
-    pirls_last_mu: Any = _UNSET
-    pirls_last_inner_trace: Any = _UNSET
-    pirls_reml_gamma_state: Any = _UNSET
-    pirls_reml_gaussian_state: Any = _UNSET
-    pirls_reml_negbin_state: Any = _UNSET
-    pirls_reml_derivative_kernel_state: Any = _UNSET
-    pirls_disable_theta_efs: Any = _UNSET
-    general_family_outer_eval_cache: Any = _UNSET
-    penalty_subspace_cache: Any = _UNSET
-
-    def get(self, name: str, default: Any = None) -> Any:
-        value = getattr(self, name)
-        return default if value is _UNSET else value
-
-
-def _fit_workspace(obj: Any) -> FitWorkspace:
-    """Get-or-create the transient solver workspace on ``obj``."""
-    ws = getattr(obj, "_ws", None)
-    if ws is None:
-        ws = FitWorkspace()
-        obj._ws = ws
-    return ws
+from .workspace import FitWorkspace as FitWorkspace
+from .workspace import _fit_workspace as _fit_workspace
 
 
 def _require_fitted(obj: Any) -> None:
@@ -107,6 +60,32 @@ def _fit_intercept(obj: Any) -> bool:
 
 def _coef_column_offset(obj: Any) -> int:
     return 1 if _fit_intercept(obj) else 0
+
+
+def _coefficient_slice_full_indices(obj: Any, coefficient_slice: slice) -> np.ndarray:
+    """Map a reduced coefficient slice to public full coordinates."""
+    compiled_model = _compiled_model(obj)
+    if compiled_model is None:
+        raise RuntimeError("Model has no compiled coefficient layout.")
+    reduced_to_full = np.asarray(
+        compiled_model.coef_reduced_to_full_idx, dtype=int
+    ).reshape(-1)
+    local = np.arange(
+        int(coefficient_slice.start), int(coefficient_slice.stop), dtype=int
+    )
+    if np.any(local < 0) or np.any(local >= reduced_to_full.size):
+        raise RuntimeError(
+            "Coefficient slice is outside the compiled reduced layout."
+        )
+    return reduced_to_full[local]
+
+
+def _term_full_coefficient_indices(obj: Any, term) -> np.ndarray:
+    """Map a compiled term slice to public full-coefficient coordinates."""
+    explicit = getattr(term, "full_coef_indices", None)
+    if explicit is not None:
+        return np.asarray(explicit, dtype=int).reshape(-1).copy()
+    return _coefficient_slice_full_indices(obj, term.coef_slice)
 
 
 def _term_blocks_seq(obj: Any):
@@ -201,6 +180,13 @@ def _coef(obj: Any):
     if coef_full is None:
         return None
     coef_full = np.asarray(coef_full, dtype=np.float64).ravel()
+    compiled_model = _compiled_model(obj)
+    if compiled_model is not None:
+        index = np.asarray(
+            compiled_model.coef_reduced_to_full_idx, dtype=int
+        ).reshape(-1)
+        if index.size > 0:
+            return coef_full[index]
     return coef_full[_coef_column_offset(obj) :]
 
 
@@ -255,30 +241,6 @@ def _edf_by_term(obj: Any):
         edf = getattr(fit_summary, "edf_by_term", None)
         if edf is not None:
             return edf
-    return None
-
-
-def _trace_H(obj: Any):
-    fit_result = _fit_result(obj)
-    if fit_result is not None:
-        trace_H = getattr(fit_result, "trace_H", None)
-        if trace_H is not None:
-            return trace_H
-    fit_summary = _fit_summary(obj)
-    if fit_summary is not None:
-        trace_H = getattr(fit_summary, "trace_H", None)
-        if trace_H is not None:
-            return trace_H
-    return None
-
-
-def _rss(obj: Any):
-    fit_result = _fit_result(obj)
-    if fit_result is not None:
-        return getattr(fit_result, "rss", None)
-    fit_summary = _fit_summary(obj)
-    if fit_summary is not None:
-        return getattr(fit_summary, "rss", None)
     return None
 
 

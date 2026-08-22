@@ -21,6 +21,7 @@ from nampy.models.namformer import (
 )
 from nampy.models.natt import NATTLSS, NATTClassifier, NATTRegressor
 from nampy.models.nbm import NBMLSS, NBMClassifier, NBMRegressor
+from nampy.models.nbm_spam import NBMSPAMLSS, NBMSPAMClassifier, NBMSPAMRegressor
 from nampy.models.nodegam import (
     NodeGAMClassifier,
     NodeGAMLSS,
@@ -28,6 +29,7 @@ from nampy.models.nodegam import (
 )
 from nampy.models.qnam import QNAMLSS
 from nampy.models.snam import SNAMLSS, SNAMClassifier, SNAMRegressor
+from nampy.models.spam import SPAMLSS, SPAMClassifier, SPAMRegressor
 from nampy.models.spline_nam import SplineNAMRegressor
 from nampy.models.treenam import TreeNAMClassifier, TreeNAMLSS, TreeNAMRegressor
 
@@ -38,7 +40,7 @@ class _EstimatorCase:
     estimator_class: type
     task: str
     model_kwargs: dict
-    categorical_preprocessing: str = "int"
+    categorical_method: str = "int"
     n_classes: int = 2
 
 
@@ -86,6 +88,25 @@ _ARCHITECTURES = (
             "bases_dropout": 0.0,
             "num_bases": 4,
             "output_penalty": 0.01,
+        },
+    ),
+    (
+        "spam",
+        SPAMRegressor,
+        SPAMClassifier,
+        SPAMLSS,
+        {"ranks": [4], "dropout": 0.0},
+    ),
+    (
+        "nbm_spam",
+        NBMSPAMRegressor,
+        NBMSPAMClassifier,
+        NBMSPAMLSS,
+        {
+            "layer_sizes": [8],
+            "num_bases": 4,
+            "ranks": [4],
+            "batch_norm": False,
         },
     ),
     (
@@ -146,7 +167,6 @@ _ARCHITECTURES = (
             "l2_lambda": 0.01,
             "anneal_steps": 10,
             "interaction_degree": 1,
-            "quantile_n_quantiles": 16,
         },
     ),
 )
@@ -180,7 +200,7 @@ ESTIMATOR_CASES += tuple(
         case.estimator_class,
         case.task,
         case.model_kwargs,
-        categorical_preprocessing="one-hot",
+        categorical_method="one-hot",
     )
     for case in ESTIMATOR_CASES
     if case.estimator_class is not SplineNAMRegressor
@@ -203,12 +223,12 @@ ESTIMATOR_CASES += tuple(
         case.estimator_class,
         case.task,
         case.model_kwargs,
-        categorical_preprocessing=case.categorical_preprocessing,
+        categorical_method=case.categorical_method,
         n_classes=3,
     )
     for case in ESTIMATOR_CASES
     if case.task == "classification"
-    and case.categorical_preprocessing == "int"
+    and case.categorical_method == "int"
 )
 
 
@@ -229,8 +249,8 @@ def test_public_neural_estimator_fits_and_predicts(case, tmp_path):
     classification_target = np.resize(np.arange(case.n_classes), x.size)
 
     estimator_kwargs = {
-        "numerical_preprocessing": "minmax",
-        "categorical_preprocessing": case.categorical_preprocessing,
+        "numerical_method": "minmax",
+        "categorical_method": case.categorical_method,
         **case.model_kwargs,
     }
     if case.task == "lss":
@@ -259,6 +279,14 @@ def test_public_neural_estimator_fits_and_predicts(case, tmp_path):
     assert "group" in contributions or any(
         name.startswith("group[") for name in contributions
     )
+    if case.name == "spam_regression":
+        local = estimator.local_term_importance(data.iloc[:3], top_k=2)
+        assert len(local) == 3
+        # ``top_k`` is an upper bound: [0, 1] preprocessing can map a row
+        # to the all-zero origin, for which SPAM has no active source term.
+        assert all(len(row) <= 2 for row in local)
+        nonempty = next(row for row in local if row)
+        assert {"term", "order", "contribution"} <= set(nonempty[0])
 
     if case.task == "classification":
         predictions = estimator.predict(data)
@@ -288,7 +316,7 @@ def test_public_neural_regressors_support_multioutput_targets(case, tmp_path):
         )
     )
     estimator = case.estimator_class(
-        numerical_preprocessing="minmax", **case.model_kwargs
+        numerical_method="minmax", **case.model_kwargs
     )
 
     estimator.fit(

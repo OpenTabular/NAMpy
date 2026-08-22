@@ -3,7 +3,7 @@ from scipy.special import digamma, gammaln, polygamma
 
 from .._mgcv_constants import FAMILY_EPS
 from ._function_maps import LINK_REGISTRY, NegativeBinomialVariance
-from .family_base import ExtendedFamily
+from .family_base import ExtendedFamily, JointOuterStrategy
 
 
 class NegativeBinomialLogFamily(ExtendedFamily):
@@ -23,6 +23,7 @@ class NegativeBinomialLogFamily(ExtendedFamily):
     supports_laml = False
     supports_exact_pirls_first_derivatives = True
     supports_exact_pirls_second_derivatives = True
+    joint_outer_strategy = JointOuterStrategy.NEGBIN_THETA
 
     known_scale = 1.0
     max_derivative_order = 1

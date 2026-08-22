@@ -11,9 +11,15 @@ _EXPORT_MODULES = {
     "NAMClassifier": ".nam",
     "NAMLSS": ".nam",
     "NAMRegressor": ".nam",
+    "SIANClassifier": ".sian",
+    "SIANLSS": ".sian",
+    "SIANRegressor": ".sian",
     "NeuralClassifier": ".classifier",
     "NeuralLSS": ".lss",
     "NeuralRegressor": ".regressor",
+    "NeuralEnsemble": ".ensemble",
+    "NeuralEstimatorFamily": "._registered",
+    "estimator_family": "._registered",
     "LinRegClassifier": ".linreg",
     "LinRegLSS": ".linreg",
     "LinRegRegressor": ".linreg",
@@ -21,9 +27,15 @@ _EXPORT_MODULES = {
     "GPNAMClassifier": ".gpnam",
     "GPNAMLSS": ".gpnam",
     "GPNAMRegressor": ".gpnam",
+    "IGANNClassifier": ".igann",
+    "IGANNLSS": ".igann",
+    "IGANNRegressor": ".igann",
     "NBMRegressor": ".nbm",
     "NBMClassifier": ".nbm",
     "NBMLSS": ".nbm",
+    "NBMSPAMRegressor": ".nbm_spam",
+    "NBMSPAMClassifier": ".nbm_spam",
+    "NBMSPAMLSS": ".nbm_spam",
     "NATTRegressor": ".natt",
     "NATTClassifier": ".natt",
     "NATTLSS": ".natt",
@@ -43,10 +55,15 @@ _EXPORT_MODULES = {
     "NodeGAMRegressor": ".nodegam",
     "NodeGAMClassifier": ".nodegam",
     "NodeGAMLSS": ".nodegam",
+    "SPAMRegressor": ".spam",
+    "SPAMClassifier": ".spam",
+    "SPAMLSS": ".spam",
 }
 
 if TYPE_CHECKING:
+    from ._registered import NeuralEstimatorFamily, estimator_family
     from .classifier import NeuralClassifier
+    from .ensemble import NeuralEnsemble
     from .ensemble_treenam import (
         EnsembleTreeNAMClassifier,
         EnsembleTreeNAMLSS,
@@ -54,16 +71,20 @@ if TYPE_CHECKING:
     )
     from .gam import GAMClassifier, GAMRegressor
     from .gpnam import GPNAMLSS, GPNAMClassifier, GPNAMRegressor
+    from .igann import IGANNLSS, IGANNClassifier, IGANNRegressor
     from .linreg import LinRegClassifier, LinRegLSS, LinRegRegressor
     from .lss import NeuralLSS
     from .nam import NAMLSS, NAMClassifier, NAMRegressor
     from .namformer import NAMformerClassifier, NAMformerLSS, NAMformerRegressor
     from .natt import NATTLSS, NATTClassifier, NATTRegressor
     from .nbm import NBMLSS, NBMClassifier, NBMRegressor
+    from .nbm_spam import NBMSPAMLSS, NBMSPAMClassifier, NBMSPAMRegressor
     from .nodegam import NodeGAMClassifier, NodeGAMLSS, NodeGAMRegressor
     from .qnam import QNAMLSS
     from .regressor import NeuralRegressor
+    from .sian import SIANLSS, SIANClassifier, SIANRegressor
     from .snam import SNAMLSS, SNAMClassifier, SNAMRegressor
+    from .spam import SPAMLSS, SPAMClassifier, SPAMRegressor
     from .spline_nam import SplineNAMRegressor
     from .treenam import TreeNAMClassifier, TreeNAMLSS, TreeNAMRegressor
 

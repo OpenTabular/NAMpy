@@ -6,6 +6,7 @@ import numpy as np
 from scipy.optimize import OptimizeResult, minimize
 
 from ...._mgcv_constants import LOG_GUARD_MIN
+from ....families.family_base import JointOuterStrategy
 from ....model_state import (
     _fit_workspace,
     _n_smoothing_params,
@@ -23,6 +24,7 @@ from ..criteria import (
     resolve_ml_reml_scoring_backend,
 )
 from ..criteria.gaussian_dyn import _gaussian_dynamic_reml_derivative_terms
+from ..criteria.shape import is_transformed_coefficient_model
 from .basics import (
     _initial_gaussian_scale_as_sp,
     _initial_smoothing_params_from_design,
@@ -40,9 +42,13 @@ from .objectives import (
     _GaussianPirlsRemlJointObjective,
     _GaussianRemlJointObjective,
     _GaussianRemlProfiledObjective,
+    _JointBetarPirlsRemlObjective,
     _JointGammaPirlsRemlObjective,
     _JointNegbinPirlsRemlObjective,
+    _JointOcatPirlsRemlObjective,
+    _JointTweediePirlsRemlObjective,
 )
+from .shape_bfgs import optimize_transformed_bfgs
 from .trace import _assemble_optim_trace
 
 
@@ -464,6 +470,24 @@ def supports_smoothing_method(model, method):
     attr = attr_map[method]
     if attr is None:
         return True
+
+    from ...capabilities import model_fit_capabilities
+
+    capabilities = model_fit_capabilities(model)
+    if capabilities.transformed_observations and method in {
+        "ml",
+        "reml",
+        "laml",
+    }:
+        # Correlated Gaussian likelihood criteria require the correlation
+        # determinant contribution in addition to the whitened solve.
+        return False
+    if capabilities.transformed_coefficients and (
+        capabilities.multiple_linear_predictors or capabilities.general_family
+    ):
+        # Do not evaluate a transformed model with the identity-coordinate
+        # Laplace score. Higher transform derivatives are required here.
+        return False
 
     base_ok = bool(getattr(model.family, attr, False))
     if not base_ok:
@@ -979,6 +1003,315 @@ def _run_joint_gamma_outer(
     return result
 
 
+def _run_joint_betar_outer(
+    model, y, x0, free_mask, method, bounds, optimizer, n_free
+):
+    """Joint ``betar`` outer optimization in mgcv's ``(theta, sp)`` order."""
+    if optimizer == "efs":
+        raise NotImplementedError(
+            "Joint betar theta estimation is not supported by the EFS optimizer."
+        )
+    x0 = np.asarray(x0, dtype=np.float64).ravel()
+    log_theta0 = float(model.family.getTheta(False))
+    x_joint0 = np.concatenate(([log_theta0], x0))
+    joint_bounds = [(-np.inf, np.inf)] + list(bounds)
+    branch_m = "LAML" if str(method).lower() == "laml" else str(method).upper()
+    objective = _JointBetarPirlsRemlObjective(model, y, branch_m)
+    if optimizer == "outer_newton":
+        result_joint = optimize_outer_newton_indefinite_hessian(
+            objective=objective,
+            x0=x_joint0,
+            bounds=joint_bounds,
+            conv_tol=1e-6,
+        )
+    elif optimizer == "bfgs":
+        result_joint = _optimize_outer_bfgs_strict(
+            objective=objective,
+            x0=x_joint0,
+            bounds=joint_bounds,
+            score_type=str(method).lower(),
+        )
+    elif optimizer == "optim":
+        result_joint = _optimize_outer_optim_strict(
+            objective=objective,
+            x0=x_joint0,
+            bounds=joint_bounds,
+        )
+    else:
+        raise NotImplementedError(
+            "Strict betar outer optimization does not support "
+            f"optimizer={optimizer!r}."
+        )
+
+    x_joint = np.asarray(result_joint.x, dtype=np.float64).ravel()
+    if x_joint.shape != x_joint0.shape:
+        x_joint = x_joint0.copy()
+    log_theta = float(x_joint[0])
+    model.family.putTheta(log_theta)
+    x_sp = np.asarray(x_joint[1:], dtype=np.float64).copy()
+    result = OptimizeResult(
+        x=x_sp,
+        fun=float(result_joint.fun),
+        success=bool(getattr(result_joint, "success", False)),
+        status=int(getattr(result_joint, "status", 0)),
+        message=str(getattr(result_joint, "message", "")),
+        nit=int(getattr(result_joint, "nit", 0)),
+        nfev=int(getattr(result_joint, "nfev", objective.n_fun)),
+        njev=int(getattr(result_joint, "njev", objective.n_jac)),
+        nhev=int(getattr(result_joint, "nhev", objective.n_hess)),
+    )
+    result.joint_outer_strategy = JointOuterStrategy.BETAR_THETA
+    result.joint_log_theta = log_theta
+    result.selected_theta = float(np.exp(log_theta))
+    result.joint_x = x_joint.copy()
+    result.selected_full_smoothing_params = np.asarray(
+        model.smoothing_params, dtype=np.float64
+    ).copy()
+    result.selected_full_smoothing_params[np.asarray(free_mask, dtype=bool)] = np.exp(
+        x_sp
+    )
+    model.smoothing_params = result.selected_full_smoothing_params.copy()
+    joint_jac = getattr(result_joint, "jac", None)
+    joint_hess = getattr(result_joint, "hess", None)
+    outer_info = dict(getattr(result_joint, "outer_info", {}) or {})
+    if joint_jac is not None:
+        joint_jac = np.asarray(joint_jac, dtype=np.float64).ravel()
+        result.jac = joint_jac[1:].copy()
+        outer_info["grad"] = joint_jac.copy()
+        outer_info["gradient_full"] = joint_jac.copy()
+    if joint_hess is not None:
+        joint_hess = np.asarray(joint_hess, dtype=np.float64)
+        result.hess = joint_hess[1:, 1:].copy()
+        outer_info["hess"] = 0.5 * (joint_hess + joint_hess.T)
+        outer_info["hessian_full"] = outer_info["hess"].copy()
+    outer_info["log_theta"] = log_theta
+    outer_info["log_scale"] = None
+    result.outer_info = outer_info
+    result.optim_trace = getattr(result_joint, "optim_trace", None)
+    model._optim_method = method
+    model._optim_result = result
+    model._optim_trace = list(getattr(objective, "accepted_trace", []))
+    model._optim_used_gradient = bool(getattr(result, "jac", None) is not None)
+    model._optim_used_hessian = bool(getattr(result, "hess", None) is not None)
+    model.smoothing_score_ = float(result.fun)
+    return model
+
+
+def _run_joint_ocat_outer(
+    model, y, x0, free_mask, method, bounds, optimizer, n_free
+):
+    """Joint ``ocat`` outer optimization in mgcv's ``(theta, sp)`` order."""
+    if optimizer == "efs":
+        raise NotImplementedError(
+            "Joint ocat cutpoint estimation is not supported by the EFS optimizer."
+        )
+    ntheta = int(getattr(model.family, "n_theta", 0) or 0)
+    if not bool(getattr(model.family, "_initialized_from_data", False)):
+        model.family.initialize_mu(y)
+    theta0 = np.asarray(model.family.getTheta(False), dtype=np.float64).ravel()
+    if theta0.size != ntheta:
+        raise ValueError("ocat joint optimization requires all cutpoint gaps free.")
+    x_joint0 = np.concatenate((theta0, np.asarray(x0, dtype=np.float64).ravel()))
+    joint_bounds = [(-np.inf, np.inf)] * ntheta + list(bounds)
+    branch_m = "LAML" if str(method).lower() == "laml" else str(method).upper()
+    objective = _JointOcatPirlsRemlObjective(model, y, branch_m)
+    if optimizer == "outer_newton":
+        result_joint = optimize_outer_newton_indefinite_hessian(
+            objective=objective,
+            x0=x_joint0,
+            bounds=joint_bounds,
+            conv_tol=1e-6,
+        )
+    elif optimizer == "bfgs":
+        result_joint = _optimize_outer_bfgs_strict(
+            objective=objective,
+            x0=x_joint0,
+            bounds=joint_bounds,
+            score_type=str(method).lower(),
+        )
+    elif optimizer == "optim":
+        result_joint = _optimize_outer_optim_strict(
+            objective=objective,
+            x0=x_joint0,
+            bounds=joint_bounds,
+        )
+    else:
+        raise NotImplementedError(
+            "Strict ocat outer optimization does not support "
+            f"optimizer={optimizer!r}."
+        )
+
+    x_joint = np.asarray(result_joint.x, dtype=np.float64).ravel()
+    if x_joint.shape != x_joint0.shape:
+        x_joint = x_joint0.copy()
+    log_theta = x_joint[:ntheta].copy()
+    model.family.putTheta(log_theta)
+    x_sp = x_joint[ntheta:].copy()
+    result = OptimizeResult(
+        x=x_sp,
+        fun=float(result_joint.fun),
+        success=bool(getattr(result_joint, "success", False)),
+        status=int(getattr(result_joint, "status", 0)),
+        message=str(getattr(result_joint, "message", "")),
+        nit=int(getattr(result_joint, "nit", 0)),
+        nfev=int(getattr(result_joint, "nfev", objective.n_fun)),
+        njev=int(getattr(result_joint, "njev", objective.n_jac)),
+        nhev=int(getattr(result_joint, "nhev", objective.n_hess)),
+    )
+    result.joint_outer_strategy = JointOuterStrategy.OCAT_THETA
+    result.joint_log_theta = log_theta.copy()
+    result.selected_theta = model.family.getTheta(trans=True).copy()
+    result.joint_x = x_joint.copy()
+    result.selected_full_smoothing_params = np.asarray(
+        model.smoothing_params, dtype=np.float64
+    ).copy()
+    result.selected_full_smoothing_params[np.asarray(free_mask, dtype=bool)] = np.exp(
+        x_sp
+    )
+    model.smoothing_params = result.selected_full_smoothing_params.copy()
+    joint_jac = getattr(result_joint, "jac", None)
+    joint_hess = getattr(result_joint, "hess", None)
+    outer_info = dict(getattr(result_joint, "outer_info", {}) or {})
+    if joint_jac is not None:
+        joint_jac = np.asarray(joint_jac, dtype=np.float64).ravel()
+        result.jac = joint_jac[ntheta:].copy()
+        outer_info["grad"] = joint_jac.copy()
+        outer_info["gradient_full"] = joint_jac.copy()
+    if joint_hess is not None:
+        joint_hess = np.asarray(joint_hess, dtype=np.float64)
+        outer_info["hess"] = 0.5 * (joint_hess + joint_hess.T)
+        outer_info["hessian_full"] = outer_info["hess"].copy()
+        result.hess = outer_info["hess"][ntheta:, ntheta:].copy()
+    outer_info["log_theta"] = log_theta.copy()
+    outer_info["log_scale"] = None
+    result.outer_info = outer_info
+    result.optim_trace = getattr(result_joint, "optim_trace", None)
+    model._optim_method = method
+    model._optim_result = result
+    model._optim_trace = list(getattr(objective, "accepted_trace", []))
+    model._optim_used_gradient = bool(getattr(result, "jac", None) is not None)
+    model._optim_used_hessian = bool(getattr(result, "hess", None) is not None)
+    model.smoothing_score_ = float(result.fun)
+    return model
+
+
+def _run_joint_tweedie_outer(
+    model,
+    y,
+    x0,
+    bounds,
+    branch_m,
+    method,
+    optimizer,
+    n_free,
+):
+    """Joint ``tw`` outer optimization in mgcv's parameter order."""
+    y_arr = np.asarray(y, dtype=np.float64).ravel()
+    weights = getattr(model, "prior_weights_", None)
+    mu_null = np.repeat(float(np.mean(y_arr)), model.n_samples_)
+    null_scale = float(
+        model.family.deviance(y_arr, mu_null, weights=weights)
+    ) / float(model.n_samples_)
+    phi0 = max(null_scale / 10.0, LOG_GUARD_MIN)
+    y_scale = (
+        float(np.var(y_arr))
+        if y_arr.size > 1
+        else max(abs(float(y_arr[0])), LOG_GUARD_MIN)
+    )
+    hi_phi = max(phi0 * 1e8, y_scale * 1e8, 1e-30)
+    ntheta = int(getattr(model.family, "n_theta", 0) or 0)
+    theta0 = float(model.family.getTheta(False))
+    x_joint0 = np.concatenate(
+        [
+            np.array([theta0], dtype=np.float64) if ntheta else np.empty(0),
+            np.asarray(x0, dtype=np.float64),
+            np.array([np.log(phi0)], dtype=np.float64),
+        ]
+    )
+    joint_bounds = (
+        ([(-np.inf, np.inf)] if ntheta else [])
+        + list(bounds)
+        + [
+            (
+                (-np.inf, np.inf)
+                if optimizer == "optim"
+                else (float(np.log(LOG_GUARD_MIN)), float(np.log(hi_phi)))
+            )
+        ]
+    )
+    j_obj = _JointTweediePirlsRemlObjective(model, y, branch_m)
+    if optimizer == "bfgs":
+        result_joint = _optimize_outer_bfgs_strict(
+            objective=j_obj,
+            x0=x_joint0,
+            bounds=joint_bounds,
+            score_type=method,
+        )
+    elif optimizer == "optim":
+        result_joint = _optimize_outer_optim_strict(
+            objective=j_obj,
+            x0=x_joint0,
+            bounds=joint_bounds,
+        )
+    elif optimizer == "outer_newton":
+        result_joint = optimize_outer_newton_indefinite_hessian(
+            objective=j_obj,
+            x0=x_joint0,
+            bounds=joint_bounds,
+            conv_tol=1e-6,
+        )
+    else:
+        raise NotImplementedError(
+            "Strict mgcv-parity Tweedie outer optimization does not support "
+            f"optimizer={optimizer!r}."
+        )
+
+    x_joint = np.asarray(result_joint.x, dtype=np.float64).ravel()
+    if x_joint.shape != x_joint0.shape:
+        x_joint = x_joint0.copy()
+    theta_opt = float(x_joint[0]) if ntheta else theta0
+    if ntheta:
+        model.family.putTheta(theta_opt)
+    sp_slice = slice(ntheta, ntheta + n_free)
+    x_sp = np.asarray(x_joint[sp_slice], dtype=np.float64).copy()
+    joint_jac = getattr(result_joint, "jac", None)
+    joint_hess = getattr(result_joint, "hess", None)
+    result = OptimizeResult(
+        x=x_sp,
+        fun=float(result_joint.fun),
+        success=bool(getattr(result_joint, "success", False)),
+        status=int(getattr(result_joint, "status", 0)),
+        message=str(getattr(result_joint, "message", "")),
+        nit=int(getattr(result_joint, "nit", 0)),
+        nfev=int(getattr(result_joint, "nfev", j_obj.n_fun)),
+        njev=int(getattr(result_joint, "njev", j_obj.n_jac)),
+        nhev=int(getattr(result_joint, "nhev", j_obj.n_hess)),
+    )
+    result.joint_outer_strategy = JointOuterStrategy.TWEEDIE
+    result.joint_log_theta = theta_opt if ntheta else None
+    result.joint_log_phi = float(x_joint[-1])
+    result.selected_theta = float(model.family.getTheta(True))
+    result.joint_x = x_joint.copy()
+    if joint_jac is not None:
+        joint_jac = np.asarray(joint_jac, dtype=np.float64).ravel()
+        result.jac = joint_jac[sp_slice].copy()
+    if joint_hess is not None:
+        joint_hess = np.asarray(joint_hess, dtype=np.float64)
+        result.hess = joint_hess[sp_slice, sp_slice].copy()
+    outer_info = dict(getattr(result_joint, "outer_info", {}) or {})
+    if joint_jac is not None:
+        outer_info["grad"] = joint_jac.copy()
+        outer_info["gradient_full"] = joint_jac.copy()
+    if joint_hess is not None:
+        outer_info["hess"] = 0.5 * (joint_hess + joint_hess.T)
+        outer_info["hessian_full"] = outer_info["hess"].copy()
+    outer_info["log_theta"] = theta_opt if ntheta else None
+    outer_info["log_scale"] = float(x_joint[-1])
+    result.outer_info = outer_info
+    result.optim_trace = getattr(result_joint, "optim_trace", None)
+    return result
+
+
 def optimize_smoothing_params(
     model, y, initial_smoothing_params=None, method="gcv", optimizer="outer_newton"
 ):
@@ -996,6 +1329,23 @@ def optimize_smoothing_params(
         # requested criterion.
         method = "reml"
     exact_gaussian = str(getattr(model.family, "name", "")).lower() == "gaussian"
+    transformed_coefficients = is_transformed_coefficient_model(model)
+
+    if transformed_coefficients:
+        if method not in {"gcv", "ubre", "aic", "ubreaic"}:
+            raise NotImplementedError(
+                "Transformed-coefficient smoothing selection currently supports "
+                "GCV/UBRE only for the single-predictor GLM kernel."
+            )
+        if optimizer not in {"outer_newton", "bfgs"}:
+                raise NotImplementedError(
+                    "Transformed-coefficient smoothing selection currently supports "
+                    "the exact SCAM bfgs_gcv.ubre policy only."
+                )
+        if optimizer == "outer_newton":
+            # scam() defaults to bfgs_gcv.ubre for smoothing selection. Its
+            # outer Newton name refers to coefficient fitting, not SP fitting.
+            optimizer = "bfgs"
 
     if method not in {
         "gcv",
@@ -1069,11 +1419,17 @@ def optimize_smoothing_params(
         if method in {"ml", "reml", "laml"}
         else None
     )
-    family_name = str(getattr(model.family, "name", "")).lower()
-    use_joint_gamma_reml_scale = (
-        family_name == "gamma"
-        and method in {"ml", "reml", "laml"}
+    outer_strategy = getattr(
+        model.family, "joint_outer_strategy", JointOuterStrategy.NONE
+    )
+    joint_pirls_strategy = (
+        outer_strategy
+        if method in {"ml", "reml", "laml"}
         and ml_reml_backend == "pirls_laplace"
+        else JointOuterStrategy.NONE
+    )
+    use_joint_gamma_reml_scale = (
+        joint_pirls_strategy is JointOuterStrategy.GAMMA_SCALE
     )
     family_class = str(
         getattr(getattr(model, "family", None), "family_class", "")
@@ -1082,9 +1438,15 @@ def optimize_smoothing_params(
         exact_gaussian and method in {"reml", "ml"} and optimizer != "efs"
     )
     use_joint_negbin_reml_theta = (
-        family_name == "negbin"
-        and method in {"ml", "reml", "laml"}
-        and ml_reml_backend == "pirls_laplace"
+        joint_pirls_strategy is JointOuterStrategy.NEGBIN_THETA
+        and bool(getattr(model.family, "estimate_theta", False))
+    )
+    use_joint_betar_theta = (
+        joint_pirls_strategy is JointOuterStrategy.BETAR_THETA
+        and bool(getattr(model.family, "estimate_theta", False))
+    )
+    use_joint_ocat_theta = (
+        joint_pirls_strategy is JointOuterStrategy.OCAT_THETA
         and bool(getattr(model.family, "estimate_theta", False))
     )
     _fit_workspace(model).pirls_disable_theta_efs = False
@@ -1093,6 +1455,9 @@ def optimize_smoothing_params(
         use_joint_gaussian_reml_scale
         or use_joint_gamma_reml_scale
         or use_joint_negbin_reml_theta
+        or use_joint_betar_theta
+        or use_joint_ocat_theta
+        or joint_pirls_strategy is JointOuterStrategy.TWEEDIE
     )
     if n_free == 0 and not has_joint_outer_params:
         model._optim_method = method
@@ -1214,6 +1579,30 @@ def optimize_smoothing_params(
             min_sp_offset_active,
         )
 
+    if use_joint_betar_theta:
+        return _run_joint_betar_outer(
+            model,
+            y,
+            x0,
+            free_mask,
+            method,
+            bounds,
+            optimizer,
+            n_free,
+        )
+
+    if use_joint_ocat_theta:
+        return _run_joint_ocat_outer(
+            model,
+            y,
+            x0,
+            free_mask,
+            method,
+            bounds,
+            optimizer,
+            n_free,
+        )
+
     branch_m = "LAML" if method == "laml" else str(method).upper()
     if use_joint_gaussian_reml_scale:
         objective_class = (
@@ -1250,7 +1639,11 @@ def optimize_smoothing_params(
         _fit_workspace(model).pirls_mu_start = None
     result = None
 
-    if not use_joint_gamma_reml_scale and result is None:
+    if (
+        not use_joint_gamma_reml_scale
+        and joint_pirls_strategy is not JointOuterStrategy.TWEEDIE
+        and result is None
+    ):
         if optimizer == "efs":
             result = _optimize_outer_efs_strict(
                 model=model,
@@ -1260,12 +1653,15 @@ def optimize_smoothing_params(
                 method=method,
             )
         elif optimizer == "bfgs":
-            result = _optimize_outer_bfgs_strict(
-                objective=objective,
-                x0=x0,
-                bounds=bounds,
-                score_type=method,
-            )
+            if transformed_coefficients:
+                result = optimize_transformed_bfgs(objective=objective, x0=x0)
+            else:
+                result = _optimize_outer_bfgs_strict(
+                    objective=objective,
+                    x0=x0,
+                    bounds=bounds,
+                    score_type=method,
+                )
         elif optimizer == "optim":
             result = _optimize_outer_optim_strict(
                 objective=objective,
@@ -1313,6 +1709,22 @@ def optimize_smoothing_params(
             min_sp_free,
             n_free,
             _free_x_to_total_log_sp,
+        )
+
+    if joint_pirls_strategy is JointOuterStrategy.TWEEDIE:
+        if min_sp_offset_active:
+            raise NotImplementedError(
+                "min_sp with joint Tweedie outer optimization is not supported yet."
+            )
+        result = _run_joint_tweedie_outer(
+            model,
+            y,
+            x0,
+            bounds,
+            branch_m,
+            method,
+            optimizer,
+            n_free,
         )
 
     if not result.success:

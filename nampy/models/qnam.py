@@ -1,26 +1,8 @@
-from ..neural.configs.qnam_config import DefaultQNAMConfig
-from ..neural.modules.qnam import QNAM
-from .lss import NeuralLSS
+"""Public estimator family generated from the QNAM declaration."""
 
+from ._registered import estimator_family
 
-class QNAMLSS(NeuralLSS):
-    """Quantile Neural Additive Model (always ``family='quantile'``).
+_family = estimator_family("qnam", module_name=__name__)
+QNAMLSS = _family.lss
 
-    Hyperparameters: see :class:`nampy.neural.configs.DefaultQNAMConfig` plus
-    shared preprocessing options in :class:`NeuralEstimatorBase`.
-    """
-
-    def __init__(self, **kwargs):
-        family = kwargs.pop("family", "quantile")
-        if str(family).lower() != "quantile":
-            raise ValueError("QNAMLSS only supports family='quantile'.")
-        distributional_kwargs = kwargs.pop("distributional_kwargs", None)
-        if distributional_kwargs is None:
-            distributional_kwargs = {"quantiles": [0.25, 0.5, 0.75]}
-        super().__init__(
-            model=QNAM,
-            config=DefaultQNAMConfig,
-            family=family,
-            distributional_kwargs=distributional_kwargs,
-            **kwargs,
-        )
+__all__ = ["QNAMLSS"]

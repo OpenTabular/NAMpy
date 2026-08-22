@@ -12,6 +12,12 @@ from typing import Any, Callable
 
 import numpy as np
 
+from ..coefficients import (
+    CoefficientTransform,
+    CoordinatewiseCoefficientTransform,
+    IdentityCoefficientTransform,
+)
+from ..observations import IdentityObservationTransform, ObservationTransform
 from .contracts import (
     ByVariableInfo,
     CoefficientMap,
@@ -42,7 +48,17 @@ class CompiledTerm:
     label: str
     coef_slice: slice
     basis_train: np.ndarray
+    # Set by ``compile_model`` once predictor-local terms are assembled into
+    # the model-wide coefficient layout.  Labels are intentionally not used as
+    # identity: distributional models may repeat the same formula term in
+    # several linear predictors.
+    predictor_index: int = 0
+    predictor_name: str = "predictor_0"
+    full_coef_indices: np.ndarray | None = None
     predict_fn: Callable[..., np.ndarray] | None = field(
+        default=None, repr=False, compare=False
+    )
+    derivative_fn: Callable[..., np.ndarray] | None = field(
         default=None, repr=False, compare=False
     )
     predict_coefficient_map: np.ndarray | None = field(
@@ -67,6 +83,41 @@ class CompiledTerm:
     penalty_specs: tuple = field(default_factory=tuple)
     constructor_metadata: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
+    positive_coefficient_mask: np.ndarray | None = None
+    coefficient_transform: CoefficientTransform | None = None
+
+    def __post_init__(self) -> None:
+        width = int(np.asarray(self.basis_train).shape[1])
+        if self.full_coef_indices is not None:
+            full_indices = np.asarray(self.full_coef_indices, dtype=int).reshape(-1)
+            if full_indices.shape != (width,):
+                raise ValueError(
+                    f"Compiled term {self.label!r} full coefficient indices have "
+                    f"shape {full_indices.shape}, expected {(width,)}."
+                )
+            self.full_coef_indices = full_indices.copy()
+        mask = (
+            np.zeros(width, dtype=bool)
+            if self.positive_coefficient_mask is None
+            else np.asarray(self.positive_coefficient_mask, dtype=bool).reshape(-1)
+        )
+        if mask.shape != (width,):
+            raise ValueError(
+                f"Compiled term {self.label!r} coefficient mask has shape "
+                f"{mask.shape}, expected {(width,)}."
+            )
+        self.positive_coefficient_mask = mask.copy()
+        if self.coefficient_transform is None:
+            self.coefficient_transform = (
+                IdentityCoefficientTransform(width)
+                if not np.any(mask)
+                else CoordinatewiseCoefficientTransform(mask, positive_map="exp")
+            )
+        elif int(self.coefficient_transform.size) != width:
+            raise ValueError(
+                f"Compiled term {self.label!r} coefficient transform has size "
+                f"{self.coefficient_transform.size}, expected {width}."
+            )
 
     @property
     def smoothing_id(self):
@@ -111,6 +162,33 @@ class CompiledTerm:
             )
         return basis
 
+    def derivative_matrix(self, X_new=None, *, order: int = 1):
+        """Evaluate this term's derivative in its compiled coefficient space."""
+        if self.derivative_fn is None:
+            raise NotImplementedError(
+                f"Compiled term {self.label!r} has no derivative provider."
+            )
+        basis = np.asarray(
+            self.derivative_fn(X_new=X_new, order=order), dtype=np.float64
+        )
+        if self.predict_coefficient_map is not None:
+            coefficient_map = np.asarray(
+                self.predict_coefficient_map, dtype=np.float64
+            )
+            if basis.shape[1] == coefficient_map.shape[0]:
+                basis = basis @ coefficient_map
+        if self.basis_transform is not None:
+            basis_transform = np.asarray(self.basis_transform, dtype=np.float64)
+            if basis.shape[1] == basis_transform.shape[0]:
+                basis = basis @ basis_transform
+        expected_width = int(self.basis_train.shape[1])
+        if basis.ndim != 2 or basis.shape[1] != expected_width:
+            raise ValueError(
+                f"Derivative matrix for {self.label!r} has shape {basis.shape}; "
+                f"expected (_, {expected_width})."
+            )
+        return basis
+
 
 @dataclass
 class CompiledPredictor:
@@ -127,6 +205,33 @@ class CompiledPredictor:
     smoothing_override_modes: list[str | None] = field(default_factory=list)
     smoothing_override_values: np.ndarray | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    positive_coefficient_mask: np.ndarray | None = None
+    coefficient_transform: CoefficientTransform | None = None
+
+    def __post_init__(self) -> None:
+        width = int(self.n_coef)
+        mask = (
+            np.zeros(width, dtype=bool)
+            if self.positive_coefficient_mask is None
+            else np.asarray(self.positive_coefficient_mask, dtype=bool).reshape(-1)
+        )
+        if mask.shape != (width,):
+            raise ValueError(
+                f"Compiled predictor {self.name!r} coefficient mask has shape "
+                f"{mask.shape}, expected {(width,)}."
+            )
+        self.positive_coefficient_mask = mask.copy()
+        if self.coefficient_transform is None:
+            self.coefficient_transform = (
+                IdentityCoefficientTransform(width)
+                if not np.any(mask)
+                else CoordinatewiseCoefficientTransform(mask, positive_map="exp")
+            )
+        elif int(self.coefficient_transform.size) != width:
+            raise ValueError(
+                f"Compiled predictor {self.name!r} coefficient transform has size "
+                f"{self.coefficient_transform.size}, expected {width}."
+            )
 
     @property
     def prediction_has_intercept(self) -> bool:
@@ -172,6 +277,46 @@ class CompiledModel:
     smoothing_override_values: np.ndarray | None = None
     side_condition_reports: tuple[dict[str, Any], ...] | None = None
     fit_to_prediction_parameterization_map: np.ndarray | None = None
+    positive_coefficient_mask: np.ndarray | None = None
+    coefficient_transform: CoefficientTransform | None = None
+    observation_transform: ObservationTransform | None = None
+
+    def __post_init__(self) -> None:
+        width = int(
+            sum(int(pred.n_coef) + int(bool(pred.has_intercept)) for pred in self.predictors)
+        )
+        if not self.predictors and self.positive_coefficient_mask is not None:
+            width = int(np.asarray(self.positive_coefficient_mask).size)
+        mask = (
+            np.zeros(width, dtype=bool)
+            if self.positive_coefficient_mask is None
+            else np.asarray(self.positive_coefficient_mask, dtype=bool).reshape(-1)
+        )
+        if mask.shape != (width,):
+            raise ValueError(
+                "Compiled model coefficient mask has shape "
+                f"{mask.shape}, expected {(width,)}."
+            )
+        self.positive_coefficient_mask = mask.copy()
+        if self.coefficient_transform is None:
+            self.coefficient_transform = (
+                IdentityCoefficientTransform(width)
+                if not np.any(mask)
+                else CoordinatewiseCoefficientTransform(mask, positive_map="exp")
+            )
+        elif int(self.coefficient_transform.size) != width:
+            raise ValueError(
+                "Compiled model coefficient transform has size "
+                f"{self.coefficient_transform.size}, expected {width}."
+            )
+        n_obs = int(np.asarray(self.design_matrix).shape[0])
+        if self.observation_transform is None:
+            self.observation_transform = IdentityObservationTransform(n_obs)
+        elif int(self.observation_transform.size) != n_obs:
+            raise ValueError(
+                "Compiled model observation transform has size "
+                f"{self.observation_transform.size}, expected {n_obs}."
+            )
 
     def build_new_matrix(self, X_new):
         if len(self.predictors) == 0:

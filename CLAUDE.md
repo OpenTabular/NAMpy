@@ -65,14 +65,19 @@ NAMpy has two numerical backends plus shared surfaces:
 
 ### 1. Neural backend (`nampy/neural/`, `nampy/models/`)
 
-Each model (NAM, GPNAM, NBM, NATT, NAMformer, NodeGAM, SplineNAM, QNAM, SNAM, TreeNAM, LinReg) follows a layered pattern:
+Each model (NAM, GPNAM, IGANN, NBM, NATT, NAMformer, NodeGAM, SplineNAM, QNAM, SNAM, TreeNAM, LinReg) follows a layered pattern:
 
-- `**nampy/neural/modules/**` — PyTorch architectures and shared building blocks (MLPs, normalization, attention, embeddings)
-- `**nampy/neural/task.py**` — Lightning task harness; `**nampy/neural/contracts.py**` — forward-output key grammar and feature-name validation (training/inference orchestration lives on `NeuralEstimatorBase` in `nampy/models/_base.py`)
+- `**nampy/neural/architectures/**` — PyTorch architectures, one file per model; reusable building blocks in `**nampy/neural/architectures/components/**` (BaseModel, MLPs, normalization, attention, embeddings, interactions, sparse activations, oblivious/additive tree blocks)
+- `**nampy/neural/objectives.py**` — architecture-independent output, target,
+  loss, and metric semantics; `**nampy/neural/task.py**` — Lightning harness;
+  `**nampy/neural/contracts.py**` — forward-output key grammar
+- `**nampy/neural/registry.py**` — canonical architecture definitions and capabilities
 - `**nampy/neural/data/**` — `NAMpyDataModule`/`NAMpyDataset` (PreTab-to-Torch; preprocessor fit on training rows only; offset channel)
 - `**nampy/neural/distributions/**` — Torch LSS families and metrics
 - `**nampy/neural/configs/<model>_config.py**` — hyperparameter dataclasses
-- `**nampy/models/<model>.py**` — scikit-learn-style wrappers (`<Model>Regressor`, `<Model>Classifier`, `<Model>LSS`); `nampy/models/gam.py` holds the `GAMRegressor`/`GAMClassifier` adapters
+- `**nampy/models/<model>.py**` — registry-generated estimator families
+  (`<Model>Regressor`, `<Model>Classifier`, `<Model>LSS`);
+  `nampy/models/gam.py` holds the GAM adapters
 
 Three task flavors per model: regression, classification, distributional regression (LSS). All expose `.fit(X, y)`, `.predict(X)`, `.score(X, y)`. Estimators use hand-written `score()` and `__sklearn_tags__` (no sklearn mixin classes — keep it that way).
 

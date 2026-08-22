@@ -81,7 +81,7 @@ def test_neural_plot_terms_uses_shared_renderer(tmp_path):
     X = pd.DataFrame({"x": rng.normal(size=60), "z": rng.normal(size=60)})
     y = 2.0 * X["x"].to_numpy() - X["z"].to_numpy()
 
-    estimator = LinRegRegressor(numerical_preprocessing="standardization")
+    estimator = LinRegRegressor(numerical_method="standardization")
     estimator.fit(X, y, max_epochs=2, patience=1, checkpoint_path=str(tmp_path))
 
     figures = estimator.plot_terms(X)

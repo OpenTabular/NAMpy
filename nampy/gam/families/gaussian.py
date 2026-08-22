@@ -1,6 +1,7 @@
 import numpy as np
+from scipy.stats import norm
 
-from .family_base import GLMFamily
+from .family_base import GLMFamily, JointOuterStrategy
 
 
 class GaussianIdentityFamily(GLMFamily):
@@ -20,6 +21,7 @@ class GaussianIdentityFamily(GLMFamily):
     supports_laml = False
     supports_exact_pirls_first_derivatives = True
     supports_exact_pirls_second_derivatives = True
+    joint_outer_strategy = JointOuterStrategy.GAUSSIAN_SCALE
     known_scale = None
     max_derivative_order = 1
 
@@ -96,6 +98,14 @@ class GaussianIdentityFamily(GLMFamily):
     def working_weight_second_derivative_eta(self, eta, y=None):
         eta = np.asarray(eta, dtype=np.float64)
         return np.zeros_like(eta, dtype=np.float64)
+
+    def quantile_residual_bounds(self, y, mu, *, weights=None, scale=1.0):
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.asarray(mu, dtype=np.float64)
+        w = self._check_weights(y, weights)
+        cdf = norm.cdf(y, loc=mu, scale=np.sqrt(float(scale) / w))
+        cdf = np.asarray(cdf, dtype=np.float64)
+        return cdf, cdf
 
 
 class GaussianLogFamily(GaussianIdentityFamily):

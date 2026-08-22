@@ -98,7 +98,7 @@ def test_datamodule_splits_offset_alongside_features():
     offset = X["x"].to_numpy().copy()
 
     data_module = NAMpyDataModule(
-        preprocessor=Preprocessor(numerical_preprocessing="standardization"),
+        preprocessor=Preprocessor(numerical_method="standardization"),
         batch_size=32,
         shuffle=False,
         regression=True,
@@ -121,7 +121,7 @@ def test_explicit_validation_requires_offset_val():
     y = rng.normal(size=40)
 
     data_module = NAMpyDataModule(
-        preprocessor=Preprocessor(numerical_preprocessing="standardization"),
+        preprocessor=Preprocessor(numerical_method="standardization"),
         batch_size=16,
         shuffle=False,
         regression=True,
@@ -140,7 +140,7 @@ def test_gaussian_offset_shifts_fitted_solution(tmp_path):
 
     def _fit(offset):
         torch.manual_seed(0)
-        estimator = LinRegRegressor(numerical_preprocessing="standardization")
+        estimator = LinRegRegressor(numerical_method="standardization")
         estimator.fit(
             X,
             y,
@@ -170,7 +170,7 @@ def test_custom_loss_fct_reaches_task_module(tmp_path):
     y = np.exp(0.5 * X["x"].to_numpy())
 
     loss = nn.PoissonNLLLoss(log_input=True)
-    estimator = LinRegRegressor(numerical_preprocessing="standardization")
+    estimator = LinRegRegressor(numerical_method="standardization")
     estimator.fit(
         X,
         y,
@@ -192,7 +192,7 @@ def test_custom_loss_fct_rejected_outside_regression():
     from nampy.models.linreg import LinRegClassifier
 
     assert issubclass(LinRegClassifier, NeuralClassifier)
-    estimator = LinRegClassifier(numerical_preprocessing="standardization")
+    estimator = LinRegClassifier(numerical_method="standardization")
     estimator._fit_loss_fct = nn.MSELoss()
     with pytest.raises(ValueError, match="only supported for regression"):
         estimator._build_training_plan(np.array([0, 1, 0, 1]), None)

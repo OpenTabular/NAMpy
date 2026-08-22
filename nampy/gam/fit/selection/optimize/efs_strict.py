@@ -9,6 +9,7 @@ from ...._mgcv_constants import LOG_GUARD_MIN
 from ....linalg.cholesky import compute_preconditioned_inverse
 from ....model_state import (
     _coef_column_offset,
+    _coefficient_slice_full_indices,
     _fit_workspace,
     _n_coef,
     _n_smoothing_params,
@@ -53,14 +54,19 @@ def _free_smoothing_mask(model):
 
 def _base_penalty_matrices(model):
     n_sp = int(_n_smoothing_params(model) or 0)
-    off = int(_coef_column_offset(model))
-    n_full = int(_n_coef(model) + off)
+    compiled = getattr(getattr(model, "gam_result_", None), "compiled_model", None)
+    n_full = int(
+        _n_coef(model) + _coef_column_offset(model)
+        if compiled is None
+        else compiled.coefficient_transform.size
+    )
     mats = [np.zeros((n_full, n_full), dtype=np.float64) for _ in range(n_sp)]
     for pb in _penalty_blocks_seq(model):
         idx = int(pb.smoothing_index)
-        sl = pb.coef_slice
-        full_sl = slice(off + int(sl.start), off + int(sl.stop))
-        mats[idx][full_sl, full_sl] += np.asarray(pb.matrix, dtype=np.float64)
+        full_idx = _coefficient_slice_full_indices(model, pb.coef_slice)
+        mats[idx][np.ix_(full_idx, full_idx)] += np.asarray(
+            pb.matrix, dtype=np.float64
+        )
     return mats
 
 

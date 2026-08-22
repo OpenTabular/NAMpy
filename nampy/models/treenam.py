@@ -1,26 +1,10 @@
-from ..neural.configs.treenam_config import DefaultTreeNAMConfig
-from ..neural.modules.treenam import TreeNAM
-from .classifier import NeuralClassifier
-from .lss import NeuralLSS
-from .regressor import NeuralRegressor
+"""Public estimator family generated from the TreeNAM declaration."""
 
+from ._registered import estimator_family
 
-class TreeNAMRegressor(NeuralRegressor):
-    """TreeNAM regressor."""
+_family = estimator_family("treenam", module_name=__name__)
+TreeNAMRegressor = _family.regressor
+TreeNAMClassifier = _family.classifier
+TreeNAMLSS = _family.lss
 
-    def __init__(self, **kwargs):
-        super().__init__(model=TreeNAM, config=DefaultTreeNAMConfig, **kwargs)
-
-
-class TreeNAMClassifier(NeuralClassifier):
-    """TreeNAM classifier."""
-
-    def __init__(self, **kwargs):
-        super().__init__(model=TreeNAM, config=DefaultTreeNAMConfig, **kwargs)
-
-
-class TreeNAMLSS(NeuralLSS):
-    """TreeNAM for distributional regression."""
-
-    def __init__(self, **kwargs):
-        super().__init__(model=TreeNAM, config=DefaultTreeNAMConfig, **kwargs)
+__all__ = ["TreeNAMRegressor", "TreeNAMClassifier", "TreeNAMLSS"]

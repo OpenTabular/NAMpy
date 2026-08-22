@@ -22,8 +22,8 @@ The NAMpy package is organized into several main modules:
 * :mod:`nampy.gam` - mgcv-parity GAM backend (``GAM`` and the fit core)
 * :mod:`nampy.contracts` - Shared backend-neutral contracts (feature schema,
   additive predictions, capabilities, persistence)
-* :mod:`nampy.neural` - Torch backend internals (modules, task, contracts,
-  data, distributions, configs)
+* :mod:`nampy.neural` - Torch backend internals (architectures, objectives,
+  task, contracts, interaction selection, data, distributions, configs)
 
 Quick API Reference
 -------------------
@@ -56,7 +56,7 @@ For advanced users who want direct access to PyTorch models:
 
 .. code-block:: python
 
-   from nampy.neural.modules import NAM
+   from nampy.neural.architectures import NAM
    from nampy.neural.configs import DefaultNAMConfig
    
    config = DefaultNAMConfig()
@@ -76,7 +76,7 @@ NAMpy uses the PreTab library for preprocessing. Pass a PreTab preprocessor into
 
    from pretab.preprocessor import Preprocessor
    
-   preprocessor = Preprocessor(task="regression", n_bins=50)
+   preprocessor = Preprocessor(task="regression", output_dim=50)
    # Use with NAMpyDataModule or model.fit(X, y, ...)
    
    X_processed = preprocessor.fit_transform(X, y)

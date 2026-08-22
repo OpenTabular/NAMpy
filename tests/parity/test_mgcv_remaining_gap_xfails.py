@@ -24,7 +24,7 @@ from nampy.gam.fit.selection.criteria.dispatch import (
     criterion_hessian,
     criterion_value,
 )
-from nampy.gam.fit.selection.criteria.pirls.derivatives import _gdi2_joint_kernel
+from nampy.gam.fit.selection.criteria.pirls.joint_kernels import gdi2_joint_kernel
 from nampy.gam.formula import extract_formula_terms, parse_gam_formula
 from nampy.gam.specs.build import build_formula_model
 from tests._paths import REPO_ROOT
@@ -243,7 +243,7 @@ def test_general_family_generic_gdi2_kernel_available_for_gaulss():
     log_sp = np.log(np.asarray(sp, dtype=np.float64))
     sol = solve_pirls_given_smoothing(gam, y, sp)
 
-    kernel = _gdi2_joint_kernel(gam, y, sol, sp, method="REML", need_hessian=True)
+    kernel = gdi2_joint_kernel(gam, y, sol, sp, method="REML", need_hessian=True)
 
     gamma = float(gam.score_gamma)
     assert np.isfinite(float(kernel.Dp))

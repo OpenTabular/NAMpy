@@ -206,6 +206,23 @@ def compile_model(
 
     if len(compiled_predictors) == 1:
         predictor = compiled_predictors[0]
+        coef_offset = int(bool(predictor.has_intercept))
+        compiled_terms = tuple(
+            replace(
+                term,
+                predictor_index=0,
+                predictor_name=str(predictor.name),
+                full_coef_indices=(
+                    np.arange(
+                        int(term.coef_slice.start),
+                        int(term.coef_slice.stop),
+                        dtype=int,
+                    )
+                    + coef_offset
+                ),
+            )
+            for term in predictor.compiled_terms
+        )
         metadata = dict(getattr(predictor, "metadata", {}) or {})
         if pred_param_map is not None:
             metadata["fit_to_prediction_parameterization_map"] = np.asarray(
@@ -214,7 +231,7 @@ def compile_model(
         return CompiledModel(
             predictors=(predictor,),
             design_matrix=np.asarray(predictor.design_matrix, dtype=np.float64),
-            compiled_terms=tuple(predictor.compiled_terms),
+            compiled_terms=compiled_terms,
             compiled_penalties=tuple(predictor.compiled_penalties),
             metadata=metadata,
             n_coef=int(predictor.n_coef),
@@ -238,6 +255,18 @@ def compile_model(
                 if pred_param_map is None
                 else np.asarray(pred_param_map, dtype=np.float64)
             ),
+            positive_coefficient_mask=np.concatenate(
+                [
+                    np.zeros(int(bool(predictor.has_intercept)), dtype=bool),
+                    (
+                        np.zeros(int(predictor.n_coef), dtype=bool)
+                        if predictor.positive_coefficient_mask is None
+                        else np.asarray(
+                            predictor.positive_coefficient_mask, dtype=bool
+                        )
+                    ),
+                ]
+            ),
         )
 
     global_terms = []
@@ -256,6 +285,8 @@ def compile_model(
     for predictor_index, predictor in enumerate(compiled_predictors):
         combined_blocks.append(np.asarray(predictor.design_matrix, dtype=np.float64))
         pred_full_width = int(predictor_prediction_widths[predictor_index])
+        predictor_full_start = full_shift
+        predictor_coef_offset = int(bool(predictor.has_intercept))
 
         if bool(predictor.has_intercept):
             reduced_to_full.extend(
@@ -286,9 +317,20 @@ def compile_model(
             global_terms.append(
                 replace(
                     term,
+                    predictor_index=int(predictor_index),
+                    predictor_name=str(predictor.name),
                     coef_slice=slice(
                         coef_shift + int(term.coef_slice.start),
                         coef_shift + int(term.coef_slice.stop),
+                    ),
+                    full_coef_indices=(
+                        np.arange(
+                            int(term.coef_slice.start),
+                            int(term.coef_slice.stop),
+                            dtype=int,
+                        )
+                        + predictor_full_start
+                        + predictor_coef_offset
                     ),
                     smoothing_indices=[
                         sp_shift + int(value)
@@ -370,6 +412,23 @@ def compile_model(
             None
             if pred_param_map is None
             else np.asarray(pred_param_map, dtype=np.float64)
+        ),
+        positive_coefficient_mask=np.concatenate(
+            [
+                np.concatenate(
+                    [
+                        np.zeros(int(bool(predictor.has_intercept)), dtype=bool),
+                        (
+                            np.zeros(int(predictor.n_coef), dtype=bool)
+                            if predictor.positive_coefficient_mask is None
+                            else np.asarray(
+                                predictor.positive_coefficient_mask, dtype=bool
+                            )
+                        ),
+                    ]
+                )
+                for predictor in compiled_predictors
+            ]
         ),
     )
 

@@ -84,8 +84,8 @@ def main():
     model = GPNAMRegressor(
         kernel_width=0.8,
         rff_num_feat=128,
-        numerical_preprocessing="standardization",
-        categorical_preprocessing="one_hot",
+        numerical_method="standardization",
+        categorical_method="one_hot",
         cat_cutoff=0.0,
     )
 

@@ -13,7 +13,7 @@ from scipy.special import gammaln
 from ..fit.selection.criteria.gaussian_reml_algebra import (
     gaussian_reml_weighted_degrees_and_log_weight_term,
 )
-from ..fit.selection.criteria.pirls.value import _solve_gamma_profile_scale
+from ..fit.selection.criteria.pirls.family_gamma import _solve_gamma_profile_scale
 from ..fit.selection.reparam import _static_penalty_null_dim
 from ..model_state import (
     _coef_column_offset,

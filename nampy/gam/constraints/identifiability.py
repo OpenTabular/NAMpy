@@ -7,6 +7,10 @@ import warnings
 import numpy as np
 from scipy.linalg import eigh
 
+from ..coefficients import (
+    IdentityCoefficientTransform,
+    compose_coefficient_transforms,
+)
 from ..compiler.contracts import CoefficientMap
 from ..compiler.structures import (
     CompiledPenalty,
@@ -370,6 +374,12 @@ def apply_global_side_conditions(
                     penalty_specs=tuple(tb.penalty_specs),
                     constructor_metadata=dict(tb.constructor_metadata),
                     metadata=dict(tb.metadata),
+                    positive_coefficient_mask=(
+                        None
+                        if tb.positive_coefficient_mask is None
+                        else np.asarray(tb.positive_coefficient_mask, dtype=bool).copy()
+                    ),
+                    coefficient_transform=tb.coefficient_transform,
                 )
             predictor_transforms[term_idx] = np.eye(d, dtype=np.float64)
             for pb, P in zip(term_penalty_objs, pen_matrices, strict=True):
@@ -553,6 +563,12 @@ def apply_global_side_conditions(
         # When centering was absorbed the mapping through T_con is non-trivial;
         # set to None to signal that exact original indices are unavailable.
         if absorbed_centering:
+            if not tb.coefficient_transform.is_identity:
+                raise RuntimeError(
+                    "Dense centering transforms cannot be applied to coordinatewise "
+                    "shape-constrained coefficients. The runtime constructor must own "
+                    "SCAM identifiability."
+                )
             kept_orig = None
             deleted_orig = None
         else:
@@ -621,6 +637,16 @@ def apply_global_side_conditions(
                 penalty_specs=tuple(pen_specs_final),
                 constructor_metadata=dict(tb.constructor_metadata),
                 metadata=tb_meta,
+                positive_coefficient_mask=(
+                    None
+                    if tb.positive_coefficient_mask is None
+                    else np.asarray(tb.positive_coefficient_mask, dtype=bool)[keep].copy()
+                ),
+                coefficient_transform=(
+                    IdentityCoefficientTransform(d_final)
+                    if absorbed_centering
+                    else tb.coefficient_transform.subset(keep)
+                ),
             )
 
         for pb, pdef_new in pen_pairs_final:
@@ -784,6 +810,23 @@ def apply_global_side_conditions(
         smoothing_override_modes=override_modes,
         smoothing_override_values=override_values,
         metadata=dict(design.metadata),
+        positive_coefficient_mask=(
+            np.concatenate(
+                [
+                    (
+                        np.zeros(tb.basis_train.shape[1], dtype=bool)
+                        if tb.positive_coefficient_mask is None
+                        else np.asarray(tb.positive_coefficient_mask, dtype=bool)
+                    )
+                    for tb in final_term_blocks
+                ]
+            )
+            if final_term_blocks
+            else np.zeros(0, dtype=bool)
+        ),
+        coefficient_transform=compose_coefficient_transforms(
+            [tb.coefficient_transform for tb in final_term_blocks]
+        ),
     )
     report = {
         "predictor": design.name,

@@ -15,6 +15,7 @@ from .smooth import (
     FactorSmoothInteractionSpec,
     PSplineSmoothSpec,
     RandomEffectSmoothSpec,
+    ShapeConstrainedSmoothSpec,
     SmoothSpec,
     SumToZeroFactorSmoothSpec,
     TensorInteractionSmoothSpec,
@@ -96,6 +97,20 @@ def _build_s_ps(opts) -> PSplineSmoothSpec:
     )
 
 
+def _build_s_shape(opts) -> ShapeConstrainedSmoothSpec:
+    return ShapeConstrainedSmoothSpec(
+        special="s",
+        bs=str(opts["bs"]).lower(),
+        k=opts["k"],
+        fx=opts["fx"],
+        select=opts["select"],
+        sp=opts["sp"],
+        knots=opts["knots"],
+        m=opts["m"],
+        xt=opts["xt"],
+    )
+
+
 def _build_s_tp(opts) -> ThinPlateSmoothSpec:
     return ThinPlateSmoothSpec(
         special="s",
@@ -172,6 +187,47 @@ _S_BASIS_SPEC_BUILDERS: dict[str, Callable[[dict[str, Any]], SmoothSpec]] = {
     "re": _build_s_re,
     "fs": _build_s_fs,
     "sz": _build_s_sz,
+    "mpi": _build_s_shape,
+    "mpd": _build_s_shape,
+    "mdcv": _build_s_shape,
+    "mdcx": _build_s_shape,
+    "micv": _build_s_shape,
+    "micx": _build_s_shape,
+    "cv": _build_s_shape,
+    "cx": _build_s_shape,
+    "po": _build_s_shape,
+    "dpo": _build_s_shape,
+    "ipo": _build_s_shape,
+    "miso": _build_s_shape,
+    "mifo": _build_s_shape,
+    "mpiby": _build_s_shape,
+    "mpdby": _build_s_shape,
+    "mdcvby": _build_s_shape,
+    "mdcxby": _build_s_shape,
+    "micvby": _build_s_shape,
+    "micxby": _build_s_shape,
+    "cvby": _build_s_shape,
+    "cxby": _build_s_shape,
+    "cpop": _build_s_shape,
+    "lmpi": _build_s_shape,
+    "lipl": _build_s_shape,
+    "tedmi": _build_s_shape,
+    "tedmd": _build_s_shape,
+    "temicx": _build_s_shape,
+    "temicv": _build_s_shape,
+    "tedecv": _build_s_shape,
+    "tedecx": _build_s_shape,
+    "tecvcv": _build_s_shape,
+    "tecxcx": _build_s_shape,
+    "tecxcv": _build_s_shape,
+    "tescv": _build_s_shape,
+    "tescx": _build_s_shape,
+    "tesmi1": _build_s_shape,
+    "tesmd1": _build_s_shape,
+    "tesmi2": _build_s_shape,
+    "tesmd2": _build_s_shape,
+    "tismi": _build_s_shape,
+    "tismd": _build_s_shape,
 }
 
 

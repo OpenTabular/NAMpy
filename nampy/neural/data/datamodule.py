@@ -2,7 +2,7 @@ import lightning as pl
 import numpy as np
 import torch
 from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from .dataset import NAMpyDataset
 
@@ -43,6 +43,7 @@ class NAMpyDataModule(pl.LightningDataModule):
         y_val=None,
         val_size=0.2,
         random_state=101,
+        sampling_strategy=None,
         **dataloader_kwargs,
     ):
         """
@@ -70,6 +71,11 @@ class NAMpyDataModule(pl.LightningDataModule):
         self.val_size = val_size
         self.random_state = random_state
         self.regression = regression
+        if sampling_strategy not in {None, "balanced"}:
+            raise ValueError("sampling_strategy must be None or 'balanced'.")
+        if regression and sampling_strategy is not None:
+            raise ValueError("Balanced sampling is only available for classification.")
+        self.sampling_strategy = sampling_strategy
         if self.regression:
             self.labels_dtype = torch.float32
         else:
@@ -80,6 +86,9 @@ class NAMpyDataModule(pl.LightningDataModule):
         self.y_train = None
         self.offset_train = None
         self.offset_val = None
+        self.sample_weight_train = None
+        self.sample_weight_val = None
+        self._train_preprocessed_data = None
         self.test_preprocessor_fitted = False
         self.dataloader_kwargs = dataloader_kwargs
 
@@ -102,6 +111,40 @@ class NAMpyDataModule(pl.LightningDataModule):
         # For 2D targets (e.g. Dirichlet, multivariate LSS), keep [N, K]
         return t
 
+    @staticmethod
+    def _validate_sample_weight(sample_weight, n_samples, *, name):
+        if sample_weight is None:
+            return None
+        values = np.asarray(sample_weight, dtype=np.float32).reshape(-1)
+        if len(values) != n_samples:
+            raise ValueError(
+                f"{name} must contain {n_samples} values; got {len(values)}."
+            )
+        if not np.isfinite(values).all() or np.any(values < 0):
+            raise ValueError(f"{name} must be finite and non-negative.")
+        if float(values.sum()) <= 0:
+            raise ValueError(f"{name} must sum to a positive value.")
+        return values
+
+    @staticmethod
+    def _to_weight_tensor(sample_weight):
+        if sample_weight is None:
+            return None
+        return torch.tensor(np.asarray(sample_weight, dtype=np.float32)).reshape(-1, 1)
+
+    @staticmethod
+    def _with_cardinality(info, transformed, prefix):
+        enriched = {key: dict(value) for key, value in info.items()}
+        for key, value in enriched.items():
+            transformed_key = f"{prefix}_{key}"
+            if transformed_key not in transformed:
+                continue
+            array = np.asarray(transformed[transformed_key])
+            if array.ndim == 1:
+                array = array[:, None]
+            value["n_unique"] = int(np.unique(array, axis=0).shape[0])
+        return enriched
+
     def setup_data(
         self,
         X_train,
@@ -113,6 +156,8 @@ class NAMpyDataModule(pl.LightningDataModule):
         stratify=None,
         offset=None,
         offset_val=None,
+        sample_weight=None,
+        sample_weight_val=None,
     ):
         """
         Sets up the training and validation data: splits, fits the preprocessor, and stores feature info.
@@ -149,10 +194,20 @@ class NAMpyDataModule(pl.LightningDataModule):
         if (X_val is None) ^ (y_val is None):
             raise ValueError("X_val and y_val must be provided together; got only one.")
 
+        sample_weight = self._validate_sample_weight(
+            sample_weight, len(y_train), name="sample_weight"
+        )
+        if X_val is None and sample_weight_val is not None:
+            raise ValueError(
+                "sample_weight_val can only be used with an explicit validation set."
+            )
+
         if X_val is None and y_val is None:
             extras = []
             if offset is not None:
                 extras.append(np.asarray(offset))
+            if sample_weight is not None:
+                extras.append(sample_weight)
 
             splits = train_test_split(
                 X_train,
@@ -170,6 +225,11 @@ class NAMpyDataModule(pl.LightningDataModule):
             else:
                 self.offset_train = None
                 self.offset_val = None
+            if sample_weight is not None:
+                self.sample_weight_train, self.sample_weight_val = rest[0], rest[1]
+            else:
+                self.sample_weight_train = None
+                self.sample_weight_val = None
         else:
             if offset is not None and offset_val is None:
                 raise ValueError(
@@ -182,6 +242,10 @@ class NAMpyDataModule(pl.LightningDataModule):
             self.y_val = y_val
             self.offset_train = offset
             self.offset_val = offset_val
+            self.sample_weight_train = sample_weight
+            self.sample_weight_val = self._validate_sample_weight(
+                sample_weight_val, len(y_val), name="sample_weight_val"
+            )
 
         # Fit the preprocessor on training rows only; validation rows must not
         # influence fitted statistics (supervised binning uses y).
@@ -196,15 +260,20 @@ class NAMpyDataModule(pl.LightningDataModule):
         # (num_feature_info, cat_feature_info, emb_feature_info).
         self.preprocessor.fit(X_fit, np.asarray(self.y_train))
         num_info, cat_info, _ = self.preprocessor.get_feature_info(verbose=False)
-        self.num_feature_info = num_info
-        self.cat_feature_info = cat_info
+        self._train_preprocessed_data = self.preprocessor.transform(X_fit)
+        self.num_feature_info = self._with_cardinality(
+            num_info, self._train_preprocessed_data, "num"
+        )
+        self.cat_feature_info = self._with_cardinality(
+            cat_info, self._train_preprocessed_data, "cat"
+        )
 
     def setup(self, stage: str):
         """
         Transform the data and create DataLoaders.
         """
         if stage == "fit":
-            train_preprocessed_data = self.preprocessor.transform(self.X_train)
+            train_preprocessed_data = self._train_preprocessed_data
             val_preprocessed_data = self.preprocessor.transform(self.X_val)
 
             # Initialize lists for tensors
@@ -264,6 +333,7 @@ class NAMpyDataModule(pl.LightningDataModule):
                 cat_keys=cat_keys,
                 num_keys=num_keys,
                 offsets=self._to_offset_tensor(self.offset_train),
+                sample_weights=self._to_weight_tensor(self.sample_weight_train),
             )
             self.val_dataset = NAMpyDataset(
                 val_cat_tensors,
@@ -273,6 +343,7 @@ class NAMpyDataModule(pl.LightningDataModule):
                 cat_keys=cat_keys,
                 num_keys=num_keys,
                 offsets=self._to_offset_tensor(self.offset_val),
+                sample_weights=self._to_weight_tensor(self.sample_weight_val),
             )
         elif stage == "test":
             if not self.test_preprocessor_fitted:
@@ -288,6 +359,33 @@ class NAMpyDataModule(pl.LightningDataModule):
                 cat_keys=self.cat_keys,
                 num_keys=self.num_keys,
             )
+
+    def preprocess_tensors(self, X):
+        """Transform arbitrary rows into architecture input dictionaries."""
+        preprocessed = self.preprocessor.transform(X)
+        cat_tensors = {}
+        num_tensors = {}
+
+        for key, info in self.cat_feature_info.items():
+            transformed_key = "cat_" + key
+            if transformed_key not in preprocessed:
+                continue
+            array = preprocessed[transformed_key]
+            is_onehot = "onehot" in info.get("preprocessing", "").lower() or (
+                info.get("dimension", 1) > 1
+            )
+            if not is_onehot and array.dtype.kind == "f":
+                array = array.astype("int64")
+            dtype = torch.float32 if is_onehot else torch.long
+            cat_tensors[key] = torch.tensor(array, dtype=dtype)
+
+        for key in self.num_feature_info:
+            transformed_key = "num_" + key
+            if transformed_key in preprocessed:
+                num_tensors[key] = torch.tensor(
+                    preprocessed[transformed_key], dtype=torch.float32
+                )
+        return cat_tensors, num_tensors
 
     def preprocess_test_data(self, X):
         test_preprocessed_data = self.preprocessor.transform(X)
@@ -349,11 +447,43 @@ class NAMpyDataModule(pl.LightningDataModule):
             DataLoader: DataLoader instance for the training dataset.
         """
 
+        sampler = None
+        shuffle = self.shuffle
+        if self.sampling_strategy == "balanced":
+            if "sampler" in self.dataloader_kwargs or "batch_sampler" in self.dataloader_kwargs:
+                raise ValueError(
+                    "sampling_strategy cannot be combined with a custom sampler."
+                )
+            labels = np.asarray(self.y_train).reshape(-1)
+            classes, counts = np.unique(labels, return_counts=True)
+            if len(classes) < 2:
+                raise ValueError("Balanced sampling requires at least two classes.")
+            inverse_frequency = {
+                label: 1.0 / count for label, count in zip(classes, counts, strict=True)
+            }
+            weights = torch.tensor(
+                [inverse_frequency[label] for label in labels], dtype=torch.double
+            )
+            generator = torch.Generator().manual_seed(int(self.random_state))
+            sampler = WeightedRandomSampler(
+                weights,
+                num_samples=len(weights),
+                replacement=True,
+                generator=generator,
+            )
+            shuffle = False
+
+        loader_kwargs = dict(self.dataloader_kwargs)
+        loader_kwargs.setdefault(
+            "generator", torch.Generator().manual_seed(int(self.random_state))
+        )
+        if sampler is not None:
+            loader_kwargs["sampler"] = sampler
         return DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
-            shuffle=self.shuffle,
-            **self.dataloader_kwargs,
+            shuffle=shuffle,
+            **loader_kwargs,
         )
 
     def val_dataloader(self):
@@ -363,8 +493,12 @@ class NAMpyDataModule(pl.LightningDataModule):
         Returns:
             DataLoader: DataLoader instance for the validation dataset.
         """
+        loader_kwargs = dict(self.dataloader_kwargs)
+        loader_kwargs.setdefault(
+            "generator", torch.Generator().manual_seed(int(self.random_state) + 1)
+        )
         return DataLoader(
-            self.val_dataset, batch_size=self.batch_size, **self.dataloader_kwargs
+            self.val_dataset, batch_size=self.batch_size, **loader_kwargs
         )
 
     def test_dataloader(self):

@@ -1,9 +1,10 @@
 """Shared feature-effect plotting for the neural estimator wrappers.
 
 The regressor, classifier, and LSS wrappers plot the same thing — per-feature
-contribution curves and pairwise interaction heatmaps — differing only in how
-the output columns are labelled. Wrappers supply those labels via their
-``_plot_series_labels`` hook; everything else lives here once.
+contribution curves, pairwise interaction heatmaps, and conditioned slices of
+higher-order interactions — differing only in how the output columns are
+labelled. Wrappers supply those labels via their ``_plot_series_labels`` hook;
+everything else lives here once.
 """
 
 from __future__ import annotations
@@ -181,9 +182,14 @@ def plot_interaction_effects(
     X_train_scaled=None,
     num_bins=30,
     series_labels=None,
+    slice_bins=3,
+    max_slices=9,
 ):
-    """Plot one pairwise interaction as binned heatmap(s)."""
-    feature1, feature2 = interaction_name.split(":")
+    """Plot pairwise heatmaps or observed slices of a higher-order term."""
+    features = interaction_name.split(":")
+    if len(features) < 2:
+        raise ValueError("An interaction plot requires at least two features.")
+    feature1, feature2 = features[:2]
 
     interaction_preds = _as_2d_numpy(interaction_preds)
     n_series = interaction_preds.shape[1]
@@ -199,43 +205,89 @@ def plot_interaction_effects(
         else np.arange(len(interaction_preds))
     )
 
-    fig, axes = create_subplot_grid(n_series)
-
     x1_bins = np.linspace(x1_vals.min(), x1_vals.max(), num_bins)
     x2_bins = np.linspace(x2_vals.min(), x2_vals.max(), num_bins)
     x1_bin_idx = np.clip(np.digitize(x1_vals, x1_bins) - 1, 0, num_bins - 2)
     x2_bin_idx = np.clip(np.digitize(x2_vals, x2_bins) - 1, 0, num_bins - 2)
 
-    for out_idx, ax in enumerate(axes[:n_series]):
-        contribs = interaction_preds[:, out_idx]
-
-        grid_sum = np.zeros((num_bins - 1, num_bins - 1))
-        grid_count = np.zeros((num_bins - 1, num_bins - 1), dtype=int)
-        np.add.at(grid_sum, (x1_bin_idx, x2_bin_idx), contribs)
-        np.add.at(grid_count, (x1_bin_idx, x2_bin_idx), 1)
-        grid = np.where(grid_count > 0, grid_sum / np.maximum(grid_count, 1), np.nan)
-
-        im = ax.imshow(
-            grid.T,
-            origin="lower",
-            aspect="auto",
-            extent=[x1_bins[0], x1_bins[-1], x2_bins[0], x2_bins[-1]],
-            cmap="RdBu_r",
-        )
-        plt.colorbar(im, ax=ax, label="Contribution")
-        title = f"Interaction: {feature1} × {feature2}"
-        if n_series > 1:
-            label = (
-                series_labels[out_idx]
-                if series_labels is not None and out_idx < len(series_labels)
-                else f"Output {out_idx + 1}"
+    slice_masks = [("", np.ones(len(interaction_preds), dtype=bool))]
+    if len(features) > 2:
+        if X_train_scaled is None:
+            raise ValueError(
+                "Higher-order interaction slices require source feature values."
             )
-            title += f" ({label})"
-        ax.set_title(title)
-        ax.set_xlabel(feature1)
-        ax.set_ylabel(feature2)
+        if slice_bins < 1 or max_slices < 1:
+            raise ValueError("slice_bins and max_slices must be positive.")
+        conditions = pd.DataFrame(index=np.arange(len(interaction_preds)))
+        for feature in features[2:]:
+            values = X_train_scaled[feature]
+            if pd.api.types.is_numeric_dtype(values):
+                conditions[feature] = pd.qcut(
+                    values, q=slice_bins, duplicates="drop"
+                ).astype(str)
+            else:
+                conditions[feature] = values.astype(str)
+        grouped = conditions.groupby(list(conditions), dropna=False).groups
+        ranked_groups = sorted(
+            grouped.items(), key=lambda item: (-len(item[1]), str(item[0]))
+        )[:max_slices]
+        slice_masks = []
+        for condition, row_indices in ranked_groups:
+            values = condition if isinstance(condition, tuple) else (condition,)
+            label = ", ".join(
+                f"{name}={value}" for name, value in zip(features[2:], values, strict=True)
+            )
+            mask = np.zeros(len(interaction_preds), dtype=bool)
+            mask[np.asarray(row_indices, dtype=int)] = True
+            slice_masks.append((label, mask))
 
-    for ax in axes[n_series:]:
+    fig, axes = create_subplot_grid(n_series * len(slice_masks))
+
+    for slice_index, (slice_label, slice_mask) in enumerate(slice_masks):
+        for out_idx in range(n_series):
+            ax = axes[slice_index * n_series + out_idx]
+            contribs = interaction_preds[slice_mask, out_idx]
+
+            grid_sum = np.zeros((num_bins - 1, num_bins - 1))
+            grid_count = np.zeros((num_bins - 1, num_bins - 1), dtype=int)
+            np.add.at(
+                grid_sum,
+                (x1_bin_idx[slice_mask], x2_bin_idx[slice_mask]),
+                contribs,
+            )
+            np.add.at(
+                grid_count,
+                (x1_bin_idx[slice_mask], x2_bin_idx[slice_mask]),
+                1,
+            )
+            grid = np.where(
+                grid_count > 0, grid_sum / np.maximum(grid_count, 1), np.nan
+            )
+
+            im = ax.imshow(
+                grid.T,
+                origin="lower",
+                aspect="auto",
+                extent=[x1_bins[0], x1_bins[-1], x2_bins[0], x2_bins[-1]],
+                cmap="RdBu_r",
+            )
+            plt.colorbar(im, ax=ax, label="Contribution")
+            title = f"Interaction: {feature1} × {feature2}"
+            if slice_label:
+                title += f" | {slice_label}"
+            if n_series > 1:
+                label = (
+                    series_labels[out_idx]
+                    if series_labels is not None and out_idx < len(series_labels)
+                    else f"Output {out_idx + 1}"
+                )
+                title += f" ({label})"
+            ax.set_title(title)
+            ax.set_xlabel(feature1)
+            ax.set_ylabel(feature2)
+
+    used_axes = n_series * len(slice_masks)
+    for ax in axes[used_axes:]:
         ax.set_visible(False)
 
     plt.tight_layout()
@@ -299,8 +351,8 @@ def plot_feature_effects(
 def plot_interaction_heatmaps(estimator, X):
     """Shared body of the wrappers' ``plot_interactions`` method.
 
-    Renders one binned heatmap (per output series) for every fitted pairwise
-    interaction term in the estimator's forward output.
+    Renders a binned heatmap for pairwise terms and conditioned heatmap slices
+    for higher-order terms.
     """
     X_prepared, _ = prepare_plot_data(
         X,

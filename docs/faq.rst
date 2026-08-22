@@ -65,8 +65,11 @@ How do I choose which model to use?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * **Maximum interpretability**: NAM, NodeGAM
-* **Uncertainty quantification**: GPNAM
-* **Feature selection**: SNAM
+* **Fast smooth additive fitting**: GPNAM
+* **Fast linear-to-nonlinear additive fitting**: IGANN
+* **Aleatoric distributional prediction**: an ``*LSS`` estimator with an
+  appropriate distribution family
+* **Feature selection**: SNAM or IGANN with ``sparse > 0``
 * **Complex interactions**: NATT, NAMformer
 * **Baseline**: LinReg
 
@@ -129,14 +132,15 @@ Deep learning models require more computation. Try:
 * Use GPU if available
 * Reduce `max_epochs`
 * Smaller `layer_sizes`
-* Fewer `n_bins`
+* Fewer `output_dim`
 * Smaller dataset for prototyping
 
 How do I speed up predictions?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * Use GPU
-* Batch predictions
+* Pass ``batch_size=...`` to ``predict``, ``predict_proba``,
+  ``predict_components``, or ``basis_transform``
 * Save and load trained models
 * Use simpler model architecture
 

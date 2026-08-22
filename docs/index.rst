@@ -1,6 +1,11 @@
 NAMpy: Interpretable (Additive) Tabular Deep Learning
 =====================================================
 
+.. image:: _static/logo.png
+   :alt: NAMpy — Interpretable Additive Modeling
+   :align: center
+   :width: 704px
+
 .. image:: https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg
    :target: https://www.python.org/downloads/
    :alt: Python 3.11 or 3.12
@@ -9,7 +14,9 @@ NAMpy: Interpretable (Additive) Tabular Deep Learning
    :target: https://opensource.org/licenses/MIT
    :alt: License: MIT
 
-NAMpy provides interpretable additive neural models for tabular data, with support for **regression**, **classification**, and **distributional regression** tasks.
+NAMpy provides a strict ``mgcv``-aligned statistical GAM backend and a broad
+collection of neural additive models for regression, classification, and
+distributional regression.
 
 Key Features
 ------------
@@ -45,7 +52,7 @@ Basic Example
    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
    # Train model
-   model = NAMRegressor(numerical_preprocessing="standardization")
+   model = NAMRegressor(numerical_method="standardization")
    model.fit(X_train, y_train, max_epochs=100, lr=1e-3)
 
    # Evaluate
@@ -58,6 +65,7 @@ Basic Example
 
    installation
    quickstart
+   architecture
    user_guide
    api/index
    models/index

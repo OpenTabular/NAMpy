@@ -1,20 +1,10 @@
-from ..neural.configs.snam_config import DefaultSNAMConfig
-from ..neural.modules.snam import SNAM
-from .classifier import NeuralClassifier
-from .lss import NeuralLSS
-from .regressor import NeuralRegressor
+"""Public estimator family generated from the sparse NAM declaration."""
 
+from ._registered import estimator_family
 
-class SNAMRegressor(NeuralRegressor):
-    def __init__(self, **kwargs):
-        super().__init__(model=SNAM, config=DefaultSNAMConfig, **kwargs)
+_family = estimator_family("snam", module_name=__name__)
+SNAMRegressor = _family.regressor
+SNAMClassifier = _family.classifier
+SNAMLSS = _family.lss
 
-
-class SNAMClassifier(NeuralClassifier):
-    def __init__(self, **kwargs):
-        super().__init__(model=SNAM, config=DefaultSNAMConfig, **kwargs)
-
-
-class SNAMLSS(NeuralLSS):
-    def __init__(self, **kwargs):
-        super().__init__(model=SNAM, config=DefaultSNAMConfig, **kwargs)
+__all__ = ["SNAMRegressor", "SNAMClassifier", "SNAMLSS"]

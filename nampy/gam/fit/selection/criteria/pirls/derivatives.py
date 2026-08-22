@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve, solve_triangular
-from scipy.special import digamma, polygamma
 
 from .....linalg.reindexing import (
     drop_columns_dense,
@@ -13,17 +12,12 @@ from .....linalg.reindexing import (
     permute_rows,
     restore_dropped_rows,
 )
-from .....model_state import (
-    _coef_column_offset,
-    _fit_workspace,
-    _n_smoothing_params,
-    _penalty_blocks_seq,
-)
+from .....model_state import _fit_workspace, _n_smoothing_params, _penalty_blocks_seq
 from ....backends import (
     solve_gaussian_given_smoothing,
     solve_pirls_given_smoothing,
 )
-from ....capabilities import uses_closed_form_solver
+from ....capabilities import has_transformed_observations, uses_closed_form_solver
 from ....smoothing_params import expand_smoothing_params_from_log
 from ....solvers.stacked_qr import (
     build_penalized_qr_state_nonnegative,
@@ -31,10 +25,10 @@ from ....solvers.stacked_qr import (
 from ...reparam import (
     _full_design_matrix,
     _stable_penalty_logdet_derivatives,
-    _static_penalty_null_dim,
     build_penalty_reparameterization_state,
     can_use_simple_ml_reml_structure,
 )
+from .common import _prior_weights
 from .reml_blocks import (
     _deviance_chained_to_smoothing,
     _hat_matrix_trace_and_sp_derivatives,
@@ -43,7 +37,6 @@ from .reml_blocks import (
     _quadratic_form_in_beta_directions,
     _working_weight_derivatives_wrt_linpred,
 )
-from .value import _gamma_profile_objective_curvature, _solve_gamma_profile_scale
 
 _MGCV_GAM_FIT3_RANK_TOL = float(np.finfo(np.float64).eps * 100.0)
 _MGCV_GAM_FIT4_RANK_TOL = float(np.finfo(np.float64).eps ** 0.75)
@@ -88,7 +81,10 @@ def _fit3_gcv_ubre_kernel(model, y, log_sp):
             )
         sol = solve_pirls_given_smoothing(model, y, sp)
 
-    kernel = _gdi1_kernel(model, y, sol, sp, method="GCV")
+    criterion_y = np.asarray(
+        sol.get("criterion_response", y), dtype=np.float64
+    )
+    kernel = _gdi1_kernel(model, criterion_y, sol, sp, method="GCV")
     return sol, kernel, free_mask
 
 
@@ -115,7 +111,7 @@ def _fit3_gcv_ubre_full_derivatives(model, y, log_sp, method):
     trA = float(kernel.trA)
     trA1 = np.asarray(kernel.trA1, dtype=np.float64)
     trA2 = np.asarray(kernel.trA2, dtype=np.float64)
-    dev = float(sol["deviance"])
+    dev = float(sol.get("criterion_deviance", sol["deviance"]))
 
     if method == "gcv":
         delta = nobs - gamma * trA
@@ -353,11 +349,6 @@ def _apply_p(pk_state, rhs):
     return _mgcv_triangular_solve(pk_state.R, work, transpose=False)
 
 
-def _apply_penalized_inverse(pk_state, rhs):
-    """Apply ``P'`` and then ``P`` exactly as ``mgcv::ift1()`` does."""
-    return _apply_p(pk_state, _apply_pt(pk_state, rhs))
-
-
 def _apply_penalized_inverse_root(rank_root, rhs):
     """Dense-root inverse application retained for the separate ``gdi2`` port."""
     rank_root = np.asarray(rank_root, dtype=np.float64)
@@ -369,42 +360,6 @@ def _mult_sk(root, x):
     """Operation-for-operation port of ``mgcv/src/gdi.c::multSk()``."""
     work = _mgcv_dgemm(root, x, transpose_left=True)
     return _mgcv_dgemm(root, work)
-
-
-def _gamma_saturated_loglik_scale_derivatives(y, phi, weights=None):
-    """
-    `mgcv`-style Gamma saturated log-likelihood derivatives w.r.t. scale `phi`.
-
-    Mirrors `mgcv::fix.family.ls()` Gamma derivatives.
-    """
-    y = np.asarray(y, dtype=np.float64)
-    phi = float(phi)
-    if not np.isfinite(phi) or phi <= 0.0:
-        return np.nan, np.nan
-    if weights is None:
-        weights = np.ones_like(y, dtype=np.float64)
-    else:
-        weights = np.asarray(weights, dtype=np.float64)
-    mask = weights > 0.0
-    if not np.any(mask):
-        return 0.0, 0.0
-    w = weights[mask]
-    scale_w = phi / w
-    psi0 = digamma(1.0 / scale_w)
-    psi1 = polygamma(1, 1.0 / scale_w)
-    ls1 = np.sum((psi0 + np.log(scale_w)) / (scale_w**2 * w))
-    ls2 = np.sum(
-        (-psi1 / scale_w + (1.0 - 2.0 * np.log(scale_w) - 2.0 * psi0))
-        / (scale_w**3 * (w**2))
-    )
-    return float(ls1), float(ls2)
-
-
-def _prior_weights(model, y):
-    w = getattr(model, "prior_weights_", None)
-    if w is None:
-        return np.ones_like(np.asarray(y, dtype=np.float64), dtype=np.float64)
-    return np.asarray(w, dtype=np.float64)
 
 
 def _drop_permute_columns(x, drop, pivot1):
@@ -465,19 +420,22 @@ def _serialize_pirls_postproc_derivatives(kernel: _GDI1Kernel) -> dict[str, obje
     }
 
 
-def _negbin_ddeta_logtheta(family, y, mu, weights, *, deriv):
+def _family_ddeta_logtheta(family, y, mu, weights, *, deriv):
     """
-    Port of `mgcv::nb()$Dd` + `gam.fit4.r::dDeta()` for negative binomial.
+    Port of ``gam.fit4.r::dDeta()`` applied to a family ``Dd`` result.
 
-    Raw `Dd` ownership lives on the family object. This helper only chains
-    `Dmu` derivatives to `eta`, preserving mgcv's special identity-link branch
-    and its ratio-of-link-derivatives transform for non-identity links.
+    Raw ``Dd`` ownership lives on the family object. This helper only chains
+    ``Dmu`` derivatives to ``eta``, preserving mgcv's special identity-link
+    branch and its ratio-of-link-derivatives transform for non-identity links.
+    It is shared by the negative-binomial and Tweedie joint kernels.
     """
     y = np.asarray(y, dtype=np.float64)
-    mu = np.clip(np.asarray(mu, dtype=np.float64), 1e-14, None)
+    mu = np.asarray(mu, dtype=np.float64)
     wt = np.asarray(weights, dtype=np.float64)
-    dd = family.Dd(y, mu, family.getTheta(False), wt, level=int(deriv))
     link_name = str(getattr(family, "link_name", getattr(family, "link", ""))).lower()
+    if link_name != "identity":
+        mu = np.clip(mu, 1e-14, None)
+    dd = family.Dd(y, mu, family.getTheta(False), wt, level=int(deriv))
     if link_name == "identity":
         out = {
             "Deta": np.asarray(dd["Dmu"], dtype=np.float64),
@@ -551,342 +509,20 @@ def _negbin_ddeta_logtheta(family, y, mu, weights, *, deriv):
     return out
 
 
-def _gamma_joint_kernel_state(model, y, log_sp, method, *, phi):
-    method = str(method).upper()
-    sp = expand_smoothing_params_from_log(model, log_sp)
-    sol = solve_pirls_given_smoothing(model, y, sp, scale_reference=phi)
-    kernel = _gdi1_kernel(
-        model,
-        y,
-        sol,
-        sp,
-        method=method,
-        rank_tol=_MGCV_GAM_FIT4_RANK_TOL,
-    )
-    Dp = float(sol["deviance"]) + float(kernel.bSb)
-    Dp1 = np.asarray(kernel.D1 + kernel.bSb1, dtype=np.float64)
-    Dp2 = np.asarray(kernel.D2 + kernel.bSb2, dtype=np.float64)
-    mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
-    _ls0, _score_lphi, phi_curv = _gamma_profile_objective_curvature(
-        model,
-        y,
-        Dp,
-        float(phi),
-        mp,
-        method=method,
-    )
-    state = {
-        "K": kernel.K,
-        "K1": kernel.K1,
-        "K2": kernel.K2,
-        "phi": float(phi),
-        "phi_curv": phi_curv,
-        "scale_est": float(sol["scale"]),
-        "Dp": Dp,
-        "Dp1": Dp1,
-        "Dp2": Dp2,
-    }
-    _fit_workspace(model).pirls_reml_gamma_state = state
-    return state, mp
-
-
-def criterion_gradient_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
-    family_name = str(getattr(model.family, "name", "")).lower()
-    if family_name != "gamma":
-        raise NotImplementedError(
-            "Joint PIRLS Gamma derivatives are implemented only for family='gamma'."
-        )
-
-    phi = float(np.exp(float(log_phi)))
-    if not np.isfinite(phi) or phi <= 0.0:
-        n_free = (
-            int(np.sum(~np.asarray(model.smoothing_fixed_mask_, dtype=bool)))
-            if model.smoothing_fixed_mask_ is not None
-            else int(_n_smoothing_params(model) or 0)
-        )
-        return np.full(n_free + 1, np.nan, dtype=np.float64)
-    state, mp = _gamma_joint_kernel_state(model, y, log_sp, method, phi=phi)
-
-    _, score_lphi, _ = _gamma_profile_objective_curvature(
-        model,
-        y,
-        float(state["Dp"]),
-        phi,
-        mp,
-        method=str(method).upper(),
-    )
-    free_mask = (
-        np.zeros(_n_smoothing_params(model), dtype=bool)
-        if model.smoothing_fixed_mask_ is None
-        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
-    )
-    free_mask = ~free_mask
-    gamma = float(model.score_gamma)
-    grad_sp = np.asarray(state["Dp1"], dtype=np.float64) / (2.0 * phi * gamma) + (
-        np.asarray(state["K1"], dtype=np.float64)
-    )
-    return np.concatenate(
-        [
-            np.asarray(grad_sp[free_mask], dtype=np.float64),
-            np.array([float(score_lphi)], dtype=np.float64),
-        ]
-    )
-
-
-def criterion_hessian_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
-    family_name = str(getattr(model.family, "name", "")).lower()
-    if family_name != "gamma":
-        raise NotImplementedError(
-            "Joint PIRLS Gamma derivatives are implemented only for family='gamma'."
-        )
-
-    phi = float(np.exp(float(log_phi)))
-    if not np.isfinite(phi) or phi <= 0.0:
-        n_free = (
-            int(np.sum(~np.asarray(model.smoothing_fixed_mask_, dtype=bool)))
-            if model.smoothing_fixed_mask_ is not None
-            else int(_n_smoothing_params(model) or 0)
-        )
-        return np.full((n_free + 1, n_free + 1), np.nan, dtype=np.float64)
-    state, mp = _gamma_joint_kernel_state(model, y, log_sp, method, phi=phi)
-
-    _, _, curv_lphi = _gamma_profile_objective_curvature(
-        model,
-        y,
-        float(state["Dp"]),
-        phi,
-        mp,
-        method=str(method).upper(),
-    )
-    free_mask = (
-        np.zeros(_n_smoothing_params(model), dtype=bool)
-        if model.smoothing_fixed_mask_ is None
-        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
-    )
-    free_mask = ~free_mask
-
-    gamma = float(model.score_gamma)
-    H_sp = np.asarray(state["Dp2"], dtype=np.float64) / (2.0 * phi * gamma) + (
-        np.asarray(state["K2"], dtype=np.float64)
-    )
-    cross = -np.asarray(state["Dp1"], dtype=np.float64) / (2.0 * phi * gamma)
-    H_free = np.asarray(H_sp[np.ix_(free_mask, free_mask)], dtype=np.float64)
-    cross_free = np.asarray(cross[free_mask], dtype=np.float64)
-    out = np.zeros(
-        (int(np.sum(free_mask)) + 1, int(np.sum(free_mask)) + 1), dtype=np.float64
-    )
-    out[:-1, :-1] = H_free
-    out[:-1, -1] = cross_free
-    out[-1, :-1] = cross_free
-    out[-1, -1] = float(curv_lphi)
-    return out
-
-
-def _gaussian_joint_kernel_state(model, y, log_sp, method, *, phi):
-    """Build the ``gam.fit3`` joint smoothing/scale derivative state."""
-    method = str(method).upper()
-    sp = expand_smoothing_params_from_log(model, log_sp)
-    sol = solve_pirls_given_smoothing(model, y, sp, scale_reference=phi)
-    kernel = _gdi1_kernel(
-        model,
-        y,
-        sol,
-        sp,
-        method=method,
-        rank_tol=_MGCV_GAM_FIT3_RANK_TOL,
-    )
-    y_arr = np.asarray(y, dtype=np.float64)
-    weights = _prior_weights(model, y_arr)
-    ls = np.asarray(
-        model.family.ls(y_arr, weights, len(y_arr), float(phi)), dtype=np.float64
-    )
-    nobs = float(len(y_arr))
-    n_true = getattr(model, "n_true_", None)
-    if n_true is not None:
-        n_true = float(n_true)
-        if np.isfinite(n_true) and n_true > 0.0 and nobs > 0.0:
-            ls *= n_true / nobs
-
-    state = {
-        "Dp": float(sol["deviance"]) + float(kernel.bSb),
-        "Dp1": np.asarray(kernel.D1 + kernel.bSb1, dtype=np.float64),
-        "Dp2": np.asarray(kernel.D2 + kernel.bSb2, dtype=np.float64),
-        "K1": np.asarray(kernel.K1, dtype=np.float64),
-        "K2": np.asarray(kernel.K2, dtype=np.float64),
-        "ls": ls,
-        "phi": float(phi),
-    }
-    _fit_workspace(model).pirls_reml_gaussian_state = state
-    return state
-
-
-def criterion_gradient_ml_reml_pirls_gaussian_joint(
-    model, y, log_sp, log_phi, method
-):
-    """Joint ``(log sp, log scale)`` gradient from ``mgcv::gam.fit3``."""
-    family_name = str(getattr(model.family, "name", "")).lower()
-    if family_name != "gaussian":
-        raise NotImplementedError(
-            "Joint PIRLS Gaussian derivatives require family='gaussian'."
-        )
-    phi = float(np.exp(float(log_phi)))
-    if not np.isfinite(phi) or phi <= 0.0:
-        return np.full(int(np.sum(_free_smoothing_mask(model))) + 1, np.nan)
-
-    method = str(method).upper()
-    state = _gaussian_joint_kernel_state(model, y, log_sp, method, phi=phi)
-    gamma = float(model.score_gamma)
-    free_mask = _free_smoothing_mask(model)
-    grad_sp = state["Dp1"] / (2.0 * phi * gamma) + state["K1"]
-    mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
-    reml_ind = 1.0 if method == "REML" else 0.0
-    ls = state["ls"]
-    grad_phi = (
-        -state["Dp"] / (2.0 * phi) - float(ls[1]) * phi
-    ) / gamma - 0.5 * mp * reml_ind
-    return np.concatenate(
-        [
-            np.asarray(grad_sp[free_mask], dtype=np.float64),
-            np.array([float(grad_phi)], dtype=np.float64),
-        ]
-    )
-
-
-def criterion_hessian_ml_reml_pirls_gaussian_joint(
-    model, y, log_sp, log_phi, method
-):
-    """Joint ``(log sp, log scale)`` Hessian from ``mgcv::gam.fit3``."""
-    family_name = str(getattr(model.family, "name", "")).lower()
-    if family_name != "gaussian":
-        raise NotImplementedError(
-            "Joint PIRLS Gaussian derivatives require family='gaussian'."
-        )
-    phi = float(np.exp(float(log_phi)))
-    n_free = int(np.sum(_free_smoothing_mask(model)))
-    if not np.isfinite(phi) or phi <= 0.0:
-        return np.full((n_free + 1, n_free + 1), np.nan)
-
-    method = str(method).upper()
-    state = _gaussian_joint_kernel_state(model, y, log_sp, method, phi=phi)
-    gamma = float(model.score_gamma)
-    free_mask = _free_smoothing_mask(model)
-    hess_sp = state["Dp2"] / (2.0 * phi * gamma) + state["K2"]
-    cross = -state["Dp1"] / (2.0 * phi * gamma)
-    ls = state["ls"]
-    hess_phi = (
-        state["Dp"] / (2.0 * phi)
-        - float(ls[2]) * phi * phi
-        - float(ls[1]) * phi
-    ) / gamma
-
-    out = np.zeros((n_free + 1, n_free + 1), dtype=np.float64)
-    out[:-1, :-1] = hess_sp[np.ix_(free_mask, free_mask)]
-    out[:-1, -1] = cross[free_mask]
-    out[-1, :-1] = cross[free_mask]
-    out[-1, -1] = float(hess_phi)
-    return out
-
-
-def _negbin_joint_kernel_state(model, y, log_sp, log_theta, method):
-    family_name = str(getattr(model.family, "name", "")).lower()
-    if family_name != "negbin":
-        raise NotImplementedError(
-            "Joint PIRLS NegBin derivatives are implemented only for family='negbin'."
-        )
-    theta = float(np.exp(float(log_theta)))
-    if not np.isfinite(theta) or theta <= 0.0:
-        raise ValueError("log_theta must map to finite positive theta.")
-    prev_log_theta = float(model.family.getTheta(False))
-    prev_disable_theta_efs = bool(getattr(model.family, "_disable_theta_efs", False))
-    try:
-        model.family.putTheta(float(log_theta))
-        model.family._disable_theta_efs = True
-        sp = expand_smoothing_params_from_log(model, log_sp)
-        sol = solve_pirls_given_smoothing(model, y, sp)
-        gdi2 = _gdi2_joint_kernel(
-            model, y, sol, sp, method=str(method).upper(), need_hessian=True
-        )
-        # Mirror gam.fit4.r L730: ls <- family$ls(y,weights,theta,scale)
-        # lsth1 and lsth2 are subtracted from REML1/REML2 for the theta block.
-        weights_arr = _prior_weights(model, y)
-        ls_result = model.family.ls(
-            np.asarray(y, dtype=np.float64),
-            weights_arr,
-            theta=float(log_theta),
-            scale=1.0,
-        )
-        state = {
-            "theta": float(theta),
-            "scale_est": float(sol["scale"]),
-            "Dp": float(gdi2.Dp),
-            "Dp1": np.asarray(gdi2.Dp1, dtype=np.float64),
-            "Dp2": np.asarray(gdi2.Dp2, dtype=np.float64),
-            "K1": np.asarray(gdi2.K1_full, dtype=np.float64),
-            "K2": np.asarray(gdi2.K2_full, dtype=np.float64),
-            "lsth1": float(ls_result["lsth1"]),
-            "lsth2": float(ls_result["lsth2"]),
-        }
-        _fit_workspace(model).pirls_reml_negbin_state = state
-        return state
-    finally:
-        model.family.putTheta(prev_log_theta)
-        model.family._disable_theta_efs = bool(prev_disable_theta_efs)
-
-
-def criterion_gradient_ml_reml_pirls_negbin_joint(model, y, log_sp, log_theta, method):
-    state = _negbin_joint_kernel_state(model, y, log_sp, log_theta, method)
-    gamma = float(model.score_gamma)
-    free_mask = (
-        np.zeros(_n_smoothing_params(model), dtype=bool)
-        if model.smoothing_fixed_mask_ is None
-        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
-    )
-    free_mask = ~free_mask
-    grad_full = np.asarray(state["Dp1"], dtype=np.float64) / (
-        2.0 * float(state["scale_est"]) * gamma
-    ) + np.asarray(state["K1"], dtype=np.float64)
-    # Mirror gam.fit4.r L744: REML1 -= c(lsth1, rep(0, length(sp))) / gamma
-    # Only the theta component (index 0) gets the ls derivative correction.
-    grad_full = grad_full.copy()
-    grad_full[0] -= float(state["lsth1"]) / gamma
-    return np.concatenate(
-        [
-            np.asarray(grad_full[1:][free_mask], dtype=np.float64),
-            np.array([float(grad_full[0])], dtype=np.float64),
-        ]
-    )
-
-
-def criterion_hessian_ml_reml_pirls_negbin_joint(model, y, log_sp, log_theta, method):
-    state = _negbin_joint_kernel_state(model, y, log_sp, log_theta, method)
-    gamma = float(model.score_gamma)
-    free_mask = (
-        np.zeros(_n_smoothing_params(model), dtype=bool)
-        if model.smoothing_fixed_mask_ is None
-        else np.asarray(model.smoothing_fixed_mask_, dtype=bool)
-    )
-    free_mask = ~free_mask
-    H_full = np.asarray(state["Dp2"], dtype=np.float64) / (
-        2.0 * float(state["scale_est"]) * gamma
-    ) + np.asarray(state["K2"], dtype=np.float64)
-    # Mirror gam.fit4.r L746-748:
-    #   ls2 <- D2*0; ls2[1:nt,1:nt] <- lsth2
-    #   REML2 <- ((D2+bSb2)/(2*scale) - ls2)/gamma + ldet2/2
-    # Only the theta-theta block (index 0 in H_full) gets the ls2 correction.
-    H_full = H_full.copy()
-    H_full[0, 0] -= float(state["lsth2"]) / gamma
-    sp_idx = 1 + np.flatnonzero(free_mask)
-    keep = np.concatenate([sp_idx, np.array([0], dtype=np.int64)])
-    return np.asarray(H_full[np.ix_(keep, keep)], dtype=np.float64)
-
-
 def _gdi_pk_setup(model, sol, sp, *, deriv, rank_tol=None):
     """
     Single `mgcv::gdiPK()`-shaped setup routine.
 
     Owns current-sp canonical reparameterization plus solver rank/drop metadata.
     """
-    X_source = np.asarray(_full_design_matrix(model), dtype=np.float64)
+    X_source = np.asarray(
+        (
+            sol["X"]
+            if has_transformed_observations(model)
+            else _full_design_matrix(model)
+        ),
+        dtype=np.float64,
+    )
     if X_source.ndim != 2:
         raise ValueError("mgcv setup design matrix must be two-dimensional.")
     canonical = build_penalty_reparameterization_state(
@@ -1088,40 +724,6 @@ def _canonical_penalty_derivative_matrices(model, canonical, sp, n_sp):
     return mats
 
 
-def _canonical_logdet_term_derivatives(model, sp, A, A_inv, dA, d2A_mat):
-    A = np.asarray(A, dtype=np.float64)
-    try:
-        cA, _ = cho_factor(A, check_finite=False)
-    except np.linalg.LinAlgError:
-        n_sp = len(dA)
-        return (
-            np.nan,
-            np.full(n_sp, np.nan, dtype=np.float64),
-            np.full((n_sp, n_sp), np.nan, dtype=np.float64),
-        )
-
-    logdet_A = 2.0 * float(np.sum(np.log(np.abs(np.diag(cA)))))
-    logdet_S, detS1, detS2 = _stable_penalty_logdet_derivatives(model, sp, order=2)
-    if not np.isfinite(logdet_S):
-        n_sp = len(dA)
-        return (
-            np.inf,
-            np.full(n_sp, np.nan, dtype=np.float64),
-            np.full((n_sp, n_sp), np.nan, dtype=np.float64),
-        )
-
-    detA1, detA2 = _logdet_penalized_system_derivatives(
-        A_inv=np.asarray(A_inv, dtype=np.float64),
-        dA=dA,
-        d2A_mat=d2A_mat,
-    )
-    return (
-        0.5 * (logdet_A - logdet_S),
-        0.5 * (detA1 - detS1),
-        0.5 * (detA2 - detS2),
-    )
-
-
 def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
     """
     Port-shaped `ift1` stage on current canonical state.
@@ -1157,8 +759,8 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
         P_derivs.append(np.asarray(Pj, dtype=np.float64))
 
     family_name = str(getattr(model.family, "name", "")).lower()
-    if family_name == "negbin":
-        dd = _negbin_ddeta_logtheta(
+    if family_name in {"negbin", "betar"}:
+        dd = _family_ddeta_logtheta(
             model.family,
             y,
             mu,
@@ -1277,8 +879,8 @@ def _gdi1_ift1_state(model, y, sol, sp, current, pk_state):
 def _gdi1_deviance_terms(model, y, sol, current, ift):
     eta = np.asarray(sol.get("gdi1_eta", sol["eta"]), dtype=np.float64)
     mu = np.asarray(sol.get("gdi1_mu", sol["mu"]), dtype=np.float64)
-    if str(getattr(model.family, "name", "")).lower() == "negbin":
-        dd = _negbin_ddeta_logtheta(
+    if str(getattr(model.family, "name", "")).lower() in {"negbin", "betar"}:
+        dd = _family_ddeta_logtheta(
             model.family,
             y,
             mu,
@@ -1808,17 +1410,21 @@ def _gdi2_penalty_terms(model, sp, current, dA, d2A_mat, pk_state, *, n_theta, m
     return K + C, K1 + C1, K2 + C2
 
 
-def _gdi2_ift2_state_negbin(model, y, sol, sp, current, pk_state):
+def _gdi2_ift2_state_theta(
+    model, y, sol, sp, current, pk_state, *, include_theta=True
+):
     """
-    Port of `mgcv::ift2()` for single-theta negative binomial on canonical state.
-    Parameter order is `[log(theta), log(sp_1), ..., log(sp_m)]`.
+    Port of ``mgcv::ift2()`` for a theta-capable family on canonical state.
+
+    Parameter order is ``[log(theta), log(sp_1), ..., log(sp_m)]`` when
+    ``include_theta`` is true, and ``[log(sp_1), ..., log(sp_m)]`` otherwise.
     """
     X = np.asarray(current.X, dtype=np.float64)
     beta = np.asarray(current.beta, dtype=np.float64)
     mu = np.asarray(sol["mu"], dtype=np.float64)
     P_root = np.asarray(pk_state.P, dtype=np.float64)
     weights = _prior_weights(model, y)
-    dd = _negbin_ddeta_logtheta(model.family, y, mu, weights, deriv=2)
+    dd = _family_ddeta_logtheta(model.family, y, mu, weights, deriv=2)
     P_sp = [
         _drop_permute_symmetric(Pj, current.dropped_column_indices, current.pivot1)
         for Pj in _canonical_penalty_derivative_matrices(
@@ -1826,10 +1432,17 @@ def _gdi2_ift2_state_negbin(model, y, sol, sp, current, pk_state):
         )
     ]
 
-    ntheta = 1
+    ntheta = (
+        int(np.asarray(model.family.getTheta(False), dtype=np.float64).size)
+        if include_theta
+        else 0
+    )
     ntot = ntheta + len(P_sp)
     zeroP = np.zeros_like(np.asarray(current.P, dtype=np.float64))
-    P_derivs = [zeroP] + [np.asarray(Pj, dtype=np.float64) for Pj in P_sp]
+    P_derivs = (
+        ([zeroP.copy() for _ in range(ntheta)] if include_theta else [])
+        + [np.asarray(Pj, dtype=np.float64) for Pj in P_sp]
+    )
 
     dbeta = [None] * ntot
     deta = [None] * ntot
@@ -1839,17 +1452,28 @@ def _gdi2_ift2_state_negbin(model, y, sol, sp, current, pk_state):
     d2A_mat = [[None] * ntot for _ in range(ntot)]
     d2XtWX_mat = [[None] * ntot for _ in range(ntot)]
 
+    def _theta_column(key, index):
+        values = np.asarray(dd[key], dtype=np.float64)
+        return values if values.ndim == 1 else values[:, index]
+
+    def _theta_pair_column(key, i, k):
+        values = np.asarray(dd[key], dtype=np.float64)
+        if values.ndim == 1:
+            return values
+        pair_index = sum(ntheta - j for j in range(i)) + (k - i)
+        return values[:, pair_index]
+
     for i in range(ntot):
-        if i == 0:
-            rhs = -0.5 * (X.T @ np.asarray(dd["Detath"], dtype=np.float64))
+        if i < ntheta:
+            rhs = -0.5 * (X.T @ _theta_column("Detath", i))
         else:
             rhs = -(P_derivs[i] @ beta)
         dbeta_i = _apply_penalized_inverse_root(P_root, rhs)
         deta_i = X @ dbeta_i
-        if i == 0:
+        if i < ntheta:
             dW_i = 0.5 * (
                 np.asarray(dd["Deta3"], dtype=np.float64) * deta_i
-                + np.asarray(dd["Deta2th"], dtype=np.float64)
+                + _theta_column("Deta2th", i)
             )
         else:
             dW_i = 0.5 * np.asarray(dd["Deta3"], dtype=np.float64) * deta_i
@@ -1869,29 +1493,29 @@ def _gdi2_ift2_state_negbin(model, y, sol, sp, current, pk_state):
                     * np.asarray(deta[k], dtype=np.float64)
                 )
             )
-            if k == 0:
+            if k < ntheta:
                 rhs -= 0.5 * (
                     X.T
                     @ (
-                        np.asarray(dd["Deta2th"], dtype=np.float64)
+                        _theta_column("Deta2th", k)
                         * np.asarray(deta[i], dtype=np.float64)
                     )
                 )
             else:
                 rhs -= P_derivs[k] @ np.asarray(dbeta[i], dtype=np.float64)
-            if i == 0:
+            if i < ntheta:
                 rhs -= 0.5 * (
                     X.T
                     @ (
-                        np.asarray(dd["Deta2th"], dtype=np.float64)
+                        _theta_column("Deta2th", i)
                         * np.asarray(deta[k], dtype=np.float64)
                     )
                 )
             else:
                 rhs -= P_derivs[i] @ np.asarray(dbeta[k], dtype=np.float64)
-            if i == 0 and k == 0:
-                rhs -= 0.5 * (X.T @ np.asarray(dd["Detath2"], dtype=np.float64))
-            elif i == k and i > 0:
+            if i < ntheta and k < ntheta:
+                rhs -= 0.5 * (X.T @ _theta_pair_column("Detath2", i, k))
+            elif i == k and i >= ntheta:
                 rhs -= P_derivs[i] @ beta
             d2beta_ik = _apply_penalized_inverse_root(P_root, rhs)
             d2eta_ik = X @ d2beta_ik
@@ -1901,20 +1525,22 @@ def _gdi2_ift2_state_negbin(model, y, sol, sp, current, pk_state):
                 * np.asarray(deta[k], dtype=np.float64)
                 + np.asarray(dd["Deta3"], dtype=np.float64) * d2eta_ik
             )
-            if i == 0:
+            if i < ntheta:
                 d2W_ik += 0.5 * (
-                    np.asarray(dd["Deta3th"], dtype=np.float64)
+                    _theta_column("Deta3th", i)
                     * np.asarray(deta[k], dtype=np.float64)
                 )
-            if k == 0:
+            if k < ntheta:
                 d2W_ik += 0.5 * (
-                    np.asarray(dd["Deta3th"], dtype=np.float64)
+                    _theta_column("Deta3th", k)
                     * np.asarray(deta[i], dtype=np.float64)
                 )
-            if i == 0 and k == 0:
-                d2W_ik += 0.5 * np.asarray(dd["Deta2th2"], dtype=np.float64)
+            if i < ntheta and k < ntheta:
+                d2W_ik += 0.5 * _theta_pair_column("Deta2th2", i, k)
             d2XtWX_ik = X.T @ (d2W_ik[:, None] * X)
-            d2A_ik = d2XtWX_ik + (P_derivs[i] if (i == k and i > 0) else 0.0)
+            d2A_ik = d2XtWX_ik + (
+                P_derivs[i] if (i == k and (not include_theta or i > 0)) else 0.0
+            )
             d2beta_mat[i][k] = d2beta_ik
             d2beta_mat[k][i] = d2beta_ik
             d2XtWX_mat[i][k] = d2XtWX_ik
@@ -1935,8 +1561,74 @@ def _gdi2_ift2_state_negbin(model, y, sol, sp, current, pk_state):
     )
 
 
-def _gdi2_negbin_joint_kernel(model, y, sol, sp, *, method, need_hessian):
-    """Port of `mgcv::gdi2()` for negative-binomial `log(theta)` branch."""
+def _gdi2_deviance_derivatives(current, ift, dd, *, include_theta, need_hessian):
+    """Assemble the ``D1``/``D2`` blocks shared by theta-capable families."""
+    d_eta = np.asarray(dd["Deta"], dtype=np.float64)
+    d_eta2 = np.asarray(dd["Deta2"], dtype=np.float64)
+    n_parameters = len(ift.dbeta)
+
+    ntheta = int(ift.ntheta) if include_theta else 0
+
+    def _theta_column(key, index):
+        values = np.asarray(dd[key], dtype=np.float64)
+        return values if values.ndim == 1 else values[:, index]
+
+    def _theta_pair_column(key, i, k):
+        values = np.asarray(dd[key], dtype=np.float64)
+        if values.ndim == 1:
+            return values
+        pair_index = sum(ntheta - j for j in range(i)) + (k - i)
+        return values[:, pair_index]
+
+    D1 = np.empty(n_parameters, dtype=np.float64)
+    for i in range(n_parameters):
+        D1[i] = float(np.sum(d_eta * np.asarray(ift.deta[i], dtype=np.float64)))
+        if i < ntheta:
+            D1[i] += float(np.sum(_theta_column("Dth", i)))
+
+    if not need_hessian:
+        return D1, None
+
+    D2 = np.zeros((n_parameters, n_parameters), dtype=np.float64)
+    for i in range(n_parameters):
+        for k in range(i, n_parameters):
+            value = float(
+                np.sum(
+                    d_eta2
+                    * np.asarray(ift.deta[i], dtype=np.float64)
+                    * np.asarray(ift.deta[k], dtype=np.float64)
+                    + d_eta
+                    * (current.X @ np.asarray(ift.d2beta_mat[i][k]))
+                )
+            )
+            if i < ntheta:
+                value += float(
+                    np.sum(
+                        _theta_column("Detath", i)
+                        * np.asarray(ift.deta[k], dtype=np.float64)
+                    )
+                )
+            if k < ntheta:
+                value += float(
+                    np.sum(
+                        _theta_column("Detath", k)
+                        * np.asarray(ift.deta[i], dtype=np.float64)
+                    )
+                )
+            if i < ntheta and k < ntheta:
+                value += float(np.sum(_theta_pair_column("Dth2", i, k)))
+            D2[i, k] = D2[k, i] = value
+    return D1, D2
+
+
+def gdi2_theta_joint_kernel(model, y, sol, sp, *, method, need_hessian=True):
+    """Build the shared ``gdi2`` kernel for a log-theta extended family.
+
+    Upstream reference: ``mgcv/R/gam.fit4.r::gdi2`` together with
+    ``mgcv/R/gam.fit4.r::ift2``.  Family-specific likelihood derivatives are
+    supplied by ``family.Dd``; all coefficient, penalty, and determinant
+    assembly remains shared here.
+    """
     setup = _gdi_pk_setup(
         model,
         sol,
@@ -1946,63 +1638,17 @@ def _gdi2_negbin_joint_kernel(model, y, sol, sp, *, method, need_hessian):
     )
     current = setup.current
     pk_state = setup.pk
-    ift = _gdi2_ift2_state_negbin(model, y, sol, sp, current, pk_state)
-    weights = _prior_weights(model, y)
-    dd = _negbin_ddeta_logtheta(
+    ift = _gdi2_ift2_state_theta(model, y, sol, sp, current, pk_state)
+    dd = _family_ddeta_logtheta(
         model.family,
         y,
         np.asarray(sol["mu"], dtype=np.float64),
-        weights,
+        _prior_weights(model, y),
         deriv=2,
     )
-    ntot = len(ift.dbeta)
-
-    D1 = np.zeros(ntot, dtype=np.float64)
-    for i in range(ntot):
-        D1[i] = float(
-            np.sum(
-                np.asarray(dd["Deta"], dtype=np.float64)
-                * np.asarray(ift.deta[i], dtype=np.float64)
-            )
-        )
-        if i == 0:
-            D1[i] += float(np.sum(np.asarray(dd["Dth"], dtype=np.float64)))
-
-    D2 = None
-    if need_hessian:
-        D2 = np.zeros((ntot, ntot), dtype=np.float64)
-        for i in range(ntot):
-            for k in range(i, ntot):
-                val = float(
-                    np.sum(
-                        np.asarray(dd["Deta2"], dtype=np.float64)
-                        * np.asarray(ift.deta[i], dtype=np.float64)
-                        * np.asarray(ift.deta[k], dtype=np.float64)
-                        + np.asarray(dd["Deta"], dtype=np.float64)
-                        * (
-                            current.X
-                            @ np.asarray(ift.d2beta_mat[i][k], dtype=np.float64)
-                        )
-                    )
-                )
-                if i == 0:
-                    val += float(
-                        np.sum(
-                            np.asarray(dd["Detath"], dtype=np.float64)
-                            * np.asarray(ift.deta[k], dtype=np.float64)
-                        )
-                    )
-                if k == 0:
-                    val += float(
-                        np.sum(
-                            np.asarray(dd["Detath"], dtype=np.float64)
-                            * np.asarray(ift.deta[i], dtype=np.float64)
-                        )
-                    )
-                if i == 0 and k == 0:
-                    val += float(np.sum(np.asarray(dd["Dth2"], dtype=np.float64)))
-                D2[i, k] = D2[k, i] = val
-
+    D1, D2 = _gdi2_deviance_derivatives(
+        current, ift, dd, include_theta=True, need_hessian=need_hessian
+    )
     bSb, bSb1, bSb2 = _penalty_quadratic_and_sp_derivatives(
         beta=np.asarray(current.beta, dtype=np.float64),
         P_total=np.asarray(current.P, dtype=np.float64),
@@ -2010,7 +1656,7 @@ def _gdi2_negbin_joint_kernel(model, y, sol, sp, *, method, need_hessian):
         dbeta_cols=ift.dbeta,
         d2beta_mat=ift.d2beta_mat,
     )
-    K, K1, K2 = _gdi2_penalty_terms(
+    _K, K1, K2 = _gdi2_penalty_terms(
         model,
         sp,
         current,
@@ -2020,7 +1666,6 @@ def _gdi2_negbin_joint_kernel(model, y, sol, sp, *, method, need_hessian):
         n_theta=ift.ntheta,
         method=method,
     )
-
     gdi1 = _gdi1_kernel(
         model,
         y,
@@ -2029,259 +1674,32 @@ def _gdi2_negbin_joint_kernel(model, y, sol, sp, *, method, need_hessian):
         method=method,
         rank_tol=_MGCV_GAM_FIT4_RANK_TOL,
     )
-    Dp = float(sol["deviance"]) + float(bSb)
-    Dp1 = np.asarray(D1 + bSb1, dtype=np.float64)
-    Dp2 = None if D2 is None else np.asarray(D2 + bSb2, dtype=np.float64)
+    deviance = float(sol["deviance"])
+    if str(getattr(model.family, "name", "")).lower() == "betar":
+        # betar's postproc adds the saturated log likelihood for reporting;
+        # gam.fit4's ML/REML objective uses the raw dev.resids sum.
+        deviance = float(
+            model.family.deviance(
+                np.asarray(y, dtype=np.float64),
+                np.asarray(sol["mu"], dtype=np.float64),
+                weights=_prior_weights(model, y),
+            )
+        )
+    theta_values = np.asarray(model.family.getTheta(False), dtype=np.float64).ravel()
     return _GDI2Kernel(
         gdi1=gdi1,
         phi=None,
         phi_curv=None,
-        Dp=float(Dp),
-        Dp1=Dp1,
-        Dp2=Dp2,
+        Dp=deviance + float(bSb),
+        Dp1=np.asarray(D1 + bSb1, dtype=np.float64),
+        Dp2=None if D2 is None else np.asarray(D2 + bSb2, dtype=np.float64),
         ift=ift,
         D1_full=np.asarray(D1, dtype=np.float64),
         D2_full=None if D2 is None else np.asarray(D2, dtype=np.float64),
         K1_full=np.asarray(K1, dtype=np.float64),
         K2_full=np.asarray(K2, dtype=np.float64),
         extra_name="log_theta",
-        extra_value=float(model.family.getTheta(False)),
-    )
-
-
-def _gdi2_gamma_joint_kernel(model, y, sol, sp, *, method, need_hessian):
-    """
-    Current Gamma branch is Python analogue of `gdi2` extended-family staging:
-    smoothing kernel + profiled extra parameter (`log(phi)` here).
-    """
-    gdi1 = _gdi1_kernel(
-        model,
-        y,
-        sol,
-        sp,
-        method=method,
-        rank_tol=_MGCV_GAM_FIT4_RANK_TOL,
-    )
-    mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
-    Dp = float(sol["deviance"]) + float(gdi1.bSb)
-    phi = _solve_gamma_profile_scale(
-        model,
-        y,
-        Dp,
-        mp,
-        method=method,
-        init_scale=float(sol["scale"]),
-    )
-    if not np.isfinite(phi) or phi <= 0.0:
-        raise RuntimeError(
-            "Gamma exact PIRLS derivatives require positive profile scale."
-        )
-    Dp1 = np.asarray(gdi1.D1 + gdi1.bSb1, dtype=np.float64)
-    if not need_hessian:
-        return _GDI2Kernel(
-            gdi1=gdi1,
-            phi=float(phi),
-            phi_curv=None,
-            Dp=float(Dp),
-            Dp1=Dp1,
-            Dp2=None,
-            extra_name="log_phi",
-            extra_value=float(np.log(phi)),
-        )
-    _, _, phi_curv = _gamma_profile_objective_curvature(
-        model, y, Dp, phi, mp, method=method
-    )
-    if not np.isfinite(phi_curv) or abs(phi_curv) <= 1e-14:
-        raise RuntimeError(
-            "Gamma exact PIRLS derivatives require finite profile curvature."
-        )
-    Dp2 = np.asarray(gdi1.D2 + gdi1.bSb2, dtype=np.float64)
-    return _GDI2Kernel(
-        gdi1=gdi1,
-        phi=float(phi),
-        phi_curv=float(phi_curv),
-        Dp=float(Dp),
-        Dp1=Dp1,
-        Dp2=Dp2,
-        extra_name="log_phi",
-        extra_value=float(np.log(phi)),
-    )
-
-
-def _gdi2_gaussian_joint_kernel(model, y, sol, sp, *, method, need_hessian):
-    """
-    Gaussian profiled-scale branch of the joint staging.
-
-    mgcv/R/gam.fit3.r:628-637 borders the REML/ML derivatives with the
-    log-scale block. With the gaussian `ls` from mgcv/R/gam.fit3.r:2503-2508
-    (`ls[2] = -n/(2*phi)`, `ls[3] = n/(2*phi^2)`), solving `dlr.dlphi = 0`
-    gives the closed-form profile scale `phi = Dp / (n - gamma*Mp*remlInd)`
-    and the curvature at that point collapses to `Dp / (2*phi*gamma)`.
-    """
-    method_u = str(method).upper()
-    gdi1 = _gdi1_kernel(
-        model,
-        y,
-        sol,
-        sp,
-        method=method,
-        rank_tol=_MGCV_GAM_FIT3_RANK_TOL,
-    )
-    gamma = float(model.score_gamma)
-    mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
-    Dp = float(sol["deviance"]) + float(gdi1.bSb)
-    nobs = float(len(np.asarray(y)))
-    n_eff = nobs
-    n_true = getattr(model, "n_true_", None)
-    if n_true is not None:
-        n_true = float(n_true)
-        if np.isfinite(n_true) and n_true > 0.0:
-            n_eff = n_true
-    reml_ind = 1.0 if method_u == "REML" else 0.0
-    denom = n_eff - gamma * mp * reml_ind
-    if not np.isfinite(denom) or denom <= 0.0 or not np.isfinite(Dp) or Dp <= 0.0:
-        raise RuntimeError(
-            "Gaussian exact PIRLS derivatives require positive profile scale."
-        )
-    phi = Dp / denom
-    Dp1 = np.asarray(gdi1.D1 + gdi1.bSb1, dtype=np.float64)
-    if not need_hessian:
-        return _GDI2Kernel(
-            gdi1=gdi1,
-            phi=float(phi),
-            phi_curv=None,
-            Dp=float(Dp),
-            Dp1=Dp1,
-            Dp2=None,
-            extra_name="log_phi",
-            extra_value=float(np.log(phi)),
-        )
-    phi_curv = denom / (2.0 * gamma)
-    Dp2 = np.asarray(gdi1.D2 + gdi1.bSb2, dtype=np.float64)
-    return _GDI2Kernel(
-        gdi1=gdi1,
-        phi=float(phi),
-        phi_curv=float(phi_curv),
-        Dp=float(Dp),
-        Dp1=Dp1,
-        Dp2=Dp2,
-        extra_name="log_phi",
-        extra_value=float(np.log(phi)),
-    )
-
-
-def _gdi2_general_family_kernel(model, y, sol, sp, *, method, need_hessian):
-    """
-    Port-shaped `gam.fit5()` decomposition for theta-free general families.
-
-    Mirrors `mgcv/R/gam.fit4.r::gam.fit5` where the REML/ML score splits into
-    `Dp / (2 * gamma) + K`, with `Dp = -2 * ll + b'Sb`.
-    """
-    del sol
-    from ....solvers.general_family.fixed_smoothing import (
-        run_general_family_fixed_smoothing,
-    )
-    from ....solvers.general_family.newton import _sl_term_mult
-
-    gamma = float(model.score_gamma)
-    run = run_general_family_fixed_smoothing(
-        model,
-        y,
-        sp,
-        weights=_prior_weights(model, y),
-        deriv=2 if need_hessian else 1,
-        score_type=method,
-    )
-    fit = run["fit"]
-    setup = run["setup"]
-
-    coef = np.asarray(fit["coef"], dtype=np.float64)
-    St_full = np.asarray(fit["St_full"], dtype=np.float64)
-    ll_val = float(fit["l"])
-    penalty_full = float(coef @ (St_full @ coef))
-    Dp = float(-2.0 * ll_val + penalty_full)
-
-    Skb = _sl_term_mult(setup.Sl, coef, full=True)
-    Dp1 = np.asarray(
-        [float(np.sum(coef * np.asarray(Skb_i, dtype=np.float64))) for Skb_i in Skb],
-        dtype=np.float64,
-    )
-    score1 = np.asarray(fit.get("score1", np.zeros_like(Dp1)), dtype=np.float64)
-    K1 = np.asarray(score1 - Dp1 / (2.0 * gamma), dtype=np.float64)
-
-    Dp2 = None
-    K2 = None
-    if need_hessian:
-        db_drho = np.asarray(fit["db_drho"], dtype=np.float64)
-        llbb = np.asarray(fit["lbb"], dtype=np.float64)
-        n_sp = int(db_drho.shape[1])
-        d2pen = np.zeros((n_sp, n_sp), dtype=np.float64)
-        d2l = np.zeros((n_sp, n_sp), dtype=np.float64)
-        for i in range(n_sp):
-            Sd1b = St_full @ db_drho[:, i]
-            for j in range(i, n_sp):
-                val = 2.0 * float(
-                    np.sum(
-                        db_drho[:, i] * np.asarray(Skb[j], dtype=np.float64)
-                        + db_drho[:, j] * np.asarray(Skb[i], dtype=np.float64)
-                        + db_drho[:, j] * Sd1b
-                    )
-                )
-                if i == j:
-                    val += float(np.sum(coef * np.asarray(Skb[i], dtype=np.float64)))
-                d2pen[i, j] = d2pen[j, i] = val
-                d2l[i, j] = d2l[j, i] = float(db_drho[:, i] @ (llbb @ db_drho[:, j]))
-        Dp2 = np.asarray(d2pen - 2.0 * d2l, dtype=np.float64)
-        score2 = np.asarray(fit["score2"], dtype=np.float64)
-        K2 = np.asarray(score2 - Dp2 / (2.0 * gamma), dtype=np.float64)
-
-    return _GDI2Kernel(
-        gdi1=None,
-        phi=1.0,
-        phi_curv=np.inf,
-        Dp=Dp,
-        Dp1=Dp1,
-        Dp2=Dp2,
-        K1_full=K1,
-        K2_full=K2,
-        extra_name=None,
-        extra_value=None,
-    )
-
-
-def _gdi2_joint_kernel(model, y, sol, sp, *, method, need_hessian):
-    """
-    Generic extended-family entry mirroring `gdi2()` dispatch.
-
-    Current full port exists for Gamma profile-scale branch. Other extra-parameter
-    families still need dedicated ports of `ift2` / theta-coupled derivative terms.
-    """
-    family_name = str(getattr(model.family, "name", "")).lower()
-    if family_name == "gamma":
-        return _gdi2_gamma_joint_kernel(
-            model, y, sol, sp, method=method, need_hessian=need_hessian
-        )
-    if family_name == "gaussian":
-        return _gdi2_gaussian_joint_kernel(
-            model, y, sol, sp, method=method, need_hessian=need_hessian
-        )
-    if family_name == "negbin":
-        return _gdi2_negbin_joint_kernel(
-            model, y, sol, sp, method=method, need_hessian=need_hessian
-        )
-    if str(getattr(model.family, "family_class", "")).lower() == "general":
-        n_theta = int(getattr(model.family, "n_theta", 0) or 0)
-        if n_theta != 0:
-            raise NotImplementedError(
-                "Generic `gdi2` current-sp extended-family port is implemented "
-                "only for theta-free general families."
-            )
-        return _gdi2_general_family_kernel(
-            model, y, sol, sp, method=method, need_hessian=need_hessian
-        )
-    raise NotImplementedError(
-        "Generic `gdi2` current-sp extended-family port is not complete yet "
-        f"for family={model.family.name!r}."
+        extra_value=(float(theta_values[0]) if theta_values.size == 1 else None),
     )
 
 
@@ -2328,7 +1746,11 @@ def criterion_gradient_ml_reml_pirls_exact(model, y, log_sp, method):
         "gamma",
         "gaussian",
     }:
-        gdi2 = _gdi2_joint_kernel(model, y, sol, sp, method=method, need_hessian=False)
+        from .joint_kernels import gdi2_joint_kernel
+
+        gdi2 = gdi2_joint_kernel(
+            model, y, sol, sp, method=method, need_hessian=False
+        )
         _fit_workspace(model).pirls_reml_gamma_state = {
             "K": float(kernel.K),
             "K1": np.asarray(kernel.K1, dtype=np.float64),
@@ -2396,7 +1818,9 @@ def criterion_hessian_ml_reml_pirls_exact(model, y, log_sp, method):
     full_grad = full_hess = None
 
     if getattr(model.family, "known_scale", None) is None:
-        gdi2 = _gdi2_joint_kernel(
+        from .joint_kernels import gdi2_joint_kernel
+
+        gdi2 = gdi2_joint_kernel(
             model, y, sol, sp, method=method, need_hessian=True
         )
         joint_grad = kernel.K1 + gdi2.Dp1 / (2.0 * gdi2.phi * gamma)

@@ -61,9 +61,7 @@ def _resolve_numeric_by(by, X, feature_names):
     if by is None:
         return None, None, None
     idx, name = _resolve_feature(by, feature_names)
-    z = np.asarray(X[:, idx], dtype=np.float64).ravel()
-    if z.ndim != 1:
-        raise ValueError("Numeric `by` variables must resolve to a 1D column.")
+    z = column_as_numeric_array(X, idx)
     return idx, name, z
 
 
@@ -74,6 +72,8 @@ class ByState:
     values: np.ndarray | None
     is_present: bool
     is_constant: bool
+    handling: str = "none"
+    consumed_by_term: bool = False
 
     @property
     def index(self):
@@ -86,9 +86,17 @@ class ByState:
 
 def resolve_by_state(by, X, feature_names):
     if by is None:
-        return ByState(None, None, None, False, True)
+        return ByState(None, None, None, False, True, handling="none")
     idx, name, z = _resolve_numeric_by(by, X, feature_names)
-    return ByState(idx, name, z, True, _is_effectively_constant(z))
+    handling = "matrix" if np.asarray(z).ndim == 2 else "numeric"
+    return ByState(
+        idx,
+        name,
+        z,
+        True,
+        _is_effectively_constant(z),
+        handling=handling,
+    )
 
 
 def sync_by_state_attributes(term, by_state: ByState):
@@ -98,7 +106,51 @@ def sync_by_state_attributes(term, by_state: ByState):
 def by_values_from_new_data(X_new, by_state: ByState):
     if by_state is None or not by_state.is_present:
         return None
-    return column_as_float(X_new, by_state.feature_index)
+    return column_as_numeric_array(X_new, by_state.feature_index)
+
+
+def linear_functional_basis(values, weights, basis_evaluator):
+    """Aggregate a pointwise basis into one linear-functional row per sample.
+
+    ``values`` and ``weights`` must be equal-width matrices.  The evaluator is
+    called once on the flattened locations and must return one basis row per
+    location.  This is the common ``rowSums(L * F(X))`` construction used by
+    mgcv and SCAM matrix-valued ``by`` terms.
+    """
+    locations = np.asarray(values, dtype=np.float64)
+    quadrature = np.asarray(weights, dtype=np.float64)
+    if locations.ndim != 2 or quadrature.shape != locations.shape:
+        raise ValueError(
+            "Linear-functional terms require equal-shaped 2D feature and by matrices."
+        )
+    point_basis = np.asarray(
+        basis_evaluator(locations.reshape(-1)), dtype=np.float64
+    )
+    if point_basis.ndim != 2 or point_basis.shape[0] != locations.size:
+        raise ValueError(
+            "Linear-functional basis evaluator returned an incompatible row layout."
+        )
+    reshaped = point_basis.reshape(
+        locations.shape[0], locations.shape[1], point_basis.shape[1]
+    )
+    return np.einsum("nm,nmk->nk", quadrature, reshaped)
+
+
+def linear_functional_by_state(by_state: ByState) -> ByState:
+    """Mark matrix-valued by weights as consumed by basis aggregation."""
+    if by_state is None or not by_state.is_present:
+        raise ValueError("Linear-functional terms require a matrix-valued by variable.")
+    if np.asarray(by_state.values).ndim != 2:
+        raise ValueError("Linear-functional by weights must be two-dimensional.")
+    return ByState(
+        by_state.feature_index,
+        by_state.feature_name,
+        None,
+        True,
+        False,
+        handling="linear_functional",
+        consumed_by_term=True,
+    )
 
 
 def _column_from_matrix(X, index):
@@ -110,6 +162,27 @@ def _column_from_matrix(X, index):
 
 def column_as_float(X, index):
     return np.asarray(_column_from_matrix(X, index), dtype=np.float64).ravel()
+
+
+def column_as_numeric_array(X, index):
+    """Resolve scalar or consistently shaped array-valued numeric columns.
+
+    Array-valued columns are the dataframe representation used for mgcv/SCAM
+    linear-functional terms: one vector of quadrature locations or weights per
+    observation.
+    """
+    column = _column_from_matrix(X, index)
+    raw = np.asarray(column, dtype=object).reshape(-1)
+    has_array_values = any(np.asarray(value).ndim > 0 for value in raw)
+    if not has_array_values:
+        return np.asarray(column, dtype=np.float64).reshape(-1)
+    rows = [np.asarray(value, dtype=np.float64).reshape(-1) for value in raw]
+    widths = {row.size for row in rows}
+    if len(widths) != 1:
+        raise ValueError(
+            "Array-valued feature rows must all have the same number of entries."
+        )
+    return np.stack(rows, axis=0)
 
 
 def column_as_object(X, index):

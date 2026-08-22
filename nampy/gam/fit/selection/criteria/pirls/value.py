@@ -5,12 +5,10 @@ Functions here solve the penalized system via P-IRLS at each criterion evaluatio
 and compute the corresponding smoothing-selection score.
 """
 
-from contextlib import contextmanager
-
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
-from .....model_state import _coef_column_offset, _fit_workspace
+from .....model_state import _coef_column_offset
 from ....backends import solve_pirls_given_smoothing
 from ....smoothing_params import expand_smoothing_params_from_log
 from ...reparam import (
@@ -20,168 +18,7 @@ from ...reparam import (
     can_use_simple_ml_reml_structure,
     dynamic_reparam_design,
 )
-
-
-def _is_joint_negbin_theta_model(model) -> bool:
-    return str(getattr(model.family, "name", "")).lower() == "negbin" and bool(
-        getattr(model.family, "estimate_theta", False)
-    )
-
-
-def _copy_state_vector(x):
-    if x is None:
-        return None
-    return np.asarray(x, dtype=np.float64).copy()
-
-
-def _current_joint_negbin_eval_state(model):
-    result = getattr(model, "_optim_result", None)
-    result_state = (
-        None if result is None else getattr(result, "joint_negbin_state", None)
-    )
-    if isinstance(result_state, dict):
-        return {
-            "coef": _copy_state_vector(result_state.get("coef", None)),
-            "eta": _copy_state_vector(result_state.get("eta", None)),
-            "mu": _copy_state_vector(result_state.get("mu", None)),
-            "theta": float(result_state.get("theta", model.family.getTheta(True))),
-        }
-
-    baseline = getattr(model, "_joint_negbin_fd_baseline_", None)
-    if isinstance(baseline, dict):
-        return {
-            "coef": _copy_state_vector(baseline.get("coef", None)),
-            "eta": _copy_state_vector(baseline.get("eta", None)),
-            "mu": _copy_state_vector(baseline.get("mu", None)),
-            "theta": float(baseline.get("theta", model.family.getTheta(True))),
-        }
-
-    return {
-        "coef": _copy_state_vector(
-            _fit_workspace(model).get("pirls_coef_start", _fit_workspace(model).get("pirls_last_coef", None))
-        ),
-        "eta": _copy_state_vector(
-            _fit_workspace(model).get("pirls_eta_start", _fit_workspace(model).get("pirls_last_eta", None))
-        ),
-        "mu": _copy_state_vector(
-            _fit_workspace(model).get("pirls_mu_start", _fit_workspace(model).get("pirls_last_mu", None))
-        ),
-        "theta": float(model.family.getTheta(True)),
-    }
-
-
-@contextmanager
-def _frozen_joint_negbin_eval_state(model, baseline_state=None):
-    prev = {
-        "eval_coef": _copy_state_vector(_fit_workspace(model).get("pirls_eval_start", None)),
-        "eval_eta": _copy_state_vector(_fit_workspace(model).get("pirls_eval_eta_start", None)),
-        "eval_mu": _copy_state_vector(_fit_workspace(model).get("pirls_eval_mu_start", None)),
-        "lock": bool(_fit_workspace(model).get("pirls_lock_start", False)),
-        "coef": _copy_state_vector(_fit_workspace(model).get("pirls_coef_start", None)),
-        "eta": _copy_state_vector(_fit_workspace(model).get("pirls_eta_start", None)),
-        "mu": _copy_state_vector(_fit_workspace(model).get("pirls_mu_start", None)),
-        "last_coef": _copy_state_vector(_fit_workspace(model).get("pirls_last_coef", None)),
-        "last_eta": _copy_state_vector(_fit_workspace(model).get("pirls_last_eta", None)),
-        "last_mu": _copy_state_vector(_fit_workspace(model).get("pirls_last_mu", None)),
-        "theta": float(model.family.getTheta(True)),
-    }
-    state = (
-        _current_joint_negbin_eval_state(model)
-        if baseline_state is None
-        else {
-            "coef": _copy_state_vector(baseline_state.get("coef", None)),
-            "eta": _copy_state_vector(baseline_state.get("eta", None)),
-            "mu": _copy_state_vector(baseline_state.get("mu", None)),
-            "theta": float(baseline_state.get("theta", model.family.getTheta(True))),
-        }
-    )
-    _fit_workspace(model).pirls_eval_start = _copy_state_vector(state.get("coef", None))
-    _fit_workspace(model).pirls_eval_eta_start = _copy_state_vector(state.get("eta", None))
-    _fit_workspace(model).pirls_eval_mu_start = _copy_state_vector(state.get("mu", None))
-    _fit_workspace(model).pirls_lock_start = True
-    model.family.putTheta(float(np.log(state["theta"])))
-    try:
-        yield state
-    finally:
-        _fit_workspace(model).pirls_eval_start = prev["eval_coef"]
-        _fit_workspace(model).pirls_eval_eta_start = prev["eval_eta"]
-        _fit_workspace(model).pirls_eval_mu_start = prev["eval_mu"]
-        _fit_workspace(model).pirls_lock_start = prev["lock"]
-        _fit_workspace(model).pirls_coef_start = prev["coef"]
-        _fit_workspace(model).pirls_eta_start = prev["eta"]
-        _fit_workspace(model).pirls_mu_start = prev["mu"]
-        _fit_workspace(model).pirls_last_coef = prev["last_coef"]
-        _fit_workspace(model).pirls_last_eta = prev["last_eta"]
-        _fit_workspace(model).pirls_last_mu = prev["last_mu"]
-        model.family.putTheta(float(np.log(prev["theta"])))
-
-
-def criterion_ml_reml_pirls_frozen_negbin(
-    model, y, log_sp, method, baseline_state=None
-):
-    with _frozen_joint_negbin_eval_state(model, baseline_state=baseline_state):
-        return criterion_ml_reml_pirls(model, y, log_sp, method)
-
-
-def _gamma_profile_objective_curvature(model, y, Dp, phi, mp, *, method):
-    phi = float(phi)
-    if not np.isfinite(phi) or phi <= 0.0:
-        return np.inf, np.nan, np.nan
-    weights = getattr(model, "prior_weights_", None)
-    if weights is None:
-        weights = np.ones_like(np.asarray(y, dtype=np.float64), dtype=np.float64)
-    else:
-        weights = np.asarray(weights, dtype=np.float64)
-    ls = np.asarray(model.family.ls(y, weights, len(y), phi), dtype=np.float64)
-    nobs = float(len(y))
-    n_true = getattr(model, "n_true_", None)
-    if n_true is None:
-        n_true = nobs
-    n_true = float(n_true)
-    if not np.isfinite(n_true) or n_true <= 0.0 or not np.isfinite(nobs) or nobs <= 0.0:
-        fac = 1.0
-    else:
-        fac = n_true / nobs
-    ls *= fac
-    reml_ind = 1.0 if method == "REML" else 0.0
-    gamma = float(model.score_gamma)
-    score_lphi = (-Dp / (2.0 * phi) - ls[1] * phi) / gamma - 0.5 * mp * reml_ind
-    curv_lphi = (Dp / (2.0 * phi) - ls[2] * (phi**2) - ls[1] * phi) / gamma
-    return float(ls[0]), float(score_lphi), float(curv_lphi)
-
-
-def _solve_gamma_profile_scale(model, y, Dp, mp, *, method, init_scale):
-    phi = float(max(init_scale, 1e-12))
-    if not np.isfinite(phi) or phi <= 0.0:
-        phi = max(float(Dp) / max(float(len(y)), 1.0), 1e-6)
-
-    for _ in range(40):
-        _, score_lphi, curv_lphi = _gamma_profile_objective_curvature(
-            model, y, Dp, phi, mp, method=method
-        )
-        if not np.isfinite(score_lphi) or not np.isfinite(curv_lphi):
-            break
-        if abs(score_lphi) <= 1e-12:
-            return phi
-        if abs(curv_lphi) <= 1e-14:
-            break
-        step = score_lphi / curv_lphi
-        if not np.isfinite(step):
-            break
-        if abs(step) <= 1e-12:
-            return phi
-        new_phi = float(np.exp(np.log(phi) - step))
-        if not np.isfinite(new_phi) or new_phi <= 0.0:
-            break
-        phi = new_phi
-    return phi
-
-
-def _prior_weights(model, y):
-    weights = getattr(model, "prior_weights_", None)
-    if weights is None:
-        return np.ones_like(np.asarray(y, dtype=np.float64), dtype=np.float64)
-    return np.asarray(weights, dtype=np.float64)
+from .common import _prior_weights
 
 
 def _saturated_loglik(model, y, *, scale):
@@ -376,6 +213,11 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
                 )
             return float(objective)
         if family_name == "gamma":
+            from .family_gamma import (
+                _gamma_profile_objective_curvature,
+                _solve_gamma_profile_scale,
+            )
+
             Dp = float(sol["deviance"]) + penalty_quad
             phi = _solve_gamma_profile_scale(
                 model,
@@ -440,7 +282,7 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
         if not np.isfinite(det_term):
             return np.inf
         objective = base_objective + det_term
-        if method == "REML":
+        if method in {"REML", "LAML"}:
             objective -= 0.5 * mp * (np.log(2.0 * np.pi * phi) - np.log(gamma))
         return objective
 
@@ -529,143 +371,6 @@ def _pirls_ml_reml_objective_from_solution(model, y, sol, sp, method):
 
     logdet_XtKX = 2.0 * float(np.sum(np.log(np.abs(np.diag(cXKX)))))
     return objective + 0.5 * logdet_XtKX
-
-
-def criterion_ml_reml_pirls_gamma_joint(model, y, log_sp, log_phi, method):
-    method = str(method).upper()
-    family_name = str(getattr(model.family, "name", "")).lower()
-    if family_name != "gamma":
-        raise NotImplementedError(
-            "Joint PIRLS Gamma outer objective is implemented only for family='gamma'."
-        )
-
-    phi = float(np.exp(float(log_phi)))
-    if not np.isfinite(phi) or phi <= 0.0:
-        return np.inf
-
-    sp = expand_smoothing_params_from_log(model, log_sp)
-    sol = solve_pirls_given_smoothing(model, y, sp, scale_reference=phi)
-
-    mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
-    gamma = float(model.score_gamma)
-    if not np.isfinite(gamma) or gamma <= 0.0:
-        return np.inf
-    use_exact_logdet = bool(
-        can_use_simple_ml_reml_structure(model)
-        and not model._has_tensor_terms()
-        and bool(getattr(model.family, "supports_exact_pirls_first_derivatives", False))
-    )
-    try:
-        if use_exact_logdet:
-            from .derivatives import _gdi1_kernel
-
-            kernel = _gdi1_kernel(model, y, sol, sp, method=method)
-            Dp = float(sol["deviance"]) + float(kernel.bSb)
-            det_term = float(kernel.K)
-        else:
-            penalty_quad = float(sol["penalty_quadratic"] or 0.0)
-            Dp = float(sol["deviance"]) + penalty_quad
-            det_term = (
-                _pirls_tensor_coefficient_space_logdet_term(model, y, sol, sp, method)
-                if model._has_tensor_terms()
-                else _pirls_laplace_logdet_term(model, sol, sp, method)
-            )
-    except np.linalg.LinAlgError:
-        return np.inf
-    if not np.isfinite(det_term):
-        return np.inf
-
-    saturated_loglik, _, _ = _gamma_profile_objective_curvature(
-        model, y, Dp, phi, mp, method=method
-    )
-    base_objective = Dp / (2.0 * phi * gamma) - saturated_loglik / gamma
-    objective = base_objective + det_term
-    if method == "REML":
-        objective -= 0.5 * mp * (np.log(2.0 * np.pi * phi) - np.log(gamma))
-    return float(objective)
-
-
-def criterion_ml_reml_pirls_gaussian_joint(model, y, log_sp, log_phi, method):
-    """Joint Gaussian PIRLS ML/REML criterion from ``mgcv::gam.fit3``."""
-    method = str(method).upper()
-    family_name = str(getattr(model.family, "name", "")).lower()
-    if family_name != "gaussian":
-        raise NotImplementedError(
-            "Joint PIRLS Gaussian outer objective is implemented only for "
-            "family='gaussian'."
-        )
-    if bool(getattr(model.family, "supports_closed_form_solve", False)):
-        raise NotImplementedError(
-            "The PIRLS Gaussian joint objective is only for noncanonical links."
-        )
-
-    phi = float(np.exp(float(log_phi)))
-    gamma = float(model.score_gamma)
-    if (
-        not np.isfinite(phi)
-        or phi <= 0.0
-        or not np.isfinite(gamma)
-        or gamma <= 0.0
-    ):
-        return np.inf
-
-    sp = expand_smoothing_params_from_log(model, log_sp)
-    sol = solve_pirls_given_smoothing(model, y, sp, scale_reference=phi)
-    try:
-        from .derivatives import _gdi1_kernel
-
-        kernel = _gdi1_kernel(model, y, sol, sp, method=method)
-    except np.linalg.LinAlgError:
-        return np.inf
-
-    y_arr = np.asarray(y, dtype=np.float64)
-    weights = _prior_weights(model, y_arr)
-    ls = np.asarray(
-        model.family.ls(y_arr, weights, len(y_arr), phi), dtype=np.float64
-    )
-    nobs = float(len(y_arr))
-    n_true = getattr(model, "n_true_", None)
-    if n_true is not None:
-        n_true = float(n_true)
-        if np.isfinite(n_true) and n_true > 0.0 and nobs > 0.0:
-            ls *= n_true / nobs
-
-    dp = float(sol["deviance"]) + float(kernel.bSb)
-    mp = float(_static_penalty_null_dim(model) + _coef_column_offset(model))
-    reml_ind = 1.0 if method == "REML" else 0.0
-    objective = (dp / (2.0 * phi) - float(ls[0])) / gamma + float(kernel.K)
-    objective -= reml_ind * 0.5 * mp * (
-        np.log(2.0 * np.pi * phi) - np.log(gamma)
-    )
-    return float(objective)
-
-
-def criterion_ml_reml_pirls_negbin_joint(model, y, log_sp, log_theta, method):
-    """Joint (log_sp, log_theta) NB REML outer objective.
-
-    Sets family `log(theta)` as EFS initialization, then
-    evaluates the PIRLS REML criterion.  EFS (Embedded Fisher Scoring) updates
-    theta after each inner IRLS step inside :func:`irls_core`, mirroring
-    mgcv's ``gam.fit4.r`` extended-family pattern where log(theta) is prepended
-    to ``lsp`` and theta is updated per PIRLS step within the inner loop.
-    """
-    family_name = str(getattr(model.family, "name", "")).lower()
-    if family_name != "negbin":
-        raise NotImplementedError(
-            "Joint PIRLS NegBin outer objective is implemented only for family='negbin'."
-        )
-    theta = float(np.exp(float(log_theta)))
-    if not np.isfinite(theta) or theta <= 0.0:
-        return np.inf
-    prev_log_theta = float(model.family.getTheta(False))
-    prev_disable_theta_efs = bool(getattr(model.family, "_disable_theta_efs", False))
-    try:
-        model.family.putTheta(float(log_theta))
-        model.family._disable_theta_efs = True
-        return criterion_ml_reml_pirls(model, y, log_sp, method)
-    finally:
-        model.family.putTheta(prev_log_theta)
-        model.family._disable_theta_efs = bool(prev_disable_theta_efs)
 
 
 def criterion_ml_reml_pirls_dynamic(model, y, log_sp, method):

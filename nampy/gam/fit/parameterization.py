@@ -7,7 +7,7 @@ from dataclasses import replace
 import numpy as np
 
 from ..linalg import symmetrize_matrix
-from ..model_state import _coef_column_offset, _compiled_model, _fit_intercept
+from ..model_state import _compiled_model, _fit_intercept
 
 FIT_PARAMETER_SPACE = "fit"
 PREDICTION_PARAMETER_SPACE = "prediction"
@@ -78,7 +78,13 @@ def export_fit_result_to_prediction_space(model, fit_result):
         )
     )
 
-    beta = np.asarray(coef_full[_coef_column_offset(model) :], dtype=np.float64)
+    compiled = _compiled_model(model)
+    reduced_to_full = (
+        np.arange(coef_full.size, dtype=int)
+        if compiled is None
+        else np.asarray(compiled.coef_reduced_to_full_idx, dtype=int)
+    )
+    beta = np.asarray(coef_full[reduced_to_full], dtype=np.float64)
     return replace(
         fit_result,
         coef_full=coef_full,

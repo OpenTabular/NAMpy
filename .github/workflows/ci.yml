@@ -11,6 +11,8 @@ jobs:
   test:
     name: Test Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    env:
+      MGCV_LIB_PATH: ${{ github.workspace }}/.cache/mgcv-lib
     strategy:
       fail-fast: false
       matrix:
@@ -42,7 +44,7 @@ jobs:
         packages: any::jsonlite
 
     - name: Install vendored mgcv
-      run: R CMD INSTALL ./mgcv
+      run: python scripts/install_mgcv_reference.py
 
     - name: Install dependencies
       run: |
@@ -95,7 +97,7 @@ jobs:
         packages: any::jsonlite
 
     - name: Install vendored mgcv
-      run: R CMD INSTALL ./mgcv
+      run: python scripts/install_mgcv_reference.py
 
     - name: Install dependencies
       run: |

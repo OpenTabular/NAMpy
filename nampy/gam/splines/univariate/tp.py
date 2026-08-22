@@ -24,13 +24,6 @@ def _sorted_unique_inverse(X):
     return np.asarray(unique, dtype=np.float64), np.asarray(inverse, dtype=int)
 
 
-def _pack_covariates_colwise(X):
-    X = np.asarray(X, dtype=np.float64)
-    if X.ndim == 1:
-        X = X.reshape(-1, 1)
-    return np.ascontiguousarray(X.T.reshape(-1), dtype=np.float64)
-
-
 def householder_qr_rowspace(A, full_q):
     """
     Python port of mgcv/src/matrix.c::QT for the n<=m case.

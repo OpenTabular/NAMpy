@@ -233,6 +233,20 @@ def compile_predictors(
                 smoothing_override_modes=override_modes,
                 smoothing_override_values=override_values,
                 metadata=pred_metadata,
+                positive_coefficient_mask=(
+                    np.concatenate(
+                        [
+                            (
+                                np.zeros(tb.basis_train.shape[1], dtype=bool)
+                                if tb.positive_coefficient_mask is None
+                                else np.asarray(tb.positive_coefficient_mask, dtype=bool)
+                            )
+                            for tb in term_blocks
+                        ]
+                    )
+                    if term_blocks
+                    else np.zeros(0, dtype=bool)
+                ),
             )
         )
     return designs

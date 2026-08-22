@@ -23,9 +23,12 @@ Three family tiers are defined here:
 """
 
 import abc
+from enum import Enum
 
 import numpy as np
 from scipy.special import digamma, gammaln, polygamma
+from scipy.stats import binom as binomial_distribution
+from scipy.stats import gamma as gamma_distribution
 
 from .._mgcv_constants import FAMILY_EPS
 
@@ -39,7 +42,20 @@ _CAPABILITY_FLAGS = (
     "supports_laml",
     "supports_exact_pirls_first_derivatives",
     "supports_exact_pirls_second_derivatives",
+    "joint_outer_strategy",
 )
+
+
+class JointOuterStrategy(str, Enum):
+    """Outer-parameter strategy selected by a family capability declaration."""
+
+    NONE = "none"
+    GAUSSIAN_SCALE = "gaussian_scale"
+    GAMMA_SCALE = "gamma_scale"
+    NEGBIN_THETA = "negbin_theta"
+    BETAR_THETA = "betar_theta"
+    OCAT_THETA = "ocat_theta"
+    TWEEDIE = "tweedie"
 
 
 class _FamilyMeta(abc.ABCMeta):
@@ -77,8 +93,12 @@ class BaseFamily(metaclass=_FamilyMeta):
     supports_ml = False
     supports_reml = False
     supports_laml = False
+    # mgcv extended families can opt out of Fletcher's scale correction.
+    # Ordinary families retain the historical default; ``tw`` overrides it.
+    use_fletcher_scale_estimate = True
     supports_exact_pirls_first_derivatives = False
     supports_exact_pirls_second_derivatives = False
+    joint_outer_strategy = JointOuterStrategy.NONE
 
     n_linear_predictors = 1
     known_scale: float | None = None  # None -> unknown; numeric -> fixed/known scale
@@ -207,6 +227,17 @@ class BaseFamily(metaclass=_FamilyMeta):
         """
         mu0 = self.initialize_mu(y)
         return [self.link(mu0)]
+
+    def quantile_residual_bounds(self, y, mu, *, weights=None, scale=1.0):
+        """Return lower/upper response CDF bounds for randomized quantiles.
+
+        Continuous families return identical lower and upper arrays.  Discrete
+        families return ``P(Y < y)`` and ``P(Y <= y)``.  Keeping this on the
+        family prevents diagnostics from maintaining a parallel family table.
+        """
+        raise NotImplementedError(
+            f"Quantile residuals are not available for family {self.name!r}."
+        )
 
 
 class GLMFamily(BaseFamily):
@@ -453,9 +484,21 @@ class _BinomialBase(GLMFamily):
         n1 = 2.0 * (b**2 + a * c) * v - a**2 * v2
         return n1 / (v**2) - (2.0 * n * v1 / (v**3))
 
+    def quantile_residual_bounds(self, y, mu, *, weights=None, scale=1.0):
+        del scale
+        y = np.asarray(y, dtype=np.float64)
+        mu = self._mgcv_probability_clip(mu)
+        size = self._check_weights(y, weights)
+        size = size + (size == 0.0)
+        observed = y * size
+        lower = binomial_distribution.cdf(observed - 1.0, n=size, p=mu)
+        upper = binomial_distribution.cdf(observed, n=size, p=mu)
+        return np.asarray(lower, dtype=np.float64), np.asarray(upper, dtype=np.float64)
+
 
 class _GammaBase(GLMFamily):
     _variance_key = "gamma"
+    joint_outer_strategy = JointOuterStrategy.GAMMA_SCALE
 
     def deviance(self, y, mu, weights=None):
         y = np.clip(np.asarray(y, dtype=np.float64), self.eps, None)
@@ -529,6 +572,15 @@ class _GammaBase(GLMFamily):
 
     def saturated_loglik(self, y, weights=None, n=None, scale=1.0):
         return float(self.ls(y, weights, n=n, scale=scale)[0])
+
+    def quantile_residual_bounds(self, y, mu, *, weights=None, scale=1.0):
+        del weights
+        y = np.asarray(y, dtype=np.float64)
+        mu = np.asarray(mu, dtype=np.float64)
+        scale = float(scale)
+        cdf = gamma_distribution.cdf(y, a=1.0 / scale, scale=mu * scale)
+        cdf = np.asarray(cdf, dtype=np.float64)
+        return cdf, cdf
 
 
 class ExtendedFamily(BaseFamily):

@@ -37,7 +37,8 @@ def gcv_score_gaussian(model, y, log_smoothing_params):
     den = 1.0 - model.score_gamma * sol["trace_H"] / n
     if not np.isfinite(den) or den == 0.0:
         return np.inf
-    return (sol["rss"] / n) / (den**2)
+    rss = float(sol.get("criterion_rss", sol["rss"]))
+    return (rss / n) / (den**2)
 
 
 def criterion_gcv_gaussian(model, y, log_sp):

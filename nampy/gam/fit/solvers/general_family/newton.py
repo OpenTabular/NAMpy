@@ -35,6 +35,7 @@ from ...postprocess.unconditional_covariance import (
     _covariance_from_cholesky_derivatives,
     _differentiate_cholesky_factor,
 )
+from .sl_transforms import sl_inirep, sl_initial_repara
 
 # ---------------------------------------------------------------------------
 # Control parameters  (mgcv: gam.control)
@@ -1265,14 +1266,10 @@ def _sl_param_location(sl_blocks: list[Any], k: int) -> tuple[Any | None, int | 
 
 
 def _sl_initial_repara_local(Sl: Any, X: np.ndarray, **kwargs) -> np.ndarray:
-    from .fixed_smoothing import sl_initial_repara
-
     return sl_initial_repara(Sl, X, **kwargs)
 
 
 def _sl_inirep_local(Sl: Any, X: np.ndarray, **kwargs) -> np.ndarray:
-    from .fixed_smoothing import sl_inirep
-
     return sl_inirep(Sl, X, **kwargs)
 
 
