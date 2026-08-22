@@ -108,7 +108,7 @@ pip install -e ".[all,dev,docs]"
 ```
 
 NumPy is currently constrained to `<=1.26.4`; see
-`[pyproject.toml](pyproject.toml)` for the authoritative dependency versions.
+[`pyproject.toml`](pyproject.toml) for the authoritative dependency versions.
 
 ## Quick start: statistical GAMs
 

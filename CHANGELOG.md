@@ -6,19 +6,21 @@ All notable changes are recorded here following
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-22
+
 ### Added
 
-- `nampy.api`: backend-neutral contracts shared by all backends —
-  `FeatureSchema`, `AdditivePrediction`, `Capabilities`, `PersistableModel`.
+- `nampy.contracts`: backend-neutral `FeatureSchema`, `AdditivePrediction`, and
+  `EnsembleAdditivePrediction` records shared by the GAM and neural backends.
 - `GAMRegressor` / `GAMClassifier`: scikit-learn-style adapters around the
   mgcv-parity `GAM` (zero added numerics; automatic REML by default;
   label-encoded binary classification; `predict_components`,
-  `standard_errors`, `lpmatrix`, `capabilities`, pickle persistence).
+  `standard_errors`, `lpmatrix`, and versioned pickle persistence).
 - `score()` and `__sklearn_tags__` on all estimators without sklearn mixin
   classes: R² for regressors, accuracy for classifiers, negative mean NLL
   for LSS; `is_classifier`/`is_regressor` and `cross_val_score` now work.
-- `predict_components()` and `capabilities()` on the neural estimators;
-  fitted feature schemas recorded as `schema_`.
+- `predict_components()` on neural estimators, with fitted feature schemas
+  recorded as `schema_`.
 - `nampy.plotting`: backend-neutral term-plot renderer extracted from the
   `plot.gam` port; neural estimators gain `plot_terms()`.
 - Per-sample link-scale offsets through the neural training stack
@@ -46,6 +48,14 @@ All notable changes are recorded here following
   Generic interaction-selection contracts, active-parameter diagnostics,
   lossless block/independent term conversion, and higher-order interaction
   plots are shared across neural architectures.
+- NBM, SPAM, and NBM-SPAM estimator families, including dense and sparse NBM
+  execution, Conv1D/einsum featurization, n-ary terms, low-rank polynomial
+  effects, local term importance, and hybrid neural-basis/polynomial models.
+- A declarative neural architecture registry that generates every supported
+  regressor, classifier, and LSS estimator family from one capability record.
+- A generic `NeuralEnsemble` for independently cloned neural regressors and
+  classifiers, including bootstrap fitting and between-member component
+  uncertainty.
 - SCAM-compatible shape-constrained GAMs: all 24 univariate and 17 bivariate
   SCOP-spline classes, numeric-by and matrix-valued linear-functional terms,
   local/positive/endpoint constraints, dual optimization and prediction
@@ -67,7 +77,7 @@ All notable changes are recorded here following
   `SklearnBaseRegressor`/`SklearnBaseClassifier`/`SklearnBaseLSS` →
   `NeuralRegressor`/`NeuralClassifier`/`NeuralLSS`
   (`nampy/models/{regressor,classifier,lss}.py`); `TaskModel` →
-  `TaskModule` (`nampy/neural/training/task_module.py`); estimator
+  `TaskModule` (`nampy/neural/task.py`); estimator
   `QNAM` → `QNAMLSS` and torch module `QNAMBase` → `QNAM`;
   `GAM.predict_feature_vals` → `GAM.predict_terms`; the raw-dict
   `predict_feature_vals` is removed from all estimators —
@@ -75,10 +85,10 @@ All notable changes are recorded here following
   term-contribution surface, now also implemented for LSS
   (multi-column, additive on the raw parameter scale).
 - **Breaking:** the torch backend moved under `nampy/neural/` —
-  `nampy.basemodels` → `nampy.neural.architectures` (TaskModel:
-  `nampy.neural.training`), `nampy.data_utils` → `nampy.neural.data`,
-  `nampy.arch_utils` → `nampy.neural.layers` (shared) / `nampy.neural.architectures`
-  (single-architecture), `nampy.configs` → `nampy.neural.configs`,
+  `nampy.basemodels` → `nampy.neural.architectures`, `nampy.data_utils` →
+  `nampy.neural.data`, `nampy.arch_utils` →
+  `nampy.neural.architectures.components`, `nampy.configs` →
+  `nampy.neural.configs`,
   `nampy.utils.distributions`/`distributional_metrics` →
   `nampy.neural.distributions`. No compatibility shims; public estimator
   class names are unchanged.
@@ -92,10 +102,13 @@ All notable changes are recorded here following
   instead of overwriting `best_model.ckpt`.
 - Unfitted `predict` raises `sklearn.exceptions.NotFittedError` (a
   `ValueError` subclass); inference restores the module's training flag.
-- The triplicated wrapper fit/predict/plot pipelines are consolidated into
-  `nampy.neural.training.engine` and `nampy.models._plotting`; the
-  forward-output penalty grammar has a single owner
-  (`nampy.neural.training.output_contract`).
+- The triplicated wrapper fit/predict/plot pipelines are consolidated in
+  `nampy.models._base` and `nampy.models._plotting`; the forward-output key and
+  penalty grammar has a single owner in `nampy.neural.contracts`.
+- Neural preprocessing now targets pristine PreTab's public block contract.
+  Generic preprocessing stays in PreTab; NAMpy owns only model-specific block
+  interpretation. Unsupported experimental PreTab surfaces are no longer
+  required.
 - Supported Python versions are now explicitly Python 3.11 and 3.12.
 - Package version metadata has one owner: `nampy.__version__` via
   `pyproject.toml` dynamic metadata.
@@ -112,7 +125,8 @@ All notable changes are recorded here following
 - Neural optimizer settings from estimator constructors and `set_params()` now
   control training. Optional fit-time overrides use the same `lr`,
   `lr_patience`, `lr_factor`, and `weight_decay` names.
-- `QNAMBase` now owns `DefaultQNAMConfig` rather than the unrelated NAM config.
+- QNAM now owns `DefaultQNAMConfig` and is exposed only through its supported
+  distributional estimator, `QNAMLSS`.
 - Public API documentation and examples now match the implemented model/task
   surface.
 - Ruff violations and the existing `nampy` mypy error set were resolved.
@@ -130,5 +144,6 @@ All notable changes are recorded here following
   classification, distributional regression, preprocessing, and interpretable
   feature contributions.
 
-[Unreleased]: https://github.com/OpenTabular/NAMpy/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/OpenTabular/NAMpy/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/OpenTabular/NAMpy/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/OpenTabular/NAMpy/releases/tag/v0.1.0

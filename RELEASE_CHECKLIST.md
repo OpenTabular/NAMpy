@@ -10,6 +10,9 @@
       tested GAM boundary.
 - [ ] Confirm the release commit contains no generated API stubs, cached parity
       artifacts, credentials, or local build output.
+- [ ] Confirm every runtime dependency is available from the public package
+      index. In particular, publish pristine `pretab>=1.0.0rc2` before a NAMpy
+      release that declares the neural or `all` extras.
 
 The package metadata reads its version from `nampy.__version__`; there is no
 second version field to edit.
