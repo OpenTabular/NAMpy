@@ -1,0 +1,4 @@
+# CI runners do not need CUDA. Keep the version in constraints-ci.txt as the
+# single pin and resolve its CPU wheel from PyTorch's official package index.
+--index-url https://download.pytorch.org/whl/cpu
+torch
