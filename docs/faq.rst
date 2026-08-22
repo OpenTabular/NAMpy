@@ -41,7 +41,7 @@ For development installation:
 
 .. code-block:: bash
 
-   git clone https://github.com/OpenTabular/NAMpy.git
+   git clone https://github.com/Ananyapam7/NAMpy.git
    cd NAMpy
    pip install -e ".[all,dev]"
 
@@ -133,7 +133,7 @@ Deep learning models require more computation. Try:
 * Use GPU if available
 * Reduce `max_epochs`
 * Smaller `layer_sizes`
-* Fewer `output_dim`
+* Fewer `n_bins`
 * Smaller dataset for prototyping
 
 How do I speed up predictions?
@@ -231,7 +231,7 @@ See :doc:`contributing` for detailed guidelines.
 How do I report a bug?
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Open an issue on `GitHub <https://github.com/OpenTabular/NAMpy/issues>`_
+Open an issue on `GitHub <https://github.com/Ananyapam7/NAMpy/issues>`_
 with:
 
 * Clear description of the problem
@@ -242,7 +242,7 @@ with:
 How do I request a feature?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Open an issue on `GitHub <https://github.com/OpenTabular/NAMpy/issues>`_
+Open an issue on `GitHub <https://github.com/Ananyapam7/NAMpy/issues>`_
 describing:
 
 * The feature and its motivation
@@ -254,6 +254,6 @@ Still Have Questions?
 
 * Check the :doc:`user_guide`
 * Browse the :doc:`examples/index`
-* Search `GitHub Issues <https://github.com/OpenTabular/NAMpy/issues>`_
-* Ask in `GitHub Discussions <https://github.com/OpenTabular/NAMpy/discussions>`_
+* Search `GitHub Issues <https://github.com/Ananyapam7/NAMpy/issues>`_
+* Ask in `GitHub Discussions <https://github.com/Ananyapam7/NAMpy/discussions>`_
 * Read the :doc:`api/index`

@@ -61,7 +61,7 @@ def test_build_callbacks_uses_unique_directory_per_fit(tmp_path):
 
 def test_unfitted_predict_raises_not_fitted_error():
     X, _ = _make_regression_frame()
-    estimator = LinRegRegressor(numerical_method="standardization")
+    estimator = LinRegRegressor(numerical_preprocessing="standardization")
 
     with pytest.raises(NotFittedError):
         estimator.predict(X)
@@ -71,7 +71,7 @@ def test_unfitted_predict_raises_not_fitted_error():
 
 def test_predict_restores_module_training_flag(tmp_path):
     X, y = _make_regression_frame()
-    estimator = LinRegRegressor(numerical_method="standardization")
+    estimator = LinRegRegressor(numerical_preprocessing="standardization")
     estimator.fit(X, y, max_epochs=2, patience=1, checkpoint_path=str(tmp_path))
 
     estimator.model.train()
@@ -84,14 +84,14 @@ def test_predict_restores_module_training_flag(tmp_path):
 
 
 def test_training_plans_carry_task_wiring():
-    reg = LinRegRegressor(numerical_method="standardization")
+    reg = LinRegRegressor(numerical_preprocessing="standardization")
     y, y_val, plan = reg._build_training_plan(np.array([1.0, 2.0, 3.0]), None)
     assert plan.datamodule_regression is True
     assert isinstance(plan.objective, RegressionObjective)
     assert plan.objective.output_dim == 1
     assert reg.n_outputs_ == 1
 
-    clf = LinRegClassifier(numerical_method="standardization")
+    clf = LinRegClassifier(numerical_preprocessing="standardization")
     y_enc, _, plan = clf._build_training_plan(np.array(["b", "a", "b", "a"]), None)
     assert plan.datamodule_regression is False
     assert type(plan.objective) is type(classification_objective(2))
@@ -103,7 +103,7 @@ def test_training_plans_carry_task_wiring():
 def test_fit_uses_constructor_optimizer_configuration(monkeypatch):
     X, y = _make_regression_frame()
     estimator = TreeNAMRegressor(
-        numerical_method="standardization",
+        numerical_preprocessing="standardization",
         lr=0.02,
         lr_patience=7,
         lr_factor=0.3,
@@ -152,7 +152,7 @@ def test_fit_uses_constructor_optimizer_configuration(monkeypatch):
 
 def test_successive_fits_do_not_clobber_checkpoints(tmp_path):
     X, y = _make_regression_frame()
-    estimator = LinRegRegressor(numerical_method="standardization")
+    estimator = LinRegRegressor(numerical_preprocessing="standardization")
     estimator.fit(X, y, max_epochs=2, patience=1, checkpoint_path=str(tmp_path))
     estimator.fit(X, y, max_epochs=2, patience=1, checkpoint_path=str(tmp_path))
 
@@ -185,7 +185,7 @@ def test_recent_state_callback_keeps_only_latest_epoch_states():
 
 def test_fit_forwards_generic_step_and_checkpoint_controls(monkeypatch):
     X, y = _make_regression_frame()
-    estimator = LinRegRegressor(numerical_method="standardization")
+    estimator = LinRegRegressor(numerical_preprocessing="standardization")
     captured = {}
 
     def fake_run_training(estimator, X, y, plan, **kwargs):
@@ -225,7 +225,7 @@ def test_fit_forwards_generic_step_and_checkpoint_controls(monkeypatch):
 def test_fit_combines_class_and_sample_weights_and_forwards_balancing(monkeypatch):
     X = pd.DataFrame({"x": np.arange(6.0)})
     y = np.array(["common", "common", "common", "common", "rare", "rare"])
-    estimator = LinRegClassifier(numerical_method="standardization")
+    estimator = LinRegClassifier(numerical_preprocessing="standardization")
     captured = {}
 
     def fake_run_training(estimator, X, y, plan, **kwargs):
@@ -250,7 +250,7 @@ def test_fit_combines_class_and_sample_weights_and_forwards_balancing(monkeypatc
 
 def test_lss_fit_forwards_weights_to_distribution_objective(monkeypatch):
     X, y = _make_regression_frame(n=12)
-    estimator = NAMLSS(numerical_method="standardization")
+    estimator = NAMLSS(numerical_preprocessing="standardization")
     captured = {}
 
     def fake_run_training(estimator, X, y, plan, **kwargs):
@@ -293,7 +293,7 @@ def test_step_early_stopping_uses_optimizer_step_distance():
 
 def test_warm_start_forwards_current_model_state(monkeypatch):
     X, y = _make_regression_frame()
-    estimator = LinRegRegressor(numerical_method="standardization")
+    estimator = LinRegRegressor(numerical_preprocessing="standardization")
     estimator.model = torch.nn.Linear(2, 1)
     expected = {
         key: value.detach().clone() for key, value in estimator.model.state_dict().items()
@@ -316,7 +316,7 @@ def test_warm_start_forwards_current_model_state(monkeypatch):
 def test_nodegam_optional_masked_pretraining_transfers_compatible_state(tmp_path):
     X, y = _make_regression_frame(n=48)
     estimator = NodeGAMRegressor(
-        numerical_method="standardization",
+        numerical_preprocessing="standardization",
         num_trees=2,
         num_layers=1,
         depth=2,

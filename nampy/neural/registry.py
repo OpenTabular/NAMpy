@@ -7,8 +7,6 @@ from importlib import import_module
 from types import MappingProxyType
 from typing import Any, Mapping
 
-import numpy as np
-
 
 def _load_symbol(path: str):
     module_name, symbol_name = path.split(":", 1)
@@ -245,10 +243,9 @@ def _register_builtins() -> None:
         if name == "nam":
             kwargs = {
                 "preprocessor_defaults": {
-                    "numerical_method": "none",
-                    "categorical_method": "one-hot",
-                    "scaling": "minmax",
-                    "dtype": np.float32,
+                    "numerical_preprocessing": "none",
+                    "categorical_preprocessing": "one-hot",
+                    "scaling_strategy": "minmax",
                 },
                 "input_requirements": {
                     "features": "one network per PreTab feature block",
@@ -267,10 +264,9 @@ def _register_builtins() -> None:
         elif name in {"nbm", "nbm_spam", "spam"}:
             kwargs = {
                 "preprocessor_defaults": {
-                    "numerical_method": "none",
-                    "categorical_method": "one-hot",
-                    "scaling": "minmax",
-                    "dtype": np.float32,
+                    "numerical_preprocessing": "none",
+                    "categorical_preprocessing": "one-hot",
+                    "scaling_strategy": "minmax",
                 },
                 "input_requirements": {
                     "concepts": "PreTab feature blocks are flattened to scalar concepts",
@@ -280,9 +276,9 @@ def _register_builtins() -> None:
         elif name == "gpnam":
             kwargs = {
                 "preprocessor_defaults": {
-                    "numerical_method": "none",
-                    "categorical_method": "one-hot",
-                    "scaling": None,
+                    "numerical_preprocessing": "none",
+                    "categorical_preprocessing": "one-hot",
+                    "scaling_strategy": None,
                 },
                 "input_requirements": {
                     "numerical": "one scalar column per source feature",
@@ -295,9 +291,9 @@ def _register_builtins() -> None:
                     "distributional": {"n_estimators": 100},
                 },
                 "preprocessor_defaults": {
-                    "numerical_method": "none",
-                    "categorical_method": "int",
-                    "scaling": None,
+                    "numerical_preprocessing": "none",
+                    "categorical_preprocessing": "int",
+                    "scaling_strategy": None,
                 },
                 "input_requirements": {
                     "numerical": "one scalar column per source feature",
@@ -309,9 +305,9 @@ def _register_builtins() -> None:
             kwargs = {
                 "estimator_mixin_path": "nampy.models.sian:_SIANSelectionMixin",
                 "preprocessor_defaults": {
-                    "numerical_method": "standardization",
-                    "categorical_method": "one-hot",
-                    "scaling": None,
+                    "numerical_preprocessing": "standardization",
+                    "categorical_preprocessing": "one-hot",
+                    "scaling_strategy": None,
                 },
                 "input_requirements": {
                     "interaction_selection": (
@@ -322,9 +318,9 @@ def _register_builtins() -> None:
         elif name == "spline_nam":
             kwargs = {
                 "preprocessor_defaults": {
-                    "numerical_method": "minmax",
-                    "categorical_method": "int",
-                    "scaling": None,
+                    "numerical_preprocessing": "minmax",
+                    "categorical_preprocessing": "int",
+                    "scaling_strategy": None,
                 },
                 "input_requirements": {
                     "features": "one scalar transformed column per source feature",

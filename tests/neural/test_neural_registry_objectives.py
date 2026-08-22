@@ -32,10 +32,9 @@ def test_builtin_architectures_are_registered_once_with_explicit_capabilities():
     assert get_architecture("nam").supports("distributional")
     assert get_architecture("nam").supports("interactions")
     assert get_architecture("nam").preprocessor_defaults == {
-        "numerical_method": "none",
-        "categorical_method": "one-hot",
-        "scaling": "minmax",
-        "dtype": np.float32,
+        "numerical_preprocessing": "none",
+        "categorical_preprocessing": "one-hot",
+        "scaling_strategy": "minmax",
     }
     assert get_architecture("sian").supports("interaction_selection")
     assert get_architecture("sian").estimator_mixin is not None
@@ -43,16 +42,15 @@ def test_builtin_architectures_are_registered_once_with_explicit_capabilities():
     assert get_architecture("gpnam").supports("interactions")
     assert get_architecture("gpnam").supports("fixed_linear_design")
     assert get_architecture("gpnam").preprocessor_defaults == {
-        "numerical_method": "none",
-        "categorical_method": "one-hot",
-        "scaling": None,
+        "numerical_preprocessing": "none",
+        "categorical_preprocessing": "one-hot",
+        "scaling_strategy": None,
     }
     for name in ("nbm", "nbm_spam", "spam"):
         assert get_architecture(name).preprocessor_defaults == {
-            "numerical_method": "none",
-            "categorical_method": "one-hot",
-            "scaling": "minmax",
-            "dtype": np.float32,
+            "numerical_preprocessing": "none",
+            "categorical_preprocessing": "one-hot",
+            "scaling_strategy": "minmax",
         }
     assert get_architecture("nodegam").supports("masked_pretraining")
     assert get_architecture("igann").capabilities == {
@@ -63,9 +61,9 @@ def test_builtin_architectures_are_registered_once_with_explicit_capabilities():
         "native_training",
     }
     assert get_architecture("igann").preprocessor_defaults == {
-        "numerical_method": "none",
-        "categorical_method": "int",
-        "scaling": None,
+        "numerical_preprocessing": "none",
+        "categorical_preprocessing": "int",
+        "scaling_strategy": None,
     }
     assert get_architecture("igann").objective_defaults == {
         "distributional": {"n_estimators": 100}
@@ -82,9 +80,9 @@ def test_builtin_architectures_are_registered_once_with_explicit_capabilities():
         "interactions",
     }
     assert get_architecture("spline_nam").preprocessor_defaults == {
-        "numerical_method": "minmax",
-        "categorical_method": "int",
-        "scaling": None,
+        "numerical_preprocessing": "minmax",
+        "categorical_preprocessing": "int",
+        "scaling_strategy": None,
     }
     assert ".architectures." in get_architecture("nam").module_path
 

@@ -174,8 +174,8 @@ All models share these common hyperparameters:
        dropout=0.5,                # Dropout rate
        
        # Preprocessing
-       numerical_method="ple",  # Preprocessing strategy
-       output_dim=50,                      # Number of bins for encoding
+       numerical_preprocessing="ple",  # Preprocessing strategy
+       n_bins=50,                      # Number of bins for encoding
    )
 
 Training Parameters
@@ -277,7 +277,7 @@ Performance Optimization
 
 1. **Use GPU** if available (automatic with PyTorch)
 2. **Batch your data** appropriately
-3. **Adjust output_dim** based on dataset size
+3. **Adjust n_bins** based on dataset size
 4. **Use appropriate preprocessing** for your feature types
 
 Next Steps

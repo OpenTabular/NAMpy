@@ -1,9 +1,10 @@
-Pristine PreTab compatibility
-=============================
+Published PreTab compatibility
+==============================
 
-NAMpy targets the public block-level preprocessing contract in pristine PreTab
-``1.0.0rc2``. It does not require the experimental preprocessing extensions
-that were previously carried in NAMpy's reference checkout of PreTab.
+NAMpy targets the public block-level preprocessing contract in the published
+PreTab ``0.0.3`` release. It does not require the experimental preprocessing
+extensions that were previously carried in NAMpy's reference checkout of
+PreTab.
 
 This boundary is intentional. PreTab owns generic tabular preprocessing, while
 NAMpy owns the interpretation of the resulting feature blocks inside each
@@ -13,16 +14,16 @@ or approximated as part of this change.
 Supported contract
 ------------------
 
-NAMpy relies on the following pristine PreTab behavior:
+NAMpy relies on the following published PreTab 0.0.3 behavior:
 
 * ``Preprocessor.fit(X, y)`` and ``Preprocessor.transform(X)``;
 * dictionary output with ``num_<feature>`` and ``cat_<feature>`` blocks;
 * ``get_feature_info(verbose=False)`` metadata, particularly ``dimension``,
   ``categories``, and ``preprocessing``;
-* pristine PreTab's numerical-then-categorical block ordering;
-* standard constructor options such as ``numerical_method``,
-  ``categorical_method``, ``feature_preprocessing``, ``output_dim``, ``degree``,
-  ``scaling``, ``random_state``, and ``dtype``.
+* PreTab's numerical-then-categorical block ordering;
+* standard constructor options such as ``numerical_preprocessing``,
+  ``categorical_preprocessing``, ``feature_preprocessing``, ``n_bins``,
+  ``n_knots``, ``degree``, ``scaling_strategy``, and ``task``.
 
 High-level NAMpy estimators discover the supported constructor parameters from
 the installed ``Preprocessor``. Unsupported names continue to raise an explicit
@@ -41,30 +42,30 @@ NAMpy:
 
 ``output_order``
    NAMpy no longer requests categorical-first or original-input ordering. It
-   consumes pristine PreTab's numerical-then-categorical block order.
+   consumes PreTab's numerical-then-categorical block order.
 
 ``output_scaling`` and ``output_range``
    NAMpy no longer requests a second scaler over the fully encoded matrix.
-   NAM, NBM, SPAM, and NBM-SPAM use pristine PreTab's supported numerical
-   ``scaling="minmax"`` preprocessing instead. This scaler maps numerical
+   NAM, NBM, SPAM, and NBM-SPAM use PreTab's supported numerical
+   ``scaling_strategy="minmax"`` preprocessing instead. This scaler maps numerical
    inputs to ``[-1, 1]``; categorical one-hot values remain ``0`` or ``1``.
 
 Quantile fit controls
    ``quantile_n_quantiles``, ``quantile_output_distribution``, and
    ``quantile_noise`` are no longer exposed by NAMpy examples or required by
-   its tests. ``numerical_method="quantile"`` remains supported with pristine
+   its tests. ``numerical_preprocessing="quantile"`` remains supported with
    PreTab's own behavior.
 
 Generic representation parameters
    NAMpy no longer relies on ``representation_params`` or mapping-valued
    per-feature specifications such as
-   ``{"x": {"method": "...", ...}}``. Pristine PreTab's supported
+   ``{"x": {"method": "...", ...}}``. PreTab's supported
    ``feature_preprocessing`` form remains available.
 
 TF-IDF categorical representation
    The extended ``tfidf`` representation is no longer advertised or tested.
-   Text features must use a representation supported by the installed pristine
-   PreTab release or be prepared before they reach NAMpy.
+   Text features must use a representation supported by the published PreTab
+   release or be prepared before they reach NAMpy.
 
 Atomic transformed-column metadata
    NAMpy no longer expects ``output_index`` metadata or synthesized metadata
@@ -77,7 +78,7 @@ Model impact
 NAM
 ~~~
 
-NAM creates one feature network per pristine PreTab block. A numerical source
+NAM creates one feature network per PreTab block. A numerical source
 feature normally produces a scalar block. A one-hot categorical source feature
 produces one multi-column block and therefore one network for the categorical
 feature as a whole. This differs from the earlier parity configuration, which
@@ -99,12 +100,12 @@ SPAM and NBM-SPAM
 
 SPAM and NBM-SPAM use the same internal block flattening as NBM. Their
 polynomial cores, ranks, penalties, proximal behavior, and hybrid block
-assembly are unchanged. Terms now follow pristine PreTab's block order.
+assembly are unchanged. Terms now follow PreTab's block order.
 
 NodeGAM
 ~~~~~~~
 
-NodeGAM can continue to select ``numerical_method="quantile"``. It no longer
+NodeGAM can continue to select ``numerical_preprocessing="quantile"``. It no longer
 requests NODE-GAM-specific quantile noise or quantile-transform tuning through
 PreTab, so preprocessing will not reproduce the reference repository exactly.
 The differentiable tree architecture and its training controls are unchanged.
@@ -113,7 +114,7 @@ Other neural models
 ~~~~~~~~~~~~~~~~~~~
 
 LinReg, SNAM, SIAN, GPNAM, IGANN, NATT, NAMformer, TreeNAM,
-EnsembleTreeNAM, QNAM, and SplineNAM already consume pristine PreTab's
+EnsembleTreeNAM, QNAM, and SplineNAM already consume PreTab's
 block-level contract. Their architecture implementations required no changes
 for this compatibility decision.
 
@@ -126,8 +127,8 @@ Behavioral consequences
 ------------------------
 
 This compatibility target guarantees that the supported neural estimators can
-be constructed, cloned, fitted, and used with pristine PreTab. It does not
-claim preprocessing parity with every model's reference repository. In
+be constructed, cloned, fitted, and used with published PreTab 0.0.3. It does
+not claim preprocessing parity with every model's reference repository. In
 particular, encoded scaling, categorical NAM topology, transformed-column
 ordering, and optional quantile or TF-IDF representations can differ.
 

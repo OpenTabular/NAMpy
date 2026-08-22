@@ -184,7 +184,7 @@ def test_linreg_regressor_fits_and_predicts_multiple_targets(tmp_path):
     x = np.linspace(-1.0, 1.0, 40)
     data = pd.DataFrame({"x": x, "z": np.cos(x)})
     targets = np.column_stack((2.0 * x + 0.5, -x + 0.25 * np.cos(x)))
-    estimator = LinRegRegressor(numerical_method="standardization")
+    estimator = LinRegRegressor(numerical_preprocessing="standardization")
 
     fitted = estimator.fit(
         data,

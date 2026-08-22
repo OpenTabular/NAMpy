@@ -28,7 +28,7 @@ def _make_frames(seed=0):
 
 def _fit_datamodule(X_train, y_train, X_val, y_val):
     data_module = NAMpyDataModule(
-        preprocessor=Preprocessor(numerical_method="ple"),
+        preprocessor=Preprocessor(numerical_preprocessing="ple"),
         batch_size=32,
         shuffle=False,
         regression=True,
@@ -67,7 +67,7 @@ def test_stratified_auto_split_preserves_class_ratio():
     y = np.array([0] * 160 + [1] * 40)
 
     data_module = NAMpyDataModule(
-        preprocessor=Preprocessor(numerical_method="standardization"),
+        preprocessor=Preprocessor(numerical_preprocessing="standardization"),
         batch_size=32,
         shuffle=False,
         regression=False,
@@ -86,7 +86,7 @@ def test_feature_metadata_records_train_only_transformed_cardinality():
     X_val = pd.DataFrame({"x": [100.0, 200.0]})
     y_val = np.zeros(2)
     data_module = NAMpyDataModule(
-        preprocessor=Preprocessor(numerical_method="standardization"),
+        preprocessor=Preprocessor(numerical_preprocessing="standardization"),
         batch_size=2,
         shuffle=False,
         regression=True,
@@ -100,7 +100,7 @@ def test_sample_weights_split_with_rows_and_reach_dataset():
     y = np.arange(20.0)
     weights = np.arange(1.0, 21.0)
     data_module = NAMpyDataModule(
-        preprocessor=Preprocessor(numerical_method="standardization"),
+        preprocessor=Preprocessor(numerical_preprocessing="standardization"),
         batch_size=20,
         shuffle=False,
         regression=True,
@@ -118,7 +118,7 @@ def test_balanced_sampling_uses_inverse_class_frequency_sampler():
     X = pd.DataFrame({"x": np.arange(40.0)})
     y = np.array([0] * 30 + [1] * 10)
     data_module = NAMpyDataModule(
-        preprocessor=Preprocessor(numerical_method="standardization"),
+        preprocessor=Preprocessor(numerical_preprocessing="standardization"),
         batch_size=8,
         shuffle=True,
         regression=False,

@@ -284,7 +284,7 @@ Slow Training
 * **Use GPU**: Check `torch.cuda.is_available()`
 * **Reduce max_epochs**: Start with 50 for experimentation
 * **Use smaller model**: Reduce `layer_sizes`
-* **Reduce output_dim**: Fewer bins = faster training
+* **Reduce n_bins**: Fewer bins = faster training
 
 Next Steps
 ----------

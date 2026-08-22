@@ -34,9 +34,9 @@ def _classification_data(n=80, seed=0, labels=("cat", "dog")):
 
 
 def test_estimator_type_tags_without_mixins():
-    reg = LinRegRegressor(numerical_method="standardization")
-    clf = LinRegClassifier(numerical_method="standardization")
-    lss = LinRegLSS(numerical_method="standardization")
+    reg = LinRegRegressor(numerical_preprocessing="standardization")
+    clf = LinRegClassifier(numerical_preprocessing="standardization")
+    lss = LinRegLSS(numerical_preprocessing="standardization")
 
     assert get_tags(reg).estimator_type == "regressor"
     assert get_tags(clf).estimator_type == "classifier"
@@ -53,7 +53,7 @@ def test_estimator_type_tags_without_mixins():
 
 def test_regressor_score_matches_r2(tmp_path):
     X, y = _regression_data()
-    estimator = LinRegRegressor(numerical_method="standardization")
+    estimator = LinRegRegressor(numerical_preprocessing="standardization")
     estimator.fit(X, y, max_epochs=3, patience=2, checkpoint_path=str(tmp_path))
 
     assert estimator.score(X, y) == pytest.approx(r2_score(y, estimator.predict(X)))
@@ -61,7 +61,7 @@ def test_regressor_score_matches_r2(tmp_path):
 
 def test_classifier_string_labels_round_trip(tmp_path):
     X, y = _classification_data(labels=("cat", "dog"))
-    estimator = LinRegClassifier(numerical_method="standardization")
+    estimator = LinRegClassifier(numerical_preprocessing="standardization")
     estimator.fit(X, y, max_epochs=3, patience=2, checkpoint_path=str(tmp_path))
 
     assert list(estimator.classes_) == ["cat", "dog"]
@@ -80,7 +80,7 @@ def test_classifier_string_labels_round_trip(tmp_path):
 
 def test_classifier_noncontiguous_integer_labels(tmp_path):
     X, y = _classification_data(labels=(3, 7))
-    estimator = LinRegClassifier(numerical_method="standardization")
+    estimator = LinRegClassifier(numerical_preprocessing="standardization")
     estimator.fit(X, y.astype(int), max_epochs=3, patience=2, checkpoint_path=str(tmp_path))
 
     assert list(estimator.classes_) == [3, 7]
@@ -88,7 +88,7 @@ def test_classifier_noncontiguous_integer_labels(tmp_path):
 
 
 def test_classifier_rejects_single_class():
-    estimator = LinRegClassifier(numerical_method="standardization")
+    estimator = LinRegClassifier(numerical_preprocessing="standardization")
     with pytest.raises(ValueError, match="at least 2 classes"):
         estimator._build_training_plan(np.zeros(10), None)
 
@@ -96,7 +96,7 @@ def test_classifier_rejects_single_class():
 def test_lss_score_is_negative_mean_nll(tmp_path):
     X, y = _regression_data()
     estimator = LinRegLSS(
-        family="normal", numerical_method="standardization"
+        family="normal", numerical_preprocessing="standardization"
     )
     estimator.fit(
         X, y, max_epochs=3, patience=2, checkpoint_path=str(tmp_path)
@@ -109,7 +109,7 @@ def test_lss_score_is_negative_mean_nll(tmp_path):
 
 def test_cross_val_score_runs_on_neural_estimators(tmp_path):
     X, y = _regression_data(n=60)
-    reg = LinRegRegressor(numerical_method="standardization")
+    reg = LinRegRegressor(numerical_preprocessing="standardization")
     scores = cross_val_score(
         reg,
         X,
@@ -124,7 +124,7 @@ def test_cross_val_score_runs_on_neural_estimators(tmp_path):
 def test_cross_val_score_runs_on_lss_with_constructor_family(tmp_path):
     X, y = _regression_data(n=60)
     estimator = LinRegLSS(
-        family="normal", numerical_method="standardization"
+        family="normal", numerical_preprocessing="standardization"
     )
 
     scores = cross_val_score(

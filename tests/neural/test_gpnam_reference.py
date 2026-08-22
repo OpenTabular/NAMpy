@@ -30,17 +30,17 @@ def _architecture(config, n_features=2, n_outputs=1):
 def test_gpnam_estimator_owns_reference_input_defaults():
     estimator = GPNAMRegressor()
     params = estimator.get_params(deep=False)
-    assert params["numerical_method"] == "none"
-    assert params["categorical_method"] == "one-hot"
-    assert params["scaling"] is None
+    assert params["numerical_preprocessing"] == "none"
+    assert params["categorical_preprocessing"] == "one-hot"
+    assert params["scaling_strategy"] is None
 
     explicit = GPNAMRegressor(
-        numerical_method="standardization", scaling="minmax"
+        numerical_preprocessing="standardization", scaling_strategy="minmax"
     )
-    assert explicit.get_params(deep=False)["numerical_method"] == (
+    assert explicit.get_params(deep=False)["numerical_preprocessing"] == (
         "standardization"
     )
-    assert explicit.get_params(deep=False)["scaling"] == "minmax"
+    assert explicit.get_params(deep=False)["scaling_strategy"] == "minmax"
 
 
 def test_quasi_random_rff_uses_inverse_normal_and_per_feature_phase_grids():

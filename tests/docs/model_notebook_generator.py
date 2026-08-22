@@ -126,8 +126,8 @@ Every $w_j^\top x_j$ is returned as an additive contribution.
         "constructor": r"""
 model = LinRegRegressor(
     intercept=True,
-    numerical_method="standardization",
-    categorical_method="one-hot",
+    numerical_preprocessing="standardization",
+    categorical_preprocessing="one-hot",
 )
 model.get_params(deep=False)
 """,
@@ -729,7 +729,7 @@ def neural_notebook(spec: dict) -> dict:
 All neural estimators use `fit`, `predict`, `score`, `evaluate`, and
 `predict_components`. The component result reconstructs predictions on the link
 scale and supports shared term-importance and plotting utilities. Constructor
-options such as `numerical_method` and `categorical_method` are forwarded to
+options such as `numerical_preprocessing` and `categorical_preprocessing` are forwarded to
 PreTab and are fitted on training rows only.
 """,
             f"{slug}-api",

@@ -9,7 +9,6 @@ from itertools import combinations
 from pathlib import Path
 from types import ModuleType
 
-import numpy as np
 import pytest
 import torch
 
@@ -132,7 +131,7 @@ def _nbm_spam_fixture(operation: str, payload: dict, producer):
     return fixture
 
 
-def test_nbm_defaults_use_pristine_pretab_block_contract():
+def test_nbm_defaults_use_published_pretab_block_contract():
     config = DefaultNBMConfig()
     assert config.layer_sizes == [256, 128, 128]
     assert config.dropout == 0.0
@@ -145,13 +144,12 @@ def test_nbm_defaults_use_pristine_pretab_block_contract():
 
     estimator = NBMRegressor()
     params = estimator.get_params(deep=False)
-    assert params["numerical_method"] == "none"
-    assert params["categorical_method"] == "one-hot"
-    assert params["scaling"] == "minmax"
-    assert params["dtype"] is np.float32
+    assert params["numerical_preprocessing"] == "none"
+    assert params["categorical_preprocessing"] == "one-hot"
+    assert params["scaling_strategy"] == "minmax"
 
 
-def test_nbm_flattens_pristine_pretab_grouped_blocks_to_atomic_concepts():
+def test_nbm_flattens_published_pretab_grouped_blocks_to_atomic_concepts():
     model = NBM(
         cat_feature_info={
             "group": {"dimension": 2},

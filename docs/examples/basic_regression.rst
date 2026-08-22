@@ -22,7 +22,7 @@ target produces one prediction column per output.
        X, y, test_size=0.2, random_state=7
    )
 
-   model = NAMRegressor(numerical_method="standardization")
+   model = NAMRegressor(numerical_preprocessing="standardization")
    model.fit(X_train, y_train, max_epochs=20, batch_size=64)
    predictions = model.predict(X_test)
 

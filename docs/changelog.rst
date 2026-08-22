@@ -4,7 +4,7 @@ Changelog
 All notable changes to NAMpy are documented here.
 
 For the complete changelog, see
-`CHANGELOG.md <https://github.com/OpenTabular/NAMpy/blob/main/CHANGELOG.md>`_
+`CHANGELOG.md <https://github.com/Ananyapam7/NAMpy/blob/main/CHANGELOG.md>`_
 on GitHub.
 
 Latest Release
@@ -24,7 +24,7 @@ Version 0.2.0 (2026-08-22)
 **Changed:**
 
 * Neural architectures now live under ``nampy.neural.architectures``
-* Neural preprocessing targets pristine PreTab's public block contract
+* Neural preprocessing targets published PreTab 0.0.3's public block contract
 * LSS family configuration is constructor-owned and sklearn-cloneable
 * Public imports are lazy and backend dependencies are split into extras
 
@@ -59,5 +59,5 @@ Version History
 For More Details
 ----------------
 
-See the `full changelog <https://github.com/OpenTabular/NAMpy/blob/main/CHANGELOG.md>`_
+See the `full changelog <https://github.com/Ananyapam7/NAMpy/blob/main/CHANGELOG.md>`_
 on GitHub for complete version history and migration guides.

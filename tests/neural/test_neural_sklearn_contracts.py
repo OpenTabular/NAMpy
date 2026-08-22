@@ -129,19 +129,19 @@ def test_all_neural_estimators_satisfy_constructor_clone_contract(estimator_clas
 def test_neural_estimators_clone_config_and_preprocessor_parameters(estimator_class):
     estimator = estimator_class(
         dropout=0.23,
-        output_dim=17,
-        numerical_method="standardization",
+        n_bins=17,
+        numerical_preprocessing="standardization",
     )
 
     params = estimator.get_params(deep=False)
     cloned = clone(estimator)
 
     assert params["dropout"] == pytest.approx(0.23)
-    assert params["output_dim"] == 17
-    assert params["numerical_method"] == "standardization"
+    assert params["n_bins"] == 17
+    assert params["numerical_preprocessing"] == "standardization"
     assert cloned.get_params(deep=False)["dropout"] == pytest.approx(0.23)
-    assert cloned.get_params(deep=False)["output_dim"] == 17
-    assert cloned.preprocessor.numerical_method == "standardization"
+    assert cloned.get_params(deep=False)["n_bins"] == 17
+    assert cloned.preprocessor.numerical_preprocessing == "standardization"
 
 
 @pytest.mark.parametrize("estimator_class", [NAMRegressor, NAMClassifier, NAMLSS])
@@ -150,29 +150,41 @@ def test_neural_estimators_set_default_config_and_preprocessor_parameters(
 ):
     estimator = estimator_class()
 
-    returned = estimator.set_params(dropout=0.31, output_dim=19)
+    returned = estimator.set_params(dropout=0.31, n_bins=19)
 
     assert returned is estimator
     assert estimator.config.dropout == pytest.approx(0.31)
-    assert estimator.preprocessor.output_dim == 19
+    assert estimator.preprocessor.n_bins == 19
     assert estimator.get_params(deep=False)["dropout"] == pytest.approx(0.31)
-    assert estimator.get_params(deep=False)["output_dim"] == 19
+    assert estimator.get_params(deep=False)["n_bins"] == 19
 
 
 def test_spline_nam_clone_separates_architecture_and_preprocessor_widths():
-    estimator = SplineNAMRegressor(n_knots=7, preprocessor__output_dim=13)
+    estimator = SplineNAMRegressor(n_knots=7, preprocessor__n_bins=13)
 
     cloned = clone(estimator)
 
     assert cloned.config.n_knots == 7
-    assert cloned.preprocessor.output_dim == 13
+    assert cloned.preprocessor.n_bins == 13
+
+
+def test_published_pretab_aliases_are_normalized_before_construction():
+    estimator = NAMRegressor(
+        numerical_preprocessing="normalization",
+        categorical_preprocessing="one_hot",
+    )
+
+    assert estimator.preprocessor.numerical_preprocessing == "minmax"
+    assert estimator.preprocessor.categorical_preprocessing == "one-hot"
+    assert estimator.get_params(deep=False)["numerical_preprocessing"] == "minmax"
+    assert estimator.get_params(deep=False)["categorical_preprocessing"] == "one-hot"
 
 
 def test_lss_family_configuration_is_cloneable():
     estimator = NAMLSS(
         family="poisson",
         distributional_kwargs={"eps": 1e-5},
-        numerical_method="standardization",
+        numerical_preprocessing="standardization",
     )
 
     cloned = clone(estimator)
@@ -209,7 +221,7 @@ def test_classifier_evaluate_accepts_positional_array_after_dataframe_fit(tmp_pa
     x = np.linspace(-1.0, 1.0, 36)
     data = pd.DataFrame({"first": x, "second": np.cos(2.0 * x)})
     labels = (x > 0.0).astype(int)
-    estimator = LinRegClassifier(numerical_method="standardization")
+    estimator = LinRegClassifier(numerical_preprocessing="standardization")
     estimator.fit(
         data,
         labels,
@@ -233,7 +245,7 @@ def test_fitted_neural_estimator_persistence_round_trip(tmp_path):
     x = np.linspace(-1.0, 1.0, 24)
     data = pd.DataFrame({"first": x, "second": np.cos(2.0 * x)})
     labels = (x > 0.0).astype(int)
-    estimator = LinRegClassifier(numerical_method="standardization")
+    estimator = LinRegClassifier(numerical_preprocessing="standardization")
     estimator.fit(
         data,
         labels,

@@ -52,7 +52,7 @@ Basic Example
    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
    # Train model
-   model = NAMRegressor(numerical_method="standardization")
+   model = NAMRegressor(numerical_preprocessing="standardization")
    model.fit(X_train, y_train, max_epochs=100, lr=1e-3)
 
    # Evaluate
