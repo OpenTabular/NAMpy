@@ -1,26 +1,10 @@
-from ..basemodels.treenam import TreeNAM
-from ..configs.treenam_config import DefaultTreeNAMConfig
-from .sklearn_classifier import SklearnBaseClassifier
-from .sklearn_lss import SklearnBaseLSS
-from .sklearn_regressor import SklearnBaseRegressor
+"""Public estimator family generated from the TreeNAM declaration."""
 
+from ._registered import estimator_family
 
-class TreeNAMRegressor(SklearnBaseRegressor):
-    """TreeNAM regressor."""
+_family = estimator_family("treenam", module_name=__name__)
+TreeNAMRegressor = _family.regressor
+TreeNAMClassifier = _family.classifier
+TreeNAMLSS = _family.lss
 
-    def __init__(self, **kwargs):
-        super().__init__(model=TreeNAM, config=DefaultTreeNAMConfig, **kwargs)
-
-
-class TreeNAMClassifier(SklearnBaseClassifier):
-    """TreeNAM classifier."""
-
-    def __init__(self, **kwargs):
-        super().__init__(model=TreeNAM, config=DefaultTreeNAMConfig, **kwargs)
-
-
-class TreeNAMLSS(SklearnBaseLSS):
-    """TreeNAM for distributional regression."""
-
-    def __init__(self, **kwargs):
-        super().__init__(model=TreeNAM, config=DefaultTreeNAMConfig, **kwargs)
+__all__ = ["TreeNAMRegressor", "TreeNAMClassifier", "TreeNAMLSS"]

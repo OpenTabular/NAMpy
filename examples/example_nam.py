@@ -48,9 +48,9 @@ def main():
     model = NAMRegressor(
         layer_sizes=(64, 32),
         dropout=0.05,
-        numerical_preprocessing="ple",
-        n_bins=50,
-        categorical_preprocessing="one_hot",
+        numerical_method="ple",
+        output_dim=50,
+        categorical_method="one_hot",
         cat_cutoff=0.05,
     )
 
@@ -78,7 +78,11 @@ def main():
     print(f"Validation — MAE: {scores['MAE']:.4f}, R2: {scores['R2']:.4f}")
 
     # Feature contributions (sample)
-    feat_vals = model.predict_feature_vals(X_val)
+    components = model.predict_components(X_val)
+    feat_vals = dict(components.terms)
+    feat_vals["output"] = components.link
+    feat_vals["response"] = components.response
+    feat_vals["intercept"] = components.intercept
     print(f"Feature / interaction keys: {list(feat_vals.keys())}")
 
     # --- Verify model learned the true effects (we know the DGP) ---

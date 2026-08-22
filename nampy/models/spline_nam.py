@@ -1,26 +1,8 @@
-from ..basemodels.spline_nam import SplineNAM
-from ..configs.spline_nam_config import DefaultSplineNAMConfig
-from .sklearn_classifier import SklearnBaseClassifier
-from .sklearn_lss import SklearnBaseLSS
-from .sklearn_regressor import SklearnBaseRegressor
+"""Public estimator family generated from the SplineNAM declaration."""
 
+from ._registered import estimator_family
 
-class SplineNAMRegressor(SklearnBaseRegressor):
-    def __init__(self, **kwargs):
-        if "n_knots" in kwargs and "spline_n_knots" not in kwargs:
-            kwargs["spline_n_knots"] = kwargs["n_knots"]
-        super().__init__(model=SplineNAM, config=DefaultSplineNAMConfig, **kwargs)
+_family = estimator_family("spline_nam", module_name=__name__)
+SplineNAMRegressor = _family.regressor
 
-
-class SplineNAMClassifier(SklearnBaseClassifier):
-    def __init__(self, **kwargs):
-        if "n_knots" in kwargs and "spline_n_knots" not in kwargs:
-            kwargs["spline_n_knots"] = kwargs["n_knots"]
-        super().__init__(model=SplineNAM, config=DefaultSplineNAMConfig, **kwargs)
-
-
-class SplineNAMLSS(SklearnBaseLSS):
-    def __init__(self, **kwargs):
-        if "n_knots" in kwargs and "spline_n_knots" not in kwargs:
-            kwargs["spline_n_knots"] = kwargs["n_knots"]
-        super().__init__(model=SplineNAM, config=DefaultSplineNAMConfig, **kwargs)
+__all__ = ["SplineNAMRegressor"]

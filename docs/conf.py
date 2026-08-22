@@ -7,7 +7,7 @@ import os
 import sys
 from datetime import datetime
 
-# Keep Matplotlib cache writes out of user home directories during local and CI docs builds.
+# Keep Matplotlib cache writes out of user home directories in local and CI builds.
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/nampy-matplotlib")
 
 # Add the project root to the path
@@ -36,7 +36,6 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
-    "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
     "sphinx.ext.githubpages",
     "sphinx_rtd_theme",
@@ -46,7 +45,7 @@ extensions = [
 
 # nbsphinx settings
 nbsphinx_execute = "never"  # Don't execute notebooks during build
-nbsphinx_allow_errors = True  # Continue build even if notebooks have errors
+nbsphinx_allow_errors = False
 nbsphinx_kernel_name = "python3"
 highlight_language = "python3"  # Use python3 for syntax highlighting
 
@@ -74,7 +73,6 @@ autosummary_imported_members = False
 autodoc_default_options = {
     "members": True,
     "member-order": "bysource",
-    "special-members": "__init__",
     "undoc-members": True,
     # Exclude sklearn internal methods that cause duplicate target errors
     "exclude-members": "__weakref__,__init_subclass__,set_fit_request,set_predict_request,set_score_request,set_transform_request,get_metadata_routing",
@@ -84,17 +82,11 @@ autodoc_typehints = "description"
 autodoc_typehints_description_target = "documented"
 autodoc_inherit_docstrings = False  # Don't inherit sklearn docstrings
 
-# Intersphinx mapping
-intersphinx_mapping = {
-    "python": ("https://docs.python.org/3", None),
-    "numpy": ("https://numpy.org/doc/stable/", None),
-    "pandas": ("https://pandas.pydata.org/docs/", None),
-    "sklearn": ("https://scikit-learn.org/stable/", None),
-    "torch": ("https://pytorch.org/docs/stable/", None),
-}
-
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = ["_build", "README.md", "Thumbs.db", ".DS_Store"]
+if os.environ.get("NAMPY_DOCS_SKIP_NOTEBOOKS") == "1":
+    exclude_patterns.append("notebooks/*")
+    suppress_warnings = ["toc.excluded"]
 
 # Source file suffixes
 source_suffix = {
@@ -104,16 +96,6 @@ source_suffix = {
 
 # The master toctree document
 master_doc = "index"
-
-# Suppress specific warnings
-suppress_warnings = [
-    "autosummary",  # Suppress autosummary warnings
-    "ref.python",  # Suppress Python reference warnings
-    "autodoc",  # Suppress autodoc warnings
-    "autodoc.import_object",  # Suppress import warnings
-    "autodoc.duplicate_object",  # Suppress duplicate object warnings (from autosummary + manual docs)
-    "toc.not_included",  # Suppress toctree warnings for standalone docs
-]
 
 # Ignore certain docstring issues from sklearn
 nitpicky = False
@@ -148,7 +130,7 @@ html_css_files = ["custom.css"]
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-# html_logo = "_static/logo.png"
+html_logo = "_static/logo.png"
 
 # The name of an image file (within the static path) to use as favicon
 # html_favicon = "_static/favicon.ico"

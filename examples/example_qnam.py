@@ -23,7 +23,7 @@ import pandas as pd
 import torch
 from sklearn.model_selection import train_test_split
 
-from nampy.models import QNAM
+from nampy.models import QNAMLSS
 
 
 def main():
@@ -115,12 +115,12 @@ def main():
     # ------------------------------------------------------------------
     # Fit QNAM
     # ------------------------------------------------------------------
-    model = QNAM(
+    model = QNAMLSS(
         layer_sizes=(128, 64),
         dropout=0.05,
         feature_dropout=0.0,
-        numerical_preprocessing="standardization",
-        categorical_preprocessing="one_hot",
+        numerical_method="standardization",
+        categorical_method="one_hot",
         cat_cutoff=0.0,
         monotone_transform="softplus",
         min_increment=0.0,
@@ -205,7 +205,11 @@ def main():
     # ------------------------------------------------------------------
     # Feature contributions
     # ------------------------------------------------------------------
-    feat_vals = model.predict_feature_vals(X_val)
+    components = model.predict_components(X_val)
+    feat_vals = dict(components.terms)
+    feat_vals["output"] = components.link
+    feat_vals["response"] = components.response
+    feat_vals["intercept"] = components.intercept
     print("\nReturned contribution keys:")
     print(list(feat_vals.keys()))
 

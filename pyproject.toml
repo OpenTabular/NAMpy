@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nampy"
-version = "0.1.0"
-description = "Interpretable (Additive) Tabular Deep Learning with Neural Additive Models"
+dynamic = ["version"]
+description = "Interpretable additive modeling with mgcv-aligned GAMs and neural models"
 readme = "README.md"
 license = "MIT"
 authors = [
@@ -24,6 +24,10 @@ keywords = [
     "interpretability",
     "neural additive models",
     "NAM",
+    "generalized additive models",
+    "GAM",
+    "mgcv",
+    "statistical smoothing",
     "explainable AI",
 ]
 classifiers = [
@@ -31,29 +35,47 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Operating System :: OS Independent",
 ]
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.11,<3.13"
 dependencies = [
     "numpy<=1.26.4",
     "pandas",
-    "lightning",
     "scikit-learn",
-    "scipy",
-    "torch",
-    "torchmetrics",
-    "setuptools",
-    "properscoring",
-    "matplotlib",
-    "pretab",
+    "joblib",
 ]
 
 [project.optional-dependencies]
+gam = [
+    "scipy>=1.16",
+    "matplotlib",
+]
+neural = [
+    "scipy>=1.16",
+    "matplotlib",
+    "lightning",
+    "torch",
+    "torchmetrics",
+    "properscoring",
+    "pretab>=1.0.0rc2",
+]
+igann-sparse = [
+    "abess>=0.4.5",
+]
+all = [
+    "scipy>=1.16",
+    "matplotlib",
+    "lightning",
+    "torch",
+    "torchmetrics",
+    "properscoring",
+    "pretab>=1.0.0rc2",
+    "abess>=0.4.5",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
@@ -61,6 +83,7 @@ dev = [
     "ruff>=0.1.0",
     "mypy>=1.0",
     "isort>=5.0",
+    "pre-commit>=3.0",
 ]
 docs = [
     "sphinx>=5.0",
@@ -72,25 +95,25 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Ananyapam7/NAMpy"
-Documentation = "https://github.com/Ananyapam7/NAMpy"
-Repository = "https://github.com/Ananyapam7/NAMpy"
-"Bug Tracker" = "https://github.com/Ananyapam7/NAMpy/issues"
+Homepage = "https://github.com/OpenTabular/NAMpy"
+Documentation = "https://github.com/OpenTabular/NAMpy"
+Repository = "https://github.com/OpenTabular/NAMpy"
+"Bug Tracker" = "https://github.com/OpenTabular/NAMpy/issues"
 
 [tool.setuptools]
 include-package-data = true
 
+[tool.setuptools.dynamic]
+version = {attr = "nampy.__version__.__version__"}
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["nampy*"]
-exclude = ["tests*", "debug*", "docs*", "mgcv*"]
-
-[tool.setuptools.package-data]
-nampy = ["py.typed"]
+exclude = ["tests*", "debug*", "docs*", "mgcv*", "upstreams*"]
 
 [tool.black]
 line-length = 88
-target-version = ['py310', 'py311', 'py312']
+target-version = ['py311', 'py312']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -117,7 +140,7 @@ ensure_newline_before_comments = true
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = [
@@ -136,14 +159,18 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "F403", "F405"]
+# Debug probes and examples are standalone scripts: sys.path setup precedes
+# imports (E402), and probe-local zip/closure looseness is acceptable there.
+"debug/*" = ["E402", "B905", "B023", "F841"]
+"examples/*" = ["E402", "B905"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
-check_untyped_defs = false
+check_untyped_defs = true
 no_implicit_optional = false
 warn_redundant_casts = true
 warn_unused_ignores = false
@@ -160,10 +187,76 @@ module = [
     "matplotlib.*",
     "properscoring.*",
     "scipy.*",
-    "pretab.*",
     "tqdm.*",
+    "pretab.*",
 ]
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Collect every test module. Do not narrow this to name-prefix allowlists:
+# a file that stops matching is skipped silently, and the suite-contract
+# test's explicit-path collection would still certify it (see
+# tests/regressions/test_gam_test_suite_contracts.py).
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--verbose",
+]
+markers = [
+    "smooth_cr: tests covering cubic regression smooths",
+    "smooth_cs: tests covering shrinkage cubic regression smooths",
+    "smooth_cc: tests covering cyclic cubic smooths",
+    "smooth_ps: tests covering P-spline smooths",
+    "smooth_tp: tests covering thin plate smooths",
+    "smooth_ts: tests covering shrinkage thin plate smooths",
+    "smooth_te: tests covering tensor-product smooths via te()",
+    "smooth_ti: tests covering tensor interaction smooths via ti()",
+    "smooth_fs: tests covering factor-smooth interaction smooths",
+    "smooth_sz: tests covering sz factor smooths",
+    "smooth_re: tests covering random-effect smooths",
+    "family_gaussian: tests for Gaussian family behavior",
+    "family_binomial: tests for binomial family behavior",
+    "family_poisson: tests for Poisson family behavior",
+    "family_gamma: tests for gamma family behavior",
+    "family_negbin: tests for negative-binomial family behavior",
+    "family_gaulss: tests for gaulss general family behavior",
+    "family_gammals: tests for gammals general family behavior",
+    "family_general: tests spanning multiple general/distributional families",
+    "method_fixed: tests using fixed smoothing parameters",
+    "method_reml: tests using REML smoothing selection",
+    "method_ml: tests using ML smoothing selection",
+    "method_laml: tests using LAML smoothing selection",
+    "method_gcv: tests using GCV smoothing selection",
+    "method_ubre: tests using UBRE smoothing selection",
+    "link_identity: tests using an identity family link",
+    "link_log: tests using a log family link",
+    "link_inverse: tests using an inverse family link",
+    "link_logit: tests using a logit family link",
+    "link_probit: tests using a probit family link",
+    "link_cloglog: tests using a complementary log-log family link",
+    "link_cauchit: tests using a cauchit family link",
+    "link_sqrt: tests using a square-root family link",
+    "optimizer_newton: tests using outer Newton smoothing optimization",
+    "optimizer_bfgs: tests using BFGS smoothing optimization",
+    "optimizer_efs: tests using extended Fellner-Schall optimization",
+    "optimizer_optim: tests using the optim-compatible route",
+    "select_true: tests exercising select=True behavior",
+    "select_false: tests exercising default/non-select behavior",
+    "surface_snapshot: tests focused on snapshot/end-to-end parity surfaces",
+    "surface_output: tests focused on prediction/anova/vcov/output surfaces",
+    "surface_smoothcon: tests focused on smoothCon/basis/penalty surfaces",
+    "surface_trace: tests focused on optimizer trace surfaces",
+    "surface_kcheck: tests focused on k_check diagnostics",
+    "surface_derivatives: tests focused on gradients/Hessians/criterion derivatives",
+    "surface_regression: tests focused on explicit bug-regression coverage",
+    "surface_backend: tests focused on backend-selection behavior",
+    "status_stable: stable parity/regression coverage",
+    "status_known_gap: tracked known-gap coverage",
+    "status_failing_or_warning: tests currently isolated due to failures or warnings",
+    "status_regression: bug-regression tests that guard past failures",
+]
 
 [tool.coverage.run]
 source = ["nampy"]

@@ -1,75 +1,134 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+All notable changes are recorded here following
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses
+[Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Changed
-- Breaking: base model `forward()`, estimator `_predict()`, and
-  `predict_feature_vals()` now return a nested output dictionary with
-  `prediction`, `terms`, `intercept`, `regularization`, and `extras` keys.
-- Per-feature contributions moved from top-level result keys into `terms`.
-- Training regularizers moved from `*_penalty` top-level keys into
-  `regularization`.
-
 ### Added
-- Comprehensive documentation improvements
-- Modern packaging with pyproject.toml
-- Development tools configuration (black, ruff, mypy)
-- Contributing guidelines
-- MIT License
+
+- `nampy.api`: backend-neutral contracts shared by all backends —
+  `FeatureSchema`, `AdditivePrediction`, `Capabilities`, `PersistableModel`.
+- `GAMRegressor` / `GAMClassifier`: scikit-learn-style adapters around the
+  mgcv-parity `GAM` (zero added numerics; automatic REML by default;
+  label-encoded binary classification; `predict_components`,
+  `standard_errors`, `lpmatrix`, `capabilities`, pickle persistence).
+- `score()` and `__sklearn_tags__` on all estimators without sklearn mixin
+  classes: R² for regressors, accuracy for classifiers, negative mean NLL
+  for LSS; `is_classifier`/`is_regressor` and `cross_val_score` now work.
+- `predict_components()` and `capabilities()` on the neural estimators;
+  fitted feature schemas recorded as `schema_`.
+- `nampy.plotting`: backend-neutral term-plot renderer extracted from the
+  `plot.gam` port; neural estimators gain `plot_terms()`.
+- Per-sample link-scale offsets through the neural training stack
+  (`fit(..., offset=)`), plus stratified automatic classification splits.
+- Public classifier, regressor, and distributional-regression exports for the
+  supported neural architectures, with matching base-model and config exports.
+- Multi-output fitting coverage for every public neural regressor.
+- `save_model()` and `load_model()` persistence for neural estimators, including
+  fitted preprocessing and model state.
+- PEP 561 `py.typed` marker and installed-wheel API smoke coverage.
+- Paper-aligned GPNAM random Fourier features, automatic per-feature
+  bandwidths, conjugate-gradient ridge fitting, and selected or all-pairs
+  GP-NA2M interactions. Fixed-basis diagnostics, reproducible initialization,
+  explicit interactions, and batched inference are shared neural contracts.
+- IGANN regression and binary classification with the released linear
+  initialization, feature-wise ELM boosting, validation truncation, optional
+  ABESS-backed IGANN-Sparse selection, additive components, basis metadata,
+  and native training history. Multiclass and IGANNLSS reuse the fixed ELM
+  architecture through the generic objective engine. ``NeuralEnsemble`` now
+  supports aligned bootstrap resampling for generic bagged additive estimators.
+- SIAN regression, classification, and distributional regression with
+  Archipelago interaction discovery over logical source-feature groups,
+  arbitrary-order heredity search, explicit-interaction bypass, the released
+  block-masked architecture and optional maximal-update residual network.
+  Generic interaction-selection contracts, active-parameter diagnostics,
+  lossless block/independent term conversion, and higher-order interaction
+  plots are shared across neural architectures.
+- SCAM-compatible shape-constrained GAMs: all 24 univariate and 17 bivariate
+  SCOP-spline classes, numeric-by and matrix-valued linear-functional terms,
+  local/positive/endpoint constraints, dual optimization and prediction
+  coefficient spaces, constrained Newton fitting, exact GCV/UBRE gradients
+  and BFGS smoothing selection, transformed covariance and inference,
+  derivatives, quantile residuals, and Gaussian-identity AR(1) sections with
+  standardized residuals.
+
+### Changed
+
+- **Breaking:** LSS response families and distribution-specific keyword
+  arguments are estimator constructor parameters (`family` and
+  `distributional_kwargs`). LSS estimators now expose the conventional
+  `fit(X, y)` contract required by sklearn model selection.
+- Public package and estimator exports are resolved lazily. Backend dependency
+  profiles are available as `nampy[gam]`, `nampy[neural]`, and `nampy[all]`;
+  importing the GAM backend no longer initializes Torch or Lightning.
+- **Breaking (naming sweep, no aliases):**
+  `SklearnBaseRegressor`/`SklearnBaseClassifier`/`SklearnBaseLSS` →
+  `NeuralRegressor`/`NeuralClassifier`/`NeuralLSS`
+  (`nampy/models/{regressor,classifier,lss}.py`); `TaskModel` →
+  `TaskModule` (`nampy/neural/training/task_module.py`); estimator
+  `QNAM` → `QNAMLSS` and torch module `QNAMBase` → `QNAM`;
+  `GAM.predict_feature_vals` → `GAM.predict_terms`; the raw-dict
+  `predict_feature_vals` is removed from all estimators —
+  `predict_components` (typed `AdditivePrediction`) is the one public
+  term-contribution surface, now also implemented for LSS
+  (multi-column, additive on the raw parameter scale).
+- **Breaking:** the torch backend moved under `nampy/neural/` —
+  `nampy.basemodels` → `nampy.neural.architectures` (TaskModel:
+  `nampy.neural.training`), `nampy.data_utils` → `nampy.neural.data`,
+  `nampy.arch_utils` → `nampy.neural.layers` (shared) / `nampy.neural.architectures`
+  (single-architecture), `nampy.configs` → `nampy.neural.configs`,
+  `nampy.utils.distributions`/`distributional_metrics` →
+  `nampy.neural.distributions`. No compatibility shims; public estimator
+  class names are unchanged.
+- **Breaking (correctness):** the PreTab preprocessor is now fit on training
+  rows only — validation data no longer leaks into fitted statistics, so
+  fitted neural models change numerically.
+- **Breaking:** classifiers label-encode targets: `classes_` is populated and
+  `predict` returns original labels instead of raw class indices.
+- `ModelCheckpoint` now honours the user's `monitor`/`mode`, and each fit
+  writes checkpoints into its own `checkpoint_path/<Class>-<id>/` directory
+  instead of overwriting `best_model.ckpt`.
+- Unfitted `predict` raises `sklearn.exceptions.NotFittedError` (a
+  `ValueError` subclass); inference restores the module's training flag.
+- The triplicated wrapper fit/predict/plot pipelines are consolidated into
+  `nampy.neural.training.engine` and `nampy.models._plotting`; the
+  forward-output penalty grammar has a single owner
+  (`nampy.neural.training.output_contract`).
+- Supported Python versions are now explicitly Python 3.11 and 3.12.
+- Package version metadata has one owner: `nampy.__version__` via
+  `pyproject.toml` dynamic metadata.
+- CI performs live comparisons against the vendored `mgcv`, enforces Ruff and
+  mypy, validates wheels, and tests supported Python and operating-system
+  matrices.
+- Releases use validated artifacts and PyPI trusted publishing.
+- API documentation is generated from live exports and built with warnings as
+  errors; generated stubs are no longer committed.
+- Contributor and release commands follow the repository's targeted-test policy.
+
+### Fixed
+
+- Neural optimizer settings from estimator constructors and `set_params()` now
+  control training. Optional fit-time overrides use the same `lr`,
+  `lr_patience`, `lr_factor`, and `weight_decay` names.
+- `QNAMBase` now owns `DefaultQNAMConfig` rather than the unrelated NAM config.
+- Public API documentation and examples now match the implemented model/task
+  surface.
+- Ruff violations and the existing `nampy` mypy error set were resolved.
+
+### Removed
+
+- Legacy `setup.py` metadata and committed autosummary output.
+- Cache-only parity behavior from the hosted test matrix.
 
 ## [0.1.0] - 2024-01-07
 
 ### Added
-- Initial public release
-- NAM (Neural Additive Model) implementation
-- GPNAM (Gaussian Process NAM) implementation
-- NBM (Neural Basis Model) implementation
-- NATT (Neural Attentive Tabular Transformer) implementation
-- NAMformer (Transformer-based NAM) implementation
-- QNAM (Quantile NAM) implementation
-- TreeNAM (Tree-based NAM) implementation
-- SparseNAM implementation
-- NodeGAM (Node-based GAM) implementation
-- Linear Regression (Neural) implementation
-- Support for regression, classification, and distributional regression (LSS)
-- Scikit-learn compatible API
-- Flexible preprocessing options (binning, standardization, normalization, PLE)
-- Multiple distribution families for LSS models
-- Comprehensive test suite
 
-### Features
-- 10+ interpretable model architectures
-- Three task types: regression, classification, distributional regression
-- Scikit-learn BaseEstimator interface
-- PyTorch Lightning backend
-- Custom model implementation support
-- Feature-level interpretability for additive models
+- Initial public neural additive-model release with regression,
+  classification, distributional regression, preprocessing, and interpretable
+  feature contributions.
 
-## [0.0.1] - 2024-XX-XX
-
-### Added
-- Initial development version
-- Core architecture and base models
-- Basic functionality for NAM models
-
----
-
-## Version History
-
-- **0.1.0**: First stable public release with comprehensive model suite
-- **0.0.1**: Initial development version
-
-## Migration Guide
-
-### From 0.0.1 to 0.1.0
-
-No breaking changes. This release adds features and improves documentation.
-
----
-
-For more details, see the [GitHub releases page](https://github.com/Ananyapam7/NAMpy/releases).
+[Unreleased]: https://github.com/OpenTabular/NAMpy/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/OpenTabular/NAMpy/releases/tag/v0.1.0

@@ -1,80 +1,43 @@
-"""NAMpy: Interpretable (Additive) Tabular Deep Learning.
+"""NAMpy: interpretable additive GAM and neural models.
 
-NAMpy is a Python package for neural additive models and related architectures,
-offering regression, classification, and distributional regression capabilities
-with a scikit-learn compatible interface.
+Public estimators are resolved lazily so importing the dependency-light GAM
+backend does not initialize PyTorch or Lightning.
 """
 
-from . import basemodels, configs, data_utils, models, preprocessing, utils
-from .__version__ import __version__
+from __future__ import annotations
 
-# Import key classes for convenience
-from .models import (
-    GPNAMLSS,
-    NAMLSS,
-    NATTLSS,
-    NBMLSS,
-    QNAM,
-    GPNAMClassifier,
-    GPNAMRegressor,
-    LinRegClassifier,
-    LinRegLSS,
-    LinRegRegressor,
-    NAMClassifier,
-    NAMformerClassifier,
-    NAMformerLSS,
-    NAMformerRegressor,
-    NAMRegressor,
-    NATTClassifier,
-    NATTRegressor,
-    NBMClassifier,
-    NBMRegressor,
-    NodeGAMClassifier,
-    NodeGAMLSS,
-    NodeGAMRegressor,
-    SparseNAMRegressor,
-    SplineNAMClassifier,
-    SplineNAMLSS,
-    SplineNAMRegressor,
-    TreeNAMRegressor,
-)
+from importlib import import_module
+from typing import TYPE_CHECKING, Any
+
+from .__version__ import __version__
+from .models import __all__ as _MODEL_EXPORTS
+
+_SUBMODULE_EXPORTS = frozenset({"gam", "models", "neural"})
+
+if TYPE_CHECKING:
+    from . import gam, models, neural  # noqa: F401
+    from .models import *  # noqa: F401,F403
+
+
+def __getattr__(name: str) -> Any:
+    if name in _SUBMODULE_EXPORTS:
+        value = import_module(f".{name}", __name__)
+    elif name in _MODEL_EXPORTS:
+        value = getattr(import_module(".models", __name__), name)
+    else:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__))
+
 
 __all__ = [
-    # Submodules
-    "basemodels",
+    "gam",
     "models",
-    "data_utils",
-    "preprocessing",
-    "utils",
-    "configs",
-    # Main model classes
-    "NAMRegressor",
-    "NAMClassifier",
-    "NAMLSS",
-    "GPNAMRegressor",
-    "GPNAMClassifier",
-    "GPNAMLSS",
-    "NBMRegressor",
-    "NBMClassifier",
-    "NBMLSS",
-    "NATTRegressor",
-    "NATTClassifier",
-    "NATTLSS",
-    "NAMformerRegressor",
-    "NAMformerClassifier",
-    "NAMformerLSS",
-    "LinRegRegressor",
-    "LinRegClassifier",
-    "LinRegLSS",
-    "TreeNAMRegressor",
-    "SplineNAMRegressor",
-    "SplineNAMClassifier",
-    "SplineNAMLSS",
-    "SparseNAMRegressor",
-    "NodeGAMRegressor",
-    "NodeGAMClassifier",
-    "NodeGAMLSS",
-    "QNAM",
-    # Version
+    "neural",
+    *_MODEL_EXPORTS,
     "__version__",
 ]

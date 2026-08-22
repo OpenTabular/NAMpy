@@ -11,7 +11,7 @@ To create a custom model, you need to:
 
 1. Define a configuration class
 2. Implement the model architecture
-3. Create wrapper classes for regression/classification/LSS
+3. Register the architecture and generate its estimator family
 4. Use your custom model
 
 Step-by-Step Guide
@@ -43,7 +43,7 @@ Create your model by inheriting from `BaseModel`:
 
 .. code-block:: python
 
-   from nampy.basemodels import BaseModel
+   from nampy.neural.architectures import BaseModel
    import torch
    import torch.nn as nn
    
@@ -61,8 +61,8 @@ Create your model by inheriting from `BaseModel`:
            
            # Calculate input size
            total_input_size = (
-               sum([input_shape for input_shape in num_feature_info.values()]) 
-               + len(cat_feature_info)
+               sum(int(info.get("dimension", 1)) for info in num_feature_info.values())
+               + sum(int(info.get("dimension", 1)) for info in cat_feature_info.values())
            )
            
            # Define your architecture
@@ -93,7 +93,7 @@ Create your model by inheriting from `BaseModel`:
            Returns
            -------
            dict
-               Dictionary containing the prediction tensor.
+               Dictionary containing the output tensor.
            """
            # Concatenate all numerical features
            num_features_tensor = torch.cat(
@@ -113,33 +113,34 @@ Create your model by inheriting from `BaseModel`:
            # Forward pass
            output = self.mlp(input_tensor)
            
-           # MUST return a dictionary with "prediction" key
-           return {"prediction": output}
+           # MUST return a dictionary with "output" key
+           return {"output": output}
 
-3. Create Wrapper Classes
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+3. Register the Architecture
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Create sklearn-compatible wrappers:
+Declare supported capabilities once and generate every sklearn estimator:
 
 .. code-block:: python
 
-   from nampy.models import (
-       SklearnBaseRegressor,
-       SklearnBaseClassifier,
-       SklearnBaseLSS
-   )
-   
-   class MyRegressor(SklearnBaseRegressor):
-       def __init__(self, **kwargs):
-           super().__init__(model=MyCustomModel, config=MyModelConfig, **kwargs)
-   
-   class MyClassifier(SklearnBaseClassifier):
-       def __init__(self, **kwargs):
-           super().__init__(model=MyCustomModel, config=MyModelConfig, **kwargs)
-   
-   class MyLSS(SklearnBaseLSS):
-       def __init__(self, **kwargs):
-           super().__init__(model=MyCustomModel, config=MyModelConfig, **kwargs)
+   from nampy.models import estimator_family
+   from nampy.neural.registry import NeuralArchitecture, register_architecture
+
+   register_architecture(NeuralArchitecture(
+       name="my_model",
+       estimator_prefix="MyModel",
+       module_path=f"{__name__}:MyCustomModel",
+       config_path=f"{__name__}:MyModelConfig",
+       capabilities=frozenset({
+           "regression",
+           "classification",
+           "distributional",
+       }),
+   ))
+   estimators = estimator_family("my_model", module_name=__name__)
+   MyRegressor = estimators.regressor
+   MyClassifier = estimators.classifier
+   MyLSS = estimators.lss
 
 4. Use Your Custom Model
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -157,7 +158,7 @@ Now use it like any other NAMpy model:
    
    # Train
    model = MyRegressor(
-       numerical_preprocessing="standardization",
+       numerical_method="standardization",
        hidden_size=256,
        num_layers=4
    )
@@ -179,8 +180,9 @@ Here's a complete working example:
 .. code-block:: python
 
    from dataclasses import dataclass
-   from nampy.basemodels import BaseModel
-   from nampy.models import SklearnBaseRegressor
+   from nampy.neural.architectures import BaseModel
+   from nampy.models import estimator_family
+   from nampy.neural.registry import NeuralArchitecture, register_architecture
    import torch
    import torch.nn as nn
    
@@ -209,7 +211,7 @@ Here's a complete working example:
            self.save_hyperparameters(ignore=["cat_feature_info", "num_feature_info"])
            
            total_input_size = (
-               sum([input_shape for input_shape in num_feature_info.values()]) 
+               sum(int(info.get("dimension", 1)) for info in num_feature_info.values())
                + len(cat_feature_info)
            )
            
@@ -258,16 +260,25 @@ Here's a complete working example:
            x = x.squeeze(1)  # Remove sequence dimension
            output = self.output_layer(x)
            
-           return {"prediction": output}
+           return {"output": output}
    
-   # 3. Wrapper Class
-   class AttentiveMLPRegressor(SklearnBaseRegressor):
-       def __init__(self, **kwargs):
-           super().__init__(model=AttentiveMLP, config=AttentiveMLPConfig, **kwargs)
+   # 3. One declaration generates every supported objective surface
+   register_architecture(NeuralArchitecture(
+       name="attentive_mlp",
+       estimator_prefix="AttentiveMLP",
+       module_path=f"{__name__}:AttentiveMLP",
+       config_path=f"{__name__}:AttentiveMLPConfig",
+       capabilities=frozenset({
+           "regression", "classification", "distributional"
+       }),
+   ))
+   AttentiveMLPRegressor = estimator_family(
+       "attentive_mlp", module_name=__name__
+   ).regressor
    
    # 4. Usage
    model = AttentiveMLPRegressor(
-       numerical_preprocessing="standardization",
+       numerical_method="standardization",
        hidden_size=256,
        num_heads=8
    )
@@ -284,7 +295,7 @@ Forward Pass Requirements
 The `forward()` method MUST:
 
 * Accept `num_features` and `cat_features` as dictionaries
-* Return a dictionary with at least a ``"prediction"`` key
+* Return a dictionary with at least an ``"output"`` key
 * The output shape should be (batch_size, num_classes)
 
 For Interpretable Models
@@ -305,8 +316,8 @@ If you want feature-level predictions (like NAM):
        output = sum(feature_outputs.values())
        
        return {
-           "prediction": output,
-           "terms": feature_outputs  # For interpretability
+           "output": output,
+           "feature_outputs": feature_outputs  # For interpretability
        }
 
 Configuration Best Practices
@@ -349,8 +360,7 @@ See :doc:`../contributing` for guidelines.
 Resources
 ---------
 
-* :class:`nampy.basemodels.BaseModel` - Base model class
-* :class:`nampy.models.SklearnBaseRegressor` - Regression wrapper
-* :class:`nampy.models.SklearnBaseClassifier` - Classification wrapper
-* :class:`nampy.models.SklearnBaseLSS` - LSS wrapper
-* Existing models in `nampy/basemodels/` for reference
+* :class:`nampy.neural.architectures.BaseModel` - Base model class
+* :class:`nampy.neural.registry.NeuralArchitecture` - architecture declaration
+* :func:`nampy.models.estimator_family` - generated estimator surfaces
+* Existing models in `nampy/neural/architectures/` for reference

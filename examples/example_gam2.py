@@ -45,7 +45,15 @@ def summarize_model(name, model, X_val, y_val, true_x1, true_x2, true_total):
         },
     )
 
-    feat_vals = model.predict_feature_vals(X_val)
+    components = model.predict_components(X_val)
+
+    feat_vals = dict(components.terms)
+
+    feat_vals["output"] = components.link
+
+    feat_vals["response"] = components.response
+
+    feat_vals["intercept"] = components.intercept
 
     def to_numpy(v):
         arr = np.asarray(v)
@@ -70,9 +78,10 @@ def summarize_model(name, model, X_val, y_val, true_x1, true_x2, true_total):
 
     print(f"\n{name}")
     print(f"  Validation — MAE: {scores['MAE']:.4f}, R2: {scores['R2']:.4f}")
-    print(f"  smoothing params: {np.round(model.model.smoothing_params, 6)}")
-    print(f"  EDF total: {model.model.edf_:.4f}")
-    print(f"  EDF by term: {np.round(model.model.edf_by_term_, 4)}")
+    fit_result = model.gam_.fit_result()
+    print(f"  smoothing params: {np.round(fit_result.smoothing_params, 6)}")
+    print(f"  EDF total: {fit_result.edf_total:.4f}")
+    print(f"  EDF by term: {np.round(fit_result.edf_by_term, 4)}")
 
     print("  Exact additive decomposition check:")
     print(f"    max |reconstructed - returned output| : {recon_err_1:.8f}")
@@ -138,8 +147,10 @@ def main():
         k=12,
         smoothing_params=[1.0, 1.0],
         fit_intercept=True,
+        optimize_smoothing=False,
+        smoothing_method="fixed",
     )
-    model_fixed.fit(X_train, y_train, optimize_smoothing=False)
+    model_fixed.fit(X_train, y_train)
 
     # ------------------------------------------------------------------
     # 2) GCV smoothing selection

@@ -84,8 +84,8 @@ def main():
     model = GPNAMRegressor(
         kernel_width=0.8,
         rff_num_feat=128,
-        numerical_preprocessing="standardization",
-        categorical_preprocessing="one_hot",
+        numerical_method="standardization",
+        categorical_method="one_hot",
         cat_cutoff=0.0,
     )
 
@@ -115,7 +115,11 @@ def main():
     # ------------------------------------------------------------------
     # Returned additive contributions
     # ------------------------------------------------------------------
-    feat_vals = model.predict_feature_vals(X_val)
+    components = model.predict_components(X_val)
+    feat_vals = dict(components.terms)
+    feat_vals["output"] = components.link
+    feat_vals["response"] = components.response
+    feat_vals["intercept"] = components.intercept
     print("\nReturned contribution keys:")
     print(list(feat_vals.keys()))
 
